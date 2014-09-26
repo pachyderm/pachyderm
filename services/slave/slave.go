@@ -4,7 +4,10 @@ import (
 	"log"
 	"net/http"
     "github.com/jdoliner/btrfs"
+    "strings"
 )
+
+//TODO these functions can be merge right?
 
 // http://host/recvbase
 
@@ -22,6 +25,15 @@ func RecvHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
     if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
 }
 
+// http://host/del
+
+func DelCommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
+    url := strings.Split(r.URL.String(), "/")
+    log.Print("Del.")
+    err := fs.SubvolumeDelete(url[2])
+    if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
+}
+
 func SlaveMux(fs *btrfs.FS) *http.ServeMux {
     mux := http.NewServeMux()
 
@@ -36,8 +48,13 @@ func SlaveMux(fs *btrfs.FS) *http.ServeMux {
         RecvHandler(w, r, fs)
     }
 
+    delCommitHandler := func (w http.ResponseWriter, r *http.Request) {
+        DelCommitHandler(w, r, fs)
+    }
+
 	mux.HandleFunc("/recvbase", recvBaseHandler)
 	mux.HandleFunc("/recv", recvHandler)
+    mux.HandleFunc("/del", delCommitHandler)
 
     return mux;
 }
@@ -48,7 +65,7 @@ func RunServer(fs *btrfs.FS) {
 
 func main() {
     log.SetFlags(log.Lshortfile)
-	fs := btrfs.ExistingFS("/mnt/pfs")
+	fs := btrfs.ExistingFS("pfs/slave")
     log.Print("Listening on port 80...")
     RunServer(fs)
 }
