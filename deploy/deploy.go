@@ -19,10 +19,10 @@ type service struct {
 
 func usage() {
     log.Print("Usage:")
-    log.Print("$ deploy shard_count replica_count")
+    log.Print("$ deploy shard_count")
 }
 
-func printService(name string, shards int) {
+func printShardedService(name string, shards int) {
     sTemplate, err := template.New("service").ParseFiles("templates/service")
     if err != nil { log.Fatal(err) }
     aTemplate, err := template.New("announce").ParseFiles("templates/announce")
@@ -37,20 +37,23 @@ func printService(name string, shards int) {
         config.Shard = s
         config.Nshards = nShards
         config.Port = minPort + rand.Intn(maxPort - minPort)
-        master, err := os.Create(fmt.Sprintf("%s-%d-%d.service", config.Name, config.Shard, config.Nshards))
+        server, err := os.Create(fmt.Sprintf("%s-%d-%d.service", config.Name, config.Shard, config.Nshards))
         if err != nil { log.Fatal(err) }
         announce, err := os.Create(fmt.Sprintf("announce-%s.%d.%d.service", config.Name, config.Shard, config.Nshards))
         if err != nil { log.Fatal(err) }
 
-        err = pfsdService.Execute(master, config)
+        err = sTemplate.Execute(server, config)
         if err != nil { log.Fatal(err) }
-        err = pfsdAnnounce.Execute(announce, config)
+        err = aTemplate.Execute(announce, config)
         if err != nil { log.Fatal(err) }
     }
 }
 
 func main() {
+    log.SetFlags(log.Lshortfile)
+    rand.Seed( time.Now().UTC().UnixNano())
     nShards, err := strconv.Atoi(os.Args[1])
 
-    printService("master", 
+    printShardedService("master", nShards)
+    printShardedService("slave", nShards)
 }
