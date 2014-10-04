@@ -8,7 +8,7 @@ import (
 	"strings"
     "fmt"
     "github.com/coreos/go-etcd/etcd"
-    "github.com/jdoliner/btrfs"
+    "pfs/lib/btrfs"
     "path"
     "strconv"
 )

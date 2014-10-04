@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
-    "github.com/jdoliner/btrfs"
+    "pfs/lib/btrfs"
     "strings"
 )
 
