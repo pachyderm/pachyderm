@@ -65,7 +65,7 @@ func RunServer(fs *btrfs.FS) {
 
 func main() {
     log.SetFlags(log.Lshortfile)
-	fs := btrfs.ExistingFS("pfs/slave")
+	fs := btrfs.ExistingFS("pfs")
     log.Print("Listening on port 80...")
     RunServer(fs)
 }
