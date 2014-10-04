@@ -53,6 +53,7 @@ func main() {
     log.SetFlags(log.Lshortfile)
     rand.Seed( time.Now().UTC().UnixNano())
     nShards, err := strconv.Atoi(os.Args[1])
+    if err != nil { log.Fatal(err) }
 
     printShardedService("master", nShards)
     printShardedService("slave", nShards)
