@@ -1,0 +1,10 @@
+[Unit]
+Description=Announce pfsd
+BindsTo=master-{{.Shard}}-{{.Nshards}}.service
+
+[Service]
+ExecStart=/bin/sh -c "while true; do etcdctl set /pfsd/{{.Shard}}-{{.Nshards}} '%H:{{.Port}}' --ttl 60;sleep 45;done"
+ExecStop=/usr/bin/etcdctl rm /pfsd/{{.Shard}}/{{.Nshards}}
+
+[X-Fleet]
+X-ConditionMachineOf=master-{{.Shard}}-{{.Nshards}}.service

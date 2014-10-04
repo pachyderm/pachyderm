@@ -1,0 +1,8 @@
+[Unit]
+Description = Pachyderm Filesystem Master Shard
+After = docker.service
+Requires = docker.service
+
+[Service]
+ExecStart = /usr/bin/docker run --privileged=true --name master-{{.Shard}}-{{.Nshards}}  -v /mnt/pfs:/mnt/pfs -i pachyderm/pfs /usr/bin/master {{.Shard}}/{{.Nshards}}
+ExecStop = /usr/bin/docker rm -f master-{{.Shard}}-{{.Nshards}}
