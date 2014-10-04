@@ -23,7 +23,7 @@ func usage() {
 }
 
 func printShardedService(name string, shards int) {
-    sTemplate, err := template.New("service").ParseFiles("templates/service")
+    sTemplate, err := template.New("server").ParseFiles("templates/server")
     if err != nil { log.Fatal(err) }
     aTemplate, err := template.New("announce").ParseFiles("templates/announce")
     if err != nil { log.Fatal(err) }
