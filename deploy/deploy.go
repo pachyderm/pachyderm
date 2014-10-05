@@ -28,14 +28,11 @@ func printShardedService(name string, shards int) {
     aTemplate, err := template.New("announce").ParseFiles("templates/announce")
     if err != nil { log.Fatal(err) }
 
-    nShards, err := strconv.Atoi(os.Args[1])
-    if err != nil { log.Fatal(err) }
-
-    for s := 1; s <= nShards; s++ {
+    for s := 1; s <= shards; s++ {
         config := new(service)
         config.Name = name
         config.Shard = s
-        config.Nshards = nShards
+        config.Nshards = shards
         config.Port = minPort + rand.Intn(maxPort - minPort)
         server, err := os.Create(fmt.Sprintf("%s-%d-%d.service", config.Name, config.Shard, config.Nshards))
         if err != nil { log.Fatal(err) }
@@ -49,6 +46,20 @@ func printShardedService(name string, shards int) {
     }
 }
 
+func printGlobalService(name string) {
+    template, err := template.New("global").ParseFiles("templates/global")
+    if err != nil { log.Fatal(err) }
+
+    config := new(service)
+    config.Name = name
+
+    server, err := os.Create(fmt.Sprintf("%s.service", config.Name))
+    if err != nil { log.Fatal(err) }
+
+    err = template.Execute(server, config)
+    if err != nil { log.Fatal(err) }
+}
+
 func main() {
     log.SetFlags(log.Lshortfile)
     rand.Seed( time.Now().UTC().UnixNano())
@@ -57,4 +68,5 @@ func main() {
 
     printShardedService("master", nShards)
     printShardedService("slave", nShards)
+    printGlobalService("router")
 }
