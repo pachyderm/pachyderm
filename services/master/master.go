@@ -154,7 +154,7 @@ func DelCommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
     commit := path.Join(".commits", url[2])
     client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
 	log.Printf("Getting slaves for %s.", os.Args[1])
-	shard_prefix := path.Join("/pfsd", os.Args[1])
+	shard_prefix := path.Join("/pfs", os.Args[1])
     slaves, err := client.Get(shard_prefix, false, false)
 	log.Printf("Got slaves.")
 	log.Print(slaves)

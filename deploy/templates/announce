@@ -4,7 +4,7 @@ BindsTo={{.Name}}-{{.Shard}}-{{.Nshards}}.service
 
 [Service]
 ExecStart=/bin/sh -c "while true; do etcdctl set /pfs/{{.Name}}/{{.Shard}}-{{.Nshards}} '%H:{{.Port}}' --ttl 60;sleep 45;done"
-ExecStop=/usr/bin/etcdctl rm /pfs/{{.Name}}/{{.Shard}}/{{.Nshards}}
+ExecStop=/usr/bin/etcdctl rm /pfs/{{.Name}}/{{.Shard}}-{{.Nshards}}
 
 [X-Fleet]
 X-ConditionMachineOf={{.Name}}-{{.Shard}}-{{.Nshards}}.service
