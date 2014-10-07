@@ -1,0 +1,10 @@
+[Unit]
+Description = pfs storage
+
+[Mount]
+What = /dev/sdb
+Where = /mnt/pfs
+Type = btrfs
+
+[X-Fleet]
+Global=true

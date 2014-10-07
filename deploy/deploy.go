@@ -60,6 +60,19 @@ func printGlobalService(name string) {
     if err != nil { log.Fatal(err) }
 }
 
+func printMounts() {
+    template, err := template.New("mount").ParseFiles("templates/mount")
+    if err != nil { log.Fatal(err) }
+
+    config := new(service)
+
+    mount, err := os.Create("mnt-pfs.mount")
+    if err != nil { log.Fatal(err) }
+
+    err = template.Execute(mount, config)
+    if err != nil { log.Fatal(err) }
+}
+
 func main() {
     log.SetFlags(log.Lshortfile)
     rand.Seed( time.Now().UTC().UnixNano())
@@ -69,4 +82,5 @@ func main() {
     printShardedService("master", nShards)
     printShardedService("slave", nShards)
     printGlobalService("router")
+    printMounts()
 }
