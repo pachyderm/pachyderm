@@ -80,7 +80,7 @@ func main() {
     if err != nil { log.Fatal(err) }
 
     printShardedService("master", nShards)
-    printShardedService("slave", nShards)
+    printShardedService("replica", nShards)
     printGlobalService("router")
     printMounts()
 }
