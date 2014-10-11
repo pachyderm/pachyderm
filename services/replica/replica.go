@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
     "pfs/lib/btrfs"
     "strings"
 )
@@ -65,7 +66,8 @@ func RunServer(fs *btrfs.FS) {
 
 func main() {
     log.SetFlags(log.Lshortfile)
-	fs := btrfs.ExistingFS("pfs")
+	fs := btrfs.ExistingFS("pfs", "replica-" + os.Args[1])
+    fs.EnsureNamespace()
     log.Print("Listening on port 80...")
     RunServer(fs)
 }

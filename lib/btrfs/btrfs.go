@@ -14,17 +14,17 @@ import (
 )
 
 type FS struct {
-	file, dev, mnt string
+	file, dev, mnt, namespace string
 	size           int     // Size in GB
-    formattable    bool    // Whether the filesystem is something we can formattable
+    formattable    bool    // Whether the filesystem is something we can format
 }
 
-func NewFS(file, dev, mnt string, size int) *FS {
-    return &FS{file, dev, mnt, size, true}
+func NewFS(file, dev, mnt, namespace string, size int) *FS {
+    return &FS{file, dev, mnt, namespace, size, true}
 }
 
-func ExistingFS(mnt string) *FS {
-    return &FS{"", "", mnt, 0, false}
+func ExistingFS(mnt string, namespace string) *FS {
+    return &FS{"", "", mnt, namespace, 0, false}
 }
 
 func RunStderr(c *exec.Cmd) error {
@@ -66,7 +66,7 @@ func (fs *FS) MntPath() string {
 }
 
 func (fs *FS) Filepath(name string) string {
-	return path.Join("/mnt", fs.mnt, name)
+	return path.Join("/mnt", fs.mnt, fs.namespace, name)
 }
 
 func (fs *FS) StripFilepath(name string) (string, error) {
@@ -213,6 +213,15 @@ func (fs *FS) Symlink(oldname, newname string) error {
 
 func (fs *FS) ReadDir(name string) ([]os.FileInfo, error) {
     return ioutil.ReadDir(fs.Filepath(name))
+}
+
+func (fs *FS) EnsureNamespace() error {
+    exists, err := fs.FileExists("")
+    if err != nil { return err }
+    if !exists {
+        return fs.SubvolumeCreate("")
+    }
+    return nil
 }
 
 func (fs *FS) SubvolumeCreate(name string) error {

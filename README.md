@@ -1,34 +1,33 @@
-Pachyderm File System Daemon
+# Pachyderm File System
 
-This program runs an http server that servers the pfsd http api which works as
-follows:
+## Create a new cluster
 
-# init
+First generate a new etcd discovery token:
 
-Initializing a new `filesystem`:
+```shell
+$ curl -w "\n" https://discovery.etcd.io/new
+https://discovery.etcd.io/your-new-token
+```
 
-curl localhost:5656/`filesystem` -XPUT -d cmd="init"
+Create the config file to launch the cluster.
 
-# cat
+`pfs.yaml`:
 
-Read `file` from `filesystem`:
+```yaml
+#cloud-config
 
-curl localhost:5656/`filesystem`/`file`
-
-Writing `local_file` to `file` in `filesystem`:
-
-curl localhost:5656/`filesystem`/`file` -XPUT -d @`local_file` 
-
-Create `commit` on `filesystem`:
-
-curl localhost:5656/`filesystem`/`file` -XPUT -d cmd="commit"
-
-Read `file` from `filesystem` at `commit`:
-
-curl localhost:5656/`filesystem`@`commit`/`file`
-
-Create `branch` of `filesystem` at `commit`:
-
-curl localhost:5656/`filesystem`@`commit` -XPUT -d cmd="branch" -d branch=`branch`
+coreos:
+  etcd:
+    # generate a new token for each unique cluster from https://discovery.etcd.io/new
+    discovery: https://discovery.etcd.io/your-new-token
+    # multi-region and multi-cloud deployments need to use $public_ipv4
+    addr: $private_ipv4:4001
+    peer-addr: $private_ipv4:7001
+  units:
+    - name: etcd.service
+      command: start
+    - name: fleet.service
+      command: start
+```
 
 

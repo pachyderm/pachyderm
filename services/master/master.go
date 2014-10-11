@@ -239,7 +239,8 @@ func RunServer(fs *btrfs.FS) {
 // usage: pfsd path role shard
 func main() {
     log.SetFlags(log.Lshortfile)
-	fs := btrfs.ExistingFS("pfs/master")
+	fs := btrfs.ExistingFS("pfs", "master-" + os.Args[1])
+    fs.EnsureNamespace()
     log.Print("Listening on port 80...")
     RunServer(fs)
 }
