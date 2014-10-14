@@ -8,8 +8,8 @@ import (
 	"strings"
     "fmt"
     "github.com/coreos/go-etcd/etcd"
-    "pfs/lib/btrfs"
     "path"
+    "pfs/lib/btrfs"
     "strconv"
 )
 
@@ -48,11 +48,11 @@ func AddHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 // http://host/commit
 func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
     client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
-	log.Printf("Getting slaves for %s.", os.Args[1])
-	shard_prefix := path.Join("/pfsd", os.Args[1])
-    slaves, err := client.Get(shard_prefix, false, false)
-	log.Printf("Got slaves.")
-	log.Print(slaves)
+	log.Printf("Getting replica for %s.", os.Args[1])
+	shard_prefix := path.Join("/pfs", "replica", os.Args[1])
+    replicas, err := client.Get(shard_prefix, false, false)
+	log.Printf("Got replica.")
+	log.Print(replicas)
     if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
 
     exists, err := fs.FileExists(".commits")
@@ -72,7 +72,7 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
         err = btrfs.Sync()
         if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
         fmt.Fprintf(w, "Created commit: %s.\n", new_commit)
-        for _, s := range slaves.Node.Nodes {
+        for _, s := range replicas.Node.Nodes {
 			log.Print("Key: ", s.Key)
 			log.Print(path.Join(shard_prefix, "master"))
 			if s.Key != path.Join(shard_prefix, "master") {
@@ -100,7 +100,7 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
         err = btrfs.Sync()
         if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
         fmt.Fprintf(w, "Created commit: %s.\n", first_commit)
-        for _, s := range slaves.Node.Nodes {
+        for _, s := range replicas.Node.Nodes {
 			log.Print("Key: ", s.Key)
 			log.Print(path.Join(shard_prefix, "master"))
 			if s.Key != path.Join(shard_prefix, "master") {
@@ -122,11 +122,11 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 
 func BrowseHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
     client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
-	log.Printf("Getting slaves for %s.", os.Args[1])
-	shard_prefix := path.Join("/pfsd", os.Args[1])
-    slaves, err := client.Get(shard_prefix, false, false)
-	log.Printf("Got slaves.")
-	log.Print(slaves)
+	log.Printf("Getting replicas for %s.", os.Args[1])
+	shard_prefix := path.Join("/pfs", "replica", os.Args[1])
+    replicas, err := client.Get(shard_prefix, false, false)
+	log.Printf("Got replicas.")
+	log.Print(replicas)
     if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
 
     exists, err := fs.FileExists(".commits")
@@ -153,11 +153,11 @@ func DelCommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
     url := strings.Split(r.URL.String(), "/")
     commit := path.Join(".commits", url[2])
     client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
-	log.Printf("Getting slaves for %s.", os.Args[1])
-	shard_prefix := path.Join("/pfs", os.Args[1])
-    slaves, err := client.Get(shard_prefix, false, false)
-	log.Printf("Got slaves.")
-	log.Print(slaves)
+	log.Printf("Getting replicas for %s.", os.Args[1])
+	shard_prefix := path.Join("/pfs", "replica", os.Args[1])
+    replicas, err := client.Get(shard_prefix, false, false)
+	log.Printf("Got replicas.")
+	log.Print(replicas)
     if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
 
     exists, err := fs.FileExists(".commits")
@@ -179,7 +179,7 @@ func DelCommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
             if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
         }
 
-        for _, s := range slaves.Node.Nodes {
+        for _, s := range replicas.Node.Nodes {
 			log.Print("Key: ", s.Key)
 			log.Print(path.Join(shard_prefix, "master"))
 			if s.Key != path.Join(shard_prefix, "master") {
@@ -237,10 +237,10 @@ func RunServer(fs *btrfs.FS) {
     http.ListenAndServe(":80", MasterMux(fs))
 }
 
-// usage: pfsd path role shard
+// usage: pfs pats role shard
 func main() {
     log.SetFlags(log.Lshortfile)
-	fs := btrfs.ExistingFS("pfs", "master-" + os.Args[1])
+	fs := btrfs.ExistingFS("pfs", "master-" + os.Args[1] + "-" + btrfs.RandSeq(10))
     fs.EnsureNamespace()
     log.Print("Listening on port 80...")
     RunServer(fs)

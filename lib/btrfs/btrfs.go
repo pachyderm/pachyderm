@@ -9,9 +9,20 @@ import (
 	"os"
 	"os/exec"
 	"path"
-    "strings"
     "errors"
+    "math/rand"
+    "strings"
 )
+
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func RandSeq(n int) string {
+    b := make([]rune, n)
+    for i := range b {
+        b[i] = letters[rand.Intn(len(letters))]
+    }
+    return string(b)
+}
 
 type FS struct {
 	file, dev, mnt, namespace string

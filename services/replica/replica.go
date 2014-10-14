@@ -4,9 +4,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+    "fmt"
     "pfs/lib/btrfs"
     "strings"
-    "fmt"
 )
 
 //TODO these functions can be merge right?
@@ -68,7 +68,7 @@ func RunServer(fs *btrfs.FS) {
 
 func main() {
     log.SetFlags(log.Lshortfile)
-	fs := btrfs.ExistingFS("pfs", "replica-" + os.Args[1])
+	fs := btrfs.ExistingFS("pfs", "replica-" + os.Args[1] + "-" + btrfs.RandSeq(10))
     fs.EnsureNamespace()
     log.Print("Listening on port 80...")
     RunServer(fs)
