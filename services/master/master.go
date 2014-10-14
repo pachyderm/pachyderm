@@ -226,6 +226,7 @@ func MasterMux(fs *btrfs.FS) *http.ServeMux {
     mux.Handle("/pfs/", http.StripPrefix("/pfs/", http.FileServer(http.Dir("/mnt/pfs/master"))))
     mux.HandleFunc("/browse", browseHandler)
     mux.HandleFunc("/del/", delCommitHandler)
+	mux.HandleFunc("/ping", func (w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong") })
 
     fmt.Printf("This has the /pfs/ route in it!!!")
 

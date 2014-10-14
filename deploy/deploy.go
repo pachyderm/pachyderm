@@ -36,7 +36,7 @@ func printShardedService(name string, shards int) {
         config.Port = minPort + rand.Intn(maxPort - minPort)
         server, err := os.Create(fmt.Sprintf("%s-%d-%d.service", config.Name, config.Shard, config.Nshards))
         if err != nil { log.Fatal(err) }
-        announce, err := os.Create(fmt.Sprintf("announce-%s.%d.%d.service", config.Name, config.Shard, config.Nshards))
+        announce, err := os.Create(fmt.Sprintf("announce-%s-%d-%d.service", config.Name, config.Shard, config.Nshards))
         if err != nil { log.Fatal(err) }
 
         err = sTemplate.Execute(server, config)

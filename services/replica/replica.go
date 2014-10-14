@@ -6,6 +6,7 @@ import (
 	"os"
     "pfs/lib/btrfs"
     "strings"
+    "fmt"
 )
 
 //TODO these functions can be merge right?
@@ -56,6 +57,7 @@ func SlaveMux(fs *btrfs.FS) *http.ServeMux {
 	mux.HandleFunc("/recvbase", recvBaseHandler)
 	mux.HandleFunc("/recv", recvHandler)
     mux.HandleFunc("/del", delCommitHandler)
+	mux.HandleFunc("/ping", func (w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong") })
 
     return mux;
 }
