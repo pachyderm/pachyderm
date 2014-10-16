@@ -57,7 +57,7 @@ func SlaveMux(fs *btrfs.FS) *http.ServeMux {
 	mux.HandleFunc("/recvbase", recvBaseHandler)
 	mux.HandleFunc("/recv", recvHandler)
     mux.HandleFunc("/del", delCommitHandler)
-	mux.HandleFunc("/ping", func (w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong") })
+	mux.HandleFunc("/ping", func (w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 
     return mux;
 }
@@ -68,7 +68,7 @@ func RunServer(fs *btrfs.FS) {
 
 func main() {
     log.SetFlags(log.Lshortfile)
-	fs := btrfs.ExistingFS("pfs", "replica-" + os.Args[1] + "-" + btrfs.RandSeq(10))
+	fs := btrfs.NewFS("pfs", "replica-" + os.Args[1] + "-" + btrfs.RandSeq(10))
     fs.EnsureNamespace()
     log.Print("Listening on port 80...")
     RunServer(fs)

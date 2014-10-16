@@ -46,12 +46,13 @@ func printShardedService(name string, shards int) {
     }
 }
 
-func printGlobalService(name string) {
+func printGlobalService(name string, shards int) {
     template, err := template.New("global").ParseFiles("templates/global")
     if err != nil { log.Fatal(err) }
 
     config := new(service)
     config.Name = name
+    config.Nshards = shards
 
     server, err := os.Create(fmt.Sprintf("%s.service", config.Name))
     if err != nil { log.Fatal(err) }
@@ -81,6 +82,6 @@ func main() {
 
     printShardedService("master", nShards)
     printShardedService("replica", nShards)
-    printGlobalService("router")
+    printGlobalService("router", nShards)
     printStorage()
 }

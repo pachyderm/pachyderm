@@ -33,19 +33,21 @@ func DecrCommit(commit string) (string, error) {
 	return strings.Join(split, "/"), nil
 }
 
-//  http://host/add/file
-func AddHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
-    url := strings.Split(r.URL.String(), "/")
-    filename := strings.Join(url[2:], "/")
-    file, err := fs.Create(filename)
-    if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-    defer file.Close()
-    size, err := io.Copy(file, r.Body)
-    if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-    fmt.Fprintf(w, "Added %s, size: %d.\n", filename, size)
+func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
+    if r.Method == "GET" {
+        http.StripPrefix("/pfs/", http.FileServer(http.Dir(fs.FilePath(".commits/HEAD")))).ServeHTTP(w, r)
+    } else if r.Method == "POST" {
+        url := strings.Split(r.URL.String(), "/")
+        filename := strings.Join(url[2:], "/")
+        file, err := fs.Create(filename)
+        if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
+        defer file.Close()
+        size, err := io.Copy(file, r.Body)
+        if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
+        fmt.Fprintf(w, "Added %s, size: %d.\n", filename, size)
+    }
 }
 
-// http://host/commit
 func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
     client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
 	log.Printf("Getting replica for %s.", os.Args[1])
@@ -147,8 +149,6 @@ func BrowseHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
     }
 }
 
-// http://host/del
-
 func DelCommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
     url := strings.Split(r.URL.String(), "/")
     commit := path.Join(".commits", url[2])
@@ -203,12 +203,6 @@ func DelCommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 func MasterMux(fs *btrfs.FS) *http.ServeMux {
     mux := http.NewServeMux()
 
-    //  http://host/add/file
-    addHandler := func (w http.ResponseWriter, r *http.Request) {
-        AddHandler(w, r, fs)
-    }
-
-    // http://host/commit/fs
     commitHandler := func (w http.ResponseWriter, r *http.Request) {
         CommitHandler(w, r, fs)
     }
@@ -221,14 +215,11 @@ func MasterMux(fs *btrfs.FS) *http.ServeMux {
         DelCommitHandler(w, r, fs)
     }
 
-	mux.HandleFunc("/add/", addHandler)
     mux.HandleFunc("/commit", commitHandler)
     mux.Handle("/pfs/", http.StripPrefix("/pfs/", http.FileServer(http.Dir("/mnt/pfs/master"))))
     mux.HandleFunc("/browse", browseHandler)
     mux.HandleFunc("/del/", delCommitHandler)
-	mux.HandleFunc("/ping", func (w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong") })
-
-    fmt.Printf("This has the /pfs/ route in it!!!")
+	mux.HandleFunc("/ping", func (w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 
     return mux;
 }
@@ -240,7 +231,7 @@ func RunServer(fs *btrfs.FS) {
 // usage: pfs pats role shard
 func main() {
     log.SetFlags(log.Lshortfile)
-	fs := btrfs.ExistingFS("pfs", "master-" + os.Args[1] + "-" + btrfs.RandSeq(10))
+	fs := btrfs.NewFS("pfs", "master-" + os.Args[1] + "-" + btrfs.RandSeq(10))
     fs.EnsureNamespace()
     log.Print("Listening on port 80...")
     RunServer(fs)

@@ -6,8 +6,7 @@ TimeoutStartSec=0
 ExecStartPre=/usr/bin/docker kill {{.Name}}
 ExecStartPre=/usr/bin/docker rm {{.Name}}
 ExecStartPre=/usr/bin/docker pull pachyderm/pfs
-ExecStart=/usr/bin/docker run --name {{.Name}}
-ExecStart=/usr/bin/docker --name {{.Name}} -v /mnt/pfs:/mnt/pfs -i pachyderm/pfs /usr/bin/{{.Name}}
+ExecStart=/usr/bin/docker run --name {{.Name}} -p 80:80 -i pachyderm/pfs /go/bin/{{.Name}} {{.Nshards}}
 
 [X-Fleet]
 Global=true

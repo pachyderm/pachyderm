@@ -68,7 +68,7 @@ func RouterMux() *http.ServeMux {
 	}
 
     mux.HandleFunc("/pfs", pfsHandler)
-	mux.HandleFunc("/ping", func (w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong") })
+	mux.HandleFunc("/ping", func (w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 
     return mux;
 }

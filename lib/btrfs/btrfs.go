@@ -2,14 +2,12 @@ package btrfs
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"path"
-    "errors"
     "math/rand"
     "strings"
 )
@@ -25,17 +23,11 @@ func RandSeq(n int) string {
 }
 
 type FS struct {
-	file, dev, mnt, namespace string
-	size           int     // Size in GB
-    formattable    bool    // Whether the filesystem is something we can format
+	btrfsPath, namespace string
 }
 
-func NewFS(file, dev, mnt, namespace string, size int) *FS {
-    return &FS{file, dev, mnt, namespace, size, true}
-}
-
-func ExistingFS(mnt string, namespace string) *FS {
-    return &FS{"", "", mnt, namespace, 0, false}
+func NewFS(btrfsPath, namespace string) *FS {
+    return &FS{btrfsPath, namespace}
 }
 
 func RunStderr(c *exec.Cmd) error {
@@ -68,162 +60,66 @@ func Sync() error {
     return RunStderr(exec.Command("sync"))
 }
 
-func (fs *FS) DevPath() string {
-	return path.Join("/dev", fs.dev)
+func (fs *FS) BasePath() string {
+    return path.Join(fs.btrfsPath, fs.namespace)
 }
 
-func (fs *FS) MntPath() string {
-	return path.Join("/mnt", fs.mnt)
+func (fs *FS) FilePath(name string) string {
+	return path.Join(fs.btrfsPath, fs.namespace, name)
 }
 
-func (fs *FS) Filepath(name string) string {
-	return path.Join("/mnt", fs.mnt, fs.namespace, name)
-}
-
-func (fs *FS) StripFilepath(name string) (string, error) {
-	log.Print(name)
-    stripped_name := strings.TrimPrefix(name, "/mnt/")
-    log.Print(stripped_name)
-    stripped_name = strings.TrimPrefix(stripped_name,  fs.mnt)
-    log.Print(stripped_name)
-    return stripped_name, nil
-}
-
-func (fs *FS) Exists() bool {
-    if _, err := os.Stat(fs.file); err == nil {
-        return true
-	} else if !fs.formattable {
-		// If we can't format the disk then we're not responsible for making
-		// sure the filesystem exists so we assume it already does.
-		return true
-    } else {
-        return false
-    }
-}
-
-func (fs *FS) Format() error {
-	if !fs.formattable {
-		return errors.New(`This FS was created pointing to an already formatted"
-				and mounted filesystem. Thus it cannot perform more
-				formatting.`)
-	}
-	size_flag := fmt.Sprintf("-s %d", 1024*1024*1000*fs.size)
-	err := RunStderr(exec.Command("truncate", size_flag, fs.file))
-	if err != nil {
-		return err
-	}
-	err = RunStderr(exec.Command("losetup", fs.DevPath(), fs.file))
-	if err != nil {
-		return err
-	}
-	err = RunStderr(exec.Command("mkfs.btrfs", fs.DevPath()))
-	if err != nil {
-		return err
-	}
-	err = RunStderr(exec.Command("mkdir", "-p", fs.MntPath()))
-	if err != nil {
-		return err
-	}
-	return RunStderr(exec.Command("mount", fs.DevPath(), fs.MntPath()))
-}
-
-func (fs *FS) Destroy() error {
-	if !fs.formattable {
-		return errors.New(`This FS was created pointing to an already formatted
-				and mounted filesystem. Thus it cannot destroy the filesystem.`)
-	}
-	err := fs.Unmount()
-	if err != nil {
-		return err
-	}
-	return RunStderr(exec.Command("rm", fs.file))
-}
-
-func (fs *FS) Mount() error {
-	if !fs.formattable {
-		return errors.New(`This FS was created pointing to an already formatted
-				and mounted filesystem. Thus it cannot be mounted (it's already
-					mounted).`)
-	}
-	err := RunStderr(exec.Command("losetup", fs.DevPath(), fs.file))
-	if err != nil {
-		return err
-	}
-	err = RunStderr(exec.Command("mkdir", "-p", fs.MntPath()))
-	if err != nil {
-		return err
-	}
-	return RunStderr(exec.Command("mount", fs.DevPath(), fs.MntPath()))
-}
-
-func (fs *FS) Unmount() error {
-	if !fs.formattable {
-		return errors.New(`This FS was created pointing to an already formatted
-				and mounted filesystem. Thus it cannot be unmounted.`)
-	}
-	err := RunStderr(exec.Command("umount", "-l", fs.MntPath()))
-	if err != nil {
-		return err
-	}
-	return RunStderr(exec.Command("losetup", "-d", fs.DevPath()))
-}
-
-func (fs *FS) EnsureExists() error {
-    if fs.Exists() {
-        return fs.Mount()
-    } else {
-		return fs.Format()
-    }
+func (fs *FS) TrimFilePath(name string) string {
+    return strings.TrimPrefix(name, fs.btrfsPath)
 }
 
 func (fs *FS) Create(name string) (*os.File, error) {
-	return os.Create(fs.Filepath(name))
+	return os.Create(fs.FilePath(name))
 }
 
 func (fs *FS) Open(name string) (*os.File, error) {
-	return os.Open(fs.Filepath(name))
+	return os.Open(fs.FilePath(name))
 }
 
 func (fs *FS) OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
-	return os.OpenFile(fs.Filepath(name), flag, perm)
+	return os.OpenFile(fs.FilePath(name), flag, perm)
 }
 
 func (fs *FS) Remove(name string) error {
-	return os.Remove(fs.Filepath(name))
+	return os.Remove(fs.FilePath(name))
 }
 
 func (fs *FS) FileExists(name string) (bool, error) {
-    _, err := os.Stat(fs.Filepath(name))
+    _, err := os.Stat(fs.FilePath(name))
     if err == nil { return true, nil }
     if os.IsNotExist(err) { return false, nil }
     return false, err
 }
 
 func (fs *FS) Mkdir(name string, prem os.FileMode) error {
-    return os.Mkdir(fs.Filepath(name), prem)
+    return os.Mkdir(fs.FilePath(name), prem)
 }
 
 func (fs *FS) MkdirAll(name string, prem os.FileMode) error {
-    return os.MkdirAll(fs.Filepath(name), prem)
+    return os.MkdirAll(fs.FilePath(name), prem)
 }
 
 func (fs *FS) Link(oldname, newname string) error {
-    return os.Link(fs.Filepath(oldname), fs.Filepath(newname))
+    return os.Link(fs.FilePath(oldname), fs.FilePath(newname))
 }
 
 func (fs *FS) Readlink(name string) (string, error) {
-    p, err := os.Readlink(fs.Filepath(name))
+    p, err := os.Readlink(fs.FilePath(name))
     if err != nil { return "", err }
-    return fs.StripFilepath(p)
+    return fs.TrimFilePath(p), nil
 }
 
 func (fs *FS) Symlink(oldname, newname string) error {
-    log.Printf("%s -> %s\n", fs.Filepath(oldname), fs.Filepath(newname))
-    return os.Symlink(fs.Filepath(oldname), fs.Filepath(newname))
+    log.Printf("%s -> %s\n", fs.FilePath(oldname), fs.FilePath(newname))
+    return os.Symlink(fs.FilePath(oldname), fs.FilePath(newname))
 }
 
 func (fs *FS) ReadDir(name string) ([]os.FileInfo, error) {
-    return ioutil.ReadDir(fs.Filepath(name))
+    return ioutil.ReadDir(fs.FilePath(name))
 }
 
 func (fs *FS) EnsureNamespace() error {
@@ -236,25 +132,25 @@ func (fs *FS) EnsureNamespace() error {
 }
 
 func (fs *FS) SubvolumeCreate(name string) error {
-	return RunStderr(exec.Command("btrfs", "subvolume", "create", fs.Filepath(name)))
+	return RunStderr(exec.Command("btrfs", "subvolume", "create", fs.FilePath(name)))
 }
 
 func (fs *FS) SubvolumeDelete(name string) error {
-    return RunStderr(exec.Command("btrfs", "subvolume", "delete", fs.Filepath(name)))
+    return RunStderr(exec.Command("btrfs", "subvolume", "delete", fs.FilePath(name)))
 }
 
 func (fs *FS) Snapshot(volume string, dest string, readonly bool) error {
 	if readonly {
 		return RunStderr(exec.Command("btrfs", "subvolume", "snapshot", "-r",
-			fs.Filepath(volume), fs.Filepath(dest)))
+			fs.FilePath(volume), fs.FilePath(dest)))
 	} else {
 		return RunStderr(exec.Command("btrfs", "subvolume", "snapshot",
-			fs.Filepath(volume), fs.Filepath(dest)))
+			fs.FilePath(volume), fs.FilePath(dest)))
 	}
 }
 
 func (fs *FS) SendBase(to string, cont func(io.ReadCloser) error) error {
-	cmd := exec.Command("btrfs", "send", fs.Filepath(to))
+	cmd := exec.Command("btrfs", "send", fs.FilePath(to))
 	log.Println(cmd)
 	reader, err := cmd.StdoutPipe()
 	if err != nil { return err }
@@ -273,7 +169,7 @@ func (fs *FS) SendBase(to string, cont func(io.ReadCloser) error) error {
 }
 
 func (fs *FS) Send(from string, to string, cont func(io.ReadCloser) error) error {
-	cmd := exec.Command("btrfs", "send", "-p", fs.Filepath(from), fs.Filepath(to))
+	cmd := exec.Command("btrfs", "send", "-p", fs.FilePath(from), fs.FilePath(to))
 	log.Println(cmd)
 	reader, err := cmd.StdoutPipe()
 	if err != nil { return err }
@@ -292,7 +188,7 @@ func (fs *FS) Send(from string, to string, cont func(io.ReadCloser) error) error
 }
 
 func (fs *FS) Recv(volume string, data io.ReadCloser) error {
-	cmd := exec.Command("btrfs", "receive", fs.Filepath(volume))
+	cmd := exec.Command("btrfs", "receive", fs.FilePath(volume))
 	log.Println(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil { return err }
