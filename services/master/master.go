@@ -52,9 +52,9 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
     client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
 	log.Printf("Getting replica for %s.", os.Args[1])
 	shard_prefix := path.Join("/pfs", "replica", os.Args[1])
-    replicas, err := client.Get(shard_prefix, false, false)
-	log.Printf("Got replica.")
-	log.Print(replicas)
+    _replica, err := client.Get(shard_prefix, false, false)
+    replica := _replica.Node.Value
+	log.Print(replica)
     if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
 
     exists, err := fs.FileExists(".commits")
@@ -74,22 +74,15 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
         err = btrfs.Sync()
         if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
         fmt.Fprintf(w, "Created commit: %s.\n", new_commit)
-        for _, s := range replicas.Node.Nodes {
-			log.Print("Key: ", s.Key)
-			log.Print(path.Join(shard_prefix, "master"))
-			if s.Key != path.Join(shard_prefix, "master") {
-				log.Print(s.Value)
-				log.Print("Sending update to:" + s.Value)
-				err = fs.Send(last_commit, new_commit,
-						func (data io.ReadCloser) error {
-							_, err = http.Post("http://" + s.Value + "/" + "recv",
-									"text/plain", data)
-							return err
-						})
-				if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-				fmt.Fprintf(w, "Sent commit to: %s.\n", s.Value)
-			}
-        }
+
+        err = fs.Send(last_commit, new_commit,
+                func (data io.ReadCloser) error {
+                    _, err = http.Post("http://" + replica + "/" + "recv",
+                            "text/plain", data)
+                    return err
+                })
+        if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
+        fmt.Fprintf(w, "Sent commit to: %s.\n", replica)
     } else {
 		log.Print("First commit.")
         first_commit := path.Join(".commits", "0")
@@ -102,35 +95,18 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
         err = btrfs.Sync()
         if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
         fmt.Fprintf(w, "Created commit: %s.\n", first_commit)
-        for _, s := range replicas.Node.Nodes {
-			log.Print("Key: ", s.Key)
-			log.Print(path.Join(shard_prefix, "master"))
-			if s.Key != path.Join(shard_prefix, "master") {
-				log.Print(s.Value)
-				if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-				log.Print("Sending base to: " + s.Value)
-				err = fs.SendBase(first_commit,
-						func (data io.ReadCloser) error {
-							_, err = http.Post("http://" + s.Value + "/" + "recvbase",
-									"text/plain", data)
-							return err
-						})
-				if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-				fmt.Fprintf(w, "Sent commit to: %s.\n", s.Value)
-			}
-        }
+        err = fs.SendBase(first_commit,
+                func (data io.ReadCloser) error {
+                    _, err = http.Post("http://" + replica + "/" + "recvbase",
+                            "text/plain", data)
+                    return err
+                })
+        if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
+        fmt.Fprintf(w, "Sent commit to: %s.\n", replica)
     }
 }
 
 func BrowseHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
-    client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
-	log.Printf("Getting replicas for %s.", os.Args[1])
-	shard_prefix := path.Join("/pfs", "replica", os.Args[1])
-    replicas, err := client.Get(shard_prefix, false, false)
-	log.Printf("Got replicas.")
-	log.Print(replicas)
-    if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-
     exists, err := fs.FileExists(".commits")
     if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
     if exists {
@@ -149,57 +125,6 @@ func BrowseHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
     }
 }
 
-func DelCommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
-    url := strings.Split(r.URL.String(), "/")
-    commit := path.Join(".commits", url[2])
-    client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
-	log.Printf("Getting replicas for %s.", os.Args[1])
-	shard_prefix := path.Join("/pfs", "replica", os.Args[1])
-    replicas, err := client.Get(shard_prefix, false, false)
-	log.Printf("Got replicas.")
-	log.Print(replicas)
-    if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-
-    exists, err := fs.FileExists(".commits")
-    if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-    if exists {
-		log.Print("exists")
-        last_commit, err := fs.Readlink(headPath())
-        if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-        err = fs.SubvolumeDelete(commit)
-        if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-        if commit == last_commit {
-            //TODO this is actually broken if commits have already been deleted
-            //from the middle. Or if you try to delete 0 (which would just be
-            //disallowed).
-            err = fs.Remove(headPath())
-            if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-            prev_head, err := DecrCommit(commit)
-            err = fs.Symlink(prev_head, headPath())
-            if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-        }
-
-        for _, s := range replicas.Node.Nodes {
-			log.Print("Key: ", s.Key)
-			log.Print(path.Join(shard_prefix, "master"))
-			if s.Key != path.Join(shard_prefix, "master") {
-				log.Print(s.Value)
-				log.Print("Sending update to:" + s.Value)
-                _, err = http.Get("http://" + s.Value + "/del/" + url[2])
-				if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-				//fmt.Fprintf(w, "Deleted commit from: %s.\n", s.Value)
-			}
-        }
-    } else {
-        http.Error(w, "Commit not found.", 500)
-        log.Print(err)
-    }
-
-    err = btrfs.Sync()
-    if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-    http.Redirect(w, r, "/browse", 200)
-}
-
 func MasterMux(fs *btrfs.FS) *http.ServeMux {
     mux := http.NewServeMux()
 
@@ -211,14 +136,9 @@ func MasterMux(fs *btrfs.FS) *http.ServeMux {
         BrowseHandler(w, r, fs)
     }
 
-    delCommitHandler := func (w http.ResponseWriter, r *http.Request) {
-        DelCommitHandler(w, r, fs)
-    }
-
     mux.HandleFunc("/commit", commitHandler)
     mux.Handle("/pfs/", http.StripPrefix("/pfs/", http.FileServer(http.Dir("/mnt/pfs/master"))))
     mux.HandleFunc("/browse", browseHandler)
-    mux.HandleFunc("/del/", delCommitHandler)
 	mux.HandleFunc("/ping", func (w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 
     return mux;
