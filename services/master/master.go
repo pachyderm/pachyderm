@@ -35,7 +35,7 @@ func DecrCommit(commit string) (string, error) {
 
 func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
     if r.Method == "GET" {
-        http.StripPrefix("/pfs/", http.FileServer(http.Dir(fs.FilePath(".commits/HEAD")))).ServeHTTP(w, r)
+        http.StripPrefix("/pfs/", http.FileServer(http.Dir(fs.FilePath("")))).ServeHTTP(w, r)
     } else if r.Method == "POST" {
         url := strings.Split(r.URL.String(), "/")
         filename := strings.Join(url[2:], "/")
@@ -132,12 +132,16 @@ func MasterMux(fs *btrfs.FS) *http.ServeMux {
         CommitHandler(w, r, fs)
     }
 
+    pfsHandler := func (w http.ResponseWriter, r *http.Request) {
+        PfsHandler(w, r, fs)
+    }
+
     browseHandler := func (w http.ResponseWriter, r *http.Request) {
         BrowseHandler(w, r, fs)
     }
 
     mux.HandleFunc("/commit", commitHandler)
-    mux.Handle("/pfs/", http.StripPrefix("/pfs/", http.FileServer(http.Dir("/mnt/pfs/master"))))
+    mux.HandleFunc("/pfs/", pfsHandler)
     mux.HandleFunc("/browse", browseHandler)
 	mux.HandleFunc("/ping", func (w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 

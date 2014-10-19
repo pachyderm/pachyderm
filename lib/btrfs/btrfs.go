@@ -10,11 +10,15 @@ import (
 	"path"
     "math/rand"
     "strings"
+    "sync"
+    "time"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var once sync.Once
 
 func RandSeq(n int) string {
+    once.Do(func () { rand.Seed(time.Now().UTC().UnixNano()) })
     b := make([]rune, n)
     for i := range b {
         b[i] = letters[rand.Intn(len(letters))]
@@ -60,12 +64,12 @@ func Sync() error {
     return RunStderr(exec.Command("sync"))
 }
 
-func (fs *FS) BasePath() string {
-    return path.Join(fs.btrfsPath, fs.namespace)
+func (fs *FS) BasePath(name string) string {
+	return path.Join("/mnt", fs.btrfsPath, fs.namespace, name)
 }
 
 func (fs *FS) FilePath(name string) string {
-	return path.Join(fs.btrfsPath, fs.namespace, name)
+	return path.Join("/mnt", fs.btrfsPath, fs.namespace, name)
 }
 
 func (fs *FS) TrimFilePath(name string) string {

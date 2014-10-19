@@ -13,7 +13,7 @@ import (
 var minPort, maxPort int = 49153, 65535 // Docker uses this range we're just replicating.
 
 type service struct {
-    Name string
+    Container, Name string
     Shard, Nshards, Port int
 }
 
@@ -31,6 +31,7 @@ func printShardedService(name string, shards int) {
     for s := 1; s <= shards; s++ {
         config := new(service)
         config.Name = name
+        config.Container = "jdoliner/pfs"
         config.Shard = s
         config.Nshards = shards
         config.Port = minPort + rand.Intn(maxPort - minPort)
@@ -52,6 +53,7 @@ func printGlobalService(name string, shards int) {
 
     config := new(service)
     config.Name = name
+    config.Container = "jdoliner/pfs"
     config.Nshards = shards
 
     server, err := os.Create(fmt.Sprintf("%s.service", config.Name))
@@ -74,6 +76,20 @@ func printStorage() {
     if err != nil { log.Fatal(err) }
 }
 
+func printPull() {
+    template, err := template.New("pull").ParseFiles("templates/pull")
+    if err != nil { log.Fatal(err) }
+
+    config := new(service)
+    config.Container = "jdoliner/pfs"
+
+    storage, err := os.Create("pull.service")
+    if err != nil { log.Fatal(err) }
+
+    err = template.Execute(storage, config)
+    if err != nil { log.Fatal(err) }
+}
+
 func main() {
     log.SetFlags(log.Lshortfile)
     rand.Seed( time.Now().UTC().UnixNano())
@@ -84,4 +100,5 @@ func main() {
     printShardedService("replica", nShards)
     printGlobalService("router", nShards)
     printStorage()
+    printPull()
 }

@@ -1,28 +1,19 @@
 package main
 
 import (
-	"io"
 	"net/http"
+	"net/url"
 	"strings"
     "fmt"
     "github.com/coreos/go-etcd/etcd"
     "hash/adler32"
     "log"
     "os"
+    "path"
     "strconv"
 )
 
 var modulos uint64;
-
-func callonleaves(node *etcd.Node, cb func (leaf *etcd.Node)) {
-    if !node.Dir {
-        cb(node)
-    } else {
-        for _, n := range node.Nodes {
-            callonleaves(n, cb)
-        }
-    }
-}
 
 func Route(w http.ResponseWriter, r *http.Request, prefix string) {
     log.Printf("Request to `Route`: %s.\n", r.URL.String())
@@ -37,27 +28,21 @@ func Route(w http.ResponseWriter, r *http.Request, prefix string) {
 	}
 
 	bucket := uint64(adler32.Checksum([]byte(file))) % modulos
+	shard := fmt.Sprint(bucket, "-", os.Args[1])
 
     client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
-    endpoints, err := client.Get("/pfs/master", false, true)
+    _master, err := client.Get(path.Join("/pfs/master", shard), false, true)
     if err != nil { log.Fatal(err) }
+	master := _master.Node.Value
 
-    callonleaves(endpoints.Node,
-			func (n *etcd.Node) {
-                // key := ["pfs", "master", "n-m"]
-				key := strings.Split(n.Key, "/")
-                log.Print("Full Key: ", key)
-				shard := key[2]
-				log.Print("Shard: ", shard)
-				if  fmt.Sprintf("%d-%d", int(bucket), int(modulos)) == shard {
-					fmt.Print("Posting to: http://", n.Value + "/" + os.Args[2] + r.URL.String())
-					resp, err := http.Post("http://" + n.Value + "/" + os.Args[2] + r.URL.String(),
-						"text/plain", r.Body)
-					if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-					io.Copy(w, resp.Body)
-					return
-				}
-            })
+	httpClient := &http.Client{}
+	r.RequestURI = ""
+	r.URL, err = url.Parse("http://" + path.Join(master, r.URL.String()))
+	if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
+	log.Print("Proxying to: " + r.URL.String())
+	resp, err := httpClient.Do(r)
+	if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
+	resp.Write(w)
 }
 
 func RouterMux() *http.ServeMux {
@@ -67,7 +52,7 @@ func RouterMux() *http.ServeMux {
 		Route(w, r, "/pfs")
 	}
 
-    mux.HandleFunc("/pfs", pfsHandler)
+    mux.HandleFunc("/pfs/", pfsHandler)
 	mux.HandleFunc("/ping", func (w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 
     return mux;

@@ -1,12 +1,12 @@
 [Unit]
-Description=Monitoring Service
+Description= pfs service: {{.Name}}
+After = pull.service
+After = docker.service
+Requires = docker.service
 
 [Service]
-TimeoutStartSec=0
-ExecStartPre=/usr/bin/docker kill {{.Name}}
-ExecStartPre=/usr/bin/docker rm {{.Name}}
-ExecStartPre=/usr/bin/docker pull pachyderm/pfs
-ExecStart=/usr/bin/docker run --name {{.Name}} -p 80:80 -i pachyderm/pfs /go/bin/{{.Name}} {{.Nshards}}
+ExecStart=/usr/bin/docker run --name {{.Name}} -p 80:80 -i {{.Container}} /go/bin/{{.Name}} {{.Nshards}}
+ExecStop=/usr/bin/docker rm -f {{.Name}}
 
 [X-Fleet]
 Global=true
