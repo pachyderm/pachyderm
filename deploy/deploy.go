@@ -28,7 +28,7 @@ func printShardedService(name string, shards int) {
     aTemplate, err := template.New("announce").ParseFiles("templates/announce")
     if err != nil { log.Fatal(err) }
 
-    for s := 1; s <= shards; s++ {
+    for s := 0; s < shards; s++ {
         config := new(service)
         config.Name = name
         config.Container = "jdoliner/pfs"
