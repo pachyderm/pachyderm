@@ -49,6 +49,7 @@ func Route(w http.ResponseWriter, r *http.Request, etcdKey, prefix string) {
 func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
     log.Printf("Request to `Multicast`: %s.\n", r.URL.String())
 
+	baseUrl := r.URL.String()
     client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
     _endpoints, err := client.Get(etcdKey, false, true)
     if err != nil { log.Fatal(err) }
@@ -59,7 +60,7 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 		log.Print("Multicasting to: ", node, node.Value)
 		httpClient := &http.Client{}
 		r.RequestURI = ""
-		r.URL, err = url.Parse("http://" + path.Join(node.Value, r.URL.String()))
+		r.URL, err = url.Parse("http://" + path.Join(node.Value, baseUrl))
 		if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
 		log.Print("Proxying to: " + r.URL.String())
 		resp, err := httpClient.Do(r)
@@ -76,7 +77,7 @@ func RouterMux() *http.ServeMux {
 		Route(w, r, "/pfs/master", "/pfs")
 	}
 	commitHandler := func(w http.ResponseWriter,r *http.Request) {
-		Multicast(w, r, "/commit")
+		Multicast(w, r, "/pfs/master")
     }
 
     mux.HandleFunc("/pfs/", pfsHandler)
