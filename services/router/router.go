@@ -69,7 +69,6 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 	}
 }
 
-
 func RouterMux() *http.ServeMux {
     mux := http.NewServeMux()
 

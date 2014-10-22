@@ -80,12 +80,26 @@ func (fs *FS) Create(name string) (*os.File, error) {
 	return os.Create(fs.FilePath(name))
 }
 
+func (fs *FS) CreateFile(name string, r io.Reader) (int64, error) {
+	f, err := fs.Create(name)
+	if err != nil { return 0, err }
+	defer f.Close()
+	return io.Copy(f, r)
+}
+
 func (fs *FS) Open(name string) (*os.File, error) {
 	return os.Open(fs.FilePath(name))
 }
 
 func (fs *FS) OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
 	return os.OpenFile(fs.FilePath(name), flag, perm)
+}
+
+func (fs *FS) WriteFile(name string, r io.Reader) (int64, error) {
+	f, err := fs.Open(name)
+	if err != nil { return 0, err }
+	defer f.Close()
+	return io.Copy(f, r)
 }
 
 func (fs *FS) Remove(name string) error {

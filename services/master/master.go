@@ -39,12 +39,21 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
     } else if r.Method == "POST" {
         url := strings.Split(r.URL.String(), "/")
         filename := strings.Join(url[2:], "/")
-        file, err := fs.Create(filename)
-        if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
-        defer file.Close()
-        size, err := io.Copy(file, r.Body)
+        size, err := fs.CreateFile(filename, r.Body)
         if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
         fmt.Fprintf(w, "Added %s, size: %d.\n", filename, size)
+    } else if r.Method == "PUT" {
+        url := strings.Split(r.URL.String(), "/")
+        filename := strings.Join(url[2:], "/")
+        size, err := fs.WriteFile(filename, r.Body)
+        if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
+        fmt.Fprintf(w, "Wrote %s, size: %d.\n", filename, size)
+    } else if r.Method == "DELETE" {
+        url := strings.Split(r.URL.String(), "/")
+        filename := strings.Join(url[2:], "/")
+        err := fs.Remove(filename)
+        if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
+        fmt.Fprintf(w, "Deleted %s.\n", filename)
     }
 }
 
