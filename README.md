@@ -1,33 +1,13 @@
 # Pachyderm File System
 
-## Create a new cluster
+## Quick Start
 
-First generate a new etcd discovery token:
+### Create a CoreOS cluster
 
-```shell
-$ curl -w "\n" https://discovery.etcd.io/new
-https://discovery.etcd.io/your-new-token
-```
+Pfs is designed to run on CoreOS. To start you'll need a working CoreOS
+cluster.
 
-Create the config file to launch the cluster.
+Google Compute Engine (recommended): [https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/]
+Amazon EC2: [https://coreos.com/docs/running-coreos/cloud-providers/ec2/]
 
-`pfs.yaml`:
-
-```yaml
-#cloud-config
-
-coreos:
-  etcd:
-    # generate a new token for each unique cluster from https://discovery.etcd.io/new
-    discovery: https://discovery.etcd.io/your-new-token
-    # multi-region and multi-cloud deployments need to use $public_ipv4
-    addr: $private_ipv4:4001
-    peer-addr: $private_ipv4:7001
-  units:
-    - name: etcd.service
-      command: start
-    - name: fleet.service
-      command: start
-```
-
-
+### Deploy pfs
