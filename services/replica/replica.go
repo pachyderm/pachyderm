@@ -1,12 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
-    "fmt"
-    "pfs/lib/btrfs"
-    "strings"
+	"pfs/lib/btrfs"
+	"strings"
 )
 
 //TODO these functions can be merge right?
@@ -15,8 +15,12 @@ import (
 
 func RecvBaseHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	log.Print("RecvBase.")
-    err := fs.Recv(".", r.Body)
-    if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
+	err := fs.Recv(".", r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		log.Print(err)
+		return
+	}
 }
 
 // http://host/recv
@@ -24,52 +28,60 @@ func RecvBaseHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 func RecvHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	log.Print("Recv.")
 	err := fs.Recv(".", r.Body)
-    if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		log.Print(err)
+		return
+	}
 }
 
 // http://host/del
 
 func DelCommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
-    url := strings.Split(r.URL.String(), "/")
-    log.Print("Del.")
-    err := fs.SubvolumeDelete(url[2])
-    if err != nil { http.Error(w, err.Error(), 500); log.Print(err); return }
+	url := strings.Split(r.URL.String(), "/")
+	log.Print("Del.")
+	err := fs.SubvolumeDelete(url[2])
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		log.Print(err)
+		return
+	}
 }
 
 func SlaveMux(fs *btrfs.FS) *http.ServeMux {
-    mux := http.NewServeMux()
+	mux := http.NewServeMux()
 
 	// http://host/recvbase/fs
-	recvBaseHandler := func (w http.ResponseWriter, r *http.Request) {
+	recvBaseHandler := func(w http.ResponseWriter, r *http.Request) {
 		RecvBaseHandler(w, r, fs)
 	}
 
 	// http://host/recv/fs
 
-	recvHandler := func (w http.ResponseWriter, r *http.Request) {
-        RecvHandler(w, r, fs)
-    }
+	recvHandler := func(w http.ResponseWriter, r *http.Request) {
+		RecvHandler(w, r, fs)
+	}
 
-    delCommitHandler := func (w http.ResponseWriter, r *http.Request) {
-        DelCommitHandler(w, r, fs)
-    }
+	delCommitHandler := func(w http.ResponseWriter, r *http.Request) {
+		DelCommitHandler(w, r, fs)
+	}
 
 	mux.HandleFunc("/recvbase", recvBaseHandler)
 	mux.HandleFunc("/recv", recvHandler)
-    mux.HandleFunc("/del", delCommitHandler)
-	mux.HandleFunc("/ping", func (w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
+	mux.HandleFunc("/del", delCommitHandler)
+	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 
-    return mux;
+	return mux
 }
 
 func RunServer(fs *btrfs.FS) {
-    http.ListenAndServe(":80", SlaveMux(fs))
+	http.ListenAndServe(":80", SlaveMux(fs))
 }
 
 func main() {
-    log.SetFlags(log.Lshortfile)
-	fs := btrfs.NewFS("pfs", "replica-" + os.Args[1] + "-" + btrfs.RandSeq(10))
-    fs.EnsureNamespace()
-    log.Print("Listening on port 80...")
-    RunServer(fs)
+	log.SetFlags(log.Lshortfile)
+	fs := btrfs.NewFS("pfs", "replica-"+os.Args[1]+"-"+btrfs.RandSeq(10))
+	fs.EnsureNamespace()
+	log.Print("Listening on port 80...")
+	RunServer(fs)
 }

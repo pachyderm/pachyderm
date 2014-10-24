@@ -1,8 +1,9 @@
 [Unit]
 Description = pfs service: {{.Name}}
-After = pull.service
 After = docker.service
 Requires = docker.service
+After = storage.service
+Requires = storage.service
 
 [Service]
 ExecStart = /usr/bin/docker run --privileged=true --name {{.Name}}-{{.Shard}}-{{.Nshards}}  -v /mnt/pfs:/mnt/pfs -p {{.Port}}:80 -i {{.Container}} /go/bin/{{.Name}} {{.Shard}}-{{.Nshards}}
