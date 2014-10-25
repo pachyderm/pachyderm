@@ -100,26 +100,6 @@ func printStorage() {
 	}
 }
 
-func printPull() {
-	template, err := template.New("pull").ParseFiles("templates/pull")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	config := new(service)
-	config.Container = "pachyderm/pfs"
-
-	storage, err := os.Create("pull.service")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = template.Execute(storage, config)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func main() {
 	log.SetFlags(log.Lshortfile)
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -132,5 +112,4 @@ func main() {
 	printShardedService("replica", nShards)
 	printGlobalService("router", nShards)
 	printStorage()
-	printPull()
 }

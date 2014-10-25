@@ -5,8 +5,8 @@ After = docker.service
 Requires = docker.service
 
 [Service]
-ExecStartPre= /usr/bin/docker kill {{.Name}}
-ExecStartPre= /usr/bin/docker rm {{.Name}}
+ExecStartPre= -/usr/bin/docker kill {{.Name}}
+ExecStartPre= -/usr/bin/docker rm {{.Name}}
 ExecStartPre= /usr/bin/docker pull {{.Container}}
 ExecStart = /usr/bin/docker run --name {{.Name}} -p 80:80 -i {{.Container}} /go/bin/{{.Name}} {{.Nshards}}
 ExecStop = /usr/bin/docker rm -f {{.Name}}
