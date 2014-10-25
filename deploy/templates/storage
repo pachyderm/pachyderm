@@ -1,0 +1,12 @@
+[Unit]
+Description = pfs storage
+
+[Service]
+Type = oneshot
+ExecStart = /usr/bin/truncate pfs.img -s 10G
+ExecStart = /usr/sbin/mkfs.btrfs pfs.img
+ExecStart = /usr/bin/mkdir -p /mnt/pfs
+ExecStart = /usr/bin/mount pfs.img /mnt/pfs
+
+[X-Fleet]
+Global=true
