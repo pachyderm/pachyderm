@@ -6,8 +6,8 @@ After = storage.service
 After = pull.service
 
 [Service]
-ExecStartPre= -/usr/bin/docker kill {{.Name}}-{{.Shard}}-{{.Nshards}}
-ExecStartPre= -/usr/bin/docker rm {{.Name}}-{{.Shard}}-{{.Nshards}}
-ExecStartPre= /usr/bin/docker pull {{.Container}}
+ExecStartPre = -/usr/bin/docker kill {{.Name}}-{{.Shard}}-{{.Nshards}}
+ExecStartPre = -/usr/bin/docker rm {{.Name}}-{{.Shard}}-{{.Nshards}}
+ExecStartPre = /usr/bin/docker pull {{.Container}}
 ExecStart = /usr/bin/docker run --privileged=true --name {{.Name}}-{{.Shard}}-{{.Nshards}}  -v /mnt/pfs:/mnt/pfs -p {{.Port}}:80 -i {{.Container}} /go/bin/{{.Name}} {{.Shard}}-{{.Nshards}}
 ExecStop = /usr/bin/docker rm -f {{.Name}}-{{.Shard}}-{{.Nshards}}
