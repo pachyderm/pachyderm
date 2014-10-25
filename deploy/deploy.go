@@ -81,25 +81,6 @@ func printGlobalService(name string, shards int) {
 	}
 }
 
-func printStorage() {
-	template, err := template.New("storage").ParseFiles("templates/storage")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	config := new(service)
-
-	storage, err := os.Create("storage.service")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = template.Execute(storage, config)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func main() {
 	log.SetFlags(log.Lshortfile)
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -111,5 +92,4 @@ func main() {
 	printShardedService("master", nShards)
 	printShardedService("replica", nShards)
 	printGlobalService("router", nShards)
-	printStorage()
 }

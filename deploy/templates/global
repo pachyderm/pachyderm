@@ -1,6 +1,5 @@
 [Unit]
 Description= pfs service: {{.Name}}
-After = pull.service
 After = docker.service
 Requires = docker.service
 

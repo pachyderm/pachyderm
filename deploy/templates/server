@@ -2,10 +2,9 @@
 Description = pfs service: {{.Name}}
 After = docker.service
 Requires = docker.service
-After = storage.service
-After = pull.service
 
 [Service]
+ExecStartPre = -/usr/bin/mkdir /mnt/pfs && /usr/bin/truncate pfs.img -s 10G && /usr/sbin/mkfs.btrfs pfs.img && /usr/bin/mount pfs.img /mnt/pfs
 ExecStartPre = -/usr/bin/docker kill {{.Name}}-{{.Shard}}-{{.Nshards}}
 ExecStartPre = -/usr/bin/docker rm {{.Name}}-{{.Shard}}-{{.Nshards}}
 ExecStartPre = /usr/bin/docker pull {{.Container}}
