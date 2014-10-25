@@ -1,6 +1,6 @@
 [Unit]
 Description = pfs announce: {{.Name}}
-After = {{.Name}}-{{.Shard}}-{{.Nshards}}.service
+PartOf = {{.Name}}-{{.Shard}}-{{.Nshards}}.service
 BindsTo = {{.Name}}-{{.Shard}}-{{.Nshards}}.service
 
 [Service]

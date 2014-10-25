@@ -4,6 +4,7 @@ After = docker.service
 Requires = docker.service
 
 [Service]
+TimeoutStartSec = 300
 ExecStartPre = -/usr/bin/mkdir /mnt/pfs && /usr/bin/truncate pfs.img -s 10G && /usr/sbin/mkfs.btrfs pfs.img && /usr/bin/mount pfs.img /mnt/pfs
 ExecStartPre = -/usr/bin/docker kill {{.Name}}-{{.Shard}}-{{.Nshards}}
 ExecStartPre = -/usr/bin/docker rm {{.Name}}-{{.Shard}}-{{.Nshards}}
