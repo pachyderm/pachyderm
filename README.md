@@ -1,8 +1,6 @@
 # Pachyderm File System
 
-## Quick Start
-
-### Creating a CoreOS cluster
+## Creating a CoreOS cluster
 
 Pfs is designed to run on CoreOS. To start you'll need a working CoreOS
 cluster.
@@ -10,7 +8,7 @@ cluster.
 Google Compute Engine (recommended): [https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/]
 Amazon EC2: [https://coreos.com/docs/running-coreos/cloud-providers/ec2/]
 
-### Deploy pfs
+## Deploy pfs
 SSH in to one of your new machines CoreOS machines.
 
 `$ wget https://github.com/pachyderm-io/pfs/raw/master/deploy/static/3Node.tar.gz`
@@ -22,7 +20,7 @@ SSH in to one of your new machines CoreOS machines.
 The startup process takes a little while the first time your run it because
 each node has to pull a Docker image.
 
-### Checking the status of your deploy
+## Checking the status of your deploy
 The easiest way to see what's going on in your cluster is to use `list-units`
 
 `$ fleetctl list-units`
@@ -48,22 +46,22 @@ router.service                  3817102d.../10.240.199.203      active  running
 router.service                  f652105a.../10.240.229.124      active  running
 ```
 
-### Using pfs
+## Using pfs
 Pfs exposes a git like interface to the file system:
 
-#### Creating a file
+### Creating a file
 `$ curl -XPOST localhost/pfs/file_name -d @local_file`
 
-#### Read a file
+### Read a file
 `$ curl localhost/pfs/file_name`
 
-#### Creating/modifying a file
+### Creating/modifying a file
 `$ curl -XPUT localhost/pfs/file_name -d @local_file`
 
-#### Deleting a file
+### Deleting a file
 `$ curl -XDELETE localhost/pfs/file_name`
 
-#### Committing changes
+### Committing changes
 `$ curl localhost/pfs/commit`
 
 Committing in pfs creates a lightweight snapshot of the file system state and
