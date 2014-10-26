@@ -38,7 +38,7 @@ func RecvHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 // http://host/del
 
 func DelCommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
-	url := strings.Split(r.URL.String(), "/")
+	url := strings.Split(r.URL.Path, "/")
 	log.Print("Del.")
 	err := fs.SubvolumeDelete(url[2])
 	if err != nil {

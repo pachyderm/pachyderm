@@ -39,9 +39,16 @@ func DecrCommit(commit string) (string, error) {
 
 func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	if r.Method == "GET" {
-		http.StripPrefix("/pfs/", http.FileServer(http.Dir(fs.FilePath("")))).ServeHTTP(w, r)
+		params := r.URL.Query()
+		if params.Get("commit") == "" {
+			http.StripPrefix("/pfs/", http.FileServer(http.Dir(fs.FilePath("")))).ServeHTTP(w, r)
+		} else {
+			servePath := fs.FilePath(path.Join(".commits", params.Get("commit")))
+			log.Print(servePath)
+			http.StripPrefix("/pfs/", http.FileServer(http.Dir(servePath))).ServeHTTP(w, r)
+		}
 	} else if r.Method == "POST" {
-		url := strings.Split(r.URL.String(), "/")
+		url := strings.Split(r.URL.Path, "/")
 		filename := strings.Join(url[2:], "/")
 		size, err := fs.CreateFile(filename, r.Body)
 		if err != nil {
@@ -51,7 +58,7 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 		}
 		fmt.Fprintf(w, "Added %s, size: %d.\n", filename, size)
 	} else if r.Method == "PUT" {
-		url := strings.Split(r.URL.String(), "/")
+		url := strings.Split(r.URL.Path, "/")
 		filename := strings.Join(url[2:], "/")
 		size, err := fs.WriteFile(filename, r.Body)
 		if err != nil {
@@ -61,7 +68,7 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 		}
 		fmt.Fprintf(w, "Wrote %s, size: %d.\n", filename, size)
 	} else if r.Method == "DELETE" {
-		url := strings.Split(r.URL.String(), "/")
+		url := strings.Split(r.URL.Path, "/")
 		filename := strings.Join(url[2:], "/")
 		err := fs.Remove(filename)
 		if err != nil {

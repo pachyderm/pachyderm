@@ -11,24 +11,18 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"strings"
 )
 
 var modulos uint64
 
-func Route(w http.ResponseWriter, r *http.Request, etcdKey, prefix string) {
-	log.Printf("Request to `Route`: %s.\n", r.URL.String())
+func hashRequest(r *http.Request) uint64 {
+	return uint64(adler32.Checksum([]byte(r.URL.Path))) % modulos
+}
 
-	file := strings.TrimPrefix(r.URL.String(), prefix)
-	log.Printf("file = %s.", file)
+func Route(w http.ResponseWriter, r *http.Request, etcdKey string) {
+	log.Printf("Request to `Route`: %s.\n", r.URL.Path)
 
-	if len(file) == len(r.URL.String()) {
-		http.Error(w, "Incorrect prefix on request.", 500)
-		log.Print("Incorrect prefix on request.")
-		return
-	}
-
-	bucket := uint64(adler32.Checksum([]byte(file))) % modulos
+	bucket := hashRequest(r)
 	shard := fmt.Sprint(bucket, "-", os.Args[1])
 
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
@@ -93,7 +87,7 @@ func RouterMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	pfsHandler := func(w http.ResponseWriter, r *http.Request) {
-		Route(w, r, "/pfs/master", "/pfs")
+		Route(w, r, "/pfs/master")
 	}
 	commitHandler := func(w http.ResponseWriter, r *http.Request) {
 		Multicast(w, r, "/pfs/master")
@@ -108,6 +102,7 @@ func RouterMux() *http.ServeMux {
 
 func main() {
 	log.SetFlags(log.Lshortfile)
+	log.Print("Starting up...")
 
 	var err error
 	modulos, err = strconv.ParseUint(os.Args[1], 10, 32)
@@ -115,5 +110,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to parse %s as Uint.")
 	}
-	http.ListenAndServe(":80", RouterMux())
+	log.Fatal(http.ListenAndServe(":80", RouterMux()))
 }
