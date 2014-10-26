@@ -1,9 +1,11 @@
 FROM ubuntu
 
 ENV GOPATH /go
+ENV PFS github.com/pachyderm-io/pfs
+
 RUN apt-get update && apt-get install -y golang btrfs-tools git && rm -rf /var/lib/apt/lists/*
 RUN go get github.com/coreos/go-etcd/etcd
-ADD . /go/src/pfs
-RUN go install pfs/services/master && go install pfs/services/replica && go install pfs/services/router && go install pfs/deploy
+ADD . /go/src/$PFS
+RUN go install $PFS/services/master && go install $PFS/services/replica && go install $PFS/services/router && go install $PFS/deploy
 
 EXPOSE 80

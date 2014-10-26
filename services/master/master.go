@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 	"github.com/coreos/go-etcd/etcd"
+	"github.com/pachyderm-io/pfs/lib/btrfs"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path"
-	"pfs/lib/btrfs"
 	"strconv"
 	"strings"
 )
