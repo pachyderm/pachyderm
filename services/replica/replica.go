@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/pachyderm-io/pfs/lib/btrfs"
 	"log"
 	"net/http"
 	"os"
-	"pfs/lib/btrfs"
 	"strings"
 )
 
