@@ -35,7 +35,7 @@ func printShardedService(name string, shards int) {
 	for s := 0; s < shards; s++ {
 		config := new(service)
 		config.Name = name
-		config.Container = "pachyderm/pfs"
+		config.Container = "jdoliner/pfs"
 		config.Shard = s
 		config.Nshards = shards
 		config.Port = minPort + rand.Intn(maxPort-minPort)
@@ -67,7 +67,7 @@ func printGlobalService(name string, shards int) {
 
 	config := new(service)
 	config.Name = name
-	config.Container = "pachyderm/pfs"
+	config.Container = "jdoliner/pfs"
 	config.Nshards = shards
 
 	server, err := os.Create(fmt.Sprintf("%s.service", config.Name))
