@@ -5,25 +5,25 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path"
-    "math/rand"
-    "strings"
-    "sync"
-    "time"
+	"strings"
+	"sync"
+	"time"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 var once sync.Once
 
 func RandSeq(n int) string {
-    once.Do(func () { rand.Seed(time.Now().UTC().UnixNano()) })
-    b := make([]rune, n)
-    for i := range b {
-        b[i] = letters[rand.Intn(len(letters))]
-    }
-    return string(b)
+	once.Do(func() { rand.Seed(time.Now().UTC().UnixNano()) })
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }
 
 type FS struct {
@@ -31,7 +31,7 @@ type FS struct {
 }
 
 func NewFS(btrfsPath, namespace string) *FS {
-    return &FS{btrfsPath, namespace}
+	return &FS{btrfsPath, namespace}
 }
 
 func RunStderr(c *exec.Cmd) error {
@@ -61,7 +61,7 @@ func LogErrors(c *exec.Cmd) {
 }
 
 func Sync() error {
-    return RunStderr(exec.Command("sync"))
+	return RunStderr(exec.Command("sync"))
 }
 
 func (fs *FS) BasePath(name string) string {
@@ -73,7 +73,7 @@ func (fs *FS) FilePath(name string) string {
 }
 
 func (fs *FS) TrimFilePath(name string) string {
-    return strings.TrimPrefix(name, fs.btrfsPath)
+	return strings.TrimPrefix(name, fs.btrfsPath)
 }
 
 func (fs *FS) Create(name string) (*os.File, error) {
@@ -82,7 +82,9 @@ func (fs *FS) Create(name string) (*os.File, error) {
 
 func (fs *FS) CreateFile(name string, r io.Reader) (int64, error) {
 	f, err := fs.Create(name)
-	if err != nil { return 0, err }
+	if err != nil {
+		return 0, err
+	}
 	defer f.Close()
 	return io.Copy(f, r)
 }
@@ -97,7 +99,9 @@ func (fs *FS) OpenFile(name string, flag int, perm os.FileMode) (*os.File, error
 
 func (fs *FS) WriteFile(name string, r io.Reader) (int64, error) {
 	f, err := fs.Open(name)
-	if err != nil { return 0, err }
+	if err != nil {
+		return 0, err
+	}
 	defer f.Close()
 	return io.Copy(f, r)
 }
@@ -107,46 +111,54 @@ func (fs *FS) Remove(name string) error {
 }
 
 func (fs *FS) FileExists(name string) (bool, error) {
-    _, err := os.Stat(fs.FilePath(name))
-    if err == nil { return true, nil }
-    if os.IsNotExist(err) { return false, nil }
-    return false, err
+	_, err := os.Stat(fs.FilePath(name))
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }
 
 func (fs *FS) Mkdir(name string, prem os.FileMode) error {
-    return os.Mkdir(fs.FilePath(name), prem)
+	return os.Mkdir(fs.FilePath(name), prem)
 }
 
 func (fs *FS) MkdirAll(name string, prem os.FileMode) error {
-    return os.MkdirAll(fs.FilePath(name), prem)
+	return os.MkdirAll(fs.FilePath(name), prem)
 }
 
 func (fs *FS) Link(oldname, newname string) error {
-    return os.Link(fs.FilePath(oldname), fs.FilePath(newname))
+	return os.Link(fs.FilePath(oldname), fs.FilePath(newname))
 }
 
 func (fs *FS) Readlink(name string) (string, error) {
-    p, err := os.Readlink(fs.FilePath(name))
-    if err != nil { return "", err }
-    return fs.TrimFilePath(p), nil
+	p, err := os.Readlink(fs.FilePath(name))
+	if err != nil {
+		return "", err
+	}
+	return fs.TrimFilePath(p), nil
 }
 
 func (fs *FS) Symlink(oldname, newname string) error {
-    log.Printf("%s -> %s\n", fs.FilePath(oldname), fs.FilePath(newname))
-    return os.Symlink(fs.FilePath(oldname), fs.FilePath(newname))
+	log.Printf("%s -> %s\n", fs.FilePath(oldname), fs.FilePath(newname))
+	return os.Symlink(fs.FilePath(oldname), fs.FilePath(newname))
 }
 
 func (fs *FS) ReadDir(name string) ([]os.FileInfo, error) {
-    return ioutil.ReadDir(fs.FilePath(name))
+	return ioutil.ReadDir(fs.FilePath(name))
 }
 
 func (fs *FS) EnsureNamespace() error {
-    exists, err := fs.FileExists("")
-    if err != nil { return err }
-    if !exists {
-        return fs.SubvolumeCreate("")
-    }
-    return nil
+	exists, err := fs.FileExists("")
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fs.SubvolumeCreate("")
+	}
+	return nil
 }
 
 func (fs *FS) SubvolumeCreate(name string) error {
@@ -154,7 +166,7 @@ func (fs *FS) SubvolumeCreate(name string) error {
 }
 
 func (fs *FS) SubvolumeDelete(name string) error {
-    return RunStderr(exec.Command("btrfs", "subvolume", "delete", fs.FilePath(name)))
+	return RunStderr(exec.Command("btrfs", "subvolume", "delete", fs.FilePath(name)))
 }
 
 func (fs *FS) Snapshot(volume string, dest string, readonly bool) error {
@@ -171,13 +183,21 @@ func (fs *FS) SendBase(to string, cont func(io.ReadCloser) error) error {
 	cmd := exec.Command("btrfs", "send", fs.FilePath(to))
 	log.Println(cmd)
 	reader, err := cmd.StdoutPipe()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	stderr, err := cmd.StderrPipe()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	err = cmd.Start()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	err = cont(reader)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(stderr)
@@ -190,13 +210,21 @@ func (fs *FS) Send(from string, to string, cont func(io.ReadCloser) error) error
 	cmd := exec.Command("btrfs", "send", "-p", fs.FilePath(from), fs.FilePath(to))
 	log.Println(cmd)
 	reader, err := cmd.StdoutPipe()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	stderr, err := cmd.StderrPipe()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	err = cmd.Start()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	err = cont(reader)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(stderr)
@@ -209,16 +237,26 @@ func (fs *FS) Recv(volume string, data io.ReadCloser) error {
 	cmd := exec.Command("btrfs", "receive", fs.FilePath(volume))
 	log.Println(cmd)
 	stdin, err := cmd.StdinPipe()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	stderr, err := cmd.StderrPipe()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	err = cmd.Start()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	n, err := io.Copy(stdin, data)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	log.Println("Copied bytes:", n)
 	err = stdin.Close()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(stderr)

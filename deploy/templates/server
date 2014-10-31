@@ -5,7 +5,7 @@ Requires = docker.service
 
 [Service]
 TimeoutStartSec = 300
-ExecStartPre = -/usr/bin/mkdir /mnt/pfs && /usr/bin/truncate pfs.img -s 10G && /usr/sbin/mkfs.btrfs pfs.img && /usr/bin/mount pfs.img /mnt/pfs
+ExecStartPre = -/usr/bin/docker run --privileged=true -v /var:/var -v /mnt:/mnt -i {{.Container}} "mkdir -p /var/lib/pfs && sudo truncate /var/lib/pfs/data.img -s 10G && sudo mkfs.btrfs /var/lib/pfs/data.img && mkdir -p /mnt/pfs && sudo mount /var/lib/pfs/data.img /mnt/pfs"
 ExecStartPre = -/usr/bin/docker kill {{.Name}}-{{.Shard}}-{{.Nshards}}
 ExecStartPre = -/usr/bin/docker rm {{.Name}}-{{.Shard}}-{{.Nshards}}
 ExecStartPre = /usr/bin/docker pull {{.Container}}
