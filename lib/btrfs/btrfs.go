@@ -16,6 +16,7 @@ import (
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 var once sync.Once
+var volume = "/var/lib/pfs/vol"
 
 func RandSeq(n int) string {
 	once.Do(func() { rand.Seed(time.Now().UTC().UnixNano()) })
@@ -27,11 +28,11 @@ func RandSeq(n int) string {
 }
 
 type FS struct {
-	btrfsPath, namespace string
+	namespace string
 }
 
-func NewFS(btrfsPath, namespace string) *FS {
-	return &FS{btrfsPath, namespace}
+func NewFS(namespace string) *FS {
+	return &FS{namespace}
 }
 
 func RunStderr(c *exec.Cmd) error {
@@ -65,15 +66,15 @@ func Sync() error {
 }
 
 func (fs *FS) BasePath(name string) string {
-	return path.Join("/mnt", fs.btrfsPath, fs.namespace, name)
+	return path.Join(volume, fs.namespace, name)
 }
 
 func (fs *FS) FilePath(name string) string {
-	return path.Join("/mnt", fs.btrfsPath, fs.namespace, name)
+	return path.Join(volume, fs.namespace, name)
 }
 
 func (fs *FS) TrimFilePath(name string) string {
-	return strings.TrimPrefix(name, fs.btrfsPath)
+	return strings.TrimPrefix(name, path.Join(volume, fs.namespace))
 }
 
 func (fs *FS) Create(name string) (*os.File, error) {

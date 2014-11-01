@@ -251,7 +251,7 @@ func RunServer(fs *btrfs.FS) {
 // usage: pfs pats role shard
 func main() {
 	log.SetFlags(log.Lshortfile)
-	fs := btrfs.NewFS("pfs", "master-"+os.Args[1]+"-"+btrfs.RandSeq(10))
+	fs := btrfs.NewFS("master-" + os.Args[1] + "-" + btrfs.RandSeq(10))
 	fs.EnsureNamespace()
 	log.Print("Listening on port 80...")
 	RunServer(fs)
