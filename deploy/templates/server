@@ -11,6 +11,6 @@ ExecStartPre = /usr/bin/docker pull {{.Container}}
 ExecStartPre = -/bin/mkdir /var/lib/pfs
 ExecStartPre = -/usr/bin/docker run --privileged=true -v /var/lib/pfs:/var/lib/pfs -i {{.Container}} truncate /var/lib/pfs/data.img -s 10G
 ExecStartPre = -/usr/bin/docker run --privileged=true -v /var/lib/pfs:/var/lib/pfs -i {{.Container}} mkfs.btrfs /var/lib/pfs/data.img
-ExecStartPre = -/bin/mkdir -p /var/lib/pfs/vol && sudo /bin/mount /var/lib/pfs/data.img /var/lib/pfs/vol"
+ExecStartPre = -/bin/mkdir -p /var/lib/pfs/vol && sudo /bin/mount /var/lib/pfs/data.img /var/lib/pfs/vol
 ExecStart = /usr/bin/docker run --privileged=true --name {{.Name}}-{{.Shard}}-{{.Nshards}}  -v /var/lib/pfs/vol:/var/lib/pfs/vol -p {{.Port}}:80 -i {{.Container}} /go/bin/{{.Name}} {{.Shard}}-{{.Nshards}}
 ExecStop = /usr/bin/docker rm -f {{.Name}}-{{.Shard}}-{{.Nshards}}
