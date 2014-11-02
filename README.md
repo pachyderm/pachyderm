@@ -1,5 +1,16 @@
 # Pachyderm File System
 
+## What is pfs?
+Pfs is a distributed filesystem built for use with Docker. It leverages btrfs
+to create a git like interface with a rich commit history and branching. All
+functionality is exposed via a RESTful http api.
+
+## Key Features
+- Fault tolerant system built around CoreOS primitives (implemented)
+- Rich commit history (implemented)
+- Branching (not implemented)
+- Dockerized Map Reduce (not implemented)
+
 ## Creating a CoreOS cluster
 
 Pfs is designed to run on CoreOS. To start you'll need a working CoreOS
