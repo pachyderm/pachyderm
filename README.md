@@ -62,7 +62,10 @@ Pfs exposes a git like interface to the file system:
 `$ curl -XDELETE localhost/pfs/file_name`
 
 ### Committing changes
-`$ curl localhost/pfs/commit`
+`$ curl localhost/commit`
 
 Committing in pfs creates a lightweight snapshot of the file system state and
 pushes it to replicas. Where it remains accessible by commit id.
+
+### Accessing previous commits
+`$ curl localhost/pfs/file_name?commit=n`
