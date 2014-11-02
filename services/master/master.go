@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-func headPath() string { return ".commits/HEAD" }
+var headPath string = ".commits/HEAD"
 
 func IncrCommit(commit string) (string, error) {
 	split := strings.Split(commit, "/")
@@ -101,7 +101,7 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	}
 	if exists {
 		log.Print("exists")
-		last_commit, err := fs.Readlink(headPath())
+		last_commit, err := fs.Readlink(headPath)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
@@ -119,13 +119,13 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 			log.Print(err)
 			return
 		}
-		err = fs.Remove(headPath())
+		err = fs.Remove(headPath)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
-		err = fs.Symlink(new_commit, headPath())
+		err = fs.Symlink(new_commit, headPath)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
@@ -166,7 +166,7 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 			log.Print(err)
 			return
 		}
-		err = fs.Symlink(first_commit, headPath())
+		err = fs.Symlink(first_commit, headPath)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
