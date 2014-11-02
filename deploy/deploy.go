@@ -35,7 +35,7 @@ func printShardedService(name string, shards int) {
 	for s := 0; s < shards; s++ {
 		config := new(service)
 		config.Name = name
-		config.Container = "jdoliner/pfs"
+		config.Container = "pachyderm/pfs"
 		config.Shard = s
 		config.Nshards = shards
 		config.Port = minPort + rand.Intn(maxPort-minPort)
