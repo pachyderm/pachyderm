@@ -13,8 +13,12 @@ import (
 	"strings"
 )
 
+//TODO commits should be content based
+
+// headPath is the location of a symlink to the latest commit.
 var headPath string = ".commits/HEAD"
 
+// IncrCommit generates the next commit path.
 func IncrCommit(commit string) (string, error) {
 	split := strings.Split(commit, "/")
 	index, err := strconv.Atoi(split[len(split)-1])
@@ -26,6 +30,7 @@ func IncrCommit(commit string) (string, error) {
 	return strings.Join(split, "/"), nil
 }
 
+// DecrCommit generates the previous commit path.
 func DecrCommit(commit string) (string, error) {
 	split := strings.Split(commit, "/")
 	index, err := strconv.Atoi(split[len(split)-1])
@@ -37,6 +42,8 @@ func DecrCommit(commit string) (string, error) {
 	return strings.Join(split, "/"), nil
 }
 
+// PfsHandler is the core route for modifying the contents of the fileystem.
+// Changes are not replicated until a call to CommitHandler.
 func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	if r.Method == "GET" {
 		params := r.URL.Query()
@@ -80,6 +87,8 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	}
 }
 
+// CommitHandler creates a snapshot of outstanding changes and pushes it to
+// replicas.
 func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
 	log.Printf("Getting replica for %s.", os.Args[1])
@@ -181,7 +190,7 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 		fmt.Fprintf(w, "Created commit: %s.\n", first_commit)
 		err = fs.SendBase(first_commit,
 			func(data io.ReadCloser) error {
-				_, err = http.Post("http://"+replica+"/"+"recvbase",
+				_, err = http.Post("http://"+replica+"/"+"recv",
 					"text/plain", data)
 				return err
 			})
@@ -194,6 +203,7 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	}
 }
 
+//BrowseHandler exposes existing snapshots.
 func BrowseHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	exists, err := fs.FileExists(".commits")
 	if err != nil {
@@ -221,6 +231,7 @@ func BrowseHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	}
 }
 
+// MasterMux creates a multiplexer for a Master writing to the passed in FS.
 func MasterMux(fs *btrfs.FS) *http.ServeMux {
 	mux := http.NewServeMux()
 
@@ -244,11 +255,11 @@ func MasterMux(fs *btrfs.FS) *http.ServeMux {
 	return mux
 }
 
+// RunServer runs a master server listening on port 80
 func RunServer(fs *btrfs.FS) {
 	http.ListenAndServe(":80", MasterMux(fs))
 }
 
-// usage: pfs pats role shard
 func main() {
 	log.SetFlags(log.Lshortfile)
 	fs := btrfs.NewFS("master-" + os.Args[1] + "-" + btrfs.RandSeq(10))

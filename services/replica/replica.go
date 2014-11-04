@@ -11,20 +11,8 @@ import (
 
 //TODO these functions can be merge right?
 
-// http://host/recvbase
-
-func RecvBaseHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
-	log.Print("RecvBase.")
-	err := fs.Recv(".", r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
-}
-
-// http://host/recv
-
+// RecvHandler takes the output of btrfs send and applies it to the local
+// filesystem.
 func RecvHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	log.Print("Recv.")
 	err := fs.Recv(".", r.Body)
@@ -35,8 +23,7 @@ func RecvHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	}
 }
 
-// http://host/del
-
+// DelCommitHandler deletes a commit.
 func DelCommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	url := strings.Split(r.URL.Path, "/")
 	log.Print("Del.")
@@ -48,15 +35,9 @@ func DelCommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	}
 }
 
+// SlaveMux creates a multiplexer for a Slave writing to the passed in FS.
 func SlaveMux(fs *btrfs.FS) *http.ServeMux {
 	mux := http.NewServeMux()
-
-	// http://host/recvbase/fs
-	recvBaseHandler := func(w http.ResponseWriter, r *http.Request) {
-		RecvBaseHandler(w, r, fs)
-	}
-
-	// http://host/recv/fs
 
 	recvHandler := func(w http.ResponseWriter, r *http.Request) {
 		RecvHandler(w, r, fs)
@@ -66,7 +47,6 @@ func SlaveMux(fs *btrfs.FS) *http.ServeMux {
 		DelCommitHandler(w, r, fs)
 	}
 
-	mux.HandleFunc("/recvbase", recvBaseHandler)
 	mux.HandleFunc("/recv", recvHandler)
 	mux.HandleFunc("/del", delCommitHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
@@ -74,6 +54,7 @@ func SlaveMux(fs *btrfs.FS) *http.ServeMux {
 	return mux
 }
 
+// RunServer runs a replica server listening on port 80
 func RunServer(fs *btrfs.FS) {
 	http.ListenAndServe(":80", SlaveMux(fs))
 }
