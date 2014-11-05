@@ -1,12 +1,17 @@
+TODO:
+Vision
+Contact link
+How to build
+What does a git like filesystem look like.
+What is dockerized mapreduce?
+
 # Pachyderm File System
 
 ## What is pfs?
-Pfs is a distributed filesystem for large scale data processing similar to
-HDFS.  It's designed to integrate painlessly into a Docker stack by using
-containers itself for deployment and by letting users specify distributed
-computations as containers. Furthermore pfs leverage  btrfs (the same
-filesystem that powers Docker itself) to offer cluster wide filesystem
-snapshotting.
+Pfs is an HDFS alternative built specifically for the Docker ecosystem.
+You deploy it with Docker, just like everything else in your stack.
+Furthermore, jobs are also specified as Docker containers. Now you can use any
+tools you want for distributed computation.
 
 ## Key Features
 - Fault tolerant system built around CoreOS primitives (implemented)
