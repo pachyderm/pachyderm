@@ -1,10 +1,3 @@
-TODO:
-Vision
-Contact link
-How to build
-What does a git like filesystem look like.
-What is dockerized mapreduce?
-
 # Pachyderm File System
 
 ## What is pfs?
@@ -20,6 +13,13 @@ Furthermore, MapReduce jobs are specified as Docker containers, rather than
 
 ## Is pfs production ready
 No, pfs is at Alpha status.
+
+## Where is this project going?
+Long term Pachyderm's goal is to be a viable alternative to Hadoop built on top
+of a modern distributed computing toolchain. Hadoop is a mature product so
+there's a great deal of work to be done to match its feature set. However we're
+finding that thanks to innovative tools like btrfs, Docker and CoreOS we can
+build more functionality with less code than was possible 10 years ago.
 
 ## Quickstart Guide
 
@@ -84,7 +84,7 @@ pushes it to replicas. Where it remains accessible by commit id.
 ### Accessing previous commits
 `$ curl localhost/pfs/file_name?commit=n`
 
-### What is a git like filesystem?
+## What is a git like filesystem?
 Pfs is implemented as a distributed layer on top of btrfs, the same
 copy-on-write(CoW) filesystem that powers Docker. A distributed layer that
 horizontally scales btrfs' existing
@@ -92,10 +92,22 @@ horizontally scales btrfs' existing
 datacenter scale datasets. Pfs brings features like commit based history and
 branching, standard primitives for collaborating on code, data engineering.
 
-### What is "Dockerized MapReduce?"
+## What is "Dockerized MapReduce?"
 The basic interface for MapReduce is a `map` function and a `reduce` function.
 In Hadoop this is exposed as a Java interface. In Pachyderm MapReduce jobs are
 user submitted Docker containers with http servers inside them. Rather than
 calling a `map` method on a class Pachyderm POSTs files to the `/map` route on
 a webserver. This completely democratizes MapReduce by decoupling it from a
 single platform such as the JVM.
+
+## Who's building this?
+2 guys who love data and communities. Both of whome are named Joe. We'd love
+to chat: joey.zwicker@gmail.com jdoliner@gmail.com.
+
+## How do I hack on pfs?
+Pfs' only dependency is Docker. You can build it like so:
+`pfs$ docker build -t username/pfs .`
+
+Deploying what you build requires pushing the built container to the central
+Docker registry and changing the container name in the .service files from
+`pachyderm/pfs` to `username/pfs`.
