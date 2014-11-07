@@ -114,7 +114,7 @@ a webserver. This completely democratizes MapReduce by decoupling it from a
 single platform such as the JVM.
 
 ## Who's building this?
-2 guys who love data and communities. Both of whome are named Joe. We'd love
+2 guys who love data and communities. Both of whom are named Joe. We'd love
 to chat: joey.zwicker@gmail.com jdoliner@gmail.com.
 
 ## How do I hack on pfs?
