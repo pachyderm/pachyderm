@@ -46,8 +46,9 @@ each node has to pull a Docker image.
 
 ### Checking the status of your deploy
 The easiest way to see what's going on in your cluster is to use `list-units`
-
-`$ fleetctl list-units`
+```shell
+$ fleetctl list-units
+```
 
 If things are working correctly you should see something like:
 
@@ -64,25 +65,37 @@ router.service                  3817102d.../10.240.199.203      active  running
 Pfs exposes a git like interface to the file system:
 
 #### Creating a file
-`$ curl -XPOST localhost/pfs/file_name -d @local_file`
+```shell
+$ curl -XPOST localhost/pfs/file_name -d @local_file
+```
 
 #### Read a file
-`$ curl localhost/pfs/file_name`
+```shell
+$ curl localhost/pfs/file_name
+```
 
 #### Creating/modifying a file
-`$ curl -XPUT localhost/pfs/file_name -d @local_file`
+```shell
+$ curl -XPUT localhost/pfs/file_name -d @local_file
+```
 
 #### Deleting a file
-`$ curl -XDELETE localhost/pfs/file_name`
+```shell
+$ curl -XDELETE localhost/pfs/file_name
+```
 
 #### Committing changes
-`$ curl localhost/commit`
+```shell
+$ curl localhost/commit
+```
 
 Committing in pfs creates a lightweight snapshot of the file system state and
 pushes it to replicas. Where it remains accessible by commit id.
 
 ### Accessing previous commits
-`$ curl localhost/pfs/file_name?commit=n`
+```shell
+$ curl localhost/pfs/file_name?commit=n
+```
 
 ## What is a git like filesystem?
 Pfs is implemented as a distributed layer on top of btrfs, the same
@@ -106,7 +119,9 @@ to chat: joey.zwicker@gmail.com jdoliner@gmail.com.
 
 ## How do I hack on pfs?
 Pfs' only dependency is Docker. You can build it like so:
-`pfs$ docker build -t username/pfs .`
+```shell
+pfs$ docker build -t username/pfs .
+```
 
 Deploying what you build requires pushing the built container to the central
 Docker registry and changing the container name in the .service files from
