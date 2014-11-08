@@ -1,9 +1,9 @@
 # Pachyderm File System
 
 ## What is pfs?
-Pfs is a distributed file system alternative built specifically for the Docker
-ecosystem. You [https://registry.hub.docker.com/u/pachyderm/pfs/](deploy it
-with Docker), just like other applications in your stack. Furthermore,
+Pfs is a distributed file system built specifically for the Docker
+ecosystem. You [https://registry.hub.docker.com/u/pachyderm/pfs/](deploy it with Docker),
+just like other applications in your stack. Furthermore,
 MapReduce jobs are specified as Docker containers, rather than .jars,
 letting you perform distributed computation using any tools you want.
 
@@ -23,7 +23,7 @@ there's a great deal of work to be done to match its feature set. However we're
 finding that thanks to innovative tools like btrfs, Docker and CoreOS we can
 build more functionality with less code than was possible 10 years ago.
 
-## What is a git-like file system?
+## What is a "git-like file system"?
 Pfs is implemented as a distributed layer on top of btrfs, the same
 copy-on-write(CoW) filesystem that powers Docker. A distributed layer that
 horizontally scales btrfs' existing
