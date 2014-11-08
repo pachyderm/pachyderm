@@ -2,14 +2,14 @@
 
 ## What is pfs?
 Pfs is a distributed file system built specifically for the Docker
-ecosystem. You [https://registry.hub.docker.com/u/pachyderm/pfs/](deploy it with Docker),
+ecosystem. You [deploy it with Docker](https://registry.hub.docker.com/u/pachyderm/pfs/),
 just like other applications in your stack. Furthermore,
 MapReduce jobs are specified as Docker containers, rather than .jars,
 letting you perform distributed computation using any tools you want.
 
 ## Key Features
 *TODO* make these clickable to lower sections
-- Fault-tolerant architecture built on [https://coreos.com](CoreOS) (implemented)
+- Fault-tolerant architecture built on [CoreOS](https://coreos.com) (implemented)
 - Git-like distributed file system (implemented)
 - Dockerized MapReduce (not implemented)
 
@@ -27,7 +27,7 @@ build more functionality with less code than was possible 10 years ago.
 Pfs is implemented as a distributed layer on top of btrfs, the same
 copy-on-write(CoW) filesystem that powers Docker. A distributed layer that
 horizontally scales btrfs' existing
-[http://zef.me/6023/who-needs-git-when-you-got-zfs/](git-like) semantics to
+[git-like](http://zef.me/6023/who-needs-git-when-you-got-zfs/) semantics to
 datacenter scale datasets. Pfs brings features like commit based history and
 branching, standard primitives for collaborating on code, data engineering.
 
@@ -46,9 +46,9 @@ Pfs is designed to run on CoreOS. To start you'll need a working CoreOS
 cluster. Currently global containers, which are required by pfs, are only
 available in the beta channel (CoreOS 444.5.0.)
 
-- [https://coreos.com/docs/running-coreos/platforms/vagrant/](Vagrant) (reccommended)
-- [https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/](Google Compute Engine)
-- [https://coreos.com/docs/running-coreos/cloud-providers/ec2/](Amazon EC2)
+- [Vagrant](https://coreos.com/docs/running-coreos/platforms/vagrant/) (reccommended)
+- [Google Compute Engine](https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/)
+- [Amazon EC2](https://coreos.com/docs/running-coreos/cloud-providers/ec2/)
 
 ### Deploy pfs
 SSH in to one of your new machines CoreOS machines.
