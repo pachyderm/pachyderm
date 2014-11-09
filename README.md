@@ -55,13 +55,7 @@ SSH in to one of your new machines CoreOS machines.
 
 ```shell
 $ wget https://github.com/pachyderm-io/pfs/raw/master/deploy/static/1Node.tar.gz
-```
-
-```shell
 $ tar -xvf 1Node.tar.gz
-```
-
-```shell
 $ fleetctl start 1Node/*
 ```
 
