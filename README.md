@@ -20,16 +20,23 @@ No, pfs is at Alpha status.
 Pachyderm will eventually be a complete replacement for Hadoop built on top of
 a modern toolchain instead of the JVM. Hadoop is a mature ecosystem, so there's
 a long way to go for pfs to fully match its featureset. However we're finding
-that thanks to innovative tools like btrfs, Docker, and CoreOS, we can build more
-functionality with less code than was possible 10 years ago.
+that thanks to innovative tools like btrfs, Docker, and CoreOS, we can build an
+order of magnitude more functionality with much less code.
 
 ## What is a "git-like file system"?
 Pfs is implemented as a distributed layer on top of btrfs, the same
-copy-on-write(CoW) filesystem that powers Docker. A distributed layer that
-horizontally scales btrfs' existing
-[git-like](http://zef.me/6023/who-needs-git-when-you-got-zfs/) semantics to
-datacenter scale datasets. Pfs brings features like commit based history and
-branching, standard primitives for collaborating on code, data engineering.
+copy-on-write file system that powers Docker. Btrfs already offers
+[git-like semantics](http://zef.me/6023/who-needs-git-when-you-got-zfs/) on a
+single machine pfs scales these out to a cluster. This allows features such as:
+- commit based history: File systems are generally single-state entities. Pfs,
+on the other hand, provides a rich history of every previous state of your
+cluster. You can always revert to a prior commit in the event of a
+disaster.
+- branching: Thanks to btrfs' copy-on-write semantics branching is ridiculously
+cheap in pfs. Each user can have an independant branch to experiment in without
+affect anyone else. Branches can later be shared with others through merging.
+- cloning: Btrfs' send/receive functionality allow pfs to efficiently transfer
+a cluster's worth of data to another cluster while maintaining its commit history.
 
 ## What is "dockerized MapReduce?"
 The basic interface for MapReduce is a `map` function and a `reduce` function.
@@ -38,6 +45,12 @@ user submitted Docker containers with http servers inside them. Rather than
 calling a `map` method on a class Pachyderm POSTs files to the `/map` route on
 a webserver. This completely democratizes MapReduce by decoupling it from a
 single platform such as the JVM.
+
+A low cost to integrating external libraries greatly increases the scope of
+problems MapReduce can solve. For example suppose you want to perform computer
+vision on a large set of images. Creating a job that does this is as simple as
+running `npm install opencv` inside a container and creating a node.js server
+which uses this library on its `/map` route.
 
 ## Quickstart Guide
 
