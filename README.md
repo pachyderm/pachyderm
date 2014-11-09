@@ -17,11 +17,11 @@ letting you perform distributed computation using any tools you want.
 No, pfs is at Alpha status.
 
 ## Where is this project going?
-Long term Pachyderm's goal is to be a viable alternative to Hadoop built on top
-of a modern distributed computing toolchain. Hadoop is a mature product so
-there's a great deal of work to be done to match its feature set. However we're
-finding that thanks to innovative tools like btrfs, Docker and CoreOS we can
-build more functionality with less code than was possible 10 years ago.
+Pachyderm will eventually be a complete replacement for Hadoop built on top of
+a modern toolchain instead of the JVM. Hadoop is a mature ecosystem, so there's
+a long way to go for pfs to fully match its featureset. However we're finding
+that thanks to innovative tools like btrfs, Docker, and CoreOS, we can build more
+functionality with less code than was possible 10 years ago.
 
 ## What is a "git-like file system"?
 Pfs is implemented as a distributed layer on top of btrfs, the same
@@ -44,7 +44,7 @@ single platform such as the JVM.
 ### Creating a CoreOS cluster
 Pfs is designed to run on CoreOS. To start you'll need a working CoreOS
 cluster. Currently global containers, which are required by pfs, are only
-available in the beta channel (CoreOS 444.5.0.)
+available in the beta channel (CoreOS 444.5.0)
 
 - [Vagrant](https://coreos.com/docs/running-coreos/platforms/vagrant/) (reccommended)
 - [Google Compute Engine](https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/)
@@ -53,11 +53,17 @@ available in the beta channel (CoreOS 444.5.0.)
 ### Deploy pfs
 SSH in to one of your new machines CoreOS machines.
 
-`$ wget https://github.com/pachyderm-io/pfs/raw/master/deploy/static/1Node.tar.gz`
+```shell
+$ wget https://github.com/pachyderm-io/pfs/raw/master/deploy/static/1Node.tar.gz
+```
 
-`$ tar -xvf 1Node.tar.gz`
+```shell
+$ tar -xvf 1Node.tar.gz
+```
 
-`$ fleetctl start 1Node/*`
+```shell
+$ fleetctl start 1Node/*
+```
 
 The startup process takes a little while the first time your run it because
 each node has to pull a Docker image.
