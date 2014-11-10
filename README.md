@@ -9,7 +9,7 @@ letting you perform distributed computation using any tools you want.
 
 ## Key Features
 - Fault-tolerant architecture built on [CoreOS](https://coreos.com) (implemented)
-- [Git-like distributed file system](https://github.com/pachyderm-io/pfs/blob/master/README.md#what-is-a-git-like-file-system) (implemented)
+- [Git-like distributed file system](#what-is-a-git-like-file-system) (implemented)
 - Dockerized MapReduce (not implemented)
 
 ## Is pfs production ready
