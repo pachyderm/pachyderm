@@ -13,7 +13,7 @@ letting you perform distributed computation using any tools you want.
 - [Dockerized MapReduce](#what-is-dockerized-mapreduce) (not implemented)
 
 ## Is pfs production ready
-No, pfs is at Alpha status.
+No, pfs is at Alpha status. [We'd love your help. :)](#how-do-i-hack-on-pfs)
 
 ## Where is this project going?
 Pachyderm will eventually be a complete replacement for Hadoop, built on top of
@@ -124,11 +124,11 @@ $ curl localhost/pfs/file_name?commit=n
 ```
 
 ## Who's building this?
-2 guys who love data and communities. Both of whom are named Joe. We'd love
+Two guys who love data and communities and both happen to be named Joe. We'd love
 to chat: joey.zwicker@gmail.com jdoliner@gmail.com.
 
 ## How do I hack on pfs?
-Pfs' only dependency is Docker. You can build it like so:
+Pfs's only dependency is Docker. You can build it like so:
 ```shell
 pfs$ docker build -t username/pfs .
 ```
