@@ -8,9 +8,8 @@ MapReduce jobs are specified as Docker containers, rather than .jars,
 letting you perform distributed computation using any tools you want.
 
 ## Key Features
-*TODO* make these clickable to lower sections
 - Fault-tolerant architecture built on [CoreOS](https://coreos.com) (implemented)
-- Git-like distributed file system (implemented)
+- [Git-like distributed file system](https://github.com/pachyderm-io/pfs/blob/master/README.md#what-is-a-git-like-file-system) (implemented)
 - Dockerized MapReduce (not implemented)
 
 ## Is pfs production ready
