@@ -17,40 +17,36 @@ letting you perform distributed computation using any tools you want.
 No, pfs is at Alpha status.
 
 ## Where is this project going?
-Pachyderm will eventually be a complete replacement for Hadoop built on top of
+Pachyderm will eventually be a complete replacement for Hadoop, built on top of
 a modern toolchain instead of the JVM. Hadoop is a mature ecosystem, so there's
-a long way to go for pfs to fully match its featureset. However we're finding
-that thanks to innovative tools like btrfs, Docker, and CoreOS, we can build an
-order of magnitude more functionality with much less code.
+a long way to go before pfs will fully match its feature set. However, thanks to innovative tools like btrfs, Docker, and CoreOS, we can build an order of magnitude more functionality with much less code.
 
 ## What is a "git-like file system"?
 Pfs is implemented as a distributed layer on top of btrfs, the same
 copy-on-write file system that powers Docker. Btrfs already offers
 [git-like semantics](http://zef.me/6023/who-needs-git-when-you-got-zfs/) on a
-single machine pfs scales these out to a cluster. This allows features such as:
-- commit based history: File systems are generally single-state entities. Pfs,
+single machine and pfs scales these out to an entire cluster. This allows features such as:
+- Commit based history: File systems are generally single-state entities. Pfs,
 on the other hand, provides a rich history of every previous state of your
 cluster. You can always revert to a prior commit in the event of a
 disaster.
-- branching: Thanks to btrfs' copy-on-write semantics branching is ridiculously
-cheap in pfs. Each user can have an independant branch to experiment in without
-affect anyone else. Branches can later be shared with others through merging.
-- cloning: Btrfs' send/receive functionality allow pfs to efficiently transfer
-a cluster's worth of data to another cluster while maintaining its commit history.
+- Branching: Thanks to btrfs's copy-on-write semantics, branching is ridiculously
+cheap in pfs. Each user can experience freeling in their own branch without
+impacting anyone else or the underlying data. Branches can easily be merged back in the main cluster.
+- Cloning: Btrfs's send/receive functionality allows pfs to efficiently copy
+a entire cluster's worth of data while still maintaining its commit history.
 
 ## What is "dockerized MapReduce?"
 The basic interface for MapReduce is a `map` function and a `reduce` function.
-In Hadoop this is exposed as a Java interface. In Pachyderm MapReduce jobs are
-user submitted Docker containers with http servers inside them. Rather than
-calling a `map` method on a class Pachyderm POSTs files to the `/map` route on
+In Hadoop this is exposed as a Java interface. In Pachyderm, MapReduce jobs are
+user-submitted Docker containers with http servers inside them. Rather than
+calling a `map` method on a class, Pachyderm POSTs files to the `/map` route on
 a webserver. This completely democratizes MapReduce by decoupling it from a
-single platform such as the JVM.
+single platform, such as the JVM.
 
-A low cost to integrating external libraries greatly increases the scope of
-problems MapReduce can solve. For example suppose you want to perform computer
-vision on a large set of images. Creating a job that does this is as simple as
-running `npm install opencv` inside a container and creating a node.js server
-which uses this library on its `/map` route.
+Thanks to Docker, Pachyderm can seemlessly integrate external libraries. For example, suppose you want to perform computer
+vision on a large set of images. Creating this job is as simple as
+running `npm install opencv` inside a Docker container and creating a node.js server, which uses this library on its `/map` route.
 
 ## Quickstart Guide
 
