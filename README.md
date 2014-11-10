@@ -50,7 +50,7 @@ running `npm install opencv` inside a Docker container and creating a node.js se
 ## Quickstart Guide
 
 ### Creating a CoreOS cluster
-Pfs is designed to run on CoreOS. To start you'll need a working CoreOS
+Pfs is designed to run on CoreOS. To start, you'll need a working CoreOS
 cluster. Currently global containers, which are required by pfs, are only
 available in the beta channel (CoreOS 444.5.0)
 
@@ -67,7 +67,7 @@ $ tar -xvf 1Node.tar.gz
 $ fleetctl start 1Node/*
 ```
 
-The startup process takes a little while the first time your run it because
+The startup process takes a little while the first time you run it because
 each node has to pull a Docker image.
 
 ### Checking the status of your deploy
@@ -76,7 +76,7 @@ The easiest way to see what's going on in your cluster is to use `list-units`
 $ fleetctl list-units
 ```
 
-If things are working correctly you should see something like:
+If things are working correctly, you should see something like:
 
 ```
 UNIT                            MACHINE                         ACTIVE  SUB
@@ -88,14 +88,14 @@ router.service                  3817102d.../10.240.199.203      active  running
 ```
 
 ### Using pfs
-Pfs exposes a git like interface to the file system:
+Pfs exposes a git-like interface to the file system:
 
 #### Creating a file
 ```shell
 $ curl -XPOST localhost/pfs/file_name -d @local_file
 ```
 
-#### Read a file
+#### Reading a file
 ```shell
 $ curl localhost/pfs/file_name
 ```
@@ -116,7 +116,7 @@ $ curl localhost/commit
 ```
 
 Committing in pfs creates a lightweight snapshot of the file system state and
-pushes it to replicas. Where it remains accessible by commit id.
+pushes it to replicas, where it remains accessible by a commit id.
 
 ### Accessing previous commits
 ```shell
@@ -128,7 +128,7 @@ Two guys who love data and communities and both happen to be named Joe. We'd lov
 to chat: joey.zwicker@gmail.com jdoliner@gmail.com.
 
 ## How do I hack on pfs?
-Pfs's only dependency is Docker. You can build it like so:
+Pfs's only dependency is Docker. You can build it with:
 ```shell
 pfs$ docker build -t username/pfs .
 ```
