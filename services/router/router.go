@@ -25,7 +25,7 @@ func Route(w http.ResponseWriter, r *http.Request, etcdKey string) {
 	bucket := hashRequest(r)
 	shard := fmt.Sprint(bucket, "-", os.Args[1])
 
-	client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
+	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
 	_master, err := client.Get(path.Join(etcdKey, shard), false, false)
 	if err != nil {
 		log.Fatal(err)

@@ -67,7 +67,7 @@ func printGlobalService(name string, shards int) {
 
 	config := new(service)
 	config.Name = name
-	config.Container = "jdoliner/pfs"
+	config.Container = "pachyderm/pfs"
 	config.Nshards = shards
 
 	server, err := os.Create(fmt.Sprintf("%s.service", config.Name))

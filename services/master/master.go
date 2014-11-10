@@ -90,7 +90,7 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 // CommitHandler creates a snapshot of outstanding changes and pushes it to
 // replicas.
 func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
-	client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
+	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
 	log.Printf("Getting replica for %s.", os.Args[1])
 	shard_prefix := path.Join("/pfs", "replica", os.Args[1])
 	_replica, err := client.Get(shard_prefix, false, false)
