@@ -10,7 +10,7 @@ letting you perform distributed computation using any tools you want.
 ## Key Features
 - Fault-tolerant architecture built on [CoreOS](https://coreos.com) (implemented)
 - [Git-like distributed file system](#what-is-a-git-like-file-system) (implemented)
-- Dockerized MapReduce (not implemented)
+- [Dockerized MapReduce](#what-is-dockerized-mapreduce) (not implemented)
 
 ## Is pfs production ready
 No, pfs is at Alpha status.
