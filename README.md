@@ -54,9 +54,9 @@ Pfs is designed to run on CoreOS. To start, you'll need a working CoreOS
 cluster. Currently global containers, which are required by pfs, are only
 available in the beta channel (CoreOS 444.5.0)
 
-- [Vagrant](https://coreos.com/docs/running-coreos/platforms/vagrant/) (reccommended)
-- [Google Compute Engine](https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/)
+- [Google Compute Engine](https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/) (recommended)
 - [Amazon EC2](https://coreos.com/docs/running-coreos/cloud-providers/ec2/)
+- [Vagrant](https://coreos.com/docs/running-coreos/platforms/vagrant/) (requires setting up DNS)
 
 ### Deploy pfs
 SSH in to one of your new machines CoreOS machines.
