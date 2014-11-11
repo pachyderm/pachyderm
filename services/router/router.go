@@ -96,6 +96,9 @@ func RouterMux() *http.ServeMux {
 	mux.HandleFunc("/pfs/", pfsHandler)
 	mux.HandleFunc("/commit", commitHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
+	mux.HandleFunc("/index.html", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Hi, you'd probably be happier curling at http://146.148.77.106/")
+	})
 
 	return mux
 }
