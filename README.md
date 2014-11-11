@@ -24,16 +24,16 @@ a long way to go before pfs will fully match its feature set. However, thanks to
 Pfs is implemented as a distributed layer on top of btrfs, the same
 copy-on-write file system that powers Docker. Btrfs already offers
 [git-like semantics](http://zef.me/6023/who-needs-git-when-you-got-zfs/) on a
-single machine and pfs scales these out to an entire cluster. This allows features such as:
-- Commit based history: File systems are generally single-state entities. Pfs,
+single machine; pfs scales these out to an entire cluster. This allows features such as:
+- Commit-based history: File systems are generally single-state entities. Pfs,
 on the other hand, provides a rich history of every previous state of your
 cluster. You can always revert to a prior commit in the event of a
 disaster.
 - Branching: Thanks to btrfs's copy-on-write semantics, branching is ridiculously
-cheap in pfs. Each user can experience freeling in their own branch without
+cheap in pfs. Each user can experiment freely in their own branch without
 impacting anyone else or the underlying data. Branches can easily be merged back in the main cluster.
 - Cloning: Btrfs's send/receive functionality allows pfs to efficiently copy
-a entire cluster's worth of data while still maintaining its commit history.
+an entire cluster's worth of data while still maintaining its commit history.
 
 ## What is "dockerized MapReduce?"
 The basic interface for MapReduce is a `map` function and a `reduce` function.
@@ -43,7 +43,7 @@ calling a `map` method on a class, Pachyderm POSTs files to the `/map` route on
 a webserver. This completely democratizes MapReduce by decoupling it from a
 single platform, such as the JVM.
 
-Thanks to Docker, Pachyderm can seemlessly integrate external libraries. For example, suppose you want to perform computer
+Thanks to Docker, Pachyderm can seamlessly integrate external libraries. For example, suppose you want to perform computer
 vision on a large set of images. Creating this job is as simple as
 running `npm install opencv` inside a Docker container and creating a node.js server, which uses this library on its `/map` route.
 
