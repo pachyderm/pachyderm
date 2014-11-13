@@ -2,6 +2,7 @@ package btrfs
 
 import (
 	"bytes"
+	"hash/crc32"
 	"io"
 	"io/ioutil"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -122,12 +124,12 @@ func (fs *FS) FileExists(name string) (bool, error) {
 	return false, err
 }
 
-func (fs *FS) Mkdir(name string, prem os.FileMode) error {
-	return os.Mkdir(fs.FilePath(name), prem)
+func (fs *FS) Mkdir(name string) error {
+	return os.Mkdir(fs.FilePath(name), 0777)
 }
 
-func (fs *FS) MkdirAll(name string, prem os.FileMode) error {
-	return os.MkdirAll(fs.FilePath(name), prem)
+func (fs *FS) MkdirAll(name string) error {
+	return os.MkdirAll(fs.FilePath(name), 0777)
 }
 
 func (fs *FS) Link(oldname, newname string) error {
@@ -264,4 +266,45 @@ func (fs *FS) Recv(volume string, data io.ReadCloser) error {
 	log.Print("Stderr:", buf)
 
 	return cmd.Wait()
+}
+
+func (fs *FS) Init(name string) error {
+	if err := fs.SubvolumeCreate(name); err != nil {
+		return err
+	}
+
+	if err := fs.SubvolumeCreate(path.Join(name, "data")); err != nil {
+		return err
+	}
+
+	if err := fs.SubvolumeCreate(path.Join(name, "commits")); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (fs *FS) Commit(name string) error {
+	if err := fs.Snapshot(path.Join(name, "data"), path.Join(name, "commits", "HEAD"), true); err != nil {
+		return err
+	}
+
+	hash := crc32.NewIEEE()
+
+	err := fs.Send(path.Join(name, "data"), path.Join(name, "commits", "HEAD"),
+		func(data io.ReadCloser) error {
+			_, err := io.Copy(hash, data)
+			return err
+		})
+
+	if err != nil {
+		return err
+	}
+
+	commit_name := path.Join(name, "commits", strconv.FormatUint(uint64(hash.Sum32()), 16))
+	if err := fs.Snapshot(path.Join(name, "data"), commit_name, true); err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -163,7 +163,7 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	} else {
 		log.Print("First commit.")
 		first_commit := path.Join(".commits", "0")
-		err = fs.MkdirAll(".commits", 0777)
+		err = fs.MkdirAll(".commits")
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
@@ -202,6 +202,9 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 		fmt.Fprintf(w, "Sent commit to: %s.\n", replica)
 	}
 }
+
+//func BranchHandler(w http.ResponseWriter, r *http.Request, fs *brtfs.FS) {
+//}
 
 //BrowseHandler exposes existing snapshots.
 func BrowseHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
