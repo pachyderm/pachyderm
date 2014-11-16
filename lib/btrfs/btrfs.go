@@ -2,7 +2,6 @@ package btrfs
 
 import (
 	"bytes"
-	"hash/crc32"
 	"io"
 	"io/ioutil"
 	"log"
@@ -10,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -182,9 +180,8 @@ func (fs *FS) Snapshot(volume string, dest string, readonly bool) error {
 	}
 }
 
-func (fs *FS) SendBase(to string, cont func(io.ReadCloser) error) error {
-	cmd := exec.Command("btrfs", "send", fs.FilePath(to))
-	log.Println(cmd)
+func (fs *FS) CallCont(cmd *exec.Cmd, cont func(io.ReadCloser) error) error {
+	log.Println("CallCont: ", cmd)
 	reader, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
@@ -209,31 +206,14 @@ func (fs *FS) SendBase(to string, cont func(io.ReadCloser) error) error {
 	return cmd.Wait()
 }
 
+func (fs *FS) SendBase(to string, cont func(io.ReadCloser) error) error {
+	cmd := exec.Command("btrfs", "send", fs.FilePath(to))
+	return fs.CallCont(cmd, cont)
+}
+
 func (fs *FS) Send(from string, to string, cont func(io.ReadCloser) error) error {
 	cmd := exec.Command("btrfs", "send", "-p", fs.FilePath(from), fs.FilePath(to))
-	log.Println(cmd)
-	reader, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-	err = cmd.Start()
-	if err != nil {
-		return err
-	}
-	err = cont(reader)
-	if err != nil {
-		return err
-	}
-
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(stderr)
-	log.Print("Stderr:", buf)
-
-	return cmd.Wait()
+	return fs.CallCont(cmd, cont)
 }
 
 func (fs *FS) Recv(volume string, data io.ReadCloser) error {
@@ -268,43 +248,34 @@ func (fs *FS) Recv(volume string, data io.ReadCloser) error {
 	return cmd.Wait()
 }
 
-func (fs *FS) Init(name string) error {
-	if err := fs.SubvolumeCreate(name); err != nil {
+func (fs *FS) Init(repo string) error {
+	if err := fs.SubvolumeCreate(repo); err != nil {
 		return err
 	}
 
-	if err := fs.SubvolumeCreate(path.Join(name, "data")); err != nil {
+	if err := fs.SubvolumeCreate(path.Join(repo, "branches")); err != nil {
 		return err
 	}
 
-	if err := fs.SubvolumeCreate(path.Join(name, "commits")); err != nil {
+	if err := fs.SubvolumeCreate(path.Join(repo, "commits")); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (fs *FS) Commit(name string) error {
-	if err := fs.Snapshot(path.Join(name, "data"), path.Join(name, "commits", "HEAD"), true); err != nil {
-		return err
-	}
+func (fs *FS) Commit(repo, branch string) error {
+	tstamp := time.Now().Format("2006-01-02T15:04:05.999999-07:00")
 
-	hash := crc32.NewIEEE()
-
-	err := fs.Send(path.Join(name, "data"), path.Join(name, "commits", "HEAD"),
-		func(data io.ReadCloser) error {
-			_, err := io.Copy(hash, data)
-			return err
-		})
-
-	if err != nil {
-		return err
-	}
-
-	commit_name := path.Join(name, "commits", strconv.FormatUint(uint64(hash.Sum32()), 16))
-	if err := fs.Snapshot(path.Join(name, "data"), commit_name, true); err != nil {
+	if err := fs.Snapshot(path.Join(repo, branch), path.Join(repo, "commits", branch+"-"+tstamp), true); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+//Log returns all of the commits the repo which are >= a given generation.
+func (fs *FS) Log(repo, from string, cont func(io.ReadCloser) error) error {
+	cmd := exec.Command("btrfs", "s,ubvolume", "list", "-c", "-g", "-C", "+"+from, fs.FilePath(path.Join(repo, "commits")))
+	return fs.CallCont(cmd, cont)
 }
