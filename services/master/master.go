@@ -57,7 +57,7 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	} else if r.Method == "POST" {
 		url := strings.Split(r.URL.Path, "/")
 		filename := strings.Join(url[2:], "/")
-		size, err := fs.CreateFile(filename, r.Body)
+		size, err := fs.CreateFromReader(filename, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)

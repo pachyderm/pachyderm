@@ -18,6 +18,7 @@ var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 var once sync.Once
 var volume = "/var/lib/pfs/vol"
 
+// Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
 func RandSeq(n int) string {
 	once.Do(func() { rand.Seed(time.Now().UTC().UnixNano()) })
 	b := make([]rune, n)
@@ -27,12 +28,19 @@ func RandSeq(n int) string {
 	return string(b)
 }
 
+// FS represents a btrfs filesystem. Underneath it's a subvolume of a larger filesystem.
 type FS struct {
 	namespace string
 }
 
+// NewFS creates a new filesystem.
 func NewFS(namespace string) *FS {
 	return &FS{namespace}
+}
+
+// NewFSWithRandSeq creates a new filesystem with a random sequence appended to the end.
+func NewFSWithRandSeq(namespace string) *FS {
+	return &FS{namespace + RandSeq(10)}
 }
 
 func RunStderr(c *exec.Cmd) error {
@@ -81,7 +89,7 @@ func (fs *FS) Create(name string) (*os.File, error) {
 	return os.Create(fs.FilePath(name))
 }
 
-func (fs *FS) CreateFile(name string, r io.Reader) (int64, error) {
+func (fs *FS) CreateFromReader(name string, r io.Reader) (int64, error) {
 	f, err := fs.Create(name)
 	if err != nil {
 		return 0, err
@@ -252,26 +260,25 @@ func (fs *FS) Init(repo string) error {
 	if err := fs.SubvolumeCreate(repo); err != nil {
 		return err
 	}
-
 	if err := fs.SubvolumeCreate(path.Join(repo, "branches")); err != nil {
 		return err
 	}
-
+	if err := fs.SubvolumeCreate(path.Join(repo, "branches", "master")); err != nil {
+		return err
+	}
 	if err := fs.SubvolumeCreate(path.Join(repo, "commits")); err != nil {
 		return err
 	}
-
 	return nil
 }
 
-func (fs *FS) Commit(repo, branch string) error {
-	tstamp := time.Now().Format("2006-01-02T15:04:05.999999-07:00")
+func (fs *FS) Commit(repo, branch string) (string, error) {
+	commit := branch + "-" + time.Now().Format("2006-01-02T15:04:05.999999-07:00")
+	return commit, fs.Snapshot(path.Join(repo, "branches", branch), path.Join(repo, "commits", commit), true)
+}
 
-	if err := fs.Snapshot(path.Join(repo, branch), path.Join(repo, "commits", branch+"-"+tstamp), true); err != nil {
-		return err
-	}
-
-	return nil
+func (fs *FS) Branch(repo, commit, branch string) error {
+	return fs.Snapshot(path.Join(repo, "commits", commit), path.Join(repo, "branches", branch), false)
 }
 
 //Log returns all of the commits the repo which are >= a given generation.
