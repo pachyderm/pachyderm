@@ -281,8 +281,12 @@ func (fs *FS) Branch(repo, commit, branch string) error {
 	return fs.Snapshot(path.Join(repo, "commits", commit), path.Join(repo, "branches", branch), false)
 }
 
-//Log returns all of the commits the repo which are >= a given generation.
+type Commit struct {
+	path, branch, gen string
+}
+
+//Log returns all of the commits the repo which have generation >= from.
 func (fs *FS) Log(repo, from string, cont func(io.ReadCloser) error) error {
-	cmd := exec.Command("btrfs", "s,ubvolume", "list", "-c", "-g", "-C", "+"+from, fs.FilePath(path.Join(repo, "commits")))
+	cmd := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-C", "+"+from, "--sort", "-ogen", fs.FilePath(path.Join(repo, "commits")))
 	return fs.CallCont(cmd, cont)
 }

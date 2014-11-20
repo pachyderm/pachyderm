@@ -1,4 +1,4 @@
-FROM ubuntu
+FROM ubuntu:14.10
 
 ENV GOPATH /go
 ENV PFS github.com/pachyderm-io/pfs

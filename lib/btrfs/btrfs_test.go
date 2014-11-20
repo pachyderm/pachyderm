@@ -2,6 +2,8 @@ package btrfs
 
 import (
 	"bufio"
+	"io"
+	"os"
 	"path"
 	"testing"
 )
@@ -78,8 +80,21 @@ func TestGit(t *testing.T) {
 	fs.EnsureNamespace()
 
 	check(fs.Init("repo"), t)
-	writeFile(fs, "repo/branches/master/foo", "foo", t)
+	writeFile(fs, "repo/branches/master/file", "foo", t)
 	commit, err := fs.Commit("repo", "master")
 	check(err, t)
-	checkFile(fs, path.Join("repo", "commits", commit, "foo"), "foo", t)
+	checkFile(fs, path.Join("repo", "commits", commit, "file"), "foo", t)
+
+	check(fs.Branch("repo", commit, "branch"), t)
+	checkFile(fs, path.Join("repo", "branches", "branch", "file"), "foo", t)
+
+	writeFile(fs, "repo/branches/branch/file2", "foo", t)
+	commit, err = fs.Commit("repo", "branch")
+	check(err, t)
+	checkFile(fs, path.Join("repo", "commits", commit, "file2"), "foo", t)
+
+	check(fs.Log("repo", "0", func(r io.ReadCloser) error {
+		_, err := io.Copy(os.Stdout, r)
+		return err
+	}), t)
 }
