@@ -85,7 +85,7 @@ func TestGit(t *testing.T) {
 	check(err, t)
 	checkFile(fs, path.Join("repo", "master", commit, "file"), "foo", t)
 
-	check(fs.Branch("repo", commit, "branch"), t)
+	check(fs.Branch("repo", "master", commit, "branch"), t)
 	checkFile(fs, "repo/branch/HEAD/file", "foo", t)
 
 	writeFile(fs, "repo/branch/HEAD/file2", "foo", t)

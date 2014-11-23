@@ -195,11 +195,11 @@ func (fs *FS) Snapshot(volume string, dest string, readonly bool) error {
 }
 
 func (fs *FS) SetReadOnly(volume string) error {
-	return RunStderr(exec.Command("property", "set", volume, "ro", "true"))
+	return RunStderr(exec.Command("btrfs", "property", "set", fs.FilePath(volume), "ro", "true"))
 }
 
 func (fs *FS) UnsetReadOnly(volume string) error {
-	return RunStderr(exec.Command("property", "set", volume, "ro", "false"))
+	return RunStderr(exec.Command("btrfs", "property", "set", fs.FilePath(volume), "ro", "false"))
 }
 
 func (fs *FS) CallCont(cmd *exec.Cmd, cont func(io.ReadCloser) error) error {
@@ -307,11 +307,11 @@ func (fs *FS) Commit(repo, branch string) (string, error) {
 	return commit, nil
 }
 
-func (fs *FS) Branch(repo, commit, branch string) error {
-	if err := fs.MkdirAll(path.Join(repo, branch)); err != nil {
+func (fs *FS) Branch(repo, parentBranch, commit, newBranch string) error {
+	if err := fs.MkdirAll(path.Join(repo, newBranch)); err != nil {
 		return err
 	}
-	if err := fs.Snapshot(path.Join(repo, commit), path.Join(repo, branch, "HEAD"), false); err != nil {
+	if err := fs.Snapshot(path.Join(repo, parentBranch, commit), path.Join(repo, newBranch, "HEAD"), false); err != nil {
 		return err
 	}
 	return nil
