@@ -1,7 +1,9 @@
 package btrfs
 
 import (
+	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -119,6 +121,10 @@ func (fs *FS) Remove(name string) error {
 	return os.Remove(fs.FilePath(name))
 }
 
+func (fs *FS) Rename(oldname, newname string) error {
+	return os.Rename(fs.FilePath(oldname), fs.FilePath(newname))
+}
+
 func (fs *FS) FileExists(name string) (bool, error) {
 	_, err := os.Stat(fs.FilePath(name))
 	if err == nil {
@@ -186,6 +192,14 @@ func (fs *FS) Snapshot(volume string, dest string, readonly bool) error {
 		return RunStderr(exec.Command("btrfs", "subvolume", "snapshot",
 			fs.FilePath(volume), fs.FilePath(dest)))
 	}
+}
+
+func (fs *FS) SetReadOnly(volume string) error {
+	return RunStderr(exec.Command("property", "set", volume, "ro", "true"))
+}
+
+func (fs *FS) UnsetReadOnly(volume string) error {
+	return RunStderr(exec.Command("property", "set", volume, "ro", "false"))
 }
 
 func (fs *FS) CallCont(cmd *exec.Cmd, cont func(io.ReadCloser) error) error {
@@ -260,33 +274,123 @@ func (fs *FS) Init(repo string) error {
 	if err := fs.SubvolumeCreate(repo); err != nil {
 		return err
 	}
-	if err := fs.SubvolumeCreate(path.Join(repo, "branches")); err != nil {
+	if err := fs.Mkdir(path.Join(repo, "master")); err != nil {
 		return err
 	}
-	if err := fs.SubvolumeCreate(path.Join(repo, "branches", "master")); err != nil {
-		return err
-	}
-	if err := fs.SubvolumeCreate(path.Join(repo, "commits")); err != nil {
+	if err := fs.SubvolumeCreate(path.Join(repo, "master", "HEAD")); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (fs *FS) Commit(repo, branch string) (string, error) {
-	commit := branch + "-" + time.Now().Format("2006-01-02T15:04:05.999999-07:00")
-	return commit, fs.Snapshot(path.Join(repo, "branches", branch), path.Join(repo, "commits", commit), true)
+	// First we check to make sure that the branch actually exists
+	exists, err := fs.FileExists(path.Join(repo, branch, "HEAD"))
+	if err != nil {
+		return "", err
+	}
+	if !exists {
+		return "", fmt.Errorf("Branch %s not found.", branch)
+	}
+	// First we make HEAD readonly
+	if err := fs.SetReadOnly(path.Join(repo, branch, "HEAD")); err != nil {
+		return "", err
+	}
+	// Next move it to a different
+	commit := time.Now().Format("2006-01-02T15:04:05.999999-07:00")
+	if err := fs.Rename(path.Join(repo, branch, "HEAD"), path.Join(repo, branch, commit)); err != nil {
+		return "", err
+	}
+	if err := fs.Snapshot(path.Join(repo, branch, commit), path.Join(repo, branch, "HEAD"), false); err != nil {
+		return "", err
+	}
+	return commit, nil
 }
 
 func (fs *FS) Branch(repo, commit, branch string) error {
-	return fs.Snapshot(path.Join(repo, "commits", commit), path.Join(repo, "branches", branch), false)
-}
-
-type Commit struct {
-	path, branch, gen string
+	if err := fs.MkdirAll(path.Join(repo, branch)); err != nil {
+		return err
+	}
+	if err := fs.Snapshot(path.Join(repo, commit), path.Join(repo, branch, "HEAD"), false); err != nil {
+		return err
+	}
+	return nil
 }
 
 //Log returns all of the commits the repo which have generation >= from.
 func (fs *FS) Log(repo, from string, cont func(io.ReadCloser) error) error {
-	cmd := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-C", "+"+from, "--sort", "-ogen", fs.FilePath(path.Join(repo, "commits")))
+	cmd := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-C", "+"+from, "--sort", "-ogen", fs.FilePath(path.Join(repo)))
 	return fs.CallCont(cmd, cont)
+}
+
+type Commit struct {
+	gen, id, parent, path string
+}
+
+func (fs *FS) Commits(repo, from string, cont func(Commit) error) error {
+	return fs.Log(repo, from, func(r io.ReadCloser) error {
+		scanner := bufio.NewScanner(r)
+		for scanner.Scan() {
+			// scanner.Text() looks like:
+			// ID 299 gen 67 cgen 66 top level 292 parent_uuid 7a4a824b-7b78-d144-a956-eb0229616d21 uuid c1cd770c-600b-a744-940c-835bf73b5fa9 path fs/repo/commits/branch/2014-11-20T07:25:01.853165+00:00
+			// 0  1   2   3  4    5  6   7     8   9           10                                   11   12                                   13   14
+			tokens := strings.Split(scanner.Text(), " ")
+			if len(tokens) != 15 {
+				return fmt.Errorf("Malformed commit line: %s.", scanner.Text())
+			}
+			if err := cont(Commit{tokens[3], tokens[12], tokens[10], tokens[14]}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+type Diff struct {
+	parent, child *Commit
+}
+
+func (fs *FS) Pull(repo, from string, cont func(io.ReadCloser) error) error {
+	// commits indexed by their parents
+	var parentMap map[string][]Commit
+	var diffs []Diff
+	// the body below gets called once per commit
+	err := fs.Commits(repo, from, func(c Commit) error {
+		// first we check if it's above the cutoff
+		// We don't do this if the parent is null (represented by "-")
+		if c.gen > from && c.parent != "-" {
+			// this commit is part of the pull so we put it in the parentMap
+			parentMap[c.parent] = append(parentMap[c.parent], c)
+		}
+		// Now we pop all of the commits for which this was the parent out of
+		// the map
+		for _, child := range parentMap[c.id] {
+			diffs = append(diffs, Diff{&c, &child})
+		}
+		delete(parentMap, c.id)
+
+		if len(parentMap) == 0 {
+			if c.parent == "-" {
+				diffs = append(diffs, Diff{nil, &c})
+			}
+			return fmt.Errorf("COMPLETE")
+		} else {
+			return nil
+		}
+	})
+	if err == nil || err.Error() == "COMPLETE" {
+		for _, diff := range diffs {
+			if diff.parent == nil {
+				if err := fs.SendBase(diff.child.path, cont); err != nil {
+					return err
+				}
+			}
+			if err := fs.Send(diff.parent.path, diff.child.path, cont); err != nil {
+				return err
+			}
+		}
+	} else {
+		return err
+	}
+	return nil
 }
