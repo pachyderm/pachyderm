@@ -80,18 +80,18 @@ func TestGit(t *testing.T) {
 	fs.EnsureNamespace()
 
 	check(fs.Init("repo"), t)
-	writeFile(fs, "repo/branches/master/file", "foo", t)
+	writeFile(fs, "repo/master/HEAD/file", "foo", t)
 	commit, err := fs.Commit("repo", "master")
 	check(err, t)
-	checkFile(fs, path.Join("repo", "commits", commit, "file"), "foo", t)
+	checkFile(fs, path.Join("repo", "master", commit, "file"), "foo", t)
 
 	check(fs.Branch("repo", commit, "branch"), t)
-	checkFile(fs, path.Join("repo", "branches", "branch", "file"), "foo", t)
+	checkFile(fs, "repo/branch/HEAD/file", "foo", t)
 
-	writeFile(fs, "repo/branches/branch/file2", "foo", t)
+	writeFile(fs, "repo/branch/HEAD/file2", "foo", t)
 	commit, err = fs.Commit("repo", "branch")
 	check(err, t)
-	checkFile(fs, path.Join("repo", "commits", commit, "file2"), "foo", t)
+	checkFile(fs, path.Join("repo", "branch", commit, "file2"), "foo", t)
 
 	check(fs.Log("repo", "0", func(r io.ReadCloser) error {
 		_, err := io.Copy(os.Stdout, r)
