@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/pachyderm-io/pfs/lib/btrfs"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -27,7 +28,13 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	file := path.Join(append([]string{commitPath}, url[2:]...)...)
 
 	if r.Method == "GET" {
-		http.StripPrefix("/pfs/", http.FileServer(http.Dir(commitPath))).ServeHTTP(w, r)
+		if f, err := fs.Open(file); err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		} else {
+			io.Copy(w, f)
+		}
 	} else if r.Method == "POST" {
 		size, err := fs.CreateFromReader(file, r.Body)
 		if err != nil {
