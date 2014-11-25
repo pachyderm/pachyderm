@@ -14,20 +14,20 @@ import (
 
 func commitForRequest(r *http.Request) string {
 	if c := r.URL.Query().Get("commit"); c != "" {
-		return path.Join("repo", c)
+		return c
 	}
-	return "repo/master"
+	return "master"
 }
 
 // PfsHandler is the core route for modifying the contents of the fileystem.
 // Changes are not replicated until a call to CommitHandler.
 func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	url := strings.Split(r.URL.Path, "/")
-	commit := commitForRequest(r)
-	file := path.Join(append([]string{commit}, url[2:]...)...)
+	commitPath := path.Join("repo", commitForRequest(r))
+	file := path.Join(append([]string{commitPath}, url[2:]...)...)
 
 	if r.Method == "GET" {
-		http.StripPrefix("/pfs/", http.FileServer(http.Dir(commit))).ServeHTTP(w, r)
+		http.StripPrefix("/pfs/", http.FileServer(http.Dir(commitPath))).ServeHTTP(w, r)
 	} else if r.Method == "POST" {
 		size, err := fs.CreateFromReader(file, r.Body)
 		if err != nil {
