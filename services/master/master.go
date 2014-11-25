@@ -13,8 +13,15 @@ import (
 
 //TODO commits should be content based
 
-func commitForRequest(r *http.Request) string {
+func commitParam(r *http.Request) string {
 	if c := r.URL.Query().Get("commit"); c != "" {
+		return c
+	}
+	return "master"
+}
+
+func branchParam(r *http.Request) string {
+	if c := r.URL.Query().Get("branch"); c != "" {
 		return c
 	}
 	return "master"
@@ -24,7 +31,7 @@ func commitForRequest(r *http.Request) string {
 // Changes are not replicated until a call to CommitHandler.
 func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	url := strings.Split(r.URL.Path, "/")
-	commitPath := path.Join("repo", commitForRequest(r))
+	commitPath := path.Join("repo", commitParam(r))
 	file := path.Join(append([]string{commitPath}, url[2:]...)...)
 
 	if r.Method == "GET" {
@@ -63,13 +70,31 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 
 // CommitHandler creates a snapshot of outstanding changes.
 func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
-	if commit, err := fs.Commit("repo", commitForRequest(r)); err != nil {
+	var commit string
+	var err error
+	if commit, err = fs.Commit("repo", branchParam(r)); err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
-	} else {
-		fmt.Fprintf(w, "Create commit: %s.\n", commit)
 	}
+
+	fmt.Fprintf(w, "Create commit: %s.\n", commit)
+}
+
+// BranchHandler creates a new branch from commit.
+func BranchHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
+	if r.Method != "POST" {
+		http.Error(w, "Invalid method.", 405)
+		log.Print("Invalid method %s.", r.Method)
+		return
+	}
+
+	if err := fs.Branch("repo", commitParam(r), branchParam(r)); err != nil {
+		http.Error(w, err.Error(), 500)
+		log.Print(err)
+		return
+	}
+	fmt.Fprintf(w, "Created branch. (%s) -> %s.\n", commitParam(r), branchParam(r))
 }
 
 // MasterMux creates a multiplexer for a Master writing to the passed in FS.
@@ -84,9 +109,14 @@ func MasterMux(fs *btrfs.FS) *http.ServeMux {
 		PfsHandler(w, r, fs)
 	}
 
+	branchHandler := func(w http.ResponseWriter, r *http.Request) {
+		BranchHandler(w, r, fs)
+	}
+
 	mux.HandleFunc("/commit", commitHandler)
 	mux.HandleFunc("/pfs/", pfsHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
+	mux.HandleFunc("/branch", branchHandler)
 
 	return mux
 }
