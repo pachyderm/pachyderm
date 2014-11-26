@@ -3,6 +3,7 @@ package btrfs
 import (
 	"bufio"
 	"bytes"
+	"code.google.com/p/go-uuid/uuid"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -294,7 +295,7 @@ func (fs *FS) Commit(repo, branch string) (string, error) {
 		return "", err
 	}
 	// Next move it to being a commit
-	commit := time.Now().Format("2006-01-02T15:04:05.999999-07:00") //TODO this should be a uuid
+	commit := uuid.New()
 	if err := fs.Rename(path.Join(repo, branch), path.Join(repo, commit)); err != nil {
 		return "", err
 	}

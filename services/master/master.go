@@ -31,11 +31,13 @@ func branchParam(r *http.Request) string {
 // Changes are not replicated until a call to CommitHandler.
 func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	url := strings.Split(r.URL.Path, "/")
-	commitPath := path.Join("repo", commitParam(r))
-	file := path.Join(append([]string{commitPath}, url[2:]...)...)
+	// commitFile is used for read methods (GET)
+	commitFile := path.Join(append([]string{path.Join("repo", commitParam(r))}, url[2:]...)...)
+	// branchFile is used for write methods (POST, PUT, DELETE)
+	branchFile := path.Join(append([]string{path.Join("repo", branchParam(r))}, url[2:]...)...)
 
 	if r.Method == "GET" {
-		if f, err := fs.Open(file); err != nil {
+		if f, err := fs.Open(commitFile); err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
@@ -43,28 +45,28 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 			io.Copy(w, f)
 		}
 	} else if r.Method == "POST" {
-		size, err := fs.CreateFromReader(file, r.Body)
+		size, err := fs.CreateFromReader(branchFile, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
-		fmt.Fprintf(w, "Added %s, size: %d.\n", file, size)
+		fmt.Fprintf(w, "Created %s, size: %d.\n", branchFile, size)
 	} else if r.Method == "PUT" {
-		size, err := fs.WriteFile(file, r.Body)
+		size, err := fs.WriteFile(branchFile, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
-		fmt.Fprintf(w, "Wrote %s, size: %d.\n", file, size)
+		fmt.Fprintf(w, "Created %s, size: %d.\n", branchFile, size)
 	} else if r.Method == "DELETE" {
-		if err := fs.Remove(file); err != nil {
+		if err := fs.Remove(branchFile); err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
-		fmt.Fprintf(w, "Deleted %s.\n", file)
+		fmt.Fprintf(w, "Deleted %s.\n", branchFile)
 	}
 }
 
