@@ -74,7 +74,7 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	var commit string
 	var err error
-	if commit, err = fs.Commit("repo", branchParam(r)); err != nil {
+	if commit, err = fs.Commit("repo", commitParam(r), branchParam(r)); err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return

@@ -3,7 +3,6 @@ package btrfs
 import (
 	"bufio"
 	"bytes"
-	"code.google.com/p/go-uuid/uuid"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -281,7 +280,8 @@ func (fs *FS) Init(repo string) error {
 	return nil
 }
 
-func (fs *FS) Commit(repo, branch string) (string, error) {
+// Commit creates a new commit for a branch.
+func (fs *FS) Commit(repo, commit, branch string) (string, error) {
 	// First we check to make sure that the branch actually exists
 	exists, err := fs.FileExists(path.Join(repo, branch))
 	if err != nil {
@@ -295,7 +295,6 @@ func (fs *FS) Commit(repo, branch string) (string, error) {
 		return "", err
 	}
 	// Next move it to being a commit
-	commit := uuid.New()
 	if err := fs.Rename(path.Join(repo, branch), path.Join(repo, commit)); err != nil {
 		return "", err
 	}
