@@ -1,13 +1,13 @@
 package main
 
 import (
+	"code.google.com/p/go-uuid/uuid"
 	"fmt"
 	"github.com/coreos/go-etcd/etcd"
 	"hash/adler32"
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"strconv"
@@ -33,8 +33,10 @@ func Route(w http.ResponseWriter, r *http.Request, etcdKey string) {
 	master := _master.Node.Value
 
 	httpClient := &http.Client{}
+	// `Do` will complain if r.RequestURI is set so we unset it
 	r.RequestURI = ""
-	r.URL, err = url.Parse("http://" + path.Join(master, r.URL.String()))
+	r.URL.Scheme = "http"
+	r.URL.Host = master
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
@@ -52,8 +54,6 @@ func Route(w http.ResponseWriter, r *http.Request, etcdKey string) {
 
 func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 	log.Printf("Request to `Multicast`: %s.\n", r.URL.String())
-
-	baseUrl := r.URL.String()
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
 	_endpoints, err := client.Get(etcdKey, false, true)
 	if err != nil {
@@ -65,16 +65,20 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 	for _, node := range endpoints {
 		log.Print("Multicasting to: ", node, node.Value)
 		httpClient := &http.Client{}
+		// `Do` will complain if r.RequestURI is set so we unset it
 		r.RequestURI = ""
-		r.URL, err = url.Parse("http://" + path.Join(node.Value, baseUrl))
+		r.URL.Scheme = "http"
+		r.URL.Host = node.Value
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
 		log.Print("Proxying to: " + r.URL.String())
+		log.Print("Request:", r)
 		resp, err := httpClient.Do(r)
 		if err != nil {
+			fmt.Fprint(w, r.URL)
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
@@ -90,14 +94,21 @@ func RouterMux() *http.ServeMux {
 		Route(w, r, "/pfs/master")
 	}
 	commitHandler := func(w http.ResponseWriter, r *http.Request) {
+		values := r.URL.Query()
+		values.Add("commit", uuid.New())
+		r.URL.RawQuery = values.Encode()
+		Multicast(w, r, "/pfs/master")
+	}
+	branchHandler := func(w http.ResponseWriter, r *http.Request) {
 		Multicast(w, r, "/pfs/master")
 	}
 
 	mux.HandleFunc("/pfs/", pfsHandler)
 	mux.HandleFunc("/commit", commitHandler)
+	mux.HandleFunc("/branch", branchHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Hi, you'd probably be happier curling at http://146.148.77.106/")
+		fmt.Fprint(w, "PFS\n")
 	})
 
 	return mux
