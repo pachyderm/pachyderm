@@ -3,121 +3,98 @@ package btrfs
 import (
 	"bufio"
 	"io"
+	"os"
+	"path"
 	"testing"
 )
 
-func TestCreateDestroy(t *testing.T) {
-	fs := FS{"test", "loop2", "test", 10}
-	err := fs.Format()
-	if err != nil { t.Fatal(err) }
-    err = Sync()
-	if err != nil { t.Fatal(err) }
-	err = fs.Destroy()
-	if err != nil { t.Fatal(err) }
-    err = Sync()
-	if err != nil { t.Fatal(err) }
+var run_string string
+
+func check(err error, t *testing.T) {
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
-func TestCreateFile(t *testing.T) {
-	fs := FS{"test", "loop2", "test", 10}
-	err := fs.Format()
-	if err != nil { t.Fatal(err) }
-	defer func() {
-		err = fs.Destroy()
-		if err != nil { t.Fatal(err) }
-	}()
-
-	f, err := fs.Create("foo")
-	if err != nil { t.Fatal(err) }
-	f.WriteString("foo\n")
+// writeFile quickly writes a string to disk.
+func writeFile(fs *FS, name, content string, t *testing.T) {
+	f, err := fs.Create(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteString(content + "\n")
 	f.Close()
 
-    err = Sync()
-	if err != nil { t.Fatal(err) }
+}
 
-	err = fs.Unmount()
-	if err != nil { t.Fatal(err) }
-	err = fs.Mount()
-	if err != nil { t.Fatal(err) }
+// checkFile checks if a file on disk contains a given string.
+func checkFile(fs *FS, name, content string, t *testing.T) {
+	exists, err := fs.FileExists(name)
+	check(err, t)
+	if !exists {
+		t.Fatalf("File %s should exist.", name)
+	}
 
-	f, err = fs.Open("foo")
-	if err != nil { t.Fatal(err) }
+	f, err := fs.Open(name)
+	if err != nil {
+		t.Fatal(err)
+	}
 	reader := bufio.NewReader(f)
 	line, err := reader.ReadString('\n')
-    if err != nil { t.Fatal(err) }
-	if line != "foo\n" { t.Fatal("File contained the wrong value.") }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line != content+"\n" {
+		t.Fatal("File contained the wrong value.")
+	}
 	f.Close()
-
-	fs.Remove("foo")
 }
 
-func TestSendRecv(t *testing.T) {
-	fs1 := FS{"test1", "loop2", "test1", 10}
-	fs2 := FS{"test2", "loop3", "test2", 10}
-	err := fs1.Format()
+// checkNoFile checks that no file is present.
+func checkNoFile(fs *FS, name string, t *testing.T) {
+	exists, err := fs.FileExists(name)
+	check(err, t)
+	if exists {
+		t.Fatalf("File %s shouldn't exist.", name)
+	}
+}
+
+func removeFile(fs *FS, name string, t *testing.T) {
+	err := fs.Remove(name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = fs2.Format()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		err = fs1.Destroy()
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = fs2.Destroy()
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
+}
 
-	{
-		fs1.SubvolumeCreate("vol")
-		fs2.SubvolumeCreate("vol")
-	}
+func TestOsOps(t *testing.T) {
+	fs := NewFSWithRandSeq("TestOsOps")
+	fs.EnsureNamespace()
+	writeFile(fs, "foo", "foo", t)
+	checkFile(fs, "foo", "foo", t)
+	removeFile(fs, "foo", t)
+	checkNoFile(fs, "foo", t)
+}
 
-	{
-		err = fs1.Snapshot("vol", "vol/1", true)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = fs1.SendBase("vol/1",
-			func(reader io.ReadCloser) error { return fs2.Recv("vol", reader) })
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
+func TestGit(t *testing.T) {
+	fs := NewFSWithRandSeq("TestGit")
+	fs.EnsureNamespace()
 
-	{
-		f, err := fs1.Create("vol/foo")
-		if err != nil {
-			t.Fatal(err)
-		}
-		f.WriteString("foo\n")
-		f.Close()
-		fs1.Snapshot("vol", "vol/2", true)
-		err = fs1.Send("vol/1", "vol/2",
-			func(reader io.ReadCloser) error { return fs2.Recv("vol", reader) })
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
+	check(fs.Init("repo"), t)
+	writeFile(fs, "repo/master/file", "foo", t)
+	commit, err := fs.Commit("repo", "master")
+	check(err, t)
+	checkFile(fs, path.Join("repo", commit, "file"), "foo", t)
 
-    err = Sync()
-	if err != nil { t.Fatal(err) }
+	check(fs.Branch("repo", commit, "branch"), t)
+	checkFile(fs, "repo/branch/file", "foo", t)
 
-	{
-		f, err := fs2.Open("vol/2/foo")
-		if err != nil {
-			t.Fatal(err)
-		}
-		reader := bufio.NewReader(f)
-		line, err := reader.ReadString('\n')
-		if line != "foo\n" {
-			t.Fatal(err)
-		}
-		f.Close()
-	}
+	writeFile(fs, "repo/branch/file2", "foo", t)
+	commit, err = fs.Commit("repo", "branch")
+	check(err, t)
+	checkFile(fs, path.Join("repo", commit, "file2"), "foo", t)
+
+	check(fs.Log("repo", "0", func(r io.ReadCloser) error {
+		_, err := io.Copy(os.Stdout, r)
+		return err
+	}), t)
 }
