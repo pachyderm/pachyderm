@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -21,22 +22,31 @@ func randSeq(n int) string {
 	return string(b)
 }
 
-type randReader struct{}
+type ConstReader struct{}
 
-func (r randReader) Read(p []byte) (n int, err error) {
-	once.Do(func() { rand.Seed(time.Now().UTC().UnixNano()) })
+func (r ConstReader) Read(p []byte) (n int, err error) {
 	for i := range p {
-		p[i] = byte(rand.Int63() & 0xff)
+		p[i] = 'a'
 	}
 	return len(p), nil
 }
 
-var reader randReader
+var reader ConstReader
 
 func TrafficHandler(w http.ResponseWriter, r *http.Request) {
 	for i := 0; i < 100; i++ {
-		http.Post("http://localhost/pfs/"+randSeq(10), "application/text", reader)
+		url := "http://172.17.42.1/pfs/" + randSeq(10)
+		log.Print("Posting to: ", url)
+		resp, err := http.Post(url, "application/text", io.LimitReader(reader, 1<<10))
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+		fmt.Fprint(w, resp)
+		io.Copy(w, resp.Body)
 	}
+	fmt.Fprint(w, "Sent 100 files.\n")
 }
 
 // TesterMux creates a multiplexer for a Tester
