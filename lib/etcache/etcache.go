@@ -3,17 +3,21 @@ package etcache
 import (
 	"fmt"
 	"github.com/coreos/go-etcd/etcd"
+	"sync"
 	"time"
 )
 
-var cache map[string]*etcd.Response
-var instertionTime map[string]time.Time
+var cache map[string]*etcd.Response = make(map[string]*etcd.Response)
+var instertionTime map[string]time.Time = make(map[string]time.Time)
+var lock sync.RWMutex
 
 func Get(key string, sort, recursive bool) (*etcd.Response, error) {
 	cacheKey := fmt.Sprint(key, "-", sort, "-", recursive)
 	if time.Since(instertionTime[cacheKey]) > (5 * time.Minute) {
 		return ForceGet(key, sort, recursive)
 	} else {
+		lock.RLock()
+		defer lock.RUnlock()
 		return cache[cacheKey], nil
 	}
 }
@@ -24,6 +28,8 @@ func ForceGet(key string, sort, recursive bool) (*etcd.Response, error) {
 	if resp, err := client.Get(key, sort, recursive); err != nil {
 		return resp, err
 	} else {
+		lock.Lock()
+		defer lock.RUnlock()
 		cache[cacheKey] = resp
 		instertionTime[cacheKey] = time.Now()
 		return resp, nil
