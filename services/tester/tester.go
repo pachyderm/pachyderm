@@ -33,27 +33,40 @@ func (r ConstReader) Read(p []byte) (n int, err error) {
 
 var reader ConstReader
 
-func TrafficHandler(w http.ResponseWriter, r *http.Request) {
-	for i := 0; i < 100; i++ {
-		url := "http://172.17.42.1/pfs/" + randSeq(10)
-		log.Print("Posting to: ", url)
-		resp, err := http.Post(url, "application/text", io.LimitReader(reader, 1<<10))
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-		fmt.Fprint(w, resp)
-		io.Copy(w, resp.Body)
+func timeParam(r *http.Request) string {
+	if c := r.URL.Query().Get("time"); c != "" {
+		return c
 	}
-	fmt.Fprint(w, "Sent 100 files.\n")
+	return "30"
+}
+
+func ProfileHandler(w http.ResponseWriter, r *http.Request) {
+	var wg sync.WaitGroup
+	wg.Add(8)
+	startTime := time.Now()
+	for i := 0; i < 3; i++ {
+		go func() {
+			defer wg.Done()
+			for time.Since(startTime) < (10 * time.Second) {
+				url := "http://172.17.42.1/pfs/" + randSeq(10)
+				_, err := http.Post(url, "application/text", io.LimitReader(reader, 1<<10))
+				if err != nil {
+					//TODO do something here
+					log.Print(err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	fmt.Fprint(w, "Sent files.\n")
 }
 
 // TesterMux creates a multiplexer for a Tester
 func TesterMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/traffic", TrafficHandler)
+	mux.HandleFunc("/profile", ProfileHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 
 	return mux
