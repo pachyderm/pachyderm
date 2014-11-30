@@ -3,7 +3,7 @@ package main
 import (
 	"code.google.com/p/go-uuid/uuid"
 	"fmt"
-	"github.com/coreos/go-etcd/etcd"
+	"github.com/pachyderm-io/pfs/lib/etcache"
 	"hash/adler32"
 	"io"
 	"log"
@@ -25,8 +25,7 @@ func Route(w http.ResponseWriter, r *http.Request, etcdKey string) {
 	bucket := hashRequest(r)
 	shard := fmt.Sprint(bucket, "-", os.Args[1])
 
-	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
-	_master, err := client.Get(path.Join(etcdKey, shard), false, false)
+	_master, err := etcache.Get(path.Join(etcdKey, shard), false, false)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -54,8 +53,7 @@ func Route(w http.ResponseWriter, r *http.Request, etcdKey string) {
 
 func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 	log.Printf("Request to `Multicast`: %s.\n", r.URL.String())
-	client := etcd.NewClient([]string{"http://172.17.42.1:4001"})
-	_endpoints, err := client.Get(etcdKey, false, true)
+	_endpoints, err := etcache.Get(etcdKey, false, true)
 	if err != nil {
 		log.Fatal(err)
 	}
