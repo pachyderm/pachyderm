@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -34,32 +35,38 @@ func (r ConstReader) Read(p []byte) (n int, err error) {
 var reader ConstReader
 
 func timeParam(r *http.Request) string {
-	if c := r.URL.Query().Get("time"); c != "" {
-		return c
+	if p := r.URL.Query().Get("time"); p != "" {
+		return p
 	}
 	return "30"
 }
 
 func ProfileHandler(w http.ResponseWriter, r *http.Request) {
+	workers := 3
 	var wg sync.WaitGroup
-	wg.Add(8)
+	wg.Add(workers)
+	var posts int64 = 0
+	var totalTime int64 = 0
 	startTime := time.Now()
-	for i := 0; i < 3; i++ {
+	for i := 0; i < workers; i++ {
 		go func() {
 			defer wg.Done()
 			for time.Since(startTime) < (10 * time.Second) {
 				url := "http://172.17.42.1/pfs/" + randSeq(10)
+				postTime := time.Now()
 				_, err := http.Post(url, "application/text", io.LimitReader(reader, 1<<10))
 				if err != nil {
-					//TODO do something here
+					//TODO do something here?
 					log.Print(err)
 					return
 				}
+				atomic.AddInt64(&posts, 1)
+				atomic.AddInt64(&totalTime, int64(time.Since(postTime)))
 			}
 		}()
 	}
 	wg.Wait()
-	fmt.Fprint(w, "Sent files.\n")
+	fmt.Fprintf(w, "Sent %d files, average request time = %dns.\n", posts, (totalTime / posts))
 }
 
 // TesterMux creates a multiplexer for a Tester
