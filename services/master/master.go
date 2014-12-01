@@ -27,6 +27,20 @@ func branchParam(r *http.Request) string {
 	return "master"
 }
 
+func cat(w http.ResponseWriter, name string, fs *btrfs.FS) {
+	f, err := fs.Open(name)
+	defer f.Close()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		log.Print(err)
+	}
+
+	if _, err := io.Copy(w, f); err != nil {
+		http.Error(w, err.Error(), 500)
+		log.Print(err)
+	}
+}
+
 // PfsHandler is the core route for modifying the contents of the fileystem.
 // Changes are not replicated until a call to CommitHandler.
 func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
@@ -37,12 +51,26 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 	branchFile := path.Join(append([]string{path.Join("repo", branchParam(r))}, url[2:]...)...)
 
 	if r.Method == "GET" {
-		if f, err := fs.Open(commitFile); err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
+		if strings.Contains(commitFile, "*") {
+			if !strings.HasSuffix(commitFile, "*") {
+				http.Error(w, "Illegal path containing internal `*`. `*` is currently only allowed as the last character of a path.", 400)
+			} else {
+				files, err := fs.ReadDir(path.Dir(commitFile))
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				} else {
+					for _, fi := range files {
+						if fi.IsDir() {
+							continue
+						} else {
+							cat(w, fi.Name(), fs)
+						}
+					}
+				}
+			}
 		} else {
-			io.Copy(w, f)
+			cat(w, commitFile, fs)
 		}
 	} else if r.Method == "POST" {
 		size, err := fs.CreateFromReader(branchFile, r.Body)
