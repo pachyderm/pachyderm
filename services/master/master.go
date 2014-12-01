@@ -55,7 +55,8 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 			if !strings.HasSuffix(commitFile, "*") {
 				http.Error(w, "Illegal path containing internal `*`. `*` is currently only allowed as the last character of a path.", 400)
 			} else {
-				files, err := fs.ReadDir(path.Dir(commitFile))
+				dir := path.Dir(commitFile)
+				files, err := fs.ReadDir(dir)
 				if err != nil {
 					http.Error(w, err.Error(), 500)
 					return
@@ -64,7 +65,7 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 						if fi.IsDir() {
 							continue
 						} else {
-							cat(w, fi.Name(), fs)
+							cat(w, path.Join(dir, fi.Name()), fs)
 						}
 					}
 				}
