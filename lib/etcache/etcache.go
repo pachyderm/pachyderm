@@ -29,7 +29,7 @@ func ForceGet(key string, sort, recursive bool) (*etcd.Response, error) {
 		return resp, err
 	} else {
 		lock.Lock()
-		defer lock.RUnlock()
+		defer lock.Unlock()
 		cache[cacheKey] = resp
 		instertionTime[cacheKey] = time.Now()
 		return resp, nil
