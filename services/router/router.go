@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 )
 
 var modulos uint64
@@ -73,15 +74,17 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 			return
 		}
 		log.Print("Proxying to: " + r.URL.String())
-		log.Print("Request:", r)
 		resp, err := httpClient.Do(r)
 		if err != nil {
-			fmt.Fprint(w, r.URL)
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
-		io.Copy(w, resp.Body)
+		if _, err := io.Copy(w, resp.Body); err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
 	}
 }
 
@@ -89,7 +92,11 @@ func RouterMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	pfsHandler := func(w http.ResponseWriter, r *http.Request) {
-		Route(w, r, "/pfs/master")
+		if strings.Contains(r.URL.Path, "*") {
+			Multicast(w, r, "/pfs/master")
+		} else {
+			Route(w, r, "/pfs/master")
+		}
 	}
 	commitHandler := func(w http.ResponseWriter, r *http.Request) {
 		values := r.URL.Query()
