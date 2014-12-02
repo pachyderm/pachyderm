@@ -74,6 +74,7 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 			cat(w, commitFile, fs)
 		}
 	} else if r.Method == "POST" {
+		fs.MkdirAll(path.Dir(branchFile))
 		size, err := fs.CreateFromReader(branchFile, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -82,6 +83,7 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 		}
 		fmt.Fprintf(w, "Created %s, size: %d.\n", branchFile, size)
 	} else if r.Method == "PUT" {
+		fs.MkdirAll(path.Dir(branchFile))
 		size, err := fs.WriteFile(branchFile, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
