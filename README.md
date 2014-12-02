@@ -95,40 +95,41 @@ Pfs exposes a git-like interface to the file system:
 
 #### Creating a file
 ```shell
-$ curl -XPOST localhost/pfs/file_name -d @local_file
+# Write a file to <branch>. Defaults to "master".
+$ curl -XPOST localhost/pfs/path/to/file?branch=<branch> -d @local_file
 ```
 
-#### Reading a file
+#### Reading files
 ```shell
-$ curl localhost/pfs/file_name
-```
-
-#### Creating/modifying a file
-```shell
-$ curl -XPUT localhost/pfs/file_name -d @local_file
+# Read a file from <master>.
+$ curl localhost/pfs/path/to/file
+# Read all files in a directory.
+$ curl localhost/pfs/path/to/dir/*
+# Read a file from a previous commit.
+$ curl localhost/pfs/path/to/file?commit=n
 ```
 
 #### Deleting a file
 ```shell
-$ curl -XDELETE localhost/pfs/file_name
+# Delete a file from <branch>. Defaults to "master".
+$ curl -XDELETE localhost/pfs/path/to/file?branch=<branch>
 ```
 
 #### Committing changes
 ```shell
-$ curl localhost/commit
+# Commit dirty changes to <branch>. Defaults to "master".
+$ curl localhost/commit?branch=<branch>
 ```
 
-Committing in pfs creates a lightweight snapshot of the file system state and
-pushes it to replicas, where it remains accessible by a commit id.
-
-### Accessing previous commits
+#### Create a new branch
 ```shell
-$ curl localhost/pfs/file_name?commit=n
+# Create <branch> from <commit>.
+$ curl localhost/branch?commit=<commit>&branch=<branch>
 ```
 
 ## Who's building this?
 Two guys who love data and communities and both happen to be named Joe. We'd love
-to chat: joey.zwicker@gmail.com jdoliner@gmail.com.
+to chat: joey@pachyderm.io jdoliner@pachyderm.io.
 
 ## How do I hack on pfs?
 Pfs's only dependency is Docker. You can build it with:
