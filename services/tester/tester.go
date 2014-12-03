@@ -7,12 +7,13 @@ import (
 	"math/rand"
 	"net/http"
 	"sync"
-	"sync/atomic"
+	"testing"
 	"time"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 var once sync.Once
+var docSize int64 = 1 << 12
 
 func randSeq(n int) string {
 	once.Do(func() { rand.Seed(time.Now().UTC().UnixNano()) })
@@ -41,32 +42,52 @@ func timeParam(r *http.Request) string {
 	return "30"
 }
 
-func ProfileHandler(w http.ResponseWriter, r *http.Request) {
+// insert inserts a single file in to the filesystem
+func insert(t *testing.T) {
+	url := "http://172.17.42.1/pfs/" + randSeq(10)
+	resp, err := http.Post(url, "application/text", io.LimitReader(reader, docSize))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Status != "200" {
+		t.Error(resp)
+	}
+}
+
+func traffic(t *testing.T) {
 	workers := 3
 	var wg sync.WaitGroup
 	wg.Add(workers)
-	var posts int64 = 0
-	var totalTime int64 = 0
 	startTime := time.Now()
 	for i := 0; i < workers; i++ {
 		go func() {
 			defer wg.Done()
 			for time.Since(startTime) < (10 * time.Second) {
-				url := "http://172.17.42.1/pfs/" + randSeq(10)
-				postTime := time.Now()
-				_, err := http.Post(url, "application/text", io.LimitReader(reader, 1<<10))
-				if err != nil {
-					//TODO do something here?
-					log.Print(err)
-					return
-				}
-				atomic.AddInt64(&posts, 1)
-				atomic.AddInt64(&totalTime, int64(time.Since(postTime)))
+				insert(t)
 			}
 		}()
 	}
 	wg.Wait()
-	fmt.Fprintf(w, "Sent %d files, average request time = %dns.\n", posts, (totalTime / posts))
+}
+
+func commit(t *testing.T) {
+	resp, err := http.Post("http://172.17.42.1/commit", "application/test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Status != "200" {
+		t.Error(resp)
+	}
+}
+
+func smokeTest(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		traffic(t)
+		commit(t)
+	}
+}
+
+func SmokeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // TesterMux creates a multiplexer for a Tester
