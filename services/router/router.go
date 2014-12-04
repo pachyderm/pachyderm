@@ -37,11 +37,6 @@ func Route(w http.ResponseWriter, r *http.Request, etcdKey string) {
 	r.RequestURI = ""
 	r.URL.Scheme = "http"
 	r.URL.Host = master
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
 	log.Print("Proxying to: " + r.URL.String())
 	resp, err := httpClient.Do(r)
 	if err != nil {
@@ -49,7 +44,12 @@ func Route(w http.ResponseWriter, r *http.Request, etcdKey string) {
 		log.Print(err)
 		return
 	}
-	io.Copy(w, resp.Body)
+	defer resp.Body.Close()
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		http.Error(w, err.Error(), 500)
+		log.Print(err)
+		return
+	}
 }
 
 func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
@@ -68,11 +68,6 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 		r.RequestURI = ""
 		r.URL.Scheme = "http"
 		r.URL.Host = node.Value
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
 		log.Print("Proxying to: " + r.URL.String())
 		resp, err := httpClient.Do(r)
 		if err != nil {
@@ -80,6 +75,7 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 			log.Print(err)
 			return
 		}
+		defer resp.Body.Close()
 		if _, err := io.Copy(w, resp.Body); err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)

@@ -10,9 +10,15 @@ import (
 	"time"
 )
 
+var KB int64 = 1 << 10
+var MB int64 = 1 << 20
+var GB int64 = 1 << 30
+var TB int64 = 1 << 40
+var PB int64 = 1 << 50
+
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 var once sync.Once
-var docSize int64 = 1 << 12
+var docSize int64 = 64 * MB
 
 func randSeq(n int) string {
 	once.Do(func() { rand.Seed(time.Now().UTC().UnixNano()) })
@@ -32,27 +38,22 @@ func (r ConstReader) Read(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-var KB int64 = 1 << 10
-var MB int64 = 1 << 20
-var GB int64 = 1 << 30
-var TB int64 = 1 << 40
-var PB int64 = 1 << 50
-
 var reader ConstReader
 
 // insert inserts a single file in to the filesystem
-func insert(t testing.TB) {
+func insert(fileSize int64, t testing.TB) {
 	url := "http://172.17.42.1/pfs/" + randSeq(10)
-	resp, err := http.Post(url, "application/text", io.LimitReader(reader, docSize))
+	resp, err := http.Post(url, "application/text", io.LimitReader(reader, fileSize))
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Error(resp.Status)
 	}
 }
 
-func traffic(sizeLimit int64, t testing.TB) {
+func traffic(fileSize, sizeLimit int64, t testing.TB) {
 	workers := 3
 	var wg sync.WaitGroup
 	wg.Add(workers)
@@ -60,8 +61,8 @@ func traffic(sizeLimit int64, t testing.TB) {
 	for i := 0; i < workers; i++ {
 		go func() {
 			defer wg.Done()
-			for atomic.AddInt64(&totalSize, docSize) <= sizeLimit {
-				insert(t)
+			for atomic.AddInt64(&totalSize, fileSize) <= sizeLimit {
+				insert(fileSize, t)
 			}
 		}()
 	}
@@ -73,43 +74,72 @@ func commit(t testing.TB) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Error(resp.Status)
 	}
 }
 
 func TestSmoke(t *testing.T) {
-	t.Log("TestSmoke")
 	for i := 0; i < 5; i++ {
 		for j := 0; j < 5; j++ {
-			insert(t)
+			insert(4*KB, t)
 		}
 		commit(t)
 	}
 }
 
 func TestFire(t *testing.T) {
-	t.Log("TestFire")
 	for i := 0; i < 5; i++ {
-		traffic(5*MB, t)
+		traffic(4*KB, 5*MB, t)
 		commit(t)
 	}
 }
 
-func BenchmarkInsert(b *testing.B) {
+func _BenchmarkInsert(fileSize int64, b *testing.B) {
 	commit(b)
 	for i := 0; i < b.N; i++ {
-		insert(b)
+		insert(fileSize, b)
 		commit(b)
 	}
 	commit(b)
 }
 
-func Benchmark100MB(b *testing.B) {
+func BenchmarkInsert1B(b *testing.B) {
+	_BenchmarkInsert(1, b)
+}
+
+func BenchmarkInsert1KB(b *testing.B) {
+	_BenchmarkInsert(KB, b)
+}
+func BenchmarkInsert1MB(b *testing.B) {
+	_BenchmarkInsert(MB, b)
+}
+func BenchmarkInsert1GB(b *testing.B) {
+	_BenchmarkInsert(GB, b)
+}
+
+func _BenchmarkTraffic(fileSize, totalSize int64, b *testing.B) {
 	commit(b)
 	for i := 0; i < b.N; i++ {
-		traffic(100*MB, b)
+		traffic(fileSize, totalSize, b)
 		commit(b)
 	}
 	commit(b)
+}
+
+func BenchmarkTraffic_GB_4_KB(b *testing.B) {
+	_BenchmarkTraffic(4*KB, GB, b)
+}
+
+func BenchmarkTraffic_GB_x_MB(b *testing.B) {
+	_BenchmarkTraffic(MB, GB, b)
+}
+
+func BenchmarkTraffic_GB_x_10_MB(b *testing.B) {
+	_BenchmarkTraffic(10*MB, GB, b)
+}
+
+func BenchmarkTraffic_GB_x_100_MB(b *testing.B) {
+	_BenchmarkTraffic(100*MB, GB, b)
 }
