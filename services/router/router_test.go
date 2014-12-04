@@ -47,20 +47,20 @@ func insert(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.Status != "200" {
-		t.Error(resp)
+	if resp.StatusCode != 200 {
+		t.Error(resp.Status)
 	}
 }
 
 func traffic(t *testing.T) {
-	workers := 3
+	workers := 8
 	var wg sync.WaitGroup
 	wg.Add(workers)
 	startTime := time.Now()
 	for i := 0; i < workers; i++ {
 		go func() {
 			defer wg.Done()
-			for time.Since(startTime) < (10 * time.Second) {
+			for time.Since(startTime) < (2 * time.Second) {
 				insert(t)
 			}
 		}()
@@ -73,13 +73,22 @@ func commit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.Status != "200" {
-		t.Error(resp)
+	if resp.StatusCode != 200 {
+		t.Error(resp.Status)
 	}
 }
 
 func TestSmoke(t *testing.T) {
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 5; i++ {
+		for j := 0; j < 5; j++ {
+			insert(t)
+		}
+		commit(t)
+	}
+}
+
+func TestFire(t *testing.T) {
+	for i := 0; i < 5; i++ {
 		traffic(t)
 		commit(t)
 	}
