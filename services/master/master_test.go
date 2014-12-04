@@ -88,6 +88,7 @@ func smokeTest(t *testing.T) {
 }
 
 func SmokeHandler(w http.ResponseWriter, r *http.Request) {
+	t := InternalTest{"TestSmoke", smokeTest}
 }
 
 // TesterMux creates a multiplexer for a Tester
