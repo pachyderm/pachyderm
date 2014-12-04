@@ -1,2 +1,2 @@
-#!/usr/bin/sh
+#!/bin/sh
 go test github.com/pachyderm-io/pfs/services/...
