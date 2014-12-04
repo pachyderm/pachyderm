@@ -1,0 +1,2 @@
+#!/bin/sh
+go test github.com/pachyderm-io/pfs/services/... -bench .
