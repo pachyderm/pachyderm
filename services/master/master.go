@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/pachyderm-io/pfs/lib/btrfs"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path"
 	"strings"
+
+	"github.com/pachyderm-io/pfs/lib/btrfs"
 )
 
 var repo string
@@ -29,11 +30,11 @@ func branchParam(r *http.Request) string {
 
 func cat(w http.ResponseWriter, name string) {
 	f, err := btrfs.Open(name)
-	defer f.Close()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 	}
+	defer f.Close()
 
 	if _, err := io.Copy(w, f); err != nil {
 		http.Error(w, err.Error(), 500)
@@ -60,13 +61,12 @@ func PfsHandler(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					http.Error(w, err.Error(), 500)
 					return
-				} else {
-					for _, fi := range files {
-						if fi.IsDir() {
-							continue
-						} else {
-							cat(w, path.Join(dir, fi.Name()))
-						}
+				}
+				for _, fi := range files {
+					if fi.IsDir() {
+						continue
+					} else {
+						cat(w, path.Join(dir, fi.Name()))
 					}
 				}
 			}
