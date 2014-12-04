@@ -18,7 +18,6 @@ var PB int64 = 1 << 50
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 var once sync.Once
-var docSize int64 = 64 * MB
 
 func randSeq(n int) string {
 	once.Do(func() { rand.Seed(time.Now().UTC().UnixNano()) })
@@ -54,7 +53,7 @@ func insert(fileSize int64, t testing.TB) {
 }
 
 func traffic(fileSize, sizeLimit int64, t testing.TB) {
-	workers := 3
+	workers := 8
 	var wg sync.WaitGroup
 	wg.Add(workers)
 	var totalSize int64
@@ -128,18 +127,18 @@ func _BenchmarkTraffic(fileSize, totalSize int64, b *testing.B) {
 	commit(b)
 }
 
-func BenchmarkTraffic_GB_4_KB(b *testing.B) {
-	_BenchmarkTraffic(4*KB, GB, b)
-}
-
-func BenchmarkTraffic_GB_x_MB(b *testing.B) {
+func Benchmark_1_GB_x_1_MB(b *testing.B) {
 	_BenchmarkTraffic(MB, GB, b)
 }
 
-func BenchmarkTraffic_GB_x_10_MB(b *testing.B) {
+func Benchmark_1_GB_x_10_MB(b *testing.B) {
 	_BenchmarkTraffic(10*MB, GB, b)
 }
 
-func BenchmarkTraffic_GB_x_100_MB(b *testing.B) {
+func Benchmark_1_GB_x_100_MB(b *testing.B) {
 	_BenchmarkTraffic(100*MB, GB, b)
+}
+
+func Benchmark_10_GB_x_500_MB(b *testing.B) {
+	_BenchmarkTraffic(500*MB, 10*GB, b)
 }

@@ -1,2 +1,2 @@
 #!/bin/sh
-go test github.com/pachyderm-io/pfs/services/... -bench .
+go test github.com/pachyderm-io/pfs/services/... -bench . -timeout 20m
