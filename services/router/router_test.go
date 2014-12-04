@@ -80,34 +80,9 @@ func commit(t *testing.T) {
 	}
 }
 
-func smokeTest(t *testing.T) {
+func TestSmoke(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		traffic(t)
 		commit(t)
 	}
-}
-
-func SmokeHandler(w http.ResponseWriter, r *http.Request) {
-	t := InternalTest{"TestSmoke", smokeTest}
-}
-
-// TesterMux creates a multiplexer for a Tester
-func TesterMux() *http.ServeMux {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/profile", ProfileHandler)
-	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
-
-	return mux
-}
-
-// RunServer runs a master server listening on port 80
-func RunServer() {
-	http.ListenAndServe(":80", TesterMux())
-}
-
-func main() {
-	log.SetFlags(log.Lshortfile)
-	log.Print("Listening on port 80...")
-	RunServer()
 }
