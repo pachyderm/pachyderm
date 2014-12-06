@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-//TODO commits should be content based
+var repo string
 
 func commitParam(r *http.Request) string {
 	if c := r.URL.Query().Get("commit"); c != "" {
@@ -27,8 +27,8 @@ func branchParam(r *http.Request) string {
 	return "master"
 }
 
-func cat(w http.ResponseWriter, name string, fs *btrfs.FS) {
-	f, err := fs.Open(name)
+func cat(w http.ResponseWriter, name string) {
+	f, err := btrfs.Open(name)
 	defer f.Close()
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -43,7 +43,7 @@ func cat(w http.ResponseWriter, name string, fs *btrfs.FS) {
 
 // PfsHandler is the core route for modifying the contents of the fileystem.
 // Changes are not replicated until a call to CommitHandler.
-func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
+func PfsHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// commitFile is used for read methods (GET)
 	commitFile := path.Join(append([]string{path.Join("repo", commitParam(r))}, url[2:]...)...)
@@ -56,7 +56,7 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 				http.Error(w, "Illegal path containing internal `*`. `*` is currently only allowed as the last character of a path.", 400)
 			} else {
 				dir := path.Dir(commitFile)
-				files, err := fs.ReadDir(dir)
+				files, err := btrfs.ReadDir(dir)
 				if err != nil {
 					http.Error(w, err.Error(), 500)
 					return
@@ -65,17 +65,17 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 						if fi.IsDir() {
 							continue
 						} else {
-							cat(w, path.Join(dir, fi.Name()), fs)
+							cat(w, path.Join(dir, fi.Name()))
 						}
 					}
 				}
 			}
 		} else {
-			cat(w, commitFile, fs)
+			cat(w, commitFile)
 		}
 	} else if r.Method == "POST" {
-		fs.MkdirAll(path.Dir(branchFile))
-		size, err := fs.CreateFromReader(branchFile, r.Body)
+		btrfs.MkdirAll(path.Dir(branchFile))
+		size, err := btrfs.CreateFromReader(branchFile, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
@@ -83,8 +83,8 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 		}
 		fmt.Fprintf(w, "Created %s, size: %d.\n", branchFile, size)
 	} else if r.Method == "PUT" {
-		fs.MkdirAll(path.Dir(branchFile))
-		size, err := fs.WriteFile(branchFile, r.Body)
+		btrfs.MkdirAll(path.Dir(branchFile))
+		size, err := btrfs.WriteFile(branchFile, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
@@ -92,7 +92,7 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 		}
 		fmt.Fprintf(w, "Created %s, size: %d.\n", branchFile, size)
 	} else if r.Method == "DELETE" {
-		if err := fs.Remove(branchFile); err != nil {
+		if err := btrfs.Remove(branchFile); err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
@@ -102,10 +102,10 @@ func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 }
 
 // CommitHandler creates a snapshot of outstanding changes.
-func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
+func CommitHandler(w http.ResponseWriter, r *http.Request) {
 	var commit string
 	var err error
-	if commit, err = fs.Commit("repo", commitParam(r), branchParam(r)); err != nil {
+	if commit, err = btrfs.Commit("repo", commitParam(r), branchParam(r)); err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
@@ -115,14 +115,14 @@ func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 }
 
 // BranchHandler creates a new branch from commit.
-func BranchHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
+func BranchHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "Invalid method.", 405)
 		log.Print("Invalid method %s.", r.Method)
 		return
 	}
 
-	if err := fs.Branch("repo", commitParam(r), branchParam(r)); err != nil {
+	if err := btrfs.Branch("repo", commitParam(r), branchParam(r)); err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
@@ -131,43 +131,28 @@ func BranchHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
 }
 
 // MasterMux creates a multiplexer for a Master writing to the passed in FS.
-func MasterMux(fs *btrfs.FS) *http.ServeMux {
+func MasterMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	commitHandler := func(w http.ResponseWriter, r *http.Request) {
-		CommitHandler(w, r, fs)
-	}
-
-	pfsHandler := func(w http.ResponseWriter, r *http.Request) {
-		PfsHandler(w, r, fs)
-	}
-
-	branchHandler := func(w http.ResponseWriter, r *http.Request) {
-		BranchHandler(w, r, fs)
-	}
-
-	mux.HandleFunc("/commit", commitHandler)
-	mux.HandleFunc("/pfs/", pfsHandler)
+	mux.HandleFunc("/commit", CommitHandler)
+	mux.HandleFunc("/pfs/", PfsHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
-	mux.HandleFunc("/branch", branchHandler)
+	mux.HandleFunc("/branch", BranchHandler)
 
 	return mux
 }
 
 // RunServer runs a master server listening on port 80
-func RunServer(fs *btrfs.FS) {
-	http.ListenAndServe(":80", MasterMux(fs))
+func RunServer() {
+	http.ListenAndServe(":80", MasterMux())
 }
 
 func main() {
 	log.SetFlags(log.Lshortfile)
-	fs := btrfs.NewFSWithRandSeq("master-" + os.Args[1])
-	if err := fs.EnsureNamespace(); err != nil {
-		log.Fatal(err)
-	}
-	if err := fs.Init("repo"); err != nil {
+	repo = "master-" + os.Args[1] + btrfs.RandSeq(4)
+	if err := btrfs.Ensure(repo); err != nil {
 		log.Fatal(err)
 	}
 	log.Print("Listening on port 80...")
-	RunServer(fs)
+	RunServer()
 }
