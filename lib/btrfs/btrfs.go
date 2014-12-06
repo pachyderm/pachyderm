@@ -440,7 +440,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 		return err
 	}
 	for _, jobInfo := range jobs {
-		jobFile, err := fs.Open(path.Join(jobsPath, jobInfo.Name()))
+		jobFile, err := Open(path.Join(jobsPath, jobInfo.Name()))
 		if err != nil {
 			return err
 		}
@@ -456,25 +456,25 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 			return err
 		}
 
-		inFiles, err := fs.ReadDir(path.Join(in_repo, commit, j.Input))
+		inFiles, err := ReadDir(path.Join(in_repo, commit, j.Input))
 		if err != nil {
 			return err
 		}
 
 		for _, inF := range inFiles {
-			inFile, err := fs.Open(path.Join(in_repo, commit, j.Input, inF.Name()))
+			inFile, err := Open(path.Join(in_repo, commit, j.Input, inF.Name()))
 			if err != nil {
 				return err
 			}
 			defer inFile.Close()
 
-			resp, err := http.Post("http://"+containerIp+"/map", "application/text", inFile)
+			resp, err := http.Post("http://"+containerIp, "application/text", inFile)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
 
-			outFile, err := fs.Create(path.Join(out_repo, branch, j.Output, inF.Name()))
+			outFile, err := Create(path.Join(out_repo, branch, j.Output, inF.Name()))
 			if err != nil {
 				return err
 			}
