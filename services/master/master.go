@@ -12,7 +12,8 @@ import (
 	"github.com/pachyderm-io/pfs/lib/btrfs"
 )
 
-var repo string
+var dataRepo string
+var compRepo string
 
 func commitParam(r *http.Request) string {
 	if c := r.URL.Query().Get("commit"); c != "" {
@@ -47,9 +48,9 @@ func cat(w http.ResponseWriter, name string) {
 func PfsHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// commitFile is used for read methods (GET)
-	commitFile := path.Join(append([]string{path.Join("repo", commitParam(r))}, url[2:]...)...)
+	commitFile := path.Join(append([]string{path.Join(dataRepo, commitParam(r))}, url[2:]...)...)
 	// branchFile is used for write methods (POST, PUT, DELETE)
-	branchFile := path.Join(append([]string{path.Join("repo", branchParam(r))}, url[2:]...)...)
+	branchFile := path.Join(append([]string{path.Join(dataRepo, branchParam(r))}, url[2:]...)...)
 
 	if r.Method == "GET" {
 		if strings.Contains(commitFile, "*") {
@@ -103,15 +104,19 @@ func PfsHandler(w http.ResponseWriter, r *http.Request) {
 
 // CommitHandler creates a snapshot of outstanding changes.
 func CommitHandler(w http.ResponseWriter, r *http.Request) {
-	var commit string
-	var err error
-	if commit, err = btrfs.Commit("repo", commitParam(r), branchParam(r)); err != nil {
+	if err := btrfs.Commit(dataRepo, commitParam(r), branchParam(r)); err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
 	}
 
-	fmt.Fprintf(w, "Create commit: %s.\n", commit)
+	if err := btrfs.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, "jobs"); err != nil {
+		http.Error(w, err.Error(), 500)
+		log.Print(err)
+		return
+	}
+
+	fmt.Fprintf(w, "Create commit: %s.\n", commitParam(r))
 }
 
 // BranchHandler creates a new branch from commit.
@@ -122,7 +127,7 @@ func BranchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := btrfs.Branch("repo", commitParam(r), branchParam(r)); err != nil {
+	if err := btrfs.Branch(dataRepo, commitParam(r), branchParam(r)); err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
@@ -149,8 +154,12 @@ func RunServer() {
 
 func main() {
 	log.SetFlags(log.Lshortfile)
-	repo = "master-" + os.Args[1] + btrfs.RandSeq(4)
-	if err := btrfs.Ensure(repo); err != nil {
+	dataRepo = "data-" + os.Args[1] + btrfs.RandSeq(4)
+	compRepo = "comp-" + os.Args[1] + btrfs.RandSeq(4)
+	if err := btrfs.Ensure(dataRepo); err != nil {
+		log.Fatal(err)
+	}
+	if err := btrfs.Ensure(compRepo); err != nil {
 		log.Fatal(err)
 	}
 	log.Print("Listening on port 80...")

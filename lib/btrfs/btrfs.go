@@ -154,17 +154,6 @@ func ReadDir(name string) ([]os.FileInfo, error) {
 	return ioutil.ReadDir(FilePath(name))
 }
 
-func EnsureNamespace() error {
-	exists, err := FileExists("")
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return SubvolumeCreate("")
-	}
-	return nil
-}
-
 func SubvolumeCreate(name string) error {
 	return RunStderr(exec.Command("btrfs", "subvolume", "create", FilePath(name)))
 }
@@ -267,7 +256,7 @@ func Init(repo string) error {
 	if err := SubvolumeCreate(path.Join(repo, "master")); err != nil {
 		return err
 	}
-	if _, err := Commit(repo, "t0", "master"); err != nil {
+	if err := Commit(repo, "t0", "master"); err != nil {
 		return err
 	}
 	return nil
@@ -288,28 +277,28 @@ func Ensure(repo string) error {
 }
 
 // Commit creates a new commit for a branch.
-func Commit(repo, commit, branch string) (string, error) {
+func Commit(repo, commit, branch string) error {
 	// First we check to make sure that the branch actually exists
 	exists, err := FileExists(path.Join(repo, branch))
 	if err != nil {
-		return "", err
+		return err
 	}
 	if !exists {
-		return "", fmt.Errorf("Branch %s not found.", branch)
+		return fmt.Errorf("Branch %s not found.", branch)
 	}
 	// First we make HEAD readonly
 	if err := SetReadOnly(path.Join(repo, branch)); err != nil {
-		return "", err
+		return err
 	}
 	// Next move it to being a commit
 	if err := Rename(path.Join(repo, branch), path.Join(repo, commit)); err != nil {
-		return "", err
+		return err
 	}
 	// Recreate the branch subvolume with a writeable subvolume
 	if err := Snapshot(path.Join(repo, commit), path.Join(repo, branch), false); err != nil {
-		return "", err
+		return err
 	}
-	return commit, nil
+	return nil
 }
 
 func Branch(repo, commit, branch string) error {
@@ -468,11 +457,23 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 			}
 			defer inFile.Close()
 
-			resp, err := http.Post("http://"+containerIp, "application/text", inFile)
+			resp, err := http.Post("http://"+path.Join(containerIp, inF.Name()), "application/text", inFile)
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
+
+			exists, err := FileExists(path.Join(out_repo, branch))
+			if err != nil {
+				return err
+			}
+			if !exists {
+				return fmt.Errorf("Invalid state. %s should already exists.", path.Join(out_repo, branch))
+			} else {
+				if err := MkdirAll(path.Join(out_repo, branch, j.Output)); err != nil {
+					return err
+				}
+			}
 
 			outFile, err := Create(path.Join(out_repo, branch, j.Output, inF.Name()))
 			if err != nil {
@@ -482,6 +483,10 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 			if _, err := io.Copy(outFile, resp.Body); err != nil {
 				return err
 			}
+		}
+
+		if err := Commit(out_repo, commit, branch); err != nil {
+			return err
 		}
 	}
 
