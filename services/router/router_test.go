@@ -1,13 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
 	"math/rand"
 	"net/http"
+	"path"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/pachyderm-io/pfs/lib/mapreduce"
 )
 
 var KB int64 = 1 << 10
@@ -40,8 +45,8 @@ func (r ConstReader) Read(p []byte) (n int, err error) {
 var reader ConstReader
 
 // insert inserts a single file in to the filesystem
-func insert(fileSize int64, t testing.TB) {
-	url := "http://172.17.42.1/pfs/" + randSeq(10)
+func insert(dir string, fileSize int64, t testing.TB) {
+	url := "http://172.17.42.1/pfs/" + path.Join(dir, randSeq(10))
 	resp, err := http.Post(url, "application/text", io.LimitReader(reader, fileSize))
 	if err != nil {
 		t.Fatal(err)
@@ -61,11 +66,27 @@ func traffic(fileSize, sizeLimit int64, t testing.TB) {
 		go func() {
 			defer wg.Done()
 			for atomic.AddInt64(&totalSize, fileSize) <= sizeLimit {
-				insert(fileSize, t)
+				insert("", fileSize, t)
 			}
 		}()
 	}
 	wg.Wait()
+}
+
+func newJob(job mapreduce.Job, t testing.TB) {
+	jobJson, err := json.Marshal(job)
+	if err != nil {
+		t.Fatal(err)
+	}
+	url := "http://172.17.42.1/pfs/jobs/" + randSeq(10)
+	resp, err := http.Post(url, "application/text", bytes.NewReader(jobJson))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Error(resp.Status)
+	}
 }
 
 func commit(t testing.TB) {
@@ -80,25 +101,34 @@ func commit(t testing.TB) {
 }
 
 func TestSmoke(t *testing.T) {
+	commit(t)
 	for i := 0; i < 5; i++ {
 		for j := 0; j < 5; j++ {
-			insert(4*KB, t)
+			insert("", 4*KB, t)
 		}
 		commit(t)
 	}
 }
 
 func TestFire(t *testing.T) {
+	commit(t)
 	for i := 0; i < 5; i++ {
 		traffic(4*KB, 5*MB, t)
 		commit(t)
 	}
 }
 
+func TestMR(t *testing.T) {
+	commit(t)
+	newJob(mapreduce.Job{Input: "input", Output: "output", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	insert("input", 4*KB, t)
+	commit(t)
+}
+
 func _BenchmarkInsert(fileSize int64, b *testing.B) {
 	commit(b)
 	for i := 0; i < b.N; i++ {
-		insert(fileSize, b)
+		insert("", fileSize, b)
 		commit(b)
 	}
 	commit(b)

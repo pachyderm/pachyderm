@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm-io/pfs/lib/btrfs"
+	"github.com/pachyderm-io/pfs/lib/mapreduce"
 )
 
 var dataRepo string
@@ -110,7 +111,7 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := btrfs.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, "jobs"); err != nil {
+	if err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, "jobs"); err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
