@@ -46,9 +46,9 @@ func cat(w http.ResponseWriter, name string) {
 func PfsHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// commitFile is used for read methods (GET)
-	commitFile := path.Join(append([]string{path.Join("repo", commitParam(r))}, url[2:]...)...)
+	commitFile := path.Join(append([]string{path.Join(repo, commitParam(r))}, url[2:]...)...)
 	// branchFile is used for write methods (POST, PUT, DELETE)
-	branchFile := path.Join(append([]string{path.Join("repo", branchParam(r))}, url[2:]...)...)
+	branchFile := path.Join(append([]string{path.Join(repo, branchParam(r))}, url[2:]...)...)
 
 	if r.Method == "GET" {
 		if strings.Contains(commitFile, "*") {
@@ -103,15 +103,26 @@ func PfsHandler(w http.ResponseWriter, r *http.Request) {
 
 // CommitHandler creates a snapshot of outstanding changes.
 func CommitHandler(w http.ResponseWriter, r *http.Request) {
-	var commit string
-	var err error
-	if commit, err = btrfs.Commit("repo", commitParam(r), branchParam(r)); err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
+	if r.Method == "GET" {
+		commits, err := btrfs.ReadDir(repo)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
 
-	fmt.Fprintf(w, "Create commit: %s.\n", commit)
+		for _, ci := range commits {
+			fmt.Fprintf(w, "%s    %s\n", ci.Name(), ci.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+		}
+	} else if r.Method == "POST" {
+		commit, err := btrfs.Commit(repo, commitParam(r), branchParam(r))
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+		fmt.Fprint(w, commit)
+	}
 }
 
 // BranchHandler creates a new branch from commit.
@@ -122,7 +133,7 @@ func BranchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := btrfs.Branch("repo", commitParam(r), branchParam(r)); err != nil {
+	if err := btrfs.Branch(repo, commitParam(r), branchParam(r)); err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
