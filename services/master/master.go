@@ -2,13 +2,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/pachyderm-io/pfs/lib/btrfs"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path"
 	"strings"
+
+	"code.google.com/p/go-uuid/uuid"
+	"github.com/pachyderm-io/pfs/lib/btrfs"
 )
 
 var repo string
@@ -112,7 +114,9 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, ci := range commits {
-			fmt.Fprintf(w, "%s    %s\n", ci.Name(), ci.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+			if uuid.Parse(ci.Name()) != nil {
+				fmt.Fprintf(w, "%s    %s\n", ci.Name(), ci.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+			}
 		}
 	} else if r.Method == "POST" {
 		commit, err := btrfs.Commit(repo, commitParam(r), branchParam(r))
@@ -122,23 +126,41 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		fmt.Fprint(w, commit)
+	} else {
+		http.Error(w, "Unsupported method.", http.StatusMethodNotAllowed)
+		log.Printf("Unsupported method %s in request to %s.", r.Method, r.URL.String())
+		return
 	}
 }
 
 // BranchHandler creates a new branch from commit.
 func BranchHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+	if r.Method == "GET" {
+		branches, err := btrfs.ReadDir(repo)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+
+		for _, bi := range branches {
+			if uuid.Parse(bi.Name()) == nil {
+				fmt.Fprintf(w, "%s    %s\n", bi.Name(), bi.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+			}
+		}
+	} else if r.Method == "POST" {
+		if err := btrfs.Branch(repo, commitParam(r), branchParam(r)); err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+		fmt.Fprintf(w, "Created branch. (%s) -> %s.\n", commitParam(r), branchParam(r))
+	} else {
 		http.Error(w, "Invalid method.", 405)
 		log.Print("Invalid method %s.", r.Method)
 		return
 	}
 
-	if err := btrfs.Branch(repo, commitParam(r), branchParam(r)); err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
-	fmt.Fprintf(w, "Created branch. (%s) -> %s.\n", commitParam(r), branchParam(r))
 }
 
 // MasterMux creates a multiplexer for a Master writing to the passed in FS.

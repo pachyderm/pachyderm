@@ -1,9 +1,7 @@
 package main
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	"fmt"
-	"github.com/pachyderm-io/pfs/lib/etcache"
 	"hash/adler32"
 	"io"
 	"log"
@@ -12,6 +10,9 @@ import (
 	"path"
 	"strconv"
 	"strings"
+
+	"code.google.com/p/go-uuid/uuid"
+	"github.com/pachyderm-io/pfs/lib/etcache"
 )
 
 var modulos uint64
