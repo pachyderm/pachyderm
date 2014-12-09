@@ -1,9 +1,7 @@
 package main
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	"fmt"
-	"github.com/pachyderm-io/pfs/lib/etcache"
 	"hash/adler32"
 	"io"
 	"log"
@@ -12,6 +10,9 @@ import (
 	"path"
 	"strconv"
 	"strings"
+
+	"code.google.com/p/go-uuid/uuid"
+	"github.com/pachyderm-io/pfs/lib/etcache"
 )
 
 var modulos uint64
@@ -61,7 +62,7 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 	endpoints := _endpoints.Node.Nodes
 	log.Print(endpoints)
 
-	for _, node := range endpoints {
+	for i, node := range endpoints {
 		log.Print("Multicasting to: ", node, node.Value)
 		httpClient := &http.Client{}
 		// `Do` will complain if r.RequestURI is set so we unset it
@@ -76,10 +77,17 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 			return
 		}
 		defer resp.Body.Close()
-		if _, err := io.Copy(w, resp.Body); err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
+		if resp.StatusCode != 200 {
+			http.Error(w, fmt.Sprintf("Failed request (%s) to %s.", resp.Status, r.URL.String()), resp.StatusCode)
+			log.Printf("Failed request (%s) to %s.\n", resp.Status, r.URL.String())
 			return
+		}
+		if i == 0 {
+			if _, err := io.Copy(w, resp.Body); err != nil {
+				http.Error(w, err.Error(), 500)
+				log.Print(err)
+				return
+			}
 		}
 	}
 }
@@ -95,9 +103,11 @@ func RouterMux() *http.ServeMux {
 		}
 	}
 	commitHandler := func(w http.ResponseWriter, r *http.Request) {
-		values := r.URL.Query()
-		values.Add("commit", uuid.New())
-		r.URL.RawQuery = values.Encode()
+		if r.Method == "POST" {
+			values := r.URL.Query()
+			values.Add("commit", uuid.New())
+			r.URL.RawQuery = values.Encode()
+		}
 		Multicast(w, r, "/pfs/master")
 	}
 	branchHandler := func(w http.ResponseWriter, r *http.Request) {
