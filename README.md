@@ -1,7 +1,7 @@
 # What's new in v0.2?
 
 ## Branching
-Pfs' branching is conceptually similar to git's. Here's how they work:
+Pfs' branches are conceptually similar to git's. Here's how they work:
 
 ```shell
 # Create <branch> from <commit>
@@ -13,6 +13,9 @@ curl -XPOST pfs/commit?branch=<branch>
 # You can read from all branches commits the same way: [JAZ does that sentence make sense?]
 curl -XPOST pfs/file/path?commit=<commit>
 ```
+
+Pfs currently doesn't have an analog to git's merge. We're discussing what that
+might look like in #16.
 
 ## More RESTful API
 Pfs' API now consists of 3 RESTful endpoints which allow for manipulation of
@@ -130,38 +133,38 @@ router.service                  3817102d.../10.240.199.203      active  running
 ### Using pfs
 Pfs exposes a git-like interface to the file system:
 
-#### Creating a file
+#### Creating files
 ```shell
 # Write a file to <branch>. Defaults to "master".
-$ curl -XPOST localhost/pfs/path/to/file?branch=<branch> -d @local_file
+$ curl -XPOST localhost/file/path/to/file?branch=<branch> -d @local_file
 ```
 
 #### Reading files
 ```shell
 # Read a file from <master>.
-$ curl localhost/pfs/path/to/file
+$ curl localhost/file/path/to/file
 # Read all files in a directory.
-$ curl localhost/pfs/path/to/dir/*
+$ curl localhost/file/path/to/dir/*
 # Read a file from a previous commit.
-$ curl localhost/pfs/path/to/file?commit=n
+$ curl localhost/file/path/to/file?commit=n
 ```
 
-#### Deleting a file
+#### Deleting files
 ```shell
 # Delete a file from <branch>. Defaults to "master".
-$ curl -XDELETE localhost/pfs/path/to/file?branch=<branch>
+$ curl -XDELETE localhost/file/path/to/file?branch=<branch>
 ```
 
 #### Committing changes
 ```shell
 # Commit dirty changes to <branch>. Defaults to "master".
-$ curl localhost/commit?branch=<branch>
+$ curl -XPOST localhost/commit?branch=<branch>
 ```
 
 #### Create a new branch
 ```shell
 # Create <branch> from <commit>.
-$ curl localhost/branch?commit=<commit>&branch=<branch>
+$ curl -XPOST localhost/branch?commit=<commit>&branch=<branch>
 ```
 
 ## Who's building this?
