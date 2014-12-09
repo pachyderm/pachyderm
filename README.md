@@ -1,3 +1,40 @@
+# What's new in v0.2?
+
+## Branching
+Pfs' branching is conceptually similar to git's. Here's how they work:
+
+```shell
+# Create <branch> from <commit>
+curl -XPOST pfs/branch?commit=<commit>&branch=<branch>
+# Write a file to <branch>
+curl -XPUT pfs/file/path?branch=<branch> -d @local_file
+# Commit <branch>
+curl -XPOST pfs/commit?branch=<branch>
+# You can read from all branches commits the same way: [JAZ does that sentence make sense?]
+curl -XPOST pfs/file/path?commit=<commit>
+```
+
+## More RESTful API
+Pfs' API now consists of 3 RESTful endpoints which allow for manipulation of
+pfs' primitives.
+
+- `/file` (was `/pfs`)
+- `/commit`
+- `/branch`
+
+[Full API documentation.](pfs#using-pfs)
+
+## Test and Benchmark Suite
+Much needed repayment of some technical debt. Pfs now has an integrated test
+and benchmark suite. Currently it ships in the same image as pfs.
+
+```shell
+# Run the test suite
+docker run -ti pachyderm/pfs pfs-test
+# Run the benchmark suite
+docker run -ti pachyderm/pfs pfs-bench
+```
+
 # Pachyderm File System
 
 ## What is pfs?
