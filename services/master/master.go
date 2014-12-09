@@ -43,9 +43,9 @@ func cat(w http.ResponseWriter, name string) {
 	}
 }
 
-// PfsHandler is the core route for modifying the contents of the fileystem.
+// FileHandler is the core route for modifying the contents of the fileystem.
 // Changes are not replicated until a call to CommitHandler.
-func PfsHandler(w http.ResponseWriter, r *http.Request) {
+func FileHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// commitFile is used for read methods (GET)
 	commitFile := path.Join(append([]string{path.Join(repo, commitParam(r))}, url[2:]...)...)
@@ -168,7 +168,7 @@ func MasterMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/commit", CommitHandler)
-	mux.HandleFunc("/pfs/", PfsHandler)
+	mux.HandleFunc("/file/", FileHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/branch", BranchHandler)
 

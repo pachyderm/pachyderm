@@ -41,7 +41,7 @@ var reader ConstReader
 
 // insert inserts a single file in to the filesystem
 func insert(fileSize int64, t testing.TB) {
-	url := "http://172.17.42.1/pfs/" + randSeq(10)
+	url := "http://172.17.42.1/file/" + randSeq(10)
 	resp, err := http.Post(url, "application/text", io.LimitReader(reader, fileSize))
 	if err != nil {
 		t.Fatal(err)

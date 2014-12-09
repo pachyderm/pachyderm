@@ -95,7 +95,7 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 func RouterMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	pfsHandler := func(w http.ResponseWriter, r *http.Request) {
+	fileHandler := func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "*") {
 			Multicast(w, r, "/pfs/master")
 		} else {
@@ -114,7 +114,7 @@ func RouterMux() *http.ServeMux {
 		Multicast(w, r, "/pfs/master")
 	}
 
-	mux.HandleFunc("/pfs/", pfsHandler)
+	mux.HandleFunc("/file/", fileHandler)
 	mux.HandleFunc("/commit", commitHandler)
 	mux.HandleFunc("/branch", branchHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
