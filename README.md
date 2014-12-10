@@ -1,7 +1,20 @@
 # What's new in v0.2?
 
 ## Branching
-Pfs' branches are conceptually similar to git's. Here's how they work:
+Pfs' branches are conceptually similar to git's. Here's an example of how to
+use them:
+
+``shell
+# Create a new branch my-branch from commit d1938eea-cce6-4eca-b30c-ab6ead04c180.
+$ curl -XPOST pfs/branch?commit=d1938eea-cce6-4eca-b30c-ab6ead04c180&branch=my-branch
+# Write my-file to my-branch
+$ curl -XPUT pfs/file/my-file?branch=my-branch -d @local_file
+# Commit my-branch
+$ curl -XPOST pfs/commit?branch=<branch>
+79a0247c-d6b5-4aea-ac4d-84627c5f3eb6
+# You can read from my-branch's commits just like master's
+$ curl -XGET pfs/file/my-file?commit=79a0247c-d6b5-4aea-ac4d-84627c5f3eb6
+```
 
 ```shell
 # Create <branch> from <commit>
