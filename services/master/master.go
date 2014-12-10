@@ -182,7 +182,7 @@ func RunServer() {
 
 func main() {
 	log.SetFlags(log.Lshortfile)
-	repo = "master-" + os.Args[1] + btrfs.RandSeq(4)
+	repo = "master-" + os.Args[1]
 	if err := btrfs.Ensure(repo); err != nil {
 		log.Fatal(err)
 	}
