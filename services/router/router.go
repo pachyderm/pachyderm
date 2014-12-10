@@ -62,7 +62,7 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 	endpoints := _endpoints.Node.Nodes
 	log.Print(endpoints)
 
-	for _, node := range endpoints {
+	for i, node := range endpoints {
 		log.Print("Multicasting to: ", node, node.Value)
 		httpClient := &http.Client{}
 		// `Do` will complain if r.RequestURI is set so we unset it
@@ -77,10 +77,17 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 			return
 		}
 		defer resp.Body.Close()
-		if _, err := io.Copy(w, resp.Body); err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
+		if resp.StatusCode != 200 {
+			http.Error(w, fmt.Sprintf("Failed request (%s) to %s.", resp.Status, r.URL.String()), resp.StatusCode)
+			log.Printf("Failed request (%s) to %s.\n", resp.Status, r.URL.String())
 			return
+		}
+		if i == 0 {
+			if _, err := io.Copy(w, resp.Body); err != nil {
+				http.Error(w, err.Error(), 500)
+				log.Print(err)
+				return
+			}
 		}
 	}
 }
@@ -88,7 +95,7 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 func RouterMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	pfsHandler := func(w http.ResponseWriter, r *http.Request) {
+	fileHandler := func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "*") {
 			Multicast(w, r, "/pfs/master")
 		} else {
@@ -96,16 +103,18 @@ func RouterMux() *http.ServeMux {
 		}
 	}
 	commitHandler := func(w http.ResponseWriter, r *http.Request) {
-		values := r.URL.Query()
-		values.Add("commit", uuid.New())
-		r.URL.RawQuery = values.Encode()
+		if r.Method == "POST" {
+			values := r.URL.Query()
+			values.Add("commit", uuid.New())
+			r.URL.RawQuery = values.Encode()
+		}
 		Multicast(w, r, "/pfs/master")
 	}
 	branchHandler := func(w http.ResponseWriter, r *http.Request) {
 		Multicast(w, r, "/pfs/master")
 	}
 
-	mux.HandleFunc("/pfs/", pfsHandler)
+	mux.HandleFunc("/file/", fileHandler)
 	mux.HandleFunc("/commit", commitHandler)
 	mux.HandleFunc("/branch", branchHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })

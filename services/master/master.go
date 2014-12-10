@@ -9,6 +9,7 @@ import (
 	"path"
 	"strings"
 
+	"code.google.com/p/go-uuid/uuid"
 	"github.com/pachyderm-io/pfs/lib/btrfs"
 	"github.com/pachyderm-io/pfs/lib/mapreduce"
 )
@@ -44,9 +45,9 @@ func cat(w http.ResponseWriter, name string) {
 	}
 }
 
-// PfsHandler is the core route for modifying the contents of the fileystem.
+// FileHandler is the core route for modifying the contents of the fileystem.
 // Changes are not replicated until a call to CommitHandler.
-func PfsHandler(w http.ResponseWriter, r *http.Request) {
+func FileHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// commitFile is used for read methods (GET)
 	commitFile := path.Join(append([]string{path.Join(dataRepo, commitParam(r))}, url[2:]...)...)
@@ -105,35 +106,68 @@ func PfsHandler(w http.ResponseWriter, r *http.Request) {
 
 // CommitHandler creates a snapshot of outstanding changes.
 func CommitHandler(w http.ResponseWriter, r *http.Request) {
-	if err := btrfs.Commit(dataRepo, commitParam(r), branchParam(r)); err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
+	if r.Method == "GET" {
+		commits, err := btrfs.ReadDir(dataRepo)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+
+		for _, ci := range commits {
+			if uuid.Parse(ci.Name()) != nil {
+				fmt.Fprintf(w, "%s    %s\n", ci.Name(), ci.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+			}
+		}
+	} else if r.Method == "POST" {
+		err := btrfs.Commit(dataRepo, commitParam(r), branchParam(r))
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+
+		if err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, "jobs"); err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+
+		fmt.Fprint(w, commitParam)
+	} else {
+		http.Error(w, "Unsupported method.", http.StatusMethodNotAllowed)
+		log.Printf("Unsupported method %s in request to %s.", r.Method, r.URL.String())
 		return
 	}
-
-	if err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, "jobs"); err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
-
-	fmt.Fprintf(w, "Create commit: %s.\n", commitParam(r))
 }
 
 // BranchHandler creates a new branch from commit.
 func BranchHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+	if r.Method == "GET" {
+		branches, err := btrfs.ReadDir(dataRepo)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+
+		for _, bi := range branches {
+			if uuid.Parse(bi.Name()) == nil {
+				fmt.Fprintf(w, "%s    %s\n", bi.Name(), bi.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+			}
+		}
+	} else if r.Method == "POST" {
+		if err := btrfs.Branch(dataRepo, commitParam(r), branchParam(r)); err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+		fmt.Fprintf(w, "Created branch. (%s) -> %s.\n", commitParam(r), branchParam(r))
+	} else {
 		http.Error(w, "Invalid method.", 405)
 		log.Print("Invalid method %s.", r.Method)
 		return
 	}
-
-	if err := btrfs.Branch(dataRepo, commitParam(r), branchParam(r)); err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
-	fmt.Fprintf(w, "Created branch. (%s) -> %s.\n", commitParam(r), branchParam(r))
 }
 
 // MasterMux creates a multiplexer for a Master writing to the passed in FS.
@@ -141,7 +175,7 @@ func MasterMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/commit", CommitHandler)
-	mux.HandleFunc("/pfs/", PfsHandler)
+	mux.HandleFunc("/file/", FileHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/branch", BranchHandler)
 
