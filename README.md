@@ -102,8 +102,7 @@ the day.
 
 ### Creating a CoreOS cluster
 Pfs is designed to run on CoreOS. To start, you'll need a working CoreOS
-cluster. Currently global containers, which are required by pfs, are only
-available in the beta channel (CoreOS 444.5.0)
+cluster. Here's links on how to set one up:
 
 - [Google Compute Engine](https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/) (recommended)
 - [Amazon EC2](https://coreos.com/docs/running-coreos/cloud-providers/ec2/)
