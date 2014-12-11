@@ -4,7 +4,7 @@
 Pfs' branches are conceptually similar to git's. Here's an example of how to
 use them:
 
-``shell
+```shell
 # Create a new branch my-branch from commit d1938eea-cce6-4eca-b30c-ab6ead04c180.
 $ curl -XPOST pfs/branch?commit=d1938eea-cce6-4eca-b30c-ab6ead04c180&branch=my-branch
 # Write my-file to my-branch
@@ -16,19 +16,8 @@ $ curl -XPOST pfs/commit?branch=<branch>
 $ curl -XGET pfs/file/my-file?commit=79a0247c-d6b5-4aea-ac4d-84627c5f3eb6
 ```
 
-```shell
-# Create <branch> from <commit>
-curl -XPOST pfs/branch?commit=<commit>&branch=<branch>
-# Write a file to <branch>
-curl -XPUT pfs/file/path?branch=<branch> -d @local_file
-# Commit <branch>
-curl -XPOST pfs/commit?branch=<branch>
-# You can read from all branches commits the same way: [JAZ does that sentence make sense?]
-curl -XPOST pfs/file/path?commit=<commit>
-```
-
 Pfs currently doesn't have an analog to git's merge. We're discussing what that
-might look like in #16.
+might look like in [#16](https://github.com/pachyderm-io/pfs/issues/16).
 
 ## More RESTful API
 Pfs' API now consists of 3 RESTful endpoints which allow for manipulation of
@@ -39,6 +28,8 @@ pfs' primitives.
 - `/branch`
 
 [Full API documentation.](pfs#using-pfs)
+
+This API is also being discussed in [#18](https://github.com/pachyderm-io/pfs/issues/18)
 
 ## Test and Benchmark Suite
 Much needed repayment of some technical debt. Pfs now has an integrated test
@@ -178,6 +169,8 @@ $ curl -XPOST localhost/commit?branch=<branch>
 ```shell
 # Create <branch> from <commit>.
 $ curl -XPOST localhost/branch?commit=<commit>&branch=<branch>
+# Commit to <branch>
+$ curl -XPOST localhost/commit?branch=<branch>
 ```
 
 ## Who's building this?
