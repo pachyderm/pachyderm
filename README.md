@@ -30,7 +30,7 @@ primitives.
 - `/commit`
 - `/branch`
 
-[Full API documentation.](pfs#using-pfs)
+[Full API documentation.](#using-pfs)
 
 This API is also being discussed in [#18](https://github.com/pachyderm-io/pfs/issues/18)
 
