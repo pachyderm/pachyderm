@@ -2,268 +2,190 @@ package main
 
 import (
 	"fmt"
-	"github.com/coreos/go-etcd/etcd"
-	"github.com/pachyderm-io/pfs/lib/btrfs"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path"
-	"strconv"
 	"strings"
+
+	"code.google.com/p/go-uuid/uuid"
+	"github.com/pachyderm-io/pfs/lib/btrfs"
 )
 
-//TODO commits should be content based
+var repo string
 
-// headPath is the location of a symlink to the latest commit.
-var headPath string = ".commits/HEAD"
-
-// IncrCommit generates the next commit path.
-func IncrCommit(commit string) (string, error) {
-	split := strings.Split(commit, "/")
-	index, err := strconv.Atoi(split[len(split)-1])
-	if err != nil {
-		return "", err
+func commitParam(r *http.Request) string {
+	if c := r.URL.Query().Get("commit"); c != "" {
+		return c
 	}
-	index++
-	split[len(split)-1] = strconv.Itoa(index)
-	return strings.Join(split, "/"), nil
+	return "master"
 }
 
-// DecrCommit generates the previous commit path.
-func DecrCommit(commit string) (string, error) {
-	split := strings.Split(commit, "/")
-	index, err := strconv.Atoi(split[len(split)-1])
-	if err != nil {
-		return "", err
+func branchParam(r *http.Request) string {
+	if c := r.URL.Query().Get("branch"); c != "" {
+		return c
 	}
-	index--
-	split[len(split)-1] = strconv.Itoa(index)
-	return strings.Join(split, "/"), nil
+	return "master"
 }
 
-// PfsHandler is the core route for modifying the contents of the fileystem.
+func cat(w http.ResponseWriter, name string) {
+	f, err := btrfs.Open(name)
+	defer f.Close()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		log.Print(err)
+	}
+
+	if _, err := io.Copy(w, f); err != nil {
+		http.Error(w, err.Error(), 500)
+		log.Print(err)
+	}
+}
+
+// FileHandler is the core route for modifying the contents of the fileystem.
 // Changes are not replicated until a call to CommitHandler.
-func PfsHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
+func FileHandler(w http.ResponseWriter, r *http.Request) {
+	url := strings.Split(r.URL.Path, "/")
+	// commitFile is used for read methods (GET)
+	commitFile := path.Join(append([]string{path.Join(repo, commitParam(r))}, url[2:]...)...)
+	// branchFile is used for write methods (POST, PUT, DELETE)
+	branchFile := path.Join(append([]string{path.Join(repo, branchParam(r))}, url[2:]...)...)
+
 	if r.Method == "GET" {
-		params := r.URL.Query()
-		if params.Get("commit") == "" {
-			http.StripPrefix("/pfs/", http.FileServer(http.Dir(fs.FilePath("")))).ServeHTTP(w, r)
+		if strings.Contains(commitFile, "*") {
+			if !strings.HasSuffix(commitFile, "*") {
+				http.Error(w, "Illegal path containing internal `*`. `*` is currently only allowed as the last character of a path.", 400)
+			} else {
+				dir := path.Dir(commitFile)
+				files, err := btrfs.ReadDir(dir)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				} else {
+					for _, fi := range files {
+						if fi.IsDir() {
+							continue
+						} else {
+							cat(w, path.Join(dir, fi.Name()))
+						}
+					}
+				}
+			}
 		} else {
-			servePath := fs.FilePath(path.Join(".commits", params.Get("commit")))
-			log.Print(servePath)
-			http.StripPrefix("/pfs/", http.FileServer(http.Dir(servePath))).ServeHTTP(w, r)
+			cat(w, commitFile)
 		}
 	} else if r.Method == "POST" {
-		url := strings.Split(r.URL.Path, "/")
-		filename := strings.Join(url[2:], "/")
-		size, err := fs.CreateFile(filename, r.Body)
+		btrfs.MkdirAll(path.Dir(branchFile))
+		size, err := btrfs.CreateFromReader(branchFile, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
-		fmt.Fprintf(w, "Added %s, size: %d.\n", filename, size)
+		fmt.Fprintf(w, "Created %s, size: %d.\n", branchFile, size)
 	} else if r.Method == "PUT" {
-		url := strings.Split(r.URL.Path, "/")
-		filename := strings.Join(url[2:], "/")
-		size, err := fs.WriteFile(filename, r.Body)
+		btrfs.MkdirAll(path.Dir(branchFile))
+		size, err := btrfs.WriteFile(branchFile, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
-		fmt.Fprintf(w, "Wrote %s, size: %d.\n", filename, size)
+		fmt.Fprintf(w, "Created %s, size: %d.\n", branchFile, size)
 	} else if r.Method == "DELETE" {
-		url := strings.Split(r.URL.Path, "/")
-		filename := strings.Join(url[2:], "/")
-		err := fs.Remove(filename)
-		if err != nil {
+		if err := btrfs.Remove(branchFile); err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
-		fmt.Fprintf(w, "Deleted %s.\n", filename)
+		fmt.Fprintf(w, "Deleted %s.\n", branchFile)
 	}
 }
 
-// CommitHandler creates a snapshot of outstanding changes and pushes it to
-// replicas.
-func CommitHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
-	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
-	log.Printf("Getting replica for %s.", os.Args[1])
-	shard_prefix := path.Join("/pfs", "replica", os.Args[1])
-	_replica, err := client.Get(shard_prefix, false, false)
-	replica := _replica.Node.Value
-	log.Print(replica)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
+// CommitHandler creates a snapshot of outstanding changes.
+func CommitHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		commits, err := btrfs.ReadDir(repo)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
 
-	exists, err := fs.FileExists(".commits")
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
-	if exists {
-		log.Print("exists")
-		last_commit, err := fs.Readlink(headPath)
+		for _, ci := range commits {
+			if uuid.Parse(ci.Name()) != nil {
+				fmt.Fprintf(w, "%s    %s\n", ci.Name(), ci.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+			}
+		}
+	} else if r.Method == "POST" {
+		commit, err := btrfs.Commit(repo, commitParam(r), branchParam(r))
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
-		new_commit, err := IncrCommit(last_commit)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-		err = fs.Snapshot(".", new_commit, true)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-		err = fs.Remove(headPath)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-		err = fs.Symlink(new_commit, headPath)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-		err = btrfs.Sync()
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-		fmt.Fprintf(w, "Created commit: %s.\n", new_commit)
-
-		err = fs.Send(last_commit, new_commit,
-			func(data io.ReadCloser) error {
-				_, err = http.Post("http://"+replica+"/"+"recv",
-					"text/plain", data)
-				return err
-			})
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-		fmt.Fprintf(w, "Sent commit to: %s.\n", replica)
+		fmt.Fprint(w, commit)
 	} else {
-		log.Print("First commit.")
-		first_commit := path.Join(".commits", "0")
-		err = fs.MkdirAll(".commits", 0777)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-		err = fs.Snapshot(".", first_commit, true)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-		err = fs.Symlink(first_commit, headPath)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-		err = btrfs.Sync()
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-		fmt.Fprintf(w, "Created commit: %s.\n", first_commit)
-		err = fs.SendBase(first_commit,
-			func(data io.ReadCloser) error {
-				_, err = http.Post("http://"+replica+"/"+"recv",
-					"text/plain", data)
-				return err
-			})
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-		fmt.Fprintf(w, "Sent commit to: %s.\n", replica)
+		http.Error(w, "Unsupported method.", http.StatusMethodNotAllowed)
+		log.Printf("Unsupported method %s in request to %s.", r.Method, r.URL.String())
+		return
 	}
 }
 
-//BrowseHandler exposes existing snapshots.
-func BrowseHandler(w http.ResponseWriter, r *http.Request, fs *btrfs.FS) {
-	exists, err := fs.FileExists(".commits")
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
-	if exists {
-		commits, err := fs.ReadDir(".commits")
+// BranchHandler creates a new branch from commit.
+func BranchHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		branches, err := btrfs.ReadDir(repo)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
 
-		for _, c := range commits {
-			fmt.Fprintf(w, "<html>")
-			fmt.Fprintf(w, "<pre>")
-			fmt.Fprintf(w, "<a href=\"/pfs/.commits/%s\">%s</a> - %s <a href=\"/del/%s\">Delete</a>\n", c.Name(), c.Name(), c.ModTime().Format("Jan 2, 2006 at 3:04pm (PST)"), c.Name())
-			fmt.Fprintf(w, "</pre>")
-			fmt.Fprintf(w, "</html>")
+		for _, bi := range branches {
+			if uuid.Parse(bi.Name()) == nil {
+				fmt.Fprintf(w, "%s    %s\n", bi.Name(), bi.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+			}
 		}
+	} else if r.Method == "POST" {
+		if err := btrfs.Branch(repo, commitParam(r), branchParam(r)); err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+		fmt.Fprintf(w, "Created branch. (%s) -> %s.\n", commitParam(r), branchParam(r))
 	} else {
-		fmt.Fprint(w, "Nothing here :(.")
+		http.Error(w, "Invalid method.", 405)
+		log.Print("Invalid method %s.", r.Method)
+		return
 	}
+
 }
 
 // MasterMux creates a multiplexer for a Master writing to the passed in FS.
-func MasterMux(fs *btrfs.FS) *http.ServeMux {
+func MasterMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	commitHandler := func(w http.ResponseWriter, r *http.Request) {
-		CommitHandler(w, r, fs)
-	}
-
-	pfsHandler := func(w http.ResponseWriter, r *http.Request) {
-		PfsHandler(w, r, fs)
-	}
-
-	browseHandler := func(w http.ResponseWriter, r *http.Request) {
-		BrowseHandler(w, r, fs)
-	}
-
-	mux.HandleFunc("/commit", commitHandler)
-	mux.HandleFunc("/pfs/", pfsHandler)
-	mux.HandleFunc("/browse", browseHandler)
+	mux.HandleFunc("/commit", CommitHandler)
+	mux.HandleFunc("/file/", FileHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
+	mux.HandleFunc("/branch", BranchHandler)
 
 	return mux
 }
 
 // RunServer runs a master server listening on port 80
-func RunServer(fs *btrfs.FS) {
-	http.ListenAndServe(":80", MasterMux(fs))
+func RunServer() {
+	http.ListenAndServe(":80", MasterMux())
 }
 
 func main() {
 	log.SetFlags(log.Lshortfile)
-	fs := btrfs.NewFS("master-" + os.Args[1])
-	fs.EnsureNamespace()
+	repo = "master-" + os.Args[1]
+	if err := btrfs.Ensure(repo); err != nil {
+		log.Fatal(err)
+	}
 	log.Print("Listening on port 80...")
-	RunServer(fs)
+	RunServer()
 }

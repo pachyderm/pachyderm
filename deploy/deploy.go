@@ -90,6 +90,6 @@ func main() {
 	}
 
 	printShardedService("master", nShards)
-	printShardedService("replica", nShards)
+	//printShardedService("replica", nShards)
 	printGlobalService("router", nShards)
 }

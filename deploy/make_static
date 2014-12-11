@@ -1,0 +1,11 @@
+#!/bin/sh
+go build
+rm -rf static
+mkdir -p static/1Node
+mkdir -p static/3Node
+./deploy 1 && mv *.service static/1Node
+./deploy 3 && mv *.service static/3Node
+cd static
+tar -zcvf 1Node.tar.gz 1Node
+tar -zcvf 3Node.tar.gz 3Node
+cd ..
