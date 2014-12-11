@@ -128,9 +128,7 @@ If things are working correctly, you should see something like:
 ```
 UNIT                            MACHINE                         ACTIVE  SUB
 announce-master-0-1.service     3817102d.../10.240.199.203      active  running
-announce-replica-0-1.service    3817102d.../10.240.199.203      active  running
 master-0-1.service              3817102d.../10.240.199.203      active  running
-replica-0-1.service             3817102d.../10.240.199.203      active  running
 router.service                  3817102d.../10.240.199.203      active  running
 ```
 
