@@ -183,10 +183,11 @@ func JobHandler(w http.ResponseWriter, r *http.Request) {
 func MasterMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("/branch", BranchHandler)
 	mux.HandleFunc("/commit", CommitHandler)
 	mux.HandleFunc("/file/", FileHandler)
+	mux.HandleFunc("/job/", JobHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
-	mux.HandleFunc("/branch", BranchHandler)
 
 	return mux
 }

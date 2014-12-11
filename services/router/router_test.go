@@ -78,7 +78,7 @@ func newJob(job mapreduce.Job, t testing.TB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	url := "http://172.17.42.1/file/jobs/" + randSeq(4)
+	url := "http://172.17.42.1/job/" + randSeq(4)
 	resp, err := http.Post(url, "application/text", bytes.NewReader(jobJson))
 	if err != nil {
 		t.Fatal(err)
