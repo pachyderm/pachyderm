@@ -93,7 +93,7 @@ running `npm install opencv` inside a Docker container and creating a node.js se
 
 ## Quickstart Guide
 The easiest way to try out pfs is to point curl at the live instance we have
-running here: http://146.148.35.127/. We'll try to keep it up and running throughout
+running here: http://release.pachyderm.io. We'll try to keep it up and running throughout
 the day.
 
 ### Creating a CoreOS cluster
