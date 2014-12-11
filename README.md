@@ -1,7 +1,7 @@
 # What's new in v0.2?
 
 ## Branching
-Pfs' branches are conceptually similar to git's. Here's an example of how to
+Pfs's branches are conceptually similar to git's. Here's an example of how to
 use them:
 
 ```shell
@@ -20,8 +20,8 @@ Pfs currently doesn't have an analog to git's merge. We're discussing what that
 might look like in [#16](https://github.com/pachyderm-io/pfs/issues/16).
 
 ## More RESTful API
-Pfs' API now consists of 3 RESTful endpoints which allow for manipulation of
-pfs' primitives.
+Pfs's API now consists of 3 RESTful endpoints which correspond to pfs's core
+primitives.
 
 - `/file` (was `/pfs`)
 - `/commit`
@@ -139,38 +139,42 @@ Pfs exposes a git-like interface to the file system:
 
 #### Creating files
 ```shell
-# Write a file to <branch>. Defaults to "master".
-$ curl -XPOST localhost/file/path/to/file?branch=<branch> -d @local_file
+# Write <file> to <branch>. Branch defaults to "master".
+$ curl -XPOST pfs/file/<file>?branch=<branch> -d @local_file
 ```
 
 #### Reading files
 ```shell
-# Read a file from <master>.
-$ curl localhost/file/path/to/file
-# Read all files in a directory.
-$ curl localhost/file/path/to/dir/*
-# Read a file from a previous commit.
-$ curl localhost/file/path/to/file?commit=n
+# Read <file> from <master>.
+$ curl pfs/file/<file>
+# Read all files in a <directory>.
+$ curl pfs/file/<directory>/*
+# Read <file> from <commit>.
+$ curl pfs/file/<file>?commit=<commit>
 ```
 
 #### Deleting files
 ```shell
-# Delete a file from <branch>. Defaults to "master".
-$ curl -XDELETE localhost/file/path/to/file?branch=<branch>
+# Delete <file> from <branch>. Branch defaults to "master".
+$ curl -XDELETE pfs/file/<file>?branch=<branch>
 ```
 
 #### Committing changes
 ```shell
 # Commit dirty changes to <branch>. Defaults to "master".
-$ curl -XPOST localhost/commit?branch=<branch>
+$ curl -XPOST pfs/commit?branch=<branch>
+# Getting all commits.
+$ curl -XGET pfs/commit
 ```
 
-#### Create a new branch
+#### Branching
 ```shell
 # Create <branch> from <commit>.
-$ curl -XPOST localhost/branch?commit=<commit>&branch=<branch>
+$ curl -XPOST pfs/branch?commit=<commit>&branch=<branch>
 # Commit to <branch>
-$ curl -XPOST localhost/commit?branch=<branch>
+$ curl -XPOST pfs/commit?branch=<branch>
+# Getting all branches.
+$ curl -XGET pfs/branch
 ```
 
 ## Who's building this?
