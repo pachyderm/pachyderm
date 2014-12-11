@@ -46,6 +46,11 @@ func Route(w http.ResponseWriter, r *http.Request, etcdKey string) {
 		return
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		http.Error(w, fmt.Sprintf("Failed request (%s) to %s.", resp.Status, r.URL.String()), resp.StatusCode)
+		log.Printf("Failed request (%s) to %s.\n", resp.Status, r.URL.String())
+		return
+	}
 	if _, err := io.Copy(w, resp.Body); err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
