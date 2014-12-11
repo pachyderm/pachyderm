@@ -7,11 +7,14 @@ use them:
 ```shell
 # Create a new branch my-branch from commit d1938eea-cce6-4eca-b30c-ab6ead04c180.
 $ curl -XPOST pfs/branch?commit=d1938eea-cce6-4eca-b30c-ab6ead04c180&branch=my-branch
+
 # Write my-file to my-branch
 $ curl -XPUT pfs/file/my-file?branch=my-branch -d @local_file
+
 # Commit my-branch
 $ curl -XPOST pfs/commit?branch=<branch>
 79a0247c-d6b5-4aea-ac4d-84627c5f3eb6
+
 # You can read from my-branch's commits just like master's
 $ curl -XGET pfs/file/my-file?commit=79a0247c-d6b5-4aea-ac4d-84627c5f3eb6
 ```
@@ -38,6 +41,7 @@ and benchmark suite. Currently it ships in the same image as pfs.
 ```shell
 # Run the test suite
 docker run -ti pachyderm/pfs pfs-test
+
 # Run the benchmark suite
 docker run -ti pachyderm/pfs pfs-bench
 ```
@@ -145,8 +149,10 @@ $ curl -XPOST pfs/file/<file>?branch=<branch> -d @local_file
 ```shell
 # Read <file> from <master>.
 $ curl pfs/file/<file>
+
 # Read all files in a <directory>.
 $ curl pfs/file/<directory>/*
+
 # Read <file> from <commit>.
 $ curl pfs/file/<file>?commit=<commit>
 ```
@@ -161,6 +167,7 @@ $ curl -XDELETE pfs/file/<file>?branch=<branch>
 ```shell
 # Commit dirty changes to <branch>. Defaults to "master".
 $ curl -XPOST pfs/commit?branch=<branch>
+
 # Getting all commits.
 $ curl -XGET pfs/commit
 ```
@@ -169,8 +176,10 @@ $ curl -XGET pfs/commit
 ```shell
 # Create <branch> from <commit>.
 $ curl -XPOST pfs/branch?commit=<commit>&branch=<branch>
+
 # Commit to <branch>
 $ curl -XPOST pfs/commit?branch=<branch>
+
 # Getting all branches.
 $ curl -XGET pfs/branch
 ```
