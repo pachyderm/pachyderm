@@ -45,6 +45,8 @@ docker run -ti pachyderm/pfs pfs-test
 # Run the benchmark suite
 docker run -ti pachyderm/pfs pfs-bench
 ```
+# Roadmap
+v0.3 will contain the first implementation of Dockerized MapReduce which will allow us to start doing actual distributed computations with pfs. You can track development [here](https://github.com/pachyderm-io/pfs/issues/4).
 
 # Pachyderm File System
 
