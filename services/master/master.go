@@ -17,6 +17,8 @@ import (
 var dataRepo string
 var compRepo string
 
+var jobDir string = "jobs"
+
 func commitParam(r *http.Request) string {
 	if c := r.URL.Query().Get("commit"); c != "" {
 		return c
@@ -127,7 +129,8 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, "jobs"); err != nil {
+		log.Printf("Materializing %s -> %s", dataRepo, compRepo)
+		if err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, jobDir); err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
@@ -168,6 +171,12 @@ func BranchHandler(w http.ResponseWriter, r *http.Request) {
 		log.Print("Invalid method %s.", r.Method)
 		return
 	}
+}
+
+func JobHandler(w http.ResponseWriter, r *http.Request) {
+	url := strings.Split(r.URL.Path, "/")
+	r.URL.Path = path.Join("file", jobDir, url[2])
+	FileHandler(w, r)
 }
 
 // MasterMux creates a multiplexer for a Master writing to the passed in FS.

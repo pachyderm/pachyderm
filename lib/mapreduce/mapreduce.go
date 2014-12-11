@@ -51,7 +51,6 @@ func IpAddr(containerId string) (string, error) {
 
 type Job struct {
 	Input     string   `json:"input"`
-	Output    string   `json:"output"`
 	Container string   `json:"container"`
 	Command   []string `json:"command"`
 }
@@ -124,12 +123,12 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 			if !exists {
 				return fmt.Errorf("Invalid state. %s should already exists.", path.Join(out_repo, branch))
 			} else {
-				if err := btrfs.MkdirAll(path.Join(out_repo, branch, j.Output)); err != nil {
+				if err := btrfs.MkdirAll(path.Join(out_repo, branch, jobInfo.Name())); err != nil {
 					return err
 				}
 			}
 
-			outFile, err := btrfs.Create(path.Join(out_repo, branch, j.Output, inF.Name()))
+			outFile, err := btrfs.Create(path.Join(out_repo, branch, jobInfo.Name(), inF.Name()))
 			if err != nil {
 				return err
 			}

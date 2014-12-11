@@ -78,7 +78,7 @@ func newJob(job mapreduce.Job, t testing.TB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	url := "http://172.17.42.1/pfs/jobs/" + randSeq(10)
+	url := "http://172.17.42.1/file/jobs/" + randSeq(4)
 	resp, err := http.Post(url, "application/text", bytes.NewReader(jobJson))
 	if err != nil {
 		t.Fatal(err)
@@ -120,7 +120,7 @@ func TestFire(t *testing.T) {
 
 func TestMR(t *testing.T) {
 	commit(t)
-	newJob(mapreduce.Job{Input: "input", Output: "output", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	newJob(mapreduce.Job{Input: "input", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
 	insert("input", 4*KB, t)
 	commit(t)
 }
