@@ -124,8 +124,7 @@ func RouterMux() *http.ServeMux {
 	mux.HandleFunc("/branch", branchHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = path.Join("file", "README")
-		fileHandler(w, r)
+		fmt.Fprintf(w, "Welcome to pfs!\n")
 	})
 
 	return mux
