@@ -6,14 +6,17 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"time"
 
 	"github.com/pachyderm-io/pfs/lib/btrfs"
 	"github.com/samalba/dockerclient"
 )
 
+var retries int = 5
+
 // StartContainer pulls image and starts a container from it with command. It
 // returns the container id or an error.
-func SpinupContainer(image string, command []string) (string, error) {
+func spinupContainer(image string, command []string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
 		return "", err
@@ -36,7 +39,7 @@ func SpinupContainer(image string, command []string) (string, error) {
 	return containerId, nil
 }
 
-func IpAddr(containerId string) (string, error) {
+func ipAddr(containerId string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
 		return "", err
@@ -47,6 +50,19 @@ func IpAddr(containerId string) (string, error) {
 	}
 
 	return containerInfo.NetworkSettings.IpAddress, nil
+}
+
+func retry(f func() error, retries int, pause time.Duration) error {
+	var err error
+	for i := 0; i < retries; i++ {
+		err = f()
+		if err == nil {
+			break
+		} else {
+			time.Sleep(pause)
+		}
+	}
+	return err
 }
 
 type Job struct {
@@ -87,13 +103,13 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 			return err
 		}
 
-		containerId, err := SpinupContainer(j.Container, j.Command)
+		containerId, err := spinupContainer(j.Container, j.Command)
 		if err != nil {
 			return err
 		}
 		defer docker.StopContainer(containerId, 5)
 
-		containerAddr, err := IpAddr(containerId)
+		containerAddr, err := ipAddr(containerId)
 		if err != nil {
 			return err
 		}
@@ -110,7 +126,11 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 			}
 			defer inFile.Close()
 
-			resp, err := http.Post("http://"+path.Join(containerAddr, inF.Name()), "application/text", inFile)
+			var resp *http.Response
+			err = retry(func() error {
+				resp, err = http.Post("http://"+path.Join(containerAddr, inF.Name()), "application/text", inFile)
+				return err
+			}, 5, 200*time.Millisecond)
 			if err != nil {
 				return err
 			}
