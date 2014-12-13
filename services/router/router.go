@@ -22,14 +22,14 @@ func hashRequest(r *http.Request) uint64 {
 }
 
 func Route(w http.ResponseWriter, r *http.Request, etcdKey string) {
-	log.Printf("Request to `Route`: %s.\n", r.URL.Path)
-
 	bucket := hashRequest(r)
 	shard := fmt.Sprint(bucket, "-", os.Args[1])
 
 	_master, err := etcache.Get(path.Join(etcdKey, shard), false, false)
 	if err != nil {
-		log.Fatal(err)
+		http.Error(w, err.Error(), 500)
+		log.Print(err)
+		return
 	}
 	master := _master.Node.Value
 
@@ -38,7 +38,6 @@ func Route(w http.ResponseWriter, r *http.Request, etcdKey string) {
 	r.RequestURI = ""
 	r.URL.Scheme = "http"
 	r.URL.Host = master
-	log.Print("Proxying to: " + r.URL.String())
 	resp, err := httpClient.Do(r)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -54,7 +53,6 @@ func Route(w http.ResponseWriter, r *http.Request, etcdKey string) {
 }
 
 func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
-	log.Printf("Request to `Multicast`: %s.\n", r.URL.String())
 	_endpoints, err := etcache.Get(etcdKey, false, true)
 	if err != nil {
 		log.Fatal(err)
@@ -63,7 +61,6 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 	log.Print(endpoints)
 
 	for i, node := range endpoints {
-		log.Print("Multicasting to: ", node, node.Value)
 		httpClient := &http.Client{}
 		// `Do` will complain if r.RequestURI is set so we unset it
 		r.RequestURI = ""
@@ -113,12 +110,17 @@ func RouterMux() *http.ServeMux {
 	branchHandler := func(w http.ResponseWriter, r *http.Request) {
 		Multicast(w, r, "/pfs/master")
 	}
+	jobHandler := func(w http.ResponseWriter, r *http.Request) {
+		Multicast(w, r, "/pfs/master")
+	}
 
 	mux.HandleFunc("/file/", fileHandler)
 	mux.HandleFunc("/commit", commitHandler)
 	mux.HandleFunc("/branch", branchHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
+	mux.HandleFunc("/job/", jobHandler)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		log.Print("Req to slash.", r.URL.String())
 		fmt.Fprint(w, "PFS\n")
 	})
 

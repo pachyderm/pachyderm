@@ -50,11 +50,14 @@ func cat(w http.ResponseWriter, name string) {
 // FileHandler is the core route for modifying the contents of the fileystem.
 // Changes are not replicated until a call to CommitHandler.
 func FileHandler(w http.ResponseWriter, r *http.Request) {
+	log.Print(r.URL, " - ", r.URL.Path)
 	url := strings.Split(r.URL.Path, "/")
+	log.Print(url, " - ", url[2:])
 	// commitFile is used for read methods (GET)
 	commitFile := path.Join(append([]string{path.Join(dataRepo, commitParam(r))}, url[2:]...)...)
 	// branchFile is used for write methods (POST, PUT, DELETE)
 	branchFile := path.Join(append([]string{path.Join(dataRepo, branchParam(r))}, url[2:]...)...)
+	log.Print("Branchfile: ", branchFile)
 
 	if r.Method == "GET" {
 		if strings.Contains(commitFile, "*") {
@@ -175,8 +178,12 @@ func BranchHandler(w http.ResponseWriter, r *http.Request) {
 
 func JobHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
-	r.URL.Path = path.Join("file", jobDir, url[2])
-	FileHandler(w, r)
+	log.Print(url)
+	if r.Method == "GET" {
+	} else if r.Method == "POST" {
+		r.URL.Path = path.Join("/file", jobDir, url[2])
+		FileHandler(w, r)
+	}
 }
 
 // MasterMux creates a multiplexer for a Master writing to the passed in FS.
