@@ -57,7 +57,7 @@ func insert(dir string, fileSize int64, t testing.TB) {
 	}
 }
 
-func traffic(fileSize, sizeLimit int64, t testing.TB) {
+func traffic(dir string, fileSize, sizeLimit int64, t testing.TB) {
 	workers := 8
 	var wg sync.WaitGroup
 	wg.Add(workers)
@@ -66,7 +66,7 @@ func traffic(fileSize, sizeLimit int64, t testing.TB) {
 		go func() {
 			defer wg.Done()
 			for atomic.AddInt64(&totalSize, fileSize) <= sizeLimit {
-				insert("", fileSize, t)
+				insert(dir, fileSize, t)
 			}
 		}()
 	}
@@ -113,15 +113,22 @@ func TestSmoke(t *testing.T) {
 func TestFire(t *testing.T) {
 	commit(t)
 	for i := 0; i < 5; i++ {
-		traffic(4*KB, 5*MB, t)
+		traffic("", 4*KB, 5*MB, t)
 		commit(t)
 	}
 }
 
-func TestMR(t *testing.T) {
+func TestMRInsert(t *testing.T) {
 	commit(t)
-	newJob(mapreduce.Job{Input: "input", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
-	insert("input", 4*KB, t)
+	newJob(mapreduce.Job{Input: "TestMRInsert", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	insert("TestMRInsert", 4*KB, t)
+	commit(t)
+}
+
+func TestMRTraffic(t *testing.T) {
+	commit(t)
+	newJob(mapreduce.Job{Input: "TestMRTraffic", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	traffic("TestMRTraffic", 4*KB, 128*KB, t)
 	commit(t)
 }
 
@@ -151,7 +158,7 @@ func BenchmarkInsert1GB(b *testing.B) {
 func _BenchmarkTraffic(fileSize, totalSize int64, b *testing.B) {
 	commit(b)
 	for i := 0; i < b.N; i++ {
-		traffic(fileSize, totalSize, b)
+		traffic("", fileSize, totalSize, b)
 		commit(b)
 	}
 	commit(b)

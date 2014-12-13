@@ -132,7 +132,7 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Printf("Materializing %s -> %s", dataRepo, compRepo)
+		log.Printf("Materializing %s -> %s at %s.", dataRepo, compRepo, commitParam(r))
 		if err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, jobDir); err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)

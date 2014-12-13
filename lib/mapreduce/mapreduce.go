@@ -2,10 +2,11 @@ package mapreduce
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/pachyderm-io/pfs/lib/btrfs"
@@ -75,6 +76,7 @@ type Job struct {
 // with `in_repo/commit` as input, outputs the results to `out_repo`/`branch`
 // and commits them as `out_repo`/`commit`
 func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
+	log.Printf("Materialize: %s %s %s %s %s.", in_repo, branch, commit, out_repo, jobDir)
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
 		return err
@@ -119,48 +121,61 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 			return err
 		}
 
+		var wg sync.WaitGroup
+		defer wg.Wait()
 		for _, inF := range inFiles {
-			inFile, err := btrfs.Open(path.Join(in_repo, commit, j.Input, inF.Name()))
-			if err != nil {
-				return err
-			}
-			defer inFile.Close()
-
-			var resp *http.Response
-			err = retry(func() error {
-				resp, err = http.Post("http://"+path.Join(containerAddr, inF.Name()), "application/text", inFile)
-				return err
-			}, 5, 200*time.Millisecond)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			exists, err := btrfs.FileExists(path.Join(out_repo, branch))
-			if err != nil {
-				return err
-			}
-			if !exists {
-				return fmt.Errorf("Invalid state. %s should already exists.", path.Join(out_repo, branch))
-			} else {
-				if err := btrfs.MkdirAll(path.Join(out_repo, branch, jobInfo.Name())); err != nil {
-					return err
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				inFile, err := btrfs.Open(path.Join(in_repo, commit, j.Input, inF.Name()))
+				if err != nil {
+					log.Print(err)
+					return
 				}
-			}
+				defer inFile.Close()
 
-			outFile, err := btrfs.Create(path.Join(out_repo, branch, jobInfo.Name(), inF.Name()))
-			if err != nil {
-				return err
-			}
-			defer outFile.Close()
-			if _, err := io.Copy(outFile, resp.Body); err != nil {
-				return err
-			}
-		}
+				var resp *http.Response
+				err = retry(func() error {
+					resp, err = http.Post("http://"+path.Join(containerAddr, inF.Name()), "application/text", inFile)
+					return err
+				}, 5, 200*time.Millisecond)
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				defer resp.Body.Close()
 
-		if err := btrfs.Commit(out_repo, commit, branch); err != nil {
-			return err
+				exists, err := btrfs.FileExists(path.Join(out_repo, branch))
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				if !exists {
+					log.Printf("Invalid state. %s should already exists.", path.Join(out_repo, branch))
+					return
+				} else {
+					if err := btrfs.MkdirAll(path.Join(out_repo, branch, jobInfo.Name())); err != nil {
+						log.Print(err)
+						return
+					}
+				}
+
+				outFile, err := btrfs.Create(path.Join(out_repo, branch, jobInfo.Name(), inF.Name()))
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				defer outFile.Close()
+				if _, err := io.Copy(outFile, resp.Body); err != nil {
+					log.Print(err)
+					return
+				}
+			}()
 		}
+	}
+
+	if err := btrfs.Commit(out_repo, commit, branch); err != nil {
+		return err
 	}
 
 	return nil
