@@ -381,3 +381,53 @@ func Pull(repo, from string, cont func(io.ReadCloser) error) error {
 	}
 	return nil
 }
+
+func Transid(repo, name string) (string, error) {
+	//  "9223372036854775810" == 2 ** 63 we use a very big number there so that
+	//  we get the transid of the from path. According to the internet this is
+	//  the nicest way to get it from btrfs.
+	var transid string
+	cmd := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, name)), "9223372036854775808")
+	err := CallCont(cmd, func(r io.ReadCloser) error {
+		scanner := bufio.NewScanner(r)
+		for scanner.Scan() {
+			// scanner.Text() looks like this:
+			// transid marker was 907
+			// 0       1      2   3
+			tokens := strings.Split(scanner.Text(), " ")
+			if len(tokens) != 4 {
+				return fmt.Errorf("Failed to parse find-new output.")
+			}
+			transid = tokens[3]
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return transid, err
+}
+
+func ChangedFiles(repo, from, to string) (*[]string, error) {
+	transid, err := Transid(repo, from)
+	if err != nil {
+		return &[]string{}, err
+	}
+	var files []string
+	cmd := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, to)), transid)
+	err = CallCont(cmd, func(r io.ReadCloser) error {
+		scanner := bufio.NewScanner(r)
+		for scanner.Scan() {
+			// scanner.Text() loogs like this:
+			// inode 6683 file offset 0 len 107 disk start 0 offset 0 gen 909 flags INLINE jobs/rPqZxsaspy
+			// 0     1    2    3      4 5   6   7    8     9 10     11 12 13 14     15     16
+			tokens := strings.Split(scanner.Text(), " ")
+			if len(tokens) != 17 {
+				return fmt.Errorf("Failed to parse find-new output.")
+			}
+			files = append(files, tokens[16])
+		}
+		return nil
+	})
+	return &files, err
+}
