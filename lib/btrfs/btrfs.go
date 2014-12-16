@@ -307,10 +307,10 @@ func Branch(repo, commit, branch string) error {
 //Log returns all of the commits the repo which have generation >= from.
 func Log(repo, from string, cont func(io.ReadCloser) error) error {
 	if from == "" {
-		cmd := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "--sort", "-ogen", FilePath(path.Join(repo)))
+		cmd := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", "-ogen", FilePath(path.Join(repo)))
 		return CallCont(cmd, cont)
 	} else {
-		cmd := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-C", "+"+from, "--sort", "-ogen", FilePath(path.Join(repo)))
+		cmd := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-C", "+"+from, "--sort", "-ogen", FilePath(path.Join(repo)))
 		return CallCont(cmd, cont)
 	}
 }
@@ -324,13 +324,14 @@ func Commits(repo, from string, cont func(CommitInfo) error) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			// scanner.Text() looks like:
-			// ID 299 gen 67 cgen 66 top level 292 parent_uuid 7a4a824b-7b78-d144-a956-eb0229616d21 uuid c1cd770c-600b-a744-940c-835bf73b5fa9 path fs/repo/2014-11-20T07:25:01.853165+00:00
+			// ID 299 gen 67 cgen 66 top level 292 parent_uuid 7a4a824b-7b78-d144-a956-eb0229616d21 uuid c1cd770c-600b-a744-940c-835bf73b5fa9 path repo/25853824-60a8-4d32-9168-adfce78a6c91
 			// 0  1   2   3  4    5  6   7     8   9           10                                   11   12                                   13   14
 			tokens := strings.Split(scanner.Text(), " ")
 			if len(tokens) != 15 {
 				return fmt.Errorf("Malformed commit line: %s.", scanner.Text())
 			}
-			if err := cont(CommitInfo{tokens[3], tokens[12], tokens[10], tokens[14]}); err != nil {
+			_, p := path.Split(tokens[14]) // we want to returns paths without the repo/ before them
+			if err := cont(CommitInfo{tokens[3], tokens[12], tokens[10], p}); err != nil {
 				return err
 			}
 		}
@@ -424,37 +425,47 @@ func FindNew(repo, commit, transid string) (*[]string, error) {
 	err := CallCont(cmd, func(r io.ReadCloser) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
+			log.Print("scanner.Text(): ", scanner.Text())
 			// scanner.Text() loogs like this:
+			// inode 6719 file offset 0 len 4096 disk start 28220596224 offset 0 gen 3316 flags NONE TestMRTraffic/CAydptdQni
 			// inode 6683 file offset 0 len 107 disk start 0 offset 0 gen 909 flags INLINE jobs/rPqZxsaspy
 			// 0     1    2    3      4 5   6   7    8     9 10     11 12 13 14     15     16
 			tokens := strings.Split(scanner.Text(), " ")
-			if len(tokens) != 17 {
+			if len(tokens) == 17 {
+				files = append(files, tokens[16])
+			} else if len(tokens) == 4 {
+				continue //skip transid messages
+			} else {
 				return fmt.Errorf("Failed to parse find-new output.")
 			}
-			files = append(files, tokens[16])
 		}
 		return nil
 	})
 	return &files, err
 }
 
-// ChangedFiles returns the files that were changed between from and to.
+// NewFiles returns the new files in
 func NewFiles(repo, commit string) (*[]string, error) {
+	log.Printf("Call to NewFiles: repo: %s, commit: %s", repo, commit)
 	var parentId, parent string
 	err := Commits(repo, "", func(c CommitInfo) error {
+		log.Print("Got commit: ", c)
 		if c.path == commit {
+			log.Print("Commit: ", c)
 			parentId = c.parent
 			if parentId == "-" {
 				// This case indicates no parent, we handle it below.
-				return fmt.Errorf("COMPLTE")
+				return fmt.Errorf("COMPLETE")
 			} else {
 				return nil
 			}
 		}
 		// When this function is first called parentId == "" this changes only
-		// when we find the commit above and learn what the parent is. By
-		// assumption
+		// when we find the commit above and learn what the parent is. Commits
+		// orders by generation so the parent shows up after the commit which
+		// means parentId should be by the time we see it
 		if parentId != "" && c.id == parentId {
+			log.Print("Found parent: ", c)
 			parent = c.path
 			return fmt.Errorf("COMPLETE")
 		}
@@ -463,6 +474,12 @@ func NewFiles(repo, commit string) (*[]string, error) {
 	if err != nil && err.Error() != "COMPLETE" {
 		return &[]string{}, nil
 	}
+
+	if parent == "" {
+		return &[]string{}, fmt.Errorf("Failed to find parent for commit.")
+	}
+
+	log.Print("parent: ", parent)
 
 	if parent == "-" {
 		// No parent was found, everything in the subvolume is new.

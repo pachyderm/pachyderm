@@ -77,6 +77,13 @@ type Job struct {
 // and commits them as `out_repo`/`commit`
 func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 	log.Printf("Materialize: %s %s %s %s %s.", in_repo, branch, commit, out_repo, jobDir)
+	// We make sure that this function always commits so that we know the comp
+	// repo stays in sync with the data repo.
+	defer func() {
+		if err := btrfs.Commit(out_repo, commit, branch); err != nil {
+			log.Print("btrfs.Commit error in Materliaze: ", err)
+		}
+	}()
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
 		return err
@@ -86,8 +93,15 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 		return err
 	}
 	if !exists {
+		// Perfectly valid to have no jobs dir, it just means we have no work
+		// to do.
 		return nil
 	}
+	newFiles, err := btrfs.NewFiles(in_repo, commit)
+	if err != nil {
+		return err
+	}
+	log.Print("New files: ", newFiles)
 	jobsPath := path.Join(in_repo, commit, jobDir)
 	jobs, err := btrfs.ReadDir(jobsPath)
 	if err != nil {
@@ -173,10 +187,5 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 			}()
 		}
 	}
-
-	if err := btrfs.Commit(out_repo, commit, branch); err != nil {
-		return err
-	}
-
 	return nil
 }

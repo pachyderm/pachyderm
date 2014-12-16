@@ -58,7 +58,6 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 		log.Fatal(err)
 	}
 	endpoints := _endpoints.Node.Nodes
-	log.Print(endpoints)
 
 	for i, node := range endpoints {
 		httpClient := &http.Client{}
@@ -66,7 +65,6 @@ func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
 		r.RequestURI = ""
 		r.URL.Scheme = "http"
 		r.URL.Host = node.Value
-		log.Print("Proxying to: " + r.URL.String())
 		resp, err := httpClient.Do(r)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -120,7 +118,6 @@ func RouterMux() *http.ServeMux {
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/job/", jobHandler)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Print("Req to slash.", r.URL.String())
 		fmt.Fprint(w, "PFS\n")
 	})
 
