@@ -126,7 +126,7 @@ func TestMRInsert(t *testing.T) {
 }
 
 func TestMRTraffic(t *testing.T) {
-	commit(t)
+	//commit(t)
 	newJob(mapreduce.Job{Input: "TestMRTraffic", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
 	traffic("TestMRTraffic", 4*KB, 128*KB, t)
 	commit(t)

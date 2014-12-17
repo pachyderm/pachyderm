@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -407,7 +408,15 @@ func Transid(repo, commit string) (string, error) {
 			if len(tokens) != 4 {
 				return fmt.Errorf("Failed to parse find-new output.")
 			}
-			transid = tokens[3]
+			// We want to increment the transid because it's inclusive, if we
+			// don't increment we'll get things from the previous commit as
+			// well.
+			_transid, err := strconv.Atoi(tokens[3])
+			if err != nil {
+				return err
+			}
+			_transid++
+			transid = strconv.Itoa(_transid)
 		}
 		return nil
 	})
@@ -419,15 +428,13 @@ func Transid(repo, commit string) (string, error) {
 
 // FindNew returns an array of filenames that have been created since transid.
 // transid should come from Transid.
-func FindNew(repo, commit, transid string) (*[]string, error) {
+func FindNew(repo, commit, transid string) ([]string, error) {
 	var files []string
 	cmd := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), transid)
 	err := CallCont(cmd, func(r io.ReadCloser) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
-			log.Print("scanner.Text(): ", scanner.Text())
-			// scanner.Text() loogs like this:
-			// inode 6719 file offset 0 len 4096 disk start 28220596224 offset 0 gen 3316 flags NONE TestMRTraffic/CAydptdQni
+			// scanner.Text() looks like this:
 			// inode 6683 file offset 0 len 107 disk start 0 offset 0 gen 909 flags INLINE jobs/rPqZxsaspy
 			// 0     1    2    3      4 5   6   7    8     9 10     11 12 13 14     15     16
 			tokens := strings.Split(scanner.Text(), " ")
@@ -441,17 +448,14 @@ func FindNew(repo, commit, transid string) (*[]string, error) {
 		}
 		return nil
 	})
-	return &files, err
+	return files, err
 }
 
 // NewFiles returns the new files in
-func NewFiles(repo, commit string) (*[]string, error) {
-	log.Printf("Call to NewFiles: repo: %s, commit: %s", repo, commit)
+func NewFiles(repo, commit string) ([]string, error) {
 	var parentId, parent string
 	err := Commits(repo, "", func(c CommitInfo) error {
-		log.Print("Got commit: ", c)
 		if c.path == commit {
-			log.Print("Commit: ", c)
 			parentId = c.parent
 			if parentId == "-" {
 				// This case indicates no parent, we handle it below.
@@ -465,21 +469,18 @@ func NewFiles(repo, commit string) (*[]string, error) {
 		// orders by generation so the parent shows up after the commit which
 		// means parentId should be by the time we see it
 		if parentId != "" && c.id == parentId {
-			log.Print("Found parent: ", c)
 			parent = c.path
 			return fmt.Errorf("COMPLETE")
 		}
 		return nil
 	})
 	if err != nil && err.Error() != "COMPLETE" {
-		return &[]string{}, nil
+		return []string{}, nil
 	}
 
 	if parent == "" {
-		return &[]string{}, fmt.Errorf("Failed to find parent for commit.")
+		return []string{}, fmt.Errorf("Failed to find parent for commit.")
 	}
-
-	log.Print("parent: ", parent)
 
 	if parent == "-" {
 		// No parent was found, everything in the subvolume is new.
@@ -487,7 +488,7 @@ func NewFiles(repo, commit string) (*[]string, error) {
 	} else {
 		transid, err := Transid(repo, parent)
 		if err != nil {
-			return &[]string{}, err
+			return []string{}, err
 		}
 		return FindNew(repo, commit, transid)
 	}

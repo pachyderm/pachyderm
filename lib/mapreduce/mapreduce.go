@@ -5,7 +5,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"path"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -72,6 +75,21 @@ type Job struct {
 	Command   []string `json:"command"`
 }
 
+// contains checks if set contains val. It assums that set has already been
+// sorted.
+func contains(set []string, val string) bool {
+	index := sort.SearchStrings(set, val)
+	return index < len(set) && set[index] == val
+}
+
+// filterPrefix returns the strings in set which are prefixed by prefix
+func filterPrefix(set []string, prefix string) []string {
+	rightBoundSearcher := func(i int) bool {
+		return strings.HasPrefix(set[i], prefix) || set[i] < prefix
+	}
+	return set[sort.SearchStrings(set, prefix):sort.Search(len(set), rightBoundSearcher)]
+}
+
 // Materialize parses the jobs found in `in_repo`/`commit`/`jobDir` runs them
 // with `in_repo/commit` as input, outputs the results to `out_repo`/`branch`
 // and commits them as `out_repo`/`commit`
@@ -101,7 +119,8 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 	if err != nil {
 		return err
 	}
-	log.Print("New files: ", newFiles)
+	sort.Strings(newFiles)
+
 	jobsPath := path.Join(in_repo, commit, jobDir)
 	jobs, err := btrfs.ReadDir(jobsPath)
 	if err != nil {
@@ -119,6 +138,36 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 			return err
 		}
 
+		var inFiles []os.FileInfo
+
+		log.Print("newFiles: ", newFiles)
+		if contains(newFiles, path.Join(jobDir, jobInfo.Name())) {
+			// This is a brand new job. We need to run every single file in `input`
+			log.Printf("Brand new job %s, running it on everything.", jobInfo.Name())
+			inFiles, err = btrfs.ReadDir(path.Join(in_repo, commit, j.Input))
+			if err != nil {
+				return err
+			}
+		} else {
+			// This isn't a new job, only new files need to be run through it
+			log.Printf("Old job %s, running it on new stuff.", jobInfo.Name())
+			allInFiles, err := btrfs.ReadDir(path.Join(in_repo, commit, j.Input))
+			if err != nil {
+				return err
+			}
+			for _, f := range allInFiles {
+				if contains(newFiles, f.Name()) {
+					inFiles = append(inFiles, f)
+				}
+			}
+		}
+
+		log.Print("inFiles is: ", inFiles)
+
+		if len(inFiles) == 0 {
+			continue
+		}
+
 		containerId, err := spinupContainer(j.Container, j.Command)
 		if err != nil {
 			return err
@@ -126,11 +175,6 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 		defer docker.StopContainer(containerId, 5)
 
 		containerAddr, err := ipAddr(containerId)
-		if err != nil {
-			return err
-		}
-
-		inFiles, err := btrfs.ReadDir(path.Join(in_repo, commit, j.Input))
 		if err != nil {
 			return err
 		}
