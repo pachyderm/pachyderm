@@ -183,7 +183,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 		defer wg.Wait()
 		for _, inF := range inFiles {
 			wg.Add(1)
-			go func() {
+			go func(inF os.FileInfo) {
 				defer wg.Done()
 				inFile, err := btrfs.Open(path.Join(in_repo, commit, j.Input, inF.Name()))
 				if err != nil {
@@ -194,6 +194,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 
 				var resp *http.Response
 				err = retry(func() error {
+					log.Print("Posting: ", inF.Name())
 					resp, err = http.Post("http://"+path.Join(containerAddr, inF.Name()), "application/text", inFile)
 					return err
 				}, 5, 200*time.Millisecond)
@@ -228,7 +229,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 					log.Print(err)
 					return
 				}
-			}()
+			}(inF)
 		}
 	}
 	return nil
