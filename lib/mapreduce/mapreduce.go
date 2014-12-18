@@ -8,7 +8,6 @@ import (
 	"os"
 	"path"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -82,14 +81,6 @@ func contains(set []string, val string) bool {
 	return index < len(set) && set[index] == val
 }
 
-// filterPrefix returns the strings in set which are prefixed by prefix
-func filterPrefix(set []string, prefix string) []string {
-	rightBoundSearcher := func(i int) bool {
-		return strings.HasPrefix(set[i], prefix) || set[i] < prefix
-	}
-	return set[sort.SearchStrings(set, prefix):sort.Search(len(set), rightBoundSearcher)]
-}
-
 // Materialize parses the jobs found in `in_repo`/`commit`/`jobDir` runs them
 // with `in_repo/commit` as input, outputs the results to `out_repo`/`branch`
 // and commits them as `out_repo`/`commit`
@@ -99,7 +90,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 	// repo stays in sync with the data repo.
 	defer func() {
 		if err := btrfs.Commit(out_repo, commit, branch); err != nil {
-			log.Print("btrfs.Commit error in Materliaze: ", err)
+			log.Print("btrfs.Commit error in Materialize: ", err)
 		}
 	}()
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)

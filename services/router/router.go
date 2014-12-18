@@ -2,99 +2,26 @@ package main
 
 import (
 	"fmt"
-	"hash/adler32"
-	"io"
 	"log"
 	"net/http"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 
 	"code.google.com/p/go-uuid/uuid"
-	"github.com/pachyderm-io/pfs/lib/etcache"
+	"github.com/pachyderm-io/pfs/lib/route"
 )
 
 var modulos uint64
-
-func hashRequest(r *http.Request) uint64 {
-	return uint64(adler32.Checksum([]byte(r.URL.Path))) % modulos
-}
-
-func Route(w http.ResponseWriter, r *http.Request, etcdKey string) {
-	bucket := hashRequest(r)
-	shard := fmt.Sprint(bucket, "-", os.Args[1])
-
-	_master, err := etcache.Get(path.Join(etcdKey, shard), false, false)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
-	master := _master.Node.Value
-
-	httpClient := &http.Client{}
-	// `Do` will complain if r.RequestURI is set so we unset it
-	r.RequestURI = ""
-	r.URL.Scheme = "http"
-	r.URL.Host = master
-	resp, err := httpClient.Do(r)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
-	defer resp.Body.Close()
-	if _, err := io.Copy(w, resp.Body); err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
-}
-
-func Multicast(w http.ResponseWriter, r *http.Request, etcdKey string) {
-	_endpoints, err := etcache.Get(etcdKey, false, true)
-	if err != nil {
-		log.Fatal(err)
-	}
-	endpoints := _endpoints.Node.Nodes
-
-	for i, node := range endpoints {
-		httpClient := &http.Client{}
-		// `Do` will complain if r.RequestURI is set so we unset it
-		r.RequestURI = ""
-		r.URL.Scheme = "http"
-		r.URL.Host = node.Value
-		resp, err := httpClient.Do(r)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			http.Error(w, fmt.Sprintf("Failed request (%s) to %s.", resp.Status, r.URL.String()), resp.StatusCode)
-			log.Printf("Failed request (%s) to %s.\n", resp.Status, r.URL.String())
-			return
-		}
-		if i == 0 {
-			if _, err := io.Copy(w, resp.Body); err != nil {
-				http.Error(w, err.Error(), 500)
-				log.Print(err)
-				return
-			}
-		}
-	}
-}
 
 func RouterMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	fileHandler := func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "*") {
-			Multicast(w, r, "/pfs/master")
+			route.MulticastHttp(w, r, "/pfs/master")
 		} else {
-			Route(w, r, "/pfs/master")
+			route.RouteHttp(w, r, "/pfs/master", modulos)
 		}
 	}
 	commitHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -103,13 +30,13 @@ func RouterMux() *http.ServeMux {
 			values.Add("commit", uuid.New())
 			r.URL.RawQuery = values.Encode()
 		}
-		Multicast(w, r, "/pfs/master")
+		route.MulticastHttp(w, r, "/pfs/master")
 	}
 	branchHandler := func(w http.ResponseWriter, r *http.Request) {
-		Multicast(w, r, "/pfs/master")
+		route.MulticastHttp(w, r, "/pfs/master")
 	}
 	jobHandler := func(w http.ResponseWriter, r *http.Request) {
-		Multicast(w, r, "/pfs/master")
+		route.MulticastHttp(w, r, "/pfs/master")
 	}
 
 	mux.HandleFunc("/file/", fileHandler)
