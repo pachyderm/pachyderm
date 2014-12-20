@@ -11,7 +11,6 @@ import (
 
 	"code.google.com/p/go-uuid/uuid"
 	"github.com/pachyderm-io/pfs/lib/btrfs"
-	"github.com/pachyderm-io/pfs/lib/mapreduce"
 )
 
 var dataRepo string
@@ -124,13 +123,6 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == "POST" {
 		err := btrfs.Commit(dataRepo, commitParam(r), branchParam(r))
 		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-
-		log.Printf("Materializing %s -> %s at %s.", dataRepo, compRepo, commitParam(r))
-		if err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, jobDir); err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
