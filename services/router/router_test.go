@@ -100,6 +100,17 @@ func commit(t testing.TB) {
 	}
 }
 
+func materialize(t testing.TB) {
+	resp, err := http.Post("http://172.17.42.1/commit?materialize=true", "application/test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Error(resp.Status)
+	}
+}
+
 func TestSmoke(t *testing.T) {
 	commit(t)
 	for i := 0; i < 5; i++ {
@@ -120,16 +131,16 @@ func TestFire(t *testing.T) {
 
 func TestMRInsert(t *testing.T) {
 	commit(t)
-	newJob(mapreduce.Job{Input: "TestMRInsert", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	newJob(mapreduce.Job{Type: "map", Input: "TestMRInsert", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
 	insert("TestMRInsert", 4*KB, t)
-	commit(t)
+	materialize(t)
 }
 
 func TestMRTraffic(t *testing.T) {
-	//commit(t)
-	newJob(mapreduce.Job{Input: "TestMRTraffic", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
-	traffic("TestMRTraffic", 4*KB, 128*KB, t)
 	commit(t)
+	newJob(mapreduce.Job{Type: "map", Input: "TestMRTraffic", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	traffic("TestMRTraffic", 4*KB, 128*KB, t)
+	materialize(t)
 }
 
 func _BenchmarkInsert(fileSize int64, b *testing.B) {

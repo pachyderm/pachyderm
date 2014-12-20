@@ -20,17 +20,24 @@ var compRepo string
 var jobDir string = "jobs"
 
 func commitParam(r *http.Request) string {
-	if c := r.URL.Query().Get("commit"); c != "" {
-		return c
+	if p := r.URL.Query().Get("commit"); p != "" {
+		return p
 	}
 	return "master"
 }
 
 func branchParam(r *http.Request) string {
-	if c := r.URL.Query().Get("branch"); c != "" {
-		return c
+	if p := r.URL.Query().Get("branch"); p != "" {
+		return p
 	}
 	return "master"
+}
+
+func materializeParam(r *http.Request) string {
+	if p := r.URL.Query().Get("materialize"); p != "" {
+		return p
+	}
+	return "false"
 }
 
 func cat(w http.ResponseWriter, name string) {
@@ -127,6 +134,15 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
+		}
+
+		if materializeParam(r) == "true" {
+			err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, jobDir)
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				log.Print(err)
+				return
+			}
 		}
 
 		fmt.Fprint(w, commitParam)

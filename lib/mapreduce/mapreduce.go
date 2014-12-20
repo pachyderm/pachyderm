@@ -89,7 +89,7 @@ type materializeInfo struct {
 }
 
 func PrepJob(job Job, jobPath string, m materializeInfo) error {
-	if err := btrfs.Mkdir(path.Join(m.Out, m.Branch, jobPath)); err != nil {
+	if err := btrfs.MkdirAll(path.Join(m.Out, m.Branch, jobPath)); err != nil {
 		return err
 	}
 	return nil
@@ -228,9 +228,10 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 			log.Print(err)
 			continue
 		}
+		log.Print("Job: ", job)
 		m := materializeInfo{in_repo, out_repo, branch, commit}
 
-		err = PrepJob(job, jobFile.Name(), m)
+		PrepJob(job, path.Base(jobFile.Name()), m)
 		if err != nil {
 			log.Print(err)
 			continue
