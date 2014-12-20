@@ -38,11 +38,15 @@ func RouterMux() *http.ServeMux {
 	jobHandler := func(w http.ResponseWriter, r *http.Request) {
 		route.MulticastHttp(w, r, "/pfs/master")
 	}
+	materializeHandler := func(w http.ResponseWriter, r *http.Request) {
+		route.MulticastHttp(w, r, "/pfs/master")
+	}
 
 	mux.HandleFunc("/file/", fileHandler)
 	mux.HandleFunc("/commit", commitHandler)
 	mux.HandleFunc("/branch", branchHandler)
 	mux.HandleFunc("/job/", jobHandler)
+	mux.HandleFunc("/materialize", materializeHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "PFS\n")

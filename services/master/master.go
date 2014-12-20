@@ -11,6 +11,7 @@ import (
 
 	"code.google.com/p/go-uuid/uuid"
 	"github.com/pachyderm-io/pfs/lib/btrfs"
+	"github.com/pachyderm-io/pfs/lib/mapreduce"
 )
 
 var dataRepo string
@@ -175,6 +176,19 @@ func JobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func MaterializeHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, jobDir)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+		}
+	} else {
+		http.Error(w, "Invalid method.", 405)
+		log.Print("Invalid method %s.", r.Method)
+		return
+	}
+}
+
 // MasterMux creates a multiplexer for a Master writing to the passed in FS.
 func MasterMux() *http.ServeMux {
 	mux := http.NewServeMux()
@@ -183,6 +197,7 @@ func MasterMux() *http.ServeMux {
 	mux.HandleFunc("/commit", CommitHandler)
 	mux.HandleFunc("/file/", FileHandler)
 	mux.HandleFunc("/job/", JobHandler)
+	mux.HandleFunc("/materialize", MaterializeHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 
 	return mux
