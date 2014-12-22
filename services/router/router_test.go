@@ -73,12 +73,12 @@ func traffic(dir string, fileSize, sizeLimit int64, t testing.TB) {
 	wg.Wait()
 }
 
-func newJob(job mapreduce.Job, t testing.TB) {
+func newJob(name string, job mapreduce.Job, t testing.TB) {
 	jobJson, err := json.Marshal(job)
 	if err != nil {
 		t.Fatal(err)
 	}
-	url := "http://172.17.42.1/job/" + randSeq(4)
+	url := "http://172.17.42.1/job/" + name
 	resp, err := http.Post(url, "application/text", bytes.NewReader(jobJson))
 	if err != nil {
 		t.Fatal(err)
@@ -131,14 +131,16 @@ func TestFire(t *testing.T) {
 
 func TestMRInsert(t *testing.T) {
 	commit(t)
-	newJob(mapreduce.Job{Type: "map", Input: "TestMRInsert", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	newJob("MapInsert", mapreduce.Job{Type: "map", Input: "TestMRInsert", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	newJob("ReduceInsert", mapreduce.Job{Type: "reduce", Input: "job/MapInsert", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
 	insert("TestMRInsert", 4*KB, t)
 	materialize(t)
 }
 
 func TestMRTraffic(t *testing.T) {
 	commit(t)
-	newJob(mapreduce.Job{Type: "map", Input: "TestMRTraffic", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	newJob("MapTraffic", mapreduce.Job{Type: "map", Input: "TestMRInsert", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	newJob("ReduceTraffic", mapreduce.Job{Type: "reduce", Input: "job/MapTraffic", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
 	traffic("TestMRTraffic", 4*KB, 128*KB, t)
 	materialize(t)
 }

@@ -96,6 +96,11 @@ func PrepJob(job Job, jobPath string, m materializeInfo) error {
 }
 
 func Map(job Job, jobPath string, m materializeInfo, host string) error {
+	err := PrepJob(job, path.Base(jobPath), m)
+	if err != nil {
+		return err
+	}
+
 	if job.Type != "map" {
 		return fmt.Errorf("runMap called on a job of type \"%s\". Should be \"map\".", job.Type)
 	}
@@ -146,6 +151,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 }
 
 func Reduce(job Job, jobPath string, m materializeInfo, host string) error {
+	log.Print("Reduce: ", job, " ", jobPath, " ")
 	if job.Type != "reduce" {
 		return fmt.Errorf("runMap called on a job of type \"%s\". Should be \"reduce\".", job.Type)
 	}
@@ -230,12 +236,6 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 		}
 		log.Print("Job: ", job)
 		m := materializeInfo{in_repo, out_repo, branch, commit}
-
-		PrepJob(job, path.Base(jobFile.Name()), m)
-		if err != nil {
-			log.Print(err)
-			continue
-		}
 
 		containerId, err := spinupContainer(job.Container, job.Command)
 		if err != nil {
