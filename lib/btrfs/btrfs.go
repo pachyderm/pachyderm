@@ -32,7 +32,6 @@ func RandSeq(n int) string {
 }
 
 func RunStderr(c *exec.Cmd) error {
-	log.Println(c)
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return err
@@ -43,18 +42,10 @@ func RunStderr(c *exec.Cmd) error {
 	}
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(stderr)
-	log.Println(buf)
-	return c.Wait()
-}
-
-func LogErrors(c *exec.Cmd) {
-	stderr, err := c.StderrPipe()
-	if err != nil {
-		log.Println(err)
+	if buf.Len() != 0 {
+		log.Print("Command had output on stderr.\n Cmd: ", strings.Join(c.Args, " "), "\nstderr: ", buf)
 	}
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(stderr)
-	log.Println(buf)
+	return c.Wait()
 }
 
 func Sync() error {
@@ -143,7 +134,6 @@ func Readlink(name string) (string, error) {
 }
 
 func Symlink(oldname, newname string) error {
-	log.Printf("%s -> %s\n", FilePath(oldname), FilePath(newname))
 	return os.Symlink(FilePath(oldname), FilePath(newname))
 }
 
@@ -177,17 +167,16 @@ func UnsetReadOnly(volume string) error {
 	return RunStderr(exec.Command("btrfs", "property", "set", FilePath(volume), "ro", "false"))
 }
 
-func CallCont(cmd *exec.Cmd, cont func(io.ReadCloser) error) error {
-	log.Println("CallCont: ", cmd)
-	reader, err := cmd.StdoutPipe()
+func CallCont(c *exec.Cmd, cont func(io.ReadCloser) error) error {
+	reader, err := c.StdoutPipe()
 	if err != nil {
 		return err
 	}
-	stderr, err := cmd.StderrPipe()
+	stderr, err := c.StderrPipe()
 	if err != nil {
 		return err
 	}
-	err = cmd.Start()
+	err = c.Start()
 	if err != nil {
 		return err
 	}
@@ -198,33 +187,35 @@ func CallCont(cmd *exec.Cmd, cont func(io.ReadCloser) error) error {
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(stderr)
-	log.Print("Stderr:", buf)
+	if buf.Len() != 0 {
+		log.Print("Command had output on stderr.\n Cmd: ", strings.Join(c.Args, " "), "\nstderr: ", buf)
+	}
 
-	return cmd.Wait()
+	return c.Wait()
 }
 
 func SendBase(to string, cont func(io.ReadCloser) error) error {
-	cmd := exec.Command("btrfs", "send", FilePath(to))
-	return CallCont(cmd, cont)
+	c := exec.Command("btrfs", "send", FilePath(to))
+	return CallCont(c, cont)
 }
 
 func Send(from string, to string, cont func(io.ReadCloser) error) error {
-	cmd := exec.Command("btrfs", "send", "-p", FilePath(from), FilePath(to))
-	return CallCont(cmd, cont)
+	c := exec.Command("btrfs", "send", "-p", FilePath(from), FilePath(to))
+	return CallCont(c, cont)
 }
 
 func Recv(volume string, data io.ReadCloser) error {
-	cmd := exec.Command("btrfs", "receive", FilePath(volume))
-	log.Println(cmd)
-	stdin, err := cmd.StdinPipe()
+	c := exec.Command("btrfs", "receive", FilePath(volume))
+	log.Print(c)
+	stdin, err := c.StdinPipe()
 	if err != nil {
 		return err
 	}
-	stderr, err := cmd.StderrPipe()
+	stderr, err := c.StderrPipe()
 	if err != nil {
 		return err
 	}
-	err = cmd.Start()
+	err = c.Start()
 	if err != nil {
 		return err
 	}
@@ -232,7 +223,7 @@ func Recv(volume string, data io.ReadCloser) error {
 	if err != nil {
 		return err
 	}
-	log.Println("Copied bytes:", n)
+	log.Print("Copied bytes:", n)
 	err = stdin.Close()
 	if err != nil {
 		return err
@@ -242,7 +233,7 @@ func Recv(volume string, data io.ReadCloser) error {
 	buf.ReadFrom(stderr)
 	log.Print("Stderr:", buf)
 
-	return cmd.Wait()
+	return c.Wait()
 }
 
 // Init initializes an empty repo.
@@ -308,11 +299,11 @@ func Branch(repo, commit, branch string) error {
 //Log returns all of the commits the repo which have generation >= from.
 func Log(repo, from string, cont func(io.ReadCloser) error) error {
 	if from == "" {
-		cmd := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", "-ogen", FilePath(path.Join(repo)))
-		return CallCont(cmd, cont)
+		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", "-ogen", FilePath(path.Join(repo)))
+		return CallCont(c, cont)
 	} else {
-		cmd := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-C", "+"+from, "--sort", "-ogen", FilePath(path.Join(repo)))
-		return CallCont(cmd, cont)
+		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-C", "+"+from, "--sort", "-ogen", FilePath(path.Join(repo)))
+		return CallCont(c, cont)
 	}
 }
 
@@ -397,8 +388,8 @@ func Transid(repo, commit string) (string, error) {
 	//  we get the transid of the from path. According to the internet this is
 	//  the nicest way to get it from btrfs.
 	var transid string
-	cmd := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), "9223372036854775808")
-	err := CallCont(cmd, func(r io.ReadCloser) error {
+	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), "9223372036854775808")
+	err := CallCont(c, func(r io.ReadCloser) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			// scanner.Text() looks like this:
@@ -430,8 +421,8 @@ func Transid(repo, commit string) (string, error) {
 // transid should come from Transid.
 func FindNew(repo, commit, transid string) ([]string, error) {
 	var files []string
-	cmd := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), transid)
-	err := CallCont(cmd, func(r io.ReadCloser) error {
+	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), transid)
+	err := CallCont(c, func(r io.ReadCloser) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			// scanner.Text() looks like this:

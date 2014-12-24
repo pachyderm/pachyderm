@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"testing/iotest"
+
 	"github.com/pachyderm-io/pfs/lib/btrfs"
 	"github.com/pachyderm-io/pfs/lib/route"
 	"github.com/samalba/dockerclient"
@@ -109,6 +111,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 	if err != nil {
 		return err
 	}
+	log.Print("In Map for ", jobPath, " len(inFiles) = ", len(inFiles))
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
@@ -158,9 +161,16 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string) error {
 
 	// Notice we're just passing "host" here. Multicast will fill in the host
 	// field so we don't actually need to specify it.
-	req, err := http.NewRequest("GET", "http://host/"+job.Input, nil)
-	reader, err := route.Multicast(req, "/pfs/master")
-	defer reader.Close()
+	req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*"), nil)
+	if err != nil {
+		return err
+	}
+	_reader, err := route.Multicast(req, "/pfs/master")
+	if err != nil {
+		return err
+	}
+	defer _reader.Close()
+	reader := iotest.NewReadLogger("Reduce", _reader)
 
 	var resp *http.Response
 	err = retry(func() error {
@@ -171,6 +181,9 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string) error {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("Received error %s", resp.Status)
+	}
 
 	outFile, err := btrfs.Create(path.Join(m.Out, m.Branch, jobPath))
 	if err != nil {

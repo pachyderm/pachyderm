@@ -139,7 +139,7 @@ func TestMRInsert(t *testing.T) {
 
 func TestMRTraffic(t *testing.T) {
 	commit(t)
-	newJob("MapTraffic", mapreduce.Job{Type: "map", Input: "TestMRInsert", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	newJob("MapTraffic", mapreduce.Job{Type: "map", Input: "TestMRTraffic", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
 	newJob("ReduceTraffic", mapreduce.Job{Type: "reduce", Input: "job/MapTraffic", Container: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
 	traffic("TestMRTraffic", 4*KB, 128*KB, t)
 	materialize(t)

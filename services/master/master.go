@@ -184,8 +184,44 @@ func BranchHandler(w http.ResponseWriter, r *http.Request) {
 
 func JobHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
-	log.Print(url)
 	if r.Method == "GET" {
+		log.Print("GET block in JobHandler with url: ", r.URL.String())
+		if len(url) == 3 {
+			// Return info about the job
+		} else {
+			log.Print("GET block in JobHandler.")
+			if url[3] != "file" {
+				http.Error(w, "Post to invalid subroute "+url[3], 400)
+				return
+			}
+			//url: [, job, <job>, file, ...]
+			file := path.Join(append([]string{path.Join(compRepo,
+				commitParam(r), url[2])}, url[4:]...)...)
+			log.Print("file is: ", file)
+			if strings.Contains(file, "*") {
+				if !strings.HasSuffix(file, "*") {
+					http.Error(w, "Illegal path containing internal `*`. `*` is currently only allowed as the last character of a path.", 400)
+				} else {
+					dir := path.Dir(file)
+					files, err := btrfs.ReadDir(dir)
+					log.Printf("Get %d files.", len(files))
+					if err != nil {
+						http.Error(w, err.Error(), 500)
+						log.Print(err)
+						return
+					}
+					for _, fi := range files {
+						if fi.IsDir() {
+							continue
+						} else {
+							cat(w, path.Join(dir, fi.Name()))
+						}
+					}
+				}
+			} else {
+				cat(w, file)
+			}
+		}
 	} else if r.Method == "POST" {
 		r.URL.Path = path.Join("/file", jobDir, url[2])
 		FileHandler(w, r)
@@ -235,5 +271,6 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Print("Listening on port 80...")
+	log.Printf("dataRepo: %s, compRepo: %s.", dataRepo, compRepo)
 	RunServer()
 }
