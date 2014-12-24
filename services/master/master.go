@@ -40,6 +40,15 @@ func materializeParam(r *http.Request) string {
 	return "false"
 }
 
+func indexOf(haystack []string, needle string) int {
+	for i, s := range haystack {
+		if s == needle {
+			return i
+		}
+	}
+	return -1
+}
+
 func cat(w http.ResponseWriter, name string) {
 	f, err := btrfs.Open(name)
 	if err != nil {
@@ -56,19 +65,19 @@ func cat(w http.ResponseWriter, name string) {
 
 // FileHandler is the core route for modifying the contents of the fileystem.
 // Changes are not replicated until a call to CommitHandler.
-func FileHandler(w http.ResponseWriter, r *http.Request) {
+func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
-	// commitFile is used for read methods (GET)
-	commitFile := path.Join(append([]string{path.Join(dataRepo, commitParam(r))}, url[2:]...)...)
-	// branchFile is used for write methods (POST, PUT, DELETE)
-	branchFile := path.Join(append([]string{path.Join(dataRepo, branchParam(r))}, url[2:]...)...)
+	// url looks like: /foo/bar/.../file/<file>
+	fileStart := indexOf(url, "file") + 1
+	// file is the path in the filesystem we're getting
+	file := path.Join(append([]string{fs}, url[fileStart:]...)...)
 
 	if r.Method == "GET" {
-		if strings.Contains(commitFile, "*") {
-			if !strings.HasSuffix(commitFile, "*") {
+		if strings.Contains(file, "*") {
+			if !strings.HasSuffix(file, "*") {
 				http.Error(w, "Illegal path containing internal `*`. `*` is currently only allowed as the last character of a path.", 400)
 			} else {
-				dir := path.Dir(commitFile)
+				dir := path.Dir(file)
 				files, err := btrfs.ReadDir(dir)
 				if err != nil {
 					http.Error(w, err.Error(), 500)
@@ -83,38 +92,50 @@ func FileHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		} else {
-			cat(w, commitFile)
+			cat(w, file)
 		}
 	} else if r.Method == "POST" {
-		btrfs.MkdirAll(path.Dir(branchFile))
-		size, err := btrfs.CreateFromReader(branchFile, r.Body)
+		btrfs.MkdirAll(path.Dir(file))
+		size, err := btrfs.CreateFromReader(file, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
-		fmt.Fprintf(w, "Created %s, size: %d.\n", branchFile, size)
+		fmt.Fprintf(w, "Created %s, size: %d.\n", file, size)
 	} else if r.Method == "PUT" {
-		btrfs.MkdirAll(path.Dir(branchFile))
-		size, err := btrfs.WriteFile(branchFile, r.Body)
+		btrfs.MkdirAll(path.Dir(file))
+		size, err := btrfs.WriteFile(file, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
-		fmt.Fprintf(w, "Created %s, size: %d.\n", branchFile, size)
+		fmt.Fprintf(w, "Created %s, size: %d.\n", file, size)
 	} else if r.Method == "DELETE" {
-		if err := btrfs.Remove(branchFile); err != nil {
+		if err := btrfs.Remove(file); err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return
 		}
-		fmt.Fprintf(w, "Deleted %s.\n", branchFile)
+		fmt.Fprintf(w, "Deleted %s.\n", file)
 	}
+}
+
+// FileHandler is the core route for modifying the contents of the fileystem.
+// Changes are not replicated until a call to CommitHandler.
+func FileHandler(w http.ResponseWriter, r *http.Request) {
+	genericFileHandler(path.Join(dataRepo, "master"), w, r)
 }
 
 // CommitHandler creates a snapshot of outstanding changes.
 func CommitHandler(w http.ResponseWriter, r *http.Request) {
+	url := strings.Split(r.URL.Path, "/")
+	// url looks like [, commit, <commit>, file, <file>]
+	if len(url) > 3 && url[3] == "file" {
+		genericFileHandler(path.Join(dataRepo, url[2]), w, r)
+		return
+	}
 	if r.Method == "GET" {
 		commits, err := btrfs.ReadDir(dataRepo)
 		if err != nil {
@@ -155,6 +176,12 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 
 // BranchHandler creates a new branch from commit.
 func BranchHandler(w http.ResponseWriter, r *http.Request) {
+	url := strings.Split(r.URL.Path, "/")
+	// url looks like [, commit, <commit>, file, <file>]
+	if len(url) > 3 && url[3] == "file" {
+		genericFileHandler(path.Join(dataRepo, url[2]), w, r)
+		return
+	}
 	if r.Method == "GET" {
 		branches, err := btrfs.ReadDir(dataRepo)
 		if err != nil {
@@ -184,44 +211,12 @@ func BranchHandler(w http.ResponseWriter, r *http.Request) {
 
 func JobHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
+	// url looks like [, job, <job>, file, <file>]
+	if len(url) > 3 && url[3] == "file" {
+		genericFileHandler(path.Join(compRepo, "master", url[2]), w, r)
+		return
+	}
 	if r.Method == "GET" {
-		log.Print("GET block in JobHandler with url: ", r.URL.String())
-		if len(url) == 3 {
-			// Return info about the job
-		} else {
-			log.Print("GET block in JobHandler.")
-			if url[3] != "file" {
-				http.Error(w, "Post to invalid subroute "+url[3], 400)
-				return
-			}
-			//url: [, job, <job>, file, ...]
-			file := path.Join(append([]string{path.Join(compRepo,
-				commitParam(r), url[2])}, url[4:]...)...)
-			log.Print("file is: ", file)
-			if strings.Contains(file, "*") {
-				if !strings.HasSuffix(file, "*") {
-					http.Error(w, "Illegal path containing internal `*`. `*` is currently only allowed as the last character of a path.", 400)
-				} else {
-					dir := path.Dir(file)
-					files, err := btrfs.ReadDir(dir)
-					log.Printf("Get %d files.", len(files))
-					if err != nil {
-						http.Error(w, err.Error(), 500)
-						log.Print(err)
-						return
-					}
-					for _, fi := range files {
-						if fi.IsDir() {
-							continue
-						} else {
-							cat(w, path.Join(dir, fi.Name()))
-						}
-					}
-				}
-			} else {
-				cat(w, file)
-			}
-		}
 	} else if r.Method == "POST" {
 		r.URL.Path = path.Join("/file", jobDir, url[2])
 		FileHandler(w, r)
