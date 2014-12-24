@@ -234,51 +234,57 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 	if err != nil {
 		return err
 	}
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	for _, jobInfo := range jobs {
-		jobFile, err := btrfs.Open(path.Join(jobsPath, jobInfo.Name()))
-		if err != nil {
-			log.Print(err)
-			continue
-		}
-		defer jobFile.Close()
-		decoder := json.NewDecoder(jobFile)
-		job := Job{}
-		if err = decoder.Decode(&job); err != nil {
-			log.Print(err)
-			continue
-		}
-		log.Print("Job: ", job)
-		m := materializeInfo{in_repo, out_repo, branch, commit}
-
-		containerId, err := spinupContainer(job.Container, job.Command)
-		if err != nil {
-			log.Print(err)
-			continue
-		}
-		defer docker.StopContainer(containerId, 5)
-
-		containerAddr, err := ipAddr(containerId)
-		if err != nil {
-			log.Print(err)
-			continue
-		}
-
-		if job.Type == "map" {
-			err := Map(job, jobInfo.Name(), m, containerAddr)
+		wg.Add(1)
+		go func(jobInfo os.FileInfo) {
+			defer wg.Done()
+			jobFile, err := btrfs.Open(path.Join(jobsPath, jobInfo.Name()))
 			if err != nil {
 				log.Print(err)
-				continue
+				return
 			}
-		} else if job.Type == "reduce" {
-			err := Reduce(job, jobInfo.Name(), m, containerAddr)
+			defer jobFile.Close()
+			decoder := json.NewDecoder(jobFile)
+			job := Job{}
+			if err = decoder.Decode(&job); err != nil {
+				log.Print(err)
+				return
+			}
+			log.Print("Job: ", job)
+			m := materializeInfo{in_repo, out_repo, branch, commit}
+
+			containerId, err := spinupContainer(job.Container, job.Command)
 			if err != nil {
 				log.Print(err)
-				continue
+				return
 			}
-		} else {
-			log.Printf("Job %s has unrecognized type: %s.", jobInfo.Name(), job.Type)
-			continue
-		}
+			defer docker.StopContainer(containerId, 5)
+
+			containerAddr, err := ipAddr(containerId)
+			if err != nil {
+				log.Print(err)
+				return
+			}
+
+			if job.Type == "map" {
+				err := Map(job, jobInfo.Name(), m, containerAddr)
+				if err != nil {
+					log.Print(err)
+					return
+				}
+			} else if job.Type == "reduce" {
+				err := Reduce(job, jobInfo.Name(), m, containerAddr)
+				if err != nil {
+					log.Print(err)
+					return
+				}
+			} else {
+				log.Printf("Job %s has unrecognized type: %s.", jobInfo.Name(), job.Type)
+				return
+			}
+		}(jobInfo)
 	}
 	return nil
 }
