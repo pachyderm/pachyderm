@@ -196,6 +196,46 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string) error {
 	return nil
 }
 
+type jobCond struct {
+	sync.Cond
+	Done bool
+}
+
+var jobs map[string]*jobCond
+var jobsAccess sync.Mutex
+
+// jobCond returns the name of the condition variable for job.
+func condKey(in_repo, commit, job string) string {
+	return path.Join(in_repo, commit, job)
+}
+
+func ensureCond(name string) {
+	jobsAccess.Lock()
+	defer jobsAccess.Unlock()
+	if _, ok := jobs[name]; !ok {
+		jobs[name] = &jobCond{sync.Cond{L: &sync.Mutex{}}, false}
+	}
+}
+
+func broadcast(in_repo, commit, job string) {
+	name := condKey(in_repo, commit, job)
+	ensureCond(name)
+	jobs[name].L.Lock()
+	jobs[name].Done = true
+	jobs[name].Broadcast()
+	jobs[name].L.Unlock()
+}
+
+func WaitJob(in_repo, commit, job string) {
+	name := condKey(in_repo, commit, job)
+	ensureCond(name)
+	jobs[name].L.Lock()
+	for !jobs[name].Done {
+		jobs[name].Wait()
+	}
+	jobs[name].L.Unlock()
+}
+
 // Materialize parses the jobs found in `in_repo`/`commit`/`jobDir` runs them
 // with `in_repo/commit` as input, outputs the results to `out_repo`/`branch`
 // and commits them as `out_repo`/`commit`
@@ -240,6 +280,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 		wg.Add(1)
 		go func(jobInfo os.FileInfo) {
 			defer wg.Done()
+			//defer broadcast(in_repo, commit, jobInfo.Name())
 			jobFile, err := btrfs.Open(path.Join(jobsPath, jobInfo.Name()))
 			if err != nil {
 				log.Print(err)

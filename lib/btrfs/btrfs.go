@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"code.google.com/p/go-uuid/uuid"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -286,7 +288,24 @@ func Commit(repo, commit, branch string) error {
 	if err := Snapshot(path.Join(repo, commit), path.Join(repo, branch), false); err != nil {
 		return err
 	}
+
 	return nil
+}
+
+// Hold creates a temporary snapshot of a commit that no one else knows about.
+// It's your responsibility to release the snapshot with Release
+func Hold(repo, commit string) (string, error) {
+	MkdirAll("tmp")
+	name := path.Join("tmp", uuid.New())
+	if err := Snapshot(path.Join(repo, commit), name, false); err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+// Release releases commit snapshots held by Hold.
+func Release(name string) {
+	SubvolumeDelete(name)
 }
 
 func Branch(repo, commit, branch string) error {
