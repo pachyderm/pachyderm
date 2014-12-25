@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"code.google.com/p/go-uuid/uuid"
@@ -14,8 +15,24 @@ import (
 	"github.com/pachyderm-io/pfs/lib/mapreduce"
 )
 
-var dataRepo string
-var compRepo string
+var dataRepo, compRepo string
+var shard, modulos uint64
+
+func parseArgs() {
+	// os.Args[1] looks like 2-16
+	dataRepo = "data-" + os.Args[1] + btrfs.RandSeq(4)
+	compRepo = "comp-" + os.Args[1] + btrfs.RandSeq(4)
+	s_m := strings.Split(os.Args[1], "-")
+	var err error
+	shard, err = strconv.ParseUint(s_m[0], 10, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+	modulos, err = strconv.ParseUint(s_m[1], 10, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 
 var jobDir string = "jobs"
 
@@ -158,7 +175,7 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if materializeParam(r) == "true" {
-			err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, jobDir)
+			err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, jobDir, shard, modulos)
 			if err != nil {
 				http.Error(w, err.Error(), 500)
 				log.Print(err)
@@ -224,19 +241,6 @@ func JobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func MaterializeHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, jobDir)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-		}
-	} else {
-		http.Error(w, "Invalid method.", 405)
-		log.Print("Invalid method %s.", r.Method)
-		return
-	}
-}
-
 // MasterMux creates a multiplexer for a Master writing to the passed in FS.
 func MasterMux() *http.ServeMux {
 	mux := http.NewServeMux()
@@ -245,7 +249,6 @@ func MasterMux() *http.ServeMux {
 	mux.HandleFunc("/commit", CommitHandler)
 	mux.HandleFunc("/file/", FileHandler)
 	mux.HandleFunc("/job/", JobHandler)
-	mux.HandleFunc("/materialize", MaterializeHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 
 	return mux
@@ -258,8 +261,7 @@ func RunServer() {
 
 func main() {
 	log.SetFlags(log.Lshortfile)
-	dataRepo = "data-" + os.Args[1] + btrfs.RandSeq(4)
-	compRepo = "comp-" + os.Args[1] + btrfs.RandSeq(4)
+	parseArgs()
 	if err := btrfs.Ensure(dataRepo); err != nil {
 		log.Fatal(err)
 	}

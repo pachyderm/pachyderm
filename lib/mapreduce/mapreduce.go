@@ -153,7 +153,11 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 	return nil
 }
 
-func Reduce(job Job, jobPath string, m materializeInfo, host string) error {
+func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modulos uint64) error {
+	if (route.HashResource(path.Join("/job", jobPath)) % modulos) != shard {
+		// This resource isn't supposed to be located on this machine.
+		return nil
+	}
 	log.Print("Reduce: ", job, " ", jobPath, " ")
 	if job.Type != "reduce" {
 		return fmt.Errorf("runMap called on a job of type \"%s\". Should be \"reduce\".", job.Type)
@@ -239,7 +243,7 @@ func WaitJob(in_repo, commit, job string) {
 // Materialize parses the jobs found in `in_repo`/`commit`/`jobDir` runs them
 // with `in_repo/commit` as input, outputs the results to `out_repo`/`branch`
 // and commits them as `out_repo`/`commit`
-func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
+func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulos uint64) error {
 	log.Printf("Materialize: %s %s %s %s %s.", in_repo, branch, commit, out_repo, jobDir)
 	// We make sure that this function always commits so that we know the comp
 	// repo stays in sync with the data repo.
@@ -316,7 +320,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 					return
 				}
 			} else if job.Type == "reduce" {
-				err := Reduce(job, jobInfo.Name(), m, containerAddr)
+				err := Reduce(job, jobInfo.Name(), m, containerAddr, shard, modulos)
 				if err != nil {
 					log.Print(err)
 					return

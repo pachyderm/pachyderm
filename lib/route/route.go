@@ -12,8 +12,12 @@ import (
 	"github.com/pachyderm-io/pfs/lib/etcache"
 )
 
+func HashResource(resource string) uint64 {
+	return uint64(adler32.Checksum([]byte(resource)))
+}
+
 func hashRequest(r *http.Request) uint64 {
-	return uint64(adler32.Checksum([]byte(r.URL.Path)))
+	return HashResource(r.URL.Path)
 }
 
 func Route(r *http.Request, etcdKey string, modulos uint64) (io.ReadCloser, error) {
