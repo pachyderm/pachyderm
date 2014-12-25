@@ -213,7 +213,7 @@ func JobHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, job, <job>, file, <file>]
 	if len(url) > 3 && url[3] == "file" {
-		//mapreduce.WaitJob(dataRepo, commitParam(r), url[2])
+		mapreduce.WaitJob(dataRepo, commitParam(r), url[2])
 		genericFileHandler(path.Join(compRepo, "master", url[2]), w, r)
 		return
 	}

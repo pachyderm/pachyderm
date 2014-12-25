@@ -161,7 +161,7 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string) error {
 
 	// Notice we're just passing "host" here. Multicast will fill in the host
 	// field so we don't actually need to specify it.
-	req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*"), nil)
+	req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*")+"?commit="+m.Commit, nil)
 	if err != nil {
 		return err
 	}
@@ -201,7 +201,7 @@ type jobCond struct {
 	Done bool
 }
 
-var jobs map[string]*jobCond
+var jobs map[string]*jobCond = make(map[string]*jobCond)
 var jobsAccess sync.Mutex
 
 // jobCond returns the name of the condition variable for job.
@@ -280,7 +280,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string) error {
 		wg.Add(1)
 		go func(jobInfo os.FileInfo) {
 			defer wg.Done()
-			//defer broadcast(in_repo, commit, jobInfo.Name())
+			defer broadcast(in_repo, commit, jobInfo.Name())
 			jobFile, err := btrfs.Open(path.Join(jobsPath, jobInfo.Name()))
 			if err != nil {
 				log.Print(err)
