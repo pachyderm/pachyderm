@@ -49,7 +49,7 @@ func RouterMux() *http.ServeMux {
 	mux.HandleFunc("/materialize", materializeHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "PFS\n")
+		fmt.Fprintf(w, "Welcome to pfs!\n")
 	})
 
 	return mux
