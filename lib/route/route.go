@@ -1,9 +1,11 @@
 package route
 
 import (
+	"bytes"
 	"fmt"
 	"hash/adler32"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"path"
@@ -109,11 +111,20 @@ func MultiReadCloser(readers ...io.ReadCloser) io.ReadCloser {
 // Multicast enables the Ogre Magi to rapidly cast his spells, giving them
 // greater potency.
 func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
+	log.Print(r)
 	_endpoints, err := etcache.Get(etcdKey, false, true)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	endpoints := _endpoints.Node.Nodes
+
+	var body []byte
+	if r.ContentLength != 0 {
+		body, err = ioutil.ReadAll(r.Body)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	var readers []io.ReadCloser
 	for i, node := range endpoints {
@@ -122,6 +133,11 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 		r.RequestURI = ""
 		r.URL.Scheme = "http"
 		r.URL.Host = node.Value
+
+		if r.ContentLength != 0 {
+			r.Body = ioutil.NopCloser(bytes.NewReader(body))
+		}
+
 		resp, err := httpClient.Do(r)
 		if err != nil {
 			return nil, err
