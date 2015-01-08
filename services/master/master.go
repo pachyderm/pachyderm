@@ -34,7 +34,7 @@ func parseArgs() {
 	}
 }
 
-var jobDir string = "jobs"
+var jobDir string = "job"
 
 func commitParam(r *http.Request) string {
 	if p := r.URL.Query().Get("commit"); p != "" {
