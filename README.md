@@ -1,47 +1,3 @@
-# What's new in v0.2?
-
-## Branching
-Pfs's branches are conceptually similar to git's. Here's an example of how to
-use them:
-
-```shell
-# Create a new branch my-branch from commit d1938eea-cce6-4eca-b30c-ab6ead04c180.
-$ curl -XPOST pfs/branch?commit=d1938eea-cce6-4eca-b30c-ab6ead04c180&branch=my-branch
-# Write my-file to my-branch
-$ curl -XPUT pfs/file/my-file?branch=my-branch -d @local_file
-# Commit my-branch
-$ curl -XPOST pfs/commit?branch=<branch>
-79a0247c-d6b5-4aea-ac4d-84627c5f3eb6
-# You can read from my-branch's commits just like master's
-$ curl -XGET pfs/file/my-file?commit=79a0247c-d6b5-4aea-ac4d-84627c5f3eb6
-```
-
-Pfs currently doesn't have an analog to git's merge. We're discussing what that
-might look like in [#16](https://github.com/pachyderm-io/pfs/issues/16).
-
-## More RESTful API
-Pfs's API now consists of 3 RESTful endpoints which correspond to pfs's core
-primitives.
-
-- `/file` (was `/pfs`)
-- `/commit`
-- `/branch`
-
-[Full API documentation.](pfs#using-pfs)
-
-This API is also being discussed in [#18](https://github.com/pachyderm-io/pfs/issues/18)
-
-## Test and Benchmark Suite
-Much needed repayment of some technical debt. Pfs now has an integrated test
-and benchmark suite. Currently it ships in the same image as pfs.
-
-```shell
-# Run the test suite
-docker run -ti pachyderm/pfs pfs-test
-# Run the benchmark suite
-docker run -ti pachyderm/pfs pfs-bench
-```
-
 # Pachyderm File System
 
 ## What is pfs?
@@ -174,6 +130,59 @@ $ curl -XPOST pfs/commit?branch=<branch>
 # Getting all branches.
 $ curl -XGET pfs/branch
 ```
+###MapReduce
+
+####Creating a job:
+
+```
+# Job format:
+{
+    "type"  : either "map" or "reduce"
+    "input" : a file in pfs or the output from another job
+    "image" : the Docker image
+    "command" : the command to start your web server
+}
+```
+
+```shell
+# Write a job to pfs:
+$ curl -XPOST <host>/job/<jobname> -T <localfile>.json
+```
+#### Deleting jobs
+
+```shell
+# Delete <job>
+$ curl -XDELETE <host>/job/<job>
+```
+
+#### Getting jobs
+
+```shell
+# Read <job>
+$ curl -XGET <host>/job/<job>
+```
+
+#### Running jobs
+
+```shell
+# Commit and run all jobs:
+$ curl -XPOST <host>/commit?run
+```
+
+#### Getting jobs output
+```shell
+# Read <file> from the output of <job> at <commit>:
+$ curl -XGET <host>/job/<job>/file/<file>?commit=<commit>
+
+# Read the output of <job> at <commit>:
+$ curl -XGET <host>/job/<job>/file/*?commit=<commit>
+```
+```shell
+# Get the output of jobs:
+$ curl -XGET <host>/job/<jobname>/file/<filename>
+```
+
+
 
 ## Who's building this?
 Two guys who love data and communities and both happen to be named Joe. We'd love
