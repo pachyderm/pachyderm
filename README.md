@@ -111,7 +111,7 @@ cluster. Here's links on how to set one up:
 - [Vagrant](https://coreos.com/docs/running-coreos/platforms/vagrant/) (requires setting up DNS)
 
 ### Deploy pfs
-SSH in to one of your new machines CoreOS machines.
+SSH in to one of your new CoreOS machines.
 
 ```shell
 $ wget https://github.com/pachyderm-io/pfs/raw/master/deploy/static/1Node.tar.gz
