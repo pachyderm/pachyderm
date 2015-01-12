@@ -51,8 +51,8 @@ func branchParam(r *http.Request) string {
 }
 
 func materializeParam(r *http.Request) string {
-	if p := r.URL.Query().Get("materialize"); p != "" {
-		return p
+	if _, ok := r.URL.Query().Get("run"); ok {
+		return "true"
 	}
 	return "false"
 }

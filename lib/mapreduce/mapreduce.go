@@ -80,10 +80,10 @@ func contains(set []string, val string) bool {
 }
 
 type Job struct {
-	Type      string   `json:"type"`
-	Input     string   `json:"input"`
-	Container string   `json:"container"`
-	Command   []string `json:"command"`
+	Type    string   `json:"type"`
+	Input   string   `json:"input"`
+	Image   string   `json:"image"`
+	Command []string `json:"command"`
 }
 
 type materializeInfo struct {
@@ -300,7 +300,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 			log.Print("Job: ", job)
 			m := materializeInfo{in_repo, out_repo, branch, commit}
 
-			containerId, err := spinupContainer(job.Container, job.Command)
+			containerId, err := spinupContainer(job.Image, job.Command)
 			if err != nil {
 				log.Print(err)
 				return
