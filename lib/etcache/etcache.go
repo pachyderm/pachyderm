@@ -2,9 +2,10 @@ package etcache
 
 import (
 	"fmt"
-	"github.com/coreos/go-etcd/etcd"
 	"sync"
 	"time"
+
+	"github.com/coreos/go-etcd/etcd"
 )
 
 var cache map[string]*etcd.Response = make(map[string]*etcd.Response)

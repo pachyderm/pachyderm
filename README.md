@@ -1,54 +1,63 @@
-# What's new in v0.2?
+# Pachyderm File System
 
-## Branching
-Pfs's branches are conceptually similar to git's. Here's an example of how to
-use them:
+## pfs v0.3 - Pachyderm MapReduce
+Pfs v0.3 is the first pfs release to include support for MapReduce.
+##The MapReduce API
 
-```shell
-# Create a new branch my-branch from commit d1938eea-cce6-4eca-b30c-ab6ead04c180.
-$ curl -XPOST pfs/branch?commit=d1938eea-cce6-4eca-b30c-ab6ead04c180&branch=my-branch
+We’ve added a new pfs keyword `job`. Here’s how you use it:
 
-# Write my-file to my-branch
-$ curl -XPUT pfs/file/my-file?branch=my-branch -d @local_file
+###Creating a new job
 
-# Commit my-branch
-$ curl -XPOST pfs/commit?branch=<branch>
-79a0247c-d6b5-4aea-ac4d-84627c5f3eb6
+Jobs are specified as JSON files in the following format:
 
-# You can read from my-branch's commits just like master's
-$ curl -XGET pfs/file/my-file?commit=79a0247c-d6b5-4aea-ac4d-84627c5f3eb6
+```
+{
+    "type"  : either "map" or "reduce"
+    "input" : a file in pfs or the output from another job
+    "image" : the Docker image to use (which gets pulled from the Docker registry)
+    "command" : the command to start your web server
+}
 ```
 
-Pfs currently doesn't have an analog to git's merge. We're discussing what that
-might look like in [#16](https://github.com/pachyderm-io/pfs/issues/16).
+**NOTE**: You do not need to specify the output location for a job. The output of a job, often referred to as a _materialized view_, is automatically stored in pfs `/job/<jobname>`.
 
-## More RESTful API
-Pfs's API now consists of 3 RESTful endpoints which correspond to pfs's core
-primitives.
+###POSTing a job to pfs
 
-- `/file` (was `/pfs`)
-- `/commit`
-- `/branch`
+Post a local JSON file with the above format to pfs:
 
-[Full API documentation.](#using-pfs)
+```sh
+$ curl -XPOST <host>/job/<jobname> -T <localfile>.json
+```
 
-This API is also being discussed in [#18](https://github.com/pachyderm-io/pfs/issues/18)
+**NOTE**: POSTing a job doesn't run the job. It just records the specification of the job in pfs. 
 
-## Test and Benchmark Suite
-Much needed repayment of some technical debt. Pfs now has an integrated test
-and benchmark suite. Currently it ships in the same image as pfs.
+###Running a job
+Jobs are only run on a commit. That way you always know exactly the state of
+the file system that is used in a computation. To run all committed jobs, use
+the `commit` keyword with the `run` parameter.
 
-```shell
-# Run the test suite
-docker run -ti pachyderm/pfs pfs-test
-
-# Run the benchmark suite
-docker run -ti pachyderm/pfs pfs-bench
+```sh
+$ curl -XPOST <host>/commit?run
 ```
 # Roadmap
 v0.3 will contain the first implementation of Dockerized MapReduce which will allow us to start doing actual distributed computations with pfs. You can track development [here](https://github.com/pachyderm-io/pfs/issues/4).
 
-# Pachyderm File System
+Think of adding jobs as constructing a
+[DAG](http://en.wikipedia.org/wiki/Directed_acyclic_graph) of computations that
+you want performed. When you call `/commit?run`, Pachyderm automatically
+schedules the jobs such that a job isn't run until the jobs it depends on have
+completed.
+
+###Getting the output of a job
+Each job records its output in its own read-only file system. You can read the output of the job with:
+
+```sh
+$ curl <host>/job/<jobname>/file/*?commit=<commit>
+```
+
+**NOTE**: You must specify the commit you want to read from and that commit
+needs to have been created with the run parameter. We're planning to expand
+this API to make it not have this requirement in the near future.
 
 ## What is pfs?
 Pfs is a distributed file system built specifically for the Docker
@@ -183,6 +192,54 @@ $ curl -XPOST pfs/commit?branch=<branch>
 
 # Getting all branches.
 $ curl -XGET pfs/branch
+```
+###MapReduce
+
+####Creating a job:
+
+```
+# Job format:
+{
+    "type"  : either "map" or "reduce"
+    "input" : a file in pfs or the output from another job
+    "image" : the Docker image
+    "command" : the command to start your web server
+}
+```
+
+```shell
+# Create or modify <job>:
+$ curl -XPOST <host>/job/<jobname> -T <localfile>.json
+```
+#### Deleting jobs
+
+```shell
+# Delete <job>
+$ curl -XDELETE <host>/job/<job>
+```
+
+#### Getting jobs
+
+```shell
+# Read <job>
+$ curl -XGET <host>/job/<job>
+```
+
+#### Running jobs
+
+```shell
+# Commit and run all jobs:
+$ curl -XPOST <host>/commit?run
+```
+
+#### Getting output from jobs
+
+```shell
+# Read <file> from the output of <job> at <commit>:
+$ curl -XGET <host>/job/<job>/file/<file>?commit=<commit>
+
+# Read the output of <job> at <commit>:
+$ curl -XGET <host>/job/<job>/file/*?commit=<commit>
 ```
 
 ## Who's building this?

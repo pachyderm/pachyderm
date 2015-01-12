@@ -11,9 +11,12 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"code.google.com/p/go-uuid/uuid"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -31,7 +34,6 @@ func RandSeq(n int) string {
 }
 
 func RunStderr(c *exec.Cmd) error {
-	log.Println(c)
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return err
@@ -42,18 +44,10 @@ func RunStderr(c *exec.Cmd) error {
 	}
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(stderr)
-	log.Println(buf)
-	return c.Wait()
-}
-
-func LogErrors(c *exec.Cmd) {
-	stderr, err := c.StderrPipe()
-	if err != nil {
-		log.Println(err)
+	if buf.Len() != 0 {
+		log.Print("Command had output on stderr.\n Cmd: ", strings.Join(c.Args, " "), "\nstderr: ", buf)
 	}
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(stderr)
-	log.Println(buf)
+	return c.Wait()
 }
 
 func Sync() error {
@@ -142,23 +136,11 @@ func Readlink(name string) (string, error) {
 }
 
 func Symlink(oldname, newname string) error {
-	log.Printf("%s -> %s\n", FilePath(oldname), FilePath(newname))
 	return os.Symlink(FilePath(oldname), FilePath(newname))
 }
 
 func ReadDir(name string) ([]os.FileInfo, error) {
 	return ioutil.ReadDir(FilePath(name))
-}
-
-func EnsureNamespace() error {
-	exists, err := FileExists("")
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return SubvolumeCreate("")
-	}
-	return nil
 }
 
 func SubvolumeCreate(name string) error {
@@ -187,17 +169,16 @@ func UnsetReadOnly(volume string) error {
 	return RunStderr(exec.Command("btrfs", "property", "set", FilePath(volume), "ro", "false"))
 }
 
-func CallCont(cmd *exec.Cmd, cont func(io.ReadCloser) error) error {
-	log.Println("CallCont: ", cmd)
-	reader, err := cmd.StdoutPipe()
+func CallCont(c *exec.Cmd, cont func(io.ReadCloser) error) error {
+	reader, err := c.StdoutPipe()
 	if err != nil {
 		return err
 	}
-	stderr, err := cmd.StderrPipe()
+	stderr, err := c.StderrPipe()
 	if err != nil {
 		return err
 	}
-	err = cmd.Start()
+	err = c.Start()
 	if err != nil {
 		return err
 	}
@@ -208,33 +189,35 @@ func CallCont(cmd *exec.Cmd, cont func(io.ReadCloser) error) error {
 
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(stderr)
-	log.Print("Stderr:", buf)
+	if buf.Len() != 0 {
+		log.Print("Command had output on stderr.\n Cmd: ", strings.Join(c.Args, " "), "\nstderr: ", buf)
+	}
 
-	return cmd.Wait()
+	return c.Wait()
 }
 
 func SendBase(to string, cont func(io.ReadCloser) error) error {
-	cmd := exec.Command("btrfs", "send", FilePath(to))
-	return CallCont(cmd, cont)
+	c := exec.Command("btrfs", "send", FilePath(to))
+	return CallCont(c, cont)
 }
 
 func Send(from string, to string, cont func(io.ReadCloser) error) error {
-	cmd := exec.Command("btrfs", "send", "-p", FilePath(from), FilePath(to))
-	return CallCont(cmd, cont)
+	c := exec.Command("btrfs", "send", "-p", FilePath(from), FilePath(to))
+	return CallCont(c, cont)
 }
 
 func Recv(volume string, data io.ReadCloser) error {
-	cmd := exec.Command("btrfs", "receive", FilePath(volume))
-	log.Println(cmd)
-	stdin, err := cmd.StdinPipe()
+	c := exec.Command("btrfs", "receive", FilePath(volume))
+	log.Print(c)
+	stdin, err := c.StdinPipe()
 	if err != nil {
 		return err
 	}
-	stderr, err := cmd.StderrPipe()
+	stderr, err := c.StderrPipe()
 	if err != nil {
 		return err
 	}
-	err = cmd.Start()
+	err = c.Start()
 	if err != nil {
 		return err
 	}
@@ -242,7 +225,7 @@ func Recv(volume string, data io.ReadCloser) error {
 	if err != nil {
 		return err
 	}
-	log.Println("Copied bytes:", n)
+	log.Print("Copied bytes:", n)
 	err = stdin.Close()
 	if err != nil {
 		return err
@@ -252,7 +235,7 @@ func Recv(volume string, data io.ReadCloser) error {
 	buf.ReadFrom(stderr)
 	log.Print("Stderr:", buf)
 
-	return cmd.Wait()
+	return c.Wait()
 }
 
 // Init initializes an empty repo.
@@ -261,6 +244,9 @@ func Init(repo string) error {
 		return err
 	}
 	if err := SubvolumeCreate(path.Join(repo, "master")); err != nil {
+		return err
+	}
+	if err := Commit(repo, "t0", "master"); err != nil {
 		return err
 	}
 	return nil
@@ -281,28 +267,45 @@ func Ensure(repo string) error {
 }
 
 // Commit creates a new commit for a branch.
-func Commit(repo, commit, branch string) (string, error) {
+func Commit(repo, commit, branch string) error {
 	// First we check to make sure that the branch actually exists
 	exists, err := FileExists(path.Join(repo, branch))
 	if err != nil {
-		return "", err
+		return err
 	}
 	if !exists {
-		return "", fmt.Errorf("Branch %s not found.", branch)
+		return fmt.Errorf("Branch %s not found.", branch)
 	}
 	// First we make HEAD readonly
 	if err := SetReadOnly(path.Join(repo, branch)); err != nil {
-		return "", err
+		return err
 	}
 	// Next move it to being a commit
 	if err := Rename(path.Join(repo, branch), path.Join(repo, commit)); err != nil {
-		return "", err
+		return err
 	}
 	// Recreate the branch subvolume with a writeable subvolume
 	if err := Snapshot(path.Join(repo, commit), path.Join(repo, branch), false); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Hold creates a temporary snapshot of a commit that no one else knows about.
+// It's your responsibility to release the snapshot with Release
+func Hold(repo, commit string) (string, error) {
+	MkdirAll("tmp")
+	name := path.Join("tmp", uuid.New())
+	if err := Snapshot(path.Join(repo, commit), name, false); err != nil {
 		return "", err
 	}
-	return commit, nil
+	return name, nil
+}
+
+// Release releases commit snapshots held by Hold.
+func Release(name string) {
+	SubvolumeDelete(name)
 }
 
 func Branch(repo, commit, branch string) error {
@@ -314,8 +317,13 @@ func Branch(repo, commit, branch string) error {
 
 //Log returns all of the commits the repo which have generation >= from.
 func Log(repo, from string, cont func(io.ReadCloser) error) error {
-	cmd := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-C", "+"+from, "--sort", "-ogen", FilePath(path.Join(repo)))
-	return CallCont(cmd, cont)
+	if from == "" {
+		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", "-ogen", FilePath(path.Join(repo)))
+		return CallCont(c, cont)
+	} else {
+		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-C", "+"+from, "--sort", "-ogen", FilePath(path.Join(repo)))
+		return CallCont(c, cont)
+	}
 }
 
 type CommitInfo struct {
@@ -327,13 +335,14 @@ func Commits(repo, from string, cont func(CommitInfo) error) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			// scanner.Text() looks like:
-			// ID 299 gen 67 cgen 66 top level 292 parent_uuid 7a4a824b-7b78-d144-a956-eb0229616d21 uuid c1cd770c-600b-a744-940c-835bf73b5fa9 path fs/repo/2014-11-20T07:25:01.853165+00:00
+			// ID 299 gen 67 cgen 66 top level 292 parent_uuid 7a4a824b-7b78-d144-a956-eb0229616d21 uuid c1cd770c-600b-a744-940c-835bf73b5fa9 path repo/25853824-60a8-4d32-9168-adfce78a6c91
 			// 0  1   2   3  4    5  6   7     8   9           10                                   11   12                                   13   14
 			tokens := strings.Split(scanner.Text(), " ")
 			if len(tokens) != 15 {
 				return fmt.Errorf("Malformed commit line: %s.", scanner.Text())
 			}
-			if err := cont(CommitInfo{tokens[3], tokens[12], tokens[10], tokens[14]}); err != nil {
+			_, p := path.Split(tokens[14]) // we want to returns paths without the repo/ before them
+			if err := cont(CommitInfo{tokens[3], tokens[12], tokens[10], p}); err != nil {
 				return err
 			}
 		}
@@ -373,19 +382,124 @@ func Pull(repo, from string, cont func(io.ReadCloser) error) error {
 			return nil
 		}
 	})
-	if err == nil || err.Error() == "COMPLETE" {
-		for _, diff := range diffs {
-			if diff.parent == nil {
-				if err := SendBase(diff.child.path, cont); err != nil {
-					return err
-				}
-			}
-			if err := Send(diff.parent.path, diff.child.path, cont); err != nil {
+	if err != nil && err.Error() != "COMPLETE" {
+		return err
+	}
+
+	for _, diff := range diffs {
+		if diff.parent == nil {
+			if err := SendBase(diff.child.path, cont); err != nil {
 				return err
 			}
 		}
-	} else {
-		return err
+		if err := Send(diff.parent.path, diff.child.path, cont); err != nil {
+			return err
+		}
 	}
+
 	return nil
+}
+
+// Transid returns transid of a path in a repo. This value is useful for
+// passing to FindNew.
+func Transid(repo, commit string) (string, error) {
+	//  "9223372036854775810" == 2 ** 63 we use a very big number there so that
+	//  we get the transid of the from path. According to the internet this is
+	//  the nicest way to get it from btrfs.
+	var transid string
+	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), "9223372036854775808")
+	err := CallCont(c, func(r io.ReadCloser) error {
+		scanner := bufio.NewScanner(r)
+		for scanner.Scan() {
+			// scanner.Text() looks like this:
+			// transid marker was 907
+			// 0       1      2   3
+			tokens := strings.Split(scanner.Text(), " ")
+			if len(tokens) != 4 {
+				return fmt.Errorf("Failed to parse find-new output.")
+			}
+			// We want to increment the transid because it's inclusive, if we
+			// don't increment we'll get things from the previous commit as
+			// well.
+			_transid, err := strconv.Atoi(tokens[3])
+			if err != nil {
+				return err
+			}
+			_transid++
+			transid = strconv.Itoa(_transid)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return transid, err
+}
+
+// FindNew returns an array of filenames that have been created since transid.
+// transid should come from Transid.
+func FindNew(repo, commit, transid string) ([]string, error) {
+	var files []string
+	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), transid)
+	err := CallCont(c, func(r io.ReadCloser) error {
+		scanner := bufio.NewScanner(r)
+		for scanner.Scan() {
+			// scanner.Text() looks like this:
+			// inode 6683 file offset 0 len 107 disk start 0 offset 0 gen 909 flags INLINE jobs/rPqZxsaspy
+			// 0     1    2    3      4 5   6   7    8     9 10     11 12 13 14     15     16
+			tokens := strings.Split(scanner.Text(), " ")
+			if len(tokens) == 17 {
+				files = append(files, tokens[16])
+			} else if len(tokens) == 4 {
+				continue //skip transid messages
+			} else {
+				return fmt.Errorf("Failed to parse find-new output.")
+			}
+		}
+		return nil
+	})
+	return files, err
+}
+
+// NewFiles returns the new files in
+func NewFiles(repo, commit string) ([]string, error) {
+	var parentId, parent string
+	err := Commits(repo, "", func(c CommitInfo) error {
+		if c.path == commit {
+			parentId = c.parent
+			if parentId == "-" {
+				// This case indicates no parent, we handle it below.
+				return fmt.Errorf("COMPLETE")
+			} else {
+				return nil
+			}
+		}
+		// When this function is first called parentId == "" this changes only
+		// when we find the commit above and learn what the parent is. Commits
+		// orders by generation so the parent shows up after the commit which
+		// means parentId should be by the time we see it
+		if parentId != "" && c.id == parentId {
+			parent = c.path
+			return fmt.Errorf("COMPLETE")
+		}
+		return nil
+	})
+	if err != nil && err.Error() != "COMPLETE" {
+		return []string{}, nil
+	}
+
+	if parent == "" {
+		return []string{}, fmt.Errorf("Failed to find parent for commit.")
+	}
+
+	if parent == "-" {
+		// No parent was found, everything in the subvolume is new.
+		return FindNew(repo, commit, "0")
+	} else {
+		transid, err := Transid(repo, parent)
+		if err != nil {
+			return []string{}, err
+		}
+		return FindNew(repo, commit, transid)
+	}
 }

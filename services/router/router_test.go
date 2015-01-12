@@ -1,13 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
 	"math/rand"
 	"net/http"
+	"path"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/pachyderm-io/pfs/lib/mapreduce"
 )
 
 var KB int64 = 1 << 10
@@ -40,8 +45,8 @@ func (r ConstReader) Read(p []byte) (n int, err error) {
 var reader ConstReader
 
 // insert inserts a single file in to the filesystem
-func insert(fileSize int64, t testing.TB) {
-	url := "http://172.17.42.1/file/" + randSeq(10)
+func insert(dir string, fileSize int64, t testing.TB) {
+	url := "http://172.17.42.1/file/" + path.Join(dir, randSeq(10))
 	resp, err := http.Post(url, "application/text", io.LimitReader(reader, fileSize))
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +57,7 @@ func insert(fileSize int64, t testing.TB) {
 	}
 }
 
-func traffic(fileSize, sizeLimit int64, t testing.TB) {
+func traffic(dir string, fileSize, sizeLimit int64, t testing.TB) {
 	workers := 8
 	var wg sync.WaitGroup
 	wg.Add(workers)
@@ -61,11 +66,27 @@ func traffic(fileSize, sizeLimit int64, t testing.TB) {
 		go func() {
 			defer wg.Done()
 			for atomic.AddInt64(&totalSize, fileSize) <= sizeLimit {
-				insert(fileSize, t)
+				insert(dir, fileSize, t)
 			}
 		}()
 	}
 	wg.Wait()
+}
+
+func newJob(name string, job mapreduce.Job, t testing.TB) {
+	jobJson, err := json.Marshal(job)
+	if err != nil {
+		t.Fatal(err)
+	}
+	url := "http://172.17.42.1/job/" + name
+	resp, err := http.Post(url, "application/text", bytes.NewReader(jobJson))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Error(resp.Status)
+	}
 }
 
 func commit(t testing.TB) {
@@ -79,26 +100,55 @@ func commit(t testing.TB) {
 	}
 }
 
+func materialize(t testing.TB) {
+	resp, err := http.Post("http://172.17.42.1/commit?run", "application/test", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Error(resp.Status)
+	}
+}
+
 func TestSmoke(t *testing.T) {
+	commit(t)
 	for i := 0; i < 5; i++ {
 		for j := 0; j < 5; j++ {
-			insert(4*KB, t)
+			insert("", 4*KB, t)
 		}
 		commit(t)
 	}
 }
 
 func TestFire(t *testing.T) {
+	commit(t)
 	for i := 0; i < 5; i++ {
-		traffic(4*KB, 5*MB, t)
+		traffic("", 4*KB, 5*MB, t)
 		commit(t)
 	}
+}
+
+func TestMRInsert(t *testing.T) {
+	commit(t)
+	newJob("MapInsert", mapreduce.Job{Type: "map", Input: "TestMRInsert", Image: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	newJob("ReduceInsert", mapreduce.Job{Type: "reduce", Input: "job/MapInsert", Image: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	insert("TestMRInsert", 4*KB, t)
+	materialize(t)
+}
+
+func TestMRTraffic(t *testing.T) {
+	commit(t)
+	newJob("MapTraffic", mapreduce.Job{Type: "map", Input: "TestMRTraffic", Image: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	newJob("ReduceTraffic", mapreduce.Job{Type: "reduce", Input: "job/MapTraffic", Image: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	traffic("TestMRTraffic", 4*KB, 128*KB, t)
+	materialize(t)
 }
 
 func _BenchmarkInsert(fileSize int64, b *testing.B) {
 	commit(b)
 	for i := 0; i < b.N; i++ {
-		insert(fileSize, b)
+		insert("", fileSize, b)
 		commit(b)
 	}
 	commit(b)
@@ -121,7 +171,7 @@ func BenchmarkInsert1GB(b *testing.B) {
 func _BenchmarkTraffic(fileSize, totalSize int64, b *testing.B) {
 	commit(b)
 	for i := 0; i < b.N; i++ {
-		traffic(fileSize, totalSize, b)
+		traffic("", fileSize, totalSize, b)
 		commit(b)
 	}
 	commit(b)
