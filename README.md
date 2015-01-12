@@ -1,5 +1,60 @@
 # Pachyderm File System
 
+## pfs v0.3 - Pachyderm MapReduce
+Pfs v0.3 is the first pfs release to include support for MapReduce.
+##The MapReduce API
+
+We’ve added a new pfs keyword `job`. Here’s how you use it:
+
+###Creating a new job
+
+Jobs are specified as JSON files in the following format:
+
+```
+{
+    "type"  : either "map" or "reduce"
+    "input" : a file in pfs or the output from another job
+    "image" : the Docker image to use (which gets pulled from the Docker registry)
+    "command" : the command to start your web server
+}
+```
+
+**NOTE**: You do not need to specify the output location for a job. The output of a job, often referred to as a _materialized view_, is automatically stored in pfs `/job/<jobname>`.
+
+###POSTing a job to pfs
+
+Post a local JSON file with the above format to pfs:
+
+```sh
+$ curl -XPOST <host>/job/<jobname> -T <localfile>.json
+```
+
+**NOTE**: POSTing a job doesn't run the job. It just records the specification of the job in pfs. 
+
+###Running a job
+Jobs are only run on a commit. That way you always know exactly the state of the file system that is used in a computation. To run all committed jobs, use the `commit` keyword with the `run` parameter.
+
+```sh
+$ curl -XPOST <host>/commit?run
+```
+
+Think of adding jobs as constructing a
+[DAG](http://en.wikipedia.org/wiki/Directed_acyclic_graph) of computations that
+you want performed. When you call `/commit?run`, Pachyderm automatically
+schedules the jobs such that a job isn't run until the jobs it depends on have
+completed.
+
+###Getting the output of a job
+Each job records its output in its own read-only file system. You can read the output of the job with:
+
+```sh
+$ curl <host>/job/<jobname>/file/*?commit=<commit>
+```
+
+**NOTE**: You must specify the commit you want to read from and that commit
+needs to have been created with the run parameter. We're planning to expand
+this API to make it not have this requirement in the near future.
+
 ## What is pfs?
 Pfs is a distributed file system built specifically for the Docker
 ecosystem. You [deploy it with Docker](https://registry.hub.docker.com/u/pachyderm/pfs/),
@@ -145,7 +200,7 @@ $ curl -XGET pfs/branch
 ```
 
 ```shell
-# Write a job to pfs:
+# Create or modify <job>:
 $ curl -XPOST <host>/job/<jobname> -T <localfile>.json
 ```
 #### Deleting jobs
@@ -170,6 +225,7 @@ $ curl -XPOST <host>/commit?run
 ```
 
 #### Getting output from jobs
+
 ```shell
 # Read <file> from the output of <job> at <commit>:
 $ curl -XGET <host>/job/<job>/file/<file>?commit=<commit>
@@ -177,12 +233,6 @@ $ curl -XGET <host>/job/<job>/file/<file>?commit=<commit>
 # Read the output of <job> at <commit>:
 $ curl -XGET <host>/job/<job>/file/*?commit=<commit>
 ```
-```shell
-# Get the output of jobs:
-$ curl -XGET <host>/job/<jobname>/file/<filename>
-```
-
-
 
 ## Who's building this?
 Two guys who love data and communities and both happen to be named Joe. We'd love
