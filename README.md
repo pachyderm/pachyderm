@@ -169,7 +169,7 @@ $ curl -XGET <host>/job/<job>
 $ curl -XPOST <host>/commit?run
 ```
 
-#### Getting jobs output
+#### Getting output from jobs
 ```shell
 # Read <file> from the output of <job> at <commit>:
 $ curl -XGET <host>/job/<job>/file/<file>?commit=<commit>
