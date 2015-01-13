@@ -152,7 +152,7 @@ Pfs exposes a git-like interface to the file system:
 #### Creating files
 ```shell
 # Write <file> to <branch>. Branch defaults to "master".
-$ curl -XPOST pfs/file/<file>?branch=<branch> -d @local_file
+$ curl -XPOST pfs/file/<file>?branch=<branch> -T local_file
 ```
 
 #### Reading files
