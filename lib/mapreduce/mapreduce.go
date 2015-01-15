@@ -26,9 +26,11 @@ var retries int = 5
 func spinupContainer(image string, command []string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
+		log.Print(err)
 		return "", err
 	}
 	if err := docker.PullImage(image, nil); err != nil {
+		log.Print(err)
 		return "", err
 	}
 
@@ -36,10 +38,12 @@ func spinupContainer(image string, command []string) (string, error) {
 
 	containerId, err := docker.CreateContainer(containerConfig, "")
 	if err != nil {
+		log.Print(err)
 		return "", nil
 	}
 
 	if err := docker.StartContainer(containerId, &dockerclient.HostConfig{}); err != nil {
+		log.Print(err)
 		return "", err
 	}
 
