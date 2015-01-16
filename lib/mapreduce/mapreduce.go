@@ -31,7 +31,7 @@ func spinupContainer(image string, command []string) (string, error) {
 		return "", err
 	}
 	if err := docker.PullImage(image, nil); err != nil {
-		log.Print(err)
+		log.Print("Image: ", image, " Err: ", err)
 		return "", err
 	}
 
