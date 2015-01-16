@@ -127,12 +127,12 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 
 	var readers []io.ReadCloser
 	for i, node := range endpoints {
-		log.Print("Multicasting ", r, " to: ", node.Value)
 		httpClient := &http.Client{}
 		// `Do` will complain if r.RequestURI is set so we unset it
 		r.RequestURI = ""
 		r.URL.Scheme = "http"
 		r.URL.Host = node.Value
+		log.Print("Multicasting ", r, " to: ", node.Value)
 
 		if r.ContentLength != 0 {
 			r.Body = ioutil.NopCloser(bytes.NewReader(body))
@@ -140,9 +140,11 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 
 		resp, err := httpClient.Do(r)
 		if err != nil {
+			log.Print(err)
 			return nil, err
 		}
 		if resp.StatusCode != 200 {
+			log.Printf("Failed request (%s) to %s.", resp.Status, r.URL.String())
 			return nil, fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String())
 		}
 		// paths with * are multigets so we want all of the responses
