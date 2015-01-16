@@ -128,6 +128,7 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 
 	var readers []io.ReadCloser
 	for i, node := range endpoints {
+		log.Print("Multicasting to: ", node.Value)
 		httpClient := &http.Client{}
 		// `Do` will complain if r.RequestURI is set so we unset it
 		r.RequestURI = ""
