@@ -24,6 +24,7 @@ var retries int = 5
 // StartContainer pulls image and starts a container from it with command. It
 // returns the container id or an error.
 func spinupContainer(image string, command []string) (string, error) {
+	log.Print("spinupContainer", " ", image, " ", command)
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
 		log.Print(err)
@@ -117,43 +118,55 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 	}
 	log.Print("In Map for ", jobPath, " len(inFiles) = ", len(inFiles))
 
+	files := make(chan os.FileInfo, 20000)
+
+	// spawn four worker goroutines
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	for _, inF := range inFiles {
+	for i := 0; i < 100; i++ {
 		wg.Add(1)
-		go func(inF os.FileInfo) {
+		go func() {
 			defer wg.Done()
-			inFile, err := btrfs.Open(path.Join(m.In, m.Commit, job.Input, inF.Name()))
-			if err != nil {
-				log.Print(err)
-				return
-			}
-			defer inFile.Close()
+			for inF := range files {
+				inFile, err := btrfs.Open(path.Join(m.In, m.Commit, job.Input, inF.Name()))
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				defer inFile.Close()
 
-			var resp *http.Response
-			err = retry(func() error {
-				log.Print("Posting: ", inF.Name())
-				resp, err = http.Post("http://"+path.Join(host, inF.Name()), "application/text", inFile)
-				return err
-			}, 5, 200*time.Millisecond)
-			if err != nil {
-				log.Print(err)
-				return
-			}
-			defer resp.Body.Close()
+				var resp *http.Response
+				err = retry(func() error {
+					log.Print("Posting: ", inF.Name())
+					resp, err = http.Post("http://"+path.Join(host, inF.Name()), "application/text", inFile)
+					return err
+				}, 5, 200*time.Millisecond)
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				defer resp.Body.Close()
 
-			outFile, err := btrfs.Create(path.Join(m.Out, m.Branch, jobPath, inF.Name()))
-			if err != nil {
-				log.Print(err)
-				return
+				outFile, err := btrfs.Create(path.Join(m.Out, m.Branch, jobPath, inF.Name()))
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				defer outFile.Close()
+				if _, err := io.Copy(outFile, resp.Body); err != nil {
+					log.Print(err)
+					return
+				}
 			}
-			defer outFile.Close()
-			if _, err := io.Copy(outFile, resp.Body); err != nil {
-				log.Print(err)
-				return
-			}
-		}(inF)
+		}()
 	}
+
+	for _, inF := range inFiles {
+		files <- inF
+	}
+
+	close(files)
+
 	return nil
 }
 
@@ -164,7 +177,7 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modu
 	}
 	log.Print("Reduce: ", job, " ", jobPath, " ")
 	if job.Type != "reduce" {
-		return fmt.Errorf("runMap called on a job of type \"%s\". Should be \"reduce\".", job.Type)
+		return fmt.Errorf("Reduce called on a job of type \"%s\". Should be \"reduce\".", job.Type)
 	}
 
 	// Notice we're just passing "host" here. Multicast will fill in the host
