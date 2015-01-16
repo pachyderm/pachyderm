@@ -31,8 +31,7 @@ func spinupContainer(image string, command []string) (string, error) {
 		return "", err
 	}
 	if err := docker.PullImage(image, nil); err != nil {
-		log.Print("Image: ", image, " Err: ", err)
-		return "", err
+		//return "", err this is erroring due to failing to parse response json
 	}
 
 	containerConfig := &dockerclient.ContainerConfig{Image: image, Cmd: command}
