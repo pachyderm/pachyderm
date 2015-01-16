@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/pachyderm-io/pfs/lib/etcache"
 )
@@ -126,30 +127,42 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 	}
 
 	var readers []io.ReadCloser
-	for i, node := range endpoints {
-		httpClient := &http.Client{}
-		// `Do` will complain if r.RequestURI is set so we unset it
-		r.RequestURI = ""
-		r.URL.Scheme = "http"
-		r.URL.Host = node.Value
-		log.Print("Multicasting ", r, " to: ", node.Value)
+	var mutex sync.Mutex
 
-		if r.ContentLength != 0 {
-			r.Body = ioutil.NopCloser(bytes.NewReader(body))
-		}
+	{
+		var wg sync.WaitGroup
+		defer wg.Wait()
+		for i, node := range endpoints {
+			wg.Add(1)
+			go func(i int, host string) {
+				defer wg.Done()
+				httpClient := &http.Client{}
+				// `Do` will complain if r.RequestURI is set so we unset it
+				r.RequestURI = ""
+				r.URL.Scheme = "http"
+				r.URL.Host = node.Value
+				log.Print("Multicasting ", r, " to: ", node.Value)
 
-		resp, err := httpClient.Do(r)
-		if err != nil {
-			log.Print(err)
-			return nil, err
-		}
-		if resp.StatusCode != 200 {
-			log.Printf("Failed request (%s) to %s.", resp.Status, r.URL.String())
-			return nil, fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String())
-		}
-		// paths with * are multigets so we want all of the responses
-		if i == 0 || strings.Contains(r.URL.Path, "*") {
-			readers = append(readers, resp.Body)
+				if r.ContentLength != 0 {
+					r.Body = ioutil.NopCloser(bytes.NewReader(body))
+				}
+
+				resp, err := httpClient.Do(r)
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				if resp.StatusCode != 200 {
+					log.Printf("Failed request (%s) to %s.", resp.Status, r.URL.String())
+					return
+				}
+				// paths with * are multigets so we want all of the responses
+				if i == 0 || strings.Contains(r.URL.Path, "*") {
+					mutex.Lock()
+					readers = append(readers, resp.Body)
+					mutex.Unlock()
+				}
+			}(i, node.Value)
 		}
 	}
 
