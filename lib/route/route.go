@@ -111,7 +111,6 @@ func MultiReadCloser(readers ...io.ReadCloser) io.ReadCloser {
 // Multicast enables the Ogre Magi to rapidly cast his spells, giving them
 // greater potency.
 func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
-	log.Print(r)
 	_endpoints, err := etcache.Get(etcdKey, false, true)
 	if err != nil {
 		return nil, err
@@ -128,7 +127,7 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 
 	var readers []io.ReadCloser
 	for i, node := range endpoints {
-		log.Print("Multicasting to: ", node.Value)
+		log.Print("Multicasting ", r, " to: ", node.Value)
 		httpClient := &http.Client{}
 		// `Do` will complain if r.RequestURI is set so we unset it
 		r.RequestURI = ""
