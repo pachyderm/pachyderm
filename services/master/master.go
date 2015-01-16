@@ -175,12 +175,12 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if materializeParam(r) == "true" {
-			err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, jobDir, shard, modulos)
-			if err != nil {
-				http.Error(w, err.Error(), 500)
-				log.Print(err)
-				return
-			}
+			go func() {
+				err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, jobDir, shard, modulos)
+				if err != nil {
+					log.Print(err)
+				}
+			}()
 		}
 
 		fmt.Fprint(w, commitParam)
