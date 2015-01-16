@@ -140,8 +140,8 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 				// `Do` will complain if r.RequestURI is set so we unset it
 				r.RequestURI = ""
 				r.URL.Scheme = "http"
-				r.URL.Host = node.Value
-				log.Print("Multicasting ", r, " to: ", node.Value)
+				r.URL.Host = host
+				log.Print("Multicasting ", r, " to: ", host)
 
 				if r.ContentLength != 0 {
 					r.Body = ioutil.NopCloser(bytes.NewReader(body))
