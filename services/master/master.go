@@ -183,7 +183,7 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 			}()
 		}
 
-		fmt.Fprint(w, commitParam)
+		fmt.Fprint(w, commitParam(r))
 	} else {
 		http.Error(w, "Unsupported method.", http.StatusMethodNotAllowed)
 		log.Printf("Unsupported method %s in request to %s.", r.Method, r.URL.String())
@@ -229,12 +229,12 @@ func BranchHandler(w http.ResponseWriter, r *http.Request) {
 func JobHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, job, <job>, file, <file>]
-	if len(url) > 3 && url[3] == "file" {
-		mapreduce.WaitJob(dataRepo, commitParam(r), url[2])
+	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
+		if commitParam(r) != "master" {
+			mapreduce.WaitJob(dataRepo, commitParam(r), url[2])
+		}
 		genericFileHandler(path.Join(compRepo, "master", url[2]), w, r)
 		return
-	}
-	if r.Method == "GET" {
 	} else if r.Method == "POST" {
 		r.URL.Path = path.Join("/file", jobDir, url[2])
 		FileHandler(w, r)
