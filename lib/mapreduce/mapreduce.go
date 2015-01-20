@@ -122,7 +122,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 	// spawn four worker goroutines
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 200; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
