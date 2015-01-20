@@ -11,7 +11,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/pachyderm-io/pfs/lib/etcache"
+	"github.com/pachyderm/pfs/lib/etcache"
 )
 
 func HashResource(resource string) uint64 {

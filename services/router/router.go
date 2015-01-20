@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"code.google.com/p/go-uuid/uuid"
-	"github.com/pachyderm-io/pfs/lib/route"
+	"github.com/pachyderm/pfs/lib/route"
 )
 
 var modulos uint64

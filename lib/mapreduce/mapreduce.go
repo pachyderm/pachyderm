@@ -14,8 +14,8 @@ import (
 
 	"testing/iotest"
 
-	"github.com/pachyderm-io/pfs/lib/btrfs"
-	"github.com/pachyderm-io/pfs/lib/route"
+	"github.com/pachyderm/pfs/lib/btrfs"
+	"github.com/pachyderm/pfs/lib/route"
 	"github.com/samalba/dockerclient"
 )
 

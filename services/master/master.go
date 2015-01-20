@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"code.google.com/p/go-uuid/uuid"
-	"github.com/pachyderm-io/pfs/lib/btrfs"
-	"github.com/pachyderm-io/pfs/lib/mapreduce"
+	"github.com/pachyderm/pfs/lib/btrfs"
+	"github.com/pachyderm/pfs/lib/mapreduce"
 )
 
 var dataRepo, compRepo string

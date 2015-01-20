@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm-io/pfs/lib/mapreduce"
+	"github.com/pachyderm/pfs/lib/mapreduce"
 )
 
 var KB int64 = 1 << 10

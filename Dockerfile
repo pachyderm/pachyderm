@@ -1,7 +1,7 @@
 FROM ubuntu:14.10
 
 ENV GOPATH /go
-ENV PFS github.com/pachyderm-io/pfs
+ENV PFS github.com/pachyderm/pfs
 
 RUN apt-get update && apt-get install -y golang btrfs-tools git mercurial && rm -rf /var/lib/apt/lists/*
 RUN go get github.com/coreos/go-etcd/etcd
