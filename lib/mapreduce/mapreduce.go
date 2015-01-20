@@ -139,7 +139,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 					log.Print("Posting: ", inF.Name())
 					resp, err = http.Post("http://"+path.Join(host, inF.Name()), "application/text", inFile)
 					return err
-				}, 5, 200*time.Millisecond)
+				}, retries, 200*time.Millisecond)
 				if err != nil {
 					log.Print(err)
 					return
@@ -181,11 +181,15 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modu
 
 	// Notice we're just passing "host" here. Multicast will fill in the host
 	// field so we don't actually need to specify it.
-	req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*")+"?commit="+m.Commit, nil)
-	if err != nil {
+	var _reader io.ReadCloser
+	err := retry(func() error {
+		req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*")+"?commit="+m.Commit, nil)
+		if err != nil {
+			return err
+		}
+		_reader, err = route.Multicast(req, "/pfs/master")
 		return err
-	}
-	_reader, err := route.Multicast(req, "/pfs/master")
+	}, retries, time.Minute)
 	if err != nil {
 		return err
 	}
@@ -196,7 +200,7 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modu
 	err = retry(func() error {
 		resp, err = http.Post("http://"+path.Join(host, job.Input), "application/text", reader)
 		return err
-	}, 5, 200*time.Millisecond)
+	}, retries, 200*time.Millisecond)
 	if err != nil {
 		return err
 	}
