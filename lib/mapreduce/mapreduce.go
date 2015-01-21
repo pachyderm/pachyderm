@@ -119,13 +119,13 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 
 	files := make(chan os.FileInfo, 20000)
 
-	// spawn four worker goroutines
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	for i := 0; i < 200; i++ {
+	for i := 0; i < 100; i++ {
 		wg.Add(1)
-		go func() {
+		go func(wg *sync.WaitGroup) {
 			defer wg.Done()
+			defer log.Print("Worker goro done.")
 			for inF := range files {
 				inFile, err := btrfs.Open(path.Join(m.In, m.Commit, job.Input, inF.Name()))
 				if err != nil {
@@ -157,7 +157,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 					return
 				}
 			}
-		}()
+		}(&wg)
 	}
 
 	for _, inF := range inFiles {
