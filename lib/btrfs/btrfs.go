@@ -143,6 +143,29 @@ func ReadDir(name string) ([]os.FileInfo, error) {
 	return ioutil.ReadDir(FilePath(name))
 }
 
+var walkChunk int = 100
+
+func LazyWalk(name string, f func(string) error) error {
+	dir, err := os.Open(FilePath(name))
+	if err != nil {
+		return nil
+	}
+	defer dir.Close()
+	var names []string
+	for names, err = dir.Readdirnames(walkChunk); err == nil; names, err = dir.Readdirnames(walkChunk) {
+		for _, fname := range names {
+			err := f(path.Join(name, fname))
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if err != io.EOF {
+		return err
+	}
+	return nil
+}
+
 func SubvolumeCreate(name string) error {
 	return RunStderr(exec.Command("btrfs", "subvolume", "create", FilePath(name)))
 }

@@ -111,13 +111,8 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 		return fmt.Errorf("runMap called on a job of type \"%s\". Should be \"map\".", job.Type)
 	}
 
-	inFiles, err := btrfs.ReadDir(path.Join(m.In, m.Commit, job.Input))
-	if err != nil {
-		return err
-	}
-	log.Print("In Map for ", jobPath, " len(inFiles) = ", len(inFiles))
-
-	files := make(chan os.FileInfo, 20000)
+	files := make(chan string)
+	defer close(files)
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
@@ -126,8 +121,8 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 		go func(wg *sync.WaitGroup) {
 			defer wg.Done()
 			defer log.Print("Worker goro done.")
-			for inF := range files {
-				inFile, err := btrfs.Open(path.Join(m.In, m.Commit, job.Input, inF.Name()))
+			for name := range files {
+				inFile, err := btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
 				if err != nil {
 					log.Print(err)
 					return
@@ -136,8 +131,8 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 
 				var resp *http.Response
 				err = retry(func() error {
-					log.Print("Posting: ", inF.Name())
-					resp, err = http.Post("http://"+path.Join(host, inF.Name()), "application/text", inFile)
+					log.Print("Posting: ", name)
+					resp, err = http.Post("http://"+path.Join(host, name), "application/text", inFile)
 					return err
 				}, retries, 200*time.Millisecond)
 				if err != nil {
@@ -146,7 +141,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 				}
 				defer resp.Body.Close()
 
-				outFile, err := btrfs.Create(path.Join(m.Out, m.Branch, jobPath, inF.Name()))
+				outFile, err := btrfs.Create(path.Join(m.Out, m.Branch, jobPath, name))
 				if err != nil {
 					log.Print(err)
 					return
@@ -159,13 +154,14 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 			}
 		}(&wg)
 	}
-
-	for _, inF := range inFiles {
-		files <- inF
+	err = btrfs.LazyWalk(path.Join(m.In, m.Commit, job.Input),
+		func(name string) error {
+			files <- name
+			return nil
+		})
+	if err != nil {
+		return err
 	}
-
-	close(files)
-
 	return nil
 }
 
