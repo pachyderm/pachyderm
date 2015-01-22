@@ -154,7 +154,7 @@ func LazyWalk(name string, f func(string) error) error {
 	var names []string
 	for names, err = dir.Readdirnames(walkChunk); err == nil; names, err = dir.Readdirnames(walkChunk) {
 		for _, fname := range names {
-			err := f(path.Join(name, fname))
+			err := f(fname)
 			if err != nil {
 				return err
 			}

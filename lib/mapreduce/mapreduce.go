@@ -112,10 +112,11 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 	}
 
 	files := make(chan string)
-	defer close(files)
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
+
+	defer close(files)
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
