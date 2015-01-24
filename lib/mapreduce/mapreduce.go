@@ -14,8 +14,8 @@ import (
 
 	"testing/iotest"
 
-	"github.com/pachyderm-io/pfs/lib/btrfs"
-	"github.com/pachyderm-io/pfs/lib/route"
+	"github.com/pachyderm/pfs/lib/btrfs"
+	"github.com/pachyderm/pfs/lib/route"
 	"github.com/samalba/dockerclient"
 )
 
@@ -24,22 +24,26 @@ var retries int = 5
 // StartContainer pulls image and starts a container from it with command. It
 // returns the container id or an error.
 func spinupContainer(image string, command []string) (string, error) {
+	log.Print("spinupContainer", " ", image, " ", command)
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
+		log.Print(err)
 		return "", err
 	}
 	if err := docker.PullImage(image, nil); err != nil {
-		return "", err
+		//return "", err this is erroring due to failing to parse response json
 	}
 
 	containerConfig := &dockerclient.ContainerConfig{Image: image, Cmd: command}
 
 	containerId, err := docker.CreateContainer(containerConfig, "")
 	if err != nil {
+		log.Print(err)
 		return "", nil
 	}
 
 	if err := docker.StartContainer(containerId, &dockerclient.HostConfig{}); err != nil {
+		log.Print(err)
 		return "", err
 	}
 
@@ -107,48 +111,57 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 		return fmt.Errorf("runMap called on a job of type \"%s\". Should be \"map\".", job.Type)
 	}
 
-	inFiles, err := btrfs.ReadDir(path.Join(m.In, m.Commit, job.Input))
-	if err != nil {
-		return err
-	}
-	log.Print("In Map for ", jobPath, " len(inFiles) = ", len(inFiles))
+	files := make(chan string)
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	for _, inF := range inFiles {
+
+	defer close(files)
+	for i := 0; i < 100; i++ {
 		wg.Add(1)
-		go func(inF os.FileInfo) {
+		go func(wg *sync.WaitGroup) {
 			defer wg.Done()
-			inFile, err := btrfs.Open(path.Join(m.In, m.Commit, job.Input, inF.Name()))
-			if err != nil {
-				log.Print(err)
-				return
-			}
-			defer inFile.Close()
+			defer log.Print("Worker goro done.")
+			for name := range files {
+				inFile, err := btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				defer inFile.Close()
 
-			var resp *http.Response
-			err = retry(func() error {
-				log.Print("Posting: ", inF.Name())
-				resp, err = http.Post("http://"+path.Join(host, inF.Name()), "application/text", inFile)
-				return err
-			}, 5, 200*time.Millisecond)
-			if err != nil {
-				log.Print(err)
-				return
-			}
-			defer resp.Body.Close()
+				var resp *http.Response
+				err = retry(func() error {
+					log.Print("Posting: ", name)
+					resp, err = http.Post("http://"+path.Join(host, name), "application/text", inFile)
+					return err
+				}, retries, 200*time.Millisecond)
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				defer resp.Body.Close()
 
-			outFile, err := btrfs.Create(path.Join(m.Out, m.Branch, jobPath, inF.Name()))
-			if err != nil {
-				log.Print(err)
-				return
+				outFile, err := btrfs.Create(path.Join(m.Out, m.Branch, jobPath, name))
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				defer outFile.Close()
+				if _, err := io.Copy(outFile, resp.Body); err != nil {
+					log.Print(err)
+					return
+				}
 			}
-			defer outFile.Close()
-			if _, err := io.Copy(outFile, resp.Body); err != nil {
-				log.Print(err)
-				return
-			}
-		}(inF)
+		}(&wg)
+	}
+	err = btrfs.LazyWalk(path.Join(m.In, m.Commit, job.Input),
+		func(name string) error {
+			files <- name
+			return nil
+		})
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -160,16 +173,20 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modu
 	}
 	log.Print("Reduce: ", job, " ", jobPath, " ")
 	if job.Type != "reduce" {
-		return fmt.Errorf("runMap called on a job of type \"%s\". Should be \"reduce\".", job.Type)
+		return fmt.Errorf("Reduce called on a job of type \"%s\". Should be \"reduce\".", job.Type)
 	}
 
 	// Notice we're just passing "host" here. Multicast will fill in the host
 	// field so we don't actually need to specify it.
-	req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*")+"?commit="+m.Commit, nil)
-	if err != nil {
+	var _reader io.ReadCloser
+	err := retry(func() error {
+		req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*")+"?commit="+m.Commit, nil)
+		if err != nil {
+			return err
+		}
+		_reader, err = route.Multicast(req, "/pfs/master")
 		return err
-	}
-	_reader, err := route.Multicast(req, "/pfs/master")
+	}, retries, time.Minute)
 	if err != nil {
 		return err
 	}
@@ -180,7 +197,7 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modu
 	err = retry(func() error {
 		resp, err = http.Post("http://"+path.Join(host, job.Input), "application/text", reader)
 		return err
-	}, 5, 200*time.Millisecond)
+	}, retries, 200*time.Millisecond)
 	if err != nil {
 		return err
 	}

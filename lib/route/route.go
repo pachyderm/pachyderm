@@ -11,7 +11,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/pachyderm-io/pfs/lib/etcache"
+	"github.com/pachyderm/pfs/lib/etcache"
 )
 
 func HashResource(resource string) uint64 {
@@ -111,7 +111,6 @@ func MultiReadCloser(readers ...io.ReadCloser) io.ReadCloser {
 // Multicast enables the Ogre Magi to rapidly cast his spells, giving them
 // greater potency.
 func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
-	log.Print(r)
 	_endpoints, err := etcache.Get(etcdKey, false, true)
 	if err != nil {
 		return nil, err
@@ -133,6 +132,7 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 		r.RequestURI = ""
 		r.URL.Scheme = "http"
 		r.URL.Host = node.Value
+		log.Print("Multicasting ", r, " to: ", node.Value)
 
 		if r.ContentLength != 0 {
 			r.Body = ioutil.NopCloser(bytes.NewReader(body))
@@ -140,6 +140,7 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 
 		resp, err := httpClient.Do(r)
 		if err != nil {
+			log.Print(err)
 			return nil, err
 		}
 		if resp.StatusCode != 200 {

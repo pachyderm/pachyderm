@@ -40,7 +40,7 @@ the `commit` keyword with the `run` parameter.
 $ curl -XPOST <host>/commit?run
 ```
 # Roadmap
-v0.3 will contain the first implementation of Dockerized MapReduce which will allow us to start doing actual distributed computations with pfs. You can track development [here](https://github.com/pachyderm-io/pfs/issues/4).
+v0.3 will contain the first implementation of Dockerized MapReduce which will allow us to start doing actual distributed computations with pfs. You can track development [here](https://github.com/pachyderm/pfs/issues/4).
 
 Think of adding jobs as constructing a
 [DAG](http://en.wikipedia.org/wiki/Directed_acyclic_graph) of computations that
@@ -120,7 +120,7 @@ cluster. Here's links on how to set one up:
 SSH in to one of your new CoreOS machines.
 
 ```shell
-$ wget https://github.com/pachyderm-io/pfs/raw/master/deploy/static/1Node.tar.gz
+$ wget https://github.com/pachyderm/pfs/raw/master/deploy/static/1Node.tar.gz
 $ tar -xvf 1Node.tar.gz
 $ fleetctl start 1Node/*
 ```
