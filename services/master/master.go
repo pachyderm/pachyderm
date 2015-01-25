@@ -16,12 +16,14 @@ import (
 )
 
 var dataRepo, compRepo string
+var logFile string
 var shard, modulos uint64
 
 func parseArgs() {
 	// os.Args[1] looks like 2-16
 	dataRepo = "data-" + os.Args[1] + btrfs.RandSeq(4)
 	compRepo = "comp-" + os.Args[1] + btrfs.RandSeq(4)
+	logFile = "log-" + os.Args[1] + btrfs.RandSeq(4)
 	s_m := strings.Split(os.Args[1], "-")
 	var err error
 	shard, err = strconv.ParseUint(s_m[0], 10, 64)
@@ -262,6 +264,16 @@ func RunServer() {
 func main() {
 	log.SetFlags(log.Lshortfile)
 	parseArgs()
+	if err := os.MkdirAll("/var/lib/pfs/log", 0777); err != nil {
+		log.Fatal(err)
+	}
+	logF, err := os.Create(path.Join("/var/lib/pfs/log", logFile))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer logF.Close()
+	log.Print("Logging to: ", path.Join("/var/lib/pfs/log", logFile))
+	log.SetOutput(logF)
 	if err := btrfs.Ensure(dataRepo); err != nil {
 		log.Fatal(err)
 	}

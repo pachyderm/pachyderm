@@ -117,11 +117,10 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 	defer wg.Wait()
 
 	defer close(files)
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 300; i++ {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
 			defer wg.Done()
-			defer log.Print("Worker goro done.")
 			for name := range files {
 				inFile, err := btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
 				if err != nil {
