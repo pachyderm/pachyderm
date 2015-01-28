@@ -16,10 +16,43 @@ import (
 
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/route"
+	"github.com/pachyderm/pfs/lib/shell"
 	"github.com/samalba/dockerclient"
 )
 
 var retries int = 5
+
+func doRequest(client *DockerClient, method string, path string, r io.Reader, headers map[string]string) ([]byte, error) {
+	req, err := http.NewRequest(method, client.URL.String()+path, r)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	if headers != nil {
+		for header, value := range headers {
+			req.Header.Add(header, value)
+		}
+	}
+	resp, err := client.HTTPClient.Do(req)
+	if err != nil {
+		if !strings.Contains(err.Error(), "connection refused") && client.TLSConfig == nil {
+			return nil, fmt.Errorf("%v. Are you trying to connect to a TLS-enabled daemon without TLS?", err)
+		}
+		return nil, err
+	}
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == 404 {
+		return nil, ErrNotFound
+	}
+	if resp.StatusCode >= 400 {
+		return nil, Error{StatusCode: resp.StatusCode, Status: resp.Status, msg: string(data)}
+	}
+	return data, nil
+}
 
 // StartContainer pulls image and starts a container from it with command. It
 // returns the container id or an error.
@@ -50,7 +83,23 @@ func spinupContainer(image string, command []string) (string, error) {
 	return containerId, nil
 }
 
-func buildContainerFromGit(url string) (string, error) {
+func buildContainerFromGit(url, tag string) error {
+	name := path.Join("/tmp", btrfs.RandSeq(5))
+	c := exec.Command("git", "clone", url, name, "--depth", "1")
+	if err := shell.RunStderr(c); err != nil {
+		return err
+	}
+	defer os.RemoveAll(name)
+
+	c := execCommand("git", "archive", path.Join(name, "image"))
+	return shell.CallCont(c, func(r io.ReadCloser) error {
+		docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
+		uri := fmt.Sprintf("/build?t=%s", tag)
+
+		res, err := doRequest(docker, "POST", uri, r, nil)
+		log.Print("Response to build:\n", res)
+		return err
+	})
 }
 
 func ipAddr(containerId string) (string, error) {
