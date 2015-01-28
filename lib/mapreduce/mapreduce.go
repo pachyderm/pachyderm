@@ -50,6 +50,9 @@ func spinupContainer(image string, command []string) (string, error) {
 	return containerId, nil
 }
 
+func buildContainerFromGit(url string) (string, error) {
+}
+
 func ipAddr(containerId string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
