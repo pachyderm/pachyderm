@@ -25,6 +25,9 @@ import (
 
 var retries int = 5
 
+/* This is a terrible hack, but dockerclient doesn't expose a `Build` method
+* and it doesn't make it easy to extend it so I had to copy paste this piece of
+* code. Please for the love of god remove this as soon as possible. */
 func doRequest(client *dockerclient.DockerClient, method string, path string, r io.Reader, headers map[string]string) ([]byte, error) {
 	req, err := http.NewRequest(method, client.URL.String()+path, r)
 	if err != nil {
