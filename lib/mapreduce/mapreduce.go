@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,7 +25,7 @@ import (
 
 var retries int = 5
 
-func doRequest(client *DockerClient, method string, path string, r io.Reader, headers map[string]string) ([]byte, error) {
+func doRequest(client *dockerclient.DockerClient, method string, path string, r io.Reader, headers map[string]string) ([]byte, error) {
 	req, err := http.NewRequest(method, client.URL.String()+path, r)
 	if err != nil {
 		return nil, err
@@ -46,10 +49,11 @@ func doRequest(client *DockerClient, method string, path string, r io.Reader, he
 		return nil, err
 	}
 	if resp.StatusCode == 404 {
-		return nil, ErrNotFound
+		return nil, dockerclient.ErrNotFound
 	}
 	if resp.StatusCode >= 400 {
-		return nil, Error{StatusCode: resp.StatusCode, Status: resp.Status, msg: string(data)}
+		log.Print(data)
+		return nil, dockerclient.Error{StatusCode: resp.StatusCode, Status: resp.Status}
 	}
 	return data, nil
 }
@@ -91,7 +95,7 @@ func buildContainerFromGit(url, tag string) error {
 	}
 	defer os.RemoveAll(name)
 
-	c := execCommand("git", "archive", path.Join(name, "image"))
+	c = exec.Command("git", "archive", path.Join(name, "image"))
 	return shell.CallCont(c, func(r io.ReadCloser) error {
 		docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 		uri := fmt.Sprintf("/build?t=%s", tag)

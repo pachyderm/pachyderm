@@ -2,6 +2,7 @@ package shell
 
 import (
 	"bytes"
+	"io"
 	"log"
 	"os/exec"
 	"strings"
