@@ -81,6 +81,28 @@ func printGlobalService(name string, shards int) {
 	}
 }
 
+func printFrontendService(name string, port int) {
+	template, err := template.New("frontend").ParseFiles("templates/frontend")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	config := new(service)
+	config.Name = name
+	config.Container = "pachyderm/pfs"
+	config.Port = port
+
+	server, err := os.Create(fmt.Sprintf("%s.service", config.Name))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = template.Execute(server, config)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 func main() {
 	log.SetFlags(log.Lshortfile)
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -90,6 +112,7 @@ func main() {
 	}
 
 	printShardedService("master", nShards)
-	//printShardedService("replica", nShards)
 	printGlobalService("router", nShards)
+	printFrontendService("webhook", 81)
+
 }

@@ -5,9 +5,11 @@ After = router.service
 Requires = docker.service
 
 [Service]
-TimeoutStartSec = 300
 ExecStartPre = -/usr/bin/docker kill {{.Name}}
 ExecStartPre = -/usr/bin/docker rm {{.Name}}
 ExecStartPre = /usr/bin/docker pull {{.Container}}
-ExecStart = /usr/bin/docker run --privileged=true --name {{.Name}} --link router:router -p {{.Port}}:80 -i {{.Container}} /go/bin/{{.Name}} router
+ExecStart = /usr/bin/docker run --privileged=true --name {{.Name}} --link router:router -p {{.Port}}:80 -i {{.Container}} /go/bin/{{.Name}} http://router
 ExecStop = /usr/bin/docker rm -f {{.Name}}
+
+[X-Fleet]
+Global=true

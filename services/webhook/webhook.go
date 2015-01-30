@@ -15,6 +15,7 @@ func repoUrlToBranch(url string) string {
 }
 
 func pushHandler(w http.ResponseWriter, r *http.Request) {
+	log.Print("Request to push handler.")
 	event := r.Header.Get("X-GitHub-Event")
 	if event == "ping" {
 		log.Print("got ping")
