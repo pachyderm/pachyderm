@@ -27,12 +27,12 @@ func pingHandler(w http.ResponseWriter, r *http.Request) {
 		log.Print("repository/name not string:\n", err)
 		return
 	}
-	clone_url, err := json.Get("clone_url").String()
+	clone_url, err := json.Get("repository").Get("clone_url").String()
 	if err != nil {
 		log.Print("clone_url not string:\n", err)
 		return
 	}
-	username, err := json.Get("owner").Get("login").String()
+	username, err := json.Get("repository").Get("owner").Get("login").String()
 	if err != nil {
 		log.Print("owner/login not string:\n", err)
 		return
