@@ -25,6 +25,7 @@ var once sync.Once
 var volume = "/var/lib/pfs/vol"
 
 // Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
+// This should be factored out to another file.
 func RandSeq(n int) string {
 	once.Do(func() { rand.Seed(time.Now().UTC().UnixNano()) })
 	b := make([]rune, n)

@@ -61,19 +61,8 @@ func doRequest(client *dockerclient.DockerClient, method string, path string, r 
 	return data, nil
 }
 
-// StartContainer pulls image and starts a container from it with command. It
-// returns the container id or an error.
-func spinupContainer(image string, command []string) (string, error) {
-	log.Print("spinupContainer", " ", image, " ", command)
+func startContainer(image string, command []string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	if err != nil {
-		log.Print(err)
-		return "", err
-	}
-	if err := docker.PullImage(image, nil); err != nil {
-		//return "", err this is erroring due to failing to parse response json
-	}
-
 	containerConfig := &dockerclient.ContainerConfig{Image: image, Cmd: command}
 
 	containerId, err := docker.CreateContainer(containerConfig, "")
@@ -90,16 +79,33 @@ func spinupContainer(image string, command []string) (string, error) {
 	return containerId, nil
 }
 
-func buildContainerFromGit(url, tag string) error {
+// spinupContainer pulls image and starts a container from it with command. It
+// returns the container id or an error.
+func spinupContainer(image string, command []string) (string, error) {
+	log.Print("spinupContainer", " ", image, " ", command)
+	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
+	if err != nil {
+		log.Print(err)
+		return "", err
+	}
+	if err := docker.PullImage(image, nil); err != nil {
+		//return "", err this is erroring due to failing to parse response json
+	}
+
+	return startContainer(image, command)
+}
+
+func spinupContainerFromGit(url string, command []string) (string, error) {
 	name := path.Join("/tmp", btrfs.RandSeq(5))
+	tag := btrfs.RandSeq(5)
 	c := exec.Command("git", "clone", url, name, "--depth", "1")
 	if err := shell.RunStderr(c); err != nil {
-		return err
+		return "", err
 	}
 	defer os.RemoveAll(name)
 
 	c = exec.Command("git", "archive", path.Join(name, "image"))
-	return shell.CallCont(c, func(r io.ReadCloser) error {
+	err := shell.CallCont(c, func(r io.ReadCloser) error {
 		docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 		uri := fmt.Sprintf("/build?t=%s", tag)
 
@@ -107,6 +113,11 @@ func buildContainerFromGit(url, tag string) error {
 		log.Print("Response to build:\n", res)
 		return err
 	})
+	if err != nil {
+		return "", err
+	}
+
+	return startContainer(tag, command)
 }
 
 func ipAddr(containerId string) (string, error) {
@@ -146,6 +157,7 @@ type Job struct {
 	Type    string   `json:"type"`
 	Input   string   `json:"input"`
 	Image   string   `json:"image"`
+	Repo    string   `json:"repo"`
 	Command []string `json:"command"`
 }
 
