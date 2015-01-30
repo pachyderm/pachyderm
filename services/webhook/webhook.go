@@ -3,9 +3,11 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/bitly/go-simplejson"
+	"github.com/pachyderm/pfs/lib/pfsclient"
 )
 
 func repoUrlToBranch(url string) string {
@@ -34,6 +36,11 @@ func pushHandler(w http.ResponseWriter, r *http.Request) {
 		log.Print("Failed to get \"url\" from json:", err)
 	}
 	branch := strings.Replace(repo, "/", "-", 1)
+
+	pfs := pfsclient.NewClient(os.Args[1])
+	if err := pfs.Commit(branch, commit, true); err != nil {
+		log.Print("Commit failed: ", err)
+	}
 }
 
 func WebHookMux() *http.ServeMux {
@@ -46,6 +53,6 @@ func WebHookMux() *http.ServeMux {
 
 func main() {
 	log.SetFlags(log.Lshortfile)
-	log.Print("Listening on port 8080...")
-	log.Fatal(http.ListenAndServe(":8080", WebHookMux()))
+	log.Print("Listening on port 80...")
+	log.Fatal(http.ListenAndServe(":80", WebHookMux()))
 }
