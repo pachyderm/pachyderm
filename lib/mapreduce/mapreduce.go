@@ -96,6 +96,7 @@ func spinupContainer(image string, command []string) (string, error) {
 }
 
 func spinupContainerFromGit(url string, command []string) (string, error) {
+	log.Print("spinupContainerFromGit(", url, ", ", command)
 	name := path.Join("/tmp", btrfs.RandSeq(5))
 	tag := btrfs.RandSeq(5)
 	c := exec.Command("git", "clone", url, name, "--depth", "1")
@@ -334,10 +335,12 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 	log.Printf("Materialize: %s %s %s %s %s.", in_repo, branch, commit, out_repo, jobDir)
 	exists, err := btrfs.FileExists(path.Join(out_repo, branch))
 	if err != nil {
+		log.Print(err)
 		return err
 	}
 	if !exists {
 		if err := btrfs.Branch(out_repo, "t0", branch); err != nil {
+			log.Print(err)
 			return err
 		}
 	}
@@ -351,34 +354,42 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 	// First check if the jobs dir actually exists.
 	exists, err = btrfs.FileExists(path.Join(in_repo, commit, jobDir))
 	if err != nil {
+		log.Print(err)
 		return err
 	}
 	if !exists {
 		// Perfectly valid to have no jobs dir, it just means we have no work
 		// to do.
+		log.Printf("Jobs dir doesn't exists:\n", path.Join(in_repo, commit, jobDir))
 		return nil
 	}
 
+	log.Print("Make docker client.")
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
+		log.Print(err)
 		return err
 	}
-	newFiles, err := btrfs.NewFiles(in_repo, commit)
-	if err != nil {
-		return err
-	}
-	sort.Strings(newFiles)
+	//log.Print("Find new files.")
+	//newFiles, err := btrfs.NewFiles(in_repo, commit)
+	//if err != nil {
+	//	log.Print(err)
+	//	return err
+	//}
+	//sort.Strings(newFiles)
 
 	jobsPath := path.Join(in_repo, commit, jobDir)
 	jobs, err := btrfs.ReadDir(jobsPath)
 	if err != nil {
 		return err
 	}
+	log.Print("Jobs: ", jobs)
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for _, jobInfo := range jobs {
 		wg.Add(1)
 		go func(jobInfo os.FileInfo) {
+			log.Print("Running job:\n", jobInfo.Name())
 			defer wg.Done()
 			defer broadcast(in_repo, commit, jobInfo.Name())
 			jobFile, err := btrfs.Open(path.Join(jobsPath, jobInfo.Name()))
@@ -396,7 +407,12 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 			log.Print("Job: ", job)
 			m := materializeInfo{in_repo, out_repo, branch, commit}
 
-			containerId, err := spinupContainer(job.Image, job.Command)
+			var containerId string
+			if job.Image != "" {
+				containerId, err = spinupContainer(job.Image, job.Command)
+			} else {
+				containerId, err = spinupContainerFromGit(job.Repo, job.Command)
+			}
 			if err != nil {
 				log.Print(err)
 				return
