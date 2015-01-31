@@ -32,25 +32,25 @@ func pingHandler(w http.ResponseWriter, r *http.Request) {
 		log.Print("clone_url not string:\n", err)
 		return
 	}
-	username, err := json.Get("repository").Get("owner").Get("login").String()
+	repo, err := json.Get("repository").Get("full_name").String()
 	if err != nil {
-		log.Print("owner/login not string:\n", err)
-		return
+		log.Print("Failed to get \"url\" from json:", err)
 	}
+	branch := strings.Replace(repo, "/", "-", 1)
 
 	pfs := pfsclient.NewClient(os.Args[1])
-	if err := pfs.Branch(name, username); err != nil {
+	if err := pfs.Branch(name, branch); err != nil {
 		log.Print("Branch failed: ", err)
 		return
 	}
 
-	err = pfs.MakeJob(username, "gh", mapreduce.Job{Type: "map", Input: name, Repo: clone_url, Command: []string{"/bin/map"}})
+	err = pfs.MakeJob(branch, "gh", mapreduce.Job{Type: "map", Input: name, Repo: clone_url, Command: []string{"/bin/map"}})
 	if err != nil {
 		log.Print("MakeJob failed: ", err)
 		return
 	}
 
-	if err := pfs.Commit(username, "", false); err != nil {
+	if err := pfs.Commit(branch, "", false); err != nil {
 		log.Print("Commit failed: ", err)
 	}
 }

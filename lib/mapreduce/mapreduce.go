@@ -332,15 +332,24 @@ func WaitJob(in_repo, commit, job string) {
 // and commits them as `out_repo`/`commit`
 func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulos uint64) error {
 	log.Printf("Materialize: %s %s %s %s %s.", in_repo, branch, commit, out_repo, jobDir)
+	exists, err := btrfs.FileExists(path.Join(out_repo, branch))
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if err := btrfs.Branch(out_repo, "t0", branch); err != nil {
+			return err
+		}
+	}
 	// We make sure that this function always commits so that we know the comp
 	// repo stays in sync with the data repo.
 	defer func() {
 		if err := btrfs.Commit(out_repo, commit, branch); err != nil {
-			log.Print("btrfs.Commit error in Materialize: ", err)
+			log.Print("DEFERED: btrfs.Commit error in Materialize: ", err)
 		}
 	}()
 	// First check if the jobs dir actually exists.
-	exists, err := btrfs.FileExists(path.Join(in_repo, commit, jobDir))
+	exists, err = btrfs.FileExists(path.Join(in_repo, commit, jobDir))
 	if err != nil {
 		return err
 	}
