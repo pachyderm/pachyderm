@@ -8,4 +8,4 @@ ExecStart = /bin/sh -c "while true; do etcdctl set /pfs/{{.Name}} '%H:{{.Port}}'
 ExecStop = /usr/bin/etcdctl rm /pfs/{{.Name}}
 
 [X-Fleet]
-X-ConditionMachineOf = {{.Name}}.service
+MachineOf = {{.Name}}.service

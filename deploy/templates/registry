@@ -19,4 +19,4 @@ ExecStart = /usr/bin/docker run \
 ExecStop = /usr/bin/docker rm -f {{.Name}}
 
 [X-Fleet]
-X-ConditionMachineOf = webhook.service
+MachineOf = webhook.service
