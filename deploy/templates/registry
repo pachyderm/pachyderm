@@ -1,0 +1,22 @@
+[Unit]
+Description = pfs service: {{.Name}}
+After = docker.service
+Requires = docker.service
+
+[Service]
+ExecStartPre = -/usr/bin/docker kill {{.Name}}
+ExecStartPre = -/usr/bin/docker rm {{.Name}}
+ExecStart = /usr/bin/docker run \
+            --name registry \
+            -e SETTINGS_FLAVOR=s3 \
+            -e AWS_BUCKET=<bucket> \
+            -e STORAGE_PATH=/registry \
+            -e AWS_KEY=<awskey> \
+            -e AWS_SECRET=<awssecret> \
+            -e SEARCH_BACKEND=sqlalchemy \
+            -p {{.Port}}:5000 \
+            registry
+ExecStop = /usr/bin/docker rm -f {{.Name}}
+
+[X-Fleet]
+X-ConditionMachineOf = webhook.service
