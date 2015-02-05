@@ -81,8 +81,8 @@ func printGlobalService(name string, shards int) {
 	}
 }
 
-func printFrontendService(name string, port int) {
-	template, err := template.New("frontend").ParseFiles("templates/frontend")
+func printWebhookService(name string, port int) {
+	template, err := template.New("webhook").ParseFiles("templates/webhook")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -166,7 +166,6 @@ func main() {
 
 	printShardedService("master", nShards)
 	printGlobalService("router", nShards)
-	printFrontendService("webhook", 81)
 	printRegistryService("registry", 5000)
 	printGitDaemonService("gitdaemon")
 }

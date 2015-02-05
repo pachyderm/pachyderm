@@ -2,7 +2,8 @@
 Description = pfs service: {{.Name}}
 
 [Service]
-ExecStart = /usr/bin/git daemon --base-path=. --export-all --enable=receive-pack --reuseaddr --informative-errors --verbose
+ExecStartPre = -/usr/bin/mkdir /var/lib/pfs/git
+ExecStart = /usr/bin/git daemon --base-path=. --export-all --enable=receive-pack --reuseaddr --informative-errors --verbose /var/lib/pfs/git
 
 [X-Fleet]
-MachineOf = webhook.service
+Global=true

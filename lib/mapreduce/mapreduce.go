@@ -4,14 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -19,47 +16,10 @@ import (
 
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/route"
-	"github.com/pachyderm/pfs/lib/shell"
 	"github.com/samalba/dockerclient"
 )
 
 var retries int = 5
-
-/* This is a terrible hack, but dockerclient doesn't expose a `Build` method
-* and it doesn't make it easy to extend it so I had to copy paste this piece of
-* code. Please for the love of god remove this as soon as possible. */
-func doRequest(client *dockerclient.DockerClient, method string, path string, r io.Reader, headers map[string]string) ([]byte, error) {
-	req, err := http.NewRequest(method, client.URL.String()+path, r)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Content-Type", "application/json")
-	if headers != nil {
-		for header, value := range headers {
-			req.Header.Add(header, value)
-		}
-	}
-	resp, err := client.HTTPClient.Do(req)
-	if err != nil {
-		if !strings.Contains(err.Error(), "connection refused") && client.TLSConfig == nil {
-			return nil, fmt.Errorf("%v. Are you trying to connect to a TLS-enabled daemon without TLS?", err)
-		}
-		return nil, err
-	}
-	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode == 404 {
-		return nil, dockerclient.ErrNotFound
-	}
-	if resp.StatusCode >= 400 {
-		log.Print(data)
-		return nil, dockerclient.Error{StatusCode: resp.StatusCode, Status: resp.Status}
-	}
-	return data, nil
-}
 
 func startContainer(image string, command []string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
@@ -93,32 +53,6 @@ func spinupContainer(image string, command []string) (string, error) {
 	}
 
 	return startContainer(image, command)
-}
-
-func spinupContainerFromGit(url string, command []string) (string, error) {
-	log.Print("spinupContainerFromGit(", url, ", ", command)
-	name := path.Join("/tmp", btrfs.RandSeq(5))
-	tag := btrfs.RandSeq(5)
-	c := exec.Command("git", "clone", url, name, "--depth", "1")
-	if err := shell.RunStderr(c); err != nil {
-		return "", err
-	}
-	defer os.RemoveAll(name)
-
-	c = exec.Command("git", "archive", path.Join(name, "image"))
-	err := shell.CallCont(c, func(r io.ReadCloser) error {
-		docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-		uri := fmt.Sprintf("/build?t=%s", tag)
-
-		res, err := doRequest(docker, "POST", uri, r, nil)
-		log.Print("Response to build:\n", res)
-		return err
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return startContainer(tag, command)
 }
 
 func ipAddr(containerId string) (string, error) {
@@ -158,7 +92,6 @@ type Job struct {
 	Type    string   `json:"type"`
 	Input   string   `json:"input"`
 	Image   string   `json:"image"`
-	Repo    string   `json:"repo"`
 	Command []string `json:"command"`
 }
 
@@ -408,11 +341,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 			m := materializeInfo{in_repo, out_repo, branch, commit}
 
 			var containerId string
-			if job.Image != "" {
-				containerId, err = spinupContainer(job.Image, job.Command)
-			} else {
-				containerId, err = spinupContainerFromGit(job.Repo, job.Command)
-			}
+			containerId, err = spinupContainer(job.Image, job.Command)
 			if err != nil {
 				log.Print(err)
 				return

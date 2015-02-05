@@ -8,7 +8,6 @@ import (
 
 	"github.com/bitly/go-simplejson"
 	"github.com/pachyderm/pfs/lib/mapreduce"
-	"github.com/pachyderm/pfs/lib/pfsclient"
 )
 
 func repoUrlToBranch(url string) string {
@@ -37,22 +36,6 @@ func pingHandler(w http.ResponseWriter, r *http.Request) {
 		log.Print("Failed to get \"url\" from json:", err)
 	}
 	branch := strings.Replace(repo, "/", "-", 1)
-
-	pfs := pfsclient.NewClient(os.Args[1])
-	if err := pfs.Branch(name, branch); err != nil {
-		log.Print("Branch failed: ", err)
-		return
-	}
-
-	err = pfs.MakeJob(branch, "gh", mapreduce.Job{Type: "map", Input: name, Repo: clone_url, Command: []string{"/bin/map"}})
-	if err != nil {
-		log.Print("MakeJob failed: ", err)
-		return
-	}
-
-	if err := pfs.Commit(branch, "", false); err != nil {
-		log.Print("Commit failed: ", err)
-	}
 }
 
 func pushHandler(w http.ResponseWriter, r *http.Request) {
@@ -78,11 +61,6 @@ func pushHandler(w http.ResponseWriter, r *http.Request) {
 		log.Print("Failed to get \"url\" from json:", err)
 	}
 	branch := strings.Replace(repo, "/", "-", 1)
-
-	pfs := pfsclient.NewClient(os.Args[1])
-	if err := pfs.Commit(branch, commit, true); err != nil {
-		log.Print("Commit failed: ", err)
-	}
 }
 
 func WebHookMux() *http.ServeMux {
