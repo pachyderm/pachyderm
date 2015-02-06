@@ -82,8 +82,8 @@ func cat(w http.ResponseWriter, name string) {
 	}
 }
 
-// FileHandler is the core route for modifying the contents of the fileystem.
-// Changes are not replicated until a call to CommitHandler.
+// genericFileHandler serves files from fs. It's used after branch and commit
+// info have already been extracted and ignores those aspects of the URL.
 func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like: /foo/bar/.../file/<file>
@@ -142,9 +142,14 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 }
 
 // FileHandler is the core route for modifying the contents of the fileystem.
-// Changes are not replicated until a call to CommitHandler.
 func FileHandler(w http.ResponseWriter, r *http.Request) {
-	genericFileHandler(path.Join(dataRepo, "master"), w, r)
+	if r.Method == "POST" || r.Method == "DELETE" || r.Method == "PUT" {
+		genericFileHandler(path.Join(dataRepo, branchParam(r)), w, r)
+	} else if r.Method == "GET" {
+		genericFileHandler(path.Join(dataRepo, commitParam(r)), w, r)
+	} else {
+		http.Error(w, "Invalid method.", 405)
+	}
 }
 
 // CommitHandler creates a snapshot of outstanding changes.
@@ -229,17 +234,19 @@ func BranchHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func JobHandler(w http.ResponseWriter, r *http.Request) {
+	log.Print("URL in job handler:\n", r.URL)
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, job, <job>, file, <file>]
 	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
 		if commitParam(r) != "master" {
 			mapreduce.WaitJob(dataRepo, commitParam(r), url[2])
 		}
-		genericFileHandler(path.Join(compRepo, "master", url[2]), w, r)
+		genericFileHandler(path.Join(compRepo, commitParam(r), url[2]), w, r)
 		return
 	} else if r.Method == "POST" {
 		r.URL.Path = path.Join("/file", jobDir, url[2])
-		FileHandler(w, r)
+		log.Print("URL with reset path:\n", r.URL)
+		genericFileHandler(path.Join(dataRepo, branchParam(r)), w, r)
 	}
 }
 

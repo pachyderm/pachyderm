@@ -23,11 +23,11 @@ func usage() {
 }
 
 func printShardedService(name string, shards int) {
-	sTemplate, err := template.New("server").ParseFiles("templates/server")
+	sTemplate, err := template.New("sharded").ParseFiles("templates/sharded")
 	if err != nil {
 		log.Fatal(err)
 	}
-	aTemplate, err := template.New("announce").ParseFiles("templates/announce")
+	aTemplate, err := template.New("announce_sharded").ParseFiles("templates/announce_sharded")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,6 +81,81 @@ func printGlobalService(name string, shards int) {
 	}
 }
 
+func printWebhookService(name string, port int) {
+	template, err := template.New("webhook").ParseFiles("templates/webhook")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	config := new(service)
+	config.Name = name
+	config.Container = "pachyderm/pfs"
+	config.Port = port
+
+	server, err := os.Create(fmt.Sprintf("%s.service", config.Name))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = template.Execute(server, config)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func printRegistryService(name string, port int) {
+	sTemplate, err := template.New("registry").ParseFiles("templates/registry")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	aTemplate, err := template.New("announce").ParseFiles("templates/announce")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	config := new(service)
+	config.Name = name
+	config.Port = port
+
+	server, err := os.Create(fmt.Sprintf("%s.service", config.Name))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	announce, err := os.Create(fmt.Sprintf("announce-%s.service", config.Name))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = sTemplate.Execute(server, config)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = aTemplate.Execute(announce, config)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func printGitDaemonService(name string) {
+	template, err := template.New("gitdaemon").ParseFiles("templates/gitdaemon")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	config := new(service)
+	config.Name = name
+
+	server, err := os.Create(fmt.Sprintf("%s.service", config.Name))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = template.Execute(server, config)
+}
+
 func main() {
 	log.SetFlags(log.Lshortfile)
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -90,6 +165,7 @@ func main() {
 	}
 
 	printShardedService("master", nShards)
-	//printShardedService("replica", nShards)
 	printGlobalService("router", nShards)
+	printRegistryService("registry", 5000)
+	printGitDaemonService("gitdaemon")
 }
