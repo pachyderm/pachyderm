@@ -96,7 +96,7 @@ type Job struct {
 	Input   string   `json:"input"`
 	Image   string   `json:"image"`
 	Command []string `json:"command"`
-	Limit   int      `json:"limi"`
+	Limit   int      `json:"limit"`
 }
 
 type materializeInfo struct {
