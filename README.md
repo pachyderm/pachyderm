@@ -107,9 +107,6 @@ vision on a large set of images. Creating this job is as simple as
 running `npm install opencv` inside a Docker container and creating a node.js server, which uses this library on its `/map` route.
 
 ## Quickstart Guide
-The easiest way to try out pfs is to point curl at the live instance we have
-running here: http://146.148.35.127. We'll try to keep it up and running throughout
-the day.
 
 ### Creating a CoreOS cluster
 Pfs is designed to run on CoreOS. To start, you'll need a working CoreOS
