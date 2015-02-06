@@ -9,11 +9,14 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"testing/iotest"
 
+	"github.com/mitchellh/goamz/aws"
+	"github.com/mitchellh/goamz/s3"
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/route"
 	"github.com/samalba/dockerclient"
@@ -93,6 +96,7 @@ type Job struct {
 	Input   string   `json:"input"`
 	Image   string   `json:"image"`
 	Command []string `json:"command"`
+	Limit   int      `json:"limi"`
 }
 
 type materializeInfo struct {
@@ -106,7 +110,40 @@ func PrepJob(job Job, jobPath string, m materializeInfo) error {
 	return nil
 }
 
-func Map(job Job, jobPath string, m materializeInfo, host string) error {
+const (
+	ProtoPfs = iota
+	ProtoS3  = iota
+)
+
+// getProtocol extracts the protocol for an input
+func getProtocol(input string) int {
+	if strings.TrimPrefix(input, "s3://") != input {
+		return ProtoS3
+	} else {
+		return ProtoPfs
+	}
+}
+
+// An s3 input looks like: s3://bucket/dir
+// Where dir can be a path
+
+// getBucket extracts the bucket from an s3 input
+func getBucket(input string) (string, error) {
+	if getProtocol(input) != ProtoS3 {
+		return "", fmt.Errorf("Input string: %s must begin with 's3://'.", input)
+	}
+	return strings.Split(strings.TrimPrefix(input, "s3://"), "/")[0], nil
+}
+
+// getPath extracts the path from an s3 input
+func getPath(input string) (string, error) {
+	if getProtocol(input) != ProtoS3 {
+		return "", fmt.Errorf("Input string: %s must begin with 's3://'.", input)
+	}
+	return path.Join(strings.Split(strings.TrimPrefix(input, "s3://"), "/")[1:]...), nil
+}
+
+func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos uint64) error {
 	err := PrepJob(job, path.Base(jobPath), m)
 	if err != nil {
 		return err
@@ -118,6 +155,21 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 
 	files := make(chan string)
 
+	var bucket *s3.Bucket
+	if getProtocol(job.Input) == ProtoS3 {
+		auth, err := aws.EnvAuth()
+		if err != nil {
+			return err
+		}
+		client := s3.New(auth, aws.USEast)
+
+		bucketName, err := getBucket(job.Input)
+		if err != nil {
+			return err
+		}
+		bucket = client.Bucket(bucketName)
+	}
+
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
@@ -127,7 +179,17 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 		go func(wg *sync.WaitGroup) {
 			defer wg.Done()
 			for name := range files {
-				inFile, err := btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
+				var inFile io.ReadCloser
+				var err error
+				switch {
+				case getProtocol(job.Input) == ProtoPfs:
+					inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
+				case getProtocol(job.Input) == ProtoS3:
+					inFile, err = bucket.GetReader(name)
+				default:
+					log.Print("It shouldn't be possible to get here.")
+					continue
+				}
 				if err != nil {
 					log.Print(err)
 					return
@@ -159,20 +221,62 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 			}
 		}(&wg)
 	}
-	err = btrfs.LazyWalk(path.Join(m.In, m.Commit, job.Input),
-		func(name string) error {
-			files <- name
-			return nil
-		})
-	if err != nil {
-		return err
+	fileCount := 0
+	switch {
+	case getProtocol(job.Input) == ProtoPfs:
+		err = btrfs.LazyWalk(path.Join(m.In, m.Commit, job.Input),
+			func(name string) error {
+				files <- name
+				fileCount++
+				if job.Limit != 0 && fileCount >= job.Limit {
+					return fmt.Errorf("STOP")
+				}
+				return nil
+			})
+		if err != nil && err.Error() != "STOP" {
+			return err
+		}
+	case getProtocol(job.Input) == ProtoS3:
+		inPath, err := getPath(job.Input)
+		if err != nil {
+			return err
+		}
+		nextMarker := ""
+		for {
+			lr, err := bucket.List(inPath, "", nextMarker, 0)
+			if err != nil {
+				return err
+			}
+			nextMarker = lr.NextMarker
+			for _, key := range lr.Contents {
+				if route.HashResource(key.Key)%modulos == shard {
+					// This file belongs on this shard
+					files <- key.Key
+					fileCount++
+					if job.Limit != 0 && fileCount >= job.Limit {
+						break
+					}
+				}
+			}
+			if !lr.IsTruncated {
+				// We've exhausted the output
+				break
+			}
+			if job.Limit != 0 && fileCount >= job.Limit {
+				// We've hit the user imposed limit
+				break
+			}
+		}
+	default:
+		return fmt.Errorf("Unrecognized protocol.")
 	}
 	return nil
 }
 
 func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modulos uint64) error {
 	if (route.HashResource(path.Join("/job", jobPath)) % modulos) != shard {
-		// This resource isn't supposed to be located on this machine.
+		// This resource isn't supposed to be located on this machine so we
+		// don't need to materialize it.
 		return nil
 	}
 	log.Print("Reduce: ", job, " ", jobPath, " ")
@@ -355,7 +459,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 			}
 
 			if job.Type == "map" {
-				err := Map(job, jobInfo.Name(), m, containerAddr)
+				err := Map(job, jobInfo.Name(), m, containerAddr, shard, modulos)
 				if err != nil {
 					log.Print(err)
 					return
