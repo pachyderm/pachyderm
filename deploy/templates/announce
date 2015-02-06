@@ -1,11 +1,11 @@
 [Unit]
 Description = pfs announce: {{.Name}}
-PartOf = {{.Name}}-{{.Shard}}-{{.Nshards}}.service
-BindsTo = {{.Name}}-{{.Shard}}-{{.Nshards}}.service
+PartOf = {{.Name}}.service
+BindsTo = {{.Name}}.service
 
 [Service]
-ExecStart = /bin/sh -c "while true; do etcdctl set /pfs/{{.Name}}/{{.Shard}}-{{.Nshards}} '%H:{{.Port}}' --ttl 60;sleep 45;done"
-ExecStop = /usr/bin/etcdctl rm /pfs/{{.Name}}/{{.Shard}}-{{.Nshards}}
+ExecStart = /bin/sh -c "while true; do etcdctl set /pfs/{{.Name}} '%H:{{.Port}}' --ttl 60;sleep 45;done"
+ExecStop = /usr/bin/etcdctl rm /pfs/{{.Name}}
 
 [X-Fleet]
-X-ConditionMachineOf = {{.Name}}-{{.Shard}}-{{.Nshards}}.service
+MachineOf = {{.Name}}.service

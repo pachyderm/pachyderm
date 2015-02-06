@@ -9,11 +9,14 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"testing/iotest"
 
+	"github.com/mitchellh/goamz/aws"
+	"github.com/mitchellh/goamz/s3"
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/route"
 	"github.com/samalba/dockerclient"
@@ -21,19 +24,8 @@ import (
 
 var retries int = 5
 
-// StartContainer pulls image and starts a container from it with command. It
-// returns the container id or an error.
-func spinupContainer(image string, command []string) (string, error) {
-	log.Print("spinupContainer", " ", image, " ", command)
+func startContainer(image string, command []string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	if err != nil {
-		log.Print(err)
-		return "", err
-	}
-	if err := docker.PullImage(image, nil); err != nil {
-		//return "", err this is erroring due to failing to parse response json
-	}
-
 	containerConfig := &dockerclient.ContainerConfig{Image: image, Cmd: command}
 
 	containerId, err := docker.CreateContainer(containerConfig, "")
@@ -48,6 +40,22 @@ func spinupContainer(image string, command []string) (string, error) {
 	}
 
 	return containerId, nil
+}
+
+// spinupContainer pulls image and starts a container from it with command. It
+// returns the container id or an error.
+func spinupContainer(image string, command []string) (string, error) {
+	log.Print("spinupContainer", " ", image, " ", command)
+	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
+	if err != nil {
+		log.Print(err)
+		return "", err
+	}
+	if err := docker.PullImage(image, nil); err != nil {
+		//return "", err this is erroring due to failing to parse response json
+	}
+
+	return startContainer(image, command)
 }
 
 func ipAddr(containerId string) (string, error) {
@@ -88,6 +96,7 @@ type Job struct {
 	Input   string   `json:"input"`
 	Image   string   `json:"image"`
 	Command []string `json:"command"`
+	Limit   int      `json:"limi"`
 }
 
 type materializeInfo struct {
@@ -101,7 +110,40 @@ func PrepJob(job Job, jobPath string, m materializeInfo) error {
 	return nil
 }
 
-func Map(job Job, jobPath string, m materializeInfo, host string) error {
+const (
+	ProtoPfs = iota
+	ProtoS3  = iota
+)
+
+// getProtocol extracts the protocol for an input
+func getProtocol(input string) int {
+	if strings.TrimPrefix(input, "s3://") != input {
+		return ProtoS3
+	} else {
+		return ProtoPfs
+	}
+}
+
+// An s3 input looks like: s3://bucket/dir
+// Where dir can be a path
+
+// getBucket extracts the bucket from an s3 input
+func getBucket(input string) (string, error) {
+	if getProtocol(input) != ProtoS3 {
+		return "", fmt.Errorf("Input string: %s must begin with 's3://'.", input)
+	}
+	return strings.Split(strings.TrimPrefix(input, "s3://"), "/")[0], nil
+}
+
+// getPath extracts the path from an s3 input
+func getPath(input string) (string, error) {
+	if getProtocol(input) != ProtoS3 {
+		return "", fmt.Errorf("Input string: %s must begin with 's3://'.", input)
+	}
+	return path.Join(strings.Split(strings.TrimPrefix(input, "s3://"), "/")[1:]...), nil
+}
+
+func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos uint64) error {
 	err := PrepJob(job, path.Base(jobPath), m)
 	if err != nil {
 		return err
@@ -113,17 +155,41 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 
 	files := make(chan string)
 
+	var bucket *s3.Bucket
+	if getProtocol(job.Input) == ProtoS3 {
+		auth, err := aws.EnvAuth()
+		if err != nil {
+			return err
+		}
+		client := s3.New(auth, aws.USEast)
+
+		bucketName, err := getBucket(job.Input)
+		if err != nil {
+			return err
+		}
+		bucket = client.Bucket(bucketName)
+	}
+
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
 	defer close(files)
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 300; i++ {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
 			defer wg.Done()
-			defer log.Print("Worker goro done.")
 			for name := range files {
-				inFile, err := btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
+				var inFile io.ReadCloser
+				var err error
+				switch {
+				case getProtocol(job.Input) == ProtoPfs:
+					inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
+				case getProtocol(job.Input) == ProtoS3:
+					inFile, err = bucket.GetReader(name)
+				default:
+					log.Print("It shouldn't be possible to get here.")
+					continue
+				}
 				if err != nil {
 					log.Print(err)
 					return
@@ -155,20 +221,62 @@ func Map(job Job, jobPath string, m materializeInfo, host string) error {
 			}
 		}(&wg)
 	}
-	err = btrfs.LazyWalk(path.Join(m.In, m.Commit, job.Input),
-		func(name string) error {
-			files <- name
-			return nil
-		})
-	if err != nil {
-		return err
+	fileCount := 0
+	switch {
+	case getProtocol(job.Input) == ProtoPfs:
+		err = btrfs.LazyWalk(path.Join(m.In, m.Commit, job.Input),
+			func(name string) error {
+				files <- name
+				fileCount++
+				if job.Limit != 0 && fileCount >= job.Limit {
+					return fmt.Errorf("STOP")
+				}
+				return nil
+			})
+		if err != nil && err.Error() != "STOP" {
+			return err
+		}
+	case getProtocol(job.Input) == ProtoS3:
+		inPath, err := getPath(job.Input)
+		if err != nil {
+			return err
+		}
+		nextMarker := ""
+		for {
+			lr, err := bucket.List(inPath, "", nextMarker, 0)
+			if err != nil {
+				return err
+			}
+			nextMarker = lr.NextMarker
+			for _, key := range lr.Contents {
+				if route.HashResource(key.Key)%modulos == shard {
+					// This file belongs on this shard
+					files <- key.Key
+					fileCount++
+					if job.Limit != 0 && fileCount >= job.Limit {
+						break
+					}
+				}
+			}
+			if !lr.IsTruncated {
+				// We've exhausted the output
+				break
+			}
+			if job.Limit != 0 && fileCount >= job.Limit {
+				// We've hit the user imposed limit
+				break
+			}
+		}
+	default:
+		return fmt.Errorf("Unrecognized protocol.")
 	}
 	return nil
 }
 
 func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modulos uint64) error {
 	if (route.HashResource(path.Join("/job", jobPath)) % modulos) != shard {
-		// This resource isn't supposed to be located on this machine.
+		// This resource isn't supposed to be located on this machine so we
+		// don't need to materialize it.
 		return nil
 	}
 	log.Print("Reduce: ", job, " ", jobPath, " ")
@@ -262,44 +370,63 @@ func WaitJob(in_repo, commit, job string) {
 // and commits them as `out_repo`/`commit`
 func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulos uint64) error {
 	log.Printf("Materialize: %s %s %s %s %s.", in_repo, branch, commit, out_repo, jobDir)
+	exists, err := btrfs.FileExists(path.Join(out_repo, branch))
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	if !exists {
+		if err := btrfs.Branch(out_repo, "t0", branch); err != nil {
+			log.Print(err)
+			return err
+		}
+	}
 	// We make sure that this function always commits so that we know the comp
 	// repo stays in sync with the data repo.
 	defer func() {
 		if err := btrfs.Commit(out_repo, commit, branch); err != nil {
-			log.Print("btrfs.Commit error in Materialize: ", err)
+			log.Print("DEFERED: btrfs.Commit error in Materialize: ", err)
 		}
 	}()
 	// First check if the jobs dir actually exists.
-	exists, err := btrfs.FileExists(path.Join(in_repo, commit, jobDir))
+	exists, err = btrfs.FileExists(path.Join(in_repo, commit, jobDir))
 	if err != nil {
+		log.Print(err)
 		return err
 	}
 	if !exists {
 		// Perfectly valid to have no jobs dir, it just means we have no work
 		// to do.
+		log.Printf("Jobs dir doesn't exists:\n", path.Join(in_repo, commit, jobDir))
 		return nil
 	}
 
+	log.Print("Make docker client.")
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
+		log.Print(err)
 		return err
 	}
-	newFiles, err := btrfs.NewFiles(in_repo, commit)
-	if err != nil {
-		return err
-	}
-	sort.Strings(newFiles)
+	//log.Print("Find new files.")
+	//newFiles, err := btrfs.NewFiles(in_repo, commit)
+	//if err != nil {
+	//	log.Print(err)
+	//	return err
+	//}
+	//sort.Strings(newFiles)
 
 	jobsPath := path.Join(in_repo, commit, jobDir)
 	jobs, err := btrfs.ReadDir(jobsPath)
 	if err != nil {
 		return err
 	}
+	log.Print("Jobs: ", jobs)
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for _, jobInfo := range jobs {
 		wg.Add(1)
 		go func(jobInfo os.FileInfo) {
+			log.Print("Running job:\n", jobInfo.Name())
 			defer wg.Done()
 			defer broadcast(in_repo, commit, jobInfo.Name())
 			jobFile, err := btrfs.Open(path.Join(jobsPath, jobInfo.Name()))
@@ -317,7 +444,8 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 			log.Print("Job: ", job)
 			m := materializeInfo{in_repo, out_repo, branch, commit}
 
-			containerId, err := spinupContainer(job.Image, job.Command)
+			var containerId string
+			containerId, err = spinupContainer(job.Image, job.Command)
 			if err != nil {
 				log.Print(err)
 				return
@@ -331,7 +459,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 			}
 
 			if job.Type == "map" {
-				err := Map(job, jobInfo.Name(), m, containerAddr)
+				err := Map(job, jobInfo.Name(), m, containerAddr, shard, modulos)
 				if err != nil {
 					log.Print(err)
 					return

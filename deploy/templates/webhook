@@ -1,0 +1,16 @@
+[Unit]
+Description = pfs service: {{.Name}}
+After = docker.service
+After = router.service
+Requires = docker.service
+
+[Service]
+ExecStartPre = -/usr/bin/docker kill {{.Name}}
+ExecStartPre = -/usr/bin/docker rm {{.Name}}
+ExecStartPre = /usr/bin/docker pull {{.Container}}
+ExecStart = /usr/bin/docker --name {{.Name}} \
+            --link router:router \ -p {{.Port}}:80 \
+            -v /var/lib/pfs:/var/lib/pfs \
+            -i {{.Container}} \
+            /go/bin/{{.Name}} http://router
+ExecStop = /usr/bin/docker rm -f {{.Name}}

@@ -1,0 +1,14 @@
+#!/bin/sh
+REPOSITORY_BASENAME=$(basename "$PWD")
+REPOSITORY_BASENAME=${REPOSITORY_BASENAME%.git}
+if [ ! -d "/tmp/$REPOSITORY_BASENAME" ]; then
+  git clone "$PWD" /tmp/"$REPOSITORY_BASENAME"
+fi
+
+export GIT_WORK_TREE="/tmp/$REPOSITORY_BASENAME"
+git checkout -f
+
+# Build the image
+reg=$(etcdctl get /pfs/registry)
+sudo docker build -t "$reg"/"$REPOSITORY_BASENAME" /tmp/"$REPOSITORY_BASENAME"/image
+sudo docker push "$reg"/"$REPOSITORY_BASENAME"

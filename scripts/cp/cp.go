@@ -11,14 +11,14 @@ import (
 
 func main() {
 	log.SetFlags(log.Lshortfile)
-	files := make(chan string, 1000)
+	files := make(chan string)
 
 	// spawn four worker goroutines
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
 	defer close(files)
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 75; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

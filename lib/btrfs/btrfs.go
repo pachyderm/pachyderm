@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"code.google.com/p/go-uuid/uuid"
+	"github.com/pachyderm/pfs/lib/shell"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -24,6 +25,7 @@ var once sync.Once
 var volume = "/var/lib/pfs/vol"
 
 // Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
+// This should be factored out to another file.
 func RandSeq(n int) string {
 	once.Do(func() { rand.Seed(time.Now().UTC().UnixNano()) })
 	b := make([]rune, n)
@@ -33,25 +35,8 @@ func RandSeq(n int) string {
 	return string(b)
 }
 
-func RunStderr(c *exec.Cmd) error {
-	stderr, err := c.StderrPipe()
-	if err != nil {
-		return err
-	}
-	err = c.Start()
-	if err != nil {
-		return err
-	}
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(stderr)
-	if buf.Len() != 0 {
-		log.Print("Command had output on stderr.\n Cmd: ", strings.Join(c.Args, " "), "\nstderr: ", buf)
-	}
-	return c.Wait()
-}
-
 func Sync() error {
-	return RunStderr(exec.Command("sync"))
+	return shell.RunStderr(exec.Command("sync"))
 }
 
 func BasePath(name string) string {
@@ -167,66 +152,39 @@ func LazyWalk(name string, f func(string) error) error {
 }
 
 func SubvolumeCreate(name string) error {
-	return RunStderr(exec.Command("btrfs", "subvolume", "create", FilePath(name)))
+	return shell.RunStderr(exec.Command("btrfs", "subvolume", "create", FilePath(name)))
 }
 
 func SubvolumeDelete(name string) error {
-	return RunStderr(exec.Command("btrfs", "subvolume", "delete", FilePath(name)))
+	return shell.RunStderr(exec.Command("btrfs", "subvolume", "delete", FilePath(name)))
 }
 
 func Snapshot(volume string, dest string, readonly bool) error {
 	if readonly {
-		return RunStderr(exec.Command("btrfs", "subvolume", "snapshot", "-r",
+		return shell.RunStderr(exec.Command("btrfs", "subvolume", "snapshot", "-r",
 			FilePath(volume), FilePath(dest)))
 	} else {
-		return RunStderr(exec.Command("btrfs", "subvolume", "snapshot",
+		return shell.RunStderr(exec.Command("btrfs", "subvolume", "snapshot",
 			FilePath(volume), FilePath(dest)))
 	}
 }
 
 func SetReadOnly(volume string) error {
-	return RunStderr(exec.Command("btrfs", "property", "set", FilePath(volume), "ro", "true"))
+	return shell.RunStderr(exec.Command("btrfs", "property", "set", FilePath(volume), "ro", "true"))
 }
 
 func UnsetReadOnly(volume string) error {
-	return RunStderr(exec.Command("btrfs", "property", "set", FilePath(volume), "ro", "false"))
-}
-
-func CallCont(c *exec.Cmd, cont func(io.ReadCloser) error) error {
-	reader, err := c.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	stderr, err := c.StderrPipe()
-	if err != nil {
-		return err
-	}
-	err = c.Start()
-	if err != nil {
-		return err
-	}
-	err = cont(reader)
-	if err != nil {
-		return err
-	}
-
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(stderr)
-	if buf.Len() != 0 {
-		log.Print("Command had output on stderr.\n Cmd: ", strings.Join(c.Args, " "), "\nstderr: ", buf)
-	}
-
-	return c.Wait()
+	return shell.RunStderr(exec.Command("btrfs", "property", "set", FilePath(volume), "ro", "false"))
 }
 
 func SendBase(to string, cont func(io.ReadCloser) error) error {
 	c := exec.Command("btrfs", "send", FilePath(to))
-	return CallCont(c, cont)
+	return shell.CallCont(c, cont)
 }
 
 func Send(from string, to string, cont func(io.ReadCloser) error) error {
 	c := exec.Command("btrfs", "send", "-p", FilePath(from), FilePath(to))
-	return CallCont(c, cont)
+	return shell.CallCont(c, cont)
 }
 
 func Recv(volume string, data io.ReadCloser) error {
@@ -342,10 +300,10 @@ func Branch(repo, commit, branch string) error {
 func Log(repo, from string, cont func(io.ReadCloser) error) error {
 	if from == "" {
 		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", "-ogen", FilePath(path.Join(repo)))
-		return CallCont(c, cont)
+		return shell.CallCont(c, cont)
 	} else {
 		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-C", "+"+from, "--sort", "-ogen", FilePath(path.Join(repo)))
-		return CallCont(c, cont)
+		return shell.CallCont(c, cont)
 	}
 }
 
@@ -431,7 +389,7 @@ func Transid(repo, commit string) (string, error) {
 	//  the nicest way to get it from btrfs.
 	var transid string
 	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), "9223372036854775808")
-	err := CallCont(c, func(r io.ReadCloser) error {
+	err := shell.CallCont(c, func(r io.ReadCloser) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			// scanner.Text() looks like this:
@@ -464,7 +422,7 @@ func Transid(repo, commit string) (string, error) {
 func FindNew(repo, commit, transid string) ([]string, error) {
 	var files []string
 	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), transid)
-	err := CallCont(c, func(r io.ReadCloser) error {
+	err := shell.CallCont(c, func(r io.ReadCloser) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			// scanner.Text() looks like this:
