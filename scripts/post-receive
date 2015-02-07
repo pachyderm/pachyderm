@@ -19,4 +19,15 @@ do
     echo "Create $jobname from $j"
     sed "s/{{REPO_IMAGE}}/\"$reg\/$REPOSITORY_BASENAME\"/g" $j | curl -sS -XPOST "localhost/job/$jobname?branch=$REPOSITORY_BASENAME" -T -
 done
-curl -sS -XPOST "localhost/commit?branch=$REPOSITORY_BASENAME&run"
+COMMIT=$(curl -sS -XPOST "localhost/commit?branch=$REPOSITORY_BASENAME&run")
+HOSTNAME=$(curl http://169.254.169.254/latest/meta-data/public-hostname)
+
+echo "*****************************************************************************************"
+echo "Jobs launched in $COMMIT"
+echo "Output at: (will block until job is completed):"
+for j in /tmp/"$REPOSITORY_BASENAME"/job/*
+do
+    JOBNAME=$(basename $j)
+    echo "curl $HOSTNAME/job/$JOBNAME/*?commit=$COMMIT"
+done
+echo "*****************************************************************************************"
