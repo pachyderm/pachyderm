@@ -1,0 +1,28 @@
+#!/bin/sh
+# Install a git repo on a pfs cluster.
+###############################################################################
+set -E          # pass trap handlers down to subshells
+#set -x         # execution tracing debug messages
+
+USAGE="Usage: $0 host"
+
+# --- Options processing -------------------------------------------
+if [ $# != 1 ] ; then
+    echo $USAGE
+    exit 1;
+fi
+CMD="$0"
+CMD_DIR="$(cd "$(dirname "$CMD")" && pwd)"
+HOST="$1"
+
+REPO=$(basename `pwd`)
+REMOTE="$HOST":/home/core/"$REPO".git
+
+echo "Installing $REMOTE"
+
+scp -rqC .git core@"$REMOTE"
+scp -rqC "$CMD_DIR"/dev-post-receive core@"$REMOTE"/hooks/post-receive
+git remote remove staging
+git remote add staging git://"$HOST"/home/core/chess.git
+
+echo "Done."

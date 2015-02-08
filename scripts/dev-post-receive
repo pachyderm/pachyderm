@@ -1,0 +1,21 @@
+#!/bin/sh
+# What this hook does:
+# create a Docker image from `Dockerfile`
+# push that image to the local registry
+# restart the services in the cluster
+###############################################################################
+REPOSITORY_BASENAME=$(basename "$PWD")
+REPOSITORY_BASENAME=${REPOSITORY_BASENAME%.git}
+if [ ! -d "/tmp/$REPOSITORY_BASENAME" ]; then
+  git clone "$PWD" /tmp/"$REPOSITORY_BASENAME"
+fi
+
+export GIT_WORK_TREE="/tmp/$REPOSITORY_BASENAME"
+git checkout -f
+
+# Build the image
+REG=$(etcdctl get /pfs/registry)
+sudo docker build -t "$REG"/"$REPOSITORY_BASENAME" "$GIT_WORK_TREE"
+sudo docker push "$REG"/"$REPOSITORY_BASENAME"
+fleetctl destroy "$GIT_WORK_TREE"/deploy/static/dev/*
+fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/*

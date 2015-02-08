@@ -1,4 +1,11 @@
 #!/bin/sh
+# What this hook does:
+# create a Docker image from `image/Dockerfile`
+# push that image to the local registry
+# create a pfs branch for the repo
+# add the jobs in `job` to that branch
+# kickoff the pipeline with a commit
+###############################################################################
 REPOSITORY_BASENAME=$(basename "$PWD")
 REPOSITORY_BASENAME=${REPOSITORY_BASENAME%.git}
 if [ ! -d "/tmp/$REPOSITORY_BASENAME" ]; then
@@ -9,15 +16,15 @@ export GIT_WORK_TREE="/tmp/$REPOSITORY_BASENAME"
 git checkout -f
 
 # Build the image
-reg=$(etcdctl get /pfs/registry)
-sudo docker build -t "$reg"/"$REPOSITORY_BASENAME" /tmp/"$REPOSITORY_BASENAME"/image
-sudo docker push "$reg"/"$REPOSITORY_BASENAME"
+REG=$(etcdctl get /pfs/registry)
+sudo docker build -t "$REG"/"$REPOSITORY_BASENAME" /tmp/"$REPOSITORY_BASENAME"/image
+sudo docker push "$REG"/"$REPOSITORY_BASENAME"
 curl -sS -XPOST "localhost/branch?branch=$REPOSITORY_BASENAME&commit=t0"
 for j in /tmp/"$REPOSITORY_BASENAME"/job/*
 do
     jobname=$(basename $j)
     echo "Create $jobname from $j"
-    sed "s/{{REPO_IMAGE}}/\"$reg\/$REPOSITORY_BASENAME\"/g" $j | curl -sS -XPOST "localhost/job/$jobname?branch=$REPOSITORY_BASENAME" -T -
+    sed "s/{{REPO_IMAGE}}/\"$REG\/$REPOSITORY_BASENAME\"/g" $j | curl -sS -XPOST "localhost/job/$jobname?branch=$REPOSITORY_BASENAME" -T -
 done
 COMMIT=$(curl -sS -XPOST "localhost/commit?branch=$REPOSITORY_BASENAME&run")
 HOSTNAME=$(curl http://169.254.169.254/latest/meta-data/public-hostname)
