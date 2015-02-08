@@ -56,7 +56,7 @@ func Create(name string) (*os.File, error) {
 }
 
 func CreateAll(name string) (*os.File, error) {
-	err := MkdirAll(name)
+	err := MkdirAll(path.Dir(name))
 	if err != nil {
 		return nil, err
 	}
