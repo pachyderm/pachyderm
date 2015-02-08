@@ -4,8 +4,6 @@ After = docker.service
 Requires = docker.service
 
 [Service]
-Restart = always
-TimeoutStartSec = 300
 ExecStartPre = -/usr/bin/docker kill {{.Name}}
 ExecStartPre = -/usr/bin/docker rm {{.Name}}
 ExecStartPre = /usr/bin/docker pull {{.Container}}

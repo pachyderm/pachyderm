@@ -4,8 +4,6 @@ After = docker.service
 Requires = docker.service
 
 [Service]
-Restart = always
-TimeoutStartSec = 300
 ExecStartPre = -/usr/bin/docker kill router
 ExecStartPre = -/usr/bin/docker rm router
 ExecStartPre = /usr/bin/docker pull `etcdctl get /pfs/registry`/pfs
