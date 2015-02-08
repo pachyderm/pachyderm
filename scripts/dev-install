@@ -23,6 +23,6 @@ echo "Installing $REMOTE"
 scp -rqC .git core@"$REMOTE"
 scp -rqC "$CMD_DIR"/dev-post-receive core@"$REMOTE"/hooks/post-receive
 git remote remove staging
-git remote add staging git://"$HOST"/home/core/chess.git
+git remote add staging git://"$HOST"/home/core/"$REPO".git
 
 echo "Done."
