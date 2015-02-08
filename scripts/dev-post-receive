@@ -17,5 +17,7 @@ git checkout -f
 REG=$(etcdctl get /pfs/registry)
 sudo docker build -t "$REG"/"$REPOSITORY_BASENAME" "$GIT_WORK_TREE"
 sudo docker push "$REG"/"$REPOSITORY_BASENAME"
-fleetctl destroy "$GIT_WORK_TREE"/deploy/static/dev/*
-fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/*
+fleetctl destroy "$GIT_WORK_TREE"/deploy/static/dev/master-*
+fleetctl destroy "$GIT_WORK_TREE"/deploy/static/dev/router.service
+fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/master-*
+fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/router.service

@@ -19,9 +19,9 @@ ExecStart = /usr/bin/docker run \
             --name master-0-3 \
             -v /var/lib/pfs:/var/lib/pfs \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            -e "AWS_ACCESS_KEY_ID=<aws_access_key_id>"
-            -e "AWS_SECRET_ACCESS_KEY=<aws_secret_access_key>"
-            -p 57733:80 \
+            -e AWS_ACCESS_KEY_ID=`etcdctl get /pfs/creds/AWS_ACCESS_KEY_ID`
+            -e AWS_SECRET_ACCESS_KEY=`etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY`
+            -p 64420:80 \
             -i `etcdctl get /pfs/registry`/pfs \
             /go/bin/master 0-3
 ExecStop = /usr/bin/docker rm -f master-0-3
