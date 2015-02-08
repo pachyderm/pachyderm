@@ -21,7 +21,7 @@ REMOTE="$HOST":/home/core/"$REPO".git
 echo "Installing $REMOTE"
 
 rm -rf /tmp/"$REPO".git
-git clone --bare /tmp/"$REPO".git
+git clone --bare "$REPO" /tmp/"$REPO".git
 scp -rqC /tmp/"$REPO".git core@"$REMOTE"
 scp -rqC "$CMD_DIR"/post-receive core@"$REMOTE"/hooks/post-receive
 git remote remove pachyderm
