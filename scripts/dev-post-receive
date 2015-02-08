@@ -14,6 +14,8 @@ export GIT_WORK_TREE="/tmp/$REPOSITORY_BASENAME"
 git checkout -f
 
 # Build the image
+fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/registry.service
+fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/announce-registry.service
 REG=$(etcdctl get /pfs/registry)
 sudo docker build -t "$REG"/"$REPOSITORY_BASENAME" "$GIT_WORK_TREE"
 sudo docker push "$REG"/"$REPOSITORY_BASENAME"

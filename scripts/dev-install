@@ -27,4 +27,7 @@ scp -rqC "$CMD_DIR"/dev-post-receive core@"$REMOTE"/hooks/post-receive
 git remote remove staging
 git remote add staging git://"$HOST"/home/core/"$REPO".git
 
+scp deploy/static/dev/gitdaemon.service core@"$HOST":/home/core/
+ssh "$HOST" 'fleetctl start /home/core/gitdaemon.service'
+
 echo "Done."
