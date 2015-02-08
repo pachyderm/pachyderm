@@ -1,5 +1,6 @@
 #!/bin/sh
 # Install a git repo on a pfs cluster.
+# Run this from the route of your pfs repo.
 ###############################################################################
 set -E          # pass trap handlers down to subshells
 #set -x         # execution tracing debug messages
@@ -21,7 +22,7 @@ REMOTE="$HOST":/home/core/"$REPO".git
 echo "Installing $REMOTE"
 
 rm -rf /tmp/"$REPO".git
-git clone --bare "$REPO" /tmp/"$REPO".git
+git clone --bare . /tmp/"$REPO".git
 scp -rqC /tmp/"$REPO".git core@"$REMOTE"
 scp -rqC "$CMD_DIR"/post-receive core@"$REMOTE"/hooks/post-receive
 git remote remove pachyderm
