@@ -4,15 +4,15 @@ After = docker.service
 Requires = docker.service
 
 [Service]
-ExecStartPre = -/usr/bin/docker kill {{.Name}}-{{.Shard}}-{{.Nshards}}
-ExecStartPre = -/usr/bin/docker rm {{.Name}}-{{.Shard}}-{{.Nshards}}
-ExecStartPre = /usr/bin/docker pull {{.Container}}
-ExecStartPre = -/bin/mkdir /var/lib/pfs
-ExecStartPre = -/usr/bin/docker run --privileged=true -v /var/lib/pfs:/var/lib/pfs -i {{.Container}} truncate /var/lib/pfs/data.img -s 10G
-ExecStartPre = -/usr/bin/docker run --privileged=true -v /var/lib/pfs:/var/lib/pfs -i {{.Container}} mkfs.btrfs /var/lib/pfs/data.img
-ExecStartPre = -/usr/bin/mkdir -p /var/lib/pfs/vol
-ExecStartPre = -/bin/mount /var/lib/pfs/data.img /var/lib/pfs/vol
-ExecStart = /usr/bin/docker run \
+ExecStartPre = -/bin/sh -c "echo $(docker kill {{.Name}}-{{.Shard}}-{{.Nshards}})$
+ExecStartPre = -/bin/sh -c "echo $(docker rm {{.Name}}-{{.Shard}}-{{.Nshards}})$
+ExecStartPre = /bin/sh -c "echo $(docker pull {{.Container}})"
+ExecStartPre = -/bin/sh -c "echo $(mkdir /var/lib/pfs)"
+ExecStartPre = -/bin/sh -c "echo $(docker run --privileged=true -v /var/lib/pfs:/var/lib/pfs -i {{.Container}} truncate /var/lib/pfs/data.img -s 10G)"
+ExecStartPre = -/bin/sh -c "echo $(docker run --privileged=true -v /var/lib/pfs:/var/lib/pfs -i {{.Container}} mkfs.btrfs /var/lib/pfs/data.img)"
+ExecStartPre = -/bin/sh -c "echo $(mkdir -p /var/lib/pfs/vol)"
+ExecStartPre = -/bin/sh -c "echo $(mount /var/lib/pfs/data.img /var/lib/pfs/vol)"
+ExecStart = /bin/sh -c "echo $(docker run \
             --privileged=true \
             --name {{.Name}}-{{.Shard}}-{{.Nshards}} \
             -v /var/lib/pfs:/var/lib/pfs \
@@ -21,5 +21,5 @@ ExecStart = /usr/bin/docker run \
             -e AWS_SECRET_ACCESS_KEY=`etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY` \
             -p {{.Port}}:80 \
             -i {{.Container}} \
-            /go/bin/{{.Name}} {{.Shard}}-{{.Nshards}}
-ExecStop = /usr/bin/docker rm -f {{.Name}}-{{.Shard}}-{{.Nshards}}
+            /go/bin/{{.Name}} {{.Shard}}-{{.Nshards}})"
+ExecStop = /bin/sh -c "echo $(docker rm -f {{.Name}}-{{.Shard}}-{{.Nshards}})"

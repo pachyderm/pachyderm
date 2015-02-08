@@ -4,11 +4,11 @@ After = docker.service
 Requires = docker.service
 
 [Service]
-ExecStartPre = -/usr/bin/docker kill {{.Name}}
-ExecStartPre = -/usr/bin/docker rm {{.Name}}
-ExecStartPre = /usr/bin/docker pull {{.Container}}
-ExecStart = /usr/bin/docker run --name {{.Name}} -p 80:80 -i {{.Container}} /go/bin/{{.Name}} {{.Nshards}}
-ExecStop = /usr/bin/docker rm -f {{.Name}}
+ExecStartPre = /bin/sh -c "echo $(-docker kill {{.Name}})"
+ExecStartPre = /bin/sh -c "echo $(-docker rm {{.Name}})"
+ExecStartPre = /bin/sh -c "echo $(docker pull {{.Container}})"
+ExecStart = /bin/sh -c "echo $(docker run --name {{.Name}} -p 80:80 -i {{.Container}} /go/bin/{{.Name}} {{.Nshards}})"
+ExecStop = /bin/sh -c "echo $(docker rm -f {{.Name}})"
 
 [X-Fleet]
 Global=true

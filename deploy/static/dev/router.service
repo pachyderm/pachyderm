@@ -4,11 +4,11 @@ After = docker.service
 Requires = docker.service
 
 [Service]
-ExecStartPre = -/usr/bin/docker kill router
-ExecStartPre = -/usr/bin/docker rm router
-ExecStartPre = /usr/bin/docker pull `etcdctl get /pfs/registry`/pfs
-ExecStart = /usr/bin/docker run --name router -p 80:80 -i `etcdctl get /pfs/registry`/pfs /go/bin/router 3
-ExecStop = /usr/bin/docker rm -f router
+ExecStartPre = /bin/sh -c "echo $(-docker kill router)"
+ExecStartPre = /bin/sh -c "echo $(-docker rm router)"
+ExecStartPre = /bin/sh -c "echo $(docker pull `etcdctl get /pfs/registry`/pfs)"
+ExecStart = /bin/sh -c "echo $(docker run --name router -p 80:80 -i `etcdctl get /pfs/registry`/pfs /go/bin/router 3)"
+ExecStop = /bin/sh -c "echo $(docker rm -f router)"
 
 [X-Fleet]
 Global=true
