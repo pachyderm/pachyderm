@@ -1,0 +1,11 @@
+[Unit]
+Description = pfs announce: registry
+PartOf = registry.service
+BindsTo = registry.service
+
+[Service]
+ExecStart = /bin/sh -c "while true; do etcdctl set /pfs/registry '%H:5000' --ttl 60;sleep 45;done"
+ExecStop = /usr/bin/etcdctl rm /pfs/registry
+
+[X-Fleet]
+MachineOf = registry.service

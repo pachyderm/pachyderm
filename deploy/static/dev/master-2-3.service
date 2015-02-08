@@ -1,0 +1,27 @@
+[Unit]
+Description = pfs service: master
+After = docker.service
+Requires = docker.service
+
+[Service]
+Restart = always
+TimeoutStartSec = 300
+ExecStartPre = -/usr/bin/docker kill master-2-3
+ExecStartPre = -/usr/bin/docker rm master-2-3
+ExecStartPre = /usr/bin/docker pull `etcdctl get /pfs/registry`/pfs
+ExecStartPre = -/bin/mkdir /var/lib/pfs
+ExecStartPre = -/usr/bin/docker run --privileged=true -v /var/lib/pfs:/var/lib/pfs -i `etcdctl get /pfs/registry`/pfs truncate /var/lib/pfs/data.img -s 10G
+ExecStartPre = -/usr/bin/docker run --privileged=true -v /var/lib/pfs:/var/lib/pfs -i `etcdctl get /pfs/registry`/pfs mkfs.btrfs /var/lib/pfs/data.img
+ExecStartPre = -/usr/bin/mkdir -p /var/lib/pfs/vol
+ExecStartPre = -/bin/mount /var/lib/pfs/data.img /var/lib/pfs/vol
+ExecStart = /usr/bin/docker run \
+            --privileged=true \
+            --name master-2-3 \
+            -v /var/lib/pfs:/var/lib/pfs \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -e "AWS_ACCESS_KEY_ID=<aws_access_key_id>"
+            -e "AWS_SECRET_ACCESS_KEY=<aws_secret_access_key>"
+            -p 50533:80 \
+            -i `etcdctl get /pfs/registry`/pfs \
+            /go/bin/master 2-3
+ExecStop = /usr/bin/docker rm -f master-2-3

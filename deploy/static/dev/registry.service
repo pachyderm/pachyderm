@@ -1,0 +1,19 @@
+[Unit]
+Description = pfs service: registry
+After = docker.service
+Requires = docker.service
+
+[Service]
+ExecStartPre = -/usr/bin/docker kill registry
+ExecStartPre = -/usr/bin/docker rm registry
+ExecStart = /usr/bin/docker run \
+            --name registry \
+            -e SETTINGS_FLAVOR=s3 \
+            -e AWS_BUCKET=<bucket> \
+            -e STORAGE_PATH=/registry \
+            -e AWS_KEY=<awskey> \
+            -e AWS_SECRET=<awssecret> \
+            -e SEARCH_BACKEND=sqlalchemy \
+            -p 5000:5000 \
+            registry
+ExecStop = /usr/bin/docker rm -f registry

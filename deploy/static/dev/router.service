@@ -1,0 +1,16 @@
+[Unit]
+Description= pfs service: router
+After = docker.service
+Requires = docker.service
+
+[Service]
+Restart = always
+TimeoutStartSec = 300
+ExecStartPre = -/usr/bin/docker kill router
+ExecStartPre = -/usr/bin/docker rm router
+ExecStartPre = /usr/bin/docker pull `etcdctl get /pfs/registry`/pfs
+ExecStart = /usr/bin/docker run --name router -p 80:80 -i `etcdctl get /pfs/registry`/pfs /go/bin/router 3
+ExecStop = /usr/bin/docker rm -f router
+
+[X-Fleet]
+Global=true
