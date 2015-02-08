@@ -19,8 +19,8 @@ ExecStart = /usr/bin/docker run \
             --name {{.Name}}-{{.Shard}}-{{.Nshards}} \
             -v /var/lib/pfs:/var/lib/pfs \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            -e AWS_ACCESS_KEY_ID=`etcdctl get /pfs/creds/AWS_ACCESS_KEY_ID`
-            -e AWS_SECRET_ACCESS_KEY=`etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY`
+            -e AWS_ACCESS_KEY_ID=`etcdctl get /pfs/creds/AWS_ACCESS_KEY_ID` \
+            -e AWS_SECRET_ACCESS_KEY=`etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY` \
             -p {{.Port}}:80 \
             -i {{.Container}} \
             /go/bin/{{.Name}} {{.Shard}}-{{.Nshards}}
