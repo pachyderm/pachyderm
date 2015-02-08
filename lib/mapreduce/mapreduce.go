@@ -212,7 +212,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 				}
 				defer resp.Body.Close()
 
-				outFile, err := btrfs.Create(path.Join(m.Out, m.Branch, jobPath, name))
+				outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath, name))
 				if err != nil {
 					log.Print(err)
 					return
@@ -325,7 +325,7 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modu
 		return
 	}
 
-	outFile, err := btrfs.Create(path.Join(m.Out, m.Branch, jobPath))
+	outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath))
 	if err != nil {
 		log.Print(err)
 		return

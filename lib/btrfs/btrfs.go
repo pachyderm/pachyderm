@@ -55,6 +55,14 @@ func Create(name string) (*os.File, error) {
 	return os.Create(FilePath(name))
 }
 
+func CreateAll(name string) (*os.File, error) {
+	err := MkdirAll(name)
+	if err != nil {
+		return nil, err
+	}
+	return os.Create(FilePath(name))
+}
+
 func CreateFromReader(name string, r io.Reader) (int64, error) {
 	f, err := Create(name)
 	if err != nil {
