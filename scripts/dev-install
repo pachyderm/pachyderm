@@ -20,7 +20,9 @@ REMOTE="$HOST":/home/core/"$REPO".git
 
 echo "Installing $REMOTE"
 
-scp -rqC .git core@"$REMOTE"
+rm -rf /tmp/"$REPO".git
+git clone --bare /tmp/"$REPO".git
+scp -rqC /tmp/"$REPO".git core@"$REMOTE"
 scp -rqC "$CMD_DIR"/dev-post-receive core@"$REMOTE"/hooks/post-receive
 git remote remove staging
 git remote add staging git://"$HOST"/home/core/"$REPO".git
