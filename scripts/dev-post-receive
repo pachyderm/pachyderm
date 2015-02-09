@@ -13,13 +13,14 @@ fi
 export GIT_WORK_TREE="/tmp/$REPOSITORY_BASENAME"
 git checkout -f
 
-# Build the image
+# Startup the supporting services
+fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/gitdaemon.service
 fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/registry.service
 fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/announce-registry.service
+# Build the image
 REG=$(etcdctl get /pfs/registry)
 sudo docker build -t "$REG"/"$REPOSITORY_BASENAME" "$GIT_WORK_TREE"
 sudo docker push "$REG"/"$REPOSITORY_BASENAME"
-fleetctl destroy "$GIT_WORK_TREE"/deploy/static/dev/master-*
-fleetctl destroy "$GIT_WORK_TREE"/deploy/static/dev/router.service
-fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/master-*
-fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/router.service
+# Restart the pfs services
+fleetctl stop "$GIT_WORK_TREE"/deploy/static/dev/master-*; fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/master-*
+fleetctl stop "$GIT_WORK_TREE"/deploy/static/dev/router.service; fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/router.service

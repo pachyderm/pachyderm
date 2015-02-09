@@ -27,7 +27,9 @@ scp -rqC "$CMD_DIR"/dev-post-receive core@"$REMOTE"/hooks/post-receive
 git remote remove staging
 git remote add staging git://"$HOST"/home/core/"$REPO".git
 
-scp deploy/static/dev/gitdaemon.service core@"$HOST":/home/core/
-ssh "$HOST" 'fleetctl start /home/core/gitdaemon.service'
+# Do an initial run with the post-receive hook to set everything up.
+ssh core@"$HOST" "'etcdctl set /pfs/creds/AWS_ACCESS_KEY_ID $AWS_ACCESS_KEY_ID'"
+ssh core@"$HOST" "'etcdctl set /pfs/creds/AWS_SECRET_ACCESS_KEY $AWS_SECRET_ACCESS_KEY'"
+ssh core@"$HOST" 'cd pfs.git && hooks/post-receive'
 
 echo "Done."
