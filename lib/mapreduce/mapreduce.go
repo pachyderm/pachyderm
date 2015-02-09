@@ -199,11 +199,12 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 					return
 				}
 				defer inFile.Close()
+				inReader := iotest.NewReadLogger("MapIn", inFile)
 
 				var resp *http.Response
 				err = retry(func() error {
 					log.Print("Posting: ", name)
-					resp, err = http.Post("http://"+path.Join(host, name), "application/text", inFile)
+					resp, err = http.Post("http://"+path.Join(host, name), "application/text", inReader)
 					return err
 				}, retries, 200*time.Millisecond)
 				if err != nil {
@@ -211,6 +212,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 					return
 				}
 				defer resp.Body.Close()
+				outReader := iotest.NewReadLogger("MapOut", resp.Body)
 
 				outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath, name))
 				if err != nil {
@@ -218,7 +220,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 					return
 				}
 				defer outFile.Close()
-				if _, err := io.Copy(outFile, resp.Body); err != nil {
+				if _, err := io.Copy(outFile, outReader); err != nil {
 					log.Print(err)
 					return
 				}
