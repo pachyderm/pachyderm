@@ -24,3 +24,4 @@ sudo docker push "$REG"/"$REPOSITORY_BASENAME"
 # Restart the pfs services
 fleetctl stop "$GIT_WORK_TREE"/deploy/static/dev/master-*; fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/master-*
 fleetctl stop "$GIT_WORK_TREE"/deploy/static/dev/router.service; fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/router.service
+fleetctl stop "$GIT_WORK_TREE"/deploy/static/dev/announce-*; fleetctl start "$GIT_WORK_TREE"/deploy/static/dev/announce-*
