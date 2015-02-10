@@ -4,9 +4,9 @@ After = docker.service
 Requires = docker.service
 
 [Service]
-ExecStartPre = -/usr/bin/docker kill registry
-ExecStartPre = -/usr/bin/docker rm registry
-ExecStart = /usr/bin/docker run \
+ExecStartPre = -/bin/sh -c "echo $(docker kill registry)"
+ExecStartPre = -/bin/sh -c "echo $(docker rm registry)"
+ExecStart = /bin/sh -c "echo $(docker run \
             --name registry \
             -e SETTINGS_FLAVOR=s3 \
             -e AWS_BUCKET=<bucket> \
@@ -15,5 +15,5 @@ ExecStart = /usr/bin/docker run \
             -e AWS_SECRET=`etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY` \
             -e SEARCH_BACKEND=sqlalchemy \
             -p 5000:5000 \
-            registry
-ExecStop = /usr/bin/docker rm -f registry
+            registry)"
+ExecStop = /bin/sh -c "echo $(docker rm -f registry)"

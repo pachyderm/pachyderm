@@ -4,8 +4,8 @@ After = docker.service
 Requires = docker.service
 
 [Service]
-ExecStartPre = -/bin/sh -c "echo $(docker kill {{.Name}}-{{.Shard}}-{{.Nshards}})$
-ExecStartPre = -/bin/sh -c "echo $(docker rm {{.Name}}-{{.Shard}}-{{.Nshards}})$
+ExecStartPre = -/bin/sh -c "echo $(docker kill {{.Name}}-{{.Shard}}-{{.Nshards}})"
+ExecStartPre = -/bin/sh -c "echo $(docker rm {{.Name}}-{{.Shard}}-{{.Nshards}})"
 ExecStartPre = /bin/sh -c "echo $(docker pull {{.Container}})"
 ExecStartPre = -/bin/sh -c "echo $(mkdir /var/lib/pfs)"
 ExecStartPre = -/bin/sh -c "echo $(docker run --privileged=true -v /var/lib/pfs:/var/lib/pfs -i {{.Container}} truncate /var/lib/pfs/data.img -s 10G)"
