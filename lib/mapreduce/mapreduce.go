@@ -176,6 +176,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
+	client := &http.Client{}
 
 	defer close(files)
 	for i := 0; i < 300; i++ {
@@ -203,8 +204,8 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 
 				var resp *http.Response
 				err = retry(func() error {
-					log.Print("Posting: ", name)
-					resp, err = http.Post("http://"+path.Join(host, name), "application/text", inReader)
+					log.Print("Posting: ", "http://"+path.Join(host, name))
+					resp, err = client.Post("http://"+path.Join(host, name), "application/text", inReader)
 					return err
 				}, retries, 200*time.Millisecond)
 				if err != nil {
