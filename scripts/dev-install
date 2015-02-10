@@ -30,6 +30,7 @@ git remote add staging git://"$HOST"/home/core/"$REPO".git
 # Do an initial run with the post-receive hook to set everything up.
 ssh core@"$HOST" "etcdctl set /pfs/creds/AWS_ACCESS_KEY_ID $AWS_ACCESS_KEY_ID"
 ssh core@"$HOST" "etcdctl set /pfs/creds/AWS_SECRET_ACCESS_KEY $AWS_SECRET_ACCESS_KEY"
+ssh core@"$HOST" "etcdctl set /pfs/registry/IMAGE_BUCKET $IMAGE_BUCKET"
 ssh core@"$HOST" 'cd pfs.git && hooks/post-receive'
 
 echo "Done."
