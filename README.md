@@ -1,64 +1,3 @@
-# Pachyderm File System
-
-## pfs v0.3 - Pachyderm MapReduce
-Pfs v0.3 is the first pfs release to include support for MapReduce.
-##The MapReduce API
-
-We’ve added a new pfs keyword `job`. Here’s how you use it:
-
-###Creating a new job
-
-Jobs are specified as JSON files in the following format:
-
-```
-{
-    "type"  : either "map" or "reduce"
-    "input" : a file in pfs or the output from another job
-    "image" : the Docker image to use (which gets pulled from the Docker registry)
-    "command" : the command to start your web server
-}
-```
-
-**NOTE**: You do not need to specify the output location for a job. The output of a job, often referred to as a _materialized view_, is automatically stored in pfs `/job/<jobname>`.
-
-###POSTing a job to pfs
-
-Post a local JSON file with the above format to pfs:
-
-```sh
-$ curl -XPOST <host>/job/<jobname> -T <localfile>.json
-```
-
-**NOTE**: POSTing a job doesn't run the job. It just records the specification of the job in pfs. 
-
-###Running a job
-Jobs are only run on a commit. That way you always know exactly the state of
-the file system that is used in a computation. To run all committed jobs, use
-the `commit` keyword with the `run` parameter.
-
-```sh
-$ curl -XPOST <host>/commit?run
-```
-# Roadmap
-v0.3 will contain the first implementation of Dockerized MapReduce which will allow us to start doing actual distributed computations with pfs. You can track development [here](https://github.com/pachyderm/pfs/issues/4).
-
-Think of adding jobs as constructing a
-[DAG](http://en.wikipedia.org/wiki/Directed_acyclic_graph) of computations that
-you want performed. When you call `/commit?run`, Pachyderm automatically
-schedules the jobs such that a job isn't run until the jobs it depends on have
-completed.
-
-###Getting the output of a job
-Each job records its output in its own read-only file system. You can read the output of the job with:
-
-```sh
-$ curl <host>/job/<jobname>/file/*?commit=<commit>
-```
-
-**NOTE**: You must specify the commit you want to read from and that commit
-needs to have been created with the run parameter. We're planning to expand
-this API to make it not have this requirement in the near future.
-
 ## What is pfs?
 Pfs is a distributed file system built specifically for the Docker
 ecosystem. You [deploy it with Docker](https://registry.hub.docker.com/u/pachyderm/pfs/),
@@ -67,9 +6,9 @@ MapReduce jobs are specified as Docker containers, rather than .jars,
 letting you perform distributed computation using any tools you want.
 
 ## Key Features
-- Fault-tolerant architecture built on [CoreOS](https://coreos.com) (implemented)
-- [Git-like distributed file system](#what-is-a-git-like-file-system) (implemented)
-- [Dockerized MapReduce](#what-is-dockerized-mapreduce) (not implemented)
+- Fault-tolerant architecture built on [CoreOS](https://coreos.com)
+- [Git-like distributed file system](#what-is-a-git-like-file-system)
+- [Dockerized MapReduce](#what-is-dockerized-mapreduce)
 
 ## Is pfs production ready
 No, pfs is at Alpha status. [We'd love your help. :)](#how-do-i-hack-on-pfs)
@@ -207,22 +146,63 @@ $ curl -XGET pfs/branch
 ```
 ###MapReduce
 
-####Creating a job:
+####Creating a new job descriptor
+
+Jobs are specified as JSON files in the following format:
 
 ```
-# Job format:
 {
     "type"  : either "map" or "reduce"
     "input" : a file in pfs or the output from another job
-    "image" : the Docker image
+    "image" : the Docker image to use (which gets pulled from the Docker registry)
     "command" : the command to start your web server
 }
 ```
 
-```shell
-# Create or modify <job>:
+**NOTE**: You do not need to specify the output location for a job. The output of a job, often referred to as a _materialized view_, is automatically stored in pfs `/job/<jobname>`.
+
+####POSTing a job to pfs
+
+Post a local JSON file with the above format to pfs:
+
+```sh
 $ curl -XPOST <host>/job/<jobname> -T <localfile>.json
 ```
+
+**NOTE**: POSTing a job doesn't run the job. It just records the specification of the job in pfs. 
+
+####Running a job
+Jobs are only run on a commit. That way you always know exactly the state of
+the file system that is used in a computation. To run all committed jobs, use
+the `commit` keyword with the `run` parameter.
+
+```sh
+$ curl -XPOST <host>/commit?run
+```
+
+Think of adding jobs as constructing a
+[DAG](http://en.wikipedia.org/wiki/Directed_acyclic_graph) of computations that
+you want performed. When you call `/commit?run`, Pachyderm automatically
+schedules the jobs such that a job isn't run until the jobs it depends on have
+completed.
+
+####Getting the output of a job
+Each job records its output in its own read-only file system. You can read the output of the job with:
+
+```sh
+$ curl <host>/job/<jobname>/file/*?commit=<commit>
+```
+or get just a specific file with:
+```sh
+$ curl -XGET <host>/job/<job>/file/*?commit=<commit>
+```
+
+**NOTE**: You must specify the commit you want to read from and that commit
+needs to have been created with the run parameter. We're planning to expand
+this API to make it not have this requirement in the near future.
+####Creating a job:
+
+
 #### Deleting jobs
 
 ```shell
@@ -230,28 +210,11 @@ $ curl -XPOST <host>/job/<jobname> -T <localfile>.json
 $ curl -XDELETE <host>/job/<job>
 ```
 
-#### Getting jobs
+#### Getting the job descriptor
 
 ```shell
 # Read <job>
 $ curl -XGET <host>/job/<job>
-```
-
-#### Running jobs
-
-```shell
-# Commit and run all jobs:
-$ curl -XPOST <host>/commit?run
-```
-
-#### Getting output from jobs
-
-```shell
-# Read <file> from the output of <job> at <commit>:
-$ curl -XGET <host>/job/<job>/file/<file>?commit=<commit>
-
-# Read the output of <job> at <commit>:
-$ curl -XGET <host>/job/<job>/file/*?commit=<commit>
 ```
 
 ## Who's building this?
@@ -266,5 +229,5 @@ scripts/dev-install <coreos-host>
 ```
 
 This will deploy pfs and give you a new remote called `staging` so that you can
-push later changes via `git push staging`. The create repo also has a
+push later changes via `git push staging`. The created repo also has a
 post-receive hook that redeploys the cluster.
