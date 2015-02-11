@@ -128,21 +128,6 @@ $ fleetctl start 1Node/*
 The startup process takes a little while the first time you run it because
 each node has to pull a Docker image.
 
-### Checking the status of your deploy
-The easiest way to see what's going on in your cluster is to use `list-units`
-```shell
-$ fleetctl list-units
-```
-
-If things are working correctly, you should see something like:
-
-```
-UNIT                            MACHINE                         ACTIVE  SUB
-announce-master-0-1.service     3817102d.../10.240.199.203      active  running
-master-0-1.service              3817102d.../10.240.199.203      active  running
-router.service                  3817102d.../10.240.199.203      active  running
-```
-
 ### Integrating with s3
 As of v0.4 pfs can leverage s3 as a source of data for MapReduce jobs. Pfs also
 uses s3 as the backend for its local Docker registry. To get s3 working you'll
@@ -153,6 +138,25 @@ etcdctl set /pfs/creds/AWS_ACCESS_KEY_ID <AWS_ACCESS_KEY_ID>
 etcdctl set /pfs/creds/AWS_SECRET_ACCESS_KEY <AWS_SECRET_ACCESS_KEY>
 etcdctl set /pfs/registry/IMAGE_BUCKET <IMAGE_BUCKET>
 ```
+
+### Checking the status of your deploy
+The easiest way to see what's going on in your cluster is to use `list-units`,
+this is what a healthy 1 Node cluster looks like.
+```
+UNIT                            MACHINE                         ACTIVE          SUB
+announce-master-0-1.service     0b0625cf.../172.31.9.86         active          running
+announce-registry.service       0e7cf611.../172.31.27.115       active          running
+gitdaemon.service               0b0625cf.../172.31.9.86         active          running
+gitdaemon.service               0e7cf611.../172.31.27.115       active          running
+gitdaemon.service               ed618559.../172.31.9.87         active          running
+master-0-1.service              0b0625cf.../172.31.9.86         active          running
+registry.service                0e7cf611.../172.31.27.115       active          running
+router.service                  0b0625cf.../172.31.9.86         active          running
+router.service                  0e7cf611.../172.31.27.115       active          running
+router.service                  ed618559.../172.31.9.87         active          running
+```
+If you startup a new cluster and `registry.service` fails to start it's
+probably an issue with s3 credentials. See the section above.
 
 ### Using pfs
 Pfs exposes a git-like interface to the file system:

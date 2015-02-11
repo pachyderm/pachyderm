@@ -4,6 +4,7 @@ After = docker.service
 Requires = docker.service
 
 [Service]
+TimeoutStartSec = 300
 ExecStartPre = /bin/sh -c "echo $(-docker kill router)"
 ExecStartPre = /bin/sh -c "echo $(-docker rm router)"
 ExecStartPre = /bin/sh -c "echo $(docker pull `etcdctl get /pfs/registry`/pfs)"

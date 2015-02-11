@@ -4,6 +4,7 @@ After = docker.service
 Requires = docker.service
 
 [Service]
+TimeoutStartSec = 300
 ExecStartPre = -/bin/sh -c "echo $(docker kill {{.Name}}-{{.Shard}}-{{.Nshards}})"
 ExecStartPre = -/bin/sh -c "echo $(docker rm {{.Name}}-{{.Shard}}-{{.Nshards}})"
 ExecStartPre = /bin/sh -c "echo $(docker pull {{.Container}})"
