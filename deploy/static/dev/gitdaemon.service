@@ -2,8 +2,7 @@
 Description = pfs service: gitdaemon
 
 [Service]
-ExecStartPre = -/usr/bin/mkdir /var/lib/pfs/git
-ExecStart = /usr/bin/git daemon --base-path=. --export-all --enable=receive-pack --reuseaddr --informative-errors --verbose /var/lib/pfs/git
+ExecStart = /usr/bin/git daemon --base-path=. --export-all --enable=receive-pack --reuseaddr --informative-errors --verbose
 
 [X-Fleet]
 Global=true
