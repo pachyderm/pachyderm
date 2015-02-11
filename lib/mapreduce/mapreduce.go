@@ -96,7 +96,7 @@ type Job struct {
 	Input   string   `json:"input"`
 	Image   string   `json:"image"`
 	Command []string `json:"command"`
-	Limit   int      `json:"limi"`
+	Limit   int      `json:"limit"`
 }
 
 type materializeInfo struct {
@@ -143,14 +143,16 @@ func getPath(input string) (string, error) {
 	return path.Join(strings.Split(strings.TrimPrefix(input, "s3://"), "/")[1:]...), nil
 }
 
-func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos uint64) error {
+func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos uint64) {
 	err := PrepJob(job, path.Base(jobPath), m)
 	if err != nil {
-		return err
+		log.Print(err)
+		return
 	}
 
 	if job.Type != "map" {
-		return fmt.Errorf("runMap called on a job of type \"%s\". Should be \"map\".", job.Type)
+		log.Printf("runMap called on a job of type \"%s\". Should be \"map\".", job.Type)
+		return
 	}
 
 	files := make(chan string)
@@ -159,19 +161,22 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 	if getProtocol(job.Input) == ProtoS3 {
 		auth, err := aws.EnvAuth()
 		if err != nil {
-			return err
+			log.Print(err)
+			return
 		}
-		client := s3.New(auth, aws.USEast)
+		client := s3.New(auth, aws.USWest)
 
 		bucketName, err := getBucket(job.Input)
 		if err != nil {
-			return err
+			log.Print(err)
+			return
 		}
 		bucket = client.Bucket(bucketName)
 	}
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
+	client := &http.Client{}
 
 	defer close(files)
 	for i := 0; i < 300; i++ {
@@ -195,11 +200,12 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 					return
 				}
 				defer inFile.Close()
+				inReader := iotest.NewReadLogger("MapIn", inFile)
 
 				var resp *http.Response
 				err = retry(func() error {
-					log.Print("Posting: ", name)
-					resp, err = http.Post("http://"+path.Join(host, name), "application/text", inFile)
+					log.Print("Posting: ", "http://"+path.Join(host, name))
+					resp, err = client.Post("http://"+path.Join(host, name), "application/text", inReader)
 					return err
 				}, retries, 200*time.Millisecond)
 				if err != nil {
@@ -207,14 +213,15 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 					return
 				}
 				defer resp.Body.Close()
+				outReader := iotest.NewReadLogger("MapOut", resp.Body)
 
-				outFile, err := btrfs.Create(path.Join(m.Out, m.Branch, jobPath, name))
+				outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath, name))
 				if err != nil {
 					log.Print(err)
 					return
 				}
 				defer outFile.Close()
-				if _, err := io.Copy(outFile, resp.Body); err != nil {
+				if _, err := io.Copy(outFile, outReader); err != nil {
 					log.Print(err)
 					return
 				}
@@ -234,18 +241,21 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 				return nil
 			})
 		if err != nil && err.Error() != "STOP" {
-			return err
+			log.Print(err)
+			return
 		}
 	case getProtocol(job.Input) == ProtoS3:
 		inPath, err := getPath(job.Input)
 		if err != nil {
-			return err
+			log.Print(err)
+			return
 		}
 		nextMarker := ""
 		for {
 			lr, err := bucket.List(inPath, "", nextMarker, 0)
 			if err != nil {
-				return err
+				log.Print(err)
+				return
 			}
 			nextMarker = lr.NextMarker
 			for _, key := range lr.Contents {
@@ -268,20 +278,21 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 			}
 		}
 	default:
-		return fmt.Errorf("Unrecognized protocol.")
+		log.Printf("Unrecognized protocol.")
+		return
 	}
-	return nil
 }
 
-func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modulos uint64) error {
+func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modulos uint64) {
 	if (route.HashResource(path.Join("/job", jobPath)) % modulos) != shard {
 		// This resource isn't supposed to be located on this machine so we
 		// don't need to materialize it.
-		return nil
+		return
 	}
 	log.Print("Reduce: ", job, " ", jobPath, " ")
 	if job.Type != "reduce" {
-		return fmt.Errorf("Reduce called on a job of type \"%s\". Should be \"reduce\".", job.Type)
+		log.Printf("Reduce called on a job of type \"%s\". Should be \"reduce\".", job.Type)
+		return
 	}
 
 	// Notice we're just passing "host" here. Multicast will fill in the host
@@ -296,7 +307,8 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modu
 		return err
 	}, retries, time.Minute)
 	if err != nil {
-		return err
+		log.Print(err)
+		return
 	}
 	defer _reader.Close()
 	reader := iotest.NewReadLogger("Reduce", _reader)
@@ -307,22 +319,27 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modu
 		return err
 	}, retries, 200*time.Millisecond)
 	if err != nil {
-		return err
+		log.Print(err)
+		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("Received error %s", resp.Status)
+		log.Printf("Received error %s", resp.Status)
+		return
 	}
 
-	outFile, err := btrfs.Create(path.Join(m.Out, m.Branch, jobPath))
+	outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath))
 	if err != nil {
-		return err
+		log.Print(err)
+		return
 	}
 	defer outFile.Close()
 	if _, err := io.Copy(outFile, resp.Body); err != nil {
-		return err
+		log.Print(err)
+		return
 	}
-	return nil
+	log.Print(nil)
+	return
 }
 
 type jobCond struct {
@@ -459,20 +476,11 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 			}
 
 			if job.Type == "map" {
-				err := Map(job, jobInfo.Name(), m, containerAddr, shard, modulos)
-				if err != nil {
-					log.Print(err)
-					return
-				}
+				Map(job, jobInfo.Name(), m, containerAddr, shard, modulos)
 			} else if job.Type == "reduce" {
-				err := Reduce(job, jobInfo.Name(), m, containerAddr, shard, modulos)
-				if err != nil {
-					log.Print(err)
-					return
-				}
+				Reduce(job, jobInfo.Name(), m, containerAddr, shard, modulos)
 			} else {
 				log.Printf("Job %s has unrecognized type: %s.", jobInfo.Name(), job.Type)
-				return
 			}
 		}(jobInfo)
 	}

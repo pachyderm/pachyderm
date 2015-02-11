@@ -1,11 +1,11 @@
 [Unit]
-Description = pfs service: {{.Name}}
+Description = pfs service: registry
 After = docker.service
 Requires = docker.service
 
 [Service]
-ExecStartPre = -/bin/sh -c "echo $(docker kill {{.Name}})"
-ExecStartPre = -/bin/sh -c "echo $(docker rm {{.Name}})"
+ExecStartPre = -/bin/sh -c "echo $(docker kill registry)"
+ExecStartPre = -/bin/sh -c "echo $(docker rm registry)"
 ExecStart = /bin/sh -c "echo $(docker run \
             --name registry \
             -e SETTINGS_FLAVOR=s3 \
@@ -14,6 +14,6 @@ ExecStart = /bin/sh -c "echo $(docker run \
             -e AWS_KEY=`etcdctl get /pfs/creds/AWS_ACCESS_KEY_ID` \
             -e AWS_SECRET=`etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY` \
             -e SEARCH_BACKEND=sqlalchemy \
-            -p {{.Port}}:5000 \
+            -p 5000:5000 \
             registry)"
-ExecStop = /bin/sh -c "echo $(docker rm -f {{.Name}})"
+ExecStop = /bin/sh -c "echo $(docker rm -f registry)"

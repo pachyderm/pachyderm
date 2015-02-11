@@ -120,7 +120,7 @@ cluster. Here's links on how to set one up:
 SSH in to one of your new CoreOS machines.
 
 ```shell
-$ wget https://github.com/pachyderm/pfs/raw/master/deploy/static/1Node.tar.gz
+$ wget pachyderm.io/deploy/1Node.tar.gz
 $ tar -xvf 1Node.tar.gz
 $ fleetctl start 1Node/*
 ```
@@ -128,20 +128,35 @@ $ fleetctl start 1Node/*
 The startup process takes a little while the first time you run it because
 each node has to pull a Docker image.
 
+### Integrating with s3
+As of v0.4 pfs can leverage s3 as a source of data for MapReduce jobs. Pfs also
+uses s3 as the backend for its local Docker registry. To get s3 working you'll
+need to provide pfs with credentials by setting them in etcd like so:
+
+```
+etcdctl set /pfs/creds/AWS_ACCESS_KEY_ID <AWS_ACCESS_KEY_ID>
+etcdctl set /pfs/creds/AWS_SECRET_ACCESS_KEY <AWS_SECRET_ACCESS_KEY>
+etcdctl set /pfs/registry/IMAGE_BUCKET <IMAGE_BUCKET>
+```
+
 ### Checking the status of your deploy
-The easiest way to see what's going on in your cluster is to use `list-units`
-```shell
-$ fleetctl list-units
+The easiest way to see what's going on in your cluster is to use `list-units`,
+this is what a healthy 1 Node cluster looks like.
 ```
-
-If things are working correctly, you should see something like:
-
+UNIT                            MACHINE                         ACTIVE          SUB
+announce-master-0-1.service     0b0625cf.../172.31.9.86         active          running
+announce-registry.service       0e7cf611.../172.31.27.115       active          running
+gitdaemon.service               0b0625cf.../172.31.9.86         active          running
+gitdaemon.service               0e7cf611.../172.31.27.115       active          running
+gitdaemon.service               ed618559.../172.31.9.87         active          running
+master-0-1.service              0b0625cf.../172.31.9.86         active          running
+registry.service                0e7cf611.../172.31.27.115       active          running
+router.service                  0b0625cf.../172.31.9.86         active          running
+router.service                  0e7cf611.../172.31.27.115       active          running
+router.service                  ed618559.../172.31.9.87         active          running
 ```
-UNIT                            MACHINE                         ACTIVE  SUB
-announce-master-0-1.service     3817102d.../10.240.199.203      active  running
-master-0-1.service              3817102d.../10.240.199.203      active  running
-router.service                  3817102d.../10.240.199.203      active  running
-```
+If you startup a new cluster and `registry.service` fails to start it's
+probably an issue with s3 credentials. See the section above.
 
 ### Using pfs
 Pfs exposes a git-like interface to the file system:
@@ -244,10 +259,12 @@ Two guys who love data and communities and both happen to be named Joe. We'd lov
 to chat: joey@pachyderm.io jdoliner@pachyderm.io.
 
 ## How do I hack on pfs?
-Pfs's only dependency is Docker. You can build it with:
+You can deploy pfs directly to a CoreOS cluster that's accessible via ssh by running:
+
 ```shell
-pfs$ docker build -t username/pfs .
+scripts/dev-install <coreos-host>
 ```
-Deploying what you build requires pushing the built container to the central
-Docker registry and changing the container name in the .service files from
-`pachyderm/pfs` to `username/pfs`.
+
+This will deploy pfs and give you a new remote called `staging` so that you can
+push later changes via `git push staging`. The create repo also has a
+post-receive hook that redeploys the cluster.

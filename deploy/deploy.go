@@ -1,11 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
-	"strconv"
 	"text/template"
 	"time"
 )
@@ -22,7 +22,7 @@ func usage() {
 	log.Print("$ deploy shard_count")
 }
 
-func printShardedService(name string, shards int) {
+func printShardedService(name string) {
 	sTemplate, err := template.New("sharded").ParseFiles("templates/sharded")
 	if err != nil {
 		log.Fatal(err)
@@ -32,12 +32,12 @@ func printShardedService(name string, shards int) {
 		log.Fatal(err)
 	}
 
-	for s := 0; s < shards; s++ {
+	for s := 0; s < *shards; s++ {
 		config := new(service)
 		config.Name = name
-		config.Container = "pachyderm/pfs"
+		config.Container = *container
 		config.Shard = s
-		config.Nshards = shards
+		config.Nshards = *shards
 		config.Port = minPort + rand.Intn(maxPort-minPort)
 		server, err := os.Create(fmt.Sprintf("%s-%d-%d.service", config.Name, config.Shard, config.Nshards))
 		if err != nil {
@@ -59,7 +59,7 @@ func printShardedService(name string, shards int) {
 	}
 }
 
-func printGlobalService(name string, shards int) {
+func printGlobalService(name string) {
 	template, err := template.New("global").ParseFiles("templates/global")
 	if err != nil {
 		log.Fatal(err)
@@ -67,8 +67,8 @@ func printGlobalService(name string, shards int) {
 
 	config := new(service)
 	config.Name = name
-	config.Container = "pachyderm/pfs"
-	config.Nshards = shards
+	config.Container = *container
+	config.Nshards = *shards
 
 	server, err := os.Create(fmt.Sprintf("%s.service", config.Name))
 	if err != nil {
@@ -89,7 +89,7 @@ func printWebhookService(name string, port int) {
 
 	config := new(service)
 	config.Name = name
-	config.Container = "pachyderm/pfs"
+	config.Container = *container
 	config.Port = port
 
 	server, err := os.Create(fmt.Sprintf("%s.service", config.Name))
@@ -156,16 +156,18 @@ func printGitDaemonService(name string) {
 	err = template.Execute(server, config)
 }
 
+var shards *int
+var container *string
+
 func main() {
 	log.SetFlags(log.Lshortfile)
 	rand.Seed(time.Now().UTC().UnixNano())
-	nShards, err := strconv.Atoi(os.Args[1])
-	if err != nil {
-		log.Fatal(err)
-	}
+	shards = flag.Int("shards", 3, "The number of shards in the deploy.")
+	container = flag.String("container", "pachyderm/pfs", "The container to use for the deploy.")
+	flag.Parse()
 
-	printShardedService("master", nShards)
-	printGlobalService("router", nShards)
+	printShardedService("master")
+	printGlobalService("router")
 	printRegistryService("registry", 5000)
 	printGitDaemonService("gitdaemon")
 }

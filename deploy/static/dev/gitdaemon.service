@@ -1,5 +1,5 @@
 [Unit]
-Description = pfs service: {{.Name}}
+Description = pfs service: gitdaemon
 
 [Service]
 ExecStart = /usr/bin/git daemon --base-path=. --export-all --enable=receive-pack --reuseaddr --informative-errors --verbose
