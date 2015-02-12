@@ -153,7 +153,7 @@ Jobs are specified as JSON files in the following format:
 ```
 {
     "type"  : either "map" or "reduce"
-    "input" : a file in pfs or the output from another job
+    "input" : a directory in pfs, S3 URL, or the output from another job
     "image" : the Docker image to use 
     "command" : the command to start your web server
 }
