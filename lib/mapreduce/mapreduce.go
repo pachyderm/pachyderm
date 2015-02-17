@@ -92,11 +92,12 @@ func contains(set []string, val string) bool {
 }
 
 type Job struct {
-	Type    string   `json:"type"`
-	Input   string   `json:"input"`
-	Image   string   `json:"image"`
-	Command []string `json:"command"`
-	Limit   int      `json:"limit"`
+	Type     string   `json:"type"`
+	Input    string   `json:"input"`
+	Image    string   `json:"image"`
+	Command  []string `json:"command"`
+	Limit    int      `json:"limit"`
+	Parallel int      `json:"parallel"`
 }
 
 type materializeInfo struct {
@@ -178,8 +179,13 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 	defer wg.Wait()
 	client := &http.Client{}
 
+	nGoros := 300
+	if job.Parallel > 0 {
+		nGoros = job.Parallel
+	}
+
 	defer close(files)
-	for i := 0; i < 300; i++ {
+	for i := 0; i < nGoros; i++ {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
 			defer wg.Done()
