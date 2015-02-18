@@ -3,7 +3,7 @@ FROM ubuntu:15.04
 ENV GOPATH /go
 ENV PFS github.com/pachyderm/pfs
 
-RUN apt-get update && apt-get install -y golang btrfs-tools git mercurial && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y golang git mercurial && rm -rf /var/lib/apt/lists/*
 RUN go get github.com/coreos/go-etcd/etcd
 RUN go get code.google.com/p/go-uuid/uuid
 RUN go get github.com/samalba/dockerclient
