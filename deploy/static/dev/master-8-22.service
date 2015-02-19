@@ -10,9 +10,9 @@ ExecStartPre = -/bin/sh -c "echo $(docker rm master-8-22)"
 ExecStartPre = /bin/sh -c "echo $(docker pull `etcdctl get /pfs/registry`/pfs)"
 ExecStartPre = -/bin/sh -c "echo $(mkdir /var/lib/pfs)"
 ExecStartPre = -/bin/sh -c "echo $(truncate /var/lib/pfs/data.img -s 10G)"
-ExecStartPre = -/bin/sh -c "echo $(mkfs.btrfs /var/lib/pfs/data.img)"
+ExecStartPre = -/bin/sh -c "echo $(DISK=`etcdctl get /pfs/master.config/disk`; mkfs.btrfs ${DISK:-/var/lib/pfs/data.img})"
 ExecStartPre = -/bin/sh -c "echo $(mkdir -p /var/lib/pfs/vol)"
-ExecStartPre = -/bin/sh -c "echo $(mount /var/lib/pfs/data.img /var/lib/pfs/vol)"
+ExecStartPre = -/bin/sh -c "echo $(DISK=`etcdctl get /pfs/master.config/disk`; mount ${DISK:-/var/lib/pfs/data.img} /var/lib/pfs/vol)"
 ExecStart = /bin/sh -c "echo $(docker run \
             --privileged=true \
             --name master-8-22 \
@@ -22,7 +22,7 @@ ExecStart = /bin/sh -c "echo $(docker run \
             -v /lib64:/lib64.host \
             -e AWS_ACCESS_KEY_ID=`etcdctl get /pfs/creds/AWS_ACCESS_KEY_ID` \
             -e AWS_SECRET_ACCESS_KEY=`etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY` \
-            -p 55041:80 \
+            -p 57765:80 \
             -i `etcdctl get /pfs/registry`/pfs \
             /go/bin/master 8-22)"
 ExecStop = /bin/sh -c "echo $(docker rm -f master-8-22)"

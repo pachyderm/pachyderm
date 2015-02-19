@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"testing/iotest"
-
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/s3"
 	"github.com/pachyderm/pfs/lib/btrfs"
@@ -206,12 +204,11 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 					return
 				}
 				defer inFile.Close()
-				inReader := iotest.NewReadLogger("MapIn", inFile)
 
 				var resp *http.Response
 				err = retry(func() error {
 					log.Print("Posting: ", "http://"+path.Join(host, name))
-					resp, err = client.Post("http://"+path.Join(host, name), "application/text", inReader)
+					resp, err = client.Post("http://"+path.Join(host, name), "application/text", inFile)
 					return err
 				}, retries, 200*time.Millisecond)
 				if err != nil {
@@ -219,7 +216,6 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 					return
 				}
 				defer resp.Body.Close()
-				outReader := iotest.NewReadLogger("MapOut", resp.Body)
 
 				outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath, name))
 				if err != nil {
@@ -227,7 +223,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 					return
 				}
 				defer outFile.Close()
-				if _, err := io.Copy(outFile, outReader); err != nil {
+				if _, err := io.Copy(outFile, resp.Body); err != nil {
 					log.Print(err)
 					return
 				}
@@ -303,21 +299,20 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modu
 
 	// Notice we're just passing "host" here. Multicast will fill in the host
 	// field so we don't actually need to specify it.
-	var _reader io.ReadCloser
+	var reader io.ReadCloser
 	err := retry(func() error {
 		req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*")+"?commit="+m.Commit, nil)
 		if err != nil {
 			return err
 		}
-		_reader, err = route.Multicast(req, "/pfs/master")
+		reader, err = route.Multicast(req, "/pfs/master")
 		return err
 	}, retries, time.Minute)
 	if err != nil {
 		log.Print(err)
 		return
 	}
-	defer _reader.Close()
-	reader := iotest.NewReadLogger("Reduce", _reader)
+	defer reader.Close()
 
 	var resp *http.Response
 	err = retry(func() error {
