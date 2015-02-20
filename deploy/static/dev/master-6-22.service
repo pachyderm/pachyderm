@@ -1,13 +1,13 @@
 [Unit]
-Description = pfs service: {{.Name}}
+Description = pfs service: master
 After = docker.service
 Requires = docker.service
 
 [Service]
 TimeoutStartSec = 300
-ExecStartPre = -/bin/sh -c "echo $(docker kill {{.Name}}-{{.Shard}}-{{.Nshards}})"
-ExecStartPre = -/bin/sh -c "echo $(docker rm {{.Name}}-{{.Shard}}-{{.Nshards}})"
-ExecStartPre = /bin/sh -c "echo $(docker pull {{.Container}})"
+ExecStartPre = -/bin/sh -c "echo $(docker kill master-6-22)"
+ExecStartPre = -/bin/sh -c "echo $(docker rm master-6-22)"
+ExecStartPre = /bin/sh -c "echo $(docker pull `etcdctl get /pfs/registry`/pfs)"
 ExecStartPre = -/bin/sh -c "echo $(mkdir /var/lib/pfs)"
 ExecStartPre = -/bin/sh -c "echo $(truncate /var/lib/pfs/data.img -s 10G)"
 ExecStartPre = -/bin/sh -c "echo $(mkfs.btrfs `etcdctl get /pfs/master.config/disk`)"
@@ -15,14 +15,14 @@ ExecStartPre = -/bin/sh -c "echo $(mkdir -p /var/lib/pfs/vol)"
 ExecStartPre = -/bin/sh -c "echo $(mount `etcdctl get /pfs/master.config/disk` /var/lib/pfs/vol)"
 ExecStart = /bin/sh -c "echo $(docker run \
             --privileged=true \
-            --name {{.Name}}-{{.Shard}}-{{.Nshards}} \
+            --name master-6-22 \
             -v /var/lib/pfs:/var/lib/pfs \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v /usr/sbin/btrfs:/usr/sbin/btrfs.host \
             -v /lib64:/lib64.host \
             -e AWS_ACCESS_KEY_ID=`etcdctl get /pfs/creds/AWS_ACCESS_KEY_ID` \
             -e AWS_SECRET_ACCESS_KEY=`etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY` \
-            -p {{.Port}}:80 \
-            -i {{.Container}} \
-            /go/bin/{{.Name}} {{.Shard}}-{{.Nshards}})"
-ExecStop = /bin/sh -c "echo $(docker rm -f {{.Name}}-{{.Shard}}-{{.Nshards}})"
+            -p 56950:80 \
+            -i `etcdctl get /pfs/registry`/pfs \
+            /go/bin/master 6-22)"
+ExecStop = /bin/sh -c "echo $(docker rm -f master-6-22)"

@@ -1,0 +1,11 @@
+[Unit]
+Description = pfs announce: master
+PartOf = master-17-22.service
+BindsTo = master-17-22.service
+
+[Service]
+ExecStart = /bin/sh -c "while true; do etcdctl set /pfs/master/17-22 '%H:57892' --ttl 60;sleep 45;done"
+ExecStop = /usr/bin/etcdctl rm /pfs/master/17-22
+
+[X-Fleet]
+MachineOf = master-17-22.service
