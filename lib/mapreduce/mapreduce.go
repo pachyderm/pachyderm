@@ -96,6 +96,7 @@ type Job struct {
 	Command  []string `json:"command"`
 	Limit    int      `json:"limit"`
 	Parallel int      `json:"parallel"`
+	TimeOut  int      `json:"timeout"`
 }
 
 type materializeInfo struct {
@@ -223,6 +224,19 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 					return
 				}
 				defer outFile.Close()
+
+				wait := time.Minute * 10
+				if job.TimeOut != 0 {
+					wait = time.Duration(job.TimeOut) * time.Second
+				}
+				timer := time.AfterFunc(wait,
+					func() {
+						err := resp.Body.Close()
+						if err != nil {
+							log.Print(err)
+						}
+					})
+				defer timer.Stop()
 				if _, err := io.Copy(outFile, resp.Body); err != nil {
 					log.Print(err)
 					return
