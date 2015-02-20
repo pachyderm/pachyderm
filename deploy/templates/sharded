@@ -10,9 +10,9 @@ ExecStartPre = -/bin/sh -c "echo $(docker rm {{.Name}}-{{.Shard}}-{{.Nshards}})"
 ExecStartPre = /bin/sh -c "echo $(docker pull {{.Container}})"
 ExecStartPre = -/bin/sh -c "echo $(mkdir /var/lib/pfs)"
 ExecStartPre = -/bin/sh -c "echo $(truncate /var/lib/pfs/data.img -s 10G)"
-ExecStartPre = -/bin/sh -c "echo $(DISK=`etcdctl get /pfs/master.config/disk`; sudo mkfs.btrfs ${DISK:-/var/lib/pfs/data.img})"
+ExecStartPre = -/bin/sh -c "echo $(mkfs.btrfs `etcdctl get /pfs/master.config/disk`)"
 ExecStartPre = -/bin/sh -c "echo $(mkdir -p /var/lib/pfs/vol)"
-ExecStartPre = -/bin/sh -c "echo $(DISK=`etcdctl get /pfs/master.config/disk`; sudo mount ${DISK:-/var/lib/pfs/data.img} /var/lib/pfs/vol)"
+ExecStartPre = -/bin/sh -c "echo $(mount `etcdctl get /pfs/master.config/disk` /var/lib/pfs/vol)"
 ExecStart = /bin/sh -c "echo $(docker run \
             --privileged=true \
             --name {{.Name}}-{{.Shard}}-{{.Nshards}} \
