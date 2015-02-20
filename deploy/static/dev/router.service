@@ -8,7 +8,7 @@ TimeoutStartSec = 300
 ExecStartPre = /bin/sh -c "echo $(-docker kill router)"
 ExecStartPre = /bin/sh -c "echo $(-docker rm router)"
 ExecStartPre = /bin/sh -c "echo $(docker pull `etcdctl get /pfs/registry`/pfs)"
-ExecStart = /bin/sh -c "echo $(docker run --name router -p 80:80 -i `etcdctl get /pfs/registry`/pfs /go/bin/router 22)"
+ExecStart = /bin/sh -c "echo $(docker run --name router -p 80:80 -i `etcdctl get /pfs/registry`/pfs /go/bin/router 3)"
 ExecStop = /bin/sh -c "echo $(docker rm -f router)"
 
 [X-Fleet]
