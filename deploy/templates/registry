@@ -9,7 +9,7 @@ ExecStartPre = -/bin/sh -c "echo $(docker rm {{.Name}})"
 ExecStart = /bin/sh -c "echo $(docker run \
             --name registry \
             -e SETTINGS_FLAVOR=s3 \
-            -e AWS_BUCKET=`etcdctl get /pfs/registry/IMAGE_BUCKET` \
+            -e AWS_BUCKET=`etcdctl get /pfs/creds/IMAGE_BUCKET` \
             -e STORAGE_PATH=/registry \
             -e AWS_KEY=`etcdctl get /pfs/creds/AWS_ACCESS_KEY_ID` \
             -e AWS_SECRET=`etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY` \
