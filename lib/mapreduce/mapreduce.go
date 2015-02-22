@@ -208,8 +208,9 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 
 				var resp *http.Response
 				err = retry(func() error {
-					log.Print("Posting: ", "http://"+path.Join(host, name))
+					log.Print(name, ": ", "Posting: ", "http://"+path.Join(host, name))
 					resp, err = client.Post("http://"+path.Join(host, name), "application/text", inFile)
+					log.Print(name, ": ", "Post done.")
 					return err
 				}, retries, 200*time.Millisecond)
 				if err != nil {
@@ -218,12 +219,14 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 				}
 				defer resp.Body.Close()
 
+				log.Print(name, ": ", "Creating file ", path.Join(m.Out, m.Branch, jobPath, name))
 				outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath, name))
 				if err != nil {
 					log.Print(err)
 					return
 				}
 				defer outFile.Close()
+				log.Print(name, ": ", "Opened outfile.")
 
 				wait := time.Minute * 10
 				if job.TimeOut != 0 {
@@ -231,16 +234,19 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 				}
 				timer := time.AfterFunc(wait,
 					func() {
+						log.Print(name, ": ", "Timeout. Killing mapper.")
 						err := resp.Body.Close()
 						if err != nil {
 							log.Print(err)
 						}
 					})
 				defer timer.Stop()
+				log.Print(name, ": ", "Copying output...")
 				if _, err := io.Copy(outFile, resp.Body); err != nil {
 					log.Print(err)
 					return
 				}
+				log.Print(name, ": ", "Done copying.")
 			}
 		}(&wg)
 	}
