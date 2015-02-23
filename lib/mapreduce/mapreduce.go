@@ -289,7 +289,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 						break
 					}
 				}
-				nextMarker = key
+				nextMarker = key.Key
 			}
 			if !lr.IsTruncated {
 				// We've exhausted the output
