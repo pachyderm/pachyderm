@@ -276,7 +276,6 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 		for {
 			log.Print("s3: before List nextMarker = ", nextMarker)
 			lr, err := bucket.List(inPath, "", nextMarker, 0)
-			log.Printf("s3: %#v", lr)
 			if err != nil {
 				log.Print(err)
 				return
