@@ -8,7 +8,7 @@ mkdir -p static/dev
 ./deploy -shards=1 && mv *.service static/1Node
 ./deploy -shards=3 && mv *.service static/3Node
 ./deploy -shards=24 && mv *.service static/24Node
-./deploy -shards=12 -container="\`etcdctl get /pfs/registry\`/pfs" && mv *.service static/dev
+./deploy -shards=40 -container="\`etcdctl get /pfs/registry\`/pfs" && mv *.service static/dev
 cd static
 tar -zcvf 1Node.tar.gz 1Node
 tar -zcvf 3Node.tar.gz 3Node
