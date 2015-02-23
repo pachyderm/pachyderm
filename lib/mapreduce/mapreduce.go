@@ -280,7 +280,6 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 				log.Print(err)
 				return
 			}
-			nextMarker = lr.NextMarker
 			for _, key := range lr.Contents {
 				if route.HashResource(key.Key)%modulos == shard {
 					// This file belongs on this shard
@@ -290,6 +289,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 						break
 					}
 				}
+				nextMarker = key
 			}
 			if !lr.IsTruncated {
 				// We've exhausted the output
