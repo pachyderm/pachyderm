@@ -240,7 +240,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 							log.Print(err)
 						}
 					})
-				defer timer.Stop()
+				defer log.Print("Result of timer.Stop(): ", timer.Stop())
 				log.Print(name, ": ", "Copying output...")
 				if _, err := io.Copy(outFile, resp.Body); err != nil {
 					log.Print(err)
@@ -435,7 +435,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 	if !exists {
 		// Perfectly valid to have no jobs dir, it just means we have no work
 		// to do.
-		log.Printf("Jobs dir doesn't exists:\n", path.Join(in_repo, commit, jobDir))
+		log.Print("Jobs dir doesn't exists:\n", path.Join(in_repo, commit, jobDir))
 		return nil
 	}
 
