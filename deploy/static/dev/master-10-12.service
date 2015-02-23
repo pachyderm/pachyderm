@@ -22,7 +22,10 @@ ExecStart = /bin/sh -c "echo $(docker run \
             -v /lib64:/lib64.host \
             -e AWS_ACCESS_KEY_ID=`etcdctl get /pfs/creds/AWS_ACCESS_KEY_ID` \
             -e AWS_SECRET_ACCESS_KEY=`etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY` \
-            -p 63448:80 \
+            -p 54509:80 \
             -i `etcdctl get /pfs/registry`/pfs \
             /go/bin/master 10-12)"
 ExecStop = /bin/sh -c "echo $(docker rm -f master-10-12)"
+
+[Fleet]
+Conflicts = master*

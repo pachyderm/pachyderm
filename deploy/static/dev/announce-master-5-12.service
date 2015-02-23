@@ -4,7 +4,7 @@ PartOf = master-5-12.service
 BindsTo = master-5-12.service
 
 [Service]
-ExecStart = /bin/sh -c "while true; do etcdctl set /pfs/master/5-12 '%H:60984' --ttl 60;sleep 45;done"
+ExecStart = /bin/sh -c "while true; do etcdctl set /pfs/master/5-12 '%H:61335' --ttl 60;sleep 45;done"
 ExecStop = /usr/bin/etcdctl rm /pfs/master/5-12
 
 [X-Fleet]
