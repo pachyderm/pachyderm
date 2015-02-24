@@ -75,7 +75,7 @@ need to provide pfs with credentials by setting them in etcd like so:
 ```
 etcdctl set /pfs/creds/AWS_ACCESS_KEY_ID <AWS_ACCESS_KEY_ID>
 etcdctl set /pfs/creds/AWS_SECRET_ACCESS_KEY <AWS_SECRET_ACCESS_KEY>
-etcdctl set /pfs/registry/IMAGE_BUCKET <IMAGE_BUCKET>
+etcdctl set /pfs/creds/IMAGE_BUCKET <IMAGE_BUCKET>
 ```
 
 ### Checking the status of your deploy
