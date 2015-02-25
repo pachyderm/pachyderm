@@ -189,64 +189,66 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 		go func(wg *sync.WaitGroup) {
 			defer wg.Done()
 			for name := range files {
-				var inFile io.ReadCloser
-				var err error
-				switch {
-				case getProtocol(job.Input) == ProtoPfs:
-					inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
-				case getProtocol(job.Input) == ProtoS3:
-					inFile, err = bucket.GetReader(name)
-				default:
-					log.Print("It shouldn't be possible to get here.")
-					continue
-				}
-				if err != nil {
-					log.Print(err)
-					return
-				}
-				defer inFile.Close()
+				func() { // function scope just so that defer works
+					var inFile io.ReadCloser
+					var err error
+					switch {
+					case getProtocol(job.Input) == ProtoPfs:
+						inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
+					case getProtocol(job.Input) == ProtoS3:
+						inFile, err = bucket.GetReader(name)
+					default:
+						log.Print("It shouldn't be possible to get here.")
+						return
+					}
+					if err != nil {
+						log.Print(err)
+						return
+					}
+					defer inFile.Close()
 
-				var resp *http.Response
-				err = retry(func() error {
-					log.Print(name, ": ", "Posting: ", "http://"+path.Join(host, name))
-					resp, err = client.Post("http://"+path.Join(host, name), "application/text", inFile)
-					log.Print(name, ": ", "Post done.")
-					return err
-				}, retries, 200*time.Millisecond)
-				if err != nil {
-					log.Print(err)
-					return
-				}
-				defer resp.Body.Close()
+					var resp *http.Response
+					err = retry(func() error {
+						log.Print(name, ": ", "Posting: ", "http://"+path.Join(host, name))
+						resp, err = client.Post("http://"+path.Join(host, name), "application/text", inFile)
+						log.Print(name, ": ", "Post done.")
+						return err
+					}, retries, 200*time.Millisecond)
+					if err != nil {
+						log.Print(err)
+						return
+					}
+					defer resp.Body.Close()
 
-				log.Print(name, ": ", "Creating file ", path.Join(m.Out, m.Branch, jobPath, name))
-				outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath, name))
-				if err != nil {
-					log.Print(err)
-					return
-				}
-				defer outFile.Close()
-				log.Print(name, ": ", "Opened outfile.")
+					log.Print(name, ": ", "Creating file ", path.Join(m.Out, m.Branch, jobPath, name))
+					outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath, name))
+					if err != nil {
+						log.Print(err)
+						return
+					}
+					defer outFile.Close()
+					log.Print(name, ": ", "Opened outfile.")
 
-				wait := time.Minute * 10
-				if job.TimeOut != 0 {
-					wait = time.Duration(job.TimeOut) * time.Second
-				}
-				timer := time.AfterFunc(wait,
-					func() {
-						log.Print(name, ": ", "Timeout. Killing mapper.")
-						err := resp.Body.Close()
-						if err != nil {
-							log.Print(err)
-						}
-					})
-				defer log.Print("Result of timer.Stop(): ", timer.Stop())
-				log.Print(name, ": ", "Copying output...")
-				if _, err := io.Copy(outFile, resp.Body); err != nil {
-					log.Print(err)
-					return
-				}
-				log.Print(name, ": ", "Done copying.")
+					wait := time.Minute * 10
+					if job.TimeOut != 0 {
+						wait = time.Duration(job.TimeOut) * time.Second
+					}
+					timer := time.AfterFunc(wait,
+						func() {
+							log.Print(name, ": ", "Timeout. Killing mapper.")
+							err := resp.Body.Close()
+							if err != nil {
+								log.Print(err)
+							}
+						})
+					defer log.Print("Result of timer.Stop(): ", timer.Stop())
+					log.Print(name, ": ", "Copying output...")
+					if _, err := io.Copy(outFile, resp.Body); err != nil {
+						log.Print(err)
+						return
+					}
+					log.Print(name, ": ", "Done copying.")
+				}()
 			}
 		}(&wg)
 	}
