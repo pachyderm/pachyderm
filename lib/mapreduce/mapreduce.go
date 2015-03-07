@@ -164,6 +164,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 	var bucket *s3.Bucket
 	if getProtocol(job.Input) == ProtoS3 {
 		auth, err := aws.EnvAuth()
+		log.Print("auth: %#v", auth)
 		if err != nil {
 			log.Print(err)
 			return
