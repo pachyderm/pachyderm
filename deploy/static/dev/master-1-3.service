@@ -22,7 +22,7 @@ ExecStart = /bin/sh -c "echo $(docker run \
             -v /lib64:/lib64.host \
             -e AWS_ACCESS_KEY_ID=`etcdctl get /pfs/creds/AWS_ACCESS_KEY_ID` \
             -e AWS_SECRET_ACCESS_KEY=`etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY` \
-            -p 58496:80 \
+            -p 55401:80 \
             -i `etcdctl get /pfs/registry`/pfs \
-            /go/bin/master %H:58496)"
+            /go/bin/master 1-3)"
 ExecStop = /bin/sh -c "echo $(docker rm -f master-1-3)"
