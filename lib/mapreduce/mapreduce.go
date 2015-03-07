@@ -171,11 +171,13 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 		}
 		client := s3.New(auth, aws.USWest)
 
+		log.Print("job.Input: ", job.Input)
 		bucketName, err := getBucket(job.Input)
 		if err != nil {
 			log.Print(err)
 			return
 		}
+		log.Print("bucketName: ", bucketName)
 		bucket = client.Bucket(bucketName)
 	}
 
@@ -201,6 +203,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 					case getProtocol(job.Input) == ProtoPfs:
 						inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
 					case getProtocol(job.Input) == ProtoS3:
+						log.Print("File name: ", name)
 						inFile, err = bucket.GetReader(name)
 					default:
 						log.Print("It shouldn't be possible to get here.")
