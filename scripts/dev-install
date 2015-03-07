@@ -2,7 +2,7 @@
 # Install a git repo on a pfs cluster.
 ###############################################################################
 set -E          # pass trap handlers down to subshells
-set -x         # execution tracing debug messages
+#set -x         # execution tracing debug messages
 
 USAGE="Usage: $0 host"
 
@@ -33,6 +33,7 @@ BUCKET=${IMAGE_BUCKET:-"pachyderm-images"}
 ssh core@"$HOST" etcdctl set /pfs/creds/AWS_ACCESS_KEY_ID ${AWS_ACCESS_KEY_ID:?"Env: AWS_ACCESS_KEY_ID must be set"}
 ssh core@"$HOST" etcdctl set /pfs/creds/AWS_SECRET_ACCESS_KEY ${AWS_SECRET_ACCESS_KEY:?"Env: AWS_SECRET_ACCESS_KEY must be set"}
 ssh core@"$HOST" etcdctl set /pfs/creds/IMAGE_BUCKET "$BUCKET"
+ssh core@"$HOST" etcdctl set /pfs/config/DISK "/var/lib/pfs/data.img"
 ssh core@"$HOST" 'cd pfs.git && hooks/post-receive'
 
 echo "Done."

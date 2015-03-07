@@ -56,6 +56,10 @@ func spinupContainer(image string, command []string) (string, error) {
 	return startContainer(image, command)
 }
 
+// This is where you'd find a stopContainer method. However we don't have one
+// because the docker package provides docker.StopContainer which does exactly
+// what we want.
+
 func ipAddr(containerId string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
