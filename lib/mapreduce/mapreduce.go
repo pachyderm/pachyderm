@@ -171,7 +171,6 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 		}
 		client := s3.New(auth, aws.USWest)
 
-		log.Print("job.Input: ", job.Input)
 		bucketName, err := getBucket(job.Input)
 		if err != nil {
 			log.Print(err)

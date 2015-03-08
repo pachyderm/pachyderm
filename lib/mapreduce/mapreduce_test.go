@@ -1,6 +1,7 @@
 package mapreduce
 
 import (
+	"fmt"
 	"log"
 	"testing"
 
@@ -17,10 +18,14 @@ func TestS3(t *testing.T) {
 	}
 	client := s3.New(auth, aws.USWest)
 	bucket := client.Bucket("pachyderm-data")
-	inFile, err := bucket.GetReader("chess/file000000000")
-	if err != nil {
-		log.Print(err)
-		return
+	for i := 0; i < 1000; i++ {
+		go func(i int) {
+			inFile, err := bucket.GetReader(fmt.Sprintf("chess/file%09d", i))
+			if err != nil {
+				log.Print(err)
+				return
+			}
+			inFile.Close()
+		}(i)
 	}
-	inFile.Close()
 }
