@@ -21,9 +21,9 @@ var shard, modulos uint64
 
 func parseArgs() {
 	// os.Args[1] looks like 2-16
-	dataRepo = "data-" + os.Args[1] + btrfs.RandSeq(4)
-	compRepo = "comp-" + os.Args[1] + btrfs.RandSeq(4)
-	logFile = "log-" + os.Args[1] + btrfs.RandSeq(4)
+	dataRepo = "data-" + os.Args[1]
+	compRepo = "comp-" + os.Args[1]
+	logFile = "log-" + os.Args[1]
 	s_m := strings.Split(os.Args[1], "-")
 	var err error
 	shard, err = strconv.ParseUint(s_m[0], 10, 64)

@@ -2,7 +2,10 @@ package mapreduce
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"os"
+	"sync"
 	"testing"
 
 	"github.com/mitchellh/goamz/aws"
@@ -18,13 +21,18 @@ func TestS3(t *testing.T) {
 	}
 	client := s3.New(auth, aws.USWest)
 	bucket := client.Bucket("pachyderm-data")
-	for i := 0; i < 1000; i++ {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	for i := 0; i < 5000; i++ {
+		wg.Add(1)
 		go func(i int) {
+			defer wg.Done()
 			inFile, err := bucket.GetReader(fmt.Sprintf("chess/file%09d", i))
 			if err != nil {
 				log.Print(err)
 				return
 			}
+			io.Copy(os.Stdout, inFile)
 			inFile.Close()
 		}(i)
 	}
