@@ -30,7 +30,7 @@ echo "done."
 sudo docker kill pfs 2>/dev/null >/dev/null
 sudo docker rm pfs 2>/dev/null >/dev/null
 echo "Launching server... (this requires sudo)"
-sudo docker run -i \
+sudo docker run \
     --privileged=true \
     --name pfs \
     -v /:/host:ro \
@@ -40,5 +40,5 @@ sudo docker run -i \
     -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
     -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
     -p "$PORT":80 \
-    -i pachyderm/pfs \
+    -ti pachyderm/pfs \
     /go/bin/master 0-1
