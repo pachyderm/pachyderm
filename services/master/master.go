@@ -276,7 +276,6 @@ func main() {
 		log.Fatal(err)
 	}
 	defer logF.Close()
-	log.Print("Logging to: ", path.Join("/var/lib/pfs/log", logFile))
 	log.SetOutput(logF)
 	if err := btrfs.Ensure(dataRepo); err != nil {
 		log.Fatal(err)
