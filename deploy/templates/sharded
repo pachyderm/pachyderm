@@ -16,10 +16,10 @@ ExecStartPre = -/bin/sh -c "echo $(mount `etcdctl get /pfs/config/DISK` /var/lib
 ExecStart = /bin/sh -c "echo $(docker run \
             --privileged=true \
             --name {{.Name}}-{{.Shard}}-{{.Nshards}} \
+            -v /:/host:ro \
+            -v /var/lib/pfs/vol:/host/var/lib/pfs/vol \
             -v /var/lib/pfs:/var/lib/pfs \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            -v /usr/sbin/btrfs:/usr/sbin/btrfs.host \
-            -v /lib64:/lib64.host \
             -e AWS_ACCESS_KEY_ID=`etcdctl get /pfs/creds/AWS_ACCESS_KEY_ID` \
             -e AWS_SECRET_ACCESS_KEY=`etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY` \
             -p {{.Port}}:80 \
