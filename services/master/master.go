@@ -174,7 +174,11 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else if r.Method == "POST" {
-		err := btrfs.Commit(dataRepo, commitParam(r), branchParam(r))
+		var commit string
+		if commit = r.URL.Query().Get("commit"); commit == "" {
+			commit = uuid.New()
+		}
+		err := btrfs.Commit(dataRepo, commit, branchParam(r))
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
@@ -183,14 +187,14 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 
 		if materializeParam(r) == "true" {
 			go func() {
-				err := mapreduce.Materialize(dataRepo, branchParam(r), commitParam(r), compRepo, jobDir, shard, modulos)
+				err := mapreduce.Materialize(dataRepo, branchParam(r), commit, compRepo, jobDir, shard, modulos)
 				if err != nil {
 					log.Print(err)
 				}
 			}()
 		}
 
-		fmt.Fprint(w, commitParam(r))
+		fmt.Fprint(w, commit)
 	} else {
 		http.Error(w, "Unsupported method.", http.StatusMethodNotAllowed)
 		log.Printf("Unsupported method %s in request to %s.", r.Method, r.URL.String())

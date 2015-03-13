@@ -81,6 +81,7 @@ func retry(f func() error, retries int, pause time.Duration) error {
 		if err == nil {
 			break
 		} else {
+			log.Print("Retrying due to error: ", err)
 			time.Sleep(pause)
 		}
 	}
@@ -197,26 +198,25 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 			defer wg.Done()
 			for name := range files {
 				func() { // function scope just so that defer works
-					var inFile io.ReadCloser
 					var err error
-					switch {
-					case getProtocol(job.Input) == ProtoPfs:
-						inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
-					case getProtocol(job.Input) == ProtoS3:
-						log.Print("File name: ", name)
-						inFile, err = bucket.GetReader(name)
-					default:
-						log.Print("It shouldn't be possible to get here.")
-						return
-					}
-					if err != nil {
-						log.Print(err)
-						return
-					}
-					defer inFile.Close()
-
 					var resp *http.Response
+
 					err = retry(func() error {
+						var inFile io.ReadCloser
+						switch {
+						case getProtocol(job.Input) == ProtoPfs:
+							inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
+						case getProtocol(job.Input) == ProtoS3:
+							log.Print("File name: ", name)
+							inFile, err = bucket.GetReader(name)
+						default:
+							return fmt.Errorf("Invalid protocol.")
+						}
+						if err != nil {
+							return err
+						}
+						defer inFile.Close()
+
 						log.Print(name, ": ", "Posting: ", "http://"+path.Join(host, name))
 						resp, err = client.Post("http://"+path.Join(host, name), "application/text", inFile)
 						log.Print(name, ": ", "Post done.")
