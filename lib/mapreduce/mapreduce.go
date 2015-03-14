@@ -50,11 +50,16 @@ func spinupContainer(image string, command []string) (string, error) {
 		return "", err
 	}
 	if err := docker.PullImage(image, nil); err != nil {
-		//return "", err this is erroring due to failing to parse response json
+		log.Print(err)
+		return "", err //this is erroring due to failing to parse response json
 	}
 
 	return startContainer(image, command)
 }
+
+// This is where you'd find a stopContainer method. However we don't have one
+// because the docker package provides docker.StopContainer which does exactly
+// what we want.
 
 func ipAddr(containerId string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
@@ -76,6 +81,7 @@ func retry(f func() error, retries int, pause time.Duration) error {
 		if err == nil {
 			break
 		} else {
+			log.Print("Retrying due to error: ", err)
 			time.Sleep(pause)
 		}
 	}
@@ -96,6 +102,7 @@ type Job struct {
 	Command  []string `json:"command"`
 	Limit    int      `json:"limit"`
 	Parallel int      `json:"parallel"`
+	TimeOut  int      `json:"timeout"`
 }
 
 type materializeInfo struct {
@@ -159,6 +166,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 	var bucket *s3.Bucket
 	if getProtocol(job.Input) == ProtoS3 {
 		auth, err := aws.EnvAuth()
+		log.Print("auth: %#v", auth)
 		if err != nil {
 			log.Print(err)
 			return
@@ -170,6 +178,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 			log.Print(err)
 			return
 		}
+		log.Print("bucketName: ", bucketName)
 		bucket = client.Bucket(bucketName)
 	}
 
@@ -188,45 +197,66 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 		go func(wg *sync.WaitGroup) {
 			defer wg.Done()
 			for name := range files {
-				var inFile io.ReadCloser
-				var err error
-				switch {
-				case getProtocol(job.Input) == ProtoPfs:
-					inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
-				case getProtocol(job.Input) == ProtoS3:
-					inFile, err = bucket.GetReader(name)
-				default:
-					log.Print("It shouldn't be possible to get here.")
-					continue
-				}
-				if err != nil {
-					log.Print(err)
-					return
-				}
-				defer inFile.Close()
+				func() { // function scope just so that defer works
+					var err error
+					var resp *http.Response
 
-				var resp *http.Response
-				err = retry(func() error {
-					log.Print("Posting: ", "http://"+path.Join(host, name))
-					resp, err = client.Post("http://"+path.Join(host, name), "application/text", inFile)
-					return err
-				}, retries, 200*time.Millisecond)
-				if err != nil {
-					log.Print(err)
-					return
-				}
-				defer resp.Body.Close()
+					err = retry(func() error {
+						var inFile io.ReadCloser
+						switch {
+						case getProtocol(job.Input) == ProtoPfs:
+							inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
+						case getProtocol(job.Input) == ProtoS3:
+							log.Print("File name: ", name)
+							inFile, err = bucket.GetReader(name)
+						default:
+							return fmt.Errorf("Invalid protocol.")
+						}
+						if err != nil {
+							return err
+						}
+						defer inFile.Close()
 
-				outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath, name))
-				if err != nil {
-					log.Print(err)
-					return
-				}
-				defer outFile.Close()
-				if _, err := io.Copy(outFile, resp.Body); err != nil {
-					log.Print(err)
-					return
-				}
+						log.Print(name, ": ", "Posting: ", "http://"+path.Join(host, name))
+						resp, err = client.Post("http://"+path.Join(host, name), "application/text", inFile)
+						log.Print(name, ": ", "Post done.")
+						return err
+					}, retries, 200*time.Millisecond)
+					if err != nil {
+						log.Print(err)
+						return
+					}
+					defer resp.Body.Close()
+
+					log.Print(name, ": ", "Creating file ", path.Join(m.Out, m.Branch, jobPath, name))
+					outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath, name))
+					if err != nil {
+						log.Print(err)
+						return
+					}
+					defer outFile.Close()
+					log.Print(name, ": ", "Opened outfile.")
+
+					wait := time.Minute * 10
+					if job.TimeOut != 0 {
+						wait = time.Duration(job.TimeOut) * time.Second
+					}
+					timer := time.AfterFunc(wait,
+						func() {
+							log.Print(name, ": ", "Timeout. Killing mapper.")
+							err := resp.Body.Close()
+							if err != nil {
+								log.Print(err)
+							}
+						})
+					defer log.Print("Result of timer.Stop(): ", timer.Stop())
+					log.Print(name, ": ", "Copying output...")
+					if _, err := io.Copy(outFile, resp.Body); err != nil {
+						log.Print(err)
+						return
+					}
+					log.Print(name, ": ", "Done copying.")
+				}()
 			}
 		}(&wg)
 	}
@@ -254,12 +284,12 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 		}
 		nextMarker := ""
 		for {
+			log.Print("s3: before List nextMarker = ", nextMarker)
 			lr, err := bucket.List(inPath, "", nextMarker, 0)
 			if err != nil {
 				log.Print(err)
 				return
 			}
-			nextMarker = lr.NextMarker
 			for _, key := range lr.Contents {
 				if route.HashResource(key.Key)%modulos == shard {
 					// This file belongs on this shard
@@ -269,6 +299,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 						break
 					}
 				}
+				nextMarker = key.Key
 			}
 			if !lr.IsTruncated {
 				// We've exhausted the output
@@ -415,7 +446,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 	if !exists {
 		// Perfectly valid to have no jobs dir, it just means we have no work
 		// to do.
-		log.Printf("Jobs dir doesn't exists:\n", path.Join(in_repo, commit, jobDir))
+		log.Print("Jobs dir doesn't exists:\n", path.Join(in_repo, commit, jobDir))
 		return nil
 	}
 

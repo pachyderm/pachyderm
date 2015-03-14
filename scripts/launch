@@ -1,0 +1,60 @@
+#!/bin/sh
+# Launch pfs in single node mode.
+###############################################################################
+set -E          # pass trap handlers down to subshells
+#set -x         # execution tracing debug messages
+
+USAGE="Usage: $0 [PORT]"
+
+# --- Options processing -------------------------------------------
+if [ $# -gt 1 ] ; then
+    echo $USAGE
+    exit 1;
+fi
+
+BTRFS_VERSION="$(which btrfs)" || { echo 'Please install btrfs-tools. (apt-get install btrfs-tools)' ; exit 1; }
+DOCKER_VERSION="$(docker --version | awk '{ print $3 }')"
+
+if [ "$DOCKER_VERSION" != "1.5.0," ] ; then
+    echo "docker 1.5.0 required"
+    echo "See: https://docs.docker.com/installation/ubuntulinux/#docker-maintained-package-installation"
+    exit 1;
+fi
+CMD="$0"
+CMD_DIR="$(cd "$(dirname "$CMD")" && pwd)"
+PFS_DIR=~/.pfs
+PORT=${1:-"650"}
+
+mkdir -p "$PFS_DIR"/vol
+echo -n "Creating file $PFS_DIR/data.img... "
+truncate "$PFS_DIR"/data.img -s 10G
+echo -n "done.\nCreating btrfs filesystem... "
+mkfs.btrfs "$PFS_DIR"/data.img 2>/dev/null >/dev/null
+echo -n "done.\nMounting $PFS_DIR/data.img on $PFS_DIR/vol... (this requires sudo) "
+sudo mount "$PFS_DIR"/data.img "$PFS_DIR"/vol 2>/dev/null >/dev/null
+echo -n "done.\nmkdir /var/lib/pfs/vol... (this requires sudo) "
+sudo mkdir -p /var/lib/pfs/vol
+echo "done."
+
+sudo docker kill pfs 2>/dev/null >/dev/null
+sudo docker rm pfs 2>/dev/null >/dev/null
+echo "Launching server... (this requires sudo)"
+echo "Container id:"
+sudo docker run -d \
+    --privileged=true \
+    --name pfs \
+    -v /:/host:ro \
+    -v "$PFS_DIR"/vol:/host/var/lib/pfs/vol \
+    -v "$PFS_DIR":/var/lib/pfs \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
+    -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+    -p "$PORT":80 \
+    -i pachyderm/pfs \
+    /go/bin/master 0-1
+echo "done."
+echo "Server is listening on localhost:$PORT"
+echo "Logging to ~/.pfs/log/log-0-1"
+echo "Data is stored in ~/.pfs/vol"
+echo "To kill:"
+echo "docker kill pfs"

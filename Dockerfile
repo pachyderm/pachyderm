@@ -13,6 +13,6 @@ ADD . /go/src/$PFS
 RUN go install -race $PFS/services/master && go install $PFS/services/router && go install $PFS/services/webhook && go install $PFS/deploy
 RUN ln $GOPATH/src/$PFS/scripts/pfs-test /usr/local/bin/pfs-test
 RUN ln $GOPATH/src/$PFS/scripts/pfs-bench /usr/local/bin/pfs-bench
-RUN ln $GOPATH/src/$PFS/scripts/btrfs-wrapper /usr/sbin/btrfs
+RUN ln $GOPATH/src/$PFS/scripts/btrfs-wrapper /bin/btrfs
 
 EXPOSE 80

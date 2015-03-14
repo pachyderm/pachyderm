@@ -1,0 +1,10 @@
+#!/bin/sh
+# Cleanup the state created by scripts/launch
+###############################################################################
+set -E          # pass trap handlers down to subshells
+#set -x         # execution tracing debug messages
+
+PFS_DIR=~/.pfs
+
+sudo umount "$PFS_DIR"/vol || true
+rm "$PFS_DIR"/data.img || true

@@ -1,5 +1,5 @@
 #!/bin/sh
 
-# This script gets injected in to the docker container as /usr/sbin/btrfs
+# This script gets injected in to the docker container as /bin/btrfs
 
-LD_LIBRARY_PATH=/lib64.host /usr/sbin/btrfs.host $@
+chroot /host btrfs $@
