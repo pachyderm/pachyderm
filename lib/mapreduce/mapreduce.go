@@ -50,8 +50,8 @@ func spinupContainer(image string, command []string) (string, error) {
 		return "", err
 	}
 	if err := docker.PullImage(image, nil); err != nil {
-		log.Print(err)
-		return "", err //this is erroring due to failing to parse response json
+		log.Print("Failed to pull ", image, " with error: ", err)
+		// We keep going here because it might be a local image.
 	}
 
 	return startContainer(image, command)
@@ -184,7 +184,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	client := &http.Client{}
+	client := &http.Client{Timeout: time.Duration(job.TimeOut) * time.Second}
 
 	nGoros := 300
 	if job.Parallel > 0 {
@@ -194,37 +194,32 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 	defer close(files)
 	for i := 0; i < nGoros; i++ {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup) {
+		go func() {
 			defer wg.Done()
 			for name := range files {
-				func() { // function scope just so that defer works
+				err = retry(func() error {
 					var err error
-					var resp *http.Response
-
-					err = retry(func() error {
-						var inFile io.ReadCloser
-						switch {
-						case getProtocol(job.Input) == ProtoPfs:
-							inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
-						case getProtocol(job.Input) == ProtoS3:
-							log.Print("File name: ", name)
-							inFile, err = bucket.GetReader(name)
-						default:
-							return fmt.Errorf("Invalid protocol.")
-						}
-						if err != nil {
-							return err
-						}
-						defer inFile.Close()
-
-						log.Print(name, ": ", "Posting: ", "http://"+path.Join(host, name))
-						resp, err = client.Post("http://"+path.Join(host, name), "application/text", inFile)
-						log.Print(name, ": ", "Post done.")
-						return err
-					}, retries, 200*time.Millisecond)
+					var inFile io.ReadCloser
+					switch {
+					case getProtocol(job.Input) == ProtoPfs:
+						inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
+					case getProtocol(job.Input) == ProtoS3:
+						inFile, err = bucket.GetReader(name)
+					default:
+						return fmt.Errorf("Invalid protocol.")
+					}
 					if err != nil {
 						log.Print(err)
-						return
+						return err
+					}
+					defer inFile.Close()
+
+					log.Print(name, ": ", "Posting: ", "http://"+path.Join(host, name))
+					resp, err := client.Post("http://"+path.Join(host, name), "application/text", inFile)
+					log.Print(name, ": ", "Post done.")
+					if err != nil {
+						log.Print(err)
+						return err
 					}
 					defer resp.Body.Close()
 
@@ -232,33 +227,24 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 					outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath, name))
 					if err != nil {
 						log.Print(err)
-						return
+						return err
 					}
 					defer outFile.Close()
-					log.Print(name, ": ", "Opened outfile.")
-
-					wait := time.Minute * 10
-					if job.TimeOut != 0 {
-						wait = time.Duration(job.TimeOut) * time.Second
-					}
-					timer := time.AfterFunc(wait,
-						func() {
-							log.Print(name, ": ", "Timeout. Killing mapper.")
-							err := resp.Body.Close()
-							if err != nil {
-								log.Print(err)
-							}
-						})
-					defer log.Print("Result of timer.Stop(): ", timer.Stop())
+					log.Print(name, ": ", "Created outfile.")
 					log.Print(name, ": ", "Copying output...")
+
 					if _, err := io.Copy(outFile, resp.Body); err != nil {
 						log.Print(err)
-						return
+						return err
 					}
 					log.Print(name, ": ", "Done copying.")
-				}()
+					return nil
+				}, retries, 500*time.Millisecond)
+				if err != nil {
+					log.Print(err)
+				}
 			}
-		}(&wg)
+		}()
 	}
 	fileCount := 0
 	switch {
