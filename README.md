@@ -50,7 +50,7 @@ running `npm install opencv` inside a Docker container and creating a node.js se
 ### Run Pachyderm locally on a small sample dataset
 ```shell
 # launch a local pfs shard
-$ curl pachyderm.io/launch | sh
+$ curl www.pachyderm.io/launch | sh
  
 # clone the chess pipeline
 $ git clone https://github.com/pachyderm/chess.git && cd chess
