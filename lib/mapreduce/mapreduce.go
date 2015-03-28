@@ -149,7 +149,7 @@ func getPath(input string) (string, error) {
 	return path.Join(strings.Split(strings.TrimPrefix(input, "s3://"), "/")[1:]...), nil
 }
 
-func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos uint64) {
+func Map(job Job, jobPath string, m materializeInfo, pool *Pool, shard, modulos uint64) {
 	err := PrepJob(job, path.Base(jobPath), m)
 	if err != nil {
 		log.Print(err)
@@ -214,8 +214,11 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 					}
 					defer inFile.Close()
 
-					log.Print(name, ": ", "Posting: ", "http://"+path.Join(host, name))
-					resp, err := client.Post("http://"+path.Join(host, name), "application/text", inFile)
+					c := pool.Get()
+					log.Printf("Got container: %#v", *c)
+					defer pool.Put(c)
+					log.Print(name, ": ", "Posting: ", "http://"+path.Join(c.Host, name))
+					resp, err := client.Post("http://"+path.Join(c.Host, name), "application/text", inFile)
 					log.Print(name, ": ", "Post done.")
 					if err != nil {
 						log.Print(err)
@@ -302,7 +305,7 @@ func Map(job Job, jobPath string, m materializeInfo, host string, shard, modulos
 	}
 }
 
-func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modulos uint64) {
+func Reduce(job Job, jobPath string, m materializeInfo, pool *Pool, shard, modulos uint64) {
 	if (route.HashResource(path.Join("/job", jobPath)) % modulos) != shard {
 		// This resource isn't supposed to be located on this machine so we
 		// don't need to materialize it.
@@ -332,8 +335,10 @@ func Reduce(job Job, jobPath string, m materializeInfo, host string, shard, modu
 	defer reader.Close()
 
 	var resp *http.Response
+	c := pool.Get()
+	defer pool.Put(c)
 	err = retry(func() error {
-		resp, err = http.Post("http://"+path.Join(host, job.Input), "application/text", reader)
+		resp, err = http.Post("http://"+path.Join(c.Host, job.Input), "application/text", reader)
 		return err
 	}, retries, 200*time.Millisecond)
 	if err != nil {
@@ -437,11 +442,6 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 	}
 
 	log.Print("Make docker client.")
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	if err != nil {
-		log.Print(err)
-		return err
-	}
 	//log.Print("Find new files.")
 	//newFiles, err := btrfs.NewFiles(in_repo, commit)
 	//if err != nil {
@@ -479,24 +479,17 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 			log.Print("Job: ", job)
 			m := materializeInfo{in_repo, out_repo, branch, commit}
 
-			var containerId string
-			containerId, err = spinupContainer(job.Image, job.Command)
+			pool, err := NewPool(2, 2, job.Image, job.Command)
 			if err != nil {
 				log.Print(err)
 				return
 			}
-			defer docker.StopContainer(containerId, 5)
-
-			containerAddr, err := ipAddr(containerId)
-			if err != nil {
-				log.Print(err)
-				return
-			}
+			defer pool.Shutdown()
 
 			if job.Type == "map" {
-				Map(job, jobInfo.Name(), m, containerAddr, shard, modulos)
+				Map(job, jobInfo.Name(), m, pool, shard, modulos)
 			} else if job.Type == "reduce" {
-				Reduce(job, jobInfo.Name(), m, containerAddr, shard, modulos)
+				Reduce(job, jobInfo.Name(), m, pool, shard, modulos)
 			} else {
 				log.Printf("Job %s has unrecognized type: %s.", jobInfo.Name(), job.Type)
 			}
