@@ -20,6 +20,9 @@ if [ "$DOCKER_VERSION" != "1.5.0," ] ; then
     echo "See: https://docs.docker.com/installation/ubuntulinux/#docker-maintained-package-installation"
     exit 1;
 fi
+
+btrfs --version | grep 3.14 || { echo 'Upgrade btrfs-tools to 3.14.' ; exit 1; }
+
 CMD="$0"
 CMD_DIR="$(cd "$(dirname "$CMD")" && pwd)"
 PFS_DIR=~/.pfs
