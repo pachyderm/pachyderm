@@ -4,13 +4,26 @@
 set -E          # pass trap handlers down to subshells
 #set -x         # execution tracing debug messages
 
-USAGE="Usage: $0 [PORT]"
+HELP="A script to launch pfs in single node mode.\nUsage: $0 [-p port] [-i image]"
 
 # --- Options processing -------------------------------------------
-if [ $# -gt 1 ] ; then
-    echo $USAGE
-    exit 1;
-fi
+OPTIND=1         # Reset in case getopts has been used previously in the shell.
+
+# Initialize our own variables:
+PORT="650"
+IMAGE="pachyderm/pfs"
+
+while getopts "p:i:" opt; do
+    case "$opt" in
+    \?)  echo $HELP
+        exit 0
+        ;;
+    p)  PORT=$OPTARG
+        ;;
+    i)  IMAGE=$OPTARG
+        ;;
+    esac
+done
 
 BTRFS_VERSION="$(which btrfs)" || { echo 'Please install btrfs-tools. (apt-get install btrfs-tools)' ; exit 1; }
 DOCKER_VERSION="$(docker --version | awk '{ print $3 }')"
@@ -23,7 +36,6 @@ fi
 CMD="$0"
 CMD_DIR="$(cd "$(dirname "$CMD")" && pwd)"
 PFS_DIR=~/.pfs
-PORT=${1:-"650"}
 
 mkdir -p "$PFS_DIR"/vol
 echo -n "Creating file $PFS_DIR/data.img... "
@@ -38,7 +50,7 @@ echo "done."
 
 sudo docker kill pfs 2>/dev/null >/dev/null
 sudo docker rm pfs 2>/dev/null >/dev/null
-echo "Launching server... (this requires sudo)"
+echo "Launching container $IMAGE... (this requires sudo)"
 echo "Container id:"
 sudo docker run -d \
     --privileged=true \
@@ -50,7 +62,7 @@ sudo docker run -d \
     -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
     -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
     -p "$PORT":80 \
-    -i pachyderm/pfs \
+    -i "$IMAGE" \
     /go/bin/master 0-1
 echo "done."
 echo "Server is listening on localhost:$PORT"
