@@ -57,9 +57,15 @@ func spinupContainer(image string, command []string) (string, error) {
 	return startContainer(image, command)
 }
 
-// This is where you'd find a stopContainer method. However we don't have one
-// because the docker package provides docker.StopContainer which does exactly
-// what we want.
+func stopContainer(containerId string) error {
+	log.Print("stopContainer", " ", containerId)
+	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	return docker.StopContainer(containerId, 5)
+}
 
 func ipAddr(containerId string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
@@ -149,7 +155,7 @@ func getPath(input string) (string, error) {
 	return path.Join(strings.Split(strings.TrimPrefix(input, "s3://"), "/")[1:]...), nil
 }
 
-func Map(job Job, jobPath string, m materializeInfo, pool *Pool, shard, modulos uint64) {
+func Map(job Job, jobPath string, m materializeInfo, image string, cmd []string, shard, modulos uint64) {
 	err := PrepJob(job, path.Base(jobPath), m)
 	if err != nil {
 		log.Print(err)
@@ -197,6 +203,22 @@ func Map(job Job, jobPath string, m materializeInfo, pool *Pool, shard, modulos 
 		go func() {
 			defer wg.Done()
 			for name := range files {
+				// Spinup a Mapper()
+				containerId, err := spinupContainer(image, cmd)
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				// Make sure that the Mapper gets cleaned up
+				defer func() {
+					if err := stopContainer(containerId); err != nil {
+						log.Print(err)
+					}
+				}()
+				// This retry is because we don't have a great way to tell when
+				// the containers http server is actually listening. It also
+				// can help in cases where a user has written a job that fails
+				// intermittently.
 				err = retry(func() error {
 					var err error
 					var inFile io.ReadCloser
@@ -214,11 +236,15 @@ func Map(job Job, jobPath string, m materializeInfo, pool *Pool, shard, modulos 
 					}
 					defer inFile.Close()
 
-					c := pool.Get()
-					log.Printf("Got container: %#v", *c)
-					defer pool.Put(c)
-					log.Print(name, ": ", "Posting: ", "http://"+path.Join(c.Host, name))
-					resp, err := client.Post("http://"+path.Join(c.Host, name), "application/text", inFile)
+					// get the host for the Mapper
+					host, err := ipAddr(containerId)
+					if err != nil {
+						log.Print(err)
+						return err
+					}
+
+					log.Print(name, ": ", "Posting: ", "http://"+path.Join(host, name))
+					resp, err := client.Post("http://"+path.Join(host, name), "application/text", inFile)
 					log.Print(name, ": ", "Post done.")
 					if err != nil {
 						log.Print(err)
@@ -305,7 +331,7 @@ func Map(job Job, jobPath string, m materializeInfo, pool *Pool, shard, modulos 
 	}
 }
 
-func Reduce(job Job, jobPath string, m materializeInfo, pool *Pool, shard, modulos uint64) {
+func Reduce(job Job, jobPath string, m materializeInfo, image string, cmd []string, shard, modulos uint64) {
 	if (route.HashResource(path.Join("/job", jobPath)) % modulos) != shard {
 		// This resource isn't supposed to be located on this machine so we
 		// don't need to materialize it.
@@ -334,11 +360,26 @@ func Reduce(job Job, jobPath string, m materializeInfo, pool *Pool, shard, modul
 	}
 	defer reader.Close()
 
+	// Spinup a Mapper()
+	containerId, err := spinupContainer(image, cmd)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	// Make sure that the Mapper gets cleaned up
+	defer func() {
+		if err := stopContainer(containerId); err != nil {
+			log.Print(err)
+		}
+	}()
+	host, err := ipAddr(containerId)
+	if err != nil {
+		log.Print(err)
+		return
+	}
 	var resp *http.Response
-	c := pool.Get()
-	defer pool.Put(c)
 	err = retry(func() error {
-		resp, err = http.Post("http://"+path.Join(c.Host, job.Input), "application/text", reader)
+		resp, err = http.Post("http://"+path.Join(host, job.Input), "application/text", reader)
 		return err
 	}, retries, 200*time.Millisecond)
 	if err != nil {
@@ -479,17 +520,10 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 			log.Print("Job: ", job)
 			m := materializeInfo{in_repo, out_repo, branch, commit}
 
-			pool, err := NewPool(2, 2, job.Image, job.Command)
-			if err != nil {
-				log.Print(err)
-				return
-			}
-			defer pool.Shutdown()
-
 			if job.Type == "map" {
-				Map(job, jobInfo.Name(), m, pool, shard, modulos)
+				Map(job, jobInfo.Name(), m, job.Image, job.Command, shard, modulos)
 			} else if job.Type == "reduce" {
-				Reduce(job, jobInfo.Name(), m, pool, shard, modulos)
+				Reduce(job, jobInfo.Name(), m, job.Image, job.Command, shard, modulos)
 			} else {
 				log.Printf("Job %s has unrecognized type: %s.", jobInfo.Name(), job.Type)
 			}
