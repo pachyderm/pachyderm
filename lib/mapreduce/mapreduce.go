@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/mitchellh/goamz/aws"
@@ -223,12 +222,12 @@ func mapFile(filename, jobName string, job Job, m materializeInfo) error {
 		log.Print(filename, ": ", "Posting: ", "http://"+path.Join(host, filename))
 		client := &http.Client{Timeout: time.Duration(job.TimeOut) * time.Second}
 		resp, err := client.Post("http://"+path.Join(host, filename), "application/text", inFile)
-		log.Print(filename, ": ", "Post done.")
 		if err != nil {
 			log.Print(err)
 			return err
 		}
 		defer resp.Body.Close()
+		log.Print(filename, ": ", "Post done.")
 
 		log.Print(filename, ": ", "Creating file ", path.Join(m.Out, m.Branch, jobName, filename))
 		outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobName, filename))
@@ -366,40 +365,13 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 		return
 	}
 
-	var reader io.ReadCloser
-	if modulos == 1 {
-		// We're in single node mode so we can do something much simpler
-		resp, err := http.Get("http://localhost/" + path.Join(job.Input, "file", "*") + "?commit=" + m.Commit)
-		if err != nil {
-			log.Print(err)
-			return
-		}
-		reader = resp.Body
-	} else {
-		err := retry(func() error {
-			// Notice we're just passing "host" here. Multicast will fill in the host
-			// field so we don't actually need to specify it.
-			req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*")+"?commit="+m.Commit, nil)
-			if err != nil {
-				return err
-			}
-			reader, err = route.Multicast(req, "/pfs/master")
-			return err
-		}, retries, time.Minute)
-		if err != nil {
-			log.Print(err)
-			return
-		}
-	}
-	defer reader.Close()
-
-	// Spinup a Mapper()
+	// Spinup a Reducer()
 	containerId, err := spinupContainer(job.Image, job.Cmd)
 	if err != nil {
 		log.Print(err)
 		return
 	}
-	// Make sure that the Mapper gets cleaned up
+	// Make sure that the Reducer gets cleaned up
 	defer func() {
 		if err := stopContainer(containerId); err != nil {
 			log.Print(err)
@@ -410,8 +382,36 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 		log.Print(err)
 		return
 	}
+
 	var resp *http.Response
 	err = retry(func() error {
+		var reader io.ReadCloser
+		if modulos == 1 {
+			// We're in single node mode so we can do something much simpler
+			resp, err := http.Get("http://localhost/" + path.Join(job.Input, "file", "*") + "?commit=" + m.Commit)
+			if err != nil {
+				log.Print(err)
+				return err
+			}
+			reader = resp.Body
+		} else {
+			err := retry(func() error {
+				// Notice we're just passing "host" here. Multicast will fill in the host
+				// field so we don't actually need to specify it.
+				req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*")+"?commit="+m.Commit, nil)
+				if err != nil {
+					return err
+				}
+				reader, err = route.Multicast(req, "/pfs/master")
+				return err
+			}, retries, time.Minute)
+			if err != nil {
+				log.Print(err)
+				return err
+			}
+		}
+		defer reader.Close()
+
 		resp, err = http.Post("http://"+path.Join(host, job.Input), "application/text", reader)
 		return err
 	}, retries, 200*time.Millisecond)
@@ -435,30 +435,34 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 		log.Print(err)
 		return
 	}
-	log.Print(nil)
-	return
 }
 
 // Materialize parses the jobs found in `in_repo`/`commit`/`jobDir` runs them
-// with `in_repo/commit` as input, outputs the results to `out_repo`/`branch`
-// and commits them as `out_repo`/`commit`
-func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulos uint64) error {
-	log.Printf("Materialize: %s %s %s %s %s.", in_repo, branch, commit, out_repo, jobDir)
-	exists, err := btrfs.FileExists(path.Join(out_repo, branch))
+// with `in_repo/commit` as input, outputs the results to `outRepo`/`branch`
+// and commits them as `outRepo`/`commit`
+func Materialize(in_repo, branch, commit, outRepo, jobDir string, shard, modulos uint64) error {
+	log.Printf("Materialize: %s %s %s %s %s.", in_repo, branch, commit, outRepo, jobDir)
+	exists, err := btrfs.FileExists(path.Join(outRepo, branch))
 	if err != nil {
 		log.Print(err)
 		return err
 	}
 	if !exists {
-		if err := btrfs.Branch(out_repo, "t0", branch); err != nil {
+		if err := btrfs.Branch(outRepo, "t0", branch); err != nil {
 			log.Print(err)
 			return err
 		}
 	}
+	/* We use the .progress dir to indicate if a job has been completed in this
+	* materialization. */
+	if err := btrfs.MkdirAll(path.Join(outRepo, branch, ".progress", commit)); err != nil {
+		log.Print(err)
+		return err
+	}
 	// We make sure that this function always commits so that we know the comp
 	// repo stays in sync with the data repo.
 	defer func() {
-		if err := btrfs.Commit(out_repo, commit, branch); err != nil {
+		if err := btrfs.Commit(outRepo, commit, branch); err != nil {
 			log.Print("DEFERED: btrfs.Commit error in Materialize: ", err)
 		}
 	}()
@@ -475,14 +479,6 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 		return nil
 	}
 
-	//log.Print("Find new files.")
-	//newFiles, err := btrfs.NewFiles(in_repo, commit)
-	//if err != nil {
-	//	log.Print(err)
-	//	return err
-	//}
-	//sort.Strings(newFiles)
-
 	jobsPath := path.Join(in_repo, commit, jobDir)
 	jobs, err := btrfs.ReadDir(jobsPath)
 	if err != nil {
@@ -494,30 +490,15 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 	for _, jobInfo := range jobs {
 		wg.Add(1)
 		go func(jobInfo os.FileInfo) {
-			// First create the job's directory and lock it.
-			err := btrfs.MkdirAll(path.Join(out_repo, branch, jobInfo.Name()))
-			if err != nil {
-				log.Print(err)
-				return
-			}
-			fd, err := btrfs.OpenFd(path.Join(out_repo, branch, jobInfo.Name()),
-				syscall.O_RDONLY, 0777)
-			if err != nil {
-				log.Print(err)
-				return
-			}
-			err = syscall.Flock(fd, syscall.LOCK_EX)
-			if err != nil {
-				log.Print(err)
-				return
-			}
-			/* This makes sure that we'll release the lock when we're done. */
 			defer func() {
-				err = syscall.Flock(fd, syscall.LOCK_UN)
+				f, err := btrfs.Create(path.Join(outRepo, branch, ".progress", commit, jobInfo.Name()))
 				if err != nil {
 					log.Print(err)
+					return
 				}
+				f.Close()
 			}()
+			// First create the job's directory and lock it.
 			log.Print("Running job:\n", jobInfo.Name())
 			defer wg.Done()
 			jobFile, err := btrfs.Open(path.Join(jobsPath, jobInfo.Name()))
@@ -533,7 +514,7 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 				return
 			}
 			log.Print("Job: ", job)
-			m := materializeInfo{in_repo, out_repo, branch, commit}
+			m := materializeInfo{in_repo, outRepo, branch, commit}
 
 			if job.Type == "map" {
 				Map(job, jobInfo.Name(), m, shard, modulos)
@@ -545,4 +526,9 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 		}(jobInfo)
 	}
 	return nil
+}
+
+func WaitJob(outRepo, branch, commit, job string) error {
+	log.Printf("WaitJob: %s %s %s %s", outRepo, branch, commit, job)
+	return btrfs.WaitForFile(path.Join(outRepo, branch, ".progress", commit, job))
 }

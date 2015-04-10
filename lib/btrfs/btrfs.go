@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"code.google.com/p/go-uuid/uuid"
+	"github.com/go-fsnotify/fsnotify"
 	"github.com/pachyderm/pfs/lib/shell"
 )
 
@@ -98,6 +99,10 @@ func Remove(name string) error {
 	return os.Remove(FilePath(name))
 }
 
+func RemoveAll(name string) error {
+	return os.RemoveAll(FilePath(name))
+}
+
 func Rename(oldname, newname string) error {
 	return os.Rename(FilePath(oldname), FilePath(newname))
 }
@@ -160,6 +165,50 @@ func LazyWalk(name string, f func(string) error) error {
 	}
 	if err != io.EOF {
 		return err
+	}
+	return nil
+}
+
+func WaitForFile(name string) error {
+	if err := MkdirAll(path.Dir(name)); err != nil {
+		log.Print(err)
+		return err
+	}
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	defer watcher.Close()
+
+	if err := watcher.Add(FilePath(path.Dir(name))); err != nil {
+		log.Print(err)
+		return err
+	}
+
+	exists, err := FileExists(name)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	if exists {
+		log.Print("File exists, returning.")
+		return nil
+	}
+
+	log.Print("File doesn't exist. Waiting for it...")
+	for {
+		select {
+		case event := <-watcher.Events:
+			log.Print(event)
+			if event.Op == fsnotify.Create && event.Name == FilePath(name) {
+				return nil
+			}
+		case err := <-watcher.Errors:
+			log.Print(err)
+			return err
+		}
 	}
 	return nil
 }
