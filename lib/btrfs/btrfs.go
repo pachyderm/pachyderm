@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"code.google.com/p/go-uuid/uuid"
@@ -78,6 +79,10 @@ func Open(name string) (*os.File, error) {
 
 func OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
 	return os.OpenFile(FilePath(name), flag, perm)
+}
+
+func OpenFd(name string, mode int, perm uint32) (int, error) {
+	return syscall.Open(FilePath(name), mode, perm)
 }
 
 func WriteFile(name string, r io.Reader) (int64, error) {

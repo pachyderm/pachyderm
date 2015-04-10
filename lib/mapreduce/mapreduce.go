@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/mitchellh/goamz/aws"
@@ -105,7 +106,7 @@ type Job struct {
 	Type     string   `json:"type"`
 	Input    string   `json:"input"`
 	Image    string   `json:"image"`
-	Command  []string `json:"command"`
+	Cmd      []string `json:"command"`
 	Limit    int      `json:"limit"`
 	Parallel int      `json:"parallel"`
 	TimeOut  int      `json:"timeout"`
@@ -115,8 +116,8 @@ type materializeInfo struct {
 	In, Out, Branch, Commit string
 }
 
-func PrepJob(job Job, jobPath string, m materializeInfo) error {
-	if err := btrfs.MkdirAll(path.Join(m.Out, m.Branch, jobPath)); err != nil {
+func PrepJob(job Job, jobName string, m materializeInfo) error {
+	if err := btrfs.MkdirAll(path.Join(m.Out, m.Branch, jobName)); err != nil {
 		return err
 	}
 	return nil
@@ -155,8 +156,106 @@ func getPath(input string) (string, error) {
 	return path.Join(strings.Split(strings.TrimPrefix(input, "s3://"), "/")[1:]...), nil
 }
 
-func Map(job Job, jobPath string, m materializeInfo, image string, cmd []string, shard, modulos uint64) {
-	err := PrepJob(job, path.Base(jobPath), m)
+func newBucket(bucketName string) (*s3.Bucket, error) {
+	auth, err := aws.EnvAuth()
+	log.Print("auth: %#v", auth)
+	if err != nil {
+		log.Print(err)
+		return nil, err
+	}
+	client := s3.New(auth, aws.USWest)
+
+	log.Print("bucketName: ", bucketName)
+	return client.Bucket(bucketName), nil
+}
+
+func mapFile(filename, jobName string, job Job, m materializeInfo) error {
+	// Spinup a Mapper()
+	containerId, err := spinupContainer(job.Image, job.Cmd)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	// Make sure that the Mapper gets cleaned up
+	defer func() {
+		if err := stopContainer(containerId); err != nil {
+			log.Print(err)
+		}
+	}()
+	// This retry is because we don't have a great way to tell when
+	// the containers http server is actually listening. It also
+	// can help in cases where a user has written a job that fails
+	// intermittently.
+	err = retry(func() error {
+		var err error
+		var inFile io.ReadCloser
+		switch {
+		case getProtocol(job.Input) == ProtoPfs:
+			inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, filename))
+		case getProtocol(job.Input) == ProtoS3:
+			bucketName, err := getBucket(job.Input)
+			if err != nil {
+				log.Print(err)
+				return err
+			}
+			bucket, err := newBucket(bucketName)
+			if err != nil {
+				log.Print(err)
+				return err
+			}
+			inFile, err = bucket.GetReader(filename)
+		default:
+			return fmt.Errorf("Invalid protocol.")
+		}
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+		defer inFile.Close()
+
+		// get the host for the Mapper
+		host, err := ipAddr(containerId)
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+
+		log.Print(filename, ": ", "Posting: ", "http://"+path.Join(host, filename))
+		client := &http.Client{Timeout: time.Duration(job.TimeOut) * time.Second}
+		resp, err := client.Post("http://"+path.Join(host, filename), "application/text", inFile)
+		log.Print(filename, ": ", "Post done.")
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+		defer resp.Body.Close()
+
+		log.Print(filename, ": ", "Creating file ", path.Join(m.Out, m.Branch, jobName, filename))
+		outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobName, filename))
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+		defer outFile.Close()
+		log.Print(filename, ": ", "Created outfile.")
+		log.Print(filename, ": ", "Copying output...")
+
+		if _, err := io.Copy(outFile, resp.Body); err != nil {
+			log.Print(err)
+			return err
+		}
+		log.Print(filename, ": ", "Done copying.")
+		return nil
+	}, retries, 500*time.Millisecond)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	return nil
+}
+
+func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
+	err := PrepJob(job, path.Base(jobName), m)
 	if err != nil {
 		log.Print(err)
 		return
@@ -169,28 +268,8 @@ func Map(job Job, jobPath string, m materializeInfo, image string, cmd []string,
 
 	files := make(chan string)
 
-	var bucket *s3.Bucket
-	if getProtocol(job.Input) == ProtoS3 {
-		auth, err := aws.EnvAuth()
-		log.Print("auth: %#v", auth)
-		if err != nil {
-			log.Print(err)
-			return
-		}
-		client := s3.New(auth, aws.USWest)
-
-		bucketName, err := getBucket(job.Input)
-		if err != nil {
-			log.Print(err)
-			return
-		}
-		log.Print("bucketName: ", bucketName)
-		bucket = client.Bucket(bucketName)
-	}
-
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	client := &http.Client{Timeout: time.Duration(job.TimeOut) * time.Second}
 
 	nGoros := 300
 	if job.Parallel > 0 {
@@ -203,73 +282,7 @@ func Map(job Job, jobPath string, m materializeInfo, image string, cmd []string,
 		go func() {
 			defer wg.Done()
 			for name := range files {
-				// Spinup a Mapper()
-				containerId, err := spinupContainer(image, cmd)
-				if err != nil {
-					log.Print(err)
-					return
-				}
-				// Make sure that the Mapper gets cleaned up
-				defer func() {
-					if err := stopContainer(containerId); err != nil {
-						log.Print(err)
-					}
-				}()
-				// This retry is because we don't have a great way to tell when
-				// the containers http server is actually listening. It also
-				// can help in cases where a user has written a job that fails
-				// intermittently.
-				err = retry(func() error {
-					var err error
-					var inFile io.ReadCloser
-					switch {
-					case getProtocol(job.Input) == ProtoPfs:
-						inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, name))
-					case getProtocol(job.Input) == ProtoS3:
-						inFile, err = bucket.GetReader(name)
-					default:
-						return fmt.Errorf("Invalid protocol.")
-					}
-					if err != nil {
-						log.Print(err)
-						return err
-					}
-					defer inFile.Close()
-
-					// get the host for the Mapper
-					host, err := ipAddr(containerId)
-					if err != nil {
-						log.Print(err)
-						return err
-					}
-
-					log.Print(name, ": ", "Posting: ", "http://"+path.Join(host, name))
-					resp, err := client.Post("http://"+path.Join(host, name), "application/text", inFile)
-					log.Print(name, ": ", "Post done.")
-					if err != nil {
-						log.Print(err)
-						return err
-					}
-					defer resp.Body.Close()
-
-					log.Print(name, ": ", "Creating file ", path.Join(m.Out, m.Branch, jobPath, name))
-					outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath, name))
-					if err != nil {
-						log.Print(err)
-						return err
-					}
-					defer outFile.Close()
-					log.Print(name, ": ", "Created outfile.")
-					log.Print(name, ": ", "Copying output...")
-
-					if _, err := io.Copy(outFile, resp.Body); err != nil {
-						log.Print(err)
-						return err
-					}
-					log.Print(name, ": ", "Done copying.")
-					return nil
-				}, retries, 500*time.Millisecond)
-				if err != nil {
+				if err := mapFile(name, jobName, job, m); err != nil {
 					log.Print(err)
 				}
 			}
@@ -292,6 +305,16 @@ func Map(job Job, jobPath string, m materializeInfo, image string, cmd []string,
 			return
 		}
 	case getProtocol(job.Input) == ProtoS3:
+		bucketName, err := getBucket(job.Input)
+		if err != nil {
+			log.Print(err)
+			return
+		}
+		bucket, err := newBucket(bucketName)
+		if err != nil {
+			log.Print(err)
+			return
+		}
 		inPath, err := getPath(job.Input)
 		if err != nil {
 			log.Print(err)
@@ -331,37 +354,47 @@ func Map(job Job, jobPath string, m materializeInfo, image string, cmd []string,
 	}
 }
 
-func Reduce(job Job, jobPath string, m materializeInfo, image string, cmd []string, shard, modulos uint64) {
-	if (route.HashResource(path.Join("/job", jobPath)) % modulos) != shard {
+func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
+	if (route.HashResource(path.Join("/job", jobName)) % modulos) != shard {
 		// This resource isn't supposed to be located on this machine so we
 		// don't need to materialize it.
 		return
 	}
-	log.Print("Reduce: ", job, " ", jobPath, " ")
+	log.Print("Reduce: ", job, " ", jobName, " ")
 	if job.Type != "reduce" {
 		log.Printf("Reduce called on a job of type \"%s\". Should be \"reduce\".", job.Type)
 		return
 	}
 
-	// Notice we're just passing "host" here. Multicast will fill in the host
-	// field so we don't actually need to specify it.
 	var reader io.ReadCloser
-	err := retry(func() error {
-		req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*")+"?commit="+m.Commit, nil)
+	if modulos == 1 {
+		// We're in single node mode so we can do something much simpler
+		resp, err := http.Get("http://localhost/" + path.Join(job.Input, "file", "*") + "?commit=" + m.Commit)
 		if err != nil {
-			return err
+			log.Print(err)
+			return
 		}
-		reader, err = route.Multicast(req, "/pfs/master")
-		return err
-	}, retries, time.Minute)
-	if err != nil {
-		log.Print(err)
-		return
+		reader = resp.Body
+	} else {
+		err := retry(func() error {
+			// Notice we're just passing "host" here. Multicast will fill in the host
+			// field so we don't actually need to specify it.
+			req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*")+"?commit="+m.Commit, nil)
+			if err != nil {
+				return err
+			}
+			reader, err = route.Multicast(req, "/pfs/master")
+			return err
+		}, retries, time.Minute)
+		if err != nil {
+			log.Print(err)
+			return
+		}
 	}
 	defer reader.Close()
 
 	// Spinup a Mapper()
-	containerId, err := spinupContainer(image, cmd)
+	containerId, err := spinupContainer(job.Image, job.Cmd)
 	if err != nil {
 		log.Print(err)
 		return
@@ -392,7 +425,7 @@ func Reduce(job Job, jobPath string, m materializeInfo, image string, cmd []stri
 		return
 	}
 
-	outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobPath))
+	outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobName))
 	if err != nil {
 		log.Print(err)
 		return
@@ -404,46 +437,6 @@ func Reduce(job Job, jobPath string, m materializeInfo, image string, cmd []stri
 	}
 	log.Print(nil)
 	return
-}
-
-type jobCond struct {
-	sync.Cond
-	Done bool
-}
-
-var jobs map[string]*jobCond = make(map[string]*jobCond)
-var jobsAccess sync.Mutex
-
-// jobCond returns the name of the condition variable for job.
-func condKey(in_repo, commit, job string) string {
-	return path.Join(in_repo, commit, job)
-}
-
-func ensureCond(name string) {
-	jobsAccess.Lock()
-	defer jobsAccess.Unlock()
-	if _, ok := jobs[name]; !ok {
-		jobs[name] = &jobCond{sync.Cond{L: &sync.Mutex{}}, false}
-	}
-}
-
-func broadcast(in_repo, commit, job string) {
-	name := condKey(in_repo, commit, job)
-	ensureCond(name)
-	jobs[name].L.Lock()
-	jobs[name].Done = true
-	jobs[name].Broadcast()
-	jobs[name].L.Unlock()
-}
-
-func WaitJob(in_repo, commit, job string) {
-	name := condKey(in_repo, commit, job)
-	ensureCond(name)
-	jobs[name].L.Lock()
-	for !jobs[name].Done {
-		jobs[name].Wait()
-	}
-	jobs[name].L.Unlock()
 }
 
 // Materialize parses the jobs found in `in_repo`/`commit`/`jobDir` runs them
@@ -482,7 +475,6 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 		return nil
 	}
 
-	log.Print("Make docker client.")
 	//log.Print("Find new files.")
 	//newFiles, err := btrfs.NewFiles(in_repo, commit)
 	//if err != nil {
@@ -502,9 +494,32 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 	for _, jobInfo := range jobs {
 		wg.Add(1)
 		go func(jobInfo os.FileInfo) {
+			// First create the job's directory and lock it.
+			err := btrfs.MkdirAll(path.Join(out_repo, branch, jobInfo.Name()))
+			if err != nil {
+				log.Print(err)
+				return
+			}
+			fd, err := btrfs.OpenFd(path.Join(out_repo, branch, jobInfo.Name()),
+				syscall.O_RDONLY, 0777)
+			if err != nil {
+				log.Print(err)
+				return
+			}
+			err = syscall.Flock(fd, syscall.LOCK_EX)
+			if err != nil {
+				log.Print(err)
+				return
+			}
+			/* This makes sure that we'll release the lock when we're done. */
+			defer func() {
+				err = syscall.Flock(fd, syscall.LOCK_UN)
+				if err != nil {
+					log.Print(err)
+				}
+			}()
 			log.Print("Running job:\n", jobInfo.Name())
 			defer wg.Done()
-			defer broadcast(in_repo, commit, jobInfo.Name())
 			jobFile, err := btrfs.Open(path.Join(jobsPath, jobInfo.Name()))
 			if err != nil {
 				log.Print(err)
@@ -521,9 +536,9 @@ func Materialize(in_repo, branch, commit, out_repo, jobDir string, shard, modulo
 			m := materializeInfo{in_repo, out_repo, branch, commit}
 
 			if job.Type == "map" {
-				Map(job, jobInfo.Name(), m, job.Image, job.Command, shard, modulos)
+				Map(job, jobInfo.Name(), m, shard, modulos)
 			} else if job.Type == "reduce" {
-				Reduce(job, jobInfo.Name(), m, job.Image, job.Command, shard, modulos)
+				Reduce(job, jobInfo.Name(), m, shard, modulos)
 			} else {
 				log.Printf("Job %s has unrecognized type: %s.", jobInfo.Name(), job.Type)
 			}
