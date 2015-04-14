@@ -52,6 +52,10 @@ func branchParam(r *http.Request) string {
 	return "master"
 }
 
+func hasBranch(r *http.Request) bool {
+	return (r.URL.Query().Get("branch") == "")
+}
+
 func materializeParam(r *http.Request) string {
 	if _, ok := r.URL.Query()["run"]; ok {
 		return "true"
@@ -242,12 +246,26 @@ func JobHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, job, <job>, file, <file>]
 	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
-		genericFileHandler(path.Join(compRepo, commitParam(r), url[2]), w, r)
+		if hasBranch(r) {
+			err := mapreduce.WaitJob(compRepo, branchParam(r), commitParam(r), url[2])
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				log.Print(err)
+				return
+			}
+			genericFileHandler(path.Join(compRepo, branchParam(r), url[2]), w, r)
+		} else {
+			genericFileHandler(path.Join(compRepo, commitParam(r), url[2]), w, r)
+		}
 		return
 	} else if r.Method == "POST" {
 		r.URL.Path = path.Join("/file", jobDir, url[2])
 		log.Print("URL with reset path:\n", r.URL)
 		genericFileHandler(path.Join(dataRepo, branchParam(r)), w, r)
+	} else {
+		http.Error(w, "Invalid method.", 405)
+		log.Print("Invalid method %s.", r.Method)
+		return
 	}
 }
 

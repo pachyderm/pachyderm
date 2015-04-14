@@ -240,12 +240,13 @@ Two guys who love data and communities and both happen to be named Joe. We'd lov
 to chat: joey@pachyderm.io jdoliner@pachyderm.io.
 
 ## How do I hack on pfs?
-You can deploy pfs directly to a CoreOS cluster that's accessible via ssh by running:
+You can run pfs locally using:
 
 ```shell
-scripts/dev-install <coreos-host>
+scripts/dev-launch
 ```
 
-This will deploy pfs and give you a new remote called `staging` so that you can
-push later changes via `git push staging`. The created repo also has a
-post-receive hook that redeploys the cluster.
+This will build a docker image from the working directory, tag it as `pfs` and
+launch it locally using `scripts/launch`.  The only dependencies are Docker >=
+1.5 and btrfs-tools >= 3.14. The script checks for this and gives you
+directions on how to fix it.
