@@ -125,6 +125,7 @@ func Mkdir(name string) error {
 	return os.Mkdir(FilePath(name), 0777)
 }
 
+// TODO(rw,jd): check into atomicity/race conditions with multiple callers
 func MkdirAll(name string) error {
 	return os.MkdirAll(FilePath(name), 0777)
 }

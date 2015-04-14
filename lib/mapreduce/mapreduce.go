@@ -22,6 +22,7 @@ import (
 
 var retries int = 5
 
+// TODO(rw): pull this out into a separate library
 func startContainer(image string, command []string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	containerConfig := &dockerclient.ContainerConfig{Image: image, Cmd: command}
@@ -42,6 +43,7 @@ func startContainer(image string, command []string) (string, error) {
 
 // spinupContainer pulls image and starts a container from it with command. It
 // returns the container id or an error.
+// TODO(rw): pull this out into a separate library
 func spinupContainer(image string, command []string) (string, error) {
 	log.Print("spinupContainer", " ", image, " ", command)
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
@@ -57,6 +59,7 @@ func spinupContainer(image string, command []string) (string, error) {
 	return startContainer(image, command)
 }
 
+// TODO(rw): pull this out into a separate library
 func stopContainer(containerId string) error {
 	log.Print("stopContainer", " ", containerId)
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
@@ -67,6 +70,7 @@ func stopContainer(containerId string) error {
 	return docker.StopContainer(containerId, 5)
 }
 
+// TODO(rw): pull this out into a separate library
 func ipAddr(containerId string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
@@ -441,6 +445,7 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 // with `in_repo/commit` as input, outputs the results to `outRepo`/`branch`
 // and commits them as `outRepo`/`commit`
 func Materialize(in_repo, branch, commit, outRepo, jobDir string, shard, modulos uint64) error {
+	// TODO(any): use Hold/Release here for input commit
 	log.Printf("Materialize: %s %s %s %s %s.", in_repo, branch, commit, outRepo, jobDir)
 	exists, err := btrfs.FileExists(path.Join(outRepo, branch))
 	if err != nil {
