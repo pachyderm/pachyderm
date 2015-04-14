@@ -3,8 +3,8 @@ package mapreduce
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
-	"os"
 	"sync"
 	"testing"
 
@@ -12,7 +12,11 @@ import (
 	"github.com/mitchellh/goamz/s3"
 )
 
+// TestS3 checks that the underlying S3 library is correct.
 func TestS3(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping S3 integration test")
+	}
 	auth, err := aws.EnvAuth()
 	log.Printf("auth: %#v", auth)
 	if err != nil {
@@ -23,7 +27,7 @@ func TestS3(t *testing.T) {
 	bucket := client.Bucket("pachyderm-data")
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	for i := 0; i < 5000; i++ {
+	for i := 0; i < 1000; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -32,7 +36,7 @@ func TestS3(t *testing.T) {
 				log.Print(err)
 				return
 			}
-			io.Copy(os.Stdout, inFile)
+			io.Copy(ioutil.Discard, inFile)
 			inFile.Close()
 		}(i)
 	}
