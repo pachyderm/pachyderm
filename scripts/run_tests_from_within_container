@@ -1,0 +1,3 @@
+set -E
+cd /go/src/github.com/pachyderm/pfs
+go test -test.v ./...
