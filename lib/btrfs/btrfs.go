@@ -24,6 +24,9 @@ import (
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 var once sync.Once
+
+// volume is hardcoded because we can map any host directory in to this path
+// using Docker's `volume`s.
 var volume = "/var/lib/pfs/vol"
 
 // Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
