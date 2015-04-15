@@ -1,0 +1,28 @@
+[Unit]
+Description = pfs service: master
+After = docker.service
+Requires = docker.service
+
+[Service]
+TimeoutStartSec = 300
+ExecStartPre = -/bin/sh -c "echo $(docker kill master-0-40)"
+ExecStartPre = -/bin/sh -c "echo $(docker rm master-0-40)"
+ExecStartPre = /bin/sh -c "echo $(docker pull `etcdctl get /pfs/registry`/pfs)"
+ExecStartPre = -/bin/sh -c "echo $(mkdir /var/lib/pfs)"
+ExecStartPre = -/bin/sh -c "echo $(truncate /var/lib/pfs/data.img -s 10G)"
+ExecStartPre = -/bin/sh -c "echo $(mkfs.btrfs `etcdctl get /pfs/config/DISK || echo /var/lib/pfs/data.img`)"
+ExecStartPre = -/bin/sh -c "echo $(mkdir -p /var/lib/pfs/vol)"
+ExecStartPre = -/bin/sh -c "echo $(mount `etcdctl get /pfs/config/DISK || echo /var/lib/pfs/data.img` /var/lib/pfs/vol)"
+ExecStart = /bin/sh -c "echo $(docker run \
+            --privileged=true \
+            --name master-0-40 \
+            -v /:/host:ro \
+            -v /var/lib/pfs/vol:/host/var/lib/pfs/vol \
+            -v /var/lib/pfs:/var/lib/pfs \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -e AWS_ACCESS_KEY_ID=`etcdctl get /pfs/creds/AWS_ACCESS_KEY_ID` \
+            -e AWS_SECRET_ACCESS_KEY=`etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY` \
+            -p 65206:80 \
+            -i `etcdctl get /pfs/registry`/pfs \
+            /go/bin/master 0-40)"
+ExecStop = /bin/sh -c "echo $(docker rm -f master-0-40)"
