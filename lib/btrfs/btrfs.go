@@ -397,7 +397,7 @@ type Diff struct {
 	parent, child *CommitInfo
 }
 
-func Pull(repo, from string, cont func(io.ReadCloser) error) error {
+func Pull(repo, from string, cont func(commit string, diff io.ReadCloser) error) error {
 	// commits indexed by their parents
 	var parentMap map[string][]CommitInfo
 	var diffs []Diff
@@ -430,12 +430,15 @@ func Pull(repo, from string, cont func(io.ReadCloser) error) error {
 	}
 
 	for _, diff := range diffs {
+		_cont := func(r io.ReadCloser) error {
+			return cont(diff.child.path, r)
+		}
 		if diff.parent == nil {
-			if err := SendBase(diff.child.path, cont); err != nil {
+			if err := SendBase(diff.child.path, _cont); err != nil {
 				return err
 			}
 		}
-		if err := Send(diff.parent.path, diff.child.path, cont); err != nil {
+		if err := Send(diff.parent.path, diff.child.path, _cont); err != nil {
 			return err
 		}
 	}

@@ -269,8 +269,8 @@ func JobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// MasterMux creates a multiplexer for a Master writing to the passed in FS.
-func MasterMux() *http.ServeMux {
+// ShardMux creates a multiplexer for a Shard writing to the passed in FS.
+func ShardMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/branch", BranchHandler)
@@ -282,9 +282,9 @@ func MasterMux() *http.ServeMux {
 	return mux
 }
 
-// RunServer runs a master server listening on port 80
+// RunServer runs a shard server listening on port 80
 func RunServer() {
-	http.ListenAndServe(":80", MasterMux())
+	http.ListenAndServe(":80", ShardMux())
 }
 
 func main() {

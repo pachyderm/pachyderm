@@ -13,10 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mitchellh/goamz/aws"
-	"github.com/mitchellh/goamz/s3"
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/route"
+	"github.com/pachyderm/pfs/lib/s3utils"
 	"github.com/samalba/dockerclient"
 )
 
@@ -136,38 +135,6 @@ func getProtocol(input string) int {
 	}
 }
 
-// An s3 input looks like: s3://bucket/dir
-// Where dir can be a path
-
-// getBucket extracts the bucket from an s3 input
-func getBucket(input string) (string, error) {
-	if getProtocol(input) != ProtoS3 {
-		return "", fmt.Errorf("Input string: %s must begin with 's3://'.", input)
-	}
-	return strings.Split(strings.TrimPrefix(input, "s3://"), "/")[0], nil
-}
-
-// getPath extracts the path from an s3 input
-func getPath(input string) (string, error) {
-	if getProtocol(input) != ProtoS3 {
-		return "", fmt.Errorf("Input string: %s must begin with 's3://'.", input)
-	}
-	return path.Join(strings.Split(strings.TrimPrefix(input, "s3://"), "/")[1:]...), nil
-}
-
-func newBucket(bucketName string) (*s3.Bucket, error) {
-	auth, err := aws.EnvAuth()
-	log.Print("auth: %#v", auth)
-	if err != nil {
-		log.Print(err)
-		return nil, err
-	}
-	client := s3.New(auth, aws.USWest)
-
-	log.Print("bucketName: ", bucketName)
-	return client.Bucket(bucketName), nil
-}
-
 func mapFile(filename, jobName string, job Job, m materializeInfo) error {
 	// Spinup a Mapper()
 	containerId, err := spinupContainer(job.Image, job.Cmd)
@@ -192,12 +159,12 @@ func mapFile(filename, jobName string, job Job, m materializeInfo) error {
 		case getProtocol(job.Input) == ProtoPfs:
 			inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, filename))
 		case getProtocol(job.Input) == ProtoS3:
-			bucketName, err := getBucket(job.Input)
+			bucketName, err := s3utils.GetBucket(job.Input)
 			if err != nil {
 				log.Print(err)
 				return err
 			}
-			bucket, err := newBucket(bucketName)
+			bucket, err := s3utils.NewBucket(bucketName)
 			if err != nil {
 				log.Print(err)
 				return err
@@ -304,17 +271,17 @@ func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 			return
 		}
 	case getProtocol(job.Input) == ProtoS3:
-		bucketName, err := getBucket(job.Input)
+		bucketName, err := s3utils.GetBucket(job.Input)
 		if err != nil {
 			log.Print(err)
 			return
 		}
-		bucket, err := newBucket(bucketName)
+		bucket, err := s3utils.NewBucket(bucketName)
 		if err != nil {
 			log.Print(err)
 			return
 		}
-		inPath, err := getPath(job.Input)
+		inPath, err := s3utils.GetPath(job.Input)
 		if err != nil {
 			log.Print(err)
 			return
