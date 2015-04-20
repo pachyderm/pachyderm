@@ -122,7 +122,6 @@ func TestNewRepoIsEmpty(t *testing.T) {
 
 func TestCommitsAreReadOnly(t *testing.T) {
 	repoName := "repo_TestCommitsAreReadOnly"
-	// implement by setting readonly
 	check(Init(repoName), t)
 
 	err := Commit(repoName, "commit1", "master")
@@ -136,7 +135,18 @@ func TestCommitsAreReadOnly(t *testing.T) {
 		t.Fatalf("expected read-only filesystem error, got %s", err)
 	}
 }
-// TestBranchesAreReadWrite
+
+func TestBranchesAreReadWrite(t *testing.T) {
+	repoName := "repo_TestBranchesAreReadWrite"
+	check(Init(repoName), t)
+
+	err := Branch(repoName, "t0", "my_branch")
+	check(err, t)
+
+	fn := fmt.Sprintf("%s/my_branch/file", repoName)
+	writeFile(fn, "some content", t)
+	checkFile(fn, "some content", t)
+}
 
 // TestReplication checks that replication is correct when using local BTRFS.
 // Uses `Pull`
