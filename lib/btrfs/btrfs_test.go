@@ -2,9 +2,11 @@ package btrfs
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"path"
+	"strings"
 	"testing"
 )
 
@@ -76,40 +78,41 @@ func TestOsOps(t *testing.T) {
 
 // TestGit checks that the Git-style interface to BTRFS is correct.
 func TestGit(t *testing.T) {
+	repoName := "repo_TestGit"
 	// Create the repo:
-	check(Init("repo"), t)
+	check(Init(repoName), t)
 
 	// Write a file "file" and create a commit "commit1":
-	writeFile("repo/master/file", "foo", t)
-	err := Commit("repo", "commit1", "master")
+	writeFile(fmt.Sprintf("%s/master/file", repoName), "foo", t)
+	err := Commit(repoName, "commit1", "master")
 	check(err, t)
-	checkFile(path.Join("repo", "commit1", "file"), "foo", t)
+	checkFile(path.Join(repoName, "commit1", "file"), "foo", t)
 
 	// Create a new branch "branch" from commit "commit1", and check that
 	// it contains the file "file":
-	check(Branch("repo", "commit1", "branch"), t)
-	checkFile("repo/branch/file", "foo", t)
+	check(Branch(repoName, "commit1", "branch"), t)
+	checkFile(fmt.Sprintf("%s/branch/file", repoName), "foo", t)
 
 	// Create a file "file2" in branch "branch", and commit it to
 	// "commit2":
-	writeFile("repo/branch/file2", "foo", t)
-	err = Commit("repo", "commit2", "branch")
+	writeFile(fmt.Sprintf("%s/branch/file2", repoName), "foo", t)
+	err = Commit(repoName, "commit2", "branch")
 	check(err, t)
-	checkFile(path.Join("repo", "commit2", "file2"), "foo", t)
+	checkFile(path.Join(repoName, "commit2", "file2"), "foo", t)
 
 	// Print BTRFS hierarchy data for humans:
-	check(Log("repo", "0", func(r io.ReadCloser) error {
+	check(Log(repoName, "0", func(r io.ReadCloser) error {
 		_, err := io.Copy(os.Stdout, r)
 		return err
 	}), t)
 }
 
 func TestNewRepoIsEmpty(t *testing.T) {
-	err := Init("empty_repo")
-	check(err, t)
+	repoName := "repo_TesNewRepoIsEmpty"
+	check(Init(repoName), t)
 
 	// ('master' is the default branch)
-	dirpath := path.Join("empty_repo", "master")
+	dirpath := path.Join(repoName, "master")
 	descriptors, err := ReadDir(dirpath)
 	check(err, t)
 	if len(descriptors) != 0 {
@@ -117,7 +120,22 @@ func TestNewRepoIsEmpty(t *testing.T) {
 	}
 }
 
-// TestCommitsAreReadOnly // implement by setting readonly
+func TestCommitsAreReadOnly(t *testing.T) {
+	repoName := "repo_TestCommitsAreReadOnly"
+	// implement by setting readonly
+	check(Init(repoName), t)
+
+	err := Commit(repoName, "commit1", "master")
+	check(err, t)
+
+	_, err = Create(fmt.Sprintf("%s/commit1/file", repoName))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !strings.Contains(err.Error(), "read-only file system") {
+		t.Fatalf("expected read-only filesystem error, got %s", err)
+	}
+}
 // TestBranchesAreReadWrite
 
 // TestReplication checks that replication is correct when using local BTRFS.
