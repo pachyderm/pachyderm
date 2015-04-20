@@ -104,7 +104,19 @@ func TestGit(t *testing.T) {
 	}), t)
 }
 
-// TestNewRepoIsEmpty
+func TestNewRepoIsEmpty(t *testing.T) {
+	err := Init("empty_repo")
+	check(err, t)
+
+	// ('master' is the default branch)
+	dirpath := path.Join("empty_repo", "master")
+	descriptors, err := ReadDir(dirpath)
+	check(err, t)
+	if len(descriptors) != 0 {
+		t.Fatalf("expected empty repo")
+	}
+}
+
 // TestCommitsAreReadOnly // implement by setting readonly
 // TestBranchesAreReadWrite
 
