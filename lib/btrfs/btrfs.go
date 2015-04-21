@@ -403,7 +403,7 @@ type Diff struct {
 
 func Pull(repo, from string, cont func(io.ReadCloser) error) error {
 	// commits indexed by their parents
-	var parentMap map[string][]CommitInfo
+	parentMap := make(map[string][]CommitInfo)
 	var diffs []Diff
 	// the body below gets called once per commit
 	err := Commits(repo, from, func(c CommitInfo) error {
