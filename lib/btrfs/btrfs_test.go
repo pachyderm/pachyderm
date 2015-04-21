@@ -163,7 +163,35 @@ func TestReplication(t *testing.T) {
 // TestBranchesAreNotReplicated // this is a known property, but not desirable long term
 // TestCommitsAreReplicated // Uses Send and Recv
 
-// TestHoldRelease // Creates one-off commit named after a UUID, to ensure a data consumer can always access data in a commit, even if the original commit is deleted.
+// TestHoldRelease creates one-off commit named after a UUID, to ensure a data consumer can always access data in a commit, even if the original commit is deleted.
+func TestHoldRelease(t *testing.T) {
+	repoName := "repo_TestHoldRelease"
+	check(Init(repoName), t)
+
+	// Write a file "myfile" with contents "foo":
+	master_fn := fmt.Sprintf("%s/master/myfile", repoName)
+	writeFile(master_fn, "foo", t)
+	checkFile(master_fn, "foo", t)
+
+	// Create a commit "mycommit" and verify "myfile" exists:
+        mycommit_fn := fmt.Sprintf("%s/mycommit/myfile", repoName)
+	check(Commit(repoName, "mycommit", "master"), t)
+	checkFile(mycommit_fn, "foo", t)
+
+	// Grab a snapshot:
+	snapshot_path, err := Hold(repoName, "mycommit")
+	check(err, t)
+
+	// Delete the commit from the snapshot.
+	// (uses the lower-level btrfs command for now):
+	mycommit_path := fmt.Sprintf("%s/mycommit", repoName)
+	check(SubvolumeDelete(mycommit_path), t)
+
+	// Verify that the file still exists in our snapshot:
+	snapshot_fn := fmt.Sprintf("%s/myfile", snapshot_path)
+	checkFile(snapshot_fn, "foo", t)
+}
+
 
 // Test for `Commits`: check that the sort order of CommitInfo objects is structured correctly.
 // Start from:
