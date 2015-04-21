@@ -435,11 +435,11 @@ func Pull(repo, from string, cont func(io.ReadCloser) error) error {
 
 	for _, diff := range diffs {
 		if diff.parent == nil {
-			if err := SendBase(diff.child.path, cont); err != nil {
+			if err := SendBase(path.Join(repo, diff.child.path), cont); err != nil {
 				return err
 			}
 		}
-		if err := Send(diff.parent.path, diff.child.path, cont); err != nil {
+		if err := Send(path.Join(repo, diff.parent.path), path.Join(repo, diff.child.path), cont); err != nil {
 			return err
 		}
 	}

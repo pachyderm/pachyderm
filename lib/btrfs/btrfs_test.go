@@ -183,20 +183,20 @@ func TestSendRecv(t *testing.T) {
 
 	// Run a Send/Recv operation to fetch data from the older "mycommit1".
 	// This verifies that tree copying works:
-	repo2Recv := func (r io.ReadCloser) error { return Recv(dstRepo, r) }
-        check(Send(fmt.Sprintf("%s/t0", srcRepo), fmt.Sprintf("%s/mycommit1", srcRepo), repo2Recv), t)
+	repo2Recv := func(r io.ReadCloser) error { return Recv(dstRepo, r) }
+	check(Send(fmt.Sprintf("%s/t0", srcRepo), fmt.Sprintf("%s/mycommit1", srcRepo), repo2Recv), t)
 
-	// Check that the file from mycommit1 exists, but not from mycommit2: 
-        checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
-        checkNoFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), t)
+	// Check that the file from mycommit1 exists, but not from mycommit2:
+	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
+	checkNoFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), t)
 
 	// Send again, this time starting from mycommit1 and going to mycommit2:
-	repo2Recv = func (r io.ReadCloser) error { return Recv(dstRepo, r) }
-        check(Send(fmt.Sprintf("%s/mycommit1", srcRepo), fmt.Sprintf("%s/mycommit2", srcRepo), repo2Recv), t)
+	repo2Recv = func(r io.ReadCloser) error { return Recv(dstRepo, r) }
+	check(Send(fmt.Sprintf("%s/mycommit1", srcRepo), fmt.Sprintf("%s/mycommit2", srcRepo), repo2Recv), t)
 
 	// Verify that files from both commits are present:
-        checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
-        checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), "bar", t)
+	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
+	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), "bar", t)
 }
 
 // TestSendBaseRecv checks the SendBase and Recv replication primitives.
@@ -227,13 +227,13 @@ func TestSendBaseRecv(t *testing.T) {
 
 	// Run a SendBase/Recv operation to fetch data from the source commits:
 	// This verifies that tree copying works:
-	repo2Recv := func (r io.ReadCloser) error { return Recv(dstRepo, r) }
-        check(SendBase(fmt.Sprintf("%s/mycommit1", srcRepo), repo2Recv), t)
-        check(SendBase(fmt.Sprintf("%s/mycommit2", srcRepo), repo2Recv), t)
+	repo2Recv := func(r io.ReadCloser) error { return Recv(dstRepo, r) }
+	check(SendBase(fmt.Sprintf("%s/mycommit1", srcRepo), repo2Recv), t)
+	check(SendBase(fmt.Sprintf("%s/mycommit2", srcRepo), repo2Recv), t)
 
 	// Verify that files from both commits are present:
-        checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
-        checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), "bar", t)
+	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
+	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), "bar", t)
 }
 
 // TestSendWithMissingIntermediateCommitIsCorrect(?) // ? means we don't know what the behavior is.
@@ -270,13 +270,14 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
 
 	// Run a Pull/Recv operation to fetch all commits:
-	repo2Recv := func (r io.ReadCloser) error { return Recv(dstRepo, r) }
+	repo2Recv := func(r io.ReadCloser) error { return Recv(dstRepo, r) }
 	transid, err := Transid(srcRepo, "t0") // TODO(rw,jd): test other transids here
 	check(err, t)
 
 	// TODO(rw): seeing this error here:
 	// Cmd: btrfs send -p /var/lib/pfs/vol/mycommit2 /var/lib/pfs/vol/master
 	// stderr: ERROR: realpath /var/lib/pfs/vol/mycommit2 failed. No such file or directory
+	fmt.Printf(srcRepo, transid)
 	check(Pull(srcRepo, transid, repo2Recv), t)
 
 	// Verify that files from both commits are present:
@@ -295,7 +296,7 @@ func TestHoldRelease(t *testing.T) {
 	checkFile(master_fn, "foo", t)
 
 	// Create a commit "mycommit" and verify "myfile" exists:
-        mycommit_fn := fmt.Sprintf("%s/mycommit/myfile", repoName)
+	mycommit_fn := fmt.Sprintf("%s/mycommit/myfile", repoName)
 	check(Commit(repoName, "mycommit", "master"), t)
 	checkFile(mycommit_fn, "foo", t)
 
@@ -316,7 +317,6 @@ func TestHoldRelease(t *testing.T) {
 	checkFile(snapshot_fn, "foo", t)
 }
 
-
 // Test for `Commits`: check that the sort order of CommitInfo objects is structured correctly.
 // Start from:
 //	// Print BTRFS hierarchy data for humans:
@@ -328,6 +328,5 @@ func TestHoldRelease(t *testing.T) {
 // TestFindNew, which is basically like `git diff`. Corresponds to `find-new` in btrfs.
 // Case: spaces in filenames
 // Case: create, delete, edit files and check that the filenames correspond to the changes ones.
-
 
 // go test coverage
