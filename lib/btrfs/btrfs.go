@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -332,6 +331,13 @@ func Ensure(repo string) error {
 	}
 }
 
+func InitBare(repo string) error {
+	if err := SubvolumeCreate(repo); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Commit creates a new commit for a branch.
 func Commit(repo, commit, branch string) error {
 	// First we check to make sure that the branch actually exists
@@ -387,7 +393,7 @@ func Log(repo, from string, cont func(io.Reader) error) error {
 		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", "-ogen", FilePath(path.Join(repo)))
 		return shell.CallCont(c, cont)
 	} else {
-		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-C", "+"+from, "--sort", "-ogen", FilePath(path.Join(repo)))
+		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-G", "+"+from, "--sort", "-ogen", FilePath(path.Join(repo)))
 		return shell.CallCont(c, cont)
 	}
 }
@@ -452,20 +458,28 @@ func Pull(repo, from string, cont func(io.Reader) error) error {
 		return err
 	}
 
-	for _, diff := range diffs {
+	for i := 0; i < len(diffs); i++ {
+		// The diffs are in reverse chronological order and we want to traverse
+		// them in chronological order, this line lets us traverse in reverse.
+		diff := diffs[len(diffs)-(i+1)]
+		log.Print("Sending: ", diff.child.path)
 		if diff.parent == nil {
+			// This is a base commit so we use SendBase
 			if err := SendBase(path.Join(repo, diff.child.path), cont); err != nil {
 				return err
 			}
-		}
-		// Check to make sure that what we have is a commit and not a branch
-		isCommit, err := IsReadOnly(path.Join(repo, diff.child.path))
-		if err != nil {
-			return err
-		}
-		if isCommit {
-			if err := Send(path.Join(repo, diff.parent.path), path.Join(repo, diff.child.path), cont); err != nil {
+		} else {
+			// Check to make sure that what we have is a commit and not a branch
+			isCommit, err := IsReadOnly(path.Join(repo, diff.child.path))
+			if err != nil {
 				return err
+			}
+			if isCommit {
+				if err := Send(path.Join(repo, diff.parent.path), path.Join(repo, diff.child.path), cont); err != nil {
+					return err
+				}
+			} else {
+				// TODO we should transmit branch information in some way
 			}
 		}
 	}
@@ -494,12 +508,7 @@ func Transid(repo, commit string) (string, error) {
 			// We want to increment the transid because it's inclusive, if we
 			// don't increment we'll get things from the previous commit as
 			// well.
-			_transid, err := strconv.Atoi(tokens[3])
-			if err != nil {
-				return err
-			}
-			_transid++
-			transid = strconv.Itoa(_transid)
+			transid = tokens[3]
 		}
 		return scanner.Err()
 	})

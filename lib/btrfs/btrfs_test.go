@@ -259,7 +259,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 
 	// Create a destination repo:
 	dstRepo := "repo_TestSendCommitsAreReplicated_dst"
-	check(Init(dstRepo), t)
+	check(InitBare(dstRepo), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do in source:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", srcRepo), "foo", t)
