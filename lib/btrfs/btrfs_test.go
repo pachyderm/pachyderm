@@ -187,6 +187,9 @@ func TestHoldRelease(t *testing.T) {
 	mycommit_path := fmt.Sprintf("%s/mycommit", repoName)
 	check(SubvolumeDelete(mycommit_path), t)
 
+	// Verify that the commit path doesn't exist:
+	checkNoFile(mycommit_path, t)
+
 	// Verify that the file still exists in our snapshot:
 	snapshot_fn := fmt.Sprintf("%s/myfile", snapshot_path)
 	checkFile(snapshot_fn, "foo", t)
