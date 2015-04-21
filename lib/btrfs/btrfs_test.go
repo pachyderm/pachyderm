@@ -101,7 +101,7 @@ func TestGit(t *testing.T) {
 	checkFile(path.Join(repoName, "commit2", "file2"), "foo", t)
 
 	// Print BTRFS hierarchy data for humans:
-	check(Log(repoName, "0", func(r io.ReadCloser) error {
+	check(Log(repoName, "0", func(r io.Reader) error {
 		_, err := io.Copy(os.Stdout, r)
 		return err
 	}), t)
@@ -183,7 +183,7 @@ func TestSendRecv(t *testing.T) {
 
 	// Run a Send/Recv operation to fetch data from the older "mycommit1".
 	// This verifies that tree copying works:
-	repo2Recv := func(r io.ReadCloser) error { return Recv(dstRepo, r) }
+	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
 	check(Send(fmt.Sprintf("%s/t0", srcRepo), fmt.Sprintf("%s/mycommit1", srcRepo), repo2Recv), t)
 
 	// Check that the file from mycommit1 exists, but not from mycommit2:
@@ -191,7 +191,7 @@ func TestSendRecv(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), t)
 
 	// Send again, this time starting from mycommit1 and going to mycommit2:
-	repo2Recv = func(r io.ReadCloser) error { return Recv(dstRepo, r) }
+	repo2Recv = func(r io.Reader) error { return Recv(dstRepo, r) }
 	check(Send(fmt.Sprintf("%s/mycommit1", srcRepo), fmt.Sprintf("%s/mycommit2", srcRepo), repo2Recv), t)
 
 	// Verify that files from both commits are present:
@@ -227,7 +227,7 @@ func TestSendBaseRecv(t *testing.T) {
 
 	// Run a SendBase/Recv operation to fetch data from the source commits:
 	// This verifies that tree copying works:
-	repo2Recv := func(r io.ReadCloser) error { return Recv(dstRepo, r) }
+	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
 	check(SendBase(fmt.Sprintf("%s/mycommit1", srcRepo), repo2Recv), t)
 	check(SendBase(fmt.Sprintf("%s/mycommit2", srcRepo), repo2Recv), t)
 
@@ -270,14 +270,13 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
 
 	// Run a Pull/Recv operation to fetch all commits:
-	repo2Recv := func(r io.ReadCloser) error { return Recv(dstRepo, r) }
+	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
 	transid, err := Transid(srcRepo, "t0") // TODO(rw,jd): test other transids here
 	check(err, t)
 
 	// TODO(rw): seeing this error here:
 	// Cmd: btrfs send -p /var/lib/pfs/vol/mycommit2 /var/lib/pfs/vol/master
 	// stderr: ERROR: realpath /var/lib/pfs/vol/mycommit2 failed. No such file or directory
-	fmt.Printf(srcRepo, transid)
 	check(Pull(srcRepo, transid, repo2Recv), t)
 
 	// Verify that files from both commits are present:
@@ -320,7 +319,7 @@ func TestHoldRelease(t *testing.T) {
 // Test for `Commits`: check that the sort order of CommitInfo objects is structured correctly.
 // Start from:
 //	// Print BTRFS hierarchy data for humans:
-//	check(Log("repo", "0", func(r io.ReadCloser) error {
+//	check(Log("repo", "0", func(r io.Reader) error {
 //		_, err := io.Copy(os.Stdout, r)
 //		return err
 //	}), t)

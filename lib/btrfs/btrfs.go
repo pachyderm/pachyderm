@@ -243,17 +243,36 @@ func UnsetReadOnly(volume string) error {
 	return shell.RunStderr(exec.Command("btrfs", "property", "set", FilePath(volume), "ro", "false"))
 }
 
-func SendBase(to string, cont func(io.ReadCloser) error) error {
+func IsReadOnly(volume string) (bool, error) {
+	var res bool
+	// "-t s" indicates to btrfs that this is a subvolume without the "-t s"
+	// btrfs will still output what we want, but it will have a nonzero return
+	// code
+	err := shell.CallCont(exec.Command("btrfs", "property", "get", "-t", "s", FilePath(volume)),
+		func(r io.Reader) error {
+			scanner := bufio.NewScanner(r)
+			for scanner.Scan() {
+				if strings.Contains(scanner.Text(), "ro=true") {
+					res = true
+					return nil
+				}
+			}
+			return scanner.Err()
+		})
+	return res, err
+}
+
+func SendBase(to string, cont func(io.Reader) error) error {
 	c := exec.Command("btrfs", "send", FilePath(to))
 	return shell.CallCont(c, cont)
 }
 
-func Send(from string, to string, cont func(io.ReadCloser) error) error {
+func Send(from string, to string, cont func(io.Reader) error) error {
 	c := exec.Command("btrfs", "send", "-p", FilePath(from), FilePath(to))
 	return shell.CallCont(c, cont)
 }
 
-func Recv(volume string, data io.ReadCloser) error {
+func Recv(volume string, data io.Reader) error {
 	c := exec.Command("btrfs", "receive", FilePath(volume))
 	log.Print(c)
 	stdin, err := c.StdinPipe()
@@ -363,7 +382,7 @@ func Branch(repo, commit, branch string) error {
 }
 
 //Log returns all of the commits the repo which have generation >= from.
-func Log(repo, from string, cont func(io.ReadCloser) error) error {
+func Log(repo, from string, cont func(io.Reader) error) error {
 	if from == "" {
 		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", "-ogen", FilePath(path.Join(repo)))
 		return shell.CallCont(c, cont)
@@ -378,7 +397,7 @@ type CommitInfo struct {
 }
 
 func Commits(repo, from string, cont func(CommitInfo) error) error {
-	return Log(repo, from, func(r io.ReadCloser) error {
+	return Log(repo, from, func(r io.Reader) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			// scanner.Text() looks like:
@@ -393,7 +412,7 @@ func Commits(repo, from string, cont func(CommitInfo) error) error {
 				return err
 			}
 		}
-		return nil
+		return scanner.Err()
 	})
 }
 
@@ -401,7 +420,7 @@ type Diff struct {
 	parent, child *CommitInfo
 }
 
-func Pull(repo, from string, cont func(io.ReadCloser) error) error {
+func Pull(repo, from string, cont func(io.Reader) error) error {
 	// commits indexed by their parents
 	parentMap := make(map[string][]CommitInfo)
 	var diffs []Diff
@@ -439,8 +458,15 @@ func Pull(repo, from string, cont func(io.ReadCloser) error) error {
 				return err
 			}
 		}
-		if err := Send(path.Join(repo, diff.parent.path), path.Join(repo, diff.child.path), cont); err != nil {
+		// Check to make sure that what we have is a commit and not a branch
+		isCommit, err := IsReadOnly(path.Join(repo, diff.child.path))
+		if err != nil {
 			return err
+		}
+		if isCommit {
+			if err := Send(path.Join(repo, diff.parent.path), path.Join(repo, diff.child.path), cont); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -455,7 +481,7 @@ func Transid(repo, commit string) (string, error) {
 	//  the nicest way to get it from btrfs.
 	var transid string
 	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), "9223372036854775808")
-	err := shell.CallCont(c, func(r io.ReadCloser) error {
+	err := shell.CallCont(c, func(r io.Reader) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			// scanner.Text() looks like this:
@@ -475,7 +501,7 @@ func Transid(repo, commit string) (string, error) {
 			_transid++
 			transid = strconv.Itoa(_transid)
 		}
-		return nil
+		return scanner.Err()
 	})
 	if err != nil {
 		return "", err
@@ -488,7 +514,7 @@ func Transid(repo, commit string) (string, error) {
 func FindNew(repo, commit, transid string) ([]string, error) {
 	var files []string
 	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), transid)
-	err := shell.CallCont(c, func(r io.ReadCloser) error {
+	err := shell.CallCont(c, func(r io.Reader) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			// scanner.Text() looks like this:
@@ -503,7 +529,7 @@ func FindNew(repo, commit, transid string) ([]string, error) {
 				return fmt.Errorf("Failed to parse find-new output.")
 			}
 		}
-		return nil
+		return scanner.Err()
 	})
 	return files, err
 }

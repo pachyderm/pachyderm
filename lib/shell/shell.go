@@ -26,7 +26,7 @@ func RunStderr(c *exec.Cmd) error {
 	return c.Wait()
 }
 
-func CallCont(c *exec.Cmd, cont func(io.ReadCloser) error) error {
+func CallCont(c *exec.Cmd, cont func(io.Reader) error) error {
 	log.Print("CallCont:\n", c)
 	reader, err := c.StdoutPipe()
 	if err != nil {
@@ -41,6 +41,7 @@ func CallCont(c *exec.Cmd, cont func(io.ReadCloser) error) error {
 		return err
 	}
 	err = cont(reader)
+	reader.Close()
 	if err != nil {
 		return err
 	}
