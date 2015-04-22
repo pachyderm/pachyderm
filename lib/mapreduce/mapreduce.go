@@ -106,13 +106,26 @@ func contains(set []string, val string) bool {
 }
 
 type Job struct {
-	Type     string   `json:"type"`
-	Input    string   `json:"input"`
-	Image    string   `json:"image"`
-	Cmd      []string `json:"command"`
-	Limit    int      `json:"limit"`
-	Parallel int      `json:"parallel"`
-	TimeOut  int      `json:"timeout"`
+	Type      string   `json:"type"`
+	Input     string   `json:"input"`
+	Image     string   `json:"image"`
+	Cmd       []string `json:"command"`
+	Limit     int      `json:"limit"`
+	Parallel  int      `json:"parallel"`
+	TimeOut   int      `json:"timeout"`
+	CpuShares int      `json:"cpu-shares"`
+	Memory    int      `json:"memory"`
+}
+
+func (j Job) containerConfig() *dockerclient.ContainerConfig {
+	c := &dockerclient.ContainerConfig{Image: j.Image, Cmd: j.Cmd}
+	if j.CpuShares != 0 {
+		c.CpuShares = int64(j.CpuShares)
+	}
+	if j.Memory != 0 {
+		c.Memory = int64(j.Memory)
+	}
+	return c
 }
 
 type materializeInfo struct {
