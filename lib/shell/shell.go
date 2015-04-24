@@ -9,7 +9,7 @@ import (
 )
 
 func RunStderr(c *exec.Cmd) error {
-	log.Print("RunStderr:\n", c)
+	log.Print("RunStderr: ", strings.Join(c.Args, " "))
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return err
@@ -26,8 +26,8 @@ func RunStderr(c *exec.Cmd) error {
 	return c.Wait()
 }
 
-func CallCont(c *exec.Cmd, cont func(io.ReadCloser) error) error {
-	log.Print("CallCont:\n", c)
+func CallCont(c *exec.Cmd, cont func(io.Reader) error) error {
+	log.Print("CallCont: ", strings.Join(c.Args, " "))
 	reader, err := c.StdoutPipe()
 	if err != nil {
 		return err
@@ -41,6 +41,7 @@ func CallCont(c *exec.Cmd, cont func(io.ReadCloser) error) error {
 		return err
 	}
 	err = cont(reader)
+	reader.Close()
 	if err != nil {
 		return err
 	}
