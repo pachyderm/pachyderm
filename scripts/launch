@@ -28,8 +28,8 @@ done
 BTRFS_VERSION="$(which btrfs)" || { echo 'Please install btrfs-tools. (apt-get install btrfs-tools)' ; exit 1; }
 DOCKER_VERSION="$(docker --version | awk '{ print $3 }')"
 
-if [ "$DOCKER_VERSION" != "1.5.0," ] ; then
-    echo "docker 1.5.0 required"
+if [ "$DOCKER_VERSION" != "1.5.0," ] && [ "$DOCKER_VERSION" != "1.6.0," ] ; then
+    echo "docker >= 1.5.0 required"
     echo "See: https://docs.docker.com/installation/ubuntulinux/#docker-maintained-package-installation"
     exit 1;
 fi
