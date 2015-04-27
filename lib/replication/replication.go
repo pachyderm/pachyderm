@@ -1,4 +1,4 @@
-package main
+package replication
 
 import (
 	"encoding/json"
@@ -10,6 +10,23 @@ import (
 	"github.com/mitchellh/goamz/s3"
 	"github.com/pachyderm/pfs/lib/s3utils"
 )
+
+type CommitBrancher interface {
+	Commit(diff io.Reader) error
+	Branch(base, name string) error
+}
+
+type Puller interface {
+	// Pull pulls data from a replica and applies it to the target,
+	// `from` is used to pickup where you left-off, passing `from=""` will start from the beginning
+	// Pull returns the value that should be passed next as `from`
+	Pull(from string, target *CommitBrancher) (string, error)
+}
+
+type Replica interface {
+	CommitBrancher
+	Puller
+}
 
 type S3Replica struct {
 	uri   string
