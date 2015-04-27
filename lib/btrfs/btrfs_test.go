@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -273,10 +274,6 @@ func TestCommitsAreReplicated(t *testing.T) {
 	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
 	transid, err := Transid(srcRepo, "t0") // TODO(rw,jd): test other transids here
 	check(err, t)
-
-	// TODO(rw): seeing this error here:
-	// Cmd: btrfs send -p /var/lib/pfs/vol/mycommit2 /var/lib/pfs/vol/master
-	// stderr: ERROR: realpath /var/lib/pfs/vol/mycommit2 failed. No such file or directory
 	check(Pull(srcRepo, transid, repo2Recv), t)
 
 	// Verify that files from both commits are present:
@@ -325,6 +322,53 @@ func TestHoldRelease(t *testing.T) {
 //	}), t)
 
 // TestFindNew, which is basically like `git diff`. Corresponds to `find-new` in btrfs.
+func TestFindNew(t *testing.T) {
+	repoName := "repo_TestFindNew"
+	check(Init(repoName), t)
+
+	checkFindNew := func(want []string, repo, commit, transid string) {
+		got, err := FindNew(repo, commit, transid)
+		check(err, t)
+		t.Logf("checkFindNew(%v, %v, %v) -> %v", repo, commit, transid, got)
+
+		// handle nil and empty slice the same way:
+		if len(want) == 0 && len(got) == 0 {
+			return
+		}
+
+		if !reflect.DeepEqual(want, got) {
+			t.Fatalf("wanted %v, got %v for FindNew(%v, %v, %v)", want, got, repo, commit, transid)
+		}
+
+	}
+
+	// Get a transaction ID for the first commit:
+	transid0, err := Transid(repoName, "t0")
+	check(err, t)
+
+	// There are no new files upon repo creation:
+	checkFindNew([]string{}, repoName, "t0", transid0)
+
+	// A new, uncommited file is returned in the list:
+	writeFile(fmt.Sprintf("%s/master/myfile1", repoName), "foo", t)
+	checkFindNew([]string{"myfile"}, repoName, "t0", transid0)
+
+	// When that file is commited, then it still shows up in the delta since transid0:
+	check(Commit(repoName, "mycommit1", "master"), t)
+	// TODO(rw, jd) Shouldn't this pass?
+	checkFindNew([]string{"myfile1"}, repoName, "t0", transid0)
+
+	// Get a transaction ID for the second commit:
+	transid1, err := Transid(repoName, "mycommit1")
+	check(err, t)
+
+	// The file doesn't show up in the delta since the new transaction:
+	checkFindNew([]string{}, repoName, "mycommit1", transid1)
+
+	// Sanity check: the old delta still gives the same result:
+	//checkFindNew([]string{"myfile1"}, repoName, "t0", transid0)
+}
+
 // Case: spaces in filenames
 // Case: create, delete, edit files and check that the filenames correspond to the changes ones.
 
