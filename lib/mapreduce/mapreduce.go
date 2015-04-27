@@ -125,13 +125,15 @@ func PrepJob(job Job, jobName string, m materializeInfo) error {
 	return nil
 }
 
+type Proto int
+
 const (
-	ProtoPfs = iota
-	ProtoS3  = iota
+	ProtoPfs Proto = iota
+	ProtoS3  Proto = iota
 )
 
 // getProtocol extracts the protocol for an input
-func getProtocol(input string) int {
+func getProtocol(input string) Proto {
 	if strings.TrimPrefix(input, "s3://") != input {
 		return ProtoS3
 	} else {

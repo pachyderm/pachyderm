@@ -224,6 +224,18 @@ func SubvolumeDelete(name string) error {
 	return shell.RunStderr(exec.Command("btrfs", "subvolume", "delete", FilePath(name)))
 }
 
+func SubvolumeDeleteAll(name string) error {
+	subvolumeExists, err := FileExists(name)
+	if err != nil {
+		return err
+	}
+	if subvolumeExists {
+		return SubvolumeDelete(name)
+	} else {
+		return nil
+	}
+}
+
 func Snapshot(volume string, dest string, readonly bool) error {
 	if readonly {
 		return shell.RunStderr(exec.Command("btrfs", "subvolume", "snapshot", "-r",
@@ -335,6 +347,9 @@ func InitBare(repo string) error {
 	if err := SubvolumeCreate(repo); err != nil {
 		return err
 	}
+	if err := SubvolumeCreate(path.Join(repo, "t0")); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -422,16 +437,44 @@ func Commits(repo, from string, cont func(CommitInfo) error) error {
 	})
 }
 
-type Diff struct {
+type diff struct {
 	parent, child *CommitInfo
+}
+
+// A LocalReplica implements the CommitBrancher interface and replicates the
+// commits to a local repo. It expects `repo` to already exist
+type LocalReplica struct {
+	repo string
+}
+
+func (r LocalReplica) Commit(diff io.Reader) error {
+	return Recv(r.repo, diff)
+}
+
+func (r LocalReplica) Branch(base, name string) error {
+	// We remove the old version of the branch if it exists here
+	if err := SubvolumeDeleteAll(path.Join(r.repo, name)); err != nil {
+		return err
+	}
+	return Branch(r.repo, base, name)
+}
+
+func NewLocalReplica(repo string) *LocalReplica {
+	return &LocalReplica{repo: repo}
+}
+
+// A CommitBrancher is an interface that can receive Pulls
+type CommitBrancher interface {
+	Commit(diff io.Reader) error
+	Branch(base, name string) error
 }
 
 // Pull gets all the commits in `repo` that happened after `from`.
 // cont gets called with the `from` commit and a reader for the diff
-func Pull(repo, from string, cont func(commit string, diff io.Reader) error) error {
+func Pull(repo, from string, replica CommitBrancher) error {
 	// commits indexed by their parents
 	parentMap := make(map[string][]CommitInfo)
-	var diffs []Diff
+	var diffs []diff
 	// the body below gets called once per commit
 	err := Commits(repo, from, func(c CommitInfo) error {
 		// first we check if it's above the cutoff
@@ -443,13 +486,13 @@ func Pull(repo, from string, cont func(commit string, diff io.Reader) error) err
 		// Now we pop all of the commits for which this was the parent out of
 		// the map
 		for _, child := range parentMap[c.id] {
-			diffs = append(diffs, Diff{&c, &child})
+			diffs = append(diffs, diff{&c, &child})
 		}
 		delete(parentMap, c.id)
 
 		if len(parentMap) == 0 {
 			if c.parent == "-" {
-				diffs = append(diffs, Diff{nil, &c})
+				diffs = append(diffs, diff{nil, &c})
 			}
 			return fmt.Errorf("COMPLETE")
 		} else {
@@ -475,18 +518,16 @@ func Pull(repo, from string, cont func(commit string, diff io.Reader) error) err
 		if err != nil {
 			return err
 		}
-		if !isCommit {
-			continue
+		if isCommit {
+			if err := Send(path.Join(repo, diff.parent.path), path.Join(repo, diff.child.path), replica.Commit); err != nil {
+				return err
+			}
+		} else {
+			if err := replica.Branch(diff.parent.path, diff.child.path); err != nil {
+				return err
+			}
 		}
 
-		// A wrapper for cont which passes in the path of the commit.
-		_cont := func(r io.Reader) error {
-			return cont(diff.parent.path, r)
-		}
-
-		if err := Send(path.Join(repo, diff.parent.path), path.Join(repo, diff.child.path), _cont); err != nil {
-			return err
-		}
 	}
 
 	return nil

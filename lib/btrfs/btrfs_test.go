@@ -199,43 +199,6 @@ func TestSendRecv(t *testing.T) {
 	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), "bar", t)
 }
 
-// TestSendBaseRecv checks the SendBase and Recv replication primitives.
-func TestSendBaseRecv(t *testing.T) {
-	// Create a source repo:
-	srcRepo := "repo_TestSendBaseRecv_src"
-	check(Init(srcRepo), t)
-
-	// Create a file in the source repo:
-	writeFile(fmt.Sprintf("%s/master/myfile1", srcRepo), "foo", t)
-
-	// Create a commit in the source repo:
-	check(Commit(srcRepo, "mycommit1", "master"), t)
-
-	// Create another file in the source repo:
-	writeFile(fmt.Sprintf("%s/master/myfile2", srcRepo), "bar", t)
-
-	// Create a another commit in the source repo:
-	check(Commit(srcRepo, "mycommit2", "master"), t)
-
-	// Create a destination repo:
-	dstRepo := "repo_TestSendBaseRecv_dst"
-	check(Init(dstRepo), t)
-
-	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
-	checkNoFile(fmt.Sprintf("%s/mycommit1", dstRepo), t)
-	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
-
-	// Run a SendBase/Recv operation to fetch data from the source commits:
-	// This verifies that tree copying works:
-	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
-	check(SendBase(fmt.Sprintf("%s/mycommit1", srcRepo), repo2Recv), t)
-	check(SendBase(fmt.Sprintf("%s/mycommit2", srcRepo), repo2Recv), t)
-
-	// Verify that files from both commits are present:
-	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
-	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), "bar", t)
-}
-
 // TestSendWithMissingIntermediateCommitIsCorrect(?) // ? means we don't know what the behavior is.
 
 // TestBranchesAreNotReplicated // this is a known property, but not desirable long term
@@ -270,14 +233,13 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
 
 	// Run a Pull/Recv operation to fetch all commits:
-	repo2Recv := func(commit string, r io.Reader) error { return Recv(dstRepo, r) }
 	transid, err := Transid(srcRepo, "t0") // TODO(rw,jd): test other transids here
 	check(err, t)
 
 	// TODO(rw): seeing this error here:
 	// Cmd: btrfs send -p /var/lib/pfs/vol/mycommit2 /var/lib/pfs/vol/master
 	// stderr: ERROR: realpath /var/lib/pfs/vol/mycommit2 failed. No such file or directory
-	check(Pull(srcRepo, transid, repo2Recv), t)
+	check(Pull(srcRepo, transid, NewLocalReplica(dstRepo)), t)
 
 	// Verify that files from both commits are present:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
