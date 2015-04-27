@@ -30,15 +30,19 @@ func GetPath(input string) (string, error) {
 	return path.Join(strings.Split(strings.TrimPrefix(input, "s3://"), "/")[1:]...), nil
 }
 
-func NewBucket(bucketName string) (*s3.Bucket, error) {
+func NewBucket(uri string) (*s3.Bucket, error) {
 	auth, err := aws.EnvAuth()
 	if err != nil {
 		log.Print(err)
 		return nil, err
 	}
 	client := s3.New(auth, aws.USWest)
+	bucket, err := GetBucket(uri)
+	if err != nil {
+		return nil, err
+	}
 
-	return client.Bucket(bucketName), nil
+	return client.Bucket(bucket), nil
 }
 
 // PutMulti is like a smart bucket.Put in that it will automatically do a

@@ -165,12 +165,7 @@ func mapFile(filename, jobName string, job Job, m materializeInfo) error {
 		case getProtocol(job.Input) == ProtoPfs:
 			inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, filename))
 		case getProtocol(job.Input) == ProtoS3:
-			bucketName, err := s3utils.GetBucket(job.Input)
-			if err != nil {
-				log.Print(err)
-				return err
-			}
-			bucket, err := s3utils.NewBucket(bucketName)
+			bucket, err := s3utils.NewBucket(job.Input)
 			if err != nil {
 				log.Print(err)
 				return err
@@ -277,12 +272,7 @@ func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 			return
 		}
 	case getProtocol(job.Input) == ProtoS3:
-		bucketName, err := s3utils.GetBucket(job.Input)
-		if err != nil {
-			log.Print(err)
-			return
-		}
-		bucket, err := s3utils.NewBucket(bucketName)
+		bucket, err := s3utils.NewBucket(job.Input)
 		if err != nil {
 			log.Print(err)
 			return
