@@ -351,12 +351,12 @@ func TestFindNew(t *testing.T) {
 
 	// A new, uncommited file is returned in the list:
 	writeFile(fmt.Sprintf("%s/master/myfile1", repoName), "foo", t)
-	checkFindNew([]string{"myfile"}, repoName, "t0", transid0)
+	checkFindNew([]string{"myfile1"}, repoName, "master", transid0)
 
 	// When that file is commited, then it still shows up in the delta since transid0:
 	check(Commit(repoName, "mycommit1", "master"), t)
 	// TODO(rw, jd) Shouldn't this pass?
-	checkFindNew([]string{"myfile1"}, repoName, "t0", transid0)
+	checkFindNew([]string{"myfile1"}, repoName, "mycommit1", transid0)
 
 	// Get a transaction ID for the second commit:
 	transid1, err := Transid(repoName, "mycommit1")
