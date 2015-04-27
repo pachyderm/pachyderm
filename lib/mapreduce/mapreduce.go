@@ -19,7 +19,11 @@ import (
 	"github.com/samalba/dockerclient"
 )
 
-var retries int = 5
+const (
+	retries         = 5
+	defaultParallel = 100
+	usesPerMapper   = 2000
+)
 
 // TODO(rw): pull this out into a separate library
 func startContainer(image string, command []string) (string, error) {
@@ -105,13 +109,26 @@ func contains(set []string, val string) bool {
 }
 
 type Job struct {
-	Type     string   `json:"type"`
-	Input    string   `json:"input"`
-	Image    string   `json:"image"`
-	Cmd      []string `json:"command"`
-	Limit    int      `json:"limit"`
-	Parallel int      `json:"parallel"`
-	TimeOut  int      `json:"timeout"`
+	Type      string   `json:"type"`
+	Input     string   `json:"input"`
+	Image     string   `json:"image"`
+	Cmd       []string `json:"command"`
+	Limit     int      `json:"limit"`
+	Parallel  int      `json:"parallel"`
+	TimeOut   int      `json:"timeout"`
+	CpuShares int      `json:"cpu-shares"`
+	Memory    int      `json:"memory"`
+}
+
+func (j Job) containerConfig() *dockerclient.ContainerConfig {
+	c := &dockerclient.ContainerConfig{Image: j.Image, Cmd: j.Cmd}
+	if j.CpuShares != 0 {
+		c.CpuShares = int64(j.CpuShares)
+	}
+	if j.Memory != 0 {
+		c.Memory = int64(j.Memory)
+	}
+	return c
 }
 
 type materializeInfo struct {
@@ -141,24 +158,11 @@ func getProtocol(input string) Proto {
 	}
 }
 
-func mapFile(filename, jobName string, job Job, m materializeInfo) error {
-	// Spinup a Mapper()
-	containerId, err := spinupContainer(job.Image, job.Cmd)
-	if err != nil {
-		log.Print(err)
-		return err
-	}
-	// Make sure that the Mapper gets cleaned up
-	defer func() {
-		if err := stopContainer(containerId); err != nil {
-			log.Print(err)
-		}
-	}()
-	// This retry is because we don't have a great way to tell when
+func mapFile(filename, jobName, host string, job Job, m materializeInfo) error {
 	// the containers http server is actually listening. It also
 	// can help in cases where a user has written a job that fails
 	// intermittently.
-	err = retry(func() error {
+	err := retry(func() error {
 		var err error
 		var inFile io.ReadCloser
 		switch {
@@ -171,6 +175,9 @@ func mapFile(filename, jobName string, job Job, m materializeInfo) error {
 				return err
 			}
 			inFile, err = bucket.GetReader(filename)
+			if inFile == nil {
+				return fmt.Errorf("Nil file returned.")
+			}
 		default:
 			return fmt.Errorf("Invalid protocol.")
 		}
@@ -178,14 +185,8 @@ func mapFile(filename, jobName string, job Job, m materializeInfo) error {
 			log.Print(err)
 			return err
 		}
+		log.Print("In file: ", inFile)
 		defer inFile.Close()
-
-		// get the host for the Mapper
-		host, err := ipAddr(containerId)
-		if err != nil {
-			log.Print(err)
-			return err
-		}
 
 		log.Print(filename, ": ", "Posting: ", "http://"+path.Join(host, filename))
 		client := &http.Client{Timeout: time.Duration(job.TimeOut) * time.Second}
@@ -221,44 +222,13 @@ func mapFile(filename, jobName string, job Job, m materializeInfo) error {
 	return nil
 }
 
-func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
-	err := PrepJob(job, path.Base(jobName), m)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
-	if job.Type != "map" {
-		log.Printf("runMap called on a job of type \"%s\". Should be \"map\".", job.Type)
-		return
-	}
-
-	files := make(chan string)
-
-	var wg sync.WaitGroup
-	defer wg.Wait()
-
-	nGoros := 300
-	if job.Parallel > 0 {
-		nGoros = job.Parallel
-	}
-
+func pumpFiles(files chan string, job Job, m materializeInfo, shard, modulos uint64) {
 	defer close(files)
-	for i := 0; i < nGoros; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for name := range files {
-				if err := mapFile(name, jobName, job, m); err != nil {
-					log.Print(err)
-				}
-			}
-		}()
-	}
+
 	fileCount := 0
 	switch {
 	case getProtocol(job.Input) == ProtoPfs:
-		err = btrfs.LazyWalk(path.Join(m.In, m.Commit, job.Input),
+		err := btrfs.LazyWalk(path.Join(m.In, m.Commit, job.Input),
 			func(name string) error {
 				files <- name
 				fileCount++
@@ -313,6 +283,80 @@ func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 	default:
 		log.Printf("Unrecognized protocol.")
 		return
+	}
+
+}
+
+func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
+	err := PrepJob(job, path.Base(jobName), m)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	if job.Type != "map" {
+		log.Printf("runMap called on a job of type \"%s\". Should be \"map\".", job.Type)
+		return
+	}
+
+	files := make(chan string)
+
+	// pumpFiles will close the channel when it's done
+	go pumpFiles(files, job, m, shard, modulos)
+
+	parallel := defaultParallel
+	if job.Parallel > 0 {
+		parallel = job.Parallel
+	}
+
+	for {
+		// Spinup a Mapper()
+		containerId, err := spinupContainer(job.Image, job.Cmd)
+		if err != nil {
+			log.Print(err)
+			return
+		}
+		// Make sure that the Mapper gets cleaned up
+		host, err := ipAddr(containerId)
+		if err != nil {
+			log.Print(err)
+			return
+		}
+
+		semaphore := make(chan int, parallel)
+
+		uses := 0
+		for name := range files {
+			log.Println("Wait for sem...")
+			semaphore <- 1
+			log.Println("Acquired sem.")
+			go func(name string) {
+				if err := mapFile(name, jobName, host, job, m); err != nil {
+					log.Print(err)
+				}
+				log.Print("Releasing semaphore.")
+				<-semaphore
+			}(name)
+			uses++
+			if uses == usesPerMapper {
+				log.Print("Used up the mapper, time to make a new one.")
+				break
+			}
+		}
+		// drain the semaphore
+		for i := 0; i < parallel; i++ {
+			semaphore <- 1
+		}
+		close(semaphore)
+		if err := stopContainer(containerId); err != nil {
+			log.Print(err)
+			return
+		}
+
+		// This means we exited because we ran out of files to process
+		if uses < usesPerMapper {
+			break
+		}
 	}
 }
 
