@@ -36,12 +36,10 @@ type LocalReplica struct {
 }
 
 func (r LocalReplica) Commit(diff io.Reader) error {
-	log.Print("LocaLReplica.Commit")
 	return Recv(r.repo, diff)
 }
 
 func (r LocalReplica) Branch(base, name string) error {
-	log.Print("LocaLReplica.Branch")
 	// We remove the old version of the branch if it exists here
 	if err := SubvolumeDeleteAll(path.Join(r.repo, name)); err != nil {
 		return err
@@ -63,8 +61,8 @@ type S3Replica struct {
 }
 
 type branchRecord struct {
-	base string `json:"base"`
-	name string `json:"name"`
+	Base string `json:"base"`
+	Name string `json:"name"`
 }
 
 func (r *S3Replica) Commit(diff io.Reader) error {
@@ -75,7 +73,14 @@ func (r *S3Replica) Commit(diff io.Reader) error {
 	}
 	key := fmt.Sprintf("%.10dC", r.count)
 	r.count++
-	return s3utils.PutMulti(bucket, key, diff, "application/octet-stream", s3.BucketOwnerFull)
+
+	p, err := s3utils.GetPath(r.uri)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+
+	return s3utils.PutMulti(bucket, path.Join(p, key), diff, "application/octet-stream", s3.BucketOwnerFull)
 }
 
 func (r *S3Replica) Branch(base, name string) error {
@@ -84,14 +89,21 @@ func (r *S3Replica) Branch(base, name string) error {
 		log.Print(err)
 		return err
 	}
-	data, err := json.Marshal(branchRecord{base: base, name: name})
+	data, err := json.Marshal(branchRecord{Base: base, Name: name})
 	if err != nil {
 		log.Print(err)
 		return err
 	}
 	key := fmt.Sprintf("%.10dB", r.count)
 	r.count++
-	return bucket.Put(path.Join(r.uri, key), data, "application/octet-stream", s3.BucketOwnerFull)
+
+	p, err := s3utils.GetPath(r.uri)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+
+	return bucket.Put(path.Join(p, key), data, "application/octet-stream", s3.BucketOwnerFull)
 }
 
 func (r *S3Replica) Pull(from string, target CommitBrancher) (string, error) {
@@ -118,7 +130,7 @@ func (r *S3Replica) Pull(from string, target CommitBrancher) (string, error) {
 				log.Print(err)
 				return err
 			}
-			err := target.Branch(b.base, b.name)
+			err := target.Branch(b.Base, b.Name)
 			if err != nil {
 				log.Print(err)
 				return err
@@ -134,4 +146,8 @@ func (r *S3Replica) Pull(from string, target CommitBrancher) (string, error) {
 		}
 		return nil
 	})
+}
+
+func NewS3Replica(uri string) *S3Replica {
+	return &S3Replica{uri: uri}
 }

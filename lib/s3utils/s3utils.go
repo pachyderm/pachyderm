@@ -14,7 +14,8 @@ import (
 const (
 	// AWS says that parts must be at least 5MB, it's unclear if that means 5 *
 	// 10^6 or 5 2^10 so we went with the larger.
-	minPart = 5242880 // 5MB
+	minPart = 5242880      // 5MB
+	maxPart = minPart * 10 // 50MB
 )
 
 // An s3 input looks like: s3://bucket/dir
@@ -53,13 +54,14 @@ func PutMulti(bucket *s3.Bucket, path string, r io.Reader, contType string, perm
 	var multi *s3.Multi = nil
 	var parts []s3.Part
 	for i := 0; ; i++ {
-		var data []byte
+		data := make([]byte, maxPart)
 		n, err := io.ReadAtLeast(r, data, minPart)
 		if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
 			// EOF means that r was empty
 			// ErrUnexpectedEOF means that r had less than minPart bytes in it
 			// Note that we can hit these errors after having read several 5MB
 			// chunks from r already
+			log.Print(err)
 			return err
 		}
 		if n >= minPart && multi == nil {
@@ -67,16 +69,18 @@ func PutMulti(bucket *s3.Bucket, path string, r io.Reader, contType string, perm
 			// That means it's time to start one
 			multi, err = bucket.Multi(path, contType, perm)
 			if err != nil {
+				log.Print(err)
 				return err
 			}
 		}
 		// Now we upload the actual data
 		if multi == nil {
 			// We're not doing a multi transaction,
-			return bucket.Put(path, data, contType, perm)
+			return bucket.Put(path, data[0:n], contType, perm)
 		} else {
-			part, err := multi.PutPart(i, bytes.NewReader(data))
+			part, err := multi.PutPart(i, bytes.NewReader(data[0:n]))
 			if err != nil {
+				log.Print(err)
 				return err
 			}
 			parts = append(parts, part)
@@ -89,6 +93,7 @@ func PutMulti(bucket *s3.Bucket, path string, r io.Reader, contType string, perm
 	}
 	if multi != nil {
 		if err := multi.Complete(parts); err != nil {
+			log.Print(err)
 			return err
 		}
 	}

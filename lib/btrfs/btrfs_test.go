@@ -241,6 +241,48 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), "bar", t)
 }
 
+func TestS3Replica(t *testing.T) {
+	// Create a source repo:
+	srcRepo := "repo_TestS3Replica_src"
+	check(Init(srcRepo), t)
+
+	// Create a file in the source repo:
+	writeFile(fmt.Sprintf("%s/master/myfile1", srcRepo), "foo", t)
+
+	// Create a commit in the source repo:
+	check(Commit(srcRepo, "mycommit1", "master"), t)
+
+	// Create another file in the source repo:
+	writeFile(fmt.Sprintf("%s/master/myfile2", srcRepo), "bar", t)
+
+	// Create a another commit in the source repo:
+	check(Commit(srcRepo, "mycommit2", "master"), t)
+
+	// Create a destination repo:
+	dstRepo := "repo_TestS3Replica_dst"
+	check(Init(dstRepo), t)
+
+	// Verify that the commits "mycommit1" and "mycommit2" do in source:
+	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", srcRepo), "foo", t)
+	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", srcRepo), "bar", t)
+
+	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
+	checkNoFile(fmt.Sprintf("%s/mycommit1", dstRepo), t)
+	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
+
+	// Run a Pull/Recv operation to fetch all commits:
+	s3Replica := NewS3Replica(path.Join("pachyderm-test", RandSeq(20)))
+	_, err := Pull(srcRepo, "", s3Replica)
+	check(err, t)
+
+	_, err = s3Replica.Pull("", NewLocalReplica(dstRepo))
+	check(err, t)
+
+	// Verify that files from both commits are present:
+	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
+	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), "bar", t)
+}
+
 // TestHoldRelease creates one-off commit named after a UUID, to ensure a data consumer can always access data in a commit, even if the original commit is deleted.
 func TestHoldRelease(t *testing.T) {
 	repoName := "repo_TestHoldRelease"
