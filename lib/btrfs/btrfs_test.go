@@ -175,7 +175,9 @@ func TestSendRecv(t *testing.T) {
 
 	// Create a destination repo:
 	dstRepo := "repo_TestSendRecv_dst"
-	check(Init(dstRepo), t)
+	check(InitReplica(dstRepo), t)
+	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
+	check(SendBase(fmt.Sprintf("%s/t0", srcRepo), repo2Recv), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
 	checkNoFile(fmt.Sprintf("%s/mycommit1", dstRepo), t)
@@ -183,7 +185,6 @@ func TestSendRecv(t *testing.T) {
 
 	// Run a Send/Recv operation to fetch data from the older "mycommit1".
 	// This verifies that tree copying works:
-	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
 	check(Send(fmt.Sprintf("%s/t0", srcRepo), fmt.Sprintf("%s/mycommit1", srcRepo), repo2Recv), t)
 
 	// Check that the file from mycommit1 exists, but not from mycommit2:
@@ -191,7 +192,6 @@ func TestSendRecv(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), t)
 
 	// Send again, this time starting from mycommit1 and going to mycommit2:
-	repo2Recv = func(r io.Reader) error { return Recv(dstRepo, r) }
 	check(Send(fmt.Sprintf("%s/mycommit1", srcRepo), fmt.Sprintf("%s/mycommit2", srcRepo), repo2Recv), t)
 
 	// Verify that files from both commits are present:
@@ -222,7 +222,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 
 	// Create a destination repo:
 	dstRepo := "repo_TestSendCommitsAreReplicated_dst"
-	check(Init(dstRepo), t)
+	check(InitReplica(dstRepo), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do exist in source:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", srcRepo), "foo", t)
@@ -243,7 +243,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 	// Now check that we can use dstRepo as the source for replication
 	// Create a second dest repo:
 	dstRepo2 := "repo_TestSendCommitsAreReplicated_dst2"
-	check(Init(dstRepo2), t)
+	check(InitReplica(dstRepo2), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
 	checkNoFile(fmt.Sprintf("%s/mycommit1", dstRepo2), t)
@@ -277,7 +277,7 @@ func TestS3Replica(t *testing.T) {
 
 	// Create a destination repo:
 	dstRepo := "repo_TestS3Replica_dst"
-	check(Init(dstRepo), t)
+	check(InitReplica(dstRepo), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do in source:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", srcRepo), "foo", t)

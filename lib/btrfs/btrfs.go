@@ -343,11 +343,8 @@ func Ensure(repo string) error {
 	}
 }
 
-func InitBare(repo string) error {
+func InitReplica(repo string) error {
 	if err := SubvolumeCreate(repo); err != nil {
-		return err
-	}
-	if err := SubvolumeCreate(path.Join(repo, "t0")); err != nil {
 		return err
 	}
 	return nil
@@ -456,7 +453,6 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 	var diffs []diff
 	// the body below gets called once per commit
 	err := Commits(repo, from, func(c CommitInfo) error {
-		log.Printf("Got commit: %#v", c)
 		// first we check if it's above the cutoff
 		// We don't do this if the parent is null (represented by "-")
 		if c.parent != "-" {
@@ -489,20 +485,27 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 		diff := diffs[len(diffs)-(i+1)]
 		log.Print("Sending: ", diff.child.path)
 
-		if diff.parent == nil {
-			continue
-		}
-
 		// Check to make sure that what we have is a commit and not a branch
 		isCommit, err := IsReadOnly(path.Join(repo, diff.child.path))
 		if err != nil {
 			return nextFrom, err
 		}
 		if isCommit {
-			if err := Send(path.Join(repo, diff.parent.path), path.Join(repo, diff.child.path), cb.Commit); err != nil {
-				return nextFrom, err
+			if diff.parent == nil {
+				// No Parent, use SendBase
+				if err := SendBase(path.Join(repo, diff.child.path), cb.Commit); err != nil {
+					return nextFrom, err
+				}
+			} else {
+				// We have a parent, use normal Send
+				if err := Send(path.Join(repo, diff.parent.path), path.Join(repo, diff.child.path), cb.Commit); err != nil {
+					return nextFrom, err
+				}
 			}
 		} else {
+			if diff.parent == nil {
+				return nextFrom, fmt.Errorf("It shouldn't be possible to have a branch with a nil parent.")
+			}
 			if err := cb.Branch(diff.parent.path, diff.child.path); err != nil {
 				return nextFrom, err
 			}
