@@ -408,7 +408,11 @@ func Log(repo, from string, cont func(io.Reader) error) error {
 		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", "-ogen", FilePath(path.Join(repo)))
 		return shell.CallCont(c, cont)
 	} else {
-		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-G", "+"+from, "--sort", "-ogen", FilePath(path.Join(repo)))
+		t, err := transid(repo, from)
+		if err != nil {
+			return err
+		}
+		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-G", "+"+t, "--sort", "-ogen", FilePath(path.Join(repo)))
 		return shell.CallCont(c, cont)
 	}
 }
@@ -452,9 +456,10 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 	var diffs []diff
 	// the body below gets called once per commit
 	err := Commits(repo, from, func(c CommitInfo) error {
+		log.Printf("Got commit: %#v", c)
 		// first we check if it's above the cutoff
 		// We don't do this if the parent is null (represented by "-")
-		if c.gen > from && c.parent != "-" {
+		if c.parent != "-" {
 			// this commit is part of the pull so we put it in the parentMap
 			parentMap[c.parent] = append(parentMap[c.parent], c)
 		}
@@ -510,7 +515,7 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 
 // Transid returns transid of a path in a repo. This value is useful for
 // passing to FindNew.
-func Transid(repo, commit string) (string, error) {
+func transid(repo, commit string) (string, error) {
 	//  "9223372036854775810" == 2 ** 63 we use a very big number there so that
 	//  we get the transid of the from path. According to the internet this is
 	//  the nicest way to get it from btrfs.
@@ -539,12 +544,15 @@ func Transid(repo, commit string) (string, error) {
 	return transid, err
 }
 
-// FindNew returns an array of filenames that have been created since transid.
-// transid should come from Transid.
-func FindNew(repo, commit, transid string) ([]string, error) {
+// FindNew returns an array of filenames that were created between `from` and `to`
+func FindNew(repo, from, to string) ([]string, error) {
 	var files []string
-	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), transid)
-	err := shell.CallCont(c, func(r io.Reader) error {
+	t, err := transid(repo, from)
+	if err != nil {
+		return files, err
+	}
+	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, to)), t)
+	err = shell.CallCont(c, func(r io.Reader) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			// scanner.Text() looks like this:
@@ -562,47 +570,4 @@ func FindNew(repo, commit, transid string) ([]string, error) {
 		return scanner.Err()
 	})
 	return files, err
-}
-
-// NewFiles returns the new files in
-func NewFiles(repo, commit string) ([]string, error) {
-	var parentId, parent string
-	err := Commits(repo, "", func(c CommitInfo) error {
-		if c.path == commit {
-			parentId = c.parent
-			if parentId == "-" {
-				// This case indicates no parent, we handle it below.
-				return fmt.Errorf("COMPLETE")
-			} else {
-				return nil
-			}
-		}
-		// When this function is first called parentId == "" this changes only
-		// when we find the commit above and learn what the parent is. Commits
-		// orders by generation so the parent shows up after the commit which
-		// means parentId should be by the time we see it
-		if parentId != "" && c.id == parentId {
-			parent = c.path
-			return fmt.Errorf("COMPLETE")
-		}
-		return nil
-	})
-	if err != nil && err.Error() != "COMPLETE" {
-		return []string{}, nil
-	}
-
-	if parent == "" {
-		return []string{}, fmt.Errorf("Failed to find parent for commit.")
-	}
-
-	if parent == "-" {
-		// No parent was found, everything in the subvolume is new.
-		return FindNew(repo, commit, "0")
-	} else {
-		transid, err := Transid(repo, parent)
-		if err != nil {
-			return []string{}, err
-		}
-		return FindNew(repo, commit, transid)
-	}
 }

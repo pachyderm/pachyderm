@@ -101,7 +101,7 @@ func TestGit(t *testing.T) {
 	checkFile(path.Join(repoName, "commit2", "file2"), "foo", t)
 
 	// Print BTRFS hierarchy data for humans:
-	check(Log(repoName, "0", func(r io.Reader) error {
+	check(Log(repoName, "t0", func(r io.Reader) error {
 		_, err := io.Copy(os.Stdout, r)
 		return err
 	}), t)
@@ -233,13 +233,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
 
 	// Run a Pull/Recv operation to fetch all commits:
-	transid, err := Transid(srcRepo, "t0") // TODO(rw,jd): test other transids here
-	check(err, t)
-
-	// TODO(rw): seeing this error here:
-	// Cmd: btrfs send -p /var/lib/pfs/vol/mycommit2 /var/lib/pfs/vol/master
-	// stderr: ERROR: realpath /var/lib/pfs/vol/mycommit2 failed. No such file or directory
-	_, err = Pull(srcRepo, transid, NewLocalReplica(dstRepo))
+	_, err := Pull(srcRepo, "t0", NewLocalReplica(dstRepo))
 	check(err, t)
 
 	// Verify that files from both commits are present:

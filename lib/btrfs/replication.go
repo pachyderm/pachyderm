@@ -36,10 +36,12 @@ type LocalReplica struct {
 }
 
 func (r LocalReplica) Commit(diff io.Reader) error {
+	log.Print("LocaLReplica.Commit")
 	return Recv(r.repo, diff)
 }
 
 func (r LocalReplica) Branch(base, name string) error {
+	log.Print("LocaLReplica.Branch")
 	// We remove the old version of the branch if it exists here
 	if err := SubvolumeDeleteAll(path.Join(r.repo, name)); err != nil {
 		return err
