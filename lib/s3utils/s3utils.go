@@ -94,3 +94,33 @@ func PutMulti(bucket *s3.Bucket, path string, r io.Reader, contType string, perm
 	}
 	return nil
 }
+
+// Files calls `cont` on each file found at `uri`.
+func ForEachFile(uri string, cont func(file string) error) error {
+	bucket, err := NewBucket(uri)
+	if err != nil {
+		return err
+	}
+	inPath, err := GetPath(uri)
+	if err != nil {
+		return err
+	}
+	nextMarker := ""
+	for {
+		lr, err := bucket.List(inPath, "", nextMarker, 0)
+		if err != nil {
+			return err
+		}
+		for _, key := range lr.Contents {
+			err := cont(key.Key)
+			if err != nil {
+				return err
+			}
+		}
+		if !lr.IsTruncated {
+			// We've exhausted the output
+			break
+		}
+	}
+	return nil
+}
