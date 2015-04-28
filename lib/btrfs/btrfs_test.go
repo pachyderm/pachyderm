@@ -224,7 +224,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 	dstRepo := "repo_TestSendCommitsAreReplicated_dst"
 	check(Init(dstRepo), t)
 
-	// Verify that the commits "mycommit1" and "mycommit2" do in source:
+	// Verify that the commits "mycommit1" and "mycommit2" do exist in source:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", srcRepo), "foo", t)
 	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", srcRepo), "bar", t)
 
@@ -239,6 +239,23 @@ func TestCommitsAreReplicated(t *testing.T) {
 	// Verify that files from both commits are present:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
 	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), "bar", t)
+
+	// Now check that we can use dstRepo as the source for replication
+	// Create a second dest repo:
+	dstRepo2 := "repo_TestSendCommitsAreReplicated_dst2"
+	check(Init(dstRepo2), t)
+
+	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
+	checkNoFile(fmt.Sprintf("%s/mycommit1", dstRepo2), t)
+	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo2), t)
+
+	// Run a Pull/Recv operation to fetch all commits:
+	_, err = Pull(dstRepo, "t0", NewLocalReplica(dstRepo2))
+	check(err, t)
+
+	// Verify that files from both commits are present:
+	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo2), "foo", t)
+	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo2), "bar", t)
 }
 
 func TestS3Replica(t *testing.T) {
