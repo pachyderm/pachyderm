@@ -95,32 +95,36 @@ func PutMulti(bucket *s3.Bucket, path string, r io.Reader, contType string, perm
 	return nil
 }
 
-// Files calls `cont` on each file found at `uri`.
-func ForEachFile(uri string, cont func(file string) error) error {
+// Files calls `cont` on each file found at `uri` starting at marker.
+// Pass `marker=""` to start from the beginning.
+// Returns the marker that should be passed to pick-up where this call left off.
+func ForEachFile(uri, marker string, cont func(file string) error) (string, error) {
+	nextMarker := marker
+
 	bucket, err := NewBucket(uri)
 	if err != nil {
-		return err
+		return nextMarker, err
 	}
 	inPath, err := GetPath(uri)
 	if err != nil {
-		return err
+		return nextMarker, err
 	}
-	nextMarker := ""
 	for {
 		lr, err := bucket.List(inPath, "", nextMarker, 0)
 		if err != nil {
-			return err
+			return nextMarker, err
 		}
 		for _, key := range lr.Contents {
 			err := cont(key.Key)
 			if err != nil {
-				return err
+				return nextMarker, err
 			}
+			nextMarker = key.Key
 		}
 		if !lr.IsTruncated {
 			// We've exhausted the output
 			break
 		}
 	}
-	return nil
+	return nextMarker, nil
 }
