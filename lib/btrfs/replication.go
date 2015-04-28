@@ -1,4 +1,4 @@
-package replication
+package btrfs
 
 import (
 	"encoding/json"
@@ -27,6 +27,32 @@ type Puller interface {
 type Replica interface {
 	CommitBrancher
 	Puller
+}
+
+// A LocalReplica implements the CommitBrancher interface and replicates the
+// commits to a local repo. It expects `repo` to already exist
+type LocalReplica struct {
+	repo string
+}
+
+func (r LocalReplica) Commit(diff io.Reader) error {
+	return Recv(r.repo, diff)
+}
+
+func (r LocalReplica) Branch(base, name string) error {
+	// We remove the old version of the branch if it exists here
+	if err := SubvolumeDeleteAll(path.Join(r.repo, name)); err != nil {
+		return err
+	}
+	return Branch(r.repo, base, name)
+}
+
+func (r LocalReplica) Pull(from string, cb CommitBrancher) (string, error) {
+	return Pull(r.repo, from, cb)
+}
+
+func NewLocalReplica(repo string) *LocalReplica {
+	return &LocalReplica{repo: repo}
 }
 
 type S3Replica struct {

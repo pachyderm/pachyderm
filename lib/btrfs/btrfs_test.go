@@ -239,7 +239,8 @@ func TestCommitsAreReplicated(t *testing.T) {
 	// TODO(rw): seeing this error here:
 	// Cmd: btrfs send -p /var/lib/pfs/vol/mycommit2 /var/lib/pfs/vol/master
 	// stderr: ERROR: realpath /var/lib/pfs/vol/mycommit2 failed. No such file or directory
-	check(Pull(srcRepo, transid, NewLocalReplica(dstRepo)), t)
+	_, err = Pull(srcRepo, transid, NewLocalReplica(dstRepo))
+	check(err, t)
 
 	// Verify that files from both commits are present:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)

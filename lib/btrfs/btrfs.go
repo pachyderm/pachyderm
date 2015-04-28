@@ -441,37 +441,12 @@ type diff struct {
 	parent, child *CommitInfo
 }
 
-// A LocalReplica implements the CommitBrancher interface and replicates the
-// commits to a local repo. It expects `repo` to already exist
-type LocalReplica struct {
-	repo string
-}
-
-func (r LocalReplica) Commit(diff io.Reader) error {
-	return Recv(r.repo, diff)
-}
-
-func (r LocalReplica) Branch(base, name string) error {
-	// We remove the old version of the branch if it exists here
-	if err := SubvolumeDeleteAll(path.Join(r.repo, name)); err != nil {
-		return err
-	}
-	return Branch(r.repo, base, name)
-}
-
-func NewLocalReplica(repo string) *LocalReplica {
-	return &LocalReplica{repo: repo}
-}
-
-// A CommitBrancher is an interface that can receive Pulls
-type CommitBrancher interface {
-	Commit(diff io.Reader) error
-	Branch(base, name string) error
-}
-
 // Pull gets all the commits in `repo` that happened after `from`.
-// cont gets called with the `from` commit and a reader for the diff
-func Pull(repo, from string, replica CommitBrancher) error {
+// and passes them to cb
+// Pull returns the next value that should passed as `from` to pick up where
+// this function left off.
+func Pull(repo, from string, cb CommitBrancher) (string, error) {
+	nextFrom := from
 	// commits indexed by their parents
 	parentMap := make(map[string][]CommitInfo)
 	var diffs []diff
@@ -500,7 +475,7 @@ func Pull(repo, from string, replica CommitBrancher) error {
 		}
 	})
 	if err != nil && err.Error() != "COMPLETE" {
-		return err
+		return nextFrom, err
 	}
 
 	for i := 0; i < len(diffs); i++ {
@@ -516,21 +491,21 @@ func Pull(repo, from string, replica CommitBrancher) error {
 		// Check to make sure that what we have is a commit and not a branch
 		isCommit, err := IsReadOnly(path.Join(repo, diff.child.path))
 		if err != nil {
-			return err
+			return nextFrom, err
 		}
 		if isCommit {
-			if err := Send(path.Join(repo, diff.parent.path), path.Join(repo, diff.child.path), replica.Commit); err != nil {
-				return err
+			if err := Send(path.Join(repo, diff.parent.path), path.Join(repo, diff.child.path), cb.Commit); err != nil {
+				return nextFrom, err
 			}
 		} else {
-			if err := replica.Branch(diff.parent.path, diff.child.path); err != nil {
-				return err
+			if err := cb.Branch(diff.parent.path, diff.child.path); err != nil {
+				return nextFrom, err
 			}
 		}
-
+		nextFrom = diff.child.path
 	}
 
-	return nil
+	return nextFrom, nil
 }
 
 // Transid returns transid of a path in a repo. This value is useful for
