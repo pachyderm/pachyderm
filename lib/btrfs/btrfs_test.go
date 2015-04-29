@@ -2,11 +2,13 @@ package btrfs
 
 import (
 	"bufio"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -21,12 +23,29 @@ func check(err error, t *testing.T) {
 // writeFile quickly writes a string to disk.
 func writeFile(name, content string, t *testing.T) {
 	f, err := Create(name)
-	if err != nil {
-		t.Fatal(err)
-	}
+	check(err, t)
 	f.WriteString(content + "\n")
-	f.Close()
+	check(f.Close(), t)
+}
 
+var suffix int = 0
+
+// writeLots writes a lots of data to disk in 128 MB files
+func writeLots(prefix string, nFiles int, t *testing.T) {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	for i := 0; i < nFiles; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			f, err := Create(fmt.Sprintf("%s-%d", prefix, suffix))
+			check(err, t)
+			suffix++
+			_, err = io.Copy(f, io.LimitReader(rand.Reader, (1<<20)*16))
+			check(err, t)
+			check(f.Close(), t)
+		}(i)
+	}
 }
 
 // checkFile checks if a file on disk contains a given string.
@@ -78,41 +97,47 @@ func TestOsOps(t *testing.T) {
 
 // TestGit checks that the Git-style interface to BTRFS is correct.
 func TestGit(t *testing.T) {
-	repoName := "repo_TestGit"
+	srcRepo := "repo_TestGit"
 	// Create the repo:
-	check(Init(repoName), t)
+	check(Init(srcRepo), t)
 
 	// Write a file "file" and create a commit "commit1":
-	writeFile(fmt.Sprintf("%s/master/file", repoName), "foo", t)
-	err := Commit(repoName, "commit1", "master")
+	writeFile(fmt.Sprintf("%s/master/file", srcRepo), "foo", t)
+	if !testing.Short() {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 3, t)
+	}
+	err := Commit(srcRepo, "commit1", "master")
 	check(err, t)
-	checkFile(path.Join(repoName, "commit1", "file"), "foo", t)
+	checkFile(path.Join(srcRepo, "commit1", "file"), "foo", t)
 
 	// Create a new branch "branch" from commit "commit1", and check that
 	// it contains the file "file":
-	check(Branch(repoName, "commit1", "branch"), t)
-	checkFile(fmt.Sprintf("%s/branch/file", repoName), "foo", t)
+	check(Branch(srcRepo, "commit1", "branch"), t)
+	checkFile(fmt.Sprintf("%s/branch/file", srcRepo), "foo", t)
 
 	// Create a file "file2" in branch "branch", and commit it to
 	// "commit2":
-	writeFile(fmt.Sprintf("%s/branch/file2", repoName), "foo", t)
-	err = Commit(repoName, "commit2", "branch")
+	writeFile(fmt.Sprintf("%s/branch/file2", srcRepo), "foo", t)
+	if !testing.Short() {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 3, t)
+	}
+	err = Commit(srcRepo, "commit2", "branch")
 	check(err, t)
-	checkFile(path.Join(repoName, "commit2", "file2"), "foo", t)
+	checkFile(path.Join(srcRepo, "commit2", "file2"), "foo", t)
 
 	// Print BTRFS hierarchy data for humans:
-	check(Log(repoName, "t0", func(r io.Reader) error {
+	check(Log(srcRepo, "t0", func(r io.Reader) error {
 		_, err := io.Copy(os.Stdout, r)
 		return err
 	}), t)
 }
 
 func TestNewRepoIsEmpty(t *testing.T) {
-	repoName := "repo_TestNewRepoIsEmpty"
-	check(Init(repoName), t)
+	srcRepo := "repo_TestNewRepoIsEmpty"
+	check(Init(srcRepo), t)
 
 	// ('master' is the default branch)
-	dirpath := path.Join(repoName, "master")
+	dirpath := path.Join(srcRepo, "master")
 	descriptors, err := ReadDir(dirpath)
 	check(err, t)
 	if len(descriptors) != 0 {
@@ -121,13 +146,13 @@ func TestNewRepoIsEmpty(t *testing.T) {
 }
 
 func TestCommitsAreReadOnly(t *testing.T) {
-	repoName := "repo_TestCommitsAreReadOnly"
-	check(Init(repoName), t)
+	srcRepo := "repo_TestCommitsAreReadOnly"
+	check(Init(srcRepo), t)
 
-	err := Commit(repoName, "commit1", "master")
+	err := Commit(srcRepo, "commit1", "master")
 	check(err, t)
 
-	_, err = Create(fmt.Sprintf("%s/commit1/file", repoName))
+	_, err = Create(fmt.Sprintf("%s/commit1/file", srcRepo))
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -137,13 +162,13 @@ func TestCommitsAreReadOnly(t *testing.T) {
 }
 
 func TestBranchesAreReadWrite(t *testing.T) {
-	repoName := "repo_TestBranchesAreReadWrite"
-	check(Init(repoName), t)
+	srcRepo := "repo_TestBranchesAreReadWrite"
+	check(Init(srcRepo), t)
 
-	err := Branch(repoName, "t0", "my_branch")
+	err := Branch(srcRepo, "t0", "my_branch")
 	check(err, t)
 
-	fn := fmt.Sprintf("%s/my_branch/file", repoName)
+	fn := fmt.Sprintf("%s/my_branch/file", srcRepo)
 	writeFile(fn, "some content", t)
 	checkFile(fn, "some content", t)
 }
@@ -163,12 +188,14 @@ func TestSendRecv(t *testing.T) {
 
 	// Create a file in the source repo:
 	writeFile(fmt.Sprintf("%s/master/myfile1", srcRepo), "foo", t)
+	writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 16, t)
 
 	// Create a commit in the source repo:
 	check(Commit(srcRepo, "mycommit1", "master"), t)
 
 	// Create another file in the source repo:
 	writeFile(fmt.Sprintf("%s/master/myfile2", srcRepo), "bar", t)
+	writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 16, t)
 
 	// Create a another commit in the source repo:
 	check(Commit(srcRepo, "mycommit2", "master"), t)
@@ -210,12 +237,22 @@ func TestCommitsAreReplicated(t *testing.T) {
 
 	// Create a file in the source repo:
 	writeFile(fmt.Sprintf("%s/master/myfile1", srcRepo), "foo", t)
+	if testing.Short() {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 1, t)
+	} else {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 10, t)
+	}
 
 	// Create a commit in the source repo:
 	check(Commit(srcRepo, "mycommit1", "master"), t)
 
 	// Create another file in the source repo:
 	writeFile(fmt.Sprintf("%s/master/myfile2", srcRepo), "bar", t)
+	if testing.Short() {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 1, t)
+	} else {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 10, t)
+	}
 
 	// Create a another commit in the source repo:
 	check(Commit(srcRepo, "mycommit2", "master"), t)
@@ -265,12 +302,22 @@ func TestS3Replica(t *testing.T) {
 
 	// Create a file in the source repo:
 	writeFile(fmt.Sprintf("%s/master/myfile1", srcRepo), "foo", t)
+	if testing.Short() {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 1, t)
+	} else {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 10, t)
+	}
 
 	// Create a commit in the source repo:
 	check(Commit(srcRepo, "mycommit1", "master"), t)
 
 	// Create another file in the source repo:
 	writeFile(fmt.Sprintf("%s/master/myfile2", srcRepo), "bar", t)
+	if testing.Short() {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 1, t)
+	} else {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 10, t)
+	}
 
 	// Create a another commit in the source repo:
 	check(Commit(srcRepo, "mycommit2", "master"), t)
@@ -302,26 +349,26 @@ func TestS3Replica(t *testing.T) {
 
 // TestHoldRelease creates one-off commit named after a UUID, to ensure a data consumer can always access data in a commit, even if the original commit is deleted.
 func TestHoldRelease(t *testing.T) {
-	repoName := "repo_TestHoldRelease"
-	check(Init(repoName), t)
+	srcRepo := "repo_TestHoldRelease"
+	check(Init(srcRepo), t)
 
 	// Write a file "myfile" with contents "foo":
-	master_fn := fmt.Sprintf("%s/master/myfile", repoName)
+	master_fn := fmt.Sprintf("%s/master/myfile", srcRepo)
 	writeFile(master_fn, "foo", t)
 	checkFile(master_fn, "foo", t)
 
 	// Create a commit "mycommit" and verify "myfile" exists:
-	mycommit_fn := fmt.Sprintf("%s/mycommit/myfile", repoName)
-	check(Commit(repoName, "mycommit", "master"), t)
+	mycommit_fn := fmt.Sprintf("%s/mycommit/myfile", srcRepo)
+	check(Commit(srcRepo, "mycommit", "master"), t)
 	checkFile(mycommit_fn, "foo", t)
 
 	// Grab a snapshot:
-	snapshot_path, err := Hold(repoName, "mycommit")
+	snapshot_path, err := Hold(srcRepo, "mycommit")
 	check(err, t)
 
 	// Delete the commit from the snapshot.
 	// (uses the lower-level btrfs command for now):
-	mycommit_path := fmt.Sprintf("%s/mycommit", repoName)
+	mycommit_path := fmt.Sprintf("%s/mycommit", srcRepo)
 	check(SubvolumeDelete(mycommit_path), t)
 
 	// Verify that the commit path doesn't exist:

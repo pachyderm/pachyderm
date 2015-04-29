@@ -53,7 +53,7 @@ func PutMulti(bucket *s3.Bucket, path string, r io.Reader, contType string, perm
 	// putting the data in parts.
 	var multi *s3.Multi = nil
 	var parts []s3.Part
-	for i := 0; ; i++ {
+	for i := 1; ; i++ {
 		data := make([]byte, maxPart)
 		n, err := io.ReadAtLeast(r, data, minPart)
 		if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
