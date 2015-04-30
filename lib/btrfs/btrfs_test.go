@@ -293,6 +293,8 @@ func TestCommitsAreReplicated(t *testing.T) {
 	// Verify that files from both commits are present:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo2), "foo", t)
 	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo2), "bar", t)
+	checkFile(fmt.Sprintf("%s/master/myfile1", dstRepo), "foo", t)
+	checkFile(fmt.Sprintf("%s/master/myfile2", dstRepo), "bar", t)
 }
 
 func TestS3Replica(t *testing.T) {
@@ -345,6 +347,8 @@ func TestS3Replica(t *testing.T) {
 	// Verify that files from both commits are present:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
 	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), "bar", t)
+	checkFile(fmt.Sprintf("%s/master/myfile1", dstRepo), "foo", t)
+	checkFile(fmt.Sprintf("%s/master/myfile2", dstRepo), "bar", t)
 }
 
 // TestHoldRelease creates one-off commit named after a UUID, to ensure a data consumer can always access data in a commit, even if the original commit is deleted.

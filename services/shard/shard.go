@@ -242,10 +242,9 @@ func BranchHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func JobHandler(w http.ResponseWriter, r *http.Request) {
-	log.Print("URL in job handler:\n", r.URL)
 	url := strings.Split(r.URL.Path, "/")
-	// url looks like [, job, <job>, file, <file>]
 	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
+		// url looks like [, job, <job>, file, <file>]
 		if hasBranch(r) {
 			err := mapreduce.WaitJob(compRepo, branchParam(r), commitParam(r), url[2])
 			if err != nil {
@@ -269,6 +268,15 @@ func JobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func PushHandler(w http.ResponseWriter, r *http.Request) {
+	replica := btrfs.NewLocalReplica(dataRepo)
+	if err := replica.Commit(r.Body); err != nil {
+		http.Error(w, err.Error(), 500)
+		log.Print(err)
+		return
+	}
+}
+
 // ShardMux creates a multiplexer for a Shard writing to the passed in FS.
 func ShardMux() *http.ServeMux {
 	mux := http.NewServeMux()
@@ -278,6 +286,7 @@ func ShardMux() *http.ServeMux {
 	mux.HandleFunc("/file/", FileHandler)
 	mux.HandleFunc("/job/", JobHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
+	mux.HandleFunc("/push", PushHandler)
 
 	return mux
 }
