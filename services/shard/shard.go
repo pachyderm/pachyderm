@@ -217,16 +217,19 @@ func (s Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == "GET" {
 		btrfs.Commits(s.dataRepo, "t0", func(c btrfs.CommitInfo) error {
-			isReadOnly, err := btrfs.IsReadOnly(c.Path)
+			log.Printf("Got commit: %#v.", c)
+			isReadOnly, err := btrfs.IsReadOnly(path.Join(s.dataRepo, c.Path))
 			if err != nil {
+				log.Print(err)
 				return err
 			}
 			if isReadOnly {
-				fi, err := btrfs.Stat(c.Path)
+				fi, err := btrfs.Stat(path.Join(s.dataRepo, c.Path))
 				if err != nil {
+					log.Print(err)
 					return err
 				}
-				fmt.Fprintf(w, "%s    %s\n", fi.Name(), fi.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+				fmt.Fprintf(w, "%s - %s\n", fi.Name(), fi.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
 			}
 			return nil
 		})
@@ -279,16 +282,16 @@ func (s Shard) BranchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == "GET" {
 		btrfs.Commits(s.dataRepo, "t0", func(c btrfs.CommitInfo) error {
-			isReadOnly, err := btrfs.IsReadOnly(c.Path)
+			isReadOnly, err := btrfs.IsReadOnly(path.Join(s.dataRepo, c.Path))
 			if err != nil {
 				return err
 			}
 			if !isReadOnly {
-				fi, err := btrfs.Stat(c.Path)
+				fi, err := btrfs.Stat(path.Join(s.dataRepo, c.Path))
 				if err != nil {
 					return err
 				}
-				fmt.Fprintf(w, "%s    %s\n", fi.Name(), fi.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+				fmt.Fprintf(w, "%s - %s\n", fi.Name(), fi.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
 			}
 			return nil
 		})

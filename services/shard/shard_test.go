@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"testing"
@@ -24,8 +25,10 @@ func checkResp(res *http.Response, expected string, t *testing.T) {
 	value, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
 	check(err, t)
-	if string(value) != expected {
-		t.Fatalf("Got: %s\nExpected: %s\n", value, expected)
+	match, err := regexp.Match(expected, value)
+	check(err, t)
+	if match != true {
+		t.Fatalf("Body:\n%s\ndidn't match:\n%s\n", string(value), expected)
 	}
 }
 
@@ -82,4 +85,44 @@ func TestCommit(t *testing.T) {
 	checkFile(s.URL, "file2", "master", "file2", t)
 	checkFile(s.URL, "file1", "commit1", "file1", t)
 	checkNoFile(s.URL, "file2", "commit1", t)
+
+	res, err = http.Get(s.URL + "/commit")
+	check(err, t)
+	checkResp(res, "commit1 - .*\n", t)
+}
+
+func TestBranch(t *testing.T) {
+	shard := NewShard("TestBranch", "TestBranchComp", 0, 1)
+	check(shard.EnsureRepos(), t)
+	s := httptest.NewServer(shard.ShardMux())
+	defer s.Close()
+
+	checkNoFile(s.URL, "file1", "master", t)
+	writeFile(s.URL, "file1", "master", "file1", t)
+	checkFile(s.URL, "file1", "master", "file1", t)
+
+	res, err := http.Post(s.URL+"/commit?commit=commit1", "", nil)
+	check(err, t)
+	checkResp(res, "commit1\n", t)
+	checkFile(s.URL, "file1", "commit1", "file1", t)
+
+	res, err = http.Post(s.URL+"/branch?branch=branch1&commit=commit1", "", nil)
+	check(err, t)
+	checkFile(s.URL, "file1", "branch1", "file1", t)
+
+	writeFile(s.URL, "file2", "branch1", "file2", t)
+	checkFile(s.URL, "file2", "branch1", "file2", t)
+	res, err = http.Post(s.URL+"/commit?commit=commit2&branch=branch1", "", nil)
+	check(err, t)
+	checkResp(res, "commit2\n", t)
+	checkFile(s.URL, "file2", "commit2", "file2", t)
+	checkFile(s.URL, "file1", "commit2", "file1", t)
+
+	res, err = http.Get(s.URL + "/commit")
+	check(err, t)
+	checkResp(res, "commit2 - .*\ncommit1 - .*\n", t)
+
+	res, err = http.Get(s.URL + "/branch")
+	check(err, t)
+	checkResp(res, "branch1 - .*\nmaster - .*\n", t)
 }
