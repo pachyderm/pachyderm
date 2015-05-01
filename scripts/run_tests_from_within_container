@@ -1,7 +1,7 @@
 set -E
 cd /go/src/github.com/pachyderm/pfs
 go get code.google.com/p/go.tools/cmd/cover
-go test -test.cover -test.v ./lib/...
+go test -test.cover -test.short ./lib/... ./services/shard
 status=$?
 if [ "${status}" -ne "0" ]; then
 	echo "nonzero exit status from tests, dropping into a shell..."

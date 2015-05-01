@@ -188,14 +188,22 @@ func TestSendRecv(t *testing.T) {
 
 	// Create a file in the source repo:
 	writeFile(fmt.Sprintf("%s/master/myfile1", srcRepo), "foo", t)
-	writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 16, t)
+	if testing.Short() {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 1, t)
+	} else {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 10, t)
+	}
 
 	// Create a commit in the source repo:
 	check(Commit(srcRepo, "mycommit1", "master"), t)
 
 	// Create another file in the source repo:
 	writeFile(fmt.Sprintf("%s/master/myfile2", srcRepo), "bar", t)
-	writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 16, t)
+	if testing.Short() {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 1, t)
+	} else {
+		writeLots(fmt.Sprintf("%s/master/big_file", srcRepo), 10, t)
+	}
 
 	// Create a another commit in the source repo:
 	check(Commit(srcRepo, "mycommit2", "master"), t)
