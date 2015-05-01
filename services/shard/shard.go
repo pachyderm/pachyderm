@@ -53,16 +53,28 @@ func indexOf(haystack []string, needle string) int {
 }
 
 func cat(w http.ResponseWriter, name string) {
+	exists, err := btrfs.FileExists(name)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		log.Print(err)
+	}
+	if !exists {
+		http.Error(w, "404 page not found", 404)
+		return
+	}
+
 	f, err := btrfs.Open(name)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
+		return
 	}
 	defer f.Close()
 
 	if _, err := io.Copy(w, f); err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
+		return
 	}
 }
 
