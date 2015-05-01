@@ -381,6 +381,20 @@ func TestFilenamesWithSpaces(t *testing.T) {
 	checkFile(fn, "some content", t)
 }
 
+func TestFilenamesWithSlashesFail(t *testing.T) {
+	repoName := "repo_TestFilenamesWithSlashesFail"
+	check(Init(repoName), t)
+
+	err := Branch(repoName, "t0", "my_branch")
+	check(err, t)
+
+	fn := fmt.Sprintf("%s/my_branch/my/file", repoName)
+	_, err = Create(fn)
+	if err == nil {
+		t.Fatalf("expected filename with slash to fail")
+	}
+}
+
 // Case: create, delete, edit files and check that the filenames correspond to the changes ones.
 
 // go test coverage
