@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path"
@@ -165,19 +166,22 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "GET" {
-		commits, err := btrfs.ReadDir(dataRepo)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-
-		for _, ci := range commits {
-			if uuid.Parse(ci.Name()) != nil {
-				fmt.Fprintf(w, "%s    %s\n", ci.Name(), ci.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+		btrfs.Commits(dataRepo, "t0", func(c btrfs.CommitInfo) error {
+			isReadOnly, err := btrfs.IsReadOnly(c.Path)
+			if err != nil {
+				return err
 			}
-		}
-	} else if r.Method == "POST" {
+			if isReadOnly {
+				fi, err := btrfs.Stat(c.Path)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(w, "%s    %s\n", fi.Name(), fi.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+			}
+			return nil
+		})
+	} else if r.Method == "POST" && r.ContentLength == 0 {
+		// Create a commit from local data
 		var commit string
 		if commit = r.URL.Query().Get("commit"); commit == "" {
 			commit = uuid.New()
@@ -199,6 +203,14 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		fmt.Fprint(w, commit)
+	} else if r.Method == "POST" {
+		// Commit being pushed via a diff
+		replica := btrfs.NewLocalReplica(dataRepo)
+		if err := replica.Commit(r.Body); err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
 	} else {
 		http.Error(w, "Unsupported method.", http.StatusMethodNotAllowed)
 		log.Printf("Unsupported method %s in request to %s.", r.Method, r.URL.String())
@@ -215,18 +227,20 @@ func BranchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "GET" {
-		branches, err := btrfs.ReadDir(dataRepo)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
-			return
-		}
-
-		for _, bi := range branches {
-			if uuid.Parse(bi.Name()) == nil {
-				fmt.Fprintf(w, "%s    %s\n", bi.Name(), bi.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+		btrfs.Commits(dataRepo, "t0", func(c btrfs.CommitInfo) error {
+			isReadOnly, err := btrfs.IsReadOnly(c.Path)
+			if err != nil {
+				return err
 			}
-		}
+			if !isReadOnly {
+				fi, err := btrfs.Stat(c.Path)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(w, "%s    %s\n", fi.Name(), fi.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
+			}
+			return nil
+		})
 	} else if r.Method == "POST" {
 		if err := btrfs.Branch(dataRepo, commitParam(r), branchParam(r)); err != nil {
 			http.Error(w, err.Error(), 500)
@@ -268,13 +282,17 @@ func JobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func PushHandler(w http.ResponseWriter, r *http.Request) {
-	replica := btrfs.NewLocalReplica(dataRepo)
-	if err := replica.Commit(r.Body); err != nil {
+func PullHandler(w http.ResponseWriter, r *http.Request) {
+	from := r.URL.Query().Get("from")
+	cb := NewMultiPartCommitBrancher(multipart.NewWriter(w))
+	localReplica := btrfs.NewLocalReplica(dataRepo)
+	_, err := localReplica.Pull(from, cb)
+	if err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
 	}
+
 }
 
 // ShardMux creates a multiplexer for a Shard writing to the passed in FS.
@@ -286,7 +304,7 @@ func ShardMux() *http.ServeMux {
 	mux.HandleFunc("/file/", FileHandler)
 	mux.HandleFunc("/job/", JobHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
-	mux.HandleFunc("/push", PushHandler)
+	mux.HandleFunc("/pull", PullHandler)
 
 	return mux
 }

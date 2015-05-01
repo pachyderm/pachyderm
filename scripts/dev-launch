@@ -27,4 +27,4 @@ done
 echo -n "Building container $IMAGE ... (this requires sudo)"
 sudo docker build -t $IMAGE .
 echo "done.\n. Launching single node server."
-scripts/launch -i $IMAGE -d /go/bin/master 0-1
+scripts/launch -i $IMAGE -d /go/bin/shard 0-1

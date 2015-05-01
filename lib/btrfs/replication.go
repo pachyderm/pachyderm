@@ -60,7 +60,7 @@ type S3Replica struct {
 	count int // number of sent commits
 }
 
-type branchRecord struct {
+type BranchRecord struct {
 	Base string `json:"base"`
 	Name string `json:"name"`
 }
@@ -89,7 +89,7 @@ func (r *S3Replica) Branch(base, name string) error {
 		log.Print(err)
 		return err
 	}
-	data, err := json.Marshal(branchRecord{Base: base, Name: name})
+	data, err := json.Marshal(BranchRecord{Base: base, Name: name})
 	if err != nil {
 		log.Print(err)
 		return err
@@ -125,7 +125,7 @@ func (r *S3Replica) Pull(from string, target CommitBrancher) (string, error) {
 
 		if strings.HasSuffix(path, "B") {
 			decoder := json.NewDecoder(f)
-			b := branchRecord{}
+			b := BranchRecord{}
 			if err = decoder.Decode(&b); err != nil {
 				log.Print(err)
 				return err

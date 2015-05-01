@@ -109,6 +109,14 @@ func Rename(oldname, newname string) error {
 	return os.Rename(FilePath(oldname), FilePath(newname))
 }
 
+func Stat(name string) (os.FileInfo, error) {
+	return os.Stat(FilePath(name))
+}
+
+func Lstat(name string) (os.FileInfo, error) {
+	return os.Lstat(FilePath(name))
+}
+
 func FileExists(name string) (bool, error) {
 	_, err := os.Stat(FilePath(name))
 	if err == nil {
@@ -415,7 +423,7 @@ func Log(repo, from string, cont func(io.Reader) error) error {
 }
 
 type CommitInfo struct {
-	gen, id, parent, path string
+	gen, id, parent, Path string
 }
 
 func Commits(repo, from string, cont func(CommitInfo) error) error {
@@ -430,7 +438,7 @@ func Commits(repo, from string, cont func(CommitInfo) error) error {
 				return fmt.Errorf("Malformed commit line: %s.", scanner.Text())
 			}
 			_, p := path.Split(tokens[14]) // we want to returns paths without the repo/ before them
-			if err := cont(CommitInfo{gen: tokens[3], id: tokens[12], parent: tokens[10], path: p}); err != nil {
+			if err := cont(CommitInfo{gen: tokens[3], id: tokens[12], parent: tokens[10], Path: p}); err != nil {
 				return err
 			}
 		}
@@ -483,22 +491,22 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 		// The diffs are in reverse chronological order and we want to traverse
 		// them in chronological order, so we need to traverse in reverse
 		diff := diffs[len(diffs)-(i+1)]
-		log.Print("Sending: ", diff.child.path)
+		log.Print("Sending: ", diff.child.Path)
 
 		// Check to make sure that what we have is a commit and not a branch
-		isCommit, err := IsReadOnly(path.Join(repo, diff.child.path))
+		isCommit, err := IsReadOnly(path.Join(repo, diff.child.Path))
 		if err != nil {
 			return nextFrom, err
 		}
 		if isCommit {
 			if diff.parent == nil {
 				// No Parent, use SendBase
-				if err := SendBase(path.Join(repo, diff.child.path), cb.Commit); err != nil {
+				if err := SendBase(path.Join(repo, diff.child.Path), cb.Commit); err != nil {
 					return nextFrom, err
 				}
 			} else {
 				// We have a parent, use normal Send
-				if err := Send(path.Join(repo, diff.parent.path), path.Join(repo, diff.child.path), cb.Commit); err != nil {
+				if err := Send(path.Join(repo, diff.parent.Path), path.Join(repo, diff.child.Path), cb.Commit); err != nil {
 					return nextFrom, err
 				}
 			}
@@ -506,11 +514,11 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 			if diff.parent == nil {
 				return nextFrom, fmt.Errorf("It shouldn't be possible to have a branch with a nil parent.")
 			}
-			if err := cb.Branch(diff.parent.path, diff.child.path); err != nil {
+			if err := cb.Branch(diff.parent.Path, diff.child.Path); err != nil {
 				return nextFrom, err
 			}
 		}
-		nextFrom = diff.child.path
+		nextFrom = diff.child.Path
 	}
 
 	return nextFrom, nil
