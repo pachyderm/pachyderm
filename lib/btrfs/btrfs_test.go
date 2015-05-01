@@ -369,7 +369,18 @@ func TestFindNew(t *testing.T) {
 	checkFindNew([]string{"myfile1"}, repoName, "master", transid0)
 }
 
-// Case: spaces in filenames
+func TestFilenamesWithSpaces(t *testing.T) {
+	repoName := "repo_TestFilenamesWithSpaces"
+	check(Init(repoName), t)
+
+	err := Branch(repoName, "t0", "my_branch")
+	check(err, t)
+
+	fn := fmt.Sprintf("%s/my_branch/my file", repoName)
+	writeFile(fn, "some content", t)
+	checkFile(fn, "some content", t)
+}
+
 // Case: create, delete, edit files and check that the filenames correspond to the changes ones.
 
 // go test coverage
