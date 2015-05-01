@@ -89,6 +89,15 @@ func ShardFromArgs() (Shard, error) {
 	}, nil
 }
 
+func NewShard(dataRepo, compRepo string, shard, modulos uint64) Shard {
+	return Shard{
+		dataRepo: dataRepo,
+		compRepo: compRepo,
+		shard:    shard,
+		modulos:  modulos,
+	}
+}
+
 func (s Shard) EnsureRepos() error {
 	if err := btrfs.Ensure(s.dataRepo); err != nil {
 		return err
