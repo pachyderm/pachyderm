@@ -326,10 +326,10 @@ func TestFindNew(t *testing.T) {
 	repoName := "repo_TestFindNew"
 	check(Init(repoName), t)
 
-	checkFindNew := func(want []string, repo, commit, transid string) {
-		got, err := FindNew(repo, commit, transid)
+	checkFindNew := func(want []string, repo, branch, transid string) {
+		got, err := FindNew(repo, branch, transid)
 		check(err, t)
-		t.Logf("checkFindNew(%v, %v, %v) -> %v", repo, commit, transid, got)
+		t.Logf("checkFindNew(%v, %v, %v) -> %v", repo, branch, transid, got)
 
 		// handle nil and empty slice the same way:
 		if len(want) == 0 && len(got) == 0 {
@@ -337,7 +337,7 @@ func TestFindNew(t *testing.T) {
 		}
 
 		if !reflect.DeepEqual(want, got) {
-			t.Fatalf("wanted %v, got %v for FindNew(%v, %v, %v)", want, got, repo, commit, transid)
+			t.Fatalf("wanted %v, got %v for FindNew(%v, %v, %v)", want, got, repo, branch, transid)
 		}
 
 	}
@@ -366,7 +366,7 @@ func TestFindNew(t *testing.T) {
 	checkFindNew([]string{}, repoName, "mycommit1", transid1)
 
 	// Sanity check: the old delta still gives the same result:
-	//checkFindNew([]string{"myfile1"}, repoName, "t0", transid0)
+	checkFindNew([]string{"myfile1"}, repoName, "master", transid0)
 }
 
 // Case: spaces in filenames
