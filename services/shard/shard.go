@@ -164,7 +164,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 			log.Print(err)
 			return
 		}
-		fmt.Fprintf(w, "Created %s, size: %d.\n", file, size)
+		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
 	} else if r.Method == "PUT" {
 		btrfs.MkdirAll(path.Dir(file))
 		size, err := btrfs.WriteFile(file, r.Body)
@@ -173,7 +173,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 			log.Print(err)
 			return
 		}
-		fmt.Fprintf(w, "Created %s, size: %d.\n", file, size)
+		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
 	} else if r.Method == "DELETE" {
 		if err := btrfs.Remove(file); err != nil {
 			http.Error(w, err.Error(), 500)
@@ -241,7 +241,7 @@ func (s Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 			}()
 		}
 
-		fmt.Fprint(w, commit)
+		fmt.Fprintf(w, "%s\n", commit)
 	} else if r.Method == "POST" {
 		// Commit being pushed via a diff
 		replica := btrfs.NewLocalReplica(s.dataRepo)
