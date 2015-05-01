@@ -239,7 +239,38 @@ func TestSendBaseRecv(t *testing.T) {
 
 // TestSendWithMissingIntermediateCommitIsCorrect(?) // ? means we don't know what the behavior is.
 
-// TestBranchesAreNotReplicated // this is a known property, but not desirable long term
+// TestBranchesAreNotImplicitlyReplicated // this is a known property, but not desirable long term
+func TestBranchesAreNotImplicitlyReplicated(t *testing.T) {
+	// Create a source repo:
+	srcRepo := "repo_TestBranchesAreNotReplicated_src"
+	check(Init(srcRepo), t)
+
+	// Create a commit in the source repo:
+	check(Commit(srcRepo, "mycommit", "master"), t)
+
+	// Create a branch in the source repo:
+	check(Branch(srcRepo, "mycommit", "mybranch"), t)
+
+	// Create a destination repo:
+	dstRepo := "repo_TestBranchesAreNotReplicated_dst"
+	check(Init(dstRepo), t)
+
+	// Run a Pull/Recv operation to fetch all commits on master:
+	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
+	transid, err := Transid(srcRepo, "t0")
+	check(err, t)
+	check(Pull(srcRepo, transid, repo2Recv), t)
+
+	// Verify that only the commits are replicated, not branches:
+	_, err = os.Stat(fmt.Sprintf("%s/mycommit", dstRepo))
+	check(err, t)
+	branchDirname := fmt.Sprintf("%s/mybranch", dstRepo)
+	_, err = os.Stat(branchDirname)
+	if !os.IsNotExist(err) {
+		t.Fatalf("expected directory %s to not exist", branchDirname)
+	}
+}
+
 // TestCommitsAreReplicated // Uses Send and Recv
 func TestCommitsAreReplicated(t *testing.T) {
 	// Create a source repo:
