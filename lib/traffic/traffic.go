@@ -4,7 +4,9 @@ package traffic
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
+	"reflect"
 )
 
 // RW indicates if the operation is a read or a write
@@ -80,8 +82,7 @@ func (w Workload) Facts() Workload {
 	files := make(map[string]string)     // map from path to data
 	members := make(map[string][]string) // map from commit to value
 
-	for i := 0; i < len(w); i++ {
-		o := w[i]
+	for _, o := range w {
 		if o.RW == R {
 			continue // do nothing for reads
 		}
@@ -123,7 +124,7 @@ func randObject(rand *rand.Rand) Object {
 	}
 }
 
-func (w Workload) Generate(rand *rand.Rand, size int) Workload {
+func (w Workload) Generate(rand *rand.Rand, size int) reflect.Value {
 	res := make(Workload, 0)
 	branches := []string{"master"}
 	commits := []string{"t0"}
@@ -143,6 +144,7 @@ func (w Workload) Generate(rand *rand.Rand, size int) Workload {
 			o.Commit = commits[rand.Int()%len(commits)]
 			branches = append(branches, o.Branch)
 		}
+		res = append(res, o)
 	}
-	return res
+	return reflect.ValueOf(res)
 }

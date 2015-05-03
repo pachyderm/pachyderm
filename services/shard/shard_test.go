@@ -10,6 +10,9 @@ import (
 	"runtime/debug"
 	"strings"
 	"testing"
+	"testing/quick"
+
+	"github.com/pachyderm/pfs/lib/traffic"
 )
 
 func check(err error, t *testing.T) {
@@ -53,6 +56,39 @@ func checkNoFile(url, name, commit string, t *testing.T) {
 	}
 }
 
+func commit(url, commit, branch string, t *testing.T) {
+	_url := fmt.Sprintf("%s/commit?branch=%s&commit=%s", url, branch, commit)
+	res, err := http.Post(_url, "", nil)
+	check(err, t)
+	checkResp(res, fmt.Sprintf("%s\n", commit), t)
+}
+
+func branch(url, commit, branch string, t *testing.T) {
+	_url := fmt.Sprintf("%s/branch?branch=%s&commit=%s", url, branch, commit)
+	res, err := http.Post(_url, "", nil)
+	check(err, t)
+	checkResp(res, fmt.Sprintf("Created branch. (%s) -> %s.\n", commit, branch), t)
+}
+
+func runWorkload(url string, w traffic.Workload, t *testing.T) {
+	t.Logf("Workload of size %d", len(w))
+	for _, o := range w {
+		t.Logf("Running %#v.", o)
+		switch {
+		case o.Object == traffic.File && o.RW == traffic.W:
+			writeFile(url, o.Path, o.Branch, o.Data, t)
+		case o.Object == traffic.File && o.RW == traffic.R:
+			checkFile(url, o.Path, o.Commit, o.Data, t)
+		case o.Object == traffic.Commit:
+			commit(url, o.Commit, o.Branch, t)
+		case o.Object == traffic.Branch:
+			commit(url, o.Commit, o.Branch, t)
+		default:
+			t.Fatal("Unrecognized op.")
+		}
+	}
+}
+
 func TestPing(t *testing.T) {
 	shard := NewShard("TestPingData", "TestPingComp", 0, 1)
 	check(shard.EnsureRepos(), t)
@@ -65,64 +101,41 @@ func TestPing(t *testing.T) {
 	res.Body.Close()
 }
 
-func TestCommit(t *testing.T) {
-	shard := NewShard("TestCommit", "TestPingComp", 0, 1)
-	check(shard.EnsureRepos(), t)
-	s := httptest.NewServer(shard.ShardMux())
-	defer s.Close()
+func TestBasic(t *testing.T) {
+	c := 0
+	f := func(w traffic.Workload) bool {
+		shard := NewShard(fmt.Sprintf("TestBasic%d", c), fmt.Sprintf("TestBasicComp%d", c), 0, 1)
+		c++
+		check(shard.EnsureRepos(), t)
+		s := httptest.NewServer(shard.ShardMux())
+		defer s.Close()
 
-	checkNoFile(s.URL, "file1", "master", t)
-	writeFile(s.URL, "file1", "master", "file1", t)
-	checkFile(s.URL, "file1", "master", "file1", t)
-
-	res, err := http.Post(s.URL+"/commit?commit=commit1", "", nil)
-	check(err, t)
-	checkResp(res, "commit1\n", t)
-
-	checkNoFile(s.URL, "file2", "master", t)
-	writeFile(s.URL, "file2", "master", "file2", t)
-	checkFile(s.URL, "file1", "master", "file1", t)
-	checkFile(s.URL, "file2", "master", "file2", t)
-	checkFile(s.URL, "file1", "commit1", "file1", t)
-	checkNoFile(s.URL, "file2", "commit1", t)
-
-	res, err = http.Get(s.URL + "/commit")
-	check(err, t)
-	checkResp(res, "commit1 - .*\n", t)
+		runWorkload(s.URL, w, t)
+		facts := w.Facts()
+		runWorkload(s.URL, facts, t)
+		return true
+	}
+	if err := quick.Check(f, &quick.Config{MaxCount: 10}); err != nil {
+		t.Error(err)
+	}
 }
 
-func TestBranch(t *testing.T) {
-	shard := NewShard("TestBranch", "TestBranchComp", 0, 1)
-	check(shard.EnsureRepos(), t)
-	s := httptest.NewServer(shard.ShardMux())
-	defer s.Close()
+func TestPull(t *testing.T) {
+	//srcShard := NewShard("TestPullSrc", "TestPullSrcComp", 0, 1)
+	//check(srcShard.EnsureRepos(), t)
+	//src := httptest.NewServer(srcShard.ShardMux())
+	//defer src.Close()
 
-	checkNoFile(s.URL, "file1", "master", t)
-	writeFile(s.URL, "file1", "master", "file1", t)
-	checkFile(s.URL, "file1", "master", "file1", t)
+	//writeFile(s.URL, "file1", "master", "file1", t)
 
-	res, err := http.Post(s.URL+"/commit?commit=commit1", "", nil)
-	check(err, t)
-	checkResp(res, "commit1\n", t)
-	checkFile(s.URL, "file1", "commit1", "file1", t)
+	//res, err := http.Post(s.URL+"/commit?commit=commit1", "", nil)
+	//check(err, t)
 
-	res, err = http.Post(s.URL+"/branch?branch=branch1&commit=commit1", "", nil)
-	check(err, t)
-	checkFile(s.URL, "file1", "branch1", "file1", t)
+	//res, err = http.Post(s.URL+"/branch?branch=branch1&commit=commit1", "", nil)
+	//check(err, t)
+	//writeFile(s.URL, "file2", "branch1", "file2", t)
+	//res, err = http.Post(s.URL+"/commit?commit=commit2&branch=branch1", "", nil)
+	//check(err, t)
 
-	writeFile(s.URL, "file2", "branch1", "file2", t)
-	checkFile(s.URL, "file2", "branch1", "file2", t)
-	res, err = http.Post(s.URL+"/commit?commit=commit2&branch=branch1", "", nil)
-	check(err, t)
-	checkResp(res, "commit2\n", t)
-	checkFile(s.URL, "file2", "commit2", "file2", t)
-	checkFile(s.URL, "file1", "commit2", "file1", t)
-
-	res, err = http.Get(s.URL + "/commit")
-	check(err, t)
-	checkResp(res, "commit2 - .*\ncommit1 - .*\n", t)
-
-	res, err = http.Get(s.URL + "/branch")
-	check(err, t)
-	checkResp(res, "branch1 - .*\nmaster - .*\n", t)
+	//shard := NewShard("TestPullSrc", "TestPullSrcComp", 0, 1)
 }

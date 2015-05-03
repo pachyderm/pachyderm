@@ -401,6 +401,13 @@ func Release(name string) {
 }
 
 func Branch(repo, commit, branch string) error {
+	isReadOnly, err := IsReadOnly(path.Join(repo, commit))
+	if err != nil {
+		return err
+	}
+	if !isReadOnly {
+		return fmt.Errorf("Illegal branch from branch: \"%s\", can only branch from commits.", commit)
+	}
 	if err := Snapshot(path.Join(repo, commit), path.Join(repo, branch), false); err != nil {
 		return err
 	}
