@@ -2,7 +2,10 @@
 // benchmarking
 package traffic
 
-import ()
+import (
+	"fmt"
+	"math/rand"
+)
 
 // RW indicates if the operation is a read or a write
 type RW int
@@ -16,9 +19,10 @@ const (
 type Object int
 
 const (
-	File   Object = iota
-	Commit        = iota
-	Branch        = iota
+	File    Object = iota
+	Commit         = iota
+	Branch         = iota
+	nObject        = iota
 )
 
 // Op describes an operation on a filesystem
@@ -81,13 +85,13 @@ func (w Workload) Facts() Workload {
 		if o.RW == R {
 			continue // do nothing for reads
 		}
-		switch {
-		case o.Object == File:
+		switch o.Object {
+		case File:
 			files[o.Path] = o.Data
 			mAppend(members, o.Branch, o.Path)
-		case o.Object == Commit:
+		case Commit:
 			members[o.Commit] = members[o.Branch]
-		case o.Object == Branch:
+		case Branch:
 			members[o.Branch] = members[o.Commit]
 		}
 	}
@@ -102,6 +106,42 @@ func (w Workload) Facts() Workload {
 				Data:   files[name],
 			}
 			res = append(res, o)
+		}
+	}
+	return res
+}
+
+func randObject(rand *rand.Rand) Object {
+	roll := rand.Int() % 16
+	switch roll {
+	case 0:
+		return Commit
+	case 1:
+		return Branch
+	default:
+		return File
+	}
+}
+
+func (w Workload) Generate(rand *rand.Rand, size int) Workload {
+	res := make(Workload, 0)
+	branches := []string{"master"}
+	commits := []string{"t0"}
+	for i := 0; i < size; i++ {
+		o := Op{RW: W, Object: randObject(rand)}
+		switch o.Object {
+		case File:
+			o.Path = fmt.Sprintf("file%.10d", i)
+			o.Branch = branches[rand.Int()%len(branches)]
+			o.Data = fmt.Sprintf("data%.10d", i)
+		case Commit:
+			o.Commit = fmt.Sprintf("commit%.10d", i)
+			o.Branch = branches[rand.Int()%len(branches)]
+			commits = append(commits, o.Commit)
+		case Branch:
+			o.Branch = fmt.Sprintf("branch%.10d", i)
+			o.Commit = commits[rand.Int()%len(commits)]
+			branches = append(branches, o.Branch)
 		}
 	}
 	return res
