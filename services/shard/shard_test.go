@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
-	"regexp"
 	"runtime/debug"
 	"strings"
 	"testing"
@@ -28,9 +27,7 @@ func checkResp(res *http.Response, expected string, t *testing.T) {
 	value, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
 	check(err, t)
-	match, err := regexp.Match(expected, value)
-	check(err, t)
-	if match != true {
+	if string(value) != expected {
 		t.Fatalf("Body:\n%s\ndidn't match:\n%s\n", string(value), expected)
 	}
 }
@@ -58,6 +55,7 @@ func checkNoFile(url, name, commit string, t *testing.T) {
 
 func commit(url, commit, branch string, t *testing.T) {
 	_url := fmt.Sprintf("%s/commit?branch=%s&commit=%s", url, branch, commit)
+	t.Logf("Sending request: %s", _url)
 	res, err := http.Post(_url, "", nil)
 	check(err, t)
 	checkResp(res, fmt.Sprintf("%s\n", commit), t)
@@ -65,6 +63,7 @@ func commit(url, commit, branch string, t *testing.T) {
 
 func branch(url, commit, branch string, t *testing.T) {
 	_url := fmt.Sprintf("%s/branch?branch=%s&commit=%s", url, branch, commit)
+	t.Logf("Sending request: %s", _url)
 	res, err := http.Post(_url, "", nil)
 	check(err, t)
 	checkResp(res, fmt.Sprintf("Created branch. (%s) -> %s.\n", commit, branch), t)
@@ -82,7 +81,7 @@ func runWorkload(url string, w traffic.Workload, t *testing.T) {
 		case o.Object == traffic.Commit:
 			commit(url, o.Commit, o.Branch, t)
 		case o.Object == traffic.Branch:
-			commit(url, o.Commit, o.Branch, t)
+			branch(url, o.Commit, o.Branch, t)
 		default:
 			t.Fatal("Unrecognized op.")
 		}

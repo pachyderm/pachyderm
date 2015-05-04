@@ -4,7 +4,6 @@ package traffic
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"reflect"
 )
@@ -91,9 +90,11 @@ func (w Workload) Facts() Workload {
 			files[o.Path] = o.Data
 			mAppend(members, o.Branch, o.Path)
 		case Commit:
-			members[o.Commit] = members[o.Branch]
+			members[o.Commit] = make([]string, len(members[o.Branch]))
+			copy(members[o.Commit], members[o.Branch])
 		case Branch:
-			members[o.Branch] = members[o.Commit]
+			members[o.Branch] = make([]string, len(members[o.Commit]))
+			copy(members[o.Branch], members[o.Commit])
 		}
 	}
 
