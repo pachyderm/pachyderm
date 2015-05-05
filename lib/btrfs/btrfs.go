@@ -358,6 +358,18 @@ func InitReplica(repo string) error {
 	return nil
 }
 
+func EnsureReplica(repo string) error {
+	exists, err := FileExists(path.Join(repo))
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	} else {
+		return InitReplica(repo)
+	}
+}
+
 // Commit creates a new commit for a branch.
 func Commit(repo, commit, branch string) error {
 	// First we check to make sure that the branch actually exists
@@ -464,20 +476,22 @@ type diff struct {
 func Pull(repo, from string, cb CommitBrancher) (string, error) {
 	nextFrom := from
 	// commits indexed by their parents
-	parentMap := make(map[string][]CommitInfo)
+	parentMap := make(map[string][]*CommitInfo)
 	var diffs []diff
 	// the body below gets called once per commit
 	err := Commits(repo, from, func(c CommitInfo) error {
+		log.Printf("Commit: %#v", c)
 		// first we check if it's above the cutoff
 		// We don't do this if the parent is null (represented by "-")
 		if c.parent != "-" {
 			// this commit is part of the pull so we put it in the parentMap
-			parentMap[c.parent] = append(parentMap[c.parent], c)
+			parentMap[c.parent] = append(parentMap[c.parent], &c)
 		}
 		// Now we pop all of the commits for which this was the parent out of
 		// the map
 		for _, child := range parentMap[c.id] {
-			diffs = append(diffs, diff{&c, &child})
+			log.Printf("Append from id: %s\n %#v\n", c.id, child)
+			diffs = append(diffs, diff{&c, child})
 		}
 		delete(parentMap, c.id)
 
@@ -495,10 +509,14 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 	}
 
 	for i := 0; i < len(diffs); i++ {
+		log.Printf(": %#v", diffs[i].child)
+	}
+
+	for i := 0; i < len(diffs); i++ {
 		// The diffs are in reverse chronological order and we want to traverse
 		// them in chronological order, so we need to traverse in reverse
 		diff := diffs[len(diffs)-(i+1)]
-		log.Print("Sending: ", diff.child.Path)
+		log.Printf("Sending: %#v", diff.child)
 
 		// Check to make sure that what we have is a commit and not a branch
 		isCommit, err := IsReadOnly(path.Join(repo, diff.child.Path))

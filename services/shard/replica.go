@@ -49,6 +49,20 @@ func (r ShardReplica) Branch(base, name string) error {
 	return nil
 }
 
+func (r ShardReplica) Pull(from string, cb btrfs.CommitBrancher) (string, error) {
+	resp, err := http.Get(fmt.Sprintf("%s/pull?from=%s", r.url, from))
+	if err != nil {
+		return from, err
+	}
+	if resp.StatusCode != 200 {
+		log.Printf("Response with status: %s", resp.Status)
+		return from, fmt.Errorf("Response with status: %s", resp.Status)
+	}
+	defer resp.Body.Close()
+	m := NewMultiPartPuller(multipart.NewReader(resp.Body, resp.Header.Get("Boundary")))
+	return m.Pull(from, cb)
+}
+
 type MultiPartCommitBrancher struct {
 	w *multipart.Writer
 }
@@ -84,4 +98,47 @@ func (m MultiPartCommitBrancher) Branch(base, name string) error {
 		return err
 	}
 	return nil
+}
+
+type MultiPartPuller struct {
+	r *multipart.Reader
+}
+
+func NewMultiPartPuller(r *multipart.Reader) MultiPartPuller {
+	return MultiPartPuller{r: r}
+}
+
+func (m MultiPartPuller) Pull(from string, cb btrfs.CommitBrancher) (string, error) {
+	nextFrom := from
+	for {
+		part, err := m.r.NextPart()
+		if err == io.EOF {
+			continue
+		}
+		if err != nil {
+			return nextFrom, nil
+		}
+		switch part.Header.Get("pfs-diff-type") {
+		case "commit":
+			err := cb.Commit(part)
+			if err != nil {
+				return nextFrom, err
+			}
+			// TODO(jd) we don't update nextFrom here, that's mostly ok because
+			// pulls always end in a branch but ideall we'd update here as well
+		case "branch":
+			d := json.NewDecoder(part)
+			var br btrfs.BranchRecord
+			err := d.Decode(&br)
+			if err != nil {
+				return nextFrom, err
+			}
+			nextFrom := br.Name
+			err = cb.Branch(br.Base, br.Name)
+			if err != nil {
+				return nextFrom, err
+			}
+		}
+	}
+	return nextFrom, nil
 }

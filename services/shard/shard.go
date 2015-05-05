@@ -120,6 +120,16 @@ func (s Shard) EnsureRepos() error {
 	return nil
 }
 
+func (s Shard) EnsureReplicaRepos() error {
+	if err := btrfs.EnsureReplica(s.dataRepo); err != nil {
+		return err
+	}
+	if err := btrfs.Ensure(s.compRepo); err != nil {
+		return err
+	}
+	return nil
+}
+
 //func parseArgs() {
 //	// os.Args[1] looks like 2-16
 //	dataRepo = "data-" + os.Args[1]
@@ -338,7 +348,9 @@ func (s Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
-	cb := NewMultiPartCommitBrancher(multipart.NewWriter(w))
+	mpw := multipart.NewWriter(w)
+	cb := NewMultiPartCommitBrancher(mpw)
+	w.Header().Add("Boundary", mpw.Boundary())
 	localReplica := btrfs.NewLocalReplica(s.dataRepo)
 	_, err := localReplica.Pull(from, cb)
 	if err != nil {
@@ -346,7 +358,6 @@ func (s Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 		return
 	}
-
 }
 
 // ShardMux creates a multiplexer for a Shard writing to the passed in FS.

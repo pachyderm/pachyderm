@@ -55,7 +55,6 @@ func checkNoFile(url, name, commit string, t *testing.T) {
 
 func commit(url, commit, branch string, t *testing.T) {
 	_url := fmt.Sprintf("%s/commit?branch=%s&commit=%s", url, branch, commit)
-	t.Logf("Sending request: %s", _url)
 	res, err := http.Post(_url, "", nil)
 	check(err, t)
 	checkResp(res, fmt.Sprintf("%s\n", commit), t)
@@ -63,16 +62,13 @@ func commit(url, commit, branch string, t *testing.T) {
 
 func branch(url, commit, branch string, t *testing.T) {
 	_url := fmt.Sprintf("%s/branch?branch=%s&commit=%s", url, branch, commit)
-	t.Logf("Sending request: %s", _url)
 	res, err := http.Post(_url, "", nil)
 	check(err, t)
 	checkResp(res, fmt.Sprintf("Created branch. (%s) -> %s.\n", commit, branch), t)
 }
 
 func runWorkload(url string, w traffic.Workload, t *testing.T) {
-	t.Logf("Workload of size %d", len(w))
 	for _, o := range w {
-		t.Logf("Running %#v.", o)
 		switch {
 		case o.Object == traffic.File && o.RW == traffic.W:
 			writeFile(url, o.Path, o.Branch, o.Data, t)
@@ -120,21 +116,30 @@ func TestBasic(t *testing.T) {
 }
 
 func TestPull(t *testing.T) {
-	//srcShard := NewShard("TestPullSrc", "TestPullSrcComp", 0, 1)
-	//check(srcShard.EnsureRepos(), t)
-	//src := httptest.NewServer(srcShard.ShardMux())
-	//defer src.Close()
+	c := 0
+	f := func(w traffic.Workload) bool {
+		_src := NewShard(fmt.Sprintf("TestPullSrc%d", c), fmt.Sprintf("TestPullSrcComp%d", c), 0, 1)
+		_dst := NewShard(fmt.Sprintf("TestPullDst%d", c), fmt.Sprintf("TestPullDstComp%d", c), 0, 1)
+		c++
+		check(_src.EnsureRepos(), t)
+		check(_dst.EnsureReplicaRepos(), t)
+		src := httptest.NewServer(_src.ShardMux())
+		dst := httptest.NewServer(_dst.ShardMux())
+		defer src.Close()
+		defer dst.Close()
 
-	//writeFile(s.URL, "file1", "master", "file1", t)
+		runWorkload(src.URL, w, t)
 
-	//res, err := http.Post(s.URL+"/commit?commit=commit1", "", nil)
-	//check(err, t)
-
-	//res, err = http.Post(s.URL+"/branch?branch=branch1&commit=commit1", "", nil)
-	//check(err, t)
-	//writeFile(s.URL, "file2", "branch1", "file2", t)
-	//res, err = http.Post(s.URL+"/commit?commit=commit2&branch=branch1", "", nil)
-	//check(err, t)
-
-	//shard := NewShard("TestPullSrc", "TestPullSrcComp", 0, 1)
+		// Replicate the data
+		srcReplica := NewShardReplica(src.URL)
+		dstReplica := NewShardReplica(dst.URL)
+		_, err := srcReplica.Pull("", dstReplica)
+		check(err, t)
+		facts := w.Facts()
+		runWorkload(dst.URL, facts, t)
+		return true
+	}
+	if err := quick.Check(f, &quick.Config{MaxCount: 10}); err != nil {
+		t.Error(err)
+	}
 }
