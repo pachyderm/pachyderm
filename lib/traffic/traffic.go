@@ -130,7 +130,7 @@ func (w Workload) Generate(rand *rand.Rand, size int) reflect.Value {
 	branches := []string{"master"}
 	commits := []string{"t0"}
 	var i int
-	for i = 0; i < size; i++ {
+	for i = 0; i < size*5; i++ {
 		o := Op{RW: W, Object: randObject(rand)}
 		switch o.Object {
 		case File:

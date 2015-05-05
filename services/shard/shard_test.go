@@ -112,7 +112,7 @@ func TestBasic(t *testing.T) {
 		runWorkload(s.URL, facts, t)
 		return true
 	}
-	if err := quick.Check(f, &quick.Config{MaxCount: 10}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
 		t.Error(err)
 	}
 }
@@ -141,7 +141,7 @@ func TestPull(t *testing.T) {
 		runWorkload(dst.URL, facts, t)
 		return true
 	}
-	if err := quick.Check(f, &quick.Config{MaxCount: 10}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
 		t.Error(err)
 	}
 }
