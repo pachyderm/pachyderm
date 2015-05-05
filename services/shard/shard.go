@@ -349,6 +349,7 @@ func (s Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
 func (s Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	mpw := multipart.NewWriter(w)
+	defer mpw.Close()
 	cb := NewMultiPartCommitBrancher(mpw)
 	w.Header().Add("Boundary", mpw.Boundary())
 	localReplica := btrfs.NewLocalReplica(s.dataRepo)

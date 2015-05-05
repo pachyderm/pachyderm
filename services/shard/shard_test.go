@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"path"
@@ -16,12 +17,14 @@ import (
 
 func check(err error, t *testing.T) {
 	if err != nil {
+		debug.PrintStack()
 		t.Fatal(err)
 	}
 }
 
 func checkResp(res *http.Response, expected string, t *testing.T) {
 	if res.StatusCode != 200 {
+		debug.PrintStack()
 		t.Fatalf("Got error status: %s", res.Status)
 	}
 	value, err := ioutil.ReadAll(res.Body)
@@ -116,6 +119,7 @@ func TestBasic(t *testing.T) {
 }
 
 func TestPull(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
 		_src := NewShard(fmt.Sprintf("TestPullSrc%d", c), fmt.Sprintf("TestPullSrcComp%d", c), 0, 1)

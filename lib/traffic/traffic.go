@@ -114,11 +114,11 @@ func (w Workload) Facts() Workload {
 }
 
 func randObject(rand *rand.Rand) Object {
-	roll := rand.Int() % 16
-	switch roll {
-	case 0:
+	roll := rand.Int() % 32
+	switch {
+	case roll == 0:
 		return Commit
-	case 1:
+	case roll < 8:
 		return Branch
 	default:
 		return File
@@ -129,7 +129,8 @@ func (w Workload) Generate(rand *rand.Rand, size int) reflect.Value {
 	res := make(Workload, 0)
 	branches := []string{"master"}
 	commits := []string{"t0"}
-	for i := 0; i < size; i++ {
+	var i int
+	for i = 0; i < size; i++ {
 		o := Op{RW: W, Object: randObject(rand)}
 		switch o.Object {
 		case File:
@@ -146,6 +147,17 @@ func (w Workload) Generate(rand *rand.Rand, size int) reflect.Value {
 			branches = append(branches, o.Branch)
 		}
 		res = append(res, o)
+	}
+	// We add a commit for every branch so there are no dirty writes
+	for _, b := range branches {
+		res = append(res,
+			Op{
+				RW:     W,
+				Object: Commit,
+				Branch: b,
+				Commit: fmt.Sprintf("commit%.10d", i),
+			})
+		i++
 	}
 	return reflect.ValueOf(res)
 }

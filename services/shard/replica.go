@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"testing/iotest"
 
 	"github.com/pachyderm/pfs/lib/btrfs"
 )
@@ -113,29 +114,33 @@ func (m MultiPartPuller) Pull(from string, cb btrfs.CommitBrancher) (string, err
 	for {
 		part, err := m.r.NextPart()
 		if err == io.EOF {
-			continue
+			break
 		}
 		if err != nil {
-			return nextFrom, nil
+			log.Print(err)
+			return nextFrom, err
 		}
 		switch part.Header.Get("pfs-diff-type") {
 		case "commit":
 			err := cb.Commit(part)
 			if err != nil {
+				log.Print(err)
 				return nextFrom, err
 			}
-			// TODO(jd) we don't update nextFrom here, that's mostly ok because
-			// pulls always end in a branch but ideall we'd update here as well
+			// Note we don't update nextFrom here, that's actually ok because
+			// Pulls always end in a branch.
 		case "branch":
-			d := json.NewDecoder(part)
+			d := json.NewDecoder(iotest.NewReadLogger("Branch", part))
 			var br btrfs.BranchRecord
 			err := d.Decode(&br)
 			if err != nil {
+				log.Print(err)
 				return nextFrom, err
 			}
 			nextFrom := br.Name
 			err = cb.Branch(br.Base, br.Name)
 			if err != nil {
+				log.Print(err)
 				return nextFrom, err
 			}
 		}
