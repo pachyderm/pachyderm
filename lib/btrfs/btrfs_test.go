@@ -238,11 +238,54 @@ func TestSendBaseRecv(t *testing.T) {
 }
 
 // TestSendWithMissingIntermediateCommitIsCorrect(?) // ? means we don't know what the behavior is.
+func TestSendWithMissingIntermediateCommitIsCorrect(t *testing.T) {
+	// Create a source repo:
+	srcRepo := "repo_TestSendWithMissingIntermediateCommitIsCorrect_src"
+	check(Init(srcRepo), t)
+
+	// Create a file in the source repo:
+	writeFile(fmt.Sprintf("%s/master/myfile1", srcRepo), "foo", t)
+
+	// Create a commit in the source repo:
+	check(Commit(srcRepo, "mycommit1", "master"), t)
+
+	// Create another file in the source repo:
+	writeFile(fmt.Sprintf("%s/master/myfile2", srcRepo), "bar", t)
+
+	// Create a another commit in the source repo:
+	check(Commit(srcRepo, "mycommit2", "master"), t)
+
+	// Delete intermediate commit "mycommit1":
+	check(SubvolumeDelete(fmt.Sprintf("%s/mycommit1", srcRepo)), t)
+
+	// Verify that the commit "mycommit1" does not exist and "mycommit2" does in the source repo:
+	checkNoFile(fmt.Sprintf("%s/mycommit1", srcRepo), t)
+	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", srcRepo), "bar", t)
+
+	// Create a destination repo:
+	dstRepo := "repo_TestSendWithMissingIntermediateCommitIsCorrect_dst"
+	check(InitBare(dstRepo), t)
+
+	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
+	checkNoFile(fmt.Sprintf("%s/mycommit1", dstRepo), t)
+	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
+
+	// Run a Pull/Recv operation to fetch all commits:
+	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
+	transid, err := Transid(srcRepo, "t0")
+	check(err, t)
+	check(Pull(srcRepo, transid, repo2Recv), t)
+
+	// Verify that the commit "mycommit1" does not exist and "mycommit2" does in the destination repo:
+	t.Skipf("TODO(jd,rw): no files were synced")
+	checkNoFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), t)
+	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), "bar", t)
+}
 
 // TestBranchesAreNotImplicitlyReplicated // this is a known property, but not desirable long term
 func TestBranchesAreNotImplicitlyReplicated(t *testing.T) {
 	// Create a source repo:
-	srcRepo := "repo_TestBranchesAreNotReplicated_src"
+	srcRepo := "repo_TestBranchesAreNotImplicitlyReplicated_src"
 	check(Init(srcRepo), t)
 
 	// Create a commit in the source repo:
@@ -252,8 +295,8 @@ func TestBranchesAreNotImplicitlyReplicated(t *testing.T) {
 	check(Branch(srcRepo, "mycommit", "mybranch"), t)
 
 	// Create a destination repo:
-	dstRepo := "repo_TestBranchesAreNotReplicated_dst"
-	check(Init(dstRepo), t)
+	dstRepo := "repo_TestBranchesAreNotImplicitlyReplicated_dst"
+	check(InitBare(dstRepo), t)
 
 	// Run a Pull/Recv operation to fetch all commits on master:
 	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
@@ -262,13 +305,13 @@ func TestBranchesAreNotImplicitlyReplicated(t *testing.T) {
 	check(Pull(srcRepo, transid, repo2Recv), t)
 
 	// Verify that only the commits are replicated, not branches:
-	_, err = os.Stat(fmt.Sprintf("%s/mycommit", dstRepo))
+	commitFilename := fmt.Sprintf("%s/mycommit", dstRepo)
+	exists, err := FileExists(commitFilename)
 	check(err, t)
-	branchDirname := fmt.Sprintf("%s/mybranch", dstRepo)
-	_, err = os.Stat(branchDirname)
-	if !os.IsNotExist(err) {
-		t.Fatalf("expected directory %s to not exist", branchDirname)
+	if !exists {
+		t.Fatalf("File %s should exist.", commitFilename)
 	}
+	checkNoFile(fmt.Sprintf("%s/mybranch", dstRepo), t)
 }
 
 // TestCommitsAreReplicated // Uses Send and Recv
