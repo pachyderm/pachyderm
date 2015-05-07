@@ -26,3 +26,6 @@ ExecStart = /bin/sh -c "echo $(docker run \
             -i {{.Container}} \
             /go/bin/{{.Name}} {{.Shard}}-{{.Nshards}} %H:{{.Port}})"
 ExecStop = /bin/sh -c "echo $(docker rm -f {{.Name}}-{{.Shard}}-{{.Nshards}})"
+
+[X-Fleet]
+Conflicts={{.Name}}-{{.Shard}}-{{.Nshards}}*
