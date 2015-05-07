@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"path"
 	"time"
 
@@ -8,14 +9,14 @@ import (
 )
 
 // AnnounceShard announces the shard to the rest of the cluster. This function
-// will loop until `cancel` gets pulsed.
+// will loop until `cancel` is closed.
 // Announcing has 2 parts:
 // - Announcing the shard as a replica which every shard does.
 // - Announcing the shard as a master, which ever shard tries to do but only
 //   one shard in the group succeeds at. AnnounceShard will continually try to
 //   become the master and if the current master goes down it may succeed (or a
 //   third shard may succeed).
-func AnnounceShard(shard, url string, cancel chan bool) error {
+func AnnounceShard(shard, url string, cancel chan struct{}) error {
 	masterKey := path.Join("/pfs/master", shard)
 	replicaDir := path.Join("/pfs/replica", shard)
 
@@ -37,6 +38,8 @@ func AnnounceShard(shard, url string, cancel chan bool) error {
 		if replicaKey == "" {
 			resp, err := client.CreateInOrder(replicaDir, url, 60)
 			if err != nil {
+				log.Print(err)
+			} else {
 				replicaKey = resp.Node.Key
 			}
 		} else {

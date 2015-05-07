@@ -166,7 +166,7 @@ func main() {
 	container = flag.String("container", "pachyderm/pfs", "The container to use for the deploy.")
 	flag.Parse()
 
-	printShardedService("master")
+	printShardedService("shard")
 	printGlobalService("router")
 	printRegistryService("registry", 5000)
 	printGitDaemonService("gitdaemon")

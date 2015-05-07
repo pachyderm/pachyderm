@@ -4,7 +4,7 @@ ENV GOPATH /go
 ENV PFS github.com/pachyderm/pfs
 
 RUN apt-get update && apt-get install -y golang git mercurial && rm -rf /var/lib/apt/lists/*
-RUN go get github.com/coreos/go-etcd/etcd
+RUN go get github.com/coreos/go-etcd/etcd && cd $GOPATH/src/github.com/coreos/go-etcd && git checkout release-0.4
 RUN go get code.google.com/p/go-uuid/uuid
 RUN go get github.com/samalba/dockerclient
 RUN go get github.com/bitly/go-simplejson

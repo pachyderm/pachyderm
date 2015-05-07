@@ -84,7 +84,7 @@ func ipAddr(containerId string) (string, error) {
 		return "", err
 	}
 
-	return containerInfo.NetworkSettings.IpAddress, nil
+	return containerInfo.NetworkSettings.IPAddress, nil
 }
 
 func retry(f func() error, retries int, pause time.Duration) error {

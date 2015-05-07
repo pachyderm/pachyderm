@@ -402,5 +402,8 @@ func main() {
 	}
 	log.Print("Listening on port 80...")
 	log.Printf("dataRepo: %s, compRepo: %s.", s.dataRepo, s.compRepo)
+	cancel := make(chan struct{})
+	defer close(cancel)
+	go AnnounceShard(os.Args[1], os.Args[2], cancel)
 	s.RunServer()
 }
