@@ -5,10 +5,10 @@ mkdir -p static/1Node
 mkdir -p static/3Node
 mkdir -p static/24Node
 mkdir -p static/dev
-./deploy -shards=1 && mv *.service static/1Node
-./deploy -shards=3 && mv *.service static/3Node
-./deploy -shards=24 && mv *.service static/24Node
-./deploy -shards=1 -container=jdoliner/pfs && mv *.service static/dev
+./deploy -shards=1 -replicas=1 && mv *.service static/1Node
+./deploy -shards=3 -replicas=1 && mv *.service static/3Node
+./deploy -shards=24 -replicas=1 && mv *.service static/24Node
+./deploy -shards=1 -replicas=3 -container=jdoliner/pfs && mv *.service static/dev
 cd static
 tar -zcvf 1Node.tar.gz 1Node
 tar -zcvf 3Node.tar.gz 3Node
