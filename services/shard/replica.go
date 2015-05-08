@@ -170,14 +170,7 @@ func getFrom(url string) (string, error) {
 
 // SyncTo syncs the contents in p to all of the shards in urls
 // Returns the first error if there are multiple
-func SyncTo(p btrfs.Puller, urls []string) error {
-	var errs []error
-	var m sync.Mutex
-	addErr := func(err error) {
-		m.Lock()
-		errs = append(errs, err)
-		m.Unlock()
-	}
+func SyncTo(p btrfs.Puller, urls []string) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for _, url := range urls {
@@ -186,21 +179,14 @@ func SyncTo(p btrfs.Puller, urls []string) error {
 			defer wg.Done()
 			from, err := getFrom(url)
 			if err != nil {
-				addErr(err)
 				log.Print(err)
 			}
 			r := NewShardReplica(url)
 			_, err = p.Pull(from, r)
 			if err != nil {
-				addErr(err)
 				log.Print(err)
 			}
 		}(url)
-	}
-	if len(errs) > 0 {
-		return errs[0]
-	} else {
-		return nil
 	}
 }
 
@@ -212,7 +198,7 @@ func SyncFrom(dataRepo string, urls []string) error {
 		from = c.Path
 		return fmt.Errorf("COMPLETE")
 	})
-	if err.Error() != "COMPLETE" {
+	if err != nil && err.Error() != "COMPLETE" {
 		log.Print(err)
 		return err
 	}
@@ -221,9 +207,12 @@ func SyncFrom(dataRepo string, urls []string) error {
 		sr := NewShardReplica(url)
 		lr := btrfs.NewLocalReplica(dataRepo)
 
-		from, err = sr.Pull(from, lr)
+		_from, _err := sr.Pull(from, lr)
 		if err != nil {
-			log.Print(err)
+			err = _err
+			log.Print(_err)
+		} else {
+			from = _from
 		}
 	}
 	return err
