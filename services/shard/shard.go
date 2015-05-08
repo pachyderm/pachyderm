@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"code.google.com/p/go-uuid/uuid"
+	"github.com/coreos/go-etcd/etcd"
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/mapreduce"
 )
@@ -271,7 +272,19 @@ func (s Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}()
 		}
-
+		go func() {
+			client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+			resp, err := client.Get(fmt.Sprintf("/pfs/replica/%d-%d", s.shard, s.modulos), false, true)
+			if err != nil {
+				log.Print(err)
+				return
+			}
+			var replicas []string
+			for _, node := range resp.Node.Nodes {
+				replicas = append(replicas, node.Value)
+			}
+			SyncTo(s.dataRepo, replicas)
+		}()
 		fmt.Fprintf(w, "%s\n", commit)
 	} else if r.Method == "POST" {
 		// Commit being pushed via a diff

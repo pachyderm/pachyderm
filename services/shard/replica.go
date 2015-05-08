@@ -170,7 +170,8 @@ func getFrom(url string) (string, error) {
 
 // SyncTo syncs the contents in p to all of the shards in urls
 // Returns the first error if there are multiple
-func SyncTo(p btrfs.Puller, urls []string) {
+func SyncTo(dataRepo string, urls []string) {
+	lr := btrfs.NewLocalReplica(dataRepo)
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for _, url := range urls {
@@ -181,8 +182,8 @@ func SyncTo(p btrfs.Puller, urls []string) {
 			if err != nil {
 				log.Print(err)
 			}
-			r := NewShardReplica(url)
-			_, err = p.Pull(from, r)
+			sr := NewShardReplica(url)
+			_, err = lr.Pull(from, sr)
 			if err != nil {
 				log.Print(err)
 			}
