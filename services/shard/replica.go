@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"sync"
 	"testing/iotest"
 
 	"github.com/pachyderm/pfs/lib/btrfs"
@@ -152,9 +153,78 @@ func (m MultiPartPuller) Pull(from string, cb btrfs.CommitBrancher) (string, err
 
 // getFrom is a convenience function to ask a shard what value it would like
 // you to use for `from` when pushing to it.
-// func getFrom(url string) (string, error) {
-// 	req, err := http.Get(fmt.Sprintf("%s/branch?commit=%s&branch=%s", r.url, base, name), nil)
-// 	if err != nil {
-// 		return err
-// 	}
-// }
+func getFrom(url string) (string, error) {
+	resp, err := http.Get(fmt.Sprintf("%s/branch", url))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	decoder := json.NewDecoder(resp.Body)
+	var branch BranchMsg
+	err = decoder.Decode(&branch)
+	if err != nil {
+		return "", err
+	}
+	return branch.Name, nil
+}
+
+// SyncTo syncs the contents in p to all of the shards in urls
+// Returns the first error if there are multiple
+func SyncTo(p btrfs.Puller, urls []string) error {
+	var errs []error
+	var m sync.Mutex
+	addErr := func(err error) {
+		m.Lock()
+		errs = append(errs, err)
+		m.Unlock()
+	}
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	for _, url := range urls {
+		wg.Add(1)
+		go func(url string) {
+			defer wg.Done()
+			from, err := getFrom(url)
+			if err != nil {
+				addErr(err)
+				log.Print(err)
+			}
+			r := NewShardReplica(url)
+			_, err = p.Pull(from, r)
+			if err != nil {
+				addErr(err)
+				log.Print(err)
+			}
+		}(url)
+	}
+	if len(errs) > 0 {
+		return errs[0]
+	} else {
+		return nil
+	}
+}
+
+// SyncFrom syncs from the most up to date replica in urls
+func SyncFrom(dataRepo string, urls []string) error {
+	// First we need to figure out what value to use for `from`
+	var from string
+	err := btrfs.Commits(dataRepo, "", func(c btrfs.CommitInfo) error {
+		from = c.Path
+		return fmt.Errorf("COMPLETE")
+	})
+	if err.Error() != "COMPLETE" {
+		log.Print(err)
+		return err
+	}
+
+	for _, url := range urls {
+		sr := NewShardReplica(url)
+		lr := btrfs.NewLocalReplica(dataRepo)
+
+		from, err = sr.Pull(from, lr)
+		if err != nil {
+			log.Print(err)
+		}
+	}
+	return err
+}
