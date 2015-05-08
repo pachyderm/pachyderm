@@ -1,5 +1,7 @@
 package main
 
+// replica.go contains code for using shards as replicas
+
 import (
 	"encoding/json"
 	"fmt"
@@ -147,3 +149,12 @@ func (m MultiPartPuller) Pull(from string, cb btrfs.CommitBrancher) (string, err
 	}
 	return nextFrom, nil
 }
+
+// getFrom is a convenience function to ask a shard what value it would like
+// you to use for `from` when pushing to it.
+// func getFrom(url string) (string, error) {
+// 	req, err := http.Get(fmt.Sprintf("%s/branch?commit=%s&branch=%s", r.url, base, name), nil)
+// 	if err != nil {
+// 		return err
+// 	}
+// }
