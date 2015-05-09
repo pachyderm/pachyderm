@@ -25,6 +25,7 @@ func NewShardReplica(url string) ShardReplica {
 }
 
 func (r ShardReplica) Commit(diff io.Reader) error {
+	log.Print("ShardReplica.Commit")
 	resp, err := http.Post(r.url+"/commit", "application/octet-stream", diff)
 	if err != nil {
 		return err
@@ -37,6 +38,7 @@ func (r ShardReplica) Commit(diff io.Reader) error {
 }
 
 func (r ShardReplica) Branch(base, name string) error {
+	log.Print("ShardReplica.Branch")
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/branch?commit=%s&branch=%s", r.url, base, name), nil)
 	if err != nil {
 		return err
@@ -154,23 +156,24 @@ func (m MultiPartPuller) Pull(from string, cb btrfs.CommitBrancher) (string, err
 // getFrom is a convenience function to ask a shard what value it would like
 // you to use for `from` when pushing to it.
 func getFrom(url string) (string, error) {
-	resp, err := http.Get(fmt.Sprintf("%s/branch", url))
+	resp, err := http.Get(fmt.Sprintf("%s/commit", url))
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 	decoder := json.NewDecoder(resp.Body)
-	var branch BranchMsg
-	err = decoder.Decode(&branch)
+	var commit CommitMsg
+	err = decoder.Decode(&commit)
 	if err != nil {
 		return "", err
 	}
-	return branch.Name, nil
+	return commit.Name, nil
 }
 
 // SyncTo syncs the contents in p to all of the shards in urls
 // Returns the first error if there are multiple
 func SyncTo(dataRepo string, urls []string) {
+	log.Printf("SyncTo: %s, %#v", dataRepo, urls)
 	lr := btrfs.NewLocalReplica(dataRepo)
 	var wg sync.WaitGroup
 	defer wg.Wait()
@@ -182,6 +185,7 @@ func SyncTo(dataRepo string, urls []string) {
 			if err != nil {
 				log.Print(err)
 			}
+			log.Printf("Syncing to url: %s from: %s", url, from)
 			sr := NewShardReplica(url)
 			_, err = lr.Pull(from, sr)
 			if err != nil {

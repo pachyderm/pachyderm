@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"path"
 	"time"
@@ -8,15 +9,11 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 )
 
-// AnnounceShard announces the shard to the rest of the cluster. This function
-// will loop until `cancel` is closed.
-// Announcing has 2 parts:
-// - Announcing the shard as a replica which every shard does.
-// - Announcing the shard as a master, which ever shard tries to do but only
-//   one shard in the group succeeds at. AnnounceShard will continually try to
-//   become the master and if the current master goes down it may succeed (or a
-//   third shard may succeed).
-func AnnounceShard(shard, url string, cancel chan struct{}) error {
+// FillRole attempts to find a role in the cluster. Once on is found it
+// prepares the local storage for the role and announces the shard to the rest
+// of the cluster. This function will loop until `cancel` is closed.
+func (s Shard) FillRole(cancel chan struct{}) error {
+	shard := fmt.Sprintf("%d-%d", s.shard, s.modulos)
 	masterKey := path.Join("/pfs/master", shard)
 	replicaDir := path.Join("/pfs/replica", shard)
 
@@ -24,28 +21,44 @@ func AnnounceShard(shard, url string, cancel chan struct{}) error {
 	replicaKey := ""
 	for {
 		client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+		// First we attempt to become the master for this shard
 		if !amMaster {
-			_, err := client.Create(masterKey, url, 60)
-			if err == nil { // no error means we succesfully claimed master
+			// We're not master, so we attempt to claim it, this will error if
+			// another shard is already master
+			_, err := client.Create(masterKey, s.url, 60)
+			if err == nil {
+				// no error means we succesfully claimed master
 				amMaster = true
+				err = s.EnsureRepos()
+				if err != nil {
+					log.Print(err)
+				}
 			}
 		} else {
-			_, err := client.CompareAndSwap(masterKey, url, 60, url, 0)
+			_, err := client.CompareAndSwap(masterKey, s.url, 60, s.url, 0)
 			if err != nil { // error means we failed to reclaim master
 				amMaster = false
 			}
 		}
-		if replicaKey == "" {
-			resp, err := client.CreateInOrder(replicaDir, url, 60)
-			if err != nil {
-				log.Print(err)
+
+		if !amMaster {
+			// We didn't claim master, so we add ourselves as replica instead.
+			if replicaKey == "" {
+				resp, err := client.CreateInOrder(replicaDir, s.url, 60)
+				if err != nil {
+					log.Print(err)
+				} else {
+					replicaKey = resp.Node.Key
+					err = s.EnsureReplicaRepos()
+					if err != nil {
+						log.Print(err)
+					}
+				}
 			} else {
-				replicaKey = resp.Node.Key
-			}
-		} else {
-			_, err := client.CompareAndSwap(replicaKey, url, 60, url, 0)
-			if err != nil {
-				replicaKey = ""
+				_, err := client.CompareAndSwap(replicaKey, s.url, 60, s.url, 0)
+				if err != nil {
+					replicaKey = ""
+				}
 			}
 		}
 

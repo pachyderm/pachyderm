@@ -340,7 +340,7 @@ func Init(repo string) error {
 // Ensure is like Init but won't error if the repo is already present. It will
 // error if the repo is not present and we fail to make it.
 func Ensure(repo string) error {
-	exists, err := FileExists(path.Join(repo, "master"))
+	exists, err := FileExists(repo)
 	if err != nil {
 		return err
 	}
@@ -359,7 +359,7 @@ func InitReplica(repo string) error {
 }
 
 func EnsureReplica(repo string) error {
-	exists, err := FileExists(path.Join(repo))
+	exists, err := FileExists(repo)
 	if err != nil {
 		return err
 	}

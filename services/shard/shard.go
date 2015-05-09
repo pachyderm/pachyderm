@@ -81,6 +81,7 @@ func cat(w http.ResponseWriter, name string) {
 }
 
 type Shard struct {
+	url                string
 	dataRepo, compRepo string
 	shard, modulos     uint64
 }
@@ -96,6 +97,7 @@ func ShardFromArgs() (Shard, error) {
 		return Shard{}, err
 	}
 	return Shard{
+		url:      "http://" + os.Args[2],
 		dataRepo: "data-" + os.Args[1],
 		compRepo: "comp-" + os.Args[1],
 		shard:    shard,
@@ -420,14 +422,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = s.EnsureRepos()
-	if err != nil {
-		log.Fatal(err)
-	}
+
 	log.Print("Listening on port 80...")
 	log.Printf("dataRepo: %s, compRepo: %s.", s.dataRepo, s.compRepo)
 	cancel := make(chan struct{})
 	defer close(cancel)
-	go AnnounceShard(os.Args[1], os.Args[2], cancel)
+	go s.FillRole(cancel)
 	s.RunServer()
 }
