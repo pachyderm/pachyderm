@@ -487,12 +487,19 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 	// commits indexed by their parents
 	parentMap := make(map[string][]*CommitInfo)
 	var diffs []diff
+	pullerHasCommit := false // true once we've hit the `from` commit
+
 	// the body below gets called once per commit
-	err := Commits(repo, from, func(c CommitInfo) error {
+	err := Commits(repo, "", func(c CommitInfo) error {
 		log.Printf("Commit: %#v", c)
-		// first we check if it's above the cutoff
+		if c.Path == from {
+			// We've hit the commit the puller specified as `from`, that means
+			// this commit and every commit after it are commits the puller
+			// already has.
+			pullerHasCommit = true
+		}
 		// We don't do this if the parent is null (represented by "-")
-		if c.parent != "-" {
+		if c.parent != "-" && !pullerHasCommit {
 			// this commit is part of the pull so we put it in the parentMap
 			parentMap[c.parent] = append(parentMap[c.parent], &c)
 		}
@@ -515,10 +522,6 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 	})
 	if err != nil && err.Error() != "COMPLETE" {
 		return nextFrom, err
-	}
-
-	for i := 0; i < len(diffs); i++ {
-		log.Printf(": %#v", diffs[i].child)
 	}
 
 	for i := 0; i < len(diffs); i++ {
