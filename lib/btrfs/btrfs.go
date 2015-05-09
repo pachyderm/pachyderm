@@ -420,6 +420,15 @@ func Branch(repo, commit, branch string) error {
 	if !isReadOnly {
 		return fmt.Errorf("Illegal branch from branch: \"%s\", can only branch from commits.", commit)
 	}
+
+	exists, err := FileExists(path.Join(repo, branch))
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fmt.Errorf("Branch \"%s\" already exists.", branch)
+	}
+
 	if err := Snapshot(path.Join(repo, commit), path.Join(repo, branch), false); err != nil {
 		return err
 	}

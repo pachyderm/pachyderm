@@ -39,7 +39,7 @@ func (r ShardReplica) Commit(diff io.Reader) error {
 
 func (r ShardReplica) Branch(base, name string) error {
 	log.Print("ShardReplica.Branch")
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/branch?commit=%s&branch=%s", r.url, base, name), nil)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/branch?commit=%s&branch=%s&force=true", r.url, base, name), nil)
 	if err != nil {
 		return err
 	}
