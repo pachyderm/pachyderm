@@ -88,7 +88,15 @@ func OpenFd(name string, mode int, perm uint32) (int, error) {
 	return syscall.Open(FilePath(name), mode, perm)
 }
 
-func WriteFile(name string, r io.Reader) (int64, error) {
+func ReadFile(name string) ([]byte, error) {
+	return ioutil.ReadFile(FilePath(name))
+}
+
+func WriteFile(name string, data []byte) error {
+	return ioutil.WriteFile(FilePath(name), data, 0777)
+}
+
+func CopyFile(name string, r io.Reader) (int64, error) {
 	f, err := Open(name)
 	if err != nil {
 		return 0, err
@@ -249,7 +257,7 @@ func SubvolumeDeleteAll(name string) error {
 }
 
 func Snapshot(volume string, dest string, readonly bool) error {
-	log.Printf("btrfs.Snapshot(%s, %s, %b)", volume, dest, readonly)
+	log.Printf("btrfs.Snapshot(%s, %s, %t)", volume, dest, readonly)
 	if readonly {
 		return shell.RunStderr(exec.Command("btrfs", "subvolume", "snapshot", "-r",
 			FilePath(volume), FilePath(dest)))
@@ -287,6 +295,34 @@ func IsReadOnly(volume string) (bool, error) {
 			return scanner.Err()
 		})
 	return res, err
+}
+
+func ensureMetaDir(branch string) error {
+	branchExists, err := FileExists(branch)
+	if err != nil {
+		return err
+	}
+	if !branchExists {
+		fmt.Errorf("Cannot create meta dir for nonexistant branch %s.", branch)
+	}
+	return MkdirAll(path.Join(branch, ".meta"))
+}
+
+// SetMeta sets metadata for a branch.
+func SetMeta(branch, key, value string) error {
+	if err := ensureMetaDir(branch); err != nil {
+		return err
+	}
+	return WriteFile(path.Join(branch, ".meta", key), []byte(value))
+}
+
+// GetMeta gets metadata from a commit.
+func GetMeta(name, key string) (string, error) {
+	value, err := ReadFile(path.Join(name, ".meta", key))
+	if err != nil {
+		return "", err
+	}
+	return string(value), nil
 }
 
 func SendBase(to string, cont func(io.Reader) error) error {
@@ -388,7 +424,7 @@ func EnsureReplica(repo string) error {
 // Commit creates a new commit for a branch.
 func Commit(repo, commit, branch string) error {
 	log.Printf("btrfs.Commit(%s, %s, %s)", repo, commit, branch)
-	// First we check to make sure that the branch actually exists
+	// check to make sure that the branch actually exists
 	exists, err := FileExists(path.Join(repo, branch))
 	if err != nil {
 		return err
@@ -396,7 +432,11 @@ func Commit(repo, commit, branch string) error {
 	if !exists {
 		return fmt.Errorf("Branch %s not found.", branch)
 	}
-	// First we make HEAD readonly
+	// Record which branch this commit comes from
+	if err := SetMeta(path.Join(repo, branch), "branch", branch); err != nil {
+		return err
+	}
+	// make branch readonly
 	if err := SetReadOnly(path.Join(repo, branch)); err != nil {
 		return err
 	}
@@ -406,6 +446,11 @@ func Commit(repo, commit, branch string) error {
 	}
 	// Recreate the branch subvolume with a writeable subvolume
 	if err := Snapshot(path.Join(repo, commit), path.Join(repo, branch), false); err != nil {
+		return err
+	}
+
+	// Record the new commit as the parent of this branch
+	if err := SetMeta(path.Join(repo, branch), "parent", commit); err != nil {
 		return err
 	}
 

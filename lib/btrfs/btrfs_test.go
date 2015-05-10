@@ -140,7 +140,7 @@ func TestNewRepoIsEmpty(t *testing.T) {
 	dirpath := path.Join(srcRepo, "master")
 	descriptors, err := ReadDir(dirpath)
 	check(err, t)
-	if len(descriptors) != 0 {
+	if len(descriptors) != 1 || descriptors[0].Name() != ".meta" {
 		t.Fatalf("expected empty repo")
 	}
 }

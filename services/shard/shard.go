@@ -193,7 +193,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
 	} else if r.Method == "PUT" {
 		btrfs.MkdirAll(path.Dir(file))
-		size, err := btrfs.WriteFile(file, r.Body)
+		size, err := btrfs.CopyFile(file, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
