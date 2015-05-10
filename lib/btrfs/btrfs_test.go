@@ -240,7 +240,7 @@ func TestSendRecv(t *testing.T) {
 // TestCommitsAreReplicated // Uses Send and Recv
 func TestCommitsAreReplicated(t *testing.T) {
 	// Create a source repo:
-	srcRepo := "repo_TestSendCommitsAreReplicated_src"
+	srcRepo := "repo_TestCommitsAreReplicated_src"
 	check(Init(srcRepo), t)
 
 	// Create a file in the source repo:
@@ -278,7 +278,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
 
 	// Run a Pull/Recv operation to fetch all commits:
-	_, err := Pull(srcRepo, "t0", NewLocalReplica(dstRepo))
+	_, err := Pull(srcRepo, "", NewLocalReplica(dstRepo))
 	check(err, t)
 
 	// Verify that files from both commits are present:
@@ -295,7 +295,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo2), t)
 
 	// Run a Pull/Recv operation to fetch all commits:
-	_, err = Pull(dstRepo, "t0", NewLocalReplica(dstRepo2))
+	_, err = Pull(dstRepo, "", NewLocalReplica(dstRepo2))
 	check(err, t)
 
 	// Verify that files from both commits are present:

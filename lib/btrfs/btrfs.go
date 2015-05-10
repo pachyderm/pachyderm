@@ -181,6 +181,7 @@ func LazyWalk(name string, f func(string) error) error {
 }
 
 func WaitForFile(name string) error {
+	log.Printf("btrfs.WaitForFile(%s)", name)
 	if err := MkdirAll(path.Dir(name)); err != nil {
 		log.Print(err)
 		return err
@@ -225,14 +226,17 @@ func WaitForFile(name string) error {
 }
 
 func SubvolumeCreate(name string) error {
+	log.Printf("btrfs.SubvolumeCreate(%s)", name)
 	return shell.RunStderr(exec.Command("btrfs", "subvolume", "create", FilePath(name)))
 }
 
 func SubvolumeDelete(name string) error {
+	log.Printf("btrfs.SubvolumeDelete(%s)", name)
 	return shell.RunStderr(exec.Command("btrfs", "subvolume", "delete", FilePath(name)))
 }
 
 func SubvolumeDeleteAll(name string) error {
+	log.Printf("btrfs.SubvolumeDeleteAll(%s)", name)
 	subvolumeExists, err := FileExists(name)
 	if err != nil {
 		return err
@@ -245,6 +249,7 @@ func SubvolumeDeleteAll(name string) error {
 }
 
 func Snapshot(volume string, dest string, readonly bool) error {
+	log.Printf("btrfs.Snapshot(%s, %s, %b)", volume, dest, readonly)
 	if readonly {
 		return shell.RunStderr(exec.Command("btrfs", "subvolume", "snapshot", "-r",
 			FilePath(volume), FilePath(dest)))
@@ -255,14 +260,17 @@ func Snapshot(volume string, dest string, readonly bool) error {
 }
 
 func SetReadOnly(volume string) error {
+	log.Printf("btrfs.SetReadOnly(%s)", volume)
 	return shell.RunStderr(exec.Command("btrfs", "property", "set", FilePath(volume), "ro", "true"))
 }
 
 func UnsetReadOnly(volume string) error {
+	log.Printf("btrfs.UnsetReadOnly(%s)", volume)
 	return shell.RunStderr(exec.Command("btrfs", "property", "set", FilePath(volume), "ro", "false"))
 }
 
 func IsReadOnly(volume string) (bool, error) {
+	log.Printf("btrfs.IsReadOnly(%s)", volume)
 	var res bool
 	// "-t s" indicates to btrfs that this is a subvolume without the "-t s"
 	// btrfs will still output what we want, but it will have a nonzero return
@@ -282,16 +290,19 @@ func IsReadOnly(volume string) (bool, error) {
 }
 
 func SendBase(to string, cont func(io.Reader) error) error {
+	log.Printf("btrfs.SendBase(%s, <function>)", to)
 	c := exec.Command("btrfs", "send", FilePath(to))
 	return shell.CallCont(c, cont)
 }
 
-func Send(from string, to string, cont func(io.Reader) error) error {
+func Send(from, to string, cont func(io.Reader) error) error {
+	log.Printf("btrfs.Send(%s, %s, <function>)", from, to)
 	c := exec.Command("btrfs", "send", "-p", FilePath(from), FilePath(to))
 	return shell.CallCont(c, cont)
 }
 
 func Recv(volume string, data io.Reader) error {
+	log.Printf("btrfs.Recv(%s, %#v)", volume, data)
 	c := exec.Command("btrfs", "receive", FilePath(volume))
 	log.Print(c)
 	stdin, err := c.StdinPipe()
@@ -325,6 +336,7 @@ func Recv(volume string, data io.Reader) error {
 
 // Init initializes an empty repo.
 func Init(repo string) error {
+	log.Printf("btrfs.Init(%s)", repo)
 	if err := SubvolumeCreate(repo); err != nil {
 		return err
 	}
@@ -340,6 +352,7 @@ func Init(repo string) error {
 // Ensure is like Init but won't error if the repo is already present. It will
 // error if the repo is not present and we fail to make it.
 func Ensure(repo string) error {
+	log.Printf("btrfs.Ensure(%s)", repo)
 	exists, err := FileExists(repo)
 	if err != nil {
 		return err
@@ -352,6 +365,7 @@ func Ensure(repo string) error {
 }
 
 func InitReplica(repo string) error {
+	log.Printf("btrfs.InitReplica(%s)", repo)
 	if err := SubvolumeCreate(repo); err != nil {
 		return err
 	}
@@ -359,6 +373,7 @@ func InitReplica(repo string) error {
 }
 
 func EnsureReplica(repo string) error {
+	log.Printf("btrfs.EnsureReplica(%s)", repo)
 	exists, err := FileExists(repo)
 	if err != nil {
 		return err
@@ -372,6 +387,7 @@ func EnsureReplica(repo string) error {
 
 // Commit creates a new commit for a branch.
 func Commit(repo, commit, branch string) error {
+	log.Printf("btrfs.Commit(%s, %s, %s)", repo, commit, branch)
 	// First we check to make sure that the branch actually exists
 	exists, err := FileExists(path.Join(repo, branch))
 	if err != nil {
@@ -399,6 +415,7 @@ func Commit(repo, commit, branch string) error {
 // Hold creates a temporary snapshot of a commit that no one else knows about.
 // It's your responsibility to release the snapshot with Release
 func Hold(repo, commit string) (string, error) {
+	log.Printf("btrfs.Hold(%s, %s)", repo, commit)
 	MkdirAll("tmp")
 	name := path.Join("tmp", uuid.New())
 	if err := Snapshot(path.Join(repo, commit), name, false); err != nil {
@@ -409,10 +426,12 @@ func Hold(repo, commit string) (string, error) {
 
 // Release releases commit snapshots held by Hold.
 func Release(name string) {
+	log.Printf("btrfs.Release(%s)", name)
 	SubvolumeDelete(name)
 }
 
 func Branch(repo, commit, branch string) error {
+	log.Printf("btrfs.Branch(%s, %s, %s)", repo, commit, branch)
 	isReadOnly, err := IsReadOnly(path.Join(repo, commit))
 	if err != nil {
 		return err
@@ -437,6 +456,7 @@ func Branch(repo, commit, branch string) error {
 
 //Log returns all of the commits the repo which have generation >= from.
 func Log(repo, from string, cont func(io.Reader) error) error {
+	log.Printf("btrfs.Log(%s, %s, <function>)", repo, from)
 	if from == "" {
 		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", "-ogen", FilePath(path.Join(repo)))
 		return shell.CallCont(c, cont)
@@ -455,6 +475,7 @@ type CommitInfo struct {
 }
 
 func Commits(repo, from string, cont func(CommitInfo) error) error {
+	log.Printf("btrfs.Commits(%s, %s, <function>)", repo, from)
 	return Log(repo, from, func(r io.Reader) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
@@ -470,7 +491,10 @@ func Commits(repo, from string, cont func(CommitInfo) error) error {
 				return err
 			}
 		}
-		return scanner.Err()
+		if scanner.Err() != nil && scanner.Err() != io.EOF {
+			return scanner.Err()
+		}
+		return nil
 	})
 }
 
@@ -483,6 +507,17 @@ type diff struct {
 // Pull returns the next value that should passed as `from` to pick up where
 // this function left off.
 func Pull(repo, from string, cb CommitBrancher) (string, error) {
+	log.Printf("btrfs.Pull(%s, %s, %#v)", repo, from, cb)
+	// First check that `from` is actually a valid commit
+	if from != "" {
+		exists, err := FileExists(path.Join(repo, from))
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return "", fmt.Errorf("`from` commit %s does not exists", from)
+		}
+	}
 	nextFrom := from
 	// commits indexed by their parents
 	parentMap := make(map[string][]*CommitInfo)
@@ -490,6 +525,9 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 	pullerHasCommit := false // true once we've hit the `from` commit
 
 	// the body below gets called once per commit
+	// Notice that we're passing `""` instead of `from` that's not a mistake.
+	// This is because we need to see commits that came before `from` so we can
+	// use them as parents in constructing the pull.
 	err := Commits(repo, "", func(c CommitInfo) error {
 		log.Printf("Commit: %#v", c)
 		if c.Path == from {
@@ -512,7 +550,7 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 		delete(parentMap, c.id)
 
 		if len(parentMap) == 0 {
-			if c.parent == "-" {
+			if c.parent == "-" && !pullerHasCommit {
 				diffs = append(diffs, diff{nil, &c})
 			}
 			return fmt.Errorf("COMPLETE")
@@ -564,6 +602,7 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 // Transid returns transid of a path in a repo. This value is useful for
 // passing to FindNew.
 func transid(repo, commit string) (string, error) {
+	log.Printf("btrfs.transid(%s, %s)", repo, commit)
 	//  "9223372036854775810" == 2 ** 63 we use a very big number there so that
 	//  we get the transid of the from path. According to the internet this is
 	//  the nicest way to get it from btrfs.
@@ -594,6 +633,7 @@ func transid(repo, commit string) (string, error) {
 
 // FindNew returns an array of filenames that were created between `from` and `to`
 func FindNew(repo, from, to string) ([]string, error) {
+	log.Printf("btrfs.FindNew(%s, %s, %s)", repo, from, to)
 	var files []string
 	t, err := transid(repo, from)
 	if err != nil {

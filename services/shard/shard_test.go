@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"path"
@@ -69,20 +70,24 @@ func branch(url, commit, branch string, t *testing.T) {
 	checkResp(res, fmt.Sprintf("Created branch. (%s) -> %s.\n", commit, branch), t)
 }
 
+func runOp(url string, o traffic.Op, t *testing.T) {
+	switch {
+	case o.Object == traffic.File && o.RW == traffic.W:
+		writeFile(url, o.Path, o.Branch, o.Data, t)
+	case o.Object == traffic.File && o.RW == traffic.R:
+		checkFile(url, o.Path, o.Commit, o.Data, t)
+	case o.Object == traffic.Commit:
+		commit(url, o.Commit, o.Branch, t)
+	case o.Object == traffic.Branch:
+		branch(url, o.Commit, o.Branch, t)
+	default:
+		t.Fatal("Unrecognized op.")
+	}
+}
+
 func runWorkload(url string, w traffic.Workload, t *testing.T) {
 	for _, o := range w {
-		switch {
-		case o.Object == traffic.File && o.RW == traffic.W:
-			writeFile(url, o.Path, o.Branch, o.Data, t)
-		case o.Object == traffic.File && o.RW == traffic.R:
-			checkFile(url, o.Path, o.Commit, o.Data, t)
-		case o.Object == traffic.Commit:
-			commit(url, o.Commit, o.Branch, t)
-		case o.Object == traffic.Branch:
-			branch(url, o.Commit, o.Branch, t)
-		default:
-			t.Fatal("Unrecognized op.")
-		}
+		runOp(url, o, t)
 	}
 }
 
@@ -139,6 +144,40 @@ func TestPull(t *testing.T) {
 		check(err, t)
 		facts := w.Facts()
 		runWorkload(dst.URL, facts, t)
+		return true
+	}
+	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
+		t.Error(err)
+	}
+}
+
+// TestSync is similar to TestPull but it does it syncs after every commit.
+func TestSync(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
+	c := 0
+	f := func(w traffic.Workload) bool {
+		_src := NewShard(fmt.Sprintf("TestSyncSrc%d", c), fmt.Sprintf("TestSyncSrcComp%d", c), 0, 1)
+		_dst := NewShard(fmt.Sprintf("TestSyncDst%d", c), fmt.Sprintf("TestSyncDstComp%d", c), 0, 1)
+		check(_src.EnsureRepos(), t)
+		check(_dst.EnsureReplicaRepos(), t)
+		src := httptest.NewServer(_src.ShardMux())
+		dst := httptest.NewServer(_dst.ShardMux())
+		defer src.Close()
+		defer dst.Close()
+
+		for _, o := range w {
+			runOp(src.URL, o, t)
+			if o.Object == traffic.Commit {
+				// Replicate the data
+				err := SyncTo(fmt.Sprintf("TestSyncSrc%d", c), []string{dst.URL})
+				check(err, t)
+			}
+		}
+
+		facts := w.Facts()
+		runWorkload(dst.URL, facts, t)
+
+		c++
 		return true
 	}
 	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {

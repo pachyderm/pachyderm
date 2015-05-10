@@ -41,11 +41,13 @@ func (r ShardReplica) Branch(base, name string) error {
 	log.Print("ShardReplica.Branch")
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/branch?commit=%s&branch=%s&force=true", r.url, base, name), nil)
 	if err != nil {
+		log.Print(err)
 		return err
 	}
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
+		log.Print(err)
 		return err
 	}
 	if resp.StatusCode != 200 {
@@ -139,7 +141,7 @@ func (m MultiPartPuller) Pull(from string, cb btrfs.CommitBrancher) (string, err
 			var br btrfs.BranchRecord
 			err := d.Decode(&br)
 			if err != nil {
-				log.Print(err)
+				log.Print("Foo: ", err)
 				return nextFrom, err
 			}
 			nextFrom := br.Name
@@ -164,7 +166,7 @@ func getFrom(url string) (string, error) {
 	decoder := json.NewDecoder(resp.Body)
 	var commit CommitMsg
 	err = decoder.Decode(&commit)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return "", err
 	}
 	return commit.Name, nil
@@ -172,27 +174,41 @@ func getFrom(url string) (string, error) {
 
 // SyncTo syncs the contents in p to all of the shards in urls
 // Returns the first error if there are multiple
-func SyncTo(dataRepo string, urls []string) {
+func SyncTo(dataRepo string, urls []string) error {
 	log.Printf("SyncTo: %s, %#v", dataRepo, urls)
+	var errs []error
+	var lock sync.Mutex
+	addErr := func(err error) {
+		lock.Lock()
+		errs = append(errs, err)
+		lock.Unlock()
+	}
 	lr := btrfs.NewLocalReplica(dataRepo)
 	var wg sync.WaitGroup
-	defer wg.Wait()
 	for _, url := range urls {
 		wg.Add(1)
 		go func(url string) {
 			defer wg.Done()
 			from, err := getFrom(url)
+			log.Print("From in SyncTo: ", from)
 			if err != nil {
-				log.Print(err)
+				addErr(err)
+				log.Print("getFrom: ", err)
 			}
 			log.Printf("Syncing to url: %s from: %s", url, from)
 			sr := NewShardReplica(url)
 			_, err = lr.Pull(from, sr)
 			if err != nil {
-				log.Print(err)
+				addErr(err)
+				log.Print("Pull: ", err)
 			}
 		}(url)
 	}
+	wg.Wait()
+	if len(errs) != 0 {
+		return errs[0]
+	}
+	return nil
 }
 
 // SyncFrom syncs from the most up to date replica in urls
