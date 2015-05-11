@@ -65,7 +65,7 @@ func TestMapJob(t *testing.T) {
 	check(btrfs.Init(outRepoName), t)
 
 	// Create a file to map over:
-	f, err := btrfs.Create(fmt.Sprintf("%s/master/foo", inRepoName))
+	f, err := btrfs.CreateAll(fmt.Sprintf("%s/master/my_first_job/foo", inRepoName))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,8 +79,10 @@ func TestMapJob(t *testing.T) {
 	j := Job{
 		Type: "map",
 		// Input: "", <- how is this used in the beginning?
+		Input: "my_first_job",
 		Image: "jdoliner/hello-world",
-		Cmd:   []string{"wc -l"},
+		//Cmd:   []string{"wc -l"},
+		Cmd: []string{"/go/bin/hello-world-mr"},
 	}
 	matInfo := materializeInfo{inRepoName, outRepoName, "master", "commit2"}
 
@@ -91,7 +93,7 @@ func TestMapJob(t *testing.T) {
 	Map(j, "TestMapJob", matInfo, shard, mod)
 
 	// Check that the output file exists:
-	wantFilename := fmt.Sprintf("%s/commit2/foo", outRepoName)
+	wantFilename := fmt.Sprintf("%s/commit2/my_first_job/foo", outRepoName)
 	exists, err := btrfs.FileExists(wantFilename)
 	check(err, t)
 	if !exists {
