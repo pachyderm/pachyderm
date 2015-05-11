@@ -212,7 +212,7 @@ func TestSendRecv(t *testing.T) {
 	dstRepo := "repo_TestSendRecv_dst"
 	check(InitReplica(dstRepo), t)
 	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
-	check(SendBase(fmt.Sprintf("%s/t0", srcRepo), repo2Recv), t)
+	check(Send2(srcRepo, "t0", repo2Recv), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
 	checkNoFile(fmt.Sprintf("%s/mycommit1", dstRepo), t)
@@ -220,14 +220,14 @@ func TestSendRecv(t *testing.T) {
 
 	// Run a Send/Recv operation to fetch data from the older "mycommit1".
 	// This verifies that tree copying works:
-	check(Send(fmt.Sprintf("%s/t0", srcRepo), fmt.Sprintf("%s/mycommit1", srcRepo), repo2Recv), t)
+	check(Send2(srcRepo, "mycommit1", repo2Recv), t)
 
 	// Check that the file from mycommit1 exists, but not from mycommit2:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
 	checkNoFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), t)
 
 	// Send again, this time starting from mycommit1 and going to mycommit2:
-	check(Send(fmt.Sprintf("%s/mycommit1", srcRepo), fmt.Sprintf("%s/mycommit2", srcRepo), repo2Recv), t)
+	check(Send2(srcRepo, "mycommit2", repo2Recv), t)
 
 	// Verify that files from both commits are present:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
@@ -278,7 +278,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
 
 	// Run a Pull/Recv operation to fetch all commits:
-	_, err := Pull(srcRepo, "", NewLocalReplica(dstRepo))
+	err := Pull(srcRepo, "", NewLocalReplica(dstRepo))
 	check(err, t)
 
 	// Verify that files from both commits are present:
@@ -295,7 +295,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo2), t)
 
 	// Run a Pull/Recv operation to fetch all commits:
-	_, err = Pull(dstRepo, "", NewLocalReplica(dstRepo2))
+	err = Pull(dstRepo, "", NewLocalReplica(dstRepo2))
 	check(err, t)
 
 	// Verify that files from both commits are present:
@@ -346,10 +346,10 @@ func TestS3Replica(t *testing.T) {
 
 	// Run a Pull/Recv operation to fetch all commits:
 	s3Replica := NewS3Replica(path.Join("pachyderm-test", RandSeq(20)))
-	_, err := Pull(srcRepo, "", s3Replica)
+	err := Pull(srcRepo, "", s3Replica)
 	check(err, t)
 
-	_, err = s3Replica.Pull("", NewLocalReplica(dstRepo))
+	err = s3Replica.Pull("", NewLocalReplica(dstRepo))
 	check(err, t)
 
 	// Verify that files from both commits are present:

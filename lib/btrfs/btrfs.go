@@ -318,12 +318,12 @@ func SetMeta(branch, key, value string) error {
 }
 
 // GetMeta gets metadata from a commit.
-func GetMeta(name, key string) (string, error) {
+func GetMeta(name, key string) string {
 	value, err := ReadFile(path.Join(name, ".meta", key))
 	if err != nil {
-		return "", err
+		return ""
 	}
-	return string(value), nil
+	return string(value)
 }
 
 func SendBase(to string, cont func(io.Reader) error) error {
@@ -340,10 +340,7 @@ func Send(from, to string, cont func(io.Reader) error) error {
 
 func Send2(repo, commit string, cont func(io.Reader) error) error {
 	log.Printf("btrfs.Send(%s, %s, <function>)", repo, commit)
-	parent, err := GetMeta(path.Join(repo, commit), "parent")
-	if err != nil {
-		return err
-	}
+	parent := GetMeta(path.Join(repo, commit), "parent")
 	if parent == "" {
 		return shell.CallCont(exec.Command("btrfs", "send", FilePath(path.Join(repo, commit))), cont)
 	} else {
@@ -696,20 +693,19 @@ func Pull2(repo, from string, cb CommitBrancher) error {
 		// parent came before the `from` commit in btrfs' ordering.
 		// This is because when we sent everything up to the `from` commit the
 		// parent commit might have been a branch and thus wouldn't have been sent.
-		parent, err := GetMeta(path.Join(repo, c.Path), "parent")
-		if err != nil {
-			return err
-		}
-		less, err := Less(repo, parent, from)
-		if err != nil {
-			return err
-		}
-		if less {
-			// The parent came before `from` that means we're not going to see
-			// it else where in this pull so we need to send it
-			err := Send2(repo, parent, cb.Commit)
-			if err != nil && err != CommitExists {
+		parent := GetMeta(path.Join(repo, c.Path), "parent")
+		if parent != "" {
+			less, err := Less(repo, parent, from)
+			if err != nil {
 				return err
+			}
+			if less {
+				// The parent came before `from` that means we're not going to see
+				// it else where in this pull so we need to send it
+				err := Send2(repo, parent, cb.Commit)
+				if err != nil && err != CommitExists {
+					return err
+				}
 			}
 		}
 
