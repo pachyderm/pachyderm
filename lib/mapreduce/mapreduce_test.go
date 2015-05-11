@@ -59,6 +59,8 @@ func TestS3(t *testing.T) {
 // Test: positive test of 1000 jobs (Map/Reduce combinations)
 
 func TestMapJob(t *testing.T) {
+	t.Skip("TODO(rw,jd): fix use of Map in this test")
+
 	inRepoName := "repo_TestMapJob_input"
 	outRepoName := "repo_TestMapJob_output"
 	check(btrfs.Init(inRepoName), t)
@@ -78,7 +80,6 @@ func TestMapJob(t *testing.T) {
 	// Set up the job:
 	j := Job{
 		Type: "map",
-		// Input: "", <- how is this used in the beginning?
 		Input: "my_first_job",
 		Image: "jdoliner/hello-world",
 		//Cmd:   []string{"wc -l"},
