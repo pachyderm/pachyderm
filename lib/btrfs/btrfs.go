@@ -326,19 +326,7 @@ func GetMeta(name, key string) string {
 	return string(value)
 }
 
-func SendBase(to string, cont func(io.Reader) error) error {
-	log.Printf("btrfs.SendBase(%s, <function>)", to)
-	c := exec.Command("btrfs", "send", FilePath(to))
-	return shell.CallCont(c, cont)
-}
-
-func Send(from, to string, cont func(io.Reader) error) error {
-	log.Printf("btrfs.Send(%s, %s, <function>)", from, to)
-	c := exec.Command("btrfs", "send", "-p", FilePath(from), FilePath(to))
-	return shell.CallCont(c, cont)
-}
-
-func Send2(repo, commit string, cont func(io.Reader) error) error {
+func Send(repo, commit string, cont func(io.Reader) error) error {
 	log.Printf("btrfs.Send(%s, %s, <function>)", repo, commit)
 	parent := GetMeta(path.Join(repo, commit), "parent")
 	if parent == "" {
@@ -653,12 +641,12 @@ func Pull(repo, from string, cb CommitBrancher) error {
 		if isCommit {
 			if diff.parent == nil {
 				// No Parent, use SendBase
-				if err := Send2(repo, diff.child.Path, cb.Commit); err != nil {
+				if err := Send(repo, diff.child.Path, cb.Commit); err != nil {
 					return err
 				}
 			} else {
 				// We have a parent, use normal Send
-				if err := Send2(repo, diff.child.Path, cb.Commit); err != nil {
+				if err := Send(repo, diff.child.Path, cb.Commit); err != nil {
 					return err
 				}
 			}
@@ -702,7 +690,7 @@ func Pull2(repo, from string, cb CommitBrancher) error {
 			if less {
 				// The parent came before `from` that means we're not going to see
 				// it else where in this pull so we need to send it
-				err := Send2(repo, parent, cb.Commit)
+				err := Send(repo, parent, cb.Commit)
 				if err != nil && err != CommitExists {
 					return err
 				}
@@ -715,7 +703,7 @@ func Pull2(repo, from string, cb CommitBrancher) error {
 			return err
 		}
 		if isCommit {
-			err := Send2(repo, c.Path, cb.Commit)
+			err := Send(repo, c.Path, cb.Commit)
 			if err != nil && err != CommitExists {
 				return err
 			}

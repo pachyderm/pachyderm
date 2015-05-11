@@ -212,7 +212,7 @@ func TestSendRecv(t *testing.T) {
 	dstRepo := "repo_TestSendRecv_dst"
 	check(InitReplica(dstRepo), t)
 	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
-	check(Send2(srcRepo, "t0", repo2Recv), t)
+	check(Send(srcRepo, "t0", repo2Recv), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
 	checkNoFile(fmt.Sprintf("%s/mycommit1", dstRepo), t)
@@ -220,14 +220,14 @@ func TestSendRecv(t *testing.T) {
 
 	// Run a Send/Recv operation to fetch data from the older "mycommit1".
 	// This verifies that tree copying works:
-	check(Send2(srcRepo, "mycommit1", repo2Recv), t)
+	check(Send(srcRepo, "mycommit1", repo2Recv), t)
 
 	// Check that the file from mycommit1 exists, but not from mycommit2:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
 	checkNoFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), t)
 
 	// Send again, this time starting from mycommit1 and going to mycommit2:
-	check(Send2(srcRepo, "mycommit2", repo2Recv), t)
+	check(Send(srcRepo, "mycommit2", repo2Recv), t)
 
 	// Verify that files from both commits are present:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
