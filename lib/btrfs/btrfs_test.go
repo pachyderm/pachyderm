@@ -126,7 +126,7 @@ func TestGit(t *testing.T) {
 	checkFile(path.Join(srcRepo, "commit2", "file2"), "foo", t)
 
 	// Print BTRFS hierarchy data for humans:
-	check(Log(srcRepo, "t0", func(r io.Reader) error {
+	check(Log(srcRepo, "t0", Desc, func(r io.Reader) error {
 		_, err := io.Copy(os.Stdout, r)
 		return err
 	}), t)

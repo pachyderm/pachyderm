@@ -215,7 +215,7 @@ func SyncTo(dataRepo string, urls []string) error {
 func SyncFrom(dataRepo string, urls []string) error {
 	// First we need to figure out what value to use for `from`
 	var from string
-	err := btrfs.Commits(dataRepo, "", func(c btrfs.CommitInfo) error {
+	err := btrfs.Commits(dataRepo, "", btrfs.Desc, func(c btrfs.CommitInfo) error {
 		from = c.Path
 		return fmt.Errorf("COMPLETE")
 	})

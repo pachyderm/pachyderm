@@ -123,6 +123,7 @@ func TestBasic(t *testing.T) {
 }
 
 func TestPull(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
 		_src := NewShard(fmt.Sprintf("TestPullSrc%d", c), fmt.Sprintf("TestPullSrcComp%d", c), 0, 1)

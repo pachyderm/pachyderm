@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -93,7 +94,7 @@ func ReadFile(name string) ([]byte, error) {
 }
 
 func WriteFile(name string, data []byte) error {
-	return ioutil.WriteFile(FilePath(name), data, 0777)
+	return ioutil.WriteFile(FilePath(name), data, 0666)
 }
 
 func CopyFile(name string, r io.Reader) (int64, error) {
@@ -337,6 +338,20 @@ func Send(from, to string, cont func(io.Reader) error) error {
 	return shell.CallCont(c, cont)
 }
 
+func Send2(repo, commit string, cont func(io.Reader) error) error {
+	log.Printf("btrfs.Send(%s, %s, <function>)", repo, commit)
+	parent, err := GetMeta(path.Join(repo, commit), "parent")
+	if err != nil {
+		return err
+	}
+	if parent == "" {
+		return shell.CallCont(exec.Command("btrfs", "send", FilePath(path.Join(repo, commit))), cont)
+	} else {
+		return shell.CallCont(exec.Command("btrfs", "send", "-p",
+			FilePath(path.Join(repo, parent)), FilePath(path.Join(repo, commit))), cont)
+	}
+}
+
 func Recv(volume string, data io.Reader) error {
 	log.Printf("btrfs.Recv(%s, %#v)", volume, data)
 	c := exec.Command("btrfs", "receive", FilePath(volume))
@@ -485,6 +500,7 @@ func Branch(repo, commit, branch string) error {
 		return fmt.Errorf("Illegal branch from branch: \"%s\", can only branch from commits.", commit)
 	}
 
+	// Check that the branch doesn't exist
 	exists, err := FileExists(path.Join(repo, branch))
 	if err != nil {
 		return err
@@ -493,24 +509,42 @@ func Branch(repo, commit, branch string) error {
 		return fmt.Errorf("Branch \"%s\" already exists.", branch)
 	}
 
+	// Create a writeable subvolume for the branch
 	if err := Snapshot(path.Join(repo, commit), path.Join(repo, branch), false); err != nil {
+		return err
+	}
+
+	// Record commit as the parent of this branch
+	if err := SetMeta(path.Join(repo, branch), "parent", commit); err != nil {
 		return err
 	}
 	return nil
 }
 
+// Constants used for passing to log
+const (
+	Desc = iota
+	Asc  = iota
+)
+
 //Log returns all of the commits the repo which have generation >= from.
-func Log(repo, from string, cont func(io.Reader) error) error {
+func Log(repo, from string, order int, cont func(io.Reader) error) error {
+	var sort string
+	if order == Desc {
+		sort = "-ogen"
+	} else {
+		sort = "+ogen"
+	}
 	log.Printf("btrfs.Log(%s, %s, <function>)", repo, from)
 	if from == "" {
-		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", "-ogen", FilePath(path.Join(repo)))
+		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", sort, FilePath(path.Join(repo)))
 		return shell.CallCont(c, cont)
 	} else {
 		t, err := transid(repo, from)
 		if err != nil {
 			return err
 		}
-		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-G", "+"+t, "--sort", "-ogen", FilePath(path.Join(repo)))
+		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-G", "+"+t, "--sort", sort, FilePath(path.Join(repo)))
 		return shell.CallCont(c, cont)
 	}
 }
@@ -519,9 +553,11 @@ type CommitInfo struct {
 	gen, id, parent, Path string
 }
 
-func Commits(repo, from string, cont func(CommitInfo) error) error {
+// Commits is a wrapper around `Log` which parses the output in to a convenient
+// struct
+func Commits(repo, from string, order int, cont func(CommitInfo) error) error {
 	log.Printf("btrfs.Commits(%s, %s, <function>)", repo, from)
-	return Log(repo, from, func(r io.Reader) error {
+	return Log(repo, from, order, func(r io.Reader) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			// scanner.Text() looks like:
@@ -573,7 +609,7 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 	// Notice that we're passing `""` instead of `from` that's not a mistake.
 	// This is because we need to see commits that came before `from` so we can
 	// use them as parents in constructing the pull.
-	err := Commits(repo, "", func(c CommitInfo) error {
+	err := Commits(repo, "", Desc, func(c CommitInfo) error {
 		log.Printf("Commit: %#v", c)
 		if c.Path == from {
 			// We've hit the commit the puller specified as `from`, that means
@@ -644,6 +680,64 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 	return nextFrom, nil
 }
 
+func Pull2(repo, from string, cb CommitBrancher) (string, error) {
+	log.Printf("btrfs.Pull(%s, %s, %#v)", repo, from, cb)
+	// First check that `from` is actually a valid commit
+	if from != "" {
+		exists, err := FileExists(path.Join(repo, from))
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return "", fmt.Errorf("`from` commit %s does not exists", from)
+		}
+	}
+
+	err := Commits(repo, from, Asc, func(c CommitInfo) error {
+		// In some case we need to send the parent of a commit even though that
+		// parent came before the `from` commit in btrfs' ordering.
+		// This is because when we sent everything up to the `from` commit the
+		// parent commit might have been a branch and thus wouldn't have been sent.
+		parent, err := GetMeta(path.Join(repo, c.Path), "parent")
+		if err != nil {
+			return err
+		}
+		less, err := Less(repo, parent, from)
+		if err != nil {
+			return err
+		}
+		if less {
+			// The parent came before `from` that means we're not going to see
+			// it else where in this pull so we need to send it
+			err := Send2(repo, parent, cb.Commit)
+			if err != nil && err != CommitExists {
+				return err
+			}
+		}
+
+		// Send this commit
+		isCommit, err := IsReadOnly(path.Join(repo, c.Path))
+		if err != nil {
+			return err
+		}
+		if isCommit {
+			err := Send2(repo, c.Path, cb.Commit)
+			if err != nil && err != CommitExists {
+				return err
+			}
+		} else {
+			if err := cb.Branch(parent, c.Path); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil && err.Error() != "COMPLETE" {
+		return "", err
+	}
+	return "", nil
+}
+
 // Transid returns transid of a path in a repo. This value is useful for
 // passing to FindNew.
 func transid(repo, commit string) (string, error) {
@@ -674,6 +768,28 @@ func transid(repo, commit string) (string, error) {
 		return "", err
 	}
 	return transid, err
+}
+
+func Less(repo, commit1, commit2 string) (bool, error) {
+	_c1, err := transid(repo, commit1)
+	if err != nil {
+		return false, err
+	}
+	c1, err := strconv.Atoi(_c1)
+	if err != nil {
+		return false, err
+	}
+
+	_c2, err := transid(repo, commit2)
+	if err != nil {
+		return false, err
+	}
+	c2, err := strconv.Atoi(_c2)
+	if err != nil {
+		return false, err
+	}
+
+	return c1 < c2, nil
 }
 
 // FindNew returns an array of filenames that were created between `from` and `to`
