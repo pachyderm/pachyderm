@@ -653,12 +653,12 @@ func Pull(repo, from string, cb CommitBrancher) error {
 		if isCommit {
 			if diff.parent == nil {
 				// No Parent, use SendBase
-				if err := SendBase(path.Join(repo, diff.child.Path), cb.Commit); err != nil {
+				if err := Send2(repo, diff.child.Path, cb.Commit); err != nil {
 					return err
 				}
 			} else {
 				// We have a parent, use normal Send
-				if err := Send(path.Join(repo, diff.parent.Path), path.Join(repo, diff.child.Path), cb.Commit); err != nil {
+				if err := Send2(repo, diff.child.Path, cb.Commit); err != nil {
 					return err
 				}
 			}
