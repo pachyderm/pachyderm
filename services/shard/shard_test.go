@@ -141,7 +141,7 @@ func TestPull(t *testing.T) {
 		// Replicate the data
 		srcReplica := NewShardReplica(src.URL)
 		dstReplica := NewShardReplica(dst.URL)
-		_, err := srcReplica.Pull("", dstReplica)
+		err := srcReplica.Pull("", dstReplica)
 		check(err, t)
 		facts := w.Facts()
 		runWorkload(dst.URL, facts, t)

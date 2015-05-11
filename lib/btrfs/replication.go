@@ -24,7 +24,7 @@ type Puller interface {
 	// Pull pulls data from a replica and applies it to the target,
 	// `from` is used to pickup where you left-off, passing `from=""` will start from the beginning
 	// Pull returns the value that should be passed next as `from`
-	Pull(from string, target CommitBrancher) (string, error)
+	Pull(from string, target CommitBrancher) error
 }
 
 type Replica interface {
@@ -50,7 +50,7 @@ func (r LocalReplica) Branch(base, name string) error {
 	return Branch(r.repo, base, name)
 }
 
-func (r LocalReplica) Pull(from string, cb CommitBrancher) (string, error) {
+func (r LocalReplica) Pull(from string, cb CommitBrancher) error {
 	return Pull(r.repo, from, cb)
 }
 
@@ -109,13 +109,13 @@ func (r *S3Replica) Branch(base, name string) error {
 	return bucket.Put(path.Join(p, key), data, "application/octet-stream", s3.BucketOwnerFull)
 }
 
-func (r *S3Replica) Pull(from string, target CommitBrancher) (string, error) {
+func (r *S3Replica) Pull(from string, target CommitBrancher) error {
 	bucket, err := s3utils.NewBucket(r.uri)
 	if err != nil {
 		log.Print(err)
-		return from, err
+		return err
 	}
-	return s3utils.ForEachFile(r.uri, from, func(path string) error {
+	_, err = s3utils.ForEachFile(r.uri, from, func(path string) error {
 		f, err := bucket.GetReader(path)
 		if f == nil {
 			return fmt.Errorf("Nil file returned.")
@@ -149,6 +149,10 @@ func (r *S3Replica) Pull(from string, target CommitBrancher) (string, error) {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func NewS3Replica(uri string) *S3Replica {

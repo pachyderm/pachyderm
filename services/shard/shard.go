@@ -387,7 +387,7 @@ func (s Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
 	cb := NewMultiPartCommitBrancher(mpw)
 	w.Header().Add("Boundary", mpw.Boundary())
 	localReplica := btrfs.NewLocalReplica(s.dataRepo)
-	_, err := localReplica.Pull(from, cb)
+	err := localReplica.Pull(from, cb)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)

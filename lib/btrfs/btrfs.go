@@ -587,19 +587,18 @@ type diff struct {
 // and passes them to cb
 // Pull returns the next value that should passed as `from` to pick up where
 // this function left off.
-func Pull(repo, from string, cb CommitBrancher) (string, error) {
+func Pull(repo, from string, cb CommitBrancher) error {
 	log.Printf("btrfs.Pull(%s, %s, %#v)", repo, from, cb)
 	// First check that `from` is actually a valid commit
 	if from != "" {
 		exists, err := FileExists(path.Join(repo, from))
 		if err != nil {
-			return "", err
+			return err
 		}
 		if !exists {
-			return "", fmt.Errorf("`from` commit %s does not exists", from)
+			return fmt.Errorf("`from` commit %s does not exists", from)
 		}
 	}
-	nextFrom := from
 	// commits indexed by their parents
 	parentMap := make(map[string][]*CommitInfo)
 	var diffs []diff
@@ -640,7 +639,7 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 		}
 	})
 	if err != nil && err.Error() != "COMPLETE" {
-		return nextFrom, err
+		return err
 	}
 
 	for i := 0; i < len(diffs); i++ {
@@ -652,44 +651,43 @@ func Pull(repo, from string, cb CommitBrancher) (string, error) {
 		// Check to make sure that what we have is a commit and not a branch
 		isCommit, err := IsReadOnly(path.Join(repo, diff.child.Path))
 		if err != nil {
-			return nextFrom, err
+			return err
 		}
 		if isCommit {
 			if diff.parent == nil {
 				// No Parent, use SendBase
 				if err := SendBase(path.Join(repo, diff.child.Path), cb.Commit); err != nil {
-					return nextFrom, err
+					return err
 				}
 			} else {
 				// We have a parent, use normal Send
 				if err := Send(path.Join(repo, diff.parent.Path), path.Join(repo, diff.child.Path), cb.Commit); err != nil {
-					return nextFrom, err
+					return err
 				}
 			}
 		} else {
 			if diff.parent == nil {
-				return nextFrom, fmt.Errorf("It shouldn't be possible to have a branch with a nil parent.")
+				return fmt.Errorf("It shouldn't be possible to have a branch with a nil parent.")
 			}
 			if err := cb.Branch(diff.parent.Path, diff.child.Path); err != nil {
-				return nextFrom, err
+				return err
 			}
 		}
-		nextFrom = diff.child.Path
 	}
 
-	return nextFrom, nil
+	return nil
 }
 
-func Pull2(repo, from string, cb CommitBrancher) (string, error) {
+func Pull2(repo, from string, cb CommitBrancher) error {
 	log.Printf("btrfs.Pull(%s, %s, %#v)", repo, from, cb)
 	// First check that `from` is actually a valid commit
 	if from != "" {
 		exists, err := FileExists(path.Join(repo, from))
 		if err != nil {
-			return "", err
+			return err
 		}
 		if !exists {
-			return "", fmt.Errorf("`from` commit %s does not exists", from)
+			return fmt.Errorf("`from` commit %s does not exists", from)
 		}
 	}
 
@@ -733,9 +731,9 @@ func Pull2(repo, from string, cb CommitBrancher) (string, error) {
 		return nil
 	})
 	if err != nil && err.Error() != "COMPLETE" {
-		return "", err
+		return err
 	}
-	return "", nil
+	return nil
 }
 
 // Transid returns transid of a path in a repo. This value is useful for

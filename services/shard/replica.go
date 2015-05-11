@@ -57,14 +57,14 @@ func (r ShardReplica) Branch(base, name string) error {
 	return nil
 }
 
-func (r ShardReplica) Pull(from string, cb btrfs.CommitBrancher) (string, error) {
+func (r ShardReplica) Pull(from string, cb btrfs.CommitBrancher) error {
 	resp, err := http.Get(fmt.Sprintf("%s/pull?from=%s", r.url, from))
 	if err != nil {
-		return from, err
+		return err
 	}
 	if resp.StatusCode != 200 {
 		log.Printf("Response with status: %s", resp.Status)
-		return from, fmt.Errorf("Response with status: %s", resp.Status)
+		return fmt.Errorf("Response with status: %s", resp.Status)
 	}
 	defer resp.Body.Close()
 	m := NewMultiPartPuller(multipart.NewReader(resp.Body, resp.Header.Get("Boundary")))
@@ -116,8 +116,7 @@ func NewMultiPartPuller(r *multipart.Reader) MultiPartPuller {
 	return MultiPartPuller{r: r}
 }
 
-func (m MultiPartPuller) Pull(from string, cb btrfs.CommitBrancher) (string, error) {
-	nextFrom := from
+func (m MultiPartPuller) Pull(from string, cb btrfs.CommitBrancher) error {
 	for {
 		part, err := m.r.NextPart()
 		if err == io.EOF {
@@ -125,34 +124,31 @@ func (m MultiPartPuller) Pull(from string, cb btrfs.CommitBrancher) (string, err
 		}
 		if err != nil {
 			log.Print(err)
-			return nextFrom, err
+			return err
 		}
 		switch part.Header.Get("pfs-diff-type") {
 		case "commit":
 			err := cb.Commit(part)
 			if err != nil {
 				log.Print(err)
-				return nextFrom, err
+				return err
 			}
-			// Note we don't update nextFrom here, that's actually ok because
-			// Pulls always end in a branch.
 		case "branch":
 			d := json.NewDecoder(iotest.NewReadLogger("Branch", part))
 			var br btrfs.BranchRecord
 			err := d.Decode(&br)
 			if err != nil {
 				log.Print("Foo: ", err)
-				return nextFrom, err
+				return err
 			}
-			nextFrom := br.Name
 			err = cb.Branch(br.Base, br.Name)
 			if err != nil {
 				log.Print(err)
-				return nextFrom, err
+				return err
 			}
 		}
 	}
-	return nextFrom, nil
+	return nil
 }
 
 // getFrom is a convenience function to ask a shard what value it would like
@@ -197,7 +193,7 @@ func SyncTo(dataRepo string, urls []string) error {
 			}
 			log.Printf("Syncing to url: %s from: %s", url, from)
 			sr := NewShardReplica(url)
-			_, err = lr.Pull(from, sr)
+			err = lr.Pull(from, sr)
 			if err != nil {
 				addErr(err)
 				log.Print("Pull: ", err)
@@ -213,28 +209,27 @@ func SyncTo(dataRepo string, urls []string) error {
 
 // SyncFrom syncs from the most up to date replica in urls
 func SyncFrom(dataRepo string, urls []string) error {
-	// First we need to figure out what value to use for `from`
-	var from string
-	err := btrfs.Commits(dataRepo, "", btrfs.Desc, func(c btrfs.CommitInfo) error {
-		from = c.Path
-		return fmt.Errorf("COMPLETE")
-	})
-	if err != nil && err.Error() != "COMPLETE" {
-		log.Print(err)
-		return err
-	}
-
 	for _, url := range urls {
+		// First we need to figure out what value to use for `from`
+		var from string
+		err := btrfs.Commits(dataRepo, "", btrfs.Desc, func(c btrfs.CommitInfo) error {
+			from = c.Path
+			return fmt.Errorf("COMPLETE")
+		})
+		if err != nil && err.Error() != "COMPLETE" {
+			log.Print(err)
+			return err
+		}
+
 		sr := NewShardReplica(url)
 		lr := btrfs.NewLocalReplica(dataRepo)
 
-		_from, _err := sr.Pull(from, lr)
+		err = sr.Pull(from, lr)
 		if err != nil {
-			err = _err
-			log.Print(_err)
-		} else {
-			from = _from
+			log.Print(err)
 		}
 	}
-	return err
+	//TODO(jd) we need to figure out under what conditions this function should
+	//return an error
+	return nil
 }
