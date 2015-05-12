@@ -331,14 +331,6 @@ func (s Shard) BranchHandler(w http.ResponseWriter, r *http.Request) {
 			return nil
 		})
 	} else if r.Method == "POST" {
-		if r.URL.Query().Get("force") == "true" {
-			err := btrfs.SubvolumeDeleteAll(path.Join(s.dataRepo, branchParam(r)))
-			if err != nil {
-				http.Error(w, err.Error(), 500)
-				log.Print(err)
-				return
-			}
-		}
 		if err := btrfs.Branch(s.dataRepo, commitParam(r), branchParam(r)); err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)

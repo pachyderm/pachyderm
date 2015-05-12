@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/textproto"
 	"sync"
-	"testing/iotest"
 
 	"github.com/pachyderm/pfs/lib/btrfs"
 )
@@ -27,25 +26,6 @@ func NewShardReplica(url string) ShardReplica {
 func (r ShardReplica) Commit(diff io.Reader) error {
 	resp, err := http.Post(r.url+"/commit", "application/octet-stream", diff)
 	if err != nil {
-		return err
-	}
-	if resp.StatusCode != 200 {
-		log.Printf("Response with status: %s", resp.Status)
-		return fmt.Errorf("Response with status: %s", resp.Status)
-	}
-	return nil
-}
-
-func (r ShardReplica) Branch(base, name string) error {
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/branch?commit=%s&branch=%s&force=true", r.url, base, name), nil)
-	if err != nil {
-		log.Print(err)
-		return err
-	}
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Print(err)
 		return err
 	}
 	if resp.StatusCode != 200 {
@@ -91,21 +71,6 @@ func (m MultiPartCommitBrancher) Commit(diff io.Reader) error {
 	return nil
 }
 
-func (m MultiPartCommitBrancher) Branch(base, name string) error {
-	h := make(textproto.MIMEHeader)
-	h.Set("pfs-diff-type", "branch")
-	w, err := m.w.CreatePart(h)
-	if err != nil {
-		return err
-	}
-	e := json.NewEncoder(w)
-	err = e.Encode(btrfs.BranchRecord{Base: base, Name: name})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 type MultiPartPuller struct {
 	r *multipart.Reader
 }
@@ -124,25 +89,10 @@ func (m MultiPartPuller) Pull(from string, cb btrfs.CommitBrancher) error {
 			log.Print(err)
 			return err
 		}
-		switch part.Header.Get("pfs-diff-type") {
-		case "commit":
-			err := cb.Commit(part)
-			if err != nil {
-				log.Print(err)
-				return err
-			}
-		case "branch":
-			d := json.NewDecoder(iotest.NewReadLogger("Branch", part))
-			var br btrfs.BranchRecord
-			err := d.Decode(&br)
-			if err != nil {
-				return err
-			}
-			err = cb.Branch(br.Base, br.Name)
-			if err != nil {
-				log.Print(err)
-				return err
-			}
+		err = cb.Commit(part)
+		if err != nil {
+			log.Print(err)
+			return err
 		}
 	}
 	return nil
