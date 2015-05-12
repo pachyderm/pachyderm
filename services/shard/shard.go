@@ -290,7 +290,7 @@ func (s Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == "POST" {
 		// Commit being pushed via a diff
 		replica := btrfs.NewLocalReplica(s.dataRepo)
-		if err := replica.Commit(r.Body); err != nil {
+		if err := replica.Push(r.Body); err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
 			return

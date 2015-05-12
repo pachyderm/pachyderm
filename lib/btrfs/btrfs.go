@@ -573,7 +573,7 @@ func Commits(repo, from string, order int, cont func(CommitInfo) error) error {
 	})
 }
 
-func Pull(repo, from string, cb CommitBrancher) error {
+func Pull(repo, from string, cb Pusher) error {
 	// First check that `from` is actually a valid commit
 	if from != "" {
 		exists, err := FileExists(path.Join(repo, from))
@@ -596,7 +596,7 @@ func Pull(repo, from string, cb CommitBrancher) error {
 			return err
 		}
 		if isCommit {
-			err := Send(repo, c.Path, cb.Commit)
+			err := Send(repo, c.Path, cb.Push)
 			if err != nil {
 				log.Print(err)
 				return err

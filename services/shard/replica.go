@@ -23,7 +23,7 @@ func NewShardReplica(url string) ShardReplica {
 	return ShardReplica{url: url}
 }
 
-func (r ShardReplica) Commit(diff io.Reader) error {
+func (r ShardReplica) Push(diff io.Reader) error {
 	resp, err := http.Post(r.url+"/commit", "application/octet-stream", diff)
 	if err != nil {
 		return err
@@ -35,7 +35,7 @@ func (r ShardReplica) Commit(diff io.Reader) error {
 	return nil
 }
 
-func (r ShardReplica) Pull(from string, cb btrfs.CommitBrancher) error {
+func (r ShardReplica) Pull(from string, cb btrfs.Pusher) error {
 	resp, err := http.Get(fmt.Sprintf("%s/pull?from=%s", r.url, from))
 	if err != nil {
 		return err
@@ -57,7 +57,7 @@ func NewMultiPartCommitBrancher(w *multipart.Writer) MultiPartCommitBrancher {
 	return MultiPartCommitBrancher{w: w}
 }
 
-func (m MultiPartCommitBrancher) Commit(diff io.Reader) error {
+func (m MultiPartCommitBrancher) Push(diff io.Reader) error {
 	h := make(textproto.MIMEHeader)
 	h.Set("pfs-diff-type", "commit")
 	w, err := m.w.CreatePart(h)
@@ -79,7 +79,7 @@ func NewMultiPartPuller(r *multipart.Reader) MultiPartPuller {
 	return MultiPartPuller{r: r}
 }
 
-func (m MultiPartPuller) Pull(from string, cb btrfs.CommitBrancher) error {
+func (m MultiPartPuller) Pull(from string, cb btrfs.Pusher) error {
 	for {
 		part, err := m.r.NextPart()
 		if err == io.EOF {
@@ -89,7 +89,7 @@ func (m MultiPartPuller) Pull(from string, cb btrfs.CommitBrancher) error {
 			log.Print(err)
 			return err
 		}
-		err = cb.Commit(part)
+		err = cb.Push(part)
 		if err != nil {
 			log.Print(err)
 			return err

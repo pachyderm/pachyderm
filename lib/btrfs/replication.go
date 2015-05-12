@@ -10,19 +10,19 @@ import (
 	"github.com/pachyderm/pfs/lib/s3utils"
 )
 
-type CommitBrancher interface {
-	Commit(diff io.Reader) error
+type Pusher interface {
+	Push(diff io.Reader) error
 }
 
 type Puller interface {
 	// Pull pulls data from a replica and applies it to the target,
 	// `from` is used to pickup where you left-off, passing `from=""` will start from the beginning
 	// Pull returns the value that should be passed next as `from`
-	Pull(from string, target CommitBrancher) error
+	Pull(from string, target Pusher) error
 }
 
 type Replica interface {
-	CommitBrancher
+	Pusher
 	Puller
 }
 
@@ -32,11 +32,11 @@ type LocalReplica struct {
 	repo string
 }
 
-func (r LocalReplica) Commit(diff io.Reader) error {
+func (r LocalReplica) Push(diff io.Reader) error {
 	return Recv(r.repo, diff)
 }
 
-func (r LocalReplica) Pull(from string, cb CommitBrancher) error {
+func (r LocalReplica) Pull(from string, cb Pusher) error {
 	return Pull(r.repo, from, cb)
 }
 
@@ -49,7 +49,7 @@ type S3Replica struct {
 	count int // number of sent commits
 }
 
-func (r *S3Replica) Commit(diff io.Reader) error {
+func (r *S3Replica) Push(diff io.Reader) error {
 	bucket, err := s3utils.NewBucket(r.uri)
 	if err != nil {
 		log.Print(err)
@@ -67,7 +67,7 @@ func (r *S3Replica) Commit(diff io.Reader) error {
 	return s3utils.PutMulti(bucket, path.Join(p, key), diff, "application/octet-stream", s3.BucketOwnerFull)
 }
 
-func (r *S3Replica) Pull(from string, target CommitBrancher) error {
+func (r *S3Replica) Pull(from string, target Pusher) error {
 	bucket, err := s3utils.NewBucket(r.uri)
 	if err != nil {
 		log.Print(err)
@@ -84,7 +84,7 @@ func (r *S3Replica) Pull(from string, target CommitBrancher) error {
 		}
 		defer f.Close()
 
-		err = target.Commit(f)
+		err = target.Push(f)
 		if err != nil {
 			log.Print(err)
 			return err
