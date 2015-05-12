@@ -282,7 +282,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
 
 	// Run a Pull/Recv operation to fetch all commits:
-	err := Pull2(srcRepo, "", NewLocalReplica(dstRepo))
+	err := Pull(srcRepo, "", NewLocalReplica(dstRepo))
 	check(err, t)
 
 	// Verify that files from both commits are present:
@@ -299,7 +299,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo2), t)
 
 	// Run a Pull/Recv operation to fetch all commits:
-	err = Pull2(dstRepo, "", NewLocalReplica(dstRepo2))
+	err = Pull(dstRepo, "", NewLocalReplica(dstRepo2))
 	check(err, t)
 
 	// Verify that files from both commits are present:
@@ -350,7 +350,7 @@ func TestS3Replica(t *testing.T) {
 
 	// Run a Pull/Recv operation to fetch all commits:
 	s3Replica := NewS3Replica(path.Join("pachyderm-test", RandSeq(20)))
-	err := Pull2(srcRepo, "", s3Replica)
+	err := Pull(srcRepo, "", s3Replica)
 	check(err, t)
 
 	err = s3Replica.Pull("", NewLocalReplica(dstRepo))

@@ -48,7 +48,7 @@ func (r LocalReplica) Branch(base, name string) error {
 }
 
 func (r LocalReplica) Pull(from string, cb CommitBrancher) error {
-	return Pull2(r.repo, from, cb)
+	return Pull(r.repo, from, cb)
 }
 
 func NewLocalReplica(repo string) *LocalReplica {
