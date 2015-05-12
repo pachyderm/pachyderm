@@ -132,7 +132,6 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 		r.RequestURI = ""
 		r.URL.Scheme = "http"
 		r.URL.Host = node.Value
-		log.Print("Multicasting ", r, " to: ", node.Value)
 
 		if r.ContentLength != 0 {
 			r.Body = ioutil.NopCloser(bytes.NewReader(body))

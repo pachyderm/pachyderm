@@ -117,9 +117,9 @@ func randObject(rand *rand.Rand) Object {
 	roll := rand.Int() % 32
 	switch {
 	case roll == 0:
-		return Commit
-	case roll < 8:
 		return Branch
+	case roll < 8:
+		return Commit
 	default:
 		return File
 	}
@@ -130,7 +130,7 @@ func (w Workload) Generate(rand *rand.Rand, size int) reflect.Value {
 	branches := []string{"master"}
 	commits := []string{"t0"}
 	var i int
-	for i = 0; i < size*5; i++ {
+	for i = 0; i < size*2; i++ {
 		o := Op{RW: W, Object: randObject(rand)}
 		switch o.Object {
 		case File:
