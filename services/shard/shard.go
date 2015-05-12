@@ -277,7 +277,7 @@ func (s Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 			client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
 			resp, err := client.Get(fmt.Sprintf("/pfs/replica/%d-%d", s.shard, s.modulos), false, true)
 			if err != nil {
-				log.Print(err)
+				//log.Print(err) TODO(jd) make this not print in local mode
 				return
 			}
 			var replicas []string

@@ -3,6 +3,7 @@ package btrfs
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,7 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -329,9 +330,31 @@ func Send(repo, commit string, cont func(io.Reader) error) error {
 	}
 }
 
-func Recv(volume string, data io.Reader) error {
-	c := exec.Command("btrfs", "receive", FilePath(volume))
-	log.Print(c)
+// createNewBranch gets called after a new commit has been `Recv`ed it creates
+// the branch that should be pointing to the newly made commit.
+func createNewBranch(repo string) error {
+	err := Commits(repo, "", Desc, func(c CommitInfo) error {
+		branch := GetMeta(path.Join(repo, c.Path), "branch")
+		err := SubvolumeDeleteAll(path.Join(repo, branch))
+		if err != nil {
+			return err
+		}
+		err = Branch(repo, c.Path, branch)
+		if err != nil {
+			return err
+		}
+		return Complete
+	})
+	if err != nil && err != Complete {
+		return err
+	}
+	return nil
+}
+
+func Recv(repo string, data io.Reader) error {
+	c := exec.Command("btrfs", "receive", FilePath(repo))
+	_, callerFile, callerLine, _ := runtime.Caller(0)
+	log.Printf("%15s:%.3d -> %s", path.Base(callerFile), callerLine, strings.Join(c.Args, " "))
 	stdin, err := c.StdinPipe()
 	if err != nil {
 		return err
@@ -360,15 +383,9 @@ func Recv(volume string, data io.Reader) error {
 
 	err = c.Wait()
 	if err != nil {
-		// The commit already existing isn't considered an error
-		match, err := regexp.Match("^creating subvolume .* failed. File exists$", buf.Bytes())
-		if err != nil {
-			return err
-		}
-		if match {
-			return nil
-		}
+		return err
 	}
+	createNewBranch(repo)
 	return nil
 }
 
@@ -378,6 +395,9 @@ func Init(repo string) error {
 		return err
 	}
 	if err := SubvolumeCreate(path.Join(repo, "master")); err != nil {
+		return err
+	}
+	if err := SetMeta(path.Join(repo, "master"), "branch", "master"); err != nil {
 		return err
 	}
 	if err := Commit(repo, "t0", "master"); err != nil {
@@ -429,16 +449,8 @@ func Commit(repo, commit, branch string) error {
 	if !exists {
 		return fmt.Errorf("Branch %s not found.", branch)
 	}
-	// make branch readonly
-	if err := SetReadOnly(path.Join(repo, branch)); err != nil {
-		return err
-	}
-	// Next move it to being a commit
-	if err := Rename(path.Join(repo, branch), path.Join(repo, commit)); err != nil {
-		return err
-	}
-	// Recreate the branch subvolume with a writeable subvolume
-	if err := Snapshot(path.Join(repo, commit), path.Join(repo, branch), false); err != nil {
+	// Snapshot the branch
+	if err := Snapshot(path.Join(repo, branch), path.Join(repo, commit), true); err != nil {
 		return err
 	}
 
@@ -467,6 +479,7 @@ func Release(name string) {
 }
 
 func Branch(repo, commit, branch string) error {
+	// Check that the commit is read only
 	isReadOnly, err := IsReadOnly(path.Join(repo, commit))
 	if err != nil {
 		return err
@@ -491,6 +504,11 @@ func Branch(repo, commit, branch string) error {
 
 	// Record commit as the parent of this branch
 	if err := SetMeta(path.Join(repo, branch), "parent", commit); err != nil {
+		return err
+	}
+
+	// Record the name of the branch
+	if err := SetMeta(path.Join(repo, branch), "branch", branch); err != nil {
 		return err
 	}
 	return nil
@@ -519,7 +537,7 @@ func Log(repo, from string, order int, cont func(io.Reader) error) error {
 		if err != nil {
 			return err
 		}
-		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-G", "+"+t, "--sort", sort, FilePath(path.Join(repo)))
+		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-C", "+"+t, "--sort", sort, FilePath(path.Join(repo)))
 		return shell.CallCont(c, cont)
 	}
 }
@@ -527,6 +545,8 @@ func Log(repo, from string, order int, cont func(io.Reader) error) error {
 type CommitInfo struct {
 	gen, id, parent, Path string
 }
+
+var Complete = errors.New("Complete")
 
 // Commits is a wrapper around `Log` which parses the output in to a convenient
 // struct
@@ -553,10 +573,6 @@ func Commits(repo, from string, order int, cont func(CommitInfo) error) error {
 	})
 }
 
-type diff struct {
-	parent, child *CommitInfo
-}
-
 func Pull(repo, from string, cb CommitBrancher) error {
 	// First check that `from` is actually a valid commit
 	if from != "" {
@@ -570,26 +586,10 @@ func Pull(repo, from string, cb CommitBrancher) error {
 	}
 
 	err := Commits(repo, from, Asc, func(c CommitInfo) error {
-		// In some case we need to send the parent of a commit even though that
-		// parent came before the `from` commit in btrfs' ordering.
-		// This is because when we sent everything up to the `from` commit the
-		// parent commit might have been a branch and thus wouldn't have been sent.
-		parent := GetMeta(path.Join(repo, c.Path), "parent")
-		if parent != "" && from != "" {
-			less, err := Less(repo, parent, from)
-			if err != nil {
-				return err
-			}
-			if less {
-				// The parent came before `from` that means we're not going to see
-				// it else where in this pull so we need to send it
-				err := Send(repo, parent, cb.Commit)
-				if err != nil {
-					return err
-				}
-			}
+		if c.Path == from {
+			// Commits gives us things >= `from` so we explicitly skip `from`
+			return nil
 		}
-
 		// Send this commit
 		isCommit, err := IsReadOnly(path.Join(repo, c.Path))
 		if err != nil {
@@ -601,14 +601,11 @@ func Pull(repo, from string, cb CommitBrancher) error {
 				log.Print(err)
 				return err
 			}
-		} else {
-			if err := cb.Branch(parent, c.Path); err != nil {
-				return err
-			}
 		}
+
 		return nil
 	})
-	if err != nil && err.Error() != "COMPLETE" {
+	if err != nil {
 		return err
 	}
 	return nil

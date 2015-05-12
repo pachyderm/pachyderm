@@ -270,7 +270,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 	check(Commit(srcRepo, "mycommit2", "master"), t)
 
 	// Create a destination repo:
-	dstRepo := "repo_TestSendCommitsAreReplicated_dst"
+	dstRepo := "repo_TestCommitsAreReplicated_dst"
 	check(InitReplica(dstRepo), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do exist in source:
@@ -291,7 +291,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 
 	// Now check that we can use dstRepo as the source for replication
 	// Create a second dest repo:
-	dstRepo2 := "repo_TestSendCommitsAreReplicated_dst2"
+	dstRepo2 := "repo_TestCommitsAreReplicated_dst2"
 	check(InitReplica(dstRepo2), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:

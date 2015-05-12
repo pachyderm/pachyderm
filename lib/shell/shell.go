@@ -5,10 +5,14 @@ import (
 	"io"
 	"log"
 	"os/exec"
+	"path"
+	"runtime"
 	"strings"
 )
 
 func RunStderr(c *exec.Cmd) error {
+	_, callerFile, callerLine, _ := runtime.Caller(1)
+	log.Printf("%15s:%.3d -> %s", path.Base(callerFile), callerLine, strings.Join(c.Args, " "))
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return err
@@ -26,6 +30,8 @@ func RunStderr(c *exec.Cmd) error {
 }
 
 func CallCont(c *exec.Cmd, cont func(io.Reader) error) error {
+	_, callerFile, callerLine, _ := runtime.Caller(1)
+	log.Printf("%15s:%.3d -> %s", path.Base(callerFile), callerLine, strings.Join(c.Args, " "))
 	reader, err := c.StdoutPipe()
 	if err != nil {
 		return err

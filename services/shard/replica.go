@@ -206,9 +206,9 @@ func SyncFrom(dataRepo string, urls []string) error {
 		var from string
 		err := btrfs.Commits(dataRepo, "", btrfs.Desc, func(c btrfs.CommitInfo) error {
 			from = c.Path
-			return fmt.Errorf("COMPLETE")
+			return btrfs.Complete
 		})
-		if err != nil && err.Error() != "COMPLETE" {
+		if err != nil && err != btrfs.Complete {
 			log.Print(err)
 			return err
 		}
