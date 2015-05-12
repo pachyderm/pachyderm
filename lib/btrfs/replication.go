@@ -2,7 +2,6 @@ package btrfs
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -12,8 +11,6 @@ import (
 	"github.com/mitchellh/goamz/s3"
 	"github.com/pachyderm/pfs/lib/s3utils"
 )
-
-var CommitExists = errors.New("Commit Exists")
 
 type CommitBrancher interface {
 	Commit(diff io.Reader) error

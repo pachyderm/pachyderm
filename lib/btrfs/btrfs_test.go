@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"testing"
@@ -16,6 +18,7 @@ var run_string string
 
 func check(err error, t *testing.T) {
 	if err != nil {
+		debug.PrintStack()
 		t.Fatal(err)
 	}
 }
@@ -239,6 +242,7 @@ func TestSendRecv(t *testing.T) {
 // TestBranchesAreNotReplicated // this is a known property, but not desirable long term
 // TestCommitsAreReplicated // Uses Send and Recv
 func TestCommitsAreReplicated(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
 	// Create a source repo:
 	srcRepo := "repo_TestCommitsAreReplicated_src"
 	check(Init(srcRepo), t)
@@ -278,7 +282,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
 
 	// Run a Pull/Recv operation to fetch all commits:
-	err := Pull(srcRepo, "", NewLocalReplica(dstRepo))
+	err := Pull2(srcRepo, "", NewLocalReplica(dstRepo))
 	check(err, t)
 
 	// Verify that files from both commits are present:
@@ -295,7 +299,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo2), t)
 
 	// Run a Pull/Recv operation to fetch all commits:
-	err = Pull(dstRepo, "", NewLocalReplica(dstRepo2))
+	err = Pull2(dstRepo, "", NewLocalReplica(dstRepo2))
 	check(err, t)
 
 	// Verify that files from both commits are present:

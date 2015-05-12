@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -367,7 +368,18 @@ func Recv(volume string, data io.Reader) error {
 	buf.ReadFrom(stderr)
 	log.Print("Stderr:", buf)
 
-	return c.Wait()
+	err = c.Wait()
+	if err != nil {
+		// The commit already existing isn't considered an error
+		match, err := regexp.Match("^creating subvolume .* failed. File exists$", buf.Bytes())
+		if err != nil {
+			return err
+		}
+		if match {
+			return nil
+		}
+	}
+	return nil
 }
 
 // Init initializes an empty repo.
@@ -431,10 +443,6 @@ func Commit(repo, commit, branch string) error {
 	}
 	if !exists {
 		return fmt.Errorf("Branch %s not found.", branch)
-	}
-	// Record which branch this commit comes from
-	if err := SetMeta(path.Join(repo, branch), "branch", branch); err != nil {
-		return err
 	}
 	// make branch readonly
 	if err := SetReadOnly(path.Join(repo, branch)); err != nil {
@@ -682,7 +690,7 @@ func Pull2(repo, from string, cb CommitBrancher) error {
 		// This is because when we sent everything up to the `from` commit the
 		// parent commit might have been a branch and thus wouldn't have been sent.
 		parent := GetMeta(path.Join(repo, c.Path), "parent")
-		if parent != "" {
+		if parent != "" && from != "" {
 			less, err := Less(repo, parent, from)
 			if err != nil {
 				return err
@@ -691,7 +699,7 @@ func Pull2(repo, from string, cb CommitBrancher) error {
 				// The parent came before `from` that means we're not going to see
 				// it else where in this pull so we need to send it
 				err := Send(repo, parent, cb.Commit)
-				if err != nil && err != CommitExists {
+				if err != nil {
 					return err
 				}
 			}
@@ -704,7 +712,8 @@ func Pull2(repo, from string, cb CommitBrancher) error {
 		}
 		if isCommit {
 			err := Send(repo, c.Path, cb.Commit)
-			if err != nil && err != CommitExists {
+			if err != nil {
+				log.Print(err)
 				return err
 			}
 		} else {
