@@ -350,7 +350,7 @@ func TestS3Replica(t *testing.T) {
 
 	// Run a Pull/Recv operation to fetch all commits:
 	s3Replica := NewS3Replica(path.Join("pachyderm-test", RandSeq(20)))
-	err := Pull(srcRepo, "", s3Replica)
+	err := Pull2(srcRepo, "", s3Replica)
 	check(err, t)
 
 	err = s3Replica.Pull("", NewLocalReplica(dstRepo))
