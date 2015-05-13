@@ -153,12 +153,12 @@ func TestPull(t *testing.T) {
 }
 
 // TestSync is similar to TestPull but it does it syncs after every commit.
-func TestSync(t *testing.T) {
+func TestSyncTo(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
-		_src := NewShard(fmt.Sprintf("TestSyncSrc%d", c), fmt.Sprintf("TestSyncSrcComp%d", c), 0, 1)
-		_dst := NewShard(fmt.Sprintf("TestSyncDst%d", c), fmt.Sprintf("TestSyncDstComp%d", c), 0, 1)
+		_src := NewShard(fmt.Sprintf("TestSyncToSrc%d", c), fmt.Sprintf("TestSyncToSrcComp%d", c), 0, 1)
+		_dst := NewShard(fmt.Sprintf("TestSyncToDst%d", c), fmt.Sprintf("TestSyncToDstComp%d", c), 0, 1)
 		check(_src.EnsureRepos(), t)
 		check(_dst.EnsureReplicaRepos(), t)
 		src := httptest.NewServer(_src.ShardMux())
@@ -170,7 +170,41 @@ func TestSync(t *testing.T) {
 			runOp(src.URL, o, t)
 			if o.Object == traffic.Commit {
 				// Replicate the data
-				err := SyncTo(fmt.Sprintf("TestSyncSrc%d", c), []string{dst.URL})
+				err := SyncTo(fmt.Sprintf("TestSyncToSrc%d", c), []string{dst.URL})
+				check(err, t)
+			}
+		}
+
+		facts := w.Facts()
+		runWorkload(dst.URL, facts, t)
+
+		c++
+		return true
+	}
+	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
+		t.Error(err)
+	}
+}
+
+// TestSyncFrom
+func TestSyncFrom(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
+	c := 0
+	f := func(w traffic.Workload) bool {
+		_src := NewShard(fmt.Sprintf("TestSyncFromSrc%d", c), fmt.Sprintf("TestSyncFromSrcComp%d", c), 0, 1)
+		_dst := NewShard(fmt.Sprintf("TestSyncFromDst%d", c), fmt.Sprintf("TestSyncFromDstComp%d", c), 0, 1)
+		check(_src.EnsureRepos(), t)
+		check(_dst.EnsureReplicaRepos(), t)
+		src := httptest.NewServer(_src.ShardMux())
+		dst := httptest.NewServer(_dst.ShardMux())
+		defer src.Close()
+		defer dst.Close()
+
+		for _, o := range w {
+			runOp(src.URL, o, t)
+			if o.Object == traffic.Commit {
+				// Replicate the data
+				err := SyncFrom(fmt.Sprintf("TestSyncFromDst%d", c), []string{src.URL})
 				check(err, t)
 			}
 		}

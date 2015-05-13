@@ -150,17 +150,14 @@ func SyncTo(dataRepo string, urls []string) error {
 }
 
 // SyncFrom syncs from the most up to date replica in urls
+// Returns the first error if ALL urls error.
 func SyncFrom(dataRepo string, urls []string) error {
 	for _, url := range urls {
 		// First we need to figure out what value to use for `from`
-		var from string
-		err := btrfs.Commits(dataRepo, "", btrfs.Desc, func(c btrfs.CommitInfo) error {
-			from = c.Path
-			return btrfs.Complete
-		})
-		if err != nil && err != btrfs.Complete {
+		from, err := btrfs.GetFrom(dataRepo)
+
+		if err != nil {
 			log.Print(err)
-			return err
 		}
 
 		sr := NewShardReplica(url)

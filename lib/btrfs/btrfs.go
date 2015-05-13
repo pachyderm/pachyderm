@@ -13,7 +13,6 @@ import (
 	"os/exec"
 	"path"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -573,6 +572,28 @@ func Commits(repo, from string, order int, cont func(CommitInfo) error) error {
 	})
 }
 
+// GetFrom returns the commit that this repo should pass to Pull to get itself up
+// to date.
+func GetFrom(repo string) (string, error) {
+	from := ""
+	err := Commits(repo, "", Desc, func(c CommitInfo) error {
+		isCommit, err := IsReadOnly(path.Join(repo, c.Path))
+		if err != nil {
+			return err
+		}
+		if isCommit {
+			from = c.Path
+			return Complete
+		}
+		return nil
+	})
+	if err != nil && err != Complete {
+		return "", err
+	}
+
+	return from, nil
+}
+
 func Pull(repo, from string, cb Pusher) error {
 	// First check that `from` is actually a valid commit
 	if from != "" {
@@ -582,6 +603,14 @@ func Pull(repo, from string, cb Pusher) error {
 		}
 		if !exists {
 			return fmt.Errorf("`from` commit %s does not exists", from)
+		}
+		// from should also be a commit not a branch
+		isCommit, err := IsReadOnly(path.Join(repo, from))
+		if err != nil {
+			return err
+		}
+		if !isCommit {
+			return fmt.Errorf("`from` %s cannot be a branch", from)
 		}
 	}
 
@@ -640,28 +669,6 @@ func transid(repo, commit string) (string, error) {
 		return "", err
 	}
 	return transid, err
-}
-
-func Less(repo, commit1, commit2 string) (bool, error) {
-	_c1, err := transid(repo, commit1)
-	if err != nil {
-		return false, err
-	}
-	c1, err := strconv.Atoi(_c1)
-	if err != nil {
-		return false, err
-	}
-
-	_c2, err := transid(repo, commit2)
-	if err != nil {
-		return false, err
-	}
-	c2, err := strconv.Atoi(_c2)
-	if err != nil {
-		return false, err
-	}
-
-	return c1 < c2, nil
 }
 
 // FindNew returns an array of filenames that were created between `from` and `to`
