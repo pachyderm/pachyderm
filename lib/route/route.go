@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 
@@ -35,8 +36,10 @@ func Route(r *http.Request, etcdKey string, modulos uint64) (io.ReadCloser, erro
 	httpClient := &http.Client{}
 	// `Do` will complain if r.RequestURI is set so we unset it
 	r.RequestURI = ""
-	r.URL.Scheme = "http"
-	r.URL.Host = master
+	r.URL, err = url.Parse(master)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := httpClient.Do(r)
 	if err != nil {
 		return nil, err
@@ -130,8 +133,10 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 		httpClient := &http.Client{}
 		// `Do` will complain if r.RequestURI is set so we unset it
 		r.RequestURI = ""
-		r.URL.Scheme = "http"
-		r.URL.Host = node.Value
+		r.URL, err = url.Parse(node.Value)
+		if err != nil {
+			return nil, err
+		}
 
 		if r.ContentLength != 0 {
 			r.Body = ioutil.NopCloser(bytes.NewReader(body))
