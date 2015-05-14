@@ -1,7 +1,6 @@
 package mapreduce
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -59,8 +58,6 @@ func TestS3(t *testing.T) {
 // Test: positive test of 1000 jobs (Map/Reduce combinations)
 
 func TestMapJob(t *testing.T) {
-	t.Skip("TODO(rw,jd): fix use of Map in this test")
-
 	inRepoName := "repo_TestMapJob_input"
 	outRepoName := "repo_TestMapJob_output"
 	check(btrfs.Init(inRepoName), t)
@@ -79,34 +76,26 @@ func TestMapJob(t *testing.T) {
 
 	// Set up the job:
 	j := Job{
-		Type: "map",
+		Type:  "map",
 		Input: "my_first_job",
 		Image: "jdoliner/hello-world",
 		//Cmd:   []string{"wc -l"},
 		Cmd: []string{"/go/bin/hello-world-mr"},
 	}
-	matInfo := materializeInfo{inRepoName, outRepoName, "master", "commit2"}
+	matInfo := materializeInfo{inRepoName, outRepoName, "master", "commit1"}
 
 	// the following shard and mod combination will always be true,
 	// because for all n, (n % 1) == 0:
 	shard := uint64(0)
 	mod := uint64(1)
 	Map(j, "TestMapJob", matInfo, shard, mod)
+	check(btrfs.Commit(outRepoName, "commit1", "master"), t)
 
-	// Check that the output file exists:
-	wantFilename := fmt.Sprintf("%s/commit2/my_first_job/foo", outRepoName)
-	exists, err := btrfs.FileExists(wantFilename)
+	// Check that the output file exists and contains the expected output:
+	output, err := btrfs.ReadFile(fmt.Sprintf("%s/commit1/TestMapJob/foo", outRepoName))
 	check(err, t)
-	if !exists {
-		t.Fatalf("expected output file to exist: %s", wantFilename)
-	}
-
-	// Check that the output file contains the expected output:
-	wantContents := []byte("1\n") // i.e. the number of lines reported by `wc -l`
-	gotContents, err := ioutil.ReadFile(wantFilename)
-	check(err, t)
-	if !bytes.Equal(wantContents, gotContents) {
-		t.Fatalf("expected %s but got %s", string(wantContents), string(gotContents))
+	if string(output) != "Hello World." {
+		t.Fatalf("%s should be Hello World.", string(output))
 	}
 }
 
