@@ -13,10 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mitchellh/goamz/aws"
-	"github.com/mitchellh/goamz/s3"
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/route"
+	"github.com/pachyderm/pfs/lib/s3utils"
 	"github.com/samalba/dockerclient"
 )
 
@@ -26,6 +25,7 @@ const (
 	usesPerMapper   = 2000
 )
 
+// TODO(rw): pull this out into a separate library
 func startContainer(image string, command []string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	containerConfig := &dockerclient.ContainerConfig{Image: image, Cmd: command}
@@ -46,6 +46,7 @@ func startContainer(image string, command []string) (string, error) {
 
 // spinupContainer pulls image and starts a container from it with command. It
 // returns the container id or an error.
+// TODO(rw): pull this out into a separate library
 func spinupContainer(image string, command []string) (string, error) {
 	log.Print("spinupContainer", " ", image, " ", command)
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
@@ -61,6 +62,7 @@ func spinupContainer(image string, command []string) (string, error) {
 	return startContainer(image, command)
 }
 
+// TODO(rw): pull this out into a separate library
 func stopContainer(containerId string) error {
 	log.Print("stopContainer", " ", containerId)
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
@@ -71,6 +73,7 @@ func stopContainer(containerId string) error {
 	return docker.StopContainer(containerId, 5)
 }
 
+// TODO(rw): pull this out into a separate library
 func ipAddr(containerId string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
@@ -81,7 +84,7 @@ func ipAddr(containerId string) (string, error) {
 		return "", err
 	}
 
-	return containerInfo.NetworkSettings.IpAddress, nil
+	return containerInfo.NetworkSettings.IPAddress, nil
 }
 
 func retry(f func() error, retries int, pause time.Duration) error {
@@ -139,13 +142,15 @@ func PrepJob(job Job, jobName string, m materializeInfo) error {
 	return nil
 }
 
+type Proto int
+
 const (
-	ProtoPfs = iota
-	ProtoS3  = iota
+	ProtoPfs Proto = iota
+	ProtoS3  Proto = iota
 )
 
 // getProtocol extracts the protocol for an input
-func getProtocol(input string) int {
+func getProtocol(input string) Proto {
 	if strings.TrimPrefix(input, "s3://") != input {
 		return ProtoS3
 	} else {
@@ -153,38 +158,7 @@ func getProtocol(input string) int {
 	}
 }
 
-// An s3 input looks like: s3://bucket/dir
-// Where dir can be a path
-
-// getBucket extracts the bucket from an s3 input
-func getBucket(input string) (string, error) {
-	if getProtocol(input) != ProtoS3 {
-		return "", fmt.Errorf("Input string: %s must begin with 's3://'.", input)
-	}
-	return strings.Split(strings.TrimPrefix(input, "s3://"), "/")[0], nil
-}
-
-// getPath extracts the path from an s3 input
-func getPath(input string) (string, error) {
-	if getProtocol(input) != ProtoS3 {
-		return "", fmt.Errorf("Input string: %s must begin with 's3://'.", input)
-	}
-	return path.Join(strings.Split(strings.TrimPrefix(input, "s3://"), "/")[1:]...), nil
-}
-
-func newBucket(bucketName string) (*s3.Bucket, error) {
-	auth, err := aws.EnvAuth()
-	if err != nil {
-		log.Print(err)
-		return nil, err
-	}
-	client := s3.New(auth, aws.USWest)
-
-	return client.Bucket(bucketName), nil
-}
-
 func mapFile(filename, jobName, host string, job Job, m materializeInfo) error {
-	// This retry is because we don't have a great way to tell when
 	// the containers http server is actually listening. It also
 	// can help in cases where a user has written a job that fails
 	// intermittently.
@@ -195,12 +169,7 @@ func mapFile(filename, jobName, host string, job Job, m materializeInfo) error {
 		case getProtocol(job.Input) == ProtoPfs:
 			inFile, err = btrfs.Open(path.Join(m.In, m.Commit, job.Input, filename))
 		case getProtocol(job.Input) == ProtoS3:
-			bucketName, err := getBucket(job.Input)
-			if err != nil {
-				log.Print(err)
-				return err
-			}
-			bucket, err := newBucket(bucketName)
+			bucket, err := s3utils.NewBucket(job.Input)
 			if err != nil {
 				log.Print(err)
 				return err
@@ -273,17 +242,12 @@ func pumpFiles(files chan string, job Job, m materializeInfo, shard, modulos uin
 			return
 		}
 	case getProtocol(job.Input) == ProtoS3:
-		bucketName, err := getBucket(job.Input)
+		bucket, err := s3utils.NewBucket(job.Input)
 		if err != nil {
 			log.Print(err)
 			return
 		}
-		bucket, err := newBucket(bucketName)
-		if err != nil {
-			log.Print(err)
-			return
-		}
-		inPath, err := getPath(job.Input)
+		inPath, err := s3utils.GetPath(job.Input)
 		if err != nil {
 			log.Print(err)
 			return
@@ -484,6 +448,7 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 // with `in_repo/commit` as input, outputs the results to `outRepo`/`branch`
 // and commits them as `outRepo`/`commit`
 func Materialize(in_repo, branch, commit, outRepo, jobDir string, shard, modulos uint64) error {
+	// TODO(any): use Hold/Release here for input commit
 	log.Printf("Materialize: %s %s %s %s %s.", in_repo, branch, commit, outRepo, jobDir)
 	exists, err := btrfs.FileExists(path.Join(outRepo, branch))
 	if err != nil {

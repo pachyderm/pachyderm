@@ -1,0 +1,32 @@
+#!/bin/sh
+# Launch pfs tests in single node mode.
+###############################################################################
+set -E          # pass trap handlers down to subshells
+#set -x         # execution tracing debug messages
+
+HELP="A script to launch pfs tests in single node mode.\nUsage: $0 [-p port] [-i image]"
+
+# --- Options processing -------------------------------------------
+OPTIND=1         # Reset in case getopts has been used previously in the shell.
+
+# Initialize our own variables:
+PORT="650"
+IMAGE="pfs"
+
+while getopts "p:i:" opt; do
+    case "$opt" in
+    \?)  echo $HELP
+        exit 0
+        ;;
+    p)  PORT=$OPTARG
+        ;;
+    i)  IMAGE=$OPTARG
+        ;;
+    esac
+done
+
+echo -n "Building container $IMAGE ... (this requires sudo)"
+sudo docker build -t $IMAGE .
+
+echo "done.\n. Launching single node server."
+scripts/launch -i $IMAGE sh /go/src/github.com/pachyderm/pfs/scripts/run_tests_from_within_container

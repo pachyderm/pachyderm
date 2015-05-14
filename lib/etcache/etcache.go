@@ -9,12 +9,12 @@ import (
 )
 
 var cache map[string]*etcd.Response = make(map[string]*etcd.Response)
-var instertionTime map[string]time.Time = make(map[string]time.Time)
+var insertionTime map[string]time.Time = make(map[string]time.Time)
 var lock sync.RWMutex
 
 func Get(key string, sort, recursive bool) (*etcd.Response, error) {
 	cacheKey := fmt.Sprint(key, "-", sort, "-", recursive)
-	if time.Since(instertionTime[cacheKey]) > (5 * time.Minute) {
+	if time.Since(insertionTime[cacheKey]) > (5 * time.Minute) {
 		return ForceGet(key, sort, recursive)
 	} else {
 		lock.RLock()
@@ -26,13 +26,13 @@ func Get(key string, sort, recursive bool) (*etcd.Response, error) {
 func ForceGet(key string, sort, recursive bool) (*etcd.Response, error) {
 	cacheKey := fmt.Sprint(key, "-", sort, "-", recursive)
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
-	if resp, err := client.Get(key, sort, recursive); err != nil {
+	resp, err := client.Get(key, sort, recursive)
+	if err != nil {
 		return resp, err
-	} else {
-		lock.Lock()
-		defer lock.Unlock()
-		cache[cacheKey] = resp
-		instertionTime[cacheKey] = time.Now()
-		return resp, nil
 	}
+	lock.Lock()
+	defer lock.Unlock()
+	cache[cacheKey] = resp
+	insertionTime[cacheKey] = time.Now()
+	return resp, nil
 }
