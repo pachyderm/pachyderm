@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"reflect"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -237,8 +238,6 @@ func TestSendRecv(t *testing.T) {
 	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), "bar", t)
 }
 
-// TestSendWithMissingIntermediateCommitIsCorrect(?) // ? means we don't know what the behavior is.
-
 // TestBranchesAreNotReplicated // this is a known property, but not desirable long term
 // TestCommitsAreReplicated // Uses Send and Recv
 func TestCommitsAreReplicated(t *testing.T) {
@@ -309,6 +308,79 @@ func TestCommitsAreReplicated(t *testing.T) {
 	checkFile(fmt.Sprintf("%s/master/myfile2", dstRepo), "bar", t)
 }
 
+// TestSendWithMissingIntermediateCommitIsCorrect(?) // ? means we don't know what the behavior is.
+func TestSendWithMissingIntermediateCommitIsCorrect(t *testing.T) {
+	//FIXME: https://github.com/pachyderm/pfs/issues/60
+	t.Skip("Removing commits currently breaks replication, this is ok for now because users can't remove commits.")
+	// Create a source repo:
+	srcRepo := "repo_TestSendWithMissingIntermediateCommitIsCorrect_src"
+	check(Init(srcRepo), t)
+
+	// Create a file in the source repo:
+	writeFile(fmt.Sprintf("%s/master/myfile1", srcRepo), "foo", t)
+
+	// Create a commit in the source repo:
+	check(Commit(srcRepo, "mycommit1", "master"), t)
+
+	// Create another file in the source repo:
+	writeFile(fmt.Sprintf("%s/master/myfile2", srcRepo), "bar", t)
+
+	// Create a another commit in the source repo:
+	check(Commit(srcRepo, "mycommit2", "master"), t)
+
+	// Delete intermediate commit "mycommit1":
+	check(SubvolumeDelete(fmt.Sprintf("%s/mycommit1", srcRepo)), t)
+
+	// Verify that the commit "mycommit1" does not exist and "mycommit2" does in the source repo:
+	checkNoFile(fmt.Sprintf("%s/mycommit1", srcRepo), t)
+	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", srcRepo), "bar", t)
+
+	// Create a destination repo:
+	dstRepo := "repo_TestSendWithMissingIntermediateCommitIsCorrect_dst"
+	check(InitReplica(dstRepo), t)
+
+	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
+	checkNoFile(fmt.Sprintf("%s/mycommit1", dstRepo), t)
+	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
+
+	// Run a Pull/Recv operation to fetch all commits:
+	check(Pull(srcRepo, "t0", NewLocalReplica(dstRepo)), t)
+
+	// Verify that the commit "mycommit1" does not exist and "mycommit2" does in the destination repo:
+	t.Skipf("TODO(jd,rw): no files were synced")
+	checkNoFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), t)
+	checkFile(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), "bar", t)
+}
+
+// TestBranchesAreNotImplicitlyReplicated // this is a known property, but not desirable long term
+func TestBranchesAreNotImplicitlyReplicated(t *testing.T) {
+	// Create a source repo:
+	srcRepo := "repo_TestBranchesAreNotImplicitlyReplicated_src"
+	check(Init(srcRepo), t)
+
+	// Create a commit in the source repo:
+	check(Commit(srcRepo, "mycommit", "master"), t)
+
+	// Create a branch in the source repo:
+	check(Branch(srcRepo, "mycommit", "mybranch"), t)
+
+	// Create a destination repo:
+	dstRepo := "repo_TestBranchesAreNotImplicitlyReplicated_dst"
+	check(InitReplica(dstRepo), t)
+
+	// Run a Pull/Recv operation to fetch all commits on master:
+	check(Pull(srcRepo, "", NewLocalReplica(dstRepo)), t)
+
+	// Verify that only the commits are replicated, not branches:
+	commitFilename := fmt.Sprintf("%s/mycommit", dstRepo)
+	exists, err := FileExists(commitFilename)
+	check(err, t)
+	if !exists {
+		t.Fatalf("File %s should exist.", commitFilename)
+	}
+	checkNoFile(fmt.Sprintf("%s/mybranch", dstRepo), t)
+}
+
 func TestS3Replica(t *testing.T) {
 	// Create a source repo:
 	srcRepo := "repo_TestS3Replica_src"
@@ -348,11 +420,12 @@ func TestS3Replica(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit1", dstRepo), t)
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
 
-	// Run a Pull/Recv operation to fetch all commits:
+	// Run a Pull to push all commits to s3
 	s3Replica := NewS3Replica(path.Join("pachyderm-test", RandSeq(20)))
 	err := Pull(srcRepo, "", s3Replica)
 	check(err, t)
 
+	// Pull commits from s3 to a new local replica
 	err = s3Replica.Pull("", NewLocalReplica(dstRepo))
 	check(err, t)
 
@@ -404,7 +477,71 @@ func TestHoldRelease(t *testing.T) {
 //	}), t)
 
 // TestFindNew, which is basically like `git diff`. Corresponds to `find-new` in btrfs.
-// Case: spaces in filenames
+func TestFindNew(t *testing.T) {
+	repoName := "repo_TestFindNew"
+	check(Init(repoName), t)
+
+	checkFindNew := func(want []string, repo, from, to string) {
+		got, err := FindNew(repo, from, to)
+		check(err, t)
+		t.Logf("checkFindNew(%v, %v, %v) -> %v", repo, from, to, got)
+
+		// handle nil and empty slice the same way:
+		if len(want) == 0 && len(got) == 0 {
+			return
+		}
+
+		if !reflect.DeepEqual(want, got) {
+			t.Fatalf("wanted %v, got %v for FindNew(%v, %v, %v)", want, got, repo, from, to)
+		}
+
+	}
+
+	// There are no new files upon repo creation:
+	checkFindNew([]string{}, repoName, "t0", "t0")
+
+	// A new, uncommited file is returned in the list:
+	writeFile(fmt.Sprintf("%s/master/myfile1", repoName), "foo", t)
+	checkFindNew([]string{"myfile1"}, repoName, "t0", "master")
+
+	// When that file is commited, then it still shows up in the delta since transid0:
+	check(Commit(repoName, "mycommit1", "master"), t)
+	// TODO(rw, jd) Shouldn't this pass?
+	checkFindNew([]string{"myfile1"}, repoName, "t0", "mycommit1")
+
+	// The file doesn't show up in the delta since the new transaction:
+	checkFindNew([]string{}, repoName, "mycommit1", "mycommit1")
+
+	// Sanity check: the old delta still gives the same result:
+	checkFindNew([]string{"myfile1"}, repoName, "t0", "master")
+}
+
+func TestFilenamesWithSpaces(t *testing.T) {
+	repoName := "repo_TestFilenamesWithSpaces"
+	check(Init(repoName), t)
+
+	err := Branch(repoName, "t0", "my_branch")
+	check(err, t)
+
+	fn := fmt.Sprintf("%s/my_branch/my file", repoName)
+	writeFile(fn, "some content", t)
+	checkFile(fn, "some content", t)
+}
+
+func TestFilenamesWithSlashesFail(t *testing.T) {
+	repoName := "repo_TestFilenamesWithSlashesFail"
+	check(Init(repoName), t)
+
+	err := Branch(repoName, "t0", "my_branch")
+	check(err, t)
+
+	fn := fmt.Sprintf("%s/my_branch/my/file", repoName)
+	_, err = Create(fn)
+	if err == nil {
+		t.Fatalf("expected filename with slash to fail")
+	}
+}
+
 // Case: create, delete, edit files and check that the filenames correspond to the changes ones.
 
 // go test coverage

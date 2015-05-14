@@ -640,8 +640,8 @@ func Pull(repo, from string, cb Pusher) error {
 	return nil
 }
 
-// Transid returns transid of a path in a repo. This value is useful for
-// passing to FindNew.
+// transid returns transid of a path in a repo. This function is used in
+// several other internal functions.
 func transid(repo, commit string) (string, error) {
 	//  "9223372036854775810" == 2 ** 63 we use a very big number there so that
 	//  we get the transid of the from path. According to the internet this is
@@ -686,8 +686,11 @@ func FindNew(repo, from, to string) ([]string, error) {
 			// inode 6683 file offset 0 len 107 disk start 0 offset 0 gen 909 flags INLINE jobs/rPqZxsaspy
 			// 0     1    2    3      4 5   6   7    8     9 10     11 12 13 14     15     16
 			tokens := strings.Split(scanner.Text(), " ")
+			// Make sure the line is parseable as a file and the path isn't hidden.
 			if len(tokens) == 17 {
-				files = append(files, tokens[16])
+				if !strings.HasPrefix(tokens[16], ".") { // check if it's a hidden file
+					files = append(files, tokens[16])
+				}
 			} else if len(tokens) == 4 {
 				continue //skip transid messages
 			} else {
