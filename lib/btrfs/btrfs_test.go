@@ -542,6 +542,31 @@ func TestFilenamesWithSlashesFail(t *testing.T) {
 	}
 }
 
+func TestTwoSources(t *testing.T) {
+	src1 := "repo_TestTwoSources_src1"
+	check(Init(src1), t)
+	src2 := "repo_TestTwoSources_src2"
+	check(InitReplica(src2), t)
+	dst := "repo_TestTwoSources_dst"
+	check(InitReplica(dst), t)
+
+	// write a file to src1
+	writeFile(fmt.Sprintf("%s/master/file1", src1), "file1", t)
+	// commit it
+	check(Commit(src1, "commit1", "master"), t)
+	// push it to src2
+	check(NewLocalReplica(src1).Pull("", NewLocalReplica(src2)), t)
+	// push it to dst
+	check(NewLocalReplica(src1).Pull("", NewLocalReplica(dst)), t)
+
+	writeFile(fmt.Sprintf("%s/master/file2", src2), "file2", t)
+	check(Commit(src2, "commit2", "master"), t)
+	check(NewLocalReplica(src2).Pull("commit1", NewLocalReplica(dst)), t)
+
+	checkFile(fmt.Sprintf("%s/commit1/file1", dst), "file1", t)
+	checkFile(fmt.Sprintf("%s/commit2/file2", dst), "file2", t)
+}
+
 // Case: create, delete, edit files and check that the filenames correspond to the changes ones.
 
 // go test coverage
