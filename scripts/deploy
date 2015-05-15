@@ -1,0 +1,11 @@
+#!/bin/sh
+# This a wrapper around the pfs container which makes it feel more like a
+# native application.
+
+sudo docker run \
+    --privileged=true \
+    -v /:/host:ro \
+    -v /home/core:/host/home/core \
+    -v /var/run/fleet.sock:/host/var/run/fleet.sock \
+    -i jdoliner/pfs \
+    /go/bin/deploy $@ && fleetctl start /home/core/*.service
