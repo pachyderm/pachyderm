@@ -39,10 +39,20 @@ fi
 BTRFS_VERSION="$(which btrfs)" || { echo 'Please install btrfs-tools. (apt-get install btrfs-tools)' ; exit 1; }
 DOCKER_VERSION="$(docker --version | awk '{ print $3 }')"
 
-if [ "$DOCKER_VERSION" != "1.5.0," ] ; then
-    echo "docker 1.5.0 required"
+REGEX="([0-9]+)\.([0-9]+)\.([0-9]+),"
+
+# pin major version at 1, in case pfs needs update
+if [ $(echo "$DOCKER_VERSION" | sed -E "s/$REGEX/\1/") -ne "1" ]
+then
+    echo "This version of pfs only supports Docker 1.x, you're running $DOCKER_VERSION"
+    echo "Please upgrade pfs for support"
+    exit 1
+# docker versions below 1.5 are not supported
+elif [ $(echo "$DOCKER_VERSION" | sed -E "s/$REGEX/\2/") -lt "5" ]
+then
+    echo "Docker >= 1.5.0 is required"
     echo "See: https://docs.docker.com/installation/ubuntulinux/#docker-maintained-package-installation"
-    exit 1;
+    exit 1
 fi
 
 btrfs --version | grep 3.14 || { echo 'Upgrade btrfs-tools to 3.14.' ; exit 1; }
