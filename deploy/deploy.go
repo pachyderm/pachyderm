@@ -17,7 +17,7 @@ type service struct {
 	Shard, Nshards, Port int
 }
 
-var outPath string = "/host/home/core"
+var outPath string = "/host/home/core/pfs"
 
 func printShardedService(name string) {
 	sTemplate, err := template.New("sharded").ParseFiles("templates/sharded")
