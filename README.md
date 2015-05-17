@@ -51,18 +51,18 @@ running `npm install opencv` inside a Docker container and creating a node.js se
 ```shell
 # launch a local pfs shard
 $ curl www.pachyderm.io/launch | sh
- 
+
 # clone the chess pipeline
 $ git clone https://github.com/pachyderm/chess.git && cd chess
- 
+
 # install the pipeline locally and run it
 $ install/pachyderm/local
 ```
-####Step 1: Launch a local pfs shard 
+####Step 1: Launch a local pfs shard
 Download and run the Pachyderm launch script to get a local instance running.
-####Step 2: Clone the chess pipeline 
+####Step 2: Clone the chess pipeline
 Clone the chess git repo we’ve provided. You can check out the full map code on GitHub.
-####Step 3: Install the pipeline locally and run it 
+####Step 3: Install the pipeline locally and run it
 Run the local install script to start the pipeline. It should take around 6 minutes.
 
 ### Creating a CoreOS cluster
@@ -77,13 +77,23 @@ cluster. Here's links on how to set one up:
 SSH in to one of your new CoreOS machines.
 
 ```shell
-$ wget pachyderm.io/deploy/1Node.tar.gz
-$ tar -xvf 1Node.tar.gz
-$ fleetctl start 1Node/*
+$ curl pachyderm.io/deploy | sh
 ```
 
 The startup process takes a little while the first time you run it because
 each node has to pull a Docker image.
+
+####  Settings
+By default the deploy script will create a cluster with 3 shards and 3
+replicas. However you can pass it flags to change this behavior:
+
+```shell
+$ ./deploy -h
+Usage of /go/bin/deploy:
+  -container="pachyderm/pfs": The container to use for the deploy.
+  -replicas=3: The number of replicas of each shard.
+  -shards=3: The number of shards in the deploy.
+```
 
 ### Integrating with s3
 As of v0.4 pfs can leverage s3 as a source of data for MapReduce jobs. Pfs also
