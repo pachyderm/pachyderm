@@ -240,6 +240,9 @@ Two guys who love data and communities and both happen to be named Joe. We'd lov
 to chat: joey@pachyderm.io jdoliner@pachyderm.io.
 
 ## How do I hack on pfs?
+We're hiring! If you like ambitious distributed systems problems and think there should be a better alternative to Hadoop, please reach out.  Email jobs@pachyderm.io
+
+Want to hack on pfs for fun?
 You can run pfs locally using:
 
 ```shell
