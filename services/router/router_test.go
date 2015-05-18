@@ -131,16 +131,16 @@ func TestFire(t *testing.T) {
 
 func TestMRInsert(t *testing.T) {
 	commit(t)
-	newJob("MapInsert", mapreduce.Job{Type: "map", Input: "TestMRInsert", Image: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
-	newJob("ReduceInsert", mapreduce.Job{Type: "reduce", Input: "job/MapInsert", Image: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	newJob("MapInsert", mapreduce.Job{Type: "map", Input: "TestMRInsert", Image: "jdoliner/hello-world", Cmd: []string{"/go/bin/hello-world-mr"}}, t)
+	newJob("ReduceInsert", mapreduce.Job{Type: "reduce", Input: "job/MapInsert", Image: "jdoliner/hello-world", Cmd: []string{"/go/bin/hello-world-mr"}}, t)
 	insert("TestMRInsert", 4*KB, t)
 	materialize(t)
 }
 
 func TestMRTraffic(t *testing.T) {
 	commit(t)
-	newJob("MapTraffic", mapreduce.Job{Type: "map", Input: "TestMRTraffic", Image: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
-	newJob("ReduceTraffic", mapreduce.Job{Type: "reduce", Input: "job/MapTraffic", Image: "jdoliner/hello-world", Command: []string{"/go/bin/hello-world-mr"}}, t)
+	newJob("MapTraffic", mapreduce.Job{Type: "map", Input: "TestMRTraffic", Image: "jdoliner/hello-world", Cmd: []string{"/go/bin/hello-world-mr"}}, t)
+	newJob("ReduceTraffic", mapreduce.Job{Type: "reduce", Input: "job/MapTraffic", Image: "jdoliner/hello-world", Cmd: []string{"/go/bin/hello-world-mr"}}, t)
 	traffic("TestMRTraffic", 4*KB, 128*KB, t)
 	materialize(t)
 }

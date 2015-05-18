@@ -1,10 +1,10 @@
 #!/bin/sh
-# Launch pfs in single node mode.
+# Launch an arbitrary command in a working pfs environment.
 ###############################################################################
 set -E          # pass trap handlers down to subshells
 #set -x         # execution tracing debug messages
 
-HELP="A script to launch pfs in single node mode.\nUsage: $0 [-p port] [-i image]"
+HELP="A script to launch an arbitrary command in a working pfs environment.\nUsage: $0 [-p port] [-i image] [-d] <command>\n-d: daemonize process"
 
 # --- Options processing -------------------------------------------
 OPTIND=1         # Reset in case getopts has been used previously in the shell.
@@ -12,8 +12,9 @@ OPTIND=1         # Reset in case getopts has been used previously in the shell.
 # Initialize our own variables:
 PORT="650"
 IMAGE="pachyderm/pfs"
+DAEMONIZE=""
 
-while getopts "p:i:" opt; do
+while getopts "p:i:d" opt; do
     case "$opt" in
     \?)  echo $HELP
         exit 0
@@ -22,16 +23,36 @@ while getopts "p:i:" opt; do
         ;;
     i)  IMAGE=$OPTARG
         ;;
+    d)  DAEMONIZE="-d"
+        ;;
     esac
 done
+
+shift $((OPTIND-1))
+CONTAINER_COMMAND=$@
+
+if [ -z "${CONTAINER_COMMAND}" ]; then
+    echo $HELP
+    exit 1;
+fi
 
 BTRFS_VERSION="$(which btrfs)" || { echo 'Please install btrfs-tools. (apt-get install btrfs-tools)' ; exit 1; }
 DOCKER_VERSION="$(docker --version | awk '{ print $3 }')"
 
-if [ "$DOCKER_VERSION" != "1.5.0," ] ; then
-    echo "docker 1.5.0 required"
+REGEX="([0-9]+)\.([0-9]+)\.([0-9]+),"
+
+# pin major version at 1, in case pfs needs update
+if [ $(echo "$DOCKER_VERSION" | sed -E "s/$REGEX/\1/") -ne "1" ]
+then
+    echo "This version of pfs only supports Docker 1.x, you're running $DOCKER_VERSION"
+    echo "Please upgrade pfs for support"
+    exit 1
+# docker versions below 1.5 are not supported
+elif [ $(echo "$DOCKER_VERSION" | sed -E "s/$REGEX/\2/") -lt "5" ]
+then
+    echo "Docker >= 1.5.0 is required"
     echo "See: https://docs.docker.com/installation/ubuntulinux/#docker-maintained-package-installation"
-    exit 1;
+    exit 1
 fi
 
 btrfs --version | grep 3.14 || { echo 'Upgrade btrfs-tools to 3.14.' ; exit 1; }
@@ -55,7 +76,10 @@ sudo docker kill pfs 2>/dev/null >/dev/null
 sudo docker rm pfs 2>/dev/null >/dev/null
 echo "Launching container $IMAGE... (this requires sudo)"
 echo "Container id:"
-sudo docker run -d \
+echo "CONTAINER_COMMAND:"
+echo ${CONTAINER_COMMAND}
+sudo docker run \
+    ${DAEMONIZE} \
     --privileged=true \
     --name pfs \
     -v /:/host:ro \
@@ -66,7 +90,13 @@ sudo docker run -d \
     -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
     -p "$PORT":80 \
     -i "$IMAGE" \
-    /go/bin/master 0-1
+    ${CONTAINER_COMMAND}
+
+last_status=$?
+if [ $last_status -ne 0 ]; then
+    exit $last_status
+fi
+
 echo "done."
 echo "Server is listening on localhost:$PORT"
 echo "Logging to ~/.pfs/log/log-0-1"

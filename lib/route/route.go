@@ -36,7 +36,8 @@ func Route(r *http.Request, etcdKey string, modulos uint64) (io.ReadCloser, erro
 	// `Do` will complain if r.RequestURI is set so we unset it
 	r.RequestURI = ""
 	r.URL.Scheme = "http"
-	r.URL.Host = master
+	r.URL.Host = strings.TrimPrefix(master, "http://")
+	log.Printf("Send request: %#v", r)
 	resp, err := httpClient.Do(r)
 	if err != nil {
 		return nil, err
@@ -131,8 +132,10 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 		// `Do` will complain if r.RequestURI is set so we unset it
 		r.RequestURI = ""
 		r.URL.Scheme = "http"
-		r.URL.Host = node.Value
-		log.Print("Multicasting ", r, " to: ", node.Value)
+		r.URL.Host = strings.TrimPrefix(node.Value, "http://")
+		if err != nil {
+			return nil, err
+		}
 
 		if r.ContentLength != 0 {
 			r.Body = ioutil.NopCloser(bytes.NewReader(body))
