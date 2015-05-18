@@ -1,4 +1,4 @@
-##Pachyderm News
+## News
 Pachyderm v0.7 is out. v0.7 includes replication, automatic failover, and a rigorous testing suite. 
 
 We're hiring! Pachyderm is looking for our first hire. If you'd like to get involved, email us at jobs@pachyderm.io
