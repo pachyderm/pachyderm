@@ -7,5 +7,5 @@ sudo docker run \
     -v /:/host:ro \
     -v /home/core:/host/home/core \
     -v /var/run/fleet.sock:/host/var/run/fleet.sock \
-    -i jdoliner/pfs \
+    -i pachyderm/pfs \
     /go/bin/deploy $@ && fleetctl start /home/core/pfs/*.service
