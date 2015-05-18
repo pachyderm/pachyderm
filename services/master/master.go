@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -15,28 +16,30 @@ import (
 	"github.com/pachyderm/pfs/lib/mapreduce"
 )
 
-var dataRepo, compRepo string
-var logFile string
-var shard, modulos uint64
+var (
+	dataRepo, compRepo string
+	logFile            string
+	shard, modulos     uint64
+)
 
 func parseArgs() {
 	// os.Args[1] looks like 2-16
 	dataRepo = "data-" + os.Args[1]
 	compRepo = "comp-" + os.Args[1]
 	logFile = "log-" + os.Args[1]
-	s_m := strings.Split(os.Args[1], "-")
+	m := strings.Split(os.Args[1], "-")
 	var err error
-	shard, err = strconv.ParseUint(s_m[0], 10, 64)
+	shard, err = strconv.ParseUint(m[0], 10, 64)
 	if err != nil {
 		log.Fatal(err)
 	}
-	modulos, err = strconv.ParseUint(s_m[1], 10, 64)
+	modulos, err = strconv.ParseUint(m[1], 10, 64)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-var jobDir string = "job"
+var jobDir = "job"
 
 func commitParam(r *http.Request) string {
 	if p := r.URL.Query().Get("commit"); p != "" {
@@ -72,18 +75,25 @@ func indexOf(haystack []string, needle string) int {
 	return -1
 }
 
-func cat(w http.ResponseWriter, name string) {
+func cat(w io.Writer, name string) (n int64, err error) {
 	f, err := btrfs.Open(name)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
+		return 0, err
 	}
 	defer f.Close()
 
-	if _, err := io.Copy(w, f); err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-	}
+	return io.Copy(w, f)
+}
+
+func notAllowed(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "Unsupported method.", http.StatusMethodNotAllowed)
+	log.Printf("Unsupported method %s in request to %s.", r.Method, r.URL)
+}
+
+func internalError(err error, w http.ResponseWriter, r *http.Request) {
+	pc, fn, line, _ := runtime.Caller(1)
+	http.Error(w, err.Error(), http.StatusInternalServerError)
+	log.Println("%s[%s:%d] %v", runtime.FuncForPC(pc).Name(), fn, line, err)
 }
 
 // genericFileHandler serves files from fs. It's used after branch and commit
@@ -94,81 +104,94 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 	fileStart := indexOf(url, "file") + 1
 	// file is the path in the filesystem we're getting
 	file := path.Join(append([]string{fs}, url[fileStart:]...)...)
-
-	if r.Method == "GET" {
-		if strings.Contains(file, "*") {
-			if !strings.HasSuffix(file, "*") {
-				http.Error(w, "Illegal path containing internal `*`. `*` is currently only allowed as the last character of a path.", 400)
-			} else {
-				dir := path.Dir(file)
-				files, err := btrfs.ReadDir(dir)
-				if err != nil {
-					http.Error(w, err.Error(), 500)
-					return
-				}
-				for _, fi := range files {
-					if fi.IsDir() {
-						continue
-					} else {
-						cat(w, path.Join(dir, fi.Name()))
-					}
-				}
+	switch r.Method {
+	case "GET":
+		if !strings.Contains(file, "*") {
+			if _, err := cat(w, file); err != nil {
+				internalError(err, w, r)
 			}
-		} else {
-			cat(w, file)
+			return
 		}
-	} else if r.Method == "POST" {
+
+		if !strings.HasSuffix(file, "*") {
+			http.Error(w, "Illegal path containing internal `*`. `*` is currently only allowed as the last character of a path.", http.StatusBadRequest)
+			return
+		}
+
+		dir := path.Dir(file)
+		files, err := btrfs.ReadDir(dir)
+		if err != nil {
+			internalError(err, w, r)
+			return
+		}
+
+		for _, fi := range files {
+			if fi.IsDir() {
+				continue
+			}
+
+			name := path.Join(dir, fi.Name())
+			if _, err := cat(w, name); err != nil {
+				internalError(err, w, r)
+				return
+			}
+		}
+
+	case "POST":
 		btrfs.MkdirAll(path.Dir(file))
 		size, err := btrfs.CreateFromReader(file, r.Body)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
+			internalError(err, w, r)
 			return
 		}
 		fmt.Fprintf(w, "Created %s, size: %d.\n", file, size)
-	} else if r.Method == "PUT" {
+	case "PUT":
 		btrfs.MkdirAll(path.Dir(file))
 		size, err := btrfs.WriteFile(file, r.Body)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
+			internalError(err, w, r)
 			return
 		}
 		fmt.Fprintf(w, "Created %s, size: %d.\n", file, size)
-	} else if r.Method == "DELETE" {
+	case "DELETE":
 		if err := btrfs.Remove(file); err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
+			internalError(err, w, r)
 			return
 		}
 		fmt.Fprintf(w, "Deleted %s.\n", file)
+	default:
+		notAllowed(w, r)
+		return
 	}
 }
 
-// FileHandler is the core route for modifying the contents of the fileystem.
-func FileHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" || r.Method == "DELETE" || r.Method == "PUT" {
+// fileHandler is the core route for modifying the contents of the filesystem.
+func fileHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "POST", "DELETE", "PUT":
 		genericFileHandler(path.Join(dataRepo, branchParam(r)), w, r)
-	} else if r.Method == "GET" {
+	case "GET":
 		genericFileHandler(path.Join(dataRepo, commitParam(r)), w, r)
-	} else {
-		http.Error(w, "Invalid method.", 405)
+	default:
+		notAllowed(w, r)
+		return
 	}
 }
 
-// CommitHandler creates a snapshot of outstanding changes.
-func CommitHandler(w http.ResponseWriter, r *http.Request) {
+// commitHandler creates a snapshot of outstanding changes.
+func commitHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, commit, <commit>, file, <file>]
 	if len(url) > 3 && url[3] == "file" {
 		genericFileHandler(path.Join(dataRepo, url[2]), w, r)
 		return
 	}
-	if r.Method == "GET" {
+
+	switch r.Method {
+	case "GET":
 		commits, err := btrfs.ReadDir(dataRepo)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
+			internalError(err, w, r)
 			return
 		}
 
@@ -177,14 +200,14 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, "%s    %s\n", ci.Name(), ci.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
 			}
 		}
-	} else if r.Method == "POST" {
+	case "POST":
 		var commit string
 		if commit = r.URL.Query().Get("commit"); commit == "" {
 			commit = uuid.New()
 		}
 		err := btrfs.Commit(dataRepo, commit, branchParam(r))
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			log.Print(err)
 			return
 		}
@@ -199,26 +222,25 @@ func CommitHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		fmt.Fprint(w, commit)
-	} else {
-		http.Error(w, "Unsupported method.", http.StatusMethodNotAllowed)
-		log.Printf("Unsupported method %s in request to %s.", r.Method, r.URL.String())
+	default:
+		notAllowed(w, r)
 		return
 	}
 }
 
-// BranchHandler creates a new branch from commit.
-func BranchHandler(w http.ResponseWriter, r *http.Request) {
+// branchHandler creates a new branch from commit.
+func branchHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, commit, <commit>, file, <file>]
 	if len(url) > 3 && url[3] == "file" {
 		genericFileHandler(path.Join(dataRepo, url[2]), w, r)
 		return
 	}
-	if r.Method == "GET" {
+	switch r.Method {
+	case "GET":
 		branches, err := btrfs.ReadDir(dataRepo)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
+			internalError(err, w, r)
 			return
 		}
 
@@ -227,30 +249,32 @@ func BranchHandler(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, "%s    %s\n", bi.Name(), bi.ModTime().Format("2006-01-02T15:04:05.999999-07:00"))
 			}
 		}
-	} else if r.Method == "POST" {
+	case "POST":
 		if err := btrfs.Branch(dataRepo, commitParam(r), branchParam(r)); err != nil {
-			http.Error(w, err.Error(), 500)
-			log.Print(err)
+			internalError(err, w, r)
 			return
 		}
 		fmt.Fprintf(w, "Created branch. (%s) -> %s.\n", commitParam(r), branchParam(r))
-	} else {
-		http.Error(w, "Invalid method.", 405)
-		log.Print("Invalid method %s.", r.Method)
+	default:
+		notAllowed(w, r)
 		return
 	}
 }
 
-func JobHandler(w http.ResponseWriter, r *http.Request) {
+func jobHandler(w http.ResponseWriter, r *http.Request) {
 	log.Print("URL in job handler:\n", r.URL)
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, job, <job>, file, <file>]
-	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
+	switch r.Method {
+	case "GET":
+		if len(url) < 3 || url[3] != "file" {
+			http.Error(w, "GET url must contain 'file'", http.StatusBadRequest)
+			return
+		}
+
 		if hasBranch(r) {
-			err := mapreduce.WaitJob(compRepo, branchParam(r), commitParam(r), url[2])
-			if err != nil {
-				http.Error(w, err.Error(), 500)
-				log.Print(err)
+			if err := mapreduce.WaitJob(compRepo, branchParam(r), commitParam(r), url[2]); err != nil {
+				internalError(err, w, r)
 				return
 			}
 			genericFileHandler(path.Join(compRepo, branchParam(r), url[2]), w, r)
@@ -258,33 +282,32 @@ func JobHandler(w http.ResponseWriter, r *http.Request) {
 			genericFileHandler(path.Join(compRepo, commitParam(r), url[2]), w, r)
 		}
 		return
-	} else if r.Method == "POST" {
+	case "POST":
 		r.URL.Path = path.Join("/file", jobDir, url[2])
 		log.Print("URL with reset path:\n", r.URL)
 		genericFileHandler(path.Join(dataRepo, branchParam(r)), w, r)
-	} else {
-		http.Error(w, "Invalid method.", 405)
-		log.Print("Invalid method %s.", r.Method)
+	default:
+		notAllowed(w, r)
 		return
 	}
 }
 
-// MasterMux creates a multiplexer for a Master writing to the passed in FS.
-func MasterMux() *http.ServeMux {
+// masterMux creates a multiplexer for a Master writing to the passed in FS.
+func masterMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/branch", BranchHandler)
-	mux.HandleFunc("/commit", CommitHandler)
-	mux.HandleFunc("/file/", FileHandler)
-	mux.HandleFunc("/job/", JobHandler)
-	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
+	mux.HandleFunc("/branch", branchHandler)
+	mux.HandleFunc("/commit", commitHandler)
+	mux.HandleFunc("/file/", fileHandler)
+	mux.HandleFunc("/job/", jobHandler)
+	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "pong") })
 
 	return mux
 }
 
 // RunServer runs a master server listening on port 80
-func RunServer() {
-	http.ListenAndServe(":80", MasterMux())
+func runServer() {
+	http.ListenAndServe(":80", masterMux())
 }
 
 func main() {
@@ -307,5 +330,5 @@ func main() {
 	}
 	log.Print("Listening on port 80...")
 	log.Printf("dataRepo: %s, compRepo: %s.", dataRepo, compRepo)
-	RunServer()
+	runServer()
 }
