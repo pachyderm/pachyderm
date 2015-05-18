@@ -52,7 +52,7 @@ running `npm install opencv` inside a Docker container and creating a node.js se
 
 ## Quickstart Guide
 
-### Run Pachyderm locally on a small sample dataset
+### Run Pachyderm locally on a small sample dataset (chess games)
 ```shell
 # launch a local pfs shard
 $ curl www.pachyderm.io/launch | sh
@@ -66,9 +66,9 @@ $ install/pachyderm/local
 ####Step 1: Launch a local pfs shard 
 Download and run the Pachyderm launch script to get a local instance running.
 ####Step 2: Clone the chess pipeline 
-Clone the chess git repo we’ve provided. You can check out the full map code on GitHub.
-####Step 3: Install the pipeline locally and run it 
-Run the local install script to start the pipeline. It should take around 6 minutes.
+Clone the chess git repo we’ve provided. You can check out the full map code [here](https://github.com/pachyderm/chess).
+####Step 3: Install and run the pipeline locally
+Run the local install script to start the pipeline. It should take around 6 minutes to complete the analysis.
 
 ### Creating a CoreOS cluster
 Pfs is designed to run on CoreOS. To start, you'll need a working CoreOS
