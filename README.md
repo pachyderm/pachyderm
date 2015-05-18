@@ -1,3 +1,8 @@
+## News
+Pachyderm v0.7 is out. v0.7 includes replication, automatic failover, and a rigorous testing suite. 
+
+We're hiring! Pachyderm is looking for our first hire. If you'd like to get involved, email us at jobs@pachyderm.io
+
 ## What is pfs?
 Pfs is a distributed file system built specifically for the Docker
 ecosystem. You [deploy it with Docker](https://registry.hub.docker.com/u/pachyderm/pfs/),
@@ -47,7 +52,7 @@ running `npm install opencv` inside a Docker container and creating a node.js se
 
 ## Quickstart Guide
 
-### Run Pachyderm locally on a small sample dataset
+### Run Pachyderm locally on a small sample dataset (chess games)
 ```shell
 # launch a local pfs shard
 $ curl www.pachyderm.io/launch | sh
@@ -61,9 +66,9 @@ $ install/pachyderm/local
 ####Step 1: Launch a local pfs shard
 Download and run the Pachyderm launch script to get a local instance running.
 ####Step 2: Clone the chess pipeline
-Clone the chess git repo we’ve provided. You can check out the full map code on GitHub.
-####Step 3: Install the pipeline locally and run it
-Run the local install script to start the pipeline. It should take around 6 minutes.
+Clone the chess git repo we’ve provided. You can check out the full map code [here](https://github.com/pachyderm/chess).
+####Step 3: Install and run the pipeline locally
+Run the local install script to start the pipeline. It should take around 6 minutes to complete the analysis.
 
 ### Creating a CoreOS cluster
 Pfs is designed to run on CoreOS. To start, you'll need a working CoreOS
@@ -250,6 +255,9 @@ Two guys who love data and communities and both happen to be named Joe. We'd lov
 to chat: joey@pachyderm.io jdoliner@pachyderm.io.
 
 ## How do I hack on pfs?
+We're hiring! If you like ambitious distributed systems problems and think there should be a better alternative to Hadoop, please reach out.  Email jobs@pachyderm.io
+
+Want to hack on pfs for fun?
 You can run pfs locally using:
 
 ```shell
