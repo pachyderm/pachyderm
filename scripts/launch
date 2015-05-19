@@ -12,9 +12,9 @@ OPTIND=1         # Reset in case getopts has been used previously in the shell.
 # Initialize our own variables:
 PORT="650"
 IMAGE="pachyderm/pfs"
-DAEMONIZE=""
+DAEMONIZE="-d"
 
-while getopts "p:i:d" opt; do
+while getopts "p:i:f" opt; do
     case "$opt" in
     \?)  echo $HELP
         exit 0
@@ -23,7 +23,7 @@ while getopts "p:i:d" opt; do
         ;;
     i)  IMAGE=$OPTARG
         ;;
-    d)  DAEMONIZE="-d"
+    f)  DAEMONIZE=""
         ;;
     esac
 done
@@ -32,8 +32,7 @@ shift $((OPTIND-1))
 CONTAINER_COMMAND=$@
 
 if [ -z "${CONTAINER_COMMAND}" ]; then
-    echo $HELP
-    exit 1;
+    CONTAINER_COMMAND="/go/bin/shard 0-1 localhost" #default command
 fi
 
 BTRFS_VERSION="$(which btrfs)" || { echo 'Please install btrfs-tools. (apt-get install btrfs-tools)' ; exit 1; }

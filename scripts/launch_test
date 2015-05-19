@@ -29,4 +29,4 @@ echo -n "Building container $IMAGE ... (this requires sudo)"
 sudo docker build -t $IMAGE .
 
 echo "done.\n. Launching single node server."
-scripts/launch -i $IMAGE sh /go/src/github.com/pachyderm/pfs/scripts/run_tests_from_within_container
+scripts/launch -i $IMAGE -f sh /go/src/github.com/pachyderm/pfs/scripts/run_tests_from_within_container
