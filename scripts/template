@@ -51,6 +51,23 @@
                 "IpProtocol": "tcp"
             }
         },
+        "PfsIngress": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+                "ToPort": "65535",
+                "GroupName": {
+                    "Ref": "CoreOSSecurityGroup"
+                },
+                "SourceSecurityGroupId": {
+                    "Fn::GetAtt": [
+                        "CoreOSSecurityGroup",
+                        "GroupId"
+                    ]
+                },
+                "FromPort": "49153",
+                "IpProtocol": "tcp"
+            }
+        },
         "CoreOSServerAutoScale": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
@@ -115,9 +132,9 @@
                                 "      command: start\n",
                                 "    - name: fleet.service\n",
                                 "      command: start\n",
-                                "    - name: pfs-deploy.service\n",
+                                "    - name: deploy.service\n",
                                 "      command: start\n",
-                                "      content: |",
+                                "      content: |\n",
                                 "        [Unit]\n",
                                 "        Description = pfs service: router\n",
                                 "        After = docker.service fleet.service\n",
