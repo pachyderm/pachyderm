@@ -1,0 +1,243 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Resources": {
+        "CoreOSSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "SecurityGroupIngress": [
+                    {
+                        "ToPort": "22",
+                        "IpProtocol": "tcp",
+                        "CidrIp": {
+                            "Ref": "AllowSSHFrom"
+                        },
+                        "FromPort": "22"
+                    }
+                ],
+                "GroupDescription": "CoreOS SecurityGroup"
+            }
+        },
+        "Ingress7001": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+                "ToPort": "7001",
+                "GroupName": {
+                    "Ref": "CoreOSSecurityGroup"
+                },
+                "SourceSecurityGroupId": {
+                    "Fn::GetAtt": [
+                        "CoreOSSecurityGroup",
+                        "GroupId"
+                    ]
+                },
+                "FromPort": "7001",
+                "IpProtocol": "tcp"
+            }
+        },
+        "Ingress4001": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+                "ToPort": "4001",
+                "GroupName": {
+                    "Ref": "CoreOSSecurityGroup"
+                },
+                "SourceSecurityGroupId": {
+                    "Fn::GetAtt": [
+                        "CoreOSSecurityGroup",
+                        "GroupId"
+                    ]
+                },
+                "FromPort": "4001",
+                "IpProtocol": "tcp"
+            }
+        },
+        "CoreOSServerAutoScale": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "DesiredCapacity": {
+                    "Ref": "ClusterSize"
+                },
+                "Tags": [
+                    {
+                        "PropagateAtLaunch": true,
+                        "Value": {
+                            "Ref": "AWS::StackName"
+                        },
+                        "Key": "Name"
+                    }
+                ],
+                "MinSize": "3",
+                "MaxSize": "12",
+                "LaunchConfigurationName": {
+                    "Ref": "CoreOSServerLaunchConfig"
+                },
+                "AvailabilityZones": {
+                    "Fn::GetAZs": ""
+                }
+            }
+        },
+        "CoreOSServerLaunchConfig": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "Properties": {
+                "BlockDeviceMappings" : [
+                    {
+                        "DeviceName" : "/dev/xvdf",
+                        "Ebs" : {
+                            "VolumeSize" : 100
+                        }
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#cloud-config\n\n",
+                                "coreos:\n",
+                                "  etcd:\n",
+                                "    discovery: ",
+                                {
+                                    "Ref": "DiscoveryURL"
+                                },
+                                "\n",
+                                "    addr: $",
+                                {
+                                    "Ref": "AdvertisedIPAddress"
+                                },
+                                "_ipv4:4001\n",
+                                "    peer-addr: $",
+                                {
+                                    "Ref": "AdvertisedIPAddress"
+                                },
+                                "_ipv4:7001\n",
+                                "  units:\n",
+                                "    - name: etcd.service\n",
+                                "      command: start\n",
+                                "    - name: fleet.service\n",
+                                "      command: start\n",
+                                "    - name: pfs-deploy.service\n",
+                                "      command: start\n",
+                                "      content: |",
+                                "        [Unit]\n",
+                                "        Description = pfs service: router\n",
+                                "        After = docker.service fleet.service\n",
+                                "        Requires = docker.service fleet.service\n",
+                                "        [Service]\n",
+                                "        RemainAfterExit = yes\n",
+                                "        ExecStartPre = /bin/sh -c 'echo $(mkdir -p /tmp/home/core/pfs)'\n",
+                                "        ExecStartPre = /bin/sh -c 'echo $(sudo docker run",
+                                "            --privileged=true ",
+                                "            -v /:/host:ro",
+                                "            -v /tmp/home/core:/host/home/core",
+                                "            -i pachyderm/pfs",
+                                "            /go/bin/deploy ",
+                                {
+                                    "Ref" : "PfsDeployArgs"
+                                },
+                                "            )'\n",
+                                "        ExecStart = /bin/sh -c 'echo $(fleetctl start /tmp/home/core/pfs/*.service)'\n"
+                            ]
+                        ]
+                    }
+                },
+                "KeyName": {
+                    "Ref": "KeyPair"
+                },
+                "SecurityGroups": [
+                    {
+                        "Ref": "CoreOSSecurityGroup"
+                    }
+                ],
+                "InstanceType": {
+                    "Ref": "InstanceType"
+                },
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "RegionMap",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        "AMI"
+                    ]
+                }
+            }
+        }
+    },
+    "Description": "CoreOS on EC2: http://coreos.com/docs/running-coreos/cloud-providers/ec2/",
+    "Parameters": {
+        "AllowSSHFrom": {
+            "Default": "0.0.0.0/0",
+            "Type": "String",
+            "Description": "The net block (CIDR) that SSH is available to."
+        },
+        "DiscoveryURL": {
+            "Type": "String",
+            "Description": "An unique etcd cluster discovery URL. Grab a new token from https://discovery.etcd.io/new"
+        },
+        "ClusterSize": {
+            "Default": "3",
+            "Description": "Number of nodes in cluster (3-12).",
+            "Type": "Number",
+            "MaxValue": "12",
+            "MinValue": "3"
+        },
+        "AdvertisedIPAddress": {
+            "Default": "private",
+            "Type": "String",
+            "Description": "Use 'private' if your etcd cluster is within one region or 'public' if it spans regions or cloud providers.",
+            "AllowedValues": [
+                "private",
+                "public"
+            ]
+        },
+        "KeyPair": {
+            "Type": "String",
+            "Description": "The name of an EC2 Key Pair to allow SSH access to the instance."
+        },
+        "InstanceType": {
+            "Default": "m3.medium",
+            "ConstraintDescription": "Must be a valid EC2 HVM instance type.",
+            "Type": "String",
+            "Description": "EC2 HVM instance type (m3.medium, etc)."
+        },
+        "PfsDeployArgs": {
+            "Type": "String",
+            "Description": "Usage: -shards s -replicas r.",
+            "Default": "-shards 3 -replicas 3"
+        }
+    },
+    "Mappings": {
+        "RegionMap": {
+            "us-east-1": {
+                "AMI": "ami-2cd3dc44"
+            },
+            "ap-northeast-1": {
+                "AMI": "ami-905c9f90"
+            },
+            "eu-west-1": {
+                "AMI": "ami-c5b7d8b2"
+            },
+            "ap-southeast-1": {
+                "AMI": "ami-06c8f454"
+            },
+            "ap-southeast-2": {
+                "AMI": "ami-7db5c947"
+            },
+            "us-west-2": {
+                "AMI": "ami-69447259"
+            },
+            "us-gov-west-1": {
+                "AMI": "ami-d1debff2"
+            },
+            "us-west-1": {
+                "AMI": "ami-d524c891"
+            },
+            "eu-central-1": {
+                "AMI": "ami-5a330c47"
+            },
+            "sa-east-1": {
+                "AMI": "ami-d365e1ce"
+            }
+        }
+    }
+}
