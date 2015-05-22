@@ -84,7 +84,7 @@
                     }
                 ],
                 "MinSize": "3",
-                "MaxSize": "12",
+                "MaxSize": "500",
                 "LaunchConfigurationName": {
                     "Ref": "CoreOSServerLaunchConfig"
                 },
@@ -100,7 +100,12 @@
                     {
                         "DeviceName" : "/dev/xvdf",
                         "Ebs" : {
-                            "VolumeSize" : 100
+                            "VolumeSize" : {
+                                "Ref" : "VolSize"
+                            },
+                            "VolumeType" : {
+                                "Ref" : "VolType"
+                            }
                         }
                     }
                 ],
@@ -193,9 +198,9 @@
         },
         "ClusterSize": {
             "Default": "3",
-            "Description": "Number of nodes in cluster (3-12).",
+            "Description": "Number of nodes in cluster (3-500).",
             "Type": "Number",
-            "MaxValue": "12",
+            "MaxValue": "500",
             "MinValue": "3"
         },
         "AdvertisedIPAddress": {
@@ -221,6 +226,16 @@
             "Type": "String",
             "Description": "Usage: -shards s -replicas r.",
             "Default": "-shards 3 -replicas 3"
+        },
+        "VolSize" : {
+            "Type": "Number",
+            "Description": "Size in GB of the per machine storage.",
+            "Default": 500
+        },
+        "VolType" : {
+            "Type": "String",
+            "Description": "gp2, io1 or standard. http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html",
+            "Default": "standard"
         }
     },
     "Mappings": {
