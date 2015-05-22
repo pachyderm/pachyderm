@@ -121,6 +121,23 @@ func printGitDaemonService(name string) {
 	err = template.Execute(server, config)
 }
 
+func printStorageService(name string) {
+	template, err := template.New("storage").ParseFiles("templates/storage")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	config := new(service)
+	config.Name = name
+
+	server, err := os.Create(fmt.Sprintf("%s/%s.service", outPath, config.Name))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = template.Execute(server, config)
+}
+
 var shards, replicas *int
 var container *string
 
@@ -134,4 +151,5 @@ func main() {
 
 	printShardedService("shard")
 	printGlobalService("router")
+	printStorageService("storage")
 }
