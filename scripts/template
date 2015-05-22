@@ -145,6 +145,7 @@
                                 "        After = docker.service fleet.service\n",
                                 "        Requires = docker.service fleet.service\n",
                                 "        [Service]\n",
+                                "        Type = oneshot\n",
                                 "        RemainAfterExit = yes\n",
                                 "        ExecStartPre = /bin/sh -c 'echo $(mkdir -p /tmp/home/core/pfs)'\n",
                                 "        ExecStartPre = /bin/sh -c 'echo $(sudo docker run",
