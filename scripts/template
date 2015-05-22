@@ -152,7 +152,7 @@
                                 "            -v /:/host:ro",
                                 "            -v /tmp/home/core:/host/home/core",
                                 "            -i pachyderm/pfs",
-                                "            /go/bin/deploy ",
+                                "            /go/bin/deploy -disk /dev/xvdf ",
                                 {
                                     "Ref" : "PfsDeployArgs"
                                 },

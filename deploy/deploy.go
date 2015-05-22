@@ -15,6 +15,7 @@ var minPort, maxPort int = 49153, 65535 // Docker uses this range we're just rep
 type service struct {
 	Container, Name      string
 	Shard, Nshards, Port int
+	Disk                 string
 }
 
 var outPath string = "/host/home/core/pfs"
@@ -129,6 +130,7 @@ func printStorageService(name string) {
 
 	config := new(service)
 	config.Name = name
+	config.Disk = *disk
 
 	server, err := os.Create(fmt.Sprintf("%s/%s.service", outPath, config.Name))
 	if err != nil {
@@ -140,6 +142,7 @@ func printStorageService(name string) {
 
 var shards, replicas *int
 var container *string
+var disk *string
 
 func main() {
 	log.SetFlags(log.Lshortfile)
@@ -147,6 +150,7 @@ func main() {
 	shards = flag.Int("shards", 3, "The number of shards in the deploy.")
 	replicas = flag.Int("replicas", 3, "The number of replicas of each shard.")
 	container = flag.String("container", "pachyderm/pfs", "The container to use for the deploy.")
+	disk = flag.String("disk", "/var/lib/pfs/data.img", "The disk to use for pfs' storage.")
 	flag.Parse()
 
 	printShardedService("shard")
