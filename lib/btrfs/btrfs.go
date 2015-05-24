@@ -416,25 +416,6 @@ func Ensure(repo string) error {
 	}
 }
 
-func InitReplica(repo string) error {
-	if err := SubvolumeCreate(repo); err != nil {
-		return err
-	}
-	return nil
-}
-
-func EnsureReplica(repo string) error {
-	exists, err := FileExists(repo)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return nil
-	} else {
-		return InitReplica(repo)
-	}
-}
-
 // Commit creates a new commit for a branch.
 func Commit(repo, commit, branch string) error {
 	// check to make sure that the branch actually exists

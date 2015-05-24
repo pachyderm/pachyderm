@@ -109,7 +109,7 @@ func (s Shard) FillRole(cancel chan struct{}) error {
 				log.Print(err)
 			} else {
 				replicaKey = resp.Node.Key
-				err = s.EnsureReplicaRepos()
+				err = s.EnsureRepos()
 				if err != nil {
 					log.Print(err)
 				}

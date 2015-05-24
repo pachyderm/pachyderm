@@ -217,7 +217,7 @@ func TestSendRecv(t *testing.T) {
 
 	// Create a destination repo:
 	dstRepo := "repo_TestSendRecv_dst"
-	check(InitReplica(dstRepo), t)
+	check(Init(dstRepo), t)
 	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
 
 	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
@@ -272,7 +272,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 
 	// Create a destination repo:
 	dstRepo := "repo_TestCommitsAreReplicated_dst"
-	check(InitReplica(dstRepo), t)
+	check(Init(dstRepo), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do exist in source:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", srcRepo), "foo", t)
@@ -293,7 +293,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 	// Now check that we can use dstRepo as the source for replication
 	// Create a second dest repo:
 	dstRepo2 := "repo_TestCommitsAreReplicated_dst2"
-	check(InitReplica(dstRepo2), t)
+	check(Init(dstRepo2), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
 	checkNoFile(fmt.Sprintf("%s/mycommit1", dstRepo2), t)
@@ -339,7 +339,7 @@ func TestSendWithMissingIntermediateCommitIsCorrect(t *testing.T) {
 
 	// Create a destination repo:
 	dstRepo := "repo_TestSendWithMissingIntermediateCommitIsCorrect_dst"
-	check(InitReplica(dstRepo), t)
+	check(Init(dstRepo), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
 	checkNoFile(fmt.Sprintf("%s/mycommit1", dstRepo), t)
@@ -368,7 +368,7 @@ func TestBranchesAreNotImplicitlyReplicated(t *testing.T) {
 
 	// Create a destination repo:
 	dstRepo := "repo_TestBranchesAreNotImplicitlyReplicated_dst"
-	check(InitReplica(dstRepo), t)
+	check(Init(dstRepo), t)
 
 	// Run a Pull/Recv operation to fetch all commits on master:
 	check(Pull(srcRepo, "", NewLocalReplica(dstRepo)), t)
@@ -412,7 +412,7 @@ func TestS3Replica(t *testing.T) {
 
 	// Create a destination repo:
 	dstRepo := "repo_TestS3Replica_dst"
-	check(InitReplica(dstRepo), t)
+	check(Init(dstRepo), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do in source:
 	checkFile(fmt.Sprintf("%s/mycommit1/myfile1", srcRepo), "foo", t)
@@ -543,9 +543,9 @@ func TestTwoSources(t *testing.T) {
 	src1 := "repo_TestTwoSources_src1"
 	check(Init(src1), t)
 	src2 := "repo_TestTwoSources_src2"
-	check(InitReplica(src2), t)
+	check(Init(src2), t)
 	dst := "repo_TestTwoSources_dst"
-	check(InitReplica(dst), t)
+	check(Init(dst), t)
 
 	// write a file to src1
 	writeFile(fmt.Sprintf("%s/master/file1", src1), "file1", t)
