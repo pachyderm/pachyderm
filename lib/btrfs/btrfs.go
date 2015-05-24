@@ -399,9 +399,6 @@ func Init(repo string) error {
 	if err := SetMeta(path.Join(repo, "master"), "branch", "master"); err != nil {
 		return err
 	}
-	if err := Commit(repo, "t0", "master"); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -497,13 +494,19 @@ func Branch(repo, commit, branch string) error {
 	}
 
 	// Create a writeable subvolume for the branch
-	if err := Snapshot(path.Join(repo, commit), path.Join(repo, branch), false); err != nil {
-		return err
-	}
+	if commit == "" {
+		if err := SubvolumeCreate(path.Join(repo, branch)); err != nil {
+			return err
+		}
+	} else {
+		if err := Snapshot(path.Join(repo, commit), path.Join(repo, branch), false); err != nil {
+			return err
+		}
 
-	// Record commit as the parent of this branch
-	if err := SetMeta(path.Join(repo, branch), "parent", commit); err != nil {
-		return err
+		// Record commit as the parent of this branch
+		if err := SetMeta(path.Join(repo, branch), "parent", commit); err != nil {
+			return err
+		}
 	}
 
 	// Record the name of the branch

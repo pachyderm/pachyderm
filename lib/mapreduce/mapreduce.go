@@ -456,7 +456,7 @@ func Materialize(in_repo, branch, commit, outRepo, jobDir string, shard, modulos
 		return err
 	}
 	if !exists {
-		if err := btrfs.Branch(outRepo, "t0", branch); err != nil {
+		if err := btrfs.Branch(outRepo, "", branch); err != nil {
 			log.Print(err)
 			return err
 		}

@@ -130,7 +130,7 @@ func TestGit(t *testing.T) {
 	checkFile(path.Join(srcRepo, "commit2", "file2"), "foo", t)
 
 	// Print BTRFS hierarchy data for humans:
-	check(Log(srcRepo, "t0", Desc, func(r io.Reader) error {
+	check(Log(srcRepo, "", Desc, func(r io.Reader) error {
 		_, err := io.Copy(os.Stdout, r)
 		return err
 	}), t)
@@ -169,8 +169,11 @@ func TestBranchesAreReadWrite(t *testing.T) {
 	srcRepo := "repo_TestBranchesAreReadWrite"
 	check(Init(srcRepo), t)
 
-	err := Branch(srcRepo, "t0", "my_branch")
-	check(err, t)
+	// Make a commit
+	check(Commit(srcRepo, "my_commit", "master"), t)
+
+	// Make a branch
+	check(Branch(srcRepo, "my_commit", "my_branch"), t)
 
 	fn := fmt.Sprintf("%s/my_branch/file", srcRepo)
 	writeFile(fn, "some content", t)
@@ -216,11 +219,10 @@ func TestSendRecv(t *testing.T) {
 	dstRepo := "repo_TestSendRecv_dst"
 	check(InitReplica(dstRepo), t)
 	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
-	check(Send(srcRepo, "t0", repo2Recv), t)
 
 	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
-	checkNoFile(fmt.Sprintf("%s/mycommit1", dstRepo), t)
-	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
+	checkNoFile(fmt.Sprintf("%s/master/mycommit1", dstRepo), t)
+	checkNoFile(fmt.Sprintf("%s/master/mycommit2", dstRepo), t)
 
 	// Run a Send/Recv operation to fetch data from the older "mycommit1".
 	// This verifies that tree copying works:
@@ -344,7 +346,7 @@ func TestSendWithMissingIntermediateCommitIsCorrect(t *testing.T) {
 	checkNoFile(fmt.Sprintf("%s/mycommit2", dstRepo), t)
 
 	// Run a Pull/Recv operation to fetch all commits:
-	check(Pull(srcRepo, "t0", NewLocalReplica(dstRepo)), t)
+	check(Pull(srcRepo, "", NewLocalReplica(dstRepo)), t)
 
 	// Verify that the commit "mycommit1" does not exist and "mycommit2" does in the destination repo:
 	t.Skipf("TODO(jd,rw): no files were synced")
@@ -498,32 +500,30 @@ func TestFindNew(t *testing.T) {
 	}
 
 	// There are no new files upon repo creation:
-	checkFindNew([]string{}, repoName, "t0", "t0")
+	check(Commit(repoName, "mycommit0", "master"), t)
+	checkFindNew([]string{}, repoName, "mycommit0", "mycommit0")
 
 	// A new, uncommited file is returned in the list:
 	writeFile(fmt.Sprintf("%s/master/myfile1", repoName), "foo", t)
-	checkFindNew([]string{"myfile1"}, repoName, "t0", "master")
+	checkFindNew([]string{"myfile1"}, repoName, "mycommit0", "master")
 
 	// When that file is commited, then it still shows up in the delta since transid0:
 	check(Commit(repoName, "mycommit1", "master"), t)
 	// TODO(rw, jd) Shouldn't this pass?
-	checkFindNew([]string{"myfile1"}, repoName, "t0", "mycommit1")
+	checkFindNew([]string{"myfile1"}, repoName, "mycommit0", "mycommit1")
 
 	// The file doesn't show up in the delta since the new transaction:
 	checkFindNew([]string{}, repoName, "mycommit1", "mycommit1")
 
 	// Sanity check: the old delta still gives the same result:
-	checkFindNew([]string{"myfile1"}, repoName, "t0", "master")
+	checkFindNew([]string{"myfile1"}, repoName, "mycommit0", "master")
 }
 
 func TestFilenamesWithSpaces(t *testing.T) {
 	repoName := "repo_TestFilenamesWithSpaces"
 	check(Init(repoName), t)
 
-	err := Branch(repoName, "t0", "my_branch")
-	check(err, t)
-
-	fn := fmt.Sprintf("%s/my_branch/my file", repoName)
+	fn := fmt.Sprintf("%s/master/my file", repoName)
 	writeFile(fn, "some content", t)
 	checkFile(fn, "some content", t)
 }
@@ -532,11 +532,8 @@ func TestFilenamesWithSlashesFail(t *testing.T) {
 	repoName := "repo_TestFilenamesWithSlashesFail"
 	check(Init(repoName), t)
 
-	err := Branch(repoName, "t0", "my_branch")
-	check(err, t)
-
-	fn := fmt.Sprintf("%s/my_branch/my/file", repoName)
-	_, err = Create(fn)
+	fn := fmt.Sprintf("%s/master/my/file", repoName)
+	_, err := Create(fn)
 	if err == nil {
 		t.Fatalf("expected filename with slash to fail")
 	}
