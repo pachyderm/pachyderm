@@ -399,6 +399,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if err := s.EnsureRepos(); err != nil {
+		log.Fatal(err)
+	}
 
 	log.Print("Listening on port 80...")
 	log.Printf("dataRepo: %s, compRepo: %s.", s.dataRepo, s.compRepo)

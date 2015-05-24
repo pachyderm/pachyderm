@@ -82,12 +82,6 @@ func (s Shard) FillRole(cancel chan struct{}) error {
 					log.Print(err)
 				} else {
 					// no error means that we succusfully announced ourselves as master
-					// Make sure that if we got nothing from the peers we
-					// initialize as a writeable repo.
-					err = s.EnsureRepos()
-					if err != nil {
-						log.Print(err)
-					}
 					// Sync the new data we pulled to peers
 					go s.SyncToPeers()
 					//Record that we're master
@@ -109,10 +103,6 @@ func (s Shard) FillRole(cancel chan struct{}) error {
 				log.Print(err)
 			} else {
 				replicaKey = resp.Node.Key
-				err = s.EnsureRepos()
-				if err != nil {
-					log.Print(err)
-				}
 				// Get ourselves up to date
 				go s.SyncFromPeers()
 			}
