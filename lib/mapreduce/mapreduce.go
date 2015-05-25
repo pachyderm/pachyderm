@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/route"
 	"github.com/pachyderm/pfs/lib/s3utils"
+	"github.com/pachyderm/pfs/lib/utils"
 	"github.com/samalba/dockerclient"
 )
 
@@ -87,20 +88,6 @@ func ipAddr(containerId string) (string, error) {
 	return containerInfo.NetworkSettings.IPAddress, nil
 }
 
-func retry(f func() error, retries int, pause time.Duration) error {
-	var err error
-	for i := 0; i < retries; i++ {
-		err = f()
-		if err == nil {
-			break
-		} else {
-			log.Print("Retrying due to error: ", err)
-			time.Sleep(pause)
-		}
-	}
-	return err
-}
-
 // contains checks if set contains val. It assums that set has already been
 // sorted.
 func contains(set []string, val string) bool {
@@ -162,7 +149,7 @@ func mapFile(filename, jobName, host string, job Job, m materializeInfo) error {
 	// the containers http server is actually listening. It also
 	// can help in cases where a user has written a job that fails
 	// intermittently.
-	err := retry(func() error {
+	err := utils.Retry(func() error {
 		var err error
 		var inFile io.ReadCloser
 		switch {
@@ -391,7 +378,7 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 	}
 
 	var resp *http.Response
-	err = retry(func() error {
+	err = utils.Retry(func() error {
 		var reader io.ReadCloser
 		if modulos == 1 {
 			// We're in single node mode so we can do something much simpler
@@ -402,7 +389,7 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 			}
 			reader = resp.Body
 		} else {
-			err := retry(func() error {
+			err := utils.Retry(func() error {
 				// Notice we're just passing "host" here. Multicast will fill in the host
 				// field so we don't actually need to specify it.
 				req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*")+"?commit="+m.Commit, nil)
