@@ -11,12 +11,10 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	"code.google.com/p/go-uuid/uuid"
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/mapreduce"
-	"github.com/pachyderm/pfs/lib/utils"
 )
 
 var jobDir string = "job"
@@ -401,7 +399,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := utils.Retry(s.EnsureRepos, 3, time.Second*5); err != nil {
+	if err := s.EnsureRepos(); err != nil {
 		log.Fatal(err)
 	}
 
