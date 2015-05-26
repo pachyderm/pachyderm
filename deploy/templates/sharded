@@ -21,6 +21,8 @@ ExecStart = /bin/sh -c "echo $(docker run \
             /go/bin/{{.Name}} {{.Shard}}-{{.Nshards}} %H:{{.Port}})"
 ExecStop = /bin/sh -c "echo $(docker rm -f {{.Name}}-{{.Shard}}-{{.Nshards}})"
 Restart = always
+StartLimitInterval = 0
+StartLimitBurst = 0
 
 
 [X-Fleet]
