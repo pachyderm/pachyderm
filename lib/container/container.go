@@ -2,23 +2,24 @@
 package container
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 
 	"github.com/samalba/dockerclient"
 )
 
-// TODO(rw): pull this out into a separate library
-func StartContainer(image string, command []string) (string, error) {
+func RawStartContainer(containerConfig *dockerclient.ContainerConfig, hostConfig *dockerclient.HostConfig) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	containerConfig := &dockerclient.ContainerConfig{Image: image, Cmd: command}
-
 	containerId, err := docker.CreateContainer(containerConfig, "")
 	if err != nil {
 		log.Print(err)
 		return "", nil
 	}
 
-	if err := docker.StartContainer(containerId, &dockerclient.HostConfig{}); err != nil {
+	if err := docker.StartContainer(containerId, hostConfig); err != nil {
 		log.Print(err)
 		return "", err
 	}
@@ -26,9 +27,13 @@ func StartContainer(image string, command []string) (string, error) {
 	return containerId, nil
 }
 
+func StartContainer(image string, command []string) (string, error) {
+	containerConfig := &dockerclient.ContainerConfig{Image: image, Cmd: command}
+	return RawStartContainer(containerConfig, &dockerclient.HostConfig{})
+}
+
 // spinupContainer pulls image and starts a container from it with command. It
 // returns the container id or an error.
-// TODO(rw): pull this out into a separate library
 func SpinupContainer(image string, command []string) (string, error) {
 	log.Print("spinupContainer", " ", image, " ", command)
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
@@ -44,7 +49,6 @@ func SpinupContainer(image string, command []string) (string, error) {
 	return StartContainer(image, command)
 }
 
-// TODO(rw): pull this out into a separate library
 func StopContainer(containerId string) error {
 	log.Print("stopContainer", " ", containerId)
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
@@ -55,7 +59,6 @@ func StopContainer(containerId string) error {
 	return docker.StopContainer(containerId, 5)
 }
 
-// TODO(rw): pull this out into a separate library
 func IpAddr(containerId string) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	if err != nil {
