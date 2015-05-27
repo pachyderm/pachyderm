@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pfs/lib/btrfs"
+	"github.com/pachyderm/pfs/lib/container"
 	"github.com/pachyderm/pfs/lib/route"
 	"github.com/pachyderm/pfs/lib/s3utils"
 	"github.com/pachyderm/pfs/lib/utils"
@@ -25,68 +26,6 @@ const (
 	defaultParallel = 100
 	usesPerMapper   = 2000
 )
-
-// TODO(rw): pull this out into a separate library
-func startContainer(image string, command []string) (string, error) {
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	containerConfig := &dockerclient.ContainerConfig{Image: image, Cmd: command}
-
-	containerId, err := docker.CreateContainer(containerConfig, "")
-	if err != nil {
-		log.Print(err)
-		return "", nil
-	}
-
-	if err := docker.StartContainer(containerId, &dockerclient.HostConfig{}); err != nil {
-		log.Print(err)
-		return "", err
-	}
-
-	return containerId, nil
-}
-
-// spinupContainer pulls image and starts a container from it with command. It
-// returns the container id or an error.
-// TODO(rw): pull this out into a separate library
-func spinupContainer(image string, command []string) (string, error) {
-	log.Print("spinupContainer", " ", image, " ", command)
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	if err != nil {
-		log.Print(err)
-		return "", err
-	}
-	if err := docker.PullImage(image, nil); err != nil {
-		log.Print("Failed to pull ", image, " with error: ", err)
-		// We keep going here because it might be a local image.
-	}
-
-	return startContainer(image, command)
-}
-
-// TODO(rw): pull this out into a separate library
-func stopContainer(containerId string) error {
-	log.Print("stopContainer", " ", containerId)
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	if err != nil {
-		log.Print(err)
-		return err
-	}
-	return docker.StopContainer(containerId, 5)
-}
-
-// TODO(rw): pull this out into a separate library
-func ipAddr(containerId string) (string, error) {
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	if err != nil {
-		return "", err
-	}
-	containerInfo, err := docker.InspectContainer(containerId)
-	if err != nil {
-		return "", err
-	}
-
-	return containerInfo.NetworkSettings.IPAddress, nil
-}
 
 // contains checks if set contains val. It assums that set has already been
 // sorted.
@@ -298,13 +237,13 @@ func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 
 	for {
 		// Spinup a Mapper()
-		containerId, err := spinupContainer(job.Image, job.Cmd)
+		containerId, err := container.SpinupContainer(job.Image, job.Cmd)
 		if err != nil {
 			log.Print(err)
 			return
 		}
 		// Make sure that the Mapper gets cleaned up
-		host, err := ipAddr(containerId)
+		host, err := container.IpAddr(containerId)
 		if err != nil {
 			log.Print(err)
 			return
@@ -335,7 +274,7 @@ func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 			semaphore <- 1
 		}
 		close(semaphore)
-		if err := stopContainer(containerId); err != nil {
+		if err := container.StopContainer(containerId); err != nil {
 			log.Print(err)
 			return
 		}
@@ -360,18 +299,18 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 	}
 
 	// Spinup a Reducer()
-	containerId, err := spinupContainer(job.Image, job.Cmd)
+	containerId, err := container.SpinupContainer(job.Image, job.Cmd)
 	if err != nil {
 		log.Print(err)
 		return
 	}
 	// Make sure that the Reducer gets cleaned up
 	defer func() {
-		if err := stopContainer(containerId); err != nil {
+		if err := container.StopContainer(containerId); err != nil {
 			log.Print(err)
 		}
 	}()
-	host, err := ipAddr(containerId)
+	host, err := container.IpAddr(containerId)
 	if err != nil {
 		log.Print(err)
 		return
