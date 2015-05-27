@@ -123,16 +123,6 @@ func (s Shard) EnsureRepos() error {
 	return nil
 }
 
-func (s Shard) EnsureReplicaRepos() error {
-	if err := btrfs.EnsureReplica(s.dataRepo); err != nil {
-		return err
-	}
-	if err := btrfs.Ensure(s.compRepo); err != nil {
-		return err
-	}
-	return nil
-}
-
 //func parseArgs() {
 //	// os.Args[1] looks like 2-16
 //	dataRepo = "data-" + os.Args[1]
@@ -407,6 +397,9 @@ func main() {
 
 	s, err := ShardFromArgs()
 	if err != nil {
+		log.Fatal(err)
+	}
+	if err := s.EnsureRepos(); err != nil {
 		log.Fatal(err)
 	}
 

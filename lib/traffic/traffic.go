@@ -128,7 +128,7 @@ func randObject(rand *rand.Rand) Object {
 func (w Workload) Generate(rand *rand.Rand, size int) reflect.Value {
 	res := make(Workload, 0)
 	branches := []string{"master"}
-	commits := []string{"t0"}
+	commits := []string{}
 	var i int
 	for i = 0; i < size*2; i++ {
 		o := Op{RW: W, Object: randObject(rand)}
