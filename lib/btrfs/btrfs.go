@@ -29,6 +29,7 @@ var once sync.Once
 // volume is hardcoded because we can map any host directory in to this path
 // using Docker's `volume`s.
 var volume = "/var/lib/pfs/vol"
+var hostVolume = "/home/jdoliner/.pfs/vol"
 
 // Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
 // This should be factored out to another file.
@@ -47,6 +48,10 @@ func Sync() error {
 
 func FilePath(name string) string {
 	return path.Join(volume, name)
+}
+
+func HostPath(name string) string {
+	return path.Join(hostVolume, name)
 }
 
 func TrimFilePath(name string) string {
