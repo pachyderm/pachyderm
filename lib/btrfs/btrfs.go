@@ -132,6 +132,21 @@ func Lstat(name string) (os.FileInfo, error) {
 	return os.Lstat(FilePath(name))
 }
 
+// return true if name1 was last modified before name2
+func Before(name1, name2 string) (bool, error) {
+	info1, err := Stat(name1)
+	if err != nil {
+		return false, err
+	}
+
+	info2, err := Stat(name2)
+	if err != nil {
+		return false, err
+	}
+
+	return info1.ModTime().Before(info2.ModTime()), nil
+}
+
 func FileExists(name string) (bool, error) {
 	_, err := os.Stat(FilePath(name))
 	if err == nil {

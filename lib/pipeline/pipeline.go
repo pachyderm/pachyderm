@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/container"
@@ -119,6 +121,47 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 			return err
 		}
 		counter++
+	}
+	return nil
+}
+
+// RunPipelines runs all of the pipelines it finds in pipelineDir. Returns the
+// first error it encounters.
+func RunPipelines(pipelineDir, dataRepo, outRepo, commit, branch string) error {
+	pipelines, err := btrfs.ReadDir(path.Join(dataRepo, commit, pipelineDir))
+	if err != nil {
+		return err
+	}
+	// A chanel for the errors, notice that it's capacity is the same as the
+	// number of pipelines. The below code should make sure that each pipeline only
+	// sends 1 error otherwise deadlock may occur.
+	errors := make(chan error, len(pipelines))
+
+	var wg sync.WaitGroup
+	wg.Add(len(pipelines))
+	for _, pInfo := range pipelines {
+		go func(pInfo os.FileInfo) {
+			p := NewPipeline(pInfo.Name(), dataRepo, outRepo, commit, branch)
+			f, err := btrfs.Open(path.Join(dataRepo, commit, pipelineDir, pInfo.Name()))
+			if err != nil {
+				log.Print(err)
+				errors <- err
+				return
+			}
+			err = p.RunPachFile(f)
+			if err != nil {
+				log.Print(err)
+				errors <- err
+				return
+			}
+		}(pInfo)
+	}
+	wg.Wait()
+	close(errors)
+	for err := range errors {
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
