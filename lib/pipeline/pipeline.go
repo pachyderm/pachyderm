@@ -17,11 +17,20 @@ import (
 )
 
 type Pipeline struct {
-	containerConfig   *dockerclient.ContainerConfig
-	hostConfig        *dockerclient.HostConfig
+	containerConfig   dockerclient.ContainerConfig
+	hostConfig        dockerclient.HostConfig
 	dataRepo, outRepo string
 	commit, branch    string
 	counter           int
+}
+
+func NewPipeline(dataRepo, outRepo, commit, branch string) *Pipeline {
+	return &Pipeline{
+		dataRepo: dataRepo,
+		outRepo:  outRepo,
+		commit:   commit,
+		branch:   branch,
+	}
 }
 
 // Import makes a dataset available for computations in the container.
@@ -52,7 +61,7 @@ func (p *Pipeline) Run(cmd []string) error {
 	// Make sure this bind is only visible for the duration of run
 	defer func() { p.hostConfig.Binds = p.hostConfig.Binds[:len(p.hostConfig.Binds)-1] }()
 
-	containerId, err := container.RawStartContainer(p.containerConfig, p.hostConfig)
+	containerId, err := container.RawStartContainer(&p.containerConfig, &p.hostConfig)
 	if err != nil {
 		log.Print(err)
 		return err
