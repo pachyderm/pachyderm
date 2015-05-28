@@ -213,17 +213,18 @@ func WaitForFile(name string) error {
 		return err
 	}
 
+	// Notice that we check to see if the file exists AFTER we create the watcher.
+	// That means if we don't see the file with this check we're guaranteed to
+	// get a notification for it.
 	exists, err := FileExists(name)
 	if err != nil {
 		log.Print(err)
 		return err
 	}
 	if exists {
-		log.Print("File exists, returning.")
 		return nil
 	}
 
-	log.Print("File doesn't exist. Waiting for it...")
 	for {
 		select {
 		case event := <-watcher.Events:

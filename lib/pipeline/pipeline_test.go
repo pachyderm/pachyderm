@@ -77,3 +77,22 @@ run cp /in/data/foo /out/foo
 		t.Fatal("File `foo` doesn't exist when it should.")
 	}
 }
+
+func TestLog(t *testing.T) {
+	outRepo := "TestLog"
+	check(btrfs.Init(outRepo), t)
+	pipeline := NewPipeline("", outRepo, "", "master")
+	pachfile := `
+image ubuntu
+
+run echo "foo"
+`
+	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+	check(err, t)
+
+	exists, err := btrfs.FileExists(path.Join(outRepo, "0", ".log"))
+	check(err, t)
+	if exists != true {
+		t.Fatal("File .log should exist.")
+	}
+}
