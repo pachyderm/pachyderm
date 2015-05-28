@@ -2,11 +2,8 @@
 package container
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
-	"net/http"
 
 	"github.com/samalba/dockerclient"
 )
@@ -70,4 +67,12 @@ func IpAddr(containerId string) (string, error) {
 	}
 
 	return containerInfo.NetworkSettings.IPAddress, nil
+}
+
+func ContainerLogs(containerId string, options *dockerclient.LogOptions) (io.ReadCloser, error) {
+	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
+	if err != nil {
+		return nil, err
+	}
+	return docker.ContainerLogs(containerId, options)
 }
