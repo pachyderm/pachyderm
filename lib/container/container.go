@@ -8,7 +8,7 @@ import (
 	"github.com/samalba/dockerclient"
 )
 
-func RawStartContainer(containerConfig *dockerclient.ContainerConfig, hostConfig *dockerclient.HostConfig) (string, error) {
+func RawStartContainer(name string, containerConfig *dockerclient.ContainerConfig, hostConfig *dockerclient.HostConfig) (string, error) {
 	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
 	containerId, err := docker.CreateContainer(containerConfig, "")
 	if err != nil {
@@ -26,7 +26,7 @@ func RawStartContainer(containerConfig *dockerclient.ContainerConfig, hostConfig
 
 func StartContainer(image string, command []string) (string, error) {
 	containerConfig := &dockerclient.ContainerConfig{Image: image, Cmd: command}
-	return RawStartContainer(containerConfig, &dockerclient.HostConfig{})
+	return RawStartContainer("", containerConfig, &dockerclient.HostConfig{})
 }
 
 // spinupContainer pulls image and starts a container from it with command. It

@@ -20,7 +20,7 @@ func check(err error, t *testing.T) {
 func TestOutput(t *testing.T) {
 	outRepo := "TestOuput"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("", outRepo, "", "master")
+	pipeline := NewPipeline("testOuput", "", outRepo, "", "master")
 	pachfile := `
 image ubuntu
 
@@ -59,7 +59,7 @@ func TestInputOutput(t *testing.T) {
 	outRepo := "TestInputOutput_out"
 	check(btrfs.Init(outRepo), t)
 
-	pipeline := NewPipeline(inRepo, outRepo, "commit", "master")
+	pipeline := NewPipeline("TestInputOutput", inRepo, outRepo, "commit", "master")
 
 	pachfile := `
 image ubuntu
@@ -81,7 +81,7 @@ run cp /in/data/foo /out/foo
 func TestLog(t *testing.T) {
 	outRepo := "TestLog"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("", outRepo, "", "master")
+	pipeline := NewPipeline("TestLog", "", outRepo, "", "master")
 	pachfile := `
 image ubuntu
 

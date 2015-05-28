@@ -17,6 +17,7 @@ import (
 )
 
 type Pipeline struct {
+	name              string
 	containerConfig   dockerclient.ContainerConfig
 	hostConfig        dockerclient.HostConfig
 	dataRepo, outRepo string
@@ -24,8 +25,9 @@ type Pipeline struct {
 	counter           int
 }
 
-func NewPipeline(dataRepo, outRepo, commit, branch string) *Pipeline {
+func NewPipeline(name, dataRepo, outRepo, commit, branch string) *Pipeline {
 	return &Pipeline{
+		name:     name,
 		dataRepo: dataRepo,
 		outRepo:  outRepo,
 		commit:   commit,
@@ -61,7 +63,8 @@ func (p *Pipeline) Run(cmd []string) error {
 	// Make sure this bind is only visible for the duration of run
 	defer func() { p.hostConfig.Binds = p.hostConfig.Binds[:len(p.hostConfig.Binds)-1] }()
 
-	containerId, err := container.RawStartContainer(&p.containerConfig, &p.hostConfig)
+	containerId, err := container.RawStartContainer(fmt.Sprintf("%d-%s", p.counter, p.name),
+		&p.containerConfig, &p.hostConfig)
 	if err != nil {
 		log.Print(err)
 		return err
