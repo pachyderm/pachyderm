@@ -96,6 +96,10 @@ func ReadFile(name string) ([]byte, error) {
 }
 
 func WriteFile(name string, data []byte) error {
+	err := MkdirAll(path.Dir(name))
+	if err != nil {
+		return err
+	}
 	return ioutil.WriteFile(FilePath(name), data, 0666)
 }
 
