@@ -45,10 +45,6 @@ func Sync() error {
 	return shell.RunStderr(exec.Command("sync"))
 }
 
-func BasePath(name string) string {
-	return path.Join(volume, name)
-}
-
 func FilePath(name string) string {
 	return path.Join(volume, name)
 }
