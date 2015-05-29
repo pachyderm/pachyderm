@@ -114,6 +114,17 @@ func (p *Pipeline) Run(cmd []string) error {
 	return nil
 }
 
+func (p *Pipeline) Finish() error {
+	exists, err := btrfs.FileExists(path.Join(p.outRepo, p.commit))
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return btrfs.Commit(p.outRepo, p.commit, p.branch)
+}
+
 func (p *Pipeline) RunPachFile(r io.Reader) error {
 	lines := bufio.NewScanner(r)
 
@@ -137,6 +148,10 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 			return err
 		}
 	}
+	err := p.Finish()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -156,6 +171,7 @@ func RunPipelines(pipelineDir, dataRepo, outRepo, commit, branch string) error {
 	wg.Add(len(pipelines))
 	for _, pInfo := range pipelines {
 		go func(pInfo os.FileInfo) {
+			defer wg.Done()
 			p := NewPipeline(dataRepo, outRepo, commit, branch)
 			f, err := btrfs.Open(path.Join(dataRepo, commit, pipelineDir, pInfo.Name()))
 			if err != nil {

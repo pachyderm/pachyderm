@@ -96,3 +96,32 @@ run echo "foo"
 		t.Fatal("File .log should exist.")
 	}
 }
+
+func TestPipelines(t *testing.T) {
+	inRepo := "TestPipelines_in"
+	check(btrfs.Init(inRepo), t)
+	outRepo := "TestPipelines_out"
+	check(btrfs.Init(outRepo), t)
+
+	// Create a data file:
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "data", "foo"), []byte("foo")), t)
+
+	// Create the Pachfile
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "cp"), []byte(`
+image ubuntu
+
+import data
+
+run cp /in/data/foo /out/foo
+run echo "foo"
+`)), t)
+	check(btrfs.Commit(inRepo, "commit", "master"), t)
+
+	check(RunPipelines("pipeline", inRepo, outRepo, "commit", "master"), t)
+
+	data, err := btrfs.ReadFile(path.Join(outRepo, "commit", "foo"))
+	check(err, t)
+	if string(data) != "foo" {
+		t.Fatal("Incorrect file content.")
+	}
+}
