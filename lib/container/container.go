@@ -5,74 +5,70 @@ import (
 	"io"
 	"log"
 
-	"github.com/samalba/dockerclient"
+	"github.com/fsouza/go-dockerclient"
 )
 
-func RawStartContainer(name string, containerConfig *dockerclient.ContainerConfig, hostConfig *dockerclient.HostConfig) (string, error) {
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	containerId, err := docker.CreateContainer(containerConfig, "")
+func RawStartContainer(opts docker.CreateContainerOptions) (string, error) {
+	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
 		log.Print(err)
 		return "", nil
 	}
-
-	if err := docker.StartContainer(containerId, hostConfig); err != nil {
+	container, err := client.CreateContainer(opts)
+	if err != nil {
+		log.Print(err)
+		return "", nil
+	}
+	err = client.StartContainer(container.ID, opts.HostConfig)
+	if err != nil {
 		log.Print(err)
 		return "", err
 	}
 
-	return containerId, nil
+	return container.ID, nil
 }
 
 func StartContainer(image string, command []string) (string, error) {
-	containerConfig := &dockerclient.ContainerConfig{Image: image, Cmd: command}
-	return RawStartContainer("", containerConfig, &dockerclient.HostConfig{})
+	config := docker.Config{Image: image, Cmd: command}
+	opts := docker.CreateContainerOptions{Config: &config}
+	return RawStartContainer(opts)
 }
 
-// spinupContainer pulls image and starts a container from it with command. It
-// returns the container id or an error.
-func SpinupContainer(image string, command []string) (string, error) {
-	log.Print("spinupContainer", " ", image, " ", command)
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
+func StopContainer(id string) error {
+	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
 		log.Print(err)
-		return "", err
+		return nil
 	}
-	if err := docker.PullImage(image, nil); err != nil {
-		log.Print("Failed to pull ", image, " with error: ", err)
-		// We keep going here because it might be a local image.
-	}
-
-	return StartContainer(image, command)
-}
-
-func StopContainer(containerId string) error {
-	log.Print("stopContainer", " ", containerId)
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	if err != nil {
-		log.Print(err)
-		return err
-	}
-	return docker.StopContainer(containerId, 5)
+	return client.StopContainer(id, 5)
 }
 
 func IpAddr(containerId string) (string, error) {
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
+	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
-		return "", err
+		log.Print(err)
+		return "", nil
 	}
-	containerInfo, err := docker.InspectContainer(containerId)
+	container, err := client.InspectContainer(containerId)
 	if err != nil {
+		log.Print(err)
 		return "", err
 	}
 
-	return containerInfo.NetworkSettings.IPAddress, nil
+	return container.NetworkSettings.IPAddress, nil
 }
 
-func ContainerLogs(containerId string, options *dockerclient.LogOptions) (io.ReadCloser, error) {
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
+func ContainerLogs(id string, out io.Writer) error {
+	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
-		return nil, err
+		log.Print(err)
+		return nil
 	}
-	return docker.ContainerLogs(containerId, options)
+	return client.AttachToContainer(docker.AttachToContainerOptions{
+		Container:    id,
+		OutputStream: out,
+		ErrorStream:  out,
+		Stdout:       true,
+		Stderr:       true,
+	})
 }

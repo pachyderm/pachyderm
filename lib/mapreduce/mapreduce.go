@@ -18,7 +18,6 @@ import (
 	"github.com/pachyderm/pfs/lib/route"
 	"github.com/pachyderm/pfs/lib/s3utils"
 	"github.com/pachyderm/pfs/lib/utils"
-	"github.com/samalba/dockerclient"
 )
 
 const (
@@ -44,17 +43,6 @@ type Job struct {
 	TimeOut   int      `json:"timeout"`
 	CpuShares int      `json:"cpu-shares"`
 	Memory    int      `json:"memory"`
-}
-
-func (j Job) containerConfig() *dockerclient.ContainerConfig {
-	c := &dockerclient.ContainerConfig{Image: j.Image, Cmd: j.Cmd}
-	if j.CpuShares != 0 {
-		c.CpuShares = int64(j.CpuShares)
-	}
-	if j.Memory != 0 {
-		c.Memory = int64(j.Memory)
-	}
-	return c
 }
 
 type materializeInfo struct {
@@ -237,7 +225,7 @@ func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 
 	for {
 		// Spinup a Mapper()
-		containerId, err := container.SpinupContainer(job.Image, job.Cmd)
+		containerId, err := container.StartContainer(job.Image, job.Cmd)
 		if err != nil {
 			log.Print(err)
 			return
@@ -299,7 +287,7 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 	}
 
 	// Spinup a Reducer()
-	containerId, err := container.SpinupContainer(job.Image, job.Cmd)
+	containerId, err := container.StartContainer(job.Image, job.Cmd)
 	if err != nil {
 		log.Print(err)
 		return

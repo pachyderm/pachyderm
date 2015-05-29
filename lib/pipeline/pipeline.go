@@ -12,14 +12,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/container"
-	"github.com/samalba/dockerclient"
 )
 
 type Pipeline struct {
-	containerConfig   dockerclient.ContainerConfig
-	hostConfig        dockerclient.HostConfig
+	config            docker.CreateContainerOptions
 	dataRepo, outRepo string
 	commit, branch    string
 	counter           int
@@ -31,6 +30,8 @@ func NewPipeline(dataRepo, outRepo, commit, branch string) *Pipeline {
 		outRepo:  outRepo,
 		commit:   commit,
 		branch:   branch,
+		config: docker.CreateContainerOptions{Config: &docker.Config{},
+			HostConfig: &docker.HostConfig{}},
 	}
 }
 
@@ -40,13 +41,13 @@ func (p *Pipeline) Import(name string) error {
 	containerPath := path.Join("/in", name)
 
 	bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
-	p.hostConfig.Binds = append(p.hostConfig.Binds, bind)
+	p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
 	return nil
 }
 
 // Image sets the image that is being used for computations.
 func (p *Pipeline) Image(image string) error {
-	p.containerConfig.Image = image
+	p.config.Config.Image = image
 	return nil
 }
 
@@ -71,22 +72,15 @@ func (p *Pipeline) Run(cmd []string) error {
 		return nil
 	}
 	// Set the command
-	p.containerConfig.Cmd = cmd
+	p.config.Config.Cmd = cmd
 	// Map the out directory in as a bind
 	hostPath := btrfs.HostPath(path.Join(p.outRepo, p.branch))
 	bind := fmt.Sprintf("%s:/out", hostPath)
-	p.hostConfig.Binds = append(p.hostConfig.Binds, bind)
+	p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
 	// Make sure this bind is only visible for the duration of run
-	defer func() { p.hostConfig.Binds = p.hostConfig.Binds[:len(p.hostConfig.Binds)-1] }()
+	defer func() { p.config.HostConfig.Binds = p.config.HostConfig.Binds[:len(p.config.HostConfig.Binds)-1] }()
 	// Start the container
-	containerId, err := container.RawStartContainer(path.Join(p.outRepo, p.commit),
-		&p.containerConfig, &p.hostConfig)
-	if err != nil {
-		log.Print(err)
-		return err
-	}
-	// Block for logs from the container
-	r, err := container.ContainerLogs(containerId, &dockerclient.LogOptions{Follow: true, Stdout: true, Stderr: true, Timestamps: true})
+	containerId, err := container.RawStartContainer(p.config)
 	if err != nil {
 		log.Print(err)
 		return err
@@ -98,13 +92,12 @@ func (p *Pipeline) Run(cmd []string) error {
 		return err
 	}
 	defer f.Close()
-	// Blocks until the command has exited.
-	_, err = io.Copy(f, r)
+	// Block for logs from the container
+	err = container.ContainerLogs(containerId, f)
 	if err != nil {
 		log.Print(err)
 		return err
 	}
-
 	// Commit the results
 	err = btrfs.Commit(p.outRepo, p.runCommit(), p.branch)
 	if err != nil {
