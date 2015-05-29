@@ -53,29 +53,100 @@ func (p *Pipeline) Image(image string) error {
 	return nil
 }
 
+// runCommit returns the commit that the current run will create
+func (p *Pipeline) runCommit() string {
+	return path.Join(p.outRepo, strconv.Itoa(p.counter))
+}
+
+// alreadyDone returns true if the current run was committed after the commit in
+// dataRepo
+func (p *Pipeline) alreadyDone() bool {
+	// check if the commit already exists
+	exists, err := btrfs.FileExists(p.runCommit())
+	if err != nil {
+		return false
+	}
+	if !exists {
+		return false
+	}
+	before, err := btrfs.Before(path.Join(p.dataRepo, p.commit), p.runCommit())
+	if err != nil {
+		return false
+	}
+	return before
+}
+
+// setupOutRepo creates the output directory for a call to
+func (p *Pipeline) setupOutRepo() error {
+	// Create the branch
+	if p.counter == 0 {
+		err := btrfs.Branch(p.outRepo, "", p.branch)
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+	} else {
+		err := btrfs.Branch(p.outRepo, strconv.Itoa(p.counter-1), p.branch)
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+	}
+
+	// Remove the commit if it exists:
+	// TODO map this commit in to the container so it can be used as reference.
+	exists, err := btrfs.FileExists(p.runCommit())
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	if exists {
+		err := btrfs.SubvolumeDelete(p.runCommit())
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+	}
+	return nil
+}
+
 func (p *Pipeline) Run(cmd []string) error {
 	defer func() { p.counter++ }()
+	if p.alreadyDone() {
+		return nil
+	}
+
+	// Set the command
 	p.containerConfig.Cmd = cmd
 
-	hostPath := btrfs.HostPath(path.Join(p.outRepo, p.branch))
+	// Make sure the outRepo is ready for our output
+	err := p.setupOutRepo()
+	if err != nil {
+		log.Print(err)
+		return err
+	}
 
-	// Map in the out directory as a bind
+	// Map the out directory in as a bind
+	hostPath := btrfs.HostPath(path.Join(p.outRepo, p.branch))
 	bind := fmt.Sprintf("%s:/out", hostPath)
 	p.hostConfig.Binds = append(p.hostConfig.Binds, bind)
 	// Make sure this bind is only visible for the duration of run
 	defer func() { p.hostConfig.Binds = p.hostConfig.Binds[:len(p.hostConfig.Binds)-1] }()
 
+	// Start the container
 	containerId, err := container.RawStartContainer(fmt.Sprintf("%d-%s", p.counter, p.name),
 		&p.containerConfig, &p.hostConfig)
 	if err != nil {
 		log.Print(err)
 		return err
 	}
+	// Block for logs from the container
 	r, err := container.ContainerLogs(containerId, &dockerclient.LogOptions{Follow: true, Stdout: true, Stderr: true, Timestamps: true})
 	if err != nil {
 		log.Print(err)
 		return err
 	}
+	// Create a place to put the logs
 	f, err := btrfs.CreateAll(path.Join(p.outRepo, p.branch, ".log"))
 	if err != nil {
 		log.Print(err)
