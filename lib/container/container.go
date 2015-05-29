@@ -12,12 +12,12 @@ func RawStartContainer(opts docker.CreateContainerOptions) (string, error) {
 	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
 		log.Print(err)
-		return "", nil
+		return "", err
 	}
 	container, err := client.CreateContainer(opts)
 	if err != nil {
 		log.Print(err)
-		return "", nil
+		return "", err
 	}
 	err = client.StartContainer(container.ID, opts.HostConfig)
 	if err != nil {
@@ -38,7 +38,7 @@ func StopContainer(id string) error {
 	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
 		log.Print(err)
-		return nil
+		return err
 	}
 	return client.StopContainer(id, 5)
 }
@@ -47,7 +47,7 @@ func IpAddr(containerId string) (string, error) {
 	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
 		log.Print(err)
-		return "", nil
+		return "", err
 	}
 	container, err := client.InspectContainer(containerId)
 	if err != nil {
@@ -62,7 +62,7 @@ func ContainerLogs(id string, out io.Writer) error {
 	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
 		log.Print(err)
-		return nil
+		return err
 	}
 	return client.AttachToContainer(docker.AttachToContainerOptions{
 		Container:    id,
@@ -71,4 +71,14 @@ func ContainerLogs(id string, out io.Writer) error {
 		Stdout:       true,
 		Stderr:       true,
 	})
+}
+
+func WaitContainer(id string) (int, error) {
+	client, err := docker.NewClient("unix:///var/run/docker.sock")
+	if err != nil {
+		log.Print(err)
+		return 0, err
+	}
+
+	return client.WaitContainer(id)
 }

@@ -92,11 +92,21 @@ func (p *Pipeline) Run(cmd []string) error {
 		return err
 	}
 	defer f.Close()
-	// Block for logs from the container
-	err = container.ContainerLogs(containerId, f)
+	// Copy the logs from the container in to the file.
+	go func() {
+		err := container.ContainerLogs(containerId, f)
+		if err != nil {
+			log.Print(err)
+		}
+	}()
+	// Wait for the command to finish:
+	exit, err := container.WaitContainer(containerId)
 	if err != nil {
 		log.Print(err)
 		return err
+	}
+	if exit != 0 {
+		return fmt.Errorf("Command exited with error: %d.", exit)
 	}
 	// Commit the results
 	err = btrfs.Commit(p.outRepo, p.runCommit(), p.branch)
