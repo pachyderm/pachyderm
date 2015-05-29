@@ -20,7 +20,7 @@ func check(err error, t *testing.T) {
 func TestOutput(t *testing.T) {
 	outRepo := "TestOuput"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("testOuput", "", outRepo, "", "master")
+	pipeline := NewPipeline("", outRepo, "commit", "master")
 	pachfile := `
 image ubuntu
 
@@ -30,13 +30,13 @@ run touch /out/bar
 	err := pipeline.RunPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
-	exists, err := btrfs.FileExists(path.Join(outRepo, "0", "foo"))
+	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
 	check(err, t)
 	if exists != true {
 		t.Fatal("File `foo` doesn't exist when it should.")
 	}
 
-	exists, err = btrfs.FileExists(path.Join(outRepo, "1", "bar"))
+	exists, err = btrfs.FileExists(path.Join(outRepo, "commit-1", "bar"))
 	check(err, t)
 	if exists != true {
 		t.Fatal("File `bar` doesn't exist when it should.")
@@ -59,7 +59,7 @@ func TestInputOutput(t *testing.T) {
 	outRepo := "TestInputOutput_out"
 	check(btrfs.Init(outRepo), t)
 
-	pipeline := NewPipeline("TestInputOutput", inRepo, outRepo, "commit", "master")
+	pipeline := NewPipeline(inRepo, outRepo, "commit", "master")
 
 	pachfile := `
 image ubuntu
@@ -71,7 +71,7 @@ run cp /in/data/foo /out/foo
 	err = pipeline.RunPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
-	exists, err := btrfs.FileExists(path.Join(outRepo, "0", "foo"))
+	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
 	check(err, t)
 	if exists != true {
 		t.Fatal("File `foo` doesn't exist when it should.")
@@ -81,7 +81,7 @@ run cp /in/data/foo /out/foo
 func TestLog(t *testing.T) {
 	outRepo := "TestLog"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("TestLog", "", outRepo, "", "master")
+	pipeline := NewPipeline("", outRepo, "commit", "master")
 	pachfile := `
 image ubuntu
 
@@ -90,7 +90,7 @@ run echo "foo"
 	err := pipeline.RunPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
-	exists, err := btrfs.FileExists(path.Join(outRepo, "0", ".log"))
+	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", ".log"))
 	check(err, t)
 	if exists != true {
 		t.Fatal("File .log should exist.")
