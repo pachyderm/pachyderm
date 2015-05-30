@@ -103,27 +103,31 @@ func TestError(t *testing.T) {
 	outRepo := "TestError_out"
 	check(btrfs.Init(outRepo), t)
 
-	// Create a data file:
-	check(btrfs.WriteFile(path.Join(inRepo, "master", "data", "foo"), []byte("foo")), t)
-
 	// Create the Pachfile
-	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "cp"), []byte(`
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "error"), []byte(`
 image ubuntu
 
 run touch /out/foo
 run return 1
 `)), t)
+
+	// Commit to the inRepo
+	check(btrfs.Commit(inRepo, "commit", "master"), t)
+
 	err := RunPipelines("pipeline", inRepo, outRepo, "commit", "master")
 	if err == nil {
 		t.Fatal("Running pipeline should error.")
 	}
 
-	data, err := btrfs.ReadFile(path.Join(outRepo, "commit-0", "foo"))
+	// Check that foo exists
+	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
 	check(err, t)
-	if string(data) != "foo" {
-		t.Fatal("Incorrect file content.")
+	if !exists {
+		t.Fatal("File foo should exist.")
 	}
-	exists, err := btrfs.FileExists(path.Join(outRepo, "commit"))
+
+	// Check that commit doesn't exist
+	exists, err = btrfs.FileExists(path.Join(outRepo, "commit"))
 	check(err, t)
 	if exists {
 		t.Fatal("Commit \"commit\" should not get created when a command fails.")
