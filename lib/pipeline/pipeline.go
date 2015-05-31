@@ -51,6 +51,18 @@ func (p *Pipeline) Image(image string) error {
 	return nil
 }
 
+// Start gets an outRepo ready to be used. This is where clean up of dirty
+// state from a crash happens.
+func (p *Pipeline) Start() error {
+	// If our branch in outRepo has the same parent as the commit in inRepo it
+	// means the last run of the pipeline was succesful.
+	parent := btrfs.GetMeta(path.Join(p.outRepo, p.branch), "parent")
+	if parent != btrfs.GetMeta(path.Join(p.dataRepo, p.commit), "parent") {
+		return btrfs.DanglingCommit(p.outRepo, p.commit+"-pre", p.branch)
+	}
+	return nil
+}
+
 // runCommit returns the commit that the current run will create
 func (p *Pipeline) runCommit() string {
 	return fmt.Sprintf("%s-%d", p.commit, p.counter)
@@ -138,6 +150,9 @@ func (p *Pipeline) Finish() error {
 func (p *Pipeline) RunPachFile(r io.Reader) error {
 	lines := bufio.NewScanner(r)
 
+	if err := p.Start(); err != nil {
+		return err
+	}
 	for lines.Scan() {
 		tokens := strings.Fields(lines.Text())
 		if len(tokens) < 2 {
@@ -158,8 +173,7 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 			return err
 		}
 	}
-	err := p.Finish()
-	if err != nil {
+	if err := p.Finish(); err != nil {
 		return err
 	}
 	return nil

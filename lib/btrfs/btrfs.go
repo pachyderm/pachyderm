@@ -460,6 +460,25 @@ func Commit(repo, commit, branch string) error {
 	return nil
 }
 
+// DanglingCommit creates a commit but resets the branch to point to its
+// current parent
+func DanglingCommit(repo, commit, branch string) error {
+	parent := GetMeta(path.Join(repo, branch), "parent")
+	err := Commit(repo, commit, branch)
+	if err != nil {
+		return err
+	}
+	err = SubvolumeDelete(path.Join(repo, branch))
+	if err != nil {
+		return err
+	}
+	err = Branch(repo, parent, branch)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Hold creates a temporary snapshot of a commit that no one else knows about.
 // It's your responsibility to release the snapshot with Release
 func Hold(repo, commit string) (string, error) {
@@ -478,12 +497,14 @@ func Release(name string) {
 
 func Branch(repo, commit, branch string) error {
 	// Check that the commit is read only
-	isReadOnly, err := IsReadOnly(path.Join(repo, commit))
-	if err != nil {
-		return err
-	}
-	if !isReadOnly {
-		return fmt.Errorf("Illegal branch from branch: \"%s\", can only branch from commits.", commit)
+	if commit != "" {
+		isReadOnly, err := IsReadOnly(path.Join(repo, commit))
+		if err != nil {
+			return err
+		}
+		if !isReadOnly {
+			return fmt.Errorf("Illegal branch from branch: \"%s\", can only branch from commits.", commit)
+		}
 	}
 
 	// Check that the branch doesn't exist
@@ -676,7 +697,7 @@ func transid(repo, commit string) (string, error) {
 	return transid, err
 }
 
-// FindNew returns an array of filenames that were created between `from` and `to`
+// FindNew returns an array of filenames that were created or modified between `from` and `to`
 func FindNew(repo, from, to string) ([]string, error) {
 	var files []string
 	t, err := transid(repo, from)
@@ -687,6 +708,7 @@ func FindNew(repo, from, to string) ([]string, error) {
 	err = shell.CallCont(c, func(r io.Reader) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
+			log.Print(scanner.Text())
 			// scanner.Text() looks like this:
 			// inode 6683 file offset 0 len 107 disk start 0 offset 0 gen 909 flags INLINE jobs/rPqZxsaspy
 			// 0     1    2    3      4 5   6   7    8     9 10     11 12 13 14     15     16
@@ -705,4 +727,9 @@ func FindNew(repo, from, to string) ([]string, error) {
 		return scanner.Err()
 	})
 	return files, err
+}
+
+func NewIn(repo, commit string) ([]string, error) {
+	parent := GetMeta(path.Join(repo, commit), "parent")
+	return FindNew(repo, parent, commit)
 }

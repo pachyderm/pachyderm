@@ -97,43 +97,7 @@ run echo "foo"
 	}
 }
 
-func TestError(t *testing.T) {
-	inRepo := "TestError_in"
-	check(btrfs.Init(inRepo), t)
-	outRepo := "TestError_out"
-	check(btrfs.Init(outRepo), t)
-
-	// Create the Pachfile
-	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "error"), []byte(`
-image ubuntu
-
-run touch /out/foo
-run return 1
-`)), t)
-
-	// Commit to the inRepo
-	check(btrfs.Commit(inRepo, "commit", "master"), t)
-
-	err := RunPipelines("pipeline", inRepo, outRepo, "commit", "master")
-	if err == nil {
-		t.Fatal("Running pipeline should error.")
-	}
-
-	// Check that foo exists
-	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
-	check(err, t)
-	if !exists {
-		t.Fatal("File foo should exist.")
-	}
-
-	// Check that commit doesn't exist
-	exists, err = btrfs.FileExists(path.Join(outRepo, "commit"))
-	check(err, t)
-	if exists {
-		t.Fatal("Commit \"commit\" should not get created when a command fails.")
-	}
-}
-
+// TestPipelines runs a 2 step pipeline.
 func TestPipelines(t *testing.T) {
 	inRepo := "TestPipelines_in"
 	check(btrfs.Init(inRepo), t)
@@ -161,4 +125,104 @@ run echo "foo"
 	if string(data) != "foo" {
 		t.Fatal("Incorrect file content.")
 	}
+}
+
+// TestError makes sure that we handle commands that error correctly.
+func TestError(t *testing.T) {
+	inRepo := "TestError_in"
+	check(btrfs.Init(inRepo), t)
+	outRepo := "TestError_out"
+	check(btrfs.Init(outRepo), t)
+
+	// Create the Pachfile
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "error"), []byte(`
+image ubuntu
+
+run touch /out/foo
+run cp /in/foo /out/bar
+`)), t)
+	// Last line should fail here.
+
+	// Commit to the inRepo
+	check(btrfs.Commit(inRepo, "commit", "master"), t)
+
+	err := RunPipelines("pipeline", inRepo, outRepo, "commit", "master")
+	if err == nil {
+		t.Fatal("Running pipeline should error.")
+	}
+
+	// Check that foo exists
+	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
+	check(err, t)
+	if !exists {
+		t.Fatal("File foo should exist.")
+	}
+
+	// Check that commit doesn't exist
+	exists, err = btrfs.FileExists(path.Join(outRepo, "commit"))
+	check(err, t)
+	if exists {
+		t.Fatal("Commit \"commit\" should not get created when a command fails.")
+	}
+}
+
+// TestRecover runs a pipeline with an error. Then fixes the pipeline to not
+// include an error and reruns it.
+func TestRecover(t *testing.T) {
+	inRepo := "TestRecover_in"
+	check(btrfs.Init(inRepo), t)
+	outRepo := "TestRecover_out"
+	check(btrfs.Init(outRepo), t)
+
+	// Create the Pachfile
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "recover"), []byte(`
+image ubuntu
+
+run touch /out/foo
+run touch /out/bar && cp /in/foo /out/bar
+`)), t)
+	// Last line should fail here.
+
+	// Commit to the inRepo
+	check(btrfs.Commit(inRepo, "commit1", "master"), t)
+
+	// Run the pipelines
+	err := RunPipelines("pipeline", inRepo, outRepo, "commit1", "master")
+	if err == nil {
+		t.Fatal("Running pipeline should error.")
+	}
+
+	// Fix the Pachfile
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "recover"), []byte(`
+image ubuntu
+
+run touch /out/foo
+run touch /out/bar
+`)), t)
+
+	// Commit to the inRepo
+	check(btrfs.Commit(inRepo, "commit2", "master"), t)
+
+	// Run the pipelines
+	err = RunPipelines("pipeline", inRepo, outRepo, "commit2", "master")
+	// this time the pipelines should not err
+	check(err, t)
+
+	// These are the most important 2 checks:
+
+	// If this one fails it means that dirty state isn't properly saved
+	btrfs.CheckExists(path.Join(outRepo, "commit2-pre/bar"), t)
+	// If this one fails it means that dirty state isn't properly cleared
+	btrfs.CheckNoExists(path.Join(outRepo, "commit2-0/bar"), t)
+
+	// These commits are mostly covered by other tests
+	btrfs.CheckExists(path.Join(outRepo, "commit1-0/foo"), t)
+	btrfs.CheckNoExists(path.Join(outRepo, "commit1-1"), t)
+	btrfs.CheckNoExists(path.Join(outRepo, "commit1"), t)
+	btrfs.CheckExists(path.Join(outRepo, "commit2-pre/foo"), t)
+	btrfs.CheckExists(path.Join(outRepo, "commit2-0/foo"), t)
+	btrfs.CheckExists(path.Join(outRepo, "commit2-1/foo"), t)
+	btrfs.CheckExists(path.Join(outRepo, "commit2-1/bar"), t)
+	btrfs.CheckExists(path.Join(outRepo, "commit2/foo"), t)
+	btrfs.CheckExists(path.Join(outRepo, "commit2/bar"), t)
 }
