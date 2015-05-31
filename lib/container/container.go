@@ -43,6 +43,15 @@ func StopContainer(id string) error {
 	return client.StopContainer(id, 5)
 }
 
+func KillContainer(id string) error {
+	client, err := docker.NewClient("unix:///var/run/docker.sock")
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	return client.KillContainer(docker.KillContainerOptions{ID: id})
+}
+
 func IpAddr(containerId string) (string, error) {
 	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {

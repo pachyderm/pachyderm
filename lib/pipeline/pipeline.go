@@ -4,6 +4,7 @@ package pipeline
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -16,6 +17,8 @@ import (
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/container"
 )
+
+var Cancelled = errors.New("cancelled")
 
 type Pipeline struct {
 	config            docker.CreateContainerOptions
@@ -100,7 +103,7 @@ func (p *Pipeline) Run(cmd []string) error {
 	// Make sure this bind is only visible for the duration of run
 	defer func() { p.config.HostConfig.Binds = p.config.HostConfig.Binds[:len(p.config.HostConfig.Binds)-1] }()
 	// Start the container
-	containerId, err := container.RawStartContainer(p.config)
+	p.container, err = container.RawStartContainer(p.config)
 	if err != nil {
 		log.Print(err)
 		return err
@@ -114,13 +117,13 @@ func (p *Pipeline) Run(cmd []string) error {
 	defer f.Close()
 	// Copy the logs from the container in to the file.
 	go func() {
-		err := container.ContainerLogs(containerId, f)
+		err := container.ContainerLogs(p.container, f)
 		if err != nil {
 			log.Print(err)
 		}
 	}()
 	// Wait for the command to finish:
-	exit, err := container.WaitContainer(containerId)
+	exit, err := container.WaitContainer(p.container)
 	if err != nil {
 		log.Print(err)
 		return err
@@ -168,7 +171,10 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 	if err := p.Start(); err != nil {
 		return err
 	}
-	for lines.Scan() && !p.cancelled {
+	for lines.Scan() {
+		if p.cancelled {
+			return Cancelled
+		}
 		tokens := strings.Fields(lines.Text())
 		if len(tokens) < 2 {
 			continue
@@ -229,7 +235,7 @@ func (r *Runner) Run() error {
 	if r.cancelled {
 		// we were cancelled before we even started
 		r.lock.Unlock()
-		return fmt.Errorf("Pipelines cancelled.")
+		return Cancelled
 	}
 	r.wait.Add(len(pipelines))
 	for _, pInfo := range pipelines {
@@ -258,7 +264,7 @@ func (r *Runner) Run() error {
 	close(errors)
 	if r.cancelled {
 		// Pipelines finished because we were cancelled
-		return fmt.Errorf("Pipelines cancelled.")
+		return Cancelled
 	}
 	for err := range errors {
 		return err

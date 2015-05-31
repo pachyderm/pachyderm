@@ -5,6 +5,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pfs/lib/btrfs"
 )
@@ -225,4 +226,32 @@ run touch /out/bar
 	btrfs.CheckExists(path.Join(outRepo, "commit2-1/bar"), t)
 	btrfs.CheckExists(path.Join(outRepo, "commit2/foo"), t)
 	btrfs.CheckExists(path.Join(outRepo, "commit2/bar"), t)
+}
+
+func TestCancel(t *testing.T) {
+	inRepo := "TestCancel_in"
+	check(btrfs.Init(inRepo), t)
+	outRepo := "TestCancel_out"
+	check(btrfs.Init(outRepo), t)
+
+	// Create the Pachfile
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "cancel"), []byte(`
+image ubuntu
+
+run sleep 100
+`)), t)
+	check(btrfs.Commit(inRepo, "commit", "master"), t)
+
+	r := NewRunner("pipeline", inRepo, outRepo, "commit", "master")
+	go func() {
+		err := r.Run()
+		if err != Cancelled {
+			t.Fatal("Should get `Cancelled` error.")
+		}
+	}()
+
+	// This is just to make sure we don't trigger the early exit case in Run
+	// and actually exercise the code.
+	time.Sleep(time.Second * 2)
+	check(r.Cancel(), t)
 }
