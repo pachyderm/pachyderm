@@ -210,9 +210,9 @@ func NewRunner(pipelineDir, inRepo, outRepo, commit, branch string) *Runner {
 	}
 }
 
-// RunPipelines runs all of the pipelines it finds in pipelineDir. Returns the
+// Run runs all of the pipelines it finds in pipelineDir. Returns the
 // first error it encounters.
-func (r *Runner) RunPipelines() error {
+func (r *Runner) Run() error {
 	pipelines, err := btrfs.ReadDir(path.Join(r.inRepo, r.commit, r.pipelineDir))
 	if err != nil {
 		return err
@@ -250,4 +250,9 @@ func (r *Runner) RunPipelines() error {
 		}
 	}
 	return nil
+}
+
+// RunPipelines lets you easily run the Pipelines in one line if you don't care about cancelling them.
+func RunPipelines(pipelineDir, inRepo, outRepo, commit, branch string) error {
+	return NewRunner(pipelineDir, inRepo, outRepo, commit, branch).Run()
 }
