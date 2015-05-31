@@ -22,6 +22,9 @@ type Pipeline struct {
 	dataRepo, outRepo string
 	commit, branch    string
 	counter           int
+	container         string
+	cancelled         bool
+	runWait           sync.WaitGroup
 }
 
 func NewPipeline(dataRepo, outRepo, commit, branch string) *Pipeline {
@@ -136,6 +139,7 @@ func (p *Pipeline) Run(cmd []string) error {
 	return nil
 }
 
+// Finish makes the final commit for the pipeline
 func (p *Pipeline) Finish() error {
 	exists, err := btrfs.FileExists(path.Join(p.outRepo, p.commit))
 	if err != nil {
@@ -147,13 +151,24 @@ func (p *Pipeline) Finish() error {
 	return btrfs.Commit(p.outRepo, p.commit, p.branch)
 }
 
+// Cancel stops a pipeline by force before it's finished
+func (p *Pipeline) Cancel() error {
+	p.cancelled = true
+	err := container.StopContainer(p.container)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	return nil
+}
+
 func (p *Pipeline) RunPachFile(r io.Reader) error {
 	lines := bufio.NewScanner(r)
 
 	if err := p.Start(); err != nil {
 		return err
 	}
-	for lines.Scan() {
+	for lines.Scan() && !p.cancelled {
 		tokens := strings.Fields(lines.Text())
 		if len(tokens) < 2 {
 			continue
@@ -179,10 +194,26 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 	return nil
 }
 
+type Runner struct {
+	pipelineDir, inRepo, outRepo, commit, branch string
+	pipelines                                    []*Pipeline
+	wait                                         sync.WaitGroup
+}
+
+func NewRunner(pipelineDir, inRepo, outRepo, commit, branch string) *Runner {
+	return &Runner{
+		pipelineDir: pipelineDir,
+		inRepo:      inRepo,
+		outRepo:     outRepo,
+		commit:      commit,
+		branch:      branch,
+	}
+}
+
 // RunPipelines runs all of the pipelines it finds in pipelineDir. Returns the
 // first error it encounters.
-func RunPipelines(pipelineDir, dataRepo, outRepo, commit, branch string) error {
-	pipelines, err := btrfs.ReadDir(path.Join(dataRepo, commit, pipelineDir))
+func (r *Runner) RunPipelines() error {
+	pipelines, err := btrfs.ReadDir(path.Join(r.inRepo, r.commit, r.pipelineDir))
 	if err != nil {
 		return err
 	}
@@ -191,13 +222,13 @@ func RunPipelines(pipelineDir, dataRepo, outRepo, commit, branch string) error {
 	// sends 1 error otherwise deadlock may occur.
 	errors := make(chan error, len(pipelines))
 
-	var wg sync.WaitGroup
-	wg.Add(len(pipelines))
+	r.wait.Add(len(pipelines))
 	for _, pInfo := range pipelines {
-		go func(pInfo os.FileInfo) {
-			defer wg.Done()
-			p := NewPipeline(dataRepo, outRepo, commit, branch)
-			f, err := btrfs.Open(path.Join(dataRepo, commit, pipelineDir, pInfo.Name()))
+		p := NewPipeline(r.inRepo, r.outRepo, r.commit, r.branch)
+		r.pipelines = append(r.pipelines, p)
+		go func(pInfo os.FileInfo, p *Pipeline) {
+			defer r.wait.Done()
+			f, err := btrfs.Open(path.Join(r.inRepo, r.commit, r.pipelineDir, pInfo.Name()))
 			if err != nil {
 				log.Print(err)
 				errors <- err
@@ -209,9 +240,9 @@ func RunPipelines(pipelineDir, dataRepo, outRepo, commit, branch string) error {
 				errors <- err
 				return
 			}
-		}(pInfo)
+		}(pInfo, p)
 	}
-	wg.Wait()
+	r.wait.Wait()
 	close(errors)
 	for err := range errors {
 		if err != nil {

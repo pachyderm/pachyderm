@@ -18,6 +18,7 @@ import (
 )
 
 var jobDir string = "job"
+var pipelineDir string = "pipeline"
 
 func commitParam(r *http.Request) string {
 	if p := r.URL.Query().Get("commit"); p != "" {
@@ -349,6 +350,18 @@ func (s Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s Shard) PipelineHandler(w http.ResponseWriter, r *http.Request) {
+	url := strings.Split(r.URL.Path, "/")
+	if r.Method == "POST" {
+		r.URL.Path = path.Join("/file", pipelineDir, url[2])
+		genericFileHandler(path.Join(s.dataRepo, branchParam(r)), w, r)
+	} else {
+		http.Error(w, "Invalid method.", 405)
+		log.Print("Invalid method %s.", r.Method)
+		return
+	}
+}
+
 func (s Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	mpw := multipart.NewWriter(w)
@@ -372,6 +385,7 @@ func (s Shard) ShardMux() *http.ServeMux {
 	mux.HandleFunc("/commit", s.CommitHandler)
 	mux.HandleFunc("/file/", s.FileHandler)
 	mux.HandleFunc("/job/", s.JobHandler)
+	mux.HandleFunc("/pipeline/", s.JobHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/pull", s.PullHandler)
 
