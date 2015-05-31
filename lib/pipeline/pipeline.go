@@ -198,6 +198,8 @@ type Runner struct {
 	pipelineDir, inRepo, outRepo, commit, branch string
 	pipelines                                    []*Pipeline
 	wait                                         sync.WaitGroup
+	lock                                         sync.Mutex // used to prevent races between `Run` and `Cancel`
+	cancelled                                    bool
 }
 
 func NewRunner(pipelineDir, inRepo, outRepo, commit, branch string) *Runner {
@@ -222,6 +224,13 @@ func (r *Runner) Run() error {
 	// sends 1 error otherwise deadlock may occur.
 	errors := make(chan error, len(pipelines))
 
+	// Make sure we don't race with cancel this is held while we add pipelines.
+	r.lock.Lock()
+	if r.cancelled {
+		// we were cancelled before we even started
+		r.lock.Unlock()
+		return fmt.Errorf("Pipelines cancelled.")
+	}
 	r.wait.Add(len(pipelines))
 	for _, pInfo := range pipelines {
 		p := NewPipeline(r.inRepo, r.outRepo, r.commit, r.branch)
@@ -242,12 +251,17 @@ func (r *Runner) Run() error {
 			}
 		}(pInfo, p)
 	}
+	// We're done adding pipelines so unlock
+	r.lock.Unlock()
+	// Wait for the pipelines to finish
 	r.wait.Wait()
 	close(errors)
+	if r.cancelled {
+		// Pipelines finished because we were cancelled
+		return fmt.Errorf("Pipelines cancelled.")
+	}
 	for err := range errors {
-		if err != nil {
-			return err
-		}
+		return err
 	}
 	return nil
 }
@@ -255,4 +269,40 @@ func (r *Runner) Run() error {
 // RunPipelines lets you easily run the Pipelines in one line if you don't care about cancelling them.
 func RunPipelines(pipelineDir, inRepo, outRepo, commit, branch string) error {
 	return NewRunner(pipelineDir, inRepo, outRepo, commit, branch).Run()
+}
+
+func (r *Runner) Cancel() error {
+	// A chanel for the errors, notice that it's capacity is the same as the
+	// number of pipelines. The below code should make sure that each pipeline only
+	// sends 1 error otherwise deadlock may occur.
+	errors := make(chan error, len(r.pipelines))
+
+	// Make sure we don't race with Run
+	r.lock.Lock()
+	// Indicate that we're cancelling the pipelines
+	r.cancelled = true
+	// A waitgroup for the goros that cancel the containers
+	var wg sync.WaitGroup
+	// We'll have one goro per pipelines
+	wg.Add(len(r.pipelines))
+	for _, p := range r.pipelines {
+		go func(p *Pipeline) {
+			defer wg.Done()
+			err := p.Cancel()
+			if err != nil {
+				errors <- err
+			}
+		}(p)
+	}
+	// Wait for the cancellations to finish.
+	wg.Wait()
+	r.lock.Unlock()
+	close(errors)
+	for err := range errors {
+		return err
+	}
+	// At the end we wait for the pipelines to actually finish, this means that
+	// once Cancel is done you can safely fire off a new bathc of pipelines.
+	r.wait.Wait()
+	return nil
 }
