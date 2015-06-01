@@ -102,8 +102,7 @@ run echo "foo"
 func TestPipelines(t *testing.T) {
 	inRepo := "TestPipelines_in"
 	check(btrfs.Init(inRepo), t)
-	outRepo := "TestPipelines_out"
-	check(btrfs.Init(outRepo), t)
+	outPrefix := "TestPipelines_out"
 
 	// Create a data file:
 	check(btrfs.WriteFile(path.Join(inRepo, "master", "data", "foo"), []byte("foo")), t)
@@ -119,9 +118,9 @@ run echo "foo"
 `)), t)
 	check(btrfs.Commit(inRepo, "commit", "master"), t)
 
-	check(RunPipelines("pipeline", inRepo, outRepo, "commit", "master"), t)
+	check(RunPipelines("pipeline", inRepo, outPrefix, "commit", "master"), t)
 
-	data, err := btrfs.ReadFile(path.Join(outRepo, "commit", "foo"))
+	data, err := btrfs.ReadFile(path.Join(outPrefix, "cp", "commit", "foo"))
 	check(err, t)
 	if string(data) != "foo" {
 		t.Fatal("Incorrect file content.")
@@ -132,8 +131,7 @@ run echo "foo"
 func TestError(t *testing.T) {
 	inRepo := "TestError_in"
 	check(btrfs.Init(inRepo), t)
-	outRepo := "TestError_out"
-	check(btrfs.Init(outRepo), t)
+	outPrefix := "TestError_out"
 
 	// Create the Pachfile
 	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "error"), []byte(`
@@ -147,20 +145,20 @@ run cp /in/foo /out/bar
 	// Commit to the inRepo
 	check(btrfs.Commit(inRepo, "commit", "master"), t)
 
-	err := RunPipelines("pipeline", inRepo, outRepo, "commit", "master")
+	err := RunPipelines("pipeline", inRepo, outPrefix, "commit", "master")
 	if err == nil {
 		t.Fatal("Running pipeline should error.")
 	}
 
 	// Check that foo exists
-	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
+	exists, err := btrfs.FileExists(path.Join(outPrefix, "error", "commit-0", "foo"))
 	check(err, t)
 	if !exists {
 		t.Fatal("File foo should exist.")
 	}
 
 	// Check that commit doesn't exist
-	exists, err = btrfs.FileExists(path.Join(outRepo, "commit"))
+	exists, err = btrfs.FileExists(path.Join(outPrefix, "error", "commit"))
 	check(err, t)
 	if exists {
 		t.Fatal("Commit \"commit\" should not get created when a command fails.")
@@ -172,8 +170,7 @@ run cp /in/foo /out/bar
 func TestRecover(t *testing.T) {
 	inRepo := "TestRecover_in"
 	check(btrfs.Init(inRepo), t)
-	outRepo := "TestRecover_out"
-	check(btrfs.Init(outRepo), t)
+	outPrefix := "TestRecover_out"
 
 	// Create the Pachfile
 	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "recover"), []byte(`
@@ -188,7 +185,7 @@ run touch /out/bar && cp /in/foo /out/bar
 	check(btrfs.Commit(inRepo, "commit1", "master"), t)
 
 	// Run the pipelines
-	err := RunPipelines("pipeline", inRepo, outRepo, "commit1", "master")
+	err := RunPipelines("pipeline", inRepo, outPrefix, "commit1", "master")
 	if err == nil {
 		t.Fatal("Running pipeline should error.")
 	}
@@ -205,34 +202,33 @@ run touch /out/bar
 	check(btrfs.Commit(inRepo, "commit2", "master"), t)
 
 	// Run the pipelines
-	err = RunPipelines("pipeline", inRepo, outRepo, "commit2", "master")
+	err = RunPipelines("pipeline", inRepo, outPrefix, "commit2", "master")
 	// this time the pipelines should not err
 	check(err, t)
 
 	// These are the most important 2 checks:
 
 	// If this one fails it means that dirty state isn't properly saved
-	btrfs.CheckExists(path.Join(outRepo, "commit2-pre/bar"), t)
+	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2-pre/bar"), t)
 	// If this one fails it means that dirty state isn't properly cleared
-	btrfs.CheckNoExists(path.Join(outRepo, "commit2-0/bar"), t)
+	btrfs.CheckNoExists(path.Join(outPrefix, "recover", "commit2-0/bar"), t)
 
 	// These commits are mostly covered by other tests
-	btrfs.CheckExists(path.Join(outRepo, "commit1-0/foo"), t)
-	btrfs.CheckNoExists(path.Join(outRepo, "commit1-1"), t)
-	btrfs.CheckNoExists(path.Join(outRepo, "commit1"), t)
-	btrfs.CheckExists(path.Join(outRepo, "commit2-pre/foo"), t)
-	btrfs.CheckExists(path.Join(outRepo, "commit2-0/foo"), t)
-	btrfs.CheckExists(path.Join(outRepo, "commit2-1/foo"), t)
-	btrfs.CheckExists(path.Join(outRepo, "commit2-1/bar"), t)
-	btrfs.CheckExists(path.Join(outRepo, "commit2/foo"), t)
-	btrfs.CheckExists(path.Join(outRepo, "commit2/bar"), t)
+	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit1-0/foo"), t)
+	btrfs.CheckNoExists(path.Join(outPrefix, "recover", "commit1-1"), t)
+	btrfs.CheckNoExists(path.Join(outPrefix, "recover", "commit1"), t)
+	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2-pre/foo"), t)
+	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2-0/foo"), t)
+	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2-1/foo"), t)
+	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2-1/bar"), t)
+	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2/foo"), t)
+	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2/bar"), t)
 }
 
 func TestCancel(t *testing.T) {
 	inRepo := "TestCancel_in"
 	check(btrfs.Init(inRepo), t)
-	outRepo := "TestCancel_out"
-	check(btrfs.Init(outRepo), t)
+	outPrefix := "TestCancel_out"
 
 	// Create the Pachfile
 	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "cancel"), []byte(`
@@ -242,7 +238,7 @@ run sleep 100
 `)), t)
 	check(btrfs.Commit(inRepo, "commit", "master"), t)
 
-	r := NewRunner("pipeline", inRepo, outRepo, "commit", "master")
+	r := NewRunner("pipeline", inRepo, outPrefix, "commit", "master")
 	go func() {
 		err := r.Run()
 		if err != Cancelled {

@@ -130,23 +130,6 @@ func (s Shard) EnsureRepos() error {
 	return nil
 }
 
-//func parseArgs() {
-//	// os.Args[1] looks like 2-16
-//	dataRepo = "data-" + os.Args[1]
-//	compRepo = "comp-" + os.Args[1]
-//	logFile = "log-" + os.Args[1]
-//	s_m := strings.Split(os.Args[1], "-")
-//	var err error
-//	shard, err = strconv.ParseUint(s_m[0], 10, 64)
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//	modulos, err = strconv.ParseUint(s_m[1], 10, 64)
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//}
-
 // genericFileHandler serves files from fs. It's used after branch and commit
 // info have already been extracted and ignores those aspects of the URL.
 func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {

@@ -201,26 +201,70 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 }
 
 type Runner struct {
-	pipelineDir, inRepo, outRepo, commit, branch string
-	pipelines                                    []*Pipeline
-	wait                                         sync.WaitGroup
-	lock                                         sync.Mutex // used to prevent races between `Run` and `Cancel`
-	cancelled                                    bool
+	pipelineDir, inRepo, commit, branch string
+	outPrefix                           string // the prefix for out repos
+	pipelines                           []*Pipeline
+	wait                                sync.WaitGroup
+	lock                                sync.Mutex // used to prevent races between `Run` and `Cancel`
+	cancelled                           bool
 }
 
-func NewRunner(pipelineDir, inRepo, outRepo, commit, branch string) *Runner {
+func NewRunner(pipelineDir, inRepo, outPrefix, commit, branch string) *Runner {
 	return &Runner{
 		pipelineDir: pipelineDir,
 		inRepo:      inRepo,
-		outRepo:     outRepo,
+		outPrefix:   outPrefix,
 		commit:      commit,
 		branch:      branch,
 	}
 }
 
+func (r *Runner) makeOutRepo(pipeline string) error {
+	err := btrfs.Ensure(path.Join(r.outPrefix, pipeline))
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+
+	exists, err := btrfs.FileExists(path.Join(r.outPrefix, pipeline, r.branch))
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	if !exists {
+		// The branch doesn't exist, we need to create it We'll make our branch
+		// have the same parent as the commit we're running off of if that
+		// parent exists in the pipelines outRepo. This lets us carry over past
+		// computation results when a new branch is created rather than having
+		// to start from scratch.
+		parent := btrfs.GetMeta(path.Join(r.inRepo, r.commit), "parent")
+		if parent != "" {
+			exists, err := btrfs.FileExists(path.Join(r.outPrefix, pipeline, parent))
+			if err != nil {
+				log.Print(err)
+				return err
+			}
+			if !exists {
+				parent = ""
+			}
+		}
+		err := btrfs.Branch(path.Join(r.outPrefix, pipeline), parent, r.branch)
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+	}
+	// The branch exists, so we're ready to return
+	return nil
+}
+
 // Run runs all of the pipelines it finds in pipelineDir. Returns the
 // first error it encounters.
 func (r *Runner) Run() error {
+	err := btrfs.MkdirAll(r.outPrefix)
+	if err != nil {
+		return err
+	}
 	pipelines, err := btrfs.ReadDir(path.Join(r.inRepo, r.commit, r.pipelineDir))
 	if err != nil {
 		return err
@@ -239,7 +283,12 @@ func (r *Runner) Run() error {
 	}
 	r.wait.Add(len(pipelines))
 	for _, pInfo := range pipelines {
-		p := NewPipeline(r.inRepo, r.outRepo, r.commit, r.branch)
+		err := r.makeOutRepo(pInfo.Name())
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+		p := NewPipeline(r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch)
 		r.pipelines = append(r.pipelines, p)
 		go func(pInfo os.FileInfo, p *Pipeline) {
 			defer r.wait.Done()
