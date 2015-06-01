@@ -11,10 +11,12 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 
 	"code.google.com/p/go-uuid/uuid"
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/mapreduce"
+	"github.com/pachyderm/pfs/lib/pipeline"
 )
 
 var jobDir string = "job"
@@ -84,6 +86,8 @@ type Shard struct {
 	url                string
 	dataRepo, compRepo string
 	shard, modulos     uint64
+	runners            map[string]*pipeline.Runner
+	guard              sync.Mutex
 }
 
 func ShardFromArgs() (Shard, error) {
@@ -102,6 +106,7 @@ func ShardFromArgs() (Shard, error) {
 		compRepo: "comp-" + os.Args[1],
 		shard:    shard,
 		modulos:  modulos,
+		runners:  make(map[string]*pipeline.Runner),
 	}, nil
 }
 
@@ -111,6 +116,7 @@ func NewShard(dataRepo, compRepo string, shard, modulos uint64) Shard {
 		compRepo: compRepo,
 		shard:    shard,
 		modulos:  modulos,
+		runners:  make(map[string]*pipeline.Runner),
 	}
 }
 
@@ -253,6 +259,13 @@ func (s Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 			log.Print(err)
 			return
 		}
+
+		go func() {
+			s.guard.Lock()
+			defer s.guard.Unlock()
+			// cancel the existing runner
+			s.runners[branchParam(r)] = pipeline.NewRunner("pipeline", s.dataRepo, "out", commit, branchParam(r))
+		}()
 
 		if materializeParam(r) == "true" {
 			go func() {

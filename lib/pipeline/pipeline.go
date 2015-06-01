@@ -21,21 +21,21 @@ import (
 var Cancelled = errors.New("cancelled")
 
 type Pipeline struct {
-	config            docker.CreateContainerOptions
-	dataRepo, outRepo string
-	commit, branch    string
-	counter           int
-	container         string
-	cancelled         bool
-	runWait           sync.WaitGroup
+	config          docker.CreateContainerOptions
+	inRepo, outRepo string
+	commit, branch  string
+	counter         int
+	container       string
+	cancelled       bool
+	runWait         sync.WaitGroup
 }
 
 func NewPipeline(dataRepo, outRepo, commit, branch string) *Pipeline {
 	return &Pipeline{
-		dataRepo: dataRepo,
-		outRepo:  outRepo,
-		commit:   commit,
-		branch:   branch,
+		inRepo:  dataRepo,
+		outRepo: outRepo,
+		commit:  commit,
+		branch:  branch,
 		config: docker.CreateContainerOptions{Config: &docker.Config{},
 			HostConfig: &docker.HostConfig{}},
 	}
@@ -43,7 +43,7 @@ func NewPipeline(dataRepo, outRepo, commit, branch string) *Pipeline {
 
 // Import makes a dataset available for computations in the container.
 func (p *Pipeline) Import(name string) error {
-	hostPath := btrfs.HostPath(path.Join(p.dataRepo, p.commit, name))
+	hostPath := btrfs.HostPath(path.Join(p.inRepo, p.commit, name))
 	containerPath := path.Join("/in", name)
 
 	bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
@@ -63,7 +63,7 @@ func (p *Pipeline) Start() error {
 	// If our branch in outRepo has the same parent as the commit in inRepo it
 	// means the last run of the pipeline was succesful.
 	parent := btrfs.GetMeta(path.Join(p.outRepo, p.branch), "parent")
-	if parent != btrfs.GetMeta(path.Join(p.dataRepo, p.commit), "parent") {
+	if parent != btrfs.GetMeta(path.Join(p.inRepo, p.commit), "parent") {
 		return btrfs.DanglingCommit(p.outRepo, p.commit+"-pre", p.branch)
 	}
 	return nil
