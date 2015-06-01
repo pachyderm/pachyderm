@@ -92,7 +92,7 @@ func runWorkload(url string, w traffic.Workload, t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
-	shard := NewShard("TestPingData", "TestPingComp", 0, 1)
+	shard := NewShard("TestPingData", "TestPingComp", "TestPingPipelines", 0, 1)
 	check(shard.EnsureRepos(), t)
 	s := httptest.NewServer(shard.ShardMux())
 	defer s.Close()
@@ -106,7 +106,7 @@ func TestPing(t *testing.T) {
 func TestBasic(t *testing.T) {
 	c := 0
 	f := func(w traffic.Workload) bool {
-		shard := NewShard(fmt.Sprintf("TestBasic%d", c), fmt.Sprintf("TestBasicComp%d", c), 0, 1)
+		shard := NewShard(fmt.Sprintf("TestBasic%d", c), fmt.Sprintf("TestBasicComp%d", c), fmt.Sprintf("TestBasicPipelines%d", c), 0, 1)
 		c++
 		check(shard.EnsureRepos(), t)
 		s := httptest.NewServer(shard.ShardMux())
@@ -126,8 +126,8 @@ func TestPull(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
-		_src := NewShard(fmt.Sprintf("TestPullSrc%d", c), fmt.Sprintf("TestPullSrcComp%d", c), 0, 1)
-		_dst := NewShard(fmt.Sprintf("TestPullDst%d", c), fmt.Sprintf("TestPullDstComp%d", c), 0, 1)
+		_src := NewShard(fmt.Sprintf("TestPullSrc%d", c), fmt.Sprintf("TestPullSrcComp%d", c), fmt.Sprintf("TestPullSrcPipelines%d", c), 0, 1)
+		_dst := NewShard(fmt.Sprintf("TestPullDst%d", c), fmt.Sprintf("TestPullDstComp%d", c), fmt.Sprintf("TestPullDstPipelines%d", c), 0, 1)
 		c++
 		check(_src.EnsureRepos(), t)
 		check(_dst.EnsureRepos(), t)
@@ -157,8 +157,8 @@ func TestSyncTo(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
-		_src := NewShard(fmt.Sprintf("TestSyncToSrc%d", c), fmt.Sprintf("TestSyncToSrcComp%d", c), 0, 1)
-		_dst := NewShard(fmt.Sprintf("TestSyncToDst%d", c), fmt.Sprintf("TestSyncToDstComp%d", c), 0, 1)
+		_src := NewShard(fmt.Sprintf("TestSyncToSrc%d", c), fmt.Sprintf("TestSyncToSrcComp%d", c), fmt.Sprintf("TestSyncToSrcPipelines%d", c), 0, 1)
+		_dst := NewShard(fmt.Sprintf("TestSyncToDst%d", c), fmt.Sprintf("TestSyncToDstComp%d", c), fmt.Sprintf("TestSyncToDstPipelines%d", c), 0, 1)
 		check(_src.EnsureRepos(), t)
 		check(_dst.EnsureRepos(), t)
 		src := httptest.NewServer(_src.ShardMux())
@@ -191,8 +191,8 @@ func TestSyncFrom(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
-		_src := NewShard(fmt.Sprintf("TestSyncFromSrc%d", c), fmt.Sprintf("TestSyncFromSrcComp%d", c), 0, 1)
-		_dst := NewShard(fmt.Sprintf("TestSyncFromDst%d", c), fmt.Sprintf("TestSyncFromDstComp%d", c), 0, 1)
+		_src := NewShard(fmt.Sprintf("TestSyncFromSrc%d", c), fmt.Sprintf("TestSyncFromSrcComp%d", c), fmt.Sprintf("TestSyncFromSrcPipelines%d", c), 0, 1)
+		_dst := NewShard(fmt.Sprintf("TestSyncFromDst%d", c), fmt.Sprintf("TestSyncFromDstComp%d", c), fmt.Sprintf("TestSyncFromDstPipelines%d", c), 0, 1)
 		check(_src.EnsureRepos(), t)
 		check(_dst.EnsureRepos(), t)
 		src := httptest.NewServer(_src.ShardMux())

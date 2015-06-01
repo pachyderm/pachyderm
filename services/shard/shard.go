@@ -85,6 +85,7 @@ func cat(w http.ResponseWriter, name string) {
 type Shard struct {
 	url                string
 	dataRepo, compRepo string
+	pipelinePrefix     string
 	shard, modulos     uint64
 	runners            map[string]*pipeline.Runner
 	guard              sync.Mutex
@@ -110,13 +111,14 @@ func ShardFromArgs() (Shard, error) {
 	}, nil
 }
 
-func NewShard(dataRepo, compRepo string, shard, modulos uint64) Shard {
+func NewShard(dataRepo, compRepo, pipelinePrefix string, shard, modulos uint64) Shard {
 	return Shard{
-		dataRepo: dataRepo,
-		compRepo: compRepo,
-		shard:    shard,
-		modulos:  modulos,
-		runners:  make(map[string]*pipeline.Runner),
+		dataRepo:       dataRepo,
+		compRepo:       compRepo,
+		pipelinePrefix: pipelinePrefix,
+		shard:          shard,
+		modulos:        modulos,
+		runners:        make(map[string]*pipeline.Runner),
 	}
 }
 
@@ -243,11 +245,26 @@ func (s Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// We lock the guard so that we can remove the oldRunner from the map
+		// and add the newRunner in.
+		s.guard.Lock()
+		oldRunner, ok := s.runners[branchParam(r)]
+		newRunner := pipeline.NewRunner("pipeline", s.dataRepo, s.pipelinePrefix, commit, branchParam(r))
+		s.runners[branchParam(r)] = newRunner
+		s.guard.Unlock()
 		go func() {
-			s.guard.Lock()
-			defer s.guard.Unlock()
-			// cancel the existing runner
-			s.runners[branchParam(r)] = pipeline.NewRunner("pipeline", s.dataRepo, "out", commit, branchParam(r))
+			// cancel oldRunner if it exists
+			if ok {
+				err := oldRunner.Cancel()
+				if err != nil {
+					log.Print(err)
+					return
+				}
+			}
+			err := newRunner.Run()
+			if err != nil {
+				log.Print(err)
+			}
 		}()
 
 		if materializeParam(r) == "true" {
