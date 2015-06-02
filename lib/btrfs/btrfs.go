@@ -269,8 +269,6 @@ func WaitForFile(name string) error {
 		case err := <-watcher.Errors:
 			log.Print(err)
 			return err
-		case <-time.After(time.Second * 5):
-			return fmt.Errorf("Timeout")
 		}
 	}
 	return nil
