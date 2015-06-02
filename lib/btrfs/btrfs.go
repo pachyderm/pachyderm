@@ -210,12 +210,27 @@ func LazyWalk(name string, f func(string) error) error {
 	return nil
 }
 
+// smallestExistingPath takes a path and trims it until it gets something that
+// exists
+func largestExistingPath(name string) (string, error) {
+	for {
+		exists, err := FileExists(name)
+		if err != nil {
+			return "", err
+		}
+		if exists {
+			return name, nil
+		}
+		name = path.Dir(name)
+	}
+}
+
 func WaitForFile(name string) error {
-	if err := MkdirAll(path.Dir(name)); err != nil {
+	dir, err := largestExistingPath(name)
+	if err != nil {
 		log.Print(err)
 		return err
 	}
-
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Print(err)
@@ -223,7 +238,8 @@ func WaitForFile(name string) error {
 	}
 	defer watcher.Close()
 
-	if err := watcher.Add(FilePath(path.Dir(name))); err != nil {
+	log.Print("Adding: ", FilePath(dir))
+	if err := watcher.Add(FilePath(dir)); err != nil {
 		log.Print(err)
 		return err
 	}
@@ -246,10 +262,15 @@ func WaitForFile(name string) error {
 			log.Print(event)
 			if event.Op == fsnotify.Create && event.Name == FilePath(name) {
 				return nil
+			} else if event.Op == fsnotify.Create && strings.HasPrefix(FilePath(name), event.Name) {
+				//fsnotify isn't recursive so we need to recurse for it.
+				return WaitForFile(name)
 			}
 		case err := <-watcher.Errors:
 			log.Print(err)
 			return err
+		case <-time.After(time.Second * 5):
+			return fmt.Errorf("Timeout")
 		}
 	}
 	return nil

@@ -1,6 +1,5 @@
 set -E
 cd /go/src/github.com/pachyderm/pfs
 go get code.google.com/p/go.tools/cmd/cover
-# go test -test.cover -test.short ./lib/... ./services/shard
-go test -test.cover -test.short ./services/shard
+go test -test.cover -test.short ./lib/... ./services/shard
 exit $?

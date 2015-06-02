@@ -236,6 +236,7 @@ run touch /out/foo
 	check(err, t)
 	res.Body.Close()
 
-	res, err = http.Post(s.URL+"/commit", "", nil)
+	res, err = http.Post(s.URL+"/commit?commit=commit1", "", nil)
 	check(err, t)
+	checkFile(s.URL+"/pipeline/touch_foo", "foo", "commit1", "", t)
 }

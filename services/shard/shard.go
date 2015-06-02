@@ -365,7 +365,18 @@ func (s *Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Shard) PipelineHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
-	if r.Method == "POST" {
+	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
+		// First wait for the commit to show up
+		err := btrfs.WaitForFile(path.Join(s.pipelinePrefix, url[2], commitParam(r)))
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+		// url looks like [, pipeline, <pipeline>, file, <file>]
+		genericFileHandler(path.Join(s.pipelinePrefix, url[2], commitParam(r)), w, r)
+		return
+	} else if r.Method == "POST" {
 		r.URL.Path = path.Join("/file", pipelineDir, url[2])
 		genericFileHandler(path.Join(s.dataRepo, branchParam(r)), w, r)
 	} else {
