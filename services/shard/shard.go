@@ -398,7 +398,7 @@ func (s Shard) ShardMux() *http.ServeMux {
 	mux.HandleFunc("/commit", s.CommitHandler)
 	mux.HandleFunc("/file/", s.FileHandler)
 	mux.HandleFunc("/job/", s.JobHandler)
-	mux.HandleFunc("/pipeline/", s.JobHandler)
+	mux.HandleFunc("/pipeline/", s.PipelineHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/pull", s.PullHandler)
 

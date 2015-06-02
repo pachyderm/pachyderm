@@ -219,3 +219,23 @@ func TestSyncFrom(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// TestPipeline
+func TestPipeline(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
+	shard := NewShard("TestPipelineData", "TestPipelineComp", "TestPipelinePipelines", 0, 1)
+	check(shard.EnsureRepos(), t)
+	s := httptest.NewServer(shard.ShardMux())
+	defer s.Close()
+
+	res, err := http.Post(s.URL+"/pipeline/touch_foo", "application/text", strings.NewReader(`
+image ubuntu
+
+run touch /out/foo
+`))
+	check(err, t)
+	res.Body.Close()
+
+	res, err = http.Post(s.URL+"/commit", "", nil)
+	check(err, t)
+}
