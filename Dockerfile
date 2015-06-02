@@ -10,6 +10,7 @@ RUN go get github.com/fsouza/go-dockerclient
 RUN go get github.com/bitly/go-simplejson
 RUN go get github.com/mitchellh/goamz/...
 RUN go get github.com/go-fsnotify/fsnotify
+RUN go get code.google.com/p/go.tools/cmd/cover
 ADD . /go/src/$PFS
 RUN ln -s /go/src/$PFS/deploy/templates templates
 RUN go install -race $PFS/services/shard && go install $PFS/services/router && go install $PFS/deploy
