@@ -91,17 +91,17 @@ type Shard struct {
 	guard              sync.Mutex
 }
 
-func ShardFromArgs() (Shard, error) {
+func ShardFromArgs() (*Shard, error) {
 	s_m := strings.Split(os.Args[1], "-")
 	shard, err := strconv.ParseUint(s_m[0], 10, 64)
 	if err != nil {
-		return Shard{}, err
+		return nil, err
 	}
 	modulos, err := strconv.ParseUint(s_m[1], 10, 64)
 	if err != nil {
-		return Shard{}, err
+		return nil, err
 	}
-	return Shard{
+	return &Shard{
 		url:      "http://" + os.Args[2],
 		dataRepo: "data-" + os.Args[1],
 		compRepo: "comp-" + os.Args[1],
@@ -111,8 +111,8 @@ func ShardFromArgs() (Shard, error) {
 	}, nil
 }
 
-func NewShard(dataRepo, compRepo, pipelinePrefix string, shard, modulos uint64) Shard {
-	return Shard{
+func NewShard(dataRepo, compRepo, pipelinePrefix string, shard, modulos uint64) *Shard {
+	return &Shard{
 		dataRepo:       dataRepo,
 		compRepo:       compRepo,
 		pipelinePrefix: pipelinePrefix,
@@ -122,7 +122,7 @@ func NewShard(dataRepo, compRepo, pipelinePrefix string, shard, modulos uint64) 
 	}
 }
 
-func (s Shard) EnsureRepos() error {
+func (s *Shard) EnsureRepos() error {
 	if err := btrfs.Ensure(s.dataRepo); err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 }
 
 // FileHandler is the core route for modifying the contents of the fileystem.
-func (s Shard) FileHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) FileHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" || r.Method == "DELETE" || r.Method == "PUT" {
 		genericFileHandler(path.Join(s.dataRepo, branchParam(r)), w, r)
 	} else if r.Method == "GET" {
@@ -203,7 +203,7 @@ func (s Shard) FileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // CommitHandler creates a snapshot of outstanding changes.
-func (s Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, commit, <commit>, file, <file>]
 	if len(url) > 3 && url[3] == "file" {
@@ -295,7 +295,7 @@ func (s Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // BranchHandler creates a new branch from commit.
-func (s Shard) BranchHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) BranchHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, commit, <commit>, file, <file>]
 	if len(url) > 3 && url[3] == "file" {
@@ -336,7 +336,7 @@ func (s Shard) BranchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
 		// url looks like [, job, <job>, file, <file>]
@@ -363,7 +363,7 @@ func (s Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s Shard) PipelineHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) PipelineHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	if r.Method == "POST" {
 		r.URL.Path = path.Join("/file", pipelineDir, url[2])
@@ -375,7 +375,7 @@ func (s Shard) PipelineHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	mpw := multipart.NewWriter(w)
 	defer mpw.Close()
@@ -391,7 +391,7 @@ func (s Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // ShardMux creates a multiplexer for a Shard writing to the passed in FS.
-func (s Shard) ShardMux() *http.ServeMux {
+func (s *Shard) ShardMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/branch", s.BranchHandler)
@@ -406,7 +406,7 @@ func (s Shard) ShardMux() *http.ServeMux {
 }
 
 // RunServer runs a shard server listening on port 80
-func (s Shard) RunServer() {
+func (s *Shard) RunServer() {
 	http.ListenAndServe(":80", s.ShardMux())
 }
 
