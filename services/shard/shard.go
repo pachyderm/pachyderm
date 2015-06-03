@@ -36,6 +36,10 @@ func branchParam(r *http.Request) string {
 	return "master"
 }
 
+func shardParam(r *http.Request) string {
+	return r.URL.Query().Get("shard")
+}
+
 func hasBranch(r *http.Request) bool {
 	return (r.URL.Query().Get("branch") == "")
 }
@@ -390,7 +394,7 @@ func (s *Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	mpw := multipart.NewWriter(w)
 	defer mpw.Close()
-	cb := NewMultiPartCommitBrancher(mpw)
+	cb := NewMultipartReplica(mpw)
 	w.Header().Add("Boundary", mpw.Boundary())
 	localReplica := btrfs.NewLocalReplica(s.dataRepo)
 	err := localReplica.Pull(from, cb)
