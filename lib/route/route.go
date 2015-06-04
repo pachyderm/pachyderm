@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/pachyderm/pfs/lib/etcache"
@@ -16,6 +17,29 @@ import (
 
 func HashResource(resource string) uint64 {
 	return uint64(adler32.Checksum([]byte(resource)))
+}
+
+// Parse a string descriving a shard, the string looks like: "0-4"
+func ParseShard(shardDesc string) (uint64, uint64, error) {
+	s_m := strings.Split(shardDesc, "-")
+	shard, err := strconv.ParseUint(s_m[0], 10, 64)
+	if err != nil {
+		return 0, 0, err
+	}
+	modulos, err := strconv.ParseUint(s_m[1], 10, 64)
+	if err != nil {
+		return 0, 0, err
+	}
+	return shard, modulos, nil
+}
+
+// Match returns true of a resource hashes to the given shard.
+func Match(resource, shardDesc string) (bool, error) {
+	shard, modulos, err := ParseShard(shardDesc)
+	if err != nil {
+		return false, err
+	}
+	return (HashResource(resource) % modulos) == shard, nil
 }
 
 func hashRequest(r *http.Request) uint64 {

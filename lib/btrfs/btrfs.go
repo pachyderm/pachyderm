@@ -59,6 +59,27 @@ func TrimFilePath(name string) string {
 	return strings.TrimPrefix(name, volume)
 }
 
+// PathRepo extracts the repo from a path
+func PathRepo(name string) string {
+	// name looks like: repo/commit/path/to/file
+	tokens := strings.Split(name, "/")
+	return tokens[0]
+}
+
+// PathCommit extracts the commit from a path
+func PathCommit(name string) string {
+	// name looks like: repo/commit/path/to/file
+	tokens := strings.Split(name, "/")
+	return tokens[1]
+}
+
+// PathFile extracts the file from a path
+func PathFile(name string) string {
+	// name looks like: repo/commit/path/to/file
+	tokens := strings.Split(name, "/")
+	return path.Join(tokens[2:]...)
+}
+
 func Create(name string) (*os.File, error) {
 	return os.Create(FilePath(name))
 }

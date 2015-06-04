@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/mapreduce"
 	"github.com/pachyderm/pfs/lib/pipeline"
+	"github.com/pachyderm/pfs/lib/route"
 )
 
 var jobDir string = "job"
@@ -101,12 +101,7 @@ type Shard struct {
 }
 
 func ShardFromArgs() (*Shard, error) {
-	s_m := strings.Split(os.Args[1], "-")
-	shard, err := strconv.ParseUint(s_m[0], 10, 64)
-	if err != nil {
-		return nil, err
-	}
-	modulos, err := strconv.ParseUint(s_m[1], 10, 64)
+	shard, modulos, err := route.ParseShard(os.Args[1])
 	if err != nil {
 		return nil, err
 	}
@@ -164,6 +159,17 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 			msg := multipart.NewWriter(w)
 			defer msg.Close()
 			for _, file := range files {
+				if shardParam(r) != "" {
+					match, err := route.Match(btrfs.PathFile(file), shardParam(r))
+					if err != nil {
+						http.Error(w, err.Error(), 500)
+						log.Print(err)
+						return
+					}
+					if !match {
+						continue
+					}
+				}
 				fWriter, err := msg.CreateFormFile("", file)
 				if err != nil {
 					http.Error(w, err.Error(), 500)
