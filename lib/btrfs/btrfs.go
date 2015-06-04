@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -185,6 +186,17 @@ func Symlink(oldname, newname string) error {
 
 func ReadDir(name string) ([]os.FileInfo, error) {
 	return ioutil.ReadDir(FilePath(name))
+}
+
+func Glob(pattern string) ([]string, error) {
+	paths, err := filepath.Glob(FilePath(pattern))
+	if err != nil {
+		return nil, err
+	}
+	for i, p := range paths {
+		paths[i] = TrimFilePath(p)
+	}
+	return paths, nil
 }
 
 var walkChunk int = 100

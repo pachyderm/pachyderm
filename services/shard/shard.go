@@ -71,19 +71,24 @@ func cat(w http.ResponseWriter, name string) {
 		return
 	}
 
-	f, err := btrfs.Open(name)
-	if err != nil {
+	if err := rawCat(w, name); err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
+	}
+}
+
+func rawCat(w io.Writer, name string) error {
+	f, err := btrfs.Open(name)
+	if err != nil {
+		return err
 	}
 	defer f.Close()
 
 	if _, err := io.Copy(w, f); err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
+		return err
 	}
+	return nil
 }
 
 type Shard struct {
@@ -146,26 +151,32 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 	file := path.Join(append([]string{fs}, url[fileStart:]...)...)
 
 	if r.Method == "GET" {
-		if strings.Contains(file, "*") {
-			if !strings.HasSuffix(file, "*") {
-				http.Error(w, "Illegal path containing internal `*`. `*` is currently only allowed as the last character of a path.", 400)
-			} else {
-				dir := path.Dir(file)
-				files, err := btrfs.ReadDir(dir)
+		files, err := btrfs.Glob(file)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+		if len(files) == 1 {
+			log.Print("Getting: ", files[0])
+			cat(w, files[0])
+		} else {
+			msg := multipart.NewWriter(w)
+			defer msg.Close()
+			for _, file := range files {
+				fWriter, err := msg.CreateFormFile("", file)
 				if err != nil {
 					http.Error(w, err.Error(), 500)
+					log.Print(err)
 					return
 				}
-				for _, fi := range files {
-					if fi.IsDir() {
-						continue
-					} else {
-						cat(w, path.Join(dir, fi.Name()))
-					}
+				err = rawCat(fWriter, file)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					log.Print(err)
+					return
 				}
 			}
-		} else {
-			cat(w, file)
 		}
 	} else if r.Method == "POST" {
 		btrfs.MkdirAll(path.Dir(file))
