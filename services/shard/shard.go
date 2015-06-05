@@ -158,8 +158,10 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 		} else {
 			msg := multipart.NewWriter(w)
 			defer msg.Close()
+			w.Header().Add("Boundary", msg.Boundary())
 			for _, file := range files {
 				if shardParam(r) != "" {
+					// We have a shard param, check if the file matches the shard.
 					match, err := route.Match(btrfs.PathFile(file), shardParam(r))
 					if err != nil {
 						http.Error(w, err.Error(), 500)
@@ -170,7 +172,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 				}
-				fWriter, err := msg.CreateFormFile("", file)
+				fWriter, err := msg.CreateFormFile(btrfs.PathFile(file), btrfs.PathFile(file))
 				if err != nil {
 					http.Error(w, err.Error(), 500)
 					log.Print(err)
@@ -352,7 +354,7 @@ func (s *Shard) BranchHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Created branch. (%s) -> %s.\n", commitParam(r), branchParam(r))
 	} else {
 		http.Error(w, "Invalid method.", 405)
-		log.Print("Invalid method %s.", r.Method)
+		log.Printf("Invalid method %s.", r.Method)
 		return
 	}
 }
@@ -402,7 +404,7 @@ func (s *Shard) PipelineHandler(w http.ResponseWriter, r *http.Request) {
 		genericFileHandler(path.Join(s.dataRepo, branchParam(r)), w, r)
 	} else {
 		http.Error(w, "Invalid method.", 405)
-		log.Print("Invalid method %s.", r.Method)
+		log.Printf("Invalid method %s.", r.Method)
 		return
 	}
 }
