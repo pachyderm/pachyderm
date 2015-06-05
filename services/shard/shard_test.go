@@ -95,7 +95,6 @@ func runWorkload(url string, w traffic.Workload, t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
-	t.Skip()
 	shard := NewShard("TestPingData", "TestPingComp", "TestPingPipelines", 0, 1)
 	check(shard.EnsureRepos(), t)
 	s := httptest.NewServer(shard.ShardMux())
@@ -108,7 +107,6 @@ func TestPing(t *testing.T) {
 }
 
 func TestBasic(t *testing.T) {
-	t.Skip()
 	c := 0
 	f := func(w traffic.Workload) bool {
 		shard := NewShard(fmt.Sprintf("TestBasic%d", c), fmt.Sprintf("TestBasicComp%d", c), fmt.Sprintf("TestBasicPipelines%d", c), 0, 1)
@@ -128,7 +126,6 @@ func TestBasic(t *testing.T) {
 }
 
 func TestPull(t *testing.T) {
-	t.Skip()
 	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
@@ -160,7 +157,6 @@ func TestPull(t *testing.T) {
 
 // TestSync is similar to TestPull but it does it syncs after every commit.
 func TestSyncTo(t *testing.T) {
-	t.Skip()
 	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
@@ -195,7 +191,6 @@ func TestSyncTo(t *testing.T) {
 
 // TestSyncFrom
 func TestSyncFrom(t *testing.T) {
-	t.Skip()
 	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
@@ -230,7 +225,6 @@ func TestSyncFrom(t *testing.T) {
 
 // TestPipeline creates a basic pipeline on a shard.
 func TestPipeline(t *testing.T) {
-	t.Skip()
 	log.SetFlags(log.Lshortfile)
 	shard := NewShard("TestPipelineData", "TestPipelineComp", "TestPipelinePipelines", 0, 1)
 	check(shard.EnsureRepos(), t)

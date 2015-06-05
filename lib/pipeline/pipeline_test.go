@@ -65,7 +65,7 @@ func TestInputOutput(t *testing.T) {
 	pachfile := `
 image ubuntu
 
-import data
+input data
 
 run cp /in/data/foo /out/foo
 `
@@ -111,7 +111,7 @@ func TestPipelines(t *testing.T) {
 	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "cp"), []byte(`
 image ubuntu
 
-import data
+input data
 
 run cp /in/data/foo /out/foo
 run echo "foo"

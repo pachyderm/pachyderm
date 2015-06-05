@@ -42,7 +42,7 @@ func NewPipeline(dataRepo, outRepo, commit, branch string) *Pipeline {
 }
 
 // Import makes a dataset available for computations in the container.
-func (p *Pipeline) Import(name string) error {
+func (p *Pipeline) Input(name string) error {
 	hostPath := btrfs.HostPath(path.Join(p.inRepo, p.commit, name))
 	containerPath := path.Join("/in", name)
 
@@ -182,8 +182,8 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 
 		var err error
 		switch strings.ToLower(tokens[0]) {
-		case "import":
-			err = p.Import(tokens[1])
+		case "input":
+			err = p.Input(tokens[1])
 		case "image":
 			err = p.Image(tokens[1])
 		case "run":
