@@ -42,6 +42,7 @@ function check_on_path() {
     echo "error: ${1} not installed" >&2
     return 1
   fi
+  echo "success: ${1} on path" >&2
   return 0
 }
 
@@ -50,8 +51,6 @@ function check_on_path() {
 # $3: MAJOR must be equal
 # #4: MINOR must be at least
 function check_version() {
-  echo $@
-  return 0
   local regex="([0-9]+)\.([0-9]+)\.([0-9]+)"
   if [ "$(echo "${2}" | sed -E "s/${regex}/\1/")" -ne "${3}" ]; then
     echo "error: ${1} version ${2} must have major version ${3}" >&2
@@ -61,14 +60,14 @@ function check_version() {
     echo "error: ${1} version ${2} must have minor version of at least ${4}" >&2
     return 1
   fi
-  echo "success: ${1} version ok" >&2
+  echo "success: ${1} version ${2} ok" >&2
   return 0
 }
 
-#check_on_path "btrfs"
+check_on_path "btrfs"
 check_version "btrfs" "$(btrfs --version | awk '{ print $2 }' | sed "s/v//")" "3" "14"
 check_on_path "docker"
-check_version "docker" "$(docker --version | awk '{ print $3 }')" "1" "5"
+check_version "docker" "$(docker --version | awk '{ print $3 }' | sed "s/,//")" "1" "6"
 exit 0
 
 CMD="$0"
