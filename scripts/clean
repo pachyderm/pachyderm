@@ -1,10 +1,15 @@
 #!/bin/sh
 # Cleanup the state created by scripts/launch
 ###############################################################################
-set -E          # pass trap handlers down to subshells
-#set -x         # execution tracing debug messages
 
-PFS_DIR=~/.pfs
+set -Ee          # pass trap handlers down to subshells, exit on error
 
-sudo umount "$PFS_DIR"/vol || true
-rm "$PFS_DIR"/data.img || true
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
+
+source "${DIR}/lib/lib.sh"
+
+sudo umount "${PFS_VOL}" || true
+rm "${PFS_DATA_IMG}" || true
+sudo docker kill "${PFS_CONTAINER_NAME}" 2> /dev/null > /dev/null
+sudo docker rm "${PFS_CONTAINER_NAME}" 2> /dev/null > /dev/null

@@ -1,9 +1,13 @@
 #!/bin/sh
 # Launch an arbitrary command in a working pfs environment.
 ###############################################################################
-set -E          # pass trap handlers down to subshells
-set -e          # exit on error
-#set -x         # execution tracing debug messages
+
+set -Ee          # pass trap handlers down to subshells, exit on error
+
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
+
+source "${DIR}/lib/lib.sh"
 
 HELP="A script to launch an arbitrary command in a working pfs environment.\nUsage: $0 [-p port] [-i image] [-d] <command>\n-d: daemonize process"
 
@@ -14,11 +18,6 @@ OPTIND=1         # Reset in case getopts has been used previously in the shell.
 PORT="650"
 IMAGE="pachyderm/pfs"
 DAEMONIZE="-d"
-
-BTRFS_MAJOR_VERSION="3"
-BTRFS_MINOR_VERSION="14"
-DOCKER_MAJOR_VERSION="1"
-DOCKER_MINOR_VERSION="5"
 
 while getopts "p:i:f" opt; do
     case "$opt" in
@@ -41,98 +40,37 @@ if [ -z "${CONTAINER_COMMAND}" ]; then
     CONTAINER_COMMAND="/go/bin/shard 0-1 localhost" #default command
 fi
 
-# $1: executable
-function check_on_path() {
-  if ! which "${1}" > /dev/null; then
-    echo "error: ${1} not installed" >&2
-    return 1
-  fi
-  echo "success: ${1} on path" >&2
-  return 0
-}
-
-# $1: name
-# $2: must be in form MAJOR.MINOR.MICRO
-# $3: MAJOR must be equal
-# #4: MINOR must be at least
-function check_version() {
-  local regex="([0-9]+)\.([0-9]+)\.([0-9]+)"
-  if [ "$(echo "${2}" | sed -E "s/${regex}/\1/")" -ne "${3}" ]; then
-    echo "error: ${1} version ${2} must have major version ${3}" >&2
-    return 1
-  fi
-  if [ "$(echo "${2}" | sed -E "s/${regex}/\2/")" -lt "${4}" ]; then
-    echo "error: ${1} version ${2} must have minor version of at least ${4}" >&2
-    return 1
-  fi
-  echo "success: ${1} version ${2} ok" >&2
-  return 0
-}
-
-function btrfs_version() {
-  btrfs --version | awk '{ print $2 }' | sed "s/v//"
-}
-
-function docker_version() {
-  docker --version | awk '{ print $3 }' | sed "s/,//"
-}
-
-function check_btrfs() {
-  check_on_path "btrfs"
-  check_version "btrfs" "$(btrfs_version)" "${BTRFS_MAJOR_VERSION}" "${BTRFS_MINOR_VERSION}"
-}
-
-function check_docker() {
-  check_on_path "docker"
-  check_version "docker" "$(docker_version)" "${DOCKER_MAJOR_VERSION}" "${DOCKER_MINOR_VERSION}"
-}
-
+check_value_set PORT
+check_value_set IMAGE
+check_value_set AWS_ACCESS_KEY
+check_value_set AWS_SECRET_KEY
 check_btrfs
 check_docker
 
-CMD="$0"
-CMD_DIR="$(cd "$(dirname "$CMD")" && pwd)"
-PFS_DIR=~/.pfs
+log_command "${DIR}/clean"
 
-mkdir -p "$PFS_DIR"/vol
-echo -n "Creating file $PFS_DIR/data.img... "
-truncate "$PFS_DIR"/data.img -s 10G
-echo -n "done.\nCreating btrfs filesystem... "
-mkfs.btrfs "$PFS_DIR"/data.img 2>/dev/null >/dev/null
-echo -n "done.\nMounting $PFS_DIR/data.img on $PFS_DIR/vol... (this requires sudo) "
-sudo mount "$PFS_DIR"/data.img "$PFS_DIR"/vol 2>/dev/null >/dev/null
-echo -n "done.\nmkdir /var/lib/pfs/vol... (this requires sudo) "
-sudo mkdir -p /var/lib/pfs/vol
-echo "done."
+log_command mkdir -p "${PFS_VOL}"
+log_command truncate "${PFS_DATA_IMG}" -s 10G
+log_command mkfs.btrfs "${PFS_DATA_IMG}"
+log_command sudo mount "${PFS_DATA_IMG}" "${PFS_VOL}"
+log_command mkdir -p /var/lib/pfs/vol
 
-sudo docker kill pfs 2>/dev/null >/dev/null
-sudo docker rm pfs 2>/dev/null >/dev/null
-echo "Launching container $IMAGE... (this requires sudo)"
-echo "Container id:"
-echo "CONTAINER_COMMAND:"
-echo ${CONTAINER_COMMAND}
-sudo docker run \
+log_command sudo docker run \
     ${DAEMONIZE} \
     --privileged=true \
-    --name pfs \
+    --name "${PFS_CONTAINER_NAME}" \
     -v /:/host:ro \
-    -v "$PFS_DIR"/vol:/host/var/lib/pfs/vol \
-    -v "$PFS_DIR":/var/lib/pfs \
+    -v "${PFS_VOL}:/host/var/lib/pfs/vol" \
+    -v "${PFS_DIR}:/var/lib/pfs" \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
-    -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
-    -p "$PORT":80 \
-    -i "$IMAGE" \
+    -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+    -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+    -p "${PORT}":80 \
+    -i "${IMAGE}" \
     ${CONTAINER_COMMAND}
 
-last_status=$?
-if [ $last_status -ne 0 ]; then
-    exit $last_status
-fi
-
-echo "done."
-echo "Server is listening on localhost:$PORT"
-echo "Logging to ~/.pfs/log/log-0-1"
-echo "Data is stored in ~/.pfs/vol"
+echo "Server is listening on localhost:${PORT}"
+echo "Logging to ${PFS_DIR}/log/log-0-1"
+echo "Data is stored in ${PFS_VOL}"
 echo "To kill:"
-echo "docker kill pfs"
+echo "docker kill ${PFS_CONTAINER_NAME}"
