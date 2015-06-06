@@ -15,6 +15,11 @@ PORT="650"
 IMAGE="pachyderm/pfs"
 DAEMONIZE="-d"
 
+BTRFS_MAJOR_VERSION="3"
+BTRFS_MINOR_VERSION="14"
+DOCKER_MAJOR_VERSION="1"
+DOCKER_MINOR_VERSION="5"
+
 while getopts "p:i:f" opt; do
     case "$opt" in
     \?)  echo $HELP
@@ -64,10 +69,27 @@ function check_version() {
   return 0
 }
 
-check_on_path "btrfs"
-check_version "btrfs" "$(btrfs --version | awk '{ print $2 }' | sed "s/v//")" "3" "14"
-check_on_path "docker"
-check_version "docker" "$(docker --version | awk '{ print $3 }' | sed "s/,//")" "1" "6"
+function btrfs_version() {
+  btrfs --version | awk '{ print $2 }' | sed "s/v//"
+}
+
+function docker_version() {
+  docker --version | awk '{ print $3 }' | sed "s/,//"
+}
+
+function check_btrfs() {
+  check_on_path "btrfs"
+  check_version "btrfs" "$(btrfs_version)" "${BTRFS_MAJOR_VERSION}" "${BTRFS_MINOR_VERSION}"
+}
+
+function check_docker() {
+  check_on_path "docker"
+  check_version "docker" "$(docker_version)" "${DOCKER_MAJOR_VERSION}" "${DOCKER_MINOR_VERSION}"
+}
+
+check_btrfs
+check_docker
+
 exit 0
 
 CMD="$0"
