@@ -38,7 +38,7 @@ fi
 
 # $1: executable
 function check_on_path() {
-  if ! which "${1} " > /dev/null; then
+  if ! which "${1}" > /dev/null; then
     echo "error: ${1} not installed" >&2
     return 1
   fi
