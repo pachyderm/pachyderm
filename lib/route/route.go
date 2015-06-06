@@ -11,7 +11,9 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 
+	"github.com/coreos/go-etcd/etcd"
 	"github.com/pachyderm/pfs/lib/etcache"
 )
 
@@ -135,7 +137,9 @@ func MultiReadCloser(readers ...io.ReadCloser) io.ReadCloser {
 
 // Multicast enables the Ogre Magi to rapidly cast his spells, giving them
 // greater potency.
-func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
+// Multicast sends a request to every host it finds under a key and returns a
+// ReadCloser for each one.
+func Multicast(r *http.Request, etcdKey string) ([]io.ReadCloser, error) {
 	_endpoints, err := etcache.Get(etcdKey, false, true)
 	if err != nil {
 		return nil, err
@@ -151,45 +155,60 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 	}
 
 	var readers []io.ReadCloser
+	var errors []error
+	var lock sync.Mutex
+	var wg sync.WaitGroup
+	wg.Add(len(endpoints))
 	for i, node := range endpoints {
-		httpClient := &http.Client{}
-		// `Do` will complain if r.RequestURI is set so we unset it
-		r.RequestURI = ""
-		r.URL.Scheme = "http"
-		r.URL.Host = strings.TrimPrefix(node.Value, "http://")
-		if err != nil {
-			return nil, err
-		}
+		go func(i int, node *etcd.Node) {
+			defer wg.Done()
+			httpClient := &http.Client{}
+			// `Do` will complain if r.RequestURI is set so we unset it
+			r.RequestURI = ""
+			r.URL.Scheme = "http"
+			r.URL.Host = strings.TrimPrefix(node.Value, "http://")
+			if err != nil {
+				lock.Lock()
+				errors = append(errors, err)
+				lock.Unlock()
+				return
+			}
 
-		if r.ContentLength != 0 {
-			r.Body = ioutil.NopCloser(bytes.NewReader(body))
-		}
+			if r.ContentLength != 0 {
+				r.Body = ioutil.NopCloser(bytes.NewReader(body))
+			}
 
-		resp, err := httpClient.Do(r)
-		if err != nil {
-			log.Print(err)
-			return nil, err
-		}
-		if resp.StatusCode != 200 {
-			return nil, fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String())
-		}
-		// paths with * are multigets so we want all of the responses
-		if i == 0 || strings.Contains(r.URL.Path, "*") {
+			resp, err := httpClient.Do(r)
+			if err != nil {
+				lock.Lock()
+				errors = append(errors, err)
+				lock.Unlock()
+				return
+			}
+			if resp.StatusCode != 200 {
+				lock.Lock()
+				errors = append(errors, fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String()))
+				lock.Unlock()
+				return
+			}
+			lock.Lock()
 			readers = append(readers, resp.Body)
-		}
+		}(i, node)
 	}
+	wg.Wait()
 
-	return MultiReadCloser(readers...), nil
+	return readers, nil
 }
 
 func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string) {
-	reader, err := Multicast(r, etcdKey)
+	readers, err := Multicast(r, etcdKey)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
 	}
-	defer reader.Close()
+	reader := MultiReadCloser(readers...)
+	defer reader.Close() //this line will close all of the readers
 
 	_, err = io.Copy(w, reader)
 	if err != nil {
