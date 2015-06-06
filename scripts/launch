@@ -38,7 +38,7 @@ fi
 
 # $1: executable
 function check_on_path() {
-  if ! which "${1} " > /dev/null; then
+  if ! which "${1}" > /dev/null; then
     echo "error: ${1} not installed" >&2
     return 1
   fi
@@ -65,8 +65,8 @@ function check_version() {
   return 0
 }
 
-check_on_path "btrfs"
-check_version "btrfs" "$(which btrfs | awk '{ print $2' } | tr 'v' '')" "3" "14"
+#check_on_path "btrfs"
+check_version "btrfs" "$(btrfs --version | awk '{ print $2 }' | sed "s/v//")" "3" "14"
 check_on_path "docker"
 check_version "docker" "$(docker --version | awk '{ print $3 }')" "1" "5"
 exit 0
