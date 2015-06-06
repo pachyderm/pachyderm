@@ -22,6 +22,7 @@ import (
 )
 
 var Cancelled = errors.New("cancelled")
+var ArgCount = errors.New("Illegal argument count.")
 
 type Pipeline struct {
 	name            string
@@ -231,18 +232,32 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 			return Cancelled
 		}
 		tokens := strings.Fields(lines.Text())
-		if len(tokens) < 2 {
+		if len(tokens) == 0 {
 			continue
 		}
 
 		var err error
 		switch strings.ToLower(tokens[0]) {
 		case "input":
+			if len(tokens) != 2 {
+				return ArgCount
+			}
 			err = p.Input(tokens[1])
 		case "image":
+			if len(tokens) != 2 {
+				return ArgCount
+			}
 			err = p.Image(tokens[1])
 		case "run":
+			if len(tokens) < 2 {
+				return ArgCount
+			}
 			err = p.Run(tokens[1:])
+		case "shuffle":
+			if len(tokens) != 3 {
+				return ArgCount
+			}
+			err = p.Shuffle(tokens[1], tokens[2])
 		}
 		if err != nil {
 			log.Print(err)
