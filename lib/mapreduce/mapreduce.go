@@ -323,7 +323,15 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 				if err != nil {
 					return err
 				}
-				reader, err = route.Multicast(req, "/pfs/master")
+				resps, err := route.Multicast(req, "/pfs/master")
+				if err != nil {
+					return err
+				}
+				var readers []io.ReadCloser
+				for _, resp := range resps {
+					readers = append(readers, resp.Body)
+				}
+				reader = route.MultiReadCloser(readers...)
 				return err
 			}, retries, time.Minute)
 			if err != nil {

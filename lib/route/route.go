@@ -139,13 +139,16 @@ func MultiReadCloser(readers ...io.ReadCloser) io.ReadCloser {
 // greater potency.
 // Multicast sends a request to every host it finds under a key and returns a
 // ReadCloser for each one.
-func Multicast(r *http.Request, etcdKey string) ([]io.ReadCloser, error) {
+func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
 	_endpoints, err := etcache.Get(etcdKey, false, true)
 	if err != nil {
 		return nil, err
 	}
 	endpoints := _endpoints.Node.Nodes
 
+	// If the request has a body we need to store it in memory because it needs
+	// to be sent to multiple endpoints and Reader (the type of r.Body) is
+	// single use.
 	var body []byte
 	if r.ContentLength != 0 {
 		body, err = ioutil.ReadAll(r.Body)
@@ -154,8 +157,8 @@ func Multicast(r *http.Request, etcdKey string) ([]io.ReadCloser, error) {
 		}
 	}
 
-	var readers []io.ReadCloser
-	var errors []error
+	var resps []*http.Response
+	errors := make(chan error)
 	var lock sync.Mutex
 	var wg sync.WaitGroup
 	wg.Add(len(endpoints))
@@ -168,9 +171,7 @@ func Multicast(r *http.Request, etcdKey string) ([]io.ReadCloser, error) {
 			r.URL.Scheme = "http"
 			r.URL.Host = strings.TrimPrefix(node.Value, "http://")
 			if err != nil {
-				lock.Lock()
-				errors = append(errors, err)
-				lock.Unlock()
+				errors <- err
 				return
 			}
 
@@ -180,32 +181,39 @@ func Multicast(r *http.Request, etcdKey string) ([]io.ReadCloser, error) {
 
 			resp, err := httpClient.Do(r)
 			if err != nil {
-				lock.Lock()
-				errors = append(errors, err)
-				lock.Unlock()
+				errors <- err
 				return
 			}
 			if resp.StatusCode != 200 {
-				lock.Lock()
-				errors = append(errors, fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String()))
-				lock.Unlock()
+				errors <- fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String())
 				return
 			}
 			lock.Lock()
-			readers = append(readers, resp.Body)
+			resps = append(resps, resp)
 		}(i, node)
 	}
 	wg.Wait()
+	close(errors)
 
-	return readers, nil
+	for err := range errors {
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return resps, nil
 }
 
 func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string) {
-	readers, err := Multicast(r, etcdKey)
+	resps, err := Multicast(r, etcdKey)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
+	}
+	var readers []io.ReadCloser
+	for _, resp := range resps {
+		readers = append(readers, resp.Body)
 	}
 	reader := MultiReadCloser(readers...)
 	defer reader.Close() //this line will close all of the readers

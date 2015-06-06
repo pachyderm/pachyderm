@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
+	"net/http"
 	"os"
 	"path"
 	"strings"
@@ -16,22 +18,24 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/container"
+	"github.com/pachyderm/pfs/lib/route"
 )
 
 var Cancelled = errors.New("cancelled")
 
 type Pipeline struct {
+	name            string
 	config          docker.CreateContainerOptions
 	inRepo, outRepo string
 	commit, branch  string
 	counter         int
 	container       string
 	cancelled       bool
-	runWait         sync.WaitGroup
 }
 
-func NewPipeline(dataRepo, outRepo, commit, branch string) *Pipeline {
+func NewPipeline(name, dataRepo, outRepo, commit, branch string) *Pipeline {
 	return &Pipeline{
+		name:    name,
 		inRepo:  dataRepo,
 		outRepo: outRepo,
 		commit:  commit,
@@ -133,6 +137,57 @@ func (p *Pipeline) Run(cmd []string) error {
 		return fmt.Errorf("Command:\n\t%s\nhad exit code: %d.\n",
 			strings.Join(cmd, " "), exit)
 	}
+	// Commit the results
+	err = btrfs.Commit(p.outRepo, p.runCommit(), p.branch)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	return nil
+}
+
+func (p *Pipeline) Shuffle(in, out string) error {
+	// We want to pull files from the previous commit
+	commit := fmt.Sprintf("%s-%d", p.commit, p.counter-1)
+	// Notice we're just passing "host" here. Multicast will fill in the host
+	// field so we don't actually need to specify it.
+	req, err := http.NewRequest("GET", "http://host/"+path.Join("pipeline", p.name, "file", in, "*")+"?commit="+commit, nil)
+	if err != nil {
+		return err
+	}
+	errors := make(chan error)
+	resps, err := route.Multicast(req, "/pfs/master")
+	var wg sync.WaitGroup
+	wg.Add(len(resps))
+	for _, resp := range resps {
+		go func(resp *http.Response) {
+			defer wg.Done()
+			reader := multipart.NewReader(resp.Body, resp.Header.Get("Boundary"))
+
+			for part, err := reader.NextPart(); err != io.EOF; part, err = reader.NextPart() {
+				f, err := btrfs.Create(path.Join(p.outRepo, p.branch, out, part.FileName()))
+				if err != nil {
+					errors <- err
+					return
+				}
+				_, err = io.Copy(f, part)
+				if err != nil {
+					errors <- err
+					return
+				}
+			}
+		}(resp)
+	}
+	wg.Wait()
+	close(errors)
+
+	// Check for errors
+	for err := range errors {
+		if err != nil {
+			return err
+		}
+	}
+
 	// Commit the results
 	err = btrfs.Commit(p.outRepo, p.runCommit(), p.branch)
 	if err != nil {
@@ -288,7 +343,7 @@ func (r *Runner) Run() error {
 			log.Print(err)
 			return err
 		}
-		p := NewPipeline(r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch)
+		p := NewPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch)
 		r.pipelines = append(r.pipelines, p)
 		go func(pInfo os.FileInfo, p *Pipeline) {
 			defer r.wait.Done()
