@@ -17,6 +17,7 @@ OPTIND=1         # Reset in case getopts has been used previously in the shell.
 # Initialize our own variables:
 PORT="${PFS_PORT}"
 IMAGE="${PFS_IMAGE}"
+DAEMONIZE="-d"
 
 while getopts "p:i:" opt; do
     case "$opt" in
@@ -27,8 +28,11 @@ while getopts "p:i:" opt; do
         ;;
     i)  IMAGE="${OPTARG}"
         ;;
+    f)  DAEMONIZE=""
+        ;;
     esac
 done
 
+shift $((OPTIND-1))
 log_command sudo docker build -t "${IMAGE}" "$(cd "${DIR}/.." && pwd)"
-log_command "${DIR}/launch" -i "${IMAGE}"
+log_command "${DIR}/launch" -i "${IMAGE}" ${DAEMONIZE} $@
