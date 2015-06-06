@@ -2,6 +2,7 @@
 # Launch an arbitrary command in a working pfs environment.
 ###############################################################################
 set -E          # pass trap handlers down to subshells
+set -e          # exit on error
 #set -x         # execution tracing debug messages
 
 HELP="A script to launch an arbitrary command in a working pfs environment.\nUsage: $0 [-p port] [-i image] [-d] <command>\n-d: daemonize process"
@@ -35,26 +36,40 @@ if [ -z "${CONTAINER_COMMAND}" ]; then
     CONTAINER_COMMAND="/go/bin/shard 0-1 localhost" #default command
 fi
 
-BTRFS_VERSION="$(which btrfs)" || { echo 'Please install btrfs-tools. (apt-get install btrfs-tools)' ; exit 1; }
-DOCKER_VERSION="$(docker --version | awk '{ print $3 }')"
+# $1: executable
+function check_on_path() {
+  if ! which "${1} " > /dev/null; then
+    echo "error: ${1} not installed" >&2
+    return 1
+  fi
+  return 0
+}
 
-REGEX="([0-9]+)\.([0-9]+)\.([0-9]+),"
+# $1: name
+# $2: must be in form MAJOR.MINOR.MICRO
+# $3: MAJOR must be equal
+# #4: MINOR must be at least
+function check_version() {
+  echo $@
+  return 0
+  local regex="([0-9]+)\.([0-9]+)\.([0-9]+)"
+  if [ "$(echo "${2}" | sed -E "s/${regex}/\1/")" -ne "${3}" ]; then
+    echo "error: ${1} version ${2} must have major version ${3}" >&2
+    return 1
+  fi
+  if [ "$(echo "${2}" | sed -E "s/${regex}/\2/")" -lt "${4}" ]; then
+    echo "error: ${1} version ${2} must have minor version of at least ${4}" >&2
+    return 1
+  fi
+  echo "success: ${1} version ok" >&2
+  return 0
+}
 
-# pin major version at 1, in case pfs needs update
-if [ $(echo "$DOCKER_VERSION" | sed -E "s/$REGEX/\1/") -ne "1" ]
-then
-    echo "This version of pfs only supports Docker 1.x, you're running $DOCKER_VERSION"
-    echo "Please upgrade pfs for support"
-    exit 1
-# docker versions below 1.5 are not supported
-elif [ $(echo "$DOCKER_VERSION" | sed -E "s/$REGEX/\2/") -lt "5" ]
-then
-    echo "Docker >= 1.5.0 is required"
-    echo "See: https://docs.docker.com/installation/ubuntulinux/#docker-maintained-package-installation"
-    exit 1
-fi
-
-btrfs --version | grep 3.14 || { echo 'Upgrade btrfs-tools to 3.14.' ; exit 1; }
+check_on_path "btrfs"
+check_version "btrfs" "$(which btrfs | awk '{ print $2' } | tr 'v' '')" "3" "14"
+check_on_path "docker"
+check_version "docker" "$(docker --version | awk '{ print $3 }')" "1" "5"
+exit 0
 
 CMD="$0"
 CMD_DIR="$(cd "$(dirname "$CMD")" && pwd)"
