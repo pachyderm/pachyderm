@@ -15,8 +15,8 @@ HELP="A script to launch an arbitrary command in a working pfs environment.\nUsa
 OPTIND=1         # Reset in case getopts has been used previously in the shell.
 
 # Initialize our own variables:
-PORT="650"
-IMAGE="pachyderm/pfs"
+PORT="${PFS_PORT}"
+IMAGE="${PFS_IMAGE}"
 DAEMONIZE="-d"
 
 while getopts "p:i:f" opt; do
@@ -24,9 +24,9 @@ while getopts "p:i:f" opt; do
     \?)  echo $HELP
         exit 0
         ;;
-    p)  PORT=$OPTARG
+    p)  PORT="${OPTARG}"
         ;;
-    i)  IMAGE=$OPTARG
+    i)  IMAGE="${OPTARG}"
         ;;
     f)  DAEMONIZE=""
         ;;
