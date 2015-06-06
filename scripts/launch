@@ -42,8 +42,8 @@ fi
 
 check_value_set PORT
 check_value_set IMAGE
-check_value_set AWS_ACCESS_KEY
-check_value_set AWS_SECRET_KEY
+check_value_set AWS_ACCESS_KEY_ID
+check_value_set AWS_SECRET_ACCESS_KEY
 check_btrfs
 check_docker
 
