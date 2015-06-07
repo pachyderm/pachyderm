@@ -337,7 +337,7 @@ run touch /out/unshuffled/fizz
 run touch /out/unshuffled/buzz
 
 run mkdir /out/shuffled
-shuffle /out/unshuffled /out/shuffled
+shuffle unshuffled shuffled
 `
 	res, err := http.Post(s1.URL+"/pipeline/shuffle", "application/text", strings.NewReader(pipeline))
 	check(err, t)
@@ -351,6 +351,6 @@ shuffle /out/unshuffled /out/shuffled
 	res, err = http.Post(s2.URL+"/commit?commit=commit1", "", nil)
 	check(err, t)
 
-	time.Sleep(20 * time.Second)
+	time.Sleep(30 * time.Second)
 	t.Fatal()
 }

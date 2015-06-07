@@ -143,13 +143,11 @@ func MultiReadCloser(readers ...io.ReadCloser) io.ReadCloser {
 // Multicast sends a request to every host it finds under a key and returns a
 // ReadCloser for each one.
 func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
-	log.Print("Multicast.")
 	_endpoints, err := etcache.Get(etcdKey, false, true)
 	if err != nil {
 		return nil, err
 	}
 	endpoints := _endpoints.Node.Nodes
-	log.Print("len(endpoints) ", len(endpoints))
 	if len(endpoints) == 0 {
 		return nil, NoHosts
 	}
@@ -171,7 +169,6 @@ func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
 	var wg sync.WaitGroup
 	wg.Add(len(endpoints))
 	for i, node := range endpoints {
-		log.Print("Querying: ", node.Value)
 		go func(i int, node *etcd.Node) {
 			defer wg.Done()
 			httpClient := &http.Client{}
@@ -199,9 +196,12 @@ func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
 			}
 			lock.Lock()
 			resps = append(resps, resp)
+			lock.Unlock()
 		}(i, node)
 	}
+	log.Print("Waiting for reqs to finish.")
 	wg.Wait()
+	log.Print("Done.")
 	close(errors)
 
 	for err := range errors {
