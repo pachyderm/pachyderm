@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"path"
@@ -12,6 +14,8 @@ import (
 	"testing"
 	"testing/quick"
 
+	"github.com/pachyderm/pfs/lib/etcache"
+	"github.com/pachyderm/pfs/lib/route"
 	"github.com/pachyderm/pfs/lib/traffic"
 )
 
@@ -92,7 +96,7 @@ func runWorkload(url string, w traffic.Workload, t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
-	shard := NewShard("TestPingData", "TestPingComp", 0, 1)
+	shard := NewShard("TestPingData", "TestPingComp", "TestPingPipelines", 0, 1)
 	check(shard.EnsureRepos(), t)
 	s := httptest.NewServer(shard.ShardMux())
 	defer s.Close()
@@ -106,7 +110,7 @@ func TestPing(t *testing.T) {
 func TestBasic(t *testing.T) {
 	c := 0
 	f := func(w traffic.Workload) bool {
-		shard := NewShard(fmt.Sprintf("TestBasic%d", c), fmt.Sprintf("TestBasicComp%d", c), 0, 1)
+		shard := NewShard(fmt.Sprintf("TestBasic%d", c), fmt.Sprintf("TestBasicComp%d", c), fmt.Sprintf("TestBasicPipelines%d", c), 0, 1)
 		c++
 		check(shard.EnsureRepos(), t)
 		s := httptest.NewServer(shard.ShardMux())
@@ -126,8 +130,8 @@ func TestPull(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
-		_src := NewShard(fmt.Sprintf("TestPullSrc%d", c), fmt.Sprintf("TestPullSrcComp%d", c), 0, 1)
-		_dst := NewShard(fmt.Sprintf("TestPullDst%d", c), fmt.Sprintf("TestPullDstComp%d", c), 0, 1)
+		_src := NewShard(fmt.Sprintf("TestPullSrc%d", c), fmt.Sprintf("TestPullSrcComp%d", c), fmt.Sprintf("TestPullSrcPipelines%d", c), 0, 1)
+		_dst := NewShard(fmt.Sprintf("TestPullDst%d", c), fmt.Sprintf("TestPullDstComp%d", c), fmt.Sprintf("TestPullDstPipelines%d", c), 0, 1)
 		c++
 		check(_src.EnsureRepos(), t)
 		check(_dst.EnsureRepos(), t)
@@ -157,8 +161,8 @@ func TestSyncTo(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
-		_src := NewShard(fmt.Sprintf("TestSyncToSrc%d", c), fmt.Sprintf("TestSyncToSrcComp%d", c), 0, 1)
-		_dst := NewShard(fmt.Sprintf("TestSyncToDst%d", c), fmt.Sprintf("TestSyncToDstComp%d", c), 0, 1)
+		_src := NewShard(fmt.Sprintf("TestSyncToSrc%d", c), fmt.Sprintf("TestSyncToSrcComp%d", c), fmt.Sprintf("TestSyncToSrcPipelines%d", c), 0, 1)
+		_dst := NewShard(fmt.Sprintf("TestSyncToDst%d", c), fmt.Sprintf("TestSyncToDstComp%d", c), fmt.Sprintf("TestSyncToDstPipelines%d", c), 0, 1)
 		check(_src.EnsureRepos(), t)
 		check(_dst.EnsureRepos(), t)
 		src := httptest.NewServer(_src.ShardMux())
@@ -191,8 +195,8 @@ func TestSyncFrom(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
-		_src := NewShard(fmt.Sprintf("TestSyncFromSrc%d", c), fmt.Sprintf("TestSyncFromSrcComp%d", c), 0, 1)
-		_dst := NewShard(fmt.Sprintf("TestSyncFromDst%d", c), fmt.Sprintf("TestSyncFromDstComp%d", c), 0, 1)
+		_src := NewShard(fmt.Sprintf("TestSyncFromSrc%d", c), fmt.Sprintf("TestSyncFromSrcComp%d", c), fmt.Sprintf("TestSyncFromSrcPipelines%d", c), 0, 1)
+		_dst := NewShard(fmt.Sprintf("TestSyncFromDst%d", c), fmt.Sprintf("TestSyncFromDstComp%d", c), fmt.Sprintf("TestSyncFromDstPipelines%d", c), 0, 1)
 		check(_src.EnsureRepos(), t)
 		check(_dst.EnsureRepos(), t)
 		src := httptest.NewServer(_src.ShardMux())
@@ -217,5 +221,148 @@ func TestSyncFrom(t *testing.T) {
 	}
 	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
 		t.Error(err)
+	}
+}
+
+// TestPipeline creates a basic pipeline on a shard.
+func TestPipeline(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
+	shard := NewShard("TestPipelineData", "TestPipelineComp", "TestPipelinePipelines", 0, 1)
+	check(shard.EnsureRepos(), t)
+	s := httptest.NewServer(shard.ShardMux())
+	defer s.Close()
+
+	res, err := http.Post(s.URL+"/pipeline/touch_foo", "application/text", strings.NewReader(`
+image ubuntu
+
+run touch /out/foo
+`))
+	check(err, t)
+	res.Body.Close()
+
+	res, err = http.Post(s.URL+"/commit?commit=commit1", "", nil)
+	check(err, t)
+	checkFile(s.URL+"/pipeline/touch_foo", "foo", "commit1", "", t)
+}
+
+// TestShardFilter creates a basic pipeline on a shard and then requests files
+// from it using shard filtering.
+
+func TestShardFilter(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
+	shard := NewShard("TestShardFilterData", "TestShardFilterComp", "TestShardFilterPipelines", 0, 1)
+	check(shard.EnsureRepos(), t)
+	s := httptest.NewServer(shard.ShardMux())
+	defer s.Close()
+
+	res, err := http.Post(s.URL+"/pipeline/files", "application/text", strings.NewReader(`
+image ubuntu
+
+run touch /out/foo
+run touch /out/bar
+run touch /out/buzz
+run touch /out/bizz
+`))
+	check(err, t)
+	res.Body.Close()
+
+	res, err = http.Post(s.URL+"/commit?commit=commit1", "", nil)
+	check(err, t)
+
+	// Map to store files we receive
+	files := make(map[string]struct{})
+	res, err = http.Get(s.URL + path.Join("/pipeline", "files", "file", "*") + "?commit=commit1&shard=0-2")
+	check(err, t)
+	if res.StatusCode != 200 {
+		t.Fatal(res.Status)
+	}
+	reader := multipart.NewReader(res.Body, res.Header.Get("Boundary"))
+
+	for p, err := reader.NextPart(); err != io.EOF; p, err = reader.NextPart() {
+		match, err := route.Match(p.FileName(), "0-2")
+		check(err, t)
+		if !match {
+			t.Fatalf("Filename: %s should match.", p.FileName())
+		}
+		if _, ok := files[p.FileName()]; ok == true {
+			t.Fatalf("File: %s received twice.")
+		}
+		files[p.FileName()] = struct{}{}
+	}
+
+	res, err = http.Get(s.URL + path.Join("/pipeline", "files", "file", "*") + "?commit=commit1&shard=1-2")
+	check(err, t)
+	if res.StatusCode != 200 {
+		t.Fatal(res.Status)
+	}
+	reader = multipart.NewReader(res.Body, res.Header.Get("Boundary"))
+
+	for p, err := reader.NextPart(); err != io.EOF; p, err = reader.NextPart() {
+		match, err := route.Match(p.FileName(), "1-2")
+		check(err, t)
+		if !match {
+			t.Fatalf("Filename: %s should match.", p.FileName())
+		}
+		if _, ok := files[p.FileName()]; ok == true {
+			t.Fatalf("File: %s received twice.")
+		}
+		files[p.FileName()] = struct{}{}
+	}
+}
+
+func TestShuffle(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
+
+	// Setup 2 shards
+	shard1 := NewShard("TestShuffleData-0-2", "TestShuffleComp-0-2", "TestShufflePipelines-0-2", 0, 2)
+	check(shard1.EnsureRepos(), t)
+	s1 := httptest.NewServer(shard1.ShardMux())
+	defer s1.Close()
+	shard2 := NewShard("TestShuffleData-1-2", "TestShuffleComp-1-2", "TestShufflePipelines-1-2", 1, 2)
+	check(shard2.EnsureRepos(), t)
+	s2 := httptest.NewServer(shard2.ShardMux())
+	defer s2.Close()
+
+	files := []string{"foo", "bar", "fizz", "buzz"}
+
+	for _, file := range files {
+		writeFile(s1.URL, path.Join("data", file), "master", file, t)
+		writeFile(s2.URL, path.Join("data", file), "master", file, t)
+	}
+
+	// Spoof the shards in etcache
+	etcache.SpoofMany("/pfs/master", []string{s1.URL, s2.URL}, false)
+
+	pipeline := `
+image ubuntu
+
+input data
+
+run cp -r /in/data /out
+
+shuffle data
+`
+	res, err := http.Post(s1.URL+"/pipeline/shuffle", "application/text", strings.NewReader(pipeline))
+	check(err, t)
+	res.Body.Close()
+	res, err = http.Post(s2.URL+"/pipeline/shuffle", "application/text", strings.NewReader(pipeline))
+	check(err, t)
+	res.Body.Close()
+
+	res, err = http.Post(s1.URL+"/commit?commit=commit1", "", nil)
+	check(err, t)
+	res, err = http.Post(s2.URL+"/commit?commit=commit1", "", nil)
+	check(err, t)
+
+	for _, file := range files {
+		match, err := route.Match(path.Join("data", file), "0-2")
+		check(err, t)
+		if match {
+			log.Print("shard: s1 file: ", file)
+			checkFile(s1.URL+"/pipeline/shuffle", path.Join("data", file), "commit1", file+file, t)
+		} else {
+			log.Print("shard: s2 file: ", file)
+			checkFile(s2.URL+"/pipeline/shuffle", path.Join("data", file), "commit1", file+file, t)
+		}
 	}
 }

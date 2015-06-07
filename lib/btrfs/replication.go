@@ -26,7 +26,7 @@ type Replica interface {
 	Puller
 }
 
-// A LocalReplica implements the CommitBrancher interface and replicates the
+// A LocalReplica implements the Replica interface and replicates the
 // commits to a local repo. It expects `repo` to already exist
 type LocalReplica struct {
 	repo string

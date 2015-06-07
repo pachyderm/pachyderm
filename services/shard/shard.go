@@ -9,15 +9,18 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"strconv"
 	"strings"
+	"sync"
 
 	"code.google.com/p/go-uuid/uuid"
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/mapreduce"
+	"github.com/pachyderm/pfs/lib/pipeline"
+	"github.com/pachyderm/pfs/lib/route"
 )
 
 var jobDir string = "job"
+var pipelineDir string = "pipeline"
 
 func commitParam(r *http.Request) string {
 	if p := r.URL.Query().Get("commit"); p != "" {
@@ -31,6 +34,10 @@ func branchParam(r *http.Request) string {
 		return p
 	}
 	return "master"
+}
+
+func shardParam(r *http.Request) string {
+	return r.URL.Query().Get("shard")
 }
 
 func hasBranch(r *http.Request) bool {
@@ -64,56 +71,65 @@ func cat(w http.ResponseWriter, name string) {
 		return
 	}
 
-	f, err := btrfs.Open(name)
-	if err != nil {
+	if err := rawCat(w, name); err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
+	}
+}
+
+func rawCat(w io.Writer, name string) error {
+	f, err := btrfs.Open(name)
+	if err != nil {
+		return err
 	}
 	defer f.Close()
 
 	if _, err := io.Copy(w, f); err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
+		return err
 	}
+	return nil
 }
 
 type Shard struct {
 	url                string
 	dataRepo, compRepo string
+	pipelinePrefix     string
 	shard, modulos     uint64
+	shardStr           string
+	runners            map[string]*pipeline.Runner
+	guard              sync.Mutex
 }
 
-func ShardFromArgs() (Shard, error) {
-	s_m := strings.Split(os.Args[1], "-")
-	shard, err := strconv.ParseUint(s_m[0], 10, 64)
+func ShardFromArgs() (*Shard, error) {
+	shard, modulos, err := route.ParseShard(os.Args[1])
 	if err != nil {
-		return Shard{}, err
+		return nil, err
 	}
-	modulos, err := strconv.ParseUint(s_m[1], 10, 64)
-	if err != nil {
-		return Shard{}, err
-	}
-	return Shard{
+	return &Shard{
 		url:      "http://" + os.Args[2],
 		dataRepo: "data-" + os.Args[1],
 		compRepo: "comp-" + os.Args[1],
 		shard:    shard,
 		modulos:  modulos,
+		shardStr: os.Args[1],
+		runners:  make(map[string]*pipeline.Runner),
 	}, nil
 }
 
-func NewShard(dataRepo, compRepo string, shard, modulos uint64) Shard {
-	return Shard{
-		dataRepo: dataRepo,
-		compRepo: compRepo,
-		shard:    shard,
-		modulos:  modulos,
+func NewShard(dataRepo, compRepo, pipelinePrefix string, shard, modulos uint64) *Shard {
+	return &Shard{
+		dataRepo:       dataRepo,
+		compRepo:       compRepo,
+		pipelinePrefix: pipelinePrefix,
+		shard:          shard,
+		modulos:        modulos,
+		shardStr:       fmt.Sprint(shard, "-", modulos),
+		runners:        make(map[string]*pipeline.Runner),
 	}
 }
 
-func (s Shard) EnsureRepos() error {
+func (s *Shard) EnsureRepos() error {
 	if err := btrfs.Ensure(s.dataRepo); err != nil {
 		return err
 	}
@@ -122,23 +138,6 @@ func (s Shard) EnsureRepos() error {
 	}
 	return nil
 }
-
-//func parseArgs() {
-//	// os.Args[1] looks like 2-16
-//	dataRepo = "data-" + os.Args[1]
-//	compRepo = "comp-" + os.Args[1]
-//	logFile = "log-" + os.Args[1]
-//	s_m := strings.Split(os.Args[1], "-")
-//	var err error
-//	shard, err = strconv.ParseUint(s_m[0], 10, 64)
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//	modulos, err = strconv.ParseUint(s_m[1], 10, 64)
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//}
 
 // genericFileHandler serves files from fs. It's used after branch and commit
 // info have already been extracted and ignores those aspects of the URL.
@@ -150,26 +149,50 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 	file := path.Join(append([]string{fs}, url[fileStart:]...)...)
 
 	if r.Method == "GET" {
-		if strings.Contains(file, "*") {
-			if !strings.HasSuffix(file, "*") {
-				http.Error(w, "Illegal path containing internal `*`. `*` is currently only allowed as the last character of a path.", 400)
-			} else {
-				dir := path.Dir(file)
-				files, err := btrfs.ReadDir(dir)
-				if err != nil {
-					http.Error(w, err.Error(), 500)
-					return
-				}
-				for _, fi := range files {
-					if fi.IsDir() {
+		files, err := btrfs.Glob(file)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+		switch len(files) {
+		case 0:
+			http.Error(w, "404 page not found", 404)
+			return
+		case 1:
+			cat(w, files[0])
+		default:
+			msg := multipart.NewWriter(w)
+			defer msg.Close()
+			w.Header().Add("Boundary", msg.Boundary())
+			for _, file := range files {
+				name := strings.TrimPrefix(file, "/"+fs+"/")
+				if shardParam(r) != "" {
+					// We have a shard param, check if the file matches the shard.
+					match, err := route.Match(name, shardParam(r))
+					if err != nil {
+						http.Error(w, err.Error(), 500)
+						log.Print(err)
+						return
+					}
+					if !match {
 						continue
-					} else {
-						cat(w, path.Join(dir, fi.Name()))
 					}
 				}
+				fWriter, err := msg.CreateFormFile(name, name)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					log.Print(err)
+					return
+				}
+				err = rawCat(fWriter, file)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					log.Print(err)
+					return
+				}
 			}
-		} else {
-			cat(w, file)
+
 		}
 	} else if r.Method == "POST" {
 		btrfs.MkdirAll(path.Dir(file))
@@ -200,7 +223,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 }
 
 // FileHandler is the core route for modifying the contents of the fileystem.
-func (s Shard) FileHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) FileHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" || r.Method == "DELETE" || r.Method == "PUT" {
 		genericFileHandler(path.Join(s.dataRepo, branchParam(r)), w, r)
 	} else if r.Method == "GET" {
@@ -211,7 +234,7 @@ func (s Shard) FileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // CommitHandler creates a snapshot of outstanding changes.
-func (s Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, commit, <commit>, file, <file>]
 	if len(url) > 3 && url[3] == "file" {
@@ -253,6 +276,28 @@ func (s Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// We lock the guard so that we can remove the oldRunner from the map
+		// and add the newRunner in.
+		s.guard.Lock()
+		oldRunner, ok := s.runners[branchParam(r)]
+		newRunner := pipeline.NewRunner("pipeline", s.dataRepo, s.pipelinePrefix, commit, branchParam(r), s.shardStr)
+		s.runners[branchParam(r)] = newRunner
+		s.guard.Unlock()
+		go func() {
+			// cancel oldRunner if it exists
+			if ok {
+				err := oldRunner.Cancel()
+				if err != nil {
+					log.Print(err)
+					return
+				}
+			}
+			err := newRunner.Run()
+			if err != nil {
+				log.Print(err)
+			}
+		}()
+
 		if materializeParam(r) == "true" {
 			go func() {
 				err := mapreduce.Materialize(s.dataRepo, branchParam(r), commit,
@@ -281,7 +326,7 @@ func (s Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // BranchHandler creates a new branch from commit.
-func (s Shard) BranchHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) BranchHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, commit, <commit>, file, <file>]
 	if len(url) > 3 && url[3] == "file" {
@@ -317,12 +362,12 @@ func (s Shard) BranchHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Created branch. (%s) -> %s.\n", commitParam(r), branchParam(r))
 	} else {
 		http.Error(w, "Invalid method.", 405)
-		log.Print("Invalid method %s.", r.Method)
+		log.Printf("Invalid method %s.", r.Method)
 		return
 	}
 }
 
-func (s Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
 		// url looks like [, job, <job>, file, <file>]
@@ -349,11 +394,34 @@ func (s Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) PipelineHandler(w http.ResponseWriter, r *http.Request) {
+	url := strings.Split(r.URL.Path, "/")
+	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
+		// First wait for the commit to show up
+		err := btrfs.WaitForFile(path.Join(s.pipelinePrefix, url[2], commitParam(r)))
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+		// url looks like [, pipeline, <pipeline>, file, <file>]
+		genericFileHandler(path.Join(s.pipelinePrefix, url[2], commitParam(r)), w, r)
+		return
+	} else if r.Method == "POST" {
+		r.URL.Path = path.Join("/file", pipelineDir, url[2])
+		genericFileHandler(path.Join(s.dataRepo, branchParam(r)), w, r)
+	} else {
+		http.Error(w, "Invalid method.", 405)
+		log.Printf("Invalid method %s.", r.Method)
+		return
+	}
+}
+
+func (s *Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	mpw := multipart.NewWriter(w)
 	defer mpw.Close()
-	cb := NewMultiPartCommitBrancher(mpw)
+	cb := NewMultipartReplica(mpw)
 	w.Header().Add("Boundary", mpw.Boundary())
 	localReplica := btrfs.NewLocalReplica(s.dataRepo)
 	err := localReplica.Pull(from, cb)
@@ -365,13 +433,14 @@ func (s Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // ShardMux creates a multiplexer for a Shard writing to the passed in FS.
-func (s Shard) ShardMux() *http.ServeMux {
+func (s *Shard) ShardMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/branch", s.BranchHandler)
 	mux.HandleFunc("/commit", s.CommitHandler)
 	mux.HandleFunc("/file/", s.FileHandler)
 	mux.HandleFunc("/job/", s.JobHandler)
+	mux.HandleFunc("/pipeline/", s.PipelineHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/pull", s.PullHandler)
 
@@ -379,7 +448,7 @@ func (s Shard) ShardMux() *http.ServeMux {
 }
 
 // RunServer runs a shard server listening on port 80
-func (s Shard) RunServer() {
+func (s *Shard) RunServer() {
 	http.ListenAndServe(":80", s.ShardMux())
 }
 

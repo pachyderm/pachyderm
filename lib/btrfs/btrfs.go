@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -29,6 +30,7 @@ var once sync.Once
 // volume is hardcoded because we can map any host directory in to this path
 // using Docker's `volume`s.
 var volume = "/var/lib/pfs/vol"
+var hostVolume = "/home/jdoliner/.pfs/vol"
 
 // Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
 // This should be factored out to another file.
@@ -45,16 +47,37 @@ func Sync() error {
 	return shell.RunStderr(exec.Command("sync"))
 }
 
-func BasePath(name string) string {
-	return path.Join(volume, name)
-}
-
 func FilePath(name string) string {
 	return path.Join(volume, name)
 }
 
+func HostPath(name string) string {
+	return path.Join(hostVolume, name)
+}
+
 func TrimFilePath(name string) string {
 	return strings.TrimPrefix(name, volume)
+}
+
+// PathRepo extracts the repo from a path
+func PathRepo(name string) string {
+	// name looks like: repo/commit/path/to/file
+	tokens := strings.Split(name, "/")
+	return tokens[0]
+}
+
+// PathCommit extracts the commit from a path
+func PathCommit(name string) string {
+	// name looks like: repo/commit/path/to/file
+	tokens := strings.Split(name, "/")
+	return tokens[1]
+}
+
+// PathFile extracts the file from a path
+func PathFile(name string) string {
+	// name looks like: repo/commit/path/to/file
+	tokens := strings.Split(name, "/")
+	return path.Join(tokens[2:]...)
 }
 
 func Create(name string) (*os.File, error) {
@@ -95,11 +118,35 @@ func ReadFile(name string) ([]byte, error) {
 }
 
 func WriteFile(name string, data []byte) error {
+	err := MkdirAll(path.Dir(name))
+	if err != nil {
+		return err
+	}
 	return ioutil.WriteFile(FilePath(name), data, 0666)
 }
 
 func CopyFile(name string, r io.Reader) (int64, error) {
 	f, err := Open(name)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	return io.Copy(f, r)
+}
+
+// Append reads data out of reader and appends it to the file.
+// If the file doesn't exist it creates it.
+func Append(name string, r io.Reader) (int64, error) {
+	exists, err := FileExists(name)
+	if err != nil {
+		return 0, err
+	}
+	var f io.WriteCloser
+	if !exists {
+		f, err = Create(name)
+	} else {
+		f, err = OpenFile(name, os.O_APPEND|os.O_WRONLY, 0600)
+	}
 	if err != nil {
 		return 0, err
 	}
@@ -125,6 +172,21 @@ func Stat(name string) (os.FileInfo, error) {
 
 func Lstat(name string) (os.FileInfo, error) {
 	return os.Lstat(FilePath(name))
+}
+
+// return true if name1 was last modified before name2
+func Before(name1, name2 string) (bool, error) {
+	info1, err := Stat(name1)
+	if err != nil {
+		return false, err
+	}
+
+	info2, err := Stat(name2)
+	if err != nil {
+		return false, err
+	}
+
+	return info1.ModTime().Before(info2.ModTime()), nil
 }
 
 func FileExists(name string) (bool, error) {
@@ -167,6 +229,17 @@ func ReadDir(name string) ([]os.FileInfo, error) {
 	return ioutil.ReadDir(FilePath(name))
 }
 
+func Glob(pattern string) ([]string, error) {
+	paths, err := filepath.Glob(FilePath(pattern))
+	if err != nil {
+		return nil, err
+	}
+	for i, p := range paths {
+		paths[i] = TrimFilePath(p)
+	}
+	return paths, nil
+}
+
 var walkChunk int = 100
 
 func LazyWalk(name string, f func(string) error) error {
@@ -190,12 +263,27 @@ func LazyWalk(name string, f func(string) error) error {
 	return nil
 }
 
+// smallestExistingPath takes a path and trims it until it gets something that
+// exists
+func largestExistingPath(name string) (string, error) {
+	for {
+		exists, err := FileExists(name)
+		if err != nil {
+			return "", err
+		}
+		if exists {
+			return name, nil
+		}
+		name = path.Dir(name)
+	}
+}
+
 func WaitForFile(name string) error {
-	if err := MkdirAll(path.Dir(name)); err != nil {
+	dir, err := largestExistingPath(name)
+	if err != nil {
 		log.Print(err)
 		return err
 	}
-
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Print(err)
@@ -203,28 +291,31 @@ func WaitForFile(name string) error {
 	}
 	defer watcher.Close()
 
-	if err := watcher.Add(FilePath(path.Dir(name))); err != nil {
+	if err := watcher.Add(FilePath(dir)); err != nil {
 		log.Print(err)
 		return err
 	}
 
+	// Notice that we check to see if the file exists AFTER we create the watcher.
+	// That means if we don't see the file with this check we're guaranteed to
+	// get a notification for it.
 	exists, err := FileExists(name)
 	if err != nil {
 		log.Print(err)
 		return err
 	}
 	if exists {
-		log.Print("File exists, returning.")
 		return nil
 	}
 
-	log.Print("File doesn't exist. Waiting for it...")
 	for {
 		select {
 		case event := <-watcher.Events:
-			log.Print(event)
 			if event.Op == fsnotify.Create && event.Name == FilePath(name) {
 				return nil
+			} else if event.Op == fsnotify.Create && strings.HasPrefix(FilePath(name), event.Name) {
+				//fsnotify isn't recursive so we need to recurse for it.
+				return WaitForFile(name)
 			}
 		case err := <-watcher.Errors:
 			log.Print(err)
@@ -439,6 +530,25 @@ func Commit(repo, commit, branch string) error {
 	return nil
 }
 
+// DanglingCommit creates a commit but resets the branch to point to its
+// current parent
+func DanglingCommit(repo, commit, branch string) error {
+	parent := GetMeta(path.Join(repo, branch), "parent")
+	err := Commit(repo, commit, branch)
+	if err != nil {
+		return err
+	}
+	err = SubvolumeDelete(path.Join(repo, branch))
+	if err != nil {
+		return err
+	}
+	err = Branch(repo, parent, branch)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Hold creates a temporary snapshot of a commit that no one else knows about.
 // It's your responsibility to release the snapshot with Release
 func Hold(repo, commit string) (string, error) {
@@ -457,12 +567,14 @@ func Release(name string) {
 
 func Branch(repo, commit, branch string) error {
 	// Check that the commit is read only
-	isReadOnly, err := IsReadOnly(path.Join(repo, commit))
-	if err != nil {
-		return err
-	}
-	if !isReadOnly {
-		return fmt.Errorf("Illegal branch from branch: \"%s\", can only branch from commits.", commit)
+	if commit != "" {
+		isReadOnly, err := IsReadOnly(path.Join(repo, commit))
+		if err != nil {
+			return err
+		}
+		if !isReadOnly {
+			return fmt.Errorf("Illegal branch from branch: \"%s\", can only branch from commits.", commit)
+		}
 	}
 
 	// Check that the branch doesn't exist
@@ -655,7 +767,7 @@ func transid(repo, commit string) (string, error) {
 	return transid, err
 }
 
-// FindNew returns an array of filenames that were created between `from` and `to`
+// FindNew returns an array of filenames that were created or modified between `from` and `to`
 func FindNew(repo, from, to string) ([]string, error) {
 	var files []string
 	t, err := transid(repo, from)
@@ -666,6 +778,7 @@ func FindNew(repo, from, to string) ([]string, error) {
 	err = shell.CallCont(c, func(r io.Reader) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
+			log.Print(scanner.Text())
 			// scanner.Text() looks like this:
 			// inode 6683 file offset 0 len 107 disk start 0 offset 0 gen 909 flags INLINE jobs/rPqZxsaspy
 			// 0     1    2    3      4 5   6   7    8     9 10     11 12 13 14     15     16
@@ -684,4 +797,9 @@ func FindNew(repo, from, to string) ([]string, error) {
 		return scanner.Err()
 	})
 	return files, err
+}
+
+func NewIn(repo, commit string) ([]string, error) {
+	parent := GetMeta(path.Join(repo, commit), "parent")
+	return FindNew(repo, parent, commit)
 }
