@@ -330,14 +330,13 @@ func TestShuffle(t *testing.T) {
 	pipeline := `
 image ubuntu
 
-run mkdir /out/unshuffled
-run touch /out/unshuffled/foo
-run touch /out/unshuffled/bar 
-run touch /out/unshuffled/fizz
-run touch /out/unshuffled/buzz
+run mkdir /out/files
+run touch /out/files/foo
+run touch /out/files/bar 
+run touch /out/files/fizz
+run touch /out/files/buzz
 
-run mkdir /out/shuffled
-shuffle unshuffled shuffled
+shuffle files 
 `
 	res, err := http.Post(s1.URL+"/pipeline/shuffle", "application/text", strings.NewReader(pipeline))
 	check(err, t)

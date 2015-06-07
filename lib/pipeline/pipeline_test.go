@@ -120,7 +120,7 @@ run echo "foo"
 `)), t)
 	check(btrfs.Commit(inRepo, "commit", "master"), t)
 
-	check(RunPipelines("pipeline", inRepo, outPrefix, "commit", "master"), t)
+	check(RunPipelines("pipeline", inRepo, outPrefix, "commit", "master", "0-1"), t)
 
 	data, err := btrfs.ReadFile(path.Join(outPrefix, "cp", "commit", "foo"))
 	check(err, t)
@@ -147,7 +147,7 @@ run cp /in/foo /out/bar
 	// Commit to the inRepo
 	check(btrfs.Commit(inRepo, "commit", "master"), t)
 
-	err := RunPipelines("pipeline", inRepo, outPrefix, "commit", "master")
+	err := RunPipelines("pipeline", inRepo, outPrefix, "commit", "master", "0-1")
 	if err == nil {
 		t.Fatal("Running pipeline should error.")
 	}
@@ -187,7 +187,7 @@ run touch /out/bar && cp /in/foo /out/bar
 	check(btrfs.Commit(inRepo, "commit1", "master"), t)
 
 	// Run the pipelines
-	err := RunPipelines("pipeline", inRepo, outPrefix, "commit1", "master")
+	err := RunPipelines("pipeline", inRepo, outPrefix, "commit1", "master", "0-1")
 	if err == nil {
 		t.Fatal("Running pipeline should error.")
 	}
@@ -204,7 +204,7 @@ run touch /out/bar
 	check(btrfs.Commit(inRepo, "commit2", "master"), t)
 
 	// Run the pipelines
-	err = RunPipelines("pipeline", inRepo, outPrefix, "commit2", "master")
+	err = RunPipelines("pipeline", inRepo, outPrefix, "commit2", "master", "0-1")
 	// this time the pipelines should not err
 	check(err, t)
 
@@ -240,7 +240,7 @@ run sleep 100
 `)), t)
 	check(btrfs.Commit(inRepo, "commit", "master"), t)
 
-	r := NewRunner("pipeline", inRepo, outPrefix, "commit", "master")
+	r := NewRunner("pipeline", inRepo, outPrefix, "commit", "master", "0-1")
 	go func() {
 		err := r.Run()
 		if err != Cancelled {

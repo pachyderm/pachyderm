@@ -149,7 +149,19 @@ func (p *Pipeline) Run(cmd []string) error {
 	return nil
 }
 
-func (p *Pipeline) Shuffle(in, out string) error {
+func (p *Pipeline) Shuffle(in string) error {
+	// First we clear the in directory, notice that the previous commit from
+	// which we're pulling has already been made so this doesn't destroy the
+	// data that others are trying to pull.
+	// TODO(jd) #performance this is a seriously unperformant part of the code
+	// since it messes up our ability to do incremental results. We should do
+	// something smarter here.
+	if err := btrfs.RemoveAll(path.Join(p.outRepo, p.branch, in)); err != nil {
+		return err
+	}
+	if err := btrfs.MkdirAll(path.Join(p.outRepo, p.branch, in)); err != nil {
+		return err
+	}
 	// We want to pull files from the previous commit
 	commit := fmt.Sprintf("%s-%d", p.commit, p.counter-1)
 	// Notice we're just passing "host" here. Multicast will fill in the host
@@ -174,7 +186,7 @@ func (p *Pipeline) Shuffle(in, out string) error {
 				// we don't want the path to look like /out/in/filename
 				// so we trim away "/in"
 				strippedPath := strings.TrimPrefix(part.FileName(), "/"+in)
-				f, err := btrfs.Create(path.Join(p.outRepo, p.branch, out, strippedPath))
+				f, err := btrfs.Create(path.Join(p.outRepo, p.branch, in, strippedPath))
 				if err != nil {
 					errors <- err
 					return
@@ -262,10 +274,10 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 			}
 			err = p.Run(tokens[1:])
 		case "shuffle":
-			if len(tokens) != 3 {
+			if len(tokens) != 2 {
 				return ArgCount
 			}
-			err = p.Shuffle(tokens[1], tokens[2])
+			err = p.Shuffle(tokens[1])
 		}
 		if err != nil {
 			log.Print(err)
