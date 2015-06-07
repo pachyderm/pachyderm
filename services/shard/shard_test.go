@@ -324,19 +324,30 @@ func TestShuffle(t *testing.T) {
 	s2 := httptest.NewServer(shard2.ShardMux())
 	defer s2.Close()
 
+	writeFile(s1.URL, "data/foo", "master", "foo", t)
+	writeFile(s1.URL, "data/bar", "master", "bar", t)
+	writeFile(s1.URL, "data/fizz", "master", "fizz", t)
+	writeFile(s1.URL, "data/buzz", "master", "buzz", t)
+	writeFile(s2.URL, "data/foo", "master", "foo", t)
+	writeFile(s2.URL, "data/bar", "master", "bar", t)
+	writeFile(s2.URL, "data/fizz", "master", "fizz", t)
+	writeFile(s2.URL, "data/buzz", "master", "buzz", t)
+
 	// Spoof the shards in etcache
 	etcache.SpoofMany("/pfs/master", []string{s1.URL, s2.URL}, false)
 
 	pipeline := `
 image ubuntu
 
-run mkdir /out/files
-run touch /out/files/foo
-run touch /out/files/bar 
-run touch /out/files/fizz
-run touch /out/files/buzz
+input data
 
-shuffle files 
+run mkdir /out/data
+run cp /in/data/foo /out/data/foo
+run cp /in/data/bar /out/data/bar
+run cp /in/data/fizz /out/data/fizz
+run cp /in/data/buzz /out/data/buzz
+
+shuffle data
 `
 	res, err := http.Post(s1.URL+"/pipeline/shuffle", "application/text", strings.NewReader(pipeline))
 	check(err, t)
