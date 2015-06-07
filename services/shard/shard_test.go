@@ -357,10 +357,11 @@ shuffle data
 	for _, file := range files {
 		match, err := route.Match(path.Join("data", file), "0-2")
 		check(err, t)
-		log.Print("match: ", match, "file: ", file)
-		if !match {
+		if match {
+			log.Print("shard: s1 file: ", file)
 			checkFile(s1.URL+"/pipeline/shuffle", path.Join("data", file), "commit1", file+file, t)
 		} else {
+			log.Print("shard: s2 file: ", file)
 			checkFile(s2.URL+"/pipeline/shuffle", path.Join("data", file), "commit1", file+file, t)
 		}
 	}

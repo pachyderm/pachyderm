@@ -40,6 +40,7 @@ func ParseShard(shardDesc string) (uint64, uint64, error) {
 
 // Match returns true of a resource hashes to the given shard.
 func Match(resource, shardDesc string) (bool, error) {
+	log.Print("resource: ", resource, " shardDesc: ", shardDesc)
 	shard, modulos, err := ParseShard(shardDesc)
 	if err != nil {
 		return false, err

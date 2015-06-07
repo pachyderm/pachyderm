@@ -167,7 +167,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 			defer msg.Close()
 			w.Header().Add("Boundary", msg.Boundary())
 			for _, file := range files {
-				name := strings.TrimPrefix(file, "/"+fs)
+				name := strings.TrimPrefix(file, "/"+fs+"/")
 				if shardParam(r) != "" {
 					// We have a shard param, check if the file matches the shard.
 					match, err := route.Match(name, shardParam(r))
