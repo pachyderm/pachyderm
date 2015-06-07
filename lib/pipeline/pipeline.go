@@ -156,8 +156,8 @@ func (p *Pipeline) Shuffle(in, out string) error {
 	if err != nil {
 		return err
 	}
-	errors := make(chan error)
 	resps, err := route.Multicast(req, "/pfs/master")
+	errors := make(chan error, len(resps))
 	var wg sync.WaitGroup
 	wg.Add(len(resps))
 	for _, resp := range resps {

@@ -79,6 +79,8 @@ run cp /in/data/foo /out/foo
 	}
 }
 
+// TODO(jd), this test is falsely passing I think that however we're getting
+// logs from Docker doesn't work.
 func TestLog(t *testing.T) {
 	outRepo := "TestLog"
 	check(btrfs.Init(outRepo), t)

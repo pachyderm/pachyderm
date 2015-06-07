@@ -14,6 +14,7 @@ import (
 	"testing"
 	"testing/quick"
 
+	"github.com/pachyderm/pfs/lib/etcache"
 	"github.com/pachyderm/pfs/lib/route"
 	"github.com/pachyderm/pfs/lib/traffic"
 )
@@ -307,4 +308,47 @@ run touch /out/bizz
 		}
 		files[p.FileName()] = struct{}{}
 	}
+}
+
+func TestShuffle(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
+
+	// Setup 2 shards
+	shard1 := NewShard("TestShuffleData-0-2", "TestShuffleComp-0-2", "TestShufflePipelines-0-2", 0, 2)
+	check(shard1.EnsureRepos(), t)
+	s1 := httptest.NewServer(shard1.ShardMux())
+	defer s1.Close()
+	shard2 := NewShard("TestShuffleData-1-2", "TestShuffleComp-1-2", "TestShufflePipelines-1-2", 1, 2)
+	check(shard2.EnsureRepos(), t)
+	s2 := httptest.NewServer(shard2.ShardMux())
+	defer s2.Close()
+
+	// Spoof the shards in etcache
+	etcache.SpoofMany("/pfs/master", []string{s1.URL, s2.URL}, false)
+
+	pipeline := `
+image ubuntu
+
+run mkdir /out/unshuffled
+run touch /out/unshuffled/foo
+run touch /out/unshuffled/bar 
+run touch /out/unshuffled/fizz
+run touch /out/unshuffled/buzz
+
+run mkdir /out/shuffled
+shuffle /out/unshuffled /out/shuffled
+`
+	res, err := http.Post(s1.URL+"/pipeline/shuffle", "application/text", strings.NewReader(pipeline))
+	check(err, t)
+	res.Body.Close()
+	res, err = http.Post(s2.URL+"/pipeline/shuffle", "application/text", strings.NewReader(pipeline))
+	check(err, t)
+	res.Body.Close()
+
+	res, err = http.Post(s1.URL+"/commit?commit=commit1", "", nil)
+	check(err, t)
+	res, err = http.Post(s2.URL+"/commit?commit=commit1", "", nil)
+	check(err, t)
+
+	checkFile(s1.URL+"/pipeline/shuffle", "shuffled/foo", "commit1", "", t)
 }

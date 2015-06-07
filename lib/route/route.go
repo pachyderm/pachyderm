@@ -158,7 +158,7 @@ func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
 	}
 
 	var resps []*http.Response
-	errors := make(chan error)
+	errors := make(chan error, len(endpoints))
 	var lock sync.Mutex
 	var wg sync.WaitGroup
 	wg.Add(len(endpoints))

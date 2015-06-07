@@ -152,10 +152,14 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 			log.Print(err)
 			return
 		}
-		if len(files) == 1 {
+		switch len(files) {
+		case 0:
+			http.Error(w, "404 page not found", 404)
+			return
+		case 1:
 			log.Print("Getting: ", files[0])
 			cat(w, files[0])
-		} else {
+		default:
 			msg := multipart.NewWriter(w)
 			defer msg.Close()
 			w.Header().Add("Boundary", msg.Boundary())
@@ -185,6 +189,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
+
 		}
 	} else if r.Method == "POST" {
 		btrfs.MkdirAll(path.Dir(file))
