@@ -1,4 +1,4 @@
 set -E
 cd /go/src/github.com/pachyderm/pfs
-go test -test.cover -test.short -test.run Shuffle ./lib/... ./services/shard
+go test -test.cover -test.short ./lib/... ./services/shard
 exit $?
