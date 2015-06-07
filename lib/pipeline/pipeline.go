@@ -188,7 +188,6 @@ func (p *Pipeline) Shuffle(in string) error {
 			reader := multipart.NewReader(resp.Body, resp.Header.Get("Boundary"))
 
 			for part, err := reader.NextPart(); err != io.EOF; part, err = reader.NextPart() {
-				log.Print("Got file: ", part.FileName(), " on shard: ", p.shard)
 				lock.Lock(part.FileName())
 				_, err := btrfs.Append(path.Join(p.outRepo, p.branch, part.FileName()), part)
 				lock.Unlock(part.FileName())
