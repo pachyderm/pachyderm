@@ -171,7 +171,10 @@ func (p *Pipeline) Shuffle(in, out string) error {
 
 			for part, err := reader.NextPart(); err != io.EOF; part, err = reader.NextPart() {
 				log.Print("Got file: ", part.FileName())
-				f, err := btrfs.Create(path.Join(p.outRepo, p.branch, out, part.FileName()))
+				// we don't want the path to look like /out/in/filename
+				// so we trim away "/in"
+				strippedPath := strings.TrimPrefix(part.FileName(), "/"+in)
+				f, err := btrfs.Create(path.Join(p.outRepo, p.branch, out, strippedPath))
 				if err != nil {
 					errors <- err
 					return

@@ -199,9 +199,7 @@ func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
 			lock.Unlock()
 		}(i, node)
 	}
-	log.Print("Waiting for reqs to finish.")
 	wg.Wait()
-	log.Print("Done.")
 	close(errors)
 
 	for err := range errors {

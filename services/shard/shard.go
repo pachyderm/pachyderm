@@ -157,16 +157,17 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "404 page not found", 404)
 			return
 		case 1:
-			log.Print("Getting: ", files[0])
 			cat(w, files[0])
 		default:
 			msg := multipart.NewWriter(w)
 			defer msg.Close()
 			w.Header().Add("Boundary", msg.Boundary())
 			for _, file := range files {
+				name := strings.TrimPrefix(file, "/"+fs)
+				log.Printf("File: %s, shardParam(r): %s, name: %s, fs: %s.", file, shardParam(r), name, fs)
 				if shardParam(r) != "" {
 					// We have a shard param, check if the file matches the shard.
-					match, err := route.Match(btrfs.PathFile(file), shardParam(r))
+					match, err := route.Match(name, shardParam(r))
 					if err != nil {
 						http.Error(w, err.Error(), 500)
 						log.Print(err)
@@ -176,7 +177,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 				}
-				fWriter, err := msg.CreateFormFile(btrfs.PathFile(file), btrfs.PathFile(file))
+				fWriter, err := msg.CreateFormFile(name, name)
 				if err != nil {
 					http.Error(w, err.Error(), 500)
 					log.Print(err)
