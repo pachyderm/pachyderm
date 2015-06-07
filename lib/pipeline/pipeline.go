@@ -32,9 +32,10 @@ type Pipeline struct {
 	counter         int
 	container       string
 	cancelled       bool
+	shard           string
 }
 
-func NewPipeline(name, dataRepo, outRepo, commit, branch string) *Pipeline {
+func NewPipeline(name, dataRepo, outRepo, commit, branch, shard string) *Pipeline {
 	return &Pipeline{
 		name:    name,
 		inRepo:  dataRepo,
@@ -43,6 +44,7 @@ func NewPipeline(name, dataRepo, outRepo, commit, branch string) *Pipeline {
 		branch:  branch,
 		config: docker.CreateContainerOptions{Config: &docker.Config{},
 			HostConfig: &docker.HostConfig{}},
+		shard: shard,
 	}
 }
 
@@ -152,7 +154,7 @@ func (p *Pipeline) Shuffle(in, out string) error {
 	commit := fmt.Sprintf("%s-%d", p.commit, p.counter-1)
 	// Notice we're just passing "host" here. Multicast will fill in the host
 	// field so we don't actually need to specify it.
-	req, err := http.NewRequest("GET", "http://host/"+path.Join("pipeline", p.name, "file", in, "*")+"?commit="+commit, nil)
+	req, err := http.NewRequest("GET", "http://host/"+path.Join("pipeline", p.name, "file", in, "*")+"?commit="+commit+"&shard="+p.shard, nil)
 	if err != nil {
 		return err
 	}
@@ -281,19 +283,21 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 type Runner struct {
 	pipelineDir, inRepo, commit, branch string
 	outPrefix                           string // the prefix for out repos
+	shard                               string
 	pipelines                           []*Pipeline
 	wait                                sync.WaitGroup
 	lock                                sync.Mutex // used to prevent races between `Run` and `Cancel`
 	cancelled                           bool
 }
 
-func NewRunner(pipelineDir, inRepo, outPrefix, commit, branch string) *Runner {
+func NewRunner(pipelineDir, inRepo, outPrefix, commit, branch, shard string) *Runner {
 	return &Runner{
 		pipelineDir: pipelineDir,
 		inRepo:      inRepo,
 		outPrefix:   outPrefix,
 		commit:      commit,
 		branch:      branch,
+		shard:       shard,
 	}
 }
 
@@ -366,7 +370,7 @@ func (r *Runner) Run() error {
 			log.Print(err)
 			return err
 		}
-		p := NewPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch)
+		p := NewPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard)
 		r.pipelines = append(r.pipelines, p)
 		go func(pInfo os.FileInfo, p *Pipeline) {
 			defer r.wait.Done()
@@ -400,8 +404,8 @@ func (r *Runner) Run() error {
 }
 
 // RunPipelines lets you easily run the Pipelines in one line if you don't care about cancelling them.
-func RunPipelines(pipelineDir, inRepo, outRepo, commit, branch string) error {
-	return NewRunner(pipelineDir, inRepo, outRepo, commit, branch).Run()
+func RunPipelines(pipelineDir, inRepo, outRepo, commit, branch, shard string) error {
+	return NewRunner(pipelineDir, inRepo, outRepo, commit, branch, shard).Run()
 }
 
 func (r *Runner) Cancel() error {

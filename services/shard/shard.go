@@ -96,6 +96,7 @@ type Shard struct {
 	dataRepo, compRepo string
 	pipelinePrefix     string
 	shard, modulos     uint64
+	shardStr           string
 	runners            map[string]*pipeline.Runner
 	guard              sync.Mutex
 }
@@ -111,6 +112,7 @@ func ShardFromArgs() (*Shard, error) {
 		compRepo: "comp-" + os.Args[1],
 		shard:    shard,
 		modulos:  modulos,
+		shardStr: os.Args[1],
 		runners:  make(map[string]*pipeline.Runner),
 	}, nil
 }
@@ -122,6 +124,7 @@ func NewShard(dataRepo, compRepo, pipelinePrefix string, shard, modulos uint64) 
 		pipelinePrefix: pipelinePrefix,
 		shard:          shard,
 		modulos:        modulos,
+		shardStr:       fmt.Sprint(shard, "-", modulos),
 		runners:        make(map[string]*pipeline.Runner),
 	}
 }
@@ -278,7 +281,7 @@ func (s *Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 		// and add the newRunner in.
 		s.guard.Lock()
 		oldRunner, ok := s.runners[branchParam(r)]
-		newRunner := pipeline.NewRunner("pipeline", s.dataRepo, s.pipelinePrefix, commit, branchParam(r))
+		newRunner := pipeline.NewRunner("pipeline", s.dataRepo, s.pipelinePrefix, commit, branchParam(r), s.shardStr)
 		s.runners[branchParam(r)] = newRunner
 		s.guard.Unlock()
 		go func() {
