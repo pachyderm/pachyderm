@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 	"testing/quick"
-	"time"
 
 	"github.com/pachyderm/pfs/lib/etcache"
 	"github.com/pachyderm/pfs/lib/route"
@@ -324,14 +323,12 @@ func TestShuffle(t *testing.T) {
 	s2 := httptest.NewServer(shard2.ShardMux())
 	defer s2.Close()
 
-	writeFile(s1.URL, "data/foo", "master", "foo", t)
-	writeFile(s1.URL, "data/bar", "master", "bar", t)
-	writeFile(s1.URL, "data/fizz", "master", "fizz", t)
-	writeFile(s1.URL, "data/buzz", "master", "buzz", t)
-	writeFile(s2.URL, "data/foo", "master", "foo", t)
-	writeFile(s2.URL, "data/bar", "master", "bar", t)
-	writeFile(s2.URL, "data/fizz", "master", "fizz", t)
-	writeFile(s2.URL, "data/buzz", "master", "buzz", t)
+	files := []string{"foo", "bar", "fizz", "buzz"}
+
+	for _, file := range files {
+		writeFile(s1.URL, path.Join("data", file), "master", file, t)
+		writeFile(s2.URL, path.Join("data", file), "master", file, t)
+	}
 
 	// Spoof the shards in etcache
 	etcache.SpoofMany("/pfs/master", []string{s1.URL, s2.URL}, false)
@@ -341,11 +338,7 @@ image ubuntu
 
 input data
 
-run mkdir /out/data
-run cp /in/data/foo /out/data/foo
-run cp /in/data/bar /out/data/bar
-run cp /in/data/fizz /out/data/fizz
-run cp /in/data/buzz /out/data/buzz
+run cp -r /in/data /out
 
 shuffle data
 `
@@ -361,6 +354,14 @@ shuffle data
 	res, err = http.Post(s2.URL+"/commit?commit=commit1", "", nil)
 	check(err, t)
 
-	time.Sleep(30 * time.Second)
-	t.Fatal()
+	for _, file := range files {
+		match, err := route.Match(path.Join("data", file), "0-2")
+		check(err, t)
+		log.Print("match: ", match, "file: ", file)
+		if !match {
+			checkFile(s1.URL+"/pipeline/shuffle", path.Join("data", file), "commit1", file+file, t)
+		} else {
+			checkFile(s2.URL+"/pipeline/shuffle", path.Join("data", file), "commit1", file+file, t)
+		}
+	}
 }

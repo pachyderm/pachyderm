@@ -148,6 +148,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 	// file is the path in the filesystem we're getting
 	file := path.Join(append([]string{fs}, url[fileStart:]...)...)
 
+	log.Print("Get: ", file)
 	if r.Method == "GET" {
 		files, err := btrfs.Glob(file)
 		if err != nil {
