@@ -2,6 +2,7 @@ package etcache
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -14,6 +15,8 @@ var lock sync.RWMutex
 
 func Get(key string, sort, recursive bool) (*etcd.Response, error) {
 	cacheKey := fmt.Sprint(key, "-", sort, "-", recursive)
+	log.Print("Get: ", cacheKey, " Time since: ", insertionTime[cacheKey])
+	// Notice this works because the default value is 0
 	if time.Since(insertionTime[cacheKey]) > (5 * time.Minute) {
 		return ForceGet(key, sort, recursive)
 	} else {
@@ -43,8 +46,9 @@ func rawSpoof(key string, sort, recursive bool, val *etcd.Response) {
 	lock.Lock()
 	defer lock.Unlock()
 	cacheKey := fmt.Sprint(key, "-", sort, "-", recursive)
+	log.Print("Spoof: ", cacheKey)
 	cache[cacheKey] = val
-	insertionTime[cacheKey] = time.Unix(1<<63-1, 999999999) // Maximal time
+	insertionTime[cacheKey] = time.Now().Add(time.Hour * 100)
 }
 
 func Spoof1(key, val string) {

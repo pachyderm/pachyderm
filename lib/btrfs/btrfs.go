@@ -271,7 +271,6 @@ func WaitForFile(name string) error {
 	}
 	defer watcher.Close()
 
-	log.Print("Adding: ", FilePath(dir))
 	if err := watcher.Add(FilePath(dir)); err != nil {
 		log.Print(err)
 		return err
@@ -292,7 +291,6 @@ func WaitForFile(name string) error {
 	for {
 		select {
 		case event := <-watcher.Events:
-			log.Print(event)
 			if event.Op == fsnotify.Create && event.Name == FilePath(name) {
 				return nil
 			} else if event.Op == fsnotify.Create && strings.HasPrefix(FilePath(name), event.Name) {

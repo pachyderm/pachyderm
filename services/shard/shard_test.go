@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 	"testing/quick"
+	"time"
 
 	"github.com/pachyderm/pfs/lib/etcache"
 	"github.com/pachyderm/pfs/lib/route"
@@ -350,5 +351,6 @@ shuffle /out/unshuffled /out/shuffled
 	res, err = http.Post(s2.URL+"/commit?commit=commit1", "", nil)
 	check(err, t)
 
-	checkFile(s1.URL+"/pipeline/shuffle", "shuffled/foo", "commit1", "", t)
+	time.Sleep(20 * time.Second)
+	t.Fatal()
 }

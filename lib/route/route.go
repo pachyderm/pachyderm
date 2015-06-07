@@ -2,6 +2,7 @@ package route
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"hash/adler32"
 	"io"
@@ -16,6 +17,8 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/pachyderm/pfs/lib/etcache"
 )
+
+var NoHosts = errors.New("No hosts found")
 
 func HashResource(resource string) uint64 {
 	return uint64(adler32.Checksum([]byte(resource)))
@@ -140,11 +143,16 @@ func MultiReadCloser(readers ...io.ReadCloser) io.ReadCloser {
 // Multicast sends a request to every host it finds under a key and returns a
 // ReadCloser for each one.
 func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
+	log.Print("Multicast.")
 	_endpoints, err := etcache.Get(etcdKey, false, true)
 	if err != nil {
 		return nil, err
 	}
 	endpoints := _endpoints.Node.Nodes
+	log.Print("len(endpoints) ", len(endpoints))
+	if len(endpoints) == 0 {
+		return nil, NoHosts
+	}
 
 	// If the request has a body we need to store it in memory because it needs
 	// to be sent to multiple endpoints and Reader (the type of r.Body) is
@@ -163,6 +171,7 @@ func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
 	var wg sync.WaitGroup
 	wg.Add(len(endpoints))
 	for i, node := range endpoints {
+		log.Print("Querying: ", node.Value)
 		go func(i int, node *etcd.Node) {
 			defer wg.Done()
 			httpClient := &http.Client{}

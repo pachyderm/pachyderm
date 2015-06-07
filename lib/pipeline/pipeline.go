@@ -157,6 +157,10 @@ func (p *Pipeline) Shuffle(in, out string) error {
 		return err
 	}
 	resps, err := route.Multicast(req, "/pfs/master")
+	if err != nil {
+		return err
+	}
+	log.Print("len(resps): ", len(resps))
 	errors := make(chan error, len(resps))
 	var wg sync.WaitGroup
 	wg.Add(len(resps))
@@ -166,6 +170,7 @@ func (p *Pipeline) Shuffle(in, out string) error {
 			reader := multipart.NewReader(resp.Body, resp.Header.Get("Boundary"))
 
 			for part, err := reader.NextPart(); err != io.EOF; part, err = reader.NextPart() {
+				log.Print("Got file: ", part.FileName())
 				f, err := btrfs.Create(path.Join(p.outRepo, p.branch, out, part.FileName()))
 				if err != nil {
 					errors <- err
