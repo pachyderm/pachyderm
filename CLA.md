@@ -1,11 +1,11 @@
-The Pachyderm Contributor Agreement Version 0.1
+#The Pachyderm Contributor Agreement Version 0.1
 
 You accept and agree to the following terms and conditions for Your present and
 future Contributions submitted to Pachyderm. Except for the license granted
 herein to Pachyderm and recipients of software distributed by Pachyderm, You
 reserve all right, title, and interest in and to Your Contributions.
 
-Definitions.
+##Definitions.
 
 "You" (or "Your") shall mean the copyright owner or legal entity authorized by
 the copyright owner that is making this Agreement with Pachyderm. For legal
@@ -29,7 +29,7 @@ Pachyderm for the purpose of discussing and improving the Work, but excluding
 communication that is conspicuously marked or otherwise designated in writing
 by You as "Not a Contribution."
 
-Grant of Copyright License.
+##Grant of Copyright License.
 
 Subject to the terms and conditions of this Agreement, You hereby grant to
 Pachyderm and to recipients of software distributed by Pachyderm a perpetual,
@@ -38,7 +38,7 @@ license to reproduce, prepare derivative works of, publicly display, publicly
 perform, sublicense, and distribute Your Contributions and such derivative
 works.
 
-Grant of Patent License.
+##Grant of Patent License.
 
 Subject to the terms and conditions of this Agreement, You hereby grant to
 Pachyderm and to recipients of software distributed by Pachyderm a perpetual,
