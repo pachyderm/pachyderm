@@ -152,7 +152,7 @@
                                 "            --privileged=true ",
                                 "            -v /:/host:ro",
                                 "            -v /tmp/home/core:/host/home/core",
-                                "            -i jdoliner/pfs",
+                                "            -i pachyderm/pfs",
                                 "            /go/bin/deploy -disk /dev/xvdf ",
                                 {
                                     "Ref" : "PfsDeployArgs"
