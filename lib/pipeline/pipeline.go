@@ -162,7 +162,6 @@ func (p *Pipeline) Shuffle(in, out string) error {
 	if err != nil {
 		return err
 	}
-	log.Print("len(resps): ", len(resps))
 	errors := make(chan error, len(resps))
 	var wg sync.WaitGroup
 	wg.Add(len(resps))
@@ -172,7 +171,6 @@ func (p *Pipeline) Shuffle(in, out string) error {
 			reader := multipart.NewReader(resp.Body, resp.Header.Get("Boundary"))
 
 			for part, err := reader.NextPart(); err != io.EOF; part, err = reader.NextPart() {
-				log.Print("Got file: ", part.FileName())
 				// we don't want the path to look like /out/in/filename
 				// so we trim away "/in"
 				strippedPath := strings.TrimPrefix(part.FileName(), "/"+in)
