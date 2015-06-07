@@ -7,7 +7,6 @@ Requires = docker.service
 TimeoutStartSec = 300
 ExecStartPre = -/bin/sh -c "echo $(docker kill {{.Name}}-{{.Shard}}-{{.Nshards}})"
 ExecStartPre = -/bin/sh -c "echo $(docker rm {{.Name}}-{{.Shard}}-{{.Nshards}})"
-ExecStartPre = /bin/sh -c "echo $(docker pull {{.Container}})"
 ExecStart = /bin/sh -c "echo $(docker run \
             --privileged=true \
             --name {{.Name}}-{{.Shard}}-{{.Nshards}} \
@@ -21,6 +20,10 @@ ExecStart = /bin/sh -c "echo $(docker run \
             -i {{.Container}} \
             /go/bin/{{.Name}} {{.Shard}}-{{.Nshards}} %H:{{.Port}})"
 ExecStop = /bin/sh -c "echo $(docker rm -f {{.Name}}-{{.Shard}}-{{.Nshards}})"
+Restart = always
+StartLimitInterval = 0
+StartLimitBurst = 0
+
 
 [X-Fleet]
 Conflicts={{.Name}}-{{.Shard}}-{{.Nshards}}*
