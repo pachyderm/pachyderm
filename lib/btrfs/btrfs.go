@@ -134,6 +134,26 @@ func CopyFile(name string, r io.Reader) (int64, error) {
 	return io.Copy(f, r)
 }
 
+// Append reads data out of reader and appends it to the file.
+// If the file doesn't exist it creates it.
+func Append(name string, r io.Reader) (int64, error) {
+	exists, err := FileExists(name)
+	if err != nil {
+		return 0, err
+	}
+	var f io.WriteCloser
+	if !exists {
+		f, err = Create(name)
+	} else {
+		f, err = OpenFile(name, os.O_APPEND|os.O_WRONLY, 0600)
+	}
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	return io.Copy(f, r)
+}
+
 func Remove(name string) error {
 	return os.Remove(FilePath(name))
 }

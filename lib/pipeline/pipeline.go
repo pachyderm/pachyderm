@@ -17,6 +17,7 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pfs/lib/btrfs"
+	"github.com/pachyderm/pfs/lib/concurrency"
 	"github.com/pachyderm/pfs/lib/container"
 	"github.com/pachyderm/pfs/lib/route"
 )
@@ -170,28 +171,26 @@ func (p *Pipeline) Shuffle(in string) error {
 	if err != nil {
 		return err
 	}
+	// Dispatch the request
 	resps, err := route.Multicast(req, "/pfs/master")
 	if err != nil {
 		return err
 	}
+
+	// Set up some concurrency structures.
 	errors := make(chan error, len(resps))
 	var wg sync.WaitGroup
 	wg.Add(len(resps))
+	lock := concurrency.NewPathLock()
 	for _, resp := range resps {
 		go func(resp *http.Response) {
 			defer wg.Done()
 			reader := multipart.NewReader(resp.Body, resp.Header.Get("Boundary"))
 
 			for part, err := reader.NextPart(); err != io.EOF; part, err = reader.NextPart() {
-				// we don't want the path to look like /out/in/filename
-				// so we trim away "/in"
-				strippedPath := strings.TrimPrefix(part.FileName(), "/"+in)
-				f, err := btrfs.Create(path.Join(p.outRepo, p.branch, in, strippedPath))
-				if err != nil {
-					errors <- err
-					return
-				}
-				_, err = io.Copy(f, part)
+				lock.Lock(part.FileName())
+				_, err := btrfs.Append(path.Join(p.outRepo, p.branch, part.FileName()), part)
+				lock.Unlock(part.FileName())
 				if err != nil {
 					errors <- err
 					return
