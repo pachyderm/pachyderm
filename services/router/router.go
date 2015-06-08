@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"code.google.com/p/go-uuid/uuid"
-	"github.com/pachyderm/pfs/lib/route"
+	"github.com/pachyderm/pfs/lib/router"
 )
 
 var modulos uint64
@@ -19,9 +19,9 @@ func RouterMux() *http.ServeMux {
 
 	fileHandler := func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "*") {
-			route.MulticastHttp(w, r, "/pfs/master")
+			router.MulticastHttp(w, r, "/pfs/master")
 		} else {
-			route.RouteHttp(w, r, "/pfs/master", modulos)
+			router.RouteHttp(w, r, "/pfs/master", modulos)
 		}
 	}
 	commitHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -30,16 +30,16 @@ func RouterMux() *http.ServeMux {
 			values.Add("commit", uuid.New())
 			r.URL.RawQuery = values.Encode()
 		}
-		route.MulticastHttp(w, r, "/pfs/master")
+		router.MulticastHttp(w, r, "/pfs/master")
 	}
 	branchHandler := func(w http.ResponseWriter, r *http.Request) {
-		route.MulticastHttp(w, r, "/pfs/master")
+		router.MulticastHttp(w, r, "/pfs/master")
 	}
 	jobHandler := func(w http.ResponseWriter, r *http.Request) {
-		route.MulticastHttp(w, r, "/pfs/master")
+		router.MulticastHttp(w, r, "/pfs/master")
 	}
 	materializeHandler := func(w http.ResponseWriter, r *http.Request) {
-		route.MulticastHttp(w, r, "/pfs/master")
+		router.MulticastHttp(w, r, "/pfs/master")
 	}
 
 	mux.HandleFunc("/file/", fileHandler)

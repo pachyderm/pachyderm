@@ -15,7 +15,7 @@ import (
 
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/container"
-	"github.com/pachyderm/pfs/lib/route"
+	"github.com/pachyderm/pfs/lib/router"
 	"github.com/pachyderm/pfs/lib/s3utils"
 	"github.com/pachyderm/pfs/lib/utils"
 )
@@ -175,7 +175,7 @@ func pumpFiles(files chan string, job Job, m materializeInfo, shard, modulos uin
 				return
 			}
 			for _, key := range lr.Contents {
-				if route.HashResource(key.Key)%modulos == shard {
+				if router.HashResource(key.Key)%modulos == shard {
 					// This file belongs on this shard
 					files <- key.Key
 					fileCount++
@@ -275,7 +275,7 @@ func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 }
 
 func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
-	if (route.HashResource(path.Join("/job", jobName)) % modulos) != shard {
+	if (router.HashResource(path.Join("/job", jobName)) % modulos) != shard {
 		// This resource isn't supposed to be located on this machine so we
 		// don't need to materialize it.
 		return
@@ -323,7 +323,7 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 				if err != nil {
 					return err
 				}
-				resps, err := route.Multicast(req, "/pfs/master")
+				resps, err := router.Multicast(req, "/pfs/master")
 				if err != nil {
 					return err
 				}
@@ -331,7 +331,7 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 				for _, resp := range resps {
 					readers = append(readers, resp.Body)
 				}
-				reader = route.MultiReadCloser(readers...)
+				reader = router.MultiReadCloser(readers...)
 				return err
 			}, retries, time.Minute)
 			if err != nil {

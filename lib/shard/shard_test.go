@@ -15,7 +15,7 @@ import (
 	"testing/quick"
 
 	"github.com/pachyderm/pfs/lib/etcache"
-	"github.com/pachyderm/pfs/lib/route"
+	"github.com/pachyderm/pfs/lib/router"
 	"github.com/pachyderm/pfs/lib/traffic"
 )
 
@@ -279,7 +279,7 @@ run touch /out/bizz
 	reader := multipart.NewReader(res.Body, res.Header.Get("Boundary"))
 
 	for p, err := reader.NextPart(); err != io.EOF; p, err = reader.NextPart() {
-		match, err := route.Match(p.FileName(), "0-2")
+		match, err := router.Match(p.FileName(), "0-2")
 		check(err, t)
 		if !match {
 			t.Fatalf("Filename: %s should match.", p.FileName())
@@ -298,7 +298,7 @@ run touch /out/bizz
 	reader = multipart.NewReader(res.Body, res.Header.Get("Boundary"))
 
 	for p, err := reader.NextPart(); err != io.EOF; p, err = reader.NextPart() {
-		match, err := route.Match(p.FileName(), "1-2")
+		match, err := router.Match(p.FileName(), "1-2")
 		check(err, t)
 		if !match {
 			t.Fatalf("Filename: %s should match.", p.FileName())
@@ -355,7 +355,7 @@ shuffle data
 	check(err, t)
 
 	for _, file := range files {
-		match, err := route.Match(path.Join("data", file), "0-2")
+		match, err := router.Match(path.Join("data", file), "0-2")
 		check(err, t)
 		if match {
 			log.Print("shard: s1 file: ", file)

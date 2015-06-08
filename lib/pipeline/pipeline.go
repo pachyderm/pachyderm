@@ -19,7 +19,7 @@ import (
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/concurrency"
 	"github.com/pachyderm/pfs/lib/container"
-	"github.com/pachyderm/pfs/lib/route"
+	"github.com/pachyderm/pfs/lib/router"
 )
 
 var Cancelled = errors.New("cancelled")
@@ -172,7 +172,7 @@ func (p *Pipeline) Shuffle(in string) error {
 		return err
 	}
 	// Dispatch the request
-	resps, err := route.Multicast(req, "/pfs/master")
+	resps, err := router.Multicast(req, "/pfs/master")
 	if err != nil {
 		return err
 	}
