@@ -1,4 +1,4 @@
-package main
+package shard
 
 // json.go contains json structures that shard will return in response to
 // requests.
