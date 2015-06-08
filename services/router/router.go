@@ -12,16 +12,33 @@ import (
 	"github.com/pachyderm/pfs/lib/router"
 )
 
-var modulos uint64
+type Router struct {
+	modulos uint64
+}
 
-func RouterMux() *http.ServeMux {
+func NewRouter(modulos uint64) *Router {
+	return &Router{
+		modulos: modulos,
+	}
+}
+
+func RouterFromArgs() (*Router, error) {
+	modulos, err := strconv.ParseUint(os.Args[1], 10, 32)
+
+	if err != nil {
+		return nil, err
+	}
+	return NewRouter(modulos), nil
+}
+
+func (ro *Router) RouterMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	fileHandler := func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "*") {
 			router.MulticastHttp(w, r, "/pfs/master")
 		} else {
-			router.RouteHttp(w, r, "/pfs/master", modulos)
+			router.RouteHttp(w, r, "/pfs/master", ro.modulos)
 		}
 	}
 	commitHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -55,15 +72,16 @@ func RouterMux() *http.ServeMux {
 	return mux
 }
 
+func (r *Router) RunServer() {
+	http.ListenAndServe(":80", r.RouterMux())
+}
+
 func main() {
 	log.SetFlags(log.Lshortfile)
 	log.Print("Starting up...")
-
-	var err error
-	modulos, err = strconv.ParseUint(os.Args[1], 10, 32)
-
+	r, err := RouterFromArgs()
 	if err != nil {
-		log.Fatalf("Failed to parse %s as Uint.")
+		log.Fatal(err)
 	}
-	log.Fatal(http.ListenAndServe(":80", RouterMux()))
+	r.RunServer()
 }
