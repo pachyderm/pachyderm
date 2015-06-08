@@ -66,8 +66,8 @@ Run the local install script to start the pipeline. It should take around 6 minu
 #### Creating a CoreOS cluster
 Pfs is designed to run on CoreOS. To start, you'll need a working CoreOS
 cluster. Here's links on how to set one up:
-
-- [Amazon EC2](https://coreos.com/docs/running-coreos/cloud-providers/ec2/) (recommended)
+- [Deploy on AWS](https://console.aws.amazon.com/cloudformation/home?region=us-west-1#/stacks/new?stackName=Pachyderm&templateURL=https:%2F%2Fs3-us-west-1.amazonaws.com%2Fpachyderm-templates%2Ftemplate) using cloud templates (recommended)
+- [Amazon EC2](https://coreos.com/docs/running-coreos/cloud-providers/ec2/) (manually)
 - [Google Compute Engine](https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/)
 - [Vagrant](https://coreos.com/docs/running-coreos/platforms/vagrant/) (requires setting up DNS)
 
