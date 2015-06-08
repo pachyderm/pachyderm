@@ -170,11 +170,11 @@ $ curl -XPOST pfs/commit?branch=<branch>
 # Getting all branches.
 $ curl -XGET pfs/branch
 ```
-###MapReduce
+##Containerized Analytics
 
-####Creating a new job descriptor
+####Creating a new pipeline descriptor
 
-Jobs are specified as JSON files in the following format:
+Pipelines and jobs are specified as JSON files in the following format:
 
 ```
 {
