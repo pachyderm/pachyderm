@@ -103,7 +103,7 @@ func (p *Pipeline) Run(cmd []string) error {
 		return nil
 	}
 	// Set the command
-	p.config.Config.Cmd = []string{"bash"}
+	p.config.Config.Cmd = []string{"sh"}
 	// Map the out directory in as a bind
 	hostPath := btrfs.HostPath(path.Join(p.outRepo, p.branch))
 	bind := fmt.Sprintf("%s:/out", hostPath)

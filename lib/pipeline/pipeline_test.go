@@ -47,7 +47,7 @@ run touch /out/bar
 func TestEcho(t *testing.T) {
 	outRepo := "TestEcho"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("output", "", outRepo, "commit", "master", "0-1")
+	pipeline := NewPipeline("echo", "", outRepo, "commit", "master", "0-1")
 	pachfile := `
 image ubuntu
 
@@ -123,6 +123,37 @@ run echo "foo"
 	check(err, t)
 	if exists != true {
 		t.Fatal("File .log should exist.")
+	}
+}
+
+// TestScrape tests a the scraper pipeline
+func TestScrape(t *testing.T) {
+	inRepo := "TestScrape_in"
+	check(btrfs.Init(inRepo), t)
+	outRepo := "TestScrape_out"
+	check(btrfs.Init(outRepo), t)
+
+	// Create a url to scrape
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "urls", "1"), []byte("pachyderm.io")), t)
+
+	// Commit the data
+	check(btrfs.Commit(inRepo, "commit", "master"), t)
+
+	// Create a pipeline to run
+	pipeline := NewPipeline("scrape", inRepo, outRepo, "commit", "master", "0-1")
+	pachfile := `
+image busybox
+
+input urls
+
+run cat /in/urls/* | xargs  wget -P /out
+`
+	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+
+	exists, err := btrfs.FileExists(path.Join(outRepo, "commit", "index.html"))
+	check(err, t)
+	if !exists {
+		t.Fatal("pachyderm.io should exists")
 	}
 }
 
