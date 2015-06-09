@@ -43,7 +43,7 @@ func NewPipeline(name, dataRepo, outRepo, commit, branch, shard string) *Pipelin
 		outRepo: outRepo,
 		commit:  commit,
 		branch:  branch,
-		config: docker.CreateContainerOptions{Config: &docker.Config{},
+		config: docker.CreateContainerOptions{Config: &container.DefaultConfig,
 			HostConfig: &docker.HostConfig{}},
 		shard: shard,
 	}
@@ -103,7 +103,7 @@ func (p *Pipeline) Run(cmd []string) error {
 		return nil
 	}
 	// Set the command
-	p.config.Config.Cmd = cmd
+	p.config.Config.Cmd = []string{"bash"}
 	// Map the out directory in as a bind
 	hostPath := btrfs.HostPath(path.Join(p.outRepo, p.branch))
 	bind := fmt.Sprintf("%s:/out", hostPath)
@@ -112,6 +112,11 @@ func (p *Pipeline) Run(cmd []string) error {
 	defer func() { p.config.HostConfig.Binds = p.config.HostConfig.Binds[:len(p.config.HostConfig.Binds)-1] }()
 	// Start the container
 	p.container, err = container.RawStartContainer(p.config)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	err = container.PipeToStdin(p.container, strings.NewReader(strings.Join(cmd, " ")+"\n"))
 	if err != nil {
 		log.Print(err)
 		return err

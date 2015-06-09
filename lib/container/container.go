@@ -8,6 +8,14 @@ import (
 	"github.com/fsouza/go-dockerclient"
 )
 
+var DefaultConfig = docker.Config{
+	AttachStdin:  true,
+	AttachStdout: true,
+	AttachStderr: true,
+	OpenStdin:    true,
+	StdinOnce:    true,
+}
+
 func RawStartContainer(opts docker.CreateContainerOptions) (string, error) {
 	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
@@ -67,6 +75,20 @@ func IpAddr(containerId string) (string, error) {
 	return container.NetworkSettings.IPAddress, nil
 }
 
+func PipeToStdin(id string, in io.Reader) error {
+	client, err := docker.NewClient("unix:///var/run/docker.sock")
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	return client.AttachToContainer(docker.AttachToContainerOptions{
+		Container:   id,
+		InputStream: in,
+		Stdin:       true,
+		Stream:      true,
+	})
+}
+
 func ContainerLogs(id string, out io.Writer) error {
 	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
@@ -79,6 +101,7 @@ func ContainerLogs(id string, out io.Writer) error {
 		ErrorStream:  out,
 		Stdout:       true,
 		Stderr:       true,
+		Stream:       true,
 	})
 }
 

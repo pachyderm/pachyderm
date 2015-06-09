@@ -44,6 +44,32 @@ run touch /out/bar
 	}
 }
 
+func TestEcho(t *testing.T) {
+	outRepo := "TestEcho"
+	check(btrfs.Init(outRepo), t)
+	pipeline := NewPipeline("output", "", outRepo, "commit", "master", "0-1")
+	pachfile := `
+image ubuntu
+
+run echo foo >/out/foo
+run echo foo >/out/bar
+`
+	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+	check(err, t)
+
+	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
+	check(err, t)
+	if exists != true {
+		t.Fatal("File `foo` doesn't exist when it should.")
+	}
+
+	exists, err = btrfs.FileExists(path.Join(outRepo, "commit-1", "bar"))
+	check(err, t)
+	if exists != true {
+		t.Fatal("File `bar` doesn't exist when it should.")
+	}
+}
+
 func TestInputOutput(t *testing.T) {
 	// create the in repo
 	inRepo := "TestInputOutput_in"
