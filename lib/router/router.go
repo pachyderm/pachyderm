@@ -16,7 +16,6 @@ import (
 	"sync"
 
 	"code.google.com/p/go-uuid/uuid"
-	"github.com/coreos/go-etcd/etcd"
 	"github.com/pachyderm/pfs/lib/etcache"
 )
 
@@ -42,7 +41,6 @@ func ParseShard(shardDesc string) (uint64, uint64, error) {
 
 // Match returns true of a resource hashes to the given shard.
 func Match(resource, shardDesc string) (bool, error) {
-	log.Print("resource: ", resource, " shardDesc: ", shardDesc)
 	shard, modulos, err := ParseShard(shardDesc)
 	if err != nil {
 		return false, err
@@ -69,7 +67,6 @@ func Route(r *http.Request, etcdKey string, modulos uint64) (io.ReadCloser, erro
 	r.RequestURI = ""
 	r.URL.Scheme = "http"
 	r.URL.Host = strings.TrimPrefix(master, "http://")
-	log.Printf("Send request: %#v", r)
 	resp, err := httpClient.Do(r)
 	if err != nil {
 		return nil, err
@@ -171,36 +168,37 @@ func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
 	var lock sync.Mutex
 	var wg sync.WaitGroup
 	wg.Add(len(endpoints))
-	for i, node := range endpoints {
-		go func(i int, node *etcd.Node) {
-			defer wg.Done()
-			httpClient := &http.Client{}
-			// `Do` will complain if r.RequestURI is set so we unset it
-			r.RequestURI = ""
-			r.URL.Scheme = "http"
-			r.URL.Host = strings.TrimPrefix(node.Value, "http://")
-			if err != nil {
-				errors <- err
-				return
-			}
+	for _, node := range endpoints {
+		//go func(node *etcd.Node) {
+		wg.Done()
+		httpClient := &http.Client{}
+		// `Do` will complain if r.RequestURI is set so we unset it
+		r.RequestURI = ""
+		r.URL.Scheme = "http"
+		r.URL.Host = strings.TrimPrefix(node.Value, "http://")
+		log.Print(r.URL.String())
+		if err != nil {
+			//errors <- err
+			return nil, err
+		}
 
-			if r.ContentLength != 0 {
-				r.Body = ioutil.NopCloser(bytes.NewReader(body))
-			}
+		if r.ContentLength != 0 {
+			r.Body = ioutil.NopCloser(bytes.NewReader(body))
+		}
 
-			resp, err := httpClient.Do(r)
-			if err != nil {
-				errors <- err
-				return
-			}
-			if resp.StatusCode != 200 {
-				errors <- fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String())
-				return
-			}
-			lock.Lock()
-			resps = append(resps, resp)
-			lock.Unlock()
-		}(i, node)
+		resp, err := httpClient.Do(r)
+		if err != nil {
+			//errors <- err
+			return nil, err
+		}
+		if resp.StatusCode != 200 {
+			//errors <- fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String())
+			return nil, err
+		}
+		lock.Lock()
+		resps = append(resps, resp)
+		lock.Unlock()
+		//}(node)
 	}
 	wg.Wait()
 	close(errors)
