@@ -155,24 +155,26 @@ func (p *Pipeline) Run(cmd []string) error {
 	return nil
 }
 
-func (p *Pipeline) Shuffle(in string) error {
-	// First we clear the in directory, notice that the previous commit from
+func (p *Pipeline) Shuffle(dir string) error {
+	// this function always increments counter
+	defer func() { p.counter++ }()
+	// First we clear the directory, notice that the previous commit from
 	// which we're pulling has already been made so this doesn't destroy the
 	// data that others are trying to pull.
 	// TODO(jd) #performance this is a seriously unperformant part of the code
 	// since it messes up our ability to do incremental results. We should do
 	// something smarter here.
-	if err := btrfs.RemoveAll(path.Join(p.outRepo, p.branch, in)); err != nil {
+	if err := btrfs.RemoveAll(path.Join(p.outRepo, p.branch, dir)); err != nil {
 		return err
 	}
-	if err := btrfs.MkdirAll(path.Join(p.outRepo, p.branch, in)); err != nil {
+	if err := btrfs.MkdirAll(path.Join(p.outRepo, p.branch, dir)); err != nil {
 		return err
 	}
 	// We want to pull files from the previous commit
 	commit := fmt.Sprintf("%s-%d", p.commit, p.counter-1)
 	// Notice we're just passing "host" here. Multicast will fill in the host
 	// field so we don't actually need to specify it.
-	req, err := http.NewRequest("GET", "http://host/"+path.Join("pipeline", p.name, "file", in, "*")+"?commit="+commit+"&shard="+p.shard, nil)
+	req, err := http.NewRequest("GET", "http://host/"+path.Join("pipeline", p.name, "file", dir, "*")+"?commit="+commit+"&shard="+p.shard, nil)
 	if err != nil {
 		return err
 	}
@@ -252,6 +254,7 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 		return err
 	}
 	for lines.Scan() {
+		log.Print("Running line: ", lines.Text())
 		if p.cancelled {
 			return Cancelled
 		}
