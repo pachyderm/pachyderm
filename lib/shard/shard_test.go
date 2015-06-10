@@ -420,5 +420,5 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 	check(err, t)
 
 	// There should be 3 occurances of Dursley
-	checkFile(s1.URL+"/pipeline/wc", path.Join("counts", "Dursley"), "commit1", "3", t)
+	checkFile(s1.URL+"/pipeline/wc", path.Join("counts", "Dursley"), "commit1", "3\n", t)
 }

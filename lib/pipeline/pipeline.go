@@ -189,9 +189,13 @@ func (p *Pipeline) Shuffle(dir string) error {
 	var wg sync.WaitGroup
 	wg.Add(len(resps))
 	lock := concurrency.NewPathLock()
-	for _, resp := range resps {
-		go func(resp *http.Response) {
+	// for _, resp := range resps {
+	// We used to iterate like the above but it exhibited racy behavior. I
+	// don't fully understand why this was. Something to look in to.
+	for i, _ := range resps {
+		go func(i int) {
 			defer wg.Done()
+			resp := resps[i]
 			reader := multipart.NewReader(resp.Body, resp.Header.Get("Boundary"))
 
 			for part, err := reader.NextPart(); err != io.EOF; part, err = reader.NextPart() {
@@ -203,7 +207,7 @@ func (p *Pipeline) Shuffle(dir string) error {
 					return
 				}
 			}
-		}(resp)
+		}(i)
 	}
 	wg.Wait()
 	close(errors)
@@ -254,7 +258,6 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 		return err
 	}
 	for lines.Scan() {
-		log.Print("Running line: ", lines.Text())
 		if p.cancelled {
 			return Cancelled
 		}
