@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"code.google.com/p/go-uuid/uuid"
+	"github.com/coreos/go-etcd/etcd"
 	"github.com/pachyderm/pfs/lib/etcache"
 )
 
@@ -169,36 +170,32 @@ func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
 	var wg sync.WaitGroup
 	wg.Add(len(endpoints))
 	for _, node := range endpoints {
-		//go func(node *etcd.Node) {
-		wg.Done()
-		httpClient := &http.Client{}
-		// `Do` will complain if r.RequestURI is set so we unset it
-		r.RequestURI = ""
-		r.URL.Scheme = "http"
-		r.URL.Host = strings.TrimPrefix(node.Value, "http://")
-		log.Print(r.URL.String())
-		if err != nil {
-			//errors <- err
-			return nil, err
-		}
-
-		if r.ContentLength != 0 {
-			r.Body = ioutil.NopCloser(bytes.NewReader(body))
-		}
-
-		resp, err := httpClient.Do(r)
-		if err != nil {
-			//errors <- err
-			return nil, err
-		}
-		if resp.StatusCode != 200 {
-			//errors <- fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String())
-			return nil, err
-		}
-		lock.Lock()
-		resps = append(resps, resp)
-		lock.Unlock()
-		//}(node)
+		go func(node *etcd.Node) {
+			defer wg.Done()
+			httpClient := &http.Client{}
+			// First make a request, taking some values from the previous request.
+			url := node.Value + r.URL.Path + "?" + r.URL.RawQuery
+			req, err := http.NewRequest(r.Method, url,
+				ioutil.NopCloser(bytes.NewReader(body)))
+			if err != nil {
+				errors <- err
+				return
+			}
+			// Send the request
+			resp, err := httpClient.Do(req)
+			if err != nil {
+				errors <- err
+				return
+			}
+			if resp.StatusCode != 200 {
+				errors <- fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String())
+				return
+			}
+			// Append the request to the response slice.
+			lock.Lock()
+			resps = append(resps, resp)
+			lock.Unlock()
+		}(node)
 	}
 	wg.Wait()
 	close(errors)
@@ -287,8 +284,10 @@ func (ro *Router) RouterMux() *http.ServeMux {
 	commitHandler := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			values := r.URL.Query()
-			values.Add("commit", uuid.New())
-			r.URL.RawQuery = values.Encode()
+			if values.Get("commit") == "" {
+				values.Add("commit", uuid.New())
+				r.URL.RawQuery = values.Encode()
+			}
 		}
 		MulticastHttp(w, r, "/pfs/master", ReturnOne)
 	}
