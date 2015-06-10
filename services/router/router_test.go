@@ -66,3 +66,24 @@ func TestTwoShards(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestWordCount(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
+	// used to prevent collisions
+	counter := 0
+	f := func(w traffic.Workload) bool {
+		defer func() { counter++ }()
+		cluster := NewCluster(fmt.Sprintf("TestWordCount-%d", counter), 2, t)
+		defer cluster.Close()
+		// Run the workload
+		shard.RunWorkload(cluster.router.URL, w, t)
+		// Make sure we see the changes we should
+		facts := w.Facts()
+		shard.RunWorkload(cluster.router.URL, facts, t)
+		//increment the counter
+		return true
+	}
+	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
+		t.Error(err)
+	}
+}
