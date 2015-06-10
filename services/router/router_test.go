@@ -1,9 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 	"testing/quick"
 
@@ -14,36 +14,51 @@ import (
 	"github.com/pachyderm/pfs/lib/traffic"
 )
 
+type Cluster struct {
+	router *httptest.Server
+	shards []*httptest.Server
+}
+
+func (c Cluster) Close() {
+	c.router.Close()
+	for _, shard := range c.shards {
+		shard.Close()
+	}
+}
+
+func NewCluster(prefix string, shards int, t *testing.T) Cluster {
+	var res Cluster
+	for i := 0; i < shards; i++ {
+		repoStr := fmt.Sprintf("%s-%d-%d", prefix, i, shards)
+		s := shard.NewShard(repoStr+"-data", repoStr+"-comp",
+			repoStr+"-pipeline", uint64(i), uint64(shards))
+		shard.Check(s.EnsureRepos(), t)
+		server := httptest.NewServer(s.ShardMux())
+		res.shards = append(res.shards, server)
+		etcache.Spoof1(fmt.Sprintf("/pfs/master/%d-%d", i, shards), server.URL)
+	}
+	var urls []string
+	for _, server := range res.shards {
+		urls = append(urls, server.URL)
+	}
+	etcache.SpoofMany("/pfs/master", urls, false)
+	res.router = httptest.NewServer(router.NewRouter(uint64(shards)).RouterMux())
+	return res
+}
+
 func TestTwoShards(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
 	// used to prevent collisions
 	counter := 0
 	f := func(w traffic.Workload) bool {
 		defer func() { counter++ }()
-		suf := strconv.Itoa(counter)
-		// Setup 2 shards
-		shard1 := shard.NewShard("TestTwoShardsData-0-2"+suf,
-			"TestTwoShardsComp-0-2"+suf, "TestTwoShardsPipelines-0-2"+suf, 0, 2)
-		shard.Check(shard1.EnsureRepos(), t)
-		s1 := httptest.NewServer(shard1.ShardMux())
-		defer s1.Close()
-		shard2 := shard.NewShard("TestTwoShardsData-1-2"+suf,
-			"TestTwoShardsComp-1-2"+suf, "TestTwoShardsPipelines-1-2"+suf, 1, 2)
-		shard.Check(shard2.EnsureRepos(), t)
-		s2 := httptest.NewServer(shard2.ShardMux())
-		defer s2.Close()
-		// Setup a Router
-		r := httptest.NewServer(router.NewRouter(2).RouterMux())
-		defer r.Close()
-		// Spoof the shards in etcache
-		etcache.SpoofMany("/pfs/master", []string{s1.URL, s2.URL}, false)
-		etcache.Spoof1("/pfs/master/0-2", s1.URL)
-		etcache.Spoof1("/pfs/master/1-2", s2.URL)
+		cluster := NewCluster(fmt.Sprintf("TestTwoShards-%d", counter), 2, t)
+		defer cluster.Close()
 		// Run the workload
-		shard.RunWorkload(r.URL, w, t)
+		shard.RunWorkload(cluster.router.URL, w, t)
 		// Make sure we see the changes we should
 		facts := w.Facts()
-		shard.RunWorkload(r.URL, facts, t)
+		shard.RunWorkload(cluster.router.URL, facts, t)
 		//increment the counter
 		return true
 	}

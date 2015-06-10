@@ -368,7 +368,9 @@ func (r *Runner) Run() error {
 	}
 	pipelines, err := btrfs.ReadDir(path.Join(r.inRepo, r.commit, r.pipelineDir))
 	if err != nil {
-		return err
+		// Notice we don't return this error but instead no-op. It's fine to not
+		// have a pipeline dir.
+		return nil
 	}
 	// A chanel for the errors, notice that it's capacity is the same as the
 	// number of pipelines. The below code should make sure that each pipeline only
