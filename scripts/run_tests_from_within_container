@@ -1,4 +1,4 @@
 set -E
 cd /go/src/github.com/pachyderm/pfs
-go test -test.cover -test.short -test.v -test.run TestTwoShards ./lib/... ./services/shard
+go test -test.cover -test.short -test.v -test.run TestTwoShards ./lib/... ./services/...
 exit $?
