@@ -42,6 +42,7 @@ func ParseShard(shardDesc string) (uint64, uint64, error) {
 
 // Match returns true of a resource hashes to the given shard.
 func Match(resource, shardDesc string) (bool, error) {
+	log.Print("resource: ", resource, " shardDesc: ", shardDesc)
 	shard, modulos, err := ParseShard(shardDesc)
 	if err != nil {
 		return false, err
@@ -213,7 +214,18 @@ func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
 	return resps, nil
 }
 
-func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string) {
+type ForwardingPolicy int
+
+const (
+	// ReturnOne makes MulticastHttp return only the first response
+	ReturnOne ForwardingPolicy = iota
+	// ReturnAll makes MulticastHttp return all the responses
+	ReturnAll ForwardingPolicy = iota
+)
+
+// MulticastHttp sends r to every host it finds under etcdKey, then prints the
+// response to w based on
+func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string, f ForwardingPolicy) {
 	resps, err := Multicast(r, etcdKey)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -224,7 +236,17 @@ func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string) {
 	for _, resp := range resps {
 		readers = append(readers, resp.Body)
 	}
-	reader := MultiReadCloser(readers...)
+	var reader io.ReadCloser
+	switch f {
+	case ReturnOne:
+		reader = readers[0]
+	case ReturnAll:
+		reader = MultiReadCloser(readers...)
+	default:
+		http.Error(w, "Internal error.", 500)
+		log.Print("Invalid ForwardingPolicy (programmer error)")
+		return
+	}
 	defer reader.Close() //this line will close all of the readers
 
 	_, err = io.Copy(w, reader)
@@ -259,7 +281,7 @@ func (ro *Router) RouterMux() *http.ServeMux {
 
 	fileHandler := func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "*") {
-			MulticastHttp(w, r, "/pfs/master")
+			MulticastHttp(w, r, "/pfs/master", ReturnAll)
 		} else {
 			RouteHttp(w, r, "/pfs/master", ro.modulos)
 		}
@@ -270,23 +292,23 @@ func (ro *Router) RouterMux() *http.ServeMux {
 			values.Add("commit", uuid.New())
 			r.URL.RawQuery = values.Encode()
 		}
-		MulticastHttp(w, r, "/pfs/master")
+		MulticastHttp(w, r, "/pfs/master", ReturnOne)
 	}
 	branchHandler := func(w http.ResponseWriter, r *http.Request) {
-		MulticastHttp(w, r, "/pfs/master")
+		MulticastHttp(w, r, "/pfs/master", ReturnOne)
 	}
 	jobHandler := func(w http.ResponseWriter, r *http.Request) {
-		MulticastHttp(w, r, "/pfs/master")
+		MulticastHttp(w, r, "/pfs/master", ReturnOne)
 	}
-	materializeHandler := func(w http.ResponseWriter, r *http.Request) {
-		MulticastHttp(w, r, "/pfs/master")
+	pipelineHandler := func(w http.ResponseWriter, r *http.Request) {
+		MulticastHttp(w, r, "/pfs/master", ReturnOne)
 	}
 
 	mux.HandleFunc("/file/", fileHandler)
 	mux.HandleFunc("/commit", commitHandler)
 	mux.HandleFunc("/branch", branchHandler)
 	mux.HandleFunc("/job/", jobHandler)
-	mux.HandleFunc("/materialize", materializeHandler)
+	mux.HandleFunc("/pipeline/", pipelineHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Welcome to pfs!\n")
