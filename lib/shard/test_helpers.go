@@ -3,6 +3,7 @@ package shard
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"path"
 	"runtime/debug"
@@ -14,21 +15,33 @@ import (
 
 func Check(err error, t *testing.T) {
 	if err != nil {
-		debug.PrintStack()
-		t.Fatal(err)
+		if t == nil {
+			log.Print(err)
+		} else {
+			debug.PrintStack()
+			t.Fatal(err)
+		}
 	}
 }
 
 func CheckResp(res *http.Response, expected string, t *testing.T) {
 	if res.StatusCode != 200 {
-		debug.PrintStack()
-		t.Fatalf("Got error status: %s", res.Status)
+		if t == nil {
+			log.Printf("Got error status: %s", res.Status)
+		} else {
+			debug.PrintStack()
+			t.Fatalf("Got error status: %s", res.Status)
+		}
 	}
 	value, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
 	Check(err, t)
 	if string(value) != expected {
-		t.Fatalf("Body:\n%s\ndidn't match:\n%s\n", string(value), expected)
+		if t == nil {
+			log.Printf("Body:\n%s\ndidn't match:\n%s\n", string(value), expected)
+		} else {
+			t.Fatalf("Body:\n%s\ndidn't match:\n%s\n", string(value), expected)
+		}
 	}
 }
 
