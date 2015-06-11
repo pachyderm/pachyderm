@@ -27,10 +27,21 @@ import (
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 var once sync.Once
 
-// volume is hardcoded because we can map any host directory in to this path
-// using Docker's `volume`s.
-var volume = "/var/lib/pfs/vol"
-var hostVolume = "/home/jdoliner/.pfs/vol"
+// localVolume returns the path *inside* the container that we look for the
+// btrfs volume at
+func localVolume() string {
+	if val := os.Getenv("PFS_LOCAL_VOLUME"); val != "" {
+		return val
+	}
+	return "/var/lib/pfs/vol"
+}
+
+func hostVolume() string {
+	if val := os.Getenv("PFS_HOST_VOLUME"); val != "" {
+		return val
+	}
+	return "/var/lib/pfs/vol"
+}
 
 // Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
 // This should be factored out to another file.
@@ -48,15 +59,15 @@ func Sync() error {
 }
 
 func FilePath(name string) string {
-	return path.Join(volume, name)
+	return path.Join(localVolume(), name)
 }
 
 func HostPath(name string) string {
-	return path.Join(hostVolume, name)
+	return path.Join(hostVolume(), name)
 }
 
 func TrimFilePath(name string) string {
-	return strings.TrimPrefix(name, volume)
+	return strings.TrimPrefix(name, localVolume())
 }
 
 // PathRepo extracts the repo from a path
