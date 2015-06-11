@@ -88,6 +88,7 @@ sudo docker run \
     -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
     -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
     -e GOMAXPROCS="$GOMAXPROCS" \
+    -e PFS_HOST_VOLUME="$PFS_DIR"/vol \
     -p "$PORT":80 \
     -i "$IMAGE" \
     ${CONTAINER_COMMAND}

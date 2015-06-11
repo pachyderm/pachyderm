@@ -63,6 +63,7 @@ func FilePath(name string) string {
 }
 
 func HostPath(name string) string {
+	log.Print("HOSTPATH: ", hostVolume())
 	return path.Join(hostVolume(), name)
 }
 
