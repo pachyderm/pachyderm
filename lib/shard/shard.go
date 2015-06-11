@@ -16,7 +16,7 @@ import (
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/mapreduce"
 	"github.com/pachyderm/pfs/lib/pipeline"
-	"github.com/pachyderm/pfs/lib/router"
+	"github.com/pachyderm/pfs/lib/route"
 )
 
 var jobDir string = "job"
@@ -102,7 +102,7 @@ type Shard struct {
 }
 
 func ShardFromArgs() (*Shard, error) {
-	shard, modulos, err := router.ParseShard(os.Args[1])
+	shard, modulos, err := route.ParseShard(os.Args[1])
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 				name := strings.TrimPrefix(file, "/"+fs+"/")
 				if shardParam(r) != "" {
 					// We have a shard param, check if the file matches the shard.
-					match, err := router.Match(name, shardParam(r))
+					match, err := route.Match(name, shardParam(r))
 					if err != nil {
 						http.Error(w, err.Error(), 500)
 						log.Print(err)
