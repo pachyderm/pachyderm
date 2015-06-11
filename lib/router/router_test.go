@@ -1,4 +1,4 @@
-package main
+package router
 
 import (
 	"fmt"
@@ -10,8 +10,6 @@ import (
 	"testing/quick"
 
 	"github.com/pachyderm/pfs/lib/etcache"
-
-	"github.com/pachyderm/pfs/lib/router"
 	"github.com/pachyderm/pfs/lib/shard"
 	"github.com/pachyderm/pfs/lib/traffic"
 )
@@ -44,7 +42,7 @@ func NewCluster(prefix string, shards int, t *testing.T) Cluster {
 		urls = append(urls, server.URL)
 	}
 	etcache.SpoofMany("/pfs/master", urls, false)
-	res.router = httptest.NewServer(router.NewRouter(uint64(shards)).RouterMux())
+	res.router = httptest.NewServer(NewRouter(uint64(shards)).RouterMux())
 	return res
 }
 
