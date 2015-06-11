@@ -362,6 +362,7 @@ func (r *Runner) makeOutRepo(pipeline string) error {
 // Run runs all of the pipelines it finds in pipelineDir. Returns the
 // first error it encounters.
 func (r *Runner) Run() error {
+	log.Print("Run: ", r)
 	err := btrfs.MkdirAll(r.outPrefix)
 	if err != nil {
 		return err
@@ -430,6 +431,7 @@ func RunPipelines(pipelineDir, inRepo, outRepo, commit, branch, shard string) er
 }
 
 func (r *Runner) Cancel() error {
+	log.Print("Cancel: ", r)
 	// A chanel for the errors, notice that it's capacity is the same as the
 	// number of pipelines. The below code should make sure that each pipeline only
 	// sends 1 error otherwise deadlock may occur.
@@ -460,7 +462,7 @@ func (r *Runner) Cancel() error {
 		return err
 	}
 	// At the end we wait for the pipelines to actually finish, this means that
-	// once Cancel is done you can safely fire off a new bathc of pipelines.
+	// once Cancel is done you can safely fire off a new batch of pipelines.
 	r.wait.Wait()
 	return nil
 }

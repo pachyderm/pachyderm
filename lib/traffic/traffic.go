@@ -125,7 +125,7 @@ func randObject(rand *rand.Rand) Object {
 	}
 }
 
-var letters = []rune("abcdefghijklmnopqrstuvwxyz")
+var letters = []rune("abcdefg")
 
 // Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
 // This should be factored out to another file.
@@ -146,11 +146,11 @@ func (w Workload) Generate(rand *rand.Rand, size int) reflect.Value {
 		o := Op{RW: W, Object: randObject(rand)}
 		switch o.Object {
 		case File:
-			o.Path = fmt.Sprintf("file%.10d", i)
+			o.Path = fmt.Sprintf("data/file%.10d", i)
 			o.Branch = branches[rand.Int()%len(branches)]
 			nWords := rand.Intn(400) + 100 // nWords in [100, 500)
 			for i := 0; i < nWords; i++ {
-				wordLength := rand.Intn(6) + 2 //wordLength in [2,8)
+				wordLength := rand.Intn(2) + 2 //wordLength in [2,4)
 				o.Data += RandWord(wordLength, rand)
 				o.Data += " "
 			}

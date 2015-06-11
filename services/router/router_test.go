@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 	"testing/quick"
-	"time"
 
 	"github.com/pachyderm/pfs/lib/etcache"
 
@@ -77,10 +76,10 @@ func TestWordCount(t *testing.T) {
 	pipeline := `
 image ubuntu
 
-input .
+input data
 
 run mkdir -p /out/counts
-run cat /in/* | tr -cs "A-Za-z'" "\n" | sort | uniq -c | sort -n -r | while read count; do echo ${count% *} >/out/counts/${count#* }; done
+run cat /in/data/* | tr -cs "A-Za-z'" "\n" | sort | uniq -c | sort -n -r | while read count; do echo ${count% *} >/out/counts/${count#* }; done
 shuffle counts
 run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count $count; done
 `
@@ -88,21 +87,32 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 	counter := 0
 	f := func(w traffic.Workload) bool {
 		defer func() { counter++ }()
-		cluster := NewCluster(fmt.Sprintf("TestWordCount-%d", counter), 2, t)
+		cluster := NewCluster(fmt.Sprintf("TestWordCount-%d", counter), 4, t)
 		defer cluster.Close()
+		// Run the workload
+		shard.RunWorkload(cluster.router.URL, w, t)
 		// Install the pipeline
 		res, err := http.Post(cluster.router.URL+"/pipeline/wc", "application/text", strings.NewReader(pipeline))
 		shard.Check(err, t)
 		res.Body.Close()
-		// Run the workload
-		shard.RunWorkload(cluster.router.URL, w, t)
-		// Make sure we see the changes we should
-		facts := w.Facts()
-		shard.RunWorkload(cluster.router.URL, facts, t)
-		time.Sleep(time.Second * 5)
+		// Make a commit
+		res, err = http.Post(cluster.router.URL+"/commit?commit=commit1", "", nil)
+		shard.Check(err, t)
+		res.Body.Close()
+		// TODO(jd) make this check for correctness, not just that the request
+		// completes. It's a bit hard because the input is random. Probably the
+		// right idea is to modify the traffic package so that it keeps track of
+		// this.
+		res, err = http.Get(cluster.router.URL + "/pipeline/wc/file/counts/*?commit=commit1")
+		shard.Check(err, t)
+		if res.StatusCode != 200 {
+			t.Fatal("Bad status code.")
+		}
+		res.Body.Close()
+
 		return true
 	}
-	if err := quick.Check(f, &quick.Config{MaxCount: 1}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
 		t.Error(err)
 	}
 

@@ -338,8 +338,10 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 
 	res, err = http.Post(s1.URL+"/commit?commit=commit1", "", nil)
 	Check(err, t)
+	res.Body.Close()
 	res, err = http.Post(s2.URL+"/commit?commit=commit1", "", nil)
 	Check(err, t)
+	res.Body.Close()
 
 	// There should be 3 occurances of Dursley
 	Checkfile(s1.URL+"/pipeline/wc", path.Join("counts", "Dursley"), "commit1", "3\n", t)
