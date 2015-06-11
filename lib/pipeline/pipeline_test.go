@@ -25,7 +25,9 @@ func TestOutput(t *testing.T) {
 	pachfile := `
 image ubuntu
 
+# touch foo
 run touch /out/foo
+# touch bar
 run touch /out/bar
 `
 	err := pipeline.RunPachFile(strings.NewReader(pachfile))

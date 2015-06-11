@@ -261,7 +261,7 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 			return Cancelled
 		}
 		tokens := strings.Fields(lines.Text())
-		if len(tokens) == 0 {
+		if len(tokens) == 0 || tokens[0][0] == '#' {
 			continue
 		}
 
