@@ -75,6 +75,15 @@ func IpAddr(containerId string) (string, error) {
 	return container.NetworkSettings.IPAddress, nil
 }
 
+func PullImage(image string) error {
+	client, err := docker.NewClient("unix:///var/run/docker.sock")
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	return client.PullImage(docker.PullImageOptions{Repository: image}, docker.AuthConfiguration{})
+}
+
 func PipeToStdin(id string, in io.Reader) error {
 	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {

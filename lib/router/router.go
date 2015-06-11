@@ -51,17 +51,22 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 	url := "http://localhost"
 	var _w traffic.Workload
 	// Run the workload
-	workload := _w.Generate(rand, 100).Interface().(traffic.Workload)
+	workload := _w.Generate(rand, 20).Interface().(traffic.Workload)
 	shard.RunWorkload(url, workload, nil)
 	// Make sure we see the changes we should
 	facts := workload.Facts()
 	shard.RunWorkload(url, facts, nil)
+	log.Print("Workload done.")
 	// Install the pipeline
+	log.Print("Installing pipeline:")
 	res, err := http.Post(url+"/pipeline/wc", "application/text", strings.NewReader(pipeline))
+	log.Print("Done.")
 	shard.Check(err, nil)
 	res.Body.Close()
 	// Make a commit
+	log.Print("Committing.")
 	res, err = http.Post(url+"/commit?commit=commit1", "", nil)
+	log.Print("Done.")
 	shard.Check(err, nil)
 	res.Body.Close()
 	// TODO(jd) make this check for correctness, not just that the request

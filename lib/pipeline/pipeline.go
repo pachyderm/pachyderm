@@ -62,7 +62,7 @@ func (p *Pipeline) Input(name string) error {
 // Image sets the image that is being used for computations.
 func (p *Pipeline) Image(image string) error {
 	p.config.Config.Image = image
-	return nil
+	return container.PullImage(image)
 }
 
 // Start gets an outRepo ready to be used. This is where clean up of dirty
