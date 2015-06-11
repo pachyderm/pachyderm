@@ -107,13 +107,14 @@ func ShardFromArgs() (*Shard, error) {
 		return nil, err
 	}
 	return &Shard{
-		url:      "http://" + os.Args[2],
-		dataRepo: "data-" + os.Args[1],
-		compRepo: "comp-" + os.Args[1],
-		shard:    shard,
-		modulos:  modulos,
-		shardStr: os.Args[1],
-		runners:  make(map[string]*pipeline.Runner),
+		url:            "http://" + os.Args[2],
+		dataRepo:       "data-" + os.Args[1],
+		compRepo:       "comp-" + os.Args[1],
+		pipelinePrefix: "pipe-" + os.Args[1],
+		shard:          shard,
+		modulos:        modulos,
+		shardStr:       os.Args[1],
+		runners:        make(map[string]*pipeline.Runner),
 	}, nil
 }
 
