@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"testing/quick"
+	"time"
 
 	"github.com/pachyderm/pfs/lib/etcache"
 
@@ -69,21 +72,38 @@ func TestTwoShards(t *testing.T) {
 
 func TestWordCount(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
+	// First setup the WordCount pipeline
+
+	pipeline := `
+image ubuntu
+
+input .
+
+run mkdir -p /out/counts
+run cat /in/* | tr -cs "A-Za-z'" "\n" | sort | uniq -c | sort -n -r | while read count; do echo ${count% *} >/out/counts/${count#* }; done
+shuffle counts
+run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count $count; done
+`
 	// used to prevent collisions
 	counter := 0
 	f := func(w traffic.Workload) bool {
 		defer func() { counter++ }()
 		cluster := NewCluster(fmt.Sprintf("TestWordCount-%d", counter), 2, t)
 		defer cluster.Close()
+		// Install the pipeline
+		res, err := http.Post(cluster.router.URL+"/pipeline/wc", "application/text", strings.NewReader(pipeline))
+		shard.Check(err, t)
+		res.Body.Close()
 		// Run the workload
 		shard.RunWorkload(cluster.router.URL, w, t)
 		// Make sure we see the changes we should
 		facts := w.Facts()
 		shard.RunWorkload(cluster.router.URL, facts, t)
-		//increment the counter
+		time.Sleep(time.Second * 5)
 		return true
 	}
-	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 1}); err != nil {
 		t.Error(err)
 	}
+
 }
