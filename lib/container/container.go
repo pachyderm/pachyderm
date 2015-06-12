@@ -4,6 +4,7 @@ package container
 import (
 	"io"
 	"log"
+	"strings"
 
 	"github.com/fsouza/go-dockerclient"
 )
@@ -73,6 +74,20 @@ func IpAddr(containerId string) (string, error) {
 	}
 
 	return container.NetworkSettings.IPAddress, nil
+}
+
+func PullImage(image string) error {
+	repo_tag := strings.Split(image, ":")
+	client, err := docker.NewClient("unix:///var/run/docker.sock")
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	opts := docker.PullImageOptions{Repository: repo_tag[0], Tag: "latest"}
+	if len(repo_tag) == 2 {
+		opts.Tag = repo_tag[1]
+	}
+	return client.PullImage(opts, docker.AuthConfiguration{})
 }
 
 func PipeToStdin(id string, in io.Reader) error {
