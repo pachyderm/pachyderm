@@ -125,6 +125,18 @@ func randObject(rand *rand.Rand) Object {
 	}
 }
 
+var letters = []rune("abcdefg")
+
+// Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
+// This should be factored out to another file.
+func RandWord(n int, rand *rand.Rand) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
 func (w Workload) Generate(rand *rand.Rand, size int) reflect.Value {
 	res := make(Workload, 0)
 	branches := []string{"master"}
@@ -134,16 +146,27 @@ func (w Workload) Generate(rand *rand.Rand, size int) reflect.Value {
 		o := Op{RW: W, Object: randObject(rand)}
 		switch o.Object {
 		case File:
-			o.Path = fmt.Sprintf("file%.10d", i)
+			o.Path = fmt.Sprintf("data/file%.10d", i)
 			o.Branch = branches[rand.Int()%len(branches)]
-			o.Data = fmt.Sprintf("data%.10d", i)
+			nWords := rand.Intn(400) + 100 // nWords in [100, 500)
+			for i := 0; i < nWords; i++ {
+				wordLength := rand.Intn(2) + 2 //wordLength in [2,4)
+				o.Data += RandWord(wordLength, rand)
+				o.Data += " "
+			}
 		case Commit:
+			if len(branches) == 0 {
+				continue
+			}
 			o.Commit = fmt.Sprintf("commit%.10d", i)
-			o.Branch = branches[rand.Int()%len(branches)]
+			o.Branch = branches[rand.Intn(len(branches))]
 			commits = append(commits, o.Commit)
 		case Branch:
+			if len(commits) == 0 {
+				continue
+			}
 			o.Branch = fmt.Sprintf("branch%.10d", i)
-			o.Commit = commits[rand.Int()%len(commits)]
+			o.Commit = commits[rand.Intn(len(commits))]
 			branches = append(branches, o.Branch)
 		}
 		res = append(res, o)

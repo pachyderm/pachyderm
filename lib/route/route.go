@@ -2,6 +2,7 @@ package route
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"hash/adler32"
 	"io"
@@ -9,13 +10,41 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
+	"sync"
 
+	"github.com/coreos/go-etcd/etcd"
 	"github.com/pachyderm/pfs/lib/etcache"
 )
 
+var NoHosts = errors.New("No hosts found")
+
 func HashResource(resource string) uint64 {
 	return uint64(adler32.Checksum([]byte(resource)))
+}
+
+// Parse a string descriving a shard, the string looks like: "0-4"
+func ParseShard(shardDesc string) (uint64, uint64, error) {
+	s_m := strings.Split(shardDesc, "-")
+	shard, err := strconv.ParseUint(s_m[0], 10, 64)
+	if err != nil {
+		return 0, 0, err
+	}
+	modulos, err := strconv.ParseUint(s_m[1], 10, 64)
+	if err != nil {
+		return 0, 0, err
+	}
+	return shard, modulos, nil
+}
+
+// Match returns true of a resource hashes to the given shard.
+func Match(resource, shardDesc string) (bool, error) {
+	shard, modulos, err := ParseShard(shardDesc)
+	if err != nil {
+		return false, err
+	}
+	return (HashResource(resource) % modulos) == shard, nil
 }
 
 func hashRequest(r *http.Request) uint64 {
@@ -37,7 +66,6 @@ func Route(r *http.Request, etcdKey string, modulos uint64) (io.ReadCloser, erro
 	r.RequestURI = ""
 	r.URL.Scheme = "http"
 	r.URL.Host = strings.TrimPrefix(master, "http://")
-	log.Printf("Send request: %#v", r)
 	resp, err := httpClient.Do(r)
 	if err != nil {
 		return nil, err
@@ -111,13 +139,21 @@ func MultiReadCloser(readers ...io.ReadCloser) io.ReadCloser {
 
 // Multicast enables the Ogre Magi to rapidly cast his spells, giving them
 // greater potency.
-func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
+// Multicast sends a request to every host it finds under a key and returns a
+// ReadCloser for each one.
+func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
 	_endpoints, err := etcache.Get(etcdKey, false, true)
 	if err != nil {
 		return nil, err
 	}
 	endpoints := _endpoints.Node.Nodes
+	if len(endpoints) == 0 {
+		return nil, NoHosts
+	}
 
+	// If the request has a body we need to store it in memory because it needs
+	// to be sent to multiple endpoints and Reader (the type of r.Body) is
+	// single use.
 	var body []byte
 	if r.ContentLength != 0 {
 		body, err = ioutil.ReadAll(r.Body)
@@ -126,46 +162,85 @@ func Multicast(r *http.Request, etcdKey string) (io.ReadCloser, error) {
 		}
 	}
 
-	var readers []io.ReadCloser
-	for i, node := range endpoints {
-		httpClient := &http.Client{}
-		// `Do` will complain if r.RequestURI is set so we unset it
-		r.RequestURI = ""
-		r.URL.Scheme = "http"
-		r.URL.Host = strings.TrimPrefix(node.Value, "http://")
+	var resps []*http.Response
+	errors := make(chan error, len(endpoints))
+	var lock sync.Mutex
+	var wg sync.WaitGroup
+	wg.Add(len(endpoints))
+	for _, node := range endpoints {
+		go func(node *etcd.Node) {
+			defer wg.Done()
+			httpClient := &http.Client{}
+			// First make a request, taking some values from the previous request.
+			url := node.Value + r.URL.Path + "?" + r.URL.RawQuery
+			req, err := http.NewRequest(r.Method, url,
+				ioutil.NopCloser(bytes.NewReader(body)))
+			if err != nil {
+				errors <- err
+				return
+			}
+			// Send the request
+			resp, err := httpClient.Do(req)
+			if err != nil {
+				errors <- err
+				return
+			}
+			if resp.StatusCode != 200 {
+				errors <- fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String())
+				return
+			}
+			// Append the request to the response slice.
+			lock.Lock()
+			resps = append(resps, resp)
+			lock.Unlock()
+		}(node)
+	}
+	wg.Wait()
+	close(errors)
+
+	for err := range errors {
 		if err != nil {
 			return nil, err
-		}
-
-		if r.ContentLength != 0 {
-			r.Body = ioutil.NopCloser(bytes.NewReader(body))
-		}
-
-		resp, err := httpClient.Do(r)
-		if err != nil {
-			log.Print(err)
-			return nil, err
-		}
-		if resp.StatusCode != 200 {
-			return nil, fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String())
-		}
-		// paths with * are multigets so we want all of the responses
-		if i == 0 || strings.Contains(r.URL.Path, "*") {
-			readers = append(readers, resp.Body)
 		}
 	}
 
-	return MultiReadCloser(readers...), nil
+	return resps, nil
 }
 
-func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string) {
-	reader, err := Multicast(r, etcdKey)
+type ForwardingPolicy int
+
+const (
+	// ReturnOne makes MulticastHttp return only the first response
+	ReturnOne ForwardingPolicy = iota
+	// ReturnAll makes MulticastHttp return all the responses
+	ReturnAll ForwardingPolicy = iota
+)
+
+// MulticastHttp sends r to every host it finds under etcdKey, then prints the
+// response to w based on
+func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string, f ForwardingPolicy) {
+	resps, err := Multicast(r, etcdKey)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
 	}
-	defer reader.Close()
+	var readers []io.ReadCloser
+	for _, resp := range resps {
+		readers = append(readers, resp.Body)
+	}
+	var reader io.ReadCloser
+	switch f {
+	case ReturnOne:
+		reader = readers[0]
+	case ReturnAll:
+		reader = MultiReadCloser(readers...)
+	default:
+		http.Error(w, "Internal error.", 500)
+		log.Print("Invalid ForwardingPolicy (programmer error)")
+		return
+	}
+	defer reader.Close() //this line will close all of the readers
 
 	_, err = io.Copy(w, reader)
 	if err != nil {

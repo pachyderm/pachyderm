@@ -4,16 +4,16 @@ Pachyderm v0.7 is out. v0.7 includes replication, automatic failover, and a rigo
 We're hiring! Pachyderm is looking for our first hire. If you'd like to get involved, email us at jobs@pachyderm.io
 
 ## What is pfs?
-Pfs is a distributed file system built specifically for the Docker
-ecosystem. You [deploy it with Docker](https://registry.hub.docker.com/u/pachyderm/pfs/),
-just like other applications in your stack. Furthermore,
-MapReduce jobs are specified as Docker containers, rather than .jars,
+Pachyderm is a distributed file system and analytics engine built specifically for containerized infrastructures. 
+You [deploy it with Docker](https://registry.hub.docker.com/u/pachyderm/pfs/),
+just like the other applications in your stack. Furthermore,
+analysis jobs are specified as containers, rather than .jars,
 letting you perform distributed computation using any tools you want.
 
 ## Key Features
 - Fault-tolerant architecture built on [CoreOS](https://coreos.com)
 - [Git-like distributed file system](#what-is-a-git-like-file-system)
-- [Dockerized MapReduce](#what-is-dockerized-mapreduce)
+- [Containerized analytics engine](#what-is-containerized-analytics)
 
 ## Is pfs production ready
 No, pfs is at Alpha status. [We'd love your help. :)](#how-do-i-hack-on-pfs)
@@ -38,21 +38,14 @@ impacting anyone else or the underlying data. Branches can easily be merged back
 - Cloning: Btrfs's send/receive functionality allows pfs to efficiently copy
 an entire cluster's worth of data while still maintaining its commit history.
 
-## What is "dockerized MapReduce?"
-The basic interface for MapReduce is a `map` function and a `reduce` function.
-In Hadoop this is exposed as a Java interface. In Pachyderm, MapReduce jobs are
-user-submitted Docker containers with http servers inside them. Rather than
-calling a `map` method on a class, Pachyderm POSTs files to the `/map` route on
-a webserver. This completely democratizes MapReduce by decoupling it from a
-single platform, such as the JVM.
-
-Thanks to Docker, Pachyderm can seamlessly integrate external libraries. For example, suppose you want to perform computer
-vision on a large set of images. Creating this job is as simple as
-running `npm install opencv` inside a Docker container and creating a node.js server, which uses this library on its `/map` route.
+## What is "containerized analytics?"
+Rather than thinking in terms of map or reduce jobs, pps thinks in terms of pipelines expressed within a container. A pipeline is a generic way expressing computation over large datasets and it’s containerized to make it easily portable, isolated, and easy to monitor. In Pachyderm, all analysis runs in containers. You can write them in any language you want and include any libraries. 
+For example, suppose you want to perform computer vision on a large set of images. Creating this job is as simple as
+running `npm install opencv` inside a Docker container.
 
 ## Quickstart Guide
-
-### Run Pachyderm locally on a small sample dataset (chess games)
+### Tutorial -- Analyzing chess games
+#### Run Pachyderm locally on a small sample dataset
 ```shell
 # launch a local pfs shard
 $ curl www.pachyderm.io/launch | sh
@@ -63,23 +56,22 @@ $ git clone https://github.com/pachyderm/chess.git && cd chess
 # install the pipeline locally and run it
 $ install/pachyderm/local
 ```
-####Step 1: Launch a local pfs shard
+#####Step 1: Launch a local pfs shard
 Download and run the Pachyderm launch script to get a local instance running.
-####Step 2: Clone the chess pipeline
+#####Step 2: Clone the chess pipeline
 Clone the chess git repo we’ve provided. You can check out the full map code [here](https://github.com/pachyderm/chess).
-####Step 3: Install and run the pipeline locally
+#####Step 3: Install and run the pipeline locally
 Run the local install script to start the pipeline. It should take around 6 minutes to complete the analysis.
 
-### Creating a CoreOS cluster
-Pfs is designed to run on CoreOS. To start, you'll need a working CoreOS
-cluster. Here's links on how to set one up:
-
-- [Google Compute Engine](https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/) (recommended)
-- [Amazon EC2](https://coreos.com/docs/running-coreos/cloud-providers/ec2/)
+#### Creating a Pachyderm cluster
+Pachyderm is designed to run on CoreOS so we'll need to deploy a CoreOs cluster.  Here's links on how to set one up:
+- [Deploy on Amazon EC2](https://console.aws.amazon.com/cloudformation/home?region=us-west-1#/stacks/new?stackName=Pachyderm&templateURL=https:%2F%2Fs3-us-west-1.amazonaws.com%2Fpachyderm-templates%2Ftemplate) using cloud templates (recommended)
+- [Amazon EC2](https://coreos.com/docs/running-coreos/cloud-providers/ec2/) (manual)
+- [Google Compute Engine](https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/) (manual)
 - [Vagrant](https://coreos.com/docs/running-coreos/platforms/vagrant/) (requires setting up DNS)
 
-### Deploy pfs
-SSH in to one of your new CoreOS machines.
+#### Deploy pfs
+If you chose any of the manual options above, you'll neeed to SSH in to one of your new CoreOS machines and start Pachyderm.
 
 ```shell
 $ curl pachyderm.io/deploy | sh
@@ -101,7 +93,9 @@ Usage of /go/bin/deploy:
 ```
 
 ### Integrating with s3
-As of v0.4 pfs can leverage s3 as a source of data for MapReduce jobs. Pfs also
+If you'd like to populate your Pachyderm cluster with your own data, [jump ahead](https://github.com/pachyderm/pfs#using-pfs) to learn how. If not, we've created a public s3 bucket with chess data for you and we can run the chess pipeline in the full cluster.
+
+As of v0.4 pfs can leverage s3 as a source of data for jobs. Pfs also
 uses s3 as the backend for its local Docker registry. To get s3 working you'll
 need to provide pfs with credentials by setting them in etcd like so:
 
@@ -130,8 +124,8 @@ router.service                  ed618559.../172.31.9.87         active          
 If you startup a new cluster and `registry.service` fails to start it's
 probably an issue with s3 credentials. See the section above.
 
-### Using pfs
-Pfs exposes a git-like interface to the file system:
+## Using pfs
+Pfs exposes a git-like interface to the file system -- you can add files and then create commits, branches, etc.
 
 #### Creating files
 ```shell
@@ -177,11 +171,11 @@ $ curl -XPOST pfs/commit?branch=<branch>
 # Getting all branches.
 $ curl -XGET pfs/branch
 ```
-###MapReduce
+##Containerized Analytics
 
-####Creating a new job descriptor
+####Creating a new pipeline descriptor
 
-Jobs are specified as JSON files in the following format:
+Pipelines and jobs are specified as JSON files in the following format:
 
 ```
 {

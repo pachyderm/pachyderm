@@ -1,4 +1,4 @@
-package main
+package shard
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 )
 
-func (s Shard) Peers() ([]string, error) {
+func (s *Shard) Peers() ([]string, error) {
 	var peers []string
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
 	resp, err := client.Get(fmt.Sprintf("/pfs/replica/%d-%d", s.shard, s.modulos), false, true)
@@ -24,7 +24,7 @@ func (s Shard) Peers() ([]string, error) {
 	return peers, err
 }
 
-func (s Shard) SyncFromPeers() error {
+func (s *Shard) SyncFromPeers() error {
 	peers, err := s.Peers()
 	if err != nil {
 		return err
@@ -38,7 +38,7 @@ func (s Shard) SyncFromPeers() error {
 	return nil
 }
 
-func (s Shard) SyncToPeers() error {
+func (s *Shard) SyncToPeers() error {
 	peers, err := s.Peers()
 	if err != nil {
 		return err
@@ -55,7 +55,7 @@ func (s Shard) SyncToPeers() error {
 // FillRole attempts to find a role in the cluster. Once on is found it
 // prepares the local storage for the role and announces the shard to the rest
 // of the cluster. This function will loop until `cancel` is closed.
-func (s Shard) FillRole(cancel chan struct{}) error {
+func (s *Shard) FillRole(cancel chan struct{}) error {
 	shard := fmt.Sprintf("%d-%d", s.shard, s.modulos)
 	masterKey := path.Join("/pfs/master", shard)
 	replicaDir := path.Join("/pfs/replica", shard)
