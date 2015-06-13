@@ -67,7 +67,7 @@ concatenated on to a single shard, so we'll have a file `/counts/foo` whose cont
 
 ### Summing
 `run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count $count; done`
-Lastly we need to sum up the values in these files, this line would turn /counts/foo `6`.
+Lastly we need to sum up the values in these files, this line would make /counts/foo have the content `6`.
 
 ## Installing the pipeline:
 To install the pipeline you do:
