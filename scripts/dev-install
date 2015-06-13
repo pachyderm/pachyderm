@@ -35,8 +35,8 @@ git remote remove staging
 git remote add staging "git://${HOST}/home/core/${REPO}.git"
 
 # Do an initial run with the post-receive hook to set everything up.
-ssh "core@${HOST}" etcdctl set /pfs/creds/AWS_ACCESS_KEY_ID ${AWS_ACCESS_KEY_ID}
-ssh "core@${HOST}" etcdctl set /pfs/creds/AWS_SECRET_ACCESS_KEY ${AWS_SECRET_ACCESS_KEY}
+ssh "core@${HOST}" etcdctl set /pfs/creds/AWS_ACCESS_KEY_ID "${AWS_ACCESS_KEY_ID}"
+ssh "core@${HOST}" etcdctl set /pfs/creds/AWS_SECRET_ACCESS_KEY "${AWS_SECRET_ACCESS_KEY}"
 ssh "core@${HOST}" etcdctl set /pfs/creds/IMAGE_BUCKET "${PFS_S3_BUCKET}"
 ssh "core@${HOST}" etcdctl set /pfs/config/DISK "/var/lib/pfs/data.img"
 ssh "core@${HOST}" 'cd pfs.git && hooks/post-receive'

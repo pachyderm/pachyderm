@@ -19,7 +19,7 @@ PORT="${PFS_PORT}"
 IMAGE="${PFS_IMAGE}"
 DAEMONIZE="-d"
 
-while getopts "p:i:" opt; do
+while getopts "p:i:f:" opt; do
     case "$opt" in
     \?)  echo $HELP
         exit 0
