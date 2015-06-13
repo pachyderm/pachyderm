@@ -12,11 +12,11 @@ import (
 	"strings"
 	"sync"
 
-	"code.google.com/p/go-uuid/uuid"
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/mapreduce"
 	"github.com/pachyderm/pfs/lib/pipeline"
 	"github.com/pachyderm/pfs/lib/route"
+	"github.com/satori/go.uuid"
 )
 
 var jobDir string = "job"
@@ -268,7 +268,7 @@ func (s *Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 		// Create a commit from local data
 		var commit string
 		if commit = r.URL.Query().Get("commit"); commit == "" {
-			commit = uuid.New()
+			commit = uuid.NewV4().String()
 		}
 		err := btrfs.Commit(s.dataRepo, commit, branchParam(r))
 		if err != nil {

@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/go-uuid/uuid"
 	"github.com/pachyderm/pfs/lib/route"
 	"github.com/pachyderm/pfs/lib/shard"
 	"github.com/pachyderm/pfs/lib/traffic"
+	"github.com/satori/go.uuid"
 )
 
 type Router struct {
@@ -96,7 +96,7 @@ func (ro *Router) RouterMux() *http.ServeMux {
 		if r.Method == "POST" {
 			values := r.URL.Query()
 			if values.Get("commit") == "" {
-				values.Add("commit", uuid.New())
+				values.Add("commit", uuid.NewV4().String())
 				r.URL.RawQuery = values.Encode()
 			}
 		}
