@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var minPort, maxPort int = 49153, 65535 // Docker uses this range we're just replicating.
+var port = 49153
 
 type service struct {
 	Container, Name      string
@@ -33,7 +33,8 @@ func printShardedService(name string) {
 			config.Container = *container
 			config.Shard = s
 			config.Nshards = *shards
-			config.Port = minPort + rand.Intn(maxPort-minPort)
+			config.Port = port
+			port++
 			server, err := os.Create(fmt.Sprintf("%s/%s-%d-%d:%d.service", outPath, config.Name, config.Shard, config.Nshards, r))
 			if err != nil {
 				log.Fatal(err)

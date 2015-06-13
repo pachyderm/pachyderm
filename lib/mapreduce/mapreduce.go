@@ -14,9 +14,10 @@ import (
 	"time"
 
 	"github.com/pachyderm/pfs/lib/btrfs"
+	"github.com/pachyderm/pfs/lib/container"
 	"github.com/pachyderm/pfs/lib/route"
 	"github.com/pachyderm/pfs/lib/s3utils"
-	"github.com/samalba/dockerclient"
+	"github.com/pachyderm/pfs/lib/utils"
 )
 
 const (
@@ -24,82 +25,6 @@ const (
 	defaultParallel = 100
 	usesPerMapper   = 2000
 )
-
-// TODO(rw): pull this out into a separate library
-func startContainer(image string, command []string) (string, error) {
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	containerConfig := &dockerclient.ContainerConfig{Image: image, Cmd: command}
-
-	containerId, err := docker.CreateContainer(containerConfig, "")
-	if err != nil {
-		log.Print(err)
-		return "", nil
-	}
-
-	if err := docker.StartContainer(containerId, &dockerclient.HostConfig{}); err != nil {
-		log.Print(err)
-		return "", err
-	}
-
-	return containerId, nil
-}
-
-// spinupContainer pulls image and starts a container from it with command. It
-// returns the container id or an error.
-// TODO(rw): pull this out into a separate library
-func spinupContainer(image string, command []string) (string, error) {
-	log.Print("spinupContainer", " ", image, " ", command)
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	if err != nil {
-		log.Print(err)
-		return "", err
-	}
-	if err := docker.PullImage(image, nil); err != nil {
-		log.Print("Failed to pull ", image, " with error: ", err)
-		// We keep going here because it might be a local image.
-	}
-
-	return startContainer(image, command)
-}
-
-// TODO(rw): pull this out into a separate library
-func stopContainer(containerId string) error {
-	log.Print("stopContainer", " ", containerId)
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	if err != nil {
-		log.Print(err)
-		return err
-	}
-	return docker.StopContainer(containerId, 5)
-}
-
-// TODO(rw): pull this out into a separate library
-func ipAddr(containerId string) (string, error) {
-	docker, err := dockerclient.NewDockerClient("unix:///var/run/docker.sock", nil)
-	if err != nil {
-		return "", err
-	}
-	containerInfo, err := docker.InspectContainer(containerId)
-	if err != nil {
-		return "", err
-	}
-
-	return containerInfo.NetworkSettings.IPAddress, nil
-}
-
-func retry(f func() error, retries int, pause time.Duration) error {
-	var err error
-	for i := 0; i < retries; i++ {
-		err = f()
-		if err == nil {
-			break
-		} else {
-			log.Print("Retrying due to error: ", err)
-			time.Sleep(pause)
-		}
-	}
-	return err
-}
 
 // contains checks if set contains val. It assums that set has already been
 // sorted.
@@ -118,17 +43,6 @@ type Job struct {
 	TimeOut   int      `json:"timeout"`
 	CpuShares int      `json:"cpu-shares"`
 	Memory    int      `json:"memory"`
-}
-
-func (j Job) containerConfig() *dockerclient.ContainerConfig {
-	c := &dockerclient.ContainerConfig{Image: j.Image, Cmd: j.Cmd}
-	if j.CpuShares != 0 {
-		c.CpuShares = int64(j.CpuShares)
-	}
-	if j.Memory != 0 {
-		c.Memory = int64(j.Memory)
-	}
-	return c
 }
 
 type materializeInfo struct {
@@ -162,7 +76,7 @@ func mapFile(filename, jobName, host string, job Job, m materializeInfo) error {
 	// the containers http server is actually listening. It also
 	// can help in cases where a user has written a job that fails
 	// intermittently.
-	err := retry(func() error {
+	err := utils.Retry(func() error {
 		var err error
 		var inFile io.ReadCloser
 		switch {
@@ -311,13 +225,13 @@ func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 
 	for {
 		// Spinup a Mapper()
-		containerId, err := spinupContainer(job.Image, job.Cmd)
+		containerId, err := container.StartContainer(job.Image, job.Cmd)
 		if err != nil {
 			log.Print(err)
 			return
 		}
 		// Make sure that the Mapper gets cleaned up
-		host, err := ipAddr(containerId)
+		host, err := container.IpAddr(containerId)
 		if err != nil {
 			log.Print(err)
 			return
@@ -348,7 +262,7 @@ func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 			semaphore <- 1
 		}
 		close(semaphore)
-		if err := stopContainer(containerId); err != nil {
+		if err := container.StopContainer(containerId); err != nil {
 			log.Print(err)
 			return
 		}
@@ -373,25 +287,25 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 	}
 
 	// Spinup a Reducer()
-	containerId, err := spinupContainer(job.Image, job.Cmd)
+	containerId, err := container.StartContainer(job.Image, job.Cmd)
 	if err != nil {
 		log.Print(err)
 		return
 	}
 	// Make sure that the Reducer gets cleaned up
 	defer func() {
-		if err := stopContainer(containerId); err != nil {
+		if err := container.StopContainer(containerId); err != nil {
 			log.Print(err)
 		}
 	}()
-	host, err := ipAddr(containerId)
+	host, err := container.IpAddr(containerId)
 	if err != nil {
 		log.Print(err)
 		return
 	}
 
 	var resp *http.Response
-	err = retry(func() error {
+	err = utils.Retry(func() error {
 		var reader io.ReadCloser
 		if modulos == 1 {
 			// We're in single node mode so we can do something much simpler
@@ -402,14 +316,22 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 			}
 			reader = resp.Body
 		} else {
-			err := retry(func() error {
+			err := utils.Retry(func() error {
 				// Notice we're just passing "host" here. Multicast will fill in the host
 				// field so we don't actually need to specify it.
 				req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*")+"?commit="+m.Commit, nil)
 				if err != nil {
 					return err
 				}
-				reader, err = route.Multicast(req, "/pfs/master")
+				resps, err := route.Multicast(req, "/pfs/master")
+				if err != nil {
+					return err
+				}
+				var readers []io.ReadCloser
+				for _, resp := range resps {
+					readers = append(readers, resp.Body)
+				}
+				reader = route.MultiReadCloser(readers...)
 				return err
 			}, retries, time.Minute)
 			if err != nil {
@@ -456,7 +378,7 @@ func Materialize(in_repo, branch, commit, outRepo, jobDir string, shard, modulos
 		return err
 	}
 	if !exists {
-		if err := btrfs.Branch(outRepo, "t0", branch); err != nil {
+		if err := btrfs.Branch(outRepo, "", branch); err != nil {
 			log.Print(err)
 			return err
 		}

@@ -14,6 +14,7 @@ var lock sync.RWMutex
 
 func Get(key string, sort, recursive bool) (*etcd.Response, error) {
 	cacheKey := fmt.Sprint(key, "-", sort, "-", recursive)
+	// Notice this works because the default value is 0
 	if time.Since(insertionTime[cacheKey]) > (5 * time.Minute) {
 		return ForceGet(key, sort, recursive)
 	} else {
@@ -35,4 +36,28 @@ func ForceGet(key string, sort, recursive bool) (*etcd.Response, error) {
 	cache[cacheKey] = resp
 	insertionTime[cacheKey] = time.Now()
 	return resp, nil
+}
+
+// Spoof artificially sets a value for a key that will never expire.
+// This shouldn't be used outside of Tests.
+func rawSpoof(key string, sort, recursive bool, val *etcd.Response) {
+	lock.Lock()
+	defer lock.Unlock()
+	cacheKey := fmt.Sprint(key, "-", sort, "-", recursive)
+	cache[cacheKey] = val
+	insertionTime[cacheKey] = time.Now().Add(time.Hour * 100)
+}
+
+func Spoof1(key, val string) {
+	resp := &etcd.Response{Node: &etcd.Node{Key: key, Value: val}}
+	rawSpoof(key, false, false, resp)
+}
+
+func SpoofMany(key string, vals []string, sort bool) {
+	var nodes []*etcd.Node
+	for _, val := range vals {
+		nodes = append(nodes, &etcd.Node{Value: val})
+	}
+	resp := &etcd.Response{Node: &etcd.Node{Key: key, Nodes: nodes}}
+	rawSpoof(key, sort, true, resp)
 }

@@ -1,4 +1,4 @@
-package main
+package shard
 
 // replica.go contains code for using shards as replicas
 
@@ -49,17 +49,16 @@ func (r ShardReplica) Pull(from string, cb btrfs.Pusher) error {
 	return m.Pull(from, cb)
 }
 
-type MultiPartCommitBrancher struct {
+type MultipartReplica struct {
 	w *multipart.Writer
 }
 
-func NewMultiPartCommitBrancher(w *multipart.Writer) MultiPartCommitBrancher {
-	return MultiPartCommitBrancher{w: w}
+func NewMultipartReplica(w *multipart.Writer) MultipartReplica {
+	return MultipartReplica{w: w}
 }
 
-func (m MultiPartCommitBrancher) Push(diff io.Reader) error {
+func (m MultipartReplica) Push(diff io.Reader) error {
 	h := make(textproto.MIMEHeader)
-	h.Set("pfs-diff-type", "commit")
 	w, err := m.w.CreatePart(h)
 	if err != nil {
 		return err
