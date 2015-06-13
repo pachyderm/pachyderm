@@ -1,2 +1,3 @@
 #!/bin/sh
+
 go test github.com/pachyderm/pfs/services/...
