@@ -73,10 +73,10 @@ function docker_version() {
 
 # check_btrfs checks if btrfs is on the PATH and the version.
 function check_btrfs() {
-  check_executable "btrfs" "$(btrfs_version)" "${BTRFS_MAJOR_VERSION}" "${BTRFS_MINOR_VERSION}"
+  check_executable "btrfs" "$(btrfs_version)" "${PFS_BTRFS_MAJOR_VERSION}" "${PFS_BTRFS_MINOR_VERSION}"
 }
 
 # check_docker checks if docker is on the PATH and the version.
 function check_docker() {
-  check_executable "docker" "$(docker_version)" "${DOCKER_MAJOR_VERSION}" "${DOCKER_MINOR_VERSION}"
+  check_executable "docker" "$(docker_version)" "${PFS_DOCKER_MAJOR_VERSION}" "${PFS_DOCKER_MINOR_VERSION}"
 }
