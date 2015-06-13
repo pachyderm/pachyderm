@@ -18,7 +18,7 @@ if [ $# != 1 ] ; then
 fi
 HOST="${1}"
 
-REPO="$(basename "${DIR}")"
+REPO="$(cd "${DIR}/.." && pwd)"
 REMOTE="${HOST}:/home/core/${REPO}.git"
 TMPDIR="/tmp/${REPO}.$$.git"
 
