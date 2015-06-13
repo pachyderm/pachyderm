@@ -22,8 +22,10 @@ import (
 	"github.com/pachyderm/pfs/lib/route"
 )
 
-var Cancelled = errors.New("cancelled")
-var ArgCount = errors.New("Illegal argument count.")
+var (
+	ErrCancelled = errors.New("pfs: cancelled")
+	ErrArgCount  = errors.New("pfs: illegal argument count")
+)
 
 type Pipeline struct {
 	name            string
@@ -258,7 +260,7 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 	}
 	for lines.Scan() {
 		if p.cancelled {
-			return Cancelled
+			return ErrCancelled
 		}
 		tokens := strings.Fields(lines.Text())
 		if len(tokens) == 0 || tokens[0][0] == '#' {
@@ -269,22 +271,22 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 		switch strings.ToLower(tokens[0]) {
 		case "input":
 			if len(tokens) != 2 {
-				return ArgCount
+				return ErrArgCount
 			}
 			err = p.Input(tokens[1])
 		case "image":
 			if len(tokens) != 2 {
-				return ArgCount
+				return ErrArgCount
 			}
 			err = p.Image(tokens[1])
 		case "run":
 			if len(tokens) < 2 {
-				return ArgCount
+				return ErrArgCount
 			}
 			err = p.Run(tokens[1:])
 		case "shuffle":
 			if len(tokens) != 2 {
-				return ArgCount
+				return ErrArgCount
 			}
 			err = p.Shuffle(tokens[1])
 		}
@@ -383,7 +385,7 @@ func (r *Runner) Run() error {
 	if r.cancelled {
 		// we were cancelled before we even started
 		r.lock.Unlock()
-		return Cancelled
+		return ErrCancelled
 	}
 	r.wait.Add(len(pipelines))
 	for _, pInfo := range pipelines {
@@ -417,7 +419,7 @@ func (r *Runner) Run() error {
 	close(errors)
 	if r.cancelled {
 		// Pipelines finished because we were cancelled
-		return Cancelled
+		return ErrCancelled
 	}
 	for err := range errors {
 		return err

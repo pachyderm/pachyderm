@@ -24,8 +24,12 @@ import (
 	"github.com/pachyderm/pfs/lib/shell"
 )
 
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-var once sync.Once
+var (
+	ErrComplete = errors.New("pfs: complete")
+
+	letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	once    sync.Once
+)
 
 // localVolume returns the path *inside* the container that we look for the
 // btrfs volume at
@@ -445,9 +449,9 @@ func createNewBranch(repo string) error {
 		if err != nil {
 			return err
 		}
-		return Complete
+		return ErrComplete
 	})
-	if err != nil && err != Complete {
+	if err != nil && err != ErrComplete {
 		return err
 	}
 	return nil
@@ -653,8 +657,6 @@ type CommitInfo struct {
 	gen, id, parent, Path string
 }
 
-var Complete = errors.New("Complete")
-
 // Commits is a wrapper around `Log` which parses the output in to a convenient
 // struct
 func Commits(repo, from string, order int, cont func(CommitInfo) error) error {
@@ -691,11 +693,11 @@ func GetFrom(repo string) (string, error) {
 		}
 		if isCommit {
 			from = c.Path
-			return Complete
+			return ErrComplete
 		}
 		return nil
 	})
-	if err != nil && err != Complete {
+	if err != nil && err != ErrComplete {
 		return "", err
 	}
 
