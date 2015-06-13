@@ -9,7 +9,7 @@ cd "${DIR}"
 
 source "${DIR}/lib/lib.sh"
 
-sudo umount "${PFS_VOL}" || true
+sudo umount "${PFS_HOST_VOLUME}" || true
 rm "${PFS_DATA_IMG}" || true
 sudo docker kill "${PFS_CONTAINER_NAME}" 2> /dev/null > /dev/null
 sudo docker rm "${PFS_CONTAINER_NAME}" 2> /dev/null > /dev/null

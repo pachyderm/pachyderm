@@ -49,10 +49,10 @@ check_docker
 
 log_command "${DIR}/clean"
 
-log_command mkdir -p "${PFS_VOL}"
+log_command mkdir -p "${PFS_HOST_VOLUME}"
 log_command truncate "${PFS_DATA_IMG}" -s 10G
 log_command mkfs.btrfs "${PFS_DATA_IMG}"
-log_command sudo mount "${PFS_DATA_IMG}" "${PFS_VOL}"
+log_command sudo mount "${PFS_DATA_IMG}" "${PFS_HOST_VOLUME}"
 log_command mkdir -p /var/lib/pfs/vol
 
 log_command sudo docker run \
@@ -60,19 +60,19 @@ log_command sudo docker run \
     --privileged=true \
     --name "${PFS_CONTAINER_NAME}" \
     -v /:/host:ro \
-    -v "${PFS_VOL}:/host/var/lib/pfs/vol" \
+    -v "${PFS_HOST_VOLUME}:/host/var/lib/pfs/vol" \
     -v "${PFS_DIR}:/var/lib/pfs" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
     -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
     -e GOMAXPROCS="${GOMAXPROCS}" \
-    -e PFS_HOST_VOLUME="${PFS_VOL}" \
+    -e PFS_HOST_VOLUME="${PFS_HOST_VOLUME}" \
     -p "${PORT}":80 \
     -i "${IMAGE}" \
     ${CONTAINER_COMMAND}
 
 echo "Server is listening on localhost:${PORT}"
 echo "Logging to ${PFS_DIR}/log/log-0-1"
-echo "Data is stored in ${PFS_VOL}"
+echo "Data is stored in ${PFS_HOST_VOLUME}"
 echo "To kill:"
 echo "docker kill ${PFS_CONTAINER_NAME}"
