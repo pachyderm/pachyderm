@@ -9,30 +9,5 @@ cd "${DIR}"
 
 source "${DIR}/lib/lib.sh"
 
-HELP="A script to build pfs from the source directory and launch\npfs in single node mode.\nUsage: $0 [-p port] [-i image]"
-
-# --- Options processing -------------------------------------------
-OPTIND=1         # Reset in case getopts has been used previously in the shell.
-
-# Initialize our own variables:
-PORT="${PFS_PORT}"
-IMAGE="${PFS_IMAGE}"
-DAEMONIZE="-d"
-
-while getopts "p:i:f:" opt; do
-    case "$opt" in
-    \?)  echo $HELP
-        exit 0
-        ;;
-    p)  PORT="${OPTARG}"
-        ;;
-    i)  IMAGE="${OPTARG}"
-        ;;
-    f)  DAEMONIZE=""
-        ;;
-    esac
-done
-
-shift $((OPTIND-1))
-log_command sudo docker build -t "${IMAGE}" "$(cd "${DIR}/.." && pwd)"
-log_command "${DIR}/launch" -i "${IMAGE}" ${DAEMONIZE} $@
+log_command "${DIR}/build"
+log_command "${DIR}/launch" $@

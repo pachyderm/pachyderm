@@ -14,7 +14,7 @@ USAGE="Usage: $0 host"
 # --- Options processing -------------------------------------------
 if [ $# != 1 ] ; then
     echo "${USAGE}" >&2
-    exit 1;
+    exit 1
 fi
 HOST="${1}"
 

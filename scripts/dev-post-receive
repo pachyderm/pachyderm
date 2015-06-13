@@ -12,8 +12,7 @@ cd "${DIR}"
 
 source "${DIR}/lib/lib.sh"
 
-REPOSITORY_BASENAME="$(cd "$(dirname "${0}")/.." && pwd)"
-REPOSITORY_BASENAME=${REPOSITORY_BASENAME%.git}
+REPOSITORY_BASENAME=${PFS_REPO_DIR%.git}
 TMPDIR="/tmp/${REPOSITORY_BASE_NAME}"
 if [ ! -d "${TMPDIR}" ]; then
   git clone "$PWD" "${TMPDIR}"

@@ -9,6 +9,4 @@ cd "${DIR}"
 
 source "${DIR}/lib/lib.sh"
 
-HELP="A script to launch pfs tests in single node mode.\nUsage: $0 [-p port] [-i image]"
-
-"${DIR}/dev-launch" -f sh /go/src/github.com/pachyderm/pfs/scripts/run_tests_from_within_container
+PFS_DAEMONIZE= "${DIR}/dev-launch" sh /go/src/github.com/pachyderm/pfs/scripts/run_tests_from_within_container

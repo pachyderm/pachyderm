@@ -9,39 +9,11 @@ cd "${DIR}"
 
 source "${DIR}/lib/lib.sh"
 
-HELP="A script to launch an arbitrary command in a working pfs environment.\nUsage: $0 [-p port] [-i image] [-d] <command>\n-d: daemonize process"
-
-# --- Options processing -------------------------------------------
-OPTIND=1         # Reset in case getopts has been used previously in the shell.
-
-# Initialize our own variables:
-PORT="${PFS_PORT}"
-IMAGE="${PFS_IMAGE}"
-DAEMONIZE="-d"
-
-while getopts "p:i:f" opt; do
-    case "$opt" in
-    \?)  echo $HELP
-        exit 0
-        ;;
-    p)  PORT="${OPTARG}"
-        ;;
-    i)  IMAGE="${OPTARG}"
-        ;;
-    f)  DAEMONIZE=""
-        ;;
-    esac
-done
-
-shift $((OPTIND-1))
 CONTAINER_COMMAND=$@
-
 if [ -z "${CONTAINER_COMMAND}" ]; then
     CONTAINER_COMMAND="/go/bin/shard 0-1 localhost" #default command
 fi
 
-check_value_set PORT
-check_value_set IMAGE
 check_value_set AWS_ACCESS_KEY_ID
 check_value_set AWS_SECRET_ACCESS_KEY
 check_btrfs
@@ -55,6 +27,11 @@ log_command mkfs.btrfs "${PFS_DATA_IMG}"
 log_command sudo mount "${PFS_DATA_IMG}" "${PFS_HOST_VOLUME}"
 log_command mkdir -p /var/lib/pfs/vol
 
+DAEMONIZE="-d"
+if [ -z "${PFS_DAEMONIZE}" ]; then
+  DAEMONIZE=
+fi
+
 log_command sudo docker run \
     ${DAEMONIZE} \
     --privileged=true \
@@ -67,11 +44,11 @@ log_command sudo docker run \
     -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
     -e GOMAXPROCS="${GOMAXPROCS}" \
     -e PFS_HOST_VOLUME="${PFS_HOST_VOLUME}" \
-    -p "${PORT}":80 \
-    -i "${IMAGE}" \
+    -p "${PFS_PORT}":80 \
+    -i "${PFS_IMAGE}" \
     ${CONTAINER_COMMAND}
 
-echo "Server is listening on localhost:${PORT}"
+echo "Server is listening on localhost:${PFS_PORT}"
 echo "Logging to ${PFS_DIR}/log/log-0-1"
 echo "Data is stored in ${PFS_HOST_VOLUME}"
 echo "To kill:"
