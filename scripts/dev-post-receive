@@ -12,10 +12,11 @@ cd "${DIR}"
 
 source "${DIR}/lib/lib.sh"
 
-REPOSITORY_BASENAME=${PFS_REPO_DIR%.git}
+REPOSITORY_BASENAME="$(basename "${PFS_REPO_DIR}")"
+REPOSITORY_BASENAME="${REPOSITORY_BASENAME%.git}"
 TMPDIR="/tmp/${REPOSITORY_BASE_NAME}"
 if [ ! -d "${TMPDIR}" ]; then
-  git clone "$PWD" "${TMPDIR}"
+  git clone "${PFS_REPO_DIR}" "${TMPDIR}"
 fi
 
 export GIT_WORK_TREE="${TMPDIR}"

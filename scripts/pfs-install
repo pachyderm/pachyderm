@@ -18,7 +18,7 @@ if [ $# != 1 ] ; then
 fi
 HOST="${1}"
 
-REPO=$(basename `pwd`)
+REPO=$(basename "${PFS_REPO_DIR}")
 REMOTE="$HOST":/home/core/"$REPO".git
 
 echo "Installing $REMOTE"
