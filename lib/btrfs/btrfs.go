@@ -19,9 +19,9 @@ import (
 	"syscall"
 	"time"
 
-	"code.google.com/p/go-uuid/uuid"
 	"github.com/go-fsnotify/fsnotify"
 	"github.com/pachyderm/pfs/lib/shell"
+	"github.com/satori/go.uuid"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -565,7 +565,7 @@ func DanglingCommit(repo, commit, branch string) error {
 // It's your responsibility to release the snapshot with Release
 func Hold(repo, commit string) (string, error) {
 	MkdirAll("tmp")
-	name := path.Join("tmp", uuid.New())
+	name := path.Join("tmp", uuid.NewV4().String())
 	if err := Snapshot(path.Join(repo, commit), name, false); err != nil {
 		return "", err
 	}
