@@ -18,7 +18,7 @@ import (
 	"github.com/pachyderm/pfs/lib/etcache"
 )
 
-var NoHosts = errors.New("No hosts found")
+var ErrNoHosts = errors.New("pfs: no hosts found")
 
 func HashResource(resource string) uint64 {
 	return uint64(adler32.Checksum([]byte(resource)))
@@ -148,7 +148,7 @@ func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
 	}
 	endpoints := _endpoints.Node.Nodes
 	if len(endpoints) == 0 {
-		return nil, NoHosts
+		return nil, ErrNoHosts
 	}
 
 	// If the request has a body we need to store it in memory because it needs

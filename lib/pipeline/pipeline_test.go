@@ -302,8 +302,8 @@ run sleep 100
 	r := NewRunner("pipeline", inRepo, outPrefix, "commit", "master", "0-1")
 	go func() {
 		err := r.Run()
-		if err != Cancelled {
-			t.Fatal("Should get `Cancelled` error.")
+		if err != ErrCancelled {
+			t.Fatal("Should get `ErrCancelled` error.")
 		}
 	}()
 
