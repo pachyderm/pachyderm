@@ -23,8 +23,9 @@ import (
 )
 
 var (
-	ErrCancelled = errors.New("pfs: cancelled")
-	ErrArgCount  = errors.New("pfs: illegal argument count")
+	ErrCancelled     = errors.New("pfs: cancelled")
+	ErrArgCount      = errors.New("pfs: illegal argument count")
+	ErrUnkownKeyword = errors.New("pfs: unknown keyword")
 )
 
 type Pipeline struct {
@@ -64,7 +65,12 @@ func (p *Pipeline) Input(name string) error {
 // Image sets the image that is being used for computations.
 func (p *Pipeline) Image(image string) error {
 	p.config.Config.Image = image
-	return container.PullImage(image)
+	err := container.PullImage(image)
+	if err != nil {
+		log.Print(err)
+		log.Print("assuming image is local and continuing")
+	}
+	return nil
 }
 
 // Start gets an outRepo ready to be used. This is where clean up of dirty
@@ -289,6 +295,8 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 				return ErrArgCount
 			}
 			err = p.Shuffle(tokens[1])
+		default:
+			return ErrUnkownKeyword
 		}
 		if err != nil {
 			log.Print(err)
