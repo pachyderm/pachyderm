@@ -98,6 +98,7 @@ func (p *Pipeline) runCommit() string {
 // best the process crashing at the wrong time could still leave it in an
 // inconsistent state.
 func (p *Pipeline) Run(cmd []string) error {
+	log.Print("Running: ", strings.Join(cmd, " "))
 	// this function always increments counter
 	defer func() { p.counter++ }()
 	// Check if the commit already exists
@@ -264,12 +265,24 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 	if err := p.Start(); err != nil {
 		return err
 	}
+	var tokens []string
 	for lines.Scan() {
 		if p.cancelled {
 			return ErrCancelled
 		}
-		tokens := strings.Fields(lines.Text())
-		if len(tokens) == 0 || tokens[0][0] == '#' {
+		if len(tokens) > 0 && tokens[len(tokens)-1] == "\\" {
+			// We have tokens from last loop, remove the \ token which designates the line wrap
+			tokens = tokens[:len(tokens)-1]
+		} else {
+			// No line wrap, clear the tokens they were already execuated
+			tokens = []string{}
+		}
+		tokens = append(tokens, strings.Fields(lines.Text())...)
+		// These conditions are, empty line, comment line and wrapped line.
+		// All 3 cause us to continue, the first 2 because we're skipping them.
+		// The last because we need more input.
+		if len(tokens) == 0 || tokens[0][0] == '#' || tokens[len(tokens)-1] == "\\" {
+			// Comment or empty line, skip
 			continue
 		}
 
