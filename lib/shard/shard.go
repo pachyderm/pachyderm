@@ -60,24 +60,6 @@ func indexOf(haystack []string, needle string) int {
 	return -1
 }
 
-func cat(w http.ResponseWriter, name string) {
-	exists, err := btrfs.FileExists(name)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-	}
-	if !exists {
-		http.Error(w, "404 page not found", 404)
-		return
-	}
-
-	if err := rawCat(w, name); err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
-}
-
 func rawCat(w io.Writer, name string) error {
 	f, err := btrfs.Open(name)
 	if err != nil {
@@ -161,7 +143,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "404 page not found", 404)
 			return
 		case 1:
-			cat(w, files[0])
+			http.ServeFile(w, r, btrfs.FilePath(files[0]))
 		default:
 			msg := multipart.NewWriter(w)
 			defer msg.Close()
@@ -290,7 +272,6 @@ func (s *Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 				err := oldRunner.Cancel()
 				if err != nil {
 					log.Print(err)
-					return
 				}
 			}
 			err := newRunner.Run()

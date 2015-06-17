@@ -312,3 +312,31 @@ run sleep 100
 	time.Sleep(time.Second * 2)
 	check(r.Cancel(), t)
 }
+
+// TestWrap tests a simple job that uses line wrapping in it's Pachfile
+func TestWrap(t *testing.T) {
+	outRepo := "TestWrap"
+	check(btrfs.Init(outRepo), t)
+	pipeline := NewPipeline("output", "", outRepo, "commit", "master", "0-1")
+	pachfile := `
+image ubuntu
+
+# touch foo
+run touch /out/foo \
+          /out/bar
+`
+	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+	check(err, t)
+
+	exists, err := btrfs.FileExists(path.Join(outRepo, "commit", "foo"))
+	check(err, t)
+	if exists != true {
+		t.Fatal("File `foo` doesn't exist when it should.")
+	}
+
+	exists, err = btrfs.FileExists(path.Join(outRepo, "commit", "bar"))
+	check(err, t)
+	if exists != true {
+		t.Fatal("File `bar` doesn't exist when it should.")
+	}
+}
