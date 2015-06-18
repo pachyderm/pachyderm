@@ -107,22 +107,25 @@ etcdctl set /pfs/creds/IMAGE_BUCKET <IMAGE_BUCKET>
 
 ### Checking the status of your deploy
 The easiest way to see what's going on in your cluster is to use `list-units`,
-this is what a healthy 1 Node cluster looks like.
+this is what a healthy 3 Node cluster looks like.
 ```
 UNIT                            MACHINE                         ACTIVE          SUB
-announce-master-0-1.service     0b0625cf.../172.31.9.86         active          running
-announce-registry.service       0e7cf611.../172.31.27.115       active          running
-gitdaemon.service               0b0625cf.../172.31.9.86         active          running
-gitdaemon.service               0e7cf611.../172.31.27.115       active          running
-gitdaemon.service               ed618559.../172.31.9.87         active          running
-master-0-1.service              0b0625cf.../172.31.9.86         active          running
-registry.service                0e7cf611.../172.31.27.115       active          running
-router.service                  0b0625cf.../172.31.9.86         active          running
-router.service                  0e7cf611.../172.31.27.115       active          running
-router.service                  ed618559.../172.31.9.87         active          running
+router.service      8ce43ef5.../10.240.63.167   active  running
+router.service      c1ecdd2f.../10.240.66.254   active  running
+router.service      e0874908.../10.240.235.196  active  running
+shard-0-3:0.service e0874908.../10.240.235.196  active  running
+shard-0-3:1.service 8ce43ef5.../10.240.63.167   active  running
+shard-0-3:2.service c1ecdd2f.../10.240.66.254   active  running
+shard-1-3:0.service c1ecdd2f.../10.240.66.254   active  running
+shard-1-3:1.service 8ce43ef5.../10.240.63.167   active  running
+shard-1-3:2.service e0874908.../10.240.235.196  active  running
+shard-2-3:0.service c1ecdd2f.../10.240.66.254   active  running
+shard-2-3:1.service 8ce43ef5.../10.240.63.167   active  running
+shard-2-3:2.service e0874908.../10.240.235.196  active  running
+storage.service     8ce43ef5.../10.240.63.167   active  exited
+storage.service     c1ecdd2f.../10.240.66.254   active  exited
+storage.service     e0874908.../10.240.235.196  active  exited
 ```
-If you startup a new cluster and `registry.service` fails to start it's
-probably an issue with s3 credentials. See the section above.
 
 ## Using pfs
 Pfs exposes a git-like interface to the file system -- you can add files and then create commits, branches, etc.
