@@ -112,7 +112,7 @@ run cp /in/data/foo /out/foo
 func TestLog(t *testing.T) {
 	outRepo := "TestLog"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("log", "", outRepo, "commit", "master", "0-1")
+	pipeline := NewPipeline("log", "", outRepo, "commit1", "master", "0-1")
 	pachfile := `
 image ubuntu
 
@@ -121,10 +121,25 @@ run echo "foo"
 	err := pipeline.RunPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
-	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", ".log"))
+	log, err := btrfs.ReadFile(path.Join(outRepo, "commit1-0", ".log"))
 	check(err, t)
-	if exists != true {
-		t.Fatal("File .log should exist.")
+	if string(log) != "foo\n" {
+		t.Fatal("Expect foo, got: ", string(log))
+	}
+
+	pipeline = NewPipeline("log", "", outRepo, "commit2", "master", "0-1")
+	pachfile = `
+image ubuntu
+
+run echo "bar" >&2
+`
+	err = pipeline.RunPachFile(strings.NewReader(pachfile))
+	check(err, t)
+
+	log, err = btrfs.ReadFile(path.Join(outRepo, "commit2-0", ".log"))
+	check(err, t)
+	if string(log) != "bar\n" {
+		t.Fatal("Expect bar, got: ", string(log))
 	}
 }
 
