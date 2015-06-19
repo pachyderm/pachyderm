@@ -98,7 +98,6 @@ func (p *Pipeline) runCommit() string {
 // best the process crashing at the wrong time could still leave it in an
 // inconsistent state.
 func (p *Pipeline) Run(cmd []string) error {
-	log.Print("Running: ", strings.Join(cmd, " "))
 	// this function always increments counter
 	defer func() { p.counter++ }()
 	// Check if the commit already exists
@@ -138,12 +137,10 @@ func (p *Pipeline) Run(cmd []string) error {
 	}
 	defer f.Close()
 	// Copy the logs from the container in to the file.
-	go func() {
-		err := container.ContainerLogs(p.container, f)
-		if err != nil {
-			log.Print(err)
-		}
-	}()
+	err = container.ContainerLogs(p.container, f)
+	if err != nil {
+		log.Print(err)
+	}
 	// Wait for the command to finish:
 	exit, err := container.WaitContainer(p.container)
 	if err != nil {
@@ -164,6 +161,10 @@ func (p *Pipeline) Run(cmd []string) error {
 	return nil
 }
 
+// Shuffle rehashes an output directory.
+// If 2 shards each have a copy of the file `foo` with the content: `bar`.
+// Then after shuffling 1 of those nodes will have a file `foo` with content
+// `barbar` and the other will have no file foo.
 func (p *Pipeline) Shuffle(dir string) error {
 	// this function always increments counter
 	defer func() { p.counter++ }()
