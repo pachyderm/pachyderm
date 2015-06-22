@@ -54,7 +54,7 @@ then
     exit 1
 fi
 
-btrfs --version | grep 3.14 || { echo 'Upgrade btrfs-tools to 3.14.' ; exit 1; }
+btrfs --version | grep -E '[3\.1[4-9]+|[4-9]\.[0-9]]' || { echo 'Upgrade btrfs-tools to at least 3.14.' ; exit 1; }
 
 CMD="$0"
 CMD_DIR="$(cd "$(dirname "$CMD")" && pwd)"
