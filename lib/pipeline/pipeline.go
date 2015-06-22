@@ -490,3 +490,7 @@ func (r *Runner) Cancel() error {
 	r.wait.Wait()
 	return nil
 }
+
+// WaitPipeline waits for a pipeline to complete or fail.
+// func WaitPipeline(pipelineDir, pipeline, commit string) error {
+// }
