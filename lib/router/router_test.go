@@ -110,7 +110,7 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 
 		return true
 	}
-	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 2}); err != nil {
 		t.Error(err)
 	}
 
