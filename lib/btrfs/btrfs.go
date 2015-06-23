@@ -25,7 +25,8 @@ import (
 )
 
 var (
-	ErrComplete = errors.New("pfs: complete")
+	ErrComplete  = errors.New("pfs: complete")
+	ErrCancelled = errors.New("pfs: cancelled")
 
 	letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	once    sync.Once
@@ -293,7 +294,8 @@ func largestExistingPath(name string) (string, error) {
 	}
 }
 
-func WaitForFile(name string) error {
+func WaitFile(name string, cancel chan struct{}) error {
+	log.Print("WaitFile(", name, ")")
 	dir, err := largestExistingPath(name)
 	if err != nil {
 		log.Print(err)
@@ -320,6 +322,7 @@ func WaitForFile(name string) error {
 		return err
 	}
 	if exists {
+		log.Print("Found: ", name)
 		return nil
 	}
 
@@ -330,14 +333,54 @@ func WaitForFile(name string) error {
 				return nil
 			} else if event.Op == fsnotify.Create && strings.HasPrefix(FilePath(name), event.Name) {
 				//fsnotify isn't recursive so we need to recurse for it.
-				return WaitForFile(name)
+				return WaitFile(name, cancel)
 			}
 		case err := <-watcher.Errors:
 			log.Print(err)
 			return err
+		case <-cancel:
+			return ErrCancelled
 		}
 	}
 	return nil
+}
+
+// WaitAnyFile returns as soon as ANY of the files exists.
+// It returns an error if waiting for ANY of the files errors.
+func WaitAnyFile(files ...string) (string, error) {
+	// Channel for files that appear
+	done := make(chan string, len(files))
+	// Channel for errors that occur
+	errors := make(chan error, len(files))
+
+	cancellers := make([]chan struct{}, len(files))
+	// Make sure that everyone gets cancelled after this function exits.
+	defer func() {
+		for _, c := range cancellers {
+			c <- struct{}{}
+		}
+	}()
+	for i, _ := range files {
+		file := files[i]
+		cancellers[i] = make(chan struct{}, 1)
+		go func(i int) {
+			err := WaitFile(file, cancellers[i])
+			if err != nil {
+				// Never blocks due to size of channel's buffer.
+				errors <- err
+			}
+			// Never blocks due to size of channel's buffer.
+			done <- file
+		}(i)
+	}
+
+	select {
+	case file := <-done:
+		log.Print("Done: ", file)
+		return file, nil
+	case err := <-errors:
+		return "", err
+	}
 }
 
 func SubvolumeCreate(name string) error {
