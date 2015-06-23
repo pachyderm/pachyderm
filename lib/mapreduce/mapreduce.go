@@ -471,5 +471,5 @@ func Materialize(in_repo, branch, commit, outRepo, jobDir string, shard, modulos
 
 func WaitJob(outRepo, branch, commit, job string) error {
 	log.Printf("WaitJob: %s %s %s %s", outRepo, branch, commit, job)
-	return btrfs.WaitForFile(path.Join(outRepo, branch, ".progress", commit, job))
+	return btrfs.WaitFile(path.Join(outRepo, branch, ".progress", commit, job), nil)
 }
