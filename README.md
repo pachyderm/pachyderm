@@ -123,46 +123,46 @@ Pfs exposes a "git-like" interface to the file system -- you can add files and t
 ### Creating files
 ```shell
 # Write <file> to <branch>. Branch defaults to "master".
-$ curl -XPOST pfs/file/<file>?branch=<branch> -T local_file
+$ curl -XPOST <hostname>/file/<file>?branch=<branch> -T local_file
 ```
 
 ### Reading files
 ```shell
 # Read <file> from <master>.
-$ curl pfs/file/<file>
+$ curl <hostname>/file/<file>
 
 # Read all files in a <directory>.
-$ curl pfs/file/<directory>/*
+$ curl <hostname>/file/<directory>/*
 
 # Read <file> from <commit>.
-$ curl pfs/file/<file>?commit=<commit>
+$ curl <hostname>/file/<file>?commit=<commit>
 ```
 
 ### Deleting files
 ```shell
 # Delete <file> from <branch>. Branch defaults to "master".
-$ curl -XDELETE pfs/file/<file>?branch=<branch>
+$ curl -XDELETE <hostname>/file/<file>?branch=<branch>
 ```
 
 ### Committing changes
 ```shell
 # Commit dirty changes to <branch>. Defaults to "master".
-$ curl -XPOST pfs/commit?branch=<branch>
+$ curl -XPOST <hostname>/commit?branch=<branch>
 
 # Getting all commits.
-$ curl -XGET pfs/commit
+$ curl -XGET <hostname>/commit
 ```
 
 ### Branching
 ```shell
 # Create <branch> from <commit>.
-$ curl -XPOST pfs/branch?commit=<commit>&branch=<branch>
+$ curl -XPOST <hostname>/branch?commit=<commit>&branch=<branch>
 
 # Commit to <branch>
-$ curl -XPOST pfs/commit?branch=<branch>
+$ curl -XPOST <hostname>/commit?branch=<branch>
 
 # Getting all branches.
-$ curl -XGET pfs/branch
+$ curl -XGET <hostname>/branch
 ```
 ##Containerized Analytics
 
@@ -186,7 +186,7 @@ Pipelines and jobs are specified as JSON files in the following format:
 Post a local JSON file with the above format to pfs:
 
 ```sh
-$ curl -XPOST <host>/job/<jobname> -T <localfile>.json
+$ curl -XPOST <hostname>/job/<jobname> -T <localfile>.json
 ```
 
 **NOTE**: POSTing a job doesn't run the job. It just records the specification of the job in pfs. 
@@ -197,7 +197,7 @@ the file system that is used in a computation. To run all committed jobs, use
 the `commit` keyword with the `run` parameter.
 
 ```sh
-$ curl -XPOST <host>/commit?run
+$ curl -XPOST <hostname>/commit?run
 ```
 
 Think of adding jobs as constructing a
