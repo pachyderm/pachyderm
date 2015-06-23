@@ -285,15 +285,15 @@ run touch /out/bar
 	// These are the most important 2 checks:
 
 	// If this one fails it means that dirty state isn't properly saved
-	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2-pre/bar"), t)
+	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit1-fail/bar"), t)
 	// If this one fails it means that dirty state isn't properly cleared
 	btrfs.CheckNoExists(path.Join(outPrefix, "recover", "commit2-0/bar"), t)
 
 	// These commits are mostly covered by other tests
+	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit1-fail/foo"), t)
 	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit1-0/foo"), t)
 	btrfs.CheckNoExists(path.Join(outPrefix, "recover", "commit1-1"), t)
 	btrfs.CheckNoExists(path.Join(outPrefix, "recover", "commit1"), t)
-	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2-pre/foo"), t)
 	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2-0/foo"), t)
 	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2-1/foo"), t)
 	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2-1/bar"), t)

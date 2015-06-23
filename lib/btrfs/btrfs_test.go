@@ -544,7 +544,7 @@ func TestWaitFile(t *testing.T) {
 }
 
 func TestCancelWaitFile(t *testing.T) {
-	src := "repo_TestWaitFile"
+	src := "repo_TestCancelWaitFile"
 	check(Init(src), t)
 	complete := make(chan struct{})
 	cancel := make(chan struct{})

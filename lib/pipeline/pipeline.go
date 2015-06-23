@@ -77,12 +77,7 @@ func (p *Pipeline) Image(image string) error {
 // Start gets an outRepo ready to be used. This is where clean up of dirty
 // state from a crash happens.
 func (p *Pipeline) Start() error {
-	// If our branch in outRepo has the same parent as the commit in inRepo it
-	// means the last run of the pipeline was succesful.
-	parent := btrfs.GetMeta(path.Join(p.outRepo, p.branch), "parent")
-	if parent != btrfs.GetMeta(path.Join(p.inRepo, p.commit), "parent") {
-		return btrfs.DanglingCommit(p.outRepo, p.commit+"-pre", p.branch)
-	}
+	//TODO cleanup state here.
 	return nil
 }
 
@@ -258,7 +253,7 @@ func (p *Pipeline) Fail() error {
 	if exists {
 		return nil
 	}
-	return btrfs.Commit(p.outRepo, p.commit+"-fail", p.branch)
+	return btrfs.DanglingCommit(p.outRepo, p.commit+"-fail", p.branch)
 }
 
 // Cancel stops a pipeline by force before it's finished
