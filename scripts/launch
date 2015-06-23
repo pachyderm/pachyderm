@@ -35,26 +35,29 @@ if [ -z "${CONTAINER_COMMAND}" ]; then
     CONTAINER_COMMAND="/go/bin/shard 0-1 localhost" #default command
 fi
 
-BTRFS_VERSION="$(which btrfs)" || { echo 'Please install btrfs-tools. (apt-get install btrfs-tools)' ; exit 1; }
+BTRFS_VERSION="$(btrfs --version)" || { echo 'Please install btrfs-tools. (apt-get install btrfs-tools)' ; exit 1; }
 DOCKER_VERSION="$(docker --version | awk '{ print $3 }')"
 
-REGEX="([0-9]+)\.([0-9]+)\.([0-9]+),"
+VERSION_REGEX="([0-9]+)\.([0-9]+)(\.([0-9]+))?"
 
 # pin major version at 1, in case pfs needs update
-if [ $(echo "$DOCKER_VERSION" | sed -E "s/$REGEX/\1/") -ne "1" ]
-then
-    echo "This version of pfs only supports Docker 1.x, you're running $DOCKER_VERSION"
-    echo "Please upgrade pfs for support"
-    exit 1
 # docker versions below 1.5 are not supported
-elif [ $(echo "$DOCKER_VERSION" | sed -E "s/$REGEX/\2/") -lt "5" ]
+if [ $(echo "$DOCKER_VERSION" | sed -E "s/$VERSION_REGEX/\1/") -ne "1" ] || 
+    [ $(echo "$DOCKER_VERSION" | sed -E "s/$VERSION_REGEX/\2/") -lt "5" ]
 then
-    echo "Docker >= 1.5.0 is required"
+    echo "Docker >= 1.5.0 is required, you're running $DOCKER_VERSION."
     echo "See: https://docs.docker.com/installation/ubuntulinux/#docker-maintained-package-installation"
     exit 1
 fi
 
-btrfs --version | grep 3.14 || { echo 'Upgrade btrfs-tools to 3.14.' ; exit 1; }
+# btrfs tools 3.14 or greater
+if [ $(echo "$BTRFS_VERSION" | sed -E "s/$VERSION_REGEX/\1/") -lt "3" ] ||
+    ( [ $(echo "$BTRFS_VERSION" | sed -E "s/$VERSION_REGEX/\1/") -eq "3" ] && [ $(echo "$BTRFS_VERSION" | sed -E "s/$VERSION_REGEX/\2/") -lt "14" ] )
+then
+    echo "btrfs-tools >= 3.14 is required, you're running $BTRFS_VERSION."
+    echo 'Upgrade btrfs-tools.'
+    exit 1
+fi
 
 CMD="$0"
 CMD_DIR="$(cd "$(dirname "$CMD")" && pwd)"
