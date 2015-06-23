@@ -23,6 +23,7 @@ import (
 )
 
 var (
+	ErrFailed        = errors.New("pfs: pipeline failed")
 	ErrCancelled     = errors.New("pfs: cancelled")
 	ErrArgCount      = errors.New("pfs: illegal argument count")
 	ErrUnkownKeyword = errors.New("pfs: unknown keyword")
@@ -249,6 +250,17 @@ func (p *Pipeline) Finish() error {
 	return btrfs.Commit(p.outRepo, p.commit, p.branch)
 }
 
+func (p *Pipeline) Fail() error {
+	exists, err := btrfs.FileExists(path.Join(p.outRepo, p.commit+"-fail"))
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return btrfs.Commit(p.outRepo, p.commit+"-fail", p.branch)
+}
+
 // Cancel stops a pipeline by force before it's finished
 func (p *Pipeline) Cancel() error {
 	p.cancelled = true
@@ -314,6 +326,10 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 		}
 		if err != nil {
 			log.Print(err)
+			if err := p.Fail(); err != nil {
+				log.Print(err)
+				return err
+			}
 			return err
 		}
 	}
@@ -491,6 +507,17 @@ func (r *Runner) Cancel() error {
 	return nil
 }
 
-// WaitPipeline waits for a pipeline to complete or fail.
-// func WaitPipeline(pipelineDir, pipeline, commit string) error {
-// }
+// WaitPipeline waits for a pipeline to complete. If the pipeline fails
+// ErrFailed is returned.
+func WaitPipeline(pipelineDir, pipeline, commit string) error {
+	success := path.Join(pipelineDir, pipeline, commit)
+	failure := path.Join(pipelineDir, pipeline, commit+"-fail")
+	file, err := btrfs.WaitAnyFile(success, failure)
+	if err != nil {
+		return err
+	}
+	if file == failure {
+		return ErrFailed
+	}
+	return nil
+}

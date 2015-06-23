@@ -380,7 +380,7 @@ func (s *Shard) PipelineHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
 		// First wait for the commit to show up
-		err := btrfs.WaitFile(path.Join(s.pipelinePrefix, url[2], commitParam(r)), nil)
+		err := pipeline.WaitPipeline(s.pipelinePrefix, url[2], commitParam(r))
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)

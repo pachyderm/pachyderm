@@ -365,5 +365,10 @@ run exit 1
 
 	res, err = http.Post(s.URL+"/commit?commit=commit1", "", nil)
 	Check(err, t)
-	Checkfile(s.URL+"/pipeline/touch_foo", "foo", "commit1", "", t)
+
+	res, err = http.Get(s.URL + "/pipeline/fail/file/foo?commit=commit1")
+	Check(err, t)
+	if res.StatusCode != 500 {
+		t.Fatal("Request should return failure.")
+	}
 }
