@@ -117,7 +117,7 @@ storage.service     c1ecdd2f.../10.240.66.254   active  exited
 storage.service     e0874908.../10.240.235.196  active  exited
 ```
 
-# The Pachyderm HTTP API
+## The Pachyderm HTTP API
 Pfs exposes a "git-like" interface to the file system -- you can add files and then create commits, branches, etc.
 
 ### Creating files
