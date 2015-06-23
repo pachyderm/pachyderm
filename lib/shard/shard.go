@@ -216,7 +216,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 }
 
 // FileHandler is the core route for modifying the contents of the fileystem.
-func (s *Shard) FileHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) fileHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" || r.Method == "DELETE" || r.Method == "PUT" {
 		genericFileHandler(path.Join(s.dataRepo, branchParam(r)), w, r)
 	} else if r.Method == "GET" {
@@ -227,7 +227,7 @@ func (s *Shard) FileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // CommitHandler creates a snapshot of outstanding changes.
-func (s *Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, commit, <commit>, file, <file>]
 	if len(url) > 3 && url[3] == "file" {
@@ -318,7 +318,7 @@ func (s *Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // BranchHandler creates a new branch from commit.
-func (s *Shard) BranchHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) branchHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, commit, <commit>, file, <file>]
 	if len(url) > 3 && url[3] == "file" {
@@ -359,7 +359,7 @@ func (s *Shard) BranchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) jobHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
 		// url looks like [, job, <job>, file, <file>]
@@ -386,7 +386,7 @@ func (s *Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Shard) PipelineHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) pipelineHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
 		// First wait for the commit to show up
@@ -409,7 +409,7 @@ func (s *Shard) PipelineHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) pullHandler(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	mpw := multipart.NewWriter(w)
 	defer mpw.Close()
@@ -424,17 +424,22 @@ func (s *Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Shard) logHandler(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "/var/lib/pfs/log/log-"+s.shardStr)
+}
+
 // ShardMux creates a multiplexer for a Shard writing to the passed in FS.
 func (s *Shard) ShardMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/branch", s.BranchHandler)
-	mux.HandleFunc("/commit", s.CommitHandler)
-	mux.HandleFunc("/file/", s.FileHandler)
-	mux.HandleFunc("/job/", s.JobHandler)
-	mux.HandleFunc("/pipeline/", s.PipelineHandler)
+	mux.HandleFunc("/branch", s.branchHandler)
+	mux.HandleFunc("/commit", s.commitHandler)
+	mux.HandleFunc("/file/", s.fileHandler)
+	mux.HandleFunc("/job/", s.jobHandler)
+	mux.HandleFunc("/pipeline/", s.pipelineHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
-	mux.HandleFunc("/pull", s.PullHandler)
+	mux.HandleFunc("/pull", s.pullHandler)
+	mux.HandleFunc("/log", s.logHandler)
 
 	return mux
 }
