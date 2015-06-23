@@ -295,6 +295,7 @@ func largestExistingPath(name string) (string, error) {
 }
 
 func WaitFile(name string, cancel chan struct{}) error {
+	log.Print("WaitFile(", name, ")")
 	dir, err := largestExistingPath(name)
 	if err != nil {
 		log.Print(err)
@@ -321,6 +322,7 @@ func WaitFile(name string, cancel chan struct{}) error {
 		return err
 	}
 	if exists {
+		log.Print("Found: ", name)
 		return nil
 	}
 
@@ -343,9 +345,9 @@ func WaitFile(name string, cancel chan struct{}) error {
 	return nil
 }
 
-// WaitAnyFiles returns as soon as ANY of the files exists.
+// WaitAnyFile returns as soon as ANY of the files exists.
 // It returns an error if waiting for ANY of the files errors.
-func WaitAnyFiles(files ...string) (string, error) {
+func WaitAnyFile(files ...string) (string, error) {
 	// Channel for files that appear
 	done := make(chan string, len(files))
 	// Channel for errors that occur
@@ -360,7 +362,7 @@ func WaitAnyFiles(files ...string) (string, error) {
 	}()
 	for i, _ := range files {
 		file := files[i]
-		cancellers[i] = make(chan struct{})
+		cancellers[i] = make(chan struct{}, 1)
 		go func(i int) {
 			err := WaitFile(file, cancellers[i])
 			if err != nil {
@@ -374,6 +376,7 @@ func WaitAnyFiles(files ...string) (string, error) {
 
 	select {
 	case file := <-done:
+		log.Print("Done: ", file)
 		return file, nil
 	case err := <-errors:
 		return "", err

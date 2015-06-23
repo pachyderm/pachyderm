@@ -530,10 +530,10 @@ func TestWaitFile(t *testing.T) {
 	check(Init(src), t)
 	complete := make(chan struct{})
 	go func() {
-		check(WaitFile("file", nil), t)
+		check(WaitFile(src+"/file", nil), t)
 		complete <- struct{}{}
 	}()
-	WriteFile("file", nil)
+	WriteFile(src+"/file", nil)
 	select {
 	case <-complete:
 		// we passed the test
@@ -544,16 +544,41 @@ func TestWaitFile(t *testing.T) {
 }
 
 func TestCancelWaitFile(t *testing.T) {
+	src := "repo_TestWaitFile"
+	check(Init(src), t)
 	complete := make(chan struct{})
 	cancel := make(chan struct{})
 	go func() {
-		err := WaitFile("file", cancel)
+		err := WaitFile(src+"/file", cancel)
 		if err != ErrCancelled {
 			t.Fatal("Got the wrong error. Expected ErrCancelled.")
 		}
 		complete <- struct{}{}
 	}()
 	cancel <- struct{}{}
+	select {
+	case <-complete:
+		// we passed the test
+		return
+	case <-time.After(time.Second * 10):
+		t.Fatal("Timeout waiting for file.")
+	}
+}
+
+func TestWaitAnyFile(t *testing.T) {
+	src := "repo_TestWaitAnyFile"
+	check(Init(src), t)
+	complete := make(chan struct{})
+	go func() {
+		file, err := WaitAnyFile(src+"/file1", src+"/file2")
+		log.Print("WaitedOn: ", file)
+		check(err, t)
+		if file != src+"/file2" {
+			t.Fatal("Got the wrong file.")
+		}
+		complete <- struct{}{}
+	}()
+	WriteFile(src+"/file2", nil)
 	select {
 	case <-complete:
 		// we passed the test
