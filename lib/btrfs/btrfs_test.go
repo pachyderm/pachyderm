@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 var run_string string
@@ -522,6 +523,69 @@ func TestTwoSources(t *testing.T) {
 
 	CheckFile(fmt.Sprintf("%s/commit1/file1", dst), "file1", t)
 	CheckFile(fmt.Sprintf("%s/commit2/file2", dst), "file2", t)
+}
+
+func TestWaitFile(t *testing.T) {
+	src := "repo_TestWaitFile"
+	check(Init(src), t)
+	complete := make(chan struct{})
+	go func() {
+		check(WaitFile(src+"/file", nil), t)
+		complete <- struct{}{}
+	}()
+	WriteFile(src+"/file", nil)
+	select {
+	case <-complete:
+		// we passed the test
+		return
+	case <-time.After(time.Second * 10):
+		t.Fatal("Timeout waiting for file.")
+	}
+}
+
+func TestCancelWaitFile(t *testing.T) {
+	src := "repo_TestCancelWaitFile"
+	check(Init(src), t)
+	complete := make(chan struct{})
+	cancel := make(chan struct{})
+	go func() {
+		err := WaitFile(src+"/file", cancel)
+		if err != ErrCancelled {
+			t.Fatal("Got the wrong error. Expected ErrCancelled.")
+		}
+		complete <- struct{}{}
+	}()
+	cancel <- struct{}{}
+	select {
+	case <-complete:
+		// we passed the test
+		return
+	case <-time.After(time.Second * 10):
+		t.Fatal("Timeout waiting for file.")
+	}
+}
+
+func TestWaitAnyFile(t *testing.T) {
+	src := "repo_TestWaitAnyFile"
+	check(Init(src), t)
+	complete := make(chan struct{})
+	go func() {
+		file, err := WaitAnyFile(src+"/file1", src+"/file2")
+		log.Print("WaitedOn: ", file)
+		check(err, t)
+		if file != src+"/file2" {
+			t.Fatal("Got the wrong file.")
+		}
+		complete <- struct{}{}
+	}()
+	WriteFile(src+"/file2", nil)
+	select {
+	case <-complete:
+		// we passed the test
+		return
+	case <-time.After(time.Second * 10):
+		t.Fatal("Timeout waiting for file.")
+	}
 }
 
 // Case: create, delete, edit files and check that the filenames correspond to the changes ones.

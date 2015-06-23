@@ -145,10 +145,20 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 		case 1:
 			http.ServeFile(w, r, btrfs.FilePath(files[0]))
 		default:
-			msg := multipart.NewWriter(w)
-			defer msg.Close()
-			w.Header().Add("Boundary", msg.Boundary())
+			writer := multipart.NewWriter(w)
+			defer writer.Close()
+			w.Header().Add("Boundary", writer.Boundary())
 			for _, file := range files {
+				info, err := btrfs.Stat(file)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					log.Print(err)
+					return
+				}
+				if info.IsDir() {
+					// We don't do anything with directories.
+					continue
+				}
 				name := strings.TrimPrefix(file, "/"+fs+"/")
 				if shardParam(r) != "" {
 					// We have a shard param, check if the file matches the shard.
@@ -162,7 +172,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 				}
-				fWriter, err := msg.CreateFormFile(name, name)
+				fWriter, err := writer.CreateFormFile(name, name)
 				if err != nil {
 					http.Error(w, err.Error(), 500)
 					log.Print(err)
@@ -380,7 +390,7 @@ func (s *Shard) PipelineHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
 		// First wait for the commit to show up
-		err := btrfs.WaitForFile(path.Join(s.pipelinePrefix, url[2], commitParam(r)))
+		err := pipeline.WaitPipeline(s.pipelinePrefix, url[2], commitParam(r))
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)

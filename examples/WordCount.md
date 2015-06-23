@@ -12,7 +12,7 @@ saw: 1
 Elba: 1
 
 This example assumes that you've already got a working Pachyderm cluster and
-the data your want to analyze is stored at: pfs://data.
+the data your want to analyze is stored at: <hostname>://data.
 
 ## Implementation
 
@@ -36,7 +36,7 @@ Let's walk through the example line by line to make sure we understand it.
 ### Setup
 `image ubuntu` run all of these commands in the ubuntu Docker image.
 
-`input data` Make the directory `pfs://data` available inside containers as `/in/data`
+`input data` Make the directory `<hostname>://data` available inside containers as `/in/data`
 
 `run mkdir -p /out/counts` Create a place in the `/out` directory for the pipelines to write the counts to.
 
@@ -72,11 +72,11 @@ Lastly we need to sum up the values in these files, this line would make /counts
 ## Installing the pipeline:
 To install the pipeline you do:
 ```shell
-curl -XPOST pfs/pipeline/wordcount -T pachfile
-curl -XPOST pfs/commit?commit=my_commit
+curl -XPOST <hostname>/pipeline/wordcount -T pachfile
+curl -XPOST <hostname>/commit?commit=my_commit
 ```
 This will kick off the pipeline on the data in my_commit
 Results will become available at:
 ```
-curl pfs/pipeline/wordcount/file/counts/foo?commit=my_commit
+curl <hostname>/pipeline/wordcount/file/counts/foo?commit=my_commit
 ```

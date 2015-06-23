@@ -346,3 +346,29 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 	// There should be 3 occurances of Dursley
 	Checkfile(s1.URL+"/pipeline/wc", path.Join("counts", "Dursley"), "commit1", "3\n", t)
 }
+
+func TestFail(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
+	shard := NewShard("TestFailData", "TestFailComp", "TestFailPipelines", 0, 1)
+	Check(shard.EnsureRepos(), t)
+	s := httptest.NewServer(shard.ShardMux())
+	defer s.Close()
+
+	res, err := http.Post(s.URL+"/pipeline/fail", "application/text", strings.NewReader(`
+image ubuntu
+
+run touch /out/foo
+run exit 1
+`))
+	Check(err, t)
+	res.Body.Close()
+
+	res, err = http.Post(s.URL+"/commit?commit=commit1", "", nil)
+	Check(err, t)
+
+	res, err = http.Get(s.URL + "/pipeline/fail/file/foo?commit=commit1")
+	Check(err, t)
+	if res.StatusCode != 500 {
+		t.Fatal("Request should return failure.")
+	}
+}

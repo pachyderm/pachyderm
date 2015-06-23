@@ -119,7 +119,7 @@ func ContainerLogs(id string, out io.Writer) error {
 		ErrorStream:  out,
 		Stdout:       true,
 		Stderr:       true,
-		Stream:       true,
+		Logs:         true,
 	})
 }
 
