@@ -64,7 +64,7 @@ Usage of /go/bin/deploy:
 ### Integrating with s3
 If you'd like to populate your Pachyderm cluster with your own data, [jump ahead](https://github.com/pachyderm/pfs#using-pfs) to learn how. If not, we've created a public s3 bucket with chess data for you and we can run the chess pipeline in the full cluster.
 
-As of v0.4 pfs can leverage s3 as a source of data for jobs. Pfs also
+As of v0.4 pfs can leverage s3 as a source of data for pipelines. Pfs also
 uses s3 as the backend for its local Docker registry. To get s3 working you'll
 need to provide pfs with credentials by setting them in etcd like so:
 
@@ -145,75 +145,78 @@ $ curl -XGET <hostname>/branch
 ```
 ##Containerized Analytics
 
-###Creating a new pipeline descriptor
+###Creating a new pipeline with a Pachfile
 
-Pipelines and jobs are specified as JSON files in the following format:
+Pipelines are described as Pachfiles. The Pachfile specifies a Docker image, input data, and then analysis logic (run, shuffle, etc). Pachfiles are somewhat analogous to how Docker files specify how to build a Docker image. 
 
-```
+```shell
 {
-    "type"  : either "map" or "reduce"
-    "input" : a directory in pfs, S3 URL, or the output from another job
-    "image" : the Docker image to use 
-    "command" : the command to start your web server
+  # Specify the Docker image you want to run your analsis in. You can pull from any registry you want. 
+  image <image_name> 
+  # Example: image ubuntu
+  
+  # Specify the input data for your analysis.  
+  input <data directory>
+  # Example: input my_data/users
+  
+  # Specify Your analysis logic and the output directory for the results. You can use they keywords `run`, `shuffle` 
+  # or any shell commands you want.
+  run <output directory>
+  run <analysis logic>
+  # Example: see the wordcount demo:                   https://github.com/pachyderm/pfs/examples/WordCount.md#step-3-create-the-wordcount-pipeline
 }
 ```
 
-**NOTE**: You do not need to specify the output location for a job. The output of a job, often referred to as a _materialized view_, is automatically stored in pfs `/job/<jobname>`.
+###POSTing a Pachfile to pfs
 
-###POSTing a job to pfs
-
-Post a local JSON file with the above format to pfs:
+POST a text-based Pachfile with the above format to pfs:
 
 ```sh
-$ curl -XPOST <hostname>/job/<jobname> -T <localfile>.json
+$ curl -XPOST <hostname>/pipeline/<pipeline_name> -T <name>.Pachfile
 ```
 
-**NOTE**: POSTing a job doesn't run the job. It just records the specification of the job in pfs. 
+**NOTE**: POSTing a Pachfile doesn't run the pipeline. It just records the specification of the pipeline in pfs. The pipeline will get run when a commit is made.
 
-###Running a job
-Jobs are only run on a commit. That way you always know exactly the state of
-the file system that is used in a computation. To run all committed jobs, use
-the `commit` keyword with the `run` parameter.
+### Running a pipeline
+Pipelines are only run on a commit. That way you always know exactly the state of
+the data that is used in the computation. To run all pipelines, use
+the `commit` keyword.
 
 ```sh
-$ curl -XPOST <hostname>/commit?run
+$ curl -XPOST <hostname>/commit
 ```
 
-Think of adding jobs as constructing a
+Think of adding pipelines as constructing a
 [DAG](http://en.wikipedia.org/wiki/Directed_acyclic_graph) of computations that
-you want performed. When you call `/commit?run`, Pachyderm automatically
-schedules the jobs such that a job isn't run until the jobs it depends on have
+you want performed. When you call `/commit`, Pachyderm automatically
+schedules the pipelines such that a pipeline isn't run until the pipelines it depends on have
 completed.
 
-###Getting the output of a job
-Each job records its output in its own read-only file system. You can read the output of the job with:
+###Getting the output of a pipelines
+Each pipeline records its output in its own read-only file system. You can read the output of the pipeline with:
 
 ```sh
-$ curl <host>/job/<jobname>/file/*?commit=<commit>
+$ curl -XGET <hostname>/pipeline/<piplinename>/file/*?commit=<commit>
 ```
 or get just a specific file with:
 ```sh
-$ curl -XGET <host>/job/<job>/file/*?commit=<commit>
+$ curl -XGET <hostname>/pipeline/<piplinename>/file/<filename>?commit=<commit>
 ```
 
-**NOTE**: You must specify the commit you want to read from and that commit
-needs to have been created with the run parameter. We're planning to expand
-this API to make it not have this requirement in the near future.
-###Creating a job:
+**NOTE**: You don't  need to  specify the commit you want to read from. If you use `$ curl -XGET <hostname>/pipeline/<piplinename>/file/<filename>` Pachyderm will return the most recently completed output of that pipeline. If the current pipeline is still in progress, the command will wait for it to complete before returning. We plan to update this API soon to handle these situations better. 
 
-
-### Deleting jobs
+### Deleting pipelines
 
 ```shell
-# Delete <job>
-$ curl -XDELETE <host>/job/<job>
+# Delete <pipelinename>
+$ curl -XDELETE <hostname>/pipeline/<pipelinename>
 ```
 
-### Getting the job descriptor
+### Getting the Pachfile
 
 ```shell
-# Read <job>
-$ curl -XGET <host>/job/<job>
+# Get the Pachfile for <pipelinename>
+$ curl -XGET <hostname>/pipeline/<pipelinename>
 ```
 
 ## How do I hack on pfs?
