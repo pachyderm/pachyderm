@@ -18,39 +18,39 @@ Download and run the Pachyderm launch script to get a local instance running. It
 # launch a local pfs instance
 $ curl www.pachyderm.io/launch | sh
 ```
-#### Step 2: Add a few text files to Pachyderm
+#### Step 2: Add a few text files to Pachyderm in the directory `text`
 ```shell
 # add a local file to Pachyderm
-$ curl localhost:650/file/data/textfile1 -T your_text_file
+$ curl localhost:650/file/text/textfile1 -T your_text_file
 ```
-`file` is a Pachyderm keyword. We're adding the text file in the directory /data/ and naming it `textfile1`. Read about the API in more detail [here](https://github.com/pachyderm/pfs/#the-pachyderm-http-api).
+`file` is a Pachyderm keyword that lets us manipulate files in pfs. We're adding the text file in the directory /text and naming it `textfile1`. Read about the API in more detail [here](https://github.com/pachyderm/pfs/#the-pachyderm-http-api).
 
 #### Step 3: Create the wordcount pipeline
-In Pachyderm, pipelines are defined as Pachfiles which specify an `image`, `input` data, and analysis logic. We've already created the wordcount pipeline for you, but we're going to go through it in detail to understand what's going on and how to create your own Pachfiles in the future. If you want to skip these details and just run the pipeline, [jump to step 4]().
+In Pachyderm, pipelines are how we define distributed computations. The Docker image, input data, and analysis logic are defined in a Pachfile. We've already created the wordcount Pachfile for you, but we're going to go through it in detail to understand what's going on and how to create your own Pachfiles in the future. If you want to skip these details and just run the pipeline, [jump to step 4]().
 
 Word count is simple enough that we can implement it entirely using shell commands and a stock ubuntu image, no need to install anything extra. Here's the body for the wordcount Pachfile. It's only a few lines. [Download the wordcount Pachfile]() or copy/paste the text into your own text file.  
 
 ```shell
 image ubuntu
 
-input data
+input text
 
 run mkdir -p /out/counts
-run cat /in/data/* | tr -cs "A-Za-z'" "\n" | sort | uniq -c | sort -n -r | while read count; do echo ${count% *} >/out/counts/${count#* }; done
+run cat /in/text/* | tr -cs "A-Za-z'" "\n" | sort | uniq -c | sort -n -r | while read count; do echo ${count% *} >/out/counts/${count#* }; done
 shuffle counts
 run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count $count; done
 ```
 Let's walk through the wordcount Pachfile line-by-line to make sure we understand it.
 
-`image ubuntu`: run all of these commands in the ubuntu Docker image. This get's pulled from the Docker registry or you can specify your own registry to pull from.
+`image ubuntu`: run all of these commands in the ubuntu Docker image.
 
-`input data`: Make the directory `<hostname>://data` available inside containers as `/in/data`. This `in` directory is part of the magic of Pachyderm. All of your analysis logic will read data from `/in` and output to `/out`. 
+`input text`: Make the directory `text` in pfs available as `/in/text` to our analysis logic. This `in` directory is part of the magic of Pachyderm. All of your analysis logic will read data from `/in` and output to `/out`. Our analysis logic accesses the data at `/in` as a local file system which is why we can use whatever tools we want -- in this case shell commands.  
 
-`run mkdir -p /out/counts` Create a place in the `/out` directory for the pipelines to write the counts to.
+`run mkdir -p /out/counts` Creates the directory `/out/counts` for the pipelines to write to.
 
 `run cat /in/data/* | tr -cs "A-Za-z'" "\n" | sort | uniq -c | sort -n -r | while read count; do echo ${count% *} >/out/counts/${count#* }; done`:  This is the first  line of the Pachfile that makes up our analysis logic. It uses a few shell
 commands to count the words in our data set and then records the counts to disk. At the end of this step we'll have a file for each word. Keeping with our example from before, we would have a file `/counts/Elba` and the content of
-that file would be `1`. These files are Pachyderm's equivalent of Hadoops key value pairs that are
+that file would be `1`. These files are Pachyderm's equivalent of Hadoops key-value pairs that are
 emitted from a Map step.
 
 `shuffle counts`: Pachyderm automatically parallelizes commands so they'll run faster. Now that
