@@ -36,6 +36,7 @@ if [ -z "${CONTAINER_COMMAND}" ]; then
 fi
 
 BTRFS_VERSION="$(btrfs --version)" || { echo 'Please install btrfs-tools. (apt-get install btrfs-tools)' ; exit 1; }
+BTRFS_VERSION=${BTRFS_VERSION#Btrfs v}
 DOCKER_VERSION="$(docker --version | awk '{ print $3 }')"
 
 VERSION_REGEX="([0-9]+)\.([0-9]+)(\.([0-9]+),?)?"
@@ -54,7 +55,7 @@ fi
 if [ $(echo "$BTRFS_VERSION" | sed -E "s/$VERSION_REGEX/\1/") -lt "3" ] ||
     ( [ $(echo "$BTRFS_VERSION" | sed -E "s/$VERSION_REGEX/\1/") -eq "3" ] && [ $(echo "$BTRFS_VERSION" | sed -E "s/$VERSION_REGEX/\2/") -lt "14" ] )
 then
-    echo "btrfs-tools >= 3.14 is required, you're running $BTRFS_VERSION."
+    echo "btrfs-tools >= 3.14 is required, you're running $BTRFS_VERSION ."
     echo 'Upgrade btrfs-tools.'
     exit 1
 fi
