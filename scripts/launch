@@ -38,7 +38,7 @@ fi
 BTRFS_VERSION="$(btrfs --version)" || { echo 'Please install btrfs-tools. (apt-get install btrfs-tools)' ; exit 1; }
 DOCKER_VERSION="$(docker --version | awk '{ print $3 }')"
 
-VERSION_REGEX="([0-9]+)\.([0-9]+)(\.([0-9]+))?"
+VERSION_REGEX="([0-9]+)\.([0-9]+)(\.([0-9]+),?)?"
 
 # pin major version at 1, in case pfs needs update
 # docker versions below 1.5 are not supported
