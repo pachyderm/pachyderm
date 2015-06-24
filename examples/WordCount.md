@@ -70,17 +70,17 @@ concatenated onto a single shard, so we'll have a file `/counts/foo` whose conte
 #### Step 4: Install and run the wordcount pipeline locally
 Assuming you've [downloaded the wordcount Pachfile]() (or created it yourself), we'll now POST it to the filesystem just like we did with the text files. Instead of using the keyword `file`, we use the keyword `pipeline` and we name this Pachfile `wordcount`
 ```shell
-$ curl -XPOST localhost:650/pipeline/wordcount -T wordcount_pachfile
+$ curl -XPOST localhost:650/pipeline/wordcount -T wordcount.pachfile
 ```
-We've now added both our data and pipeline to Pachyderm and we want to `commit` both of them. `commit` is another Pachyderm keyword that creates an immutable snapshot of the data and Pachfiles. Creating a commit also runs all of the analysis pipelines in the system. In the example below, we've named our commit `commit1`, but you can also remove `?commit=commit1` and Pachyderm will generate a UUID. 
+We've now added both our data and pipeline to Pachyderm and we want to `commit` both of them. `commit` is another Pachyderm keyword that creates an immutable snapshot of the data and Pachfiles. Creating a commit also runs all of the analysis pipelines in the system. In the example below, we've named our commit `commit1`.
 ```shell
 $ curl -XPOST localhost:650/commit?commit=commit1
 ```
 Results will become available at:
 ```
-curl localhost:650/pipeline/wordcount/file/counts/
+$ curl localhost:650/pipeline/wordcount/file/counts/Elba?commit=commit1
 ```
-If you don't see any results, make sure the pipeline has finished running.
+If you don't see any results, make sure the pipeline has finished running. Replace `Ebla` with whatever word you'd like to see the count for. If you've made multiple commits you can see the results of a past commit by changing the commit name. 
 
 Next, let's deploy a full cluster and run the same exact pipeline on way more data! 
 
@@ -93,7 +93,7 @@ The easiest deployment option is to use the AWS cloud template we've built for y
  If you prefer to use a different host or set up your cluster manually, see [Cluster Deployment](https://github.com/pachyderm/pfs#creating-a-pachyderm-cluster)
 
 #### Step 6: Add your text files to Pachyderm
-This step should be exactly the same as step 2 except we replace localhost:650 with the `<hostname>` of our EC2 machine.
+This step is exactly the same as step 2 except we replace localhost:650 with the `<hostname>` of one of our EC2 machines. Use the hostname of any machine in the cluster and pachyderm will automatically distributed the files across all machines and shards.
 ```shell
 # add a file to the Pachyderm cluster
 $ curl <hostname>/file/data/textfile1 -T your_text_file
@@ -102,12 +102,13 @@ Go ahead and add a whole bunch of text files!
 
 #### Step 7: Install and run the wordcount pipeline in the cluster
 ```shell
-curl -XPOST <hostname>/pipeline/wordcount -T wordcount_pachfile
+curl -XPOST <hostname>/pipeline/wordcount -T wordcount.pachfile
 curl -XPOST <hostname>/commit?commit=commit1
 ```
-Once again, results will become available at:
+
+And once again, results will become available at:
 ```
-curl <hostname>/pipeline/wordcount/file/counts/
+curl <hostname>/pipeline/wordcount/file/counts/Elba?commit=commit1
 ```
 #### Step 8: Editing the wordcount Pachfile
 If you want to do something slightly different than wordcount, it's really easy to change the analysis by editing the Pachfile. EXAMPLE: Only list > 2? top 5 words?
