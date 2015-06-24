@@ -10,7 +10,7 @@ set -Ee          # pass trap handlers down to subshells, exit on error
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
 
-source "${DIR}/lib/lib.sh"
+. "${DIR}/lib/lib.sh"
 
 REPOSITORY_BASENAME="$(basename "${PFS_REPO_DIR}")"
 REPOSITORY_BASENAME="${REPOSITORY_BASENAME%.git}"
