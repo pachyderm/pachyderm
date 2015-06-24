@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"path"
 	"strconv"
@@ -207,45 +208,76 @@ func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
 	return resps, nil
 }
 
-type ForwardingPolicy int
+type Return int
 
 const (
-	// ReturnOne makes MulticastHttp return only the first response
-	ReturnOne ForwardingPolicy = iota
-	// ReturnAll makes MulticastHttp return all the responses
-	ReturnAll ForwardingPolicy = iota
+	// ReturnFirst returns only the first response
+	ReturnOne Return = iota
+	// ReturnAll returns all the responses
+	ReturnAll Return = iota
 )
 
 // MulticastHttp sends r to every host it finds under etcdKey, then prints the
 // response to w based on
-func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string, f ForwardingPolicy) {
+func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string, ret Return) {
+	// resps is guaranteed to be nonempty
 	resps, err := Multicast(r, etcdKey)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		log.Print(err)
 		return
 	}
-	var readers []io.ReadCloser
-	for _, resp := range resps {
-		readers = append(readers, resp.Body)
-	}
-	var reader io.ReadCloser
-	switch f {
+	defer func() {
+		for _, r := range resps {
+			r.Body.Close()
+		}
+	}()
+	switch ret {
 	case ReturnOne:
-		reader = readers[0]
+		_, err = io.Copy(w, resps[0].Body)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			log.Print(err)
+			return
+		}
+		return
 	case ReturnAll:
-		reader = MultiReadCloser(readers...)
-	default:
-		http.Error(w, "Internal error.", 500)
-		log.Print("Invalid ForwardingPolicy (programmer error)")
-		return
-	}
-	defer reader.Close() //this line will close all of the readers
-
-	_, err = io.Copy(w, reader)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
+		// We use the existence of "Boundary" to figure out how to concatenate
+		// the responses
+		if resps[0].Header.Get("Boundary") == "" {
+			// plain text
+			for _, resp := range resps {
+				_, err = io.Copy(w, resp.Body)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					log.Print(err)
+					return
+				}
+				resp.Body.Close()
+			}
+		} else {
+			// multipart
+			writer := multipart.NewWriter(w)
+			defer writer.Close()
+			w.Header().Add("Boundary", writer.Boundary())
+			for _, resp := range resps {
+				reader := multipart.NewReader(resp.Body, resp.Header.Get("Boundary"))
+				for p, err := reader.NextPart(); err == nil; p, err = reader.NextPart() {
+					f, err := writer.CreateFormFile(p.FormName(), p.FileName())
+					if err != nil {
+						http.Error(w, err.Error(), 500)
+						log.Print(err)
+						return
+					}
+					_, err = io.Copy(f, p)
+					if err != nil {
+						http.Error(w, err.Error(), 500)
+						log.Print(err)
+						return
+					}
+				}
+				resp.Body.Close()
+			}
+		}
 	}
 }
