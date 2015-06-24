@@ -1,6 +1,6 @@
 # Quickstart Guide
 ## Tutorial -- Distributed Word Count
-__Requirements:__ This tutorial assumes you already have Docker and btrfs tools v3.14 or higher installed. If not, get them [here]()
+__Requirements:__ This tutorial assumes you already have Docker v1.5 and btrfs tools v3.14 or higher installed.
 
 Word count is the hello world of distributed computing. The goal is to count the number of times that words occur in a corpus of text. For example the sentence: "Able was I ere I saw Elba." would have counts:
 Able: 1
