@@ -336,7 +336,7 @@ func TestWrap(t *testing.T) {
 	pachfile := `
 image ubuntu
 
-# touch foo
+# touch foo and bar
 run touch /out/foo \
           /out/bar
 `
@@ -353,5 +353,35 @@ run touch /out/foo \
 	check(err, t)
 	if exists != true {
 		t.Fatal("File `bar` doesn't exist when it should.")
+	}
+}
+
+func TestDependency(t *testing.T) {
+	inRepo := "TestDependencyin"
+	check(btrfs.Init(inRepo), t)
+	p1 := `
+image ubuntu
+
+run echo foo >/out/foo
+`
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "p1"), []byte(p1)), t)
+	p2 := `
+image ubuntu
+
+input pps://p1
+
+run cp /in/p1/foo /out/foo
+`
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "p2"), []byte(p2)), t)
+	check(btrfs.Commit(inRepo, "commit", "master"), t)
+
+	outPrefix := "TestDependency"
+	runner := NewRunner("pipeline", "TestDependencyin", outPrefix, "commit", "master", "0-1")
+	check(runner.Run(), t)
+
+	res, err := btrfs.ReadFile(path.Join(outPrefix, "p2", "commit", "foo"))
+	check(err, t)
+	if string(res) != "foo\n" {
+		t.Fatal("Expected foo, got: ", string(res))
 	}
 }

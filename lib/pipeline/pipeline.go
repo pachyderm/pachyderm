@@ -50,17 +50,32 @@ func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir str
 		branch:  branch,
 		config: docker.CreateContainerOptions{Config: &container.DefaultConfig,
 			HostConfig: &docker.HostConfig{}},
-		shard: shard,
+		shard:       shard,
+		pipelineDir: pipelineDir,
 	}
 }
 
 // Import makes a dataset available for computations in the container.
 func (p *pipeline) input(name string) error {
-	hostPath := btrfs.HostPath(path.Join(p.inRepo, p.commit, name))
-	containerPath := path.Join("/in", name)
-
-	bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
-	p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+	switch {
+	case strings.HasPrefix(name, "pps://"):
+		name = strings.TrimPrefix(name, "pps://")
+		err := WaitPipeline(p.pipelineDir, name, p.commit)
+		if err != nil {
+			return err
+		}
+		hostPath := btrfs.HostPath(path.Join(p.pipelineDir, name, p.commit))
+		containerPath := path.Join("/in", name)
+		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
+		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+	case strings.HasPrefix(name, "pfs://"):
+		fallthrough
+	default:
+		hostPath := btrfs.HostPath(path.Join(p.inRepo, p.commit, name))
+		containerPath := path.Join("/in", name)
+		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
+		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+	}
 	return nil
 }
 
@@ -404,6 +419,7 @@ func (r *Runner) Run() error {
 		return err
 	}
 	pipelines, err := btrfs.ReadDir(path.Join(r.inRepo, r.commit, r.pipelineDir))
+	log.Print("Pipelines: ", pipelines)
 	if err != nil {
 		// Notice we don't return this error but instead no-op. It's fine to not
 		// have a pipeline dir.
