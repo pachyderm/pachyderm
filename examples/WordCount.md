@@ -26,7 +26,7 @@ $ curl localhost:650/file/text/textfile1 -T your_text_file
 `file` is a Pachyderm keyword that lets us manipulate files in pfs. We're adding the text file in the directory /text and naming it `textfile1`. Read about the API in more detail [here](https://github.com/pachyderm/pfs/#the-pachyderm-http-api).
 
 #### Step 3: Create the wordcount pipeline
-In Pachyderm, pipelines are how we define distributed computations. The Docker image, input data, and analysis logic are defined in a Pachfile. We've already created the wordcount Pachfile for you, but we're going to go through it in detail to understand what's going on and how to create your own Pachfiles in the future. If you want to skip these details and just run the pipeline, [jump to step 4]().
+In Pachyderm, pipelines are how we define distributed computations. The Docker image, input data, and analysis logic are defined in a Pachfile. We've already created the wordcount Pachfile for you, but we're going to go through it in detail to understand what's going on and how to create your own Pachfiles in the future. If you want to skip these details and just run the pipeline, [jump to step 4](https://github.com/pachyderm/pfs/blob/next/examples/WordCount.md#step-4-install-and-run-the-wordcount-pipeline-locally).
 
 Word count is simple enough that we can implement it entirely using shell commands and a stock ubuntu image, no need to install anything extra. Here's the body for the wordcount Pachfile. It's only a few lines. [Download the wordcount Pachfile]() or copy/paste the text into your own text file.  
 
