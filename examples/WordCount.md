@@ -113,10 +113,3 @@ curl <hostname>/pipeline/wordcount/file/counts/Elba?commit=commit1
 #### Step 8: Editing the wordcount Pachfile
 If you want to do something slightly different than wordcount, it's really easy to change the analysis by editing the Pachfile. EXAMPLE: Only list > 2? top 5 words?
 
-
-
-Questions/TODO:
-1. a bunch of stuff around /in and /data
-2. adding files to cluster. Does it matter which machines? What about which hostname I add the Pachfile or make the commit?
-3. links
-
