@@ -29,7 +29,7 @@ var (
 	ErrUnkownKeyword = errors.New("pfs: unknown keyword")
 )
 
-type Pipeline struct {
+type pipeline struct {
 	name            string
 	config          docker.CreateContainerOptions
 	inRepo, outRepo string
@@ -38,10 +38,11 @@ type Pipeline struct {
 	container       string
 	cancelled       bool
 	shard           string
+	pipelineDir     string
 }
 
-func NewPipeline(name, dataRepo, outRepo, commit, branch, shard string) *Pipeline {
-	return &Pipeline{
+func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir string) *pipeline {
+	return &pipeline{
 		name:    name,
 		inRepo:  dataRepo,
 		outRepo: outRepo,
@@ -54,7 +55,7 @@ func NewPipeline(name, dataRepo, outRepo, commit, branch, shard string) *Pipelin
 }
 
 // Import makes a dataset available for computations in the container.
-func (p *Pipeline) Input(name string) error {
+func (p *pipeline) input(name string) error {
 	hostPath := btrfs.HostPath(path.Join(p.inRepo, p.commit, name))
 	containerPath := path.Join("/in", name)
 
@@ -64,7 +65,7 @@ func (p *Pipeline) Input(name string) error {
 }
 
 // Image sets the image that is being used for computations.
-func (p *Pipeline) Image(image string) error {
+func (p *pipeline) image(image string) error {
 	p.config.Config.Image = image
 	err := container.PullImage(image)
 	if err != nil {
@@ -76,13 +77,13 @@ func (p *Pipeline) Image(image string) error {
 
 // Start gets an outRepo ready to be used. This is where clean up of dirty
 // state from a crash happens.
-func (p *Pipeline) Start() error {
-	//TODO cleanup state here.
+func (p *pipeline) start() error {
+	//TODO cleanup crashed state here.
 	return nil
 }
 
 // runCommit returns the commit that the current run will create
-func (p *Pipeline) runCommit() string {
+func (p *pipeline) runCommit() string {
 	return fmt.Sprintf("%s-%d", p.commit, p.counter)
 }
 
@@ -93,7 +94,7 @@ func (p *Pipeline) runCommit() string {
 // pipeline is rerun. The reason we don't do it here is that even if we try our
 // best the process crashing at the wrong time could still leave it in an
 // inconsistent state.
-func (p *Pipeline) Run(cmd []string) error {
+func (p *pipeline) run(cmd []string) error {
 	// this function always increments counter
 	defer func() { p.counter++ }()
 	// Check if the commit already exists
@@ -161,7 +162,7 @@ func (p *Pipeline) Run(cmd []string) error {
 // If 2 shards each have a copy of the file `foo` with the content: `bar`.
 // Then after shuffling 1 of those nodes will have a file `foo` with content
 // `barbar` and the other will have no file foo.
-func (p *Pipeline) Shuffle(dir string) error {
+func (p *pipeline) shuffle(dir string) error {
 	// this function always increments counter
 	defer func() { p.counter++ }()
 	// First we clear the directory, notice that the previous commit from
@@ -234,7 +235,7 @@ func (p *Pipeline) Shuffle(dir string) error {
 }
 
 // Finish makes the final commit for the pipeline
-func (p *Pipeline) Finish() error {
+func (p *pipeline) finish() error {
 	exists, err := btrfs.FileExists(path.Join(p.outRepo, p.commit))
 	if err != nil {
 		return err
@@ -245,7 +246,7 @@ func (p *Pipeline) Finish() error {
 	return btrfs.Commit(p.outRepo, p.commit, p.branch)
 }
 
-func (p *Pipeline) Fail() error {
+func (p *pipeline) fail() error {
 	exists, err := btrfs.FileExists(path.Join(p.outRepo, p.commit+"-fail"))
 	if err != nil {
 		return err
@@ -257,7 +258,7 @@ func (p *Pipeline) Fail() error {
 }
 
 // Cancel stops a pipeline by force before it's finished
-func (p *Pipeline) Cancel() error {
+func (p *pipeline) cancel() error {
 	p.cancelled = true
 	err := container.StopContainer(p.container)
 	if err != nil {
@@ -267,10 +268,10 @@ func (p *Pipeline) Cancel() error {
 	return nil
 }
 
-func (p *Pipeline) RunPachFile(r io.Reader) error {
+func (p *pipeline) runPachFile(r io.Reader) error {
 	lines := bufio.NewScanner(r)
 
-	if err := p.Start(); err != nil {
+	if err := p.start(); err != nil {
 		return err
 	}
 	var tokens []string
@@ -300,35 +301,35 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 			if len(tokens) != 2 {
 				return ErrArgCount
 			}
-			err = p.Input(tokens[1])
+			err = p.input(tokens[1])
 		case "image":
 			if len(tokens) != 2 {
 				return ErrArgCount
 			}
-			err = p.Image(tokens[1])
+			err = p.image(tokens[1])
 		case "run":
 			if len(tokens) < 2 {
 				return ErrArgCount
 			}
-			err = p.Run(tokens[1:])
+			err = p.run(tokens[1:])
 		case "shuffle":
 			if len(tokens) != 2 {
 				return ErrArgCount
 			}
-			err = p.Shuffle(tokens[1])
+			err = p.shuffle(tokens[1])
 		default:
 			return ErrUnkownKeyword
 		}
 		if err != nil {
 			log.Print(err)
-			if err := p.Fail(); err != nil {
+			if err := p.fail(); err != nil {
 				log.Print(err)
 				return err
 			}
 			return err
 		}
 	}
-	if err := p.Finish(); err != nil {
+	if err := p.finish(); err != nil {
 		return err
 	}
 	return nil
@@ -338,7 +339,7 @@ type Runner struct {
 	pipelineDir, inRepo, commit, branch string
 	outPrefix                           string // the prefix for out repos
 	shard                               string
-	pipelines                           []*Pipeline
+	pipelines                           []*pipeline
 	wait                                sync.WaitGroup
 	lock                                sync.Mutex // used to prevent races between `Run` and `Cancel`
 	cancelled                           bool
@@ -427,9 +428,9 @@ func (r *Runner) Run() error {
 			log.Print(err)
 			return err
 		}
-		p := NewPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard)
+		p := newPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard, r.outPrefix)
 		r.pipelines = append(r.pipelines, p)
-		go func(pInfo os.FileInfo, p *Pipeline) {
+		go func(pInfo os.FileInfo, p *pipeline) {
 			defer r.wait.Done()
 			f, err := btrfs.Open(path.Join(r.inRepo, r.commit, r.pipelineDir, pInfo.Name()))
 			if err != nil {
@@ -437,7 +438,7 @@ func (r *Runner) Run() error {
 				errors <- err
 				return
 			}
-			err = p.RunPachFile(f)
+			err = p.runPachFile(f)
 			if err != nil {
 				log.Print(err)
 				errors <- err
@@ -481,9 +482,9 @@ func (r *Runner) Cancel() error {
 	// We'll have one goro per pipelines
 	wg.Add(len(r.pipelines))
 	for _, p := range r.pipelines {
-		go func(p *Pipeline) {
+		go func(p *pipeline) {
 			defer wg.Done()
-			err := p.Cancel()
+			err := p.cancel()
 			if err != nil {
 				errors <- err
 			}

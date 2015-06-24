@@ -21,7 +21,7 @@ func check(err error, t *testing.T) {
 func TestOutput(t *testing.T) {
 	outRepo := "TestOuput"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("output", "", outRepo, "commit", "master", "0-1")
+	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "")
 	pachfile := `
 image ubuntu
 
@@ -30,7 +30,7 @@ run touch /out/foo
 # touch bar
 run touch /out/bar
 `
-	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+	err := pipeline.runPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
 	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
@@ -49,14 +49,14 @@ run touch /out/bar
 func TestEcho(t *testing.T) {
 	outRepo := "TestEcho"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("echo", "", outRepo, "commit", "master", "0-1")
+	pipeline := newPipeline("echo", "", outRepo, "commit", "master", "0-1", "")
 	pachfile := `
 image ubuntu
 
 run echo foo >/out/foo
 run echo foo >/out/bar
 `
-	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+	err := pipeline.runPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
 	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
@@ -88,7 +88,7 @@ func TestInputOutput(t *testing.T) {
 	outRepo := "TestInputOutput_out"
 	check(btrfs.Init(outRepo), t)
 
-	pipeline := NewPipeline("input_output", inRepo, outRepo, "commit", "master", "0-1")
+	pipeline := newPipeline("input_output", inRepo, outRepo, "commit", "master", "0-1", "")
 
 	pachfile := `
 image ubuntu
@@ -97,7 +97,7 @@ input data
 
 run cp /in/data/foo /out/foo
 `
-	err = pipeline.RunPachFile(strings.NewReader(pachfile))
+	err = pipeline.runPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
 	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
@@ -112,13 +112,13 @@ run cp /in/data/foo /out/foo
 func TestLog(t *testing.T) {
 	outRepo := "TestLog"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("log", "", outRepo, "commit1", "master", "0-1")
+	pipeline := newPipeline("log", "", outRepo, "commit1", "master", "0-1", "")
 	pachfile := `
 image ubuntu
 
 run echo "foo"
 `
-	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+	err := pipeline.runPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
 	log, err := btrfs.ReadFile(path.Join(outRepo, "commit1-0", ".log"))
@@ -127,13 +127,13 @@ run echo "foo"
 		t.Fatal("Expect foo, got: ", string(log))
 	}
 
-	pipeline = NewPipeline("log", "", outRepo, "commit2", "master", "0-1")
+	pipeline = newPipeline("log", "", outRepo, "commit2", "master", "0-1", "")
 	pachfile = `
 image ubuntu
 
 run echo "bar" >&2
 `
-	err = pipeline.RunPachFile(strings.NewReader(pachfile))
+	err = pipeline.runPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
 	log, err = btrfs.ReadFile(path.Join(outRepo, "commit2-0", ".log"))
@@ -157,7 +157,7 @@ func TestScrape(t *testing.T) {
 	check(btrfs.Commit(inRepo, "commit", "master"), t)
 
 	// Create a pipeline to run
-	pipeline := NewPipeline("scrape", inRepo, outRepo, "commit", "master", "0-1")
+	pipeline := newPipeline("scrape", inRepo, outRepo, "commit", "master", "0-1", "")
 	pachfile := `
 image busybox
 
@@ -165,7 +165,7 @@ input urls
 
 run cat /in/urls/* | xargs  wget -P /out
 `
-	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+	err := pipeline.runPachFile(strings.NewReader(pachfile))
 
 	exists, err := btrfs.FileExists(path.Join(outRepo, "commit", "index.html"))
 	check(err, t)
@@ -332,7 +332,7 @@ run sleep 100
 func TestWrap(t *testing.T) {
 	outRepo := "TestWrap"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("output", "", outRepo, "commit", "master", "0-1")
+	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "")
 	pachfile := `
 image ubuntu
 
@@ -340,7 +340,7 @@ image ubuntu
 run touch /out/foo \
           /out/bar
 `
-	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+	err := pipeline.runPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
 	exists, err := btrfs.FileExists(path.Join(outRepo, "commit", "foo"))
