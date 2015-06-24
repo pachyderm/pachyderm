@@ -12,8 +12,8 @@ Pachyderm is a complete data analytics solution that lets you efficiently store 
 - Both batched and streaming analytics
 - One-click deploy on AWS without data migration 
 
-## Is Pachyderm production ready?
-No, Pachyderm is at Alpha status. [We'd love your help. :)](#how-do-i-hack-on-pfs)
+## Is Pachyderm enterprise production ready?
+No, Pachyderm is in beta, but can already solve some very meaningful data analytics problems.  [We'd love your help. :)](#how-do-i-hack-on-pfs)
 
 ## What is a commit-based file system?
 Pfs is implemented as a distributed layer on top of btrfs, the same
@@ -33,40 +33,19 @@ an entire cluster's worth of data while still maintaining its commit history.
 ## What are containerized analytics?
 Rather than thinking in terms of map or reduce jobs, pps thinks in terms of pipelines expressed within a container. A pipeline is a generic way expressing computation over large datasets and it’s containerized to make it easily portable, isolated, and easy to monitor. In Pachyderm, all analysis runs in containers. You can write them in any language you want and include any libraries. 
 
-## Quickstart Guide
-### Tutorial -- Analyzing chess games
-#### Run Pachyderm locally on a small sample dataset
-```shell
-# launch a local pfs shard
-$ curl www.pachyderm.io/launch | sh
-
-# clone the chess pipeline
-$ git clone https://github.com/pachyderm/chess.git && cd chess
-
-# install the pipeline locally and run it
-$ install/pachyderm/local
-```
-#####Step 1: Launch a local pfs shard
-Download and run the Pachyderm launch script to get a local instance running.
-#####Step 2: Clone the chess pipeline
-Clone the chess git repo we’ve provided. You can check out the full map code [here](https://github.com/pachyderm/chess).
-#####Step 3: Install and run the pipeline locally
-Run the local install script to start the pipeline. It should take around 6 minutes to complete the analysis.
-
-### Creating a Pachyderm cluster
-Pachyderm is designed to run on CoreOS so we'll need to deploy a CoreOs cluster.  Here's links on how to set one up:
+### Deploying a Pachyderm cluster
+Pachyderm is designed to run on CoreOS so we'll need to deploy a CoreOs cluster. We've created an AWS cloud template to make this insanely easy.
 - [Deploy on Amazon EC2](https://console.aws.amazon.com/cloudformation/home?region=us-west-1#/stacks/new?stackName=Pachyderm&templateURL=https:%2F%2Fs3-us-west-1.amazonaws.com%2Fpachyderm-templates%2Ftemplate) using cloud templates (recommended)
 - [Amazon EC2](https://coreos.com/docs/running-coreos/cloud-providers/ec2/) (manual)
 - [Google Compute Engine](https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/) (manual)
 - [Vagrant](https://coreos.com/docs/running-coreos/platforms/vagrant/) (requires setting up DNS)
 
-### Deploy pfs
+### Deploy Pachyderm manually
 If you chose any of the manual options above, you'll neeed to SSH in to one of your new CoreOS machines and start Pachyderm.
 
 ```shell
 $ curl pachyderm.io/deploy | sh
 ```
-
 The startup process takes a little while the first time you run it because
 each node has to pull a Docker image.
 
