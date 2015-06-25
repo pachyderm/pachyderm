@@ -22,8 +22,12 @@ import (
 	"github.com/pachyderm/pfs/lib/route"
 )
 
-var Cancelled = errors.New("cancelled")
-var ArgCount = errors.New("Illegal argument count.")
+var (
+	ErrFailed        = errors.New("pfs: pipeline failed")
+	ErrCancelled     = errors.New("pfs: cancelled")
+	ErrArgCount      = errors.New("pfs: illegal argument count")
+	ErrUnkownKeyword = errors.New("pfs: unknown keyword")
+)
 
 type Pipeline struct {
 	name            string
@@ -62,18 +66,18 @@ func (p *Pipeline) Input(name string) error {
 // Image sets the image that is being used for computations.
 func (p *Pipeline) Image(image string) error {
 	p.config.Config.Image = image
-	return container.PullImage(image)
+	err := container.PullImage(image)
+	if err != nil {
+		log.Print(err)
+		log.Print("assuming image is local and continuing")
+	}
+	return nil
 }
 
 // Start gets an outRepo ready to be used. This is where clean up of dirty
 // state from a crash happens.
 func (p *Pipeline) Start() error {
-	// If our branch in outRepo has the same parent as the commit in inRepo it
-	// means the last run of the pipeline was succesful.
-	parent := btrfs.GetMeta(path.Join(p.outRepo, p.branch), "parent")
-	if parent != btrfs.GetMeta(path.Join(p.inRepo, p.commit), "parent") {
-		return btrfs.DanglingCommit(p.outRepo, p.commit+"-pre", p.branch)
-	}
+	//TODO cleanup state here.
 	return nil
 }
 
@@ -129,12 +133,10 @@ func (p *Pipeline) Run(cmd []string) error {
 	}
 	defer f.Close()
 	// Copy the logs from the container in to the file.
-	go func() {
-		err := container.ContainerLogs(p.container, f)
-		if err != nil {
-			log.Print(err)
-		}
-	}()
+	err = container.ContainerLogs(p.container, f)
+	if err != nil {
+		log.Print(err)
+	}
 	// Wait for the command to finish:
 	exit, err := container.WaitContainer(p.container)
 	if err != nil {
@@ -155,6 +157,10 @@ func (p *Pipeline) Run(cmd []string) error {
 	return nil
 }
 
+// Shuffle rehashes an output directory.
+// If 2 shards each have a copy of the file `foo` with the content: `bar`.
+// Then after shuffling 1 of those nodes will have a file `foo` with content
+// `barbar` and the other will have no file foo.
 func (p *Pipeline) Shuffle(dir string) error {
 	// this function always increments counter
 	defer func() { p.counter++ }()
@@ -239,6 +245,17 @@ func (p *Pipeline) Finish() error {
 	return btrfs.Commit(p.outRepo, p.commit, p.branch)
 }
 
+func (p *Pipeline) Fail() error {
+	exists, err := btrfs.FileExists(path.Join(p.outRepo, p.commit+"-fail"))
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return btrfs.DanglingCommit(p.outRepo, p.commit+"-fail", p.branch)
+}
+
 // Cancel stops a pipeline by force before it's finished
 func (p *Pipeline) Cancel() error {
 	p.cancelled = true
@@ -256,12 +273,24 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 	if err := p.Start(); err != nil {
 		return err
 	}
+	var tokens []string
 	for lines.Scan() {
 		if p.cancelled {
-			return Cancelled
+			return ErrCancelled
 		}
-		tokens := strings.Fields(lines.Text())
-		if len(tokens) == 0 || tokens[0][0] == '#' {
+		if len(tokens) > 0 && tokens[len(tokens)-1] == "\\" {
+			// We have tokens from last loop, remove the \ token which designates the line wrap
+			tokens = tokens[:len(tokens)-1]
+		} else {
+			// No line wrap, clear the tokens they were already execuated
+			tokens = []string{}
+		}
+		tokens = append(tokens, strings.Fields(lines.Text())...)
+		// These conditions are, empty line, comment line and wrapped line.
+		// All 3 cause us to continue, the first 2 because we're skipping them.
+		// The last because we need more input.
+		if len(tokens) == 0 || tokens[0][0] == '#' || tokens[len(tokens)-1] == "\\" {
+			// Comment or empty line, skip
 			continue
 		}
 
@@ -269,27 +298,33 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 		switch strings.ToLower(tokens[0]) {
 		case "input":
 			if len(tokens) != 2 {
-				return ArgCount
+				return ErrArgCount
 			}
 			err = p.Input(tokens[1])
 		case "image":
 			if len(tokens) != 2 {
-				return ArgCount
+				return ErrArgCount
 			}
 			err = p.Image(tokens[1])
 		case "run":
 			if len(tokens) < 2 {
-				return ArgCount
+				return ErrArgCount
 			}
 			err = p.Run(tokens[1:])
 		case "shuffle":
 			if len(tokens) != 2 {
-				return ArgCount
+				return ErrArgCount
 			}
 			err = p.Shuffle(tokens[1])
+		default:
+			return ErrUnkownKeyword
 		}
 		if err != nil {
 			log.Print(err)
+			if err := p.Fail(); err != nil {
+				log.Print(err)
+				return err
+			}
 			return err
 		}
 	}
@@ -383,7 +418,7 @@ func (r *Runner) Run() error {
 	if r.cancelled {
 		// we were cancelled before we even started
 		r.lock.Unlock()
-		return Cancelled
+		return ErrCancelled
 	}
 	r.wait.Add(len(pipelines))
 	for _, pInfo := range pipelines {
@@ -417,7 +452,7 @@ func (r *Runner) Run() error {
 	close(errors)
 	if r.cancelled {
 		// Pipelines finished because we were cancelled
-		return Cancelled
+		return ErrCancelled
 	}
 	for err := range errors {
 		return err
@@ -464,5 +499,20 @@ func (r *Runner) Cancel() error {
 	// At the end we wait for the pipelines to actually finish, this means that
 	// once Cancel is done you can safely fire off a new batch of pipelines.
 	r.wait.Wait()
+	return nil
+}
+
+// WaitPipeline waits for a pipeline to complete. If the pipeline fails
+// ErrFailed is returned.
+func WaitPipeline(pipelineDir, pipeline, commit string) error {
+	success := path.Join(pipelineDir, pipeline, commit)
+	failure := path.Join(pipelineDir, pipeline, commit+"-fail")
+	file, err := btrfs.WaitAnyFile(success, failure)
+	if err != nil {
+		return err
+	}
+	if file == failure {
+		return ErrFailed
+	}
 	return nil
 }

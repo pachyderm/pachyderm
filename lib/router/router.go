@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/go-uuid/uuid"
 	"github.com/pachyderm/pfs/lib/route"
 	"github.com/pachyderm/pfs/lib/shard"
 	"github.com/pachyderm/pfs/lib/traffic"
+	"github.com/satori/go.uuid"
 )
 
 type Router struct {
@@ -96,7 +96,7 @@ func (ro *Router) RouterMux() *http.ServeMux {
 		if r.Method == "POST" {
 			values := r.URL.Query()
 			if values.Get("commit") == "" {
-				values.Add("commit", uuid.New())
+				values.Add("commit", uuid.NewV4().String())
 				r.URL.RawQuery = values.Encode()
 			}
 		}
@@ -111,6 +111,9 @@ func (ro *Router) RouterMux() *http.ServeMux {
 	pipelineHandler := func(w http.ResponseWriter, r *http.Request) {
 		route.MulticastHttp(w, r, "/pfs/master", route.ReturnOne)
 	}
+	logHandler := func(w http.ResponseWriter, r *http.Request) {
+		route.MulticastHttp(w, r, "/pfs/master", route.ReturnAll)
+	}
 
 	mux.HandleFunc("/file/", fileHandler)
 	mux.HandleFunc("/commit", commitHandler)
@@ -119,6 +122,7 @@ func (ro *Router) RouterMux() *http.ServeMux {
 	mux.HandleFunc("/pipeline/", pipelineHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/test", testHandler)
+	mux.HandleFunc("/log", logHandler)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Welcome to pfs!\n")
 	})

@@ -12,11 +12,11 @@ import (
 	"strings"
 	"sync"
 
-	"code.google.com/p/go-uuid/uuid"
 	"github.com/pachyderm/pfs/lib/btrfs"
 	"github.com/pachyderm/pfs/lib/mapreduce"
 	"github.com/pachyderm/pfs/lib/pipeline"
 	"github.com/pachyderm/pfs/lib/route"
+	"github.com/satori/go.uuid"
 )
 
 var jobDir string = "job"
@@ -58,24 +58,6 @@ func indexOf(haystack []string, needle string) int {
 		}
 	}
 	return -1
-}
-
-func cat(w http.ResponseWriter, name string) {
-	exists, err := btrfs.FileExists(name)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-	}
-	if !exists {
-		http.Error(w, "404 page not found", 404)
-		return
-	}
-
-	if err := rawCat(w, name); err != nil {
-		http.Error(w, err.Error(), 500)
-		log.Print(err)
-		return
-	}
 }
 
 func rawCat(w io.Writer, name string) error {
@@ -161,12 +143,22 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "404 page not found", 404)
 			return
 		case 1:
-			cat(w, files[0])
+			http.ServeFile(w, r, btrfs.FilePath(files[0]))
 		default:
-			msg := multipart.NewWriter(w)
-			defer msg.Close()
-			w.Header().Add("Boundary", msg.Boundary())
+			writer := multipart.NewWriter(w)
+			defer writer.Close()
+			w.Header().Add("Boundary", writer.Boundary())
 			for _, file := range files {
+				info, err := btrfs.Stat(file)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					log.Print(err)
+					return
+				}
+				if info.IsDir() {
+					// We don't do anything with directories.
+					continue
+				}
 				name := strings.TrimPrefix(file, "/"+fs+"/")
 				if shardParam(r) != "" {
 					// We have a shard param, check if the file matches the shard.
@@ -180,7 +172,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 				}
-				fWriter, err := msg.CreateFormFile(name, name)
+				fWriter, err := writer.CreateFormFile(name, name)
 				if err != nil {
 					http.Error(w, err.Error(), 500)
 					log.Print(err)
@@ -224,7 +216,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 }
 
 // FileHandler is the core route for modifying the contents of the fileystem.
-func (s *Shard) FileHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) fileHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" || r.Method == "DELETE" || r.Method == "PUT" {
 		genericFileHandler(path.Join(s.dataRepo, branchParam(r)), w, r)
 	} else if r.Method == "GET" {
@@ -235,7 +227,7 @@ func (s *Shard) FileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // CommitHandler creates a snapshot of outstanding changes.
-func (s *Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, commit, <commit>, file, <file>]
 	if len(url) > 3 && url[3] == "file" {
@@ -268,7 +260,7 @@ func (s *Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 		// Create a commit from local data
 		var commit string
 		if commit = r.URL.Query().Get("commit"); commit == "" {
-			commit = uuid.New()
+			commit = uuid.NewV4().String()
 		}
 		err := btrfs.Commit(s.dataRepo, commit, branchParam(r))
 		if err != nil {
@@ -290,7 +282,6 @@ func (s *Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 				err := oldRunner.Cancel()
 				if err != nil {
 					log.Print(err)
-					return
 				}
 			}
 			err := newRunner.Run()
@@ -327,7 +318,7 @@ func (s *Shard) CommitHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // BranchHandler creates a new branch from commit.
-func (s *Shard) BranchHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) branchHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, commit, <commit>, file, <file>]
 	if len(url) > 3 && url[3] == "file" {
@@ -368,7 +359,7 @@ func (s *Shard) BranchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) jobHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
 		// url looks like [, job, <job>, file, <file>]
@@ -395,11 +386,11 @@ func (s *Shard) JobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Shard) PipelineHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) pipelineHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
 		// First wait for the commit to show up
-		err := btrfs.WaitForFile(path.Join(s.pipelinePrefix, url[2], commitParam(r)))
+		err := pipeline.WaitPipeline(s.pipelinePrefix, url[2], commitParam(r))
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			log.Print(err)
@@ -418,7 +409,7 @@ func (s *Shard) PipelineHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Shard) pullHandler(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	mpw := multipart.NewWriter(w)
 	defer mpw.Close()
@@ -433,17 +424,22 @@ func (s *Shard) PullHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Shard) logHandler(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "/var/lib/pfs/log/log-"+s.shardStr)
+}
+
 // ShardMux creates a multiplexer for a Shard writing to the passed in FS.
 func (s *Shard) ShardMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/branch", s.BranchHandler)
-	mux.HandleFunc("/commit", s.CommitHandler)
-	mux.HandleFunc("/file/", s.FileHandler)
-	mux.HandleFunc("/job/", s.JobHandler)
-	mux.HandleFunc("/pipeline/", s.PipelineHandler)
+	mux.HandleFunc("/branch", s.branchHandler)
+	mux.HandleFunc("/commit", s.commitHandler)
+	mux.HandleFunc("/file/", s.fileHandler)
+	mux.HandleFunc("/job/", s.jobHandler)
+	mux.HandleFunc("/pipeline/", s.pipelineHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
-	mux.HandleFunc("/pull", s.PullHandler)
+	mux.HandleFunc("/pull", s.pullHandler)
+	mux.HandleFunc("/log", s.logHandler)
 
 	return mux
 }

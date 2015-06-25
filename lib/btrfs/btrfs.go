@@ -19,13 +19,18 @@ import (
 	"syscall"
 	"time"
 
-	"code.google.com/p/go-uuid/uuid"
 	"github.com/go-fsnotify/fsnotify"
 	"github.com/pachyderm/pfs/lib/shell"
+	"github.com/satori/go.uuid"
 )
 
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-var once sync.Once
+var (
+	ErrComplete  = errors.New("pfs: complete")
+	ErrCancelled = errors.New("pfs: cancelled")
+
+	letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	once    sync.Once
+)
 
 // localVolume returns the path *inside* the container that we look for the
 // btrfs volume at
@@ -63,7 +68,6 @@ func FilePath(name string) string {
 }
 
 func HostPath(name string) string {
-	log.Print("HOSTPATH: ", hostVolume())
 	return path.Join(hostVolume(), name)
 }
 
@@ -290,7 +294,8 @@ func largestExistingPath(name string) (string, error) {
 	}
 }
 
-func WaitForFile(name string) error {
+func WaitFile(name string, cancel chan struct{}) error {
+	log.Print("WaitFile(", name, ")")
 	dir, err := largestExistingPath(name)
 	if err != nil {
 		log.Print(err)
@@ -317,6 +322,7 @@ func WaitForFile(name string) error {
 		return err
 	}
 	if exists {
+		log.Print("Found: ", name)
 		return nil
 	}
 
@@ -327,14 +333,54 @@ func WaitForFile(name string) error {
 				return nil
 			} else if event.Op == fsnotify.Create && strings.HasPrefix(FilePath(name), event.Name) {
 				//fsnotify isn't recursive so we need to recurse for it.
-				return WaitForFile(name)
+				return WaitFile(name, cancel)
 			}
 		case err := <-watcher.Errors:
 			log.Print(err)
 			return err
+		case <-cancel:
+			return ErrCancelled
 		}
 	}
 	return nil
+}
+
+// WaitAnyFile returns as soon as ANY of the files exists.
+// It returns an error if waiting for ANY of the files errors.
+func WaitAnyFile(files ...string) (string, error) {
+	// Channel for files that appear
+	done := make(chan string, len(files))
+	// Channel for errors that occur
+	errors := make(chan error, len(files))
+
+	cancellers := make([]chan struct{}, len(files))
+	// Make sure that everyone gets cancelled after this function exits.
+	defer func() {
+		for _, c := range cancellers {
+			c <- struct{}{}
+		}
+	}()
+	for i, _ := range files {
+		file := files[i]
+		cancellers[i] = make(chan struct{}, 1)
+		go func(i int) {
+			err := WaitFile(file, cancellers[i])
+			if err != nil {
+				// Never blocks due to size of channel's buffer.
+				errors <- err
+			}
+			// Never blocks due to size of channel's buffer.
+			done <- file
+		}(i)
+	}
+
+	select {
+	case file := <-done:
+		log.Print("Done: ", file)
+		return file, nil
+	case err := <-errors:
+		return "", err
+	}
 }
 
 func SubvolumeCreate(name string) error {
@@ -445,9 +491,9 @@ func createNewBranch(repo string) error {
 		if err != nil {
 			return err
 		}
-		return Complete
+		return ErrComplete
 	})
-	if err != nil && err != Complete {
+	if err != nil && err != ErrComplete {
 		return err
 	}
 	return nil
@@ -565,7 +611,7 @@ func DanglingCommit(repo, commit, branch string) error {
 // It's your responsibility to release the snapshot with Release
 func Hold(repo, commit string) (string, error) {
 	MkdirAll("tmp")
-	name := path.Join("tmp", uuid.New())
+	name := path.Join("tmp", uuid.NewV4().String())
 	if err := Snapshot(path.Join(repo, commit), name, false); err != nil {
 		return "", err
 	}
@@ -653,8 +699,6 @@ type CommitInfo struct {
 	gen, id, parent, Path string
 }
 
-var Complete = errors.New("Complete")
-
 // Commits is a wrapper around `Log` which parses the output in to a convenient
 // struct
 func Commits(repo, from string, order int, cont func(CommitInfo) error) error {
@@ -691,11 +735,11 @@ func GetFrom(repo string) (string, error) {
 		}
 		if isCommit {
 			from = c.Path
-			return Complete
+			return ErrComplete
 		}
 		return nil
 	})
-	if err != nil && err != Complete {
+	if err != nil && err != ErrComplete {
 		return "", err
 	}
 

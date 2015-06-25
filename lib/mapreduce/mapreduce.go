@@ -223,6 +223,12 @@ func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 		parallel = job.Parallel
 	}
 
+	// make sure we have the image.
+	err = container.PullImage(job.Image)
+	if err != nil {
+		log.Print(err)
+		return
+	}
 	for {
 		// Spinup a Mapper()
 		containerId, err := container.StartContainer(job.Image, job.Cmd)
@@ -287,6 +293,11 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 	}
 
 	// Spinup a Reducer()
+	err := container.PullImage(job.Image)
+	if err != nil {
+		log.Print(err)
+		return
+	}
 	containerId, err := container.StartContainer(job.Image, job.Cmd)
 	if err != nil {
 		log.Print(err)
@@ -460,5 +471,5 @@ func Materialize(in_repo, branch, commit, outRepo, jobDir string, shard, modulos
 
 func WaitJob(outRepo, branch, commit, job string) error {
 	log.Printf("WaitJob: %s %s %s %s", outRepo, branch, commit, job)
-	return btrfs.WaitForFile(path.Join(outRepo, branch, ".progress", commit, job))
+	return btrfs.WaitFile(path.Join(outRepo, branch, ".progress", commit, job), nil)
 }
