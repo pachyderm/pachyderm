@@ -7,7 +7,7 @@ set -Ee          # pass trap handlers down to subshells, exit on error
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
 
-source "${DIR}/lib/lib.sh"
+. "${DIR}/lib/lib.sh"
 
 sudo umount "${PFS_HOST_VOLUME}" || true
 rm "${PFS_DATA_IMG}" || true

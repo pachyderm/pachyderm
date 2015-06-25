@@ -48,13 +48,10 @@ function check_executable() {
     return 1
   fi
 
-  local regex="([0-9]+)\.([0-9]+)\.([0-9]+)"
-  if [ "$(echo "${version}" | sed -E "s/${regex}/\1/")" -ne "${major}" ]; then
-    echo "error: ${executable} version ${version} must have major version ${major}" >&2
-    return 1
-  fi
-  if [ "$(echo "${version}" | sed -E "s/${regex}/\2/")" -lt "${minor}" ]; then
-    echo "error: ${executable} version ${version} must have minor version of at least ${minor}" >&2
+  local version_regex="([0-9]+)\.([0-9]+)(\.([0-9]+))?"
+  if [ "$(echo "${version}" | sed -E "s/${version_regex}/\1/")" -ne "${major}" ] || [ "$(echo "${version_regex}" | sed -E "s/${regex}/\2/")" -lt "${minor}" ]; then
+    echo "error: Found ${executable} version ${version}."
+    echo "error: Expected ${executable} major version ${major}, minor version >= ${minor}." >&2
     return 1
   fi
   echo "success: ${executable} version ${version} ok" >&2

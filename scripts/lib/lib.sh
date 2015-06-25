@@ -1,2 +1,2 @@
-source "$(dirname "${BASH_SOURCE[0]}")/constants.sh"
-source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/constants.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
