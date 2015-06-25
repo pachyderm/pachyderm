@@ -2,9 +2,11 @@
 package container
 
 import (
+	"errors"
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/fsouza/go-dockerclient"
@@ -138,7 +140,20 @@ func getNewDockerClient() (*docker.Client, error) {
 		path := os.Getenv("DOCKER_CERT_PATH")
 
 		if path == "" {
-			path = "."
+			path = os.Getenv("HOME")
+
+			if path == "" {
+				return nil, errors.New("pfs: environment variable HOME must be set if DOCKER_CERT_PATH is not set")
+			}
+
+			var err error
+
+			path = filepath.Join(path, ".docker")
+			path, err = filepath.Abs(path)
+
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		return docker.NewTLSClient(
