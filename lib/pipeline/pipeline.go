@@ -454,13 +454,11 @@ func (r *Runner) makeOutRepo(pipeline string) error {
 // Run runs all of the pipelines it finds in pipelineDir. Returns the
 // first error it encounters.
 func (r *Runner) Run() error {
-	log.Print("Run: ", r)
 	err := btrfs.MkdirAll(r.outPrefix)
 	if err != nil {
 		return err
 	}
 	pipelines, err := btrfs.ReadDir(path.Join(r.inRepo, r.commit, r.pipelineDir))
-	log.Print("Pipelines: ", pipelines)
 	if err != nil {
 		// Notice we don't return this error but instead no-op. It's fine to not
 		// have a pipeline dir.
@@ -495,6 +493,7 @@ func (r *Runner) Run() error {
 				errors <- err
 				return
 			}
+			defer f.Close()
 			err = p.runPachFile(f)
 			if err != nil {
 				log.Print(err)
@@ -558,6 +557,45 @@ func (r *Runner) Cancel() error {
 	// once Cancel is done you can safely fire off a new batch of pipelines.
 	r.wait.Wait()
 	return nil
+}
+
+// Inputs returns all of the inputs for the pipelines.
+func (r *Runner) Inputs() ([]string, error) {
+	pipelines, err := btrfs.ReadDir(path.Join(r.inRepo, r.commit, r.pipelineDir))
+	if err != nil {
+		// Notice we don't return this error but instead no-op. It's fine to not
+		// have a pipeline dir.
+		return nil, nil
+	}
+	var res []string
+	for _, pInfo := range pipelines {
+		f, err := btrfs.Open(path.Join(r.inRepo, r.commit, r.pipelineDir, pInfo.Name()))
+		if err != nil {
+			log.Print(err)
+			return nil, err
+		}
+		defer f.Close()
+		lines := bufio.NewScanner(f)
+		// TODO we're copy-pasting code from runPachFile. Let's abstract that.
+		var tokens []string
+		for lines.Scan() {
+			if len(tokens) > 0 && tokens[len(tokens)-1] == "\\" {
+				// We have tokens from last loop, remove the \ token which designates the line wrap
+				tokens = tokens[:len(tokens)-1]
+			} else {
+				// No line wrap, clear the tokens they were already considered
+				tokens = []string{}
+			}
+			tokens = append(tokens, strings.Fields(lines.Text())...)
+			if len(tokens) > 0 && tokens[0] == "input" {
+				if len(tokens) < 2 {
+					return nil, ErrArgCount
+				}
+				res = append(res, tokens[1])
+			}
+		}
+	}
+	return res, nil
 }
 
 // WaitPipeline waits for a pipeline to complete. If the pipeline fails
