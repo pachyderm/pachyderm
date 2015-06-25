@@ -23,7 +23,7 @@ var DefaultConfig = docker.Config{
 }
 
 func RawStartContainer(opts docker.CreateContainerOptions) (string, error) {
-	client, err := getNewDockerClient()
+	client, err := NewDockerClientFromEnv()
 	if err != nil {
 		log.Print(err)
 		return "", err
@@ -49,7 +49,7 @@ func StartContainer(image string, command []string) (string, error) {
 }
 
 func StopContainer(id string) error {
-	client, err := getNewDockerClient()
+	client, err := NewDockerClientFromEnv()
 	if err != nil {
 		log.Print(err)
 		return err
@@ -58,7 +58,7 @@ func StopContainer(id string) error {
 }
 
 func KillContainer(id string) error {
-	client, err := getNewDockerClient()
+	client, err := NewDockerClientFromEnv()
 	if err != nil {
 		log.Print(err)
 		return err
@@ -67,7 +67,7 @@ func KillContainer(id string) error {
 }
 
 func IpAddr(containerId string) (string, error) {
-	client, err := getNewDockerClient()
+	client, err := NewDockerClientFromEnv()
 	if err != nil {
 		log.Print(err)
 		return "", err
@@ -83,7 +83,7 @@ func IpAddr(containerId string) (string, error) {
 
 func PullImage(image string) error {
 	repo_tag := strings.Split(image, ":")
-	client, err := getNewDockerClient()
+	client, err := NewDockerClientFromEnv()
 	if err != nil {
 		log.Print(err)
 		return err
@@ -96,7 +96,7 @@ func PullImage(image string) error {
 }
 
 func PipeToStdin(id string, in io.Reader) error {
-	client, err := getNewDockerClient()
+	client, err := NewDockerClientFromEnv()
 	if err != nil {
 		log.Print(err)
 		return err
@@ -110,7 +110,7 @@ func PipeToStdin(id string, in io.Reader) error {
 }
 
 func ContainerLogs(id string, out io.Writer) error {
-	client, err := getNewDockerClient()
+	client, err := NewDockerClientFromEnv()
 	if err != nil {
 		log.Print(err)
 		return err
@@ -126,7 +126,7 @@ func ContainerLogs(id string, out io.Writer) error {
 }
 
 func WaitContainer(id string) (int, error) {
-	client, err := getNewDockerClient()
+	client, err := NewDockerClientFromEnv()
 	if err != nil {
 		log.Print(err)
 		return 0, err
@@ -135,8 +135,14 @@ func WaitContainer(id string) (int, error) {
 	return client.WaitContainer(id)
 }
 
-func getNewDockerClient() (*docker.Client, error) {
-	if os.Getenv("DOCKER_TLS_VERIFY") == "1" {
+func NewDockerClientFromEnv() (*docker.Client, error) {
+	host := os.Getenv("DOCKER_HOST")
+
+	if host == "" {
+		host = defaultDockerHost
+	}
+
+	if os.Getenv("DOCKER_TLS_VERIFY") != "" {
 		path := os.Getenv("DOCKER_CERT_PATH")
 
 		if path == "" {
@@ -157,22 +163,12 @@ func getNewDockerClient() (*docker.Client, error) {
 		}
 
 		return docker.NewTLSClient(
-			getDockerHost(),
+			host,
 			path+"/cert.pem",
 			path+"/key.pem",
 			path+"/ca.pem",
 		)
 	}
 
-	return docker.NewClient(getDockerHost())
-}
-
-func getDockerHost() (host string) {
-	host = os.Getenv("DOCKER_HOST")
-
-	if host == "" {
-		host = defaultDockerHost
-	}
-
-	return
+	return docker.NewClient(host)
 }
