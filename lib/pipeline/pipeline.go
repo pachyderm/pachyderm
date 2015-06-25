@@ -20,13 +20,15 @@ import (
 	"github.com/pachyderm/pfs/lib/concurrency"
 	"github.com/pachyderm/pfs/lib/container"
 	"github.com/pachyderm/pfs/lib/route"
+	"github.com/pachyderm/pfs/lib/s3utils"
 )
 
 var (
-	ErrFailed        = errors.New("pfs: pipeline failed")
-	ErrCancelled     = errors.New("pfs: cancelled")
-	ErrArgCount      = errors.New("pfs: illegal argument count")
-	ErrUnkownKeyword = errors.New("pfs: unknown keyword")
+	ErrFailed          = errors.New("pfs: pipeline failed")
+	ErrCancelled       = errors.New("pfs: cancelled")
+	ErrArgCount        = errors.New("pfs: illegal argument count")
+	ErrUnkownKeyword   = errors.New("pfs: unknown keyword")
+	ErrUnknownProtocol = errors.New("pfs: unknown protocol")
 )
 
 type pipeline struct {
@@ -55,7 +57,7 @@ func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir str
 	}
 }
 
-// Import makes a dataset available for computations in the container.
+// input makes a dataset available for computations in the container.
 func (p *pipeline) input(name string) error {
 	switch {
 	case strings.HasPrefix(name, "pps://"):
@@ -75,6 +77,45 @@ func (p *pipeline) input(name string) error {
 		containerPath := path.Join("/in", name)
 		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
 		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+	}
+	return nil
+}
+
+// sync copies data from an external source in to the output directory
+func (p *pipeline) sync(name string) error {
+	switch {
+	case strings.HasPrefix(name, "s3://"):
+		name = strings.TrimPrefix(name, "s3://")
+		bucket, err := s3utils.NewBucket(name)
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+		s3utils.ForEachFile(name, "", func(file string) error {
+			match, err := route.Match(name, p.shard)
+			if err != nil {
+				return err
+			}
+			if !match {
+				return nil
+			}
+			src, err := bucket.GetReader(file)
+			if err != nil {
+				return err
+			}
+			dst, err := btrfs.Create(path.Join(p.outRepo, p.branch, name))
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(dst, src)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+	default:
+		log.Print("Unknown protocol: ", name)
+		return ErrUnknownProtocol
 	}
 	return nil
 }
