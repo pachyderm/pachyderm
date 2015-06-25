@@ -376,12 +376,40 @@ run cp /in/p1/foo /out/foo
 	check(btrfs.Commit(inRepo, "commit", "master"), t)
 
 	outPrefix := "TestDependency"
-	runner := NewRunner("pipeline", "TestDependencyin", outPrefix, "commit", "master", "0-1")
+	runner := NewRunner("pipeline", inRepo, outPrefix, "commit", "master", "0-1")
 	check(runner.Run(), t)
 
 	res, err := btrfs.ReadFile(path.Join(outPrefix, "p2", "commit", "foo"))
 	check(err, t)
 	if string(res) != "foo\n" {
 		t.Fatal("Expected foo, got: ", string(res))
+	}
+}
+
+func TestRunnerInputs(t *testing.T) {
+	inRepo := "TestRunnerInputsin"
+	check(btrfs.Init(inRepo), t)
+	p1 := `
+image ubuntu
+
+input foo
+input bar
+`
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "p1"), []byte(p1)), t)
+	p2 := `
+image ubuntu
+
+input fizz
+input buzz
+`
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "p2"), []byte(p2)), t)
+	check(btrfs.Commit(inRepo, "commit", "master"), t)
+
+	outPrefix := "TestRunnerInputs"
+	runner := NewRunner("pipeline", inRepo, outPrefix, "commit", "master", "0-1")
+	inputs, err := runner.Inputs()
+	check(err, t)
+	if strings.Join(inputs, " ") != "foo bar fizz buzz" {
+		t.Fatal("Incorrect inputs: ", inputs, " expected: ", []string{"foo", "bar", "fizz", "buzz"})
 	}
 }
