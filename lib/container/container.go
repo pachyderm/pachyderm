@@ -21,7 +21,7 @@ var DefaultConfig = docker.Config{
 }
 
 func RawStartContainer(opts docker.CreateContainerOptions) (string, error) {
-	client, err := docker.NewClient(getDockerHost())
+	client, err := getNewDockerClient()
 	if err != nil {
 		log.Print(err)
 		return "", err
@@ -47,7 +47,7 @@ func StartContainer(image string, command []string) (string, error) {
 }
 
 func StopContainer(id string) error {
-	client, err := docker.NewClient(getDockerHost())
+	client, err := getNewDockerClient()
 	if err != nil {
 		log.Print(err)
 		return err
@@ -56,7 +56,7 @@ func StopContainer(id string) error {
 }
 
 func KillContainer(id string) error {
-	client, err := docker.NewClient(getDockerHost())
+	client, err := getNewDockerClient()
 	if err != nil {
 		log.Print(err)
 		return err
@@ -65,7 +65,7 @@ func KillContainer(id string) error {
 }
 
 func IpAddr(containerId string) (string, error) {
-	client, err := docker.NewClient(getDockerHost())
+	client, err := getNewDockerClient()
 	if err != nil {
 		log.Print(err)
 		return "", err
@@ -81,7 +81,7 @@ func IpAddr(containerId string) (string, error) {
 
 func PullImage(image string) error {
 	repo_tag := strings.Split(image, ":")
-	client, err := docker.NewClient(getDockerHost())
+	client, err := getNewDockerClient()
 	if err != nil {
 		log.Print(err)
 		return err
@@ -94,7 +94,7 @@ func PullImage(image string) error {
 }
 
 func PipeToStdin(id string, in io.Reader) error {
-	client, err := docker.NewClient(getDockerHost())
+	client, err := getNewDockerClient()
 	if err != nil {
 		log.Print(err)
 		return err
@@ -108,7 +108,7 @@ func PipeToStdin(id string, in io.Reader) error {
 }
 
 func ContainerLogs(id string, out io.Writer) error {
-	client, err := docker.NewClient(getDockerHost())
+	client, err := getNewDockerClient()
 	if err != nil {
 		log.Print(err)
 		return err
@@ -124,13 +124,32 @@ func ContainerLogs(id string, out io.Writer) error {
 }
 
 func WaitContainer(id string) (int, error) {
-	client, err := docker.NewClient(getDockerHost())
+	client, err := getNewDockerClient()
 	if err != nil {
 		log.Print(err)
 		return 0, err
 	}
 
 	return client.WaitContainer(id)
+}
+
+func getNewDockerClient() (*docker.Client, error) {
+	if os.Getenv("DOCKER_TLS_VERIFY") == "1" {
+		path := os.Getenv("DOCKER_CERT_PATH")
+
+		if path == "" {
+			path = "."
+		}
+
+		return docker.NewTLSClient(
+			getDockerHost(),
+			path+"/cert.pem",
+			path+"/key.pem",
+			path+"/ca.pem",
+		)
+	}
+
+	return docker.NewClient(getDockerHost())
 }
 
 func getDockerHost() (host string) {
