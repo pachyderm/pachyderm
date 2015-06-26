@@ -81,34 +81,44 @@ func (p *pipeline) input(name string) error {
 	return nil
 }
 
-// sync copies data from an external source in to the output directory
-func (p *pipeline) sync(name string) error {
+// inject injects data from an external source into the output directory
+func (p *pipeline) inject(name string) error {
+	log.Print("Got inject: ", name)
 	switch {
 	case strings.HasPrefix(name, "s3://"):
-		name = strings.TrimPrefix(name, "s3://")
 		bucket, err := s3utils.NewBucket(name)
 		if err != nil {
 			log.Print(err)
 			return err
 		}
 		s3utils.ForEachFile(name, "", func(file string) error {
+			if err != nil {
+				log.Print(err)
+				return err
+			}
 			match, err := route.Match(name, p.shard)
 			if err != nil {
+				log.Print(err)
 				return err
 			}
 			if !match {
 				return nil
 			}
+			// TODO match the on disk timestamps to s3's timestamps and make
+			// sure we only pull data that has changed
 			src, err := bucket.GetReader(file)
 			if err != nil {
+				log.Print(err)
 				return err
 			}
-			dst, err := btrfs.Create(path.Join(p.outRepo, p.branch, name))
+			dst, err := btrfs.CreateAll(path.Join(p.outRepo, p.branch, file))
 			if err != nil {
+				log.Print(err)
 				return err
 			}
 			_, err = io.Copy(dst, src)
 			if err != nil {
+				log.Print(err)
 				return err
 			}
 			return nil
@@ -458,6 +468,10 @@ func (r *Runner) Run() error {
 	if err != nil {
 		return err
 	}
+	err = r.startInputPipelines()
+	if err != nil {
+		return err
+	}
 	pipelines, err := btrfs.ReadDir(path.Join(r.inRepo, r.commit, r.pipelineDir))
 	if err != nil {
 		// Notice we don't return this error but instead no-op. It's fine to not
@@ -468,7 +482,6 @@ func (r *Runner) Run() error {
 	// number of pipelines. The below code should make sure that each pipeline only
 	// sends 1 error otherwise deadlock may occur.
 	errors := make(chan error, len(pipelines))
-
 	// Make sure we don't race with cancel this is held while we add pipelines.
 	r.lock.Lock()
 	if r.cancelled {
@@ -476,6 +489,9 @@ func (r *Runner) Run() error {
 		r.lock.Unlock()
 		return ErrCancelled
 	}
+	// unlocker lets us defer unlocking and explicitly unlock
+	var unlocker sync.Once
+	defer unlocker.Do(r.lock.Unlock)
 	r.wait.Add(len(pipelines))
 	for _, pInfo := range pipelines {
 		err := r.makeOutRepo(pInfo.Name())
@@ -503,7 +519,7 @@ func (r *Runner) Run() error {
 		}(pInfo, p)
 	}
 	// We're done adding pipelines so unlock
-	r.lock.Unlock()
+	unlocker.Do(r.lock.Unlock)
 	// Wait for the pipelines to finish
 	r.wait.Wait()
 	close(errors)
@@ -596,6 +612,46 @@ func (r *Runner) Inputs() ([]string, error) {
 		}
 	}
 	return res, nil
+}
+
+// startInputPipelines starts pipelines which pull in external data (such as
+// from s3)
+func (r *Runner) startInputPipelines() error {
+	inputs, err := r.Inputs()
+	if err != nil {
+		return err
+	}
+	r.lock.Lock()
+	if r.cancelled {
+		// we were cancelled before we even started
+		r.lock.Unlock()
+		return ErrCancelled
+	}
+	defer r.lock.Unlock()
+	for _, input := range inputs {
+		if !strings.HasPrefix(input, "s3://") {
+			continue
+		}
+		input = strings.TrimPrefix(input, "s3://")
+		err := r.makeOutRepo(input)
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+		p := newPipeline(input, r.inRepo, path.Join(r.outPrefix, input), r.commit, r.branch, r.shard, r.outPrefix)
+		r.pipelines = append(r.pipelines, p)
+		r.wait.Add(1)
+		go func(input string, p *pipeline) {
+			defer r.wait.Done()
+			err := p.inject(input)
+			if err != nil {
+				p.fail()
+				return
+			}
+			p.finish()
+		}(input, p)
+	}
+	return nil
 }
 
 // WaitPipeline waits for a pipeline to complete. If the pipeline fails
