@@ -73,7 +73,7 @@ func (r *S3Replica) Pull(from string, target Pusher) error {
 		log.Print(err)
 		return err
 	}
-	_, err = s3utils.ForEachFile(r.uri, from, func(path string) error {
+	err = s3utils.ForEachFile(r.uri, from, func(path string) error {
 		f, err := bucket.GetReader(path)
 		if f == nil {
 			return fmt.Errorf("Nil file returned.")

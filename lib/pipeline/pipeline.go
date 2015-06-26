@@ -20,16 +20,18 @@ import (
 	"github.com/pachyderm/pfs/lib/concurrency"
 	"github.com/pachyderm/pfs/lib/container"
 	"github.com/pachyderm/pfs/lib/route"
+	"github.com/pachyderm/pfs/lib/s3utils"
 )
 
 var (
-	ErrFailed        = errors.New("pfs: pipeline failed")
-	ErrCancelled     = errors.New("pfs: cancelled")
-	ErrArgCount      = errors.New("pfs: illegal argument count")
-	ErrUnkownKeyword = errors.New("pfs: unknown keyword")
+	ErrFailed          = errors.New("pfs: pipeline failed")
+	ErrCancelled       = errors.New("pfs: cancelled")
+	ErrArgCount        = errors.New("pfs: illegal argument count")
+	ErrUnkownKeyword   = errors.New("pfs: unknown keyword")
+	ErrUnknownProtocol = errors.New("pfs: unknown protocol")
 )
 
-type Pipeline struct {
+type pipeline struct {
 	name            string
 	config          docker.CreateContainerOptions
 	inRepo, outRepo string
@@ -38,10 +40,11 @@ type Pipeline struct {
 	container       string
 	cancelled       bool
 	shard           string
+	pipelineDir     string
 }
 
-func NewPipeline(name, dataRepo, outRepo, commit, branch, shard string) *Pipeline {
-	return &Pipeline{
+func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir string) *pipeline {
+	return &pipeline{
 		name:    name,
 		inRepo:  dataRepo,
 		outRepo: outRepo,
@@ -49,22 +52,86 @@ func NewPipeline(name, dataRepo, outRepo, commit, branch, shard string) *Pipelin
 		branch:  branch,
 		config: docker.CreateContainerOptions{Config: &container.DefaultConfig,
 			HostConfig: &docker.HostConfig{}},
-		shard: shard,
+		shard:       shard,
+		pipelineDir: pipelineDir,
 	}
 }
 
-// Import makes a dataset available for computations in the container.
-func (p *Pipeline) Input(name string) error {
-	hostPath := btrfs.HostPath(path.Join(p.inRepo, p.commit, name))
-	containerPath := path.Join("/in", name)
+// input makes a dataset available for computations in the container.
+func (p *pipeline) input(name string) error {
+	switch {
+	case strings.HasPrefix(name, "pps://"):
+		name = strings.TrimPrefix(name, "pps://")
+		err := WaitPipeline(p.pipelineDir, name, p.commit)
+		if err != nil {
+			return err
+		}
+		hostPath := btrfs.HostPath(path.Join(p.pipelineDir, name, p.commit))
+		containerPath := path.Join("/in", name)
+		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
+		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+	case strings.HasPrefix(name, "pfs://"):
+		fallthrough
+	default:
+		hostPath := btrfs.HostPath(path.Join(p.inRepo, p.commit, name))
+		containerPath := path.Join("/in", name)
+		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
+		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+	}
+	return nil
+}
 
-	bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
-	p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+// inject injects data from an external source into the output directory
+func (p *pipeline) inject(name string) error {
+	log.Print("Got inject: ", name)
+	switch {
+	case strings.HasPrefix(name, "s3://"):
+		bucket, err := s3utils.NewBucket(name)
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+		s3utils.ForEachFile(name, "", func(file string) error {
+			if err != nil {
+				log.Print(err)
+				return err
+			}
+			match, err := route.Match(name, p.shard)
+			if err != nil {
+				log.Print(err)
+				return err
+			}
+			if !match {
+				return nil
+			}
+			// TODO match the on disk timestamps to s3's timestamps and make
+			// sure we only pull data that has changed
+			src, err := bucket.GetReader(file)
+			if err != nil {
+				log.Print(err)
+				return err
+			}
+			dst, err := btrfs.CreateAll(path.Join(p.outRepo, p.branch, file))
+			if err != nil {
+				log.Print(err)
+				return err
+			}
+			_, err = io.Copy(dst, src)
+			if err != nil {
+				log.Print(err)
+				return err
+			}
+			return nil
+		})
+	default:
+		log.Print("Unknown protocol: ", name)
+		return ErrUnknownProtocol
+	}
 	return nil
 }
 
 // Image sets the image that is being used for computations.
-func (p *Pipeline) Image(image string) error {
+func (p *pipeline) image(image string) error {
 	p.config.Config.Image = image
 	err := container.PullImage(image)
 	if err != nil {
@@ -76,13 +143,13 @@ func (p *Pipeline) Image(image string) error {
 
 // Start gets an outRepo ready to be used. This is where clean up of dirty
 // state from a crash happens.
-func (p *Pipeline) Start() error {
-	//TODO cleanup state here.
+func (p *pipeline) start() error {
+	//TODO cleanup crashed state here.
 	return nil
 }
 
 // runCommit returns the commit that the current run will create
-func (p *Pipeline) runCommit() string {
+func (p *pipeline) runCommit() string {
 	return fmt.Sprintf("%s-%d", p.commit, p.counter)
 }
 
@@ -93,7 +160,7 @@ func (p *Pipeline) runCommit() string {
 // pipeline is rerun. The reason we don't do it here is that even if we try our
 // best the process crashing at the wrong time could still leave it in an
 // inconsistent state.
-func (p *Pipeline) Run(cmd []string) error {
+func (p *pipeline) run(cmd []string) error {
 	// this function always increments counter
 	defer func() { p.counter++ }()
 	// Check if the commit already exists
@@ -161,7 +228,7 @@ func (p *Pipeline) Run(cmd []string) error {
 // If 2 shards each have a copy of the file `foo` with the content: `bar`.
 // Then after shuffling 1 of those nodes will have a file `foo` with content
 // `barbar` and the other will have no file foo.
-func (p *Pipeline) Shuffle(dir string) error {
+func (p *pipeline) shuffle(dir string) error {
 	// this function always increments counter
 	defer func() { p.counter++ }()
 	// First we clear the directory, notice that the previous commit from
@@ -234,7 +301,7 @@ func (p *Pipeline) Shuffle(dir string) error {
 }
 
 // Finish makes the final commit for the pipeline
-func (p *Pipeline) Finish() error {
+func (p *pipeline) finish() error {
 	exists, err := btrfs.FileExists(path.Join(p.outRepo, p.commit))
 	if err != nil {
 		return err
@@ -245,7 +312,7 @@ func (p *Pipeline) Finish() error {
 	return btrfs.Commit(p.outRepo, p.commit, p.branch)
 }
 
-func (p *Pipeline) Fail() error {
+func (p *pipeline) fail() error {
 	exists, err := btrfs.FileExists(path.Join(p.outRepo, p.commit+"-fail"))
 	if err != nil {
 		return err
@@ -257,7 +324,7 @@ func (p *Pipeline) Fail() error {
 }
 
 // Cancel stops a pipeline by force before it's finished
-func (p *Pipeline) Cancel() error {
+func (p *pipeline) cancel() error {
 	p.cancelled = true
 	err := container.StopContainer(p.container)
 	if err != nil {
@@ -267,10 +334,10 @@ func (p *Pipeline) Cancel() error {
 	return nil
 }
 
-func (p *Pipeline) RunPachFile(r io.Reader) error {
+func (p *pipeline) runPachFile(r io.Reader) error {
 	lines := bufio.NewScanner(r)
 
-	if err := p.Start(); err != nil {
+	if err := p.start(); err != nil {
 		return err
 	}
 	var tokens []string
@@ -300,35 +367,35 @@ func (p *Pipeline) RunPachFile(r io.Reader) error {
 			if len(tokens) != 2 {
 				return ErrArgCount
 			}
-			err = p.Input(tokens[1])
+			err = p.input(tokens[1])
 		case "image":
 			if len(tokens) != 2 {
 				return ErrArgCount
 			}
-			err = p.Image(tokens[1])
+			err = p.image(tokens[1])
 		case "run":
 			if len(tokens) < 2 {
 				return ErrArgCount
 			}
-			err = p.Run(tokens[1:])
+			err = p.run(tokens[1:])
 		case "shuffle":
 			if len(tokens) != 2 {
 				return ErrArgCount
 			}
-			err = p.Shuffle(tokens[1])
+			err = p.shuffle(tokens[1])
 		default:
 			return ErrUnkownKeyword
 		}
 		if err != nil {
 			log.Print(err)
-			if err := p.Fail(); err != nil {
+			if err := p.fail(); err != nil {
 				log.Print(err)
 				return err
 			}
 			return err
 		}
 	}
-	if err := p.Finish(); err != nil {
+	if err := p.finish(); err != nil {
 		return err
 	}
 	return nil
@@ -338,7 +405,7 @@ type Runner struct {
 	pipelineDir, inRepo, commit, branch string
 	outPrefix                           string // the prefix for out repos
 	shard                               string
-	pipelines                           []*Pipeline
+	pipelines                           []*pipeline
 	wait                                sync.WaitGroup
 	lock                                sync.Mutex // used to prevent races between `Run` and `Cancel`
 	cancelled                           bool
@@ -397,8 +464,11 @@ func (r *Runner) makeOutRepo(pipeline string) error {
 // Run runs all of the pipelines it finds in pipelineDir. Returns the
 // first error it encounters.
 func (r *Runner) Run() error {
-	log.Print("Run: ", r)
 	err := btrfs.MkdirAll(r.outPrefix)
+	if err != nil {
+		return err
+	}
+	err = r.startInputPipelines()
 	if err != nil {
 		return err
 	}
@@ -412,7 +482,6 @@ func (r *Runner) Run() error {
 	// number of pipelines. The below code should make sure that each pipeline only
 	// sends 1 error otherwise deadlock may occur.
 	errors := make(chan error, len(pipelines))
-
 	// Make sure we don't race with cancel this is held while we add pipelines.
 	r.lock.Lock()
 	if r.cancelled {
@@ -420,6 +489,9 @@ func (r *Runner) Run() error {
 		r.lock.Unlock()
 		return ErrCancelled
 	}
+	// unlocker lets us defer unlocking and explicitly unlock
+	var unlocker sync.Once
+	defer unlocker.Do(r.lock.Unlock)
 	r.wait.Add(len(pipelines))
 	for _, pInfo := range pipelines {
 		err := r.makeOutRepo(pInfo.Name())
@@ -427,9 +499,9 @@ func (r *Runner) Run() error {
 			log.Print(err)
 			return err
 		}
-		p := NewPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard)
+		p := newPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard, r.outPrefix)
 		r.pipelines = append(r.pipelines, p)
-		go func(pInfo os.FileInfo, p *Pipeline) {
+		go func(pInfo os.FileInfo, p *pipeline) {
 			defer r.wait.Done()
 			f, err := btrfs.Open(path.Join(r.inRepo, r.commit, r.pipelineDir, pInfo.Name()))
 			if err != nil {
@@ -437,7 +509,8 @@ func (r *Runner) Run() error {
 				errors <- err
 				return
 			}
-			err = p.RunPachFile(f)
+			defer f.Close()
+			err = p.runPachFile(f)
 			if err != nil {
 				log.Print(err)
 				errors <- err
@@ -446,7 +519,7 @@ func (r *Runner) Run() error {
 		}(pInfo, p)
 	}
 	// We're done adding pipelines so unlock
-	r.lock.Unlock()
+	unlocker.Do(r.lock.Unlock)
 	// Wait for the pipelines to finish
 	r.wait.Wait()
 	close(errors)
@@ -481,9 +554,9 @@ func (r *Runner) Cancel() error {
 	// We'll have one goro per pipelines
 	wg.Add(len(r.pipelines))
 	for _, p := range r.pipelines {
-		go func(p *Pipeline) {
+		go func(p *pipeline) {
 			defer wg.Done()
-			err := p.Cancel()
+			err := p.cancel()
 			if err != nil {
 				errors <- err
 			}
@@ -499,6 +572,85 @@ func (r *Runner) Cancel() error {
 	// At the end we wait for the pipelines to actually finish, this means that
 	// once Cancel is done you can safely fire off a new batch of pipelines.
 	r.wait.Wait()
+	return nil
+}
+
+// Inputs returns all of the inputs for the pipelines.
+func (r *Runner) Inputs() ([]string, error) {
+	pipelines, err := btrfs.ReadDir(path.Join(r.inRepo, r.commit, r.pipelineDir))
+	if err != nil {
+		// Notice we don't return this error but instead no-op. It's fine to not
+		// have a pipeline dir.
+		return nil, nil
+	}
+	var res []string
+	for _, pInfo := range pipelines {
+		f, err := btrfs.Open(path.Join(r.inRepo, r.commit, r.pipelineDir, pInfo.Name()))
+		if err != nil {
+			log.Print(err)
+			return nil, err
+		}
+		defer f.Close()
+		lines := bufio.NewScanner(f)
+		// TODO we're copy-pasting code from runPachFile. Let's abstract that.
+		var tokens []string
+		for lines.Scan() {
+			if len(tokens) > 0 && tokens[len(tokens)-1] == "\\" {
+				// We have tokens from last loop, remove the \ token which designates the line wrap
+				tokens = tokens[:len(tokens)-1]
+			} else {
+				// No line wrap, clear the tokens they were already considered
+				tokens = []string{}
+			}
+			tokens = append(tokens, strings.Fields(lines.Text())...)
+			if len(tokens) > 0 && tokens[0] == "input" {
+				if len(tokens) < 2 {
+					return nil, ErrArgCount
+				}
+				res = append(res, tokens[1])
+			}
+		}
+	}
+	return res, nil
+}
+
+// startInputPipelines starts pipelines which pull in external data (such as
+// from s3)
+func (r *Runner) startInputPipelines() error {
+	inputs, err := r.Inputs()
+	if err != nil {
+		return err
+	}
+	r.lock.Lock()
+	if r.cancelled {
+		// we were cancelled before we even started
+		r.lock.Unlock()
+		return ErrCancelled
+	}
+	defer r.lock.Unlock()
+	for _, input := range inputs {
+		if !strings.HasPrefix(input, "s3://") {
+			continue
+		}
+		input = strings.TrimPrefix(input, "s3://")
+		err := r.makeOutRepo(input)
+		if err != nil {
+			log.Print(err)
+			return err
+		}
+		p := newPipeline(input, r.inRepo, path.Join(r.outPrefix, input), r.commit, r.branch, r.shard, r.outPrefix)
+		r.pipelines = append(r.pipelines, p)
+		r.wait.Add(1)
+		go func(input string, p *pipeline) {
+			defer r.wait.Done()
+			err := p.inject(input)
+			if err != nil {
+				p.fail()
+				return
+			}
+			p.finish()
+		}(input, p)
+	}
 	return nil
 }
 

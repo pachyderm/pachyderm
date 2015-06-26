@@ -21,7 +21,7 @@ func check(err error, t *testing.T) {
 func TestOutput(t *testing.T) {
 	outRepo := "TestOuput"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("output", "", outRepo, "commit", "master", "0-1")
+	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "")
 	pachfile := `
 image ubuntu
 
@@ -30,7 +30,7 @@ run touch /out/foo
 # touch bar
 run touch /out/bar
 `
-	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+	err := pipeline.runPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
 	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
@@ -49,14 +49,14 @@ run touch /out/bar
 func TestEcho(t *testing.T) {
 	outRepo := "TestEcho"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("echo", "", outRepo, "commit", "master", "0-1")
+	pipeline := newPipeline("echo", "", outRepo, "commit", "master", "0-1", "")
 	pachfile := `
 image ubuntu
 
 run echo foo >/out/foo
 run echo foo >/out/bar
 `
-	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+	err := pipeline.runPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
 	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
@@ -88,7 +88,7 @@ func TestInputOutput(t *testing.T) {
 	outRepo := "TestInputOutput_out"
 	check(btrfs.Init(outRepo), t)
 
-	pipeline := NewPipeline("input_output", inRepo, outRepo, "commit", "master", "0-1")
+	pipeline := newPipeline("input_output", inRepo, outRepo, "commit", "master", "0-1", "")
 
 	pachfile := `
 image ubuntu
@@ -97,7 +97,7 @@ input data
 
 run cp /in/data/foo /out/foo
 `
-	err = pipeline.RunPachFile(strings.NewReader(pachfile))
+	err = pipeline.runPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
 	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
@@ -112,13 +112,13 @@ run cp /in/data/foo /out/foo
 func TestLog(t *testing.T) {
 	outRepo := "TestLog"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("log", "", outRepo, "commit1", "master", "0-1")
+	pipeline := newPipeline("log", "", outRepo, "commit1", "master", "0-1", "")
 	pachfile := `
 image ubuntu
 
 run echo "foo"
 `
-	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+	err := pipeline.runPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
 	log, err := btrfs.ReadFile(path.Join(outRepo, "commit1-0", ".log"))
@@ -127,13 +127,13 @@ run echo "foo"
 		t.Fatal("Expect foo, got: ", string(log))
 	}
 
-	pipeline = NewPipeline("log", "", outRepo, "commit2", "master", "0-1")
+	pipeline = newPipeline("log", "", outRepo, "commit2", "master", "0-1", "")
 	pachfile = `
 image ubuntu
 
 run echo "bar" >&2
 `
-	err = pipeline.RunPachFile(strings.NewReader(pachfile))
+	err = pipeline.runPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
 	log, err = btrfs.ReadFile(path.Join(outRepo, "commit2-0", ".log"))
@@ -157,7 +157,7 @@ func TestScrape(t *testing.T) {
 	check(btrfs.Commit(inRepo, "commit", "master"), t)
 
 	// Create a pipeline to run
-	pipeline := NewPipeline("scrape", inRepo, outRepo, "commit", "master", "0-1")
+	pipeline := newPipeline("scrape", inRepo, outRepo, "commit", "master", "0-1", "")
 	pachfile := `
 image busybox
 
@@ -165,7 +165,7 @@ input urls
 
 run cat /in/urls/* | xargs  wget -P /out
 `
-	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+	err := pipeline.runPachFile(strings.NewReader(pachfile))
 
 	exists, err := btrfs.FileExists(path.Join(outRepo, "commit", "index.html"))
 	check(err, t)
@@ -332,15 +332,15 @@ run sleep 100
 func TestWrap(t *testing.T) {
 	outRepo := "TestWrap"
 	check(btrfs.Init(outRepo), t)
-	pipeline := NewPipeline("output", "", outRepo, "commit", "master", "0-1")
+	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "")
 	pachfile := `
 image ubuntu
 
-# touch foo
+# touch foo and bar
 run touch /out/foo \
           /out/bar
 `
-	err := pipeline.RunPachFile(strings.NewReader(pachfile))
+	err := pipeline.runPachFile(strings.NewReader(pachfile))
 	check(err, t)
 
 	exists, err := btrfs.FileExists(path.Join(outRepo, "commit", "foo"))
@@ -353,5 +353,76 @@ run touch /out/foo \
 	check(err, t)
 	if exists != true {
 		t.Fatal("File `bar` doesn't exist when it should.")
+	}
+}
+
+func TestDependency(t *testing.T) {
+	inRepo := "TestDependencyin"
+	check(btrfs.Init(inRepo), t)
+	p1 := `
+image ubuntu
+
+run echo foo >/out/foo
+`
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "p1"), []byte(p1)), t)
+	p2 := `
+image ubuntu
+
+input pps://p1
+
+run cp /in/p1/foo /out/foo
+`
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "p2"), []byte(p2)), t)
+	check(btrfs.Commit(inRepo, "commit", "master"), t)
+
+	outPrefix := "TestDependency"
+	runner := NewRunner("pipeline", inRepo, outPrefix, "commit", "master", "0-1")
+	check(runner.Run(), t)
+
+	res, err := btrfs.ReadFile(path.Join(outPrefix, "p2", "commit", "foo"))
+	check(err, t)
+	if string(res) != "foo\n" {
+		t.Fatal("Expected foo, got: ", string(res))
+	}
+}
+
+func TestRunnerInputs(t *testing.T) {
+	inRepo := "TestRunnerInputsin"
+	check(btrfs.Init(inRepo), t)
+	p1 := `
+image ubuntu
+
+input foo
+input bar
+`
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "p1"), []byte(p1)), t)
+	p2 := `
+image ubuntu
+
+input fizz
+input buzz
+`
+	check(btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "p2"), []byte(p2)), t)
+	check(btrfs.Commit(inRepo, "commit", "master"), t)
+
+	outPrefix := "TestRunnerInputs"
+	runner := NewRunner("pipeline", inRepo, outPrefix, "commit", "master", "0-1")
+	inputs, err := runner.Inputs()
+	check(err, t)
+	if strings.Join(inputs, " ") != "foo bar fizz buzz" {
+		t.Fatal("Incorrect inputs: ", inputs, " expected: ", []string{"foo", "bar", "fizz", "buzz"})
+	}
+}
+
+func TestInject(t *testing.T) {
+	outRepo := "TestInject"
+	check(btrfs.Init(outRepo), t)
+	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "")
+	check(pipeline.inject("s3://pachyderm-test/pipeline"), t)
+	check(pipeline.finish(), t)
+	res, err := btrfs.ReadFile(path.Join(outRepo, "commit", "pipeline/file"))
+	check(err, t)
+	if string(res) != "foo\n" {
+		t.Fatal("Expected foo, got: ", string(res))
 	}
 }

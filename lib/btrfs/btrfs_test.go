@@ -375,7 +375,7 @@ func TestS3Replica(t *testing.T) {
 	dstRepo := "repo_TestS3Replica_dst"
 	check(Init(dstRepo), t)
 
-	// Verify that the commits "mycommit1" and "mycommit2" do in source:
+	// Verify that the commits "mycommit1" and "mycommit2" do exist in source:
 	CheckFile(fmt.Sprintf("%s/mycommit1/myfile1", srcRepo), "foo", t)
 	CheckFile(fmt.Sprintf("%s/mycommit2/myfile2", srcRepo), "bar", t)
 
