@@ -7,7 +7,6 @@ RUN apt-get update && apt-get install -y golang git mercurial && rm -rf /var/lib
 RUN go get github.com/coreos/go-etcd/etcd && cd $GOPATH/src/github.com/coreos/go-etcd && git checkout release-0.4
 RUN go get github.com/satori/go.uuid
 RUN go get github.com/fsouza/go-dockerclient
-RUN go get github.com/bitly/go-simplejson
 RUN go get github.com/mitchellh/goamz/...
 RUN go get github.com/go-fsnotify/fsnotify
 RUN go get code.google.com/p/go.tools/cmd/cover
