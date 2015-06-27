@@ -8,14 +8,8 @@ import (
 	"time"
 
 	"github.com/pachyderm/pfs/lib/btrfs"
+	"github.com/pachyderm/pfs/lib/utils"
 )
-
-func check(err error, t *testing.T) {
-	if err != nil {
-		debug.PrintStack()
-		t.Fatal(err)
-	}
-}
 
 // TestOutput tests a simple job that outputs some data.
 func TestOutput(t *testing.T) {

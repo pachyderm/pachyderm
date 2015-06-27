@@ -4,16 +4,11 @@ import (
 	"bufio"
 	"runtime/debug"
 	"testing"
+
+	"github.com/pachyderm/pfs/lib/utils"
 )
 
 // This file contains convenience functions for testing the btrfs module.
-
-func check(err error, t *testing.T) {
-	if err != nil {
-		debug.PrintStack()
-		t.Fatal(err)
-	}
-}
 
 // CheckFile checks if a file on disk contains a given string.
 func CheckFile(name, content string, t *testing.T) {

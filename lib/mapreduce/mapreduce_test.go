@@ -12,13 +12,8 @@ import (
 	"github.com/mitchellh/goamz/s3"
 
 	"github.com/pachyderm/pfs/lib/btrfs"
+	"github.com/pachyderm/pfs/lib/utils"
 )
-
-func check(err error, t *testing.T) {
-	if err != nil {
-		t.Fatal(err)
-	}
-}
 
 // TestS3 checks that the underlying S3 library is correct.
 func TestS3(t *testing.T) {
