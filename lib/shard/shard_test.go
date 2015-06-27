@@ -376,8 +376,8 @@ run exit 1
 // TestChess uses our chess data set to test s3 integration.
 func TestChess(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
-	// Notice this shard is behaving like 1 node of a 1000 node cluster to downsample to data.
-	shard := NewShard("TestChessData", "TestChessComp", "TestChessPipelines", 0, 1000)
+	// Notice this shard is behaving like 1 node of a 5000 node cluster to downsample to data.
+	shard := NewShard("TestChessData", "TestChessComp", "TestChessPipelines", 0, 5000)
 	Check(shard.EnsureRepos(), t)
 	s := httptest.NewServer(shard.ShardMux())
 	defer s.Close()
