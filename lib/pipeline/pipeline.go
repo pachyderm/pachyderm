@@ -59,15 +59,26 @@ func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir str
 
 // input makes a dataset available for computations in the container.
 func (p *pipeline) input(name string) error {
+	var trimmed string
 	switch {
-	case strings.HasPrefix(name, "pps://"):
-		name = strings.TrimPrefix(name, "pps://")
-		err := WaitPipeline(p.pipelineDir, name, p.commit)
+	case strings.HasPrefix(name, "s3://"):
+		trimmed = strings.TrimPrefix(name, "s3://")
+		err := WaitPipeline(p.pipelineDir, trimmed, p.commit)
 		if err != nil {
 			return err
 		}
-		hostPath := btrfs.HostPath(path.Join(p.pipelineDir, name, p.commit))
-		containerPath := path.Join("/in", name)
+		hostPath := btrfs.HostPath(path.Join(p.pipelineDir, trimmed, p.commit))
+		containerPath := path.Join("/in", trimmed)
+		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
+		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+	case strings.HasPrefix(name, "pps://"):
+		trimmed = strings.TrimPrefix(name, "pps://")
+		err := WaitPipeline(p.pipelineDir, trimmed, p.commit)
+		if err != nil {
+			return err
+		}
+		hostPath := btrfs.HostPath(path.Join(p.pipelineDir, trimmed, p.commit))
+		containerPath := path.Join("/in", trimmed)
 		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
 		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
 	case strings.HasPrefix(name, "pfs://"):
@@ -83,7 +94,6 @@ func (p *pipeline) input(name string) error {
 
 // inject injects data from an external source into the output directory
 func (p *pipeline) inject(name string) error {
-	log.Print("Got inject: ", name)
 	switch {
 	case strings.HasPrefix(name, "s3://"):
 		bucket, err := s3utils.NewBucket(name)
@@ -91,12 +101,18 @@ func (p *pipeline) inject(name string) error {
 			log.Print(err)
 			return err
 		}
+		var wg sync.WaitGroup
 		s3utils.ForEachFile(name, "", func(file string) error {
+			_path, err := s3utils.GetPath(name)
 			if err != nil {
 				log.Print(err)
 				return err
 			}
-			match, err := route.Match(name, p.shard)
+			if err != nil {
+				log.Print(err)
+				return err
+			}
+			match, err := route.Match(file, p.shard)
 			if err != nil {
 				log.Print(err)
 				return err
@@ -106,23 +122,28 @@ func (p *pipeline) inject(name string) error {
 			}
 			// TODO match the on disk timestamps to s3's timestamps and make
 			// sure we only pull data that has changed
-			src, err := bucket.GetReader(file)
-			if err != nil {
-				log.Print(err)
-				return err
-			}
-			dst, err := btrfs.CreateAll(path.Join(p.outRepo, p.branch, file))
-			if err != nil {
-				log.Print(err)
-				return err
-			}
-			_, err = io.Copy(dst, src)
-			if err != nil {
-				log.Print(err)
-				return err
-			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				src, err := bucket.GetReader(file)
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				dst, err := btrfs.CreateAll(path.Join(p.outRepo, p.branch, strings.TrimPrefix(file, _path)))
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				_, err = io.Copy(dst, src)
+				if err != nil {
+					log.Print(err)
+					return
+				}
+			}()
 			return nil
 		})
+		wg.Wait()
 	default:
 		log.Print("Unknown protocol: ", name)
 		return ErrUnknownProtocol
@@ -179,6 +200,7 @@ func (p *pipeline) run(cmd []string) error {
 	hostPath := btrfs.HostPath(path.Join(p.outRepo, p.branch))
 	bind := fmt.Sprintf("%s:/out", hostPath)
 	p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+	log.Print(p.config.HostConfig.Binds)
 	// Make sure this bind is only visible for the duration of run
 	defer func() { p.config.HostConfig.Binds = p.config.HostConfig.Binds[:len(p.config.HostConfig.Binds)-1] }()
 	// Start the container
@@ -632,13 +654,13 @@ func (r *Runner) startInputPipelines() error {
 		if !strings.HasPrefix(input, "s3://") {
 			continue
 		}
-		input = strings.TrimPrefix(input, "s3://")
-		err := r.makeOutRepo(input)
+		trimmed := strings.TrimPrefix(input, "s3://")
+		err := r.makeOutRepo(trimmed)
 		if err != nil {
 			log.Print(err)
 			return err
 		}
-		p := newPipeline(input, r.inRepo, path.Join(r.outPrefix, input), r.commit, r.branch, r.shard, r.outPrefix)
+		p := newPipeline(trimmed, r.inRepo, path.Join(r.outPrefix, trimmed), r.commit, r.branch, r.shard, r.outPrefix)
 		r.pipelines = append(r.pipelines, p)
 		r.wait.Add(1)
 		go func(input string, p *pipeline) {

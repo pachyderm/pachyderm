@@ -554,6 +554,10 @@ func Init(repo string) error {
 // Ensure is like Init but won't error if the repo is already present. It will
 // error if the repo is not present and we fail to make it.
 func Ensure(repo string) error {
+	err := MkdirAll(path.Dir(repo))
+	if err != nil {
+		return err
+	}
 	exists, err := FileExists(repo)
 	if err != nil {
 		return err

@@ -414,6 +414,7 @@ input buzz
 	}
 }
 
+// TestInject tests that s3 injections works
 func TestInject(t *testing.T) {
 	outRepo := "TestInject"
 	check(btrfs.Init(outRepo), t)
