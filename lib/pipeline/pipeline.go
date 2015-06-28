@@ -14,6 +14,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pfs/lib/btrfs"
@@ -102,7 +103,7 @@ func (p *pipeline) inject(name string) error {
 			return err
 		}
 		var wg sync.WaitGroup
-		s3utils.ForEachFile(name, "", func(file string) error {
+		s3utils.ForEachFile(name, "", func(file string, modtime time.Time) error {
 			_path, err := s3utils.GetPath(name)
 			if err != nil {
 				log.Print(err)
@@ -135,7 +136,13 @@ func (p *pipeline) inject(name string) error {
 					log.Print(err)
 					return
 				}
+				defer dst.Close()
 				_, err = io.Copy(dst, src)
+				if err != nil {
+					log.Print(err)
+					return
+				}
+				err = btrfs.Chtimes(path.Join(p.outRepo, p.branch, strings.TrimPrefix(file, _path)), modtime, modtime)
 				if err != nil {
 					log.Print(err)
 					return

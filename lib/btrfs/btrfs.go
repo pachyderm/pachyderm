@@ -190,6 +190,10 @@ func Lstat(name string) (os.FileInfo, error) {
 	return os.Lstat(FilePath(name))
 }
 
+func Chtimes(name string, atime, mtime time.Time) error {
+	return os.Chtimes(FilePath(name), atime, mtime)
+}
+
 // return true if name1 was last modified before name2
 func Before(name1, name2 string) (bool, error) {
 	info1, err := Stat(name1)
