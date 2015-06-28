@@ -322,7 +322,7 @@ func (p *pipeline) shuffle(dir string) error {
 	return nil
 }
 
-// Finish makes the final commit for the pipeline
+// finish makes the final commit for the pipeline
 func (p *pipeline) finish() error {
 	exists, err := btrfs.FileExists(path.Join(p.outRepo, p.commit))
 	if err != nil {
@@ -332,6 +332,10 @@ func (p *pipeline) finish() error {
 		return nil
 	}
 	return btrfs.Commit(p.outRepo, p.commit, p.branch)
+}
+
+func (p *pipeline) finished() (bool, error) {
+	return btrfs.FileExists(path.Join(p.outRepo, p.commit))
 }
 
 func (p *pipeline) fail() error {
@@ -356,7 +360,25 @@ func (p *pipeline) cancel() error {
 	return nil
 }
 
+// runPachFile parses r as a PachFile and executes. runPachFile is GUARANTEED
+// to call either `finish` or `fail`
 func (p *pipeline) runPachFile(r io.Reader) error {
+	defer func() {
+		// This function GUARANTEES that if `p.finish()` didn't happen.
+		// `p.fail()` does.
+		finished, err := p.finished()
+		if err != nil {
+			log.Print(err)
+			return
+		}
+		if finished {
+			return
+		}
+		if err := p.fail(); err != nil {
+			log.Print(err)
+			return
+		}
+	}()
 	lines := bufio.NewScanner(r)
 
 	if err := p.start(); err != nil {
@@ -410,10 +432,6 @@ func (p *pipeline) runPachFile(r io.Reader) error {
 		}
 		if err != nil {
 			log.Print(err)
-			if err := p.fail(); err != nil {
-				log.Print(err)
-				return err
-			}
 			return err
 		}
 	}
