@@ -372,3 +372,32 @@ run exit 1
 		t.Fatal("Request should return failure.")
 	}
 }
+
+// TestChess uses our chess data set to test s3 integration.
+func TestChess(t *testing.T) {
+	log.SetFlags(log.Lshortfile)
+	// Notice this shard is behaving like 1 node of a 5000 node cluster to downsample to data.
+	shard := NewShard("TestChessData", "TestChessComp", "TestChessPipelines", 0, 5000)
+	Check(shard.EnsureRepos(), t)
+	s := httptest.NewServer(shard.ShardMux())
+	defer s.Close()
+
+	res, err := http.Post(s.URL+"/pipeline/count", "application/text", strings.NewReader(`
+image ubuntu
+
+input s3://pachyderm-data/chess
+
+run cat /in/pachyderm-data/chess/* | wc -l > /out/count
+`))
+	Check(err, t)
+	res.Body.Close()
+
+	res, err = http.Post(s.URL+"/commit?commit=commit1", "", nil)
+	Check(err, t)
+
+	res, err = http.Get(s.URL + "/pipeline/count/file/count?commit=commit1")
+	Check(err, t)
+	if res.StatusCode != 200 {
+		t.Fatal("Bad status code.")
+	}
+}

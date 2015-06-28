@@ -414,13 +414,14 @@ input buzz
 	}
 }
 
+// TestInject tests that s3 injections works
 func TestInject(t *testing.T) {
 	outRepo := "TestInject"
 	check(btrfs.Init(outRepo), t)
 	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "")
 	check(pipeline.inject("s3://pachyderm-test/pipeline"), t)
 	check(pipeline.finish(), t)
-	res, err := btrfs.ReadFile(path.Join(outRepo, "commit", "pipeline/file"))
+	res, err := btrfs.ReadFile(path.Join(outRepo, "commit", "file"))
 	check(err, t)
 	if string(res) != "foo\n" {
 		t.Fatal("Expected foo, got: ", string(res))
