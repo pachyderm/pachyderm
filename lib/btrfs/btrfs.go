@@ -194,6 +194,20 @@ func Chtimes(name string, atime, mtime time.Time) error {
 	return os.Chtimes(FilePath(name), atime, mtime)
 }
 
+// After returns true if `mtime` is after the filesystem time for `name`
+func Changed(name string, mtime time.Time) (bool, error) {
+	info, err := Stat(name)
+	if err != nil && os.IsNotExist(err) {
+		return true, nil
+	} else if err != nil {
+		return false, err
+	}
+	if mtime.After(info.ModTime()) {
+		return true, nil
+	}
+	return false, nil
+}
+
 // return true if name1 was last modified before name2
 func Before(name1, name2 string) (bool, error) {
 	info1, err := Stat(name1)
