@@ -44,7 +44,7 @@ func TestBasic(t *testing.T) {
 		RunWorkload(s.URL, facts, t)
 		return true
 	}
-	if err := quick.check(f, &quick.Config{MaxCount: 5}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
 		t.Error(err)
 	}
 }
@@ -74,7 +74,7 @@ func TestPull(t *testing.T) {
 		RunWorkload(dst.URL, facts, t)
 		return true
 	}
-	if err := quick.check(f, &quick.Config{MaxCount: 5}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
 		t.Error(err)
 	}
 }
@@ -108,7 +108,7 @@ func TestSyncTo(t *testing.T) {
 		c++
 		return true
 	}
-	if err := quick.check(f, &quick.Config{MaxCount: 5}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
 		t.Error(err)
 	}
 }
@@ -142,7 +142,7 @@ func TestSyncFrom(t *testing.T) {
 		c++
 		return true
 	}
-	if err := quick.check(f, &quick.Config{MaxCount: 5}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
 		t.Error(err)
 	}
 }
