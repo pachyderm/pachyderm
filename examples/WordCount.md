@@ -21,7 +21,7 @@ $ curl www.pachyderm.io/launch | sh
 #### Step 2: Add a few text files to Pachyderm in the directory `text`
 ```shell
 # add a local file to Pachyderm
-$ curl localhost:650/file/text/textfile1 -T your_text_file
+$ curl -X POST localhost:650/file/text/textfile1 -T your_text_file
 ```
 `file` is a Pachyderm keyword that lets us manipulate files in pfs. We're adding the text file in the directory /text and naming it `textfile1`. Read about the API in more detail [here](https://github.com/pachyderm/pfs/#the-pachyderm-http-api).
 
