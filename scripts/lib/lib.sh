@@ -15,7 +15,7 @@ PFS_DATA_IMG="${PFS_DATA_IMG:="${PFS_DIR}/data.img"}"
 PFS_CONTAINER_NAME="${PFS_CONTAINER_NAME:="pfs"}"
 PFS_IMAGE="${PFS_IMAGE:="pachyderm/pfs"}"
 PFS_PORT="${PFS_PORT:="650"}"
-PFS_DAEMONIZE="${PFS_NODAEMONIZE:="1"}"
+PFS_NODAEMONIZE="${PFS_NODAEMONIZE:=""}"
 # TODO: is IMAGE_BUCKET legacy?
 PFS_S3_BUCKET=${IMAGE_BUCKET:="pachyderm-images"}
 PFS_REPO_DIR="${PFS_REPO_DIR:="$(cd "${DIR}/.." && pwd)"}"
