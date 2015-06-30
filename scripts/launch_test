@@ -9,4 +9,4 @@ cd "${DIR}"
 
 . "${DIR}/lib/lib.sh"
 
-PFS_DAEMONIZE= "${DIR}/dev-launch" sh /go/src/github.com/pachyderm/pfs/scripts/run_tests_from_within_container
+PFS_NODAEMONIZE=1 "${DIR}/dev-launch" sh /go/src/github.com/pachyderm/pfs/scripts/run_tests_from_within_container

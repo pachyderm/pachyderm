@@ -28,7 +28,7 @@ log_command sudo mount "${PFS_DATA_IMG}" "${PFS_HOST_VOLUME}"
 log_command sudo mkdir -p /var/lib/pfs/vol
 
 DAEMONIZE="-d"
-if [ -z "${PFS_DAEMONIZE}" ]; then
+if [ -n "${PFS_NODAEMONIZE}" ]; then
   DAEMONIZE=
 fi
 
