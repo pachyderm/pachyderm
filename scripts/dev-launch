@@ -9,5 +9,6 @@ cd "${DIR}"
 
 . "${DIR}/lib/lib.sh"
 
+export PFS_IMAGE=pachyderm/pfsdev
 log_command "${DIR}/build"
 log_command "${DIR}/launch" $@
