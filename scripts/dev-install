@@ -22,8 +22,8 @@ REPO="$(basename "${PFS_REPO_DIR}")"
 REMOTE="${HOST}:/home/core/${REPO}.git"
 TMPDIR="/tmp/${REPO}.$$.git"
 
-check_value_set AWS_ACCESS_KEY_ID
-check_value_set AWS_SECRET_ACCESS_KEY
+#check_value_set AWS_ACCESS_KEY_ID
+#check_value_set AWS_SECRET_ACCESS_KEY
 
 echo "Installing ${REMOTE}"
 

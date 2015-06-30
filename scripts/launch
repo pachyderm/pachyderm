@@ -14,8 +14,8 @@ if [ -z "${CONTAINER_COMMAND}" ]; then
     CONTAINER_COMMAND="/go/bin/shard 0-1 localhost" #default command
 fi
 
-check_value_set AWS_ACCESS_KEY_ID
-check_value_set AWS_SECRET_ACCESS_KEY
+#check_value_set AWS_ACCESS_KEY_ID
+#check_value_set AWS_SECRET_ACCESS_KEY
 check_btrfs
 check_docker
 
@@ -25,7 +25,7 @@ log_command mkdir -p "${PFS_HOST_VOLUME}"
 log_command truncate "${PFS_DATA_IMG}" -s 10G
 log_command mkfs.btrfs "${PFS_DATA_IMG}"
 log_command sudo mount "${PFS_DATA_IMG}" "${PFS_HOST_VOLUME}"
-log_command mkdir -p /var/lib/pfs/vol
+log_command sudo mkdir -p /var/lib/pfs/vol
 
 DAEMONIZE="-d"
 if [ -z "${PFS_DAEMONIZE}" ]; then
