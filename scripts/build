@@ -9,4 +9,4 @@ cd "${DIR}"
 
 . "${DIR}/lib/lib.sh"
 
-log_command sudo docker build -t "${PFS_IMAGE}" "${PFS_REPO_DIR}"
+log_command docker build -t "${PFS_IMAGE}" "${PFS_REPO_DIR}"

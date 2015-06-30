@@ -25,8 +25,8 @@ git checkout -f
 
 # Build the image
 REG="$(etcdctl get /pfs/registry)"
-sudo docker build -t "${REG}/${REPOSITORY_BASENAME}" "/tmp/${REPOSITORY_BASENAME}/image"
-sudo docker push "${REG}/${REPOSITORY_BASENAME}"
+docker build -t "${REG}/${REPOSITORY_BASENAME}" "/tmp/${REPOSITORY_BASENAME}/image"
+docker push "${REG}/${REPOSITORY_BASENAME}"
 curl -sS -XPOST "localhost/branch?branch=${REPOSITORY_BASENAME}&commit=t0"
 for j in /tmp/${REPOSITORY_BASENAME}/job/*; do
     jobname="$(basename "${j}")"

@@ -32,7 +32,7 @@ if [ -n "${PFS_NODAEMONIZE}" ]; then
   DAEMONIZE=
 fi
 
-log_command sudo docker run \
+log_command docker run \
     ${DAEMONIZE} \
     --privileged=true \
     --name "${PFS_CONTAINER_NAME}" \

@@ -10,7 +10,7 @@ cd "${DIR}"
 . "${DIR}/lib/lib.sh"
 
 log_command mkdir -p /home/core/pfs
-log_command sudo docker run \
+log_command docker run \
     --privileged=true \
     -v /:/host:ro \
     -v /home/core:/host/home/core \

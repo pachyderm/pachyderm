@@ -11,5 +11,5 @@ cd "${DIR}"
 
 sudo umount "${PFS_HOST_VOLUME}" || true
 rm "${PFS_DATA_IMG}" || true
-sudo docker kill "${PFS_CONTAINER_NAME}" || true
-sudo docker rm "${PFS_CONTAINER_NAME}" || true
+docker kill "${PFS_CONTAINER_NAME}" || true
+docker rm "${PFS_CONTAINER_NAME}" || true
