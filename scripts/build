@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Builds the docker image using known environment variables
+
+set -Ee          # pass trap handlers down to subshells, exit on error
+
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
+
+. "${DIR}/lib/lib.sh"
+
+log_command sudo docker build -t "${PFS_IMAGE}" "${PFS_REPO_DIR}"

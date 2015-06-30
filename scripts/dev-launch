@@ -1,30 +1,13 @@
 #!/bin/sh
 # Launch pfs in single node mode, using the current source tree to build the image.
 ###############################################################################
-set -E          # pass trap handlers down to subshells
-#set -x         # execution tracing debug messages
 
-HELP="A script to build pfs from the source directory and launch\npfs in single node mode.\nUsage: $0 [-p port] [-i image]"
+set -Ee          # pass trap handlers down to subshells, exit on error
 
-# --- Options processing -------------------------------------------
-OPTIND=1         # Reset in case getopts has been used previously in the shell.
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
 
-# Initialize our own variables:
-PORT="650"
-IMAGE="pfs"
+. "${DIR}/lib/lib.sh"
 
-while getopts "p:i:" opt; do
-    case "$opt" in
-    \?)  echo $HELP
-        exit 0
-        ;;
-    p)  PORT=$OPTARG
-        ;;
-    i)  IMAGE=$OPTARG
-        ;;
-    esac
-done
-echo -n "Building container $IMAGE ... (this requires sudo)"
-sudo docker build -t $IMAGE .
-echo "done.\n. Launching single node server."
-scripts/launch -i $IMAGE /go/bin/shard 0-1 localhost
+log_command "${DIR}/build"
+log_command "${DIR}/launch" $@

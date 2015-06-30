@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Prints out the values of all PFS_ variables.
+
+set -Ee          # pass trap handlers down to subshells, exit on error
+
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
+
+. "${DIR}/lib/lib.sh"
+
+set -o posix
+set | grep PFS_

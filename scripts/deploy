@@ -1,11 +1,20 @@
 #!/bin/sh
 # Wraps the pfs container to make the deploy tool feel like a commandline tool.
+###############################################################################
 
-mkdir -p /home/core/pfs
-sudo docker run \
+set -Ee          # pass trap handlers down to subshells, exit on error
+
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
+
+. "${DIR}/lib/lib.sh"
+
+log_command mkdir -p /home/core/pfs
+log_command sudo docker run \
     --privileged=true \
     -v /:/host:ro \
     -v /home/core:/host/home/core \
     -v /var/run/fleet.sock:/host/var/run/fleet.sock \
-    -i pachyderm/pfs \
-    /go/bin/deploy $@ && fleetctl start /home/core/pfs/*.service
+    -i "${PFS_IMAGE}" \
+    /go/bin/deploy $@
+log_command fleetctl start /home/core/pfs/*.service
