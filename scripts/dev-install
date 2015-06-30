@@ -1,39 +1,44 @@
 #!/bin/sh
 # Install a git repo on a pfs cluster.
 ###############################################################################
-set -E          # pass trap handlers down to subshells
-#set -x         # execution tracing debug messages
+
+set -Ee          # pass trap handlers down to subshells, exit on error
+
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
+
+. "${DIR}/lib/lib.sh"
 
 USAGE="Usage: $0 host"
 
 # --- Options processing -------------------------------------------
 if [ $# != 1 ] ; then
-    echo $USAGE
-    exit 1;
+    echo "${USAGE}" >&2
+    exit 1
 fi
-CMD="$0"
-CMD_DIR="$(cd "$(dirname "$CMD")" && pwd)"
-HOST="$1"
+HOST="${1}"
 
-REPO=$(basename `pwd`)
-REMOTE="$HOST":/home/core/"$REPO".git
+REPO="$(basename "${PFS_REPO_DIR}")"
+REMOTE="${HOST}:/home/core/${REPO}.git"
+TMPDIR="/tmp/${REPO}.$$.git"
 
-echo "Installing $REMOTE"
+#check_value_set AWS_ACCESS_KEY_ID
+#check_value_set AWS_SECRET_ACCESS_KEY
 
-rm -rf /tmp/"$REPO".git
-git clone --bare . /tmp/"$REPO".git
-scp -rqC /tmp/"$REPO".git core@"$REMOTE"
-scp -rqC "$CMD_DIR"/dev-post-receive core@"$REMOTE"/hooks/post-receive
+echo "Installing ${REMOTE}"
+
+rm -rf "${TMPDIR}"
+git clone --bare . "${TMPDIR}"
+scp -rqC "${TMPDIR}" "core@${REMOTE}"
+scp -rqC "${DIR}/dev-post-receive" "core@${REMOTE}/hooks/post-receive"
 git remote remove staging
-git remote add staging git://"$HOST"/home/core/"$REPO".git
-
-BUCKET=${IMAGE_BUCKET:-"pachyderm-images"}
+git remote add staging "git://${HOST}/home/core/${REPO}.git"
 
 # Do an initial run with the post-receive hook to set everything up.
-ssh core@"$HOST" etcdctl set /pfs/creds/AWS_ACCESS_KEY_ID ${AWS_ACCESS_KEY_ID:?"Env: AWS_ACCESS_KEY_ID must be set"}
-ssh core@"$HOST" etcdctl set /pfs/creds/AWS_SECRET_ACCESS_KEY ${AWS_SECRET_ACCESS_KEY:?"Env: AWS_SECRET_ACCESS_KEY must be set"}
-ssh core@"$HOST" etcdctl set /pfs/creds/IMAGE_BUCKET "$BUCKET"
-ssh core@"$HOST" etcdctl set /pfs/config/DISK "/var/lib/pfs/data.img"
-ssh core@"$HOST" 'cd pfs.git && hooks/post-receive'
+ssh "core@${HOST}" etcdctl set /pfs/creds/AWS_ACCESS_KEY_ID "${AWS_ACCESS_KEY_ID}"
+ssh "core@${HOST}" etcdctl set /pfs/creds/AWS_SECRET_ACCESS_KEY "${AWS_SECRET_ACCESS_KEY}"
+ssh "core@${HOST}" etcdctl set /pfs/creds/IMAGE_BUCKET "${PFS_S3_BUCKET}"
+ssh "core@${HOST}" etcdctl set /pfs/config/DISK "/var/lib/pfs/data.img"
+ssh "core@${HOST}" 'cd pfs.git && hooks/post-receive'
 
 echo "Done."
