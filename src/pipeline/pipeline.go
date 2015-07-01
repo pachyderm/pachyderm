@@ -99,7 +99,6 @@ func (p *pipeline) inject(name string) error {
 	case strings.HasPrefix(name, "s3://"):
 		bucket, err := s3utils.NewBucket(name)
 		if err != nil {
-			log.Print(err)
 			return err
 		}
 		var wg sync.WaitGroup
@@ -107,17 +106,14 @@ func (p *pipeline) inject(name string) error {
 			// Grab the path, it's handy later
 			_path, err := s3utils.GetPath(name)
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 			// Check if the file belongs on shit shard
 			match, err := route.Match(file, p.shard)
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 			if !match {
@@ -128,7 +124,6 @@ func (p *pipeline) inject(name string) error {
 				strings.TrimPrefix(file, _path)), modtime)
 			log.Print("Changed: ", changed)
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 			if !changed {
@@ -141,23 +136,19 @@ func (p *pipeline) inject(name string) error {
 				defer wg.Done()
 				src, err := bucket.GetReader(file)
 				if err != nil {
-					log.Print(err)
 					return
 				}
 				dst, err := btrfs.CreateAll(path.Join(p.outRepo, p.branch, strings.TrimPrefix(file, _path)))
 				if err != nil {
-					log.Print(err)
 					return
 				}
 				defer dst.Close()
 				_, err = io.Copy(dst, src)
 				if err != nil {
-					log.Print(err)
 					return
 				}
 				err = btrfs.Chtimes(path.Join(p.outRepo, p.branch, strings.TrimPrefix(file, _path)), modtime, modtime)
 				if err != nil {
-					log.Print(err)
 					return
 				}
 			}()
@@ -174,9 +165,9 @@ func (p *pipeline) inject(name string) error {
 // Image sets the image that is being used for computations.
 func (p *pipeline) image(image string) error {
 	p.config.Config.Image = image
+	// TODO(pedge): ensure images are on machine
 	err := container.PullImage(image)
 	if err != nil {
-		log.Print(err)
 		log.Print("assuming image is local and continuing")
 	}
 	return nil
@@ -207,7 +198,6 @@ func (p *pipeline) run(cmd []string) error {
 	// Check if the commit already exists
 	exists, err := btrfs.FileExists(path.Join(p.outRepo, p.runCommit()))
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	// if the commit exists there's no work to be done
@@ -226,30 +216,26 @@ func (p *pipeline) run(cmd []string) error {
 	// Start the container
 	p.container, err = container.RawStartContainer(p.config)
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	err = container.PipeToStdin(p.container, strings.NewReader(strings.Join(cmd, " ")+"\n"))
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	// Create a place to put the logs
 	f, err := btrfs.CreateAll(path.Join(p.outRepo, p.branch, ".log"))
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	defer f.Close()
 	// Copy the logs from the container in to the file.
 	err = container.ContainerLogs(p.container, f)
 	if err != nil {
-		log.Print(err)
+		return err
 	}
 	// Wait for the command to finish:
 	exit, err := container.WaitContainer(p.container)
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	if exit != 0 {
@@ -260,7 +246,6 @@ func (p *pipeline) run(cmd []string) error {
 	// Commit the results
 	err = btrfs.Commit(p.outRepo, p.runCommit(), p.branch)
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	return nil
@@ -336,7 +321,6 @@ func (p *pipeline) shuffle(dir string) error {
 	// Commit the results
 	err = btrfs.Commit(p.outRepo, p.runCommit(), p.branch)
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	return nil
@@ -374,7 +358,6 @@ func (p *pipeline) cancel() error {
 	p.cancelled = true
 	err := container.StopContainer(p.container)
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	return nil
@@ -382,20 +365,24 @@ func (p *pipeline) cancel() error {
 
 // runPachFile parses r as a PachFile and executes. runPachFile is GUARANTEED
 // to call either `finish` or `fail`
-func (p *pipeline) runPachFile(r io.Reader) error {
+func (p *pipeline) runPachFile(r io.Reader) (retErr error) {
 	defer func() {
 		// This function GUARANTEES that if `p.finish()` didn't happen.
 		// `p.fail()` does.
 		finished, err := p.finished()
 		if err != nil {
-			log.Print(err)
+			if retErr == nil {
+				retErr = err
+			}
 			return
 		}
 		if finished {
 			return
 		}
 		if err := p.fail(); err != nil {
-			log.Print(err)
+			if retErr == nil {
+				retErr = err
+			}
 			return
 		}
 	}()
@@ -451,7 +438,6 @@ func (p *pipeline) runPachFile(r io.Reader) error {
 			return ErrUnkownKeyword
 		}
 		if err != nil {
-			log.Print(err)
 			return err
 		}
 	}
@@ -485,13 +471,11 @@ func NewRunner(pipelineDir, inRepo, outPrefix, commit, branch, shard string) *Ru
 func (r *Runner) makeOutRepo(pipeline string) error {
 	err := btrfs.Ensure(path.Join(r.outPrefix, pipeline))
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 
 	exists, err := btrfs.FileExists(path.Join(r.outPrefix, pipeline, r.branch))
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	if !exists {
@@ -504,7 +488,6 @@ func (r *Runner) makeOutRepo(pipeline string) error {
 		if parent != "" {
 			exists, err := btrfs.FileExists(path.Join(r.outPrefix, pipeline, parent))
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 			if !exists {
@@ -513,7 +496,6 @@ func (r *Runner) makeOutRepo(pipeline string) error {
 		}
 		err := btrfs.Branch(path.Join(r.outPrefix, pipeline), parent, r.branch)
 		if err != nil {
-			log.Print(err)
 			return err
 		}
 	}
@@ -556,7 +538,6 @@ func (r *Runner) Run() error {
 	for _, pInfo := range pipelines {
 		err := r.makeOutRepo(pInfo.Name())
 		if err != nil {
-			log.Print(err)
 			return err
 		}
 		p := newPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard, r.outPrefix)
@@ -565,14 +546,12 @@ func (r *Runner) Run() error {
 			defer r.wait.Done()
 			f, err := btrfs.Open(path.Join(r.inRepo, r.commit, r.pipelineDir, pInfo.Name()))
 			if err != nil {
-				log.Print(err)
 				errors <- err
 				return
 			}
 			defer f.Close()
 			err = p.runPachFile(f)
 			if err != nil {
-				log.Print(err)
 				errors <- err
 				return
 			}
@@ -647,7 +626,6 @@ func (r *Runner) Inputs() ([]string, error) {
 	for _, pInfo := range pipelines {
 		f, err := btrfs.Open(path.Join(r.inRepo, r.commit, r.pipelineDir, pInfo.Name()))
 		if err != nil {
-			log.Print(err)
 			return nil, err
 		}
 		defer f.Close()
@@ -695,7 +673,6 @@ func (r *Runner) startInputPipelines() error {
 		trimmed := strings.TrimPrefix(input, "s3://")
 		err := r.makeOutRepo(trimmed)
 		if err != nil {
-			log.Print(err)
 			return err
 		}
 		p := newPipeline(trimmed, r.inRepo, path.Join(r.outPrefix, trimmed), r.commit, r.branch, r.shard, r.outPrefix)

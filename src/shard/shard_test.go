@@ -17,6 +17,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/traffic"
 )
 
+const (
+	defaultMaxCount = 5
+	shortMaxCount   = 1
+)
+
 func TestPing(t *testing.T) {
 	shard := NewShard("TestPingData", "TestPingComp", "TestPingPipelines", 0, 1)
 	Check(shard.EnsureRepos(), t)
@@ -43,7 +48,7 @@ func TestBasic(t *testing.T) {
 		RunWorkload(s.URL, facts, t)
 		return true
 	}
-	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: getMaxCount()}); err != nil {
 		t.Error(err)
 	}
 }
@@ -73,7 +78,7 @@ func TestPull(t *testing.T) {
 		RunWorkload(dst.URL, facts, t)
 		return true
 	}
-	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: getMaxCount()}); err != nil {
 		t.Error(err)
 	}
 }
@@ -107,7 +112,7 @@ func TestSyncTo(t *testing.T) {
 		c++
 		return true
 	}
-	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: getMaxCount()}); err != nil {
 		t.Error(err)
 	}
 }
@@ -141,7 +146,7 @@ func TestSyncFrom(t *testing.T) {
 		c++
 		return true
 	}
-	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: getMaxCount()}); err != nil {
 		t.Error(err)
 	}
 }
@@ -375,6 +380,9 @@ run exit 1
 
 // TestChess uses our chess data set to test s3 integration.
 func TestChess(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
 	log.SetFlags(log.Lshortfile)
 	// Notice this shard is behaving like 1 node of a 5000 node cluster to downsample to data.
 	shard := NewShard("TestChessData", "TestChessComp", "TestChessPipelines", 0, 5000)
@@ -400,4 +408,11 @@ run cat /in/pachyderm-data/chess/* | wc -l > /out/count
 	if res.StatusCode != 200 {
 		t.Fatal("Bad status code.")
 	}
+}
+
+func getMaxCount() int {
+	if testing.Short() {
+		return defaultMaxCount
+	}
+	return shortMaxCount
 }

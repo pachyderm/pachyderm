@@ -47,6 +47,10 @@ func NewCluster(prefix string, shards int, t *testing.T) Cluster {
 }
 
 func TestTwoShards(t *testing.T) {
+	maxCount := 5
+	if testing.Short() {
+		maxCount = 1
+	}
 	log.SetFlags(log.Lshortfile)
 	// used to prevent collisions
 	counter := 0
@@ -62,12 +66,16 @@ func TestTwoShards(t *testing.T) {
 		//increment the counter
 		return true
 	}
-	if err := quick.Check(f, &quick.Config{MaxCount: 5}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: maxCount}); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestWordCount(t *testing.T) {
+	maxCount := 2
+	if testing.Short() {
+		maxCount = 1
+	}
 	log.SetFlags(log.Lshortfile)
 	// First setup the WordCount pipeline
 
@@ -110,7 +118,7 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 
 		return true
 	}
-	if err := quick.Check(f, &quick.Config{MaxCount: 2}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: maxCount}); err != nil {
 		t.Error(err)
 	}
 

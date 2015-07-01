@@ -28,8 +28,7 @@ func TestS3(t *testing.T) {
 	auth, err := aws.EnvAuth()
 	log.Printf("auth: %#v", auth)
 	if err != nil {
-		log.Print(err)
-		return
+		t.Fatal(err)
 	}
 	client := s3.New(auth, aws.USWest)
 	bucket := client.Bucket("pachyderm-data")
@@ -41,8 +40,7 @@ func TestS3(t *testing.T) {
 			defer wg.Done()
 			inFile, err := bucket.GetReader(fmt.Sprintf("chess/file%09d", i))
 			if err != nil {
-				log.Print(err)
-				return
+				t.Fatal(err)
 			}
 			io.Copy(ioutil.Discard, inFile)
 			inFile.Close()

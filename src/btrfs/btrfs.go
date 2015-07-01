@@ -316,18 +316,15 @@ func WaitFile(name string, cancel chan struct{}) error {
 	log.Print("WaitFile(", name, ")")
 	dir, err := largestExistingPath(name)
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	defer watcher.Close()
 
 	if err := watcher.Add(FilePath(dir)); err != nil {
-		log.Print(err)
 		return err
 	}
 
@@ -336,7 +333,6 @@ func WaitFile(name string, cancel chan struct{}) error {
 	// get a notification for it.
 	exists, err := FileExists(name)
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	if exists {
@@ -354,7 +350,6 @@ func WaitFile(name string, cancel chan struct{}) error {
 				return WaitFile(name, cancel)
 			}
 		case err := <-watcher.Errors:
-			log.Print(err)
 			return err
 		case <-cancel:
 			return ErrCancelled
@@ -801,7 +796,6 @@ func Pull(repo, from string, cb Pusher) error {
 		if isCommit {
 			err := Send(repo, c.Path, cb.Push)
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 		}

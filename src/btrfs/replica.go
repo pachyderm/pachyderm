@@ -3,7 +3,6 @@ package btrfs
 import (
 	"fmt"
 	"io"
-	"log"
 	"path"
 	"time"
 
@@ -53,7 +52,6 @@ type S3Replica struct {
 func (r *S3Replica) Push(diff io.Reader) error {
 	bucket, err := s3utils.NewBucket(r.uri)
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	key := fmt.Sprintf("%.10d", r.count)
@@ -61,7 +59,6 @@ func (r *S3Replica) Push(diff io.Reader) error {
 
 	p, err := s3utils.GetPath(r.uri)
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 
@@ -71,23 +68,24 @@ func (r *S3Replica) Push(diff io.Reader) error {
 func (r *S3Replica) Pull(from string, target Pusher) error {
 	bucket, err := s3utils.NewBucket(r.uri)
 	if err != nil {
-		log.Print(err)
 		return err
 	}
-	err = s3utils.ForEachFile(r.uri, from, func(path string, modtime time.Time) error {
+	err = s3utils.ForEachFile(r.uri, from, func(path string, modtime time.Time) (retErr error) {
 		f, err := bucket.GetReader(path)
 		if f == nil {
 			return fmt.Errorf("Nil file returned.")
 		}
 		if err != nil {
-			log.Print(err)
 			return err
 		}
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
 
 		err = target.Push(f)
 		if err != nil {
-			log.Print(err)
 			return err
 		}
 		return nil

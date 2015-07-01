@@ -3,7 +3,6 @@ package s3utils
 import (
 	"bytes"
 	"io"
-	"log"
 	"path"
 	"strings"
 	"time"
@@ -35,7 +34,6 @@ func GetPath(input string) (string, error) {
 func NewBucket(uri string) (*s3.Bucket, error) {
 	auth, err := aws.EnvAuth()
 	if err != nil {
-		log.Print(err)
 		return nil, err
 	}
 	client := s3.New(auth, aws.USWest)
@@ -62,7 +60,6 @@ func PutMulti(bucket *s3.Bucket, path string, r io.Reader, contType string, perm
 			// ErrUnexpectedEOF means that r had less than minPart bytes in it
 			// Note that we can hit these errors after having read several 5MB
 			// chunks from r already
-			log.Print(err)
 			return err
 		}
 		if n >= minPart && multi == nil {
@@ -70,7 +67,6 @@ func PutMulti(bucket *s3.Bucket, path string, r io.Reader, contType string, perm
 			// That means it's time to start one
 			multi, err = bucket.Multi(path, contType, perm)
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 		}
@@ -81,7 +77,6 @@ func PutMulti(bucket *s3.Bucket, path string, r io.Reader, contType string, perm
 		} else {
 			part, err := multi.PutPart(i, bytes.NewReader(data[0:n]))
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 			parts = append(parts, part)
@@ -94,7 +89,6 @@ func PutMulti(bucket *s3.Bucket, path string, r io.Reader, contType string, perm
 	}
 	if multi != nil {
 		if err := multi.Complete(parts); err != nil {
-			log.Print(err)
 			return err
 		}
 	}
@@ -122,7 +116,6 @@ func ForEachFile(uri, marker string, cont func(file string, modtime time.Time) e
 		for _, key := range lr.Contents {
 			modtime, err := time.Parse(time.RFC3339, key.LastModified)
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 			err = cont(key.Key, modtime)

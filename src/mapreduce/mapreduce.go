@@ -17,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/container"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/pachyderm/pachyderm/src/s3utils"
-	"github.com/pachyderm/pachyderm/src/utils"
 )
 
 const (
@@ -76,7 +75,7 @@ func mapFile(filename, jobName, host string, job Job, m materializeInfo) error {
 	// the containers http server is actually listening. It also
 	// can help in cases where a user has written a job that fails
 	// intermittently.
-	err := utils.Retry(func() error {
+	err := retry(func() error {
 		var err error
 		var inFile io.ReadCloser
 		switch {
@@ -85,7 +84,6 @@ func mapFile(filename, jobName, host string, job Job, m materializeInfo) error {
 		case getProtocol(job.Input) == ProtoS3:
 			bucket, err := s3utils.NewBucket(job.Input)
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 			inFile, err = bucket.GetReader(filename)
@@ -96,7 +94,6 @@ func mapFile(filename, jobName, host string, job Job, m materializeInfo) error {
 			return fmt.Errorf("Invalid protocol.")
 		}
 		if err != nil {
-			log.Print(err)
 			return err
 		}
 		log.Print("In file: ", inFile)
@@ -106,7 +103,6 @@ func mapFile(filename, jobName, host string, job Job, m materializeInfo) error {
 		client := &http.Client{Timeout: time.Duration(job.TimeOut) * time.Second}
 		resp, err := client.Post("http://"+path.Join(host, filename), "application/text", inFile)
 		if err != nil {
-			log.Print(err)
 			return err
 		}
 		defer resp.Body.Close()
@@ -115,7 +111,6 @@ func mapFile(filename, jobName, host string, job Job, m materializeInfo) error {
 		log.Print(filename, ": ", "Creating file ", path.Join(m.Out, m.Branch, jobName, filename))
 		outFile, err := btrfs.CreateAll(path.Join(m.Out, m.Branch, jobName, filename))
 		if err != nil {
-			log.Print(err)
 			return err
 		}
 		defer outFile.Close()
@@ -123,7 +118,6 @@ func mapFile(filename, jobName, host string, job Job, m materializeInfo) error {
 		log.Print(filename, ": ", "Copying output...")
 
 		if _, err := io.Copy(outFile, resp.Body); err != nil {
-			log.Print(err)
 			return err
 		}
 		log.Print(filename, ": ", "Done copying.")
@@ -247,9 +241,9 @@ func Map(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 
 		uses := 0
 		for name := range files {
-			log.Println("Wait for sem...")
+			log.Print("Wait for sem...")
 			semaphore <- 1
-			log.Println("Acquired sem.")
+			log.Print("Acquired sem.")
 			go func(name string) {
 				if err := mapFile(name, jobName, host, job, m); err != nil {
 					log.Print(err)
@@ -316,18 +310,17 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 	}
 
 	var resp *http.Response
-	err = utils.Retry(func() error {
+	err = retry(func() error {
 		var reader io.ReadCloser
 		if modulos == 1 {
 			// We're in single node mode so we can do something much simpler
 			resp, err := http.Get("http://localhost/" + path.Join(job.Input, "file", "*") + "?commit=" + m.Commit)
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 			reader = resp.Body
 		} else {
-			err := utils.Retry(func() error {
+			err := retry(func() error {
 				// Notice we're just passing "host" here. Multicast will fill in the host
 				// field so we don't actually need to specify it.
 				req, err := http.NewRequest("GET", "http://host/"+path.Join(job.Input, "file", "*")+"?commit="+m.Commit, nil)
@@ -346,7 +339,6 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 				return err
 			}, retries, time.Minute)
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 		}
@@ -385,32 +377,28 @@ func Materialize(in_repo, branch, commit, outRepo, jobDir string, shard, modulos
 	log.Printf("Materialize: %s %s %s %s %s.", in_repo, branch, commit, outRepo, jobDir)
 	exists, err := btrfs.FileExists(path.Join(outRepo, branch))
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	if !exists {
 		if err := btrfs.Branch(outRepo, "", branch); err != nil {
-			log.Print(err)
 			return err
 		}
 	}
 	/* We use the .progress dir to indicate if a job has been completed in this
 	* materialization. */
 	if err := btrfs.MkdirAll(path.Join(outRepo, branch, ".progress", commit)); err != nil {
-		log.Print(err)
 		return err
 	}
 	// We make sure that this function always commits so that we know the comp
 	// repo stays in sync with the data repo.
 	defer func() {
 		if err := btrfs.Commit(outRepo, commit, branch); err != nil {
-			log.Print("DEFERED: btrfs.Commit error in Materialize: ", err)
+			log.Print("DEFERRED: btrfs.Commit error in Materialize: ", err)
 		}
 	}()
 	// First check if the jobs dir actually exists.
 	exists, err = btrfs.FileExists(path.Join(in_repo, commit, jobDir))
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	if !exists {
@@ -472,4 +460,18 @@ func Materialize(in_repo, branch, commit, outRepo, jobDir string, shard, modulos
 func WaitJob(outRepo, branch, commit, job string) error {
 	log.Printf("WaitJob: %s %s %s %s", outRepo, branch, commit, job)
 	return btrfs.WaitFile(path.Join(outRepo, branch, ".progress", commit, job), nil)
+}
+
+func retry(f func() error, retries int, pause time.Duration) error {
+	var err error
+	for i := 0; i < retries; i++ {
+		err = f()
+		if err == nil {
+			break
+		} else {
+			log.Print("Retrying due to error: ", err)
+			time.Sleep(pause)
+		}
+	}
+	return err
 }

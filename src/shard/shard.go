@@ -135,7 +135,6 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 		files, err := btrfs.Glob(file)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
-			log.Print(err)
 			return
 		}
 		switch len(files) {
@@ -152,7 +151,6 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 				info, err := btrfs.Stat(file)
 				if err != nil {
 					http.Error(w, err.Error(), 500)
-					log.Print(err)
 					return
 				}
 				if info.IsDir() {
@@ -165,7 +163,6 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 					match, err := route.Match(name, shardParam(r))
 					if err != nil {
 						http.Error(w, err.Error(), 500)
-						log.Print(err)
 						return
 					}
 					if !match {
@@ -175,13 +172,11 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 				fWriter, err := writer.CreateFormFile(name, name)
 				if err != nil {
 					http.Error(w, err.Error(), 500)
-					log.Print(err)
 					return
 				}
 				err = rawCat(fWriter, file)
 				if err != nil {
 					http.Error(w, err.Error(), 500)
-					log.Print(err)
 					return
 				}
 			}
@@ -192,7 +187,6 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 		size, err := btrfs.CreateFromReader(file, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
-			log.Print(err)
 			return
 		}
 		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
@@ -201,14 +195,12 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 		size, err := btrfs.CopyFile(file, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
-			log.Print(err)
 			return
 		}
 		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
 	} else if r.Method == "DELETE" {
 		if err := btrfs.Remove(file); err != nil {
 			http.Error(w, err.Error(), 500)
-			log.Print(err)
 			return
 		}
 		fmt.Fprintf(w, "Deleted %s.\n", file)
@@ -239,18 +231,15 @@ func (s *Shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 		btrfs.Commits(s.dataRepo, "", btrfs.Desc, func(c btrfs.CommitInfo) error {
 			isReadOnly, err := btrfs.IsReadOnly(path.Join(s.dataRepo, c.Path))
 			if err != nil {
-				log.Print(err)
 				return err
 			}
 			if isReadOnly {
 				fi, err := btrfs.Stat(path.Join(s.dataRepo, c.Path))
 				if err != nil {
-					log.Print(err)
 					return err
 				}
 				err = encoder.Encode(CommitMsg{Name: fi.Name(), TStamp: fi.ModTime().Format("2006-01-02T15:04:05.999999-07:00")})
 				if err != nil {
-					log.Print(err)
 					return err
 				}
 			}
@@ -265,7 +254,6 @@ func (s *Shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 		err := btrfs.Commit(s.dataRepo, commit, branchParam(r))
 		if err != nil {
 			http.Error(w, err.Error(), 500)
-			log.Print(err)
 			return
 		}
 
@@ -307,7 +295,6 @@ func (s *Shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 		replica := btrfs.NewLocalReplica(s.dataRepo)
 		if err := replica.Push(r.Body); err != nil {
 			http.Error(w, err.Error(), 500)
-			log.Print(err)
 			return
 		}
 	} else {
@@ -339,7 +326,6 @@ func (s *Shard) branchHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				err = encoder.Encode(BranchMsg{Name: fi.Name(), TStamp: fi.ModTime().Format("2006-01-02T15:04:05.999999-07:00")})
 				if err != nil {
-					log.Print(err)
 					return err
 				}
 			}
@@ -348,7 +334,6 @@ func (s *Shard) branchHandler(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == "POST" {
 		if err := btrfs.Branch(s.dataRepo, commitParam(r), branchParam(r)); err != nil {
 			http.Error(w, err.Error(), 500)
-			log.Print(err)
 			return
 		}
 		fmt.Fprintf(w, "Created branch. (%s) -> %s.\n", commitParam(r), branchParam(r))
@@ -367,7 +352,6 @@ func (s *Shard) jobHandler(w http.ResponseWriter, r *http.Request) {
 			err := mapreduce.WaitJob(s.compRepo, branchParam(r), commitParam(r), url[2])
 			if err != nil {
 				http.Error(w, err.Error(), 500)
-				log.Print(err)
 				return
 			}
 			genericFileHandler(path.Join(s.compRepo, branchParam(r), url[2]), w, r)
@@ -393,7 +377,6 @@ func (s *Shard) pipelineHandler(w http.ResponseWriter, r *http.Request) {
 		err := pipeline.WaitPipeline(s.pipelinePrefix, url[2], commitParam(r))
 		if err != nil {
 			http.Error(w, err.Error(), 500)
-			log.Print(err)
 			return
 		}
 		// url looks like [, pipeline, <pipeline>, file, <file>]
@@ -419,7 +402,6 @@ func (s *Shard) pullHandler(w http.ResponseWriter, r *http.Request) {
 	err := localReplica.Pull(from, cb)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
-		log.Print(err)
 		return
 	}
 }

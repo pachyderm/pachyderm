@@ -85,12 +85,10 @@ func (m MultiPartPuller) Pull(from string, cb btrfs.Pusher) error {
 			break
 		}
 		if err != nil {
-			log.Print(err)
 			return err
 		}
 		err = cb.Push(part)
 		if err != nil {
-			log.Print(err)
 			return err
 		}
 	}
@@ -151,23 +149,28 @@ func SyncTo(dataRepo string, urls []string) error {
 // SyncFrom syncs from the most up to date replica in urls
 // Returns the first error if ALL urls error.
 func SyncFrom(dataRepo string, urls []string) error {
+	if len(urls) == 0 {
+		return nil
+	}
+	errCount := 0
 	for _, url := range urls {
-		// First we need to figure out what value to use for `from`
-		from, err := btrfs.GetFrom(dataRepo)
-
-		if err != nil {
-			log.Print(err)
-		}
-
-		sr := NewShardReplica(url)
-		lr := btrfs.NewLocalReplica(dataRepo)
-
-		err = sr.Pull(from, lr)
-		if err != nil {
-			log.Print(err)
+		if err := syncFromUrl(dataRepo, url); err != nil {
+			errCount++
 		}
 	}
-	//TODO(jd) we need to figure out under what conditions this function should
-	//return an error
+	if errCount == len(urls) {
+		return fmt.Errorf("all urls %v had errors", urls)
+	}
 	return nil
+}
+
+func syncFromUrl(dataRepo string, url string) error {
+	// First we need to figure out what value to use for `from`
+	from, err := btrfs.GetFrom(dataRepo)
+	if err != nil {
+		return err
+	}
+	sr := NewShardReplica(url)
+	lr := btrfs.NewLocalReplica(dataRepo)
+	return sr.Pull(from, lr)
 }

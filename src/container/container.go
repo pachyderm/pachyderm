@@ -4,7 +4,6 @@ package container
 import (
 	"errors"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,17 +24,14 @@ var DefaultConfig = docker.Config{
 func RawStartContainer(opts docker.CreateContainerOptions) (string, error) {
 	client, err := NewDockerClientFromEnv()
 	if err != nil {
-		log.Print(err)
 		return "", err
 	}
 	container, err := client.CreateContainer(opts)
 	if err != nil {
-		log.Print(err)
 		return "", err
 	}
 	err = client.StartContainer(container.ID, opts.HostConfig)
 	if err != nil {
-		log.Print(err)
 		return "", err
 	}
 
@@ -51,7 +47,6 @@ func StartContainer(image string, command []string) (string, error) {
 func StopContainer(id string) error {
 	client, err := NewDockerClientFromEnv()
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	return client.StopContainer(id, 5)
@@ -60,7 +55,6 @@ func StopContainer(id string) error {
 func KillContainer(id string) error {
 	client, err := NewDockerClientFromEnv()
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	return client.KillContainer(docker.KillContainerOptions{ID: id})
@@ -69,12 +63,10 @@ func KillContainer(id string) error {
 func IpAddr(containerId string) (string, error) {
 	client, err := NewDockerClientFromEnv()
 	if err != nil {
-		log.Print(err)
 		return "", err
 	}
 	container, err := client.InspectContainer(containerId)
 	if err != nil {
-		log.Print(err)
 		return "", err
 	}
 
@@ -85,7 +77,6 @@ func PullImage(image string) error {
 	repo_tag := strings.Split(image, ":")
 	client, err := NewDockerClientFromEnv()
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	opts := docker.PullImageOptions{Repository: repo_tag[0], Tag: "latest"}
@@ -98,7 +89,6 @@ func PullImage(image string) error {
 func PipeToStdin(id string, in io.Reader) error {
 	client, err := NewDockerClientFromEnv()
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	return client.AttachToContainer(docker.AttachToContainerOptions{
@@ -112,7 +102,6 @@ func PipeToStdin(id string, in io.Reader) error {
 func ContainerLogs(id string, out io.Writer) error {
 	client, err := NewDockerClientFromEnv()
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	return client.AttachToContainer(docker.AttachToContainerOptions{
@@ -128,7 +117,6 @@ func ContainerLogs(id string, out io.Writer) error {
 func WaitContainer(id string) (int, error) {
 	client, err := NewDockerClientFromEnv()
 	if err != nil {
-		log.Print(err)
 		return 0, err
 	}
 

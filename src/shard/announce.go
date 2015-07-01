@@ -2,7 +2,6 @@ package shard
 
 import (
 	"fmt"
-	"log"
 	"path"
 	"time"
 
@@ -69,18 +68,12 @@ func (s *Shard) FillRole(cancel chan struct{}) error {
 			// We're not master, so we attempt to claim it, this will error if
 			// another shard is already master
 			backfillingKey := "[backfilling]" + s.url
-			_, err := client.Create(masterKey, backfillingKey, 5*60)
-			if err == nil {
+			if _, err := client.Create(masterKey, backfillingKey, 5*60); err == nil {
 				// no error means we succesfully claimed master
-				err = s.SyncFromPeers()
-				if err != nil {
-					log.Print(err)
-				}
+				_ = s.SyncFromPeers()
 				// Attempt to finalize ourselves as master
-				_, err := client.CompareAndSwap(masterKey, s.url, 60, backfillingKey, 0)
-				if err != nil {
-					log.Print(err)
-				} else {
+				_, _ = client.CompareAndSwap(masterKey, s.url, 60, backfillingKey, 0)
+				if err == nil {
 					// no error means that we succusfully announced ourselves as master
 					// Sync the new data we pulled to peers
 					go s.SyncToPeers()
@@ -98,10 +91,7 @@ func (s *Shard) FillRole(cancel chan struct{}) error {
 
 		// We didn't claim master, so we add ourselves as replica instead.
 		if replicaKey == "" {
-			resp, err := client.CreateInOrder(replicaDir, s.url, 60)
-			if err != nil {
-				log.Print(err)
-			} else {
+			if resp, err := client.CreateInOrder(replicaDir, s.url, 60); err == nil {
 				replicaKey = resp.Node.Key
 				// Get ourselves up to date
 				go s.SyncFromPeers()

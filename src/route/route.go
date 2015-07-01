@@ -7,7 +7,6 @@ import (
 	"hash/adler32"
 	"io"
 	"io/ioutil"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"path"
@@ -81,13 +80,11 @@ func RouteHttp(w http.ResponseWriter, r *http.Request, etcdKey string, modulos u
 	reader, err := Route(r, etcdKey, modulos)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
-		log.Print(err)
 		return
 	}
 	_, err = io.Copy(w, reader)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
-		log.Print(err)
 		return
 	}
 }
@@ -224,7 +221,6 @@ func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string, ret R
 	resps, err := Multicast(r, etcdKey)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
-		log.Print(err)
 		return
 	}
 	defer func() {
@@ -237,7 +233,6 @@ func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string, ret R
 		_, err = io.Copy(w, resps[0].Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
-			log.Print(err)
 			return
 		}
 		return
@@ -250,7 +245,6 @@ func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string, ret R
 				_, err = io.Copy(w, resp.Body)
 				if err != nil {
 					http.Error(w, err.Error(), 500)
-					log.Print(err)
 					return
 				}
 				resp.Body.Close()
@@ -266,13 +260,11 @@ func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string, ret R
 					f, err := writer.CreateFormFile(p.FormName(), p.FileName())
 					if err != nil {
 						http.Error(w, err.Error(), 500)
-						log.Print(err)
 						return
 					}
 					_, err = io.Copy(f, p)
 					if err != nil {
 						http.Error(w, err.Error(), 500)
-						log.Print(err)
 						return
 					}
 				}
