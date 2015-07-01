@@ -12,7 +12,7 @@ import (
 	"net/textproto"
 	"sync"
 
-	"github.com/pachyderm/pfs/lib/btrfs"
+	"github.com/pachyderm/pfs/src/btrfs"
 )
 
 type ShardReplica struct {

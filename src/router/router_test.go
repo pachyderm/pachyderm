@@ -9,9 +9,9 @@ import (
 	"testing"
 	"testing/quick"
 
-	"github.com/pachyderm/pfs/lib/etcache"
-	"github.com/pachyderm/pfs/lib/shard"
-	"github.com/pachyderm/pfs/lib/traffic"
+	"github.com/pachyderm/pfs/src/etcache"
+	"github.com/pachyderm/pfs/src/shard"
+	"github.com/pachyderm/pfs/src/traffic"
 )
 
 type Cluster struct {

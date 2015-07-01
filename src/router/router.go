@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pfs/lib/route"
-	"github.com/pachyderm/pfs/lib/shard"
-	"github.com/pachyderm/pfs/lib/traffic"
+	"github.com/pachyderm/pfs/src/route"
+	"github.com/pachyderm/pfs/src/shard"
+	"github.com/pachyderm/pfs/src/traffic"
 	"github.com/satori/go.uuid"
 )
 

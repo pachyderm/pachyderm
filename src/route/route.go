@@ -16,7 +16,7 @@ import (
 	"sync"
 
 	"github.com/coreos/go-etcd/etcd"
-	"github.com/pachyderm/pfs/lib/etcache"
+	"github.com/pachyderm/pfs/src/etcache"
 )
 
 var ErrNoHosts = errors.New("pfs: no hosts found")

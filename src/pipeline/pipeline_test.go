@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pfs/lib/btrfs"
+	"github.com/pachyderm/pfs/src/btrfs"
 )
 
 func check(err error, t *testing.T) {

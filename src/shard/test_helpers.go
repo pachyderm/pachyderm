@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pachyderm/pfs/lib/traffic"
+	"github.com/pachyderm/pfs/src/traffic"
 )
 
 func Check(err error, t *testing.T) {

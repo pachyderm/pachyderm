@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pachyderm/pfs/lib/btrfs"
-	"github.com/pachyderm/pfs/lib/container"
-	"github.com/pachyderm/pfs/lib/route"
-	"github.com/pachyderm/pfs/lib/s3utils"
-	"github.com/pachyderm/pfs/lib/utils"
+	"github.com/pachyderm/pfs/src/btrfs"
+	"github.com/pachyderm/pfs/src/container"
+	"github.com/pachyderm/pfs/src/route"
+	"github.com/pachyderm/pfs/src/s3utils"
+	"github.com/pachyderm/pfs/src/utils"
 )
 
 const (

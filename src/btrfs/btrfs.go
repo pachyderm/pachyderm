@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/go-fsnotify/fsnotify"
-	"github.com/pachyderm/pfs/lib/shell"
+	"github.com/pachyderm/pfs/src/shell"
 	"github.com/satori/go.uuid"
 )
 

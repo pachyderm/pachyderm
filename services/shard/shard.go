@@ -5,7 +5,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/pachyderm/pfs/lib/shard"
+	"github.com/pachyderm/pfs/src/shard"
 )
 
 func main() {

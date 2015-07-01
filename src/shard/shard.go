@@ -12,10 +12,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pachyderm/pfs/lib/btrfs"
-	"github.com/pachyderm/pfs/lib/mapreduce"
-	"github.com/pachyderm/pfs/lib/pipeline"
-	"github.com/pachyderm/pfs/lib/route"
+	"github.com/pachyderm/pfs/src/btrfs"
+	"github.com/pachyderm/pfs/src/mapreduce"
+	"github.com/pachyderm/pfs/src/pipeline"
+	"github.com/pachyderm/pfs/src/route"
 	"github.com/satori/go.uuid"
 )
 
