@@ -21,7 +21,7 @@ type service struct {
 var outPath string = "/host/home/core/pfs"
 
 func printShardedService(name string) {
-	sTemplate, err := template.New("sharded").ParseFiles("templates/sharded")
+	sTemplate, err := template.New("sharded").Parse(shardedTemplateString)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func printShardedService(name string) {
 }
 
 func printGlobalService(name string) {
-	template, err := template.New("global").ParseFiles("templates/global")
+	template, err := template.New("global").Parse(globalTemplateString)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -71,12 +71,12 @@ func printGlobalService(name string) {
 }
 
 func printRegistryService(name string, port int) {
-	sTemplate, err := template.New("registry").ParseFiles("templates/registry")
+	sTemplate, err := template.New("registry").Parse(registryTemplateString)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	aTemplate, err := template.New("announce").ParseFiles("templates/announce")
+	aTemplate, err := template.New("announce").Parse(announceTemplateString)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func printRegistryService(name string, port int) {
 }
 
 func printGitDaemonService(name string) {
-	template, err := template.New("gitdaemon").ParseFiles("templates/gitdaemon")
+	template, err := template.New("gitdaemon").Parse(gitDaemonTemplateString)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func printGitDaemonService(name string) {
 }
 
 func printStorageService(name string) {
-	template, err := template.New("storage").ParseFiles("templates/storage")
+	template, err := template.New("storage").Parse(storageTemplateString)
 	if err != nil {
 		log.Fatal(err)
 	}

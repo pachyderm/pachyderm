@@ -14,6 +14,6 @@ docker run \
     -v /:/host:ro \
     -v /home/core:/host/home/core \
     -v /var/run/fleet.sock:/host/var/run/fleet.sock \
-    -i "${PFS_IMAGE}" \
+    "${PFS_IMAGE}" \
     /go/bin/deploy $@
 fleetctl start /home/core/pfs/*.service

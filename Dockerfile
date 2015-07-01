@@ -4,7 +4,6 @@ EXPOSE 80
 RUN mkdir -p /go/src/github.com/pachyderm/pfs
 WORKDIR /go/src/github.com/pachyderm/pfs
 RUN mkdir -p /go/src/github.com/pachyderm/pfs/etc/bin
-RUN mkdir -p /go/src/github.com/pachyderm/pfs/deploy/templates
 RUN \
 	go get -v golang.org/x/tools/cmd/vet && \
 	go get -v github.com/kisielk/errcheck && \
@@ -23,7 +22,5 @@ RUN \
 ADD etc/bin /go/src/github.com/pachyderm/pfs/etc/bin/
 RUN ln /go/src/github.com/pachyderm/pfs/etc/bin/btrfs-wrapper /bin/btrfs
 RUN ln /go/src/github.com/pachyderm/pfs/etc/bin/fleetctl-wrapper /bin/fleetctl
-ADD deploy/templates /go/src/github.com/pachyderm/pfs/deploy/templates/
-RUN ln -s /go/src/github.com/pachyderm/pfs/deploy/templates /templates
 ADD . /go/src/github.com/pachyderm/pfs/
 RUN go install github.com/pachyderm/pfs/...
