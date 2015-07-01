@@ -6,6 +6,7 @@ import (
 	"log"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/s3"
@@ -103,7 +104,7 @@ func PutMulti(bucket *s3.Bucket, path string, r io.Reader, contType string, perm
 // Files calls `cont` on each file found at `uri` starting at marker.
 // Pass `marker=""` to start from the beginning.
 // Returns the marker that should be passed to pick-up where this call left off.
-func ForEachFile(uri, marker string, cont func(file string) error) error {
+func ForEachFile(uri, marker string, cont func(file string, modtime time.Time) error) error {
 	bucket, err := NewBucket(uri)
 	if err != nil {
 		return err
@@ -119,7 +120,12 @@ func ForEachFile(uri, marker string, cont func(file string) error) error {
 			return err
 		}
 		for _, key := range lr.Contents {
-			err := cont(key.Key)
+			modtime, err := time.Parse(time.RFC3339, key.LastModified)
+			if err != nil {
+				log.Print(err)
+				return err
+			}
+			err = cont(key.Key, modtime)
 			if err != nil {
 				return err
 			}

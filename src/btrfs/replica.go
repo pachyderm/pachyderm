@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"path"
+	"time"
 
 	"github.com/mitchellh/goamz/s3"
 	"github.com/pachyderm/pfs/src/s3utils"
@@ -73,7 +74,7 @@ func (r *S3Replica) Pull(from string, target Pusher) error {
 		log.Print(err)
 		return err
 	}
-	err = s3utils.ForEachFile(r.uri, from, func(path string) error {
+	err = s3utils.ForEachFile(r.uri, from, func(path string, modtime time.Time) error {
 		f, err := bucket.GetReader(path)
 		if f == nil {
 			return fmt.Errorf("Nil file returned.")
