@@ -5,6 +5,7 @@
 	test-deps \
 	update-test-deps \
 	build \
+	install \
 	lint \
 	vet \
 	errcheck \
@@ -43,6 +44,9 @@ update-test-deps:
 
 build: deps
 	go build ./...
+
+install: deps
+	go install ./...
 
 lint:
 	go get -v github.com/golang/lint/golint
