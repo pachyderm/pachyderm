@@ -15,16 +15,17 @@ import (
 	"github.com/pachyderm/pfs/lib/etcache"
 	"github.com/pachyderm/pfs/lib/route"
 	"github.com/pachyderm/pfs/lib/traffic"
+	"github.com/pachyderm/pfs/lib/utils"
 )
 
 func TestPing(t *testing.T) {
 	shard := NewShard("TestPingData", "TestPingComp", "TestPingPipelines", 0, 1)
-	Check(shard.EnsureRepos(), t)
+	check(shard.EnsureRepos(), t)
 	s := httptest.NewServer(shard.ShardMux())
 	defer s.Close()
 
 	res, err := http.Get(s.URL + "/ping")
-	Check(err, t)
+	check(err, t)
 	CheckResp(res, "pong\n", t)
 	res.Body.Close()
 }
@@ -34,7 +35,7 @@ func TestBasic(t *testing.T) {
 	f := func(w traffic.Workload) bool {
 		shard := NewShard(fmt.Sprintf("TestBasic%d", c), fmt.Sprintf("TestBasicComp%d", c), fmt.Sprintf("TestBasicPipelines%d", c), 0, 1)
 		c++
-		Check(shard.EnsureRepos(), t)
+		check(shard.EnsureRepos(), t)
 		s := httptest.NewServer(shard.ShardMux())
 		defer s.Close()
 
@@ -55,8 +56,8 @@ func TestPull(t *testing.T) {
 		_src := NewShard(fmt.Sprintf("TestPullSrc%d", c), fmt.Sprintf("TestPullSrcComp%d", c), fmt.Sprintf("TestPullSrcPipelines%d", c), 0, 1)
 		_dst := NewShard(fmt.Sprintf("TestPullDst%d", c), fmt.Sprintf("TestPullDstComp%d", c), fmt.Sprintf("TestPullDstPipelines%d", c), 0, 1)
 		c++
-		Check(_src.EnsureRepos(), t)
-		Check(_dst.EnsureRepos(), t)
+		check(_src.EnsureRepos(), t)
+		check(_dst.EnsureRepos(), t)
 		src := httptest.NewServer(_src.ShardMux())
 		dst := httptest.NewServer(_dst.ShardMux())
 		defer src.Close()
@@ -68,7 +69,7 @@ func TestPull(t *testing.T) {
 		srcReplica := NewShardReplica(src.URL)
 		dstReplica := NewShardReplica(dst.URL)
 		err := srcReplica.Pull("", dstReplica)
-		Check(err, t)
+		check(err, t)
 		facts := w.Facts()
 		RunWorkload(dst.URL, facts, t)
 		return true
@@ -85,8 +86,8 @@ func TestSyncTo(t *testing.T) {
 	f := func(w traffic.Workload) bool {
 		_src := NewShard(fmt.Sprintf("TestSyncToSrc%d", c), fmt.Sprintf("TestSyncToSrcComp%d", c), fmt.Sprintf("TestSyncToSrcPipelines%d", c), 0, 1)
 		_dst := NewShard(fmt.Sprintf("TestSyncToDst%d", c), fmt.Sprintf("TestSyncToDstComp%d", c), fmt.Sprintf("TestSyncToDstPipelines%d", c), 0, 1)
-		Check(_src.EnsureRepos(), t)
-		Check(_dst.EnsureRepos(), t)
+		check(_src.EnsureRepos(), t)
+		check(_dst.EnsureRepos(), t)
 		src := httptest.NewServer(_src.ShardMux())
 		dst := httptest.NewServer(_dst.ShardMux())
 		defer src.Close()
@@ -97,7 +98,7 @@ func TestSyncTo(t *testing.T) {
 			if o.Object == traffic.Commit {
 				// Replicate the data
 				err := SyncTo(fmt.Sprintf("TestSyncToSrc%d", c), []string{dst.URL})
-				Check(err, t)
+				check(err, t)
 			}
 		}
 
@@ -119,8 +120,8 @@ func TestSyncFrom(t *testing.T) {
 	f := func(w traffic.Workload) bool {
 		_src := NewShard(fmt.Sprintf("TestSyncFromSrc%d", c), fmt.Sprintf("TestSyncFromSrcComp%d", c), fmt.Sprintf("TestSyncFromSrcPipelines%d", c), 0, 1)
 		_dst := NewShard(fmt.Sprintf("TestSyncFromDst%d", c), fmt.Sprintf("TestSyncFromDstComp%d", c), fmt.Sprintf("TestSyncFromDstPipelines%d", c), 0, 1)
-		Check(_src.EnsureRepos(), t)
-		Check(_dst.EnsureRepos(), t)
+		check(_src.EnsureRepos(), t)
+		check(_dst.EnsureRepos(), t)
 		src := httptest.NewServer(_src.ShardMux())
 		dst := httptest.NewServer(_dst.ShardMux())
 		defer src.Close()
@@ -131,7 +132,7 @@ func TestSyncFrom(t *testing.T) {
 			if o.Object == traffic.Commit {
 				// Replicate the data
 				err := SyncFrom(fmt.Sprintf("TestSyncFromDst%d", c), []string{src.URL})
-				Check(err, t)
+				check(err, t)
 			}
 		}
 
@@ -150,7 +151,7 @@ func TestSyncFrom(t *testing.T) {
 func TestPipeline(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
 	shard := NewShard("TestPipelineData", "TestPipelineComp", "TestPipelinePipelines", 0, 1)
-	Check(shard.EnsureRepos(), t)
+	check(shard.EnsureRepos(), t)
 	s := httptest.NewServer(shard.ShardMux())
 	defer s.Close()
 
@@ -159,11 +160,11 @@ image ubuntu
 
 run touch /out/foo
 `))
-	Check(err, t)
+	check(err, t)
 	res.Body.Close()
 
 	res, err = http.Post(s.URL+"/commit?commit=commit1", "", nil)
-	Check(err, t)
+	check(err, t)
 	Checkfile(s.URL+"/pipeline/touch_foo", "foo", "commit1", "", t)
 }
 
@@ -173,7 +174,7 @@ run touch /out/foo
 func TestShardFilter(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
 	shard := NewShard("TestShardFilterData", "TestShardFilterComp", "TestShardFilterPipelines", 0, 1)
-	Check(shard.EnsureRepos(), t)
+	check(shard.EnsureRepos(), t)
 	s := httptest.NewServer(shard.ShardMux())
 	defer s.Close()
 
@@ -185,16 +186,16 @@ run touch /out/bar
 run touch /out/buzz
 run touch /out/bizz
 `))
-	Check(err, t)
+	check(err, t)
 	res.Body.Close()
 
 	res, err = http.Post(s.URL+"/commit?commit=commit1", "", nil)
-	Check(err, t)
+	check(err, t)
 
 	// Map to store files we receive
 	files := make(map[string]struct{})
 	res, err = http.Get(s.URL + path.Join("/pipeline", "files", "file", "*") + "?commit=commit1&shard=0-2")
-	Check(err, t)
+	check(err, t)
 	if res.StatusCode != 200 {
 		t.Fatal(res.Status)
 	}
@@ -202,7 +203,7 @@ run touch /out/bizz
 
 	for p, err := reader.NextPart(); err != io.EOF; p, err = reader.NextPart() {
 		match, err := route.Match(p.FileName(), "0-2")
-		Check(err, t)
+		check(err, t)
 		if !match {
 			t.Fatalf("Filename: %s should match.", p.FileName())
 		}
@@ -213,7 +214,7 @@ run touch /out/bizz
 	}
 
 	res, err = http.Get(s.URL + path.Join("/pipeline", "files", "file", "*") + "?commit=commit1&shard=1-2")
-	Check(err, t)
+	check(err, t)
 	if res.StatusCode != 200 {
 		t.Fatal(res.Status)
 	}
@@ -221,7 +222,7 @@ run touch /out/bizz
 
 	for p, err := reader.NextPart(); err != io.EOF; p, err = reader.NextPart() {
 		match, err := route.Match(p.FileName(), "1-2")
-		Check(err, t)
+		check(err, t)
 		if !match {
 			t.Fatalf("Filename: %s should match.", p.FileName())
 		}
@@ -237,11 +238,11 @@ func TestShuffle(t *testing.T) {
 
 	// Setup 2 shards
 	shard1 := NewShard("TestShuffleData-0-2", "TestShuffleComp-0-2", "TestShufflePipelines-0-2", 0, 2)
-	Check(shard1.EnsureRepos(), t)
+	check(shard1.EnsureRepos(), t)
 	s1 := httptest.NewServer(shard1.ShardMux())
 	defer s1.Close()
 	shard2 := NewShard("TestShuffleData-1-2", "TestShuffleComp-1-2", "TestShufflePipelines-1-2", 1, 2)
-	Check(shard2.EnsureRepos(), t)
+	check(shard2.EnsureRepos(), t)
 	s2 := httptest.NewServer(shard2.ShardMux())
 	defer s2.Close()
 
@@ -265,20 +266,20 @@ run cp -r /in/data /out
 shuffle data
 `
 	res, err := http.Post(s1.URL+"/pipeline/shuffle", "application/text", strings.NewReader(pipeline))
-	Check(err, t)
+	check(err, t)
 	res.Body.Close()
 	res, err = http.Post(s2.URL+"/pipeline/shuffle", "application/text", strings.NewReader(pipeline))
-	Check(err, t)
+	check(err, t)
 	res.Body.Close()
 
 	res, err = http.Post(s1.URL+"/commit?commit=commit1", "", nil)
-	Check(err, t)
+	check(err, t)
 	res, err = http.Post(s2.URL+"/commit?commit=commit1", "", nil)
-	Check(err, t)
+	check(err, t)
 
 	for _, file := range files {
 		match, err := route.Match(path.Join("data", file), "0-2")
-		Check(err, t)
+		check(err, t)
 		if match {
 			log.Print("shard: s1 file: ", file)
 			Checkfile(s1.URL+"/pipeline/shuffle", path.Join("data", file), "commit1", file+file, t)
@@ -294,11 +295,11 @@ func TestWordCount(t *testing.T) {
 
 	// Setup 2 shards
 	shard1 := NewShard("TestWordCountData-0-2", "TestWordCountComp-0-2", "TestWordCountPipelines-0-2", 0, 2)
-	Check(shard1.EnsureRepos(), t)
+	check(shard1.EnsureRepos(), t)
 	s1 := httptest.NewServer(shard1.ShardMux())
 	defer s1.Close()
 	shard2 := NewShard("TestWordCountData-1-2", "TestWordCountComp-1-2", "TestWordCountPipelines-1-2", 1, 2)
-	Check(shard2.EnsureRepos(), t)
+	check(shard2.EnsureRepos(), t)
 	s2 := httptest.NewServer(shard2.ShardMux())
 	defer s2.Close()
 
@@ -330,17 +331,17 @@ shuffle counts
 run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count $count; done
 `
 	res, err := http.Post(s1.URL+"/pipeline/wc", "application/text", strings.NewReader(pipeline))
-	Check(err, t)
+	check(err, t)
 	res.Body.Close()
 	res, err = http.Post(s2.URL+"/pipeline/wc", "application/text", strings.NewReader(pipeline))
-	Check(err, t)
+	check(err, t)
 	res.Body.Close()
 
 	res, err = http.Post(s1.URL+"/commit?commit=commit1", "", nil)
-	Check(err, t)
+	check(err, t)
 	res.Body.Close()
 	res, err = http.Post(s2.URL+"/commit?commit=commit1", "", nil)
-	Check(err, t)
+	check(err, t)
 	res.Body.Close()
 
 	// There should be 3 occurances of Dursley
@@ -350,7 +351,7 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 func TestFail(t *testing.T) {
 	log.SetFlags(log.Lshortfile)
 	shard := NewShard("TestFailData", "TestFailComp", "TestFailPipelines", 0, 1)
-	Check(shard.EnsureRepos(), t)
+	check(shard.EnsureRepos(), t)
 	s := httptest.NewServer(shard.ShardMux())
 	defer s.Close()
 
@@ -360,14 +361,14 @@ image ubuntu
 run touch /out/foo
 run exit 1
 `))
-	Check(err, t)
+	check(err, t)
 	res.Body.Close()
 
 	res, err = http.Post(s.URL+"/commit?commit=commit1", "", nil)
-	Check(err, t)
+	check(err, t)
 
 	res, err = http.Get(s.URL + "/pipeline/fail/file/foo?commit=commit1")
-	Check(err, t)
+	check(err, t)
 	if res.StatusCode != 500 {
 		t.Fatal("Request should return failure.")
 	}

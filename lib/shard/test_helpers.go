@@ -13,17 +13,6 @@ import (
 	"github.com/pachyderm/pfs/lib/traffic"
 )
 
-func Check(err error, t *testing.T) {
-	if err != nil {
-		if t == nil {
-			log.Print(err)
-		} else {
-			debug.PrintStack()
-			t.Fatal(err)
-		}
-	}
-}
-
 func CheckResp(res *http.Response, expected string, t *testing.T) {
 	if res.StatusCode != 200 {
 		if t == nil {
