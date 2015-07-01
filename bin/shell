@@ -8,5 +8,6 @@ cd "${DIR}"
 . "${DIR}/lib/lib.sh"
 . "${DIR}/../etc/env/pfs.env"
 
-export PFS_DOCKER_OPTS="-d"
-${DIR}/run ${PFS_DEFAULT_CONTAINER_COMMAND}
+export PFS_DOCKER_OPTS="-it"
+export PFS_IMAGE="${PFS_DEV_IMAGE}"
+${DIR}/run /bin/bash

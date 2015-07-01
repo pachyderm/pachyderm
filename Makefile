@@ -1,15 +1,23 @@
 .PHONY: \
 	all \
 	deps \
-	updatedeps \
-	testdeps \
-	updatetestdeps \
+	update-deps \
+	test-deps \
+	update-test-deps \
 	build \
 	lint \
 	vet \
 	errcheck \
 	pretest \
 	test \
+	test-short \
+	bench \
+	container-build \
+	container-build-dev \
+	container-launch \
+	container-launch-dev \
+	container-test-short \
+	container-clean \
 	clean
 
 include etc/env/pfs.env
@@ -36,25 +44,7 @@ update-test-deps:
 build: deps
 	go build ./...
 
-build-container:
-	docker build -t $(PFS_IMAGE) .
-
-build-container-dev:
-	docker build -t $(PFS_DEV_IMAGE) .
-
-launch-clean:
-	-umount $(PFS_HOST_VOLUME)
-	-rm $(PFS_DATA_IMG)
-	-docker kill $(PFS_CONTAINER_NAME)
-	-docker rm $(PFS_CONTAINER_NAME)
-
-launch: build-container launch-clean
-	bash bin/launch
-
-launch-dev: build-container-dev launch-clean
-	PFS_IMAGE=$(PFS_DEV_IMAGE) bash bin/launch
-
-lint: testdeps
+lint:
 	go get -v github.com/golang/lint/golint
 	golint ./...
 
@@ -68,16 +58,34 @@ errcheck:
 pretest: lint vet errcheck
 
 test: pretest testdeps
-	go test github.com/pachyderm/pfs/services/...
+	go test ./...
 
 test-short: pretest testdeps
-	go test -test.short github.com/pachyderm/pfs/services/...
+	go test -test.short ./...
 
 bench: testdeps
-	go test github.com/pachyderm/pfs/services/... -bench . -timeout $(BENCH_TIMEOUT)
-
-container-test-short: build-container-dev
-	PFS_IMAGE=$(PFS_DEV_IMAGE) bash bin/run make test-short
+	go test ./... -bench . -timeout $(BENCH_TIMEOUT)
 
 clean:
 	go clean -i ./...
+
+container-build:
+	docker build -t $(PFS_IMAGE) .
+
+container-build-dev:
+	docker build -t $(PFS_DEV_IMAGE) .
+
+container-launch: container-build
+	sudo bash bin/launch
+
+container-launch-dev: container-build-dev
+	sudo PFS_IMAGE=$(PFS_DEV_IMAGE) bash bin/launch
+
+container-test-short: container-build-dev
+	sudo PFS_IMAGE=$(PFS_DEV_IMAGE) bash bin/run make test-short
+
+container-clean:
+	sudo bash bin/clean
+
+container-shell:
+	sudo bash bin/shell

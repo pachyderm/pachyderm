@@ -32,7 +32,7 @@ check_executable() {
   fi
 
   local version_regex="([0-9]+)\.([0-9]+)(\.([0-9]+))?"
-  if [ "$(echo "${version}" | sed -E "s/${version_regex}/\1/")" -ne "${major}" ] || [ "$(echo "${version_regex}" | sed -E "s/${regex}/\2/")" -lt "${minor}" ]; then
+  if [ "$(echo "${version}" | sed -E "s/${version_regex}/\1/")" -ne "${major}" ] || [ "$(echo "${version}" | sed -E "s/${version_regex}/\2/")" -lt "${minor}" ]; then
     echo "error: Found ${executable} version ${version}."
     echo "error: Expected ${executable} major version ${major}, minor version >= ${minor}." >&2
     return 1

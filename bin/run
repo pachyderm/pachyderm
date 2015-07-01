@@ -11,6 +11,8 @@ cd "${DIR}"
 check_btrfs
 check_docker
 
+${DIR}/clean
+
 mkdir -p "${PFS_HOST_VOLUME}"
 truncate "${PFS_DATA_IMG}" -s 10G
 mkfs.btrfs "${PFS_DATA_IMG}"
@@ -18,7 +20,7 @@ mount "${PFS_DATA_IMG}" "${PFS_HOST_VOLUME}"
 mkdir -p /var/lib/pfs/vol
 
 docker run \
-    ${DAEMONIZE} \
+    ${PFS_DOCKER_OPTS} \
     --privileged=true \
     --name "${PFS_CONTAINER_NAME}" \
     -v /:/host:ro \
@@ -30,5 +32,5 @@ docker run \
     -e GOMAXPROCS="${GOMAXPROCS}" \
     -e PFS_HOST_VOLUME="${PFS_HOST_VOLUME}" \
     -p "${PFS_PORT}":80 \
-    -i "${PFS_IMAGE}" \
+    "${PFS_IMAGE}" \
     $@
