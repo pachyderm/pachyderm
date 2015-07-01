@@ -79,16 +79,16 @@ container-build:
 	docker build -t $(PFS_IMAGE) .
 
 container-shell: container-build
-	sudo bash bin/shell
+	sudo -E bash -c 'bin/shell'
 
 container-launch: container-build
-	sudo bash bin/launch
+	sudo -E bash -c 'bin/launch'
 
 container-test: container-build
-	sudo bash bin/run make test
+	sudo -E bash -c 'bin/run make test'
 
 container-test-short: container-build
-	sudo bash bin/run make test-short
+	sudo -E bash -c 'bin/run make test-short'
 
 container-clean:
-	sudo bash bin/clean
+	sudo -E bash -c 'bin/clean'
