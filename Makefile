@@ -12,13 +12,13 @@
 	test \
 	test-short \
 	bench \
+	clean \
 	container-build \
-	container-build-dev \
+	container-shell \
 	container-launch \
-	container-launch-dev \
+	container-test \
 	container-test-short \
-	container-clean \
-	clean
+	container-clean
 
 include etc/env/pfs.env
 
@@ -58,14 +58,14 @@ errcheck:
 pretest: lint vet errcheck
 
 # TODO(pedge): add pretest when fixed
-test: testdeps
+test: test-deps
 	go test ./...
 
 # TODO(pedge): add pretest when fixed
-test-short: testdeps
+test-short: test-deps
 	go test -test.short ./...
 
-bench: testdeps
+bench: test-deps
 	go test ./... -bench . -timeout $(BENCH_TIMEOUT)
 
 clean:
@@ -74,20 +74,17 @@ clean:
 container-build:
 	docker build -t $(PFS_IMAGE) .
 
-container-build-dev:
-	docker build -t $(PFS_DEV_IMAGE) .
+container-shell: container-build
+	sudo bash bin/shell
 
 container-launch: container-build
 	sudo bash bin/launch
 
-container-launch-dev: container-build-dev
-	sudo PFS_IMAGE=$(PFS_DEV_IMAGE) bash bin/launch
+container-test: container-build
+	sudo bash bin/run make test
 
-container-test-short: container-build-dev
-	sudo PFS_IMAGE=$(PFS_DEV_IMAGE) bash bin/run make test-short
+container-test-short: container-build
+	sudo bash bin/run make test-short
 
 container-clean:
 	sudo bash bin/clean
-
-container-shell:
-	sudo bash bin/shell

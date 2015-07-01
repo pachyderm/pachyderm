@@ -9,5 +9,4 @@ cd "${DIR}"
 . "${DIR}/../etc/env/pfs.env"
 
 export PFS_DOCKER_OPTS="-it"
-export PFS_IMAGE="${PFS_DEV_IMAGE}"
 ${DIR}/run /bin/bash
