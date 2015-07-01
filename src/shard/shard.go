@@ -365,7 +365,7 @@ func (s *Shard) jobHandler(w http.ResponseWriter, r *http.Request) {
 		genericFileHandler(path.Join(s.dataRepo, branchParam(r)), w, r)
 	} else {
 		http.Error(w, "Invalid method.", 405)
-		log.Print("Invalid method %s.", r.Method)
+		log.Printf("Invalid method %s.", r.Method)
 		return
 	}
 }

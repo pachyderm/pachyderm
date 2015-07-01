@@ -207,7 +207,7 @@ run touch /out/bizz
 			t.Fatalf("Filename: %s should match.", p.FileName())
 		}
 		if _, ok := files[p.FileName()]; ok == true {
-			t.Fatalf("File: %s received twice.")
+			t.Fatalf("File: %s received twice.", p.FileName())
 		}
 		files[p.FileName()] = struct{}{}
 	}
@@ -226,7 +226,7 @@ run touch /out/bizz
 			t.Fatalf("Filename: %s should match.", p.FileName())
 		}
 		if _, ok := files[p.FileName()]; ok == true {
-			t.Fatalf("File: %s received twice.")
+			t.Fatalf("File: %s received twice.", p.FileName())
 		}
 		files[p.FileName()] = struct{}{}
 	}

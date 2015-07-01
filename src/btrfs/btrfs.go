@@ -355,7 +355,6 @@ func WaitFile(name string, cancel chan struct{}) error {
 			return ErrCancelled
 		}
 	}
-	return nil
 }
 
 // WaitAnyFile returns as soon as ANY of the files exists.
