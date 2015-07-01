@@ -62,7 +62,7 @@ Usage of /go/bin/deploy:
 ```
 
 ### Integrating with s3
-If you'd like to populate your Pachyderm cluster with your own data, [jump ahead](https://github.com/pachyderm/pfs#using-pfs) to learn how. If not, we've created a public s3 bucket with chess data for you and we can run the chess pipeline in the full cluster.
+If you'd like to populate your Pachyderm cluster with your own data, [jump ahead](https://github.com/pachyderm/pachyderm#using-pfs) to learn how. If not, we've created a public s3 bucket with chess data for you and we can run the chess pipeline in the full cluster.
 
 As of v0.4 pfs can leverage s3 as a source of data for pipelines. Pfs also
 uses s3 as the backend for its local Docker registry. To get s3 working you'll
@@ -163,7 +163,7 @@ Pipelines are described as Pachfiles. The Pachfile specifies a Docker image, inp
   # or any shell commands you want.
   run <output directory>
   run <analysis logic>
-  # Example: see the wordcount demo:                   https://github.com/pachyderm/pfs/examples/WordCount.md#step-3-create-the-wordcount-pipeline
+  # Example: see the wordcount demo:                   https://github.com/pachyderm/pachyderm/examples/WordCount.md#step-3-create-the-wordcount-pipeline
 }
 ```
 

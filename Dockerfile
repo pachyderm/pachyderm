@@ -1,9 +1,9 @@
 FROM golang:1.4.2
 
 EXPOSE 80
-RUN mkdir -p /go/src/github.com/pachyderm/pfs
-WORKDIR /go/src/github.com/pachyderm/pfs
-RUN mkdir -p /go/src/github.com/pachyderm/pfs/etc/bin
+RUN mkdir -p /go/src/github.com/pachyderm/pachyderm
+WORKDIR /go/src/github.com/pachyderm/pachyderm
+RUN mkdir -p /go/src/github.com/pachyderm/pachyderm/etc/bin
 RUN \
 	go get -v golang.org/x/tools/cmd/vet && \
 	go get -v github.com/kisielk/errcheck && \
@@ -19,8 +19,8 @@ RUN \
   go get github.com/mitchellh/goamz/aws && \
   go get github.com/mitchellh/goamz/s3 && \
   go get github.com/go-fsnotify/fsnotify
-ADD etc/bin /go/src/github.com/pachyderm/pfs/etc/bin/
-RUN ln /go/src/github.com/pachyderm/pfs/etc/bin/btrfs-wrapper /bin/btrfs
-RUN ln /go/src/github.com/pachyderm/pfs/etc/bin/fleetctl-wrapper /bin/fleetctl
-ADD . /go/src/github.com/pachyderm/pfs/
-RUN go install github.com/pachyderm/pfs/...
+ADD etc/bin /go/src/github.com/pachyderm/pachyderm/etc/bin/
+RUN ln /go/src/github.com/pachyderm/pachyderm/etc/bin/btrfs-wrapper /bin/btrfs
+RUN ln /go/src/github.com/pachyderm/pachyderm/etc/bin/fleetctl-wrapper /bin/fleetctl
+ADD . /go/src/github.com/pachyderm/pachyderm/
+RUN go install github.com/pachyderm/pachyderm/...

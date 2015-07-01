@@ -12,9 +12,9 @@ import (
 	"testing"
 	"testing/quick"
 
-	"github.com/pachyderm/pfs/src/etcache"
-	"github.com/pachyderm/pfs/src/route"
-	"github.com/pachyderm/pfs/src/traffic"
+	"github.com/pachyderm/pachyderm/src/etcache"
+	"github.com/pachyderm/pachyderm/src/route"
+	"github.com/pachyderm/pachyderm/src/traffic"
 )
 
 func TestPing(t *testing.T) {

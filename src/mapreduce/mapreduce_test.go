@@ -11,7 +11,7 @@ import (
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/s3"
 
-	"github.com/pachyderm/pfs/src/btrfs"
+	"github.com/pachyderm/pachyderm/src/btrfs"
 )
 
 func check(err error, t *testing.T) {

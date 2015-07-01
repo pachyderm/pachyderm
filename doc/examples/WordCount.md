@@ -23,10 +23,10 @@ $ curl www.pachyderm.io/launch | sh
 # add a local file to Pachyderm
 $ curl -X POST localhost:650/file/text/textfile1 -T your_text_file
 ```
-`file` is a Pachyderm keyword that lets us manipulate files in pfs. We're adding the text file in the directory /text and naming it `textfile1`. Read about the API in more detail [here](https://github.com/pachyderm/pfs/#the-pachyderm-http-api).
+`file` is a Pachyderm keyword that lets us manipulate files in pfs. We're adding the text file in the directory /text and naming it `textfile1`. Read about the API in more detail [here](https://github.com/pachyderm/pachyderm/#the-pachyderm-http-api).
 
 #### Step 3: Create the wordcount pipeline
-In Pachyderm, pipelines are how we define distributed computations. The Docker image, input data, and analysis logic are defined in a Pachfile. We've already created the wordcount Pachfile for you, but we're going to go through it in detail to understand what's going on and how to create your own Pachfiles in the future. If you want to skip these details and just run the pipeline, [jump to step 4](https://github.com/pachyderm/pfs/blob/next/examples/WordCount.md#step-4-install-and-run-the-wordcount-pipeline-locally).
+In Pachyderm, pipelines are how we define distributed computations. The Docker image, input data, and analysis logic are defined in a Pachfile. We've already created the wordcount Pachfile for you, but we're going to go through it in detail to understand what's going on and how to create your own Pachfiles in the future. If you want to skip these details and just run the pipeline, [jump to step 4](https://github.com/pachyderm/pachyderm/blob/next/examples/WordCount.md#step-4-install-and-run-the-wordcount-pipeline-locally).
 
 Word count is simple enough that we can implement it entirely using shell commands and a stock ubuntu image, no need to install anything extra. Here's the body for the wordcount Pachfile. It's only a few lines. [Download the wordcount Pachfile]() or copy/paste the text into your own text file.  
 
@@ -90,7 +90,7 @@ Some of these steps look really similar to those above -- that's the whole point
 #### Step 5: Deploy a Pachyderm Cluster
 The easiest deployment option is to use the AWS cloud template we've built for you.
 - [Deploy on Amazon EC2](https://console.aws.amazon.com/cloudformation/home?region=us-west-1#/stacks/new?stackName=Pachyderm&templateURL=https:%2F%2Fs3-us-west-1.amazonaws.com%2Fpachyderm-templates%2Ftemplate) using cloud templates (recommended)
- If you prefer to use a different host or set up your cluster manually, see [Cluster Deployment](https://github.com/pachyderm/pfs#creating-a-pachyderm-cluster)
+ If you prefer to use a different host or set up your cluster manually, see [Cluster Deployment](https://github.com/pachyderm/pachyderm#creating-a-pachyderm-cluster)
 
 #### Step 6: Add your text files to Pachyderm
 This step is exactly the same as step 2 except we replace localhost:650 with the `<hostname>` of one of our EC2 machines. Use the hostname of any machine in the cluster and pachyderm will automatically distributed the files across all machines and shards.

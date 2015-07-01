@@ -272,7 +272,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 
 // TestSendWithMissingIntermediateCommitIsCorrect(?) // ? means we don't know what the behavior is.
 func TestSendWithMissingIntermediateCommitIsCorrect(t *testing.T) {
-	//FIXME: https://github.com/pachyderm/pfs/issues/60
+	//FIXME: https://github.com/pachyderm/pachyderm/issues/60
 	t.Skip("Removing commits currently breaks replication, this is ok for now because users can't remove commits.")
 	// Create a source repo:
 	srcRepo := "repo_TestSendWithMissingIntermediateCommitIsCorrect_src"

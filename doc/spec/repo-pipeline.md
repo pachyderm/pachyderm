@@ -29,7 +29,7 @@ docker build /image
 ### `/job`
 The `/job` directory defines the pipeline of jobs which will be run by the
 engine. Each file be a JSON description of a job according to the [pfs job
-spec](https://github.com/pachyderm/pfs/blob/master/README.md#creating-a-new-job-descriptor).
+spec](https://github.com/pachyderm/pachyderm/blob/master/README.md#creating-a-new-job-descriptor).
 Jobs may reference the image which will be built from the `/image` directory as
 `{{REPO_IMAGE}}`. The job may reference any data which it expects to be stored
 in the filesystem.

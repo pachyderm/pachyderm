@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/goamz/s3"
-	"github.com/pachyderm/pfs/src/s3utils"
+	"github.com/pachyderm/pachyderm/src/s3utils"
 )
 
 type Pusher interface {

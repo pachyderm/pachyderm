@@ -17,11 +17,11 @@ import (
 	"time"
 
 	"github.com/fsouza/go-dockerclient"
-	"github.com/pachyderm/pfs/src/btrfs"
-	"github.com/pachyderm/pfs/src/concurrency"
-	"github.com/pachyderm/pfs/src/container"
-	"github.com/pachyderm/pfs/src/route"
-	"github.com/pachyderm/pfs/src/s3utils"
+	"github.com/pachyderm/pachyderm/src/btrfs"
+	"github.com/pachyderm/pachyderm/src/concurrency"
+	"github.com/pachyderm/pachyderm/src/container"
+	"github.com/pachyderm/pachyderm/src/route"
+	"github.com/pachyderm/pachyderm/src/s3utils"
 )
 
 var (

@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/pachyderm/pfs/src/router"
+	"github.com/pachyderm/pachyderm/src/router"
 )
 
 func main() {
