@@ -1,0 +1,36 @@
+#!/bin/sh
+
+set -Ee
+
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
+
+. "${DIR}/lib/lib.sh"
+. "${DIR}/../etc/env/pfs.env"
+
+check_btrfs
+check_docker
+
+${DIR}/clean
+
+mkdir -p "${PFS_HOST_VOLUME}"
+truncate "${PFS_DATA_IMG}" -s 10G
+mkfs.btrfs "${PFS_DATA_IMG}"
+mount "${PFS_DATA_IMG}" "${PFS_HOST_VOLUME}"
+mkdir -p /var/lib/pfs/vol
+
+docker run \
+    ${PFS_DOCKER_OPTS} \
+    --privileged=true \
+    --name "${PFS_CONTAINER_NAME}" \
+    -v /:/host:ro \
+    -v "${PFS_HOST_VOLUME}:/host/var/lib/pfs/vol" \
+    -v "${PFS_DIR}:/var/lib/pfs" \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+    -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+    -e GOMAXPROCS="${GOMAXPROCS}" \
+    -e PFS_HOST_VOLUME="${PFS_HOST_VOLUME}" \
+    -p "${PFS_PORT}":80 \
+    "${PFS_IMAGE}" \
+    $@

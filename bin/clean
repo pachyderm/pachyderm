@@ -1,0 +1,15 @@
+#!/bin/sh
+
+set -E
+
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
+
+. "${DIR}/lib/lib.sh"
+. "${DIR}/../etc/env/pfs.env"
+
+umount "${PFS_HOST_VOLUME}"
+rm "${PFS_DATA_IMG}"
+docker kill "${PFS_CONTAINER_NAME}"
+docker rm "${PFS_CONTAINER_NAME}"
+exit 0

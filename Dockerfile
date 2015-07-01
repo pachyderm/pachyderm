@@ -1,19 +1,26 @@
-FROM ubuntu:15.04
-
-ENV GOPATH /go
-ENV PFS github.com/pachyderm/pfs
-
-RUN apt-get update && apt-get install -y golang git mercurial && rm -rf /var/lib/apt/lists/*
-RUN go get github.com/coreos/go-etcd/etcd && cd $GOPATH/src/github.com/coreos/go-etcd && git checkout release-0.4
-RUN go get github.com/satori/go.uuid
-RUN go get github.com/fsouza/go-dockerclient
-RUN go get github.com/mitchellh/goamz/...
-RUN go get github.com/go-fsnotify/fsnotify
-RUN go get code.google.com/p/go.tools/cmd/cover
-ADD . /go/src/$PFS
-RUN ln -s /go/src/$PFS/deploy/templates templates
-RUN go install $PFS/services/shard && go install $PFS/services/router && go install $PFS/deploy
-RUN ln $GOPATH/src/$PFS/scripts/btrfs-wrapper /bin/btrfs
-RUN ln $GOPATH/src/$PFS/scripts/fleetctl-wrapper /bin/fleetctl
+FROM golang:1.4.2
 
 EXPOSE 80
+RUN mkdir -p /go/src/github.com/pachyderm/pfs
+WORKDIR /go/src/github.com/pachyderm/pfs
+RUN mkdir -p /go/src/github.com/pachyderm/pfs/etc/bin
+RUN \
+	go get -v golang.org/x/tools/cmd/vet && \
+	go get -v github.com/kisielk/errcheck && \
+	go get -v github.com/golang/lint/golint && \
+	go get -v golang.org/x/tools/cmd/vet
+RUN \
+  go get github.com/coreos/go-etcd/etcd && \
+  cd /go/src/github.com/coreos/go-etcd && \
+  git checkout release-0.4
+RUN \
+  go get github.com/satori/go.uuid && \
+  go get github.com/fsouza/go-dockerclient && \
+  go get github.com/mitchellh/goamz/aws && \
+  go get github.com/mitchellh/goamz/s3 && \
+  go get github.com/go-fsnotify/fsnotify
+ADD etc/bin /go/src/github.com/pachyderm/pfs/etc/bin/
+RUN ln /go/src/github.com/pachyderm/pfs/etc/bin/btrfs-wrapper /bin/btrfs
+RUN ln /go/src/github.com/pachyderm/pfs/etc/bin/fleetctl-wrapper /bin/fleetctl
+ADD . /go/src/github.com/pachyderm/pfs/
+RUN go install github.com/pachyderm/pfs/...
