@@ -6,37 +6,43 @@
 # add the jobs in `job` to that branch
 # kickoff the pipeline with a commit
 ###############################################################################
-REPOSITORY_BASENAME=$(basename "$PWD")
+
+set -Ee          # pass trap handlers down to subshells, exit on error
+
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
+
+. "${DIR}/lib/lib.sh"
+
+REPOSITORY_BASENAME="$(basename "${PFS_REPO_DIR}")"
 REPOSITORY_BASENAME=${REPOSITORY_BASENAME%.git}
-if [ ! -d "/tmp/$REPOSITORY_BASENAME" ]; then
-  git clone "$PWD" /tmp/"$REPOSITORY_BASENAME"
+if [ ! -d "/tmp/${REPOSITORY_BASENAME}" ]; then
+  git clone "${PFS_REPO_DIR}" /tmp/"${REPOSITORY_BASENAME}"
 fi
 
-export GIT_WORK_TREE="/tmp/$REPOSITORY_BASENAME"
+export GIT_WORK_TREE="/tmp/${REPOSITORY_BASENAME}"
 git checkout -f
 
 # Build the image
-REG=$(etcdctl get /pfs/registry)
-sudo docker build -t "$REG"/"$REPOSITORY_BASENAME" /tmp/"$REPOSITORY_BASENAME"/image
-sudo docker push "$REG"/"$REPOSITORY_BASENAME"
-curl -sS -XPOST "localhost/branch?branch=$REPOSITORY_BASENAME&commit=t0"
-for j in /tmp/"$REPOSITORY_BASENAME"/job/*
-do
-    jobname=$(basename $j)
-    echo "Create $jobname from $j"
-    sed "s/{{REPO_IMAGE}}/\"$REG\/$REPOSITORY_BASENAME\"/g" $j | curl -sS -XPOST "localhost/job/$jobname?branch=$REPOSITORY_BASENAME" -T -
+REG="$(etcdctl get /pfs/registry)"
+sudo docker build -t "${REG}/${REPOSITORY_BASENAME}" "/tmp/${REPOSITORY_BASENAME}/image"
+sudo docker push "${REG}/${REPOSITORY_BASENAME}"
+curl -sS -XPOST "localhost/branch?branch=${REPOSITORY_BASENAME}&commit=t0"
+for j in /tmp/${REPOSITORY_BASENAME}/job/*; do
+    jobname="$(basename "${j}")"
+    echo "Create ${jobname} from ${j}"
+    sed "s/{{REPO_IMAGE}}/\"$REG\/$REPOSITORY_BASENAME\"/g" ${j} | curl -sS -XPOST "localhost/job/${jobname}?branch=${REPOSITORY_BASENAME}" -T -
 done
-COMMIT=$(curl -sS -XPOST "localhost/commit?branch=$REPOSITORY_BASENAME&run")
-HOSTNAME=$(curl http://169.254.169.254/latest/meta-data/public-hostname)
+COMMIT="$(curl -sS -XPOST "localhost/commit?branch=${REPOSITORY_BASENAME}&run")"
+HOSTNAME="$(curl http://169.254.169.254/latest/meta-data/public-hostname)"
 
 echo -e "\033[32m******************************************************************************\033[0m"
 echo -e "\033[32m******************************************************************************\033[0m"
-echo "Jobs launched in $COMMIT"
+echo "Jobs launched in ${COMMIT}"
 echo "Output at: (will block until job is completed):"
-for j in /tmp/"$REPOSITORY_BASENAME"/job/*
-do
-    JOBNAME=$(basename $j)
-    echo "curl $HOSTNAME/job/$JOBNAME/*?commit=$COMMIT"
+for j in /tmp/${REPOSITORY_BASENAME}/job/*; do
+    JOBNAME="$(basename "${j}")"
+    echo "curl ${HOSTNAME}/job/${JOBNAME}/*?commit=${COMMIT}"
 done
 echo -e "\033[32m******************************************************************************\033[0m"
 echo -e "\033[32m******************************************************************************\033[0m"
