@@ -204,7 +204,6 @@ func TestSendRecv(t *testing.T) {
 // TestBranchesAreNotReplicated // this is a known property, but not desirable long term
 // TestCommitsAreReplicated // Uses Send and Recv
 func TestCommitsAreReplicated(t *testing.T) {
-	log.SetFlags(log.Lshortfile)
 	// Create a source repo:
 	srcRepo := "repo_TestCommitsAreReplicated_src"
 	check(Init(srcRepo), t)
