@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set -Ee
+
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
+
+. "${DIR}/lib/lib.sh"
+. "${DIR}/../etc/env/pfs.env"
+
+mkdir -p /home/core/pfs
+docker run \
+    --privileged=true \
+    -v /:/host:ro \
+    -v /home/core:/host/home/core \
+    -v /var/run/fleet.sock:/host/var/run/fleet.sock \
+    -i "${PFS_IMAGE}" \
+    /go/bin/deploy $@
+fleetctl start /home/core/pfs/*.service

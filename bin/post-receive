@@ -7,12 +7,13 @@
 # kickoff the pipeline with a commit
 ###############################################################################
 
-set -Ee          # pass trap handlers down to subshells, exit on error
+set -Ee
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
 
 . "${DIR}/lib/lib.sh"
+. "${DIR}/../etc/env/pfs.env"
 
 REPOSITORY_BASENAME="$(basename "${PFS_REPO_DIR}")"
 REPOSITORY_BASENAME=${REPOSITORY_BASENAME%.git}

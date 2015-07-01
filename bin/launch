@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -Ee
+
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
+
+. "${DIR}/lib/lib.sh"
+. "${DIR}/../etc/env/pfs.env"
+
+${DIR}/run -d ${PFS_DEFAULT_CONTAINER_COMMAND}

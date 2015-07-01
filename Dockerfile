@@ -17,3 +17,4 @@ RUN ln $GOPATH/src/$PFS/scripts/btrfs-wrapper /bin/btrfs
 RUN ln $GOPATH/src/$PFS/scripts/fleetctl-wrapper /bin/fleetctl
 
 EXPOSE 80
+WORKDIR /go/src/github.com/pachyderm/pfs

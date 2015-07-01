@@ -3,12 +3,13 @@
 # Run this from the route of your pfs repo.
 ###############################################################################
 
-set -Ee          # pass trap handlers down to subshells, exit on error
+set -Ee
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
 
 . "${DIR}/lib/lib.sh"
+. "${DIR}/../etc/env/pfs.env"
 
 USAGE="Usage: ${0} host"
 

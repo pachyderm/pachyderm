@@ -8,10 +8,10 @@ DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
 
 . "${DIR}/lib/lib.sh"
+. "${DIR}/../etc/env/pfs.env"
 
 USAGE="Usage: $0 host"
 
-# --- Options processing -------------------------------------------
 if [ $# != 1 ] ; then
     echo "${USAGE}" >&2
     exit 1
