@@ -226,10 +226,9 @@ We're hiring! If you like ambitious distributed systems problems and think there
 You can run pfs locally using:
 
 ```shell
-scripts/dev-launch
+make container-launch
 ```
 
 This will build a docker image from the working directory, tag it as `pfs` and
-launch it locally using `scripts/launch`.  The only dependencies are Docker >=
-1.5 and btrfs-tools >= 3.14. The script checks for this and gives you
-directions on how to fix it.
+launch it locally using `bin/launch`.  The only dependencies are Docker >=
+1.5 and btrfs-tools >= 3.14.
