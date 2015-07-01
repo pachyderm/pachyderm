@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"sync"
 	"testing"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/mitchellh/goamz/s3"
 
 	"github.com/pachyderm/pachyderm/src/btrfs"
+	"github.com/pachyderm/pachyderm/src/log"
 )
 
 func check(err error, t *testing.T) {

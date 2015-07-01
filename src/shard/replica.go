@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/btrfs"
+	"github.com/pachyderm/pachyderm/src/log"
 )
 
 type ShardReplica struct {

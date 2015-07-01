@@ -3,11 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"text/template"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/log"
 )
 
 var port = 49153
@@ -20,10 +21,10 @@ type service struct {
 
 var outPath string = "/host/home/core/pfs"
 
-func printShardedService(name string) {
+func printShardedService(name string) error {
 	sTemplate, err := template.New("sharded").Parse(shardedTemplateString)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	for s := 0; s < *shards; s++ {
@@ -37,21 +38,22 @@ func printShardedService(name string) {
 			port++
 			server, err := os.Create(fmt.Sprintf("%s/%s-%d-%d:%d.service", outPath, config.Name, config.Shard, config.Nshards, r))
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 
 			err = sTemplate.Execute(server, config)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 		}
 	}
+	return nil
 }
 
-func printGlobalService(name string) {
+func printGlobalService(name string) error {
 	template, err := template.New("global").Parse(globalTemplateString)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	config := new(service)
@@ -61,24 +63,21 @@ func printGlobalService(name string) {
 
 	server, err := os.Create(fmt.Sprintf("%s/%s.service", outPath, config.Name))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	err = template.Execute(server, config)
-	if err != nil {
-		log.Fatal(err)
-	}
+	return template.Execute(server, config)
 }
 
-func printRegistryService(name string, port int) {
+func printRegistryService(name string, port int) error {
 	sTemplate, err := template.New("registry").Parse(registryTemplateString)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	aTemplate, err := template.New("announce").Parse(announceTemplateString)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	config := new(service)
@@ -87,29 +86,26 @@ func printRegistryService(name string, port int) {
 
 	server, err := os.Create(fmt.Sprintf("%s/%s.service", outPath, config.Name))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	announce, err := os.Create(fmt.Sprintf("%s/announce-%s.service", outPath, config.Name))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	err = sTemplate.Execute(server, config)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	err = aTemplate.Execute(announce, config)
-	if err != nil {
-		log.Fatal(err)
-	}
+	return aTemplate.Execute(announce, config)
 }
 
-func printGitDaemonService(name string) {
+func printGitDaemonService(name string) error {
 	template, err := template.New("gitdaemon").Parse(gitDaemonTemplateString)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	config := new(service)
@@ -117,16 +113,16 @@ func printGitDaemonService(name string) {
 
 	server, err := os.Create(fmt.Sprintf("%s/%s.service", outPath, config.Name))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	err = template.Execute(server, config)
+	return template.Execute(server, config)
 }
 
-func printStorageService(name string) {
+func printStorageService(name string) error {
 	template, err := template.New("storage").Parse(storageTemplateString)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	config := new(service)
@@ -135,10 +131,10 @@ func printStorageService(name string) {
 
 	server, err := os.Create(fmt.Sprintf("%s/%s.service", outPath, config.Name))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	err = template.Execute(server, config)
+	return template.Execute(server, config)
 }
 
 var shards, replicas *int
@@ -146,7 +142,14 @@ var container *string
 var disk *string
 
 func main() {
-	log.SetFlags(log.Lshortfile)
+	if err := do(); err != nil {
+		log.Print(err)
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+func do() error {
 	rand.Seed(time.Now().UTC().UnixNano())
 	shards = flag.Int("shards", 3, "The number of shards in the deploy.")
 	replicas = flag.Int("replicas", 3, "The number of replicas of each shard.")
@@ -154,7 +157,14 @@ func main() {
 	disk = flag.String("disk", "/var/lib/pfs/data.img", "The disk to use for pfs' storage.")
 	flag.Parse()
 
-	printShardedService("shard")
-	printGlobalService("router")
-	printStorageService("storage")
+	if err := printShardedService("shard"); err != nil {
+		return err
+	}
+	if err := printGlobalService("router"); err != nil {
+		return err
+	}
+	if err := printStorageService("storage"); err != nil {
+		return err
+	}
+	return nil
 }

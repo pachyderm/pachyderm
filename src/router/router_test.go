@@ -2,7 +2,6 @@ package router
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -51,7 +50,6 @@ func TestTwoShards(t *testing.T) {
 	if testing.Short() {
 		maxCount = 1
 	}
-	log.SetFlags(log.Lshortfile)
 	// used to prevent collisions
 	counter := 0
 	f := func(w traffic.Workload) bool {
@@ -76,9 +74,7 @@ func TestWordCount(t *testing.T) {
 	if testing.Short() {
 		maxCount = 1
 	}
-	log.SetFlags(log.Lshortfile)
 	// First setup the WordCount pipeline
-
 	pipeline := `
 image ubuntu
 

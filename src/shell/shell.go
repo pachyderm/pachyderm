@@ -3,11 +3,12 @@ package shell
 import (
 	"bytes"
 	"io"
-	"log"
 	"os/exec"
 	"path"
 	"runtime"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/src/log"
 )
 
 func RunStderr(c *exec.Cmd) error {

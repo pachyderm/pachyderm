@@ -2,7 +2,6 @@ package router
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/pachyderm/pachyderm/src/shard"
 	"github.com/pachyderm/pachyderm/src/traffic"
@@ -130,6 +130,6 @@ func (ro *Router) RouterMux() *http.ServeMux {
 	return mux
 }
 
-func (r *Router) RunServer() {
-	http.ListenAndServe(":80", r.RouterMux())
+func (r *Router) RunServer() error {
+	return http.ListenAndServe(":80", r.RouterMux())
 }

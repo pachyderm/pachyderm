@@ -1,36 +1,46 @@
 package main
 
 import (
-	"log"
+	stdlog "log"
 	"os"
 	"path"
 
+	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/shard"
 )
 
 func main() {
-	log.SetFlags(log.Lshortfile)
+	if err := do(); err != nil {
+		log.Print(err)
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+func do() error {
 	if err := os.MkdirAll("/var/lib/pfs/log", 0777); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	logF, err := os.Create(path.Join("/var/lib/pfs/log", "log-"+os.Args[1]))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer logF.Close()
-	log.SetOutput(logF)
+
+	// TODO(pedge)
+	log.SetLogger(stdlog.New(logF, "", stdlog.Lshortfile))
 
 	s, err := shard.ShardFromArgs()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if err := s.EnsureRepos(); err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	log.Print("Listening on port 80...")
 	cancel := make(chan struct{})
 	defer close(cancel)
 	go s.FillRole(cancel)
-	s.RunServer()
+	return s.RunServer()
 }

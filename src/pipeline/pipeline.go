@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -20,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/concurrency"
 	"github.com/pachyderm/pachyderm/src/container"
+	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/pachyderm/pachyderm/src/s3utils"
 )

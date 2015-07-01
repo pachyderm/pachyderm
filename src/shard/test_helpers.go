@@ -3,13 +3,13 @@ package shard
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"path"
 	"runtime/debug"
 	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/traffic"
 )
 

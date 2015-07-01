@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path"
 	"reflect"
@@ -12,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/log"
 )
 
 var run_string string

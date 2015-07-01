@@ -3,7 +3,6 @@ package shard
 import (
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +12,7 @@ import (
 	"testing/quick"
 
 	"github.com/pachyderm/pachyderm/src/etcache"
+	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/pachyderm/pachyderm/src/traffic"
 )

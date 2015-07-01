@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/container"
+	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/pachyderm/pachyderm/src/s3utils"
 )

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -20,6 +19,7 @@ import (
 	"time"
 
 	"github.com/go-fsnotify/fsnotify"
+	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/shell"
 	"github.com/satori/go.uuid"
 )

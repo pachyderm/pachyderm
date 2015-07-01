@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/btrfs"
+	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/mapreduce"
 	"github.com/pachyderm/pachyderm/src/pipeline"
 	"github.com/pachyderm/pachyderm/src/route"
@@ -426,7 +426,7 @@ func (s *Shard) ShardMux() *http.ServeMux {
 	return mux
 }
 
-// RunServer runs a shard server listening on port 80
-func (s *Shard) RunServer() {
-	http.ListenAndServe(":80", s.ShardMux())
+// RunServer runs a shard server listening on port 80.
+func (s *Shard) RunServer() error {
+	return http.ListenAndServe(":80", s.ShardMux())
 }
