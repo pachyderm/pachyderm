@@ -12,8 +12,8 @@ Pachyderm is a complete data analytics solution that lets you efficiently store 
 - Both batched and streaming analytics
 - One-click deploy on AWS without data migration 
 
-## Is Pachyderm production ready?
-No, Pachyderm is at Alpha status. [We'd love your help. :)](#how-do-i-hack-on-pfs)
+## Is Pachyderm enterprise production ready?
+No, Pachyderm is in beta, but can already solve some very meaningful data analytics problems.  [We'd love your help. :)](#how-do-i-hack-on-pfs)
 
 ## What is a commit-based file system?
 Pfs is implemented as a distributed layer on top of btrfs, the same
@@ -33,40 +33,19 @@ an entire cluster's worth of data while still maintaining its commit history.
 ## What are containerized analytics?
 Rather than thinking in terms of map or reduce jobs, pps thinks in terms of pipelines expressed within a container. A pipeline is a generic way expressing computation over large datasets and it’s containerized to make it easily portable, isolated, and easy to monitor. In Pachyderm, all analysis runs in containers. You can write them in any language you want and include any libraries. 
 
-## Quickstart Guide
-### Tutorial -- Analyzing chess games
-#### Run Pachyderm locally on a small sample dataset
-```shell
-# launch a local pfs shard
-$ curl www.pachyderm.io/launch | sh
-
-# clone the chess pipeline
-$ git clone https://github.com/pachyderm/chess.git && cd chess
-
-# install the pipeline locally and run it
-$ install/pachyderm/local
-```
-#####Step 1: Launch a local pfs shard
-Download and run the Pachyderm launch script to get a local instance running.
-#####Step 2: Clone the chess pipeline
-Clone the chess git repo we’ve provided. You can check out the full map code [here](https://github.com/pachyderm/chess).
-#####Step 3: Install and run the pipeline locally
-Run the local install script to start the pipeline. It should take around 6 minutes to complete the analysis.
-
-### Creating a Pachyderm cluster
-Pachyderm is designed to run on CoreOS so we'll need to deploy a CoreOs cluster.  Here's links on how to set one up:
+### Deploying a Pachyderm cluster
+Pachyderm is designed to run on CoreOS so we'll need to deploy a CoreOs cluster. We've created an AWS cloud template to make this insanely easy.
 - [Deploy on Amazon EC2](https://console.aws.amazon.com/cloudformation/home?region=us-west-1#/stacks/new?stackName=Pachyderm&templateURL=https:%2F%2Fs3-us-west-1.amazonaws.com%2Fpachyderm-templates%2Ftemplate) using cloud templates (recommended)
 - [Amazon EC2](https://coreos.com/docs/running-coreos/cloud-providers/ec2/) (manual)
 - [Google Compute Engine](https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/) (manual)
 - [Vagrant](https://coreos.com/docs/running-coreos/platforms/vagrant/) (requires setting up DNS)
 
-### Deploy pfs
+### Deploy Pachyderm manually
 If you chose any of the manual options above, you'll neeed to SSH in to one of your new CoreOS machines and start Pachyderm.
 
 ```shell
 $ curl pachyderm.io/deploy | sh
 ```
-
 The startup process takes a little while the first time you run it because
 each node has to pull a Docker image.
 
@@ -85,7 +64,7 @@ Usage of /go/bin/deploy:
 ### Integrating with s3
 If you'd like to populate your Pachyderm cluster with your own data, [jump ahead](https://github.com/pachyderm/pfs#using-pfs) to learn how. If not, we've created a public s3 bucket with chess data for you and we can run the chess pipeline in the full cluster.
 
-As of v0.4 pfs can leverage s3 as a source of data for jobs. Pfs also
+As of v0.4 pfs can leverage s3 as a source of data for pipelines. Pfs also
 uses s3 as the backend for its local Docker registry. To get s3 working you'll
 need to provide pfs with credentials by setting them in etcd like so:
 
@@ -166,75 +145,78 @@ $ curl -XGET <hostname>/branch
 ```
 ##Containerized Analytics
 
-###Creating a new pipeline descriptor
+###Creating a new pipeline with a Pachfile
 
-Pipelines and jobs are specified as JSON files in the following format:
+Pipelines are described as Pachfiles. The Pachfile specifies a Docker image, input data, and then analysis logic (run, shuffle, etc). Pachfiles are somewhat analogous to how Docker files specify how to build a Docker image. 
 
-```
+```shell
 {
-    "type"  : either "map" or "reduce"
-    "input" : a directory in pfs, S3 URL, or the output from another job
-    "image" : the Docker image to use 
-    "command" : the command to start your web server
+  # Specify the Docker image you want to run your analsis in. You can pull from any registry you want. 
+  image <image_name> 
+  # Example: image ubuntu
+  
+  # Specify the input data for your analysis.  
+  input <data directory>
+  # Example: input my_data/users
+  
+  # Specify Your analysis logic and the output directory for the results. You can use they keywords `run`, `shuffle` 
+  # or any shell commands you want.
+  run <output directory>
+  run <analysis logic>
+  # Example: see the wordcount demo:                   https://github.com/pachyderm/pfs/examples/WordCount.md#step-3-create-the-wordcount-pipeline
 }
 ```
 
-**NOTE**: You do not need to specify the output location for a job. The output of a job, often referred to as a _materialized view_, is automatically stored in pfs `/job/<jobname>`.
+###POSTing a Pachfile to pfs
 
-###POSTing a job to pfs
-
-Post a local JSON file with the above format to pfs:
+POST a text-based Pachfile with the above format to pfs:
 
 ```sh
-$ curl -XPOST <hostname>/job/<jobname> -T <localfile>.json
+$ curl -XPOST <hostname>/pipeline/<pipeline_name> -T <name>.Pachfile
 ```
 
-**NOTE**: POSTing a job doesn't run the job. It just records the specification of the job in pfs. 
+**NOTE**: POSTing a Pachfile doesn't run the pipeline. It just records the specification of the pipeline in pfs. The pipeline will get run when a commit is made.
 
-###Running a job
-Jobs are only run on a commit. That way you always know exactly the state of
-the file system that is used in a computation. To run all committed jobs, use
-the `commit` keyword with the `run` parameter.
+### Running a pipeline
+Pipelines are only run on a commit. That way you always know exactly the state of
+the data that is used in the computation. To run all pipelines, use
+the `commit` keyword.
 
 ```sh
-$ curl -XPOST <hostname>/commit?run
+$ curl -XPOST <hostname>/commit
 ```
 
-Think of adding jobs as constructing a
+Think of adding pipelines as constructing a
 [DAG](http://en.wikipedia.org/wiki/Directed_acyclic_graph) of computations that
-you want performed. When you call `/commit?run`, Pachyderm automatically
-schedules the jobs such that a job isn't run until the jobs it depends on have
+you want performed. When you call `/commit`, Pachyderm automatically
+schedules the pipelines such that a pipeline isn't run until the pipelines it depends on have
 completed.
 
-###Getting the output of a job
-Each job records its output in its own read-only file system. You can read the output of the job with:
+###Getting the output of a pipelines
+Each pipeline records its output in its own read-only file system. You can read the output of the pipeline with:
 
 ```sh
-$ curl <host>/job/<jobname>/file/*?commit=<commit>
+$ curl -XGET <hostname>/pipeline/<piplinename>/file/*?commit=<commit>
 ```
 or get just a specific file with:
 ```sh
-$ curl -XGET <host>/job/<job>/file/*?commit=<commit>
+$ curl -XGET <hostname>/pipeline/<piplinename>/file/<filename>?commit=<commit>
 ```
 
-**NOTE**: You must specify the commit you want to read from and that commit
-needs to have been created with the run parameter. We're planning to expand
-this API to make it not have this requirement in the near future.
-###Creating a job:
+**NOTE**: You don't  need to  specify the commit you want to read from. If you use `$ curl -XGET <hostname>/pipeline/<piplinename>/file/<filename>` Pachyderm will return the most recently completed output of that pipeline. If the current pipeline is still in progress, the command will wait for it to complete before returning. We plan to update this API soon to handle these situations better. 
 
-
-### Deleting jobs
+### Deleting pipelines
 
 ```shell
-# Delete <job>
-$ curl -XDELETE <host>/job/<job>
+# Delete <pipelinename>
+$ curl -XDELETE <hostname>/pipeline/<pipelinename>
 ```
 
-### Getting the job descriptor
+### Getting the Pachfile
 
 ```shell
-# Read <job>
-$ curl -XGET <host>/job/<job>
+# Get the Pachfile for <pipelinename>
+$ curl -XGET <hostname>/pipeline/<pipelinename>
 ```
 
 ## How do I hack on pfs?
@@ -244,10 +226,9 @@ We're hiring! If you like ambitious distributed systems problems and think there
 You can run pfs locally using:
 
 ```shell
-scripts/dev-launch
+make container-launch
 ```
 
 This will build a docker image from the working directory, tag it as `pfs` and
-launch it locally using `scripts/launch`.  The only dependencies are Docker >=
-1.5 and btrfs-tools >= 3.14. The script checks for this and gives you
-directions on how to fix it.
+launch it locally using `bin/launch`.  The only dependencies are Docker >=
+1.5 and btrfs-tools >= 3.14.
