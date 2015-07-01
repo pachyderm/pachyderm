@@ -12,7 +12,7 @@ import (
 
 var (
 	// DefaultLogger is the default logger used.
-	DefaultLogger Logger = log.New(os.Stderr, "", log.LstdFlags)
+	DefaultLogger Logger = log.New(os.Stderr, "", log.LstdFlags|log.Lshortfile)
 
 	logger = DefaultLogger
 	lock   = &sync.Mutex{}

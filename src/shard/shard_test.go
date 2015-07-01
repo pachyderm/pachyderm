@@ -54,7 +54,6 @@ func TestBasic(t *testing.T) {
 }
 
 func TestPull(t *testing.T) {
-	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
 		_src := NewShard(fmt.Sprintf("TestPullSrc%d", c), fmt.Sprintf("TestPullSrcComp%d", c), fmt.Sprintf("TestPullSrcPipelines%d", c), 0, 1)
@@ -85,7 +84,6 @@ func TestPull(t *testing.T) {
 
 // TestSync is similar to TestPull but it does it syncs after every commit.
 func TestSyncTo(t *testing.T) {
-	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
 		_src := NewShard(fmt.Sprintf("TestSyncToSrc%d", c), fmt.Sprintf("TestSyncToSrcComp%d", c), fmt.Sprintf("TestSyncToSrcPipelines%d", c), 0, 1)
@@ -119,7 +117,6 @@ func TestSyncTo(t *testing.T) {
 
 // TestSyncFrom
 func TestSyncFrom(t *testing.T) {
-	log.SetFlags(log.Lshortfile)
 	c := 0
 	f := func(w traffic.Workload) bool {
 		_src := NewShard(fmt.Sprintf("TestSyncFromSrc%d", c), fmt.Sprintf("TestSyncFromSrcComp%d", c), fmt.Sprintf("TestSyncFromSrcPipelines%d", c), 0, 1)
@@ -153,7 +150,6 @@ func TestSyncFrom(t *testing.T) {
 
 // TestPipeline creates a basic pipeline on a shard.
 func TestPipeline(t *testing.T) {
-	log.SetFlags(log.Lshortfile)
 	shard := NewShard("TestPipelineData", "TestPipelineComp", "TestPipelinePipelines", 0, 1)
 	Check(shard.EnsureRepos(), t)
 	s := httptest.NewServer(shard.ShardMux())
@@ -176,7 +172,6 @@ run touch /out/foo
 // from it using shard filtering.
 
 func TestShardFilter(t *testing.T) {
-	log.SetFlags(log.Lshortfile)
 	shard := NewShard("TestShardFilterData", "TestShardFilterComp", "TestShardFilterPipelines", 0, 1)
 	Check(shard.EnsureRepos(), t)
 	s := httptest.NewServer(shard.ShardMux())
@@ -238,8 +233,6 @@ run touch /out/bizz
 }
 
 func TestShuffle(t *testing.T) {
-	log.SetFlags(log.Lshortfile)
-
 	// Setup 2 shards
 	shard1 := NewShard("TestShuffleData-0-2", "TestShuffleComp-0-2", "TestShufflePipelines-0-2", 0, 2)
 	Check(shard1.EnsureRepos(), t)
@@ -295,8 +288,6 @@ shuffle data
 }
 
 func TestWordCount(t *testing.T) {
-	log.SetFlags(log.Lshortfile)
-
 	// Setup 2 shards
 	shard1 := NewShard("TestWordCountData-0-2", "TestWordCountComp-0-2", "TestWordCountPipelines-0-2", 0, 2)
 	Check(shard1.EnsureRepos(), t)
@@ -353,7 +344,6 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 }
 
 func TestFail(t *testing.T) {
-	log.SetFlags(log.Lshortfile)
 	shard := NewShard("TestFailData", "TestFailComp", "TestFailPipelines", 0, 1)
 	Check(shard.EnsureRepos(), t)
 	s := httptest.NewServer(shard.ShardMux())
@@ -383,7 +373,6 @@ func TestChess(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	log.SetFlags(log.Lshortfile)
 	// Notice this shard is behaving like 1 node of a 5000 node cluster to downsample to data.
 	shard := NewShard("TestChessData", "TestChessComp", "TestChessPipelines", 0, 5000)
 	Check(shard.EnsureRepos(), t)
