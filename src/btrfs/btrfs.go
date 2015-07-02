@@ -21,7 +21,6 @@ import (
 	"github.com/go-fsnotify/fsnotify"
 	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/shell"
-	"github.com/satori/go.uuid"
 )
 
 var (
@@ -425,14 +424,6 @@ func Snapshot(volume string, dest string, readonly bool) error {
 	}
 }
 
-func SetReadOnly(volume string) error {
-	return shell.RunStderr(exec.Command("btrfs", "property", "set", FilePath(volume), "ro", "true"))
-}
-
-func UnsetReadOnly(volume string) error {
-	return shell.RunStderr(exec.Command("btrfs", "property", "set", FilePath(volume), "ro", "false"))
-}
-
 func IsReadOnly(volume string) (bool, error) {
 	var res bool
 	// "-t s" indicates to btrfs that this is a subvolume without the "-t s"
@@ -621,22 +612,6 @@ func DanglingCommit(repo, commit, branch string) error {
 		return err
 	}
 	return nil
-}
-
-// Hold creates a temporary snapshot of a commit that no one else knows about.
-// It's your responsibility to release the snapshot with Release
-func Hold(repo, commit string) (string, error) {
-	MkdirAll("tmp")
-	name := path.Join("tmp", uuid.NewV4().String())
-	if err := Snapshot(path.Join(repo, commit), name, false); err != nil {
-		return "", err
-	}
-	return name, nil
-}
-
-// Release releases commit snapshots held by Hold.
-func Release(name string) {
-	SubvolumeDelete(name)
 }
 
 func Branch(repo, commit, branch string) error {

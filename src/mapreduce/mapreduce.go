@@ -373,7 +373,6 @@ func Reduce(job Job, jobName string, m materializeInfo, shard, modulos uint64) {
 // with `in_repo/commit` as input, outputs the results to `outRepo`/`branch`
 // and commits them as `outRepo`/`commit`
 func Materialize(in_repo, branch, commit, outRepo, jobDir string, shard, modulos uint64) error {
-	// TODO(any): use Hold/Release here for input commit
 	log.Printf("Materialize: %s %s %s %s %s.", in_repo, branch, commit, outRepo, jobDir)
 	exists, err := btrfs.FileExists(path.Join(outRepo, branch))
 	if err != nil {

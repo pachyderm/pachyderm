@@ -399,38 +399,6 @@ func TestS3Replica(t *testing.T) {
 	CheckFile(fmt.Sprintf("%s/master/myfile2", dstRepo), "bar", t)
 }
 
-// TestHoldRelease creates one-off commit named after a UUID, to ensure a data consumer can always access data in a commit, even if the original commit is deleted.
-func TestHoldRelease(t *testing.T) {
-	srcRepo := "repo_TestHoldRelease"
-	check(Init(srcRepo), t)
-
-	// Write a file "myfile" with contents "foo":
-	master_fn := fmt.Sprintf("%s/master/myfile", srcRepo)
-	writeFile(master_fn, "foo", t)
-	CheckFile(master_fn, "foo", t)
-
-	// Create a commit "mycommit" and verify "myfile" exists:
-	mycommit_fn := fmt.Sprintf("%s/mycommit/myfile", srcRepo)
-	check(Commit(srcRepo, "mycommit", "master"), t)
-	CheckFile(mycommit_fn, "foo", t)
-
-	// Grab a snapshot:
-	snapshot_path, err := Hold(srcRepo, "mycommit")
-	check(err, t)
-
-	// Delete the commit from the snapshot.
-	// (uses the lower-level btrfs command for now):
-	mycommit_path := fmt.Sprintf("%s/mycommit", srcRepo)
-	check(SubvolumeDelete(mycommit_path), t)
-
-	// Verify that the commit path doesn't exist:
-	CheckNoExists(mycommit_path, t)
-
-	// Verify that the file still exists in our snapshot:
-	snapshot_fn := fmt.Sprintf("%s/myfile", snapshot_path)
-	CheckFile(snapshot_fn, "foo", t)
-}
-
 // Test for `Commits`: check that the sort order of CommitInfo objects is structured correctly.
 // Start from:
 //	// Print BTRFS hierarchy data for humans:
