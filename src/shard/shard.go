@@ -71,89 +71,25 @@ func (s *Shard) EnsureRepos() error {
 	return nil
 }
 
-// genericFileHandler serves files from fs. It's used after branch and commit
-// info have already been extracted and ignores those aspects of the URL.
-func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
-	url := strings.Split(r.URL.Path, "/")
-	// url looks like: /foo/bar/.../file/<file>
-	fileStart := indexOf(url, "file") + 1
-	// file is the path in the filesystem we're getting
-	file := path.Join(append([]string{fs}, url[fileStart:]...)...)
+// ShardMux creates a multiplexer for a Shard writing to the passed in FS.
+func (s *Shard) ShardMux() *http.ServeMux {
+	mux := http.NewServeMux()
 
-	if r.Method == "GET" {
-		files, err := btrfs.Glob(file)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		switch len(files) {
-		case 0:
-			http.Error(w, "404 page not found", 404)
-			return
-		case 1:
-			http.ServeFile(w, r, btrfs.FilePath(files[0]))
-		default:
-			writer := multipart.NewWriter(w)
-			defer writer.Close()
-			w.Header().Add("Boundary", writer.Boundary())
-			for _, file := range files {
-				info, err := btrfs.Stat(file)
-				if err != nil {
-					http.Error(w, err.Error(), 500)
-					return
-				}
-				if info.IsDir() {
-					// We don't do anything with directories.
-					continue
-				}
-				name := strings.TrimPrefix(file, "/"+fs+"/")
-				if shardParam(r) != "" {
-					// We have a shard param, check if the file matches the shard.
-					match, err := route.Match(name, shardParam(r))
-					if err != nil {
-						http.Error(w, err.Error(), 500)
-						return
-					}
-					if !match {
-						continue
-					}
-				}
-				fWriter, err := writer.CreateFormFile(name, name)
-				if err != nil {
-					http.Error(w, err.Error(), 500)
-					return
-				}
-				err = rawCat(fWriter, file)
-				if err != nil {
-					http.Error(w, err.Error(), 500)
-					return
-				}
-			}
+	mux.HandleFunc("/branch", s.branchHandler)
+	mux.HandleFunc("/commit", s.commitHandler)
+	mux.HandleFunc("/file/", s.fileHandler)
+	mux.HandleFunc("/job/", s.jobHandler)
+	mux.HandleFunc("/pipeline/", s.pipelineHandler)
+	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
+	mux.HandleFunc("/pull", s.pullHandler)
+	mux.HandleFunc("/log", s.logHandler)
 
-		}
-	} else if r.Method == "POST" {
-		btrfs.MkdirAll(path.Dir(file))
-		size, err := btrfs.CreateFromReader(file, r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
-	} else if r.Method == "PUT" {
-		btrfs.MkdirAll(path.Dir(file))
-		size, err := btrfs.CopyFile(file, r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
-	} else if r.Method == "DELETE" {
-		if err := btrfs.Remove(file); err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		fmt.Fprintf(w, "Deleted %s.\n", file)
-	}
+	return mux
+}
+
+// RunServer runs a shard server listening on port 80.
+func (s *Shard) RunServer() error {
+	return http.ListenAndServe(":80", s.ShardMux())
 }
 
 // FileHandler is the core route for modifying the contents of the fileystem.
@@ -359,25 +295,89 @@ func (s *Shard) logHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "/var/lib/pfs/log/log-"+s.shardStr)
 }
 
-// ShardMux creates a multiplexer for a Shard writing to the passed in FS.
-func (s *Shard) ShardMux() *http.ServeMux {
-	mux := http.NewServeMux()
+// genericFileHandler serves files from fs. It's used after branch and commit
+// info have already been extracted and ignores those aspects of the URL.
+func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
+	url := strings.Split(r.URL.Path, "/")
+	// url looks like: /foo/bar/.../file/<file>
+	fileStart := indexOf(url, "file") + 1
+	// file is the path in the filesystem we're getting
+	file := path.Join(append([]string{fs}, url[fileStart:]...)...)
 
-	mux.HandleFunc("/branch", s.branchHandler)
-	mux.HandleFunc("/commit", s.commitHandler)
-	mux.HandleFunc("/file/", s.fileHandler)
-	mux.HandleFunc("/job/", s.jobHandler)
-	mux.HandleFunc("/pipeline/", s.pipelineHandler)
-	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
-	mux.HandleFunc("/pull", s.pullHandler)
-	mux.HandleFunc("/log", s.logHandler)
+	if r.Method == "GET" {
+		files, err := btrfs.Glob(file)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		switch len(files) {
+		case 0:
+			http.Error(w, "404 page not found", 404)
+			return
+		case 1:
+			http.ServeFile(w, r, btrfs.FilePath(files[0]))
+		default:
+			writer := multipart.NewWriter(w)
+			defer writer.Close()
+			w.Header().Add("Boundary", writer.Boundary())
+			for _, file := range files {
+				info, err := btrfs.Stat(file)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+				if info.IsDir() {
+					// We don't do anything with directories.
+					continue
+				}
+				name := strings.TrimPrefix(file, "/"+fs+"/")
+				if shardParam(r) != "" {
+					// We have a shard param, check if the file matches the shard.
+					match, err := route.Match(name, shardParam(r))
+					if err != nil {
+						http.Error(w, err.Error(), 500)
+						return
+					}
+					if !match {
+						continue
+					}
+				}
+				fWriter, err := writer.CreateFormFile(name, name)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+				err = rawCat(fWriter, file)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+			}
 
-	return mux
-}
-
-// RunServer runs a shard server listening on port 80.
-func (s *Shard) RunServer() error {
-	return http.ListenAndServe(":80", s.ShardMux())
+		}
+	} else if r.Method == "POST" {
+		btrfs.MkdirAll(path.Dir(file))
+		size, err := btrfs.CreateFromReader(file, r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
+	} else if r.Method == "PUT" {
+		btrfs.MkdirAll(path.Dir(file))
+		size, err := btrfs.CopyFile(file, r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
+	} else if r.Method == "DELETE" {
+		if err := btrfs.Remove(file); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		fmt.Fprintf(w, "Deleted %s.\n", file)
+	}
 }
 
 func commitParam(r *http.Request) string {
