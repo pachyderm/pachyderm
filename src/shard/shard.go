@@ -13,14 +13,12 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/log"
-	"github.com/pachyderm/pachyderm/src/mapreduce"
 	"github.com/pachyderm/pachyderm/src/pipeline"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/satori/go.uuid"
 )
 
 const (
-	jobDir      = "job"
 	pipelineDir = "pipeline"
 )
 
@@ -80,7 +78,6 @@ func (s *Shard) ShardMux() *http.ServeMux {
 	mux.HandleFunc("/branch", s.branchHandler)
 	mux.HandleFunc("/commit", s.commitHandler)
 	mux.HandleFunc("/file/", s.fileHandler)
-	mux.HandleFunc("/job/", s.jobHandler)
 	mux.HandleFunc("/pipeline/", s.pipelineHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/pull", s.pullHandler)
@@ -164,17 +161,6 @@ func (s *Shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 				log.Print(err)
 			}
 		}()
-
-		if materializeParam(r) == "true" {
-			go func() {
-				err := mapreduce.Materialize(s.dataRepo, branchParam(r), commit,
-					s.compRepo, jobDir, s.shard, s.modulos)
-				if err != nil {
-					log.Print(err)
-				}
-			}()
-		}
-		// Sync changes to peers
 		go s.SyncToPeers()
 		fmt.Fprintf(w, "%s\n", commit)
 	} else if r.Method == "POST" {
@@ -224,32 +210,6 @@ func (s *Shard) branchHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		fmt.Fprintf(w, "Created branch. (%s) -> %s.\n", commitParam(r), branchParam(r))
-	} else {
-		http.Error(w, "Invalid method.", 405)
-		log.Printf("Invalid method %s.", r.Method)
-		return
-	}
-}
-
-func (s *Shard) jobHandler(w http.ResponseWriter, r *http.Request) {
-	url := strings.Split(r.URL.Path, "/")
-	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
-		// url looks like [, job, <job>, file, <file>]
-		if hasBranch(r) {
-			err := mapreduce.WaitJob(s.compRepo, branchParam(r), commitParam(r), url[2])
-			if err != nil {
-				http.Error(w, err.Error(), 500)
-				return
-			}
-			genericFileHandler(path.Join(s.compRepo, branchParam(r), url[2]), w, r)
-		} else {
-			genericFileHandler(path.Join(s.compRepo, commitParam(r), url[2]), w, r)
-		}
-		return
-	} else if r.Method == "POST" {
-		r.URL.Path = path.Join("/file", jobDir, url[2])
-		log.Print("URL with reset path:\n", r.URL)
-		genericFileHandler(path.Join(s.dataRepo, branchParam(r)), w, r)
 	} else {
 		http.Error(w, "Invalid method.", 405)
 		log.Printf("Invalid method %s.", r.Method)
