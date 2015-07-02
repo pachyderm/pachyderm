@@ -61,20 +61,26 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 	log.Print("Installing pipeline:")
 	res, err := http.Post(url+"/pipeline/wc", "application/text", strings.NewReader(pipeline))
 	log.Print("Done.")
-	shard.Check(err, nil)
+	if err != nil {
+		log.Print(err)
+	}
 	res.Body.Close()
 	// Make a commit
 	log.Print("Committing.")
 	res, err = http.Post(url+"/commit?commit=commit1", "", nil)
 	log.Print("Done.")
-	shard.Check(err, nil)
+	if err != nil {
+		log.Print(err)
+	}
 	res.Body.Close()
 	// TODO(jd) make this check for correctness, not just that the request
 	// completes. It's a bit hard because the input is random. Probably the
 	// right idea is to modify the traffic package so that it keeps track of
 	// this.
 	res, err = http.Get(url + "/pipeline/wc/file/counts/*?commit=commit1")
-	shard.Check(err, nil)
+	if err != nil {
+		log.Print(err)
+	}
 	if res.StatusCode != 200 {
 		log.Print("Bad status code.")
 	}

@@ -31,7 +31,9 @@ func NewCluster(prefix string, shards int, t *testing.T) Cluster {
 		repoStr := fmt.Sprintf("%s-%d-%d", prefix, i, shards)
 		s := shard.NewShard(repoStr+"-data", repoStr+"-comp",
 			repoStr+"-pipeline", uint64(i), uint64(shards))
-		shard.Check(s.EnsureRepos(), t)
+		if err := s.EnsureRepos(); err != nil {
+			t.Fatal(err)
+		}
 		server := httptest.NewServer(s.ShardMux())
 		res.shards = append(res.shards, server)
 		etcache.Spoof1(fmt.Sprintf("/pfs/master/%d-%d", i, shards), server.URL)
@@ -94,28 +96,32 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 		// Run the workload
 		shard.RunWorkload(cluster.router.URL, w, t)
 		// Install the pipeline
-		res, err := http.Post(cluster.router.URL+"/pipeline/wc", "application/text", strings.NewReader(pipeline))
-		shard.Check(err, t)
-		res.Body.Close()
+		response, err := http.Post(cluster.router.URL+"/pipeline/wc", "application/text", strings.NewReader(pipeline))
+		defer response.Body.Close()
+		if err != nil {
+			t.Error(err)
+		}
 		// Make a commit
-		res, err = http.Post(cluster.router.URL+"/commit?commit=commit1", "", nil)
-		shard.Check(err, t)
-		res.Body.Close()
+		response, err = http.Post(cluster.router.URL+"/commit?commit=commit1", "", nil)
+		defer response.Body.Close()
+		if err != nil {
+			t.Error(err)
+		}
 		// TODO(jd) make this check for correctness, not just that the request
 		// completes. It's a bit hard because the input is random. Probably the
 		// right idea is to modify the traffic package so that it keeps track of
 		// this.
-		res, err = http.Get(cluster.router.URL + "/pipeline/wc/file/counts/*?commit=commit1")
-		shard.Check(err, t)
-		if res.StatusCode != 200 {
+		response, err = http.Get(cluster.router.URL + "/pipeline/wc/file/counts/*?commit=commit1")
+		defer response.Body.Close()
+		if err != nil {
+			t.Error(err)
+		}
+		if response.StatusCode != 200 {
 			t.Fatal("Bad status code.")
 		}
-		res.Body.Close()
-
 		return true
 	}
 	if err := quick.Check(f, &quick.Config{MaxCount: maxCount}); err != nil {
 		t.Error(err)
 	}
-
 }
