@@ -19,8 +19,10 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-var jobDir string = "job"
-var pipelineDir string = "pipeline"
+const (
+	jobDir      = "job"
+	pipelineDir = "pipeline"
+)
 
 type Shard struct {
 	url                string
