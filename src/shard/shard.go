@@ -13,65 +13,14 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/log"
-	"github.com/pachyderm/pachyderm/src/mapreduce"
 	"github.com/pachyderm/pachyderm/src/pipeline"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/satori/go.uuid"
 )
 
-var jobDir string = "job"
-var pipelineDir string = "pipeline"
-
-func commitParam(r *http.Request) string {
-	if p := r.URL.Query().Get("commit"); p != "" {
-		return p
-	}
-	return "master"
-}
-
-func branchParam(r *http.Request) string {
-	if p := r.URL.Query().Get("branch"); p != "" {
-		return p
-	}
-	return "master"
-}
-
-func shardParam(r *http.Request) string {
-	return r.URL.Query().Get("shard")
-}
-
-func hasBranch(r *http.Request) bool {
-	return (r.URL.Query().Get("branch") == "")
-}
-
-func materializeParam(r *http.Request) string {
-	if _, ok := r.URL.Query()["run"]; ok {
-		return "true"
-	}
-	return "false"
-}
-
-func indexOf(haystack []string, needle string) int {
-	for i, s := range haystack {
-		if s == needle {
-			return i
-		}
-	}
-	return -1
-}
-
-func rawCat(w io.Writer, name string) error {
-	f, err := btrfs.Open(name)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if _, err := io.Copy(w, f); err != nil {
-		return err
-	}
-	return nil
-}
+const (
+	pipelineDir = "pipeline"
+)
 
 type Shard struct {
 	url                string
@@ -122,89 +71,23 @@ func (s *Shard) EnsureRepos() error {
 	return nil
 }
 
-// genericFileHandler serves files from fs. It's used after branch and commit
-// info have already been extracted and ignores those aspects of the URL.
-func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
-	url := strings.Split(r.URL.Path, "/")
-	// url looks like: /foo/bar/.../file/<file>
-	fileStart := indexOf(url, "file") + 1
-	// file is the path in the filesystem we're getting
-	file := path.Join(append([]string{fs}, url[fileStart:]...)...)
+// ShardMux creates a multiplexer for a Shard writing to the passed in FS.
+func (s *Shard) ShardMux() *http.ServeMux {
+	mux := http.NewServeMux()
 
-	if r.Method == "GET" {
-		files, err := btrfs.Glob(file)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		switch len(files) {
-		case 0:
-			http.Error(w, "404 page not found", 404)
-			return
-		case 1:
-			http.ServeFile(w, r, btrfs.FilePath(files[0]))
-		default:
-			writer := multipart.NewWriter(w)
-			defer writer.Close()
-			w.Header().Add("Boundary", writer.Boundary())
-			for _, file := range files {
-				info, err := btrfs.Stat(file)
-				if err != nil {
-					http.Error(w, err.Error(), 500)
-					return
-				}
-				if info.IsDir() {
-					// We don't do anything with directories.
-					continue
-				}
-				name := strings.TrimPrefix(file, "/"+fs+"/")
-				if shardParam(r) != "" {
-					// We have a shard param, check if the file matches the shard.
-					match, err := route.Match(name, shardParam(r))
-					if err != nil {
-						http.Error(w, err.Error(), 500)
-						return
-					}
-					if !match {
-						continue
-					}
-				}
-				fWriter, err := writer.CreateFormFile(name, name)
-				if err != nil {
-					http.Error(w, err.Error(), 500)
-					return
-				}
-				err = rawCat(fWriter, file)
-				if err != nil {
-					http.Error(w, err.Error(), 500)
-					return
-				}
-			}
+	mux.HandleFunc("/branch", s.branchHandler)
+	mux.HandleFunc("/commit", s.commitHandler)
+	mux.HandleFunc("/file/", s.fileHandler)
+	mux.HandleFunc("/pipeline/", s.pipelineHandler)
+	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
+	mux.HandleFunc("/pull", s.pullHandler)
 
-		}
-	} else if r.Method == "POST" {
-		btrfs.MkdirAll(path.Dir(file))
-		size, err := btrfs.CreateFromReader(file, r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
-	} else if r.Method == "PUT" {
-		btrfs.MkdirAll(path.Dir(file))
-		size, err := btrfs.CopyFile(file, r.Body)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
-	} else if r.Method == "DELETE" {
-		if err := btrfs.Remove(file); err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-		fmt.Fprintf(w, "Deleted %s.\n", file)
-	}
+	return mux
+}
+
+// RunServer runs a shard server listening on port 80.
+func (s *Shard) RunServer() error {
+	return http.ListenAndServe(":80", s.ShardMux())
 }
 
 // FileHandler is the core route for modifying the contents of the fileystem.
@@ -277,17 +160,6 @@ func (s *Shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 				log.Print(err)
 			}
 		}()
-
-		if materializeParam(r) == "true" {
-			go func() {
-				err := mapreduce.Materialize(s.dataRepo, branchParam(r), commit,
-					s.compRepo, jobDir, s.shard, s.modulos)
-				if err != nil {
-					log.Print(err)
-				}
-			}()
-		}
-		// Sync changes to peers
 		go s.SyncToPeers()
 		fmt.Fprintf(w, "%s\n", commit)
 	} else if r.Method == "POST" {
@@ -344,32 +216,6 @@ func (s *Shard) branchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Shard) jobHandler(w http.ResponseWriter, r *http.Request) {
-	url := strings.Split(r.URL.Path, "/")
-	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
-		// url looks like [, job, <job>, file, <file>]
-		if hasBranch(r) {
-			err := mapreduce.WaitJob(s.compRepo, branchParam(r), commitParam(r), url[2])
-			if err != nil {
-				http.Error(w, err.Error(), 500)
-				return
-			}
-			genericFileHandler(path.Join(s.compRepo, branchParam(r), url[2]), w, r)
-		} else {
-			genericFileHandler(path.Join(s.compRepo, commitParam(r), url[2]), w, r)
-		}
-		return
-	} else if r.Method == "POST" {
-		r.URL.Path = path.Join("/file", jobDir, url[2])
-		log.Print("URL with reset path:\n", r.URL)
-		genericFileHandler(path.Join(s.dataRepo, branchParam(r)), w, r)
-	} else {
-		http.Error(w, "Invalid method.", 405)
-		log.Printf("Invalid method %s.", r.Method)
-		return
-	}
-}
-
 func (s *Shard) pipelineHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
@@ -406,22 +252,137 @@ func (s *Shard) pullHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ShardMux creates a multiplexer for a Shard writing to the passed in FS.
-func (s *Shard) ShardMux() *http.ServeMux {
-	mux := http.NewServeMux()
+// genericFileHandler serves files from fs. It's used after branch and commit
+// info have already been extracted and ignores those aspects of the URL.
+func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
+	url := strings.Split(r.URL.Path, "/")
+	// url looks like: /foo/bar/.../file/<file>
+	fileStart := indexOf(url, "file") + 1
+	// file is the path in the filesystem we're getting
+	file := path.Join(append([]string{fs}, url[fileStart:]...)...)
 
-	mux.HandleFunc("/branch", s.branchHandler)
-	mux.HandleFunc("/commit", s.commitHandler)
-	mux.HandleFunc("/file/", s.fileHandler)
-	mux.HandleFunc("/job/", s.jobHandler)
-	mux.HandleFunc("/pipeline/", s.pipelineHandler)
-	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
-	mux.HandleFunc("/pull", s.pullHandler)
-
-	return mux
+	if r.Method == "GET" {
+		files, err := btrfs.Glob(file)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		switch len(files) {
+		case 0:
+			http.Error(w, "404 page not found", 404)
+			return
+		case 1:
+			http.ServeFile(w, r, btrfs.FilePath(files[0]))
+		default:
+			writer := multipart.NewWriter(w)
+			defer writer.Close()
+			w.Header().Add("Boundary", writer.Boundary())
+			for _, file := range files {
+				info, err := btrfs.Stat(file)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+				if info.IsDir() {
+					// We don't do anything with directories.
+					continue
+				}
+				name := strings.TrimPrefix(file, "/"+fs+"/")
+				if shardParam(r) != "" {
+					// We have a shard param, check if the file matches the shard.
+					match, err := route.Match(name, shardParam(r))
+					if err != nil {
+						http.Error(w, err.Error(), 500)
+						return
+					}
+					if !match {
+						continue
+					}
+				}
+				fWriter, err := writer.CreateFormFile(name, name)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+				err = rawCat(fWriter, file)
+				if err != nil {
+					http.Error(w, err.Error(), 500)
+					return
+				}
+			}
+		}
+	} else if r.Method == "POST" {
+		btrfs.MkdirAll(path.Dir(file))
+		size, err := btrfs.CreateFromReader(file, r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
+	} else if r.Method == "PUT" {
+		btrfs.MkdirAll(path.Dir(file))
+		size, err := btrfs.CopyFile(file, r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
+	} else if r.Method == "DELETE" {
+		if err := btrfs.Remove(file); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		fmt.Fprintf(w, "Deleted %s.\n", file)
+	}
 }
 
-// RunServer runs a shard server listening on port 80.
-func (s *Shard) RunServer() error {
-	return http.ListenAndServe(":80", s.ShardMux())
+func commitParam(r *http.Request) string {
+	if p := r.URL.Query().Get("commit"); p != "" {
+		return p
+	}
+	return "master"
+}
+
+func branchParam(r *http.Request) string {
+	if p := r.URL.Query().Get("branch"); p != "" {
+		return p
+	}
+	return "master"
+}
+
+func shardParam(r *http.Request) string {
+	return r.URL.Query().Get("shard")
+}
+
+func hasBranch(r *http.Request) bool {
+	return (r.URL.Query().Get("branch") == "")
+}
+
+func materializeParam(r *http.Request) string {
+	if _, ok := r.URL.Query()["run"]; ok {
+		return "true"
+	}
+	return "false"
+}
+
+func indexOf(haystack []string, needle string) int {
+	for i, s := range haystack {
+		if s == needle {
+			return i
+		}
+	}
+	return -1
+}
+
+func rawCat(w io.Writer, name string) error {
+	f, err := btrfs.Open(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(w, f); err != nil {
+		return err
+	}
+	return nil
 }
