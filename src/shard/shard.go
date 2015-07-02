@@ -22,57 +22,6 @@ import (
 var jobDir string = "job"
 var pipelineDir string = "pipeline"
 
-func commitParam(r *http.Request) string {
-	if p := r.URL.Query().Get("commit"); p != "" {
-		return p
-	}
-	return "master"
-}
-
-func branchParam(r *http.Request) string {
-	if p := r.URL.Query().Get("branch"); p != "" {
-		return p
-	}
-	return "master"
-}
-
-func shardParam(r *http.Request) string {
-	return r.URL.Query().Get("shard")
-}
-
-func hasBranch(r *http.Request) bool {
-	return (r.URL.Query().Get("branch") == "")
-}
-
-func materializeParam(r *http.Request) string {
-	if _, ok := r.URL.Query()["run"]; ok {
-		return "true"
-	}
-	return "false"
-}
-
-func indexOf(haystack []string, needle string) int {
-	for i, s := range haystack {
-		if s == needle {
-			return i
-		}
-	}
-	return -1
-}
-
-func rawCat(w io.Writer, name string) error {
-	f, err := btrfs.Open(name)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if _, err := io.Copy(w, f); err != nil {
-		return err
-	}
-	return nil
-}
-
 type Shard struct {
 	url                string
 	dataRepo, compRepo string
@@ -429,4 +378,55 @@ func (s *Shard) ShardMux() *http.ServeMux {
 // RunServer runs a shard server listening on port 80.
 func (s *Shard) RunServer() error {
 	return http.ListenAndServe(":80", s.ShardMux())
+}
+
+func commitParam(r *http.Request) string {
+	if p := r.URL.Query().Get("commit"); p != "" {
+		return p
+	}
+	return "master"
+}
+
+func branchParam(r *http.Request) string {
+	if p := r.URL.Query().Get("branch"); p != "" {
+		return p
+	}
+	return "master"
+}
+
+func shardParam(r *http.Request) string {
+	return r.URL.Query().Get("shard")
+}
+
+func hasBranch(r *http.Request) bool {
+	return (r.URL.Query().Get("branch") == "")
+}
+
+func materializeParam(r *http.Request) string {
+	if _, ok := r.URL.Query()["run"]; ok {
+		return "true"
+	}
+	return "false"
+}
+
+func indexOf(haystack []string, needle string) int {
+	for i, s := range haystack {
+		if s == needle {
+			return i
+		}
+	}
+	return -1
+}
+
+func rawCat(w io.Writer, name string) error {
+	f, err := btrfs.Open(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(w, f); err != nil {
+		return err
+	}
+	return nil
 }
