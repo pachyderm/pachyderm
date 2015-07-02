@@ -8,7 +8,8 @@ RUN \
 	go get -v golang.org/x/tools/cmd/vet && \
 	go get -v github.com/kisielk/errcheck && \
 	go get -v github.com/golang/lint/golint && \
-	go get -v golang.org/x/tools/cmd/vet
+	go get -v golang.org/x/tools/cmd/vet && \
+	go get -v github.com/stretchr/testify
 RUN \
   go get github.com/coreos/go-etcd/etcd && \
   cd /go/src/github.com/coreos/go-etcd && \

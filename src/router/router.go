@@ -52,10 +52,10 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 	var _w traffic.Workload
 	// Run the workload
 	workload := _w.Generate(rand, 20).Interface().(traffic.Workload)
-	shard.RunWorkload(url, workload, nil)
+	shard.RunWorkload(nil, url, workload)
 	// Make sure we see the changes we should
 	facts := workload.Facts()
-	shard.RunWorkload(url, facts, nil)
+	shard.RunWorkload(nil, url, facts)
 	log.Print("Workload done.")
 	// Install the pipeline
 	log.Print("Installing pipeline:")

@@ -59,10 +59,10 @@ func TestTwoShards(t *testing.T) {
 		cluster := NewCluster(fmt.Sprintf("TestTwoShards-%d", counter), 2, t)
 		defer cluster.Close()
 		// Run the workload
-		shard.RunWorkload(cluster.router.URL, w, t)
+		shard.RunWorkload(t, cluster.router.URL, w)
 		// Make sure we see the changes we should
 		facts := w.Facts()
-		shard.RunWorkload(cluster.router.URL, facts, t)
+		shard.RunWorkload(t, cluster.router.URL, facts)
 		//increment the counter
 		return true
 	}
@@ -94,7 +94,7 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 		cluster := NewCluster(fmt.Sprintf("TestWordCount-%d", counter), 4, t)
 		defer cluster.Close()
 		// Run the workload
-		shard.RunWorkload(cluster.router.URL, w, t)
+		shard.RunWorkload(t, cluster.router.URL, w)
 		// Install the pipeline
 		response, err := http.Post(cluster.router.URL+"/pipeline/wc", "application/text", strings.NewReader(pipeline))
 		defer response.Body.Close()
