@@ -81,7 +81,6 @@ func (s *Shard) ShardMux() *http.ServeMux {
 	mux.HandleFunc("/pipeline/", s.pipelineHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/pull", s.pullHandler)
-	mux.HandleFunc("/log", s.logHandler)
 
 	return mux
 }
@@ -253,10 +252,6 @@ func (s *Shard) pullHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Shard) logHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "/var/lib/pfs/log/log-"+s.shardStr)
-}
-
 // genericFileHandler serves files from fs. It's used after branch and commit
 // info have already been extracted and ignores those aspects of the URL.
 func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
@@ -315,7 +310,6 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-
 		}
 	} else if r.Method == "POST" {
 		btrfs.MkdirAll(path.Dir(file))
