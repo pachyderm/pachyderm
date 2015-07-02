@@ -406,10 +406,6 @@ func (s *Shard) pullHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Shard) logHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "/var/lib/pfs/log/log-"+s.shardStr)
-}
-
 // ShardMux creates a multiplexer for a Shard writing to the passed in FS.
 func (s *Shard) ShardMux() *http.ServeMux {
 	mux := http.NewServeMux()
@@ -421,7 +417,6 @@ func (s *Shard) ShardMux() *http.ServeMux {
 	mux.HandleFunc("/pipeline/", s.pipelineHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
 	mux.HandleFunc("/pull", s.pullHandler)
-	mux.HandleFunc("/log", s.logHandler)
 
 	return mux
 }
