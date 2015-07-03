@@ -112,7 +112,7 @@ func (s *Shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		encoder := json.NewEncoder(w)
 		btrfs.Commits(s.dataRepo, "", btrfs.Desc, func(c btrfs.CommitInfo) error {
-			isReadOnly, err := btrfs.IsReadOnly(path.Join(s.dataRepo, c.Path))
+			isReadOnly, err := btrfs.IsCommit(path.Join(s.dataRepo, c.Path))
 			if err != nil {
 				return err
 			}
@@ -187,7 +187,7 @@ func (s *Shard) branchHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		encoder := json.NewEncoder(w)
 		btrfs.Commits(s.dataRepo, "", btrfs.Desc, func(c btrfs.CommitInfo) error {
-			isReadOnly, err := btrfs.IsReadOnly(path.Join(s.dataRepo, c.Path))
+			isReadOnly, err := btrfs.IsCommit(path.Join(s.dataRepo, c.Path))
 			if err != nil {
 				return err
 			}

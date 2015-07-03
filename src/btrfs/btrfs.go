@@ -31,74 +31,24 @@ var (
 	once    sync.Once
 )
 
-// localVolume returns the path *inside* the container that we look for the
-// btrfs volume at
-func localVolume() string {
-	if val := os.Getenv("PFS_LOCAL_VOLUME"); val != "" {
-		return val
-	}
-	return "/var/lib/pfs/vol"
-}
-
-func hostVolume() string {
-	if val := os.Getenv("PFS_HOST_VOLUME"); val != "" {
-		return val
-	}
-	return "/var/lib/pfs/vol"
-}
-
-// Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
-// This should be factored out to another file.
-func RandSeq(n int) string {
-	once.Do(func() { rand.Seed(time.Now().UTC().UnixNano()) })
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
-}
-
-func Sync() error {
-	return shell.RunStderr(exec.Command("sync"))
-}
-
+// FilePath returns an absolute path for a file in the btrfs volume *inside*
+// the container.
 func FilePath(name string) string {
 	return path.Join(localVolume(), name)
 }
 
+// HostPath returns an absolute for a file *outside* the container
 func HostPath(name string) string {
 	return path.Join(hostVolume(), name)
 }
 
-func TrimFilePath(name string) string {
-	return strings.TrimPrefix(name, localVolume())
-}
-
-// PathRepo extracts the repo from a path
-func PathRepo(name string) string {
-	// name looks like: repo/commit/path/to/file
-	tokens := strings.Split(name, "/")
-	return tokens[0]
-}
-
-// PathCommit extracts the commit from a path
-func PathCommit(name string) string {
-	// name looks like: repo/commit/path/to/file
-	tokens := strings.Split(name, "/")
-	return tokens[1]
-}
-
-// PathFile extracts the file from a path
-func PathFile(name string) string {
-	// name looks like: repo/commit/path/to/file
-	tokens := strings.Split(name, "/")
-	return path.Join(tokens[2:]...)
-}
-
+// Create creates a new file in the btrfs volume
 func Create(name string) (*os.File, error) {
 	return os.Create(FilePath(name))
 }
 
+// CreateAll is like create but it will create the directory for the file if it
+// doesn't already exist.
 func CreateAll(name string) (*os.File, error) {
 	err := MkdirAll(path.Dir(name))
 	if err != nil {
@@ -107,6 +57,8 @@ func CreateAll(name string) (*os.File, error) {
 	return os.Create(FilePath(name))
 }
 
+// CreateFromReader is like Create but automatically sets the content of the
+// file to the data found in `r`
 func CreateFromReader(name string, r io.Reader) (int64, error) {
 	f, err := Create(name)
 	if err != nil {
@@ -116,22 +68,27 @@ func CreateFromReader(name string, r io.Reader) (int64, error) {
 	return io.Copy(f, r)
 }
 
+// Open opens a file for reading.
 func Open(name string) (*os.File, error) {
 	return os.Open(FilePath(name))
 }
 
+// OpenFile is a generalize form of Open
 func OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
 	return os.OpenFile(FilePath(name), flag, perm)
 }
 
+// OpenFd opens a file and gives you the file descriptor.
 func OpenFd(name string, mode int, perm uint32) (int, error) {
 	return syscall.Open(FilePath(name), mode, perm)
 }
 
+// ReadFile returns the contents of a file.
 func ReadFile(name string) ([]byte, error) {
 	return ioutil.ReadFile(FilePath(name))
 }
 
+// Writefile sets the contents of a file to `data`
 func WriteFile(name string, data []byte) error {
 	err := MkdirAll(path.Dir(name))
 	if err != nil {
@@ -140,6 +97,7 @@ func WriteFile(name string, data []byte) error {
 	return ioutil.WriteFile(FilePath(name), data, 0666)
 }
 
+// CopyFile copies the contents of `r` in the a file
 func CopyFile(name string, r io.Reader) (int64, error) {
 	f, err := Open(name)
 	if err != nil {
@@ -169,31 +127,38 @@ func Append(name string, r io.Reader) (int64, error) {
 	return io.Copy(f, r)
 }
 
+// Remove removes a file or directory
 func Remove(name string) error {
 	return os.Remove(FilePath(name))
 }
 
+// RemoveAll removes a path and any children it contains
 func RemoveAll(name string) error {
 	return os.RemoveAll(FilePath(name))
 }
 
+// Rename renames a file
 func Rename(oldname, newname string) error {
 	return os.Rename(FilePath(oldname), FilePath(newname))
 }
 
+// Stat returns a FileInfo describing a file.
 func Stat(name string) (os.FileInfo, error) {
 	return os.Stat(FilePath(name))
 }
 
+// Lstat returns FileInfo describing a file, if the file is a symbolic link it
+// still works.
 func Lstat(name string) (os.FileInfo, error) {
 	return os.Lstat(FilePath(name))
 }
 
+// Chtimes changes the access and modification times of a file
 func Chtimes(name string, atime, mtime time.Time) error {
 	return os.Chtimes(FilePath(name), atime, mtime)
 }
 
-// After returns true if `mtime` is after the filesystem time for `name`
+// Changed returns true if `mtime` is after the filesystem time for name
 func Changed(name string, mtime time.Time) (bool, error) {
 	info, err := Stat(name)
 	if err != nil && os.IsNotExist(err) {
@@ -207,7 +172,7 @@ func Changed(name string, mtime time.Time) (bool, error) {
 	return false, nil
 }
 
-// return true if name1 was last modified before name2
+// Before eturn true if name1 was last modified before name2
 func Before(name1, name2 string) (bool, error) {
 	info1, err := Stat(name1)
 	if err != nil {
@@ -222,6 +187,7 @@ func Before(name1, name2 string) (bool, error) {
 	return info1.ModTime().Before(info2.ModTime()), nil
 }
 
+// FileExists returns true if a file exists in the filesystem
 func FileExists(name string) (bool, error) {
 	_, err := os.Stat(FilePath(name))
 	if err == nil {
@@ -233,70 +199,35 @@ func FileExists(name string) (bool, error) {
 	return false, err
 }
 
+// Mkdir creates a directory
 func Mkdir(name string) error {
 	return os.Mkdir(FilePath(name), 0777)
 }
 
-// TODO(rw,jd): check into atomicity/race conditions with multiple callers
+// MkdirAll creates a directory and all parent directories
 func MkdirAll(name string) error {
 	return os.MkdirAll(FilePath(name), 0777)
 }
 
-func Link(oldname, newname string) error {
-	return os.Link(FilePath(oldname), FilePath(newname))
-}
-
-func Readlink(name string) (string, error) {
-	p, err := os.Readlink(FilePath(name))
-	if err != nil {
-		return "", err
-	}
-	return TrimFilePath(p), nil
-}
-
-func Symlink(oldname, newname string) error {
-	return os.Symlink(FilePath(oldname), FilePath(newname))
-}
-
+// ReadDir returns a list of files found in the name directory
 func ReadDir(name string) ([]os.FileInfo, error) {
 	return ioutil.ReadDir(FilePath(name))
 }
 
+// Glob returns the names of all files matching pattern or nil if there's no match.
+// Glob uses syntax that should be familiar from shell like /foo/bar/*
 func Glob(pattern string) ([]string, error) {
 	paths, err := filepath.Glob(FilePath(pattern))
 	if err != nil {
 		return nil, err
 	}
 	for i, p := range paths {
-		paths[i] = TrimFilePath(p)
+		paths[i] = trimFilePath(p)
 	}
 	return paths, nil
 }
 
-var walkChunk int = 100
-
-func LazyWalk(name string, f func(string) error) error {
-	dir, err := os.Open(FilePath(name))
-	if err != nil {
-		return nil
-	}
-	defer dir.Close()
-	var names []string
-	for names, err = dir.Readdirnames(walkChunk); err == nil; names, err = dir.Readdirnames(walkChunk) {
-		for _, fname := range names {
-			err := f(fname)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	if err != io.EOF {
-		return err
-	}
-	return nil
-}
-
-// smallestExistingPath takes a path and trims it until it gets something that
+// largestExistingPath takes a path and trims it until it gets something that
 // exists
 func largestExistingPath(name string) (string, error) {
 	for {
@@ -311,6 +242,11 @@ func largestExistingPath(name string) (string, error) {
 	}
 }
 
+// WaitFile waits for a file to exist in the filesystem
+// NOTE: You NEVER want to pass an unbuffered channel as cancel because
+// WaitFile provides no guarantee that it will ever read from cancel.  Thus if
+// you passed an unbuffered channel as cancel sending to the channel may block
+// forever.
 func WaitFile(name string, cancel chan struct{}) error {
 	log.Print("WaitFile(", name, ")")
 	dir, err := largestExistingPath(name)
@@ -394,27 +330,27 @@ func WaitAnyFile(files ...string) (string, error) {
 	}
 }
 
-func SubvolumeCreate(name string) error {
+func subvolumeCreate(name string) error {
 	return shell.RunStderr(exec.Command("btrfs", "subvolume", "create", FilePath(name)))
 }
 
-func SubvolumeDelete(name string) error {
+func subvolumeDelete(name string) error {
 	return shell.RunStderr(exec.Command("btrfs", "subvolume", "delete", FilePath(name)))
 }
 
-func SubvolumeDeleteAll(name string) error {
+func subvolumeDeleteAll(name string) error {
 	subvolumeExists, err := FileExists(name)
 	if err != nil {
 		return err
 	}
 	if subvolumeExists {
-		return SubvolumeDelete(name)
+		return subvolumeDelete(name)
 	} else {
 		return nil
 	}
 }
 
-func Snapshot(volume string, dest string, readonly bool) error {
+func snapshot(volume string, dest string, readonly bool) error {
 	if readonly {
 		return shell.RunStderr(exec.Command("btrfs", "subvolume", "snapshot", "-r",
 			FilePath(volume), FilePath(dest)))
@@ -424,12 +360,13 @@ func Snapshot(volume string, dest string, readonly bool) error {
 	}
 }
 
-func IsReadOnly(volume string) (bool, error) {
+// IsCommit returns true if the volume is a commit and false if it's a branch.
+func IsCommit(name string) (bool, error) {
 	var res bool
 	// "-t s" indicates to btrfs that this is a subvolume without the "-t s"
 	// btrfs will still output what we want, but it will have a nonzero return
 	// code
-	err := shell.CallCont(exec.Command("btrfs", "property", "get", "-t", "s", FilePath(volume)),
+	err := shell.CallCont(exec.Command("btrfs", "property", "get", "-t", "s", FilePath(name)),
 		func(r io.Reader) error {
 			scanner := bufio.NewScanner(r)
 			for scanner.Scan() {
@@ -443,26 +380,12 @@ func IsReadOnly(volume string) (bool, error) {
 	return res, err
 }
 
-func ensureMetaDir(branch string) error {
-	branchExists, err := FileExists(branch)
-	if err != nil {
-		return err
-	}
-	if !branchExists {
-		fmt.Errorf("Cannot create meta dir for nonexistant branch %s.", branch)
-	}
-	return MkdirAll(path.Join(branch, ".meta"))
-}
-
-// SetMeta sets metadata for a branch.
+// SetMeta sets metadata for a branch
 func SetMeta(branch, key, value string) error {
-	if err := ensureMetaDir(branch); err != nil {
-		return err
-	}
 	return WriteFile(path.Join(branch, ".meta", key), []byte(value))
 }
 
-// GetMeta gets metadata from a commit.
+// GetMeta gets metadata from a commit or branch
 func GetMeta(name, key string) string {
 	value, err := ReadFile(path.Join(name, ".meta", key))
 	if err != nil {
@@ -471,7 +394,8 @@ func GetMeta(name, key string) string {
 	return string(value)
 }
 
-func Send(repo, commit string, cont func(io.Reader) error) error {
+// send produces and binary diff stream and passes it to cont
+func send(repo, commit string, cont func(io.Reader) error) error {
 	parent := GetMeta(path.Join(repo, commit), "parent")
 	if parent == "" {
 		return shell.CallCont(exec.Command("btrfs", "send", FilePath(path.Join(repo, commit))), cont)
@@ -486,7 +410,7 @@ func Send(repo, commit string, cont func(io.Reader) error) error {
 func createNewBranch(repo string) error {
 	err := Commits(repo, "", Desc, func(c CommitInfo) error {
 		branch := GetMeta(path.Join(repo, c.Path), "branch")
-		err := SubvolumeDeleteAll(path.Join(repo, branch))
+		err := subvolumeDeleteAll(path.Join(repo, branch))
 		if err != nil {
 			return err
 		}
@@ -502,7 +426,8 @@ func createNewBranch(repo string) error {
 	return nil
 }
 
-func Recv(repo string, data io.Reader) error {
+// recv reads a binary stream from data and applies it to `repo`
+func recv(repo string, data io.Reader) error {
 	c := exec.Command("btrfs", "receive", FilePath(repo))
 	_, callerFile, callerLine, _ := runtime.Caller(0)
 	log.Printf("%15s:%.3d -> %s", path.Base(callerFile), callerLine, strings.Join(c.Args, " "))
@@ -542,10 +467,10 @@ func Recv(repo string, data io.Reader) error {
 
 // Init initializes an empty repo.
 func Init(repo string) error {
-	if err := SubvolumeCreate(repo); err != nil {
+	if err := subvolumeCreate(repo); err != nil {
 		return err
 	}
-	if err := SubvolumeCreate(path.Join(repo, "master")); err != nil {
+	if err := subvolumeCreate(path.Join(repo, "master")); err != nil {
 		return err
 	}
 	if err := SetMeta(path.Join(repo, "master"), "branch", "master"); err != nil {
@@ -572,7 +497,8 @@ func Ensure(repo string) error {
 	}
 }
 
-// Commit creates a new commit for a branch.
+// Commit creates a new commit on a branch.
+// The contents of the commit will be the same as the current contents of the branch.
 func Commit(repo, commit, branch string) error {
 	// check to make sure that the branch actually exists
 	exists, err := FileExists(path.Join(repo, branch))
@@ -583,7 +509,7 @@ func Commit(repo, commit, branch string) error {
 		return fmt.Errorf("Branch %s not found.", branch)
 	}
 	// Snapshot the branch
-	if err := Snapshot(path.Join(repo, branch), path.Join(repo, commit), true); err != nil {
+	if err := snapshot(path.Join(repo, branch), path.Join(repo, commit), true); err != nil {
 		return err
 	}
 
@@ -603,7 +529,7 @@ func DanglingCommit(repo, commit, branch string) error {
 	if err != nil {
 		return err
 	}
-	err = SubvolumeDelete(path.Join(repo, branch))
+	err = subvolumeDelete(path.Join(repo, branch))
 	if err != nil {
 		return err
 	}
@@ -614,10 +540,11 @@ func DanglingCommit(repo, commit, branch string) error {
 	return nil
 }
 
+// Branch creates a new writeable branch from commit.
 func Branch(repo, commit, branch string) error {
 	// Check that the commit is read only
 	if commit != "" {
-		isReadOnly, err := IsReadOnly(path.Join(repo, commit))
+		isReadOnly, err := IsCommit(path.Join(repo, commit))
 		if err != nil {
 			return err
 		}
@@ -637,11 +564,11 @@ func Branch(repo, commit, branch string) error {
 
 	// Create a writeable subvolume for the branch
 	if commit == "" {
-		if err := SubvolumeCreate(path.Join(repo, branch)); err != nil {
+		if err := subvolumeCreate(path.Join(repo, branch)); err != nil {
 			return err
 		}
 	} else {
-		if err := Snapshot(path.Join(repo, commit), path.Join(repo, branch), false); err != nil {
+		if err := snapshot(path.Join(repo, commit), path.Join(repo, branch), false); err != nil {
 			return err
 		}
 
@@ -664,8 +591,8 @@ const (
 	Asc  = iota
 )
 
-//Log returns all of the commits the repo which have generation >= from.
-func Log(repo, from string, order int, cont func(io.Reader) error) error {
+//_log returns all of the commits the repo which have generation >= from.
+func _log(repo, from string, order int, cont func(io.Reader) error) error {
 	var sort string
 	if order == Desc {
 		sort = "-ogen"
@@ -686,6 +613,7 @@ func Log(repo, from string, order int, cont func(io.Reader) error) error {
 	}
 }
 
+// TODO(jd) get rid of this shit.
 type CommitInfo struct {
 	gen, id, parent, Path string
 }
@@ -693,7 +621,7 @@ type CommitInfo struct {
 // Commits is a wrapper around `Log` which parses the output in to a convenient
 // struct
 func Commits(repo, from string, order int, cont func(CommitInfo) error) error {
-	return Log(repo, from, order, func(r io.Reader) error {
+	return _log(repo, from, order, func(r io.Reader) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			// scanner.Text() looks like:
@@ -720,7 +648,7 @@ func Commits(repo, from string, order int, cont func(CommitInfo) error) error {
 func GetFrom(repo string) (string, error) {
 	from := ""
 	err := Commits(repo, "", Desc, func(c CommitInfo) error {
-		isCommit, err := IsReadOnly(path.Join(repo, c.Path))
+		isCommit, err := IsCommit(path.Join(repo, c.Path))
 		if err != nil {
 			return err
 		}
@@ -737,6 +665,7 @@ func GetFrom(repo string) (string, error) {
 	return from, nil
 }
 
+// Pull produces a binary diff stream from repo and passes it to cb
 func Pull(repo, from string, cb Pusher) error {
 	// First check that `from` is actually a valid commit
 	if from != "" {
@@ -748,7 +677,7 @@ func Pull(repo, from string, cb Pusher) error {
 			return fmt.Errorf("`from` commit %s does not exists", from)
 		}
 		// from should also be a commit not a branch
-		isCommit, err := IsReadOnly(path.Join(repo, from))
+		isCommit, err := IsCommit(path.Join(repo, from))
 		if err != nil {
 			return err
 		}
@@ -763,12 +692,12 @@ func Pull(repo, from string, cb Pusher) error {
 			return nil
 		}
 		// Send this commit
-		isCommit, err := IsReadOnly(path.Join(repo, c.Path))
+		isCommit, err := IsCommit(path.Join(repo, c.Path))
 		if err != nil {
 			return err
 		}
 		if isCommit {
-			err := Send(repo, c.Path, cb.Push)
+			err := send(repo, c.Path, cb.Push)
 			if err != nil {
 				return err
 			}
@@ -845,7 +774,41 @@ func FindNew(repo, from, to string) ([]string, error) {
 	return files, err
 }
 
+// NewIn returns all of the files that changed in a commit
 func NewIn(repo, commit string) ([]string, error) {
 	parent := GetMeta(path.Join(repo, commit), "parent")
 	return FindNew(repo, parent, commit)
+}
+
+func trimFilePath(name string) string {
+	return strings.TrimPrefix(name, localVolume())
+}
+
+// localVolume returns the path *inside* the container that we look for the
+// btrfs volume at
+func localVolume() string {
+	if val := os.Getenv("PFS_LOCAL_VOLUME"); val != "" {
+		return val
+	}
+	return "/var/lib/pfs/vol"
+}
+
+// hostVolume returns the path *outside* container where you can find the btrfs
+// volume
+func hostVolume() string {
+	if val := os.Getenv("PFS_HOST_VOLUME"); val != "" {
+		return val
+	}
+	return "/var/lib/pfs/vol"
+}
+
+// Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
+// This should be factored out to another file.
+func randSeq(n int) string {
+	once.Do(func() { rand.Seed(time.Now().UTC().UnixNano()) })
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }

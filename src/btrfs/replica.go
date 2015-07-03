@@ -33,7 +33,7 @@ type LocalReplica struct {
 }
 
 func (r LocalReplica) Push(diff io.Reader) error {
-	return Recv(r.repo, diff)
+	return recv(r.repo, diff)
 }
 
 func (r LocalReplica) Pull(from string, cb Pusher) error {
