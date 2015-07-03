@@ -91,7 +91,7 @@ func TestGit(t *testing.T) {
 	CheckFile(path.Join(srcRepo, "commit2", "file2"), "foo", t)
 
 	// Print BTRFS hierarchy data for humans:
-	check(Log(srcRepo, "", Desc, func(r io.Reader) error {
+	check(_log(srcRepo, "", Desc, func(r io.Reader) error {
 		_, err := io.Copy(os.Stdout, r)
 		return err
 	}), t)
@@ -179,7 +179,7 @@ func TestSendRecv(t *testing.T) {
 	// Create a destination repo:
 	dstRepo := "repo_TestSendRecv_dst"
 	check(Init(dstRepo), t)
-	repo2Recv := func(r io.Reader) error { return Recv(dstRepo, r) }
+	repo2Recv := func(r io.Reader) error { return recv(dstRepo, r) }
 
 	// Verify that the commits "mycommit1" and "mycommit2" do not exist in destination:
 	CheckNoExists(fmt.Sprintf("%s/master/mycommit1", dstRepo), t)
@@ -187,14 +187,14 @@ func TestSendRecv(t *testing.T) {
 
 	// Run a Send/Recv operation to fetch data from the older "mycommit1".
 	// This verifies that tree copying works:
-	check(Send(srcRepo, "mycommit1", repo2Recv), t)
+	check(send(srcRepo, "mycommit1", repo2Recv), t)
 
 	// Check that the file from mycommit1 exists, but not from mycommit2:
 	CheckFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
 	CheckNoExists(fmt.Sprintf("%s/mycommit2/myfile2", dstRepo), t)
 
 	// Send again, this time starting from mycommit1 and going to mycommit2:
-	check(Send(srcRepo, "mycommit2", repo2Recv), t)
+	check(send(srcRepo, "mycommit2", repo2Recv), t)
 
 	// Verify that files from both commits are present:
 	CheckFile(fmt.Sprintf("%s/mycommit1/myfile1", dstRepo), "foo", t)
@@ -291,7 +291,7 @@ func TestSendWithMissingIntermediateCommitIsCorrect(t *testing.T) {
 	check(Commit(srcRepo, "mycommit2", "master"), t)
 
 	// Delete intermediate commit "mycommit1":
-	check(SubvolumeDelete(fmt.Sprintf("%s/mycommit1", srcRepo)), t)
+	check(subvolumeDelete(fmt.Sprintf("%s/mycommit1", srcRepo)), t)
 
 	// Verify that the commit "mycommit1" does not exist and "mycommit2" does in the source repo:
 	CheckNoExists(fmt.Sprintf("%s/mycommit1", srcRepo), t)
@@ -384,7 +384,7 @@ func TestS3Replica(t *testing.T) {
 	CheckNoExists(fmt.Sprintf("%s/mycommit2", dstRepo), t)
 
 	// Run a Pull to push all commits to s3
-	s3Replica := NewS3Replica(path.Join("pachyderm-test", RandSeq(20)))
+	s3Replica := NewS3Replica(path.Join("pachyderm-test", randSeq(20)))
 	err := Pull(srcRepo, "", s3Replica)
 	check(err, t)
 
