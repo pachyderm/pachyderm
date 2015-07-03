@@ -408,13 +408,13 @@ func send(repo, commit string, cont func(io.Reader) error) error {
 // createNewBranch gets called after a new commit has been `Recv`ed it creates
 // the branch that should be pointing to the newly made commit.
 func createNewBranch(repo string) error {
-	err := Commits(repo, "", Desc, func(c CommitInfo) error {
-		branch := GetMeta(path.Join(repo, c.Path), "branch")
+	err := Commits(repo, "", Desc, func(name string) error {
+		branch := GetMeta(path.Join(repo, name), "branch")
 		err := subvolumeDeleteAll(path.Join(repo, branch))
 		if err != nil {
 			return err
 		}
-		err = Branch(repo, c.Path, branch)
+		err = Branch(repo, name, branch)
 		if err != nil {
 			return err
 		}
@@ -620,7 +620,7 @@ type CommitInfo struct {
 
 // Commits is a wrapper around `Log` which parses the output in to a convenient
 // struct
-func Commits(repo, from string, order int, cont func(CommitInfo) error) error {
+func Commits(repo, from string, order int, cont func(string) error) error {
 	return _log(repo, from, order, func(r io.Reader) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
@@ -632,7 +632,7 @@ func Commits(repo, from string, order int, cont func(CommitInfo) error) error {
 				return fmt.Errorf("Malformed commit line: %s.", scanner.Text())
 			}
 			_, p := path.Split(tokens[14]) // we want to returns paths without the repo/ before them
-			if err := cont(CommitInfo{gen: tokens[3], id: tokens[12], parent: tokens[10], Path: p}); err != nil {
+			if err := cont(p); err != nil {
 				return err
 			}
 		}
@@ -647,13 +647,13 @@ func Commits(repo, from string, order int, cont func(CommitInfo) error) error {
 // to date.
 func GetFrom(repo string) (string, error) {
 	from := ""
-	err := Commits(repo, "", Desc, func(c CommitInfo) error {
-		isCommit, err := IsCommit(path.Join(repo, c.Path))
+	err := Commits(repo, "", Desc, func(name string) error {
+		isCommit, err := IsCommit(path.Join(repo, name))
 		if err != nil {
 			return err
 		}
 		if isCommit {
-			from = c.Path
+			from = name
 			return ErrComplete
 		}
 		return nil
@@ -686,18 +686,18 @@ func Pull(repo, from string, cb Pusher) error {
 		}
 	}
 
-	err := Commits(repo, from, Asc, func(c CommitInfo) error {
-		if c.Path == from {
+	err := Commits(repo, from, Asc, func(name string) error {
+		if name == from {
 			// Commits gives us things >= `from` so we explicitly skip `from`
 			return nil
 		}
 		// Send this commit
-		isCommit, err := IsCommit(path.Join(repo, c.Path))
+		isCommit, err := IsCommit(path.Join(repo, name))
 		if err != nil {
 			return err
 		}
 		if isCommit {
-			err := send(repo, c.Path, cb.Push)
+			err := send(repo, name, cb.Push)
 			if err != nil {
 				return err
 			}
