@@ -6,7 +6,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path"
 	"strings"
 	"sync"
@@ -30,30 +29,13 @@ type Shard struct {
 	shard, modulos     uint64
 	shardStr           string
 	runners            map[string]*pipeline.Runner
-	guard              sync.Mutex
+	guard              *sync.Mutex
 	cache              etcache.Cache
 }
 
-func ShardFromArgs() (*Shard, error) {
-	shard, modulos, err := route.ParseShard(os.Args[1])
-	if err != nil {
-		return nil, err
-	}
+func NewShard(url, dataRepo, compRepo, pipelinePrefix string, shard, modulos uint64, cache etcache.Cache) *Shard {
 	return &Shard{
-		url:            "http://" + os.Args[2],
-		dataRepo:       "data-" + os.Args[1],
-		compRepo:       "comp-" + os.Args[1],
-		pipelinePrefix: "pipe-" + os.Args[1],
-		shard:          shard,
-		modulos:        modulos,
-		shardStr:       os.Args[1],
-		runners:        make(map[string]*pipeline.Runner),
-		cache:          etcache.NewCache(),
-	}, nil
-}
-
-func NewShard(dataRepo, compRepo, pipelinePrefix string, shard, modulos uint64, cache etcache.Cache) *Shard {
-	return &Shard{
+		url:            url,
 		dataRepo:       dataRepo,
 		compRepo:       compRepo,
 		pipelinePrefix: pipelinePrefix,
@@ -61,6 +43,7 @@ func NewShard(dataRepo, compRepo, pipelinePrefix string, shard, modulos uint64, 
 		modulos:        modulos,
 		shardStr:       fmt.Sprint(shard, "-", modulos),
 		runners:        make(map[string]*pipeline.Runner),
+		guard:          &sync.Mutex{},
 		cache:          cache,
 	}
 }
@@ -87,11 +70,6 @@ func (s *Shard) ShardMux() *http.ServeMux {
 	mux.HandleFunc("/pull", s.pullHandler)
 
 	return mux
-}
-
-// RunServer runs a shard server listening on port 80.
-func (s *Shard) RunServer() error {
-	return http.ListenAndServe(":80", s.ShardMux())
 }
 
 // FileHandler is the core route for modifying the contents of the fileystem.

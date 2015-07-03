@@ -25,7 +25,7 @@ const (
 
 func TestPing(t *testing.T) {
 	t.Parallel()
-	shard := NewShard("TestPingData", "TestPingComp", "TestPingPipelines", 0, 1, etcache.NewCache())
+	shard := NewShard("", "TestPingData", "TestPingComp", "TestPingPipelines", 0, 1, etcache.NewCache())
 	require.NoError(t, shard.EnsureRepos())
 	s := httptest.NewServer(shard.ShardMux())
 	defer s.Close()
@@ -39,7 +39,7 @@ func TestBasic(t *testing.T) {
 	t.Parallel()
 	c := 0
 	f := func(w traffic.Workload) bool {
-		shard := NewShard(fmt.Sprintf("TestBasic%d", c), fmt.Sprintf("TestBasicComp%d", c), fmt.Sprintf("TestBasicPipelines%d", c), 0, 1, etcache.NewCache())
+		shard := NewShard("", fmt.Sprintf("TestBasic%d", c), fmt.Sprintf("TestBasicComp%d", c), fmt.Sprintf("TestBasicPipelines%d", c), 0, 1, etcache.NewCache())
 		c++
 		require.NoError(t, shard.EnsureRepos())
 		s := httptest.NewServer(shard.ShardMux())
@@ -59,8 +59,8 @@ func TestPull(t *testing.T) {
 	t.Parallel()
 	c := 0
 	f := func(w traffic.Workload) bool {
-		_src := NewShard(fmt.Sprintf("TestPullSrc%d", c), fmt.Sprintf("TestPullSrcComp%d", c), fmt.Sprintf("TestPullSrcPipelines%d", c), 0, 1, etcache.NewCache())
-		_dst := NewShard(fmt.Sprintf("TestPullDst%d", c), fmt.Sprintf("TestPullDstComp%d", c), fmt.Sprintf("TestPullDstPipelines%d", c), 0, 1, etcache.NewCache())
+		_src := NewShard("", fmt.Sprintf("TestPullSrc%d", c), fmt.Sprintf("TestPullSrcComp%d", c), fmt.Sprintf("TestPullSrcPipelines%d", c), 0, 1, etcache.NewCache())
+		_dst := NewShard("", fmt.Sprintf("TestPullDst%d", c), fmt.Sprintf("TestPullDstComp%d", c), fmt.Sprintf("TestPullDstPipelines%d", c), 0, 1, etcache.NewCache())
 		c++
 		require.NoError(t, _src.EnsureRepos())
 		require.NoError(t, _dst.EnsureRepos())
@@ -90,8 +90,8 @@ func TestSyncTo(t *testing.T) {
 	t.Parallel()
 	c := 0
 	f := func(w traffic.Workload) bool {
-		_src := NewShard(fmt.Sprintf("TestSyncToSrc%d", c), fmt.Sprintf("TestSyncToSrcComp%d", c), fmt.Sprintf("TestSyncToSrcPipelines%d", c), 0, 1, etcache.NewCache())
-		_dst := NewShard(fmt.Sprintf("TestSyncToDst%d", c), fmt.Sprintf("TestSyncToDstComp%d", c), fmt.Sprintf("TestSyncToDstPipelines%d", c), 0, 1, etcache.NewCache())
+		_src := NewShard("", fmt.Sprintf("TestSyncToSrc%d", c), fmt.Sprintf("TestSyncToSrcComp%d", c), fmt.Sprintf("TestSyncToSrcPipelines%d", c), 0, 1, etcache.NewCache())
+		_dst := NewShard("", fmt.Sprintf("TestSyncToDst%d", c), fmt.Sprintf("TestSyncToDstComp%d", c), fmt.Sprintf("TestSyncToDstPipelines%d", c), 0, 1, etcache.NewCache())
 		require.NoError(t, _src.EnsureRepos())
 		require.NoError(t, _dst.EnsureRepos())
 		src := httptest.NewServer(_src.ShardMux())
@@ -124,8 +124,8 @@ func TestSyncFrom(t *testing.T) {
 	t.Parallel()
 	c := 0
 	f := func(w traffic.Workload) bool {
-		_src := NewShard(fmt.Sprintf("TestSyncFromSrc%d", c), fmt.Sprintf("TestSyncFromSrcComp%d", c), fmt.Sprintf("TestSyncFromSrcPipelines%d", c), 0, 1, etcache.NewCache())
-		_dst := NewShard(fmt.Sprintf("TestSyncFromDst%d", c), fmt.Sprintf("TestSyncFromDstComp%d", c), fmt.Sprintf("TestSyncFromDstPipelines%d", c), 0, 1, etcache.NewCache())
+		_src := NewShard("", fmt.Sprintf("TestSyncFromSrc%d", c), fmt.Sprintf("TestSyncFromSrcComp%d", c), fmt.Sprintf("TestSyncFromSrcPipelines%d", c), 0, 1, etcache.NewCache())
+		_dst := NewShard("", fmt.Sprintf("TestSyncFromDst%d", c), fmt.Sprintf("TestSyncFromDstComp%d", c), fmt.Sprintf("TestSyncFromDstPipelines%d", c), 0, 1, etcache.NewCache())
 		require.NoError(t, _src.EnsureRepos())
 		require.NoError(t, _dst.EnsureRepos())
 		src := httptest.NewServer(_src.ShardMux())
@@ -156,7 +156,7 @@ func TestSyncFrom(t *testing.T) {
 // TestPipeline creates a basic pipeline on a shard.
 func TestPipeline(t *testing.T) {
 	t.Parallel()
-	shard := NewShard("TestPipelineData", "TestPipelineComp", "TestPipelinePipelines", 0, 1, etcache.NewCache())
+	shard := NewShard("", "TestPipelineData", "TestPipelineComp", "TestPipelinePipelines", 0, 1, etcache.NewCache())
 	require.NoError(t, shard.EnsureRepos())
 	s := httptest.NewServer(shard.ShardMux())
 	defer s.Close()
@@ -179,7 +179,7 @@ run touch /out/foo
 
 func TestShardFilter(t *testing.T) {
 	t.Parallel()
-	shard := NewShard("TestShardFilterData", "TestShardFilterComp", "TestShardFilterPipelines", 0, 1, etcache.NewCache())
+	shard := NewShard("", "TestShardFilterData", "TestShardFilterComp", "TestShardFilterPipelines", 0, 1, etcache.NewCache())
 	require.NoError(t, shard.EnsureRepos())
 	s := httptest.NewServer(shard.ShardMux())
 	defer s.Close()
@@ -243,11 +243,11 @@ func TestShuffle(t *testing.T) {
 	t.Parallel()
 	cache := etcache.NewTestCache()
 	// Setup 2 shards
-	shard1 := NewShard("TestShuffleData-0-2", "TestShuffleComp-0-2", "TestShufflePipelines-0-2", 0, 2, cache)
+	shard1 := NewShard("", "TestShuffleData-0-2", "TestShuffleComp-0-2", "TestShufflePipelines-0-2", 0, 2, cache)
 	require.NoError(t, shard1.EnsureRepos())
 	s1 := httptest.NewServer(shard1.ShardMux())
 	defer s1.Close()
-	shard2 := NewShard("TestShuffleData-1-2", "TestShuffleComp-1-2", "TestShufflePipelines-1-2", 1, 2, cache)
+	shard2 := NewShard("", "TestShuffleData-1-2", "TestShuffleComp-1-2", "TestShufflePipelines-1-2", 1, 2, cache)
 	require.NoError(t, shard2.EnsureRepos())
 	s2 := httptest.NewServer(shard2.ShardMux())
 	defer s2.Close()
@@ -300,11 +300,11 @@ func TestWordCount(t *testing.T) {
 	t.Parallel()
 	cache := etcache.NewTestCache()
 	// Setup 2 shards
-	shard1 := NewShard("TestWordCountData-0-2", "TestWordCountComp-0-2", "TestWordCountPipelines-0-2", 0, 2, cache)
+	shard1 := NewShard("", "TestWordCountData-0-2", "TestWordCountComp-0-2", "TestWordCountPipelines-0-2", 0, 2, cache)
 	require.NoError(t, shard1.EnsureRepos())
 	s1 := httptest.NewServer(shard1.ShardMux())
 	defer s1.Close()
-	shard2 := NewShard("TestWordCountData-1-2", "TestWordCountComp-1-2", "TestWordCountPipelines-1-2", 1, 2, cache)
+	shard2 := NewShard("", "TestWordCountData-1-2", "TestWordCountComp-1-2", "TestWordCountPipelines-1-2", 1, 2, cache)
 	require.NoError(t, shard2.EnsureRepos())
 	s2 := httptest.NewServer(shard2.ShardMux())
 	defer s2.Close()
@@ -356,7 +356,7 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 
 func TestFail(t *testing.T) {
 	t.Parallel()
-	shard := NewShard("TestFailData", "TestFailComp", "TestFailPipelines", 0, 1, etcache.NewCache())
+	shard := NewShard("", "TestFailData", "TestFailComp", "TestFailPipelines", 0, 1, etcache.NewCache())
 	require.NoError(t, shard.EnsureRepos())
 	s := httptest.NewServer(shard.ShardMux())
 	defer s.Close()
@@ -387,7 +387,7 @@ func TestChess(t *testing.T) {
 		t.Skip()
 	}
 	// Notice this shard is behaving like 1 node of a 5000 node cluster to downsample to data.
-	shard := NewShard("TestChessData", "TestChessComp", "TestChessPipelines", 0, 5000, etcache.NewCache())
+	shard := NewShard("", "TestChessData", "TestChessComp", "TestChessPipelines", 0, 5000, etcache.NewCache())
 	require.NoError(t, shard.EnsureRepos())
 	s := httptest.NewServer(shard.ShardMux())
 	defer s.Close()

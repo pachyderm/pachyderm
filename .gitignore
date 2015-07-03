@@ -23,3 +23,7 @@ _testmain.go
 *.test
 
 *.swp
+
+src/cmd/deploy/deploy
+src/cmd/router/router
+src/cmd/shard/shard

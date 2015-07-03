@@ -29,7 +29,7 @@ func NewCluster(prefix string, shards int, testCache etcache.TestCache, t *testi
 	var res Cluster
 	for i := 0; i < shards; i++ {
 		repoStr := fmt.Sprintf("%s-%d-%d", prefix, i, shards)
-		s := shard.NewShard(repoStr+"-data", repoStr+"-comp",
+		s := shard.NewShard("", repoStr+"-data", repoStr+"-comp",
 			repoStr+"-pipeline", uint64(i), uint64(shards), testCache)
 		if err := s.EnsureRepos(); err != nil {
 			t.Fatal(err)

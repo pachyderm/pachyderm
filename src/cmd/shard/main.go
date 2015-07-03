@@ -1,9 +1,13 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
 	"os"
 
+	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/log"
+	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/pachyderm/pachyderm/src/shard"
 )
 
@@ -16,17 +20,31 @@ func main() {
 }
 
 func do() error {
-	s, err := shard.ShardFromArgs()
+	if len(os.Args) != 3 {
+		return fmt.Errorf("unknown args: %v", os.Args)
+	}
+	shardStr := os.Args[1]
+	address := os.Args[2]
+
+	shardNum, modulos, err := route.ParseShard(shardStr)
 	if err != nil {
 		return err
 	}
-	if err := s.EnsureRepos(); err != nil {
+	shard := shard.NewShard(
+		"http://"+address,
+		"data-"+shardStr,
+		"comp-"+shardStr,
+		"pipe-"+shardStr,
+		shardNum,
+		modulos,
+		etcache.NewCache(),
+	)
+	if err := shard.EnsureRepos(); err != nil {
 		return err
 	}
-
 	log.Print("Listening on port 80...")
-	cancel := make(chan struct{})
+	cancel := make(chan bool)
 	defer close(cancel)
-	go s.FillRole(cancel)
-	return s.RunServer()
+	go shard.FillRole(cancel)
+	return http.ListenAndServe(":80", shard.ShardMux())
 }

@@ -1,2 +1,5 @@
 .git
 .gitignore
+src/cmd/deploy/deploy
+src/cmd/router/router
+src/cmd/shard/shard
