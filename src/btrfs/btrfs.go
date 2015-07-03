@@ -227,21 +227,6 @@ func Glob(pattern string) ([]string, error) {
 	return paths, nil
 }
 
-// largestExistingPath takes a path and trims it until it gets something that
-// exists
-func largestExistingPath(name string) (string, error) {
-	for {
-		exists, err := FileExists(name)
-		if err != nil {
-			return "", err
-		}
-		if exists {
-			return name, nil
-		}
-		name = path.Dir(name)
-	}
-}
-
 // WaitFile waits for a file to exist in the filesystem
 // NOTE: You NEVER want to pass an unbuffered channel as cancel because
 // WaitFile provides no guarantee that it will ever read from cancel.  Thus if
@@ -330,36 +315,6 @@ func WaitAnyFile(files ...string) (string, error) {
 	}
 }
 
-func subvolumeCreate(name string) error {
-	return shell.RunStderr(exec.Command("btrfs", "subvolume", "create", FilePath(name)))
-}
-
-func subvolumeDelete(name string) error {
-	return shell.RunStderr(exec.Command("btrfs", "subvolume", "delete", FilePath(name)))
-}
-
-func subvolumeDeleteAll(name string) error {
-	subvolumeExists, err := FileExists(name)
-	if err != nil {
-		return err
-	}
-	if subvolumeExists {
-		return subvolumeDelete(name)
-	} else {
-		return nil
-	}
-}
-
-func snapshot(volume string, dest string, readonly bool) error {
-	if readonly {
-		return shell.RunStderr(exec.Command("btrfs", "subvolume", "snapshot", "-r",
-			FilePath(volume), FilePath(dest)))
-	} else {
-		return shell.RunStderr(exec.Command("btrfs", "subvolume", "snapshot",
-			FilePath(volume), FilePath(dest)))
-	}
-}
-
 // IsCommit returns true if the volume is a commit and false if it's a branch.
 func IsCommit(name string) (bool, error) {
 	var res bool
@@ -392,77 +347,6 @@ func GetMeta(name, key string) string {
 		return ""
 	}
 	return string(value)
-}
-
-// send produces and binary diff stream and passes it to cont
-func send(repo, commit string, cont func(io.Reader) error) error {
-	parent := GetMeta(path.Join(repo, commit), "parent")
-	if parent == "" {
-		return shell.CallCont(exec.Command("btrfs", "send", FilePath(path.Join(repo, commit))), cont)
-	} else {
-		return shell.CallCont(exec.Command("btrfs", "send", "-p",
-			FilePath(path.Join(repo, parent)), FilePath(path.Join(repo, commit))), cont)
-	}
-}
-
-// createNewBranch gets called after a new commit has been `Recv`ed it creates
-// the branch that should be pointing to the newly made commit.
-func createNewBranch(repo string) error {
-	err := Commits(repo, "", Desc, func(name string) error {
-		branch := GetMeta(path.Join(repo, name), "branch")
-		err := subvolumeDeleteAll(path.Join(repo, branch))
-		if err != nil {
-			return err
-		}
-		err = Branch(repo, name, branch)
-		if err != nil {
-			return err
-		}
-		return ErrComplete
-	})
-	if err != nil && err != ErrComplete {
-		return err
-	}
-	return nil
-}
-
-// recv reads a binary stream from data and applies it to `repo`
-func recv(repo string, data io.Reader) error {
-	c := exec.Command("btrfs", "receive", FilePath(repo))
-	_, callerFile, callerLine, _ := runtime.Caller(0)
-	log.Printf("%15s:%.3d -> %s", path.Base(callerFile), callerLine, strings.Join(c.Args, " "))
-	stdin, err := c.StdinPipe()
-	if err != nil {
-		return err
-	}
-	stderr, err := c.StderrPipe()
-	if err != nil {
-		return err
-	}
-	err = c.Start()
-	if err != nil {
-		return err
-	}
-	n, err := io.Copy(stdin, data)
-	if err != nil {
-		return err
-	}
-	log.Print("Copied bytes:", n)
-	err = stdin.Close()
-	if err != nil {
-		return err
-	}
-
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(stderr)
-	log.Print("Stderr:", buf)
-
-	err = c.Wait()
-	if err != nil {
-		return err
-	}
-	createNewBranch(repo)
-	return nil
 }
 
 // Init initializes an empty repo.
@@ -613,11 +497,6 @@ func _log(repo, from string, order int, cont func(io.Reader) error) error {
 	}
 }
 
-// TODO(jd) get rid of this shit.
-type CommitInfo struct {
-	gen, id, parent, Path string
-}
-
 // Commits is a wrapper around `Log` which parses the output in to a convenient
 // struct
 func Commits(repo, from string, order int, cont func(string) error) error {
@@ -711,37 +590,6 @@ func Pull(repo, from string, cb Pusher) error {
 	return nil
 }
 
-// transid returns transid of a path in a repo. This function is used in
-// several other internal functions.
-func transid(repo, commit string) (string, error) {
-	//  "9223372036854775810" == 2 ** 63 we use a very big number there so that
-	//  we get the transid of the from path. According to the internet this is
-	//  the nicest way to get it from btrfs.
-	var transid string
-	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), "9223372036854775808")
-	err := shell.CallCont(c, func(r io.Reader) error {
-		scanner := bufio.NewScanner(r)
-		for scanner.Scan() {
-			// scanner.Text() looks like this:
-			// transid marker was 907
-			// 0       1      2   3
-			tokens := strings.Split(scanner.Text(), " ")
-			if len(tokens) != 4 {
-				return fmt.Errorf("Failed to parse find-new output.")
-			}
-			// We want to increment the transid because it's inclusive, if we
-			// don't increment we'll get things from the previous commit as
-			// well.
-			transid = tokens[3]
-		}
-		return scanner.Err()
-	})
-	if err != nil {
-		return "", err
-	}
-	return transid, err
-}
-
 // FindNew returns an array of filenames that were created or modified between `from` and `to`
 func FindNew(repo, from, to string) ([]string, error) {
 	var files []string
@@ -811,4 +659,151 @@ func randSeq(n int) string {
 		b[i] = letters[rand.Intn(len(letters))]
 	}
 	return string(b)
+}
+
+// largestExistingPath takes a path and trims it until it gets something that
+// exists
+func largestExistingPath(name string) (string, error) {
+	for {
+		exists, err := FileExists(name)
+		if err != nil {
+			return "", err
+		}
+		if exists {
+			return name, nil
+		}
+		name = path.Dir(name)
+	}
+}
+
+// transid returns transid of a path in a repo. This function is used in
+// several other internal functions.
+func transid(repo, commit string) (string, error) {
+	//  "9223372036854775810" == 2 ** 63 we use a very big number there so that
+	//  we get the transid of the from path. According to the internet this is
+	//  the nicest way to get it from btrfs.
+	var transid string
+	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), "9223372036854775808")
+	err := shell.CallCont(c, func(r io.Reader) error {
+		scanner := bufio.NewScanner(r)
+		for scanner.Scan() {
+			// scanner.Text() looks like this:
+			// transid marker was 907
+			// 0       1      2   3
+			tokens := strings.Split(scanner.Text(), " ")
+			if len(tokens) != 4 {
+				return fmt.Errorf("Failed to parse find-new output.")
+			}
+			// We want to increment the transid because it's inclusive, if we
+			// don't increment we'll get things from the previous commit as
+			// well.
+			transid = tokens[3]
+		}
+		return scanner.Err()
+	})
+	if err != nil {
+		return "", err
+	}
+	return transid, err
+}
+
+// recv reads a binary stream from data and applies it to `repo`
+func recv(repo string, data io.Reader) error {
+	c := exec.Command("btrfs", "receive", FilePath(repo))
+	_, callerFile, callerLine, _ := runtime.Caller(0)
+	log.Printf("%15s:%.3d -> %s", path.Base(callerFile), callerLine, strings.Join(c.Args, " "))
+	stdin, err := c.StdinPipe()
+	if err != nil {
+		return err
+	}
+	stderr, err := c.StderrPipe()
+	if err != nil {
+		return err
+	}
+	err = c.Start()
+	if err != nil {
+		return err
+	}
+	n, err := io.Copy(stdin, data)
+	if err != nil {
+		return err
+	}
+	log.Print("Copied bytes:", n)
+	err = stdin.Close()
+	if err != nil {
+		return err
+	}
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(stderr)
+	log.Print("Stderr:", buf)
+
+	err = c.Wait()
+	if err != nil {
+		return err
+	}
+	createNewBranch(repo)
+	return nil
+}
+
+// send produces and binary diff stream and passes it to cont
+func send(repo, commit string, cont func(io.Reader) error) error {
+	parent := GetMeta(path.Join(repo, commit), "parent")
+	if parent == "" {
+		return shell.CallCont(exec.Command("btrfs", "send", FilePath(path.Join(repo, commit))), cont)
+	} else {
+		return shell.CallCont(exec.Command("btrfs", "send", "-p",
+			FilePath(path.Join(repo, parent)), FilePath(path.Join(repo, commit))), cont)
+	}
+}
+
+// createNewBranch gets called after a new commit has been `Recv`ed it creates
+// the branch that should be pointing to the newly made commit.
+func createNewBranch(repo string) error {
+	err := Commits(repo, "", Desc, func(name string) error {
+		branch := GetMeta(path.Join(repo, name), "branch")
+		err := subvolumeDeleteAll(path.Join(repo, branch))
+		if err != nil {
+			return err
+		}
+		err = Branch(repo, name, branch)
+		if err != nil {
+			return err
+		}
+		return ErrComplete
+	})
+	if err != nil && err != ErrComplete {
+		return err
+	}
+	return nil
+}
+
+func subvolumeCreate(name string) error {
+	return shell.RunStderr(exec.Command("btrfs", "subvolume", "create", FilePath(name)))
+}
+
+func subvolumeDelete(name string) error {
+	return shell.RunStderr(exec.Command("btrfs", "subvolume", "delete", FilePath(name)))
+}
+
+func subvolumeDeleteAll(name string) error {
+	subvolumeExists, err := FileExists(name)
+	if err != nil {
+		return err
+	}
+	if subvolumeExists {
+		return subvolumeDelete(name)
+	} else {
+		return nil
+	}
+}
+
+func snapshot(volume string, dest string, readonly bool) error {
+	if readonly {
+		return shell.RunStderr(exec.Command("btrfs", "subvolume", "snapshot", "-r",
+			FilePath(volume), FilePath(dest)))
+	} else {
+		return shell.RunStderr(exec.Command("btrfs", "subvolume", "snapshot",
+			FilePath(volume), FilePath(dest)))
+	}
 }
