@@ -9,4 +9,4 @@ cd "${DIR}"
 . "${DIR}/../etc/env/pfs.env"
 
 export PFS_DOCKER_OPTS="-d"
-${DIR}/run ${PFS_DEFAULT_CONTAINER_COMMAND}
+${DIR}/run /go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper /go/bin/shard 0-1 localhost

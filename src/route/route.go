@@ -47,15 +47,11 @@ func Match(resource, shardDesc string) (bool, error) {
 	return (HashResource(resource) % modulos) == shard, nil
 }
 
-func hashRequest(r *http.Request) uint64 {
-	return HashResource(r.URL.Path)
-}
-
-func Route(r *http.Request, etcdKey string, modulos uint64) (io.ReadCloser, error) {
+func Route(cache etcache.Cache, r *http.Request, etcdKey string, modulos uint64) (io.ReadCloser, error) {
 	bucket := hashRequest(r) % modulos
 	shard := fmt.Sprint(bucket, "-", fmt.Sprint(modulos))
 
-	_master, err := etcache.Get(path.Join(etcdKey, shard), false, false)
+	_master, err := cache.Get(path.Join(etcdKey, shard), false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +72,8 @@ func Route(r *http.Request, etcdKey string, modulos uint64) (io.ReadCloser, erro
 	return resp.Body, nil
 }
 
-func RouteHttp(w http.ResponseWriter, r *http.Request, etcdKey string, modulos uint64) {
-	reader, err := Route(r, etcdKey, modulos)
+func RouteHttp(cache etcache.Cache, w http.ResponseWriter, r *http.Request, etcdKey string, modulos uint64) {
+	reader, err := Route(cache, r, etcdKey, modulos)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -89,58 +85,12 @@ func RouteHttp(w http.ResponseWriter, r *http.Request, etcdKey string, modulos u
 	}
 }
 
-type multiReadCloser struct {
-	readers []io.ReadCloser
-}
-
-func (mr *multiReadCloser) Read(p []byte) (n int, err error) {
-	for len(mr.readers) > 0 {
-		n, err = mr.readers[0].Read(p)
-		if n > 0 || err != io.EOF {
-			if err == io.EOF {
-				// Don't return EOF yet. There may be more bytes
-				// in the remaining readers.
-				err = nil
-			}
-			return
-		}
-		err = mr.readers[0].Close()
-		if err != nil {
-			return
-		}
-		mr.readers = mr.readers[1:]
-	}
-	return 0, io.EOF
-}
-
-func (mr *multiReadCloser) Close() error {
-	for len(mr.readers) > 0 {
-		err := mr.readers[0].Close()
-		if err != nil {
-			return err
-		}
-		mr.readers = mr.readers[1:]
-	}
-	return nil
-}
-
-// MultiReadCloser returns a ReaderCloser that's the logical concatenation of
-// the provided input readers. They're read sequentially.  Once all inputs have
-// returned EOF, Read will return EOF. If any of the readers return a non-nil,
-// non-EOF error, Read will return that error.  MultiReadCloser closes all of
-// the input readers when it is closed. It also closes readers when they finish.
-func MultiReadCloser(readers ...io.ReadCloser) io.ReadCloser {
-	r := make([]io.ReadCloser, len(readers))
-	copy(r, readers)
-	return &multiReadCloser{r}
-}
-
 // Multicast enables the Ogre Magi to rapidly cast his spells, giving them
 // greater potency.
 // Multicast sends a request to every host it finds under a key and returns a
 // ReadCloser for each one.
-func Multicast(r *http.Request, etcdKey string) ([]*http.Response, error) {
-	_endpoints, err := etcache.Get(etcdKey, false, true)
+func Multicast(cache etcache.Cache, r *http.Request, etcdKey string) ([]*http.Response, error) {
+	_endpoints, err := cache.Get(etcdKey, false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -216,9 +166,9 @@ const (
 
 // MulticastHttp sends r to every host it finds under etcdKey, then prints the
 // response to w based on
-func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string, ret Return) {
+func MulticastHttp(cache etcache.Cache, w http.ResponseWriter, r *http.Request, etcdKey string, ret Return) {
 	// resps is guaranteed to be nonempty
-	resps, err := Multicast(r, etcdKey)
+	resps, err := Multicast(cache, r, etcdKey)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -272,4 +222,8 @@ func MulticastHttp(w http.ResponseWriter, r *http.Request, etcdKey string, ret R
 			}
 		}
 	}
+}
+
+func hashRequest(r *http.Request) uint64 {
+	return HashResource(r.URL.Path)
 }

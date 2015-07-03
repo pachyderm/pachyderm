@@ -17,6 +17,7 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/btrfs"
+	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/pachyderm/pachyderm/src/s3utils"
@@ -32,28 +33,35 @@ var (
 )
 
 type pipeline struct {
-	name            string
-	config          docker.CreateContainerOptions
-	inRepo, outRepo string
-	commit, branch  string
-	counter         int
-	container       string
-	cancelled       bool
-	shard           string
-	pipelineDir     string
+	name        string
+	config      docker.CreateContainerOptions
+	inRepo      string
+	outRepo     string
+	commit      string
+	branch      string
+	counter     int
+	container   string
+	cancelled   bool
+	shard       string
+	pipelineDir string
+	cache       etcache.Cache
 }
 
-func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir string) *pipeline {
+func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir string, cache etcache.Cache) *pipeline {
 	return &pipeline{
-		name:    name,
-		inRepo:  dataRepo,
-		outRepo: outRepo,
-		commit:  commit,
-		branch:  branch,
-		config: docker.CreateContainerOptions{Config: &DefaultConfig,
+		name,
+		docker.CreateContainerOptions{Config: &DefaultConfig,
 			HostConfig: &docker.HostConfig{}},
-		shard:       shard,
-		pipelineDir: pipelineDir,
+		dataRepo,
+		outRepo,
+		commit,
+		branch,
+		0,
+		"",
+		false,
+		shard,
+		pipelineDir,
+		cache,
 	}
 }
 
@@ -278,7 +286,7 @@ func (p *pipeline) shuffle(dir string) error {
 		return err
 	}
 	// Dispatch the request
-	resps, err := route.Multicast(req, "/pfs/master")
+	resps, err := route.Multicast(p.cache, req, "/pfs/master")
 	if err != nil {
 		return err
 	}
@@ -447,23 +455,28 @@ func (p *pipeline) runPachFile(r io.Reader) (retErr error) {
 }
 
 type Runner struct {
-	pipelineDir, inRepo, commit, branch string
-	outPrefix                           string // the prefix for out repos
-	shard                               string
-	pipelines                           []*pipeline
-	wait                                sync.WaitGroup
-	lock                                sync.Mutex // used to prevent races between `Run` and `Cancel`
-	cancelled                           bool
+	pipelineDir string
+	inRepo      string
+	commit      string
+	branch      string
+	outPrefix   string // the prefix for out repos
+	shard       string
+	pipelines   []*pipeline
+	wait        sync.WaitGroup
+	lock        sync.Mutex // used to prevent races between `Run` and `Cancel`
+	cancelled   bool
+	cache       etcache.Cache
 }
 
-func NewRunner(pipelineDir, inRepo, outPrefix, commit, branch, shard string) *Runner {
+func NewRunner(pipelineDir string, inRepo string, outPrefix string, commit string, branch string, shard string, cache etcache.Cache) *Runner {
 	return &Runner{
 		pipelineDir: pipelineDir,
 		inRepo:      inRepo,
-		outPrefix:   outPrefix,
 		commit:      commit,
 		branch:      branch,
+		outPrefix:   outPrefix,
 		shard:       shard,
+		cache:       cache,
 	}
 }
 
@@ -539,7 +552,7 @@ func (r *Runner) Run() error {
 		if err != nil {
 			return err
 		}
-		p := newPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard, r.outPrefix)
+		p := newPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard, r.outPrefix, r.cache)
 		r.pipelines = append(r.pipelines, p)
 		go func(pInfo os.FileInfo, p *pipeline) {
 			defer r.wait.Done()
@@ -572,8 +585,8 @@ func (r *Runner) Run() error {
 }
 
 // RunPipelines lets you easily run the Pipelines in one line if you don't care about cancelling them.
-func RunPipelines(pipelineDir, inRepo, outRepo, commit, branch, shard string) error {
-	return NewRunner(pipelineDir, inRepo, outRepo, commit, branch, shard).Run()
+func RunPipelines(pipelineDir string, inRepo string, outRepo string, commit string, branch string, shard string, cache etcache.Cache) error {
+	return NewRunner(pipelineDir, inRepo, outRepo, commit, branch, shard, cache).Run()
 }
 
 func (r *Runner) Cancel() error {
@@ -674,7 +687,7 @@ func (r *Runner) startInputPipelines() error {
 		if err != nil {
 			return err
 		}
-		p := newPipeline(trimmed, r.inRepo, path.Join(r.outPrefix, trimmed), r.commit, r.branch, r.shard, r.outPrefix)
+		p := newPipeline(trimmed, r.inRepo, path.Join(r.outPrefix, trimmed), r.commit, r.branch, r.shard, r.outPrefix, r.cache)
 		r.pipelines = append(r.pipelines, p)
 		r.wait.Add(1)
 		go func(input string, p *pipeline) {

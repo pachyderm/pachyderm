@@ -7,14 +7,14 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/btrfs"
+	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/stretchr/testify/require"
 )
 
 // TestOutput tests a simple job that outputs some data.
 func TestOutput(t *testing.T) {
-	outRepo := "TestOuput"
-	require.NoError(t, btrfs.Init(outRepo))
-	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "")
+	t.Parallel()
+	pipeline := newTestPipeline(t, "output", "commit", "master", "0-1", true)
 	pachfile := `
 image ubuntu
 
@@ -26,23 +26,18 @@ run touch /out/bar
 	err := pipeline.runPachFile(strings.NewReader(pachfile))
 	require.NoError(t, err)
 
-	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
+	exists, err := btrfs.FileExists(path.Join(pipeline.outRepo, "commit-0", "foo"))
 	require.NoError(t, err)
-	if exists != true {
-		t.Fatal("File `foo` doesn't exist when it should.")
-	}
+	require.True(t, exists, "File `foo` doesn't exist when it should.")
 
-	exists, err = btrfs.FileExists(path.Join(outRepo, "commit-1", "bar"))
+	exists, err = btrfs.FileExists(path.Join(pipeline.outRepo, "commit-1", "bar"))
 	require.NoError(t, err)
-	if exists != true {
-		t.Fatal("File `bar` doesn't exist when it should.")
-	}
+	require.True(t, exists, "File `bar` doesn't exist when it should.")
 }
 
 func TestEcho(t *testing.T) {
-	outRepo := "TestEcho"
-	require.NoError(t, btrfs.Init(outRepo))
-	pipeline := newPipeline("echo", "", outRepo, "commit", "master", "0-1", "")
+	t.Parallel()
+	pipeline := newTestPipeline(t, "echo", "commit", "master", "0-1", true)
 	pachfile := `
 image ubuntu
 
@@ -52,36 +47,27 @@ run echo foo >/out/bar
 	err := pipeline.runPachFile(strings.NewReader(pachfile))
 	require.NoError(t, err)
 
-	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
+	exists, err := btrfs.FileExists(path.Join(pipeline.outRepo, "commit-0", "foo"))
 	require.NoError(t, err)
-	if exists != true {
-		t.Fatal("File `foo` doesn't exist when it should.")
-	}
+	require.True(t, exists, "File `foo` doesn't exist when it should.")
 
-	exists, err = btrfs.FileExists(path.Join(outRepo, "commit-1", "bar"))
+	exists, err = btrfs.FileExists(path.Join(pipeline.outRepo, "commit-1", "bar"))
 	require.NoError(t, err)
-	if exists != true {
-		t.Fatal("File `bar` doesn't exist when it should.")
-	}
+	require.True(t, exists, "File `bar` doesn't exist when it should.")
 }
 
 func TestInputOutput(t *testing.T) {
+	t.Parallel()
 	// create the in repo
-	inRepo := "TestInputOutput_in"
-	require.NoError(t, btrfs.Init(inRepo))
+	pipeline := newTestPipeline(t, "inputOutput", "commit", "master", "0-1", true)
 
 	// add data to it
-	err := btrfs.WriteFile(path.Join(inRepo, "master", "data", "foo"), []byte("foo"))
+	err := btrfs.WriteFile(path.Join(pipeline.inRepo, "master", "data", "foo"), []byte("foo"))
 	require.NoError(t, err)
 
 	// commit data
-	err = btrfs.Commit(inRepo, "commit", "master")
+	err = btrfs.Commit(pipeline.inRepo, "commit", "master")
 	require.NoError(t, err)
-
-	outRepo := "TestInputOutput_out"
-	require.NoError(t, btrfs.Init(outRepo))
-
-	pipeline := newPipeline("input_output", inRepo, outRepo, "commit", "master", "0-1", "")
 
 	pachfile := `
 image ubuntu
@@ -93,19 +79,16 @@ run cp /in/data/foo /out/foo
 	err = pipeline.runPachFile(strings.NewReader(pachfile))
 	require.NoError(t, err)
 
-	exists, err := btrfs.FileExists(path.Join(outRepo, "commit-0", "foo"))
+	exists, err := btrfs.FileExists(path.Join(pipeline.outRepo, "commit-0", "foo"))
 	require.NoError(t, err)
-	if exists != true {
-		t.Fatal("File `foo` doesn't exist when it should.")
-	}
+	require.True(t, exists, "File `foo` doesn't exist when it should.")
 }
 
 // TODO(jd), this test is falsely passing I think that however we're getting
 // logs from Docker doesn't work.
 func TestLog(t *testing.T) {
-	outRepo := "TestLog"
-	require.NoError(t, btrfs.Init(outRepo))
-	pipeline := newPipeline("log", "", outRepo, "commit1", "master", "0-1", "")
+	t.Parallel()
+	pipeline := newTestPipeline(t, "log", "commit1", "master", "0-1", true)
 	pachfile := `
 image ubuntu
 
@@ -114,13 +97,11 @@ run echo "foo"
 	err := pipeline.runPachFile(strings.NewReader(pachfile))
 	require.NoError(t, err)
 
-	log, err := btrfs.ReadFile(path.Join(outRepo, "commit1-0", ".log"))
+	log, err := btrfs.ReadFile(path.Join(pipeline.outRepo, "commit1-0", ".log"))
 	require.NoError(t, err)
-	if string(log) != "foo\n" {
-		t.Fatal("Expect foo, got: ", string(log))
-	}
+	require.Equal(t, "foo\n", string(log))
 
-	pipeline = newPipeline("log", "", outRepo, "commit2", "master", "0-1", "")
+	pipeline = newTestPipeline(t, "log", "commit2", "master", "0-1", false)
 	pachfile = `
 image ubuntu
 
@@ -129,46 +110,41 @@ run echo "bar" >&2
 	err = pipeline.runPachFile(strings.NewReader(pachfile))
 	require.NoError(t, err)
 
-	log, err = btrfs.ReadFile(path.Join(outRepo, "commit2-0", ".log"))
+	log, err = btrfs.ReadFile(path.Join(pipeline.outRepo, "commit2-0", ".log"))
 	require.NoError(t, err)
-	if string(log) != "bar\n" {
-		t.Fatal("Expect bar, got: ", string(log))
-	}
+	require.Equal(t, "bar\n", string(log))
 }
 
 // TestScrape tests a the scraper pipeline
 func TestScrape(t *testing.T) {
-	inRepo := "TestScrape_in"
-	require.NoError(t, btrfs.Init(inRepo))
-	outRepo := "TestScrape_out"
-	require.NoError(t, btrfs.Init(outRepo))
+	// TODO(any): what?? wget is not found in the container if parallel is set
+	//t.Parallel()
+	pipeline := newTestPipeline(t, "scrape", "commit", "master", "0-1", true)
 
 	// Create a url to scrape
-	require.NoError(t, btrfs.WriteFile(path.Join(inRepo, "master", "urls", "1"), []byte("pachyderm.io")))
+	require.NoError(t, btrfs.WriteFile(path.Join(pipeline.inRepo, "master", "urls", "1"), []byte("pachyderm.io")))
 
 	// Commit the data
-	require.NoError(t, btrfs.Commit(inRepo, "commit", "master"))
+	require.NoError(t, btrfs.Commit(pipeline.inRepo, "commit", "master"))
 
 	// Create a pipeline to run
-	pipeline := newPipeline("scrape", inRepo, outRepo, "commit", "master", "0-1", "")
 	pachfile := `
-image busybox
+image pachyderm/scraper
 
 input urls
 
-run cat /in/urls/* | xargs  wget -P /out
+run cat /in/urls/* | xargs wget -P /out
 `
 	err := pipeline.runPachFile(strings.NewReader(pachfile))
 
-	exists, err := btrfs.FileExists(path.Join(outRepo, "commit", "index.html"))
+	exists, err := btrfs.FileExists(path.Join(pipeline.outRepo, "commit", "index.html"))
 	require.NoError(t, err)
-	if !exists {
-		t.Fatal("pachyderm.io should exists")
-	}
+	require.True(t, exists, "pachyderm.io should exist")
 }
 
 // TestPipelines runs a 2 step pipeline.
 func TestPipelines(t *testing.T) {
+	t.Parallel()
 	inRepo := "TestPipelines_in"
 	require.NoError(t, btrfs.Init(inRepo))
 	outPrefix := "TestPipelines_out"
@@ -187,17 +163,16 @@ run echo "foo"
 `)))
 	require.NoError(t, btrfs.Commit(inRepo, "commit", "master"))
 
-	require.NoError(t, RunPipelines("pipeline", inRepo, outPrefix, "commit", "master", "0-1"))
+	require.NoError(t, RunPipelines("pipeline", inRepo, outPrefix, "commit", "master", "0-1", etcache.NewCache()))
 
 	data, err := btrfs.ReadFile(path.Join(outPrefix, "cp", "commit", "foo"))
 	require.NoError(t, err)
-	if string(data) != "foo" {
-		t.Fatal("Incorrect file content.")
-	}
+	require.Equal(t, "foo", string(data))
 }
 
 // TestError makes sure that we handle commands that error correctly.
 func TestError(t *testing.T) {
+	t.Parallel()
 	inRepo := "TestError_in"
 	require.NoError(t, btrfs.Init(inRepo))
 	outPrefix := "TestError_out"
@@ -214,29 +189,24 @@ run cp /in/foo /out/bar
 	// Commit to the inRepo
 	require.NoError(t, btrfs.Commit(inRepo, "commit", "master"))
 
-	err := RunPipelines("pipeline", inRepo, outPrefix, "commit", "master", "0-1")
-	if err == nil {
-		t.Fatal("Running pipeline should error.")
-	}
+	err := RunPipelines("pipeline", inRepo, outPrefix, "commit", "master", "0-1", etcache.NewCache())
+	require.Error(t, err, "Running pipeline should error.")
 
 	// Check that foo exists
 	exists, err := btrfs.FileExists(path.Join(outPrefix, "error", "commit-0", "foo"))
 	require.NoError(t, err)
-	if !exists {
-		t.Fatal("File foo should exist.")
-	}
+	require.True(t, exists, "File foo should exist.")
 
 	// Check that commit doesn't exist
 	exists, err = btrfs.FileExists(path.Join(outPrefix, "error", "commit"))
 	require.NoError(t, err)
-	if exists {
-		t.Fatal("Commit \"commit\" should not get created when a command fails.")
-	}
+	require.False(t, exists, "Commit \"commit\" should not get created when a command fails.")
 }
 
 // TestRecover runs a pipeline with an error. Then fixes the pipeline to not
 // include an error and reruns it.
 func TestRecover(t *testing.T) {
+	t.Parallel()
 	inRepo := "TestRecover_in"
 	require.NoError(t, btrfs.Init(inRepo))
 	outPrefix := "TestRecover_out"
@@ -254,10 +224,8 @@ run touch /out/bar && cp /in/foo /out/bar
 	require.NoError(t, btrfs.Commit(inRepo, "commit1", "master"))
 
 	// Run the pipelines
-	err := RunPipelines("pipeline", inRepo, outPrefix, "commit1", "master", "0-1")
-	if err == nil {
-		t.Fatal("Running pipeline should error.")
-	}
+	err := RunPipelines("pipeline", inRepo, outPrefix, "commit1", "master", "0-1", etcache.NewCache())
+	require.Error(t, err, "Running pipeline should error.")
 
 	// Fix the Pachfile
 	require.NoError(t, btrfs.WriteFile(path.Join(inRepo, "master", "pipeline", "recover"), []byte(`
@@ -271,7 +239,7 @@ run touch /out/bar
 	require.NoError(t, btrfs.Commit(inRepo, "commit2", "master"))
 
 	// Run the pipelines
-	err = RunPipelines("pipeline", inRepo, outPrefix, "commit2", "master", "0-1")
+	err = RunPipelines("pipeline", inRepo, outPrefix, "commit2", "master", "0-1", etcache.NewCache())
 	// this time the pipelines should not err
 	require.NoError(t, err)
 
@@ -295,6 +263,7 @@ run touch /out/bar
 }
 
 func TestCancel(t *testing.T) {
+	t.Parallel()
 	inRepo := "TestCancel_in"
 	require.NoError(t, btrfs.Init(inRepo))
 	outPrefix := "TestCancel_out"
@@ -307,12 +276,10 @@ run sleep 100
 `)))
 	require.NoError(t, btrfs.Commit(inRepo, "commit", "master"))
 
-	r := NewRunner("pipeline", inRepo, outPrefix, "commit", "master", "0-1")
+	r := NewRunner("pipeline", inRepo, outPrefix, "commit", "master", "0-1", etcache.NewCache())
 	go func() {
 		err := r.Run()
-		if err != ErrCancelled {
-			t.Fatal("Should get `ErrCancelled` error.")
-		}
+		require.Equal(t, ErrCancelled, err)
 	}()
 
 	// This is just to make sure we don't trigger the early exit case in Run
@@ -323,9 +290,10 @@ run sleep 100
 
 // TestWrap tests a simple job that uses line wrapping in it's Pachfile
 func TestWrap(t *testing.T) {
-	outRepo := "TestWrap"
+	t.Parallel()
+	outRepo := "TestWrap_out"
 	require.NoError(t, btrfs.Init(outRepo))
-	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "")
+	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "", etcache.NewCache())
 	pachfile := `
 image ubuntu
 
@@ -338,19 +306,16 @@ run touch /out/foo \
 
 	exists, err := btrfs.FileExists(path.Join(outRepo, "commit", "foo"))
 	require.NoError(t, err)
-	if exists != true {
-		t.Fatal("File `foo` doesn't exist when it should.")
-	}
+	require.True(t, exists, "File `foo` doesn't exist when it should.")
 
 	exists, err = btrfs.FileExists(path.Join(outRepo, "commit", "bar"))
 	require.NoError(t, err)
-	if exists != true {
-		t.Fatal("File `bar` doesn't exist when it should.")
-	}
+	require.True(t, exists, "File `bar` doesn't exist when it should.")
 }
 
 func TestDependency(t *testing.T) {
-	inRepo := "TestDependencyin"
+	t.Parallel()
+	inRepo := "TestDependency_in"
 	require.NoError(t, btrfs.Init(inRepo))
 	p1 := `
 image ubuntu
@@ -369,18 +334,17 @@ run cp /in/p1/foo /out/foo
 	require.NoError(t, btrfs.Commit(inRepo, "commit", "master"))
 
 	outPrefix := "TestDependency"
-	runner := NewRunner("pipeline", inRepo, outPrefix, "commit", "master", "0-1")
+	runner := NewRunner("pipeline", inRepo, outPrefix, "commit", "master", "0-1", etcache.NewCache())
 	require.NoError(t, runner.Run())
 
 	res, err := btrfs.ReadFile(path.Join(outPrefix, "p2", "commit", "foo"))
 	require.NoError(t, err)
-	if string(res) != "foo\n" {
-		t.Fatal("Expected foo, got: ", string(res))
-	}
+	require.Equal(t, "foo\n", string(res))
 }
 
 func TestRunnerInputs(t *testing.T) {
-	inRepo := "TestRunnerInputsin"
+	t.Parallel()
+	inRepo := "TestRunnerInputs_in"
 	require.NoError(t, btrfs.Init(inRepo))
 	p1 := `
 image ubuntu
@@ -399,24 +363,45 @@ input buzz
 	require.NoError(t, btrfs.Commit(inRepo, "commit", "master"))
 
 	outPrefix := "TestRunnerInputs"
-	runner := NewRunner("pipeline", inRepo, outPrefix, "commit", "master", "0-1")
+	runner := NewRunner("pipeline", inRepo, outPrefix, "commit", "master", "0-1", etcache.NewCache())
 	inputs, err := runner.Inputs()
 	require.NoError(t, err)
-	if strings.Join(inputs, " ") != "foo bar fizz buzz" {
-		t.Fatal("Incorrect inputs: ", inputs, " expected: ", []string{"foo", "bar", "fizz", "buzz"})
-	}
+	require.Equal(t, []string{"foo", "bar", "fizz", "buzz"}, inputs)
 }
 
 // TestInject tests that s3 injections works
 func TestInject(t *testing.T) {
-	outRepo := "TestInject"
+	t.Parallel()
+	outRepo := "TestInject_out"
 	require.NoError(t, btrfs.Init(outRepo))
-	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "")
+	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "", etcache.NewCache())
 	require.NoError(t, pipeline.inject("s3://pachyderm-test/pipeline"))
 	require.NoError(t, pipeline.finish())
 	res, err := btrfs.ReadFile(path.Join(outRepo, "commit", "file"))
 	require.NoError(t, err)
-	if string(res) != "foo\n" {
-		t.Fatal("Expected foo, got: ", string(res))
+	require.Equal(t, "foo\n", string(res))
+}
+
+func newTestPipeline(
+	t *testing.T,
+	repoPrefix string,
+	commit string,
+	branch string,
+	shard string,
+	init bool,
+) *pipeline {
+	if init {
+		require.NoError(t, btrfs.Init(repoPrefix+"-in"))
+		require.NoError(t, btrfs.Init(repoPrefix+"-out"))
 	}
+	return newPipeline(
+		"pipeline",
+		repoPrefix+"-in",
+		repoPrefix+"-out",
+		commit,
+		branch,
+		shard,
+		"pipelineDir",
+		etcache.NewCache(),
+	)
 }

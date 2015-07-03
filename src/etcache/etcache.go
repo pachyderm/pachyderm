@@ -8,56 +8,85 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 )
 
-var cache map[string]*etcd.Response = make(map[string]*etcd.Response)
-var insertionTime map[string]time.Time = make(map[string]time.Time)
-var lock sync.RWMutex
+type Cache interface {
+	Get(key string, sort bool, recursive bool) (*etcd.Response, error)
+	ForceGet(key string, sort bool, recursive bool) (*etcd.Response, error)
+}
 
-func Get(key string, sort, recursive bool) (*etcd.Response, error) {
-	cacheKey := fmt.Sprint(key, "-", sort, "-", recursive)
-	// Notice this works because the default value is 0
-	if time.Since(insertionTime[cacheKey]) > (5 * time.Minute) {
-		return ForceGet(key, sort, recursive)
-	} else {
-		lock.RLock()
-		defer lock.RUnlock()
-		return cache[cacheKey], nil
+type TestCache interface {
+	Cache
+	SpoofOne(key string, value string)
+	SpoofMany(key string, values []string, sort bool)
+}
+
+func NewCache() Cache {
+	return NewTestCache()
+}
+
+func NewTestCache() TestCache {
+	return newTestCache()
+}
+
+type testCache struct {
+	keyToResponse      map[string]*etcd.Response
+	keyToInsertionTime map[string]time.Time
+	lock               *sync.RWMutex
+}
+
+func newTestCache() *testCache {
+	return &testCache{
+		make(map[string]*etcd.Response),
+		make(map[string]time.Time),
+		&sync.RWMutex{},
 	}
 }
 
-func ForceGet(key string, sort, recursive bool) (*etcd.Response, error) {
+func (c *testCache) Get(key string, sort, recursive bool) (*etcd.Response, error) {
+	cacheKey := fmt.Sprint(key, "-", sort, "-", recursive)
+	// Notice this works because the default value is 0
+	if time.Since(c.keyToInsertionTime[cacheKey]) > (5 * time.Minute) {
+		return c.ForceGet(key, sort, recursive)
+	} else {
+		c.lock.RLock()
+		defer c.lock.RUnlock()
+		return c.keyToResponse[cacheKey], nil
+	}
+}
+
+func (c *testCache) ForceGet(key string, sort, recursive bool) (*etcd.Response, error) {
 	cacheKey := fmt.Sprint(key, "-", sort, "-", recursive)
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
-	resp, err := client.Get(key, sort, recursive)
+	response, err := client.Get(key, sort, recursive)
 	if err != nil {
-		return resp, err
+		return response, err
 	}
-	lock.Lock()
-	defer lock.Unlock()
-	cache[cacheKey] = resp
-	insertionTime[cacheKey] = time.Now()
-	return resp, nil
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.keyToResponse[cacheKey] = response
+	c.keyToInsertionTime[cacheKey] = time.Now()
+	return response, nil
+}
+
+func (c *testCache) SpoofOne(key string, value string) {
+	response := &etcd.Response{Node: &etcd.Node{Key: key, Value: value}}
+	c.rawSpoof(key, false, false, response)
+}
+
+func (c *testCache) SpoofMany(key string, values []string, sort bool) {
+	var nodes []*etcd.Node
+	for _, value := range values {
+		nodes = append(nodes, &etcd.Node{Value: value})
+	}
+	response := &etcd.Response{Node: &etcd.Node{Key: key, Nodes: nodes}}
+	c.rawSpoof(key, sort, true, response)
 }
 
 // Spoof artificially sets a value for a key that will never expire.
 // This shouldn't be used outside of Tests.
-func rawSpoof(key string, sort, recursive bool, val *etcd.Response) {
-	lock.Lock()
-	defer lock.Unlock()
+func (c *testCache) rawSpoof(key string, sort bool, recursive bool, response *etcd.Response) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	cacheKey := fmt.Sprint(key, "-", sort, "-", recursive)
-	cache[cacheKey] = val
-	insertionTime[cacheKey] = time.Now().Add(time.Hour * 100)
-}
-
-func Spoof1(key, val string) {
-	resp := &etcd.Response{Node: &etcd.Node{Key: key, Value: val}}
-	rawSpoof(key, false, false, resp)
-}
-
-func SpoofMany(key string, vals []string, sort bool) {
-	var nodes []*etcd.Node
-	for _, val := range vals {
-		nodes = append(nodes, &etcd.Node{Value: val})
-	}
-	resp := &etcd.Response{Node: &etcd.Node{Key: key, Nodes: nodes}}
-	rawSpoof(key, sort, true, resp)
+	c.keyToResponse[cacheKey] = response
+	c.keyToInsertionTime[cacheKey] = time.Now().Add(time.Hour * 100)
 }

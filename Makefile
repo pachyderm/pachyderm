@@ -6,24 +6,26 @@
 	update-test-deps \
 	build \
 	install \
+	clean \
+	container-build \
+	container-clean \
+	container-shell \
+	container-launch \
 	lint \
 	vet \
 	errcheck \
 	pretest \
 	test \
 	test-short \
-	bench \
-	clean \
-	container-build \
-	container-shell \
-	container-launch \
-	container-test \
-	container-test-short \
-	container-clean
+	bench
 
 include etc/env/pfs.env
 
 BENCH_TIMEOUT = "20m"
+
+ifndef GOMAXPROCS
+GOMAXPROCS = 20
+endif
 
 all: test
 
@@ -48,30 +50,6 @@ build: deps
 install: deps
 	go install ./...
 
-lint:
-	go get -v github.com/golang/lint/golint
-	golint ./...
-
-vet:
-	#go get -v golang.org/x/tools/cmd/vet
-	go vet ./...
-
-errcheck:
-	errcheck ./...
-
-pretest: lint vet errcheck
-
-# TODO(pedge): add pretest when fixed
-test: test-deps
-	go test ./...
-
-# TODO(pedge): add pretest when fixed
-test-short: test-deps
-	go test -test.short ./...
-
-bench: test-deps
-	go test ./... -bench . -timeout $(BENCH_TIMEOUT)
-
 clean:
 	go clean -i ./...
 
@@ -87,9 +65,26 @@ container-shell: container-build
 container-launch: container-build container-clean
 	sudo -E bash -c 'bin/launch'
 
-container-test: container-build container-clean
-	sudo -E bash -c 'bin/run make test'
+lint:
+	go get -v github.com/golang/lint/golint
+	golint ./...
 
-container-test-short: container-build container-clean
-	sudo -E bash -c 'bin/run make test-short'
+vet:
+	go vet ./...
 
+errcheck:
+	errcheck ./...
+
+pretest: lint vet errcheck
+
+# TODO(pedge): add pretest when fixed
+test: container-build container-clean
+	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) ./...'
+
+# TODO(pedge): add pretest when fixed
+test-short: container-build container-clean
+	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) -test.short ./...'
+
+# TODO(pedge): add pretest when fixed
+bench: container-build container-clean
+	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) -bench . -timeout $(BENCH_TIMEOUT) ./...'

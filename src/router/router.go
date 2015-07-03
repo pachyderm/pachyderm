@@ -7,17 +7,20 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/satori/go.uuid"
 )
 
 type Router struct {
 	modulos uint64
+	cache   etcache.Cache
 }
 
-func NewRouter(modulos uint64) *Router {
+func NewRouter(modulos uint64, cache etcache.Cache) *Router {
 	return &Router{
-		modulos: modulos,
+		modulos,
+		cache,
 	}
 }
 
@@ -27,7 +30,7 @@ func RouterFromArgs() (*Router, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewRouter(modulos), nil
+	return NewRouter(modulos, etcache.NewCache()), nil
 }
 
 func (ro *Router) RouterMux() *http.ServeMux {
@@ -35,9 +38,9 @@ func (ro *Router) RouterMux() *http.ServeMux {
 
 	fileHandler := func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "*") {
-			route.MulticastHttp(w, r, "/pfs/master", route.ReturnAll)
+			route.MulticastHttp(ro.cache, w, r, "/pfs/master", route.ReturnAll)
 		} else {
-			route.RouteHttp(w, r, "/pfs/master", ro.modulos)
+			route.RouteHttp(ro.cache, w, r, "/pfs/master", ro.modulos)
 		}
 	}
 	commitHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -48,19 +51,19 @@ func (ro *Router) RouterMux() *http.ServeMux {
 				r.URL.RawQuery = values.Encode()
 			}
 		}
-		route.MulticastHttp(w, r, "/pfs/master", route.ReturnOne)
+		route.MulticastHttp(ro.cache, w, r, "/pfs/master", route.ReturnOne)
 	}
 	branchHandler := func(w http.ResponseWriter, r *http.Request) {
-		route.MulticastHttp(w, r, "/pfs/master", route.ReturnOne)
+		route.MulticastHttp(ro.cache, w, r, "/pfs/master", route.ReturnOne)
 	}
 	jobHandler := func(w http.ResponseWriter, r *http.Request) {
-		route.MulticastHttp(w, r, "/pfs/master", route.ReturnOne)
+		route.MulticastHttp(ro.cache, w, r, "/pfs/master", route.ReturnOne)
 	}
 	pipelineHandler := func(w http.ResponseWriter, r *http.Request) {
-		route.MulticastHttp(w, r, "/pfs/master", route.ReturnOne)
+		route.MulticastHttp(ro.cache, w, r, "/pfs/master", route.ReturnOne)
 	}
 	logHandler := func(w http.ResponseWriter, r *http.Request) {
-		route.MulticastHttp(w, r, "/pfs/master", route.ReturnAll)
+		route.MulticastHttp(ro.cache, w, r, "/pfs/master", route.ReturnAll)
 	}
 
 	mux.HandleFunc("/file/", fileHandler)

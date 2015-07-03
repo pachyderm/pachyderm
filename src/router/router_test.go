@@ -25,29 +25,30 @@ func (c Cluster) Close() {
 	}
 }
 
-func NewCluster(prefix string, shards int, t *testing.T) Cluster {
+func NewCluster(prefix string, shards int, testCache etcache.TestCache, t *testing.T) Cluster {
 	var res Cluster
 	for i := 0; i < shards; i++ {
 		repoStr := fmt.Sprintf("%s-%d-%d", prefix, i, shards)
 		s := shard.NewShard(repoStr+"-data", repoStr+"-comp",
-			repoStr+"-pipeline", uint64(i), uint64(shards))
+			repoStr+"-pipeline", uint64(i), uint64(shards), testCache)
 		if err := s.EnsureRepos(); err != nil {
 			t.Fatal(err)
 		}
 		server := httptest.NewServer(s.ShardMux())
 		res.shards = append(res.shards, server)
-		etcache.Spoof1(fmt.Sprintf("/pfs/master/%d-%d", i, shards), server.URL)
+		testCache.SpoofOne(fmt.Sprintf("/pfs/master/%d-%d", i, shards), server.URL)
 	}
 	var urls []string
 	for _, server := range res.shards {
 		urls = append(urls, server.URL)
 	}
-	etcache.SpoofMany("/pfs/master", urls, false)
-	res.router = httptest.NewServer(NewRouter(uint64(shards)).RouterMux())
+	testCache.SpoofMany("/pfs/master", urls, false)
+	res.router = httptest.NewServer(NewRouter(uint64(shards), testCache).RouterMux())
 	return res
 }
 
 func TestTwoShards(t *testing.T) {
+	t.Parallel()
 	maxCount := 5
 	if testing.Short() {
 		maxCount = 1
@@ -56,7 +57,7 @@ func TestTwoShards(t *testing.T) {
 	counter := 0
 	f := func(w traffic.Workload) bool {
 		defer func() { counter++ }()
-		cluster := NewCluster(fmt.Sprintf("TestTwoShards-%d", counter), 2, t)
+		cluster := NewCluster(fmt.Sprintf("TestTwoShards-%d", counter), 2, etcache.NewTestCache(), t)
 		defer cluster.Close()
 		// Run the workload
 		shard.RunWorkload(t, cluster.router.URL, w)
@@ -72,6 +73,7 @@ func TestTwoShards(t *testing.T) {
 }
 
 func TestWordCount(t *testing.T) {
+	t.Parallel()
 	maxCount := 2
 	if testing.Short() {
 		maxCount = 1
@@ -91,7 +93,7 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 	counter := 0
 	f := func(w traffic.Workload) bool {
 		defer func() { counter++ }()
-		cluster := NewCluster(fmt.Sprintf("TestWordCount-%d", counter), 4, t)
+		cluster := NewCluster(fmt.Sprintf("TestWordCount-%d", counter), 4, etcache.NewTestCache(), t)
 		defer cluster.Close()
 		// Run the workload
 		shard.RunWorkload(t, cluster.router.URL, w)

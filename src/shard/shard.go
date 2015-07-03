@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/btrfs"
+	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/pipeline"
 	"github.com/pachyderm/pachyderm/src/route"
@@ -30,6 +31,7 @@ type Shard struct {
 	shardStr           string
 	runners            map[string]*pipeline.Runner
 	guard              sync.Mutex
+	cache              etcache.Cache
 }
 
 func ShardFromArgs() (*Shard, error) {
@@ -46,10 +48,11 @@ func ShardFromArgs() (*Shard, error) {
 		modulos:        modulos,
 		shardStr:       os.Args[1],
 		runners:        make(map[string]*pipeline.Runner),
+		cache:          etcache.NewCache(),
 	}, nil
 }
 
-func NewShard(dataRepo, compRepo, pipelinePrefix string, shard, modulos uint64) *Shard {
+func NewShard(dataRepo, compRepo, pipelinePrefix string, shard, modulos uint64, cache etcache.Cache) *Shard {
 	return &Shard{
 		dataRepo:       dataRepo,
 		compRepo:       compRepo,
@@ -58,6 +61,7 @@ func NewShard(dataRepo, compRepo, pipelinePrefix string, shard, modulos uint64) 
 		modulos:        modulos,
 		shardStr:       fmt.Sprint(shard, "-", modulos),
 		runners:        make(map[string]*pipeline.Runner),
+		cache:          cache,
 	}
 }
 
@@ -144,7 +148,7 @@ func (s *Shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 		// and add the newRunner in.
 		s.guard.Lock()
 		oldRunner, ok := s.runners[branchParam(r)]
-		newRunner := pipeline.NewRunner("pipeline", s.dataRepo, s.pipelinePrefix, commit, branchParam(r), s.shardStr)
+		newRunner := pipeline.NewRunner("pipeline", s.dataRepo, s.pipelinePrefix, commit, branchParam(r), s.shardStr, s.cache)
 		s.runners[branchParam(r)] = newRunner
 		s.guard.Unlock()
 		go func() {

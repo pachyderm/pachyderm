@@ -54,6 +54,7 @@ func removeFile(name string, t *testing.T) {
 
 // TestOsOps checks that reading, writing, and deletion are correct on BTRFS.
 func TestOsOps(t *testing.T) {
+	t.Parallel()
 	writeFile("foo", "foo", t)
 	CheckFile("foo", "foo", t)
 	removeFile("foo", t)
@@ -62,6 +63,7 @@ func TestOsOps(t *testing.T) {
 
 // TestGit checks that the Git-style interface to BTRFS is correct.
 func TestGit(t *testing.T) {
+	t.Parallel()
 	srcRepo := "repo_TestGit"
 	// Create the repo:
 	check(Init(srcRepo), t)
@@ -98,6 +100,7 @@ func TestGit(t *testing.T) {
 }
 
 func TestNewRepoIsEmpty(t *testing.T) {
+	t.Parallel()
 	srcRepo := "repo_TestNewRepoIsEmpty"
 	check(Init(srcRepo), t)
 
@@ -111,6 +114,7 @@ func TestNewRepoIsEmpty(t *testing.T) {
 }
 
 func TestCommitsAreReadOnly(t *testing.T) {
+	t.Parallel()
 	srcRepo := "repo_TestCommitsAreReadOnly"
 	check(Init(srcRepo), t)
 
@@ -127,6 +131,7 @@ func TestCommitsAreReadOnly(t *testing.T) {
 }
 
 func TestBranchesAreReadWrite(t *testing.T) {
+	t.Parallel()
 	srcRepo := "repo_TestBranchesAreReadWrite"
 	check(Init(srcRepo), t)
 
@@ -145,11 +150,13 @@ func TestBranchesAreReadWrite(t *testing.T) {
 // Uses `Pull`
 // This is heavier and hairier, do it last.
 func TestReplication(t *testing.T) {
+	t.Parallel()
 	t.Skip("implement this")
 }
 
 // TestSendRecv checks the Send and Recv replication primitives.
 func TestSendRecv(t *testing.T) {
+	t.Parallel()
 	// Create a source repo:
 	srcRepo := "repo_TestSendRecv_src"
 	check(Init(srcRepo), t)
@@ -204,6 +211,7 @@ func TestSendRecv(t *testing.T) {
 // TestBranchesAreNotReplicated // this is a known property, but not desirable long term
 // TestCommitsAreReplicated // Uses Send and Recv
 func TestCommitsAreReplicated(t *testing.T) {
+	t.Parallel()
 	// Create a source repo:
 	srcRepo := "repo_TestCommitsAreReplicated_src"
 	check(Init(srcRepo), t)
@@ -272,6 +280,7 @@ func TestCommitsAreReplicated(t *testing.T) {
 
 // TestSendWithMissingIntermediateCommitIsCorrect(?) // ? means we don't know what the behavior is.
 func TestSendWithMissingIntermediateCommitIsCorrect(t *testing.T) {
+	t.Parallel()
 	//FIXME: https://github.com/pachyderm/pachyderm/issues/60
 	t.Skip("Removing commits currently breaks replication, this is ok for now because users can't remove commits.")
 	// Create a source repo:
@@ -316,6 +325,7 @@ func TestSendWithMissingIntermediateCommitIsCorrect(t *testing.T) {
 
 // TestBranchesAreNotImplicitlyReplicated // this is a known property, but not desirable long term
 func TestBranchesAreNotImplicitlyReplicated(t *testing.T) {
+	t.Parallel()
 	// Create a source repo:
 	srcRepo := "repo_TestBranchesAreNotImplicitlyReplicated_src"
 	check(Init(srcRepo), t)
@@ -344,6 +354,7 @@ func TestBranchesAreNotImplicitlyReplicated(t *testing.T) {
 }
 
 func TestS3Replica(t *testing.T) {
+	t.Parallel()
 	t.Skip("This test is periodically failing to reach s3.")
 	// Create a source repo:
 	srcRepo := "repo_TestS3Replica_src"
@@ -409,6 +420,7 @@ func TestS3Replica(t *testing.T) {
 
 // TestFindNew, which is basically like `git diff`. Corresponds to `find-new` in btrfs.
 func TestFindNew(t *testing.T) {
+	t.Parallel()
 	repoName := "repo_TestFindNew"
 	check(Init(repoName), t)
 
@@ -449,6 +461,7 @@ func TestFindNew(t *testing.T) {
 }
 
 func TestFilenamesWithSpaces(t *testing.T) {
+	t.Parallel()
 	repoName := "repo_TestFilenamesWithSpaces"
 	check(Init(repoName), t)
 
@@ -458,6 +471,7 @@ func TestFilenamesWithSpaces(t *testing.T) {
 }
 
 func TestFilenamesWithSlashesFail(t *testing.T) {
+	t.Parallel()
 	repoName := "repo_TestFilenamesWithSlashesFail"
 	check(Init(repoName), t)
 
@@ -469,6 +483,7 @@ func TestFilenamesWithSlashesFail(t *testing.T) {
 }
 
 func TestTwoSources(t *testing.T) {
+	t.Parallel()
 	src1 := "repo_TestTwoSources_src1"
 	check(Init(src1), t)
 	src2 := "repo_TestTwoSources_src2"
@@ -494,6 +509,7 @@ func TestTwoSources(t *testing.T) {
 }
 
 func TestWaitFile(t *testing.T) {
+	t.Parallel()
 	src := "repo_TestWaitFile"
 	check(Init(src), t)
 	complete := make(chan struct{})
@@ -512,6 +528,7 @@ func TestWaitFile(t *testing.T) {
 }
 
 func TestCancelWaitFile(t *testing.T) {
+	t.Parallel()
 	src := "repo_TestCancelWaitFile"
 	check(Init(src), t)
 	complete := make(chan struct{})
@@ -534,6 +551,7 @@ func TestCancelWaitFile(t *testing.T) {
 }
 
 func TestWaitAnyFile(t *testing.T) {
+	t.Parallel()
 	src := "repo_TestWaitAnyFile"
 	check(Init(src), t)
 	complete := make(chan struct{})

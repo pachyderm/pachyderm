@@ -142,7 +142,8 @@ func (w Workload) Generate(rand *rand.Rand, size int) reflect.Value {
 	branches := []string{"master"}
 	commits := []string{}
 	var i int
-	for i = 0; i < size*2; i++ {
+	// TODO(pedge): something cleaner than dividing by 2
+	for i = 0; i < size/2; i++ {
 		o := Op{RW: W, Object: randObject(rand)}
 		switch o.Object {
 		case File:
