@@ -15,15 +15,15 @@ import (
 	"github.com/pachyderm/pachyderm/src/log"
 )
 
-type ShardReplica struct {
+type shardReplica struct {
 	url string
 }
 
-func NewShardReplica(url string) ShardReplica {
-	return ShardReplica{url: url}
+func NewShardReplica(url string) btrfs.Replica {
+	return &shardReplica{url}
 }
 
-func (r ShardReplica) Push(diff io.Reader) error {
+func (r *shardReplica) Push(diff io.Reader) error {
 	resp, err := http.Post(r.url+"/commit", "application/octet-stream", diff)
 	if err != nil {
 		return err
@@ -35,7 +35,7 @@ func (r ShardReplica) Push(diff io.Reader) error {
 	return nil
 }
 
-func (r ShardReplica) Pull(from string, cb btrfs.Pusher) error {
+func (r *shardReplica) Pull(from string, cb btrfs.Pusher) error {
 	resp, err := http.Get(fmt.Sprintf("%s/pull?from=%s", r.url, from))
 	if err != nil {
 		return err
@@ -45,19 +45,38 @@ func (r ShardReplica) Pull(from string, cb btrfs.Pusher) error {
 		return fmt.Errorf("Response with status: %s", resp.Status)
 	}
 	defer resp.Body.Close()
-	m := NewMultiPartPuller(multipart.NewReader(resp.Body, resp.Header.Get("Boundary")))
+	m := NewMultipartPuller(multipart.NewReader(resp.Body, resp.Header.Get("Boundary")))
 	return m.Pull(from, cb)
 }
 
-type MultipartReplica struct {
+func (r *shardReplica) From() (string, error) {
+	resp, err := http.Get(fmt.Sprintf("%s/commit", r.url))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	decoder := json.NewDecoder(resp.Body)
+	var commit CommitMsg
+	err = decoder.Decode(&commit)
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+	return commit.Name, nil
+}
+
+type multipartPusher struct {
 	w *multipart.Writer
 }
 
-func NewMultipartReplica(w *multipart.Writer) MultipartReplica {
-	return MultipartReplica{w: w}
+func NewMultipartPusher(w *multipart.Writer) btrfs.Pusher {
+	return &multipartPusher{w}
 }
 
-func (m MultipartReplica) Push(diff io.Reader) error {
+func (m *multipartPusher) From() (string, error) {
+	return "", nil
+}
+
+func (m *multipartPusher) Push(diff io.Reader) error {
 	h := make(textproto.MIMEHeader)
 	w, err := m.w.CreatePart(h)
 	if err != nil {
@@ -70,15 +89,15 @@ func (m MultipartReplica) Push(diff io.Reader) error {
 	return nil
 }
 
-type MultiPartPuller struct {
+type multipartPuller struct {
 	r *multipart.Reader
 }
 
-func NewMultiPartPuller(r *multipart.Reader) MultiPartPuller {
-	return MultiPartPuller{r: r}
+func NewMultipartPuller(r *multipart.Reader) btrfs.Puller {
+	return &multipartPuller{r}
 }
 
-func (m MultiPartPuller) Pull(from string, cb btrfs.Pusher) error {
+func (m *multipartPuller) Pull(from string, cb btrfs.Pusher) error {
 	for {
 		part, err := m.r.NextPart()
 		if err == io.EOF {
@@ -93,23 +112,6 @@ func (m MultiPartPuller) Pull(from string, cb btrfs.Pusher) error {
 		}
 	}
 	return nil
-}
-
-// getFrom is a convenience function to ask a shard what value it would like
-// you to use for `from` when pushing to it.
-func getFrom(url string) (string, error) {
-	resp, err := http.Get(fmt.Sprintf("%s/commit", url))
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	decoder := json.NewDecoder(resp.Body)
-	var commit CommitMsg
-	err = decoder.Decode(&commit)
-	if err != nil && err != io.EOF {
-		return "", err
-	}
-	return commit.Name, nil
 }
 
 // SyncTo syncs the contents in p to all of the shards in urls
@@ -128,11 +130,11 @@ func SyncTo(dataRepo string, urls []string) error {
 		wg.Add(1)
 		go func(url string) {
 			defer wg.Done()
-			from, err := getFrom(url)
+			sr := NewShardReplica(url)
+			from, err := sr.From()
 			if err != nil {
 				addErr(err)
 			}
-			sr := NewShardReplica(url)
 			err = lr.Pull(from, sr)
 			if err != nil {
 				addErr(err)
@@ -165,12 +167,11 @@ func SyncFrom(dataRepo string, urls []string) error {
 }
 
 func syncFromUrl(dataRepo string, url string) error {
-	// First we need to figure out what value to use for `from`
-	from, err := btrfs.GetFrom(dataRepo)
+	sr := NewShardReplica(url)
+	lr := btrfs.NewLocalReplica(dataRepo)
+	from, err := lr.From()
 	if err != nil {
 		return err
 	}
-	sr := NewShardReplica(url)
-	lr := btrfs.NewLocalReplica(dataRepo)
 	return sr.Pull(from, lr)
 }

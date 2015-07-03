@@ -242,11 +242,10 @@ func (s *Shard) pullHandler(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	mpw := multipart.NewWriter(w)
 	defer mpw.Close()
-	cb := NewMultipartReplica(mpw)
+	cb := NewMultipartPusher(mpw)
 	w.Header().Add("Boundary", mpw.Boundary())
 	localReplica := btrfs.NewLocalReplica(s.dataRepo)
-	err := localReplica.Pull(from, cb)
-	if err != nil {
+	if err := localReplica.Pull(from, cb); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
