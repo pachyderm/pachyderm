@@ -2,7 +2,6 @@ package btrfs
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -12,7 +11,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -705,77 +703,6 @@ func transid(repo, commit string) (string, error) {
 		return "", err
 	}
 	return transid, err
-}
-
-// recv reads a binary stream from data and applies it to `repo`
-func recv(repo string, data io.Reader) error {
-	c := exec.Command("btrfs", "receive", FilePath(repo))
-	_, callerFile, callerLine, _ := runtime.Caller(0)
-	log.Printf("%15s:%.3d -> %s", path.Base(callerFile), callerLine, strings.Join(c.Args, " "))
-	stdin, err := c.StdinPipe()
-	if err != nil {
-		return err
-	}
-	stderr, err := c.StderrPipe()
-	if err != nil {
-		return err
-	}
-	err = c.Start()
-	if err != nil {
-		return err
-	}
-	n, err := io.Copy(stdin, data)
-	if err != nil {
-		return err
-	}
-	log.Print("Copied bytes:", n)
-	err = stdin.Close()
-	if err != nil {
-		return err
-	}
-
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(stderr)
-	log.Print("Stderr:", buf)
-
-	err = c.Wait()
-	if err != nil {
-		return err
-	}
-	createNewBranch(repo)
-	return nil
-}
-
-// send produces and binary diff stream and passes it to cont
-func send(repo, commit string, cont func(io.Reader) error) error {
-	parent := GetMeta(path.Join(repo, commit), "parent")
-	if parent == "" {
-		return shell.CallCont(exec.Command("btrfs", "send", FilePath(path.Join(repo, commit))), cont)
-	} else {
-		return shell.CallCont(exec.Command("btrfs", "send", "-p",
-			FilePath(path.Join(repo, parent)), FilePath(path.Join(repo, commit))), cont)
-	}
-}
-
-// createNewBranch gets called after a new commit has been `Recv`ed it creates
-// the branch that should be pointing to the newly made commit.
-func createNewBranch(repo string) error {
-	err := Commits(repo, "", Desc, func(name string) error {
-		branch := GetMeta(path.Join(repo, name), "branch")
-		err := subvolumeDeleteAll(path.Join(repo, branch))
-		if err != nil {
-			return err
-		}
-		err = Branch(repo, name, branch)
-		if err != nil {
-			return err
-		}
-		return ErrComplete
-	})
-	if err != nil && err != ErrComplete {
-		return err
-	}
-	return nil
 }
 
 func subvolumeCreate(name string) error {
