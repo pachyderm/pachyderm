@@ -15,9 +15,11 @@ import (
 )
 
 // Pusher is an interface that wraps the Push method.
-
-// Push applies diff to an underlying storage layer.
 type Pusher interface {
+	// From returns the last commit pushed.
+	// This value should be passed to Pull.
+	From() (string, error)
+	// Push applies diff to an underlying storage layer.
 	Push(diff io.Reader) error
 }
 
@@ -33,30 +35,50 @@ type Replica interface {
 	Puller
 }
 
-// A LocalReplica implements the Replica interface using a btrfs repo.
-type LocalReplica struct {
+// localReplica implements the Replica interface using a btrfs repo.
+type localReplica struct {
 	repo string
 }
 
-func (r LocalReplica) Push(diff io.Reader) error {
+func (r *localReplica) From() (string, error) {
+	from := ""
+	err := Commits(r.repo, "", Desc, func(name string) error {
+		isCommit, err := IsCommit(path.Join(r.repo, name))
+		if err != nil {
+			return err
+		}
+		if isCommit {
+			from = name
+			return ErrComplete
+		}
+		return nil
+	})
+	if err != nil && err != ErrComplete {
+		return "", err
+	}
+
+	return from, nil
+}
+
+func (r *localReplica) Push(diff io.Reader) error {
 	return recv(r.repo, diff)
 }
 
-func (r LocalReplica) Pull(from string, cb Pusher) error {
+func (r *localReplica) Pull(from string, cb Pusher) error {
 	return Pull(r.repo, from, cb)
 }
 
-func NewLocalReplica(repo string) *LocalReplica {
-	return &LocalReplica{repo: repo}
+func NewLocalReplica(repo string) Replica {
+	return &localReplica{repo}
 }
 
-// S3Replica implements the Replica interface using an s3 replica.
-type S3Replica struct {
+// s3Replica implements the Replica interface using an s3 replica.
+type s3Replica struct {
 	uri   string
 	count int // number of sent commits
 }
 
-func (r *S3Replica) Push(diff io.Reader) error {
+func (r *s3Replica) Push(diff io.Reader) error {
 	bucket, err := s3utils.NewBucket(r.uri)
 	if err != nil {
 		return err
@@ -72,7 +94,7 @@ func (r *S3Replica) Push(diff io.Reader) error {
 	return s3utils.PutMulti(bucket, path.Join(p, key), diff, "application/octet-stream", s3.BucketOwnerFull)
 }
 
-func (r *S3Replica) Pull(from string, target Pusher) error {
+func (r *s3Replica) Pull(from string, target Pusher) error {
 	bucket, err := s3utils.NewBucket(r.uri)
 	if err != nil {
 		return err
@@ -103,8 +125,17 @@ func (r *S3Replica) Pull(from string, target Pusher) error {
 	return nil
 }
 
-func NewS3Replica(uri string) *S3Replica {
-	return &S3Replica{uri: uri}
+func (r *s3Replica) From() (string, error) {
+	result := ""
+	err := s3utils.ForEachFile(r.uri, "", func(path string, modtime time.Time) error {
+		result = path
+		return nil
+	})
+	return result, err
+}
+
+func NewS3Replica(uri string) Replica {
+	return &s3Replica{uri, 0}
 }
 
 // send produces a binary diff stream and passes it to cont

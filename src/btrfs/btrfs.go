@@ -520,28 +520,6 @@ func Commits(repo, from string, order int, cont func(string) error) error {
 	})
 }
 
-// GetFrom returns the commit that this repo should pass to Pull to get itself up
-// to date.
-func GetFrom(repo string) (string, error) {
-	from := ""
-	err := Commits(repo, "", Desc, func(name string) error {
-		isCommit, err := IsCommit(path.Join(repo, name))
-		if err != nil {
-			return err
-		}
-		if isCommit {
-			from = name
-			return ErrComplete
-		}
-		return nil
-	})
-	if err != nil && err != ErrComplete {
-		return "", err
-	}
-
-	return from, nil
-}
-
 // Pull produces a binary diff stream from repo and passes it to cb
 func Pull(repo, from string, cb Pusher) error {
 	// First check that `from` is actually a valid commit
