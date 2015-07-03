@@ -18,7 +18,7 @@ import (
 
 	"github.com/go-fsnotify/fsnotify"
 	"github.com/pachyderm/pachyderm/src/log"
-	"github.com/pachyderm/pachyderm/src/shell"
+	"github.com/pachyderm/pachyderm/src/util"
 )
 
 var (
@@ -319,7 +319,7 @@ func IsCommit(name string) (bool, error) {
 	// "-t s" indicates to btrfs that this is a subvolume without the "-t s"
 	// btrfs will still output what we want, but it will have a nonzero return
 	// code
-	err := shell.CallCont(exec.Command("btrfs", "property", "get", "-t", "s", FilePath(name)),
+	err := util.CallCont(exec.Command("btrfs", "property", "get", "-t", "s", FilePath(name)),
 		func(r io.Reader) error {
 			scanner := bufio.NewScanner(r)
 			for scanner.Scan() {
@@ -484,14 +484,14 @@ func _log(repo, from string, order int, cont func(io.Reader) error) error {
 
 	if from == "" {
 		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", sort, FilePath(path.Join(repo)))
-		return shell.CallCont(c, cont)
+		return util.CallCont(c, cont)
 	} else {
 		t, err := transid(repo, from)
 		if err != nil {
 			return err
 		}
 		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-C", "+"+t, "--sort", sort, FilePath(path.Join(repo)))
-		return shell.CallCont(c, cont)
+		return util.CallCont(c, cont)
 	}
 }
 
@@ -574,7 +574,7 @@ func FindNew(repo, from, to string) ([]string, error) {
 		return files, err
 	}
 	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, to)), t)
-	err = shell.CallCont(c, func(r io.Reader) error {
+	err = util.CallCont(c, func(r io.Reader) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			log.Print(scanner.Text())
@@ -660,7 +660,7 @@ func transid(repo, commit string) (string, error) {
 	//  the nicest way to get it from btrfs.
 	var transid string
 	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), "9223372036854775808")
-	err := shell.CallCont(c, func(r io.Reader) error {
+	err := util.CallCont(c, func(r io.Reader) error {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			// scanner.Text() looks like this:
@@ -684,11 +684,11 @@ func transid(repo, commit string) (string, error) {
 }
 
 func subvolumeCreate(name string) error {
-	return shell.RunStderr(exec.Command("btrfs", "subvolume", "create", FilePath(name)))
+	return util.RunStderr(exec.Command("btrfs", "subvolume", "create", FilePath(name)))
 }
 
 func subvolumeDelete(name string) error {
-	return shell.RunStderr(exec.Command("btrfs", "subvolume", "delete", FilePath(name)))
+	return util.RunStderr(exec.Command("btrfs", "subvolume", "delete", FilePath(name)))
 }
 
 func subvolumeDeleteAll(name string) error {
@@ -705,10 +705,10 @@ func subvolumeDeleteAll(name string) error {
 
 func snapshot(volume string, dest string, readonly bool) error {
 	if readonly {
-		return shell.RunStderr(exec.Command("btrfs", "subvolume", "snapshot", "-r",
+		return util.RunStderr(exec.Command("btrfs", "subvolume", "snapshot", "-r",
 			FilePath(volume), FilePath(dest)))
 	} else {
-		return shell.RunStderr(exec.Command("btrfs", "subvolume", "snapshot",
+		return util.RunStderr(exec.Command("btrfs", "subvolume", "snapshot",
 			FilePath(volume), FilePath(dest)))
 	}
 }

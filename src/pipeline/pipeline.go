@@ -17,11 +17,10 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/btrfs"
-	"github.com/pachyderm/pachyderm/src/concurrency"
-	"github.com/pachyderm/pachyderm/src/container"
 	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/pachyderm/pachyderm/src/s3utils"
+	"github.com/pachyderm/pachyderm/src/util"
 )
 
 var (
@@ -51,7 +50,7 @@ func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir str
 		outRepo: outRepo,
 		commit:  commit,
 		branch:  branch,
-		config: docker.CreateContainerOptions{Config: &container.DefaultConfig,
+		config: docker.CreateContainerOptions{Config: &DefaultConfig,
 			HostConfig: &docker.HostConfig{}},
 		shard:       shard,
 		pipelineDir: pipelineDir,
@@ -166,7 +165,7 @@ func (p *pipeline) inject(name string) error {
 func (p *pipeline) image(image string) error {
 	p.config.Config.Image = image
 	// TODO(pedge): ensure images are on machine
-	err := container.PullImage(image)
+	err := PullImage(image)
 	if err != nil {
 		log.Print("assuming image is local and continuing")
 	}
@@ -214,11 +213,11 @@ func (p *pipeline) run(cmd []string) error {
 	// Make sure this bind is only visible for the duration of run
 	defer func() { p.config.HostConfig.Binds = p.config.HostConfig.Binds[:len(p.config.HostConfig.Binds)-1] }()
 	// Start the container
-	p.container, err = container.RawStartContainer(p.config)
+	p.container, err = RawStartContainer(p.config)
 	if err != nil {
 		return err
 	}
-	err = container.PipeToStdin(p.container, strings.NewReader(strings.Join(cmd, " ")+"\n"))
+	err = PipeToStdin(p.container, strings.NewReader(strings.Join(cmd, " ")+"\n"))
 	if err != nil {
 		return err
 	}
@@ -229,12 +228,12 @@ func (p *pipeline) run(cmd []string) error {
 	}
 	defer f.Close()
 	// Copy the logs from the container in to the file.
-	err = container.ContainerLogs(p.container, f)
+	err = ContainerLogs(p.container, f)
 	if err != nil {
 		return err
 	}
 	// Wait for the command to finish:
-	exit, err := container.WaitContainer(p.container)
+	exit, err := WaitContainer(p.container)
 	if err != nil {
 		return err
 	}
@@ -288,7 +287,7 @@ func (p *pipeline) shuffle(dir string) error {
 	errors := make(chan error, len(resps))
 	var wg sync.WaitGroup
 	wg.Add(len(resps))
-	lock := concurrency.NewPathLock()
+	lock := util.NewPathLock()
 	// for _, resp := range resps {
 	// We used to iterate like the above but it exhibited racy behavior. I
 	// don't fully understand why this was. Something to look in to.
@@ -356,7 +355,7 @@ func (p *pipeline) fail() error {
 // Cancel stops a pipeline by force before it's finished
 func (p *pipeline) cancel() error {
 	p.cancelled = true
-	err := container.StopContainer(p.container)
+	err := StopContainer(p.container)
 	if err != nil {
 		return err
 	}

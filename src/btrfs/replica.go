@@ -11,7 +11,7 @@ import (
 
 	"github.com/mitchellh/goamz/s3"
 	"github.com/pachyderm/pachyderm/src/s3utils"
-	"github.com/pachyderm/pachyderm/src/shell"
+	"github.com/pachyderm/pachyderm/src/util"
 )
 
 // Pusher is an interface that wraps the Push method.
@@ -142,9 +142,9 @@ func NewS3Replica(uri string) Replica {
 func send(repo, commit string, cont func(io.Reader) error) error {
 	parent := GetMeta(path.Join(repo, commit), "parent")
 	if parent == "" {
-		return shell.CallCont(exec.Command("btrfs", "send", FilePath(path.Join(repo, commit))), cont)
+		return util.CallCont(exec.Command("btrfs", "send", FilePath(path.Join(repo, commit))), cont)
 	} else {
-		return shell.CallCont(exec.Command("btrfs", "send", "-p",
+		return util.CallCont(exec.Command("btrfs", "send", "-p",
 			FilePath(path.Join(repo, parent)), FilePath(path.Join(repo, commit))), cont)
 	}
 }

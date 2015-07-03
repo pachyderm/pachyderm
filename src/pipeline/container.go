@@ -1,5 +1,4 @@
-// package container contains convenience functions for manipulating containers
-package container
+package pipeline
 
 import (
 	"errors"
