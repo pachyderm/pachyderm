@@ -203,7 +203,7 @@ func (s *shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					return err
 				}
-				err = encoder.Encode(CommitMsg{Name: fi.Name(), TStamp: fi.ModTime().Format("2006-01-02T15:04:05.999999-07:00")})
+				err = encoder.Encode(commitMsg{Name: fi.Name(), TStamp: fi.ModTime().Format("2006-01-02T15:04:05.999999-07:00")})
 				if err != nil {
 					return err
 				}
@@ -278,7 +278,7 @@ func (s *shard) branchHandler(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					return err
 				}
-				err = encoder.Encode(BranchMsg{Name: fi.Name(), TStamp: fi.ModTime().Format("2006-01-02T15:04:05.999999-07:00")})
+				err = encoder.Encode(branchMsg{Name: fi.Name(), TStamp: fi.ModTime().Format("2006-01-02T15:04:05.999999-07:00")})
 				if err != nil {
 					return err
 				}

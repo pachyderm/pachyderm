@@ -6,18 +6,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/etcache"
 )
 
-// json structures that shard will return in response to requests.
-
-type BranchMsg struct {
-	Name   string `json:"name"`
-	TStamp string `json:"tstamp"`
-}
-
-type CommitMsg struct {
-	Name   string `json:"name"`
-	TStamp string `json:"tstamp"`
-}
-
 type Shard interface {
 	EnsureRepos() error
 	Peers() ([]string, error)
