@@ -218,7 +218,7 @@ func (s *shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		err := btrfs.Commit(s.dataRepo, commit, branchParam(r))
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -248,7 +248,7 @@ func (s *shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 		// Commit being pushed via a diff
 		replica := btrfs.NewLocalReplica(s.dataRepo)
 		if err := replica.Push(r.Body); err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	} else {
@@ -287,7 +287,7 @@ func (s *shard) branchHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	} else if r.Method == "POST" {
 		if err := btrfs.Branch(s.dataRepo, commitParam(r), branchParam(r)); err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		fmt.Fprintf(w, "Created branch. (%s) -> %s.\n", commitParam(r), branchParam(r))
@@ -304,7 +304,7 @@ func (s *shard) pipelineHandler(w http.ResponseWriter, r *http.Request) {
 		// First wait for the commit to show up
 		err := pipeline.WaitPipeline(s.pipelinePrefix, url[2], commitParam(r))
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		// url looks like [, pipeline, <pipeline>, file, <file>]
@@ -328,7 +328,7 @@ func (s *shard) pullHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Boundary", mpw.Boundary())
 	localReplica := btrfs.NewLocalReplica(s.dataRepo)
 	if err := localReplica.Pull(from, cb); err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -345,7 +345,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		files, err := btrfs.Glob(file)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		switch len(files) {
@@ -361,7 +361,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 			for _, file := range files {
 				info, err := btrfs.Stat(file)
 				if err != nil {
-					http.Error(w, err.Error(), 500)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 				if info.IsDir() {
@@ -373,7 +373,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 					// We have a shard param, check if the file matches the shard.
 					match, err := route.Match(name, shardParam(r))
 					if err != nil {
-						http.Error(w, err.Error(), 500)
+						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
 					}
 					if !match {
@@ -382,12 +382,12 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 				}
 				fWriter, err := writer.CreateFormFile(name, name)
 				if err != nil {
-					http.Error(w, err.Error(), 500)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 				err = rawCat(fWriter, file)
 				if err != nil {
-					http.Error(w, err.Error(), 500)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 			}
@@ -396,7 +396,7 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 		btrfs.MkdirAll(path.Dir(file))
 		size, err := btrfs.CreateFromReader(file, r.Body)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
@@ -404,13 +404,13 @@ func genericFileHandler(fs string, w http.ResponseWriter, r *http.Request) {
 		btrfs.MkdirAll(path.Dir(file))
 		size, err := btrfs.CopyFile(file, r.Body)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		fmt.Fprintf(w, "Created %s, size: %d.\n", path.Join(url[fileStart:]...), size)
 	} else if r.Method == "DELETE" {
 		if err := btrfs.Remove(file); err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		fmt.Fprintf(w, "Deleted %s.\n", file)

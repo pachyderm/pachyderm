@@ -18,7 +18,18 @@ import (
 	"github.com/pachyderm/pachyderm/src/etcache"
 )
 
-var ErrNoHosts = errors.New("pfs: no hosts found")
+const (
+	// ReturnFirst returns only the first response
+	ReturnOne Return = iota
+	// ReturnAll returns all the responses
+	ReturnAll
+)
+
+var (
+	ErrNoHosts = errors.New("pfs: no hosts found")
+)
+
+type Return int
 
 func HashResource(resource string) uint64 {
 	return uint64(adler32.Checksum([]byte(resource)))
@@ -48,7 +59,7 @@ func Match(resource, shardDesc string) (bool, error) {
 }
 
 func Route(cache etcache.Cache, r *http.Request, etcdKey string, modulos uint64) (io.ReadCloser, error) {
-	bucket := hashRequest(r) % modulos
+	bucket := HashResource(r.URL.Path) % modulos
 	shard := fmt.Sprint(bucket, "-", fmt.Sprint(modulos))
 
 	_master, err := cache.Get(path.Join(etcdKey, shard), false, false)
@@ -75,12 +86,12 @@ func Route(cache etcache.Cache, r *http.Request, etcdKey string, modulos uint64)
 func RouteHttp(cache etcache.Cache, w http.ResponseWriter, r *http.Request, etcdKey string, modulos uint64) {
 	reader, err := Route(cache, r, etcdKey, modulos)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	_, err = io.Copy(w, reader)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -155,22 +166,13 @@ func Multicast(cache etcache.Cache, r *http.Request, etcdKey string) ([]*http.Re
 	return resps, nil
 }
 
-type Return int
-
-const (
-	// ReturnFirst returns only the first response
-	ReturnOne Return = iota
-	// ReturnAll returns all the responses
-	ReturnAll Return = iota
-)
-
 // MulticastHttp sends r to every host it finds under etcdKey, then prints the
 // response to w based on
 func MulticastHttp(cache etcache.Cache, w http.ResponseWriter, r *http.Request, etcdKey string, ret Return) {
 	// resps is guaranteed to be nonempty
 	resps, err := Multicast(cache, r, etcdKey)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer func() {
@@ -182,7 +184,7 @@ func MulticastHttp(cache etcache.Cache, w http.ResponseWriter, r *http.Request, 
 	case ReturnOne:
 		_, err = io.Copy(w, resps[0].Body)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		return
@@ -194,7 +196,7 @@ func MulticastHttp(cache etcache.Cache, w http.ResponseWriter, r *http.Request, 
 			for _, resp := range resps {
 				_, err = io.Copy(w, resp.Body)
 				if err != nil {
-					http.Error(w, err.Error(), 500)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
 				resp.Body.Close()
@@ -209,12 +211,12 @@ func MulticastHttp(cache etcache.Cache, w http.ResponseWriter, r *http.Request, 
 				for p, err := reader.NextPart(); err == nil; p, err = reader.NextPart() {
 					f, err := writer.CreateFormFile(p.FormName(), p.FileName())
 					if err != nil {
-						http.Error(w, err.Error(), 500)
+						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
 					}
 					_, err = io.Copy(f, p)
 					if err != nil {
-						http.Error(w, err.Error(), 500)
+						http.Error(w, err.Error(), http.StatusInternalServerError)
 						return
 					}
 				}
@@ -222,8 +224,4 @@ func MulticastHttp(cache etcache.Cache, w http.ResponseWriter, r *http.Request, 
 			}
 		}
 	}
-}
-
-func hashRequest(r *http.Request) uint64 {
-	return HashResource(r.URL.Path)
 }
