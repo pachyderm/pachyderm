@@ -46,5 +46,5 @@ func do() error {
 	cancel := make(chan bool)
 	defer close(cancel)
 	go shard.FillRole(cancel)
-	return http.ListenAndServe(":80", shard.ShardMux())
+	return http.ListenAndServe(":80", storage.NewShardMux(shard))
 }

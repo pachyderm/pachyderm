@@ -9,7 +9,9 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/coreos/go-etcd/etcd"
 	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/log"
@@ -22,44 +24,12 @@ const (
 	pipelineDir = "pipeline"
 )
 
-type Shard struct {
-	url                string
-	dataRepo, compRepo string
-	pipelinePrefix     string
-	shard, modulos     uint64
-	shardStr           string
-	runners            map[string]*pipeline.Runner
-	guard              *sync.Mutex
-	cache              etcache.Cache
-}
-
-func NewShard(url, dataRepo, compRepo, pipelinePrefix string, shard, modulos uint64, cache etcache.Cache) *Shard {
-	return &Shard{
-		url:            url,
-		dataRepo:       dataRepo,
-		compRepo:       compRepo,
-		pipelinePrefix: pipelinePrefix,
-		shard:          shard,
-		modulos:        modulos,
-		shardStr:       fmt.Sprint(shard, "-", modulos),
-		runners:        make(map[string]*pipeline.Runner),
-		guard:          &sync.Mutex{},
-		cache:          cache,
+func newShardMux(sIface Shard) *http.ServeMux {
+	// TODO(pedge): remove when refactor done
+	s, ok := sIface.(*shard)
+	if !ok {
+		panic("could not cast")
 	}
-}
-
-func (s *Shard) EnsureRepos() error {
-	if err := btrfs.Ensure(s.dataRepo); err != nil {
-		return err
-	}
-	if err := btrfs.Ensure(s.compRepo); err != nil {
-		return err
-	}
-	return nil
-}
-
-// ShardMux creates a multiplexer for a Shard writing to the passed in FS.
-func (s *Shard) ShardMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/branch", s.branchHandler)
@@ -72,8 +42,156 @@ func (s *Shard) ShardMux() *http.ServeMux {
 	return mux
 }
 
+type shard struct {
+	url                string
+	dataRepo, compRepo string
+	pipelinePrefix     string
+	shard, modulos     uint64
+	shardStr           string
+	runners            map[string]*pipeline.Runner
+	guard              *sync.Mutex
+	cache              etcache.Cache
+}
+
+func newShard(
+	url string,
+	dataRepo string,
+	compRepo string,
+	pipelinePrefix string,
+	shardNum uint64,
+	modulos uint64,
+	cache etcache.Cache,
+) *shard {
+	return &shard{
+		url,
+		dataRepo,
+		compRepo,
+		pipelinePrefix,
+		shardNum,
+		modulos,
+		fmt.Sprint(shardNum, "-", modulos),
+		make(map[string]*pipeline.Runner),
+		&sync.Mutex{},
+		cache,
+	}
+}
+
+func (s *shard) EnsureRepos() error {
+	if err := btrfs.Ensure(s.dataRepo); err != nil {
+		return err
+	}
+	if err := btrfs.Ensure(s.compRepo); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *shard) Peers() ([]string, error) {
+	var peers []string
+	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+	resp, err := client.Get(fmt.Sprintf("/pfs/replica/%d-%d", s.shard, s.modulos), false, true)
+	if err != nil {
+		return peers, err
+	}
+	for _, node := range resp.Node.Nodes {
+		if node.Value != s.url {
+			peers = append(peers, node.Value)
+		}
+	}
+	return peers, err
+}
+
+func (s *shard) SyncFromPeers() error {
+	peers, err := s.Peers()
+	if err != nil {
+		return err
+	}
+
+	err = SyncFrom(s.dataRepo, peers)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *shard) SyncToPeers() error {
+	peers, err := s.Peers()
+	if err != nil {
+		return err
+	}
+
+	err = SyncTo(s.dataRepo, peers)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// FillRole attempts to find a role in the cluster. Once on is found it
+// prepares the local storage for the role and announces the shard to the rest
+// of the cluster. This function will loop until `cancel` is closed.
+func (s *shard) FillRole(cancel chan bool) error {
+	shard := fmt.Sprintf("%d-%d", s.shard, s.modulos)
+	masterKey := path.Join("/pfs/master", shard)
+	replicaDir := path.Join("/pfs/replica", shard)
+
+	amMaster := false //true if we're master
+	replicaKey := ""
+	for {
+		client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+		// First we attempt to become the master for this shard
+		if !amMaster {
+			// We're not master, so we attempt to claim it, this will error if
+			// another shard is already master
+			backfillingKey := "[backfilling]" + s.url
+			if _, err := client.Create(masterKey, backfillingKey, 5*60); err == nil {
+				// no error means we succesfully claimed master
+				_ = s.SyncFromPeers()
+				// Attempt to finalize ourselves as master
+				_, _ = client.CompareAndSwap(masterKey, s.url, 60, backfillingKey, 0)
+				if err == nil {
+					// no error means that we succusfully announced ourselves as master
+					// Sync the new data we pulled to peers
+					go s.SyncToPeers()
+					//Record that we're master
+					amMaster = true
+				}
+			}
+		} else {
+			// We're already master, renew our lease
+			_, err := client.CompareAndSwap(masterKey, s.url, 60, s.url, 0)
+			if err != nil { // error means we failed to reclaim master
+				amMaster = false
+			}
+		}
+
+		// We didn't claim master, so we add ourselves as replica instead.
+		if replicaKey == "" {
+			if resp, err := client.CreateInOrder(replicaDir, s.url, 60); err == nil {
+				replicaKey = resp.Node.Key
+				// Get ourselves up to date
+				go s.SyncFromPeers()
+			}
+		} else {
+			_, err := client.CompareAndSwap(replicaKey, s.url, 60, s.url, 0)
+			if err != nil {
+				replicaKey = ""
+			}
+		}
+
+		select {
+		case <-time.After(time.Second * 45):
+			continue
+		case <-cancel:
+			break
+		}
+	}
+}
+
 // FileHandler is the core route for modifying the contents of the fileystem.
-func (s *Shard) fileHandler(w http.ResponseWriter, r *http.Request) {
+func (s *shard) fileHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" || r.Method == "DELETE" || r.Method == "PUT" {
 		genericFileHandler(path.Join(s.dataRepo, branchParam(r)), w, r)
 	} else if r.Method == "GET" {
@@ -84,7 +202,7 @@ func (s *Shard) fileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // CommitHandler creates a snapshot of outstanding changes.
-func (s *Shard) commitHandler(w http.ResponseWriter, r *http.Request) {
+func (s *shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, commit, <commit>, file, <file>]
 	if len(url) > 3 && url[3] == "file" {
@@ -159,7 +277,7 @@ func (s *Shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // BranchHandler creates a new branch from commit.
-func (s *Shard) branchHandler(w http.ResponseWriter, r *http.Request) {
+func (s *shard) branchHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	// url looks like [, commit, <commit>, file, <file>]
 	if len(url) > 3 && url[3] == "file" {
@@ -198,7 +316,7 @@ func (s *Shard) branchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Shard) pipelineHandler(w http.ResponseWriter, r *http.Request) {
+func (s *shard) pipelineHandler(w http.ResponseWriter, r *http.Request) {
 	url := strings.Split(r.URL.Path, "/")
 	if r.Method == "GET" && len(url) > 3 && url[3] == "file" {
 		// First wait for the commit to show up
@@ -220,7 +338,7 @@ func (s *Shard) pipelineHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Shard) pullHandler(w http.ResponseWriter, r *http.Request) {
+func (s *shard) pullHandler(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	mpw := multipart.NewWriter(w)
 	defer mpw.Close()

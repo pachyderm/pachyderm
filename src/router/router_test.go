@@ -34,7 +34,7 @@ func NewCluster(prefix string, shards int, testCache etcache.TestCache, t *testi
 		if err := s.EnsureRepos(); err != nil {
 			t.Fatal(err)
 		}
-		server := httptest.NewServer(s.ShardMux())
+		server := httptest.NewServer(storage.NewShardMux(s))
 		res.shards = append(res.shards, server)
 		testCache.SpoofOne(fmt.Sprintf("/pfs/master/%d-%d", i, shards), server.URL)
 	}
