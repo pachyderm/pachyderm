@@ -173,7 +173,7 @@ func (p *pipeline) inject(name string) error {
 func (p *pipeline) image(image string) error {
 	p.config.Config.Image = image
 	// TODO(pedge): ensure images are on machine
-	err := PullImage(image)
+	err := pullImage(image)
 	if err != nil {
 		log.Print("assuming image is local and continuing")
 	}
@@ -221,11 +221,11 @@ func (p *pipeline) run(cmd []string) error {
 	// Make sure this bind is only visible for the duration of run
 	defer func() { p.config.HostConfig.Binds = p.config.HostConfig.Binds[:len(p.config.HostConfig.Binds)-1] }()
 	// Start the container
-	p.container, err = RawStartContainer(p.config)
+	p.container, err = startContainer(p.config)
 	if err != nil {
 		return err
 	}
-	err = PipeToStdin(p.container, strings.NewReader(strings.Join(cmd, " ")+"\n"))
+	err = pipeToStdin(p.container, strings.NewReader(strings.Join(cmd, " ")+"\n"))
 	if err != nil {
 		return err
 	}
@@ -236,12 +236,12 @@ func (p *pipeline) run(cmd []string) error {
 	}
 	defer f.Close()
 	// Copy the logs from the container in to the file.
-	err = ContainerLogs(p.container, f)
+	err = containerLogs(p.container, f)
 	if err != nil {
 		return err
 	}
 	// Wait for the command to finish:
-	exit, err := WaitContainer(p.container)
+	exit, err := waitContainer(p.container)
 	if err != nil {
 		return err
 	}
@@ -363,7 +363,7 @@ func (p *pipeline) fail() error {
 // Cancel stops a pipeline by force before it's finished
 func (p *pipeline) cancel() error {
 	p.cancelled = true
-	err := StopContainer(p.container)
+	err := stopContainer(p.container)
 	if err != nil {
 		return err
 	}
