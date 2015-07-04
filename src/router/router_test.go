@@ -118,7 +118,7 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 		if err != nil {
 			t.Error(err)
 		}
-		if response.StatusCode != 200 {
+		if response.StatusCode != http.StatusOK {
 			t.Fatal("Bad status code.")
 		}
 		return true

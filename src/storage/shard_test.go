@@ -202,7 +202,7 @@ run touch /out/bizz
 	files := make(map[string]struct{})
 	res, err = http.Get(s.URL + path.Join("/pipeline", "files", "file", "*") + "?commit=commit1&shard=0-2")
 	require.NoError(t, err)
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		t.Fatal(res.Status)
 	}
 	reader := multipart.NewReader(res.Body, res.Header.Get("Boundary"))
@@ -221,7 +221,7 @@ run touch /out/bizz
 
 	res, err = http.Get(s.URL + path.Join("/pipeline", "files", "file", "*") + "?commit=commit1&shard=1-2")
 	require.NoError(t, err)
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		t.Fatal(res.Status)
 	}
 	reader = multipart.NewReader(res.Body, res.Header.Get("Boundary"))
@@ -407,7 +407,7 @@ run cat /in/pachyderm-data/chess/* | wc -l > /out/count
 
 	res, err = http.Get(s.URL + "/pipeline/count/file/count?commit=commit1")
 	require.NoError(t, err)
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		t.Fatal("Bad status code.")
 	}
 }

@@ -26,7 +26,7 @@ func (r *shardReplica) Push(diff io.Reader) error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		log.Printf("Response with status: %s", resp.Status)
 		return fmt.Errorf("Response with status: %s", resp.Status)
 	}
@@ -38,7 +38,7 @@ func (r *shardReplica) Pull(from string, cb btrfs.Pusher) error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		log.Printf("Response with status: %s", resp.Status)
 		return fmt.Errorf("Response with status: %s", resp.Status)
 	}

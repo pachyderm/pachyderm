@@ -66,7 +66,7 @@ func Route(cache etcache.Cache, r *http.Request, etcdKey string, modulos uint64)
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String())
 	}
 	return resp.Body, nil
@@ -133,7 +133,7 @@ func Multicast(cache etcache.Cache, r *http.Request, etcdKey string) ([]*http.Re
 				errors <- err
 				return
 			}
-			if resp.StatusCode != 200 {
+			if resp.StatusCode != http.StatusOK {
 				errors <- fmt.Errorf("Failed request (%s) to %s.", resp.Status, r.URL.String())
 				return
 			}
