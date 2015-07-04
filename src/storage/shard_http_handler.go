@@ -7,20 +7,39 @@ import (
 
 type shardHTTPHandler struct {
 	*http.ServeMux
+	Shard
 }
 
-func newShardHTTPHandler(sIface Shard) *shardHTTPHandler {
-	// TODO(pedge): remove when refactor done
-	s, ok := sIface.(*shard)
-	if !ok {
-		panic("could not cast")
+func newShardHTTPHandler(shard Shard) *shardHTTPHandler {
+	shardHTTPHandler := &shardHTTPHandler{
+		http.NewServeMux(),
+		shard,
 	}
-	mux := http.NewServeMux()
-	mux.HandleFunc("/branch", s.branchHandler)
-	mux.HandleFunc("/commit", s.commitHandler)
-	mux.HandleFunc("/file/", s.fileHandler)
-	mux.HandleFunc("/pipeline/", s.pipelineHandler)
-	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
-	mux.HandleFunc("/pull", s.pullHandler)
-	return &shardHTTPHandler{mux}
+	shardHTTPHandler.HandleFunc("/branch", shardHTTPHandler.branch)
+	shardHTTPHandler.HandleFunc("/commit", shardHTTPHandler.commit)
+	shardHTTPHandler.HandleFunc("/file/", shardHTTPHandler.file)
+	shardHTTPHandler.HandleFunc("/pipeline/", shardHTTPHandler.pipeline)
+	shardHTTPHandler.HandleFunc("/pull", shardHTTPHandler.pull)
+	shardHTTPHandler.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
+	return shardHTTPHandler
+}
+
+func (s *shardHTTPHandler) branch(writer http.ResponseWriter, request *http.Request) {
+
+}
+
+func (s *shardHTTPHandler) commit(writer http.ResponseWriter, request *http.Request) {
+
+}
+
+func (s *shardHTTPHandler) file(writer http.ResponseWriter, request *http.Request) {
+
+}
+
+func (s *shardHTTPHandler) pipeline(writer http.ResponseWriter, request *http.Request) {
+
+}
+
+func (s *shardHTTPHandler) pull(writer http.ResponseWriter, request *http.Request) {
+
 }
