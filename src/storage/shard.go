@@ -651,6 +651,19 @@ func (s *shard) BranchCreate(name string, commit string) (Branch, error) {
 	return s.BranchGet(name)
 }
 
-// func (s *shard) From() (string, error)
-// func (s *shard) Push(diff io.Reader) error
-// func (s *shard) Pull(from string, p btrfs.Pusher) error
+func (s *shard) From() (string, error) {
+	commits, err := s.CommitGetAll("")
+	if err != nil {
+		return "", err
+	}
+	if len(commits) == 0 {
+		return "", nil
+	}
+	return commits[0].Name, nil
+}
+func (s *shard) Push(diff io.Reader) error {
+	return btrfs.NewLocalReplica(s.dataRepo).Push(diff)
+}
+func (s *shard) Pull(from string, p btrfs.Pusher) error {
+	return btrfs.NewLocalReplica(s.dataRepo).Pull(from, p)
+}

@@ -6,23 +6,24 @@ import (
 	"os"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/etcache"
 )
 
 type File struct {
-	name    string
-	modTime time.Time
-	file    *os.File
+	Name    string
+	ModTime time.Time
+	File    *os.File
 }
 
 type Commit struct {
-	name    string
-	modTime time.Time
+	Name    string
+	ModTime time.Time
 }
 
 type Branch struct {
-	name    string
-	modTime time.Time
+	Name    string
+	ModTime time.Time
 }
 
 type Shard interface {
@@ -44,9 +45,9 @@ type Shard interface {
 	BranchGetAll(name string) ([]Branch, error)
 	BranchCreate(name string, commit string) (Branch, error)
 
-	// From() (string, error)
-	// Push(diff io.Reader) error
-	// Pull(from string, p btrfs.Pusher) error
+	From() (string, error)
+	Push(diff io.Reader) error
+	Pull(from string, p btrfs.Pusher) error
 }
 
 func NewShard(
