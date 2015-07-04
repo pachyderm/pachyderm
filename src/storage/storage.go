@@ -28,8 +28,6 @@ type Branch struct {
 
 type Shard interface {
 	EnsureRepos() error
-	SyncFromPeers() error
-	SyncToPeers() error
 	FillRole(cancel chan bool) error
 
 	FileGet(name string, commit string) (File, error)

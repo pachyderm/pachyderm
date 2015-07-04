@@ -73,7 +73,7 @@ func (s *shard) EnsureRepos() error {
 	return nil
 }
 
-func (s *shard) SyncFromPeers() error {
+func (s *shard) syncFromPeers() error {
 	peers, err := s.peers()
 	if err != nil {
 		return err
@@ -87,7 +87,7 @@ func (s *shard) SyncFromPeers() error {
 	return nil
 }
 
-func (s *shard) SyncToPeers() error {
+func (s *shard) syncToPeers() error {
 	peers, err := s.peers()
 	if err != nil {
 		return err
@@ -120,13 +120,13 @@ func (s *shard) FillRole(cancel chan bool) error {
 			backfillingKey := "[backfilling]" + s.url
 			if _, err := client.Create(masterKey, backfillingKey, 5*60); err == nil {
 				// no error means we succesfully claimed master
-				_ = s.SyncFromPeers()
+				_ = s.syncFromPeers()
 				// Attempt to finalize ourselves as master
 				_, _ = client.CompareAndSwap(masterKey, s.url, 60, backfillingKey, 0)
 				if err == nil {
 					// no error means that we succusfully announced ourselves as master
 					// Sync the new data we pulled to peers
-					go s.SyncToPeers()
+					go s.syncToPeers()
 					//Record that we're master
 					amMaster = true
 				}
@@ -144,7 +144,7 @@ func (s *shard) FillRole(cancel chan bool) error {
 			if resp, err := client.CreateInOrder(replicaDir, s.url, 60); err == nil {
 				replicaKey = resp.Node.Key
 				// Get ourselves up to date
-				go s.SyncFromPeers()
+				go s.syncFromPeers()
 			}
 		} else {
 			_, err := client.CompareAndSwap(replicaKey, s.url, 60, s.url, 0)
@@ -232,7 +232,7 @@ func (s *shard) commitHandler(w http.ResponseWriter, r *http.Request) {
 				log.Print(err)
 			}
 		}()
-		go s.SyncToPeers()
+		go s.syncToPeers()
 		fmt.Fprintf(w, "%s\n", commit)
 	} else if r.Method == "POST" {
 		// Commit being pushed via a diff
