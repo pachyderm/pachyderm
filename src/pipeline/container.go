@@ -20,8 +20,8 @@ var DefaultConfig = docker.Config{
 	StdinOnce:    true,
 }
 
-func RawStartContainer(opts docker.CreateContainerOptions) (string, error) {
-	client, err := NewDockerClientFromEnv()
+func startContainer(opts docker.CreateContainerOptions) (string, error) {
+	client, err := newDockerClientFromEnv()
 	if err != nil {
 		return "", err
 	}
@@ -37,44 +37,17 @@ func RawStartContainer(opts docker.CreateContainerOptions) (string, error) {
 	return container.ID, nil
 }
 
-func StartContainer(image string, command []string) (string, error) {
-	config := docker.Config{Image: image, Cmd: command}
-	opts := docker.CreateContainerOptions{Config: &config}
-	return RawStartContainer(opts)
-}
-
-func StopContainer(id string) error {
-	client, err := NewDockerClientFromEnv()
+func stopContainer(id string) error {
+	client, err := newDockerClientFromEnv()
 	if err != nil {
 		return err
 	}
 	return client.StopContainer(id, 5)
 }
 
-func KillContainer(id string) error {
-	client, err := NewDockerClientFromEnv()
-	if err != nil {
-		return err
-	}
-	return client.KillContainer(docker.KillContainerOptions{ID: id})
-}
-
-func IpAddr(containerId string) (string, error) {
-	client, err := NewDockerClientFromEnv()
-	if err != nil {
-		return "", err
-	}
-	container, err := client.InspectContainer(containerId)
-	if err != nil {
-		return "", err
-	}
-
-	return container.NetworkSettings.IPAddress, nil
-}
-
-func PullImage(image string) error {
+func pullImage(image string) error {
 	repo_tag := strings.Split(image, ":")
-	client, err := NewDockerClientFromEnv()
+	client, err := newDockerClientFromEnv()
 	if err != nil {
 		return err
 	}
@@ -85,8 +58,8 @@ func PullImage(image string) error {
 	return client.PullImage(opts, docker.AuthConfiguration{})
 }
 
-func PipeToStdin(id string, in io.Reader) error {
-	client, err := NewDockerClientFromEnv()
+func pipeToStdin(id string, in io.Reader) error {
+	client, err := newDockerClientFromEnv()
 	if err != nil {
 		return err
 	}
@@ -98,8 +71,8 @@ func PipeToStdin(id string, in io.Reader) error {
 	})
 }
 
-func ContainerLogs(id string, out io.Writer) error {
-	client, err := NewDockerClientFromEnv()
+func containerLogs(id string, out io.Writer) error {
+	client, err := newDockerClientFromEnv()
 	if err != nil {
 		return err
 	}
@@ -113,8 +86,8 @@ func ContainerLogs(id string, out io.Writer) error {
 	})
 }
 
-func WaitContainer(id string) (int, error) {
-	client, err := NewDockerClientFromEnv()
+func waitContainer(id string) (int, error) {
+	client, err := newDockerClientFromEnv()
 	if err != nil {
 		return 0, err
 	}
@@ -122,7 +95,7 @@ func WaitContainer(id string) (int, error) {
 	return client.WaitContainer(id)
 }
 
-func NewDockerClientFromEnv() (*docker.Client, error) {
+func newDockerClientFromEnv() (*docker.Client, error) {
 	host := os.Getenv("DOCKER_HOST")
 
 	if host == "" {

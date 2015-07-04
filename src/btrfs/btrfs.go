@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -21,13 +19,45 @@ import (
 	"github.com/pachyderm/pachyderm/src/util"
 )
 
+// Constants used for passing to log
+const (
+	Desc = iota
+	Asc
+)
+
 var (
 	ErrComplete  = errors.New("pfs: complete")
 	ErrCancelled = errors.New("pfs: cancelled")
-
-	letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	once    sync.Once
 )
+
+// Pusher is an interface that wraps the Push method.
+type Pusher interface {
+	// From returns the last commit pushed.
+	// This value should be passed to Pull.
+	From() (string, error)
+	// Push applies diff to an underlying storage layer.
+	Push(diff io.Reader) error
+}
+
+// Puller is an interface that wraps the Pull method.
+type Puller interface {
+	// Pull produces binary diffs and passes them to p's Push method.
+	Pull(from string, p Pusher) error
+}
+
+// Replica is the interface that groups the Puller and Pusher methods.
+type Replica interface {
+	Pusher
+	Puller
+}
+
+func NewLocalReplica(repo string) Replica {
+	return newLocalReplica(repo)
+}
+
+func NewS3Replica(uri string) Replica {
+	return newS3Replica(uri)
+}
 
 // FilePath returns an absolute path for a file in the btrfs volume *inside*
 // the container.
@@ -467,34 +497,6 @@ func Branch(repo, commit, branch string) error {
 	return nil
 }
 
-// Constants used for passing to log
-const (
-	Desc = iota
-	Asc  = iota
-)
-
-//_log returns all of the commits the repo which have generation >= from.
-func _log(repo, from string, order int, cont func(io.Reader) error) error {
-	var sort string
-	if order == Desc {
-		sort = "-ogen"
-	} else {
-		sort = "+ogen"
-	}
-
-	if from == "" {
-		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", sort, FilePath(path.Join(repo)))
-		return util.CallCont(c, cont)
-	} else {
-		t, err := transid(repo, from)
-		if err != nil {
-			return err
-		}
-		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-C", "+"+t, "--sort", sort, FilePath(path.Join(repo)))
-		return util.CallCont(c, cont)
-	}
-}
-
 // Commits is a wrapper around `Log` which parses the output in to a convenient
 // struct
 func Commits(repo, from string, order int, cont func(string) error) error {
@@ -604,6 +606,28 @@ func NewIn(repo, commit string) ([]string, error) {
 	return FindNew(repo, parent, commit)
 }
 
+//_log returns all of the commits the repo which have generation >= from.
+func _log(repo, from string, order int, cont func(io.Reader) error) error {
+	var sort string
+	if order == Desc {
+		sort = "-ogen"
+	} else {
+		sort = "+ogen"
+	}
+
+	if from == "" {
+		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", sort, FilePath(path.Join(repo)))
+		return util.CallCont(c, cont)
+	} else {
+		t, err := transid(repo, from)
+		if err != nil {
+			return err
+		}
+		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-C", "+"+t, "--sort", sort, FilePath(path.Join(repo)))
+		return util.CallCont(c, cont)
+	}
+}
+
 func trimFilePath(name string) string {
 	return strings.TrimPrefix(name, localVolume())
 }
@@ -624,17 +648,6 @@ func hostVolume() string {
 		return val
 	}
 	return "/var/lib/pfs/vol"
-}
-
-// Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
-// This should be factored out to another file.
-func randSeq(n int) string {
-	once.Do(func() { rand.Seed(time.Now().UTC().UnixNano()) })
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
 }
 
 // largestExistingPath takes a path and trims it until it gets something that

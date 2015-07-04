@@ -18,11 +18,16 @@ var (
 	lock   = &sync.Mutex{}
 )
 
+// Logger is a super simple logger.
+type Logger interface {
+	Print(args ...interface{})
+	Printf(format string, args ...interface{})
+}
+
 // SetLogger sets the logger used by pachyderm.
 func SetLogger(l Logger) {
 	lock.Lock()
 	defer lock.Unlock()
-
 	logger = l
 }
 
@@ -34,10 +39,4 @@ func Print(args ...interface{}) {
 // Printf prints a log message with fmt.Printf semantics using the pachyderm Logger.
 func Printf(format string, args ...interface{}) {
 	logger.Printf(format, args...)
-}
-
-// Logger is a super simple logger.
-type Logger interface {
-	Print(args ...interface{})
-	Printf(format string, args ...interface{})
 }

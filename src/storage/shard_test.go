@@ -202,17 +202,13 @@ run touch /out/bizz
 	files := make(map[string]struct{})
 	res, err = http.Get(s.URL + path.Join("/pipeline", "files", "file", "*") + "?commit=commit1&shard=0-2")
 	require.NoError(t, err)
-	if res.StatusCode != http.StatusOK {
-		t.Fatal(res.Status)
-	}
+	require.Equal(t, http.StatusOK, res.StatusCode)
 	reader := multipart.NewReader(res.Body, res.Header.Get("Boundary"))
-
 	for p, err := reader.NextPart(); err != io.EOF; p, err = reader.NextPart() {
+		require.NoError(t, err)
 		match, err := route.Match(p.FileName(), "0-2")
 		require.NoError(t, err)
-		if !match {
-			t.Fatalf("Filename: %s should match.", p.FileName())
-		}
+		require.True(t, match, fmt.Sprintf("%s should match", p.FileName()))
 		if _, ok := files[p.FileName()]; ok == true {
 			t.Fatalf("File: %s received twice.", p.FileName())
 		}
@@ -221,17 +217,13 @@ run touch /out/bizz
 
 	res, err = http.Get(s.URL + path.Join("/pipeline", "files", "file", "*") + "?commit=commit1&shard=1-2")
 	require.NoError(t, err)
-	if res.StatusCode != http.StatusOK {
-		t.Fatal(res.Status)
-	}
+	require.Equal(t, http.StatusOK, res.StatusCode)
 	reader = multipart.NewReader(res.Body, res.Header.Get("Boundary"))
-
 	for p, err := reader.NextPart(); err != io.EOF; p, err = reader.NextPart() {
+		require.NoError(t, err)
 		match, err := route.Match(p.FileName(), "1-2")
 		require.NoError(t, err)
-		if !match {
-			t.Fatalf("Filename: %s should match.", p.FileName())
-		}
+		require.True(t, match, fmt.Sprintf("%s should match", p.FileName()))
 		if _, ok := files[p.FileName()]; ok == true {
 			t.Fatalf("File: %s received twice.", p.FileName())
 		}
@@ -369,15 +361,11 @@ run exit 1
 `))
 	require.NoError(t, err)
 	res.Body.Close()
-
 	res, err = http.Post(s.URL+"/commit?commit=commit1", "", nil)
 	require.NoError(t, err)
-
 	res, err = http.Get(s.URL + "/pipeline/fail/file/foo?commit=commit1")
 	require.NoError(t, err)
-	if res.StatusCode != 500 {
-		t.Fatal("Request should return failure.")
-	}
+	require.Equal(t, http.StatusInternalServerError, res.StatusCode)
 }
 
 // TestChess uses our chess data set to test s3 integration.
@@ -401,15 +389,11 @@ run cat /in/pachyderm-data/chess/* | wc -l > /out/count
 `))
 	require.NoError(t, err)
 	res.Body.Close()
-
 	res, err = http.Post(s.URL+"/commit?commit=commit1", "", nil)
 	require.NoError(t, err)
-
 	res, err = http.Get(s.URL + "/pipeline/count/file/count?commit=commit1")
 	require.NoError(t, err)
-	if res.StatusCode != http.StatusOK {
-		t.Fatal("Bad status code.")
-	}
+	require.Equal(t, http.StatusOK, res.StatusCode)
 }
 
 func getMaxCount() int {

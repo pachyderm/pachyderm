@@ -14,30 +14,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/util"
 )
 
-// Pusher is an interface that wraps the Push method.
-type Pusher interface {
-	// From returns the last commit pushed.
-	// This value should be passed to Pull.
-	From() (string, error)
-	// Push applies diff to an underlying storage layer.
-	Push(diff io.Reader) error
-}
-
-// Puller is an interface that wraps the Pull method.
-type Puller interface {
-	// Pull produces binary diffs and passes them to p's Push method.
-	Pull(from string, p Pusher) error
-}
-
-// Replica is the interface that groups the Puller and Pusher methods.
-type Replica interface {
-	Pusher
-	Puller
-}
-
 // localReplica implements the Replica interface using a btrfs repo.
 type localReplica struct {
 	repo string
+}
+
+func newLocalReplica(repo string) *localReplica {
+	return &localReplica{repo}
 }
 
 func (r *localReplica) From() (string, error) {
@@ -68,14 +51,14 @@ func (r *localReplica) Pull(from string, cb Pusher) error {
 	return Pull(r.repo, from, cb)
 }
 
-func NewLocalReplica(repo string) Replica {
-	return &localReplica{repo}
-}
-
 // s3Replica implements the Replica interface using an s3 replica.
 type s3Replica struct {
 	uri   string
 	count int // number of sent commits
+}
+
+func newS3Replica(uri string) *s3Replica {
+	return &s3Replica{uri, 0}
 }
 
 func (r *s3Replica) Push(diff io.Reader) error {
@@ -132,10 +115,6 @@ func (r *s3Replica) From() (string, error) {
 		return nil
 	})
 	return result, err
-}
-
-func NewS3Replica(uri string) Replica {
-	return &s3Replica{uri, 0}
 }
 
 // send produces a binary diff stream and passes it to cont
