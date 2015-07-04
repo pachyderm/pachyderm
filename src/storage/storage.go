@@ -3,7 +3,6 @@ package storage
 import (
 	"net/http"
 
-	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/etcache"
 )
 
@@ -45,10 +44,6 @@ func NewShard(
 		modulos,
 		cache,
 	)
-}
-
-func NewShardReplica(url string) btrfs.Replica {
-	return newShardReplica(url)
 }
 
 func NewShardHTTPHandler(shard Shard) http.Handler {

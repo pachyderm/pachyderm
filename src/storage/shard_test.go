@@ -72,8 +72,8 @@ func TestPull(t *testing.T) {
 		RunWorkload(t, src.URL, w)
 
 		// Replicate the data
-		srcReplica := NewShardReplica(src.URL)
-		dstReplica := NewShardReplica(dst.URL)
+		srcReplica := newShardReplica(src.URL)
+		dstReplica := newShardReplica(dst.URL)
 		err := srcReplica.Pull("", dstReplica)
 		require.NoError(t, err)
 		facts := w.Facts()

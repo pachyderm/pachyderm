@@ -54,7 +54,7 @@ func (r *shardReplica) From() (retVal string, retErr error) {
 		}
 	}()
 	var commitMsg CommitMsg
-	if err = json.NewDecoder(response.Body).Decode(&commitMsg); err != nil {
+	if err = json.NewDecoder(response.Body).Decode(&commitMsg); err != nil && err != io.EOF {
 		return "", err
 	}
 	return commitMsg.Name, nil

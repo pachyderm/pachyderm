@@ -484,7 +484,7 @@ func syncTo(dataRepo string, urls []string) error {
 		wg.Add(1)
 		go func(url string) {
 			defer wg.Done()
-			sr := NewShardReplica(url)
+			sr := newShardReplica(url)
 			from, err := sr.From()
 			if err != nil {
 				addErr(err)
@@ -521,7 +521,7 @@ func syncFrom(dataRepo string, urls []string) error {
 }
 
 func syncFromUrl(dataRepo string, url string) error {
-	sr := NewShardReplica(url)
+	sr := newShardReplica(url)
 	lr := btrfs.NewLocalReplica(dataRepo)
 	from, err := lr.From()
 	if err != nil {
