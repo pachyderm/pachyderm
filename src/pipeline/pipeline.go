@@ -1,5 +1,4 @@
-// package pipeline implements a system for running data pipelines on top of
-// the filesystem
+// package pipeline implements a system for running data pipelines on top of the filesystem
 package pipeline
 
 import (
@@ -71,8 +70,7 @@ func (p *pipeline) input(name string) error {
 	switch {
 	case strings.HasPrefix(name, "s3://"):
 		trimmed = strings.TrimPrefix(name, "s3://")
-		err := WaitPipeline(p.pipelineDir, trimmed, p.commit)
-		if err != nil {
+		if err := WaitPipeline(p.pipelineDir, trimmed, p.commit); err != nil {
 			return err
 		}
 		hostPath := btrfs.HostPath(path.Join(p.pipelineDir, trimmed, p.commit))
@@ -225,8 +223,7 @@ func (p *pipeline) run(cmd []string) error {
 	if err != nil {
 		return err
 	}
-	err = pipeToStdin(p.container, strings.NewReader(strings.Join(cmd, " ")+"\n"))
-	if err != nil {
+	if err := pipeToStdin(p.container, strings.NewReader(strings.Join(cmd, " ")+"\n")); err != nil {
 		return err
 	}
 	// Create a place to put the logs
@@ -236,8 +233,7 @@ func (p *pipeline) run(cmd []string) error {
 	}
 	defer f.Close()
 	// Copy the logs from the container in to the file.
-	err = containerLogs(p.container, f)
-	if err != nil {
+	if err = containerLogs(p.container, f); err != nil {
 		return err
 	}
 	// Wait for the command to finish:
@@ -250,12 +246,7 @@ func (p *pipeline) run(cmd []string) error {
 		return fmt.Errorf("Command:\n\t%s\nhad exit code: %d.\n",
 			strings.Join(cmd, " "), exit)
 	}
-	// Commit the results
-	err = btrfs.Commit(p.outRepo, p.runCommit(), p.branch)
-	if err != nil {
-		return err
-	}
-	return nil
+	return btrfs.Commit(p.outRepo, p.runCommit(), p.branch)
 }
 
 // Shuffle rehashes an output directory.
@@ -324,13 +315,7 @@ func (p *pipeline) shuffle(dir string) error {
 			return err
 		}
 	}
-
-	// Commit the results
-	err = btrfs.Commit(p.outRepo, p.runCommit(), p.branch)
-	if err != nil {
-		return err
-	}
-	return nil
+	return btrfs.Commit(p.outRepo, p.runCommit(), p.branch)
 }
 
 // finish makes the final commit for the pipeline
@@ -363,11 +348,7 @@ func (p *pipeline) fail() error {
 // Cancel stops a pipeline by force before it's finished
 func (p *pipeline) cancel() error {
 	p.cancelled = true
-	err := stopContainer(p.container)
-	if err != nil {
-		return err
-	}
-	return nil
+	return stopContainer(p.container)
 }
 
 // runPachFile parses r as a PachFile and executes. runPachFile is GUARANTEED
@@ -481,8 +462,7 @@ func NewRunner(pipelineDir string, inRepo string, outPrefix string, commit strin
 }
 
 func (r *Runner) makeOutRepo(pipeline string) error {
-	err := btrfs.Ensure(path.Join(r.outPrefix, pipeline))
-	if err != nil {
+	if err := btrfs.Ensure(path.Join(r.outPrefix, pipeline)); err != nil {
 		return err
 	}
 
@@ -506,8 +486,7 @@ func (r *Runner) makeOutRepo(pipeline string) error {
 				parent = ""
 			}
 		}
-		err := btrfs.Branch(path.Join(r.outPrefix, pipeline), parent, r.branch)
-		if err != nil {
+		if err := btrfs.Branch(path.Join(r.outPrefix, pipeline), parent, r.branch); err != nil {
 			return err
 		}
 	}
@@ -518,12 +497,10 @@ func (r *Runner) makeOutRepo(pipeline string) error {
 // Run runs all of the pipelines it finds in pipelineDir. Returns the
 // first error it encounters.
 func (r *Runner) Run() error {
-	err := btrfs.MkdirAll(r.outPrefix)
-	if err != nil {
+	if err := btrfs.MkdirAll(r.outPrefix); err != nil {
 		return err
 	}
-	err = r.startInputPipelines()
-	if err != nil {
+	if err := r.startInputPipelines(); err != nil {
 		return err
 	}
 	pipelines, err := btrfs.ReadDir(path.Join(r.inRepo, r.commit, r.pipelineDir))
@@ -548,8 +525,7 @@ func (r *Runner) Run() error {
 	defer unlocker.Do(r.lock.Unlock)
 	r.wait.Add(len(pipelines))
 	for _, pInfo := range pipelines {
-		err := r.makeOutRepo(pInfo.Name())
-		if err != nil {
+		if err := r.makeOutRepo(pInfo.Name()); err != nil {
 			return err
 		}
 		p := newPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard, r.outPrefix, r.cache)
@@ -683,8 +659,7 @@ func (r *Runner) startInputPipelines() error {
 			continue
 		}
 		trimmed := strings.TrimPrefix(input, "s3://")
-		err := r.makeOutRepo(trimmed)
-		if err != nil {
+		if err := r.makeOutRepo(trimmed); err != nil {
 			return err
 		}
 		p := newPipeline(trimmed, r.inRepo, path.Join(r.outPrefix, trimmed), r.commit, r.branch, r.shard, r.outPrefix, r.cache)
