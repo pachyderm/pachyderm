@@ -10,7 +10,6 @@ import (
 	"net/http"
 
 	"github.com/pachyderm/pachyderm/src/btrfs"
-	"github.com/pachyderm/pachyderm/src/log"
 )
 
 type shardReplica struct {
@@ -22,41 +21,60 @@ func newShardReplica(url string) *shardReplica {
 }
 
 func (r *shardReplica) Push(diff io.Reader) error {
-	resp, err := http.Post(r.url+"/commit", "application/octet-stream", diff)
+	_, err := httpPost(r.url+"/commit", "application/octet-stream", diff)
+	return err
+}
+
+func (r *shardReplica) Pull(from string, pusher btrfs.Pusher) (retErr error) {
+	response, err := httpGet(fmt.Sprintf("%s/pull?from=%s", r.url, from))
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("Response with status: %s", resp.Status)
-		return fmt.Errorf("Response with status: %s", resp.Status)
-	}
-	return nil
+	defer func() {
+		if err := response.Body.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	return newMultipartPuller(
+		multipart.NewReader(
+			response.Body,
+			response.Header.Get("Boundary"),
+		),
+	).Pull(from, pusher)
 }
 
-func (r *shardReplica) Pull(from string, cb btrfs.Pusher) error {
-	resp, err := http.Get(fmt.Sprintf("%s/pull?from=%s", r.url, from))
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("Response with status: %s", resp.Status)
-		return fmt.Errorf("Response with status: %s", resp.Status)
-	}
-	defer resp.Body.Close()
-	return newMultipartPuller(multipart.NewReader(resp.Body, resp.Header.Get("Boundary"))).Pull(from, cb)
-}
-
-func (r *shardReplica) From() (string, error) {
-	resp, err := http.Get(fmt.Sprintf("%s/commit", r.url))
+func (r *shardReplica) From() (retVal string, retErr error) {
+	response, err := httpGet(fmt.Sprintf("%s/commit", r.url))
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-	decoder := json.NewDecoder(resp.Body)
-	var commit CommitMsg
-	err = decoder.Decode(&commit)
-	if err != nil && err != io.EOF {
+	defer func() {
+		if err := response.Body.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	var commitMsg CommitMsg
+	if err = json.NewDecoder(response.Body).Decode(&commitMsg); err != nil {
 		return "", err
 	}
-	return commit.Name, nil
+	return commitMsg.Name, nil
+}
+
+func httpGet(url string) (*http.Response, error) {
+	return httpDo(url, http.Get)
+}
+
+func httpPost(url string, bodyType string, body io.Reader) (*http.Response, error) {
+	return httpDo(url, func(url string) (*http.Response, error) { return http.Post(url, bodyType, body) })
+}
+
+func httpDo(url string, f func(string) (*http.Response, error)) (*http.Response, error) {
+	response, err := f(url)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("response for %s had status %s", url, response.Status)
+	}
+	return response, nil
 }
