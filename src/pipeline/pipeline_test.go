@@ -246,20 +246,20 @@ run touch /out/bar
 	// These are the most important 2 checks:
 
 	// If this one fails it means that dirty state isn't properly saved
-	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit1-fail/bar"), t)
+	checkExists(t, path.Join(outPrefix, "recover", "commit1-fail/bar"))
 	// If this one fails it means that dirty state isn't properly cleared
-	btrfs.CheckNoExists(path.Join(outPrefix, "recover", "commit2-0/bar"), t)
+	checkNoExists(t, path.Join(outPrefix, "recover", "commit2-0/bar"))
 
 	// These commits are mostly covered by other tests
-	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit1-fail/foo"), t)
-	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit1-0/foo"), t)
-	btrfs.CheckNoExists(path.Join(outPrefix, "recover", "commit1-1"), t)
-	btrfs.CheckNoExists(path.Join(outPrefix, "recover", "commit1"), t)
-	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2-0/foo"), t)
-	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2-1/foo"), t)
-	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2-1/bar"), t)
-	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2/foo"), t)
-	btrfs.CheckExists(path.Join(outPrefix, "recover", "commit2/bar"), t)
+	checkExists(t, path.Join(outPrefix, "recover", "commit1-fail/foo"))
+	checkExists(t, path.Join(outPrefix, "recover", "commit1-0/foo"))
+	checkNoExists(t, path.Join(outPrefix, "recover", "commit1-1"))
+	checkNoExists(t, path.Join(outPrefix, "recover", "commit1"))
+	checkExists(t, path.Join(outPrefix, "recover", "commit2-0/foo"))
+	checkExists(t, path.Join(outPrefix, "recover", "commit2-1/foo"))
+	checkExists(t, path.Join(outPrefix, "recover", "commit2-1/bar"))
+	checkExists(t, path.Join(outPrefix, "recover", "commit2/foo"))
+	checkExists(t, path.Join(outPrefix, "recover", "commit2/bar"))
 }
 
 func TestCancel(t *testing.T) {
@@ -404,4 +404,16 @@ func newTestPipeline(
 		"pipelineDir",
 		etcache.NewCache(),
 	)
+}
+
+func checkNoExists(t *testing.T, name string) {
+	exists, err := btrfs.FileExists(name)
+	require.NoError(t, err)
+	require.False(t, exists)
+}
+
+func checkExists(t *testing.T, name string) {
+	exists, err := btrfs.FileExists(name)
+	require.NoError(t, err)
+	require.True(t, exists)
 }
