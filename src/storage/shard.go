@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -22,6 +23,10 @@ import (
 
 const (
 	pipelineDir = "pipeline"
+)
+
+var (
+	ErrInvalidObject = errors.New("pfs: invalid object")
 )
 
 type shard struct {
@@ -529,3 +534,123 @@ func syncFromUrl(dataRepo string, url string) error {
 	}
 	return sr.Pull(from, lr)
 }
+
+func (s *shard) FileGet(name string, commit string) (File, error) {
+	info, err := btrfs.Stat(path.Join(s.dataRepo, commit, name))
+	if err != nil {
+		return File{}, err
+	}
+	file, err := btrfs.Open(path.Join(s.dataRepo, commit, name))
+	if err != nil {
+		return File{}, err
+	}
+	return File{name, info.ModTime(), file}, nil
+}
+func (s *shard) FileGetAll(name string, commit string) ([]File, error) {
+	matches, err := btrfs.Glob(path.Join(s.dataRepo, commit, name))
+	if err != nil {
+		return nil, err
+	}
+	var result []File
+	for _, match := range matches {
+		name := strings.TrimPrefix(match, path.Join(s.dataRepo, commit))
+		file, err := s.FileGet(name, commit)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, file)
+	}
+	return result, nil
+}
+func (s *shard) FileCreate(name string, content io.Reader, branch string) error {
+	filePath := path.Join(s.dataRepo, branch, name)
+	btrfs.MkdirAll(path.Dir(filePath))
+	_, err := btrfs.CreateFromReader(filePath, content)
+	return err
+}
+
+func (s *shard) CommitGet(name string) (Commit, error) {
+	commitPath := path.Join(s.dataRepo, name)
+	isCommit, err := btrfs.IsCommit(commitPath)
+	if err != nil {
+		return Commit{}, err
+	}
+	if !isCommit {
+		return Commit{}, ErrInvalidObject
+	}
+	info, err := btrfs.Stat(commitPath)
+	if err != nil {
+		return Commit{}, err
+	}
+	return Commit{name, info.ModTime()}, nil
+}
+func (s *shard) CommitGetAll(name string) ([]Commit, error) {
+	matches, err := btrfs.Glob(path.Join(s.dataRepo, name))
+	if err != nil {
+		return nil, err
+	}
+	var result []Commit
+	for _, match := range matches {
+		name := strings.TrimPrefix(match, s.dataRepo)
+		commit, err := s.CommitGet(name)
+		if err == ErrInvalidObject {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, commit)
+	}
+	return result, nil
+}
+func (s *shard) CommitCreate(name string, branch string) (Commit, error) {
+	if err := btrfs.Commit(s.dataRepo, name, branch); err != nil {
+		return Commit{}, err
+	}
+	return s.CommitGet(name)
+}
+
+func (s *shard) BranchGet(name string) (Branch, error) {
+	branchPath := path.Join(s.dataRepo, name)
+	isCommit, err := btrfs.IsCommit(branchPath)
+	if err != nil {
+		return Branch{}, err
+	}
+	if isCommit {
+		return Branch{}, ErrInvalidObject
+	}
+	info, err := btrfs.Stat(branchPath)
+	if err != nil {
+		return Branch{}, err
+	}
+	return Branch{name, info.ModTime()}, nil
+}
+func (s *shard) BranchGetAll(name string) ([]Branch, error) {
+	matches, err := btrfs.Glob(path.Join(s.dataRepo, name))
+	if err != nil {
+		return nil, err
+	}
+	var result []Branch
+	for _, match := range matches {
+		name := strings.TrimPrefix(match, s.dataRepo)
+		branch, err := s.BranchGet(name)
+		if err == ErrInvalidObject {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, branch)
+	}
+	return result, nil
+}
+func (s *shard) BranchCreate(name string, commit string) (Branch, error) {
+	if err := btrfs.Branch(s.dataRepo, commit, name); err != nil {
+		return Branch{}, nil
+	}
+	return s.BranchGet(name)
+}
+
+// func (s *shard) From() (string, error)
+// func (s *shard) Push(diff io.Reader) error
+// func (s *shard) Pull(from string, p btrfs.Pusher) error
