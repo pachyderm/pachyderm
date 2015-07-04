@@ -1,5 +1,4 @@
-// package traffic generates filesystem traffic useful for testing and
-// benchmarking
+// package traffic generates filesystem traffic useful for testing and benchmarking
 package traffic
 
 import (
@@ -8,23 +7,24 @@ import (
 	"reflect"
 )
 
+const (
+	R RW = iota
+	W
+	File Object = iota
+	Commit
+	Branch
+	nObject
+)
+
+var (
+	letters = []rune("abcdefg")
+)
+
 // RW indicates if the operation is a read or a write
 type RW int
 
-const (
-	R RW = iota
-	W    = iota
-)
-
 // Object enumerates the objects that exist in a filesystem
 type Object int
-
-const (
-	File    Object = iota
-	Commit         = iota
-	Branch         = iota
-	nObject        = iota
-)
 
 // Op describes an operation on a filesystem
 type Op struct {
@@ -63,15 +63,6 @@ func (w Workload) FileValue(path, commit, branch string) string {
 		}
 	}
 	return ""
-}
-
-func mAppend(m map[string][]string, key string, val string) {
-	v, ok := m[key]
-	if ok {
-		m[key] = append(v, val)
-	} else {
-		m[key] = []string{val}
-	}
 }
 
 // Computes Facts that can be derived from a workload.
@@ -113,30 +104,6 @@ func (w Workload) Facts() Workload {
 	return res
 }
 
-func randObject(rand *rand.Rand) Object {
-	roll := rand.Int() % 32
-	switch {
-	case roll == 0:
-		return Branch
-	case roll < 8:
-		return Commit
-	default:
-		return File
-	}
-}
-
-var letters = []rune("abcdefg")
-
-// Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
-// This should be factored out to another file.
-func RandWord(n int, rand *rand.Rand) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
-}
-
 func (w Workload) Generate(rand *rand.Rand, size int) reflect.Value {
 	res := make(Workload, 0)
 	branches := []string{"master"}
@@ -152,7 +119,7 @@ func (w Workload) Generate(rand *rand.Rand, size int) reflect.Value {
 			nWords := rand.Intn(400) + 100 // nWords in [100, 500)
 			for i := 0; i < nWords; i++ {
 				wordLength := rand.Intn(2) + 2 //wordLength in [2,4)
-				o.Data += RandWord(wordLength, rand)
+				o.Data += randWord(wordLength, rand)
 				o.Data += " "
 			}
 		case Commit:
@@ -184,4 +151,35 @@ func (w Workload) Generate(rand *rand.Rand, size int) reflect.Value {
 		i++
 	}
 	return reflect.ValueOf(res)
+}
+
+func mAppend(m map[string][]string, key string, val string) {
+	v, ok := m[key]
+	if ok {
+		m[key] = append(v, val)
+	} else {
+		m[key] = []string{val}
+	}
+}
+
+func randObject(rand *rand.Rand) Object {
+	roll := rand.Int() % 32
+	switch {
+	case roll == 0:
+		return Branch
+	case roll < 8:
+		return Commit
+	default:
+		return File
+	}
+}
+
+// Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
+// This should be factored out to another file.
+func randWord(n int, rand *rand.Rand) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }
