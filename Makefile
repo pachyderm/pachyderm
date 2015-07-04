@@ -15,8 +15,8 @@
 	vet \
 	errcheck \
 	pretest \
+	test-long \
 	test \
-	test-short \
 	bench
 
 include etc/env/pfs.env
@@ -79,11 +79,11 @@ pretest: lint vet errcheck
 
 # TODO(pedge): add pretest when fixed
 test: container-build container-clean
-	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) ./...'
+	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) -test.short ./...'
 
 # TODO(pedge): add pretest when fixed
-test-short: container-build container-clean
-	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) -test.short ./...'
+test-long: container-build container-clean
+	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) ./...'
 
 # TODO(pedge): add pretest when fixed
 bench: container-build container-clean
