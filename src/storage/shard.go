@@ -73,23 +73,8 @@ func (s *shard) EnsureRepos() error {
 	return nil
 }
 
-func (s *shard) Peers() ([]string, error) {
-	var peers []string
-	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
-	resp, err := client.Get(fmt.Sprintf("/pfs/replica/%d-%d", s.shard, s.modulos), false, true)
-	if err != nil {
-		return peers, err
-	}
-	for _, node := range resp.Node.Nodes {
-		if node.Value != s.url {
-			peers = append(peers, node.Value)
-		}
-	}
-	return peers, err
-}
-
 func (s *shard) SyncFromPeers() error {
-	peers, err := s.Peers()
+	peers, err := s.peers()
 	if err != nil {
 		return err
 	}
@@ -103,7 +88,7 @@ func (s *shard) SyncFromPeers() error {
 }
 
 func (s *shard) SyncToPeers() error {
-	peers, err := s.Peers()
+	peers, err := s.peers()
 	if err != nil {
 		return err
 	}
@@ -336,6 +321,21 @@ func (s *shard) pullHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+func (s *shard) peers() ([]string, error) {
+	var peers []string
+	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+	resp, err := client.Get(fmt.Sprintf("/pfs/replica/%d-%d", s.shard, s.modulos), false, true)
+	if err != nil {
+		return peers, err
+	}
+	for _, node := range resp.Node.Nodes {
+		if node.Value != s.url {
+			peers = append(peers, node.Value)
+		}
+	}
+	return peers, err
 }
 
 // genericFileHandler serves files from fs. It's used after branch and commit

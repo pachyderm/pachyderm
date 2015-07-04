@@ -28,7 +28,6 @@ type Branch struct {
 
 type Shard interface {
 	EnsureRepos() error
-	Peers() ([]string, error)
 	SyncFromPeers() error
 	SyncToPeers() error
 	FillRole(cancel chan bool) error
