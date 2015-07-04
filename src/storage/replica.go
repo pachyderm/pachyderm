@@ -1,4 +1,4 @@
-package shard
+package storage
 
 // replica.go contains code for using shards as replicas
 

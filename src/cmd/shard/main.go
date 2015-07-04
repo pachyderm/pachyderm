@@ -8,7 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/route"
-	"github.com/pachyderm/pachyderm/src/shard"
+	"github.com/pachyderm/pachyderm/src/storage"
 )
 
 func main() {
@@ -30,7 +30,7 @@ func do() error {
 	if err != nil {
 		return err
 	}
-	shard := shard.NewShard(
+	shard := storage.NewShard(
 		"http://"+address,
 		"data-"+shardStr,
 		"comp-"+shardStr,

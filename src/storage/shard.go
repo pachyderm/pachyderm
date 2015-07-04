@@ -1,4 +1,4 @@
-package shard
+package storage
 
 import (
 	"encoding/json"

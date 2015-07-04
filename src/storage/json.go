@@ -1,9 +1,7 @@
-package shard
+package storage
 
 // json.go contains json structures that shard will return in response to
 // requests.
-
-import ()
 
 type BranchMsg struct {
 	Name   string `json:"name"`

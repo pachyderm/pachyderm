@@ -9,7 +9,7 @@ import (
 	"testing/quick"
 
 	"github.com/pachyderm/pachyderm/src/etcache"
-	"github.com/pachyderm/pachyderm/src/shard"
+	"github.com/pachyderm/pachyderm/src/storage"
 	"github.com/pachyderm/pachyderm/src/traffic"
 )
 
@@ -29,7 +29,7 @@ func NewCluster(prefix string, shards int, testCache etcache.TestCache, t *testi
 	var res Cluster
 	for i := 0; i < shards; i++ {
 		repoStr := fmt.Sprintf("%s-%d-%d", prefix, i, shards)
-		s := shard.NewShard("", repoStr+"-data", repoStr+"-comp",
+		s := storage.NewShard("", repoStr+"-data", repoStr+"-comp",
 			repoStr+"-pipeline", uint64(i), uint64(shards), testCache)
 		if err := s.EnsureRepos(); err != nil {
 			t.Fatal(err)
@@ -60,10 +60,10 @@ func TestTwoShards(t *testing.T) {
 		cluster := NewCluster(fmt.Sprintf("TestTwoShards-%d", counter), 2, etcache.NewTestCache(), t)
 		defer cluster.Close()
 		// Run the workload
-		shard.RunWorkload(t, cluster.router.URL, w)
+		storage.RunWorkload(t, cluster.router.URL, w)
 		// Make sure we see the changes we should
 		facts := w.Facts()
-		shard.RunWorkload(t, cluster.router.URL, facts)
+		storage.RunWorkload(t, cluster.router.URL, facts)
 		//increment the counter
 		return true
 	}
@@ -96,7 +96,7 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 		cluster := NewCluster(fmt.Sprintf("TestWordCount-%d", counter), 4, etcache.NewTestCache(), t)
 		defer cluster.Close()
 		// Run the workload
-		shard.RunWorkload(t, cluster.router.URL, w)
+		storage.RunWorkload(t, cluster.router.URL, w)
 		// Install the pipeline
 		response, err := http.Post(cluster.router.URL+"/pipeline/wc", "application/text", strings.NewReader(pipeline))
 		defer response.Body.Close()
