@@ -11,6 +11,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/storage"
 	"github.com/pachyderm/pachyderm/src/traffic"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type Cluster struct {
@@ -100,27 +102,19 @@ run find /out/counts | while read count; do cat $count | awk '{ sum+=$1} END {pr
 		// Install the pipeline
 		response, err := http.Post(cluster.router.URL+"/pipeline/wc", "application/text", strings.NewReader(pipeline))
 		defer response.Body.Close()
-		if err != nil {
-			t.Error(err)
-		}
+		assert.NoError(t, err)
 		// Make a commit
 		response, err = http.Post(cluster.router.URL+"/commit?commit=commit1", "", nil)
 		defer response.Body.Close()
-		if err != nil {
-			t.Error(err)
-		}
+		assert.NoError(t, err)
 		// TODO(jd) make this check for correctness, not just that the request
 		// completes. It's a bit hard because the input is random. Probably the
 		// right idea is to modify the traffic package so that it keeps track of
 		// this.
 		response, err = http.Get(cluster.router.URL + "/pipeline/wc/file/counts/*?commit=commit1")
 		defer response.Body.Close()
-		if err != nil {
-			t.Error(err)
-		}
-		if response.StatusCode != http.StatusOK {
-			t.Fatal("Bad status code.")
-		}
+		assert.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode)
 		return true
 	}
 	if err := quick.Check(f, &quick.Config{MaxCount: maxCount}); err != nil {
