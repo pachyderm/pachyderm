@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -24,9 +22,6 @@ import (
 var (
 	ErrComplete  = errors.New("pfs: complete")
 	ErrCancelled = errors.New("pfs: cancelled")
-
-	letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	once    sync.Once
 )
 
 // FilePath returns an absolute path for a file in the btrfs volume *inside*
@@ -624,17 +619,6 @@ func hostVolume() string {
 		return val
 	}
 	return "/var/lib/pfs/vol"
-}
-
-// Generates a random sequence of letters. Useful for making filesystems that won't interfere with each other.
-// This should be factored out to another file.
-func randSeq(n int) string {
-	once.Do(func() { rand.Seed(time.Now().UTC().UnixNano()) })
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
 }
 
 // largestExistingPath takes a path and trims it until it gets something that

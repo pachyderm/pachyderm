@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/log"
+	"github.com/satori/go.uuid"
 )
 
 var run_string string
@@ -395,7 +396,7 @@ func TestS3Replica(t *testing.T) {
 	CheckNoExists(fmt.Sprintf("%s/mycommit2", dstRepo), t)
 
 	// Run a Pull to push all commits to s3
-	s3Replica := NewS3Replica(path.Join("pachyderm-test", randSeq(20)))
+	s3Replica := NewS3Replica(path.Join("pachyderm-test", uuid.NewV4().String()))
 	err := Pull(srcRepo, "", s3Replica)
 	check(err, t)
 
