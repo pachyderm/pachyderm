@@ -24,24 +24,6 @@ const (
 	pipelineDir = "pipeline"
 )
 
-func newShardMux(sIface Shard) *http.ServeMux {
-	// TODO(pedge): remove when refactor done
-	s, ok := sIface.(*shard)
-	if !ok {
-		panic("could not cast")
-	}
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/branch", s.branchHandler)
-	mux.HandleFunc("/commit", s.commitHandler)
-	mux.HandleFunc("/file/", s.fileHandler)
-	mux.HandleFunc("/pipeline/", s.pipelineHandler)
-	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
-	mux.HandleFunc("/pull", s.pullHandler)
-
-	return mux
-}
-
 type shard struct {
 	url                string
 	dataRepo, compRepo string
@@ -107,7 +89,7 @@ func (s *shard) SyncFromPeers() error {
 		return err
 	}
 
-	err = SyncFrom(s.dataRepo, peers)
+	err = syncFrom(s.dataRepo, peers)
 	if err != nil {
 		return err
 	}
@@ -121,7 +103,7 @@ func (s *shard) SyncToPeers() error {
 		return err
 	}
 
-	err = SyncTo(s.dataRepo, peers)
+	err = syncTo(s.dataRepo, peers)
 	if err != nil {
 		return err
 	}
@@ -342,7 +324,7 @@ func (s *shard) pullHandler(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	mpw := multipart.NewWriter(w)
 	defer mpw.Close()
-	cb := NewMultipartPusher(mpw)
+	cb := newMultipartPusher(mpw)
 	w.Header().Add("Boundary", mpw.Boundary())
 	localReplica := btrfs.NewLocalReplica(s.dataRepo)
 	if err := localReplica.Pull(from, cb); err != nil {
@@ -484,4 +466,66 @@ func rawCat(w io.Writer, name string) error {
 		return err
 	}
 	return nil
+}
+
+// syncTo syncs the contents in p to all of the shards in urls
+// returns the first error if there are multiple
+func syncTo(dataRepo string, urls []string) error {
+	var errs []error
+	var lock sync.Mutex
+	addErr := func(err error) {
+		lock.Lock()
+		errs = append(errs, err)
+		lock.Unlock()
+	}
+	lr := btrfs.NewLocalReplica(dataRepo)
+	var wg sync.WaitGroup
+	for _, url := range urls {
+		wg.Add(1)
+		go func(url string) {
+			defer wg.Done()
+			sr := NewShardReplica(url)
+			from, err := sr.From()
+			if err != nil {
+				addErr(err)
+			}
+			err = lr.Pull(from, sr)
+			if err != nil {
+				addErr(err)
+			}
+		}(url)
+	}
+	wg.Wait()
+	if len(errs) != 0 {
+		return errs[0]
+	}
+	return nil
+}
+
+// syncFrom syncs from the most up to date replica in urls
+// returns the first error if ALL urls error.
+func syncFrom(dataRepo string, urls []string) error {
+	if len(urls) == 0 {
+		return nil
+	}
+	errCount := 0
+	for _, url := range urls {
+		if err := syncFromUrl(dataRepo, url); err != nil {
+			errCount++
+		}
+	}
+	if errCount == len(urls) {
+		return fmt.Errorf("all urls %v had errors", urls)
+	}
+	return nil
+}
+
+func syncFromUrl(dataRepo string, url string) error {
+	sr := NewShardReplica(url)
+	lr := btrfs.NewLocalReplica(dataRepo)
+	from, err := lr.From()
+	if err != nil {
+		return err
+	}
+	return sr.Pull(from, lr)
 }

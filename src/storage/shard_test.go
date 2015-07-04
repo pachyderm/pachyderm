@@ -27,7 +27,7 @@ func TestPing(t *testing.T) {
 	t.Parallel()
 	shard := NewShard("", "TestPingData", "TestPingComp", "TestPingPipelines", 0, 1, etcache.NewCache())
 	require.NoError(t, shard.EnsureRepos())
-	s := httptest.NewServer(NewShardMux(shard))
+	s := httptest.NewServer(NewShardHTTPHandler(shard))
 	defer s.Close()
 
 	res, err := http.Get(s.URL + "/ping")
@@ -42,7 +42,7 @@ func TestBasic(t *testing.T) {
 		shard := NewShard("", fmt.Sprintf("TestBasic%d", c), fmt.Sprintf("TestBasicComp%d", c), fmt.Sprintf("TestBasicPipelines%d", c), 0, 1, etcache.NewCache())
 		c++
 		require.NoError(t, shard.EnsureRepos())
-		s := httptest.NewServer(NewShardMux(shard))
+		s := httptest.NewServer(NewShardHTTPHandler(shard))
 		defer s.Close()
 
 		RunWorkload(t, s.URL, w)
@@ -64,8 +64,8 @@ func TestPull(t *testing.T) {
 		c++
 		require.NoError(t, _src.EnsureRepos())
 		require.NoError(t, _dst.EnsureRepos())
-		src := httptest.NewServer(NewShardMux(_src))
-		dst := httptest.NewServer(NewShardMux(_dst))
+		src := httptest.NewServer(NewShardHTTPHandler(_src))
+		dst := httptest.NewServer(NewShardHTTPHandler(_dst))
 		defer src.Close()
 		defer dst.Close()
 
@@ -94,8 +94,8 @@ func TestSyncTo(t *testing.T) {
 		_dst := NewShard("", fmt.Sprintf("TestSyncToDst%d", c), fmt.Sprintf("TestSyncToDstComp%d", c), fmt.Sprintf("TestSyncToDstPipelines%d", c), 0, 1, etcache.NewCache())
 		require.NoError(t, _src.EnsureRepos())
 		require.NoError(t, _dst.EnsureRepos())
-		src := httptest.NewServer(NewShardMux(_src))
-		dst := httptest.NewServer(NewShardMux(_dst))
+		src := httptest.NewServer(NewShardHTTPHandler(_src))
+		dst := httptest.NewServer(NewShardHTTPHandler(_dst))
 		defer src.Close()
 		defer dst.Close()
 
@@ -103,7 +103,7 @@ func TestSyncTo(t *testing.T) {
 			runOp(t, src.URL, o)
 			if o.Object == traffic.Commit {
 				// Replicate the data
-				err := SyncTo(fmt.Sprintf("TestSyncToSrc%d", c), []string{dst.URL})
+				err := syncTo(fmt.Sprintf("TestSyncToSrc%d", c), []string{dst.URL})
 				require.NoError(t, err)
 			}
 		}
@@ -128,8 +128,8 @@ func TestSyncFrom(t *testing.T) {
 		_dst := NewShard("", fmt.Sprintf("TestSyncFromDst%d", c), fmt.Sprintf("TestSyncFromDstComp%d", c), fmt.Sprintf("TestSyncFromDstPipelines%d", c), 0, 1, etcache.NewCache())
 		require.NoError(t, _src.EnsureRepos())
 		require.NoError(t, _dst.EnsureRepos())
-		src := httptest.NewServer(NewShardMux(_src))
-		dst := httptest.NewServer(NewShardMux(_dst))
+		src := httptest.NewServer(NewShardHTTPHandler(_src))
+		dst := httptest.NewServer(NewShardHTTPHandler(_dst))
 		defer src.Close()
 		defer dst.Close()
 
@@ -137,7 +137,7 @@ func TestSyncFrom(t *testing.T) {
 			runOp(t, src.URL, o)
 			if o.Object == traffic.Commit {
 				// Replicate the data
-				err := SyncFrom(fmt.Sprintf("TestSyncFromDst%d", c), []string{src.URL})
+				err := syncFrom(fmt.Sprintf("TestSyncFromDst%d", c), []string{src.URL})
 				require.NoError(t, err)
 			}
 		}
@@ -158,7 +158,7 @@ func TestPipeline(t *testing.T) {
 	t.Parallel()
 	shard := NewShard("", "TestPipelineData", "TestPipelineComp", "TestPipelinePipelines", 0, 1, etcache.NewCache())
 	require.NoError(t, shard.EnsureRepos())
-	s := httptest.NewServer(NewShardMux(shard))
+	s := httptest.NewServer(NewShardHTTPHandler(shard))
 	defer s.Close()
 
 	res, err := http.Post(s.URL+"/pipeline/touch_foo", "application/text", strings.NewReader(`
@@ -181,7 +181,7 @@ func TestShardFilter(t *testing.T) {
 	t.Parallel()
 	shard := NewShard("", "TestShardFilterData", "TestShardFilterComp", "TestShardFilterPipelines", 0, 1, etcache.NewCache())
 	require.NoError(t, shard.EnsureRepos())
-	s := httptest.NewServer(NewShardMux(shard))
+	s := httptest.NewServer(NewShardHTTPHandler(shard))
 	defer s.Close()
 
 	res, err := http.Post(s.URL+"/pipeline/files", "application/text", strings.NewReader(`
@@ -245,11 +245,11 @@ func TestShuffle(t *testing.T) {
 	// Setup 2 shards
 	shard1 := NewShard("", "TestShuffleData-0-2", "TestShuffleComp-0-2", "TestShufflePipelines-0-2", 0, 2, cache)
 	require.NoError(t, shard1.EnsureRepos())
-	s1 := httptest.NewServer(NewShardMux(shard1))
+	s1 := httptest.NewServer(NewShardHTTPHandler(shard1))
 	defer s1.Close()
 	shard2 := NewShard("", "TestShuffleData-1-2", "TestShuffleComp-1-2", "TestShufflePipelines-1-2", 1, 2, cache)
 	require.NoError(t, shard2.EnsureRepos())
-	s2 := httptest.NewServer(NewShardMux(shard2))
+	s2 := httptest.NewServer(NewShardHTTPHandler(shard2))
 	defer s2.Close()
 
 	files := []string{"foo", "bar", "fizz", "buzz"}
@@ -302,11 +302,11 @@ func TestWordCount(t *testing.T) {
 	// Setup 2 shards
 	shard1 := NewShard("", "TestWordCountData-0-2", "TestWordCountComp-0-2", "TestWordCountPipelines-0-2", 0, 2, cache)
 	require.NoError(t, shard1.EnsureRepos())
-	s1 := httptest.NewServer(NewShardMux(shard1))
+	s1 := httptest.NewServer(NewShardHTTPHandler(shard1))
 	defer s1.Close()
 	shard2 := NewShard("", "TestWordCountData-1-2", "TestWordCountComp-1-2", "TestWordCountPipelines-1-2", 1, 2, cache)
 	require.NoError(t, shard2.EnsureRepos())
-	s2 := httptest.NewServer(NewShardMux(shard2))
+	s2 := httptest.NewServer(NewShardHTTPHandler(shard2))
 	defer s2.Close()
 
 	checkWriteFile(t, s1.URL, path.Join("data", "1"), "master",
@@ -358,7 +358,7 @@ func TestFail(t *testing.T) {
 	t.Parallel()
 	shard := NewShard("", "TestFailData", "TestFailComp", "TestFailPipelines", 0, 1, etcache.NewCache())
 	require.NoError(t, shard.EnsureRepos())
-	s := httptest.NewServer(NewShardMux(shard))
+	s := httptest.NewServer(NewShardHTTPHandler(shard))
 	defer s.Close()
 
 	res, err := http.Post(s.URL+"/pipeline/fail", "application/text", strings.NewReader(`
@@ -389,7 +389,7 @@ func TestChess(t *testing.T) {
 	// Notice this shard is behaving like 1 node of a 5000 node cluster to downsample to data.
 	shard := NewShard("", "TestChessData", "TestChessComp", "TestChessPipelines", 0, 5000, etcache.NewCache())
 	require.NoError(t, shard.EnsureRepos())
-	s := httptest.NewServer(NewShardMux(shard))
+	s := httptest.NewServer(NewShardHTTPHandler(shard))
 	defer s.Close()
 
 	res, err := http.Post(s.URL+"/pipeline/count", "application/text", strings.NewReader(`
