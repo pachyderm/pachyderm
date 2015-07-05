@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/json"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -27,18 +28,20 @@ func newShardHTTPHandler(shard Shard) *shardHTTPHandler {
 	return shardHTTPHandler
 }
 
-func resource(request *http.Request) string {
-	url := strings.Split(request.URL.Path, "/")
-	return path.Join(url[1:]...)
-}
-
 func (s *shardHTTPHandler) branch(writer http.ResponseWriter, request *http.Request) {
 	name := resource(request)
 	switch request.Method {
 	case "GET":
-		_, err := s.BranchGet(name)
+		branches, err := s.BranchList()
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+		}
+		encoder := json.NewEncoder(writer)
+		for _, branch := range branches {
+			err = encoder.Encode(branchMsg{Name: branch.Name, TStamp: branch.ModTime.Format("2006-01-02T15:04:05.999999-07:00")})
+			if err != nil {
+				http.Error(writer, err.Error(), http.StatusInternalServerError)
+			}
 		}
 	case "POST":
 		branch, err := s.BranchCreate(name, commitParam(request))
@@ -53,9 +56,16 @@ func (s *shardHTTPHandler) commit(writer http.ResponseWriter, request *http.Requ
 	name := resource(request)
 	switch request.Method {
 	case "GET":
-		_, err := s.CommitGet(name)
+		commits, err := s.BranchList()
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+		}
+		encoder := json.NewEncoder(writer)
+		for _, commit := range commits {
+			err = encoder.Encode(branchMsg{Name: commit.Name, TStamp: commit.ModTime.Format("2006-01-02T15:04:05.999999-07:00")})
+			if err != nil {
+				http.Error(writer, err.Error(), http.StatusInternalServerError)
+			}
 		}
 	case "POST":
 		commit, err := s.CommitCreate(name, branchParam(request))
@@ -108,4 +118,9 @@ func (s *shardHTTPHandler) pull(writer http.ResponseWriter, request *http.Reques
 		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+func resource(request *http.Request) string {
+	url := strings.Split(request.URL.Path, "/")
+	return path.Join(url[1:]...)
 }
