@@ -673,6 +673,26 @@ func (s *shard) BranchCreate(name string, commit string) (Branch, error) {
 	}
 	return s.BranchGet(name)
 }
+func (s *shard) PipelineCreate(name string, content io.Reader, branch string) error {
+	pipelinePath := path.Join(s.dataRepo, branch, "pipeline", name)
+	btrfs.MkdirAll(path.Dir(pipelinePath))
+	_, err := btrfs.CreateFromReader(pipelinePath, content)
+	return err
+}
+func (s *shard) PipelineWait(name string, commit string) error {
+	return pipeline.WaitPipeline(s.pipelinePrefix, name, commit)
+}
+func (s *shard) PipelineFileGet(pipelineName string, fileName string, commit string) (File, error) {
+	info, err := btrfs.Stat(path.Join(s.pipelinePrefix, pipelineName, commit, fileName))
+	if err != nil {
+		return File{}, err
+	}
+	file, err := btrfs.Open(path.Join(s.dataRepo, commit, fileName))
+	if err != nil {
+		return File{}, err
+	}
+	return File{fileName, info.ModTime(), file}, nil
+}
 func (s *shard) From() (string, error) {
 	commits, err := s.CommitList()
 	if err != nil {

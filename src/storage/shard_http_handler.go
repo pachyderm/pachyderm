@@ -35,18 +35,21 @@ func (s *shardHTTPHandler) branch(writer http.ResponseWriter, request *http.Requ
 		branches, err := s.BranchList()
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		encoder := json.NewEncoder(writer)
 		for _, branch := range branches {
 			err = encoder.Encode(branchMsg{Name: branch.Name, TStamp: branch.ModTime.Format("2006-01-02T15:04:05.999999-07:00")})
 			if err != nil {
 				http.Error(writer, err.Error(), http.StatusInternalServerError)
+				return
 			}
 		}
 	case "POST":
 		branch, err := s.BranchCreate(name, commitParam(request))
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		fmt.Fprintf(writer, "Created %s.", branch.Name)
 	}
@@ -59,18 +62,21 @@ func (s *shardHTTPHandler) commit(writer http.ResponseWriter, request *http.Requ
 		commits, err := s.BranchList()
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		encoder := json.NewEncoder(writer)
 		for _, commit := range commits {
 			err = encoder.Encode(branchMsg{Name: commit.Name, TStamp: commit.ModTime.Format("2006-01-02T15:04:05.999999-07:00")})
 			if err != nil {
 				http.Error(writer, err.Error(), http.StatusInternalServerError)
+				return
 			}
 		}
 	case "POST":
 		commit, err := s.CommitCreate(name, branchParam(request))
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		fmt.Fprintf(writer, "Created %s.", commit.Name)
 	}
@@ -83,27 +89,38 @@ func (s *shardHTTPHandler) file(writer http.ResponseWriter, request *http.Reques
 		file, err := s.FileGet(name, commitParam(request))
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		http.ServeContent(writer, request, file.Name, file.ModTime, file.File)
 	case "POST":
 		if err := s.FileCreate(name, request.Body, branchParam(request)); err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
 		}
 	}
 }
 
 func (s *shardHTTPHandler) pipeline(writer http.ResponseWriter, request *http.Request) {
-	name := path.Join("pipeline", resource(request))
 	switch request.Method {
 	case "GET":
-		file, err := s.FileGet(name, commitParam(request))
+		url := strings.Split(request.URL.Path, "/")
+		pipelineName := url[1]
+		fileName := path.Join(url[3:]...)
+		if err := s.PipelineWait(pipelineName, commitParam(request)); err != nil {
+			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		file, err := s.PipelineFileGet(pipelineName, fileName, commitParam(request))
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		http.ServeContent(writer, request, file.Name, file.ModTime, file.File)
 	case "POST":
-		if err := s.FileCreate(name, request.Body, branchParam(request)); err != nil {
+		name := resource(request)
+		if err := s.PipelineCreate(name, request.Body, branchParam(request)); err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
 		}
 	}
 }
