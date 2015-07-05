@@ -27,9 +27,13 @@ type Branch struct {
 }
 
 type Shard interface {
-	EnsureRepos() error
+	Filesystem
+	Replica
 	FillRole(cancel chan bool) error
+	EnsureRepos() error
+}
 
+type Filesystem interface {
 	FileGet(name string, commit string) (File, error)
 	FileGetAll(name string, commit string) ([]File, error)
 	FileCreate(name string, content io.Reader, branch string) error
@@ -41,7 +45,9 @@ type Shard interface {
 	BranchGet(name string) (Branch, error)
 	BranchGetAll(name string) ([]Branch, error)
 	BranchCreate(name string, commit string) (Branch, error)
+}
 
+type Replica interface {
 	From() (string, error)
 	Push(diff io.Reader) error
 	Pull(from string, p btrfs.Pusher) error
