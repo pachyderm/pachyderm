@@ -584,22 +584,23 @@ func (s *shard) CommitGet(name string) (Commit, error) {
 	}
 	return Commit{name, info.ModTime()}, nil
 }
-func (s *shard) CommitGetAll(name string) ([]Commit, error) {
-	matches, err := btrfs.Glob(path.Join(s.dataRepo, name))
-	if err != nil {
-		return nil, err
-	}
+func (s *shard) CommitList() ([]Commit, error) {
 	var result []Commit
-	for _, match := range matches {
-		name := strings.TrimPrefix(match, s.dataRepo)
-		commit, err := s.CommitGet(name)
-		if err == ErrInvalidObject {
-			continue
-		}
+	if err := btrfs.Commits(s.dataRepo, "", btrfs.Desc, func(name string) error {
+		isCommit, err := btrfs.IsCommit(path.Join(s.dataRepo, name))
 		if err != nil {
-			return nil, err
+			return err
 		}
-		result = append(result, commit)
+		if isCommit {
+			fi, err := btrfs.Stat(path.Join(s.dataRepo, name))
+			if err != nil {
+				return err
+			}
+			result = append(result, Commit{name, fi.ModTime()})
+		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -607,6 +608,27 @@ func (s *shard) CommitCreate(name string, branch string) (Commit, error) {
 	if err := btrfs.Commit(s.dataRepo, name, branch); err != nil {
 		return Commit{}, err
 	}
+	// We lock the guard so that we can remove the oldRunner from the map
+	// and add the newRunner in.
+	s.guard.Lock()
+	oldRunner, ok := s.runners[branch]
+	newRunner := pipeline.NewRunner("pipeline", s.dataRepo, s.pipelinePrefix, name, branch, s.shardStr, s.cache)
+	s.runners[branch] = newRunner
+	s.guard.Unlock()
+	go func() {
+		// cancel oldRunner if it exists
+		if ok {
+			err := oldRunner.Cancel()
+			if err != nil {
+				log.Print(err)
+			}
+		}
+		err := newRunner.Run()
+		if err != nil {
+			log.Print(err)
+		}
+	}()
+	go s.syncToPeers()
 	return s.CommitGet(name)
 }
 
@@ -625,22 +647,23 @@ func (s *shard) BranchGet(name string) (Branch, error) {
 	}
 	return Branch{name, info.ModTime()}, nil
 }
-func (s *shard) BranchGetAll(name string) ([]Branch, error) {
-	matches, err := btrfs.Glob(path.Join(s.dataRepo, name))
-	if err != nil {
-		return nil, err
-	}
+func (s *shard) BranchList() ([]Branch, error) {
 	var result []Branch
-	for _, match := range matches {
-		name := strings.TrimPrefix(match, s.dataRepo)
-		branch, err := s.BranchGet(name)
-		if err == ErrInvalidObject {
-			continue
-		}
+	if err := btrfs.Commits(s.dataRepo, "", btrfs.Desc, func(name string) error {
+		isCommit, err := btrfs.IsCommit(path.Join(s.dataRepo, name))
 		if err != nil {
-			return nil, err
+			return err
 		}
-		result = append(result, branch)
+		if !isCommit {
+			fi, err := btrfs.Stat(path.Join(s.dataRepo, name))
+			if err != nil {
+				return err
+			}
+			result = append(result, Branch{name, fi.ModTime()})
+		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -650,9 +673,8 @@ func (s *shard) BranchCreate(name string, commit string) (Branch, error) {
 	}
 	return s.BranchGet(name)
 }
-
 func (s *shard) From() (string, error) {
-	commits, err := s.CommitGetAll("")
+	commits, err := s.CommitList()
 	if err != nil {
 		return "", err
 	}

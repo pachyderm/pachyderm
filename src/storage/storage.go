@@ -39,11 +39,11 @@ type Filesystem interface {
 	FileCreate(name string, content io.Reader, branch string) error
 
 	CommitGet(name string) (Commit, error)
-	CommitGetAll(name string) ([]Commit, error)
+	CommitList() ([]Commit, error)
 	CommitCreate(name string, branch string) (Commit, error)
 
 	BranchGet(name string) (Branch, error)
-	BranchGetAll(name string) ([]Branch, error)
+	BranchList() ([]Branch, error)
 	BranchCreate(name string, commit string) (Branch, error)
 }
 
