@@ -693,6 +693,22 @@ func (s *shard) PipelineFileGet(pipelineName string, fileName string, commit str
 	}
 	return File{fileName, info.ModTime(), file}, nil
 }
+func (s *shard) PipelineFileGetAll(pipelineName string, fileName string, commit string) ([]File, error) {
+	matches, err := btrfs.Glob(path.Join(s.pipelinePrefix, pipelineName, commit, fileName))
+	if err != nil {
+		return nil, err
+	}
+	var result []File
+	for _, match := range matches {
+		name := strings.TrimPrefix(match, path.Join(s.dataRepo, commit))
+		file, err := s.FileGet(name, commit)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, file)
+	}
+	return result, nil
+}
 func (s *shard) From() (string, error) {
 	commits, err := s.CommitList()
 	if err != nil {

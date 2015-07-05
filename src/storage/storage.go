@@ -49,6 +49,7 @@ type Filesystem interface {
 	PipelineCreate(name string, content io.Reader, branch string) error
 	PipelineWait(name string, commit string) error
 	PipelineFileGet(pipelineName string, fileName string, commit string) (File, error)
+	PipelineFileGetAll(pipelineName string, fileName string, commit string) ([]File, error)
 }
 
 type Replica interface {
