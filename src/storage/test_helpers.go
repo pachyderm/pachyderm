@@ -26,17 +26,17 @@ func RunWorkload(t require.TestingT, url string, w traffic.Workload) {
 }
 
 func checkAndCloseHTTPResponseBody(t require.TestingT, response *http.Response, expected string) {
-	require.Equal(t, http.StatusOK, response.StatusCode)
 	data, err := ioutil.ReadAll(response.Body)
 	require.NoError(t, response.Body.Close())
 	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, response.StatusCode, string(data))
 	require.Equal(t, expected, string(data))
 }
 
 func checkWriteFile(t require.TestingT, url, name, branch, data string) {
 	response, err := http.Post(url+path.Join("/file", name)+"?branch="+branch, "application/text", strings.NewReader(data))
 	require.NoError(t, err)
-	checkAndCloseHTTPResponseBody(t, response, fmt.Sprintf("Created %s, size: %d.\n", name, len(data)))
+	checkAndCloseHTTPResponseBody(t, response, "")
 }
 
 func checkFile(t require.TestingT, url, name, commit, data string) {
@@ -62,7 +62,7 @@ func branch(t require.TestingT, url, commit, branch string) {
 	_url := fmt.Sprintf("%s/branch?branch=%s&commit=%s", url, branch, commit)
 	response, err := http.Post(_url, "", nil)
 	require.NoError(t, err)
-	checkAndCloseHTTPResponseBody(t, response, fmt.Sprintf("Created branch. (%s) -> %s.\n", commit, branch))
+	checkAndCloseHTTPResponseBody(t, response, fmt.Sprintf("%s\n", branch))
 }
 
 func runOp(t require.TestingT, url string, o traffic.Op) {

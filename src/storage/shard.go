@@ -220,7 +220,7 @@ func (s *shard) PipelineFileGet(pipelineName string, fileName string, commit str
 	if err != nil {
 		return File{}, err
 	}
-	file, err := btrfs.Open(path.Join(s.dataRepo, commit, fileName))
+	file, err := btrfs.Open(path.Join(s.pipelinePrefix, pipelineName, commit, fileName))
 	if err != nil {
 		return File{}, err
 	}
@@ -234,7 +234,7 @@ func (s *shard) PipelineFileGetAll(pipelineName string, fileName string, commit 
 	}
 	var result []File
 	for _, match := range matches {
-		name := strings.TrimPrefix(match, path.Join(s.dataRepo, commit))
+		name := strings.TrimPrefix(match, path.Join(s.pipelinePrefix, pipelineName, commit))
 		file, err := s.FileGet(name, commit)
 		if err != nil {
 			return nil, err

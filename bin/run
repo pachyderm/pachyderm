@@ -11,10 +11,7 @@ cd "${DIR}"
 check_btrfs
 check_docker
 
-umount "${PFS_HOST_VOLUME}"
-rm "${PFS_DATA_IMG}"
-docker kill "${PFS_CONTAINER_NAME}"
-docker rm "${PFS_CONTAINER_NAME}"
+"${DIR}/clean"
 
 docker build -t "${PFS_IMAGE}" "$(cd "${DIR}/.." && pwd)"
 
