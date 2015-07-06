@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"path"
 	"strings"
 	"sync"
@@ -60,15 +59,7 @@ func newShard(
 }
 
 func (s *shard) FileGet(name string, commit string) (File, error) {
-	info, err := btrfs.Stat(path.Join(s.dataRepo, commit, name))
-	if err != nil {
-		return File{}, err
-	}
-	file, err := btrfs.Open(path.Join(s.dataRepo, commit, name))
-	if err != nil {
-		return File{}, err
-	}
-	return File{name, info.ModTime(), file}, nil
+	return s.fileGet(path.Join(s.dataRepo, commit), name)
 }
 
 func (s *shard) FileGetAll(name string, commit string) ([]File, error) {
@@ -216,15 +207,7 @@ func (s *shard) PipelineWait(name string, commit string) error {
 }
 
 func (s *shard) PipelineFileGet(pipelineName string, fileName string, commit string) (File, error) {
-	info, err := btrfs.Stat(path.Join(s.pipelinePrefix, pipelineName, commit, fileName))
-	if err != nil {
-		return File{}, err
-	}
-	file, err := btrfs.Open(path.Join(s.pipelinePrefix, pipelineName, commit, fileName))
-	if err != nil {
-		return File{}, err
-	}
-	return File{fileName, info.ModTime(), file}, nil
+	return s.fileGet(path.Join(s.pipelinePrefix, pipelineName, commit), fileName)
 }
 
 func (s *shard) PipelineFileGetAll(pipelineName string, fileName string, commit string) ([]File, error) {
@@ -234,8 +217,8 @@ func (s *shard) PipelineFileGetAll(pipelineName string, fileName string, commit 
 	}
 	var result []File
 	for _, match := range matches {
-		name := strings.TrimPrefix(match, path.Join(s.pipelinePrefix, pipelineName, commit))
-		file, err := s.FileGet(name, commit)
+		name := strings.TrimPrefix(match, path.Join("/", s.pipelinePrefix, pipelineName, commit))
+		file, err := s.PipelineFileGet(pipelineName, name, commit)
 		if err != nil {
 			return nil, err
 		}
@@ -376,55 +359,21 @@ func (s *shard) peers() ([]string, error) {
 	return peers, err
 }
 
-func commitParam(r *http.Request) string {
-	if p := r.URL.Query().Get("commit"); p != "" {
-		return p
-	}
-	return "master"
-}
-
-func branchParam(r *http.Request) string {
-	if p := r.URL.Query().Get("branch"); p != "" {
-		return p
-	}
-	return "master"
-}
-
-func shardParam(r *http.Request) string {
-	return r.URL.Query().Get("shard")
-}
-
-func hasBranch(r *http.Request) bool {
-	return (r.URL.Query().Get("branch") == "")
-}
-
-func materializeParam(r *http.Request) string {
-	if _, ok := r.URL.Query()["run"]; ok {
-		return "true"
-	}
-	return "false"
-}
-
-func indexOf(haystack []string, needle string) int {
-	for i, s := range haystack {
-		if s == needle {
-			return i
-		}
-	}
-	return -1
-}
-
-func rawCat(w io.Writer, name string) error {
-	f, err := btrfs.Open(name)
+func (s *shard) fileGet(dir string, name string) (File, error) {
+	path := path.Join(dir, name)
+	info, err := btrfs.Stat(path)
 	if err != nil {
-		return err
+		return File{}, err
 	}
-	defer f.Close()
-
-	if _, err := io.Copy(w, f); err != nil {
-		return err
+	file, err := btrfs.Open(path)
+	if err != nil {
+		return File{}, err
 	}
-	return nil
+	return File{
+		name,
+		info.ModTime(),
+		file,
+	}, nil
 }
 
 // syncTo syncs the contents in p to all of the shards in urls

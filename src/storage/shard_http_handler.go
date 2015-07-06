@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"path"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/src/btrfs"
 )
 
 type shardHTTPHandler struct {
@@ -56,7 +58,7 @@ func (s *shardHTTPHandler) branch(writer http.ResponseWriter, request *http.Requ
 func (s *shardHTTPHandler) commit(writer http.ResponseWriter, request *http.Request) {
 	switch request.Method {
 	case "GET":
-		commits, err := s.BranchList()
+		commits, err := s.CommitList()
 		if err != nil {
 			httpError(writer, err)
 			return
@@ -190,4 +192,55 @@ func resource(request *http.Request) string {
 
 func httpError(writer http.ResponseWriter, err error) {
 	http.Error(writer, err.Error(), http.StatusInternalServerError)
+}
+
+func commitParam(r *http.Request) string {
+	if p := r.URL.Query().Get("commit"); p != "" {
+		return p
+	}
+	return "master"
+}
+
+func branchParam(r *http.Request) string {
+	if p := r.URL.Query().Get("branch"); p != "" {
+		return p
+	}
+	return "master"
+}
+
+func shardParam(r *http.Request) string {
+	return r.URL.Query().Get("shard")
+}
+
+func hasBranch(r *http.Request) bool {
+	return (r.URL.Query().Get("branch") == "")
+}
+
+func materializeParam(r *http.Request) string {
+	if _, ok := r.URL.Query()["run"]; ok {
+		return "true"
+	}
+	return "false"
+}
+
+func indexOf(haystack []string, needle string) int {
+	for i, s := range haystack {
+		if s == needle {
+			return i
+		}
+	}
+	return -1
+}
+
+func rawCat(w io.Writer, name string) error {
+	f, err := btrfs.Open(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(w, f); err != nil {
+		return err
+	}
+	return nil
 }

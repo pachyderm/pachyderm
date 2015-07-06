@@ -426,6 +426,7 @@ func (p *pipeline) runPachFile(r io.Reader) (retErr error) {
 			return ErrUnkownKeyword
 		}
 		if err != nil {
+			log.Print(err)
 			return err
 		}
 	}
