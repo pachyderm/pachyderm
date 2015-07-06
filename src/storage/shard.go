@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/pipeline"
+	"github.com/pachyderm/pachyderm/src/route"
 )
 
 const (
@@ -22,6 +23,7 @@ const (
 
 var (
 	ErrInvalidObject = errors.New("pfs: invalid object")
+	ErrIsDirectory   = errors.New("pfs: is directory")
 )
 
 type shard struct {
@@ -71,6 +73,9 @@ func (s *shard) FileGetAll(name string, commit string) ([]File, error) {
 	for _, match := range matches {
 		name := strings.TrimPrefix(match, path.Join(s.dataRepo, commit))
 		file, err := s.FileGet(name, commit)
+		if err == ErrIsDirectory {
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -210,7 +215,7 @@ func (s *shard) PipelineFileGet(pipelineName string, fileName string, commit str
 	return s.fileGet(path.Join(s.pipelinePrefix, pipelineName, commit), fileName)
 }
 
-func (s *shard) PipelineFileGetAll(pipelineName string, fileName string, commit string) ([]File, error) {
+func (s *shard) PipelineFileGetAll(pipelineName string, fileName string, commit string, shard string) ([]File, error) {
 	matches, err := btrfs.Glob(path.Join(s.pipelinePrefix, pipelineName, commit, fileName))
 	if err != nil {
 		return nil, err
@@ -218,7 +223,17 @@ func (s *shard) PipelineFileGetAll(pipelineName string, fileName string, commit 
 	var result []File
 	for _, match := range matches {
 		name := strings.TrimPrefix(match, path.Join("/", s.pipelinePrefix, pipelineName, commit))
+		ok, err := route.Match(name, shard)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
 		file, err := s.PipelineFileGet(pipelineName, name, commit)
+		if err == ErrIsDirectory {
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -364,6 +379,9 @@ func (s *shard) fileGet(dir string, name string) (File, error) {
 	info, err := btrfs.Stat(path)
 	if err != nil {
 		return File{}, err
+	}
+	if info.IsDir() {
+		return File{}, ErrIsDirectory
 	}
 	file, err := btrfs.Open(path)
 	if err != nil {

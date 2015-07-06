@@ -137,7 +137,7 @@ func (s *shardHTTPHandler) pipeline(writer http.ResponseWriter, request *http.Re
 			return
 		}
 		if strings.ContainsAny(fileName, "*") {
-			files, err := s.PipelineFileGetAll(pipelineName, fileName, commitParam(request))
+			files, err := s.PipelineFileGetAll(pipelineName, fileName, commitParam(request), shardParam(request))
 			if err != nil {
 				httpError(writer, err)
 				return
