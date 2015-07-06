@@ -27,21 +27,32 @@ type Branch struct {
 }
 
 type Shard interface {
-	EnsureRepos() error
+	Filesystem
+	Replica
 	FillRole(cancel chan bool) error
+	EnsureRepos() error
+}
 
+type Filesystem interface {
 	FileGet(name string, commit string) (File, error)
 	FileGetAll(name string, commit string) ([]File, error)
 	FileCreate(name string, content io.Reader, branch string) error
 
 	CommitGet(name string) (Commit, error)
-	CommitGetAll(name string) ([]Commit, error)
+	CommitList() ([]Commit, error)
 	CommitCreate(name string, branch string) (Commit, error)
 
 	BranchGet(name string) (Branch, error)
-	BranchGetAll(name string) ([]Branch, error)
+	BranchList() ([]Branch, error)
 	BranchCreate(name string, commit string) (Branch, error)
 
+	PipelineCreate(name string, content io.Reader, branch string) error
+	PipelineWait(name string, commit string) error
+	PipelineFileGet(pipelineName string, fileName string, commit string) (File, error)
+	PipelineFileGetAll(pipelineName string, fileName string, commit string, shard string) ([]File, error)
+}
+
+type Replica interface {
 	From() (string, error)
 	Push(diff io.Reader) error
 	Pull(from string, p btrfs.Pusher) error

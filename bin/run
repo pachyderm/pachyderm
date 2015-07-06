@@ -11,6 +11,10 @@ cd "${DIR}"
 check_btrfs
 check_docker
 
+"${DIR}/clean"
+
+docker build -t "${PFS_IMAGE}" "$(cd "${DIR}/.." && pwd)"
+
 mkdir -p "${PFS_HOST_VOLUME}"
 truncate "${PFS_DATA_IMG}" -s 10G
 mkfs.btrfs "${PFS_DATA_IMG}"

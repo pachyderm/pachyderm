@@ -59,10 +59,10 @@ container-build:
 container-clean:
 	sudo -E bash -c 'bin/clean'
 
-container-shell: container-build
+container-shell:
 	sudo -E bash -c 'bin/shell'
 
-container-launch: container-build container-clean
+container-launch:
 	sudo -E bash -c 'bin/launch'
 
 lint:
@@ -78,13 +78,13 @@ errcheck:
 pretest: lint vet errcheck
 
 # TODO(pedge): add pretest when fixed
-test: container-build container-clean
+test:
 	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) -test.short ./...'
 
 # TODO(pedge): add pretest when fixed
-test-long: container-build container-clean
+test-long:
 	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) ./...'
 
 # TODO(pedge): add pretest when fixed
-bench: container-build container-clean
+bench:
 	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) -bench . -timeout $(BENCH_TIMEOUT) ./...'
