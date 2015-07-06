@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/btrfs"
+	"github.com/satori/go.uuid"
 )
 
 type shardHTTPHandler struct {
@@ -71,6 +72,11 @@ func (s *shardHTTPHandler) commit(writer http.ResponseWriter, request *http.Requ
 		}
 	case "POST":
 		if request.ContentLength == 0 {
+			values := request.URL.Query()
+			if values.Get("commit") == "" {
+				values.Add("commit", uuid.NewV4().String())
+				request.URL.RawQuery = values.Encode()
+			}
 			commit, err := s.CommitCreate(commitParam(request), branchParam(request))
 			if err != nil {
 				httpError(writer, err)
