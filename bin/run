@@ -11,6 +11,13 @@ cd "${DIR}"
 check_btrfs
 check_docker
 
+umount "${PFS_HOST_VOLUME}"
+rm "${PFS_DATA_IMG}"
+docker kill "${PFS_CONTAINER_NAME}"
+docker rm "${PFS_CONTAINER_NAME}"
+
+docker build -t "${PFS_IMAGE}" "$(cd "${DIR}/.." && pwd)"
+
 mkdir -p "${PFS_HOST_VOLUME}"
 truncate "${PFS_DATA_IMG}" -s 10G
 mkfs.btrfs "${PFS_DATA_IMG}"
