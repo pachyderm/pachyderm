@@ -1,12 +1,12 @@
-# pachyderm
+# Pachyderm
 
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache-2.0.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
 
 ## News
 
-Pachyderm v0.8 is out. v0.8 includes a brand new pipelining system. [Read more](pachyderm.io/pps) about it or check out our [web scraper demo](https://medium.com/pachyderm-data/build-your-own-wayback-machine-in-10-lines-of-code-99884b2ff95c)
+Pachyderm v0.8 is out and includes a brand new pipelining system! [Read more](pachyderm.io/pps) about it or check out our [web scraper demo](https://medium.com/pachyderm-data/build-your-own-wayback-machine-in-10-lines-of-code-99884b2ff95c)
 
-WE'RE HIRING! Love Docker, Go and distributed systems? Email us at jobs@pachyderm.io
+WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io
 
 ## What is Pachyderm?
 
@@ -29,21 +29,22 @@ Pfs is implemented as a distributed layer on top of btrfs, the same
 copy-on-write file system that powers Docker. Btrfs already offers
 [git-like semantics](http://zef.me/6023/who-needs-git-when-you-got-zfs/) on a
 single machine; pfs scales these out to an entire cluster. This allows features such as:
-- Commit-based history: File systems are generally single-state entities. Pfs,
+- __Commit-based history__: File systems are generally single-state entities. Pfs,
 on the other hand, provides a rich history of every previous state of your
 cluster. You can always revert to a prior commit in the event of a
 disaster.
-- Branching: Thanks to btrfs's copy-on-write semantics, branching is ridiculously
+- __Branching__: Thanks to btrfs's copy-on-write semantics, branching is ridiculously
 cheap in pfs. Each user can experiment freely in their own branch without
 impacting anyone else or the underlying data. Branches can easily be merged back in the main cluster.
-- Cloning: Btrfs's send/receive functionality allows pfs to efficiently copy
+- __Cloning__: Btrfs's send/receive functionality allows pfs to efficiently copy
 an entire cluster's worth of data while still maintaining its commit history.
 
 ## What are containerized analytics?
 
 Rather than thinking in terms of map or reduce jobs, pps thinks in terms of pipelines expressed within a container. A pipeline is a generic way expressing computation over large datasets and it’s containerized to make it easily portable, isolated, and easy to monitor. In Pachyderm, all analysis runs in containers. You can write them in any language you want and include any libraries. 
 
-### Deploying a Pachyderm cluster
+# Documentation
+## Deploying a Pachyderm cluster
 
 Pachyderm is designed to run on CoreOS so we'll need to deploy a CoreOs cluster. We've created an AWS cloud template to make this insanely easy.
 - [Deploy on Amazon EC2](https://console.aws.amazon.com/cloudformation/home?region=us-west-1#/stacks/new?stackName=Pachyderm&templateURL=https:%2F%2Fs3-us-west-1.amazonaws.com%2Fpachyderm-templates%2Ftemplate) using cloud templates (recommended)
