@@ -222,13 +222,19 @@ func (s *shard) PipelineFileGetAll(pipelineName string, fileName string, commit 
 	}
 	var result []File
 	for _, match := range matches {
-		name := strings.TrimPrefix(match, path.Join("/", s.pipelinePrefix, pipelineName, commit))
-		ok, err := route.Match(name, shard)
-		if err != nil {
-			return nil, err
+		prefix := path.Join("/", s.pipelinePrefix, pipelineName, commit)
+		if !strings.HasSuffix(prefix, "/") {
+			prefix = prefix + "/"
 		}
-		if !ok {
-			continue
+		name := strings.TrimPrefix(match, prefix)
+		if shard != "" {
+			ok, err := route.Match(name, shard)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				continue
+			}
 		}
 		file, err := s.PipelineFileGet(pipelineName, name, commit)
 		if err == ErrIsDirectory {
