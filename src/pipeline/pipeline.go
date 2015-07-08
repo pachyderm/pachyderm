@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/etcache"
@@ -102,7 +103,8 @@ func (p *pipeline) input(name string) error {
 func (p *pipeline) inject(name string) error {
 	switch {
 	case strings.HasPrefix(name, "s3://"):
-		bucket, err := s3utils.NewBucket(name)
+		bucket, err := s3utils.GetBucket(name)
+		client := s3utils.NewClient()
 		if err != nil {
 			return err
 		}
@@ -139,10 +141,15 @@ func (p *pipeline) inject(name string) error {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				src, err := bucket.GetReader(file)
+				response, err := client.GetObject(&s3.GetObjectInput{
+					Bucket: &bucket,
+					Key:    &file,
+				})
 				if err != nil {
 					return
 				}
+
+				src := response.Body
 				dst, err := btrfs.CreateAll(path.Join(p.outRepo, p.branch, strings.TrimPrefix(file, _path)))
 				if err != nil {
 					return
