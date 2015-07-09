@@ -92,4 +92,4 @@ bench:
 
 proto:
 	docker pull pedge/proto3grpc
-	docker run --volume $(shell pwd):/compile --workdir /compile pedge/proto3grpc protoc -I src/pfs --go_out=src/pfs src/pfs/pfs.proto
+	docker run --volume $(shell pwd):/compile --workdir /compile pedge/proto3grpc protoc -I src/pfs --go_out=plugins=grpc:src/pfs src/pfs/pfs.proto

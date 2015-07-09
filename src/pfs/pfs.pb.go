@@ -9,22 +9,129 @@ It is generated from these files:
 	pfs.proto
 
 It has these top-level messages:
-	Foo
+	GetFileRequest
+	GetFileStreamingResponse
 */
 package pfs
 
 import proto "github.com/golang/protobuf/proto"
 
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 
-type Foo struct {
-	Foo string `protobuf:"bytes,1,opt,name=foo" json:"foo,omitempty"`
+type GetFileRequest struct {
+	Repository string `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
+	CommitId   string `protobuf:"bytes,2,opt,name=commit_id" json:"commit_id,omitempty"`
+	Path       string `protobuf:"bytes,3,opt,name=path" json:"path,omitempty"`
 }
 
-func (m *Foo) Reset()         { *m = Foo{} }
-func (m *Foo) String() string { return proto.CompactTextString(m) }
-func (*Foo) ProtoMessage()    {}
+func (m *GetFileRequest) Reset()         { *m = GetFileRequest{} }
+func (m *GetFileRequest) String() string { return proto.CompactTextString(m) }
+func (*GetFileRequest) ProtoMessage()    {}
 
-func init() {
+type GetFileStreamingResponse struct {
+	Payload []byte `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"`
+}
+
+func (m *GetFileStreamingResponse) Reset()         { *m = GetFileStreamingResponse{} }
+func (m *GetFileStreamingResponse) String() string { return proto.CompactTextString(m) }
+func (*GetFileStreamingResponse) ProtoMessage()    {}
+
+// Client API for Api service
+
+type ApiClient interface {
+	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error)
+}
+
+type apiClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewApiClient(cc *grpc.ClientConn) ApiClient {
+	return &apiClient{cc}
+}
+
+func (c *apiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_Api_serviceDesc.Streams[0], c.cc, "/pfs.Api/GetFile", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &apiGetFileClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Api_GetFileClient interface {
+	Recv() (*GetFileStreamingResponse, error)
+	grpc.ClientStream
+}
+
+type apiGetFileClient struct {
+	grpc.ClientStream
+}
+
+func (x *apiGetFileClient) Recv() (*GetFileStreamingResponse, error) {
+	m := new(GetFileStreamingResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// Server API for Api service
+
+type ApiServer interface {
+	GetFile(*GetFileRequest, Api_GetFileServer) error
+}
+
+func RegisterApiServer(s *grpc.Server, srv ApiServer) {
+	s.RegisterService(&_Api_serviceDesc, srv)
+}
+
+func _Api_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetFileRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ApiServer).GetFile(m, &apiGetFileServer{stream})
+}
+
+type Api_GetFileServer interface {
+	Send(*GetFileStreamingResponse) error
+	grpc.ServerStream
+}
+
+type apiGetFileServer struct {
+	grpc.ServerStream
+}
+
+func (x *apiGetFileServer) Send(m *GetFileStreamingResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+var _Api_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pfs.Api",
+	HandlerType: (*ApiServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetFile",
+			Handler:       _Api_GetFile_Handler,
+			ServerStreams: true,
+		},
+	},
 }

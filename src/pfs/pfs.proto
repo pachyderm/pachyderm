@@ -2,6 +2,16 @@ syntax = "proto3";
 
 package pfs;
 
-message Foo {
-  string foo = 1;
+message GetFileRequest {
+  string repository = 1;
+  string commit_id = 2;
+  string path = 3;
+}
+
+message GetFileStreamingResponse {
+  bytes payload = 1;
+}
+
+service Api {
+  rpc GetFile(GetFileRequest) returns (stream GetFileStreamingResponse) {}
 }
