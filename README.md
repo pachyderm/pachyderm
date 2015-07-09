@@ -1,6 +1,6 @@
 # Pachyderm
 
-[![Apache 2.0 License](https://img.shields.io/badge/license-Apache-2.0.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
+[![Apache 2.0 License](https://img.shields.io/badge/license-Apache-2.0.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE.md)
 
 ## News
 
