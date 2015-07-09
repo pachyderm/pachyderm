@@ -17,7 +17,8 @@
 	pretest \
 	test-long \
 	test \
-	bench
+	bench \
+	proto
 
 include etc/env/pfs.env
 
@@ -88,3 +89,7 @@ test-long:
 # TODO(pedge): add pretest when fixed
 bench:
 	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) -bench . -timeout $(BENCH_TIMEOUT) ./...'
+
+proto:
+	docker pull pedge/proto3grpc
+	docker run --volume $(shell pwd):/compile --workdir /compile pedge/proto3grpc protoc -I src/pfs --go_out=src/pfs src/pfs/pfs.proto
