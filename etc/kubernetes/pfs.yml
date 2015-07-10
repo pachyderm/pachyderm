@@ -14,6 +14,9 @@ spec:
         name: storage
       - mountPath: /var/run/docker.sock
         name: docker
+      ports:
+      - containerPort: 80
+        name: port
   restartPolicy: Never
   volumes:
   - hostPath:
