@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pfs
+spec:
+  containers:
+    - name: pfs
+      image: pachyderm/pfs
+      command: [ "/go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper", "/go/bin/shard", "0-1", "localhost" ]
+      volumeMounts:
+      - mountPath: /host
+        name: host
+      - mountPath: /var/lib/pfs/vol
+        name: storage
+      - mountPath: /var/run/docker.sock
+        name: docker
+  restartPolicy: Never
+  volumes:
+  - hostPath:
+      path: /
+    name: host
+  - hostPath:
+      path: /var/lib/pfs/vol
+    name: storage
+  - hostPath:
+      path: /var/run/docker.sock
+    name: docker
