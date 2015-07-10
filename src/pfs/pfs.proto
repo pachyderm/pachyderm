@@ -8,10 +8,10 @@ message GetFileRequest {
   string path = 3;
 }
 
-message GetFileStreamingResponse {
+message StreamingBytes {
   bytes payload = 1;
 }
 
 service Api {
-  rpc GetFile(GetFileRequest) returns (stream GetFileStreamingResponse) {}
+  rpc GetFile(GetFileRequest) returns (stream StreamingBytes) {}
 }

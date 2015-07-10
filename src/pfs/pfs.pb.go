@@ -10,7 +10,7 @@ It is generated from these files:
 
 It has these top-level messages:
 	GetFileRequest
-	GetFileStreamingResponse
+	StreamingBytes
 */
 package pfs
 
@@ -38,13 +38,13 @@ func (m *GetFileRequest) Reset()         { *m = GetFileRequest{} }
 func (m *GetFileRequest) String() string { return proto.CompactTextString(m) }
 func (*GetFileRequest) ProtoMessage()    {}
 
-type GetFileStreamingResponse struct {
+type StreamingBytes struct {
 	Payload []byte `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"`
 }
 
-func (m *GetFileStreamingResponse) Reset()         { *m = GetFileStreamingResponse{} }
-func (m *GetFileStreamingResponse) String() string { return proto.CompactTextString(m) }
-func (*GetFileStreamingResponse) ProtoMessage()    {}
+func (m *StreamingBytes) Reset()         { *m = StreamingBytes{} }
+func (m *StreamingBytes) String() string { return proto.CompactTextString(m) }
+func (*StreamingBytes) ProtoMessage()    {}
 
 // Client API for Api service
 
@@ -76,7 +76,7 @@ func (c *apiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grp
 }
 
 type Api_GetFileClient interface {
-	Recv() (*GetFileStreamingResponse, error)
+	Recv() (*StreamingBytes, error)
 	grpc.ClientStream
 }
 
@@ -84,8 +84,8 @@ type apiGetFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *apiGetFileClient) Recv() (*GetFileStreamingResponse, error) {
-	m := new(GetFileStreamingResponse)
+func (x *apiGetFileClient) Recv() (*StreamingBytes, error) {
+	m := new(StreamingBytes)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func _Api_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type Api_GetFileServer interface {
-	Send(*GetFileStreamingResponse) error
+	Send(*StreamingBytes) error
 	grpc.ServerStream
 }
 
@@ -119,7 +119,7 @@ type apiGetFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *apiGetFileServer) Send(m *GetFileStreamingResponse) error {
+func (x *apiGetFileServer) Send(m *StreamingBytes) error {
 	return x.ServerStream.SendMsg(m)
 }
 
