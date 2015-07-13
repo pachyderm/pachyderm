@@ -24,6 +24,8 @@ const (
 var (
 	ErrInvalidObject = errors.New("pfs: invalid object")
 	ErrIsDirectory   = errors.New("pfs: is directory")
+	ErrOverallocated = errors.New("pfs: overallocated")
+	ErrNoShards      = errors.New("pfs: no shards")
 )
 
 type shard struct {
@@ -35,6 +37,7 @@ type shard struct {
 	runners            map[string]*pipeline.Runner
 	guard              *sync.Mutex
 	cache              etcache.Cache
+	claims             []string
 }
 
 func newShard(
@@ -57,6 +60,7 @@ func newShard(
 		make(map[string]*pipeline.Runner),
 		&sync.Mutex{},
 		cache,
+		nil,
 	}
 }
 
@@ -305,11 +309,14 @@ func (s *shard) FillRole(cancel chan bool) error {
 					//Record that we're master
 					amMaster = true
 				}
+			} else {
+				log.Print(err)
 			}
 		} else {
 			// We're already master, renew our lease
 			_, err := client.CompareAndSwap(masterKey, s.url, 60, s.url, 0)
 			if err != nil { // error means we failed to reclaim master
+				log.Print(err)
 				amMaster = false
 			}
 		}
@@ -335,6 +342,67 @@ func (s *shard) FillRole(cancel chan bool) error {
 			break
 		}
 	}
+}
+
+func (s *shard) masters() ([]string, error) {
+	result := make([]string, s.modulos)
+	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+
+	response, err := client.Get("/pachyderm.io/pfs", false, true)
+	if err != nil {
+		return nil, err
+	}
+	for _, node := range response.Node.Nodes {
+		// node.Key looks like " /pachyderm.io/pfs/0-5"
+		//                      0 1            2   3
+		key := strings.Split(node.Key, "/")
+		shard, _, err := route.ParseShard(key[3])
+		if err != nil {
+			return nil, err
+		}
+		result[shard] = node.Value
+	}
+
+	return result, nil
+}
+
+func counts(masters []string) map[string]int {
+	result := make(map[string]int)
+	for _, host := range masters {
+		result[host] = result[host] + 1
+	}
+	return result
+}
+
+func (s *shard) localShards() ([]string, error) {
+	files, err := btrfs.ReadDir("")
+	if err != nil {
+		return nil, err
+	}
+	var result []string
+	for _, f := range files {
+		result = append(result, f.Name())
+	}
+	return result, nil
+}
+
+func (s *shard) bestRole() (string, error) {
+	masters, err := s.masters()
+	if err != nil {
+		return "", err
+	}
+	counts := counts(masters)
+	for _, count := range counts {
+		if count < counts[s.url] {
+			return "", ErrOverallocated
+		}
+	}
+	for i, master := range masters {
+		if master == "" {
+			return fmt.Sprintf("/pachyderm.io/pfs/%d-%d", i, int(s.modulos)), nil
+		}
+	}
+	return "", ErrNoShards
 }
 
 func (s *shard) syncFromPeers() error {
