@@ -37,7 +37,7 @@ type shard struct {
 	runners            map[string]*pipeline.Runner
 	guard              *sync.Mutex
 	cache              etcache.Cache
-	claims             []string
+	roles              []string
 }
 
 func newShard(
@@ -344,6 +344,34 @@ func (s *shard) FillRole(cancel chan bool) error {
 	}
 }
 
+func (s *shard) FillRoles() {
+	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+	for {
+		// first renew our existing roles
+		for _, role := range s.roles {
+			_, _ = client.CompareAndSwap(role, s.url, 60, s.url, 0)
+		}
+		// figure out if we should take on a new role
+		role, err := s.bestRole()
+		if err != nil {
+			if err == ErrOverallocated {
+				// this will likely be resolved soon so we just continue
+			} else if err == ErrNoShards {
+				<-time.After(time.Second * 30)
+			} else {
+				log.Print(err)
+				<-time.After(time.Second * 30)
+			}
+			continue
+		}
+		_, err = client.Create(role, s.url, 60)
+		if err != nil {
+			continue
+		}
+		s.roles = append(s.roles, role)
+	}
+}
+
 func (s *shard) masters() ([]string, error) {
 	result := make([]string, s.modulos)
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
@@ -391,18 +419,24 @@ func (s *shard) bestRole() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// First we check if there's a role we could fill.
+	// We do th
+	result := ""
+	for i, master := range masters {
+		if master == "" {
+			result = fmt.Sprintf("/pachyderm.io/pfs/%d-%d", i, int(s.modulos))
+		}
+	}
+	if result == "" {
+		return "", ErrNoShards
+	}
 	counts := counts(masters)
 	for _, count := range counts {
 		if count < counts[s.url] {
 			return "", ErrOverallocated
 		}
 	}
-	for i, master := range masters {
-		if master == "" {
-			return fmt.Sprintf("/pachyderm.io/pfs/%d-%d", i, int(s.modulos)), nil
-		}
-	}
-	return "", ErrNoShards
+	return result, nil
 }
 
 func (s *shard) syncFromPeers() error {
