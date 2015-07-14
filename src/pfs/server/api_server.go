@@ -1,14 +1,9 @@
 package server
 
 import (
-	"fmt"
-	"path"
-
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/peter-edge/go-google-protobuf"
 )
 
 type apiServer struct{}
@@ -17,31 +12,38 @@ func newAPIServer() *apiServer {
 	return &apiServer{}
 }
 
-func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) (retErr error) {
-	filePath := path.Join(
-		getFileRequest.Repository,
-		getFileRequest.CommitId,
-		getFileRequest.Path,
-	)
-	info, err := btrfs.Stat(filePath)
-	if err != nil {
-		return err
-	}
-	if info.IsDir() {
-		return fmt.Errorf("%s is a directory", getFileRequest.Path)
-	}
-	file, err := btrfs.Open(filePath)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := file.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	return writeToStreamingBytesServer(file, apiGetFileServer)
+func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) error {
+	return nil
 }
 
-func (a *apiServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequest) (*google_protobuf.Empty, error) {
-	return &google_protobuf.Empty{}, nil
+func (a *apiServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequest) (*pfs.PutFileResponse, error) {
+	return &pfs.PutFileResponse{}, nil
+}
+
+func (a *apiServer) ListFiles(ctx context.Context, listFilesRequest *pfs.ListFilesRequest) (*pfs.ListFilesResponse, error) {
+	return &pfs.ListFilesResponse{}, nil
+}
+
+func (a *apiServer) GetParent(ctx context.Context, getParentRequest *pfs.GetParentRequest) (*pfs.GetParentResponse, error) {
+	return &pfs.GetParentResponse{}, nil
+}
+
+func (a *apiServer) GetChildren(ctx context.Context, getChildrenRequest *pfs.GetChildrenRequest) (*pfs.GetChildrenResponse, error) {
+	return &pfs.GetChildrenResponse{}, nil
+}
+
+func (a *apiServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest) (*pfs.BranchResponse, error) {
+	return &pfs.BranchResponse{}, nil
+}
+
+func (a *apiServer) Commit(ctx context.Context, commitRequest *pfs.CommitRequest) (*pfs.CommitResponse, error) {
+	return &pfs.CommitResponse{}, nil
+}
+
+func (a *apiServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPullDiffServer pfs.Api_PullDiffServer) error {
+	return nil
+}
+
+func (a *apiServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.PushDiffRequest) (*pfs.PushDiffResponse, error) {
+	return &pfs.PushDiffResponse{}, nil
 }

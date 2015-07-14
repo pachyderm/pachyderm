@@ -1,24 +1,122 @@
 syntax = "proto3";
 
-import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
 
 package pfs;
 
-message GetFileRequest {
+// Path represents the full path to a file or directory within PFS.
+message Path {
   string repository = 1;
   string commit_id = 2;
   string path = 3;
 }
 
+// Shard represents a dynamic shard within PFS.
+// number must alway be less than modulo.
+message Shard {
+  uint64 number = 1;
+  uint64 modulo = 2;
+}
+
+message GetFileRequest {
+  Path path = 1;
+}
+
 message PutFileRequest {
-	string repository = 1;
-	string commit_id = 2;
-	string path = 3;
+  Path path = 1;
 	bytes value = 4;
 }
 
+message PutFileResponse {
+}
+
+message ListFilesRequest {
+  Path path = 1;
+  Shard shard = 2;
+}
+
+message ListFilesResponse {
+  repeated Path path = 1;
+}
+
+message GetParentRequest {
+  string commit_id = 1;
+}
+
+message GetParentResponse {
+  string commit_id = 1;
+}
+
+message GetChildrenRequest {
+  string commit_id = 1;
+}
+
+message GetChildrenResponse {
+  string commit_id = 1;
+}
+
+message BranchRequest {
+  enum Type {
+    BRANCH_REQUEST_TYPE_NONE = 0;
+    BRANCH_REQUEST_TYPE_PUT = 1;
+    BRANCH_RQUEST_TYPE_PUSH = 2;
+  }
+  string commit_id = 1;
+  Type type = 2;
+}
+
+message BranchResponse {
+  string commit_id = 1;
+}
+
+message CommitRequest {
+  string commit_id = 1;
+}
+
+message CommitResponse {
+}
+
+message PullDiffRequest {
+  string commit_id = 1;
+  Shard shard = 2;
+}
+
+message PushDiffRequest {
+  string commit_id = 1;
+  Shard shard = 2;
+  bytes value = 3;
+}
+
+message PushDiffResponse {
+}
+
 service Api {
+  // GetFile returns a byte stream of the specified file.
   rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
-  rpc PutFile(PutFileRequest) returns (google.protobuf.Empty) {}
+  // PutFile writes the specified file to PFS.
+  // An error is returned if the specified commit is not a write commit.
+  // An error is returned is the specified commit was not opened for putting.
+  rpc PutFile(PutFileRequest) returns (PutFileResponse) {}
+  // ListFiles lists the files within a directory.
+  // An error is returned if the specified path is not a directory.
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse) {}
+  // GetParent gets the parent commit ID of the specified commit.
+  rpc GetParent(GetParentRequest) returns (GetParentResponse) {}
+  // GetChildren gets the commit's children IDs.
+  rpc GetChildren(GetChildrenRequest) returns (GetChildrenResponse) {}
+  // Branch creates a new write commit from a base commit.
+  // An error is returned if the base commit is not a read commit.
+  rpc Branch(BranchRequest) returns (BranchResponse) {}
+  // Commit turns the specified write commit into a read commit.
+  // An error is returned if the specified commit is not a write commit.
+  // An error is returned if there are outstanding shards to be pushed.
+  rpc Commit(CommitRequest) returns (CommitResponse) {}
+  // PullDiff pulls a binary stream of the diff from the specified
+  // commit to the commit's parent.
+  rpc PullDiff(PullDiffRequest) returns (stream google.protobuf.BytesValue) {}
+  // Push diff pushes a diff from the specified commit
+  // to the commit's parent.
+  // An error is returned if the specified commit is not a write commit.
+  // An error is returned if the specified commit was not opened for pushing.
+  rpc PushDiff(PushDiffRequest) returns (PushDiffResponse) {}
 }

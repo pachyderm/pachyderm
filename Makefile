@@ -99,5 +99,5 @@ proto:
 		protoc \
 		-I /usr/include \
 		-I /compile/src/pfs \
-		--go_out=plugins=grpc,Mgoogle/protobuf/empty.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/wrappers.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pfs \
+		--go_out=plugins=grpc,Mgoogle/protobuf/wrappers.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pfs \
 		/compile/src/pfs/pfs.proto
