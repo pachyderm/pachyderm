@@ -2,7 +2,7 @@
 
 ## News
 
-Pachyderm v0.8 is out and includes a brand new pipelining system! [Read more](pachyderm.io/pps) about it or check out our [web scraper demo](https://medium.com/pachyderm-data/build-your-own-wayback-machine-in-10-lines-of-code-99884b2ff95c).
+Pachyderm v0.8 is out and includes a brand new pipelining system! [Read more](http://pachyderm.io/pps.html) about it or check out our [web scraper demo](https://medium.com/pachyderm-data/build-your-own-wayback-machine-in-10-lines-of-code-99884b2ff95c).
 
 WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
 
