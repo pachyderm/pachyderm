@@ -7,5 +7,5 @@ type Dialer interface {
 }
 
 func NewDialer(opts ...grpc.DialOption) Dialer {
-	return nil
+	return newDialer(opts...)
 }

@@ -8,5 +8,5 @@ type Sharder interface {
 }
 
 func NewSharder(numShards int) Sharder {
-	return nil
+	return newSharder(numShards)
 }

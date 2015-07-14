@@ -16,6 +16,7 @@ func NewRouter(
 	sharder shard.Sharder,
 	addresser address.Addresser,
 	dialer dial.Dialer,
+	localAddress string,
 ) Router {
 	return nil
 }
