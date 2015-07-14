@@ -1,5 +1,8 @@
 syntax = "proto3";
 
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+
 package pfs;
 
 message GetFileRequest {
@@ -8,10 +11,14 @@ message GetFileRequest {
   string path = 3;
 }
 
-message StreamingBytes {
-  bytes payload = 1;
+message PutFileRequest {
+	string repository = 1;
+	string commit_id = 2;
+	string path = 3;
+	bytes value = 4;
 }
 
 service Api {
-  rpc GetFile(GetFileRequest) returns (stream StreamingBytes) {}
+  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc PutFile(PutFileRequest) returns (google.protobuf.Empty) {}
 }

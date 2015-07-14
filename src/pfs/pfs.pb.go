@@ -10,11 +10,13 @@ It is generated from these files:
 
 It has these top-level messages:
 	GetFileRequest
-	StreamingBytes
+	PutFileRequest
 */
 package pfs
 
 import proto "github.com/golang/protobuf/proto"
+import google_protobuf "github.com/peter-edge/go-google-protobuf"
+import google_protobuf1 "github.com/peter-edge/go-google-protobuf"
 
 import (
 	context "golang.org/x/net/context"
@@ -38,18 +40,22 @@ func (m *GetFileRequest) Reset()         { *m = GetFileRequest{} }
 func (m *GetFileRequest) String() string { return proto.CompactTextString(m) }
 func (*GetFileRequest) ProtoMessage()    {}
 
-type StreamingBytes struct {
-	Payload []byte `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"`
+type PutFileRequest struct {
+	Repository string `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
+	CommitId   string `protobuf:"bytes,2,opt,name=commit_id" json:"commit_id,omitempty"`
+	Path       string `protobuf:"bytes,3,opt,name=path" json:"path,omitempty"`
+	Value      []byte `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
 }
 
-func (m *StreamingBytes) Reset()         { *m = StreamingBytes{} }
-func (m *StreamingBytes) String() string { return proto.CompactTextString(m) }
-func (*StreamingBytes) ProtoMessage()    {}
+func (m *PutFileRequest) Reset()         { *m = PutFileRequest{} }
+func (m *PutFileRequest) String() string { return proto.CompactTextString(m) }
+func (*PutFileRequest) ProtoMessage()    {}
 
 // Client API for Api service
 
 type ApiClient interface {
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error)
+	PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 }
 
 type apiClient struct {
@@ -76,7 +82,7 @@ func (c *apiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grp
 }
 
 type Api_GetFileClient interface {
-	Recv() (*StreamingBytes, error)
+	Recv() (*google_protobuf1.BytesValue, error)
 	grpc.ClientStream
 }
 
@@ -84,18 +90,28 @@ type apiGetFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *apiGetFileClient) Recv() (*StreamingBytes, error) {
-	m := new(StreamingBytes)
+func (x *apiGetFileClient) Recv() (*google_protobuf1.BytesValue, error) {
+	m := new(google_protobuf1.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
+func (c *apiClient) PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
+	err := grpc.Invoke(ctx, "/pfs.Api/PutFile", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for Api service
 
 type ApiServer interface {
 	GetFile(*GetFileRequest, Api_GetFileServer) error
+	PutFile(context.Context, *PutFileRequest) (*google_protobuf.Empty, error)
 }
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
@@ -111,7 +127,7 @@ func _Api_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type Api_GetFileServer interface {
-	Send(*StreamingBytes) error
+	Send(*google_protobuf1.BytesValue) error
 	grpc.ServerStream
 }
 
@@ -119,14 +135,31 @@ type apiGetFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *apiGetFileServer) Send(m *StreamingBytes) error {
+func (x *apiGetFileServer) Send(m *google_protobuf1.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _Api_PutFile_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(PutFileRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).PutFile(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 var _Api_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pfs.Api",
 	HandlerType: (*ApiServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "PutFile",
+			Handler:    _Api_PutFile_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "GetFile",

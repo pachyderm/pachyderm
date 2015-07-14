@@ -92,4 +92,12 @@ bench:
 
 proto:
 	docker pull pedge/proto3grpc
-	docker run --volume $(shell pwd):/compile --workdir /compile pedge/proto3grpc protoc -I src/pfs --go_out=plugins=grpc:src/pfs src/pfs/pfs.proto
+	docker run \
+		--volume $(shell pwd):/compile \
+		--workdir /compile \
+		pedge/proto3grpc \
+		protoc \
+		-I /usr/include \
+		-I /compile/src/pfs \
+		--go_out=plugins=grpc,Mgoogle/protobuf/empty.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/wrappers.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pfs \
+		/compile/src/pfs/pfs.proto

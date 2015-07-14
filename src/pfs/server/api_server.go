@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"path"
 
+	"golang.org/x/net/context"
+
 	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/peter-edge/go-google-protobuf"
 )
 
 type apiServer struct{}
@@ -37,4 +40,8 @@ func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer
 		}
 	}()
 	return writeToStreamingBytesServer(file, apiGetFileServer)
+}
+
+func (a *apiServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequest) (*google_protobuf.Empty, error) {
+	return &google_protobuf.Empty{}, nil
 }

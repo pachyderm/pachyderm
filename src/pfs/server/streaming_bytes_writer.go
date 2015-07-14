@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/peter-edge/go-google-protobuf"
 )
 
 func writeToStreamingBytesServer(reader io.Reader, streamingBytesServer streamingBytesServer) error {
@@ -13,7 +13,7 @@ func writeToStreamingBytesServer(reader io.Reader, streamingBytesServer streamin
 }
 
 type streamingBytesServer interface {
-	Send(streamingBytes *pfs.StreamingBytes) error
+	Send(streamingBytes *google_protobuf.BytesValue) error
 }
 
 type streamingBytesWriter struct {
@@ -30,8 +30,8 @@ func newStreamingBytesWriter(
 
 func (s *streamingBytesWriter) Write(p []byte) (int, error) {
 	if err := s.streamingBytesServer.Send(
-		&pfs.StreamingBytes{
-			Payload: p,
+		&google_protobuf.BytesValue{
+			Value: p,
 		},
 	); err != nil {
 		return 0, err
