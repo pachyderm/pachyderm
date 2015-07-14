@@ -1,4 +1,4 @@
-package addresser
+package address
 
 type Addresser interface {
 	GetAddress(shard int) (string, error)

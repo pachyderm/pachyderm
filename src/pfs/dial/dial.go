@@ -1,4 +1,4 @@
-package dialer
+package dial
 
 import "google.golang.org/grpc"
 

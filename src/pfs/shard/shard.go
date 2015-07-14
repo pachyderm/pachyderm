@@ -1,4 +1,4 @@
-package sharder
+package shard
 
 import "github.com/pachyderm/pachyderm/src/pfs"
 
