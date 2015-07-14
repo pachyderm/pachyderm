@@ -46,6 +46,6 @@ func do() error {
 		return err
 	}
 	log.Print("Listening on port 80...")
-	go shard.FillRoles()
+	go shard.FindRole()
 	return http.ListenAndServe(":80", storage.NewShardHTTPHandler(shard))
 }

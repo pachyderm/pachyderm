@@ -30,7 +30,7 @@ type Shard interface {
 	Filesystem
 	Replica
 	FillRole(cancel chan bool) error
-	FillRoles()
+	FindRole()
 	EnsureRepos() error
 }
 

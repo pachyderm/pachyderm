@@ -345,32 +345,28 @@ func (s *shard) FillRole(cancel chan bool) error {
 	}
 }
 
-func (s *shard) FillRoles() {
+func (s *shard) FindRole() {
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
 	defer client.Close()
+	role := ""
 	for {
-		// first renew our existing roles
-		for _, role := range s.roles {
+		// renew our role if we have one
+		if role != "" {
 			_, _ = client.CompareAndSwap(role, s.url, 60, s.url, 0)
+			continue
 		}
 		// figure out if we should take on a new role
-		role, err := s.bestRole()
+		role, err := s.freeRole()
 		if err != nil {
-			if err == ErrOverallocated {
-				// this will likely be resolved soon so we just continue
-			} else if err == ErrNoShards {
-				<-time.After(time.Second * 30)
-			} else {
-				log.Print(err)
-				<-time.After(time.Second * 30)
-			}
+			<-time.After(time.Second * 30)
+			role = ""
 			continue
 		}
 		_, err = client.Create(role, s.url, 60)
 		if err != nil {
+			role = ""
 			continue
 		}
-		s.roles = append(s.roles, role)
 	}
 }
 
@@ -406,21 +402,9 @@ func counts(masters []string) map[string]int {
 	return result
 }
 
-func (s *shard) localShards() ([]string, error) {
-	files, err := btrfs.ReadDir("")
-	if err != nil {
-		return nil, err
-	}
-	var result []string
-	for _, f := range files {
-		result = append(result, f.Name())
-	}
-	return result, nil
-}
-
 // bestRole returns the best role for us to fill in the cluster right now. If
 // no shards are available it returns ErrNoShards.
-func (s *shard) bestRole() (string, error) {
+func (s *shard) freeRole() (string, error) {
 	masters, err := s.masters()
 	if err != nil {
 		return "", err
@@ -429,25 +413,6 @@ func (s *shard) bestRole() (string, error) {
 	for i, master := range masters {
 		if master == "" {
 			return fmt.Sprintf("/pachyderm.io/pfs/%d-%d", i, int(s.modulos)), nil
-		}
-	}
-	// No empty shard found but we can steal one
-	counts := counts(masters)
-	maxHost := ""
-	max := 0
-	for host, count := range counts {
-		if count > max {
-			maxHost = host
-			max = count
-		}
-	}
-	// the plus one prevents osscillations
-	if max > counts[s.url]+1 {
-		// this guy is loaded with shards, we're stealing one
-		for i, master := range masters {
-			if master == maxHost {
-				return fmt.Sprintf("/pachyderm.io/pfs/%d-%d", i, int(s.modulos)), nil
-			}
 		}
 	}
 	return "", ErrNoShards
