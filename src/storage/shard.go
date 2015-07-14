@@ -419,37 +419,38 @@ func (s *shard) localShards() ([]string, error) {
 }
 
 // bestRole returns the best role for us to fill in the cluster right now. If
-// all shards are currently assigned it returns ErrNoShards. If this node
-// currently has too many shards assigned to it, it returns ErrOverallocated.
+// no shards are available it returns ErrNoShards.
 func (s *shard) bestRole() (string, error) {
 	masters, err := s.masters()
-	log.Printf("masters: %#v", masters)
 	if err != nil {
 		return "", err
 	}
-	// First we check if there's a role we could fill.
-	result := ""
+	// First we check if there's an empty shard
 	for i, master := range masters {
-		log.Printf("%d -> %s", i, master)
 		if master == "" {
-			result = fmt.Sprintf("/pachyderm.io/pfs/%d-%d", i, int(s.modulos))
-			break
+			return fmt.Sprintf("/pachyderm.io/pfs/%d-%d", i, int(s.modulos)), nil
 		}
 	}
-	log.Print("Result: ", result)
-	if result == "" {
-		return "", ErrNoShards
-	}
-	// Check that there isn't someone better to take this shard.
+	// No empty shard found but we can steal one
 	counts := counts(masters)
-	log.Printf("counts: %#v", counts)
-	for _, count := range counts {
-		if count < counts[s.url] {
-			log.Print("Overallocated.")
-			return "", ErrOverallocated
+	maxHost := ""
+	max := 0
+	for host, count := range counts {
+		if count > max {
+			maxHost = host
+			max = count
 		}
 	}
-	return result, nil
+	// the plus one prevents osscillations
+	if max > counts[s.url]+1 {
+		// this guy is loaded with shards, we're stealing one
+		for i, master := range masters {
+			if master == maxHost {
+				return fmt.Sprintf("/pachyderm.io/pfs/%d-%d", i, int(s.modulos)), nil
+			}
+		}
+	}
+	return "", ErrNoShards
 }
 
 func (s *shard) syncFromPeers() error {
