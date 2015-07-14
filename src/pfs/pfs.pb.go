@@ -9,6 +9,7 @@ It is generated from these files:
 	pfs.proto
 
 It has these top-level messages:
+	Repository
 	Commit
 	Path
 	Shard
@@ -123,15 +124,31 @@ func (x WriteCommitType) String() string {
 	return proto.EnumName(WriteCommitType_name, int32(x))
 }
 
+// Repository represents a repository.
+type Repository struct {
+	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+}
+
+func (m *Repository) Reset()         { *m = Repository{} }
+func (m *Repository) String() string { return proto.CompactTextString(m) }
+func (*Repository) ProtoMessage()    {}
+
 // Commit represents a specific commit in a repository.
 type Commit struct {
-	Repository string `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
-	Id         string `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
+	Id         string      `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
 }
 
 func (m *Commit) Reset()         { *m = Commit{} }
 func (m *Commit) String() string { return proto.CompactTextString(m) }
 func (*Commit) ProtoMessage()    {}
+
+func (m *Commit) GetRepository() *Repository {
+	if m != nil {
+		return m.Repository
+	}
+	return nil
+}
 
 // Path represents the full path to a file or directory within PFS.
 type Path struct {
@@ -163,13 +180,20 @@ func (*Shard) ProtoMessage()    {}
 
 // RepositoryInfo represents information about a repository.
 type RepositoryInfo struct {
-	Repository string     `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
-	DriverType DriverType `protobuf:"varint,2,opt,name=driver_type,enum=pfs.DriverType" json:"driver_type,omitempty"`
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
+	DriverType DriverType  `protobuf:"varint,2,opt,name=driver_type,enum=pfs.DriverType" json:"driver_type,omitempty"`
 }
 
 func (m *RepositoryInfo) Reset()         { *m = RepositoryInfo{} }
 func (m *RepositoryInfo) String() string { return proto.CompactTextString(m) }
 func (*RepositoryInfo) ProtoMessage()    {}
+
+func (m *RepositoryInfo) GetRepository() *Repository {
+	if m != nil {
+		return m.Repository
+	}
+	return nil
+}
 
 // CommitInfo represents information about a commit.
 type CommitInfo struct {
@@ -190,13 +214,20 @@ func (m *CommitInfo) GetCommit() *Commit {
 }
 
 type CreateRepositoryRequest struct {
-	Repository string     `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
-	DriverType DriverType `protobuf:"varint,2,opt,name=driver_type,enum=pfs.DriverType" json:"driver_type,omitempty"`
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
+	DriverType DriverType  `protobuf:"varint,2,opt,name=driver_type,enum=pfs.DriverType" json:"driver_type,omitempty"`
 }
 
 func (m *CreateRepositoryRequest) Reset()         { *m = CreateRepositoryRequest{} }
 func (m *CreateRepositoryRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateRepositoryRequest) ProtoMessage()    {}
+
+func (m *CreateRepositoryRequest) GetRepository() *Repository {
+	if m != nil {
+		return m.Repository
+	}
+	return nil
+}
 
 type CreateRepositoryResponse struct {
 }
@@ -450,12 +481,19 @@ func (m *PushDiffResponse) String() string { return proto.CompactTextString(m) }
 func (*PushDiffResponse) ProtoMessage()    {}
 
 type GetRepositoryInfoRequest struct {
-	Repository string `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
 }
 
 func (m *GetRepositoryInfoRequest) Reset()         { *m = GetRepositoryInfoRequest{} }
 func (m *GetRepositoryInfoRequest) String() string { return proto.CompactTextString(m) }
 func (*GetRepositoryInfoRequest) ProtoMessage()    {}
+
+func (m *GetRepositoryInfoRequest) GetRepository() *Repository {
+	if m != nil {
+		return m.Repository
+	}
+	return nil
+}
 
 type GetRepositoryInfoResponse struct {
 	RepositoryInfo *RepositoryInfo `protobuf:"bytes,1,opt,name=repository_info" json:"repository_info,omitempty"`

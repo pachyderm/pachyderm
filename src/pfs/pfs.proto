@@ -24,9 +24,14 @@ enum WriteCommitType {
   WRITE_COMMIT_TYPE_PUSH = 2;
 }
 
+// Repository represents a repository.
+message Repository {
+  string name = 1;
+}
+
 // Commit represents a specific commit in a repository.
 message Commit {
-  string repository = 1;
+  Repository repository = 1;
   string id = 2;
 }
 
@@ -45,7 +50,7 @@ message Shard {
 
 // RepositoryInfo represents information about a repository.
 message RepositoryInfo {
-  string repository = 1;
+  Repository repository = 1;
   DriverType driver_type = 2;
 }
 
@@ -57,7 +62,7 @@ message CommitInfo {
 }
 
 message CreateRepositoryRequest {
-  string repository = 1;
+  Repository repository = 1;
   DriverType driver_type = 2;
 }
 
@@ -133,7 +138,7 @@ message PushDiffResponse {
 }
 
 message GetRepositoryInfoRequest {
-  string repository = 1;
+  Repository repository = 1;
 }
 
 message GetRepositoryInfoResponse {
