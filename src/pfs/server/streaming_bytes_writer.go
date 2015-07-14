@@ -1,8 +1,10 @@
-package pfs
+package server
 
 import (
 	"bufio"
 	"io"
+
+	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
 func writeToStreamingBytesServer(reader io.Reader, streamingBytesServer streamingBytesServer) error {
@@ -11,7 +13,7 @@ func writeToStreamingBytesServer(reader io.Reader, streamingBytesServer streamin
 }
 
 type streamingBytesServer interface {
-	Send(streamingBytes *StreamingBytes) error
+	Send(streamingBytes *pfs.StreamingBytes) error
 }
 
 type streamingBytesWriter struct {
@@ -28,7 +30,7 @@ func newStreamingBytesWriter(
 
 func (s *streamingBytesWriter) Write(p []byte) (int, error) {
 	if err := s.streamingBytesServer.Send(
-		&StreamingBytes{
+		&pfs.StreamingBytes{
 			Payload: p,
 		},
 	); err != nil {

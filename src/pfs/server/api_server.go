@@ -1,10 +1,11 @@
-package pfs
+package server
 
 import (
 	"fmt"
 	"path"
 
 	"github.com/pachyderm/pachyderm/src/btrfs"
+	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
 type apiServer struct{}
@@ -13,7 +14,7 @@ func newAPIServer() *apiServer {
 	return &apiServer{}
 }
 
-func (a *apiServer) GetFile(getFileRequest *GetFileRequest, apiGetFileServer Api_GetFileServer) (retErr error) {
+func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) (retErr error) {
 	filePath := path.Join(
 		getFileRequest.Repository,
 		getFileRequest.CommitId,
