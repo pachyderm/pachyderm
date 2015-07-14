@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/pachyderm/pfs/src/btrfs"
+	"github.com/pachyderm/pachyderm/src/btrfs"
 )
 
 type apiServer struct{}
@@ -17,7 +17,7 @@ func newAPIServer() *apiServer {
 func (a *apiServer) GetFile(getFileRequest *GetFileRequest, apiGetFileServer Api_GetFileServer) error {
 	filePath := path.Join(
 		getFileRequest.Repository,
-		getFileRequest.Commit,
+		getFileRequest.CommitId,
 		getFileRequest.Path,
 	)
 	info, err := btrfs.Stat(filePath)
@@ -31,6 +31,6 @@ func (a *apiServer) GetFile(getFileRequest *GetFileRequest, apiGetFileServer Api
 	if err != nil {
 		return err
 	}
-	_, err := bufio.NewReader(file).WriteTo(newStreamingBytesWriter(apiGetFileServer))
+	_, err = bufio.NewReader(file).WriteTo(newStreamingBytesWriter(apiGetFileServer))
 	return err
 }
