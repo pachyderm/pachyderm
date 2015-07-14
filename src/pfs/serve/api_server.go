@@ -4,12 +4,15 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/route"
 )
 
-type apiServer struct{}
+type apiServer struct {
+	router route.Router
+}
 
-func newAPIServer() *apiServer {
-	return &apiServer{}
+func newAPIServer(router route.Router) *apiServer {
+	return &apiServer{router}
 }
 
 func (a *apiServer) CreateRepository(ctx context.Context, createRepositoryRequest *pfs.CreateRepositoryRequest) (*pfs.CreateRepositoryResponse, error) {

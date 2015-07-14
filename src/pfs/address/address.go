@@ -1,7 +1,9 @@
 package address
 
 type Addresser interface {
-	GetAddress(shard int) (string, error)
+	GetMasterAddress(shard int) (string, error)
+	GetSlaveAddresses(shard int) ([]string, error)
+	SetAddress(shard int, address string, master bool) error
 }
 
 func NewLocalAddresser(port uint16) Addresser {
