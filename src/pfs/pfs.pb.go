@@ -9,8 +9,13 @@ It is generated from these files:
 	pfs.proto
 
 It has these top-level messages:
+	Commit
 	Path
 	Shard
+	RepositoryInfo
+	CommitInfo
+	CreateRepositoryRequest
+	CreateRepositoryResponse
 	GetFileRequest
 	PutFileRequest
 	PutFileResponse
@@ -27,6 +32,10 @@ It has these top-level messages:
 	PullDiffRequest
 	PushDiffRequest
 	PushDiffResponse
+	GetRepositoryInfoRequest
+	GetRepositoryInfoResponse
+	GetCommitInfoRequest
+	GetCommitInfoResponse
 */
 package pfs
 
@@ -45,39 +54,101 @@ var _ grpc.ClientConn
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 
-type BranchRequest_Type int32
+// DriverType represents the driver type used by the implementation of PFS.
+type DriverType int32
 
 const (
-	BranchRequest_BRANCH_REQUEST_TYPE_NONE BranchRequest_Type = 0
-	BranchRequest_BRANCH_REQUEST_TYPE_PUT  BranchRequest_Type = 1
-	BranchRequest_BRANCH_RQUEST_TYPE_PUSH  BranchRequest_Type = 2
+	DriverType_DRIVER_TYPE_NONE  DriverType = 0
+	DriverType_DRIVER_TYPE_BTRFS DriverType = 1
 )
 
-var BranchRequest_Type_name = map[int32]string{
-	0: "BRANCH_REQUEST_TYPE_NONE",
-	1: "BRANCH_REQUEST_TYPE_PUT",
-	2: "BRANCH_RQUEST_TYPE_PUSH",
+var DriverType_name = map[int32]string{
+	0: "DRIVER_TYPE_NONE",
+	1: "DRIVER_TYPE_BTRFS",
 }
-var BranchRequest_Type_value = map[string]int32{
-	"BRANCH_REQUEST_TYPE_NONE": 0,
-	"BRANCH_REQUEST_TYPE_PUT":  1,
-	"BRANCH_RQUEST_TYPE_PUSH":  2,
+var DriverType_value = map[string]int32{
+	"DRIVER_TYPE_NONE":  0,
+	"DRIVER_TYPE_BTRFS": 1,
 }
 
-func (x BranchRequest_Type) String() string {
-	return proto.EnumName(BranchRequest_Type_name, int32(x))
+func (x DriverType) String() string {
+	return proto.EnumName(DriverType_name, int32(x))
 }
+
+// CommitType represents the type of commit.
+type CommitType int32
+
+const (
+	CommitType_COMMIT_TYPE_NONE  CommitType = 0
+	CommitType_COMMIT_TYPE_READ  CommitType = 1
+	CommitType_COMMIT_TYPE_WRITE CommitType = 2
+)
+
+var CommitType_name = map[int32]string{
+	0: "COMMIT_TYPE_NONE",
+	1: "COMMIT_TYPE_READ",
+	2: "COMMIT_TYPE_WRITE",
+}
+var CommitType_value = map[string]int32{
+	"COMMIT_TYPE_NONE":  0,
+	"COMMIT_TYPE_READ":  1,
+	"COMMIT_TYPE_WRITE": 2,
+}
+
+func (x CommitType) String() string {
+	return proto.EnumName(CommitType_name, int32(x))
+}
+
+// WriteCommitType represents the type for a write commit.
+type WriteCommitType int32
+
+const (
+	WriteCommitType_WRITE_COMMIT_TYPE_NONE WriteCommitType = 0
+	WriteCommitType_WRITE_COMMIT_TYPE_PUT  WriteCommitType = 1
+	WriteCommitType_WRITE_COMMIT_TYPE_PUSH WriteCommitType = 2
+)
+
+var WriteCommitType_name = map[int32]string{
+	0: "WRITE_COMMIT_TYPE_NONE",
+	1: "WRITE_COMMIT_TYPE_PUT",
+	2: "WRITE_COMMIT_TYPE_PUSH",
+}
+var WriteCommitType_value = map[string]int32{
+	"WRITE_COMMIT_TYPE_NONE": 0,
+	"WRITE_COMMIT_TYPE_PUT":  1,
+	"WRITE_COMMIT_TYPE_PUSH": 2,
+}
+
+func (x WriteCommitType) String() string {
+	return proto.EnumName(WriteCommitType_name, int32(x))
+}
+
+// Commit represents a specific commit in a repository.
+type Commit struct {
+	Repository string `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
+	Id         string `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
+}
+
+func (m *Commit) Reset()         { *m = Commit{} }
+func (m *Commit) String() string { return proto.CompactTextString(m) }
+func (*Commit) ProtoMessage()    {}
 
 // Path represents the full path to a file or directory within PFS.
 type Path struct {
-	Repository string `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
-	CommitId   string `protobuf:"bytes,2,opt,name=commit_id" json:"commit_id,omitempty"`
-	Path       string `protobuf:"bytes,3,opt,name=path" json:"path,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	Path   string  `protobuf:"bytes,2,opt,name=path" json:"path,omitempty"`
 }
 
 func (m *Path) Reset()         { *m = Path{} }
 func (m *Path) String() string { return proto.CompactTextString(m) }
 func (*Path) ProtoMessage()    {}
+
+func (m *Path) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
 
 // Shard represents a dynamic shard within PFS.
 // number must alway be less than modulo.
@@ -89,6 +160,50 @@ type Shard struct {
 func (m *Shard) Reset()         { *m = Shard{} }
 func (m *Shard) String() string { return proto.CompactTextString(m) }
 func (*Shard) ProtoMessage()    {}
+
+// RepositoryInfo represents information about a repository.
+type RepositoryInfo struct {
+	Repository string     `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
+	DriverType DriverType `protobuf:"varint,2,opt,name=driver_type,enum=pfs.DriverType" json:"driver_type,omitempty"`
+}
+
+func (m *RepositoryInfo) Reset()         { *m = RepositoryInfo{} }
+func (m *RepositoryInfo) String() string { return proto.CompactTextString(m) }
+func (*RepositoryInfo) ProtoMessage()    {}
+
+// CommitInfo represents information about a commit.
+type CommitInfo struct {
+	Commit          *Commit         `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	CommitType      CommitType      `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
+	WriteCommitType WriteCommitType `protobuf:"varint,3,opt,name=write_commit_type,enum=pfs.WriteCommitType" json:"write_commit_type,omitempty"`
+}
+
+func (m *CommitInfo) Reset()         { *m = CommitInfo{} }
+func (m *CommitInfo) String() string { return proto.CompactTextString(m) }
+func (*CommitInfo) ProtoMessage()    {}
+
+func (m *CommitInfo) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
+
+type CreateRepositoryRequest struct {
+	Repository string     `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
+	DriverType DriverType `protobuf:"varint,2,opt,name=driver_type,enum=pfs.DriverType" json:"driver_type,omitempty"`
+}
+
+func (m *CreateRepositoryRequest) Reset()         { *m = CreateRepositoryRequest{} }
+func (m *CreateRepositoryRequest) String() string { return proto.CompactTextString(m) }
+func (*CreateRepositoryRequest) ProtoMessage()    {}
+
+type CreateRepositoryResponse struct {
+}
+
+func (m *CreateRepositoryResponse) Reset()         { *m = CreateRepositoryResponse{} }
+func (m *CreateRepositoryResponse) String() string { return proto.CompactTextString(m) }
+func (*CreateRepositoryResponse) ProtoMessage()    {}
 
 type GetFileRequest struct {
 	Path *Path `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
@@ -167,61 +282,110 @@ func (m *ListFilesResponse) GetPath() []*Path {
 }
 
 type GetParentRequest struct {
-	CommitId string `protobuf:"bytes,1,opt,name=commit_id" json:"commit_id,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
 func (m *GetParentRequest) Reset()         { *m = GetParentRequest{} }
 func (m *GetParentRequest) String() string { return proto.CompactTextString(m) }
 func (*GetParentRequest) ProtoMessage()    {}
 
+func (m *GetParentRequest) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
+
 type GetParentResponse struct {
-	CommitId string `protobuf:"bytes,1,opt,name=commit_id" json:"commit_id,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
 func (m *GetParentResponse) Reset()         { *m = GetParentResponse{} }
 func (m *GetParentResponse) String() string { return proto.CompactTextString(m) }
 func (*GetParentResponse) ProtoMessage()    {}
 
+func (m *GetParentResponse) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
+
 type GetChildrenRequest struct {
-	CommitId string `protobuf:"bytes,1,opt,name=commit_id" json:"commit_id,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
 func (m *GetChildrenRequest) Reset()         { *m = GetChildrenRequest{} }
 func (m *GetChildrenRequest) String() string { return proto.CompactTextString(m) }
 func (*GetChildrenRequest) ProtoMessage()    {}
 
+func (m *GetChildrenRequest) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
+
 type GetChildrenResponse struct {
-	CommitId string `protobuf:"bytes,1,opt,name=commit_id" json:"commit_id,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
 func (m *GetChildrenResponse) Reset()         { *m = GetChildrenResponse{} }
 func (m *GetChildrenResponse) String() string { return proto.CompactTextString(m) }
 func (*GetChildrenResponse) ProtoMessage()    {}
 
+func (m *GetChildrenResponse) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
+
 type BranchRequest struct {
-	CommitId string             `protobuf:"bytes,1,opt,name=commit_id" json:"commit_id,omitempty"`
-	Type     BranchRequest_Type `protobuf:"varint,2,opt,name=type,enum=pfs.BranchRequest_Type" json:"type,omitempty"`
+	Commit          *Commit         `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	WriteCommitType WriteCommitType `protobuf:"varint,2,opt,name=write_commit_type,enum=pfs.WriteCommitType" json:"write_commit_type,omitempty"`
 }
 
 func (m *BranchRequest) Reset()         { *m = BranchRequest{} }
 func (m *BranchRequest) String() string { return proto.CompactTextString(m) }
 func (*BranchRequest) ProtoMessage()    {}
 
+func (m *BranchRequest) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
+
 type BranchResponse struct {
-	CommitId string `protobuf:"bytes,1,opt,name=commit_id" json:"commit_id,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
 func (m *BranchResponse) Reset()         { *m = BranchResponse{} }
 func (m *BranchResponse) String() string { return proto.CompactTextString(m) }
 func (*BranchResponse) ProtoMessage()    {}
 
+func (m *BranchResponse) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
+
 type CommitRequest struct {
-	CommitId string `protobuf:"bytes,1,opt,name=commit_id" json:"commit_id,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
 func (m *CommitRequest) Reset()         { *m = CommitRequest{} }
 func (m *CommitRequest) String() string { return proto.CompactTextString(m) }
 func (*CommitRequest) ProtoMessage()    {}
+
+func (m *CommitRequest) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
 
 type CommitResponse struct {
 }
@@ -231,13 +395,20 @@ func (m *CommitResponse) String() string { return proto.CompactTextString(m) }
 func (*CommitResponse) ProtoMessage()    {}
 
 type PullDiffRequest struct {
-	CommitId string `protobuf:"bytes,1,opt,name=commit_id" json:"commit_id,omitempty"`
-	Shard    *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	Shard  *Shard  `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *PullDiffRequest) Reset()         { *m = PullDiffRequest{} }
 func (m *PullDiffRequest) String() string { return proto.CompactTextString(m) }
 func (*PullDiffRequest) ProtoMessage()    {}
+
+func (m *PullDiffRequest) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
 
 func (m *PullDiffRequest) GetShard() *Shard {
 	if m != nil {
@@ -247,14 +418,22 @@ func (m *PullDiffRequest) GetShard() *Shard {
 }
 
 type PushDiffRequest struct {
-	CommitId string `protobuf:"bytes,1,opt,name=commit_id" json:"commit_id,omitempty"`
-	Shard    *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
-	Value    []byte `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	Commit     *Commit    `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	Shard      *Shard     `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
+	DriverType DriverType `protobuf:"varint,3,opt,name=driver_type,enum=pfs.DriverType" json:"driver_type,omitempty"`
+	Value      []byte     `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 func (m *PushDiffRequest) Reset()         { *m = PushDiffRequest{} }
 func (m *PushDiffRequest) String() string { return proto.CompactTextString(m) }
 func (*PushDiffRequest) ProtoMessage()    {}
+
+func (m *PushDiffRequest) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
 
 func (m *PushDiffRequest) GetShard() *Shard {
 	if m != nil {
@@ -270,13 +449,80 @@ func (m *PushDiffResponse) Reset()         { *m = PushDiffResponse{} }
 func (m *PushDiffResponse) String() string { return proto.CompactTextString(m) }
 func (*PushDiffResponse) ProtoMessage()    {}
 
+type GetRepositoryInfoRequest struct {
+	Repository string `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
+}
+
+func (m *GetRepositoryInfoRequest) Reset()         { *m = GetRepositoryInfoRequest{} }
+func (m *GetRepositoryInfoRequest) String() string { return proto.CompactTextString(m) }
+func (*GetRepositoryInfoRequest) ProtoMessage()    {}
+
+type GetRepositoryInfoResponse struct {
+	RepositoryInfo *RepositoryInfo `protobuf:"bytes,1,opt,name=repository_info" json:"repository_info,omitempty"`
+}
+
+func (m *GetRepositoryInfoResponse) Reset()         { *m = GetRepositoryInfoResponse{} }
+func (m *GetRepositoryInfoResponse) String() string { return proto.CompactTextString(m) }
+func (*GetRepositoryInfoResponse) ProtoMessage()    {}
+
+func (m *GetRepositoryInfoResponse) GetRepositoryInfo() *RepositoryInfo {
+	if m != nil {
+		return m.RepositoryInfo
+	}
+	return nil
+}
+
+type GetCommitInfoRequest struct {
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+}
+
+func (m *GetCommitInfoRequest) Reset()         { *m = GetCommitInfoRequest{} }
+func (m *GetCommitInfoRequest) String() string { return proto.CompactTextString(m) }
+func (*GetCommitInfoRequest) ProtoMessage()    {}
+
+func (m *GetCommitInfoRequest) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
+
+type GetCommitInfoResponse struct {
+	RepositoryInfo *RepositoryInfo `protobuf:"bytes,1,opt,name=repository_info" json:"repository_info,omitempty"`
+	CommitInfo     *CommitInfo     `protobuf:"bytes,2,opt,name=commit_info" json:"commit_info,omitempty"`
+}
+
+func (m *GetCommitInfoResponse) Reset()         { *m = GetCommitInfoResponse{} }
+func (m *GetCommitInfoResponse) String() string { return proto.CompactTextString(m) }
+func (*GetCommitInfoResponse) ProtoMessage()    {}
+
+func (m *GetCommitInfoResponse) GetRepositoryInfo() *RepositoryInfo {
+	if m != nil {
+		return m.RepositoryInfo
+	}
+	return nil
+}
+
+func (m *GetCommitInfoResponse) GetCommitInfo() *CommitInfo {
+	if m != nil {
+		return m.CommitInfo
+	}
+	return nil
+}
+
 func init() {
-	proto.RegisterEnum("pfs.BranchRequest_Type", BranchRequest_Type_name, BranchRequest_Type_value)
+	proto.RegisterEnum("pfs.DriverType", DriverType_name, DriverType_value)
+	proto.RegisterEnum("pfs.CommitType", CommitType_name, CommitType_value)
+	proto.RegisterEnum("pfs.WriteCommitType", WriteCommitType_name, WriteCommitType_value)
 }
 
 // Client API for Api service
 
 type ApiClient interface {
+	// CreateRepository creates a new repository.
+	// An error is returned if the specified repository already exists.
+	// An error is returned if the specified driver is not supported.
+	CreateRepository(ctx context.Context, in *CreateRepositoryRequest, opts ...grpc.CallOption) (*CreateRepositoryResponse, error)
 	// GetFile returns a byte stream of the specified file.
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error)
 	// PutFile writes the specified file to PFS.
@@ -304,7 +550,12 @@ type ApiClient interface {
 	// to the commit's parent.
 	// An error is returned if the specified commit is not a write commit.
 	// An error is returned if the specified commit was not opened for pushing.
+	// An error is returned if the specified driver does not match the repository's driver.
 	PushDiff(ctx context.Context, in *PushDiffRequest, opts ...grpc.CallOption) (*PushDiffResponse, error)
+	// GetRepositoryInfo returns the RepositoryInfo for a repository.
+	GetRepositoryInfo(ctx context.Context, in *GetRepositoryInfoRequest, opts ...grpc.CallOption) (*GetRepositoryInfoResponse, error)
+	// GetCommitInfo returns the CommitInfo for a commit.
+	GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest, opts ...grpc.CallOption) (*GetCommitInfoResponse, error)
 }
 
 type apiClient struct {
@@ -313,6 +564,15 @@ type apiClient struct {
 
 func NewApiClient(cc *grpc.ClientConn) ApiClient {
 	return &apiClient{cc}
+}
+
+func (c *apiClient) CreateRepository(ctx context.Context, in *CreateRepositoryRequest, opts ...grpc.CallOption) (*CreateRepositoryResponse, error) {
+	out := new(CreateRepositoryResponse)
+	err := grpc.Invoke(ctx, "/pfs.Api/CreateRepository", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *apiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error) {
@@ -442,9 +702,31 @@ func (c *apiClient) PushDiff(ctx context.Context, in *PushDiffRequest, opts ...g
 	return out, nil
 }
 
+func (c *apiClient) GetRepositoryInfo(ctx context.Context, in *GetRepositoryInfoRequest, opts ...grpc.CallOption) (*GetRepositoryInfoResponse, error) {
+	out := new(GetRepositoryInfoResponse)
+	err := grpc.Invoke(ctx, "/pfs.Api/GetRepositoryInfo", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiClient) GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest, opts ...grpc.CallOption) (*GetCommitInfoResponse, error) {
+	out := new(GetCommitInfoResponse)
+	err := grpc.Invoke(ctx, "/pfs.Api/GetCommitInfo", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for Api service
 
 type ApiServer interface {
+	// CreateRepository creates a new repository.
+	// An error is returned if the specified repository already exists.
+	// An error is returned if the specified driver is not supported.
+	CreateRepository(context.Context, *CreateRepositoryRequest) (*CreateRepositoryResponse, error)
 	// GetFile returns a byte stream of the specified file.
 	GetFile(*GetFileRequest, Api_GetFileServer) error
 	// PutFile writes the specified file to PFS.
@@ -472,11 +754,28 @@ type ApiServer interface {
 	// to the commit's parent.
 	// An error is returned if the specified commit is not a write commit.
 	// An error is returned if the specified commit was not opened for pushing.
+	// An error is returned if the specified driver does not match the repository's driver.
 	PushDiff(context.Context, *PushDiffRequest) (*PushDiffResponse, error)
+	// GetRepositoryInfo returns the RepositoryInfo for a repository.
+	GetRepositoryInfo(context.Context, *GetRepositoryInfoRequest) (*GetRepositoryInfoResponse, error)
+	// GetCommitInfo returns the CommitInfo for a commit.
+	GetCommitInfo(context.Context, *GetCommitInfoRequest) (*GetCommitInfoResponse, error)
 }
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
 	s.RegisterService(&_Api_serviceDesc, srv)
+}
+
+func _Api_CreateRepository_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(CreateRepositoryRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).CreateRepository(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func _Api_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -605,10 +904,38 @@ func _Api_PushDiff_Handler(srv interface{}, ctx context.Context, codec grpc.Code
 	return out, nil
 }
 
+func _Api_GetRepositoryInfo_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(GetRepositoryInfoRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).GetRepositoryInfo(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _Api_GetCommitInfo_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(GetCommitInfoRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).GetCommitInfo(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 var _Api_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pfs.Api",
 	HandlerType: (*ApiServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateRepository",
+			Handler:    _Api_CreateRepository_Handler,
+		},
 		{
 			MethodName: "PutFile",
 			Handler:    _Api_PutFile_Handler,
@@ -636,6 +963,14 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PushDiff",
 			Handler:    _Api_PushDiff_Handler,
+		},
+		{
+			MethodName: "GetRepositoryInfo",
+			Handler:    _Api_GetRepositoryInfo_Handler,
+		},
+		{
+			MethodName: "GetCommitInfo",
+			Handler:    _Api_GetCommitInfo_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

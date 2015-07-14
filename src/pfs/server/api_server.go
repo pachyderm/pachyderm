@@ -12,6 +12,10 @@ func newAPIServer() *apiServer {
 	return &apiServer{}
 }
 
+func (a *apiServer) CreateRepository(ctx context.Context, createRepositoryRequest *pfs.CreateRepositoryRequest) (*pfs.CreateRepositoryResponse, error) {
+	return &pfs.CreateRepositoryResponse{}, nil
+}
+
 func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) error {
 	return nil
 }
@@ -46,4 +50,12 @@ func (a *apiServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPullDiffSe
 
 func (a *apiServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.PushDiffRequest) (*pfs.PushDiffResponse, error) {
 	return &pfs.PushDiffResponse{}, nil
+}
+
+func (a *apiServer) GetRepositoryInfo(ctx context.Context, getRepositoryInfoRequest *pfs.GetRepositoryInfoRequest) (*pfs.GetRepositoryInfoResponse, error) {
+	return &pfs.GetRepositoryInfoResponse{}, nil
+}
+
+func (a *apiServer) GetCommitInfo(ctx context.Context, getCommitInfoRequest *pfs.GetCommitInfoRequest) (*pfs.GetCommitInfoResponse, error) {
+	return &pfs.GetCommitInfoResponse{}, nil
 }
