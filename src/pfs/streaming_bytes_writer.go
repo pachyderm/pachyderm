@@ -1,5 +1,15 @@
 package pfs
 
+import (
+	"bufio"
+	"io"
+)
+
+func writeToStreamingBytesServer(reader io.Reader, streamingBytesServer streamingBytesServer) error {
+	_, err := bufio.NewReader(reader).WriteTo(newStreamingBytesWriter(streamingBytesServer))
+	return err
+}
+
 type streamingBytesServer interface {
 	Send(streamingBytes *StreamingBytes) error
 }
