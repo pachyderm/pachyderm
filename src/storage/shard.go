@@ -292,6 +292,7 @@ func (s *shard) FillRole(cancel chan bool) error {
 	replicaKey := ""
 	for {
 		client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+		defer client.Close()
 		// First we attempt to become the master for this shard
 		if !amMaster {
 			// We're not master, so we attempt to claim it, this will error if
@@ -346,6 +347,7 @@ func (s *shard) FillRole(cancel chan bool) error {
 
 func (s *shard) FillRoles() {
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+	defer client.Close()
 	for {
 		// first renew our existing roles
 		for _, role := range s.roles {
@@ -375,29 +377,31 @@ func (s *shard) FillRoles() {
 func (s *shard) masters() ([]string, error) {
 	result := make([]string, s.modulos)
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+	defer client.Close()
 
 	response, err := client.Get("/pachyderm.io/pfs", false, true)
-	if err != nil {
-		return nil, err
-	}
-	for _, node := range response.Node.Nodes {
-		// node.Key looks like " /pachyderm.io/pfs/0-5"
-		//                      0 1            2   3
-		key := strings.Split(node.Key, "/")
-		shard, _, err := route.ParseShard(key[3])
-		if err != nil {
-			return nil, err
+	if err == nil {
+		for _, node := range response.Node.Nodes {
+			// node.Key looks like " /pachyderm.io/pfs/0-5"
+			//                      0 1            2   3
+			key := strings.Split(node.Key, "/")
+			shard, _, err := route.ParseShard(key[3])
+			if err != nil {
+				return nil, err
+			}
+			result[shard] = node.Value
 		}
-		result[shard] = node.Value
-	}
 
+	}
 	return result, nil
 }
 
 func counts(masters []string) map[string]int {
 	result := make(map[string]int)
 	for _, host := range masters {
-		result[host] = result[host] + 1
+		if host != "" {
+			result[host] = result[host] + 1
+		}
 	}
 	return result
 }
@@ -414,25 +418,34 @@ func (s *shard) localShards() ([]string, error) {
 	return result, nil
 }
 
+// bestRole returns the best role for us to fill in the cluster right now. If
+// all shards are currently assigned it returns ErrNoShards. If this node
+// currently has too many shards assigned to it, it returns ErrOverallocated.
 func (s *shard) bestRole() (string, error) {
 	masters, err := s.masters()
+	log.Printf("masters: %#v", masters)
 	if err != nil {
 		return "", err
 	}
 	// First we check if there's a role we could fill.
-	// We do th
 	result := ""
 	for i, master := range masters {
+		log.Printf("%d -> %s", i, master)
 		if master == "" {
 			result = fmt.Sprintf("/pachyderm.io/pfs/%d-%d", i, int(s.modulos))
+			break
 		}
 	}
+	log.Print("Result: ", result)
 	if result == "" {
 		return "", ErrNoShards
 	}
+	// Check that there isn't someone better to take this shard.
 	counts := counts(masters)
+	log.Printf("counts: %#v", counts)
 	for _, count := range counts {
 		if count < counts[s.url] {
+			log.Print("Overallocated.")
 			return "", ErrOverallocated
 		}
 	}
@@ -470,6 +483,7 @@ func (s *shard) syncToPeers() error {
 func (s *shard) peers() ([]string, error) {
 	var peers []string
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+	defer client.Close()
 	resp, err := client.Get(fmt.Sprintf("/pfs/replica/%d-%d", s.shard, s.modulos), false, true)
 	if err != nil {
 		return peers, err

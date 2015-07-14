@@ -24,7 +24,10 @@ func do() error {
 		return fmt.Errorf("unknown args: %v", os.Args)
 	}
 	shardStr := os.Args[1]
-	address := os.Args[2]
+	address, err := os.Hostname()
+	if err != nil {
+		return err
+	}
 
 	shardNum, modulos, err := route.ParseShard(shardStr)
 	if err != nil {
@@ -43,8 +46,6 @@ func do() error {
 		return err
 	}
 	log.Print("Listening on port 80...")
-	cancel := make(chan bool)
-	defer close(cancel)
-	go shard.FillRole(cancel)
+	go shard.FillRoles()
 	return http.ListenAndServe(":80", storage.NewShardHTTPHandler(shard))
 }
