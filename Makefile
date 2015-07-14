@@ -59,6 +59,7 @@ container-build:
 
 container-clean:
 	sudo -E bash -c 'bin/clean'
+	sudo -E bash -c 'bin/clean-btrfs'
 
 container-shell:
 	sudo -E bash -c 'bin/shell'
