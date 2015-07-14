@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  labels:
+    name: pfs 
+  name: pfs
+spec:
+  replicas: 8
+  selector:
+    name: pfs
+  template:
+    metadata:
+      labels:
+        name: pfs
+    spec:
+      containers:
+        - name: pfs
+          image: jdoliner/pfs
+          command: [ "/go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper", "/go/bin/shard", "0-8", "localhost" ]
+          volumeMounts:
+          - mountPath: /host
+            name: host
+          - mountPath: /var/lib/pfs/vol
+            name: storage
+          - mountPath: /var/run/docker.sock
+            name: docker
+          ports:
+          - containerPort: 80
+            name: port
+      restartPolicy: Always
+      volumes:
+      - hostPath:
+          path: /
+        name: host
+      - hostPath:
+          path: /var/lib/pfs/vol
+        name: storage
+      - hostPath:
+          path: /var/run/docker.sock
+        name: docker

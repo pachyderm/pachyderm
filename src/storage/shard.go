@@ -375,7 +375,7 @@ func (s *shard) masters() ([]string, error) {
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
 	defer client.Close()
 
-	response, err := client.Get("/pachyderm.io/pfs", false, true)
+	response, err := client.Get("/pfs/master", false, true)
 	if err == nil {
 		for _, node := range response.Node.Nodes {
 			// node.Key looks like " /pachyderm.io/pfs/0-5"
@@ -412,7 +412,7 @@ func (s *shard) freeRole() (string, error) {
 	// First we check if there's an empty shard
 	for i, master := range masters {
 		if master == "" {
-			return fmt.Sprintf("/pachyderm.io/pfs/%d-%d", i, int(s.modulos)), nil
+			return fmt.Sprintf("/pfs/master/%d-%d", i, int(s.modulos)), nil
 		}
 	}
 	return "", ErrNoShards
