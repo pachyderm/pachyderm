@@ -26,6 +26,6 @@ func NewInMemoryDriver() Driver {
 	return newInMemoryDriver()
 }
 
-func NewBtrfsDriver() Driver {
-	return newBtrfsDriver()
+func NewBtrfsDriver(rootDir string) Driver {
+	return newBtrfsDriver(rootDir)
 }
