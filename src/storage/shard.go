@@ -349,23 +349,28 @@ func (s *shard) FindRole() {
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
 	defer client.Close()
 	role := ""
-	for {
+	for ; true; <-time.After(time.Second * 45) {
+		log.Print("Top of loop.")
 		// renew our role if we have one
 		if role != "" {
-			_, _ = client.CompareAndSwap(role, s.url, 60, s.url, 0)
+			log.Print("We already have a role.")
+			_, err := client.CompareAndSwap(role, s.url, 60, s.url, 0)
+			if err != nil {
+				log.Print(err)
+			}
 			continue
 		}
 		// figure out if we should take on a new role
 		role, err := s.freeRole()
 		if err != nil {
-			<-time.After(time.Second * 30)
+			log.Print(err)
 			role = ""
 			continue
 		}
 		_, err = client.Create(role, s.url, 60)
 		if err != nil {
+			log.Print(err)
 			role = ""
-			continue
 		}
 	}
 }
@@ -406,6 +411,7 @@ func counts(masters []string) map[string]int {
 // no shards are available it returns ErrNoShards.
 func (s *shard) freeRole() (string, error) {
 	masters, err := s.masters()
+	log.Printf("%#v", masters)
 	if err != nil {
 		return "", err
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 
@@ -24,9 +25,21 @@ func do() error {
 		return fmt.Errorf("unknown args: %v", os.Args)
 	}
 	shardStr := os.Args[1]
-	address, err := os.Hostname()
+	address := ""
+	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return err
+	}
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				address = ipnet.IP.String()
+				break
+			}
+		}
+	}
+	if address == "" {
+		return fmt.Errorf("pfs: Couldn't find machine ip.")
 	}
 
 	shardNum, modulos, err := route.ParseShard(shardStr)
