@@ -17,7 +17,8 @@
 	pretest \
 	test-long \
 	test \
-	bench
+	bench \
+	proto
 
 include etc/env/pfs.env
 
@@ -58,6 +59,7 @@ container-build:
 
 container-clean:
 	sudo -E bash -c 'bin/clean'
+	sudo -E bash -c 'bin/clean-btrfs'
 
 container-shell:
 	sudo -E bash -c 'bin/shell'
@@ -88,3 +90,15 @@ test-long:
 # TODO(pedge): add pretest when fixed
 bench:
 	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) -bench . -timeout $(BENCH_TIMEOUT) ./...'
+
+proto:
+	docker pull pedge/proto3grpc
+	docker run \
+		--volume $(shell pwd):/compile \
+		--workdir /compile \
+		pedge/proto3grpc \
+		protoc \
+		-I /usr/include \
+		-I /compile/src/pfs \
+		--go_out=plugins=grpc,Mgoogle/protobuf/wrappers.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pfs \
+		/compile/src/pfs/pfs.proto

@@ -1,0 +1,195 @@
+syntax = "proto3";
+
+import "google/protobuf/wrappers.proto";
+
+package pfs;
+
+// DriverType represents the driver type used by the implementation of PFS.
+enum DriverType {
+  DRIVER_TYPE_NONE = 0;
+  DRIVER_TYPE_IN_MEMORY = 1;
+}
+
+// CommitType represents the type of commit.
+enum CommitType {
+  COMMIT_TYPE_NONE = 0;
+  COMMIT_TYPE_READ = 1;
+  COMMIT_TYPE_WRITE = 2;
+}
+
+// WriteCommitType represents the type for a write commit.
+enum WriteCommitType {
+  WRITE_COMMIT_TYPE_NONE = 0;
+  WRITE_COMMIT_TYPE_PUT = 1;
+  WRITE_COMMIT_TYPE_PUSH = 2;
+}
+
+// Repository represents a repository.
+message Repository {
+  string name = 1;
+}
+
+// Commit represents a specific commit in a repository.
+message Commit {
+  Repository repository = 1;
+  string id = 2;
+}
+
+// Path represents the full path to a file or directory within PFS.
+message Path {
+  Commit commit = 1;
+  string path = 2;
+}
+
+// Shard represents a dynamic shard within PFS.
+// number must alway be less than modulo.
+message Shard {
+  uint64 number = 1;
+  uint64 modulo = 2;
+}
+
+// RepositoryInfo represents information about a repository.
+message RepositoryInfo {
+  Repository repository = 1;
+  DriverType driver_type = 2;
+}
+
+// CommitInfo represents information about a commit.
+message CommitInfo {
+  Commit commit = 1;
+  CommitType commit_type = 2;
+  WriteCommitType write_commit_type = 3;
+}
+
+message InitRepositoryRequest {
+  Repository repository = 1;
+  DriverType driver_type = 2;
+}
+
+message InitRepositoryResponse {
+}
+
+message GetFileRequest {
+  Path path = 1;
+}
+
+message PutFileRequest {
+  Path path = 1;
+	bytes value = 4;
+}
+
+message PutFileResponse {
+}
+
+message ListFilesRequest {
+  Path path = 1;
+  Shard shard = 2;
+}
+
+message ListFilesResponse {
+  repeated Path path = 1;
+}
+
+message GetParentRequest {
+  Commit commit = 1;
+}
+
+message GetParentResponse {
+  Commit commit = 1;
+}
+
+message GetChildrenRequest {
+  Commit commit = 1;
+}
+
+message GetChildrenResponse {
+  Commit commit = 1;
+}
+
+message BranchRequest {
+  Commit commit = 1;
+  WriteCommitType write_commit_type = 2;
+}
+
+message BranchResponse {
+  Commit commit = 1;
+}
+
+message CommitRequest {
+  Commit commit = 1;
+}
+
+message CommitResponse {
+}
+
+message PullDiffRequest {
+  Commit commit = 1;
+  Shard shard = 2;
+}
+
+message PushDiffRequest {
+  Commit commit = 1;
+  Shard shard = 2;
+  DriverType driver_type = 3;
+  bytes value = 4;
+}
+
+message PushDiffResponse {
+}
+
+message GetRepositoryInfoRequest {
+  Repository repository = 1;
+}
+
+message GetRepositoryInfoResponse {
+  RepositoryInfo repository_info = 1;
+}
+
+message GetCommitInfoRequest {
+  Commit commit = 1;
+}
+
+message GetCommitInfoResponse {
+  RepositoryInfo repository_info = 1;
+  CommitInfo commit_info = 2;
+}
+
+service Api {
+  // InitRepository creates a new repository.
+  // An error is returned if the specified repository already exists.
+  // An error is returned if the specified driver is not supported.
+  rpc InitRepository(InitRepositoryRequest) returns (InitRepositoryResponse) {}
+  // GetFile returns a byte stream of the specified file.
+  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+  // PutFile writes the specified file to PFS.
+  // An error is returned if the specified commit is not a write commit.
+  // An error is returned is the specified commit was not opened for putting.
+  rpc PutFile(PutFileRequest) returns (PutFileResponse) {}
+  // ListFiles lists the files within a directory.
+  // An error is returned if the specified path is not a directory.
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse) {}
+  // GetParent gets the parent commit ID of the specified commit.
+  rpc GetParent(GetParentRequest) returns (GetParentResponse) {}
+  // GetChildren gets the commit's children IDs.
+  rpc GetChildren(GetChildrenRequest) returns (GetChildrenResponse) {}
+  // Branch creates a new write commit from a base commit.
+  // An error is returned if the base commit is not a read commit.
+  rpc Branch(BranchRequest) returns (BranchResponse) {}
+  // Commit turns the specified write commit into a read commit.
+  // An error is returned if the specified commit is not a write commit.
+  // An error is returned if there are outstanding shards to be pushed.
+  rpc Commit(CommitRequest) returns (CommitResponse) {}
+  // PullDiff pulls a binary stream of the diff from the specified
+  // commit to the commit's parent.
+  rpc PullDiff(PullDiffRequest) returns (stream google.protobuf.BytesValue) {}
+  // Push diff pushes a diff from the specified commit
+  // to the commit's parent.
+  // An error is returned if the specified commit is not a write commit.
+  // An error is returned if the specified commit was not opened for pushing.
+  // An error is returned if the specified driver does not match the repository's driver.
+  rpc PushDiff(PushDiffRequest) returns (PushDiffResponse) {}
+  // GetRepositoryInfo returns the RepositoryInfo for a repository.
+  rpc GetRepositoryInfo(GetRepositoryInfoRequest) returns (GetRepositoryInfoResponse) {}
+  // GetCommitInfo returns the CommitInfo for a commit.
+  rpc GetCommitInfo(GetCommitInfoRequest) returns (GetCommitInfoResponse) {}
+}

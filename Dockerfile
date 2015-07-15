@@ -23,4 +23,7 @@ RUN \
 ADD etc/bin /go/src/github.com/pachyderm/pachyderm/etc/bin/
 RUN ln /go/src/github.com/pachyderm/pachyderm/etc/bin/btrfs-wrapper /bin/btrfs
 RUN ln /go/src/github.com/pachyderm/pachyderm/etc/bin/fleetctl-wrapper /bin/fleetctl
+RUN \
+  go get google.golang.org/grpc && \
+  go get github.com/peter-edge/go-google-protobuf
 ADD . /go/src/github.com/pachyderm/pachyderm/

@@ -11,15 +11,10 @@ cd "${DIR}"
 check_btrfs
 check_docker
 
+"${DIR}/mount-btrfs"
+
 "${DIR}/clean"
-
 docker build -t "${PFS_IMAGE}" "$(cd "${DIR}/.." && pwd)"
-
-mkdir -p "${PFS_HOST_VOLUME}"
-truncate "${PFS_DATA_IMG}" -s 10G
-mkfs.btrfs "${PFS_DATA_IMG}"
-mount "${PFS_DATA_IMG}" "${PFS_HOST_VOLUME}"
-
 docker run \
     ${PFS_DOCKER_OPTS} \
     --privileged=true \
