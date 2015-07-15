@@ -1,9 +1,12 @@
 package pfstest
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"math"
 	"net"
+	"os"
 	"sync/atomic"
 	"testing"
 
@@ -24,7 +27,10 @@ import (
 )
 
 const (
-	testDefaultNumShards = 65536
+	// TODO(pedge): large numbers of shards takes forever because
+	// we are doing tons of btrfs operations on init, is there anything
+	// we can do about that?
+	testDefaultNumShards = 4
 )
 
 var (
@@ -32,7 +38,12 @@ var (
 )
 
 func TestBtrfs(t *testing.T) {
-	runAllTests(t, drive.NewInMemoryDriver(), testDefaultNumShards)
+	// TODO(pedge)
+	rootDir := os.Getenv("PFS_BTRFS_ROOT")
+	if rootDir == "" {
+		t.Fatal("PFS_BTRFS_ROOT not set")
+	}
+	runAllTests(t, drive.NewBtrfsDriver(rootDir), testDefaultNumShards)
 }
 
 func runAllTests(t *testing.T, driver drive.Driver, numShards int) {
@@ -54,7 +65,62 @@ func testInit(t *testing.T, apiClient pfs.ApiClient) {
 	require.NotNil(t, initRepositoryResponse)
 }
 
-func testInitGetPut(t *testing.T, apiClient pfs.ApiClient) {}
+func testInitGetPut(t *testing.T, apiClient pfs.ApiClient) {
+	repositoryName := testRepositoryName()
+	initRepositoryResponse, err := apiClient.InitRepository(
+		context.Background(),
+		&pfs.InitRepositoryRequest{
+			Repository: &pfs.Repository{
+				Name: repositoryName,
+			},
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, initRepositoryResponse)
+
+	putFileResponse, err := apiClient.PutFile(
+		context.Background(),
+		&pfs.PutFileRequest{
+			Path: &pfs.Path{
+				Commit: &pfs.Commit{
+					Repository: &pfs.Repository{
+						Name: repositoryName,
+					},
+					Id: "scratch",
+				},
+				Path: "path/to/one",
+			},
+			Value: []byte("hello world"),
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, putFileResponse)
+
+	apiGetFileClient, err := apiClient.GetFile(
+		context.Background(),
+		&pfs.GetFileRequest{
+			Path: &pfs.Path{
+				Commit: &pfs.Commit{
+					Repository: &pfs.Repository{
+						Name: repositoryName,
+					},
+					Id: "scratch",
+				},
+				Path: "path/to/one",
+			},
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, apiGetFileClient)
+
+	buffer := bytes.NewBuffer(nil)
+	for bytesValue, err := apiGetFileClient.Recv(); err != io.EOF; bytesValue, err = apiGetFileClient.Recv() {
+		require.NoError(t, err)
+		_, writeErr := buffer.Write(bytesValue.Value)
+		require.NoError(t, writeErr)
+	}
+	require.Equal(t, "hello world", buffer.String())
+}
 
 func testRepositoryName() string {
 	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))

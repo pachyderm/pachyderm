@@ -2,7 +2,6 @@ package shard
 
 import (
 	"hash/adler32"
-	"path/filepath"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 )
@@ -20,15 +19,5 @@ func (s *sharder) NumShards() int {
 }
 
 func (s *sharder) GetShard(path *pfs.Path) (int, error) {
-	return int(
-		adler32.Checksum(
-			[]byte(
-				filepath.Join(
-					path.Commit.Repository.Name,
-					path.Commit.Id,
-					path.Path,
-				),
-			),
-		),
-	), nil
+	return int(adler32.Checksum([]byte(path.Path))) % s.numShards, nil
 }

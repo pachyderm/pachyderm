@@ -1,6 +1,9 @@
 package server
 
 import (
+	"bytes"
+	"io"
+
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -28,14 +31,77 @@ func newAPIServer(
 }
 
 func (a *apiServer) InitRepository(ctx context.Context, initRepositoryRequest *pfs.InitRepositoryRequest) (*pfs.InitRepositoryResponse, error) {
+	shards, err := a.getMasterShards()
+	if err != nil {
+		return nil, err
+	}
+	for shard := range shards {
+		if err := a.driver.InitRepository(initRepositoryRequest.Repository, shard); err != nil {
+			return nil, err
+		}
+	}
 	return &pfs.InitRepositoryResponse{}, nil
 }
 
-func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) error {
-	return nil
+func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) (retErr error) {
+	shard, err := a.sharder.GetShard(getFileRequest.Path)
+	if err != nil {
+		return err
+	}
+	ok, err := a.router.IsLocalMasterShard(shard)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		apiClient, err := a.router.GetAPIClient(shard)
+		if err != nil {
+			return err
+		}
+		apiGetFileClient, err := apiClient.GetFile(context.Background(), getFileRequest)
+		if err != nil {
+			return err
+		}
+		for bytesValue, err := apiGetFileClient.Recv(); err != io.EOF; bytesValue, err = apiGetFileClient.Recv() {
+			if err != nil {
+				return err
+			}
+			if sendErr := apiGetFileServer.Send(bytesValue); sendErr != nil {
+				return sendErr
+			}
+		}
+		return nil
+	}
+	readCloser, err := a.driver.GetFile(getFileRequest.Path, shard)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := readCloser.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	return writeToStreamingBytesServer(readCloser, apiGetFileServer)
 }
 
 func (a *apiServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequest) (*pfs.PutFileResponse, error) {
+	shard, err := a.sharder.GetShard(putFileRequest.Path)
+	if err != nil {
+		return nil, err
+	}
+	ok, err := a.router.IsLocalMasterShard(shard)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		apiClient, err := a.router.GetAPIClient(shard)
+		if err != nil {
+			return nil, err
+		}
+		return apiClient.PutFile(ctx, putFileRequest)
+	}
+	if err := a.driver.PutFile(putFileRequest.Path, shard, bytes.NewReader(putFileRequest.Value)); err != nil {
+		return nil, err
+	}
 	return &pfs.PutFileResponse{}, nil
 }
 
@@ -73,4 +139,20 @@ func (a *apiServer) GetRepositoryInfo(ctx context.Context, getRepositoryInfoRequ
 
 func (a *apiServer) GetCommitInfo(ctx context.Context, getCommitInfoRequest *pfs.GetCommitInfoRequest) (*pfs.GetCommitInfoResponse, error) {
 	return &pfs.GetCommitInfoResponse{}, nil
+}
+
+// TODO(pedge)
+func (a *apiServer) getMasterShards() (map[int]bool, error) {
+	m := make(map[int]bool)
+	numShards := a.sharder.NumShards()
+	for i := 0; i < numShards; i++ {
+		ok, err := a.router.IsLocalMasterShard(i)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			m[i] = true
+		}
+	}
+	return m, nil
 }
