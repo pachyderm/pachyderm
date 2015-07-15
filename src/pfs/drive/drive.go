@@ -25,3 +25,7 @@ type Driver interface {
 func NewInMemoryDriver() Driver {
 	return newInMemoryDriver()
 }
+
+func NewBtrfsDriver() Driver {
+	return newBtrfsDriver()
+}
