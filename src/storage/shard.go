@@ -349,8 +349,9 @@ func (s *shard) FindRole() {
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
 	defer client.Close()
 	role := ""
+	var err error
 	for ; true; <-time.After(time.Second * 45) {
-		log.Print("Top of loop.")
+		log.Printf("Top of loop role: \"%s\".", role)
 		// renew our role if we have one
 		if role != "" {
 			log.Print("We already have a role.")
@@ -361,15 +362,15 @@ func (s *shard) FindRole() {
 			continue
 		}
 		// figure out if we should take on a new role
-		role, err := s.freeRole()
+		role, err = s.freeRole()
 		if err != nil {
-			log.Print(err)
+			log.Print("Reset role: ", err)
 			role = ""
 			continue
 		}
 		_, err = client.Create(role, s.url, 60)
 		if err != nil {
-			log.Print(err)
+			log.Print("Reset role: ", err)
 			role = ""
 		}
 	}
@@ -381,6 +382,7 @@ func (s *shard) masters() ([]string, error) {
 	defer client.Close()
 
 	response, err := client.Get("/pfs/master", false, true)
+	log.Print("len(response.Node.Nodes): ", len(response.Node.Nodes))
 	if err == nil {
 		for _, node := range response.Node.Nodes {
 			// node.Key looks like " /pachyderm.io/pfs/0-5"
