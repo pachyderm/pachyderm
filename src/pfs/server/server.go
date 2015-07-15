@@ -1,4 +1,4 @@
-package serve
+package server
 
 import (
 	"github.com/pachyderm/pachyderm/src/pfs"

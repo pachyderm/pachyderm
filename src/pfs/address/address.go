@@ -5,6 +5,14 @@ type Addresser interface {
 	GetSlaveAddresses(shard int) ([]string, error)
 }
 
-func NewLocalAddresser(port uint16) Addresser {
-	return newLocalAddresser(port)
+func NewSingleAddresser(address string) Addresser {
+	return newSingleAddresser(address)
+}
+
+type ClientAddresser interface {
+	GetServerAddress() (string, error)
+}
+
+func NewSingleClientAddresser(address string) ClientAddresser {
+	return newSingleAddresser(address)
 }

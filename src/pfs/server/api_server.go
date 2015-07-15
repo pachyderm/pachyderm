@@ -1,4 +1,4 @@
-package serve
+package server
 
 import (
 	"golang.org/x/net/context"
