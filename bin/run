@@ -27,6 +27,7 @@ docker run \
     -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
     -e GOMAXPROCS="${GOMAXPROCS}" \
     -e PFS_HOST_VOLUME="${PFS_HOST_VOLUME}" \
+	-e PFS_BTRFS_ROOT="${PFS_BTRFS_ROOT}" \
     -p "${PFS_PORT}":80 \
     "${PFS_IMAGE}" \
     $@

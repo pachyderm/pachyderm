@@ -24,7 +24,7 @@ func (i *inMemoryDriver) InitRepository(repository *pfs.Repository, shard int) e
 	return nil
 }
 
-func (i *inMemoryDriver) GetFile(path *pfs.Path, shard int) (io.Reader, error) {
+func (i *inMemoryDriver) GetFile(path *pfs.Path, shard int) (io.ReadCloser, error) {
 	return nil, nil
 }
 

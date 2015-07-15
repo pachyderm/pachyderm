@@ -184,7 +184,6 @@ func (*Shard) ProtoMessage()    {}
 // RepositoryInfo represents information about a repository.
 type RepositoryInfo struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
-	DriverType DriverType  `protobuf:"varint,2,opt,name=driver_type,enum=pfs.DriverType" json:"driver_type,omitempty"`
 }
 
 func (m *RepositoryInfo) Reset()         { *m = RepositoryInfo{} }
@@ -218,7 +217,6 @@ func (m *CommitInfo) GetCommit() *Commit {
 
 type InitRepositoryRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
-	DriverType DriverType  `protobuf:"varint,2,opt,name=driver_type,enum=pfs.DriverType" json:"driver_type,omitempty"`
 }
 
 func (m *InitRepositoryRequest) Reset()         { *m = InitRepositoryRequest{} }

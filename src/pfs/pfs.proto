@@ -52,7 +52,6 @@ message Shard {
 // RepositoryInfo represents information about a repository.
 message RepositoryInfo {
   Repository repository = 1;
-  DriverType driver_type = 2;
 }
 
 // CommitInfo represents information about a commit.
@@ -64,7 +63,6 @@ message CommitInfo {
 
 message InitRepositoryRequest {
   Repository repository = 1;
-  DriverType driver_type = 2;
 }
 
 message InitRepositoryResponse {

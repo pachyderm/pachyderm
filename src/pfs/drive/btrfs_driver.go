@@ -1,6 +1,7 @@
 package drive
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -49,12 +50,24 @@ func (b *btrfsDriver) InitRepository(repository *pfs.Repository, shard int) erro
 	return subvolumeCreate(commitPath)
 }
 
-func (b *btrfsDriver) GetFile(path *pfs.Path, shard int) (io.Reader, error) {
-	return nil, nil
+func (b *btrfsDriver) GetFile(path *pfs.Path, shard int) (io.ReadCloser, error) {
+	return os.Open(b.filePath(path, shard))
 }
 
 func (b *btrfsDriver) PutFile(path *pfs.Path, shard int, reader io.Reader) error {
-	return nil
+	filePath := b.filePath(path, shard)
+	// TODO(pedge): if PutFile fails here or on another shard, the directories
+	// will still exist and be returned from ListFiles, we want to do this
+	// iteratively and with rollback
+	if err := os.MkdirAll(filepath.Dir(filePath), 0700); err != nil {
+		return err
+	}
+	file, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	_, err = bufio.NewReader(reader).WriteTo(file)
+	return err
 }
 
 func (b *btrfsDriver) ListFiles(path *pfs.Path, shard int) ([]*pfs.Path, error) {

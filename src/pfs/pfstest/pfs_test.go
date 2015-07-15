@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"sync/atomic"
 	"testing"
 
 	"golang.org/x/net/context"
@@ -26,22 +27,37 @@ const (
 	testDefaultNumShards = 65536
 )
 
-func TestBasic(t *testing.T) {
-	runTest(t, drive.NewInMemoryDriver(), testDefaultNumShards, testBasic)
+var (
+	counter int32 = 0
+)
+
+func TestBtrfs(t *testing.T) {
+	runAllTests(t, drive.NewInMemoryDriver(), testDefaultNumShards)
 }
 
-func testBasic(t *testing.T, apiClient pfs.ApiClient) {
+func runAllTests(t *testing.T, driver drive.Driver, numShards int) {
+	runTest(t, driver, numShards, testInit)
+	runTest(t, driver, numShards, testInitGetPut)
+}
+
+func testInit(t *testing.T, apiClient pfs.ApiClient) {
+	repositoryName := testRepositoryName()
 	initRepositoryResponse, err := apiClient.InitRepository(
 		context.Background(),
 		&pfs.InitRepositoryRequest{
 			Repository: &pfs.Repository{
-				Name: "testRepository",
+				Name: repositoryName,
 			},
-			DriverType: pfs.DriverType_DRIVER_TYPE_IN_MEMORY,
 		},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, initRepositoryResponse)
+}
+
+func testInitGetPut(t *testing.T, apiClient pfs.ApiClient) {}
+
+func testRepositoryName() string {
+	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
 }
 
 func runTest(
