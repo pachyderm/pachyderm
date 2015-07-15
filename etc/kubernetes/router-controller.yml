@@ -2,19 +2,19 @@ apiVersion: v1
 kind: ReplicationController
 metadata:
   labels:
-    name: router
-  name: router
+    name: pfs-router
+  name: pfs-router
 spec:
   replicas: 1
   selector:
-    name: router
+    name: pfs-router
   template:
     metadata:
       labels:
-        name: router
+        name: pfs-router
     spec:
       containers:
-        - name: router
+        - name: pfs-router
           image: jdoliner/pfs
           command: [ "/go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper", "/go/bin/router", "8" ]
           ports:
