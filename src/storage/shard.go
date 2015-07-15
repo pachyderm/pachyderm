@@ -367,6 +367,8 @@ func (s *shard) FindRole() {
 		if err != nil {
 			continue
 		}
+		s.dataRepo = fmt.Sprintf("data-%d-%d", s.shard, s.modulos)
+		s.pipelinePrefix = fmt.Sprintf("pipe-%d-%d", s.shard, s.modulos)
 		err := s.EnsureRepos()
 		if err != nil {
 			continue
