@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
@@ -79,15 +80,14 @@ func ForEachFile(uri, marker string, cont func(file string, modtime time.Time) e
 	}
 
 	client := NewClient()
-	nextMarker := marker
-	maxKeys := int64(0)
+	nextMarker := aws.String(marker)
 
 	for {
 		lr, err := client.ListObjects(&s3.ListObjectsInput{
-			Bucket:  &bucket,
-			Prefix:  &inPath,
-			Marker:  &nextMarker,
-			MaxKeys: &maxKeys,
+			Bucket:  aws.String(bucket),
+			Prefix:  aws.String(inPath),
+			Marker:  nextMarker,
+			MaxKeys: aws.Long(1000),
 		})
 
 		if err != nil {
@@ -107,7 +107,7 @@ func ForEachFile(uri, marker string, cont func(file string, modtime time.Time) e
 			break
 		}
 
-		nextMarker = *lr.NextMarker
+		nextMarker = lr.NextMarker
 	}
 
 	return nil
