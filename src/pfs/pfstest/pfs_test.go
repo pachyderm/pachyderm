@@ -18,7 +18,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pfs/shard"
 	"github.com/phayes/freeport"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -107,7 +106,7 @@ func (g *grpcSuite) SetupSuite() {
 	port := freeport.GetPort()
 	address := fmt.Sprintf("0.0.0.0:%d", port)
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	assert.NoError(g.T(), err)
+	require.NoError(g.T(), err)
 	g.server = grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
 	g.registerFunc(g.server, address)
 	g.errC = make(chan error, 1)
@@ -119,7 +118,7 @@ func (g *grpcSuite) SetupSuite() {
 	if err != nil {
 		g.server.Stop()
 		<-g.errC
-		assert.NoError(g.T(), err)
+		require.NoError(g.T(), err)
 	}
 	g.clientConn = clientConn
 }
