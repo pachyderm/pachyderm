@@ -15,8 +15,8 @@ It has these top-level messages:
 	Shard
 	RepositoryInfo
 	CommitInfo
-	CreateRepositoryRequest
-	CreateRepositoryResponse
+	InitRepositoryRequest
+	InitRepositoryResponse
 	GetFileRequest
 	PutFileRequest
 	PutFileResponse
@@ -59,17 +59,17 @@ var _ = proto.Marshal
 type DriverType int32
 
 const (
-	DriverType_DRIVER_TYPE_NONE  DriverType = 0
-	DriverType_DRIVER_TYPE_BTRFS DriverType = 1
+	DriverType_DRIVER_TYPE_NONE      DriverType = 0
+	DriverType_DRIVER_TYPE_IN_MEMORY DriverType = 1
 )
 
 var DriverType_name = map[int32]string{
 	0: "DRIVER_TYPE_NONE",
-	1: "DRIVER_TYPE_BTRFS",
+	1: "DRIVER_TYPE_IN_MEMORY",
 }
 var DriverType_value = map[string]int32{
-	"DRIVER_TYPE_NONE":  0,
-	"DRIVER_TYPE_BTRFS": 1,
+	"DRIVER_TYPE_NONE":      0,
+	"DRIVER_TYPE_IN_MEMORY": 1,
 }
 
 func (x DriverType) String() string {
@@ -213,28 +213,28 @@ func (m *CommitInfo) GetCommit() *Commit {
 	return nil
 }
 
-type CreateRepositoryRequest struct {
+type InitRepositoryRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
 	DriverType DriverType  `protobuf:"varint,2,opt,name=driver_type,enum=pfs.DriverType" json:"driver_type,omitempty"`
 }
 
-func (m *CreateRepositoryRequest) Reset()         { *m = CreateRepositoryRequest{} }
-func (m *CreateRepositoryRequest) String() string { return proto.CompactTextString(m) }
-func (*CreateRepositoryRequest) ProtoMessage()    {}
+func (m *InitRepositoryRequest) Reset()         { *m = InitRepositoryRequest{} }
+func (m *InitRepositoryRequest) String() string { return proto.CompactTextString(m) }
+func (*InitRepositoryRequest) ProtoMessage()    {}
 
-func (m *CreateRepositoryRequest) GetRepository() *Repository {
+func (m *InitRepositoryRequest) GetRepository() *Repository {
 	if m != nil {
 		return m.Repository
 	}
 	return nil
 }
 
-type CreateRepositoryResponse struct {
+type InitRepositoryResponse struct {
 }
 
-func (m *CreateRepositoryResponse) Reset()         { *m = CreateRepositoryResponse{} }
-func (m *CreateRepositoryResponse) String() string { return proto.CompactTextString(m) }
-func (*CreateRepositoryResponse) ProtoMessage()    {}
+func (m *InitRepositoryResponse) Reset()         { *m = InitRepositoryResponse{} }
+func (m *InitRepositoryResponse) String() string { return proto.CompactTextString(m) }
+func (*InitRepositoryResponse) ProtoMessage()    {}
 
 type GetFileRequest struct {
 	Path *Path `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
@@ -557,10 +557,10 @@ func init() {
 // Client API for Api service
 
 type ApiClient interface {
-	// CreateRepository creates a new repository.
+	// InitRepository creates a new repository.
 	// An error is returned if the specified repository already exists.
 	// An error is returned if the specified driver is not supported.
-	CreateRepository(ctx context.Context, in *CreateRepositoryRequest, opts ...grpc.CallOption) (*CreateRepositoryResponse, error)
+	InitRepository(ctx context.Context, in *InitRepositoryRequest, opts ...grpc.CallOption) (*InitRepositoryResponse, error)
 	// GetFile returns a byte stream of the specified file.
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error)
 	// PutFile writes the specified file to PFS.
@@ -604,9 +604,9 @@ func NewApiClient(cc *grpc.ClientConn) ApiClient {
 	return &apiClient{cc}
 }
 
-func (c *apiClient) CreateRepository(ctx context.Context, in *CreateRepositoryRequest, opts ...grpc.CallOption) (*CreateRepositoryResponse, error) {
-	out := new(CreateRepositoryResponse)
-	err := grpc.Invoke(ctx, "/pfs.Api/CreateRepository", in, out, c.cc, opts...)
+func (c *apiClient) InitRepository(ctx context.Context, in *InitRepositoryRequest, opts ...grpc.CallOption) (*InitRepositoryResponse, error) {
+	out := new(InitRepositoryResponse)
+	err := grpc.Invoke(ctx, "/pfs.Api/InitRepository", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -761,10 +761,10 @@ func (c *apiClient) GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest,
 // Server API for Api service
 
 type ApiServer interface {
-	// CreateRepository creates a new repository.
+	// InitRepository creates a new repository.
 	// An error is returned if the specified repository already exists.
 	// An error is returned if the specified driver is not supported.
-	CreateRepository(context.Context, *CreateRepositoryRequest) (*CreateRepositoryResponse, error)
+	InitRepository(context.Context, *InitRepositoryRequest) (*InitRepositoryResponse, error)
 	// GetFile returns a byte stream of the specified file.
 	GetFile(*GetFileRequest, Api_GetFileServer) error
 	// PutFile writes the specified file to PFS.
@@ -804,12 +804,12 @@ func RegisterApiServer(s *grpc.Server, srv ApiServer) {
 	s.RegisterService(&_Api_serviceDesc, srv)
 }
 
-func _Api_CreateRepository_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(CreateRepositoryRequest)
+func _Api_InitRepository_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(InitRepositoryRequest)
 	if err := codec.Unmarshal(buf, in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).CreateRepository(ctx, in)
+	out, err := srv.(ApiServer).InitRepository(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -971,8 +971,8 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*ApiServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "CreateRepository",
-			Handler:    _Api_CreateRepository_Handler,
+			MethodName: "InitRepository",
+			Handler:    _Api_InitRepository_Handler,
 		},
 		{
 			MethodName: "PutFile",

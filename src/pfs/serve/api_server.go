@@ -5,18 +5,26 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
+	"github.com/pachyderm/pachyderm/src/pfs/shard"
 )
 
 type apiServer struct {
-	router route.Router
+	sharder shard.Sharder
+	router  route.Router
 }
 
-func newAPIServer(router route.Router) *apiServer {
-	return &apiServer{router}
+func newAPIServer(
+	sharder shard.Sharder,
+	router route.Router,
+) *apiServer {
+	return &apiServer{
+		sharder,
+		router,
+	}
 }
 
-func (a *apiServer) CreateRepository(ctx context.Context, createRepositoryRequest *pfs.CreateRepositoryRequest) (*pfs.CreateRepositoryResponse, error) {
-	return &pfs.CreateRepositoryResponse{}, nil
+func (a *apiServer) InitRepository(ctx context.Context, initRepositoryRequest *pfs.InitRepositoryRequest) (*pfs.InitRepositoryResponse, error) {
+	return &pfs.InitRepositoryResponse{}, nil
 }
 
 func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) error {

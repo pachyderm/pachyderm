@@ -7,8 +7,9 @@ import (
 )
 
 type Driver interface {
+	Init() error
 	DriverType() pfs.DriverType
-	CreateRepository(repository *pfs.Repository, shard int) error
+	InitRepository(repository *pfs.Repository, shard int) error
 	GetFile(path *pfs.Path, shard int) (io.Reader, error)
 	PutFile(path *pfs.Path, shard int, reader io.Reader) error
 	ListFiles(path *pfs.Path, shard int) ([]*pfs.Path, error)
@@ -22,5 +23,5 @@ type Driver interface {
 }
 
 func NewInMemoryDriver() Driver {
-	return nil
+	return newInMemoryDriver()
 }

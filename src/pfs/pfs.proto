@@ -7,7 +7,7 @@ package pfs;
 // DriverType represents the driver type used by the implementation of PFS.
 enum DriverType {
   DRIVER_TYPE_NONE = 0;
-  DRIVER_TYPE_BTRFS = 1;
+  DRIVER_TYPE_IN_MEMORY = 1;
 }
 
 // CommitType represents the type of commit.
@@ -61,12 +61,12 @@ message CommitInfo {
   WriteCommitType write_commit_type = 3;
 }
 
-message CreateRepositoryRequest {
+message InitRepositoryRequest {
   Repository repository = 1;
   DriverType driver_type = 2;
 }
 
-message CreateRepositoryResponse {
+message InitRepositoryResponse {
 }
 
 message GetFileRequest {
@@ -155,10 +155,10 @@ message GetCommitInfoResponse {
 }
 
 service Api {
-  // CreateRepository creates a new repository.
+  // InitRepository creates a new repository.
   // An error is returned if the specified repository already exists.
   // An error is returned if the specified driver is not supported.
-  rpc CreateRepository(CreateRepositoryRequest) returns (CreateRepositoryResponse) {}
+  rpc InitRepository(InitRepositoryRequest) returns (InitRepositoryResponse) {}
   // GetFile returns a byte stream of the specified file.
   rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
   // PutFile writes the specified file to PFS.
