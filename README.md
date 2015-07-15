@@ -1,12 +1,10 @@
-# Pachyderm
-
-[![Apache 2.0 License](https://img.shields.io/badge/license-Apache-2.0.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
+[![Apache 2.0 License](https://img.shields.io/badge/license-Apache-2.0.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE.md)
 
 ## News
 
-Pachyderm v0.8 is out and includes a brand new pipelining system! [Read more](pachyderm.io/pps) about it or check out our [web scraper demo](https://medium.com/pachyderm-data/build-your-own-wayback-machine-in-10-lines-of-code-99884b2ff95c)
+Pachyderm v0.8 is out and includes a brand new pipelining system! [Read more](http://pachyderm.io/pps.html) about it or check out our [web scraper demo](https://medium.com/pachyderm-data/build-your-own-wayback-machine-in-10-lines-of-code-99884b2ff95c).
 
-WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io
+WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
 
 ## What is Pachyderm?
 
@@ -44,6 +42,7 @@ an entire cluster's worth of data while still maintaining its commit history.
 Rather than thinking in terms of map or reduce jobs, pps thinks in terms of pipelines expressed within a container. A pipeline is a generic way expressing computation over large datasets and it’s containerized to make it easily portable, isolated, and easy to monitor. In Pachyderm, all analysis runs in containers. You can write them in any language you want and include any libraries. 
 
 # Documentation
+
 ## Deploying a Pachyderm cluster
 
 Pachyderm is designed to run on CoreOS so we'll need to deploy a CoreOs cluster. We've created an AWS cloud template to make this insanely easy.
@@ -246,7 +245,7 @@ $ curl -XGET <hostname>/pipeline/<pipelinename>
 
 ## How do I hack on pfs?
 
-We're hiring! If you like ambitious distributed systems problems and think there should be a better alternative to Hadoop, please reach out.  Email jobs@pachyderm.io
+We're hiring! If you like ambitious distributed systems problems and think there should be a better alternative to Hadoop, please reach out. Email jobs@pachyderm.io
 
 ### Want to hack on pfs for fun?
 
@@ -259,3 +258,5 @@ make container-launch
 This will build a docker image from the working directory, tag it as `pfs` and
 launch it locally using `bin/launch`.  The only dependencies are Docker >=
 1.5 and btrfs-tools >= 3.14.
+
+Other useful development commands can be seen in the [Makefile](Makefile).

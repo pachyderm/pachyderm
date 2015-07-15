@@ -8,6 +8,7 @@ cd "${DIR}"
 . "${DIR}/lib/lib.sh"
 . "${DIR}/../etc/env/pfs.env"
 
-docker kill "${PFS_CONTAINER_NAME}"
-docker rm "${PFS_CONTAINER_NAME}"
+umount "${PFS_HOST_VOLUME}"
+rm -rf "${PFS_HOST_VOLUME}"
+rm "${PFS_DATA_IMG}"
 exit 0

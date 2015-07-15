@@ -17,7 +17,9 @@
 	pretest \
 	test-long \
 	test \
-	bench
+	test-pfs \
+	bench \
+	proto
 
 include etc/env/pfs.env
 
@@ -58,6 +60,7 @@ container-build:
 
 container-clean:
 	sudo -E bash -c 'bin/clean'
+	sudo -E bash -c 'bin/clean-btrfs'
 
 container-shell:
 	sudo -E bash -c 'bin/shell'
@@ -85,6 +88,27 @@ test:
 test-long:
 	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) ./...'
 
+test-pfs: test-deps
+	go get -v github.com/golang/lint/golint
+	for file in $(shell git ls-files 'src/pfs/*.go' | grep -v '\.pb\.go'); do \
+		golint $$file; \
+	done
+	go vet ./src/pfs/...
+	errcheck ./src/pfs/...
+	sudo -E bash -c 'bin/run go test -test.v ./src/pfs/...'
+
 # TODO(pedge): add pretest when fixed
 bench:
 	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) -bench . -timeout $(BENCH_TIMEOUT) ./...'
+
+proto:
+	docker pull pedge/proto3grpc
+	docker run \
+		--volume $(shell pwd):/compile \
+		--workdir /compile \
+		pedge/proto3grpc \
+		protoc \
+		-I /usr/include \
+		-I /compile/src/pfs \
+		--go_out=plugins=grpc,Mgoogle/protobuf/wrappers.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pfs \
+		/compile/src/pfs/pfs.proto
