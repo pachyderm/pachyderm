@@ -49,7 +49,6 @@ func do() error {
 	shard := storage.NewShard(
 		"http://"+address,
 		"data-"+shardStr,
-		"comp-"+shardStr,
 		"pipe-"+shardStr,
 		shardNum,
 		modulos,

@@ -29,21 +29,20 @@ var (
 )
 
 type shard struct {
-	url                string
-	dataRepo, compRepo string
-	pipelinePrefix     string
-	shard, modulos     uint64
-	shardStr           string
-	runners            map[string]*pipeline.Runner
-	guard              *sync.Mutex
-	cache              etcache.Cache
-	roles              []string
+	url            string
+	dataRepo       string
+	pipelinePrefix string
+	shard, modulos uint64
+	shardStr       string
+	runners        map[string]*pipeline.Runner
+	guard          *sync.Mutex
+	cache          etcache.Cache
+	roles          []string
 }
 
 func newShard(
 	url string,
 	dataRepo string,
-	compRepo string,
 	pipelinePrefix string,
 	shardNum uint64,
 	modulos uint64,
@@ -52,7 +51,6 @@ func newShard(
 	return &shard{
 		url,
 		dataRepo,
-		compRepo,
 		pipelinePrefix,
 		shardNum,
 		modulos,
@@ -274,9 +272,6 @@ func (s *shard) EnsureRepos() error {
 	if err := btrfs.Ensure(s.dataRepo); err != nil {
 		return err
 	}
-	if err := btrfs.Ensure(s.compRepo); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -345,34 +340,38 @@ func (s *shard) FillRole(cancel chan bool) error {
 	}
 }
 
+func (s *shard) key() string {
+	return fmt.Sprintf("/pfs/master/%d-%d", s.shard, s.modulos)
+}
+
 func (s *shard) FindRole() {
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
 	defer client.Close()
-	role := ""
+	gotRole := false
 	var err error
 	for ; true; <-time.After(time.Second * 45) {
-		log.Printf("Top of loop role: \"%s\".", role)
 		// renew our role if we have one
-		if role != "" {
-			log.Print("We already have a role.")
-			_, err := client.CompareAndSwap(role, s.url, 60, s.url, 0)
+		if gotRole {
+			_, err := client.CompareAndSwap(s.key(), s.url, 60, s.url, 0)
 			if err != nil {
 				log.Print(err)
 			}
 			continue
 		}
 		// figure out if we should take on a new role
-		role, err = s.freeRole()
+		s.shard, err = s.freeRole()
 		if err != nil {
-			log.Print("Reset role: ", err)
-			role = ""
 			continue
 		}
-		_, err = client.Create(role, s.url, 60)
+		_, err = client.Create(s.key(), s.url, 60)
 		if err != nil {
-			log.Print("Reset role: ", err)
-			role = ""
+			continue
 		}
+		err := s.EnsureRepos()
+		if err != nil {
+			continue
+		}
+		gotRole = true
 	}
 }
 
@@ -411,19 +410,19 @@ func counts(masters []string) map[string]int {
 
 // bestRole returns the best role for us to fill in the cluster right now. If
 // no shards are available it returns ErrNoShards.
-func (s *shard) freeRole() (string, error) {
+func (s *shard) freeRole() (uint64, error) {
 	masters, err := s.masters()
 	log.Printf("%#v", masters)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 	// First we check if there's an empty shard
 	for i, master := range masters {
 		if master == "" {
-			return fmt.Sprintf("/pfs/master/%d-%d", i, int(s.modulos)), nil
+			return uint64(i), nil
 		}
 	}
-	return "", ErrNoShards
+	return 0, ErrNoShards
 }
 
 func (s *shard) syncFromPeers() error {
