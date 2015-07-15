@@ -17,6 +17,7 @@
 	pretest \
 	test-long \
 	test \
+	test-pfs \
 	bench \
 	proto
 
@@ -86,6 +87,15 @@ test:
 # TODO(pedge): add pretest when fixed
 test-long:
 	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) ./...'
+
+test-pfs: test-deps
+	go get -v github.com/golang/lint/golint
+	for file in $(shell git ls-files 'src/pfs/*.go' | grep -v '\.pb\.go'); do \
+		golint $$file; \
+	done
+	go vet ./src/pfs/...
+	errcheck ./src/pfs/...
+	go test -test.v ./src/pfs/...
 
 # TODO(pedge): add pretest when fixed
 bench:

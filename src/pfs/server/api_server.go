@@ -4,6 +4,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/shard"
 )
@@ -11,15 +12,18 @@ import (
 type apiServer struct {
 	sharder shard.Sharder
 	router  route.Router
+	driver  drive.Driver
 }
 
 func newAPIServer(
 	sharder shard.Sharder,
 	router route.Router,
+	driver drive.Driver,
 ) *apiServer {
 	return &apiServer{
 		sharder,
 		router,
+		driver,
 	}
 }
 
