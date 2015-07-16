@@ -330,8 +330,10 @@ brew cask install virtualbox vagrant
 Basic usage:
 
 ```
-git clone https://github.com/pachyderm/pachyderm.git
 cd pachyderm
+mkdir -p pachyderm_vagrant
+cd pachyderm_vagrant
+curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/Vagrantfile > Vagrantfile
 vagrant up # starts the vagrant box
 vagrant ssh # ssh into the vagrant box
 ```
