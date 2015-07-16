@@ -25,6 +25,7 @@ docker run \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
     -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+    -e AWS_REGION="${AWS_REGION}" \
     -e GOMAXPROCS="${GOMAXPROCS}" \
     -e PFS_HOST_VOLUME="${PFS_HOST_VOLUME}" \
 	-e PFS_BTRFS_ROOT="${PFS_BTRFS_ROOT}" \
