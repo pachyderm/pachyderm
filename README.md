@@ -1,4 +1,34 @@
+# Pachyderm
+
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache-2.0.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE.md)
+
+* [Pachyderm](#pachyderm)
+  * [News](#news)
+  * [What is Pachyderm?](#what-is-pachyderm)
+  * [Key Features](#key-features)
+  * [Is Pachyderm enterprise production ready?](#is-pachyderm-enterprise-production-ready)
+  * [What is a commit-based file system?](#what-is-a-commit-based-file-system)
+  * [What are containerized analytics?](#what-are-containerized-analytics)
+* [Documentation](#documentation)
+  * [Deploying a Pachyderm cluster](#deploying-a-pachyderm-cluster)
+    * [Deploy Pachyderm manually](#deploy-pachyderm-manually)
+    * [Settings](#settings)
+    * [Integrating with s3](#integrating-with-s3)
+    * [Checking the status of your deploy](#checking-the-status-of-your-deploy)
+  * [The Pachyderm HTTP API](#the-pachyderm-http-api)
+    * [Creating files](#creating-files)
+    * [Reading files](#reading-files)
+    * [Deleting files](#deleting-files)
+    * [Committing changes](#committing-changes)
+    * [Branching](#branching)
+  * [Containerized Analytics](#containerized-analytics)
+    * [Creating a new pipeline with a Pachfile](#creating-a-new-pipeline-with-a-pachfile)
+    * [POSTing a Pachfile to pfs](#posting-a-pachfile-to-pfs)
+    * [Running a pipeline](#running-a-pipeline)
+    * [Getting the output of a pipelines](#getting-the-output-of-a-pipelines)
+    * [Deleting pipelines](#deleting-pipelines)
+    * [Getting the Pachfile](#getting-the-pachfile)
+  * [Development](#development)
 
 ## News
 
@@ -243,13 +273,11 @@ $ curl -XDELETE <hostname>/pipeline/<pipelinename>
 $ curl -XGET <hostname>/pipeline/<pipelinename>
 ```
 
-## How do I hack on pfs?
+## Development
 
 We're hiring! If you like ambitious distributed systems problems and think there should be a better alternative to Hadoop, please reach out. Email jobs@pachyderm.io
 
-### Want to hack on pfs for fun?
-
-You can run pfs locally using:
+Want to hack on pfs for fun? You can run pfs locally using:
 
 ```shell
 make container-launch
@@ -259,4 +287,62 @@ This will build a docker image from the working directory, tag it as `pfs` and
 launch it locally using `bin/launch`.  The only dependencies are Docker >=
 1.5 and btrfs-tools >= 3.14.
 
-Other useful development commands can be seen in the [Makefile](Makefile).
+Other useful development commands can be seen in the [Makefile](Makefile) and the
+[bin](bin) directory. Key commands:
+
+```
+make test-deps # download all golang dependencies
+make test # run all the tests
+make container-clean # clean up all pachyderm state
+sudo -E bash -c 'bin/run ARGS...' # run a command inside a fresh pachyderm container
+sudo -E bash -c 'bin/run go test ./src/PACKAGE' # run tests for a specific package
+sudo -E bash -c 'bin/run go test -run REGEX ./...' # run all tests that match the regex
+```
+
+With golang, it's generally easiest to have your fork match the import paths in the code, how we recommend to do this:
+
+```
+# assuming your github username is alice
+rm -rf ${GOPATH}/src/github.com/pachyderm/pachyderm
+mkdir -p ${GOPATH}/src/github.com/pachyderm
+cd ${GOPATH}/src/github.com/pachyderm
+git clone https://github.com/alice/pachyderm.git
+git remote add upstream https://github.com/pachyderm/pachyderm.git # so you can run 'git fetch upstream' to get upstream changes
+```
+
+The [Vagrantfile](Vagrantfile) in this repository will set up a development environment for Pachyderm
+that has all dependencies installed.
+
+The easiest way to install Vagrant on your mac is probably:
+
+```
+brew install caskroom/cask/brew-cask
+brew cask install virtualbox vagrant
+```
+
+Basic usage:
+
+```
+git clone https://github.com/pachyderm/pachyderm.git
+cd pachyderm
+vagrant up # starts the vagrant box
+vagrant ssh # ssh into the vagrant box
+```
+
+Once in the vagrant box, set everything up and verify that it works:
+
+```
+go get github.com/pachyderm/pachyderm
+cd ~/go/src/github.com/pachyderm/pachyderm
+make test
+```
+
+Some other useful vagrant commands:
+
+```
+vagrant suspend # suspends the vagrant box, useful if you are not actively developing and want to free up resources
+vagrant resume # resumes a suspended vagrant box
+vagrant destroy # destroy the vagrant box, this will destroy everything on the box so be careful
+```
+
+See [Vagrant's website](https://www.vagrantup.com) for more details.
