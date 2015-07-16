@@ -37,7 +37,6 @@ type shard struct {
 	runners        map[string]*pipeline.Runner
 	guard          *sync.Mutex
 	cache          etcache.Cache
-	roles          []string
 }
 
 func newShard(
