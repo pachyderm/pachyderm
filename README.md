@@ -330,7 +330,6 @@ brew cask install virtualbox vagrant
 Basic usage:
 
 ```
-cd pachyderm
 mkdir -p pachyderm_vagrant
 cd pachyderm_vagrant
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/Vagrantfile > Vagrantfile
