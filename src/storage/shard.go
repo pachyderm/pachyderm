@@ -24,23 +24,24 @@ const (
 var (
 	ErrInvalidObject = errors.New("pfs: invalid object")
 	ErrIsDirectory   = errors.New("pfs: is directory")
+	ErrOverallocated = errors.New("pfs: overallocated")
+	ErrNoShards      = errors.New("pfs: no shards")
 )
 
 type shard struct {
-	url                string
-	dataRepo, compRepo string
-	pipelinePrefix     string
-	shard, modulos     uint64
-	shardStr           string
-	runners            map[string]*pipeline.Runner
-	guard              *sync.Mutex
-	cache              etcache.Cache
+	url            string
+	dataRepo       string
+	pipelinePrefix string
+	shard, modulos uint64
+	shardStr       string
+	runners        map[string]*pipeline.Runner
+	guard          *sync.Mutex
+	cache          etcache.Cache
 }
 
 func newShard(
 	url string,
 	dataRepo string,
-	compRepo string,
 	pipelinePrefix string,
 	shardNum uint64,
 	modulos uint64,
@@ -49,7 +50,6 @@ func newShard(
 	return &shard{
 		url,
 		dataRepo,
-		compRepo,
 		pipelinePrefix,
 		shardNum,
 		modulos,
@@ -57,6 +57,7 @@ func newShard(
 		make(map[string]*pipeline.Runner),
 		&sync.Mutex{},
 		cache,
+		nil,
 	}
 }
 
@@ -270,16 +271,13 @@ func (s *shard) EnsureRepos() error {
 	if err := btrfs.Ensure(s.dataRepo); err != nil {
 		return err
 	}
-	if err := btrfs.Ensure(s.compRepo); err != nil {
-		return err
-	}
 	return nil
 }
 
 // FillRole attempts to find a role in the cluster. Once on is found it
 // prepares the local storage for the role and announces the shard to the rest
 // of the cluster. This function will loop until `cancel` is closed.
-func (s *shard) FillRole(cancel chan bool) error {
+func (s *shard) FillRole() {
 	shard := fmt.Sprintf("%d-%d", s.shard, s.modulos)
 	masterKey := path.Join("/pfs/master", shard)
 	replicaDir := path.Join("/pfs/replica", shard)
@@ -288,6 +286,7 @@ func (s *shard) FillRole(cancel chan bool) error {
 	replicaKey := ""
 	for {
 		client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+		defer client.Close()
 		// First we attempt to become the master for this shard
 		if !amMaster {
 			// We're not master, so we attempt to claim it, this will error if
@@ -305,11 +304,14 @@ func (s *shard) FillRole(cancel chan bool) error {
 					//Record that we're master
 					amMaster = true
 				}
+			} else {
+				log.Print(err)
 			}
 		} else {
 			// We're already master, renew our lease
 			_, err := client.CompareAndSwap(masterKey, s.url, 60, s.url, 0)
 			if err != nil { // error means we failed to reclaim master
+				log.Print(err)
 				amMaster = false
 			}
 		}
@@ -331,10 +333,95 @@ func (s *shard) FillRole(cancel chan bool) error {
 		select {
 		case <-time.After(time.Second * 45):
 			continue
-		case <-cancel:
-			break
 		}
 	}
+}
+
+func (s *shard) key() string {
+	return fmt.Sprintf("/pfs/master/%d-%d", s.shard, s.modulos)
+}
+
+func (s *shard) FindRole() {
+	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+	defer client.Close()
+	gotRole := false
+	var err error
+	for ; true; <-time.After(time.Second * 45) {
+		// renew our role if we have one
+		if gotRole {
+			_, err := client.CompareAndSwap(s.key(), s.url, 60, s.url, 0)
+			if err != nil {
+				log.Print(err)
+			}
+			continue
+		}
+		// figure out if we should take on a new role
+		s.shard, err = s.freeRole()
+		if err != nil {
+			continue
+		}
+		_, err = client.Create(s.key(), s.url, 60)
+		if err != nil {
+			continue
+		}
+		s.dataRepo = fmt.Sprintf("data-%d-%d", s.shard, s.modulos)
+		s.pipelinePrefix = fmt.Sprintf("pipe-%d-%d", s.shard, s.modulos)
+		err := s.EnsureRepos()
+		if err != nil {
+			continue
+		}
+		gotRole = true
+	}
+}
+
+func (s *shard) masters() ([]string, error) {
+	result := make([]string, s.modulos)
+	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+	defer client.Close()
+
+	response, err := client.Get("/pfs/master", false, true)
+	log.Print("len(response.Node.Nodes): ", len(response.Node.Nodes))
+	if err == nil {
+		for _, node := range response.Node.Nodes {
+			// node.Key looks like " /pachyderm.io/pfs/0-5"
+			//                      0 1            2   3
+			key := strings.Split(node.Key, "/")
+			shard, _, err := route.ParseShard(key[3])
+			if err != nil {
+				return nil, err
+			}
+			result[shard] = node.Value
+		}
+
+	}
+	return result, nil
+}
+
+func counts(masters []string) map[string]int {
+	result := make(map[string]int)
+	for _, host := range masters {
+		if host != "" {
+			result[host] = result[host] + 1
+		}
+	}
+	return result
+}
+
+// bestRole returns the best role for us to fill in the cluster right now. If
+// no shards are available it returns ErrNoShards.
+func (s *shard) freeRole() (uint64, error) {
+	masters, err := s.masters()
+	log.Printf("%#v", masters)
+	if err != nil {
+		return 0, err
+	}
+	// First we check if there's an empty shard
+	for i, master := range masters {
+		if master == "" {
+			return uint64(i), nil
+		}
+	}
+	return 0, ErrNoShards
 }
 
 func (s *shard) syncFromPeers() error {
@@ -368,6 +455,7 @@ func (s *shard) syncToPeers() error {
 func (s *shard) peers() ([]string, error) {
 	var peers []string
 	client := etcd.NewClient([]string{"http://172.17.42.1:4001", "http://10.1.42.1:4001"})
+	defer client.Close()
 	resp, err := client.Get(fmt.Sprintf("/pfs/replica/%d-%d", s.shard, s.modulos), false, true)
 	if err != nil {
 		return peers, err

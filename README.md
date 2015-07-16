@@ -306,7 +306,7 @@ make container-clean # clean up all pachyderm state
 
 ### Environment Setup
 
-With golang, it's generally easiest to have your fork match the import paths in the code, how we recommend to do this:
+With golang, it's generally easiest to have your fork match the import paths in the code. We recommend you do it like this:
 
 ```
 # assuming your github username is alice

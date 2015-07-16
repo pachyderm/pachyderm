@@ -153,7 +153,7 @@
                                 "            -v /:/host:ro",
                                 "            -v /tmp/home/core:/host/home/core",
                                 "            -i pachyderm/pfs",
-                                "            /go/bin/deploy -disk /dev/xvdf ",
+                                "            /go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper /go/bin/deploy -disk /dev/xvdf ",
                                 {
                                     "Ref" : "PfsDeployArgs"
                                 },
