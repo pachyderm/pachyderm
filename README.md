@@ -279,9 +279,9 @@ $ curl -XGET <hostname>/pipeline/<pipelinename>
 
 We're hiring! If you like ambitious distributed systems problems and think there should be a better alternative to Hadoop, please reach out. Email jobs@pachyderm.io.
 
-Want to hack on pfs for fun? You can run pfs locally using:
-
 ### Running
+
+Want to hack on pfs for fun? You can run pfs locally using:
 
 ```shell
 make container-launch
