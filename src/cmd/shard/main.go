@@ -21,9 +21,6 @@ func main() {
 }
 
 func do() error {
-	if len(os.Args) != 3 {
-		return fmt.Errorf("unknown args: %v", os.Args)
-	}
 	shardNum := flag.Int("shard", -1, "Optional. The shard to service.")
 	modulos := flag.Int("modulos", 4, "The total number of shards.")
 	address := flag.String("address", "", "Optional. The address to advertise for this node.")
