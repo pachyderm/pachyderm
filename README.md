@@ -31,6 +31,7 @@
     * [Running](#running)
     * [Environment Setup](#environment-setup)
     * [Common Problems](#common-problems)
+* [Contributing](#contributing)
 
 ### News
 
@@ -373,3 +374,9 @@ sudo -E bash -c 'bin/run go test ./...' # original command would have been `./bi
 *Problem*: S3 tests are failing
 
 We are actively working on this, sorry!
+
+## Contributing
+
+To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
+
+Send us PRs, we would love to see what you do!
