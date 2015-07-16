@@ -3,7 +3,6 @@ package pfstest
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"math"
 	"net"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/address"
 	"github.com/pachyderm/pachyderm/src/pfs/dial"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs/protoutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pfs/shard"
@@ -114,11 +114,7 @@ func testInitGetPut(t *testing.T, apiClient pfs.ApiClient) {
 	require.NotNil(t, apiGetFileClient)
 
 	buffer := bytes.NewBuffer(nil)
-	for bytesValue, err := apiGetFileClient.Recv(); err != io.EOF; bytesValue, err = apiGetFileClient.Recv() {
-		require.NoError(t, err)
-		_, writeErr := buffer.Write(bytesValue.Value)
-		require.NoError(t, writeErr)
-	}
+	require.NoError(t, protoutil.WriteFromStreamingBytesClient(apiGetFileClient, buffer))
 	require.Equal(t, "hello world", buffer.String())
 }
 

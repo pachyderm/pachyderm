@@ -2,12 +2,12 @@ package server
 
 import (
 	"bytes"
-	"io"
 
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs/protoutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/shard"
 )
@@ -70,15 +70,7 @@ func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer
 		if err != nil {
 			return err
 		}
-		for bytesValue, err := apiGetFileClient.Recv(); err != io.EOF; bytesValue, err = apiGetFileClient.Recv() {
-			if err != nil {
-				return err
-			}
-			if sendErr := apiGetFileServer.Send(bytesValue); sendErr != nil {
-				return sendErr
-			}
-		}
-		return nil
+		return protoutil.RelayFromStreamingBytesClient(apiGetFileClient, apiGetFileServer)
 	}
 	readCloser, err := a.driver.GetFile(getFileRequest.Path, shard)
 	if err != nil {
@@ -89,7 +81,7 @@ func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer
 			retErr = err
 		}
 	}()
-	return writeToStreamingBytesServer(readCloser, apiGetFileServer)
+	return protoutil.WriteToStreamingBytesServer(readCloser, apiGetFileServer)
 }
 
 func (a *apiServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequest) (*pfs.PutFileResponse, error) {
