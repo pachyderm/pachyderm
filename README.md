@@ -1,4 +1,34 @@
+# Pachyderm
+
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache-2.0.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE.md)
+
+* [Pachyderm](#pachyderm)
+  * [News](#news)
+  * [What is Pachyderm?](#what-is-pachyderm)
+  * [Key Features](#key-features)
+  * [Is Pachyderm enterprise production ready?](#is-pachyderm-enterprise-production-ready)
+  * [What is a commit-based file system?](#what-is-a-commit-based-file-system)
+  * [What are containerized analytics?](#what-are-containerized-analytics)
+* [Documentation](#documentation)
+  * [Deploying a Pachyderm cluster](#deploying-a-pachyderm-cluster)
+    * [Deploy Pachyderm manually](#deploy-pachyderm-manually)
+    * [Settings](#settings)
+    * [Integrating with s3](#integrating-with-s3)
+    * [Checking the status of your deploy](#checking-the-status-of-your-deploy)
+  * [The Pachyderm HTTP API](#the-pachyderm-http-api)
+    * [Creating files](#creating-files)
+    * [Reading files](#reading-files)
+    * [Deleting files](#deleting-files)
+    * [Committing changes](#committing-changes)
+    * [Branching](#branching)
+  * [Containerized Analytics](#containerized-analytics)
+    * [Creating a new pipeline with a Pachfile](#creating-a-new-pipeline-with-a-pachfile)
+    * [POSTing a Pachfile to pfs](#posting-a-pachfile-to-pfs)
+    * [Running a pipeline](#running-a-pipeline)
+    * [Getting the output of a pipelines](#getting-the-output-of-a-pipelines)
+    * [Deleting pipelines](#deleting-pipelines)
+    * [Getting the Pachfile](#getting-the-pachfile)
+  * [Development](#development)
 
 ## News
 
@@ -243,13 +273,11 @@ $ curl -XDELETE <hostname>/pipeline/<pipelinename>
 $ curl -XGET <hostname>/pipeline/<pipelinename>
 ```
 
-## How do I hack on pfs?
+## Development
 
 We're hiring! If you like ambitious distributed systems problems and think there should be a better alternative to Hadoop, please reach out. Email jobs@pachyderm.io
 
-### Want to hack on pfs for fun?
-
-You can run pfs locally using:
+Want to hack on pfs for fun? You can run pfs locally using:
 
 ```shell
 make container-launch
