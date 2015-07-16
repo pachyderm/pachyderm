@@ -17,8 +17,9 @@ RUN \
 RUN \
   go get github.com/satori/go.uuid && \
   go get github.com/fsouza/go-dockerclient && \
-  go get github.com/mitchellh/goamz/aws && \
-  go get github.com/mitchellh/goamz/s3 && \
+  go get github.com/aws/aws-sdk-go/aws && \
+  go get github.com/aws/aws-sdk-go/service/s3 && \
+  go get github.com/vaughan0/go-ini && \
   go get github.com/go-fsnotify/fsnotify && \
   go get google.golang.org/grpc && \
   go get github.com/peter-edge/go-google-protobuf && \

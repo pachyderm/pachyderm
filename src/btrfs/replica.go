@@ -9,7 +9,8 @@ import (
 	"path"
 	"time"
 
-	"github.com/mitchellh/goamz/s3"
+	"github.com/aws/aws-sdk-go/service/s3"
+
 	"github.com/pachyderm/pachyderm/src/s3utils"
 	"github.com/pachyderm/pachyderm/src/util"
 )
@@ -62,10 +63,6 @@ func newS3Replica(uri string) *s3Replica {
 }
 
 func (r *s3Replica) Push(diff io.Reader) error {
-	bucket, err := s3utils.NewBucket(r.uri)
-	if err != nil {
-		return err
-	}
 	key := fmt.Sprintf("%.10d", r.count)
 	r.count++
 
@@ -74,16 +71,19 @@ func (r *s3Replica) Push(diff io.Reader) error {
 		return err
 	}
 
-	return s3utils.PutMulti(bucket, path.Join(p, key), diff, "application/octet-stream", s3.BucketOwnerFull)
+	return s3utils.PutMulti(r.uri, path.Join(p, key), diff, "application/octet-stream", s3utils.BucketOwnerFull)
 }
 
 func (r *s3Replica) Pull(from string, target Pusher) error {
-	bucket, err := s3utils.NewBucket(r.uri)
-	if err != nil {
-		return err
-	}
-	err = s3utils.ForEachFile(r.uri, from, func(path string, modtime time.Time) (retErr error) {
-		f, err := bucket.GetReader(path)
+	client := s3utils.NewClient()
+	err := s3utils.ForEachFile(r.uri, from, func(path string, modtime time.Time) (retErr error) {
+		response, err := client.GetObject(&s3.GetObjectInput{
+			Bucket: &r.uri,
+			Key:    &path,
+		})
+
+		f := response.Body
+
 		if f == nil {
 			return fmt.Errorf("Nil file returned.")
 		}
