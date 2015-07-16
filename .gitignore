@@ -27,3 +27,4 @@ _testmain.go
 src/cmd/deploy/deploy
 src/cmd/router/router
 src/cmd/shard/shard
+.vagrant

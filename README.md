@@ -259,4 +259,17 @@ This will build a docker image from the working directory, tag it as `pfs` and
 launch it locally using `bin/launch`.  The only dependencies are Docker >=
 1.5 and btrfs-tools >= 3.14.
 
-Other useful development commands can be seen in the [Makefile](Makefile).
+Other useful development commands can be seen in the [Makefile](Makefile) and the
+[bin](bin) directory. Key commands:
+
+```
+make test-deps # download all golang dependencies
+make test # run all the tests
+make container-clean # clean up all pachyderm state
+sudo -E bash -c 'bin/run ARGS...' # run a command inside a fresh pachyderm container
+sudo -E bash -c 'bin/run go test ./src/PACKAGE' # run tests for a specific package
+sudo -E bash -c 'bin/run go test -run REGEX ./...' # run all tests that match the regex
+```
+
+The [Vagrantfile](Vagrantfile) in this repository will set up a development environment for Pachyderm
+that has all dependencies installed.
