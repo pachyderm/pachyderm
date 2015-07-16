@@ -52,7 +52,7 @@ Pachyderm is a complete data analytics solution that lets you efficiently store 
 
 ### Is Pachyderm enterprise production ready?
 
-No, Pachyderm is in beta, but can already solve some very meaningful data analytics problems.  [We'd love your help. :)](#how-do-i-hack-on-pfs)
+No, Pachyderm is in beta, but can already solve some very meaningful data analytics problems.  [We'd love your help. :)](#development)
 
 ### What is a commit-based file system?
 
