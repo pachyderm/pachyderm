@@ -18,6 +18,3 @@ su - vagrant -c "echo export GOPATH=/home/vagrant/go >> /home/vagrant/.bash_alia
 wget -qO- https://get.docker.com/ | sh
 usermod -aG docker vagrant
 service docker restart
-
-su - vagrant -c "go get github.com/pachyderm/pachyderm"
-su - vagrant -c "make -C /home/vagrant/go/src/github.com/pachyderm/pachyderm test-deps"

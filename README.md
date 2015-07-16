@@ -273,3 +273,24 @@ sudo -E bash -c 'bin/run go test -run REGEX ./...' # run all tests that match th
 
 The [Vagrantfile](Vagrantfile) in this repository will set up a development environment for Pachyderm
 that has all dependencies installed.
+
+The easiest way to install Vagrant on your mac is probably:
+
+```
+brew install caskroom/cask/brew-cask
+brew cask install virtualbox vagrant
+```
+
+Basic usage:
+
+```
+git clone https://github.com/pachyderm/pachyderm.git
+cd pachyderm
+vagrant up # starts the vagrant box
+vagrant ssh # ssh into the vagrant box
+vagrant suspend # suspends the vagrant box, useful if you are not actively developing and want to free up resources
+vagrant resume # resumes a suspended vagrant box
+vagrant destroy # destroy the vagrant box, this will destroy everything on the box so be careful
+```
+
+See [Vagrant's website](https://www.vagrantup.com) for more details.
