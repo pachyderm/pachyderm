@@ -12,11 +12,6 @@ import (
 )
 
 const (
-	// AWS says that parts must be at least 5MB, it's unclear if that means 5 *
-	// 10^6 or 5 2^10 so we went with the larger.
-	minPart = 5242880      // 5MB
-	maxPart = minPart * 10 // 50MB
-
 	Private           = ACL("private")
 	PublicRead        = ACL("public-read")
 	PublicReadWrite   = ACL("public-read-write")
@@ -53,9 +48,7 @@ func PutMulti(bucketUri string, path string, r io.Reader, contType string, perm 
 		return err
 	}
 
-	uploader := s3manager.NewUploader(&s3manager.UploadOptions{
-		PartSize: minPart,
-	})
+	uploader := s3manager.NewUploader(nil)
 
 	_, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket: &bucket,
