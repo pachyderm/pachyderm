@@ -2,13 +2,12 @@
 
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache-2.0.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE.md)
 
-* [Pachyderm](#pachyderm)
-  * [News](#news)
-  * [What is Pachyderm?](#what-is-pachyderm)
-  * [Key Features](#key-features)
-  * [Is Pachyderm enterprise production ready?](#is-pachyderm-enterprise-production-ready)
-  * [What is a commit-based file system?](#what-is-a-commit-based-file-system)
-  * [What are containerized analytics?](#what-are-containerized-analytics)
+* [News](#news)
+* [What is Pachyderm?](#what-is-pachyderm)
+* [Key Features](#key-features)
+* [Is Pachyderm enterprise production ready?](#is-pachyderm-enterprise-production-ready)
+* [What is a commit-based file system?](#what-is-a-commit-based-file-system)
+* [What are containerized analytics?](#what-are-containerized-analytics)
 * [Documentation](#documentation)
   * [Deploying a Pachyderm cluster](#deploying-a-pachyderm-cluster)
     * [Deploy Pachyderm manually](#deploy-pachyderm-manually)
@@ -28,30 +27,33 @@
     * [Getting the output of a pipelines](#getting-the-output-of-a-pipelines)
     * [Deleting pipelines](#deleting-pipelines)
     * [Getting the Pachfile](#getting-the-pachfile)
-  * [Development](#development)
+* [Development](#development)
+    * [Running](#running)
+    * [Environment Setup](#environment-setup)
+    * [Common Problems](#common-problems)
 
-## News
+### News
 
 Pachyderm v0.8 is out and includes a brand new pipelining system! [Read more](http://pachyderm.io/pps.html) about it or check out our [web scraper demo](https://medium.com/pachyderm-data/build-your-own-wayback-machine-in-10-lines-of-code-99884b2ff95c).
 
 WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
 
-## What is Pachyderm?
+### What is Pachyderm?
 
 Pachyderm is a complete data analytics solution that lets you efficiently store and analyze your data using containers. We offer the scalability and broad functionality of Hadoop, with the ease of use of Docker.
 
-## Key Features
+### Key Features
 
 - Complete version control for your data
 - Jobs are containerized, so you can use any languages and tools you want
 - Both batched and streaming analytics
 - One-click deploy on AWS without data migration 
 
-## Is Pachyderm enterprise production ready?
+### Is Pachyderm enterprise production ready?
 
 No, Pachyderm is in beta, but can already solve some very meaningful data analytics problems.  [We'd love your help. :)](#how-do-i-hack-on-pfs)
 
-## What is a commit-based file system?
+### What is a commit-based file system?
 
 Pfs is implemented as a distributed layer on top of btrfs, the same
 copy-on-write file system that powers Docker. Btrfs already offers
@@ -67,13 +69,13 @@ impacting anyone else or the underlying data. Branches can easily be merged back
 - __Cloning__: Btrfs's send/receive functionality allows pfs to efficiently copy
 an entire cluster's worth of data while still maintaining its commit history.
 
-## What are containerized analytics?
+### What are containerized analytics?
 
 Rather than thinking in terms of map or reduce jobs, pps thinks in terms of pipelines expressed within a container. A pipeline is a generic way expressing computation over large datasets and it’s containerized to make it easily portable, isolated, and easy to monitor. In Pachyderm, all analysis runs in containers. You can write them in any language you want and include any libraries. 
 
-# Documentation
+## Documentation
 
-## Deploying a Pachyderm cluster
+### Deploying a Pachyderm cluster
 
 Pachyderm is designed to run on CoreOS so we'll need to deploy a CoreOs cluster. We've created an AWS cloud template to make this insanely easy.
 - [Deploy on Amazon EC2](https://console.aws.amazon.com/cloudformation/home?region=us-west-1#/stacks/new?stackName=Pachyderm&templateURL=https:%2F%2Fs3-us-west-1.amazonaws.com%2Fpachyderm-templates%2Ftemplate) using cloud templates (recommended)
@@ -81,7 +83,7 @@ Pachyderm is designed to run on CoreOS so we'll need to deploy a CoreOs cluster.
 - [Google Compute Engine](https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/) (manual)
 - [Vagrant](https://coreos.com/docs/running-coreos/platforms/vagrant/) (requires setting up DNS)
 
-### Deploy Pachyderm manually
+#### Deploy Pachyderm manually
 
 If you chose any of the manual options above, you'll neeed to SSH in to one of your new CoreOS machines and start Pachyderm.
 
@@ -91,7 +93,7 @@ $ curl pachyderm.io/deploy | sh
 The startup process takes a little while the first time you run it because
 each node has to pull a Docker image.
 
-###  Settings
+####  Settings
 
 By default the deploy script will create a cluster with 3 shards and 3
 replicas. However you can pass it flags to change this behavior:
@@ -104,7 +106,7 @@ Usage of /go/bin/deploy:
   -shards=3: The number of shards in the deploy.
 ```
 
-### Integrating with s3
+#### Integrating with s3
 
 If you'd like to populate your Pachyderm cluster with your own data, [jump ahead](https://github.com/pachyderm/pachyderm#using-pfs) to learn how. If not, we've created a public s3 bucket with chess data for you and we can run the chess pipeline in the full cluster.
 
@@ -118,7 +120,7 @@ etcdctl set /pfs/creds/AWS_SECRET_ACCESS_KEY <AWS_SECRET_ACCESS_KEY>
 etcdctl set /pfs/creds/IMAGE_BUCKET <IMAGE_BUCKET>
 ```
 
-### Checking the status of your deploy
+#### Checking the status of your deploy
 
 The easiest way to see what's going on in your cluster is to use `list-units`,
 this is what a healthy 3 Node cluster looks like.
@@ -141,18 +143,18 @@ storage.service     c1ecdd2f.../10.240.66.254   active  exited
 storage.service     e0874908.../10.240.235.196  active  exited
 ```
 
-## The Pachyderm HTTP API
+### The Pachyderm HTTP API
 
 Pfs exposes a "git-like" interface to the file system -- you can add files and then create commits, branches, etc.
 
-### Creating files
+#### Creating files
 
 ```shell
 # Write <file> to <branch>. Branch defaults to "master".
 $ curl -XPOST <hostname>/file/<file>?branch=<branch> -T local_file
 ```
 
-### Reading files
+#### Reading files
 
 ```shell
 # Read <file> from <master>.
@@ -165,14 +167,14 @@ $ curl <hostname>/file/<directory>/*
 $ curl <hostname>/file/<file>?commit=<commit>
 ```
 
-### Deleting files
+#### Deleting files
 
 ```shell
 # Delete <file> from <branch>. Branch defaults to "master".
 $ curl -XDELETE <hostname>/file/<file>?branch=<branch>
 ```
 
-### Committing changes
+#### Committing changes
 
 ```shell
 # Commit dirty changes to <branch>. Defaults to "master".
@@ -182,7 +184,7 @@ $ curl -XPOST <hostname>/commit?branch=<branch>
 $ curl -XGET <hostname>/commit
 ```
 
-### Branching
+#### Branching
 
 ```shell
 # Create <branch> from <commit>.
@@ -195,9 +197,9 @@ $ curl -XPOST <hostname>/commit?branch=<branch>
 $ curl -XGET <hostname>/branch
 ```
 
-##Containerized Analytics
+### Containerized Analytics
 
-###Creating a new pipeline with a Pachfile
+#### Creating a new pipeline with a Pachfile
 
 Pipelines are described as Pachfiles. The Pachfile specifies a Docker image, input data, and then analysis logic (run, shuffle, etc). Pachfiles are somewhat analogous to how Docker files specify how to build a Docker image. 
 
@@ -219,7 +221,7 @@ Pipelines are described as Pachfiles. The Pachfile specifies a Docker image, inp
 }
 ```
 
-###POSTing a Pachfile to pfs
+#### POSTing a Pachfile to pfs
 
 POST a text-based Pachfile with the above format to pfs:
 
@@ -229,7 +231,7 @@ $ curl -XPOST <hostname>/pipeline/<pipeline_name> -T <name>.Pachfile
 
 **NOTE**: POSTing a Pachfile doesn't run the pipeline. It just records the specification of the pipeline in pfs. The pipeline will get run when a commit is made.
 
-### Running a pipeline
+#### Running a pipeline
 
 Pipelines are only run on a commit. That way you always know exactly the state of
 the data that is used in the computation. To run all pipelines, use
@@ -245,7 +247,7 @@ you want performed. When you call `/commit`, Pachyderm automatically
 schedules the pipelines such that a pipeline isn't run until the pipelines it depends on have
 completed.
 
-###Getting the output of a pipelines
+#### Getting the output of a pipelines
 
 Each pipeline records its output in its own read-only file system. You can read the output of the pipeline with:
 
@@ -259,14 +261,14 @@ $ curl -XGET <hostname>/pipeline/<piplinename>/file/<filename>?commit=<commit>
 
 **NOTE**: You don't  need to  specify the commit you want to read from. If you use `$ curl -XGET <hostname>/pipeline/<piplinename>/file/<filename>` Pachyderm will return the most recently completed output of that pipeline. If the current pipeline is still in progress, the command will wait for it to complete before returning. We plan to update this API soon to handle these situations better. 
 
-### Deleting pipelines
+#### Deleting pipelines
 
 ```shell
 # Delete <pipelinename>
 $ curl -XDELETE <hostname>/pipeline/<pipelinename>
 ```
 
-### Getting the Pachfile
+#### Getting the Pachfile
 
 ```shell
 # Get the Pachfile for <pipelinename>
@@ -275,9 +277,11 @@ $ curl -XGET <hostname>/pipeline/<pipelinename>
 
 ## Development
 
-We're hiring! If you like ambitious distributed systems problems and think there should be a better alternative to Hadoop, please reach out. Email jobs@pachyderm.io
+We're hiring! If you like ambitious distributed systems problems and think there should be a better alternative to Hadoop, please reach out. Email jobs@pachyderm.io.
 
 Want to hack on pfs for fun? You can run pfs locally using:
+
+### Running
 
 ```shell
 make container-launch
@@ -298,6 +302,8 @@ make container-clean # clean up all pachyderm state
 ./bin/run go test ./src/PACKAGE # run tests for a specific package
 ./bin/run go test -run REGEX ./... # run all tests that match the regex
 ```
+
+### Environment Setup
 
 With golang, it's generally easiest to have your fork match the import paths in the code, how we recommend to do this:
 
@@ -346,3 +352,24 @@ vagrant destroy # destroy the vagrant box, this will destroy everything on the b
 ```
 
 See [Vagrant's website](https://www.vagrantup.com) for more details.
+
+### Common Problems
+
+*Problem*: Nothing is running after launch.
+
+- Check to make sure the docker daemon is running with `ps -ef | grep docker`.
+- Check to see if the container exited with `docker ps -a | grep pfs`.
+- Check the container logs with `docker logs`.
+
+*Problem*: Docker commands are failing with permission denied
+
+The bin scripts assume you have your user in the docker group as explained in the [Docker Ubuntu installation docs](https://docs.docker.com/installation/ubuntulinux/#create-a-docker-group).
+If this is set up properly, you do not need to use `sudo` to run `docker`. If you do not want this, and want to have to use `sudo` for docker development, wrap all commands like so:
+
+```
+sudo -E bash -c 'bin/run go test ./...' # original command would have been `./bin/run go test ./...`
+```
+
+*Problem*: S3 tests are failing
+
+We are actively working on this, sorry!
