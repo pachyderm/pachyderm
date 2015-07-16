@@ -54,15 +54,15 @@ func (b *btrfsDriver) GetFile(path *pfs.Path, shard int) (io.ReadCloser, error) 
 	return os.Open(b.filePath(path, shard))
 }
 
-func (b *btrfsDriver) PutFile(path *pfs.Path, shard int, reader io.Reader) error {
-	filePath := b.filePath(path, shard)
+func (b *btrfsDriver) MakeDirectory(path *pfs.Path, shard int) error {
 	// TODO(pedge): if PutFile fails here or on another shard, the directories
 	// will still exist and be returned from ListFiles, we want to do this
 	// iteratively and with rollback
-	if err := os.MkdirAll(filepath.Dir(filePath), 0700); err != nil {
-		return err
-	}
-	file, err := os.Create(filePath)
+	return os.MkdirAll(filepath.Dir(b.filePath(path, shard)), 0700)
+}
+
+func (b *btrfsDriver) PutFile(path *pfs.Path, shard int, reader io.Reader) error {
+	file, err := os.Create(b.filePath(path, shard))
 	if err != nil {
 		return err
 	}
@@ -75,10 +75,6 @@ func (b *btrfsDriver) ListFiles(path *pfs.Path, shard int) ([]*pfs.Path, error) 
 }
 
 func (b *btrfsDriver) GetParent(commit *pfs.Commit) (*pfs.Commit, error) {
-	return nil, nil
-}
-
-func (b *btrfsDriver) GetChildren(commit *pfs.Commit) (*pfs.Commit, error) {
 	return nil, nil
 }
 

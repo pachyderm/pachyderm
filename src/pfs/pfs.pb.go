@@ -13,19 +13,18 @@ It has these top-level messages:
 	Commit
 	Path
 	Shard
-	RepositoryInfo
 	CommitInfo
 	InitRepositoryRequest
 	InitRepositoryResponse
 	GetFileRequest
+	MakeDirectoryRequest
+	MakeDirectoryResponse
 	PutFileRequest
 	PutFileResponse
 	ListFilesRequest
 	ListFilesResponse
 	GetParentRequest
 	GetParentResponse
-	GetChildrenRequest
-	GetChildrenResponse
 	BranchRequest
 	BranchResponse
 	CommitRequest
@@ -33,8 +32,6 @@ It has these top-level messages:
 	PullDiffRequest
 	PushDiffRequest
 	PushDiffResponse
-	GetRepositoryInfoRequest
-	GetRepositoryInfoResponse
 	GetCommitInfoRequest
 	GetCommitInfoResponse
 */
@@ -178,27 +175,10 @@ func (m *Shard) Reset()         { *m = Shard{} }
 func (m *Shard) String() string { return proto.CompactTextString(m) }
 func (*Shard) ProtoMessage()    {}
 
-// RepositoryInfo represents information about a repository.
-type RepositoryInfo struct {
-	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
-}
-
-func (m *RepositoryInfo) Reset()         { *m = RepositoryInfo{} }
-func (m *RepositoryInfo) String() string { return proto.CompactTextString(m) }
-func (*RepositoryInfo) ProtoMessage()    {}
-
-func (m *RepositoryInfo) GetRepository() *Repository {
-	if m != nil {
-		return m.Repository
-	}
-	return nil
-}
-
 // CommitInfo represents information about a commit.
 type CommitInfo struct {
-	Commit          *Commit         `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	CommitType      CommitType      `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
-	WriteCommitType WriteCommitType `protobuf:"varint,3,opt,name=write_commit_type,enum=pfs.WriteCommitType" json:"write_commit_type,omitempty"`
+	Commit     *Commit    `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	CommitType CommitType `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
 }
 
 func (m *CommitInfo) Reset()         { *m = CommitInfo{} }
@@ -249,9 +229,31 @@ func (m *GetFileRequest) GetPath() *Path {
 	return nil
 }
 
+type MakeDirectoryRequest struct {
+	Path *Path `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+}
+
+func (m *MakeDirectoryRequest) Reset()         { *m = MakeDirectoryRequest{} }
+func (m *MakeDirectoryRequest) String() string { return proto.CompactTextString(m) }
+func (*MakeDirectoryRequest) ProtoMessage()    {}
+
+func (m *MakeDirectoryRequest) GetPath() *Path {
+	if m != nil {
+		return m.Path
+	}
+	return nil
+}
+
+type MakeDirectoryResponse struct {
+}
+
+func (m *MakeDirectoryResponse) Reset()         { *m = MakeDirectoryResponse{} }
+func (m *MakeDirectoryResponse) String() string { return proto.CompactTextString(m) }
+func (*MakeDirectoryResponse) ProtoMessage()    {}
+
 type PutFileRequest struct {
 	Path  *Path  `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
-	Value []byte `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 func (m *PutFileRequest) Reset()         { *m = PutFileRequest{} }
@@ -334,36 +336,6 @@ func (m *GetParentResponse) String() string { return proto.CompactTextString(m) 
 func (*GetParentResponse) ProtoMessage()    {}
 
 func (m *GetParentResponse) GetCommit() *Commit {
-	if m != nil {
-		return m.Commit
-	}
-	return nil
-}
-
-type GetChildrenRequest struct {
-	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-}
-
-func (m *GetChildrenRequest) Reset()         { *m = GetChildrenRequest{} }
-func (m *GetChildrenRequest) String() string { return proto.CompactTextString(m) }
-func (*GetChildrenRequest) ProtoMessage()    {}
-
-func (m *GetChildrenRequest) GetCommit() *Commit {
-	if m != nil {
-		return m.Commit
-	}
-	return nil
-}
-
-type GetChildrenResponse struct {
-	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-}
-
-func (m *GetChildrenResponse) Reset()         { *m = GetChildrenResponse{} }
-func (m *GetChildrenResponse) String() string { return proto.CompactTextString(m) }
-func (*GetChildrenResponse) ProtoMessage()    {}
-
-func (m *GetChildrenResponse) GetCommit() *Commit {
 	if m != nil {
 		return m.Commit
 	}
@@ -478,36 +450,6 @@ func (m *PushDiffResponse) Reset()         { *m = PushDiffResponse{} }
 func (m *PushDiffResponse) String() string { return proto.CompactTextString(m) }
 func (*PushDiffResponse) ProtoMessage()    {}
 
-type GetRepositoryInfoRequest struct {
-	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
-}
-
-func (m *GetRepositoryInfoRequest) Reset()         { *m = GetRepositoryInfoRequest{} }
-func (m *GetRepositoryInfoRequest) String() string { return proto.CompactTextString(m) }
-func (*GetRepositoryInfoRequest) ProtoMessage()    {}
-
-func (m *GetRepositoryInfoRequest) GetRepository() *Repository {
-	if m != nil {
-		return m.Repository
-	}
-	return nil
-}
-
-type GetRepositoryInfoResponse struct {
-	RepositoryInfo *RepositoryInfo `protobuf:"bytes,1,opt,name=repository_info" json:"repository_info,omitempty"`
-}
-
-func (m *GetRepositoryInfoResponse) Reset()         { *m = GetRepositoryInfoResponse{} }
-func (m *GetRepositoryInfoResponse) String() string { return proto.CompactTextString(m) }
-func (*GetRepositoryInfoResponse) ProtoMessage()    {}
-
-func (m *GetRepositoryInfoResponse) GetRepositoryInfo() *RepositoryInfo {
-	if m != nil {
-		return m.RepositoryInfo
-	}
-	return nil
-}
-
 type GetCommitInfoRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
@@ -524,20 +466,12 @@ func (m *GetCommitInfoRequest) GetCommit() *Commit {
 }
 
 type GetCommitInfoResponse struct {
-	RepositoryInfo *RepositoryInfo `protobuf:"bytes,1,opt,name=repository_info" json:"repository_info,omitempty"`
-	CommitInfo     *CommitInfo     `protobuf:"bytes,2,opt,name=commit_info" json:"commit_info,omitempty"`
+	CommitInfo *CommitInfo `protobuf:"bytes,1,opt,name=commit_info" json:"commit_info,omitempty"`
 }
 
 func (m *GetCommitInfoResponse) Reset()         { *m = GetCommitInfoResponse{} }
 func (m *GetCommitInfoResponse) String() string { return proto.CompactTextString(m) }
 func (*GetCommitInfoResponse) ProtoMessage()    {}
-
-func (m *GetCommitInfoResponse) GetRepositoryInfo() *RepositoryInfo {
-	if m != nil {
-		return m.RepositoryInfo
-	}
-	return nil
-}
 
 func (m *GetCommitInfoResponse) GetCommitInfo() *CommitInfo {
 	if m != nil {
@@ -561,6 +495,8 @@ type ApiClient interface {
 	InitRepository(ctx context.Context, in *InitRepositoryRequest, opts ...grpc.CallOption) (*InitRepositoryResponse, error)
 	// GetFile returns a byte stream of the specified file.
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error)
+	// MakeDirectory makes a directory on the file system.
+	MakeDirectory(ctx context.Context, in *MakeDirectoryRequest, opts ...grpc.CallOption) (*MakeDirectoryResponse, error)
 	// PutFile writes the specified file to PFS.
 	// An error is returned if the specified commit is not a write commit.
 	// An error is returned is the specified commit was not opened for putting.
@@ -570,8 +506,6 @@ type ApiClient interface {
 	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error)
 	// GetParent gets the parent commit ID of the specified commit.
 	GetParent(ctx context.Context, in *GetParentRequest, opts ...grpc.CallOption) (*GetParentResponse, error)
-	// GetChildren gets the commit's children IDs.
-	GetChildren(ctx context.Context, in *GetChildrenRequest, opts ...grpc.CallOption) (*GetChildrenResponse, error)
 	// Branch creates a new write commit from a base commit.
 	// An error is returned if the base commit is not a read commit.
 	Branch(ctx context.Context, in *BranchRequest, opts ...grpc.CallOption) (*BranchResponse, error)
@@ -588,8 +522,6 @@ type ApiClient interface {
 	// An error is returned if the specified commit was not opened for pushing.
 	// An error is returned if the specified driver does not match the repository's driver.
 	PushDiff(ctx context.Context, in *PushDiffRequest, opts ...grpc.CallOption) (*PushDiffResponse, error)
-	// GetRepositoryInfo returns the RepositoryInfo for a repository.
-	GetRepositoryInfo(ctx context.Context, in *GetRepositoryInfoRequest, opts ...grpc.CallOption) (*GetRepositoryInfoResponse, error)
 	// GetCommitInfo returns the CommitInfo for a commit.
 	GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest, opts ...grpc.CallOption) (*GetCommitInfoResponse, error)
 }
@@ -643,6 +575,15 @@ func (x *apiGetFileClient) Recv() (*google_protobuf.BytesValue, error) {
 	return m, nil
 }
 
+func (c *apiClient) MakeDirectory(ctx context.Context, in *MakeDirectoryRequest, opts ...grpc.CallOption) (*MakeDirectoryResponse, error) {
+	out := new(MakeDirectoryResponse)
+	err := grpc.Invoke(ctx, "/pfs.Api/MakeDirectory", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *apiClient) PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*PutFileResponse, error) {
 	out := new(PutFileResponse)
 	err := grpc.Invoke(ctx, "/pfs.Api/PutFile", in, out, c.cc, opts...)
@@ -664,15 +605,6 @@ func (c *apiClient) ListFiles(ctx context.Context, in *ListFilesRequest, opts ..
 func (c *apiClient) GetParent(ctx context.Context, in *GetParentRequest, opts ...grpc.CallOption) (*GetParentResponse, error) {
 	out := new(GetParentResponse)
 	err := grpc.Invoke(ctx, "/pfs.Api/GetParent", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *apiClient) GetChildren(ctx context.Context, in *GetChildrenRequest, opts ...grpc.CallOption) (*GetChildrenResponse, error) {
-	out := new(GetChildrenResponse)
-	err := grpc.Invoke(ctx, "/pfs.Api/GetChildren", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -738,15 +670,6 @@ func (c *apiClient) PushDiff(ctx context.Context, in *PushDiffRequest, opts ...g
 	return out, nil
 }
 
-func (c *apiClient) GetRepositoryInfo(ctx context.Context, in *GetRepositoryInfoRequest, opts ...grpc.CallOption) (*GetRepositoryInfoResponse, error) {
-	out := new(GetRepositoryInfoResponse)
-	err := grpc.Invoke(ctx, "/pfs.Api/GetRepositoryInfo", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *apiClient) GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest, opts ...grpc.CallOption) (*GetCommitInfoResponse, error) {
 	out := new(GetCommitInfoResponse)
 	err := grpc.Invoke(ctx, "/pfs.Api/GetCommitInfo", in, out, c.cc, opts...)
@@ -765,6 +688,8 @@ type ApiServer interface {
 	InitRepository(context.Context, *InitRepositoryRequest) (*InitRepositoryResponse, error)
 	// GetFile returns a byte stream of the specified file.
 	GetFile(*GetFileRequest, Api_GetFileServer) error
+	// MakeDirectory makes a directory on the file system.
+	MakeDirectory(context.Context, *MakeDirectoryRequest) (*MakeDirectoryResponse, error)
 	// PutFile writes the specified file to PFS.
 	// An error is returned if the specified commit is not a write commit.
 	// An error is returned is the specified commit was not opened for putting.
@@ -774,8 +699,6 @@ type ApiServer interface {
 	ListFiles(context.Context, *ListFilesRequest) (*ListFilesResponse, error)
 	// GetParent gets the parent commit ID of the specified commit.
 	GetParent(context.Context, *GetParentRequest) (*GetParentResponse, error)
-	// GetChildren gets the commit's children IDs.
-	GetChildren(context.Context, *GetChildrenRequest) (*GetChildrenResponse, error)
 	// Branch creates a new write commit from a base commit.
 	// An error is returned if the base commit is not a read commit.
 	Branch(context.Context, *BranchRequest) (*BranchResponse, error)
@@ -792,8 +715,6 @@ type ApiServer interface {
 	// An error is returned if the specified commit was not opened for pushing.
 	// An error is returned if the specified driver does not match the repository's driver.
 	PushDiff(context.Context, *PushDiffRequest) (*PushDiffResponse, error)
-	// GetRepositoryInfo returns the RepositoryInfo for a repository.
-	GetRepositoryInfo(context.Context, *GetRepositoryInfoRequest) (*GetRepositoryInfoResponse, error)
 	// GetCommitInfo returns the CommitInfo for a commit.
 	GetCommitInfo(context.Context, *GetCommitInfoRequest) (*GetCommitInfoResponse, error)
 }
@@ -835,6 +756,18 @@ func (x *apiGetFileServer) Send(m *google_protobuf.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Api_MakeDirectory_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(MakeDirectoryRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).MakeDirectory(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func _Api_PutFile_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
 	in := new(PutFileRequest)
 	if err := codec.Unmarshal(buf, in); err != nil {
@@ -865,18 +798,6 @@ func _Api_GetParent_Handler(srv interface{}, ctx context.Context, codec grpc.Cod
 		return nil, err
 	}
 	out, err := srv.(ApiServer).GetParent(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _Api_GetChildren_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(GetChildrenRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(ApiServer).GetChildren(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -940,18 +861,6 @@ func _Api_PushDiff_Handler(srv interface{}, ctx context.Context, codec grpc.Code
 	return out, nil
 }
 
-func _Api_GetRepositoryInfo_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(GetRepositoryInfoRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(ApiServer).GetRepositoryInfo(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func _Api_GetCommitInfo_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
 	in := new(GetCommitInfoRequest)
 	if err := codec.Unmarshal(buf, in); err != nil {
@@ -973,6 +882,10 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_InitRepository_Handler,
 		},
 		{
+			MethodName: "MakeDirectory",
+			Handler:    _Api_MakeDirectory_Handler,
+		},
+		{
 			MethodName: "PutFile",
 			Handler:    _Api_PutFile_Handler,
 		},
@@ -985,10 +898,6 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_GetParent_Handler,
 		},
 		{
-			MethodName: "GetChildren",
-			Handler:    _Api_GetChildren_Handler,
-		},
-		{
 			MethodName: "Branch",
 			Handler:    _Api_Branch_Handler,
 		},
@@ -999,10 +908,6 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PushDiff",
 			Handler:    _Api_PushDiff_Handler,
-		},
-		{
-			MethodName: "GetRepositoryInfo",
-			Handler:    _Api_GetRepositoryInfo_Handler,
 		},
 		{
 			MethodName: "GetCommitInfo",

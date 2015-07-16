@@ -11,10 +11,10 @@ type Driver interface {
 	DriverType() pfs.DriverType
 	InitRepository(repository *pfs.Repository, shard int) error
 	GetFile(path *pfs.Path, shard int) (io.ReadCloser, error)
+	MakeDirectory(path *pfs.Path, shard int) error
 	PutFile(path *pfs.Path, shard int, reader io.Reader) error
 	ListFiles(path *pfs.Path, shard int) ([]*pfs.Path, error)
 	GetParent(commit *pfs.Commit) (*pfs.Commit, error)
-	GetChildren(commit *pfs.Commit) (*pfs.Commit, error)
 	Branch(commit *pfs.Commit) (*pfs.Commit, error)
 	Commit(commit *pfs.Commit) error
 	PullDiff(commit *pfs.Commit, shard int) (io.Reader, error)

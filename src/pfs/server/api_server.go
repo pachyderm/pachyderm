@@ -84,6 +84,10 @@ func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer
 	return protoutil.WriteToStreamingBytesServer(readCloser, apiGetFileServer)
 }
 
+func (a *apiServer) MakeDirectory(ctx context.Context, makeDirectoryRequest *pfs.MakeDirectoryRequest) (*pfs.MakeDirectoryResponse, error) {
+	return nil, nil
+}
+
 func (a *apiServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequest) (*pfs.PutFileResponse, error) {
 	shard, err := a.sharder.GetShard(putFileRequest.Path)
 	if err != nil {
@@ -114,10 +118,6 @@ func (a *apiServer) GetParent(ctx context.Context, getParentRequest *pfs.GetPare
 	return &pfs.GetParentResponse{}, nil
 }
 
-func (a *apiServer) GetChildren(ctx context.Context, getChildrenRequest *pfs.GetChildrenRequest) (*pfs.GetChildrenResponse, error) {
-	return &pfs.GetChildrenResponse{}, nil
-}
-
 func (a *apiServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest) (*pfs.BranchResponse, error) {
 	return &pfs.BranchResponse{}, nil
 }
@@ -132,10 +132,6 @@ func (a *apiServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPullDiffSe
 
 func (a *apiServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.PushDiffRequest) (*pfs.PushDiffResponse, error) {
 	return &pfs.PushDiffResponse{}, nil
-}
-
-func (a *apiServer) GetRepositoryInfo(ctx context.Context, getRepositoryInfoRequest *pfs.GetRepositoryInfoRequest) (*pfs.GetRepositoryInfoResponse, error) {
-	return &pfs.GetRepositoryInfoResponse{}, nil
 }
 
 func (a *apiServer) GetCommitInfo(ctx context.Context, getCommitInfoRequest *pfs.GetCommitInfoRequest) (*pfs.GetCommitInfoResponse, error) {

@@ -88,7 +88,7 @@ func testInitGetPut(t *testing.T, apiClient pfs.ApiClient) {
 					},
 					Id: "scratch",
 				},
-				Path: "path/to/one",
+				Path: "one",
 			},
 			Value: []byte("hello world"),
 		},
@@ -106,7 +106,7 @@ func testInitGetPut(t *testing.T, apiClient pfs.ApiClient) {
 					},
 					Id: "scratch",
 				},
-				Path: "path/to/one",
+				Path: "one",
 			},
 		},
 	)

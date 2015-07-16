@@ -26,7 +26,7 @@ include etc/env/pfs.env
 BENCH_TIMEOUT = "20m"
 
 ifndef GOMAXPROCS
-GOMAXPROCS = 20
+	GOMAXPROCS = 20
 endif
 
 all: test
@@ -92,7 +92,7 @@ test-pfs: test-deps
 	go get -v github.com/golang/lint/golint
 	for file in $(shell git ls-files 'src/pfs/*.go' | grep -v '\.pb\.go'); do \
 		golint $$file; \
-	done
+		done
 	go vet ./src/pfs/...
 	errcheck ./src/pfs/...
 	bin/run go test -test.v ./src/pfs/...
@@ -102,7 +102,9 @@ bench:
 	bin/run go test -parallel $(GOMAXPROCS) -bench . -timeout $(BENCH_TIMEOUT) ./...
 
 proto:
-	docker pull pedge/proto3grpc
+	@ if ! docker images | grep 'pedge/proto3grpc' > /dev/null; then \
+		docker pull pedge/proto3grpc; \
+		fi
 	docker run \
 		--volume $(shell pwd):/compile \
 		--workdir /compile \
