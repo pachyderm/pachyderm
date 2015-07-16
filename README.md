@@ -299,6 +299,17 @@ sudo -E bash -c 'bin/run go test ./src/PACKAGE' # run tests for a specific packa
 sudo -E bash -c 'bin/run go test -run REGEX ./...' # run all tests that match the regex
 ```
 
+With golang, it's generally easiest to have your fork match the import paths in the code, how we recommend to do this:
+
+```
+# assuming your github username is alice
+rm -rf ${GOPATH}/src/github.com/pachyderm/pachyderm
+mkdir -p ${GOPATH}/src/github.com/pachyderm
+cd ${GOPATH}/src/github.com/pachyderm
+git clone https://github.com/alice/pachyderm.git
+git remote add upstream https://github.com/pachyderm/pachyderm.git # so you can run 'git fetch upstream' to get upstream changes
+```
+
 The [Vagrantfile](Vagrantfile) in this repository will set up a development environment for Pachyderm
 that has all dependencies installed.
 
