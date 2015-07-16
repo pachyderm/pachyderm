@@ -29,7 +29,8 @@ type Branch struct {
 type Shard interface {
 	Filesystem
 	Replica
-	FillRole(cancel chan bool) error
+	FillRole()
+	FindRole()
 	EnsureRepos() error
 }
 
@@ -61,7 +62,6 @@ type Replica interface {
 func NewShard(
 	url string,
 	dataRepo string,
-	compRepo string,
 	pipelinePrefix string,
 	shardNum uint64,
 	modulos uint64,
@@ -70,7 +70,6 @@ func NewShard(
 	return newShard(
 		url,
 		dataRepo,
-		compRepo,
 		pipelinePrefix,
 		shardNum,
 		modulos,

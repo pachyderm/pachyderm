@@ -104,7 +104,7 @@ func newCluster(t *testing.T, prefix string, shards int, testCache etcache.TestC
 	var res cluster
 	for i := 0; i < shards; i++ {
 		repoStr := fmt.Sprintf("%s-%d-%d", prefix, i, shards)
-		s := storage.NewShard("", repoStr+"-data", repoStr+"-comp", repoStr+"-pipeline", uint64(i), uint64(shards), testCache)
+		s := storage.NewShard("", repoStr+"-data", repoStr+"-pipeline", uint64(i), uint64(shards), testCache)
 		require.NoError(t, s.EnsureRepos())
 		server := httptest.NewServer(storage.NewShardHTTPHandler(s))
 		res.shards = append(res.shards, server)
