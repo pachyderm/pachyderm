@@ -11,6 +11,10 @@ cd "${DIR}"
 check_btrfs
 check_docker
 
+if [ -z "${AWS_REGION}" ]; then
+	AWS_REGION="${PFS_DEFAULT_AWS_REGION}"
+fi
+
 "${DIR}/mount-btrfs"
 
 "${DIR}/clean"
