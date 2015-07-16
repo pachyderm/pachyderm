@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: pfs-router
-          image: jdoliner/pfs
+          image: pachyderm/pfs
           command: [ "/go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper", "/go/bin/router", "8" ]
           ports:
           - containerPort: 80

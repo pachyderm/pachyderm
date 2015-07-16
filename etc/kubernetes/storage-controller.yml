@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ReplicationController
 metadata:
   labels:
-    name: pfs-storage 
+    name: pfs-storage
   name: pfs-storage
 spec:
   replicas: 8
@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: pfs-storage
-          image: jdoliner/pfs
+          image: pachyderm/pfs
           command: [ "/go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper", "/go/bin/shard", "-modulos", "8"]
           volumeMounts:
           - mountPath: /host
