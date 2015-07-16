@@ -57,7 +57,6 @@ func newShard(
 		make(map[string]*pipeline.Runner),
 		&sync.Mutex{},
 		cache,
-		nil,
 	}
 }
 
