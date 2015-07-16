@@ -16,7 +16,7 @@ spec:
       containers:
         - name: pfs-storage
           image: jdoliner/pfs
-          command: [ "/go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper", "/go/bin/shard", "0-8", "localhost" ]
+          command: [ "/go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper", "/go/bin/shard", "-modulos", "8"]
           volumeMounts:
           - mountPath: /host
             name: host

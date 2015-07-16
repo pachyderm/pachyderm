@@ -29,7 +29,7 @@ type Branch struct {
 type Shard interface {
 	Filesystem
 	Replica
-	FillRole(cancel chan bool) error
+	FillRole()
 	FindRole()
 	EnsureRepos() error
 }

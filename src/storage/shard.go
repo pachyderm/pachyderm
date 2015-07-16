@@ -278,7 +278,7 @@ func (s *shard) EnsureRepos() error {
 // FillRole attempts to find a role in the cluster. Once on is found it
 // prepares the local storage for the role and announces the shard to the rest
 // of the cluster. This function will loop until `cancel` is closed.
-func (s *shard) FillRole(cancel chan bool) error {
+func (s *shard) FillRole() {
 	shard := fmt.Sprintf("%d-%d", s.shard, s.modulos)
 	masterKey := path.Join("/pfs/master", shard)
 	replicaDir := path.Join("/pfs/replica", shard)
@@ -334,8 +334,6 @@ func (s *shard) FillRole(cancel chan bool) error {
 		select {
 		case <-time.After(time.Second * 45):
 			continue
-		case <-cancel:
-			break
 		}
 	}
 }
