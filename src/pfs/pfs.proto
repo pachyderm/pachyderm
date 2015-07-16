@@ -7,8 +7,7 @@ package pfs;
 // DriverType represents the driver type used by the implementation of PFS.
 enum DriverType {
   DRIVER_TYPE_NONE = 0;
-  DRIVER_TYPE_IN_MEMORY = 1;
-  DRIVER_TYPE_BTRFS = 2;
+  DRIVER_TYPE_BTRFS = 1;
 }
 
 // CommitType represents the type of commit.

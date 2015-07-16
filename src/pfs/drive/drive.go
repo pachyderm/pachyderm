@@ -22,10 +22,6 @@ type Driver interface {
 	GetCommitInfo(commit *pfs.Commit) (*pfs.CommitInfo, error)
 }
 
-func NewInMemoryDriver() Driver {
-	return newInMemoryDriver()
-}
-
 func NewBtrfsDriver(rootDir string) Driver {
 	return newBtrfsDriver(rootDir)
 }

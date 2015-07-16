@@ -59,20 +59,17 @@ var _ = proto.Marshal
 type DriverType int32
 
 const (
-	DriverType_DRIVER_TYPE_NONE      DriverType = 0
-	DriverType_DRIVER_TYPE_IN_MEMORY DriverType = 1
-	DriverType_DRIVER_TYPE_BTRFS     DriverType = 2
+	DriverType_DRIVER_TYPE_NONE  DriverType = 0
+	DriverType_DRIVER_TYPE_BTRFS DriverType = 1
 )
 
 var DriverType_name = map[int32]string{
 	0: "DRIVER_TYPE_NONE",
-	1: "DRIVER_TYPE_IN_MEMORY",
-	2: "DRIVER_TYPE_BTRFS",
+	1: "DRIVER_TYPE_BTRFS",
 }
 var DriverType_value = map[string]int32{
-	"DRIVER_TYPE_NONE":      0,
-	"DRIVER_TYPE_IN_MEMORY": 1,
-	"DRIVER_TYPE_BTRFS":     2,
+	"DRIVER_TYPE_NONE":  0,
+	"DRIVER_TYPE_BTRFS": 1,
 }
 
 func (x DriverType) String() string {
