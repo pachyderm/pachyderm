@@ -316,6 +316,19 @@ git clone https://github.com/pachyderm/pachyderm.git
 cd pachyderm
 vagrant up # starts the vagrant box
 vagrant ssh # ssh into the vagrant box
+```
+
+Once in the vagrant box, set everything up and verify that it works:
+
+```
+go get github.com/pachyderm/pachyderm
+cd ~/go/src/github.com/pachyderm/pachyderm
+make test
+```
+
+Some other useful vagrant commands:
+
+```
 vagrant suspend # suspends the vagrant box, useful if you are not actively developing and want to free up resources
 vagrant resume # resumes a suspended vagrant box
 vagrant destroy # destroy the vagrant box, this will destroy everything on the box so be careful
