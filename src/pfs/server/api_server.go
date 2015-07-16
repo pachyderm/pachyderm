@@ -40,6 +40,15 @@ func (a *apiServer) InitRepository(ctx context.Context, initRepositoryRequest *p
 			return nil, err
 		}
 	}
+	shards, err = a.getSlaveShards()
+	if err != nil {
+		return nil, err
+	}
+	for shard := range shards {
+		if err := a.driver.InitRepository(initRepositoryRequest.Repository, shard); err != nil {
+			return nil, err
+		}
+	}
 	return &pfs.InitRepositoryResponse{}, nil
 }
 
@@ -141,12 +150,20 @@ func (a *apiServer) GetCommitInfo(ctx context.Context, getCommitInfoRequest *pfs
 	return &pfs.GetCommitInfoResponse{}, nil
 }
 
-// TODO(pedge)
 func (a *apiServer) getMasterShards() (map[int]bool, error) {
+	return a.getShards(a.router.IsLocalMasterShard)
+}
+
+func (a *apiServer) getSlaveShards() (map[int]bool, error) {
+	return a.getShards(a.router.IsLocalSlaveShard)
+}
+
+// TODO(pedge)
+func (a *apiServer) getShards(isShardFunc func(int) (bool, error)) (map[int]bool, error) {
 	m := make(map[int]bool)
 	numShards := a.sharder.NumShards()
 	for i := 0; i < numShards; i++ {
-		ok, err := a.router.IsLocalMasterShard(i)
+		ok, err := isShardFunc(i)
 		if err != nil {
 			return nil, err
 		}

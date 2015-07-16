@@ -13,7 +13,7 @@ func (l *singleAddresser) GetMasterAddress(shard int) (string, error) {
 }
 
 func (l *singleAddresser) GetSlaveAddresses(shard int) ([]string, error) {
-	return []string{l.address}, nil
+	return []string{}, nil
 }
 
 func (l *singleAddresser) GetServerAddress() (string, error) {
