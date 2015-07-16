@@ -8,7 +8,7 @@ cd "${DIR}"
 . "${DIR}/lib/lib.sh"
 . "${DIR}/../etc/env/pfs.env"
 
-umount "${PFS_HOST_VOLUME}"
-rm -rf "${PFS_HOST_VOLUME}"
-rm "${PFS_DATA_IMG}"
+sudo umount "${PFS_HOST_VOLUME}"
+sudo rm -rf "${PFS_HOST_VOLUME}"
+sudo rm "${PFS_DATA_IMG}"
 exit 0

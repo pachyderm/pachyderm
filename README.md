@@ -294,9 +294,9 @@ Other useful development commands can be seen in the [Makefile](Makefile) and th
 make test-deps # download all golang dependencies
 make test # run all the tests
 make container-clean # clean up all pachyderm state
-sudo -E bash -c 'bin/run ARGS...' # run a command inside a fresh pachyderm container
-sudo -E bash -c 'bin/run go test ./src/PACKAGE' # run tests for a specific package
-sudo -E bash -c 'bin/run go test -run REGEX ./...' # run all tests that match the regex
+./bin/run ARGS... # run a command inside a fresh pachyderm container
+./bin/run go test ./src/PACKAGE # run tests for a specific package
+./bin/run go test -run REGEX ./... # run all tests that match the regex
 ```
 
 With golang, it's generally easiest to have your fork match the import paths in the code, how we recommend to do this:

@@ -59,14 +59,14 @@ container-build:
 	docker build -t $(PFS_IMAGE) .
 
 container-clean:
-	sudo -E bash -c 'bin/clean'
-	sudo -E bash -c 'bin/clean-btrfs'
+	bin/clean
+	bin/clean-btrfs
 
 container-shell:
-	sudo -E bash -c 'bin/shell'
+	bin/shell
 
 container-launch:
-	sudo -E bash -c 'bin/launch'
+	bin/launch
 
 lint:
 	go get -v github.com/golang/lint/golint
@@ -82,11 +82,11 @@ pretest: lint vet errcheck
 
 # TODO(pedge): add pretest when fixed
 test:
-	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) -test.short ./...'
+	bin/run go test -parallel $(GOMAXPROCS) -test.short ./...
 
 # TODO(pedge): add pretest when fixed
 test-long:
-	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) ./...'
+	bin/run go test -parallel $(GOMAXPROCS) ./...
 
 test-pfs: test-deps
 	go get -v github.com/golang/lint/golint
@@ -95,11 +95,11 @@ test-pfs: test-deps
 	done
 	go vet ./src/pfs/...
 	errcheck ./src/pfs/...
-	sudo -E bash -c 'bin/run go test -test.v ./src/pfs/...'
+	bin/run go test -test.v ./src/pfs/...
 
 # TODO(pedge): add pretest when fixed
 bench:
-	sudo -E bash -c 'bin/run go test -parallel $(GOMAXPROCS) -bench . -timeout $(BENCH_TIMEOUT) ./...'
+	bin/run go test -parallel $(GOMAXPROCS) -bench . -timeout $(BENCH_TIMEOUT) ./...
 
 proto:
 	docker pull pedge/proto3grpc

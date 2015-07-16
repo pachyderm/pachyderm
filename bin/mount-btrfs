@@ -10,8 +10,8 @@ cd "${DIR}"
 
 "${DIR}/clean-btrfs"
 
-mkdir -p "${PFS_HOST_VOLUME}"
-truncate "${PFS_DATA_IMG}" -s 10G
-mkfs.btrfs "${PFS_DATA_IMG}"
+sudo mkdir -p "${PFS_HOST_VOLUME}"
+sudo truncate "${PFS_DATA_IMG}" -s 10G
+sudo mkfs.btrfs "${PFS_DATA_IMG}"
 echo mount "${PFS_DATA_IMG}" "${PFS_HOST_VOLUME}" >&2
-mount "${PFS_DATA_IMG}" "${PFS_HOST_VOLUME}"
+sudo mount "${PFS_DATA_IMG}" "${PFS_HOST_VOLUME}"
