@@ -5,6 +5,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"runtime"
 
 	"net/http"
 	_ "net/http/pprof"
@@ -40,6 +41,8 @@ func main() {
 }
 
 func do() error {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	appEnv := &appEnv{}
 	if err := env.Populate(appEnv, env.PopulateOptions{}); err != nil {
 		return err
