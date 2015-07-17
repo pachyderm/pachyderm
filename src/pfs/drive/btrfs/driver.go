@@ -4,8 +4,6 @@ directory structure
 
   .
   |-- repositoryName
-      |-- __root__
-	      |-- shardNum // the writeable root created from btrfs snapshot create on InitRepository
 	  |-- scratch
 		  |-- shardNum // the read-only read created on InitRepository, this is where to start branching
       |-- commitID
@@ -16,6 +14,7 @@ package btrfs
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -46,13 +45,6 @@ func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool)
 	if err := os.Mkdir(d.repositoryPath(repository), 0700); err != nil {
 		return err
 	}
-	systemRootCommit := &pfs.Commit{
-		Repository: repository,
-		Id:         drive.SystemRootCommitID,
-	}
-	if err := os.Mkdir(d.commitPathNoShard(systemRootCommit), 0700); err != nil {
-		return err
-	}
 	initialCommit := &pfs.Commit{
 		Repository: repository,
 		Id:         drive.InitialCommitID,
@@ -61,10 +53,10 @@ func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool)
 		return err
 	}
 	for shard := range shards {
-		if err := subvolumeCreate(d.commitPath(systemRootCommit, shard)); err != nil {
+		if err := subvolumeCreate(d.commitPath(initialCommit, shard)); err != nil {
 			return err
 		}
-		if err := subvolumeSnapshotReadonly(d.commitPath(systemRootCommit, shard), d.commitPath(initialCommit, shard)); err != nil {
+		if err := setReadOnly(d.commitPath(initialCommit, shard)); err != nil {
 			return err
 		}
 	}
@@ -171,15 +163,30 @@ func isReadOnly(path string) (bool, error) {
 	}
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
-		if strings.Contains(scanner.Text(), "ro=true") {
+		text := scanner.Text()
+		if strings.Contains(text, "ro=true") {
 			return true, nil
 		}
+		if strings.Contains(text, "ro=false") {
+			return false, nil
+		}
 	}
-	return false, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return false, err
+	}
+	return false, errors.New("did not fins ro=true or ro=false in output")
+}
+
+func setReadOnly(path string) error {
+	return snapshotPropertySet(path, "ro", "true")
 }
 
 func snapshotPropertyGet(path string) (io.Reader, error) {
 	return executil.RunStdout("btrfs", "property", "get", "-t", "s", path)
+}
+
+func snapshotPropertySet(path string, key string, value string) error {
+	return executil.Run("btrfs", "property", "set", "-t", "s", path, key, value)
 }
 
 func subvolumeCreate(path string) error {

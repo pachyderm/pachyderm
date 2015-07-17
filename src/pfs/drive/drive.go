@@ -9,13 +9,12 @@ import (
 )
 
 const (
-	SystemRootCommitID = "__root__"
-	InitialCommitID    = "scratch"
+	InitialCommitID = "scratch"
 )
 
 var (
 	ReservedCommitIDs = map[string]bool{
-		SystemRootCommitID: true,
+		InitialCommitID: true,
 	}
 )
 
