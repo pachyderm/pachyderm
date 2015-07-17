@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
 package pfs;
@@ -10,6 +11,14 @@ enum CommitType {
   COMMIT_TYPE_NONE = 0;
   COMMIT_TYPE_READ = 1;
   COMMIT_TYPE_WRITE = 2;
+}
+
+// FileType represents a type of file from ListFiles.
+enum FileType {
+  FILE_TYPE_NONE = 0;
+  FILE_TYPE_OTHER = 1;
+  FILE_TYPE_REGULAR = 2;
+  FILE_TYPE_DIR = 3;
 }
 
 // Repository represents a repository.
@@ -27,6 +36,15 @@ message Commit {
 message Path {
   Commit commit = 1;
   string path = 2;
+}
+
+// FileInfo represents information about a file.
+message FileInfo {
+  Path path = 1;
+  FileType file_type = 2;
+  uint64 size_bytes = 3;
+  uint32 perm = 4;
+  google.protobuf.Timestamp last_modified = 5;
 }
 
 // Shard represents a dynamic shard within PFS.
@@ -68,7 +86,7 @@ message ListFilesRequest {
 }
 
 message ListFilesResponse {
-  repeated Path path = 1;
+  repeated FileInfo file_info = 1;
 }
 
 message BranchRequest {

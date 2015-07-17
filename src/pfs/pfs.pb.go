@@ -12,6 +12,7 @@ It has these top-level messages:
 	Repository
 	Commit
 	Path
+	FileInfo
 	Shard
 	CommitInfo
 	InitRepositoryRequest
@@ -33,6 +34,7 @@ package pfs
 import proto "github.com/golang/protobuf/proto"
 import google_protobuf "github.com/peter-edge/go-google-protobuf"
 import google_protobuf1 "github.com/peter-edge/go-google-protobuf"
+import google_protobuf2 "github.com/peter-edge/go-google-protobuf"
 
 import (
 	context "golang.org/x/net/context"
@@ -68,6 +70,33 @@ var CommitType_value = map[string]int32{
 
 func (x CommitType) String() string {
 	return proto.EnumName(CommitType_name, int32(x))
+}
+
+// FileType represents a type of file from ListFiles.
+type FileType int32
+
+const (
+	FileType_FILE_TYPE_NONE    FileType = 0
+	FileType_FILE_TYPE_OTHER   FileType = 1
+	FileType_FILE_TYPE_REGULAR FileType = 2
+	FileType_FILE_TYPE_DIR     FileType = 3
+)
+
+var FileType_name = map[int32]string{
+	0: "FILE_TYPE_NONE",
+	1: "FILE_TYPE_OTHER",
+	2: "FILE_TYPE_REGULAR",
+	3: "FILE_TYPE_DIR",
+}
+var FileType_value = map[string]int32{
+	"FILE_TYPE_NONE":    0,
+	"FILE_TYPE_OTHER":   1,
+	"FILE_TYPE_REGULAR": 2,
+	"FILE_TYPE_DIR":     3,
+}
+
+func (x FileType) String() string {
+	return proto.EnumName(FileType_name, int32(x))
 }
 
 // Repository represents a repository.
@@ -109,6 +138,33 @@ func (*Path) ProtoMessage()    {}
 func (m *Path) GetCommit() *Commit {
 	if m != nil {
 		return m.Commit
+	}
+	return nil
+}
+
+// FileInfo represents information about a file.
+type FileInfo struct {
+	Path         *Path                       `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+	FileType     FileType                    `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
+	SizeBytes    uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
+	Perm         uint32                      `protobuf:"varint,4,opt,name=perm" json:"perm,omitempty"`
+	LastModified *google_protobuf1.Timestamp `protobuf:"bytes,5,opt,name=last_modified" json:"last_modified,omitempty"`
+}
+
+func (m *FileInfo) Reset()         { *m = FileInfo{} }
+func (m *FileInfo) String() string { return proto.CompactTextString(m) }
+func (*FileInfo) ProtoMessage()    {}
+
+func (m *FileInfo) GetPath() *Path {
+	if m != nil {
+		return m.Path
+	}
+	return nil
+}
+
+func (m *FileInfo) GetLastModified() *google_protobuf1.Timestamp {
+	if m != nil {
+		return m.LastModified
 	}
 	return nil
 }
@@ -236,16 +292,16 @@ func (m *ListFilesRequest) GetShard() *Shard {
 }
 
 type ListFilesResponse struct {
-	Path []*Path `protobuf:"bytes,1,rep,name=path" json:"path,omitempty"`
+	FileInfo []*FileInfo `protobuf:"bytes,1,rep,name=file_info" json:"file_info,omitempty"`
 }
 
 func (m *ListFilesResponse) Reset()         { *m = ListFilesResponse{} }
 func (m *ListFilesResponse) String() string { return proto.CompactTextString(m) }
 func (*ListFilesResponse) ProtoMessage()    {}
 
-func (m *ListFilesResponse) GetPath() []*Path {
+func (m *ListFilesResponse) GetFileInfo() []*FileInfo {
 	if m != nil {
-		return m.Path
+		return m.FileInfo
 	}
 	return nil
 }
@@ -369,6 +425,7 @@ func (m *PushDiffRequest) GetCommit() *Commit {
 
 func init() {
 	proto.RegisterEnum("pfs.CommitType", CommitType_name, CommitType_value)
+	proto.RegisterEnum("pfs.FileType", FileType_name, FileType_value)
 }
 
 // Client API for Api service
@@ -431,7 +488,7 @@ func (c *apiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grp
 }
 
 type Api_GetFileClient interface {
-	Recv() (*google_protobuf1.BytesValue, error)
+	Recv() (*google_protobuf2.BytesValue, error)
 	grpc.ClientStream
 }
 
@@ -439,8 +496,8 @@ type apiGetFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *apiGetFileClient) Recv() (*google_protobuf1.BytesValue, error) {
-	m := new(google_protobuf1.BytesValue)
+func (x *apiGetFileClient) Recv() (*google_protobuf2.BytesValue, error) {
+	m := new(google_protobuf2.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -553,7 +610,7 @@ func _Api_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type Api_GetFileServer interface {
-	Send(*google_protobuf1.BytesValue) error
+	Send(*google_protobuf2.BytesValue) error
 	grpc.ServerStream
 }
 
@@ -561,7 +618,7 @@ type apiGetFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *apiGetFileServer) Send(m *google_protobuf1.BytesValue) error {
+func (x *apiGetFileServer) Send(m *google_protobuf2.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -713,7 +770,7 @@ func (c *internalApiClient) PullDiff(ctx context.Context, in *PullDiffRequest, o
 }
 
 type InternalApi_PullDiffClient interface {
-	Recv() (*google_protobuf1.BytesValue, error)
+	Recv() (*google_protobuf2.BytesValue, error)
 	grpc.ClientStream
 }
 
@@ -721,8 +778,8 @@ type internalApiPullDiffClient struct {
 	grpc.ClientStream
 }
 
-func (x *internalApiPullDiffClient) Recv() (*google_protobuf1.BytesValue, error) {
-	m := new(google_protobuf1.BytesValue)
+func (x *internalApiPullDiffClient) Recv() (*google_protobuf2.BytesValue, error) {
+	m := new(google_protobuf2.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -761,7 +818,7 @@ func _InternalApi_PullDiff_Handler(srv interface{}, stream grpc.ServerStream) er
 }
 
 type InternalApi_PullDiffServer interface {
-	Send(*google_protobuf1.BytesValue) error
+	Send(*google_protobuf2.BytesValue) error
 	grpc.ServerStream
 }
 
@@ -769,7 +826,7 @@ type internalApiPullDiffServer struct {
 	grpc.ServerStream
 }
 
-func (x *internalApiPullDiffServer) Send(m *google_protobuf1.BytesValue) error {
+func (x *internalApiPullDiffServer) Send(m *google_protobuf2.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
