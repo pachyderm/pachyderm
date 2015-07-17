@@ -20,8 +20,6 @@ It has these top-level messages:
 	PutFileRequest
 	ListFilesRequest
 	ListFilesResponse
-	GetParentRequest
-	GetParentResponse
 	BranchRequest
 	BranchResponse
 	CommitRequest
@@ -128,8 +126,9 @@ func (*Shard) ProtoMessage()    {}
 
 // CommitInfo represents information about a commit.
 type CommitInfo struct {
-	Commit     *Commit    `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	CommitType CommitType `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
+	Commit       *Commit    `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	CommitType   CommitType `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
+	ParentCommit *Commit    `protobuf:"bytes,3,opt,name=parent_commit" json:"parent_commit,omitempty"`
 }
 
 func (m *CommitInfo) Reset()         { *m = CommitInfo{} }
@@ -139,6 +138,13 @@ func (*CommitInfo) ProtoMessage()    {}
 func (m *CommitInfo) GetCommit() *Commit {
 	if m != nil {
 		return m.Commit
+	}
+	return nil
+}
+
+func (m *CommitInfo) GetParentCommit() *Commit {
+	if m != nil {
+		return m.ParentCommit
 	}
 	return nil
 }
@@ -240,36 +246,6 @@ func (*ListFilesResponse) ProtoMessage()    {}
 func (m *ListFilesResponse) GetPath() []*Path {
 	if m != nil {
 		return m.Path
-	}
-	return nil
-}
-
-type GetParentRequest struct {
-	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-}
-
-func (m *GetParentRequest) Reset()         { *m = GetParentRequest{} }
-func (m *GetParentRequest) String() string { return proto.CompactTextString(m) }
-func (*GetParentRequest) ProtoMessage()    {}
-
-func (m *GetParentRequest) GetCommit() *Commit {
-	if m != nil {
-		return m.Commit
-	}
-	return nil
-}
-
-type GetParentResponse struct {
-	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-}
-
-func (m *GetParentResponse) Reset()         { *m = GetParentResponse{} }
-func (m *GetParentResponse) String() string { return proto.CompactTextString(m) }
-func (*GetParentResponse) ProtoMessage()    {}
-
-func (m *GetParentResponse) GetCommit() *Commit {
-	if m != nil {
-		return m.Commit
 	}
 	return nil
 }
@@ -412,8 +388,6 @@ type ApiClient interface {
 	// ListFiles lists the files within a directory.
 	// An error is returned if the specified path is not a directory.
 	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error)
-	// GetParent gets the parent commit ID of the specified commit.
-	GetParent(ctx context.Context, in *GetParentRequest, opts ...grpc.CallOption) (*GetParentResponse, error)
 	// Branch creates a new write commit from a base commit.
 	// An error is returned if the base commit is not a read commit.
 	Branch(ctx context.Context, in *BranchRequest, opts ...grpc.CallOption) (*BranchResponse, error)
@@ -500,15 +474,6 @@ func (c *apiClient) ListFiles(ctx context.Context, in *ListFilesRequest, opts ..
 	return out, nil
 }
 
-func (c *apiClient) GetParent(ctx context.Context, in *GetParentRequest, opts ...grpc.CallOption) (*GetParentResponse, error) {
-	out := new(GetParentResponse)
-	err := grpc.Invoke(ctx, "/pfs.Api/GetParent", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *apiClient) Branch(ctx context.Context, in *BranchRequest, opts ...grpc.CallOption) (*BranchResponse, error) {
 	out := new(BranchResponse)
 	err := grpc.Invoke(ctx, "/pfs.Api/Branch", in, out, c.cc, opts...)
@@ -553,8 +518,6 @@ type ApiServer interface {
 	// ListFiles lists the files within a directory.
 	// An error is returned if the specified path is not a directory.
 	ListFiles(context.Context, *ListFilesRequest) (*ListFilesResponse, error)
-	// GetParent gets the parent commit ID of the specified commit.
-	GetParent(context.Context, *GetParentRequest) (*GetParentResponse, error)
 	// Branch creates a new write commit from a base commit.
 	// An error is returned if the base commit is not a read commit.
 	Branch(context.Context, *BranchRequest) (*BranchResponse, error)
@@ -638,18 +601,6 @@ func _Api_ListFiles_Handler(srv interface{}, ctx context.Context, codec grpc.Cod
 	return out, nil
 }
 
-func _Api_GetParent_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(GetParentRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(ApiServer).GetParent(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func _Api_Branch_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
 	in := new(BranchRequest)
 	if err := codec.Unmarshal(buf, in); err != nil {
@@ -705,10 +656,6 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListFiles",
 			Handler:    _Api_ListFiles_Handler,
-		},
-		{
-			MethodName: "GetParent",
-			Handler:    _Api_GetParent_Handler,
 		},
 		{
 			MethodName: "Branch",

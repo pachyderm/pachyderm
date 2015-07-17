@@ -40,6 +40,7 @@ message Shard {
 message CommitInfo {
   Commit commit = 1;
   CommitType commit_type = 2;
+  Commit parent_commit = 3;
 }
 
 message InitRepositoryRequest {
@@ -68,14 +69,6 @@ message ListFilesRequest {
 
 message ListFilesResponse {
   repeated Path path = 1;
-}
-
-message GetParentRequest {
-  Commit commit = 1;
-}
-
-message GetParentResponse {
-  Commit commit = 1;
 }
 
 message BranchRequest {
@@ -115,8 +108,6 @@ service Api {
   // ListFiles lists the files within a directory.
   // An error is returned if the specified path is not a directory.
   rpc ListFiles(ListFilesRequest) returns (ListFilesResponse) {}
-  // GetParent gets the parent commit ID of the specified commit.
-  rpc GetParent(GetParentRequest) returns (GetParentResponse) {}
   // Branch creates a new write commit from a base commit.
   // An error is returned if the base commit is not a read commit.
   rpc Branch(BranchRequest) returns (BranchResponse) {}

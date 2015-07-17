@@ -97,29 +97,6 @@ func (d *driver) ListFiles(path *pfs.Path, shard int) ([]*pfs.Path, error) {
 	return nil, nil
 }
 
-func (d *driver) GetParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
-	if commit.Id == drive.InitialCommitID {
-		// do we really want to return error?
-		return nil, fmt.Errorf("no parent for %s", drive.InitialCommitID)
-	}
-	data, err := ioutil.ReadFile(
-		d.filePath(
-			&pfs.Path{
-				Commit: commit,
-				Path:   ".pfs/parent",
-			},
-			shard,
-		),
-	)
-	if err != nil {
-		return nil, err
-	}
-	return &pfs.Commit{
-		Repository: commit.Repository,
-		Id:         string(data),
-	}, nil
-}
-
 func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error) {
 	if newCommit == nil {
 		newCommit = &pfs.Commit{
@@ -163,7 +140,23 @@ func (d *driver) PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error
 }
 
 func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, error) {
-	return nil, nil
+	parent, err := d.getParent(commit, shard)
+	if err != nil {
+		return nil, err
+	}
+	readOnly, err := isReadOnly(d.commitPath(commit, shard))
+	if err != nil {
+		return nil, err
+	}
+	commitType := pfs.CommitType_COMMIT_TYPE_WRITE
+	if readOnly {
+		commitType = pfs.CommitType_COMMIT_TYPE_READ
+	}
+	return &pfs.CommitInfo{
+		Commit:       commit,
+		CommitType:   commitType,
+		ParentCommit: parent,
+	}, nil
 }
 
 func (d *driver) initMeta(commit *pfs.Commit, shard int, parentCommitID string) (retErr error) {
@@ -206,6 +199,28 @@ func (d *driver) initMeta(commit *pfs.Commit, shard int, parentCommitID string) 
 	}()
 	_, err = parentFile.Write([]byte(parentCommitID))
 	return err
+}
+
+func (d *driver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
+	if commit.Id == drive.InitialCommitID {
+		return nil, nil
+	}
+	data, err := ioutil.ReadFile(
+		d.filePath(
+			&pfs.Path{
+				Commit: commit,
+				Path:   ".pfs/parent",
+			},
+			shard,
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.Commit{
+		Repository: commit.Repository,
+		Id:         string(data),
+	}, nil
 }
 
 func (d *driver) repositoryPath(repository *pfs.Repository) string {

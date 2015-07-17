@@ -67,15 +67,24 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	err := initRepository(apiClient, repositoryName)
 	require.NoError(t, err)
 
+	getCommitInfoResponse, err := getCommitInfo(apiClient, repositoryName, "scratch")
+	require.NoError(t, err)
+	require.NotNil(t, getCommitInfoResponse)
+	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.Commit.Id)
+	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, getCommitInfoResponse.CommitInfo.CommitType)
+	require.Nil(t, getCommitInfoResponse.CommitInfo.ParentCommit)
+
 	branchResponse, err := branch(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
 	require.NotNil(t, branchResponse)
 	newCommitID := branchResponse.Commit.Id
 
-	getParentResponse, err := getParent(apiClient, repositoryName, newCommitID)
+	getCommitInfoResponse, err = getCommitInfo(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
-	require.NotNil(t, getParentResponse)
-	require.Equal(t, "scratch", getParentResponse.Commit.Id)
+	require.NotNil(t, getCommitInfoResponse)
+	require.Equal(t, newCommitID, getCommitInfoResponse.CommitInfo.Commit.Id)
+	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, getCommitInfoResponse.CommitInfo.CommitType)
+	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.ParentCommit.Id)
 
 	err = makeDirectory(apiClient, repositoryName, newCommitID, "a/b")
 	require.NoError(t, err)
@@ -189,10 +198,10 @@ func getFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 	return buffer, nil
 }
 
-func getParent(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.GetParentResponse, error) {
-	return apiClient.GetParent(
+func getCommitInfo(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.GetCommitInfoResponse, error) {
+	return apiClient.GetCommitInfo(
 		context.Background(),
-		&pfs.GetParentRequest{
+		&pfs.GetCommitInfoRequest{
 			Commit: &pfs.Commit{
 				Repository: &pfs.Repository{
 					Name: repositoryName,
