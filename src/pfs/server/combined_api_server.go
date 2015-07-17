@@ -13,27 +13,32 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/protoutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/shard"
+	"github.com/peter-edge/go-google-protobuf"
 )
 
-type apiServer struct {
+var (
+	emptyInstance = &google_protobuf.Empty{}
+)
+
+type combinedAPIServer struct {
 	sharder shard.Sharder
 	router  route.Router
 	driver  drive.Driver
 }
 
-func newAPIServer(
+func newCombinedAPIServer(
 	sharder shard.Sharder,
 	router route.Router,
 	driver drive.Driver,
-) *apiServer {
-	return &apiServer{
+) *combinedAPIServer {
+	return &combinedAPIServer{
 		sharder,
 		router,
 		driver,
 	}
 }
 
-func (a *apiServer) InitRepository(ctx context.Context, initRepositoryRequest *pfs.InitRepositoryRequest) (*pfs.InitRepositoryResponse, error) {
+func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRequest *pfs.InitRepositoryRequest) (*google_protobuf.Empty, error) {
 	shards, err := a.getAllShards(true)
 	if err != nil {
 		return nil, err
@@ -58,10 +63,10 @@ func (a *apiServer) InitRepository(ctx context.Context, initRepositoryRequest *p
 			}
 		}
 	}
-	return &pfs.InitRepositoryResponse{}, nil
+	return emptyInstance, nil
 }
 
-func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) (retErr error) {
+func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) (retErr error) {
 	shard, clientConn, err := a.getShardAndClientConnIfNecessary(getFileRequest.Path, true)
 	if err != nil {
 		return err
@@ -85,7 +90,7 @@ func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer
 	return protoutil.WriteToStreamingBytesServer(readCloser, apiGetFileServer)
 }
 
-func (a *apiServer) MakeDirectory(ctx context.Context, makeDirectoryRequest *pfs.MakeDirectoryRequest) (*pfs.MakeDirectoryResponse, error) {
+func (a *combinedAPIServer) MakeDirectory(ctx context.Context, makeDirectoryRequest *pfs.MakeDirectoryRequest) (*google_protobuf.Empty, error) {
 	if err := a.forAllShards(
 		func(shard int) error {
 			return a.driver.MakeDirectory(makeDirectoryRequest.Path, shard)
@@ -111,10 +116,10 @@ func (a *apiServer) MakeDirectory(ctx context.Context, makeDirectoryRequest *pfs
 			}
 		}
 	}
-	return &pfs.MakeDirectoryResponse{}, nil
+	return emptyInstance, nil
 }
 
-func (a *apiServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequest) (*pfs.PutFileResponse, error) {
+func (a *combinedAPIServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequest) (*google_protobuf.Empty, error) {
 	shard, clientConn, err := a.getShardAndClientConnIfNecessary(putFileRequest.Path, false)
 	if err != nil {
 		return nil, err
@@ -125,18 +130,18 @@ func (a *apiServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequ
 	if err := a.driver.PutFile(putFileRequest.Path, shard, bytes.NewReader(putFileRequest.Value)); err != nil {
 		return nil, err
 	}
-	return &pfs.PutFileResponse{}, nil
+	return emptyInstance, nil
 }
 
-func (a *apiServer) ListFiles(ctx context.Context, listFilesRequest *pfs.ListFilesRequest) (*pfs.ListFilesResponse, error) {
+func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs.ListFilesRequest) (*pfs.ListFilesResponse, error) {
 	return &pfs.ListFilesResponse{}, nil
 }
 
-func (a *apiServer) GetParent(ctx context.Context, getParentRequest *pfs.GetParentRequest) (*pfs.GetParentResponse, error) {
+func (a *combinedAPIServer) GetParent(ctx context.Context, getParentRequest *pfs.GetParentRequest) (*pfs.GetParentResponse, error) {
 	return &pfs.GetParentResponse{}, nil
 }
 
-func (a *apiServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest) (*pfs.BranchResponse, error) {
+func (a *combinedAPIServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest) (*pfs.BranchResponse, error) {
 	if branchRequest.Redirect {
 		if branchRequest.NewCommit == nil {
 			return nil, fmt.Errorf("must set a new commit for redirect %+v", branchRequest)
@@ -163,10 +168,9 @@ func (a *apiServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest
 			if _, err := pfs.NewApiClient(clientConn).Branch(
 				ctx,
 				&pfs.BranchRequest{
-					Commit:          branchRequest.Commit,
-					WriteCommitType: branchRequest.WriteCommitType,
-					Redirect:        true,
-					NewCommit:       newCommit,
+					Commit:    branchRequest.Commit,
+					Redirect:  true,
+					NewCommit: newCommit,
 				},
 			); err != nil {
 				return nil, err
@@ -178,23 +182,23 @@ func (a *apiServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest
 	}, nil
 }
 
-func (a *apiServer) Commit(ctx context.Context, commitRequest *pfs.CommitRequest) (*pfs.CommitResponse, error) {
-	return &pfs.CommitResponse{}, nil
+func (a *combinedAPIServer) Commit(ctx context.Context, commitRequest *pfs.CommitRequest) (*google_protobuf.Empty, error) {
+	return emptyInstance, nil
 }
 
-func (a *apiServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPullDiffServer pfs.Api_PullDiffServer) error {
+func (a *combinedAPIServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalApi_PullDiffServer) error {
 	return nil
 }
 
-func (a *apiServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.PushDiffRequest) (*pfs.PushDiffResponse, error) {
-	return &pfs.PushDiffResponse{}, nil
+func (a *combinedAPIServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.PushDiffRequest) (*google_protobuf.Empty, error) {
+	return emptyInstance, nil
 }
 
-func (a *apiServer) GetCommitInfo(ctx context.Context, getCommitInfoRequest *pfs.GetCommitInfoRequest) (*pfs.GetCommitInfoResponse, error) {
+func (a *combinedAPIServer) GetCommitInfo(ctx context.Context, getCommitInfoRequest *pfs.GetCommitInfoRequest) (*pfs.GetCommitInfoResponse, error) {
 	return &pfs.GetCommitInfoResponse{}, nil
 }
 
-func (a *apiServer) getShardAndClientConnIfNecessary(path *pfs.Path, slaveOk bool) (int, *grpc.ClientConn, error) {
+func (a *combinedAPIServer) getShardAndClientConnIfNecessary(path *pfs.Path, slaveOk bool) (int, *grpc.ClientConn, error) {
 	shard, err := a.sharder.GetShard(path)
 	if err != nil {
 		return shard, nil, err
@@ -220,7 +224,7 @@ func (a *apiServer) getShardAndClientConnIfNecessary(path *pfs.Path, slaveOk boo
 	return shard, nil, nil
 }
 
-func (a *apiServer) forAllShards(f func(int) error, slaveToo bool) error {
+func (a *combinedAPIServer) forAllShards(f func(int) error, slaveToo bool) error {
 	shards, err := a.getAllShards(slaveToo)
 	if err != nil {
 		return err
@@ -233,7 +237,7 @@ func (a *apiServer) forAllShards(f func(int) error, slaveToo bool) error {
 	return nil
 }
 
-func (a *apiServer) getAllShards(slaveToo bool) (map[int]bool, error) {
+func (a *combinedAPIServer) getAllShards(slaveToo bool) (map[int]bool, error) {
 	shards, err := a.getMasterShards()
 	if err != nil {
 		return nil, err
@@ -250,16 +254,16 @@ func (a *apiServer) getAllShards(slaveToo bool) (map[int]bool, error) {
 	return shards, nil
 }
 
-func (a *apiServer) getMasterShards() (map[int]bool, error) {
+func (a *combinedAPIServer) getMasterShards() (map[int]bool, error) {
 	return a.getShards(a.router.IsLocalMasterShard)
 }
 
-func (a *apiServer) getSlaveShards() (map[int]bool, error) {
+func (a *combinedAPIServer) getSlaveShards() (map[int]bool, error) {
 	return a.getShards(a.router.IsLocalSlaveShard)
 }
 
 // TODO(pedge)
-func (a *apiServer) getShards(isShardFunc func(int) (bool, error)) (map[int]bool, error) {
+func (a *combinedAPIServer) getShards(isShardFunc func(int) (bool, error)) (map[int]bool, error) {
 	m := make(map[int]bool)
 	numShards := a.sharder.NumShards()
 	for i := 0; i < numShards; i++ {

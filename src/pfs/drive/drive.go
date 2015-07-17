@@ -21,7 +21,6 @@ var (
 
 type Driver interface {
 	Init() error
-	DriverType() pfs.DriverType
 	InitRepository(repository *pfs.Repository, shard map[int]bool) error
 	GetFile(path *pfs.Path, shard int) (io.ReadCloser, error)
 	MakeDirectory(path *pfs.Path, shard int) error

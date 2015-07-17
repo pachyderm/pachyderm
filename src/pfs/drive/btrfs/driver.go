@@ -39,10 +39,6 @@ func (d *driver) Init() error {
 	return nil
 }
 
-func (d *driver) DriverType() pfs.DriverType {
-	return pfs.DriverType_DRIVER_TYPE_BTRFS
-}
-
 func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool) error {
 	// syscall.Mkdir (which os.Mkdir directly calls) is atomic across processes, and since
 	// we do not include shards as part of the repository path, this guaranteees

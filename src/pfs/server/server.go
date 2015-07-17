@@ -7,13 +7,18 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/shard"
 )
 
-// NewAPIServer returns a new ApiServer.
-func NewAPIServer(
+type CombinedAPIServer interface {
+	pfs.ApiServer
+	pfs.InternalApiServer
+}
+
+// NewCombinedAPIServer returns a new CombinedAPIServer.
+func NewCombinedAPIServer(
 	sharder shard.Sharder,
 	router route.Router,
 	driver drive.Driver,
-) pfs.ApiServer {
-	return newAPIServer(
+) CombinedAPIServer {
+	return newCombinedAPIServer(
 		sharder,
 		router,
 		driver,

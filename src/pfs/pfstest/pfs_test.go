@@ -64,22 +64,19 @@ func getBtrfsRootDir(t *testing.T) string {
 func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	repositoryName := testRepositoryName()
 
-	initRepositoryResponse, err := initRepository(apiClient, repositoryName)
+	err := initRepository(apiClient, repositoryName)
 	require.NoError(t, err)
-	require.NotNil(t, initRepositoryResponse)
 
-	branchResponse, err := branch(apiClient, repositoryName, "scratch", pfs.WriteCommitType_WRITE_COMMIT_TYPE_PUT)
+	branchResponse, err := branch(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
 	require.NotNil(t, branchResponse)
 	newCommitID := branchResponse.Commit.Id
 
-	makeDirectoryResponse, err := makeDirectory(apiClient, repositoryName, newCommitID, "a/b")
+	err = makeDirectory(apiClient, repositoryName, newCommitID, "a/b")
 	require.NoError(t, err)
-	require.NotNil(t, makeDirectoryResponse)
 
-	putFileResponse, err := putFile(apiClient, repositoryName, newCommitID, "a/b/one", strings.NewReader("hello world"))
+	err = putFile(apiClient, repositoryName, newCommitID, "a/b/one", strings.NewReader("hello world"))
 	require.NoError(t, err)
-	require.NotNil(t, putFileResponse)
 
 	readStringer, err := getFile(apiClient, repositoryName, newCommitID, "a/b/one")
 	require.NoError(t, err)
@@ -90,8 +87,8 @@ func testRepositoryName() string {
 	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
 }
 
-func initRepository(apiClient pfs.ApiClient, repositoryName string) (*pfs.InitRepositoryResponse, error) {
-	return apiClient.InitRepository(
+func initRepository(apiClient pfs.ApiClient, repositoryName string) error {
+	_, err := apiClient.InitRepository(
 		context.Background(),
 		&pfs.InitRepositoryRequest{
 			Repository: &pfs.Repository{
@@ -99,9 +96,10 @@ func initRepository(apiClient pfs.ApiClient, repositoryName string) (*pfs.InitRe
 			},
 		},
 	)
+	return err
 }
 
-func branch(apiClient pfs.ApiClient, repositoryName string, commitID string, writeCommitType pfs.WriteCommitType) (*pfs.BranchResponse, error) {
+func branch(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.BranchResponse, error) {
 	return apiClient.Branch(
 		context.Background(),
 		&pfs.BranchRequest{
@@ -111,13 +109,12 @@ func branch(apiClient pfs.ApiClient, repositoryName string, commitID string, wri
 				},
 				Id: commitID,
 			},
-			WriteCommitType: writeCommitType,
 		},
 	)
 }
 
-func makeDirectory(apiClient pfs.ApiClient, repositoryName string, commitID string, path string) (*pfs.MakeDirectoryResponse, error) {
-	return apiClient.MakeDirectory(
+func makeDirectory(apiClient pfs.ApiClient, repositoryName string, commitID string, path string) error {
+	_, err := apiClient.MakeDirectory(
 		context.Background(),
 		&pfs.MakeDirectoryRequest{
 			Path: &pfs.Path{
@@ -131,14 +128,15 @@ func makeDirectory(apiClient pfs.ApiClient, repositoryName string, commitID stri
 			},
 		},
 	)
+	return err
 }
 
-func putFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, reader io.Reader) (*pfs.PutFileResponse, error) {
+func putFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, reader io.Reader) error {
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return apiClient.PutFile(
+	_, err = apiClient.PutFile(
 		context.Background(),
 		&pfs.PutFileRequest{
 			Path: &pfs.Path{
@@ -153,6 +151,7 @@ func putFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 			Value: value,
 		},
 	)
+	return err
 }
 
 type readStringer interface {
@@ -195,9 +194,8 @@ func runTest(
 	runGrpcTest(
 		t,
 		func(s *grpc.Server, a string) {
-			pfs.RegisterApiServer(
-				s,
-				server.NewAPIServer(
+			combinedAPIServer :=
+				server.NewCombinedAPIServer(
 					shard.NewSharder(
 						numShards,
 					),
@@ -209,8 +207,9 @@ func runTest(
 						a,
 					),
 					driver,
-				),
-			)
+				)
+			pfs.RegisterApiServer(s, combinedAPIServer)
+			pfs.RegisterInternalApiServer(s, combinedAPIServer)
 		},
 		func(t *testing.T, clientConn *grpc.ClientConn) {
 			f(

@@ -1,27 +1,15 @@
 syntax = "proto3";
 
+import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
 
 package pfs;
-
-// DriverType represents the driver type used by the implementation of PFS.
-enum DriverType {
-  DRIVER_TYPE_NONE = 0;
-  DRIVER_TYPE_BTRFS = 1;
-}
 
 // CommitType represents the type of commit.
 enum CommitType {
   COMMIT_TYPE_NONE = 0;
   COMMIT_TYPE_READ = 1;
   COMMIT_TYPE_WRITE = 2;
-}
-
-// WriteCommitType represents the type for a write commit.
-enum WriteCommitType {
-  WRITE_COMMIT_TYPE_NONE = 0;
-  WRITE_COMMIT_TYPE_PUT = 1;
-  WRITE_COMMIT_TYPE_PUSH = 2;
 }
 
 // Repository represents a repository.
@@ -42,7 +30,7 @@ message Path {
 }
 
 // Shard represents a dynamic shard within PFS.
-// number must alway be less than modulo.
+// number must always be less than modulo.
 message Shard {
   uint64 number = 1;
   uint64 modulo = 2;
@@ -59,9 +47,6 @@ message InitRepositoryRequest {
   bool redirect = 2;
 }
 
-message InitRepositoryResponse {
-}
-
 message GetFileRequest {
   Path path = 1;
 }
@@ -71,15 +56,9 @@ message MakeDirectoryRequest {
   bool redirect = 2;
 }
 
-message MakeDirectoryResponse {
-}
-
 message PutFileRequest {
   Path path = 1;
   bytes value = 2;
-}
-
-message PutFileResponse {
 }
 
 message ListFilesRequest {
@@ -101,9 +80,8 @@ message GetParentResponse {
 
 message BranchRequest {
   Commit commit = 1;
-  WriteCommitType write_commit_type = 2;
-  bool redirect = 3;
-  Commit new_commit = 4;
+  bool redirect = 2;
+  Commit new_commit = 3;
 }
 
 message BranchResponse {
@@ -112,24 +90,6 @@ message BranchResponse {
 
 message CommitRequest {
   Commit commit = 1;
-}
-
-message CommitResponse {
-}
-
-message PullDiffRequest {
-  Commit commit = 1;
-  Shard shard = 2;
-}
-
-message PushDiffRequest {
-  Commit commit = 1;
-  Shard shard = 2;
-  DriverType driver_type = 3;
-  bytes value = 4;
-}
-
-message PushDiffResponse {
 }
 
 message GetCommitInfoRequest {
@@ -143,16 +103,15 @@ message GetCommitInfoResponse {
 service Api {
   // InitRepository creates a new repository.
   // An error is returned if the specified repository already exists.
-  // An error is returned if the specified driver is not supported.
-  rpc InitRepository(InitRepositoryRequest) returns (InitRepositoryResponse) {}
+  rpc InitRepository(InitRepositoryRequest) returns (google.protobuf.Empty) {}
   // GetFile returns a byte stream of the specified file.
+  // An error is returned if the specified commit is a write commit.
   rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
   // MakeDirectory makes a directory on the file system.
-  rpc MakeDirectory(MakeDirectoryRequest) returns (MakeDirectoryResponse) {}
+  rpc MakeDirectory(MakeDirectoryRequest) returns (google.protobuf.Empty) {}
   // PutFile writes the specified file to PFS.
   // An error is returned if the specified commit is not a write commit.
-  // An error is returned is the specified commit was not opened for putting.
-  rpc PutFile(PutFileRequest) returns (PutFileResponse) {}
+  rpc PutFile(PutFileRequest) returns (google.protobuf.Empty) {}
   // ListFiles lists the files within a directory.
   // An error is returned if the specified path is not a directory.
   rpc ListFiles(ListFilesRequest) returns (ListFilesResponse) {}
@@ -163,17 +122,26 @@ service Api {
   rpc Branch(BranchRequest) returns (BranchResponse) {}
   // Commit turns the specified write commit into a read commit.
   // An error is returned if the specified commit is not a write commit.
-  // An error is returned if there are outstanding shards to be pushed.
-  rpc Commit(CommitRequest) returns (CommitResponse) {}
+  rpc Commit(CommitRequest) returns (google.protobuf.Empty) {}
+  // GetCommitInfo returns the CommitInfo for a commit.
+  rpc GetCommitInfo(GetCommitInfoRequest) returns (GetCommitInfoResponse) {}
+}
+
+message PullDiffRequest {
+  Commit commit = 1;
+  uint64 shard = 2;
+}
+
+message PushDiffRequest {
+  Commit commit = 1;
+  uint64 shard = 2;
+  bytes value = 3;
+}
+
+service InternalApi {
   // PullDiff pulls a binary stream of the diff from the specified
   // commit to the commit's parent.
   rpc PullDiff(PullDiffRequest) returns (stream google.protobuf.BytesValue) {}
-  // Push diff pushes a diff from the specified commit
-  // to the commit's parent.
-  // An error is returned if the specified commit is not a write commit.
-  // An error is returned if the specified commit was not opened for pushing.
-  // An error is returned if the specified driver does not match the repository's driver.
-  rpc PushDiff(PushDiffRequest) returns (PushDiffResponse) {}
-  // GetCommitInfo returns the CommitInfo for a commit.
-  rpc GetCommitInfo(GetCommitInfoRequest) returns (GetCommitInfoResponse) {}
+  // Push diff pushes a diff from the specified commit.
+  rpc PushDiff(PushDiffRequest) returns (google.protobuf.Empty) {}
 }
