@@ -11,13 +11,21 @@ cd "${DIR}"
 check_btrfs
 check_docker
 
+"${DIR}/mount-btrfs"
+"${DIR}/clean"
+
 if [ -z "${AWS_REGION}" ]; then
 	AWS_REGION="${PFS_DEFAULT_AWS_REGION}"
 fi
+if [ -z "${GOMAXPROCS}" ]; then
+  GOMAXPROCS="${PFS_DEFAULT_GOMAXPROCS}"
+fi
 
-"${DIR}/mount-btrfs"
+ENV_STRING="-e AWS_REGION=${AWS_REGION} -e GOMAXPROCS=${GOMAXPROCS} -e PFS_HOST_VOLUME=${PFS_HOST_VOLUME} -e PFS_BTRFS_ROOT=${PFS_BTRFS_ROOT}"
+if [ -n "${AWS_ACCESS_KEY_ID}" ] && [ -n "${AWS_SECRET_ACCESS_KEY}" ]; then
+  ENV_STRING="${ENV_STRING} -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
+fi
 
-"${DIR}/clean"
 docker build -t "${PFS_IMAGE}" "$(cd "${DIR}/.." && pwd)"
 docker run \
     ${PFS_DOCKER_OPTS} \
@@ -27,12 +35,7 @@ docker run \
     -v "${PFS_HOST_VOLUME}:/host/${PFS_HOST_VOLUME}" \
     -v "${PFS_DIR}:${PFS_DIR}" \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-    -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-    -e AWS_REGION="${AWS_REGION}" \
-    -e GOMAXPROCS="${GOMAXPROCS}" \
-    -e PFS_HOST_VOLUME="${PFS_HOST_VOLUME}" \
-	-e PFS_BTRFS_ROOT="${PFS_BTRFS_ROOT}" \
-    -p "${PFS_PORT}":80 \
+    ${ENV_STRING} \
+    -p "${PFS_PORT}:80" \
     "${PFS_IMAGE}" \
     $@

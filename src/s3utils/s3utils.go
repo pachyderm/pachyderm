@@ -1,3 +1,5 @@
+// TODO(pedge): the public vs non-public needs to go away, we need to put
+// creds somewhere managed, and consistently call out to s3
 package s3utils
 
 import (
@@ -7,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
@@ -35,7 +38,14 @@ func GetPath(input string) (string, error) {
 	return path.Join(strings.Split(strings.TrimPrefix(input, "s3://"), "/")[1:]...), nil
 }
 
-func NewClient() *s3.S3 {
+func NewClient(public bool) *s3.S3 {
+	if public {
+		return s3.New(
+			&aws.Config{
+				Credentials: credentials.AnonymousCredentials,
+			},
+		)
+	}
 	return s3.New(nil)
 }
 
@@ -61,7 +71,7 @@ func PutMulti(bucketUri string, path string, r io.Reader, contType string, perm 
 // Files calls `cont` on each file found at `uri` starting at marker.
 // Pass `marker=""` to start from the beginning.
 // Returns the marker that should be passed to pick-up where this call left off.
-func ForEachFile(uri, marker string, cont func(file string, modtime time.Time) error) error {
+func ForEachFile(uri string, public bool, marker string, cont func(file string, modtime time.Time) error) error {
 	inPath, err := GetPath(uri)
 	if err != nil {
 		return err
@@ -72,7 +82,7 @@ func ForEachFile(uri, marker string, cont func(file string, modtime time.Time) e
 		return err
 	}
 
-	client := NewClient()
+	client := NewClient(public)
 	nextMarker := aws.String(marker)
 
 	for {

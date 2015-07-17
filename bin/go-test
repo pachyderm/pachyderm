@@ -9,7 +9,7 @@ cd "${DIR}"
 . "${DIR}/../etc/env/pfs.env"
 
 if [ -z "${GOMAXPROCS}" ]; then
-	GOMAXPROCS=20
+	GOMAXPROCS="${PFS_DEFAULT_GOMAXPROCS}"
 fi
 
 ${DIR}/run go test -parallel "${GOMAXPROCS}" -timeout 20m $@

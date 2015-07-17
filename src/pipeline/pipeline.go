@@ -100,16 +100,16 @@ func (p *pipeline) input(name string) error {
 }
 
 // inject injects data from an external source into the output directory
-func (p *pipeline) inject(name string) error {
+func (p *pipeline) inject(name string, public bool) error {
 	switch {
 	case strings.HasPrefix(name, "s3://"):
 		bucket, err := s3utils.GetBucket(name)
-		client := s3utils.NewClient()
 		if err != nil {
 			return err
 		}
+		client := s3utils.NewClient(public)
 		var wg sync.WaitGroup
-		s3utils.ForEachFile(name, "", func(file string, modtime time.Time) error {
+		s3utils.ForEachFile(name, public, "", func(file string, modtime time.Time) error {
 			// Grab the path, it's handy later
 			_path, err := s3utils.GetPath(name)
 			if err != nil {
@@ -675,7 +675,7 @@ func (r *Runner) startInputPipelines() error {
 		r.wait.Add(1)
 		go func(input string, p *pipeline) {
 			defer r.wait.Done()
-			err := p.inject(input)
+			err := p.inject(input, false)
 			if err != nil {
 				p.fail()
 				return

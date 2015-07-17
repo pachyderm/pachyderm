@@ -375,7 +375,7 @@ func TestInject(t *testing.T) {
 	outRepo := "TestInject_out"
 	require.NoError(t, btrfs.Init(outRepo))
 	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "", etcache.NewCache())
-	require.NoError(t, pipeline.inject("s3://pachyderm-test/pipeline"))
+	require.NoError(t, pipeline.inject("s3://pachyderm-test/pipeline", true))
 	require.NoError(t, pipeline.finish())
 	res, err := btrfs.ReadFile(path.Join(outRepo, "commit", "file"))
 	require.NoError(t, err)

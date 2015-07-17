@@ -75,8 +75,8 @@ func (r *s3Replica) Push(diff io.Reader) error {
 }
 
 func (r *s3Replica) Pull(from string, target Pusher) error {
-	client := s3utils.NewClient()
-	err := s3utils.ForEachFile(r.uri, from, func(path string, modtime time.Time) (retErr error) {
+	client := s3utils.NewClient(false)
+	err := s3utils.ForEachFile(r.uri, false, from, func(path string, modtime time.Time) (retErr error) {
 		response, err := client.GetObject(&s3.GetObjectInput{
 			Bucket: &r.uri,
 			Key:    &path,
@@ -110,7 +110,7 @@ func (r *s3Replica) Pull(from string, target Pusher) error {
 
 func (r *s3Replica) From() (string, error) {
 	result := ""
-	err := s3utils.ForEachFile(r.uri, "", func(path string, modtime time.Time) error {
+	err := s3utils.ForEachFile(r.uri, false, "", func(path string, modtime time.Time) error {
 		result = path
 		return nil
 	})
