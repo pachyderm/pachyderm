@@ -6,6 +6,17 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
+const (
+	SystemRootCommitID = "__root__"
+	InitialCommitID    = "scratch"
+)
+
+var (
+	ReservedCommitIDs = map[string]bool{
+		SystemRootCommitID: true,
+	}
+)
+
 type Driver interface {
 	Init() error
 	DriverType() pfs.DriverType

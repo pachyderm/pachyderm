@@ -15,11 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
-const (
-	// TODO(pedge): abstract for all drivers
-	initialCommitName = "scratch"
-)
-
 type btrfsDriver struct {
 	rootDir string
 }
@@ -40,14 +35,17 @@ func (b *btrfsDriver) InitRepository(repository *pfs.Repository, shard int) erro
 	commitPath := b.commitPath(
 		&pfs.Commit{
 			Repository: repository,
-			Id:         initialCommitName,
+			Id:         SystemRootCommitID,
 		},
 		shard,
 	)
 	if err := os.MkdirAll(filepath.Dir(commitPath), 0700); err != nil {
 		return err
 	}
-	return subvolumeCreate(commitPath)
+	if err := subvolumeCreate(commitPath); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (b *btrfsDriver) GetFile(path *pfs.Path, shard int) (io.ReadCloser, error) {
@@ -99,11 +97,25 @@ func (b *btrfsDriver) GetCommitInfo(commit *pfs.Commit) (*pfs.CommitInfo, error)
 }
 
 func (b *btrfsDriver) commitPath(commit *pfs.Commit, shard int) string {
-	return filepath.Join(b.rootDir, commit.Repository.Name, commit.Id, fmt.Sprintf("%d", shard))
+	return filepath.Join(b.rootDir, fmt.Sprintf("%d", shard), commit.Repository.Name, commit.Id)
 }
 
 func (b *btrfsDriver) filePath(path *pfs.Path, shard int) string {
-	return filepath.Join(b.rootDir, path.Commit.Repository.Name, path.Commit.Id, fmt.Sprintf("%d", shard), path.Path)
+	return filepath.Join(b.commitPath(path.Commit, shard), path.Path)
+}
+
+func (b *btrfsDriver) isReadOnly(commit *pfs.Commit, shard int) (bool, error) {
+	reader, err := snapshotPropertyGet(b.commitPath(commit, shard))
+	if err != nil {
+		return false, err
+	}
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		if strings.Contains(scanner.Text(), "ro=true") {
+			return true, nil
+		}
+	}
+	return false, scanner.Err()
 }
 
 func snapshotPropertyGet(path string) (io.Reader, error) {
@@ -114,12 +126,12 @@ func subvolumeCreate(path string) error {
 	return run("btrfs", "subvolume", "create", path)
 }
 
-func subvolumeSnapshot(path string) error {
-	return run("btrfs", "subvolume", "snapshot", path)
+func subvolumeSnapshot(src string, dest string) error {
+	return run("btrfs", "subvolume", "snapshot", src, dest)
 }
 
-func subvolumeSnapshotReadonly(path string) error {
-	return run("btrfs", "subvolume", "snapshot", "-r", path)
+func subvolumeSnapshotReadonly(src string, dest string) error {
+	return run("btrfs", "subvolume", "snapshot", "-r", src, dest)
 }
 
 func run(args ...string) error {
