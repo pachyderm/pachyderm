@@ -1,6 +1,8 @@
 package route
 
 import (
+	"math/rand"
+
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/address"
 	"github.com/pachyderm/pachyderm/src/pfs/dial"
@@ -45,11 +47,27 @@ func (r *router) IsLocalSlaveShard(shard int) (bool, error) {
 	return false, nil
 }
 
-func (r *router) GetAPIClient(shard int) (pfs.ApiClient, error) {
+func (r *router) GetMasterAPIClient(shard int) (pfs.ApiClient, error) {
 	address, err := r.addresser.GetMasterAddress(shard)
 	if err != nil {
 		return nil, err
 	}
+	clientConn, err := r.dialer.Dial(address)
+	if err != nil {
+		return nil, err
+	}
+	return pfs.NewApiClient(clientConn), nil
+}
+
+func (r *router) GetMasterOrSlaveAPIClient(shard int) (pfs.ApiClient, error) {
+	addresses, err := r.addresser.GetSlaveAddresses(shard)
+	if err != nil {
+		return nil, err
+	}
+	if len(addresses) == 0 {
+		return r.GetMasterAPIClient(shard)
+	}
+	address := addresses[int(rand.Uint32())%len(addresses)]
 	clientConn, err := r.dialer.Dial(address)
 	if err != nil {
 		return nil, err

@@ -53,19 +53,11 @@ func (a *apiServer) InitRepository(ctx context.Context, initRepositoryRequest *p
 }
 
 func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) (retErr error) {
-	shard, err := a.sharder.GetShard(getFileRequest.Path)
+	shard, apiClient, err := a.getShardAndAPIClientIfNecessary(getFileRequest.Path, true)
 	if err != nil {
 		return err
 	}
-	ok, err := a.router.IsLocalMasterShard(shard)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		apiClient, err := a.router.GetAPIClient(shard)
-		if err != nil {
-			return err
-		}
+	if apiClient != nil {
 		apiGetFileClient, err := apiClient.GetFile(context.Background(), getFileRequest)
 		if err != nil {
 			return err
@@ -85,23 +77,25 @@ func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer
 }
 
 func (a *apiServer) MakeDirectory(ctx context.Context, makeDirectoryRequest *pfs.MakeDirectoryRequest) (*pfs.MakeDirectoryResponse, error) {
-	return nil, nil
+	shard, apiClient, err := a.getShardAndAPIClientIfNecessary(makeDirectoryRequest.Path, false)
+	if err != nil {
+		return nil, err
+	}
+	if apiClient != nil {
+		return apiClient.MakeDirectory(ctx, makeDirectoryRequest)
+	}
+	if err := a.driver.MakeDirectory(makeDirectoryRequest.Path, shard); err != nil {
+		return nil, err
+	}
+	return &pfs.MakeDirectoryResponse{}, nil
 }
 
 func (a *apiServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequest) (*pfs.PutFileResponse, error) {
-	shard, err := a.sharder.GetShard(putFileRequest.Path)
+	shard, apiClient, err := a.getShardAndAPIClientIfNecessary(putFileRequest.Path, false)
 	if err != nil {
 		return nil, err
 	}
-	ok, err := a.router.IsLocalMasterShard(shard)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		apiClient, err := a.router.GetAPIClient(shard)
-		if err != nil {
-			return nil, err
-		}
+	if apiClient != nil {
 		return apiClient.PutFile(ctx, putFileRequest)
 	}
 	if err := a.driver.PutFile(putFileRequest.Path, shard, bytes.NewReader(putFileRequest.Value)); err != nil {
@@ -136,6 +130,32 @@ func (a *apiServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.PushDiffR
 
 func (a *apiServer) GetCommitInfo(ctx context.Context, getCommitInfoRequest *pfs.GetCommitInfoRequest) (*pfs.GetCommitInfoResponse, error) {
 	return &pfs.GetCommitInfoResponse{}, nil
+}
+
+func (a *apiServer) getShardAndAPIClientIfNecessary(path *pfs.Path, slaveOk bool) (int, pfs.ApiClient, error) {
+	shard, err := a.sharder.GetShard(path)
+	if err != nil {
+		return shard, nil, err
+	}
+	ok, err := a.router.IsLocalMasterShard(shard)
+	if err != nil {
+		return shard, nil, err
+	}
+	if !ok {
+		if !slaveOk {
+			apiClient, err := a.router.GetMasterAPIClient(shard)
+			return shard, apiClient, err
+		}
+		ok, err = a.router.IsLocalSlaveShard(shard)
+		if err != nil {
+			return shard, nil, err
+		}
+		if !ok {
+			apiClient, err := a.router.GetMasterOrSlaveAPIClient(shard)
+			return shard, apiClient, err
+		}
+	}
+	return shard, nil, nil
 }
 
 func (a *apiServer) getMasterShards() (map[int]bool, error) {

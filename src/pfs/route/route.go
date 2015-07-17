@@ -9,7 +9,8 @@ import (
 type Router interface {
 	IsLocalMasterShard(shard int) (bool, error)
 	IsLocalSlaveShard(shard int) (bool, error)
-	GetAPIClient(shard int) (pfs.ApiClient, error)
+	GetMasterAPIClient(shard int) (pfs.ApiClient, error)
+	GetMasterOrSlaveAPIClient(shard int) (pfs.ApiClient, error)
 }
 
 func NewRouter(
