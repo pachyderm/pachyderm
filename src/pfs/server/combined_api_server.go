@@ -203,7 +203,7 @@ func (a *combinedAPIServer) getShardAndClientConnIfNecessary(path *pfs.Path, sla
 	if err != nil {
 		return shard, nil, err
 	}
-	ok, err := a.router.IsLocalMasterShard(shard)
+	ok, err := a.isLocalMasterShard(shard)
 	if err != nil {
 		return shard, nil, err
 	}
@@ -212,7 +212,7 @@ func (a *combinedAPIServer) getShardAndClientConnIfNecessary(path *pfs.Path, sla
 			clientConn, err := a.router.GetMasterClientConn(shard)
 			return shard, clientConn, err
 		}
-		ok, err = a.router.IsLocalSlaveShard(shard)
+		ok, err = a.isLocalSlaveShard(shard)
 		if err != nil {
 			return shard, nil, err
 		}
@@ -238,12 +238,12 @@ func (a *combinedAPIServer) forAllShards(f func(int) error, slaveToo bool) error
 }
 
 func (a *combinedAPIServer) getAllShards(slaveToo bool) (map[int]bool, error) {
-	shards, err := a.getMasterShards()
+	shards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
 	}
 	if slaveToo {
-		slaveShards, err := a.getSlaveShards()
+		slaveShards, err := a.router.GetSlaveShards()
 		if err != nil {
 			return nil, err
 		}
@@ -254,26 +254,20 @@ func (a *combinedAPIServer) getAllShards(slaveToo bool) (map[int]bool, error) {
 	return shards, nil
 }
 
-func (a *combinedAPIServer) getMasterShards() (map[int]bool, error) {
-	return a.getShards(a.router.IsLocalMasterShard)
-}
-
-func (a *combinedAPIServer) getSlaveShards() (map[int]bool, error) {
-	return a.getShards(a.router.IsLocalSlaveShard)
-}
-
-// TODO(pedge)
-func (a *combinedAPIServer) getShards(isShardFunc func(int) (bool, error)) (map[int]bool, error) {
-	m := make(map[int]bool)
-	numShards := a.sharder.NumShards()
-	for i := 0; i < numShards; i++ {
-		ok, err := isShardFunc(i)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			m[i] = true
-		}
+func (a *combinedAPIServer) isLocalMasterShard(shard int) (bool, error) {
+	shards, err := a.router.GetMasterShards()
+	if err != nil {
+		return false, err
 	}
-	return m, nil
+	_, ok := shards[shard]
+	return ok, nil
+}
+
+func (a *combinedAPIServer) isLocalSlaveShard(shard int) (bool, error) {
+	shards, err := a.router.GetSlaveShards()
+	if err != nil {
+		return false, err
+	}
+	_, ok := shards[shard]
+	return ok, nil
 }

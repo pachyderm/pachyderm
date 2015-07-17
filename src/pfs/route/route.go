@@ -7,8 +7,8 @@ import (
 )
 
 type Router interface {
-	IsLocalMasterShard(shard int) (bool, error)
-	IsLocalSlaveShard(shard int) (bool, error)
+	GetMasterShards() (map[int]bool, error)
+	GetSlaveShards() (map[int]bool, error)
 	GetMasterClientConn(shard int) (*grpc.ClientConn, error)
 	GetMasterOrSlaveClientConn(shard int) (*grpc.ClientConn, error)
 	GetAllClientConns() ([]*grpc.ClientConn, error)

@@ -202,6 +202,7 @@ func runTest(
 					route.NewRouter(
 						address.NewSingleAddresser(
 							a,
+							numShards,
 						),
 						dialer,
 						a,
