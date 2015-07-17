@@ -16,18 +16,15 @@ package btrfs
 
 import (
 	"bufio"
-	"bytes"
-	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs/executil"
 )
 
 type driver struct {
@@ -53,18 +50,25 @@ func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool)
 	if err := os.Mkdir(d.repositoryPath(repository), 0700); err != nil {
 		return err
 	}
+	systemRootCommit := &pfs.Commit{
+		Repository: repository,
+		Id:         drive.SystemRootCommitID,
+	}
+	if err := os.Mkdir(d.commitPathNoShard(systemRootCommit), 0700); err != nil {
+		return err
+	}
+	initialCommit := &pfs.Commit{
+		Repository: repository,
+		Id:         drive.InitialCommitID,
+	}
+	if err := os.Mkdir(d.commitPathNoShard(initialCommit), 0700); err != nil {
+		return err
+	}
 	for shard := range shards {
-		commitPath := d.commitPath(
-			&pfs.Commit{
-				Repository: repository,
-				Id:         drive.SystemRootCommitID,
-			},
-			shard,
-		)
-		if err := os.MkdirAll(filepath.Dir(commitPath), 0700); err != nil {
+		if err := subvolumeCreate(d.commitPath(systemRootCommit, shard)); err != nil {
 			return err
 		}
-		if err := subvolumeCreate(commitPath); err != nil {
+		if err := subvolumeSnapshotReadonly(d.commitPath(systemRootCommit, shard), d.commitPath(initialCommit, shard)); err != nil {
 			return err
 		}
 	}
@@ -99,11 +103,34 @@ func (d *driver) GetParent(commit *pfs.Commit) (*pfs.Commit, error) {
 	return nil, nil
 }
 
-func (d *driver) Branch(commit *pfs.Commit) (*pfs.Commit, error) {
-	return nil, nil
+func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error) {
+	if newCommit == nil {
+		newCommit = &pfs.Commit{
+			Repository: commit.Repository,
+			Id:         drive.NewCommitID(),
+		}
+	}
+	if err := os.Mkdir(d.commitPathNoShard(newCommit), 0700); err != nil {
+		return nil, err
+	}
+	for shard := range shards {
+		commitPath := d.commitPath(commit, shard)
+		readOnly, err := isReadOnly(commitPath)
+		if err != nil {
+			return nil, err
+		}
+		if !readOnly {
+			return nil, fmt.Errorf("%+v is not a read-only snapshot", commit)
+		}
+		newCommitPath := d.commitPath(newCommit, shard)
+		if err := subvolumeSnapshot(commitPath, newCommitPath); err != nil {
+			return nil, err
+		}
+	}
+	return newCommit, nil
 }
 
-func (d *driver) Commit(commit *pfs.Commit) error {
+func (d *driver) Commit(commit *pfs.Commit, shards map[int]bool) error {
 	return nil
 }
 
@@ -123,16 +150,20 @@ func (d *driver) repositoryPath(repository *pfs.Repository) string {
 	return filepath.Join(d.rootDir, repository.Name)
 }
 
+func (d *driver) commitPathNoShard(commit *pfs.Commit) string {
+	return filepath.Join(d.repositoryPath(commit.Repository), commit.Id)
+}
+
 func (d *driver) commitPath(commit *pfs.Commit, shard int) string {
-	return filepath.Join(d.repositoryPath(commit.Repository), commit.Id, fmt.Sprintf("%d", shard))
+	return filepath.Join(d.commitPathNoShard(commit), fmt.Sprintf("%d", shard))
 }
 
 func (d *driver) filePath(path *pfs.Path, shard int) string {
 	return filepath.Join(d.commitPath(path.Commit, shard), path.Path)
 }
 
-func (d *driver) isReadOnly(commit *pfs.Commit, shard int) (bool, error) {
-	reader, err := snapshotPropertyGet(d.commitPath(commit, shard))
+func isReadOnly(path string) (bool, error) {
+	reader, err := snapshotPropertyGet(path)
 	if err != nil {
 		return false, err
 	}
@@ -146,58 +177,17 @@ func (d *driver) isReadOnly(commit *pfs.Commit, shard int) (bool, error) {
 }
 
 func snapshotPropertyGet(path string) (io.Reader, error) {
-	return runStdout("btrfs", "property", "get", "-t", "s", path)
+	return executil.RunStdout("btrfs", "property", "get", "-t", "s", path)
 }
 
 func subvolumeCreate(path string) error {
-	return run("btrfs", "subvolume", "create", path)
+	return executil.Run("btrfs", "subvolume", "create", path)
 }
 
 func subvolumeSnapshot(src string, dest string) error {
-	return run("btrfs", "subvolume", "snapshot", src, dest)
+	return executil.Run("btrfs", "subvolume", "snapshot", src, dest)
 }
 
 func subvolumeSnapshotReadonly(src string, dest string) error {
-	return run("btrfs", "subvolume", "snapshot", "-r", src, dest)
-}
-
-func run(args ...string) error {
-	return runWithOptions(runOptions{}, args...)
-}
-
-func runStdout(args ...string) (io.Reader, error) {
-	stdout := bytes.NewBuffer(nil)
-	err := runWithOptions(runOptions{stdout: stdout}, args...)
-	return stdout, err
-}
-
-type runOptions struct {
-	stdout io.Writer
-	stderr io.Writer
-}
-
-func runWithOptions(runOptions runOptions, args ...string) error {
-	if len(args) == 0 {
-		return errors.New("runCmd called with no args")
-	}
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Stdout = runOptions.stdout
-	cmd.Stderr = runOptions.stderr
-	argsString := strings.Join(args, " ")
-	log.Printf("shell: %s", argsString)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("%s: %s", argsString, err.Error())
-	}
-	return nil
-}
-
-func isFileExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
+	return executil.Run("btrfs", "subvolume", "snapshot", "-r", src, dest)
 }

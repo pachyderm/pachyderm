@@ -3,9 +3,12 @@ package pfstest
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"math"
 	"net"
 	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -19,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/dial"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
+	"github.com/pachyderm/pachyderm/src/pfs/executil"
 	"github.com/pachyderm/pachyderm/src/pfs/protoutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
@@ -31,30 +35,63 @@ const (
 	// TODO(pedge): large numbers of shards takes forever because
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
-	testDefaultNumShards = 16
+	testDefaultNumShards = 4
 )
 
 var (
 	counter int32 = 0
 )
 
+func init() {
+	executil.SetDebug(true)
+}
+
 func TestBtrfs(t *testing.T) {
+	driver := btrfs.NewDriver(getBtrfsRootDir(t))
+	numShards := testDefaultNumShards
+	runTest(t, driver, numShards, testSimple)
+}
+
+func getBtrfsRootDir(t *testing.T) string {
 	// TODO(pedge)
 	rootDir := os.Getenv("PFS_BTRFS_ROOT")
 	if rootDir == "" {
 		t.Fatal("PFS_BTRFS_ROOT not set")
 	}
-	runAllTests(t, btrfs.NewDriver(rootDir), testDefaultNumShards)
+	return rootDir
 }
 
-func runAllTests(t *testing.T, driver drive.Driver, numShards int) {
-	runTest(t, driver, numShards, testInit)
-	runTest(t, driver, numShards, testInitGetPut)
-}
-
-func testInit(t *testing.T, apiClient pfs.ApiClient) {
+func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	repositoryName := testRepositoryName()
-	initRepositoryResponse, err := apiClient.InitRepository(
+
+	initRepositoryResponse, err := initRepository(apiClient, repositoryName)
+	require.NoError(t, err)
+	require.NotNil(t, initRepositoryResponse)
+
+	branchResponse, err := branch(apiClient, repositoryName, "scratch", pfs.WriteCommitType_WRITE_COMMIT_TYPE_PUT)
+	require.NoError(t, err)
+	require.NotNil(t, branchResponse)
+	newCommitID := branchResponse.Commit.Id
+
+	makeDirectoryResponse, err := makeDirectory(apiClient, repositoryName, newCommitID, "a/b")
+	require.NoError(t, err)
+	require.NotNil(t, makeDirectoryResponse)
+
+	putFileResponse, err := putFile(apiClient, repositoryName, newCommitID, "a/b/one", strings.NewReader("hello world"))
+	require.NoError(t, err)
+	require.NotNil(t, putFileResponse)
+
+	readStringer, err := getFile(apiClient, repositoryName, newCommitID, "a/b/one")
+	require.NoError(t, err)
+	require.Equal(t, "hello world", readStringer.String())
+}
+
+func testRepositoryName() string {
+	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
+}
+
+func initRepository(apiClient pfs.ApiClient, repositoryName string) (*pfs.InitRepositoryResponse, error) {
+	return apiClient.InitRepository(
 		context.Background(),
 		&pfs.InitRepositoryRequest{
 			Repository: &pfs.Repository{
@@ -62,24 +99,25 @@ func testInit(t *testing.T, apiClient pfs.ApiClient) {
 			},
 		},
 	)
-	require.NoError(t, err)
-	require.NotNil(t, initRepositoryResponse)
 }
 
-func testInitGetPut(t *testing.T, apiClient pfs.ApiClient) {
-	repositoryName := testRepositoryName()
-	initRepositoryResponse, err := apiClient.InitRepository(
+func branch(apiClient pfs.ApiClient, repositoryName string, commitID string, writeCommitType pfs.WriteCommitType) (*pfs.BranchResponse, error) {
+	return apiClient.Branch(
 		context.Background(),
-		&pfs.InitRepositoryRequest{
-			Repository: &pfs.Repository{
-				Name: repositoryName,
+		&pfs.BranchRequest{
+			Commit: &pfs.Commit{
+				Repository: &pfs.Repository{
+					Name: repositoryName,
+				},
+				Id: commitID,
 			},
+			WriteCommitType: writeCommitType,
 		},
 	)
-	require.NoError(t, err)
-	require.NotNil(t, initRepositoryResponse)
+}
 
-	makeDirectoryResponse, err := apiClient.MakeDirectory(
+func makeDirectory(apiClient pfs.ApiClient, repositoryName string, commitID string, path string) (*pfs.MakeDirectoryResponse, error) {
+	return apiClient.MakeDirectory(
 		context.Background(),
 		&pfs.MakeDirectoryRequest{
 			Path: &pfs.Path{
@@ -87,16 +125,20 @@ func testInitGetPut(t *testing.T, apiClient pfs.ApiClient) {
 					Repository: &pfs.Repository{
 						Name: repositoryName,
 					},
-					Id: "scratch",
+					Id: commitID,
 				},
-				Path: "a/b",
+				Path: path,
 			},
 		},
 	)
-	require.NoError(t, err)
-	require.NotNil(t, makeDirectoryResponse)
+}
 
-	putFileResponse, err := apiClient.PutFile(
+func putFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, reader io.Reader) (*pfs.PutFileResponse, error) {
+	value, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	return apiClient.PutFile(
 		context.Background(),
 		&pfs.PutFileRequest{
 			Path: &pfs.Path{
@@ -104,16 +146,21 @@ func testInitGetPut(t *testing.T, apiClient pfs.ApiClient) {
 					Repository: &pfs.Repository{
 						Name: repositoryName,
 					},
-					Id: "scratch",
+					Id: commitID,
 				},
-				Path: "a/b/one",
+				Path: path,
 			},
-			Value: []byte("hello world"),
+			Value: value,
 		},
 	)
-	require.NoError(t, err)
-	require.NotNil(t, putFileResponse)
+}
 
+type readStringer interface {
+	io.Reader
+	fmt.Stringer
+}
+
+func getFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string) (readStringer, error) {
 	apiGetFileClient, err := apiClient.GetFile(
 		context.Background(),
 		&pfs.GetFileRequest{
@@ -122,22 +169,20 @@ func testInitGetPut(t *testing.T, apiClient pfs.ApiClient) {
 					Repository: &pfs.Repository{
 						Name: repositoryName,
 					},
-					Id: "scratch",
+					Id: commitID,
 				},
-				Path: "a/b/one",
+				Path: path,
 			},
 		},
 	)
-	require.NoError(t, err)
-	require.NotNil(t, apiGetFileClient)
-
+	if err != nil {
+		return nil, err
+	}
 	buffer := bytes.NewBuffer(nil)
-	require.NoError(t, protoutil.WriteFromStreamingBytesClient(apiGetFileClient, buffer))
-	require.Equal(t, "hello world", buffer.String())
-}
-
-func testRepositoryName() string {
-	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
+	if err := protoutil.WriteFromStreamingBytesClient(apiGetFileClient, buffer); err != nil {
+		return nil, err
+	}
+	return buffer, nil
 }
 
 func runTest(
@@ -146,6 +191,7 @@ func runTest(
 	numShards int,
 	f func(t *testing.T, apiClient pfs.ApiClient),
 ) {
+	dialer := dial.NewDialer()
 	runGrpcTest(
 		t,
 		func(s *grpc.Server, a string) {
@@ -159,7 +205,7 @@ func runTest(
 						address.NewSingleAddresser(
 							a,
 						),
-						dial.NewDialer(),
+						dialer,
 						a,
 					),
 					driver,

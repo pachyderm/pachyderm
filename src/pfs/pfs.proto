@@ -102,6 +102,8 @@ message GetParentResponse {
 message BranchRequest {
   Commit commit = 1;
   WriteCommitType write_commit_type = 2;
+  bool redirect = 3;
+  Commit new_commit = 4;
 }
 
 message BranchResponse {

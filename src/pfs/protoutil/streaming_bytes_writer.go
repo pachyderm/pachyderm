@@ -1,11 +1,6 @@
 package protoutil
 
-import (
-	"bufio"
-	"io"
-
-	"github.com/peter-edge/go-google-protobuf"
-)
+import "github.com/peter-edge/go-google-protobuf"
 
 type streamingBytesWriter struct {
 	streamingBytesServer StreamingBytesServer
@@ -28,9 +23,4 @@ func (s *streamingBytesWriter) Write(p []byte) (int, error) {
 		return 0, err
 	}
 	return len(p), nil
-}
-
-func (s *streamingBytesWriter) ReadFrom(reader io.Reader) error {
-	_, err := bufio.NewReader(reader).WriteTo(s)
-	return err
 }

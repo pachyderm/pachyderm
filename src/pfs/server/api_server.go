@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"fmt"
 
 	"google.golang.org/grpc"
 
@@ -136,7 +137,45 @@ func (a *apiServer) GetParent(ctx context.Context, getParentRequest *pfs.GetPare
 }
 
 func (a *apiServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest) (*pfs.BranchResponse, error) {
-	return &pfs.BranchResponse{}, nil
+	if branchRequest.Redirect {
+		if branchRequest.NewCommit == nil {
+			return nil, fmt.Errorf("must set a new commit for redirect %+v", branchRequest)
+		}
+	} else {
+		if branchRequest.NewCommit != nil {
+			return nil, fmt.Errorf("cannot set a new commit for non-redirect %+v", branchRequest)
+		}
+	}
+	shards, err := a.getAllShards(false)
+	if err != nil {
+		return nil, err
+	}
+	newCommit, err := a.driver.Branch(branchRequest.Commit, branchRequest.NewCommit, shards)
+	if err != nil {
+		return nil, err
+	}
+	if !branchRequest.Redirect {
+		clientConns, err := a.router.GetAllClientConns()
+		if err != nil {
+			return nil, err
+		}
+		for _, clientConn := range clientConns {
+			if _, err := pfs.NewApiClient(clientConn).Branch(
+				ctx,
+				&pfs.BranchRequest{
+					Commit:          branchRequest.Commit,
+					WriteCommitType: branchRequest.WriteCommitType,
+					Redirect:        true,
+					NewCommit:       newCommit,
+				},
+			); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return &pfs.BranchResponse{
+		Commit: newCommit,
+	}, nil
 }
 
 func (a *apiServer) Commit(ctx context.Context, commitRequest *pfs.CommitRequest) (*pfs.CommitResponse, error) {
