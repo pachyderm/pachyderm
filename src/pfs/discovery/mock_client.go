@@ -27,6 +27,8 @@ func (c *mockClient) Close() error {
 }
 
 func (c *mockClient) Get(key string) (string, error) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	record, ok := c.records[key]
 	if !ok {
 		return "", ErrNotFound
@@ -38,6 +40,8 @@ func (c *mockClient) Get(key string) (string, error) {
 }
 
 func (c *mockClient) GetAll(key string) (map[string]string, error) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	result := make(map[string]string)
 	for k, v := range c.records {
 		if strings.HasPrefix(k, key) && !v.directory {
@@ -48,6 +52,8 @@ func (c *mockClient) GetAll(key string) (map[string]string, error) {
 }
 
 func (c *mockClient) Set(key string, value string) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	oldRecord, ok := c.records[key]
 	if ok && oldRecord.directory {
 		return ErrDirectory
@@ -57,6 +63,8 @@ func (c *mockClient) Set(key string, value string) error {
 }
 
 func (c *mockClient) Create(key string, value string) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	_, ok := c.records[key]
 	if ok {
 		return ErrExists
@@ -66,6 +74,8 @@ func (c *mockClient) Create(key string, value string) error {
 }
 
 func (c *mockClient) Delete(key string) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	oldRecord, ok := c.records[key]
 	if !ok {
 		return nil
@@ -78,6 +88,8 @@ func (c *mockClient) Delete(key string) error {
 }
 
 func (c *mockClient) CheckAndSet(key string, value string, oldValue string) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	oldRecord, ok := c.records[key]
 	if !ok {
 		return ErrNotFound
