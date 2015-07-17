@@ -56,6 +56,7 @@ message CommitInfo {
 
 message InitRepositoryRequest {
 	Repository repository = 1;
+  bool redirect = 2;
 }
 
 message InitRepositoryResponse {
@@ -67,6 +68,7 @@ message GetFileRequest {
 
 message MakeDirectoryRequest {
 	Path path = 1;
+  bool redirect = 2;
 }
 
 message MakeDirectoryResponse {

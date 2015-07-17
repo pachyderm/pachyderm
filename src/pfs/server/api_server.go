@@ -3,6 +3,8 @@ package server
 import (
 	"bytes"
 
+	"google.golang.org/grpc"
+
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -31,34 +33,41 @@ func newAPIServer(
 }
 
 func (a *apiServer) InitRepository(ctx context.Context, initRepositoryRequest *pfs.InitRepositoryRequest) (*pfs.InitRepositoryResponse, error) {
-	shards, err := a.getMasterShards()
-	if err != nil {
+	if err := a.forAllShards(
+		func(shard int) error {
+			return a.driver.InitRepository(initRepositoryRequest.Repository, shard)
+		},
+		true,
+	); err != nil {
 		return nil, err
 	}
-	for shard := range shards {
-		if err := a.driver.InitRepository(initRepositoryRequest.Repository, shard); err != nil {
+	if !initRepositoryRequest.Redirect {
+		clientConns, err := a.router.GetAllClientConns()
+		if err != nil {
 			return nil, err
 		}
-	}
-	shards, err = a.getSlaveShards()
-	if err != nil {
-		return nil, err
-	}
-	for shard := range shards {
-		if err := a.driver.InitRepository(initRepositoryRequest.Repository, shard); err != nil {
-			return nil, err
+		for _, clientConn := range clientConns {
+			if _, err := pfs.NewApiClient(clientConn).InitRepository(
+				ctx,
+				&pfs.InitRepositoryRequest{
+					Repository: initRepositoryRequest.Repository,
+					Redirect:   true,
+				},
+			); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return &pfs.InitRepositoryResponse{}, nil
 }
 
 func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) (retErr error) {
-	shard, apiClient, err := a.getShardAndAPIClientIfNecessary(getFileRequest.Path, true)
+	shard, clientConn, err := a.getShardAndClientConnIfNecessary(getFileRequest.Path, true)
 	if err != nil {
 		return err
 	}
-	if apiClient != nil {
-		apiGetFileClient, err := apiClient.GetFile(context.Background(), getFileRequest)
+	if clientConn != nil {
+		apiGetFileClient, err := pfs.NewApiClient(clientConn).GetFile(context.Background(), getFileRequest)
 		if err != nil {
 			return err
 		}
@@ -77,26 +86,41 @@ func (a *apiServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer
 }
 
 func (a *apiServer) MakeDirectory(ctx context.Context, makeDirectoryRequest *pfs.MakeDirectoryRequest) (*pfs.MakeDirectoryResponse, error) {
-	shard, apiClient, err := a.getShardAndAPIClientIfNecessary(makeDirectoryRequest.Path, false)
-	if err != nil {
+	if err := a.forAllShards(
+		func(shard int) error {
+			return a.driver.MakeDirectory(makeDirectoryRequest.Path, shard)
+		},
+		true,
+	); err != nil {
 		return nil, err
 	}
-	if apiClient != nil {
-		return apiClient.MakeDirectory(ctx, makeDirectoryRequest)
-	}
-	if err := a.driver.MakeDirectory(makeDirectoryRequest.Path, shard); err != nil {
-		return nil, err
+	if !makeDirectoryRequest.Redirect {
+		clientConns, err := a.router.GetAllClientConns()
+		if err != nil {
+			return nil, err
+		}
+		for _, clientConn := range clientConns {
+			if _, err := pfs.NewApiClient(clientConn).MakeDirectory(
+				ctx,
+				&pfs.MakeDirectoryRequest{
+					Path:     makeDirectoryRequest.Path,
+					Redirect: true,
+				},
+			); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return &pfs.MakeDirectoryResponse{}, nil
 }
 
 func (a *apiServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequest) (*pfs.PutFileResponse, error) {
-	shard, apiClient, err := a.getShardAndAPIClientIfNecessary(putFileRequest.Path, false)
+	shard, clientConn, err := a.getShardAndClientConnIfNecessary(putFileRequest.Path, false)
 	if err != nil {
 		return nil, err
 	}
-	if apiClient != nil {
-		return apiClient.PutFile(ctx, putFileRequest)
+	if clientConn != nil {
+		return pfs.NewApiClient(clientConn).PutFile(ctx, putFileRequest)
 	}
 	if err := a.driver.PutFile(putFileRequest.Path, shard, bytes.NewReader(putFileRequest.Value)); err != nil {
 		return nil, err
@@ -132,7 +156,7 @@ func (a *apiServer) GetCommitInfo(ctx context.Context, getCommitInfoRequest *pfs
 	return &pfs.GetCommitInfoResponse{}, nil
 }
 
-func (a *apiServer) getShardAndAPIClientIfNecessary(path *pfs.Path, slaveOk bool) (int, pfs.ApiClient, error) {
+func (a *apiServer) getShardAndClientConnIfNecessary(path *pfs.Path, slaveOk bool) (int, *grpc.ClientConn, error) {
 	shard, err := a.sharder.GetShard(path)
 	if err != nil {
 		return shard, nil, err
@@ -143,19 +167,43 @@ func (a *apiServer) getShardAndAPIClientIfNecessary(path *pfs.Path, slaveOk bool
 	}
 	if !ok {
 		if !slaveOk {
-			apiClient, err := a.router.GetMasterAPIClient(shard)
-			return shard, apiClient, err
+			clientConn, err := a.router.GetMasterClientConn(shard)
+			return shard, clientConn, err
 		}
 		ok, err = a.router.IsLocalSlaveShard(shard)
 		if err != nil {
 			return shard, nil, err
 		}
 		if !ok {
-			apiClient, err := a.router.GetMasterOrSlaveAPIClient(shard)
-			return shard, apiClient, err
+			clientConn, err := a.router.GetMasterOrSlaveClientConn(shard)
+			return shard, clientConn, err
 		}
 	}
 	return shard, nil, nil
+}
+
+func (a *apiServer) forAllShards(f func(int) error, slaveToo bool) error {
+	shards, err := a.getMasterShards()
+	if err != nil {
+		return err
+	}
+	for shard := range shards {
+		if err := f(shard); err != nil {
+			return err
+		}
+	}
+	if slaveToo {
+		shards, err = a.getSlaveShards()
+		if err != nil {
+			return err
+		}
+		for shard := range shards {
+			if err := f(shard); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (a *apiServer) getMasterShards() (map[int]bool, error) {

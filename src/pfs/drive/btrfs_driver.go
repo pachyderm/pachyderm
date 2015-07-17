@@ -58,7 +58,7 @@ func (b *btrfsDriver) MakeDirectory(path *pfs.Path, shard int) error {
 	// TODO(pedge): if PutFile fails here or on another shard, the directories
 	// will still exist and be returned from ListFiles, we want to do this
 	// iteratively and with rollback
-	return os.MkdirAll(filepath.Dir(b.filePath(path, shard)), 0700)
+	return os.MkdirAll(b.filePath(path, shard), 0700)
 }
 
 func (b *btrfsDriver) PutFile(path *pfs.Path, shard int, reader io.Reader) error {
@@ -145,7 +145,7 @@ func runWithOptions(runOptions runOptions, args ...string) error {
 	cmd.Stdout = runOptions.stdout
 	cmd.Stderr = runOptions.stderr
 	argsString := strings.Join(args, " ")
-	log.Print(argsString)
+	log.Printf("shell: %s", argsString)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("%s: %s", argsString, err.Error())
 	}

@@ -13,6 +13,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/facebookgo/freeport"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/address"
 	"github.com/pachyderm/pachyderm/src/pfs/dial"
@@ -21,7 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pfs/shard"
-	"github.com/phayes/freeport"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -30,7 +30,7 @@ const (
 	// TODO(pedge): large numbers of shards takes forever because
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
-	testDefaultNumShards = 4
+	testDefaultNumShards = 16
 )
 
 var (
@@ -78,6 +78,23 @@ func testInitGetPut(t *testing.T, apiClient pfs.ApiClient) {
 	require.NoError(t, err)
 	require.NotNil(t, initRepositoryResponse)
 
+	makeDirectoryResponse, err := apiClient.MakeDirectory(
+		context.Background(),
+		&pfs.MakeDirectoryRequest{
+			Path: &pfs.Path{
+				Commit: &pfs.Commit{
+					Repository: &pfs.Repository{
+						Name: repositoryName,
+					},
+					Id: "scratch",
+				},
+				Path: "a/b",
+			},
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, makeDirectoryResponse)
+
 	putFileResponse, err := apiClient.PutFile(
 		context.Background(),
 		&pfs.PutFileRequest{
@@ -88,7 +105,7 @@ func testInitGetPut(t *testing.T, apiClient pfs.ApiClient) {
 					},
 					Id: "scratch",
 				},
-				Path: "one",
+				Path: "a/b/one",
 			},
 			Value: []byte("hello world"),
 		},
@@ -106,7 +123,7 @@ func testInitGetPut(t *testing.T, apiClient pfs.ApiClient) {
 					},
 					Id: "scratch",
 				},
-				Path: "one",
+				Path: "a/b/one",
 			},
 		},
 	)
@@ -177,22 +194,24 @@ type grpcSuite struct {
 	testFunc     func(*testing.T, *grpc.ClientConn)
 	clientConn   *grpc.ClientConn
 	server       *grpc.Server
+	address      string
 	errC         chan error
 }
 
 func (g *grpcSuite) SetupSuite() {
-	port := freeport.GetPort()
-	address := fmt.Sprintf("0.0.0.0:%d", port)
+	port, err := freeport.Get()
+	require.NoError(g.T(), err)
+	g.address = fmt.Sprintf("0.0.0.0:%d", port)
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	require.NoError(g.T(), err)
 	g.server = grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
-	g.registerFunc(g.server, address)
+	g.registerFunc(g.server, g.address)
 	g.errC = make(chan error, 1)
 	go func() {
 		g.errC <- g.server.Serve(listener)
 		close(g.errC)
 	}()
-	clientConn, err := grpc.Dial(address)
+	clientConn, err := grpc.Dial(g.address)
 	if err != nil {
 		g.server.Stop()
 		<-g.errC

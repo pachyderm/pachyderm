@@ -194,6 +194,7 @@ func (m *CommitInfo) GetCommit() *Commit {
 
 type InitRepositoryRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
+	Redirect   bool        `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
 }
 
 func (m *InitRepositoryRequest) Reset()         { *m = InitRepositoryRequest{} }
@@ -230,7 +231,8 @@ func (m *GetFileRequest) GetPath() *Path {
 }
 
 type MakeDirectoryRequest struct {
-	Path *Path `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+	Path     *Path `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+	Redirect bool  `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
 }
 
 func (m *MakeDirectoryRequest) Reset()         { *m = MakeDirectoryRequest{} }

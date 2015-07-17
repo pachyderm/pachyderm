@@ -23,12 +23,6 @@
 
 include etc/env/pfs.env
 
-BENCH_TIMEOUT = "20m"
-
-ifndef GOMAXPROCS
-	GOMAXPROCS = 20
-endif
-
 all: test
 
 print-%:
@@ -82,11 +76,11 @@ pretest: lint vet errcheck
 
 # TODO(pedge): add pretest when fixed
 test:
-	bin/run go test -parallel $(GOMAXPROCS) -test.short ./...
+	bin/go-test -test.short ./...
 
 # TODO(pedge): add pretest when fixed
 test-long:
-	bin/run go test -parallel $(GOMAXPROCS) ./...
+	bin/go-test ./...
 
 test-pfs: test-deps
 	go get -v github.com/golang/lint/golint
@@ -95,11 +89,11 @@ test-pfs: test-deps
 		done
 	go vet ./src/pfs/...
 	errcheck ./src/pfs/...
-	bin/run go test -test.v ./src/pfs/...
+	bin/go-test -test.v ./src/pfs/...
 
 # TODO(pedge): add pretest when fixed
 bench:
-	bin/run go test -parallel $(GOMAXPROCS) -bench . -timeout $(BENCH_TIMEOUT) ./...
+	bin/go-test -bench . ./...
 
 proto:
 	@ if ! docker images | grep 'pedge/proto3grpc' > /dev/null; then \

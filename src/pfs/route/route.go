@@ -1,16 +1,17 @@
 package route
 
 import (
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/address"
 	"github.com/pachyderm/pachyderm/src/pfs/dial"
+	"google.golang.org/grpc"
 )
 
 type Router interface {
 	IsLocalMasterShard(shard int) (bool, error)
 	IsLocalSlaveShard(shard int) (bool, error)
-	GetMasterAPIClient(shard int) (pfs.ApiClient, error)
-	GetMasterOrSlaveAPIClient(shard int) (pfs.ApiClient, error)
+	GetMasterClientConn(shard int) (*grpc.ClientConn, error)
+	GetMasterOrSlaveClientConn(shard int) (*grpc.ClientConn, error)
+	GetAllClientConns() ([]*grpc.ClientConn, error)
 }
 
 func NewRouter(

@@ -16,6 +16,6 @@ func (l *singleAddresser) GetSlaveAddresses(shard int) ([]string, error) {
 	return []string{}, nil
 }
 
-func (l *singleAddresser) GetServerAddress() (string, error) {
-	return l.address, nil
+func (l *singleAddresser) GetAllAddresses() ([]string, error) {
+	return []string{l.address}, nil
 }
