@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/address"
 	"github.com/pachyderm/pachyderm/src/pfs/dial"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs/protoutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
@@ -43,7 +44,7 @@ func TestBtrfs(t *testing.T) {
 	if rootDir == "" {
 		t.Fatal("PFS_BTRFS_ROOT not set")
 	}
-	runAllTests(t, drive.NewBtrfsDriver(rootDir), testDefaultNumShards)
+	runAllTests(t, btrfs.NewDriver(rootDir), testDefaultNumShards)
 }
 
 func runAllTests(t *testing.T, driver drive.Driver, numShards int) {

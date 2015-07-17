@@ -20,7 +20,7 @@ var (
 type Driver interface {
 	Init() error
 	DriverType() pfs.DriverType
-	InitRepository(repository *pfs.Repository, shard int) error
+	InitRepository(repository *pfs.Repository, shard map[int]bool) error
 	GetFile(path *pfs.Path, shard int) (io.ReadCloser, error)
 	MakeDirectory(path *pfs.Path, shard int) error
 	PutFile(path *pfs.Path, shard int, reader io.Reader) error
@@ -31,8 +31,4 @@ type Driver interface {
 	PullDiff(commit *pfs.Commit, shard int) (io.Reader, error)
 	PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error
 	GetCommitInfo(commit *pfs.Commit) (*pfs.CommitInfo, error)
-}
-
-func NewBtrfsDriver(rootDir string) Driver {
-	return newBtrfsDriver(rootDir)
 }

@@ -33,12 +33,11 @@ func newAPIServer(
 }
 
 func (a *apiServer) InitRepository(ctx context.Context, initRepositoryRequest *pfs.InitRepositoryRequest) (*pfs.InitRepositoryResponse, error) {
-	if err := a.forAllShards(
-		func(shard int) error {
-			return a.driver.InitRepository(initRepositoryRequest.Repository, shard)
-		},
-		true,
-	); err != nil {
+	shards, err := a.getAllShards(true)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.InitRepository(initRepositoryRequest.Repository, shards); err != nil {
 		return nil, err
 	}
 	if !initRepositoryRequest.Redirect {
@@ -183,7 +182,7 @@ func (a *apiServer) getShardAndClientConnIfNecessary(path *pfs.Path, slaveOk boo
 }
 
 func (a *apiServer) forAllShards(f func(int) error, slaveToo bool) error {
-	shards, err := a.getMasterShards()
+	shards, err := a.getAllShards(slaveToo)
 	if err != nil {
 		return err
 	}
@@ -192,18 +191,24 @@ func (a *apiServer) forAllShards(f func(int) error, slaveToo bool) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (a *apiServer) getAllShards(slaveToo bool) (map[int]bool, error) {
+	shards, err := a.getMasterShards()
+	if err != nil {
+		return nil, err
+	}
 	if slaveToo {
-		shards, err = a.getSlaveShards()
+		slaveShards, err := a.getSlaveShards()
 		if err != nil {
-			return err
+			return nil, err
 		}
-		for shard := range shards {
-			if err := f(shard); err != nil {
-				return err
-			}
+		for slaveShard := range slaveShards {
+			shards[slaveShard] = true
 		}
 	}
-	return nil
+	return shards, nil
 }
 
 func (a *apiServer) getMasterShards() (map[int]bool, error) {
