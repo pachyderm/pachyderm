@@ -39,7 +39,7 @@ const (
 )
 
 var (
-	counter int32 = 0
+	counter int32
 )
 
 func init() {
