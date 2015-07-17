@@ -94,6 +94,20 @@ $ curl pachyderm.io/deploy | sh
 The startup process takes a little while the first time you run it because
 each node has to pull a Docker image.
 
+#### Deploy Pachyderm using Kubernetes
+
+As of v0.9 Pachyderm supports Deploying on Kubernetes.  The relevant files can
+be found in [etc/kubernetes](etc/kubernetes). The start the service running on
+Kubernetes do:
+
+```shell
+$ kubectl create -f pfs-service.yml
+$ kubectl create -f router-controller.yml
+$ kubectl create -f storage-controller.yml
+```
+
+Pachyderm expects etcd to be running on the host machine. 
+
 ####  Settings
 
 By default the deploy script will create a cluster with 3 shards and 3
