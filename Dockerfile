@@ -24,6 +24,7 @@ RUN \
   go get google.golang.org/grpc && \
   go get github.com/peter-edge/go-env && \
   go get github.com/peter-edge/go-google-protobuf && \
+  go get github.com/spf13/cobra && \
   go get github.com/facebookgo/freeport
 ADD etc/bin /go/src/github.com/pachyderm/pachyderm/etc/bin/
 RUN ln /go/src/github.com/pachyderm/pachyderm/etc/bin/btrfs-wrapper /bin/btrfs
