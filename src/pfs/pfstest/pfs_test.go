@@ -67,15 +67,24 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	err := initRepository(apiClient, repositoryName)
 	require.NoError(t, err)
 
+	getCommitInfoResponse, err := getCommitInfo(apiClient, repositoryName, "scratch")
+	require.NoError(t, err)
+	require.NotNil(t, getCommitInfoResponse)
+	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.Commit.Id)
+	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, getCommitInfoResponse.CommitInfo.CommitType)
+	require.Nil(t, getCommitInfoResponse.CommitInfo.ParentCommit)
+
 	branchResponse, err := branch(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
 	require.NotNil(t, branchResponse)
 	newCommitID := branchResponse.Commit.Id
 
-	getParentResponse, err := getParent(apiClient, repositoryName, newCommitID)
+	getCommitInfoResponse, err = getCommitInfo(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
-	require.NotNil(t, getParentResponse)
-	require.Equal(t, "scratch", getParentResponse.Commit.Id)
+	require.NotNil(t, getCommitInfoResponse)
+	require.Equal(t, newCommitID, getCommitInfoResponse.CommitInfo.Commit.Id)
+	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, getCommitInfoResponse.CommitInfo.CommitType)
+	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.ParentCommit.Id)
 
 	err = makeDirectory(apiClient, repositoryName, newCommitID, "a/b")
 	require.NoError(t, err)
@@ -86,6 +95,12 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	readStringer, err := getFile(apiClient, repositoryName, newCommitID, "a/b/one")
 	require.NoError(t, err)
 	require.Equal(t, "hello world", readStringer.String())
+
+	listFilesResponse, err := listFiles(apiClient, repositoryName, newCommitID, "a/b", 0, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(listFilesResponse.FileInfo))
+	fileInfo := listFilesResponse.FileInfo[0]
+	require.Equal(t, "a/b/one", fileInfo.Path.Path)
 }
 
 func testRepositoryName() string {
@@ -189,10 +204,31 @@ func getFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 	return buffer, nil
 }
 
-func getParent(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.GetParentResponse, error) {
-	return apiClient.GetParent(
+func listFiles(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, shardNum int, shardModulo int) (*pfs.ListFilesResponse, error) {
+	return apiClient.ListFiles(
 		context.Background(),
-		&pfs.GetParentRequest{
+		&pfs.ListFilesRequest{
+			Path: &pfs.Path{
+				Commit: &pfs.Commit{
+					Repository: &pfs.Repository{
+						Name: repositoryName,
+					},
+					Id: commitID,
+				},
+				Path: path,
+			},
+			Shard: &pfs.Shard{
+				Number: uint64(shardNum),
+				Modulo: uint64(shardModulo),
+			},
+		},
+	)
+}
+
+func getCommitInfo(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.GetCommitInfoResponse, error) {
+	return apiClient.GetCommitInfo(
+		context.Background(),
+		&pfs.GetCommitInfoRequest{
 			Commit: &pfs.Commit{
 				Repository: &pfs.Repository{
 					Name: repositoryName,

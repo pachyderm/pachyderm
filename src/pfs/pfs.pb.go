@@ -12,6 +12,7 @@ It has these top-level messages:
 	Repository
 	Commit
 	Path
+	FileInfo
 	Shard
 	CommitInfo
 	InitRepositoryRequest
@@ -20,8 +21,6 @@ It has these top-level messages:
 	PutFileRequest
 	ListFilesRequest
 	ListFilesResponse
-	GetParentRequest
-	GetParentResponse
 	BranchRequest
 	BranchResponse
 	CommitRequest
@@ -35,6 +34,7 @@ package pfs
 import proto "github.com/golang/protobuf/proto"
 import google_protobuf "github.com/peter-edge/go-google-protobuf"
 import google_protobuf1 "github.com/peter-edge/go-google-protobuf"
+import google_protobuf2 "github.com/peter-edge/go-google-protobuf"
 
 import (
 	context "golang.org/x/net/context"
@@ -70,6 +70,33 @@ var CommitType_value = map[string]int32{
 
 func (x CommitType) String() string {
 	return proto.EnumName(CommitType_name, int32(x))
+}
+
+// FileType represents a type of file from ListFiles.
+type FileType int32
+
+const (
+	FileType_FILE_TYPE_NONE    FileType = 0
+	FileType_FILE_TYPE_OTHER   FileType = 1
+	FileType_FILE_TYPE_REGULAR FileType = 2
+	FileType_FILE_TYPE_DIR     FileType = 3
+)
+
+var FileType_name = map[int32]string{
+	0: "FILE_TYPE_NONE",
+	1: "FILE_TYPE_OTHER",
+	2: "FILE_TYPE_REGULAR",
+	3: "FILE_TYPE_DIR",
+}
+var FileType_value = map[string]int32{
+	"FILE_TYPE_NONE":    0,
+	"FILE_TYPE_OTHER":   1,
+	"FILE_TYPE_REGULAR": 2,
+	"FILE_TYPE_DIR":     3,
+}
+
+func (x FileType) String() string {
+	return proto.EnumName(FileType_name, int32(x))
 }
 
 // Repository represents a repository.
@@ -115,6 +142,33 @@ func (m *Path) GetCommit() *Commit {
 	return nil
 }
 
+// FileInfo represents information about a file.
+type FileInfo struct {
+	Path         *Path                       `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+	FileType     FileType                    `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
+	SizeBytes    uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
+	Perm         uint32                      `protobuf:"varint,4,opt,name=perm" json:"perm,omitempty"`
+	LastModified *google_protobuf1.Timestamp `protobuf:"bytes,5,opt,name=last_modified" json:"last_modified,omitempty"`
+}
+
+func (m *FileInfo) Reset()         { *m = FileInfo{} }
+func (m *FileInfo) String() string { return proto.CompactTextString(m) }
+func (*FileInfo) ProtoMessage()    {}
+
+func (m *FileInfo) GetPath() *Path {
+	if m != nil {
+		return m.Path
+	}
+	return nil
+}
+
+func (m *FileInfo) GetLastModified() *google_protobuf1.Timestamp {
+	if m != nil {
+		return m.LastModified
+	}
+	return nil
+}
+
 // Shard represents a dynamic shard within PFS.
 // number must always be less than modulo.
 type Shard struct {
@@ -128,8 +182,9 @@ func (*Shard) ProtoMessage()    {}
 
 // CommitInfo represents information about a commit.
 type CommitInfo struct {
-	Commit     *Commit    `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	CommitType CommitType `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
+	Commit       *Commit    `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	CommitType   CommitType `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
+	ParentCommit *Commit    `protobuf:"bytes,3,opt,name=parent_commit" json:"parent_commit,omitempty"`
 }
 
 func (m *CommitInfo) Reset()         { *m = CommitInfo{} }
@@ -139,6 +194,13 @@ func (*CommitInfo) ProtoMessage()    {}
 func (m *CommitInfo) GetCommit() *Commit {
 	if m != nil {
 		return m.Commit
+	}
+	return nil
+}
+
+func (m *CommitInfo) GetParentCommit() *Commit {
+	if m != nil {
+		return m.ParentCommit
 	}
 	return nil
 }
@@ -207,8 +269,9 @@ func (m *PutFileRequest) GetPath() *Path {
 }
 
 type ListFilesRequest struct {
-	Path  *Path  `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
-	Shard *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
+	Path     *Path  `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+	Shard    *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
+	Redirect bool   `protobuf:"varint,3,opt,name=redirect" json:"redirect,omitempty"`
 }
 
 func (m *ListFilesRequest) Reset()         { *m = ListFilesRequest{} }
@@ -230,46 +293,16 @@ func (m *ListFilesRequest) GetShard() *Shard {
 }
 
 type ListFilesResponse struct {
-	Path []*Path `protobuf:"bytes,1,rep,name=path" json:"path,omitempty"`
+	FileInfo []*FileInfo `protobuf:"bytes,1,rep,name=file_info" json:"file_info,omitempty"`
 }
 
 func (m *ListFilesResponse) Reset()         { *m = ListFilesResponse{} }
 func (m *ListFilesResponse) String() string { return proto.CompactTextString(m) }
 func (*ListFilesResponse) ProtoMessage()    {}
 
-func (m *ListFilesResponse) GetPath() []*Path {
+func (m *ListFilesResponse) GetFileInfo() []*FileInfo {
 	if m != nil {
-		return m.Path
-	}
-	return nil
-}
-
-type GetParentRequest struct {
-	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-}
-
-func (m *GetParentRequest) Reset()         { *m = GetParentRequest{} }
-func (m *GetParentRequest) String() string { return proto.CompactTextString(m) }
-func (*GetParentRequest) ProtoMessage()    {}
-
-func (m *GetParentRequest) GetCommit() *Commit {
-	if m != nil {
-		return m.Commit
-	}
-	return nil
-}
-
-type GetParentResponse struct {
-	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-}
-
-func (m *GetParentResponse) Reset()         { *m = GetParentResponse{} }
-func (m *GetParentResponse) String() string { return proto.CompactTextString(m) }
-func (*GetParentResponse) ProtoMessage()    {}
-
-func (m *GetParentResponse) GetCommit() *Commit {
-	if m != nil {
-		return m.Commit
+		return m.FileInfo
 	}
 	return nil
 }
@@ -393,6 +426,7 @@ func (m *PushDiffRequest) GetCommit() *Commit {
 
 func init() {
 	proto.RegisterEnum("pfs.CommitType", CommitType_name, CommitType_value)
+	proto.RegisterEnum("pfs.FileType", FileType_name, FileType_value)
 }
 
 // Client API for Api service
@@ -412,8 +446,6 @@ type ApiClient interface {
 	// ListFiles lists the files within a directory.
 	// An error is returned if the specified path is not a directory.
 	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error)
-	// GetParent gets the parent commit ID of the specified commit.
-	GetParent(ctx context.Context, in *GetParentRequest, opts ...grpc.CallOption) (*GetParentResponse, error)
 	// Branch creates a new write commit from a base commit.
 	// An error is returned if the base commit is not a read commit.
 	Branch(ctx context.Context, in *BranchRequest, opts ...grpc.CallOption) (*BranchResponse, error)
@@ -457,7 +489,7 @@ func (c *apiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grp
 }
 
 type Api_GetFileClient interface {
-	Recv() (*google_protobuf1.BytesValue, error)
+	Recv() (*google_protobuf2.BytesValue, error)
 	grpc.ClientStream
 }
 
@@ -465,8 +497,8 @@ type apiGetFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *apiGetFileClient) Recv() (*google_protobuf1.BytesValue, error) {
-	m := new(google_protobuf1.BytesValue)
+func (x *apiGetFileClient) Recv() (*google_protobuf2.BytesValue, error) {
+	m := new(google_protobuf2.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -494,15 +526,6 @@ func (c *apiClient) PutFile(ctx context.Context, in *PutFileRequest, opts ...grp
 func (c *apiClient) ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error) {
 	out := new(ListFilesResponse)
 	err := grpc.Invoke(ctx, "/pfs.Api/ListFiles", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *apiClient) GetParent(ctx context.Context, in *GetParentRequest, opts ...grpc.CallOption) (*GetParentResponse, error) {
-	out := new(GetParentResponse)
-	err := grpc.Invoke(ctx, "/pfs.Api/GetParent", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -553,8 +576,6 @@ type ApiServer interface {
 	// ListFiles lists the files within a directory.
 	// An error is returned if the specified path is not a directory.
 	ListFiles(context.Context, *ListFilesRequest) (*ListFilesResponse, error)
-	// GetParent gets the parent commit ID of the specified commit.
-	GetParent(context.Context, *GetParentRequest) (*GetParentResponse, error)
 	// Branch creates a new write commit from a base commit.
 	// An error is returned if the base commit is not a read commit.
 	Branch(context.Context, *BranchRequest) (*BranchResponse, error)
@@ -590,7 +611,7 @@ func _Api_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type Api_GetFileServer interface {
-	Send(*google_protobuf1.BytesValue) error
+	Send(*google_protobuf2.BytesValue) error
 	grpc.ServerStream
 }
 
@@ -598,7 +619,7 @@ type apiGetFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *apiGetFileServer) Send(m *google_protobuf1.BytesValue) error {
+func (x *apiGetFileServer) Send(m *google_protobuf2.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -632,18 +653,6 @@ func _Api_ListFiles_Handler(srv interface{}, ctx context.Context, codec grpc.Cod
 		return nil, err
 	}
 	out, err := srv.(ApiServer).ListFiles(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _Api_GetParent_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(GetParentRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(ApiServer).GetParent(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -707,10 +716,6 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_ListFiles_Handler,
 		},
 		{
-			MethodName: "GetParent",
-			Handler:    _Api_GetParent_Handler,
-		},
-		{
 			MethodName: "Branch",
 			Handler:    _Api_Branch_Handler,
 		},
@@ -766,7 +771,7 @@ func (c *internalApiClient) PullDiff(ctx context.Context, in *PullDiffRequest, o
 }
 
 type InternalApi_PullDiffClient interface {
-	Recv() (*google_protobuf1.BytesValue, error)
+	Recv() (*google_protobuf2.BytesValue, error)
 	grpc.ClientStream
 }
 
@@ -774,8 +779,8 @@ type internalApiPullDiffClient struct {
 	grpc.ClientStream
 }
 
-func (x *internalApiPullDiffClient) Recv() (*google_protobuf1.BytesValue, error) {
-	m := new(google_protobuf1.BytesValue)
+func (x *internalApiPullDiffClient) Recv() (*google_protobuf2.BytesValue, error) {
+	m := new(google_protobuf2.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -814,7 +819,7 @@ func _InternalApi_PullDiff_Handler(srv interface{}, stream grpc.ServerStream) er
 }
 
 type InternalApi_PullDiffServer interface {
-	Send(*google_protobuf1.BytesValue) error
+	Send(*google_protobuf2.BytesValue) error
 	grpc.ServerStream
 }
 
@@ -822,7 +827,7 @@ type internalApiPullDiffServer struct {
 	grpc.ServerStream
 }
 
-func (x *internalApiPullDiffServer) Send(m *google_protobuf1.BytesValue) error {
+func (x *internalApiPullDiffServer) Send(m *google_protobuf2.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 

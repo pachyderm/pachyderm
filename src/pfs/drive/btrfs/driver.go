@@ -21,10 +21,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/executil"
+	"github.com/peter-edge/go-google-protobuf"
 )
 
 type driver struct {
@@ -93,31 +95,63 @@ func (d *driver) PutFile(path *pfs.Path, shard int, reader io.Reader) error {
 	return err
 }
 
-func (d *driver) ListFiles(path *pfs.Path, shard int) ([]*pfs.Path, error) {
-	return nil, nil
-}
-
-func (d *driver) GetParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
-	if commit.Id == drive.InitialCommitID {
-		// do we really want to return error?
-		return nil, fmt.Errorf("no parent for %s", drive.InitialCommitID)
-	}
-	data, err := ioutil.ReadFile(
-		d.filePath(
-			&pfs.Path{
-				Commit: commit,
-				Path:   ".pfs/parent",
-			},
-			shard,
-		),
-	)
+func (d *driver) ListFiles(path *pfs.Path, shard int) (retValue []*pfs.FileInfo, retErr error) {
+	filePath := d.filePath(path, shard)
+	stat, err := os.Stat(filePath)
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.Commit{
-		Repository: commit.Repository,
-		Id:         string(data),
-	}, nil
+	if !stat.IsDir() {
+		return nil, fmt.Errorf("%s is not a directory", filePath)
+	}
+	dir, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := dir.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	var fileInfos []*pfs.FileInfo
+	// TODO(pedge): constant
+	for names, err := dir.Readdirnames(100); err != io.EOF; names, err = dir.Readdirnames(100) {
+		if err != nil {
+			return nil, err
+		}
+		for _, name := range names {
+			subPath := &pfs.Path{
+				Commit: path.Commit,
+				Path:   filepath.Join(path.Path, name),
+			}
+			subFilePath := d.filePath(path, shard)
+			stat, err := os.Stat(subFilePath)
+			if err != nil {
+				return nil, err
+			}
+			fileType := pfs.FileType_FILE_TYPE_OTHER
+			if stat.Mode().IsRegular() {
+				fileType = pfs.FileType_FILE_TYPE_REGULAR
+			}
+			if stat.Mode().IsDir() {
+				fileType = pfs.FileType_FILE_TYPE_DIR
+			}
+			fileInfos = append(
+				fileInfos,
+				&pfs.FileInfo{
+					Path:      subPath,
+					FileType:  fileType,
+					SizeBytes: uint64(stat.Size()),
+					Perm:      uint32(stat.Mode() & os.ModePerm),
+					LastModified: &google_protobuf.Timestamp{
+						Seconds: stat.ModTime().UnixNano() / int64(time.Second),
+						Nanos:   int32(stat.ModTime().UnixNano() % int64(time.Second)),
+					},
+				},
+			)
+		}
+	}
+	return fileInfos, nil
 }
 
 func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error) {
@@ -163,7 +197,23 @@ func (d *driver) PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error
 }
 
 func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, error) {
-	return nil, nil
+	parent, err := d.getParent(commit, shard)
+	if err != nil {
+		return nil, err
+	}
+	readOnly, err := isReadOnly(d.commitPath(commit, shard))
+	if err != nil {
+		return nil, err
+	}
+	commitType := pfs.CommitType_COMMIT_TYPE_WRITE
+	if readOnly {
+		commitType = pfs.CommitType_COMMIT_TYPE_READ
+	}
+	return &pfs.CommitInfo{
+		Commit:       commit,
+		CommitType:   commitType,
+		ParentCommit: parent,
+	}, nil
 }
 
 func (d *driver) initMeta(commit *pfs.Commit, shard int, parentCommitID string) (retErr error) {
@@ -206,6 +256,28 @@ func (d *driver) initMeta(commit *pfs.Commit, shard int, parentCommitID string) 
 	}()
 	_, err = parentFile.Write([]byte(parentCommitID))
 	return err
+}
+
+func (d *driver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
+	if commit.Id == drive.InitialCommitID {
+		return nil, nil
+	}
+	data, err := ioutil.ReadFile(
+		d.filePath(
+			&pfs.Path{
+				Commit: commit,
+				Path:   ".pfs/parent",
+			},
+			shard,
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.Commit{
+		Repository: commit.Repository,
+		Id:         string(data),
+	}, nil
 }
 
 func (d *driver) repositoryPath(repository *pfs.Repository) string {

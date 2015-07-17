@@ -134,24 +134,45 @@ func (a *combinedAPIServer) PutFile(ctx context.Context, putFileRequest *pfs.Put
 }
 
 func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs.ListFilesRequest) (*pfs.ListFilesResponse, error) {
-	return &pfs.ListFilesResponse{}, nil
-}
-
-// TODO(pedge): race on Branch
-func (a *combinedAPIServer) GetParent(ctx context.Context, getParentRequest *pfs.GetParentRequest) (*pfs.GetParentResponse, error) {
-	shard, clientConn, err := a.getMasterShardOrMasterClientConnIfNecessary()
+	shards, err := a.getAllShards(false)
 	if err != nil {
 		return nil, err
 	}
-	if clientConn != nil {
-		return pfs.NewApiClient(clientConn).GetParent(ctx, getParentRequest)
+	filteredShards := make(map[int]bool)
+	for shard := range shards {
+		if uint64(shard)%listFilesRequest.Shard.Modulo == listFilesRequest.Shard.Number {
+			filteredShards[shard] = true
+		}
 	}
-	commit, err := a.driver.GetParent(getParentRequest.Commit, shard)
-	if err != nil {
-		return nil, err
+	var fileInfos []*pfs.FileInfo
+	for shard := range filteredShards {
+		subFileInfos, err := a.driver.ListFiles(listFilesRequest.Path, shard)
+		if err != nil {
+			return nil, err
+		}
+		fileInfos = append(fileInfos, subFileInfos...)
 	}
-	return &pfs.GetParentResponse{
-		Commit: commit,
+	if !listFilesRequest.Redirect {
+		clientConns, err := a.router.GetAllClientConns()
+		if err != nil {
+			return nil, err
+		}
+		for _, clientConn := range clientConns {
+			listFilesResponse, err := pfs.NewApiClient(clientConn).ListFiles(
+				ctx,
+				&pfs.ListFilesRequest{
+					Path:     listFilesRequest.Path,
+					Redirect: true,
+				},
+			)
+			if err != nil {
+				return nil, err
+			}
+			fileInfos = append(fileInfos, listFilesResponse.FileInfo...)
+		}
+	}
+	return &pfs.ListFilesResponse{
+		FileInfo: fileInfos,
 	}, nil
 }
 
@@ -208,8 +229,22 @@ func (a *combinedAPIServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.P
 	return emptyInstance, nil
 }
 
+// TODO(pedge): race on Branch
 func (a *combinedAPIServer) GetCommitInfo(ctx context.Context, getCommitInfoRequest *pfs.GetCommitInfoRequest) (*pfs.GetCommitInfoResponse, error) {
-	return &pfs.GetCommitInfoResponse{}, nil
+	shard, clientConn, err := a.getMasterShardOrMasterClientConnIfNecessary()
+	if err != nil {
+		return nil, err
+	}
+	if clientConn != nil {
+		return pfs.NewApiClient(clientConn).GetCommitInfo(ctx, getCommitInfoRequest)
+	}
+	commitInfo, err := a.driver.GetCommitInfo(getCommitInfoRequest.Commit, shard)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.GetCommitInfoResponse{
+		CommitInfo: commitInfo,
+	}, nil
 }
 
 func (a *combinedAPIServer) getShardAndClientConnIfNecessary(path *pfs.Path, slaveOk bool) (int, *grpc.ClientConn, error) {
