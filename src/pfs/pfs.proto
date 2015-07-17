@@ -83,6 +83,7 @@ message PutFileRequest {
 message ListFilesRequest {
   Path path = 1;
   Shard shard = 2;
+  bool redirect = 3;
 }
 
 message ListFilesResponse {

@@ -269,8 +269,9 @@ func (m *PutFileRequest) GetPath() *Path {
 }
 
 type ListFilesRequest struct {
-	Path  *Path  `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
-	Shard *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
+	Path     *Path  `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+	Shard    *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
+	Redirect bool   `protobuf:"varint,3,opt,name=redirect" json:"redirect,omitempty"`
 }
 
 func (m *ListFilesRequest) Reset()         { *m = ListFilesRequest{} }

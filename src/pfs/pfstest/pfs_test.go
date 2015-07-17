@@ -95,6 +95,12 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	readStringer, err := getFile(apiClient, repositoryName, newCommitID, "a/b/one")
 	require.NoError(t, err)
 	require.Equal(t, "hello world", readStringer.String())
+
+	listFilesResponse, err := listFiles(apiClient, repositoryName, newCommitID, "a/b", 0, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(listFilesResponse.FileInfo))
+	fileInfo := listFilesResponse.FileInfo[0]
+	require.Equal(t, "a/b/one", fileInfo.Path.Path)
 }
 
 func testRepositoryName() string {
@@ -196,6 +202,27 @@ func getFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 		return nil, err
 	}
 	return buffer, nil
+}
+
+func listFiles(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, shardNum int, shardModulo int) (*pfs.ListFilesResponse, error) {
+	return apiClient.ListFiles(
+		context.Background(),
+		&pfs.ListFilesRequest{
+			Path: &pfs.Path{
+				Commit: &pfs.Commit{
+					Repository: &pfs.Repository{
+						Name: repositoryName,
+					},
+					Id: commitID,
+				},
+				Path: path,
+			},
+			Shard: &pfs.Shard{
+				Number: uint64(shardNum),
+				Modulo: uint64(shardModulo),
+			},
+		},
+	)
 }
 
 func getCommitInfo(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.GetCommitInfoResponse, error) {

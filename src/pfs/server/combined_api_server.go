@@ -134,7 +134,46 @@ func (a *combinedAPIServer) PutFile(ctx context.Context, putFileRequest *pfs.Put
 }
 
 func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs.ListFilesRequest) (*pfs.ListFilesResponse, error) {
-	return &pfs.ListFilesResponse{}, nil
+	shards, err := a.getAllShards(false)
+	if err != nil {
+		return nil, err
+	}
+	filteredShards := make(map[int]bool)
+	for shard := range shards {
+		if uint64(shard)%listFilesRequest.Shard.Modulo == listFilesRequest.Shard.Number {
+			filteredShards[shard] = true
+		}
+	}
+	var fileInfos []*pfs.FileInfo
+	for shard := range filteredShards {
+		subFileInfos, err := a.driver.ListFiles(listFilesRequest.Path, shard)
+		if err != nil {
+			return nil, err
+		}
+		fileInfos = append(fileInfos, subFileInfos...)
+	}
+	if !listFilesRequest.Redirect {
+		clientConns, err := a.router.GetAllClientConns()
+		if err != nil {
+			return nil, err
+		}
+		for _, clientConn := range clientConns {
+			listFilesResponse, err := pfs.NewApiClient(clientConn).ListFiles(
+				ctx,
+				&pfs.ListFilesRequest{
+					Path:     listFilesRequest.Path,
+					Redirect: true,
+				},
+			)
+			if err != nil {
+				return nil, err
+			}
+			fileInfos = append(fileInfos, listFilesResponse.FileInfo...)
+		}
+	}
+	return &pfs.ListFilesResponse{
+		FileInfo: fileInfos,
+	}, nil
 }
 
 func (a *combinedAPIServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest) (*pfs.BranchResponse, error) {
