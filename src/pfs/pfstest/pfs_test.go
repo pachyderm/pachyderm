@@ -92,6 +92,16 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	err = putFile(apiClient, repositoryName, newCommitID, "a/b/one", strings.NewReader("hello world"))
 	require.NoError(t, err)
 
+	err = commit(apiClient, repositoryName, newCommitID)
+	require.NoError(t, err)
+
+	getCommitInfoResponse, err = getCommitInfo(apiClient, repositoryName, newCommitID)
+	require.NoError(t, err)
+	require.NotNil(t, getCommitInfoResponse)
+	require.Equal(t, newCommitID, getCommitInfoResponse.CommitInfo.Commit.Id)
+	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, getCommitInfoResponse.CommitInfo.CommitType)
+	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.ParentCommit.Id)
+
 	readStringer, err := getFile(apiClient, repositoryName, newCommitID, "a/b/one")
 	require.NoError(t, err)
 	require.Equal(t, "hello world", readStringer.String())
@@ -223,6 +233,21 @@ func listFiles(apiClient pfs.ApiClient, repositoryName string, commitID string, 
 			},
 		},
 	)
+}
+
+func commit(apiClient pfs.ApiClient, repositoryName string, commitID string) error {
+	_, err := apiClient.Commit(
+		context.Background(),
+		&pfs.CommitRequest{
+			Commit: &pfs.Commit{
+				Repository: &pfs.Repository{
+					Name: repositoryName,
+				},
+				Id: commitID,
+			},
+		},
+	)
+	return err
 }
 
 func getCommitInfo(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.GetCommitInfoResponse, error) {

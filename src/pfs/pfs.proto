@@ -102,6 +102,7 @@ message BranchResponse {
 
 message CommitRequest {
   Commit commit = 1;
+  bool redirect = 2;
 }
 
 message GetCommitInfoRequest {

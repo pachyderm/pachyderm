@@ -218,6 +218,30 @@ func (a *combinedAPIServer) Branch(ctx context.Context, branchRequest *pfs.Branc
 }
 
 func (a *combinedAPIServer) Commit(ctx context.Context, commitRequest *pfs.CommitRequest) (*google_protobuf.Empty, error) {
+	shards, err := a.getAllShards(false)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.Commit(commitRequest.Commit, shards); err != nil {
+		return nil, err
+	}
+	if !commitRequest.Redirect {
+		clientConns, err := a.router.GetAllClientConns()
+		if err != nil {
+			return nil, err
+		}
+		for _, clientConn := range clientConns {
+			if _, err := pfs.NewApiClient(clientConn).Commit(
+				ctx,
+				&pfs.CommitRequest{
+					Commit:   commitRequest.Commit,
+					Redirect: true,
+				},
+			); err != nil {
+				return nil, err
+			}
+		}
+	}
 	return emptyInstance, nil
 }
 

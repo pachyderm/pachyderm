@@ -185,6 +185,19 @@ func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[in
 }
 
 func (d *driver) Commit(commit *pfs.Commit, shards map[int]bool) error {
+	for shard := range shards {
+		commitPath := d.commitPath(commit, shard)
+		readOnly, err := isReadOnly(commitPath)
+		if err != nil {
+			return err
+		}
+		if readOnly {
+			return fmt.Errorf("%+v is a read-only snapshot", commit)
+		}
+		if err := setReadOnly(commitPath); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
