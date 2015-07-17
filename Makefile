@@ -80,6 +80,9 @@ test:
 
 # TODO(pedge): add pretest when fixed
 test-long:
+	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
+	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
+	@ sleep 5
 	bin/go-test ./...
 
 test-pfs: test-deps
@@ -93,6 +96,9 @@ test-pfs: test-deps
 
 # TODO(pedge): add pretest when fixed
 bench:
+	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
+	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
+	@ sleep 5
 	bin/go-test -bench . ./...
 
 proto:
