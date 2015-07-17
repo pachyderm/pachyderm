@@ -72,6 +72,11 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	require.NotNil(t, branchResponse)
 	newCommitID := branchResponse.Commit.Id
 
+	getParentResponse, err := getParent(apiClient, repositoryName, newCommitID)
+	require.NoError(t, err)
+	require.NotNil(t, getParentResponse)
+	require.Equal(t, "scratch", getParentResponse.Commit.Id)
+
 	err = makeDirectory(apiClient, repositoryName, newCommitID, "a/b")
 	require.NoError(t, err)
 
@@ -182,6 +187,20 @@ func getFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 		return nil, err
 	}
 	return buffer, nil
+}
+
+func getParent(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.GetParentResponse, error) {
+	return apiClient.GetParent(
+		context.Background(),
+		&pfs.GetParentRequest{
+			Commit: &pfs.Commit{
+				Repository: &pfs.Repository{
+					Name: repositoryName,
+				},
+				Id: commitID,
+			},
+		},
+	)
 }
 
 func runTest(

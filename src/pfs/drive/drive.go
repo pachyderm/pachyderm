@@ -25,12 +25,12 @@ type Driver interface {
 	MakeDirectory(path *pfs.Path, shards map[int]bool) error
 	PutFile(path *pfs.Path, shard int, reader io.Reader) error
 	ListFiles(path *pfs.Path, shard int) ([]*pfs.Path, error)
-	GetParent(commit *pfs.Commit) (*pfs.Commit, error)
+	GetParent(commit *pfs.Commit, shard int) (*pfs.Commit, error)
 	Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error)
 	Commit(commit *pfs.Commit, shards map[int]bool) error
 	PullDiff(commit *pfs.Commit, shard int) (io.Reader, error)
 	PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error
-	GetCommitInfo(commit *pfs.Commit) (*pfs.CommitInfo, error)
+	GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, error)
 }
 
 func NewCommitID() string {

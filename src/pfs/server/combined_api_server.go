@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 
 	"google.golang.org/grpc"
 
@@ -136,8 +137,22 @@ func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs
 	return &pfs.ListFilesResponse{}, nil
 }
 
+// TODO(pedge): race on Branch
 func (a *combinedAPIServer) GetParent(ctx context.Context, getParentRequest *pfs.GetParentRequest) (*pfs.GetParentResponse, error) {
-	return &pfs.GetParentResponse{}, nil
+	shard, clientConn, err := a.getMasterShardOrMasterClientConnIfNecessary()
+	if err != nil {
+		return nil, err
+	}
+	if clientConn != nil {
+		return pfs.NewApiClient(clientConn).GetParent(ctx, getParentRequest)
+	}
+	commit, err := a.driver.GetParent(getParentRequest.Commit, shard)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.GetParentResponse{
+		Commit: commit,
+	}, nil
 }
 
 func (a *combinedAPIServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest) (*pfs.BranchResponse, error) {
@@ -221,6 +236,20 @@ func (a *combinedAPIServer) getShardAndClientConnIfNecessary(path *pfs.Path, sla
 		}
 	}
 	return shard, nil, nil
+}
+
+func (a *combinedAPIServer) getMasterShardOrMasterClientConnIfNecessary() (int, *grpc.ClientConn, error) {
+	shards, err := a.router.GetMasterShards()
+	if err != nil {
+		return -1, nil, err
+	}
+	if len(shards) > 0 {
+		for shard := range shards {
+			return shard, nil, nil
+		}
+	}
+	clientConn, err := a.router.GetMasterClientConn(int(rand.Uint32()) % a.sharder.NumShards())
+	return -1, clientConn, err
 }
 
 func (a *combinedAPIServer) getAllShards(slaveToo bool) (map[int]bool, error) {

@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -56,6 +57,9 @@ func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool)
 		if err := subvolumeCreate(d.commitPath(initialCommit, shard)); err != nil {
 			return err
 		}
+		if err := d.initMeta(initialCommit, shard, ""); err != nil {
+			return err
+		}
 		if err := setReadOnly(d.commitPath(initialCommit, shard)); err != nil {
 			return err
 		}
@@ -93,8 +97,27 @@ func (d *driver) ListFiles(path *pfs.Path, shard int) ([]*pfs.Path, error) {
 	return nil, nil
 }
 
-func (d *driver) GetParent(commit *pfs.Commit) (*pfs.Commit, error) {
-	return nil, nil
+func (d *driver) GetParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
+	if commit.Id == drive.InitialCommitID {
+		// do we really want to return error?
+		return nil, fmt.Errorf("no parent for %s", drive.InitialCommitID)
+	}
+	data, err := ioutil.ReadFile(
+		d.filePath(
+			&pfs.Path{
+				Commit: commit,
+				Path:   ".pfs/parent",
+			},
+			shard,
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.Commit{
+		Repository: commit.Repository,
+		Id:         string(data),
+	}, nil
 }
 
 func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error) {
@@ -120,6 +143,9 @@ func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[in
 		if err := subvolumeSnapshot(commitPath, newCommitPath); err != nil {
 			return nil, err
 		}
+		if err := d.initMeta(newCommit, shard, commit.Id); err != nil {
+			return nil, err
+		}
 	}
 	return newCommit, nil
 }
@@ -136,8 +162,50 @@ func (d *driver) PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error
 	return nil
 }
 
-func (d *driver) GetCommitInfo(commit *pfs.Commit) (*pfs.CommitInfo, error) {
+func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, error) {
 	return nil, nil
+}
+
+func (d *driver) initMeta(commit *pfs.Commit, shard int, parentCommitID string) (retErr error) {
+	if commit.Id == drive.InitialCommitID {
+		if err := os.Mkdir(
+			d.filePath(
+				&pfs.Path{
+					Commit: commit,
+					Path:   ".pfs",
+				},
+				shard,
+			),
+			0700,
+		); err != nil {
+			return err
+		}
+	}
+	if parentCommitID == "" {
+		if commit.Id != drive.InitialCommitID {
+			return fmt.Errorf("no parent commit id for %s", commit.Id)
+		}
+		return nil
+	}
+	parentFile, err := os.Create(
+		d.filePath(
+			&pfs.Path{
+				Commit: commit,
+				Path:   ".pfs/parent",
+			},
+			shard,
+		),
+	)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := parentFile.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	_, err = parentFile.Write([]byte(parentCommitID))
+	return err
 }
 
 func (d *driver) repositoryPath(repository *pfs.Repository) string {
