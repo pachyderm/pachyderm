@@ -75,11 +75,17 @@ func (d *driver) GetFile(path *pfs.Path, shard int) (io.ReadCloser, error) {
 	return os.Open(d.filePath(path, shard))
 }
 
-func (d *driver) MakeDirectory(path *pfs.Path, shard int) error {
+func (d *driver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
 	// TODO(pedge): if PutFile fails here or on another shard, the directories
 	// will still exist and be returned from ListFiles, we want to do this
 	// iteratively and with rollback
-	return os.MkdirAll(d.filePath(path, shard), 0700)
+	// TODO(pedge): check that commit exists and is a write commit
+	for shard := range shards {
+		if err := os.MkdirAll(d.filePath(path, shard), 0700); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *driver) PutFile(path *pfs.Path, shard int, reader io.Reader) error {

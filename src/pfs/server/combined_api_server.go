@@ -91,12 +91,11 @@ func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFi
 }
 
 func (a *combinedAPIServer) MakeDirectory(ctx context.Context, makeDirectoryRequest *pfs.MakeDirectoryRequest) (*google_protobuf.Empty, error) {
-	if err := a.forAllShards(
-		func(shard int) error {
-			return a.driver.MakeDirectory(makeDirectoryRequest.Path, shard)
-		},
-		true,
-	); err != nil {
+	shards, err := a.getAllShards(true)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.MakeDirectory(makeDirectoryRequest.Path, shards); err != nil {
 		return nil, err
 	}
 	if !makeDirectoryRequest.Redirect {
@@ -222,19 +221,6 @@ func (a *combinedAPIServer) getShardAndClientConnIfNecessary(path *pfs.Path, sla
 		}
 	}
 	return shard, nil, nil
-}
-
-func (a *combinedAPIServer) forAllShards(f func(int) error, slaveToo bool) error {
-	shards, err := a.getAllShards(slaveToo)
-	if err != nil {
-		return err
-	}
-	for shard := range shards {
-		if err := f(shard); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (a *combinedAPIServer) getAllShards(slaveToo bool) (map[int]bool, error) {
