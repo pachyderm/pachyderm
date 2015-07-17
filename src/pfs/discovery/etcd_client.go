@@ -16,7 +16,7 @@ func (c *etcdClient) Get(key string) (string, error) {
 	return "", nil
 }
 
-func (c *etcdClient) GetAll(key string) ([]string, error) {
+func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 	return nil, nil
 }
 
