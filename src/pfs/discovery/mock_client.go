@@ -4,6 +4,8 @@ import (
 	"path"
 	"strings"
 	"sync"
+
+	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
 type record struct {
@@ -32,10 +34,10 @@ func (c *mockClient) Get(key string) (string, error) {
 	defer c.lock.RUnlock()
 	record, ok := c.records[key]
 	if !ok {
-		return "", ErrNotFound
+		return "", pfs.ErrDiscoveryNotFound
 	}
 	if record.directory {
-		return "", ErrDirectory
+		return "", pfs.ErrDiscoveryNotValue
 	}
 	return record.data, nil
 }
@@ -63,7 +65,7 @@ func (c *mockClient) Create(key string, value string) error {
 	defer c.lock.Unlock()
 	_, ok := c.records[key]
 	if ok {
-		return ErrExists
+		return pfs.ErrDiscoveryKeyAlreadyExists
 	}
 	return c.unsafeSet(key, value)
 }
@@ -76,7 +78,7 @@ func (c *mockClient) Delete(key string) error {
 		return nil
 	}
 	if oldRecord.directory {
-		return ErrDirectory
+		return pfs.ErrDiscoveryNotValue
 	}
 	delete(c.records, key)
 	return nil
@@ -87,13 +89,13 @@ func (c *mockClient) CheckAndSet(key string, value string, oldValue string) erro
 	defer c.lock.Unlock()
 	oldRecord, ok := c.records[key]
 	if !ok {
-		return ErrNotFound
+		return pfs.ErrDiscoveryNotFound
 	}
 	if oldRecord.directory {
-		return ErrDirectory
+		return pfs.ErrDiscoveryNotValue
 	}
 	if oldRecord.data != oldValue {
-		return ErrPrecondition
+		return pfs.ErrDiscoveryPreconditionNotMet
 	}
 	return c.unsafeSet(key, value)
 }
@@ -103,7 +105,7 @@ func (c *mockClient) unsafeSet(key string, value string) error {
 	for i, _ := range parts[:len(parts)-1] {
 		oldRecord, ok := c.records["/"+path.Join(parts[:i]...)]
 		if ok && oldRecord.directory {
-			return ErrValue
+			return pfs.ErrDiscoveryNotDirectory
 		}
 		if !ok {
 			c.records["/"+path.Join(parts[:i]...)] = record{true, ""}
@@ -111,7 +113,7 @@ func (c *mockClient) unsafeSet(key string, value string) error {
 	}
 	oldRecord, ok := c.records[key]
 	if ok && oldRecord.directory {
-		return ErrDirectory
+		return pfs.ErrDiscoveryNotValue
 	}
 	c.records[key] = record{false, value}
 	return nil
