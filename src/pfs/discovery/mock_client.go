@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"path"
 	"strings"
 	"sync"
 )
@@ -54,12 +55,7 @@ func (c *mockClient) GetAll(key string) (map[string]string, error) {
 func (c *mockClient) Set(key string, value string) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	oldRecord, ok := c.records[key]
-	if ok && oldRecord.directory {
-		return ErrDirectory
-	}
-	c.records[key] = record{false, value}
-	return nil
+	return c.unsafeSet(key, value)
 }
 
 func (c *mockClient) Create(key string, value string) error {
@@ -69,8 +65,7 @@ func (c *mockClient) Create(key string, value string) error {
 	if ok {
 		return ErrExists
 	}
-	c.records[key] = record{false, value}
-	return nil
+	return c.unsafeSet(key, value)
 }
 
 func (c *mockClient) Delete(key string) error {
@@ -99,6 +94,24 @@ func (c *mockClient) CheckAndSet(key string, value string, oldValue string) erro
 	}
 	if oldRecord.data != oldValue {
 		return ErrPrecondition
+	}
+	return c.unsafeSet(key, value)
+}
+
+func (c *mockClient) unsafeSet(key string, value string) error {
+	parts := strings.Split(key, "/")
+	for i, _ := range parts[:len(parts)-1] {
+		oldRecord, ok := c.records["/"+path.Join(parts[:i]...)]
+		if ok && oldRecord.directory {
+			return ErrValue
+		}
+		if !ok {
+			c.records["/"+path.Join(parts[:i]...)] = record{true, ""}
+		}
+	}
+	oldRecord, ok := c.records[key]
+	if ok && oldRecord.directory {
+		return ErrDirectory
 	}
 	c.records[key] = record{false, value}
 	return nil

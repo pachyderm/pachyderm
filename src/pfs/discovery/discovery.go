@@ -7,6 +7,7 @@ import (
 var (
 	ErrNetwork      = errors.New("pachyderm: network failure")
 	ErrNotFound     = errors.New("pachyderm: Not found")
+	ErrValue        = errors.New("pachyderm: Found value instead of directory")
 	ErrDirectory    = errors.New("pachyderm: Found directory instead of value")
 	ErrExists       = errors.New("pachyderm: Key already exists")
 	ErrPrecondition = errors.New("pachyderm: Precondition not met")
