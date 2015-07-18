@@ -5,7 +5,6 @@ set -Ee
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
 
-. "${DIR}/lib/lib.sh"
 . "${DIR}/../etc/env/pfs.env"
 
 mkdir -p /home/core/pfs

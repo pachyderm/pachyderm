@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/storage"
@@ -21,6 +22,10 @@ func main() {
 }
 
 func do() error {
+	if err := btrfs.CheckVersion(); err != nil {
+		return err
+	}
+
 	shardNum := flag.Int("shard", -1, "Optional. The shard to service.")
 	modulos := flag.Int("modulos", 4, "The total number of shards.")
 	address := flag.String("address", "", "Optional. The address to advertise for this node.")
