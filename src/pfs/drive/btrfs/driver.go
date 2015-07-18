@@ -59,7 +59,7 @@ func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool)
 		if err := subvolumeCreate(d.commitPath(initialCommit, shard)); err != nil {
 			return err
 		}
-		if err := d.initMeta(initialCommit, shard, ""); err != nil {
+		if err := os.Mkdir(d.filePath(&pfs.Path{Commit: initialCommit, Path: ".pfs"}, shard), 0700); err != nil {
 			return err
 		}
 		if err := setReadOnly(d.commitPath(initialCommit, shard)); err != nil {
@@ -120,38 +120,44 @@ func (d *driver) ListFiles(path *pfs.Path, shard int) (retValue []*pfs.FileInfo,
 			return nil, err
 		}
 		for _, name := range names {
-			subPath := &pfs.Path{
-				Commit: path.Commit,
-				Path:   filepath.Join(path.Path, name),
-			}
-			subFilePath := d.filePath(path, shard)
-			stat, err := os.Stat(subFilePath)
+			fileInfo, err := d.stat(
+				&pfs.Path{
+					Commit: path.Commit,
+					Path:   filepath.Join(path.Path, name),
+				},
+				shard,
+			)
 			if err != nil {
 				return nil, err
 			}
-			fileType := pfs.FileType_FILE_TYPE_OTHER
-			if stat.Mode().IsRegular() {
-				fileType = pfs.FileType_FILE_TYPE_REGULAR
-			}
-			if stat.Mode().IsDir() {
-				fileType = pfs.FileType_FILE_TYPE_DIR
-			}
-			fileInfos = append(
-				fileInfos,
-				&pfs.FileInfo{
-					Path:      subPath,
-					FileType:  fileType,
-					SizeBytes: uint64(stat.Size()),
-					Perm:      uint32(stat.Mode() & os.ModePerm),
-					LastModified: &google_protobuf.Timestamp{
-						Seconds: stat.ModTime().UnixNano() / int64(time.Second),
-						Nanos:   int32(stat.ModTime().UnixNano() % int64(time.Second)),
-					},
-				},
-			)
+			fileInfos = append(fileInfos, fileInfo)
 		}
 	}
 	return fileInfos, nil
+}
+
+func (d *driver) stat(path *pfs.Path, shard int) (*pfs.FileInfo, error) {
+	stat, err := os.Stat(d.filePath(path, shard))
+	if err != nil {
+		return nil, err
+	}
+	fileType := pfs.FileType_FILE_TYPE_OTHER
+	if stat.Mode().IsRegular() {
+		fileType = pfs.FileType_FILE_TYPE_REGULAR
+	}
+	if stat.Mode().IsDir() {
+		fileType = pfs.FileType_FILE_TYPE_DIR
+	}
+	return &pfs.FileInfo{
+		Path:      path,
+		FileType:  fileType,
+		SizeBytes: uint64(stat.Size()),
+		Perm:      uint32(stat.Mode() & os.ModePerm),
+		LastModified: &google_protobuf.Timestamp{
+			Seconds: stat.ModTime().UnixNano() / int64(time.Second),
+			Nanos:   int32(stat.ModTime().UnixNano() % int64(time.Second)),
+		},
+	}, nil
 }
 
 func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error) {
@@ -165,19 +171,15 @@ func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[in
 		return nil, err
 	}
 	for shard := range shards {
-		commitPath := d.commitPath(commit, shard)
-		readOnly, err := isReadOnly(commitPath)
-		if err != nil {
+		if err := d.checkReadOnly(commit, shard); err != nil {
 			return nil, err
 		}
-		if !readOnly {
-			return nil, fmt.Errorf("%+v is not a read-only snapshot", commit)
-		}
+		commitPath := d.commitPath(commit, shard)
 		newCommitPath := d.commitPath(newCommit, shard)
 		if err := subvolumeSnapshot(commitPath, newCommitPath); err != nil {
 			return nil, err
 		}
-		if err := d.initMeta(newCommit, shard, commit.Id); err != nil {
+		if err := ioutil.WriteFile(d.filePath(&pfs.Path{Commit: newCommit, Path: ".pfs/parent"}, shard), []byte(commit.Id), 0600); err != nil {
 			return nil, err
 		}
 	}
@@ -186,15 +188,10 @@ func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[in
 
 func (d *driver) Commit(commit *pfs.Commit, shards map[int]bool) error {
 	for shard := range shards {
-		commitPath := d.commitPath(commit, shard)
-		readOnly, err := isReadOnly(commitPath)
-		if err != nil {
+		if err := d.checkWrite(commit, shard); err != nil {
 			return err
 		}
-		if readOnly {
-			return fmt.Errorf("%+v is a read-only snapshot", commit)
-		}
-		if err := setReadOnly(commitPath); err != nil {
+		if err := d.setReadOnly(commit, shard); err != nil {
 			return err
 		}
 	}
@@ -229,61 +226,11 @@ func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, 
 	}, nil
 }
 
-func (d *driver) initMeta(commit *pfs.Commit, shard int, parentCommitID string) (retErr error) {
-	if commit.Id == drive.InitialCommitID {
-		if err := os.Mkdir(
-			d.filePath(
-				&pfs.Path{
-					Commit: commit,
-					Path:   ".pfs",
-				},
-				shard,
-			),
-			0700,
-		); err != nil {
-			return err
-		}
-	}
-	if parentCommitID == "" {
-		if commit.Id != drive.InitialCommitID {
-			return fmt.Errorf("no parent commit id for %s", commit.Id)
-		}
-		return nil
-	}
-	parentFile, err := os.Create(
-		d.filePath(
-			&pfs.Path{
-				Commit: commit,
-				Path:   ".pfs/parent",
-			},
-			shard,
-		),
-	)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := parentFile.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	_, err = parentFile.Write([]byte(parentCommitID))
-	return err
-}
-
 func (d *driver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
 	if commit.Id == drive.InitialCommitID {
 		return nil, nil
 	}
-	data, err := ioutil.ReadFile(
-		d.filePath(
-			&pfs.Path{
-				Commit: commit,
-				Path:   ".pfs/parent",
-			},
-			shard,
-		),
-	)
+	data, err := ioutil.ReadFile(d.filePath(&pfs.Path{Commit: commit, Path: ".pfs/parent"}, shard))
 	if err != nil {
 		return nil, err
 	}
@@ -291,6 +238,32 @@ func (d *driver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
 		Repository: commit.Repository,
 		Id:         string(data),
 	}, nil
+}
+
+func (d *driver) checkReadOnly(commit *pfs.Commit, shard int) error {
+	ok, err := isReadOnly(d.commitPath(commit, shard))
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("%+v is not a read only commit", commit)
+	}
+	return nil
+}
+
+func (d *driver) checkWrite(commit *pfs.Commit, shard int) error {
+	ok, err := isReadOnly(d.commitPath(commit, shard))
+	if err != nil {
+		return err
+	}
+	if ok {
+		return fmt.Errorf("%+v is not a write commit", commit)
+	}
+	return nil
+}
+
+func (d *driver) setReadOnly(commit *pfs.Commit, shard int) error {
+	return setReadOnly(d.commitPath(commit, shard))
 }
 
 func (d *driver) repositoryPath(repository *pfs.Repository) string {
