@@ -7,10 +7,8 @@
 	build \
 	install \
 	clean \
-	container-build \
-	container-clean \
-	container-shell \
-	container-launch \
+	shell \
+	launch \
 	lint \
 	vet \
 	errcheck \
@@ -48,19 +46,17 @@ install: deps
 
 clean:
 	go clean -i ./...
-
-container-build:
-	docker build -t $(PFS_IMAGE) .
-
-container-clean:
 	bin/clean
 	bin/clean-btrfs
 
-container-shell:
+shell:
 	bin/shell
 
-container-launch:
+launch:
 	bin/launch
+
+launch-pfsd:
+	bin/launch-pfsd
 
 lint:
 	go get -v github.com/golang/lint/golint

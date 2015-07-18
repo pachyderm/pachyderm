@@ -301,7 +301,7 @@ We're hiring! If you like ambitious distributed systems problems and think there
 Want to hack on pfs for fun? You can run pfs locally using:
 
 ```shell
-make container-launch
+make launch
 ```
 
 This will build a docker image from the working directory, tag it as `pfs` and
@@ -314,10 +314,17 @@ Other useful development commands can be seen in the [Makefile](Makefile) and th
 ```
 make test-deps # download all golang dependencies
 make test # run all the tests
-make container-clean # clean up all pachyderm state
+make clean # clean up all pachyderm state
+make shell # go into a shell inside a running pachyderm container
 ./bin/run ARGS... # run a command inside a fresh pachyderm container
 ./bin/go-test ./src/PACKAGE # run tests for a specific package
 ./bin/go-test -run REGEX ./... # run all tests that match the regex
+make launch # launch pfs, as outlined above
+make launch-pfsd # launch the new pfsd daemon
+make install # install all binaries locally
+export PFS_HOST=localhost # for pfs cli
+export PFS_PORT=650 # for pfs cli
+pfs # if ${GOPATH}/bin is on your path, this will run the new pfs cli, this is very experimental and does not check for common errors
 ```
 
 ### Environment Setup
@@ -385,7 +392,7 @@ The bin scripts assume you have your user in the docker group as explained in th
 If this is set up properly, you do not need to use `sudo` to run `docker`. If you do not want this, and want to have to use `sudo` for docker development, wrap all commands like so:
 
 ```
-sudo -E bash -c 'bin/run go test ./...' # original command would have been `./bin/run go test ./...`
+sudo -E bash -c 'bin/go-test ./...' # original command would have been `./bin/go-test ./...`
 ```
 
 *Problem*: S3 tests are failing
