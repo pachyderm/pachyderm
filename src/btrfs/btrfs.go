@@ -9,7 +9,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -22,11 +24,17 @@ import (
 const (
 	Desc = iota
 	Asc
+
+	majorVersion = 3
+	minorVersion = 14
 )
 
 var (
 	ErrComplete  = errors.New("pfs: complete")
 	ErrCancelled = errors.New("pfs: cancelled")
+
+	checkVersionOnce sync.Once
+	checkVersionErr  error
 )
 
 // Pusher is an interface that wraps the Push method.
@@ -48,6 +56,11 @@ type Puller interface {
 type Replica interface {
 	Pusher
 	Puller
+}
+
+func CheckVersion() error {
+	checkVersionOnce.Do(checkVersion)
+	return checkVersionErr
 }
 
 func NewLocalReplica(repo string) Replica {
@@ -628,6 +641,44 @@ func _log(repo, from string, order int, cont func(io.Reader) error) error {
 		return err
 	}
 	return cont(reader)
+}
+
+func checkVersion() {
+	reader, err := executil.RunStdout("btrfs", "--version")
+	if err != nil {
+		checkVersionErr = err
+		return
+	}
+	data, err := ioutil.ReadAll(reader)
+	if err != nil {
+		checkVersionErr = err
+		return
+	}
+	versionString := strings.TrimSpace(string(data))
+	version := strings.Replace(versionString, "Btrfs v", "", -1)
+	split := strings.Split(version, ".")
+	if len(split) != 2 {
+		checkVersionErr = fmt.Errorf("unknown version string: %s", versionString)
+		return
+	}
+	major, err := strconv.ParseInt(split[0], 10, 64)
+	if err != nil {
+		checkVersionErr = err
+		return
+	}
+	if major < majorVersion {
+		checkVersionErr = fmt.Errorf("need at least btrfs version %d.%d, got %s", majorVersion, minorVersion, version)
+		return
+	}
+	minor, err := strconv.ParseInt(split[1], 10, 64)
+	if err != nil {
+		checkVersionErr = err
+		return
+	}
+	if minor < minorVersion {
+		checkVersionErr = fmt.Errorf("need at least btrfs version %d.%d, got %s", minorVersion, minorVersion, version)
+		return
+	}
 }
 
 func trimFilePath(name string) string {

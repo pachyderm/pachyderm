@@ -5,7 +5,6 @@ set -E
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
 
-. "${DIR}/lib/lib.sh"
 . "${DIR}/../etc/env/pfs.env"
 
 docker kill "${PFS_CONTAINER_NAME}"

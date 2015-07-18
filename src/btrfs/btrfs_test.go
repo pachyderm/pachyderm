@@ -18,6 +18,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestVersion(t *testing.T) {
+	if err := CheckVersion(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestOsOps checks that reading, writing, and deletion are correct on BTRFS.
 func TestOsOps(t *testing.T) {
 	t.Parallel()

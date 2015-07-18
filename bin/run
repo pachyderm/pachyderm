@@ -5,11 +5,7 @@ set -Ee
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
 
-. "${DIR}/lib/lib.sh"
 . "${DIR}/../etc/env/pfs.env"
-
-check_btrfs
-check_docker
 
 "${DIR}/mount-btrfs"
 "${DIR}/clean"
