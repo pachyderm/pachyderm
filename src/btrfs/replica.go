@@ -10,9 +10,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/s3"
-
+	"github.com/pachyderm/pachyderm/src/pkg/executil"
 	"github.com/pachyderm/pachyderm/src/s3utils"
-	"github.com/pachyderm/pachyderm/src/util"
 )
 
 // localReplica implements the Replica interface using a btrfs repo.
@@ -121,11 +120,17 @@ func (r *s3Replica) From() (string, error) {
 func send(repo, commit string, cont func(io.Reader) error) error {
 	parent := GetMeta(path.Join(repo, commit), "parent")
 	if parent == "" {
-		return util.CallCont(exec.Command("btrfs", "send", FilePath(path.Join(repo, commit))), cont)
-	} else {
-		return util.CallCont(exec.Command("btrfs", "send", "-p",
-			FilePath(path.Join(repo, parent)), FilePath(path.Join(repo, commit))), cont)
+		reader, err := executil.RunStdout("btrfs", "send", FilePath(path.Join(repo, commit)))
+		if err != nil {
+			return err
+		}
+		return cont(reader)
 	}
+	reader, err := executil.RunStdout("btrfs", "send", "-p", FilePath(path.Join(repo, parent)), FilePath(path.Join(repo, commit)))
+	if err != nil {
+		return err
+	}
+	return cont(reader)
 }
 
 // recv reads a binary stream from data and applies it to `repo`

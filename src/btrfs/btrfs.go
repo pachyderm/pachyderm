@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -16,7 +15,7 @@ import (
 
 	"github.com/go-fsnotify/fsnotify"
 	"github.com/pachyderm/pachyderm/src/log"
-	"github.com/pachyderm/pachyderm/src/util"
+	"github.com/pachyderm/pachyderm/src/pkg/executil"
 )
 
 // Constants used for passing to log
@@ -345,22 +344,20 @@ func WaitAnyFile(files ...string) (string, error) {
 
 // IsCommit returns true if the volume is a commit and false if it's a branch.
 func IsCommit(name string) (bool, error) {
-	var res bool
 	// "-t s" indicates to btrfs that this is a subvolume without the "-t s"
 	// btrfs will still output what we want, but it will have a nonzero return
 	// code
-	err := util.CallCont(exec.Command("btrfs", "property", "get", "-t", "s", FilePath(name)),
-		func(r io.Reader) error {
-			scanner := bufio.NewScanner(r)
-			for scanner.Scan() {
-				if strings.Contains(scanner.Text(), "ro=true") {
-					res = true
-					return nil
-				}
-			}
-			return scanner.Err()
-		})
-	return res, err
+	reader, err := executil.RunStdout("btrfs", "property", "get", "-t", "s", FilePath(name))
+	if err != nil {
+		return false, err
+	}
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		if strings.Contains(scanner.Text(), "ro=true") {
+			return true, nil
+		}
+	}
+	return false, scanner.Err()
 }
 
 // SetMeta sets metadata for a branch
@@ -575,29 +572,29 @@ func FindNew(repo, from, to string) ([]string, error) {
 	if err != nil {
 		return files, err
 	}
-	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, to)), t)
-	err = util.CallCont(c, func(r io.Reader) error {
-		scanner := bufio.NewScanner(r)
-		for scanner.Scan() {
-			log.Print(scanner.Text())
-			// scanner.Text() looks like this:
-			// inode 6683 file offset 0 len 107 disk start 0 offset 0 gen 909 flags INLINE jobs/rPqZxsaspy
-			// 0     1    2    3      4 5   6   7    8     9 10     11 12 13 14     15     16
-			tokens := strings.Split(scanner.Text(), " ")
-			// Make sure the line is parseable as a file and the path isn't hidden.
-			if len(tokens) == 17 {
-				if !strings.HasPrefix(tokens[16], ".") { // check if it's a hidden file
-					files = append(files, tokens[16])
-				}
-			} else if len(tokens) == 4 {
-				continue //skip transid messages
-			} else {
-				return fmt.Errorf("Failed to parse find-new output.")
+	reader, err := executil.RunStdout("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, to)), t)
+	if err != nil {
+		return files, err
+	}
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		log.Print(scanner.Text())
+		// scanner.Text() looks like this:
+		// inode 6683 file offset 0 len 107 disk start 0 offset 0 gen 909 flags INLINE jobs/rPqZxsaspy
+		// 0     1    2    3      4 5   6   7    8     9 10     11 12 13 14     15     16
+		tokens := strings.Split(scanner.Text(), " ")
+		// Make sure the line is parseable as a file and the path isn't hidden.
+		if len(tokens) == 17 {
+			if !strings.HasPrefix(tokens[16], ".") { // check if it's a hidden file
+				files = append(files, tokens[16])
 			}
+		} else if len(tokens) == 4 {
+			continue //skip transid messages
+		} else {
+			return files, errors.New("Failed to parse find-new output.")
 		}
-		return scanner.Err()
-	})
-	return files, err
+	}
+	return files, scanner.Err()
 }
 
 // NewIn returns all of the files that changed in a commit
@@ -616,16 +613,21 @@ func _log(repo, from string, order int, cont func(io.Reader) error) error {
 	}
 
 	if from == "" {
-		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", sort, FilePath(path.Join(repo)))
-		return util.CallCont(c, cont)
-	} else {
-		t, err := transid(repo, from)
+		reader, err := executil.RunStdout("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "--sort", sort, FilePath(path.Join(repo)))
 		if err != nil {
 			return err
 		}
-		c := exec.Command("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-C", "+"+t, "--sort", sort, FilePath(path.Join(repo)))
-		return util.CallCont(c, cont)
+		return cont(reader)
 	}
+	t, err := transid(repo, from)
+	if err != nil {
+		return err
+	}
+	reader, err := executil.RunStdout("btrfs", "subvolume", "list", "-o", "-c", "-u", "-q", "-C", "+"+t, "--sort", sort, FilePath(path.Join(repo)))
+	if err != nil {
+		return err
+	}
+	return cont(reader)
 }
 
 func trimFilePath(name string) string {
@@ -672,36 +674,33 @@ func transid(repo, commit string) (string, error) {
 	//  we get the transid of the from path. According to the internet this is
 	//  the nicest way to get it from btrfs.
 	var transid string
-	c := exec.Command("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), "9223372036854775808")
-	err := util.CallCont(c, func(r io.Reader) error {
-		scanner := bufio.NewScanner(r)
-		for scanner.Scan() {
-			// scanner.Text() looks like this:
-			// transid marker was 907
-			// 0       1      2   3
-			tokens := strings.Split(scanner.Text(), " ")
-			if len(tokens) != 4 {
-				return fmt.Errorf("Failed to parse find-new output.")
-			}
-			// We want to increment the transid because it's inclusive, if we
-			// don't increment we'll get things from the previous commit as
-			// well.
-			transid = tokens[3]
-		}
-		return scanner.Err()
-	})
+	reader, err := executil.RunStdout("btrfs", "subvolume", "find-new", FilePath(path.Join(repo, commit)), "9223372036854775808")
 	if err != nil {
 		return "", err
 	}
-	return transid, err
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		// scanner.Text() looks like this:
+		// transid marker was 907
+		// 0       1      2   3
+		tokens := strings.Split(scanner.Text(), " ")
+		if len(tokens) != 4 {
+			return "", errors.New("Failed to parse find-new output.")
+		}
+		// We want to increment the transid because it's inclusive, if we
+		// don't increment we'll get things from the previous commit as
+		// well.
+		transid = tokens[3]
+	}
+	return transid, scanner.Err()
 }
 
 func subvolumeCreate(name string) error {
-	return util.RunStderr(exec.Command("btrfs", "subvolume", "create", FilePath(name)))
+	return executil.Run("btrfs", "subvolume", "create", FilePath(name))
 }
 
 func subvolumeDelete(name string) error {
-	return util.RunStderr(exec.Command("btrfs", "subvolume", "delete", FilePath(name)))
+	return executil.Run("btrfs", "subvolume", "delete", FilePath(name))
 }
 
 func subvolumeDeleteAll(name string) error {
@@ -718,10 +717,7 @@ func subvolumeDeleteAll(name string) error {
 
 func snapshot(volume string, dest string, readonly bool) error {
 	if readonly {
-		return util.RunStderr(exec.Command("btrfs", "subvolume", "snapshot", "-r",
-			FilePath(volume), FilePath(dest)))
-	} else {
-		return util.RunStderr(exec.Command("btrfs", "subvolume", "snapshot",
-			FilePath(volume), FilePath(dest)))
+		return executil.Run("btrfs", "subvolume", "snapshot", "-r", FilePath(volume), FilePath(dest))
 	}
+	return executil.Run("btrfs", "subvolume", "snapshot", FilePath(volume), FilePath(dest))
 }
