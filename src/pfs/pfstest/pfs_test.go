@@ -60,6 +60,7 @@ func getBtrfsRootDir(t *testing.T) string {
 
 func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	repositoryName := testRepositoryName()
+	testSize := 10000
 
 	err := initRepository(apiClient, repositoryName)
 	require.NoError(t, err)
@@ -85,9 +86,15 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 
 	err = makeDirectory(apiClient, repositoryName, newCommitID, "a/b")
 	require.NoError(t, err)
-
-	err = putFile(apiClient, repositoryName, newCommitID, "a/b/one", strings.NewReader("hello world"))
+	err = makeDirectory(apiClient, repositoryName, newCommitID, "a/c")
 	require.NoError(t, err)
+
+	for i := 0; i < testSize; i++ {
+		err = putFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
+		require.NoError(t, err)
+		err = putFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
+		require.NoError(t, err)
+	}
 
 	err = commit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
@@ -99,15 +106,21 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, getCommitInfoResponse.CommitInfo.CommitType)
 	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.ParentCommit.Id)
 
-	readStringer, err := getFile(apiClient, repositoryName, newCommitID, "a/b/one")
-	require.NoError(t, err)
-	require.Equal(t, "hello world", readStringer.String())
+	for i := 0; i < testSize; i++ {
+		readStringer, err := getFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i))
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("hello%d", i), readStringer.String())
+		readStringer, err = getFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i))
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("hello%d", i), readStringer.String())
+	}
 
 	listFilesResponse, err := listFiles(apiClient, repositoryName, newCommitID, "a/b", 0, 1)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(listFilesResponse.FileInfo))
-	fileInfo := listFilesResponse.FileInfo[0]
-	require.Equal(t, "a/b/one", fileInfo.Path.Path)
+	require.Equal(t, testSize, len(listFilesResponse.FileInfo))
+	listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/c", 0, 1)
+	require.NoError(t, err)
+	require.Equal(t, testSize, len(listFilesResponse.FileInfo))
 }
 
 func testRepositoryName() string {
