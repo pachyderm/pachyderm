@@ -32,7 +32,9 @@ const (
 	// TODO(pedge): large numbers of shards takes forever because
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
-	testDefaultNumShards = 16
+	testShardsPerServer = 4
+	testNumServers      = 1
+	testSize            = 10000
 )
 
 var (
@@ -45,8 +47,7 @@ func init() {
 
 func TestBtrfs(t *testing.T) {
 	driver := btrfs.NewDriver(getBtrfsRootDir(t))
-	numShards := testDefaultNumShards
-	runTest(t, driver, numShards, testSimple)
+	runTest(t, driver, testSimple)
 }
 
 func getBtrfsRootDir(t *testing.T) string {
@@ -60,7 +61,6 @@ func getBtrfsRootDir(t *testing.T) string {
 
 func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	repositoryName := testRepositoryName()
-	testSize := 10000
 
 	err := initRepository(apiClient, repositoryName)
 	require.NoError(t, err)
@@ -283,31 +283,37 @@ func getCommitInfo(apiClient pfs.ApiClient, repositoryName string, commitID stri
 func runTest(
 	t *testing.T,
 	driver drive.Driver,
-	numShards int,
 	f func(t *testing.T, apiClient pfs.ApiClient),
 ) {
 	runGrpcTest(
 		t,
-		func(s *grpc.Server, address string) {
-			combinedAPIServer :=
-				server.NewCombinedAPIServer(
+		testNumServers,
+		func(servers map[string]*grpc.Server) {
+			for address, s := range servers {
+				combinedAPIServer := server.NewCombinedAPIServer(
 					route.NewSharder(
-						numShards,
+						testShardsPerServer*testNumServers,
 					),
 					route.NewRouter(
 						route.NewSingleAddresser(
 							address,
-							numShards,
+							testShardsPerServer,
 						),
 						route.NewDialer(),
 						address,
 					),
 					driver,
 				)
-			pfs.RegisterApiServer(s, combinedAPIServer)
-			pfs.RegisterInternalApiServer(s, combinedAPIServer)
+				pfs.RegisterApiServer(s, combinedAPIServer)
+				pfs.RegisterInternalApiServer(s, combinedAPIServer)
+			}
 		},
-		func(t *testing.T, clientConn *grpc.ClientConn) {
+		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
+			var clientConn *grpc.ClientConn
+			for _, c := range clientConns {
+				clientConn = c
+				break
+			}
 			f(
 				t,
 				pfs.NewApiClient(
@@ -320,10 +326,12 @@ func runTest(
 
 func runGrpcTest(
 	t *testing.T,
-	registerFunc func(*grpc.Server, string),
-	testFunc func(*testing.T, *grpc.ClientConn),
+	numServers int,
+	registerFunc func(map[string]*grpc.Server),
+	testFunc func(*testing.T, map[string]*grpc.ClientConn),
 ) {
 	grpcSuite := &grpcSuite{
+		numServers:   numServers,
 		registerFunc: registerFunc,
 		testFunc:     testFunc,
 	}
@@ -332,42 +340,64 @@ func runGrpcTest(
 
 type grpcSuite struct {
 	suite.Suite
-	registerFunc func(*grpc.Server, string)
-	testFunc     func(*testing.T, *grpc.ClientConn)
-	clientConn   *grpc.ClientConn
-	server       *grpc.Server
-	address      string
+	numServers   int
+	registerFunc func(map[string]*grpc.Server)
+	testFunc     func(*testing.T, map[string]*grpc.ClientConn)
+	clientConns  map[string]*grpc.ClientConn
+	servers      map[string]*grpc.Server
 	errC         chan error
+	done         chan bool
 }
 
 func (g *grpcSuite) SetupSuite() {
-	port, err := freeport.Get()
-	require.NoError(g.T(), err)
-	g.address = fmt.Sprintf("0.0.0.0:%d", port)
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	require.NoError(g.T(), err)
-	g.server = grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
-	g.registerFunc(g.server, g.address)
-	g.errC = make(chan error, 1)
-	go func() {
-		g.errC <- g.server.Serve(listener)
-		close(g.errC)
-	}()
-	clientConn, err := grpc.Dial(g.address)
-	if err != nil {
-		g.server.Stop()
-		<-g.errC
+	g.servers = make(map[string]*grpc.Server)
+	listeners := make(map[string]net.Listener)
+	for i := 0; i < g.numServers; i++ {
+		port, err := freeport.Get()
 		require.NoError(g.T(), err)
+		address := fmt.Sprintf("0.0.0.0:%d", port)
+		g.servers[address] = grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		require.NoError(g.T(), err)
+		listeners[address] = listener
 	}
-	g.clientConn = clientConn
+	g.registerFunc(g.servers)
+	g.errC = make(chan error, g.numServers)
+	for address, server := range g.servers {
+		address := address
+		server := server
+		go func() {
+			g.errC <- server.Serve(listeners[address])
+		}()
+	}
+	g.done = make(chan bool, 1)
+	go func() {
+		for j := 0; j < g.numServers; j++ {
+			<-g.errC
+		}
+		g.done <- true
+	}()
+	g.clientConns = make(map[string]*grpc.ClientConn)
+	for address := range g.servers {
+		clientConn, err := grpc.Dial(address)
+		if err != nil {
+			g.TearDownSuite()
+			require.NoError(g.T(), err)
+		}
+		g.clientConns[address] = clientConn
+	}
 }
 
 func (g *grpcSuite) TearDownSuite() {
-	g.server.Stop()
-	<-g.errC
-	_ = g.clientConn.Close()
+	for _, server := range g.servers {
+		server.Stop()
+	}
+	<-g.done
+	for _, clientConn := range g.clientConns {
+		_ = clientConn.Close()
+	}
 }
 
 func (g *grpcSuite) TestSuite() {
-	g.testFunc(g.T(), g.clientConn)
+	g.testFunc(g.T(), g.clientConns)
 }
