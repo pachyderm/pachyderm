@@ -379,8 +379,8 @@ func (s *shard) masters() ([]string, error) {
 	defer client.Close()
 
 	response, err := client.Get("/pfs/master", false, true)
-	log.Print("len(response.Node.Nodes): ", len(response.Node.Nodes))
 	if err == nil {
+		log.Print("len(response.Node.Nodes): ", len(response.Node.Nodes))
 		for _, node := range response.Node.Nodes {
 			// node.Key looks like " /pachyderm.io/pfs/0-5"
 			//                      0 1            2   3

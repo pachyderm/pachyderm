@@ -53,7 +53,7 @@ shell:
 	PFS_DOCKER_OPTS="-it" bin/run /bin/bash
 
 launch:
-	PFS_DOCKER_OPTS="-d" bin/run /go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper /go/bin/shard 0-1 localhost
+	PFS_DOCKER_OPTS="-d" bin/run /go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper /go/bin/shard
 
 launch-pfsd:
 	PFS_DOCKER_OPTS="-d" bin/run /go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper /go/bin/pfsd
