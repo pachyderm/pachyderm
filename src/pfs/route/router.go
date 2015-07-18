@@ -88,14 +88,16 @@ func (r *router) GetAllClientConns() ([]*grpc.ClientConn, error) {
 		return nil, err
 	}
 	clientConns := make([]*grpc.ClientConn, len(addresses)-1)
-	for i, address := range addresses {
+	j := 0
+	for _, address := range addresses {
 		// TODO(pedge): huge race, this whole thing is bad
 		if address != r.localAddress {
 			clientConn, err := r.dialer.Dial(address)
 			if err != nil {
 				return nil, err
 			}
-			clientConns[i] = clientConn
+			clientConns[j] = clientConn
+			j++
 		}
 	}
 	return clientConns, nil
