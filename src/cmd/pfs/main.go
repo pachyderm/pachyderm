@@ -2,18 +2,14 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"os"
 	"runtime"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
+	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/peter-edge/go-env"
 	"github.com/spf13/cobra"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
@@ -36,7 +32,7 @@ func main() {
 		Use:  "init repository-name",
 		Long: "Initalize a repository.",
 		Run: func(cmd *cobra.Command, args []string) {
-			check(initRepository(apiClient, args[0]))
+			check(pfsutil.InitRepository(apiClient, args[0]))
 		},
 	}
 
@@ -44,7 +40,7 @@ func main() {
 		Use:  "mkdir repository-name commit-id path/to/dir",
 		Long: "Make a directory. Sub directories must already exist.",
 		Run: func(cmd *cobra.Command, args []string) {
-			check(makeDirectory(apiClient, args[0], args[1], args[2]))
+			check(pfsutil.MakeDirectory(apiClient, args[0], args[1], args[2]))
 		},
 	}
 
@@ -52,7 +48,7 @@ func main() {
 		Use:  "put repository-name branch-id path/to/file",
 		Long: "Put a file from stdin. Directories must exist. branch-id must be a writeable commit.",
 		Run: func(cmd *cobra.Command, args []string) {
-			check(putFile(apiClient, args[0], args[1], args[2], os.Stdin))
+			check(pfsutil.PutFile(apiClient, args[0], args[1], args[2], os.Stdin))
 		},
 	}
 
@@ -60,7 +56,7 @@ func main() {
 		Use:  "get repository-name commit-id path/to/file",
 		Long: "Get a file from stdout. commit-id must be a readable commit.",
 		Run: func(cmd *cobra.Command, args []string) {
-			reader, err := getFile(apiClient, args[0], args[1], args[2])
+			reader, err := pfsutil.GetFile(apiClient, args[0], args[1], args[2])
 			check(err)
 			_, err = bufio.NewReader(reader).WriteTo(os.Stdout)
 			check(err)
@@ -71,7 +67,7 @@ func main() {
 		Use:  "ls repository-name branch-id path/to/dir",
 		Long: "List a directory. Directory must exist.",
 		Run: func(cmd *cobra.Command, args []string) {
-			listFilesResponse, err := listFiles(apiClient, args[0], args[1], args[2], 0, 1)
+			listFilesResponse, err := pfsutil.ListFiles(apiClient, args[0], args[1], args[2], 0, 1)
 			check(err)
 			for _, fileInfo := range listFilesResponse.FileInfo {
 				fmt.Printf("%+v\n", fileInfo)
@@ -83,7 +79,7 @@ func main() {
 		Use:  "branch repository-name commit-id",
 		Long: "Branch a commit. commit-id must be a readable commit.",
 		Run: func(cmd *cobra.Command, args []string) {
-			branchResponse, err := branch(apiClient, args[0], args[1])
+			branchResponse, err := pfsutil.Branch(apiClient, args[0], args[1])
 			check(err)
 			fmt.Println(branchResponse.Commit.Id)
 		},
@@ -93,7 +89,7 @@ func main() {
 		Use:  "commit repository-name branch-id",
 		Long: "Commit a branch. branch-id must be a writeable commit.",
 		Run: func(cmd *cobra.Command, args []string) {
-			check(commit(apiClient, args[0], args[1]))
+			check(pfsutil.Commit(apiClient, args[0], args[1]))
 		},
 	}
 
@@ -101,7 +97,7 @@ func main() {
 		Use:  "commit-info repository-name commit-id",
 		Long: "Get info for a commit.",
 		Run: func(cmd *cobra.Command, args []string) {
-			commitInfoResponse, err := getCommitInfo(apiClient, args[0], args[1])
+			commitInfoResponse, err := pfsutil.GetCommitInfo(apiClient, args[0], args[1])
 			check(err)
 			fmt.Printf("%+v\n", commitInfoResponse.CommitInfo)
 		},
@@ -128,146 +124,4 @@ func check(err error) {
 		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 		os.Exit(1)
 	}
-}
-
-func initRepository(apiClient pfs.ApiClient, repositoryName string) error {
-	_, err := apiClient.InitRepository(
-		context.Background(),
-		&pfs.InitRepositoryRequest{
-			Repository: &pfs.Repository{
-				Name: repositoryName,
-			},
-		},
-	)
-	return err
-}
-
-func branch(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.BranchResponse, error) {
-	return apiClient.Branch(
-		context.Background(),
-		&pfs.BranchRequest{
-			Commit: &pfs.Commit{
-				Repository: &pfs.Repository{
-					Name: repositoryName,
-				},
-				Id: commitID,
-			},
-		},
-	)
-}
-
-func makeDirectory(apiClient pfs.ApiClient, repositoryName string, commitID string, path string) error {
-	_, err := apiClient.MakeDirectory(
-		context.Background(),
-		&pfs.MakeDirectoryRequest{
-			Path: &pfs.Path{
-				Commit: &pfs.Commit{
-					Repository: &pfs.Repository{
-						Name: repositoryName,
-					},
-					Id: commitID,
-				},
-				Path: path,
-			},
-		},
-	)
-	return err
-}
-
-func putFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, reader io.Reader) error {
-	value, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return err
-	}
-	_, err = apiClient.PutFile(
-		context.Background(),
-		&pfs.PutFileRequest{
-			Path: &pfs.Path{
-				Commit: &pfs.Commit{
-					Repository: &pfs.Repository{
-						Name: repositoryName,
-					},
-					Id: commitID,
-				},
-				Path: path,
-			},
-			Value: value,
-		},
-	)
-	return err
-}
-
-func getFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string) (io.Reader, error) {
-	apiGetFileClient, err := apiClient.GetFile(
-		context.Background(),
-		&pfs.GetFileRequest{
-			Path: &pfs.Path{
-				Commit: &pfs.Commit{
-					Repository: &pfs.Repository{
-						Name: repositoryName,
-					},
-					Id: commitID,
-				},
-				Path: path,
-			},
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	buffer := bytes.NewBuffer(nil)
-	if err := protoutil.WriteFromStreamingBytesClient(apiGetFileClient, buffer); err != nil {
-		return nil, err
-	}
-	return buffer, nil
-}
-
-func listFiles(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, shardNum int, shardModulo int) (*pfs.ListFilesResponse, error) {
-	return apiClient.ListFiles(
-		context.Background(),
-		&pfs.ListFilesRequest{
-			Path: &pfs.Path{
-				Commit: &pfs.Commit{
-					Repository: &pfs.Repository{
-						Name: repositoryName,
-					},
-					Id: commitID,
-				},
-				Path: path,
-			},
-			Shard: &pfs.Shard{
-				Number: uint64(shardNum),
-				Modulo: uint64(shardModulo),
-			},
-		},
-	)
-}
-
-func commit(apiClient pfs.ApiClient, repositoryName string, commitID string) error {
-	_, err := apiClient.Commit(
-		context.Background(),
-		&pfs.CommitRequest{
-			Commit: &pfs.Commit{
-				Repository: &pfs.Repository{
-					Name: repositoryName,
-				},
-				Id: commitID,
-			},
-		},
-	)
-	return err
-}
-
-func getCommitInfo(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.GetCommitInfoResponse, error) {
-	return apiClient.GetCommitInfo(
-		context.Background(),
-		&pfs.GetCommitInfoRequest{
-			Commit: &pfs.Commit{
-				Repository: &pfs.Repository{
-					Name: repositoryName,
-				},
-				Id: commitID,
-			},
-		},
-	)
 }
