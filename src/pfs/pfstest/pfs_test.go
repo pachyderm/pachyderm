@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/discovery"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
@@ -286,15 +287,27 @@ func runTest(
 		t,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
+			discoveryClient := discovery.NewMockClient()
+			i := 0
+			addresses := make([]string, testNumServers)
+			for address := range servers {
+				shards := make([]string, testShardsPerServer)
+				for j := 0; j < testShardsPerServer; j++ {
+					shards[j] = fmt.Sprintf("%d", (i*testShardsPerServer)+j)
+				}
+				_ = discoveryClient.Set(address+"-master", strings.Join(shards, ","))
+				addresses[i] = address
+				i++
+			}
+			_ = discoveryClient.Set("all-addresses", strings.Join(addresses, ","))
 			for address, s := range servers {
 				combinedAPIServer := server.NewCombinedAPIServer(
 					route.NewSharder(
 						testShardsPerServer*testNumServers,
 					),
 					route.NewRouter(
-						route.NewSingleAddresser(
-							address,
-							testShardsPerServer,
+						route.NewDiscoveryAddresser(
+							discoveryClient,
 						),
 						route.NewDialer(),
 						address,
