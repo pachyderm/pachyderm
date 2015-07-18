@@ -103,9 +103,9 @@ be found in [etc/kubernetes](etc/kubernetes). The start the service running on
 Kubernetes do:
 
 ```shell
-$ kubectl create -f pfs-service.yml
-$ kubectl create -f router-controller.yml
 $ kubectl create -f storage-controller.yml
+$ kubectl create -f router-controller.yml
+$ kubectl create -f pfs-service.yml
 ```
 
 Pachyderm expects etcd to be running on the host machine. 
