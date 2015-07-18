@@ -7,6 +7,6 @@ cd "${DIR}"
 
 . "${DIR}/../etc/env/pfs.env"
 
-docker kill "${PFS_CONTAINER_NAME}"
-docker rm "${PFS_CONTAINER_NAME}"
+docker kill "${PFS_CONTAINER_NAME}${1}" > /dev/null 2> /dev/null
+docker rm "${PFS_CONTAINER_NAME}${1}" > /dev/null 2> /dev/null
 exit 0
