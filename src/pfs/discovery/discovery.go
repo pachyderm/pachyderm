@@ -41,6 +41,6 @@ func NewEtcdClient(addresses ...string) Client {
 	return newEtcdClient(addresses...)
 }
 
-func NewMockClient() *mockClient {
+func NewMockClient() Client {
 	return newMockClient()
 }

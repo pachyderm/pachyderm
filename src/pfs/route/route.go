@@ -26,7 +26,7 @@ func NewSingleAddresser(address string, numShards int) Addresser {
 }
 
 func NewDiscoveryAddresser(discoveryClient discovery.Client) Addresser {
-	return nil
+	return newDiscoveryAddresser(discoveryClient)
 }
 
 type Dialer interface {
