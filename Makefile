@@ -50,13 +50,13 @@ clean:
 	bin/clean-btrfs
 
 shell:
-	bin/shell
+	PFS_DOCKER_OPTS="-it" bin/run /bin/bash
 
 launch:
-	bin/launch
+	PFS_DOCKER_OPTS="-d" bin/run /go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper /go/bin/shard 0-1 localhost
 
 launch-pfsd:
-	bin/launch-pfsd
+	PFS_DOCKER_OPTS="-d" bin/run /go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper /go/bin/pfsd
 
 lint:
 	go get -v github.com/golang/lint/golint
