@@ -11,12 +11,9 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/address"
-	"github.com/pachyderm/pachyderm/src/pfs/dial"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
-	"github.com/pachyderm/pachyderm/src/pfs/shard"
 	"github.com/peter-edge/go-env"
 	"google.golang.org/grpc"
 )
@@ -50,18 +47,18 @@ func do() error {
 	if appEnv.NumShards == 0 {
 		appEnv.NumShards = defaultNumShards
 	}
-	a := fmt.Sprintf("0.0.0.0:%d", appEnv.APIPort)
+	address := fmt.Sprintf("0.0.0.0:%d", appEnv.APIPort)
 	combinedAPIServer := server.NewCombinedAPIServer(
-		shard.NewSharder(
+		route.NewSharder(
 			appEnv.NumShards,
 		),
 		route.NewRouter(
-			address.NewSingleAddresser(
-				a,
+			route.NewSingleAddresser(
+				address,
 				appEnv.NumShards,
 			),
-			dial.NewDialer(),
-			a,
+			route.NewDialer(),
+			address,
 		),
 		btrfs.NewDriver(appEnv.BtrfsRoot),
 	)

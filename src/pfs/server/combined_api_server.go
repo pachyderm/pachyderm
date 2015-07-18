@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/protoutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
-	"github.com/pachyderm/pachyderm/src/pfs/shard"
 	"github.com/peter-edge/go-google-protobuf"
 )
 
@@ -22,13 +21,13 @@ var (
 )
 
 type combinedAPIServer struct {
-	sharder shard.Sharder
+	sharder route.Sharder
 	router  route.Router
 	driver  drive.Driver
 }
 
 func newCombinedAPIServer(
-	sharder shard.Sharder,
+	sharder route.Sharder,
 	router route.Router,
 	driver drive.Driver,
 ) *combinedAPIServer {

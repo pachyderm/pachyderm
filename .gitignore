@@ -25,6 +25,7 @@ _testmain.go
 *.swp
 
 src/cmd/deploy/deploy
+src/cmd/pfs/pfs
 src/cmd/pfsd/pfsd
 src/cmd/router/router
 src/cmd/shard/shard

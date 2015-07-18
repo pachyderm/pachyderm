@@ -4,7 +4,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
-	"github.com/pachyderm/pachyderm/src/pfs/shard"
 )
 
 type CombinedAPIServer interface {
@@ -14,7 +13,7 @@ type CombinedAPIServer interface {
 
 // NewCombinedAPIServer returns a new CombinedAPIServer.
 func NewCombinedAPIServer(
-	sharder shard.Sharder,
+	sharder route.Sharder,
 	router route.Router,
 	driver drive.Driver,
 ) CombinedAPIServer {
