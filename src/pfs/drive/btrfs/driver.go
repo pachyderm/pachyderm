@@ -42,17 +42,14 @@ func (d *driver) Init() error {
 }
 
 func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool) error {
-	// syscall.Mkdir (which os.Mkdir directly calls) is atomic across processes, and since
-	// we do not include shards as part of the repository path, this guaranteees
-	// only one initialization will complete successfully
-	if err := os.Mkdir(d.repositoryPath(repository), 0700); err != nil {
+	if err := os.MkdirAll(d.repositoryPath(repository), 0700); err != nil {
 		return err
 	}
 	initialCommit := &pfs.Commit{
 		Repository: repository,
 		Id:         drive.InitialCommitID,
 	}
-	if err := os.Mkdir(d.commitPathNoShard(initialCommit), 0700); err != nil {
+	if err := os.MkdirAll(d.commitPathNoShard(initialCommit), 0700); err != nil {
 		return err
 	}
 	for shard := range shards {
@@ -167,7 +164,7 @@ func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[in
 			Id:         drive.NewCommitID(),
 		}
 	}
-	if err := os.Mkdir(d.commitPathNoShard(newCommit), 0700); err != nil {
+	if err := os.MkdirAll(d.commitPathNoShard(newCommit), 0700); err != nil {
 		return nil, err
 	}
 	for shard := range shards {

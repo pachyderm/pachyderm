@@ -30,9 +30,9 @@ const (
 	// TODO(pedge): large numbers of shards takes forever because
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
-	testShardsPerServer = 4
-	testNumServers      = 1
-	testSize            = 1000
+	testShardsPerServer = 16
+	testNumServers      = 16
+	testSize            = 10000
 )
 
 var (
@@ -119,12 +119,14 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/c", 0, 1)
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(listFilesResponse.FileInfo))
-	listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/b", 0, 2)
-	require.NoError(t, err)
-	require.Equal(t, testSize/2, len(listFilesResponse.FileInfo))
-	listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/c", 1, 2)
-	require.NoError(t, err)
-	require.Equal(t, testSize/2, len(listFilesResponse.FileInfo))
+
+	var fileInfos []*pfs.FileInfo
+	for i := 0; i < 7; i++ {
+		listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/b", i, 7)
+		require.NoError(t, err)
+		fileInfos = append(fileInfos, listFilesResponse.FileInfo...)
+	}
+	require.Equal(t, testSize, len(fileInfos))
 }
 
 func testRepositoryName() string {
@@ -323,6 +325,11 @@ func runTest(
 			for _, c := range clientConns {
 				clientConn = c
 				break
+			}
+			for _, c := range clientConns {
+				if c != clientConn {
+					_ = c.Close()
+				}
 			}
 			f(
 				t,

@@ -137,9 +137,13 @@ func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs
 	if err != nil {
 		return nil, err
 	}
+	dynamicShard := listFilesRequest.Shard
+	if dynamicShard == nil {
+		dynamicShard = &pfs.Shard{Number: 0, Modulo: 1}
+	}
 	filteredShards := make(map[int]bool)
 	for shard := range shards {
-		if uint64(shard)%listFilesRequest.Shard.Modulo == listFilesRequest.Shard.Number {
+		if uint64(shard)%dynamicShard.Modulo == dynamicShard.Number {
 			filteredShards[shard] = true
 		}
 	}
@@ -161,6 +165,7 @@ func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs
 				ctx,
 				&pfs.ListFilesRequest{
 					Path:     listFilesRequest.Path,
+					Shard:    listFilesRequest.Shard,
 					Redirect: true,
 				},
 			)
