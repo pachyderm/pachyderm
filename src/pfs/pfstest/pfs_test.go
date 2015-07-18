@@ -32,8 +32,8 @@ const (
 	// TODO(pedge): large numbers of shards takes forever because
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
-	testShardsPerServer = 16
-	testNumServers      = 16
+	testShardsPerServer = 8
+	testNumServers      = 8
 	testSize            = 10000
 )
 
@@ -146,8 +146,8 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/b", i, 7)
-			require.NoError(t, err)
+			listFilesResponse, iErr := listFiles(apiClient, repositoryName, newCommitID, "a/b", i, 7)
+			require.NoError(t, iErr)
 			fileInfos[i] = listFilesResponse.FileInfo
 		}()
 	}
