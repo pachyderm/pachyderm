@@ -10,7 +10,7 @@ import (
 	"runtime"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/protoutil"
+	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/peter-edge/go-env"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
