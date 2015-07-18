@@ -9,6 +9,7 @@ It is generated from these files:
 	pfs.proto
 
 It has these top-level messages:
+	Error
 	Repository
 	Commit
 	Path
@@ -47,6 +48,44 @@ var _ grpc.ClientConn
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+
+type ErrorCode int32
+
+const (
+	ErrorCode_ERROR_CODE_NONE                         ErrorCode = 0
+	ErrorCode_ERROR_CODE_UNKNOWN                      ErrorCode = 1
+	ErrorCode_ERROR_CODE_DISCOVERY_NETWORK_FAILURE    ErrorCode = 2
+	ErrorCode_ERROR_CODE_DISCOVERY_NOT_FOUND          ErrorCode = 3
+	ErrorCode_ERROR_CODE_DISCOVERY_NOT_DIRECTORY      ErrorCode = 4
+	ErrorCode_ERROR_CODE_DISCOVERY_NOT_VALUE          ErrorCode = 5
+	ErrorCode_ERROR_CODE_DISCOVERY_KEY_ALREADY_EXISTS ErrorCode = 6
+	ErrorCode_ERROR_CODE_PRECONDITION_NOT_MET         ErrorCode = 7
+)
+
+var ErrorCode_name = map[int32]string{
+	0: "ERROR_CODE_NONE",
+	1: "ERROR_CODE_UNKNOWN",
+	2: "ERROR_CODE_DISCOVERY_NETWORK_FAILURE",
+	3: "ERROR_CODE_DISCOVERY_NOT_FOUND",
+	4: "ERROR_CODE_DISCOVERY_NOT_DIRECTORY",
+	5: "ERROR_CODE_DISCOVERY_NOT_VALUE",
+	6: "ERROR_CODE_DISCOVERY_KEY_ALREADY_EXISTS",
+	7: "ERROR_CODE_PRECONDITION_NOT_MET",
+}
+var ErrorCode_value = map[string]int32{
+	"ERROR_CODE_NONE":                         0,
+	"ERROR_CODE_UNKNOWN":                      1,
+	"ERROR_CODE_DISCOVERY_NETWORK_FAILURE":    2,
+	"ERROR_CODE_DISCOVERY_NOT_FOUND":          3,
+	"ERROR_CODE_DISCOVERY_NOT_DIRECTORY":      4,
+	"ERROR_CODE_DISCOVERY_NOT_VALUE":          5,
+	"ERROR_CODE_DISCOVERY_KEY_ALREADY_EXISTS": 6,
+	"ERROR_CODE_PRECONDITION_NOT_MET":         7,
+}
+
+func (x ErrorCode) String() string {
+	return proto.EnumName(ErrorCode_name, int32(x))
+}
 
 // CommitType represents the type of commit.
 type CommitType int32
@@ -98,6 +137,15 @@ var FileType_value = map[string]int32{
 func (x FileType) String() string {
 	return proto.EnumName(FileType_name, int32(x))
 }
+
+type Error struct {
+	ErrorCode ErrorCode `protobuf:"varint,1,opt,name=error_code,enum=pfs.ErrorCode" json:"error_code,omitempty"`
+	Value     string    `protobuf:"bytes,2,opt,name=value" json:"value,omitempty"`
+}
+
+func (m *Error) Reset()         { *m = Error{} }
+func (m *Error) String() string { return proto.CompactTextString(m) }
+func (*Error) ProtoMessage()    {}
 
 // Repository represents a repository.
 type Repository struct {
@@ -426,6 +474,7 @@ func (m *PushDiffRequest) GetCommit() *Commit {
 }
 
 func init() {
+	proto.RegisterEnum("pfs.ErrorCode", ErrorCode_name, ErrorCode_value)
 	proto.RegisterEnum("pfs.CommitType", CommitType_name, CommitType_value)
 	proto.RegisterEnum("pfs.FileType", FileType_name, FileType_value)
 }
