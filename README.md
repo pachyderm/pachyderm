@@ -305,7 +305,7 @@ make launch
 ```
 
 This will build a docker image from the working directory, tag it as `pfs` and
-launch it locally using.  The only dependencies are Docker >= 1.5 and btrfs-tools >= 3.14.
+launch it locally. The only dependencies are Docker >= 1.5 and btrfs-tools >= 3.14.
 
 Other useful development commands can be seen in the [Makefile](Makefile) and the
 [bin](bin) directory. Key commands:
