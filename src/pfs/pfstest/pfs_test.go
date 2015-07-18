@@ -6,7 +6,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -40,10 +42,13 @@ var (
 )
 
 func init() {
+	// TODO(pedge): needed in tests? will not be needed for golang 1.5 for sure
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	executil.SetDebug(true)
 }
 
 func TestBtrfs(t *testing.T) {
+	t.Parallel()
 	driver := btrfs.NewDriver(getBtrfsRootDir(t))
 	runTest(t, driver, testSimple)
 }
@@ -87,12 +92,19 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	err = makeDirectory(apiClient, repositoryName, newCommitID, "a/c")
 	require.NoError(t, err)
 
+	var wg sync.WaitGroup
 	for i := 0; i < testSize; i++ {
-		err = putFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
-		require.NoError(t, err)
-		err = putFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
-		require.NoError(t, err)
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			iErr := putFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
+			require.NoError(t, iErr)
+			iErr = putFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
+			require.NoError(t, iErr)
+		}()
 	}
+	wg.Wait()
 
 	err = commit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
@@ -104,14 +116,21 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, getCommitInfoResponse.CommitInfo.CommitType)
 	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.ParentCommit.Id)
 
+	wg = sync.WaitGroup{}
 	for i := 0; i < testSize; i++ {
-		readStringer, err := getFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i))
-		require.NoError(t, err)
-		require.Equal(t, fmt.Sprintf("hello%d", i), readStringer.String())
-		readStringer, err = getFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i))
-		require.NoError(t, err)
-		require.Equal(t, fmt.Sprintf("hello%d", i), readStringer.String())
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			readStringer, iErr := getFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i))
+			require.NoError(t, iErr)
+			require.Equal(t, fmt.Sprintf("hello%d", i), readStringer.String())
+			readStringer, iErr = getFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i))
+			require.NoError(t, iErr)
+			require.Equal(t, fmt.Sprintf("hello%d", i), readStringer.String())
+		}()
 	}
+	wg.Wait()
 
 	listFilesResponse, err := listFiles(apiClient, repositoryName, newCommitID, "a/b", 0, 1)
 	require.NoError(t, err)
@@ -120,13 +139,24 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(listFilesResponse.FileInfo))
 
-	var fileInfos []*pfs.FileInfo
+	var fileInfos [7][]*pfs.FileInfo
+	wg = sync.WaitGroup{}
 	for i := 0; i < 7; i++ {
-		listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/b", i, 7)
-		require.NoError(t, err)
-		fileInfos = append(fileInfos, listFilesResponse.FileInfo...)
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/b", i, 7)
+			require.NoError(t, err)
+			fileInfos[i] = listFilesResponse.FileInfo
+		}()
 	}
-	require.Equal(t, testSize, len(fileInfos))
+	wg.Wait()
+	count := 0
+	for i := 0; i < 7; i++ {
+		count += len(fileInfos[i])
+	}
+	require.Equal(t, testSize, count)
 }
 
 func testRepositoryName() string {
