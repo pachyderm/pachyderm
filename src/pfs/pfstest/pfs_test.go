@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math"
-	"net"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -16,23 +14,25 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/facebookgo/freeport"
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/discovery"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/executil"
+	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 )
 
 const (
 	// TODO(pedge): large numbers of shards takes forever because
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
-	testDefaultNumShards = 4
+	testShardsPerServer = 4
+	testNumServers      = 1
+	testSize            = 10000
 )
 
 var (
@@ -45,8 +45,7 @@ func init() {
 
 func TestBtrfs(t *testing.T) {
 	driver := btrfs.NewDriver(getBtrfsRootDir(t))
-	numShards := testDefaultNumShards
-	runTest(t, driver, numShards, testSimple)
+	runTest(t, driver, testSimple)
 }
 
 func getBtrfsRootDir(t *testing.T) string {
@@ -85,9 +84,15 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 
 	err = makeDirectory(apiClient, repositoryName, newCommitID, "a/b")
 	require.NoError(t, err)
-
-	err = putFile(apiClient, repositoryName, newCommitID, "a/b/one", strings.NewReader("hello world"))
+	err = makeDirectory(apiClient, repositoryName, newCommitID, "a/c")
 	require.NoError(t, err)
+
+	for i := 0; i < testSize; i++ {
+		err = putFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
+		require.NoError(t, err)
+		err = putFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
+		require.NoError(t, err)
+	}
 
 	err = commit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
@@ -99,15 +104,27 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, getCommitInfoResponse.CommitInfo.CommitType)
 	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.ParentCommit.Id)
 
-	readStringer, err := getFile(apiClient, repositoryName, newCommitID, "a/b/one")
-	require.NoError(t, err)
-	require.Equal(t, "hello world", readStringer.String())
+	for i := 0; i < testSize; i++ {
+		readStringer, err := getFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i))
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("hello%d", i), readStringer.String())
+		readStringer, err = getFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i))
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("hello%d", i), readStringer.String())
+	}
 
 	listFilesResponse, err := listFiles(apiClient, repositoryName, newCommitID, "a/b", 0, 1)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(listFilesResponse.FileInfo))
-	fileInfo := listFilesResponse.FileInfo[0]
-	require.Equal(t, "a/b/one", fileInfo.Path.Path)
+	require.Equal(t, testSize, len(listFilesResponse.FileInfo))
+	listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/c", 0, 1)
+	require.NoError(t, err)
+	require.Equal(t, testSize, len(listFilesResponse.FileInfo))
+	listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/b", 0, 2)
+	require.NoError(t, err)
+	require.Equal(t, testSize/2, len(listFilesResponse.FileInfo))
+	listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/c", 1, 2)
+	require.NoError(t, err)
+	require.Equal(t, testSize/2, len(listFilesResponse.FileInfo))
 }
 
 func testRepositoryName() string {
@@ -264,31 +281,49 @@ func getCommitInfo(apiClient pfs.ApiClient, repositoryName string, commitID stri
 func runTest(
 	t *testing.T,
 	driver drive.Driver,
-	numShards int,
 	f func(t *testing.T, apiClient pfs.ApiClient),
 ) {
-	runGrpcTest(
+	grpctest.Run(
 		t,
-		func(s *grpc.Server, address string) {
-			combinedAPIServer :=
-				server.NewCombinedAPIServer(
+		testNumServers,
+		func(servers map[string]*grpc.Server) {
+			discoveryClient := discovery.NewMockClient()
+			i := 0
+			addresses := make([]string, testNumServers)
+			for address := range servers {
+				shards := make([]string, testShardsPerServer)
+				for j := 0; j < testShardsPerServer; j++ {
+					shards[j] = fmt.Sprintf("%d", (i*testShardsPerServer)+j)
+				}
+				_ = discoveryClient.Set(address+"-master", strings.Join(shards, ","))
+				addresses[i] = address
+				i++
+			}
+			_ = discoveryClient.Set("all-addresses", strings.Join(addresses, ","))
+			for address, s := range servers {
+				combinedAPIServer := server.NewCombinedAPIServer(
 					route.NewSharder(
-						numShards,
+						testShardsPerServer*testNumServers,
 					),
 					route.NewRouter(
-						route.NewSingleAddresser(
-							address,
-							numShards,
+						route.NewDiscoveryAddresser(
+							discoveryClient,
 						),
 						route.NewDialer(),
 						address,
 					),
 					driver,
 				)
-			pfs.RegisterApiServer(s, combinedAPIServer)
-			pfs.RegisterInternalApiServer(s, combinedAPIServer)
+				pfs.RegisterApiServer(s, combinedAPIServer)
+				pfs.RegisterInternalApiServer(s, combinedAPIServer)
+			}
 		},
-		func(t *testing.T, clientConn *grpc.ClientConn) {
+		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
+			var clientConn *grpc.ClientConn
+			for _, c := range clientConns {
+				clientConn = c
+				break
+			}
 			f(
 				t,
 				pfs.NewApiClient(
@@ -297,58 +332,4 @@ func runTest(
 			)
 		},
 	)
-}
-
-func runGrpcTest(
-	t *testing.T,
-	registerFunc func(*grpc.Server, string),
-	testFunc func(*testing.T, *grpc.ClientConn),
-) {
-	grpcSuite := &grpcSuite{
-		registerFunc: registerFunc,
-		testFunc:     testFunc,
-	}
-	suite.Run(t, grpcSuite)
-}
-
-type grpcSuite struct {
-	suite.Suite
-	registerFunc func(*grpc.Server, string)
-	testFunc     func(*testing.T, *grpc.ClientConn)
-	clientConn   *grpc.ClientConn
-	server       *grpc.Server
-	address      string
-	errC         chan error
-}
-
-func (g *grpcSuite) SetupSuite() {
-	port, err := freeport.Get()
-	require.NoError(g.T(), err)
-	g.address = fmt.Sprintf("0.0.0.0:%d", port)
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	require.NoError(g.T(), err)
-	g.server = grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
-	g.registerFunc(g.server, g.address)
-	g.errC = make(chan error, 1)
-	go func() {
-		g.errC <- g.server.Serve(listener)
-		close(g.errC)
-	}()
-	clientConn, err := grpc.Dial(g.address)
-	if err != nil {
-		g.server.Stop()
-		<-g.errC
-		require.NoError(g.T(), err)
-	}
-	g.clientConn = clientConn
-}
-
-func (g *grpcSuite) TearDownSuite() {
-	g.server.Stop()
-	<-g.errC
-	_ = g.clientConn.Close()
-}
-
-func (g *grpcSuite) TestSuite() {
-	g.testFunc(g.T(), g.clientConn)
 }
