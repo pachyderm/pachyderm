@@ -6,7 +6,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/facebookgo/freeport"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -40,12 +39,15 @@ type grpcSuite struct {
 func (g *grpcSuite) SetupSuite() {
 	g.servers = make(map[string]*grpc.Server)
 	listeners := make(map[string]net.Listener)
+	ports, err := getPorts(g.numServers)
+	require.NoError(g.T(), err)
 	for i := 0; i < g.numServers; i++ {
-		port, err := freeport.Get()
+		port := ports[i]
 		require.NoError(g.T(), err)
-		address := fmt.Sprintf("0.0.0.0:%d", port)
-		g.servers[address] = grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		address := fmt.Sprintf("0.0.0.0:%s", port)
+		server := grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
+		g.servers[address] = server
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
 		require.NoError(g.T(), err)
 		listeners[address] = listener
 	}
@@ -88,4 +90,22 @@ func (g *grpcSuite) TearDownSuite() {
 
 func (g *grpcSuite) TestSuite() {
 	g.testFunc(g.T(), g.clientConns)
+}
+
+func getPorts(count int) ([]string, error) {
+	ports := make([]string, count)
+	for i := 0; i < count; i++ {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			return nil, err
+		}
+		defer listener.Close()
+		address := listener.Addr().String()
+		_, port, err := net.SplitHostPort(address)
+		if err != nil {
+			return nil, err
+		}
+		ports[i] = port
+	}
+	return ports, nil
 }

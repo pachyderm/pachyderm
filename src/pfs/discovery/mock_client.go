@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 )
@@ -59,6 +60,7 @@ func (c *mockClient) Set(key string, value string) error {
 		return ErrDirectory
 	}
 	c.records[key] = record{false, value}
+	fmt.Println(c.records)
 	return nil
 }
 
