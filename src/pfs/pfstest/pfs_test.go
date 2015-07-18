@@ -18,15 +18,12 @@ import (
 
 	"github.com/facebookgo/freeport"
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/address"
-	"github.com/pachyderm/pachyderm/src/pfs/dial"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs/executil"
 	"github.com/pachyderm/pachyderm/src/pfs/protoutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
-	"github.com/pachyderm/pachyderm/src/pfs/shard"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -270,22 +267,21 @@ func runTest(
 	numShards int,
 	f func(t *testing.T, apiClient pfs.ApiClient),
 ) {
-	dialer := dial.NewDialer()
 	runGrpcTest(
 		t,
-		func(s *grpc.Server, a string) {
+		func(s *grpc.Server, address string) {
 			combinedAPIServer :=
 				server.NewCombinedAPIServer(
-					shard.NewSharder(
+					route.NewSharder(
 						numShards,
 					),
 					route.NewRouter(
-						address.NewSingleAddresser(
-							a,
+						route.NewSingleAddresser(
+							address,
 							numShards,
 						),
-						dialer,
-						a,
+						route.NewDialer(),
+						address,
 					),
 					driver,
 				)

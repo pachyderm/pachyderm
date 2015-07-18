@@ -1,10 +1,42 @@
 package route
 
 import (
-	"github.com/pachyderm/pachyderm/src/pfs/address"
-	"github.com/pachyderm/pachyderm/src/pfs/dial"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/discovery"
 	"google.golang.org/grpc"
 )
+
+type Sharder interface {
+	NumShards() int
+	GetShard(path *pfs.Path) (int, error)
+}
+
+func NewSharder(numShards int) Sharder {
+	return newSharder(numShards)
+}
+
+type Addresser interface {
+	GetMasterShards(address string) (map[int]bool, error)
+	GetSlaveShards(address string) (map[int]bool, error)
+	GetAllAddresses() ([]string, error)
+}
+
+func NewSingleAddresser(address string, numShards int) Addresser {
+	return newSingleAddresser(address, numShards)
+}
+
+func NewDiscoveryAddresser(discoveryClient discovery.Client) Addresser {
+	return nil
+}
+
+type Dialer interface {
+	Dial(address string) (*grpc.ClientConn, error)
+	Clean() error
+}
+
+func NewDialer(opts ...grpc.DialOption) Dialer {
+	return newDialer(opts...)
+}
 
 type Router interface {
 	GetMasterShards() (map[int]bool, error)
@@ -15,8 +47,8 @@ type Router interface {
 }
 
 func NewRouter(
-	addresser address.Addresser,
-	dialer dial.Dialer,
+	addresser Addresser,
+	dialer Dialer,
 	localAddress string,
 ) Router {
 	return newRouter(

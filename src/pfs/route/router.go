@@ -5,20 +5,17 @@ import (
 	"math/rand"
 
 	"google.golang.org/grpc"
-
-	"github.com/pachyderm/pachyderm/src/pfs/address"
-	"github.com/pachyderm/pachyderm/src/pfs/dial"
 )
 
 type router struct {
-	addresser    address.Addresser
-	dialer       dial.Dialer
+	addresser    Addresser
+	dialer       Dialer
 	localAddress string
 }
 
 func newRouter(
-	addresser address.Addresser,
-	dialer dial.Dialer,
+	addresser Addresser,
+	dialer Dialer,
 	localAddress string,
 ) *router {
 	return &router{
