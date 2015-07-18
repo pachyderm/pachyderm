@@ -1,4 +1,4 @@
-package pfstest
+package server
 
 import (
 	"bytes"
@@ -18,7 +18,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
-	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/executil"
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/stretchr/testify/require"
@@ -187,8 +186,8 @@ func runTest(
 				i++
 			}
 			_ = discoveryClient.Set("all-addresses", strings.Join(addresses, ","))
-			for address, s := range servers {
-				combinedAPIServer := server.NewCombinedAPIServer(
+			for address, server := range servers {
+				combinedAPIServer := NewCombinedAPIServer(
 					route.NewSharder(
 						testShardsPerServer*testNumServers,
 					),
@@ -201,8 +200,8 @@ func runTest(
 					),
 					driver,
 				)
-				pfs.RegisterApiServer(s, combinedAPIServer)
-				pfs.RegisterInternalApiServer(s, combinedAPIServer)
+				pfs.RegisterApiServer(server, combinedAPIServer)
+				pfs.RegisterInternalApiServer(server, combinedAPIServer)
 			}
 		},
 		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
