@@ -32,7 +32,7 @@ const (
 	// TODO(pedge): large numbers of shards takes forever because
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
-	testDefaultNumShards = 4
+	testDefaultNumShards = 16
 )
 
 var (
@@ -121,6 +121,12 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/c", 0, 1)
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(listFilesResponse.FileInfo))
+	listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/b", 0, 2)
+	require.NoError(t, err)
+	require.Equal(t, testSize/2, len(listFilesResponse.FileInfo))
+	listFilesResponse, err = listFiles(apiClient, repositoryName, newCommitID, "a/c", 1, 2)
+	require.NoError(t, err)
+	require.Equal(t, testSize/2, len(listFilesResponse.FileInfo))
 }
 
 func testRepositoryName() string {
