@@ -30,3 +30,4 @@ src/cmd/pfsd/pfsd
 src/cmd/router/router
 src/cmd/shard/shard
 .vagrant
+_tmp

@@ -47,16 +47,18 @@ install: deps
 clean:
 	go clean -i ./...
 	bin/clean
+	bin/clean pfsd
+	bin/clean shard
 	bin/clean-btrfs
 
 shell:
 	PFS_DOCKER_OPTS="-it" bin/run /bin/bash
 
 launch:
-	PFS_DOCKER_OPTS="-d" bin/run /go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper /go/bin/shard
+	bin/run-binary shard
 
 launch-pfsd:
-	PFS_DOCKER_OPTS="-d" bin/run /go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper /go/bin/pfsd
+	bin/run-binary pfsd
 
 lint:
 	go get -v github.com/golang/lint/golint
