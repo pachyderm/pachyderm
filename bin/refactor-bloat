@@ -7,17 +7,22 @@ set -Ee
 DIR="$(cd "$(dirname "${0}")/.." && pwd)"
 cd "${DIR}"
 
-
-
 list_files() {
   find "${1}" -type f \
     | grep -v '\.pb\.go$' \
     | grep -v '\.md$' \
     | grep -v 'pfs$' \
-    | grep -v 'pfsd$'
+    | grep -v 'pfsd$' \
+    | grep -v 'deploy$' \
+    | grep -v 'router$' \
+    | grep -v 'shard$'
 }
 
 list_all_files() {
+  if [ -n "${EVERYTHING}" ]; then
+    list_files "${DIR}/src"
+    return 0
+  fi
   echo $(list_files "${DIR}/src/pfs") \
   $(list_files "${DIR}/src/pkg") \
   $(list_files "${DIR}/src/cmd/pfs") \
