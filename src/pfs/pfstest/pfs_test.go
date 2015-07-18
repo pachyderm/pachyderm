@@ -20,10 +20,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
-	"github.com/pachyderm/pachyderm/src/pfs/executil"
-	"github.com/pachyderm/pachyderm/src/pfs/protoutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
+	"github.com/pachyderm/pachyderm/src/pkg/executil"
+	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
