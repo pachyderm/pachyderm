@@ -178,8 +178,14 @@ func (p *pipeline) inject(name string, public bool) error {
 func (p *pipeline) image(image string) error {
 	p.config.Config.Image = image
 	err := pullImage(image)
-	if err != nil && !isImageLocal(image) {
-		return errors.New("pfs: image is not local or in the registry")
+	if err != nil {
+		isLocal, err := isImageLocal(image)
+		if err != nil {
+			return err
+		}
+		if !isLocal {
+			return errors.New("pfs: image is not local or in the registry")
+		}
 	}
 	return nil
 }
