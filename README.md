@@ -105,7 +105,7 @@ Kubernetes do:
 ```shell
 $ kubectl create -f storage-controller.yml
 $ kubectl create -f router-controller.yml
-$ kubectl create -f pfs-service.yml
+$ kubectl create -f pachyderm-service.yml
 ```
 
 Pachyderm expects etcd to be running on the host machine. 
