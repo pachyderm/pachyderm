@@ -11,6 +11,7 @@ import (
 	"testing"
 	"testing/quick"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/route"
@@ -33,6 +34,18 @@ func TestPing(t *testing.T) {
 	res, err := http.Get(s.URL + "/ping")
 	require.NoError(t, err)
 	checkAndCloseHTTPResponseBody(t, res, "pong\n")
+}
+
+func TestVersion(t *testing.T) {
+	t.Parallel()
+	shard := NewShard("", "TestVersionData", "TestVersionPipelines", 0, 1, etcache.NewCache())
+	require.NoError(t, shard.EnsureRepos())
+	s := httptest.NewServer(NewShardHTTPHandler(shard))
+	defer s.Close()
+
+	res, err := http.Get(s.URL + "/version")
+	require.NoError(t, err)
+	checkAndCloseHTTPResponseBody(t, res, fmt.Sprintf("%s\n", common.VersionString()))
 }
 
 func TestBasic(t *testing.T) {

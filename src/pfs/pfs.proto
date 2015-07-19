@@ -77,6 +77,17 @@ message CommitInfo {
   Commit parent_commit = 3;
 }
 
+message Version {
+  uint32 major = 1;
+  uint32 minor = 2;
+  uint32 micro = 3;
+  string additional = 4;
+}
+
+message GetVersionResponse {
+  Version version = 1;
+}
+
 message InitRepositoryRequest {
   Repository repository = 1;
   bool redirect = 2;
@@ -130,6 +141,7 @@ message GetCommitInfoResponse {
 }
 
 service Api {
+  rpc GetVersion(google.protobuf.Empty) returns (GetVersionResponse) {}
   // InitRepository creates a new repository.
   // An error is returned if the specified repository already exists.
   rpc InitRepository(InitRepositoryRequest) returns (google.protobuf.Empty) {}

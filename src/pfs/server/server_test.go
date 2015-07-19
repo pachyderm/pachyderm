@@ -12,6 +12,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/discovery"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
@@ -55,6 +56,12 @@ func getBtrfsRootDir(t *testing.T) string {
 		t.Fatal("PFS_BTRFS_ROOT not set")
 	}
 	return rootDir
+}
+
+func testGetVersion(t *testing.T, apiClient pfs.ApiClient) {
+	getVersionResponse, err := pfsutil.GetVersion(apiClient)
+	require.NoError(t, err)
+	require.Equal(t, common.VersionString(), pfs.VersionString(getVersionResponse.Version))
 }
 
 func testSimple(t *testing.T, apiClient pfs.ApiClient) {

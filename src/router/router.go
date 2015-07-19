@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/satori/go.uuid"
@@ -65,6 +66,7 @@ func (ro *Router) RouterMux() *http.ServeMux {
 	mux.HandleFunc("/branch", branchHandler)
 	mux.HandleFunc("/pipeline/", pipelineHandler)
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
+	mux.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintf(w, "%s\n", common.VersionString()) })
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Welcome to pfs!\n")
 	})

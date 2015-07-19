@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/peter-edge/go-env"
@@ -27,6 +28,16 @@ func main() {
 	clientConn, err := grpc.Dial(fmt.Sprintf("%s:%d", appEnv.Host, appEnv.Port))
 	check(err)
 	apiClient := pfs.NewApiClient(clientConn)
+
+	versionCmd := &cobra.Command{
+		Use:  "version",
+		Long: "Print the version.",
+		Run: func(cmd *cobra.Command, args []string) {
+			getVersionResponse, err := pfsutil.GetVersion(apiClient)
+			check(err)
+			fmt.Printf("Client: %s\nServer: %s\n", common.VersionString(), pfs.VersionString(getVersionResponse.Version))
+		},
+	}
 
 	initCmd := &cobra.Command{
 		Use:  "init repository-name",
@@ -106,6 +117,7 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use: "pfs",
 	}
+	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(mkdirCmd)
 	rootCmd.AddCommand(putCmd)

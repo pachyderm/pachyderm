@@ -7,8 +7,16 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
+	"github.com/peter-edge/go-google-protobuf"
 	"golang.org/x/net/context"
 )
+
+func GetVersion(apiClient pfs.ApiClient) (*pfs.GetVersionResponse, error) {
+	return apiClient.GetVersion(
+		context.Background(),
+		&google_protobuf.Empty{},
+	)
+}
 
 func InitRepository(apiClient pfs.ApiClient, repositoryName string) error {
 	_, err := apiClient.InitRepository(
