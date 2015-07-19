@@ -5,26 +5,26 @@ set -Ee
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
 
-. "${DIR}/../etc/env/pfs.env"
+. "${DIR}/../etc/env/env.env"
 
 "${DIR}/mount-btrfs"
 "${DIR}/clean"
 "${DIR}/docker-build"
 
 if [ -z "${AWS_REGION}" ]; then
-	AWS_REGION="${PFS_DEFAULT_AWS_REGION}"
+	AWS_REGION="${PACHYDERM_DEFAULT_AWS_REGION}"
 fi
 if [ -z "${GOMAXPROCS}" ]; then
-  GOMAXPROCS="${PFS_DEFAULT_GOMAXPROCS}"
+  GOMAXPROCS="${PACHYDERM_DEFAULT_GOMAXPROCS}"
 fi
-if [ -z "${PFS_IMAGE}" ]; then
-  PFS_IMAGE="${PFS_DEFAULT_IMAGE}"
+if [ -z "${PACHYDERM_IMAGE}" ]; then
+  PACHYDERM_IMAGE="${PACHYDERM_DEFAULT_IMAGE}"
 fi
 
 docker run \
-    ${PFS_DOCKER_OPTS} \
+    ${PACHYDERM_DOCKER_OPTS} \
     --privileged=true \
-    --name "${PFS_IMAGE}" \
+    --name "${PACHYDERM_IMAGE}" \
     -v /:/host:ro \
     -v "${PFS_HOST_VOLUME}:/host/${PFS_HOST_VOLUME}" \
     -v "${PFS_DIR}:${PFS_DIR}" \
@@ -41,5 +41,5 @@ docker run \
     -p "${PFS_PORT}:${PFS_API_PORT}" \
     -p "${PFS_TRACE_PORT}:${PFS_TRACE_PORT}" \
     -p "8080:8080" \
-    "pachyderm/${PFS_IMAGE}" \
+    "pachyderm/${PACHYDERM_IMAGE}" \
     $@

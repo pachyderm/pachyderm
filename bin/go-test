@@ -5,10 +5,10 @@ set -Ee
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
 
-. "${DIR}/../etc/env/pfs.env"
+. "${DIR}/../etc/env/env.env"
 
 if [ -z "${GOMAXPROCS}" ]; then
-	GOMAXPROCS="${PFS_DEFAULT_GOMAXPROCS}"
+	GOMAXPROCS="${PACHYDERM_DEFAULT_GOMAXPROCS}"
 fi
 
 ${DIR}/run go test -parallel "${GOMAXPROCS}" -timeout 20m $@
