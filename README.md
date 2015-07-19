@@ -91,7 +91,7 @@ Pachyderm is designed to run on CoreOS so we'll need to deploy a CoreOs cluster.
 If you chose any of the manual options above, you'll neeed to SSH in to one of your new CoreOS machines and start Pachyderm.
 
 ```shell
-$ curl pachyderm.io/deploy | sh
+$ wget -qO- pachyderm.io/deploy | sh
 ```
 The startup process takes a little while the first time you run it because
 each node has to pull a Docker image.
