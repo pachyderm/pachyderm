@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestOutput tests a simple job that outputs some data.
+// TestOutput tests a simple pipeline that outputs some data.
 func TestOutput(t *testing.T) {
 	t.Parallel()
 	pipeline := newTestPipeline(t, "output", "commit", "master", "0-1", true)
@@ -288,7 +288,7 @@ run sleep 100
 	require.NoError(t, r.Cancel())
 }
 
-// TestWrap tests a simple job that uses line wrapping in it's Pachfile
+// TestWrap tests a simple pipeline that uses line wrapping in it's Pachfile
 func TestWrap(t *testing.T) {
 	t.Parallel()
 	outRepo := "TestWrap_out"
