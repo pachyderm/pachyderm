@@ -92,6 +92,9 @@ func waitContainer(id string) (int, error) {
 
 func isImageLocal(image string) (bool, error) {
 	repository, tag := docker.ParseRepositoryTag(image)
+	if tag == "" {
+		tag = "latest"
+	}
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		return false, err
