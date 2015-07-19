@@ -372,6 +372,9 @@ input buzz
 // TestInject tests that s3 injections works
 func TestInject(t *testing.T) {
 	t.Parallel()
+	if testing.Short() {
+		t.Skip()
+	}
 	outRepo := "TestInject_out"
 	require.NoError(t, btrfs.Init(outRepo))
 	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "", etcache.NewCache())
