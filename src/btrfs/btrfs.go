@@ -655,11 +655,13 @@ func checkVersion() {
 		return
 	}
 	versionString := strings.TrimSpace(string(data))
-	version := strings.Replace(versionString, "Btrfs v", "", -1)
-	split := strings.Split(version, ".")
-	if len(split) != 2 {
+	splittedVersion := strings.Split(versionString, " v")
+	if len(splittedVersion) != 2 {
 		checkVersionErr = fmt.Errorf("unknown version string: %s", versionString)
 		return
+	}
+	split := strings.Split(splittedVersion[1], ".")
+	if len(split) >= 2 {
 	}
 	major, err := strconv.ParseInt(split[0], 10, 64)
 	if err != nil {
@@ -667,17 +669,18 @@ func checkVersion() {
 		return
 	}
 	if major < majorVersion {
-		checkVersionErr = fmt.Errorf("need at least btrfs version %d.%d, got %s", majorVersion, minorVersion, version)
+		checkVersionErr = fmt.Errorf("need at least btrfs version %d.%d, got %s", majorVersion, minorVersion, splittedVersion[1])
 		return
-	}
-	minor, err := strconv.ParseInt(split[1], 10, 64)
-	if err != nil {
-		checkVersionErr = err
-		return
-	}
-	if minor < minorVersion {
-		checkVersionErr = fmt.Errorf("need at least btrfs version %d.%d, got %s", minorVersion, minorVersion, version)
-		return
+	} else if major == majorVersion {
+		minor, err := strconv.ParseInt(split[1], 10, 64)
+		if err != nil {
+			checkVersionErr = err
+			return
+		}
+		if minor < minorVersion {
+			checkVersionErr = fmt.Errorf("need at least btrfs version %d.%d, got %s", majorVersion, minorVersion, splittedVersion[1])
+			return
+		}
 	}
 }
 
