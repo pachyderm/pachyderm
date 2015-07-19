@@ -1,0 +1,15 @@
+#!/bin/sh
+
+set -Ee
+
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
+
+. "${DIR}/../etc/env/pfs.env"
+
+REPO_DIR="$(cd "${DIR}/.." && pwd)"
+docker build -t "pachyderm/${PFS_DEFAULT_IMAGE}" "${REPO_DIR}"
+if [ -n "${PFS_IMAGE}" ]; then
+  docker run -v "${REPO_DIR}/_tmp:/compile" "pachyderm/${PFS_DEFAULT_IMAGE}" /go/src/github.com/pachyderm/pachyderm/bin/compile "src/cmd/${PFS_IMAGE}/main.go" "${PFS_IMAGE}" "/compile"
+  docker build -t "pachyderm/${PFS_IMAGE}" -f "${REPO_DIR}/Dockerfile.${PFS_IMAGE}" "${REPO_DIR}"
+fi

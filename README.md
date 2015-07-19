@@ -118,7 +118,7 @@ replicas. However you can pass it flags to change this behavior:
 ```shell
 $ ./deploy -h
 Usage of /go/bin/deploy:
-  -container="pachyderm/pfs": The container to use for the deploy.
+  -container="pachyderm/shard": The container to use for the deploy.
   -replicas=3: The number of replicas of each shard.
   -shards=3: The number of shards in the deploy.
 ```
@@ -298,13 +298,13 @@ We're hiring! If you like ambitious distributed systems problems and think there
 
 ### Running
 
-Want to hack on pfs for fun? You can run pfs locally using:
+Want to hack on pachyderm for fun? You can run pachyderm locally using:
 
 ```shell
-make launch
+make launch-shard
 ```
 
-This will build a docker image from the working directory, tag it as `pfs` and
+This will build a docker image from the working directory, tag it as `pachyderm` and
 launch it locally. The only dependencies are Docker >= 1.5 and btrfs-tools >= 3.14.
 
 Other useful development commands can be seen in the [Makefile](Makefile) and the
@@ -318,7 +318,7 @@ make shell # go into a shell inside a running pachyderm container
 ./bin/run ARGS... # run a command inside a fresh pachyderm container
 ./bin/go-test ./src/PACKAGE # run tests for a specific package
 ./bin/go-test -run REGEX ./... # run all tests that match the regex
-make launch # launch pfs, as outlined above
+make launchs-shard # launch pachyderm, as outlined above
 make launch-pfsd # launch the new pfsd daemon
 make install # install all binaries locally
 export PFS_HOST=localhost # for pfs cli
