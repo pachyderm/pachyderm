@@ -58,14 +58,12 @@ clean:
 	sudo rm -rf _tmp
 
 build-images:
-	bin/docker-build
 	PFS_IMAGE=deploy bin/docker-build
 	PFS_IMAGE=pfsd bin/docker-build
 	PFS_IMAGE=router bin/docker-build
 	PFS_IMAGE=shard bin/docker-build
 
 push-images: build-images
-	docker push pachyderm/pachyderm
 	docker push pachyderm/deploy
 	docker push pachyderm/pfsd
 	docker push pachyderm/router

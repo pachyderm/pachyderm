@@ -1,0 +1,18 @@
+#!/bin/sh
+
+set -Ee
+
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+cd "${DIR}"
+
+. "${DIR}/../etc/env/pfs.env"
+
+REPO_DIR="$(cd "${DIR}/.." && pwd)"
+mkdir -p "${REPO_DIR}/etc/deps"
+go get -v github.com/peter-edge/go-tools/go-external-deps
+${GOPATH}/bin/go-external-deps "github.com/pachyderm/pachyderm/..." | grep -v "^github.com/pachyderm/pachyderm" > "${REPO_DIR}/.deps.list.tmp"
+if [ ! -f "${REPO_DIR}/etc/deps/deps.list" ] || [ -n "$(diff -u "${REPO_DIR}/.deps.list.tmp" "${REPO_DIR}/etc/deps/deps.list")" ]; then
+  mv "${REPO_DIR}/.deps.list.tmp" "${REPO_DIR}/etc/deps/deps.list"
+else
+  rm "${REPO_DIR}/.deps.list.tmp"
+fi
