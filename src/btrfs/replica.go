@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/pachyderm/pachyderm/src/pkg/executil"
 	"github.com/pachyderm/pachyderm/src/s3utils"
 )
 
@@ -119,18 +118,31 @@ func (r *s3Replica) From() (string, error) {
 // send produces a binary diff stream and passes it to cont
 func send(repo, commit string, cont func(io.Reader) error) error {
 	parent := GetMeta(path.Join(repo, commit), "parent")
+	var cmd *exec.Cmd
 	if parent == "" {
-		reader, err := executil.RunStdout("btrfs", "send", FilePath(path.Join(repo, commit)))
-		if err != nil {
-			return err
-		}
-		return cont(reader)
+		cmd = exec.Command("btrfs", "send", FilePath(path.Join(repo, commit)))
+	} else {
+		cmd = exec.Command("btrfs", "send", "-p", FilePath(path.Join(repo, parent)), FilePath(path.Join(repo, commit)))
 	}
-	reader, err := executil.RunStdout("btrfs", "send", "-p", FilePath(path.Join(repo, parent)), FilePath(path.Join(repo, commit)))
-	if err != nil {
+	stdin, stdout := io.Pipe()
+	stderr := bytes.NewBuffer(nil)
+	cmd.Stdout = stdout
+	if err := cmd.Start(); err != nil {
 		return err
 	}
-	return cont(reader)
+	errC := make(chan error, 1)
+	go func() {
+		errC <- cont(stdin)
+	}()
+	waitErr := cmd.Wait()
+	closeErr := stdout.Close()
+	if waitErr != nil {
+		return fmt.Errorf("%s %s", waitErr.Error(), stderr.String())
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return <-errC
 }
 
 // recv reads a binary stream from data and applies it to `repo`
@@ -156,7 +168,7 @@ func recv(repo string, data io.Reader) error {
 	if err != nil {
 		return err
 	}
-	buf := new(bytes.Buffer)
+	buf := bytes.NewBuffer(nil)
 	buf.ReadFrom(stderr)
 	log.Print("Stderr:", buf)
 	err = c.Wait()
