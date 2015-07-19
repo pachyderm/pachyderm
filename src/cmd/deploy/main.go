@@ -31,7 +31,7 @@ func printShardedService(name string) error {
 		for r := 0; r < *replicas; r++ {
 			config := new(service)
 			config.Name = name
-			config.Container = *container
+			config.Container = "pachyderm/shard"
 			config.Shard = s
 			config.Nshards = *shards
 			config.Port = port
@@ -58,7 +58,7 @@ func printGlobalService(name string) error {
 
 	config := new(service)
 	config.Name = name
-	config.Container = *container
+	config.Container = "pachyderm/router"
 	config.Nshards = *shards
 
 	server, err := os.Create(fmt.Sprintf("%s/%s.service", outPath, config.Name))
@@ -138,7 +138,6 @@ func printStorageService(name string) error {
 }
 
 var shards, replicas *int
-var container *string
 var disk *string
 
 func main() {
@@ -153,7 +152,6 @@ func do() error {
 	rand.Seed(time.Now().UTC().UnixNano())
 	shards = flag.Int("shards", 3, "The number of shards in the deploy.")
 	replicas = flag.Int("replicas", 3, "The number of replicas of each shard.")
-	container = flag.String("container", "pachyderm/shard", "The container to use for the deploy.")
 	disk = flag.String("disk", "/var/lib/pfs/data.img", "The disk to use for pfs' storage.")
 	flag.Parse()
 
