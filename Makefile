@@ -22,7 +22,7 @@
 	bench \
 	proto
 
-include etc/env/pfs.env
+include etc/env/env.env
 
 all: test
 
@@ -50,18 +50,18 @@ install: deps
 clean:
 	go clean -i ./...
 	bin/clean
-	PFS_IMAGE=deploy bin/clean
-	PFS_IMAGE=pfsd bin/clean
-	PFS_IMAGE=router bin/clean
-	PFS_IMAGE=shard bin/clean
+	PACHYDERM_IMAGE=deploy bin/clean
+	PACHYDERM_IMAGE=pfsd bin/clean
+	PACHYDERM_IMAGE=router bin/clean
+	PACHYDERM_IMAGE=shard bin/clean
 	bin/unmount-btrfs
 	sudo rm -rf _tmp
 
 build-images:
-	PFS_IMAGE=deploy bin/docker-build
-	PFS_IMAGE=pfsd bin/docker-build
-	PFS_IMAGE=router bin/docker-build
-	PFS_IMAGE=shard bin/docker-build
+	PACHYDERM_IMAGE=deploy bin/docker-build
+	PACHYDERM_IMAGE=pfsd bin/docker-build
+	PACHYDERM_IMAGE=router bin/docker-build
+	PACHYDERM_IMAGE=shard bin/docker-build
 
 push-images: build-images
 	docker push pachyderm/deploy
@@ -70,13 +70,13 @@ push-images: build-images
 	docker push pachyderm/shard
 
 shell:
-	PFS_DOCKER_OPTS="-it" bin/run /bin/bash
+	PACHYDERM_DOCKER_OPTS="-it" bin/run /bin/bash
 
 launch-shard:
-	PFS_IMAGE=shard PFS_DOCKER_OPTS="-d" bin/run
+	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" bin/run
 
 launch-pfsd:
-	PFS_IMAGE=pfsd PFS_DOCKER_OPTS="-d" bin/run
+	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d" bin/run
 
 lint:
 	go get -v github.com/golang/lint/golint

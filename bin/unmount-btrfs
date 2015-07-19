@@ -5,7 +5,7 @@ set -E
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
 
-. "${DIR}/../etc/env/pfs.env"
+. "${DIR}/../etc/env/env.env"
 
 sudo umount "${PFS_HOST_VOLUME}"
 sudo rm -rf "${PFS_HOST_VOLUME}"
