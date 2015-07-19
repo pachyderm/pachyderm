@@ -31,3 +31,4 @@ src/cmd/router/router
 src/cmd/shard/shard
 .vagrant
 _tmp
+.deps.list.tmp
