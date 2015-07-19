@@ -661,7 +661,9 @@ func checkVersion() {
 		return
 	}
 	split := strings.Split(splittedVersion[1], ".")
-	if len(split) >= 2 {
+	if len(split) < 2 {
+		checkVersionErr = fmt.Errorf("unknown version string: %s", versionString)
+		return
 	}
 	major, err := strconv.ParseInt(split[0], 10, 64)
 	if err != nil {
