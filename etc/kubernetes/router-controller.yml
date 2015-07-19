@@ -2,21 +2,21 @@ apiVersion: v1
 kind: ReplicationController
 metadata:
   labels:
-    name: pfs-router
-  name: pfs-router
+    name: pachyderm-router
+  name: pachyderm-router
 spec:
   replicas: 1
   selector:
-    name: pfs-router
+    name: pachyderm-router
   template:
     metadata:
       labels:
-        name: pfs-router
+        name: pachyderm-router
     spec:
       containers:
-        - name: pfs-router
-          image: pachyderm/pfs
-          command: [ "/go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper", "/go/bin/router", "8" ]
+        - name: pachyderm-router
+          image: pachyderm/router
+          command: [ "-shards", "8" ]
           ports:
           - containerPort: 80
             name: port

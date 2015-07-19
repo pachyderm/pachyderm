@@ -2,21 +2,21 @@ apiVersion: v1
 kind: ReplicationController
 metadata:
   labels:
-    name: pfs-storage
-  name: pfs-storage
+    name: pachyderm-storage
+  name: pachyderm-storage
 spec:
   replicas: 8
   selector:
-    name: pfs-storage
+    name: pachyderm-storage
   template:
     metadata:
       labels:
-        name: pfs-storage
+        name: pachyderm-storage
     spec:
       containers:
-        - name: pfs-storage
-          image: pachyderm/pfs
-          command: [ "/go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper", "/go/bin/shard", "-modulos", "8"]
+        - name: pachyderm-storage
+          image: pachyderm/shard
+          command: [ "-modulos", "8"]
           volumeMounts:
           - mountPath: /host
             name: host
