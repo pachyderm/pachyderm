@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/fsouza/go-dockerclient"
@@ -90,7 +91,7 @@ func waitContainer(id string) (int, error) {
 }
 
 func isImageLocal(image string) (bool, error) {
-	repository, _ := docker.ParseRepositoryTag(image)
+	repository, tag := docker.ParseRepositoryTag(image)
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		return false, err
@@ -99,9 +100,12 @@ func isImageLocal(image string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	expectedRepoTag := fmt.Sprintf("%s:%s", repository, tag)
 	for _, image := range images {
-		if image.ID == repository {
-			return true, nil
+		for _, repoTag := range image.RepoTags {
+			if repoTag == expectedRepoTag {
+				return true, nil
+			}
 		}
 	}
 	return false, nil
