@@ -89,22 +89,20 @@ func waitContainer(id string) (int, error) {
 	return client.WaitContainer(id)
 }
 
-func isImageLocal(image string) bool {
+func isImageLocal(image string) (bool, error) {
 	repository, _ := docker.ParseRepositoryTag(image)
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
-		return false
+		return false, err
 	}
 	images, err := client.ListImages(docker.ListImagesOptions{All: true, Digests: false})
 	if err != nil {
-		return false
+		return false, err
 	}
-
 	for _, image := range images {
 		if image.ID == repository {
-			return true
+			return true, nil
 		}
 	}
-
-	return false
+	return false, nil
 }
