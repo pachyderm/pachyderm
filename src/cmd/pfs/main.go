@@ -14,9 +14,12 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	defaultAddress = "0.0.0.0:650"
+)
+
 type appEnv struct {
-	Host string `env:"PFS_HOST,required"`
-	Port int    `env:"PFS_PORT,required"`
+	Address string `env:"PFS_ADDRESS"`
 }
 
 func main() {
@@ -24,8 +27,11 @@ func main() {
 
 	appEnv := &appEnv{}
 	check(env.Populate(appEnv, env.PopulateOptions{}))
+	if appEnv.Address == "" {
+		appEnv.Address = defaultAddress
+	}
 
-	clientConn, err := grpc.Dial(fmt.Sprintf("%s:%d", appEnv.Host, appEnv.Port))
+	clientConn, err := grpc.Dial(appEnv.Address)
 	check(err)
 	apiClient := pfs.NewApiClient(clientConn)
 
@@ -116,6 +122,10 @@ func main() {
 
 	rootCmd := &cobra.Command{
 		Use: "pfs",
+		Long: `Access the PFS API.
+
+Note that this CLI is experimental and does not even check for common errors.
+The environment variable PFS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:650.`,
 	}
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)
