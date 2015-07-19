@@ -141,7 +141,7 @@
                                 "      command: start\n",
                                 "      content: |\n",
                                 "        [Unit]\n",
-                                "        Description = pfs service: router\n",
+                                "        Description = pachyderm service: router\n",
                                 "        After = docker.service fleet.service\n",
                                 "        Requires = docker.service fleet.service\n",
                                 "        [Service]\n",
@@ -152,8 +152,8 @@
                                 "            --privileged=true ",
                                 "            -v /:/host:ro",
                                 "            -v /tmp/home/core:/host/home/core",
-                                "            -i pachyderm/pfs",
-                                "            /go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper /go/bin/deploy -disk /dev/xvdf ",
+                                "            pachyderm/deploy",
+                                "            -disk /dev/xvdf ",
                                 {
                                     "Ref" : "PfsDeployArgs"
                                 },
