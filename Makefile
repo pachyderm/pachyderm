@@ -8,7 +8,7 @@
 	install \
 	clean \
 	shell \
-	launch \
+	launch-shard \
 	launch-pfsd \
 	build-images \
 	push-images \
@@ -23,6 +23,9 @@
 	proto
 
 include etc/env/env.env
+
+IMAGES = deploy pfsd router shard
+BINARIES = deploy pfs pfsd router shard
 
 all: test
 
@@ -50,24 +53,16 @@ install: deps
 clean:
 	go clean -i ./...
 	bin/clean
-	PACHYDERM_IMAGE=deploy bin/clean
-	PACHYDERM_IMAGE=pfsd bin/clean
-	PACHYDERM_IMAGE=router bin/clean
-	PACHYDERM_IMAGE=shard bin/clean
+	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) bin/clean || exit;)
+	$(foreach binary,$(BINARIES),rm -f src/cmd/$(binary)/$(binary);)
 	bin/unmount-btrfs
 	sudo rm -rf _tmp
 
 build-images:
-	PACHYDERM_IMAGE=deploy bin/docker-build
-	PACHYDERM_IMAGE=pfsd bin/docker-build
-	PACHYDERM_IMAGE=router bin/docker-build
-	PACHYDERM_IMAGE=shard bin/docker-build
+	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) bin/docker-build || exit;)
 
 push-images: build-images
-	docker push pachyderm/deploy
-	docker push pachyderm/pfsd
-	docker push pachyderm/router
-	docker push pachyderm/shard
+	$(foreach image,$(IMAGES),docker push pachyderm/$(image) || exit;)
 
 shell:
 	PACHYDERM_DOCKER_OPTS="-it" bin/run /bin/bash
@@ -108,7 +103,7 @@ test-pfs: test-deps
 		done
 	go vet ./src/pfs/...
 	errcheck ./src/pfs/...
-	bin/go-test -test.v ./src/pfs/pfstest/...
+	bin/go-test -test.v ./src/pfs/server/...
 
 # TODO(pedge): add pretest when fixed
 bench:
