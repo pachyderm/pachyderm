@@ -394,10 +394,6 @@ If this is set up properly, you do not need to use `sudo` to run `docker`. If yo
 sudo -E bash -c 'bin/go-test ./...' # original command would have been `./bin/go-test ./...`
 ```
 
-*Problem*: S3 tests are failing
-
-We are actively working on this, sorry!
-
 ## Contributing
 
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
