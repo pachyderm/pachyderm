@@ -9,6 +9,9 @@
 	clean \
 	shell \
 	launch \
+	launch-pfsd \
+	build-images \
+	push-images \
 	lint \
 	vet \
 	errcheck \
@@ -47,20 +50,35 @@ install: deps
 clean:
 	go clean -i ./...
 	bin/clean
-	PFS_BINARY=deploy bin/clean
-	PFS_BINARY=pfsd bin/clean
-	PFS_BINARY=router bin/clean
-	PFS_BINARY=shard bin/clean
+	PFS_IMAGE=deploy bin/clean
+	PFS_IMAGE=pfsd bin/clean
+	PFS_IMAGE=router bin/clean
+	PFS_IMAGE=shard bin/clean
 	bin/unmount-btrfs
+	sudo rm -rf _tmp
+
+build-images:
+	bin/docker-build
+	PFS_IMAGE=deploy bin/docker-build
+	PFS_IMAGE=pfsd bin/docker-build
+	PFS_IMAGE=router bin/docker-build
+	PFS_IMAGE=shard bin/docker-build
+
+push-images: build-images
+	docker push pachyderm/pachyderm
+	docker push pachyderm/deploy
+	docker push pachyderm/pfsd
+	docker push pachyderm/router
+	docker push pachyderm/shard
 
 shell:
 	PFS_DOCKER_OPTS="-it" bin/run /bin/bash
 
-launch:
-	PFS_BINARY=shard bin/run-binary
+launch-shard:
+	PFS_IMAGE=shard PFS_DOCKER_OPTS="-d" bin/run
 
 launch-pfsd:
-	PFS_BINARY=pfsd bin/run-binary
+	PFS_IMAGE=pfsd PFS_DOCKER_OPTS="-d" bin/run
 
 lint:
 	go get -v github.com/golang/lint/golint

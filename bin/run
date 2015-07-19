@@ -9,6 +9,7 @@ cd "${DIR}"
 
 "${DIR}/mount-btrfs"
 "${DIR}/clean"
+"${DIR}/docker-build"
 
 if [ -z "${AWS_REGION}" ]; then
 	AWS_REGION="${PFS_DEFAULT_AWS_REGION}"
@@ -16,18 +17,14 @@ fi
 if [ -z "${GOMAXPROCS}" ]; then
   GOMAXPROCS="${PFS_DEFAULT_GOMAXPROCS}"
 fi
-
-REPO_DIR="$(cd "${DIR}/.." && pwd)"
-DOCKERFILE=""
-if [ -n "${PFS_BINARY}" ]; then
-  DOCKERFILE="-f ${REPO_DIR}/Dockerfile.${PFS_BINARY}"
+if [ -z "${PFS_IMAGE}" ]; then
+  PFS_IMAGE="${PFS_DEFAULT_IMAGE}"
 fi
-docker build -t "${PFS_IMAGE}${PFS_BINARY}" ${DOCKERFILE} "${REPO_DIR}"
 
 docker run \
     ${PFS_DOCKER_OPTS} \
     --privileged=true \
-    --name "${PFS_CONTAINER_NAME}${PFS_BINARY}" \
+    --name "${PFS_IMAGE}" \
     -v /:/host:ro \
     -v "${PFS_HOST_VOLUME}:/host/${PFS_HOST_VOLUME}" \
     -v "${PFS_DIR}:${PFS_DIR}" \
@@ -44,5 +41,5 @@ docker run \
     -p "${PFS_PORT}:${PFS_API_PORT}" \
     -p "${PFS_TRACE_PORT}:${PFS_TRACE_PORT}" \
     -p "8080:8080" \
-    "${PFS_IMAGE}${PFS_BINARY}" \
+    "pachyderm/${PFS_IMAGE}" \
     $@
