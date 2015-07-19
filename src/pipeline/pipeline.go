@@ -177,10 +177,9 @@ func (p *pipeline) inject(name string, public bool) error {
 // Image sets the image that is being used for computations.
 func (p *pipeline) image(image string) error {
 	p.config.Config.Image = image
-	// TODO(pedge): ensure images are on machine
 	err := pullImage(image)
-	if err != nil {
-		log.Print("assuming image is local and continuing")
+	if err != nil && !isImageLocal(image) {
+		return errors.New("pfs: image is not local or in the registry")
 	}
 	return nil
 }
