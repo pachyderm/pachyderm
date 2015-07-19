@@ -116,9 +116,9 @@ By default the deploy script will create a cluster with 3 shards and 3
 replicas. However you can pass it flags to change this behavior:
 
 ```shell
-$ ./deploy -h
-Usage of /go/bin/deploy:
-  -container="pachyderm/shard": The container to use for the deploy.
+$ make install && ${GOPATH}/bin/deploy -h
+Usage of deploy:
+  -disk="/var/lib/pfs/data.img": The disk to use for pfs' storage.
   -replicas=3: The number of replicas of each shard.
   -shards=3: The number of shards in the deploy.
 ```
