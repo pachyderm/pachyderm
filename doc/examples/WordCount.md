@@ -13,10 +13,9 @@ Elba: 1
 First, we're going to run the pipeline locally on a small dataset and then we'll seamlessly scale it up to a full cluster.
 ### Run the wordcount pipeline in Pachyderm locally
 #### Step 1: Launch Pachyderm locally
-Download and run the Pachyderm launch script to get a local instance running. It defaults to port 650.
+Launch pachyderm to get a local instance running. It defaults to port 650.
 ```shell
-# launch a local pfs instance
-$ curl www.pachyderm.io/launch | sh
+make launch-shard
 ```
 #### Step 2: Add a few text files to Pachyderm in the directory `text`
 ```shell

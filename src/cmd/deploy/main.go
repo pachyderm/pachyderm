@@ -153,7 +153,7 @@ func do() error {
 	rand.Seed(time.Now().UTC().UnixNano())
 	shards = flag.Int("shards", 3, "The number of shards in the deploy.")
 	replicas = flag.Int("replicas", 3, "The number of replicas of each shard.")
-	container = flag.String("container", "pachyderm/pfs", "The container to use for the deploy.")
+	container = flag.String("container", "pachyderm/shard", "The container to use for the deploy.")
 	disk = flag.String("disk", "/var/lib/pfs/data.img", "The disk to use for pfs' storage.")
 	flag.Parse()
 
