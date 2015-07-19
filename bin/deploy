@@ -8,11 +8,12 @@ cd "${DIR}"
 . "${DIR}/../etc/env/pfs.env"
 
 mkdir -p /home/core/pfs
+docker pull pachyderm/deploy
 docker run \
     --privileged=true \
     -v /:/host:ro \
     -v /home/core:/host/home/core \
     -v /var/run/fleet.sock:/host/var/run/fleet.sock \
-    "${PFS_IMAGE}" \
-    /go/bin/deploy $@
+    pachyderm/deploy \
+    $@
 fleetctl start /home/core/pfs/*.service
