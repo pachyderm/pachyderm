@@ -321,8 +321,6 @@ make shell # go into a shell inside a running pachyderm container
 make launchs-shard # launch pachyderm, as outlined above
 make launch-pfsd # launch the new pfsd daemon
 make install # install all binaries locally
-export PFS_HOST=localhost # for pfs cli
-export PFS_PORT=650 # for pfs cli
 pfs # if ${GOPATH}/bin is on your path, this will run the new pfs cli, this is very experimental and does not check for common errors
 ```
 
