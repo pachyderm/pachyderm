@@ -7,6 +7,10 @@ cd "${DIR}"
 
 . "${DIR}/../etc/env/pfs.env"
 
+if [ -z "${PFS_IMAGE}" ]; then
+  PFS_IMAGE="${PFS_DEFAULT_IMAGE}"
+fi
+
 docker kill "${PFS_IMAGE}" > /dev/null 2> /dev/null
 docker rm "${PFS_IMAGE}" > /dev/null 2> /dev/null
 exit 0
