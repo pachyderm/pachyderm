@@ -1,0 +1,50 @@
+#!/bin/sh
+
+set -Eex
+
+DIR="$(cd "$(dirname "${0}")/.." && pwd)"
+cd "${DIR}"
+
+. "${DIR}/etc/env/pfs.env"
+
+if [ -z "${1}" ]; then
+  echo "Usage: run-binary name" >&2
+  exit 1
+fi
+
+BINARY="${1}"
+
+mkdir -p "${DIR}/_tmp"
+docker build -t "${PFS_IMAGE}" "${DIR}"
+docker run -v "${DIR}/_tmp:/compile" "${PFS_IMAGE}" /go/src/github.com/pachyderm/pachyderm/bin/compile "src/cmd/${BINARY}/main.go" "${BINARY}" "/compile"
+docker build -t "${PFS_IMAGE}${BINARY}" -f "Dockerfile.${BINARY}" "${DIR}"
+
+"${DIR}/bin/mount-btrfs"
+"${DIR}/bin/clean" "${BINARY}"
+
+if [ -z "${AWS_REGION}" ]; then
+	AWS_REGION="${PFS_DEFAULT_AWS_REGION}"
+fi
+if [ -z "${GOMAXPROCS}" ]; then
+  GOMAXPROCS="${PFS_DEFAULT_GOMAXPROCS}"
+fi
+
+ENV_STRING="-e AWS_REGION=${AWS_REGION} -e GOMAXPROCS=${GOMAXPROCS} -e PFS_HOST_VOLUME=${PFS_HOST_VOLUME} -e PFS_BTRFS_ROOT=${PFS_BTRFS_ROOT} -e PFS_API_PORT=${PFS_API_PORT} -e PFS_TRACE_PORT=${PFS_TRACE_PORT} -e PFS_NUM_SHARDS=${PFS_NUM_SHARDS}"
+if [ -n "${AWS_ACCESS_KEY_ID}" ] && [ -n "${AWS_SECRET_ACCESS_KEY}" ]; then
+  ENV_STRING="${ENV_STRING} -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
+fi
+
+docker run \
+    -d \
+    --privileged=true \
+    --name "${PFS_CONTAINER_NAME}${BINARY}" \
+    -v /:/host:ro \
+    -v "${PFS_HOST_VOLUME}:/host/${PFS_HOST_VOLUME}" \
+    -v "${PFS_DIR}:${PFS_DIR}" \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    ${ENV_STRING} \
+    -p "${PFS_PORT}:${PFS_API_PORT}" \
+    -p "${PFS_TRACE_PORT}:${PFS_TRACE_PORT}" \
+    -p "8080:8080" \
+    "${PFS_IMAGE}${BINARY}" \
+    $@
