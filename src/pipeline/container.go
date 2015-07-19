@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"io"
-	"strings"
 
 	"github.com/fsouza/go-dockerclient"
 )
@@ -41,14 +40,14 @@ func stopContainer(id string) error {
 }
 
 func pullImage(image string) error {
-	repo_tag := strings.Split(image, ":")
+	repository, tag := docker.ParseRepositoryTag(image)
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		return err
 	}
-	opts := docker.PullImageOptions{Repository: repo_tag[0], Tag: "latest"}
-	if len(repo_tag) == 2 {
-		opts.Tag = repo_tag[1]
+	opts := docker.PullImageOptions{Repository: repository, Tag: "latest"}
+	if tag != "" {
+		opts.Tag = tag
 	}
 	return client.PullImage(opts, docker.AuthConfiguration{})
 }
@@ -91,7 +90,7 @@ func waitContainer(id string) (int, error) {
 }
 
 func isImageLocal(image string) bool {
-	repository := strings.Split(image, ":")
+	repository, _ := docker.ParseRepositoryTag(image)
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		return false
@@ -102,7 +101,7 @@ func isImageLocal(image string) bool {
 	}
 
 	for _, image := range images {
-		if image.ID == repository[0] {
+		if image.ID == repository {
 			return true
 		}
 	}
