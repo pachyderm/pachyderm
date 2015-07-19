@@ -1,8 +1,8 @@
-FROM busybox
+FROM gliderlabs/alpine:3.2
 MAINTAINER peter@pachyderm.io
 
 RUN mkdir -p /etc/ssl/certs
 ADD etc/certs/ca-certificates.crt /etc/ssl/certs/
 COPY etc/bin/btrfs-wrapper /bin/btrfs
-ADD _tmp/shard/shard /bin/shard
+ADD _tmp/shard /bin/shard
 ENTRYPOINT ["/bin/shard"]

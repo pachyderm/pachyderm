@@ -17,23 +17,32 @@ if [ -z "${GOMAXPROCS}" ]; then
   GOMAXPROCS="${PFS_DEFAULT_GOMAXPROCS}"
 fi
 
-ENV_STRING="-e AWS_REGION=${AWS_REGION} -e GOMAXPROCS=${GOMAXPROCS} -e PFS_HOST_VOLUME=${PFS_HOST_VOLUME} -e PFS_BTRFS_ROOT=${PFS_BTRFS_ROOT} -e PFS_API_PORT=${PFS_API_PORT} -e PFS_TRACE_PORT=${PFS_TRACE_PORT} -e PFS_NUM_SHARDS=${PFS_NUM_SHARDS}"
-if [ -n "${AWS_ACCESS_KEY_ID}" ] && [ -n "${AWS_SECRET_ACCESS_KEY}" ]; then
-  ENV_STRING="${ENV_STRING} -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
+REPO_DIR="$(cd "${DIR}/.." && pwd)"
+DOCKERFILE=""
+if [ -n "${PFS_BINARY}" ]; then
+  DOCKERFILE="-f ${REPO_DIR}/Dockerfile.${PFS_BINARY}"
 fi
+docker build -t "${PFS_IMAGE}${PFS_BINARY}" ${DOCKERFILE} "${REPO_DIR}"
 
-docker build -t "${PFS_IMAGE}" "$(cd "${DIR}/.." && pwd)"
 docker run \
     ${PFS_DOCKER_OPTS} \
     --privileged=true \
-    --name "${PFS_CONTAINER_NAME}" \
+    --name "${PFS_CONTAINER_NAME}${PFS_BINARY}" \
     -v /:/host:ro \
     -v "${PFS_HOST_VOLUME}:/host/${PFS_HOST_VOLUME}" \
     -v "${PFS_DIR}:${PFS_DIR}" \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    ${ENV_STRING} \
+    -e "AWS_REGION=${AWS_REGION}" \
+    -e "GOMAXPROCS=${GOMAXPROCS}" \
+    -e "PFS_HOST_VOLUME=${PFS_HOST_VOLUME}" \
+    -e "PFS_BTRFS_ROOT=${PFS_BTRFS_ROOT}" \
+    -e "PFS_API_PORT=${PFS_API_PORT}" \
+    -e "PFS_TRACE_PORT=${PFS_TRACE_PORT}" \
+    -e "PFS_NUM_SHARDS=${PFS_NUM_SHARDS}" \
+    -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
+    -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
     -p "${PFS_PORT}:${PFS_API_PORT}" \
     -p "${PFS_TRACE_PORT}:${PFS_TRACE_PORT}" \
     -p "8080:8080" \
-    "${PFS_IMAGE}" \
+    "${PFS_IMAGE}${PFS_BINARY}" \
     $@

@@ -1,0 +1,17 @@
+#!/bin/sh
+
+set -Ee
+
+DIR="$(cd "$(dirname "${0}")/.." && pwd)"
+cd "${DIR}"
+
+. "${DIR}/etc/env/pfs.env"
+
+if [ -z "${PFS_BINARY}" ]; then
+  echo "Usage: PFS_BINARY=name docker-compile" >&2
+  exit 1
+fi
+
+mkdir -p "${DIR}/_tmp"
+docker build -t "${PFS_IMAGE}" "${DIR}"
+docker run -v "${DIR}/_tmp:/compile" "${PFS_IMAGE}" /go/src/github.com/pachyderm/pachyderm/bin/compile "src/cmd/${PFS_BINARY}/main.go" "${PFS_BINARY}" "/compile"

@@ -47,18 +47,20 @@ install: deps
 clean:
 	go clean -i ./...
 	bin/clean
-	bin/clean pfsd
-	bin/clean shard
+	PFS_BINARY=deploy bin/clean
+	PFS_BINARY=pfsd bin/clean
+	PFS_BINARY=router bin/clean
+	PFS_BINARY=shard bin/clean
 	bin/unmount-btrfs
 
 shell:
 	PFS_DOCKER_OPTS="-it" bin/run /bin/bash
 
 launch:
-	bin/run-binary shard
+	PFS_BINARY=shard bin/run-binary
 
 launch-pfsd:
-	bin/run-binary pfsd
+	PFS_BINARY=pfsd bin/run-binary
 
 lint:
 	go get -v github.com/golang/lint/golint
