@@ -218,7 +218,7 @@ TimeoutStartSec = 300
 ExecStartPre = /bin/sh -c "echo $(-docker kill {{.Name}})"
 ExecStartPre = /bin/sh -c "echo $(-docker rm {{.Name}})"
 ExecStartPre = /bin/sh -c "echo $(docker pull {{.Container}})"
-ExecStart = /bin/sh -c "echo $(docker run --name {{.Name}} -p 80:80 -i {{.Container}} /go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper /go/bin/{{.Name}} {{.Nshards}})"
+ExecStart = /bin/sh -c "echo $(docker run --name {{.Name}} -p 80:80 -i {{.Container}} {{.Nshards}})"
 ExecStop = /bin/sh -c "echo $(docker rm -f {{.Name}})"
 
 [X-Fleet]
@@ -257,6 +257,7 @@ Requires = docker.service
 TimeoutStartSec = 300
 ExecStartPre = -/bin/sh -c "echo $(docker kill {{.Name}}-{{.Shard}}-{{.Nshards}})"
 ExecStartPre = -/bin/sh -c "echo $(docker rm {{.Name}}-{{.Shard}}-{{.Nshards}})"
+ExecStartPre = /bin/sh -c "echo $(docker pull {{.Container}})"
 ExecStart = /bin/sh -c "echo $(docker run \
             --privileged=true \
             --name {{.Name}}-{{.Shard}}-{{.Nshards}} \
@@ -268,7 +269,7 @@ ExecStart = /bin/sh -c "echo $(docker run \
             -e AWS_SECRET_ACCESS_KEY=$(etcdctl get /pfs/creds/AWS_SECRET_ACCESS_KEY) \
             -p {{.Port}}:80 \
             -i {{.Container}} \
-            /go/src/github.com/pachyderm/pachyderm/etc/bin/launch-wrapper /go/bin/{{.Name}} -shard {{.Shard}} -modulos {{.Nshards}} -address %H:{{.Port}})"
+            -shard {{.Shard}} -modulos {{.Nshards}} -address %H:{{.Port}})"
 ExecStop = /bin/sh -c "echo $(docker rm -f {{.Name}}-{{.Shard}}-{{.Nshards}})"
 Restart = always
 StartLimitInterval = 0
