@@ -7,7 +7,7 @@ cd "${DIR}"
 
 . "${DIR}/../etc/env/pfs.env"
 
-"${DIR}/clean-btrfs"
+"${DIR}/unmount-btrfs"
 
 sudo mkdir -p "${PFS_HOST_VOLUME}"
 sudo truncate "${PFS_DATA_IMG}" -s 10G

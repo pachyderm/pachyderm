@@ -49,7 +49,7 @@ clean:
 	bin/clean
 	bin/clean pfsd
 	bin/clean shard
-	bin/clean-btrfs
+	bin/unmount-btrfs
 
 shell:
 	PFS_DOCKER_OPTS="-it" bin/run /bin/bash
