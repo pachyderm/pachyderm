@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/btrfs"
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/satori/go.uuid"
 )
 
@@ -29,6 +30,7 @@ func newShardHTTPHandler(shard Shard) *shardHTTPHandler {
 	shardHTTPHandler.HandleFunc("/pipeline/", shardHTTPHandler.pipeline)
 	shardHTTPHandler.HandleFunc("/pull", shardHTTPHandler.pull)
 	shardHTTPHandler.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "pong\n") })
+	shardHTTPHandler.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintf(w, "%s\n", common.VersionString()) })
 	return shardHTTPHandler
 }
 

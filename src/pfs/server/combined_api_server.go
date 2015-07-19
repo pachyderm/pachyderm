@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/net/context"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
@@ -17,7 +18,15 @@ import (
 )
 
 var (
-	emptyInstance = &google_protobuf.Empty{}
+	emptyInstance              = &google_protobuf.Empty{}
+	getVersionResponseInstance = &pfs.GetVersionResponse{
+		Version: &pfs.Version{
+			Major:      common.MajorVersion,
+			Minor:      common.MinorVersion,
+			Micro:      common.MicroVersion,
+			Additional: common.AdditionalVersion,
+		},
+	}
 )
 
 type combinedAPIServer struct {
@@ -36,6 +45,10 @@ func newCombinedAPIServer(
 		router,
 		driver,
 	}
+}
+
+func (a *combinedAPIServer) GetVersion(ctx context.Context, empty *google_protobuf.Empty) (*pfs.GetVersionResponse, error) {
+	return getVersionResponseInstance, nil
 }
 
 func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRequest *pfs.InitRepositoryRequest) (*google_protobuf.Empty, error) {

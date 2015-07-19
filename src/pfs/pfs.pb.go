@@ -16,6 +16,8 @@ It has these top-level messages:
 	FileInfo
 	Shard
 	CommitInfo
+	Version
+	GetVersionResponse
 	InitRepositoryRequest
 	GetFileRequest
 	MakeDirectoryRequest
@@ -253,6 +255,32 @@ func (m *CommitInfo) GetParentCommit() *Commit {
 	return nil
 }
 
+type Version struct {
+	Major      uint32 `protobuf:"varint,1,opt,name=major" json:"major,omitempty"`
+	Minor      uint32 `protobuf:"varint,2,opt,name=minor" json:"minor,omitempty"`
+	Micro      uint32 `protobuf:"varint,3,opt,name=micro" json:"micro,omitempty"`
+	Additional string `protobuf:"bytes,4,opt,name=additional" json:"additional,omitempty"`
+}
+
+func (m *Version) Reset()         { *m = Version{} }
+func (m *Version) String() string { return proto.CompactTextString(m) }
+func (*Version) ProtoMessage()    {}
+
+type GetVersionResponse struct {
+	Version *Version `protobuf:"bytes,1,opt,name=version" json:"version,omitempty"`
+}
+
+func (m *GetVersionResponse) Reset()         { *m = GetVersionResponse{} }
+func (m *GetVersionResponse) String() string { return proto.CompactTextString(m) }
+func (*GetVersionResponse) ProtoMessage()    {}
+
+func (m *GetVersionResponse) GetVersion() *Version {
+	if m != nil {
+		return m.Version
+	}
+	return nil
+}
+
 type InitRepositoryRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
 	Redirect   bool        `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
@@ -482,6 +510,7 @@ func init() {
 // Client API for Api service
 
 type ApiClient interface {
+	GetVersion(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*GetVersionResponse, error)
 	// InitRepository creates a new repository.
 	// An error is returned if the specified repository already exists.
 	InitRepository(ctx context.Context, in *InitRepositoryRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
@@ -512,6 +541,15 @@ type apiClient struct {
 
 func NewApiClient(cc *grpc.ClientConn) ApiClient {
 	return &apiClient{cc}
+}
+
+func (c *apiClient) GetVersion(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*GetVersionResponse, error) {
+	out := new(GetVersionResponse)
+	err := grpc.Invoke(ctx, "/pfs.Api/GetVersion", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *apiClient) InitRepository(ctx context.Context, in *InitRepositoryRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
@@ -612,6 +650,7 @@ func (c *apiClient) GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest,
 // Server API for Api service
 
 type ApiServer interface {
+	GetVersion(context.Context, *google_protobuf.Empty) (*GetVersionResponse, error)
 	// InitRepository creates a new repository.
 	// An error is returned if the specified repository already exists.
 	InitRepository(context.Context, *InitRepositoryRequest) (*google_protobuf.Empty, error)
@@ -638,6 +677,18 @@ type ApiServer interface {
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
 	s.RegisterService(&_Api_serviceDesc, srv)
+}
+
+func _Api_GetVersion_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(google_protobuf.Empty)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).GetVersion(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func _Api_InitRepository_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
@@ -749,6 +800,10 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pfs.Api",
 	HandlerType: (*ApiServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetVersion",
+			Handler:    _Api_GetVersion_Handler,
+		},
 		{
 			MethodName: "InitRepository",
 			Handler:    _Api_InitRepository_Handler,
