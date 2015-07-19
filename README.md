@@ -48,7 +48,7 @@ Pachyderm is a complete data analytics solution that lets you efficiently store 
 ### Key Features
 
 - Complete version control for your data
-- Jobs are containerized, so you can use any languages and tools you want
+- Pipelines are containerized, so you can use any languages and tools you want
 - Both batched and streaming analytics
 - One-click deploy on AWS without data migration 
 
