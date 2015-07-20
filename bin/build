@@ -1,25 +1,39 @@
 #!/bin/sh
 
-set -Ee
+# This script builds the docker images described by the Dockerfiles in this repository.
+# This script will always build the main Dockerfile into pachyderm/pachyderm.
+# If PACHYDERM_IMAGE is set, the script will additionally build Dockerfile.${PACHYDERM_IMAGE} into pachyderm/${PACHYDERM_IMAGE}.
+
+set -Eex
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
 
 . "${DIR}/../etc/env/env.env"
 
-"${DIR}/update-deps-list"
-
 REPO_DIR="$(cd "${DIR}/.." && pwd)"
 
-docker build -t \
-  "pachyderm/${PACHYDERM_DEFAULT_IMAGE}" \
-  "${REPO_DIR}"
+mkdir -p "${REPO_DIR}/etc/deps"
+go get -v github.com/peter-edge/go-tools/go-external-deps
+${GOPATH}/bin/go-external-deps "github.com/pachyderm/pachyderm/..." | grep -v "^github.com/pachyderm/pachyderm" > "${REPO_DIR}/.deps.list.tmp"
+if [ ! -f "${REPO_DIR}/etc/deps/deps.list" ] || [ -n "$(diff -u "${REPO_DIR}/.deps.list.tmp" "${REPO_DIR}/etc/deps/deps.list")" ]; then
+  mv "${REPO_DIR}/.deps.list.tmp" "${REPO_DIR}/etc/deps/deps.list"
+else
+  rm "${REPO_DIR}/.deps.list.tmp"
+fi
+docker build -t "pachyderm/pachyderm" "${REPO_DIR}"
 
 if [ -n "${PACHYDERM_IMAGE}" ]; then
   docker run \
     -v "${REPO_DIR}/_tmp:/compile" \
-    "pachyderm/${PACHYDERM_DEFAULT_IMAGE}" \
-    go build -a -installsuffix netgo -tags netgo -ldflags '-w -linkmode external -extldflags "-static"' -o "/compile/${PACHYDERM_IMAGE}" "src/cmd/${PACHYDERM_IMAGE}/main.go"
+    "pachyderm/pachyderm" \
+    go build \
+      -a \
+      -installsuffix netgo \
+      -tags netgo \
+      -ldflags '-w -linkmode external -extldflags "-static"' \
+      -o "/compile/${PACHYDERM_IMAGE}" \
+      "src/cmd/${PACHYDERM_IMAGE}/main.go"
 
   docker build \
     -t "pachyderm/${PACHYDERM_IMAGE}" \

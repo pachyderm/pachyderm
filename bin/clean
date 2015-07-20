@@ -1,6 +1,10 @@
 #!/bin/sh
 
-set -E
+# This script cleans all state associated with a pachyderm run.
+# If PACHYDERM_IMAGE is unset, this script will docker kill and docker rm pachyderm.
+# If PACHYDERM_IMAGE is set, this script will docker kill and docker rm ${PACHYDERM_IMAGE}.
+
+set -Ex
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
@@ -8,9 +12,11 @@ cd "${DIR}"
 . "${DIR}/../etc/env/env.env"
 
 if [ -z "${PACHYDERM_IMAGE}" ]; then
-  PACHYDERM_IMAGE="${PACHYDERM_DEFAULT_IMAGE}"
+  PACHYDERM_IMAGE="pachyderm"
 fi
 
+sudo umount "/var/lib/pfs/vol" > /dev/null 2> /dev/null
+sudo rm -rf "/var/lib/pfs" > /dev/null 2< /dev/null
 docker kill "${PACHYDERM_IMAGE}" > /dev/null 2> /dev/null
 docker rm "${PACHYDERM_IMAGE}" > /dev/null 2> /dev/null
 exit 0
