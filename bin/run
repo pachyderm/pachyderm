@@ -9,7 +9,7 @@ cd "${DIR}"
 
 "${DIR}/mount-btrfs"
 "${DIR}/clean"
-"${DIR}/docker-build"
+"${DIR}/build"
 
 if [ -z "${AWS_REGION}" ]; then
 	AWS_REGION="${PACHYDERM_DEFAULT_AWS_REGION}"
