@@ -10,9 +10,19 @@ cd "${DIR}"
 "${DIR}/update-deps-list"
 
 REPO_DIR="$(cd "${DIR}/.." && pwd)"
-docker build -t "pachyderm/${PACHYDERM_DEFAULT_IMAGE}" "${REPO_DIR}"
+
+docker build -t \
+  "pachyderm/${PACHYDERM_DEFAULT_IMAGE}" \
+  "${REPO_DIR}"
 
 if [ -n "${PACHYDERM_IMAGE}" ]; then
-  docker run -v "${REPO_DIR}/_tmp:/compile" "pachyderm/${PACHYDERM_DEFAULT_IMAGE}" /go/src/github.com/pachyderm/pachyderm/bin/compile "src/cmd/${PACHYDERM_IMAGE}/main.go" "${PACHYDERM_IMAGE}" "/compile"
-  docker build -t "pachyderm/${PACHYDERM_IMAGE}" -f "${REPO_DIR}/Dockerfile.${PACHYDERM_IMAGE}" "${REPO_DIR}"
+  docker run \
+    -v "${REPO_DIR}/_tmp:/compile" \
+    "pachyderm/${PACHYDERM_DEFAULT_IMAGE}" \
+    go build -a -installsuffix netgo -tags netgo -ldflags '-w -linkmode external -extldflags "-static"' -o "/compile/${PACHYDERM_IMAGE}" "src/cmd/${PACHYDERM_IMAGE}/main.go"
+
+  docker build \
+    -t "pachyderm/${PACHYDERM_IMAGE}" \
+    -f "${REPO_DIR}/Dockerfile.${PACHYDERM_IMAGE}" \
+    "${REPO_DIR}"
 fi

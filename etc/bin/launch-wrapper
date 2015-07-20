@@ -1,6 +1,0 @@
-#!/bin/sh
-
-set -Ee
-
-go install github.com/pachyderm/pachyderm/...
-$@

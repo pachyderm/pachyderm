@@ -10,11 +10,10 @@ directory structure
 	      |-- shardNum // this is where subvolumes are
 
 */
-package btrfs
+package drive
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -24,53 +23,54 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pkg/executil"
+	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
 	"github.com/peter-edge/go-google-protobuf"
+	"github.com/satori/go.uuid"
 )
 
-type driver struct {
-	rootDir string
+type btrfsDriver struct {
+	rootDir  string
+	btrfsAPI btrfs.API
 }
 
-func newDriver(rootDir string) *driver {
-	return &driver{rootDir}
+func newBtrfsDriver(rootDir string, btrfsAPI btrfs.API) *btrfsDriver {
+	return &btrfsDriver{rootDir, btrfsAPI}
 }
 
-func (d *driver) Init() error {
+func (d *btrfsDriver) Init() error {
 	return nil
 }
 
-func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool) error {
+func (d *btrfsDriver) InitRepository(repository *pfs.Repository, shards map[int]bool) error {
 	if err := os.MkdirAll(d.repositoryPath(repository), 0700); err != nil {
 		return err
 	}
 	initialCommit := &pfs.Commit{
 		Repository: repository,
-		Id:         drive.InitialCommitID,
+		Id:         InitialCommitID,
 	}
 	if err := os.MkdirAll(d.commitPathNoShard(initialCommit), 0700); err != nil {
 		return err
 	}
 	for shard := range shards {
-		if err := subvolumeCreate(d.commitPath(initialCommit, shard)); err != nil {
+		if err := d.btrfsAPI.SubvolumeCreate(d.commitPath(initialCommit, shard)); err != nil {
 			return err
 		}
 		if err := os.Mkdir(d.filePath(&pfs.Path{Commit: initialCommit, Path: ".pfs"}, shard), 0700); err != nil {
 			return err
 		}
-		if err := setReadOnly(d.commitPath(initialCommit, shard)); err != nil {
+		if err := d.btrfsAPI.PropertySetReadonly(d.commitPath(initialCommit, shard), true); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (d *driver) GetFile(path *pfs.Path, shard int) (io.ReadCloser, error) {
+func (d *btrfsDriver) GetFile(path *pfs.Path, shard int) (io.ReadCloser, error) {
 	return os.Open(d.filePath(path, shard))
 }
 
-func (d *driver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
+func (d *btrfsDriver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
 	// TODO(pedge): if PutFile fails here or on another shard, the directories
 	// will still exist and be returned from ListFiles, we want to do this
 	// iteratively and with rollback
@@ -83,7 +83,7 @@ func (d *driver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
 	return nil
 }
 
-func (d *driver) PutFile(path *pfs.Path, shard int, reader io.Reader) error {
+func (d *btrfsDriver) PutFile(path *pfs.Path, shard int, reader io.Reader) error {
 	file, err := os.Create(d.filePath(path, shard))
 	if err != nil {
 		return err
@@ -92,7 +92,7 @@ func (d *driver) PutFile(path *pfs.Path, shard int, reader io.Reader) error {
 	return err
 }
 
-func (d *driver) ListFiles(path *pfs.Path, shard int) (retValue []*pfs.FileInfo, retErr error) {
+func (d *btrfsDriver) ListFiles(path *pfs.Path, shard int) (retValue []*pfs.FileInfo, retErr error) {
 	filePath := d.filePath(path, shard)
 	stat, err := os.Stat(filePath)
 	if err != nil {
@@ -133,7 +133,7 @@ func (d *driver) ListFiles(path *pfs.Path, shard int) (retValue []*pfs.FileInfo,
 	return fileInfos, nil
 }
 
-func (d *driver) stat(path *pfs.Path, shard int) (*pfs.FileInfo, error) {
+func (d *btrfsDriver) stat(path *pfs.Path, shard int) (*pfs.FileInfo, error) {
 	stat, err := os.Stat(d.filePath(path, shard))
 	if err != nil {
 		return nil, err
@@ -157,11 +157,11 @@ func (d *driver) stat(path *pfs.Path, shard int) (*pfs.FileInfo, error) {
 	}, nil
 }
 
-func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error) {
+func (d *btrfsDriver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error) {
 	if newCommit == nil {
 		newCommit = &pfs.Commit{
 			Repository: commit.Repository,
-			Id:         drive.NewCommitID(),
+			Id:         newCommitID(),
 		}
 	}
 	if err := os.MkdirAll(d.commitPathNoShard(newCommit), 0700); err != nil {
@@ -173,7 +173,7 @@ func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[in
 		}
 		commitPath := d.commitPath(commit, shard)
 		newCommitPath := d.commitPath(newCommit, shard)
-		if err := subvolumeSnapshot(commitPath, newCommitPath); err != nil {
+		if err := d.btrfsAPI.SubvolumeSnapshot(commitPath, newCommitPath, false); err != nil {
 			return nil, err
 		}
 		if err := ioutil.WriteFile(d.filePath(&pfs.Path{Commit: newCommit, Path: ".pfs/parent"}, shard), []byte(commit.Id), 0600); err != nil {
@@ -183,32 +183,32 @@ func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[in
 	return newCommit, nil
 }
 
-func (d *driver) Commit(commit *pfs.Commit, shards map[int]bool) error {
+func (d *btrfsDriver) Commit(commit *pfs.Commit, shards map[int]bool) error {
 	for shard := range shards {
 		if err := d.checkWrite(commit, shard); err != nil {
 			return err
 		}
-		if err := d.setReadOnly(commit, shard); err != nil {
+		if err := d.btrfsAPI.PropertySetReadonly(d.commitPath(commit, shard), true); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (d *driver) PullDiff(commit *pfs.Commit, shard int) (io.Reader, error) {
+func (d *btrfsDriver) PullDiff(commit *pfs.Commit, shard int) (io.Reader, error) {
 	return nil, nil
 }
 
-func (d *driver) PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error {
+func (d *btrfsDriver) PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error {
 	return nil
 }
 
-func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, error) {
+func (d *btrfsDriver) GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, error) {
 	parent, err := d.getParent(commit, shard)
 	if err != nil {
 		return nil, err
 	}
-	readOnly, err := isReadOnly(d.commitPath(commit, shard))
+	readOnly, err := d.btrfsAPI.PropertyGetReadonly(d.commitPath(commit, shard))
 	if err != nil {
 		return nil, err
 	}
@@ -223,8 +223,8 @@ func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, 
 	}, nil
 }
 
-func (d *driver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
-	if commit.Id == drive.InitialCommitID {
+func (d *btrfsDriver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
+	if commit.Id == InitialCommitID {
 		return nil, nil
 	}
 	data, err := ioutil.ReadFile(d.filePath(&pfs.Path{Commit: commit, Path: ".pfs/parent"}, shard))
@@ -237,8 +237,8 @@ func (d *driver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
 	}, nil
 }
 
-func (d *driver) checkReadOnly(commit *pfs.Commit, shard int) error {
-	ok, err := isReadOnly(d.commitPath(commit, shard))
+func (d *btrfsDriver) checkReadOnly(commit *pfs.Commit, shard int) error {
+	ok, err := d.btrfsAPI.PropertyGetReadonly(d.commitPath(commit, shard))
 	if err != nil {
 		return err
 	}
@@ -248,8 +248,8 @@ func (d *driver) checkReadOnly(commit *pfs.Commit, shard int) error {
 	return nil
 }
 
-func (d *driver) checkWrite(commit *pfs.Commit, shard int) error {
-	ok, err := isReadOnly(d.commitPath(commit, shard))
+func (d *btrfsDriver) checkWrite(commit *pfs.Commit, shard int) error {
+	ok, err := d.btrfsAPI.PropertyGetReadonly(d.commitPath(commit, shard))
 	if err != nil {
 		return err
 	}
@@ -259,67 +259,22 @@ func (d *driver) checkWrite(commit *pfs.Commit, shard int) error {
 	return nil
 }
 
-func (d *driver) setReadOnly(commit *pfs.Commit, shard int) error {
-	return setReadOnly(d.commitPath(commit, shard))
-}
-
-func (d *driver) repositoryPath(repository *pfs.Repository) string {
+func (d *btrfsDriver) repositoryPath(repository *pfs.Repository) string {
 	return filepath.Join(d.rootDir, repository.Name)
 }
 
-func (d *driver) commitPathNoShard(commit *pfs.Commit) string {
+func (d *btrfsDriver) commitPathNoShard(commit *pfs.Commit) string {
 	return filepath.Join(d.repositoryPath(commit.Repository), commit.Id)
 }
 
-func (d *driver) commitPath(commit *pfs.Commit, shard int) string {
+func (d *btrfsDriver) commitPath(commit *pfs.Commit, shard int) string {
 	return filepath.Join(d.commitPathNoShard(commit), fmt.Sprintf("%d", shard))
 }
 
-func (d *driver) filePath(path *pfs.Path, shard int) string {
+func (d *btrfsDriver) filePath(path *pfs.Path, shard int) string {
 	return filepath.Join(d.commitPath(path.Commit, shard), path.Path)
 }
 
-func isReadOnly(path string) (bool, error) {
-	reader, err := snapshotPropertyGet(path)
-	if err != nil {
-		return false, err
-	}
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		text := scanner.Text()
-		if strings.Contains(text, "ro=true") {
-			return true, nil
-		}
-		if strings.Contains(text, "ro=false") {
-			return false, nil
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return false, err
-	}
-	return false, errors.New("did not fins ro=true or ro=false in output")
-}
-
-func setReadOnly(path string) error {
-	return snapshotPropertySet(path, "ro", "true")
-}
-
-func snapshotPropertyGet(path string) (io.Reader, error) {
-	return executil.RunStdout("btrfs", "property", "get", "-t", "s", path)
-}
-
-func snapshotPropertySet(path string, key string, value string) error {
-	return executil.Run("btrfs", "property", "set", "-t", "s", path, key, value)
-}
-
-func subvolumeCreate(path string) error {
-	return executil.Run("btrfs", "subvolume", "create", path)
-}
-
-func subvolumeSnapshot(src string, dest string) error {
-	return executil.Run("btrfs", "subvolume", "snapshot", src, dest)
-}
-
-func subvolumeSnapshotReadonly(src string, dest string) error {
-	return executil.Run("btrfs", "subvolume", "snapshot", "-r", src, dest)
+func newCommitID() string {
+	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
 }
