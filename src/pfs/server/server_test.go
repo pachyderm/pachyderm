@@ -16,9 +16,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/discovery"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
+	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
 	"github.com/pachyderm/pachyderm/src/pkg/executil"
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/stretchr/testify/require"
@@ -43,9 +43,15 @@ func init() {
 	executil.SetDebug(true)
 }
 
-func TestBtrfs(t *testing.T) {
+func TestBtrfsFFI(t *testing.T) {
 	t.Parallel()
-	driver := btrfs.NewDriver(getBtrfsRootDir(t))
+	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewFFIAPI())
+	runTest(t, driver, testSimple)
+}
+
+func TestBtrfsExec(t *testing.T) {
+	t.Parallel()
+	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewExecAPI())
 	runTest(t, driver, testSimple)
 }
 

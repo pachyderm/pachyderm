@@ -65,7 +65,7 @@ push-images: build-images
 	$(foreach image,$(IMAGES),docker push pachyderm/$(image) || exit;)
 
 shell:
-	PACHYDERM_DOCKER_OPTS="-it" bin/run /bin/bash
+	PACHYDERM_DOCKER_OPTS="-it -v $(shell pwd):/go/src/github.com/pachyderm/pachyderm" bin/run /bin/bash
 
 launch-shard:
 	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" bin/run

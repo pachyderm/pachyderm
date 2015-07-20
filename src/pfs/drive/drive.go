@@ -2,10 +2,9 @@ package drive
 
 import (
 	"io"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/satori/go.uuid"
+	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
 )
 
 const (
@@ -32,6 +31,6 @@ type Driver interface {
 	GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, error)
 }
 
-func NewCommitID() string {
-	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
+func NewBtrfsDriver(rootDir string, btrfsAPI btrfs.API) Driver {
+	return newBtrfsDriver(rootDir, btrfsAPI)
 }
