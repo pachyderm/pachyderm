@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# This script deploys a pachyderm cluster using the pachyderm/deploy image.
+
 set -Ee
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"

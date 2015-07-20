@@ -1,45 +1,44 @@
 #!/bin/sh
 
-set -Ee
+# This script will run the given command in $@ on pachyderm/pachyderm,
+# properly setting up all associated state.
+# No btrfs image is mounted through.
+
+set -Eex
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
 
 . "${DIR}/../etc/env/env.env"
 
-"${DIR}/mount-btrfs"
 "${DIR}/clean"
 "${DIR}/build"
 
 if [ -z "${AWS_REGION}" ]; then
-	AWS_REGION="${PACHYDERM_DEFAULT_AWS_REGION}"
+	AWS_REGION="${DEFAULT_AWS_REGION}"
 fi
 if [ -z "${GOMAXPROCS}" ]; then
-  GOMAXPROCS="${PACHYDERM_DEFAULT_GOMAXPROCS}"
-fi
-if [ -z "${PACHYDERM_IMAGE}" ]; then
-  PACHYDERM_IMAGE="${PACHYDERM_DEFAULT_IMAGE}"
+  GOMAXPROCS="${DEFAULT_GOMAXPROCS}"
 fi
 
+sudo mkdir -p /var/lib/pfs/tmp
 docker run \
     ${PACHYDERM_DOCKER_OPTS} \
     --privileged=true \
-    --name "${PACHYDERM_IMAGE}" \
-    -v /:/host:ro \
-    -v "${PFS_HOST_VOLUME}:/host/${PFS_HOST_VOLUME}" \
-    -v "${PFS_DIR}:${PFS_DIR}" \
+    --name "pachyderm" \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -e "AWS_REGION=${AWS_REGION}" \
+    -v /:/host:ro \
+    -v /var/lib/pfs/tmp:/host/var/lib/pfs/tmp \
+    -v /var/lib/pfs:/var/lib/pfs \
     -e "GOMAXPROCS=${GOMAXPROCS}" \
-    -e "PFS_HOST_VOLUME=${PFS_HOST_VOLUME}" \
-    -e "PFS_BTRFS_ROOT=${PFS_BTRFS_ROOT}" \
     -e "PFS_API_PORT=${PFS_API_PORT}" \
     -e "PFS_TRACE_PORT=${PFS_TRACE_PORT}" \
     -e "PFS_NUM_SHARDS=${PFS_NUM_SHARDS}" \
+    -e "AWS_REGION=${AWS_REGION}" \
     -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
     -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
     -p "${PFS_PORT}:${PFS_API_PORT}" \
     -p "${PFS_TRACE_PORT}:${PFS_TRACE_PORT}" \
     -p "8080:8080" \
-    "pachyderm/${PACHYDERM_IMAGE}" \
+    "pachyderm/pachyderm" \
     $@

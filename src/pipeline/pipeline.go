@@ -76,6 +76,7 @@ func (p *pipeline) input(name string) error {
 		}
 		hostPath := btrfs.HostPath(path.Join(p.pipelineDir, trimmed, p.commit))
 		containerPath := path.Join("/in", trimmed)
+		p.config.Config.Volumes[containerPath] = emptyStruct()
 		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
 		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
 	case strings.HasPrefix(name, "pps://"):
@@ -86,6 +87,7 @@ func (p *pipeline) input(name string) error {
 		}
 		hostPath := btrfs.HostPath(path.Join(p.pipelineDir, trimmed, p.commit))
 		containerPath := path.Join("/in", trimmed)
+		p.config.Config.Volumes[containerPath] = emptyStruct()
 		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
 		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
 	case strings.HasPrefix(name, "pfs://"):
@@ -93,6 +95,7 @@ func (p *pipeline) input(name string) error {
 	default:
 		hostPath := btrfs.HostPath(path.Join(p.inRepo, p.commit, name))
 		containerPath := path.Join("/in", name)
+		p.config.Config.Volumes[containerPath] = emptyStruct()
 		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
 		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
 	}
@@ -223,6 +226,7 @@ func (p *pipeline) run(cmd []string) error {
 	}
 	// Set the command
 	p.config.Config.Cmd = []string{"sh"}
+	p.config.Config.Volumes["/out"] = emptyStruct()
 	// Map the out directory in as a bind
 	hostPath := btrfs.HostPath(path.Join(p.outRepo, p.branch))
 	bind := fmt.Sprintf("%s:/out", hostPath)
@@ -704,4 +708,9 @@ func WaitPipeline(pipelineDir, pipeline, commit string) error {
 		return ErrFailed
 	}
 	return nil
+}
+
+func emptyStruct() struct{} {
+	var str struct{}
+	return str
 }
