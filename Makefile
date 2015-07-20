@@ -59,7 +59,7 @@ clean:
 	sudo rm -rf _tmp
 
 build-images:
-	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) bin/docker-build || exit;)
+	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) bin/build || exit;)
 
 push-images: build-images
 	$(foreach image,$(IMAGES),docker push pachyderm/$(image) || exit;)
