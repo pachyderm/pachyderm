@@ -16,7 +16,8 @@ if [ -z "${PACHYDERM_IMAGE}" ]; then
 fi
 
 sudo umount "/var/lib/pfs/vol" > /dev/null 2> /dev/null
-sudo rm -rf "/var/lib/pfs" > /dev/null 2< /dev/null
+sudo rm -rf "/var/lib/pfs/vol" > /dev/null 2< /dev/null
+sudo rm -rf "/var/lib/pfs/tmp" > /dev/null 2< /dev/null
 docker kill "${PACHYDERM_IMAGE}" > /dev/null 2> /dev/null
 docker rm "${PACHYDERM_IMAGE}" > /dev/null 2> /dev/null
 exit 0

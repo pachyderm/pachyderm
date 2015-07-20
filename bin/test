@@ -1,8 +1,7 @@
 #!/bin/sh
 
 # This script will run go test for pachyderm, setting up btrfs first.
-# It is recommended to use this script wrapped in a bin/run command,
-# or inside `make shell`.
+# Use this script wrapped in a bin/run command, or inside `make shell`.
 # Set the variable KEEP_BTRFS to keep btrfs state around after the test.
 
 set -Eex
@@ -11,31 +10,8 @@ DIR="$(cd "$(dirname "${0}")" && pwd)"
 
 . "${DIR}/../etc/env/env.env"
 
-btrfs_unmount() {
-  umount "${1}"
-  rm -rf "${1}"
-  rm "${2}"
-}
-
-TMPDIR="/var/lib/pfs/tmp/pachyderm-go-test/btrfs-vol.$$"
-TMPIMG="/var/lib/pfs/tmp/pachyderm-go-test/btrfs-data.img.$$"
-mkdir -p "${TMPDIR}"
-truncate "${TMPIMG}" -s 10G
-mkfs.btrfs "${TMPIMG}"
-mount "${TMPIMG}" "${TMPDIR}"
-if [ -z "${KEEP_BTRFS}" ]; then
-  trap 'btrfs_unmount "${TMPDIR}" "${TMPIMG}"' EXIT
-fi
-
-export PFS_HOST_VOLUME="${TMPDIR}"
-export PFS_LOCAL_VOLUME="${TMPDIR}"
-export PFS_BTRFS_ROOT="${TMPDIR}"
-echo "PFS_HOST_VOLUME=${PFS_HOST_VOLUME}" >&2
-echo "PFS_LOCAL_VOLUME=${PFS_LOCAL_VOLUME}" >&2
-echo "PFS_BTRFS_ROOT=${PFS_BTRFS_ROOT}" >&2
-
 if [ -z "${GOMAXPROCS}" ]; then
 	GOMAXPROCS="${DEFAULT_GOMAXPROCS}"
 fi
 
-go test -parallel "${GOMAXPROCS}" -timeout "${GO_TEST_TIMEOUT}" $@
+btrfs-mount-wrapper go test -parallel "${GOMAXPROCS}" -timeout "${GO_TEST_TIMEOUT}" $@

@@ -44,8 +44,7 @@ docker run \
     --name "${PACHYDERM_IMAGE}" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v /:/host:ro \
-    -v "${PFS_HOST_VOLUME}:${PFS_HOST_VOLUME}" \
-    -v "${PFS_HOST_VOLUME}:/host/${PFS_HOST_VOLUME}" \
+    -v /var/lib/pfs/vol:/var/lib/pfs/vol \
     -e "GOMAXPROCS=${GOMAXPROCS}" \
     -e "PFS_HOST_VOLUME=${PFS_HOST_VOLUME}" \
     -e "PFS_BTRFS_ROOT=${PFS_BTRFS_ROOT}" \

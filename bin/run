@@ -21,15 +21,13 @@ if [ -z "${GOMAXPROCS}" ]; then
   GOMAXPROCS="${DEFAULT_GOMAXPROCS}"
 fi
 
-sudo mkdir -p /var/lib/pfs/tmp
+sudo mkdir -p /var/lib/pfs
 docker run \
     ${PACHYDERM_DOCKER_OPTS} \
     --privileged=true \
     --name "pachyderm" \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v /:/host:ro \
-    -v /var/lib/pfs/tmp:/host/var/lib/pfs/tmp \
-    -v /var/lib/pfs:/var/lib/pfs \
+    -v /var/lib/pfs:/host/var/lib/pfs \
     -e "GOMAXPROCS=${GOMAXPROCS}" \
     -e "PFS_API_PORT=${PFS_API_PORT}" \
     -e "PFS_TRACE_PORT=${PFS_TRACE_PORT}" \

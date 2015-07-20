@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# This script will set up a btrfs mount point, expose it as PFS_HOST_VOLUME,
+# PFS_LOCAL_VOLUME, and PFS_BTRFS_ROOT, and runs. the given command
+# Use this script wrapped in a bin/run command, or inside `make shell`.
+# Set the variable KEEP_BTRFS to keep btrfs state around after the test.
+
+set -Eex
+
+btrfs_unmount() {
+  chroot /host umount "${1}"
+  chroot /host rm -rf "${1}"
+  chroot /host rm "${2}"
+}
+
+TMPDIR="/var/lib/pfs/${1}"
+TMPIMG="/var/lib/pfs/${1}"
+chroot /host mkdir -p "${TMPDIR}"
+chroot /host truncate "${TMPIMG}" -s 10G
+chroot /host mkfs.btrfs "${TMPIMG}"
+chroot /host mount "${TMPIMG}" "${TMPDIR}"
+if [ -z "${KEEP_BTRFS}" ]; then
+  trap 'btrfs_unmount "${TMPDIR}" "${TMPIMG}"' EXIT
+fi
+
+export PFS_HOST_VOLUME="/host/${TMPDIR}"
+export PFS_LOCAL_VOLUME="/host/${TMPDIR}"
+export PFS_BTRFS_ROOT="/host/${TMPDIR}"
+echo "PFS_HOST_VOLUME=${PFS_HOST_VOLUME}" >&2
+echo "PFS_LOCAL_VOLUME=${PFS_LOCAL_VOLUME}" >&2
+echo "PFS_BTRFS_ROOT=${PFS_BTRFS_ROOT}" >&2
+
+$@
