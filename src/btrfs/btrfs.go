@@ -624,6 +624,7 @@ func Show(repo string, commit string, out string) error {
 	if err != nil {
 		return err
 	}
+	log.Print("Files: ", files)
 	var wg sync.WaitGroup
 	for _, file := range files {
 		wg.Add(1)
@@ -755,6 +756,9 @@ func largestExistingPath(name string) (string, error) {
 // transid returns transid of a path in a repo. This function is used in
 // several other internal functions.
 func transid(repo, commit string) (string, error) {
+	if commit == "" {
+		return "0", nil
+	}
 	//  "9223372036854775810" == 2 ** 63 we use a very big number there so that
 	//  we get the transid of the from path. According to the internet this is
 	//  the nicest way to get it from btrfs.
