@@ -33,18 +33,19 @@ var (
 )
 
 type pipeline struct {
-	name        string
-	config      docker.CreateContainerOptions
-	inRepo      string
-	outRepo     string
-	commit      string
-	branch      string
-	counter     int
-	container   string
-	cancelled   bool
-	shard       string
-	pipelineDir string
-	cache       etcache.Cache
+	name           string
+	config         docker.CreateContainerOptions
+	inRepo         string
+	outRepo        string
+	commit         string
+	branch         string
+	counter        int
+	container      string
+	cancelled      bool
+	shard          string
+	pipelineDir    string
+	externalOutput string
+	cache          etcache.Cache
 }
 
 func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir string, cache etcache.Cache) *pipeline {
@@ -61,6 +62,7 @@ func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir str
 		false,
 		shard,
 		pipelineDir,
+		"",
 		cache,
 	}
 }
@@ -96,6 +98,12 @@ func (p *pipeline) input(name string) error {
 		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
 		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
 	}
+	return nil
+}
+
+// output specifies an external destination to sync the output of the pipeline to.
+func (p *pipeline) output(name string) error {
+	p.externalOutput = name
 	return nil
 }
 
@@ -363,6 +371,52 @@ func (p *pipeline) cancel() error {
 	return stopContainer(p.container)
 }
 
+// pushToOutputs should be called after `finish` to push the outputted data to s3
+func (p *pipeline) pushToOutputs() error {
+	if p.externalOutput == "" {
+		return nil
+	}
+	client := s3utils.NewClient(false)
+	bucket, err := s3utils.GetBucket(p.externalOutput)
+	if err != nil {
+		return err
+	}
+	pathPrefix, err := s3utils.GetPath(p.externalOutput)
+	if err != nil {
+		return err
+	}
+	files, err := btrfs.NewIn(p.outRepo, p.commit)
+	if err != nil {
+		return err
+	}
+	var wg sync.WaitGroup
+	for _, file := range files {
+		wg.Add(1)
+		go func(file string) {
+			defer wg.Done()
+			key := path.Join(pathPrefix, file)
+			f, err := btrfs.Open(path.Join(p.outRepo, p.commit, file))
+			if err != nil {
+				log.Print(err)
+				return
+			}
+			acl := "private"
+			defer f.Close()
+			if _, err = client.PutObject(&s3.PutObjectInput{
+				Bucket: &bucket,
+				Key:    &key,
+				Body:   f,
+				ACL:    &acl,
+			}); err != nil {
+				log.Print(err)
+				return
+			}
+		}(file)
+	}
+	wg.Wait()
+	return nil
+}
+
 // runPachFile parses r as a PachFile and executes. runPachFile is GUARANTEED
 // to call either `finish` or `fail`
 func (p *pipeline) runPachFile(r io.Reader) (retErr error) {
@@ -419,6 +473,11 @@ func (p *pipeline) runPachFile(r io.Reader) (retErr error) {
 				return ErrArgCount
 			}
 			err = p.input(tokens[1])
+		case "output":
+			if len(tokens) != 2 {
+				return ErrArgCount
+			}
+			err = p.output(tokens[1])
 		case "image":
 			if len(tokens) != 2 {
 				return ErrArgCount
@@ -445,6 +504,7 @@ func (p *pipeline) runPachFile(r io.Reader) (retErr error) {
 	if err := p.finish(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
