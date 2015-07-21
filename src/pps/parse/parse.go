@@ -11,7 +11,34 @@ import (
 	"github.com/peter-edge/go-yaml2json"
 )
 
+var (
+	versionToParseFunc = map[string]func(string, *config) (*pps.Pipeline, error){
+		"v1": parsePipelineV1,
+	}
+)
+
+type config struct {
+	Version string
+	Root    string
+	Ignore  []string
+}
+
 func ParsePipeline(dirPath string) (*pps.Pipeline, error) {
+	config, err := parseConfig(dirPath)
+	if err != nil {
+		return nil, err
+	}
+	if config.Version == "" {
+		return nil, fmt.Errorf("no version specified in pps.yml")
+	}
+	parseFunc, ok := versionToParseFunc[config.Version]
+	if !ok {
+		return nil, fmt.Errorf("unknown pps specification version: %s", config.Version)
+	}
+	return parseFunc(dirPath, config)
+}
+
+func parseConfig(dirPath string) (*config, error) {
 	configFilePath := filepath.Join(dirPath, "pps.yml")
 	if err := checkFileExists(configFilePath); err != nil {
 		return nil, err
@@ -20,12 +47,16 @@ func ParsePipeline(dirPath string) (*pps.Pipeline, error) {
 	if err != nil {
 		return nil, err
 	}
-	var m map[string]interface{}
-	if err := json.Unmarshal(data, &m); err != nil {
+	config := &config{}
+	if err := json.Unmarshal(data, config); err != nil {
 		return nil, err
 	}
-	fmt.Println(m)
-	return nil, nil
+	return config, nil
+}
+
+func parsePipelineV1(dirPath string, config *config) (*pps.Pipeline, error) {
+	fmt.Println(config)
+	return &pps.Pipeline{}, nil
 }
 
 func getJSONFromYAMLFile(path string) ([]byte, error) {
