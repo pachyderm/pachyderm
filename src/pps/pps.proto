@@ -2,24 +2,27 @@ syntax = "proto3";
 
 package pps;
 
-message Service {
+message Node {
+  map<string, string> input = 1;
+  map<string, string> output = 2;
+  repeated string run = 3;
+}
+
+message DockerService {
   string image = 1;
   string build = 2;
   string dockerfile = 3;
 }
 
-message Node {
-  map<string, string> input = 1;
-  map<string, string output = 2;
-  repeated string commands = 3;
-}
-
-message Config {
-  string version = 1;
+message Element {
+  string path = 1;
+  oneof typed_element {
+    Node node = 2;
+    DockerService docker_service = 3;
+  }
 }
 
 message Pipeline {
-  Config config = 1;
-  map<string, Service> services = 2;
-  map<string, Node> nodes = 3;
+  map<string, Element> name_to_element = 1;
+  string version = 2;
 }
