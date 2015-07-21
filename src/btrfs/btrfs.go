@@ -616,6 +616,33 @@ func NewIn(repo, commit string) ([]string, error) {
 	return FindNew(repo, parent, commit)
 }
 
+func Show(repo string, commit string, out string) error {
+	if err := subvolumeCreate(path.Join(repo, out)); err != nil {
+		return err
+	}
+	files, err := NewIn(repo, commit)
+	if err != nil {
+		return err
+	}
+	var wg sync.WaitGroup
+	for _, file := range files {
+		wg.Add(1)
+		go func(file string) {
+			defer wg.Done()
+			in, err := Open(path.Join(repo, commit, file))
+			if err != nil {
+				log.Print(err)
+				return
+			}
+			if _, err := CreateFromReader(path.Join(repo, out, file), in); err != nil {
+				log.Print(err)
+				return
+			}
+		}(file)
+	}
+	return nil
+}
+
 //_log returns all of the commits the repo which have generation >= from.
 func _log(repo, from string, order int, cont func(io.Reader) error) error {
 	var sort string
