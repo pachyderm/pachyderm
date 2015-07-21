@@ -348,8 +348,12 @@ Want to hack on pachyderm for fun? You can run pachyderm locally using:
 make launch-shard
 ```
 
-This will build a docker image from the working directory, tag it as `pachyderm` and
-launch it locally. The only dependencies are Docker >= 1.5 and btrfs-tools >= 3.14.
+This will build a docker image from the working directory, tag it as `pachyderm` and launch it locally.
+
+**Note that all development must be done on linux due to the dependency on btrfs.**
+
+And more specifically, btrfs version >= 3.14. We recommend Ubuntu 15.04 for this. See the [Environment Setup](#environment-setup)
+section for a Vagrant setup that works.
 
 Other useful development commands can be seen in the [Makefile](Makefile) and the
 [bin](bin) directory. Key commands:
