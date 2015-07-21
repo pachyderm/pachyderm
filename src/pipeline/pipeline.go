@@ -67,6 +67,20 @@ func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir str
 	}
 }
 
+func (p *pipeline) bind(repo string, directory string, containerPath string) error {
+	hostPath := btrfs.HostPath(path.Join(repo, p.commit, directory))
+	bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
+	p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+	if err := btrfs.Show(repo, p.commit, p.commit+"-new"); err != nil {
+		return err
+	}
+	hostPath = btrfs.HostPath(path.Join(repo, p.commit+"-new", directory))
+	bind = fmt.Sprintf("%s:%s:ro", hostPath, containerPath+"-new")
+	log.Print("BIND: ", bind)
+	p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+	return nil
+}
+
 // input makes a dataset available for computations in the container.
 func (p *pipeline) input(name string) error {
 	var trimmed string
@@ -76,27 +90,23 @@ func (p *pipeline) input(name string) error {
 		if err := WaitPipeline(p.pipelineDir, trimmed, p.commit); err != nil {
 			return err
 		}
-		hostPath := btrfs.HostPath(path.Join(p.pipelineDir, trimmed, p.commit))
-		containerPath := path.Join("/in", trimmed)
-		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
-		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
-	case strings.HasPrefix(name, "pps://"):
-		trimmed = strings.TrimPrefix(name, "pps://")
-		err := WaitPipeline(p.pipelineDir, trimmed, p.commit)
-		if err != nil {
+		if err := p.bind(path.Join(p.pipelineDir, trimmed), "", path.Join("/in", trimmed)); err != nil {
 			return err
 		}
-		hostPath := btrfs.HostPath(path.Join(p.pipelineDir, trimmed, p.commit))
-		containerPath := path.Join("/in", trimmed)
-		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
-		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+	case strings.HasPrefix(name, "pps://"):
+		trimmed = strings.TrimPrefix(name, "pps://")
+		if err := WaitPipeline(p.pipelineDir, trimmed, p.commit); err != nil {
+			return err
+		}
+		if err := p.bind(path.Join(p.pipelineDir, trimmed), "", path.Join("/in", trimmed)); err != nil {
+			return err
+		}
 	case strings.HasPrefix(name, "pfs://"):
 		fallthrough
 	default:
-		hostPath := btrfs.HostPath(path.Join(p.inRepo, p.commit, name))
-		containerPath := path.Join("/in", name)
-		bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
-		p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+		if err := p.bind(p.inRepo, name, path.Join("/in", name)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
