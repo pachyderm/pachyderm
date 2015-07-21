@@ -99,13 +99,13 @@ each node has to pull a Docker image.
 #### Deploy Pachyderm using Kubernetes
 
 As of v0.9 Pachyderm supports Deploying on Kubernetes.  The relevant files can
-be found in [etc/kubernetes](etc/kubernetes). The start the service running on
+be found in [etc/kube](etc/kube). The start the service running on
 Kubernetes do:
 
 ```shell
-$ kubectl create -f storage-controller.yml
-$ kubectl create -f router-controller.yml
-$ kubectl create -f pachyderm-service.yml
+$ kubectl create -f etc/kube/storage-controller.yml
+$ kubectl create -f etc/kube/router-controller.yml
+$ kubectl create -f etc/kube/pachyderm-service.yml
 ```
 
 Or just do:
