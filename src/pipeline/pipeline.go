@@ -45,6 +45,7 @@ type pipeline struct {
 	shard          string
 	pipelineDir    string
 	externalOutput string
+	createdCommits []string
 	cache          etcache.Cache
 }
 
@@ -63,6 +64,7 @@ func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir str
 		shard,
 		pipelineDir,
 		"",
+		[]string{},
 		cache,
 	}
 }
@@ -75,10 +77,21 @@ func (p *pipeline) bind(repo string, directory string, containerPath string) err
 	if err := btrfs.Show(repo, p.commit, p.commit+"-new"); err != nil {
 		return err
 	}
+	p.createdCommits = append(p.createdCommits, path.Join(repo, p.commit+"-new"))
 	hostPath = btrfs.HostPath(path.Join(repo, p.commit+"-new", directory))
 	p.config.Config.Volumes[containerPath+"-new"] = emptyStruct()
 	bind = fmt.Sprintf("%s:%s:ro", hostPath, containerPath+"-new")
 	p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
+	return nil
+}
+
+func (p *pipeline) clean() error {
+	log.Print("p.createdCommits: ", p.createdCommits)
+	for _, commit := range p.createdCommits {
+		if err := btrfs.DeleteCommit(commit); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -450,6 +463,13 @@ func (p *pipeline) runPachFile(r io.Reader) (retErr error) {
 				retErr = err
 			}
 			return
+		}
+	}()
+	defer func() {
+		if err := p.clean(); err != nil {
+			if retErr == nil {
+				retErr = err
+			}
 		}
 	}()
 	lines := bufio.NewScanner(r)

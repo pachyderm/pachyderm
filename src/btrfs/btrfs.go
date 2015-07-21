@@ -373,6 +373,10 @@ func IsCommit(name string) (bool, error) {
 	return false, scanner.Err()
 }
 
+func DeleteCommit(commit string) error {
+	return subvolumeDelete(commit)
+}
+
 // SetMeta sets metadata for a branch
 func SetMeta(branch, key, value string) error {
 	return WriteFile(path.Join(branch, ".meta", key), []byte(value))
@@ -788,10 +792,6 @@ func subvolumeCreate(name string) error {
 	return executil.Run("btrfs", "subvolume", "create", FilePath(name))
 }
 
-func subvolumeDelete(name string) error {
-	return executil.Run("btrfs", "subvolume", "delete", FilePath(name))
-}
-
 func subvolumeDeleteAll(name string) error {
 	subvolumeExists, err := FileExists(name)
 	if err != nil {
@@ -802,6 +802,10 @@ func subvolumeDeleteAll(name string) error {
 	} else {
 		return nil
 	}
+}
+
+func subvolumeDelete(name string) error {
+	return executil.Run("btrfs", "subvolume", "delete", FilePath(name))
 }
 
 func snapshot(volume string, dest string, readonly bool) error {
