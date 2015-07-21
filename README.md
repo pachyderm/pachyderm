@@ -365,7 +365,7 @@ make shell # go into a shell inside a running pachyderm container
 ./bin/test -run REGEX ./... # run all tests that match the regex
 ./bin/wrap ./bin/test -test.short ./... # will allow tests to be run repeatedly inside make shell
 ./bin/wrap go test -test.short ./... # the default settings in ./bin/test  do not have to be used
-make launchs-shard # launch pachyderm, as outlined above
+make launch-shard # launch pachyderm, as outlined above
 make launch-pfsd # launch the new pfsd daemon
 make install # install all binaries locally
 pfs # if ${GOPATH}/bin is on your path, this will run the new pfs cli, this is very experimental and does not check for common errors
