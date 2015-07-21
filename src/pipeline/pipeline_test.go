@@ -390,7 +390,7 @@ func TestExternalOutput(t *testing.T) {
 	if testing.Short() {
 		//t.Skip()
 	}
-	outRepo := "Tests3Output_out"
+	outRepo := "TestExternalOutput_out"
 	require.NoError(t, btrfs.Init(outRepo))
 	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "", etcache.NewCache())
 	require.NoError(t, pipeline.output("s3://pachyderm-test/pipeline-out"))
@@ -401,6 +401,33 @@ output s3://pachyderm-test/pipeline-output
 run echo foo >/out/foo
 `
 	require.NoError(t, pipeline.runPachFile(strings.NewReader(pachfile)))
+}
+
+func TestNewInjection(t *testing.T) {
+	t.Parallel()
+	pipeline := newTestPipeline(t, "newInjections", "commit", "master", "0-1", true)
+
+	// add data to it
+	err := btrfs.WriteFile(path.Join(pipeline.inRepo, "master", "data", "foo"), []byte("foo"))
+	require.NoError(t, err)
+
+	// commit data
+	err = btrfs.Commit(pipeline.inRepo, "commit", "master")
+	require.NoError(t, err)
+
+	pachfile := `
+image ubuntu
+
+input data
+
+run cp /in/data-new/foo /out/foo
+`
+	err = pipeline.runPachFile(strings.NewReader(pachfile))
+	require.NoError(t, err)
+
+	exists, err := btrfs.FileExists(path.Join(pipeline.outRepo, "commit", "foo"))
+	require.NoError(t, err)
+	require.True(t, exists, "File `foo` doesn't exist when it should.")
 }
 
 func newTestPipeline(
