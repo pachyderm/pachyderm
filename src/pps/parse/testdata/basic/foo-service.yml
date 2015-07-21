@@ -1,0 +1,10 @@
+# all files must have a pps section with the fields below
+pps:
+  # kind is either service or node (job)
+  kind: service
+  # name must be unique across all services and nodes in the repository
+  name: foo
+# directives outside of pps will be specific to the kind
+# in this case, we are matching docker-compose
+# builds follow Dockerfile files, they are scoped to their context
+build: .

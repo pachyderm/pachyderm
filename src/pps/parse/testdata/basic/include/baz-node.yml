@@ -1,0 +1,12 @@
+pps:
+  kind: node
+  name: baz-node
+service: bar
+input:
+  /in-bar: pfs://bar-repository
+  /in-baz: pfs://baz-repository
+  # baz-node uses an input that is an output of another node,
+  # so baz-node will be deferred until that output is populated
+  /in-bar-out: pfs://bar-repository-out
+# baz-node has no output, which is fine
+# you could also have no input, and the commands will just be run
