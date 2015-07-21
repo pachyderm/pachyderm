@@ -72,6 +72,13 @@ launch-shard:
 launch-pfsd:
 	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d" bin/run
 
+kube-%:
+	@ if ! which kubectl > /dev/null; then \
+		echo "error: kubectl not installed" >& 2; \
+		exit 1; \
+		fi
+	$(foreach file,storage-controller.yml router-controller.yml pachyderm-service.yml,kubectl $* -f etc/kubernetes/$(file) || exit;)
+
 lint:
 	go get -v github.com/golang/lint/golint
 	golint ./...

@@ -16,7 +16,7 @@ spec:
       containers:
         - name: pachyderm-router
           image: pachyderm/router
-          command: [ "-shards", "8" ]
+          command: ["/bin/router", "8" ]
           ports:
           - containerPort: 80
             name: port
