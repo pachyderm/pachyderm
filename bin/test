@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# This script runs go test with the default settings.
+
+set -Ee
+
+DIR="$(cd "$(dirname "${0}")" && pwd)"
+
+. "${DIR}/../etc/env/env.env"
+
+if [ -z "${GOMAXPROCS}" ]; then
+	GOMAXPROCS="${DEFAULT_GOMAXPROCS}"
+fi
+
+go test -parallel "${GOMAXPROCS}" -timeout "${GO_TEST_TIMEOUT}" $@

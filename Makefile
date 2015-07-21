@@ -51,11 +51,10 @@ install: deps
 	go install ./...
 
 clean:
-	go clean -i ./...
+	go clean ./...
 	bin/clean
 	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) bin/clean || exit;)
 	$(foreach binary,$(BINARIES),rm -f src/cmd/$(binary)/$(binary);)
-	bin/unmount-btrfs
 	sudo rm -rf _tmp
 
 build-images:
@@ -73,6 +72,19 @@ launch-shard:
 launch-pfsd:
 	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d" bin/run
 
+kube-%:
+	kubectl=kubectl; \
+	if ! which $$kubectl > /dev/null; then \
+		kubectl=kubectl.sh; \
+		if ! which $$kubectl > /dev/null; then \
+			echo "error: kubectl not installed" >& 2; \
+			exit 1; \
+		fi; \
+	fi; \
+	for file in storage-controller.yml router-controller.yml pachyderm-service.yml; do \
+		$$kubectl $* -f etc/kube/$$file; \
+	done
+
 lint:
 	go get -v github.com/golang/lint/golint
 	golint ./...
@@ -87,14 +99,14 @@ pretest: lint vet errcheck
 
 # TODO(pedge): add pretest when fixed
 test:
-	bin/go-test -test.short ./...
+	bin/run bin/wrap bin/test -test.short ./...
 
 # TODO(pedge): add pretest when fixed
 test-long:
 	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
 	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
 	@ sleep 5
-	bin/go-test ./...
+	bin/run bin/wrap bin/test ./...
 
 test-pfs: test-deps
 	go get -v github.com/golang/lint/golint
@@ -103,14 +115,14 @@ test-pfs: test-deps
 		done
 	go vet ./src/pfs/...
 	errcheck ./src/pfs/...
-	bin/go-test -test.v ./src/pfs/server/...
+	bin/run bin/wrap bin/test -test.v ./src/pfs/server/...
 
 # TODO(pedge): add pretest when fixed
 bench:
 	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
 	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
 	@ sleep 5
-	bin/go-test -bench . ./...
+	bin/run bin/wrap bin/test -bench . ./...
 
 proto:
 	@ if ! docker images | grep 'pedge/proto3grpc' > /dev/null; then \

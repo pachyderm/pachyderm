@@ -99,16 +99,60 @@ each node has to pull a Docker image.
 #### Deploy Pachyderm using Kubernetes
 
 As of v0.9 Pachyderm supports Deploying on Kubernetes.  The relevant files can
-be found in [etc/kubernetes](etc/kubernetes). The start the service running on
+be found in [etc/kube](etc/kube). The start the service running on
 Kubernetes do:
 
 ```shell
-$ kubectl create -f storage-controller.yml
-$ kubectl create -f router-controller.yml
-$ kubectl create -f pachyderm-service.yml
+$ kubectl create -f etc/kube/storage-controller.yml
+$ kubectl create -f etc/kube/router-controller.yml
+$ kubectl create -f etc/kube/pachyderm-service.yml
+```
+
+Or just do:
+
+```shell
+make kube-create
 ```
 
 Pachyderm expects etcd to be running on the host machine. 
+
+See [Kubernetes' Getting Started Guide](http://kubernetes.io/gettingstarted) for how to deploy Kubernetes to various platforms.
+If you are developing on linux and want to test locally, here's a cheat sheet to local deployment.
+This won't be generally updated, it's just how we got a local cluster on our linux boxes, and
+some of the commands/functions may not apply if you do not use bash as your shell, so just
+use this as a reference:
+
+```shell
+mkdir -p ~/git # or wherever you clone to
+mkdir -p ~/other # a place to download etcd to
+
+# https://github.com/coreos/etcd/releases
+cd ~/other
+curl -L  https://github.com/coreos/etcd/releases/download/v2.1.0-rc.0/etcd-v2.1.0-rc.0-linux-amd64.tar.gz -o etcd-v2.1.0-rc.0-linux-amd64.tar.gz
+tar xzvf etcd-v2.1.0-rc.0-linux-amd64.tar.gz
+
+# http://kubernetes.io/v1.0/docs/getting-started-guides/locally.html
+cd ~/git
+git clone https://github.com/GoogleCloudPlatform/kubernetes.git
+
+# in your bash_aliases, put the following:
+# export PATH=${PATH}:~/other/etcd-v2.1.0-rc.0-linux-amd64:~/git/kubernetes/cluster
+# kubernetes_up() {
+#   ~/git/kubernetes/hack/local-up-cluster.sh
+#   ~/git/kubernetes/cluster/kubectl.sh config set-cluster local --server=http://127.0.0.1:8080 --insecure-skip-tls-verify=true
+#   ~/git/kubernetes/cluster/kubectl.sh config set-context local --cluster=local
+#   ~/git/kubernetes/cluster/kubectl.sh config use-context local
+# }
+
+# in a separate terminal:
+source ~/.bashrc
+kubernetes_up
+
+# in your main terminal:
+cd ${GOPATH}/src/github.com/pachyderm/pachyderm
+make kube-create
+kubectl.sh get pods
+```
 
 ####  Settings
 
@@ -304,8 +348,12 @@ Want to hack on pachyderm for fun? You can run pachyderm locally using:
 make launch-shard
 ```
 
-This will build a docker image from the working directory, tag it as `pachyderm` and
-launch it locally. The only dependencies are Docker >= 1.5 and btrfs-tools >= 3.14.
+This will build a docker image from the working directory, tag it as `pachyderm` and launch it locally.
+
+**Note that all development must be done on linux due to the dependency on btrfs.**
+
+And more specifically, btrfs version >= 3.14. We recommend Ubuntu 15.04 for this. See the [Environment Setup](#environment-setup)
+section for a Vagrant setup that works.
 
 Other useful development commands can be seen in the [Makefile](Makefile) and the
 [bin](bin) directory. Key commands:
@@ -316,9 +364,12 @@ make test # run all the tests
 make clean # clean up all pachyderm state
 make shell # go into a shell inside a running pachyderm container
 ./bin/run ARGS... # run a command inside a fresh pachyderm container
-./bin/go-test ./src/PACKAGE # run tests for a specific package
-./bin/go-test -run REGEX ./... # run all tests that match the regex
-make launchs-shard # launch pachyderm, as outlined above
+./bin/wrap # if run inside a ./bin/run or make shell, this will change PFS_ environment variables for a separate state from global
+./bin/test ./src/PACKAGE # run tests for a specific package
+./bin/test -run REGEX ./... # run all tests that match the regex
+./bin/wrap ./bin/test -test.short ./... # will allow tests to be run repeatedly inside make shell
+./bin/wrap go test -test.short ./... # the default settings in ./bin/test  do not have to be used
+make launch-shard # launch pachyderm, as outlined above
 make launch-pfsd # launch the new pfsd daemon
 make install # install all binaries locally
 pfs # if ${GOPATH}/bin is on your path, this will run the new pfs cli, this is very experimental and does not check for common errors
@@ -360,7 +411,7 @@ vagrant ssh # ssh into the vagrant box
 Once in the vagrant box, set everything up and verify that it works:
 
 ```
-go get github.com/pachyderm/pachyderm
+go get github.com/pachyderm/pachyderm/...
 cd ~/go/src/github.com/pachyderm/pachyderm
 make test
 ```
@@ -389,7 +440,7 @@ The bin scripts assume you have your user in the docker group as explained in th
 If this is set up properly, you do not need to use `sudo` to run `docker`. If you do not want this, and want to have to use `sudo` for docker development, wrap all commands like so:
 
 ```
-sudo -E bash -c 'bin/go-test ./...' # original command would have been `./bin/go-test ./...`
+sudo -E bash -c 'bin/run bin/test ./...' # original command would have been `./bin/run bin/test ./...`
 ```
 
 ## Contributing
