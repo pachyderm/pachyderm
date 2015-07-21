@@ -116,6 +116,49 @@ make kube-create
 
 Pachyderm expects etcd to be running on the host machine. 
 
+See [Kubernetes' Getting Started Guide] for how to deploy Kubernetes to various platforms.
+If you are developing on linux and want to test locally, here's a cheat sheet to local deployment.
+This won't be generally updated, it's just how we got a local cluster on our linux boxes, and
+some of the commands/functions may not apply if you do not use bash as your shell, so just
+use this as a reference:
+
+```shell
+mkdir -p ~/git # or wherever you clone to
+mkdir -p ~/other # a place to download etcd to
+
+# https://github.com/coreos/etcd/releases
+cd ~/other
+curl -L  https://github.com/coreos/etcd/releases/download/v2.1.0-rc.0/etcd-v2.1.0-rc.0-linux-amd64.tar.gz -o etcd-v2.1.0-rc.0-linux-amd64.tar.gz
+tar xzvf etcd-v2.1.0-rc.0-linux-amd64.tar.gz
+
+# http://kubernetes.io/v1.0/docs/getting-started-guides/locally.html
+# plus some hacks
+cd ~/git
+git clone https://github.com/GoogleCloudPlatform/kubernetes.git
+cd kubernetes
+vim cluster/kubectl # add the following:
+# #!/bin/bash
+# $(dirname "${BASH_SOURCE}")/kubectl.sh $@
+chmod +x kubectl
+
+# in your bash_aliases, put the following:
+# export PATH=${PATH}:~/other/etcd-v2.1.0-rc.0-linux-amd64:~/git/kubernetes/cluster
+# kubernetes_up() {
+#   ~/git/kubernetes/hack/local-up-cluster.sh
+#   ~/git/kubernetes/cluster/kubectl.sh config set-cluster local --server=http://127.0.0.1:8080 --insecure-skip-tls-verify=true
+#   ~/git/kubernetes/cluster/kubectl.sh config set-context local --cluster=local
+#   ~/git/kubernetes/cluster/kubectl.sh config use-context local
+# }
+
+# in a separate terminal:
+source ~/.bashrc
+kubernetes_up
+
+# in your main terminal:
+cd ${GOPATH}/src/github.com/pachyderm/pachyderm
+make kube-create
+```
+
 ####  Settings
 
 By default the deploy script will create a cluster with 3 shards and 3
