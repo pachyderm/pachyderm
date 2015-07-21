@@ -15,14 +15,14 @@ message DockerService {
 }
 
 message Element {
-  string path = 1;
+  string name = 1;
+  string path = 2;
   oneof typed_element {
-    Node node = 2;
-    DockerService docker_service = 3;
+    Node node = 3;
+    DockerService docker_service = 4;
   }
 }
 
 message Pipeline {
   map<string, Element> name_to_element = 1;
-  string version = 2;
 }

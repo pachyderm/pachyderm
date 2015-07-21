@@ -56,9 +56,10 @@ func (m *DockerService) String() string { return proto.CompactTextString(m) }
 func (*DockerService) ProtoMessage()    {}
 
 type Element struct {
-	Path          string         `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
-	Node          *Node          `protobuf:"bytes,2,opt,name=node" json:"node,omitempty"`
-	DockerService *DockerService `protobuf:"bytes,3,opt,name=docker_service" json:"docker_service,omitempty"`
+	Name          string         `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Path          string         `protobuf:"bytes,2,opt,name=path" json:"path,omitempty"`
+	Node          *Node          `protobuf:"bytes,3,opt,name=node" json:"node,omitempty"`
+	DockerService *DockerService `protobuf:"bytes,4,opt,name=docker_service" json:"docker_service,omitempty"`
 }
 
 func (m *Element) Reset()         { *m = Element{} }
@@ -81,7 +82,6 @@ func (m *Element) GetDockerService() *DockerService {
 
 type Pipeline struct {
 	NameToElement map[string]*Element `protobuf:"bytes,1,rep,name=name_to_element" json:"name_to_element,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Version       string              `protobuf:"bytes,2,opt,name=version" json:"version,omitempty"`
 }
 
 func (m *Pipeline) Reset()         { *m = Pipeline{} }
