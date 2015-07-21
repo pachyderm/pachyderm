@@ -4,7 +4,7 @@
 # This script will always build the main Dockerfile into pachyderm/pachyderm.
 # If PACHYDERM_IMAGE is set, the script will additionally build Dockerfile.${PACHYDERM_IMAGE} into pachyderm/${PACHYDERM_IMAGE}.
 
-set -Eex
+set -Ee
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"

@@ -1,10 +1,8 @@
 #!/bin/sh
 
-# This script will run go test for pachyderm, setting up btrfs first.
-# Use this script wrapped in a bin/run command, or inside `make shell`.
-# Set the variable KEEP_BTRFS to keep btrfs state around after the test.
+# This script runs go test with the default settings.
 
-set -Eex
+set -Ee
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 
@@ -14,4 +12,4 @@ if [ -z "${GOMAXPROCS}" ]; then
 	GOMAXPROCS="${DEFAULT_GOMAXPROCS}"
 fi
 
-btrfs-mount-wrapper go test -parallel "${GOMAXPROCS}" -timeout "${GO_TEST_TIMEOUT}" $@
+go test -parallel "${GOMAXPROCS}" -timeout "${GO_TEST_TIMEOUT}" $@

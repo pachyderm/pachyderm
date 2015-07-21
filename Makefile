@@ -67,10 +67,10 @@ shell:
 	PACHYDERM_DOCKER_OPTS="-it -v $(shell pwd):/go/src/github.com/pachyderm/pachyderm" bin/run /bin/bash
 
 launch-shard:
-	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" bin/launch
+	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" bin/run
 
 launch-pfsd:
-	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d" bin/launch
+	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d" bin/run
 
 lint:
 	go get -v github.com/golang/lint/golint
@@ -86,14 +86,14 @@ pretest: lint vet errcheck
 
 # TODO(pedge): add pretest when fixed
 test:
-	bin/run bin/test -test.short ./...
+	bin/run bin/wrap bin/test -test.short ./...
 
 # TODO(pedge): add pretest when fixed
 test-long:
 	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
 	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
 	@ sleep 5
-	bin/run bin/test ./...
+	bin/run bin/wrap bin/test ./...
 
 test-pfs: test-deps
 	go get -v github.com/golang/lint/golint
@@ -102,14 +102,14 @@ test-pfs: test-deps
 		done
 	go vet ./src/pfs/...
 	errcheck ./src/pfs/...
-	bin/run bin/test -test.v ./src/pfs/server/...
+	bin/run bin/wrap bin/test -test.v ./src/pfs/server/...
 
 # TODO(pedge): add pretest when fixed
 bench:
 	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
 	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
 	@ sleep 5
-	bin/run bin/test -bench . ./...
+	bin/run bin/wrap bin/test -bench . ./...
 
 proto:
 	@ if ! docker images | grep 'pedge/proto3grpc' > /dev/null; then \
