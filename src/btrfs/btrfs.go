@@ -100,7 +100,7 @@ func CreateAll(name string) (*os.File, error) {
 // CreateFromReader is like Create but automatically sets the content of the
 // file to the data found in `r`
 func CreateFromReader(name string, r io.Reader) (int64, error) {
-	f, err := Create(name)
+	f, err := CreateAll(name)
 	if err != nil {
 		return 0, err
 	}
