@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# This script wraps a command with PFS_HOST_VOLUME, PFS_LOCAL_VOLUME, and PFS_BTRFS_ROOT
+# set to a local directory.
+
+set -Ee
+
+export PFS_HOST_VOLUME="${PFS_DIR}/wrap-$$"
+export PFS_LOCAL_VOLUME="${PFS_DIR}/wrap-$$"
+export PFS_BTRFS_ROOT="${PFS_DIR}/wrap-$$"
+echo "PFS_HOST_VOLUME=${PFS_HOST_VOLUME}" >&2
+echo "PFS_LOCAL_VOLUME=${PFS_LOCAL_VOLUME}" >&2
+echo "PFS_BTRFS_ROOT=${PFS_BTRFS_ROOT}" >&2
+mkdir -p "${PFS_HOST_VOLUME}"
+
+$@

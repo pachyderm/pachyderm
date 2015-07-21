@@ -316,8 +316,11 @@ make test # run all the tests
 make clean # clean up all pachyderm state
 make shell # go into a shell inside a running pachyderm container
 ./bin/run ARGS... # run a command inside a fresh pachyderm container
-./bin/go-test ./src/PACKAGE # run tests for a specific package
-./bin/go-test -run REGEX ./... # run all tests that match the regex
+./bin/wrap # if run inside a ./bin/run or make shell, this will change PFS_ environment variables for a separate state from global
+./bin/test ./src/PACKAGE # run tests for a specific package
+./bin/test -run REGEX ./... # run all tests that match the regex
+./bin/wrap ./bin/test -test.short ./... # will allow tests to be run repeatedly inside make shell
+./bin/wrap go test -test.short ./... # the default settings in ./bin/test  do not have to be used
 make launchs-shard # launch pachyderm, as outlined above
 make launch-pfsd # launch the new pfsd daemon
 make install # install all binaries locally
@@ -389,7 +392,7 @@ The bin scripts assume you have your user in the docker group as explained in th
 If this is set up properly, you do not need to use `sudo` to run `docker`. If you do not want this, and want to have to use `sudo` for docker development, wrap all commands like so:
 
 ```
-sudo -E bash -c 'bin/go-test ./...' # original command would have been `./bin/go-test ./...`
+sudo -E bash -c 'bin/run bin/test ./...' # original command would have been `./bin/run bin/test ./...`
 ```
 
 ## Contributing

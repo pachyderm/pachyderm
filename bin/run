@@ -1,10 +1,9 @@
 #!/bin/sh
 
-# This script will run the given command in $@ on pachyderm/pachyderm,
-# properly setting up all associated state.
-# No btrfs image is mounted through.
+# This script will run the given command in $@ on pachyderm/${PACHYDERM_IMAGE}, properly setting up all associated state.
+# If PACHYDERM_IMAGE is not set, this will run pachyderm/pachyderm.
 
-set -Eex
+set -Ee
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"
 cd "${DIR}"
@@ -12,7 +11,12 @@ cd "${DIR}"
 . "${DIR}/../etc/env/env.env"
 
 "${DIR}/clean"
+"${DIR}/setup"
 "${DIR}/build"
+
+if [ -z "${PACHYDERM_IMAGE}" ]; then
+  PACHYDERM_IMAGE="pachyderm"
+fi
 
 if [ -z "${AWS_REGION}" ]; then
 	AWS_REGION="${DEFAULT_AWS_REGION}"
@@ -21,14 +25,27 @@ if [ -z "${GOMAXPROCS}" ]; then
   GOMAXPROCS="${DEFAULT_GOMAXPROCS}"
 fi
 
-sudo mkdir -p /var/lib/pfs
+PFS_DIR="/var/lib/pfs/btrfs"
+echo "PFS_DIR=${PFS_DIR}" >&2
+sudo mkdir -p "${PFS_DIR}"
+
+PFS_HOST_VOLUME="${PFS_DIR}/global"
+PFS_LOCAL_VOLUME="${PFS_DIR}/global"
+PFS_BTRFS_ROOT="${PFS_DIR}/global"
+sudo mkdir -p "${PFS_HOST_VOLUME}"
+
 docker run \
     ${PACHYDERM_DOCKER_OPTS} \
     --privileged=true \
-    --name "pachyderm" \
+    --name "${PACHYDERM_IMAGE}" \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v /var/lib/pfs:/host/var/lib/pfs \
+    -v /:/host:ro \
+    -v "${PFS_DIR}:${PFS_DIR}" \
+    -e "PFS_HOST_VOLUME=${PFS_HOST_VOLUME}" \
+    -e "PFS_LOCAL_VOLUME=${PFS_LOCAL_VOLUME}" \
+    -e "PFS_BTRFS_ROOT=${PFS_BTRFS_ROOT}" \
     -e "GOMAXPROCS=${GOMAXPROCS}" \
+    -e "PFS_DIR=${PFS_DIR}" \
     -e "PFS_API_PORT=${PFS_API_PORT}" \
     -e "PFS_TRACE_PORT=${PFS_TRACE_PORT}" \
     -e "PFS_NUM_SHARDS=${PFS_NUM_SHARDS}" \
@@ -38,5 +55,5 @@ docker run \
     -p "${PFS_PORT}:${PFS_API_PORT}" \
     -p "${PFS_TRACE_PORT}:${PFS_TRACE_PORT}" \
     -p "8080:8080" \
-    "pachyderm/pachyderm" \
+    "pachyderm/${PACHYDERM_IMAGE}" \
     $@

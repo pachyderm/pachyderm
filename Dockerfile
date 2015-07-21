@@ -26,5 +26,4 @@ RUN \
   go get github.com/coreos/go-etcd/etcd && \
   cd /go/src/github.com/coreos/go-etcd && \
   git checkout release-0.4
-ADD etc/bin/btrfs-mount-wrapper /bin/
 ADD . /go/src/github.com/pachyderm/pachyderm/
