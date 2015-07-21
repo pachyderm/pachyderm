@@ -412,8 +412,7 @@ func TestNewInjection(t *testing.T) {
 	require.NoError(t, err)
 
 	// commit data
-	err = btrfs.Commit(pipeline.inRepo, "commit", "master")
-	require.NoError(t, err)
+	require.NoError(t, btrfs.Commit(pipeline.inRepo, "commit", "master"))
 
 	pachfile := `
 image ubuntu
