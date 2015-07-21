@@ -116,7 +116,7 @@ make kube-create
 
 Pachyderm expects etcd to be running on the host machine. 
 
-See [Kubernetes' Getting Started Guide] for how to deploy Kubernetes to various platforms.
+See [Kubernetes' Getting Started Guide](http://kubernetes.io/gettingstarted) for how to deploy Kubernetes to various platforms.
 If you are developing on linux and want to test locally, here's a cheat sheet to local deployment.
 This won't be generally updated, it's just how we got a local cluster on our linux boxes, and
 some of the commands/functions may not apply if you do not use bash as your shell, so just
