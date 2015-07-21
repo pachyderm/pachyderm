@@ -505,6 +505,10 @@ func (p *pipeline) runPachFile(r io.Reader) (retErr error) {
 		return err
 	}
 
+	if err := p.pushToOutputs(); err != nil {
+		return err
+	}
+
 	return nil
 }
 

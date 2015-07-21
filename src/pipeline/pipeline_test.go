@@ -385,6 +385,24 @@ func TestInject(t *testing.T) {
 	require.Equal(t, "foo\n", string(res))
 }
 
+func TestExternalOutput(t *testing.T) {
+	t.Parallel()
+	if testing.Short() {
+		//t.Skip()
+	}
+	outRepo := "Tests3Output_out"
+	require.NoError(t, btrfs.Init(outRepo))
+	pipeline := newPipeline("output", "", outRepo, "commit", "master", "0-1", "", etcache.NewCache())
+	require.NoError(t, pipeline.output("s3://pachyderm-test/pipeline-out"))
+	pachfile := `
+image ubuntu
+output s3://pachyderm-test/pipeline-output
+
+run echo foo >/out/foo
+`
+	require.NoError(t, pipeline.runPachFile(strings.NewReader(pachfile)))
+}
+
 func newTestPipeline(
 	t *testing.T,
 	repoPrefix string,
