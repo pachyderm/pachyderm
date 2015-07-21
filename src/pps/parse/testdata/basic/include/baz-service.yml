@@ -1,0 +1,4 @@
+pps:
+  kind: service
+  name: baz
+build: .
