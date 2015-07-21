@@ -411,7 +411,7 @@ vagrant ssh # ssh into the vagrant box
 Once in the vagrant box, set everything up and verify that it works:
 
 ```
-go get github.com/pachyderm/pachyderm
+go get github.com/pachyderm/pachyderm/...
 cd ~/go/src/github.com/pachyderm/pachyderm
 make test
 ```
