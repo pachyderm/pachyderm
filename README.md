@@ -132,14 +132,8 @@ curl -L  https://github.com/coreos/etcd/releases/download/v2.1.0-rc.0/etcd-v2.1.
 tar xzvf etcd-v2.1.0-rc.0-linux-amd64.tar.gz
 
 # http://kubernetes.io/v1.0/docs/getting-started-guides/locally.html
-# plus some hacks
 cd ~/git
 git clone https://github.com/GoogleCloudPlatform/kubernetes.git
-cd kubernetes
-vim cluster/kubectl # add the following:
-# #!/bin/bash
-# $(dirname "${BASH_SOURCE}")/kubectl.sh $@
-chmod +x kubectl
 
 # in your bash_aliases, put the following:
 # export PATH=${PATH}:~/other/etcd-v2.1.0-rc.0-linux-amd64:~/git/kubernetes/cluster
