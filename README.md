@@ -151,6 +151,7 @@ kubernetes_up
 # in your main terminal:
 cd ${GOPATH}/src/github.com/pachyderm/pachyderm
 make kube-create
+kubectl.sh get pods
 ```
 
 ####  Settings
