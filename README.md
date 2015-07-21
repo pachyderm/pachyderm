@@ -108,6 +108,12 @@ $ kubectl create -f router-controller.yml
 $ kubectl create -f pachyderm-service.yml
 ```
 
+Or just do:
+
+```shell
+make kube-create
+```
+
 Pachyderm expects etcd to be running on the host machine. 
 
 ####  Settings
