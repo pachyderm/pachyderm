@@ -640,6 +640,7 @@ func Show(repo string, commit string, out string) error {
 			}
 		}(file)
 	}
+	wg.Wait()
 	return nil
 }
 
