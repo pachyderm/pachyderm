@@ -16,7 +16,7 @@ spec:
       containers:
         - name: pachyderm-storage
           image: pachyderm/shard
-          command: [ "-modulos", "8"]
+          command: [ "/bin/shard", "-modulos", "8"]
           volumeMounts:
           - mountPath: /host
             name: host

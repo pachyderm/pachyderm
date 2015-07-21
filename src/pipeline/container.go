@@ -13,6 +13,7 @@ var DefaultConfig = docker.Config{
 	AttachStderr: true,
 	OpenStdin:    true,
 	StdinOnce:    true,
+	Volumes:      make(map[string]struct{}),
 }
 
 func startContainer(opts docker.CreateContainerOptions) (string, error) {

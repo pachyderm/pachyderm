@@ -388,7 +388,7 @@ func TestInject(t *testing.T) {
 func TestExternalOutput(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
-		//t.Skip()
+		t.Skip()
 	}
 	outRepo := "TestExternalOutput_out"
 	require.NoError(t, btrfs.Init(outRepo))
