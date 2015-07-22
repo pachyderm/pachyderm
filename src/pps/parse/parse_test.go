@@ -7,7 +7,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	_, err := ParsePipeline("testdata/basic")
+	_, err := NewParser().ParsePipeline("testdata/basic")
 	require.NoError(t, err)
 }
 
