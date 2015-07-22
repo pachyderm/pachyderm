@@ -1,0 +1,11 @@
+# pps.yml has global configuration
+# it must exist at the root of a repository
+# version is required
+version: v1
+# only include paths that match these files
+# include:
+# a list of ignored paths to not check for yml files in
+exclude:
+  - other
+  - root/ignore
+  - ignore-me.yml
