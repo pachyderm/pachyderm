@@ -1,15 +1,15 @@
 package parse
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/peter-edge/go-yaml2json"
 )
 
 var (
@@ -49,12 +49,12 @@ func parseConfig(dirPath string) (*config, error) {
 	if err := checkFileExists(configFilePath); err != nil {
 		return nil, err
 	}
-	data, err := getJSONFromYAMLFile(configFilePath)
+	data, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
 		return nil, err
 	}
 	config := &config{}
-	if err := json.Unmarshal(data, config); err != nil {
+	if err := yaml.Unmarshal(data, config); err != nil {
 		return nil, err
 	}
 	return config, nil
@@ -182,19 +182,19 @@ func matches(match string, filePath string) (bool, error) {
 
 func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element, error) {
 	filePath := filepath.Join(dirPath, relFilePath)
-	data, err := getJSONFromYAMLFile(filePath)
+	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
-	m := make(map[string]interface{})
-	if err := json.Unmarshal(data, &m); err != nil {
+	m := make(map[interface{}]interface{})
+	if err := yaml.Unmarshal(data, &m); err != nil {
 		return nil, err
 	}
 	ppsMetaObj, ok := m["pps"]
 	if !ok {
 		return nil, fmt.Errorf("no pps section for %s", relFilePath)
 	}
-	ppsMeta := ppsMetaObj.(map[string]interface{})
+	ppsMeta := ppsMetaObj.(map[interface{}]interface{})
 	if ppsMeta["kind"] == "" {
 		return nil, fmt.Errorf("no kind specified for %s", relFilePath)
 	}
@@ -208,14 +208,14 @@ func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element
 	switch ppsMeta["kind"] {
 	case "node":
 		node := &pps.Node{}
-		if err := json.Unmarshal(data, node); err != nil {
+		if err := yaml.Unmarshal(data, node); err != nil {
 			return nil, err
 		}
 		element.Node = node
 		return element, nil
 	case "docker_service":
 		dockerService := &pps.DockerService{}
-		if err := json.Unmarshal(data, dockerService); err != nil {
+		if err := yaml.Unmarshal(data, dockerService); err != nil {
 			return nil, err
 		}
 		element.DockerService = dockerService
@@ -223,14 +223,6 @@ func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element
 	default:
 		return nil, fmt.Errorf("unknown kind: %v %s", ppsMeta["kind"], relFilePath)
 	}
-}
-
-func getJSONFromYAMLFile(path string) ([]byte, error) {
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return yaml2json.Transform(data, yaml2json.TransformOptions{})
 }
 
 func checkFileExists(path string) error {
