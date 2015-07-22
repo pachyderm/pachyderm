@@ -24,11 +24,6 @@ type config struct {
 	Exclude []string
 }
 
-type ppsMeta struct {
-	Kind string
-	Name string
-}
-
 func ParsePipeline(dirPath string) (*pps.Pipeline, error) {
 	config, err := parseConfig(dirPath)
 	if err != nil {
