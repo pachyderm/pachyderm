@@ -7,6 +7,8 @@ RUN \
     build-essential \
     ca-certificates \
     curl \
+    libgit2-dev \
+    pkg-config \
     git
 RUN \
   curl -sSL https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz | tar -C /usr/local -xz && \

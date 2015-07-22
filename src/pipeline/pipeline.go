@@ -71,7 +71,7 @@ func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir str
 
 func (p *pipeline) bind(repo string, directory string, containerPath string) error {
 	hostPath := btrfs.HostPath(path.Join(repo, p.commit, directory))
-	p.config.Config.Volumes[containerPath] = emptyStruct()
+	//p.config.Config.Volumes[containerPath] = emptyStruct()
 	bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
 	p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
 	if err := btrfs.Show(repo, p.commit, p.commit+"-new"); err != nil {
@@ -79,7 +79,7 @@ func (p *pipeline) bind(repo string, directory string, containerPath string) err
 	}
 	p.createdCommits = append(p.createdCommits, path.Join(repo, p.commit+"-new"))
 	hostPath = btrfs.HostPath(path.Join(repo, p.commit+"-new", directory))
-	p.config.Config.Volumes[containerPath+"-new"] = emptyStruct()
+	//p.config.Config.Volumes[containerPath+"-new"] = emptyStruct()
 	bind = fmt.Sprintf("%s:%s:ro", hostPath, containerPath+"-new")
 	p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
 	return nil
@@ -254,7 +254,7 @@ func (p *pipeline) run(cmd []string) error {
 	}
 	// Set the command
 	p.config.Config.Cmd = []string{"sh"}
-	p.config.Config.Volumes["/out"] = emptyStruct()
+	//p.config.Config.Volumes["/out"] = emptyStruct()
 	// Map the out directory in as a bind
 	hostPath := btrfs.HostPath(path.Join(p.outRepo, p.branch))
 	bind := fmt.Sprintf("%s:/out", hostPath)

@@ -19,6 +19,7 @@
 	test-long \
 	test \
 	test-pfs \
+	test-pps \
 	bench \
 	proto
 
@@ -115,7 +116,16 @@ test-pfs: test-deps
 		done
 	go vet ./src/pfs/...
 	errcheck ./src/pfs/...
-	bin/run bin/wrap bin/test -test.v ./src/pfs/server/...
+	bin/run bin/wrap bin/test -test.v ./src/pfs/...
+
+test-pps: test-deps
+	go get -v github.com/golang/lint/golint
+	for file in $(shell git ls-files 'src/pps/*.go' | grep -v '\.pb\.go'); do \
+		golint $$file; \
+		done
+	go vet ./src/pps/...
+	errcheck ./src/pps/...
+	bin/run bin/wrap bin/test -test.v ./src/pps/...
 
 # TODO(pedge): add pretest when fixed
 bench:
@@ -137,3 +147,11 @@ proto:
 		-I /compile/src/pfs \
 		--go_out=plugins=grpc,Mgoogle/protobuf/empty.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/timestamp.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/wrappers.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pfs \
 		/compile/src/pfs/pfs.proto
+	docker run \
+		--volume $(shell pwd):/compile \
+		--workdir /compile \
+		pedge/proto3grpc \
+		protoc \
+		-I /compile/src/pps \
+		--go_out=plugins=grpc:/compile/src/pps \
+		/compile/src/pps/pps.proto
