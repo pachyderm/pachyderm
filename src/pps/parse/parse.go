@@ -14,7 +14,7 @@ import (
 
 var (
 	versionToParseFunc = map[string]func(string, *config) (*pps.Pipeline, error){
-		"v1": parsePipelineV1,
+		"v1": parsePipeline,
 	}
 )
 
@@ -55,48 +55,17 @@ func parseConfig(dirPath string) (*config, error) {
 	return config, nil
 }
 
-func parsePipelineV1(dirPath string, config *config) (*pps.Pipeline, error) {
+func parsePipeline(dirPath string, config *config) (*pps.Pipeline, error) {
 	dirPath = filepath.Clean(dirPath)
-	var matches []string
-	var err error
-	if len(config.Include) == 0 {
-		matches, err = filepath.Glob(fmt.Sprintf("%s/**", dirPath))
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		for _, include := range config.Include {
-			// TODO(pedge): check if out of scope
-			subMatches, err := filepath.Glob(fmt.Sprintf("%s/*/*/*", filepath.Clean(filepath.Join(dirPath, include))))
-			if err != nil {
-				return nil, err
-			}
-			matches = append(matches, subMatches...)
-		}
-	}
-	relMatches := make([]string, len(matches))
-	for i, match := range matches {
-		relMatch, err := filepath.Rel(dirPath, match)
-		if err != nil {
-			return nil, err
-		}
-		relMatches[i] = relMatch
-	}
-	var filteredMatches []string
-	for _, relMatch := range relMatches {
-		isPipelineFile, err := isPipelineFileV1(relMatch, config.Exclude)
-		if err != nil {
-			return nil, err
-		}
-		if isPipelineFile {
-			filteredMatches = append(filteredMatches, relMatch)
-		}
+	filePaths, err := getAllFilePaths(dirPath, config.Include, config.Exclude)
+	if err != nil {
+		return nil, err
 	}
 	pipeline := &pps.Pipeline{
 		NameToElement: make(map[string]*pps.Element),
 	}
-	for _, filteredMatch := range filteredMatches {
-		element, err := getElementForPipelineFileV1(dirPath, filteredMatch)
+	for _, filePath := range filePaths {
+		element, err := getElementForPipelineFile(dirPath, filePath)
 		if err != nil {
 			return nil, err
 		}
@@ -108,27 +77,105 @@ func parsePipelineV1(dirPath string, config *config) (*pps.Pipeline, error) {
 	return pipeline, nil
 }
 
-func isPipelineFileV1(filePath string, ignorePatterns []string) (bool, error) {
+func getAllFilePaths(dirPath string, includes []string, excludes []string) ([]string, error) {
+	var filePaths []string
+	if err := filepath.Walk(
+		dirPath,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() {
+				filePaths = append(filePaths, path)
+			}
+			return nil
+		},
+	); err != nil {
+		return nil, err
+	}
+	relFilePaths := make([]string, len(filePaths))
+	for i, filePath := range filePaths {
+		relFilePath, err := filepath.Rel(dirPath, filePath)
+		if err != nil {
+			return nil, err
+		}
+		relFilePaths[i] = relFilePath
+	}
+	var filteredRelFilePaths []string
+	for _, relFilePath := range relFilePaths {
+		isPipelineFile, err := isPipelineFile(relFilePath, includes, excludes)
+		if err != nil {
+			return nil, err
+		}
+		if isPipelineFile {
+			filteredRelFilePaths = append(filteredRelFilePaths, relFilePath)
+		}
+	}
+	return filteredRelFilePaths, nil
+}
+
+func isPipelineFile(filePath string, includes []string, excludes []string) (bool, error) {
+	isPipelineFileIncluded, err := isPipelineFileIncluded(filePath, includes)
+	if err != nil {
+		return false, err
+	}
+	isPipelineFileExcluded, err := isPipelineFileExcluded(filePath, excludes)
+	if err != nil {
+		return false, err
+	}
+	return isPipelineFileIncluded && !isPipelineFileExcluded, nil
+}
+
+func isPipelineFileIncluded(filePath string, includes []string) (bool, error) {
 	if !strings.HasSuffix(filePath, ".yml") {
 		return false, nil
 	}
-	for _, ignorePattern := range ignorePatterns {
-		if strings.HasPrefix(filePath, ignorePattern) {
-			return false, nil
-		}
-		matched, err := filepath.Match(ignorePattern, filePath)
+	if filePath == "pps.yml" {
+		return false, nil
+	}
+	if len(includes) == 0 {
+		return true, nil
+	}
+	for _, include := range includes {
+		matched, err := matches(include, filePath)
 		if err != nil {
 			return false, err
 		}
 		if matched {
-			return false, nil
+			return true, nil
 		}
 	}
-	return true, nil
+	return false, nil
 }
 
-func getElementForPipelineFileV1(dirPath string, relFilePath string) (*pps.Element, error) {
-	fmt.Println(relFilePath)
+func isPipelineFileExcluded(filePath string, excludes []string) (bool, error) {
+	if !strings.HasSuffix(filePath, ".yml") {
+		return true, nil
+	}
+	for _, exclude := range excludes {
+		matched, err := matches(exclude, filePath)
+		if err != nil {
+			return false, err
+		}
+		if matched {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func matches(match string, filePath string) (bool, error) {
+	if strings.HasPrefix(filePath, match) {
+		return true, nil
+	}
+	matched, err := filepath.Match(match, filePath)
+	if err != nil {
+		return false, err
+	}
+	return matched, nil
+}
+
+func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element, error) {
 	return &pps.Element{
 		Name: relFilePath,
 	}, nil
