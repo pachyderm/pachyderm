@@ -5,5 +5,7 @@ src/cmd/router/router
 src/cmd/shard/shard
 src/cmd/pfs/pfs
 src/cmd/pfsd/pfsd
+src/cmd/pps/pps
+src/cmd/ppsd/ppsd
 .vagrant
 .deps.list.tmp

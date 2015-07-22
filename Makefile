@@ -24,8 +24,8 @@
 
 include etc/env/env.env
 
-IMAGES = deploy pfsd router shard
-BINARIES = deploy pfs pfsd router shard
+IMAGES = deploy pfsd ppsd router shard
+BINARIES = deploy pfs pfsd pps ppsd router shard
 
 all: test
 
@@ -70,7 +70,10 @@ launch-shard:
 	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" bin/run
 
 launch-pfsd:
-	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d" bin/run
+	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d -p $(PFS_PORT):$(PFS_API_PORT) -p $(PFS_TRACE_PORT):$(PFS_TRACE_PORT)" bin/run
+
+launch-ppsd:
+	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d -p $(PPS_PORT):$(PPS_API_PORT) -p $(PPS_TRACE_PORT):$(PPS_TRACE_PORT)" bin/run
 
 kube-%:
 	kubectl=kubectl; \
@@ -144,5 +147,5 @@ proto:
 		pedge/proto3grpc \
 		protoc \
 		-I /compile/src/pps \
-		--go_out=plugins=grpc:/compile/src/pps \
+		--go_out=plugins=grpc,Mgoogle/protobuf/empty.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pps \
 		/compile/src/pps/pps.proto

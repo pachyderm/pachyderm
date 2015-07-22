@@ -49,11 +49,10 @@ docker run \
     -e "PFS_API_PORT=${PFS_API_PORT}" \
     -e "PFS_TRACE_PORT=${PFS_TRACE_PORT}" \
     -e "PFS_NUM_SHARDS=${PFS_NUM_SHARDS}" \
+    -e "PPS_API_PORT=${PPS_API_PORT}" \
+    -e "PPS_TRACE_PORT=${PPS_TRACE_PORT}" \
     -e "AWS_REGION=${AWS_REGION}" \
     -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
     -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
-    -p "${PFS_PORT}:${PFS_API_PORT}" \
-    -p "${PFS_TRACE_PORT}:${PFS_TRACE_PORT}" \
-    -p "8080:8080" \
     "pachyderm/${PACHYDERM_IMAGE}" \
     $@

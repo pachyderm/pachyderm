@@ -1,0 +1,11 @@
+FROM debian:jessie
+MAINTAINER peter@pachyderm.io
+
+RUN \
+  apt-get update -yq && \
+  apt-get install -yq --no-install-recommends \
+    ca-certificates \
+    libgit2-dev \
+    pkg-config
+ADD _tmp/ppsd /bin/ppsd
+ENTRYPOINT ["/bin/ppsd"]

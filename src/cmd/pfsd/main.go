@@ -8,7 +8,7 @@ import (
 	"runtime"
 
 	"net/http"
-	_ "net/http/pprof"
+	//_ "net/http/pprof"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
@@ -86,7 +86,7 @@ func do() error {
 
 	errC := make(chan error)
 	go func() { errC <- server.Serve(listener) }()
-	go func() { errC <- http.ListenAndServe(":8080", nil) }()
+	//go func() { errC <- http.ListenAndServe(":8080", nil) }()
 	if appEnv.TracePort != 0 {
 		go func() { errC <- http.ListenAndServe(fmt.Sprintf(":%d", appEnv.TracePort), nil) }()
 	}
