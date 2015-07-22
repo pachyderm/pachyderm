@@ -59,4 +59,5 @@ google.golang.org/grpc/credentials
 google.golang.org/grpc/grpclog
 google.golang.org/grpc/metadata
 google.golang.org/grpc/transport
+gopkg.in/libgit2/git2go.v22
 gopkg.in/yaml.v2
