@@ -239,38 +239,39 @@
             "Default": "standard"
         }
     },
-    "Mappings": {
-        "RegionMap": {
-          "eu-central-1" : {
-              "AMI" : "ami-38764825"
-          },
-          "ap-northeast-1" : {
-              "AMI" : "ami-8e22eb8e"
-          },
-          "us-gov-west-1" : {
-              "AMI" : "ami-c90868ea"
-          },
-          "sa-east-1" : {
-              "AMI" : "ami-1313940e"
-          },
-          "ap-southeast-2" : {
-              "AMI" : "ami-6383fc59"
-          },
-          "ap-southeast-1" : {
-              "AMI" : "ami-84546ad6"
-          },
-          "us-east-1" : {
-              "AMI" : "ami-ea657582"
-          },
-          "us-west-2" : {
-              "AMI" : "ami-65427155"
-          },
-          "us-west-1" : {
-              "AMI" : "ami-77dd3333"
-          },
-          "eu-west-1" : {
-              "AMI" : "ami-4b1c763c"
-          }
+    "Mappings" : {
+        "RegionMap" : {
+            "eu-central-1" : {
+                "AMI" : "ami-00211b1d"
+            },
+            "ap-northeast-1" : {
+                "AMI" : "ami-24d27b24"
+            },
+            "us-gov-west-1" : {
+                "AMI" : "ami-eb3a59c8"
+            },
+            "sa-east-1" : {
+                "AMI" : "ami-47a62a5a"
+            },
+            "ap-southeast-2" : {
+                "AMI" : "ami-292e6913"
+            },
+            "ap-southeast-1" : {
+                "AMI" : "ami-0cf1f15e"
+            },
+            "us-east-1" : {
+                "AMI" : "ami-691cd402"
+            },
+            "us-west-2" : {
+                "AMI" : "ami-f7a5a5c7"
+            },
+            "us-west-1" : {
+                "AMI" : "ami-bd8477f9"
+            },
+            "eu-west-1" : {
+                "AMI" : "ami-52f4b925"
+            }
+
         }
-    }
+  }
 }
