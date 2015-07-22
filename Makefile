@@ -111,12 +111,12 @@ test-long:
 test-new: test-deps
 	go get -v github.com/golang/lint/golint
 	for pkg in pfs pkg pps; do \
-		for file in $(shell git ls-files "src/$$pkg/\*.go" | grep -v '\.pb\.go'); do \
+		for file in $$(find "./src/$$pkg" -name '*.go' | grep -v '\.pb\.go'); do \
 			golint $$file; \
 		done; \
-		go vet ./src/$$pkg/...; \
-		bin/run bin/wrap bin/test ./src/$$pkg/... ;\
 	done
+	go vet ./src/pfs/... ./src/pkg/... ./src/pps/...
+	bin/run bin/wrap bin/test ./src/pfs/... ./src/pps/...
 
 # TODO(pedge): add pretest when fixed
 bench:
