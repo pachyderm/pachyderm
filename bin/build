@@ -31,7 +31,6 @@ if [ -n "${PACHYDERM_IMAGE}" ]; then
       -a \
       -installsuffix netgo \
       -tags netgo \
-      -ldflags '-w -linkmode external -extldflags "-static"' \
       -o "/compile/${PACHYDERM_IMAGE}" \
       "src/cmd/${PACHYDERM_IMAGE}/main.go"
 
