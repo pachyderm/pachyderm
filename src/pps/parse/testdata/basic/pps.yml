@@ -8,3 +8,4 @@ version: v1
 exclude:
   - other
   - root/ignore
+  - ignore-me.yml
