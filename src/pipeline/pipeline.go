@@ -616,13 +616,6 @@ func (r *Runner) Run() error {
 		// have a pipeline dir.
 		return nil
 	}
-	for _, pInfo := range pipelines {
-		if err := r.makeOutRepo(pInfo.Name()); err != nil {
-			return err
-		}
-		p := newPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard, r.outPrefix, r.cache)
-		r.pipelines = append(r.pipelines, p)
-	}
 	// A chanel for the errors, notice that it's capacity is the same as the
 	// number of pipelines. The below code should make sure that each pipeline only
 	// sends 1 error otherwise deadlock may occur.
@@ -633,6 +626,13 @@ func (r *Runner) Run() error {
 		// we were cancelled before we even started
 		r.lock.Unlock()
 		return ErrCancelled
+	}
+	for _, pInfo := range pipelines {
+		if err := r.makeOutRepo(pInfo.Name()); err != nil {
+			return err
+		}
+		p := newPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard, r.outPrefix, r.cache)
+		r.pipelines = append(r.pipelines, p)
 	}
 	// unlocker lets us defer unlocking and explicitly unlock
 	var unlocker sync.Once
