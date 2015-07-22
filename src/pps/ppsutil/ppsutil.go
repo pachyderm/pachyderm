@@ -12,3 +12,25 @@ func GetVersion(apiClient pps.ApiClient) (*pps.GetVersionResponse, error) {
 		&google_protobuf.Empty{},
 	)
 }
+
+func GetPipelineGithub(
+	apiClient pps.ApiClient,
+	user string,
+	repository string,
+	branch string,
+	accessToken string,
+) (*pps.GetPipelineResponse, error) {
+	return apiClient.GetPipeline(
+		context.Background(),
+		&pps.GetPipelineRequest{
+			PipelineSource: &pps.PipelineSource{
+				GithubPipelineSource: &pps.GithubPipelineSource{
+					User:        user,
+					Repository:  repository,
+					Branch:      branch,
+					AccessToken: accessToken,
+				},
+			},
+		},
+	)
+}

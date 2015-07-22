@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	"google.golang.org/grpc"
 
@@ -45,6 +47,34 @@ func main() {
 		},
 	}
 
+	inspectCmd := &cobra.Command{
+		Use:  "inspect",
+		Long: "Inspect a pipeline specification.",
+		Run: func(cmd *cobra.Command, args []string) {
+			path := args[0]
+			if !strings.HasPrefix(path, "github.com/") {
+				check(fmt.Errorf("%s is not supported", path))
+			}
+			split := strings.Split(path, "/")
+			if len(split) != 3 {
+				check(fmt.Errorf("%s is not supported", path))
+			}
+			branch := ""
+			accessToken := ""
+			getPipelineResponse, err := ppsutil.GetPipelineGithub(
+				apiClient,
+				split[1],
+				split[2],
+				branch,
+				accessToken,
+			)
+			check(err)
+			data, err := json.MarshalIndent(getPipelineResponse.Pipeline, "", "\t")
+			check(err)
+			fmt.Println(string(data))
+		},
+	}
+
 	rootCmd := &cobra.Command{
 		Use: "pps",
 		Long: `Access the PPS API.
@@ -53,6 +83,7 @@ Note that this CLI is experimental and does not even check for common errors.
 The environment variable PPS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:651.`,
 	}
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(inspectCmd)
 	check(rootCmd.Execute())
 
 	os.Exit(0)
