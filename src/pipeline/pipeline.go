@@ -8,7 +8,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path"
 	"strings"
 	"sync"
@@ -617,6 +616,13 @@ func (r *Runner) Run() error {
 		// have a pipeline dir.
 		return nil
 	}
+	for _, pInfo := range pipelines {
+		if err := r.makeOutRepo(pInfo.Name()); err != nil {
+			return err
+		}
+		p := newPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard, r.outPrefix, r.cache)
+		r.pipelines = append(r.pipelines, p)
+	}
 	// A chanel for the errors, notice that it's capacity is the same as the
 	// number of pipelines. The below code should make sure that each pipeline only
 	// sends 1 error otherwise deadlock may occur.
@@ -631,16 +637,12 @@ func (r *Runner) Run() error {
 	// unlocker lets us defer unlocking and explicitly unlock
 	var unlocker sync.Once
 	defer unlocker.Do(r.lock.Unlock)
-	r.wait.Add(len(pipelines))
-	for _, pInfo := range pipelines {
-		if err := r.makeOutRepo(pInfo.Name()); err != nil {
-			return err
-		}
-		p := newPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard, r.outPrefix, r.cache)
-		r.pipelines = append(r.pipelines, p)
-		go func(pInfo os.FileInfo, p *pipeline) {
+	for _, p := range r.pipelines {
+		p := p
+		r.wait.Add(1)
+		go func() {
 			defer r.wait.Done()
-			f, err := btrfs.Open(path.Join(r.inRepo, r.commit, r.pipelineDir, pInfo.Name()))
+			f, err := btrfs.Open(path.Join(r.inRepo, r.commit, r.pipelineDir, p.name))
 			if err != nil {
 				errors <- err
 				return
@@ -651,7 +653,7 @@ func (r *Runner) Run() error {
 				errors <- err
 				return
 			}
-		}(pInfo, p)
+		}()
 	}
 	// We're done adding pipelines so unlock
 	unlocker.Do(r.lock.Unlock)
@@ -763,6 +765,7 @@ func (r *Runner) startInputPipelines() error {
 	}
 	defer r.lock.Unlock()
 	for _, input := range inputs {
+		input := input
 		if !strings.HasPrefix(input, "s3://") {
 			continue
 		}
@@ -773,7 +776,7 @@ func (r *Runner) startInputPipelines() error {
 		p := newPipeline(trimmed, r.inRepo, path.Join(r.outPrefix, trimmed), r.commit, r.branch, r.shard, r.outPrefix, r.cache)
 		r.pipelines = append(r.pipelines, p)
 		r.wait.Add(1)
-		go func(input string, p *pipeline) {
+		go func() {
 			defer r.wait.Done()
 			err := p.inject(input, false)
 			if err != nil {
@@ -781,7 +784,7 @@ func (r *Runner) startInputPipelines() error {
 				return
 			}
 			p.finish()
-		}(input, p)
+		}()
 	}
 	return nil
 }
