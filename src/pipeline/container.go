@@ -7,15 +7,6 @@ import (
 	"github.com/fsouza/go-dockerclient"
 )
 
-var DefaultConfig = docker.Config{
-	AttachStdin:  true,
-	AttachStdout: true,
-	AttachStderr: true,
-	OpenStdin:    true,
-	StdinOnce:    true,
-	//Volumes:      make(map[string]struct{}),
-}
-
 func startContainer(opts docker.CreateContainerOptions) (string, error) {
 	client, err := docker.NewClientFromEnv()
 	if err != nil {

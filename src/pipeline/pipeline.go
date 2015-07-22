@@ -51,8 +51,17 @@ type pipeline struct {
 func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir string, cache etcache.Cache) *pipeline {
 	return &pipeline{
 		name,
-		docker.CreateContainerOptions{Config: &DefaultConfig,
-			HostConfig: &docker.HostConfig{}},
+		docker.CreateContainerOptions{
+			Config: &docker.Config{
+				AttachStdin:  true,
+				AttachStdout: true,
+				AttachStderr: true,
+				OpenStdin:    true,
+				StdinOnce:    true,
+				//Volumes:      make(map[string]struct{}),
+			},
+			HostConfig: &docker.HostConfig{},
+		},
 		dataRepo,
 		outRepo,
 		commit,
