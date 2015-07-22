@@ -110,7 +110,7 @@ func ForEachFile(uri string, public bool, marker string, cont func(file string, 
 			break
 		}
 
-		nextMarker = lr.NextMarker
+		nextMarker = lr.Contents[len(lr.Contents)-1].Key
 	}
 
 	return nil
