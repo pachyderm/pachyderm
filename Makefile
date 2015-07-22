@@ -18,8 +18,7 @@
 	pretest \
 	test-long \
 	test \
-	test-pfs \
-	test-pps \
+	test-new \
 	bench \
 	proto
 
@@ -109,23 +108,15 @@ test-long:
 	@ sleep 5
 	bin/run bin/wrap bin/test ./...
 
-test-pfs: test-deps
+test-new: test-deps
 	go get -v github.com/golang/lint/golint
-	for file in $(shell git ls-files 'src/pfs/*.go' | grep -v '\.pb\.go'); do \
-		golint $$file; \
-		done
-	go vet ./src/pfs/...
-	errcheck ./src/pfs/...
-	bin/run bin/wrap bin/test -test.v ./src/pfs/...
-
-test-pps: test-deps
-	go get -v github.com/golang/lint/golint
-	for file in $(shell git ls-files 'src/pps/*.go' | grep -v '\.pb\.go'); do \
-		golint $$file; \
-		done
-	go vet ./src/pps/...
-	# errcheck ./src/pps/...
-	bin/run bin/wrap bin/test -test.v ./src/pps/...
+	for pkg in pfs pkg pps; do \
+		for file in $(shell git ls-files "src/$$pkg/\*.go" | grep -v '\.pb\.go'); do \
+			golint $$file; \
+		done; \
+		go vet ./src/$$pkg/...; \
+		bin/run bin/wrap bin/test ./src/$$pkg/... ;\
+	done
 
 # TODO(pedge): add pretest when fixed
 bench:
