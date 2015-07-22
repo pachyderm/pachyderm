@@ -1,4 +1,4 @@
 pps:
-  kind: service
+  kind: docker_service
   name: baz
 build: .

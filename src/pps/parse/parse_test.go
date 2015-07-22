@@ -1,15 +1,17 @@
 package parse
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-//func TestBasic(t *testing.T) {
-//_, err := ParsePipeline("testdata/basic")
-//require.NoError(t, err)
-//}
+func TestBasic(t *testing.T) {
+	pipeline, err := ParsePipeline("testdata/basic")
+	require.NoError(t, err)
+	fmt.Printf("%+v\n", pipeline)
+}
 
 func TestGetAllFilePaths(t *testing.T) {
 	files, err := getAllFilePaths("testdata/basic", []string{}, []string{"other", "root/ignore", "ignore-me.yml"})

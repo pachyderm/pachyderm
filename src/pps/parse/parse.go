@@ -24,6 +24,11 @@ type config struct {
 	Exclude []string
 }
 
+type ppsMeta struct {
+	Kind string
+	Name string
+}
+
 func ParsePipeline(dirPath string) (*pps.Pipeline, error) {
 	config, err := parseConfig(dirPath)
 	if err != nil {
@@ -176,9 +181,48 @@ func matches(match string, filePath string) (bool, error) {
 }
 
 func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element, error) {
-	return &pps.Element{
-		Name: relFilePath,
-	}, nil
+	filePath := filepath.Join(dirPath, relFilePath)
+	data, err := getJSONFromYAMLFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]interface{})
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, err
+	}
+	ppsMetaObj, ok := m["pps"]
+	if !ok {
+		return nil, fmt.Errorf("no pps section for %s", relFilePath)
+	}
+	ppsMeta := ppsMetaObj.(map[string]interface{})
+	if ppsMeta["kind"] == "" {
+		return nil, fmt.Errorf("no kind specified for %s", relFilePath)
+	}
+	if ppsMeta["name"] == "" {
+		return nil, fmt.Errorf("no name specified for %s", relFilePath)
+	}
+	element := &pps.Element{
+		Name: ppsMeta["name"].(string),
+		Path: relFilePath,
+	}
+	switch ppsMeta["kind"] {
+	case "node":
+		node := &pps.Node{}
+		if err := json.Unmarshal(data, node); err != nil {
+			return nil, err
+		}
+		element.Node = node
+		return element, nil
+	case "docker_service":
+		dockerService := &pps.DockerService{}
+		if err := json.Unmarshal(data, dockerService); err != nil {
+			return nil, err
+		}
+		element.DockerService = dockerService
+		return element, nil
+	default:
+		return nil, fmt.Errorf("unknown kind: %v %s", ppsMeta["kind"], relFilePath)
+	}
 }
 
 func getJSONFromYAMLFile(path string) ([]byte, error) {
