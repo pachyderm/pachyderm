@@ -4,14 +4,19 @@
 VAGRANTFILE_API_VERSION = "2"
 
 INIT_SCRIPT = <<SCRIPT
-apt-get update -y
-apt-get upgrade -y
-apt-get install -y btrfs-tools
+apt-get update -yq && \
+apt-get upgrade -yq && \
+apt-get install -yq --no-install-recommends \
+  btrfs-tools \
+  build-essential \
+  ca-certificates \
+  curl \
+  libgit2-dev \
+  pkg-config \
+  git
 
-go_tmpfile="/tmp/go.$$"
-trap "rm -rf '${go_tmpfile}'" EXIT
-curl -L "https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz" > "${go_tmpfile}"
-tar -C "/usr/local" -xzf "${go_tmpfile}"
+curl -sSL https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz | tar -C /usr/local -xz
+mkdir -p /go/bin
 echo 'export PATH=${PATH}:/usr/local/go/bin' >> '/etc/profile'
 echo 'export GOROOT=/usr/local/go' >> '/etc/profile'
 su - vagrant -c "echo mkdir -p /home/vagrant/go >> /home/vagrant/.bash_aliases"
