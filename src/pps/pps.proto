@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package pps;
+
+message Node {
+  map<string, string> input = 1;
+  map<string, string> output = 2;
+  repeated string run = 3;
+}
+
+message DockerService {
+  string image = 1;
+  string build = 2;
+  string dockerfile = 3;
+}
+
+message Element {
+  string name = 1;
+  string path = 2;
+  oneof typed_element {
+    Node node = 3;
+    DockerService docker_service = 4;
+  }
+}
+
+message Pipeline {
+  map<string, Element> name_to_element = 1;
+}

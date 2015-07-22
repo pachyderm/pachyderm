@@ -137,3 +137,11 @@ proto:
 		-I /compile/src/pfs \
 		--go_out=plugins=grpc,Mgoogle/protobuf/empty.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/timestamp.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/wrappers.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pfs \
 		/compile/src/pfs/pfs.proto
+	docker run \
+		--volume $(shell pwd):/compile \
+		--workdir /compile \
+		pedge/proto3grpc \
+		protoc \
+		-I /compile/src/pps \
+		--go_out=/compile/src/pps \
+		/compile/src/pps/pps.proto
