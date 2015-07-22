@@ -4,6 +4,8 @@ pps:
 # note that bat-node is re-using the bar service
 service: bar
 input:
-  /in-bar: pfs://bar-repository
+  pfs:
+    bar-repository: /in-bar
 output:
-  /out: pfs://bat-repository-out
+  pfs:
+    bat-repository-out: /out

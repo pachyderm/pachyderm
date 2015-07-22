@@ -3,9 +3,11 @@ pps:
   name: bar-node
 service: bar
 input:
-  /in: pfs://bar-repository
+  pfs:
+    bar-repository: /in
 output:
   # outputs must be globally unique across all nodes
-  /out: pfs://baz-out-repository
+  pfs:
+    baz-out-repository: /out
 run:
   - for file in /in/*; do cp $file /out; done

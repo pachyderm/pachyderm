@@ -4,9 +4,17 @@ import "google/protobuf/empty.proto";
 
 package pps;
 
+message Input {
+  map<string, string> pfs = 1;
+}
+
+message Output {
+  map<string, string> pfs = 1;
+}
+
 message Node {
-  map<string, string> input = 1;
-  map<string, string> output = 2;
+  Input input = 1;
+  Output output = 2;
   repeated string run = 3;
 }
 
