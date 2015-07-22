@@ -161,7 +161,6 @@ func (p *pipeline) inject(name string, public bool) error {
 			// Check if the file has changed
 			changed, err := btrfs.Changed(path.Join(p.outRepo, p.branch,
 				strings.TrimPrefix(file, _path)), modtime)
-			log.Print("Changed: ", changed)
 			if err != nil {
 				return err
 			}
