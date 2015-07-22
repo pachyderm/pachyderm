@@ -1,4 +1,4 @@
-FROM debian:jessie
+FROM ubuntu:15.04
 MAINTAINER peter@pachyderm.io
 
 RUN \

@@ -1,8 +1,13 @@
 package server
 
 import (
+	"fmt"
+	"io/ioutil"
+
 	"github.com/pachyderm/pachyderm/src/common"
+	"github.com/pachyderm/pachyderm/src/pkg/clone"
 	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/parse"
 	"github.com/peter-edge/go-google-protobuf"
 	"golang.org/x/net/context"
 )
@@ -29,5 +34,30 @@ func (a *apiServer) GetVersion(ctx context.Context, empty *google_protobuf.Empty
 }
 
 func (a *apiServer) GetPipeline(ctx context.Context, getPipelineRequest *pps.GetPipelineRequest) (*pps.GetPipelineResponse, error) {
-	return &pps.GetPipelineResponse{}, nil
+	var pipeline *pps.Pipeline
+	if getPipelineRequest.PipelineSource.GithubPipelineSource != nil {
+		dirPath, err := ioutil.TempDir("", "pachyderm")
+		if err != nil {
+			return nil, err
+		}
+		if err := clone.GithubClone(
+			dirPath,
+			getPipelineRequest.PipelineSource.GithubPipelineSource.User,
+			getPipelineRequest.PipelineSource.GithubPipelineSource.Repository,
+			getPipelineRequest.PipelineSource.GithubPipelineSource.Branch,
+			"",
+			getPipelineRequest.PipelineSource.GithubPipelineSource.AccessToken,
+		); err != nil {
+			return nil, err
+		}
+		pipeline, err = parse.NewParser().ParsePipeline(dirPath)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("must specify pipeline source")
+	}
+	return &pps.GetPipelineResponse{
+		Pipeline: pipeline,
+	}, nil
 }
