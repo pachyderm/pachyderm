@@ -26,3 +26,28 @@ message Element {
 message Pipeline {
   map<string, Element> name_to_element = 1;
 }
+
+message GithubPipelineSource {
+  string user = 1;
+  string repository = 2;
+  string branch = 3;
+  string access_token = 4;
+}
+
+message PipelineSource {
+  oneof typed_pipeline_source {
+    GithubPipelineSource github_pipeline_source = 1;
+  }
+}
+
+message GetPipelineRequest {
+  PipelineSource pipeline_source = 1;
+}
+
+message GetPipelineResponse {
+  Pipeline pipeline = 1;
+}
+
+service Api {
+  rpc GetPipeline(GetPipelineRequest) returns (GetPipelineResponse) {} 
+}
