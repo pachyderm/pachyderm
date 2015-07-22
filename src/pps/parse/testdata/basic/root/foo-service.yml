@@ -1,7 +1,7 @@
 # all files must have a pps section with the fields below
 pps:
-  # kind is either service or node (job)
-  kind: service
+  # kind is either docker_service or node (job)
+  kind: docker_service
   # name must be unique across all services and nodes in the repository
   name: foo
 # directives outside of pps will be specific to the kind

@@ -1,5 +1,5 @@
 pps:
-  kind: service
+  kind: docker_service
   name: bar
 # bar service uses an image from the docker hub
 image: gliderlabs/alpine:3.2
