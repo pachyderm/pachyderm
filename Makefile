@@ -153,5 +153,5 @@ proto:
 		pedge/proto3grpc \
 		protoc \
 		-I /compile/src/pps \
-		--go_out=/compile/src/pps \
+		--go_out=plugins=grpc:/compile/src/pps \
 		/compile/src/pps/pps.proto

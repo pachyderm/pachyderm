@@ -13,10 +13,23 @@ It has these top-level messages:
 	DockerService
 	Element
 	Pipeline
+	GithubPipelineSource
+	PipelineSource
+	GetPipelineRequest
+	GetPipelineResponse
 */
 package pps
 
 import proto "github.com/golang/protobuf/proto"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -93,4 +106,117 @@ func (m *Pipeline) GetNameToElement() map[string]*Element {
 		return m.NameToElement
 	}
 	return nil
+}
+
+type GithubPipelineSource struct {
+	User        string `protobuf:"bytes,1,opt,name=user" json:"user,omitempty"`
+	Repository  string `protobuf:"bytes,2,opt,name=repository" json:"repository,omitempty"`
+	Branch      string `protobuf:"bytes,3,opt,name=branch" json:"branch,omitempty"`
+	AccessToken string `protobuf:"bytes,4,opt,name=access_token" json:"access_token,omitempty"`
+}
+
+func (m *GithubPipelineSource) Reset()         { *m = GithubPipelineSource{} }
+func (m *GithubPipelineSource) String() string { return proto.CompactTextString(m) }
+func (*GithubPipelineSource) ProtoMessage()    {}
+
+type PipelineSource struct {
+	GithubPipelineSource *GithubPipelineSource `protobuf:"bytes,1,opt,name=github_pipeline_source" json:"github_pipeline_source,omitempty"`
+}
+
+func (m *PipelineSource) Reset()         { *m = PipelineSource{} }
+func (m *PipelineSource) String() string { return proto.CompactTextString(m) }
+func (*PipelineSource) ProtoMessage()    {}
+
+func (m *PipelineSource) GetGithubPipelineSource() *GithubPipelineSource {
+	if m != nil {
+		return m.GithubPipelineSource
+	}
+	return nil
+}
+
+type GetPipelineRequest struct {
+	PipelineSource *PipelineSource `protobuf:"bytes,1,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
+}
+
+func (m *GetPipelineRequest) Reset()         { *m = GetPipelineRequest{} }
+func (m *GetPipelineRequest) String() string { return proto.CompactTextString(m) }
+func (*GetPipelineRequest) ProtoMessage()    {}
+
+func (m *GetPipelineRequest) GetPipelineSource() *PipelineSource {
+	if m != nil {
+		return m.PipelineSource
+	}
+	return nil
+}
+
+type GetPipelineResponse struct {
+	Pipeline *Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+}
+
+func (m *GetPipelineResponse) Reset()         { *m = GetPipelineResponse{} }
+func (m *GetPipelineResponse) String() string { return proto.CompactTextString(m) }
+func (*GetPipelineResponse) ProtoMessage()    {}
+
+func (m *GetPipelineResponse) GetPipeline() *Pipeline {
+	if m != nil {
+		return m.Pipeline
+	}
+	return nil
+}
+
+// Client API for Api service
+
+type ApiClient interface {
+	GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*GetPipelineResponse, error)
+}
+
+type apiClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewApiClient(cc *grpc.ClientConn) ApiClient {
+	return &apiClient{cc}
+}
+
+func (c *apiClient) GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*GetPipelineResponse, error) {
+	out := new(GetPipelineResponse)
+	err := grpc.Invoke(ctx, "/pps.Api/GetPipeline", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for Api service
+
+type ApiServer interface {
+	GetPipeline(context.Context, *GetPipelineRequest) (*GetPipelineResponse, error)
+}
+
+func RegisterApiServer(s *grpc.Server, srv ApiServer) {
+	s.RegisterService(&_Api_serviceDesc, srv)
+}
+
+func _Api_GetPipeline_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(GetPipelineRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).GetPipeline(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+var _Api_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pps.Api",
+	HandlerType: (*ApiServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetPipeline",
+			Handler:    _Api_GetPipeline_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{},
 }
