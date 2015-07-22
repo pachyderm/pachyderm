@@ -9,6 +9,8 @@ It is generated from these files:
 	pps.proto
 
 It has these top-level messages:
+	Input
+	Output
 	Node
 	DockerService
 	Element
@@ -37,24 +39,54 @@ var _ grpc.ClientConn
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 
+type Input struct {
+	Pfs map[string]string `protobuf:"bytes,1,rep,name=pfs" json:"pfs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+}
+
+func (m *Input) Reset()         { *m = Input{} }
+func (m *Input) String() string { return proto.CompactTextString(m) }
+func (*Input) ProtoMessage()    {}
+
+func (m *Input) GetPfs() map[string]string {
+	if m != nil {
+		return m.Pfs
+	}
+	return nil
+}
+
+type Output struct {
+	Pfs map[string]string `protobuf:"bytes,1,rep,name=pfs" json:"pfs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+}
+
+func (m *Output) Reset()         { *m = Output{} }
+func (m *Output) String() string { return proto.CompactTextString(m) }
+func (*Output) ProtoMessage()    {}
+
+func (m *Output) GetPfs() map[string]string {
+	if m != nil {
+		return m.Pfs
+	}
+	return nil
+}
+
 type Node struct {
-	Input  map[string]string `protobuf:"bytes,1,rep,name=input" json:"input,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Output map[string]string `protobuf:"bytes,2,rep,name=output" json:"output,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Run    []string          `protobuf:"bytes,3,rep,name=run" json:"run,omitempty"`
+	Input  *Input   `protobuf:"bytes,1,opt,name=input" json:"input,omitempty"`
+	Output *Output  `protobuf:"bytes,2,opt,name=output" json:"output,omitempty"`
+	Run    []string `protobuf:"bytes,3,rep,name=run" json:"run,omitempty"`
 }
 
 func (m *Node) Reset()         { *m = Node{} }
 func (m *Node) String() string { return proto.CompactTextString(m) }
 func (*Node) ProtoMessage()    {}
 
-func (m *Node) GetInput() map[string]string {
+func (m *Node) GetInput() *Input {
 	if m != nil {
 		return m.Input
 	}
 	return nil
 }
 
-func (m *Node) GetOutput() map[string]string {
+func (m *Node) GetOutput() *Output {
 	if m != nil {
 		return m.Output
 	}
