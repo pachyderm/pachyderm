@@ -61,8 +61,13 @@ func main() {
 			}
 			branch := ""
 			accessToken := ""
+			contextDir := ""
+			if len(args) > 1 {
+				contextDir = args[1]
+			}
 			getPipelineResponse, err := ppsutil.GetPipelineGithub(
 				apiClient,
+				contextDir,
 				split[1],
 				split[2],
 				branch,

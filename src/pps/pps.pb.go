@@ -40,12 +40,20 @@ var _ grpc.ClientConn
 var _ = proto.Marshal
 
 type Input struct {
-	Pfs map[string]string `protobuf:"bytes,1,rep,name=pfs" json:"pfs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Host map[string]string `protobuf:"bytes,1,rep,name=host" json:"host,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Pfs  map[string]string `protobuf:"bytes,2,rep,name=pfs" json:"pfs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
 func (m *Input) Reset()         { *m = Input{} }
 func (m *Input) String() string { return proto.CompactTextString(m) }
 func (*Input) ProtoMessage()    {}
+
+func (m *Input) GetHost() map[string]string {
+	if m != nil {
+		return m.Host
+	}
+	return nil
+}
 
 func (m *Input) GetPfs() map[string]string {
 	if m != nil {
@@ -55,12 +63,20 @@ func (m *Input) GetPfs() map[string]string {
 }
 
 type Output struct {
-	Pfs map[string]string `protobuf:"bytes,1,rep,name=pfs" json:"pfs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Host map[string]string `protobuf:"bytes,1,rep,name=host" json:"host,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Pfs  map[string]string `protobuf:"bytes,2,rep,name=pfs" json:"pfs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
 func (m *Output) Reset()         { *m = Output{} }
 func (m *Output) String() string { return proto.CompactTextString(m) }
 func (*Output) ProtoMessage()    {}
+
+func (m *Output) GetHost() map[string]string {
+	if m != nil {
+		return m.Host
+	}
+	return nil
+}
 
 func (m *Output) GetPfs() map[string]string {
 	if m != nil {
@@ -144,10 +160,11 @@ func (m *Pipeline) GetNameToElement() map[string]*Element {
 }
 
 type GithubPipelineSource struct {
-	User        string `protobuf:"bytes,1,opt,name=user" json:"user,omitempty"`
-	Repository  string `protobuf:"bytes,2,opt,name=repository" json:"repository,omitempty"`
-	Branch      string `protobuf:"bytes,3,opt,name=branch" json:"branch,omitempty"`
-	AccessToken string `protobuf:"bytes,4,opt,name=access_token" json:"access_token,omitempty"`
+	ContextDir  string `protobuf:"bytes,1,opt,name=context_dir" json:"context_dir,omitempty"`
+	User        string `protobuf:"bytes,2,opt,name=user" json:"user,omitempty"`
+	Repository  string `protobuf:"bytes,3,opt,name=repository" json:"repository,omitempty"`
+	Branch      string `protobuf:"bytes,4,opt,name=branch" json:"branch,omitempty"`
+	AccessToken string `protobuf:"bytes,5,opt,name=access_token" json:"access_token,omitempty"`
 }
 
 func (m *GithubPipelineSource) Reset()         { *m = GithubPipelineSource{} }
