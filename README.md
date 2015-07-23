@@ -433,7 +433,7 @@ See [Vagrant's website](https://www.vagrantup.com) for more details.
 *Problem*: Nothing is running after launch.
 
 - Check to make sure the docker daemon is running with `ps -ef | grep docker`.
-- Check to see if the container exited with `docker ps -a | grep pfs`.
+- Check to see if the container exited with `docker ps -a | grep IMAGE_NAME`.
 - Check the container logs with `docker logs`.
 
 *Problem*: Docker commands are failing with permission denied
