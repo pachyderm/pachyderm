@@ -6,23 +6,27 @@ import (
 	"github.com/pachyderm/pachyderm/src/pps/container"
 	"github.com/pachyderm/pachyderm/src/pps/graph"
 	"github.com/pachyderm/pachyderm/src/pps/source"
+	"github.com/pachyderm/pachyderm/src/pps/store"
 )
 
 type runner struct {
 	sourcer         source.Sourcer
 	grapher         graph.Grapher
 	containerClient container.Client
+	storeClient     store.Client
 }
 
 func newRunner(
 	sourcer source.Sourcer,
 	grapher graph.Grapher,
 	containerClient container.Client,
+	storeClient store.Client,
 ) *runner {
 	return &runner{
 		sourcer,
 		grapher,
 		containerClient,
+		storeClient,
 	}
 }
 

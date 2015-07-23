@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pps/graph"
 	"github.com/pachyderm/pachyderm/src/pps/run"
 	"github.com/pachyderm/pachyderm/src/pps/source"
+	"github.com/pachyderm/pachyderm/src/pps/store"
 	"github.com/peter-edge/go-google-protobuf"
 	"golang.org/x/net/context"
 )
@@ -25,10 +26,12 @@ var (
 	}
 )
 
-type apiServer struct{}
+type apiServer struct {
+	storeClient store.Client
+}
 
-func newAPIServer() *apiServer {
-	return &apiServer{}
+func newAPIServer(storeClient store.Client) *apiServer {
+	return &apiServer{storeClient}
 }
 
 func (a *apiServer) GetVersion(ctx context.Context, empty *google_protobuf.Empty) (*pps.GetVersionResponse, error) {
@@ -62,6 +65,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, runPipelineRequest *pps.Run
 		source.NewSourcer(),
 		graph.NewGrapher(),
 		containerClient,
+		a.storeClient,
 	)
 	errC := make(chan error, 1)
 	// does not do anything additional for now really, this will be split into start/status
