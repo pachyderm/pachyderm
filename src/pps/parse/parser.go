@@ -9,6 +9,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/pps"
 )
 
@@ -84,6 +85,7 @@ func parsePipelineV1(dirPath string, config *config) (*pps.Pipeline, error) {
 		}
 		pipeline.NameToElement[element.Name] = element
 	}
+	log.Printf("got pipeline %v\n", pipeline)
 	return pipeline, nil
 }
 
@@ -186,6 +188,7 @@ func matches(match string, filePath string) (bool, error) {
 }
 
 func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element, error) {
+	log.Printf("getting element for pipeline file %s\n", relFilePath)
 	filePath := filepath.Join(dirPath, relFilePath)
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -203,31 +206,41 @@ func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element
 	if ppsMeta["kind"] == "" {
 		return nil, fmt.Errorf("no kind specified for %s", relFilePath)
 	}
-	if ppsMeta["name"] == "" {
+	nameObj, ok := ppsMeta["name"]
+	if !ok {
+		return nil, fmt.Errorf("no name specified for %s", relFilePath)
+	}
+	name := strings.TrimSpace(nameObj.(string))
+	if name == "" {
 		return nil, fmt.Errorf("no name specified for %s", relFilePath)
 	}
 	element := &pps.Element{
-		Name: ppsMeta["name"].(string),
+		Name: name,
 		Path: relFilePath,
 	}
-	switch ppsMeta["kind"] {
+	kindObj, ok := ppsMeta["kind"]
+	if !ok {
+		return nil, fmt.Errorf("no kind specified for %s", relFilePath)
+	}
+	kind := strings.TrimSpace(kindObj.(string))
+	switch kind {
 	case "node":
 		node := &pps.Node{}
 		if err := yaml.Unmarshal(data, node); err != nil {
 			return nil, err
 		}
 		element.Node = node
-		return element, nil
 	case "docker_service":
 		dockerService := &pps.DockerService{}
 		if err := yaml.Unmarshal(data, dockerService); err != nil {
 			return nil, err
 		}
 		element.DockerService = dockerService
-		return element, nil
 	default:
-		return nil, fmt.Errorf("unknown kind: %v %s", ppsMeta["kind"], relFilePath)
+		return nil, fmt.Errorf("unknown kind %s for %s", kind, relFilePath)
 	}
+	log.Printf("got element %v for pipeline file %s\n", element, relFilePath)
+	return element, nil
 }
 
 func checkFileExists(path string) error {

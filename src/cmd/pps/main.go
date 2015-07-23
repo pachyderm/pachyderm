@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
@@ -74,9 +73,7 @@ func main() {
 				accessToken,
 			)
 			check(err)
-			data, err := json.MarshalIndent(getPipelineResponse.Pipeline, "", "\t")
-			check(err)
-			fmt.Println(string(data))
+			fmt.Printf("%v\n", getPipelineResponse.Pipeline)
 		},
 	}
 
