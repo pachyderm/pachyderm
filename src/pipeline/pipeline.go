@@ -8,7 +8,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path"
 	"strings"
 	"sync"
@@ -52,8 +51,17 @@ type pipeline struct {
 func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir string, cache etcache.Cache) *pipeline {
 	return &pipeline{
 		name,
-		docker.CreateContainerOptions{Config: &DefaultConfig,
-			HostConfig: &docker.HostConfig{}},
+		docker.CreateContainerOptions{
+			Config: &docker.Config{
+				AttachStdin:  true,
+				AttachStdout: true,
+				AttachStderr: true,
+				OpenStdin:    true,
+				StdinOnce:    true,
+				//Volumes:      make(map[string]struct{}),
+			},
+			HostConfig: &docker.HostConfig{},
+		},
 		dataRepo,
 		outRepo,
 		commit,
@@ -71,7 +79,7 @@ func newPipeline(name, dataRepo, outRepo, commit, branch, shard, pipelineDir str
 
 func (p *pipeline) bind(repo string, directory string, containerPath string) error {
 	hostPath := btrfs.HostPath(path.Join(repo, p.commit, directory))
-	p.config.Config.Volumes[containerPath] = emptyStruct()
+	//p.config.Config.Volumes[containerPath] = emptyStruct()
 	bind := fmt.Sprintf("%s:%s:ro", hostPath, containerPath)
 	p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
 	if err := btrfs.Show(repo, p.commit, p.commit+"-new"); err != nil {
@@ -79,7 +87,7 @@ func (p *pipeline) bind(repo string, directory string, containerPath string) err
 	}
 	p.createdCommits = append(p.createdCommits, path.Join(repo, p.commit+"-new"))
 	hostPath = btrfs.HostPath(path.Join(repo, p.commit+"-new", directory))
-	p.config.Config.Volumes[containerPath+"-new"] = emptyStruct()
+	//p.config.Config.Volumes[containerPath+"-new"] = emptyStruct()
 	bind = fmt.Sprintf("%s:%s:ro", hostPath, containerPath+"-new")
 	p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
 	return nil
@@ -161,7 +169,6 @@ func (p *pipeline) inject(name string, public bool) error {
 			// Check if the file has changed
 			changed, err := btrfs.Changed(path.Join(p.outRepo, p.branch,
 				strings.TrimPrefix(file, _path)), modtime)
-			log.Print("Changed: ", changed)
 			if err != nil {
 				return err
 			}
@@ -255,7 +262,7 @@ func (p *pipeline) run(cmd []string) error {
 	}
 	// Set the command
 	p.config.Config.Cmd = []string{"sh"}
-	p.config.Config.Volumes["/out"] = emptyStruct()
+	//p.config.Config.Volumes["/out"] = emptyStruct()
 	// Map the out directory in as a bind
 	hostPath := btrfs.HostPath(path.Join(p.outRepo, p.branch))
 	bind := fmt.Sprintf("%s:/out", hostPath)
@@ -629,19 +636,22 @@ func (r *Runner) Run() error {
 		r.lock.Unlock()
 		return ErrCancelled
 	}
-	// unlocker lets us defer unlocking and explicitly unlock
-	var unlocker sync.Once
-	defer unlocker.Do(r.lock.Unlock)
-	r.wait.Add(len(pipelines))
 	for _, pInfo := range pipelines {
 		if err := r.makeOutRepo(pInfo.Name()); err != nil {
 			return err
 		}
 		p := newPipeline(pInfo.Name(), r.inRepo, path.Join(r.outPrefix, pInfo.Name()), r.commit, r.branch, r.shard, r.outPrefix, r.cache)
 		r.pipelines = append(r.pipelines, p)
-		go func(pInfo os.FileInfo, p *pipeline) {
+	}
+	// unlocker lets us defer unlocking and explicitly unlock
+	var unlocker sync.Once
+	defer unlocker.Do(r.lock.Unlock)
+	for _, p := range r.pipelines {
+		p := p
+		r.wait.Add(1)
+		go func() {
 			defer r.wait.Done()
-			f, err := btrfs.Open(path.Join(r.inRepo, r.commit, r.pipelineDir, pInfo.Name()))
+			f, err := btrfs.Open(path.Join(r.inRepo, r.commit, r.pipelineDir, p.name))
 			if err != nil {
 				errors <- err
 				return
@@ -652,7 +662,7 @@ func (r *Runner) Run() error {
 				errors <- err
 				return
 			}
-		}(pInfo, p)
+		}()
 	}
 	// We're done adding pipelines so unlock
 	unlocker.Do(r.lock.Unlock)
@@ -764,6 +774,7 @@ func (r *Runner) startInputPipelines() error {
 	}
 	defer r.lock.Unlock()
 	for _, input := range inputs {
+		input := input
 		if !strings.HasPrefix(input, "s3://") {
 			continue
 		}
@@ -774,7 +785,7 @@ func (r *Runner) startInputPipelines() error {
 		p := newPipeline(trimmed, r.inRepo, path.Join(r.outPrefix, trimmed), r.commit, r.branch, r.shard, r.outPrefix, r.cache)
 		r.pipelines = append(r.pipelines, p)
 		r.wait.Add(1)
-		go func(input string, p *pipeline) {
+		go func() {
 			defer r.wait.Done()
 			err := p.inject(input, false)
 			if err != nil {
@@ -782,7 +793,7 @@ func (r *Runner) startInputPipelines() error {
 				return
 			}
 			p.finish()
-		}(input, p)
+		}()
 	}
 	return nil
 }

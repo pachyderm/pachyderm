@@ -67,7 +67,7 @@ shell:
 	PACHYDERM_DOCKER_OPTS="-it -v $(shell pwd):/go/src/github.com/pachyderm/pachyderm" bin/run /bin/bash
 
 launch-shard:
-	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" bin/run
+	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" bin/run -shard 0 -modulos 1
 
 launch-pfsd:
 	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d -p $(PFS_PORT):$(PFS_API_PORT) -p $(PFS_TRACE_PORT):$(PFS_TRACE_PORT)" bin/run
