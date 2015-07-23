@@ -28,10 +28,9 @@ message DockerService {
 
 message Element {
   string name = 1;
-  string path = 2;
   oneof typed_element {
-    Node node = 3;
-    DockerService docker_service = 4;
+    Node node = 2;
+    DockerService docker_service = 3;
   }
 }
 
