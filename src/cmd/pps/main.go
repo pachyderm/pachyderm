@@ -49,7 +49,7 @@ func main() {
 
 	var protoFlag bool
 	inspectCmd := &cobra.Command{
-		Use:  "inspect github.com/user/repository [path/to/specdir]",
+		Use:  "inspect github.com/user/repository [path/to/specDir]",
 		Long: "Inspect a pipeline specification.",
 		Run: func(cmd *cobra.Command, args []string) {
 			path := args[0]
@@ -87,7 +87,7 @@ func main() {
 	inspectCmd.Flags().BoolVar(&protoFlag, "proto", false, "Print in proto format instead of JSON.")
 
 	startCmd := &cobra.Command{
-		Use:  "start github.com/user/repository path/to/specdir",
+		Use:  "start github.com/user/repository [path/to/specDir]",
 		Long: "Start a pipeline specification run.",
 		Run: func(cmd *cobra.Command, args []string) {
 			path := args[0]
@@ -117,6 +117,26 @@ func main() {
 		},
 	}
 
+	statusCmd := &cobra.Command{
+		Use:  "status pipelineRunID",
+		Long: "Get the status of a pipeline run.",
+		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) != 1 {
+				check(fmt.Errorf("must have only one argument"))
+			}
+			getPipelineRunStatusResponse, err := ppsutil.GetPipelineRunStatus(
+				apiClient,
+				args[0],
+			)
+			check(err)
+			name, ok := pps.PipelineRunStatusType_name[int32(getPipelineRunStatusResponse.PipelineRunStatus.PipelineRunStatusType)]
+			if !ok {
+				check(fmt.Errorf("unknown run status"))
+			}
+			fmt.Printf("%s: %s\n", args[0], strings.Replace(name, "PIPELINE_RUN_STATUS_TYPE_", "", -1))
+		},
+	}
+
 	rootCmd := &cobra.Command{
 		Use: "pps",
 		Long: `Access the PPS API.
@@ -127,6 +147,7 @@ The environment variable PPS_ADDRESS controls what server the CLI connects to, t
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(inspectCmd)
 	rootCmd.AddCommand(startCmd)
+	rootCmd.AddCommand(statusCmd)
 	check(rootCmd.Execute())
 
 	os.Exit(0)
