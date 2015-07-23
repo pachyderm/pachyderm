@@ -20,19 +20,24 @@ type runInfo struct {
 }
 
 type inMemoryClient struct {
-	idToRunInfo     map[string]*runInfo
-	idToRunStatuses map[string][]*pps.PipelineRunStatus
-	timer           timer
+	idToRunInfo      map[string]*runInfo
+	idToRunStatuses  map[string][]*pps.PipelineRunStatus
+	idToContainerIDs map[string]map[string]bool
 
-	runInfoLock     *sync.RWMutex
-	runStatusesLock *sync.RWMutex
+	timer timer
+
+	runInfoLock      *sync.RWMutex
+	runStatusesLock  *sync.RWMutex
+	containerIDsLock *sync.RWMutex
 }
 
 func newInMemoryClient() *inMemoryClient {
 	return &inMemoryClient{
 		make(map[string]*runInfo),
 		make(map[string][]*pps.PipelineRunStatus),
+		make(map[string]map[string]bool),
 		defaultTimer,
+		&sync.RWMutex{},
 		&sync.RWMutex{},
 		&sync.RWMutex{},
 	}
@@ -56,6 +61,7 @@ func (c *inMemoryClient) AddPipelineRun(id string, pipelineSource *pps.PipelineS
 		PipelineRunStatusType: pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ADDED,
 		Timestamp:             timeToTimestamp(c.timer.Now()),
 	}
+	c.idToContainerIDs[id] = make(map[string]bool)
 	return nil
 }
 
@@ -101,6 +107,37 @@ func (c *inMemoryClient) AddPipelineRunStatus(id string, pipelineRunStatusType p
 		return fmt.Errorf("no run for id %s", id)
 	}
 	c.idToRunStatuses[id] = append(c.idToRunStatuses[id], &pps.PipelineRunStatus{PipelineRunStatusType: pipelineRunStatusType, Timestamp: timeToTimestamp(c.timer.Now())})
+	return nil
+}
+
+func (c *inMemoryClient) GetPipelineRunContainerIDs(id string) ([]string, error) {
+	c.containerIDsLock.RLock()
+	defer c.containerIDsLock.RUnlock()
+
+	containerIDsMap, ok := c.idToContainerIDs[id]
+	if !ok {
+		return nil, fmt.Errorf("no run for id %s", id)
+	}
+	containerIDsSlice := make([]string, len(containerIDsMap))
+	i := 0
+	for containerID := range containerIDsMap {
+		containerIDsSlice[i] = containerID
+		i++
+	}
+	return containerIDsSlice, nil
+}
+
+func (c *inMemoryClient) AddPipelineRunContainerIDs(id string, containerIDs ...string) error {
+	c.containerIDsLock.Lock()
+	defer c.containerIDsLock.Unlock()
+
+	containerIDsMap, ok := c.idToContainerIDs[id]
+	if !ok {
+		return fmt.Errorf("no run for id %s", id)
+	}
+	for _, containerID := range containerIDs {
+		containerIDsMap[containerID] = true
+	}
 	return nil
 }
 

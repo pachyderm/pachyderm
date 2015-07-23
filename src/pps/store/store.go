@@ -8,6 +8,8 @@ type Client interface {
 	GetPipelineRunPipeline(id string) (*pps.Pipeline, error)
 	GetPipelineRunStatusLatest(id string) (*pps.PipelineRunStatus, error)
 	AddPipelineRunStatus(id string, runStatusType pps.PipelineRunStatusType) error
+	GetPipelineRunContainerIDs(id string) ([]string, error)
+	AddPipelineRunContainerIDs(id string, containerIDs ...string) error
 }
 
 func NewInMemoryClient() Client {
