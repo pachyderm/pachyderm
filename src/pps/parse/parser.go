@@ -195,7 +195,6 @@ func matches(match string, filePath string) (bool, error) {
 }
 
 func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element, error) {
-	log.Printf("getting element for pipeline file %s\n", relFilePath)
 	filePath := filepath.Join(dirPath, relFilePath)
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -248,7 +247,6 @@ func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element
 	default:
 		return nil, fmt.Errorf("unknown kind %s for %s", kind, relFilePath)
 	}
-	log.Printf("got element %v for pipeline file %s\n", element, relFilePath)
 	return element, nil
 }
 

@@ -36,3 +36,28 @@ func GetPipelineGithub(
 		},
 	)
 }
+
+func RunPipelineGithub(
+	apiClient pps.ApiClient,
+	contextDir string,
+	user string,
+	repository string,
+	branch string,
+	accessToken string,
+) error {
+	_, err := apiClient.RunPipeline(
+		context.Background(),
+		&pps.RunPipelineRequest{
+			PipelineSource: &pps.PipelineSource{
+				GithubPipelineSource: &pps.GithubPipelineSource{
+					ContextDir:  contextDir,
+					User:        user,
+					Repository:  repository,
+					Branch:      branch,
+					AccessToken: accessToken,
+				},
+			},
+		},
+	)
+	return err
+}
