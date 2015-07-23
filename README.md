@@ -36,7 +36,7 @@
 
 ### News
 
-Pachyderm v0.9 is out and includes a brand new pipelining system! [Read more](http://pachyderm.io/pps.html) about it or check out our [web scraper demo](https://medium.com/pachyderm-data/build-your-own-wayback-machine-in-10-lines-of-code-99884b2ff95c).
+Pachyderm v0.9 is out and includes initial support for Kubernetes! We have also revamped our development scripts to make it much easier to get started.
 
 We are in the midst of a refactor! More news to follow, but new code is being committed along-side existing code and is contained primarily within [src/pfs](src/pfs), [src/pkg](src/pkg), and [src/pps](src/pps).
 
@@ -264,6 +264,7 @@ $ curl -XGET <hostname>/branch
 #### Creating a new pipeline with a Pachfile
 
 Pipelines are described as Pachfiles. The Pachfile specifies a Docker image, input data, and then analysis logic (run, shuffle, etc). Pachfiles are somewhat analogous to how Docker files specify how to build a Docker image. 
+[Read more](http://pachyderm.io/pps.html) about it or check out our [web scraper demo](https://medium.com/pachyderm-data/build-your-own-wayback-machine-in-10-lines-of-code-99884b2ff95c).
 
 ```shell
 {
