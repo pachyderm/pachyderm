@@ -67,7 +67,7 @@ func (a *apiServer) StartPipelineRun(ctx context.Context, startPipelineRunReques
 		containerClient,
 		a.storeClient,
 	)
-	runID, err := runner.Run(startPipelineRunRequest.PipelineSource)
+	runID, err := runner.Start(startPipelineRunRequest.PipelineSource)
 	if err != nil {
 		return nil, err
 	}

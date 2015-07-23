@@ -30,7 +30,7 @@ func newRunner(
 	}
 }
 
-func (r *runner) Run(pipelineSource *pps.PipelineSource) (string, error) {
+func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 	dirPath, pipeline, err := r.sourcer.GetDirPathAndPipeline(pipelineSource)
 	if err != nil {
 		return "", err
