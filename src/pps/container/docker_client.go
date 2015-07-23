@@ -35,11 +35,11 @@ func newDockerClient(dockerClientOptions DockerClientOptions) (*dockerClient, er
 	}, nil
 }
 
-func (c *dockerClient) Build(imageName string, contextDir string, buildOptions BuildOptions) error {
+func (c *dockerClient) Build(imageName string, contextDir string, options BuildOptions) error {
 	return c.client.BuildImage(
 		docker.BuildImageOptions{
 			Name:           imageName,
-			Dockerfile:     buildOptions.Dockerfile,
+			Dockerfile:     options.Dockerfile,
 			SuppressOutput: true,
 			OutputStream:   log.Writer(),
 			ContextDir:     contextDir,
@@ -47,7 +47,7 @@ func (c *dockerClient) Build(imageName string, contextDir string, buildOptions B
 	)
 }
 
-func (c *dockerClient) Pull(imageName string, pullOptions PullOptions) error {
+func (c *dockerClient) Pull(imageName string, options PullOptions) error {
 	repository, tag := docker.ParseRepositoryTag(imageName)
 	if tag == "" {
 		tag = "latest"
@@ -62,33 +62,47 @@ func (c *dockerClient) Pull(imageName string, pullOptions PullOptions) error {
 	)
 }
 
-func (c *dockerClient) Run(imageName string, runOptions RunOptions) (retErr error) {
-	createContainerOptions, err := getDockerCreateContainerOptions(imageName, runOptions)
+func (c *dockerClient) Create(imageName string, options CreateOptions) (retVal []string, retErr error) {
+	createContainerOptions, err := getDockerCreateContainerOptions(imageName, options)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	container, err := c.client.CreateContainer(createContainerOptions)
-	if err != nil {
-		return err
+	numContainers := options.NumContainers
+	if numContainers == 0 {
+		numContainers = 1
 	}
+	var containerIDs []string
 	defer func() {
-		if err := c.client.RemoveContainer(
-			docker.RemoveContainerOptions{
-				ID:    container.ID,
-				Force: true,
-			},
-		); err != nil && retErr == nil {
-			retErr = err
+		if retErr != nil {
+			for _, containerID := range containerIDs {
+				_ = c.Remove(containerID, RemoveOptions{})
+			}
 		}
 	}()
-	if err := c.client.StartContainer(container.ID, createContainerOptions.HostConfig); err != nil {
+	for i := 0; i < numContainers; i++ {
+		container, err := c.client.CreateContainer(createContainerOptions)
+		if err != nil {
+			return nil, err
+		}
+		containerIDs = append(containerIDs, container.ID)
+	}
+	return containerIDs, nil
+}
+
+func (c *dockerClient) Start(containerID string, options StartOptions) error {
+	container, err := c.client.InspectContainer(containerID)
+	if err != nil {
 		return err
 	}
+	return c.client.StartContainer(container.ID, container.HostConfig)
+}
+
+func (c *dockerClient) Wait(containerID string, options WaitOptions) error {
 	errC := make(chan error)
 	go func() {
 		errC <- c.client.Logs(
 			docker.LogsOptions{
-				Container:    container.ID,
+				Container:    containerID,
 				OutputStream: log.Writer(),
 				ErrorStream:  log.Writer(),
 				Stdout:       true,
@@ -97,23 +111,40 @@ func (c *dockerClient) Run(imageName string, runOptions RunOptions) (retErr erro
 			},
 		)
 	}()
-	exitCode, err := c.client.WaitContainer(container.ID)
+	exitCode, err := c.client.WaitContainer(containerID)
 	logsErr := <-errC
 	if err != nil {
 		return err
 	}
 	if exitCode != 0 {
-		return fmt.Errorf("container %s for image %s had exit code %d", container.ID, imageName, exitCode)
+		return fmt.Errorf("container %s had exit code %d", containerID, exitCode)
 	}
 	return logsErr
 }
 
-func getDockerCreateContainerOptions(imageName string, runOptions RunOptions) (docker.CreateContainerOptions, error) {
-	config, err := getDockerConfig(imageName, runOptions)
+func (c *dockerClient) Kill(containerID string, options KillOptions) error {
+	return c.client.KillContainer(
+		docker.KillContainerOptions{
+			ID: containerID,
+		},
+	)
+}
+
+func (c *dockerClient) Remove(containerID string, options RemoveOptions) error {
+	return c.client.RemoveContainer(
+		docker.RemoveContainerOptions{
+			ID:    containerID,
+			Force: true,
+		},
+	)
+}
+
+func getDockerCreateContainerOptions(imageName string, options CreateOptions) (docker.CreateContainerOptions, error) {
+	config, err := getDockerConfig(imageName, options)
 	if err != nil {
 		return docker.CreateContainerOptions{}, err
 	}
-	hostConfig, err := getDockerHostConfig(imageName, runOptions)
+	hostConfig, err := getDockerHostConfig()
 	if err != nil {
 		return docker.CreateContainerOptions{}, err
 	}
@@ -123,12 +154,12 @@ func getDockerCreateContainerOptions(imageName string, runOptions RunOptions) (d
 	}, nil
 }
 
-func getDockerConfig(imageName string, runOptions RunOptions) (*docker.Config, error) {
+func getDockerConfig(imageName string, options CreateOptions) (*docker.Config, error) {
 	return &docker.Config{
 		Image: imageName,
 	}, nil
 }
 
-func getDockerHostConfig(imageName string, runOptions RunOptions) (*docker.HostConfig, error) {
+func getDockerHostConfig() (*docker.HostConfig, error) {
 	return &docker.HostConfig{}, nil
 }
