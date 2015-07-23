@@ -148,7 +148,7 @@ proto:
 		pedge/proto3grpc \
 		protoc \
 		-I /compile/src/pps \
-		--go_out=plugins=grpc,Mgoogle/protobuf/empty.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pps \
+		--go_out=plugins=grpc,Mgoogle/protobuf/empty.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/timestamp.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pps \
 		/compile/src/pps/pps.proto
 
 hit-godoc:

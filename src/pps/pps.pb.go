@@ -9,6 +9,7 @@ It is generated from these files:
 	pps.proto
 
 It has these top-level messages:
+	RunStatus
 	Input
 	Output
 	Node
@@ -27,6 +28,7 @@ package pps
 
 import proto "github.com/golang/protobuf/proto"
 import google_protobuf "github.com/peter-edge/go-google-protobuf"
+import google_protobuf1 "github.com/peter-edge/go-google-protobuf"
 
 import (
 	context "golang.org/x/net/context"
@@ -39,6 +41,54 @@ var _ grpc.ClientConn
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+
+type RunStatusType int32
+
+const (
+	RunStatusType_RUN_STATUS_TYPE_NONE    RunStatusType = 0
+	RunStatusType_RUN_STATUS_TYPE_STARTED RunStatusType = 1
+	RunStatusType_RUN_STATUS_TYPE_RUNNING RunStatusType = 2
+	RunStatusType_RUN_STATUS_TYPE_DEAD    RunStatusType = 3
+	RunStatusType_RUN_STATUS_TYPE_ERROR   RunStatusType = 4
+	RunStatusType_RUN_STATUS_TYPE_SUCCESS RunStatusType = 5
+)
+
+var RunStatusType_name = map[int32]string{
+	0: "RUN_STATUS_TYPE_NONE",
+	1: "RUN_STATUS_TYPE_STARTED",
+	2: "RUN_STATUS_TYPE_RUNNING",
+	3: "RUN_STATUS_TYPE_DEAD",
+	4: "RUN_STATUS_TYPE_ERROR",
+	5: "RUN_STATUS_TYPE_SUCCESS",
+}
+var RunStatusType_value = map[string]int32{
+	"RUN_STATUS_TYPE_NONE":    0,
+	"RUN_STATUS_TYPE_STARTED": 1,
+	"RUN_STATUS_TYPE_RUNNING": 2,
+	"RUN_STATUS_TYPE_DEAD":    3,
+	"RUN_STATUS_TYPE_ERROR":   4,
+	"RUN_STATUS_TYPE_SUCCESS": 5,
+}
+
+func (x RunStatusType) String() string {
+	return proto.EnumName(RunStatusType_name, int32(x))
+}
+
+type RunStatus struct {
+	RunStatusType RunStatusType               `protobuf:"varint,1,opt,name=run_status_type,enum=pps.RunStatusType" json:"run_status_type,omitempty"`
+	Timestamp     *google_protobuf1.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
+}
+
+func (m *RunStatus) Reset()         { *m = RunStatus{} }
+func (m *RunStatus) String() string { return proto.CompactTextString(m) }
+func (*RunStatus) ProtoMessage()    {}
+
+func (m *RunStatus) GetTimestamp() *google_protobuf1.Timestamp {
+	if m != nil {
+		return m.Timestamp
+	}
+	return nil
+}
 
 type Input struct {
 	Host map[string]string `protobuf:"bytes,1,rep,name=host" json:"host,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -255,6 +305,10 @@ func (m *RunPipelineRequest) GetPipelineSource() *PipelineSource {
 		return m.PipelineSource
 	}
 	return nil
+}
+
+func init() {
+	proto.RegisterEnum("pps.RunStatusType", RunStatusType_name, RunStatusType_value)
 }
 
 // Client API for Api service
