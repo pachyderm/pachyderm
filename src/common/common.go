@@ -6,7 +6,7 @@ const (
 	MajorVersion      = 0
 	MinorVersion      = 9
 	MicroVersion      = 0
-	AdditionalVersion = "dev"
+	AdditionalVersion = ""
 )
 
 func VersionString() string {
