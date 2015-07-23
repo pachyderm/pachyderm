@@ -15,6 +15,7 @@ func GetVersion(apiClient pps.ApiClient) (*pps.GetVersionResponse, error) {
 
 func GetPipelineGithub(
 	apiClient pps.ApiClient,
+	contextDir string,
 	user string,
 	repository string,
 	branch string,
@@ -25,6 +26,7 @@ func GetPipelineGithub(
 		&pps.GetPipelineRequest{
 			PipelineSource: &pps.PipelineSource{
 				GithubPipelineSource: &pps.GithubPipelineSource{
+					ContextDir:  contextDir,
 					User:        user,
 					Repository:  repository,
 					Branch:      branch,

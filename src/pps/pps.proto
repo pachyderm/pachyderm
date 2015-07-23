@@ -5,11 +5,13 @@ import "google/protobuf/empty.proto";
 package pps;
 
 message Input {
-  map<string, string> pfs = 1;
+  map<string, string> host = 1;
+  map<string, string> pfs = 2;
 }
 
 message Output {
-  map<string, string> pfs = 1;
+  map<string, string> host = 1;
+  map<string, string> pfs = 2;
 }
 
 message Node {
@@ -38,10 +40,11 @@ message Pipeline {
 }
 
 message GithubPipelineSource {
-  string user = 1;
-  string repository = 2;
-  string branch = 3;
-  string access_token = 4;
+  string context_dir = 1;
+  string user = 2;
+  string repository = 3;
+  string branch = 4;
+  string access_token = 5;
 }
 
 message PipelineSource {

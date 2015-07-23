@@ -8,7 +8,6 @@ input:
     baz-repository: /in-baz
   # baz-node uses an input that is an output of another node,
   # so baz-node will be deferred until that output is populated
-  pfs:
     bar-repository-out: /in-bar-out
 # baz-node has no output, which is fine
 # you could also have no input, and the commands will just be run

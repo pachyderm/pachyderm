@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pkg/clone"
@@ -50,7 +51,7 @@ func (a *apiServer) GetPipeline(ctx context.Context, getPipelineRequest *pps.Get
 		); err != nil {
 			return nil, err
 		}
-		pipeline, err = parse.NewParser().ParsePipeline(dirPath)
+		pipeline, err = parse.NewParser().ParsePipeline(filepath.Clean(filepath.Join(dirPath, getPipelineRequest.PipelineSource.GithubPipelineSource.ContextDir)))
 		if err != nil {
 			return nil, err
 		}

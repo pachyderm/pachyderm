@@ -63,7 +63,6 @@ func (c *dockerClient) Pull(imageName string, pullOptions PullOptions) error {
 }
 
 func (c *dockerClient) Run(imageName string, runOptions RunOptions) (retErr error) {
-	return nil
 	createContainerOptions, err := getDockerCreateContainerOptions(imageName, runOptions)
 	if err != nil {
 		return err
