@@ -30,15 +30,15 @@ func newRunner(
 	}
 }
 
-func (r *runner) Run(pipelineSource *pps.PipelineSource) error {
+func (r *runner) Run(pipelineSource *pps.PipelineSource) (string, error) {
 	dirPath, pipeline, err := r.sourcer.GetDirPathAndPipeline(pipelineSource)
 	if err != nil {
-		return err
+		return "", err
 	}
 	pipelineInfo, err := r.grapher.GetPipelineInfo(pipeline)
 	if err != nil {
-		return err
+		return "", err
 	}
 	log.Printf("%v %v %v\n", dirPath, pipeline, pipelineInfo)
-	return nil
+	return "1234", nil
 }

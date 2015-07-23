@@ -9,7 +9,7 @@ It is generated from these files:
 	pps.proto
 
 It has these top-level messages:
-	RunStatus
+	PipelineRunStatus
 	Input
 	Output
 	Node
@@ -22,7 +22,10 @@ It has these top-level messages:
 	GetVersionResponse
 	GetPipelineRequest
 	GetPipelineResponse
-	RunPipelineRequest
+	StartPipelineRunRequest
+	StartPipelineRunResponse
+	GetPipelineRunStatusRequest
+	GetPipelineRunStatusResponse
 */
 package pps
 
@@ -42,51 +45,51 @@ var _ grpc.ClientConn
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 
-type RunStatusType int32
+type PipelineRunStatusType int32
 
 const (
-	RunStatusType_RUN_STATUS_TYPE_NONE    RunStatusType = 0
-	RunStatusType_RUN_STATUS_TYPE_ADDED   RunStatusType = 1
-	RunStatusType_RUN_STATUS_TYPE_STARTED RunStatusType = 2
-	RunStatusType_RUN_STATUS_TYPE_RUNNING RunStatusType = 3
-	RunStatusType_RUN_STATUS_TYPE_DEAD    RunStatusType = 4
-	RunStatusType_RUN_STATUS_TYPE_ERROR   RunStatusType = 5
-	RunStatusType_RUN_STATUS_TYPE_SUCCESS RunStatusType = 6
+	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE             PipelineRunStatusType = 0
+	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ADDED            PipelineRunStatusType = 1
+	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED          PipelineRunStatusType = 2
+	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_PIPELINE_RUNNING PipelineRunStatusType = 3
+	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_DEAD             PipelineRunStatusType = 4
+	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR            PipelineRunStatusType = 5
+	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS          PipelineRunStatusType = 6
 )
 
-var RunStatusType_name = map[int32]string{
-	0: "RUN_STATUS_TYPE_NONE",
-	1: "RUN_STATUS_TYPE_ADDED",
-	2: "RUN_STATUS_TYPE_STARTED",
-	3: "RUN_STATUS_TYPE_RUNNING",
-	4: "RUN_STATUS_TYPE_DEAD",
-	5: "RUN_STATUS_TYPE_ERROR",
-	6: "RUN_STATUS_TYPE_SUCCESS",
+var PipelineRunStatusType_name = map[int32]string{
+	0: "PIPELINE_RUN_STATUS_TYPE_NONE",
+	1: "PIPELINE_RUN_STATUS_TYPE_ADDED",
+	2: "PIPELINE_RUN_STATUS_TYPE_STARTED",
+	3: "PIPELINE_RUN_STATUS_TYPE_PIPELINE_RUNNING",
+	4: "PIPELINE_RUN_STATUS_TYPE_DEAD",
+	5: "PIPELINE_RUN_STATUS_TYPE_ERROR",
+	6: "PIPELINE_RUN_STATUS_TYPE_SUCCESS",
 }
-var RunStatusType_value = map[string]int32{
-	"RUN_STATUS_TYPE_NONE":    0,
-	"RUN_STATUS_TYPE_ADDED":   1,
-	"RUN_STATUS_TYPE_STARTED": 2,
-	"RUN_STATUS_TYPE_RUNNING": 3,
-	"RUN_STATUS_TYPE_DEAD":    4,
-	"RUN_STATUS_TYPE_ERROR":   5,
-	"RUN_STATUS_TYPE_SUCCESS": 6,
-}
-
-func (x RunStatusType) String() string {
-	return proto.EnumName(RunStatusType_name, int32(x))
+var PipelineRunStatusType_value = map[string]int32{
+	"PIPELINE_RUN_STATUS_TYPE_NONE":             0,
+	"PIPELINE_RUN_STATUS_TYPE_ADDED":            1,
+	"PIPELINE_RUN_STATUS_TYPE_STARTED":          2,
+	"PIPELINE_RUN_STATUS_TYPE_PIPELINE_RUNNING": 3,
+	"PIPELINE_RUN_STATUS_TYPE_DEAD":             4,
+	"PIPELINE_RUN_STATUS_TYPE_ERROR":            5,
+	"PIPELINE_RUN_STATUS_TYPE_SUCCESS":          6,
 }
 
-type RunStatus struct {
-	RunStatusType RunStatusType               `protobuf:"varint,1,opt,name=run_status_type,enum=pps.RunStatusType" json:"run_status_type,omitempty"`
-	Timestamp     *google_protobuf1.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
+func (x PipelineRunStatusType) String() string {
+	return proto.EnumName(PipelineRunStatusType_name, int32(x))
 }
 
-func (m *RunStatus) Reset()         { *m = RunStatus{} }
-func (m *RunStatus) String() string { return proto.CompactTextString(m) }
-func (*RunStatus) ProtoMessage()    {}
+type PipelineRunStatus struct {
+	PipelineRunStatusType PipelineRunStatusType       `protobuf:"varint,1,opt,name=pipeline_run_status_type,enum=pps.PipelineRunStatusType" json:"pipeline_run_status_type,omitempty"`
+	Timestamp             *google_protobuf1.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
+}
 
-func (m *RunStatus) GetTimestamp() *google_protobuf1.Timestamp {
+func (m *PipelineRunStatus) Reset()         { *m = PipelineRunStatus{} }
+func (m *PipelineRunStatus) String() string { return proto.CompactTextString(m) }
+func (*PipelineRunStatus) ProtoMessage()    {}
+
+func (m *PipelineRunStatus) GetTimestamp() *google_protobuf1.Timestamp {
 	if m != nil {
 		return m.Timestamp
 	}
@@ -295,23 +298,54 @@ func (m *GetPipelineResponse) GetPipeline() *Pipeline {
 	return nil
 }
 
-type RunPipelineRequest struct {
+type StartPipelineRunRequest struct {
 	PipelineSource *PipelineSource `protobuf:"bytes,1,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
 }
 
-func (m *RunPipelineRequest) Reset()         { *m = RunPipelineRequest{} }
-func (m *RunPipelineRequest) String() string { return proto.CompactTextString(m) }
-func (*RunPipelineRequest) ProtoMessage()    {}
+func (m *StartPipelineRunRequest) Reset()         { *m = StartPipelineRunRequest{} }
+func (m *StartPipelineRunRequest) String() string { return proto.CompactTextString(m) }
+func (*StartPipelineRunRequest) ProtoMessage()    {}
 
-func (m *RunPipelineRequest) GetPipelineSource() *PipelineSource {
+func (m *StartPipelineRunRequest) GetPipelineSource() *PipelineSource {
 	if m != nil {
 		return m.PipelineSource
 	}
 	return nil
 }
 
+type StartPipelineRunResponse struct {
+	PipelineRunId string `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
+}
+
+func (m *StartPipelineRunResponse) Reset()         { *m = StartPipelineRunResponse{} }
+func (m *StartPipelineRunResponse) String() string { return proto.CompactTextString(m) }
+func (*StartPipelineRunResponse) ProtoMessage()    {}
+
+type GetPipelineRunStatusRequest struct {
+	PipelineRunId string `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
+}
+
+func (m *GetPipelineRunStatusRequest) Reset()         { *m = GetPipelineRunStatusRequest{} }
+func (m *GetPipelineRunStatusRequest) String() string { return proto.CompactTextString(m) }
+func (*GetPipelineRunStatusRequest) ProtoMessage()    {}
+
+type GetPipelineRunStatusResponse struct {
+	PipelineRunStatus *PipelineRunStatus `protobuf:"bytes,1,opt,name=pipeline_run_status" json:"pipeline_run_status,omitempty"`
+}
+
+func (m *GetPipelineRunStatusResponse) Reset()         { *m = GetPipelineRunStatusResponse{} }
+func (m *GetPipelineRunStatusResponse) String() string { return proto.CompactTextString(m) }
+func (*GetPipelineRunStatusResponse) ProtoMessage()    {}
+
+func (m *GetPipelineRunStatusResponse) GetPipelineRunStatus() *PipelineRunStatus {
+	if m != nil {
+		return m.PipelineRunStatus
+	}
+	return nil
+}
+
 func init() {
-	proto.RegisterEnum("pps.RunStatusType", RunStatusType_name, RunStatusType_value)
+	proto.RegisterEnum("pps.PipelineRunStatusType", PipelineRunStatusType_name, PipelineRunStatusType_value)
 }
 
 // Client API for Api service
@@ -319,7 +353,8 @@ func init() {
 type ApiClient interface {
 	GetVersion(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*GetVersionResponse, error)
 	GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*GetPipelineResponse, error)
-	RunPipeline(ctx context.Context, in *RunPipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	StartPipelineRun(ctx context.Context, in *StartPipelineRunRequest, opts ...grpc.CallOption) (*StartPipelineRunResponse, error)
+	GetPipelineRunStatus(ctx context.Context, in *GetPipelineRunStatusRequest, opts ...grpc.CallOption) (*GetPipelineRunStatusResponse, error)
 }
 
 type apiClient struct {
@@ -348,9 +383,18 @@ func (c *apiClient) GetPipeline(ctx context.Context, in *GetPipelineRequest, opt
 	return out, nil
 }
 
-func (c *apiClient) RunPipeline(ctx context.Context, in *RunPipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
-	err := grpc.Invoke(ctx, "/pps.Api/RunPipeline", in, out, c.cc, opts...)
+func (c *apiClient) StartPipelineRun(ctx context.Context, in *StartPipelineRunRequest, opts ...grpc.CallOption) (*StartPipelineRunResponse, error) {
+	out := new(StartPipelineRunResponse)
+	err := grpc.Invoke(ctx, "/pps.Api/StartPipelineRun", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiClient) GetPipelineRunStatus(ctx context.Context, in *GetPipelineRunStatusRequest, opts ...grpc.CallOption) (*GetPipelineRunStatusResponse, error) {
+	out := new(GetPipelineRunStatusResponse)
+	err := grpc.Invoke(ctx, "/pps.Api/GetPipelineRunStatus", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +406,8 @@ func (c *apiClient) RunPipeline(ctx context.Context, in *RunPipelineRequest, opt
 type ApiServer interface {
 	GetVersion(context.Context, *google_protobuf.Empty) (*GetVersionResponse, error)
 	GetPipeline(context.Context, *GetPipelineRequest) (*GetPipelineResponse, error)
-	RunPipeline(context.Context, *RunPipelineRequest) (*google_protobuf.Empty, error)
+	StartPipelineRun(context.Context, *StartPipelineRunRequest) (*StartPipelineRunResponse, error)
+	GetPipelineRunStatus(context.Context, *GetPipelineRunStatusRequest) (*GetPipelineRunStatusResponse, error)
 }
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
@@ -393,12 +438,24 @@ func _Api_GetPipeline_Handler(srv interface{}, ctx context.Context, codec grpc.C
 	return out, nil
 }
 
-func _Api_RunPipeline_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(RunPipelineRequest)
+func _Api_StartPipelineRun_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(StartPipelineRunRequest)
 	if err := codec.Unmarshal(buf, in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).RunPipeline(ctx, in)
+	out, err := srv.(ApiServer).StartPipelineRun(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _Api_GetPipelineRunStatus_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(GetPipelineRunStatusRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).GetPipelineRunStatus(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -418,8 +475,12 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_GetPipeline_Handler,
 		},
 		{
-			MethodName: "RunPipeline",
-			Handler:    _Api_RunPipeline_Handler,
+			MethodName: "StartPipelineRun",
+			Handler:    _Api_StartPipelineRun_Handler,
+		},
+		{
+			MethodName: "GetPipelineRunStatus",
+			Handler:    _Api_GetPipelineRunStatus_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},
