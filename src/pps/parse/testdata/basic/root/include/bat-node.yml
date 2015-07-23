@@ -5,7 +5,7 @@ pps:
 service: bar
 input:
   pfs:
-    bar-repository: /in-bar
+    bat-repository: /in
 output:
   pfs:
     bat-repository-out: /out
