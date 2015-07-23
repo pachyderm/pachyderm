@@ -86,9 +86,9 @@ func main() {
 	}
 	inspectCmd.Flags().BoolVar(&protoFlag, "proto", false, "Print in proto format instead of JSON.")
 
-	runCmd := &cobra.Command{
-		Use:  "run github.com/user/repository path/to/specdir",
-		Long: "Run a pipeline specification.",
+	startCmd := &cobra.Command{
+		Use:  "start github.com/user/repository path/to/specdir",
+		Long: "Start a pipeline specification run.",
 		Run: func(cmd *cobra.Command, args []string) {
 			path := args[0]
 			if !strings.HasPrefix(path, "github.com/") {
@@ -104,7 +104,7 @@ func main() {
 			if len(args) > 1 {
 				contextDir = args[1]
 			}
-			err := ppsutil.RunPipelineGithub(
+			err := ppsutil.StartPipelineRunGithub(
 				apiClient,
 				contextDir,
 				split[1],
@@ -125,7 +125,7 @@ The environment variable PPS_ADDRESS controls what server the CLI connects to, t
 	}
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(inspectCmd)
-	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(startCmd)
 	check(rootCmd.Execute())
 
 	os.Exit(0)

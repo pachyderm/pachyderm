@@ -5,18 +5,18 @@ import "google/protobuf/timestamp.proto";
 
 package pps;
 
-enum RunStatusType {
-  RUN_STATUS_TYPE_NONE = 0;
-  RUN_STATUS_TYPE_ADDED = 1;
-  RUN_STATUS_TYPE_STARTED = 2;
-  RUN_STATUS_TYPE_RUNNING = 3;
-  RUN_STATUS_TYPE_DEAD = 4;
-  RUN_STATUS_TYPE_ERROR = 5;
-  RUN_STATUS_TYPE_SUCCESS = 6;
+enum PipelineRunStatusType {
+  PIPELINE_RUN_STATUS_TYPE_NONE = 0;
+  PIPELINE_RUN_STATUS_TYPE_ADDED = 1;
+  PIPELINE_RUN_STATUS_TYPE_STARTED = 2;
+  PIPELINE_RUN_STATUS_TYPE_PIPELINE_RUNNING = 3;
+  PIPELINE_RUN_STATUS_TYPE_DEAD = 4;
+  PIPELINE_RUN_STATUS_TYPE_ERROR = 5;
+  PIPELINE_RUN_STATUS_TYPE_SUCCESS = 6;
 }
 
-message RunStatus {
-  RunStatusType run_status_type = 1;
+message PipelineRunStatus {
+  PipelineRunStatusType pipeline_run_status_type = 1;
   google.protobuf.Timestamp timestamp = 2;
 }
 
@@ -87,12 +87,25 @@ message GetPipelineResponse {
   Pipeline pipeline = 1;
 }
 
-message RunPipelineRequest {
+message StartPipelineRunRequest {
   PipelineSource pipeline_source = 1;
+}
+
+message StartPipelineRunResponse {
+  string pipeline_run_id = 1;
+}
+
+message GetPipelineRunStatusRequest {
+  string pipeline_run_id = 1;
+}
+
+message GetPipelineRunStatusResponse {
+  PipelineRunStatus pipeline_run_status = 1;
 }
 
 service Api {
   rpc GetVersion(google.protobuf.Empty) returns (GetVersionResponse) {}
   rpc GetPipeline(GetPipelineRequest) returns (GetPipelineResponse) {} 
-  rpc RunPipeline(RunPipelineRequest) returns (google.protobuf.Empty) {}
+  rpc StartPipelineRun(StartPipelineRunRequest) returns (StartPipelineRunResponse) {}
+  rpc GetPipelineRunStatus(GetPipelineRunStatusRequest) returns (GetPipelineRunStatusResponse) {}
 }

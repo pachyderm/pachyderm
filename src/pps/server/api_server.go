@@ -48,7 +48,7 @@ func (a *apiServer) GetPipeline(ctx context.Context, getPipelineRequest *pps.Get
 	}, nil
 }
 
-func (a *apiServer) RunPipeline(ctx context.Context, runPipelineRequest *pps.RunPipelineRequest) (*google_protobuf.Empty, error) {
+func (a *apiServer) StartPipelineRun(ctx context.Context, startPipelineRunRequest *pps.StartPipelineRunRequest) (*pps.StartPipelineRunResponse, error) {
 	dockerHost := os.Getenv("DOCKER_HOST")
 	if dockerHost == "" {
 		dockerHost = "unix:///var/run/docker.sock"
@@ -67,13 +67,15 @@ func (a *apiServer) RunPipeline(ctx context.Context, runPipelineRequest *pps.Run
 		containerClient,
 		a.storeClient,
 	)
-	errC := make(chan error, 1)
-	// does not do anything additional for now really, this will be split into start/status
-	go func() {
-		errC <- runner.Run(runPipelineRequest.PipelineSource)
-	}()
-	if err := <-errC; err != nil {
+	runID, err := runner.Run(startPipelineRunRequest.PipelineSource)
+	if err != nil {
 		return nil, err
 	}
-	return emptyInstance, nil
+	return &pps.StartPipelineRunResponse{
+		PipelineRunId: runID,
+	}, nil
+}
+
+func (a *apiServer) GetPipelineRunStatus(ctx context.Context, getRunStatusRequest *pps.GetPipelineRunStatusRequest) (*pps.GetPipelineRunStatusResponse, error) {
+	return nil, nil
 }

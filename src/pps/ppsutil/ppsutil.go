@@ -37,7 +37,7 @@ func GetPipelineGithub(
 	)
 }
 
-func RunPipelineGithub(
+func StartPipelineRunGithub(
 	apiClient pps.ApiClient,
 	contextDir string,
 	user string,
@@ -45,9 +45,9 @@ func RunPipelineGithub(
 	branch string,
 	accessToken string,
 ) error {
-	_, err := apiClient.RunPipeline(
+	_, err := apiClient.StartPipelineRun(
 		context.Background(),
-		&pps.RunPipelineRequest{
+		&pps.StartPipelineRunRequest{
 			PipelineSource: &pps.PipelineSource{
 				GithubPipelineSource: &pps.GithubPipelineSource{
 					ContextDir:  contextDir,

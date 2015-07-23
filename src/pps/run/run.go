@@ -9,7 +9,7 @@ import (
 )
 
 type Runner interface {
-	Run(pipelineSource *pps.PipelineSource) error
+	Run(pipelineSource *pps.PipelineSource) (string, error)
 }
 
 func NewRunner(

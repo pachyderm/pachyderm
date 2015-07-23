@@ -21,7 +21,7 @@ type runInfo struct {
 
 type inMemoryClient struct {
 	idToRunInfo     map[string]*runInfo
-	idToRunStatuses map[string][]*pps.RunStatus
+	idToRunStatuses map[string][]*pps.PipelineRunStatus
 	timer           timer
 
 	runInfoLock     *sync.RWMutex
@@ -31,14 +31,14 @@ type inMemoryClient struct {
 func newInMemoryClient() *inMemoryClient {
 	return &inMemoryClient{
 		make(map[string]*runInfo),
-		make(map[string][]*pps.RunStatus),
+		make(map[string][]*pps.PipelineRunStatus),
 		defaultTimer,
 		&sync.RWMutex{},
 		&sync.RWMutex{},
 	}
 }
 
-func (c *inMemoryClient) AddRun(id string, pipelineSource *pps.PipelineSource, pipeline *pps.Pipeline) error {
+func (c *inMemoryClient) AddPipelineRun(id string, pipelineSource *pps.PipelineSource, pipeline *pps.Pipeline) error {
 	c.runInfoLock.Lock()
 	defer c.runInfoLock.Unlock()
 	c.runStatusesLock.Lock()
@@ -51,15 +51,15 @@ func (c *inMemoryClient) AddRun(id string, pipelineSource *pps.PipelineSource, p
 		pipelineSource,
 		pipeline,
 	}
-	c.idToRunStatuses[id] = make([]*pps.RunStatus, 1)
-	c.idToRunStatuses[id][0] = &pps.RunStatus{
-		RunStatusType: pps.RunStatusType_RUN_STATUS_TYPE_ADDED,
-		Timestamp:     timeToTimestamp(c.timer.Now()),
+	c.idToRunStatuses[id] = make([]*pps.PipelineRunStatus, 1)
+	c.idToRunStatuses[id][0] = &pps.PipelineRunStatus{
+		PipelineRunStatusType: pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ADDED,
+		Timestamp:             timeToTimestamp(c.timer.Now()),
 	}
 	return nil
 }
 
-func (c *inMemoryClient) GetRunPipelineSource(id string) (*pps.PipelineSource, error) {
+func (c *inMemoryClient) GetPipelineRunPipelineSource(id string) (*pps.PipelineSource, error) {
 	c.runInfoLock.RLock()
 	defer c.runInfoLock.RUnlock()
 
@@ -70,7 +70,7 @@ func (c *inMemoryClient) GetRunPipelineSource(id string) (*pps.PipelineSource, e
 	return runInfo.pipelineSource, nil
 }
 
-func (c *inMemoryClient) GetRunPipeline(id string) (*pps.Pipeline, error) {
+func (c *inMemoryClient) GetPipelineRunPipeline(id string) (*pps.Pipeline, error) {
 	c.runInfoLock.RLock()
 	defer c.runInfoLock.RUnlock()
 
@@ -81,7 +81,7 @@ func (c *inMemoryClient) GetRunPipeline(id string) (*pps.Pipeline, error) {
 	return runInfo.pipeline, nil
 }
 
-func (c *inMemoryClient) GetRunStatusLatest(id string) (*pps.RunStatus, error) {
+func (c *inMemoryClient) GetPipelineRunStatusLatest(id string) (*pps.PipelineRunStatus, error) {
 	c.runStatusesLock.RLock()
 	defer c.runStatusesLock.RUnlock()
 
@@ -92,7 +92,7 @@ func (c *inMemoryClient) GetRunStatusLatest(id string) (*pps.RunStatus, error) {
 	return runStatuses[len(runStatuses)-1], nil
 }
 
-func (c *inMemoryClient) AddRunStatus(id string, runStatusType pps.RunStatusType) error {
+func (c *inMemoryClient) AddPipelineRunStatus(id string, pipelineRunStatusType pps.PipelineRunStatusType) error {
 	c.runStatusesLock.Lock()
 	defer c.runStatusesLock.Unlock()
 
@@ -100,7 +100,7 @@ func (c *inMemoryClient) AddRunStatus(id string, runStatusType pps.RunStatusType
 	if !ok {
 		return fmt.Errorf("no run for id %s", id)
 	}
-	c.idToRunStatuses[id] = append(c.idToRunStatuses[id], &pps.RunStatus{RunStatusType: runStatusType, Timestamp: timeToTimestamp(c.timer.Now())})
+	c.idToRunStatuses[id] = append(c.idToRunStatuses[id], &pps.PipelineRunStatus{PipelineRunStatusType: pipelineRunStatusType, Timestamp: timeToTimestamp(c.timer.Now())})
 	return nil
 }
 
