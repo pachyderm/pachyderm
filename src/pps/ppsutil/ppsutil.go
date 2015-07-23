@@ -60,3 +60,15 @@ func StartPipelineRunGithub(
 		},
 	)
 }
+
+func GetPipelineRunStatus(
+	apiClient pps.ApiClient,
+	pipelineRunID string,
+) (*pps.GetPipelineRunStatusResponse, error) {
+	return apiClient.GetPipelineRunStatus(
+		context.Background(),
+		&pps.GetPipelineRunStatusRequest{
+			PipelineRunId: pipelineRunID,
+		},
+	)
+}
