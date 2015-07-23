@@ -46,28 +46,31 @@ type RunStatusType int32
 
 const (
 	RunStatusType_RUN_STATUS_TYPE_NONE    RunStatusType = 0
-	RunStatusType_RUN_STATUS_TYPE_STARTED RunStatusType = 1
-	RunStatusType_RUN_STATUS_TYPE_RUNNING RunStatusType = 2
-	RunStatusType_RUN_STATUS_TYPE_DEAD    RunStatusType = 3
-	RunStatusType_RUN_STATUS_TYPE_ERROR   RunStatusType = 4
-	RunStatusType_RUN_STATUS_TYPE_SUCCESS RunStatusType = 5
+	RunStatusType_RUN_STATUS_TYPE_ADDED   RunStatusType = 1
+	RunStatusType_RUN_STATUS_TYPE_STARTED RunStatusType = 2
+	RunStatusType_RUN_STATUS_TYPE_RUNNING RunStatusType = 3
+	RunStatusType_RUN_STATUS_TYPE_DEAD    RunStatusType = 4
+	RunStatusType_RUN_STATUS_TYPE_ERROR   RunStatusType = 5
+	RunStatusType_RUN_STATUS_TYPE_SUCCESS RunStatusType = 6
 )
 
 var RunStatusType_name = map[int32]string{
 	0: "RUN_STATUS_TYPE_NONE",
-	1: "RUN_STATUS_TYPE_STARTED",
-	2: "RUN_STATUS_TYPE_RUNNING",
-	3: "RUN_STATUS_TYPE_DEAD",
-	4: "RUN_STATUS_TYPE_ERROR",
-	5: "RUN_STATUS_TYPE_SUCCESS",
+	1: "RUN_STATUS_TYPE_ADDED",
+	2: "RUN_STATUS_TYPE_STARTED",
+	3: "RUN_STATUS_TYPE_RUNNING",
+	4: "RUN_STATUS_TYPE_DEAD",
+	5: "RUN_STATUS_TYPE_ERROR",
+	6: "RUN_STATUS_TYPE_SUCCESS",
 }
 var RunStatusType_value = map[string]int32{
 	"RUN_STATUS_TYPE_NONE":    0,
-	"RUN_STATUS_TYPE_STARTED": 1,
-	"RUN_STATUS_TYPE_RUNNING": 2,
-	"RUN_STATUS_TYPE_DEAD":    3,
-	"RUN_STATUS_TYPE_ERROR":   4,
-	"RUN_STATUS_TYPE_SUCCESS": 5,
+	"RUN_STATUS_TYPE_ADDED":   1,
+	"RUN_STATUS_TYPE_STARTED": 2,
+	"RUN_STATUS_TYPE_RUNNING": 3,
+	"RUN_STATUS_TYPE_DEAD":    4,
+	"RUN_STATUS_TYPE_ERROR":   5,
+	"RUN_STATUS_TYPE_SUCCESS": 6,
 }
 
 func (x RunStatusType) String() string {
