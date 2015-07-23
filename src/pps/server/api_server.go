@@ -9,6 +9,7 @@ import (
 )
 
 var (
+	emptyInstance              = &google_protobuf.Empty{}
 	getVersionResponseInstance = &pps.GetVersionResponse{
 		Version: &pps.Version{
 			Major:      common.MajorVersion,
@@ -37,4 +38,8 @@ func (a *apiServer) GetPipeline(ctx context.Context, getPipelineRequest *pps.Get
 	return &pps.GetPipelineResponse{
 		Pipeline: pipeline,
 	}, nil
+}
+
+func (a *apiServer) RunPipeline(ctx context.Context, runPipelineRequest *pps.RunPipelineRequest) (*google_protobuf.Empty, error) {
+	return emptyInstance, nil
 }
