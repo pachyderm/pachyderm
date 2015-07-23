@@ -4,9 +4,9 @@ import "fmt"
 
 const (
 	MajorVersion      = 0
-	MinorVersion      = 9
+	MinorVersion      = 10
 	MicroVersion      = 0
-	AdditionalVersion = ""
+	AdditionalVersion = "dev"
 )
 
 func VersionString() string {
