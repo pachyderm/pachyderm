@@ -1,6 +1,10 @@
 package graph
 
-import "github.com/pachyderm/pachyderm/src/pps"
+import (
+	"fmt"
+
+	"github.com/pachyderm/pachyderm/src/pps"
+)
 
 type grapher struct{}
 
@@ -14,4 +18,98 @@ func (g *grapher) GetPipelineInfo(pipeline *pps.Pipeline) (*PipelineInfo, error)
 
 func getPipelineInfo(pipeline *pps.Pipeline) (*PipelineInfo, error) {
 	return nil, nil
+}
+
+func getNodeNameToInputStrings(nodes map[string]*pps.Node) map[string]map[string]bool {
+	m := make(map[string]map[string]bool)
+	for name, node := range nodes {
+		n := make(map[string]bool)
+		if node.Input != nil {
+			for hostDir := range node.Input.Host {
+				// just need a differentiating string between types
+				n[fmt.Sprintf("host://%s", hostDir)] = true
+			}
+			for pfsRepo := range node.Input.Pfs {
+				n[fmt.Sprintf("pfs://%s", pfsRepo)] = true
+			}
+		}
+		m[name] = n
+	}
+	return m
+}
+
+func getNodeNameToOutputStrings(nodes map[string]*pps.Node) map[string]map[string]bool {
+	m := make(map[string]map[string]bool)
+	for name, node := range nodes {
+		n := make(map[string]bool)
+		if node.Output != nil {
+			for hostDir := range node.Output.Host {
+				// just need a differentiating string between types
+				n[fmt.Sprintf("host://%s", hostDir)] = true
+			}
+			for pfsRepo := range node.Output.Pfs {
+				n[fmt.Sprintf("pfs://%s", pfsRepo)] = true
+			}
+		}
+		m[name] = n
+	}
+	return m
+}
+
+func getInputStringToNodeNames(nodes map[string]*pps.Node) map[string]map[string]bool {
+	m := make(map[string]map[string]bool)
+	for name, node := range nodes {
+		if node.Input != nil {
+			for hostDir := range node.Input.Host {
+				// just need a differentiating string between types
+				s := fmt.Sprintf("host://%s", hostDir)
+				if _, ok := m[s]; !ok {
+					m[s] = make(map[string]bool)
+				}
+				m[s][name] = true
+			}
+			for pfsRepo := range node.Input.Pfs {
+				s := fmt.Sprintf("pfs://%s", pfsRepo)
+				if _, ok := m[s]; !ok {
+					m[s] = make(map[string]bool)
+				}
+				m[s][name] = true
+			}
+		}
+	}
+	return m
+}
+
+func getOutputStringToNodeNames(nodes map[string]*pps.Node) map[string]map[string]bool {
+	m := make(map[string]map[string]bool)
+	for name, node := range nodes {
+		if node.Output != nil {
+			for hostDir := range node.Output.Host {
+				// just need a differentiating string between types
+				s := fmt.Sprintf("host://%s", hostDir)
+				if _, ok := m[s]; !ok {
+					m[s] = make(map[string]bool)
+				}
+				m[s][name] = true
+			}
+			for pfsRepo := range node.Output.Pfs {
+				s := fmt.Sprintf("pfs://%s", pfsRepo)
+				if _, ok := m[s]; !ok {
+					m[s] = make(map[string]bool)
+				}
+				m[s][name] = true
+			}
+		}
+	}
+	return m
+}
+
+func getNameToNode(pipeline *pps.Pipeline) map[string]*pps.Node {
+	m := make(map[string]*pps.Node)
+	for name, element := range pipeline.NameToElement {
+		if element.Node != nil {
+			m[name] = element.Node
+		}
+	}
+	return m
 }
