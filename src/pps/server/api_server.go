@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"io/ioutil"
-	"path/filepath"
 
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pkg/clone"
@@ -37,21 +36,11 @@ func (a *apiServer) GetVersion(ctx context.Context, empty *google_protobuf.Empty
 func (a *apiServer) GetPipeline(ctx context.Context, getPipelineRequest *pps.GetPipelineRequest) (*pps.GetPipelineResponse, error) {
 	var pipeline *pps.Pipeline
 	if getPipelineRequest.PipelineSource.GithubPipelineSource != nil {
-		dirPath, err := ioutil.TempDir("", "pachyderm")
+		dirPath, err := githubClone(getPipelineRequest.PipelineSource.GithubPipelineSource)
 		if err != nil {
 			return nil, err
 		}
-		if err := clone.GithubClone(
-			dirPath,
-			getPipelineRequest.PipelineSource.GithubPipelineSource.User,
-			getPipelineRequest.PipelineSource.GithubPipelineSource.Repository,
-			getPipelineRequest.PipelineSource.GithubPipelineSource.Branch,
-			"",
-			getPipelineRequest.PipelineSource.GithubPipelineSource.AccessToken,
-		); err != nil {
-			return nil, err
-		}
-		pipeline, err = parse.NewParser().ParsePipeline(filepath.Clean(filepath.Join(dirPath, getPipelineRequest.PipelineSource.GithubPipelineSource.ContextDir)))
+		pipeline, err = parse.NewParser().ParsePipeline(dirPath, getPipelineRequest.PipelineSource.GithubPipelineSource.ContextDir)
 		if err != nil {
 			return nil, err
 		}
@@ -61,4 +50,26 @@ func (a *apiServer) GetPipeline(ctx context.Context, getPipelineRequest *pps.Get
 	return &pps.GetPipelineResponse{
 		Pipeline: pipeline,
 	}, nil
+}
+
+func githubClone(githubPipelineSource *pps.GithubPipelineSource) (string, error) {
+	dirPath, err := makeTempDir()
+	if err != nil {
+		return "", err
+	}
+	if err := clone.GithubClone(
+		dirPath,
+		githubPipelineSource.User,
+		githubPipelineSource.Repository,
+		githubPipelineSource.Branch,
+		"",
+		githubPipelineSource.AccessToken,
+	); err != nil {
+		return "", err
+	}
+	return dirPath, nil
+}
+
+func makeTempDir() (string, error) {
+	return ioutil.TempDir("", "pachyderm")
 }

@@ -8,13 +8,13 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	pipeline, err := NewParser().ParsePipeline("testdata/basic")
+	pipeline, err := NewParser().ParsePipeline("testdata/basic", "")
 	require.NoError(t, err)
 	fmt.Println(pipeline)
 }
 
 func TestGetAllFilePaths(t *testing.T) {
-	files, err := getAllFilePaths("testdata/basic", []string{}, []string{"other", "root/ignore", "ignore-me.yml"})
+	files, err := getAllFilePaths("testdata/basic", "", []string{}, []string{"other", "root/ignore", "ignore-me.yml"})
 	require.NoError(t, err)
 	require.Equal(
 		t,

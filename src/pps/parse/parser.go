@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	versionToParseFunc = map[string]func(string, *config) (*pps.Pipeline, error){
+	versionToParseFunc = map[string]func(string, string, *config) (*pps.Pipeline, error){
 		"v1": parsePipelineV1,
 	}
 )
@@ -25,8 +25,8 @@ func newParser() *parser {
 	return &parser{}
 }
 
-func (p *parser) ParsePipeline(dirPath string) (*pps.Pipeline, error) {
-	return parsePipeline(dirPath)
+func (p *parser) ParsePipeline(dirPath string, contextDirPath string) (*pps.Pipeline, error) {
+	return parsePipeline(dirPath, contextDirPath)
 }
 
 type config struct {
@@ -35,8 +35,9 @@ type config struct {
 	Exclude []string
 }
 
-func parsePipeline(dirPath string) (*pps.Pipeline, error) {
-	config, err := parseConfig(dirPath)
+func parsePipeline(dirPath string, contextDirPath string) (*pps.Pipeline, error) {
+	dirPath = filepath.Clean(dirPath)
+	config, err := parseConfig(dirPath, contextDirPath)
 	if err != nil {
 		return nil, err
 	}
@@ -47,11 +48,11 @@ func parsePipeline(dirPath string) (*pps.Pipeline, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown pps specification version: %s", config.Version)
 	}
-	return parseFunc(dirPath, config)
+	return parseFunc(dirPath, contextDirPath, config)
 }
 
-func parseConfig(dirPath string) (*config, error) {
-	configFilePath := filepath.Join(dirPath, "pps.yml")
+func parseConfig(dirPath string, contextDirPath string) (*config, error) {
+	configFilePath := filepath.Join(dirPath, contextDirPath, "pps.yml")
 	if err := checkFileExists(configFilePath); err != nil {
 		return nil, err
 	}
@@ -66,9 +67,8 @@ func parseConfig(dirPath string) (*config, error) {
 	return config, nil
 }
 
-func parsePipelineV1(dirPath string, config *config) (*pps.Pipeline, error) {
-	dirPath = filepath.Clean(dirPath)
-	filePaths, err := getAllFilePaths(dirPath, config.Include, config.Exclude)
+func parsePipelineV1(dirPath string, contextDirPath string, config *config) (*pps.Pipeline, error) {
+	filePaths, err := getAllFilePaths(dirPath, contextDirPath, config.Include, config.Exclude)
 	if err != nil {
 		return nil, err
 	}
@@ -89,10 +89,10 @@ func parsePipelineV1(dirPath string, config *config) (*pps.Pipeline, error) {
 	return pipeline, nil
 }
 
-func getAllFilePaths(dirPath string, includes []string, excludes []string) ([]string, error) {
+func getAllFilePaths(dirPath string, contextDirPath string, includes []string, excludes []string) ([]string, error) {
 	var filePaths []string
 	if err := filepath.Walk(
-		dirPath,
+		filepath.Join(dirPath, contextDirPath),
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -115,7 +115,7 @@ func getAllFilePaths(dirPath string, includes []string, excludes []string) ([]st
 	}
 	var filteredRelFilePaths []string
 	for _, relFilePath := range relFilePaths {
-		isPipelineFile, err := isPipelineFile(relFilePath, includes, excludes)
+		isPipelineFile, err := isPipelineFile(relFilePath, contextDirPath, includes, excludes)
 		if err != nil {
 			return nil, err
 		}
@@ -126,7 +126,14 @@ func getAllFilePaths(dirPath string, includes []string, excludes []string) ([]st
 	return filteredRelFilePaths, nil
 }
 
-func isPipelineFile(filePath string, includes []string, excludes []string) (bool, error) {
+func isPipelineFile(filePath string, contextDirPath string, includes []string, excludes []string) (bool, error) {
+	var err error
+	if contextDirPath != "" {
+		filePath, err = filepath.Rel(contextDirPath, filePath)
+		if err != nil {
+			return false, err
+		}
+	}
 	isPipelineFileIncluded, err := isPipelineFileIncluded(filePath, includes)
 	if err != nil {
 		return false, err
