@@ -8,6 +8,6 @@ input:
 output:
   # outputs must be globally unique across all nodes
   pfs:
-    baz-out-repository: /out
+    bar-repository-out: /out
 run:
   - for file in /in/*; do cp $file /out; done

@@ -15,6 +15,7 @@ type Grapher interface {
 	GetPipelineInfo(pipeline *pps.Pipeline) (*PipelineInfo, error)
 }
 
+// TODO(pedge): cycle detection
 func NewGrapher() Grapher {
 	return newGrapher()
 }

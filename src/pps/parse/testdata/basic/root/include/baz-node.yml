@@ -1,6 +1,6 @@
 pps:
   kind: node
-  name: baz-node
+  name: baz-node-bar-in-bar-out-in
 service: bar
 input:
   pfs:

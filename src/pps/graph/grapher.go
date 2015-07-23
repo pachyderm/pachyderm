@@ -17,7 +17,42 @@ func (g *grapher) GetPipelineInfo(pipeline *pps.Pipeline) (*PipelineInfo, error)
 }
 
 func getPipelineInfo(pipeline *pps.Pipeline) (*PipelineInfo, error) {
-	return nil, nil
+	nodes := getNameToNode(pipeline)
+	nodeToInputs := getNodeNameToInputStrings(nodes)
+	nodeToOutputs := getNodeNameToOutputStrings(nodes)
+	inputToNodes := getInputStringToNodeNames(nodes)
+	outputToNodes := getOutputStringToNodeNames(nodes)
+	nodeInfos := make(map[string](*NodeInfo))
+	for name := range nodes {
+		nodeInfo := &NodeInfo{
+			Parents:  make([]string, 0),
+			Children: make([]string, 0),
+		}
+		parents := make(map[string]bool)
+		for input := range nodeToInputs[name] {
+			for parent := range outputToNodes[input] {
+				if parent != name {
+					parents[parent] = true
+				}
+			}
+		}
+		for parent := range parents {
+			nodeInfo.Parents = append(nodeInfo.Parents, parent)
+		}
+		children := make(map[string]bool)
+		for output := range nodeToOutputs[name] {
+			for child := range inputToNodes[output] {
+				if child != name {
+					children[child] = true
+				}
+			}
+		}
+		for child := range children {
+			nodeInfo.Children = append(nodeInfo.Children, child)
+		}
+		nodeInfos[name] = nodeInfo
+	}
+	return &PipelineInfo{nodeInfos}, nil
 }
 
 func getNodeNameToInputStrings(nodes map[string]*pps.Node) map[string]map[string]bool {
