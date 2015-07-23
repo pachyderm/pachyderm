@@ -1,8 +1,23 @@
 syntax = "proto3";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 package pps;
+
+enum RunStatusType {
+  RUN_STATUS_TYPE_NONE = 0;
+  RUN_STATUS_TYPE_STARTED = 1;
+  RUN_STATUS_TYPE_RUNNING = 2;
+  RUN_STATUS_TYPE_DEAD = 3;
+  RUN_STATUS_TYPE_ERROR = 4;
+  RUN_STATUS_TYPE_SUCCESS = 5;
+}
+
+message RunStatus {
+  RunStatusType run_status_type = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
 
 message Input {
   map<string, string> host = 1;
