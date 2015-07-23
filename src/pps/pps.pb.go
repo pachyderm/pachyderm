@@ -21,6 +21,7 @@ It has these top-level messages:
 	GetVersionResponse
 	GetPipelineRequest
 	GetPipelineResponse
+	RunPipelineRequest
 */
 package pps
 
@@ -241,11 +242,27 @@ func (m *GetPipelineResponse) GetPipeline() *Pipeline {
 	return nil
 }
 
+type RunPipelineRequest struct {
+	PipelineSource *PipelineSource `protobuf:"bytes,1,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
+}
+
+func (m *RunPipelineRequest) Reset()         { *m = RunPipelineRequest{} }
+func (m *RunPipelineRequest) String() string { return proto.CompactTextString(m) }
+func (*RunPipelineRequest) ProtoMessage()    {}
+
+func (m *RunPipelineRequest) GetPipelineSource() *PipelineSource {
+	if m != nil {
+		return m.PipelineSource
+	}
+	return nil
+}
+
 // Client API for Api service
 
 type ApiClient interface {
 	GetVersion(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*GetVersionResponse, error)
 	GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*GetPipelineResponse, error)
+	RunPipeline(ctx context.Context, in *RunPipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 }
 
 type apiClient struct {
@@ -274,11 +291,21 @@ func (c *apiClient) GetPipeline(ctx context.Context, in *GetPipelineRequest, opt
 	return out, nil
 }
 
+func (c *apiClient) RunPipeline(ctx context.Context, in *RunPipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
+	err := grpc.Invoke(ctx, "/pps.Api/RunPipeline", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for Api service
 
 type ApiServer interface {
 	GetVersion(context.Context, *google_protobuf.Empty) (*GetVersionResponse, error)
 	GetPipeline(context.Context, *GetPipelineRequest) (*GetPipelineResponse, error)
+	RunPipeline(context.Context, *RunPipelineRequest) (*google_protobuf.Empty, error)
 }
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
@@ -309,6 +336,18 @@ func _Api_GetPipeline_Handler(srv interface{}, ctx context.Context, codec grpc.C
 	return out, nil
 }
 
+func _Api_RunPipeline_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(RunPipelineRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).RunPipeline(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 var _Api_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pps.Api",
 	HandlerType: (*ApiServer)(nil),
@@ -320,6 +359,10 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPipeline",
 			Handler:    _Api_GetPipeline_Handler,
+		},
+		{
+			MethodName: "RunPipeline",
+			Handler:    _Api_RunPipeline_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},

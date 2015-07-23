@@ -71,7 +71,12 @@ message GetPipelineResponse {
   Pipeline pipeline = 1;
 }
 
+message RunPipelineRequest {
+  PipelineSource pipeline_source = 1;
+}
+
 service Api {
   rpc GetVersion(google.protobuf.Empty) returns (GetVersionResponse) {}
   rpc GetPipeline(GetPipelineRequest) returns (GetPipelineResponse) {} 
+  rpc RunPipeline(RunPipelineRequest) returns (google.protobuf.Empty) {}
 }
