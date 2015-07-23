@@ -41,7 +41,6 @@ github.com/spf13/pflag
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 github.com/stretchr/testify/suite
-github.com/ugorji/go/codec
 github.com/vaughan0/go-ini
 golang.org/x/net/context
 golang.org/x/net/internal/timeseries
