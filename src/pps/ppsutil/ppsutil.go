@@ -44,8 +44,8 @@ func StartPipelineRunGithub(
 	repository string,
 	branch string,
 	accessToken string,
-) error {
-	_, err := apiClient.StartPipelineRun(
+) (*pps.StartPipelineRunResponse, error) {
+	return apiClient.StartPipelineRun(
 		context.Background(),
 		&pps.StartPipelineRunRequest{
 			PipelineSource: &pps.PipelineSource{
@@ -59,5 +59,4 @@ func StartPipelineRunGithub(
 			},
 		},
 	)
-	return err
 }

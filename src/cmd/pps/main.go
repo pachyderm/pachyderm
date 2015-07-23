@@ -104,7 +104,7 @@ func main() {
 			if len(args) > 1 {
 				contextDir = args[1]
 			}
-			err := ppsutil.StartPipelineRunGithub(
+			startPipelineRunResponse, err := ppsutil.StartPipelineRunGithub(
 				apiClient,
 				contextDir,
 				split[1],
@@ -113,6 +113,7 @@ func main() {
 				accessToken,
 			)
 			check(err)
+			fmt.Printf("started pipeline run with id %s\n", startPipelineRunResponse.PipelineRunId)
 		},
 	}
 
