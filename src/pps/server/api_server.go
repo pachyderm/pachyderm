@@ -1,8 +1,13 @@
 package server
 
 import (
+	"os"
+
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/container"
+	"github.com/pachyderm/pachyderm/src/pps/graph"
+	"github.com/pachyderm/pachyderm/src/pps/run"
 	"github.com/pachyderm/pachyderm/src/pps/source"
 	"github.com/peter-edge/go-google-protobuf"
 	"golang.org/x/net/context"
@@ -41,5 +46,30 @@ func (a *apiServer) GetPipeline(ctx context.Context, getPipelineRequest *pps.Get
 }
 
 func (a *apiServer) RunPipeline(ctx context.Context, runPipelineRequest *pps.RunPipelineRequest) (*google_protobuf.Empty, error) {
+	dockerHost := os.Getenv("DOCKER_HOST")
+	if dockerHost == "" {
+		dockerHost = "unix:///var/run/docker.sock"
+	}
+	containerClient, err := container.NewDockerClient(
+		container.DockerClientOptions{
+			Host: dockerHost,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	runner := run.NewRunner(
+		source.NewSourcer(),
+		graph.NewGrapher(),
+		containerClient,
+	)
+	errC := make(chan error, 1)
+	// does not do anything additional for now really, this will be split into start/status
+	go func() {
+		errC <- runner.Run(runPipelineRequest.PipelineSource)
+	}()
+	if err := <-errC; err != nil {
+		return nil, err
+	}
 	return emptyInstance, nil
 }

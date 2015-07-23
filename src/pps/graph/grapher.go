@@ -3,6 +3,7 @@ package graph
 import (
 	"fmt"
 
+	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/pps"
 )
 
@@ -52,7 +53,9 @@ func getPipelineInfo(pipeline *pps.Pipeline) (*PipelineInfo, error) {
 		}
 		nodeInfos[name] = nodeInfo
 	}
-	return &PipelineInfo{nodeInfos}, nil
+	pipelineInfo := &PipelineInfo{nodeInfos}
+	log.Printf("got pipeline info %v\n", pipelineInfo)
+	return pipelineInfo, nil
 }
 
 func getNodeNameToInputStrings(nodes map[string]*pps.Node) map[string]map[string]bool {
