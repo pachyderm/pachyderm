@@ -121,9 +121,8 @@ func (*DockerService) ProtoMessage()    {}
 
 type Element struct {
 	Name          string         `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	Path          string         `protobuf:"bytes,2,opt,name=path" json:"path,omitempty"`
-	Node          *Node          `protobuf:"bytes,3,opt,name=node" json:"node,omitempty"`
-	DockerService *DockerService `protobuf:"bytes,4,opt,name=docker_service" json:"docker_service,omitempty"`
+	Node          *Node          `protobuf:"bytes,2,opt,name=node" json:"node,omitempty"`
+	DockerService *DockerService `protobuf:"bytes,3,opt,name=docker_service" json:"docker_service,omitempty"`
 }
 
 func (m *Element) Reset()         { *m = Element{} }

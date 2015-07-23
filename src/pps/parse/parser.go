@@ -216,7 +216,6 @@ func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element
 	}
 	element := &pps.Element{
 		Name: name,
-		Path: relFilePath,
 	}
 	kindObj, ok := ppsMeta["kind"]
 	if !ok {
@@ -234,6 +233,9 @@ func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element
 		dockerService := &pps.DockerService{}
 		if err := yaml.Unmarshal(data, dockerService); err != nil {
 			return nil, err
+		}
+		if dockerService.Build != "" {
+			dockerService.Build = filepath.Clean(filepath.Join(filepath.Dir(relFilePath), dockerService.Build))
 		}
 		element.DockerService = dockerService
 	default:

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
@@ -46,6 +47,7 @@ func main() {
 		},
 	}
 
+	var protoFlag bool
 	inspectCmd := &cobra.Command{
 		Use:  "inspect",
 		Long: "Inspect a pipeline specification.",
@@ -73,9 +75,16 @@ func main() {
 				accessToken,
 			)
 			check(err)
-			fmt.Printf("%v\n", getPipelineResponse.Pipeline)
+			if protoFlag {
+				fmt.Printf("%v\n", getPipelineResponse.Pipeline)
+			} else {
+				data, err := json.MarshalIndent(getPipelineResponse.Pipeline, "", "\t ")
+				check(err)
+				fmt.Println(string(data))
+			}
 		},
 	}
+	inspectCmd.Flags().BoolVar(&protoFlag, "proto", false, "Print in proto format instead of JSON.")
 
 	rootCmd := &cobra.Command{
 		Use: "pps",
