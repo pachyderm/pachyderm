@@ -20,7 +20,8 @@
 	test \
 	test-new \
 	bench \
-	proto
+	proto \
+	hit-godoc
 
 include etc/env/env.env
 
@@ -149,3 +150,8 @@ proto:
 		-I /compile/src/pps \
 		--go_out=plugins=grpc,Mgoogle/protobuf/empty.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pps \
 		/compile/src/pps/pps.proto
+
+hit-godoc:
+	for pkg in $$(find . -name '*.go' | xargs dirname | sort | uniq); do \
+		curl https://godoc.org/github.com/pachyderm/pachyderm/$pkg > /dev/null; \
+	done
