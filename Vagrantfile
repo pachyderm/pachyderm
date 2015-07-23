@@ -23,6 +23,7 @@ su - vagrant -c "echo mkdir -p /home/vagrant/go >> /home/vagrant/.bash_aliases"
 su - vagrant -c "echo export GOPATH=/home/vagrant/go >> /home/vagrant/.bash_aliases"
 
 wget -qO- https://get.docker.com/ | sh
+groupadd docker || true
 usermod -aG docker vagrant
 service docker restart
 SCRIPT
