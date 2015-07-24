@@ -6,9 +6,6 @@
 set -Ee
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"
-cd "${DIR}"
-
-. "${DIR}/../etc/env/env.env"
 
 "${DIR}/clean"
 "${DIR}/setup"
@@ -17,18 +14,11 @@ cd "${DIR}"
 if [ -z "${PACHYDERM_IMAGE}" ]; then
   PACHYDERM_IMAGE="pachyderm"
 fi
-
 if [ -z "${AWS_REGION}" ]; then
-	AWS_REGION="${DEFAULT_AWS_REGION}"
-fi
-if [ -z "${GOMAXPROCS}" ]; then
-  GOMAXPROCS="${DEFAULT_GOMAXPROCS}"
+	AWS_REGION="us-west-1"
 fi
 
 PFS_DIR="/var/lib/pfs/btrfs"
-echo "PFS_DIR=${PFS_DIR}" >&2
-sudo mkdir -p "${PFS_DIR}"
-
 PFS_HOST_VOLUME="${PFS_DIR}/global"
 PFS_LOCAL_VOLUME="${PFS_DIR}/global"
 PFS_BTRFS_ROOT="${PFS_DIR}/global"
@@ -41,17 +31,10 @@ docker run \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v /:/host:ro \
     -v "${PFS_DIR}:${PFS_DIR}" \
+    -e "PFS_DIR=${PFS_DIR}" \
     -e "PFS_HOST_VOLUME=${PFS_HOST_VOLUME}" \
     -e "PFS_LOCAL_VOLUME=${PFS_LOCAL_VOLUME}" \
     -e "PFS_BTRFS_ROOT=${PFS_BTRFS_ROOT}" \
-    -e "GOMAXPROCS=${GOMAXPROCS}" \
-    -e "PFS_DIR=${PFS_DIR}" \
-    -e "PFS_API_PORT=${PFS_API_PORT}" \
-    -e "PFS_TRACE_PORT=${PFS_TRACE_PORT}" \
-    -e "PFS_NUM_SHARDS=${PFS_NUM_SHARDS}" \
-    -e "PFS_BTRFS_DRIVER_TYPE=${PFS_BTRFS_DRIVER_TYPE}" \
-    -e "PPS_API_PORT=${PPS_API_PORT}" \
-    -e "PPS_TRACE_PORT=${PPS_TRACE_PORT}" \
     -e "AWS_REGION=${AWS_REGION}" \
     -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
     -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \

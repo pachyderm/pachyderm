@@ -23,27 +23,24 @@
 	proto \
 	hit-godoc
 
-include etc/env/env.env
-
 IMAGES = deploy pfsd ppsd router shard
 BINARIES = deploy pfs pfsd pps ppsd router shard
 
 all: test
-
-print-%:
-	@echo $* = $($*)
 
 deps:
 	go get -d -v ./...
 
 update-deps:
 	go get -d -v -u -f ./...
+	bin/deps
 
 test-deps:
 	go get -d -v -t ./...
 
 update-test-deps:
 	go get -d -v -t -u -f ./...
+	bin/deps
 
 build: deps
 	go build ./...
@@ -71,10 +68,10 @@ launch-shard:
 	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" bin/run -shard 0 -modulos 1
 
 launch-pfsd:
-	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d -p $(PFS_PORT):$(PFS_API_PORT) -p $(PFS_TRACE_PORT):$(PFS_TRACE_PORT)" bin/run
+	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d -p 80:650" bin/run
 
 launch-ppsd:
-	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d -p $(PPS_PORT):$(PPS_API_PORT) -p $(PPS_TRACE_PORT):$(PPS_TRACE_PORT)" bin/run
+	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d -p 80:651" bin/run
 
 kube-%:
 	kubectl=kubectl; \
