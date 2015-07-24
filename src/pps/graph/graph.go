@@ -2,6 +2,11 @@ package graph
 
 import "github.com/pachyderm/pachyderm/src/pps"
 
+type NodeInfo struct {
+	Parents  []string
+	Children []string
+}
+
 type NodeErrorRecorder interface {
 	Record(nodeName string, err error)
 }
@@ -14,13 +19,16 @@ type Run interface {
 type Grapher interface {
 	Build(
 		nodeErrorRecorder NodeErrorRecorder,
-		nameToNode map[string]*pps.Node,
+		nameToNodeInfo map[string]*NodeInfo,
 		nameToNodeFunc map[string]func() error,
 	) (Run, error)
 }
 
 // TODO(pedge): cycle detection
 func NewGrapher() Grapher {
-	//return newGrapher()
-	return nil
+	return newGrapher()
+}
+
+func GetNameToNodeInfo(nodes map[string]*pps.Node) (map[string]*NodeInfo, error) {
+	return getNameToNodeInfo(nodes)
 }
