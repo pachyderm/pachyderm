@@ -44,10 +44,11 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 	); err != nil {
 		return "", err
 	}
-	pipelineInfo, err := r.grapher.GetPipelineInfo(pipeline)
-	if err != nil {
-		return "", err
-	}
-	log.Printf("%v %s %v %v\n", dirPath, pipelineRunID, pipeline, pipelineInfo)
+	//pipelineInfo, err := r.grapher.GetPipelineInfo(pipeline)
+	//if err != nil {
+	//return "", err
+	//}
+	//log.Printf("%v %s %v %v\n", dirPath, pipelineRunID, pipeline, pipelineInfo)
+	log.Printf("%v %s %v\n", dirPath, pipelineRunID, pipeline)
 	return pipelineRunID, nil
 }
