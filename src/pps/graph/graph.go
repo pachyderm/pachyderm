@@ -2,20 +2,25 @@ package graph
 
 import "github.com/pachyderm/pachyderm/src/pps"
 
-type NodeInfo struct {
-	Parents  []string
-	Children []string
+type NodeErrorRecorder interface {
+	Record(nodeName string, err error)
 }
 
-type PipelineInfo struct {
-	NameToNodeInfo map[string]*NodeInfo
+type Run interface {
+	Do()
+	Cancel()
 }
 
 type Grapher interface {
-	GetPipelineInfo(pipeline *pps.Pipeline) (*PipelineInfo, error)
+	Build(
+		nodeErrorRecorder NodeErrorRecorder,
+		nameToNode map[string]*pps.Node,
+		nameToNodeFunc map[string]func() error,
+	) (Run, error)
 }
 
 // TODO(pedge): cycle detection
 func NewGrapher() Grapher {
-	return newGrapher()
+	//return newGrapher()
+	return nil
 }
