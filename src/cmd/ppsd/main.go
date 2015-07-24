@@ -17,8 +17,12 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	defaultAPIPort = 651
+)
+
 type appEnv struct {
-	APIPort   int `env:"PPS_API_PORT,required"`
+	APIPort   int `env:"PPS_API_PORT"`
 	TracePort int `env:"PPS_TRACE_PORT"`
 }
 
@@ -36,6 +40,9 @@ func do() error {
 	appEnv := &appEnv{}
 	if err := env.Populate(appEnv, env.PopulateOptions{}); err != nil {
 		return err
+	}
+	if appEnv.APIPort == 0 {
+		appEnv.APIPort = defaultAPIPort
 	}
 	//address := fmt.Sprintf("0.0.0.0:%d", appEnv.APIPort)
 	s := grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))

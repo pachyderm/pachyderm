@@ -5,6 +5,11 @@
 
 set -Ee
 
+if [ -z "${PFS_DIR}" ]; then
+  echo "error: PFS_DIR must be set" >&2
+  exit 1
+fi
+
 export PFS_HOST_VOLUME="${PFS_DIR}/wrap-$$"
 export PFS_LOCAL_VOLUME="${PFS_DIR}/wrap-$$"
 export PFS_BTRFS_ROOT="${PFS_DIR}/wrap-$$"

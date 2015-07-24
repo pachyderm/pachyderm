@@ -143,9 +143,10 @@ func (m *Output) GetPfs() map[string]string {
 }
 
 type Node struct {
-	Input  *Input   `protobuf:"bytes,1,opt,name=input" json:"input,omitempty"`
-	Output *Output  `protobuf:"bytes,2,opt,name=output" json:"output,omitempty"`
-	Run    []string `protobuf:"bytes,3,rep,name=run" json:"run,omitempty"`
+	Service string   `protobuf:"bytes,1,opt,name=service" json:"service,omitempty"`
+	Input   *Input   `protobuf:"bytes,2,opt,name=input" json:"input,omitempty"`
+	Output  *Output  `protobuf:"bytes,3,opt,name=output" json:"output,omitempty"`
+	Run     []string `protobuf:"bytes,4,rep,name=run" json:"run,omitempty"`
 }
 
 func (m *Node) Reset()         { *m = Node{} }

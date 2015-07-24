@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/log"
-	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -367,7 +367,7 @@ func TestS3Replica(t *testing.T) {
 	checkNoExists(t, fmt.Sprintf("%s/mycommit2", dstRepo))
 
 	// Run a Pull to push all commits to s3
-	s3Replica := NewS3Replica(path.Join("pachyderm-test", uuid.NewV4().String()))
+	s3Replica := NewS3Replica(path.Join("pachyderm-test", common.NewUUID()))
 	err := Pull(srcRepo, "", s3Replica)
 	require.NoError(t, err)
 
@@ -588,7 +588,7 @@ func writeLots(t *testing.T, prefix string, nFiles int) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			f, err := Create(fmt.Sprintf("%s-%d", prefix, uuid.NewV4().String()))
+			f, err := Create(fmt.Sprintf("%s-%d", prefix, common.NewUUID()))
 			require.NoError(t, err)
 			_, err = io.Copy(f, io.LimitReader(rand.Reader, (1<<20)*16))
 			require.NoError(t, err)

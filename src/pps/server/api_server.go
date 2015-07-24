@@ -77,5 +77,11 @@ func (a *apiServer) StartPipelineRun(ctx context.Context, startPipelineRunReques
 }
 
 func (a *apiServer) GetPipelineRunStatus(ctx context.Context, getRunStatusRequest *pps.GetPipelineRunStatusRequest) (*pps.GetPipelineRunStatusResponse, error) {
-	return nil, nil
+	pipelineRunStatus, err := a.storeClient.GetPipelineRunStatusLatest(getRunStatusRequest.PipelineRunId)
+	if err != nil {
+		return nil, err
+	}
+	return &pps.GetPipelineRunStatusResponse{
+		PipelineRunStatus: pipelineRunStatus,
+	}, nil
 }
