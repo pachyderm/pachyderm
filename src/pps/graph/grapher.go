@@ -6,13 +6,21 @@ import (
 )
 
 type run struct {
-	nodeRunners    map[string]*nodeRunner
-	nameToNodeFunc map[string]func() error
-	cancel         chan<- bool
+	nodeRunners map[string]*nodeRunner
+	cancel      chan<- bool
 }
 
 func (r *run) Do() {
-	runNodes(r.nodeRunners, r.nameToNodeFunc)
+	var wg sync.WaitGroup
+	for _, nodeRunner := range r.nodeRunners {
+		nodeRunner := nodeRunner
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			nodeRunner.run()
+		}()
+	}
+	wg.Wait()
 }
 
 func (r *run) Cancel() {
@@ -44,76 +52,63 @@ func build(
 	nameToNodeFunc map[string]func() error,
 ) (*run, error) {
 	cancel := make(chan bool)
-	nodeRunners, err := getNameToNodeRunner(nameToNodeInfo, nodeErrorRecorder, cancel)
+	nodeRunners, err := getNameToNodeRunner(nameToNodeInfo, nameToNodeFunc, nodeErrorRecorder, cancel)
 	if err != nil {
-		return nil, err
-	}
-	if err := checkNodeRunners(nodeRunners, nameToNodeFunc); err != nil {
 		return nil, err
 	}
 	return &run{
 		nodeRunners,
-		nameToNodeFunc,
 		cancel,
 	}, nil
 }
 
-func checkNodeRunners(
-	nodeRunners map[string]*nodeRunner,
-	nameToNodeFunc map[string]func() error,
-) error {
-	for name := range nameToNodeFunc {
-		if _, ok := nodeRunners[name]; !ok {
-			return fmt.Errorf("no node runner for %s", name)
-		}
-	}
-	for name := range nodeRunners {
-		if _, ok := nameToNodeFunc[name]; !ok {
-			return fmt.Errorf("no node runner for %s", name)
-		}
-	}
-	return nil
-}
-
-func runNodes(
-	nodeRunners map[string]*nodeRunner,
-	nameToNodeFunc map[string]func() error,
-) {
-	var wg sync.WaitGroup
-	for name, nodeRunner := range nodeRunners {
-		name := name
-		nodeRunner := nodeRunner
-		nodeFunc := nameToNodeFunc[name]
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			nodeRunner.run(nodeFunc)
-		}()
-	}
-	wg.Wait()
-}
-
 func getNameToNodeRunner(
 	nodeInfos map[string]*NodeInfo,
+	nameToNodeFunc map[string]func() error,
 	nodeErrorRecorder NodeErrorRecorder,
 	cancel <-chan bool,
 ) (map[string]*nodeRunner, error) {
+	if err := checkNodeInfos(nodeInfos, nameToNodeFunc); err != nil {
+		return nil, err
+	}
 	nodeRunners := make(map[string]*nodeRunner, len(nodeInfos))
 	for name := range nodeInfos {
 		nodeRunners[name] = newNodeRunner(
 			name,
+			nameToNodeFunc[name],
 			nodeErrorRecorder,
 			cancel,
 		)
 	}
 	for name, nodeInfo := range nodeInfos {
-		for _, child := range nodeInfo.Children {
+		for _, parent := range nodeInfo.Parents {
 			errC := make(chan error, 1)
 			nodeRunner := nodeRunners[name]
-			childNodeRunner := nodeRunners[child]
-			nodeRunner.addChild(errC)
-			childNodeRunner.addParent(errC)
+			parentNodeRunner := nodeRunners[parent]
+			if err := nodeRunner.addParent(parent, errC); err != nil {
+				return nil, err
+			}
+			if err := parentNodeRunner.addChild(name, errC); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return nodeRunners, nil
+}
+
+func checkNodeInfos(
+	nodeInfos map[string]*NodeInfo,
+	nameToNodeFunc map[string]func() error,
+) error {
+	for name := range nameToNodeFunc {
+		if _, ok := nodeInfos[name]; !ok {
+			return fmt.Errorf("no node info for %s", name)
+		}
+	}
+	for name := range nodeInfos {
+		if _, ok := nameToNodeFunc[name]; !ok {
+			return fmt.Errorf("no node func for %s", name)
+		}
+	}
+	return nil
 }

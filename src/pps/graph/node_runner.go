@@ -1,22 +1,30 @@
 package graph
 
+import (
+	"fmt"
+	"log"
+)
+
 type nodeRunner struct {
 	nodeName          string
-	parentChans       []<-chan error
-	childrenChans     []chan<- error
+	f                 func() error
+	parentChans       map[string]<-chan error
+	childrenChans     map[string]chan<- error
 	nodeErrorRecorder NodeErrorRecorder
 	cancel            <-chan bool
 }
 
 func newNodeRunner(
 	nodeName string,
+	f func() error,
 	nodeErrorRecorder NodeErrorRecorder,
 	cancel <-chan bool,
 ) *nodeRunner {
 	return &nodeRunner{
 		nodeName,
-		make([]<-chan error, 0),
-		make([]chan<- error, 0),
+		f,
+		make(map[string]<-chan error),
+		make(map[string]chan<- error),
 		nodeErrorRecorder,
 		cancel,
 	}
@@ -26,16 +34,27 @@ func (n *nodeRunner) name() string {
 	return n.nodeName
 }
 
-func (n *nodeRunner) addParent(parentChan <-chan error) {
-	n.parentChans = append(n.parentChans, parentChan)
+func (n *nodeRunner) addParent(parentName string, parentChan <-chan error) error {
+	chanName := fmt.Sprintf("%s_parent_to_%s", parentName, n.nodeName)
+	if _, ok := n.parentChans[chanName]; ok {
+		return fmt.Errorf("duplicate channel %s", chanName)
+	}
+	n.parentChans[chanName] = parentChan
+	return nil
 }
 
-func (n *nodeRunner) addChild(childChan chan<- error) {
-	n.childrenChans = append(n.childrenChans, childChan)
+func (n *nodeRunner) addChild(childName string, childChan chan<- error) error {
+	chanName := fmt.Sprintf("%s_parent_to_%s", n.nodeName, childName)
+	if _, ok := n.childrenChans[chanName]; ok {
+		return fmt.Errorf("duplicate channel %s", chanName)
+	}
+	n.childrenChans[chanName] = childChan
+	return nil
 }
 
-func (n *nodeRunner) run(f func() error) {
-	for _, parentChan := range n.parentChans {
+func (n *nodeRunner) run() {
+	for name, parentChan := range n.parentChans {
+		log.Printf("%s is waiting on channel %s\n", n.nodeName, name)
 		select {
 		case <-parentChan:
 			continue
@@ -43,11 +62,15 @@ func (n *nodeRunner) run(f func() error) {
 			return
 		}
 	}
-	err := f()
+	log.Printf("%s is done waiting\n", n.nodeName)
+	err := n.f()
+	log.Printf("%s is finished running func\n", n.nodeName)
 	if err != nil {
 		n.nodeErrorRecorder.Record(n.nodeName, err)
 	}
-	for _, childChan := range n.childrenChans {
+	for name, childChan := range n.childrenChans {
+		log.Printf("%s is sending to channel %s\n", n.nodeName, name)
 		childChan <- err
+		close(childChan)
 	}
 }
