@@ -446,6 +446,10 @@ If this is set up properly, you do not need to use `sudo` to run `docker`. If yo
 sudo -E bash -c 'bin/run bin/test ./...' # original command would have been `./bin/run bin/test ./...`
 ```
 
+*Problem*: I saw the `NODOCKER` environment variable in the scripts and set it, but tests don't work.
+
+We are working on this :) `NODOCKER` is an experimental option for development, feel free to help out!
+
 ## Contributing
 
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).

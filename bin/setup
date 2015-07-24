@@ -4,7 +4,10 @@
 
 set -Ee
 
-sudo mkdir -p "/var/lib/pfs/btrfs"
-sudo truncate "/var/lib/pfs/btrfs.img" -s "10G"
-sudo mkfs.btrfs "/var/lib/pfs/btrfs.img"
-sudo mount "/var/lib/pfs/btrfs.img" "/var/lib/pfs/btrfs"
+sudo mkdir -p "/tmp/pfs/btrfs"
+sudo truncate "/tmp/pfs/btrfs.img" -s "10G"
+sudo mkfs.btrfs "/tmp/pfs/btrfs.img"
+sudo mount "/tmp/pfs/btrfs.img" "/tmp/pfs/btrfs"
+#sudo chown "${USER}" "/tmp/pfs/btrfs"
+#sudo chgrp "${USER}" "/tmp/pfs/btrfs"
+#sudo chmod 777 "/tmp/pfs/btrfs"
