@@ -110,6 +110,23 @@ func GetFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 	return buffer, nil
 }
 
+func GetFileInfo(apiClient pfs.ApiClient, repositoryName string, commitID string, path string) (*pfs.GetFileInfoResponse, error) {
+	return apiClient.GetFileInfo(
+		context.Background(),
+		&pfs.GetFileInfoRequest{
+			Path: &pfs.Path{
+				Commit: &pfs.Commit{
+					Repository: &pfs.Repository{
+						Name: repositoryName,
+					},
+					Id: commitID,
+				},
+				Path: path,
+			},
+		},
+	)
+}
+
 func ListFiles(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, shardNum int, shardModulo int) (*pfs.ListFilesResponse, error) {
 	return apiClient.ListFiles(
 		context.Background(),

@@ -122,10 +122,10 @@ func main() {
 	}
 
 	mountCmd := &cobra.Command{
-		Use:  "mount repository-name mount-point",
+		Use:  "mount repository-name commit-id mount-point",
 		Long: "Mount a repository as a local file system.",
 		Run: func(cmd *cobra.Command, args []string) {
-			check(fuse.Mount(apiClient, args[0], args[1]))
+			check(fuse.Mount(apiClient, args[0], args[1], args[2]))
 		},
 	}
 
