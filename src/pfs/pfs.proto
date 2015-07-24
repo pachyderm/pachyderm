@@ -98,11 +98,11 @@ message GetFileRequest {
 }
 
 message GetFileInfoRequest {
-    Path path = 1;
+  Path path = 1;
 }
 
 message GetFileInfoResponse {
-    FileInfo file_info = 1;
+  FileInfo file_info = 1;
 }
 
 message MakeDirectoryRequest {
