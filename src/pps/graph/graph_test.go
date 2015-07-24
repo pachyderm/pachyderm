@@ -88,6 +88,16 @@ func TestBuild(t *testing.T) {
 	require.True(t, i == 1 || i == 2)
 	i = <-intC
 	require.True(t, i == 3 || i == 4 || i == 5)
+	i = <-intC
+	require.True(t, i == 3 || i == 4 || i == 5)
+	i = <-intC
+	require.True(t, i == 3 || i == 4 || i == 5)
+	i = <-intC
+	require.True(t, i == 6 || i == 7)
+	i = <-intC
+	require.True(t, i == 6 || i == 7)
+	i = <-intC
+	require.True(t, i == 8)
 }
 
 func testNodeFunc(intC chan int, nodeName string, i int, errString string) func() error {
