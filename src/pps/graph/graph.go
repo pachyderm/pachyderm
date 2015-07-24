@@ -3,8 +3,7 @@ package graph
 import "github.com/pachyderm/pachyderm/src/pps"
 
 type NodeInfo struct {
-	Parents  []string
-	Children []string
+	Parents []string
 }
 
 type NodeErrorRecorder interface {
