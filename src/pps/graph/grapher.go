@@ -18,7 +18,7 @@ func (g *grapher) GetPipelineInfo(pipeline *pps.Pipeline) (*PipelineInfo, error)
 }
 
 func getPipelineInfo(pipeline *pps.Pipeline) (*PipelineInfo, error) {
-	nodes := getNameToNode(pipeline)
+	nodes := pps.GetNameToNode(pipeline)
 	nodeToInputs := getNodeNameToInputStrings(nodes)
 	nodeToOutputs := getNodeNameToOutputStrings(nodes)
 	inputToNodes := getInputStringToNodeNames(nodes)
@@ -137,16 +137,6 @@ func getOutputStringToNodeNames(nodes map[string]*pps.Node) map[string]map[strin
 				}
 				m[s][name] = true
 			}
-		}
-	}
-	return m
-}
-
-func getNameToNode(pipeline *pps.Pipeline) map[string]*pps.Node {
-	m := make(map[string]*pps.Node)
-	for name, element := range pipeline.NameToElement {
-		if element.Node != nil {
-			m[name] = element.Node
 		}
 	}
 	return m
