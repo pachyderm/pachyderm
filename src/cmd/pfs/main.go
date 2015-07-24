@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/peter-edge/go-env"
 	"github.com/spf13/cobra"
@@ -121,10 +122,10 @@ func main() {
 	}
 
 	mountCmd := &cobra.Command{
-		Use:  "mount repository-name commit-id",
+		Use:  "mount repository-name mount-point",
 		Long: "Mount a repository as a local file system.",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Unimplemented.")
+			check(fuse.Mount(apiClient, args[0], args[1]))
 		},
 	}
 
