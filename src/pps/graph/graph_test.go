@@ -16,7 +16,6 @@ func TestGetNameToNodeInfo(t *testing.T) {
 	nodes := pps.GetNameToNode(pipeline)
 	nodeInfos, err := GetNameToNodeInfo(nodes)
 	require.NoError(t, err)
-	require.Equal(t, []string{"baz-node-bar-in-bar-out-in"}, nodeInfos["bar-node"].Children)
 	require.Equal(t, []string{"bar-node"}, nodeInfos["baz-node-bar-in-bar-out-in"].Parents)
 }
 
@@ -87,6 +86,8 @@ func TestBuild(t *testing.T) {
 	require.True(t, i == 1 || i == 2)
 	i = <-intC
 	require.True(t, i == 1 || i == 2)
+	i = <-intC
+	require.True(t, i == 3 || i == 4 || i == 5)
 }
 
 func testNodeFunc(intC chan int, nodeName string, i int, errString string) func() error {
