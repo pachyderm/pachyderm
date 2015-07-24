@@ -4,12 +4,8 @@
 
 set -Ee
 
-DIR="$(cd "$(dirname "${0}")" && pwd)"
-
-. "${DIR}/../etc/env/env.env"
-
 if [ -z "${GOMAXPROCS}" ]; then
-	GOMAXPROCS="${DEFAULT_GOMAXPROCS}"
+	GOMAXPROCS="20"
 fi
 
-go test -parallel "${GOMAXPROCS}" -timeout "${GO_TEST_TIMEOUT}" $@
+go test -parallel "${GOMAXPROCS}" -timeout "20m" $@

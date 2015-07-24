@@ -7,9 +7,6 @@
 set -E
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"
-cd "${DIR}"
-
-. "${DIR}/../etc/env/env.env"
 
 if [ -z "${PACHYDERM_IMAGE}" ]; then
   PACHYDERM_IMAGE="pachyderm"

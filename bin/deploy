@@ -4,11 +4,6 @@
 
 set -Ee
 
-DIR="$(cd "$(dirname "${0}")" && pwd)"
-cd "${DIR}"
-
-. "${DIR}/../etc/env/env.env"
-
 mkdir -p /home/core/pfs
 docker pull pachyderm/deploy
 docker run \

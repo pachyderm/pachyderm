@@ -4,9 +4,6 @@
 
 set -Ee
 
-DIR="$(cd "$(dirname "${0}")" && pwd)"
-cd "${DIR}"
-
 sudo mkdir -p "/var/lib/pfs/btrfs"
 sudo truncate "/var/lib/pfs/btrfs.img" -s "10G"
 sudo mkfs.btrfs "/var/lib/pfs/btrfs.img"
