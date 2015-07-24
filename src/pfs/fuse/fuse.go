@@ -10,6 +10,9 @@ import (
 )
 
 func Mount(apiClient pfs.ApiClient, repositoryName string, mountPoint string) error {
+	if err := os.MkdirAll(mountPoint, 0777); err != nil {
+		return err
+	}
 	c, err := fuse.Mount(
 		mountPoint,
 		fuse.FSName("pfs"),
