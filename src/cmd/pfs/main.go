@@ -120,6 +120,14 @@ func main() {
 		},
 	}
 
+	mountCmd := &cobra.Command{
+		Use:  "mount repository-name commit-id",
+		Long: "Mount a repository as a local file system.",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("Unimplemented.")
+		},
+	}
+
 	rootCmd := &cobra.Command{
 		Use: "pfs",
 		Long: `Access the PFS API.
@@ -127,6 +135,7 @@ func main() {
 Note that this CLI is experimental and does not even check for common errors.
 The environment variable PFS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:650.`,
 	}
+
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(mkdirCmd)
@@ -136,6 +145,7 @@ The environment variable PFS_ADDRESS controls what server the CLI connects to, t
 	rootCmd.AddCommand(branchCmd)
 	rootCmd.AddCommand(commitCmd)
 	rootCmd.AddCommand(commitInfoCmd)
+	rootCmd.AddCommand(mountCmd)
 	check(rootCmd.Execute())
 
 	os.Exit(0)
