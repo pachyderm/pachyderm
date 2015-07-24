@@ -157,7 +157,7 @@ service Api {
   // An error is returned if the specified commit is a write commit.
   rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
   // GetFileInfo returns a FileInfo for a file.
-  rpc GetFileInfo(GetFileInfoRequest) returns (GetCommitInfoResponse) {}
+  rpc GetFileInfo(GetFileInfoRequest) returns (GetFileInfoResponse) {}
   // MakeDirectory makes a directory on the file system.
   rpc MakeDirectory(MakeDirectoryRequest) returns (google.protobuf.Empty) {}
   // PutFile writes the specified file to PFS.

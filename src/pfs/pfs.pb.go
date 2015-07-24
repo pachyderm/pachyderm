@@ -20,6 +20,8 @@ It has these top-level messages:
 	GetVersionResponse
 	InitRepositoryRequest
 	GetFileRequest
+	GetFileInfoRequest
+	GetFileInfoResponse
 	MakeDirectoryRequest
 	PutFileRequest
 	ListFilesRequest
@@ -312,6 +314,36 @@ func (m *GetFileRequest) GetPath() *Path {
 	return nil
 }
 
+type GetFileInfoRequest struct {
+	Path *Path `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+}
+
+func (m *GetFileInfoRequest) Reset()         { *m = GetFileInfoRequest{} }
+func (m *GetFileInfoRequest) String() string { return proto.CompactTextString(m) }
+func (*GetFileInfoRequest) ProtoMessage()    {}
+
+func (m *GetFileInfoRequest) GetPath() *Path {
+	if m != nil {
+		return m.Path
+	}
+	return nil
+}
+
+type GetFileInfoResponse struct {
+	FileInfo *FileInfo `protobuf:"bytes,1,opt,name=file_info" json:"file_info,omitempty"`
+}
+
+func (m *GetFileInfoResponse) Reset()         { *m = GetFileInfoResponse{} }
+func (m *GetFileInfoResponse) String() string { return proto.CompactTextString(m) }
+func (*GetFileInfoResponse) ProtoMessage()    {}
+
+func (m *GetFileInfoResponse) GetFileInfo() *FileInfo {
+	if m != nil {
+		return m.FileInfo
+	}
+	return nil
+}
+
 type MakeDirectoryRequest struct {
 	Path     *Path `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
 	Redirect bool  `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
@@ -517,6 +549,8 @@ type ApiClient interface {
 	// GetFile returns a byte stream of the specified file.
 	// An error is returned if the specified commit is a write commit.
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error)
+	// GetFileInfo returns a FileInfo for a file.
+	GetFileInfo(ctx context.Context, in *GetFileInfoRequest, opts ...grpc.CallOption) (*GetFileInfoResponse, error)
 	// MakeDirectory makes a directory on the file system.
 	MakeDirectory(ctx context.Context, in *MakeDirectoryRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	// PutFile writes the specified file to PFS.
@@ -593,6 +627,15 @@ func (x *apiGetFileClient) Recv() (*google_protobuf2.BytesValue, error) {
 	return m, nil
 }
 
+func (c *apiClient) GetFileInfo(ctx context.Context, in *GetFileInfoRequest, opts ...grpc.CallOption) (*GetFileInfoResponse, error) {
+	out := new(GetFileInfoResponse)
+	err := grpc.Invoke(ctx, "/pfs.Api/GetFileInfo", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *apiClient) MakeDirectory(ctx context.Context, in *MakeDirectoryRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
 	out := new(google_protobuf.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/MakeDirectory", in, out, c.cc, opts...)
@@ -657,6 +700,8 @@ type ApiServer interface {
 	// GetFile returns a byte stream of the specified file.
 	// An error is returned if the specified commit is a write commit.
 	GetFile(*GetFileRequest, Api_GetFileServer) error
+	// GetFileInfo returns a FileInfo for a file.
+	GetFileInfo(context.Context, *GetFileInfoRequest) (*GetFileInfoResponse, error)
 	// MakeDirectory makes a directory on the file system.
 	MakeDirectory(context.Context, *MakeDirectoryRequest) (*google_protobuf.Empty, error)
 	// PutFile writes the specified file to PFS.
@@ -722,6 +767,18 @@ type apiGetFileServer struct {
 
 func (x *apiGetFileServer) Send(m *google_protobuf2.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _Api_GetFileInfo_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(GetFileInfoRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).GetFileInfo(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func _Api_MakeDirectory_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
@@ -807,6 +864,10 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InitRepository",
 			Handler:    _Api_InitRepository_Handler,
+		},
+		{
+			MethodName: "GetFileInfo",
+			Handler:    _Api_GetFileInfo_Handler,
 		},
 		{
 			MethodName: "MakeDirectory",

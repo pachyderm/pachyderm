@@ -70,6 +70,10 @@ func (d *btrfsDriver) GetFile(path *pfs.Path, shard int) (io.ReadCloser, error) 
 	return os.Open(d.filePath(path, shard))
 }
 
+func (d *btrfsDriver) GetFileInfo(path *pfs.Path, shard int) (*pfs.FileInfo, error) {
+	return d.stat(path, shard)
+}
+
 func (d *btrfsDriver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
 	// TODO(pedge): if PutFile fails here or on another shard, the directories
 	// will still exist and be returned from ListFiles, we want to do this
