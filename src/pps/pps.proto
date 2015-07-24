@@ -31,9 +31,10 @@ message Output {
 }
 
 message Node {
-  Input input = 1;
-  Output output = 2;
-  repeated string run = 3;
+  string service = 1;
+  Input input = 2;
+  Output output = 3;
+  repeated string run = 4;
 }
 
 message DockerService {

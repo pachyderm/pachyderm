@@ -23,27 +23,24 @@
 	proto \
 	hit-godoc
 
-include etc/env/env.env
-
 IMAGES = deploy pfsd ppsd router shard
 BINARIES = deploy pfs pfsd pps ppsd router shard
 
 all: test
-
-print-%:
-	@echo $* = $($*)
 
 deps:
 	go get -d -v ./...
 
 update-deps:
 	go get -d -v -u -f ./...
+	./bin/deps
 
 test-deps:
 	go get -d -v -t ./...
 
 update-test-deps:
 	go get -d -v -t -u -f ./...
+	./bin/deps
 
 build: deps
 	go build ./...
@@ -53,28 +50,28 @@ install: deps
 
 clean:
 	go clean ./...
-	bin/clean
-	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) bin/clean || exit;)
+	./bin/clean
+	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) ./bin/clean || exit;)
 	$(foreach binary,$(BINARIES),rm -f src/cmd/$(binary)/$(binary);)
 	sudo rm -rf _tmp
 
 build-images:
-	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) bin/build || exit;)
+	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) ./bin/build || exit;)
 
 push-images: build-images
 	$(foreach image,$(IMAGES),docker push pachyderm/$(image) || exit;)
 
 shell:
-	PACHYDERM_DOCKER_OPTS="-it -v $(shell pwd):/go/src/github.com/pachyderm/pachyderm" bin/run /bin/bash
+	PACHYDERM_DOCKER_OPTS="-it -v $(shell pwd):/go/src/github.com/pachyderm/pachyderm" ./bin/run /bin/bash
 
 launch-shard:
-	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" bin/run -shard 0 -modulos 1
+	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" ./bin/run -shard 0 -modulos 1
 
 launch-pfsd:
-	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d -p $(PFS_PORT):$(PFS_API_PORT) -p $(PFS_TRACE_PORT):$(PFS_TRACE_PORT)" bin/run
+	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d -p 80:650" ./bin/run
 
 launch-ppsd:
-	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d -p $(PPS_PORT):$(PPS_API_PORT) -p $(PPS_TRACE_PORT):$(PPS_TRACE_PORT)" bin/run
+	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d -p 80:651" ./bin/run
 
 kube-%:
 	kubectl=kubectl; \
@@ -103,14 +100,14 @@ pretest: lint vet errcheck
 
 # TODO(pedge): add pretest when fixed
 test:
-	bin/run bin/wrap bin/test -test.short ./...
+	./bin/run ./bin/test -test.short ./...
 
 # TODO(pedge): add pretest when fixed
 test-long:
 	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
 	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
 	@ sleep 5
-	bin/run bin/wrap bin/test ./...
+	./bin/run ./bin/test ./...
 
 test-new: test-deps
 	go get -v github.com/golang/lint/golint
@@ -120,14 +117,14 @@ test-new: test-deps
 		done; \
 	done
 	go vet ./src/pfs/... ./src/pkg/... ./src/pps/...
-	bin/run bin/wrap bin/test ./src/pfs/... ./src/pps/...
+	./bin/run ./bin/test ./src/pfs/... ./src/pps/...
 
 # TODO(pedge): add pretest when fixed
 bench:
 	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
 	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
 	@ sleep 5
-	bin/run bin/wrap bin/test -bench . ./...
+	./bin/run ./bin/test -bench . ./...
 
 proto:
 	@ if ! docker images | grep 'pedge/proto3grpc' > /dev/null; then \

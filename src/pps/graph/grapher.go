@@ -2,10 +2,31 @@ package graph
 
 import (
 	"fmt"
-
-	"github.com/pachyderm/pachyderm/src/log"
-	"github.com/pachyderm/pachyderm/src/pps"
+	"sync"
 )
+
+type run struct {
+	nodeRunners map[string]*nodeRunner
+	cancel      chan<- bool
+}
+
+func (r *run) Do() {
+	var wg sync.WaitGroup
+	for _, nodeRunner := range r.nodeRunners {
+		nodeRunner := nodeRunner
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			nodeRunner.run()
+		}()
+	}
+	wg.Wait()
+}
+
+func (r *run) Cancel() {
+	r.cancel <- true
+	close(r.cancel)
+}
 
 type grapher struct{}
 
@@ -13,141 +34,81 @@ func newGrapher() *grapher {
 	return &grapher{}
 }
 
-func (g *grapher) GetPipelineInfo(pipeline *pps.Pipeline) (*PipelineInfo, error) {
-	return getPipelineInfo(pipeline)
+func (g *grapher) Build(
+	nodeErrorRecorder NodeErrorRecorder,
+	nameToNodeInfo map[string]*NodeInfo,
+	nameToNodeFunc map[string]func() error,
+) (Run, error) {
+	return build(
+		nodeErrorRecorder,
+		nameToNodeInfo,
+		nameToNodeFunc,
+	)
 }
 
-func getPipelineInfo(pipeline *pps.Pipeline) (*PipelineInfo, error) {
-	nodes := getNameToNode(pipeline)
-	nodeToInputs := getNodeNameToInputStrings(nodes)
-	nodeToOutputs := getNodeNameToOutputStrings(nodes)
-	inputToNodes := getInputStringToNodeNames(nodes)
-	outputToNodes := getOutputStringToNodeNames(nodes)
-	nodeInfos := make(map[string](*NodeInfo))
-	for name := range nodes {
-		nodeInfo := &NodeInfo{
-			Parents:  make([]string, 0),
-			Children: make([]string, 0),
-		}
-		parents := make(map[string]bool)
-		for input := range nodeToInputs[name] {
-			for parent := range outputToNodes[input] {
-				if parent != name {
-					parents[parent] = true
-				}
-			}
-		}
-		for parent := range parents {
-			nodeInfo.Parents = append(nodeInfo.Parents, parent)
-		}
-		children := make(map[string]bool)
-		for output := range nodeToOutputs[name] {
-			for child := range inputToNodes[output] {
-				if child != name {
-					children[child] = true
-				}
-			}
-		}
-		for child := range children {
-			nodeInfo.Children = append(nodeInfo.Children, child)
-		}
-		nodeInfos[name] = nodeInfo
+func build(
+	nodeErrorRecorder NodeErrorRecorder,
+	nameToNodeInfo map[string]*NodeInfo,
+	nameToNodeFunc map[string]func() error,
+) (*run, error) {
+	cancel := make(chan bool)
+	nodeRunners, err := getNameToNodeRunner(nameToNodeInfo, nameToNodeFunc, nodeErrorRecorder, cancel)
+	if err != nil {
+		return nil, err
 	}
-	pipelineInfo := &PipelineInfo{nodeInfos}
-	log.Printf("got pipeline info %v\n", pipelineInfo)
-	return pipelineInfo, nil
+	return &run{
+		nodeRunners,
+		cancel,
+	}, nil
 }
 
-func getNodeNameToInputStrings(nodes map[string]*pps.Node) map[string]map[string]bool {
-	m := make(map[string]map[string]bool)
-	for name, node := range nodes {
-		n := make(map[string]bool)
-		if node.Input != nil {
-			for hostDir := range node.Input.Host {
-				// just need a differentiating string between types
-				n[fmt.Sprintf("host://%s", hostDir)] = true
-			}
-			for pfsRepo := range node.Input.Pfs {
-				n[fmt.Sprintf("pfs://%s", pfsRepo)] = true
-			}
-		}
-		m[name] = n
+func getNameToNodeRunner(
+	nodeInfos map[string]*NodeInfo,
+	nameToNodeFunc map[string]func() error,
+	nodeErrorRecorder NodeErrorRecorder,
+	cancel <-chan bool,
+) (map[string]*nodeRunner, error) {
+	if err := checkNodeInfos(nodeInfos, nameToNodeFunc); err != nil {
+		return nil, err
 	}
-	return m
-}
-
-func getNodeNameToOutputStrings(nodes map[string]*pps.Node) map[string]map[string]bool {
-	m := make(map[string]map[string]bool)
-	for name, node := range nodes {
-		n := make(map[string]bool)
-		if node.Output != nil {
-			for hostDir := range node.Output.Host {
-				// just need a differentiating string between types
-				n[fmt.Sprintf("host://%s", hostDir)] = true
-			}
-			for pfsRepo := range node.Output.Pfs {
-				n[fmt.Sprintf("pfs://%s", pfsRepo)] = true
-			}
-		}
-		m[name] = n
+	nodeRunners := make(map[string]*nodeRunner, len(nodeInfos))
+	for name := range nodeInfos {
+		nodeRunners[name] = newNodeRunner(
+			name,
+			nameToNodeFunc[name],
+			nodeErrorRecorder,
+			cancel,
+		)
 	}
-	return m
-}
-
-func getInputStringToNodeNames(nodes map[string]*pps.Node) map[string]map[string]bool {
-	m := make(map[string]map[string]bool)
-	for name, node := range nodes {
-		if node.Input != nil {
-			for hostDir := range node.Input.Host {
-				// just need a differentiating string between types
-				s := fmt.Sprintf("host://%s", hostDir)
-				if _, ok := m[s]; !ok {
-					m[s] = make(map[string]bool)
-				}
-				m[s][name] = true
+	for name, nodeInfo := range nodeInfos {
+		for _, parent := range nodeInfo.Parents {
+			errC := make(chan error, 1)
+			nodeRunner := nodeRunners[name]
+			parentNodeRunner := nodeRunners[parent]
+			if err := nodeRunner.addParent(parent, errC); err != nil {
+				return nil, err
 			}
-			for pfsRepo := range node.Input.Pfs {
-				s := fmt.Sprintf("pfs://%s", pfsRepo)
-				if _, ok := m[s]; !ok {
-					m[s] = make(map[string]bool)
-				}
-				m[s][name] = true
+			if err := parentNodeRunner.addChild(name, errC); err != nil {
+				return nil, err
 			}
 		}
 	}
-	return m
+	return nodeRunners, nil
 }
 
-func getOutputStringToNodeNames(nodes map[string]*pps.Node) map[string]map[string]bool {
-	m := make(map[string]map[string]bool)
-	for name, node := range nodes {
-		if node.Output != nil {
-			for hostDir := range node.Output.Host {
-				// just need a differentiating string between types
-				s := fmt.Sprintf("host://%s", hostDir)
-				if _, ok := m[s]; !ok {
-					m[s] = make(map[string]bool)
-				}
-				m[s][name] = true
-			}
-			for pfsRepo := range node.Output.Pfs {
-				s := fmt.Sprintf("pfs://%s", pfsRepo)
-				if _, ok := m[s]; !ok {
-					m[s] = make(map[string]bool)
-				}
-				m[s][name] = true
-			}
+func checkNodeInfos(
+	nodeInfos map[string]*NodeInfo,
+	nameToNodeFunc map[string]func() error,
+) error {
+	for name := range nameToNodeFunc {
+		if _, ok := nodeInfos[name]; !ok {
+			return fmt.Errorf("no node info for %s", name)
 		}
 	}
-	return m
-}
-
-func getNameToNode(pipeline *pps.Pipeline) map[string]*pps.Node {
-	m := make(map[string]*pps.Node)
-	for name, element := range pipeline.NameToElement {
-		if element.Node != nil {
-			m[name] = element.Node
+	for name := range nodeInfos {
+		if _, ok := nameToNodeFunc[name]; !ok {
+			return fmt.Errorf("no node func for %s", name)
 		}
 	}
-	return m
+	return nil
 }

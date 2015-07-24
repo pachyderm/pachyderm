@@ -7,16 +7,14 @@
 set -E
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"
-cd "${DIR}"
 
-. "${DIR}/../etc/env/env.env"
-
-if [ -z "${PACHYDERM_IMAGE}" ]; then
-  PACHYDERM_IMAGE="pachyderm"
+sudo umount "/tmp/pfs/btrfs" > /dev/null 2> /dev/null
+sudo rm -rf "/tmp/pfs" > /dev/null 2< /dev/null
+if [ -z "${NODOCKER}" ]; then
+  if [ -z "${PACHYDERM_IMAGE}" ]; then
+    PACHYDERM_IMAGE="pachyderm"
+  fi
+  docker kill "${PACHYDERM_IMAGE}" > /dev/null 2> /dev/null
+  docker rm "${PACHYDERM_IMAGE}" > /dev/null 2> /dev/null
 fi
-
-sudo umount "/var/lib/pfs/btrfs" > /dev/null 2> /dev/null
-sudo rm -rf "/var/lib/pfs" > /dev/null 2< /dev/null
-docker kill "${PACHYDERM_IMAGE}" > /dev/null 2> /dev/null
-docker rm "${PACHYDERM_IMAGE}" > /dev/null 2> /dev/null
 exit 0

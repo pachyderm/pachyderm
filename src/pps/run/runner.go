@@ -1,6 +1,7 @@
 package run
 
 import (
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
@@ -35,10 +36,48 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	pipelineInfo, err := r.grapher.GetPipelineInfo(pipeline)
+	pipelineRunID := common.NewUUID()
+	if err := r.storeClient.AddPipelineRun(
+		pipelineRunID,
+		pipelineSource,
+		pipeline,
+	); err != nil {
+		return "", err
+	}
+	log.Printf("%v %s %v\n", dirPath, pipelineRunID, pipeline)
+	nameToNode := pps.GetNameToNode(pipeline)
+	nameToNodeInfo, err := graph.GetNameToNodeInfo(nameToNode)
 	if err != nil {
 		return "", err
 	}
-	log.Printf("%v %v %v\n", dirPath, pipeline, pipelineInfo)
-	return "1234", nil
+	nameToNodeFunc := make(map[string]func() error)
+	for name := range nameToNode {
+		name := name
+		nameToNodeFunc[name] = func() error {
+			log.Printf("RUNNING %s\n", name)
+			return nil
+		}
+	}
+	run, err := r.grapher.Build(
+		&dummyNodeErrorRecorder{},
+		nameToNodeInfo,
+		nameToNodeFunc,
+	)
+	if err != nil {
+		return "", err
+	}
+	go run.Do()
+	if err := r.storeClient.AddPipelineRunStatus(
+		pipelineRunID,
+		pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED,
+	); err != nil {
+		return "", err
+	}
+	return pipelineRunID, nil
+}
+
+type dummyNodeErrorRecorder struct{}
+
+func (d *dummyNodeErrorRecorder) Record(nodeName string, err error) {
+	log.Printf("%s HAD ERROR %v\n", nodeName, err)
 }
