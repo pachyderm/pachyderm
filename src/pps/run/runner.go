@@ -1,6 +1,7 @@
 package run
 
 import (
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
@@ -35,10 +36,18 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	pipelineRunID := common.NewUUID()
+	if err := r.storeClient.AddPipelineRun(
+		pipelineRunID,
+		pipelineSource,
+		pipeline,
+	); err != nil {
+		return "", err
+	}
 	pipelineInfo, err := r.grapher.GetPipelineInfo(pipeline)
 	if err != nil {
 		return "", err
 	}
-	log.Printf("%v %v %v\n", dirPath, pipeline, pipelineInfo)
-	return "1234", nil
+	log.Printf("%v %s %v %v\n", dirPath, pipelineRunID, pipeline, pipelineInfo)
+	return pipelineRunID, nil
 }
