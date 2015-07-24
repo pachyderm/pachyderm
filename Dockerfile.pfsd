@@ -1,8 +1,5 @@
-FROM gliderlabs/alpine:3.2
+FROM ubuntu:15.04
 MAINTAINER peter@pachyderm.io
 
-RUN mkdir -p /etc/ssl/certs
-ADD etc/certs/ca-certificates.crt /etc/ssl/certs/
-COPY etc/bin/btrfs-wrapper /bin/btrfs
-ADD _tmp/pfsd /bin/pfsd
-ENTRYPOINT ["/bin/pfsd"]
+ADD _tmp/pfsd /pfsd
+ENTRYPOINT ["/pfsd"]

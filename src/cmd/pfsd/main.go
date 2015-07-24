@@ -25,11 +25,10 @@ const (
 )
 
 type appEnv struct {
-	BtrfsDriverType string `env:"PFS_BTRFS_DRIVER_TYPE"`
-	BtrfsRoot       string `env:"PFS_BTRFS_ROOT,required"`
-	NumShards       int    `env:"PFS_NUM_SHARDS"`
-	APIPort         int    `env:"PFS_API_PORT"`
-	TracePort       int    `env:"PFS_TRACE_PORT"`
+	BtrfsRoot string `env:"PFS_BTRFS_ROOT,required"`
+	NumShards int    `env:"PFS_NUM_SHARDS"`
+	APIPort   int    `env:"PFS_API_PORT"`
+	TracePort int    `env:"PFS_TRACE_PORT"`
 }
 
 func main() {
@@ -53,15 +52,7 @@ func do() error {
 	if appEnv.APIPort == 0 {
 		appEnv.APIPort = defaultAPIPort
 	}
-	var btrfsAPI btrfs.API
-	switch appEnv.BtrfsDriverType {
-	case "ffi":
-		btrfsAPI = btrfs.NewFFIAPI()
-	case "exec":
-		fallthrough
-	default:
-		btrfsAPI = btrfs.NewExecAPI()
-	}
+	btrfsAPI := btrfs.NewFFIAPI()
 	address := fmt.Sprintf("0.0.0.0:%d", appEnv.APIPort)
 	combinedAPIServer := server.NewCombinedAPIServer(
 		route.NewSharder(
