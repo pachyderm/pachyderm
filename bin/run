@@ -49,6 +49,7 @@ docker run \
     -e "PFS_API_PORT=${PFS_API_PORT}" \
     -e "PFS_TRACE_PORT=${PFS_TRACE_PORT}" \
     -e "PFS_NUM_SHARDS=${PFS_NUM_SHARDS}" \
+    -e "PFS_BTRFS_DRIVER_TYPE=${PFS_BTRFS_DRIVER_TYPE}" \
     -e "PPS_API_PORT=${PPS_API_PORT}" \
     -e "PPS_TRACE_PORT=${PPS_TRACE_PORT}" \
     -e "AWS_REGION=${AWS_REGION}" \
