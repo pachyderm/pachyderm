@@ -2,6 +2,7 @@ pps:
   # a node is a pipeline/job/whatever we call it
   kind: node
   name: foo-node
+service: foo
 input:
   # /in is the mountpoint
   # foo-repository is a pfs repository
