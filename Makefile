@@ -68,10 +68,10 @@ launch-shard:
 	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" ./bin/run -shard 0 -modulos 1
 
 launch-pfsd:
-	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d -p 80:650" ./bin/run
+	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d -p 650:80" ./bin/run
 
 launch-ppsd:
-	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d -p 80:651" ./bin/run
+	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d -p 651:80" ./bin/run
 
 kube-%:
 	kubectl=kubectl; \
