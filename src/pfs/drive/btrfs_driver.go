@@ -22,10 +22,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
 	"github.com/peter-edge/go-google-protobuf"
-	"github.com/satori/go.uuid"
 )
 
 type btrfsDriver struct {
@@ -276,5 +276,5 @@ func (d *btrfsDriver) filePath(path *pfs.Path, shard int) string {
 }
 
 func newCommitID() string {
-	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
+	return strings.Replace(common.NewUUID(), "-", "", -1)
 }

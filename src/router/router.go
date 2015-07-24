@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/route"
-	"github.com/satori/go.uuid"
 )
 
 type Router struct {
@@ -48,7 +47,7 @@ func (ro *Router) RouterMux() *http.ServeMux {
 		if r.Method == "POST" {
 			values := r.URL.Query()
 			if values.Get("commit") == "" {
-				values.Add("commit", uuid.NewV4().String())
+				values.Add("commit", common.NewUUID())
 				r.URL.RawQuery = values.Encode()
 			}
 		}
