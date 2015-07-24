@@ -1,6 +1,10 @@
 package common
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/satori/go.uuid"
+)
 
 const (
 	MajorVersion      = 0
@@ -11,4 +15,8 @@ const (
 
 func VersionString() string {
 	return fmt.Sprintf("%d.%d.%d%s", MajorVersion, MinorVersion, MicroVersion, AdditionalVersion)
+}
+
+func NewUUID() string {
+	return uuid.NewV4().String()
 }
