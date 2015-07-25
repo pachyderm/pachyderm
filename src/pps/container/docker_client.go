@@ -3,7 +3,6 @@ package container
 import (
 	"bytes"
 	"fmt"
-	"strings"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/log"
@@ -106,7 +105,7 @@ func (c *dockerClient) Start(containerID string, options StartOptions) error {
 	if options.Commands != nil && len(options.Commands) > 0 {
 		buffer := bytes.NewBuffer(nil)
 		for _, command := range options.Commands {
-			if _, err := buffer.WriteString(strings.Join(command, " ") + "\n"); err != nil {
+			if _, err := buffer.WriteString(command + "\n"); err != nil {
 				return err
 			}
 		}
