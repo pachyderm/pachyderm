@@ -82,6 +82,70 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 		},
 		matches,
 	)
+	matches, err = filepath.Glob("/tmp/pps-server-test/3-out/*")
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		[]string{
+			"/tmp/pps-server-test/3-out/1.txt.copy3",
+			"/tmp/pps-server-test/3-out/10.txt.copy3",
+			"/tmp/pps-server-test/3-out/2.txt.copy3",
+			"/tmp/pps-server-test/3-out/20.txt.copy3",
+			"/tmp/pps-server-test/3-out/3.txt.copy3",
+			"/tmp/pps-server-test/3-out/30.txt.copy3",
+			"/tmp/pps-server-test/3-out/4.txt.copy3",
+			"/tmp/pps-server-test/3-out/40.txt.copy3",
+			"/tmp/pps-server-test/3-out/5.txt.copy3",
+			"/tmp/pps-server-test/3-out/50.txt.copy3",
+		},
+		matches,
+	)
+	matches, err = filepath.Glob("/tmp/pps-server-test/4-out/*")
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		[]string{
+			"/tmp/pps-server-test/4-out/1.txt.copy4",
+			"/tmp/pps-server-test/4-out/10.txt.copy4",
+			"/tmp/pps-server-test/4-out/2.txt.copy4",
+			"/tmp/pps-server-test/4-out/20.txt.copy4",
+			"/tmp/pps-server-test/4-out/3.txt.copy4",
+			"/tmp/pps-server-test/4-out/30.txt.copy4",
+			"/tmp/pps-server-test/4-out/4.txt.copy4",
+			"/tmp/pps-server-test/4-out/40.txt.copy4",
+			"/tmp/pps-server-test/4-out/5.txt.copy4",
+			"/tmp/pps-server-test/4-out/50.txt.copy4",
+		},
+		matches,
+	)
+	matches, err = filepath.Glob("/tmp/pps-server-test/5-out/*")
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		[]string{
+			"/tmp/pps-server-test/5-out/1.txt.copy3",
+			"/tmp/pps-server-test/5-out/10.txt.copy3",
+			"/tmp/pps-server-test/5-out/2.txt.copy3",
+			"/tmp/pps-server-test/5-out/20.txt.copy3",
+			"/tmp/pps-server-test/5-out/3.txt.copy3",
+			"/tmp/pps-server-test/5-out/30.txt.copy3",
+			"/tmp/pps-server-test/5-out/4.txt.copy3",
+			"/tmp/pps-server-test/5-out/40.txt.copy3",
+			"/tmp/pps-server-test/5-out/5.txt.copy3",
+			"/tmp/pps-server-test/5-out/50.txt.copy3",
+			"/tmp/pps-server-test/5-out/1.txt.copy",
+			"/tmp/pps-server-test/5-out/10.txt.copy4",
+			"/tmp/pps-server-test/5-out/2.txt.copy4",
+			"/tmp/pps-server-test/5-out/20.txt.copy4",
+			"/tmp/pps-server-test/5-out/3.txt.copy4",
+			"/tmp/pps-server-test/5-out/30.txt.copy4",
+			"/tmp/pps-server-test/5-out/4.txt.copy4",
+			"/tmp/pps-server-test/5-out/40.txt.copy4",
+			"/tmp/pps-server-test/5-out/5.txt.copy4",
+			"/tmp/pps-server-test/5-out/50.txt.copy4",
+		},
+		matches,
+	)
 }
 
 func getFinalPipelineRunStatus(apiClient pps.ApiClient, pipelineRunID string) (*pps.PipelineRunStatus, error) {
