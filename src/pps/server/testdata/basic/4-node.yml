@@ -1,6 +1,6 @@
 pps:
   kind: node
-  name: "3"
+  name: "4"
 service: ubuntu
 input:
   host:
