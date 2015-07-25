@@ -11,7 +11,7 @@ type PullOptions struct{}
 type CreateOptions struct {
 	Input         *pps.Input
 	Output        *pps.Output
-	Commands      []string
+	Commands      [][]string
 	NumContainers int
 }
 
