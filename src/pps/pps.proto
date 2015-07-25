@@ -19,8 +19,9 @@ message PipelineRunStatus {
 }
 
 message Input {
-  map<string, string> host = 1;
-  map<string, string> pfs = 2;
+  repeated string node = 1;
+  map<string, string> host = 2;
+  map<string, string> pfs = 3;
 }
 
 message Output {

@@ -91,8 +91,9 @@ func (m *PipelineRunStatus) GetTimestamp() *google_protobuf1.Timestamp {
 }
 
 type Input struct {
-	Host map[string]string `protobuf:"bytes,1,rep,name=host" json:"host,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Pfs  map[string]string `protobuf:"bytes,2,rep,name=pfs" json:"pfs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Node []string          `protobuf:"bytes,1,rep,name=node" json:"node,omitempty"`
+	Host map[string]string `protobuf:"bytes,2,rep,name=host" json:"host,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Pfs  map[string]string `protobuf:"bytes,3,rep,name=pfs" json:"pfs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
 func (m *Input) Reset()         { *m = Input{} }
