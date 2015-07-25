@@ -1,7 +1,9 @@
 package server
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
@@ -26,7 +28,6 @@ func init() {
 }
 
 func TestBasic(t *testing.T) {
-	t.Skip()
 	runTest(t, testBasic)
 }
 
@@ -42,8 +43,48 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 	)
 	require.NoError(t, err)
 	pipelineRunID := startPipelineRunResponse.PipelineRunId
+	pipelineRunStatus, err := getFinalPipelineRunStatus(apiClient, pipelineRunID)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS, pipelineRunStatus.PipelineRunStatusType)
+	matches, err := filepath.Glob("/tmp/pps-server-test/1-out/*")
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		[]string{
+			"/tmp/pps-server-test/1-out/1.txt",
+			"/tmp/pps-server-test/1-out/10.txt",
+			"/tmp/pps-server-test/1-out/2.txt",
+			"/tmp/pps-server-test/1-out/20.txt",
+			"/tmp/pps-server-test/1-out/3.txt",
+			"/tmp/pps-server-test/1-out/30.txt",
+			"/tmp/pps-server-test/1-out/4.txt",
+			"/tmp/pps-server-test/1-out/40.txt",
+			"/tmp/pps-server-test/1-out/5.txt",
+			"/tmp/pps-server-test/1-out/50.txt",
+		},
+		matches,
+	)
+	matches, err = filepath.Glob("/tmp/pps-server-test/2-out/*")
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		[]string{
+			"/tmp/pps-server-test/2-out/1.txt.copy",
+			"/tmp/pps-server-test/2-out/10.txt.copy",
+			"/tmp/pps-server-test/2-out/2.txt.copy",
+			"/tmp/pps-server-test/2-out/20.txt.copy",
+			"/tmp/pps-server-test/2-out/3.txt.copy",
+			"/tmp/pps-server-test/2-out/30.txt.copy",
+			"/tmp/pps-server-test/2-out/4.txt.copy",
+			"/tmp/pps-server-test/2-out/40.txt.copy",
+			"/tmp/pps-server-test/2-out/5.txt.copy",
+			"/tmp/pps-server-test/2-out/50.txt.copy",
+		},
+		matches,
+	)
+}
 
-	var pipelineRunStatus pps.PipelineRunStatus
+func getFinalPipelineRunStatus(apiClient pps.ApiClient, pipelineRunID string) (*pps.PipelineRunStatus, error) {
 	// TODO(pedge): not good
 	ticker := time.NewTicker(time.Second)
 	for i := 0; i < 15; i++ {
@@ -52,19 +93,19 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 			apiClient,
 			pipelineRunID,
 		)
-		require.NoError(t, err)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println(getPipelineRunStatusResponse.PipelineRunStatus)
 		pipelineRunStatus := getPipelineRunStatusResponse.PipelineRunStatus
 		switch pipelineRunStatus.PipelineRunStatusType {
 		case pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR:
-			fallthrough
+			return pipelineRunStatus, nil
 		case pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS:
-			break
-		default:
-			pipelineRunStatus = nil
+			return pipelineRunStatus, nil
 		}
 	}
-	require.NotNil(t, pipelineRunStatus)
-	require.Equal(t, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS, pipelineRunStatus.PipelineRunStatusType)
+	return nil, fmt.Errorf("did not get final pipeline status for %s", pipelineRunID)
 }
 
 func runTest(

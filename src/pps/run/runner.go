@@ -48,17 +48,24 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 	}
 	log.Printf("%v %s %v\n", dirPath, pipelineRunID, pipeline)
 	nameToNode := pps.GetNameToNode(pipeline)
+	nameToDockerService := pps.GetNameToDockerService(pipeline)
 	nameToNodeInfo, err := graph.GetNameToNodeInfo(nameToNode)
 	if err != nil {
 		return "", err
 	}
 	nameToNodeFunc := make(map[string]func() error)
-	for name := range nameToNode {
-		name := name
-		nameToNodeFunc[name] = func() error {
-			log.Printf("RUNNING %s\n", name)
-			return nil
+	for name, node := range nameToNode {
+		nodeFunc, err := r.getNodeFunc(
+			pipelineRunID,
+			name,
+			node,
+			nameToDockerService,
+			1,
+		)
+		if err != nil {
+			return "", err
 		}
+		nameToNodeFunc[name] = nodeFunc
 	}
 	run, err := r.grapher.Build(
 		newNodeErrorRecorder(
