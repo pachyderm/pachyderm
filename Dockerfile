@@ -15,10 +15,7 @@ RUN \
   mkdir -p /go/bin
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go
-RUN \
-  go get -v golang.org/x/tools/cmd/vet && \
-  go get -v github.com/kisielk/errcheck && \
-  go get -v github.com/golang/lint/golint
+RUN go get golang.org/x/tools/cmd/vet github.com/kisielk/errcheck github.com/golang/lint/golint
 RUN mkdir -p /go/src/github.com/pachyderm/pachyderm
 WORKDIR /go/src/github.com/pachyderm/pachyderm
 RUN mkdir -p /go/src/github.com/pachyderm/pachyderm/etc/deps
