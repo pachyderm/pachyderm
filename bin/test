@@ -1,7 +1,5 @@
 #!/bin/sh
 
-# This script runs go test with the default settings.
-
 set -Ee
 
 if [ -z "${GOMAXPROCS}" ]; then
