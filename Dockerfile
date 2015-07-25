@@ -21,8 +21,4 @@ WORKDIR /go/src/github.com/pachyderm/pachyderm
 RUN mkdir -p /go/src/github.com/pachyderm/pachyderm/etc/deps
 ADD etc/deps/deps.list /go/src/github.com/pachyderm/pachyderm/etc/deps/
 RUN cat etc/deps/deps.list | xargs go get
-RUN \
-  go get github.com/coreos/go-etcd/etcd && \
-  cd /go/src/github.com/coreos/go-etcd && \
-  git checkout release-0.4
 ADD . /go/src/github.com/pachyderm/pachyderm/
