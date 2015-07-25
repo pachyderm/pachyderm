@@ -37,6 +37,9 @@ func getNodeNameToInputStrings(nodes map[string]*pps.Node) map[string]map[string
 	for name, node := range nodes {
 		n := make(map[string]bool)
 		if node.Input != nil {
+			for _, iNode := range node.Input.Node {
+				n[fmt.Sprintf("node://%s", iNode)] = true
+			}
 			for hostDir := range node.Input.Host {
 				// just need a differentiating string between types
 				n[fmt.Sprintf("host://%s", hostDir)] = true
@@ -68,6 +71,15 @@ func getOutputStringToNodeNames(nodes map[string]*pps.Node) map[string]map[strin
 					m[s] = make(map[string]bool)
 				}
 				m[s][name] = true
+			}
+		}
+		s := fmt.Sprintf("node://%s", name)
+		for subName := range nodes {
+			if name != subName {
+				if _, ok := m[s]; !ok {
+					m[s] = make(map[string]bool)
+				}
+				m[s][subName] = true
 			}
 		}
 	}
