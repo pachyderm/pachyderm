@@ -9,6 +9,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/log"
 )
 
+const (
+	defaultShell = "sh"
+)
+
 type dockerClient struct {
 	// confusing
 	client *docker.Client
@@ -117,6 +121,18 @@ func (c *dockerClient) Start(containerID string, options StartOptions) error {
 	return c.client.StartContainer(container.ID, container.HostConfig)
 }
 
+func (c *dockerClient) Logs(containerID string, options LogsOptions) error {
+	return c.client.Logs(
+		docker.LogsOptions{
+			Container:    containerID,
+			OutputStream: options.Stdout,
+			ErrorStream:  options.Stderr,
+			Stdout:       options.Stdout != nil,
+			Stderr:       options.Stderr != nil,
+		},
+	)
+}
+
 func (c *dockerClient) Wait(containerID string, options WaitOptions) error {
 	errC := make(chan error)
 	go func() {
@@ -182,6 +198,11 @@ func getDockerConfig(imageName string, options CreateOptions) (*docker.Config, e
 		config.AttachStdin = true
 		config.OpenStdin = true
 		config.StdinOnce = true
+		if options.Shell != "" {
+			config.Entrypoint = []string{options.Shell}
+		} else {
+			config.Entrypoint = []string{defaultShell}
+		}
 	}
 	return config, nil
 }

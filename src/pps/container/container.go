@@ -1,6 +1,10 @@
 package container
 
-import "github.com/pachyderm/pachyderm/src/pps"
+import (
+	"io"
+
+	"github.com/pachyderm/pachyderm/src/pps"
+)
 
 type BuildOptions struct {
 	Dockerfile string
@@ -12,10 +16,16 @@ type CreateOptions struct {
 	Input         *pps.Input
 	Output        *pps.Output
 	Commands      [][]string
+	Shell         string
 	NumContainers int
 }
 
 type StartOptions struct{}
+
+type LogsOptions struct {
+	Stdout io.Writer
+	Stderr io.Writer
+}
 
 type WaitOptions struct{}
 
@@ -28,6 +38,7 @@ type Client interface {
 	Pull(imageName string, options PullOptions) error
 	Create(imageName string, options CreateOptions) ([]string, error)
 	Start(containerID string, options StartOptions) error
+	Logs(containerID string, options LogsOptions) error
 	Wait(containerID string, options WaitOptions) error
 	Kill(containerID string, options KillOptions) error
 	Remove(containerID string, options RemoveOptions) error
