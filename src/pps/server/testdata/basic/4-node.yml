@@ -1,0 +1,12 @@
+pps:
+  kind: node
+  name: "3"
+service: ubuntu
+input:
+  host:
+    /tmp/pps-server-test/2-out: /in
+output:
+  host:
+    /tmp/pps-server-test/4-out: /out
+run:
+  - for file in /in/*; do cp $file /out/$(basename $file)4; done
