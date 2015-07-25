@@ -1,7 +1,9 @@
 package container
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/log"
@@ -85,6 +87,24 @@ func (c *dockerClient) Create(imageName string, options CreateOptions) (retVal [
 			return nil, err
 		}
 		containerIDs = append(containerIDs, container.ID)
+		if options.Commands != nil && len(options.Commands) > 0 {
+			buffer := bytes.NewBuffer(nil)
+			for _, command := range options.Commands {
+				if _, err := buffer.WriteString(strings.Join(command, " ") + "\n"); err != nil {
+					return nil, err
+				}
+			}
+			if err := c.client.AttachToContainer(
+				docker.AttachToContainerOptions{
+					Container:   container.ID,
+					InputStream: buffer,
+					Stdin:       true,
+					Stream:      true,
+				},
+			); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return containerIDs, nil
 }
@@ -155,9 +175,15 @@ func getDockerCreateContainerOptions(imageName string, options CreateOptions) (d
 }
 
 func getDockerConfig(imageName string, options CreateOptions) (*docker.Config, error) {
-	return &docker.Config{
+	config := &docker.Config{
 		Image: imageName,
-	}, nil
+	}
+	if options.Commands != nil && len(options.Commands) > 0 {
+		config.AttachStdin = true
+		config.OpenStdin = true
+		config.StdinOnce = true
+	}
+	return config, nil
 }
 
 func getDockerHostConfig() (*docker.HostConfig, error) {
