@@ -182,7 +182,7 @@ func getDockerCreateContainerOptions(imageName string, options CreateOptions) (d
 	if err != nil {
 		return docker.CreateContainerOptions{}, err
 	}
-	hostConfig, err := getDockerHostConfig()
+	hostConfig, err := getDockerHostConfig(options)
 	if err != nil {
 		return docker.CreateContainerOptions{}, err
 	}
@@ -209,6 +209,23 @@ func getDockerConfig(imageName string, options CreateOptions) (*docker.Config, e
 	return config, nil
 }
 
-func getDockerHostConfig() (*docker.HostConfig, error) {
-	return &docker.HostConfig{}, nil
+func getDockerHostConfig(options CreateOptions) (*docker.HostConfig, error) {
+	hostConfig := &docker.HostConfig{}
+	if options.Input != nil {
+		if hostConfig.Binds == nil {
+			hostConfig.Binds = make([]string, 0)
+		}
+		for key, value := range options.Input.Host {
+			hostConfig.Binds = append(hostConfig.Binds, fmt.Sprintf("%s:%s:ro", key, value))
+		}
+	}
+	if options.Output != nil {
+		if hostConfig.Binds == nil {
+			hostConfig.Binds = make([]string, 0)
+		}
+		for key, value := range options.Output.Host {
+			hostConfig.Binds = append(hostConfig.Binds, fmt.Sprintf("%s:%s:rw", key, value))
+		}
+	}
+	return hostConfig, nil
 }
