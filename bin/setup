@@ -1,7 +1,5 @@
 #!/bin/sh
 
-# This script sets up a new btrfs mount point.
-
 set -Ee
 
 sudo mkdir -p "/tmp/pfs/btrfs"
