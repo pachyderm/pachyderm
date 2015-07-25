@@ -61,24 +61,28 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 		}
 	}
 	run, err := r.grapher.Build(
-		&dummyNodeErrorRecorder{},
+		newNodeErrorRecorder(
+			pipelineRunID,
+			r.storeClient,
+		),
 		nameToNodeInfo,
 		nameToNodeFunc,
 	)
 	if err != nil {
 		return "", err
 	}
-	go run.Do()
 	if err := r.storeClient.AddPipelineRunStatus(
 		pipelineRunID,
 		pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED,
 	); err != nil {
 		return "", err
 	}
+	go run.Do()
 	return pipelineRunID, nil
 }
 
 func (r *runner) getNodeFunc(
+	pipelineRunID string,
 	name string,
 	node *pps.Node,
 	nameToDockerService map[string]*pps.DockerService,
@@ -92,6 +96,16 @@ func (r *runner) getNodeFunc(
 		return nil, fmt.Errorf("build/dockerfile not supported yet")
 	}
 	return func() (retErr error) {
+		defer func() {
+			if retErr == nil {
+				if err := r.storeClient.AddPipelineRunStatus(
+					pipelineRunID,
+					pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS,
+				); err != nil {
+					retErr = err
+				}
+			}
+		}()
 		if err := r.containerClient.Pull(dockerService.Image, container.PullOptions{}); err != nil {
 			return err
 		}
@@ -132,8 +146,25 @@ func (r *runner) getNodeFunc(
 	}, nil
 }
 
-type dummyNodeErrorRecorder struct{}
+type nodeErrorRecorder struct {
+	pipelineRunID string
+	storeClient   store.Client
+}
 
-func (d *dummyNodeErrorRecorder) Record(nodeName string, err error) {
-	log.Printf("%s had error %v\n", nodeName, err)
+func newNodeErrorRecorder(
+	pipelineRunID string,
+	storeClient store.Client,
+) *nodeErrorRecorder {
+	return &nodeErrorRecorder{
+		pipelineRunID,
+		storeClient,
+	}
+}
+
+func (n *nodeErrorRecorder) Record(nodeName string, err error) {
+	log.Printf("%s %s had error %v\n", n.pipelineRunID, nodeName, err)
+	_ = n.storeClient.AddPipelineRunStatus(
+		n.pipelineRunID,
+		pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR,
+	)
 }
