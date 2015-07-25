@@ -48,32 +48,26 @@ var _ = proto.Marshal
 type PipelineRunStatusType int32
 
 const (
-	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE             PipelineRunStatusType = 0
-	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ADDED            PipelineRunStatusType = 1
-	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED          PipelineRunStatusType = 2
-	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_PIPELINE_RUNNING PipelineRunStatusType = 3
-	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_DEAD             PipelineRunStatusType = 4
-	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR            PipelineRunStatusType = 5
-	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS          PipelineRunStatusType = 6
+	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE    PipelineRunStatusType = 0
+	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ADDED   PipelineRunStatusType = 1
+	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED PipelineRunStatusType = 2
+	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR   PipelineRunStatusType = 3
+	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS PipelineRunStatusType = 4
 )
 
 var PipelineRunStatusType_name = map[int32]string{
 	0: "PIPELINE_RUN_STATUS_TYPE_NONE",
 	1: "PIPELINE_RUN_STATUS_TYPE_ADDED",
 	2: "PIPELINE_RUN_STATUS_TYPE_STARTED",
-	3: "PIPELINE_RUN_STATUS_TYPE_PIPELINE_RUNNING",
-	4: "PIPELINE_RUN_STATUS_TYPE_DEAD",
-	5: "PIPELINE_RUN_STATUS_TYPE_ERROR",
-	6: "PIPELINE_RUN_STATUS_TYPE_SUCCESS",
+	3: "PIPELINE_RUN_STATUS_TYPE_ERROR",
+	4: "PIPELINE_RUN_STATUS_TYPE_SUCCESS",
 }
 var PipelineRunStatusType_value = map[string]int32{
-	"PIPELINE_RUN_STATUS_TYPE_NONE":             0,
-	"PIPELINE_RUN_STATUS_TYPE_ADDED":            1,
-	"PIPELINE_RUN_STATUS_TYPE_STARTED":          2,
-	"PIPELINE_RUN_STATUS_TYPE_PIPELINE_RUNNING": 3,
-	"PIPELINE_RUN_STATUS_TYPE_DEAD":             4,
-	"PIPELINE_RUN_STATUS_TYPE_ERROR":            5,
-	"PIPELINE_RUN_STATUS_TYPE_SUCCESS":          6,
+	"PIPELINE_RUN_STATUS_TYPE_NONE":    0,
+	"PIPELINE_RUN_STATUS_TYPE_ADDED":   1,
+	"PIPELINE_RUN_STATUS_TYPE_STARTED": 2,
+	"PIPELINE_RUN_STATUS_TYPE_ERROR":   3,
+	"PIPELINE_RUN_STATUS_TYPE_SUCCESS": 4,
 }
 
 func (x PipelineRunStatusType) String() string {
