@@ -91,24 +91,6 @@ func (c *dockerClient) Create(imageName string, options CreateOptions) (retVal [
 			return nil, err
 		}
 		containerIDs = append(containerIDs, container.ID)
-		if options.Commands != nil && len(options.Commands) > 0 {
-			buffer := bytes.NewBuffer(nil)
-			for _, command := range options.Commands {
-				if _, err := buffer.WriteString(strings.Join(command, " ") + "\n"); err != nil {
-					return nil, err
-				}
-			}
-			if err := c.client.AttachToContainer(
-				docker.AttachToContainerOptions{
-					Container:   container.ID,
-					InputStream: buffer,
-					Stdin:       true,
-					Stream:      true,
-				},
-			); err != nil {
-				return nil, err
-			}
-		}
 	}
 	return containerIDs, nil
 }
@@ -118,7 +100,28 @@ func (c *dockerClient) Start(containerID string, options StartOptions) error {
 	if err != nil {
 		return err
 	}
-	return c.client.StartContainer(container.ID, container.HostConfig)
+	if err := c.client.StartContainer(container.ID, container.HostConfig); err != nil {
+		return err
+	}
+	if options.Commands != nil && len(options.Commands) > 0 {
+		buffer := bytes.NewBuffer(nil)
+		for _, command := range options.Commands {
+			if _, err := buffer.WriteString(strings.Join(command, " ") + "\n"); err != nil {
+				return err
+			}
+		}
+		if err := c.client.AttachToContainer(
+			docker.AttachToContainerOptions{
+				Container:   container.ID,
+				InputStream: buffer,
+				Stdin:       true,
+				Stream:      true,
+			},
+		); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *dockerClient) Logs(containerID string, options LogsOptions) error {
@@ -194,7 +197,7 @@ func getDockerConfig(imageName string, options CreateOptions) (*docker.Config, e
 	config := &docker.Config{
 		Image: imageName,
 	}
-	if options.Commands != nil && len(options.Commands) > 0 {
+	if options.HasCommand {
 		config.AttachStdin = true
 		config.OpenStdin = true
 		config.StdinOnce = true

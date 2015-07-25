@@ -15,12 +15,14 @@ type PullOptions struct{}
 type CreateOptions struct {
 	Input         *pps.Input
 	Output        *pps.Output
-	Commands      [][]string
+	HasCommand    bool
 	Shell         string
 	NumContainers int
 }
 
-type StartOptions struct{}
+type StartOptions struct {
+	Commands [][]string
+}
 
 type LogsOptions struct {
 	Stdout io.Writer
