@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/log"
+	"github.com/pachyderm/pachyderm/src/pkg/executil"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/pachyderm/pachyderm/src/traffic"
 	"github.com/stretchr/testify/require"
@@ -23,6 +24,10 @@ const (
 	defaultMaxCount = 5
 	shortMaxCount   = 1
 )
+
+func init() {
+	executil.SetDebug(true)
+}
 
 func TestPing(t *testing.T) {
 	t.Parallel()
