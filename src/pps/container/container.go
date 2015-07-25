@@ -21,7 +21,7 @@ type CreateOptions struct {
 }
 
 type StartOptions struct {
-	Commands [][]string
+	Commands []string
 }
 
 type LogsOptions struct {

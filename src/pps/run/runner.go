@@ -76,6 +76,10 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 	return pipelineRunID, nil
 }
 
+func getNodeFunc(name string, node *pps.Node) (func() error, error) {
+	return nil, nil
+}
+
 type dummyNodeErrorRecorder struct{}
 
 func (d *dummyNodeErrorRecorder) Record(nodeName string, err error) {
