@@ -57,7 +57,9 @@ func RunWithOptions(runOptions RunOptions, args ...string) error {
 	cmd.Stdout = runOptions.stdout
 	cmd.Stderr = stderr
 	argsString := strings.Join(args, " ")
-	log.Printf("%s", argsString)
+	if debug {
+		log.Printf("%s", argsString)
+	}
 	if err := cmd.Run(); err != nil {
 		if debugStderr != nil {
 			data, _ := ioutil.ReadAll(debugStderr)

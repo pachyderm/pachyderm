@@ -1,6 +1,8 @@
 package run
 
 import (
+	"fmt"
+
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/pps"
@@ -76,12 +78,62 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 	return pipelineRunID, nil
 }
 
-func getNodeFunc(name string, node *pps.Node) (func() error, error) {
-	return nil, nil
+func (r *runner) getNodeFunc(
+	name string,
+	node *pps.Node,
+	nameToDockerService map[string]*pps.DockerService,
+	numContainers int,
+) (func() error, error) {
+	dockerService, ok := nameToDockerService[node.Service]
+	if !ok {
+		return nil, fmt.Errorf("no service for name %s", node.Service)
+	}
+	if dockerService.Build != "" || dockerService.Dockerfile != "" {
+		return nil, fmt.Errorf("build/dockerfile not supported yet")
+	}
+	return func() (retErr error) {
+		if err := r.containerClient.Pull(dockerService.Image, container.PullOptions{}); err != nil {
+			return err
+		}
+		containers, err := r.containerClient.Create(
+			dockerService.Image,
+			container.CreateOptions{
+				Input:         node.Input,
+				Output:        node.Output,
+				HasCommand:    len(node.Run) > 0,
+				NumContainers: numContainers,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			for _, containerID := range containers {
+				_ = r.containerClient.Kill(containerID, container.KillOptions{})
+				_ = r.containerClient.Remove(containerID, container.RemoveOptions{})
+			}
+		}()
+		for _, containerID := range containers {
+			if err := r.containerClient.Start(
+				containerID,
+				container.StartOptions{
+					Commands: node.Run,
+				},
+			); err != nil {
+				return err
+			}
+		}
+		for _, containerID := range containers {
+			if err := r.containerClient.Wait(containerID, container.WaitOptions{}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}, nil
 }
 
 type dummyNodeErrorRecorder struct{}
 
 func (d *dummyNodeErrorRecorder) Record(nodeName string, err error) {
-	log.Printf("%s HAD ERROR %v\n", nodeName, err)
+	log.Printf("%s had error %v\n", nodeName, err)
 }
