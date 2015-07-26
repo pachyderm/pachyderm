@@ -28,6 +28,10 @@ import (
 	"github.com/peter-edge/go-google-protobuf"
 )
 
+const (
+	metadataDir = ".pfs"
+)
+
 type btrfsDriver struct {
 	rootDir  string
 	btrfsAPI btrfs.API
@@ -56,7 +60,7 @@ func (d *btrfsDriver) InitRepository(repository *pfs.Repository, shards map[int]
 		if err := d.btrfsAPI.SubvolumeCreate(d.commitPath(initialCommit, shard)); err != nil {
 			return err
 		}
-		if err := os.Mkdir(d.filePath(&pfs.Path{Commit: initialCommit, Path: ".pfs"}, shard), 0700); err != nil {
+		if err := os.Mkdir(d.filePath(&pfs.Path{Commit: initialCommit, Path: metadataDir}, shard), 0700); err != nil {
 			return err
 		}
 		if err := d.btrfsAPI.PropertySetReadonly(d.commitPath(initialCommit, shard), true); err != nil {
@@ -117,6 +121,9 @@ func (d *btrfsDriver) ListFiles(path *pfs.Path, shard int) (retValue []*pfs.File
 			return nil, err
 		}
 		for _, name := range names {
+			if inMetadataDir(name) {
+				continue
+			}
 			fileInfo, err := d.stat(
 				&pfs.Path{
 					Commit: path.Commit,
@@ -176,7 +183,7 @@ func (d *btrfsDriver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards m
 		if err := d.btrfsAPI.SubvolumeSnapshot(commitPath, newCommitPath, false); err != nil {
 			return nil, err
 		}
-		if err := ioutil.WriteFile(d.filePath(&pfs.Path{Commit: newCommit, Path: ".pfs/parent"}, shard), []byte(commit.Id), 0600); err != nil {
+		if err := ioutil.WriteFile(d.filePath(&pfs.Path{Commit: newCommit, Path: filepath.Join(metadataDir, "parent")}, shard), []byte(commit.Id), 0600); err != nil {
 			return nil, err
 		}
 	}
@@ -227,7 +234,7 @@ func (d *btrfsDriver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, err
 	if commit.Id == InitialCommitID {
 		return nil, nil
 	}
-	data, err := ioutil.ReadFile(d.filePath(&pfs.Path{Commit: commit, Path: ".pfs/parent"}, shard))
+	data, err := ioutil.ReadFile(d.filePath(&pfs.Path{Commit: commit, Path: filepath.Join(metadataDir, "parent")}, shard))
 	if err != nil {
 		return nil, err
 	}
@@ -277,4 +284,9 @@ func (d *btrfsDriver) filePath(path *pfs.Path, shard int) string {
 
 func newCommitID() string {
 	return strings.Replace(common.NewUUID(), "-", "", -1)
+}
+
+func inMetadataDir(name string) bool {
+	parts := strings.Split(name, "/")
+	return (len(parts) > 0 && parts[0] == metadataDir)
 }
