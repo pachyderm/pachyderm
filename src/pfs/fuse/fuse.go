@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -13,13 +14,13 @@ import (
 	"golang.org/x/net/context"
 )
 
-func Mount(apiClient pfs.ApiClient, repositoryName string, commitID string, mountPoint string) (retErr error) {
+func Mount(apiClient pfs.ApiClient, repositoryName string, commitID string, mountPoint string) error {
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}
 	conn, err := fuse.Mount(
 		mountPoint,
-		fuse.FSName("pfs"),
+		fuse.FSName("pfs://"+repositoryName),
 		fuse.Subtype("pfs"),
 		fuse.VolumeName("pfs://"+repositoryName),
 	)
@@ -27,12 +28,6 @@ func Mount(apiClient pfs.ApiClient, repositoryName string, commitID string, moun
 		return err
 	}
 	defer conn.Close()
-	defer func() {
-		if err := fuse.Unmount(mountPoint); err != nil && retErr != nil {
-			retErr = err
-		}
-	}()
-
 	if err := fs.Serve(conn, &filesystem{apiClient, repositoryName, commitID}); err != nil {
 		return err
 	}
@@ -103,22 +98,23 @@ func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 		log.Print(err)
 		return nil, err
 	}
-	log.Print(response)
 	var result []fuse.Dirent
 	for _, fileInfo := range response.GetFileInfo() {
+		shortPath := strings.TrimPrefix(fileInfo.Path.Path, d.path)
 		switch fileInfo.FileType {
 		case pfs.FileType_FILE_TYPE_NONE:
 			continue
 		case pfs.FileType_FILE_TYPE_OTHER:
 			continue
 		case pfs.FileType_FILE_TYPE_REGULAR:
-			result = append(result, fuse.Dirent{Inode: 3, Name: fileInfo.Path.Path, Type: fuse.DT_File})
+			result = append(result, fuse.Dirent{Inode: 2, Name: shortPath, Type: fuse.DT_File})
 		case pfs.FileType_FILE_TYPE_DIR:
-			result = append(result, fuse.Dirent{Inode: 3, Name: fileInfo.Path.Path, Type: fuse.DT_Dir})
+			result = append(result, fuse.Dirent{Inode: 2, Name: shortPath, Type: fuse.DT_Dir})
 		default:
 			continue
 		}
 	}
+	log.Print(result)
 	return result, nil
 }
 
@@ -133,4 +129,8 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Mode = 0444
 	a.Size = f.size
 	return nil
+}
+
+func (f *file) ReadAll(ctx context.Context) ([]byte, error) {
+	return []byte("foo"), nil
 }
