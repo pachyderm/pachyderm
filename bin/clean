@@ -1,9 +1,5 @@
 #!/bin/sh
 
-# This script cleans up pachyderm state.
-# If PACHYDERM_IMAGE is set, also docker kills and docker rms ${PACHYDERM_IMAGE}.
-# Otherwise, docker kills and docker rms pachyderm.
-
 set -E
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"

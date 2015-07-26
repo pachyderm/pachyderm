@@ -1,0 +1,4 @@
+pps:
+  kind: docker_service
+  name: ubuntu
+image: ubuntu:15.04

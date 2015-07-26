@@ -1,10 +1,15 @@
 package container
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/log"
+)
+
+const (
+	defaultShell = "sh"
 )
 
 type dockerClient struct {
@@ -94,7 +99,40 @@ func (c *dockerClient) Start(containerID string, options StartOptions) error {
 	if err != nil {
 		return err
 	}
-	return c.client.StartContainer(container.ID, container.HostConfig)
+	if err := c.client.StartContainer(container.ID, container.HostConfig); err != nil {
+		return err
+	}
+	if options.Commands != nil && len(options.Commands) > 0 {
+		buffer := bytes.NewBuffer(nil)
+		for _, command := range options.Commands {
+			if _, err := buffer.WriteString(command + "\n"); err != nil {
+				return err
+			}
+		}
+		if err := c.client.AttachToContainer(
+			docker.AttachToContainerOptions{
+				Container:   container.ID,
+				InputStream: buffer,
+				Stdin:       true,
+				Stream:      true,
+			},
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *dockerClient) Logs(containerID string, options LogsOptions) error {
+	return c.client.Logs(
+		docker.LogsOptions{
+			Container:    containerID,
+			OutputStream: options.Stdout,
+			ErrorStream:  options.Stderr,
+			Stdout:       options.Stdout != nil,
+			Stderr:       options.Stderr != nil,
+		},
+	)
 }
 
 func (c *dockerClient) Wait(containerID string, options WaitOptions) error {
@@ -144,7 +182,7 @@ func getDockerCreateContainerOptions(imageName string, options CreateOptions) (d
 	if err != nil {
 		return docker.CreateContainerOptions{}, err
 	}
-	hostConfig, err := getDockerHostConfig()
+	hostConfig, err := getDockerHostConfig(options)
 	if err != nil {
 		return docker.CreateContainerOptions{}, err
 	}
@@ -155,11 +193,39 @@ func getDockerCreateContainerOptions(imageName string, options CreateOptions) (d
 }
 
 func getDockerConfig(imageName string, options CreateOptions) (*docker.Config, error) {
-	return &docker.Config{
+	config := &docker.Config{
 		Image: imageName,
-	}, nil
+	}
+	if options.HasCommand {
+		config.AttachStdin = true
+		config.OpenStdin = true
+		config.StdinOnce = true
+		if options.Shell != "" {
+			config.Entrypoint = []string{options.Shell}
+		} else {
+			config.Entrypoint = []string{defaultShell}
+		}
+	}
+	return config, nil
 }
 
-func getDockerHostConfig() (*docker.HostConfig, error) {
-	return &docker.HostConfig{}, nil
+func getDockerHostConfig(options CreateOptions) (*docker.HostConfig, error) {
+	hostConfig := &docker.HostConfig{}
+	if options.Input != nil {
+		if hostConfig.Binds == nil {
+			hostConfig.Binds = make([]string, 0)
+		}
+		for key, value := range options.Input.Host {
+			hostConfig.Binds = append(hostConfig.Binds, fmt.Sprintf("%s:%s:ro", key, value))
+		}
+	}
+	if options.Output != nil {
+		if hostConfig.Binds == nil {
+			hostConfig.Binds = make([]string, 0)
+		}
+		for key, value := range options.Output.Host {
+			hostConfig.Binds = append(hostConfig.Binds, fmt.Sprintf("%s:%s:rw", key, value))
+		}
+	}
+	return hostConfig, nil
 }

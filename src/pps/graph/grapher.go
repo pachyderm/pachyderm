@@ -10,17 +10,21 @@ type run struct {
 	cancel      chan<- bool
 }
 
-func (r *run) Do() {
+func (r *run) Do() error {
 	var wg sync.WaitGroup
+	var err error
 	for _, nodeRunner := range r.nodeRunners {
 		nodeRunner := nodeRunner
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			nodeRunner.run()
+			if runErr := nodeRunner.run(); runErr != nil && err == nil {
+				runErr = err
+			}
 		}()
 	}
 	wg.Wait()
+	return err
 }
 
 func (r *run) Cancel() {

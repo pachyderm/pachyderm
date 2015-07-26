@@ -52,7 +52,7 @@ func (n *nodeRunner) addChild(childName string, childChan chan<- error) error {
 	return nil
 }
 
-func (n *nodeRunner) run() {
+func (n *nodeRunner) run() error {
 	var err error
 	for name, parentChan := range n.parentChans {
 		log.Printf("%s is waiting on channel %s\n", n.nodeName, name)
@@ -63,7 +63,7 @@ func (n *nodeRunner) run() {
 			}
 			continue
 		case <-n.cancel:
-			return
+			return err
 		}
 	}
 	log.Printf("%s is done waiting, had parent error %v\n", n.nodeName, err)
@@ -79,4 +79,5 @@ func (n *nodeRunner) run() {
 		childChan <- err
 		close(childChan)
 	}
+	return err
 }
