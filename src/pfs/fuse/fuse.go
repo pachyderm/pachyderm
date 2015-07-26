@@ -13,11 +13,11 @@ import (
 	"golang.org/x/net/context"
 )
 
-func Mount(apiClient pfs.ApiClient, repositoryName string, commitID string, mountPoint string) error {
+func Mount(apiClient pfs.ApiClient, repositoryName string, commitID string, mountPoint string) (retErr error) {
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}
-	c, err := fuse.Mount(
+	conn, err := fuse.Mount(
 		mountPoint,
 		fuse.FSName("pfs"),
 		fuse.Subtype("pfs"),
@@ -26,19 +26,20 @@ func Mount(apiClient pfs.ApiClient, repositoryName string, commitID string, moun
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer conn.Close()
+	defer func() {
+		if err := fuse.Unmount(mountPoint); err != nil && retErr != nil {
+			retErr = err
+		}
+	}()
 
-	if err := fs.Serve(c, &filesystem{apiClient, repositoryName, commitID}); err != nil {
+	if err := fs.Serve(conn, &filesystem{apiClient, repositoryName, commitID}); err != nil {
 		return err
 	}
 
 	// check if the mount process has an error to report
-	<-c.Ready
-	return c.MountError
-}
-
-func Unmount(mountPoint string) error {
-	return nil
+	<-conn.Ready
+	return conn.MountError
 }
 
 type filesystem struct {
@@ -57,6 +58,7 @@ type directory struct {
 }
 
 func (*directory) Attr(ctx context.Context, a *fuse.Attr) error {
+	log.Print("directory.Attr")
 	a.Inode = 1
 	a.Mode = os.ModeDir | 0555
 	return nil
@@ -80,6 +82,7 @@ func nodeFromFileInfo(fs *filesystem, fileInfo *pfs.FileInfo) (fs.Node, error) {
 }
 
 func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
+	log.Print("directory.Lookup")
 	response, err := pfsutil.GetFileInfo(
 		d.fs.apiClient,
 		d.fs.repositoryName,
@@ -87,16 +90,20 @@ func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		filepath.Join(d.path, name),
 	)
 	if err != nil {
+		log.Print(err)
 		return nil, err
 	}
 	return nodeFromFileInfo(d.fs, response.GetFileInfo())
 }
 
 func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
+	log.Print("directory.ReadDirAll")
 	response, err := pfsutil.ListFiles(d.fs.apiClient, d.fs.repositoryName, d.fs.commitID, d.path, 0, 1)
 	if err != nil {
+		log.Print(err)
 		return nil, err
 	}
+	log.Print(response)
 	var result []fuse.Dirent
 	for _, fileInfo := range response.GetFileInfo() {
 		switch fileInfo.FileType {
@@ -108,6 +115,8 @@ func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 			result = append(result, fuse.Dirent{Inode: 3, Name: fileInfo.Path.Path, Type: fuse.DT_File})
 		case pfs.FileType_FILE_TYPE_DIR:
 			result = append(result, fuse.Dirent{Inode: 3, Name: fileInfo.Path.Path, Type: fuse.DT_Dir})
+		default:
+			continue
 		}
 	}
 	return result, nil
