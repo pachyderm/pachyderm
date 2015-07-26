@@ -111,9 +111,9 @@ func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest 
 	if clientConn != nil {
 		return pfs.NewApiClient(clientConn).GetFileInfo(context.Background(), getFileInfoRequest)
 	}
-	fileInfo, err := a.driver.GetFileInfo(getFileInfoRequest.Path, shard)
-	if err != nil {
-		return nil, err
+	fileInfo, ok := a.driver.GetFileInfo(getFileInfoRequest.Path, shard)
+	if !ok {
+		return &pfs.GetFileInfoResponse{}, nil
 	}
 	return &pfs.GetFileInfoResponse{fileInfo}, nil
 }

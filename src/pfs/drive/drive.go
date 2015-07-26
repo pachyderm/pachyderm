@@ -21,7 +21,7 @@ type Driver interface {
 	Init() error
 	InitRepository(repository *pfs.Repository, shard map[int]bool) error
 	GetFile(path *pfs.Path, shard int) (io.ReadCloser, error)
-	GetFileInfo(path *pfs.Path, shard int) (*pfs.FileInfo, error)
+	GetFileInfo(path *pfs.Path, shard int) (*pfs.FileInfo, bool)
 	MakeDirectory(path *pfs.Path, shards map[int]bool) error
 	PutFile(path *pfs.Path, shard int, reader io.Reader) error
 	ListFiles(path *pfs.Path, shard int) ([]*pfs.FileInfo, error)
