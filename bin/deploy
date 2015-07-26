@@ -1,7 +1,5 @@
 #!/bin/sh
 
-# This script deploys a pachyderm cluster using the pachyderm/deploy image.
-
 set -Ee
 
 mkdir -p /home/core/pfs

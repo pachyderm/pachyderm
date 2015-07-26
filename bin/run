@@ -1,8 +1,5 @@
 #!/bin/sh
 
-# This script will run the given command in $@ on pachyderm/${PACHYDERM_IMAGE}, properly setting up all associated state.
-# If PACHYDERM_IMAGE is not set, this will run pachyderm/pachyderm.
-
 set -Ee
 
 DIR="$(cd "$(dirname "${0}")" && pwd)"

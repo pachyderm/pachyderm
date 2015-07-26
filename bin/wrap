@@ -1,8 +1,5 @@
 #!/bin/sh
 
-# This script wraps a command with PFS_HOST_VOLUME, PFS_LOCAL_VOLUME, and PFS_BTRFS_ROOT
-# set to a local directory.
-
 set -Ee
 
 if [ -z "${PFS_DIR}" ]; then

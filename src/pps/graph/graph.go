@@ -11,7 +11,7 @@ type NodeErrorRecorder interface {
 }
 
 type Run interface {
-	Do()
+	Do() error
 	Cancel()
 }
 

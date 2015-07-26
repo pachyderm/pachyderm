@@ -7,11 +7,6 @@
 	build \
 	install \
 	clean \
-	shell \
-	launch-shard \
-	launch-pfsd \
-	build-images \
-	push-images \
 	lint \
 	vet \
 	errcheck \
@@ -20,6 +15,11 @@
 	test \
 	test-new \
 	bench \
+	shell \
+	launch-shard \
+	launch-pfsd \
+	build-images \
+	push-images \
 	proto \
 	hit-godoc
 
@@ -54,37 +54,6 @@ clean:
 	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) ./bin/clean || exit;)
 	$(foreach binary,$(BINARIES),rm -f src/cmd/$(binary)/$(binary);)
 	sudo rm -rf _tmp
-
-build-images:
-	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) ./bin/build || exit;)
-
-push-images: build-images
-	$(foreach image,$(IMAGES),docker push pachyderm/$(image) || exit;)
-
-shell:
-	PACHYDERM_DOCKER_OPTS="-it -v $(shell pwd):/go/src/github.com/pachyderm/pachyderm" ./bin/run /bin/bash
-
-launch-shard:
-	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" ./bin/run -shard 0 -modulos 1
-
-launch-pfsd:
-	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d -p 650:650" ./bin/run
-
-launch-ppsd:
-	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d -p 651:651" ./bin/run
-
-kube-%:
-	kubectl=kubectl; \
-	if ! which $$kubectl > /dev/null; then \
-		kubectl=kubectl.sh; \
-		if ! which $$kubectl > /dev/null; then \
-			echo "error: kubectl not installed" >& 2; \
-			exit 1; \
-		fi; \
-	fi; \
-	for file in storage-controller.yml router-controller.yml pachyderm-service.yml; do \
-		$$kubectl $* -f etc/kube/$$file; \
-	done
 
 lint:
 	go get -v github.com/golang/lint/golint
@@ -125,6 +94,37 @@ bench:
 	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
 	@ sleep 5
 	./bin/run ./bin/test -bench . ./...
+
+build-images:
+	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) ./bin/build || exit;)
+
+push-images: build-images
+	$(foreach image,$(IMAGES),docker push pachyderm/$(image) || exit;)
+
+shell:
+	PACHYDERM_DOCKER_OPTS="-it -v $(shell pwd):/go/src/github.com/pachyderm/pachyderm" ./bin/run /bin/bash
+
+launch-shard:
+	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" ./bin/run -shard 0 -modulos 1
+
+launch-pfsd:
+	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d -p 650:650" ./bin/run
+
+launch-ppsd:
+	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d -p 651:651" ./bin/run
+
+kube-%:
+	kubectl=kubectl; \
+	if ! which $$kubectl > /dev/null; then \
+		kubectl=kubectl.sh; \
+		if ! which $$kubectl > /dev/null; then \
+			echo "error: kubectl not installed" >& 2; \
+			exit 1; \
+		fi; \
+	fi; \
+	for file in storage-controller.yml router-controller.yml pachyderm-service.yml; do \
+		$$kubectl $* -f etc/kube/$$file; \
+	done
 
 proto:
 	@ if ! docker images | grep 'pedge/proto3grpc' > /dev/null; then \

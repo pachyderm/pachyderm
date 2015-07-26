@@ -1,9 +1,5 @@
 #!/bin/sh
 
-# This script builds the docker images described by the Dockerfiles in this repository.
-# This script will always build the main Dockerfile into pachyderm/pachyderm.
-# If PACHYDERM_IMAGE is set, the script will additionally build Dockerfile.${PACHYDERM_IMAGE} into pachyderm/${PACHYDERM_IMAGE}.
-
 set -Ee
 
 DIR="$(cd "$(dirname "${0}")/.." && pwd)"
