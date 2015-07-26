@@ -66,7 +66,8 @@ func main() {
 		Use:  "put repository-name branch-id path/to/file",
 		Long: "Put a file from stdin. Directories must exist. branch-id must be a writeable commit.",
 		Run: func(cmd *cobra.Command, args []string) {
-			check(pfsutil.PutFile(apiClient, args[0], args[1], args[2], os.Stdin))
+			_, err := pfsutil.PutFile(apiClient, args[0], args[1], args[2], os.Stdin)
+			check(err)
 		},
 	}
 

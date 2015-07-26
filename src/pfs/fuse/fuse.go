@@ -1,11 +1,14 @@
 package fuse
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -60,6 +63,9 @@ func (*directory) Attr(ctx context.Context, a *fuse.Attr) error {
 }
 
 func nodeFromFileInfo(fs *filesystem, fileInfo *pfs.FileInfo) (fs.Node, error) {
+	if fileInfo == nil {
+		return nil, fuse.ENOENT
+	}
 	switch fileInfo.FileType {
 	case pfs.FileType_FILE_TYPE_NONE:
 		log.Print("FileType_FILE_TYPE_NONE")
@@ -68,7 +74,7 @@ func nodeFromFileInfo(fs *filesystem, fileInfo *pfs.FileInfo) (fs.Node, error) {
 		log.Print("FileType_FILE_TYPE_OTHER")
 		return nil, fuse.ENOENT
 	case pfs.FileType_FILE_TYPE_REGULAR:
-		return &file{fs, fileInfo.Path.Path, fileInfo.SizeBytes}, nil
+		return &file{fs, fileInfo.Path.Path, 0, fileInfo.SizeBytes, nil}, nil
 	case pfs.FileType_FILE_TYPE_DIR:
 		return &directory{fs, fileInfo.Path.Path}, nil
 	default:
@@ -119,18 +125,49 @@ func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 type file struct {
-	fs   *filesystem
-	path string
-	size uint64
+	fs      *filesystem
+	path    string
+	handles int32
+	size    uint64
+	reader  io.Reader
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
+	log.Printf("Attr: %#v", f)
 	a.Inode = 2
-	a.Mode = 0444
+	a.Mode = 0666
 	a.Size = f.size
 	return nil
 }
 
-func (f *file) ReadAll(ctx context.Context) ([]byte, error) {
-	return []byte("foo"), nil
+func (f *file) Read(ctx context.Context) ([]byte, error) {
+	log.Printf("Read: %#v", f)
+	if f.reader == nil {
+		reader, err := pfsutil.GetFile(f.fs.apiClient, f.fs.repositoryName, f.fs.commitID, f.path)
+		if err != nil {
+			return nil, err
+		}
+		f.reader = reader
+	}
+	var result []byte
+	if _, err := f.reader.Read(result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fuse.OpenResponse) (fs.Handle, error) {
+	log.Printf("Open: %#v", f)
+	atomic.AddInt32(&f.handles, 1)
+	return f, nil
+}
+
+func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) error {
+	log.Printf("Write: %#v", f)
+	written, err := pfsutil.PutFile(f.fs.apiClient, f.fs.repositoryName, f.fs.commitID, f.path, bytes.NewReader(request.Data))
+	if err != nil {
+		return err
+	}
+	response.Size = written
+	return nil
 }
