@@ -57,7 +57,6 @@ type directory struct {
 
 func (*directory) Attr(ctx context.Context, a *fuse.Attr) error {
 	log.Print("directory.Attr")
-	a.Inode = 1
 	a.Mode = os.ModeDir | 0555
 	return nil
 }
@@ -113,9 +112,9 @@ func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 		case pfs.FileType_FILE_TYPE_OTHER:
 			continue
 		case pfs.FileType_FILE_TYPE_REGULAR:
-			result = append(result, fuse.Dirent{Inode: 2, Name: shortPath, Type: fuse.DT_File})
+			result = append(result, fuse.Dirent{Name: shortPath, Type: fuse.DT_File})
 		case pfs.FileType_FILE_TYPE_DIR:
-			result = append(result, fuse.Dirent{Inode: 2, Name: shortPath, Type: fuse.DT_Dir})
+			result = append(result, fuse.Dirent{Name: shortPath, Type: fuse.DT_Dir})
 		default:
 			continue
 		}
@@ -134,7 +133,6 @@ type file struct {
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
 	log.Printf("Attr: %#v", f)
-	a.Inode = 2
 	a.Mode = 0666
 	a.Size = f.size
 	return nil
