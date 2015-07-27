@@ -90,7 +90,7 @@ func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return nodeFromFileInfo(d.fs, response.GetFileInfo())
+	return nodeFromFileInfo(d.fs, response.FileInfo)
 }
 
 func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
@@ -99,7 +99,7 @@ func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 		return nil, err
 	}
 	var result []fuse.Dirent
-	for _, fileInfo := range response.GetFileInfo() {
+	for _, fileInfo := range response.FileInfo {
 		shortPath := strings.TrimPrefix(fileInfo.Path.Path, d.path)
 		switch fileInfo.FileType {
 		case pfs.FileType_FILE_TYPE_NONE:
