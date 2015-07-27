@@ -15,6 +15,11 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	namePrefix = "pfs://"
+	subtype    = "pfs"
+)
+
 type mounter struct{}
 
 func newMounter() Mounter {
@@ -27,9 +32,9 @@ func (*mounter) Mount(apiClient pfs.ApiClient, repositoryName string, commitID s
 	}
 	conn, err := fuse.Mount(
 		mountPoint,
-		fuse.FSName("pfs://"+repositoryName),
-		fuse.Subtype("pfs"),
-		fuse.VolumeName("pfs://"+repositoryName),
+		fuse.FSName(namePrefix+repositoryName),
+		fuse.VolumeName(namePrefix+repositoryName),
+		fuse.Subtype(subtype),
 	)
 	if err != nil {
 		return err
