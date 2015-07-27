@@ -3,7 +3,6 @@ package fuse
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -73,7 +72,7 @@ func nodeFromFileInfo(fs *filesystem, fileInfo *pfs.FileInfo) (fs.Node, error) {
 		log.Print("FileType_FILE_TYPE_OTHER")
 		return nil, fuse.ENOENT
 	case pfs.FileType_FILE_TYPE_REGULAR:
-		return &file{fs, fileInfo.Path.Path, 0, fileInfo.SizeBytes, nil}, nil
+		return &file{fs, fileInfo.Path.Path, 0, fileInfo.SizeBytes}, nil
 	case pfs.FileType_FILE_TYPE_DIR:
 		return &directory{fs, fileInfo.Path.Path}, nil
 	default:
@@ -128,7 +127,6 @@ type file struct {
 	path    string
 	handles int32
 	size    uint64
-	reader  io.Reader
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
@@ -140,15 +138,12 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
 
 func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) error {
 	log.Printf("Read: %#v", request)
-	if f.reader == nil {
-		reader, err := pfsutil.GetFile(f.fs.apiClient, f.fs.repositoryName, f.fs.commitID, f.path)
-		if err != nil {
-			return err
-		}
-		f.reader = reader
+	reader, err := pfsutil.GetFile(f.fs.apiClient, f.fs.repositoryName, f.fs.commitID, f.path)
+	if err != nil {
+		return err
 	}
 	response.Data = make([]byte, request.Size)
-	if _, err := f.reader.Read(response.Data); err != nil {
+	if _, err := reader.Read(response.Data); err != nil {
 		return err
 	}
 	return nil
