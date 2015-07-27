@@ -15,7 +15,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-func Mount(apiClient pfs.ApiClient, repositoryName string, commitID string, mountPoint string) error {
+func Mount(apiClient pfs.ApiClient, repositoryName string, commitID string, mountPoint string) (retErr error) {
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}
@@ -28,7 +28,11 @@ func Mount(apiClient pfs.ApiClient, repositoryName string, commitID string, moun
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 	if err := fs.Serve(conn, &filesystem{apiClient, repositoryName, commitID}); err != nil {
 		return err
 	}
