@@ -103,6 +103,21 @@ func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFi
 	return protoutil.WriteToStreamingBytesServer(readCloser, apiGetFileServer)
 }
 
+func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest *pfs.GetFileInfoRequest) (*pfs.GetFileInfoResponse, error) {
+	shard, clientConn, err := a.getShardAndClientConnIfNecessary(getFileInfoRequest.Path, true)
+	if err != nil {
+		return nil, err
+	}
+	if clientConn != nil {
+		return pfs.NewApiClient(clientConn).GetFileInfo(context.Background(), getFileInfoRequest)
+	}
+	fileInfo, ok := a.driver.GetFileInfo(getFileInfoRequest.Path, shard)
+	if !ok {
+		return &pfs.GetFileInfoResponse{}, nil
+	}
+	return &pfs.GetFileInfoResponse{fileInfo}, nil
+}
+
 func (a *combinedAPIServer) MakeDirectory(ctx context.Context, makeDirectoryRequest *pfs.MakeDirectoryRequest) (*google_protobuf.Empty, error) {
 	shards, err := a.getAllShards(true)
 	if err != nil {
