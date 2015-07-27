@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 	"sync/atomic"
 
@@ -56,7 +56,7 @@ type directory struct {
 
 func (*directory) Attr(ctx context.Context, a *fuse.Attr) error {
 	log.Print("directory.Attr")
-	a.Mode = os.ModeDir | 0555
+	a.Mode = os.ModeDir | 0775
 	return nil
 }
 
@@ -81,12 +81,12 @@ func nodeFromFileInfo(fs *filesystem, fileInfo *pfs.FileInfo) (fs.Node, error) {
 }
 
 func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	log.Print("directory.Lookup")
+	log.Printf("directory.Lookup directory: %#v, name: %s", d, name)
 	response, err := pfsutil.GetFileInfo(
 		d.fs.apiClient,
 		d.fs.repositoryName,
 		d.fs.commitID,
-		filepath.Join(d.path, name),
+		path.Join(d.path, name),
 	)
 	if err != nil {
 		log.Print(err)
@@ -96,7 +96,7 @@ func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
 }
 
 func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	log.Print("directory.ReadDirAll")
+	log.Printf("directory.ReadDirAll directory: %#v", d)
 	response, err := pfsutil.ListFiles(d.fs.apiClient, d.fs.repositoryName, d.fs.commitID, d.path, 0, 1)
 	if err != nil {
 		log.Print(err)
@@ -120,6 +120,16 @@ func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	}
 	log.Print(result)
 	return result, nil
+}
+
+func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, response *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
+	log.Printf("Create: %#v", d)
+	result := &file{d.fs, path.Join(d.path, request.Name), 0, 0}
+	handle, err := result.Open(ctx, nil, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	return result, handle, nil
 }
 
 type file struct {
@@ -156,9 +166,10 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 }
 
 func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) error {
-	log.Printf("Write: %#v", f)
+	log.Printf("Write: %#v %#v", f, request)
 	written, err := pfsutil.PutFile(f.fs.apiClient, f.fs.repositoryName, f.fs.commitID, f.path, bytes.NewReader(request.Data))
 	if err != nil {
+		log.Print(err)
 		return err
 	}
 	response.Size = written
