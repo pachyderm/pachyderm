@@ -3,7 +3,6 @@ package fuse
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"strings"
@@ -55,7 +54,6 @@ type directory struct {
 }
 
 func (*directory) Attr(ctx context.Context, a *fuse.Attr) error {
-	log.Print("directory.Attr")
 	a.Mode = os.ModeDir | 0775
 	return nil
 }
@@ -66,10 +64,8 @@ func nodeFromFileInfo(fs *filesystem, fileInfo *pfs.FileInfo) (fs.Node, error) {
 	}
 	switch fileInfo.FileType {
 	case pfs.FileType_FILE_TYPE_NONE:
-		log.Print("FileType_FILE_TYPE_NONE")
 		return nil, fuse.ENOENT
 	case pfs.FileType_FILE_TYPE_OTHER:
-		log.Print("FileType_FILE_TYPE_OTHER")
 		return nil, fuse.ENOENT
 	case pfs.FileType_FILE_TYPE_REGULAR:
 		return &file{fs, fileInfo.Path.Path, 0, fileInfo.SizeBytes}, nil
@@ -81,7 +77,6 @@ func nodeFromFileInfo(fs *filesystem, fileInfo *pfs.FileInfo) (fs.Node, error) {
 }
 
 func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	log.Printf("directory.Lookup directory: %#v, name: %s", d, name)
 	response, err := pfsutil.GetFileInfo(
 		d.fs.apiClient,
 		d.fs.repositoryName,
@@ -89,17 +84,14 @@ func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		path.Join(d.path, name),
 	)
 	if err != nil {
-		log.Print(err)
 		return nil, err
 	}
 	return nodeFromFileInfo(d.fs, response.GetFileInfo())
 }
 
 func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	log.Printf("directory.ReadDirAll directory: %#v", d)
 	response, err := pfsutil.ListFiles(d.fs.apiClient, d.fs.repositoryName, d.fs.commitID, d.path, 0, 1)
 	if err != nil {
-		log.Print(err)
 		return nil, err
 	}
 	var result []fuse.Dirent
@@ -118,12 +110,10 @@ func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 			continue
 		}
 	}
-	log.Print(result)
 	return result, nil
 }
 
 func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, response *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
-	log.Printf("Create: %#v", d)
 	result := &file{d.fs, path.Join(d.path, request.Name), 0, 0}
 	handle, err := result.Open(ctx, nil, nil)
 	if err != nil {
@@ -140,14 +130,12 @@ type file struct {
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
-	log.Printf("Attr: %#v", f)
 	a.Mode = 0666
 	a.Size = f.size
 	return nil
 }
 
 func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) error {
-	log.Printf("Read: %#v", request)
 	reader, err := pfsutil.GetFile(f.fs.apiClient, f.fs.repositoryName, f.fs.commitID, f.path)
 	if err != nil {
 		return err
@@ -160,16 +148,13 @@ func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fu
 }
 
 func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fuse.OpenResponse) (fs.Handle, error) {
-	log.Printf("Open: %#v", f)
 	atomic.AddInt32(&f.handles, 1)
 	return f, nil
 }
 
 func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) error {
-	log.Printf("Write: %#v %#v", f, request)
 	written, err := pfsutil.PutFile(f.fs.apiClient, f.fs.repositoryName, f.fs.commitID, f.path, bytes.NewReader(request.Data))
 	if err != nil {
-		log.Print(err)
 		return err
 	}
 	response.Size = written
