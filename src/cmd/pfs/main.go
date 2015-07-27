@@ -143,7 +143,7 @@ func main() {
 		Long: "Mount a repository as a local file system.",
 		Run: func(cmd *cobra.Command, args []string) {
 			checkArgs(args, 3, mountUsage)
-			check(fuse.Mount(apiClient, args[0], args[1], args[2]))
+			check(fuse.NewMounter().Mount(apiClient, args[0], args[1], args[2]))
 		},
 	}
 
