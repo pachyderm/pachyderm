@@ -26,7 +26,7 @@ func newMounter() Mounter {
 	return &mounter{}
 }
 
-func (*mounter) Mount(apiClient pfs.ApiClient, repositoryName string, commitID string, mountPoint string) (retErr error) {
+func (*mounter) Mount(apiClient pfs.ApiClient, repositoryName string, mountPoint string) (retErr error) {
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func (*mounter) Mount(apiClient pfs.ApiClient, repositoryName string, commitID s
 			retErr = err
 		}
 	}()
-	if err := fs.Serve(conn, &filesystem{apiClient, repositoryName, commitID}); err != nil {
+	if err := fs.Serve(conn, &filesystem{apiClient, repositoryName}); err != nil {
 		return err
 	}
 
@@ -56,16 +56,17 @@ func (*mounter) Mount(apiClient pfs.ApiClient, repositoryName string, commitID s
 type filesystem struct {
 	apiClient      pfs.ApiClient
 	repositoryName string
-	commitID       string
 }
 
 func (f *filesystem) Root() (fs.Node, error) {
-	return &directory{f, "/"}, nil
+	return &directory{f, "", true, "/"}, nil
 }
 
 type directory struct {
-	fs   *filesystem
-	path string
+	fs       *filesystem
+	commitId string
+	write    bool
+	path     string
 }
 
 func (*directory) Attr(ctx context.Context, a *fuse.Attr) error {
@@ -73,7 +74,7 @@ func (*directory) Attr(ctx context.Context, a *fuse.Attr) error {
 	return nil
 }
 
-func nodeFromFileInfo(fs *filesystem, fileInfo *pfs.FileInfo) (fs.Node, error) {
+func (d *directory) nodeFromFileInfo(fileInfo *pfs.FileInfo) (fs.Node, error) {
 	if fileInfo == nil {
 		return nil, fuse.ENOENT
 	}
@@ -83,29 +84,64 @@ func nodeFromFileInfo(fs *filesystem, fileInfo *pfs.FileInfo) (fs.Node, error) {
 	case pfs.FileType_FILE_TYPE_OTHER:
 		return nil, fuse.ENOENT
 	case pfs.FileType_FILE_TYPE_REGULAR:
-		return &file{fs, fileInfo.Path.Path, 0, fileInfo.SizeBytes}, nil
+		return &file{d.fs, d.commitId, fileInfo.Path.Path, 0, fileInfo.SizeBytes}, nil
 	case pfs.FileType_FILE_TYPE_DIR:
-		return &directory{fs, fileInfo.Path.Path}, nil
+		return &directory{d.fs, d.commitId, d.write, fileInfo.Path.Path}, nil
 	default:
 		return nil, fmt.Errorf("Unrecognized FileType.")
 	}
 }
 
 func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
+	if d.commitId == "" {
+		response, err := pfsutil.GetCommitInfo(
+			d.fs.apiClient,
+			d.fs.repositoryName,
+			d.commitId,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if response.CommitInfo == nil {
+			return nil, fuse.ENOENT
+		}
+		return &directory{
+				d.fs,
+				d.commitId,
+				response.CommitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_WRITE,
+				"/",
+			},
+			nil
+	}
 	response, err := pfsutil.GetFileInfo(
 		d.fs.apiClient,
 		d.fs.repositoryName,
-		d.fs.commitID,
+		d.commitId,
 		path.Join(d.path, name),
 	)
 	if err != nil {
 		return nil, err
 	}
-	return nodeFromFileInfo(d.fs, response.FileInfo)
+	return d.nodeFromFileInfo(response.FileInfo)
+}
+
+func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
+	response, err := pfsutil.ListCommits(d.fs.apiClient, d.fs.repositoryName)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]fuse.Dirent, 0, len(response.CommitInfo))
+	for _, commitInfo := range response.CommitInfo {
+		result = append(result, fuse.Dirent{Name: commitInfo.Commit.Id, Type: fuse.DT_Dir})
+	}
+	return result, nil
 }
 
 func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	response, err := pfsutil.ListFiles(d.fs.apiClient, d.fs.repositoryName, d.fs.commitID, d.path, 0, 1)
+	if d.commitId == "" {
+		return d.readCommits(ctx)
+	}
+	response, err := pfsutil.ListFiles(d.fs.apiClient, d.fs.repositoryName, d.commitId, d.path, 0, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +165,7 @@ func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, response *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
-	result := &file{d.fs, path.Join(d.path, request.Name), 0, 0}
+	result := &file{d.fs, d.commitId, path.Join(d.path, request.Name), 0, 0}
 	handle, err := result.Open(ctx, nil, nil)
 	if err != nil {
 		return nil, nil, err
@@ -138,10 +174,11 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 }
 
 type file struct {
-	fs      *filesystem
-	path    string
-	handles int32
-	size    uint64
+	fs       *filesystem
+	commitId string
+	path     string
+	handles  int32
+	size     uint64
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
@@ -152,7 +189,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
 
 func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) error {
 	response.Data = make([]byte, request.Size)
-	if err := pfsutil.GetFile(f.fs.apiClient, f.fs.repositoryName, f.fs.commitID, f.path, bytes.NewBuffer(response.Data)); err != nil {
+	if err := pfsutil.GetFile(f.fs.apiClient, f.fs.repositoryName, f.commitId, f.path, bytes.NewBuffer(response.Data)); err != nil {
 		return err
 	}
 	return nil
@@ -164,7 +201,7 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 }
 
 func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) error {
-	written, err := pfsutil.PutFile(f.fs.apiClient, f.fs.repositoryName, f.fs.commitID, f.path, bytes.NewReader(request.Data))
+	written, err := pfsutil.PutFile(f.fs.apiClient, f.fs.repositoryName, f.commitId, f.path, bytes.NewReader(request.Data))
 	if err != nil {
 		return err
 	}
