@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"os/exec"
 	"path"
 	"time"
+
+	"go.pedge.io/protolog"
 
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/pachyderm/pachyderm/src/s3utils"
@@ -170,7 +171,7 @@ func recv(repo string, data io.Reader) error {
 	}
 	buf := bytes.NewBuffer(nil)
 	buf.ReadFrom(stderr)
-	log.Print("Stderr:", buf)
+	protolog.Println("Stderr:", buf)
 	err = c.Wait()
 	if err != nil {
 		return err

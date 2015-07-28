@@ -3,8 +3,9 @@ package run
 import (
 	"fmt"
 
+	"go.pedge.io/protolog"
+
 	"github.com/pachyderm/pachyderm/src/common"
-	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
 	"github.com/pachyderm/pachyderm/src/pps/graph"
@@ -46,7 +47,7 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 	); err != nil {
 		return "", err
 	}
-	log.Printf("%v %s %v\n", dirPath, pipelineRunID, pipeline)
+	protolog.Printf("%v %s %v\n", dirPath, pipelineRunID, pipeline)
 	nameToNode := pps.GetNameToNode(pipeline)
 	nameToDockerService := pps.GetNameToDockerService(pipeline)
 	nameToNodeInfo, err := graph.GetNameToNodeInfo(nameToNode)
@@ -171,5 +172,5 @@ func newNodeErrorRecorder(
 }
 
 func (n *nodeErrorRecorder) Record(nodeName string, err error) {
-	log.Printf("%s %s had error %v\n", n.pipelineRunID, nodeName, err)
+	protolog.Printf("%s %s had error %v\n", n.pipelineRunID, nodeName, err)
 }

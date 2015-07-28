@@ -3,20 +3,21 @@ package main
 import (
 	"os"
 
-	"github.com/pachyderm/pachyderm/src/log"
+	"go.pedge.io/protolog"
+
 	"github.com/pachyderm/pachyderm/src/router"
 )
 
 func main() {
 	if err := do(); err != nil {
-		log.Print(err)
+		protolog.Println(err)
 		os.Exit(1)
 	}
 	os.Exit(0)
 }
 
 func do() error {
-	log.Print("Starting up...")
+	protolog.Println("Starting up...")
 	r, err := router.RouterFromArgs()
 	if err != nil {
 		return err

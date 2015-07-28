@@ -13,8 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"go.pedge.io/protolog"
+
 	"github.com/pachyderm/pachyderm/src/common"
-	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/stretchr/testify/require"
 )
 
@@ -529,7 +530,7 @@ func TestWaitAnyFile(t *testing.T) {
 	complete := make(chan struct{})
 	go func() {
 		file, err := WaitAnyFile(src+"/file1", src+"/file2")
-		log.Print("WaitedOn: ", file)
+		protolog.Println("WaitedOn: ", file)
 		require.NoError(t, err)
 		if file != src+"/file2" {
 			t.Fatal("Got the wrong file.")

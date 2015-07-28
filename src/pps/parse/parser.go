@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"go.pedge.io/protolog"
+
 	"gopkg.in/yaml.v2"
 
-	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/pps"
 )
 
@@ -85,7 +86,7 @@ func parsePipelineV1(dirPath string, contextDirPath string, config *config) (*pp
 		}
 		pipeline.NameToElement[element.Name] = element
 	}
-	log.Printf("got pipeline %v\n", pipeline)
+	protolog.Printf("got pipeline %v\n", pipeline)
 	return pipeline, nil
 }
 

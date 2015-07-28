@@ -9,10 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"go.pedge.io/protolog"
+
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/etcache"
-	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/pipeline"
 	"github.com/pachyderm/pachyderm/src/route"
 )
@@ -144,12 +145,12 @@ func (s *shard) CommitCreate(name string, branch string) (Commit, error) {
 		if ok {
 			err := oldRunner.Cancel()
 			if err != nil {
-				log.Print(err)
+				protolog.Println(err)
 			}
 		}
 		err := newRunner.Run()
 		if err != nil {
-			log.Print(err)
+			protolog.Println(err)
 		}
 	}()
 	go s.syncToPeers()
@@ -304,13 +305,13 @@ func (s *shard) FillRole() {
 					amMaster = true
 				}
 			} else {
-				log.Print(err)
+				protolog.Println(err)
 			}
 		} else {
 			// We're already master, renew our lease
 			_, err := client.CompareAndSwap(masterKey, s.url, 60, s.url, 0)
 			if err != nil { // error means we failed to reclaim master
-				log.Print(err)
+				protolog.Println(err)
 				amMaster = false
 			}
 		}
@@ -350,7 +351,7 @@ func (s *shard) FindRole() {
 		if gotRole {
 			_, err := client.CompareAndSwap(s.key(), s.url, 60, s.url, 0)
 			if err != nil {
-				log.Print(err)
+				protolog.Println(err)
 			}
 			continue
 		}
@@ -380,7 +381,7 @@ func (s *shard) masters() ([]string, error) {
 
 	response, err := client.Get("/pfs/master", false, true)
 	if err == nil {
-		log.Print("len(response.Node.Nodes): ", len(response.Node.Nodes))
+		protolog.Println("len(response.Node.Nodes): ", len(response.Node.Nodes))
 		for _, node := range response.Node.Nodes {
 			// node.Key looks like " /pachyderm.io/pfs/0-5"
 			//                      0 1            2   3
@@ -410,7 +411,7 @@ func counts(masters []string) map[string]int {
 // no shards are available it returns ErrNoShards.
 func (s *shard) freeRole() (uint64, error) {
 	masters, err := s.masters()
-	log.Printf("%#v", masters)
+	protolog.Printf("%#v", masters)
 	if err != nil {
 		return 0, err
 	}

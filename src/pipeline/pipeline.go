@@ -13,11 +13,12 @@ import (
 	"sync"
 	"time"
 
+	"go.pedge.io/protolog"
+
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/etcache"
-	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/pachyderm/pachyderm/src/s3utils"
 	"github.com/pachyderm/pachyderm/src/util"
@@ -94,7 +95,7 @@ func (p *pipeline) bind(repo string, directory string, containerPath string) err
 }
 
 func (p *pipeline) clean() error {
-	log.Print("p.createdCommits: ", p.createdCommits)
+	protolog.Println("p.createdCommits: ", p.createdCommits)
 	for _, commit := range p.createdCommits {
 		if err := btrfs.DeleteCommit(commit); err != nil {
 			return err
@@ -207,7 +208,7 @@ func (p *pipeline) inject(name string, public bool) error {
 		})
 		wg.Wait()
 	default:
-		log.Print("Unknown protocol: ", name)
+		protolog.Println("Unknown protocol: ", name)
 		return ErrUnknownProtocol
 	}
 	return nil
@@ -267,7 +268,7 @@ func (p *pipeline) run(cmd []string) error {
 	hostPath := btrfs.HostPath(path.Join(p.outRepo, p.branch))
 	bind := fmt.Sprintf("%s:/out", hostPath)
 	p.config.HostConfig.Binds = append(p.config.HostConfig.Binds, bind)
-	log.Print(p.config.HostConfig.Binds)
+	protolog.Println(p.config.HostConfig.Binds)
 	// Make sure this bind is only visible for the duration of run
 	defer func() { p.config.HostConfig.Binds = p.config.HostConfig.Binds[:len(p.config.HostConfig.Binds)-1] }()
 	// Start the container
@@ -429,7 +430,7 @@ func (p *pipeline) pushToOutputs() error {
 			key := path.Join(pathPrefix, file)
 			f, err := btrfs.Open(path.Join(p.outRepo, p.commit, file))
 			if err != nil {
-				log.Print(err)
+				protolog.Println(err)
 				return
 			}
 			acl := "private"
@@ -440,7 +441,7 @@ func (p *pipeline) pushToOutputs() error {
 				Body:   f,
 				ACL:    &acl,
 			}); err != nil {
-				log.Print(err)
+				protolog.Println(err)
 				return
 			}
 		}(file)
@@ -536,7 +537,7 @@ func (p *pipeline) runPachFile(r io.Reader) (retErr error) {
 			return ErrUnkownKeyword
 		}
 		if err != nil {
-			log.Print(err)
+			protolog.Println(err)
 			return err
 		}
 	}
@@ -685,7 +686,7 @@ func RunPipelines(pipelineDir string, inRepo string, outRepo string, commit stri
 }
 
 func (r *Runner) Cancel() error {
-	log.Print("Cancel: ", r)
+	protolog.Println("Cancel: ", r)
 	// A chanel for the errors, notice that it's capacity is the same as the
 	// number of pipelines. The below code should make sure that each pipeline only
 	// sends 1 error otherwise deadlock may occur.

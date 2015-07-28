@@ -2,7 +2,8 @@ package graph
 
 import (
 	"fmt"
-	"log"
+
+	"go.pedge.io/protolog"
 )
 
 type nodeRunner struct {
@@ -55,7 +56,7 @@ func (n *nodeRunner) addChild(childName string, childChan chan<- error) error {
 func (n *nodeRunner) run() error {
 	var err error
 	for name, parentChan := range n.parentChans {
-		log.Printf("%s is waiting on channel %s\n", n.nodeName, name)
+		protolog.Printf("%s is waiting on channel %s\n", n.nodeName, name)
 		select {
 		case parentErr := <-parentChan:
 			if parentErr != nil {
@@ -66,16 +67,16 @@ func (n *nodeRunner) run() error {
 			return err
 		}
 	}
-	log.Printf("%s is done waiting, had parent error %v\n", n.nodeName, err)
+	protolog.Printf("%s is done waiting, had parent error %v\n", n.nodeName, err)
 	if err == nil {
 		err = n.f()
-		log.Printf("%s is finished running func\n", n.nodeName)
+		protolog.Printf("%s is finished running func\n", n.nodeName)
 		if err != nil {
 			n.nodeErrorRecorder.Record(n.nodeName, err)
 		}
 	}
 	for name, childChan := range n.childrenChans {
-		log.Printf("%s is sending to channel %s\n", n.nodeName, name)
+		protolog.Printf("%s is sending to channel %s\n", n.nodeName, name)
 		childChan <- err
 		close(childChan)
 	}

@@ -8,7 +8,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/log"
+	"go.pedge.io/protolog"
 )
 
 var port = 49153
@@ -142,7 +142,7 @@ var disk *string
 
 func main() {
 	if err := do(); err != nil {
-		log.Print(err)
+		protolog.Println(err)
 		os.Exit(1)
 	}
 	os.Exit(0)
