@@ -90,7 +90,7 @@ func ForEachFile(uri string, public bool, marker string, cont func(file string, 
 			Bucket:  aws.String(bucket),
 			Prefix:  aws.String(inPath),
 			Marker:  nextMarker,
-			MaxKeys: aws.Long(1000),
+			MaxKeys: aws.Int64(1000),
 		})
 
 		if err != nil {
