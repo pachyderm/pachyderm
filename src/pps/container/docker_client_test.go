@@ -5,8 +5,7 @@ import (
 	"runtime"
 	"testing"
 
-	"go.pedge.io/protolog/logrus"
-
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,7 +23,7 @@ var (
 func init() {
 	// TODO(pedge): needed in tests? will not be needed for golang 1.5 for sure
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	logrus.Register()
+	common.ForceLogColors()
 }
 
 func TestCommandsSimple(t *testing.T) {

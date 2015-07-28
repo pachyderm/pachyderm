@@ -8,8 +8,7 @@ import (
 	"testing"
 	"testing/quick"
 
-	"go.pedge.io/protolog/logrus"
-
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/storage"
 	"github.com/pachyderm/pachyderm/src/traffic"
@@ -18,7 +17,7 @@ import (
 )
 
 func init() {
-	logrus.Register()
+	common.ForceLogColors()
 }
 
 func TestTwoShards(t *testing.T) {

@@ -10,8 +10,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"go.pedge.io/protolog/logrus"
-
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/src/common"
@@ -43,7 +41,7 @@ func init() {
 	// TODO(pedge): needed in tests? will not be needed for golang 1.5 for sure
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	executil.SetDebug(true)
-	logrus.Register()
+	common.ForceLogColors()
 }
 
 func TestBtrfsFFI(t *testing.T) {

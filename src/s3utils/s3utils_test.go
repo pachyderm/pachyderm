@@ -4,13 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"go.pedge.io/protolog/logrus"
-
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/stretchr/testify/require"
 )
 
 func init() {
-	logrus.Register()
+	common.ForceLogColors()
 }
 
 func TestForEachFile(t *testing.T) {
