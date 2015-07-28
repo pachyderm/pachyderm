@@ -31,6 +31,8 @@ It has these top-level messages:
 	CommitRequest
 	GetCommitInfoRequest
 	GetCommitInfoResponse
+	ListCommitsRequest
+	ListCommitsResponse
 	PullDiffRequest
 	PushDiffRequest
 */
@@ -500,6 +502,36 @@ func (m *GetCommitInfoResponse) GetCommitInfo() *CommitInfo {
 	return nil
 }
 
+type ListCommitsRequest struct {
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
+}
+
+func (m *ListCommitsRequest) Reset()         { *m = ListCommitsRequest{} }
+func (m *ListCommitsRequest) String() string { return proto.CompactTextString(m) }
+func (*ListCommitsRequest) ProtoMessage()    {}
+
+func (m *ListCommitsRequest) GetRepository() *Repository {
+	if m != nil {
+		return m.Repository
+	}
+	return nil
+}
+
+type ListCommitsResponse struct {
+	CommitInfo []*CommitInfo `protobuf:"bytes,1,rep,name=commit_info" json:"commit_info,omitempty"`
+}
+
+func (m *ListCommitsResponse) Reset()         { *m = ListCommitsResponse{} }
+func (m *ListCommitsResponse) String() string { return proto.CompactTextString(m) }
+func (*ListCommitsResponse) ProtoMessage()    {}
+
+func (m *ListCommitsResponse) GetCommitInfo() []*CommitInfo {
+	if m != nil {
+		return m.CommitInfo
+	}
+	return nil
+}
+
 type PullDiffRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	Shard  uint64  `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
@@ -567,6 +599,8 @@ type ApiClient interface {
 	Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	// GetCommitInfo returns the CommitInfo for a commit.
 	GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest, opts ...grpc.CallOption) (*GetCommitInfoResponse, error)
+	// ListCommitInfo lists the commits on a repo
+	ListCommits(ctx context.Context, in *ListCommitsRequest, opts ...grpc.CallOption) (*ListCommitsResponse, error)
 }
 
 type apiClient struct {
@@ -690,6 +724,15 @@ func (c *apiClient) GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest,
 	return out, nil
 }
 
+func (c *apiClient) ListCommits(ctx context.Context, in *ListCommitsRequest, opts ...grpc.CallOption) (*ListCommitsResponse, error) {
+	out := new(ListCommitsResponse)
+	err := grpc.Invoke(ctx, "/pfs.Api/ListCommits", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for Api service
 
 type ApiServer interface {
@@ -718,6 +761,8 @@ type ApiServer interface {
 	Commit(context.Context, *CommitRequest) (*google_protobuf.Empty, error)
 	// GetCommitInfo returns the CommitInfo for a commit.
 	GetCommitInfo(context.Context, *GetCommitInfoRequest) (*GetCommitInfoResponse, error)
+	// ListCommitInfo lists the commits on a repo
+	ListCommits(context.Context, *ListCommitsRequest) (*ListCommitsResponse, error)
 }
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
@@ -853,6 +898,18 @@ func _Api_GetCommitInfo_Handler(srv interface{}, ctx context.Context, codec grpc
 	return out, nil
 }
 
+func _Api_ListCommits_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(ListCommitsRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).ListCommits(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 var _Api_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pfs.Api",
 	HandlerType: (*ApiServer)(nil),
@@ -892,6 +949,10 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCommitInfo",
 			Handler:    _Api_GetCommitInfo_Handler,
+		},
+		{
+			MethodName: "ListCommits",
+			Handler:    _Api_ListCommits_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -43,7 +43,7 @@ func (r *shardReplica) Pull(from string, pusher btrfs.Pusher) (retErr error) {
 	).Pull(from, pusher)
 }
 
-func (r *shardReplica) From() (retVal string, retErr error) {
+func (r *shardReplica) From() (_ string, retErr error) {
 	response, err := httpGet(fmt.Sprintf("%s/commit", r.url))
 	if err != nil {
 		return "", err
