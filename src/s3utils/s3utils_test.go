@@ -4,8 +4,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	common.ForceLogColors()
+}
 
 func TestForEachFile(t *testing.T) {
 	t.Parallel()

@@ -11,9 +11,10 @@ import (
 	"testing"
 	"testing/quick"
 
+	"go.pedge.io/protolog"
+
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/etcache"
-	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/pkg/executil"
 	"github.com/pachyderm/pachyderm/src/route"
 	"github.com/pachyderm/pachyderm/src/traffic"
@@ -27,6 +28,7 @@ const (
 
 func init() {
 	executil.SetDebug(true)
+	common.ForceLogColors()
 }
 
 func TestPing(t *testing.T) {
@@ -297,10 +299,10 @@ shuffle data
 		match, err := route.Match(path.Join("data", file), "0-2")
 		require.NoError(t, err)
 		if match {
-			log.Print("shard: s1 file: ", file)
+			protolog.Println("shard: s1 file: ", file)
 			checkFile(t, s1.URL+"/pipeline/shuffle", path.Join("data", file), "commit1", file+file)
 		} else {
-			log.Print("shard: s2 file: ", file)
+			protolog.Println("shard: s2 file: ", file)
 			checkFile(t, s2.URL+"/pipeline/shuffle", path.Join("data", file), "commit1", file+file)
 		}
 	}

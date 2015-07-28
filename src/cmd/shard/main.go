@@ -7,15 +7,16 @@ import (
 	"net/http"
 	"os"
 
+	"go.pedge.io/protolog"
+
 	"github.com/pachyderm/pachyderm/src/btrfs"
 	"github.com/pachyderm/pachyderm/src/etcache"
-	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/storage"
 )
 
 func main() {
 	if err := do(); err != nil {
-		log.Print(err)
+		protolog.Println(err)
 		os.Exit(1)
 	}
 	os.Exit(0)
@@ -65,6 +66,6 @@ func do() error {
 		}
 		go shard.FillRole()
 	}
-	log.Print("Listening on port 80...")
+	protolog.Println("Listening on port 80...")
 	return http.ListenAndServe(":80", storage.NewShardHTTPHandler(shard))
 }

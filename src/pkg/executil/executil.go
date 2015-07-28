@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os/exec"
 	"strings"
 	"sync"
+
+	"go.pedge.io/protolog"
 )
 
 var (
@@ -58,7 +59,7 @@ func RunWithOptions(runOptions RunOptions, args ...string) error {
 	cmd.Stderr = stderr
 	argsString := strings.Join(args, " ")
 	if debug {
-		log.Printf("%s", argsString)
+		protolog.Printf("%s", argsString)
 	}
 	if err := cmd.Run(); err != nil {
 		if debugStderr != nil {

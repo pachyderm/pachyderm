@@ -3,14 +3,22 @@ package graph
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/parse"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	// TODO(pedge): needed in tests? will not be needed for golang 1.5 for sure
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	common.ForceLogColors()
+}
 
 func TestGetNameToNodeInfo(t *testing.T) {
 	pipeline, err := parse.NewParser().ParsePipeline("../parse/testdata/basic", "")

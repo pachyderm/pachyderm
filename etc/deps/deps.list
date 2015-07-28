@@ -1,6 +1,7 @@
 bazil.org/fuse
 bazil.org/fuse/fs
 bazil.org/fuse/fuseutil
+github.com/Sirupsen/logrus
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/awserr
 github.com/aws/aws-sdk-go/aws/awsutil
@@ -34,6 +35,7 @@ github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/ulimit
 github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/units
 github.com/fsouza/go-dockerclient/vendor/github.com/docker/libcontainer/user
 github.com/go-fsnotify/fsnotify
+github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
 github.com/inconshreveable/mousetrap
 github.com/peter-edge/go-env
@@ -46,6 +48,8 @@ github.com/stretchr/testify/require
 github.com/stretchr/testify/suite
 github.com/ugorji/go/codec
 github.com/vaughan0/go-ini
+go.pedge.io/protolog
+go.pedge.io/protolog/logrus
 golang.org/x/net/context
 golang.org/x/net/internal/timeseries
 golang.org/x/net/trace

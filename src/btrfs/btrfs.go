@@ -15,8 +15,9 @@ import (
 	"syscall"
 	"time"
 
+	"go.pedge.io/protolog"
+
 	"github.com/go-fsnotify/fsnotify"
-	"github.com/pachyderm/pachyderm/src/log"
 	"github.com/pachyderm/pachyderm/src/pkg/executil"
 )
 
@@ -273,7 +274,7 @@ func Glob(pattern string) ([]string, error) {
 // you passed an unbuffered channel as cancel sending to the channel may block
 // forever.
 func WaitFile(name string, cancel chan struct{}) error {
-	log.Print("WaitFile(", name, ")")
+	protolog.Println("WaitFile(", name, ")")
 	dir, err := largestExistingPath(name)
 	if err != nil {
 		return err
@@ -296,7 +297,7 @@ func WaitFile(name string, cancel chan struct{}) error {
 		return err
 	}
 	if exists {
-		log.Print("Found: ", name)
+		protolog.Println("Found: ", name)
 		return nil
 	}
 
@@ -348,7 +349,7 @@ func WaitAnyFile(files ...string) (string, error) {
 
 	select {
 	case file := <-done:
-		log.Print("Done: ", file)
+		protolog.Println("Done: ", file)
 		return file, nil
 	case err := <-errors:
 		return "", err
@@ -595,7 +596,7 @@ func FindNew(repo, from, to string) ([]string, error) {
 	}
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
-		log.Print(scanner.Text())
+		protolog.Println(scanner.Text())
 		// scanner.Text() looks like this:
 		// inode 6683 file offset 0 len 107 disk start 0 offset 0 gen 909 flags INLINE jobs/rPqZxsaspy
 		// 0     1    2    3      4 5   6   7    8     9 10     11 12 13 14     15     16
@@ -628,7 +629,7 @@ func Show(repo string, commit string, out string) error {
 	if err != nil {
 		return err
 	}
-	log.Print("Files: ", files)
+	protolog.Println("Files: ", files)
 	var wg sync.WaitGroup
 	for _, file := range files {
 		wg.Add(1)
@@ -636,11 +637,11 @@ func Show(repo string, commit string, out string) error {
 			defer wg.Done()
 			in, err := Open(path.Join(repo, commit, file))
 			if err != nil {
-				log.Print(err)
+				protolog.Println(err)
 				return
 			}
 			if _, err := CreateFromReader(path.Join(repo, out, file), in); err != nil {
-				log.Print(err)
+				protolog.Println(err)
 				return
 			}
 		}(file)

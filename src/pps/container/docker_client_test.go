@@ -2,8 +2,10 @@ package container
 
 import (
 	"bytes"
+	"runtime"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,6 +19,12 @@ var (
 		Host: defaultTestDockerHost,
 	}
 )
+
+func init() {
+	// TODO(pedge): needed in tests? will not be needed for golang 1.5 for sure
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	common.ForceLogColors()
+}
 
 func TestCommandsSimple(t *testing.T) {
 	testRun(
