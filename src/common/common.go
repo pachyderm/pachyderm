@@ -3,6 +3,8 @@ package common
 import (
 	"fmt"
 
+	"go.pedge.io/protolog/logrus"
+
 	"github.com/satori/go.uuid"
 )
 
@@ -12,6 +14,10 @@ const (
 	MicroVersion      = 0
 	AdditionalVersion = "dev"
 )
+
+func init() {
+	logrus.Register()
+}
 
 func VersionString() string {
 	return fmt.Sprintf("%d.%d.%d%s", MajorVersion, MinorVersion, MicroVersion, AdditionalVersion)
