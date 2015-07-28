@@ -67,7 +67,7 @@ func (c *dockerClient) Pull(imageName string, options PullOptions) error {
 	)
 }
 
-func (c *dockerClient) Create(imageName string, options CreateOptions) (retVal []string, retErr error) {
+func (c *dockerClient) Create(imageName string, options CreateOptions) (_ []string, retErr error) {
 	createContainerOptions, err := getDockerCreateContainerOptions(imageName, options)
 	if err != nil {
 		return nil, err

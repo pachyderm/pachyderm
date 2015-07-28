@@ -148,6 +148,14 @@ message GetCommitInfoResponse {
   CommitInfo commit_info = 1;
 }
 
+message ListCommitsRequest {
+  Repository repository = 1;
+}
+
+message ListCommitsResponse {
+	repeated CommitInfo commit_info = 1;
+}
+
 service Api {
   rpc GetVersion(google.protobuf.Empty) returns (GetVersionResponse) {}
   // InitRepository creates a new repository.
@@ -174,6 +182,8 @@ service Api {
   rpc Commit(CommitRequest) returns (google.protobuf.Empty) {}
   // GetCommitInfo returns the CommitInfo for a commit.
   rpc GetCommitInfo(GetCommitInfoRequest) returns (GetCommitInfoResponse) {}
+  // ListCommitInfo lists the commits on a repo
+  rpc ListCommits(ListCommitsRequest) returns (ListCommitsResponse) {}
 }
 
 message PullDiffRequest {

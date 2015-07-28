@@ -18,6 +18,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -104,7 +105,7 @@ func (d *btrfsDriver) PutFile(path *pfs.Path, shard int, reader io.Reader) error
 	return err
 }
 
-func (d *btrfsDriver) ListFiles(path *pfs.Path, shard int) (retValue []*pfs.FileInfo, retErr error) {
+func (d *btrfsDriver) ListFiles(path *pfs.Path, shard int) (_ []*pfs.FileInfo, retErr error) {
 	filePath := d.filePath(path, shard)
 	stat, err := os.Stat(filePath)
 	if err != nil {
@@ -236,6 +237,40 @@ func (d *btrfsDriver) GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitI
 		CommitType:   commitType,
 		ParentCommit: parent,
 	}, nil
+}
+
+func (d *btrfsDriver) ListCommits(repository *pfs.Repository, shard int) (_ []*pfs.CommitInfo, retErr error) {
+
+	dir, err := os.Open(d.repositoryPath(repository))
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := dir.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	var commitInfos []*pfs.CommitInfo
+	// TODO(pedge): constant
+	for names, err := dir.Readdirnames(100); err != io.EOF; names, err = dir.Readdirnames(100) {
+		if err != nil {
+			return nil, err
+		}
+		for _, name := range names {
+			commitInfo, err := d.GetCommitInfo(
+				&pfs.Commit{
+					Repository: repository,
+					Id:         path.Base(name),
+				},
+				shard,
+			)
+			if err != nil {
+				return nil, err
+			}
+			commitInfos = append(commitInfos, commitInfo)
+		}
+	}
+	return commitInfos, nil
 }
 
 func (d *btrfsDriver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {

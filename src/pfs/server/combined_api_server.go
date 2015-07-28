@@ -303,6 +303,23 @@ func (a *combinedAPIServer) GetCommitInfo(ctx context.Context, getCommitInfoRequ
 	}, nil
 }
 
+func (a *combinedAPIServer) ListCommits(ctx context.Context, listCommitsRequest *pfs.ListCommitsRequest) (*pfs.ListCommitsResponse, error) {
+	shard, clientConn, err := a.getMasterShardOrMasterClientConnIfNecessary()
+	if err != nil {
+		return nil, err
+	}
+	if clientConn != nil {
+		return pfs.NewApiClient(clientConn).ListCommits(ctx, listCommitsRequest)
+	}
+	commitInfos, err := a.driver.ListCommits(listCommitsRequest.Repository, shard)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.ListCommitsResponse{
+		CommitInfo: commitInfos,
+	}, nil
+}
+
 func (a *combinedAPIServer) getShardAndClientConnIfNecessary(path *pfs.Path, slaveOk bool) (int, *grpc.ClientConn, error) {
 	shard, err := a.sharder.GetShard(path)
 	if err != nil {

@@ -30,6 +30,7 @@ type Driver interface {
 	PullDiff(commit *pfs.Commit, shard int) (io.Reader, error)
 	PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error
 	GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, error)
+	ListCommits(repository *pfs.Repository, shard int) ([]*pfs.CommitInfo, error)
 }
 
 func NewBtrfsDriver(rootDir string, btrfsAPI btrfs.API) Driver {
