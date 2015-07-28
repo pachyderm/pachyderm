@@ -1,7 +1,6 @@
 package pfsutil
 
 import (
-	"bytes"
 	"io"
 	"io/ioutil"
 
@@ -85,7 +84,7 @@ func PutFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 	return len(value), err
 }
 
-func GetFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string) (io.Reader, error) {
+func GetFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, writer io.Writer) error {
 	apiGetFileClient, err := apiClient.GetFile(
 		context.Background(),
 		&pfs.GetFileRequest{
@@ -101,13 +100,12 @@ func GetFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 		},
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	buffer := bytes.NewBuffer(nil)
-	if err := protoutil.WriteFromStreamingBytesClient(apiGetFileClient, buffer); err != nil {
-		return nil, err
+	if err := protoutil.WriteFromStreamingBytesClient(apiGetFileClient, writer); err != nil {
+		return err
 	}
-	return buffer, nil
+	return nil
 }
 
 func GetFileInfo(apiClient pfs.ApiClient, repositoryName string, commitID string, path string) (*pfs.GetFileInfoResponse, error) {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"runtime"
@@ -82,10 +81,7 @@ func main() {
 		Long: "Get a file from stdout. commit-id must be a readable commit.",
 		Run: func(cmd *cobra.Command, args []string) {
 			checkArgs(args, 3, getUsage)
-			reader, err := pfsutil.GetFile(apiClient, args[0], args[1], args[2])
-			check(err)
-			_, err = bufio.NewReader(reader).WriteTo(os.Stdout)
-			check(err)
+			check(pfsutil.GetFile(apiClient, args[0], args[1], args[2], os.Stdout))
 		},
 	}
 

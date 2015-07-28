@@ -151,12 +151,8 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
 }
 
 func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) error {
-	reader, err := pfsutil.GetFile(f.fs.apiClient, f.fs.repositoryName, f.fs.commitID, f.path)
-	if err != nil {
-		return err
-	}
 	response.Data = make([]byte, request.Size)
-	if _, err := reader.Read(response.Data); err != nil {
+	if err := pfsutil.GetFile(f.fs.apiClient, f.fs.repositoryName, f.fs.commitID, f.path, bytes.NewBuffer(response.Data)); err != nil {
 		return err
 	}
 	return nil
