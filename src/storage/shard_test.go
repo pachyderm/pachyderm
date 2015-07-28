@@ -12,6 +12,7 @@ import (
 	"testing/quick"
 
 	"go.pedge.io/protolog"
+	"go.pedge.io/protolog/logrus"
 
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/etcache"
@@ -28,6 +29,7 @@ const (
 
 func init() {
 	executil.SetDebug(true)
+	logrus.Register()
 }
 
 func TestPing(t *testing.T) {

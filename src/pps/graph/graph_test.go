@@ -3,14 +3,23 @@ package graph
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"go.pedge.io/protolog/logrus"
 
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/parse"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	// TODO(pedge): needed in tests? will not be needed for golang 1.5 for sure
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	logrus.Register()
+}
 
 func TestGetNameToNodeInfo(t *testing.T) {
 	pipeline, err := parse.NewParser().ParsePipeline("../parse/testdata/basic", "")
