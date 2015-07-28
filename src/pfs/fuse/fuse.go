@@ -5,7 +5,7 @@ import (
 )
 
 type Mounter interface {
-	Mount(apiClient pfs.ApiClient, repositoryName string, mountPoint string) error
+	Mount(apiClient pfs.ApiClient, repositoryName string, mountPoint string, shard uint64, modulus uint64) error
 }
 
 func NewMounter() Mounter {

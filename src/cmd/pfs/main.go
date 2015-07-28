@@ -35,6 +35,10 @@ func main() {
 	check(err)
 	apiClient := pfs.NewApiClient(clientConn)
 
+	/* Optional arguments to commands. */
+	var shard int
+	var modulus int
+
 	versionCmd := &cobra.Command{
 		Use:  "version",
 		Long: "Print the version.",
@@ -91,13 +95,16 @@ func main() {
 		Long: "List a directory. Directory must exist.",
 		Run: func(cmd *cobra.Command, args []string) {
 			checkArgs(args, 3, lsUsage)
-			listFilesResponse, err := pfsutil.ListFiles(apiClient, args[0], args[1], args[2], 0, 1)
+			listFilesResponse, err := pfsutil.ListFiles(apiClient, args[0],
+				args[1], args[2], uint64(shard), uint64(modulus))
 			check(err)
 			for _, fileInfo := range listFilesResponse.FileInfo {
 				fmt.Printf("%+v\n", fileInfo)
 			}
 		},
 	}
+	lsCmd.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
+	lsCmd.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	branchUsage := "branch repository-name commit-id"
 	branchCmd := &cobra.Command{
@@ -153,9 +160,12 @@ func main() {
 		Long: "Mount a repository as a local file system.",
 		Run: func(cmd *cobra.Command, args []string) {
 			checkArgs(args, 1, mountUsage)
-			check(fuse.NewMounter().Mount(apiClient, args[0], args[0]))
+			check(fuse.NewMounter().Mount(apiClient, args[0], args[0],
+				uint64(shard), uint64(modulus)))
 		},
 	}
+	mountCmd.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
+	mountCmd.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	rootCmd := &cobra.Command{
 		Use: "pfs",

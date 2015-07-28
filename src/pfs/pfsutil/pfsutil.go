@@ -125,7 +125,7 @@ func GetFileInfo(apiClient pfs.ApiClient, repositoryName string, commitID string
 	)
 }
 
-func ListFiles(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, shardNum int, shardModulo int) (*pfs.ListFilesResponse, error) {
+func ListFiles(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, shard uint64, modulus uint64) (*pfs.ListFilesResponse, error) {
 	return apiClient.ListFiles(
 		context.Background(),
 		&pfs.ListFilesRequest{
@@ -139,8 +139,8 @@ func ListFiles(apiClient pfs.ApiClient, repositoryName string, commitID string, 
 				Path: path,
 			},
 			Shard: &pfs.Shard{
-				Number: uint64(shardNum),
-				Modulo: uint64(shardModulo),
+				Number: shard,
+				Modulo: modulus,
 			},
 		},
 	)

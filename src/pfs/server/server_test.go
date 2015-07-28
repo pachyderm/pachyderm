@@ -157,7 +157,7 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			listFilesResponse, iErr := pfsutil.ListFiles(apiClient, repositoryName, newCommitID, "a/b", i, 7)
+			listFilesResponse, iErr := pfsutil.ListFiles(apiClient, repositoryName, newCommitID, "a/b", uint64(i), 7)
 			require.NoError(t, iErr)
 			fileInfos[i] = listFilesResponse.FileInfo
 		}()

@@ -26,7 +26,7 @@ func newMounter() Mounter {
 	return &mounter{}
 }
 
-func (*mounter) Mount(apiClient pfs.ApiClient, repositoryName string, mountPoint string) (retErr error) {
+func (*mounter) Mount(apiClient pfs.ApiClient, repositoryName string, mountPoint string, shard uint64, modulus uint64) (retErr error) {
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func (*mounter) Mount(apiClient pfs.ApiClient, repositoryName string, mountPoint
 			retErr = err
 		}
 	}()
-	if err := fs.Serve(conn, &filesystem{apiClient, repositoryName}); err != nil {
+	if err := fs.Serve(conn, &filesystem{apiClient, repositoryName, shard, modulus}); err != nil {
 		return err
 	}
 
@@ -56,6 +56,8 @@ func (*mounter) Mount(apiClient pfs.ApiClient, repositoryName string, mountPoint
 type filesystem struct {
 	apiClient      pfs.ApiClient
 	repositoryName string
+	shard          uint64
+	modulus        uint64
 }
 
 func (f *filesystem) Root() (fs.Node, error) {
@@ -145,7 +147,7 @@ func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	if d.commitId == "" {
 		return d.readCommits(ctx)
 	}
-	response, err := pfsutil.ListFiles(d.fs.apiClient, d.fs.repositoryName, d.commitId, d.path, 0, 1)
+	response, err := pfsutil.ListFiles(d.fs.apiClient, d.fs.repositoryName, d.commitId, d.path, d.fs.shard, d.fs.modulus)
 	if err != nil {
 		return nil, err
 	}
