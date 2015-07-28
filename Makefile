@@ -79,12 +79,12 @@ test-long:
 	./bin/run ./bin/test ./...
 
 test-new: test-deps
-	go get -v github.com/golang/lint/golint
-	for pkg in pfs pkg pps; do \
-		for file in $$(find "./src/$$pkg" -name '*.go' | grep -v '\.pb\.go'); do \
-			golint $$file; \
-		done; \
-	done
+	#go get -v github.com/golang/lint/golint
+	#for pkg in pfs pkg pps; do \
+		#for file in $$(find "./src/$$pkg" -name '*.go' | grep -v '\.pb\.go'); do \
+			#golint $$file; \
+		#done; \
+	#done
 	go vet ./src/pfs/... ./src/pkg/... ./src/pps/...
 	NODOCKER=1 ./bin/run ./bin/test ./src/pfs/... ./src/pkg/... ./src/pps/...
 
