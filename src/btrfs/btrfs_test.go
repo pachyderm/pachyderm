@@ -14,14 +14,13 @@ import (
 	"time"
 
 	"go.pedge.io/protolog"
-	"go.pedge.io/protolog/logrus"
 
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/stretchr/testify/require"
 )
 
 func init() {
-	logrus.Register()
+	common.ForceLogColors()
 }
 
 func TestVersion(t *testing.T) {

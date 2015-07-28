@@ -6,15 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"go.pedge.io/protolog/logrus"
-
 	"github.com/pachyderm/pachyderm/src/btrfs"
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/stretchr/testify/require"
 )
 
 func init() {
-	logrus.Register()
+	common.ForceLogColors()
 }
 
 // TestOutput tests a simple pipeline that outputs some data.

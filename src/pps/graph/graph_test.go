@@ -8,8 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"go.pedge.io/protolog/logrus"
-
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/parse"
 	"github.com/stretchr/testify/require"
@@ -18,7 +17,7 @@ import (
 func init() {
 	// TODO(pedge): needed in tests? will not be needed for golang 1.5 for sure
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	logrus.Register()
+	common.ForceLogColors()
 }
 
 func TestGetNameToNodeInfo(t *testing.T) {

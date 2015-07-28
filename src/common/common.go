@@ -5,6 +5,7 @@ import (
 
 	"go.pedge.io/protolog/logrus"
 
+	stdlogrus "github.com/Sirupsen/logrus"
 	"github.com/satori/go.uuid"
 )
 
@@ -25,4 +26,14 @@ func VersionString() string {
 
 func NewUUID() string {
 	return uuid.NewV4().String()
+}
+
+func ForceLogColors() {
+	logrus.SetPusherOptions(
+		logrus.PusherOptions{
+			Formatter: &stdlogrus.TextFormatter{
+				ForceColors: true,
+			},
+		},
+	)
 }

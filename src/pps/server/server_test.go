@@ -8,8 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"go.pedge.io/protolog/logrus"
-
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pkg/executil"
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/pachyderm/pachyderm/src/pps"
@@ -27,7 +26,7 @@ func init() {
 	// TODO(pedge): needed in tests? will not be needed for golang 1.5 for sure
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	executil.SetDebug(true)
-	logrus.Register()
+	common.ForceLogColors()
 }
 
 func TestBasic(t *testing.T) {
