@@ -3,6 +3,7 @@ package fuse
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"strings"
@@ -69,8 +70,13 @@ type directory struct {
 	path     string
 }
 
-func (*directory) Attr(ctx context.Context, a *fuse.Attr) error {
-	a.Mode = os.ModeDir | 0775
+func (d *directory) Attr(ctx context.Context, a *fuse.Attr) error {
+	log.Printf("Attr: %+v", d)
+	if d.write {
+		a.Mode = os.ModeDir | 0775
+	} else {
+		a.Mode = os.ModeDir | 0555
+	}
 	return nil
 }
 
@@ -93,11 +99,12 @@ func (d *directory) nodeFromFileInfo(fileInfo *pfs.FileInfo) (fs.Node, error) {
 }
 
 func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
+	log.Printf("Lookup: %+v, %s", d, name)
 	if d.commitId == "" {
 		response, err := pfsutil.GetCommitInfo(
 			d.fs.apiClient,
 			d.fs.repositoryName,
-			d.commitId,
+			name,
 		)
 		if err != nil {
 			return nil, err
@@ -107,7 +114,7 @@ func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		}
 		return &directory{
 				d.fs,
-				d.commitId,
+				name,
 				response.CommitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_WRITE,
 				"/",
 			},
@@ -127,6 +134,7 @@ func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 	response, err := pfsutil.ListCommits(d.fs.apiClient, d.fs.repositoryName)
+	log.Print(response.CommitInfo)
 	if err != nil {
 		return nil, err
 	}
