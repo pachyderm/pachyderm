@@ -174,3 +174,14 @@ func GetCommitInfo(apiClient pfs.ApiClient, repositoryName string, commitID stri
 		},
 	)
 }
+
+func ListCommits(apiClient pfs.ApiClient, repositoryName string) (*pfs.ListCommitsResponse, error) {
+	return apiClient.ListCommits(
+		context.Background(),
+		&pfs.ListCommitsRequest{
+			Repository: &pfs.Repository{
+				Name: repositoryName,
+			},
+		},
+	)
+}

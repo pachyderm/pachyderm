@@ -133,6 +133,20 @@ func main() {
 		},
 	}
 
+	listCommitsUsage := "list-commits repository-name"
+	listCommitsCmd := &cobra.Command{
+		Use:  listCommitsUsage,
+		Long: "List commits on the repository.",
+		Run: func(cmd *cobra.Command, args []string) {
+			checkArgs(args, 1, listCommitsUsage)
+			listCommitsResponse, err := pfsutil.ListCommits(apiClient, args[0])
+			check(err)
+			for _, commitInfo := range listCommitsResponse.CommitInfo {
+				fmt.Printf("%+v\n", commitInfo)
+			}
+		},
+	}
+
 	mountUsage := "mount repository-name commit-id mount-point"
 	mountCmd := &cobra.Command{
 		Use:  mountUsage,
@@ -160,6 +174,7 @@ The environment variable PFS_ADDRESS controls what server the CLI connects to, t
 	rootCmd.AddCommand(branchCmd)
 	rootCmd.AddCommand(commitCmd)
 	rootCmd.AddCommand(commitInfoCmd)
+	rootCmd.AddCommand(listCommitsCmd)
 	rootCmd.AddCommand(mountCmd)
 	check(rootCmd.Execute())
 
