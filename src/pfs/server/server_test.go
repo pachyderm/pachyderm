@@ -106,9 +106,9 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			iErr := pfsutil.PutFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
+			_, iErr := pfsutil.PutFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
 			require.NoError(t, iErr)
-			iErr = pfsutil.PutFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
+			_, iErr = pfsutil.PutFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
 			require.NoError(t, iErr)
 		}()
 	}
