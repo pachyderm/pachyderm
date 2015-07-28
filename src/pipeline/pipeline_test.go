@@ -7,9 +7,14 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/btrfs"
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	common.ForceLogColors()
+}
 
 // TestOutput tests a simple pipeline that outputs some data.
 func TestOutput(t *testing.T) {

@@ -2,10 +2,18 @@ package parse
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	// TODO(pedge): needed in tests? will not be needed for golang 1.5 for sure
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	common.ForceLogColors()
+}
 
 func TestBasic(t *testing.T) {
 	pipeline, err := NewParser().ParsePipeline("testdata/basic", "")

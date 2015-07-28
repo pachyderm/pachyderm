@@ -8,12 +8,17 @@ import (
 	"testing"
 	"testing/quick"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/storage"
 	"github.com/pachyderm/pachyderm/src/traffic"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	common.ForceLogColors()
+}
 
 func TestTwoShards(t *testing.T) {
 	t.Parallel()

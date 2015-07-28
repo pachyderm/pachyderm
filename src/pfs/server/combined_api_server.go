@@ -115,7 +115,9 @@ func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest 
 	if !ok {
 		return &pfs.GetFileInfoResponse{}, nil
 	}
-	return &pfs.GetFileInfoResponse{FileInfo: fileInfo}, nil
+	return &pfs.GetFileInfoResponse{
+		FileInfo: fileInfo,
+	}, nil
 }
 
 func (a *combinedAPIServer) MakeDirectory(ctx context.Context, makeDirectoryRequest *pfs.MakeDirectoryRequest) (*google_protobuf.Empty, error) {

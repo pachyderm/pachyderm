@@ -2,7 +2,8 @@ package graph
 
 import (
 	"fmt"
-	"log"
+
+	"go.pedge.io/protolog"
 
 	"github.com/pachyderm/pachyderm/src/pps"
 )
@@ -28,7 +29,7 @@ func getNameToNodeInfo(nodes map[string]*pps.Node) (map[string]*NodeInfo, error)
 		}
 		nodeInfos[name] = nodeInfo
 	}
-	log.Printf("got node infos %v\n", nodeInfos)
+	protolog.Printf("got node infos %v\n", nodeInfos)
 	return nodeInfos, nil
 }
 

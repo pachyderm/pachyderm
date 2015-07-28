@@ -3,10 +3,11 @@ package storage
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"path"
 	"strings"
+
+	"go.pedge.io/protolog"
 
 	"github.com/pachyderm/pachyderm/src/traffic"
 	"github.com/stretchr/testify/require"
@@ -85,7 +86,7 @@ func runOp(t require.TestingT, url string, o traffic.Op) {
 type fakeTestingT struct{}
 
 func (f *fakeTestingT) Errorf(format string, args ...interface{}) {
-	log.Printf(format, args...)
+	protolog.Printf(format, args...)
 }
 
 func (f *fakeTestingT) FailNow() {
