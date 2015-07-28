@@ -26,7 +26,7 @@
 IMAGES = deploy pfsd ppsd router shard
 BINARIES = deploy pfs pfsd pps ppsd router shard
 
-all: test
+all: build
 
 deps:
 	go get -d -v ./...
