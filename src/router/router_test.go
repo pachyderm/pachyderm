@@ -8,12 +8,18 @@ import (
 	"testing"
 	"testing/quick"
 
+	"go.pedge.io/protolog/logrus"
+
 	"github.com/pachyderm/pachyderm/src/etcache"
 	"github.com/pachyderm/pachyderm/src/storage"
 	"github.com/pachyderm/pachyderm/src/traffic"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	logrus.Register()
+}
 
 func TestTwoShards(t *testing.T) {
 	t.Parallel()

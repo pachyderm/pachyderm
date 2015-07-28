@@ -4,8 +4,14 @@ import (
 	"testing"
 	"time"
 
+	"go.pedge.io/protolog/logrus"
+
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	logrus.Register()
+}
 
 func TestForEachFile(t *testing.T) {
 	t.Parallel()

@@ -14,10 +14,15 @@ import (
 	"time"
 
 	"go.pedge.io/protolog"
+	"go.pedge.io/protolog/logrus"
 
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	logrus.Register()
+}
 
 func TestVersion(t *testing.T) {
 	if err := CheckVersion(); err != nil {
