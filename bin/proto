@@ -1,0 +1,39 @@
+#!/bin/sh
+
+set -Ee
+
+DIR="$(cd "$(dirname "${0}")/.." && pwd)"
+
+PROTO_FILE="$(basename "${1}")"
+PROTO_DIR="$(dirname "${1}")"
+
+PROTO_PB_FILE="$(echo "${PROTO_FILE}" | sed "s/\.proto/\.pb\.go/")"
+PROTO_PB_LOG_FILE="$(echo "${PROTO_FILE}" | sed "s/\.proto/\.pb\.log\.go/")"
+
+PROTOLOG=false
+if [ "${PROTO_FILE}" = "protolog.proto" ]; then
+  PROTOLOG=true
+fi
+
+PROTOLOG_OPTS=
+if ${PROTOLOG}; then
+  PROTOLOG_OPTS="--protolog_out=/compile/${PROTO_DIR}"
+fi
+
+docker run \
+  --volume ${DIR}:/compile \
+  --workdir /compile \
+  pedge/protolog \
+  protoc \
+  -I /usr/include \
+  -I /compile/${PROTO_DIR} \
+  --go_out=plugins=grpc,Mgoogle/protobuf/empty.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/timestamp.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/wrappers.proto=github.com/peter-edge/go-google-protobuf:/compile/${PROTO_DIR} \
+  ${PROTOLOG_OPTS} \
+  /compile/${PROTO_DIR}/${PROTO_FILE}
+
+sudo chown ${USER} ${PROTO_DIR}/${PROTO_PB_FILE}
+sudo chgrp ${USER} ${PROTO_DIR}/${PROTO_PB_FILE}
+if ${PROTOLOG}; then
+  sudo chown ${USER} ${PROTO_DIR}/${PROTO_PB_LOG_FILE}
+  sudo chgrp ${USER} ${PROTO_DIR}/${PROTO_PB_LOG_FILE}
+fi
