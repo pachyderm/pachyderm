@@ -6,6 +6,7 @@ DIR="$(cd "$(dirname "${0}")/.." && pwd)"
 cd "${DIR}"
 
 "${DIR}/bin/setup"
+"${DIR}/bin/build"
 
 ENV_FLAGS=
 if [ -n "${AWS_ACCESS_KEY_ID}" ]; then
@@ -15,15 +16,7 @@ if [ -n "${AWS_SECRET_ACCESS_KEY}" ]; then
   ENV_FLAGS="${ENV_FLAGS} -e ${AWS_SECRET_ACCESS_KEY}"
 fi
 
-if [ -z "${NODOCKER}" ]; then
-  if [ -z "${PACHYDERM_IMAGE}" ]; then
-    PACHYDERM_IMAGE="pachyderm"
-  fi
-  "${DIR}/bin/build"
-  docker-compose run --service-ports ${PACHYDERM_DOCKER_OPTS} ${ENV_FLAGS} ${PACHYDERM_IMAGE} $@
-else
-  export PFS_HOST_VOLUME="/tmp/pfs/btrfs/global"
-  export PFS_LOCAL_VOLUME="/tmp/pfs/btrfs/global"
-  export PFS_BTRFS_ROOT="/tmp/pfs/btrfs/global"
-  sudo -E PATH=${PATH} $@
+if [ -z "${PACHYDERM_IMAGE}" ]; then
+  PACHYDERM_IMAGE="pachyderm"
 fi
+docker-compose run --service-ports ${PACHYDERM_DOCKER_OPTS} ${ENV_FLAGS} ${PACHYDERM_IMAGE} $@
