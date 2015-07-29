@@ -30,6 +30,8 @@
     * [Getting the Pachfile](#getting-the-pachfile)
 * [Development](#development)
     * [Running](#running)
+    * [Development Notes](#development-notes)
+      * [Logs](#logs)
     * [Environment Setup](#environment-setup)
     * [Common Problems](#common-problems)
 * [Contributing](#contributing)
@@ -377,6 +379,15 @@ make launch-pfsd # launch the new pfsd daemon
 make install # install all binaries locally
 pfs # if ${GOPATH}/bin is on your path, this will run the new pfs cli, this is very experimental and does not check for common errors
 ```
+
+### Development Notes
+
+##### Logs
+
+We're using [protolog](http://go.pedge.io/protolog) for logging. All new log events should be wrapped in a protobuf message.
+A package that has log messages should have a proto file named `protolog.proto` in it, and then this file needs to be added to the
+`make proto` make command. See [src/pkg/executil/protolog.proto](src/pkg/executil/protolog.proto) and [src/pkg/executil/executil.go](src/pkg/executil/executil.go)
+for an example.
 
 ### Environment Setup
 
