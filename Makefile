@@ -28,6 +28,10 @@
 IMAGES = deploy pfsd ppsd router shard
 BINARIES = deploy pfs pfsd pps ppsd router shard
 
+ifdef NOCACHE
+NOCACHE_CMD = touch etc/deps/deps.list
+endif
+
 all: build
 
 deps:
@@ -98,7 +102,12 @@ bench:
 	./bin/run ./bin/test -bench . ./...
 
 build-images:
+	$(NOCACHE_CMD)
 	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) ./bin/build || exit;)
+
+build-%:
+	$(NOCACHE_CMD)
+	PACHYDERM_IMAGE=$* ./bin/build
 
 push-images: build-images
 	$(foreach image,$(IMAGES),docker push pachyderm/$(image) || exit;)
