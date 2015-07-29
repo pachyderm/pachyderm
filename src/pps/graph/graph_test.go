@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"go.pedge.io/protolog"
+
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/parse"
@@ -200,7 +202,7 @@ func testNodeFunc(counter *int32, intC chan int, nodeName string, i int, errStri
 	return func() error {
 		atomic.AddInt32(counter, 1)
 		intC <- i
-		fmt.Printf("ran %s, sent %d, returning %v\n", nodeName, i, err)
+		protolog.Printf("ran %s, sent %d, returning %v\n", nodeName, i, err)
 		return err
 	}
 }
