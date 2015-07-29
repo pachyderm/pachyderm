@@ -69,14 +69,14 @@ pretest: lint vet errcheck
 
 # TODO(pedge): add pretest when fixed
 test:
-	./bin/run ./bin/test -test.short ./...
+	./bin/run ./bin/test -test.short $(TESTFLAGS) ./...
 
 # TODO(pedge): add pretest when fixed
 test-long:
 	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
 	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
 	@ sleep 5
-	./bin/run ./bin/test ./...
+	./bin/run ./bin/test $(TESTFLAGS) ./...
 
 test-new: test-deps
 	#go get -v github.com/golang/lint/golint
@@ -86,7 +86,7 @@ test-new: test-deps
 		#done; \
 	#done
 	go vet ./src/pfs/... ./src/pkg/... ./src/pps/...
-	NODOCKER=1 ./bin/run ./bin/test ./src/pfs/... ./src/pkg/... ./src/pps/...
+	NODOCKER=1 ./bin/run ./bin/test $(TESTFLAGS) ./src/pfs/... ./src/pkg/... ./src/pps/...
 
 # TODO(pedge): add pretest when fixed
 bench:
@@ -131,6 +131,7 @@ proto:
 	bin/proto src/pfs/pfs.proto
 	bin/proto src/pkg/executil/protolog.proto 
 	bin/proto src/pps/pps.proto
+	bin/proto src/pps/graph/protolog.proto
 
 hit-godoc:
 	for pkg in $$(find . -name '*.go' | xargs dirname | sort | uniq); do \
