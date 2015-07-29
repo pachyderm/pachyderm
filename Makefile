@@ -18,6 +18,8 @@
 	shell \
 	launch-shard \
 	launch-pfsd \
+	launch-ppsd \
+	shell-ppsd \
 	build-images \
 	push-images \
 	proto \
@@ -112,6 +114,9 @@ launch-pfsd:
 
 launch-ppsd:
 	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d -p 651:651" ./bin/run
+
+shell-ppsd:
+	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-it --entrypoint /bin/bash -p 651:651" ./bin/run
 
 kube-%:
 	kubectl=kubectl; \
