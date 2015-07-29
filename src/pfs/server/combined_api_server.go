@@ -111,7 +111,10 @@ func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest 
 	if clientConn != nil {
 		return pfs.NewApiClient(clientConn).GetFileInfo(context.Background(), getFileInfoRequest)
 	}
-	fileInfo, ok := a.driver.GetFileInfo(getFileInfoRequest.Path, shard)
+	fileInfo, ok, err := a.driver.GetFileInfo(getFileInfoRequest.Path, shard)
+	if err != nil {
+		return nil, err
+	}
 	if !ok {
 		return &pfs.GetFileInfoResponse{}, nil
 	}
@@ -313,9 +316,12 @@ func (a *combinedAPIServer) GetCommitInfo(ctx context.Context, getCommitInfoRequ
 	if clientConn != nil {
 		return pfs.NewApiClient(clientConn).GetCommitInfo(ctx, getCommitInfoRequest)
 	}
-	commitInfo, err := a.driver.GetCommitInfo(getCommitInfoRequest.Commit, shard)
+	commitInfo, ok, err := a.driver.GetCommitInfo(getCommitInfoRequest.Commit, shard)
 	if err != nil {
 		return nil, err
+	}
+	if !ok {
+		return &pfs.GetCommitInfoResponse{}, nil
 	}
 	return &pfs.GetCommitInfoResponse{
 		CommitInfo: commitInfo,
