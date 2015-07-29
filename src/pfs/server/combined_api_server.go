@@ -178,12 +178,21 @@ func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs
 		}
 	}
 	var fileInfos []*pfs.FileInfo
+	seenDirectories := make(map[string]bool)
 	for shard := range filteredShards {
 		subFileInfos, err := a.driver.ListFiles(listFilesRequest.Path, shard)
 		if err != nil {
 			return nil, err
 		}
-		fileInfos = append(fileInfos, subFileInfos...)
+		for _, fileInfo := range subFileInfos {
+			if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+				if seenDirectories[fileInfo.Path.Path] {
+					continue
+				}
+				seenDirectories[fileInfo.Path.Path] = true
+			}
+			fileInfos = append(fileInfos, fileInfo)
+		}
 	}
 	if !listFilesRequest.Redirect {
 		clientConns, err := a.router.GetAllClientConns()
@@ -202,7 +211,15 @@ func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs
 			if err != nil {
 				return nil, err
 			}
-			fileInfos = append(fileInfos, listFilesResponse.FileInfo...)
+			for _, fileInfo := range listFilesResponse.FileInfo {
+				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+					if seenDirectories[fileInfo.Path.Path] {
+						continue
+					}
+					seenDirectories[fileInfo.Path.Path] = true
+				}
+				fileInfos = append(fileInfos, fileInfo)
+			}
 		}
 	}
 	return &pfs.ListFilesResponse{
