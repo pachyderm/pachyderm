@@ -21,7 +21,7 @@ type Driver interface {
 	Init() error
 	InitRepository(repository *pfs.Repository, shard map[int]bool) error
 	GetFile(path *pfs.Path, shard int) (io.ReadCloser, error)
-	GetFileInfo(path *pfs.Path, shard int) (*pfs.FileInfo, bool)
+	GetFileInfo(path *pfs.Path, shard int) (*pfs.FileInfo, bool, error)
 	MakeDirectory(path *pfs.Path, shards map[int]bool) error
 	PutFile(path *pfs.Path, shard int, reader io.Reader) error
 	ListFiles(path *pfs.Path, shard int) ([]*pfs.FileInfo, error)
@@ -29,7 +29,7 @@ type Driver interface {
 	Commit(commit *pfs.Commit, shards map[int]bool) error
 	PullDiff(commit *pfs.Commit, shard int) (io.Reader, error)
 	PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error
-	GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, error)
+	GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, bool, error)
 	ListCommits(repository *pfs.Repository, shard int) ([]*pfs.CommitInfo, error)
 }
 
