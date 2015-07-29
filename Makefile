@@ -128,25 +128,9 @@ kube-%:
 
 proto:
 	docker pull pedge/protolog
-	docker run \
-		--volume $(shell pwd):/compile \
-		--workdir /compile \
-		pedge/protolog \
-		protoc \
-		-I /usr/include \
-		-I /compile/src/pfs \
-		--go_out=plugins=grpc,Mgoogle/protobuf/empty.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/timestamp.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/wrappers.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pfs \
-		--protolog_out=/compile/src/pfs \
-		/compile/src/pfs/pfs.proto
-	docker run \
-		--volume $(shell pwd):/compile \
-		--workdir /compile \
-		pedge/protolog \
-		protoc \
-		-I /compile/src/pps \
-		--go_out=plugins=grpc,Mgoogle/protobuf/empty.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/timestamp.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pps \
-		--protolog_out=/compile/src/pps \
-		/compile/src/pps/pps.proto
+	bin/proto src/pfs/pfs.proto
+	bin/proto src/pkg/executil/protolog.proto 
+	bin/proto src/pps/pps.proto
 
 hit-godoc:
 	for pkg in $$(find . -name '*.go' | xargs dirname | sort | uniq); do \
