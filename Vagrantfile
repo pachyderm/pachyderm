@@ -26,6 +26,9 @@ wget -qO- https://get.docker.com/ | sh
 groupadd docker || true
 usermod -aG docker vagrant
 service docker restart
+
+curl -L https://github.com/docker/compose/releases/download/1.4.0rc2/docker-compose-$(uname -s)-$(uname -m) > /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
 SCRIPT
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
