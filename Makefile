@@ -18,6 +18,8 @@
 	shell \
 	launch-shard \
 	launch-pfsd \
+	launch-ppsd \
+	shell-ppsd \
 	build-images \
 	push-images \
 	proto \
@@ -25,6 +27,14 @@
 
 IMAGES = deploy pfsd ppsd router shard
 BINARIES = deploy pfs pfsd pps ppsd router shard
+
+ifndef GOMAXPROCS
+GOMAXPROCS = 20
+endif
+
+ifdef NOCACHE
+NOCACHE_CMD = touch etc/deps/deps.list
+endif
 
 all: build
 
@@ -69,14 +79,14 @@ pretest: lint vet errcheck
 
 # TODO(pedge): add pretest when fixed
 test:
-	./bin/run ./bin/test -test.short ./...
+	./bin/run go test -parallel $(GOMAXPROCS) -test.short $(TESTFLAGS) ./...
 
 # TODO(pedge): add pretest when fixed
 test-long:
 	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
 	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
 	@ sleep 5
-	./bin/run ./bin/test ./...
+	./bin/run go test -parallel $(GOMAXPROCS) -timeout 20m $(TESTFLAGS) ./...
 
 test-new: test-deps
 	#go get -v github.com/golang/lint/golint
@@ -86,32 +96,40 @@ test-new: test-deps
 		#done; \
 	#done
 	go vet ./src/pfs/... ./src/pkg/... ./src/pps/...
-	NODOCKER=1 ./bin/run ./bin/test ./src/pfs/... ./src/pkg/... ./src/pps/...
+	NODOCKER=1 ./bin/run go test -parallel $(GOMAXPROCS) $(TESTFLAGS) ./src/pfs/... ./src/pkg/... ./src/pps/...
 
 # TODO(pedge): add pretest when fixed
 bench:
 	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
 	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
 	@ sleep 5
-	./bin/run ./bin/test -bench . ./...
+	./bin/run go test -timeout 20m -bench . ./...
 
 build-images:
+	$(NOCACHE_CMD)
 	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) ./bin/build || exit;)
+
+build-%:
+	$(NOCACHE_CMD)
+	PACHYDERM_IMAGE=$* ./bin/build
 
 push-images: build-images
 	$(foreach image,$(IMAGES),docker push pachyderm/$(image) || exit;)
 
 shell:
-	PACHYDERM_DOCKER_OPTS="-it -v $(shell pwd):/go/src/github.com/pachyderm/pachyderm" ./bin/run /bin/bash
+	PACHYDERM_IMAGE=shell ./bin/run
 
 launch-shard:
 	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" ./bin/run -shard 0 -modulos 1
 
 launch-pfsd:
-	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d -p 650:650" ./bin/run
+	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d" ./bin/run
 
 launch-ppsd:
-	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d -p 651:651" ./bin/run
+	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d" ./bin/run
+
+shell-ppsd:
+	PACHYDERM_IMAGE=shell-ppsd ./bin/run
 
 kube-%:
 	kubectl=kubectl; \
@@ -127,26 +145,7 @@ kube-%:
 	done
 
 proto:
-	@ if ! docker images | grep 'pedge/proto3grpc' > /dev/null; then \
-		docker pull pedge/proto3grpc; \
-		fi
-	docker run \
-		--volume $(shell pwd):/compile \
-		--workdir /compile \
-		pedge/proto3grpc \
-		protoc \
-		-I /usr/include \
-		-I /compile/src/pfs \
-		--go_out=plugins=grpc,Mgoogle/protobuf/empty.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/timestamp.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/wrappers.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pfs \
-		/compile/src/pfs/pfs.proto
-	docker run \
-		--volume $(shell pwd):/compile \
-		--workdir /compile \
-		pedge/proto3grpc \
-		protoc \
-		-I /compile/src/pps \
-		--go_out=plugins=grpc,Mgoogle/protobuf/empty.proto=github.com/peter-edge/go-google-protobuf,Mgoogle/protobuf/timestamp.proto=github.com/peter-edge/go-google-protobuf:/compile/src/pps \
-		/compile/src/pps/pps.proto
+	bin/proto
 
 hit-godoc:
 	for pkg in $$(find . -name '*.go' | xargs dirname | sort | uniq); do \

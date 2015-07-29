@@ -13,7 +13,8 @@ apt-get install -yq --no-install-recommends \
   curl \
   libgit2-dev \
   pkg-config \
-  git
+  git \
+  fuse
 
 curl -sSL https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz | tar -C /usr/local -xz
 mkdir -p /go/bin
@@ -26,6 +27,9 @@ wget -qO- https://get.docker.com/ | sh
 groupadd docker || true
 usermod -aG docker vagrant
 service docker restart
+
+curl -L https://github.com/docker/compose/releases/download/1.4.0rc2/docker-compose-$(uname -s)-$(uname -m) > /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
 SCRIPT
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|

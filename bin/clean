@@ -2,15 +2,13 @@
 
 set -E
 
-DIR="$(cd "$(dirname "${0}")" && pwd)"
+DIR="$(cd "$(dirname "${0}")/.." && pwd)"
+cd "${DIR}"
 
 sudo umount "/tmp/pfs/btrfs" > /dev/null 2> /dev/null
 sudo rm -rf "/tmp/pfs" > /dev/null 2< /dev/null
-if [ -z "${NODOCKER}" ]; then
-  if [ -z "${PACHYDERM_IMAGE}" ]; then
-    PACHYDERM_IMAGE="pachyderm"
-  fi
-  docker kill "${PACHYDERM_IMAGE}" > /dev/null 2> /dev/null
-  docker rm "${PACHYDERM_IMAGE}" > /dev/null 2> /dev/null
+if [ -z "${PACHYDERM_IMAGE}" ]; then
+  PACHYDERM_IMAGE="pachyderm"
 fi
-exit 0
+docker-compose kill "${PACHYDERM_IMAGE}" > /dev/null 2> /dev/null
+docker-compose rm "${PACHYDERM_IMAGE}" > /dev/null 2> /dev/null
