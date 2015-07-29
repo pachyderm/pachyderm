@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"runtime"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/discovery"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
@@ -54,6 +56,12 @@ func TestBtrfsExec(t *testing.T) {
 	t.Parallel()
 	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewExecAPI())
 	runTest(t, driver, testSimple)
+}
+
+func TestFuseMount(t *testing.T) {
+	t.Parallel()
+	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewExecAPI())
+	runTest(t, driver, testMount)
 }
 
 func getBtrfsRootDir(t *testing.T) string {
@@ -170,7 +178,21 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	require.Equal(t, testSize, count)
 }
 
+func testMount(t *testing.T, apiClient pfs.ApiClient) {
+	repositoryName := testRepositoryName()
+
+	err := pfsutil.InitRepository(apiClient, repositoryName)
+	require.NoError(t, err)
+
+	directory, err := ioutil.TempDir("", "testMount")
+	require.NoError(t, err)
+	err = fuse.NewMounter().Mount(apiClient, repositoryName, directory, 0, 1)
+	require.NoError(t, err)
+}
+
 func testRepositoryName() string {
+	// TODO could be nice to add callee to this string to make it easy to
+	// recover results for debugging
 	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
 }
 
