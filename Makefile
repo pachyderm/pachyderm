@@ -113,19 +113,19 @@ push-images: build-images
 	$(foreach image,$(IMAGES),docker push pachyderm/$(image) || exit;)
 
 shell:
-	PACHYDERM_DOCKER_OPTS="-it -v $(shell pwd):/go/src/github.com/pachyderm/pachyderm" ./bin/run /bin/bash
+	PACHYDERM_IMAGE=shell ./bin/run
 
 launch-shard:
 	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" ./bin/run -shard 0 -modulos 1
 
 launch-pfsd:
-	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d -p 650:650" ./bin/run
+	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d" ./bin/run
 
 launch-ppsd:
-	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d -p 651:651" ./bin/run
+	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d" ./bin/run
 
 shell-ppsd:
-	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-it --entrypoint /bin/bash -p 651:651" ./bin/run
+	PACHYDERM_IMAGE=shell-ppsd ./bin/run
 
 kube-%:
 	kubectl=kubectl; \

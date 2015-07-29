@@ -354,6 +354,13 @@ make launch-shard
 
 This will build a docker image from the working directory, tag it as `pachyderm` and launch it locally.
 
+You need to install docker-compose for the Makefile commands to work.
+
+```shell
+curl -L https://github.com/docker/compose/releases/download/1.4.0rc2/docker-compose-$(uname -s)-$(uname -m) > /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
+```
+
 **Note that all development must be done on linux due to the dependency on btrfs.**
 
 And more specifically, btrfs version >= 3.14. We recommend Ubuntu 15.04 for this. See the [Environment Setup](#environment-setup)
@@ -369,11 +376,8 @@ make test # run all the tests
 make clean # clean up all pachyderm state
 make shell # go into a shell inside a running pachyderm container
 ./bin/run ARGS... # run a command inside a fresh pachyderm container
-./bin/wrap # if run inside a ./bin/run or make shell, this will change PFS_ environment variables for a separate state from global
 ./bin/test ./src/PACKAGE # run tests for a specific package
 ./bin/test -run REGEX ./... # run all tests that match the regex
-./bin/wrap ./bin/test -test.short ./... # will allow tests to be run repeatedly inside make shell
-./bin/wrap go test -test.short ./... # the default settings in ./bin/test  do not have to be used
 make launch-shard # launch pachyderm, as outlined above
 make launch-pfsd # launch the new pfsd daemon
 make install # install all binaries locally
