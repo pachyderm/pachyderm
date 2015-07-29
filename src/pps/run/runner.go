@@ -35,7 +35,7 @@ func newRunner(
 }
 
 func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
-	dirPath, pipeline, err := r.sourcer.GetDirPathAndPipeline(pipelineSource)
+	_, pipeline, err := r.sourcer.GetDirPathAndPipeline(pipelineSource)
 	if err != nil {
 		return "", err
 	}
@@ -47,7 +47,13 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 	); err != nil {
 		return "", err
 	}
-	protolog.Infof("%v %s %v\n", dirPath, pipelineRunID, pipeline)
+	protolog.Info(
+		&AddedPipelineRun{
+			PipelineRunId:  pipelineRunID,
+			PipelineSource: pipelineSource,
+			Pipeline:       pipeline,
+		},
+	)
 	nameToNode := pps.GetNameToNode(pipeline)
 	nameToDockerService := pps.GetNameToDockerService(pipeline)
 	nameToNodeInfo, err := graph.GetNameToNodeInfo(nameToNode)
@@ -172,5 +178,18 @@ func newNodeErrorRecorder(
 }
 
 func (n *nodeErrorRecorder) Record(nodeName string, err error) {
-	protolog.Errorf("%s %s had error %v\n", n.pipelineRunID, nodeName, err)
+	protolog.Error(
+		&PipelineRunError{
+			PipelineRunId: n.pipelineRunID,
+			Node:          nodeName,
+			Error:         errorString(err),
+		},
+	)
+}
+
+func errorString(err error) string {
+	if err != nil {
+		return err.Error()
+	}
+	return ""
 }
