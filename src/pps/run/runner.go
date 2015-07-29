@@ -178,5 +178,18 @@ func newNodeErrorRecorder(
 }
 
 func (n *nodeErrorRecorder) Record(nodeName string, err error) {
-	protolog.Errorf("%s %s had error %v\n", n.pipelineRunID, nodeName, err)
+	protolog.Error(
+		&PipelineRunError{
+			PipelineRunId: n.pipelineRunID,
+			Node:          nodeName,
+			Error:         errorString(err),
+		},
+	)
+}
+
+func errorString(err error) string {
+	if err != nil {
+		return err.Error()
+	}
+	return ""
 }
