@@ -1,9 +1,0 @@
-#!/bin/sh
-
-set -Ee
-
-if [ -z "${GOMAXPROCS}" ]; then
-	GOMAXPROCS="20"
-fi
-
-go test -parallel "${GOMAXPROCS}" -timeout "20m" $@

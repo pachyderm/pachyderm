@@ -23,6 +23,7 @@ func SetDebug(d bool) {
 	lock.Lock()
 	defer lock.Unlock()
 	debug = d
+	protolog.SetLogger(protolog.GlobalLogger().AtLevel(protolog.Level_LEVEL_DEBUG))
 }
 
 type RunOptions struct {
@@ -58,9 +59,7 @@ func RunWithOptions(runOptions RunOptions, args ...string) error {
 	cmd.Stdout = runOptions.stdout
 	cmd.Stderr = stderr
 	argsString := strings.Join(args, " ")
-	if debug {
-		protolog.Printf("%s", argsString)
-	}
+	protolog.Debug(&RunningCommand{Args: argsString})
 	if err := cmd.Run(); err != nil {
 		if debugStderr != nil {
 			data, _ := ioutil.ReadAll(debugStderr)

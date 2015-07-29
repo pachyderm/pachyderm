@@ -56,7 +56,7 @@ func (n *nodeRunner) addChild(childName string, childChan chan<- error) error {
 func (n *nodeRunner) run() error {
 	var err error
 	for name, parentChan := range n.parentChans {
-		protolog.Printf("%s is waiting on channel %s\n", n.nodeName, name)
+		protolog.Debug(&NodeWaiting{Node: n.nodeName, ParentNode: name})
 		select {
 		case parentErr := <-parentChan:
 			if parentErr != nil {
@@ -67,18 +67,26 @@ func (n *nodeRunner) run() error {
 			return err
 		}
 	}
-	protolog.Printf("%s is done waiting, had parent error %v\n", n.nodeName, err)
+	protolog.Debug(&NodeFinishedWaiting{Node: n.nodeName, ParentError: errorString(err)})
 	if err == nil {
+		protolog.Info(&NodeStarting{Node: n.nodeName})
 		err = n.f()
-		protolog.Printf("%s is finished running func\n", n.nodeName)
+		protolog.Info(&NodeFinished{Node: n.nodeName, Error: errorString(err)})
 		if err != nil {
 			n.nodeErrorRecorder.Record(n.nodeName, err)
 		}
 	}
 	for name, childChan := range n.childrenChans {
-		protolog.Printf("%s is sending to channel %s\n", n.nodeName, name)
+		protolog.Debug(&NodeSending{Node: n.nodeName, ChildNode: name, Error: errorString(err)})
 		childChan <- err
 		close(childChan)
 	}
 	return err
+}
+
+func errorString(err error) string {
+	if err != nil {
+		return err.Error()
+	}
+	return ""
 }
