@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+import "pps/pps.proto";
+
+package run;
+
+message AddedPipelineRun {
+  string pipeline_run_id = 1;
+  pps.PipelineSource pipeline_source = 2;
+  pps.Pipeline pipeline = 3;
+}

@@ -127,11 +127,7 @@ kube-%:
 	done
 
 proto:
-	docker pull pedge/protolog
-	bin/proto src/pfs/pfs.proto
-	bin/proto src/pkg/executil/protolog.proto 
-	bin/proto src/pps/pps.proto
-	bin/proto src/pps/graph/protolog.proto
+	bin/proto
 
 hit-godoc:
 	for pkg in $$(find . -name '*.go' | xargs dirname | sort | uniq); do \

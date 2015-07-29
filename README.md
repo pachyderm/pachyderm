@@ -385,9 +385,8 @@ pfs # if ${GOPATH}/bin is on your path, this will run the new pfs cli, this is v
 ##### Logs
 
 We're using [protolog](http://go.pedge.io/protolog) for logging. All new log events should be wrapped in a protobuf message.
-A package that has log messages should have a proto file named `protolog.proto` in it, and then this file needs to be added to the
-`make proto` make command. See [src/pkg/executil/protolog.proto](src/pkg/executil/protolog.proto) and [src/pkg/executil/executil.go](src/pkg/executil/executil.go)
-for an example.
+A package that has log messages should have a proto file named `protolog.proto` in it.
+See [src/pkg/executil/protolog.proto](src/pkg/executil/protolog.proto) and [src/pkg/executil/executil.go](src/pkg/executil/executil.go) for an example.
 
 ### Environment Setup
 
