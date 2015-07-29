@@ -20,13 +20,15 @@ const (
 	subtype    = "pfs"
 )
 
-type mounter struct{}
-
-func newMounter() Mounter {
-	return &mounter{}
+type mounter struct {
+	ready chan bool
 }
 
-func (*mounter) Mount(apiClient pfs.ApiClient, repositoryName string, mountPoint string, shard uint64, modulus uint64) (retErr error) {
+func newMounter() Mounter {
+	return &mounter{make(chan bool)}
+}
+
+func (m *mounter) Mount(apiClient pfs.ApiClient, repositoryName string, mountPoint string, shard uint64, modulus uint64) (retErr error) {
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}
@@ -44,6 +46,7 @@ func (*mounter) Mount(apiClient pfs.ApiClient, repositoryName string, mountPoint
 			retErr = err
 		}
 	}()
+	close(m.ready)
 	if err := fs.Serve(conn, &filesystem{apiClient, repositoryName, shard, modulus}); err != nil {
 		return err
 	}
@@ -51,6 +54,10 @@ func (*mounter) Mount(apiClient pfs.ApiClient, repositoryName string, mountPoint
 	// check if the mount process has an error to report
 	<-conn.Ready
 	return conn.MountError
+}
+
+func (m *mounter) Ready() {
+	<-m.ready
 }
 
 type filesystem struct {
