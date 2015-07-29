@@ -28,6 +28,10 @@
 IMAGES = deploy pfsd ppsd router shard
 BINARIES = deploy pfs pfsd pps ppsd router shard
 
+ifndef GOMAXPROCS
+GOMAXPROCS = 20
+endif
+
 ifdef NOCACHE
 NOCACHE_CMD = touch etc/deps/deps.list
 endif
@@ -75,14 +79,14 @@ pretest: lint vet errcheck
 
 # TODO(pedge): add pretest when fixed
 test:
-	./bin/run ./bin/test -test.short $(TESTFLAGS) ./...
+	./bin/run go test -parallel $(GOMAXPROCS) -test.short $(TESTFLAGS) ./...
 
 # TODO(pedge): add pretest when fixed
 test-long:
 	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
 	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
 	@ sleep 5
-	./bin/run ./bin/test $(TESTFLAGS) ./...
+	./bin/run go test -parallel $(GOMAXPROCS) -timeout 20m $(TESTFLAGS) ./...
 
 test-new: test-deps
 	#go get -v github.com/golang/lint/golint
@@ -92,14 +96,14 @@ test-new: test-deps
 		#done; \
 	#done
 	go vet ./src/pfs/... ./src/pkg/... ./src/pps/...
-	NODOCKER=1 ./bin/run ./bin/test $(TESTFLAGS) ./src/pfs/... ./src/pkg/... ./src/pps/...
+	NODOCKER=1 ./bin/run go test -parallel $(GOMAXPROCS) $(TESTFLAGS) ./src/pfs/... ./src/pkg/... ./src/pps/...
 
 # TODO(pedge): add pretest when fixed
 bench:
 	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
 	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
 	@ sleep 5
-	./bin/run ./bin/test -bench . ./...
+	./bin/run go test -timeout 20m -bench . ./...
 
 build-images:
 	$(NOCACHE_CMD)

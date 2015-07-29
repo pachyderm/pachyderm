@@ -12,10 +12,8 @@ if [ -n "${PACHYDERM_IMAGE}" ]; then
   case "${PACHYDERM_IMAGE}" in
     pachyderm) ;;
     shell*) ;;
-    *)
-      docker-compose run pachyderm go build -a -installsuffix netgo -tags netgo -o "/compile/${PACHYDERM_IMAGE}" "src/cmd/${PACHYDERM_IMAGE}/main.go"
-      docker-compose build ${PACHYDERM_IMAGE}
-      docker tag -f pachyderm_${PACHYDERM_IMAGE}:latest pachyderm/${PACHYDERM_IMAGE}:latest
-      ;;
+    *) docker-compose run pachyderm go build -a -installsuffix netgo -tags netgo -o "/compile/${PACHYDERM_IMAGE}" "src/cmd/${PACHYDERM_IMAGE}/main.go" ;;
   esac
+  docker-compose build ${PACHYDERM_IMAGE}
+  docker tag -f pachyderm_${PACHYDERM_IMAGE}:latest pachyderm/${PACHYDERM_IMAGE}:latest
 fi
