@@ -179,6 +179,15 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 	return result, handle, nil
 }
 
+func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (fs.Node, error) {
+	if err := pfsutil.MakeDirectory(d.fs.apiClient, d.fs.repositoryName, d.commitId, path.Join(d.path, request.Name)); err != nil {
+		return nil, err
+	}
+	return &directory{
+		d.fs, d.commitId, d.write, path.Join(d.path, request.Name),
+	}, nil
+}
+
 type file struct {
 	fs       *filesystem
 	commitId string
