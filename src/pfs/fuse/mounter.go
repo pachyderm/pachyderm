@@ -171,6 +171,9 @@ func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, response *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
+	if d.commitId == "" {
+		return nil, 0, fuse.EPERM
+	}
 	result := &file{d.fs, d.commitId, path.Join(d.path, request.Name), 0, 0}
 	handle, err := result.Open(ctx, nil, nil)
 	if err != nil {
@@ -180,6 +183,9 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 }
 
 func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (fs.Node, error) {
+	if d.commitId == "" {
+		return nil, fuse.EPERM
+	}
 	if err := pfsutil.MakeDirectory(d.fs.apiClient, d.fs.repositoryName, d.commitId, path.Join(d.path, request.Name)); err != nil {
 		return nil, err
 	}

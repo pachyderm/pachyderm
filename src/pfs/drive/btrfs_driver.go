@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -75,12 +76,15 @@ func (d *btrfsDriver) GetFile(path *pfs.Path, shard int) (io.ReadCloser, error) 
 	return os.Open(d.filePath(path, shard))
 }
 
-func (d *btrfsDriver) GetFileInfo(path *pfs.Path, shard int) (*pfs.FileInfo, bool) {
+func (d *btrfsDriver) GetFileInfo(path *pfs.Path, shard int) (_ *pfs.FileInfo, ok bool, _ error) {
 	filePath, err := d.stat(path, shard)
-	if err != nil {
-		return nil, false
+	if err != nil && os.IsNotExist(err) {
+		return nil, false, nil
 	}
-	return filePath, true
+	if err != nil {
+		return nil, false, err
+	}
+	return filePath, true, nil
 }
 
 func (d *btrfsDriver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
@@ -219,14 +223,22 @@ func (d *btrfsDriver) PushDiff(commit *pfs.Commit, shard int, reader io.Reader) 
 	return nil
 }
 
-func (d *btrfsDriver) GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, error) {
+func (d *btrfsDriver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.CommitInfo, ok bool, _ error) {
+	log.Print("Statting: ", d.commitPath(commit, shard))
+	_, err := os.Stat(d.commitPath(commit, shard))
+	if err != nil && os.IsNotExist(err) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
 	parent, err := d.getParent(commit, shard)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	readOnly, err := d.btrfsAPI.PropertyGetReadonly(d.commitPath(commit, shard))
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	commitType := pfs.CommitType_COMMIT_TYPE_WRITE
 	if readOnly {
@@ -236,7 +248,7 @@ func (d *btrfsDriver) GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitI
 		Commit:       commit,
 		CommitType:   commitType,
 		ParentCommit: parent,
-	}, nil
+	}, true, nil
 }
 
 func (d *btrfsDriver) ListCommits(repository *pfs.Repository, shard int) (_ []*pfs.CommitInfo, retErr error) {
@@ -257,13 +269,19 @@ func (d *btrfsDriver) ListCommits(repository *pfs.Repository, shard int) (_ []*p
 			return nil, err
 		}
 		for _, name := range names {
-			commitInfo, err := d.GetCommitInfo(
+			commitInfo, ok, err := d.GetCommitInfo(
 				&pfs.Commit{
 					Repository: repository,
 					Id:         path.Base(name),
 				},
 				shard,
 			)
+			if !ok {
+				// This is a really weird error to get since we got this commit
+				// name by listing commits. This is probably indicative of a
+				// race condition.
+				return nil, fmt.Errorf("Commit not found.")
+			}
 			if err != nil {
 				return nil, err
 			}
