@@ -202,7 +202,7 @@ func testNodeFunc(counter *int32, intC chan int, nodeName string, i int, errStri
 	return func() error {
 		atomic.AddInt32(counter, 1)
 		intC <- i
-		protolog.Printf("ran %s, sent %d, returning %v\n", nodeName, i, err)
+		protolog.Infof("ran %s, sent %d, returning %v\n", nodeName, i, err)
 		return err
 	}
 }
