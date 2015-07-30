@@ -112,11 +112,6 @@ clean: btrfs-clean
 	rm -f src/cmd/ppsd/ppsd
 	sudo rm -rf _tmp
 
-hit-godoc:
-	for pkg in $$(find . -name '*.go' | xargs dirname | sort | uniq); do \
-		curl https://godoc.org/github.com/pachyderm/pachyderm/$pkg > /dev/null; \
-	done
-
 .PHONY: \
 	all \
 	deps \
@@ -145,5 +140,4 @@ hit-godoc:
 	pretest \
 	pre \
 	test \
-	clean \
-	hit-godoc
+	clean
