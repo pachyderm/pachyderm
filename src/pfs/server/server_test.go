@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -192,6 +194,34 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 		require.NoError(t, err)
 	}()
 	mounter.Ready()
+
+	_, err = os.Stat(filepath.Join(directory, "scratch"))
+	require.NoError(t, err)
+
+	branchResponse, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
+	require.NoError(t, err)
+	require.NotNil(t, branchResponse)
+	newCommitID := branchResponse.Commit.Id
+
+	_, err = os.Stat(filepath.Join(directory, newCommitID))
+	require.NoError(t, err)
+
+	err = ioutil.WriteFile(filepath.Join(directory, newCommitID, "foo"), []byte("foo"), 0666)
+	require.NoError(t, err)
+
+	_, err = pfsutil.PutFile(apiClient, repositoryName, newCommitID, "bar", strings.NewReader("bar"))
+	require.NoError(t, err)
+
+	err = pfsutil.Commit(apiClient, repositoryName, newCommitID)
+	require.NoError(t, err)
+
+	data, err := ioutil.ReadFile(filepath.Join(directory, newCommitID, "foo"))
+	require.NoError(t, err)
+	require.Equal(t, "foo", string(data))
+
+	data, err = ioutil.ReadFile(filepath.Join(directory, newCommitID, "bar"))
+	require.NoError(t, err)
+	require.Equal(t, "bar", string(data))
 }
 
 func testRepositoryName() string {
