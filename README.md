@@ -77,15 +77,14 @@ And more specifically, btrfs version >= 3.14. We recommend Ubuntu 15.04 for this
 section for a Vagrant setup that works. We have noticed issues in Ubuntu 14.04 with btrfs for the time being - obviously
 we would like to fix this, but it should be noted.
 
-Other useful development commands can be seen in the [Makefile](Makefile) and the
-[bin](bin) directory. Key commands:
+Useful development commands can be seen in the [Makefile](Makefile). Key commands:
 
 ```
 make test-deps # download all golang dependencies
+make build # build the source code (does not build the tests)
 make test # run all the tests
 make clean # clean up all pachyderm state
-make shell # go into a shell inside a running pachyderm container
-./bin/run ARGS... # run a command inside a fresh pachyderm container
+RUNARGS="go test -test.v ./..." make run # equivalent to TESTFLAGS=-test.v make test
 make launch-pfsd # launch the new pfsd daemon
 make install # install all binaries locally
 pfs # if ${GOPATH}/bin is on your path, this will run the new pfs cli, this is very experimental and does not check for common errors
