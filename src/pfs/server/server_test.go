@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -22,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
-	"github.com/pachyderm/pachyderm/src/pkg/executil"
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/stretchr/testify/require"
 )
@@ -41,9 +39,6 @@ var (
 )
 
 func init() {
-	// TODO(pedge): needed in tests? will not be needed for golang 1.5 for sure
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	executil.SetDebug(true)
 	common.ForceLogColors()
 }
 

@@ -24,10 +24,6 @@
 IMAGES = pfsd ppsd
 BINARIES = pfs pfsd pps ppsd
 
-ifndef GOMAXPROCS
-GOMAXPROCS = 20
-endif
-
 ifdef NOCACHE
 NOCACHE_CMD = touch etc/deps/deps.list
 endif
@@ -63,8 +59,8 @@ clean:
 
 lint:
 	go get -v github.com/golang/lint/golint
-	-for file in $$(find "./src" -name '*.go' | grep -v '\.pb\.go'); do \
-		golint $$file | grep -v unexported; \
+	for file in $$(find "./src" -name '*.go' | grep -v '\.pb\.go'); do \
+		golint $$file | grep -v unexported || true; \
 	done;
 
 vet:
@@ -72,14 +68,14 @@ vet:
 
 errcheck:
 	go get -v github.com/kisielk/errcheck
-	errcheck ./src/pfs
-	errcheck ./src/pps
+	errcheck ./src/cmd ./src/common ./src/pfs ./src/pps
 
 pretest: lint vet errcheck
 
-# TODO(pedge): add pretest when fixed
-test: vet errcheck
-	./bin/run go test -parallel $(GOMAXPROCS) $(TESTFLAGS) ./...
+pre: build pretest
+
+test: pretest
+	./bin/run go test $(TESTFLAGS) ./...
 
 build-images:
 	$(NOCACHE_CMD)
