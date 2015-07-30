@@ -10,15 +10,7 @@ pachyderm:
     - /tmp/pfs/btrfs:/tmp/pfs/btrfs
     - _tmp:/compile
   environment:
-    - AWS_REGION=us-west-1
-    - PFS_HOST_VOLUME=/tmp/pfs/btrfs/global
-    - PFS_LOCAL_VOLUME=/tmp/pfs/btrfs/global
     - PFS_BTRFS_ROOT=/tmp/pfs/btrfs/global
-deploy:
-  extends:
-    file: docker-compose.yml
-    service: pachyderm
-  dockerfile: Dockerfile.deploy
 pfsd:
   extends:
     file: docker-compose.yml
@@ -29,16 +21,6 @@ ppsd:
     file: docker-compose.yml
     service: pachyderm
   dockerfile: Dockerfile.ppsd
-router:
-  extends:
-    file: docker-compose.yml
-    service: pachyderm
-  dockerfile: Dockerfile.router
-shard:
-  extends:
-    file: docker-compose.yml
-    service: pachyderm
-  dockerfile: Dockerfile.shard
 shell:
   extends:
     file: docker-compose.yml

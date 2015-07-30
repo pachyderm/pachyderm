@@ -23,8 +23,8 @@ type Grapher interface {
 	) (Run, error)
 }
 
-// TODO(pedge): cycle detection
 func NewGrapher() Grapher {
+	// TODO(pedge): cycle detection
 	return newGrapher()
 }
 
