@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
+	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -257,7 +258,7 @@ func runTest(
 						route.NewDiscoveryAddresser(
 							discoveryClient,
 						),
-						route.NewDialer(),
+						grpcutil.NewDialer(),
 						address,
 					),
 					driver,

@@ -3,6 +3,7 @@ package route
 import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/discovery"
+	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"google.golang.org/grpc"
 )
 
@@ -29,15 +30,6 @@ func NewDiscoveryAddresser(discoveryClient discovery.Client) Addresser {
 	return newDiscoveryAddresser(discoveryClient)
 }
 
-type Dialer interface {
-	Dial(address string) (*grpc.ClientConn, error)
-	Clean() error
-}
-
-func NewDialer(opts ...grpc.DialOption) Dialer {
-	return newDialer(opts...)
-}
-
 type Router interface {
 	GetMasterShards() (map[int]bool, error)
 	GetSlaveShards() (map[int]bool, error)
@@ -48,7 +40,7 @@ type Router interface {
 
 func NewRouter(
 	addresser Addresser,
-	dialer Dialer,
+	dialer grpcutil.Dialer,
 	localAddress string,
 ) Router {
 	return newRouter(

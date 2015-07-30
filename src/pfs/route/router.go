@@ -4,18 +4,19 @@ import (
 	"fmt"
 	"math/rand"
 
+	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"google.golang.org/grpc"
 )
 
 type router struct {
 	addresser    Addresser
-	dialer       Dialer
+	dialer       grpcutil.Dialer
 	localAddress string
 }
 
 func newRouter(
 	addresser Addresser,
-	dialer Dialer,
+	dialer grpcutil.Dialer,
 	localAddress string,
 ) *router {
 	return &router{
