@@ -82,7 +82,9 @@ launch-ppsd: btrfs-setup docker-build-ppsd
 	docker-compose run --service-ports -d $(DOCKER_OPTS) ppsd
 
 proto:
-	bin/proto
+	go get -v github.com/peter-edge/go-tools/docker-protoc-all
+	docker pull pedge/protolog
+	DEBUG=1 REL_PROTOC_INCLUDE_PATH=src docker-protoc-all github.com/pachyderm/pachyderm
 
 lint:
 	go get -v github.com/golang/lint/golint
