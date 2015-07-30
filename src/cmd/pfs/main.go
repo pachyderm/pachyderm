@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"runtime"
 
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -23,8 +22,6 @@ type appEnv struct {
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
 	appEnv := &appEnv{}
 	check(env.Populate(appEnv, env.PopulateOptions{}))
 	if appEnv.Address == "" {

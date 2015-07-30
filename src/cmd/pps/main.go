@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -25,8 +24,6 @@ type appEnv struct {
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
 	appEnv := &appEnv{}
 	check(env.Populate(appEnv, env.PopulateOptions{}))
 	if appEnv.Address == "" {

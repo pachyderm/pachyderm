@@ -3,7 +3,6 @@ package graph
 import (
 	"errors"
 	"fmt"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -17,8 +16,6 @@ import (
 )
 
 func init() {
-	// TODO(pedge): needed in tests? will not be needed for golang 1.5 for sure
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	common.ForceLogColors()
 }
 
