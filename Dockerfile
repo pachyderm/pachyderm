@@ -12,7 +12,7 @@ RUN \
     git \
     fuse
 RUN \
-  curl -sSL https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz | tar -C /usr/local -xz && \
+  curl -sSL https://storage.googleapis.com/golang/go1.5beta3.linux-amd64.tar.gz | tar -C /usr/local -xz && \
   mkdir -p /go/bin
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go
@@ -21,5 +21,5 @@ RUN mkdir -p /go/src/github.com/pachyderm/pachyderm
 WORKDIR /go/src/github.com/pachyderm/pachyderm
 RUN mkdir -p /go/src/github.com/pachyderm/pachyderm/etc/deps
 ADD etc/deps/deps.list /go/src/github.com/pachyderm/pachyderm/etc/deps/
-RUN cat etc/deps/deps.list | xargs go get
+RUN cat etc/deps/deps.list | xargs go get -insecure
 ADD . /go/src/github.com/pachyderm/pachyderm/

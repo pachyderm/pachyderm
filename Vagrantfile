@@ -16,7 +16,7 @@ apt-get install -yq --no-install-recommends \
   git \
   fuse
 
-curl -sSL https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz | tar -C /usr/local -xz
+curl -sSL https://storage.googleapis.com/golang/go1.5beta3.linux-amd64.tar.gz | tar -C /usr/local -xz
 mkdir -p /go/bin
 echo 'export PATH=${PATH}:/usr/local/go/bin' >> '/etc/profile'
 echo 'export GOROOT=/usr/local/go' >> '/etc/profile'
