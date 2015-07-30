@@ -247,11 +247,11 @@ func runTest(
 				for j := 0; j < testShardsPerServer; j++ {
 					shards[j] = fmt.Sprintf("%d", (i*testShardsPerServer)+j)
 				}
-				_ = discoveryClient.Set(address+"-master", strings.Join(shards, ","))
+				_ = discoveryClient.Set(address+"-master", strings.Join(shards, ","), 0)
 				addresses[i] = address
 				i++
 			}
-			_ = discoveryClient.Set("all-addresses", strings.Join(addresses, ","))
+			_ = discoveryClient.Set("all-addresses", strings.Join(addresses, ","), 0)
 			for address, server := range servers {
 				combinedAPIServer := NewCombinedAPIServer(
 					route.NewSharder(

@@ -1,16 +1,17 @@
 package discovery
 
 import (
+	"fmt"
 	"path"
 	"strings"
 	"sync"
-
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"time"
 )
 
 type record struct {
 	directory bool
 	data      string
+	expires   time.Time
 }
 
 type mockClient struct {
@@ -32,42 +33,51 @@ func (c *mockClient) Close() error {
 func (c *mockClient) Get(key string) (string, error) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
+	now := time.Now()
 	record, ok := c.records[key]
 	if !ok {
-		return "", pfs.ErrDiscoveryNotFound
+		return "", fmt.Errorf("pachyderm: key %s not found found", key)
 	}
 	if record.directory {
-		return "", pfs.ErrDiscoveryNotValue
+		return "", fmt.Errorf("pachyderm: key %s not found found", key)
+	}
+	if (record.expires != time.Time{}) && now.After(record.expires) {
+		delete(c.records, key)
+		return "", fmt.Errorf("pachyderm: key %s not found found", key)
 	}
 	return record.data, nil
 }
 
-func (c *mockClient) GetAll(key string) (map[string]string, error) {
+func (c *mockClient) GetAll(keyPrefix string) (map[string]string, error) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
+	now := time.Now()
 	result := make(map[string]string)
-	for k, v := range c.records {
-		if strings.HasPrefix(k, key) && !v.directory {
-			result[k] = v.data
+	for key, record := range c.records {
+		if (record.expires != time.Time{}) && now.After(record.expires) {
+			delete(c.records, key)
+		}
+		if strings.HasPrefix(key, keyPrefix) && !record.directory {
+			result[key] = record.data
 		}
 	}
 	return result, nil
 }
 
-func (c *mockClient) Set(key string, value string) error {
+func (c *mockClient) Set(key string, value string, ttl uint64) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	return c.unsafeSet(key, value)
+	return c.unsafeSet(key, value, ttl)
 }
 
-func (c *mockClient) Create(key string, value string) error {
+func (c *mockClient) Create(key string, value string, ttl uint64) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	_, ok := c.records[key]
 	if ok {
-		return pfs.ErrDiscoveryKeyAlreadyExists
+		return fmt.Errorf("pachyderm: key %s already exists", key)
 	}
-	return c.unsafeSet(key, value)
+	return c.unsafeSet(key, value, ttl)
 }
 
 func (c *mockClient) Delete(key string) error {
@@ -78,43 +88,47 @@ func (c *mockClient) Delete(key string) error {
 		return nil
 	}
 	if oldRecord.directory {
-		return pfs.ErrDiscoveryNotValue
+		return fmt.Errorf("pachyderm: can't delete directory %s", key)
 	}
 	delete(c.records, key)
 	return nil
 }
 
-func (c *mockClient) CheckAndSet(key string, value string, oldValue string) error {
+func (c *mockClient) CheckAndSet(key string, value string, ttl uint64, oldValue string) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	oldRecord, ok := c.records[key]
 	if !ok {
-		return pfs.ErrDiscoveryNotFound
+		return fmt.Errorf("pachyderm: key %s not found", key)
 	}
 	if oldRecord.directory {
-		return pfs.ErrDiscoveryNotValue
+		return fmt.Errorf("pachyderm: can't set directory %s", key)
 	}
 	if oldRecord.data != oldValue {
-		return pfs.ErrDiscoveryPreconditionNotMet
+		return fmt.Errorf("pachyderm: precondition not met for %s", key)
 	}
-	return c.unsafeSet(key, value)
+	return c.unsafeSet(key, value, ttl)
 }
 
-func (c *mockClient) unsafeSet(key string, value string) error {
+func (c *mockClient) unsafeSet(key string, value string, ttl uint64) error {
+	var expires time.Time
+	if ttl != 0 {
+		expires = time.Now().Add(time.Second * time.Duration(ttl))
+	}
 	parts := strings.Split(key, "/")
 	for i, _ := range parts[:len(parts)-1] {
 		oldRecord, ok := c.records["/"+path.Join(parts[:i]...)]
-		if ok && oldRecord.directory {
-			return pfs.ErrDiscoveryNotDirectory
+		if ok && !oldRecord.directory {
+			return fmt.Errorf("pachyderm: key %s not found", key)
 		}
 		if !ok {
-			c.records["/"+path.Join(parts[:i]...)] = record{true, ""}
+			c.records["/"+path.Join(parts[:i]...)] = record{true, "", expires}
 		}
 	}
 	oldRecord, ok := c.records[key]
 	if ok && oldRecord.directory {
-		return pfs.ErrDiscoveryNotValue
+		return fmt.Errorf("pachyderm: can't set directory %s", key)
 	}
-	c.records[key] = record{false, value}
+	c.records[key] = record{false, value, expires}
 	return nil
 }
