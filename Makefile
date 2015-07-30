@@ -26,7 +26,7 @@ test-deps:
 update-test-deps:
 	go get -d -v -t -u -f github.com/pachyderm/pachyderm/...
 
-update-deps-list: update-test-deps
+update-deps-list: test-deps
 	go get -v github.com/peter-edge/go-tools/go-external-deps
 	go-external-deps github.com/pachyderm/pachyderm etc/deps/deps.list
 
