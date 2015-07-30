@@ -36,10 +36,8 @@ build: deps
 install: deps
 	go install ./src/cmd/pfs ./src/cmd/pps
 
-docker-nocache:
+docker-build:
 	$(NOCACHE_CMD)
-
-docker-build: docker-nocache
 	docker-compose build pachyderm
 	docker tag -f pachyderm_pachyderm:latest pachyderm/pachyderm:latest
 
@@ -86,22 +84,14 @@ proto:
 	docker pull pedge/protolog
 	DEBUG=1 REL_PROTOC_INCLUDE_PATH=src docker-protoc-all github.com/pachyderm/pachyderm
 
-lint:
+pretest:
+	go get -v github.com/kisielk/errcheck
 	go get -v github.com/golang/lint/golint
 	for file in $$(find "./src" -name '*.go' | grep -v '\.pb\.go'); do \
 		golint $$file | grep -v unexported || true; \
 	done;
-
-vet:
 	go vet ./...
-
-errcheck:
-	go get -v github.com/kisielk/errcheck
 	errcheck ./src/cmd ./src/common ./src/pfs ./src/pps
-
-pretest: lint vet errcheck
-
-pre: build pretest
 
 test: pretest btrfs-setup docker-build
 	docker-compose run $(DOCKER_OPTS) pachyderm go test $(TESTFLAGS) $(TESTPKGS)
@@ -121,7 +111,6 @@ clean: btrfs-clean
 	update-deps-list \
 	build \
 	install \
-	docker-nocache \
 	docker-build \
 	docker-build-pfsd \
 	docker-build-ppsd \
@@ -134,10 +123,6 @@ clean: btrfs-clean
 	launch-pfsd \
 	launch-ppsd \
 	proto \
-	lint \
-	vet \
-	errcheck \
 	pretest \
-	pre \
 	test \
 	clean
