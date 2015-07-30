@@ -2,7 +2,7 @@ package route
 
 import (
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/discovery"
+	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"google.golang.org/grpc"
 )

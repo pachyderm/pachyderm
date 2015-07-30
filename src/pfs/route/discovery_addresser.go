@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/pfs/discovery"
+	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 )
 
 type discoveryAddresser struct {
