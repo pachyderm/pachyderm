@@ -1,5 +1,0 @@
-#!/bin/sh
-
-# This script gets injected in to the docker container as /bin/btrfs
-
-chroot /host btrfs $@
