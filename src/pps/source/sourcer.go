@@ -30,9 +30,8 @@ func getDirPathAndPipeline(pipelineSource *pps.PipelineSource) (string, *pps.Pip
 			return "", nil, err
 		}
 		return dirPath, pipeline, nil
-	} else {
-		return "", nil, fmt.Errorf("must specify pipeline source")
 	}
+	return "", nil, fmt.Errorf("must specify pipeline source")
 }
 
 func githubClone(githubPipelineSource *pps.GithubPipelineSource) (string, error) {

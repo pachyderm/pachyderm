@@ -24,13 +24,10 @@ _testmain.go
 
 *.swp
 
-src/cmd/deploy/deploy
 src/cmd/pfs/pfs
 src/cmd/pfsd/pfsd
 src/cmd/pps/pps
 src/cmd/ppsd/ppsd
-src/cmd/router/router
-src/cmd/shard/shard
 .vagrant
 _tmp
 .deps.list.tmp

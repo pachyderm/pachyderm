@@ -11,22 +11,18 @@
 	vet \
 	errcheck \
 	pretest \
-	test-long \
 	test \
-	test-new \
-	bench \
 	shell \
-	launch-shard \
+	shell-ppsd \
 	launch-pfsd \
 	launch-ppsd \
-	shell-ppsd \
 	build-images \
 	push-images \
 	proto \
 	hit-godoc
 
-IMAGES = deploy pfsd ppsd router shard
-BINARIES = deploy pfs pfsd pps ppsd router shard
+IMAGES = pfsd ppsd
+BINARIES = pfs pfsd pps ppsd
 
 ifndef GOMAXPROCS
 GOMAXPROCS = 20
@@ -67,43 +63,23 @@ clean:
 
 lint:
 	go get -v github.com/golang/lint/golint
-	golint ./...
+	-for file in $$(find "./src" -name '*.go' | grep -v '\.pb\.go'); do \
+		golint $$file | grep -v unexported; \
+	done;
 
 vet:
 	go vet ./...
 
 errcheck:
-	errcheck ./...
+	go get -v github.com/kisielk/errcheck
+	errcheck ./src/pfs
+	errcheck ./src/pps
 
 pretest: lint vet errcheck
 
 # TODO(pedge): add pretest when fixed
-test:
-	./bin/run go test -parallel $(GOMAXPROCS) -test.short $(TESTFLAGS) ./...
-
-# TODO(pedge): add pretest when fixed
-test-long:
-	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
-	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
-	@ sleep 5
-	./bin/run go test -parallel $(GOMAXPROCS) -timeout 20m $(TESTFLAGS) ./...
-
-test-new: test-deps
-	#go get -v github.com/golang/lint/golint
-	#for pkg in pfs pkg pps; do \
-		#for file in $$(find "./src/$$pkg" -name '*.go' | grep -v '\.pb\.go'); do \
-			#golint $$file; \
-		#done; \
-	#done
-	go vet ./src/pfs/... ./src/pkg/... ./src/pps/...
-	./bin/run go test -parallel $(GOMAXPROCS) $(TESTFLAGS) ./src/pfs/... ./src/pkg/... ./src/pps/...
-
-# TODO(pedge): add pretest when fixed
-bench:
-	@ echo WARNING: this will not work as an OSS contributor for now, we are working on fixing this.
-	@ echo This directive requires Pachyderm AWS credentials. Sleeping for 5 seconds so you can ctrl+c if you want...
-	@ sleep 5
-	./bin/run go test -timeout 20m -bench . ./...
+test: vet errcheck
+	./bin/run go test -parallel $(GOMAXPROCS) $(TESTFLAGS) ./...
 
 build-images:
 	$(NOCACHE_CMD)
@@ -119,30 +95,14 @@ push-images: build-images
 shell:
 	PACHYDERM_IMAGE=shell ./bin/run
 
-launch-shard:
-	PACHYDERM_IMAGE=shard PACHYDERM_DOCKER_OPTS="-d" ./bin/run -shard 0 -modulos 1
+shell-ppsd:
+	PACHYDERM_IMAGE=shell-ppsd ./bin/run
 
 launch-pfsd:
 	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d" ./bin/run
 
 launch-ppsd:
 	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d" ./bin/run
-
-shell-ppsd:
-	PACHYDERM_IMAGE=shell-ppsd ./bin/run
-
-kube-%:
-	kubectl=kubectl; \
-	if ! which $$kubectl > /dev/null; then \
-		kubectl=kubectl.sh; \
-		if ! which $$kubectl > /dev/null; then \
-			echo "error: kubectl not installed" >& 2; \
-			exit 1; \
-		fi; \
-	fi; \
-	for file in storage-controller.yml router-controller.yml pachyderm-service.yml; do \
-		$$kubectl $* -f etc/kube/$$file; \
-	done
 
 proto:
 	bin/proto

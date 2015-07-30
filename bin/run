@@ -8,15 +8,7 @@ cd "${DIR}"
 "${DIR}/bin/setup"
 "${DIR}/bin/build"
 
-ENV_FLAGS=
-if [ -n "${AWS_ACCESS_KEY_ID}" ]; then
-  ENV_FLAGS="${ENV_FLAGS} -e ${AWS_ACCESS_KEY_ID}"
-fi
-if [ -n "${AWS_SECRET_ACCESS_KEY}" ]; then
-  ENV_FLAGS="${ENV_FLAGS} -e ${AWS_SECRET_ACCESS_KEY}"
-fi
-
 if [ -z "${PACHYDERM_IMAGE}" ]; then
   PACHYDERM_IMAGE="pachyderm"
 fi
-docker-compose run --service-ports ${PACHYDERM_DOCKER_OPTS} ${ENV_FLAGS} ${PACHYDERM_IMAGE} $@
+docker-compose run --service-ports ${PACHYDERM_IMAGE} $@

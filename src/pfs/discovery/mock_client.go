@@ -116,7 +116,7 @@ func (c *mockClient) unsafeSet(key string, value string, ttl uint64) error {
 		expires = time.Now().Add(time.Second * time.Duration(ttl))
 	}
 	parts := strings.Split(key, "/")
-	for i, _ := range parts[:len(parts)-1] {
+	for i := range parts[:len(parts)-1] {
 		oldRecord, ok := c.records["/"+path.Join(parts[:i]...)]
 		if ok && !oldRecord.directory {
 			return fmt.Errorf("pachyderm: key %s not found", key)
