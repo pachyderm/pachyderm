@@ -17,17 +17,18 @@ all: build
 deps:
 	go get -d -v ./...
 
-update-deps-list:
-	./bin/deps
-
-update-deps: update-deps-list
+update-deps:
 	go get -d -v -u -f ./...
 
 test-deps:
 	go get -d -v -t ./...
 
-update-test-deps: update-deps-list
+update-test-deps:
 	go get -d -v -t -u -f ./...
+
+update-deps-list: update-test-deps
+	go get -v github.com/peter-edge/go-tools/go-external-deps
+	go-external-deps github.com/pachyderm/pachyderm etc/deps/deps.list
 
 build: deps
 	go build ./...
@@ -117,10 +118,10 @@ hit-godoc:
 .PHONY: \
 	all \
 	deps \
-	update-deps-list \
 	update-deps \
 	test-deps \
 	update-test-deps \
+	update-deps-list \
 	build \
 	install \
 	docker-nocache \

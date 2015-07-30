@@ -2,19 +2,6 @@ bazil.org/fuse
 bazil.org/fuse/fs
 bazil.org/fuse/fuseutil
 github.com/Sirupsen/logrus
-github.com/aws/aws-sdk-go/aws
-github.com/aws/aws-sdk-go/aws/awserr
-github.com/aws/aws-sdk-go/aws/awsutil
-github.com/aws/aws-sdk-go/aws/credentials
-github.com/aws/aws-sdk-go/internal/endpoints
-github.com/aws/aws-sdk-go/internal/protocol/query
-github.com/aws/aws-sdk-go/internal/protocol/query/queryutil
-github.com/aws/aws-sdk-go/internal/protocol/rest
-github.com/aws/aws-sdk-go/internal/protocol/restxml
-github.com/aws/aws-sdk-go/internal/protocol/xml/xmlutil
-github.com/aws/aws-sdk-go/internal/signer/v4
-github.com/aws/aws-sdk-go/service/s3
-github.com/aws/aws-sdk-go/service/s3/s3manager
 github.com/bradfitz/http2
 github.com/bradfitz/http2/hpack
 github.com/coreos/go-etcd/etcd
@@ -34,7 +21,6 @@ github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/system
 github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/ulimit
 github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/units
 github.com/fsouza/go-dockerclient/vendor/github.com/docker/libcontainer/user
-github.com/go-fsnotify/fsnotify
 github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
 github.com/inconshreveable/mousetrap
@@ -47,7 +33,6 @@ github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 github.com/stretchr/testify/suite
 github.com/ugorji/go/codec
-github.com/vaughan0/go-ini
 go.pedge.io/protolog
 go.pedge.io/protolog/logrus
 golang.org/x/net/context
