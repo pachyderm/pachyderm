@@ -3,7 +3,9 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -16,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/discovery"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
@@ -54,6 +57,13 @@ func TestBtrfsExec(t *testing.T) {
 	t.Parallel()
 	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewExecAPI())
 	runTest(t, driver, testSimple)
+}
+
+func TestFuseMount(t *testing.T) {
+	t.Skip()
+	t.Parallel()
+	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewExecAPI())
+	runTest(t, driver, testMount)
 }
 
 func getBtrfsRootDir(t *testing.T) string {
@@ -170,7 +180,54 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	require.Equal(t, testSize, count)
 }
 
+func testMount(t *testing.T, apiClient pfs.ApiClient) {
+	repositoryName := testRepositoryName()
+
+	err := pfsutil.InitRepository(apiClient, repositoryName)
+	require.NoError(t, err)
+
+	//directory, err := ioutil.TempDir("", "testMount")
+	//require.NoError(t, err)
+	directory := "/compile/testMount"
+	mounter := fuse.NewMounter()
+	go func() {
+		err = mounter.Mount(apiClient, repositoryName, directory, 0, 1)
+		require.NoError(t, err)
+	}()
+	mounter.Ready()
+
+	_, err = os.Stat(filepath.Join(directory, "scratch"))
+	require.NoError(t, err)
+
+	branchResponse, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
+	require.NoError(t, err)
+	require.NotNil(t, branchResponse)
+	newCommitID := branchResponse.Commit.Id
+
+	_, err = os.Stat(filepath.Join(directory, newCommitID))
+	require.NoError(t, err)
+
+	err = ioutil.WriteFile(filepath.Join(directory, newCommitID, "foo"), []byte("foo"), 0666)
+	require.NoError(t, err)
+
+	_, err = pfsutil.PutFile(apiClient, repositoryName, newCommitID, "bar", strings.NewReader("bar"))
+	require.NoError(t, err)
+
+	err = pfsutil.Commit(apiClient, repositoryName, newCommitID)
+	require.NoError(t, err)
+
+	data, err := ioutil.ReadFile(filepath.Join(directory, newCommitID, "foo"))
+	require.NoError(t, err)
+	require.Equal(t, "foo", string(data))
+
+	data, err = ioutil.ReadFile(filepath.Join(directory, newCommitID, "bar"))
+	require.NoError(t, err)
+	require.Equal(t, "bar", string(data))
+}
+
 func testRepositoryName() string {
+	// TODO could be nice to add callee to this string to make it easy to
+	// recover results for debugging
 	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
 }
 
