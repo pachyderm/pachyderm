@@ -185,8 +185,9 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 	err := pfsutil.InitRepository(apiClient, repositoryName)
 	require.NoError(t, err)
 
-	directory, err := ioutil.TempDir("", "testMount")
-	require.NoError(t, err)
+	//directory, err := ioutil.TempDir("", "testMount")
+	//require.NoError(t, err)
+	directory := "/compile/testMount"
 	mounter := fuse.NewMounter()
 	go func() {
 		err = mounter.Mount(apiClient, repositoryName, directory, 0, 1)
