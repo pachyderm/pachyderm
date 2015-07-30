@@ -6,7 +6,6 @@ pachyderm:
     - "651:651"
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - /:/host:ro
     - /tmp/pfs/btrfs:/tmp/pfs/btrfs
     - _tmp:/compile
   environment:

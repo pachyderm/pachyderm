@@ -88,7 +88,10 @@ pretest:
 	go get -v github.com/kisielk/errcheck
 	go get -v github.com/golang/lint/golint
 	for file in $$(find "./src" -name '*.go' | grep -v '\.pb\.go'); do \
-		golint $$file | grep -v unexported || true; \
+		golint $$file | grep -v unexported; \
+		if [ -n "$$(golint $$file | grep -v unexported)" ]; then \
+			exit 1; \
+		fi; \
 	done;
 	go vet ./...
 	errcheck ./src/cmd ./src/common ./src/pfs ./src/pps
