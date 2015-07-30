@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
+	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/peter-edge/go-env"
 	"google.golang.org/grpc"
 )
@@ -60,7 +61,7 @@ func do() error {
 				address,
 				appEnv.NumShards,
 			),
-			route.NewDialer(),
+			grpcutil.NewDialer(),
 			address,
 		),
 		drive.NewBtrfsDriver(
