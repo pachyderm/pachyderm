@@ -1,28 +1,12 @@
-.PHONY: \
-	all \
-	deps \
-	update-deps \
-	test-deps \
-	update-test-deps \
-	build \
-	install \
-	clean \
-	lint \
-	vet \
-	errcheck \
-	pretest \
-	test \
-	shell \
-	shell-ppsd \
-	launch-pfsd \
-	launch-ppsd \
-	build-images \
-	push-images \
-	proto \
-	hit-godoc
+#### VARIABLES
+# RUNARGS: arguments for run
+# DOCKER_OPTS: docker-compose options for run, test, launch-*
+# TESTPKGS: packages for test, default ./...
+# TESTFLAGS: flags for test
+# NOCACHE: do not use dependency cache for docker
+####
 
-IMAGES = pfsd ppsd
-BINARIES = pfs pfsd pps ppsd
+TESTPKGS = ./...
 
 ifdef NOCACHE
 NOCACHE_CMD = touch etc/deps/deps.list
@@ -33,16 +17,17 @@ all: build
 deps:
 	go get -d -v ./...
 
-update-deps:
-	go get -d -v -u -f ./...
+update-deps-list:
 	./bin/deps
+
+update-deps: update-deps-list
+	go get -d -v -u -f ./...
 
 test-deps:
 	go get -d -v -t ./...
 
-update-test-deps:
+update-test-deps: update-deps-list
 	go get -d -v -t -u -f ./...
-	./bin/deps
 
 build: deps
 	go build ./...
@@ -50,12 +35,53 @@ build: deps
 install: deps
 	go install ./src/cmd/pfs ./src/cmd/pps
 
-clean:
-	go clean ./...
-	./bin/clean
-	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) ./bin/clean || exit;)
-	$(foreach binary,$(BINARIES),rm -f src/cmd/$(binary)/$(binary);)
-	sudo rm -rf _tmp
+docker-nocache:
+	$(NOCACHE_CMD)
+
+docker-build: docker-nocache
+	docker-compose build pachyderm
+	docker tag -f pachyderm_pachyderm:latest pachyderm/pachyderm:latest
+
+docker-build-pfsd: docker-build
+	docker-compose run pachyderm go build -a -installsuffix netgo -tags netgo -o /compile/pfsd src/cmd/pfsd/main.go
+	docker-compose build pfsd
+	docker tag -f pachyderm_pfsd:latest pachyderm/pfsd:latest
+
+docker-build-ppsd: docker-build
+	docker-compose run pachyderm go build -a -installsuffix netgo -tags netgo -o /compile/ppsd src/cmd/ppsd/main.go
+	docker-compose build ppsd
+	docker tag -f pachyderm_ppsd:latest pachyderm/ppsd:latest
+
+docker-push-pfsd: docker-build-pfsd
+	docker push pachyderm/pfsd
+
+docker-push-ppsd: docker-build-ppsd
+	docker push pachyderm/ppsd
+
+docker-push: docker-push-ppsd docker-push-pfsd
+
+btrfs-clean:
+	-sudo umount /tmp/pfs/btrfs > /dev/null
+	sudo rm -rf /tmp/pfs > /dev/null
+
+btrfs-setup: btrfs-clean
+	sudo mkdir -p /tmp/pfs/btrfs
+	sudo truncate /tmp/pfs/btrfs.img -s 10G
+	sudo mkfs.btrfs /tmp/pfs/btrfs.img
+	sudo mount /tmp/pfs/btrfs.img /tmp/pfs/btrfs
+	sudo mkdir -p /tmp/pfs/btrfs/global
+
+run: btrfs-setup docker-build
+	docker-compose run $(DOCKER_OPTS) pachyderm $(RUNARGS)
+
+launch-pfsd: btrfs-setup docker-build-pfsd
+	docker-compose run --service-ports -d $(DOCKER_OPTS) pfsd
+
+launch-ppsd: btrfs-setup docker-build-ppsd
+	docker-compose run --service-ports -d $(DOCKER_OPTS) ppsd
+
+proto:
+	bin/proto
 
 lint:
 	go get -v github.com/golang/lint/golint
@@ -74,36 +100,47 @@ pretest: lint vet errcheck
 
 pre: build pretest
 
-test: pretest
-	./bin/run go test $(TESTFLAGS) ./...
+test: pretest btrfs-setup docker-build
+	docker-compose run $(DOCKER_OPTS) pachyderm go test $(TESTFLAGS) $(TESTPKGS)
 
-build-images:
-	$(NOCACHE_CMD)
-	$(foreach image,$(IMAGES),PACHYDERM_IMAGE=$(image) ./bin/build || exit;)
-
-build-%:
-	$(NOCACHE_CMD)
-	PACHYDERM_IMAGE=$* ./bin/build
-
-push-images: build-images
-	$(foreach image,$(IMAGES),docker push pachyderm/$(image) || exit;)
-
-shell:
-	PACHYDERM_IMAGE=shell ./bin/run
-
-shell-ppsd:
-	PACHYDERM_IMAGE=shell-ppsd ./bin/run
-
-launch-pfsd:
-	PACHYDERM_IMAGE=pfsd PACHYDERM_DOCKER_OPTS="-d" ./bin/run
-
-launch-ppsd:
-	PACHYDERM_IMAGE=ppsd PACHYDERM_DOCKER_OPTS="-d" ./bin/run
-
-proto:
-	bin/proto
+clean: btrfs-clean
+	go clean ./...
+	rm -f src/cmd/pfsd/pfsd
+	rm -f src/cmd/ppsd/ppsd
+	sudo rm -rf _tmp
 
 hit-godoc:
 	for pkg in $$(find . -name '*.go' | xargs dirname | sort | uniq); do \
 		curl https://godoc.org/github.com/pachyderm/pachyderm/$pkg > /dev/null; \
 	done
+
+.PHONY: \
+	all \
+	deps \
+	update-deps-list \
+	update-deps \
+	test-deps \
+	update-test-deps \
+	build \
+	install \
+	docker-nocache \
+	docker-build \
+	docker-build-pfsd \
+	docker-build-ppsd \
+	docker-push-pfsd \
+	docker-push-ppsd \
+	docker-push \
+	btrfs-clean \
+	btrfs-setup \
+	run \
+	launch-pfsd \
+	launch-ppsd \
+	proto \
+	lint \
+	vet \
+	errcheck \
+	pretest \
+	pre \
+	test \
+	clean \
+	hit-godoc

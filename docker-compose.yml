@@ -21,13 +21,3 @@ ppsd:
     file: docker-compose.yml
     service: pachyderm
   dockerfile: Dockerfile.ppsd
-shell:
-  extends:
-    file: docker-compose.yml
-    service: pachyderm
-  entrypoint: /bin/bash
-shell-ppsd:
-  extends:
-    file: docker-compose.yml
-    service: ppsd
-  entrypoint: /bin/bash
