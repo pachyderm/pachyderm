@@ -1,3 +1,7 @@
+/*
+Package pfsutil provides utility functions that wrap a pfs.ApiClient
+to make the calling code slightly cleaner.
+*/
 package pfsutil
 
 import (

@@ -1,5 +1,5 @@
 FROM ubuntu:15.04
 MAINTAINER peter@pachyderm.io
 
-ADD _tmp/pfsd /pfsd
-ENTRYPOINT ["/pfsd"]
+ADD _tmp/pfsd /bin/pfsd
+ENTRYPOINT ["/bin/pfsd"]
