@@ -53,7 +53,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # allows calling docker from host machine if networking properly set up
   # see https://github.com/peter-edge/dotfiles/tree/master/bin/setup_docker_http.sh
   # note that the above script should not be used if your vagrant box is somehow insecure
-  # see https://github.com/peter-edge/dotfiles/tree/master/bash_aliases_docker (everything until
+  # see https://github.com/peter-edge/dotfiles/tree/master/bash_aliases_docker up until
   # the 'alias docker' command for how to set this all up with a mac (after 'brew install docker')
   config.vm.network "private_network", ip: "192.168.10.10"
   # allows volumes from host machine if calling docker from host machine
