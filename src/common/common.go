@@ -21,7 +21,7 @@ const (
 	MinorVersion = 10
 	// MicroVersion is the micro version for pachyderm.
 	MicroVersion = 0
-	// AdditionVersion will be "dev" is this is a development branch, "" otherwise.
+	// AdditionalVersion will be "dev" is this is a development branch, "" otherwise.
 	AdditionalVersion = "dev"
 )
 
