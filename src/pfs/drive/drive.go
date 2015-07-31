@@ -1,3 +1,6 @@
+/*
+Package drive provides the definitions for the low-level pfs storage drivers.
+*/
 package drive
 
 import (
@@ -8,15 +11,18 @@ import (
 )
 
 const (
+	// InitialCommitID is the initial id before any commits are made in a repository.
 	InitialCommitID = "scratch"
 )
 
 var (
+	// ReservedCommitIDs are the commit ids used by the system.
 	ReservedCommitIDs = map[string]bool{
 		InitialCommitID: true,
 	}
 )
 
+// Driver represents a low-level pfs storage driver.
 type Driver interface {
 	Init() error
 	InitRepository(repository *pfs.Repository, shard map[int]bool) error
@@ -33,6 +39,7 @@ type Driver interface {
 	ListCommits(repository *pfs.Repository, shard int) ([]*pfs.CommitInfo, error)
 }
 
+// NewBtrfsDriver constructs a new Driver for btrfs.
 func NewBtrfsDriver(rootDir string, btrfsAPI btrfs.API) Driver {
 	return newBtrfsDriver(rootDir, btrfsAPI)
 }

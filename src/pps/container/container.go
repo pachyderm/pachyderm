@@ -1,3 +1,6 @@
+/*
+Package container provides functionality to interact with containers.
+*/
 package container
 
 import (
