@@ -8,13 +8,20 @@ import (
 	"testing"
 
 	"go.pedge.io/protolog"
+	"go.pedge.io/protolog/logrus"
 
-	"github.com/pachyderm/pachyderm/src/common"
+	stdlogrus "github.com/Sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
 
 func init() {
-	common.ForceLogColors()
+	logrus.SetPusherOptions(
+		logrus.PusherOptions{
+			Formatter: &stdlogrus.TextFormatter{
+				ForceColors: true,
+			},
+		},
+	)
 }
 
 func TestBuild(t *testing.T) {
