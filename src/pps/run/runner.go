@@ -56,7 +56,7 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 	)
 	nameToNode := pps.GetNameToNode(pipeline)
 	nameToDockerService := pps.GetNameToDockerService(pipeline)
-	nameToNodeInfo, err := graph.GetNameToNodeInfo(nameToNode)
+	nameToNodeInfo, err := getNameToNodeInfo(nameToNode)
 	if err != nil {
 		return "", err
 	}

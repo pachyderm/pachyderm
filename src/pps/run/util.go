@@ -1,17 +1,18 @@
-package graph
+package run
 
 import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/graph"
 )
 
-func getNameToNodeInfo(nodes map[string]*pps.Node) (map[string]*NodeInfo, error) {
+func getNameToNodeInfo(nodes map[string]*pps.Node) (map[string]*graph.NodeInfo, error) {
 	nodeToInputs := getNodeNameToInputStrings(nodes)
 	outputToNodes := getOutputStringToNodeNames(nodes)
-	nodeInfos := make(map[string](*NodeInfo))
+	nodeInfos := make(map[string](*graph.NodeInfo))
 	for name := range nodes {
-		nodeInfo := &NodeInfo{
+		nodeInfo := &graph.NodeInfo{
 			Parents: make([]string, 0),
 		}
 		parents := make(map[string]bool)
