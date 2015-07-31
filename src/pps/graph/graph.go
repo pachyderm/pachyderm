@@ -1,7 +1,5 @@
 package graph
 
-import "github.com/pachyderm/pachyderm/src/pps"
-
 type NodeInfo struct {
 	Parents []string
 }
@@ -26,8 +24,4 @@ type Grapher interface {
 func NewGrapher() Grapher {
 	// TODO(pedge): cycle detection
 	return newGrapher()
-}
-
-func GetNameToNodeInfo(nodes map[string]*pps.Node) (map[string]*NodeInfo, error) {
-	return getNameToNodeInfo(nodes)
 }
