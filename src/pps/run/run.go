@@ -1,9 +1,9 @@
 package run
 
 import (
+	"github.com/pachyderm/pachyderm/src/pkg/graph"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
-	"github.com/pachyderm/pachyderm/src/pps/graph"
 	"github.com/pachyderm/pachyderm/src/pps/source"
 	"github.com/pachyderm/pachyderm/src/pps/store"
 )

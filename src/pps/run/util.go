@@ -3,8 +3,8 @@ package run
 import (
 	"fmt"
 
+	"github.com/pachyderm/pachyderm/src/pkg/graph"
 	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/graph"
 )
 
 func getNameToNodeInfo(nodes map[string]*pps.Node) (map[string]*graph.NodeInfo, error) {
