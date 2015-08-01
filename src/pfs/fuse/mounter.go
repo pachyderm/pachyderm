@@ -235,5 +235,6 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 		return err
 	}
 	response.Size = written
+	f.size = uint64(written)
 	return nil
 }
