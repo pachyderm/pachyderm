@@ -221,9 +221,9 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 	require.NoError(t, err)
 	require.Equal(t, "foo", string(data))
 
-	//data, err = ioutil.ReadFile(filepath.Join(directory, newCommitID, "bar"))
-	//require.NoError(t, err)
-	//require.Equal(t, "bar", string(data))
+	data, err = ioutil.ReadFile(filepath.Join(directory, newCommitID, "bar"))
+	require.NoError(t, err)
+	require.Equal(t, "bar", string(data))
 }
 
 func testRepositoryName() string {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
+	"strings"
 
 	"google.golang.org/grpc"
 
@@ -152,6 +153,13 @@ func (a *combinedAPIServer) MakeDirectory(ctx context.Context, makeDirectoryRequ
 }
 
 func (a *combinedAPIServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequest) (*google_protobuf.Empty, error) {
+	if strings.HasPrefix(putFileRequest.Path.Path, "/") {
+		// This is a subtle error case, the paths foo and /foo will hash to
+		// different shards but will produce the same change once they get to
+		// those shards due to how path.Join. This can go wrong in a number of
+		// ways so we forbid leading slashes.
+		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", putFileRequest.Path.Path)
+	}
 	shard, clientConn, err := a.getShardAndClientConnIfNecessary(putFileRequest.Path, false)
 	if err != nil {
 		return nil, err
