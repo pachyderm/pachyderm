@@ -2,7 +2,6 @@ package drive
 
 import (
 	"io"
-	"os"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
@@ -18,10 +17,15 @@ var (
 	}
 )
 
+type ReaderAtCloser interface {
+	io.ReaderAt
+	io.Closer
+}
+
 type Driver interface {
 	Init() error
 	InitRepository(repository *pfs.Repository, shard map[int]bool) error
-	GetFile(path *pfs.Path, shard int) (*os.File, error)
+	GetFile(path *pfs.Path, shard int) (ReaderAtCloser, error)
 	GetFileInfo(path *pfs.Path, shard int) (*pfs.FileInfo, bool, error)
 	MakeDirectory(path *pfs.Path, shards map[int]bool) error
 	PutFile(path *pfs.Path, shard int, offset int64, reader io.Reader) error

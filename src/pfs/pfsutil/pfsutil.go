@@ -10,6 +10,10 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	GetAll int64 = 1<<63 - 1
+)
+
 func GetVersion(apiClient pfs.ApiClient) (*pfs.GetVersionResponse, error) {
 	return apiClient.GetVersion(
 		context.Background(),

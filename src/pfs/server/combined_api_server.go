@@ -102,15 +102,8 @@ func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFi
 			retErr = err
 		}
 	}()
-	if _, err := file.Seek(getFileRequest.OffsetBytes, 0); err != nil {
-		return err
-	}
-	var reader io.Reader = file
-	if getFileRequest.SizeBytes != 0 {
-		reader = &io.LimitedReader{reader, getFileRequest.SizeBytes}
-	}
 	return protoutil.WriteToStreamingBytesServer(
-		reader,
+		io.NewSectionReader(file, getFileRequest.OffsetBytes, getFileRequest.SizeBytes),
 		apiGetFileServer,
 	)
 }
