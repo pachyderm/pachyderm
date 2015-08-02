@@ -141,11 +141,11 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 		go func() {
 			defer wg.Done()
 			buffer := bytes.NewBuffer(nil)
-			iErr := pfsutil.GetFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i), buffer)
+			iErr := pfsutil.GetFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i), 0, 0, buffer)
 			require.NoError(t, iErr)
 			require.Equal(t, fmt.Sprintf("hello%d", i), buffer.String())
 			buffer = bytes.NewBuffer(nil)
-			iErr = pfsutil.GetFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i), buffer)
+			iErr = pfsutil.GetFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i), 0, 0, buffer)
 			require.NoError(t, iErr)
 			require.Equal(t, fmt.Sprintf("hello%d", i), buffer.String())
 		}()
@@ -210,6 +210,13 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 	_, err = pfsutil.PutFile(apiClient, repositoryName, newCommitID, "bar", strings.NewReader("bar"))
 	require.NoError(t, err)
 
+	bigValue := make([]byte, 1024*1024)
+	for i := 0; i < 1024*1024; i++ {
+		bigValue[i] = 'a'
+	}
+	_, err = pfsutil.PutFile(apiClient, repositoryName, newCommitID, "big", bytes.NewReader(bigValue))
+	require.NoError(t, err)
+
 	err = pfsutil.Commit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
 
@@ -224,6 +231,10 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 	data, err = ioutil.ReadFile(filepath.Join(directory, newCommitID, "bar"))
 	require.NoError(t, err)
 	require.Equal(t, "bar", string(data))
+
+	data, err = ioutil.ReadFile(filepath.Join(directory, newCommitID, "big"))
+	require.NoError(t, err)
+	require.Equal(t, bigValue, data)
 }
 
 func testRepositoryName() string {

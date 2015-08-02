@@ -72,7 +72,7 @@ func (d *btrfsDriver) InitRepository(repository *pfs.Repository, shards map[int]
 	return nil
 }
 
-func (d *btrfsDriver) GetFile(path *pfs.Path, shard int) (io.ReadCloser, error) {
+func (d *btrfsDriver) GetFile(path *pfs.Path, shard int) (*os.File, error) {
 	return os.Open(d.filePath(path, shard))
 }
 
