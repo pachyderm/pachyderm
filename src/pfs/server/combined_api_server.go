@@ -178,7 +178,7 @@ func (a *combinedAPIServer) PutFile(ctx context.Context, putFileRequest *pfs.Put
 	if clientConn != nil {
 		return pfs.NewApiClient(clientConn).PutFile(ctx, putFileRequest)
 	}
-	if err := a.driver.PutFile(putFileRequest.Path, shard, bytes.NewReader(putFileRequest.Value)); err != nil {
+	if err := a.driver.PutFile(putFileRequest.Path, shard, putFileRequest.OffsetBytes, bytes.NewReader(putFileRequest.Value)); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil

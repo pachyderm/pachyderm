@@ -61,7 +61,7 @@ func MakeDirectory(apiClient pfs.ApiClient, repositoryName string, commitID stri
 	return err
 }
 
-func PutFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, reader io.Reader) (int, error) {
+func PutFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, offset int64, reader io.Reader) (int64, error) {
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return 0, err
@@ -78,10 +78,11 @@ func PutFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 				},
 				Path: path,
 			},
-			Value: value,
+			OffsetBytes: offset,
+			Value:       value,
 		},
 	)
-	return len(value), err
+	return int64(len(value)), err
 }
 
 func GetFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {

@@ -98,7 +98,8 @@ func (d *directory) nodeFromFileInfo(fileInfo *pfs.FileInfo) (fs.Node, error) {
 	case pfs.FileType_FILE_TYPE_OTHER:
 		return nil, fuse.ENOENT
 	case pfs.FileType_FILE_TYPE_REGULAR:
-		return &file{d.fs, d.commitId, path.Join(d.path, fileInfo.Path.Path), 0, fileInfo.SizeBytes}, nil
+		return &file{d.fs, d.commitId, path.Join(d.path, fileInfo.Path.Path), 0,
+			int64(fileInfo.SizeBytes)}, nil
 	case pfs.FileType_FILE_TYPE_DIR:
 		return &directory{d.fs, d.commitId, d.write, fileInfo.Path.Path}, nil
 	default:
@@ -210,7 +211,7 @@ type file struct {
 	commitId string
 	path     string
 	handles  int32
-	size     uint64
+	size     int64
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
@@ -238,7 +239,6 @@ func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fu
 		return err
 	}
 	response.Data = buffer.Bytes()
-	log.Printf("Read response: %+v", response)
 	return nil
 }
 
@@ -249,11 +249,14 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 
 func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) error {
 	log.Printf("Write: %+v %+v", f, request)
-	written, err := pfsutil.PutFile(f.fs.apiClient, f.fs.repositoryName, f.commitId, f.path, bytes.NewReader(request.Data))
+	written, err := pfsutil.PutFile(f.fs.apiClient, f.fs.repositoryName, f.commitId, f.path, request.Offset, bytes.NewReader(request.Data))
 	if err != nil {
 		return err
 	}
-	response.Size = written
-	f.size = uint64(written)
+	log.Print("written: ", written)
+	response.Size = int(written)
+	if f.size < request.Offset+written {
+		f.size = request.Offset + written
+	}
 	return nil
 }

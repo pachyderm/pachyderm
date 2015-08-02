@@ -116,9 +116,11 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, iErr := pfsutil.PutFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
+			_, iErr := pfsutil.PutFile(apiClient, repositoryName, newCommitID,
+				fmt.Sprintf("a/b/file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
 			require.NoError(t, iErr)
-			_, iErr = pfsutil.PutFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
+			_, iErr = pfsutil.PutFile(apiClient, repositoryName, newCommitID,
+				fmt.Sprintf("a/c/file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
 			require.NoError(t, iErr)
 		}()
 	}
@@ -207,14 +209,18 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 	err = ioutil.WriteFile(filepath.Join(directory, newCommitID, "foo"), []byte("foo"), 0666)
 	require.NoError(t, err)
 
-	_, err = pfsutil.PutFile(apiClient, repositoryName, newCommitID, "bar", strings.NewReader("bar"))
+	_, err = pfsutil.PutFile(apiClient, repositoryName, newCommitID, "bar", 0, strings.NewReader("bar"))
 	require.NoError(t, err)
 
 	bigValue := make([]byte, 1024*1024)
 	for i := 0; i < 1024*1024; i++ {
 		bigValue[i] = 'a'
 	}
-	_, err = pfsutil.PutFile(apiClient, repositoryName, newCommitID, "big", bytes.NewReader(bigValue))
+
+	err = ioutil.WriteFile(filepath.Join(directory, newCommitID, "big1"), bigValue, 0666)
+	require.NoError(t, err)
+
+	_, err = pfsutil.PutFile(apiClient, repositoryName, newCommitID, "big2", 0, bytes.NewReader(bigValue))
 	require.NoError(t, err)
 
 	err = pfsutil.Commit(apiClient, repositoryName, newCommitID)
@@ -232,7 +238,11 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 	require.NoError(t, err)
 	require.Equal(t, "bar", string(data))
 
-	data, err = ioutil.ReadFile(filepath.Join(directory, newCommitID, "big"))
+	data, err = ioutil.ReadFile(filepath.Join(directory, newCommitID, "big1"))
+	require.NoError(t, err)
+	require.Equal(t, bigValue, data)
+
+	data, err = ioutil.ReadFile(filepath.Join(directory, newCommitID, "big2"))
 	require.NoError(t, err)
 	require.Equal(t, bigValue, data)
 }
