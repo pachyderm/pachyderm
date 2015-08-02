@@ -3,7 +3,6 @@ package fuse
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"strings"
@@ -108,7 +107,6 @@ func (d *directory) nodeFromFileInfo(fileInfo *pfs.FileInfo) (fs.Node, error) {
 }
 
 func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	log.Printf("Lookup: %+v %s", d, name)
 	if d.commitId == "" {
 		response, err := pfsutil.GetCommitInfo(
 			d.fs.apiClient,
@@ -136,7 +134,6 @@ func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		path.Join(d.path, name),
 	)
 	if err != nil {
-		log.Print(err)
 		return nil, err
 	}
 	return d.nodeFromFileInfo(response.FileInfo)
@@ -182,7 +179,6 @@ func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, response *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
-	log.Printf("Create: %+v", request)
 	if d.commitId == "" {
 		return nil, 0, fuse.EPERM
 	}
@@ -232,10 +228,8 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
 }
 
 func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) error {
-	log.Printf("Read: %+v %+v", f, request)
 	buffer := bytes.NewBuffer(make([]byte, 0, request.Size))
 	if err := pfsutil.GetFile(f.fs.apiClient, f.fs.repositoryName, f.commitId, f.path, request.Offset, int64(request.Size), buffer); err != nil {
-		log.Print(err)
 		return err
 	}
 	response.Data = buffer.Bytes()
@@ -248,12 +242,10 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 }
 
 func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) error {
-	log.Printf("Write: %+v %+v", f, request)
 	written, err := pfsutil.PutFile(f.fs.apiClient, f.fs.repositoryName, f.commitId, f.path, request.Offset, bytes.NewReader(request.Data))
 	if err != nil {
 		return err
 	}
-	log.Print("written: ", written)
 	response.Size = int(written)
 	if f.size < request.Offset+written {
 		f.size = request.Offset + written

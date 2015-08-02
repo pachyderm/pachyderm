@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -228,7 +227,6 @@ func (d *btrfsDriver) PushDiff(commit *pfs.Commit, shard int, reader io.Reader) 
 }
 
 func (d *btrfsDriver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.CommitInfo, ok bool, _ error) {
-	log.Print("Statting: ", d.commitPath(commit, shard))
 	_, err := os.Stat(d.commitPath(commit, shard))
 	if err != nil && os.IsNotExist(err) {
 		return nil, false, nil
