@@ -143,11 +143,13 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 		go func() {
 			defer wg.Done()
 			buffer := bytes.NewBuffer(nil)
-			iErr := pfsutil.GetFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/b/file%d", i), 0, 0, buffer)
+			iErr := pfsutil.GetFile(apiClient, repositoryName, newCommitID,
+				fmt.Sprintf("a/b/file%d", i), 0, pfsutil.GetAll, buffer)
 			require.NoError(t, iErr)
 			require.Equal(t, fmt.Sprintf("hello%d", i), buffer.String())
 			buffer = bytes.NewBuffer(nil)
-			iErr = pfsutil.GetFile(apiClient, repositoryName, newCommitID, fmt.Sprintf("a/c/file%d", i), 0, 0, buffer)
+			iErr = pfsutil.GetFile(apiClient, repositoryName, newCommitID,
+				fmt.Sprintf("a/c/file%d", i), 0, pfsutil.GetAll, buffer)
 			require.NoError(t, iErr)
 			require.Equal(t, fmt.Sprintf("hello%d", i), buffer.String())
 		}()
