@@ -79,9 +79,9 @@ func (g *grpcSuite) SetupSuite() {
 }
 
 func (g *grpcSuite) TearDownSuite() {
-	for _, clientConn := range g.clientConns {
-		_ = clientConn.Close()
-	}
+	//for _, clientConn := range g.clientConns {
+	//	_ = clientConn.Close()
+	//}
 	for _, server := range g.servers {
 		server.Stop()
 	}
