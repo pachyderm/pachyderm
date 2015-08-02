@@ -365,8 +365,9 @@ func (m *MakeDirectoryRequest) GetPath() *Path {
 }
 
 type PutFileRequest struct {
-	Path  *Path  `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
-	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Path        *Path  `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+	OffsetBytes int64  `protobuf:"varint,2,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
+	Value       []byte `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 func (m *PutFileRequest) Reset()         { *m = PutFileRequest{} }

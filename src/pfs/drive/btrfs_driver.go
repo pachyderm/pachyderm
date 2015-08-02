@@ -100,9 +100,13 @@ func (d *btrfsDriver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
 	return nil
 }
 
-func (d *btrfsDriver) PutFile(path *pfs.Path, shard int, reader io.Reader) error {
-	file, err := os.Create(d.filePath(path, shard))
+func (d *btrfsDriver) PutFile(path *pfs.Path, shard int, offset int64, reader io.Reader) error {
+	file, err := os.OpenFile(d.filePath(path, shard), os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
+		return err
+	}
+	defer file.Close()
+	if _, err := file.Seek(offset, 0); err != nil { // 0 means relative to start
 		return err
 	}
 	_, err = bufio.NewReader(reader).WriteTo(file)

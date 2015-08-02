@@ -24,7 +24,7 @@ type Driver interface {
 	GetFile(path *pfs.Path, shard int) (*os.File, error)
 	GetFileInfo(path *pfs.Path, shard int) (*pfs.FileInfo, bool, error)
 	MakeDirectory(path *pfs.Path, shards map[int]bool) error
-	PutFile(path *pfs.Path, shard int, reader io.Reader) error
+	PutFile(path *pfs.Path, shard int, offset int64, reader io.Reader) error
 	ListFiles(path *pfs.Path, shard int) ([]*pfs.FileInfo, error)
 	Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error)
 	Commit(commit *pfs.Commit, shards map[int]bool) error

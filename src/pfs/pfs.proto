@@ -114,7 +114,8 @@ message MakeDirectoryRequest {
 
 message PutFileRequest {
   Path path = 1;
-  bytes value = 2;
+  int64 offset_bytes = 2;
+  bytes value = 3;
 }
 
 message ListFilesRequest {
