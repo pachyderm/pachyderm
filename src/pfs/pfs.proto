@@ -95,6 +95,8 @@ message InitRepositoryRequest {
 
 message GetFileRequest {
   Path path = 1;
+  int64 offset_bytes = 2;
+  int64 size_bytes = 3;
 }
 
 message GetFileInfoRequest {

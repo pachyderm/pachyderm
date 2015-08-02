@@ -302,7 +302,9 @@ func (m *InitRepositoryRequest) GetRepository() *Repository {
 }
 
 type GetFileRequest struct {
-	Path *Path `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+	Path        *Path `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+	OffsetBytes int64 `protobuf:"varint,2,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
+	SizeBytes   int64 `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
 func (m *GetFileRequest) Reset()         { *m = GetFileRequest{} }

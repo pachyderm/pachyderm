@@ -85,7 +85,7 @@ func main() {
 		Long: "Get a file from stdout. commit-id must be a readable commit.",
 		Run: func(cmd *cobra.Command, args []string) {
 			checkArgs(args, 3, getUsage)
-			check(pfsutil.GetFile(apiClient, args[0], args[1], args[2], os.Stdout))
+			check(pfsutil.GetFile(apiClient, args[0], args[1], args[2], 0, 0, os.Stdout))
 		},
 	}
 

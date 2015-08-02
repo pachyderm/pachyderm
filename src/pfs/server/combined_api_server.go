@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math/rand"
 	"strings"
 
@@ -92,16 +93,26 @@ func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFi
 		}
 		return protoutil.RelayFromStreamingBytesClient(apiGetFileClient, apiGetFileServer)
 	}
-	readCloser, err := a.driver.GetFile(getFileRequest.Path, shard)
+	file, err := a.driver.GetFile(getFileRequest.Path, shard)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := readCloser.Close(); err != nil && retErr == nil {
+		if err := file.Close(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
-	return protoutil.WriteToStreamingBytesServer(readCloser, apiGetFileServer)
+	if _, err := file.Seek(getFileRequest.OffsetBytes, 0); err != nil {
+		return err
+	}
+	var reader io.Reader = file
+	if getFileRequest.SizeBytes != 0 {
+		reader = &io.LimitedReader{reader, getFileRequest.SizeBytes}
+	}
+	return protoutil.WriteToStreamingBytesServer(
+		reader,
+		apiGetFileServer,
+	)
 }
 
 func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest *pfs.GetFileInfoRequest) (*pfs.GetFileInfoResponse, error) {
