@@ -56,7 +56,6 @@ func TestBtrfsExec(t *testing.T) {
 }
 
 func TestFuseMount(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewExecAPI())
 	runTest(t, driver, testMount)
@@ -182,8 +181,6 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 	err := pfsutil.InitRepository(apiClient, repositoryName)
 	require.NoError(t, err)
 
-	//directory, err := ioutil.TempDir("", "testMount")
-	//require.NoError(t, err)
 	directory := "/compile/testMount"
 	mounter := fuse.NewMounter()
 	go func() {
@@ -211,6 +208,10 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 
 	err = pfsutil.Commit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
+
+	fInfo, err := os.Stat(filepath.Join(directory, newCommitID, "foo"))
+	require.NoError(t, err)
+	require.Equal(t, int64(3), fInfo.Size())
 
 	data, err := ioutil.ReadFile(filepath.Join(directory, newCommitID, "foo"))
 	require.NoError(t, err)

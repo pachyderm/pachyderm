@@ -122,7 +122,7 @@ func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
 				d.fs,
 				name,
 				response.CommitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_WRITE,
-				"/",
+				"",
 			},
 			nil
 	}
@@ -235,5 +235,6 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 		return err
 	}
 	response.Size = written
+	f.size = uint64(written)
 	return nil
 }
