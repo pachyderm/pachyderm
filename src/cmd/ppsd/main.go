@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"os"
 
 	"net/http"
 	//_ "net/http/pprof"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/server"
 	"github.com/pachyderm/pachyderm/src/pps/store"
-	"github.com/peter-edge/go-env"
 	"google.golang.org/grpc"
 )
 
@@ -28,18 +27,11 @@ type appEnv struct {
 }
 
 func main() {
-	if err := do(); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
-		os.Exit(1)
-	}
-	os.Exit(0)
+	common.Main(do, &appEnv{}, defaultEnv)
 }
 
-func do() error {
-	appEnv := &appEnv{}
-	if err := env.Populate(appEnv, env.PopulateOptions{Defaults: defaultEnv}); err != nil {
-		return err
-	}
+func do(appEnvObj interface{}) error {
+	appEnv := appEnvObj.(*appEnv)
 	//address := fmt.Sprintf("0.0.0.0:%d", appEnv.APIPort)
 	s := grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
 	pps.RegisterApiServer(s, server.NewAPIServer(store.NewInMemoryClient()))
