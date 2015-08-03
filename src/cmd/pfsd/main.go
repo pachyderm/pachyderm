@@ -24,6 +24,13 @@ const (
 	defaultAPIPort   = 650
 )
 
+var (
+	defaultEnv = map[string]string{
+		"PFS_NUM_SHARDS": "16",
+		"PFS_API_PORT":   "650",
+	}
+)
+
 type appEnv struct {
 	BtrfsRoot string `env:"PFS_BTRFS_ROOT,required"`
 	NumShards int    `env:"PFS_NUM_SHARDS"`
@@ -41,14 +48,8 @@ func main() {
 
 func do() error {
 	appEnv := &appEnv{}
-	if err := env.Populate(appEnv, env.PopulateOptions{}); err != nil {
+	if err := env.Populate(appEnv, env.PopulateOptions{Defaults: defaultEnv}); err != nil {
 		return err
-	}
-	if appEnv.NumShards == 0 {
-		appEnv.NumShards = defaultNumShards
-	}
-	if appEnv.APIPort == 0 {
-		appEnv.APIPort = defaultAPIPort
 	}
 	btrfsAPI := btrfs.NewFFIAPI()
 	address := fmt.Sprintf("0.0.0.0:%d", appEnv.APIPort)

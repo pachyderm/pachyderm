@@ -13,8 +13,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-const (
-	defaultAddress = "0.0.0.0:650"
+var (
+	defaultEnv = map[string]string{
+		"PFS_ADDRESS": "0.0.0.0:560",
+	}
 )
 
 type appEnv struct {
@@ -23,10 +25,7 @@ type appEnv struct {
 
 func main() {
 	appEnv := &appEnv{}
-	check(env.Populate(appEnv, env.PopulateOptions{}))
-	if appEnv.Address == "" {
-		appEnv.Address = defaultAddress
-	}
+	check(env.Populate(appEnv, env.PopulateOptions{Defaults: defaultEnv}))
 
 	clientConn, err := grpc.Dial(appEnv.Address)
 	check(err)

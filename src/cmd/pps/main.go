@@ -15,8 +15,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	defaultAddress = "0.0.0.0:651"
+var (
+	defaultEnv = map[string]string{
+		"PPS_ADDRESS": "0.0.0.0:651",
+	}
 )
 
 type appEnv struct {
@@ -25,10 +27,7 @@ type appEnv struct {
 
 func main() {
 	appEnv := &appEnv{}
-	check(env.Populate(appEnv, env.PopulateOptions{}))
-	if appEnv.Address == "" {
-		appEnv.Address = defaultAddress
-	}
+	check(env.Populate(appEnv, env.PopulateOptions{Defaults: defaultEnv}))
 
 	clientConn, err := grpc.Dial(appEnv.Address)
 	check(err)
