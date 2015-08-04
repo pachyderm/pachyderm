@@ -56,6 +56,10 @@ func (m *mounter) Mount(apiClient pfs.ApiClient, repositoryName string, mountPoi
 	return conn.MountError
 }
 
+func (m *mounter) Unmount(mountPoint string) error {
+	return fuse.Unmount(mountPoint)
+}
+
 func (m *mounter) Ready() {
 	<-m.ready
 }
@@ -97,7 +101,8 @@ func (d *directory) nodeFromFileInfo(fileInfo *pfs.FileInfo) (fs.Node, error) {
 	case pfs.FileType_FILE_TYPE_OTHER:
 		return nil, fuse.ENOENT
 	case pfs.FileType_FILE_TYPE_REGULAR:
-		return &file{d.fs, d.commitID, fileInfo.Path.Path, 0, fileInfo.SizeBytes}, nil
+		return &file{d.fs, d.commitID, path.Join(d.path, fileInfo.Path.Path), 0,
+			int64(fileInfo.SizeBytes)}, nil
 	case pfs.FileType_FILE_TYPE_DIR:
 		return &directory{d.fs, d.commitID, d.write, fileInfo.Path.Path}, nil
 	default:
@@ -122,7 +127,7 @@ func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
 				d.fs,
 				name,
 				response.CommitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_WRITE,
-				"/",
+				"",
 			},
 			nil
 	}
@@ -206,18 +211,29 @@ type file struct {
 	commitID string
 	path     string
 	handles  int32
-	size     uint64
+	size     int64
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
+	response, err := pfsutil.GetFileInfo(
+		f.fs.apiClient,
+		f.fs.repositoryName,
+		f.commitID,
+		f.path,
+	)
+	if err != nil {
+		return err
+	}
+	if response.FileInfo != nil {
+		a.Size = response.FileInfo.SizeBytes
+	}
 	a.Mode = 0666
-	a.Size = f.size
 	return nil
 }
 
 func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) error {
 	buffer := bytes.NewBuffer(make([]byte, 0, request.Size))
-	if err := pfsutil.GetFile(f.fs.apiClient, f.fs.repositoryName, f.commitID, f.path, buffer); err != nil {
+	if err := pfsutil.GetFile(f.fs.apiClient, f.fs.repositoryName, f.commitID, f.path, request.Offset, int64(request.Size), buffer); err != nil {
 		return err
 	}
 	response.Data = buffer.Bytes()
@@ -230,10 +246,13 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 }
 
 func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) error {
-	written, err := pfsutil.PutFile(f.fs.apiClient, f.fs.repositoryName, f.commitID, f.path, bytes.NewReader(request.Data))
+	written, err := pfsutil.PutFile(f.fs.apiClient, f.fs.repositoryName, f.commitID, f.path, request.Offset, bytes.NewReader(request.Data))
 	if err != nil {
 		return err
 	}
-	response.Size = written
+	response.Size = int(written)
+	if f.size < request.Offset+written {
+		f.size = request.Offset + written
+	}
 	return nil
 }

@@ -21,6 +21,7 @@ github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/ulimit
 github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/units
 github.com/fsouza/go-dockerclient/external/github.com/docker/docker/volume
 github.com/fsouza/go-dockerclient/external/github.com/opencontainers/runc/libcontainer/user
+github.com/go-fsnotify/fsnotify
 github.com/golang/protobuf/jsonpb
 github.com/golang/protobuf/proto
 github.com/inconshreveable/mousetrap

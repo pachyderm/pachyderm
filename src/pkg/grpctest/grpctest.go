@@ -25,6 +25,21 @@ func Run(
 	suite.Run(t, grpcSuite)
 }
 
+func RunB(
+	b *testing.B,
+	numServers int,
+	registerFunc func(map[string]*grpc.Server),
+	benchFunc func(*testing.B, map[string]*grpc.ClientConn),
+) {
+	grpcSuite := &grpcSuite{
+		numServers:   numServers,
+		registerFunc: registerFunc,
+	}
+	grpcSuite.SetupSuite()
+	defer grpcSuite.TearDownSuite()
+	benchFunc(b, grpcSuite.clientConns)
+}
+
 type grpcSuite struct {
 	suite.Suite
 	numServers   int
@@ -79,9 +94,9 @@ func (g *grpcSuite) SetupSuite() {
 }
 
 func (g *grpcSuite) TearDownSuite() {
-	for _, clientConn := range g.clientConns {
-		_ = clientConn.Close()
-	}
+	//for _, clientConn := range g.clientConns {
+	//	_ = clientConn.Close()
+	//}
 	for _, server := range g.servers {
 		server.Stop()
 	}
