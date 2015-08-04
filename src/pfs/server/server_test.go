@@ -15,12 +15,12 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
+	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/stretchr/testify/require"
@@ -50,6 +50,7 @@ func TestBtrfsFFI(t *testing.T) {
 }
 
 func TestBtrfsExec(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewExecAPI())
 	runTest(t, driver, testSimple)
@@ -272,11 +273,6 @@ func runTest(
 			for _, c := range clientConns {
 				clientConn = c
 				break
-			}
-			for _, c := range clientConns {
-				if c != clientConn {
-					_ = c.Close()
-				}
 			}
 			f(
 				t,
