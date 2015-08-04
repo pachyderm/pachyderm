@@ -18,6 +18,7 @@ It has these top-level messages:
 	Pipeline
 	GithubPipelineSource
 	PipelineSource
+	PipelineRun
 	Version
 	GetVersionResponse
 	GetPipelineRequest
@@ -234,6 +235,29 @@ func (*PipelineSource) ProtoMessage()    {}
 func (m *PipelineSource) GetGithubPipelineSource() *GithubPipelineSource {
 	if m != nil {
 		return m.GithubPipelineSource
+	}
+	return nil
+}
+
+type PipelineRun struct {
+	PipelineSource *PipelineSource `protobuf:"bytes,1,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
+	Pipeline       *Pipeline       `protobuf:"bytes,2,opt,name=pipeline" json:"pipeline,omitempty"`
+}
+
+func (m *PipelineRun) Reset()         { *m = PipelineRun{} }
+func (m *PipelineRun) String() string { return proto.CompactTextString(m) }
+func (*PipelineRun) ProtoMessage()    {}
+
+func (m *PipelineRun) GetPipelineSource() *PipelineSource {
+	if m != nil {
+		return m.PipelineSource
+	}
+	return nil
+}
+
+func (m *PipelineRun) GetPipeline() *Pipeline {
+	if m != nil {
+		return m.Pipeline
 	}
 	return nil
 }

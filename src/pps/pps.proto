@@ -68,6 +68,11 @@ message PipelineSource {
   }
 }
 
+message PipelineRun {
+  PipelineSource pipeline_source = 1;
+  Pipeline pipeline = 2;
+}
+
 message Version {
   uint32 major = 1;
   uint32 minor = 2;
