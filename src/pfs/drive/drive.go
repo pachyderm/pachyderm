@@ -22,12 +22,13 @@ var (
 	}
 )
 
-// Driver represents a low-level pfs storage driver.
+// ReaderAtCloser is an interface that implements both io.ReaderAt and io.Closer.
 type ReaderAtCloser interface {
 	io.ReaderAt
 	io.Closer
 }
 
+// Driver represents a low-level pfs storage driver.
 type Driver interface {
 	Init() error
 	InitRepository(repository *pfs.Repository, shard map[int]bool) error
