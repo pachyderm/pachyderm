@@ -12,6 +12,9 @@ func newRethinkClient() *rethinkClient {
 }
 
 func (c *rethinkClient) AddPipelineRun(pipelineRun *pps.PipelineRun) error {
+	// will look like this:
+	// data, err := jsonpb.Marshal(pipelineRun) // marshals directly
+	// gorethink.Database(dbName).Table("pipeline_runs").Insert(data).RunWrite(session)
 	return nil
 }
 
