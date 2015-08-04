@@ -1,13 +1,17 @@
 rethink:
   image: rethinkdb:2.0.4
+btrfs:
+  build: etc/btrfs
+  privileged: true
 test:
   build: .
   privileged: true
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - /tmp/pfs/btrfs:/tmp/pfs/btrfs
+  volumes_from:
+    - btrfs
   environment:
-    - PFS_BTRFS_ROOT=/tmp/pfs/btrfs/global
+    - PFS_BTRFS_ROOT=/pfs/btrfs
   links:
     - rethink
 compile:
@@ -20,9 +24,10 @@ pfsd:
   privileged: true
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-    - /tmp/pfs/btrfs:/tmp/pfs/btrfs
+  volumes_from:
+    - btrfs
   environment:
-    - PFS_BTRFS_ROOT=/tmp/pfs/btrfs/global
+    - PFS_BTRFS_ROOT=/pfs/btrfs
   dockerfile: Dockerfile.pfsd
   ports:
     - "650:650"
