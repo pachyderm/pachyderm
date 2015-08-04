@@ -6,7 +6,9 @@
 # NOCACHE: do not use dependency cache for docker
 ####
 
+ifndef TESTPKGS
 TESTPKGS = ./...
+endif
 
 ifdef NOCACHE
 NOCACHE_CMD = touch etc/deps/deps.list
@@ -36,18 +38,21 @@ build: deps
 install: deps
 	go install ./src/cmd/pfs ./src/cmd/pps
 
-docker-build:
+docker-build-test:
 	$(NOCACHE_CMD)
-	docker-compose build pachyderm
-	docker tag -f pachyderm_pachyderm:latest pachyderm/pachyderm:latest
+	docker-compose build test
 
-docker-build-pfsd: docker-build
-	docker-compose run pachyderm go build -a -installsuffix netgo -tags netgo -o /compile/pfsd src/cmd/pfsd/main.go
+docker-build-compile:
+	$(NOCACHE_CMD)
+	docker-compose build compile
+
+docker-build-pfsd: docker-build-compile
+	docker-compose run compile go build -a -installsuffix netgo -tags netgo -o /compile/pfsd src/cmd/pfsd/main.go
 	docker-compose build pfsd
 	docker tag -f pachyderm_pfsd:latest pachyderm/pfsd:latest
 
-docker-build-ppsd: docker-build
-	docker-compose run pachyderm go build -a -installsuffix netgo -tags netgo -o /compile/ppsd src/cmd/ppsd/main.go
+docker-build-ppsd: docker-build-compile
+	docker-compose run compile go build -a -installsuffix netgo -tags netgo -o /compile/ppsd src/cmd/ppsd/main.go
 	docker-compose build ppsd
 	docker tag -f pachyderm_ppsd:latest pachyderm/ppsd:latest
 
@@ -70,8 +75,8 @@ btrfs-setup: btrfs-clean
 	sudo mount /tmp/pfs/btrfs.img /tmp/pfs/btrfs
 	sudo mkdir -p /tmp/pfs/btrfs/global
 
-run: btrfs-setup docker-build
-	docker-compose run $(DOCKER_OPTS) pachyderm $(RUNARGS)
+run: btrfs-setup docker-build-test
+	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
 
 launch-pfsd: btrfs-setup docker-build-pfsd
 	docker-compose run --service-ports -d $(DOCKER_OPTS) pfsd
@@ -96,8 +101,10 @@ pretest:
 	go vet ./...
 	errcheck ./src/cmd ./src/common ./src/pfs ./src/pps
 
-test: pretest btrfs-setup docker-build
-	docker-compose run $(DOCKER_OPTS) pachyderm go test $(TESTFLAGS) $(TESTPKGS)
+test: pretest btrfs-setup docker-build-test
+	docker-compose kill rethink
+	docker-compose rm -f rethink
+	docker-compose run --rm $(DOCKER_OPTS) test go test $(TESTFLAGS) $(TESTPKGS)
 
 clean: btrfs-clean
 	go clean ./...
@@ -119,7 +126,8 @@ start-kube:
 	update-deps-list \
 	build \
 	install \
-	docker-build \
+	docker-build-test \
+	docker-build-compile \
 	docker-build-pfsd \
 	docker-build-ppsd \
 	docker-push-pfsd \

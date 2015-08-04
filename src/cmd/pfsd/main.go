@@ -2,12 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math"
-	"net"
-	"os"
-
-	"net/http"
-	//_ "net/http/pprof"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
@@ -15,13 +9,20 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
-	"github.com/peter-edge/go-env"
+	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"google.golang.org/grpc"
 )
 
 const (
 	defaultNumShards = 16
 	defaultAPIPort   = 650
+)
+
+var (
+	defaultEnv = map[string]string{
+		"PFS_NUM_SHARDS": "16",
+		"PFS_API_PORT":   "650",
+	}
 )
 
 type appEnv struct {
@@ -32,25 +33,11 @@ type appEnv struct {
 }
 
 func main() {
-	if err := do(); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
-		os.Exit(1)
-	}
-	os.Exit(0)
+	mainutil.Main(do, &appEnv{}, defaultEnv)
 }
 
-func do() error {
-	appEnv := &appEnv{}
-	if err := env.Populate(appEnv, env.PopulateOptions{}); err != nil {
-		return err
-	}
-	if appEnv.NumShards == 0 {
-		appEnv.NumShards = defaultNumShards
-	}
-	if appEnv.APIPort == 0 {
-		appEnv.APIPort = defaultAPIPort
-	}
-	btrfsAPI := btrfs.NewFFIAPI()
+func do(appEnvObj interface{}) error {
+	appEnv := appEnvObj.(*appEnv)
 	address := fmt.Sprintf("0.0.0.0:%d", appEnv.APIPort)
 	combinedAPIServer := server.NewCombinedAPIServer(
 		route.NewSharder(
@@ -66,22 +53,15 @@ func do() error {
 		),
 		drive.NewBtrfsDriver(
 			appEnv.BtrfsRoot,
-			btrfsAPI,
+			btrfs.NewFFIAPI(),
 		),
 	)
-	server := grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
-	pfs.RegisterApiServer(server, combinedAPIServer)
-	pfs.RegisterInternalApiServer(server, combinedAPIServer)
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", appEnv.APIPort))
-	if err != nil {
-		return err
-	}
-
-	errC := make(chan error)
-	go func() { errC <- server.Serve(listener) }()
-	//go func() { errC <- http.ListenAndServe(":8080", nil) }()
-	if appEnv.TracePort != 0 {
-		go func() { errC <- http.ListenAndServe(fmt.Sprintf(":%d", appEnv.TracePort), nil) }()
-	}
-	return <-errC
+	return mainutil.GrpcDo(
+		appEnv.APIPort,
+		appEnv.TracePort,
+		func(s *grpc.Server) {
+			pfs.RegisterApiServer(s, combinedAPIServer)
+			pfs.RegisterInternalApiServer(s, combinedAPIServer)
+		},
+	)
 }

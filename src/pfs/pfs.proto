@@ -79,6 +79,8 @@ message InitRepositoryRequest {
 
 message GetFileRequest {
   Path path = 1;
+  int64 offset_bytes = 2;
+  int64 size_bytes = 3;
 }
 
 message GetFileInfoRequest {
@@ -96,7 +98,8 @@ message MakeDirectoryRequest {
 
 message PutFileRequest {
   Path path = 1;
-  bytes value = 2;
+  int64 offset_bytes = 2;
+  bytes value = 3;
 }
 
 message ListFilesRequest {
