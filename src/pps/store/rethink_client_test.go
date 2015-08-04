@@ -20,7 +20,7 @@ func testBasic(session *gorethink.Session, database string) error {
 	return nil
 }
 
-func runTest(t *testing.T, testFunc func(*gorethink.Session) error) {
+func runTest(t *testing.T, testFunc func(*gorethink.Session, string) error) {
 	database := strings.Replace(common.NewUUID(), "-", "", -1)
 
 	session, err := getRethinkSession("")
