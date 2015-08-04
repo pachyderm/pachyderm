@@ -4,7 +4,12 @@ bazil.org/fuse/fuseutil
 github.com/Sirupsen/logrus
 github.com/bradfitz/http2
 github.com/bradfitz/http2/hpack
+github.com/cenkalti/backoff
 github.com/coreos/go-etcd/etcd
+github.com/dancannon/gorethink
+github.com/dancannon/gorethink/encoding
+github.com/dancannon/gorethink/ql2
+github.com/dancannon/gorethink/types
 github.com/fsouza/go-dockerclient
 github.com/fsouza/go-dockerclient/external/github.com/Sirupsen/logrus
 github.com/fsouza/go-dockerclient/external/github.com/docker/docker/opts
