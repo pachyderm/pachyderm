@@ -13,11 +13,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-const (
-	defaultNumShards = 16
-	defaultAPIPort   = 650
-)
-
 var (
 	defaultEnv = map[string]string{
 		"PFS_NUM_SHARDS": "16",

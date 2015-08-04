@@ -16,7 +16,7 @@ import (
 
 var (
 	defaultEnv = map[string]string{
-		"PFS_ADDRESS": "0.0.0.0:560",
+		"PFS_ADDRESS": "0.0.0.0:650",
 	}
 )
 
