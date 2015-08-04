@@ -5,6 +5,7 @@ RUN \
   apt-get install -yq --no-install-recommends \
     btrfs-tools \
     build-essential \
+    ca-certificates \
     curl \
     libgit2-dev \
     pkg-config \
