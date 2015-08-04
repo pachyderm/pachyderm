@@ -6,7 +6,9 @@
 # NOCACHE: do not use dependency cache for docker
 ####
 
+ifndef TESTPKGS
 TESTPKGS = ./...
+endif
 
 ifdef NOCACHE
 NOCACHE_CMD = touch etc/deps/deps.list
