@@ -59,27 +59,17 @@ func do(appEnvObj interface{}) error {
 		MinNumArgs: 1,
 		MaxNumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			path := args[0]
-			if !strings.HasPrefix(path, "github.com/") {
-				return fmt.Errorf("%s is not supported", path)
-			}
-			split := strings.Split(path, "/")
-			if len(split) != 3 {
-				return fmt.Errorf("%s is not supported", path)
-			}
-			branch := ""
-			accessToken := ""
-			contextDir := ""
-			if len(args) > 1 {
-				contextDir = args[1]
+			pipelineArgs, err := getPipelineArgs(args)
+			if err != nil {
+				return err
 			}
 			getPipelineResponse, err := ppsutil.GetPipelineGithub(
 				apiClient,
-				contextDir,
-				split[1],
-				split[2],
-				branch,
-				accessToken,
+				pipelineArgs.contextDir,
+				pipelineArgs.user,
+				pipelineArgs.repository,
+				pipelineArgs.branch,
+				pipelineArgs.accessToken,
 			)
 			if err != nil {
 				return err
@@ -104,27 +94,17 @@ func do(appEnvObj interface{}) error {
 		MinNumArgs: 1,
 		MaxNumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			path := args[0]
-			if !strings.HasPrefix(path, "github.com/") {
-				return fmt.Errorf("%s is not supported", path)
-			}
-			split := strings.Split(path, "/")
-			if len(split) != 3 {
-				return fmt.Errorf("%s is not supported", path)
-			}
-			branch := ""
-			accessToken := ""
-			contextDir := ""
-			if len(args) > 1 {
-				contextDir = args[1]
+			pipelineArgs, err := getPipelineArgs(args)
+			if err != nil {
+				return err
 			}
 			startPipelineRunResponse, err := ppsutil.StartPipelineRunGithub(
 				apiClient,
-				contextDir,
-				split[1],
-				split[2],
-				branch,
-				accessToken,
+				pipelineArgs.contextDir,
+				pipelineArgs.user,
+				pipelineArgs.repository,
+				pipelineArgs.branch,
+				pipelineArgs.accessToken,
 			)
 			if err != nil {
 				return err
@@ -167,4 +147,34 @@ The environment variable PPS_ADDRESS controls what server the CLI connects to, t
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(statusCmd)
 	return rootCmd.Execute()
+}
+
+type pipelineArgs struct {
+	contextDir  string
+	user        string
+	repository  string
+	branch      string
+	accessToken string
+}
+
+func getPipelineArgs(args []string) (*pipelineArgs, error) {
+	path := args[0]
+	if !strings.HasPrefix(path, "github.com/") {
+		return nil, fmt.Errorf("%s is not supported", path)
+	}
+	split := strings.Split(path, "/")
+	if len(split) != 3 {
+		return nil, fmt.Errorf("%s is not supported", path)
+	}
+	contextDir := ""
+	if len(args) > 1 {
+		contextDir = args[1]
+	}
+	return &pipelineArgs{
+		contextDir:  contextDir,
+		user:        split[1],
+		repository:  split[2],
+		branch:      "",
+		accessToken: "",
+	}, nil
 }
