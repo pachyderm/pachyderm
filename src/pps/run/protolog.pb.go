@@ -21,25 +21,16 @@ import pps "github.com/pachyderm/pachyderm/src/pps"
 var _ = proto.Marshal
 
 type AddedPipelineRun struct {
-	PipelineRunId  string              `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
-	PipelineSource *pps.PipelineSource `protobuf:"bytes,2,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
-	Pipeline       *pps.Pipeline       `protobuf:"bytes,3,opt,name=pipeline" json:"pipeline,omitempty"`
+	PipelineRun *pps.PipelineRun `protobuf:"bytes,1,opt,name=pipeline_run" json:"pipeline_run,omitempty"`
 }
 
 func (m *AddedPipelineRun) Reset()         { *m = AddedPipelineRun{} }
 func (m *AddedPipelineRun) String() string { return proto.CompactTextString(m) }
 func (*AddedPipelineRun) ProtoMessage()    {}
 
-func (m *AddedPipelineRun) GetPipelineSource() *pps.PipelineSource {
+func (m *AddedPipelineRun) GetPipelineRun() *pps.PipelineRun {
 	if m != nil {
-		return m.PipelineSource
-	}
-	return nil
-}
-
-func (m *AddedPipelineRun) GetPipeline() *pps.Pipeline {
-	if m != nil {
-		return m.Pipeline
+		return m.PipelineRun
 	}
 	return nil
 }

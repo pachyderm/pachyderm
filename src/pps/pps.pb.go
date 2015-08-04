@@ -240,8 +240,9 @@ func (m *PipelineSource) GetGithubPipelineSource() *GithubPipelineSource {
 }
 
 type PipelineRun struct {
-	PipelineSource *PipelineSource `protobuf:"bytes,1,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
-	Pipeline       *Pipeline       `protobuf:"bytes,2,opt,name=pipeline" json:"pipeline,omitempty"`
+	Id             string          `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	PipelineSource *PipelineSource `protobuf:"bytes,2,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
+	Pipeline       *Pipeline       `protobuf:"bytes,3,opt,name=pipeline" json:"pipeline,omitempty"`
 }
 
 func (m *PipelineRun) Reset()         { *m = PipelineRun{} }
