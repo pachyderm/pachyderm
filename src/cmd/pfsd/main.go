@@ -2,19 +2,14 @@ package main
 
 import (
 	"fmt"
-	"math"
-	"net"
 
-	"net/http"
-	//_ "net/http/pprof"
-
-	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"google.golang.org/grpc"
 )
 
@@ -38,12 +33,11 @@ type appEnv struct {
 }
 
 func main() {
-	common.Main(do, &appEnv{}, defaultEnv)
+	mainutil.Main(do, &appEnv{}, defaultEnv)
 }
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	btrfsAPI := btrfs.NewFFIAPI()
 	address := fmt.Sprintf("0.0.0.0:%d", appEnv.APIPort)
 	combinedAPIServer := server.NewCombinedAPIServer(
 		route.NewSharder(
@@ -59,22 +53,15 @@ func do(appEnvObj interface{}) error {
 		),
 		drive.NewBtrfsDriver(
 			appEnv.BtrfsRoot,
-			btrfsAPI,
+			btrfs.NewFFIAPI(),
 		),
 	)
-	server := grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
-	pfs.RegisterApiServer(server, combinedAPIServer)
-	pfs.RegisterInternalApiServer(server, combinedAPIServer)
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", appEnv.APIPort))
-	if err != nil {
-		return err
-	}
-
-	errC := make(chan error)
-	go func() { errC <- server.Serve(listener) }()
-	//go func() { errC <- http.ListenAndServe(":8080", nil) }()
-	if appEnv.TracePort != 0 {
-		go func() { errC <- http.ListenAndServe(fmt.Sprintf(":%d", appEnv.TracePort), nil) }()
-	}
-	return <-errC
+	return mainutil.GrpcDo(
+		appEnv.APIPort,
+		appEnv.TracePort,
+		func(s *grpc.Server) {
+			pfs.RegisterApiServer(s, combinedAPIServer)
+			pfs.RegisterInternalApiServer(s, combinedAPIServer)
+		},
+	)
 }
