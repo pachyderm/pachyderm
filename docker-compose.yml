@@ -1,22 +1,37 @@
-pachyderm:
+rethink:
+  image: rethinkdb:2.0.4
+test:
   build: .
   privileged: true
-  ports:
-    - "650:650"
-    - "651:651"
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
     - /tmp/pfs/btrfs:/tmp/pfs/btrfs
-    - _tmp:/compile
   environment:
     - PFS_BTRFS_ROOT=/tmp/pfs/btrfs/global
+  links:
+    - rethink
+compile:
+  build: .
+  volumes:
+    - _tmp:/compile
 pfsd:
-  extends:
-    file: docker-compose.yml
-    service: pachyderm
+  build: .
   dockerfile: Dockerfile.pfsd
+  privileged: true
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - /tmp/pfs/btrfs:/tmp/pfs/btrfs
+  environment:
+    - PFS_BTRFS_ROOT=/tmp/pfs/btrfs/global
+  dockerfile: Dockerfile.pfsd
+  ports:
+    - "650:650"
 ppsd:
-  extends:
-    file: docker-compose.yml
-    service: pachyderm
+  build: .
   dockerfile: Dockerfile.ppsd
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+  ports:
+    - "651:651"
+  links:
+    - rethink

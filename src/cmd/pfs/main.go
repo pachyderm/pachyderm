@@ -8,13 +8,16 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
-	"github.com/peter-edge/go-env"
+	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
+	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 )
 
-const (
-	defaultAddress = "0.0.0.0:650"
+var (
+	defaultEnv = map[string]string{
+		"PFS_ADDRESS": "0.0.0.0:560",
+	}
 )
 
 type appEnv struct {
@@ -22,145 +25,150 @@ type appEnv struct {
 }
 
 func main() {
-	appEnv := &appEnv{}
-	check(env.Populate(appEnv, env.PopulateOptions{}))
-	if appEnv.Address == "" {
-		appEnv.Address = defaultAddress
-	}
+	mainutil.Main(do, &appEnv{}, defaultEnv)
+}
+
+func do(appEnvObj interface{}) error {
+	appEnv := appEnvObj.(*appEnv)
 
 	clientConn, err := grpc.Dial(appEnv.Address)
-	check(err)
+	if err != nil {
+		return err
+	}
 	apiClient := pfs.NewApiClient(clientConn)
 
-	/* Optional arguments to commands. */
 	var shard int
 	var modulus int
 
-	versionCmd := &cobra.Command{
+	versionCmd := cobramainutil.Command{
 		Use:  "version",
 		Long: "Print the version.",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(cmd *cobra.Command, args []string) error {
 			getVersionResponse, err := pfsutil.GetVersion(apiClient)
-			check(err)
+			if err != nil {
+				return err
+			}
 			fmt.Printf("Client: %s\nServer: %s\n", common.VersionString(), pfs.VersionString(getVersionResponse.Version))
+			return nil
 		},
-	}
+	}.ToCobraCommand()
 
-	initUsage := "init repository-name"
-	initCmd := &cobra.Command{
-		Use:  initUsage,
-		Long: "Initalize a repository.",
-		Run: func(cmd *cobra.Command, args []string) {
-			checkArgs(args, 1, initUsage)
-			check(pfsutil.InitRepository(apiClient, args[0]))
+	initCmd := cobramainutil.Command{
+		Use:     "init repository-name",
+		Long:    "Initalize a repository.",
+		NumArgs: 1,
+		Run: func(cmd *cobra.Command, args []string) error {
+			return pfsutil.InitRepository(apiClient, args[0])
 		},
-	}
-	mkdirUsage := "mkdir repository-name commit-id path/to/dir"
-	mkdirCmd := &cobra.Command{
-		Use:  mkdirUsage,
-		Long: "Make a directory. Sub directories must already exist.",
-		Run: func(cmd *cobra.Command, args []string) {
-			checkArgs(args, 3, mkdirUsage)
-			check(pfsutil.MakeDirectory(apiClient, args[0], args[1], args[2]))
-		},
-	}
+	}.ToCobraCommand()
 
-	putUsage := "put repository-name branch-id path/to/file"
-	putCmd := &cobra.Command{
-		Use:  putUsage,
-		Long: "Put a file from stdin. Directories must exist. branch-id must be a writeable commit.",
-		Run: func(cmd *cobra.Command, args []string) {
-			checkArgs(args, 3, putUsage)
-			_, err := pfsutil.PutFile(apiClient, args[0], args[1], args[2], os.Stdin)
-			check(err)
+	mkdirCmd := cobramainutil.Command{
+		Use:     "mkdir repository-name commit-id path/to/dir",
+		Long:    "Make a directory. Sub directories must already exist.",
+		NumArgs: 3,
+		Run: func(cmd *cobra.Command, args []string) error {
+			return pfsutil.MakeDirectory(apiClient, args[0], args[1], args[2])
 		},
-	}
+	}.ToCobraCommand()
 
-	getUsage := "get repository-name commit-id path/to/file"
-	getCmd := &cobra.Command{
-		Use:  getUsage,
-		Long: "Get a file from stdout. commit-id must be a readable commit.",
-		Run: func(cmd *cobra.Command, args []string) {
-			checkArgs(args, 3, getUsage)
-			check(pfsutil.GetFile(apiClient, args[0], args[1], args[2], os.Stdout))
+	putCmd := cobramainutil.Command{
+		Use:     "put repository-name branch-id path/to/file",
+		Long:    "Put a file from stdin. Directories must exist. branch-id must be a writeable commit.",
+		NumArgs: 3,
+		Run: func(cmd *cobra.Command, args []string) error {
+			_, err := pfsutil.PutFile(apiClient, args[0], args[1], args[2], 0, os.Stdin)
+			return err
 		},
-	}
+	}.ToCobraCommand()
 
-	lsUsage := "ls repository-name branch-id path/to/dir"
-	lsCmd := &cobra.Command{
-		Use:  lsUsage,
-		Long: "List a directory. Directory must exist.",
-		Run: func(cmd *cobra.Command, args []string) {
-			checkArgs(args, 3, lsUsage)
-			listFilesResponse, err := pfsutil.ListFiles(apiClient, args[0],
-				args[1], args[2], uint64(shard), uint64(modulus))
-			check(err)
+	getCmd := cobramainutil.Command{
+		Use:     "get repository-name commit-id path/to/file",
+		Long:    "Get a file from stdout. commit-id must be a readable commit.",
+		NumArgs: 3,
+		Run: func(cmd *cobra.Command, args []string) error {
+			return pfsutil.GetFile(apiClient, args[0], args[1], args[2], 0, pfsutil.GetAll, os.Stdout)
+		},
+	}.ToCobraCommand()
+
+	lsCmd := cobramainutil.Command{
+		Use:     "ls repository-name branch-id path/to/dir",
+		Long:    "List a directory. Directory must exist.",
+		NumArgs: 3,
+		Run: func(cmd *cobra.Command, args []string) error {
+			listFilesResponse, err := pfsutil.ListFiles(apiClient, args[0], args[1], args[2], uint64(shard), uint64(modulus))
+			if err != nil {
+				return err
+			}
 			for _, fileInfo := range listFilesResponse.FileInfo {
 				fmt.Printf("%+v\n", fileInfo)
 			}
+			return nil
 		},
-	}
+	}.ToCobraCommand()
 	lsCmd.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
 	lsCmd.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
-	branchUsage := "branch repository-name commit-id"
-	branchCmd := &cobra.Command{
-		Use:  branchUsage,
-		Long: "Branch a commit. commit-id must be a readable commit.",
-		Run: func(cmd *cobra.Command, args []string) {
-			checkArgs(args, 2, branchUsage)
+	branchCmd := cobramainutil.Command{
+		Use:     "branch repository-name commit-id",
+		Long:    "Branch a commit. commit-id must be a readable commit.",
+		NumArgs: 2,
+		Run: func(cmd *cobra.Command, args []string) error {
 			branchResponse, err := pfsutil.Branch(apiClient, args[0], args[1])
-			check(err)
+			if err != nil {
+				return err
+			}
 			fmt.Println(branchResponse.Commit.Id)
+			return nil
 		},
-	}
+	}.ToCobraCommand()
 
-	commitUsage := "commit repository-name branch-id"
-	commitCmd := &cobra.Command{
-		Use:  commitUsage,
-		Long: "Commit a branch. branch-id must be a writeable commit.",
-		Run: func(cmd *cobra.Command, args []string) {
-			checkArgs(args, 2, commitUsage)
-			check(pfsutil.Commit(apiClient, args[0], args[1]))
+	commitCmd := cobramainutil.Command{
+		Use:     "commit repository-name branch-id",
+		Long:    "Commit a branch. branch-id must be a writeable commit.",
+		NumArgs: 2,
+		Run: func(cmd *cobra.Command, args []string) error {
+			return pfsutil.Commit(apiClient, args[0], args[1])
 		},
-	}
+	}.ToCobraCommand()
 
-	commitInfoUsage := "commit-info repository-name commit-id"
-	commitInfoCmd := &cobra.Command{
-		Use:  commitInfoUsage,
-		Long: "Get info for a commit.",
-		Run: func(cmd *cobra.Command, args []string) {
-			checkArgs(args, 2, commitInfoUsage)
+	commitInfoCmd := cobramainutil.Command{
+		Use:     "commit-info repository-name commit-id",
+		Long:    "Get info for a commit.",
+		NumArgs: 2,
+		Run: func(cmd *cobra.Command, args []string) error {
 			commitInfoResponse, err := pfsutil.GetCommitInfo(apiClient, args[0], args[1])
-			check(err)
+			if err != nil {
+				return err
+			}
 			fmt.Printf("%+v\n", commitInfoResponse.CommitInfo)
+			return nil
 		},
-	}
+	}.ToCobraCommand()
 
-	listCommitsUsage := "list-commits repository-name"
-	listCommitsCmd := &cobra.Command{
-		Use:  listCommitsUsage,
-		Long: "List commits on the repository.",
-		Run: func(cmd *cobra.Command, args []string) {
-			checkArgs(args, 1, listCommitsUsage)
+	listCommitsCmd := cobramainutil.Command{
+		Use:     "list-commits repository-name",
+		Long:    "List commits on the repository.",
+		NumArgs: 1,
+		Run: func(cmd *cobra.Command, args []string) error {
 			listCommitsResponse, err := pfsutil.ListCommits(apiClient, args[0])
-			check(err)
+			if err != nil {
+				return err
+			}
 			for _, commitInfo := range listCommitsResponse.CommitInfo {
 				fmt.Printf("%+v\n", commitInfo)
 			}
+			return nil
 		},
-	}
+	}.ToCobraCommand()
 
-	mountUsage := "mount repository-name"
-	mountCmd := &cobra.Command{
-		Use:  mountUsage,
-		Long: "Mount a repository as a local file system.",
-		Run: func(cmd *cobra.Command, args []string) {
-			checkArgs(args, 1, mountUsage)
-			check(fuse.NewMounter().Mount(apiClient, args[0], args[0],
-				uint64(shard), uint64(modulus)))
+	mountCmd := cobramainutil.Command{
+		Use:     "mount repository-name",
+		Long:    "Mount a repository as a local file system.",
+		NumArgs: 1,
+		Run: func(cmd *cobra.Command, args []string) error {
+			return fuse.NewMounter().Mount(apiClient, args[0], args[0], uint64(shard), uint64(modulus))
 		},
-	}
+	}.ToCobraCommand()
 	mountCmd.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
 	mountCmd.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
@@ -183,25 +191,5 @@ The environment variable PFS_ADDRESS controls what server the CLI connects to, t
 	rootCmd.AddCommand(commitInfoCmd)
 	rootCmd.AddCommand(listCommitsCmd)
 	rootCmd.AddCommand(mountCmd)
-	check(rootCmd.Execute())
-
-	os.Exit(0)
-}
-
-func check(err error) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
-		os.Exit(1)
-	}
-}
-
-func checkArgs(args []string, expected int, usage string) {
-	if len(args) != expected {
-		fmt.Fprintf(os.Stderr,
-			`Error, wrong number of arguments. Got %d, need %d.
-%s
-`,
-			len(args), expected, usage)
-		os.Exit(1)
-	}
+	return rootCmd.Execute()
 }

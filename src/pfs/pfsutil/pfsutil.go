@@ -14,6 +14,10 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	GetAll int64 = 1<<63 - 1
+)
+
 func GetVersion(apiClient pfs.ApiClient) (*pfs.GetVersionResponse, error) {
 	return apiClient.GetVersion(
 		context.Background(),
@@ -65,7 +69,7 @@ func MakeDirectory(apiClient pfs.ApiClient, repositoryName string, commitID stri
 	return err
 }
 
-func PutFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, reader io.Reader) (int, error) {
+func PutFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, offset int64, reader io.Reader) (int64, error) {
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return 0, err
@@ -82,13 +86,14 @@ func PutFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 				},
 				Path: path,
 			},
-			Value: value,
+			OffsetBytes: offset,
+			Value:       value,
 		},
 	)
-	return len(value), err
+	return int64(len(value)), err
 }
 
-func GetFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, writer io.Writer) error {
+func GetFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
 	apiGetFileClient, err := apiClient.GetFile(
 		context.Background(),
 		&pfs.GetFileRequest{
@@ -101,6 +106,8 @@ func GetFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 				},
 				Path: path,
 			},
+			OffsetBytes: offset,
+			SizeBytes:   size,
 		},
 	)
 	if err != nil {

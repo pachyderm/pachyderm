@@ -22,14 +22,20 @@ var (
 	}
 )
 
+// ReaderAtCloser is an interface that implements both io.ReaderAt and io.Closer.
+type ReaderAtCloser interface {
+	io.ReaderAt
+	io.Closer
+}
+
 // Driver represents a low-level pfs storage driver.
 type Driver interface {
 	Init() error
 	InitRepository(repository *pfs.Repository, shard map[int]bool) error
-	GetFile(path *pfs.Path, shard int) (io.ReadCloser, error)
+	GetFile(path *pfs.Path, shard int) (ReaderAtCloser, error)
 	GetFileInfo(path *pfs.Path, shard int) (*pfs.FileInfo, bool, error)
 	MakeDirectory(path *pfs.Path, shards map[int]bool) error
-	PutFile(path *pfs.Path, shard int, reader io.Reader) error
+	PutFile(path *pfs.Path, shard int, offset int64, reader io.Reader) error
 	ListFiles(path *pfs.Path, shard int) ([]*pfs.FileInfo, error)
 	Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error)
 	Commit(commit *pfs.Commit, shards map[int]bool) error

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -73,7 +72,7 @@ func (d *btrfsDriver) InitRepository(repository *pfs.Repository, shards map[int]
 	return nil
 }
 
-func (d *btrfsDriver) GetFile(path *pfs.Path, shard int) (io.ReadCloser, error) {
+func (d *btrfsDriver) GetFile(path *pfs.Path, shard int) (ReaderAtCloser, error) {
 	return os.Open(d.filePath(path, shard))
 }
 
@@ -101,9 +100,13 @@ func (d *btrfsDriver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
 	return nil
 }
 
-func (d *btrfsDriver) PutFile(path *pfs.Path, shard int, reader io.Reader) error {
-	file, err := os.Create(d.filePath(path, shard))
+func (d *btrfsDriver) PutFile(path *pfs.Path, shard int, offset int64, reader io.Reader) error {
+	file, err := os.OpenFile(d.filePath(path, shard), os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
+		return err
+	}
+	defer file.Close()
+	if _, err := file.Seek(offset, 0); err != nil { // 0 means relative to start
 		return err
 	}
 	_, err = bufio.NewReader(reader).WriteTo(file)
@@ -225,7 +228,6 @@ func (d *btrfsDriver) PushDiff(commit *pfs.Commit, shard int, reader io.Reader) 
 }
 
 func (d *btrfsDriver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.CommitInfo, ok bool, _ error) {
-	log.Print("Statting: ", d.commitPath(commit, shard))
 	_, err := os.Stat(d.commitPath(commit, shard))
 	if err != nil && os.IsNotExist(err) {
 		return nil, false, nil

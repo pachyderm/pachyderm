@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math/rand"
 	"strings"
 
@@ -92,16 +93,19 @@ func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFi
 		}
 		return protoutil.RelayFromStreamingBytesClient(apiGetFileClient, apiGetFileServer)
 	}
-	readCloser, err := a.driver.GetFile(getFileRequest.Path, shard)
+	file, err := a.driver.GetFile(getFileRequest.Path, shard)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := readCloser.Close(); err != nil && retErr == nil {
+		if err := file.Close(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
-	return protoutil.WriteToStreamingBytesServer(readCloser, apiGetFileServer)
+	return protoutil.WriteToStreamingBytesServer(
+		io.NewSectionReader(file, getFileRequest.OffsetBytes, getFileRequest.SizeBytes),
+		apiGetFileServer,
+	)
 }
 
 func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest *pfs.GetFileInfoRequest) (*pfs.GetFileInfoResponse, error) {
@@ -167,7 +171,7 @@ func (a *combinedAPIServer) PutFile(ctx context.Context, putFileRequest *pfs.Put
 	if clientConn != nil {
 		return pfs.NewApiClient(clientConn).PutFile(ctx, putFileRequest)
 	}
-	if err := a.driver.PutFile(putFileRequest.Path, shard, bytes.NewReader(putFileRequest.Value)); err != nil {
+	if err := a.driver.PutFile(putFileRequest.Path, shard, putFileRequest.OffsetBytes, bytes.NewReader(putFileRequest.Value)); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil

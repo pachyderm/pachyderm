@@ -40,18 +40,17 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 		return "", err
 	}
 	pipelineRunID := common.NewUUID()
-	if err := r.storeClient.AddPipelineRun(
-		pipelineRunID,
-		pipelineSource,
-		pipeline,
-	); err != nil {
+	pipelineRun := &pps.PipelineRun{
+		Id:             pipelineRunID,
+		Pipeline:       pipeline,
+		PipelineSource: pipelineSource,
+	}
+	if err := r.storeClient.AddPipelineRun(pipelineRun); err != nil {
 		return "", err
 	}
 	protolog.Info(
 		&AddedPipelineRun{
-			PipelineRunId:  pipelineRunID,
-			PipelineSource: pipelineSource,
-			Pipeline:       pipeline,
+			PipelineRun: pipelineRun,
 		},
 	)
 	nameToNode := pps.GetNameToNode(pipeline)
