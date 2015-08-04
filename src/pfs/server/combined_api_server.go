@@ -3,7 +3,9 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math/rand"
+	"strings"
 
 	"google.golang.org/grpc"
 
@@ -91,16 +93,19 @@ func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFi
 		}
 		return protoutil.RelayFromStreamingBytesClient(apiGetFileClient, apiGetFileServer)
 	}
-	readCloser, err := a.driver.GetFile(getFileRequest.Path, shard)
+	file, err := a.driver.GetFile(getFileRequest.Path, shard)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := readCloser.Close(); err != nil && retErr == nil {
+		if err := file.Close(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
-	return protoutil.WriteToStreamingBytesServer(readCloser, apiGetFileServer)
+	return protoutil.WriteToStreamingBytesServer(
+		io.NewSectionReader(file, getFileRequest.OffsetBytes, getFileRequest.SizeBytes),
+		apiGetFileServer,
+	)
 }
 
 func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest *pfs.GetFileInfoRequest) (*pfs.GetFileInfoResponse, error) {
@@ -152,6 +157,13 @@ func (a *combinedAPIServer) MakeDirectory(ctx context.Context, makeDirectoryRequ
 }
 
 func (a *combinedAPIServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequest) (*google_protobuf.Empty, error) {
+	if strings.HasPrefix(putFileRequest.Path.Path, "/") {
+		// This is a subtle error case, the paths foo and /foo will hash to
+		// different shards but will produce the same change once they get to
+		// those shards due to how path.Join. This can go wrong in a number of
+		// ways so we forbid leading slashes.
+		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", putFileRequest.Path.Path)
+	}
 	shard, clientConn, err := a.getShardAndClientConnIfNecessary(putFileRequest.Path, false)
 	if err != nil {
 		return nil, err
@@ -159,7 +171,7 @@ func (a *combinedAPIServer) PutFile(ctx context.Context, putFileRequest *pfs.Put
 	if clientConn != nil {
 		return pfs.NewApiClient(clientConn).PutFile(ctx, putFileRequest)
 	}
-	if err := a.driver.PutFile(putFileRequest.Path, shard, bytes.NewReader(putFileRequest.Value)); err != nil {
+	if err := a.driver.PutFile(putFileRequest.Path, shard, putFileRequest.OffsetBytes, bytes.NewReader(putFileRequest.Value)); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil

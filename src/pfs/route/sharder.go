@@ -2,6 +2,7 @@ package route
 
 import (
 	"hash/adler32"
+	"path"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 )
@@ -18,6 +19,6 @@ func (s *sharder) NumShards() int {
 	return s.numShards
 }
 
-func (s *sharder) GetShard(path *pfs.Path) (int, error) {
-	return int(adler32.Checksum([]byte(path.Path))) % s.numShards, nil
+func (s *sharder) GetShard(pfsPath *pfs.Path) (int, error) {
+	return int(adler32.Checksum([]byte(path.Clean(pfsPath.Path)))) % s.numShards, nil
 }
