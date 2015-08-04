@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
+	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -333,7 +334,7 @@ func registerFunc(driver drive.Driver, servers map[string]*grpc.Server) {
 				route.NewDiscoveryAddresser(
 					discoveryClient,
 				),
-				route.NewDialer(),
+				grpcutil.NewDialer(),
 				address,
 			),
 			driver,
