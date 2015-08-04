@@ -14,3 +14,7 @@ type Client interface {
 func NewInMemoryClient() Client {
 	return newInMemoryClient()
 }
+
+func NewRethinkClient() Client {
+	return newRethinkClient()
+}

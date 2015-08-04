@@ -100,7 +100,9 @@ pretest:
 	errcheck ./src/cmd ./src/common ./src/pfs ./src/pps
 
 test: pretest btrfs-setup docker-build-test
-	docker-compose run $(DOCKER_OPTS) test go test $(TESTFLAGS) $(TESTPKGS)
+	docker-compose kill rethink
+	docker-compose rm -f rethink
+	docker-compose run --rm $(DOCKER_OPTS) test go test $(TESTFLAGS) $(TESTPKGS)
 
 clean: btrfs-clean
 	go clean ./...

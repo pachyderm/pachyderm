@@ -1,3 +1,5 @@
+rethink:
+  image: rethinkdb:2.0.4
 test:
   build: .
   privileged: true
@@ -6,6 +8,8 @@ test:
     - /tmp/pfs/btrfs:/tmp/pfs/btrfs
   environment:
     - PFS_BTRFS_ROOT=/tmp/pfs/btrfs/global
+  links:
+    - rethink
 compile:
   build: .
   volumes:
@@ -29,3 +33,5 @@ ppsd:
     - /var/run/docker.sock:/var/run/docker.sock
   ports:
     - "651:651"
+  links:
+    - rethink
