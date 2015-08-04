@@ -3,15 +3,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/src/common"
+	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
+	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
-	"github.com/peter-edge/go-env"
 	"github.com/spf13/cobra"
 )
 
@@ -26,35 +26,46 @@ type appEnv struct {
 }
 
 func main() {
-	appEnv := &appEnv{}
-	check(env.Populate(appEnv, env.PopulateOptions{Defaults: defaultEnv}))
+	mainutil.Main(do, &appEnv{}, defaultEnv)
+}
+
+func do(appEnvObj interface{}) error {
+	appEnv := appEnvObj.(*appEnv)
 
 	clientConn, err := grpc.Dial(appEnv.Address)
-	check(err)
+	if err != nil {
+		return err
+	}
 	apiClient := pps.NewApiClient(clientConn)
 
-	versionCmd := &cobra.Command{
+	var protoFlag bool
+
+	versionCmd := cobramainutil.Command{
 		Use:  "version",
 		Long: "Print the version.",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(cmd *cobra.Command, args []string) error {
 			getVersionResponse, err := ppsutil.GetVersion(apiClient)
-			check(err)
+			if err != nil {
+				return err
+			}
 			fmt.Printf("Client: %s\nServer: %s\n", common.VersionString(), pps.VersionString(getVersionResponse.Version))
+			return nil
 		},
-	}
+	}.ToCobraCommand()
 
-	var protoFlag bool
-	inspectCmd := &cobra.Command{
-		Use:  "inspect github.com/user/repository [path/to/specDir]",
-		Long: "Inspect a pipeline specification.",
-		Run: func(cmd *cobra.Command, args []string) {
+	inspectCmd := cobramainutil.Command{
+		Use:        "inspect github.com/user/repository [path/to/specDir]",
+		Long:       "Inspect a pipeline specification.",
+		MinNumArgs: 1,
+		MaxNumArgs: 2,
+		Run: func(cmd *cobra.Command, args []string) error {
 			path := args[0]
 			if !strings.HasPrefix(path, "github.com/") {
-				check(fmt.Errorf("%s is not supported", path))
+				return fmt.Errorf("%s is not supported", path)
 			}
 			split := strings.Split(path, "/")
 			if len(split) != 3 {
-				check(fmt.Errorf("%s is not supported", path))
+				return fmt.Errorf("%s is not supported", path)
 			}
 			branch := ""
 			accessToken := ""
@@ -70,29 +81,36 @@ func main() {
 				branch,
 				accessToken,
 			)
-			check(err)
+			if err != nil {
+				return err
+			}
 			if protoFlag {
 				fmt.Printf("%v\n", getPipelineResponse.Pipeline)
 			} else {
 				data, err := json.MarshalIndent(getPipelineResponse.Pipeline, "", "\t ")
-				check(err)
+				if err != nil {
+					return err
+				}
 				fmt.Println(string(data))
 			}
+			return nil
 		},
-	}
+	}.ToCobraCommand()
 	inspectCmd.Flags().BoolVar(&protoFlag, "proto", false, "Print in proto format instead of JSON.")
 
-	startCmd := &cobra.Command{
-		Use:  "start github.com/user/repository [path/to/specDir]",
-		Long: "Start a pipeline specification run.",
-		Run: func(cmd *cobra.Command, args []string) {
+	startCmd := cobramainutil.Command{
+		Use:        "start github.com/user/repository [path/to/specDir]",
+		Long:       "Start a pipeline specification run.",
+		MinNumArgs: 1,
+		MaxNumArgs: 2,
+		Run: func(cmd *cobra.Command, args []string) error {
 			path := args[0]
 			if !strings.HasPrefix(path, "github.com/") {
-				check(fmt.Errorf("%s is not supported", path))
+				return fmt.Errorf("%s is not supported", path)
 			}
 			split := strings.Split(path, "/")
 			if len(split) != 3 {
-				check(fmt.Errorf("%s is not supported", path))
+				return fmt.Errorf("%s is not supported", path)
 			}
 			branch := ""
 			accessToken := ""
@@ -108,30 +126,34 @@ func main() {
 				branch,
 				accessToken,
 			)
-			check(err)
-			fmt.Printf("started pipeline run with id %s\n", startPipelineRunResponse.PipelineRunId)
-		},
-	}
-
-	statusCmd := &cobra.Command{
-		Use:  "status pipelineRunID",
-		Long: "Get the status of a pipeline run.",
-		Run: func(cmd *cobra.Command, args []string) {
-			if len(args) != 1 {
-				check(fmt.Errorf("must have only one argument"))
+			if err != nil {
+				return err
 			}
+			fmt.Printf("started pipeline run with id %s\n", startPipelineRunResponse.PipelineRunId)
+			return nil
+		},
+	}.ToCobraCommand()
+
+	statusCmd := cobramainutil.Command{
+		Use:     "status pipelineRunID",
+		Long:    "Get the status of a pipeline run.",
+		NumArgs: 1,
+		Run: func(cmd *cobra.Command, args []string) error {
 			getPipelineRunStatusResponse, err := ppsutil.GetPipelineRunStatus(
 				apiClient,
 				args[0],
 			)
-			check(err)
+			if err != nil {
+				return err
+			}
 			name, ok := pps.PipelineRunStatusType_name[int32(getPipelineRunStatusResponse.PipelineRunStatus.PipelineRunStatusType)]
 			if !ok {
-				check(fmt.Errorf("unknown run status"))
+				return fmt.Errorf("unknown run status")
 			}
 			fmt.Printf("%s: %s\n", args[0], strings.Replace(name, "PIPELINE_RUN_STATUS_TYPE_", "", -1))
+			return nil
 		},
-	}
+	}.ToCobraCommand()
 
 	rootCmd := &cobra.Command{
 		Use: "pps",
@@ -144,14 +166,5 @@ The environment variable PPS_ADDRESS controls what server the CLI connects to, t
 	rootCmd.AddCommand(inspectCmd)
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(statusCmd)
-	check(rootCmd.Execute())
-
-	os.Exit(0)
-}
-
-func check(err error) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
-		os.Exit(1)
-	}
+	return rootCmd.Execute()
 }
