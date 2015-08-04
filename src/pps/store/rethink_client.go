@@ -1,6 +1,8 @@
 package store
 
-import "github.com/pachyderm/pachyderm/src/pps"
+import (
+	"github.com/pachyderm/pachyderm/src/pps"
+)
 
 type rethinkClient struct {
 }
