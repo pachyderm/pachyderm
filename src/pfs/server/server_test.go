@@ -61,15 +61,20 @@ func TestBtrfsExec(t *testing.T) {
 
 func TestFuseMount(t *testing.T) {
 	t.Parallel()
-	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewExecAPI())
+	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewFFIAPI())
 	runTest(t, driver, testMount)
 }
 
-func getBtrfsRootDir(t *testing.T) string {
+func BenchmarkFuse(b *testing.B) {
+	driver := drive.NewBtrfsDriver(getBtrfsRootDir(b), btrfs.NewFFIAPI())
+	runBench(b, driver, benchFile)
+}
+
+func getBtrfsRootDir(tb testing.TB) string {
 	// TODO(pedge)
 	rootDir := os.Getenv("PFS_BTRFS_ROOT")
 	if rootDir == "" {
-		t.Fatal("PFS_BTRFS_ROOT not set")
+		tb.Fatal("PFS_BTRFS_ROOT not set")
 	}
 	return rootDir
 }
@@ -249,10 +254,97 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 	require.Equal(t, bigValue, data)
 }
 
+func benchFile(b *testing.B, apiClient pfs.ApiClient) {
+	repositoryName := testRepositoryName()
+
+	if err := pfsutil.InitRepository(apiClient, repositoryName); err != nil {
+		b.Error(err)
+	}
+
+	directory := "/compile/benchFile"
+	mounter := fuse.NewMounter()
+	go func() {
+		if err := mounter.Mount(apiClient, repositoryName, directory, 0, 1); err != nil {
+			b.Error(err)
+		}
+	}()
+	mounter.Ready()
+
+	defer func() {
+		if err := mounter.Unmount(directory); err != nil {
+			b.Error(err)
+		}
+	}()
+
+	bigValue := make([]byte, 1024*1024)
+	for i := 0; i < 1024*1024; i++ {
+		bigValue[i] = 'a'
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		branchResponse, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
+		if err != nil {
+			b.Error(err)
+		}
+		if branchResponse == nil {
+			b.Error("nil branch")
+		}
+		newCommitID := branchResponse.Commit.Id
+		var wg sync.WaitGroup
+		for j := 0; j < 1024; j++ {
+			wg.Add(1)
+			go func(j int) {
+				defer wg.Done()
+				if err = ioutil.WriteFile(filepath.Join(directory, newCommitID, fmt.Sprintf("big%d", j)), bigValue, 0666); err != nil {
+					b.Error(err)
+				}
+			}(j)
+		}
+		wg.Wait()
+		if err := pfsutil.Commit(apiClient, repositoryName, newCommitID); err != nil {
+			b.Error(err)
+		}
+	}
+}
+
 func testRepositoryName() string {
 	// TODO could be nice to add callee to this string to make it easy to
 	// recover results for debugging
 	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
+}
+
+func registerFunc(driver drive.Driver, servers map[string]*grpc.Server) {
+	discoveryClient := discovery.NewMockClient()
+	i := 0
+	addresses := make([]string, testNumServers)
+	for address := range servers {
+		shards := make([]string, testShardsPerServer)
+		for j := 0; j < testShardsPerServer; j++ {
+			shards[j] = fmt.Sprintf("%d", (i*testShardsPerServer)+j)
+		}
+		_ = discoveryClient.Set(address+"-master", strings.Join(shards, ","), 0)
+		addresses[i] = address
+		i++
+	}
+	_ = discoveryClient.Set("all-addresses", strings.Join(addresses, ","), 0)
+	for address, server := range servers {
+		combinedAPIServer := NewCombinedAPIServer(
+			route.NewSharder(
+				testShardsPerServer*testNumServers,
+			),
+			route.NewRouter(
+				route.NewDiscoveryAddresser(
+					discoveryClient,
+				),
+				route.NewDialer(),
+				address,
+			),
+			driver,
+		)
+		pfs.RegisterApiServer(server, combinedAPIServer)
+		pfs.RegisterInternalApiServer(server, combinedAPIServer)
+	}
 }
 
 func runTest(
@@ -264,36 +356,7 @@ func runTest(
 		t,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
-			discoveryClient := discovery.NewMockClient()
-			i := 0
-			addresses := make([]string, testNumServers)
-			for address := range servers {
-				shards := make([]string, testShardsPerServer)
-				for j := 0; j < testShardsPerServer; j++ {
-					shards[j] = fmt.Sprintf("%d", (i*testShardsPerServer)+j)
-				}
-				_ = discoveryClient.Set(address+"-master", strings.Join(shards, ","), 0)
-				addresses[i] = address
-				i++
-			}
-			_ = discoveryClient.Set("all-addresses", strings.Join(addresses, ","), 0)
-			for address, server := range servers {
-				combinedAPIServer := NewCombinedAPIServer(
-					route.NewSharder(
-						testShardsPerServer*testNumServers,
-					),
-					route.NewRouter(
-						route.NewDiscoveryAddresser(
-							discoveryClient,
-						),
-						route.NewDialer(),
-						address,
-					),
-					driver,
-				)
-				pfs.RegisterApiServer(server, combinedAPIServer)
-				pfs.RegisterInternalApiServer(server, combinedAPIServer)
-			}
+			registerFunc(driver, servers)
 		},
 		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
 			var clientConn *grpc.ClientConn
@@ -308,6 +371,38 @@ func runTest(
 			}
 			f(
 				t,
+				pfs.NewApiClient(
+					clientConn,
+				),
+			)
+		},
+	)
+}
+
+func runBench(
+	b *testing.B,
+	driver drive.Driver,
+	f func(b *testing.B, apiClient pfs.ApiClient),
+) {
+	grpctest.RunB(
+		b,
+		testNumServers,
+		func(servers map[string]*grpc.Server) {
+			registerFunc(driver, servers)
+		},
+		func(b *testing.B, clientConns map[string]*grpc.ClientConn) {
+			var clientConn *grpc.ClientConn
+			for _, c := range clientConns {
+				clientConn = c
+				break
+			}
+			for _, c := range clientConns {
+				if c != clientConn {
+					_ = c.Close()
+				}
+			}
+			f(
+				b,
 				pfs.NewApiClient(
 					clientConn,
 				),

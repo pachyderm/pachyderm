@@ -25,6 +25,21 @@ func Run(
 	suite.Run(t, grpcSuite)
 }
 
+func RunB(
+	b *testing.B,
+	numServers int,
+	registerFunc func(map[string]*grpc.Server),
+	benchFunc func(*testing.B, map[string]*grpc.ClientConn),
+) {
+	grpcSuite := &grpcSuite{
+		numServers:   numServers,
+		registerFunc: registerFunc,
+	}
+	grpcSuite.SetupSuite()
+	defer grpcSuite.TearDownSuite()
+	benchFunc(b, grpcSuite.clientConns)
+}
+
 type grpcSuite struct {
 	suite.Suite
 	numServers   int

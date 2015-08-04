@@ -56,6 +56,10 @@ func (m *mounter) Mount(apiClient pfs.ApiClient, repositoryName string, mountPoi
 	return conn.MountError
 }
 
+func (m *mounter) Unmount(mountPoint string) error {
+	return fuse.Unmount(mountPoint)
+}
+
 func (m *mounter) Ready() {
 	<-m.ready
 }
