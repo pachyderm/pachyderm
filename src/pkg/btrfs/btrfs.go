@@ -7,10 +7,6 @@ type API interface {
 	SubvolumeSnapshot(src string, dest string, readonly bool) error
 }
 
-func NewFFIAPI() API {
-	return newFFIAPI()
-}
-
 func NewExecAPI() API {
 	return newExecAPI()
 }
