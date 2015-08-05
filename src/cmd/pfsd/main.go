@@ -1,3 +1,5 @@
+// +build linux
+
 package main
 
 import (
@@ -11,11 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"google.golang.org/grpc"
-)
-
-const (
-	defaultNumShards = 16
-	defaultAPIPort   = 650
 )
 
 var (

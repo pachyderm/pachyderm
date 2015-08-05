@@ -38,7 +38,10 @@ build: deps
 install: deps
 	go install ./src/cmd/pfs ./src/cmd/pps
 
-docker-build-test:
+docker-build-btrfs:
+	docker-compose build btrfs
+
+docker-build-test: docker-build-btrfs
 	$(NOCACHE_CMD)
 	docker-compose build test
 
@@ -64,25 +67,16 @@ docker-push-ppsd: docker-build-ppsd
 
 docker-push: docker-push-ppsd docker-push-pfsd
 
-btrfs-clean:
-	-sudo umount /tmp/pfs/btrfs > /dev/null
-	sudo rm -rf /tmp/pfs > /dev/null
-
-btrfs-setup: btrfs-clean
-	sudo mkdir -p /tmp/pfs/btrfs
-	sudo truncate /tmp/pfs/btrfs.img -s 10G
-	sudo mkfs.btrfs /tmp/pfs/btrfs.img
-	sudo mount /tmp/pfs/btrfs.img /tmp/pfs/btrfs
-	sudo mkdir -p /tmp/pfs/btrfs/global
-
-run: btrfs-setup docker-build-test
+run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
 
-launch-pfsd: btrfs-setup docker-build-pfsd
+launch-pfsd: docker-build-btrfs docker-build-pfsd
 	docker-compose run --service-ports -d $(DOCKER_OPTS) pfsd
 
-launch-ppsd: btrfs-setup docker-build-ppsd
+launch-ppsd: docker-build-ppsd
 	docker-compose run --service-ports -d $(DOCKER_OPTS) ppsd
+
+launch: launch-pfsd launch-ppsd
 
 proto:
 	go get -v github.com/peter-edge/go-tools/docker-protoc-all
@@ -101,12 +95,16 @@ pretest:
 	go vet ./...
 	errcheck ./src/cmd ./src/common ./src/pfs ./src/pps
 
-test: pretest btrfs-setup docker-build-test
+docker-clean-test:
 	docker-compose kill rethink
 	docker-compose rm -f rethink
+	docker-compose kill btrfs
+	docker-compose rm -f btrfs
+
+test: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test go test $(TESTFLAGS) $(TESTPKGS)
 
-clean: btrfs-clean
+clean: docker-clean-test
 	go clean ./...
 	rm -f src/cmd/pfsd/pfsd
 	rm -f src/cmd/ppsd/ppsd
@@ -126,6 +124,7 @@ start-kube:
 	update-deps-list \
 	build \
 	install \
+	docker-build-btrfs \
 	docker-build-test \
 	docker-build-compile \
 	docker-build-pfsd \
@@ -133,13 +132,13 @@ start-kube:
 	docker-push-pfsd \
 	docker-push-ppsd \
 	docker-push \
-	btrfs-clean \
-	btrfs-setup \
 	run \
 	launch-pfsd \
 	launch-ppsd \
+	launch \
 	proto \
 	pretest \
+	docker-clean-test \
 	test \
 	clean \
 	start-kube
