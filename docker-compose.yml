@@ -14,8 +14,6 @@ test:
     - PFS_BTRFS_ROOT=/pfs/btrfs
   links:
     - rethink
-  ports:
-    - "6060:6060"
 compile:
   build: .
   volumes:
