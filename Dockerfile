@@ -12,7 +12,8 @@ RUN \
     libgit2-dev \
     pkg-config \
     git \
-    fuse
+    fuse \
+    mercurial
 RUN \
   curl -sSL https://storage.googleapis.com/golang/go1.5beta3.linux-amd64.tar.gz | tar -C /usr/local -xz && \
   mkdir -p /go/bin
@@ -24,4 +25,7 @@ WORKDIR /go/src/github.com/pachyderm/pachyderm
 RUN mkdir -p /go/src/github.com/pachyderm/pachyderm/etc/deps
 ADD etc/deps/deps.list /go/src/github.com/pachyderm/pachyderm/etc/deps/
 RUN cat etc/deps/deps.list | xargs go get -insecure
+RUN \
+  cd /go/src/github.com/imdario/mergo && \
+  git checkout 6633656539c1639d9d78127b7d47c622b5d7b6dc
 ADD . /go/src/github.com/pachyderm/pachyderm/
