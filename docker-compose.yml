@@ -10,6 +10,8 @@ test:
     - PFS_BTRFS_ROOT=/tmp/pfs/btrfs/global
   links:
     - rethink
+  ports:
+    - "6060:6060"
 compile:
   build: .
   volumes:

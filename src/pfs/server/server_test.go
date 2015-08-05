@@ -62,9 +62,16 @@ func TestFuseMount(t *testing.T) {
 	runTest(t, driver, testMount)
 }
 
+func TestFuseMountBig(t *testing.T) {
+	t.Parallel()
+	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewFFIAPI())
+	runTest(t, driver, testMountBig)
+
+}
+
 func BenchmarkFuse(b *testing.B) {
 	driver := drive.NewBtrfsDriver(getBtrfsRootDir(b), btrfs.NewFFIAPI())
-	runBench(b, driver, benchFile)
+	runBench(b, driver, benchMount)
 }
 
 func getBtrfsRootDir(tb testing.TB) string {
@@ -251,14 +258,71 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 	require.Equal(t, bigValue, data)
 }
 
-func benchFile(b *testing.B, apiClient pfs.ApiClient) {
+func testMountBig(t *testing.T, apiClient pfs.ApiClient) {
+	if testing.Short() {
+		return
+	}
+	repositoryName := testRepositoryName()
+
+	err := pfsutil.InitRepository(apiClient, repositoryName)
+	require.NoError(t, err)
+
+	directory := "/compile/testMount"
+	mounter := fuse.NewMounter()
+	go func() {
+		err = mounter.Mount(apiClient, repositoryName, directory, 0, 1)
+		require.NoError(t, err)
+	}()
+	mounter.Ready()
+
+	_, err = os.Stat(filepath.Join(directory, "scratch"))
+	require.NoError(t, err)
+
+	branchResponse, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
+	require.NoError(t, err)
+	require.NotNil(t, branchResponse)
+	newCommitID := branchResponse.Commit.Id
+
+	bigValue := make([]byte, 1024*1024*300)
+	for i := 0; i < 1024*1024*300; i++ {
+		bigValue[i] = 'a'
+	}
+
+	wg := sync.WaitGroup{}
+	for j := 0; j < 5; j++ {
+		wg.Add(1)
+		go func(j int) {
+			defer wg.Done()
+			err := ioutil.WriteFile(filepath.Join(directory, newCommitID, fmt.Sprintf("big%d", j)), bigValue, 0666)
+			require.NoError(t, err)
+		}(j)
+	}
+	wg.Wait()
+
+	err = pfsutil.Commit(apiClient, repositoryName, newCommitID)
+	require.NoError(t, err)
+
+	wg = sync.WaitGroup{}
+	for j := 0; j < 5; j++ {
+		wg.Add(1)
+		go func(j int) {
+			defer wg.Done()
+			data, err := ioutil.ReadFile(filepath.Join(directory, newCommitID, fmt.Sprintf("big%d", j)))
+			require.NoError(t, err)
+			require.Equal(t, bigValue, data)
+		}(j)
+	}
+	wg.Wait()
+}
+
+func benchMount(b *testing.B, apiClient pfs.ApiClient) {
 	repositoryName := testRepositoryName()
 
 	if err := pfsutil.InitRepository(apiClient, repositoryName); err != nil {
 		b.Error(err)
 	}
 
-	directory := "/compile/benchFile"
+	directory := "/compile/benchMount"
 	mounter := fuse.NewMounter()
 	go func() {
 		if err := mounter.Mount(apiClient, repositoryName, directory, 0, 1); err != nil {

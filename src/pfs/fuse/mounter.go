@@ -37,6 +37,8 @@ func (m *mounter) Mount(apiClient pfs.ApiClient, repositoryName string, mountPoi
 		fuse.FSName(namePrefix+repositoryName),
 		fuse.VolumeName(namePrefix+repositoryName),
 		fuse.Subtype(subtype),
+		fuse.WritebackCache(),
+		fuse.MaxReadahead(1<<32-1),
 	)
 	if err != nil {
 		return err
