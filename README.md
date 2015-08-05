@@ -40,7 +40,7 @@
 
 Pachyderm v0.9 is out and includes initial support for Kubernetes! We have also revamped our development scripts to make it much easier to get started.
 
-We are in the midst of a refactor! More news to follow, but new code is being committed along-side existing code and is contained primarily within [src/pfs](src/pfs), [src/pkg](src/pkg), and [src/pps](src/pps).
+We are in the midst of a refactor! All new development is currently being done on the ['next' branch](https://github.com/pachyderm/pachyderm/tree/next).
 
 WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
 
