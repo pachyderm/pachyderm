@@ -18,27 +18,15 @@ all: build
 
 deps:
 	go get -d -v ./...
-	# TODO(pedge): temporary
-	-cd $$GOPATH/src/github.com/imdario/mergo
-	-git checkout 6633656539c1639d9d78127b7d47c622b5d7b6dc
 
 update-deps:
 	go get -d -v -u -f ./...
-	# TODO(pedge): temporary
-	-cd $$GOPATH/src/github.com/imdario/mergo
-	-git checkout 6633656539c1639d9d78127b7d47c622b5d7b6dc
 
 test-deps:
 	go get -d -v -t ./...
-	# TODO(pedge): temporary
-	-cd $$GOPATH/src/github.com/imdario/mergo
-	-git checkout 6633656539c1639d9d78127b7d47c622b5d7b6dc
 
 update-test-deps:
 	go get -d -v -t -u -f ./...
-	# TODO(pedge): temporary
-	-cd $$GOPATH/src/github.com/imdario/mergo
-	-git checkout 6633656539c1639d9d78127b7d47c622b5d7b6dc
 
 update-deps-list: test-deps
 	go get -v github.com/peter-edge/go-tools/go-external-deps
@@ -114,6 +102,9 @@ docker-clean-test:
 	docker-compose rm -f btrfs
 
 test: pretest docker-clean-test docker-build-test
+	docker-compose run --rm $(DOCKER_OPTS) test go test -test.short $(TESTFLAGS) $(TESTPKGS)
+
+test-long: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test go test $(TESTFLAGS) $(TESTPKGS)
 
 clean: docker-clean-test
@@ -152,5 +143,6 @@ start-kube:
 	pretest \
 	docker-clean-test \
 	test \
+	test-long \
 	clean \
 	start-kube
