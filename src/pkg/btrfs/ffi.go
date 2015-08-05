@@ -1,3 +1,5 @@
+// +build linux
+
 package btrfs
 
 /*
@@ -22,6 +24,10 @@ var (
 		C.BTRFS_IOC_SNAP_CREATE_V2:  "btrfs subvolume snapshot",
 	}
 )
+
+func NewFFIAPI() API {
+	return newFFIAPI()
+}
 
 type ffiAPI struct{}
 
