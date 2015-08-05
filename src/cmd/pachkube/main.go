@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/client"
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/spf13/cobra"
@@ -19,14 +21,13 @@ func main() {
 }
 
 func do(appEnvObj interface{}) error {
-	//appEnv := appEnvObj.(*appEnv)
+	appEnv := appEnvObj.(*appEnv)
 
 	runCmd := cobramainutil.Command{
 		Use:  "run",
 		Long: "run",
 		Run: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("here\n")
-			return nil
+			return run(appEnv, args)
 		},
 	}.ToCobraCommand()
 
@@ -37,4 +38,24 @@ func do(appEnvObj interface{}) error {
 
 	rootCmd.AddCommand(runCmd)
 	return rootCmd.Execute()
+}
+
+func run(appEnv *appEnv, args []string) error {
+	clientConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{},
+	).ClientConfig()
+	if err != nil {
+		return err
+	}
+	client, err := client.New(clientConfig)
+	if err != nil {
+		return err
+	}
+	versionInfo, err := client.ServerVersion()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%+v\n", versionInfo)
+	return nil
 }
