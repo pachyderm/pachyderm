@@ -31,6 +31,19 @@ func testBasic(t *testing.T, client Client) {
 	runResp, err := client.GetPipelineRun("id")
 	require.NoError(t, err)
 	require.Equal(t, run, runResp)
+	require.NoError(t, client.AddPipelineRunStatus("id", pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE))
+	statusResp, err := client.GetPipelineRunStatusLatest("id")
+	require.NoError(t, err)
+	require.Equal(t, statusResp.PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE)
+	require.NoError(t, client.AddPipelineRunStatus("id", pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS))
+	statusResp, err = client.GetPipelineRunStatusLatest("id")
+	require.NoError(t, err)
+	require.Equal(t, statusResp.PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS)
+
+	require.NoError(t, client.AddPipelineRunContainerIDs("id", "container"))
+	containers, err := client.GetPipelineRunContainerIDs("id")
+	require.NoError(t, err)
+	require.Equal(t, []string{"container"}, containers)
 }
 
 func runTest(t *testing.T, testFunc func(*testing.T, Client)) {
