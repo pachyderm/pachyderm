@@ -15,6 +15,6 @@ func NewInMemoryClient() Client {
 	return newInMemoryClient()
 }
 
-func NewRethinkClient(address string) (Client, error) {
-	return newRethinkClient(address)
+func NewRethinkClient(address string, databaseName string) (Client, error) {
+	return newRethinkClient(address, databaseName)
 }

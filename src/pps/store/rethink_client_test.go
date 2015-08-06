@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/stretchr/testify/require"
 )
@@ -15,7 +17,7 @@ func TestBasic(t *testing.T) {
 }
 
 func testBasic(t *testing.T, client Client) {
-	run := &pps.PipelineRun{
+	pipelineRun := &pps.PipelineRun{
 		Id: "id",
 		PipelineSource: &pps.PipelineSource{
 			GithubPipelineSource: &pps.GithubPipelineSource{
@@ -27,23 +29,23 @@ func testBasic(t *testing.T, client Client) {
 			},
 		},
 	}
-	require.NoError(t, client.AddPipelineRun(run))
-	runResp, err := client.GetPipelineRun("id")
+	require.NoError(t, client.AddPipelineRun(pipelineRun))
+	pipelineRunResponse, err := client.GetPipelineRun("id")
 	require.NoError(t, err)
-	require.Equal(t, run, runResp)
+	require.Equal(t, pipelineRun, pipelineRunResponse)
 	require.NoError(t, client.AddPipelineRunStatus("id", pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE))
-	statusResp, err := client.GetPipelineRunStatusLatest("id")
+	pipelineRunStatusResponse, err := client.GetPipelineRunStatusLatest("id")
 	require.NoError(t, err)
-	require.Equal(t, statusResp.PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE)
+	require.Equal(t, pipelineRunStatusResponse.PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE)
 	require.NoError(t, client.AddPipelineRunStatus("id", pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS))
-	statusResp, err = client.GetPipelineRunStatusLatest("id")
+	pipelineRunStatusResponse, err = client.GetPipelineRunStatusLatest("id")
 	require.NoError(t, err)
-	require.Equal(t, statusResp.PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS)
+	require.Equal(t, pipelineRunStatusResponse.PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS)
 
 	require.NoError(t, client.AddPipelineRunContainerIDs("id", "container"))
-	containers, err := client.GetPipelineRunContainerIDs("id")
+	containerIDs, err := client.GetPipelineRunContainerIDs("id")
 	require.NoError(t, err)
-	require.Equal(t, []string{"container"}, containers)
+	require.Equal(t, []string{"container"}, containerIDs)
 }
 
 func runTest(t *testing.T, testFunc func(*testing.T, Client)) {
@@ -57,7 +59,7 @@ func getRethinkSession() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewRethinkClient(address)
+	return NewRethinkClient(address, strings.Replace(common.NewUUID(), "-", "", -1))
 }
 
 func getRethinkAddress() (string, error) {
