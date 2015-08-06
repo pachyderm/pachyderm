@@ -2,6 +2,8 @@ rethink:
   image: rethinkdb:2.0.4
   ports:
     - "8080:8080"
+etcd:
+  image: quay.io/coreos/etcd
 btrfs:
   build: etc/btrfs
   privileged: true
@@ -16,6 +18,7 @@ test:
     - PFS_BTRFS_ROOT=/pfs/btrfs
   links:
     - rethink
+    - etcd
 compile:
   build: .
   volumes:
@@ -33,6 +36,8 @@ pfsd:
   dockerfile: Dockerfile.pfsd
   ports:
     - "650:650"
+  links:
+    - etcd
 ppsd:
   build: .
   dockerfile: Dockerfile.ppsd
@@ -42,3 +47,4 @@ ppsd:
     - "651:651"
   links:
     - rethink
+    - etcd
