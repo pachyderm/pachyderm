@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 
-	"github.com/GoogleCloudPlatform/kubernetes/pkg/client"
-	"github.com/GoogleCloudPlatform/kubernetes/pkg/client/clientcmd"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/spf13/cobra"
+	"k8s.io/kubernetes/pkg/client"
+	"k8s.io/kubernetes/pkg/client/clientcmd"
 )
 
 var (
