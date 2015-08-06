@@ -30,22 +30,22 @@ func (c *mockClient) Close() error {
 	return nil
 }
 
-func (c *mockClient) Get(key string) (string, error) {
+func (c *mockClient) Get(key string) (string, bool, error) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	now := time.Now()
 	record, ok := c.records[key]
 	if !ok {
-		return "", fmt.Errorf("pachyderm: key %s not found found", key)
+		return "", false, nil
 	}
 	if record.directory {
-		return "", fmt.Errorf("pachyderm: key %s not found found", key)
+		return "", false, fmt.Errorf("pachyderm: key %s is directory", key)
 	}
 	if (record.expires != time.Time{}) && now.After(record.expires) {
 		delete(c.records, key)
-		return "", fmt.Errorf("pachyderm: key %s not found found", key)
+		return "", false, nil
 	}
-	return record.data, nil
+	return record.data, true, nil
 }
 
 func (c *mockClient) GetAll(keyPrefix string) (map[string]string, error) {
