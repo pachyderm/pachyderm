@@ -59,6 +59,21 @@ type pipelineRunStatus struct {
 	timestamp             gorethink.Term            `gorethink:"timestamp,omitempty"`
 }
 
+func (c *rethinkClient) AddPipelineRunStatus(id string, runStatusType pps.PipelineRunStatusType) error {
+	doc := pipelineRunStatus{
+		id,
+		runStatusType,
+		gorethink.Time(time.Now().Unix()),
+	}
+	_, err := gorethink.DB("pachyderm").Table("pipeline_status").Insert(doc).RunWrite(c.session)
+	return err
+}
+
+type pipelineContainer struct {
+	id          string `gorethink:"id,omitempty"`
+	pipelineRun string `gorethink:"pipeline_run,omitempty"`
+}
+
 func (c *rethinkClient) GetPipelineRunStatusLatest(id string) (*pps.PipelineRunStatus, error) {
 	var result pps.PipelineRunStatus
 	cursor, err := gorethink.DB("pachyderm").Table("pipeline_status").
@@ -75,19 +90,17 @@ func (c *rethinkClient) GetPipelineRunStatusLatest(id string) (*pps.PipelineRunS
 	return &result, nil
 }
 
-func (c *rethinkClient) AddPipelineRunStatus(id string, runStatusType pps.PipelineRunStatusType) error {
-	doc := pipelineRunStatus{
-		id,
-		runStatusType,
-		gorethink.Time(time.Now().Unix()),
+func (c *rethinkClient) AddPipelineRunContainerIDs(id string, containerIDs ...string) error {
+	var toInsert []pipelineContainer
+	for _, containerID := range containerIDs {
+		toInsert = append(toInsert, pipelineContainer{containerID, id})
 	}
-	_, err := gorethink.DB("pachyderm").Table("pipeline_status").Insert(doc).RunWrite(c.session)
-	return err
-}
-
-type pipelineContainer struct {
-	id          string `gorethink:"id,omitempty"`
-	pipelineRun string `gorethink:"pipeline_run,omitempty"`
+	if _, err := gorethink.DB("pachyderm").Table("pipeline_container").
+		Insert(toInsert).
+		RunWrite(c.session); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *rethinkClient) GetPipelineRunContainerIDs(id string) ([]string, error) {
@@ -106,17 +119,4 @@ func (c *rethinkClient) GetPipelineRunContainerIDs(id string) ([]string, error) 
 		result = append(result, container.id)
 	}
 	return result, nil
-}
-
-func (c *rethinkClient) AddPipelineRunContainerIDs(id string, containerIDs ...string) error {
-	var toInsert []pipelineContainer
-	for _, containerID := range containerIDs {
-		toInsert = append(toInsert, pipelineContainer{containerID, id})
-	}
-	if _, err := gorethink.DB("pachyderm").Table("pipeline_container").
-		Insert(toInsert).
-		RunWrite(c.session); err != nil {
-		return err
-	}
-	return nil
 }
