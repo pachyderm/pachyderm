@@ -10,10 +10,12 @@ import (
 )
 
 func TestMockClient(t *testing.T) {
+	t.Parallel()
 	runTest(t, NewMockClient())
 }
 
 func TestEtcdClient(t *testing.T) {
+	t.Parallel()
 	client, err := getEtcdClient()
 	require.NoError(t, err)
 	runTest(t, client)

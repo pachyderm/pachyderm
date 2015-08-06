@@ -26,8 +26,8 @@ func NewSingleAddresser(address string, numShards int) Addresser {
 	return newSingleAddresser(address, numShards)
 }
 
-func NewDiscoveryAddresser(discoveryClient discovery.Client) Addresser {
-	return newDiscoveryAddresser(discoveryClient)
+func NewDiscoveryAddresser(discoveryClient discovery.Client, baseKey string) Addresser {
+	return newDiscoveryAddresser(discoveryClient, baseKey)
 }
 
 type Router interface {
