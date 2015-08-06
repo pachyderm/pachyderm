@@ -14,8 +14,9 @@ enum PipelineRunStatusType {
 }
 
 message PipelineRunStatus {
-  PipelineRunStatusType pipeline_run_status_type = 1;
-  google.protobuf.Timestamp timestamp = 2;
+  string pipeline_run_id = 1;
+  PipelineRunStatusType pipeline_run_status_type = 2;
+  google.protobuf.Timestamp timestamp = 3;
 }
 
 message Input {
