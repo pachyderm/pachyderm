@@ -100,6 +100,8 @@ docker-clean-test:
 	docker-compose rm -f rethink
 	docker-compose kill btrfs
 	docker-compose rm -f btrfs
+	docker-compose kill etcd
+	docker-compose rm -f etcd
 
 test: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test go test -test.short $(TESTFLAGS) $(TESTPKGS)
