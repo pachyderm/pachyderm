@@ -20,6 +20,21 @@ func TestEtcdClient(t *testing.T) {
 }
 
 func runTest(t *testing.T, client Client) {
+	require.NoError(t, client.Set("foo", "one", 0))
+	value, ok, err := client.Get("foo")
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, "one", value)
+	//values, err := client.GetAll("foo")
+	//require.NoError(t, err)
+	//require.Equal(t, map[string]string{"foo": "one"}, values)
+
+	require.NoError(t, client.Set("a/b/foo", "one", 0))
+	require.NoError(t, client.Set("a/b/bar", "two", 0))
+	values, err := client.GetAll("a/b")
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"/a/b/foo": "one", "/a/b/bar": "two"}, values)
+
 	require.NoError(t, client.Close())
 }
 
@@ -36,5 +51,5 @@ func getEtcdAddress() (string, error) {
 	if etcdAddr == "" {
 		return "", errors.New("ETCD_PORT_2379_TCP_ADDR not set")
 	}
-	return fmt.Sprintf("%s:2379", etcdAddr), nil
+	return fmt.Sprintf("http://%s:2379", etcdAddr), nil
 }
