@@ -76,8 +76,9 @@ func (x PipelineRunStatusType) String() string {
 }
 
 type PipelineRunStatus struct {
-	PipelineRunStatusType PipelineRunStatusType       `protobuf:"varint,1,opt,name=pipeline_run_status_type,enum=pps.PipelineRunStatusType" json:"pipeline_run_status_type,omitempty"`
-	Timestamp             *google_protobuf1.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
+	PipelineRunId         string                      `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
+	PipelineRunStatusType PipelineRunStatusType       `protobuf:"varint,2,opt,name=pipeline_run_status_type,enum=pps.PipelineRunStatusType" json:"pipeline_run_status_type,omitempty"`
+	Timestamp             *google_protobuf1.Timestamp `protobuf:"bytes,3,opt,name=timestamp" json:"timestamp,omitempty"`
 }
 
 func (m *PipelineRunStatus) Reset()         { *m = PipelineRunStatus{} }
