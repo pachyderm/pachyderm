@@ -36,7 +36,7 @@ build: deps
 	go build ./...
 
 install: deps
-	go install ./src/cmd/pfs ./src/cmd/pps
+	go install ./src/cmd/pfs ./src/cmd/pps ./src/cmd/pachkube
 
 docker-build-btrfs:
 	docker-compose build btrfs
@@ -102,6 +102,9 @@ docker-clean-test:
 	docker-compose rm -f btrfs
 
 test: pretest docker-clean-test docker-build-test
+	docker-compose run --rm $(DOCKER_OPTS) test go test -test.short $(TESTFLAGS) $(TESTPKGS)
+
+test-long: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test go test $(TESTFLAGS) $(TESTPKGS)
 
 clean: docker-clean-test
@@ -140,5 +143,6 @@ start-kube:
 	pretest \
 	docker-clean-test \
 	test \
+	test-long \
 	clean \
 	start-kube
