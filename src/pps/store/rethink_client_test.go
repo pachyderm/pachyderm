@@ -4,11 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
-	"github.com/dancannon/gorethink"
-	"github.com/pachyderm/pachyderm/src/common"
+	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,45 +14,37 @@ func TestBasic(t *testing.T) {
 	runTest(t, testBasic)
 }
 
-func testBasic(session *gorethink.Session, database string) error {
-	return nil
-}
-
-func runTest(t *testing.T, testFunc func(*gorethink.Session, string) error) {
-	database := strings.Replace(common.NewUUID(), "-", "", -1)
-
-	session, err := getRethinkSession("")
-	require.NoError(t, err)
-	err = gorethink.DBCreate(database).Exec(session)
-	tableErr := initTables(session, database)
-	_ = session.Close()
-	require.NoError(t, err)
-	require.NoError(t, tableErr)
-
-	session, err = getRethinkSession(database)
-	testErr := testFunc(session, database)
-	_ = session.Close()
-
-	session, err = getRethinkSession("")
-	if err == nil {
-		_ = gorethink.DBDrop(database).Exec(session)
+func testBasic(t *testing.T, client Client) {
+	run := &pps.PipelineRun{
+		Id: "id",
+		PipelineSource: &pps.PipelineSource{
+			GithubPipelineSource: &pps.GithubPipelineSource{
+				ContextDir:  "dir",
+				User:        "user",
+				Repository:  "repo",
+				Branch:      "branch",
+				AccessToken: "token",
+			},
+		},
 	}
-	_ = session.Close()
-
-	require.NoError(t, testErr)
+	require.NoError(t, client.AddPipelineRun(run))
+	runResp, err := client.GetPipelineRun("id")
+	require.NoError(t, err)
+	require.Equal(t, run, runResp)
 }
 
-func getRethinkSession(database string) (*gorethink.Session, error) {
+func runTest(t *testing.T, testFunc func(*testing.T, Client)) {
+	client, err := getRethinkSession()
+	require.NoError(t, err)
+	testFunc(t, client)
+}
+
+func getRethinkSession() (Client, error) {
 	address, err := getRethinkAddress()
 	if err != nil {
 		return nil, err
 	}
-	return gorethink.Connect(
-		gorethink.ConnectOpts{
-			Address:  address,
-			Database: database,
-		},
-	)
+	return NewRethinkClient(address)
 }
 
 func getRethinkAddress() (string, error) {
