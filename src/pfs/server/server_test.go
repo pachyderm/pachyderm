@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -44,6 +45,7 @@ func init() {
 }
 
 func TestBtrfsFFI(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewFFIAPI())
 	runTest(t, driver, testSimple)
@@ -378,20 +380,24 @@ func testRepositoryName() string {
 	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
 }
 
-func registerFunc(driver drive.Driver, servers map[string]*grpc.Server) {
-	discoveryClient := discovery.NewMockClient()
+func testBaseKey() string {
+	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
+}
+
+func registerFunc(driver drive.Driver, discoveryClient discovery.Client, servers map[string]*grpc.Server) {
 	i := 0
+	baseKey := testBaseKey()
 	addresses := make([]string, testNumServers)
 	for address := range servers {
 		shards := make([]string, testShardsPerServer)
 		for j := 0; j < testShardsPerServer; j++ {
 			shards[j] = fmt.Sprintf("%d", (i*testShardsPerServer)+j)
 		}
-		_ = discoveryClient.Set(address+"-master", strings.Join(shards, ","), 0)
+		_ = discoveryClient.Set(baseKey+"/"+address+"-master", strings.Join(shards, ","), 0)
 		addresses[i] = address
 		i++
 	}
-	_ = discoveryClient.Set("all-addresses", strings.Join(addresses, ","), 0)
+	_ = discoveryClient.Set(baseKey+"/all-addresses", strings.Join(addresses, ","), 0)
 	for address, server := range servers {
 		combinedAPIServer := NewCombinedAPIServer(
 			route.NewSharder(
@@ -400,6 +406,7 @@ func registerFunc(driver drive.Driver, servers map[string]*grpc.Server) {
 			route.NewRouter(
 				route.NewDiscoveryAddresser(
 					discoveryClient,
+					baseKey,
 				),
 				grpcutil.NewDialer(),
 				address,
@@ -416,11 +423,13 @@ func runTest(
 	driver drive.Driver,
 	f func(t *testing.T, apiClient pfs.ApiClient),
 ) {
+	discoveryClient, err := getEtcdClient()
+	require.NoError(t, err)
 	grpctest.Run(
 		t,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
-			registerFunc(driver, servers)
+			registerFunc(driver, discoveryClient, servers)
 		},
 		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
 			var clientConn *grpc.ClientConn
@@ -443,11 +452,13 @@ func runBench(
 	driver drive.Driver,
 	f func(b *testing.B, apiClient pfs.ApiClient),
 ) {
+	discoveryClient, err := getEtcdClient()
+	require.NoError(b, err)
 	grpctest.RunB(
 		b,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
-			registerFunc(driver, servers)
+			registerFunc(driver, discoveryClient, servers)
 		},
 		func(b *testing.B, clientConns map[string]*grpc.ClientConn) {
 			var clientConn *grpc.ClientConn
@@ -463,4 +474,20 @@ func runBench(
 			)
 		},
 	)
+}
+
+func getEtcdClient() (discovery.Client, error) {
+	etcdAddress, err := getEtcdAddress()
+	if err != nil {
+		return nil, err
+	}
+	return discovery.NewEtcdClient(etcdAddress), nil
+}
+
+func getEtcdAddress() (string, error) {
+	etcdAddr := os.Getenv("ETCD_PORT_2379_TCP_ADDR")
+	if etcdAddr == "" {
+		return "", errors.New("ETCD_PORT_2379_TCP_ADDR not set")
+	}
+	return fmt.Sprintf("http://%s:2379", etcdAddr), nil
 }

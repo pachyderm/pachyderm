@@ -9,14 +9,15 @@ import (
 
 type discoveryAddresser struct {
 	discoveryClient discovery.Client
+	baseKey         string
 }
 
-func newDiscoveryAddresser(discoveryClient discovery.Client) *discoveryAddresser {
-	return &discoveryAddresser{discoveryClient}
+func newDiscoveryAddresser(discoveryClient discovery.Client, baseKey string) *discoveryAddresser {
+	return &discoveryAddresser{discoveryClient, baseKey}
 }
 
 func (l *discoveryAddresser) GetMasterShards(address string) (map[int]bool, error) {
-	value, ok, err := l.discoveryClient.Get(address + "-master")
+	value, ok, err := l.discoveryClient.Get(l.baseKey + "/" + address + "-master")
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +37,7 @@ func (l *discoveryAddresser) GetSlaveShards(address string) (map[int]bool, error
 }
 
 func (l *discoveryAddresser) GetAllAddresses() ([]string, error) {
-	value, ok, err := l.discoveryClient.Get("all-addresses")
+	value, ok, err := l.discoveryClient.Get(l.baseKey + "/all-addresses")
 	if err != nil {
 		return nil, err
 	}
