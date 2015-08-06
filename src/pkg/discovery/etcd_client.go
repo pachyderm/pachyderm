@@ -17,12 +17,12 @@ func (c *etcdClient) Close() error {
 	return nil
 }
 
-func (c *etcdClient) Get(key string) (string, error) {
+func (c *etcdClient) Get(key string) (string, bool, error) {
 	response, err := c.client.Get(key, false, false)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
-	return response.Node.Value, nil
+	return response.Node.Value, true, nil
 }
 
 func (c *etcdClient) GetAll(key string) (map[string]string, error) {

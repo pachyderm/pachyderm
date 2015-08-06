@@ -16,9 +16,12 @@ func newDiscoveryAddresser(discoveryClient discovery.Client) *discoveryAddresser
 }
 
 func (l *discoveryAddresser) GetMasterShards(address string) (map[int]bool, error) {
-	value, err := l.discoveryClient.Get(address + "-master")
+	value, ok, err := l.discoveryClient.Get(address + "-master")
 	if err != nil {
 		return nil, err
+	}
+	if !ok {
+		return make(map[int]bool, 0), nil
 	}
 	return l.newShardMap(value)
 }
@@ -33,9 +36,12 @@ func (l *discoveryAddresser) GetSlaveShards(address string) (map[int]bool, error
 }
 
 func (l *discoveryAddresser) GetAllAddresses() ([]string, error) {
-	value, err := l.discoveryClient.Get("all-addresses")
+	value, ok, err := l.discoveryClient.Get("all-addresses")
 	if err != nil {
 		return nil, err
+	}
+	if !ok {
+		return []string{}, nil
 	}
 	return strings.Split(value, ","), nil
 }
