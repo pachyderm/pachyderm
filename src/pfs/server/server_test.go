@@ -63,6 +63,9 @@ func TestFuseMount(t *testing.T) {
 }
 
 func TestFuseMountBig(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
 	t.Parallel()
 	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewFFIAPI())
 	runTest(t, driver, testMountBig)
