@@ -72,19 +72,20 @@ func (c *inMemoryClient) GetPipelineRunStatusLatest(id string) (*pps.PipelineRun
 	return runStatuses[len(runStatuses)-1], nil
 }
 
-func (c *inMemoryClient) AddPipelineRunStatus(id string, pipelineRunStatusType pps.PipelineRunStatusType) error {
+func (c *inMemoryClient) AddPipelineRunStatus(runStatus *pps.PipelineRunStatus) error {
 	c.runStatusesLock.Lock()
 	defer c.runStatusesLock.Unlock()
 
-	_, ok := c.idToRunStatuses[id]
+	_, ok := c.idToRunStatuses[runStatus.PipelineRunId]
 	if !ok {
-		return fmt.Errorf("no run for id %s", id)
+		return fmt.Errorf("no run for id %s", runStatus.PipelineRunId)
 	}
-	c.idToRunStatuses[id] = append(c.idToRunStatuses[id], &pps.PipelineRunStatus{PipelineRunStatusType: pipelineRunStatusType, Timestamp: timeToTimestamp(c.timer.Now())})
+	c.idToRunStatuses[runStatus.PipelineRunId] =
+		append(c.idToRunStatuses[runStatus.PipelineRunId], runStatus)
 	return nil
 }
 
-func (c *inMemoryClient) GetPipelineRunContainers(id string) ([]*PipelineContainers, error) {
+func (c *inMemoryClient) GetPipelineRunContainers(id string) ([]*PipelineContainer, error) {
 	c.containerIDsLock.RLock()
 	defer c.containerIDsLock.RUnlock()
 
