@@ -8,9 +8,9 @@ import (
 )
 
 type inMemoryClient struct {
-	idToRun          map[string]*pps.PipelineRun
-	idToRunStatuses  map[string][]*pps.PipelineRunStatus
-	idToContainerIDs map[string]map[string]bool
+	idToRun         map[string]*pps.PipelineRun
+	idToRunStatuses map[string][]*pps.PipelineRunStatus
+	idToContainers  map[string][]*PipelineContainer
 
 	timer timer
 
@@ -23,12 +23,20 @@ func newInMemoryClient() *inMemoryClient {
 	return &inMemoryClient{
 		make(map[string]*pps.PipelineRun),
 		make(map[string][]*pps.PipelineRunStatus),
-		make(map[string]map[string]bool),
+		make(map[string][]*PipelineContainer),
 		defaultTimer,
 		&sync.RWMutex{},
 		&sync.RWMutex{},
 		&sync.RWMutex{},
 	}
+}
+
+func (c *inMemoryClient) Init() error {
+	return nil
+}
+
+func (c *inMemoryClient) Close() error {
+	return nil
 }
 
 func (c *inMemoryClient) AddPipelineRun(pipelineRun *pps.PipelineRun) error {
@@ -46,7 +54,7 @@ func (c *inMemoryClient) AddPipelineRun(pipelineRun *pps.PipelineRun) error {
 		PipelineRunStatusType: pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ADDED,
 		Timestamp:             timeToTimestamp(c.timer.Now()),
 	}
-	c.idToContainerIDs[pipelineRun.Id] = make(map[string]bool)
+	c.idToContainers[pipelineRun.Id] = make([]*PipelineContainer, 0)
 	return nil
 }
 
@@ -72,45 +80,40 @@ func (c *inMemoryClient) GetPipelineRunStatusLatest(id string) (*pps.PipelineRun
 	return runStatuses[len(runStatuses)-1], nil
 }
 
-func (c *inMemoryClient) AddPipelineRunStatus(id string, pipelineRunStatusType pps.PipelineRunStatusType) error {
+func (c *inMemoryClient) AddPipelineRunStatus(runStatus *pps.PipelineRunStatus) error {
 	c.runStatusesLock.Lock()
 	defer c.runStatusesLock.Unlock()
 
-	_, ok := c.idToRunStatuses[id]
+	_, ok := c.idToRunStatuses[runStatus.PipelineRunId]
 	if !ok {
-		return fmt.Errorf("no run for id %s", id)
+		return fmt.Errorf("no run for id %s", runStatus.PipelineRunId)
 	}
-	c.idToRunStatuses[id] = append(c.idToRunStatuses[id], &pps.PipelineRunStatus{PipelineRunStatusType: pipelineRunStatusType, Timestamp: timeToTimestamp(c.timer.Now())})
+	c.idToRunStatuses[runStatus.PipelineRunId] =
+		append(c.idToRunStatuses[runStatus.PipelineRunId], runStatus)
 	return nil
 }
 
-func (c *inMemoryClient) GetPipelineRunContainerIDs(id string) ([]string, error) {
+func (c *inMemoryClient) GetPipelineRunContainers(id string) ([]*PipelineContainer, error) {
 	c.containerIDsLock.RLock()
 	defer c.containerIDsLock.RUnlock()
 
-	containerIDsMap, ok := c.idToContainerIDs[id]
+	containers, ok := c.idToContainers[id]
 	if !ok {
 		return nil, fmt.Errorf("no run for id %s", id)
 	}
-	containerIDsSlice := make([]string, len(containerIDsMap))
-	i := 0
-	for containerID := range containerIDsMap {
-		containerIDsSlice[i] = containerID
-		i++
-	}
-	return containerIDsSlice, nil
+	return containers, nil
 }
 
 func (c *inMemoryClient) AddPipelineRunContainerIDs(id string, containerIDs ...string) error {
 	c.containerIDsLock.Lock()
 	defer c.containerIDsLock.Unlock()
 
-	containerIDsMap, ok := c.idToContainerIDs[id]
+	_, ok := c.idToContainers[id]
 	if !ok {
 		return fmt.Errorf("no run for id %s", id)
 	}
 	for _, containerID := range containerIDs {
-		containerIDsMap[containerID] = true
+		c.idToContainers[id] = append(c.idToContainers[id], &PipelineContainer{PipelineRunId: id, ContainerId: containerID})
 	}
 	return nil
 }
