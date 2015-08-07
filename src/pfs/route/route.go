@@ -16,18 +16,22 @@ func NewSharder(numShards int) Sharder {
 	return newSharder(numShards)
 }
 
+// namespace/pfs/shard/num/master -> address
+// namespace/pfs/shard/num/slave/address -> true
+
 type Addresser interface {
-	GetMasterShards(address string) (map[int]bool, error)
-	GetSlaveShards(address string) (map[int]bool, error)
-	GetAllAddresses() ([]string, error)
+	GetMasterAddress(shard int) (string, bool, error)
+	GetSlaveAddresses(shard int) (map[string]bool, error)
+	GetShardToMasterAddress() (map[int]string, error)
+	GetShardToSlaveAddresses() (map[int]map[string]bool, error)
+	SetMasterAddress(shard int, address string, ttl uint64) error
+	SetSlaveAddress(shard int, address string, ttl uint64) error
+	DeleteMasterAddress(shard int) error
+	DeleteSlaveAddress(shard int, address string) error
 }
 
-func NewSingleAddresser(address string, numShards int) Addresser {
-	return newSingleAddresser(address, numShards)
-}
-
-func NewDiscoveryAddresser(discoveryClient discovery.Client, baseKey string) Addresser {
-	return newDiscoveryAddresser(discoveryClient, baseKey)
+func NewDiscoveryAddresser(discoveryClient discovery.Client, namespace string) Addresser {
+	return newDiscoveryAddresser(discoveryClient, namespace)
 }
 
 type Router interface {

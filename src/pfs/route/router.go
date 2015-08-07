@@ -2,7 +2,6 @@ package route
 
 import (
 	"fmt"
-	"math/rand"
 
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"google.golang.org/grpc"
@@ -27,79 +26,103 @@ func newRouter(
 }
 
 func (r *router) GetMasterShards() (map[int]bool, error) {
-	return r.addresser.GetMasterShards(r.localAddress)
-}
-
-func (r *router) GetSlaveShards() (map[int]bool, error) {
-	return r.addresser.GetSlaveShards(r.localAddress)
-}
-
-func (r *router) GetMasterClientConn(shard int) (*grpc.ClientConn, error) {
-	address, err := r.getAddress(shard, r.addresser.GetMasterShards)
+	shardToMasterAddress, err := r.addresser.GetShardToMasterAddress()
 	if err != nil {
 		return nil, err
 	}
-	if address == "" {
+	m := make(map[int]bool, 0)
+	for shard, address := range shardToMasterAddress {
+		if address == r.localAddress {
+			m[shard] = true
+		}
+	}
+	return m, nil
+}
+
+func (r *router) GetSlaveShards() (map[int]bool, error) {
+	shardToSlaveAddresses, err := r.addresser.GetShardToSlaveAddresses()
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[int]bool, 0)
+	for shard, addresses := range shardToSlaveAddresses {
+		if _, ok := addresses[r.localAddress]; ok {
+			m[shard] = true
+		}
+	}
+	return m, nil
+}
+
+func (r *router) GetMasterClientConn(shard int) (*grpc.ClientConn, error) {
+	address, ok, err := r.addresser.GetMasterAddress(shard)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
 		return nil, fmt.Errorf("no master found for %d", shard)
 	}
 	return r.dialer.Dial(address)
 }
 
 func (r *router) GetMasterOrSlaveClientConn(shard int) (*grpc.ClientConn, error) {
-	address, err := r.getAddress(shard, r.addresser.GetSlaveShards)
+	addresses, err := r.addresser.GetSlaveAddresses(shard)
 	if err != nil {
 		return nil, err
 	}
-	if address == "" {
-		address, err = r.getAddress(shard, r.addresser.GetMasterShards)
+	if len(addresses) == 0 {
+		address, ok, err := r.addresser.GetMasterAddress(shard)
 		if err != nil {
 			return nil, err
 		}
-		if address == "" {
-			return nil, fmt.Errorf("no slave or master found for %d", shard)
+		if !ok {
+			return nil, fmt.Errorf("no master or slave found for %d", shard)
 		}
+		return r.dialer.Dial(address)
+	}
+	address := ""
+	for iAddress := range addresses {
+		address = iAddress
+		break
 	}
 	return r.dialer.Dial(address)
 }
 
-func (r *router) getAddress(shard int, testFunc func(string) (map[int]bool, error)) (string, error) {
-	addresses, err := r.addresser.GetAllAddresses()
-	if err != nil {
-		return "", err
-	}
-	var foundAddresses []string
-	for _, address := range addresses {
-		shards, err := testFunc(address)
-		if err != nil {
-			return "", err
-		}
-		if _, ok := shards[shard]; ok {
-			foundAddresses = append(foundAddresses, address)
-		}
-	}
-	if len(foundAddresses) == 0 {
-		return "", nil
-	}
-	return foundAddresses[int(rand.Uint32())%len(foundAddresses)], nil
-}
-
 func (r *router) GetAllClientConns() ([]*grpc.ClientConn, error) {
-	addresses, err := r.addresser.GetAllAddresses()
+	addresses, err := r.getAllAddresses()
 	if err != nil {
 		return nil, err
 	}
-	clientConns := make([]*grpc.ClientConn, len(addresses)-1)
-	j := 0
-	for _, address := range addresses {
+	var clientConns []*grpc.ClientConn
+	for address := range addresses {
 		// TODO(pedge): huge race, this whole thing is bad
 		if address != r.localAddress {
 			clientConn, err := r.dialer.Dial(address)
 			if err != nil {
 				return nil, err
 			}
-			clientConns[j] = clientConn
-			j++
+			clientConns = append(clientConns, clientConn)
 		}
 	}
 	return clientConns, nil
+}
+
+func (r *router) getAllAddresses() (map[string]bool, error) {
+	m := make(map[string]bool, 0)
+	shardToMasterAddress, err := r.addresser.GetShardToMasterAddress()
+	if err != nil {
+		return nil, err
+	}
+	for _, address := range shardToMasterAddress {
+		m[address] = true
+	}
+	shardToSlaveAddresses, err := r.addresser.GetShardToSlaveAddresses()
+	if err != nil {
+		return nil, err
+	}
+	for _, addresses := range shardToSlaveAddresses {
+		for address := range addresses {
+			m[address] = true
+		}
+	}
+	return m, nil
 }
