@@ -1,5 +1,5 @@
 # When this fails the first thing you should try is:
-# NOCACHE=1 make update-test-deps update-deps-list docker-build
+# NOCACHE=1 make update-test-deps update-deps-list docker-build-test
 FROM ubuntu:15.04
 
 RUN \
