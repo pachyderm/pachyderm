@@ -84,26 +84,14 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := r.storeClient.AddPipelineRunStatus(
-		&pps.PipelineRunStatus{
-			PipelineRunId:         pipelineRunID,
-			PipelineRunStatusType: pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED,
-		}); err != nil {
+	if err := r.storeClient.AddPipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED); err != nil {
 		return "", err
 	}
 	go func() {
 		if err := run.Do(); err != nil {
-			_ = r.storeClient.AddPipelineRunStatus(
-				&pps.PipelineRunStatus{
-					PipelineRunId:         pipelineRunID,
-					PipelineRunStatusType: pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED,
-				})
+			_ = r.storeClient.AddPipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR)
 		} else {
-			_ = r.storeClient.AddPipelineRunStatus(
-				&pps.PipelineRunStatus{
-					PipelineRunId:         pipelineRunID,
-					PipelineRunStatusType: pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED,
-				})
+			_ = r.storeClient.AddPipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS)
 		}
 	}()
 	return pipelineRunID, nil

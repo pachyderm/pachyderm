@@ -80,16 +80,21 @@ func (c *inMemoryClient) GetPipelineRunStatusLatest(id string) (*pps.PipelineRun
 	return runStatuses[len(runStatuses)-1], nil
 }
 
-func (c *inMemoryClient) AddPipelineRunStatus(runStatus *pps.PipelineRunStatus) error {
+func (c *inMemoryClient) AddPipelineRunStatus(id string, statusType pps.PipelineRunStatusType) error {
+	runStatus := &pps.PipelineRunStatus{
+		PipelineRunId:         id,
+		PipelineRunStatusType: statusType,
+		Timestamp:             timeToTimestamp(c.timer.Now()),
+	}
 	c.runStatusesLock.Lock()
 	defer c.runStatusesLock.Unlock()
 
-	_, ok := c.idToRunStatuses[runStatus.PipelineRunId]
+	_, ok := c.idToRunStatuses[id]
 	if !ok {
 		return fmt.Errorf("no run for id %s", runStatus.PipelineRunId)
 	}
-	c.idToRunStatuses[runStatus.PipelineRunId] =
-		append(c.idToRunStatuses[runStatus.PipelineRunId], runStatus)
+	c.idToRunStatuses[id] =
+		append(c.idToRunStatuses[id], runStatus)
 	return nil
 }
 
