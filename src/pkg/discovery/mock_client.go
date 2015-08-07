@@ -58,7 +58,7 @@ func (c *mockClient) GetAll(keyPrefix string) (map[string]string, error) {
 			delete(c.records, key)
 		}
 		if strings.HasPrefix(key, keyPrefix) && !record.directory {
-			result["/"+key] = record.data
+			result[key] = record.data
 		}
 	}
 	return result, nil

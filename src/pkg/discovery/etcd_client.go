@@ -1,6 +1,8 @@
 package discovery
 
 import (
+	"strings"
+
 	"github.com/coreos/go-etcd/etcd"
 )
 
@@ -32,7 +34,7 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 	}
 	result := make(map[string]string)
 	for _, node := range response.Node.Nodes {
-		result[node.Key] = node.Value
+		result[strings.TrimPrefix(node.Key, "/")] = node.Value
 	}
 	return result, nil
 }

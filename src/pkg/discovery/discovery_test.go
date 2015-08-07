@@ -35,7 +35,7 @@ func runTest(t *testing.T, client Client) {
 	require.NoError(t, client.Set("a/b/bar", "two", 0))
 	values, err := client.GetAll("a/b")
 	require.NoError(t, err)
-	require.Equal(t, map[string]string{"/a/b/foo": "one", "/a/b/bar": "two"}, values)
+	require.Equal(t, map[string]string{"a/b/foo": "one", "a/b/bar": "two"}, values)
 
 	require.NoError(t, client.Close())
 }
