@@ -17,6 +17,7 @@ func TestBasic(t *testing.T) {
 }
 
 func testBasic(t *testing.T, client Client) {
+	require.NoError(t, client.Init())
 	pipelineRun := &pps.PipelineRun{
 		Id: "id",
 		PipelineSource: &pps.PipelineSource{
