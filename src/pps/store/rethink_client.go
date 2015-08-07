@@ -110,9 +110,12 @@ func (c *rethinkClient) GetPipelineRun(id string) (*pps.PipelineRun, error) {
 	return &pipelineRun, nil
 }
 
-func (c *rethinkClient) AddPipelineRunStatus(runStatus *pps.PipelineRunStatus) error {
-	now := timeToTimestamp(c.timer.Now())
-	runStatus.Timestamp = now
+func (c *rethinkClient) AddPipelineRunStatus(id string, statusType pps.PipelineRunStatusType) error {
+	runStatus := &pps.PipelineRunStatus{
+		PipelineRunId:         id,
+		PipelineRunStatusType: statusType,
+		Timestamp:             timeToTimestamp(c.timer.Now()),
+	}
 	data, err := marshaller.MarshalToString(runStatus)
 	if err != nil {
 		return err

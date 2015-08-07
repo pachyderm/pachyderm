@@ -38,19 +38,11 @@ func testBasic(t *testing.T, client Client) {
 	pipelineRunResponse, err := client.GetPipelineRun("id")
 	require.NoError(t, err)
 	require.Equal(t, pipelineRun, pipelineRunResponse)
-	require.NoError(t, client.AddPipelineRunStatus(
-		&pps.PipelineRunStatus{
-			PipelineRunId:         "id",
-			PipelineRunStatusType: pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE,
-		}))
+	require.NoError(t, client.AddPipelineRunStatus("id", pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE))
 	pipelineRunStatusResponse, err := client.GetPipelineRunStatusLatest("id")
 	require.NoError(t, err)
 	require.Equal(t, pipelineRunStatusResponse.PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE)
-	require.NoError(t, client.AddPipelineRunStatus(
-		&pps.PipelineRunStatus{
-			PipelineRunId:         "id",
-			PipelineRunStatusType: pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS,
-		}))
+	require.NoError(t, client.AddPipelineRunStatus("id", pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS))
 	pipelineRunStatusResponse, err = client.GetPipelineRunStatusLatest("id")
 	require.NoError(t, err)
 	require.Equal(t, pipelineRunStatusResponse.PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS)
