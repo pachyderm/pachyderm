@@ -3,12 +3,14 @@ package store
 import "github.com/pachyderm/pachyderm/src/pps"
 
 type Client interface {
+	Close() error
+	Init() error
 	AddPipelineRun(pipelineRun *pps.PipelineRun) error
 	GetPipelineRun(id string) (*pps.PipelineRun, error)
-	AddPipelineRunStatus(id string, runStatusType pps.PipelineRunStatusType) error
+	AddPipelineRunStatus(runStatus *pps.PipelineRunStatus) error
 	GetPipelineRunStatusLatest(id string) (*pps.PipelineRunStatus, error)
 	AddPipelineRunContainerIDs(id string, containerIDs ...string) error
-	GetPipelineRunContainerIDs(id string) ([]string, error)
+	GetPipelineRunContainers(id string) ([]*PipelineContainer, error)
 }
 
 func NewInMemoryClient() Client {
