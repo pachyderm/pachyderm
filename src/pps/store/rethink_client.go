@@ -4,11 +4,10 @@ import (
 	"github.com/dancannon/gorethink"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/peter-edge/go-google-protobuf"
 )
 
 var (
-	marshaller = &jsonpb.Marshaller{EnumsAsString: true}
+	marshaller = &jsonpb.Marshaller{}
 )
 
 type pipelineRunStatus struct {
@@ -76,11 +75,11 @@ func (c *rethinkClient) AddPipelineRun(pipelineRun *pps.PipelineRun) error {
 }
 
 func (c *rethinkClient) GetPipelineRun(id string) (*pps.PipelineRun, error) {
-	data := ""
 	cursor, err := gorethink.DB(c.databaseName).Table("pipeline_runs").Get(id).ToJSON().Run(c.session)
 	if err != nil {
 		return nil, err
 	}
+	data := ""
 	if !cursor.Next(&data) {
 		return nil, cursor.Err()
 	}
@@ -91,41 +90,47 @@ func (c *rethinkClient) GetPipelineRun(id string) (*pps.PipelineRun, error) {
 	return &pipelineRun, nil
 }
 
-func (c *rethinkClient) AddPipelineRunStatus(id string, runStatusType pps.PipelineRunStatusType) error {
+func (c *rethinkClient) AddPipelineRunStatus(runStatus *pps.PipelineRunStatus) error {
 	now := timeToTimestamp(c.timer.Now())
-	doc := pipelineRunStatus{
-		id,
-		runStatusType,
-		now.Seconds,
-		now.Nanos,
+	runStatus.Timestamp = now
+	data, err := marshaller.MarshalToString(runStatus)
+	if err != nil {
+		return err
 	}
-	_, err := gorethink.DB(c.databaseName).Table("pipeline_run_statuses").Insert(doc).RunWrite(c.session)
+	_, err = gorethink.DB(c.databaseName).Table("pipeline_run_statuses").Insert(gorethink.JSON(data)).RunWrite(c.session)
 	return err
 }
 
 func (c *rethinkClient) GetPipelineRunStatusLatest(id string) (*pps.PipelineRunStatus, error) {
-	var doc pipelineRunStatus
 	cursor, err := gorethink.DB(c.databaseName).Table("pipeline_run_statuses").
 		GetAllByIndex("pipeline_run_id", id).
-		OrderBy(gorethink.Desc("seconds"), gorethink.Desc("nanos")).
+		OrderBy(gorethink.Desc("timestamp")).
 		Nth(0).
+		ToJSON().
 		Run(c.session)
 	if err != nil {
 		return nil, err
 	}
-	if !cursor.Next(&doc) {
+	data := ""
+	if !cursor.Next(&data) {
 		return nil, cursor.Err()
 	}
 	var pipelineRunStatus pps.PipelineRunStatus
-	pipelineRunStatus.PipelineRunStatusType = doc.PipelineRunStatusType
-	pipelineRunStatus.Timestamp = &google_protobuf.Timestamp{Seconds: doc.Seconds, Nanos: doc.Nanos}
+	if err := jsonpb.UnmarshalString(data, &pipelineRunStatus); err != nil {
+		return nil, err
+	}
 	return &pipelineRunStatus, nil
 }
 
 func (c *rethinkClient) AddPipelineRunContainerIDs(id string, containerIDs ...string) error {
-	var pipelineContainers []pipelineContainer
+	var pipelineContainers []gorethink.Term
 	for _, containerID := range containerIDs {
-		pipelineContainers = append(pipelineContainers, pipelineContainer{id, containerID})
+		pipelineContainer := PipelineContainer{id, containerID}
+		data, err := marshaller.MarshalToString(&pipelineContainer)
+		if err != nil {
+			return err
+		}
+		pipelineContainers = append(pipelineContainers, gorethink.JSON(data))
 	}
 	if _, err := gorethink.DB(c.databaseName).Table("pipeline_containers").
 		Insert(pipelineContainers).
@@ -135,20 +140,27 @@ func (c *rethinkClient) AddPipelineRunContainerIDs(id string, containerIDs ...st
 	return nil
 }
 
-func (c *rethinkClient) GetPipelineRunContainerIDs(id string) ([]string, error) {
+func (c *rethinkClient) GetPipelineRunContainers(id string) ([]*PipelineContainer, error) {
 	cursor, err := gorethink.DB(c.databaseName).Table("pipeline_containers").
 		GetAllByIndex("pipeline_run_id", id).
+		Map(func(row gorethink.Term) interface{} {
+		return row.ToJSON()
+	}).
 		Run(c.session)
 	if err != nil {
 		return nil, err
 	}
-	var pipelineContainers []pipelineContainer
+	var pipelineContainers []string
 	if err := cursor.All(&pipelineContainers); err != nil {
 		return nil, err
 	}
-	var containerIDs []string
-	for _, pipelineContainer := range pipelineContainers {
-		containerIDs = append(containerIDs, pipelineContainer.ContainerID)
+	var result []*PipelineContainer
+	for _, data := range pipelineContainers {
+		var pipelineContainer PipelineContainer
+		if err := jsonpb.UnmarshalString(data, &pipelineContainer); err != nil {
+			return nil, err
+		}
+		result = append(result, &pipelineContainer)
 	}
-	return containerIDs, nil
+	return result, nil
 }
