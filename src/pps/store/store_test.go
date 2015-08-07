@@ -12,8 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBasic(t *testing.T) {
-	runTest(t, testBasic)
+func TestBasicRethink(t *testing.T) {
+	runTestRethink(t, testBasic)
+}
+
+func TestBasicInMem(t *testing.T) {
+	runTestInMem(t, testBasic)
 }
 
 func testBasic(t *testing.T, client Client) {
@@ -57,7 +61,11 @@ func testBasic(t *testing.T, client Client) {
 	require.Equal(t, []*PipelineContainer{&PipelineContainer{"id", "container"}}, containerIDs)
 }
 
-func runTest(t *testing.T, testFunc func(*testing.T, Client)) {
+func runTestInMem(t *testing.T, testFunc func(*testing.T, Client)) {
+	testFunc(t, NewInMemoryClient())
+}
+
+func runTestRethink(t *testing.T, testFunc func(*testing.T, Client)) {
 	client, err := getRethinkSession()
 	require.NoError(t, err)
 	defer func() {
