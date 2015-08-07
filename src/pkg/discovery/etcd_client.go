@@ -22,6 +22,9 @@ func (c *etcdClient) Close() error {
 func (c *etcdClient) Get(key string) (string, bool, error) {
 	response, err := c.client.Get(key, false, false)
 	if err != nil {
+		if strings.HasPrefix(err.Error(), "100: Key not found") {
+			return "", false, nil
+		}
 		return "", false, err
 	}
 	return response.Node.Value, true, nil
@@ -29,10 +32,13 @@ func (c *etcdClient) Get(key string) (string, bool, error) {
 
 func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 	response, err := c.client.Get(key, false, true)
+	result := make(map[string]string, 0)
 	if err != nil {
+		if strings.HasPrefix(err.Error(), "100: Key not found") {
+			return result, nil
+		}
 		return nil, err
 	}
-	result := make(map[string]string)
 	for _, node := range response.Node.Nodes {
 		result[strings.TrimPrefix(node.Key, "/")] = node.Value
 	}

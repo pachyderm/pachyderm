@@ -380,34 +380,30 @@ func testRepositoryName() string {
 	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
 }
 
-func testBaseKey() string {
+func testNamespace() string {
 	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
 }
 
 func registerFunc(driver drive.Driver, discoveryClient discovery.Client, servers map[string]*grpc.Server) {
+	addresser := route.NewDiscoveryAddresser(
+		discoveryClient,
+		testNamespace(),
+	)
 	i := 0
-	baseKey := testBaseKey()
-	addresses := make([]string, testNumServers)
 	for address := range servers {
-		shards := make([]string, testShardsPerServer)
 		for j := 0; j < testShardsPerServer; j++ {
-			shards[j] = fmt.Sprintf("%d", (i*testShardsPerServer)+j)
+			// TODO(pedge): error
+			_ = addresser.SetMasterAddress((i*testShardsPerServer)+j, address, 0)
 		}
-		_ = discoveryClient.Set(baseKey+"/"+address+"-master", strings.Join(shards, ","), 0)
-		addresses[i] = address
 		i++
 	}
-	_ = discoveryClient.Set(baseKey+"/all-addresses", strings.Join(addresses, ","), 0)
 	for address, server := range servers {
 		combinedAPIServer := NewCombinedAPIServer(
 			route.NewSharder(
 				testShardsPerServer*testNumServers,
 			),
 			route.NewRouter(
-				route.NewDiscoveryAddresser(
-					discoveryClient,
-					baseKey,
-				),
+				addresser,
 				grpcutil.NewDialer(),
 				address,
 			),
