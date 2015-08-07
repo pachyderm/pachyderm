@@ -35,6 +35,10 @@ func (c *inMemoryClient) Init() error {
 	return nil
 }
 
+func (c *inMemoryClient) Close() error {
+	return nil
+}
+
 func (c *inMemoryClient) AddPipelineRun(pipelineRun *pps.PipelineRun) error {
 	c.runLock.Lock()
 	defer c.runLock.Unlock()
