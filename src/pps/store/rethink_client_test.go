@@ -60,6 +60,9 @@ func testBasic(t *testing.T, client Client) {
 func runTest(t *testing.T, testFunc func(*testing.T, Client)) {
 	client, err := getRethinkSession()
 	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, client.Close())
+	}()
 	testFunc(t, client)
 }
 

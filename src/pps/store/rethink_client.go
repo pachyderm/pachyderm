@@ -52,6 +52,10 @@ func newRethinkClient(address string, databaseName string) (*rethinkClient, erro
 	}, nil
 }
 
+func (c *rethinkClient) Close() error {
+	return c.session.Close()
+}
+
 func (c *rethinkClient) Init() error {
 	if _, err := gorethink.DBCreate(c.databaseName).RunWrite(c.session); err != nil {
 		return err
