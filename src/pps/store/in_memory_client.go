@@ -31,10 +31,6 @@ func newInMemoryClient() *inMemoryClient {
 	}
 }
 
-func (c *inMemoryClient) Init() error {
-	return nil
-}
-
 func (c *inMemoryClient) Close() error {
 	return nil
 }

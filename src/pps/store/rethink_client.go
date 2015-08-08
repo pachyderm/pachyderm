@@ -16,16 +16,42 @@ var (
 	marshaller = &jsonpb.Marshaller{}
 )
 
-type pipelineRunStatus struct {
-	PipelineRunID         string                    `gorethink:"pipeline_run_id,omitempty"`
-	PipelineRunStatusType pps.PipelineRunStatusType `gorethink:"pipeline_run_status_type,omitempty"`
-	Seconds               int64                     `gorethink:"seconds,omitempty"`
-	Nanos                 int32                     `gorethink:"nanos,omitempty"`
-}
-
-type pipelineContainer struct {
-	PipelineRunID string `gorethink:"pipeline_run_id,omitempty"`
-	ContainerID   string `gorethink:"container_id,omitempty"`
+// InitDBs prepares a RethinkDB instance to be used by rethinkClient.
+// rethinkClients will error if they are pointed at databases that haven't had
+// InitDBs run on them
+// InitDBs should only be run once per instance of RethinkDB, it will error if
+// it's called a second time.
+func InitDBs(address string, databaseName string) error {
+	session, err := gorethink.Connect(gorethink.ConnectOpts{Address: address})
+	if err != nil {
+		return err
+	}
+	if _, err := gorethink.DBCreate(databaseName).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).TableCreate(runTable).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).TableCreate(statusTable).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).TableCreate(
+		containerTable,
+		gorethink.TableCreateOpts{
+			PrimaryKey: "container_id",
+		},
+	).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).Table(statusTable).
+		IndexCreate("pipeline_run_id").RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).Table(containerTable).
+		IndexCreate("pipeline_run_id").RunWrite(session); err != nil {
+		return err
+	}
+	return nil
 }
 
 type rethinkClient struct {
@@ -54,35 +80,6 @@ func newRethinkClient(address string, databaseName string) (*rethinkClient, erro
 
 func (c *rethinkClient) Close() error {
 	return c.session.Close()
-}
-
-func (c *rethinkClient) Init() error {
-	if _, err := gorethink.DBCreate(c.databaseName).RunWrite(c.session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(c.databaseName).TableCreate(runTable).RunWrite(c.session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(c.databaseName).TableCreate(statusTable).RunWrite(c.session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(c.databaseName).TableCreate(
-		containerTable,
-		gorethink.TableCreateOpts{
-			PrimaryKey: "container_id",
-		},
-	).RunWrite(c.session); err != nil {
-		return err
-	}
-	if _, err := c.statuses.
-		IndexCreate("pipeline_run_id").RunWrite(c.session); err != nil {
-		return err
-	}
-	if _, err := c.containers.
-		IndexCreate("pipeline_run_id").RunWrite(c.session); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (c *rethinkClient) AddPipelineRun(pipelineRun *pps.PipelineRun) error {

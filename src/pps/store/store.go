@@ -4,7 +4,6 @@ import "github.com/pachyderm/pachyderm/src/pps"
 
 type Client interface {
 	Close() error
-	Init() error
 	AddPipelineRun(pipelineRun *pps.PipelineRun) error
 	GetPipelineRun(id string) (*pps.PipelineRun, error)
 	AddPipelineRunStatus(id string, statusType pps.PipelineRunStatusType) error

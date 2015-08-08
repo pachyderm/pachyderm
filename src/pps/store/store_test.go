@@ -21,7 +21,6 @@ func TestBasicInMem(t *testing.T) {
 }
 
 func testBasic(t *testing.T, client Client) {
-	require.NoError(t, client.Init())
 	pipelineRun := &pps.PipelineRun{
 		Id: "id",
 		PipelineSource: &pps.PipelineSource{
@@ -71,7 +70,11 @@ func getRethinkSession() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewRethinkClient(address, strings.Replace(common.NewUUID(), "-", "", -1))
+	databaseName := strings.Replace(common.NewUUID(), "-", "", -1)
+	if err := InitDBs(address, databaseName); err != nil {
+		return nil, err
+	}
+	return NewRethinkClient(address, databaseName)
 }
 
 func getRethinkAddress() (string, error) {
