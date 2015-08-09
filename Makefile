@@ -53,12 +53,12 @@ docker-build-compile:
 	docker-compose build compile
 
 docker-build-pfsd: docker-build-compile
-	docker-compose run compile go build -a -installsuffix netgo -tags netgo -o /compile/pfsd src/cmd/pfsd/main.go
+	docker-compose run compile sh etc/compile/compile.sh ppsd
 	docker-compose build pfsd
 	docker tag -f pachyderm_pfsd:latest pachyderm/pfsd:latest
 
 docker-build-ppsd: docker-build-compile
-	docker-compose run compile go build -a -installsuffix netgo -tags netgo -o /compile/ppsd src/cmd/ppsd/main.go
+	docker-compose run compile sh etc/compile/compile.sh ppsd
 	docker-compose build ppsd
 	docker tag -f pachyderm_ppsd:latest pachyderm/ppsd:latest
 
@@ -74,10 +74,14 @@ run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
 
 launch-pfsd: docker-build-btrfs docker-build-pfsd
-	docker-compose run --service-ports -d $(DOCKER_OPTS) pfsd
+	docker-compose kill pfsd
+	docker-compose rm -f pfsd
+	docker-compose up -d --force-recreate --no-build pfsd
 
 launch-ppsd: docker-build-ppsd
-	docker-compose run --service-ports -d $(DOCKER_OPTS) ppsd
+	docker-compose kill ppsd
+	docker-compose rm -f ppsd
+	docker-compose up -d --force-recreate --no-build ppsd
 
 launch: launch-pfsd launch-ppsd
 
