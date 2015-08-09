@@ -44,7 +44,7 @@ else
 fi
 
 cmake .. ${CMAKE_FLAGS}
-cmake --build . --target install
+sudo cmake --build . --target install
 
 export CGO_LDFLAGS="${CGO_LDFLAGS} ${INSTALL_DIR}/lib/libgit2.a $(pkg-config --libs --static ${INSTALL_DIR}/lib/pkgconfig/libgit2.pc)"
 go get -d gopkg.in/libgit2/git2go.v22
