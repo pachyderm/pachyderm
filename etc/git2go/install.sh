@@ -30,23 +30,24 @@ CMAKE_FLAGS="-DBUILD_CLAR=OFF \
   -DTHREADSAFE=ON"
 
 if [ "$(uname -s)" = "Darwin" ]; then
+  CMAKE_FLAGS="${CMAKE_FLAGS} -DCMAKE_OSX_ARCHITECTURES='i386;x86_64'"
   if ! which brew > /dev/null; then 
     echo "error: brew not installed" >&2
     exit 1
   fi
   brew install openssl
-  OPENSSL_ROOT_DIR=$(brew --prefix openssl)
-  CMAKE_FLAGS="${CMAKE_FLAGS} -DCMAKE_OSX_ARCHITECTURES='i386;x86_64' -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR}"
-  CGO_LDFLAGS="${OPENSSL_ROOT_DIR}/lib/libssl.a $(pkg-config --libs --static ${OPENSSL_ROOT_DIR}/lib/pkgconfig/libssl.pc)"
+  CMAKE_FLAGS="${CMAKE_FLAGS} -DOPENSSL_ROOT_DIR=$(brew --prefix openssl)"
+  OPENSSL_DIR=$(brew --prefix openssl)/lib
 else
-  # TODO(pedge)
-  echo "warning: make sure you have libssl-dev installed" >&2
+  sudo apt-get install -yq --no-install-recommends libssl-dev
+  OPENSSL_DIR=/usr/lib/x86_64-linux-gnu
 fi
 
 cmake .. ${CMAKE_FLAGS}
 sudo cmake --build . --target install
 
-export CGO_LDFLAGS="${CGO_LDFLAGS} ${INSTALL_DIR}/lib/libgit2.a $(pkg-config --libs --static ${INSTALL_DIR}/lib/pkgconfig/libgit2.pc)"
+export CGO_LDFLAGS="${CGO_LDFLAGS} ${INSTALL_DIR}/lib/libgit2.a $(pkg-config --libs --static ${INSTALL_DIR}/lib/pkgconfig/libgit2.pc) \
+${OPENSSL_DIR}/libssl.a $(pkg-config --libs --static ${OPENSSL_DIR}/pkgconfig/libssl.pc)"
 go get -d gopkg.in/libgit2/git2go.v22
 go clean -i gopkg.in/libgit2/git2go.v22
 go install gopkg.in/libgit2/git2go.v22
