@@ -1,10 +1,5 @@
-FROM ubuntu:14.04
+FROM alpine:3.2
 MAINTAINER peter@pachyderm.io
 
-RUN \
-  apt-get update -yq && \
-  apt-get install -yq --no-install-recommends \
-    libgit2-dev \
-    pkg-config
 ADD _tmp/ppsd /bin/ppsd
 ENTRYPOINT ["/bin/ppsd"]

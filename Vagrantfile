@@ -9,11 +9,14 @@ apt-get upgrade -yq && \
 apt-get install -yq --no-install-recommends \
   btrfs-tools \
   build-essential \
+  ca-certificates \
+  cmake \
   curl \
-  libgit2-dev \
-  pkg-config \
+  fuse \
+  libssl-dev \
   git \
-  fuse
+  pkg-config \
+  mercurial
 
 # installs go
 # we use the beta for now since it will be released in a few weeks
@@ -37,6 +40,9 @@ chmod +x /usr/local/bin/docker-compose
 # installs kubernetes cli
 curl -sSL https://storage.googleapis.com/kubernetes-release/release/v1.0.1/bin/linux/amd64/kubectl > /usr/local/bin/kubectl
 chmod +x /usr/local/bin/kubectl
+
+# installs git2go statically linked to libgit2
+curl -sSL https://raw.githubusercontent.com/pachyderm/pachyderm/next/etc/git2go/install.sh | sh
 SCRIPT
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|

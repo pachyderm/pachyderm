@@ -1,5 +1,6 @@
-FROM ubuntu:14.04
+FROM alpine:3.2
 MAINTAINER peter@pachyderm.io
 
+RUN apk add --update btrfs-progs && rm -rf /var/cache/apk/*
 ADD _tmp/pfsd /bin/pfsd
 ENTRYPOINT ["/bin/pfsd"]
