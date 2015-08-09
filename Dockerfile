@@ -1,6 +1,6 @@
 # When this fails the first thing you should try is:
 # NOCACHE=1 make update-test-deps update-deps-list docker-build-test
-FROM ubuntu:15.04
+FROM ubuntu:14.04
 
 RUN \
   apt-get update -yq && \
