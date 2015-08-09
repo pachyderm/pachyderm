@@ -32,6 +32,9 @@ update-deps-list: test-deps
 	go get -v github.com/peter-edge/go-tools/go-external-deps
 	go-external-deps github.com/pachyderm/pachyderm etc/deps/deps.list
 
+install-git2go:
+	sh etc/git2go/install.sh
+
 build: deps
 	go build ./...
 
@@ -127,6 +130,7 @@ start-kube:
 	test-deps \
 	update-test-deps \
 	update-deps-list \
+	install-git2go \
 	build \
 	install \
 	docker-build-btrfs \
