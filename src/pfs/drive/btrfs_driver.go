@@ -65,7 +65,7 @@ func (d *btrfsDriver) InitRepository(repository *pfs.Repository, shards map[int]
 		if err := os.Mkdir(d.filePath(&pfs.Path{Commit: initialCommit, Path: metadataDir}, shard), 0700); err != nil {
 			return err
 		}
-		if err := d.btrfsAPI.PropertySetReadonly(d.commitPath(initialCommit, shard), true); err != nil {
+		if err := d.setReadOnly(initialCommit, shard, true); err != nil {
 			return err
 		}
 	}
@@ -197,10 +197,13 @@ func (d *btrfsDriver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards m
 		}
 		commitPath := d.commitPath(commit, shard)
 		newCommitPath := d.commitPath(newCommit, shard)
-		if err := d.btrfsAPI.SubvolumeSnapshot(commitPath, newCommitPath, false); err != nil {
+		if err := d.btrfsAPI.SubvolumeSnapshot(commitPath, newCommitPath); err != nil {
 			return nil, err
 		}
 		if err := ioutil.WriteFile(d.filePath(&pfs.Path{Commit: newCommit, Path: filepath.Join(metadataDir, "parent")}, shard), []byte(commit.Id), 0600); err != nil {
+			return nil, err
+		}
+		if err := d.setReadOnly(newCommit, shard, false); err != nil {
 			return nil, err
 		}
 	}
@@ -212,7 +215,7 @@ func (d *btrfsDriver) Commit(commit *pfs.Commit, shards map[int]bool) error {
 		if err := d.checkWrite(commit, shard); err != nil {
 			return err
 		}
-		if err := d.btrfsAPI.PropertySetReadonly(d.commitPath(commit, shard), true); err != nil {
+		if err := d.setReadOnly(commit, shard, true); err != nil {
 			return err
 		}
 	}
@@ -239,7 +242,7 @@ func (d *btrfsDriver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.Commi
 	if err != nil {
 		return nil, false, err
 	}
-	readOnly, err := d.btrfsAPI.PropertyGetReadonly(d.commitPath(commit, shard))
+	readOnly, err := d.getReadOnly(commit, shard)
 	if err != nil {
 		return nil, false, err
 	}
@@ -309,7 +312,7 @@ func (d *btrfsDriver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, err
 }
 
 func (d *btrfsDriver) checkReadOnly(commit *pfs.Commit, shard int) error {
-	ok, err := d.btrfsAPI.PropertyGetReadonly(d.commitPath(commit, shard))
+	ok, err := d.getReadOnly(commit, shard)
 	if err != nil {
 		return err
 	}
@@ -320,7 +323,7 @@ func (d *btrfsDriver) checkReadOnly(commit *pfs.Commit, shard int) error {
 }
 
 func (d *btrfsDriver) checkWrite(commit *pfs.Commit, shard int) error {
-	ok, err := d.btrfsAPI.PropertyGetReadonly(d.commitPath(commit, shard))
+	ok, err := d.getReadOnly(commit, shard)
 	if err != nil {
 		return err
 	}
@@ -328,6 +331,29 @@ func (d *btrfsDriver) checkWrite(commit *pfs.Commit, shard int) error {
 		return fmt.Errorf("%+v is not a write commit", commit)
 	}
 	return nil
+}
+
+func (d *btrfsDriver) getReadOnly(commit *pfs.Commit, shard int) (bool, error) {
+	data, err := ioutil.ReadFile(d.filePath(&pfs.Path{Commit: commit, Path: filepath.Join(metadataDir, "readonly")}, shard))
+	if err != nil {
+		return false, err
+	}
+	switch string(data) {
+	case "0":
+		return false, nil
+	case "1":
+		return true, nil
+	default:
+		return false, fmt.Errorf("unknown data for readonly metadata file: %s", string(data))
+	}
+}
+
+func (d *btrfsDriver) setReadOnly(commit *pfs.Commit, shard int, readOnly bool) error {
+	data := []byte("0")
+	if readOnly {
+		data = []byte("1")
+	}
+	return ioutil.WriteFile(d.filePath(&pfs.Path{Commit: commit, Path: filepath.Join(metadataDir, "readonly")}, shard), data, 0400)
 }
 
 func (d *btrfsDriver) repositoryPath(repository *pfs.Repository) string {

@@ -18,10 +18,10 @@ import (
 
 var (
 	callStrings = map[uintptr]string{
-		C.BTRFS_IOC_SUBVOL_SETFLAGS: "btrfs property set",
-		C.BTRFS_IOC_SUBVOL_GETFLAGS: "btrfs property get",
-		C.BTRFS_IOC_SUBVOL_CREATE:   "btrfs subvolume create",
-		C.BTRFS_IOC_SNAP_CREATE_V2:  "btrfs subvolume snapshot",
+		//C.BTRFS_IOC_SUBVOL_SETFLAGS: "btrfs property set",
+		//C.BTRFS_IOC_SUBVOL_GETFLAGS: "btrfs property get",
+		C.BTRFS_IOC_SUBVOL_CREATE:  "btrfs subvolume create",
+		C.BTRFS_IOC_SNAP_CREATE_V2: "btrfs subvolume snapshot",
 	}
 )
 
@@ -35,39 +35,43 @@ func newFFIAPI() *ffiAPI {
 	return &ffiAPI{}
 }
 
-func (a *ffiAPI) PropertySetReadonly(path string, readonly bool) error {
-	return ffiPropertySetReadonly(path, readonly)
-}
+//func (a *ffiAPI) PropertySetReadonly(path string, readonly bool) error {
+//return ffiPropertySetReadonly(path, readonly)
+//}
 
-func (a *ffiAPI) PropertyGetReadonly(path string) (bool, error) {
-	return ffiPropertyGetReadonly(path)
-}
+//func (a *ffiAPI) PropertyGetReadonly(path string) (bool, error) {
+//return ffiPropertyGetReadonly(path)
+//}
 
 func (a *ffiAPI) SubvolumeCreate(path string) error {
 	return ffiSubvolumeCreate(path)
 }
 
-func (a *ffiAPI) SubvolumeSnapshot(src string, dest string, readonly bool) error {
-	return ffiSubvolumeSnapshot(src, dest, readonly)
+//func (a *ffiAPI) SubvolumeSnapshot(src string, dest string, readonly bool) error {
+//return ffiSubvolumeSnapshot(src, dest, readonly)
+//}
+
+func (a *ffiAPI) SubvolumeSnapshot(src string, dest string) error {
+	return ffiSubvolumeSnapshot(src, dest)
 }
 
-func ffiPropertySetReadonly(path string, readOnly bool) error {
-	var flags C.__u64
-	if readOnly {
-		flags |= C.__u64(C.BTRFS_SUBVOL_RDONLY)
-	} else {
-		flags = flags &^ C.__u64(C.BTRFS_SUBVOL_RDONLY)
-	}
-	return ffiIoctl(path, C.BTRFS_IOC_SUBVOL_SETFLAGS, uintptr(unsafe.Pointer(&flags)))
-}
+//func ffiPropertySetReadonly(path string, readOnly bool) error {
+//var flags C.__u64
+//if readOnly {
+//flags |= C.__u64(C.BTRFS_SUBVOL_RDONLY)
+//} else {
+//flags = flags &^ C.__u64(C.BTRFS_SUBVOL_RDONLY)
+//}
+//return ffiIoctl(path, C.BTRFS_IOC_SUBVOL_SETFLAGS, uintptr(unsafe.Pointer(&flags)))
+//}
 
-func ffiPropertyGetReadonly(path string) (bool, error) {
-	var flags C.__u64
-	if err := ffiIoctl(path, C.BTRFS_IOC_SUBVOL_GETFLAGS, uintptr(unsafe.Pointer(&flags))); err != nil {
-		return false, err
-	}
-	return flags&C.BTRFS_SUBVOL_RDONLY == C.BTRFS_SUBVOL_RDONLY, nil
-}
+//func ffiPropertyGetReadonly(path string) (bool, error) {
+//var flags C.__u64
+//if err := ffiIoctl(path, C.BTRFS_IOC_SUBVOL_GETFLAGS, uintptr(unsafe.Pointer(&flags))); err != nil {
+//return false, err
+//}
+//return flags&C.BTRFS_SUBVOL_RDONLY == C.BTRFS_SUBVOL_RDONLY, nil
+//}
 
 func ffiSubvolumeCreate(path string) error {
 	var args C.struct_btrfs_ioctl_vol_args
@@ -77,7 +81,8 @@ func ffiSubvolumeCreate(path string) error {
 	return ffiIoctl(filepath.Dir(path), C.BTRFS_IOC_SUBVOL_CREATE, uintptr(unsafe.Pointer(&args)))
 }
 
-func ffiSubvolumeSnapshot(src string, dest string, readOnly bool) error {
+//func ffiSubvolumeSnapshot(src string, dest string, readOnly bool) error {
+func ffiSubvolumeSnapshot(src string, dest string) error {
 	srcDir, err := ffiOpenDir(src)
 	if err != nil {
 		return err
@@ -85,9 +90,9 @@ func ffiSubvolumeSnapshot(src string, dest string, readOnly bool) error {
 	defer ffiCloseDir(srcDir)
 	var args C.struct_btrfs_ioctl_vol_args_v2
 	args.fd = C.__s64(ffiGetDirFd(srcDir))
-	if readOnly {
-		args.flags |= C.__u64(C.BTRFS_SUBVOL_RDONLY)
-	}
+	//if readOnly {
+	//args.flags |= C.__u64(C.BTRFS_SUBVOL_RDONLY)
+	//}
 	for i, c := range []byte(filepath.Base(dest)) {
 		args.name[i] = C.char(c)
 	}
