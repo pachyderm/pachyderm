@@ -73,9 +73,8 @@ chmod +x /usr/local/bin/docker-compose
 
 **Note that all development must be done on linux due to the dependency on btrfs.**
 
-And more specifically, btrfs version >= 3.14. We recommend Ubuntu 15.04 for this. See the [Environment Setup](#environment-setup)
-section for a Vagrant setup that works. We have noticed issues in Ubuntu 14.04 with btrfs for the time being - obviously
-we would like to fix this, but it should be noted.
+And more specifically, btrfs version >= 3.12. We recommend Ubuntu 14.04 for this. See the [Environment Setup](#environment-setup)
+section for a Vagrant setup that works.
 
 Useful development commands can be seen in the [Makefile](Makefile). Key commands:
 
