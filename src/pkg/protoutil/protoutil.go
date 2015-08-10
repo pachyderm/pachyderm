@@ -3,9 +3,24 @@ package protoutil
 import (
 	"bufio"
 	"io"
+	"time"
 
 	"github.com/peter-edge/go-google-protobuf"
 )
+
+func TimeToTimestamp(t time.Time) *google_protobuf.Timestamp {
+	return &google_protobuf.Timestamp{
+		Seconds: t.UnixNano() / int64(time.Second),
+		Nanos:   int32(t.UnixNano() % int64(time.Second)),
+	}
+}
+
+func TimestampToTime(timestamp *google_protobuf.Timestamp) time.Time {
+	return time.Unix(
+		timestamp.Seconds,
+		int64(timestamp.Nanos),
+	).UTC()
+}
 
 type StreamingBytesServer interface {
 	Send(bytesValue *google_protobuf.BytesValue) error

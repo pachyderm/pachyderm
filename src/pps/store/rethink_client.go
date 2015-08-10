@@ -3,6 +3,8 @@ package store
 import (
 	"github.com/dancannon/gorethink"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
+	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 )
 
@@ -57,7 +59,7 @@ func InitDBs(address string, databaseName string) error {
 type rethinkClient struct {
 	session      *gorethink.Session
 	databaseName string
-	timer        timer
+	timer        timing.Timer
 	runs         gorethink.Term
 	statuses     gorethink.Term
 	containers   gorethink.Term
@@ -71,7 +73,7 @@ func newRethinkClient(address string, databaseName string) (*rethinkClient, erro
 	return &rethinkClient{
 		session,
 		databaseName,
-		defaultTimer,
+		timing.NewSystemTimer(),
 		gorethink.DB(databaseName).Table(runTable),
 		gorethink.DB(databaseName).Table(statusTable),
 		gorethink.DB(databaseName).Table(containerTable),
@@ -111,7 +113,7 @@ func (c *rethinkClient) AddPipelineRunStatus(id string, statusType pps.PipelineR
 	runStatus := &pps.PipelineRunStatus{
 		PipelineRunId:         id,
 		PipelineRunStatusType: statusType,
-		Timestamp:             timeToTimestamp(c.timer.Now()),
+		Timestamp:             protoutil.TimeToTimestamp(c.timer.Now()),
 	}
 	data, err := marshaller.MarshalToString(runStatus)
 	if err != nil {

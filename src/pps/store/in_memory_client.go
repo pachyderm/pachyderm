@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
+	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 )
 
@@ -12,7 +14,7 @@ type inMemoryClient struct {
 	idToRunStatuses map[string][]*pps.PipelineRunStatus
 	idToContainers  map[string][]*PipelineContainer
 
-	timer timer
+	timer timing.Timer
 
 	runLock          *sync.RWMutex
 	runStatusesLock  *sync.RWMutex
@@ -24,7 +26,7 @@ func newInMemoryClient() *inMemoryClient {
 		make(map[string]*pps.PipelineRun),
 		make(map[string][]*pps.PipelineRunStatus),
 		make(map[string][]*PipelineContainer),
-		defaultTimer,
+		timing.NewSystemTimer(),
 		&sync.RWMutex{},
 		&sync.RWMutex{},
 		&sync.RWMutex{},
@@ -48,7 +50,7 @@ func (c *inMemoryClient) AddPipelineRun(pipelineRun *pps.PipelineRun) error {
 	c.idToRunStatuses[pipelineRun.Id] = make([]*pps.PipelineRunStatus, 1)
 	c.idToRunStatuses[pipelineRun.Id][0] = &pps.PipelineRunStatus{
 		PipelineRunStatusType: pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ADDED,
-		Timestamp:             timeToTimestamp(c.timer.Now()),
+		Timestamp:             protoutil.TimeToTimestamp(c.timer.Now()),
 	}
 	c.idToContainers[pipelineRun.Id] = make([]*PipelineContainer, 0)
 	return nil
@@ -80,7 +82,7 @@ func (c *inMemoryClient) AddPipelineRunStatus(id string, statusType pps.Pipeline
 	runStatus := &pps.PipelineRunStatus{
 		PipelineRunId:         id,
 		PipelineRunStatusType: statusType,
-		Timestamp:             timeToTimestamp(c.timer.Now()),
+		Timestamp:             protoutil.TimeToTimestamp(c.timer.Now()),
 	}
 	c.runStatusesLock.Lock()
 	defer c.runStatusesLock.Unlock()
