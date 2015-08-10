@@ -6,7 +6,7 @@ DIR="$(cd "$(dirname "${0}")/../.." && pwd)"
 cd "${DIR}"
 
 run() {
-  echo $@
+  echo $@ >&2
   $@
 }
 
@@ -18,5 +18,12 @@ else
   export PPS_ADDRESS="$(echo "${PACHYDERM_PPSD_1_PORT}" | sed "s/tcp:\/\///")"
   run make install
   run pps version
-  run pps start github.com/pachyderm/pachyderm src/pps/server/testdata/basic
+  id="$(run pps start github.com/pachyderm/pachyderm src/pps/server/testdata/basic)"
+  echo "${id}"
+  i=0
+  while [ $i -lt 10 ]; do
+    run pps status "${id}"
+    sleep 1
+    i=$(expr ${i} + 1)
+  done
 fi

@@ -2,6 +2,7 @@ package run
 
 import (
 	"fmt"
+	"strings"
 
 	"go.pedge.io/protolog"
 
@@ -39,7 +40,7 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	pipelineRunID := uuid.NewV4().String()
+	pipelineRunID := strings.Replace(uuid.NewV4().String(), "-", "", -1)
 	pipelineRun := &pps.PipelineRun{
 		Id:             pipelineRunID,
 		Pipeline:       pipeline,

@@ -96,7 +96,7 @@ func do(appEnvObj interface{}) error {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("started pipeline run with id %s\n", startPipelineRunResponse.PipelineRunId)
+			fmt.Println(startPipelineRunResponse.PipelineRunId)
 			return nil
 		},
 	}.ToCobraCommand()
@@ -117,7 +117,7 @@ func do(appEnvObj interface{}) error {
 			if !ok {
 				return fmt.Errorf("unknown run status")
 			}
-			fmt.Printf("%s: %s\n", args[0], strings.Replace(name, "PIPELINE_RUN_STATUS_TYPE_", "", -1))
+			fmt.Printf("%s %s\n", args[0], strings.Replace(name, "PIPELINE_RUN_STATUS_TYPE_", "", -1))
 			return nil
 		},
 	}.ToCobraCommand()
