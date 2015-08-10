@@ -16,9 +16,9 @@ type inMemoryClient struct {
 
 	timer timing.Timer
 
-	runLock          *sync.RWMutex
-	runStatusesLock  *sync.RWMutex
-	containerIDsLock *sync.RWMutex
+	runLock         *sync.RWMutex
+	runStatusesLock *sync.RWMutex
+	containersLock  *sync.RWMutex
 }
 
 func newInMemoryClient() *inMemoryClient {
@@ -97,8 +97,8 @@ func (c *inMemoryClient) AddPipelineRunStatus(id string, statusType pps.Pipeline
 }
 
 func (c *inMemoryClient) GetPipelineRunContainers(id string) ([]*PipelineContainer, error) {
-	c.containerIDsLock.RLock()
-	defer c.containerIDsLock.RUnlock()
+	c.containersLock.RLock()
+	defer c.containersLock.RUnlock()
 
 	containers, ok := c.idToContainers[id]
 	if !ok {
@@ -107,16 +107,16 @@ func (c *inMemoryClient) GetPipelineRunContainers(id string) ([]*PipelineContain
 	return containers, nil
 }
 
-func (c *inMemoryClient) AddPipelineRunContainerIDs(id string, containerIDs ...string) error {
-	c.containerIDsLock.Lock()
-	defer c.containerIDsLock.Unlock()
+func (c *inMemoryClient) AddPipelineRunContainers(pipelineContainers ...*PipelineContainer) error {
+	c.containersLock.Lock()
+	defer c.containersLock.Unlock()
 
-	_, ok := c.idToContainers[id]
-	if !ok {
-		return fmt.Errorf("no run for id %s", id)
-	}
-	for _, containerID := range containerIDs {
-		c.idToContainers[id] = append(c.idToContainers[id], &PipelineContainer{PipelineRunId: id, ContainerId: containerID})
+	for _, container := range pipelineContainers {
+		_, ok := c.idToContainers[container.PipelineRunId]
+		if !ok {
+			return fmt.Errorf("no run for id %s", container.PipelineRunId)
+		}
+		c.idToContainers[container.PipelineRunId] = append(c.idToContainers[container.PipelineRunId], container)
 	}
 	return nil
 }
