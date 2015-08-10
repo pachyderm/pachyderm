@@ -73,17 +73,23 @@ docker-push: docker-push-ppsd docker-push-pfsd
 run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
 
-launch-pfsd: docker-build-btrfs docker-build-pfsd
+launch-pfsd: docker-clean-test docker-build-btrfs docker-build-pfsd
 	docker-compose kill pfsd
 	docker-compose rm -f pfsd
 	docker-compose up -d --force-recreate --no-build pfsd
 
-launch-ppsd: docker-build-ppsd
+launch-ppsd: docker-clean-test docker-build-ppsd
 	docker-compose kill ppsd
 	docker-compose rm -f ppsd
 	docker-compose up -d --force-recreate --no-build ppsd
 
-launch: launch-pfsd launch-ppsd
+launch: docker-clean-test docker-build-btrfs docker-build-pfsd docker-build-ppsd
+	docker-compose kill pfsd
+	docker-compose rm -f pfsd
+	docker-compose kill ppsd
+	docker-compose rm -f ppsd
+	docker-compose up -d --force-recreate --no-build pfsd
+	docker-compose up -d --force-recreate --no-build ppsd
 
 proto:
 	go get -v github.com/peter-edge/go-tools/docker-protoc-all
