@@ -21,8 +21,8 @@ curl -sSL https://storage.googleapis.com/golang/go1.5beta3.linux-amd64.tar.gz | 
 echo 'export PATH=${PATH}:/usr/local/go/bin' >> '/etc/profile'
 echo 'export GOROOT=/usr/local/go' >> '/etc/profile'
 # makes ~/go and sets GOPATH to ~/GO
-su - ${1} -c "echo mkdir -p /home/vagrant/go >> /home/${1}/.bash_aliases"
-su - ${1} -c "echo export GOPATH=/home/vagrant/go >> /home/${1}/.bash_aliases"
+su - ${1} -c "echo mkdir -p /home/${1}/go >> /home/${1}/.bash_aliases"
+su - ${1} -c "echo export GOPATH=/home/${1}/go >> /home/${1}/.bash_aliases"
 
 wget -qO- https://get.docker.com/ | sh
 # sudoless use of docker
@@ -39,3 +39,9 @@ chmod +x /usr/local/bin/kubectl
 
 # installs git2go statically linked to libgit2
 curl -sSL https://raw.githubusercontent.com/pachyderm/pachyderm/next/etc/git2go/install.sh | sh
+
+docker pull ubuntu:14.04
+docker pull rethinkdb:2.0.4
+docker pull quay.io/coreos/etcd:v2.1.1
+
+su - ${1} -c "go get -d -v -t -u -f -insecure github.com/pachyderm/pachyderm/..."
