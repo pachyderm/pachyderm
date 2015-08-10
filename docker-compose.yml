@@ -22,8 +22,9 @@ test:
     - etcd
 compile:
   build: .
+  privileged: true
   volumes:
-    - _tmp:/compile
+    - /var/run/docker.sock:/var/run/docker.sock
 pfsd:
   build: .
   dockerfile: Dockerfile.pfsd

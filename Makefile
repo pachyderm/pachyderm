@@ -57,14 +57,10 @@ docker-build-compile:
 	docker-compose build compile
 
 docker-build-pfsd: docker-build-compile
-	docker-compose run compile sh etc/compile/compile.sh ppsd
-	docker-compose build pfsd
-	docker tag -f pachyderm_pfsd:latest pachyderm/pfsd:latest
+	docker-compose run compile sh etc/compile/compile.sh pfsd
 
 docker-build-ppsd: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh ppsd
-	docker-compose build ppsd
-	docker tag -f pachyderm_ppsd:latest pachyderm/ppsd:latest
 
 docker-push-pfsd: docker-build-pfsd
 	docker push pachyderm/pfsd
