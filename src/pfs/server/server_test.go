@@ -46,14 +46,12 @@ func init() {
 }
 
 func TestBtrfsFFI(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	driver := btrfs.NewDriver(getBtrfsRootDir(t))
 	runTest(t, driver, testSimple)
 }
 
 func TestBtrfsExec(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	driver := btrfs.NewDriver(getBtrfsRootDir(t))
 	runTest(t, driver, testSimple)
