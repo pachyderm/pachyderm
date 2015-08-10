@@ -16,7 +16,7 @@ test:
   volumes_from:
     - btrfs
   environment:
-    - PFS_BTRFS_ROOT=/pfs/btrfs
+    - PFS_DRIVER_ROOT=/pfs/btrfs
   links:
     - rethink
     - etcd
@@ -33,7 +33,7 @@ pfsd:
   volumes_from:
     - btrfs
   environment:
-    - PFS_BTRFS_ROOT=/pfs/btrfs
+    - PFS_DRIVER_ROOT=/pfs/btrfs
   dockerfile: Dockerfile.pfsd
   ports:
     - "650:650"

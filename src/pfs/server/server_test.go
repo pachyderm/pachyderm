@@ -81,9 +81,9 @@ func BenchmarkFuse(b *testing.B) {
 
 func getBtrfsRootDir(tb testing.TB) string {
 	// TODO(pedge)
-	rootDir := os.Getenv("PFS_BTRFS_ROOT")
+	rootDir := os.Getenv("PFS_DRIVER_ROOT")
 	if rootDir == "" {
-		tb.Fatal("PFS_BTRFS_ROOT not set")
+		tb.Fatal("PFS_DRIVER_ROOT not set")
 	}
 	return rootDir
 }
