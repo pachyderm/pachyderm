@@ -24,6 +24,12 @@ ENV GOPATH /go
 RUN go get golang.org/x/tools/cmd/vet github.com/kisielk/errcheck github.com/golang/lint/golint
 RUN mkdir -p /go/src/github.com/pachyderm/pachyderm/etc/git2go
 WORKDIR /go/src/github.com/pachyderm/pachyderm
+RUN \
+  curl -sSL https://get.docker.com/builds/Linux/x86_64/docker-1.7.1 > /bin/docker && \
+  chmod +x /bin/docker
+RUN \
+  curl -sSL https://github.com/docker/compose/releases/download/1.4.0rc2/docker-compose-Linux-x86_64 > /bin/docker-compose && \
+  chmod +x /bin/docker-compose
 ADD etc/git2go/install.sh /go/src/github.com/pachyderm/pachyderm/etc/git2go/
 RUN sh -x etc/git2go/install.sh
 RUN mkdir -p /go/src/github.com/pachyderm/pachyderm/etc/deps
