@@ -1,8 +1,0 @@
-syntax = "proto3";
-
-package store;
-
-message PipelineContainer {
-  string pipeline_run_id = 1;
-  string container_id = 2;
-}

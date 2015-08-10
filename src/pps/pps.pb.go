@@ -19,6 +19,7 @@ It has these top-level messages:
 	GithubPipelineSource
 	PipelineSource
 	PipelineRun
+	PipelineRunContainer
 	Version
 	GetVersionResponse
 	GetPipelineRequest
@@ -263,6 +264,16 @@ func (m *PipelineRun) GetPipeline() *Pipeline {
 	}
 	return nil
 }
+
+type PipelineRunContainer struct {
+	PipelineRunId string `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
+	ContainerId   string `protobuf:"bytes,2,opt,name=container_id" json:"container_id,omitempty"`
+	Node          string `protobuf:"bytes,3,opt,name=node" json:"node,omitempty"`
+}
+
+func (m *PipelineRunContainer) Reset()         { *m = PipelineRunContainer{} }
+func (m *PipelineRunContainer) String() string { return proto.CompactTextString(m) }
+func (*PipelineRunContainer) ProtoMessage()    {}
 
 type Version struct {
 	Major      uint32 `protobuf:"varint,1,opt,name=major" json:"major,omitempty"`

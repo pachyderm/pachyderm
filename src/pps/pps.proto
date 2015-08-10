@@ -75,6 +75,12 @@ message PipelineRun {
   Pipeline pipeline = 3;
 }
 
+message PipelineRunContainer {
+  string pipeline_run_id = 1;
+  string container_id = 2;
+  string node = 3;
+}
+
 message Version {
   uint32 major = 1;
   uint32 minor = 2;
