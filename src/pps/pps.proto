@@ -1,6 +1,5 @@
 syntax = "proto3";
 
-import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 package pps;
@@ -81,17 +80,6 @@ message PipelineRunContainer {
   string node = 3;
 }
 
-message Version {
-  uint32 major = 1;
-  uint32 minor = 2;
-  uint32 micro = 3;
-  string additional = 4;
-}
-
-message GetVersionResponse {
-  Version version = 1;
-}
-
 message GetPipelineRequest {
   PipelineSource pipeline_source = 1;
 }
@@ -117,7 +105,6 @@ message GetPipelineRunStatusResponse {
 }
 
 service Api {
-  rpc GetVersion(google.protobuf.Empty) returns (GetVersionResponse) {}
   rpc GetPipeline(GetPipelineRequest) returns (GetPipelineResponse) {} 
   rpc StartPipelineRun(StartPipelineRunRequest) returns (StartPipelineRunResponse) {}
   rpc GetPipelineRunStatus(GetPipelineRunStatusRequest) returns (GetPipelineRunStatusResponse) {}
