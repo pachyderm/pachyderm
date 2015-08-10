@@ -12,7 +12,7 @@ import (
 type inMemoryClient struct {
 	idToRun         map[string]*pps.PipelineRun
 	idToRunStatuses map[string][]*pps.PipelineRunStatus
-	idToContainers  map[string][]*PipelineContainer
+	idToContainers  map[string][]*pps.PipelineRunContainer
 
 	timer timing.Timer
 
@@ -25,7 +25,7 @@ func newInMemoryClient() *inMemoryClient {
 	return &inMemoryClient{
 		make(map[string]*pps.PipelineRun),
 		make(map[string][]*pps.PipelineRunStatus),
-		make(map[string][]*PipelineContainer),
+		make(map[string][]*pps.PipelineRunContainer),
 		timing.NewSystemTimer(),
 		&sync.RWMutex{},
 		&sync.RWMutex{},
@@ -52,7 +52,7 @@ func (c *inMemoryClient) AddPipelineRun(pipelineRun *pps.PipelineRun) error {
 		PipelineRunStatusType: pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ADDED,
 		Timestamp:             protoutil.TimeToTimestamp(c.timer.Now()),
 	}
-	c.idToContainers[pipelineRun.Id] = make([]*PipelineContainer, 0)
+	c.idToContainers[pipelineRun.Id] = make([]*pps.PipelineRunContainer, 0)
 	return nil
 }
 
@@ -96,7 +96,7 @@ func (c *inMemoryClient) AddPipelineRunStatus(id string, statusType pps.Pipeline
 	return nil
 }
 
-func (c *inMemoryClient) GetPipelineRunContainers(id string) ([]*PipelineContainer, error) {
+func (c *inMemoryClient) GetPipelineRunContainers(id string) ([]*pps.PipelineRunContainer, error) {
 	c.containersLock.RLock()
 	defer c.containersLock.RUnlock()
 
@@ -107,7 +107,7 @@ func (c *inMemoryClient) GetPipelineRunContainers(id string) ([]*PipelineContain
 	return containers, nil
 }
 
-func (c *inMemoryClient) AddPipelineRunContainers(pipelineContainers ...*PipelineContainer) error {
+func (c *inMemoryClient) AddPipelineRunContainers(pipelineContainers ...*pps.PipelineRunContainer) error {
 	c.containersLock.Lock()
 	defer c.containersLock.Unlock()
 

@@ -144,7 +144,7 @@ func (c *rethinkClient) GetPipelineRunStatusLatest(id string) (*pps.PipelineRunS
 	return &pipelineRunStatus, nil
 }
 
-func (c *rethinkClient) AddPipelineRunContainers(containers ...*PipelineContainer) error {
+func (c *rethinkClient) AddPipelineRunContainers(containers ...*pps.PipelineRunContainer) error {
 	var pipelineContainers []gorethink.Term
 	for _, pipelineContainer := range containers {
 		data, err := marshaller.MarshalToString(pipelineContainer)
@@ -161,7 +161,7 @@ func (c *rethinkClient) AddPipelineRunContainers(containers ...*PipelineContaine
 	return nil
 }
 
-func (c *rethinkClient) GetPipelineRunContainers(id string) ([]*PipelineContainer, error) {
+func (c *rethinkClient) GetPipelineRunContainers(id string) ([]*pps.PipelineRunContainer, error) {
 	cursor, err := c.containers.
 		GetAllByIndex("pipeline_run_id", id).
 		Map(func(row gorethink.Term) interface{} {
@@ -175,9 +175,9 @@ func (c *rethinkClient) GetPipelineRunContainers(id string) ([]*PipelineContaine
 	if err := cursor.All(&pipelineContainers); err != nil {
 		return nil, err
 	}
-	var result []*PipelineContainer
+	var result []*pps.PipelineRunContainer
 	for _, data := range pipelineContainers {
-		var pipelineContainer PipelineContainer
+		var pipelineContainer pps.PipelineRunContainer
 		if err := jsonpb.UnmarshalString(data, &pipelineContainer); err != nil {
 			return nil, err
 		}
