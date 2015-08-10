@@ -9,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
-	"github.com/pachyderm/pachyderm/src/pkg/grpcversion"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -40,19 +39,6 @@ func do(appEnvObj interface{}) error {
 
 	var shard int
 	var modulus int
-
-	versionCmd := cobramainutil.Command{
-		Use:  "version",
-		Long: "Print the version.",
-		Run: func(cmd *cobra.Command, args []string) error {
-			version, err := grpcversion.GetVersion(grpcversion.NewApiClient(clientConn))
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Client: %s\nServer: %s\n", pachyderm.Version, grpcversion.VersionString(version))
-			return nil
-		},
-	}.ToCobraCommand()
 
 	initCmd := cobramainutil.Command{
 		Use:     "init repository-name",
@@ -181,7 +167,7 @@ Note that this CLI is experimental and does not even check for common errors.
 The environment variable PFS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:650.`,
 	}
 
-	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(cobramainutil.NewVersionCommand(clientConn, pachyderm.Version))
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(mkdirCmd)
 	rootCmd.AddCommand(putCmd)

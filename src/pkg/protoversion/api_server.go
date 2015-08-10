@@ -1,4 +1,4 @@
-package grpcversion
+package protoversion
 
 import (
 	"github.com/peter-edge/go-google-protobuf"
