@@ -129,7 +129,9 @@ Basic usage:
 ```
 mkdir -p pachyderm_vagrant
 cd pachyderm_vagrant
+mkdir -p etc/initdev
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/Vagrantfile > Vagrantfile
+curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/initdev/init.sh > etc/initdev/init.sh
 vagrant up # starts the vagrant box
 vagrant ssh # ssh into the vagrant box
 ```
