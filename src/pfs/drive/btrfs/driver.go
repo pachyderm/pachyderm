@@ -1,3 +1,5 @@
+// +build linux
+
 /*
 
 directory structure
@@ -11,7 +13,14 @@ directory structure
 
 */
 
-package drive
+package btrfs
+
+/*
+#include <stdlib.h>
+#include <dirent.h>
+#include <btrfs/ioctl.h>
+*/
+import "C"
 
 import (
 	"bufio"
@@ -22,11 +31,13 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
+	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/peter-edge/go-google-protobuf"
 )
 
@@ -34,32 +45,38 @@ const (
 	metadataDir = ".pfs"
 )
 
-type btrfsDriver struct {
-	rootDir  string
-	btrfsAPI btrfs.API
+var (
+	callStrings = map[uintptr]string{
+		C.BTRFS_IOC_SUBVOL_CREATE:  "btrfs subvolume create",
+		C.BTRFS_IOC_SNAP_CREATE_V2: "btrfs subvolume snapshot",
+	}
+)
+
+type driver struct {
+	rootDir string
 }
 
-func newBtrfsDriver(rootDir string, btrfsAPI btrfs.API) *btrfsDriver {
-	return &btrfsDriver{rootDir, btrfsAPI}
+func newDriver(rootDir string) *driver {
+	return &driver{rootDir}
 }
 
-func (d *btrfsDriver) Init() error {
+func (d *driver) Init() error {
 	return nil
 }
 
-func (d *btrfsDriver) InitRepository(repository *pfs.Repository, shards map[int]bool) error {
+func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool) error {
 	if err := os.MkdirAll(d.repositoryPath(repository), 0700); err != nil {
 		return err
 	}
 	initialCommit := &pfs.Commit{
 		Repository: repository,
-		Id:         InitialCommitID,
+		Id:         drive.InitialCommitID,
 	}
 	if err := os.MkdirAll(d.commitPathNoShard(initialCommit), 0700); err != nil {
 		return err
 	}
 	for shard := range shards {
-		if err := d.btrfsAPI.SubvolumeCreate(d.commitPath(initialCommit, shard)); err != nil {
+		if err := ffiSubvolumeCreate(d.commitPath(initialCommit, shard)); err != nil {
 			return err
 		}
 		if err := os.Mkdir(d.filePath(&pfs.Path{Commit: initialCommit, Path: metadataDir}, shard), 0700); err != nil {
@@ -72,11 +89,11 @@ func (d *btrfsDriver) InitRepository(repository *pfs.Repository, shards map[int]
 	return nil
 }
 
-func (d *btrfsDriver) GetFile(path *pfs.Path, shard int) (ReaderAtCloser, error) {
+func (d *driver) GetFile(path *pfs.Path, shard int) (drive.ReaderAtCloser, error) {
 	return os.Open(d.filePath(path, shard))
 }
 
-func (d *btrfsDriver) GetFileInfo(path *pfs.Path, shard int) (_ *pfs.FileInfo, ok bool, _ error) {
+func (d *driver) GetFileInfo(path *pfs.Path, shard int) (_ *pfs.FileInfo, ok bool, _ error) {
 	filePath, err := d.stat(path, shard)
 	if err != nil && os.IsNotExist(err) {
 		return nil, false, nil
@@ -87,7 +104,7 @@ func (d *btrfsDriver) GetFileInfo(path *pfs.Path, shard int) (_ *pfs.FileInfo, o
 	return filePath, true, nil
 }
 
-func (d *btrfsDriver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
+func (d *driver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
 	// TODO(pedge): if PutFile fails here or on another shard, the directories
 	// will still exist and be returned from ListFiles, we want to do this
 	// iteratively and with rollback
@@ -100,7 +117,7 @@ func (d *btrfsDriver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
 	return nil
 }
 
-func (d *btrfsDriver) PutFile(path *pfs.Path, shard int, offset int64, reader io.Reader) error {
+func (d *driver) PutFile(path *pfs.Path, shard int, offset int64, reader io.Reader) error {
 	file, err := os.OpenFile(d.filePath(path, shard), os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
@@ -113,7 +130,7 @@ func (d *btrfsDriver) PutFile(path *pfs.Path, shard int, offset int64, reader io
 	return err
 }
 
-func (d *btrfsDriver) ListFiles(path *pfs.Path, shard int) (_ []*pfs.FileInfo, retErr error) {
+func (d *driver) ListFiles(path *pfs.Path, shard int) (_ []*pfs.FileInfo, retErr error) {
 	filePath := d.filePath(path, shard)
 	stat, err := os.Stat(filePath)
 	if err != nil {
@@ -157,7 +174,7 @@ func (d *btrfsDriver) ListFiles(path *pfs.Path, shard int) (_ []*pfs.FileInfo, r
 	return fileInfos, nil
 }
 
-func (d *btrfsDriver) stat(path *pfs.Path, shard int) (*pfs.FileInfo, error) {
+func (d *driver) stat(path *pfs.Path, shard int) (*pfs.FileInfo, error) {
 	stat, err := os.Stat(d.filePath(path, shard))
 	if err != nil {
 		return nil, err
@@ -181,7 +198,7 @@ func (d *btrfsDriver) stat(path *pfs.Path, shard int) (*pfs.FileInfo, error) {
 	}, nil
 }
 
-func (d *btrfsDriver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error) {
+func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error) {
 	if newCommit == nil {
 		newCommit = &pfs.Commit{
 			Repository: commit.Repository,
@@ -197,7 +214,7 @@ func (d *btrfsDriver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards m
 		}
 		commitPath := d.commitPath(commit, shard)
 		newCommitPath := d.commitPath(newCommit, shard)
-		if err := d.btrfsAPI.SubvolumeSnapshot(commitPath, newCommitPath); err != nil {
+		if err := ffiSubvolumeSnapshot(commitPath, newCommitPath); err != nil {
 			return nil, err
 		}
 		if err := ioutil.WriteFile(d.filePath(&pfs.Path{Commit: newCommit, Path: filepath.Join(metadataDir, "parent")}, shard), []byte(commit.Id), 0600); err != nil {
@@ -210,7 +227,7 @@ func (d *btrfsDriver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards m
 	return newCommit, nil
 }
 
-func (d *btrfsDriver) Commit(commit *pfs.Commit, shards map[int]bool) error {
+func (d *driver) Commit(commit *pfs.Commit, shards map[int]bool) error {
 	for shard := range shards {
 		if err := d.checkWrite(commit, shard); err != nil {
 			return err
@@ -222,15 +239,15 @@ func (d *btrfsDriver) Commit(commit *pfs.Commit, shards map[int]bool) error {
 	return nil
 }
 
-func (d *btrfsDriver) PullDiff(commit *pfs.Commit, shard int) (io.Reader, error) {
+func (d *driver) PullDiff(commit *pfs.Commit, shard int) (io.Reader, error) {
 	return nil, nil
 }
 
-func (d *btrfsDriver) PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error {
+func (d *driver) PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error {
 	return nil
 }
 
-func (d *btrfsDriver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.CommitInfo, ok bool, _ error) {
+func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.CommitInfo, ok bool, _ error) {
 	_, err := os.Stat(d.commitPath(commit, shard))
 	if err != nil && os.IsNotExist(err) {
 		return nil, false, nil
@@ -257,7 +274,7 @@ func (d *btrfsDriver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.Commi
 	}, true, nil
 }
 
-func (d *btrfsDriver) ListCommits(repository *pfs.Repository, shard int) (_ []*pfs.CommitInfo, retErr error) {
+func (d *driver) ListCommits(repository *pfs.Repository, shard int) (_ []*pfs.CommitInfo, retErr error) {
 
 	dir, err := os.Open(d.repositoryPath(repository))
 	if err != nil {
@@ -297,8 +314,8 @@ func (d *btrfsDriver) ListCommits(repository *pfs.Repository, shard int) (_ []*p
 	return commitInfos, nil
 }
 
-func (d *btrfsDriver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
-	if commit.Id == InitialCommitID {
+func (d *driver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
+	if commit.Id == drive.InitialCommitID {
 		return nil, nil
 	}
 	data, err := ioutil.ReadFile(d.filePath(&pfs.Path{Commit: commit, Path: filepath.Join(metadataDir, "parent")}, shard))
@@ -311,7 +328,7 @@ func (d *btrfsDriver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, err
 	}, nil
 }
 
-func (d *btrfsDriver) checkReadOnly(commit *pfs.Commit, shard int) error {
+func (d *driver) checkReadOnly(commit *pfs.Commit, shard int) error {
 	ok, err := d.getReadOnly(commit, shard)
 	if err != nil {
 		return err
@@ -322,7 +339,7 @@ func (d *btrfsDriver) checkReadOnly(commit *pfs.Commit, shard int) error {
 	return nil
 }
 
-func (d *btrfsDriver) checkWrite(commit *pfs.Commit, shard int) error {
+func (d *driver) checkWrite(commit *pfs.Commit, shard int) error {
 	ok, err := d.getReadOnly(commit, shard)
 	if err != nil {
 		return err
@@ -333,7 +350,7 @@ func (d *btrfsDriver) checkWrite(commit *pfs.Commit, shard int) error {
 	return nil
 }
 
-func (d *btrfsDriver) getReadOnly(commit *pfs.Commit, shard int) (bool, error) {
+func (d *driver) getReadOnly(commit *pfs.Commit, shard int) (bool, error) {
 	data, err := ioutil.ReadFile(d.filePath(&pfs.Path{Commit: commit, Path: filepath.Join(metadataDir, "readonly")}, shard))
 	if err != nil {
 		return false, err
@@ -348,7 +365,7 @@ func (d *btrfsDriver) getReadOnly(commit *pfs.Commit, shard int) (bool, error) {
 	}
 }
 
-func (d *btrfsDriver) setReadOnly(commit *pfs.Commit, shard int, readOnly bool) error {
+func (d *driver) setReadOnly(commit *pfs.Commit, shard int, readOnly bool) error {
 	data := []byte("0")
 	if readOnly {
 		data = []byte("1")
@@ -356,19 +373,19 @@ func (d *btrfsDriver) setReadOnly(commit *pfs.Commit, shard int, readOnly bool) 
 	return ioutil.WriteFile(d.filePath(&pfs.Path{Commit: commit, Path: filepath.Join(metadataDir, "readonly")}, shard), data, 0400)
 }
 
-func (d *btrfsDriver) repositoryPath(repository *pfs.Repository) string {
+func (d *driver) repositoryPath(repository *pfs.Repository) string {
 	return filepath.Join(d.rootDir, repository.Name)
 }
 
-func (d *btrfsDriver) commitPathNoShard(commit *pfs.Commit) string {
+func (d *driver) commitPathNoShard(commit *pfs.Commit) string {
 	return filepath.Join(d.repositoryPath(commit.Repository), commit.Id)
 }
 
-func (d *btrfsDriver) commitPath(commit *pfs.Commit, shard int) string {
+func (d *driver) commitPath(commit *pfs.Commit, shard int) string {
 	return filepath.Join(d.commitPathNoShard(commit), fmt.Sprintf("%d", shard))
 }
 
-func (d *btrfsDriver) filePath(path *pfs.Path, shard int) string {
+func (d *driver) filePath(path *pfs.Path, shard int) string {
 	return filepath.Join(d.commitPath(path.Commit, shard), path.Path)
 }
 
@@ -379,4 +396,59 @@ func newCommitID() string {
 func inMetadataDir(name string) bool {
 	parts := strings.Split(name, "/")
 	return (len(parts) > 0 && parts[0] == metadataDir)
+}
+
+func ffiSubvolumeCreate(path string) error {
+	var args C.struct_btrfs_ioctl_vol_args
+	for i, c := range []byte(filepath.Base(path)) {
+		args.name[i] = C.char(c)
+	}
+	return ffiIoctl(filepath.Dir(path), C.BTRFS_IOC_SUBVOL_CREATE, uintptr(unsafe.Pointer(&args)))
+}
+
+func ffiSubvolumeSnapshot(src string, dest string) error {
+	srcDir, err := ffiOpenDir(src)
+	if err != nil {
+		return err
+	}
+	defer ffiCloseDir(srcDir)
+	var args C.struct_btrfs_ioctl_vol_args_v2
+	args.fd = C.__s64(ffiGetDirFd(srcDir))
+	for i, c := range []byte(filepath.Base(dest)) {
+		args.name[i] = C.char(c)
+	}
+	return ffiIoctl(filepath.Dir(dest), C.BTRFS_IOC_SNAP_CREATE_V2, uintptr(unsafe.Pointer(&args)))
+}
+
+func ffiIoctl(path string, call uintptr, args uintptr) error {
+	dir, err := ffiOpenDir(path)
+	if err != nil {
+		return err
+	}
+	defer ffiCloseDir(dir)
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, ffiGetDirFd(dir), call, args)
+	if errno != 0 {
+		return fmt.Errorf("%s failed for %s: %v", callStrings[call], path, errno.Error())
+	}
+	return nil
+}
+
+func ffiOpenDir(path string) (*C.DIR, error) {
+	Cpath := C.CString(path)
+	defer C.free(unsafe.Pointer(Cpath))
+	dir := C.opendir(Cpath)
+	if dir == nil {
+		return nil, fmt.Errorf("cannot open dir: %s", path)
+	}
+	return dir, nil
+}
+
+func ffiCloseDir(dir *C.DIR) {
+	if dir != nil {
+		C.closedir(dir)
+	}
+}
+
+func ffiGetDirFd(dir *C.DIR) uintptr {
+	return uintptr(C.dirfd(dir))
 }

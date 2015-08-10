@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
 )
 
 const (
@@ -43,9 +42,4 @@ type Driver interface {
 	PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error
 	GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, bool, error)
 	ListCommits(repository *pfs.Repository, shard int) ([]*pfs.CommitInfo, error)
-}
-
-// NewBtrfsDriver constructs a new Driver for btrfs.
-func NewBtrfsDriver(rootDir string, btrfsAPI btrfs.API) Driver {
-	return newBtrfsDriver(rootDir, btrfsAPI)
 }

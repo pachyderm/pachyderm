@@ -8,10 +8,9 @@ import (
 	"os"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
-	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
@@ -61,9 +60,8 @@ func do(appEnvObj interface{}) error {
 			grpcutil.NewDialer(),
 			address,
 		),
-		drive.NewBtrfsDriver(
+		btrfs.NewDriver(
 			appEnv.BtrfsRoot,
-			btrfs.NewFFIAPI(),
 		),
 	)
 	return mainutil.GrpcDo(

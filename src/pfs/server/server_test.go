@@ -17,10 +17,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
-	"github.com/pachyderm/pachyderm/src/pkg/btrfs"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
@@ -47,20 +47,20 @@ func init() {
 func TestBtrfsFFI(t *testing.T) {
 	t.Skip()
 	t.Parallel()
-	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewFFIAPI())
+	driver := btrfs.NewDriver(getBtrfsRootDir(t))
 	runTest(t, driver, testSimple)
 }
 
 func TestBtrfsExec(t *testing.T) {
 	t.Skip()
 	t.Parallel()
-	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewExecAPI())
+	driver := btrfs.NewDriver(getBtrfsRootDir(t))
 	runTest(t, driver, testSimple)
 }
 
 func TestFuseMount(t *testing.T) {
 	t.Parallel()
-	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewFFIAPI())
+	driver := btrfs.NewDriver(getBtrfsRootDir(t))
 	runTest(t, driver, testMount)
 }
 
@@ -69,13 +69,13 @@ func TestFuseMountBig(t *testing.T) {
 		t.Skip()
 	}
 	t.Parallel()
-	driver := drive.NewBtrfsDriver(getBtrfsRootDir(t), btrfs.NewFFIAPI())
+	driver := btrfs.NewDriver(getBtrfsRootDir(t))
 	runTest(t, driver, testMountBig)
 
 }
 
 func BenchmarkFuse(b *testing.B) {
-	driver := drive.NewBtrfsDriver(getBtrfsRootDir(b), btrfs.NewFFIAPI())
+	driver := btrfs.NewDriver(getBtrfsRootDir(b))
 	runBench(b, driver, benchMount)
 }
 
