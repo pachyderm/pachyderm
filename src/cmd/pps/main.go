@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
+	"github.com/pachyderm/pachyderm/src/pkg/grpcversion"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
@@ -44,11 +45,11 @@ func do(appEnvObj interface{}) error {
 		Use:  "version",
 		Long: "Print the version.",
 		Run: func(cmd *cobra.Command, args []string) error {
-			getVersionResponse, err := ppsutil.GetVersion(apiClient)
+			version, err := grpcversion.GetVersion(grpcversion.NewApiClient(clientConn))
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Client: %s\nServer: %s\n", pachyderm.Version, pps.VersionString(getVersionResponse.Version))
+			fmt.Printf("Client: %s\nServer: %s\n", pachyderm.Version, grpcversion.VersionString(version))
 			return nil
 		},
 	}.ToCobraCommand()

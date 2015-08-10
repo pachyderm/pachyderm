@@ -3,27 +3,13 @@ package server
 import (
 	"os"
 
-	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pkg/graph"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
 	"github.com/pachyderm/pachyderm/src/pps/run"
 	"github.com/pachyderm/pachyderm/src/pps/source"
 	"github.com/pachyderm/pachyderm/src/pps/store"
-	"github.com/peter-edge/go-google-protobuf"
 	"golang.org/x/net/context"
-)
-
-var (
-	emptyInstance              = &google_protobuf.Empty{}
-	getVersionResponseInstance = &pps.GetVersionResponse{
-		Version: &pps.Version{
-			Major:      pachyderm.MajorVersion,
-			Minor:      pachyderm.MinorVersion,
-			Micro:      pachyderm.MicroVersion,
-			Additional: pachyderm.AdditionalVersion,
-		},
-	}
 )
 
 type apiServer struct {
@@ -32,10 +18,6 @@ type apiServer struct {
 
 func newAPIServer(storeClient store.Client) *apiServer {
 	return &apiServer{storeClient}
-}
-
-func (a *apiServer) GetVersion(ctx context.Context, empty *google_protobuf.Empty) (*pps.GetVersionResponse, error) {
-	return getVersionResponseInstance, nil
 }
 
 func (a *apiServer) GetPipeline(ctx context.Context, getPipelineRequest *pps.GetPipelineRequest) (*pps.GetPipelineResponse, error) {

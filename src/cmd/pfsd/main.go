@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
@@ -15,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/pkg/grpcversion"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"google.golang.org/grpc"
 )
@@ -78,6 +80,12 @@ func do(appEnvObj interface{}) error {
 	return grpcutil.GrpcDo(
 		appEnv.APIPort,
 		appEnv.TracePort,
+		&grpcversion.Version{
+			Major:      pachyderm.MajorVersion,
+			Minor:      pachyderm.MinorVersion,
+			Micro:      pachyderm.MicroVersion,
+			Additional: pachyderm.AdditionalVersion,
+		},
 		func(s *grpc.Server) {
 			pfs.RegisterApiServer(s, combinedAPIServer)
 			pfs.RegisterInternalApiServer(s, combinedAPIServer)

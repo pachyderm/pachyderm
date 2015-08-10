@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/pachyderm/pachyderm/src/pkg/grpcversion"
 	"google.golang.org/grpc"
 )
 
@@ -21,10 +22,12 @@ func NewDialer(opts ...grpc.DialOption) Dialer {
 func GrpcDo(
 	port int,
 	tracePort int,
+	version *grpcversion.Version,
 	registerFunc func(*grpc.Server),
 ) error {
 	s := grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
 	registerFunc(s)
+	grpcversion.RegisterApiServer(s, grpcversion.NewAPIServer(version))
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return err
