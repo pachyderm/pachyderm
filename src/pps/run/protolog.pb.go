@@ -10,7 +10,6 @@ It is generated from these files:
 
 It has these top-level messages:
 	AddedPipelineRun
-	PipelineRunError
 */
 package run
 
@@ -34,13 +33,3 @@ func (m *AddedPipelineRun) GetPipelineRun() *pps.PipelineRun {
 	}
 	return nil
 }
-
-type PipelineRunError struct {
-	PipelineRunId string `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
-	Node          string `protobuf:"bytes,2,opt,name=node" json:"node,omitempty"`
-	Error         string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
-}
-
-func (m *PipelineRunError) Reset()         { *m = PipelineRunError{} }
-func (m *PipelineRunError) String() string { return proto.CompactTextString(m) }
-func (*PipelineRunError) ProtoMessage()    {}

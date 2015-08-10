@@ -39,24 +39,21 @@ func newGrapher() *grapher {
 }
 
 func (g *grapher) Build(
-	nodeErrorRecorder NodeErrorRecorder,
 	nameToNodeInfo map[string]*NodeInfo,
 	nameToNodeFunc map[string]func() error,
 ) (Run, error) {
 	return build(
-		nodeErrorRecorder,
 		nameToNodeInfo,
 		nameToNodeFunc,
 	)
 }
 
 func build(
-	nodeErrorRecorder NodeErrorRecorder,
 	nameToNodeInfo map[string]*NodeInfo,
 	nameToNodeFunc map[string]func() error,
 ) (*run, error) {
 	cancel := make(chan bool)
-	nodeRunners, err := getNameToNodeRunner(nameToNodeInfo, nameToNodeFunc, nodeErrorRecorder, cancel)
+	nodeRunners, err := getNameToNodeRunner(nameToNodeInfo, nameToNodeFunc, cancel)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +66,6 @@ func build(
 func getNameToNodeRunner(
 	nodeInfos map[string]*NodeInfo,
 	nameToNodeFunc map[string]func() error,
-	nodeErrorRecorder NodeErrorRecorder,
 	cancel <-chan bool,
 ) (map[string]*nodeRunner, error) {
 	if err := checkNodeInfos(nodeInfos, nameToNodeFunc); err != nil {
@@ -80,7 +76,6 @@ func getNameToNodeRunner(
 		nodeRunners[name] = newNodeRunner(
 			name,
 			nameToNodeFunc[name],
-			nodeErrorRecorder,
 			cancel,
 		)
 	}

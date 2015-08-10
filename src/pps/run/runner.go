@@ -75,10 +75,6 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 		nameToNodeFunc[name] = nodeFunc
 	}
 	run, err := r.grapher.Build(
-		newNodeErrorRecorder(
-			pipelineRunID,
-			r.storeClient,
-		),
 		nameToNodeInfo,
 		nameToNodeFunc,
 	)
@@ -151,36 +147,4 @@ func (r *runner) getNodeFunc(
 		}
 		return nil
 	}, nil
-}
-
-type nodeErrorRecorder struct {
-	pipelineRunID string
-	storeClient   store.Client
-}
-
-func newNodeErrorRecorder(
-	pipelineRunID string,
-	storeClient store.Client,
-) *nodeErrorRecorder {
-	return &nodeErrorRecorder{
-		pipelineRunID,
-		storeClient,
-	}
-}
-
-func (n *nodeErrorRecorder) Record(nodeName string, err error) {
-	protolog.Error(
-		&PipelineRunError{
-			PipelineRunId: n.pipelineRunID,
-			Node:          nodeName,
-			Error:         errorString(err),
-		},
-	)
-}
-
-func errorString(err error) string {
-	if err != nil {
-		return err.Error()
-	}
-	return ""
 }
