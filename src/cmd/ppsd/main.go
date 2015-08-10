@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/server"
@@ -25,7 +26,7 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	return mainutil.GrpcDo(
+	return grpcutil.GrpcDo(
 		appEnv.APIPort,
 		appEnv.TracePort,
 		func(s *grpc.Server) {

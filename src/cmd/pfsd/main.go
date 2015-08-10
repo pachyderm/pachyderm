@@ -75,7 +75,7 @@ func do(appEnvObj interface{}) error {
 		),
 		driver,
 	)
-	return mainutil.GrpcDo(
+	return grpcutil.GrpcDo(
 		appEnv.APIPort,
 		appEnv.TracePort,
 		func(s *grpc.Server) {
