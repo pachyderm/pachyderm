@@ -60,10 +60,6 @@ func newDriver(rootDir string) *driver {
 	return &driver{rootDir}
 }
 
-func (d *driver) Init() error {
-	return nil
-}
-
 func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool) error {
 	if err := os.MkdirAll(d.repositoryPath(repository), 0700); err != nil {
 		return err

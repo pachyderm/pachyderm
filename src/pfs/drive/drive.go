@@ -29,7 +29,6 @@ type ReaderAtCloser interface {
 
 // Driver represents a low-level pfs storage driver.
 type Driver interface {
-	Init() error
 	InitRepository(repository *pfs.Repository, shard map[int]bool) error
 	GetFile(path *pfs.Path, shard int) (ReaderAtCloser, error)
 	GetFileInfo(path *pfs.Path, shard int) (*pfs.FileInfo, bool, error)
