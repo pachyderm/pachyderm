@@ -9,7 +9,6 @@ import (
 
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
-	"github.com/pachyderm/pachyderm/src/pkg/grpcversion"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
@@ -40,19 +39,6 @@ func do(appEnvObj interface{}) error {
 	apiClient := pps.NewApiClient(clientConn)
 
 	var protoFlag bool
-
-	versionCmd := cobramainutil.Command{
-		Use:  "version",
-		Long: "Print the version.",
-		Run: func(cmd *cobra.Command, args []string) error {
-			version, err := grpcversion.GetVersion(grpcversion.NewApiClient(clientConn))
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Client: %s\nServer: %s\n", pachyderm.Version, grpcversion.VersionString(version))
-			return nil
-		},
-	}.ToCobraCommand()
 
 	inspectCmd := cobramainutil.Command{
 		Use:        "inspect github.com/user/repository [path/to/specDir]",
@@ -143,7 +129,7 @@ func do(appEnvObj interface{}) error {
 Note that this CLI is experimental and does not even check for common errors.
 The environment variable PPS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:651.`,
 	}
-	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(cobramainutil.NewVersionCommand(clientConn, pachyderm.Version))
 	rootCmd.AddCommand(inspectCmd)
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(statusCmd)

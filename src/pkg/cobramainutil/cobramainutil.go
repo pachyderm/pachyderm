@@ -5,7 +5,9 @@ import (
 	"math"
 	"os"
 
+	"github.com/pachyderm/pachyderm/src/pkg/protoversion"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
 )
 
 type Command struct {
@@ -42,6 +44,21 @@ func (c Command) ToCobraCommand() *cobra.Command {
 			check(c.Run(cmd, args))
 		},
 	}
+}
+
+func NewVersionCommand(clientConn *grpc.ClientConn, clientVersion *protoversion.Version) *cobra.Command {
+	return Command{
+		Use:  "version",
+		Long: "Print the version.",
+		Run: func(cmd *cobra.Command, args []string) error {
+			serverVersion, err := protoversion.GetVersion(protoversion.NewApiClient(clientConn))
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Client: %s\nServer: %s\n", clientVersion.VersionString(), serverVersion.VersionString())
+			return nil
+		},
+	}.ToCobraCommand()
 }
 
 func checkArgs(args []string, expected int, usage string) error {

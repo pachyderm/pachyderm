@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/pkg/grpcversion"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/server"
@@ -31,12 +30,7 @@ func do(appEnvObj interface{}) error {
 	return grpcutil.GrpcDo(
 		appEnv.APIPort,
 		appEnv.TracePort,
-		&grpcversion.Version{
-			Major:      pachyderm.MajorVersion,
-			Minor:      pachyderm.MinorVersion,
-			Micro:      pachyderm.MicroVersion,
-			Additional: pachyderm.AdditionalVersion,
-		},
+		pachyderm.Version,
 		func(s *grpc.Server) {
 			pps.RegisterApiServer(s, server.NewAPIServer(store.NewInMemoryClient()))
 		},

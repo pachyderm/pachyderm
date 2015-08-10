@@ -46,10 +46,10 @@ func testBasic(t *testing.T, client Client) {
 	require.NoError(t, err)
 	require.Equal(t, pipelineRunStatusResponse.PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS)
 
-	require.NoError(t, client.AddPipelineRunContainers(&pps.PipelineRunContainer{"id", "container", "node"}))
+	require.NoError(t, client.AddPipelineRunContainers(&pps.PipelineRunContainer{PipelineRunId: "id", ContainerId: "container", Node: "node"}))
 	containerIDs, err := client.GetPipelineRunContainers("id")
 	require.NoError(t, err)
-	require.Equal(t, []*pps.PipelineRunContainer{&pps.PipelineRunContainer{"id", "container", "node"}}, containerIDs)
+	require.Equal(t, []*pps.PipelineRunContainer{&pps.PipelineRunContainer{PipelineRunId: "id", ContainerId: "container", Node: "node"}}, containerIDs)
 }
 
 func runTestInMem(t *testing.T, testFunc func(*testing.T, Client)) {

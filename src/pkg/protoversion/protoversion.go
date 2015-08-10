@@ -1,4 +1,4 @@
-package grpcversion
+package protoversion
 
 import (
 	"fmt"
@@ -15,8 +15,8 @@ func NewAPIServer(version *Version) ApiServer {
 	return newAPIServer(version)
 }
 
-func VersionString(version *Version) string {
-	return fmt.Sprintf("%d.%d.%d%s", version.Major, version.Minor, version.Micro, version.Additional)
+func (v *Version) VersionString() string {
+	return fmt.Sprintf("%d.%d.%d%s", v.Major, v.Minor, v.Micro, v.Additional)
 }
 
 func GetVersion(apiClient ApiClient) (*Version, error) {
