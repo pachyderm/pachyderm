@@ -20,8 +20,6 @@ It has these top-level messages:
 	PipelineSource
 	PipelineRun
 	PipelineRunContainer
-	Version
-	GetVersionResponse
 	GetPipelineRequest
 	GetPipelineResponse
 	StartPipelineRunRequest
@@ -33,7 +31,6 @@ package pps
 
 import proto "github.com/golang/protobuf/proto"
 import google_protobuf "github.com/peter-edge/go-google-protobuf"
-import google_protobuf1 "github.com/peter-edge/go-google-protobuf"
 
 import (
 	context "golang.org/x/net/context"
@@ -77,16 +74,16 @@ func (x PipelineRunStatusType) String() string {
 }
 
 type PipelineRunStatus struct {
-	PipelineRunId         string                      `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
-	PipelineRunStatusType PipelineRunStatusType       `protobuf:"varint,2,opt,name=pipeline_run_status_type,enum=pps.PipelineRunStatusType" json:"pipeline_run_status_type,omitempty"`
-	Timestamp             *google_protobuf1.Timestamp `protobuf:"bytes,3,opt,name=timestamp" json:"timestamp,omitempty"`
+	PipelineRunId         string                     `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
+	PipelineRunStatusType PipelineRunStatusType      `protobuf:"varint,2,opt,name=pipeline_run_status_type,enum=pps.PipelineRunStatusType" json:"pipeline_run_status_type,omitempty"`
+	Timestamp             *google_protobuf.Timestamp `protobuf:"bytes,3,opt,name=timestamp" json:"timestamp,omitempty"`
 }
 
 func (m *PipelineRunStatus) Reset()         { *m = PipelineRunStatus{} }
 func (m *PipelineRunStatus) String() string { return proto.CompactTextString(m) }
 func (*PipelineRunStatus) ProtoMessage()    {}
 
-func (m *PipelineRunStatus) GetTimestamp() *google_protobuf1.Timestamp {
+func (m *PipelineRunStatus) GetTimestamp() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.Timestamp
 	}
@@ -275,32 +272,6 @@ func (m *PipelineRunContainer) Reset()         { *m = PipelineRunContainer{} }
 func (m *PipelineRunContainer) String() string { return proto.CompactTextString(m) }
 func (*PipelineRunContainer) ProtoMessage()    {}
 
-type Version struct {
-	Major      uint32 `protobuf:"varint,1,opt,name=major" json:"major,omitempty"`
-	Minor      uint32 `protobuf:"varint,2,opt,name=minor" json:"minor,omitempty"`
-	Micro      uint32 `protobuf:"varint,3,opt,name=micro" json:"micro,omitempty"`
-	Additional string `protobuf:"bytes,4,opt,name=additional" json:"additional,omitempty"`
-}
-
-func (m *Version) Reset()         { *m = Version{} }
-func (m *Version) String() string { return proto.CompactTextString(m) }
-func (*Version) ProtoMessage()    {}
-
-type GetVersionResponse struct {
-	Version *Version `protobuf:"bytes,1,opt,name=version" json:"version,omitempty"`
-}
-
-func (m *GetVersionResponse) Reset()         { *m = GetVersionResponse{} }
-func (m *GetVersionResponse) String() string { return proto.CompactTextString(m) }
-func (*GetVersionResponse) ProtoMessage()    {}
-
-func (m *GetVersionResponse) GetVersion() *Version {
-	if m != nil {
-		return m.Version
-	}
-	return nil
-}
-
 type GetPipelineRequest struct {
 	PipelineSource *PipelineSource `protobuf:"bytes,1,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
 }
@@ -384,7 +355,6 @@ func init() {
 // Client API for Api service
 
 type ApiClient interface {
-	GetVersion(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*GetVersionResponse, error)
 	GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*GetPipelineResponse, error)
 	StartPipelineRun(ctx context.Context, in *StartPipelineRunRequest, opts ...grpc.CallOption) (*StartPipelineRunResponse, error)
 	GetPipelineRunStatus(ctx context.Context, in *GetPipelineRunStatusRequest, opts ...grpc.CallOption) (*GetPipelineRunStatusResponse, error)
@@ -396,15 +366,6 @@ type apiClient struct {
 
 func NewApiClient(cc *grpc.ClientConn) ApiClient {
 	return &apiClient{cc}
-}
-
-func (c *apiClient) GetVersion(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*GetVersionResponse, error) {
-	out := new(GetVersionResponse)
-	err := grpc.Invoke(ctx, "/pps.Api/GetVersion", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *apiClient) GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*GetPipelineResponse, error) {
@@ -437,7 +398,6 @@ func (c *apiClient) GetPipelineRunStatus(ctx context.Context, in *GetPipelineRun
 // Server API for Api service
 
 type ApiServer interface {
-	GetVersion(context.Context, *google_protobuf.Empty) (*GetVersionResponse, error)
 	GetPipeline(context.Context, *GetPipelineRequest) (*GetPipelineResponse, error)
 	StartPipelineRun(context.Context, *StartPipelineRunRequest) (*StartPipelineRunResponse, error)
 	GetPipelineRunStatus(context.Context, *GetPipelineRunStatusRequest) (*GetPipelineRunStatusResponse, error)
@@ -445,18 +405,6 @@ type ApiServer interface {
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
 	s.RegisterService(&_Api_serviceDesc, srv)
-}
-
-func _Api_GetVersion_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(google_protobuf.Empty)
-	if err := codec.Unmarshal(buf, in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(ApiServer).GetVersion(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func _Api_GetPipeline_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
@@ -499,10 +447,6 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pps.Api",
 	HandlerType: (*ApiServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "GetVersion",
-			Handler:    _Api_GetVersion_Handler,
-		},
 		{
 			MethodName: "GetPipeline",
 			Handler:    _Api_GetPipeline_Handler,
