@@ -19,7 +19,7 @@ func (r *run) Do() error {
 		go func() {
 			defer wg.Done()
 			if runErr := nodeRunner.run(); runErr != nil && err == nil {
-				runErr = err
+				err = runErr
 			}
 		}()
 	}
