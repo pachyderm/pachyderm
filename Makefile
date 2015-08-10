@@ -83,11 +83,7 @@ launch-ppsd: docker-clean-test docker-build-ppsd
 	docker-compose rm -f ppsd
 	docker-compose up -d --force-recreate --no-build ppsd
 
-launch: docker-clean-test docker-build-btrfs docker-build-pfsd docker-build-ppsd
-	docker-compose kill pfsd
-	docker-compose rm -f pfsd
-	docker-compose kill ppsd
-	docker-compose rm -f ppsd
+launch: docker-clean-launch docker-build-btrfs docker-build-pfsd docker-build-ppsd
 	docker-compose up -d --force-recreate --no-build pfsd
 	docker-compose up -d --force-recreate --no-build ppsd
 
@@ -116,17 +112,24 @@ docker-clean-test:
 	docker-compose kill etcd
 	docker-compose rm -f etcd
 
+docker-clean-launch: docker-clean-test
+	docker-compose kill pfsd
+	docker-compose rm -f pfsd
+	docker-compose kill ppsd
+	docker-compose rm -f ppsd
+
 test: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test go test -test.short $(TESTFLAGS) $(TESTPKGS)
 
 test-long: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test go test $(TESTFLAGS) $(TESTPKGS)
 
-clean: docker-clean-test
+clean: docker-clean-launch
 	go clean ./...
+	rm -f src/cmd/pfs/pfs
 	rm -f src/cmd/pfsd/pfsd
+	rm -f src/cmd/pps/pps
 	rm -f src/cmd/ppsd/ppsd
-	sudo rm -rf _tmp
 
 start-kube:
 	docker run --net=host -d gcr.io/google_containers/etcd:2.0.12 /usr/local/bin/etcd --addr=127.0.0.1:4001 --bind-addr=0.0.0.0:4001 --data-dir=/var/etcd/data
@@ -159,6 +162,7 @@ start-kube:
 	proto \
 	pretest \
 	docker-clean-test \
+	docker-clean-launch \
 	test \
 	test-long \
 	clean \
