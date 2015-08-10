@@ -29,7 +29,4 @@ RUN sh -x etc/git2go/install.sh
 RUN mkdir -p /go/src/github.com/pachyderm/pachyderm/etc/deps
 ADD etc/deps/deps.list /go/src/github.com/pachyderm/pachyderm/etc/deps/
 RUN cat etc/deps/deps.list | xargs go get -insecure
-RUN \
-  cd /go/src/github.com/imdario/mergo && \
-  git checkout 6633656539c1639d9d78127b7d47c622b5d7b6dc
 ADD . /go/src/github.com/pachyderm/pachyderm/
