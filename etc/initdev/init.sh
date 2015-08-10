@@ -38,7 +38,7 @@ curl -sSL https://storage.googleapis.com/kubernetes-release/release/v1.0.1/bin/l
 chmod +x /usr/local/bin/kubectl
 
 # installs git2go statically linked to libgit2
-curl -sSL https://raw.githubusercontent.com/pachyderm/pachyderm/next/etc/git2go/install.sh | sh
+curl -sSL https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/git2go/install.sh | sh
 
 docker pull ubuntu:14.04
 docker pull rethinkdb:2.0.4
