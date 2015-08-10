@@ -45,4 +45,4 @@ docker pull rethinkdb:2.0.4
 docker pull quay.io/coreos/etcd:v2.1.1
 
 su - ${1} -c "go get -d -v -t -u -f -insecure github.com/pachyderm/pachyderm/..."
-su - ${1} -c "make -C /home/${1}/go/src/github.com/pachyderm/pachyderm make test"
+su - ${1} -c "make -C /home/${1}/go/src/github.com/pachyderm/pachyderm test"
