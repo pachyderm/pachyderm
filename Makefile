@@ -39,7 +39,7 @@ build: deps
 	go build ./...
 
 install: deps
-	go install ./src/cmd/pfs ./src/cmd/pps ./src/cmd/pachkube
+	go install ./src/cmd/pfs ./src/cmd/pps
 
 docker-build-btrfs:
 	docker-compose build btrfs
