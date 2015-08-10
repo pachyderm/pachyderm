@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/common"
+	"go.pedge.io/protolog/logrus"
+
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
@@ -21,7 +22,7 @@ const (
 )
 
 func init() {
-	common.ForceLogColors()
+	logrus.Register()
 }
 
 func TestBasic(t *testing.T) {

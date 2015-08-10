@@ -5,12 +5,12 @@ import (
 
 	"go.pedge.io/protolog"
 
-	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pkg/graph"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
 	"github.com/pachyderm/pachyderm/src/pps/source"
 	"github.com/pachyderm/pachyderm/src/pps/store"
+	"github.com/satori/go.uuid"
 )
 
 type runner struct {
@@ -39,7 +39,7 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	pipelineRunID := common.NewUUID()
+	pipelineRunID := uuid.NewV4().String()
 	pipelineRun := &pps.PipelineRun{
 		Id:             pipelineRunID,
 		Pipeline:       pipeline,

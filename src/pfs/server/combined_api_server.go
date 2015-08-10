@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/common"
+	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
@@ -23,10 +23,10 @@ var (
 	emptyInstance              = &google_protobuf.Empty{}
 	getVersionResponseInstance = &pfs.GetVersionResponse{
 		Version: &pfs.Version{
-			Major:      common.MajorVersion,
-			Minor:      common.MinorVersion,
-			Micro:      common.MicroVersion,
-			Additional: common.AdditionalVersion,
+			Major:      pachyderm.MajorVersion,
+			Minor:      pachyderm.MinorVersion,
+			Micro:      pachyderm.MicroVersion,
+			Additional: pachyderm.AdditionalVersion,
 		},
 	}
 )

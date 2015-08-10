@@ -100,7 +100,7 @@ pretest:
 		fi; \
 	done;
 	go vet ./...
-	errcheck ./src/cmd ./src/common ./src/pfs ./src/pps
+	errcheck ./src/cmd ./src/pfs ./src/pps
 
 docker-clean-test:
 	docker-compose kill rethink

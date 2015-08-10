@@ -35,10 +35,10 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/peter-edge/go-google-protobuf"
+	"github.com/satori/go.uuid"
 )
 
 const (
@@ -386,7 +386,7 @@ func (d *driver) filePath(path *pfs.Path, shard int) string {
 }
 
 func newCommitID() string {
-	return strings.Replace(common.NewUUID(), "-", "", -1)
+	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
 }
 
 func inMetadataDir(name string) bool {

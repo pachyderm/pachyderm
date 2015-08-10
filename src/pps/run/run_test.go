@@ -3,14 +3,15 @@ package run
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/common"
+	"go.pedge.io/protolog/logrus"
+
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/parse"
 	"github.com/stretchr/testify/require"
 )
 
 func init() {
-	common.ForceLogColors()
+	logrus.Register()
 }
 
 func TestGetNameToNodeInfo(t *testing.T) {

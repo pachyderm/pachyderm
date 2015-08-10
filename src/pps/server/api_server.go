@@ -3,7 +3,7 @@ package server
 import (
 	"os"
 
-	"github.com/pachyderm/pachyderm/src/common"
+	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pkg/graph"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
@@ -18,10 +18,10 @@ var (
 	emptyInstance              = &google_protobuf.Empty{}
 	getVersionResponseInstance = &pps.GetVersionResponse{
 		Version: &pps.Version{
-			Major:      common.MajorVersion,
-			Minor:      common.MinorVersion,
-			Micro:      common.MicroVersion,
-			Additional: common.AdditionalVersion,
+			Major:      pachyderm.MajorVersion,
+			Minor:      pachyderm.MinorVersion,
+			Micro:      pachyderm.MicroVersion,
+			Additional: pachyderm.AdditionalVersion,
 		},
 	}
 )

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pachyderm/pachyderm/src/common"
+	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
@@ -48,7 +48,7 @@ func do(appEnvObj interface{}) error {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Client: %s\nServer: %s\n", common.VersionString(), pfs.VersionString(getVersionResponse.Version))
+			fmt.Printf("Client: %s\nServer: %s\n", pachyderm.Version, pfs.VersionString(getVersionResponse.Version))
 			return nil
 		},
 	}.ToCobraCommand()
