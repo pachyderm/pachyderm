@@ -7,18 +7,16 @@ import (
 )
 
 type nodeRunner struct {
-	nodeName          string
-	f                 func() error
-	parentChans       map[string]<-chan error
-	childrenChans     map[string]chan<- error
-	nodeErrorRecorder NodeErrorRecorder
-	cancel            <-chan bool
+	nodeName      string
+	f             func() error
+	parentChans   map[string]<-chan error
+	childrenChans map[string]chan<- error
+	cancel        <-chan bool
 }
 
 func newNodeRunner(
 	nodeName string,
 	f func() error,
-	nodeErrorRecorder NodeErrorRecorder,
 	cancel <-chan bool,
 ) *nodeRunner {
 	return &nodeRunner{
@@ -26,7 +24,6 @@ func newNodeRunner(
 		f,
 		make(map[string]<-chan error),
 		make(map[string]chan<- error),
-		nodeErrorRecorder,
 		cancel,
 	}
 }
@@ -72,9 +69,6 @@ func (n *nodeRunner) run() error {
 		protolog.Info(&NodeStarting{Node: n.nodeName})
 		err = n.f()
 		protolog.Info(&NodeFinished{Node: n.nodeName, Error: errorString(err)})
-		if err != nil {
-			n.nodeErrorRecorder.Record(n.nodeName, err)
-		}
 	}
 	for name, childChan := range n.childrenChans {
 		protolog.Debug(&NodeSending{Node: n.nodeName, ChildNode: name, Error: errorString(err)})

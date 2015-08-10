@@ -7,9 +7,3 @@ package run;
 message AddedPipelineRun {
   pps.PipelineRun pipeline_run = 1;
 }
-
-message PipelineRunError {
-  string pipeline_run_id = 1;
-  string node = 2;
-  string error = 3;
-}

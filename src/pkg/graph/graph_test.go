@@ -2,8 +2,6 @@ package graph
 
 import (
 	"errors"
-	"fmt"
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -84,7 +82,7 @@ func TestBuild(t *testing.T) {
 		"5":   testNodeFunc(&counter, intC, "5", 8, ""),
 	}
 
-	run, err := build(newTestNodeErrorRecorder(), nameToNodeInfo, nameToNodeFunc)
+	run, err := build(nameToNodeInfo, nameToNodeFunc)
 	require.NoError(t, err)
 	err = run.Do()
 	require.NoError(t, err)
@@ -168,8 +166,7 @@ func TestBuildWithError(t *testing.T) {
 		"5":   testNodeFunc(&counter, intC, "5", 8, ""),
 	}
 
-	testNodeErrorRecorder := newTestNodeErrorRecorder()
-	run, err := build(testNodeErrorRecorder, nameToNodeInfo, nameToNodeFunc)
+	run, err := build(nameToNodeInfo, nameToNodeFunc)
 	require.NoError(t, err)
 	err = run.Do()
 	require.NotNil(t, err)
@@ -199,19 +196,4 @@ func testNodeFunc(counter *int32, intC chan int, nodeName string, i int, errStri
 		protolog.Infof("ran %s, sent %d, returning %v\n", nodeName, i, err)
 		return err
 	}
-}
-
-type testNodeErrorRecorder struct {
-	slice []string
-	lock  *sync.Mutex
-}
-
-func newTestNodeErrorRecorder() *testNodeErrorRecorder {
-	return &testNodeErrorRecorder{make([]string, 0), &sync.Mutex{}}
-}
-
-func (t *testNodeErrorRecorder) Record(nodeName string, err error) {
-	t.lock.Lock()
-	defer t.lock.Unlock()
-	t.slice = append(t.slice, fmt.Sprintf("%s:%s", nodeName, err.Error()))
 }

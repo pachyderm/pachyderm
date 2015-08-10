@@ -8,12 +8,8 @@ import "go.pedge.io/protolog"
 
 func init() {
 	protolog.Register("run.AddedPipelineRun", func() protolog.Message { return &AddedPipelineRun{} })
-	protolog.Register("run.PipelineRunError", func() protolog.Message { return &PipelineRunError{} })
 }
 
 func (m *AddedPipelineRun) ProtologName() string {
 	return "run.AddedPipelineRun"
-}
-func (m *PipelineRunError) ProtologName() string {
-	return "run.PipelineRunError"
 }
