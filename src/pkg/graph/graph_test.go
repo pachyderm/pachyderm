@@ -86,7 +86,8 @@ func TestBuild(t *testing.T) {
 
 	run, err := build(newTestNodeErrorRecorder(), nameToNodeInfo, nameToNodeFunc)
 	require.NoError(t, err)
-	run.Do()
+	err = run.Do()
+	require.NoError(t, err)
 
 	require.Equal(t, int32(8), counter)
 	i := <-intC
@@ -159,7 +160,7 @@ func TestBuildWithError(t *testing.T) {
 	nameToNodeFunc := map[string]func() error{
 		"1":   testNodeFunc(&counter, intC, "1", 1, ""),
 		"2":   testNodeFunc(&counter, intC, "2", 2, ""),
-		"3-1": testNodeFunc(&counter, intC, "3-1", 3, "error"),
+		"3-1": testNodeFunc(&counter, intC, "3-1", 3, "3-1:error"),
 		"3-2": testNodeFunc(&counter, intC, "3-2", 4, ""),
 		"3-3": testNodeFunc(&counter, intC, "3-3", 5, ""),
 		"4-1": testNodeFunc(&counter, intC, "4-1", 6, ""),
@@ -170,7 +171,9 @@ func TestBuildWithError(t *testing.T) {
 	testNodeErrorRecorder := newTestNodeErrorRecorder()
 	run, err := build(testNodeErrorRecorder, nameToNodeInfo, nameToNodeFunc)
 	require.NoError(t, err)
-	run.Do()
+	err = run.Do()
+	require.NotNil(t, err)
+	require.Equal(t, "3-1:error", err.Error())
 
 	require.Equal(t, int32(5), counter)
 	i := <-intC
@@ -183,8 +186,6 @@ func TestBuildWithError(t *testing.T) {
 	require.True(t, i == 3 || i == 4 || i == 5)
 	i = <-intC
 	require.True(t, i == 3 || i == 4 || i == 5)
-
-	require.Equal(t, []string{"3-1:error"}, testNodeErrorRecorder.slice)
 }
 
 func testNodeFunc(counter *int32, intC chan int, nodeName string, i int, errString string) func() error {
