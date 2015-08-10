@@ -20,6 +20,7 @@ It has these top-level messages:
 	PipelineSource
 	PipelineRun
 	PipelineRunContainer
+	PipelineRunLog
 	GetPipelineRequest
 	GetPipelineResponse
 	StartPipelineRunRequest
@@ -71,6 +72,29 @@ var PipelineRunStatusType_value = map[string]int32{
 
 func (x PipelineRunStatusType) String() string {
 	return proto.EnumName(PipelineRunStatusType_name, int32(x))
+}
+
+type OutputStream int32
+
+const (
+	OutputStream_OUTPUT_STREAM_NONE   OutputStream = 0
+	OutputStream_OUTPUT_STREAM_STDOUT OutputStream = 1
+	OutputStream_OUTPUT_STREAM_STDERR OutputStream = 2
+)
+
+var OutputStream_name = map[int32]string{
+	0: "OUTPUT_STREAM_NONE",
+	1: "OUTPUT_STREAM_STDOUT",
+	2: "OUTPUT_STREAM_STDERR",
+}
+var OutputStream_value = map[string]int32{
+	"OUTPUT_STREAM_NONE":   0,
+	"OUTPUT_STREAM_STDOUT": 1,
+	"OUTPUT_STREAM_STDERR": 2,
+}
+
+func (x OutputStream) String() string {
+	return proto.EnumName(OutputStream_name, int32(x))
 }
 
 type PipelineRunStatus struct {
@@ -272,6 +296,18 @@ func (m *PipelineRunContainer) Reset()         { *m = PipelineRunContainer{} }
 func (m *PipelineRunContainer) String() string { return proto.CompactTextString(m) }
 func (*PipelineRunContainer) ProtoMessage()    {}
 
+type PipelineRunLog struct {
+	PipelineRunId string       `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
+	ContainerId   string       `protobuf:"bytes,2,opt,name=container_id" json:"container_id,omitempty"`
+	Node          string       `protobuf:"bytes,3,opt,name=node" json:"node,omitempty"`
+	OutputStream  OutputStream `protobuf:"varint,4,opt,name=output_stream,enum=pps.OutputStream" json:"output_stream,omitempty"`
+	Data          []byte       `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`
+}
+
+func (m *PipelineRunLog) Reset()         { *m = PipelineRunLog{} }
+func (m *PipelineRunLog) String() string { return proto.CompactTextString(m) }
+func (*PipelineRunLog) ProtoMessage()    {}
+
 type GetPipelineRequest struct {
 	PipelineSource *PipelineSource `protobuf:"bytes,1,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
 }
@@ -350,6 +386,7 @@ func (m *GetPipelineRunStatusResponse) GetPipelineRunStatus() *PipelineRunStatus
 
 func init() {
 	proto.RegisterEnum("pps.PipelineRunStatusType", PipelineRunStatusType_name, PipelineRunStatusType_value)
+	proto.RegisterEnum("pps.OutputStream", OutputStream_name, OutputStream_value)
 }
 
 // Client API for Api service
