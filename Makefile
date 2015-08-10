@@ -16,6 +16,10 @@ endif
 
 all: build
 
+version:
+	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm"; func main() { fmt.Println(pachyderm.Version.VersionString()) }' > /tmp/pachyderm_version.go
+	@go run /tmp/pachyderm_version.go
+
 deps:
 	go get -d -v ./...
 
@@ -129,6 +133,7 @@ start-kube:
 
 .PHONY: \
 	all \
+	version \
 	deps \
 	update-deps \
 	test-deps \
