@@ -12,6 +12,12 @@ enum PipelineRunStatusType {
   PIPELINE_RUN_STATUS_TYPE_SUCCESS = 4;
 }
 
+enum OutputStream {
+  OUTPUT_STREAM_NONE = 0;
+  OUTPUT_STREAM_STDOUT = 1;
+  OUTPUT_STREAM_STDERR = 2;
+}
+
 message PipelineRunStatus {
   string pipeline_run_id = 1;
   PipelineRunStatusType pipeline_run_status_type = 2;
@@ -78,6 +84,14 @@ message PipelineRunContainer {
   string pipeline_run_id = 1;
   string container_id = 2;
   string node = 3;
+}
+
+message PipelineRunLog {
+  string pipeline_run_id = 1;
+  string container_id = 2;
+  string node = 3;
+  OutputStream output_stream = 4;
+  bytes data = 5;
 }
 
 message GetPipelineRequest {
