@@ -8,7 +8,9 @@ import (
 	"os"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
+	"github.com/pachyderm/pachyderm/src/pfs/drive/zfs"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
@@ -19,16 +21,18 @@ import (
 
 var (
 	defaultEnv = map[string]string{
-		"PFS_NUM_SHARDS": "16",
-		"PFS_API_PORT":   "650",
+		"PFS_NUM_SHARDS":  "16",
+		"PFS_API_PORT":    "650",
+		"PFS_DRIVER_TYPE": "btrfs",
 	}
 )
 
 type appEnv struct {
-	BtrfsRoot string `env:"PFS_BTRFS_ROOT,required"`
-	NumShards int    `env:"PFS_NUM_SHARDS"`
-	APIPort   int    `env:"PFS_API_PORT"`
-	TracePort int    `env:"PFS_TRACE_PORT"`
+	DriverRoot string `env:"PFS_DRIVER_ROOT,required"`
+	DriverType string `env:"PFS_DRIVER_TYPE"`
+	NumShards  int    `env:"PFS_NUM_SHARDS"`
+	APIPort    int    `env:"PFS_API_PORT"`
+	TracePort  int    `env:"PFS_TRACE_PORT"`
 }
 
 func main() {
@@ -51,6 +55,15 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 	}
+	var driver drive.Driver
+	switch appEnv.DriverType {
+	case "btrfs":
+		driver = btrfs.NewDriver(appEnv.DriverRoot)
+	case "zfs":
+		driver = zfs.NewDriver(appEnv.DriverRoot)
+	default:
+		return fmt.Errorf("unknown value for PFS_DRIVER_TYPE: %s", appEnv.DriverType)
+	}
 	combinedAPIServer := server.NewCombinedAPIServer(
 		route.NewSharder(
 			appEnv.NumShards,
@@ -60,9 +73,7 @@ func do(appEnvObj interface{}) error {
 			grpcutil.NewDialer(),
 			address,
 		),
-		btrfs.NewDriver(
-			appEnv.BtrfsRoot,
-		),
+		driver,
 	)
 	return mainutil.GrpcDo(
 		appEnv.APIPort,
