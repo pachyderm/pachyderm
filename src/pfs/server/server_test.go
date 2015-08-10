@@ -12,9 +12,11 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"go.pedge.io/protolog/logrus"
+
 	"google.golang.org/grpc"
 
-	"github.com/pachyderm/pachyderm/src/common"
+	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
@@ -41,7 +43,7 @@ var (
 )
 
 func init() {
-	common.ForceLogColors()
+	logrus.Register()
 }
 
 func TestBtrfsFFI(t *testing.T) {
@@ -91,7 +93,7 @@ func getBtrfsRootDir(tb testing.TB) string {
 func testGetVersion(t *testing.T, apiClient pfs.ApiClient) {
 	getVersionResponse, err := pfsutil.GetVersion(apiClient)
 	require.NoError(t, err)
-	require.Equal(t, common.VersionString(), pfs.VersionString(getVersionResponse.Version))
+	require.Equal(t, pachyderm.Version, pfs.VersionString(getVersionResponse.Version))
 }
 
 func testSimple(t *testing.T, apiClient pfs.ApiClient) {

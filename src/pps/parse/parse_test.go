@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/common"
+	"go.pedge.io/protolog/logrus"
+
 	"github.com/stretchr/testify/require"
 )
 
 func init() {
-	common.ForceLogColors()
+	logrus.Register()
 }
 
 func TestBasic(t *testing.T) {

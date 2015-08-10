@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/common"
+	"go.pedge.io/protolog/logrus"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,7 +21,7 @@ var (
 )
 
 func init() {
-	common.ForceLogColors()
+	logrus.Register()
 }
 
 func TestCommandsSimple(t *testing.T) {

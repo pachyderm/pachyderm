@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/common"
 	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -70,7 +70,7 @@ func getRethinkSession() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	databaseName := strings.Replace(common.NewUUID(), "-", "", -1)
+	databaseName := strings.Replace(uuid.NewV4().String(), "-", "", -1)
 	if err := InitDBs(address, databaseName); err != nil {
 		return nil, err
 	}

@@ -7,7 +7,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/pachyderm/pachyderm/src/common"
+	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/pachyderm/pachyderm/src/pps"
@@ -48,7 +48,7 @@ func do(appEnvObj interface{}) error {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Client: %s\nServer: %s\n", common.VersionString(), pps.VersionString(getVersionResponse.Version))
+			fmt.Printf("Client: %s\nServer: %s\n", pachyderm.Version, pps.VersionString(getVersionResponse.Version))
 			return nil
 		},
 	}.ToCobraCommand()
