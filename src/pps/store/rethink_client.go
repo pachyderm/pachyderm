@@ -144,11 +144,10 @@ func (c *rethinkClient) GetPipelineRunStatusLatest(id string) (*pps.PipelineRunS
 	return &pipelineRunStatus, nil
 }
 
-func (c *rethinkClient) AddPipelineRunContainerIDs(id string, containerIDs ...string) error {
+func (c *rethinkClient) AddPipelineRunContainers(containers ...*PipelineContainer) error {
 	var pipelineContainers []gorethink.Term
-	for _, containerID := range containerIDs {
-		pipelineContainer := PipelineContainer{id, containerID}
-		data, err := marshaller.MarshalToString(&pipelineContainer)
+	for _, pipelineContainer := range containers {
+		data, err := marshaller.MarshalToString(pipelineContainer)
 		if err != nil {
 			return err
 		}

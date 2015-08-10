@@ -46,7 +46,7 @@ func testBasic(t *testing.T, client Client) {
 	require.NoError(t, err)
 	require.Equal(t, pipelineRunStatusResponse.PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS)
 
-	require.NoError(t, client.AddPipelineRunContainerIDs("id", "container"))
+	require.NoError(t, client.AddPipelineRunContainers(&PipelineContainer{"id", "container"}))
 	containerIDs, err := client.GetPipelineRunContainers("id")
 	require.NoError(t, err)
 	require.Equal(t, []*PipelineContainer{&PipelineContainer{"id", "container"}}, containerIDs)

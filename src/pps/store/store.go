@@ -8,7 +8,7 @@ type Client interface {
 	GetPipelineRun(id string) (*pps.PipelineRun, error)
 	AddPipelineRunStatus(id string, statusType pps.PipelineRunStatusType) error
 	GetPipelineRunStatusLatest(id string) (*pps.PipelineRunStatus, error)
-	AddPipelineRunContainerIDs(id string, containerIDs ...string) error
+	AddPipelineRunContainers(pipelineContainers ...*PipelineContainer) error
 	GetPipelineRunContainers(id string) ([]*PipelineContainer, error)
 }
 
