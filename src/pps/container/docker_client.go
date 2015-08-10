@@ -137,28 +137,14 @@ func (c *dockerClient) Logs(containerID string, options LogsOptions) error {
 }
 
 func (c *dockerClient) Wait(containerID string, options WaitOptions) error {
-	errC := make(chan error)
-	go func() {
-		errC <- c.client.Logs(
-			docker.LogsOptions{
-				Container:    containerID,
-				OutputStream: protolog.Writer(),
-				ErrorStream:  protolog.Writer(),
-				Stdout:       true,
-				Stderr:       true,
-				Timestamps:   true,
-			},
-		)
-	}()
 	exitCode, err := c.client.WaitContainer(containerID)
-	logsErr := <-errC
 	if err != nil {
 		return err
 	}
 	if exitCode != 0 {
 		return fmt.Errorf("container %s had exit code %d", containerID, exitCode)
 	}
-	return logsErr
+	return nil
 }
 
 func (c *dockerClient) Kill(containerID string, options KillOptions) error {
