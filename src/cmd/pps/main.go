@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
+	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"github.com/spf13/cobra"
@@ -122,6 +124,45 @@ func do(appEnvObj interface{}) error {
 		},
 	}.ToCobraCommand()
 
+	logsCmd := cobramainutil.Command{
+		Use:        "logs pipelineRunID [node]",
+		Long:       "Get the logs from a pipeline run.",
+		MinNumArgs: 1,
+		MaxNumArgs: 2,
+		Run: func(cmd *cobra.Command, args []string) error {
+			node := ""
+			if len(args) == 2 {
+				node = args[1]
+			}
+			getPipelineRunLogsResponse, err := ppsutil.GetPipelineRunLogs(
+				apiClient,
+				args[0],
+				node,
+			)
+			if err != nil {
+				return err
+			}
+			for _, pipelineRunLog := range getPipelineRunLogsResponse.PipelineRunLog {
+				name, ok := pps.OutputStream_name[int32(pipelineRunLog.OutputStream)]
+				if !ok {
+					return fmt.Errorf("unknown pps.OutputStream")
+				}
+				logInfo := &logInfo{
+					node:         pipelineRunLog.Node,
+					containerID:  pipelineRunLog.ContainerId,
+					outputStream: name,
+					time:         protoutil.TimestampToTime(pipelineRunLog.Timestamp),
+				}
+				s, err := logInfo.String()
+				if err != nil {
+					return err
+				}
+				fmt.Printf("%s %s\n", s, string(pipelineRunLog.Data))
+			}
+			return nil
+		},
+	}.ToCobraCommand()
+
 	rootCmd := &cobra.Command{
 		Use: "pps",
 		Long: `Access the PPS API.
@@ -133,6 +174,7 @@ The environment variable PPS_ADDRESS controls what server the CLI connects to, t
 	rootCmd.AddCommand(inspectCmd)
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(statusCmd)
+	rootCmd.AddCommand(logsCmd)
 	return rootCmd.Execute()
 }
 
@@ -164,4 +206,19 @@ func getPipelineArgs(args []string) (*pipelineArgs, error) {
 		branch:      "",
 		accessToken: "",
 	}, nil
+}
+
+type logInfo struct {
+	node         string
+	containerID  string
+	time         time.Time
+	outputStream string
+}
+
+func (l *logInfo) String() (string, error) {
+	data, err := json.Marshal(l)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }

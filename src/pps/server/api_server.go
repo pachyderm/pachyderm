@@ -67,3 +67,22 @@ func (a *apiServer) GetPipelineRunStatus(ctx context.Context, getRunStatusReques
 		PipelineRunStatus: pipelineRunStatus,
 	}, nil
 }
+
+func (a *apiServer) GetPipelineRunLogs(ctx context.Context, getRunLogsRequest *pps.GetPipelineRunLogsRequest) (*pps.GetPipelineRunLogsResponse, error) {
+	pipelineRunLogs, err := a.storeClient.GetPipelineRunLogs(getRunLogsRequest.PipelineRunId)
+	if err != nil {
+		return nil, err
+	}
+	filteredPipelineRunLogs := pipelineRunLogs
+	if getRunLogsRequest.Node != "" {
+		filteredPipelineRunLogs = make([]*pps.PipelineRunLog, 0)
+		for _, pipelineRunLog := range pipelineRunLogs {
+			if pipelineRunLog.Node == getRunLogsRequest.Node {
+				filteredPipelineRunLogs = append(filteredPipelineRunLogs, pipelineRunLog)
+			}
+		}
+	}
+	return &pps.GetPipelineRunLogsResponse{
+		PipelineRunLog: filteredPipelineRunLogs,
+	}, nil
+}

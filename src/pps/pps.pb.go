@@ -27,6 +27,8 @@ It has these top-level messages:
 	StartPipelineRunResponse
 	GetPipelineRunStatusRequest
 	GetPipelineRunStatusResponse
+	GetPipelineRunLogsRequest
+	GetPipelineRunLogsResponse
 */
 package pps
 
@@ -392,6 +394,30 @@ func (m *GetPipelineRunStatusResponse) GetPipelineRunStatus() *PipelineRunStatus
 	return nil
 }
 
+type GetPipelineRunLogsRequest struct {
+	PipelineRunId string `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
+	Node          string `protobuf:"bytes,2,opt,name=node" json:"node,omitempty"`
+}
+
+func (m *GetPipelineRunLogsRequest) Reset()         { *m = GetPipelineRunLogsRequest{} }
+func (m *GetPipelineRunLogsRequest) String() string { return proto.CompactTextString(m) }
+func (*GetPipelineRunLogsRequest) ProtoMessage()    {}
+
+type GetPipelineRunLogsResponse struct {
+	PipelineRunLog []*PipelineRunLog `protobuf:"bytes,1,rep,name=pipeline_run_log" json:"pipeline_run_log,omitempty"`
+}
+
+func (m *GetPipelineRunLogsResponse) Reset()         { *m = GetPipelineRunLogsResponse{} }
+func (m *GetPipelineRunLogsResponse) String() string { return proto.CompactTextString(m) }
+func (*GetPipelineRunLogsResponse) ProtoMessage()    {}
+
+func (m *GetPipelineRunLogsResponse) GetPipelineRunLog() []*PipelineRunLog {
+	if m != nil {
+		return m.PipelineRunLog
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterEnum("pps.PipelineRunStatusType", PipelineRunStatusType_name, PipelineRunStatusType_value)
 	proto.RegisterEnum("pps.OutputStream", OutputStream_name, OutputStream_value)
@@ -403,6 +429,7 @@ type ApiClient interface {
 	GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*GetPipelineResponse, error)
 	StartPipelineRun(ctx context.Context, in *StartPipelineRunRequest, opts ...grpc.CallOption) (*StartPipelineRunResponse, error)
 	GetPipelineRunStatus(ctx context.Context, in *GetPipelineRunStatusRequest, opts ...grpc.CallOption) (*GetPipelineRunStatusResponse, error)
+	GetPipelineRunLogs(ctx context.Context, in *GetPipelineRunLogsRequest, opts ...grpc.CallOption) (*GetPipelineRunLogsResponse, error)
 }
 
 type apiClient struct {
@@ -440,12 +467,22 @@ func (c *apiClient) GetPipelineRunStatus(ctx context.Context, in *GetPipelineRun
 	return out, nil
 }
 
+func (c *apiClient) GetPipelineRunLogs(ctx context.Context, in *GetPipelineRunLogsRequest, opts ...grpc.CallOption) (*GetPipelineRunLogsResponse, error) {
+	out := new(GetPipelineRunLogsResponse)
+	err := grpc.Invoke(ctx, "/pps.Api/GetPipelineRunLogs", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for Api service
 
 type ApiServer interface {
 	GetPipeline(context.Context, *GetPipelineRequest) (*GetPipelineResponse, error)
 	StartPipelineRun(context.Context, *StartPipelineRunRequest) (*StartPipelineRunResponse, error)
 	GetPipelineRunStatus(context.Context, *GetPipelineRunStatusRequest) (*GetPipelineRunStatusResponse, error)
+	GetPipelineRunLogs(context.Context, *GetPipelineRunLogsRequest) (*GetPipelineRunLogsResponse, error)
 }
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
@@ -488,6 +525,18 @@ func _Api_GetPipelineRunStatus_Handler(srv interface{}, ctx context.Context, cod
 	return out, nil
 }
 
+func _Api_GetPipelineRunLogs_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(GetPipelineRunLogsRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).GetPipelineRunLogs(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 var _Api_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pps.Api",
 	HandlerType: (*ApiServer)(nil),
@@ -503,6 +552,10 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPipelineRunStatus",
 			Handler:    _Api_GetPipelineRunStatus_Handler,
+		},
+		{
+			MethodName: "GetPipelineRunLogs",
+			Handler:    _Api_GetPipelineRunLogs_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},
