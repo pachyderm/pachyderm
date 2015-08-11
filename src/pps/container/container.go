@@ -3,11 +3,7 @@ Package container provides functionality to interact with containers.
 */
 package container
 
-import (
-	"io"
-
-	"github.com/pachyderm/pachyderm/src/pps"
-)
+import "io"
 
 type BuildOptions struct {
 	Dockerfile   string
@@ -19,8 +15,7 @@ type PullOptions struct {
 }
 
 type CreateOptions struct {
-	Input         *pps.Input
-	Output        *pps.Output
+	Binds         []string
 	HasCommand    bool
 	Shell         string
 	NumContainers int

@@ -195,22 +195,7 @@ func getDockerConfig(imageName string, options CreateOptions) (*docker.Config, e
 }
 
 func getDockerHostConfig(options CreateOptions) (*docker.HostConfig, error) {
-	hostConfig := &docker.HostConfig{}
-	if options.Input != nil {
-		if hostConfig.Binds == nil {
-			hostConfig.Binds = make([]string, 0)
-		}
-		for key, value := range options.Input.Host {
-			hostConfig.Binds = append(hostConfig.Binds, fmt.Sprintf("%s:%s:ro", key, value))
-		}
-	}
-	if options.Output != nil {
-		if hostConfig.Binds == nil {
-			hostConfig.Binds = make([]string, 0)
-		}
-		for key, value := range options.Output.Host {
-			hostConfig.Binds = append(hostConfig.Binds, fmt.Sprintf("%s:%s:rw", key, value))
-		}
-	}
-	return hostConfig, nil
+	return &docker.HostConfig{
+		Binds: options.Binds,
+	}, nil
 }

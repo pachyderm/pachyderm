@@ -134,8 +134,7 @@ func (r *runner) getNodeFunc(
 		containers, err := r.containerClient.Create(
 			dockerService.Image,
 			container.CreateOptions{
-				Input:         node.Input,
-				Output:        node.Output,
+				Binds:         append(getInputBinds(node.Input), getOutputBinds(node.Output)...),
 				HasCommand:    len(node.Run) > 0,
 				NumContainers: numContainers,
 			},
