@@ -9,12 +9,14 @@ simple() {
   run pps version
   id="$(run pps start github.com/pachyderm/pachyderm src/pps/server/testdata/basic)"
   echo "${id}"
-  i=0
-  while [ $i -lt 10 ]; do
-    run pps status "${id}"
+  status="$(run pps status "${id}")"
+  echo "${status}"
+  while ! echo "${status}" | grep -E 'SUCCESS|ERROR' > /dev/null; do
     sleep 1
-    i=$(expr ${i} + 1)
+    status="$(run pps status "${id}")"
+    echo "${status}"
   done
+  run pps logs "${id}"
 }
 
 do_pps "${0}" simple
