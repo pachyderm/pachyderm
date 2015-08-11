@@ -64,3 +64,17 @@ func GetPipelineRunStatus(
 		},
 	)
 }
+
+func GetPipelineRunLogs(
+	apiClient pps.ApiClient,
+	pipelineRunID string,
+	node string,
+) (*pps.GetPipelineRunLogsResponse, error) {
+	return apiClient.GetPipelineRunLogs(
+		context.Background(),
+		&pps.GetPipelineRunLogsRequest{
+			PipelineRunId: pipelineRunID,
+			Node:          node,
+		},
+	)
+}
