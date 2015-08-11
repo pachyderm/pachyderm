@@ -297,16 +297,24 @@ func (m *PipelineRunContainer) String() string { return proto.CompactTextString(
 func (*PipelineRunContainer) ProtoMessage()    {}
 
 type PipelineRunLog struct {
-	PipelineRunId string       `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
-	ContainerId   string       `protobuf:"bytes,2,opt,name=container_id" json:"container_id,omitempty"`
-	Node          string       `protobuf:"bytes,3,opt,name=node" json:"node,omitempty"`
-	OutputStream  OutputStream `protobuf:"varint,4,opt,name=output_stream,enum=pps.OutputStream" json:"output_stream,omitempty"`
-	Data          []byte       `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`
+	PipelineRunId string                     `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
+	ContainerId   string                     `protobuf:"bytes,2,opt,name=container_id" json:"container_id,omitempty"`
+	Node          string                     `protobuf:"bytes,3,opt,name=node" json:"node,omitempty"`
+	Timestamp     *google_protobuf.Timestamp `protobuf:"bytes,4,opt,name=timestamp" json:"timestamp,omitempty"`
+	OutputStream  OutputStream               `protobuf:"varint,5,opt,name=output_stream,enum=pps.OutputStream" json:"output_stream,omitempty"`
+	Data          []byte                     `protobuf:"bytes,6,opt,name=data,proto3" json:"data,omitempty"`
 }
 
 func (m *PipelineRunLog) Reset()         { *m = PipelineRunLog{} }
 func (m *PipelineRunLog) String() string { return proto.CompactTextString(m) }
 func (*PipelineRunLog) ProtoMessage()    {}
+
+func (m *PipelineRunLog) GetTimestamp() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.Timestamp
+	}
+	return nil
+}
 
 type GetPipelineRequest struct {
 	PipelineSource *PipelineSource `protobuf:"bytes,1,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
