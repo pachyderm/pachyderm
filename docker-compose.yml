@@ -12,6 +12,7 @@ test:
   build: .
   privileged: true
   volumes:
+    - /tmp/pachyderm-test:/tmp/pachyderm-test
     - /var/run/docker.sock:/var/run/docker.sock
   volumes_from:
     - btrfs

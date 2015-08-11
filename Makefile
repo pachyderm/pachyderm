@@ -51,6 +51,7 @@ docker-build-btrfs:
 docker-build-test: docker-build-btrfs
 	$(NOCACHE_CMD)
 	docker-compose build test
+	mkdir -p /tmp/pachyderm-test
 
 docker-build-compile:
 	$(NOCACHE_CMD)
@@ -121,8 +122,11 @@ docker-clean-launch: docker-clean-test
 test: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test go test -test.short $(TESTFLAGS) $(TESTPKGS)
 
-test-long: pretest docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test go test $(TESTFLAGS) $(TESTPKGS)
+test-pfs-extra: pretest docker-clean-test docker-build-test
+	docker-compose run --rm $(DOCKER_OPTS) test go test $(TESTFLAGS) ./src/pfs/server
+
+test-pps-extra: pretest docker-clean-test docker-build-test
+	docker-compose run --rm $(DOCKER_OPTS) test go test $(TESTFLAGS) ./src/pps/server
 
 clean: docker-clean-launch
 	go clean ./...
@@ -164,6 +168,7 @@ start-kube:
 	docker-clean-test \
 	docker-clean-launch \
 	test \
-	test-long \
+	test-pfs-extra \
+	test-pps-extra \
 	clean \
 	start-kube

@@ -1,18 +1,22 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"go.pedge.io/protolog"
 	"go.pedge.io/protolog/logrus"
 
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"github.com/pachyderm/pachyderm/src/pps/store"
+	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
@@ -26,12 +30,15 @@ func init() {
 }
 
 func TestBasic(t *testing.T) {
-	t.Skip()
+	if testing.Short() {
+		t.Skip()
+	}
+	t.Parallel()
 	runTest(t, testBasic)
 }
 
 func testBasic(t *testing.T, apiClient pps.ApiClient) {
-	_ = os.RemoveAll("/tmp/pps-server-test")
+	_ = os.RemoveAll("/tmp/pachyderm-test")
 	startPipelineRunResponse, err := ppsutil.StartPipelineRunGithub(
 		apiClient,
 		"src/pps/server/testdata/basic",
@@ -45,103 +52,103 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 	pipelineRunStatus, err := getFinalPipelineRunStatus(apiClient, pipelineRunID)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS, pipelineRunStatus.PipelineRunStatusType)
-	matches, err := filepath.Glob("/tmp/pps-server-test/1-out/*")
+	matches, err := filepath.Glob("/tmp/pachyderm-test/1-out/*")
 	require.NoError(t, err)
 	require.Equal(
 		t,
 		[]string{
-			"/tmp/pps-server-test/1-out/1.txt",
-			"/tmp/pps-server-test/1-out/10.txt",
-			"/tmp/pps-server-test/1-out/2.txt",
-			"/tmp/pps-server-test/1-out/20.txt",
-			"/tmp/pps-server-test/1-out/3.txt",
-			"/tmp/pps-server-test/1-out/30.txt",
-			"/tmp/pps-server-test/1-out/4.txt",
-			"/tmp/pps-server-test/1-out/40.txt",
-			"/tmp/pps-server-test/1-out/5.txt",
-			"/tmp/pps-server-test/1-out/50.txt",
+			"/tmp/pachyderm-test/1-out/1.txt",
+			"/tmp/pachyderm-test/1-out/10.txt",
+			"/tmp/pachyderm-test/1-out/2.txt",
+			"/tmp/pachyderm-test/1-out/20.txt",
+			"/tmp/pachyderm-test/1-out/3.txt",
+			"/tmp/pachyderm-test/1-out/30.txt",
+			"/tmp/pachyderm-test/1-out/4.txt",
+			"/tmp/pachyderm-test/1-out/40.txt",
+			"/tmp/pachyderm-test/1-out/5.txt",
+			"/tmp/pachyderm-test/1-out/50.txt",
 		},
 		matches,
 	)
-	matches, err = filepath.Glob("/tmp/pps-server-test/2-out/*")
+	matches, err = filepath.Glob("/tmp/pachyderm-test/2-out/*")
 	require.NoError(t, err)
 	require.Equal(
 		t,
 		[]string{
-			"/tmp/pps-server-test/2-out/1.txt.copy",
-			"/tmp/pps-server-test/2-out/10.txt.copy",
-			"/tmp/pps-server-test/2-out/2.txt.copy",
-			"/tmp/pps-server-test/2-out/20.txt.copy",
-			"/tmp/pps-server-test/2-out/3.txt.copy",
-			"/tmp/pps-server-test/2-out/30.txt.copy",
-			"/tmp/pps-server-test/2-out/4.txt.copy",
-			"/tmp/pps-server-test/2-out/40.txt.copy",
-			"/tmp/pps-server-test/2-out/5.txt.copy",
-			"/tmp/pps-server-test/2-out/50.txt.copy",
+			"/tmp/pachyderm-test/2-out/1.txt.copy",
+			"/tmp/pachyderm-test/2-out/10.txt.copy",
+			"/tmp/pachyderm-test/2-out/2.txt.copy",
+			"/tmp/pachyderm-test/2-out/20.txt.copy",
+			"/tmp/pachyderm-test/2-out/3.txt.copy",
+			"/tmp/pachyderm-test/2-out/30.txt.copy",
+			"/tmp/pachyderm-test/2-out/4.txt.copy",
+			"/tmp/pachyderm-test/2-out/40.txt.copy",
+			"/tmp/pachyderm-test/2-out/5.txt.copy",
+			"/tmp/pachyderm-test/2-out/50.txt.copy",
 		},
 		matches,
 	)
-	matches, err = filepath.Glob("/tmp/pps-server-test/3-out/*")
+	matches, err = filepath.Glob("/tmp/pachyderm-test/3-out/*")
 	require.NoError(t, err)
 	require.Equal(
 		t,
 		[]string{
-			"/tmp/pps-server-test/3-out/1.txt.copy3",
-			"/tmp/pps-server-test/3-out/10.txt.copy3",
-			"/tmp/pps-server-test/3-out/2.txt.copy3",
-			"/tmp/pps-server-test/3-out/20.txt.copy3",
-			"/tmp/pps-server-test/3-out/3.txt.copy3",
-			"/tmp/pps-server-test/3-out/30.txt.copy3",
-			"/tmp/pps-server-test/3-out/4.txt.copy3",
-			"/tmp/pps-server-test/3-out/40.txt.copy3",
-			"/tmp/pps-server-test/3-out/5.txt.copy3",
-			"/tmp/pps-server-test/3-out/50.txt.copy3",
+			"/tmp/pachyderm-test/3-out/1.txt.copy3",
+			"/tmp/pachyderm-test/3-out/10.txt.copy3",
+			"/tmp/pachyderm-test/3-out/2.txt.copy3",
+			"/tmp/pachyderm-test/3-out/20.txt.copy3",
+			"/tmp/pachyderm-test/3-out/3.txt.copy3",
+			"/tmp/pachyderm-test/3-out/30.txt.copy3",
+			"/tmp/pachyderm-test/3-out/4.txt.copy3",
+			"/tmp/pachyderm-test/3-out/40.txt.copy3",
+			"/tmp/pachyderm-test/3-out/5.txt.copy3",
+			"/tmp/pachyderm-test/3-out/50.txt.copy3",
 		},
 		matches,
 	)
-	matches, err = filepath.Glob("/tmp/pps-server-test/4-out/*")
+	matches, err = filepath.Glob("/tmp/pachyderm-test/4-out/*")
 	require.NoError(t, err)
 	require.Equal(
 		t,
 		[]string{
-			"/tmp/pps-server-test/4-out/1.txt.copy4",
-			"/tmp/pps-server-test/4-out/10.txt.copy4",
-			"/tmp/pps-server-test/4-out/2.txt.copy4",
-			"/tmp/pps-server-test/4-out/20.txt.copy4",
-			"/tmp/pps-server-test/4-out/3.txt.copy4",
-			"/tmp/pps-server-test/4-out/30.txt.copy4",
-			"/tmp/pps-server-test/4-out/4.txt.copy4",
-			"/tmp/pps-server-test/4-out/40.txt.copy4",
-			"/tmp/pps-server-test/4-out/5.txt.copy4",
-			"/tmp/pps-server-test/4-out/50.txt.copy4",
+			"/tmp/pachyderm-test/4-out/1.txt.copy4",
+			"/tmp/pachyderm-test/4-out/10.txt.copy4",
+			"/tmp/pachyderm-test/4-out/2.txt.copy4",
+			"/tmp/pachyderm-test/4-out/20.txt.copy4",
+			"/tmp/pachyderm-test/4-out/3.txt.copy4",
+			"/tmp/pachyderm-test/4-out/30.txt.copy4",
+			"/tmp/pachyderm-test/4-out/4.txt.copy4",
+			"/tmp/pachyderm-test/4-out/40.txt.copy4",
+			"/tmp/pachyderm-test/4-out/5.txt.copy4",
+			"/tmp/pachyderm-test/4-out/50.txt.copy4",
 		},
 		matches,
 	)
-	matches, err = filepath.Glob("/tmp/pps-server-test/5-out/*")
+	matches, err = filepath.Glob("/tmp/pachyderm-test/5-out/*")
 	require.NoError(t, err)
 	require.Equal(
 		t,
 		[]string{
-			"/tmp/pps-server-test/5-out/1.txt.copy3",
-			"/tmp/pps-server-test/5-out/1.txt.copy4",
-			"/tmp/pps-server-test/5-out/10.txt.copy3",
-			"/tmp/pps-server-test/5-out/10.txt.copy4",
-			"/tmp/pps-server-test/5-out/2.txt.copy3",
-			"/tmp/pps-server-test/5-out/2.txt.copy4",
-			"/tmp/pps-server-test/5-out/20.txt.copy3",
-			"/tmp/pps-server-test/5-out/20.txt.copy4",
-			"/tmp/pps-server-test/5-out/3.txt.copy3",
-			"/tmp/pps-server-test/5-out/3.txt.copy4",
-			"/tmp/pps-server-test/5-out/30.txt.copy3",
-			"/tmp/pps-server-test/5-out/30.txt.copy4",
-			"/tmp/pps-server-test/5-out/4.txt.copy3",
-			"/tmp/pps-server-test/5-out/4.txt.copy4",
-			"/tmp/pps-server-test/5-out/40.txt.copy3",
-			"/tmp/pps-server-test/5-out/40.txt.copy4",
-			"/tmp/pps-server-test/5-out/5.txt.copy3",
-			"/tmp/pps-server-test/5-out/5.txt.copy4",
-			"/tmp/pps-server-test/5-out/50.txt.copy3",
-			"/tmp/pps-server-test/5-out/50.txt.copy4",
+			"/tmp/pachyderm-test/5-out/1.txt.copy3",
+			"/tmp/pachyderm-test/5-out/1.txt.copy4",
+			"/tmp/pachyderm-test/5-out/10.txt.copy3",
+			"/tmp/pachyderm-test/5-out/10.txt.copy4",
+			"/tmp/pachyderm-test/5-out/2.txt.copy3",
+			"/tmp/pachyderm-test/5-out/2.txt.copy4",
+			"/tmp/pachyderm-test/5-out/20.txt.copy3",
+			"/tmp/pachyderm-test/5-out/20.txt.copy4",
+			"/tmp/pachyderm-test/5-out/3.txt.copy3",
+			"/tmp/pachyderm-test/5-out/3.txt.copy4",
+			"/tmp/pachyderm-test/5-out/30.txt.copy3",
+			"/tmp/pachyderm-test/5-out/30.txt.copy4",
+			"/tmp/pachyderm-test/5-out/4.txt.copy3",
+			"/tmp/pachyderm-test/5-out/4.txt.copy4",
+			"/tmp/pachyderm-test/5-out/40.txt.copy3",
+			"/tmp/pachyderm-test/5-out/40.txt.copy4",
+			"/tmp/pachyderm-test/5-out/5.txt.copy3",
+			"/tmp/pachyderm-test/5-out/5.txt.copy4",
+			"/tmp/pachyderm-test/5-out/50.txt.copy3",
+			"/tmp/pachyderm-test/5-out/50.txt.copy4",
 		},
 		matches,
 	)
@@ -150,7 +157,7 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 func getFinalPipelineRunStatus(apiClient pps.ApiClient, pipelineRunID string) (*pps.PipelineRunStatus, error) {
 	// TODO(pedge): not good
 	ticker := time.NewTicker(time.Second)
-	for i := 0; i < 15; i++ {
+	for i := 0; i < 60; i++ {
 		<-ticker.C
 		getPipelineRunStatusResponse, err := ppsutil.GetPipelineRunStatus(
 			apiClient,
@@ -159,7 +166,7 @@ func getFinalPipelineRunStatus(apiClient pps.ApiClient, pipelineRunID string) (*
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(getPipelineRunStatusResponse.PipelineRunStatus)
+		protolog.Printf("status at tick %d: %v\n", i, getPipelineRunStatusResponse.PipelineRunStatus)
 		pipelineRunStatus := getPipelineRunStatusResponse.PipelineRunStatus
 		switch pipelineRunStatus.PipelineRunStatusType {
 		case pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR:
@@ -175,7 +182,8 @@ func runTest(
 	t *testing.T,
 	f func(t *testing.T, apiClient pps.ApiClient),
 ) {
-	storeClient := store.NewInMemoryClient()
+	storeClient, err := getRethinkClient()
+	require.NoError(t, err)
 	grpctest.Run(
 		t,
 		testNumServers,
@@ -190,11 +198,6 @@ func runTest(
 				clientConn = c
 				break
 			}
-			for _, c := range clientConns {
-				if c != clientConn {
-					_ = c.Close()
-				}
-			}
 			f(
 				t,
 				pps.NewApiClient(
@@ -203,4 +206,24 @@ func runTest(
 			)
 		},
 	)
+}
+
+func getRethinkClient() (store.Client, error) {
+	address, err := getRethinkAddress()
+	if err != nil {
+		return nil, err
+	}
+	databaseName := strings.Replace(uuid.NewV4().String(), "-", "", -1)
+	if err := store.InitDBs(address, databaseName); err != nil {
+		return nil, err
+	}
+	return store.NewRethinkClient(address, databaseName)
+}
+
+func getRethinkAddress() (string, error) {
+	rethinkAddr := os.Getenv("RETHINK_PORT_28015_TCP_ADDR")
+	if rethinkAddr == "" {
+		return "", errors.New("RETHINK_PORT_28015_TCP_ADDR not set")
+	}
+	return fmt.Sprintf("%s:28015", rethinkAddr), nil
 }
