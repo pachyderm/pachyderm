@@ -28,7 +28,7 @@ RUN \
   curl -sSL https://get.docker.com/builds/Linux/x86_64/docker-1.7.1 > /bin/docker && \
   chmod +x /bin/docker
 RUN \
-  curl -sSL https://github.com/docker/compose/releases/download/1.4.0/docker-compose-Linux-x86_64 > /bin/docker-compose && \
+  curl -sSL https://github.com/docker/compose/releases/download/1.4.0rc3/docker-compose-Linux-x86_64 > /bin/docker-compose && \
   chmod +x /bin/docker-compose
 ADD etc/git2go/install.sh /go/src/github.com/pachyderm/pachyderm/etc/git2go/
 RUN sh -x etc/git2go/install.sh

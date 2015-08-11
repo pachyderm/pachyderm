@@ -119,14 +119,14 @@ func (r *runner) getNodeFunc(
 		if err := r.containerClient.Pull(
 			dockerService.Image,
 			container.PullOptions{
-				OutputStream: newPipelineRunLogWriter(
-					pipelineRunID,
-					"",
-					name,
-					pps.OutputStream_OUTPUT_STREAM_NONE,
-					timing.NewSystemTimer(),
-					r.storeClient,
-				),
+			//OutputStream: newPipelineRunLogWriter(
+			//pipelineRunID,
+			//"",
+			//name,
+			//pps.OutputStream_OUTPUT_STREAM_NONE,
+			//timing.NewSystemTimer(),
+			//r.storeClient,
+			//),
 			},
 		); err != nil {
 			return err
