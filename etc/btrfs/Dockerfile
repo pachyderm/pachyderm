@@ -5,7 +5,7 @@ RUN \
   apt-get update -yq && \
   apt-get install -yq --no-install-recommends \
     btrfs-tools
+RUN mkdir /pfs
 VOLUME ["/pfs"]
-RUN mkdir -p /pfs/btrfs
 ADD btrfs-setup.sh /
 ENTRYPOINT ["sh", "/btrfs-setup.sh"]
