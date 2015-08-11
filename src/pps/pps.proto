@@ -90,8 +90,9 @@ message PipelineRunLog {
   string pipeline_run_id = 1;
   string container_id = 2;
   string node = 3;
-  OutputStream output_stream = 4;
-  bytes data = 5;
+  google.protobuf.Timestamp timestamp = 4;
+  OutputStream output_stream = 5;
+  bytes data = 6;
 }
 
 message GetPipelineRequest {
