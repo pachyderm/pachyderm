@@ -56,6 +56,25 @@ func (c *dockerClient) Pull(imageName string, options PullOptions) error {
 	if tag == "" {
 		tag = "latest"
 	}
+	if options.NoPullIfLocal {
+		images, err := c.client.ListImages(
+			docker.ListImagesOptions{
+				All:     true,
+				Digests: false,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		repositoryTag := fmt.Sprintf("%s:%s", repository, tag)
+		for _, image := range images {
+			for _, foundRepositoryTag := range image.RepoTags {
+				if repositoryTag == foundRepositoryTag {
+					return nil
+				}
+			}
+		}
+	}
 	return c.client.PullImage(
 		docker.PullImageOptions{
 			Repository:   repository,
