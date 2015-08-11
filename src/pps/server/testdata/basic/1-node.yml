@@ -4,7 +4,7 @@ pps:
 service: ubuntu
 output:
   host:
-    /tmp/pps-server-test/1-out: /out
+    /tmp/pachyderm-test/1-out: /out
 run:
   - for i in 1 2 3 4 5; do echo $i > /out/$i.txt; done
   - for i in 10 20 30 40 50; do echo $i > /out/$i.txt; done

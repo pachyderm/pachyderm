@@ -7,6 +7,7 @@ import (
 	"go.pedge.io/protolog"
 
 	"github.com/pachyderm/pachyderm/src/pkg/graph"
+	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
 	"github.com/pachyderm/pachyderm/src/pps/source"
@@ -36,7 +37,7 @@ func newRunner(
 }
 
 func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
-	_, pipeline, err := r.sourcer.GetDirPathAndPipeline(pipelineSource)
+	dirPath, pipeline, err := r.sourcer.GetDirPathAndPipeline(pipelineSource)
 	if err != nil {
 		return "", err
 	}
@@ -67,6 +68,7 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 			name,
 			node,
 			nameToDockerService,
+			dirPath,
 			1,
 		)
 		if err != nil {
@@ -99,6 +101,7 @@ func (r *runner) getNodeFunc(
 	name string,
 	node *pps.Node,
 	nameToDockerService map[string]*pps.DockerService,
+	dirPath string,
 	numContainers int,
 ) (func() error, error) {
 	dockerService, ok := nameToDockerService[node.Service]
@@ -109,7 +112,19 @@ func (r *runner) getNodeFunc(
 		return nil, fmt.Errorf("build/dockerfile not supported yet")
 	}
 	return func() (retErr error) {
-		if err := r.containerClient.Pull(dockerService.Image, container.PullOptions{}); err != nil {
+		if err := r.containerClient.Pull(
+			dockerService.Image,
+			container.PullOptions{
+				OutputStream: newPipelineRunLogWriter(
+					pipelineRunID,
+					"",
+					name,
+					pps.OutputStream_OUTPUT_STREAM_NONE,
+					timing.NewSystemTimer(),
+					r.storeClient,
+				),
+			},
+		); err != nil {
 			return err
 		}
 		containers, err := r.containerClient.Create(
@@ -140,11 +155,44 @@ func (r *runner) getNodeFunc(
 				return err
 			}
 		}
+		errC := make(chan error, len(containers))
+		for _, containerID := range containers {
+			containerID := containerID
+			go func() {
+				errC <- r.containerClient.Logs(
+					containerID,
+					container.LogsOptions{
+						Stdout: newPipelineRunLogWriter(
+							pipelineRunID,
+							containerID,
+							name,
+							pps.OutputStream_OUTPUT_STREAM_STDOUT,
+							timing.NewSystemTimer(),
+							r.storeClient,
+						),
+						Stderr: newPipelineRunLogWriter(
+							pipelineRunID,
+							containerID,
+							name,
+							pps.OutputStream_OUTPUT_STREAM_STDOUT,
+							timing.NewSystemTimer(),
+							r.storeClient,
+						),
+					},
+				)
+			}()
+		}
 		for _, containerID := range containers {
 			if err := r.containerClient.Wait(containerID, container.WaitOptions{}); err != nil {
 				return err
 			}
 		}
-		return nil
+		err = nil
+		for _ = range containers {
+			if logsErr := <-errC; logsErr != nil && err == nil {
+				err = logsErr
+			}
+		}
+		return err
 	}, nil
 }
