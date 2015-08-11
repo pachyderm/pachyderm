@@ -178,7 +178,7 @@ func (r *runner) getNodeFunc(
 							pipelineRunID,
 							containerID,
 							name,
-							pps.OutputStream_OUTPUT_STREAM_STDOUT,
+							pps.OutputStream_OUTPUT_STREAM_STDERR,
 							timing.NewSystemTimer(),
 							r.storeClient,
 						),
