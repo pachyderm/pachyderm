@@ -22,6 +22,22 @@ func TimestampToTime(timestamp *google_protobuf.Timestamp) time.Time {
 	).UTC()
 }
 
+func TimestampLess(i *google_protobuf.Timestamp, j *google_protobuf.Timestamp) bool {
+	if i == nil {
+		return true
+	}
+	if j == nil {
+		return false
+	}
+	if i.Seconds < j.Seconds {
+		return true
+	}
+	if i.Seconds > j.Seconds {
+		return false
+	}
+	return i.Nanos < j.Nanos
+}
+
 type StreamingBytesServer interface {
 	Send(bytesValue *google_protobuf.BytesValue) error
 }
