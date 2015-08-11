@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# this script is expected to be run as root
+# ${1}: user to install for
+
 GO_VERSION=1.5rc1
 DOCKER_COMPOSE_VERSION=1.4.0rc3
 KUBERNETES_VERSION=1.0.1
