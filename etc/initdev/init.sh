@@ -20,7 +20,7 @@ apt-get install -yq --no-install-recommends \
 curl -sSL https://storage.googleapis.com/golang/go1.5beta3.linux-amd64.tar.gz | tar -C /usr/local -xz
 echo 'export PATH=${PATH}:/usr/local/go/bin' >> '/etc/profile'
 echo 'export GOROOT=/usr/local/go' >> '/etc/profile'
-# makes ~/go and sets GOPATH to ~/GO
+# makes ~/go and sets GOPATH to ~/go
 su - ${1} -c "echo mkdir -p /home/${1}/go >> /home/${1}/.bash_aliases"
 su - ${1} -c "echo export GOPATH=/home/${1}/go >> /home/${1}/.bash_aliases"
 

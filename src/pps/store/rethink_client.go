@@ -12,6 +12,7 @@ const (
 	runTable       = "pipeline_runs"
 	statusTable    = "pipeline_run_statuses"
 	containerTable = "pipeline_containers"
+	logTable       = "pipeline_logs"
 )
 
 var (
@@ -45,11 +46,18 @@ func InitDBs(address string, databaseName string) error {
 	).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).TableCreate(logTable).RunWrite(session); err != nil {
+		return err
+	}
 	if _, err := gorethink.DB(databaseName).Table(statusTable).
 		IndexCreate("pipeline_run_id").RunWrite(session); err != nil {
 		return err
 	}
 	if _, err := gorethink.DB(databaseName).Table(containerTable).
+		IndexCreate("pipeline_run_id").RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).Table(logTable).
 		IndexCreate("pipeline_run_id").RunWrite(session); err != nil {
 		return err
 	}
@@ -63,6 +71,7 @@ type rethinkClient struct {
 	runs         gorethink.Term
 	statuses     gorethink.Term
 	containers   gorethink.Term
+	logs         gorethink.Term
 }
 
 func newRethinkClient(address string, databaseName string) (*rethinkClient, error) {
@@ -77,6 +86,7 @@ func newRethinkClient(address string, databaseName string) (*rethinkClient, erro
 		gorethink.DB(databaseName).Table(runTable),
 		gorethink.DB(databaseName).Table(statusTable),
 		gorethink.DB(databaseName).Table(containerTable),
+		gorethink.DB(databaseName).Table(logTable),
 	}, nil
 }
 
@@ -182,6 +192,48 @@ func (c *rethinkClient) GetPipelineRunContainers(id string) ([]*pps.PipelineRunC
 			return nil, err
 		}
 		result = append(result, &pipelineContainer)
+	}
+	return result, nil
+}
+
+func (c *rethinkClient) AddPipelineRunLogs(logs ...*pps.PipelineRunLog) error {
+	var pipelineLogs []gorethink.Term
+	for _, pipelineLog := range logs {
+		data, err := marshaller.MarshalToString(pipelineLog)
+		if err != nil {
+			return err
+		}
+		pipelineLogs = append(pipelineLogs, gorethink.JSON(data))
+	}
+	if _, err := c.logs.
+		Insert(pipelineLogs).
+		RunWrite(c.session); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *rethinkClient) GetPipelineRunLogs(id string) ([]*pps.PipelineRunLog, error) {
+	cursor, err := c.logs.
+		GetAllByIndex("pipeline_run_id", id).
+		Map(func(row gorethink.Term) interface{} {
+		return row.ToJSON()
+	}).
+		Run(c.session)
+	if err != nil {
+		return nil, err
+	}
+	var pipelineLogs []string
+	if err := cursor.All(&pipelineLogs); err != nil {
+		return nil, err
+	}
+	var result []*pps.PipelineRunLog
+	for _, data := range pipelineLogs {
+		var pipelineLog pps.PipelineRunLog
+		if err := jsonpb.UnmarshalString(data, &pipelineLog); err != nil {
+			return nil, err
+		}
+		result = append(result, &pipelineLog)
 	}
 	return result, nil
 }

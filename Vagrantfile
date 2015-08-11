@@ -19,7 +19,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # note that the above script should not be used if your vagrant box is somehow insecure
   # see https://github.com/peter-edge/dotfiles/tree/master/bash_aliases_docker up until
   # the 'alias docker' command for how to set this all up with a mac (after 'brew install docker')
-  config.vm.network "private_network", ip: "192.168.10.10"
+  config.vm.network "private_network", ip: "192.168.10.11"
   # allows volumes from host machine if calling docker from host machine
   config.vm.synced_folder ENV['HOME'], ENV['HOME']
 
