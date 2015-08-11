@@ -7,6 +7,28 @@ import (
 	"github.com/pachyderm/pachyderm/src/pps"
 )
 
+func getInputBinds(input *pps.Input) []string {
+	if input.Host != nil {
+		return getBinds(input.Host)
+	}
+	return []string{}
+}
+
+func getOutputBinds(output *pps.Output) []string {
+	if output.Host != nil {
+		return getBinds(output.Host)
+	}
+	return []string{}
+}
+
+func getBinds(host map[string]string) []string {
+	var binds []string
+	for key, value := range host {
+		binds = append(binds, fmt.Sprintf("%s:%s:ro", key, value))
+	}
+	return binds
+}
+
 func getNameToNodeInfo(nodes map[string]*pps.Node) (map[string]*graph.NodeInfo, error) {
 	nodeToInputs := getNodeNameToInputStrings(nodes)
 	outputToNodes := getOutputStringToNodeNames(nodes)
