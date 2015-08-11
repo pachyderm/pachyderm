@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"go.pedge.io/protolog"
-
 	"github.com/fsouza/go-dockerclient"
 )
 
@@ -47,7 +45,7 @@ func (c *dockerClient) Build(imageName string, contextDir string, options BuildO
 			Name:           imageName,
 			Dockerfile:     options.Dockerfile,
 			SuppressOutput: true,
-			OutputStream:   protolog.Writer(),
+			OutputStream:   options.OutputStream,
 			ContextDir:     contextDir,
 		},
 	)
@@ -62,7 +60,7 @@ func (c *dockerClient) Pull(imageName string, options PullOptions) error {
 		docker.PullImageOptions{
 			Repository:   repository,
 			Tag:          tag,
-			OutputStream: protolog.Writer(),
+			OutputStream: options.OutputStream,
 		},
 		docker.AuthConfiguration{},
 	)

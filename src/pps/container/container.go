@@ -10,10 +10,13 @@ import (
 )
 
 type BuildOptions struct {
-	Dockerfile string
+	Dockerfile   string
+	OutputStream io.Writer
 }
 
-type PullOptions struct{}
+type PullOptions struct {
+	OutputStream io.Writer
+}
 
 type CreateOptions struct {
 	Input         *pps.Input
