@@ -9,4 +9,4 @@ output:
   host:
     /tmp/pachyderm-test/2-out: /out
 run:
-  - for file in /in/*; do cp $file /out/$(basename $file).copy; done
+  - for file in /in/*; do echo copying $file; cp $file /out/$(basename $file).copy; done
