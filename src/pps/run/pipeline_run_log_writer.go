@@ -1,6 +1,8 @@
 package run
 
 import (
+	"fmt"
+
 	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
@@ -35,6 +37,10 @@ func newPipelineRunLogWriter(
 }
 
 func (w *pipelineRunLogWriter) Write(p []byte) (int, error) {
+	c := make([]byte, len(p))
+	if n := copy(c, p); n != len(p) {
+		return 0, fmt.Errorf("tried to copy %d bytes, only copied %d bytes", len(p), n)
+	}
 	if err := w.storeClient.AddPipelineRunLogs(
 		&pps.PipelineRunLog{
 			PipelineRunId: w.pipelineRunID,
@@ -42,7 +48,7 @@ func (w *pipelineRunLogWriter) Write(p []byte) (int, error) {
 			Node:          w.node,
 			OutputStream:  w.outputStream,
 			Timestamp:     protoutil.TimeToTimestamp(w.timer.Now()),
-			Data:          p,
+			Data:          c,
 		},
 	); err != nil {
 		return 0, err

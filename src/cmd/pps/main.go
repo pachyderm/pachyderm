@@ -147,17 +147,23 @@ func do(appEnvObj interface{}) error {
 				if !ok {
 					return fmt.Errorf("unknown pps.OutputStream")
 				}
-				logInfo := &logInfo{
-					node:         pipelineRunLog.Node,
-					containerID:  pipelineRunLog.ContainerId,
-					outputStream: name,
-					time:         protoutil.TimestampToTime(pipelineRunLog.Timestamp),
+				name = strings.Replace(name, "OUTPUT_STREAM_", "", -1)
+				containerID := pipelineRunLog.ContainerId
+				if len(containerID) > 8 {
+					containerID = containerID[:8]
 				}
-				s, err := logInfo.String()
+				logInfo := &logInfo{
+					Node:         pipelineRunLog.Node,
+					ContainerID:  containerID,
+					OutputStream: name,
+					Time:         protoutil.TimestampToTime(pipelineRunLog.Timestamp),
+				}
+				logInfoData, err := json.Marshal(logInfo)
 				if err != nil {
 					return err
 				}
-				fmt.Printf("%s %s\n", s, string(pipelineRunLog.Data))
+				s := fmt.Sprintf("%s %s", string(logInfoData), string(pipelineRunLog.Data))
+				fmt.Println(strings.TrimSpace(s))
 			}
 			return nil
 		},
@@ -209,16 +215,8 @@ func getPipelineArgs(args []string) (*pipelineArgs, error) {
 }
 
 type logInfo struct {
-	node         string
-	containerID  string
-	time         time.Time
-	outputStream string
-}
-
-func (l *logInfo) String() (string, error) {
-	data, err := json.Marshal(l)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+	Node         string
+	ContainerID  string
+	Time         time.Time
+	OutputStream string
 }

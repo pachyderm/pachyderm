@@ -2,8 +2,10 @@ package server
 
 import (
 	"os"
+	"sort"
 
 	"github.com/pachyderm/pachyderm/src/pkg/graph"
+	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
 	"github.com/pachyderm/pachyderm/src/pps/run"
@@ -82,7 +84,16 @@ func (a *apiServer) GetPipelineRunLogs(ctx context.Context, getRunLogsRequest *p
 			}
 		}
 	}
+	sort.Sort(sortByTimestamp(filteredPipelineRunLogs))
 	return &pps.GetPipelineRunLogsResponse{
 		PipelineRunLog: filteredPipelineRunLogs,
 	}, nil
+}
+
+type sortByTimestamp []*pps.PipelineRunLog
+
+func (s sortByTimestamp) Len() int          { return len(s) }
+func (s sortByTimestamp) Swap(i int, j int) { s[i], s[j] = s[j], s[i] }
+func (s sortByTimestamp) Less(i int, j int) bool {
+	return protoutil.TimestampLess(s[i].Timestamp, s[j].Timestamp)
 }
