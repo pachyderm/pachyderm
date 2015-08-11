@@ -11,7 +11,8 @@ type BuildOptions struct {
 }
 
 type PullOptions struct {
-	OutputStream io.Writer
+	NoPullIfLocal bool
+	OutputStream  io.Writer
 }
 
 type CreateOptions struct {
