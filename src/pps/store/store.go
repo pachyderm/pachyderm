@@ -12,6 +12,8 @@ type Client interface {
 	GetPipelineRunContainers(id string) ([]*pps.PipelineRunContainer, error)
 	AddPipelineRunLogs(pipelineRunLogs ...*pps.PipelineRunLog) error
 	GetPipelineRunLogs(id string) ([]*pps.PipelineRunLog, error)
+	AddPfsCommitMapping(pfsCommitMapping *pps.PfsCommitMapping) error
+	GetPfsCommitMappingLatest(inputRepository string, inputCommitID string) (*pps.PfsCommitMapping, error)
 }
 
 func NewInMemoryClient() Client {
