@@ -106,6 +106,9 @@ func (d *driver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
 	// iteratively and with rollback
 	// TODO(pedge): check that commit exists and is a write commit
 	for shard := range shards {
+		if err := d.checkWrite(path.Commit, shard); err != nil {
+			return err
+		}
 		if err := os.MkdirAll(d.filePath(path, shard), 0700); err != nil {
 			return err
 		}
@@ -114,6 +117,9 @@ func (d *driver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
 }
 
 func (d *driver) PutFile(path *pfs.Path, shard int, offset int64, reader io.Reader) error {
+	if err := d.checkWrite(path.Commit, shard); err != nil {
+		return err
+	}
 	file, err := os.OpenFile(d.filePath(path, shard), os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
