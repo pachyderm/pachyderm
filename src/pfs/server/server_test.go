@@ -45,13 +45,7 @@ func init() {
 	logrus.Register()
 }
 
-func TestBtrfsFFI(t *testing.T) {
-	t.Parallel()
-	driver := btrfs.NewDriver(getBtrfsRootDir(t))
-	runTest(t, driver, testSimple)
-}
-
-func TestBtrfsExec(t *testing.T) {
+func TestBtrfs(t *testing.T) {
 	t.Parallel()
 	driver := btrfs.NewDriver(getBtrfsRootDir(t))
 	runTest(t, driver, testSimple)
@@ -257,9 +251,6 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 }
 
 func testMountBig(t *testing.T, apiClient pfs.ApiClient) {
-	if testing.Short() {
-		return
-	}
 	repositoryName := testRepositoryName()
 
 	err := pfsutil.InitRepository(apiClient, repositoryName)

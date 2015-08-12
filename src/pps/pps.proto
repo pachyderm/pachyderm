@@ -12,6 +12,12 @@ enum PipelineRunStatusType {
   PIPELINE_RUN_STATUS_TYPE_SUCCESS = 4;
 }
 
+enum OutputStream {
+  OUTPUT_STREAM_NONE = 0;
+  OUTPUT_STREAM_STDOUT = 1;
+  OUTPUT_STREAM_STDERR = 2;
+}
+
 message PipelineRunStatus {
   string pipeline_run_id = 1;
   PipelineRunStatusType pipeline_run_status_type = 2;
@@ -80,6 +86,15 @@ message PipelineRunContainer {
   string node = 3;
 }
 
+message PipelineRunLog {
+  string pipeline_run_id = 1;
+  string container_id = 2;
+  string node = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  OutputStream output_stream = 5;
+  bytes data = 6;
+}
+
 message GetPipelineRequest {
   PipelineSource pipeline_source = 1;
 }
@@ -104,8 +119,18 @@ message GetPipelineRunStatusResponse {
   PipelineRunStatus pipeline_run_status = 1;
 }
 
+message GetPipelineRunLogsRequest {
+  string pipeline_run_id = 1;
+  string node = 2;
+}
+
+message GetPipelineRunLogsResponse {
+  repeated PipelineRunLog pipeline_run_log = 1;
+}
+
 service Api {
   rpc GetPipeline(GetPipelineRequest) returns (GetPipelineResponse) {} 
   rpc StartPipelineRun(StartPipelineRunRequest) returns (StartPipelineRunResponse) {}
   rpc GetPipelineRunStatus(GetPipelineRunStatusRequest) returns (GetPipelineRunStatusResponse) {}
+  rpc GetPipelineRunLogs(GetPipelineRunLogsRequest) returns (GetPipelineRunLogsResponse) {}
 }

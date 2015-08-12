@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"go.pedge.io/protolog"
-
 	"github.com/fsouza/go-dockerclient"
 )
 
@@ -47,7 +45,7 @@ func (c *dockerClient) Build(imageName string, contextDir string, options BuildO
 			Name:           imageName,
 			Dockerfile:     options.Dockerfile,
 			SuppressOutput: true,
-			OutputStream:   protolog.Writer(),
+			OutputStream:   options.OutputStream,
 			ContextDir:     contextDir,
 		},
 	)
@@ -58,11 +56,30 @@ func (c *dockerClient) Pull(imageName string, options PullOptions) error {
 	if tag == "" {
 		tag = "latest"
 	}
+	if options.NoPullIfLocal {
+		images, err := c.client.ListImages(
+			docker.ListImagesOptions{
+				All:     true,
+				Digests: false,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		repositoryTag := fmt.Sprintf("%s:%s", repository, tag)
+		for _, image := range images {
+			for _, foundRepositoryTag := range image.RepoTags {
+				if repositoryTag == foundRepositoryTag {
+					return nil
+				}
+			}
+		}
+	}
 	return c.client.PullImage(
 		docker.PullImageOptions{
 			Repository:   repository,
 			Tag:          tag,
-			OutputStream: protolog.Writer(),
+			OutputStream: options.OutputStream,
 		},
 		docker.AuthConfiguration{},
 	)
@@ -197,22 +214,7 @@ func getDockerConfig(imageName string, options CreateOptions) (*docker.Config, e
 }
 
 func getDockerHostConfig(options CreateOptions) (*docker.HostConfig, error) {
-	hostConfig := &docker.HostConfig{}
-	if options.Input != nil {
-		if hostConfig.Binds == nil {
-			hostConfig.Binds = make([]string, 0)
-		}
-		for key, value := range options.Input.Host {
-			hostConfig.Binds = append(hostConfig.Binds, fmt.Sprintf("%s:%s:ro", key, value))
-		}
-	}
-	if options.Output != nil {
-		if hostConfig.Binds == nil {
-			hostConfig.Binds = make([]string, 0)
-		}
-		for key, value := range options.Output.Host {
-			hostConfig.Binds = append(hostConfig.Binds, fmt.Sprintf("%s:%s:rw", key, value))
-		}
-	}
-	return hostConfig, nil
+	return &docker.HostConfig{
+		Binds: options.Binds,
+	}, nil
 }

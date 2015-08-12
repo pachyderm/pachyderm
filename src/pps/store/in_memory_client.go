@@ -13,12 +13,14 @@ type inMemoryClient struct {
 	idToRun         map[string]*pps.PipelineRun
 	idToRunStatuses map[string][]*pps.PipelineRunStatus
 	idToContainers  map[string][]*pps.PipelineRunContainer
+	idToLogs        map[string][]*pps.PipelineRunLog
 
 	timer timing.Timer
 
 	runLock         *sync.RWMutex
 	runStatusesLock *sync.RWMutex
 	containersLock  *sync.RWMutex
+	logsLock        *sync.RWMutex
 }
 
 func newInMemoryClient() *inMemoryClient {
@@ -26,7 +28,9 @@ func newInMemoryClient() *inMemoryClient {
 		make(map[string]*pps.PipelineRun),
 		make(map[string][]*pps.PipelineRunStatus),
 		make(map[string][]*pps.PipelineRunContainer),
+		make(map[string][]*pps.PipelineRunLog),
 		timing.NewSystemTimer(),
+		&sync.RWMutex{},
 		&sync.RWMutex{},
 		&sync.RWMutex{},
 		&sync.RWMutex{},
@@ -42,6 +46,10 @@ func (c *inMemoryClient) AddPipelineRun(pipelineRun *pps.PipelineRun) error {
 	defer c.runLock.Unlock()
 	c.runStatusesLock.Lock()
 	defer c.runStatusesLock.Unlock()
+	c.containersLock.Lock()
+	defer c.containersLock.Unlock()
+	c.logsLock.Lock()
+	defer c.logsLock.Unlock()
 
 	if _, ok := c.idToRun[pipelineRun.Id]; ok {
 		return fmt.Errorf("run with id %s already added", pipelineRun.Id)
@@ -53,6 +61,7 @@ func (c *inMemoryClient) AddPipelineRun(pipelineRun *pps.PipelineRun) error {
 		Timestamp:             protoutil.TimeToTimestamp(c.timer.Now()),
 	}
 	c.idToContainers[pipelineRun.Id] = make([]*pps.PipelineRunContainer, 0)
+	c.idToLogs[pipelineRun.Id] = make([]*pps.PipelineRunLog, 0)
 	return nil
 }
 
@@ -117,6 +126,34 @@ func (c *inMemoryClient) AddPipelineRunContainers(pipelineContainers ...*pps.Pip
 			return fmt.Errorf("no run for id %s", container.PipelineRunId)
 		}
 		c.idToContainers[container.PipelineRunId] = append(c.idToContainers[container.PipelineRunId], container)
+	}
+	return nil
+}
+
+func (c *inMemoryClient) GetPipelineRunLogs(id string) ([]*pps.PipelineRunLog, error) {
+	c.logsLock.RLock()
+	defer c.logsLock.RUnlock()
+
+	logs, ok := c.idToLogs[id]
+	if !ok {
+		return nil, fmt.Errorf("no run for id %s", id)
+	}
+	return logs, nil
+}
+
+func (c *inMemoryClient) AddPipelineRunLogs(pipelineLogs ...*pps.PipelineRunLog) error {
+	c.logsLock.Lock()
+	defer c.logsLock.Unlock()
+
+	for _, log := range pipelineLogs {
+		if log.Timestamp == nil {
+			return fmt.Errorf("timestamp not set for %v", log)
+		}
+		_, ok := c.idToLogs[log.PipelineRunId]
+		if !ok {
+			return fmt.Errorf("no run for id %s", log.PipelineRunId)
+		}
+		c.idToLogs[log.PipelineRunId] = append(c.idToLogs[log.PipelineRunId], log)
 	}
 	return nil
 }
