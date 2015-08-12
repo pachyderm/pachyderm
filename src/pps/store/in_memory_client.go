@@ -157,3 +157,11 @@ func (c *inMemoryClient) AddPipelineRunLogs(pipelineLogs ...*pps.PipelineRunLog)
 	}
 	return nil
 }
+
+func (c *inMemoryClient) AddPfsCommitMapping(pfsCommitMapping *pps.PfsCommitMapping) error {
+	return nil
+}
+
+func (c *inMemoryClient) GetPfsCommitMappingLatest(inputRepositoryName string, inputCommitID string) (*pps.PfsCommitMapping, error) {
+	return nil, nil
+}

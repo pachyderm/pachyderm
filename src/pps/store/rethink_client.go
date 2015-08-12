@@ -237,3 +237,11 @@ func (c *rethinkClient) GetPipelineRunLogs(id string) ([]*pps.PipelineRunLog, er
 	}
 	return result, nil
 }
+
+func (c *rethinkClient) AddPfsCommitMapping(pfsCommitMapping *pps.PfsCommitMapping) error {
+	return nil
+}
+
+func (c *rethinkClient) GetPfsCommitMappingLatest(inputRepositoryName string, inputCommitID string) (*pps.PfsCommitMapping, error) {
+	return nil, nil
+}
