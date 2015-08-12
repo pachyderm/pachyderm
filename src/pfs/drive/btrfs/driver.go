@@ -240,12 +240,19 @@ func (d *driver) Commit(commit *pfs.Commit, shards map[int]bool) error {
 	return nil
 }
 
-func (d *driver) PullDiff(commit *pfs.Commit, shard int) (io.Reader, error) {
-	return nil, nil
+func (d *driver) PullDiff(commit *pfs.Commit, shard int, diff io.Writer) error {
+	parent, err := d.getParent(commit, shard)
+	if err != nil {
+		return err
+	}
+	if parent == nil {
+		return execSend(d.commitPath(commit, shard), "", diff)
+	}
+	return execSend(d.commitPath(commit, shard), d.commitPath(parent, shard), diff)
 }
 
-func (d *driver) PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error {
-	return nil
+func (d *driver) PushDiff(repository *pfs.Repository, shard int, diff io.Reader) error {
+	return execRecv(d.repositoryPath(repository), diff)
 }
 
 func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.CommitInfo, ok bool, _ error) {
@@ -405,4 +412,15 @@ func execSubvolumeCreate(path string) error {
 
 func execSubvolumeSnapshot(src string, dest string) error {
 	return executil.Run("btrfs", "subvolume", "snapshot", src, dest)
+}
+
+func execSend(path string, parent string, diff io.Writer) error {
+	if parent == "" {
+		return executil.RunStdout(diff, "btrfs", "send", path)
+	}
+	return executil.RunStdout(diff, "btrfs", "send", "-p", parent, path)
+}
+
+func execRecv(path string, diff io.Reader) error {
+	return executil.RunStdin(diff, "btrfs", "receive", path)
 }
