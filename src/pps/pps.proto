@@ -95,6 +95,14 @@ message PipelineRunLog {
   bytes data = 6;
 }
 
+message PfsCommitMapping {
+  string input_repository = 1;
+  string input_commit_id = 2;
+  string output_repository = 3;
+  string output_commit_id = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
 message GetPipelineRequest {
   PipelineSource pipeline_source = 1;
 }
