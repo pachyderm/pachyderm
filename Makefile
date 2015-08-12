@@ -117,7 +117,7 @@ test: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-setup.sh && go test -test.short $(TESTFLAGS) $(TESTPKGS)"
 
 test-long: pretest docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test go test $(TESTFLAGS) $(TESTPKGS)
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-setup.sh && go test -test.short $(TESTFLAGS) $(TESTPKGS)"
 
 clean: docker-clean-launch
 	go clean ./...
