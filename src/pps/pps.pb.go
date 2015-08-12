@@ -21,6 +21,7 @@ It has these top-level messages:
 	PipelineRun
 	PipelineRunContainer
 	PipelineRunLog
+	PfsCommitMapping
 	GetPipelineRequest
 	GetPipelineResponse
 	StartPipelineRunRequest
@@ -312,6 +313,25 @@ func (m *PipelineRunLog) String() string { return proto.CompactTextString(m) }
 func (*PipelineRunLog) ProtoMessage()    {}
 
 func (m *PipelineRunLog) GetTimestamp() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.Timestamp
+	}
+	return nil
+}
+
+type PfsCommitMapping struct {
+	InputRepository  string                     `protobuf:"bytes,1,opt,name=input_repository" json:"input_repository,omitempty"`
+	InputCommitId    string                     `protobuf:"bytes,2,opt,name=input_commit_id" json:"input_commit_id,omitempty"`
+	OutputRepository string                     `protobuf:"bytes,3,opt,name=output_repository" json:"output_repository,omitempty"`
+	OutputCommitId   string                     `protobuf:"bytes,4,opt,name=output_commit_id" json:"output_commit_id,omitempty"`
+	Timestamp        *google_protobuf.Timestamp `protobuf:"bytes,5,opt,name=timestamp" json:"timestamp,omitempty"`
+}
+
+func (m *PfsCommitMapping) Reset()         { *m = PfsCommitMapping{} }
+func (m *PfsCommitMapping) String() string { return proto.CompactTextString(m) }
+func (*PfsCommitMapping) ProtoMessage()    {}
+
+func (m *PfsCommitMapping) GetTimestamp() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.Timestamp
 	}
