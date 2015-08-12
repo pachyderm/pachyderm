@@ -31,12 +31,11 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
-	"unsafe"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pkg/executil"
 	"github.com/peter-edge/go-google-protobuf"
 	"github.com/satori/go.uuid"
 )
@@ -72,7 +71,7 @@ func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool)
 		return err
 	}
 	for shard := range shards {
-		if err := ffiSubvolumeCreate(d.commitPath(initialCommit, shard)); err != nil {
+		if err := execSubvolumeCreate(d.commitPath(initialCommit, shard)); err != nil {
 			return err
 		}
 		if err := os.Mkdir(d.filePath(&pfs.Path{Commit: initialCommit, Path: metadataDir}, shard), 0700); err != nil {
@@ -216,7 +215,7 @@ func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[in
 		}
 		commitPath := d.commitPath(commit, shard)
 		newCommitPath := d.commitPath(newCommit, shard)
-		if err := ffiSubvolumeSnapshot(commitPath, newCommitPath); err != nil {
+		if err := execSubvolumeSnapshot(commitPath, newCommitPath); err != nil {
 			return nil, err
 		}
 		if err := ioutil.WriteFile(d.filePath(&pfs.Path{Commit: newCommit, Path: filepath.Join(metadataDir, "parent")}, shard), []byte(commit.Id), 0600); err != nil {
@@ -400,57 +399,10 @@ func inMetadataDir(name string) bool {
 	return (len(parts) > 0 && parts[0] == metadataDir)
 }
 
-func ffiSubvolumeCreate(path string) error {
-	var args C.struct_btrfs_ioctl_vol_args
-	for i, c := range []byte(filepath.Base(path)) {
-		args.name[i] = C.char(c)
-	}
-	return ffiIoctl(filepath.Dir(path), C.BTRFS_IOC_SUBVOL_CREATE, uintptr(unsafe.Pointer(&args)))
+func execSubvolumeCreate(path string) error {
+	return executil.Run("btrfs", "subvolume", "create", path)
 }
 
-func ffiSubvolumeSnapshot(src string, dest string) error {
-	srcDir, err := ffiOpenDir(src)
-	if err != nil {
-		return err
-	}
-	defer ffiCloseDir(srcDir)
-	var args C.struct_btrfs_ioctl_vol_args_v2
-	args.fd = C.__s64(ffiGetDirFd(srcDir))
-	for i, c := range []byte(filepath.Base(dest)) {
-		args.name[i] = C.char(c)
-	}
-	return ffiIoctl(filepath.Dir(dest), C.BTRFS_IOC_SNAP_CREATE_V2, uintptr(unsafe.Pointer(&args)))
-}
-
-func ffiIoctl(path string, call uintptr, args uintptr) error {
-	dir, err := ffiOpenDir(path)
-	if err != nil {
-		return err
-	}
-	defer ffiCloseDir(dir)
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, ffiGetDirFd(dir), call, args)
-	if errno != 0 {
-		return fmt.Errorf("%s failed for %s: %v", callStrings[call], path, errno.Error())
-	}
-	return nil
-}
-
-func ffiOpenDir(path string) (*C.DIR, error) {
-	Cpath := C.CString(path)
-	defer C.free(unsafe.Pointer(Cpath))
-	dir := C.opendir(Cpath)
-	if dir == nil {
-		return nil, fmt.Errorf("cannot open dir: %s", path)
-	}
-	return dir, nil
-}
-
-func ffiCloseDir(dir *C.DIR) {
-	if dir != nil {
-		C.closedir(dir)
-	}
-}
-
-func ffiGetDirFd(dir *C.DIR) uintptr {
-	return uintptr(C.dirfd(dir))
+func execSubvolumeSnapshot(src string, dest string) error {
+	return executil.Run("btrfs", "subvolume", "snapshot", src, dest)
 }
