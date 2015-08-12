@@ -15,13 +15,6 @@ directory structure
 
 package btrfs
 
-/*
-#include <stdlib.h>
-#include <dirent.h>
-#include <btrfs/ioctl.h>
-*/
-import "C"
-
 import (
 	"bufio"
 	"fmt"
@@ -42,13 +35,6 @@ import (
 
 const (
 	metadataDir = ".pfs"
-)
-
-var (
-	callStrings = map[uintptr]string{
-		C.BTRFS_IOC_SUBVOL_CREATE:  "btrfs subvolume create",
-		C.BTRFS_IOC_SNAP_CREATE_V2: "btrfs subvolume snapshot",
-	}
 )
 
 type driver struct {
