@@ -6,6 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pkg/graph"
 	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
+	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
 	"github.com/pachyderm/pachyderm/src/pps/run"
@@ -16,10 +17,11 @@ import (
 
 type apiServer struct {
 	storeClient store.Client
+	timer       timing.Timer
 }
 
-func newAPIServer(storeClient store.Client) *apiServer {
-	return &apiServer{storeClient}
+func newAPIServer(storeClient store.Client, timer timing.Timer) *apiServer {
+	return &apiServer{storeClient, timer}
 }
 
 func (a *apiServer) GetPipeline(ctx context.Context, getPipelineRequest *pps.GetPipelineRequest) (*pps.GetPipelineResponse, error) {
@@ -50,6 +52,7 @@ func (a *apiServer) StartPipelineRun(ctx context.Context, startPipelineRunReques
 		graph.NewGrapher(),
 		containerClient,
 		a.storeClient,
+		a.timer,
 	)
 	runID, err := runner.Start(startPipelineRunRequest.PipelineSource)
 	if err != nil {

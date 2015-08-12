@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
+	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/server"
 	"github.com/pachyderm/pachyderm/src/pps/store"
@@ -43,7 +44,7 @@ func do(appEnvObj interface{}) error {
 		appEnv.TracePort,
 		pachyderm.Version,
 		func(s *grpc.Server) {
-			pps.RegisterApiServer(s, server.NewAPIServer(rethinkClient))
+			pps.RegisterApiServer(s, server.NewAPIServer(rethinkClient, timing.NewSystemTimer()))
 		},
 	)
 }
