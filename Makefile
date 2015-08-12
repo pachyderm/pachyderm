@@ -45,10 +45,7 @@ build: deps
 install: deps
 	go install ./src/cmd/pfs ./src/cmd/pps
 
-docker-build-btrfs:
-	docker-compose build btrfs
-
-docker-build-test: docker-build-btrfs
+docker-build-test:
 	$(NOCACHE_CMD)
 	docker-compose build test
 	mkdir -p /tmp/pachyderm-test
@@ -74,7 +71,7 @@ docker-push: docker-push-ppsd docker-push-pfsd
 run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
 
-launch-pfsd: docker-clean-test docker-build-btrfs docker-build-pfsd
+launch-pfsd: docker-clean-test docker-build-pfsd
 	docker-compose kill pfsd
 	docker-compose rm -f pfsd
 	docker-compose up -d --force-recreate --no-build pfsd
@@ -84,7 +81,7 @@ launch-ppsd: docker-clean-test docker-build-ppsd
 	docker-compose rm -f ppsd
 	docker-compose up -d --force-recreate --no-build ppsd
 
-launch: docker-clean-launch docker-build-btrfs docker-build-pfsd docker-build-ppsd
+launch: docker-clean-launch docker-build-pfsd docker-build-ppsd
 	docker-compose up -d --force-recreate --no-build pfsd
 	docker-compose up -d --force-recreate --no-build ppsd
 
@@ -108,8 +105,6 @@ pretest:
 docker-clean-test:
 	docker-compose kill rethink
 	docker-compose rm -f rethink
-	docker-compose kill btrfs
-	docker-compose rm -f btrfs
 	docker-compose kill etcd
 	docker-compose rm -f etcd
 
@@ -120,13 +115,13 @@ docker-clean-launch: docker-clean-test
 	docker-compose rm -f ppsd
 
 test: pretest docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test go test -test.short $(TESTFLAGS) $(TESTPKGS)
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-setup.sh && go test -test.short $(TESTFLAGS) $(TESTPKGS)"
 
 test-pfs-extra: pretest docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test go test $(TESTFLAGS) ./src/pfs/server
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-setup.sh && go test $(TESTFLAGS) ./src/pfs/server"
 
 test-pps-extra: pretest docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test go test $(TESTFLAGS) ./src/pps/server
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-setup.sh && go test $(TESTFLAGS) ./src/pps/server"
 
 clean: docker-clean-launch
 	go clean ./...
@@ -151,7 +146,6 @@ start-kube:
 	install-git2go \
 	build \
 	install \
-	docker-build-btrfs \
 	docker-build-test \
 	docker-build-compile \
 	docker-build-pfsd \

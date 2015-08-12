@@ -34,7 +34,7 @@ const (
 	// we can do about that?
 	testShardsPerServer = 8
 	testNumServers      = 8
-	testSize            = 1000
+	testSize            = 100
 )
 
 var (
