@@ -37,8 +37,8 @@ type Driver interface {
 	ListFiles(path *pfs.Path, shard int) ([]*pfs.FileInfo, error)
 	Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error)
 	Commit(commit *pfs.Commit, shards map[int]bool) error
-	PullDiff(commit *pfs.Commit, shard int) (io.Reader, error)
-	PushDiff(commit *pfs.Commit, shard int, reader io.Reader) error
+	PullDiff(commit *pfs.Commit, shard int, diff io.Writer) error
+	PushDiff(repository *pfs.Repository, shard int, diff io.Reader) error
 	GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, bool, error)
 	ListCommits(repository *pfs.Repository, shard int) ([]*pfs.CommitInfo, error)
 }

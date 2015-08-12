@@ -27,6 +27,7 @@ func SetDebug(d bool) {
 }
 
 type RunOptions struct {
+	stdin  io.Reader
 	stdout io.Writer
 	stderr io.Writer
 }
@@ -35,10 +36,12 @@ func Run(args ...string) error {
 	return RunWithOptions(RunOptions{}, args...)
 }
 
-func RunStdout(args ...string) (io.Reader, error) {
-	stdout := bytes.NewBuffer(nil)
-	err := RunWithOptions(RunOptions{stdout: stdout}, args...)
-	return stdout, err
+func RunStdin(stdin io.Reader, args ...string) error {
+	return RunWithOptions(RunOptions{stdin: stdin}, args...)
+}
+
+func RunStdout(stdout io.Writer, args ...string) error {
+	return RunWithOptions(RunOptions{stdout: stdout}, args...)
 }
 
 func RunWithOptions(runOptions RunOptions, args ...string) error {

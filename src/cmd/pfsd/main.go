@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive/zfs"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
@@ -60,8 +59,6 @@ func do(appEnvObj interface{}) error {
 	switch appEnv.DriverType {
 	case "btrfs":
 		driver = btrfs.NewDriver(appEnv.DriverRoot)
-	case "zfs":
-		driver = zfs.NewDriver(appEnv.DriverRoot)
 	default:
 		return fmt.Errorf("unknown value for PFS_DRIVER_TYPE: %s", appEnv.DriverType)
 	}
