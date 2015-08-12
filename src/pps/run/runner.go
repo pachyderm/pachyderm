@@ -20,6 +20,7 @@ type runner struct {
 	grapher         graph.Grapher
 	containerClient container.Client
 	storeClient     store.Client
+	timer           timing.Timer
 }
 
 func newRunner(
@@ -27,12 +28,14 @@ func newRunner(
 	grapher graph.Grapher,
 	containerClient container.Client,
 	storeClient store.Client,
+	timer timing.Timer,
 ) *runner {
 	return &runner{
 		sourcer,
 		grapher,
 		containerClient,
 		storeClient,
+		timer,
 	}
 }
 
@@ -124,7 +127,7 @@ func (r *runner) getNodeFunc(
 			//"",
 			//name,
 			//pps.OutputStream_OUTPUT_STREAM_NONE,
-			//timing.NewSystemTimer(),
+			//r.timer,
 			//r.storeClient,
 			//),
 			},
@@ -170,7 +173,7 @@ func (r *runner) getNodeFunc(
 							containerID,
 							name,
 							pps.OutputStream_OUTPUT_STREAM_STDOUT,
-							timing.NewSystemTimer(),
+							r.timer,
 							r.storeClient,
 						),
 						Stderr: newPipelineRunLogWriter(
@@ -178,7 +181,7 @@ func (r *runner) getNodeFunc(
 							containerID,
 							name,
 							pps.OutputStream_OUTPUT_STREAM_STDERR,
-							timing.NewSystemTimer(),
+							r.timer,
 							r.storeClient,
 						),
 					},

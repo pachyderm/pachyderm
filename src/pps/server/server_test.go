@@ -13,6 +13,7 @@ import (
 	"go.pedge.io/protolog/logrus"
 
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
+	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"github.com/pachyderm/pachyderm/src/pps/store"
@@ -189,7 +190,7 @@ func runTest(
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
 			for _, server := range servers {
-				pps.RegisterApiServer(server, newAPIServer(storeClient))
+				pps.RegisterApiServer(server, newAPIServer(storeClient, timing.NewSystemTimer()))
 			}
 		},
 		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
