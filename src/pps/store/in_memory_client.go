@@ -10,17 +10,19 @@ import (
 )
 
 type inMemoryClient struct {
-	idToRun         map[string]*pps.PipelineRun
-	idToRunStatuses map[string][]*pps.PipelineRunStatus
-	idToContainers  map[string][]*pps.PipelineRunContainer
-	idToLogs        map[string][]*pps.PipelineRunLog
+	idToRun                          map[string]*pps.PipelineRun
+	idToRunStatuses                  map[string][]*pps.PipelineRunStatus
+	idToContainers                   map[string][]*pps.PipelineRunContainer
+	idToLogs                         map[string][]*pps.PipelineRunLog
+	inputCommitIDToPfsCommitMappings map[string][]*pps.PfsCommitMapping
 
 	timer timing.Timer
 
-	runLock         *sync.RWMutex
-	runStatusesLock *sync.RWMutex
-	containersLock  *sync.RWMutex
-	logsLock        *sync.RWMutex
+	runLock               *sync.RWMutex
+	runStatusesLock       *sync.RWMutex
+	containersLock        *sync.RWMutex
+	logsLock              *sync.RWMutex
+	pfsCommitMappingsLock *sync.RWMutex
 }
 
 func newInMemoryClient() *inMemoryClient {
@@ -29,7 +31,9 @@ func newInMemoryClient() *inMemoryClient {
 		make(map[string][]*pps.PipelineRunStatus),
 		make(map[string][]*pps.PipelineRunContainer),
 		make(map[string][]*pps.PipelineRunLog),
+		make(map[string][]*pps.PfsCommitMapping),
 		timing.NewSystemTimer(),
+		&sync.RWMutex{},
 		&sync.RWMutex{},
 		&sync.RWMutex{},
 		&sync.RWMutex{},
@@ -159,9 +163,27 @@ func (c *inMemoryClient) AddPipelineRunLogs(pipelineLogs ...*pps.PipelineRunLog)
 }
 
 func (c *inMemoryClient) AddPfsCommitMapping(pfsCommitMapping *pps.PfsCommitMapping) error {
+	if pfsCommitMapping.Timestamp == nil {
+		return fmt.Errorf("timestamp not set for %v", pfsCommitMapping)
+	}
+	c.pfsCommitMappingsLock.Lock()
+	defer c.pfsCommitMappingsLock.Unlock()
+	if _, ok := c.inputCommitIDToPfsCommitMappings[pfsCommitMapping.InputCommitId]; !ok {
+		c.inputCommitIDToPfsCommitMappings[pfsCommitMapping.InputCommitId] = make([]*pps.PfsCommitMapping, 0)
+	}
+	c.inputCommitIDToPfsCommitMappings[pfsCommitMapping.InputCommitId] = append(
+		c.inputCommitIDToPfsCommitMappings[pfsCommitMapping.InputCommitId],
+		pfsCommitMapping,
+	)
 	return nil
 }
 
 func (c *inMemoryClient) GetPfsCommitMappingLatest(inputRepositoryName string, inputCommitID string) (*pps.PfsCommitMapping, error) {
-	return nil, nil
+	c.pfsCommitMappingsLock.RLock()
+	defer c.pfsCommitMappingsLock.RUnlock()
+	pfsCommitMappings, ok := c.inputCommitIDToPfsCommitMappings[inputCommitID]
+	if !ok {
+		return nil, nil
+	}
+	return getPfsCommitMappingLatestInMemory(pfsCommitMappings, inputRepositoryName)
 }

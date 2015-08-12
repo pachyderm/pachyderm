@@ -9,10 +9,11 @@ import (
 )
 
 const (
-	runTable       = "pipeline_runs"
-	statusTable    = "pipeline_run_statuses"
-	containerTable = "pipeline_containers"
-	logTable       = "pipeline_logs"
+	runTable              = "pipeline_runs"
+	statusTable           = "pipeline_run_statuses"
+	containerTable        = "pipeline_containers"
+	logTable              = "pipeline_logs"
+	pfsCommitMappingTable = "pfs_commit_mappings"
 )
 
 var (
@@ -49,6 +50,9 @@ func InitDBs(address string, databaseName string) error {
 	if _, err := gorethink.DB(databaseName).TableCreate(logTable).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).TableCreate(pfsCommitMappingTable).RunWrite(session); err != nil {
+		return err
+	}
 	if _, err := gorethink.DB(databaseName).Table(statusTable).
 		IndexCreate("pipeline_run_id").RunWrite(session); err != nil {
 		return err
@@ -61,17 +65,22 @@ func InitDBs(address string, databaseName string) error {
 		IndexCreate("pipeline_run_id").RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).Table(pfsCommitMappingTable).
+		IndexCreate("input_commit_id").RunWrite(session); err != nil {
+		return err
+	}
 	return nil
 }
 
 type rethinkClient struct {
-	session      *gorethink.Session
-	databaseName string
-	timer        timing.Timer
-	runs         gorethink.Term
-	statuses     gorethink.Term
-	containers   gorethink.Term
-	logs         gorethink.Term
+	session           *gorethink.Session
+	databaseName      string
+	timer             timing.Timer
+	runs              gorethink.Term
+	statuses          gorethink.Term
+	containers        gorethink.Term
+	logs              gorethink.Term
+	pfsCommitMappings gorethink.Term
 }
 
 func newRethinkClient(address string, databaseName string) (*rethinkClient, error) {
@@ -87,6 +96,7 @@ func newRethinkClient(address string, databaseName string) (*rethinkClient, erro
 		gorethink.DB(databaseName).Table(statusTable),
 		gorethink.DB(databaseName).Table(containerTable),
 		gorethink.DB(databaseName).Table(logTable),
+		gorethink.DB(databaseName).Table(pfsCommitMappingTable),
 	}, nil
 }
 
@@ -239,9 +249,39 @@ func (c *rethinkClient) GetPipelineRunLogs(id string) ([]*pps.PipelineRunLog, er
 }
 
 func (c *rethinkClient) AddPfsCommitMapping(pfsCommitMapping *pps.PfsCommitMapping) error {
+	data, err := marshaller.MarshalToString(pfsCommitMapping)
+	if err != nil {
+		return err
+	}
+	if _, err := c.pfsCommitMappings.
+		Insert(gorethink.JSON(data)).
+		RunWrite(c.session); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (c *rethinkClient) GetPfsCommitMappingLatest(inputRepositoryName string, inputCommitID string) (*pps.PfsCommitMapping, error) {
-	return nil, nil
+	cursor, err := c.pfsCommitMappings.
+		GetAllByIndex("input_commit_id", inputCommitID).
+		Map(func(row gorethink.Term) interface{} {
+		return row.ToJSON()
+	}).
+		Run(c.session)
+	if err != nil {
+		return nil, err
+	}
+	var pipelinePfsCommitMappings []string
+	if err := cursor.All(&pipelinePfsCommitMappings); err != nil {
+		return nil, err
+	}
+	var result []*pps.PfsCommitMapping
+	for _, data := range pipelinePfsCommitMappings {
+		var pfsCommitMapping pps.PfsCommitMapping
+		if err := jsonpb.UnmarshalString(data, &pfsCommitMapping); err != nil {
+			return nil, err
+		}
+		result = append(result, &pfsCommitMapping)
+	}
+	return getPfsCommitMappingLatestInMemory(result, inputRepositoryName)
 }
