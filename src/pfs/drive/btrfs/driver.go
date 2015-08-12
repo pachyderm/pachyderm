@@ -45,8 +45,18 @@ func newDriver(rootDir string) *driver {
 	return &driver{rootDir}
 }
 
+func (d *driver) InitReplica(repository *pfs.Repository) error {
+	if err := execSubvolumeCreate(d.repositoryPath(repository)); err != nil {
+		if execSubvolumeExists(d.repositoryPath(repository)) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
 func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool) error {
-	if err := os.MkdirAll(d.repositoryPath(repository), 0700); err != nil {
+	if err := d.InitReplica(repository); err != nil {
 		return err
 	}
 	initialCommit := &pfs.Commit{
@@ -394,6 +404,13 @@ func inMetadataDir(name string) bool {
 
 func execSubvolumeCreate(path string) error {
 	return executil.Run("btrfs", "subvolume", "create", path)
+}
+
+func execSubvolumeExists(path string) bool {
+	if err := executil.Run("btrfs", "subvolume", "show", path); err != nil {
+		return false
+	}
+	return true
 }
 
 func execSubvolumeSnapshot(src string, dest string) error {
