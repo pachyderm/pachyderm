@@ -4,9 +4,9 @@ pps:
 service: ubuntu
 input:
   host:
-    /tmp/pps-server-test/1-out: /in
+    /tmp/pachyderm-test/1-out: /in
 output:
   host:
-    /tmp/pps-server-test/2-out: /out
+    /tmp/pachyderm-test/2-out: /out
 run:
-  - for file in /in/*; do cp $file /out/$(basename $file).copy; done
+  - for file in /in/*; do echo copying $file; cp $file /out/$(basename $file).copy; done

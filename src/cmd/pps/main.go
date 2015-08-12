@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
+	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"github.com/spf13/cobra"
@@ -122,6 +124,51 @@ func do(appEnvObj interface{}) error {
 		},
 	}.ToCobraCommand()
 
+	logsCmd := cobramainutil.Command{
+		Use:        "logs pipelineRunID [node]",
+		Long:       "Get the logs from a pipeline run.",
+		MinNumArgs: 1,
+		MaxNumArgs: 2,
+		Run: func(cmd *cobra.Command, args []string) error {
+			node := ""
+			if len(args) == 2 {
+				node = args[1]
+			}
+			getPipelineRunLogsResponse, err := ppsutil.GetPipelineRunLogs(
+				apiClient,
+				args[0],
+				node,
+			)
+			if err != nil {
+				return err
+			}
+			for _, pipelineRunLog := range getPipelineRunLogsResponse.PipelineRunLog {
+				name, ok := pps.OutputStream_name[int32(pipelineRunLog.OutputStream)]
+				if !ok {
+					return fmt.Errorf("unknown pps.OutputStream")
+				}
+				name = strings.Replace(name, "OUTPUT_STREAM_", "", -1)
+				containerID := pipelineRunLog.ContainerId
+				if len(containerID) > 8 {
+					containerID = containerID[:8]
+				}
+				logInfo := &logInfo{
+					Node:         pipelineRunLog.Node,
+					ContainerID:  containerID,
+					OutputStream: name,
+					Time:         protoutil.TimestampToTime(pipelineRunLog.Timestamp),
+				}
+				logInfoData, err := json.Marshal(logInfo)
+				if err != nil {
+					return err
+				}
+				s := fmt.Sprintf("%s %s", string(logInfoData), string(pipelineRunLog.Data))
+				fmt.Println(strings.TrimSpace(s))
+			}
+			return nil
+		},
+	}.ToCobraCommand()
+
 	rootCmd := &cobra.Command{
 		Use: "pps",
 		Long: `Access the PPS API.
@@ -133,6 +180,7 @@ The environment variable PPS_ADDRESS controls what server the CLI connects to, t
 	rootCmd.AddCommand(inspectCmd)
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(statusCmd)
+	rootCmd.AddCommand(logsCmd)
 	return rootCmd.Execute()
 }
 
@@ -164,4 +212,11 @@ func getPipelineArgs(args []string) (*pipelineArgs, error) {
 		branch:      "",
 		accessToken: "",
 	}, nil
+}
+
+type logInfo struct {
+	Node         string
+	ContainerID  string
+	Time         time.Time
+	OutputStream string
 }
