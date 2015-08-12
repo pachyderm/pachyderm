@@ -19,8 +19,7 @@ apt-get install -yq --no-install-recommends \
   git \
   libssl-dev \
   mercurial  \
-  pkg-config \
-  wget
+  pkg-config
 
 # installs go
 # we use the beta for now since it will be released in a few weeks
@@ -30,7 +29,7 @@ su - ${1} -c "echo mkdir -p /home/${1}/go >> /home/${1}/.profile"
 su - ${1} -c "echo export GOPATH=/home/${1}/go >> /home/${1}/.profile"
 
 # installs docker
-wget -qO- https://get.docker.com/ | sh
+curl -sSL https://get.docker.com | sh
 # sudoless use of docker
 groupadd docker || true
 usermod -aG docker ${1}
