@@ -69,7 +69,7 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 }
 
 func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) (retErr error) {
-	shard, clientConn, err := a.getShardAndClientConnIfNecessary(getFileRequest.Path, true)
+	shard, clientConn, err := a.getShardAndClientConnForPathIfNecessary(getFileRequest.Path, true)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFi
 }
 
 func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest *pfs.GetFileInfoRequest) (*pfs.GetFileInfoResponse, error) {
-	shard, clientConn, err := a.getShardAndClientConnIfNecessary(getFileInfoRequest.Path, true)
+	shard, clientConn, err := a.getShardAndClientConnForPathIfNecessary(getFileInfoRequest.Path, true)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (a *combinedAPIServer) PutFile(ctx context.Context, putFileRequest *pfs.Put
 		// ways so we forbid leading slashes.
 		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", putFileRequest.Path.Path)
 	}
-	shard, clientConn, err := a.getShardAndClientConnIfNecessary(putFileRequest.Path, false)
+	shard, clientConn, err := a.getShardAndClientConnForPathIfNecessary(putFileRequest.Path, false)
 	if err != nil {
 		return nil, err
 	}
@@ -349,11 +349,15 @@ func (a *combinedAPIServer) ListCommits(ctx context.Context, listCommitsRequest 
 	}, nil
 }
 
-func (a *combinedAPIServer) getShardAndClientConnIfNecessary(path *pfs.Path, slaveOk bool) (int, *grpc.ClientConn, error) {
+func (a *combinedAPIServer) getShardAndClientConnForPathIfNecessary(path *pfs.Path, slaveOk bool) (int, *grpc.ClientConn, error) {
 	shard, err := a.sharder.GetShard(path)
 	if err != nil {
 		return shard, nil, err
 	}
+	return a.getShardAndClientConnIfNecessary(shard, slaveOk)
+}
+
+func (a *combinedAPIServer) getShardAndClientConnIfNecessary(shard int, slaveOk bool) (int, *grpc.ClientConn, error) {
 	ok, err := a.isLocalMasterShard(shard)
 	if err != nil {
 		return shard, nil, err

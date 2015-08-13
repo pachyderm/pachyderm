@@ -189,8 +189,8 @@ func ListCommits(apiClient pfs.ApiClient, repositoryName string) (*pfs.ListCommi
 	)
 }
 
-func PullDiff(internalApiClient pfs.InternalApiClient, repositoryName string, commitID string, shard uint64, writer io.Writer) error {
-	apiPullDiffClient, err := internalApiClient.PullDiff(
+func PullDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, commitID string, shard uint64, writer io.Writer) error {
+	apiPullDiffClient, err := internalAPIClient.PullDiff(
 		context.Background(),
 		&pfs.PullDiffRequest{
 			Commit: &pfs.Commit{
@@ -211,12 +211,12 @@ func PullDiff(internalApiClient pfs.InternalApiClient, repositoryName string, co
 	return nil
 }
 
-func PushDiff(internalApiClient pfs.InternalApiClient, repositoryName string, reader io.Reader) error {
+func PushDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, reader io.Reader) error {
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return err
 	}
-	_, err = internalApiClient.PushDiff(
+	_, err = internalAPIClient.PushDiff(
 		context.Background(),
 		&pfs.PushDiffRequest{
 			Repository: &pfs.Repository{
