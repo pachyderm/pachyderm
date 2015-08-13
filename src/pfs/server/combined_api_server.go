@@ -300,6 +300,17 @@ func (a *combinedAPIServer) Commit(ctx context.Context, commitRequest *pfs.Commi
 
 func (a *combinedAPIServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalApi_PullDiffServer) error {
 	var buffer bytes.Buffer
+	clientConn, err := a.getClientConnIfNecessary(int(pullDiffRequest.Shard), false)
+	if err != nil {
+		return err
+	}
+	if clientConn != nil {
+		apiPullDiffClient, err := pfs.NewInternalApiClient(clientConn).PullDiff(context.Background(), pullDiffRequest)
+		if err != nil {
+			return err
+		}
+		return protoutil.RelayFromStreamingBytesClient(apiPullDiffClient, apiPullDiffServer)
+	}
 	a.driver.PullDiff(pullDiffRequest.Commit, int(pullDiffRequest.Shard), &buffer)
 	return protoutil.WriteToStreamingBytesServer(
 		&buffer,
