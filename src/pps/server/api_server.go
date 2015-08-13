@@ -4,6 +4,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/graph"
 	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
@@ -16,12 +17,13 @@ import (
 )
 
 type apiServer struct {
-	storeClient store.Client
-	timer       timing.Timer
+	pfsAPIClient pfs.ApiClient
+	storeClient  store.Client
+	timer        timing.Timer
 }
 
-func newAPIServer(storeClient store.Client, timer timing.Timer) *apiServer {
-	return &apiServer{storeClient, timer}
+func newAPIServer(pfsAPIClient pfs.ApiClient, storeClient store.Client, timer timing.Timer) *apiServer {
+	return &apiServer{pfsAPIClient, storeClient, timer}
 }
 
 func (a *apiServer) GetPipeline(ctx context.Context, getPipelineRequest *pps.GetPipelineRequest) (*pps.GetPipelineResponse, error) {
