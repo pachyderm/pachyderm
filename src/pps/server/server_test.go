@@ -189,27 +189,28 @@ func runTest(
 	require.NoError(t, err)
 	pfstesting.RunTest(
 		t,
-		func(t *testing.T, apiClient pfs.ApiClient) {},
-	)
-	grpctest.Run(
-		t,
-		testNumServers,
-		func(servers map[string]*grpc.Server) {
-			for _, server := range servers {
-				pps.RegisterApiServer(server, newAPIServer(storeClient, timing.NewSystemTimer()))
-			}
-		},
-		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
-			var clientConn *grpc.ClientConn
-			for _, c := range clientConns {
-				clientConn = c
-				break
-			}
-			f(
+		func(t *testing.T, apiClient pfs.ApiClient) {
+			grpctest.Run(
 				t,
-				pps.NewApiClient(
-					clientConn,
-				),
+				testNumServers,
+				func(servers map[string]*grpc.Server) {
+					for _, server := range servers {
+						pps.RegisterApiServer(server, newAPIServer(apiClient, storeClient, timing.NewSystemTimer()))
+					}
+				},
+				func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
+					var clientConn *grpc.ClientConn
+					for _, c := range clientConns {
+						clientConn = c
+						break
+					}
+					f(
+						t,
+						pps.NewApiClient(
+							clientConn,
+						),
+					)
+				},
 			)
 		},
 	)
