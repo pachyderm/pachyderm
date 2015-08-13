@@ -210,3 +210,20 @@ func PullDiff(internalApiClient pfs.InternalApiClient, repositoryName string, co
 	}
 	return nil
 }
+
+func PushDiff(internalApiClient pfs.InternalApiClient, repositoryName string, reader io.Reader) error {
+	value, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+	_, err = internalApiClient.PushDiff(
+		context.Background(),
+		&pfs.PushDiffRequest{
+			Repository: &pfs.Repository{
+				Name: repositoryName,
+			},
+			Value: value,
+		},
+	)
+	return err
+}
