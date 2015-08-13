@@ -45,7 +45,7 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.InitRepository(initRepositoryRequest.Repository, shards); err != nil {
+	if err := a.driver.InitRepository(initRepositoryRequest.Repository, initRepositoryRequest.Replica, shards); err != nil {
 		return nil, err
 	}
 	if !initRepositoryRequest.Redirect {
@@ -299,11 +299,16 @@ func (a *combinedAPIServer) Commit(ctx context.Context, commitRequest *pfs.Commi
 }
 
 func (a *combinedAPIServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalApi_PullDiffServer) error {
-	return nil
+	var buffer bytes.Buffer
+	a.driver.PullDiff(pullDiffRequest.Commit, int(pullDiffRequest.Shard), &buffer)
+	return protoutil.WriteToStreamingBytesServer(
+		&buffer,
+		apiPullDiffServer,
+	)
 }
 
 func (a *combinedAPIServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.PushDiffRequest) (*google_protobuf.Empty, error) {
-	return emptyInstance, nil
+	return emptyInstance, a.driver.PushDiff(pushDiffRequest.Repository, bytes.NewBuffer(pushDiffRequest.Value))
 }
 
 // TODO(pedge): race on Branch
