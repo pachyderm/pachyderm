@@ -462,7 +462,7 @@ func (m *ListCommitsResponse) GetCommitInfo() []*CommitInfo {
 
 type PullDiffRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	Shard  int64   `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
+	Shard  uint64  `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *PullDiffRequest) Reset()         { *m = PullDiffRequest{} }

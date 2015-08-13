@@ -164,7 +164,7 @@ service Api {
 
 message PullDiffRequest {
   Commit commit = 1;
-  int64 shard = 2;
+  uint64 shard = 2;
 }
 
 message PushDiffRequest {
