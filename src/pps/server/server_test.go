@@ -12,6 +12,8 @@ import (
 	"go.pedge.io/protolog"
 	"go.pedge.io/protolog/logrus"
 
+	"github.com/pachyderm/pachyderm/src/pfs"
+	pfstesting "github.com/pachyderm/pachyderm/src/pfs/testing"
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
@@ -185,6 +187,10 @@ func runTest(
 ) {
 	storeClient, err := getRethinkClient()
 	require.NoError(t, err)
+	pfstesting.RunTest(
+		t,
+		func(t *testing.T, apiClient pfs.ApiClient) {},
+	)
 	grpctest.Run(
 		t,
 		testNumServers,
