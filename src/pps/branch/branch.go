@@ -2,6 +2,7 @@ package branch
 
 import (
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps/store"
 )
 
@@ -19,9 +20,11 @@ type Brancher interface {
 func NewBrancher(
 	pfsAPIClient pfs.ApiClient,
 	storeClient store.Client,
+	timer timing.Timer,
 ) Brancher {
 	return newBrancher(
 		pfsAPIClient,
 		storeClient,
+		timer,
 	)
 }
