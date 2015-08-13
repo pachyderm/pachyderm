@@ -58,6 +58,7 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 				ctx,
 				&pfs.InitRepositoryRequest{
 					Repository: initRepositoryRequest.Repository,
+					Replica:    initRepositoryRequest.Replica,
 					Redirect:   true,
 				},
 			); err != nil {
