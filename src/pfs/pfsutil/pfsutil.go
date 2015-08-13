@@ -17,13 +17,14 @@ const (
 	GetAll int64 = 1<<63 - 1
 )
 
-func InitRepository(apiClient pfs.ApiClient, repositoryName string) error {
+func InitRepository(apiClient pfs.ApiClient, repositoryName string, replica bool) error {
 	_, err := apiClient.InitRepository(
 		context.Background(),
 		&pfs.InitRepositoryRequest{
 			Repository: &pfs.Repository{
 				Name: repositoryName,
 			},
+			Replica: replica,
 		},
 	)
 	return err
@@ -211,7 +212,7 @@ func PullDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, co
 	return nil
 }
 
-func PushDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, reader io.Reader) error {
+func PushDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, shard uint64, reader io.Reader) error {
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return err
@@ -222,6 +223,7 @@ func PushDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, re
 			Repository: &pfs.Repository{
 				Name: repositoryName,
 			},
+			Shard: shard,
 			Value: value,
 		},
 	)

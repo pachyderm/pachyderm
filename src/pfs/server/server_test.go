@@ -51,6 +51,12 @@ func TestBtrfs(t *testing.T) {
 	runTest(t, driver, testSimple)
 }
 
+func TestReplica(t *testing.T) {
+	t.Parallel()
+	driver := btrfs.NewDriver(getBtrfsRootDir(t))
+	runTest(t, driver, testReplica)
+}
+
 func TestFuseMount(t *testing.T) {
 	t.Parallel()
 	driver := btrfs.NewDriver(getBtrfsRootDir(t))
@@ -81,10 +87,10 @@ func getBtrfsRootDir(tb testing.TB) string {
 	return rootDir
 }
 
-func testSimple(t *testing.T, apiClient pfs.ApiClient) {
+func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
 	repositoryName := testRepositoryName()
 
-	err := pfsutil.InitRepository(apiClient, repositoryName)
+	err := pfsutil.InitRepository(apiClient, repositoryName, false)
 	require.NoError(t, err)
 
 	getCommitInfoResponse, err := pfsutil.GetCommitInfo(apiClient, repositoryName, "scratch")
@@ -184,10 +190,35 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 	require.Equal(t, testSize, count)
 }
 
-func testMount(t *testing.T, apiClient pfs.ApiClient) {
+func testReplica(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
+	masterName := testRepositoryName()
+	err := pfsutil.InitRepository(apiClient, masterName, false)
+	require.NoError(t, err)
+
+	replicaName := testRepositoryName()
+	err = pfsutil.InitRepository(apiClient, replicaName, false)
+	require.NoError(t, err)
+
+	for i := 0; i < testShardsPerServer; i++ {
+		var buffer bytes.Buffer
+		err := pfsutil.PullDiff(internalAPIClient, masterName, "scratch", uint64(i), &buffer)
+		require.NoError(t, err)
+		err = pfsutil.PushDiff(internalAPIClient, replicaName, uint64(i), &buffer)
+		require.NoError(t, err)
+	}
+
+	getCommitInfoResponse, err := pfsutil.GetCommitInfo(apiClient, replicaName, "scratch")
+	require.NoError(t, err)
+	require.NotNil(t, getCommitInfoResponse)
+	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.Commit.Id)
+	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, getCommitInfoResponse.CommitInfo.CommitType)
+	require.Nil(t, getCommitInfoResponse.CommitInfo.ParentCommit)
+}
+
+func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
 	repositoryName := testRepositoryName()
 
-	err := pfsutil.InitRepository(apiClient, repositoryName)
+	err := pfsutil.InitRepository(apiClient, repositoryName, false)
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
@@ -250,10 +281,10 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 	require.Equal(t, bigValue, data)
 }
 
-func testMountBig(t *testing.T, apiClient pfs.ApiClient) {
+func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
 	repositoryName := testRepositoryName()
 
-	err := pfsutil.InitRepository(apiClient, repositoryName)
+	err := pfsutil.InitRepository(apiClient, repositoryName, false)
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
@@ -307,7 +338,7 @@ func testMountBig(t *testing.T, apiClient pfs.ApiClient) {
 func benchMount(b *testing.B, apiClient pfs.ApiClient) {
 	repositoryName := testRepositoryName()
 
-	if err := pfsutil.InitRepository(apiClient, repositoryName); err != nil {
+	if err := pfsutil.InitRepository(apiClient, repositoryName, false); err != nil {
 		b.Error(err)
 	}
 
@@ -401,7 +432,7 @@ func registerFunc(driver drive.Driver, discoveryClient discovery.Client, servers
 func runTest(
 	t *testing.T,
 	driver drive.Driver,
-	f func(t *testing.T, apiClient pfs.ApiClient),
+	f func(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient),
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(t, err)
@@ -420,6 +451,9 @@ func runTest(
 			f(
 				t,
 				pfs.NewApiClient(
+					clientConn,
+				),
+				pfs.NewInternalApiClient(
 					clientConn,
 				),
 			)
