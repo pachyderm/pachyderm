@@ -63,7 +63,8 @@ message CommitInfo {
 
 message InitRepositoryRequest {
   Repository repository = 1;
-  bool redirect = 2;
+  bool replica = 2;
+  bool redirect = 3;
 }
 
 message GetFileRequest {
@@ -163,13 +164,12 @@ service Api {
 
 message PullDiffRequest {
   Commit commit = 1;
-  uint64 shard = 2;
+  int64 shard = 2;
 }
 
 message PushDiffRequest {
-  Commit commit = 1;
-  uint64 shard = 2;
-  bytes value = 3;
+  Repository repository = 1;
+  bytes value = 2;
 }
 
 service InternalApi {

@@ -211,7 +211,8 @@ func (m *CommitInfo) GetParentCommit() *Commit {
 
 type InitRepositoryRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
-	Redirect   bool        `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
+	Replica    bool        `protobuf:"varint,2,opt,name=replica" json:"replica,omitempty"`
+	Redirect   bool        `protobuf:"varint,3,opt,name=redirect" json:"redirect,omitempty"`
 }
 
 func (m *InitRepositoryRequest) Reset()         { *m = InitRepositoryRequest{} }
@@ -461,7 +462,7 @@ func (m *ListCommitsResponse) GetCommitInfo() []*CommitInfo {
 
 type PullDiffRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	Shard  uint64  `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
+	Shard  int64   `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *PullDiffRequest) Reset()         { *m = PullDiffRequest{} }
@@ -476,18 +477,17 @@ func (m *PullDiffRequest) GetCommit() *Commit {
 }
 
 type PushDiffRequest struct {
-	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	Shard  uint64  `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
-	Value  []byte  `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
+	Value      []byte      `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 func (m *PushDiffRequest) Reset()         { *m = PushDiffRequest{} }
 func (m *PushDiffRequest) String() string { return proto.CompactTextString(m) }
 func (*PushDiffRequest) ProtoMessage()    {}
 
-func (m *PushDiffRequest) GetCommit() *Commit {
+func (m *PushDiffRequest) GetRepository() *Repository {
 	if m != nil {
-		return m.Commit
+		return m.Repository
 	}
 	return nil
 }
