@@ -1,44 +1,25 @@
-package server
+package testing
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 
 	"go.pedge.io/protolog/logrus"
 
-	"google.golang.org/grpc"
-
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
-	"github.com/pachyderm/pachyderm/src/pfs/route"
-	"github.com/pachyderm/pachyderm/src/pkg/discovery"
-	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
-	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	// TODO(pedge): large numbers of shards takes forever because
-	// we are doing tons of btrfs operations on init, is there anything
-	// we can do about that?
-	testShardsPerServer = 8
-	testNumServers      = 8
-	testSize            = 100
-)
-
-var (
-	counter int32
+	testSize = 100
 )
 
 func init() {
@@ -47,12 +28,12 @@ func init() {
 
 func TestBtrfs(t *testing.T) {
 	t.Parallel()
-	runTest(t, testSimple)
+	RunTest(t, testSimple)
 }
 
 func TestFuseMount(t *testing.T) {
 	t.Parallel()
-	runTest(t, testMount)
+	RunTest(t, testMount)
 }
 
 func TestFuseMountBig(t *testing.T) {
@@ -60,16 +41,16 @@ func TestFuseMountBig(t *testing.T) {
 		t.Skip()
 	}
 	t.Parallel()
-	runTest(t, testMountBig)
+	RunTest(t, testMountBig)
 
 }
 
 func BenchmarkFuse(b *testing.B) {
-	runBench(b, benchMount)
+	RunBench(b, benchMount)
 }
 
 func testSimple(t *testing.T, apiClient pfs.ApiClient) {
-	repositoryName := testRepositoryName()
+	repositoryName := TestRepositoryName()
 
 	err := pfsutil.InitRepository(apiClient, repositoryName)
 	require.NoError(t, err)
@@ -172,7 +153,7 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient) {
 }
 
 func testMount(t *testing.T, apiClient pfs.ApiClient) {
-	repositoryName := testRepositoryName()
+	repositoryName := TestRepositoryName()
 
 	err := pfsutil.InitRepository(apiClient, repositoryName)
 	require.NoError(t, err)
@@ -238,7 +219,7 @@ func testMount(t *testing.T, apiClient pfs.ApiClient) {
 }
 
 func testMountBig(t *testing.T, apiClient pfs.ApiClient) {
-	repositoryName := testRepositoryName()
+	repositoryName := TestRepositoryName()
 
 	err := pfsutil.InitRepository(apiClient, repositoryName)
 	require.NoError(t, err)
@@ -292,7 +273,7 @@ func testMountBig(t *testing.T, apiClient pfs.ApiClient) {
 }
 
 func benchMount(b *testing.B, apiClient pfs.ApiClient) {
-	repositoryName := testRepositoryName()
+	repositoryName := TestRepositoryName()
 
 	if err := pfsutil.InitRepository(apiClient, repositoryName); err != nil {
 		b.Error(err)
@@ -343,129 +324,4 @@ func benchMount(b *testing.B, apiClient pfs.ApiClient) {
 			b.Error(err)
 		}
 	}
-}
-
-func testRepositoryName() string {
-	// TODO could be nice to add callee to this string to make it easy to
-	// recover results for debugging
-	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
-}
-
-func testNamespace() string {
-	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
-}
-
-func registerFunc(driver drive.Driver, discoveryClient discovery.Client, servers map[string]*grpc.Server) {
-	addresser := route.NewDiscoveryAddresser(
-		discoveryClient,
-		testNamespace(),
-	)
-	i := 0
-	for address := range servers {
-		for j := 0; j < testShardsPerServer; j++ {
-			// TODO(pedge): error
-			_ = addresser.SetMasterAddress((i*testShardsPerServer)+j, address, 0)
-		}
-		i++
-	}
-	for address, server := range servers {
-		combinedAPIServer := NewCombinedAPIServer(
-			route.NewSharder(
-				testShardsPerServer*testNumServers,
-			),
-			route.NewRouter(
-				addresser,
-				grpcutil.NewDialer(),
-				address,
-			),
-			driver,
-		)
-		pfs.RegisterApiServer(server, combinedAPIServer)
-		pfs.RegisterInternalApiServer(server, combinedAPIServer)
-	}
-}
-
-func runTest(
-	t *testing.T,
-	f func(t *testing.T, apiClient pfs.ApiClient),
-) {
-	discoveryClient, err := getEtcdClient()
-	require.NoError(t, err)
-	grpctest.Run(
-		t,
-		testNumServers,
-		func(servers map[string]*grpc.Server) {
-			registerFunc(getDriver(t), discoveryClient, servers)
-		},
-		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
-			var clientConn *grpc.ClientConn
-			for _, c := range clientConns {
-				clientConn = c
-				break
-			}
-			f(
-				t,
-				pfs.NewApiClient(
-					clientConn,
-				),
-			)
-		},
-	)
-}
-
-func runBench(
-	b *testing.B,
-	f func(b *testing.B, apiClient pfs.ApiClient),
-) {
-	discoveryClient, err := getEtcdClient()
-	require.NoError(b, err)
-	grpctest.RunB(
-		b,
-		testNumServers,
-		func(servers map[string]*grpc.Server) {
-			registerFunc(getDriver(b), discoveryClient, servers)
-		},
-		func(b *testing.B, clientConns map[string]*grpc.ClientConn) {
-			var clientConn *grpc.ClientConn
-			for _, c := range clientConns {
-				clientConn = c
-				break
-			}
-			f(
-				b,
-				pfs.NewApiClient(
-					clientConn,
-				),
-			)
-		},
-	)
-}
-
-func getDriver(tb testing.TB) drive.Driver {
-	return btrfs.NewDriver(getBtrfsRootDir(b))
-}
-
-func getBtrfsRootDir(tb testing.TB) string {
-	// TODO(pedge)
-	rootDir := os.Getenv("PFS_DRIVER_ROOT")
-	if rootDir == "" {
-		tb.Fatal("PFS_DRIVER_ROOT not set")
-	}
-	return rootDir
-}
-
-func getEtcdClient() (discovery.Client, error) {
-	etcdAddress, err := getEtcdAddress()
-	if err != nil {
-		return nil, err
-	}
-	return discovery.NewEtcdClient(etcdAddress), nil
-}
-
-func getEtcdAddress() (string, error) {
-	etcdAddr := os.Getenv("ETCD_PORT_2379_TCP_ADDR")
-	if etcdAddr == "" {
-		return "", errors.New("ETCD_PORT_2379_TCP_ADDR not set")
-	}
-	return fmt.Sprintf("http://%s:2379", etcdAddr), nil
 }
