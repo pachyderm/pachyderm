@@ -188,3 +188,25 @@ func ListCommits(apiClient pfs.ApiClient, repositoryName string) (*pfs.ListCommi
 		},
 	)
 }
+
+func PullDiff(internalApiClient pfs.InternalApiClient, repositoryName string, commitID string, shard uint64, writer io.Writer) error {
+	apiPullDiffClient, err := internalApiClient.PullDiff(
+		context.Background(),
+		&pfs.PullDiffRequest{
+			Commit: &pfs.Commit{
+				Repository: &pfs.Repository{
+					Name: repositoryName,
+				},
+				Id: commitID,
+			},
+			Shard: shard,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if err := protoutil.WriteFromStreamingBytesClient(apiPullDiffClient, writer); err != nil {
+		return err
+	}
+	return nil
+}
