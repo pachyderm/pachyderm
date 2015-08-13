@@ -299,7 +299,6 @@ func (a *combinedAPIServer) Commit(ctx context.Context, commitRequest *pfs.Commi
 }
 
 func (a *combinedAPIServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalApi_PullDiffServer) error {
-	var buffer bytes.Buffer
 	clientConn, err := a.getClientConnIfNecessary(int(pullDiffRequest.Shard), false)
 	if err != nil {
 		return err
@@ -311,6 +310,7 @@ func (a *combinedAPIServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPu
 		}
 		return protoutil.RelayFromStreamingBytesClient(apiPullDiffClient, apiPullDiffServer)
 	}
+	var buffer bytes.Buffer
 	a.driver.PullDiff(pullDiffRequest.Commit, int(pullDiffRequest.Shard), &buffer)
 	return protoutil.WriteToStreamingBytesServer(
 		&buffer,
@@ -319,6 +319,13 @@ func (a *combinedAPIServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPu
 }
 
 func (a *combinedAPIServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.PushDiffRequest) (*google_protobuf.Empty, error) {
+	clientConn, err := a.getClientConnIfNecessary(int(pushDiffRequest.Shard), false)
+	if err != nil {
+		return nil, err
+	}
+	if clientConn != nil {
+		return pfs.NewInternalApiClient(clientConn).PushDiff(ctx, pushDiffRequest)
+	}
 	return emptyInstance, a.driver.PushDiff(pushDiffRequest.Repository, bytes.NewBuffer(pushDiffRequest.Value))
 }
 
