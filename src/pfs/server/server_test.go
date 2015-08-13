@@ -47,14 +47,12 @@ func init() {
 
 func TestBtrfs(t *testing.T) {
 	t.Parallel()
-	driver := btrfs.NewDriver(getBtrfsRootDir(t))
-	runTest(t, driver, testSimple)
+	runTest(t, testSimple)
 }
 
 func TestFuseMount(t *testing.T) {
 	t.Parallel()
-	driver := btrfs.NewDriver(getBtrfsRootDir(t))
-	runTest(t, driver, testMount)
+	runTest(t, testMount)
 }
 
 func TestFuseMountBig(t *testing.T) {
@@ -62,23 +60,12 @@ func TestFuseMountBig(t *testing.T) {
 		t.Skip()
 	}
 	t.Parallel()
-	driver := btrfs.NewDriver(getBtrfsRootDir(t))
-	runTest(t, driver, testMountBig)
+	runTest(t, testMountBig)
 
 }
 
 func BenchmarkFuse(b *testing.B) {
-	driver := btrfs.NewDriver(getBtrfsRootDir(b))
-	runBench(b, driver, benchMount)
-}
-
-func getBtrfsRootDir(tb testing.TB) string {
-	// TODO(pedge)
-	rootDir := os.Getenv("PFS_DRIVER_ROOT")
-	if rootDir == "" {
-		tb.Fatal("PFS_DRIVER_ROOT not set")
-	}
-	return rootDir
+	runBench(b, benchMount)
 }
 
 func testSimple(t *testing.T, apiClient pfs.ApiClient) {
@@ -400,7 +387,6 @@ func registerFunc(driver drive.Driver, discoveryClient discovery.Client, servers
 
 func runTest(
 	t *testing.T,
-	driver drive.Driver,
 	f func(t *testing.T, apiClient pfs.ApiClient),
 ) {
 	discoveryClient, err := getEtcdClient()
@@ -409,7 +395,7 @@ func runTest(
 		t,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
-			registerFunc(driver, discoveryClient, servers)
+			registerFunc(getDriver(t), discoveryClient, servers)
 		},
 		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
 			var clientConn *grpc.ClientConn
@@ -429,7 +415,6 @@ func runTest(
 
 func runBench(
 	b *testing.B,
-	driver drive.Driver,
 	f func(b *testing.B, apiClient pfs.ApiClient),
 ) {
 	discoveryClient, err := getEtcdClient()
@@ -438,7 +423,7 @@ func runBench(
 		b,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
-			registerFunc(driver, discoveryClient, servers)
+			registerFunc(getDriver(b), discoveryClient, servers)
 		},
 		func(b *testing.B, clientConns map[string]*grpc.ClientConn) {
 			var clientConn *grpc.ClientConn
@@ -454,6 +439,19 @@ func runBench(
 			)
 		},
 	)
+}
+
+func getDriver(tb testing.TB) drive.Driver {
+	return btrfs.NewDriver(getBtrfsRootDir(b))
+}
+
+func getBtrfsRootDir(tb testing.TB) string {
+	// TODO(pedge)
+	rootDir := os.Getenv("PFS_DRIVER_ROOT")
+	if rootDir == "" {
+		tb.Fatal("PFS_DRIVER_ROOT not set")
+	}
+	return rootDir
 }
 
 func getEtcdClient() (discovery.Client, error) {
