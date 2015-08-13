@@ -69,7 +69,11 @@ func (d *driver) InitRepository(repository *pfs.Repository, replica bool, shards
 }
 
 func (d *driver) GetFile(path *pfs.Path, shard int) (drive.ReaderAtCloser, error) {
-	return os.Open(d.filePath(path, shard))
+	filePath, err := d.filePath(path, shard)
+	if err != nil {
+		return nil, err
+	}
+	return os.Open(filePath)
 }
 
 func (d *driver) GetFileInfo(path *pfs.Path, shard int) (_ *pfs.FileInfo, ok bool, _ error) {
@@ -87,12 +91,15 @@ func (d *driver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
 	// TODO(pedge): if PutFile fails here or on another shard, the directories
 	// will still exist and be returned from ListFiles, we want to do this
 	// iteratively and with rollback
-	// TODO(pedge): check that commit exists and is a write commit
 	for shard := range shards {
 		if err := d.checkWrite(path.Commit, shard); err != nil {
 			return err
 		}
-		if err := os.MkdirAll(d.dirtyFilePath(path, shard), 0700); err != nil {
+		filePath, err := d.filePath(path, shard)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filePath, 0700); err != nil {
 			return err
 		}
 	}
@@ -103,7 +110,11 @@ func (d *driver) PutFile(path *pfs.Path, shard int, offset int64, reader io.Read
 	if err := d.checkWrite(path.Commit, shard); err != nil {
 		return err
 	}
-	file, err := os.OpenFile(d.dirtyFilePath(path, shard), os.O_CREATE|os.O_WRONLY, 0666)
+	filePath, err := d.filePath(path, shard)
+	if err != nil {
+		return err
+	}
+	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
 	}
@@ -116,7 +127,10 @@ func (d *driver) PutFile(path *pfs.Path, shard int, offset int64, reader io.Read
 }
 
 func (d *driver) ListFiles(path *pfs.Path, shard int) (_ []*pfs.FileInfo, retErr error) {
-	filePath := d.filePath(path, shard)
+	filePath, err := d.filePath(path, shard)
+	if err != nil {
+		return nil, err
+	}
 	stat, err := os.Stat(filePath)
 	if err != nil {
 		return nil, err
@@ -160,7 +174,11 @@ func (d *driver) ListFiles(path *pfs.Path, shard int) (_ []*pfs.FileInfo, retErr
 }
 
 func (d *driver) stat(path *pfs.Path, shard int) (*pfs.FileInfo, error) {
-	stat, err := os.Stat(d.filePath(path, shard))
+	filePath, err := d.filePath(path, shard)
+	if err != nil {
+		return nil, err
+	}
+	stat, err := os.Stat(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -197,23 +215,34 @@ func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[in
 		return nil, err
 	}
 	for shard := range shards {
-		newCommitPath := d.dirtyCommitPath(newCommit, shard)
+		newCommitPath := d.writeCommitPath(newCommit, shard)
 		if commit != nil {
 			if err := d.checkReadOnly(commit, shard); err != nil {
 				return nil, err
 			}
-			commitPath := d.commitPath(commit, shard)
+			commitPath, err := d.commitPath(commit, shard)
+			if err != nil {
+				return nil, err
+			}
 			if err := execSubvolumeSnapshot(commitPath, newCommitPath, false); err != nil {
 				return nil, err
 			}
-			if err := ioutil.WriteFile(d.dirtyFilePath(&pfs.Path{Commit: newCommit, Path: filepath.Join(metadataDir, "parent")}, shard), []byte(commit.Id), 0600); err != nil {
+			filePath, err := d.filePath(&pfs.Path{Commit: newCommit, Path: filepath.Join(metadataDir, "parent")}, shard)
+			if err != nil {
+				return nil, err
+			}
+			if err := ioutil.WriteFile(filePath, []byte(commit.Id), 0600); err != nil {
 				return nil, err
 			}
 		} else {
 			if err := execSubvolumeCreate(newCommitPath); err != nil {
 				return nil, err
 			}
-			if err := os.Mkdir(d.dirtyFilePath(&pfs.Path{Commit: newCommit, Path: metadataDir}, shard), 0700); err != nil {
+			filePath, err := d.filePath(&pfs.Path{Commit: newCommit, Path: metadataDir}, shard)
+			if err != nil {
+				return nil, err
+			}
+			if err := os.Mkdir(filePath, 0700); err != nil {
 				return nil, err
 			}
 		}
@@ -223,7 +252,7 @@ func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[in
 
 func (d *driver) Commit(commit *pfs.Commit, shards map[int]bool) error {
 	for shard := range shards {
-		if err := execSubvolumeSnapshot(d.dirtyCommitPath(commit, shard), d.commitPath(commit, shard), true); err != nil {
+		if err := execSubvolumeSnapshot(d.writeCommitPath(commit, shard), d.readCommitPath(commit, shard), true); err != nil {
 			return err
 		}
 	}
@@ -236,9 +265,9 @@ func (d *driver) PullDiff(commit *pfs.Commit, shard int, diff io.Writer) error {
 		return err
 	}
 	if parent == nil {
-		return execSend(d.commitPath(commit, shard), "", diff)
+		return execSend(d.readCommitPath(commit, shard), "", diff)
 	}
-	return execSend(d.commitPath(commit, shard), d.commitPath(parent, shard), diff)
+	return execSend(d.readCommitPath(commit, shard), d.readCommitPath(parent, shard), diff)
 }
 
 func (d *driver) PushDiff(repository *pfs.Repository, diff io.Reader) error {
@@ -246,12 +275,10 @@ func (d *driver) PushDiff(repository *pfs.Repository, diff io.Reader) error {
 }
 
 func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.CommitInfo, ok bool, _ error) {
-	_, err := os.Stat(d.commitPath(commit, shard))
-	if err != nil && os.IsNotExist(err) {
+	_, readErr := os.Stat(d.readCommitPath(commit, shard))
+	_, writeErr := os.Stat(d.writeCommitPath(commit, shard))
+	if readErr != nil && os.IsNotExist(readErr) && writeErr != nil && os.IsNotExist(writeErr) {
 		return nil, false, nil
-	}
-	if err != nil {
-		return nil, false, err
 	}
 	parent, err := d.getParent(commit, shard)
 	if err != nil {
@@ -316,7 +343,11 @@ func (d *driver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
 	if commit.Id == drive.InitialCommitID {
 		return nil, nil
 	}
-	data, err := ioutil.ReadFile(d.filePath(&pfs.Path{Commit: commit, Path: filepath.Join(metadataDir, "parent")}, shard))
+	filePath, err := d.filePath(&pfs.Path{Commit: commit, Path: filepath.Join(metadataDir, "parent")}, shard)
+	if err != nil {
+		return nil, err
+	}
+	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -349,9 +380,9 @@ func (d *driver) checkWrite(commit *pfs.Commit, shard int) error {
 }
 
 func (d *driver) getReadOnly(commit *pfs.Commit, shard int) (bool, error) {
-	if execSubvolumeExists(d.commitPath(commit, shard)) {
+	if execSubvolumeExists(d.readCommitPath(commit, shard)) {
 		return true, nil
-	} else if execSubvolumeExists(d.dirtyCommitPath(commit, shard)) {
+	} else if execSubvolumeExists(d.writeCommitPath(commit, shard)) {
 		return false, nil
 	} else {
 		return false, fmt.Errorf("pachyderm: commit %s doesn't exist", commit.Id)
@@ -366,20 +397,32 @@ func (d *driver) commitPathNoShard(commit *pfs.Commit) string {
 	return filepath.Join(d.repositoryPath(commit.Repository), commit.Id)
 }
 
-func (d *driver) commitPath(commit *pfs.Commit, shard int) string {
-	return filepath.Join(d.commitPathNoShard(commit), fmt.Sprintf("%d", shard))
+func (d *driver) readCommitPath(commit *pfs.Commit, shard int) string {
+	return filepath.Join(d.commitPathNoShard(commit), fmt.Sprint(shard))
 }
 
-func (d *driver) dirtyCommitPath(commit *pfs.Commit, shard int) string {
-	return d.commitPath(commit, shard) + ".dirty"
+func (d *driver) writeCommitPath(commit *pfs.Commit, shard int) string {
+	return d.readCommitPath(commit, shard) + ".write"
 }
 
-func (d *driver) filePath(path *pfs.Path, shard int) string {
-	return filepath.Join(d.commitPath(path.Commit, shard), path.Path)
+func (d *driver) commitPath(commit *pfs.Commit, shard int) (string, error) {
+	readOnly, err := d.getReadOnly(commit, shard)
+	if err != nil {
+		return "", err
+	}
+	if readOnly {
+		return d.readCommitPath(commit, shard), nil
+	} else {
+		return d.writeCommitPath(commit, shard), nil
+	}
 }
 
-func (d *driver) dirtyFilePath(path *pfs.Path, shard int) string {
-	return filepath.Join(d.dirtyCommitPath(path.Commit, shard), path.Path)
+func (d *driver) filePath(path *pfs.Path, shard int) (string, error) {
+	commitPath, err := d.commitPath(path.Commit, shard)
+	if err != nil {
+		return "", nil
+	}
+	return filepath.Join(commitPath, path.Path), nil
 }
 
 func newCommitID() string {
