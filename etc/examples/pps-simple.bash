@@ -19,4 +19,4 @@ simple() {
   run pps logs "${id}"
 }
 
-do_pps "${0}" simple
+do_all "${0}" simple

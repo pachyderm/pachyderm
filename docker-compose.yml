@@ -44,3 +44,4 @@ ppsd:
   links:
     - rethink
     - etcd
+    - pfsd

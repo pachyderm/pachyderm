@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/pachyderm/pachyderm"
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
@@ -23,6 +24,7 @@ var (
 )
 
 type appEnv struct {
+	PfsAddress      string `env:"PFS_ADDRESS"`
 	APIPort         int    `env:"PPS_API_PORT"`
 	DatabaseAddress string `env:"PPS_DATABASE_ADDRESS"`
 	DatabaseName    string `env:"PPS_DATABASE_NAME"`
@@ -39,12 +41,16 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	apiClient, err := getPfsAPIClient(appEnv.PfsAddress)
+	if err != nil {
+		return err
+	}
 	return grpcutil.GrpcDo(
 		appEnv.APIPort,
 		appEnv.TracePort,
 		pachyderm.Version,
 		func(s *grpc.Server) {
-			pps.RegisterApiServer(s, server.NewAPIServer(rethinkClient, timing.NewSystemTimer()))
+			pps.RegisterApiServer(s, server.NewAPIServer(apiClient, rethinkClient, timing.NewSystemTimer()))
 		},
 	)
 }
@@ -69,4 +75,27 @@ func getRethinkAddress() (string, error) {
 		return "", errors.New("RETHINK_PORT_28015_TCP_ADDR not set")
 	}
 	return fmt.Sprintf("%s:28015", rethinkAddr), nil
+}
+
+func getPfsAPIClient(address string) (pfs.ApiClient, error) {
+	var err error
+	if address == "" {
+		address, err = getPfsAddress()
+		if err != nil {
+			return nil, err
+		}
+	}
+	clientConn, err := grpc.Dial(address)
+	if err != nil {
+		return nil, err
+	}
+	return pfs.NewApiClient(clientConn), nil
+}
+
+func getPfsAddress() (string, error) {
+	rethinkAddr := os.Getenv("PFSD_PORT_650_TCP_ADDR")
+	if rethinkAddr == "" {
+		return "", errors.New("PFSD_PORT_650_TCP_ADDR not set")
+	}
+	return fmt.Sprintf("%s:650", rethinkAddr), nil
 }
