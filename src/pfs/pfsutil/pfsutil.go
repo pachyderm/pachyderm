@@ -212,7 +212,7 @@ func PullDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, co
 	return nil
 }
 
-func PushDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, shard uint64, reader io.Reader) error {
+func PushDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, commitID string, shard uint64, reader io.Reader) error {
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return err
@@ -220,8 +220,11 @@ func PushDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, sh
 	_, err = internalAPIClient.PushDiff(
 		context.Background(),
 		&pfs.PushDiffRequest{
-			Repository: &pfs.Repository{
-				Name: repositoryName,
+			Commit: &pfs.Commit{
+				Repository: &pfs.Repository{
+					Name: repositoryName,
+				},
+				Id: commitID,
 			},
 			Shard: shard,
 			Value: value,

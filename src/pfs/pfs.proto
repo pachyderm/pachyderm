@@ -168,7 +168,7 @@ message PullDiffRequest {
 }
 
 message PushDiffRequest {
-  Repository repository = 1;
+  Commit commit = 1;
   uint64 shard = 2;
   bytes value = 3;
 }
