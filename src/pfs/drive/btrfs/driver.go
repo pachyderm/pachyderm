@@ -255,6 +255,9 @@ func (d *driver) Commit(commit *pfs.Commit, shards map[int]bool) error {
 		if err := execSubvolumeSnapshot(d.writeCommitPath(commit, shard), d.readCommitPath(commit, shard), true); err != nil {
 			return err
 		}
+		if err := execSubvolumeDelete(d.writeCommitPath(commit, shard)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -270,8 +273,11 @@ func (d *driver) PullDiff(commit *pfs.Commit, shard int, diff io.Writer) error {
 	return execSend(d.readCommitPath(commit, shard), d.readCommitPath(parent, shard), diff)
 }
 
-func (d *driver) PushDiff(repository *pfs.Repository, diff io.Reader) error {
-	return execRecv(d.repositoryPath(repository), diff)
+func (d *driver) PushDiff(commit *pfs.Commit, diff io.Reader) error {
+	if err := execSubvolumeCreate(d.commitPathNoShard(commit)); err != nil && !execSubvolumeExists(d.commitPathNoShard(commit)) {
+		return err
+	}
+	return execRecv(d.commitPathNoShard(commit), diff)
 }
 
 func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.CommitInfo, ok bool, _ error) {

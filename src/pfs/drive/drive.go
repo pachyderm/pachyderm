@@ -38,7 +38,7 @@ type Driver interface {
 	Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error)
 	Commit(commit *pfs.Commit, shards map[int]bool) error
 	PullDiff(commit *pfs.Commit, shard int, diff io.Writer) error
-	PushDiff(repository *pfs.Repository, diff io.Reader) error
+	PushDiff(commit *pfs.Commit, diff io.Reader) error
 	GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, bool, error)
 	ListCommits(repository *pfs.Repository, shard int) ([]*pfs.CommitInfo, error)
 }

@@ -477,18 +477,18 @@ func (m *PullDiffRequest) GetCommit() *Commit {
 }
 
 type PushDiffRequest struct {
-	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
-	Shard      uint64      `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
-	Value      []byte      `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	Shard  uint64  `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
+	Value  []byte  `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 func (m *PushDiffRequest) Reset()         { *m = PushDiffRequest{} }
 func (m *PushDiffRequest) String() string { return proto.CompactTextString(m) }
 func (*PushDiffRequest) ProtoMessage()    {}
 
-func (m *PushDiffRequest) GetRepository() *Repository {
+func (m *PushDiffRequest) GetCommit() *Commit {
 	if m != nil {
-		return m.Repository
+		return m.Commit
 	}
 	return nil
 }

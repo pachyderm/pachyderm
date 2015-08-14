@@ -327,7 +327,7 @@ func (a *combinedAPIServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.P
 	if clientConn != nil {
 		return pfs.NewInternalApiClient(clientConn).PushDiff(ctx, pushDiffRequest)
 	}
-	return emptyInstance, a.driver.PushDiff(pushDiffRequest.Repository, bytes.NewBuffer(pushDiffRequest.Value))
+	return emptyInstance, a.driver.PushDiff(pushDiffRequest.Commit, bytes.NewReader(pushDiffRequest.Value))
 }
 
 // TODO(pedge): race on Branch

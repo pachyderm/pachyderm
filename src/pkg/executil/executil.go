@@ -59,6 +59,7 @@ func RunWithOptions(runOptions RunOptions, args ...string) error {
 		}
 	}
 	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Stdin = runOptions.stdin
 	cmd.Stdout = runOptions.stdout
 	cmd.Stderr = stderr
 	argsString := strings.Join(args, " ")
