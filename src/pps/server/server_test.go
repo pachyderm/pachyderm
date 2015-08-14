@@ -12,6 +12,8 @@ import (
 	"go.pedge.io/protolog"
 	"go.pedge.io/protolog/logrus"
 
+	"github.com/pachyderm/pachyderm/src/pfs"
+	pfstesting "github.com/pachyderm/pachyderm/src/pfs/testing"
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
@@ -185,25 +187,30 @@ func runTest(
 ) {
 	storeClient, err := getRethinkClient()
 	require.NoError(t, err)
-	grpctest.Run(
+	pfstesting.RunTest(
 		t,
-		testNumServers,
-		func(servers map[string]*grpc.Server) {
-			for _, server := range servers {
-				pps.RegisterApiServer(server, newAPIServer(storeClient, timing.NewSystemTimer()))
-			}
-		},
-		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
-			var clientConn *grpc.ClientConn
-			for _, c := range clientConns {
-				clientConn = c
-				break
-			}
-			f(
+		func(t *testing.T, apiClient pfs.ApiClient) {
+			grpctest.Run(
 				t,
-				pps.NewApiClient(
-					clientConn,
-				),
+				testNumServers,
+				func(servers map[string]*grpc.Server) {
+					for _, server := range servers {
+						pps.RegisterApiServer(server, newAPIServer(apiClient, storeClient, timing.NewSystemTimer()))
+					}
+				},
+				func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
+					var clientConn *grpc.ClientConn
+					for _, c := range clientConns {
+						clientConn = c
+						break
+					}
+					f(
+						t,
+						pps.NewApiClient(
+							clientConn,
+						),
+					)
+				},
 			)
 		},
 	)
