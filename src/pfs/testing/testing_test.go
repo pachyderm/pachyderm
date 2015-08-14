@@ -37,11 +37,13 @@ func TestReplica(t *testing.T) {
 }
 
 func TestFuseMount(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 	RunTest(t, testMount)
 }
 
 func TestFuseMountBig(t *testing.T) {
+	t.Skip()
 	if testing.Short() {
 		t.Skip()
 	}
