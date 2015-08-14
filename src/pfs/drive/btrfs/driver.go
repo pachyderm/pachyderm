@@ -412,9 +412,8 @@ func (d *driver) commitPath(commit *pfs.Commit, shard int) (string, error) {
 	}
 	if readOnly {
 		return d.readCommitPath(commit, shard), nil
-	} else {
-		return d.writeCommitPath(commit, shard), nil
 	}
+	return d.writeCommitPath(commit, shard), nil
 }
 
 func (d *driver) filePath(path *pfs.Path, shard int) (string, error) {
