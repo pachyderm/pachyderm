@@ -189,7 +189,7 @@ func runTest(
 	require.NoError(t, err)
 	pfstesting.RunTest(
 		t,
-		func(t *testing.T, apiClient pfs.ApiClient) {
+		func(t *testing.T, apiClient pfs.ApiClient, internalApiClient pfs.InternalApiClient) {
 			grpctest.Run(
 				t,
 				testNumServers,
