@@ -17,6 +17,7 @@ package btrfs
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -306,41 +307,45 @@ func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.CommitInfo
 }
 
 func (d *driver) ListCommits(repository *pfs.Repository, shard int) (_ []*pfs.CommitInfo, retErr error) {
-
-	dir, err := os.Open(d.repositoryPath(repository))
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := dir.Close(); err != nil && retErr == nil {
+	var commitInfos []*pfs.CommitInfo
+	// TODO(pedge): constant
+	reader, writer := io.Pipe()
+	go func() {
+		if err := execSubvolumeList(d.repositoryPath(repository), "", false, writer); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
-	var commitInfos []*pfs.CommitInfo
-	// TODO(pedge): constant
-	for names, err := dir.Readdirnames(100); err != io.EOF; names, err = dir.Readdirnames(100) {
+	defer func() {
+		if err := reader.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+		if err := writer.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	commitScanner := newCommitScanner(reader)
+	for commitScanner.Scan() {
+		commitID, err := commitScanner.Commit()
 		if err != nil {
 			return nil, err
 		}
-		for _, name := range names {
-			commitInfo, ok, err := d.GetCommitInfo(
-				&pfs.Commit{
-					Repository: repository,
-					Id:         path.Base(name),
-				},
-				shard,
-			)
-			if !ok {
-				// This is a really weird error to get since we got this commit
-				// name by listing commits. This is probably indicative of a
-				// race condition.
-				return nil, fmt.Errorf("Commit not found.")
-			}
-			if err != nil {
-				return nil, err
-			}
-			commitInfos = append(commitInfos, commitInfo)
+		commitInfo, ok, err := d.GetCommitInfo(
+			&pfs.Commit{
+				Repository: repository,
+				Id:         commitID,
+			},
+			shard,
+		)
+		if !ok {
+			// This is a really weird error to get since we got this commit
+			// name by listing commits. This is probably indicative of a
+			// race condition.
+			return nil, fmt.Errorf("Commit not found.")
 		}
+		if err != nil {
+			return nil, err
+		}
+		commitInfos = append(commitInfos, commitInfo)
 	}
 	return commitInfos, nil
 }
@@ -459,6 +464,80 @@ func execSubvolumeSnapshot(src string, dest string, readOnly bool) error {
 		return executil.Run("btrfs", "subvolume", "snapshot", "-r", src, dest)
 	}
 	return executil.Run("btrfs", "subvolume", "snapshot", src, dest)
+}
+
+func execTransID(path string) (string, error) {
+	//  "9223372036854775810" == 2 ** 63 we use a very big number there so that
+	//  we get the transid of the from path. According to the internet this is
+	//  the nicest way to get it from btrfs.
+	var buffer bytes.Buffer
+	if err := executil.RunStdout(&buffer, "btrfs", "subvolume", "find-new", path, "9223372036854775808"); err != nil {
+		return "", err
+	}
+	scanner := bufio.NewScanner(&buffer)
+	for scanner.Scan() {
+		// scanner.Text() looks like this:
+		// transid marker was 907
+		// 0       1      2   3
+		tokens := strings.Split(scanner.Text(), " ")
+		if len(tokens) != 4 {
+			return "", fmt.Errorf("pachyderm: failed to parse find-new output")
+		}
+		// We want to increment the transid because it's inclusive, if we
+		// don't increment we'll get things from the previous commit as
+		// well.
+		return tokens[3], nil
+	}
+	if scanner.Err() != nil {
+		return "", scanner.Err()
+	}
+	return "", fmt.Errorf("pachyderm: empty output from find-new")
+}
+
+func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Writer) error {
+	var sort string
+	if ascending {
+		sort = "+ogen"
+	} else {
+		sort = "-ogen"
+	}
+
+	if fromCommit == "" {
+		return executil.RunStdout(out, "btrfs", "subvolume", "list", "-ocuq", "--sort", sort, path)
+	}
+	transid, err := execTransID(fromCommit)
+	if err != nil {
+		return err
+	}
+	return executil.RunStdout(out, "btrfs", "subvolume", "list", "-ocuqC", "+"+transid, "--sort", sort, path)
+}
+
+type commitScanner struct {
+	textScanner *bufio.Scanner
+}
+
+func newCommitScanner(reader io.Reader) *commitScanner {
+	return &commitScanner{bufio.NewScanner(reader)}
+}
+
+func (c *commitScanner) Scan() bool {
+	return c.textScanner.Scan()
+}
+
+func (c *commitScanner) Err() error {
+	return c.textScanner.Err()
+}
+
+func (c *commitScanner) Commit() (string, error) {
+	// scanner.Text() looks like:
+	// ID 299 gen 67 cgen 66 top level 292 parent_uuid 7a4a824b-7b78-d144-a956-eb0229616d21 uuid c1cd770c-600b-a744-940c-835bf73b5fa9 path repo/25853824-60a8-4d32-9168-adfce78a6c91
+	// 0  1   2   3  4    5  6   7     8   9           10                                   11   12                                   13   14
+	tokens := strings.Split(c.textScanner.Text(), " ")
+	if len(tokens) != 15 {
+		return "", fmt.Errorf("Malformed commit line: %s.", c.textScanner.Text())
+	}
+	_, commitID := path.Split(tokens[14]) // we want to returns paths without the repo/ before them
+	return commitID, nil
 }
 
 func execSend(path string, parent string, diff io.Writer) error {
