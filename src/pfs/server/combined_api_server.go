@@ -41,7 +41,7 @@ func newCombinedAPIServer(
 }
 
 func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRequest *pfs.InitRepositoryRequest) (*google_protobuf.Empty, error) {
-	shards, err := a.getAllShards(true)
+	shards, err := a.getAllShards(false)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest 
 }
 
 func (a *combinedAPIServer) MakeDirectory(ctx context.Context, makeDirectoryRequest *pfs.MakeDirectoryRequest) (*google_protobuf.Empty, error) {
-	shards, err := a.getAllShards(true)
+	shards, err := a.getAllShards(false)
 	if err != nil {
 		return nil, err
 	}
