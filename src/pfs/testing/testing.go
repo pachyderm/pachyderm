@@ -106,6 +106,8 @@ func registerFunc(driver drive.Driver, discoveryClient discovery.Client, servers
 		for j := 0; j < testShardsPerServer; j++ {
 			// TODO(pedge): error
 			_ = addresser.SetMasterAddress((i*testShardsPerServer)+j, address, 0)
+			_ = addresser.SetSlaveAddress((((i+1)%len(servers))*testShardsPerServer)+j, address, 0)
+			_ = addresser.SetSlaveAddress((((i+2)%len(servers))*testShardsPerServer)+j, address, 0)
 		}
 		i++
 	}

@@ -58,20 +58,15 @@ func (a *discoveryAddresser) GetShardToSlaveAddresses() (map[int]map[string]bool
 		return nil, err
 	}
 	m := make(map[int]map[string]bool, 0)
-	for shardAddress := range addresses {
-		shardAddress := strings.TrimPrefix(shardAddress, fmt.Sprintf("%s/", base))
-		split := strings.Split(shardAddress, "/")
-		if len(split) != 2 {
-			return nil, fmt.Errorf("cannot split %s into shard and address", shardAddress)
-		}
-		shard, err := strconv.ParseInt(strings.TrimPrefix(split[0], fmt.Sprintf("%s/", base)), 10, 64)
+	for shardString, address := range addresses {
+		shard, err := strconv.ParseInt(strings.TrimPrefix(shardString, fmt.Sprintf("%s/", base)), 10, 64)
 		if err != nil {
 			return nil, err
 		}
 		if _, ok := m[int(shard)]; !ok {
 			m[int(shard)] = make(map[string]bool, 0)
 		}
-		m[int(shard)][split[1]] = true
+		m[int(shard)][address] = true
 	}
 	return m, nil
 }
@@ -81,7 +76,7 @@ func (a *discoveryAddresser) SetMasterAddress(shard int, address string, ttl uin
 }
 
 func (a *discoveryAddresser) SetSlaveAddress(shard int, address string, ttl uint64) error {
-	return a.discoveryClient.Set(fmt.Sprintf("%s/pfs/shard/slave/%d/%s", a.namespace, shard, address), "1", ttl)
+	return a.discoveryClient.Set(fmt.Sprintf("%s/pfs/shard/slave/%d", a.namespace, shard), address, ttl)
 }
 
 func (a *discoveryAddresser) DeleteMasterAddress(shard int) error {

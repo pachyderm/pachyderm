@@ -307,20 +307,11 @@ func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.CommitInfo
 
 func (d *driver) ListCommits(repository *pfs.Repository, shard int) (_ []*pfs.CommitInfo, retErr error) {
 	var commitInfos []*pfs.CommitInfo
-	// TODO(pedge): constant
+	//TODO this buffer might get too big
 	var buffer bytes.Buffer
-	// reader, writer := io.Pipe()
 	if err := execSubvolumeList(d.repositoryPath(repository), "", false, &buffer); err != nil {
 		return nil, err
 	}
-	// defer func() {
-	// 	if err := reader.Close(); err != nil && retErr == nil {
-	// 		retErr = err
-	// 	}
-	// 	if err := writer.Close(); err != nil && retErr == nil {
-	// 		retErr = err
-	// 	}
-	// }()
 	commitScanner := newCommitScanner(&buffer, repository.Name)
 	for commitScanner.Scan() {
 		commitID := commitScanner.Commit()
