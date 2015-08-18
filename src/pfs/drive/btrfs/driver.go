@@ -22,7 +22,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -309,26 +308,22 @@ func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.CommitInfo
 func (d *driver) ListCommits(repository *pfs.Repository, shard int) (_ []*pfs.CommitInfo, retErr error) {
 	var commitInfos []*pfs.CommitInfo
 	// TODO(pedge): constant
-	reader, writer := io.Pipe()
-	go func() {
-		if err := execSubvolumeList(d.repositoryPath(repository), "", false, writer); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	defer func() {
-		if err := reader.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-		if err := writer.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	commitScanner := newCommitScanner(reader)
+	var buffer bytes.Buffer
+	// reader, writer := io.Pipe()
+	if err := execSubvolumeList(d.repositoryPath(repository), "", false, &buffer); err != nil {
+		return nil, err
+	}
+	// defer func() {
+	// 	if err := reader.Close(); err != nil && retErr == nil {
+	// 		retErr = err
+	// 	}
+	// 	if err := writer.Close(); err != nil && retErr == nil {
+	// 		retErr = err
+	// 	}
+	// }()
+	commitScanner := newCommitScanner(&buffer, repository.Name)
 	for commitScanner.Scan() {
-		commitID, err := commitScanner.Commit()
-		if err != nil {
-			return nil, err
-		}
+		commitID := commitScanner.Commit()
 		commitInfo, ok, err := d.GetCommitInfo(
 			&pfs.Commit{
 				Repository: repository,
@@ -503,41 +498,56 @@ func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Wr
 	}
 
 	if fromCommit == "" {
-		return executil.RunStdout(out, "btrfs", "subvolume", "list", "-ocuq", "--sort", sort, path)
+		return executil.RunStdout(out, "btrfs", "subvolume", "list", "-a", "--sort", sort, path)
 	}
 	transid, err := execTransID(fromCommit)
 	if err != nil {
 		return err
 	}
-	return executil.RunStdout(out, "btrfs", "subvolume", "list", "-ocuqC", "+"+transid, "--sort", sort, path)
+	return executil.RunStdout(out, "btrfs", "subvolume", "list", "-aC", "+"+transid, "--sort", sort, path)
 }
 
 type commitScanner struct {
 	textScanner *bufio.Scanner
+	repository  string
 }
 
-func newCommitScanner(reader io.Reader) *commitScanner {
-	return &commitScanner{bufio.NewScanner(reader)}
+func newCommitScanner(reader io.Reader, repository string) *commitScanner {
+	return &commitScanner{bufio.NewScanner(reader), repository}
 }
 
 func (c *commitScanner) Scan() bool {
-	return c.textScanner.Scan()
+	for {
+		if !c.textScanner.Scan() {
+			return false
+		}
+		if _, ok := c.parseCommit(c.textScanner.Text()); ok {
+			return true
+		}
+	}
 }
 
 func (c *commitScanner) Err() error {
 	return c.textScanner.Err()
 }
 
-func (c *commitScanner) Commit() (string, error) {
-	// scanner.Text() looks like:
-	// ID 299 gen 67 cgen 66 top level 292 parent_uuid 7a4a824b-7b78-d144-a956-eb0229616d21 uuid c1cd770c-600b-a744-940c-835bf73b5fa9 path repo/25853824-60a8-4d32-9168-adfce78a6c91
-	// 0  1   2   3  4    5  6   7     8   9           10                                   11   12                                   13   14
+func (c *commitScanner) Commit() string {
+	commit, _ := c.parseCommit(c.textScanner.Text())
+	return commit
+}
+
+func (c *commitScanner) parseCommit(listLine string) (string, bool) {
+	// listLine looks like:
+	// ID 905 gen 865 top level 5 path <FS_TREE>/repo/commit
+	// 0  1   2   3   4   5     6 7    8
 	tokens := strings.Split(c.textScanner.Text(), " ")
-	if len(tokens) != 15 {
-		return "", fmt.Errorf("Malformed commit line: %s.", c.textScanner.Text())
+	if len(tokens) != 9 {
+		return "", false
 	}
-	_, commitID := path.Split(tokens[14]) // we want to returns paths without the repo/ before them
-	return commitID, nil
+	if strings.HasPrefix(tokens[8], filepath.Join("<FS_TREE>", c.repository)) && len(strings.Split(listLine, "/")) == 3 {
+		return strings.Split(listLine, "/")[2], true
+	}
+	return "", false
 }
 
 func execSend(path string, parent string, diff io.Writer) error {

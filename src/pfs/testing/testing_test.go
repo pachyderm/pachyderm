@@ -68,6 +68,12 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.Commit.Id)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, getCommitInfoResponse.CommitInfo.CommitType)
 	require.Nil(t, getCommitInfoResponse.CommitInfo.ParentCommit)
+	scratchCommitInfo := getCommitInfoResponse.CommitInfo
+
+	listCommitsResponse, err := pfsutil.ListCommits(apiClient, repositoryName)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(listCommitsResponse.CommitInfo))
+	require.Equal(t, scratchCommitInfo, listCommitsResponse.CommitInfo[0])
 
 	branchResponse, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
@@ -80,6 +86,13 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 	require.Equal(t, newCommitID, getCommitInfoResponse.CommitInfo.Commit.Id)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, getCommitInfoResponse.CommitInfo.CommitType)
 	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.ParentCommit.Id)
+	newCommitInfo := getCommitInfoResponse.CommitInfo
+
+	listCommitsResponse, err = pfsutil.ListCommits(apiClient, repositoryName)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(listCommitsResponse.CommitInfo))
+	require.Equal(t, newCommitInfo, listCommitsResponse.CommitInfo[0])
+	require.Equal(t, scratchCommitInfo, listCommitsResponse.CommitInfo[1])
 
 	err = pfsutil.MakeDirectory(apiClient, repositoryName, newCommitID, "a/b")
 	require.NoError(t, err)
