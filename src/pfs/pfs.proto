@@ -104,8 +104,8 @@ message ListFilesResponse {
 
 message BranchRequest {
   Commit commit = 1;
-  Commit new_commit = 2;
-  bool redirect = 3;
+  bool redirect = 2;
+  Commit new_commit = 3;
 }
 
 message BranchResponse {
