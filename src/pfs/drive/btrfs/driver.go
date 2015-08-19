@@ -318,7 +318,7 @@ func (d *driver) ListCommits(repository *pfs.Repository, shard int) (_ []*pfs.Co
 	if err := execSubvolumeList(d.repositoryPath(repository), "", false, &buffer); err != nil {
 		return nil, err
 	}
-	commitScanner := newCommitScanner(&buffer, repository.Name)
+	commitScanner := newCommitScanner(&buffer, d.namespace, repository.Name)
 	for commitScanner.Scan() {
 		commitID := commitScanner.Commit()
 		commitInfo, ok, err := d.GetCommitInfo(
@@ -393,7 +393,7 @@ func (d *driver) getReadOnly(commit *pfs.Commit, shard int) (bool, error) {
 }
 
 func (d *driver) repositoryPath(repository *pfs.Repository) string {
-	return filepath.Join(d.rootDir, repository.Name)
+	return filepath.Join(d.rootDir, d.namespace, repository.Name)
 }
 
 func (d *driver) commitPathNoShard(commit *pfs.Commit) string {
@@ -506,11 +506,12 @@ func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Wr
 
 type commitScanner struct {
 	textScanner *bufio.Scanner
+	namespace   string
 	repository  string
 }
 
-func newCommitScanner(reader io.Reader, repository string) *commitScanner {
-	return &commitScanner{bufio.NewScanner(reader), repository}
+func newCommitScanner(reader io.Reader, namespace string, repository string) *commitScanner {
+	return &commitScanner{bufio.NewScanner(reader), namespace, repository}
 }
 
 func (c *commitScanner) Scan() bool {
@@ -541,8 +542,8 @@ func (c *commitScanner) parseCommit(listLine string) (string, bool) {
 	if len(tokens) != 9 {
 		return "", false
 	}
-	if strings.HasPrefix(tokens[8], filepath.Join("<FS_TREE>", c.repository)) && len(strings.Split(listLine, "/")) == 3 {
-		return strings.Split(listLine, "/")[2], true
+	if strings.HasPrefix(tokens[8], filepath.Join("<FS_TREE>", c.namespace, c.repository)) && len(strings.Split(tokens[8], "/")) == 4 {
+		return strings.Split(tokens[8], "/")[3], true
 	}
 	return "", false
 }
