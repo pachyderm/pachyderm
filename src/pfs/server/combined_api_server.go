@@ -70,7 +70,7 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 }
 
 func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) (retErr error) {
-	shard, clientConn, err := a.getShardAndClientConnIfNecessary(getFileRequest.Path, true)
+	shard, clientConn, err := a.getShardAndClientConnIfNecessary(getFileRequest.Path, false)
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFi
 }
 
 func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest *pfs.GetFileInfoRequest) (*pfs.GetFileInfoResponse, error) {
-	shard, clientConn, err := a.getShardAndClientConnIfNecessary(getFileInfoRequest.Path, true)
+	shard, clientConn, err := a.getShardAndClientConnIfNecessary(getFileInfoRequest.Path, false)
 	if err != nil {
 		return nil, err
 	}
