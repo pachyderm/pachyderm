@@ -281,7 +281,6 @@ func (a *combinedAPIServer) Commit(ctx context.Context, commitRequest *pfs.Commi
 	}
 	for shard := range shards {
 		clientConns, err := a.router.GetSlaveClientConns(shard)
-		log.Print("len(clientConns): ", len(clientConns))
 		if err != nil {
 			return nil, err
 		}
