@@ -38,11 +38,17 @@ const (
 )
 
 type driver struct {
-	rootDir string
+	rootDir   string
+	namespace string
 }
 
-func newDriver(rootDir string) *driver {
-	return &driver{rootDir}
+func newDriver(rootDir string, namespace string) (*driver, error) {
+	if namespace != "" {
+		if err := os.MkdirAll(filepath.Join(rootDir, namespace), 0700); err != nil {
+			return nil, err
+		}
+	}
+	return &driver{rootDir, namespace}, nil
 }
 
 func (d *driver) InitRepository(repository *pfs.Repository, replica bool, shards map[int]bool) error {
