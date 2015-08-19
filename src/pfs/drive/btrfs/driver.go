@@ -422,7 +422,7 @@ func (d *driver) commitPath(commit *pfs.Commit, shard int) (string, error) {
 func (d *driver) filePath(path *pfs.Path, shard int) (string, error) {
 	commitPath, err := d.commitPath(path.Commit, shard)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return filepath.Join(commitPath, path.Path), nil
 }
