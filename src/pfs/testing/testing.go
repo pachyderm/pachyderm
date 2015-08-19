@@ -96,7 +96,7 @@ func RunBench(
 	)
 }
 
-func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) {
+func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) error {
 	addresser := route.NewDiscoveryAddresser(
 		discoveryClient,
 		testNamespace(),
@@ -104,10 +104,15 @@ func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[s
 	i := 0
 	for address := range servers {
 		for j := 0; j < testShardsPerServer; j++ {
-			// TODO(pedge): error
-			_ = addresser.SetMasterAddress((i*testShardsPerServer)+j, address, 0)
-			_ = addresser.SetSlaveAddress((((i+1)%len(servers))*testShardsPerServer)+j, address, 0)
-			_ = addresser.SetSlaveAddress((((i+2)%len(servers))*testShardsPerServer)+j, address, 0)
+			if err := addresser.SetMasterAddress((i*testShardsPerServer)+j, address, 0); err != nil {
+				return err
+			}
+			if err := addresser.SetSlaveAddress((((i+1)%len(servers))*testShardsPerServer)+j, address, 0); err != nil {
+				return err
+			}
+			if err := addresser.SetSlaveAddress((((i+2)%len(servers))*testShardsPerServer)+j, address, 0); err != nil {
+				return err
+			}
 		}
 		i++
 	}
@@ -126,6 +131,7 @@ func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[s
 		pfs.RegisterApiServer(s, combinedAPIServer)
 		pfs.RegisterInternalApiServer(s, combinedAPIServer)
 	}
+	return nil
 }
 
 func getDriver(tb testing.TB, namespace string) drive.Driver {
