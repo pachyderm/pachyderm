@@ -32,6 +32,7 @@ func TestBtrfs(t *testing.T) {
 }
 
 func TestReplica(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 	RunTest(t, testReplica)
 }

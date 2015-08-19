@@ -279,6 +279,29 @@ func (a *combinedAPIServer) Commit(ctx context.Context, commitRequest *pfs.Commi
 	if err := a.driver.Commit(commitRequest.Commit, shards); err != nil {
 		return nil, err
 	}
+	for shard := range shards {
+		clientConns, err := a.router.GetSlaveClientConns(shard)
+		log.Print("len(clientConns): ", len(clientConns))
+		if err != nil {
+			return nil, err
+		}
+		var diff bytes.Buffer
+		if err := a.driver.PullDiff(commitRequest.Commit, shard, &diff); err != nil {
+			return nil, err
+		}
+		for _, clientConn := range clientConns {
+			if _, err := pfs.NewInternalApiClient(clientConn).PushDiff(
+				ctx,
+				&pfs.PushDiffRequest{
+					Commit: commitRequest.Commit,
+					Shard:  uint64(shard),
+					Value:  diff.Bytes(),
+				},
+			); err != nil {
+				return nil, err
+			}
+		}
+	}
 	if !commitRequest.Redirect {
 		clientConns, err := a.router.GetAllClientConns()
 		if err != nil {
@@ -320,12 +343,12 @@ func (a *combinedAPIServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPu
 }
 
 func (a *combinedAPIServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.PushDiffRequest) (*google_protobuf.Empty, error) {
-	clientConn, err := a.getClientConnIfNecessary(int(pushDiffRequest.Shard), false)
+	ok, err := a.isLocalSlaveShard(int(pushDiffRequest.Shard))
 	if err != nil {
 		return nil, err
 	}
-	if clientConn != nil {
-		return pfs.NewInternalApiClient(clientConn).PushDiff(ctx, pushDiffRequest)
+	if !ok {
+		return nil, fmt.Errorf("pachyderm: illegal PushDiffRequest for unknown shard %d", pushDiffRequest.Shard)
 	}
 	return emptyInstance, a.driver.PushDiff(pushDiffRequest.Commit, bytes.NewReader(pushDiffRequest.Value))
 }

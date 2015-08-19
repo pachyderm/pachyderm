@@ -28,8 +28,8 @@ func (a *discoveryAddresser) GetSlaveAddresses(shard int) (map[string]bool, erro
 		return nil, err
 	}
 	m := make(map[string]bool, 0)
-	for address := range addresses {
-		m[strings.TrimPrefix(address, fmt.Sprintf("%s/", base))] = true
+	for _, address := range addresses {
+		m[address] = true
 	}
 	return m, nil
 }
@@ -76,7 +76,7 @@ func (a *discoveryAddresser) SetMasterAddress(shard int, address string, ttl uin
 }
 
 func (a *discoveryAddresser) SetSlaveAddress(shard int, address string, ttl uint64) error {
-	return a.discoveryClient.Set(fmt.Sprintf("%s/pfs/shard/slave/%d", a.namespace, shard), address, ttl)
+	return a.discoveryClient.CreateInDir(fmt.Sprintf("%s/pfs/shard/slave/%d", a.namespace, shard), address, ttl)
 }
 
 func (a *discoveryAddresser) DeleteMasterAddress(shard int) error {

@@ -39,9 +39,7 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 		}
 		return nil, err
 	}
-	for _, node := range response.Node.Nodes {
-		result[strings.TrimPrefix(node.Key, "/")] = node.Value
-	}
+	nodeToMap(response.Node, result)
 	return result, nil
 }
 
@@ -55,6 +53,11 @@ func (c *etcdClient) Create(key string, value string, ttl uint64) error {
 	return err
 }
 
+func (c *etcdClient) CreateInDir(dir string, value string, ttl uint64) error {
+	_, err := c.client.CreateInOrder(dir, value, ttl)
+	return err
+}
+
 func (c *etcdClient) Delete(key string) error {
 	_, err := c.client.Delete(key, false)
 	return err
@@ -63,4 +66,14 @@ func (c *etcdClient) Delete(key string) error {
 func (c *etcdClient) CheckAndSet(key string, value string, ttl uint64, oldValue string) error {
 	_, err := c.client.CompareAndSwap(key, value, ttl, oldValue, 0)
 	return err
+}
+
+func nodeToMap(node *etcd.Node, out map[string]string) {
+	if !node.Dir {
+		out[strings.TrimPrefix(node.Key, "/")] = node.Value
+	} else {
+		for _, node := range node.Nodes {
+			nodeToMap(node, out)
+		}
+	}
 }
