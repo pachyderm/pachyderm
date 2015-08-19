@@ -39,6 +39,7 @@ type Router interface {
 	GetSlaveShards() (map[int]bool, error)
 	GetMasterClientConn(shard int) (*grpc.ClientConn, error)
 	GetMasterOrSlaveClientConn(shard int) (*grpc.ClientConn, error)
+	GetSlaveClientConns(shard int) ([]*grpc.ClientConn, error)
 	GetAllClientConns() ([]*grpc.ClientConn, error)
 }
 

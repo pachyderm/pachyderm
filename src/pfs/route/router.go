@@ -82,7 +82,7 @@ func (r *router) GetMasterOrSlaveClientConn(shard int) (*grpc.ClientConn, error)
 	return r.dialer.Dial(address)
 }
 
-func (r *router) GetSlaveConns(shard int) ([]*grpc.ClientConn, error) {
+func (r *router) GetSlaveClientConns(shard int) ([]*grpc.ClientConn, error) {
 	addresses, err := r.addresser.GetSlaveAddresses(shard)
 	if err != nil {
 		return nil, err

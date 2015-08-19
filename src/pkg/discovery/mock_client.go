@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/satori/go.uuid"
 )
 
 type record struct {
@@ -77,6 +79,13 @@ func (c *mockClient) Create(key string, value string, ttl uint64) error {
 	if ok {
 		return fmt.Errorf("pachyderm: key %s already exists", key)
 	}
+	return c.unsafeSet(key, value, ttl)
+}
+
+func (c *mockClient) CreateInDir(dir string, value string, ttl uint64) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	key := path.Join(dir, strings.Replace(uuid.NewV4().String(), "-", "", -1))
 	return c.unsafeSet(key, value, ttl)
 }
 
