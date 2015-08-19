@@ -58,7 +58,10 @@ func do(appEnvObj interface{}) error {
 	var driver drive.Driver
 	switch appEnv.DriverType {
 	case "btrfs":
-		driver = btrfs.NewDriver(appEnv.DriverRoot)
+		driver, err = btrfs.NewDriver(appEnv.DriverRoot, "")
+		if err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unknown value for PFS_DRIVER_TYPE: %s", appEnv.DriverType)
 	}

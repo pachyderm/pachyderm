@@ -47,7 +47,7 @@ func RunTest(
 		t,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
-			registerFunc(getDriver(t), discoveryClient, servers)
+			registerFunc(t, discoveryClient, servers)
 		},
 		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
 			var clientConn *grpc.ClientConn
@@ -78,7 +78,7 @@ func RunBench(
 		b,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
-			registerFunc(getDriver(b), discoveryClient, servers)
+			registerFunc(b, discoveryClient, servers)
 		},
 		func(b *testing.B, clientConns map[string]*grpc.ClientConn) {
 			var clientConn *grpc.ClientConn
@@ -96,7 +96,7 @@ func RunBench(
 	)
 }
 
-func registerFunc(driver drive.Driver, discoveryClient discovery.Client, servers map[string]*grpc.Server) {
+func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) {
 	addresser := route.NewDiscoveryAddresser(
 		discoveryClient,
 		testNamespace(),
@@ -121,15 +121,17 @@ func registerFunc(driver drive.Driver, discoveryClient discovery.Client, servers
 				grpcutil.NewDialer(),
 				address,
 			),
-			driver,
+			getDriver(tb, address),
 		)
 		pfs.RegisterApiServer(s, combinedAPIServer)
 		pfs.RegisterInternalApiServer(s, combinedAPIServer)
 	}
 }
 
-func getDriver(tb testing.TB) drive.Driver {
-	return btrfs.NewDriver(getBtrfsRootDir(tb))
+func getDriver(tb testing.TB, namespace string) drive.Driver {
+	driver, err := btrfs.NewDriver(getBtrfsRootDir(tb), namespace)
+	require.NoError(tb, err)
+	return driver
 }
 
 func getBtrfsRootDir(tb testing.TB) string {
