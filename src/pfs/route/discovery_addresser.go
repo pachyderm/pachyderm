@@ -59,7 +59,9 @@ func (a *discoveryAddresser) GetShardToSlaveAddresses() (map[int]map[string]bool
 	}
 	m := make(map[int]map[string]bool, 0)
 	for shardString, address := range addresses {
-		shard, err := strconv.ParseInt(strings.TrimPrefix(shardString, fmt.Sprintf("%s/", base)), 10, 64)
+		shardString = strings.TrimPrefix(shardString, fmt.Sprintf("%s/", base))
+		shardString = strings.Split(shardString, "/")[0]
+		shard, err := strconv.ParseInt(shardString, 10, 64)
 		if err != nil {
 			return nil, err
 		}
