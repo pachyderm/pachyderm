@@ -347,8 +347,8 @@ func (m *ListFilesResponse) GetFileInfo() []*FileInfo {
 
 type BranchRequest struct {
 	Commit    *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	Redirect  bool    `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
-	NewCommit *Commit `protobuf:"bytes,3,opt,name=new_commit" json:"new_commit,omitempty"`
+	NewCommit *Commit `protobuf:"bytes,2,opt,name=new_commit" json:"new_commit,omitempty"`
+	Redirect  bool    `protobuf:"varint,3,opt,name=redirect" json:"redirect,omitempty"`
 }
 
 func (m *BranchRequest) Reset()         { *m = BranchRequest{} }

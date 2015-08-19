@@ -57,9 +57,9 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 			if _, err := pfs.NewApiClient(clientConn).InitRepository(
 				ctx,
 				&pfs.InitRepositoryRequest{
-					Repository: initRepositoryRequest.Repository,
-					Replica:    initRepositoryRequest.Replica,
-					Redirect:   true,
+					initRepositoryRequest.Repository,
+					initRepositoryRequest.Replica,
+					true,
 				},
 			); err != nil {
 				return nil, err
@@ -133,8 +133,8 @@ func (a *combinedAPIServer) MakeDirectory(ctx context.Context, makeDirectoryRequ
 			if _, err := pfs.NewApiClient(clientConn).MakeDirectory(
 				ctx,
 				&pfs.MakeDirectoryRequest{
-					Path:     makeDirectoryRequest.Path,
-					Redirect: true,
+					makeDirectoryRequest.Path,
+					true,
 				},
 			); err != nil {
 				return nil, err
@@ -206,9 +206,9 @@ func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs
 			listFilesResponse, err := pfs.NewApiClient(clientConn).ListFiles(
 				ctx,
 				&pfs.ListFilesRequest{
-					Path:     listFilesRequest.Path,
-					Shard:    listFilesRequest.Shard,
-					Redirect: true,
+					listFilesRequest.Path,
+					listFilesRequest.Shard,
+					true,
 				},
 			)
 			if err != nil {
@@ -257,9 +257,9 @@ func (a *combinedAPIServer) Branch(ctx context.Context, branchRequest *pfs.Branc
 			if _, err := pfs.NewApiClient(clientConn).Branch(
 				ctx,
 				&pfs.BranchRequest{
-					Commit:    branchRequest.Commit,
-					Redirect:  true,
-					NewCommit: newCommit,
+					branchRequest.Commit,
+					newCommit,
+					true,
 				},
 			); err != nil {
 				return nil, err
@@ -288,8 +288,8 @@ func (a *combinedAPIServer) Commit(ctx context.Context, commitRequest *pfs.Commi
 			if _, err := pfs.NewApiClient(clientConn).Commit(
 				ctx,
 				&pfs.CommitRequest{
-					Commit:   commitRequest.Commit,
-					Redirect: true,
+					commitRequest.Commit,
+					true,
 				},
 			); err != nil {
 				return nil, err
