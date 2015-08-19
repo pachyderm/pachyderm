@@ -69,22 +69,33 @@ func (r *router) GetMasterOrSlaveClientConn(shard int) (*grpc.ClientConn, error)
 	if err != nil {
 		return nil, err
 	}
-	if len(addresses) == 0 {
-		address, ok, err := r.addresser.GetMasterAddress(shard)
+	for address := range addresses {
+		return r.dialer.Dial(address)
+	}
+	address, ok, err := r.addresser.GetMasterAddress(shard)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("no master or slave found for %d", shard)
+	}
+	return r.dialer.Dial(address)
+}
+
+func (r *router) GetSlaveConns(shard int) ([]*grpc.ClientConn, error) {
+	addresses, err := r.addresser.GetSlaveAddresses(shard)
+	if err != nil {
+		return nil, err
+	}
+	var result []*grpc.ClientConn
+	for address := range addresses {
+		conn, err := r.dialer.Dial(address)
 		if err != nil {
 			return nil, err
 		}
-		if !ok {
-			return nil, fmt.Errorf("no master or slave found for %d", shard)
-		}
-		return r.dialer.Dial(address)
+		result = append(result, conn)
 	}
-	address := ""
-	for iAddress := range addresses {
-		address = iAddress
-		break
-	}
-	return r.dialer.Dial(address)
+	return result, nil
 }
 
 func (r *router) GetAllClientConns() ([]*grpc.ClientConn, error) {
