@@ -72,7 +72,6 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 			}
 		}
 		// Create the initial commit
-		// TODO move drive.InitialCommitID into this package
 		if _, err = a.Branch(ctx, &pfs.BranchRequest{
 			Commit: nil,
 			NewCommit: &pfs.Commit{
