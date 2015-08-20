@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"strings"
 
@@ -42,7 +41,6 @@ func newCombinedAPIServer(
 }
 
 func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRequest *pfs.InitRepositoryRequest) (*google_protobuf.Empty, error) {
-	log.Print("InitRepository")
 	masterShards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
@@ -260,7 +258,6 @@ func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs
 }
 
 func (a *combinedAPIServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest) (*pfs.BranchResponse, error) {
-	log.Printf("Branch: %+v", branchRequest)
 	if branchRequest.Redirect && branchRequest.NewCommit == nil {
 		return nil, fmt.Errorf("must set a new commit for redirect %+v", branchRequest)
 	}
@@ -347,7 +344,6 @@ func (a *combinedAPIServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPu
 }
 
 func (a *combinedAPIServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.PushDiffRequest) (*google_protobuf.Empty, error) {
-	log.Printf("PushDiff: commit: %+v, shard: %d", pushDiffRequest.Commit, pushDiffRequest.Shard)
 	ok, err := a.isLocalSlaveShard(int(pushDiffRequest.Shard))
 	if err != nil {
 		return nil, err
@@ -478,12 +474,10 @@ func (a *combinedAPIServer) isLocalSlaveShard(shard int) (bool, error) {
 
 func (a *combinedAPIServer) commitToSlaves(ctx context.Context, commit *pfs.Commit) error {
 	shards, err := a.router.GetMasterShards()
-	log.Print("shards: ", shards)
 	if err != nil {
 		return err
 	}
 	for shard := range shards {
-		log.Print("sending: ", shard)
 		clientConns, err := a.router.GetSlaveClientConns(shard)
 		if err != nil {
 			return err
