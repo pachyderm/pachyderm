@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	debug = false
+	debug = true
 	lock  = &sync.Mutex{}
 )
 

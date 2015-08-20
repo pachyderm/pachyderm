@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"strings"
 
@@ -41,29 +42,59 @@ func newCombinedAPIServer(
 }
 
 func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRequest *pfs.InitRepositoryRequest) (*google_protobuf.Empty, error) {
-	shards, err := a.getAllShards(false)
+	log.Print("InitRepository")
+	masterShards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.InitRepository(initRepositoryRequest.Repository, initRepositoryRequest.Replica, shards); err != nil {
+	if err := a.driver.InitRepository(initRepositoryRequest.Repository, false, masterShards); err != nil {
+		return nil, err
+	}
+	slaveShards, err := a.router.GetSlaveShards()
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.InitRepository(initRepositoryRequest.Repository, false, slaveShards); err != nil {
 		return nil, err
 	}
 	if !initRepositoryRequest.Redirect {
 		clientConns, err := a.router.GetAllClientConns()
+		log.Print("len(clientConns): ", len(clientConns))
 		if err != nil {
 			return nil, err
 		}
 		for _, clientConn := range clientConns {
+			log.Print("Sending")
 			if _, err := pfs.NewApiClient(clientConn).InitRepository(
 				ctx,
 				&pfs.InitRepositoryRequest{
 					Repository: initRepositoryRequest.Repository,
-					Replica:    initRepositoryRequest.Replica,
 					Redirect:   true,
 				},
 			); err != nil {
 				return nil, err
 			}
+		}
+		// Create the initial commit
+		// TODO move drive.InitialCommitID into this package
+		if _, err = a.Branch(ctx, &pfs.BranchRequest{
+			Commit: nil,
+			NewCommit: &pfs.Commit{
+				Repository: initRepositoryRequest.Repository,
+				Id:         drive.InitialCommitID,
+			},
+			Redirect: false,
+		}); err != nil {
+			return nil, err
+		}
+		if _, err = a.Commit(ctx, &pfs.CommitRequest{
+			Commit: &pfs.Commit{
+				Repository: initRepositoryRequest.Repository,
+				Id:         drive.InitialCommitID,
+			},
+			Redirect: false,
+		}); err != nil {
+			return nil, err
 		}
 	}
 	return emptyInstance, nil
@@ -235,10 +266,6 @@ func (a *combinedAPIServer) Branch(ctx context.Context, branchRequest *pfs.Branc
 		if branchRequest.NewCommit == nil {
 			return nil, fmt.Errorf("must set a new commit for redirect %+v", branchRequest)
 		}
-	} else {
-		if branchRequest.NewCommit != nil {
-			return nil, fmt.Errorf("cannot set a new commit for non-redirect %+v", branchRequest)
-		}
 	}
 	shards, err := a.getAllShards(false)
 	if err != nil {
@@ -272,34 +299,15 @@ func (a *combinedAPIServer) Branch(ctx context.Context, branchRequest *pfs.Branc
 }
 
 func (a *combinedAPIServer) Commit(ctx context.Context, commitRequest *pfs.CommitRequest) (*google_protobuf.Empty, error) {
-	shards, err := a.getAllShards(false)
+	shards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
 	}
 	if err := a.driver.Commit(commitRequest.Commit, shards); err != nil {
 		return nil, err
 	}
-	for shard := range shards {
-		clientConns, err := a.router.GetSlaveClientConns(shard)
-		if err != nil {
-			return nil, err
-		}
-		var diff bytes.Buffer
-		if err := a.driver.PullDiff(commitRequest.Commit, shard, &diff); err != nil {
-			return nil, err
-		}
-		for _, clientConn := range clientConns {
-			if _, err := pfs.NewInternalApiClient(clientConn).PushDiff(
-				ctx,
-				&pfs.PushDiffRequest{
-					Commit: commitRequest.Commit,
-					Shard:  uint64(shard),
-					Value:  diff.Bytes(),
-				},
-			); err != nil {
-				return nil, err
-			}
-		}
+	if err := a.commitToSlaves(ctx, commitRequest.Commit); err != nil {
+		return nil, err
 	}
 	if !commitRequest.Redirect {
 		clientConns, err := a.router.GetAllClientConns()
@@ -342,6 +350,7 @@ func (a *combinedAPIServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPu
 }
 
 func (a *combinedAPIServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.PushDiffRequest) (*google_protobuf.Empty, error) {
+	log.Printf("PushDiff: commit: %+v, shard: %d", pushDiffRequest.Commit, pushDiffRequest.Shard)
 	ok, err := a.isLocalSlaveShard(int(pushDiffRequest.Shard))
 	if err != nil {
 		return nil, err
@@ -468,4 +477,36 @@ func (a *combinedAPIServer) isLocalSlaveShard(shard int) (bool, error) {
 	}
 	_, ok := shards[shard]
 	return ok, nil
+}
+
+func (a *combinedAPIServer) commitToSlaves(ctx context.Context, commit *pfs.Commit) error {
+	shards, err := a.router.GetMasterShards()
+	log.Print("shards: ", shards)
+	if err != nil {
+		return err
+	}
+	for shard := range shards {
+		log.Print("sending: ", shard)
+		clientConns, err := a.router.GetSlaveClientConns(shard)
+		if err != nil {
+			return err
+		}
+		var diff bytes.Buffer
+		if err = a.driver.PullDiff(commit, shard, &diff); err != nil {
+			return err
+		}
+		for _, clientConn := range clientConns {
+			if _, err = pfs.NewInternalApiClient(clientConn).PushDiff(
+				ctx,
+				&pfs.PushDiffRequest{
+					Commit: commit,
+					Shard:  uint64(shard),
+					Value:  diff.Bytes(),
+				},
+			); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

@@ -17,14 +17,13 @@ const (
 	GetAll int64 = 1<<63 - 1
 )
 
-func InitRepository(apiClient pfs.ApiClient, repositoryName string, replica bool) error {
+func InitRepository(apiClient pfs.ApiClient, repositoryName string) error {
 	_, err := apiClient.InitRepository(
 		context.Background(),
 		&pfs.InitRepositoryRequest{
 			Repository: &pfs.Repository{
 				Name: repositoryName,
 			},
-			Replica: replica,
 		},
 	)
 	return err
