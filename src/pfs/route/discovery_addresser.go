@@ -21,8 +21,8 @@ func (a *discoveryAddresser) GetMasterAddress(shard int) (string, bool, error) {
 	return a.discoveryClient.Get(fmt.Sprintf("%s/pfs/shard/master/%d", a.namespace, shard))
 }
 
-func (a *discoveryAddresser) GetSlaveAddresses(shard int) (map[string]bool, error) {
-	base := fmt.Sprintf("%s/pfs/shard/slave/%d", a.namespace, shard)
+func (a *discoveryAddresser) GetReplicaAddresses(shard int) (map[string]bool, error) {
+	base := fmt.Sprintf("%s/pfs/shard/replica/%d", a.namespace, shard)
 	addresses, err := a.discoveryClient.GetAll(base)
 	if err != nil {
 		return nil, err
@@ -51,8 +51,8 @@ func (a *discoveryAddresser) GetShardToMasterAddress() (map[int]string, error) {
 	return m, nil
 }
 
-func (a *discoveryAddresser) GetShardToSlaveAddresses() (map[int]map[string]bool, error) {
-	base := fmt.Sprintf("%s/pfs/shard/slave", a.namespace)
+func (a *discoveryAddresser) GetShardToReplicaAddresses() (map[int]map[string]bool, error) {
+	base := fmt.Sprintf("%s/pfs/shard/replica", a.namespace)
 	addresses, err := a.discoveryClient.GetAll(base)
 	if err != nil {
 		return nil, err
@@ -77,14 +77,14 @@ func (a *discoveryAddresser) SetMasterAddress(shard int, address string, ttl uin
 	return a.discoveryClient.Set(fmt.Sprintf("%s/pfs/shard/master/%d", a.namespace, shard), address, ttl)
 }
 
-func (a *discoveryAddresser) SetSlaveAddress(shard int, address string, ttl uint64) error {
-	return a.discoveryClient.CreateInDir(fmt.Sprintf("%s/pfs/shard/slave/%d", a.namespace, shard), address, ttl)
+func (a *discoveryAddresser) SetReplicaAddress(shard int, address string, ttl uint64) error {
+	return a.discoveryClient.CreateInDir(fmt.Sprintf("%s/pfs/shard/replica/%d", a.namespace, shard), address, ttl)
 }
 
 func (a *discoveryAddresser) DeleteMasterAddress(shard int) error {
 	return a.discoveryClient.Delete(fmt.Sprintf("%s/pfs/shard/master/%d", a.namespace, shard))
 }
 
-func (a *discoveryAddresser) DeleteSlaveAddress(shard int, address string) error {
-	return a.discoveryClient.Delete(fmt.Sprintf("%s/pfs/shard/slave/%d/%s", a.namespace, shard, address))
+func (a *discoveryAddresser) DeleteReplicaAddress(shard int, address string) error {
+	return a.discoveryClient.Delete(fmt.Sprintf("%s/pfs/shard/replica/%d/%s", a.namespace, shard, address))
 }
