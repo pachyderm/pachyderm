@@ -93,12 +93,16 @@ func (g *grpcSuite) SetupSuite() {
 	}
 }
 
+func (g *grpcSuite) KillServer(address string) {
+	require.NoError(g.T(), g.clientConns[address].Close())
+	delete(g.clientConns, address)
+	g.servers[address].Stop()
+	delete(g.servers, address)
+}
+
 func (g *grpcSuite) TearDownSuite() {
-	for _, clientConn := range g.clientConns {
-		_ = clientConn.Close()
-	}
-	for _, server := range g.servers {
-		server.Stop()
+	for address := range g.clientConns {
+		g.KillServer(address)
 	}
 	<-g.done
 }
