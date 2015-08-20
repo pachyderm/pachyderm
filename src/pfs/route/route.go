@@ -25,7 +25,9 @@ type Addresser interface {
 	GetShardToMasterAddress() (map[int]string, error)
 	GetShardToReplicaAddresses() (map[int]map[string]bool, error)
 	SetMasterAddress(shard int, address string, ttl uint64) error
+	HoldMasterAddress(shard int, address string) error
 	SetReplicaAddress(shard int, address string, ttl uint64) error
+	HoldReplicaAddress(shard int, address string) error
 	DeleteMasterAddress(shard int) error
 	DeleteReplicaAddress(shard int, address string) error
 }
