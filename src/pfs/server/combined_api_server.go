@@ -47,24 +47,22 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.InitRepository(initRepositoryRequest.Repository, false, masterShards); err != nil {
+	if err := a.driver.InitRepository(initRepositoryRequest.Repository, masterShards); err != nil {
 		return nil, err
 	}
 	slaveShards, err := a.router.GetSlaveShards()
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.InitRepository(initRepositoryRequest.Repository, false, slaveShards); err != nil {
+	if err := a.driver.InitRepository(initRepositoryRequest.Repository, slaveShards); err != nil {
 		return nil, err
 	}
 	if !initRepositoryRequest.Redirect {
 		clientConns, err := a.router.GetAllClientConns()
-		log.Print("len(clientConns): ", len(clientConns))
 		if err != nil {
 			return nil, err
 		}
 		for _, clientConn := range clientConns {
-			log.Print("Sending")
 			if _, err := pfs.NewApiClient(clientConn).InitRepository(
 				ctx,
 				&pfs.InitRepositoryRequest{
@@ -262,10 +260,9 @@ func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs
 }
 
 func (a *combinedAPIServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest) (*pfs.BranchResponse, error) {
-	if branchRequest.Redirect {
-		if branchRequest.NewCommit == nil {
-			return nil, fmt.Errorf("must set a new commit for redirect %+v", branchRequest)
-		}
+	log.Printf("Branch: %+v", branchRequest)
+	if branchRequest.Redirect && branchRequest.NewCommit == nil {
+		return nil, fmt.Errorf("must set a new commit for redirect %+v", branchRequest)
 	}
 	shards, err := a.getAllShards(false)
 	if err != nil {
