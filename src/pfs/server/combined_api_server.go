@@ -77,7 +77,7 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 			Commit: nil,
 			NewCommit: &pfs.Commit{
 				Repository: initRepositoryRequest.Repository,
-				Id:         drive.InitialCommitID,
+				Id:         InitialCommitID,
 			},
 			Redirect: false,
 		}); err != nil {
@@ -86,7 +86,7 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 		if _, err = a.Commit(ctx, &pfs.CommitRequest{
 			Commit: &pfs.Commit{
 				Repository: initRepositoryRequest.Repository,
-				Id:         drive.InitialCommitID,
+				Id:         InitialCommitID,
 			},
 			Redirect: false,
 		}); err != nil {

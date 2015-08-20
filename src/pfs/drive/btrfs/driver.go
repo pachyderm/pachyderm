@@ -327,14 +327,14 @@ func (d *driver) ListCommits(repository *pfs.Repository, shard int) (_ []*pfs.Co
 }
 
 func (d *driver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
-	if commit.Id == drive.InitialCommitID {
-		return nil, nil
-	}
 	filePath, err := d.filePath(&pfs.Path{Commit: commit, Path: filepath.Join(metadataDir, "parent")}, shard)
 	if err != nil {
 		return nil, err
 	}
 	data, err := ioutil.ReadFile(filePath)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
