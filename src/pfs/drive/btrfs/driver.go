@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,24 +52,8 @@ func newDriver(rootDir string, namespace string) (*driver, error) {
 	return &driver{rootDir, namespace}, nil
 }
 
-func (d *driver) InitRepository(repository *pfs.Repository, replica bool, shards map[int]bool) error {
+func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool) error {
 	if err := execSubvolumeCreate(d.repositoryPath(repository)); err != nil && !execSubvolumeExists(d.repositoryPath(repository)) {
-		return err
-	}
-	// All we do for a replica is initialize the repository subvolume, we don't
-	// create an initial commit because that initial commit will be created as
-	// part of replication.
-	if replica {
-		return nil
-	}
-	initialCommit := &pfs.Commit{
-		Repository: repository,
-		Id:         drive.InitialCommitID,
-	}
-	if _, err := d.Branch(nil, initialCommit, shards); err != nil {
-		return err
-	}
-	if err := d.Commit(initialCommit, shards); err != nil {
 		return err
 	}
 	return nil
@@ -248,6 +233,7 @@ func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[in
 			if err != nil {
 				return nil, err
 			}
+			log.Print("Mkdir: ", filePath)
 			if err := os.Mkdir(filePath, 0700); err != nil {
 				return nil, err
 			}
