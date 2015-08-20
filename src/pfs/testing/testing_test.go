@@ -60,7 +60,7 @@ func BenchmarkFuse(b *testing.B) {
 func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
 	repositoryName := TestRepositoryName()
 
-	err := pfsutil.InitRepository(apiClient, repositoryName, false)
+	err := pfsutil.InitRepository(apiClient, repositoryName)
 	require.NoError(t, err)
 
 	getCommitInfoResponse, err := pfsutil.GetCommitInfo(apiClient, repositoryName, "scratch")
@@ -175,11 +175,11 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 
 func testReplica(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
 	masterName := TestRepositoryName()
-	err := pfsutil.InitRepository(apiClient, masterName, false)
+	err := pfsutil.InitRepository(apiClient, masterName)
 	require.NoError(t, err)
 
 	replicaName := TestRepositoryName()
-	err = pfsutil.InitRepository(apiClient, replicaName, true)
+	err = pfsutil.InitRepository(apiClient, replicaName)
 	require.NoError(t, err)
 
 	for i := 0; i < testShardsPerServer*testNumServers; i++ {
@@ -239,7 +239,7 @@ func testReplica(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.In
 func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
 	repositoryName := TestRepositoryName()
 
-	err := pfsutil.InitRepository(apiClient, repositoryName, false)
+	err := pfsutil.InitRepository(apiClient, repositoryName)
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
@@ -305,7 +305,7 @@ func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Inte
 func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
 	repositoryName := TestRepositoryName()
 
-	err := pfsutil.InitRepository(apiClient, repositoryName, false)
+	err := pfsutil.InitRepository(apiClient, repositoryName)
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
@@ -359,7 +359,7 @@ func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 func benchMount(b *testing.B, apiClient pfs.ApiClient) {
 	repositoryName := TestRepositoryName()
 
-	if err := pfsutil.InitRepository(apiClient, repositoryName, false); err != nil {
+	if err := pfsutil.InitRepository(apiClient, repositoryName); err != nil {
 		b.Error(err)
 	}
 

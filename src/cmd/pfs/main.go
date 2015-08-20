@@ -45,7 +45,7 @@ func do(appEnvObj interface{}) error {
 		Long:    "Initalize a repository.",
 		NumArgs: 1,
 		Run: func(cmd *cobra.Command, args []string) error {
-			return pfsutil.InitRepository(apiClient, args[0], false)
+			return pfsutil.InitRepository(apiClient, args[0])
 		},
 	}.ToCobraCommand()
 
