@@ -9,18 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
-const (
-	// InitialCommitID is the initial id before any commits are made in a repository.
-	InitialCommitID = "scratch"
-)
-
-var (
-	// ReservedCommitIDs are the commit ids used by the system.
-	ReservedCommitIDs = map[string]bool{
-		InitialCommitID: true,
-	}
-)
-
 // ReaderAtCloser is an interface that implements both io.ReaderAt and io.Closer.
 type ReaderAtCloser interface {
 	io.ReaderAt
