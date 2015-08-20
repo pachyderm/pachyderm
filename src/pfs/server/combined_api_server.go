@@ -48,11 +48,11 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 	if err := a.driver.InitRepository(initRepositoryRequest.Repository, masterShards); err != nil {
 		return nil, err
 	}
-	slaveShards, err := a.router.GetSlaveShards()
+	replicaShards, err := a.router.GetReplicaShards()
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.InitRepository(initRepositoryRequest.Repository, slaveShards); err != nil {
+	if err := a.driver.InitRepository(initRepositoryRequest.Repository, replicaShards); err != nil {
 		return nil, err
 	}
 	if !initRepositoryRequest.Redirect {
@@ -299,7 +299,7 @@ func (a *combinedAPIServer) Commit(ctx context.Context, commitRequest *pfs.Commi
 	if err := a.driver.Commit(commitRequest.Commit, shards); err != nil {
 		return nil, err
 	}
-	if err := a.commitToSlaves(ctx, commitRequest.Commit); err != nil {
+	if err := a.commitToReplicas(ctx, commitRequest.Commit); err != nil {
 		return nil, err
 	}
 	if !commitRequest.Redirect {
@@ -343,7 +343,7 @@ func (a *combinedAPIServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPu
 }
 
 func (a *combinedAPIServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.PushDiffRequest) (*google_protobuf.Empty, error) {
-	ok, err := a.isLocalSlaveShard(int(pushDiffRequest.Shard))
+	ok, err := a.isLocalReplicaShard(int(pushDiffRequest.Shard))
 	if err != nil {
 		return nil, err
 	}
@@ -391,31 +391,31 @@ func (a *combinedAPIServer) ListCommits(ctx context.Context, listCommitsRequest 
 	}, nil
 }
 
-func (a *combinedAPIServer) getShardAndClientConnIfNecessary(path *pfs.Path, slaveOk bool) (int, *grpc.ClientConn, error) {
+func (a *combinedAPIServer) getShardAndClientConnIfNecessary(path *pfs.Path, replicaOk bool) (int, *grpc.ClientConn, error) {
 	shard, err := a.sharder.GetShard(path)
 	if err != nil {
 		return shard, nil, err
 	}
-	clientConn, err := a.getClientConnIfNecessary(shard, slaveOk)
+	clientConn, err := a.getClientConnIfNecessary(shard, replicaOk)
 	return shard, clientConn, err
 }
 
-func (a *combinedAPIServer) getClientConnIfNecessary(shard int, slaveOk bool) (*grpc.ClientConn, error) {
+func (a *combinedAPIServer) getClientConnIfNecessary(shard int, replicaOk bool) (*grpc.ClientConn, error) {
 	ok, err := a.isLocalMasterShard(shard)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		if !slaveOk {
+		if !replicaOk {
 			clientConn, err := a.router.GetMasterClientConn(shard)
 			return clientConn, err
 		}
-		ok, err = a.isLocalSlaveShard(shard)
+		ok, err = a.isLocalReplicaShard(shard)
 		if err != nil {
 			return nil, err
 		}
 		if !ok {
-			clientConn, err := a.router.GetMasterOrSlaveClientConn(shard)
+			clientConn, err := a.router.GetMasterOrReplicaClientConn(shard)
 			return clientConn, err
 		}
 	}
@@ -436,18 +436,18 @@ func (a *combinedAPIServer) getMasterShardOrMasterClientConnIfNecessary() (int, 
 	return -1, clientConn, err
 }
 
-func (a *combinedAPIServer) getAllShards(slaveToo bool) (map[int]bool, error) {
+func (a *combinedAPIServer) getAllShards(replicaToo bool) (map[int]bool, error) {
 	shards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
 	}
-	if slaveToo {
-		slaveShards, err := a.router.GetSlaveShards()
+	if replicaToo {
+		replicaShards, err := a.router.GetReplicaShards()
 		if err != nil {
 			return nil, err
 		}
-		for slaveShard := range slaveShards {
-			shards[slaveShard] = true
+		for replicaShard := range replicaShards {
+			shards[replicaShard] = true
 		}
 	}
 	return shards, nil
@@ -462,8 +462,8 @@ func (a *combinedAPIServer) isLocalMasterShard(shard int) (bool, error) {
 	return ok, nil
 }
 
-func (a *combinedAPIServer) isLocalSlaveShard(shard int) (bool, error) {
-	shards, err := a.router.GetSlaveShards()
+func (a *combinedAPIServer) isLocalReplicaShard(shard int) (bool, error) {
+	shards, err := a.router.GetReplicaShards()
 	if err != nil {
 		return false, err
 	}
@@ -471,13 +471,13 @@ func (a *combinedAPIServer) isLocalSlaveShard(shard int) (bool, error) {
 	return ok, nil
 }
 
-func (a *combinedAPIServer) commitToSlaves(ctx context.Context, commit *pfs.Commit) error {
+func (a *combinedAPIServer) commitToReplicas(ctx context.Context, commit *pfs.Commit) error {
 	shards, err := a.router.GetMasterShards()
 	if err != nil {
 		return err
 	}
 	for shard := range shards {
-		clientConns, err := a.router.GetSlaveClientConns(shard)
+		clientConns, err := a.router.GetReplicaClientConns(shard)
 		if err != nil {
 			return err
 		}

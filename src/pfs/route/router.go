@@ -39,13 +39,13 @@ func (r *router) GetMasterShards() (map[int]bool, error) {
 	return m, nil
 }
 
-func (r *router) GetSlaveShards() (map[int]bool, error) {
-	shardToSlaveAddresses, err := r.addresser.GetShardToSlaveAddresses()
+func (r *router) GetReplicaShards() (map[int]bool, error) {
+	shardToReplicaAddresses, err := r.addresser.GetShardToReplicaAddresses()
 	if err != nil {
 		return nil, err
 	}
 	m := make(map[int]bool, 0)
-	for shard, addresses := range shardToSlaveAddresses {
+	for shard, addresses := range shardToReplicaAddresses {
 		if _, ok := addresses[r.localAddress]; ok {
 			m[shard] = true
 		}
@@ -64,8 +64,8 @@ func (r *router) GetMasterClientConn(shard int) (*grpc.ClientConn, error) {
 	return r.dialer.Dial(address)
 }
 
-func (r *router) GetMasterOrSlaveClientConn(shard int) (*grpc.ClientConn, error) {
-	addresses, err := r.addresser.GetSlaveAddresses(shard)
+func (r *router) GetMasterOrReplicaClientConn(shard int) (*grpc.ClientConn, error) {
+	addresses, err := r.addresser.GetReplicaAddresses(shard)
 	if err != nil {
 		return nil, err
 	}
@@ -77,13 +77,13 @@ func (r *router) GetMasterOrSlaveClientConn(shard int) (*grpc.ClientConn, error)
 		return nil, err
 	}
 	if !ok {
-		return nil, fmt.Errorf("no master or slave found for %d", shard)
+		return nil, fmt.Errorf("no master or replica found for %d", shard)
 	}
 	return r.dialer.Dial(address)
 }
 
-func (r *router) GetSlaveClientConns(shard int) ([]*grpc.ClientConn, error) {
-	addresses, err := r.addresser.GetSlaveAddresses(shard)
+func (r *router) GetReplicaClientConns(shard int) ([]*grpc.ClientConn, error) {
+	addresses, err := r.addresser.GetReplicaAddresses(shard)
 	if err != nil {
 		return nil, err
 	}
@@ -126,11 +126,11 @@ func (r *router) getAllAddresses() (map[string]bool, error) {
 	for _, address := range shardToMasterAddress {
 		m[address] = true
 	}
-	shardToSlaveAddresses, err := r.addresser.GetShardToSlaveAddresses()
+	shardToReplicaAddresses, err := r.addresser.GetShardToReplicaAddresses()
 	if err != nil {
 		return nil, err
 	}
-	for _, addresses := range shardToSlaveAddresses {
+	for _, addresses := range shardToReplicaAddresses {
 		for address := range addresses {
 			m[address] = true
 		}
