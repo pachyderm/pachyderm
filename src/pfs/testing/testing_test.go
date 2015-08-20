@@ -31,12 +31,6 @@ func TestBtrfs(t *testing.T) {
 	RunTest(t, testSimple)
 }
 
-func TestReplica(t *testing.T) {
-	t.Skip()
-	t.Parallel()
-	RunTest(t, testReplica)
-}
-
 func TestFuseMount(t *testing.T) {
 	t.Skip()
 	t.Parallel()
@@ -171,69 +165,6 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 		count += len(fileInfos[i])
 	}
 	require.Equal(t, testSize, count)
-}
-
-func testReplica(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
-	masterName := TestRepositoryName()
-	err := pfsutil.InitRepository(apiClient, masterName)
-	require.NoError(t, err)
-
-	replicaName := TestRepositoryName()
-	err = pfsutil.InitRepository(apiClient, replicaName)
-	require.NoError(t, err)
-
-	for i := 0; i < testShardsPerServer*testNumServers; i++ {
-		var buffer bytes.Buffer
-		err := pfsutil.PullDiff(internalAPIClient, masterName, "scratch", uint64(i), &buffer)
-		require.NoError(t, err)
-		err = pfsutil.PushDiff(internalAPIClient, replicaName, "scratch", uint64(i), &buffer)
-		require.NoError(t, err)
-	}
-
-	getCommitInfoResponse, err := pfsutil.GetCommitInfo(apiClient, replicaName, "scratch")
-	require.NoError(t, err)
-	require.NotNil(t, getCommitInfoResponse)
-	require.NotNil(t, getCommitInfoResponse.CommitInfo)
-	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.Commit.Id)
-	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, getCommitInfoResponse.CommitInfo.CommitType)
-	require.Nil(t, getCommitInfoResponse.CommitInfo.ParentCommit)
-
-	branchResponse, err := pfsutil.Branch(apiClient, masterName, "scratch")
-	require.NoError(t, err)
-	require.NotNil(t, branchResponse)
-	newCommitID := branchResponse.Commit.Id
-
-	var wg sync.WaitGroup
-	for i := 0; i < testSize; i++ {
-		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, iErr := pfsutil.PutFile(apiClient, masterName, newCommitID,
-				fmt.Sprintf("file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
-			require.NoError(t, iErr)
-		}()
-	}
-	wg.Wait()
-
-	err = pfsutil.Commit(apiClient, masterName, newCommitID)
-	require.NoError(t, err)
-
-	for i := 0; i < testShardsPerServer*testNumServers; i++ {
-		var buffer bytes.Buffer
-		err := pfsutil.PullDiff(internalAPIClient, masterName, newCommitID, uint64(i), &buffer)
-		require.NoError(t, err)
-		err = pfsutil.PushDiff(internalAPIClient, replicaName, newCommitID, uint64(i), &buffer)
-		require.NoError(t, err)
-	}
-
-	getCommitInfoResponse, err = pfsutil.GetCommitInfo(apiClient, replicaName, newCommitID)
-	require.NoError(t, err)
-	require.NotNil(t, getCommitInfoResponse)
-	require.NotNil(t, getCommitInfoResponse.CommitInfo)
-	require.Equal(t, newCommitID, getCommitInfoResponse.CommitInfo.Commit.Id)
-	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, getCommitInfoResponse.CommitInfo.CommitType)
-	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.ParentCommit.Id)
 }
 
 func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
