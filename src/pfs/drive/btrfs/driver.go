@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -233,7 +232,6 @@ func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[in
 			if err != nil {
 				return nil, err
 			}
-			log.Print("Mkdir: ", filePath)
 			if err := os.Mkdir(filePath, 0700); err != nil {
 				return nil, err
 			}
