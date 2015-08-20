@@ -2,10 +2,16 @@ package route
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
+)
+
+const (
+	holdTTL uint64 = 60
 )
 
 type discoveryAddresser struct {
@@ -18,11 +24,11 @@ func newDiscoveryAddresser(discoveryClient discovery.Client, namespace string) *
 }
 
 func (a *discoveryAddresser) GetMasterAddress(shard int) (string, bool, error) {
-	return a.discoveryClient.Get(fmt.Sprintf("%s/pfs/shard/master/%d", a.namespace, shard))
+	return a.discoveryClient.Get(a.masterKey(shard))
 }
 
 func (a *discoveryAddresser) GetReplicaAddresses(shard int) (map[string]bool, error) {
-	base := fmt.Sprintf("%s/pfs/shard/replica/%d", a.namespace, shard)
+	base := a.replicaKey(shard)
 	addresses, err := a.discoveryClient.GetAll(base)
 	if err != nil {
 		return nil, err
@@ -35,7 +41,7 @@ func (a *discoveryAddresser) GetReplicaAddresses(shard int) (map[string]bool, er
 }
 
 func (a *discoveryAddresser) GetShardToMasterAddress() (map[int]string, error) {
-	base := fmt.Sprintf("%s/pfs/shard/master", a.namespace)
+	base := a.masterDir()
 	addresses, err := a.discoveryClient.GetAll(base)
 	if err != nil {
 		return nil, err
@@ -52,7 +58,7 @@ func (a *discoveryAddresser) GetShardToMasterAddress() (map[int]string, error) {
 }
 
 func (a *discoveryAddresser) GetShardToReplicaAddresses() (map[int]map[string]bool, error) {
-	base := fmt.Sprintf("%s/pfs/shard/replica", a.namespace)
+	base := a.replicaDir()
 	addresses, err := a.discoveryClient.GetAll(base)
 	if err != nil {
 		return nil, err
@@ -74,17 +80,59 @@ func (a *discoveryAddresser) GetShardToReplicaAddresses() (map[int]map[string]bo
 }
 
 func (a *discoveryAddresser) SetMasterAddress(shard int, address string, ttl uint64) error {
-	return a.discoveryClient.Set(fmt.Sprintf("%s/pfs/shard/master/%d", a.namespace, shard), address, ttl)
+	return a.discoveryClient.Set(a.masterKey(shard), address, ttl)
+}
+
+func (a *discoveryAddresser) HoldMasterAddress(shard int, address string) error {
+	if err := a.SetMasterAddress(shard, address, holdTTL); err != nil {
+		return err
+	}
+	for {
+		// TODO we could make this function more responsive by watching for updates
+		time.Sleep(time.Second * time.Duration(holdTTL/2))
+		if err := a.discoveryClient.CheckAndSet(a.masterKey(shard), address, holdTTL, address); err != nil {
+			return err
+		}
+	}
 }
 
 func (a *discoveryAddresser) SetReplicaAddress(shard int, address string, ttl uint64) error {
-	return a.discoveryClient.CreateInDir(fmt.Sprintf("%s/pfs/shard/replica/%d", a.namespace, shard), address, ttl)
+	return a.discoveryClient.CreateInDir(a.replicaKey(shard), address, ttl)
+}
+
+func (a *discoveryAddresser) HoldReplicaAddress(shard int, address string) error {
+	if err := a.SetReplicaAddress(shard, address, holdTTL); err != nil {
+		return err
+	}
+	for {
+		// TODO we could make this function more responsive by watching for updates
+		time.Sleep(time.Second * time.Duration(holdTTL/2))
+		if err := a.discoveryClient.CheckAndSet(a.replicaKey(shard), address, holdTTL, address); err != nil {
+			return err
+		}
+	}
 }
 
 func (a *discoveryAddresser) DeleteMasterAddress(shard int) error {
-	return a.discoveryClient.Delete(fmt.Sprintf("%s/pfs/shard/master/%d", a.namespace, shard))
+	return a.discoveryClient.Delete(a.masterKey(shard))
 }
 
 func (a *discoveryAddresser) DeleteReplicaAddress(shard int, address string) error {
-	return a.discoveryClient.Delete(fmt.Sprintf("%s/pfs/shard/replica/%d/%s", a.namespace, shard, address))
+	return a.discoveryClient.Delete(a.replicaKey(shard))
+}
+
+func (a *discoveryAddresser) masterDir() string {
+	return fmt.Sprintf("%s/pfs/shard/master", a.namespace)
+}
+
+func (a *discoveryAddresser) masterKey(shard int) string {
+	return path.Join(a.masterDir(), fmt.Sprint(shard))
+}
+
+func (a *discoveryAddresser) replicaDir() string {
+	return fmt.Sprintf("%s/pfs/shard/replica", a.namespace)
+}
+
+func (a *discoveryAddresser) replicaKey(shard int) string {
+	return path.Join(a.replicaDir(), fmt.Sprint(shard))
 }
