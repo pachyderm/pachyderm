@@ -83,9 +83,15 @@ func (a *discoveryAddresser) SetMasterAddress(shard int, address string, ttl uin
 	return a.discoveryClient.Set(a.masterKey(shard), address, ttl)
 }
 
-func (a *discoveryAddresser) HoldMasterAddress(shard int, address string) error {
-	if err := a.SetMasterAddress(shard, address, holdTTL); err != nil {
-		return err
+func (a *discoveryAddresser) HoldMasterAddress(shard int, address string, prevAddress string) error {
+	if prevAddress == "" {
+		if err := a.discoveryClient.Create(a.masterKey(shard), address, holdTTL); err != nil {
+			return err
+		}
+	} else {
+		if err := a.discoveryClient.CheckAndSet(a.masterKey(shard), address, holdTTL, prevAddress); err != nil {
+			return err
+		}
 	}
 	for {
 		// TODO we could make this function more responsive by watching for updates
