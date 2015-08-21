@@ -44,6 +44,9 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 	return result, nil
 }
 
+//TODO jdoliner we're doing some acrobatics here to make the cancel chan work
+//we should think about if there's a better way to do this or maybe abstract
+//this functionality into a class
 func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) error) (retErr error) {
 	if err := callBack(""); err != nil {
 		return err
