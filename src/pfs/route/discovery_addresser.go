@@ -40,21 +40,38 @@ func (a *discoveryAddresser) GetReplicaAddresses(shard int) (map[string]bool, er
 	return m, nil
 }
 
-func (a *discoveryAddresser) GetShardToMasterAddress() (map[int]string, error) {
-	base := a.masterDir()
-	addresses, err := a.discoveryClient.GetAll(base)
-	if err != nil {
-		return nil, err
-	}
-	m := make(map[int]string, 0)
+func (a *discoveryAddresser) makeMasterMap(addresses map[string]string) (map[int]string, error) {
+	result := make(map[int]string, 0)
 	for shardString, address := range addresses {
-		shard, err := strconv.ParseInt(strings.TrimPrefix(shardString, fmt.Sprintf("%s/", base)), 10, 64)
+		shard, err := strconv.ParseInt(strings.TrimPrefix(shardString, fmt.Sprintf("%s/", a.masterDir())), 10, 64)
 		if err != nil {
 			return nil, err
 		}
-		m[int(shard)] = address
+		result[int(shard)] = address
 	}
-	return m, nil
+	return result, nil
+}
+
+func (a *discoveryAddresser) GetShardToMasterAddress() (map[int]string, error) {
+	addresses, err := a.discoveryClient.GetAll(a.masterDir())
+	if err != nil {
+		return nil, err
+	}
+	return a.makeMasterMap(addresses)
+}
+
+func (a *discoveryAddresser) WatchShardToMasterAddress(cancel chan bool, callBack func(map[int]string) error) error {
+	return a.discoveryClient.WatchAll(
+		a.masterDir(),
+		cancel,
+		func(addresses map[string]string) error {
+			shardToMasterAddress, err := a.makeMasterMap(addresses)
+			if err != nil {
+				return err
+			}
+			return callBack(shardToMasterAddress)
+		},
+	)
 }
 
 func (a *discoveryAddresser) GetShardToReplicaAddresses() (map[int]map[string]bool, error) {
