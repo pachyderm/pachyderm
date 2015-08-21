@@ -1,8 +1,9 @@
 package role
 
 import (
-	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"math"
+
+	"github.com/pachyderm/pachyderm/src/pfs/route"
 )
 
 type roler struct {
