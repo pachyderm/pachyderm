@@ -3,7 +3,6 @@ package role
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"sync"
 	"testing"
@@ -15,8 +14,8 @@ import (
 )
 
 const (
-	testNumShards  = 4
-	testNumServers = 1
+	testNumShards  = 64
+	testNumServers = 8
 )
 
 func TestRoler(t *testing.T) {
@@ -89,10 +88,7 @@ func runTest(t *testing.T, client discovery.Client) {
 	start := time.Now()
 	for !serverGroup.satisfied() {
 		time.Sleep(3 * time.Second)
-		if time.Since(start) > time.Second*time.Duration(30) {
-			for _, server := range serverGroup.servers {
-				log.Printf("%+v", server)
-			}
+		if time.Since(start) > time.Second*time.Duration(10) {
 			t.Fatal("test timed out")
 		}
 	}

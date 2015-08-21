@@ -1,8 +1,8 @@
 package discovery
 
 import (
+	"log"
 	"strings"
-	"sync"
 
 	"github.com/coreos/go-etcd/etcd"
 )
@@ -44,72 +44,44 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 	return result, nil
 }
 
-//TODO jdoliner we're doing some acrobatics here to make the cancel chan work
-//we should think about if there's a better way to do this or maybe abstract
-//this functionality into a class
-func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) error) (retErr error) {
+func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) error) error {
 	if err := callBack(""); err != nil {
 		return err
 	}
-	localCancel := make(chan bool)
-	var once sync.Once
-	var errOnce sync.Once
-	go func() {
-		select {
-		case <-cancel:
-			once.Do(func() { close(localCancel) })
-		case <-localCancel:
+	var waitIndex uint64 = 1
+	for {
+		response, err := c.client.Watch(key, waitIndex, false, nil, cancel)
+		if err != nil {
+			return err
 		}
-	}()
-	receiver := make(chan *etcd.Response)
-	defer close(receiver)
-	go func() {
-		for response := range receiver {
-			if err := callBack(response.Node.Value); err != nil {
-				errOnce.Do(func() { retErr = err })
-				once.Do(func() { close(localCancel) })
-			}
+		if err := callBack(response.Node.Value); err != nil {
+			return err
 		}
-	}()
-	if _, err := c.client.Watch(key, 0, false, receiver, localCancel); err != nil {
-		errOnce.Do(func() { retErr = err })
+		waitIndex = response.Node.ModifiedIndex + 1
 	}
-	return
 }
 
 func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[string]string) error) (retErr error) {
 	if err := callBack(nil); err != nil {
 		return err
 	}
-	localCancel := make(chan bool)
-	var errOnce sync.Once
-	var once sync.Once
-	go func() {
-		select {
-		case <-cancel:
-			once.Do(func() { close(localCancel) })
-		case <-localCancel:
+	var waitIndex uint64 = 1
+	value := make(map[string]string)
+	for {
+		response, err := c.client.Watch(key, waitIndex, true, nil, cancel)
+		if err != nil {
+			return err
 		}
-	}()
-	receiver := make(chan *etcd.Response)
-	defer close(receiver)
-	go func() {
-		value := make(map[string]string)
-		for response := range receiver {
-			nodeToMap(response.Node, value)
-			if err := callBack(value); err != nil {
-				errOnce.Do(func() { retErr = err })
-				once.Do(func() { close(localCancel) })
-			}
+		nodeToMap(response.Node, value)
+		if err := callBack(value); err != nil {
+			return err
 		}
-	}()
-	if _, err := c.client.Watch(key, 0, true, receiver, localCancel); err != nil {
-		errOnce.Do(func() { retErr = err })
+		waitIndex = response.Node.ModifiedIndex + 1
 	}
-	return
 }
 
 func (c *etcdClient) Set(key string, value string, ttl uint64) error {
+	log.Printf("set %s", key)
 	_, err := c.client.Set(key, value, ttl)
 	return err
 }

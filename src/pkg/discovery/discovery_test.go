@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/coreos/go-etcd/etcd"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,6 +20,13 @@ func TestEtcdClient(t *testing.T) {
 	client, err := getEtcdClient()
 	require.NoError(t, err)
 	runTest(t, client)
+}
+
+func TestEtcdWatch(t *testing.T) {
+	t.Parallel()
+	client, err := getEtcdClient()
+	require.NoError(t, err)
+	runWatchTest(t, client)
 }
 
 func runTest(t *testing.T, client Client) {
@@ -38,8 +46,40 @@ func runTest(t *testing.T, client Client) {
 	require.Equal(t, map[string]string{"a/b/foo": "one", "a/b/bar": "two"}, values)
 
 	require.NoError(t, client.Close())
+}
 
-	// TODO add tests for watch and watchall
+func runWatchTest(t *testing.T, client Client) {
+	cancel := make(chan bool)
+	err := client.Watch(
+		"watch/foo",
+		cancel,
+		func(value string) error {
+			if value == "" {
+				require.NoError(t, client.Set("watch/foo", "bar", 0))
+			} else {
+				require.Equal(t, "bar", value)
+				close(cancel)
+			}
+			return nil
+		},
+	)
+	require.Equal(t, etcd.ErrWatchStoppedByUser, err)
+
+	cancel = make(chan bool)
+	err = client.WatchAll(
+		"watchAll/foo",
+		cancel,
+		func(value map[string]string) error {
+			if value == nil {
+				require.NoError(t, client.Set("watchAll/foo/bar", "quux", 0))
+			} else {
+				require.Equal(t, map[string]string{"watchAll/foo/bar": "quux"}, value)
+				close(cancel)
+			}
+			return nil
+		},
+	)
+	require.Equal(t, etcd.ErrWatchStoppedByUser, err)
 }
 
 func getEtcdClient() (Client, error) {

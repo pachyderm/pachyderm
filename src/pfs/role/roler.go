@@ -1,7 +1,6 @@
 package role
 
 import (
-	"log"
 	"math"
 
 	"github.com/pachyderm/pachyderm/src/pfs/route"
@@ -23,7 +22,6 @@ func (r *roler) Run() error {
 	return r.addresser.WatchShardToMasterAddress(
 		r.cancel,
 		func(shardToMasterAddress map[int]string) error {
-			log.Print("calling run function: ", shardToMasterAddress)
 			counts := r.masterCounts(shardToMasterAddress)
 			_, min := r.minCount(counts)
 			if counts[r.localAddress] > min {
@@ -32,7 +30,6 @@ func (r *roler) Run() error {
 			}
 			shard, ok := r.openShard(shardToMasterAddress)
 			if ok {
-				log.Print("Found open shard: ", shard)
 				if err := r.server.Master(shard); err != nil {
 					return err
 				}
