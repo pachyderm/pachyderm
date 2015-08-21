@@ -3,6 +3,7 @@ package role
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 	"testing"
@@ -87,8 +88,11 @@ func runTest(t *testing.T, client discovery.Client) {
 	go serverGroup.run(t)
 	start := time.Now()
 	for !serverGroup.satisfied() {
-		time.Sleep(5 * time.Second)
-		if time.Since(start) > time.Minute {
+		time.Sleep(3 * time.Second)
+		if time.Since(start) > time.Second*time.Duration(15) {
+			for _, server := range serverGroup.servers {
+				log.Printf("%+v", server)
+			}
 			t.Fatal("test timed out")
 		}
 	}
