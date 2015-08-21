@@ -35,7 +35,7 @@ func (r *roler) Run() error {
 				return err
 			}
 			go func() {
-				r.addresser.HoldMasterAddress(shard, r.localAddress)
+				r.addresser.HoldMasterAddress(shard, r.localAddress, "")
 				r.server.Clear(shard)
 			}()
 			continue
@@ -52,7 +52,7 @@ func (r *roler) Run() error {
 				return err
 			}
 			go func() {
-				r.addresser.HoldMasterAddress(shard, r.localAddress)
+				r.addresser.HoldMasterAddress(shard, r.localAddress, maxAddress)
 				r.server.Clear(shard)
 			}()
 		}
