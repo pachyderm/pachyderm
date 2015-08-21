@@ -40,18 +40,6 @@ func (a *discoveryAddresser) GetReplicaAddresses(shard int) (map[string]bool, er
 	return m, nil
 }
 
-func (a *discoveryAddresser) makeMasterMap(addresses map[string]string) (map[int]string, error) {
-	result := make(map[int]string, 0)
-	for shardString, address := range addresses {
-		shard, err := strconv.ParseInt(strings.TrimPrefix(shardString, fmt.Sprintf("%s/", a.masterDir())), 10, 64)
-		if err != nil {
-			return nil, err
-		}
-		result[int(shard)] = address
-	}
-	return result, nil
-}
-
 func (a *discoveryAddresser) GetShardToMasterAddress() (map[int]string, error) {
 	addresses, err := a.discoveryClient.GetAll(a.masterDir())
 	if err != nil {
@@ -161,4 +149,16 @@ func (a *discoveryAddresser) replicaDir() string {
 
 func (a *discoveryAddresser) replicaKey(shard int) string {
 	return path.Join(a.replicaDir(), fmt.Sprint(shard))
+}
+
+func (a *discoveryAddresser) makeMasterMap(addresses map[string]string) (map[int]string, error) {
+	result := make(map[int]string, 0)
+	for shardString, address := range addresses {
+		shard, err := strconv.ParseInt(strings.TrimPrefix(shardString, fmt.Sprintf("%s/", a.masterDir())), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		result[int(shard)] = address
+	}
+	return result, nil
 }
