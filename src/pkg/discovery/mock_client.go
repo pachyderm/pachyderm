@@ -66,12 +66,12 @@ func (c *mockClient) GetAll(keyPrefix string) (map[string]string, error) {
 	return result, nil
 }
 
-func (c *mockClient) Watch(key string, stop chan bool, callBack func(string)) error {
+func (c *mockClient) Watch(key string, stop chan bool, callBack func(string) error) error {
 	// TODO jdoliner
 	return nil
 }
 
-func (c *mockClient) WatchAll(key string, stop chan bool, callBack func(map[string]string)) error {
+func (c *mockClient) WatchAll(key string, stop chan bool, callBack func(map[string]string) error) error {
 	// TODO jdoliner
 	return nil
 }
