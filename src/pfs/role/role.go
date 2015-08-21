@@ -7,7 +7,7 @@ import (
 // Roler is responsible for managing which roles the server fills
 type Roler interface {
 	Run() error
-	Cancel() error
+	Cancel()
 }
 
 type Server interface {

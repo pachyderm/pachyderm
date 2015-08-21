@@ -100,7 +100,7 @@ func (a *discoveryAddresser) SetMasterAddress(shard int, address string, ttl uin
 	return a.discoveryClient.Set(a.masterKey(shard), address, ttl)
 }
 
-func (a *discoveryAddresser) HoldMasterAddress(shard int, address string, prevAddress string) error {
+func (a *discoveryAddresser) HoldMasterAddress(shard int, address string, prevAddress string, cancel chan bool) error {
 	if prevAddress == "" {
 		if err := a.discoveryClient.Create(a.masterKey(shard), address, holdTTL); err != nil {
 			return err
@@ -111,10 +111,13 @@ func (a *discoveryAddresser) HoldMasterAddress(shard int, address string, prevAd
 		}
 	}
 	for {
-		// TODO we could make this function more responsive by watching for updates
-		time.Sleep(time.Second * time.Duration(holdTTL/2))
-		if err := a.discoveryClient.CheckAndSet(a.masterKey(shard), address, holdTTL, address); err != nil {
-			return err
+		select {
+		case <-time.After(time.Second * time.Duration(holdTTL/2)):
+			if err := a.discoveryClient.CheckAndSet(a.masterKey(shard), address, holdTTL, address); err != nil {
+				return err
+			}
+		case <-cancel:
+			return nil
 		}
 	}
 }

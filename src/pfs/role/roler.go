@@ -33,7 +33,7 @@ func (r *roler) Run() error {
 					return err
 				}
 				go func() {
-					r.addresser.HoldMasterAddress(shard, r.localAddress, "")
+					r.addresser.HoldMasterAddress(shard, r.localAddress, "", r.cancel)
 					r.server.Clear(shard)
 				}()
 				return nil
@@ -51,7 +51,7 @@ func (r *roler) Run() error {
 					return err
 				}
 				go func() {
-					r.addresser.HoldMasterAddress(shard, r.localAddress, maxAddress)
+					r.addresser.HoldMasterAddress(shard, r.localAddress, maxAddress, r.cancel)
 					r.server.Clear(shard)
 				}()
 			}
@@ -60,8 +60,8 @@ func (r *roler) Run() error {
 	)
 }
 
-func (r *roler) Cancel() error {
-	return nil
+func (r *roler) Cancel() {
+	close(r.cancel)
 }
 
 type counts map[string]int
