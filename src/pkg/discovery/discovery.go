@@ -12,9 +12,9 @@ type Client interface {
 	// the map will be empty if no keys are found.
 	GetAll(key string) (map[string]string, error)
 	// Watch calls callBack with changes to a value
-	Watch(key string, callBack func(string), stop chan bool) error
+	Watch(key string, stop chan bool, callBack func(string)) error
 	// WatchAll calls callBack with changes to a directory
-	WatchAll(key string, callBack func(map[string]string), stop chan bool) error
+	WatchAll(key string, stop chan bool, callBack func(map[string]string)) error
 	// Set sets the value for a key.
 	// ttl is in seconds.
 	Set(key string, value string, ttl uint64) error

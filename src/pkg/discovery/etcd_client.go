@@ -43,7 +43,7 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 	return result, nil
 }
 
-func (c *etcdClient) Watch(key string, callBack func(string), stop chan bool) error {
+func (c *etcdClient) Watch(key string, stop chan bool, callBack func(string)) error {
 	receiver := make(chan *etcd.Response)
 	defer close(receiver)
 	go func() {
@@ -55,7 +55,7 @@ func (c *etcdClient) Watch(key string, callBack func(string), stop chan bool) er
 	return err
 }
 
-func (c *etcdClient) WatchAll(key string, callBack func(map[string]string), stop chan bool) error {
+func (c *etcdClient) WatchAll(key string, stop chan bool, callBack func(map[string]string)) error {
 	receiver := make(chan *etcd.Response)
 	defer close(receiver)
 	go func() {
