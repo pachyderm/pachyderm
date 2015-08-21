@@ -20,6 +20,8 @@ func NewSharder(numShards int) Sharder {
 // namespace/pfs/shard/num/replica/address -> true
 
 type Addresser interface {
+	// TODO consider splitting Addresser's interface into read an write methods.
+	// Each user of Addresser seems to use only one of these interfaces.
 	GetMasterAddress(shard int) (string, bool, error)
 	GetReplicaAddresses(shard int) (map[string]bool, error)
 	GetShardToMasterAddress() (map[int]string, error)
