@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	testNumShards  = 64
-	testNumServers = 8
+	testNumShards  = 4
+	testNumServers = 1
 )
 
 func TestRoler(t *testing.T) {
@@ -56,7 +56,7 @@ func NewServerGroup(addresser route.Addresser) *serverGroup {
 	serverGroup := serverGroup{}
 	for i := 0; i < testNumServers; i++ {
 		serverGroup.servers = append(serverGroup.servers, newServer())
-		serverGroup.rolers = append(serverGroup.rolers, NewRoler(addresser, sharder, serverGroup.servers[i], fmt.Sprint(i)))
+		serverGroup.rolers = append(serverGroup.rolers, NewRoler(addresser, sharder, serverGroup.servers[i], fmt.Sprintf("server-%d", i)))
 	}
 	return &serverGroup
 }
@@ -89,7 +89,7 @@ func runTest(t *testing.T, client discovery.Client) {
 	start := time.Now()
 	for !serverGroup.satisfied() {
 		time.Sleep(3 * time.Second)
-		if time.Since(start) > time.Second*time.Duration(15) {
+		if time.Since(start) > time.Second*time.Duration(30) {
 			for _, server := range serverGroup.servers {
 				log.Printf("%+v", server)
 			}

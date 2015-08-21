@@ -94,8 +94,8 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 	receiver := make(chan *etcd.Response)
 	defer close(receiver)
 	go func() {
+		value := make(map[string]string)
 		for response := range receiver {
-			value := make(map[string]string)
 			nodeToMap(response.Node, value)
 			if err := callBack(value); err != nil {
 				errOnce.Do(func() { retErr = err })
