@@ -45,6 +45,9 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 }
 
 func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) error) (retErr error) {
+	if err := callBack(""); err != nil {
+		return err
+	}
 	localCancel := make(chan bool)
 	var once sync.Once
 	var errOnce sync.Once
@@ -72,6 +75,9 @@ func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) e
 }
 
 func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[string]string) error) (retErr error) {
+	if err := callBack(nil); err != nil {
+		return err
+	}
 	localCancel := make(chan bool)
 	var errOnce sync.Once
 	var once sync.Once
@@ -88,13 +94,13 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 		for response := range receiver {
 			value := make(map[string]string)
 			nodeToMap(response.Node, value)
-			if err := callBack(value); err != nil && retErr == nil {
+			if err := callBack(value); err != nil {
 				errOnce.Do(func() { retErr = err })
 				once.Do(func() { close(localCancel) })
 			}
 		}
 	}()
-	if _, err := c.client.Watch(key, 0, true, receiver, cancel); err != nil {
+	if _, err := c.client.Watch(key, 0, true, receiver, localCancel); err != nil {
 		errOnce.Do(func() { retErr = err })
 	}
 	return
