@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/coreos/go-etcd/etcd"
 )
@@ -43,30 +44,60 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 	return result, nil
 }
 
-func (c *etcdClient) Watch(key string, stop chan bool, callBack func(string) error) error {
+func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) error) (retErr error) {
+	localCancel := make(chan bool)
+	var once sync.Once
+	var errOnce sync.Once
+	go func() {
+		select {
+		case <-cancel:
+			once.Do(func() { close(localCancel) })
+		case <-localCancel:
+		}
+	}()
 	receiver := make(chan *etcd.Response)
 	defer close(receiver)
 	go func() {
 		for response := range receiver {
-			callBack(response.Node.Value)
+			if err := callBack(response.Node.Value); err != nil {
+				errOnce.Do(func() { retErr = err })
+				once.Do(func() { close(localCancel) })
+			}
 		}
 	}()
-	_, err := c.client.Watch(key, 0, false, receiver, stop)
-	return err
+	if _, err := c.client.Watch(key, 0, false, receiver, localCancel); err != nil {
+		errOnce.Do(func() { retErr = err })
+	}
+	return
 }
 
-func (c *etcdClient) WatchAll(key string, stop chan bool, callBack func(map[string]string) error) error {
+func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[string]string) error) (retErr error) {
+	localCancel := make(chan bool)
+	var errOnce sync.Once
+	var once sync.Once
+	go func() {
+		select {
+		case <-cancel:
+			once.Do(func() { close(localCancel) })
+		case <-localCancel:
+		}
+	}()
 	receiver := make(chan *etcd.Response)
 	defer close(receiver)
 	go func() {
 		for response := range receiver {
 			value := make(map[string]string)
 			nodeToMap(response.Node, value)
-			callBack(value)
+			if err := callBack(value); err != nil && retErr == nil {
+				errOnce.Do(func() { retErr = err })
+				once.Do(func() { close(localCancel) })
+			}
 		}
 	}()
-	_, err := c.client.Watch(key, 0, true, receiver, stop)
-	return err
+	if _, err := c.client.Watch(key, 0, true, receiver, cancel); err != nil {
+		errOnce.Do(func() { retErr = err })
+	}
+	return
 }
 
 func (c *etcdClient) Set(key string, value string, ttl uint64) error {
