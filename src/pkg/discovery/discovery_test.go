@@ -38,6 +38,8 @@ func runTest(t *testing.T, client Client) {
 	require.Equal(t, map[string]string{"a/b/foo": "one", "a/b/bar": "two"}, values)
 
 	require.NoError(t, client.Close())
+
+	// TODO add tests for watch and watchall
 }
 
 func getEtcdClient() (Client, error) {

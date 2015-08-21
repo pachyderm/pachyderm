@@ -43,6 +43,32 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 	return result, nil
 }
 
+func (c *etcdClient) Watch(key string, callBack func(string), stop chan bool) error {
+	receiver := make(chan *etcd.Response)
+	defer close(receiver)
+	go func() {
+		for response := range receiver {
+			callBack(response.Node.Value)
+		}
+	}()
+	_, err := c.client.Watch(key, 0, false, receiver, stop)
+	return err
+}
+
+func (c *etcdClient) WatchAll(key string, callBack func(map[string]string), stop chan bool) error {
+	receiver := make(chan *etcd.Response)
+	defer close(receiver)
+	go func() {
+		for response := range receiver {
+			value := make(map[string]string)
+			nodeToMap(response.Node, value)
+			callBack(value)
+		}
+	}()
+	_, err := c.client.Watch(key, 0, true, receiver, stop)
+	return err
+}
+
 func (c *etcdClient) Set(key string, value string, ttl uint64) error {
 	_, err := c.client.Set(key, value, ttl)
 	return err

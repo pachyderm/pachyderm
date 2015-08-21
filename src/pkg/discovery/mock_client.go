@@ -66,6 +66,16 @@ func (c *mockClient) GetAll(keyPrefix string) (map[string]string, error) {
 	return result, nil
 }
 
+func (c *mockClient) Watch(key string, callBack func(string), stop chan bool) error {
+	// TODO jdoliner
+	return nil
+}
+
+func (c *mockClient) WatchAll(key string, callBack func(map[string]string), stop chan bool) error {
+	// TODO jdoliner
+	return nil
+}
+
 func (c *mockClient) Set(key string, value string, ttl uint64) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
