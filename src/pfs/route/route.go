@@ -25,6 +25,7 @@ type Addresser interface {
 	GetMasterAddress(shard int) (string, bool, error)
 	GetReplicaAddresses(shard int) (map[string]bool, error)
 	GetShardToMasterAddress() (map[int]string, error)
+	WatchShardToMasterAddress(chan bool, func(map[int]string) error) error
 	GetShardToReplicaAddresses() (map[int]map[string]bool, error)
 	SetMasterAddress(shard int, address string, ttl uint64) error
 	HoldMasterAddress(shard int, address string, prevAddress string) error

@@ -18,46 +18,46 @@ func newRoler(addresser route.Addresser, sharder route.Sharder, server Server, l
 }
 
 func (r *roler) Run() error {
-	for {
-		shardToMasterAddress, err := r.addresser.GetShardToMasterAddress()
-		if err != nil {
-			return err
-		}
-		counts := r.masterCounts(shardToMasterAddress)
-		_, min := r.minCount(counts)
-		if counts[r.localAddress] > min {
-			// someone else has fewer roles than us let them claim them
-			continue
-		}
-		shard, ok := r.openShard(shardToMasterAddress)
-		if ok {
-			if err := r.server.Master(shard); err != nil {
-				return err
+	return r.addresser.WatchShardToMasterAddress(
+		r.cancel,
+		func(shardToMasterAddress map[int]string) error {
+			counts := r.masterCounts(shardToMasterAddress)
+			_, min := r.minCount(counts)
+			if counts[r.localAddress] > min {
+				// someone else has fewer roles than us let them claim them
+				return nil
 			}
-			go func() {
-				r.addresser.HoldMasterAddress(shard, r.localAddress, "")
-				r.server.Clear(shard)
-			}()
-			continue
-		}
+			shard, ok := r.openShard(shardToMasterAddress)
+			if ok {
+				if err := r.server.Master(shard); err != nil {
+					return err
+				}
+				go func() {
+					r.addresser.HoldMasterAddress(shard, r.localAddress, "")
+					r.server.Clear(shard)
+				}()
+				return nil
+			}
 
-		maxAddress, max := r.maxCount(counts)
-		if counts[r.localAddress]+1 > max-1 {
-			// stealing a role from maxAddress would make us the new maxAddress
-			// that'd cause flappying which is bad
-			continue
-		}
-		shard, ok = r.randomShard(maxAddress, shardToMasterAddress)
-		if ok {
-			if err := r.server.Master(shard); err != nil {
-				return err
+			maxAddress, max := r.maxCount(counts)
+			if counts[r.localAddress]+1 > max-1 {
+				// stealing a role from maxAddress would make us the new maxAddress
+				// that'd cause flappying which is bad
+				return nil
 			}
-			go func() {
-				r.addresser.HoldMasterAddress(shard, r.localAddress, maxAddress)
-				r.server.Clear(shard)
-			}()
-		}
-	}
+			shard, ok = r.randomShard(maxAddress, shardToMasterAddress)
+			if ok {
+				if err := r.server.Master(shard); err != nil {
+					return err
+				}
+				go func() {
+					r.addresser.HoldMasterAddress(shard, r.localAddress, maxAddress)
+					r.server.Clear(shard)
+				}()
+			}
+			return nil
+		},
+	)
 }
 
 func (r *roler) Cancel() error {
