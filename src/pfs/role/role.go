@@ -6,6 +6,8 @@ import (
 
 // Roler is responsible for managing which roles the server fills
 type Roler interface {
+	Run() error
+	Cancel() error
 }
 
 type Server interface {
@@ -15,8 +17,10 @@ type Server interface {
 	// Replica tells the server that it is now a replica for shard.
 	// After this returns the Server is expected to service Replica requests for shard.
 	Replica(shard int) error
+	// Clear tells the server that it is no longer filling any role for shard.
+	Clear(shard int) error
 }
 
-func NewRoler(addresser route.Addresser, server Server) Roler {
-	return newRoler(addresser, server)
+func NewRoler(addresser route.Addresser, sharder route.Sharder, server Server, localAddress string) Roler {
+	return newRoler(addresser, sharder, server, localAddress)
 }
