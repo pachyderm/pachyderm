@@ -43,7 +43,8 @@ func (r *roler) Run() error {
 
 		maxAddress, max := r.maxCount(counts)
 		if counts[r.localAddress]+1 > max-1 {
-			// stealing a role from maxAddress would make us the max address
+			// stealing a role from maxAddress would make us the new maxAddress
+			// that'd cause flappying which is bad
 			continue
 		}
 		shard, ok = r.randomShard(maxAddress, shardToMasterAddress)
