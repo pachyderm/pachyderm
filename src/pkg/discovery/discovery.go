@@ -12,9 +12,9 @@ type Client interface {
 	// the map will be empty if no keys are found.
 	GetAll(key string) (map[string]string, error)
 	// Watch calls callBack with changes to a value
-	Watch(key string, stop chan bool, callBack func(string) error) error
+	Watch(key string, cancel chan bool, callBack func(string) error) error
 	// WatchAll calls callBack with changes to a directory
-	WatchAll(key string, stop chan bool, callBack func(map[string]string) error) error
+	WatchAll(key string, cancel chan bool, callBack func(map[string]string) error) error
 	// Set sets the value for a key.
 	// ttl is in seconds.
 	Set(key string, value string, ttl uint64) error
@@ -28,6 +28,10 @@ type Client interface {
 	// CheckAndSet is like Set but only succeeds if the key is already set to oldValue.
 	// ttl is in seconds.
 	CheckAndSet(key string, value string, ttl uint64, oldValue string) error
+	// Hold periodically updates a key with a nonzero ttl value.
+	// This is useful for advertising a service since it will automatically go
+	// away if the service dies.
+	Hold(key string, value string, oldValue string, cancel chan bool) error
 }
 
 func NewEtcdClient(addresses ...string) Client {
