@@ -66,12 +66,12 @@ func (c *mockClient) GetAll(keyPrefix string) (map[string]string, error) {
 	return result, nil
 }
 
-func (c *mockClient) Watch(key string, stop chan bool, callBack func(string) error) error {
+func (c *mockClient) Watch(key string, cancel chan bool, callBack func(string) error) error {
 	// TODO jdoliner
 	return nil
 }
 
-func (c *mockClient) WatchAll(key string, stop chan bool, callBack func(map[string]string) error) error {
+func (c *mockClient) WatchAll(key string, cancel chan bool, callBack func(map[string]string) error) error {
 	// TODO jdoliner
 	return nil
 }
@@ -149,5 +149,10 @@ func (c *mockClient) unsafeSet(key string, value string, ttl uint64) error {
 		return fmt.Errorf("pachyderm: can't set directory %s", key)
 	}
 	c.records[key] = record{false, value, expires}
+	return nil
+}
+
+func (c *mockClient) Hold(key string, value string, cancel chan bool) error {
+	// TODO jdoliner
 	return nil
 }
