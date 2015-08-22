@@ -152,7 +152,7 @@ func (c *mockClient) unsafeSet(key string, value string, ttl uint64) error {
 	return nil
 }
 
-func (c *mockClient) Hold(key string, value string, cancel chan bool) error {
+func (c *mockClient) Hold(key string, value string, oldValue string, cancel chan bool) error {
 	// TODO jdoliner
 	return nil
 }
