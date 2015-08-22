@@ -30,7 +30,7 @@ type Addresser interface {
 	SetMasterAddress(shard int, address string, ttl uint64) error
 	HoldMasterAddress(shard int, address string, prevAddress string, cancel chan bool) error
 	SetReplicaAddress(shard int, address string, ttl uint64) error
-	HoldReplicaAddress(shard int, address string) error
+	HoldReplicaAddress(shard int, address string, prevAddress string, cancel chan bool) error
 	DeleteMasterAddress(shard int) error
 	DeleteReplicaAddress(shard int, address string) error
 }
