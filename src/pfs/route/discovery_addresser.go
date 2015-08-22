@@ -5,13 +5,8 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
-)
-
-const (
-	holdTTL uint64 = 60
 )
 
 type discoveryAddresser struct {
@@ -89,42 +84,15 @@ func (a *discoveryAddresser) SetMasterAddress(shard int, address string, ttl uin
 }
 
 func (a *discoveryAddresser) HoldMasterAddress(shard int, address string, prevAddress string, cancel chan bool) error {
-	if prevAddress == "" {
-		if err := a.discoveryClient.Create(a.masterKey(shard), address, holdTTL); err != nil {
-			return err
-		}
-	} else {
-		if err := a.discoveryClient.CheckAndSet(a.masterKey(shard), address, holdTTL, prevAddress); err != nil {
-			return err
-		}
-	}
-	for {
-		select {
-		case <-time.After(time.Second * time.Duration(holdTTL/2)):
-			if err := a.discoveryClient.CheckAndSet(a.masterKey(shard), address, holdTTL, address); err != nil {
-				return err
-			}
-		case <-cancel:
-			return nil
-		}
-	}
+	return a.discoveryClient.Hold(a.masterKey(shard), address, prevAddress, cancel)
 }
 
 func (a *discoveryAddresser) SetReplicaAddress(shard int, address string, ttl uint64) error {
 	return a.discoveryClient.CreateInDir(a.replicaKey(shard), address, ttl)
 }
 
-func (a *discoveryAddresser) HoldReplicaAddress(shard int, address string) error {
-	if err := a.SetReplicaAddress(shard, address, holdTTL); err != nil {
-		return err
-	}
-	for {
-		// TODO we could make this function more responsive by watching for updates
-		time.Sleep(time.Second * time.Duration(holdTTL/2))
-		if err := a.discoveryClient.CheckAndSet(a.replicaKey(shard), address, holdTTL, address); err != nil {
-			return err
-		}
-	}
+func (a *discoveryAddresser) HoldReplicaAddress(shard int, address string, prevAddress string, cancel chan bool) error {
+	return a.discoveryClient.Hold(a.replicaKey(shard), address, prevAddress, cancel)
 }
 
 func (a *discoveryAddresser) DeleteMasterAddress(shard int) error {
