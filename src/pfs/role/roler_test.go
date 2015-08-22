@@ -20,6 +20,7 @@ const (
 )
 
 func TestRoler(t *testing.T) {
+	t.Skip()
 	client, err := getEtcdClient()
 	require.NoError(t, err)
 	runTest(t, client)

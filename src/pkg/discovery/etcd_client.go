@@ -162,7 +162,6 @@ func (c *etcdClient) Hold(key string, value string, oldValue string, cancel chan
 			return err
 		}
 	}
-	return nil
 }
 
 func nodeToMap(node *etcd.Node, out map[string]string) {
