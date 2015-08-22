@@ -1,6 +1,7 @@
 package role
 
 import (
+	"log"
 	"math"
 
 	"github.com/pachyderm/pachyderm/src/pfs/route"
@@ -22,10 +23,12 @@ func (r *roler) Run() error {
 	return r.addresser.WatchShardToMasterAddress(
 		r.cancel,
 		func(shardToMasterAddress map[int]string) error {
+			log.Printf("Find shard: r.localAddress: %s, shardToMasterAddress: %+v", r.localAddress, shardToMasterAddress)
 			counts := r.masterCounts(shardToMasterAddress)
-			_, min := r.minCount(counts)
+			minAddress, min := r.minCount(counts)
 			if counts[r.localAddress] > min {
 				// someone else has fewer roles than us let them claim them
+				log.Printf("%s has few roles (%d)", minAddress, min)
 				return nil
 			}
 			shard, ok := r.openShard(shardToMasterAddress)
@@ -37,17 +40,21 @@ func (r *roler) Run() error {
 					r.addresser.HoldMasterAddress(shard, r.localAddress, "", r.cancel)
 					r.server.Clear(shard)
 				}()
+				log.Printf("open: %d -> %s", shard, r.localAddress)
 				return nil
 			}
 
 			maxAddress, max := r.maxCount(counts)
-			if counts[r.localAddress]+1 > max-1 {
-				// stealing a role from maxAddress would make us the new maxAddress
-				// that'd cause flappying which is bad
+			if maxAddress == r.localAddress || counts[r.localAddress]+1 > max-1 {
+				// either we're the maxAddress or stealing a role from
+				// maxAddress would make us the new maxAddress that'd cause
+				// flappying which is bad
+				log.Printf("maxAddress: %s, max: %d, r.localAddress: %s, counts[r.localAddress]: %d", maxAddress, max, r.localAddress, counts[r.localAddress])
 				return nil
 			}
 			shard, ok = r.randomShard(maxAddress, shardToMasterAddress)
 			if ok {
+				log.Printf("Stealing shard %d from %s.", shard, maxAddress)
 				if err := r.server.Master(shard); err != nil {
 					return err
 				}
@@ -55,6 +62,8 @@ func (r *roler) Run() error {
 					r.addresser.HoldMasterAddress(shard, r.localAddress, maxAddress, r.cancel)
 					r.server.Clear(shard)
 				}()
+			} else {
+				log.Print("wtf")
 			}
 			return nil
 		},
