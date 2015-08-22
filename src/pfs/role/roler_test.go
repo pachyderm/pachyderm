@@ -3,6 +3,7 @@ package role
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 	"testing"
@@ -14,8 +15,8 @@ import (
 )
 
 const (
-	testNumShards  = 64
-	testNumServers = 8
+	testNumShards  = 2
+	testNumServers = 2
 )
 
 func TestRoler(t *testing.T) {
@@ -37,6 +38,7 @@ func (s *server) Replica(shard int) error {
 	return nil
 }
 func (s *server) Clear(shard int) error {
+	log.Print("Clear.")
 	delete(s.roles, shard)
 	return nil
 }
@@ -50,12 +52,12 @@ type serverGroup struct {
 	rolers  []Roler
 }
 
-func NewServerGroup(addresser route.Addresser) *serverGroup {
+func NewServerGroup(addresser route.Addresser, numServers int, offset int) *serverGroup {
 	sharder := route.NewSharder(testNumShards)
 	serverGroup := serverGroup{}
-	for i := 0; i < testNumServers; i++ {
+	for i := 0; i < numServers; i++ {
 		serverGroup.servers = append(serverGroup.servers, newServer())
-		serverGroup.rolers = append(serverGroup.rolers, NewRoler(addresser, sharder, serverGroup.servers[i], fmt.Sprintf("server-%d", i)))
+		serverGroup.rolers = append(serverGroup.rolers, NewRoler(addresser, sharder, serverGroup.servers[i], fmt.Sprintf("server-%d", i+offset)))
 	}
 	return &serverGroup
 }
@@ -72,9 +74,10 @@ func (s *serverGroup) run(t *testing.T) {
 	}
 }
 
-func (s *serverGroup) satisfied() bool {
+func (s *serverGroup) satisfied(rolesLen int) bool {
 	for _, server := range s.servers {
-		if len(server.roles) != testNumShards/testNumServers {
+		if len(server.roles) != rolesLen {
+			log.Printf("len(server.roles): %d, rolesLen: %d", len(server.roles), rolesLen)
 			return false
 		}
 	}
@@ -83,10 +86,20 @@ func (s *serverGroup) satisfied() bool {
 
 func runTest(t *testing.T, client discovery.Client) {
 	addresser := route.NewDiscoveryAddresser(client, "TestRoler")
-	serverGroup := NewServerGroup(addresser)
+	serverGroup := NewServerGroup(addresser, testNumServers/2, 0)
 	go serverGroup.run(t)
 	start := time.Now()
-	for !serverGroup.satisfied() {
+	for !serverGroup.satisfied(testNumShards / (testNumServers / 2)) {
+		time.Sleep(3 * time.Second)
+		if time.Since(start) > time.Second*time.Duration(10) {
+			t.Fatal("test timed out")
+		}
+	}
+
+	serverGroup2 := NewServerGroup(addresser, testNumServers/2, testNumServers/2)
+	go serverGroup2.run(t)
+	start = time.Now()
+	for !serverGroup.satisfied(testNumShards/testNumServers) || !serverGroup2.satisfied(testNumShards/testNumServers) {
 		time.Sleep(3 * time.Second)
 		if time.Since(start) > time.Second*time.Duration(10) {
 			t.Fatal("test timed out")
