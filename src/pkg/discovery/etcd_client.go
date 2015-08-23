@@ -153,22 +153,28 @@ func (c *etcdClient) CheckAndSet(key string, value string, ttl uint64, oldValue 
 }
 
 func (c *etcdClient) Hold(key string, value string, oldValue string, cancel chan bool) error {
-	for {
-		if err := c.CheckAndSet(key, value, holdTTL, oldValue); err != nil {
-			return err
-		}
-		oldValue = value
-		cancel := make(chan bool)
-		time.AfterFunc(time.Second*time.Duration(holdTTL/2), func() { close(cancel) })
-		if err := c.Watch(key, cancel, func(newValue string) error {
-			if newValue != value {
-				return fmt.Errorf("pachyderm: lost hold")
-			}
-			return nil
-		}); err != nil && err != etcd.ErrWatchStoppedByUser {
-			return err
-		}
+	if err := c.CheckAndSet(key, value, holdTTL, oldValue); err != nil {
+		return err
 	}
+	go func() {
+		for {
+			select {
+			case <-cancel:
+				break
+			case <-time.After(time.Second * time.Duration(holdTTL/2)):
+				if err := c.CheckAndSet(key, value, holdTTL, value); err != nil {
+					break
+				}
+
+			}
+		}
+	}()
+	return c.Watch(key, cancel, func(newValue string) error {
+		if newValue != value {
+			return fmt.Errorf("pachyderm: lost hold")
+		}
+		return nil
+	})
 }
 
 // nodeToMap translates the contents of a node into a map
