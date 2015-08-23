@@ -54,7 +54,7 @@ func (r *roler) Run() error {
 			}
 			shard, ok = r.randomShard(maxAddress, shardToMasterAddress)
 			if ok {
-				log.Printf("Stealing shard %d from %s.", shard, maxAddress)
+				log.Printf("Stealing shard %d from %s", shard, maxAddress)
 				if err := r.server.Master(shard); err != nil {
 					return err
 				}
