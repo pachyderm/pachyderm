@@ -143,19 +143,18 @@ func (c *etcdClient) Delete(key string) error {
 }
 
 func (c *etcdClient) CheckAndSet(key string, value string, ttl uint64, oldValue string) error {
-	_, err := c.client.CompareAndSwap(key, value, ttl, oldValue, 0)
+	var err error
+	if oldValue == "" {
+		_, err = c.client.Create(key, value, holdTTL)
+	} else {
+		_, err = c.client.CompareAndSwap(key, value, holdTTL, oldValue, 0)
+	}
 	return err
 }
 
 func (c *etcdClient) Hold(key string, value string, oldValue string, cancel chan bool) error {
 	for {
-		var err error
-		if oldValue == "" {
-			_, err = c.client.Create(key, value, holdTTL)
-		} else {
-			_, err = c.client.CompareAndSwap(key, value, holdTTL, oldValue, 0)
-		}
-		if err != nil {
+		if err := c.CheckAndSet(key, value, holdTTL, oldValue); err != nil {
 			return err
 		}
 		oldValue = value
