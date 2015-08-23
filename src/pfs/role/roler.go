@@ -22,26 +22,27 @@ func newRoler(addresser route.Addresser, sharder route.Sharder, server Server, l
 func (r *roler) Run() error {
 	return r.addresser.WatchShardToMasterAddress(
 		r.cancel,
-		func(shardToMasterAddress map[int]string) error {
-			log.Printf("Find shard: r.localAddress: %s, shardToMasterAddress: %+v", r.localAddress, shardToMasterAddress)
+		func(shardToMasterAddress map[int]string) (uint64, error) {
 			counts := r.masterCounts(shardToMasterAddress)
 			minAddress, min := r.minCount(counts)
 			if counts[r.localAddress] > min {
 				// someone else has fewer roles than us let them claim them
-				log.Printf("%s has few roles (%d)", minAddress, min)
-				return nil
+				log.Printf("r.localAddress %s, shardToMasterAddress: %+v\n%s has few roles (%d)", r.localAddress, shardToMasterAddress, minAddress, min)
+				return 0, nil
 			}
 			shard, ok := r.openShard(shardToMasterAddress)
 			if ok {
+				log.Printf("%s.Master(%d)", r.localAddress, shard)
 				if err := r.server.Master(shard); err != nil {
-					return err
+					return 0, err
 				}
 				go func() {
 					r.addresser.HoldMasterAddress(shard, r.localAddress, "", r.cancel)
+					log.Printf("%s.Clear(%d)", r.localAddress, shard)
 					r.server.Clear(shard)
 				}()
-				log.Printf("open: %d -> %s", shard, r.localAddress)
-				return nil
+				log.Printf("r.localAddress %s, shardToMasterAddress: %+v\nopen: %d", r.localAddress, shardToMasterAddress, shard)
+				return 0, nil
 			}
 
 			maxAddress, max := r.maxCount(counts)
@@ -49,23 +50,23 @@ func (r *roler) Run() error {
 				// either we're the maxAddress or stealing a role from
 				// maxAddress would make us the new maxAddress that'd cause
 				// flappying which is bad
-				log.Printf("maxAddress: %s, max: %d, r.localAddress: %s, counts[r.localAddress]: %d", maxAddress, max, r.localAddress, counts[r.localAddress])
-				return nil
+				log.Printf("r.localAddress %s, shardToMasterAddress: %+v\ntoo many shards (%d)", r.localAddress, shardToMasterAddress, counts[r.localAddress])
+				return 0, nil
 			}
 			shard, ok = r.randomShard(maxAddress, shardToMasterAddress)
 			if ok {
-				log.Printf("Stealing shard %d from %s", shard, maxAddress)
+				log.Printf("r.localAddress %s, shardToMasterAddress: %+v\nstealing %d from %s", r.localAddress, shardToMasterAddress, shard, maxAddress)
+				log.Printf("%s.Master(%d)", r.localAddress, shard)
 				if err := r.server.Master(shard); err != nil {
-					return err
+					return 0, err
 				}
 				go func() {
 					r.addresser.HoldMasterAddress(shard, r.localAddress, maxAddress, r.cancel)
+					log.Printf("%s.Clear(%d)", r.localAddress, shard)
 					r.server.Clear(shard)
 				}()
-			} else {
-				log.Print("wtf")
 			}
-			return nil
+			return 0, nil
 		},
 	)
 }
