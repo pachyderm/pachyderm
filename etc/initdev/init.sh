@@ -24,7 +24,7 @@ apt-get install -yq --no-install-recommends \
 # installs go
 # we use the beta for now since it will be released in a few weeks
 curl -sSL https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz | tar -C /usr/local -xz
-echo 'export PATH=${PATH}:/usr/local/go/bin' >> '/etc/profile'
+echo 'export PATH=${PATH}:/usr/local/go/bin:/home/${1}/go/bin' >> '/etc/profile'
 su - ${1} -c "echo mkdir -p /home/${1}/go >> /home/${1}/.profile"
 su - ${1} -c "echo export GOPATH=/home/${1}/go >> /home/${1}/.profile"
 
