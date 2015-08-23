@@ -43,14 +43,14 @@ func (a *discoveryAddresser) GetShardToMasterAddress() (map[int]string, error) {
 	return a.makeMasterMap(addresses)
 }
 
-func (a *discoveryAddresser) WatchShardToMasterAddress(cancel chan bool, callBack func(map[int]string) error) error {
+func (a *discoveryAddresser) WatchShardToMasterAddress(cancel chan bool, callBack func(map[int]string) (uint64, error)) error {
 	return a.discoveryClient.WatchAll(
 		a.masterDir(),
 		cancel,
-		func(addresses map[string]string) error {
+		func(addresses map[string]string) (uint64, error) {
 			shardToMasterAddress, err := a.makeMasterMap(addresses)
 			if err != nil {
-				return err
+				return 0, err
 			}
 			return callBack(shardToMasterAddress)
 		},
@@ -79,7 +79,7 @@ func (a *discoveryAddresser) GetShardToReplicaAddresses() (map[int]map[string]bo
 	return m, nil
 }
 
-func (a *discoveryAddresser) SetMasterAddress(shard int, address string, ttl uint64) error {
+func (a *discoveryAddresser) SetMasterAddress(shard int, address string, ttl uint64) (uint64, error) {
 	return a.discoveryClient.Set(a.masterKey(shard), address, ttl)
 }
 
@@ -87,7 +87,7 @@ func (a *discoveryAddresser) HoldMasterAddress(shard int, address string, prevAd
 	return a.discoveryClient.Hold(a.masterKey(shard), address, prevAddress, cancel)
 }
 
-func (a *discoveryAddresser) SetReplicaAddress(shard int, address string, ttl uint64) error {
+func (a *discoveryAddresser) SetReplicaAddress(shard int, address string, ttl uint64) (uint64, error) {
 	return a.discoveryClient.CreateInDir(a.replicaKey(shard), address, ttl)
 }
 
@@ -95,11 +95,11 @@ func (a *discoveryAddresser) HoldReplicaAddress(shard int, address string, prevA
 	return a.discoveryClient.Hold(a.replicaKey(shard), address, prevAddress, cancel)
 }
 
-func (a *discoveryAddresser) DeleteMasterAddress(shard int) error {
+func (a *discoveryAddresser) DeleteMasterAddress(shard int) (uint64, error) {
 	return a.discoveryClient.Delete(a.masterKey(shard))
 }
 
-func (a *discoveryAddresser) DeleteReplicaAddress(shard int, address string) error {
+func (a *discoveryAddresser) DeleteReplicaAddress(shard int, address string) (uint64, error) {
 	return a.discoveryClient.Delete(a.replicaKey(shard))
 }
 

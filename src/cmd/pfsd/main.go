@@ -51,7 +51,7 @@ func do(appEnvObj interface{}) error {
 		"namespace",
 	)
 	for i := 0; i < appEnv.NumShards; i++ {
-		if err := addresser.SetMasterAddress(i, address, 0); err != nil {
+		if _, err := addresser.SetMasterAddress(i, address, 0); err != nil {
 			return err
 		}
 	}

@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	testNumShards  = 4
-	testNumServers = 2
+	testNumShards  = 8
+	testNumServers = 4
 )
 
 func TestRoler(t *testing.T) {
@@ -31,17 +31,14 @@ type server struct {
 }
 
 func (s *server) Master(shard int) error {
-	log.Print("Master ", shard)
 	s.roles[shard] = "master"
 	return nil
 }
 func (s *server) Replica(shard int) error {
-	log.Print("Replica ", shard)
 	s.roles[shard] = "replica"
 	return nil
 }
 func (s *server) Clear(shard int) error {
-	log.Print("Clear ", shard)
 	delete(s.roles, shard)
 	return nil
 }
@@ -53,11 +50,12 @@ func newServer() *server {
 type serverGroup struct {
 	servers []*server
 	rolers  []Roler
+	offset  int
 }
 
 func NewServerGroup(addresser route.Addresser, numServers int, offset int) *serverGroup {
 	sharder := route.NewSharder(testNumShards)
-	serverGroup := serverGroup{}
+	serverGroup := serverGroup{offset: offset}
 	for i := 0; i < numServers; i++ {
 		serverGroup.servers = append(serverGroup.servers, newServer())
 		serverGroup.rolers = append(serverGroup.rolers, NewRoler(addresser, sharder, serverGroup.servers[i], fmt.Sprintf("server-%d", i+offset)))
@@ -84,9 +82,9 @@ func (s *serverGroup) cancel() {
 }
 
 func (s *serverGroup) satisfied(rolesLen int) bool {
-	for _, server := range s.servers {
+	for i, server := range s.servers {
+		log.Printf("server-%d: server.roles: %+v, want: %d", i+s.offset, server.roles, rolesLen)
 		if len(server.roles) != rolesLen {
-			log.Printf("len(server.roles): %d, rolesLen: %d", len(server.roles), rolesLen)
 			return false
 		}
 	}

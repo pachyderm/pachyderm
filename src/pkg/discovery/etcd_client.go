@@ -2,7 +2,6 @@ package discovery
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -50,110 +49,128 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 	return result, nil
 }
 
-func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) error) error {
+func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) (uint64, error)) error {
 	var waitIndex uint64 = 1
 	// First get the starting value of the key
 	response, err := c.client.Get(key, false, false)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "100: Key not found") {
-			if err := callBack(""); err != nil {
+			modifiedIndex, err := callBack("")
+			if err != nil {
 				return err
+			}
+			if modifiedIndex > waitIndex {
+				waitIndex = modifiedIndex
 			}
 		} else {
 			return err
 		}
 	} else {
-		if err := callBack(response.Node.Value); err != nil {
+		modifiedIndex, err := callBack(response.Node.Value)
+		if err != nil {
 			return err
 		}
 		waitIndex = response.Node.ModifiedIndex + 1
+		if modifiedIndex > waitIndex {
+			waitIndex = modifiedIndex
+		}
 	}
 	for {
 		response, err := c.client.Watch(key, waitIndex, false, nil, cancel)
 		if err != nil {
 			return err
 		}
-		if err := callBack(response.Node.Value); err != nil {
+		modifiedIndex, err := callBack(response.Node.Value)
+		if err != nil {
 			return err
 		}
 		waitIndex = response.Node.ModifiedIndex + 1
+		if modifiedIndex > waitIndex {
+			waitIndex = modifiedIndex
+		}
 	}
 }
 
-func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[string]string) error) (retErr error) {
+func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[string]string) (uint64, error)) error {
 	var waitIndex uint64 = 1
 	value := make(map[string]string)
 	// First get the starting value of the key
 	response, err := c.client.Get(key, false, false)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "100: Key not found") {
-			if err := callBack(nil); err != nil {
+			modifiedIndex, err := callBack(nil)
+			if err != nil {
 				return err
+			}
+			if modifiedIndex > waitIndex {
+				waitIndex = modifiedIndex
 			}
 		} else {
 			return err
 		}
 	} else {
+		waitIndex = maxModifiedIndex(response.Node) + 1
 		if nodeToMap(response.Node, value) {
-			log.Print("starter value: ", value)
-			if err := callBack(value); err != nil {
+			modifiedIndex, err := callBack(value)
+			if err != nil {
 				return err
 			}
+			if modifiedIndex > waitIndex {
+				waitIndex = modifiedIndex
+			}
 		}
-		waitIndex = maxModifiedIndex(response.Node) + 1
-		log.Print("starter waitIndex: ", waitIndex)
-
 	}
 	for {
 		response, err := c.client.Watch(key, waitIndex, true, nil, cancel)
 		if err != nil {
 			return err
 		}
-		log.Printf("response.Node: %+v", response.Node)
+		waitIndex = maxModifiedIndex(response.Node) + 1
 		if nodeToMap(response.Node, value) {
-			log.Print("watch value ", value)
-			if err := callBack(value); err != nil {
+			modifiedIndex, err := callBack(value)
+			if err != nil {
 				return err
 			}
+			if modifiedIndex > waitIndex {
+				waitIndex = modifiedIndex
+			}
 		}
-		waitIndex = maxModifiedIndex(response.Node) + 1
-		log.Print("watch  waitIndex: ", waitIndex)
 	}
 }
 
-func (c *etcdClient) Set(key string, value string, ttl uint64) error {
-	log.Printf("set %s", key)
-	_, err := c.client.Set(key, value, ttl)
-	return err
+func (c *etcdClient) Set(key string, value string, ttl uint64) (uint64, error) {
+	response, err := c.client.Set(key, value, ttl)
+	return response.Node.ModifiedIndex, err
 }
 
-func (c *etcdClient) Create(key string, value string, ttl uint64) error {
-	_, err := c.client.Create(key, value, ttl)
-	return err
+func (c *etcdClient) Create(key string, value string, ttl uint64) (uint64, error) {
+	response, err := c.client.Create(key, value, ttl)
+	return response.Node.ModifiedIndex, err
 }
 
-func (c *etcdClient) CreateInDir(dir string, value string, ttl uint64) error {
-	_, err := c.client.CreateInOrder(dir, value, ttl)
-	return err
+func (c *etcdClient) CreateInDir(dir string, value string, ttl uint64) (uint64, error) {
+	response, err := c.client.CreateInOrder(dir, value, ttl)
+	return response.Node.ModifiedIndex, err
 }
 
-func (c *etcdClient) Delete(key string) error {
-	_, err := c.client.Delete(key, false)
-	return err
+func (c *etcdClient) Delete(key string) (uint64, error) {
+	response, err := c.client.Delete(key, false)
+	return response.Node.ModifiedIndex, err
 }
 
-func (c *etcdClient) CheckAndSet(key string, value string, ttl uint64, oldValue string) error {
+func (c *etcdClient) CheckAndSet(key string, value string, ttl uint64, oldValue string) (uint64, error) {
+	var response *etcd.Response
 	var err error
 	if oldValue == "" {
-		_, err = c.client.Create(key, value, holdTTL)
+		response, err = c.client.Create(key, value, holdTTL)
 	} else {
-		_, err = c.client.CompareAndSwap(key, value, holdTTL, oldValue, 0)
+		response, err = c.client.CompareAndSwap(key, value, holdTTL, oldValue, 0)
 	}
-	return err
+	return response.Node.ModifiedIndex, err
 }
 
 func (c *etcdClient) Hold(key string, value string, oldValue string, cancel chan bool) error {
-	if err := c.CheckAndSet(key, value, holdTTL, oldValue); err != nil {
+	if _, err := c.CheckAndSet(key, value, holdTTL, oldValue); err != nil {
 		return err
 	}
 	go func() {
@@ -162,18 +179,18 @@ func (c *etcdClient) Hold(key string, value string, oldValue string, cancel chan
 			case <-cancel:
 				break
 			case <-time.After(time.Second * time.Duration(holdTTL/2)):
-				if err := c.CheckAndSet(key, value, holdTTL, value); err != nil {
+				if _, err := c.CheckAndSet(key, value, holdTTL, value); err != nil {
 					break
 				}
 
 			}
 		}
 	}()
-	return c.Watch(key, cancel, func(newValue string) error {
+	return c.Watch(key, cancel, func(newValue string) (uint64, error) {
 		if newValue != value {
-			return fmt.Errorf("pachyderm: lost hold")
+			return 0, fmt.Errorf("pachyderm: lost hold")
 		}
-		return nil
+		return 0, nil
 	})
 }
 
