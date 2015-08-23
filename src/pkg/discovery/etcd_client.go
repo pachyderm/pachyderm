@@ -194,7 +194,7 @@ func nodeToMap(node *etcd.Node, out map[string]string) bool {
 	}
 	changed := false
 	for _, node := range node.Nodes {
-		changed = changed || nodeToMap(node, out)
+		changed = nodeToMap(node, out) || changed
 	}
 	return changed
 }
