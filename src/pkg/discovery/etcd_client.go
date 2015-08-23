@@ -9,6 +9,10 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 )
 
+var (
+	holdTTL uint64 = 20
+)
+
 type etcdClient struct {
 	client *etcd.Client
 }
@@ -103,6 +107,7 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 		if err != nil {
 			return err
 		}
+		log.Printf("response.Node: %+v", response.Node)
 		nodeToMap(response.Node, value)
 		log.Print("watch value ", value)
 		if err := callBack(value); err != nil {
@@ -143,16 +148,16 @@ func (c *etcdClient) Hold(key string, value string, oldValue string, cancel chan
 	for {
 		var err error
 		if oldValue == "" {
-			_, err = c.client.Create(key, value, 30)
+			_, err = c.client.Create(key, value, holdTTL)
 		} else {
-			_, err = c.client.CompareAndSwap(key, value, 30, oldValue, 0)
+			_, err = c.client.CompareAndSwap(key, value, holdTTL, oldValue, 0)
 		}
 		if err != nil {
 			return err
 		}
 		oldValue = value
 		cancel := make(chan bool)
-		time.AfterFunc(time.Second*15, func() { close(cancel) })
+		time.AfterFunc(time.Second*time.Duration(holdTTL/2), func() { close(cancel) })
 		if err := c.Watch(key, cancel, func(newValue string) error {
 			if newValue != value {
 				return fmt.Errorf("pachyderm: lost hold")
@@ -166,7 +171,11 @@ func (c *etcdClient) Hold(key string, value string, oldValue string, cancel chan
 
 func nodeToMap(node *etcd.Node, out map[string]string) {
 	if !node.Dir {
-		out[strings.TrimPrefix(node.Key, "/")] = node.Value
+		if node.Value == "" {
+			delete(out, strings.TrimPrefix(node.Key, "/"))
+		} else {
+			out[strings.TrimPrefix(node.Key, "/")] = node.Value
+		}
 	} else {
 		for _, node := range node.Nodes {
 			nodeToMap(node, out)

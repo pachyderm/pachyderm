@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coreos/go-etcd/etcd"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/stretchr/testify/require"
@@ -69,8 +70,14 @@ func (s *serverGroup) run(t *testing.T) {
 		wg.Add(1)
 		go func(roler Roler) {
 			defer wg.Done()
-			require.NoError(t, roler.Run())
+			require.Equal(t, etcd.ErrWatchStoppedByUser, roler.Run())
 		}(roler)
+	}
+}
+
+func (s *serverGroup) cancel() {
+	for _, roler := range s.rolers {
+		roler.Cancel()
 	}
 }
 
@@ -86,10 +93,10 @@ func (s *serverGroup) satisfied(rolesLen int) bool {
 
 func runTest(t *testing.T, client discovery.Client) {
 	addresser := route.NewDiscoveryAddresser(client, "TestRoler")
-	serverGroup := NewServerGroup(addresser, testNumServers/2, 0)
-	go serverGroup.run(t)
+	serverGroup1 := NewServerGroup(addresser, testNumServers/2, 0)
+	go serverGroup1.run(t)
 	start := time.Now()
-	for !serverGroup.satisfied(testNumShards / (testNumServers / 2)) {
+	for !serverGroup1.satisfied(testNumShards / (testNumServers / 2)) {
 		time.Sleep(3 * time.Second)
 		if time.Since(start) > time.Second*time.Duration(10) {
 			t.Fatal("test timed out")
@@ -99,9 +106,17 @@ func runTest(t *testing.T, client discovery.Client) {
 	serverGroup2 := NewServerGroup(addresser, testNumServers/2, testNumServers/2)
 	go serverGroup2.run(t)
 	start = time.Now()
-	for !serverGroup.satisfied(testNumShards/testNumServers) || !serverGroup2.satisfied(testNumShards/testNumServers) {
+	for !serverGroup1.satisfied(testNumShards/testNumServers) || !serverGroup2.satisfied(testNumShards/testNumServers) {
 		time.Sleep(3 * time.Second)
 		if time.Since(start) > time.Second*time.Duration(10) {
+			t.Fatal("test timed out")
+		}
+	}
+
+	serverGroup1.cancel()
+	for !serverGroup2.satisfied(testNumShards) {
+		time.Sleep(3 * time.Second)
+		if time.Since(start) > time.Second*time.Duration(30) {
 			t.Fatal("test timed out")
 		}
 	}
