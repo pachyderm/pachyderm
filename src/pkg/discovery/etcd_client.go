@@ -94,13 +94,15 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 			return err
 		}
 	} else {
-		nodeToMap(response.Node, value)
-		log.Print("starter value: ", value)
-		if err := callBack(value); err != nil {
-			return err
+		if nodeToMap(response.Node, value) {
+			log.Print("starter value: ", value)
+			if err := callBack(value); err != nil {
+				return err
+			}
 		}
 		waitIndex = maxModifiedIndex(response.Node) + 1
 		log.Print("starter waitIndex: ", waitIndex)
+
 	}
 	for {
 		response, err := c.client.Watch(key, waitIndex, true, nil, cancel)
@@ -108,10 +110,11 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 			return err
 		}
 		log.Printf("response.Node: %+v", response.Node)
-		nodeToMap(response.Node, value)
-		log.Print("watch value ", value)
-		if err := callBack(value); err != nil {
-			return err
+		if nodeToMap(response.Node, value) {
+			log.Print("watch value ", value)
+			if err := callBack(value); err != nil {
+				return err
+			}
 		}
 		waitIndex = maxModifiedIndex(response.Node) + 1
 		log.Print("watch  waitIndex: ", waitIndex)
@@ -163,24 +166,37 @@ func (c *etcdClient) Hold(key string, value string, oldValue string, cancel chan
 				return fmt.Errorf("pachyderm: lost hold")
 			}
 			return nil
-		}); err != nil {
+		}); err != nil && err != etcd.ErrWatchStoppedByUser {
 			return err
 		}
 	}
 }
 
-func nodeToMap(node *etcd.Node, out map[string]string) {
+// nodeToMap translates the contents of a node into a map
+// nodeToMap can be called on the same map with successive results from watch
+// to accumulate a value
+// nodeToMap returns true if out was modified
+func nodeToMap(node *etcd.Node, out map[string]string) bool {
+	key := strings.TrimPrefix(node.Key, "/")
 	if !node.Dir {
 		if node.Value == "" {
-			delete(out, strings.TrimPrefix(node.Key, "/"))
-		} else {
-			out[strings.TrimPrefix(node.Key, "/")] = node.Value
+			if _, ok := out[key]; ok {
+				delete(out, key)
+				return true
+			}
+			return false
 		}
-	} else {
-		for _, node := range node.Nodes {
-			nodeToMap(node, out)
+		if value, ok := out[key]; !ok || value != node.Value {
+			out[key] = node.Value
+			return true
 		}
+		return false
 	}
+	changed := false
+	for _, node := range node.Nodes {
+		changed = changed || nodeToMap(node, out)
+	}
+	return changed
 }
 
 func maxModifiedIndex(node *etcd.Node) uint64 {

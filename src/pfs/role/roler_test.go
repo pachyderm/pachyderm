@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	testNumShards  = 2
+	testNumShards  = 4
 	testNumServers = 2
 )
 
@@ -31,15 +31,17 @@ type server struct {
 }
 
 func (s *server) Master(shard int) error {
+	log.Print("Master ", shard)
 	s.roles[shard] = "master"
 	return nil
 }
 func (s *server) Replica(shard int) error {
+	log.Print("Replica ", shard)
 	s.roles[shard] = "replica"
 	return nil
 }
 func (s *server) Clear(shard int) error {
-	log.Print("Clear.")
+	log.Print("Clear ", shard)
 	delete(s.roles, shard)
 	return nil
 }
@@ -94,6 +96,7 @@ func (s *serverGroup) satisfied(rolesLen int) bool {
 func runTest(t *testing.T, client discovery.Client) {
 	addresser := route.NewDiscoveryAddresser(client, "TestRoler")
 	serverGroup1 := NewServerGroup(addresser, testNumServers/2, 0)
+	log.Print("===Starting group 1===")
 	go serverGroup1.run(t)
 	start := time.Now()
 	for !serverGroup1.satisfied(testNumShards / (testNumServers / 2)) {
@@ -103,6 +106,7 @@ func runTest(t *testing.T, client discovery.Client) {
 		}
 	}
 
+	log.Print("===Starting group 2===")
 	serverGroup2 := NewServerGroup(addresser, testNumServers/2, testNumServers/2)
 	go serverGroup2.run(t)
 	start = time.Now()
@@ -113,6 +117,7 @@ func runTest(t *testing.T, client discovery.Client) {
 		}
 	}
 
+	log.Print("===Stoping group 1===")
 	serverGroup1.cancel()
 	for !serverGroup2.satisfied(testNumShards) {
 		time.Sleep(3 * time.Second)
