@@ -8,10 +8,6 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 )
 
-var (
-	holdTTL uint64 = 20
-)
-
 type etcdClient struct {
 	client *etcd.Client
 }
@@ -149,9 +145,9 @@ func (c *etcdClient) CheckAndSet(key string, value string, ttl uint64, oldValue 
 	var response *etcd.Response
 	var err error
 	if oldValue == "" {
-		response, err = c.client.Create(key, value, holdTTL)
+		response, err = c.client.Create(key, value, ttl)
 	} else {
-		response, err = c.client.CompareAndSwap(key, value, holdTTL, oldValue, 0)
+		response, err = c.client.CompareAndSwap(key, value, ttl, oldValue, 0)
 	}
 	if err != nil {
 		return 0, err
@@ -159,16 +155,16 @@ func (c *etcdClient) CheckAndSet(key string, value string, ttl uint64, oldValue 
 	return response.Node.ModifiedIndex, err
 }
 
-func (c *etcdClient) Hold(key string, value string, cancel chan bool) error {
+func (c *etcdClient) Hold(key string, value string, ttl uint64, cancel chan bool) error {
 	go func() {
 		for {
-			if _, err := c.CheckAndSet(key, value, holdTTL, value); err != nil {
+			if _, err := c.CheckAndSet(key, value, ttl, value); err != nil {
 				break
 			}
 			select {
 			case <-cancel:
 				return
-			case <-time.After(time.Second * time.Duration(holdTTL/2)):
+			case <-time.After(time.Second * time.Duration(ttl/2)):
 			}
 		}
 	}()

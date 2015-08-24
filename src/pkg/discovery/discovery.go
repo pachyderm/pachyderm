@@ -32,7 +32,7 @@ type Client interface {
 	// This is useful for advertising a service since it will automatically go
 	// away if the service dies.
 	// Hold assumes that key is ALREADY set to value.
-	Hold(key string, value string, cancel chan bool) error
+	Hold(key string, value string, ttl uint64, cancel chan bool) error
 }
 
 func NewEtcdClient(addresses ...string) Client {
