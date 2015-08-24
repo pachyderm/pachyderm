@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	testNumShards  = 512
-	testNumServers = 32
+	testNumShards  = 128
+	testNumServers = 8
 )
 
 func TestRoler(t *testing.T) {
