@@ -8,6 +8,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 )
 
+var (
+	numReplicas = 2
+)
+
 type roler struct {
 	addresser    route.Addresser
 	sharder      route.Sharder
@@ -49,14 +53,11 @@ func (r *roler) Run() error {
 			}
 
 			maxAddress, max := r.maxCount(counts)
-			if maxAddress == r.localAddress || counts[r.localAddress]+1 > max-1 {
-				// either we're the maxAddress or stealing a role from
-				// maxAddress would make us the new maxAddress that'd cause
-				// flappying which is bad
-				return 0, nil
-			}
-			shard, ok = r.randomShard(maxAddress, shardToMasterAddress)
-			if ok {
+			if counts[r.localAddress]+1 <= max-1 {
+				shard, ok = r.randomShard(maxAddress, shardToMasterAddress)
+				if !ok {
+					return 0, fmt.Errorf("pachyderm: unreachable, randomShard should always return ok")
+				}
 				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, maxAddress)
 				if err != nil {
 					// error from ClaimMasterAddress means our change raced with someone else's,
@@ -72,7 +73,8 @@ func (r *roler) Run() error {
 				}()
 				return modifiedIndex, nil
 			}
-			return 0, fmt.Errorf("pachyderm: unreachable, randomShard should always return ok")
+			// No master roles for us to fill, time to look for a replica role
+			return 0, nil
 		},
 	)
 }
@@ -112,6 +114,16 @@ func (r *roler) masterCounts(shardToMasterAddress map[int]string) counts {
 	result := make(map[string]int)
 	for _, address := range shardToMasterAddress {
 		result[address]++
+	}
+	return result
+}
+
+func (r *roler) replicaCounts(shardToReplicaAddress map[int]map[string]bool) counts {
+	result := make(map[string]int)
+	for _, addresses := range shardToReplicaAddress {
+		for address := range addresses {
+			result[address]++
+		}
 	}
 	return result
 }
