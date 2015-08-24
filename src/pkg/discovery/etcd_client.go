@@ -166,23 +166,22 @@ func (c *etcdClient) CheckAndSet(key string, value string, ttl uint64, oldValue 
 	} else {
 		response, err = c.client.CompareAndSwap(key, value, holdTTL, oldValue, 0)
 	}
+	if err != nil {
+		return 0, err
+	}
 	return response.Node.ModifiedIndex, err
 }
 
-func (c *etcdClient) Hold(key string, value string, oldValue string, cancel chan bool) error {
-	if _, err := c.CheckAndSet(key, value, holdTTL, oldValue); err != nil {
-		return err
-	}
+func (c *etcdClient) Hold(key string, value string, cancel chan bool) error {
 	go func() {
 		for {
+			if _, err := c.CheckAndSet(key, value, holdTTL, value); err != nil {
+				break
+			}
 			select {
 			case <-cancel:
 				break
 			case <-time.After(time.Second * time.Duration(holdTTL/2)):
-				if _, err := c.CheckAndSet(key, value, holdTTL, value); err != nil {
-					break
-				}
-
 			}
 		}
 	}()
