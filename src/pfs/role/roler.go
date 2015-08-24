@@ -2,7 +2,6 @@ package role
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"math/rand"
 
@@ -26,15 +25,13 @@ func (r *roler) Run() error {
 		r.cancel,
 		func(shardToMasterAddress map[int]string) (uint64, error) {
 			counts := r.masterCounts(shardToMasterAddress)
-			minAddress, min := r.minCount(counts)
+			_, min := r.minCount(counts)
 			if counts[r.localAddress] > min {
 				// someone else has fewer roles than us let them claim them
-				log.Printf("r.localAddress %s, shardToMasterAddress: %+v\n%s has few roles (%d)", r.localAddress, shardToMasterAddress, minAddress, min)
 				return 0, nil
 			}
 			shard, ok := r.openShard(shardToMasterAddress)
 			if ok {
-				log.Printf("%s.Master(%d)", r.localAddress, shard)
 				//TODO constant
 				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, 20, "")
 				if err != nil {
@@ -47,10 +44,8 @@ func (r *roler) Run() error {
 				}
 				go func() {
 					r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
-					log.Printf("%s.Clear(%d)", r.localAddress, shard)
 					r.server.Clear(shard)
 				}()
-				log.Printf("r.localAddress %s, shardToMasterAddress: %+v\nopen: %d", r.localAddress, shardToMasterAddress, shard)
 				return modifiedIndex, nil
 			}
 
@@ -59,13 +54,11 @@ func (r *roler) Run() error {
 				// either we're the maxAddress or stealing a role from
 				// maxAddress would make us the new maxAddress that'd cause
 				// flappying which is bad
-				log.Printf("r.localAddress %s, shardToMasterAddress: %+v\ntoo many shards (%d)", r.localAddress, shardToMasterAddress, counts[r.localAddress])
 				return 0, nil
 			}
 			shard, ok = r.randomShard(maxAddress, shardToMasterAddress)
 			if ok {
-				log.Printf("r.localAddress %s, shardToMasterAddress: %+v\nstealing %d from %s", r.localAddress, shardToMasterAddress, shard, maxAddress)
-				log.Printf("%s.Master(%d)", r.localAddress, shard)
+				// TODO constant
 				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, 20, maxAddress)
 				if err != nil {
 					// error from ClaimMasterAddress means our change raced with someone else's,
@@ -77,7 +70,6 @@ func (r *roler) Run() error {
 				}
 				go func() {
 					r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
-					log.Printf("%s.Clear(%d)", r.localAddress, shard)
 					r.server.Clear(shard)
 				}()
 				return modifiedIndex, nil
