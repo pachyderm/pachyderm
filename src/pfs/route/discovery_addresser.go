@@ -9,6 +9,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 )
 
+var (
+	holdTTL uint64 = 20
+)
+
 type discoveryAddresser struct {
 	discoveryClient discovery.Client
 	namespace       string
@@ -79,28 +83,28 @@ func (a *discoveryAddresser) GetShardToReplicaAddresses() (map[int]map[string]bo
 	return m, nil
 }
 
-func (a *discoveryAddresser) SetMasterAddress(shard int, address string, ttl uint64) (uint64, error) {
-	return a.discoveryClient.Set(a.masterKey(shard), address, ttl)
+func (a *discoveryAddresser) SetMasterAddress(shard int, address string) (uint64, error) {
+	return a.discoveryClient.Set(a.masterKey(shard), address, 0)
 }
 
-func (a *discoveryAddresser) ClaimMasterAddress(shard int, address string, ttl uint64, prevAddress string) (uint64, error) {
-	return a.discoveryClient.CheckAndSet(a.masterKey(shard), address, ttl, prevAddress)
+func (a *discoveryAddresser) ClaimMasterAddress(shard int, address string, prevAddress string) (uint64, error) {
+	return a.discoveryClient.CheckAndSet(a.masterKey(shard), address, holdTTL, prevAddress)
 }
 
 func (a *discoveryAddresser) HoldMasterAddress(shard int, address string, cancel chan bool) error {
-	return a.discoveryClient.Hold(a.masterKey(shard), address, cancel)
+	return a.discoveryClient.Hold(a.masterKey(shard), address, holdTTL, cancel)
 }
 
-func (a *discoveryAddresser) SetReplicaAddress(shard int, address string, ttl uint64) (uint64, error) {
-	return a.discoveryClient.CreateInDir(a.replicaKey(shard), address, ttl)
+func (a *discoveryAddresser) SetReplicaAddress(shard int, address string) (uint64, error) {
+	return a.discoveryClient.CreateInDir(a.replicaKey(shard), address, holdTTL)
 }
 
-func (a *discoveryAddresser) ClaimReplicaAddress(shard int, address string, ttl uint64, prevAddress string) (uint64, error) {
-	return a.discoveryClient.CheckAndSet(a.replicaKey(shard), address, ttl, prevAddress)
+func (a *discoveryAddresser) ClaimReplicaAddress(shard int, address string, prevAddress string) (uint64, error) {
+	return a.discoveryClient.CheckAndSet(a.replicaKey(shard), address, holdTTL, prevAddress)
 }
 
 func (a *discoveryAddresser) HoldReplicaAddress(shard int, address string, cancel chan bool) error {
-	return a.discoveryClient.Hold(a.replicaKey(shard), address, cancel)
+	return a.discoveryClient.Hold(a.replicaKey(shard), address, holdTTL, cancel)
 }
 
 func (a *discoveryAddresser) DeleteMasterAddress(shard int) (uint64, error) {

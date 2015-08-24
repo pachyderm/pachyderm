@@ -33,7 +33,7 @@ func (r *roler) Run() error {
 			shard, ok := r.openShard(shardToMasterAddress)
 			if ok {
 				//TODO constant
-				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, 20, "")
+				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, "")
 				if err != nil {
 					// error from ClaimMasterAddress means our change raced with someone else's,
 					// we want to try again so we return nil
@@ -59,7 +59,7 @@ func (r *roler) Run() error {
 			shard, ok = r.randomShard(maxAddress, shardToMasterAddress)
 			if ok {
 				// TODO constant
-				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, 20, maxAddress)
+				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, maxAddress)
 				if err != nil {
 					// error from ClaimMasterAddress means our change raced with someone else's,
 					// we want to try again so we return nil
