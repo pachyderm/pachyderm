@@ -24,56 +24,63 @@ func newRoler(addresser route.Addresser, sharder route.Sharder, server Server, l
 	return &roler{addresser, sharder, server, localAddress, make(chan bool)}
 }
 
+func (r *roler) findMasterRole(shardToMasterAddress map[int]string) (uint64, bool, error) {
+	counts := r.masterCounts(shardToMasterAddress)
+	_, min := r.minCount(counts)
+	if counts[r.localAddress] > min {
+		// someone else has fewer roles than us let them claim them
+		return 0, false, nil
+	}
+	shard, ok := r.openShard(shardToMasterAddress)
+	if ok {
+		modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, "")
+		if err != nil {
+			// error from ClaimMasterAddress means our change raced with someone else's,
+			// we want to try again so we return nil
+			return 0, false, nil
+		}
+		if err := r.server.Master(shard); err != nil {
+			return 0, false, err
+		}
+		go func() {
+			r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
+			r.server.Clear(shard)
+		}()
+		return modifiedIndex, true, nil
+	}
+
+	maxAddress, max := r.maxCount(counts)
+	if counts[r.localAddress]+1 <= max-1 {
+		shard, ok = r.randomShard(maxAddress, shardToMasterAddress)
+		if !ok {
+			return 0, false, fmt.Errorf("pachyderm: unreachable, randomShard should always return ok")
+		}
+		modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, maxAddress)
+		if err != nil {
+			// error from ClaimMasterAddress means our change raced with someone else's,
+			// we want to try again so we return nil
+			return 0, false, nil
+		}
+		if err := r.server.Master(shard); err != nil {
+			return 0, false, err
+		}
+		go func() {
+			r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
+			r.server.Clear(shard)
+		}()
+		return modifiedIndex, true, nil
+	}
+	return 0, false, nil
+}
+
 func (r *roler) Run() error {
 	return r.addresser.WatchShardToAddress(
 		r.cancel,
 		func(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[string]bool) (uint64, error) {
-			counts := r.masterCounts(shardToMasterAddress)
-			_, min := r.minCount(counts)
-			if counts[r.localAddress] > min {
-				// someone else has fewer roles than us let them claim them
-				return 0, nil
-			}
-			shard, ok := r.openShard(shardToMasterAddress)
+			modifiedIndex, ok, err := r.findMasterRole(shardToMasterAddress)
 			if ok {
-				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, "")
-				if err != nil {
-					// error from ClaimMasterAddress means our change raced with someone else's,
-					// we want to try again so we return nil
-					return 0, nil
-				}
-				if err := r.server.Master(shard); err != nil {
-					return 0, err
-				}
-				go func() {
-					r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
-					r.server.Clear(shard)
-				}()
-				return modifiedIndex, nil
+				return modifiedIndex, err
 			}
-
-			maxAddress, max := r.maxCount(counts)
-			if counts[r.localAddress]+1 <= max-1 {
-				shard, ok = r.randomShard(maxAddress, shardToMasterAddress)
-				if !ok {
-					return 0, fmt.Errorf("pachyderm: unreachable, randomShard should always return ok")
-				}
-				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, maxAddress)
-				if err != nil {
-					// error from ClaimMasterAddress means our change raced with someone else's,
-					// we want to try again so we return nil
-					return 0, nil
-				}
-				if err := r.server.Master(shard); err != nil {
-					return 0, err
-				}
-				go func() {
-					r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
-					r.server.Clear(shard)
-				}()
-				return modifiedIndex, nil
-			}
-			// No master roles for us to fill, time to look for a replica role
 			return 0, nil
 		},
 	)
