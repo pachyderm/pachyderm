@@ -2,7 +2,6 @@ package discovery
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -52,61 +51,51 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 
 func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) (uint64, error)) error {
 	var waitIndex uint64 = 1
+	var modifiedIndex uint64
 	// First get the starting value of the key
 	response, err := c.client.Get(key, false, false)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "100: Key not found") {
-			modifiedIndex, err := callBack("")
+			modifiedIndex, err = callBack("")
 			if err != nil {
 				return err
-			}
-			if modifiedIndex > waitIndex {
-				waitIndex = modifiedIndex
 			}
 		} else {
 			return err
 		}
 	} else {
-		modifiedIndex, err := callBack(response.Node.Value)
+		modifiedIndex, err = callBack(response.Node.Value)
 		if err != nil {
 			return err
 		}
 		waitIndex = response.Node.ModifiedIndex + 1
-		log.Printf("modifiedIndex: %d, waitIndex: %d", modifiedIndex, waitIndex)
-		if modifiedIndex > waitIndex {
-			waitIndex = modifiedIndex
-		}
 	}
 	for {
 		response, err := c.client.Watch(key, waitIndex, false, nil, cancel)
 		if err != nil {
-			log.Print(err)
 			return err
 		}
-		modifiedIndex, err := callBack(response.Node.Value)
-		if err != nil {
-			return err
-		}
-		waitIndex = response.Node.ModifiedIndex + 1
-		if modifiedIndex > waitIndex {
-			waitIndex = modifiedIndex
+		if response.Node.ModifiedIndex >= modifiedIndex {
+			modifiedIndex, err = callBack(response.Node.Value)
+			if err != nil {
+				return err
+			}
+			waitIndex = response.Node.ModifiedIndex + 1
 		}
 	}
 }
 
 func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[string]string) (uint64, error)) error {
 	var waitIndex uint64 = 1
+	var modifiedIndex uint64
 	value := make(map[string]string)
 	// First get the starting value of the key
 	response, err := c.client.Get(key, false, false)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "100: Key not found") {
-			modifiedIndex, err := callBack(nil)
+			modifiedIndex, err = callBack(nil)
 			if err != nil {
 				return err
-			}
-			if modifiedIndex > waitIndex {
-				waitIndex = modifiedIndex
 			}
 		} else {
 			return err
@@ -114,13 +103,9 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 	} else {
 		waitIndex = maxModifiedIndex(response.Node) + 1
 		if nodeToMap(response.Node, value) {
-			modifiedIndex, err := callBack(value)
+			modifiedIndex, err = callBack(value)
 			if err != nil {
 				return err
-			}
-			log.Printf("modifiedIndex: %d, waitIndex: %d", modifiedIndex, waitIndex)
-			if modifiedIndex > waitIndex {
-				waitIndex = modifiedIndex
 			}
 		}
 	}
@@ -129,14 +114,12 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 		if err != nil {
 			return err
 		}
-		waitIndex = maxModifiedIndex(response.Node) + 1
-		if nodeToMap(response.Node, value) {
-			modifiedIndex, err := callBack(value)
+		responseModifiedIndex := maxModifiedIndex(response.Node)
+		waitIndex = responseModifiedIndex + 1
+		if nodeToMap(response.Node, value) && responseModifiedIndex >= modifiedIndex {
+			modifiedIndex, err = callBack(value)
 			if err != nil {
 				return err
-			}
-			if modifiedIndex > waitIndex {
-				waitIndex = modifiedIndex
 			}
 		}
 	}

@@ -3,7 +3,6 @@ package role
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"sync"
 	"testing"
@@ -16,8 +15,8 @@ import (
 )
 
 const (
-	testNumShards  = 2
-	testNumServers = 2
+	testNumShards  = 512
+	testNumServers = 32
 )
 
 func TestRoler(t *testing.T) {
@@ -82,8 +81,7 @@ func (s *serverGroup) cancel() {
 }
 
 func (s *serverGroup) satisfied(rolesLen int) bool {
-	for i, server := range s.servers {
-		log.Printf("server-%d: server.roles: %+v, want: %d", i+s.offset, server.roles, rolesLen)
+	for _, server := range s.servers {
 		if len(server.roles) != rolesLen {
 			return false
 		}
@@ -94,32 +92,29 @@ func (s *serverGroup) satisfied(rolesLen int) bool {
 func runTest(t *testing.T, client discovery.Client) {
 	addresser := route.NewDiscoveryAddresser(client, "TestRoler")
 	serverGroup1 := NewServerGroup(addresser, testNumServers/2, 0)
-	log.Print("===Starting group 1===")
 	go serverGroup1.run(t)
 	start := time.Now()
 	for !serverGroup1.satisfied(testNumShards / (testNumServers / 2)) {
-		time.Sleep(3 * time.Second)
-		if time.Since(start) > time.Second*time.Duration(10) {
+		time.Sleep(500 * time.Millisecond)
+		if time.Since(start) > time.Second*time.Duration(30) {
 			t.Fatal("test timed out")
 		}
 	}
 
-	log.Print("===Starting group 2===")
 	serverGroup2 := NewServerGroup(addresser, testNumServers/2, testNumServers/2)
 	go serverGroup2.run(t)
 	start = time.Now()
 	for !serverGroup1.satisfied(testNumShards/testNumServers) || !serverGroup2.satisfied(testNumShards/testNumServers) {
-		time.Sleep(3 * time.Second)
-		if time.Since(start) > time.Second*time.Duration(10) {
+		time.Sleep(500 * time.Millisecond)
+		if time.Since(start) > time.Second*time.Duration(30) {
 			t.Fatal("test timed out")
 		}
 	}
 
-	log.Print("===Stoping group 1===")
 	serverGroup1.cancel()
-	for !serverGroup2.satisfied(testNumShards) {
-		time.Sleep(3 * time.Second)
-		if time.Since(start) > time.Second*time.Duration(30) {
+	for !serverGroup2.satisfied(testNumShards / (testNumServers / 2)) {
+		time.Sleep(500 * time.Millisecond)
+		if time.Since(start) > time.Second*time.Duration(60) {
 			t.Fatal("test timed out")
 		}
 	}
