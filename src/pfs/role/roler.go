@@ -21,9 +21,9 @@ func newRoler(addresser route.Addresser, sharder route.Sharder, server Server, l
 }
 
 func (r *roler) Run() error {
-	return r.addresser.WatchShardToMasterAddress(
+	return r.addresser.WatchShardToAddress(
 		r.cancel,
-		func(shardToMasterAddress map[int]string) (uint64, error) {
+		func(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[string]bool) (uint64, error) {
 			counts := r.masterCounts(shardToMasterAddress)
 			_, min := r.minCount(counts)
 			if counts[r.localAddress] > min {
