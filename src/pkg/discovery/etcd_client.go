@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -71,6 +72,7 @@ func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) (
 			return err
 		}
 		waitIndex = response.Node.ModifiedIndex + 1
+		log.Printf("modifiedIndex: %d, waitIndex: %d", modifiedIndex, waitIndex)
 		if modifiedIndex > waitIndex {
 			waitIndex = modifiedIndex
 		}
@@ -78,6 +80,7 @@ func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) (
 	for {
 		response, err := c.client.Watch(key, waitIndex, false, nil, cancel)
 		if err != nil {
+			log.Print(err)
 			return err
 		}
 		modifiedIndex, err := callBack(response.Node.Value)
@@ -115,6 +118,7 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 			if err != nil {
 				return err
 			}
+			log.Printf("modifiedIndex: %d, waitIndex: %d", modifiedIndex, waitIndex)
 			if modifiedIndex > waitIndex {
 				waitIndex = modifiedIndex
 			}
@@ -180,7 +184,7 @@ func (c *etcdClient) Hold(key string, value string, cancel chan bool) error {
 			}
 			select {
 			case <-cancel:
-				break
+				return
 			case <-time.After(time.Second * time.Duration(holdTTL/2)):
 			}
 		}
