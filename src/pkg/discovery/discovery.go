@@ -31,7 +31,8 @@ type Client interface {
 	// Hold periodically updates a key with a nonzero ttl value.
 	// This is useful for advertising a service since it will automatically go
 	// away if the service dies.
-	Hold(key string, value string, oldValue string, cancel chan bool) error
+	// Hold assumes that key is ALREADY set to value.
+	Hold(key string, value string, cancel chan bool) error
 }
 
 func NewEtcdClient(addresses ...string) Client {

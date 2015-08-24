@@ -10,11 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMockClient(t *testing.T) {
-	t.Parallel()
-	runTest(t, NewMockClient())
-}
-
 func TestEtcdClient(t *testing.T) {
 	t.Parallel()
 	client, err := getEtcdClient()
@@ -30,7 +25,8 @@ func TestEtcdWatch(t *testing.T) {
 }
 
 func runTest(t *testing.T, client Client) {
-	require.NoError(t, client.Set("foo", "one", 0))
+	_, err := client.Set("foo", "one", 0)
+	require.NoError(t, err)
 	value, ok, err := client.Get("foo")
 	require.NoError(t, err)
 	require.True(t, ok)
@@ -39,8 +35,10 @@ func runTest(t *testing.T, client Client) {
 	//require.NoError(t, err)
 	//require.Equal(t, map[string]string{"foo": "one"}, values)
 
-	require.NoError(t, client.Set("a/b/foo", "one", 0))
-	require.NoError(t, client.Set("a/b/bar", "two", 0))
+	_, err = client.Set("a/b/foo", "one", 0)
+	require.NoError(t, err)
+	_, err = client.Set("a/b/bar", "two", 0)
+	require.NoError(t, err)
 	values, err := client.GetAll("a/b")
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{"a/b/foo": "one", "a/b/bar": "two"}, values)
@@ -53,14 +51,13 @@ func runWatchTest(t *testing.T, client Client) {
 	err := client.Watch(
 		"watch/foo",
 		cancel,
-		func(value string) error {
+		func(value string) (uint64, error) {
 			if value == "" {
-				require.NoError(t, client.Set("watch/foo", "bar", 0))
-			} else {
-				require.Equal(t, "bar", value)
-				close(cancel)
+				return client.Set("watch/foo", "bar", 0)
 			}
-			return nil
+			require.Equal(t, "bar", value)
+			close(cancel)
+			return 0, nil
 		},
 	)
 	require.Equal(t, etcd.ErrWatchStoppedByUser, err)
@@ -69,14 +66,13 @@ func runWatchTest(t *testing.T, client Client) {
 	err = client.WatchAll(
 		"watchAll/foo",
 		cancel,
-		func(value map[string]string) error {
+		func(value map[string]string) (uint64, error) {
 			if value == nil {
-				require.NoError(t, client.Set("watchAll/foo/bar", "quux", 0))
-			} else {
-				require.Equal(t, map[string]string{"watchAll/foo/bar": "quux"}, value)
-				close(cancel)
+				return client.Set("watchAll/foo/bar", "quux", 0)
 			}
-			return nil
+			require.Equal(t, map[string]string{"watchAll/foo/bar": "quux"}, value)
+			close(cancel)
+			return 0, nil
 		},
 	)
 	require.Equal(t, etcd.ErrWatchStoppedByUser, err)

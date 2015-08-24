@@ -1,6 +1,7 @@
 package role
 
 import (
+	"fmt"
 	"log"
 	"math"
 
@@ -33,16 +34,22 @@ func (r *roler) Run() error {
 			shard, ok := r.openShard(shardToMasterAddress)
 			if ok {
 				log.Printf("%s.Master(%d)", r.localAddress, shard)
+				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, 0, "")
+				if err != nil {
+					// error from ClaimMasterAddress means our change raced with someone else's,
+					// we want to try again so we return nil
+					return 0, nil
+				}
 				if err := r.server.Master(shard); err != nil {
 					return 0, err
 				}
 				go func() {
-					r.addresser.HoldMasterAddress(shard, r.localAddress, "", r.cancel)
+					r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
 					log.Printf("%s.Clear(%d)", r.localAddress, shard)
 					r.server.Clear(shard)
 				}()
 				log.Printf("r.localAddress %s, shardToMasterAddress: %+v\nopen: %d", r.localAddress, shardToMasterAddress, shard)
-				return 0, nil
+				return modifiedIndex, nil
 			}
 
 			maxAddress, max := r.maxCount(counts)
@@ -57,16 +64,23 @@ func (r *roler) Run() error {
 			if ok {
 				log.Printf("r.localAddress %s, shardToMasterAddress: %+v\nstealing %d from %s", r.localAddress, shardToMasterAddress, shard, maxAddress)
 				log.Printf("%s.Master(%d)", r.localAddress, shard)
+				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, 0, maxAddress)
+				if err != nil {
+					// error from ClaimMasterAddress means our change raced with someone else's,
+					// we want to try again so we return nil
+					return 0, nil
+				}
 				if err := r.server.Master(shard); err != nil {
 					return 0, err
 				}
 				go func() {
-					r.addresser.HoldMasterAddress(shard, r.localAddress, maxAddress, r.cancel)
+					r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
 					log.Printf("%s.Clear(%d)", r.localAddress, shard)
 					r.server.Clear(shard)
 				}()
+				return modifiedIndex, nil
 			}
-			return 0, nil
+			return 0, fmt.Errorf("pachyderm: unreachable, randomShard should always return ok")
 		},
 	)
 }
