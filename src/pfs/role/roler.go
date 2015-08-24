@@ -77,7 +77,7 @@ func (r *roler) randomMasterRole(address string, shardToMasterAddress map[int]st
 	return 0, false
 }
 
-func (r *roler) randomeReplicaRole(address string, shardToReplicaAddress map[int]map[string]bool) (int, bool) {
+func (r *roler) randomReplicaRole(address string, shardToReplicaAddress map[int]map[string]bool) (int, bool) {
 	for shard, addresses := range shardToReplicaAddress {
 		if _, ok := addresses[address]; ok {
 			return shard, true
@@ -178,5 +178,50 @@ func (r *roler) findMasterRole(shardToMasterAddress map[int]string) (uint64, boo
 }
 
 func (r *roler) findReplicaRole(shardToReplicaAddress map[int]map[string]bool) (uint64, bool, error) {
+	counts := r.replicaCounts(shardToReplicaAddress)
+	_, min := r.minCount(counts)
+	if counts[r.localAddress] > min {
+		// someone else has fewer roles than us let them claim them
+		return 0, false, nil
+	}
+	shard, ok := r.openReplicaRole(shardToReplicaAddress)
+	if ok {
+		modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, r.localAddress, "")
+		if err != nil {
+			// error from ClaimReplicaAddress means our change raced with someone else's,
+			// we want to try again so we return nil
+			return 0, false, nil
+		}
+		if err := r.server.Replica(shard); err != nil {
+			return 0, false, err
+		}
+		go func() {
+			r.addresser.HoldReplicaAddress(shard, r.localAddress, r.cancel)
+			r.server.Clear(shard)
+		}()
+		return modifiedIndex, true, nil
+	}
+
+	maxAddress, max := r.maxCount(counts)
+	if counts[r.localAddress]+1 <= max-1 {
+		shard, ok = r.randomReplicaRole(maxAddress, shardToReplicaAddress)
+		if !ok {
+			return 0, false, fmt.Errorf("pachyderm: unreachable, randomReplicaRole should always return ok")
+		}
+		modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, r.localAddress, maxAddress)
+		if err != nil {
+			// error from ClaimReplicaAddress means our change raced with someone else's,
+			// we want to try again so we return nil
+			return 0, false, nil
+		}
+		if err := r.server.Replica(shard); err != nil {
+			return 0, false, err
+		}
+		go func() {
+			r.addresser.HoldReplicaAddress(shard, r.localAddress, r.cancel)
+			r.server.Clear(shard)
+		}()
+		return modifiedIndex, true, nil
+	}
 	return 0, false, nil
 }
