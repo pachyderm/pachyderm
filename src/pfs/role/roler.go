@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 )
@@ -34,7 +35,8 @@ func (r *roler) Run() error {
 			shard, ok := r.openShard(shardToMasterAddress)
 			if ok {
 				log.Printf("%s.Master(%d)", r.localAddress, shard)
-				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, 0, "")
+				//TODO constant
+				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, 20, "")
 				if err != nil {
 					// error from ClaimMasterAddress means our change raced with someone else's,
 					// we want to try again so we return nil
@@ -64,7 +66,7 @@ func (r *roler) Run() error {
 			if ok {
 				log.Printf("r.localAddress %s, shardToMasterAddress: %+v\nstealing %d from %s", r.localAddress, shardToMasterAddress, shard, maxAddress)
 				log.Printf("%s.Master(%d)", r.localAddress, shard)
-				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, 0, maxAddress)
+				modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, 20, maxAddress)
 				if err != nil {
 					// error from ClaimMasterAddress means our change raced with someone else's,
 					// we want to try again so we return nil
@@ -92,7 +94,7 @@ func (r *roler) Cancel() {
 type counts map[string]int
 
 func (r *roler) openShard(shardToMasterAddress map[int]string) (int, bool) {
-	for i := 0; i < r.sharder.NumShards(); i++ {
+	for _, i := range rand.Perm(r.sharder.NumShards()) {
 		if _, ok := shardToMasterAddress[i]; !ok {
 			return i, true
 		}
