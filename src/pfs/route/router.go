@@ -46,8 +46,10 @@ func (r *router) GetReplicaShards() (map[int]bool, error) {
 	}
 	m := make(map[int]bool, 0)
 	for shard, addresses := range shardToReplicaAddresses {
-		if _, ok := addresses[r.localAddress]; ok {
-			m[shard] = true
+		for _, address := range addresses {
+			if address == r.localAddress {
+				m[shard] = true
+			}
 		}
 	}
 	return m, nil
@@ -131,7 +133,7 @@ func (r *router) getAllAddresses() (map[string]bool, error) {
 		return nil, err
 	}
 	for _, addresses := range shardToReplicaAddresses {
-		for address := range addresses {
+		for _, address := range addresses {
 			m[address] = true
 		}
 	}

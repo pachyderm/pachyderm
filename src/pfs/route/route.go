@@ -26,16 +26,16 @@ type Addresser interface {
 	GetReplicaAddresses(shard int) (map[string]bool, error)
 	GetShardToMasterAddress() (map[int]string, error)
 	WatchShardToMasterAddress(chan bool, func(map[int]string) (uint64, error)) error
-	WatchShardToAddress(chan bool, func(map[int]string, map[int]map[string]bool) (uint64, error)) error
-	GetShardToReplicaAddresses() (map[int]map[string]bool, error)
+	WatchShardToAddress(chan bool, func(map[int]string, map[int]map[int]string) (uint64, error)) error
+	GetShardToReplicaAddresses() (map[int]map[int]string, error)
 	SetMasterAddress(shard int, address string) (uint64, error)
 	ClaimMasterAddress(shard int, address string, prevAddress string) (uint64, error)
 	HoldMasterAddress(shard int, address string, cancel chan bool) error
-	SetReplicaAddress(shard int, address string) (uint64, error)
-	ClaimReplicaAddress(shard int, address string, prevAddress string) (uint64, error)
-	HoldReplicaAddress(shard int, address string, cancel chan bool) error
+	SetReplicaAddress(shard int, index int, address string) (uint64, error)
+	ClaimReplicaAddress(shard int, index int, address string, prevAddress string) (uint64, error)
+	HoldReplicaAddress(shard int, index int, address string, cancel chan bool) error
 	DeleteMasterAddress(shard int) (uint64, error)
-	DeleteReplicaAddress(shard int, address string) (uint64, error)
+	DeleteReplicaAddress(shard int, index int, address string) (uint64, error)
 }
 
 func NewDiscoveryAddresser(discoveryClient discovery.Client, namespace string) Addresser {
