@@ -96,16 +96,24 @@ func (a *discoveryAddresser) HoldMasterAddress(shard int, address string, cancel
 	return a.discoveryClient.Hold(a.masterKey(shard), address, holdTTL, cancel)
 }
 
-func (a *discoveryAddresser) SetReplicaAddress(shard int, address string) (uint64, error) {
+func (a *discoveryAddresser) SetReplicaAddress(shard int, address string) (uint64, string, error) {
 	return a.discoveryClient.CreateInDir(a.replicaKey(shard), address, holdTTL)
 }
 
-func (a *discoveryAddresser) ClaimReplicaAddress(shard int, address string, prevAddress string) (uint64, error) {
-	return a.discoveryClient.CheckAndSet(a.replicaKey(shard), address, holdTTL, prevAddress)
+func (a *discoveryAddresser) ClaimReplicaAddress(shard int, address string, prevReplicaIndex string, prevAddress string) (uint64, string, error) {
+	if prevAddress != "" {
+		// NOTE ignoring the index CheckAndDelete returns is ok because the
+		// index returned by SetReplicaAddress below is guaranteed to be higher
+		// since it occurs after.
+		if _, err := a.discoveryClient.CheckAndDelete(path.Join(a.replicaKey(shard), prevReplicaIndex), prevAddress); err != nil {
+			return 0, "", err
+		}
+	}
+	return a.SetReplicaAddress(shard, address)
 }
 
-func (a *discoveryAddresser) HoldReplicaAddress(shard int, address string, cancel chan bool) error {
-	return a.discoveryClient.Hold(a.replicaKey(shard), address, holdTTL, cancel)
+func (a *discoveryAddresser) HoldReplicaAddress(shard int, replicaIndex string, address string, cancel chan bool) error {
+	return a.discoveryClient.Hold(path.Join(a.replicaKey(shard), replicaIndex), address, holdTTL, cancel)
 }
 
 func (a *discoveryAddresser) DeleteMasterAddress(shard int) (uint64, error) {

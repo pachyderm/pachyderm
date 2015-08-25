@@ -20,11 +20,13 @@ type Client interface {
 	Set(key string, value string, ttl uint64) (uint64, error)
 	// Delete deletes a key.
 	Delete(key string) (uint64, error)
+	// CheckAndDelete deletes a key only if its value matches oldValue
+	CheckAndDelete(key string, oldValue string) (uint64, error)
 	// Create is like Set but only succeeds if the key doesn't already exist.
 	// ttl is in seconds.
 	Create(key string, value string, ttl uint64) (uint64, error)
 	// CreateInDir is like Set but it generates a key inside dir.
-	CreateInDir(dir string, value string, ttl uint64) (uint64, error)
+	CreateInDir(dir string, value string, ttl uint64) (uint64, string, error)
 	// CheckAndSet is like Set but only succeeds if the key is already set to oldValue.
 	// ttl is in seconds.
 	CheckAndSet(key string, value string, ttl uint64, oldValue string) (uint64, error)

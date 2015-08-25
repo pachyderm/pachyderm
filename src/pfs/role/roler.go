@@ -186,7 +186,7 @@ func (r *roler) findReplicaRole(shardToReplicaAddress map[int]map[string]bool) (
 	}
 	shard, ok := r.openReplicaRole(shardToReplicaAddress)
 	if ok {
-		modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, r.localAddress, "")
+		modifiedIndex, replicaIndex, err := r.addresser.ClaimReplicaAddress(shard, r.localAddress, "", "")
 		if err != nil {
 			// error from ClaimReplicaAddress means our change raced with someone else's,
 			// we want to try again so we return nil
@@ -196,7 +196,7 @@ func (r *roler) findReplicaRole(shardToReplicaAddress map[int]map[string]bool) (
 			return 0, false, err
 		}
 		go func() {
-			r.addresser.HoldReplicaAddress(shard, r.localAddress, r.cancel)
+			r.addresser.HoldReplicaAddress(shard, replicaIndex, r.localAddress, r.cancel)
 			r.server.Clear(shard)
 		}()
 		return modifiedIndex, true, nil
@@ -208,7 +208,8 @@ func (r *roler) findReplicaRole(shardToReplicaAddress map[int]map[string]bool) (
 		if !ok {
 			return 0, false, fmt.Errorf("pachyderm: unreachable, randomReplicaRole should always return ok")
 		}
-		modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, r.localAddress, maxAddress)
+		// TODO the "" needs to be replaced with the replicaIndex we're stealing from
+		modifiedIndex, replicaIndex, err := r.addresser.ClaimReplicaAddress(shard, r.localAddress, "", maxAddress)
 		if err != nil {
 			// error from ClaimReplicaAddress means our change raced with someone else's,
 			// we want to try again so we return nil
@@ -218,7 +219,7 @@ func (r *roler) findReplicaRole(shardToReplicaAddress map[int]map[string]bool) (
 			return 0, false, err
 		}
 		go func() {
-			r.addresser.HoldReplicaAddress(shard, r.localAddress, r.cancel)
+			r.addresser.HoldReplicaAddress(shard, replicaIndex, r.localAddress, r.cancel)
 			r.server.Clear(shard)
 		}()
 		return modifiedIndex, true, nil
