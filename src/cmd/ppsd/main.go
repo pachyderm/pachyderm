@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/container"
 	"github.com/pachyderm/pachyderm/src/pps/server"
 	"github.com/pachyderm/pachyderm/src/pps/store"
 	"google.golang.org/grpc"
@@ -24,6 +25,7 @@ var (
 )
 
 type appEnv struct {
+	DockerHost      string `env:"DOCKER_HOST"`
 	PfsAddress      string `env:"PFS_ADDRESS"`
 	APIPort         int    `env:"PPS_API_PORT"`
 	DatabaseAddress string `env:"PPS_DATABASE_ADDRESS"`
@@ -37,6 +39,10 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
+	containerClient, err := getContainerClient(appEnv.DockerHost)
+	if err != nil {
+		return err
+	}
 	rethinkClient, err := getRethinkClient(appEnv.DatabaseAddress, appEnv.DatabaseName)
 	if err != nil {
 		return err
@@ -50,7 +56,18 @@ func do(appEnvObj interface{}) error {
 		appEnv.TracePort,
 		pachyderm.Version,
 		func(s *grpc.Server) {
-			pps.RegisterApiServer(s, server.NewAPIServer(apiClient, rethinkClient, timing.NewSystemTimer()))
+			pps.RegisterApiServer(s, server.NewAPIServer(apiClient, containerClient, rethinkClient, timing.NewSystemTimer()))
+		},
+	)
+}
+
+func getContainerClient(dockerHost string) (container.Client, error) {
+	if dockerHost == "" {
+		dockerHost = "unix:///var/run/docker.sock"
+	}
+	return container.NewDockerClient(
+		container.DockerClientOptions{
+			Host: dockerHost,
 		},
 	)
 }
