@@ -52,12 +52,12 @@ type serverGroup struct {
 	offset  int
 }
 
-func NewServerGroup(addresser route.Addresser, numServers int, offset int) *serverGroup {
+func NewServerGroup(addresser route.Addresser, numServers int, offset int, numReplicas int) *serverGroup {
 	sharder := route.NewSharder(testNumShards)
 	serverGroup := serverGroup{offset: offset}
 	for i := 0; i < numServers; i++ {
 		serverGroup.servers = append(serverGroup.servers, newServer())
-		serverGroup.rolers = append(serverGroup.rolers, NewRoler(addresser, sharder, serverGroup.servers[i], fmt.Sprintf("server-%d", i+offset)))
+		serverGroup.rolers = append(serverGroup.rolers, NewRoler(addresser, sharder, serverGroup.servers[i], fmt.Sprintf("server-%d", i+offset), numReplicas))
 	}
 	return &serverGroup
 }
@@ -91,7 +91,7 @@ func (s *serverGroup) satisfied(rolesLen int) bool {
 
 func runTest(t *testing.T, client discovery.Client) {
 	addresser := route.NewDiscoveryAddresser(client, "TestRoler")
-	serverGroup1 := NewServerGroup(addresser, testNumServers/2, 0)
+	serverGroup1 := NewServerGroup(addresser, testNumServers/2, 0, 0)
 	go serverGroup1.run(t)
 	start := time.Now()
 	for !serverGroup1.satisfied(testNumShards / (testNumServers / 2)) {
@@ -101,7 +101,7 @@ func runTest(t *testing.T, client discovery.Client) {
 		}
 	}
 
-	serverGroup2 := NewServerGroup(addresser, testNumServers/2, testNumServers/2)
+	serverGroup2 := NewServerGroup(addresser, testNumServers/2, testNumServers/2, 0)
 	go serverGroup2.run(t)
 	start = time.Now()
 	for !serverGroup1.satisfied(testNumShards/testNumServers) || !serverGroup2.satisfied(testNumShards/testNumServers) {

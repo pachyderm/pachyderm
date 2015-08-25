@@ -8,20 +8,17 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 )
 
-var (
-	numReplicas = 2
-)
-
 type roler struct {
 	addresser    route.Addresser
 	sharder      route.Sharder
 	server       Server
 	localAddress string
 	cancel       chan bool
+	numReplicas  int
 }
 
-func newRoler(addresser route.Addresser, sharder route.Sharder, server Server, localAddress string) *roler {
-	return &roler{addresser, sharder, server, localAddress, make(chan bool)}
+func newRoler(addresser route.Addresser, sharder route.Sharder, server Server, localAddress string, numReplicas int) *roler {
+	return &roler{addresser, sharder, server, localAddress, make(chan bool), numReplicas}
 }
 
 func (r *roler) Run() error {
@@ -29,6 +26,16 @@ func (r *roler) Run() error {
 		r.cancel,
 		func(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (uint64, error) {
 			modifiedIndex, ok, err := r.findMasterRole(shardToMasterAddress)
+			if err != nil {
+				return 0, err
+			}
+			if ok {
+				return modifiedIndex, err
+			}
+			modifiedIndex, ok, err = r.findReplicaRole(shardToReplicaAddress)
+			if err != nil {
+				return 0, err
+			}
 			if ok {
 				return modifiedIndex, err
 			}
@@ -54,8 +61,8 @@ func (r *roler) openMasterRole(shardToMasterAddress map[int]string) (int, bool) 
 
 func (r *roler) openReplicaRole(shardToReplicaAddress map[int]map[int]string) (int, int, bool) {
 	for _, shard := range rand.Perm(r.sharder.NumShards()) {
-		if addresses := shardToReplicaAddress[shard]; len(addresses) < numReplicas {
-			for _, index := range rand.Perm(numReplicas) {
+		if addresses := shardToReplicaAddress[shard]; len(addresses) < r.numReplicas {
+			for _, index := range rand.Perm(r.numReplicas) {
 				if _, ok := addresses[index]; !ok {
 					return shard, index, true
 				}
