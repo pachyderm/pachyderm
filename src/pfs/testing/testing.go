@@ -107,10 +107,10 @@ func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[s
 			if _, err := addresser.SetMasterAddress((i*testShardsPerServer)+j, address); err != nil {
 				return err
 			}
-			if _, _, err := addresser.SetReplicaAddress((((i+1)%len(servers))*testShardsPerServer)+j, address); err != nil {
+			if _, err := addresser.SetReplicaAddress((((i+1)%len(servers))*testShardsPerServer)+j, address); err != nil {
 				return err
 			}
-			if _, _, err := addresser.SetReplicaAddress((((i+2)%len(servers))*testShardsPerServer)+j, address); err != nil {
+			if _, err := addresser.SetReplicaAddress((((i+2)%len(servers))*testShardsPerServer)+j, address); err != nil {
 				return err
 			}
 		}
