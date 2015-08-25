@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/container"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"github.com/pachyderm/pachyderm/src/pps/store"
 	"github.com/satori/go.uuid"
@@ -185,6 +186,8 @@ func runTest(
 	t *testing.T,
 	f func(t *testing.T, apiClient pps.ApiClient),
 ) {
+	containerClient, err := getContainerClient()
+	require.NoError(t, err)
 	storeClient, err := getRethinkClient()
 	require.NoError(t, err)
 	pfstesting.RunTest(
@@ -195,7 +198,7 @@ func runTest(
 				testNumServers,
 				func(servers map[string]*grpc.Server) {
 					for _, server := range servers {
-						pps.RegisterApiServer(server, newAPIServer(apiClient, storeClient, timing.NewSystemTimer()))
+						pps.RegisterApiServer(server, newAPIServer(apiClient, containerClient, storeClient, timing.NewSystemTimer()))
 					}
 				},
 				func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
@@ -212,6 +215,18 @@ func runTest(
 					)
 				},
 			)
+		},
+	)
+}
+
+func getContainerClient() (container.Client, error) {
+	dockerHost := os.Getenv("DOCKER_HOST")
+	if dockerHost == "" {
+		dockerHost = "unix:///var/run/docker.sock"
+	}
+	return container.NewDockerClient(
+		container.DockerClientOptions{
+			Host: dockerHost,
 		},
 	)
 }

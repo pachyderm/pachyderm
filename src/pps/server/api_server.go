@@ -1,7 +1,6 @@
 package server
 
 import (
-	"os"
 	"sort"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -17,13 +16,14 @@ import (
 )
 
 type apiServer struct {
-	pfsAPIClient pfs.ApiClient
-	storeClient  store.Client
-	timer        timing.Timer
+	pfsAPIClient    pfs.ApiClient
+	containerClient container.Client
+	storeClient     store.Client
+	timer           timing.Timer
 }
 
-func newAPIServer(pfsAPIClient pfs.ApiClient, storeClient store.Client, timer timing.Timer) *apiServer {
-	return &apiServer{pfsAPIClient, storeClient, timer}
+func newAPIServer(pfsAPIClient pfs.ApiClient, containerClient container.Client, storeClient store.Client, timer timing.Timer) *apiServer {
+	return &apiServer{pfsAPIClient, containerClient, storeClient, timer}
 }
 
 func (a *apiServer) GetPipeline(ctx context.Context, getPipelineRequest *pps.GetPipelineRequest) (*pps.GetPipelineResponse, error) {
@@ -37,22 +37,10 @@ func (a *apiServer) GetPipeline(ctx context.Context, getPipelineRequest *pps.Get
 }
 
 func (a *apiServer) StartPipelineRun(ctx context.Context, startPipelineRunRequest *pps.StartPipelineRunRequest) (*pps.StartPipelineRunResponse, error) {
-	dockerHost := os.Getenv("DOCKER_HOST")
-	if dockerHost == "" {
-		dockerHost = "unix:///var/run/docker.sock"
-	}
-	containerClient, err := container.NewDockerClient(
-		container.DockerClientOptions{
-			Host: dockerHost,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
 	runner := run.NewRunner(
 		source.NewSourcer(),
 		graph.NewGrapher(),
-		containerClient,
+		a.containerClient,
 		a.storeClient,
 		a.timer,
 	)
