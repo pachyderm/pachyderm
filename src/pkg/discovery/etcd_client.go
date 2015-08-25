@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"fmt"
+	"path"
 	"strings"
 	"time"
 
@@ -123,22 +124,42 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 
 func (c *etcdClient) Set(key string, value string, ttl uint64) (uint64, error) {
 	response, err := c.client.Set(key, value, ttl)
-	return response.Node.ModifiedIndex, err
+	if err != nil {
+		return 0, err
+	}
+	return response.Node.ModifiedIndex, nil
 }
 
 func (c *etcdClient) Create(key string, value string, ttl uint64) (uint64, error) {
 	response, err := c.client.Create(key, value, ttl)
-	return response.Node.ModifiedIndex, err
+	if err != nil {
+		return 0, err
+	}
+	return response.Node.ModifiedIndex, nil
 }
 
-func (c *etcdClient) CreateInDir(dir string, value string, ttl uint64) (uint64, error) {
+func (c *etcdClient) CreateInDir(dir string, value string, ttl uint64) (uint64, string, error) {
 	response, err := c.client.CreateInOrder(dir, value, ttl)
-	return response.Node.ModifiedIndex, err
+	if err != nil {
+		return 0, "", err
+	}
+	return response.Node.ModifiedIndex, path.Base(response.Node.Key), nil
 }
 
 func (c *etcdClient) Delete(key string) (uint64, error) {
 	response, err := c.client.Delete(key, false)
-	return response.Node.ModifiedIndex, err
+	if err != nil {
+		return 0, err
+	}
+	return response.Node.ModifiedIndex, nil
+}
+
+func (c *etcdClient) CheckAndDelete(key string, oldValue string) (uint64, error) {
+	response, err := c.client.CompareAndDelete(key, oldValue, 0)
+	if err != nil {
+		return 0, err
+	}
+	return response.Node.ModifiedIndex, nil
 }
 
 func (c *etcdClient) CheckAndSet(key string, value string, ttl uint64, oldValue string) (uint64, error) {
@@ -152,7 +173,7 @@ func (c *etcdClient) CheckAndSet(key string, value string, ttl uint64, oldValue 
 	if err != nil {
 		return 0, err
 	}
-	return response.Node.ModifiedIndex, err
+	return response.Node.ModifiedIndex, nil
 }
 
 func (c *etcdClient) Hold(key string, value string, ttl uint64, cancel chan bool) error {
