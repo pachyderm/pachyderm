@@ -27,7 +27,7 @@ func newRoler(addresser route.Addresser, sharder route.Sharder, server Server, l
 func (r *roler) Run() error {
 	return r.addresser.WatchShardToAddress(
 		r.cancel,
-		func(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[string]bool) (uint64, error) {
+		func(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (uint64, error) {
 			modifiedIndex, ok, err := r.findMasterRole(shardToMasterAddress)
 			if ok {
 				return modifiedIndex, err
@@ -52,13 +52,17 @@ func (r *roler) openMasterRole(shardToMasterAddress map[int]string) (int, bool) 
 	return 0, false
 }
 
-func (r *roler) openReplicaRole(shardToReplicaAddress map[int]map[string]bool) (int, bool) {
-	for _, i := range rand.Perm(r.sharder.NumShards()) {
-		if addresses := shardToReplicaAddress[i]; len(addresses) < numReplicas {
-			return i, true
+func (r *roler) openReplicaRole(shardToReplicaAddress map[int]map[int]string) (int, int, bool) {
+	for _, shard := range rand.Perm(r.sharder.NumShards()) {
+		if addresses := shardToReplicaAddress[shard]; len(addresses) < numReplicas {
+			for _, index := range rand.Perm(numReplicas) {
+				if _, ok := addresses[index]; !ok {
+					return shard, index, true
+				}
+			}
 		}
 	}
-	return 0, false
+	return 0, 0, false
 }
 
 func (r *roler) randomMasterRole(address string, shardToMasterAddress map[int]string) (int, bool) {
@@ -77,13 +81,15 @@ func (r *roler) randomMasterRole(address string, shardToMasterAddress map[int]st
 	return 0, false
 }
 
-func (r *roler) randomReplicaRole(address string, shardToReplicaAddress map[int]map[string]bool) (int, bool) {
+func (r *roler) randomReplicaRole(address string, shardToReplicaAddress map[int]map[int]string) (int, int, bool) {
 	for shard, addresses := range shardToReplicaAddress {
-		if _, ok := addresses[address]; ok {
-			return shard, true
+		for index, address := range addresses {
+			if address == address {
+				return shard, index, true
+			}
 		}
 	}
-	return 0, false
+	return 0, 0, false
 }
 
 func (r *roler) masterCounts(shardToMasterAddress map[int]string) counts {
@@ -94,10 +100,10 @@ func (r *roler) masterCounts(shardToMasterAddress map[int]string) counts {
 	return result
 }
 
-func (r *roler) replicaCounts(shardToReplicaAddress map[int]map[string]bool) counts {
+func (r *roler) replicaCounts(shardToReplicaAddress map[int]map[int]string) counts {
 	result := make(map[string]int)
 	for _, addresses := range shardToReplicaAddress {
-		for address := range addresses {
+		for _, address := range addresses {
 			result[address]++
 		}
 	}
@@ -177,16 +183,16 @@ func (r *roler) findMasterRole(shardToMasterAddress map[int]string) (uint64, boo
 	return 0, false, nil
 }
 
-func (r *roler) findReplicaRole(shardToReplicaAddress map[int]map[string]bool) (uint64, bool, error) {
+func (r *roler) findReplicaRole(shardToReplicaAddress map[int]map[int]string) (uint64, bool, error) {
 	counts := r.replicaCounts(shardToReplicaAddress)
 	_, min := r.minCount(counts)
 	if counts[r.localAddress] > min {
 		// someone else has fewer roles than us let them claim them
 		return 0, false, nil
 	}
-	shard, ok := r.openReplicaRole(shardToReplicaAddress)
+	shard, index, ok := r.openReplicaRole(shardToReplicaAddress)
 	if ok {
-		modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, r.localAddress, "")
+		modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, index, r.localAddress, "")
 		if err != nil {
 			// error from ClaimReplicaAddress means our change raced with someone else's,
 			// we want to try again so we return nil
@@ -196,7 +202,7 @@ func (r *roler) findReplicaRole(shardToReplicaAddress map[int]map[string]bool) (
 			return 0, false, err
 		}
 		go func() {
-			r.addresser.HoldReplicaAddress(shard, r.localAddress, r.cancel)
+			r.addresser.HoldReplicaAddress(shard, index, r.localAddress, r.cancel)
 			r.server.Clear(shard)
 		}()
 		return modifiedIndex, true, nil
@@ -204,12 +210,11 @@ func (r *roler) findReplicaRole(shardToReplicaAddress map[int]map[string]bool) (
 
 	maxAddress, max := r.maxCount(counts)
 	if counts[r.localAddress]+1 <= max-1 {
-		shard, ok = r.randomReplicaRole(maxAddress, shardToReplicaAddress)
+		shard, index, ok = r.randomReplicaRole(maxAddress, shardToReplicaAddress)
 		if !ok {
 			return 0, false, fmt.Errorf("pachyderm: unreachable, randomReplicaRole should always return ok")
 		}
-		// TODO the "" needs to be replaced with the replicaIndex we're stealing from
-		modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, r.localAddress, maxAddress)
+		modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, index, r.localAddress, maxAddress)
 		if err != nil {
 			// error from ClaimReplicaAddress means our change raced with someone else's,
 			// we want to try again so we return nil
@@ -219,7 +224,7 @@ func (r *roler) findReplicaRole(shardToReplicaAddress map[int]map[string]bool) (
 			return 0, false, err
 		}
 		go func() {
-			r.addresser.HoldReplicaAddress(shard, r.localAddress, r.cancel)
+			r.addresser.HoldReplicaAddress(shard, index, r.localAddress, r.cancel)
 			r.server.Clear(shard)
 		}()
 		return modifiedIndex, true, nil
