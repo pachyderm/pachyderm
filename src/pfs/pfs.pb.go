@@ -56,20 +56,17 @@ var _ = proto.Marshal
 type CommitType int32
 
 const (
-	CommitType_COMMIT_TYPE_NONE  CommitType = 0
-	CommitType_COMMIT_TYPE_READ  CommitType = 1
-	CommitType_COMMIT_TYPE_WRITE CommitType = 2
+	CommitType_COMMIT_TYPE_READ  CommitType = 0
+	CommitType_COMMIT_TYPE_WRITE CommitType = 1
 )
 
 var CommitType_name = map[int32]string{
-	0: "COMMIT_TYPE_NONE",
-	1: "COMMIT_TYPE_READ",
-	2: "COMMIT_TYPE_WRITE",
+	0: "COMMIT_TYPE_READ",
+	1: "COMMIT_TYPE_WRITE",
 }
 var CommitType_value = map[string]int32{
-	"COMMIT_TYPE_NONE":  0,
-	"COMMIT_TYPE_READ":  1,
-	"COMMIT_TYPE_WRITE": 2,
+	"COMMIT_TYPE_READ":  0,
+	"COMMIT_TYPE_WRITE": 1,
 }
 
 func (x CommitType) String() string {
