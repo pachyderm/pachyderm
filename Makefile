@@ -112,13 +112,13 @@ docker-clean-launch: docker-clean-test
 	docker-compose rm -f ppsd
 
 test: pretest docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh && go test -test.short $(TESTFLAGS) $(TESTPKGS)"
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test -test.short $(TESTFLAGS) $(TESTPKGS)"
 
 test-pfs-extra: pretest docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh && go test $(TESTFLAGS) ./src/pfs/server"
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pfs/server"
 
 test-pps-extra: pretest docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh && go test $(TESTFLAGS) ./src/pps/server"
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pps/server"
 
 clean: docker-clean-launch
 	go clean ./...

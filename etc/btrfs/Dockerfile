@@ -7,4 +7,5 @@ RUN \
     btrfs-tools
 RUN mkdir /pfs-img
 VOLUME ["/pfs-img"]
-RUN truncate /pfs-img/btrfs.img -s 10G && mkfs.btrfs /pfs-img/btrfs.img
+ADD entrypoint.sh /
+ENTRYPOINT ["sh", "entrypoint.sh"]

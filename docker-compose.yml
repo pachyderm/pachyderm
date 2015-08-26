@@ -16,10 +16,12 @@ test:
   volumes_from:
     - btrfs
   environment:
+    - BTRFS_DEVICE=/pfs-img/btrfs.img
     - PFS_DRIVER_ROOT=/pfs/btrfs
   links:
-    - rethink
+    - btrfs
     - etcd
+    - rethink
 compile:
   build: .
   privileged: true
@@ -31,12 +33,16 @@ pfsd:
   privileged: true
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
+  volumes_from:
+    - btrfs
   environment:
+    - BTRFS_DEVICE=/pfs-img/btrfs.img
     - PFS_DRIVER_ROOT=/pfs/btrfs
   dockerfile: Dockerfile.pfsd
   ports:
     - "650:650"
   links:
+    - btrfs
     - etcd
 ppsd:
   build: .
@@ -46,6 +52,6 @@ ppsd:
   ports:
     - "651:651"
   links:
-    - rethink
     - etcd
     - pfsd
+    - rethink
