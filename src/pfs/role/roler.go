@@ -28,19 +28,18 @@ func (r *roler) Cancel() {
 	close(r.cancel)
 }
 
-func (r *roler) isMaster(shard int, shardToMasterAddress map[int]string) bool {
+func (r *roler) hasRoleForShard(shard int, shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) bool {
 	address, ok := shardToMasterAddress[shard]
-	return ok && address == r.localAddress
-}
-
-func (r *roler) isReplica(shard int, shardToReplicaAddress map[int]map[int]string) bool {
-	addresses, ok := shardToReplicaAddress[shard]
-	if !ok {
-		return false
+	if ok && address == r.localAddress {
+		return true
 	}
-	for _, address := range addresses {
-		if address == r.localAddress {
-			return true
+
+	addresses, ok := shardToReplicaAddress[shard]
+	if ok {
+		for _, address := range addresses {
+			if address == r.localAddress {
+				return true
+			}
 		}
 	}
 	return false
@@ -49,7 +48,7 @@ func (r *roler) isReplica(shard int, shardToReplicaAddress map[int]map[int]strin
 func (r *roler) openMasterRole(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (int, bool) {
 	for _, i := range rand.Perm(r.sharder.NumShards()) {
 		_, ok := shardToMasterAddress[i]
-		if !ok && !r.isReplica(i, shardToReplicaAddress) {
+		if !ok && !r.hasRoleForShard(i, shardToMasterAddress, shardToReplicaAddress) {
 			return i, true
 		}
 	}
@@ -59,7 +58,7 @@ func (r *roler) openMasterRole(shardToMasterAddress map[int]string, shardToRepli
 func (r *roler) openReplicaRole(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (int, int, bool) {
 	for _, shard := range rand.Perm(r.sharder.NumShards()) {
 		addresses := shardToReplicaAddress[shard]
-		if len(addresses) < r.numReplicas && !r.isMaster(shard, shardToMasterAddress) {
+		if len(addresses) < r.numReplicas && !r.hasRoleForShard(shard, shardToMasterAddress, shardToReplicaAddress) {
 			for _, index := range rand.Perm(r.numReplicas) {
 				if _, ok := addresses[index]; !ok {
 					return shard, index, true
@@ -83,7 +82,7 @@ func (r *roler) randomMasterRole(
 	// Note we only depend on the randomness for performance reason, this code
 	// is all still correct if the order isn't random.
 	for shard, address := range shardToMasterAddress {
-		if address == maxAddress && !r.isReplica(shard, shardToReplicaAddress) {
+		if address == maxAddress && !r.hasRoleForShard(shard, shardToMasterAddress, shardToReplicaAddress) {
 			return shard, true
 		}
 	}
@@ -97,7 +96,7 @@ func (r *roler) randomReplicaRole(
 ) (int, int, bool) {
 	for shard, addresses := range shardToReplicaAddress {
 		for index, address := range addresses {
-			if address == address && !r.isMaster(shard, shardToMasterAddress) {
+			if address == address && !r.hasRoleForShard(shard, shardToMasterAddress, shardToReplicaAddress) {
 				return shard, index, true
 			}
 		}
