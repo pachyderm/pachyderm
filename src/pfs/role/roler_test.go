@@ -15,25 +15,36 @@ import (
 )
 
 const (
-	testNumShards  = 128
-	testNumServers = 8
+	testNumShards  = 8
+	testNumServers = 4
 )
 
-func TestRoler(t *testing.T) {
+func TestMasterOnlyRoler(t *testing.T) {
 	client, err := getEtcdClient()
 	require.NoError(t, err)
-	runTest(t, client)
+	runMasterOnlyTest(t, client)
+}
+
+func TestMasterReplicaRoler(t *testing.T) {
+	client, err := getEtcdClient()
+	require.NoError(t, err)
+	runMasterReplicaTest(t, client)
 }
 
 type server struct {
 	roles map[int]string
+	t     *testing.T
 }
 
 func (s *server) Master(shard int) error {
+	role, ok := s.roles[shard]
+	require.False(s.t, ok, "Master %d assigned when we're already %s for it.", shard, role)
 	s.roles[shard] = "master"
 	return nil
 }
 func (s *server) Replica(shard int) error {
+	role, ok := s.roles[shard]
+	require.False(s.t, ok, "Replica %d assigned when we're already %s for it.", shard, role)
 	s.roles[shard] = "replica"
 	return nil
 }
@@ -42,8 +53,8 @@ func (s *server) Clear(shard int) error {
 	return nil
 }
 
-func newServer() *server {
-	return &server{make(map[int]string)}
+func newServer(t *testing.T) *server {
+	return &server{make(map[int]string), t}
 }
 
 type serverGroup struct {
@@ -52,12 +63,12 @@ type serverGroup struct {
 	offset  int
 }
 
-func NewServerGroup(addresser route.Addresser, numServers int, offset int) *serverGroup {
+func NewServerGroup(t *testing.T, addresser route.Addresser, numServers int, offset int, numReplicas int) *serverGroup {
 	sharder := route.NewSharder(testNumShards)
 	serverGroup := serverGroup{offset: offset}
 	for i := 0; i < numServers; i++ {
-		serverGroup.servers = append(serverGroup.servers, newServer())
-		serverGroup.rolers = append(serverGroup.rolers, NewRoler(addresser, sharder, serverGroup.servers[i], fmt.Sprintf("server-%d", i+offset)))
+		serverGroup.servers = append(serverGroup.servers, newServer(t))
+		serverGroup.rolers = append(serverGroup.rolers, NewRoler(addresser, sharder, serverGroup.servers[i], fmt.Sprintf("server-%d", i+offset), numReplicas))
 	}
 	return &serverGroup
 }
@@ -81,17 +92,18 @@ func (s *serverGroup) cancel() {
 }
 
 func (s *serverGroup) satisfied(rolesLen int) bool {
+	result := true
 	for _, server := range s.servers {
 		if len(server.roles) != rolesLen {
-			return false
+			result = false
 		}
 	}
-	return true
+	return result
 }
 
-func runTest(t *testing.T, client discovery.Client) {
-	addresser := route.NewDiscoveryAddresser(client, "TestRoler")
-	serverGroup1 := NewServerGroup(addresser, testNumServers/2, 0)
+func runMasterOnlyTest(t *testing.T, client discovery.Client) {
+	addresser := route.NewDiscoveryAddresser(client, "TestMasterOnlyRoler")
+	serverGroup1 := NewServerGroup(t, addresser, testNumServers/2, 0, 0)
 	go serverGroup1.run(t)
 	start := time.Now()
 	for !serverGroup1.satisfied(testNumShards / (testNumServers / 2)) {
@@ -101,7 +113,7 @@ func runTest(t *testing.T, client discovery.Client) {
 		}
 	}
 
-	serverGroup2 := NewServerGroup(addresser, testNumServers/2, testNumServers/2)
+	serverGroup2 := NewServerGroup(t, addresser, testNumServers/2, testNumServers/2, 0)
 	go serverGroup2.run(t)
 	start = time.Now()
 	for !serverGroup1.satisfied(testNumShards/testNumServers) || !serverGroup2.satisfied(testNumShards/testNumServers) {
@@ -115,6 +127,19 @@ func runTest(t *testing.T, client discovery.Client) {
 	for !serverGroup2.satisfied(testNumShards / (testNumServers / 2)) {
 		time.Sleep(500 * time.Millisecond)
 		if time.Since(start) > time.Second*time.Duration(60) {
+			t.Fatal("test timed out")
+		}
+	}
+}
+
+func runMasterReplicaTest(t *testing.T, client discovery.Client) {
+	addresser := route.NewDiscoveryAddresser(client, "TestMasterReplicaRoler")
+	serverGroup1 := NewServerGroup(t, addresser, testNumServers, 0, 3)
+	go serverGroup1.run(t)
+	start := time.Now()
+	for !serverGroup1.satisfied((testNumShards * 4) / testNumServers) {
+		time.Sleep(500 * time.Millisecond)
+		if time.Since(start) > time.Second*time.Duration(30) {
 			t.Fatal("test timed out")
 		}
 	}

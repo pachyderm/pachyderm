@@ -21,6 +21,6 @@ type Server interface {
 	Clear(shard int) error
 }
 
-func NewRoler(addresser route.Addresser, sharder route.Sharder, server Server, localAddress string) Roler {
-	return newRoler(addresser, sharder, server, localAddress)
+func NewRoler(addresser route.Addresser, sharder route.Sharder, server Server, localAddress string, numReplicas int) Roler {
+	return newRoler(addresser, sharder, server, localAddress, numReplicas)
 }

@@ -26,7 +26,7 @@ type Client interface {
 	// ttl is in seconds.
 	Create(key string, value string, ttl uint64) (uint64, error)
 	// CreateInDir is like Set but it generates a key inside dir.
-	CreateInDir(dir string, value string, ttl uint64) (uint64, string, error)
+	CreateInDir(dir string, value string, ttl uint64) (uint64, error)
 	// CheckAndSet is like Set but only succeeds if the key is already set to oldValue.
 	// ttl is in seconds.
 	CheckAndSet(key string, value string, ttl uint64, oldValue string) (uint64, error)
