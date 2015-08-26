@@ -2,7 +2,6 @@ package discovery
 
 import (
 	"fmt"
-	"path"
 	"strings"
 	"time"
 
@@ -138,12 +137,12 @@ func (c *etcdClient) Create(key string, value string, ttl uint64) (uint64, error
 	return response.Node.ModifiedIndex, nil
 }
 
-func (c *etcdClient) CreateInDir(dir string, value string, ttl uint64) (uint64, string, error) {
+func (c *etcdClient) CreateInDir(dir string, value string, ttl uint64) (uint64, error) {
 	response, err := c.client.CreateInOrder(dir, value, ttl)
 	if err != nil {
-		return 0, "", err
+		return 0, err
 	}
-	return response.Node.ModifiedIndex, path.Base(response.Node.Key), nil
+	return response.Node.ModifiedIndex, nil
 }
 
 func (c *etcdClient) Delete(key string) (uint64, error) {
