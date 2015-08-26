@@ -8,9 +8,8 @@ package pfs;
 
 // CommitType represents the type of commit.
 enum CommitType {
-  COMMIT_TYPE_NONE = 0;
-  COMMIT_TYPE_READ = 1;
-  COMMIT_TYPE_WRITE = 2;
+  COMMIT_TYPE_READ = 0;
+  COMMIT_TYPE_WRITE = 1;
 }
 
 // FileType represents a type of file from ListFiles.

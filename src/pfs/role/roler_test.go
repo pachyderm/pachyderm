@@ -26,7 +26,6 @@ func TestMasterOnlyRoler(t *testing.T) {
 }
 
 func TestMasterReplicaRoler(t *testing.T) {
-	t.Skip()
 	client, err := getEtcdClient()
 	require.NoError(t, err)
 	runMasterReplicaTest(t, client)
