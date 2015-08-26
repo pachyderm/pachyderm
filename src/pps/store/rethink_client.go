@@ -148,6 +148,7 @@ func (c *rethinkClient) GetPipelineRunStatusLatest(id string) (*pps.PipelineRunS
 		GetAllByIndex("pipeline_run_id", id).
 		OrderBy(gorethink.Desc("timestamp")).
 		Nth(0).
+		Without("id").
 		ToJSON().
 		Run(c.session)
 	if err != nil {
