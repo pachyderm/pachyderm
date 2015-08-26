@@ -1,7 +1,6 @@
 package role
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 
@@ -144,6 +143,36 @@ func (r *roler) maxCount(counts map[string]int) (string, int) {
 	return address, result
 }
 
+func (r *roler) beMaster(shard int, prevAddress string) (uint64, error) {
+	modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, prevAddress)
+	if err != nil {
+		return 0, nil
+	}
+	if err := r.server.Master(shard); err != nil {
+		return 0, err
+	}
+	go func() {
+		r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
+		r.server.Clear(shard)
+	}()
+	return modifiedIndex, nil
+}
+
+func (r *roler) beReplica(shard int, index int, prevAddress string) (uint64, error) {
+	modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, index, r.localAddress, prevAddress)
+	if err != nil {
+		return 0, nil
+	}
+	if err := r.server.Replica(shard); err != nil {
+		return 0, err
+	}
+	go func() {
+		r.addresser.HoldReplicaAddress(shard, index, r.localAddress, r.cancel)
+		r.server.Clear(shard)
+	}()
+	return modifiedIndex, nil
+}
+
 func (r *roler) findRole(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (uint64, error) {
 	counts := make(map[string]int)
 	r.masterCounts(shardToMasterAddress, counts)
@@ -158,35 +187,13 @@ func (r *roler) findRole(shardToMasterAddress map[int]string, shardToReplicaAddr
 	// slots.
 	shard, ok := r.openMasterRole(shardToMasterAddress, shardToReplicaAddress)
 	if ok {
-		modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, "")
-		if err != nil {
-			return 0, nil
-		}
-		if err := r.server.Master(shard); err != nil {
-			return 0, err
-		}
-		go func() {
-			r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
-			r.server.Clear(shard)
-		}()
-		return modifiedIndex, nil
+		return r.beMaster(shard, "")
 	}
 
 	// No open masters found. Next we look for unclaimed replica roles.
 	shard, index, ok := r.openReplicaRole(shardToMasterAddress, shardToReplicaAddress)
 	if ok {
-		modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, index, r.localAddress, "")
-		if err != nil {
-			return 0, nil
-		}
-		if err := r.server.Replica(shard); err != nil {
-			return 0, err
-		}
-		go func() {
-			r.addresser.HoldReplicaAddress(shard, index, r.localAddress, r.cancel)
-			r.server.Clear(shard)
-		}()
-		return modifiedIndex, nil
+		return r.beReplica(shard, index, "")
 	}
 
 	// No unclaimed roles were found. Next we check if there's someone in the
@@ -198,40 +205,14 @@ func (r *roler) findRole(shardToMasterAddress map[int]string, shardToReplicaAddr
 		// replicas is less disruptive to the cluster.
 		shard, index, ok = r.randomReplicaRole(maxAddress, shardToMasterAddress, shardToReplicaAddress)
 		if ok {
-			modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, index, r.localAddress, maxAddress)
-			if err != nil {
-				return 0, nil
-			}
-			if err := r.server.Replica(shard); err != nil {
-				return 0, err
-			}
-			go func() {
-				r.addresser.HoldReplicaAddress(shard, index, r.localAddress, r.cancel)
-				r.server.Clear(shard)
-			}()
-			return modifiedIndex, nil
+			return r.beReplica(shard, index, maxAddress)
 		}
 
 		// Lastly we steal a master role
 		shard, ok = r.randomMasterRole(maxAddress, shardToMasterAddress, shardToReplicaAddress)
-		if !ok {
-			// If we get to here it means that somehow this shard was the
-			// maxAddress but didn't have a single role that could be stolen.
-			// This likely means programmer error in this file.
-			return 0, fmt.Errorf("pachyderm: unreachable, randomMasterRole should always return ok")
+		if ok {
+			return r.beMaster(shard, maxAddress)
 		}
-		modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, maxAddress)
-		if err != nil {
-			return 0, nil
-		}
-		if err := r.server.Master(shard); err != nil {
-			return 0, err
-		}
-		go func() {
-			r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
-			r.server.Clear(shard)
-		}()
-		return modifiedIndex, nil
 	}
 	return 0, nil
 }
