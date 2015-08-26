@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	marshaller = &jsonpb.Marshaller{}
+	marshaller = &jsonpb.Marshaler{}
 )
 
 // InitDBs prepares a RethinkDB instance to be used by rethinkClient.
