@@ -47,6 +47,7 @@ install: deps
 
 docker-build-test:
 	$(NOCACHE_CMD)
+	docker-compose build btrfs
 	docker-compose build test
 	mkdir -p /tmp/pachyderm-test
 
@@ -101,6 +102,8 @@ docker-clean-test:
 	docker-compose rm -f rethink
 	docker-compose kill etcd
 	docker-compose rm -f etcd
+	docker-compose kill btrfs
+	docker-compose rm -f btrfs
 
 docker-clean-launch: docker-clean-test
 	docker-compose kill pfsd
@@ -109,13 +112,13 @@ docker-clean-launch: docker-clean-test
 	docker-compose rm -f ppsd
 
 test: pretest docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-setup.sh && go test -test.short $(TESTFLAGS) $(TESTPKGS)"
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test -test.short $(TESTFLAGS) $(TESTPKGS)"
 
 test-pfs-extra: pretest docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-setup.sh && go test $(TESTFLAGS) ./src/pfs/server"
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pfs/server"
 
 test-pps-extra: pretest docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-setup.sh && go test $(TESTFLAGS) ./src/pps/server"
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pps/server"
 
 clean: docker-clean-launch
 	go clean ./...
