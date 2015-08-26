@@ -17,7 +17,7 @@ if [ -n "${PFS_MOUNT_EXAMPLE}" ]; then
   commit_id="$(run pfs branch test-repository scratch)"
   echo "${commit_id}"
   echo hello | pfs put test-repository "${commit_id}" foo.txt
-  run pfs commit "${commit_id}"
+  run pfs commit test-repository "${commit_id}"
   cd /in
   run pfs mount test-repository &
   run sleep 1
@@ -27,7 +27,7 @@ elif [ -n "${PFS_CLIENT_EXAMPLE}" ]; then
     echo "no /watch/touch yet, sleeping..."
     sleep 1
   done
-  run ls /in
+  run ls -R /in
 else
   kill_pfs_example_mount
   run_make launch-pfsd
