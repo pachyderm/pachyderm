@@ -21,12 +21,14 @@ if [ -n "${PFS_MOUNT_EXAMPLE}" ]; then
   cd /in
   run pfs mount test-repository &
   run sleep 1
+  run ls -R /in
   run touch /watch/touch
 elif [ -n "${PFS_CLIENT_EXAMPLE}" ]; then
   while [ ! -f '/watch/touch' ]; do
     echo "no /watch/touch yet, sleeping..."
     sleep 1
   done
+  sleep 3
   run ls -R /in
 else
   kill_pfs_example_mount
@@ -45,5 +47,5 @@ else
     --volumes-from pfs_example_mount \
     pachyderm_compile \
     bash "etc/examples/$(basename "${0}")"
-  kill_pfs_example_mount
+  #kill_pfs_example_mount
 fi
