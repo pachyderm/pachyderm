@@ -22,33 +22,12 @@ func newRoler(addresser route.Addresser, sharder route.Sharder, server Server, l
 }
 
 func (r *roler) Run() error {
-	return r.addresser.WatchShardToAddress(
-		r.cancel,
-		func(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (uint64, error) {
-			modifiedIndex, ok, err := r.findMasterRole(shardToMasterAddress)
-			if err != nil {
-				return 0, err
-			}
-			if ok {
-				return modifiedIndex, err
-			}
-			modifiedIndex, ok, err = r.findReplicaRole(shardToReplicaAddress)
-			if err != nil {
-				return 0, err
-			}
-			if ok {
-				return modifiedIndex, err
-			}
-			return 0, nil
-		},
-	)
+	return r.addresser.WatchShardToAddress(r.cancel, r.findRole)
 }
 
 func (r *roler) Cancel() {
 	close(r.cancel)
 }
-
-type counts map[string]int
 
 func (r *roler) openMasterRole(shardToMasterAddress map[int]string) (int, bool) {
 	for _, i := range rand.Perm(r.sharder.NumShards()) {
@@ -99,25 +78,21 @@ func (r *roler) randomReplicaRole(address string, shardToReplicaAddress map[int]
 	return 0, 0, false
 }
 
-func (r *roler) masterCounts(shardToMasterAddress map[int]string) counts {
-	result := make(map[string]int)
+func (r *roler) masterCounts(shardToMasterAddress map[int]string, out map[string]int) {
 	for _, address := range shardToMasterAddress {
-		result[address]++
+		out[address]++
 	}
-	return result
 }
 
-func (r *roler) replicaCounts(shardToReplicaAddress map[int]map[int]string) counts {
-	result := make(map[string]int)
+func (r *roler) replicaCounts(shardToReplicaAddress map[int]map[int]string, out map[string]int) {
 	for _, addresses := range shardToReplicaAddress {
 		for _, address := range addresses {
-			result[address]++
+			out[address]++
 		}
 	}
-	return result
 }
 
-func (r *roler) minCount(counts counts) (string, int) {
+func (r *roler) minCount(counts map[string]int) (string, int) {
 	address := ""
 	result := math.MaxInt64
 	for iAddress, count := range counts {
@@ -129,7 +104,7 @@ func (r *roler) minCount(counts counts) (string, int) {
 	return address, result
 }
 
-func (r *roler) maxCount(counts counts) (string, int) {
+func (r *roler) maxCount(counts map[string]int) (string, int) {
 	address := ""
 	result := 0
 	for iAddress, count := range counts {
@@ -141,100 +116,94 @@ func (r *roler) maxCount(counts counts) (string, int) {
 	return address, result
 }
 
-func (r *roler) findMasterRole(shardToMasterAddress map[int]string) (uint64, bool, error) {
-	counts := r.masterCounts(shardToMasterAddress)
+func (r *roler) findRole(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (uint64, error) {
+	counts := make(map[string]int)
+	r.masterCounts(shardToMasterAddress, counts)
+	r.replicaCounts(shardToReplicaAddress, counts)
 	_, min := r.minCount(counts)
 	if counts[r.localAddress] > min {
 		// someone else has fewer roles than us let them claim them
-		return 0, false, nil
+		return 0, nil
 	}
+	// No server has fewer roles than us, that means it's our turn to claim a role.
+	// We start with the most important thing for the cluster, unclaimed master
+	// slots.
 	shard, ok := r.openMasterRole(shardToMasterAddress)
 	if ok {
 		modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, "")
 		if err != nil {
-			// error from ClaimMasterAddress means our change raced with someone else's,
-			// we want to try again so we return nil
-			return 0, false, nil
+			return 0, nil
 		}
 		if err := r.server.Master(shard); err != nil {
-			return 0, false, err
+			return 0, err
 		}
 		go func() {
 			r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
 			r.server.Clear(shard)
 		}()
-		return modifiedIndex, true, nil
+		return modifiedIndex, nil
 	}
 
-	maxAddress, max := r.maxCount(counts)
-	if counts[r.localAddress]+1 <= max-1 {
-		shard, ok = r.randomMasterRole(maxAddress, shardToMasterAddress)
-		if !ok {
-			return 0, false, fmt.Errorf("pachyderm: unreachable, randomMasterRole should always return ok")
-		}
-		modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, maxAddress)
-		if err != nil {
-			// error from ClaimMasterAddress means our change raced with someone else's,
-			// we want to try again so we return nil
-			return 0, false, nil
-		}
-		if err := r.server.Master(shard); err != nil {
-			return 0, false, err
-		}
-		go func() {
-			r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
-			r.server.Clear(shard)
-		}()
-		return modifiedIndex, true, nil
-	}
-	return 0, false, nil
-}
-
-func (r *roler) findReplicaRole(shardToReplicaAddress map[int]map[int]string) (uint64, bool, error) {
-	counts := r.replicaCounts(shardToReplicaAddress)
-	_, min := r.minCount(counts)
-	if counts[r.localAddress] > min {
-		// someone else has fewer roles than us let them claim them
-		return 0, false, nil
-	}
+	// No open masters found. Next we look for unclaimed replica roles.
 	shard, index, ok := r.openReplicaRole(shardToReplicaAddress)
 	if ok {
 		modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, index, r.localAddress, "")
 		if err != nil {
-			// error from ClaimReplicaAddress means our change raced with someone else's,
-			// we want to try again so we return nil
-			return 0, false, nil
+			return 0, nil
 		}
 		if err := r.server.Replica(shard); err != nil {
-			return 0, false, err
+			return 0, err
 		}
 		go func() {
 			r.addresser.HoldReplicaAddress(shard, index, r.localAddress, r.cancel)
 			r.server.Clear(shard)
 		}()
-		return modifiedIndex, true, nil
+		return modifiedIndex, nil
 	}
 
+	// No unclaimed roles were found. Next we check if there's someone in the
+	// cluster we could steal from.
+	// First we find out who the most role rich server is.
 	maxAddress, max := r.maxCount(counts)
 	if counts[r.localAddress]+1 <= max-1 {
+		// When stealing we consider replica shards first because migrating
+		// replicas is less disruptive to the cluster.
 		shard, index, ok = r.randomReplicaRole(maxAddress, shardToReplicaAddress)
+		if ok {
+			modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, index, r.localAddress, maxAddress)
+			if err != nil {
+				return 0, nil
+			}
+			if err := r.server.Replica(shard); err != nil {
+				return 0, err
+			}
+			go func() {
+				r.addresser.HoldReplicaAddress(shard, index, r.localAddress, r.cancel)
+				r.server.Clear(shard)
+			}()
+			return modifiedIndex, nil
+		}
+
+		// Lastly we steal a master role
+		shard, ok = r.randomMasterRole(maxAddress, shardToMasterAddress)
 		if !ok {
-			return 0, false, fmt.Errorf("pachyderm: unreachable, randomReplicaRole should always return ok")
+			// If we get to here it means that somehow this shard was the
+			// maxAddress but didn't have a single role that could be stolen.
+			// This likely means programmer error in this file.
+			return 0, fmt.Errorf("pachyderm: unreachable, randomMasterRole should always return ok")
 		}
-		modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, index, r.localAddress, maxAddress)
+		modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, maxAddress)
 		if err != nil {
-			// error from ClaimReplicaAddress means our change raced with someone else's,
-			// we want to try again so we return nil
-			return 0, false, nil
+			return 0, nil
 		}
-		if err := r.server.Replica(shard); err != nil {
-			return 0, false, err
+		if err := r.server.Master(shard); err != nil {
+			return 0, err
 		}
 		go func() {
-			r.addresser.HoldReplicaAddress(shard, index, r.localAddress, r.cancel)
+			r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
 			r.server.Clear(shard)
 		}()
-		return modifiedIndex, true, nil
+		return modifiedIndex, nil
 	}
-	return 0, false, nil
+	return 0, nil
 }
