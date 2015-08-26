@@ -56,6 +56,7 @@ docker-build-compile:
 	docker-compose build compile
 
 docker-build-pfsd: docker-build-compile
+	docker-compose build btrfs
 	docker-compose run compile sh etc/compile/compile.sh pfsd
 
 docker-build-ppsd: docker-build-compile
