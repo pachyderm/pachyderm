@@ -316,7 +316,7 @@ func (d *driver) ListCommits(repository *pfs.Repository, shard int) (_ []*pfs.Co
 			// This is a really weird error to get since we got this commit
 			// name by listing commits. This is probably indicative of a
 			// race condition.
-			return nil, fmt.Errorf("Commit not found.")
+			return nil, fmt.Errorf("Commit %s not found.", commitID)
 		}
 		if err != nil {
 			return nil, err
@@ -520,14 +520,20 @@ func (c *commitScanner) Commit() string {
 
 func (c *commitScanner) parseCommit(listLine string) (string, bool) {
 	// listLine looks like:
-	// ID 905 gen 865 top level 5 path <FS_TREE>/repo/commit
+	// ID 905 gen 865 top level 5 path <FS_TREE>/[namespace/]repo/commit
 	// 0  1   2   3   4   5     6 7    8
 	tokens := strings.Split(c.textScanner.Text(), " ")
 	if len(tokens) != 9 {
 		return "", false
 	}
-	if strings.HasPrefix(tokens[8], filepath.Join("<FS_TREE>", c.namespace, c.repository)) && len(strings.Split(tokens[8], "/")) == 4 {
-		return strings.Split(tokens[8], "/")[3], true
+	if c.namespace == "" {
+		if strings.HasPrefix(tokens[8], filepath.Join("<FS_TREE>", c.repository)) && len(strings.Split(tokens[8], "/")) == 3 {
+			return strings.Split(tokens[8], "/")[2], true
+		}
+	} else {
+		if strings.HasPrefix(tokens[8], filepath.Join("<FS_TREE>", c.namespace, c.repository)) && len(strings.Split(tokens[8], "/")) == 4 {
+			return strings.Split(tokens[8], "/")[3], true
+		}
 	}
 	return "", false
 }
