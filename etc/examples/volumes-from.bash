@@ -22,6 +22,9 @@ if [ -n "${PFS_MOUNT_EXAMPLE}" ]; then
   run sleep 1
   run ls -R /in
   run touch /watch/touch
+  while [ 1 ]; do
+    sleep 5
+  done
 elif [ -n "${PFS_CLIENT_EXAMPLE}" ]; then
   while [ ! -f '/watch/touch' ]; do
     echo "no /watch/touch yet, sleeping..."
