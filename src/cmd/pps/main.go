@@ -24,7 +24,8 @@ var (
 )
 
 type appEnv struct {
-	Address string `env:"PPS_ADDRESS"`
+	PachydermPpsd1Port string `env:"PACHYDERM_PPSD_1_PORT"`
+	Address            string `env:"PPS_ADDRESS"`
 }
 
 func main() {
@@ -34,7 +35,13 @@ func main() {
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 
-	clientConn, err := grpc.Dial(appEnv.Address)
+	address := appEnv.PachydermPpsd1Port
+	if address == "" {
+		address = appEnv.Address
+	} else {
+		address = strings.Replace(address, "tcp://", "", -1)
+	}
+	clientConn, err := grpc.Dial(address)
 	if err != nil {
 		return err
 	}

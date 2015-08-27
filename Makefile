@@ -59,16 +59,22 @@ docker-build-pfsd: docker-build-compile
 	docker-compose build btrfs
 	docker-compose run compile sh etc/compile/compile.sh pfsd
 
+docker-build-pfsmount: docker-build-compile
+	docker-compose run compile sh etc/compile/compile.sh pfsmount
+
 docker-build-ppsd: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh ppsd
 
 docker-push-pfsd: docker-build-pfsd
 	docker push pachyderm/pfsd
 
+docker-push-pfsmount: docker-build-pfsmount
+	docker push pachyderm/pfsmount
+
 docker-push-ppsd: docker-build-ppsd
 	docker push pachyderm/ppsd
 
-docker-push: docker-push-ppsd docker-push-pfsd
+docker-push: docker-push-ppsd docker-push-pfsd docker-push-pfsmount
 
 run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
@@ -125,6 +131,7 @@ clean: docker-clean-launch
 	go clean ./...
 	rm -f src/cmd/pfs/pfs
 	rm -f src/cmd/pfsd/pfsd
+	rm -f src/cmd/pfsmount/pfsmount
 	rm -f src/cmd/pps/pps
 	rm -f src/cmd/ppsd/ppsd
 
@@ -147,8 +154,10 @@ start-kube:
 	docker-build-test \
 	docker-build-compile \
 	docker-build-pfsd \
+	docker-build-pfsmount \
 	docker-build-ppsd \
 	docker-push-pfsd \
+	docker-push-pfsmount \
 	docker-push-ppsd \
 	docker-push \
 	run \
