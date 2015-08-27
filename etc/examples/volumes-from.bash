@@ -39,6 +39,7 @@ else
     --link pachyderm_pfsd_1 \
     --volume '/in' \
     --volume '/watch' \
+    --privileged \
     -d \
     pachyderm_compile \
       bash "etc/examples/$(basename "${0}")"
