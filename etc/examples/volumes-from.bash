@@ -11,7 +11,6 @@ kill_pfs_example_mount() {
 }
 
 if [ -n "${PFS_MOUNT_EXAMPLE}" ]; then
-  export PFS_ADDRESS="$(echo "${PACHYDERM_PFSD_1_PORT}" | sed "s/tcp:\/\///")"
   run_make install
   run pfs init test-repository
   commit_id="$(run pfs branch test-repository scratch)"

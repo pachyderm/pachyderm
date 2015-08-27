@@ -15,7 +15,9 @@ RUN \
     git \
     libssl-dev \
     pkg-config \
-    mercurial
+    mercurial && \
+  apt-get clean && \
+  rm -rf /var/lib/apt
 RUN \
   curl -sSL https://storage.googleapis.com/golang/go1.5rc1.linux-amd64.tar.gz | tar -C /usr/local -xz && \
   mkdir -p /go/bin
