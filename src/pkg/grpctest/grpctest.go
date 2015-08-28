@@ -84,7 +84,7 @@ func (g *grpcSuite) SetupSuite() {
 	}()
 	g.clientConns = make(map[string]*grpc.ClientConn)
 	for address := range g.servers {
-		clientConn, err := grpc.Dial(address)
+		clientConn, err := grpc.Dial(address, grpc.WithInsecure())
 		if err != nil {
 			g.TearDownSuite()
 			require.NoError(g.T(), err)
