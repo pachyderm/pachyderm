@@ -32,7 +32,7 @@ func do(appEnvObj interface{}) error {
 		}
 		address = strings.Replace(appEnv.PachydermPfsd1Port, "tcp://", "", -1)
 	}
-	clientConn, err := grpc.Dial(address)
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return err
 	}

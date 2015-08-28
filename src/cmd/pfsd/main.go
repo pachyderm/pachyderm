@@ -71,7 +71,9 @@ func do(appEnvObj interface{}) error {
 		),
 		route.NewRouter(
 			addresser,
-			grpcutil.NewDialer(),
+			grpcutil.NewDialer(
+				grpc.WithInsecure(),
+			),
 			address,
 		),
 		driver,

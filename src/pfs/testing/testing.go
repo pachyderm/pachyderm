@@ -123,7 +123,9 @@ func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[s
 			),
 			route.NewRouter(
 				addresser,
-				grpcutil.NewDialer(),
+				grpcutil.NewDialer(
+					grpc.WithInsecure(),
+				),
 				address,
 			),
 			getDriver(tb, address),

@@ -102,7 +102,7 @@ func getPfsAPIClient(address string) (pfs.ApiClient, error) {
 			return nil, err
 		}
 	}
-	clientConn, err := grpc.Dial(address)
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
