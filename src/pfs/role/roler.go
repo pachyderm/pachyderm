@@ -1,6 +1,7 @@
 package role
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 
@@ -212,6 +213,7 @@ func (r *roler) findRole(shardToMasterAddress map[int]string, shardToReplicaAddr
 		if ok {
 			return r.beMaster(shard, maxAddress)
 		}
+		return 0, fmt.Errorf("Error we need to be able to find a role here.")
 	}
 	return 0, nil
 }

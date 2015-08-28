@@ -3,6 +3,7 @@ package role
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 	"testing"
@@ -15,8 +16,9 @@ import (
 )
 
 const (
-	testNumShards  = 8
-	testNumServers = 4
+	testNumShards   = 4
+	testNumServers  = 4
+	testNumReplicas = 1
 )
 
 func TestMasterOnlyRoler(t *testing.T) {
@@ -26,6 +28,7 @@ func TestMasterOnlyRoler(t *testing.T) {
 }
 
 func TestMasterReplicaRoler(t *testing.T) {
+	t.Skip()
 	client, err := getEtcdClient()
 	require.NoError(t, err)
 	runMasterReplicaTest(t, client)
@@ -49,6 +52,7 @@ func (s *server) Replica(shard int) error {
 	return nil
 }
 func (s *server) Clear(shard int) error {
+	log.Printf("Clear %d", shard)
 	delete(s.roles, shard)
 	return nil
 }
@@ -133,13 +137,35 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 }
 
 func runMasterReplicaTest(t *testing.T, client discovery.Client) {
+	log.Print("==Start group 1==")
 	addresser := route.NewDiscoveryAddresser(client, "TestMasterReplicaRoler")
-	serverGroup1 := NewServerGroup(t, addresser, testNumServers, 0, 3)
+	serverGroup1 := NewServerGroup(t, addresser, testNumServers/2, 0, testNumReplicas)
 	go serverGroup1.run(t)
 	start := time.Now()
-	for !serverGroup1.satisfied((testNumShards * 4) / testNumServers) {
+	for !serverGroup1.satisfied((testNumShards * (testNumReplicas + 1)) / (testNumServers / 2)) {
 		time.Sleep(500 * time.Millisecond)
 		if time.Since(start) > time.Second*time.Duration(30) {
+			t.Fatal("test timed out")
+		}
+	}
+
+	log.Print("==Start group 2==")
+	serverGroup2 := NewServerGroup(t, addresser, testNumServers/2, testNumServers/2, testNumReplicas)
+	go serverGroup2.run(t)
+	start = time.Now()
+	for !serverGroup1.satisfied((testNumShards*(testNumReplicas+1))/testNumServers) ||
+		!serverGroup2.satisfied((testNumShards*(testNumReplicas+1))/testNumServers) {
+		time.Sleep(time.Second)
+		if time.Since(start) > time.Second*time.Duration(60) {
+			t.Fatal("test timed out")
+		}
+	}
+
+	log.Print("==Cancel group 1==")
+	serverGroup1.cancel()
+	for !serverGroup2.satisfied((testNumShards * (testNumReplicas + 1)) / (testNumServers / 2)) {
+		time.Sleep(500 * time.Millisecond)
+		if time.Since(start) > time.Second*time.Duration(60) {
 			t.Fatal("test timed out")
 		}
 	}
