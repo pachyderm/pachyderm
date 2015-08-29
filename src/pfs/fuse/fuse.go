@@ -7,7 +7,8 @@ import (
 type Mounter interface {
 	// Mount mounts makes a repository available as a fuse filesystem at mountPoint
 	// If it succeeds Mount will block.
-	Mount(apiClient pfs.ApiClient, repositoryName string, mountPoint string, shard uint64, modulus uint64) error
+	// commitID is optional - if not passed, all commits will be mounted.
+	Mount(apiClient pfs.ApiClient, repositoryName string, commitID string, mountPoint string, shard uint64, modulus uint64) error
 	// Unmount unmounts a mounted filesystem (duh).
 	// There's nothing special about this unmount, it's just doing a syscall under the hood
 	Unmount(mountPoint string) error

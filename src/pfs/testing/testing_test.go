@@ -176,7 +176,7 @@ func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Inte
 	directory := "/compile/testMount"
 	mounter := fuse.NewMounter()
 	go func() {
-		err = mounter.Mount(apiClient, repositoryName, directory, 0, 1)
+		err = mounter.Mount(apiClient, repositoryName, directory, "", 0, 1)
 		require.NoError(t, err)
 	}()
 	mounter.Ready()
@@ -242,7 +242,7 @@ func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 	directory := "/compile/testMount"
 	mounter := fuse.NewMounter()
 	go func() {
-		err = mounter.Mount(apiClient, repositoryName, directory, 0, 1)
+		err = mounter.Mount(apiClient, repositoryName, "", directory, 0, 1)
 		require.NoError(t, err)
 	}()
 	mounter.Ready()
@@ -297,7 +297,7 @@ func benchMount(b *testing.B, apiClient pfs.ApiClient) {
 	directory := "/compile/benchMount"
 	mounter := fuse.NewMounter()
 	go func() {
-		if err := mounter.Mount(apiClient, repositoryName, directory, 0, 1); err != nil {
+		if err := mounter.Mount(apiClient, repositoryName, "", directory, 0, 1); err != nil {
 			b.Error(err)
 		}
 	}()

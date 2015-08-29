@@ -14,6 +14,7 @@ type appEnv struct {
 	PachydermPfsd1Port string `env:"PACHYDERM_PFSD_1_PORT"`
 	Address            string `env:"PFS_ADDRESS"`
 	Repository         string `env:"PFS_REPOSITORY,required"`
+	CommitID           string `env:"PFS_COMMIT_ID"`
 	Mountpoint         string `env:"PFS_MOUNTPOINT,required"`
 	Shard              uint64 `env:"PFS_SHARD,required"`
 	Modulus            uint64 `env:"PFS_MODULUS,required"`
@@ -39,6 +40,7 @@ func do(appEnvObj interface{}) error {
 	return fuse.NewMounter().Mount(
 		pfs.NewApiClient(clientConn),
 		appEnv.Repository,
+		appEnv.CommitID,
 		appEnv.Mountpoint,
 		appEnv.Shard,
 		appEnv.Modulus,

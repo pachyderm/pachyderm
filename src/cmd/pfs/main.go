@@ -157,11 +157,16 @@ func do(appEnvObj interface{}) error {
 	}.ToCobraCommand()
 
 	mountCmd := cobramainutil.Command{
-		Use:     "mount repository-name",
-		Long:    "Mount a repository as a local file system.",
-		NumArgs: 1,
+		Use:        "mount mountpoint repository-name [commit-id]",
+		Long:       "Mount a repository as a local file system.",
+		MinNumArgs: 2,
+		MaxNumArgs: 3,
 		Run: func(cmd *cobra.Command, args []string) error {
-			return fuse.NewMounter().Mount(apiClient, args[0], args[0], uint64(shard), uint64(modulus))
+			commitID := ""
+			if len(args) == 3 {
+				commitID = args[2]
+			}
+			return fuse.NewMounter().Mount(apiClient, args[1], commitID, args[0], uint64(shard), uint64(modulus))
 		},
 	}.ToCobraCommand()
 	mountCmd.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
