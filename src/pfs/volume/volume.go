@@ -1,10 +1,10 @@
 package volume
 
 import (
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"go.pedge.io/dockervolume"
 )
 
-func NewVolumeDriver(apiClient pfs.ApiClient) dockervolume.VolumeDriver {
-	return newVolumeDriver(apiClient)
+func NewVolumeDriver(mounter fuse.Mounter) dockervolume.VolumeDriver {
+	return newVolumeDriver(mounter)
 }
