@@ -34,6 +34,7 @@ update-test-deps:
 
 update-deps-list: test-deps
 	go get -v github.com/peter-edge/go-tools/go-external-deps
+	#GOOS=linux GOARCH=amd64 go-external-deps github.com/pachyderm/pachyderm etc/deps/deps.list
 	go-external-deps github.com/pachyderm/pachyderm etc/deps/deps.list
 
 install-git2go:
