@@ -37,12 +37,15 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	return fuse.NewMounter().Mount(
-		pfs.NewApiClient(clientConn),
+	mounter := fuse.NewMounter(pfs.NewApiClient(clientConn))
+	if err := mounter.Mount(
 		appEnv.Repository,
 		appEnv.CommitID,
 		appEnv.Mountpoint,
 		appEnv.Shard,
 		appEnv.Modulus,
-	)
+	); err != nil {
+		return err
+	}
+	return mounter.Wait(appEnv.Mountpoint)
 }

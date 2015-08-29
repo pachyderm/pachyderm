@@ -1,7 +1,9 @@
 package fuse
 
 import (
+	"fmt"
 	"os"
+	"sync"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -14,28 +16,39 @@ const (
 )
 
 type mounter struct {
-	ready chan bool
+	apiClient pfs.ApiClient
+
+	mountpointToErrChan map[string]<-chan error
+	lock                *sync.Mutex
 }
 
-func newMounter() Mounter {
-	return &mounter{make(chan bool)}
+func newMounter(apiClient pfs.ApiClient) Mounter {
+	return &mounter{
+		apiClient,
+		make(map[string]<-chan error),
+		&sync.Mutex{},
+	}
 }
 
 func (m *mounter) Mount(
-	apiClient pfs.ApiClient,
 	repositoryName string,
 	commitID string,
 	mountPoint string,
 	shard uint64,
 	modulus uint64,
 ) (retErr error) {
+	// TODO(pedge): should we make the caller do this?
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}
+	name := namePrefix + repositoryName
+	if commitID != "" {
+		name = name + "-" + commitID
+	}
 	conn, err := fuse.Mount(
 		mountPoint,
-		fuse.FSName(namePrefix+repositoryName),
-		fuse.VolumeName(namePrefix+repositoryName),
+		fuse.FSName(name),
+		fuse.VolumeName(name),
 		fuse.Subtype(subtype),
 		fuse.WritebackCache(),
 		fuse.MaxReadahead(1<<32-1),
@@ -43,17 +56,23 @@ func (m *mounter) Mount(
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := conn.Close(); err != nil && retErr == nil {
-			retErr = err
+	errChan := make(chan error, 1)
+	m.lock.Lock()
+	if _, ok := m.mountpointToErrChan[mountPoint]; ok {
+		m.lock.Unlock()
+		return fmt.Errorf("mountpoint %s already exists", mountPoint)
+	}
+	m.mountpointToErrChan[mountPoint] = errChan
+	m.lock.Unlock()
+	go func() {
+		err := fs.Serve(conn, newFilesystem(m.apiClient, repositoryName, commitID, shard, modulus))
+		closeErr := conn.Close()
+		if err != nil {
+			errChan <- err
+		} else {
+			errChan <- closeErr
 		}
 	}()
-	close(m.ready)
-	if err := fs.Serve(conn, newFilesystem(apiClient, repositoryName, commitID, shard, modulus)); err != nil {
-		return err
-	}
-
-	// check if the mount process has an error to report
 	<-conn.Ready
 	return conn.MountError
 }
@@ -62,6 +81,14 @@ func (m *mounter) Unmount(mountPoint string) error {
 	return fuse.Unmount(mountPoint)
 }
 
-func (m *mounter) Ready() {
-	<-m.ready
+func (m *mounter) Wait(mountPoint string) error {
+	m.lock.Lock()
+	errChan, ok := m.mountpointToErrChan[mountPoint]
+	if !ok {
+		m.lock.Unlock()
+		return fmt.Errorf("mountpoint %s does not exist", mountPoint)
+	}
+	delete(m.mountpointToErrChan, mountPoint)
+	m.lock.Unlock()
+	return <-errChan
 }

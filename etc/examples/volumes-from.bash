@@ -18,7 +18,7 @@ if [ -n "${PFS_MOUNT_EXAMPLE}" ]; then
   echo hello | pfs put test-repository "${commit_id}" foo.txt
   run pfs commit test-repository "${commit_id}"
   cd /in
-  run pfs mount test-repository &
+  run pfs mount /in test-repository "${commit_id}" &
   run sleep 1
   run ls -R /in
   run touch /watch/touch

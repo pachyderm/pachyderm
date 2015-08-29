@@ -5,17 +5,23 @@ import (
 )
 
 type Mounter interface {
-	// Mount mounts makes a repository available as a fuse filesystem at mountPoint
-	// If it succeeds Mount will block.
+	// Mount mounts a repository available as a fuse filesystem at mountPoint at the commitID.
 	// commitID is optional - if not passed, all commits will be mounted.
-	Mount(apiClient pfs.ApiClient, repositoryName string, commitID string, mountPoint string, shard uint64, modulus uint64) error
+	// Mount will not block and will return once mounted, or error otherwise.
+	Mount(
+		repositoryName string,
+		commitID string,
+		mountPoint string,
+		shard uint64,
+		modulus uint64,
+	) error
 	// Unmount unmounts a mounted filesystem (duh).
-	// There's nothing special about this unmount, it's just doing a syscall under the hood
+	// There's nothing special about this unmount, it's just doing a syscall under the hood.
 	Unmount(mountPoint string) error
-	// Ready blocks until the filesysyem has been mounted
-	Ready()
+	// Wait waits for the mountPoint to either have errored or be unmounted.
+	Wait(mountPoint string) error
 }
 
-func NewMounter() Mounter {
-	return newMounter()
+func NewMounter(apiClient pfs.ApiClient) Mounter {
+	return newMounter(apiClient)
 }
