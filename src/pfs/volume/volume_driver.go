@@ -2,10 +2,15 @@ package volume
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strconv"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/fuse"
+)
+
+const (
+	tempdirPrefix = "pfs-docker-volume"
 )
 
 type volume struct {
@@ -13,20 +18,22 @@ type volume struct {
 	commitID   string
 	shard      uint64
 	modulus    uint64
+	mountpoint string
+	lock       *sync.RWMutex
 }
 
 type volumeDriver struct {
-	apiClient pfs.ApiClient
+	mounter fuse.Mounter
 
 	nameToVolume map[string]*volume
-	lock         *sync.Mutex
+	lock         *sync.RWMutex
 }
 
-func newVolumeDriver(apiClient pfs.ApiClient) *volumeDriver {
+func newVolumeDriver(mounter fuse.Mounter) *volumeDriver {
 	return &volumeDriver{
-		apiClient,
+		mounter,
 		make(map[string]*volume),
-		&sync.Mutex{},
+		&sync.RWMutex{},
 	}
 }
 
@@ -60,28 +67,106 @@ func (v *volumeDriver) Create(name string, opts map[string]string) error {
 		commitID,
 		shard,
 		modulus,
+		"",
+		&sync.RWMutex{},
 	}
 	v.lock.Lock()
-	defer v.lock.Unlock()
 	if _, ok := v.nameToVolume[name]; ok {
+		v.lock.Unlock()
 		return fmt.Errorf("volume already exists: %s", name)
 	}
 	v.nameToVolume[name] = volume
+	v.lock.Unlock()
 	return nil
 }
 
 func (v *volumeDriver) Remove(name string) error {
+	v.lock.Lock()
+	volume, ok := v.nameToVolume[name]
+	if !ok {
+		v.lock.Unlock()
+		return fmt.Errorf("volume does not exist: %s", name)
+	}
+	delete(v.nameToVolume, name)
+	v.lock.Unlock()
+
+	volume.lock.RLock()
+	if volume.mountpoint != "" {
+		v.lock.Lock()
+		if _, ok := v.nameToVolume[name]; ok {
+			v.lock.Unlock()
+			return fmt.Errorf("volume already exists: %s", name)
+		}
+		v.nameToVolume[name] = volume
+		volume.lock.RUnlock()
+		v.lock.Unlock()
+		return fmt.Errorf("volume %s still has mountpoint %s", name, volume.mountpoint)
+	}
+	volume.lock.RUnlock()
 	return nil
 }
 
 func (v *volumeDriver) Path(name string) (string, error) {
-	return "", nil
+	v.lock.RLock()
+	volume, ok := v.nameToVolume[name]
+	if !ok {
+		v.lock.RUnlock()
+		return "", fmt.Errorf("volume does not exist: %s", name)
+	}
+	v.lock.RUnlock()
+	// TODO(pedge): should this return an error if volume.mountpoint == ""?
+	return volume.mountpoint, nil
 }
 
 func (v *volumeDriver) Mount(name string) (string, error) {
-	return "", nil
+	v.lock.RLock()
+	volume, ok := v.nameToVolume[name]
+	if !ok {
+		v.lock.RUnlock()
+		return "", fmt.Errorf("volume does not exist: %s", name)
+	}
+	v.lock.RUnlock()
+
+	volume.lock.Lock()
+	defer volume.lock.Unlock()
+	if volume.mountpoint != "" {
+		return "", fmt.Errorf("volume %s already mounted at %s", name, volume.mountpoint)
+	}
+	tempdir, err := ioutil.TempDir("", tempdirPrefix)
+	if err != nil {
+		return "", err
+	}
+	if err := v.mounter.Mount(
+		volume.repository,
+		volume.commitID,
+		tempdir,
+		volume.shard,
+		volume.modulus,
+	); err != nil {
+		return "", err
+	}
+	volume.mountpoint = tempdir
+	return tempdir, nil
 }
 
 func (v *volumeDriver) Unmount(name string) error {
-	return nil
+	v.lock.RLock()
+	volume, ok := v.nameToVolume[name]
+	if !ok {
+		v.lock.RUnlock()
+		return fmt.Errorf("volume does not exist: %s", name)
+	}
+	v.lock.RUnlock()
+
+	volume.lock.Lock()
+	defer volume.lock.Unlock()
+	if volume.mountpoint == "" {
+		return fmt.Errorf("volume %s not mounted", name)
+	}
+	mountpoint := volume.mountpoint
+	if err := v.mounter.Unmount(mountpoint); err != nil {
+		return err
+	}
+	volume.mountpoint = ""
+	return v.mounter.Wait(mountpoint)
 }
