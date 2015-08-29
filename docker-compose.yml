@@ -44,16 +44,6 @@ pfsd:
   links:
     - btrfs
     - etcd
-pfsmount:
-  build: .
-  dockerfile: Dockerfile.pfsmount
-  privileged: true
-  volumes:
-    - /pfs
-  environment:
-    - PFS_MOUNTPOINT=/pfs
-  links:
-    - pfsd
 ppsd:
   build: .
   dockerfile: Dockerfile.ppsd
