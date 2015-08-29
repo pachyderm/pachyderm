@@ -44,7 +44,7 @@ build: deps
 	go build ./...
 
 install: deps
-	go install ./src/cmd/pfs ./src/cmd/pps
+	go install ./src/cmd/pfs-volume-driver ./src/cmd/pfs ./src/cmd/pps
 
 docker-build-test:
 	$(NOCACHE_CMD)
