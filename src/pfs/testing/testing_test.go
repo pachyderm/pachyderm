@@ -174,12 +174,9 @@ func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Inte
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
-	mounter := fuse.NewMounter()
-	go func() {
-		err = mounter.Mount(apiClient, repositoryName, directory, "", 0, 1)
-		require.NoError(t, err)
-	}()
-	mounter.Ready()
+	mounter := fuse.NewMounter(apiClient)
+	err = mounter.Mount(repositoryName, directory, "", 0, 1)
+	require.NoError(t, err)
 
 	_, err = os.Stat(filepath.Join(directory, "scratch"))
 	require.NoError(t, err)
@@ -231,6 +228,11 @@ func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Inte
 	data, err = ioutil.ReadFile(filepath.Join(directory, newCommitID, "big2"))
 	require.NoError(t, err)
 	require.Equal(t, bigValue, data)
+
+	err = mounter.Unmount(directory)
+	require.NoError(t, err)
+	err = mounter.Wait(directory)
+	require.NoError(t, err)
 }
 
 func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
@@ -240,12 +242,9 @@ func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
-	mounter := fuse.NewMounter()
-	go func() {
-		err = mounter.Mount(apiClient, repositoryName, "", directory, 0, 1)
-		require.NoError(t, err)
-	}()
-	mounter.Ready()
+	mounter := fuse.NewMounter(apiClient)
+	err = mounter.Mount(repositoryName, "", directory, 0, 1)
+	require.NoError(t, err)
 
 	_, err = os.Stat(filepath.Join(directory, "scratch"))
 	require.NoError(t, err)
@@ -285,6 +284,11 @@ func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 		}(j)
 	}
 	wg.Wait()
+
+	err = mounter.Unmount(directory)
+	require.NoError(t, err)
+	err = mounter.Wait(directory)
+	require.NoError(t, err)
 }
 
 func benchMount(b *testing.B, apiClient pfs.ApiClient) {
@@ -295,16 +299,16 @@ func benchMount(b *testing.B, apiClient pfs.ApiClient) {
 	}
 
 	directory := "/compile/benchMount"
-	mounter := fuse.NewMounter()
-	go func() {
-		if err := mounter.Mount(apiClient, repositoryName, "", directory, 0, 1); err != nil {
-			b.Error(err)
-		}
-	}()
-	mounter.Ready()
+	mounter := fuse.NewMounter(apiClient)
+	if err := mounter.Mount(repositoryName, "", directory, 0, 1); err != nil {
+		b.Error(err)
+	}
 
 	defer func() {
 		if err := mounter.Unmount(directory); err != nil {
+			b.Error(err)
+		}
+		if err := mounter.Wait(directory); err != nil {
 			b.Error(err)
 		}
 	}()

@@ -162,11 +162,17 @@ func do(appEnvObj interface{}) error {
 		MinNumArgs: 2,
 		MaxNumArgs: 3,
 		Run: func(cmd *cobra.Command, args []string) error {
+			mountPoint := args[0]
+			repository := args[1]
 			commitID := ""
 			if len(args) == 3 {
 				commitID = args[2]
 			}
-			return fuse.NewMounter().Mount(apiClient, args[1], commitID, args[0], uint64(shard), uint64(modulus))
+			mounter := fuse.NewMounter(apiClient)
+			if err := mounter.Mount(repository, commitID, mountPoint, uint64(shard), uint64(modulus)); err != nil {
+				return err
+			}
+			return mounter.Wait(mountPoint)
 		},
 	}.ToCobraCommand()
 	mountCmd.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
