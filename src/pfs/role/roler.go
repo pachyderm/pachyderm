@@ -91,13 +91,13 @@ func (r *roler) randomMasterRole(
 }
 
 func (r *roler) randomReplicaRole(
-	address string,
+	maxAddress string,
 	shardToMasterAddress map[int]string,
 	shardToReplicaAddress map[int]map[int]string,
 ) (int, int, bool) {
 	for shard, addresses := range shardToReplicaAddress {
 		for index, address := range addresses {
-			if address == address && !r.hasRoleForShard(shard, shardToMasterAddress, shardToReplicaAddress) {
+			if address == maxAddress && !r.hasRoleForShard(shard, shardToMasterAddress, shardToReplicaAddress) {
 				return shard, index, true
 			}
 		}
