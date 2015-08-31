@@ -3,7 +3,6 @@ package role
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"sync"
 	"testing"
@@ -16,9 +15,9 @@ import (
 )
 
 const (
-	testNumShards   = 4
-	testNumServers  = 4
-	testNumReplicas = 1
+	testNumShards   = 64
+	testNumServers  = 8
+	testNumReplicas = 3
 )
 
 func TestMasterOnlyRoler(t *testing.T) {
@@ -52,7 +51,6 @@ func (s *server) Replica(shard int) error {
 	return nil
 }
 func (s *server) Clear(shard int) error {
-	log.Printf("Clear %d", shard)
 	delete(s.roles, shard)
 	return nil
 }
@@ -137,7 +135,6 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 }
 
 func runMasterReplicaTest(t *testing.T, client discovery.Client) {
-	log.Print("==Start group 1==")
 	addresser := route.NewDiscoveryAddresser(client, "TestMasterReplicaRoler")
 	serverGroup1 := NewServerGroup(t, addresser, testNumServers/2, 0, testNumReplicas)
 	go serverGroup1.run(t)
@@ -149,7 +146,6 @@ func runMasterReplicaTest(t *testing.T, client discovery.Client) {
 		}
 	}
 
-	log.Print("==Start group 2==")
 	serverGroup2 := NewServerGroup(t, addresser, testNumServers/2, testNumServers/2, testNumReplicas)
 	go serverGroup2.run(t)
 	start = time.Now()
@@ -161,7 +157,6 @@ func runMasterReplicaTest(t *testing.T, client discovery.Client) {
 		}
 	}
 
-	log.Print("==Cancel group 1==")
 	serverGroup1.cancel()
 	for !serverGroup2.satisfied((testNumShards * (testNumReplicas + 1)) / (testNumServers / 2)) {
 		time.Sleep(500 * time.Millisecond)
