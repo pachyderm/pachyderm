@@ -23,7 +23,7 @@ const (
 )
 
 type appEnv struct {
-	EtcdAddress string `env:"ETCD_ADDRESS,required"`
+	EtcdAddress string `env:"ETCD_ADDRESS"`
 }
 
 func main() {
