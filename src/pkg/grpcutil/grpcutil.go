@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/protoversion"
 	"google.golang.org/grpc"
 )
@@ -17,6 +18,15 @@ type Dialer interface {
 
 func NewDialer(opts ...grpc.DialOption) Dialer {
 	return newDialer(opts...)
+}
+
+type Registry interface {
+	RegisterAddress(address string) <-chan error
+	GetClientConn() (*grpc.ClientConn, error)
+}
+
+func NewRegistry(discoveryRegistry discovery.Registry, dialer Dialer) Registry {
+	return newRegistry(discoveryRegistry, dialer)
 }
 
 func GrpcDo(
