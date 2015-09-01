@@ -17,15 +17,7 @@ func newRegistry(client Client, directory string) *registry {
 
 func (r *registry) Register(value string) <-chan error {
 	errChan := make(chan error, 1)
-	go func() {
-		for {
-			if _, err := r.client.Set(r.directory+"/"+value, value, registryRefreshSec*2); err != nil {
-				errChan <- err
-				return
-			}
-			time.Sleep(registryRefreshSec * time.Second)
-		}
-	}()
+	go r.register(value, errChan)
 	return errChan
 }
 
@@ -41,4 +33,14 @@ func (r *registry) GetAll() ([]string, error) {
 		i++
 	}
 	return s, nil
+}
+
+func (r *registry) register(value string, errChan chan<- error) {
+	for {
+		if _, err := r.client.Set(r.directory+"/"+value, value, registryRefreshSec*2); err != nil {
+			errChan <- err
+			return
+		}
+		time.Sleep(registryRefreshSec * time.Second)
+	}
 }
