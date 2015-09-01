@@ -80,7 +80,7 @@ func (g *grpcSuite) SetupSuite() {
 		for j := 0; j < g.numServers; j++ {
 			<-g.errC
 		}
-		g.done <- true
+		close(g.done)
 	}()
 	g.clientConns = make(map[string]*grpc.ClientConn)
 	for address := range g.servers {

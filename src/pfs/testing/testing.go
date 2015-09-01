@@ -6,10 +6,12 @@ import (
 	"os"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
+	"github.com/pachyderm/pachyderm/src/pfs/role"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
@@ -25,6 +27,7 @@ const (
 	// we can do about that?
 	testShardsPerServer = 8
 	testNumServers      = 8
+	testNumReplicas     = 1
 )
 
 var (
@@ -43,11 +46,17 @@ func RunTest(
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(t, err)
+	rolers := make(map[string]role.Roler)
+	defer func() {
+		for _, roler := range rolers {
+			roler.Cancel()
+		}
+	}()
 	grpctest.Run(
 		t,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
-			registerFunc(t, discoveryClient, servers)
+			registerFunc(t, discoveryClient, servers, rolers)
 		},
 		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
 			var clientConn *grpc.ClientConn
@@ -74,11 +83,17 @@ func RunBench(
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(b, err)
+	rolers := make(map[string]role.Roler)
+	defer func() {
+		for _, roler := range rolers {
+			roler.Cancel()
+		}
+	}()
 	grpctest.RunB(
 		b,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
-			registerFunc(b, discoveryClient, servers)
+			registerFunc(b, discoveryClient, servers, rolers)
 		},
 		func(b *testing.B, clientConns map[string]*grpc.ClientConn) {
 			var clientConn *grpc.ClientConn
@@ -96,31 +111,17 @@ func RunBench(
 	)
 }
 
-func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) error {
+func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server, rolers map[string]role.Roler) error {
 	addresser := route.NewDiscoveryAddresser(
 		discoveryClient,
 		testNamespace(),
 	)
-	i := 0
-	for address := range servers {
-		for j := 0; j < testShardsPerServer; j++ {
-			if _, err := addresser.SetMasterAddress((i*testShardsPerServer)+j, address); err != nil {
-				return err
-			}
-			if _, err := addresser.SetReplicaAddress((((i+1)%len(servers))*testShardsPerServer)+j, 0, address); err != nil {
-				return err
-			}
-			if _, err := addresser.SetReplicaAddress((((i+2)%len(servers))*testShardsPerServer)+j, 1, address); err != nil {
-				return err
-			}
-		}
-		i++
-	}
+	sharder := route.NewSharder(
+		testShardsPerServer * testNumServers,
+	)
 	for address, s := range servers {
 		combinedAPIServer := server.NewCombinedAPIServer(
-			route.NewSharder(
-				testShardsPerServer*testNumServers,
-			),
+			sharder,
 			route.NewRouter(
 				addresser,
 				grpcutil.NewDialer(
@@ -132,7 +133,11 @@ func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[s
 		)
 		pfs.RegisterApiServer(s, combinedAPIServer)
 		pfs.RegisterInternalApiServer(s, combinedAPIServer)
+		roler := role.NewRoler(addresser, sharder, combinedAPIServer, address, testNumReplicas)
+		go func() { require.NoError(tb, roler.Run()) }()
+		rolers[address] = roler
 	}
+	WaitForAvailability(tb, addresser)
 	return nil
 }
 
@@ -169,4 +174,24 @@ func getEtcdAddress() (string, error) {
 
 func testNamespace() string {
 	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
+}
+
+func WaitForAvailability(tb testing.TB, addresser route.Addresser) {
+	cancel := make(chan bool)
+	time.AfterFunc(15*time.Second, func() { close(cancel) })
+	err := addresser.WatchShardToAddress(cancel, func(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (uint64, error) {
+		if len(shardToMasterAddress) != testShardsPerServer*testNumServers {
+			return 0, nil
+		}
+		if len(shardToReplicaAddress) != testShardsPerServer*testNumServers {
+			return 0, nil
+		}
+		for _, addresses := range shardToReplicaAddress {
+			if len(addresses) != testNumReplicas {
+				return 0, nil
+			}
+		}
+		return 0, fmt.Errorf("Complete")
+	})
+	require.Equal(tb, err, fmt.Errorf("Complete"))
 }
