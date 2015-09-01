@@ -19,7 +19,8 @@ import (
 
 var (
 	defaultEnv = map[string]string{
-		"PPS_API_PORT":      "651",
+		"PPS_ADDRESS":       "0.0.0.0",
+		"PPS_PORT":          "651",
 		"PPS_DATABASE_NAME": "pachyderm",
 	}
 )
@@ -27,7 +28,8 @@ var (
 type appEnv struct {
 	DockerHost      string `env:"DOCKER_HOST"`
 	PfsAddress      string `env:"PFS_ADDRESS"`
-	APIPort         int    `env:"PPS_API_PORT"`
+	Address         string `env:"PPS_ADDRESS"`
+	Port            int    `env:"PPS_PORT"`
 	DatabaseAddress string `env:"PPS_DATABASE_ADDRESS"`
 	DatabaseName    string `env:"PPS_DATABASE_NAME"`
 	TracePort       int    `env:"PPS_TRACE_PORT"`
@@ -52,7 +54,7 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	return grpcutil.GrpcDo(
-		appEnv.APIPort,
+		appEnv.Port,
 		appEnv.TracePort,
 		pachyderm.Version,
 		func(s *grpc.Server) {
