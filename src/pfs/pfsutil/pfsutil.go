@@ -9,13 +9,36 @@ import (
 	"io/ioutil"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"golang.org/x/net/context"
 )
 
 const (
 	GetAll int64 = 1<<63 - 1
+
+	registryDirectory = "grpcutil/registry/pfs"
 )
+
+func NewPfsRegistry(discoveryClient discovery.Client) grpcutil.Registry {
+	return grpcutil.NewRegistry(
+		discovery.NewRegistry(
+			discoveryClient,
+			registryDirectory,
+		),
+	)
+}
+
+func NewPfsProvider(discoveryClient discovery.Client, dialer grpcutil.Dialer) grpcutil.Provider {
+	return grpcutil.NewProvider(
+		discovery.NewRegistry(
+			discoveryClient,
+			registryDirectory,
+		),
+		dialer,
+	)
+}
 
 func InitRepository(apiClient pfs.ApiClient, repositoryName string) error {
 	_, err := apiClient.InitRepository(

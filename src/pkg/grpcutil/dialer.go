@@ -20,24 +20,24 @@ func newDialer(opts ...grpc.DialOption) *dialer {
 
 func (d *dialer) Dial(address string) (*grpc.ClientConn, error) {
 	d.lock.RLock()
-	clientConn := d.addressToClientConn[address]
+	clientConn, ok := d.addressToClientConn[address]
 	d.lock.RUnlock()
-	if clientConn != nil {
+	if ok && clientConn != nil && clientConn.State() != grpc.Shutdown {
 		return clientConn, nil
 	}
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	clientConn = d.addressToClientConn[address]
-	if clientConn != nil {
-		return clientConn, nil
-	}
-	var err error
-	clientConn, err = grpc.Dial(address, d.opts...)
+	newClientConn, err := grpc.Dial(address, d.opts...)
 	if err != nil {
 		return nil, err
 	}
-	d.addressToClientConn[address] = clientConn
-	return clientConn, nil
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	clientConn, ok = d.addressToClientConn[address]
+	if ok && clientConn != nil && clientConn.State() != grpc.Shutdown {
+		_ = newClientConn.Close()
+		return clientConn, nil
+	}
+	d.addressToClientConn[address] = newClientConn
+	return newClientConn, nil
 }
 
 func (d *dialer) Clean() error {
@@ -45,7 +45,7 @@ func (d *dialer) Clean() error {
 	defer d.lock.Unlock()
 	var errs []error
 	for _, clientConn := range d.addressToClientConn {
-		if err := clientConn.Close(); err != nil {
+		if err := clientConn.Close(); err != nil && err != grpc.ErrClientConnClosing {
 			errs = append(errs, err)
 		}
 	}
