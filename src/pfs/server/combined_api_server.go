@@ -500,3 +500,15 @@ func (a *combinedAPIServer) commitToReplicas(ctx context.Context, commit *pfs.Co
 	}
 	return nil
 }
+
+func (a *combinedAPIServer) Master(shard int) error {
+	return nil
+}
+
+func (a *combinedAPIServer) Replica(shard int) error {
+	return nil
+}
+
+func (a *combinedAPIServer) Clear(shard int) error {
+	return nil
+}

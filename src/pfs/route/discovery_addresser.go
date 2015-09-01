@@ -47,20 +47,6 @@ func (a *discoveryAddresser) GetShardToMasterAddress() (map[int]string, error) {
 	return a.makeMasterMap(addresses)
 }
 
-func (a *discoveryAddresser) WatchShardToMasterAddress(cancel chan bool, callBack func(map[int]string) (uint64, error)) error {
-	return a.discoveryClient.WatchAll(
-		a.masterDir(),
-		cancel,
-		func(addresses map[string]string) (uint64, error) {
-			shardToMasterAddress, err := a.makeMasterMap(addresses)
-			if err != nil {
-				return 0, err
-			}
-			return callBack(shardToMasterAddress)
-		},
-	)
-}
-
 func (a *discoveryAddresser) WatchShardToAddress(cancel chan bool, callBack func(map[int]string, map[int]map[int]string) (uint64, error)) error {
 	return a.discoveryClient.WatchAll(
 		a.shardDir(),

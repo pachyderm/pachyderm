@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs/role"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 )
 
@@ -21,6 +22,7 @@ var (
 type CombinedAPIServer interface {
 	pfs.ApiServer
 	pfs.InternalApiServer
+	role.Server
 }
 
 // NewCombinedAPIServer returns a new CombinedAPIServer.
