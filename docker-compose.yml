@@ -27,6 +27,17 @@ compile:
   privileged: true
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
+pfs-volume-driver:
+  build: .
+  dockerfile: Dockerfile.pfs-volume-driver
+  privileged: true
+  volumes:
+    - /etc/docker/plugins:/etc/docker/plugins
+    - /run/docker/plugins:/run/docker/plugins
+  dockerfile: Dockerfile.pfs-volume-driver
+  links:
+    - pfsd
+    - etcd
 pfsd:
   build: .
   dockerfile: Dockerfile.pfsd
@@ -38,7 +49,6 @@ pfsd:
   environment:
     - BTRFS_DEVICE=/pfs-img/btrfs.img
     - PFS_DRIVER_ROOT=/pfs/btrfs
-  dockerfile: Dockerfile.pfsd
   ports:
     - "650:650"
   links:

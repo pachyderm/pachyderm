@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
+	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
@@ -22,7 +23,8 @@ import (
 var (
 	defaultEnv = map[string]string{
 		"PFS_NUM_SHARDS":  "16",
-		"PFS_API_PORT":    "650",
+		"PFS_ADDRESS":     "0.0.0.0",
+		"PFS_PORT":        "650",
 		"PFS_DRIVER_TYPE": "btrfs",
 	}
 )
@@ -31,7 +33,8 @@ type appEnv struct {
 	DriverRoot string `env:"PFS_DRIVER_ROOT,required"`
 	DriverType string `env:"PFS_DRIVER_TYPE"`
 	NumShards  int    `env:"PFS_NUM_SHARDS"`
-	APIPort    int    `env:"PFS_API_PORT"`
+	Address    string `env:"PFS_ADDRESS"`
+	Port       int    `env:"PFS_PORT"`
 	TracePort  int    `env:"PFS_TRACE_PORT"`
 }
 
@@ -45,7 +48,8 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	address := fmt.Sprintf("0.0.0.0:%d", appEnv.APIPort)
+	address := fmt.Sprintf("%s:%d", appEnv.Address, appEnv.Port)
+	pfsutil.NewPfsRegistry(discoveryClient).RegisterAddress(address)
 	addresser := route.NewDiscoveryAddresser(
 		discoveryClient,
 		"namespace",
@@ -79,7 +83,7 @@ func do(appEnvObj interface{}) error {
 		driver,
 	)
 	return grpcutil.GrpcDo(
-		appEnv.APIPort,
+		appEnv.Port,
 		appEnv.TracePort,
 		pachyderm.Version,
 		func(s *grpc.Server) {

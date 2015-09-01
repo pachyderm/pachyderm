@@ -7,11 +7,14 @@ import (
 
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
+	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
+	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"github.com/pachyderm/pachyderm/src/pps/server"
 	"github.com/pachyderm/pachyderm/src/pps/store"
 	"google.golang.org/grpc"
@@ -19,15 +22,16 @@ import (
 
 var (
 	defaultEnv = map[string]string{
-		"PPS_API_PORT":      "651",
+		"PPS_ADDRESS":       "0.0.0.0",
+		"PPS_PORT":          "651",
 		"PPS_DATABASE_NAME": "pachyderm",
 	}
 )
 
 type appEnv struct {
 	DockerHost      string `env:"DOCKER_HOST"`
-	PfsAddress      string `env:"PFS_ADDRESS"`
-	APIPort         int    `env:"PPS_API_PORT"`
+	Address         string `env:"PPS_ADDRESS"`
+	Port            int    `env:"PPS_PORT"`
 	DatabaseAddress string `env:"PPS_DATABASE_ADDRESS"`
 	DatabaseName    string `env:"PPS_DATABASE_NAME"`
 	TracePort       int    `env:"PPS_TRACE_PORT"`
@@ -47,16 +51,23 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	apiClient, err := getPfsAPIClient(appEnv.PfsAddress)
+	discoveryClient, err := getEtcdClient()
+	if err != nil {
+		return err
+	}
+	address := fmt.Sprintf("%s:%d", appEnv.Address, appEnv.Port)
+	ppsutil.NewPpsRegistry(discoveryClient).RegisterAddress(address)
+	provider := pfsutil.NewPfsProvider(discoveryClient, grpcutil.NewDialer(grpc.WithInsecure()))
+	clientConn, err := provider.GetClientConn()
 	if err != nil {
 		return err
 	}
 	return grpcutil.GrpcDo(
-		appEnv.APIPort,
+		appEnv.Port,
 		appEnv.TracePort,
 		pachyderm.Version,
 		func(s *grpc.Server) {
-			pps.RegisterApiServer(s, server.NewAPIServer(apiClient, containerClient, rethinkClient, timing.NewSystemTimer()))
+			pps.RegisterApiServer(s, server.NewAPIServer(pfs.NewApiClient(clientConn), containerClient, rethinkClient, timing.NewSystemTimer()))
 		},
 	)
 }
@@ -94,25 +105,18 @@ func getRethinkAddress() (string, error) {
 	return fmt.Sprintf("%s:28015", rethinkAddr), nil
 }
 
-func getPfsAPIClient(address string) (pfs.ApiClient, error) {
-	var err error
-	if address == "" {
-		address, err = getPfsAddress()
-		if err != nil {
-			return nil, err
-		}
-	}
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+func getEtcdClient() (discovery.Client, error) {
+	etcdAddress, err := getEtcdAddress()
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewApiClient(clientConn), nil
+	return discovery.NewEtcdClient(etcdAddress), nil
 }
 
-func getPfsAddress() (string, error) {
-	rethinkAddr := os.Getenv("PFSD_PORT_650_TCP_ADDR")
-	if rethinkAddr == "" {
-		return "", errors.New("PFSD_PORT_650_TCP_ADDR not set")
+func getEtcdAddress() (string, error) {
+	etcdAddr := os.Getenv("ETCD_PORT_2379_TCP_ADDR")
+	if etcdAddr == "" {
+		return "", errors.New("ETCD_PORT_2379_TCP_ADDR not set")
 	}
-	return fmt.Sprintf("%s:650", rethinkAddr), nil
+	return fmt.Sprintf("http://%s:2379", etcdAddr), nil
 }

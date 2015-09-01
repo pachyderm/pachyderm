@@ -56,6 +56,9 @@ docker-build-compile:
 	$(NOCACHE_CMD)
 	docker-compose build compile
 
+docker-build-pfs-volume-driver: docker-build-compile
+	docker-compose run compile sh etc/compile/compile.sh pfs-volume-driver
+
 docker-build-pfsd: docker-build-compile
 	docker-compose build btrfs
 	docker-compose run compile sh etc/compile/compile.sh pfsd
@@ -63,13 +66,16 @@ docker-build-pfsd: docker-build-compile
 docker-build-ppsd: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh ppsd
 
+docker-push-pfs-volume-driver: docker-build-pfs-volume-driver
+	docker push pachyderm/pfs-volume-driver
+
 docker-push-pfsd: docker-build-pfsd
 	docker push pachyderm/pfsd
 
 docker-push-ppsd: docker-build-ppsd
 	docker push pachyderm/ppsd
 
-docker-push: docker-push-ppsd docker-push-pfsd
+docker-push: docker-push-ppsd docker-push-pfsd docker-push-pfs-volume-driver
 
 run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
@@ -79,7 +85,7 @@ launch-pfsd: docker-clean-test docker-build-pfsd
 	docker-compose rm -f pfsd
 	docker-compose up -d --force-recreate --no-build pfsd
 
-launch: docker-clean-launch docker-build-ppsd
+launch: docker-clean-launch docker-build-pfs-volume-driver docker-build-pfsd docker-build-ppsd
 	docker-compose up -d --force-recreate --no-build ppsd
 
 proto:
@@ -108,6 +114,8 @@ docker-clean-test:
 	docker-compose rm -f btrfs
 
 docker-clean-launch: docker-clean-test
+	docker-compose kill pfs-volume-driver
+	docker-compose rm -f pfs-volume-driver
 	docker-compose kill pfsd
 	docker-compose rm -f pfsd
 	docker-compose kill ppsd
@@ -147,8 +155,10 @@ start-kube:
 	install \
 	docker-build-test \
 	docker-build-compile \
+	docker-build-pfs-volume-driver \
 	docker-build-pfsd \
 	docker-build-ppsd \
+	docker-push-pfs-volume-driver \
 	docker-push-pfsd \
 	docker-push-ppsd \
 	docker-push \
