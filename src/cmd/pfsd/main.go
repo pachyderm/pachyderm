@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
+	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
@@ -48,6 +49,7 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	address := fmt.Sprintf("%s:%d", appEnv.Address, appEnv.Port)
+	pfsutil.NewPfsRegistry(discoveryClient).RegisterAddress(address)
 	addresser := route.NewDiscoveryAddresser(
 		discoveryClient,
 		"namespace",

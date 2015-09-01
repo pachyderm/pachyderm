@@ -11,8 +11,17 @@ const (
 	registryDirectory = "grpcutil/registry/pps"
 )
 
-func NewPpsRegistry(discoveryClient discovery.Client, dialer grpcutil.Dialer) grpcutil.Registry {
+func NewPpsRegistry(discoveryClient discovery.Client) grpcutil.Registry {
 	return grpcutil.NewRegistry(
+		discovery.NewRegistry(
+			discoveryClient,
+			registryDirectory,
+		),
+	)
+}
+
+func NewPpsProvider(discoveryClient discovery.Client, dialer grpcutil.Dialer) grpcutil.Provider {
+	return grpcutil.NewProvider(
 		discovery.NewRegistry(
 			discoveryClient,
 			registryDirectory,
