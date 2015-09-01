@@ -46,17 +46,12 @@ func RunTest(
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(t, err)
-	rolers := make(map[string]role.Roler)
-	defer func() {
-		for _, roler := range rolers {
-			roler.Cancel()
-		}
-	}()
+	var cluster Cluster
 	grpctest.Run(
 		t,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
-			registerFunc(t, discoveryClient, servers, rolers)
+			cluster = registerFunc(t, discoveryClient, servers)
 		},
 		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
 			var clientConn *grpc.ClientConn
@@ -75,6 +70,7 @@ func RunTest(
 			)
 		},
 	)
+	cluster.Shutdown()
 }
 
 func RunBench(
@@ -83,17 +79,12 @@ func RunBench(
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(b, err)
-	rolers := make(map[string]role.Roler)
-	defer func() {
-		for _, roler := range rolers {
-			roler.Cancel()
-		}
-	}()
+	var cluster Cluster
 	grpctest.RunB(
 		b,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
-			registerFunc(b, discoveryClient, servers, rolers)
+			cluster = registerFunc(b, discoveryClient, servers)
 		},
 		func(b *testing.B, clientConns map[string]*grpc.ClientConn) {
 			var clientConn *grpc.ClientConn
@@ -109,21 +100,76 @@ func RunBench(
 			)
 		},
 	)
+	cluster.Shutdown()
 }
 
-func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server, rolers map[string]role.Roler) error {
-	addresser := route.NewDiscoveryAddresser(
-		discoveryClient,
-		testNamespace(),
-	)
-	sharder := route.NewSharder(
-		testShardsPerServer * testNumServers,
-	)
+type Cluster interface {
+	WaitForAvailability()
+	Kill(server int)
+	Restart(server int)
+	Shutdown()
+}
+
+type cluster struct {
+	addresses []string
+	rolers    []role.Roler
+	servers   []server.CombinedAPIServer
+	addresser route.Addresser
+	sharder   route.Sharder
+	tb        testing.TB
+}
+
+func (c *cluster) WaitForAvailability() {
+	cancel := make(chan bool)
+	time.AfterFunc(15*time.Second, func() { close(cancel) })
+	err := c.addresser.WatchShardToAddress(cancel, func(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (uint64, error) {
+		if len(shardToMasterAddress) != testShardsPerServer*testNumServers {
+			return 0, nil
+		}
+		if len(shardToReplicaAddress) != testShardsPerServer*testNumServers {
+			return 0, nil
+		}
+		for _, addresses := range shardToReplicaAddress {
+			if len(addresses) != testNumReplicas {
+				return 0, nil
+			}
+		}
+		return 0, fmt.Errorf("Complete")
+	})
+	require.Equal(c.tb, err, fmt.Errorf("Complete"))
+}
+
+func (c *cluster) Kill(server int) {
+	c.rolers[server].Cancel()
+}
+
+func (c *cluster) Restart(server int) {
+	c.rolers[server] = role.NewRoler(c.addresser, c.sharder, c.servers[server], c.addresses[server], testNumReplicas)
+	go func() { require.NoError(c.tb, c.rolers[server].Run()) }()
+}
+
+func (c *cluster) Shutdown() {
+	for _, roler := range c.rolers {
+		roler.Cancel()
+	}
+}
+
+func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) Cluster {
+	cluster := cluster{
+		addresser: route.NewDiscoveryAddresser(
+			discoveryClient,
+			testNamespace(),
+		),
+		sharder: route.NewSharder(
+			testShardsPerServer * testNumServers,
+		),
+		tb: tb,
+	}
 	for address, s := range servers {
 		combinedAPIServer := server.NewCombinedAPIServer(
-			sharder,
+			cluster.sharder,
 			route.NewRouter(
-				addresser,
+				cluster.addresser,
 				grpcutil.NewDialer(
 					grpc.WithInsecure(),
 				),
@@ -133,12 +179,19 @@ func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[s
 		)
 		pfs.RegisterApiServer(s, combinedAPIServer)
 		pfs.RegisterInternalApiServer(s, combinedAPIServer)
-		roler := role.NewRoler(addresser, sharder, combinedAPIServer, address, testNumReplicas)
+		roler := role.NewRoler(cluster.addresser, cluster.sharder, combinedAPIServer, address, testNumReplicas)
 		go func() { require.NoError(tb, roler.Run()) }()
-		rolers[address] = roler
+		cluster.addresses = append(cluster.addresses, address)
+		cluster.rolers = append(cluster.rolers, roler)
+		cluster.servers = append(cluster.servers, combinedAPIServer)
 	}
-	WaitForAvailability(tb, addresser)
-	return nil
+	return &cluster
+}
+
+func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) Cluster {
+	cluster := newCluster(tb, discoveryClient, servers)
+	cluster.WaitForAvailability()
+	return cluster
 }
 
 func getDriver(tb testing.TB, namespace string) drive.Driver {
@@ -174,24 +227,4 @@ func getEtcdAddress() (string, error) {
 
 func testNamespace() string {
 	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
-}
-
-func WaitForAvailability(tb testing.TB, addresser route.Addresser) {
-	cancel := make(chan bool)
-	time.AfterFunc(15*time.Second, func() { close(cancel) })
-	err := addresser.WatchShardToAddress(cancel, func(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (uint64, error) {
-		if len(shardToMasterAddress) != testShardsPerServer*testNumServers {
-			return 0, nil
-		}
-		if len(shardToReplicaAddress) != testShardsPerServer*testNumServers {
-			return 0, nil
-		}
-		for _, addresses := range shardToReplicaAddress {
-			if len(addresses) != testNumReplicas {
-				return 0, nil
-			}
-		}
-		return 0, fmt.Errorf("Complete")
-	})
-	require.Equal(tb, err, fmt.Errorf("Complete"))
 }
