@@ -45,7 +45,7 @@ func (d *dialer) Clean() error {
 	defer d.lock.Unlock()
 	var errs []error
 	for _, clientConn := range d.addressToClientConn {
-		if err := clientConn.Close(); err != nil {
+		if err := clientConn.Close(); err != nil && err != grpc.ErrClientConnClosing {
 			errs = append(errs, err)
 		}
 	}
