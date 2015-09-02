@@ -135,6 +135,7 @@ test-pps-extra: pretest docker-clean-test docker-build-test
 clean: docker-clean-launch
 	go clean ./src/...
 	rm -f src/cmd/pfs/pfs
+	rm -f src/cmd/pfs/pfs-volume-driver
 	rm -f src/cmd/pfsd/pfsd
 	rm -f src/cmd/pps/pps
 	rm -f src/cmd/ppsd/ppsd
@@ -152,6 +153,7 @@ start-kube:
 	test-deps \
 	update-test-deps \
 	update-deps-list \
+	update-vendor \
 	install-git2go \
 	build \
 	install \

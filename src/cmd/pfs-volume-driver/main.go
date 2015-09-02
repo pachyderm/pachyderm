@@ -38,7 +38,7 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	provider := pfsutil.NewPfsProvider(discoveryClient, grpcutil.NewDialer(grpc.WithInsecure()))
+	provider := pfsutil.NewProvider(discoveryClient, grpcutil.NewDialer(grpc.WithInsecure()))
 	clientConn, err := provider.GetClientConn()
 	if err != nil {
 		return err

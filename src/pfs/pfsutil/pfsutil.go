@@ -21,7 +21,7 @@ const (
 	registryDirectory = "grpcutil/registry/pfs"
 )
 
-func NewPfsRegistry(discoveryClient discovery.Client) grpcutil.Registry {
+func NewRegistry(discoveryClient discovery.Client) grpcutil.Registry {
 	return grpcutil.NewRegistry(
 		discovery.NewRegistry(
 			discoveryClient,
@@ -30,7 +30,7 @@ func NewPfsRegistry(discoveryClient discovery.Client) grpcutil.Registry {
 	)
 }
 
-func NewPfsProvider(discoveryClient discovery.Client, dialer grpcutil.Dialer) grpcutil.Provider {
+func NewProvider(discoveryClient discovery.Client, dialer grpcutil.Dialer) grpcutil.Provider {
 	return grpcutil.NewProvider(
 		discovery.NewRegistry(
 			discoveryClient,

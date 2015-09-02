@@ -56,7 +56,7 @@ func do(appEnvObj interface{}) error {
 		}
 	}
 	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
-	pfsutil.NewPfsRegistry(discoveryClient).RegisterAddress(address)
+	pfsutil.NewRegistry(discoveryClient).RegisterAddress(address)
 	addresser := route.NewDiscoveryAddresser(
 		discoveryClient,
 		"namespace",
