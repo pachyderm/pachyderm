@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coreos/go-etcd/etcd"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/stretchr/testify/require"
@@ -82,7 +81,7 @@ func (s *serverGroup) run(t *testing.T) {
 		wg.Add(1)
 		go func(roler Roler) {
 			defer wg.Done()
-			require.Equal(t, etcd.ErrWatchStoppedByUser, roler.Run())
+			require.Equal(t, discovery.ErrCancelled, roler.Run())
 		}(roler)
 	}
 }
