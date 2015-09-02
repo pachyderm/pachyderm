@@ -71,6 +71,8 @@ curl -L https://github.com/docker/compose/releases/download/1.4.0rc2/docker-comp
 chmod +x /usr/local/bin/docker-compose
 ```
 
+You need to have Go 1.5 installed and have `GO15VENDOREXPERIMENT=1`.
+
 Useful development commands can be seen in the [Makefile](Makefile). Key commands:
 
 ```

@@ -1,13 +1,13 @@
 #### VARIABLES
 # RUNARGS: arguments for run
 # DOCKER_OPTS: docker-compose options for run, test, launch-*
-# TESTPKGS: packages for test, default ./...
+# TESTPKGS: packages for test, default ./src/...
 # TESTFLAGS: flags for test
 # NOCACHE: do not use dependency cache for docker
 ####
 
 ifndef TESTPKGS
-TESTPKGS = ./...
+TESTPKGS = ./src/...
 endif
 
 ifdef NOCACHE
@@ -21,27 +21,29 @@ version:
 	@go run /tmp/pachyderm_version.go
 
 deps:
-	go get -d -v -insecure ./...
+	GO15VENDOREXPERIMENT=0 go get -d -v -insecure ./src/...
 
 update-deps:
-	go get -d -v -u -f -insecure ./...
+	GO15VENDOREXPERIMENT=0 go get -d -v -u -f -insecure ./src/...
 
 test-deps:
-	go get -d -v -t -insecure ./...
+	GO15VENDOREXPERIMENT=0 go get -d -v -t -insecure ./src/...
 
 update-test-deps:
-	go get -d -v -t -u -f -insecure ./...
+	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f -insecure ./src/...
 
-update-deps-list: test-deps
-	go get -v github.com/peter-edge/go-tools/go-external-deps
-	#GOOS=linux GOARCH=amd64 go-external-deps github.com/pachyderm/pachyderm etc/deps/deps.list
-	go-external-deps github.com/pachyderm/pachyderm etc/deps/deps.list
+update-vendor: update-test-deps
+	go get -u github.com/tools/godep
+	rm -rf Godeps
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 godep save ./src/...
+	rm -rf Godeps
+	rm -rf vendor/gopkg.in/libgit2
 
 install-git2go:
 	sh etc/git2go/install.sh
 
 build: deps
-	go build ./...
+	go build ./src/...
 
 install: deps
 	go install ./src/cmd/pfs-volume-driver ./src/cmd/pfs ./src/cmd/pps
@@ -102,7 +104,7 @@ pretest:
 			exit 1; \
 		fi; \
 	done;
-	go vet ./...
+	go vet ./src/...
 	errcheck ./src/cmd ./src/pfs ./src/pps
 
 docker-clean-test:
@@ -131,7 +133,7 @@ test-pps-extra: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pps/server"
 
 clean: docker-clean-launch
-	go clean ./...
+	go clean ./src/...
 	rm -f src/cmd/pfs/pfs
 	rm -f src/cmd/pfsd/pfsd
 	rm -f src/cmd/pps/pps
