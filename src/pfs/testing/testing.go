@@ -146,7 +146,7 @@ func (c *cluster) Kill(server int) {
 
 func (c *cluster) Restart(server int) {
 	c.rolers[server] = role.NewRoler(c.addresser, c.sharder, c.servers[server], c.addresses[server], testNumReplicas)
-	go func() { require.NoError(c.tb, c.rolers[server].Run()) }()
+	go func() { require.Equal(c.tb, c.rolers[server].Run(), discovery.ErrCancelled) }()
 }
 
 func (c *cluster) Shutdown() {
@@ -181,7 +181,7 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		pfs.RegisterApiServer(s, combinedAPIServer)
 		pfs.RegisterInternalApiServer(s, combinedAPIServer)
 		roler := role.NewRoler(cluster.addresser, cluster.sharder, combinedAPIServer, address, testNumReplicas)
-		go func() { require.NoError(tb, roler.Run()) }()
+		go func() { require.Equal(tb, roler.Run(), discovery.ErrCancelled) }()
 		cluster.addresses = append(cluster.addresses, address)
 		cluster.rolers = append(cluster.rolers, roler)
 		cluster.servers = append(cluster.servers, combinedAPIServer)

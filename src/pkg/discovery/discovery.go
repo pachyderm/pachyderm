@@ -1,5 +1,11 @@
 package discovery
 
+import (
+	"fmt"
+)
+
+var ErrCancelled = fmt.Errorf("pachyderm: cancelled by user")
+
 type Client interface {
 	// Close closes the underlying connection.
 	Close() error
