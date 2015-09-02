@@ -69,3 +69,4 @@ ppsd:
     - etcd
     - pfsd
     - rethink
+    - pfs-volume-driver
