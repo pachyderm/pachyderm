@@ -93,7 +93,7 @@ launch: docker-clean-launch docker-build-pfs-volume-driver docker-build-pfsd doc
 proto:
 	go get -v github.com/peter-edge/go-tools/docker-protoc-all
 	docker pull pedge/protolog
-	DEBUG=1 REL_PROTOC_INCLUDE_PATH=src docker-protoc-all github.com/pachyderm/pachyderm
+	DEBUG=1 REL_PROTOC_INCLUDE_PATH=src PROTO_FILES_INCLUDE_DIR=src docker-protoc-all github.com/pachyderm/pachyderm
 
 pretest:
 	go get -v github.com/kisielk/errcheck
