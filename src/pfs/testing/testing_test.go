@@ -94,21 +94,7 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 	err = pfsutil.MakeDirectory(apiClient, repositoryName, newCommitID, "a/c")
 	require.NoError(t, err)
 
-	var wg sync.WaitGroup
-	for i := 0; i < testSize; i++ {
-		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, iErr := pfsutil.PutFile(apiClient, repositoryName, newCommitID,
-				fmt.Sprintf("a/b/file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
-			require.NoError(t, iErr)
-			_, iErr = pfsutil.PutFile(apiClient, repositoryName, newCommitID,
-				fmt.Sprintf("a/c/file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
-			require.NoError(t, iErr)
-		}()
-	}
-	wg.Wait()
+	doWrites(t, apiClient, repositoryName, newCommitID)
 
 	err = pfsutil.Commit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
@@ -120,25 +106,7 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, getCommitInfoResponse.CommitInfo.CommitType)
 	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.ParentCommit.Id)
 
-	wg = sync.WaitGroup{}
-	for i := 0; i < testSize; i++ {
-		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			buffer := bytes.NewBuffer(nil)
-			iErr := pfsutil.GetFile(apiClient, repositoryName, newCommitID,
-				fmt.Sprintf("a/b/file%d", i), 0, pfsutil.GetAll, buffer)
-			require.NoError(t, iErr)
-			require.Equal(t, fmt.Sprintf("hello%d", i), buffer.String())
-			buffer = bytes.NewBuffer(nil)
-			iErr = pfsutil.GetFile(apiClient, repositoryName, newCommitID,
-				fmt.Sprintf("a/c/file%d", i), 0, pfsutil.GetAll, buffer)
-			require.NoError(t, iErr)
-			require.Equal(t, fmt.Sprintf("hello%d", i), buffer.String())
-		}()
-	}
-	wg.Wait()
+	checkWrites(t, apiClient, repositoryName, newCommitID)
 
 	listFilesResponse, err := pfsutil.ListFiles(apiClient, repositoryName, newCommitID, "a/b", 0, 1)
 	require.NoError(t, err)
@@ -148,7 +116,7 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 	require.Equal(t, testSize, len(listFilesResponse.FileInfo))
 
 	var fileInfos [7][]*pfs.FileInfo
-	wg = sync.WaitGroup{}
+	var wg sync.WaitGroup
 	for i := 0; i < 7; i++ {
 		i := i
 		wg.Add(1)
@@ -165,6 +133,37 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 		count += len(fileInfos[i])
 	}
 	require.Equal(t, testSize, count)
+}
+
+func testFailures(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient, cluster Cluster) {
+	repositoryName := TestRepositoryName()
+
+	err := pfsutil.InitRepository(apiClient, repositoryName)
+	require.NoError(t, err)
+
+	branchResponse, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
+	require.NoError(t, err)
+	require.NotNil(t, branchResponse)
+	newCommitID := branchResponse.Commit.Id
+
+	err = pfsutil.MakeDirectory(apiClient, repositoryName, newCommitID, "a/b")
+	require.NoError(t, err)
+	err = pfsutil.MakeDirectory(apiClient, repositoryName, newCommitID, "a/c")
+	require.NoError(t, err)
+
+	doWrites(t, apiClient, repositoryName, newCommitID)
+
+	err = pfsutil.Commit(apiClient, repositoryName, newCommitID)
+	require.NoError(t, err)
+
+	checkWrites(t, apiClient, repositoryName, newCommitID)
+
+	for server := 0; server < testNumReplicas; server++ {
+		cluster.Kill(server)
+	}
+	cluster.WaitForAvailability()
+
+	checkWrites(t, apiClient, repositoryName, newCommitID)
 }
 
 func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient, cluster Cluster) {
@@ -342,5 +341,45 @@ func benchMount(b *testing.B, apiClient pfs.ApiClient) {
 		if err := pfsutil.Commit(apiClient, repositoryName, newCommitID); err != nil {
 			b.Error(err)
 		}
+	}
+}
+
+func doWrites(tb testing.TB, apiClient pfs.ApiClient, repositoryName string, commitID string) {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	for i := 0; i < testSize; i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, iErr := pfsutil.PutFile(apiClient, repositoryName, commitID,
+				fmt.Sprintf("a/b/file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
+			require.NoError(tb, iErr)
+			_, iErr = pfsutil.PutFile(apiClient, repositoryName, commitID,
+				fmt.Sprintf("a/c/file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
+			require.NoError(tb, iErr)
+		}()
+	}
+}
+
+func checkWrites(tb testing.TB, apiClient pfs.ApiClient, repositoryName string, commitID string) {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	for i := 0; i < testSize; i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			buffer := bytes.NewBuffer(nil)
+			iErr := pfsutil.GetFile(apiClient, repositoryName, commitID,
+				fmt.Sprintf("a/b/file%d", i), 0, pfsutil.GetAll, buffer)
+			require.NoError(tb, iErr)
+			require.Equal(tb, fmt.Sprintf("hello%d", i), buffer.String())
+			buffer = bytes.NewBuffer(nil)
+			iErr = pfsutil.GetFile(apiClient, repositoryName, commitID,
+				fmt.Sprintf("a/c/file%d", i), 0, pfsutil.GetAll, buffer)
+			require.NoError(tb, iErr)
+			require.Equal(tb, fmt.Sprintf("hello%d", i), buffer.String())
+		}()
 	}
 }

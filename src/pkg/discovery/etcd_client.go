@@ -69,6 +69,9 @@ func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) (
 	for {
 		response, err := c.client.Watch(key, waitIndex, false, nil, cancel)
 		if err != nil {
+			if err == etcd.ErrWatchStoppedByUser {
+				return ErrCancelled
+			}
 			return err
 		}
 		if response.Node.ModifiedIndex >= modifiedIndex {
@@ -108,6 +111,9 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 	for {
 		response, err := c.client.Watch(key, waitIndex, true, nil, cancel)
 		if err != nil {
+			if err == etcd.ErrWatchStoppedByUser {
+				return ErrCancelled
+			}
 			return err
 		}
 		responseModifiedIndex := maxModifiedIndex(response.Node)

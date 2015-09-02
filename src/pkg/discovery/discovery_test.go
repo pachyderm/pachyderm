@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/coreos/go-etcd/etcd"
 	"github.com/stretchr/testify/require"
 )
 
@@ -60,7 +59,7 @@ func runWatchTest(t *testing.T, client Client) {
 			return 0, nil
 		},
 	)
-	require.Equal(t, etcd.ErrWatchStoppedByUser, err)
+	require.Equal(t, ErrCancelled, err)
 
 	cancel = make(chan bool)
 	err = client.WatchAll(
@@ -75,7 +74,7 @@ func runWatchTest(t *testing.T, client Client) {
 			return 0, nil
 		},
 	)
-	require.Equal(t, etcd.ErrWatchStoppedByUser, err)
+	require.Equal(t, ErrCancelled, err)
 }
 
 func getEtcdClient() (Client, error) {
