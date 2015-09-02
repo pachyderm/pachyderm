@@ -20,7 +20,6 @@ type volume struct {
 	shard      uint64
 	modulus    uint64
 	mountpoint string
-	lock       *sync.RWMutex
 }
 
 type volumeDriver struct {
@@ -76,7 +75,6 @@ func (v *volumeDriver) Create(name string, opts map[string]string) error {
 		shard,
 		modulus,
 		dir,
-		&sync.RWMutex{},
 	}
 	v.lock.Lock()
 	if _, ok := v.nameToVolume[name]; ok {
