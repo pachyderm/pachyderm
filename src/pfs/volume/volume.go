@@ -5,6 +5,6 @@ import (
 	"go.pedge.io/dockervolume"
 )
 
-func NewVolumeDriver(mounter fuse.Mounter) dockervolume.VolumeDriver {
-	return newVolumeDriver(mounter)
+func NewVolumeDriver(mounter fuse.Mounter, baseMountpoint string) dockervolume.VolumeDriver {
+	return newVolumeDriver(mounter, baseMountpoint)
 }
