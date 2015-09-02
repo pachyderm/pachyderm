@@ -40,7 +40,7 @@ func newFilesystem(
 }
 
 func (f *filesystem) Root() (fs.Node, error) {
-	return &directory{f, f.commitID, true, "/"}, nil
+	return &directory{f, f.commitID, true, ""}, nil
 }
 
 type directory struct {
