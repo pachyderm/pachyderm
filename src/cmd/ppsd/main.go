@@ -64,8 +64,8 @@ func do(appEnvObj interface{}) error {
 		}
 	}
 	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
-	ppsutil.NewPpsRegistry(discoveryClient).RegisterAddress(address)
-	provider := pfsutil.NewPfsProvider(discoveryClient, grpcutil.NewDialer(grpc.WithInsecure()))
+	ppsutil.NewRegistry(discoveryClient).RegisterAddress(address)
+	provider := pfsutil.NewProvider(discoveryClient, grpcutil.NewDialer(grpc.WithInsecure()))
 	clientConn, err := provider.GetClientConn()
 	if err != nil {
 		return err
