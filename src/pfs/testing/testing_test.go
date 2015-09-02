@@ -26,9 +26,13 @@ func init() {
 	logrus.Register()
 }
 
-func TestBtrfs(t *testing.T) {
+func TestSimple(t *testing.T) {
 	t.Parallel()
 	RunTest(t, testSimple)
+}
+
+func TestFailures(t *testing.T) {
+	RunTest(t, testFailures)
 }
 
 func TestFuseMount(t *testing.T) {

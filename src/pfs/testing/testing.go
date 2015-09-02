@@ -113,8 +113,8 @@ type Cluster interface {
 
 type cluster struct {
 	addresses []string
-	rolers    []role.Roler
-	servers   []server.CombinedAPIServer
+	rolers    map[string]role.Roler
+	servers   map[string]server.CombinedAPIServer
 	addresser route.Addresser
 	sharder   route.Sharder
 	tb        testing.TB
@@ -122,7 +122,7 @@ type cluster struct {
 
 func (c *cluster) WaitForAvailability() {
 	cancel := make(chan bool)
-	time.AfterFunc(15*time.Second, func() { close(cancel) })
+	time.AfterFunc(30*time.Second, func() { close(cancel) })
 	err := c.addresser.WatchShardToAddress(cancel, func(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (uint64, error) {
 		if len(shardToMasterAddress) != testShardsPerServer*testNumServers {
 			return 0, nil
@@ -135,18 +135,31 @@ func (c *cluster) WaitForAvailability() {
 				return 0, nil
 			}
 		}
+		for _, address := range shardToMasterAddress {
+			if _, ok := c.rolers[address]; !ok {
+				return 0, nil
+			}
+		}
+		for _, addresses := range shardToReplicaAddress {
+			for _, address := range addresses {
+				if _, ok := c.rolers[address]; !ok {
+					return 0, nil
+				}
+			}
+		}
 		return 0, fmt.Errorf("Complete")
 	})
 	require.Equal(c.tb, err, fmt.Errorf("Complete"))
 }
 
 func (c *cluster) Kill(server int) {
-	c.rolers[server].Cancel()
+	c.rolers[c.addresses[server]].Cancel()
+	delete(c.rolers, c.addresses[server])
 }
 
 func (c *cluster) Restart(server int) {
-	c.rolers[server] = role.NewRoler(c.addresser, c.sharder, c.servers[server], c.addresses[server], testNumReplicas)
-	go func() { require.Equal(c.tb, c.rolers[server].Run(), discovery.ErrCancelled) }()
+	c.rolers[c.addresses[server]] = role.NewRoler(c.addresser, c.sharder, c.servers[c.addresses[server]], c.addresses[server], testNumReplicas)
+	go func() { require.Equal(c.tb, c.rolers[c.addresses[server]].Run(), discovery.ErrCancelled) }()
 }
 
 func (c *cluster) Shutdown() {
@@ -157,6 +170,8 @@ func (c *cluster) Shutdown() {
 
 func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) Cluster {
 	cluster := cluster{
+		rolers:  make(map[string]role.Roler),
+		servers: make(map[string]server.CombinedAPIServer),
 		addresser: route.NewDiscoveryAddresser(
 			discoveryClient,
 			testNamespace(),
@@ -183,8 +198,8 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		roler := role.NewRoler(cluster.addresser, cluster.sharder, combinedAPIServer, address, testNumReplicas)
 		go func() { require.Equal(tb, roler.Run(), discovery.ErrCancelled) }()
 		cluster.addresses = append(cluster.addresses, address)
-		cluster.rolers = append(cluster.rolers, roler)
-		cluster.servers = append(cluster.servers, combinedAPIServer)
+		cluster.rolers[address] = roler
+		cluster.servers[address] = combinedAPIServer
 	}
 	return &cluster
 }
