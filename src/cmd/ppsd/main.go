@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
+	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
@@ -55,7 +56,14 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	address := fmt.Sprintf("%s:%d", appEnv.Address, appEnv.Port)
+	address := appEnv.Address
+	if address == "" {
+		address, err = netutil.ExternalIP()
+		if err != nil {
+			return err
+		}
+	}
+	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
 	ppsutil.NewPpsRegistry(discoveryClient).RegisterAddress(address)
 	provider := pfsutil.NewPfsProvider(discoveryClient, grpcutil.NewDialer(grpc.WithInsecure()))
 	clientConn, err := provider.GetClientConn()

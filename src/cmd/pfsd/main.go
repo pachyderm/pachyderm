@@ -17,13 +17,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
+	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"google.golang.org/grpc"
 )
 
 var (
 	defaultEnv = map[string]string{
 		"PFS_NUM_SHARDS":  "16",
-		"PFS_ADDRESS":     "0.0.0.0",
 		"PFS_PORT":        "650",
 		"PFS_DRIVER_TYPE": "btrfs",
 	}
@@ -48,7 +48,14 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	address := fmt.Sprintf("%s:%d", appEnv.Address, appEnv.Port)
+	address := appEnv.Address
+	if address == "" {
+		address, err = netutil.ExternalIP()
+		if err != nil {
+			return err
+		}
+	}
+	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
 	pfsutil.NewPfsRegistry(discoveryClient).RegisterAddress(address)
 	addresser := route.NewDiscoveryAddresser(
 		discoveryClient,

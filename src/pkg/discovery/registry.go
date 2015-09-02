@@ -1,6 +1,9 @@
 package discovery
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 const (
 	registryRefreshSec = 15
@@ -29,7 +32,7 @@ func (r *registry) GetAll() ([]string, error) {
 	s := make([]string, len(m))
 	i := 0
 	for value := range m {
-		s[i] = value
+		s[i] = strings.TrimPrefix(value, r.directory+"/")
 		i++
 	}
 	return s, nil

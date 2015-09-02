@@ -23,7 +23,8 @@ const (
 )
 
 type appEnv struct {
-	EtcdAddress string `env:"ETCD_ADDRESS"`
+	EtcdAddress    string `env:"ETCD_ADDRESS"`
+	BaseMountpoint string `env:"BASE_MOUNTPOINT,required"`
 }
 
 func main() {
@@ -53,6 +54,7 @@ func do(appEnvObj interface{}) error {
 					clientConn,
 				),
 			),
+			appEnv.BaseMountpoint,
 		),
 	)
 	start := make(chan struct{})
