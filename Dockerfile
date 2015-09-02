@@ -1,5 +1,3 @@
-# When this fails the first thing you should try is:
-# NOCACHE=1 make update-test-deps update-deps-list docker-build-test
 FROM ubuntu:14.04
 MAINTAINER peter@pachyderm.io
 
@@ -23,18 +21,16 @@ RUN \
   mkdir -p /go/bin
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go
+ENV GO15VENDOREXPERIMENT 1
 RUN go get golang.org/x/tools/cmd/vet github.com/kisielk/errcheck github.com/golang/lint/golint
 RUN mkdir -p /go/src/github.com/pachyderm/pachyderm/etc/git2go
 WORKDIR /go/src/github.com/pachyderm/pachyderm
 RUN \
-  curl -sSL https://get.docker.com/builds/Linux/x86_64/docker-1.7.1 > /bin/docker && \
+  curl -sSL https://master.dockerproject.org/darwin/amd64/docker > /bin/docker && \
   chmod +x /bin/docker
 RUN \
   curl -sSL https://github.com/docker/compose/releases/download/1.4.0rc3/docker-compose-Linux-x86_64 > /bin/docker-compose && \
   chmod +x /bin/docker-compose
 ADD etc/git2go/install.sh /go/src/github.com/pachyderm/pachyderm/etc/git2go/
 RUN sh -x etc/git2go/install.sh
-RUN mkdir -p /go/src/github.com/pachyderm/pachyderm/etc/deps
-ADD etc/deps/deps.list /go/src/github.com/pachyderm/pachyderm/etc/deps/
-RUN cat etc/deps/deps.list | xargs go get -insecure
 ADD . /go/src/github.com/pachyderm/pachyderm/

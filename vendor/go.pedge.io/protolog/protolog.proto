@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package protolog;
+
+// Fields is a generic context Message used for
+// the Logger functions WithField and WithFields.
+message Fields {
+  map<string, string> value = 1;
+}
+
+// Event is a generic event Message used for
+// the non-protobuf-specific Logger functions.
+message Event {
+  string message = 1;
+}
+
+// WriterOutput is an event Message used for
+// the writer Logger functions.
+message WriterOutput {
+  bytes value = 1;
+}
+
+// Level is a logging level.
+enum Level {
+  LEVEL_NONE = 0;
+  LEVEL_DEBUG = 1;
+  LEVEL_INFO = 2;
+  LEVEL_WARN = 3;
+  LEVEL_ERROR = 4;
+  LEVEL_FATAL = 5;
+  LEVEL_PANIC = 6;
+}
+
+// Entry is the object serialized for logging.
+message Entry {
+  // Message represents a serialized protobuf Message.
+  // The name is the name registered with protolog.
+  message Message {
+    string name = 1;
+    bytes value = 2;
+  }
+  string id = 1;  
+  Level level = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  repeated Message context = 4;
+  Message event = 5;
+}

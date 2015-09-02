@@ -27,6 +27,7 @@ curl -sSL https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.
 echo 'export PATH=${PATH}:/usr/local/go/bin' >> '/etc/profile'
 su - ${1} -c "echo mkdir -p /home/${1}/go >> /home/${1}/.profile"
 su - ${1} -c "echo export GOPATH=/home/${1}/go >> /home/${1}/.profile"
+su - ${1} -c "echo export GO15VENDOREXPERIMENT=1 >> /home/${1}/.profile"
 
 # installs docker
 curl -sSL https://get.docker.com | sh

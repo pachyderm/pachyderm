@@ -30,4 +30,3 @@ src/cmd/pps/pps
 src/cmd/ppsd/ppsd
 .vagrant
 _tmp
-.deps.list.tmp
