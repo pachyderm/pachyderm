@@ -14,11 +14,12 @@ type roler struct {
 	server       Server
 	localAddress string
 	cancel       chan bool
+	cancelled    bool
 	numReplicas  int
 }
 
 func newRoler(addresser route.Addresser, sharder route.Sharder, server Server, localAddress string, numReplicas int) *roler {
-	return &roler{addresser, sharder, server, localAddress, make(chan bool), numReplicas}
+	return &roler{addresser, sharder, server, localAddress, make(chan bool), false, numReplicas}
 }
 
 func (r *roler) Run() error {
@@ -26,7 +27,10 @@ func (r *roler) Run() error {
 }
 
 func (r *roler) Cancel() {
-	close(r.cancel)
+	if !r.cancelled {
+		r.cancelled = true
+		close(r.cancel)
+	}
 }
 
 func (r *roler) hasRoleForShard(shard int, shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) bool {
