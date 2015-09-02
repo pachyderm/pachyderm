@@ -2,11 +2,14 @@ package volume
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
+	"github.com/satori/go.uuid"
 )
 
 const (
@@ -23,15 +26,17 @@ type volume struct {
 }
 
 type volumeDriver struct {
-	mounter fuse.Mounter
+	mounter        fuse.Mounter
+	baseMountpoint string
 
 	nameToVolume map[string]*volume
 	lock         *sync.RWMutex
 }
 
-func newVolumeDriver(mounter fuse.Mounter) *volumeDriver {
+func newVolumeDriver(mounter fuse.Mounter, baseMountpoint string) *volumeDriver {
 	return &volumeDriver{
 		mounter,
+		baseMountpoint,
 		make(map[string]*volume),
 		&sync.RWMutex{},
 	}
@@ -132,21 +137,21 @@ func (v *volumeDriver) Mount(name string) (string, error) {
 	if volume.mountpoint != "" {
 		return "", fmt.Errorf("volume %s already mounted at %s", name, volume.mountpoint)
 	}
-	tempdir, err := ioutil.TempDir("", tempdirPrefix)
-	if err != nil {
+	dir := filepath.Join(v.baseMountpoint, strings.Replace(uuid.NewV4().String(), "-", "", -1))
+	if err := os.MkdirAll(dir, 0777); err != nil {
 		return "", err
 	}
 	if err := v.mounter.Mount(
 		volume.repository,
 		volume.commitID,
-		tempdir,
+		dir,
 		volume.shard,
 		volume.modulus,
 	); err != nil {
 		return "", err
 	}
-	volume.mountpoint = tempdir
-	return tempdir, nil
+	volume.mountpoint = dir
+	return dir, nil
 }
 
 func (v *volumeDriver) Unmount(name string) error {

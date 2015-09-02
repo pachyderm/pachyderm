@@ -34,7 +34,9 @@ pfs-volume-driver:
   volumes:
     - /etc/docker/plugins:/etc/docker/plugins
     - /run/docker/plugins:/run/docker/plugins
-  dockerfile: Dockerfile.pfs-volume-driver
+    - /tmp/pfs-volume-driver:/tmp/pfs-volume-driver
+  environment:
+    - BASE_MOUNTPOINT=/tmp/pfs-volume-driver
   links:
     - pfsd
     - etcd
