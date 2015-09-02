@@ -65,6 +65,14 @@ message InitRepositoryRequest {
   bool redirect = 2;
 }
 
+message ListRepositoriesRequest {
+    bool redirect = 1;
+}
+
+message ListRepositoriesResponse {
+    repeated Repository repository = 1;
+}
+
 message GetFileRequest {
   Path path = 1;
   int64 offset_bytes = 2;
@@ -135,6 +143,8 @@ service Api {
   // InitRepository creates a new repository.
   // An error is returned if the specified repository already exists.
   rpc InitRepository(InitRepositoryRequest) returns (google.protobuf.Empty) {}
+  // ListRepositories lists the existing repositories.
+  rpc ListRepositories(ListRepositoriesRequest) returns (ListRepositoriesResponse) {}
   // GetFile returns a byte stream of the specified file.
   // An error is returned if the specified commit is a write commit.
   rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
