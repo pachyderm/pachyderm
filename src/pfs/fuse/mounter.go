@@ -50,6 +50,7 @@ func (m *mounter) Mount(
 		fuse.FSName(name),
 		fuse.VolumeName(name),
 		fuse.Subtype(subtype),
+		fuse.AllowOther(),
 		fuse.WritebackCache(),
 		fuse.MaxReadahead(1<<32-1),
 	)
