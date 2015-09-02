@@ -71,11 +71,6 @@ curl -L https://github.com/docker/compose/releases/download/1.4.0rc2/docker-comp
 chmod +x /usr/local/bin/docker-compose
 ```
 
-**Note that all development must be done on linux due to the dependency on btrfs.**
-
-And more specifically, btrfs version >= 3.12. We recommend Ubuntu 14.04 for this. See the [Environment Setup](#environment-setup)
-section for a Vagrant setup that works.
-
 Useful development commands can be seen in the [Makefile](Makefile). Key commands:
 
 ```
