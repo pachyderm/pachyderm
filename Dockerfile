@@ -26,7 +26,7 @@ RUN go get golang.org/x/tools/cmd/vet github.com/kisielk/errcheck github.com/gol
 RUN mkdir -p /go/src/github.com/pachyderm/pachyderm/etc/git2go
 WORKDIR /go/src/github.com/pachyderm/pachyderm
 RUN \
-  curl -sSL https://master.dockerproject.org/darwin/amd64/docker > /bin/docker && \
+  curl -sSL https://get.docker.com/builds/Linux/x86_64/docker-1.8.1 > /bin/docker && \
   chmod +x /bin/docker
 RUN \
   curl -sSL https://github.com/docker/compose/releases/download/1.4.0rc3/docker-compose-Linux-x86_64 > /bin/docker-compose && \
