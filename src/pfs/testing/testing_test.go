@@ -51,7 +51,7 @@ func BenchmarkFuse(b *testing.B) {
 	RunBench(b, benchMount)
 }
 
-func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
+func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient, cluster Cluster) {
 	repositoryName := TestRepositoryName()
 
 	err := pfsutil.InitRepository(apiClient, repositoryName)
@@ -167,7 +167,7 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 	require.Equal(t, testSize, count)
 }
 
-func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
+func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient, cluster Cluster) {
 	repositoryName := TestRepositoryName()
 
 	err := pfsutil.InitRepository(apiClient, repositoryName)
@@ -235,7 +235,7 @@ func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Inte
 	require.NoError(t, err)
 }
 
-func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient) {
+func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient, cluster Cluster) {
 	repositoryName := TestRepositoryName()
 
 	err := pfsutil.InitRepository(apiClient, repositoryName)

@@ -192,7 +192,7 @@ func runTest(
 	require.NoError(t, err)
 	pfstesting.RunTest(
 		t,
-		func(t *testing.T, apiClient pfs.ApiClient, internalApiClient pfs.InternalApiClient) {
+		func(t *testing.T, apiClient pfs.ApiClient, internalApiClient pfs.InternalApiClient, cluster pfstesting.Cluster) {
 			grpctest.Run(
 				t,
 				testNumServers,

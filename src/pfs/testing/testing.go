@@ -42,7 +42,7 @@ func TestRepositoryName() string {
 
 func RunTest(
 	t *testing.T,
-	f func(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient),
+	f func(*testing.T, pfs.ApiClient, pfs.InternalApiClient, Cluster),
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(t, err)
@@ -67,6 +67,7 @@ func RunTest(
 				pfs.NewInternalApiClient(
 					clientConn,
 				),
+				cluster,
 			)
 		},
 	)
@@ -75,7 +76,7 @@ func RunTest(
 
 func RunBench(
 	b *testing.B,
-	f func(b *testing.B, apiClient pfs.ApiClient),
+	f func(*testing.B, pfs.ApiClient),
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(b, err)
