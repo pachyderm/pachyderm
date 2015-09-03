@@ -16,6 +16,8 @@ It has these top-level messages:
 	Shard
 	CommitInfo
 	InitRepositoryRequest
+	ListRepositoriesRequest
+	ListRepositoriesResponse
 	GetFileRequest
 	GetFileInfoRequest
 	GetFileInfoResponse
@@ -216,6 +218,29 @@ func (m *InitRepositoryRequest) String() string { return proto.CompactTextString
 func (*InitRepositoryRequest) ProtoMessage()    {}
 
 func (m *InitRepositoryRequest) GetRepository() *Repository {
+	if m != nil {
+		return m.Repository
+	}
+	return nil
+}
+
+type ListRepositoriesRequest struct {
+	Redirect bool `protobuf:"varint,1,opt,name=redirect" json:"redirect,omitempty"`
+}
+
+func (m *ListRepositoriesRequest) Reset()         { *m = ListRepositoriesRequest{} }
+func (m *ListRepositoriesRequest) String() string { return proto.CompactTextString(m) }
+func (*ListRepositoriesRequest) ProtoMessage()    {}
+
+type ListRepositoriesResponse struct {
+	Repository []*Repository `protobuf:"bytes,1,rep,name=repository" json:"repository,omitempty"`
+}
+
+func (m *ListRepositoriesResponse) Reset()         { *m = ListRepositoriesResponse{} }
+func (m *ListRepositoriesResponse) String() string { return proto.CompactTextString(m) }
+func (*ListRepositoriesResponse) ProtoMessage()    {}
+
+func (m *ListRepositoriesResponse) GetRepository() []*Repository {
 	if m != nil {
 		return m.Repository
 	}
@@ -500,6 +525,8 @@ type ApiClient interface {
 	// InitRepository creates a new repository.
 	// An error is returned if the specified repository already exists.
 	InitRepository(ctx context.Context, in *InitRepositoryRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	// ListRepositories lists the existing repositories.
+	ListRepositories(ctx context.Context, in *ListRepositoriesRequest, opts ...grpc.CallOption) (*ListRepositoriesResponse, error)
 	// GetFile returns a byte stream of the specified file.
 	// An error is returned if the specified commit is a write commit.
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error)
@@ -536,6 +563,15 @@ func NewApiClient(cc *grpc.ClientConn) ApiClient {
 func (c *apiClient) InitRepository(ctx context.Context, in *InitRepositoryRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
 	out := new(google_protobuf.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/InitRepository", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiClient) ListRepositories(ctx context.Context, in *ListRepositoriesRequest, opts ...grpc.CallOption) (*ListRepositoriesResponse, error) {
+	out := new(ListRepositoriesResponse)
+	err := grpc.Invoke(ctx, "/pfs.Api/ListRepositories", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -652,6 +688,8 @@ type ApiServer interface {
 	// InitRepository creates a new repository.
 	// An error is returned if the specified repository already exists.
 	InitRepository(context.Context, *InitRepositoryRequest) (*google_protobuf.Empty, error)
+	// ListRepositories lists the existing repositories.
+	ListRepositories(context.Context, *ListRepositoriesRequest) (*ListRepositoriesResponse, error)
 	// GetFile returns a byte stream of the specified file.
 	// An error is returned if the specified commit is a write commit.
 	GetFile(*GetFileRequest, Api_GetFileServer) error
@@ -687,6 +725,18 @@ func _Api_InitRepository_Handler(srv interface{}, ctx context.Context, codec grp
 		return nil, err
 	}
 	out, err := srv.(ApiServer).InitRepository(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _Api_ListRepositories_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(ListRepositoriesRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).ListRepositories(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -817,6 +867,10 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InitRepository",
 			Handler:    _Api_InitRepository_Handler,
+		},
+		{
+			MethodName: "ListRepositories",
+			Handler:    _Api_ListRepositories_Handler,
 		},
 		{
 			MethodName: "GetFileInfo",
