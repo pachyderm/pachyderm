@@ -95,6 +95,10 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 	return emptyInstance, nil
 }
 
+func (a *combinedAPIServer) ListRepositories(ctx context.Context, in *pfs.ListRepositoriesRequest) (*pfs.ListRepositoriesResponse, error) {
+	return nil, nil
+}
+
 func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) (retErr error) {
 	shard, clientConn, err := a.getShardAndClientConnIfNecessary(getFileRequest.Path, false)
 	if err != nil {
