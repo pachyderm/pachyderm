@@ -42,6 +42,10 @@ type StreamingBytesServer interface {
 	Send(bytesValue *google_protobuf.BytesValue) error
 }
 
+func NewStreamingBytesReader(streamingBytesClient StreamingBytesClient) io.Reader {
+	return newStreamingBytesReader(streamingBytesClient)
+}
+
 func NewStreamingBytesWriter(streamingBytesServer StreamingBytesServer) io.Writer {
 	return newStreamingBytesWriter(streamingBytesServer)
 }
