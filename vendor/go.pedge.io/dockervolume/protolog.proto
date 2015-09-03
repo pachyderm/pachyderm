@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package dockervolume;
+
+enum Method {
+  METHOD_NONE = 0;
+  METHOD_CREATE = 1;
+  METHOD_REMOVE = 2;
+  METHOD_PATH = 3;
+  METHOD_MOUNT = 4;
+  METHOD_UNMOUNT = 5;
+}
+
+message MethodInvocation {
+  Method method = 1;
+  string name = 2;
+  map<string, string> opts = 3;
+  string mountpoint = 4;
+  string error = 5;
+}

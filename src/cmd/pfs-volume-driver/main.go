@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 
 	"go.pedge.io/dockervolume"
@@ -33,45 +32,30 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-
 	discoveryClient, err := getEtcdClient(appEnv.EtcdAddress)
 	if err != nil {
 		return err
 	}
-	provider := pfsutil.NewProvider(discoveryClient, grpcutil.NewDialer(grpc.WithInsecure()))
-	clientConn, err := provider.GetClientConn()
+	clientConn, err := pfsutil.NewProvider(discoveryClient, grpcutil.NewDialer(grpc.WithInsecure())).GetClientConn()
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
-
-	volumeDriverHandler := dockervolume.NewVolumeDriverHandler(
-		volume.NewVolumeDriver(
-			fuse.NewMounter(
-				pfs.NewApiClient(
-					clientConn,
+	return dockervolume.Serve(
+		dockervolume.NewVolumeDriverHandler(
+			volume.NewVolumeDriver(
+				fuse.NewMounter(
+					pfs.NewApiClient(
+						clientConn,
+					),
 				),
+				appEnv.BaseMountpoint,
 			),
-			appEnv.BaseMountpoint,
+			dockervolume.VolumeDriverHandlerOptions{},
 		),
-	)
-	start := make(chan struct{})
-	listener, err := dockervolume.NewUnixListener(
+		dockervolume.ProtocolUnix,
 		volumeDriverName,
 		"root",
-		start,
 	)
-	if err != nil {
-		return err
-	}
-	server := &http.Server{
-		Addr:    volumeDriverName,
-		Handler: volumeDriverHandler,
-	}
-	close(start)
-	return server.Serve(listener)
 }
 
 func getEtcdClient(address string) (discovery.Client, error) {

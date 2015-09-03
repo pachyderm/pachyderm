@@ -10,7 +10,8 @@
 	errcheck \
 	pretest \
 	test \
-	clean
+	clean \
+	proto
 
 all: test
 
@@ -27,11 +28,11 @@ updatetestdeps:
 	go get -d -v -t -u -f ./...
 
 build: deps
-	go build ./...
+	GOOS=linux go build ./...
 
 lint: testdeps
 	go get -v github.com/golang/lint/golint
-	for file in $$(find . -name '*.go'); do \
+	for file in $$(find . -name '*.go' | grep -v '\.pb\.go' | grep -v '\.pb\.log\.go'); do \
 		golint $$file; \
 		if [ -n "$$(golint $$file)" ]; then \
 			exit 1; \
@@ -49,7 +50,16 @@ errcheck: testdeps
 pretest: lint vet errcheck
 
 test: testdeps pretest
-	go test -test.v ./...
+	GOOS=linux go test -test.v ./...
 
 clean:
 	go clean ./...
+	GOOS=linux go clean ./...
+
+proto:
+	go get -v github.com/peter-edge/go-tools/docker-protoc-all
+	docker pull pedge/protolog
+	docker-protoc-all go.pedge.io/dockervolume
+	rm -f /tmp/protolog.pb.go
+	tail -n +$$(grep -n 'package dockervolume' protolog.pb.go | cut -f 1 -d :) protolog.pb.go > /tmp/protolog.pb.go
+	mv /tmp/protolog.pb.go protolog.pb.go
