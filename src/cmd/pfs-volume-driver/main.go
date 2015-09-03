@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"go.pedge.io/dockervolume"
+	"go.pedge.io/protolog/logrus"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
@@ -36,6 +37,7 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
+	logrus.Register()
 	address := appEnv.PachydermPfsd1Port
 	if address == "" {
 		address = appEnv.PfsAddress
