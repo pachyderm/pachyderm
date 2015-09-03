@@ -8,10 +8,13 @@ import (
 	"strings"
 	"sync"
 
-	"go.pedge.io/protolog"
-
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/satori/go.uuid"
+)
+
+const (
+	defaultShard   = 0
+	defaultModulus = 1
 )
 
 type volume struct {
@@ -40,28 +43,19 @@ func newVolumeDriver(mounter fuse.Mounter, baseMountpoint string) *volumeDriver 
 }
 
 func (v *volumeDriver) Create(name string, opts map[string]string) error {
-	protolog.Infof("Create(name:%s, opts:%v)", name, opts)
-	repository, ok := opts["repository"]
-	if !ok {
-		return fmt.Errorf("option repository not found in %v", opts)
-	}
-	commitID, ok := opts["commit_id"]
-	if !ok {
-		return fmt.Errorf("option commit_id not found in %v", opts)
-	}
-	shardObj, ok := opts["shard"]
-	if !ok {
-		return fmt.Errorf("option shard not found in %v", opts)
-	}
-	shard, err := strconv.ParseUint(shardObj, 10, 64)
+	repository, err := getRequiredString(opts, "repository")
 	if err != nil {
 		return err
 	}
-	modulusObj, ok := opts["modulus"]
-	if !ok {
-		return fmt.Errorf("option modulus not found in %v", opts)
+	commitID, err := getRequiredString(opts, "commit_id")
+	if err != nil {
+		return err
 	}
-	modulus, err := strconv.ParseUint(modulusObj, 10, 64)
+	shard, err := getOptionalUint64(opts, "shard", defaultShard)
+	if err != nil {
+		return err
+	}
+	modulus, err := getOptionalUint64(opts, "modulus", defaultModulus)
 	if err != nil {
 		return err
 	}
@@ -79,48 +73,41 @@ func (v *volumeDriver) Create(name string, opts map[string]string) error {
 	v.lock.Lock()
 	if _, ok := v.nameToVolume[name]; ok {
 		v.lock.Unlock()
-		return fmt.Errorf("volume already exists: %s", name)
+		return fmt.Errorf("pfs-volume-driver: volume already exists: %s", name)
 	}
 	v.nameToVolume[name] = volume
 	v.lock.Unlock()
-	protolog.Infof("Create name:%s volume:%+v", name, volume)
 	return nil
 }
 
 func (v *volumeDriver) Remove(name string) error {
-	protolog.Infof("Remove(name:%s)", name)
 	v.lock.Lock()
-	volume, ok := v.nameToVolume[name]
-	if !ok {
+	if _, ok := v.nameToVolume[name]; !ok {
 		v.lock.Unlock()
-		return fmt.Errorf("volume does not exist: %s", name)
+		return fmt.Errorf("pfs-volume-driver: volume does not exist: %s", name)
 	}
 	delete(v.nameToVolume, name)
 	v.lock.Unlock()
-	protolog.Infof("Remove name:%s volume:%+v", name, volume)
 	return nil
 }
 
 func (v *volumeDriver) Path(name string) (string, error) {
-	protolog.Infof("Path(name:%s)", name)
 	v.lock.RLock()
 	volume, ok := v.nameToVolume[name]
 	if !ok {
 		v.lock.RUnlock()
-		return "", fmt.Errorf("volume does not exist: %s", name)
+		return "", fmt.Errorf("pfs-volume-driver: volume does not exist: %s", name)
 	}
 	v.lock.RUnlock()
-	protolog.Infof("Path name:%s volume:%+v", name, volume)
 	return volume.mountpoint, nil
 }
 
 func (v *volumeDriver) Mount(name string) (string, error) {
-	protolog.Infof("Mount(name:%s)", name)
 	v.lock.RLock()
 	volume, ok := v.nameToVolume[name]
 	if !ok {
 		v.lock.RUnlock()
-		return "", fmt.Errorf("volume does not exist: %s", name)
+		return "", fmt.Errorf("pfs-volume-driver: volume does not exist: %s", name)
 	}
 	v.lock.RUnlock()
 	if err := v.mounter.Mount(
@@ -132,25 +119,51 @@ func (v *volumeDriver) Mount(name string) (string, error) {
 	); err != nil {
 		return "", err
 	}
-	protolog.Infof("Mount name:%s volume:%+v", name, volume)
 	return volume.mountpoint, nil
 }
 
 func (v *volumeDriver) Unmount(name string) error {
-	protolog.Infof("Unmount(name:%s)", name)
 	v.lock.RLock()
 	volume, ok := v.nameToVolume[name]
 	if !ok {
 		v.lock.RUnlock()
-		return fmt.Errorf("volume does not exist: %s", name)
+		return fmt.Errorf("pfs-volume-driver: volume does not exist: %s", name)
 	}
 	v.lock.RUnlock()
 	if err := v.mounter.Unmount(volume.mountpoint); err != nil {
 		return err
 	}
-	if err := v.mounter.Wait(volume.mountpoint); err != nil {
-		return err
+	return v.mounter.Wait(volume.mountpoint)
+}
+
+func getOptionalString(m map[string]string, key string, defaultValue string) (string, error) {
+	value, ok := m[key]
+	if !ok {
+		return defaultValue, nil
 	}
-	protolog.Infof("Unmount name:%s volume:%+v", name, volume)
-	return nil
+	return value, nil
+}
+
+func getRequiredString(m map[string]string, key string) (string, error) {
+	value, ok := m[key]
+	if !ok {
+		return "", fmt.Errorf("pfs-volume-driver: must pass opt %s (--opt %s=VALUE)", key, key)
+	}
+	return value, nil
+}
+
+func getOptionalUint64(m map[string]string, key string, defaultValue uint64) (uint64, error) {
+	valueObj, err := getOptionalString(m, key, strconv.FormatUint(defaultValue, 10))
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseUint(valueObj, 10, 64)
+}
+
+func getRequiredUint64(m map[string]string, key string) (uint64, error) {
+	valueObj, err := getRequiredString(m, key)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseUint(valueObj, 10, 64)
 }
