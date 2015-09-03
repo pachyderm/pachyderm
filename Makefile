@@ -82,9 +82,7 @@ docker-push: docker-push-ppsd docker-push-pfsd docker-push-pfs-volume-driver
 run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
 
-launch-pfsd: docker-clean-test docker-build-pfsd
-	docker-compose kill pfsd
-	docker-compose rm -f pfsd
+launch-pfsd: docker-clean-launch docker-build-pfsd
 	docker-compose up -d --force-recreate --no-build pfsd
 
 launch: docker-clean-launch docker-build-pfsd docker-build-ppsd
