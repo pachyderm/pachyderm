@@ -17,14 +17,21 @@ const (
 	volumeDriverGroup = "root"
 )
 
+var (
+	defaultEnv = map[string]string{
+		"PFS_ADDRESS":     "0.0.0.0:650",
+		"BASE_MOUNTPOINT": "/tmp/pfs-volume-driver",
+	}
+)
+
 type appEnv struct {
 	PachydermPfsd1Port string `env:"PACHYDERM_PFSD_1_PORT"`
 	PfsAddress         string `env:"PFS_ADDRESS"`
-	BaseMountpoint     string `env:"BASE_MOUNTPOINT,required"`
+	BaseMountpoint     string `env:"BASE_MOUNTPOINT"`
 }
 
 func main() {
-	mainutil.Main(do, &appEnv{}, nil)
+	mainutil.Main(do, &appEnv{}, defaultEnv)
 }
 
 func do(appEnvObj interface{}) error {

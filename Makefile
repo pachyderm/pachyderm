@@ -87,7 +87,7 @@ launch-pfsd: docker-clean-test docker-build-pfsd
 	docker-compose rm -f pfsd
 	docker-compose up -d --force-recreate --no-build pfsd
 
-launch: docker-clean-launch docker-build-pfs-volume-driver docker-build-pfsd docker-build-ppsd
+launch: docker-clean-launch docker-build-pfsd docker-build-ppsd
 	docker-compose up -d --force-recreate --no-build ppsd
 
 proto:
