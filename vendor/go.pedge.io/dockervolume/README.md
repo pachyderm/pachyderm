@@ -1,3 +1,54 @@
 # dockervolume
 
-Inspired by https://github.com/calavera/dkvolume
+A small library taking care of the generic code for docker volume plugins written in Go.
+
+* https://blog.docker.com/2015/06/extending-docker-with-plugins/
+* https://github.com/docker/docker/blob/master/docs/extend/plugins.md
+* https://github.com/docker/docker/blob/master/docs/extend/plugin_api.md
+* https://github.com/docker/docker/blob/master/docs/extend/plugins_volume.md
+
+This libary was originally inspired by https://github.com/calavera/dkvolume, but exposes
+similar functionality in a slightly different style, along with adding logging of all
+calls by default using [go.pedge.io/protolog](http://go.pedge.io/protolog).
+
+### Usage
+
+Your volume plugin must implement the `VolumeDriver` interface. This interface is meant
+to match docker's `volumedrivers.VolumeDriver` [interface](https://github.com/docker/docker/blob/master/volume/drivers/extpoint.go),
+but handles a small issue with that interface's usage of a private type.
+
+To launch your plugin using Unix sockets, do:
+
+```
+func launch(volumeDriver dockervolume.VolumeDriver) error {
+  return dockervolume.Serve(
+    dockervolume.NewVolumeDriverHandler(
+      volumeDriver,
+      dockervolume.VolumeDriverHandlerOptions{},
+    ),
+    dockervolume.ProtocolUnix,
+    "volume_driver_name",
+    "root",
+  )
+}
+```
+
+To launch your plugin using TCP, do:
+
+```
+func launch(volumeDriver dockervolume.VolumeDriver) error {
+  return dockervolume.Serve(
+    dockervolume.NewVolumeDriverHandler(
+      volumeDriver,
+      dockervolume.VolumeDriverHandlerOptions{},
+    ),
+    dockervolume.ProtocolTCP,
+    "volume_driver_name",
+    "address",
+  )
+}
+```
+
+### Example
+
+https://github.com/pachyderm/pachyderm/tree/master/src/cmd/pfs-volume-driver
