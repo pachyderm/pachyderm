@@ -45,7 +45,7 @@ sudo /path/to/pfs-volume-driver
 This assumes that pfsd (launched with `make launch-pfsd`) is running on the same machine,
 otherwise you must set `PFS_ADDRESS` to point to the host and port of pfsd.
 
-A good example of how to use this is at [etc/examples/pfs-simple.bash](etc/examples/pfs-simple.bash).
+A good example of how to use this is at [etc/examples/pfs-simple.bash](../../../etc/examples/pfs-simple.bash).
 Note that you must have `PFS_ADDRESS` set if you are not running the example on the same machine
 as docker is running. If using docker-machine, you'll need to open up port 650 and then set
 `PFS_ADDRESS` accordingly, for example `192.168.10.10:650`.
