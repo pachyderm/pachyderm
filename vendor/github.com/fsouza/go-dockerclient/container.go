@@ -206,6 +206,7 @@ type Config struct {
 	DNS             []string            `json:"Dns,omitempty" yaml:"Dns,omitempty"` // For Docker API v1.9 and below only
 	Image           string              `json:"Image,omitempty" yaml:"Image,omitempty"`
 	Volumes         map[string]struct{} `json:"Volumes,omitempty" yaml:"Volumes,omitempty"`
+	VolumeDriver    string              `json:"VolumeDriver,omitempty" yaml:"VolumeDriver,omitempty"`
 	VolumesFrom     string              `json:"VolumesFrom,omitempty" yaml:"VolumesFrom,omitempty"`
 	WorkingDir      string              `json:"WorkingDir,omitempty" yaml:"WorkingDir,omitempty"`
 	MacAddress      string              `json:"MacAddress,omitempty" yaml:"MacAddress,omitempty"`
