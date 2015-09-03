@@ -35,6 +35,10 @@ docker create --name pfs-volume-driver pachyderm/pfs-volume-driver:latest
 docker cp pfs-volume-driver:/pfs-volume-driver .
 ```
 
+This will give you a binary that was compiled inside a Ubuntu 14.04 container. If you
+need a different compilation for a specific machine, `make install` will build and install
+the binary at `${GOPATH}/bin`.
+
 This binary needs to run where the docker daemon is running. If you're developing on Linux,
 you're probably running the docker daemon on your machine, so no need to copy the binary anywhere.
 If you're developing on Mac, then the docker daemon is somewhere else, so copy the binary there.
