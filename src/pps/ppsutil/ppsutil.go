@@ -11,6 +11,7 @@ func GetPipelineGithub(
 	user string,
 	repository string,
 	branch string,
+	commitID string,
 	accessToken string,
 ) (*pps.GetPipelineResponse, error) {
 	return apiClient.GetPipeline(
@@ -22,6 +23,7 @@ func GetPipelineGithub(
 					User:        user,
 					Repository:  repository,
 					Branch:      branch,
+					CommitId:    commitID,
 					AccessToken: accessToken,
 				},
 			},
@@ -35,6 +37,7 @@ func StartPipelineRunGithub(
 	user string,
 	repository string,
 	branch string,
+	commitID string,
 	accessToken string,
 ) (*pps.StartPipelineRunResponse, error) {
 	return apiClient.StartPipelineRun(
@@ -46,6 +49,7 @@ func StartPipelineRunGithub(
 					User:        user,
 					Repository:  repository,
 					Branch:      branch,
+					CommitId:    commitID,
 					AccessToken: accessToken,
 				},
 			},
