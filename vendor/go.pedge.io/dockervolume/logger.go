@@ -9,5 +9,9 @@ var (
 type logger struct{}
 
 func (l *logger) LogMethodInvocation(methodInvocation *MethodInvocation) {
-	protolog.Info(methodInvocation)
+	if methodInvocation.Error != "" {
+		protolog.Error(methodInvocation)
+	} else {
+		protolog.Info(methodInvocation)
+	}
 }
