@@ -35,8 +35,10 @@ docker create --name pfs-volume-driver pachyderm/pfs-volume-driver:latest
 docker cp pfs-volume-driver:/pfs-volume-driver .
 ```
 
-Copy this binary to *the docker host*. This binary needs to run where docker is running.
-Then, go to that machine and run the binary:
+This binary needs to run where the docker daemon is running. If you're developing on Linux,
+you're probably running the docker daemon on your machine, so no need to copy the binary anywhere.
+If you're developing on Mac, then the docker daemon is somewhere else, so copy the binary there.
+Then, run it:
 
 ```
 sudo /path/to/pfs-volume-driver
