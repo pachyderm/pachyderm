@@ -1426,6 +1426,33 @@ func TestExportContainerNoId(t *testing.T) {
 	}
 }
 
+func TestPutContainerArchive(t *testing.T) {
+	content := "File content"
+	in := stdinMock{bytes.NewBufferString(content)}
+	fakeRT := &FakeRoundTripper{status: http.StatusOK}
+	client := newTestClient(fakeRT)
+	opts := PutContainerArchiveOptions{
+		Path:        "abc",
+		InputStream: in,
+	}
+	err := client.PutContainerArchive("a123456", opts)
+
+	if err != nil {
+		t.Errorf("PutContainerArchive: caugh error %#v while copying from container, expected nil", err.Error())
+	}
+
+	req := fakeRT.requests[0]
+
+	if req.Method != "PUT" {
+		t.Errorf("PutContainerArchive{Path:abc}: Wrong HTTP method.  Want PUT. Got %s", req.Method)
+	}
+
+	if pathParam := req.URL.Query().Get("path"); pathParam != "abc" {
+		t.Errorf("ListImages({Path:abc}): Wrong parameter. Want path=abc.  Got path=%s", pathParam)
+	}
+
+}
+
 func TestCopyFromContainer(t *testing.T) {
 	content := "File content"
 	out := stdoutMock{bytes.NewBufferString(content)}
