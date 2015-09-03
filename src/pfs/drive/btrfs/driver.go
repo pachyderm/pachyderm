@@ -58,6 +58,18 @@ func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool)
 	return nil
 }
 
+func (d *driver) ListRepositories(shard int) ([]*pfs.Repository, error) {
+	repositories, err := ioutil.ReadDir(d.basePath())
+	if err != nil {
+		return nil, err
+	}
+	var result []*pfs.Repository
+	for _, repository := range repositories {
+		result = append(result, &pfs.Repository{repository.Name()})
+	}
+	return result, nil
+}
+
 func (d *driver) GetFile(path *pfs.Path, shard int) (drive.ReaderAtCloser, error) {
 	filePath, err := d.filePath(path, shard)
 	if err != nil {
@@ -376,8 +388,12 @@ func (d *driver) getReadOnly(commit *pfs.Commit, shard int) (bool, error) {
 	}
 }
 
+func (d *driver) basePath() string {
+	return filepath.Join(d.rootDir, d.namespace)
+}
+
 func (d *driver) repositoryPath(repository *pfs.Repository) string {
-	return filepath.Join(d.rootDir, d.namespace, repository.Name)
+	return filepath.Join(d.basePath(), repository.Name)
 }
 
 func (d *driver) commitPathNoShard(commit *pfs.Commit) string {

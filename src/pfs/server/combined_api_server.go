@@ -506,6 +506,51 @@ func (a *combinedAPIServer) commitToReplicas(ctx context.Context, commit *pfs.Co
 }
 
 func (a *combinedAPIServer) Master(shard int) error {
+	clientConns, err := a.router.GetReplicaClientConns(shard)
+	if err != nil {
+		return err
+	}
+	for _, clientConn := range clientConns {
+		apiClient := pfs.NewApiClient(clientConn)
+		response, err := apiClient.ListRepositories(context.Background(), &pfs.ListRepositoriesRequest{})
+		if err != nil {
+			return err
+		}
+		for _, repository := range response.Repository {
+			if err := a.driver.InitRepository(repository, map[int]bool{shard: true}); err != nil {
+				return err
+			}
+			response, err := apiClient.ListCommits(context.Background(), &pfs.ListCommitsRequest{Repository: repository})
+			if err != nil {
+				return err
+			}
+			localCommitInfo, err := a.driver.ListCommits(repository, shard)
+			if err != nil {
+				return err
+			}
+			for i, commitInfo := range response.CommitInfo {
+				if i < len(localCommitInfo) {
+					if *commitInfo != *localCommitInfo[i] {
+						return fmt.Errorf("divergent data")
+					}
+					continue
+				}
+				pullDiffClient, err := pfs.NewInternalApiClient(clientConn).PullDiff(
+					context.Background(),
+					&pfs.PullDiffRequest{
+						Commit: commitInfo.Commit,
+						Shard:  uint64(shard),
+					},
+				)
+				if err != nil {
+					return err
+				}
+				if err := a.driver.PushDiff(commitInfo.Commit, protoutil.NewStreamingBytesReader(pullDiffClient)); err != nil {
+					return err
+				}
+			}
+		}
+	}
 	return nil
 }
 
