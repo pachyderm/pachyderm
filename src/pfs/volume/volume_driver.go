@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/satori/go.uuid"
@@ -26,19 +27,29 @@ type volume struct {
 }
 
 type volumeDriver struct {
-	mounter        fuse.Mounter
-	baseMountpoint string
+	mounterProvider func() (fuse.Mounter, error)
+	baseMountpoint  string
 
 	nameToVolume map[string]*volume
 	lock         *sync.RWMutex
+
+	mounterOnce  *sync.Once
+	mounterValue *atomic.Value
+	mounterErr   *atomic.Value
 }
 
-func newVolumeDriver(mounter fuse.Mounter, baseMountpoint string) *volumeDriver {
+func newVolumeDriver(
+	mounterProvider func() (fuse.Mounter, error),
+	baseMountpoint string,
+) *volumeDriver {
 	return &volumeDriver{
-		mounter,
+		mounterProvider,
 		baseMountpoint,
 		make(map[string]*volume),
 		&sync.RWMutex{},
+		&sync.Once{},
+		&atomic.Value{},
+		&atomic.Value{},
 	}
 }
 
@@ -110,7 +121,11 @@ func (v *volumeDriver) Mount(name string) (string, error) {
 		return "", fmt.Errorf("pfs-volume-driver: volume does not exist: %s", name)
 	}
 	v.lock.RUnlock()
-	if err := v.mounter.Mount(
+	mounter, err := v.getMounter()
+	if err != nil {
+		return "", err
+	}
+	if err := mounter.Mount(
 		volume.repository,
 		volume.commitID,
 		volume.mountpoint,
@@ -130,10 +145,32 @@ func (v *volumeDriver) Unmount(name string) error {
 		return fmt.Errorf("pfs-volume-driver: volume does not exist: %s", name)
 	}
 	v.lock.RUnlock()
-	if err := v.mounter.Unmount(volume.mountpoint); err != nil {
+	mounter, err := v.getMounter()
+	if err != nil {
 		return err
 	}
-	return v.mounter.Wait(volume.mountpoint)
+	if err := mounter.Unmount(volume.mountpoint); err != nil {
+		return err
+	}
+	return mounter.Wait(volume.mountpoint)
+}
+
+func (v *volumeDriver) getMounter() (fuse.Mounter, error) {
+	v.mounterOnce.Do(func() {
+		value, err := v.mounterProvider()
+		if value != nil {
+			v.mounterValue.Store(value)
+		}
+		if err != nil {
+			v.mounterErr.Store(err)
+		}
+	})
+	mounterObj := v.mounterValue.Load()
+	errObj := v.mounterErr.Load()
+	if errObj != nil {
+		return nil, errObj.(error)
+	}
+	return mounterObj.(fuse.Mounter), nil
 }
 
 func getOptionalString(m map[string]string, key string, defaultValue string) (string, error) {

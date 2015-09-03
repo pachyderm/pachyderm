@@ -35,18 +35,20 @@ func do(appEnvObj interface{}) error {
 	} else {
 		address = strings.Replace(address, "tcp://", "", -1)
 	}
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		return err
-	}
 	return dockervolume.Serve(
 		dockervolume.NewVolumeDriverHandler(
 			volume.NewVolumeDriver(
-				fuse.NewMounter(
-					pfs.NewApiClient(
-						clientConn,
-					),
-				),
+				func() (fuse.Mounter, error) {
+					clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+					if err != nil {
+						return nil, err
+					}
+					return fuse.NewMounter(
+						pfs.NewApiClient(
+							clientConn,
+						),
+					), nil
+				},
 				appEnv.BaseMountpoint,
 			),
 			dockervolume.VolumeDriverHandlerOptions{},
