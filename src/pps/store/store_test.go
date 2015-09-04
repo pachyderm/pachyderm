@@ -16,10 +16,6 @@ func TestBasicRethink(t *testing.T) {
 	runTestRethink(t, testBasic)
 }
 
-func TestBasicInMem(t *testing.T) {
-	runTestInMem(t, testBasic)
-}
-
 func testBasic(t *testing.T, client Client) {
 	pipelineRun := &pps.PipelineRun{
 		Id: "id",
@@ -50,10 +46,6 @@ func testBasic(t *testing.T, client Client) {
 	containerIDs, err := client.GetPipelineRunContainers("id")
 	require.NoError(t, err)
 	require.Equal(t, []*pps.PipelineRunContainer{&pps.PipelineRunContainer{PipelineRunId: "id", ContainerId: "container", Node: "node"}}, containerIDs)
-}
-
-func runTestInMem(t *testing.T, testFunc func(*testing.T, Client)) {
-	testFunc(t, NewInMemoryClient())
 }
 
 func runTestRethink(t *testing.T, testFunc func(*testing.T, Client)) {
