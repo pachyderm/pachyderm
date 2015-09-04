@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/peter-edge/go-google-protobuf"
+	"go.pedge.io/google-protobuf"
 )
 
 func TimeToTimestamp(t time.Time) *google_protobuf.Timestamp {

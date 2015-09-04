@@ -15,7 +15,7 @@ It has these top-level messages:
 package protoversion
 
 import proto "github.com/golang/protobuf/proto"
-import google_protobuf "github.com/peter-edge/go-google-protobuf"
+import google_protobuf "go.pedge.io/google-protobuf"
 
 import (
 	context "golang.org/x/net/context"
