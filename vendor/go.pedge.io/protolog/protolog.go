@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/peter-edge/go-google-protobuf"
+	"go.pedge.io/google-protobuf"
 )
 
 var (
