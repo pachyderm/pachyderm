@@ -21,10 +21,6 @@ type Client interface {
 	GetAllPipelineSources() ([]*pps.PipelineSource, error)
 }
 
-func NewInMemoryClient() Client {
-	return newInMemoryClient()
-}
-
 func NewRethinkClient(address string, databaseName string) (Client, error) {
 	return newRethinkClient(address, databaseName)
 }
