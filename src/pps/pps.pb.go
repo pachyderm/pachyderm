@@ -243,7 +243,8 @@ type GithubPipelineSource struct {
 	User        string `protobuf:"bytes,2,opt,name=user" json:"user,omitempty"`
 	Repository  string `protobuf:"bytes,3,opt,name=repository" json:"repository,omitempty"`
 	Branch      string `protobuf:"bytes,4,opt,name=branch" json:"branch,omitempty"`
-	AccessToken string `protobuf:"bytes,5,opt,name=access_token" json:"access_token,omitempty"`
+	CommitId    string `protobuf:"bytes,5,opt,name=commit_id" json:"commit_id,omitempty"`
+	AccessToken string `protobuf:"bytes,6,opt,name=access_token" json:"access_token,omitempty"`
 }
 
 func (m *GithubPipelineSource) Reset()         { *m = GithubPipelineSource{} }

@@ -50,6 +50,7 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 		"pachyderm",
 		"master",
 		"",
+		"",
 	)
 	require.NoError(t, err)
 	pipelineRunID := startPipelineRunResponse.PipelineRunId

@@ -1,34 +1,9 @@
 package ppsutil
 
 import (
-	"github.com/pachyderm/pachyderm/src/pkg/discovery"
-	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"golang.org/x/net/context"
 )
-
-const (
-	registryDirectory = "grpcutil/registry/pps"
-)
-
-func NewRegistry(discoveryClient discovery.Client) grpcutil.Registry {
-	return grpcutil.NewRegistry(
-		discovery.NewRegistry(
-			discoveryClient,
-			registryDirectory,
-		),
-	)
-}
-
-func NewProvider(discoveryClient discovery.Client, dialer grpcutil.Dialer) grpcutil.Provider {
-	return grpcutil.NewProvider(
-		discovery.NewRegistry(
-			discoveryClient,
-			registryDirectory,
-		),
-		dialer,
-	)
-}
 
 func GetPipelineGithub(
 	apiClient pps.ApiClient,
@@ -36,6 +11,7 @@ func GetPipelineGithub(
 	user string,
 	repository string,
 	branch string,
+	commitID string,
 	accessToken string,
 ) (*pps.GetPipelineResponse, error) {
 	return apiClient.GetPipeline(
@@ -47,6 +23,7 @@ func GetPipelineGithub(
 					User:        user,
 					Repository:  repository,
 					Branch:      branch,
+					CommitId:    commitID,
 					AccessToken: accessToken,
 				},
 			},
@@ -60,6 +37,7 @@ func StartPipelineRunGithub(
 	user string,
 	repository string,
 	branch string,
+	commitID string,
 	accessToken string,
 ) (*pps.StartPipelineRunResponse, error) {
 	return apiClient.StartPipelineRun(
@@ -71,6 +49,7 @@ func StartPipelineRunGithub(
 					User:        user,
 					Repository:  repository,
 					Branch:      branch,
+					CommitId:    commitID,
 					AccessToken: accessToken,
 				},
 			},

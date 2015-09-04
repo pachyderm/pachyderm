@@ -7,14 +7,14 @@ import (
 )
 
 const (
-	contentType = "application/vnd.docker.plugins.v1+json"
+	contentType = "application/vnd.docker.plugins.v1.1+json"
 )
 
 var (
 	activateResponse = []byte("{\"Implements\": [\"VolumeDriver\"]}\n")
 )
 
-func newVolumeDriverHandler(volumeDriver VolumeDriver) *http.ServeMux {
+func newVolumeDriverHandler(volumeDriver VolumeDriver, opts VolumeDriverHandlerOptions) *http.ServeMux {
 	serveMux := http.NewServeMux()
 	serveMux.HandleFunc(
 		"/Plugin.Activate",
@@ -26,44 +26,60 @@ func newVolumeDriverHandler(volumeDriver VolumeDriver) *http.ServeMux {
 	serveMux.HandleFunc(
 		"/VolumeDriver.Create",
 		newGenericHandlerFunc(
-			volumeDriverCreate,
-			volumeDriver,
+			Method_METHOD_CREATE,
+			func(name string, opts map[string]string) (string, error) {
+				return "", volumeDriver.Create(name, opts)
+			},
+			opts,
 		),
 	)
 	serveMux.HandleFunc(
 		"/VolumeDriver.Remove",
 		newGenericHandlerFunc(
-			volumeDriverRemove,
-			volumeDriver,
+			Method_METHOD_REMOVE,
+			func(name string, opts map[string]string) (string, error) {
+				return "", volumeDriver.Remove(name)
+			},
+			opts,
 		),
 	)
 	serveMux.HandleFunc(
 		"/VolumeDriver.Mount",
 		newGenericHandlerFunc(
-			volumeDriverMount,
-			volumeDriver,
+			Method_METHOD_MOUNT,
+			func(name string, opts map[string]string) (string, error) {
+				return volumeDriver.Mount(name)
+			},
+			opts,
 		),
 	)
 	serveMux.HandleFunc(
 		"/VolumeDriver.Path",
 		newGenericHandlerFunc(
-			volumeDriverPath,
-			volumeDriver,
+			Method_METHOD_PATH,
+			func(name string, opts map[string]string) (string, error) {
+				return volumeDriver.Path(name)
+			},
+			opts,
 		),
 	)
 	serveMux.HandleFunc(
 		"/VolumeDriver.Unmount",
 		newGenericHandlerFunc(
-			volumeDriverUnmount,
-			volumeDriver,
+			Method_METHOD_UNMOUNT,
+			func(name string, opts map[string]string) (string, error) {
+				return "", volumeDriver.Unmount(name)
+			},
+			opts,
 		),
 	)
 	return serveMux
 }
 
 func newGenericHandlerFunc(
-	f func(VolumeDriver, map[string]interface{}) (map[string]interface{}, error),
-	volumeDriver VolumeDriver,
+	method Method,
+	f func(string, map[string]string) (string, error),
+	opts VolumeDriverHandlerOptions,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(responseWriter http.ResponseWriter, request *http.Request) {
 		m := make(map[string]interface{})
@@ -71,71 +87,55 @@ func newGenericHandlerFunc(
 			http.Error(responseWriter, err.Error(), http.StatusBadRequest)
 			return
 		}
-		n, err := f(volumeDriver, m)
-		if n == nil {
-			n = make(map[string]interface{})
-		}
-		if err != nil {
-			n["Err"] = err.Error()
-		}
 		responseWriter.Header().Set("Content-Type", contentType)
-		_ = json.NewEncoder(responseWriter).Encode(n)
+		_ = json.NewEncoder(responseWriter).Encode(wrap(getLogger(opts), method, f, m))
 	}
 }
 
-func volumeDriverCreate(volumeDriver VolumeDriver, request map[string]interface{}) (map[string]interface{}, error) {
+func wrap(
+	logger Logger,
+	method Method,
+	f func(string, map[string]string) (string, error),
+	request map[string]interface{},
+) map[string]interface{} {
+	name, opts, err := extractParameters(request)
+	methodInvocation := &MethodInvocation{
+		Method: method,
+		Name:   name,
+		Opts:   opts,
+	}
+	if err != nil {
+		return handleResponse(logger, methodInvocation, "", err)
+	}
+	mountpoint, err := f(name, opts)
+	return handleResponse(logger, methodInvocation, mountpoint, err)
+}
+
+func extractParameters(request map[string]interface{}) (string, map[string]string, error) {
 	if err := checkRequiredParameters(request, "Name"); err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	name := request["Name"].(string)
 	var opts map[string]string
 	if _, ok := request["Opts"]; ok {
-		opts = make(map[string]string)
-		for key, value := range request["Opts"].(map[string]interface{}) {
-			opts[key] = fmt.Sprintf("%v", value)
-		}
+		opts = mapStringInterfaceToMapStringString(request["Opts"].(map[string]interface{}))
 	}
-	return nil, volumeDriver.Create(name, opts)
+	return name, opts, nil
 }
 
-func volumeDriverRemove(volumeDriver VolumeDriver, request map[string]interface{}) (map[string]interface{}, error) {
-	if err := checkRequiredParameters(request, "Name"); err != nil {
-		return nil, err
-	}
-	return nil, volumeDriver.Remove(request["Name"].(string))
-}
-
-func volumeDriverMount(volumeDriver VolumeDriver, request map[string]interface{}) (map[string]interface{}, error) {
-	if err := checkRequiredParameters(request, "Name"); err != nil {
-		return nil, err
-	}
-	mountpoint, err := volumeDriver.Mount(request["Name"].(string))
-	var n map[string]interface{}
+func handleResponse(logger Logger, methodInvocation *MethodInvocation, mountpoint string, err error) map[string]interface{} {
+	response := make(map[string]interface{})
 	if mountpoint != "" {
-		n = make(map[string]interface{})
-		n["Mountpoint"] = mountpoint
+		response["Mountpoint"] = mountpoint
+		methodInvocation.Mountpoint = mountpoint
 	}
-	return n, err
-}
-
-func volumeDriverPath(volumeDriver VolumeDriver, request map[string]interface{}) (map[string]interface{}, error) {
-	if err := checkRequiredParameters(request, "Name"); err != nil {
-		return nil, err
+	if err != nil {
+		errString := err.Error()
+		response["Err"] = errString
+		methodInvocation.Error = errString
 	}
-	mountpoint, err := volumeDriver.Path(request["Name"].(string))
-	var n map[string]interface{}
-	if mountpoint != "" {
-		n = make(map[string]interface{})
-		n["Mountpoint"] = mountpoint
-	}
-	return n, err
-}
-
-func volumeDriverUnmount(volumeDriver VolumeDriver, request map[string]interface{}) (map[string]interface{}, error) {
-	if err := checkRequiredParameters(request, "Name"); err != nil {
-		return nil, err
-	}
-	return nil, volumeDriver.Unmount(request["Name"].(string))
+	logger.LogMethodInvocation(methodInvocation)
+	return response
 }
 
 func checkRequiredParameters(request map[string]interface{}, parameters ...string) error {
@@ -145,4 +145,19 @@ func checkRequiredParameters(request map[string]interface{}, parameters ...strin
 		}
 	}
 	return nil
+}
+
+func getLogger(opts VolumeDriverHandlerOptions) Logger {
+	if opts.Logger != nil {
+		return opts.Logger
+	}
+	return loggerInstance
+}
+
+func mapStringInterfaceToMapStringString(m map[string]interface{}) map[string]string {
+	n := make(map[string]string)
+	for key, value := range m {
+		n[key] = fmt.Sprintf("%v", value)
+	}
+	return n
 }
