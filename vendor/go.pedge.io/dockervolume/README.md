@@ -13,6 +13,20 @@ calls by default using [go.pedge.io/protolog](http://go.pedge.io/protolog).
 
 ### Usage
 
+Note the custom URL:
+
+```
+go get go.pedge.io/dockervolume/...
+```
+
+And for imports:
+
+```
+import (
+  "go.pedge.io/dockervolume"
+)
+```
+
 Your volume plugin must implement the `VolumeDriver` interface. This interface is meant
 to match docker's `volumedrivers.VolumeDriver` [interface](https://github.com/docker/docker/blob/master/volume/drivers/extpoint.go),
 but handles a small issue with that interface's usage of a private type.
