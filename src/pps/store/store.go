@@ -17,7 +17,7 @@ type Client interface {
 	AddPipelineSource(pipelineSource *pps.PipelineSource) error
 	GetPipelineSource(id string) (*pps.PipelineSource, error)
 	UpdatePipelineSource(pipelineSource *pps.PipelineSource) error
-	DeletePipelineSource(pipelineSource *pps.PipelineSource) error
+	DeletePipelineSource(id string) error
 	GetAllPipelineSources() ([]*pps.PipelineSource, error)
 }
 
