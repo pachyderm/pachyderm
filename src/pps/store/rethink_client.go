@@ -1,7 +1,10 @@
 package store
 
 import (
+	"errors"
+
 	"github.com/dancannon/gorethink"
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
@@ -14,6 +17,7 @@ const (
 	containerTable        = "pipeline_containers"
 	logTable              = "pipeline_logs"
 	pfsCommitMappingTable = "pfs_commit_mappings"
+	pipelineSourcesTable  = "pipeline_sources"
 )
 
 var (
@@ -53,6 +57,9 @@ func InitDBs(address string, databaseName string) error {
 	if _, err := gorethink.DB(databaseName).TableCreate(pfsCommitMappingTable).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).TableCreate(pipelineSourcesTable).RunWrite(session); err != nil {
+		return err
+	}
 	if _, err := gorethink.DB(databaseName).Table(statusTable).
 		IndexCreate("pipeline_run_id").RunWrite(session); err != nil {
 		return err
@@ -81,6 +88,7 @@ type rethinkClient struct {
 	containers        gorethink.Term
 	logs              gorethink.Term
 	pfsCommitMappings gorethink.Term
+	pipelineSources   gorethink.Term
 }
 
 func newRethinkClient(address string, databaseName string) (*rethinkClient, error) {
@@ -97,6 +105,7 @@ func newRethinkClient(address string, databaseName string) (*rethinkClient, erro
 		gorethink.DB(databaseName).Table(containerTable),
 		gorethink.DB(databaseName).Table(logTable),
 		gorethink.DB(databaseName).Table(pfsCommitMappingTable),
+		gorethink.DB(databaseName).Table(pipelineSourcesTable),
 	}, nil
 }
 
@@ -285,4 +294,67 @@ func (c *rethinkClient) GetPfsCommitMappingLatest(inputRepositoryName string, in
 		result = append(result, &pfsCommitMapping)
 	}
 	return getPfsCommitMappingLatestInMemory(result, inputRepositoryName)
+}
+
+func (c *rethinkClient) AddPipelineSource(pipelineSource *pps.PipelineSource) error {
+	return c.addMessage(c.pipelineSources, pipelineSource)
+}
+
+func (c *rethinkClient) GetPipelineSource(id string) (*pps.PipelineSource, error) {
+	var pipelineSource pps.PipelineSource
+	if err := c.getMessageByID(c.pipelineSources, id, &pipelineSource); err != nil {
+		return nil, err
+	}
+	return &pipelineSource, nil
+}
+
+func (c *rethinkClient) UpdatePipelineSource(pipelineSource *pipelineSource) error {
+	return errors.New("not implemented")
+}
+
+func (c *rethinkClient) DeletePipelineSource(id string) error {
+	_, err := c.pipelineSources.Get(id).Delete().RunWrite(c.session)
+	return err
+}
+
+func (c *rethinkClient) GetAllPipelineSources() ([]*pps.PipelineSource, error) {
+	cursor, err := term.Get(id).ToJSON().Run(c.session)
+	if err != nil {
+		return nil, err
+	}
+	var pipelineSources []*pps.PipelineSource
+	data := ""
+	for cursor.Next(&data) {
+		var pipelineSource pps.PipelineSource
+		if err := jsonpb.UnmarshalString(data, &pipelineSource); err != nil {
+			return err
+		}
+		pipelineSources = append(pipelineSources, pipelineSource)
+		data = ""
+	}
+	return cursor.Err()
+}
+
+func (c *rethinkClient) addMessage(term gorethink.Term, message proto.Message) error {
+	data, err := marshaller.MarshalToString(message)
+	if err != nil {
+		return err
+	}
+	_, err = term.Insert(gorethink.JSON(data)).RunWrite(c.session)
+	return err
+}
+
+func (c *rethinkClient) getMessageByID(term gorethink.Term, id string, message proto.Message) error {
+	cursor, err := term.Get(id).ToJSON().Run(c.session)
+	if err != nil {
+		return err
+	}
+	data := ""
+	if !cursor.Next(&data) {
+		return cursor.Err()
+	}
+	if err := jsonpb.UnmarshalString(data, message); err != nil {
+		return err
+	}
+	return nil
 }
