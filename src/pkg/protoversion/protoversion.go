@@ -3,7 +3,7 @@ package protoversion
 import (
 	"fmt"
 
-	"github.com/peter-edge/go-google-protobuf"
+	"go.pedge.io/google-protobuf"
 	"golang.org/x/net/context"
 )
 
