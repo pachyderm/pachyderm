@@ -5,7 +5,7 @@
 package protolog
 
 import proto "github.com/golang/protobuf/proto"
-import google_protobuf "github.com/peter-edge/go-google-protobuf"
+import google_protobuf "go.pedge.io/google-protobuf"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal

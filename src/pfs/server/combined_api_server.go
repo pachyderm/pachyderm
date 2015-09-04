@@ -15,7 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
-	"github.com/peter-edge/go-google-protobuf"
+	"go.pedge.io/google-protobuf"
 )
 
 var (
@@ -95,8 +95,28 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 	return emptyInstance, nil
 }
 
-func (a *combinedAPIServer) ListRepositories(ctx context.Context, in *pfs.ListRepositoriesRequest) (*pfs.ListRepositoriesResponse, error) {
-	return nil, nil
+func (a *combinedAPIServer) ListRepositories(ctx context.Context, listRepositoriesRequest *pfs.ListRepositoriesRequest) (*pfs.ListRepositoriesResponse, error) {
+	masterShards, err := a.router.GetMasterShards()
+	if err != nil {
+		return nil, err
+	}
+	for shard := range masterShards {
+		repositories, err := a.driver.ListRepositories(shard)
+		if err != nil {
+			return nil, err
+		}
+		return &pfs.ListRepositoriesResponse{Repository: repositories}, nil
+	}
+	if !listRepositoriesRequest.Redirect {
+		clientConns, err := a.router.GetAllClientConns()
+		if err != nil {
+			return nil, err
+		}
+		for _, clientConn := range clientConns {
+			return pfs.NewApiClient(clientConn).ListRepositories(ctx, &pfs.ListRepositoriesRequest{Redirect: true})
+		}
+	}
+	return nil, fmt.Errorf("pachyderm: no available masters")
 }
 
 func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) (retErr error) {

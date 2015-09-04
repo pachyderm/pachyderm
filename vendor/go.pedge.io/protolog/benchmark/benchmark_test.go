@@ -11,8 +11,8 @@ import (
 
 	stdlogrus "github.com/Sirupsen/logrus"
 	stdglog "github.com/golang/glog"
-	"github.com/peter-edge/go-google-protobuf"
 	"github.com/stretchr/testify/require"
+	"go.pedge.io/google-protobuf"
 	"go.pedge.io/protolog"
 	"go.pedge.io/protolog/glog"
 	"go.pedge.io/protolog/logrus"

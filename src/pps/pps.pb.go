@@ -47,8 +47,8 @@ package pps
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "github.com/peter-edge/go-google-protobuf"
-import google_protobuf1 "github.com/peter-edge/go-google-protobuf"
+import google_protobuf "go.pedge.io/google-protobuf"
+import google_protobuf1 "go.pedge.io/google-protobuf"
 
 import (
 	context "golang.org/x/net/context"
