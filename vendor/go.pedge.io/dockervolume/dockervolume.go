@@ -10,7 +10,7 @@ import (
 const (
 	// ProtocolTCP denotes using TCP.
 	ProtocolTCP Protocol = iota
-	// ProtocolUnix denotex using Unix sockets.
+	// ProtocolUnix denotes using Unix sockets.
 	ProtocolUnix
 )
 
@@ -83,7 +83,7 @@ func NewUnixListener(
 	)
 }
 
-// Serve serves the vomue driver handler.
+// Serve serves the volume driver handler.
 func Serve(
 	volumeDriverHandler http.Handler,
 	protocol Protocol,
