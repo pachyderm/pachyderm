@@ -38,6 +38,8 @@ It has these top-level messages:
 package pfs
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 import google_protobuf "github.com/peter-edge/go-google-protobuf"
 import google_protobuf1 "github.com/peter-edge/go-google-protobuf"
 import google_protobuf2 "github.com/peter-edge/go-google-protobuf"
@@ -48,11 +50,9 @@ import (
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
-var _ context.Context
-var _ grpc.ClientConn
-
-// Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 // CommitType represents the type of commit.
 type CommitType int32
@@ -518,6 +518,10 @@ func init() {
 	proto.RegisterEnum("pfs.CommitType", CommitType_name, CommitType_value)
 	proto.RegisterEnum("pfs.FileType", FileType_name, FileType_value)
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
 
 // Client API for Api service
 

@@ -19,12 +19,6 @@ enum OutputStream {
   OUTPUT_STREAM_STDERR = 2;
 }
 
-message PipelineRunStatus {
-  string pipeline_run_id = 1;
-  PipelineRunStatusType pipeline_run_status_type = 2;
-  google.protobuf.Timestamp timestamp = 3;
-}
-
 message Input {
   repeated string node = 1;
   map<string, string> host = 2;
@@ -49,16 +43,9 @@ message DockerService {
   string dockerfile = 3;
 }
 
-message Element {
-  string name = 1;
-  oneof typed_element {
-    Node node = 2;
-    DockerService docker_service = 3;
-  }
-}
-
 message Pipeline {
-  map<string, Element> name_to_element = 1;
+  map<string, Node> name_to_node = 1;
+  map<string, DockerService> name_to_docker_service = 2;
 }
 
 message GithubPipelineSource {
@@ -83,6 +70,12 @@ message PipelineRun {
   string id = 1;
   PipelineSource pipeline_source = 2;
   Pipeline pipeline = 3;
+}
+
+message PipelineRunStatus {
+  string pipeline_run_id = 1;
+  PipelineRunStatusType pipeline_run_status_type = 2;
+  google.protobuf.Timestamp timestamp = 3;
 }
 
 message PipelineRunContainer {
@@ -136,11 +129,11 @@ message DeletePipelineSourceRequest {
   string pipeline_source_id = 1;
 }
 
-message ListPipelineSourceRequest {
+message ListPipelineSourcesRequest {
   map<string, string> tags = 1;
 }
 
-message ListPipelineSourceResponse {
+message ListPipelineSourcesResponse {
   repeated PipelineSource pipeline_source = 1;
 }
 
@@ -164,20 +157,21 @@ message StartPipelineRunRequest {
   string pipeline_run_id = 1;
 }
 
-message ListPipelineRunRequest {
+message ListPipelineRunsRequest {
   string pipeline_source_id = 1;
 }
 
-message ListPipelineRunResponse {
+message ListPipelineRunsResponse {
   repeated PipelineRun pipeline_run = 1;
 }
 
 message GetPipelineRunStatusRequest {
   string pipeline_run_id = 1;
+  bool all = 2;
 }
 
 message GetPipelineRunStatusResponse {
-  PipelineRunStatus pipeline_run_status = 1;
+  repeated PipelineRunStatus pipeline_run_status = 1;
 }
 
 message GetPipelineRunLogsRequest {
@@ -194,11 +188,11 @@ service Api {
   rpc GetPipelineSource(GetPipelineSourceRequest) returns (GetPipelineSourceResponse) {}
   rpc UpdatePipelineSource(UpdatePipelineSourceRequest) returns (UpdatePipelineSourceResponse) {}
   rpc DeletePipelineSource(DeletePipelineSourceRequest) returns (google.protobuf.Empty) {}
-  rpc ListPipelineSource(ListPipelineSourceRequest) returns (ListPipelineSourceResponse) {}
+  rpc ListPipelineSources(ListPipelineSourcesRequest) returns (ListPipelineSourcesResponse) {}
   rpc GetPipeline(GetPipelineRequest) returns (GetPipelineResponse) {} 
   rpc CreatePipelineRun(CreatePipelineRunRequest) returns (CreatePipelineRunResponse) {}
   rpc StartPipelineRun(StartPipelineRunRequest) returns (google.protobuf.Empty) {}
-  rpc ListPipelineRun(ListPipelineRunRequest) returns (ListPipelineRunResponse) {}
+  rpc ListPipelineRuns(ListPipelineRunsRequest) returns (ListPipelineRunsResponse) {}
   rpc GetPipelineRunStatus(GetPipelineRunStatusRequest) returns (GetPipelineRunStatusResponse) {}
   rpc GetPipelineRunLogs(GetPipelineRunLogsRequest) returns (GetPipelineRunLogsResponse) {}
 }
