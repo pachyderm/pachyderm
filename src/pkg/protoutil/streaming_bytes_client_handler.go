@@ -3,7 +3,7 @@ package protoutil
 import (
 	"io"
 
-	"github.com/peter-edge/go-google-protobuf"
+	"go.pedge.io/google-protobuf"
 )
 
 type streamingBytesClientHandler struct {

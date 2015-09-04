@@ -1,6 +1,6 @@
 package protoutil
 
-import "github.com/peter-edge/go-google-protobuf"
+import "go.pedge.io/google-protobuf"
 
 type streamingBytesWriter struct {
 	streamingBytesServer StreamingBytesServer
