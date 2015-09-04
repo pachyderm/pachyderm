@@ -9,16 +9,15 @@ It is generated from these files:
 	pps/pps.proto
 
 It has these top-level messages:
-	PipelineRunStatus
 	Input
 	Output
 	Node
 	DockerService
-	Element
 	Pipeline
 	GithubPipelineSource
 	PipelineSource
 	PipelineRun
+	PipelineRunStatus
 	PipelineRunContainer
 	PipelineRunLog
 	PfsCommitMapping
@@ -29,15 +28,15 @@ It has these top-level messages:
 	UpdatePipelineSourceRequest
 	UpdatePipelineSourceResponse
 	DeletePipelineSourceRequest
-	ListPipelineSourceRequest
-	ListPipelineSourceResponse
+	ListPipelineSourcesRequest
+	ListPipelineSourcesResponse
 	GetPipelineRequest
 	GetPipelineResponse
 	CreatePipelineRunRequest
 	CreatePipelineRunResponse
 	StartPipelineRunRequest
-	ListPipelineRunRequest
-	ListPipelineRunResponse
+	ListPipelineRunsRequest
+	ListPipelineRunsResponse
 	GetPipelineRunStatusRequest
 	GetPipelineRunStatusResponse
 	GetPipelineRunLogsRequest
@@ -46,6 +45,8 @@ It has these top-level messages:
 package pps
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 import google_protobuf "github.com/peter-edge/go-google-protobuf"
 import google_protobuf1 "github.com/peter-edge/go-google-protobuf"
 
@@ -55,11 +56,9 @@ import (
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
-var _ context.Context
-var _ grpc.ClientConn
-
-// Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 type PipelineRunStatusType int32
 
@@ -111,23 +110,6 @@ var OutputStream_value = map[string]int32{
 
 func (x OutputStream) String() string {
 	return proto.EnumName(OutputStream_name, int32(x))
-}
-
-type PipelineRunStatus struct {
-	PipelineRunId         string                      `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
-	PipelineRunStatusType PipelineRunStatusType       `protobuf:"varint,2,opt,name=pipeline_run_status_type,enum=pps.PipelineRunStatusType" json:"pipeline_run_status_type,omitempty"`
-	Timestamp             *google_protobuf1.Timestamp `protobuf:"bytes,3,opt,name=timestamp" json:"timestamp,omitempty"`
-}
-
-func (m *PipelineRunStatus) Reset()         { *m = PipelineRunStatus{} }
-func (m *PipelineRunStatus) String() string { return proto.CompactTextString(m) }
-func (*PipelineRunStatus) ProtoMessage()    {}
-
-func (m *PipelineRunStatus) GetTimestamp() *google_protobuf1.Timestamp {
-	if m != nil {
-		return m.Timestamp
-	}
-	return nil
 }
 
 type Input struct {
@@ -212,41 +194,25 @@ func (m *DockerService) Reset()         { *m = DockerService{} }
 func (m *DockerService) String() string { return proto.CompactTextString(m) }
 func (*DockerService) ProtoMessage()    {}
 
-type Element struct {
-	Name          string         `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	Node          *Node          `protobuf:"bytes,2,opt,name=node" json:"node,omitempty"`
-	DockerService *DockerService `protobuf:"bytes,3,opt,name=docker_service" json:"docker_service,omitempty"`
-}
-
-func (m *Element) Reset()         { *m = Element{} }
-func (m *Element) String() string { return proto.CompactTextString(m) }
-func (*Element) ProtoMessage()    {}
-
-func (m *Element) GetNode() *Node {
-	if m != nil {
-		return m.Node
-	}
-	return nil
-}
-
-func (m *Element) GetDockerService() *DockerService {
-	if m != nil {
-		return m.DockerService
-	}
-	return nil
-}
-
 type Pipeline struct {
-	NameToElement map[string]*Element `protobuf:"bytes,1,rep,name=name_to_element" json:"name_to_element,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	NameToNode          map[string]*Node          `protobuf:"bytes,1,rep,name=name_to_node" json:"name_to_node,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	NameToDockerService map[string]*DockerService `protobuf:"bytes,2,rep,name=name_to_docker_service" json:"name_to_docker_service,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
 func (m *Pipeline) Reset()         { *m = Pipeline{} }
 func (m *Pipeline) String() string { return proto.CompactTextString(m) }
 func (*Pipeline) ProtoMessage()    {}
 
-func (m *Pipeline) GetNameToElement() map[string]*Element {
+func (m *Pipeline) GetNameToNode() map[string]*Node {
 	if m != nil {
-		return m.NameToElement
+		return m.NameToNode
+	}
+	return nil
+}
+
+func (m *Pipeline) GetNameToDockerService() map[string]*DockerService {
+	if m != nil {
+		return m.NameToDockerService
 	}
 	return nil
 }
@@ -265,15 +231,34 @@ func (m *GithubPipelineSource) String() string { return proto.CompactTextString(
 func (*GithubPipelineSource) ProtoMessage()    {}
 
 type PipelineSource struct {
-	Id                   string                `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Active               bool                  `protobuf:"varint,2,opt,name=active" json:"active,omitempty"`
-	Tags                 map[string]string     `protobuf:"bytes,3,rep,name=tags" json:"tags,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	GithubPipelineSource *GithubPipelineSource `protobuf:"bytes,4,opt,name=github_pipeline_source" json:"github_pipeline_source,omitempty"`
+	Id     string            `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Active bool              `protobuf:"varint,2,opt,name=active" json:"active,omitempty"`
+	Tags   map[string]string `protobuf:"bytes,3,rep,name=tags" json:"tags,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Types that are valid to be assigned to TypedPipelineSource:
+	//	*PipelineSource_GithubPipelineSource
+	TypedPipelineSource isPipelineSource_TypedPipelineSource `protobuf_oneof:"typed_pipeline_source"`
 }
 
 func (m *PipelineSource) Reset()         { *m = PipelineSource{} }
 func (m *PipelineSource) String() string { return proto.CompactTextString(m) }
 func (*PipelineSource) ProtoMessage()    {}
+
+type isPipelineSource_TypedPipelineSource interface {
+	isPipelineSource_TypedPipelineSource()
+}
+
+type PipelineSource_GithubPipelineSource struct {
+	GithubPipelineSource *GithubPipelineSource `protobuf:"bytes,4,opt,name=github_pipeline_source"`
+}
+
+func (*PipelineSource_GithubPipelineSource) isPipelineSource_TypedPipelineSource() {}
+
+func (m *PipelineSource) GetTypedPipelineSource() isPipelineSource_TypedPipelineSource {
+	if m != nil {
+		return m.TypedPipelineSource
+	}
+	return nil
+}
 
 func (m *PipelineSource) GetTags() map[string]string {
 	if m != nil {
@@ -283,10 +268,49 @@ func (m *PipelineSource) GetTags() map[string]string {
 }
 
 func (m *PipelineSource) GetGithubPipelineSource() *GithubPipelineSource {
-	if m != nil {
-		return m.GithubPipelineSource
+	if x, ok := m.GetTypedPipelineSource().(*PipelineSource_GithubPipelineSource); ok {
+		return x.GithubPipelineSource
 	}
 	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*PipelineSource) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _PipelineSource_OneofMarshaler, _PipelineSource_OneofUnmarshaler, []interface{}{
+		(*PipelineSource_GithubPipelineSource)(nil),
+	}
+}
+
+func _PipelineSource_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*PipelineSource)
+	// typed_pipeline_source
+	switch x := m.TypedPipelineSource.(type) {
+	case *PipelineSource_GithubPipelineSource:
+		b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.GithubPipelineSource); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("PipelineSource.TypedPipelineSource has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _PipelineSource_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*PipelineSource)
+	switch tag {
+	case 4: // typed_pipeline_source.github_pipeline_source
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(GithubPipelineSource)
+		err := b.DecodeMessage(msg)
+		m.TypedPipelineSource = &PipelineSource_GithubPipelineSource{msg}
+		return true, err
+	default:
+		return false, nil
+	}
 }
 
 type PipelineRun struct {
@@ -309,6 +333,23 @@ func (m *PipelineRun) GetPipelineSource() *PipelineSource {
 func (m *PipelineRun) GetPipeline() *Pipeline {
 	if m != nil {
 		return m.Pipeline
+	}
+	return nil
+}
+
+type PipelineRunStatus struct {
+	PipelineRunId         string                      `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
+	PipelineRunStatusType PipelineRunStatusType       `protobuf:"varint,2,opt,name=pipeline_run_status_type,enum=pps.PipelineRunStatusType" json:"pipeline_run_status_type,omitempty"`
+	Timestamp             *google_protobuf1.Timestamp `protobuf:"bytes,3,opt,name=timestamp" json:"timestamp,omitempty"`
+}
+
+func (m *PipelineRunStatus) Reset()         { *m = PipelineRunStatus{} }
+func (m *PipelineRunStatus) String() string { return proto.CompactTextString(m) }
+func (*PipelineRunStatus) ProtoMessage()    {}
+
+func (m *PipelineRunStatus) GetTimestamp() *google_protobuf1.Timestamp {
+	if m != nil {
+		return m.Timestamp
 	}
 	return nil
 }
@@ -453,30 +494,30 @@ func (m *DeletePipelineSourceRequest) Reset()         { *m = DeletePipelineSourc
 func (m *DeletePipelineSourceRequest) String() string { return proto.CompactTextString(m) }
 func (*DeletePipelineSourceRequest) ProtoMessage()    {}
 
-type ListPipelineSourceRequest struct {
+type ListPipelineSourcesRequest struct {
 	Tags map[string]string `protobuf:"bytes,1,rep,name=tags" json:"tags,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
-func (m *ListPipelineSourceRequest) Reset()         { *m = ListPipelineSourceRequest{} }
-func (m *ListPipelineSourceRequest) String() string { return proto.CompactTextString(m) }
-func (*ListPipelineSourceRequest) ProtoMessage()    {}
+func (m *ListPipelineSourcesRequest) Reset()         { *m = ListPipelineSourcesRequest{} }
+func (m *ListPipelineSourcesRequest) String() string { return proto.CompactTextString(m) }
+func (*ListPipelineSourcesRequest) ProtoMessage()    {}
 
-func (m *ListPipelineSourceRequest) GetTags() map[string]string {
+func (m *ListPipelineSourcesRequest) GetTags() map[string]string {
 	if m != nil {
 		return m.Tags
 	}
 	return nil
 }
 
-type ListPipelineSourceResponse struct {
+type ListPipelineSourcesResponse struct {
 	PipelineSource []*PipelineSource `protobuf:"bytes,1,rep,name=pipeline_source" json:"pipeline_source,omitempty"`
 }
 
-func (m *ListPipelineSourceResponse) Reset()         { *m = ListPipelineSourceResponse{} }
-func (m *ListPipelineSourceResponse) String() string { return proto.CompactTextString(m) }
-func (*ListPipelineSourceResponse) ProtoMessage()    {}
+func (m *ListPipelineSourcesResponse) Reset()         { *m = ListPipelineSourcesResponse{} }
+func (m *ListPipelineSourcesResponse) String() string { return proto.CompactTextString(m) }
+func (*ListPipelineSourcesResponse) ProtoMessage()    {}
 
-func (m *ListPipelineSourceResponse) GetPipelineSource() []*PipelineSource {
+func (m *ListPipelineSourcesResponse) GetPipelineSource() []*PipelineSource {
 	if m != nil {
 		return m.PipelineSource
 	}
@@ -537,23 +578,23 @@ func (m *StartPipelineRunRequest) Reset()         { *m = StartPipelineRunRequest
 func (m *StartPipelineRunRequest) String() string { return proto.CompactTextString(m) }
 func (*StartPipelineRunRequest) ProtoMessage()    {}
 
-type ListPipelineRunRequest struct {
+type ListPipelineRunsRequest struct {
 	PipelineSourceId string `protobuf:"bytes,1,opt,name=pipeline_source_id" json:"pipeline_source_id,omitempty"`
 }
 
-func (m *ListPipelineRunRequest) Reset()         { *m = ListPipelineRunRequest{} }
-func (m *ListPipelineRunRequest) String() string { return proto.CompactTextString(m) }
-func (*ListPipelineRunRequest) ProtoMessage()    {}
+func (m *ListPipelineRunsRequest) Reset()         { *m = ListPipelineRunsRequest{} }
+func (m *ListPipelineRunsRequest) String() string { return proto.CompactTextString(m) }
+func (*ListPipelineRunsRequest) ProtoMessage()    {}
 
-type ListPipelineRunResponse struct {
+type ListPipelineRunsResponse struct {
 	PipelineRun []*PipelineRun `protobuf:"bytes,1,rep,name=pipeline_run" json:"pipeline_run,omitempty"`
 }
 
-func (m *ListPipelineRunResponse) Reset()         { *m = ListPipelineRunResponse{} }
-func (m *ListPipelineRunResponse) String() string { return proto.CompactTextString(m) }
-func (*ListPipelineRunResponse) ProtoMessage()    {}
+func (m *ListPipelineRunsResponse) Reset()         { *m = ListPipelineRunsResponse{} }
+func (m *ListPipelineRunsResponse) String() string { return proto.CompactTextString(m) }
+func (*ListPipelineRunsResponse) ProtoMessage()    {}
 
-func (m *ListPipelineRunResponse) GetPipelineRun() []*PipelineRun {
+func (m *ListPipelineRunsResponse) GetPipelineRun() []*PipelineRun {
 	if m != nil {
 		return m.PipelineRun
 	}
@@ -562,6 +603,7 @@ func (m *ListPipelineRunResponse) GetPipelineRun() []*PipelineRun {
 
 type GetPipelineRunStatusRequest struct {
 	PipelineRunId string `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
+	All           bool   `protobuf:"varint,2,opt,name=all" json:"all,omitempty"`
 }
 
 func (m *GetPipelineRunStatusRequest) Reset()         { *m = GetPipelineRunStatusRequest{} }
@@ -569,14 +611,14 @@ func (m *GetPipelineRunStatusRequest) String() string { return proto.CompactText
 func (*GetPipelineRunStatusRequest) ProtoMessage()    {}
 
 type GetPipelineRunStatusResponse struct {
-	PipelineRunStatus *PipelineRunStatus `protobuf:"bytes,1,opt,name=pipeline_run_status" json:"pipeline_run_status,omitempty"`
+	PipelineRunStatus []*PipelineRunStatus `protobuf:"bytes,1,rep,name=pipeline_run_status" json:"pipeline_run_status,omitempty"`
 }
 
 func (m *GetPipelineRunStatusResponse) Reset()         { *m = GetPipelineRunStatusResponse{} }
 func (m *GetPipelineRunStatusResponse) String() string { return proto.CompactTextString(m) }
 func (*GetPipelineRunStatusResponse) ProtoMessage()    {}
 
-func (m *GetPipelineRunStatusResponse) GetPipelineRunStatus() *PipelineRunStatus {
+func (m *GetPipelineRunStatusResponse) GetPipelineRunStatus() []*PipelineRunStatus {
 	if m != nil {
 		return m.PipelineRunStatus
 	}
@@ -612,6 +654,10 @@ func init() {
 	proto.RegisterEnum("pps.OutputStream", OutputStream_name, OutputStream_value)
 }
 
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
 // Client API for Api service
 
 type ApiClient interface {
@@ -619,11 +665,11 @@ type ApiClient interface {
 	GetPipelineSource(ctx context.Context, in *GetPipelineSourceRequest, opts ...grpc.CallOption) (*GetPipelineSourceResponse, error)
 	UpdatePipelineSource(ctx context.Context, in *UpdatePipelineSourceRequest, opts ...grpc.CallOption) (*UpdatePipelineSourceResponse, error)
 	DeletePipelineSource(ctx context.Context, in *DeletePipelineSourceRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
-	ListPipelineSource(ctx context.Context, in *ListPipelineSourceRequest, opts ...grpc.CallOption) (*ListPipelineSourceResponse, error)
+	ListPipelineSources(ctx context.Context, in *ListPipelineSourcesRequest, opts ...grpc.CallOption) (*ListPipelineSourcesResponse, error)
 	GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*GetPipelineResponse, error)
 	CreatePipelineRun(ctx context.Context, in *CreatePipelineRunRequest, opts ...grpc.CallOption) (*CreatePipelineRunResponse, error)
 	StartPipelineRun(ctx context.Context, in *StartPipelineRunRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
-	ListPipelineRun(ctx context.Context, in *ListPipelineRunRequest, opts ...grpc.CallOption) (*ListPipelineRunResponse, error)
+	ListPipelineRuns(ctx context.Context, in *ListPipelineRunsRequest, opts ...grpc.CallOption) (*ListPipelineRunsResponse, error)
 	GetPipelineRunStatus(ctx context.Context, in *GetPipelineRunStatusRequest, opts ...grpc.CallOption) (*GetPipelineRunStatusResponse, error)
 	GetPipelineRunLogs(ctx context.Context, in *GetPipelineRunLogsRequest, opts ...grpc.CallOption) (*GetPipelineRunLogsResponse, error)
 }
@@ -672,9 +718,9 @@ func (c *apiClient) DeletePipelineSource(ctx context.Context, in *DeletePipeline
 	return out, nil
 }
 
-func (c *apiClient) ListPipelineSource(ctx context.Context, in *ListPipelineSourceRequest, opts ...grpc.CallOption) (*ListPipelineSourceResponse, error) {
-	out := new(ListPipelineSourceResponse)
-	err := grpc.Invoke(ctx, "/pps.Api/ListPipelineSource", in, out, c.cc, opts...)
+func (c *apiClient) ListPipelineSources(ctx context.Context, in *ListPipelineSourcesRequest, opts ...grpc.CallOption) (*ListPipelineSourcesResponse, error) {
+	out := new(ListPipelineSourcesResponse)
+	err := grpc.Invoke(ctx, "/pps.Api/ListPipelineSources", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -708,9 +754,9 @@ func (c *apiClient) StartPipelineRun(ctx context.Context, in *StartPipelineRunRe
 	return out, nil
 }
 
-func (c *apiClient) ListPipelineRun(ctx context.Context, in *ListPipelineRunRequest, opts ...grpc.CallOption) (*ListPipelineRunResponse, error) {
-	out := new(ListPipelineRunResponse)
-	err := grpc.Invoke(ctx, "/pps.Api/ListPipelineRun", in, out, c.cc, opts...)
+func (c *apiClient) ListPipelineRuns(ctx context.Context, in *ListPipelineRunsRequest, opts ...grpc.CallOption) (*ListPipelineRunsResponse, error) {
+	out := new(ListPipelineRunsResponse)
+	err := grpc.Invoke(ctx, "/pps.Api/ListPipelineRuns", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -742,11 +788,11 @@ type ApiServer interface {
 	GetPipelineSource(context.Context, *GetPipelineSourceRequest) (*GetPipelineSourceResponse, error)
 	UpdatePipelineSource(context.Context, *UpdatePipelineSourceRequest) (*UpdatePipelineSourceResponse, error)
 	DeletePipelineSource(context.Context, *DeletePipelineSourceRequest) (*google_protobuf.Empty, error)
-	ListPipelineSource(context.Context, *ListPipelineSourceRequest) (*ListPipelineSourceResponse, error)
+	ListPipelineSources(context.Context, *ListPipelineSourcesRequest) (*ListPipelineSourcesResponse, error)
 	GetPipeline(context.Context, *GetPipelineRequest) (*GetPipelineResponse, error)
 	CreatePipelineRun(context.Context, *CreatePipelineRunRequest) (*CreatePipelineRunResponse, error)
 	StartPipelineRun(context.Context, *StartPipelineRunRequest) (*google_protobuf.Empty, error)
-	ListPipelineRun(context.Context, *ListPipelineRunRequest) (*ListPipelineRunResponse, error)
+	ListPipelineRuns(context.Context, *ListPipelineRunsRequest) (*ListPipelineRunsResponse, error)
 	GetPipelineRunStatus(context.Context, *GetPipelineRunStatusRequest) (*GetPipelineRunStatusResponse, error)
 	GetPipelineRunLogs(context.Context, *GetPipelineRunLogsRequest) (*GetPipelineRunLogsResponse, error)
 }
@@ -803,12 +849,12 @@ func _Api_DeletePipelineSource_Handler(srv interface{}, ctx context.Context, cod
 	return out, nil
 }
 
-func _Api_ListPipelineSource_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(ListPipelineSourceRequest)
+func _Api_ListPipelineSources_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(ListPipelineSourcesRequest)
 	if err := codec.Unmarshal(buf, in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).ListPipelineSource(ctx, in)
+	out, err := srv.(ApiServer).ListPipelineSources(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -851,12 +897,12 @@ func _Api_StartPipelineRun_Handler(srv interface{}, ctx context.Context, codec g
 	return out, nil
 }
 
-func _Api_ListPipelineRun_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(ListPipelineRunRequest)
+func _Api_ListPipelineRuns_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(ListPipelineRunsRequest)
 	if err := codec.Unmarshal(buf, in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).ListPipelineRun(ctx, in)
+	out, err := srv.(ApiServer).ListPipelineRuns(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -908,8 +954,8 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_DeletePipelineSource_Handler,
 		},
 		{
-			MethodName: "ListPipelineSource",
-			Handler:    _Api_ListPipelineSource_Handler,
+			MethodName: "ListPipelineSources",
+			Handler:    _Api_ListPipelineSources_Handler,
 		},
 		{
 			MethodName: "GetPipeline",
@@ -924,8 +970,8 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_StartPipelineRun_Handler,
 		},
 		{
-			MethodName: "ListPipelineRun",
-			Handler:    _Api_ListPipelineRun_Handler,
+			MethodName: "ListPipelineRuns",
+			Handler:    _Api_ListPipelineRuns_Handler,
 		},
 		{
 			MethodName: "GetPipelineRunStatus",

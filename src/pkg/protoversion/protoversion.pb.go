@@ -15,6 +15,8 @@ It has these top-level messages:
 package protoversion
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 import google_protobuf "github.com/peter-edge/go-google-protobuf"
 
 import (
@@ -23,11 +25,9 @@ import (
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
-var _ context.Context
-var _ grpc.ClientConn
-
-// Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 type Version struct {
 	Major      uint32 `protobuf:"varint,1,opt,name=major" json:"major,omitempty"`
@@ -54,6 +54,10 @@ func (m *GetVersionResponse) GetVersion() *Version {
 	}
 	return nil
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
 
 // Client API for Api service
 
