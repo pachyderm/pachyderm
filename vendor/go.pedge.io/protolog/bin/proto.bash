@@ -4,7 +4,7 @@ PROTO_FILE=${1}
 PB_GO_FILE=$(echo ${PROTO_FILE} | sed "s/\.proto/\.pb.go/")
 PB_LOG_GO_FILE=$(echo ${PROTO_FILE} | sed "s/\.proto/\.pb.log.go/")
 
-protoc -I "$(dirname $(which protoc))/../include" -I $(dirname ${PROTO_FILE}) --go_out=Mgoogle/protobuf/timestamp.proto=github.com/peter-edge/go-google-protobuf:$(dirname ${PROTO_FILE}) --protolog_out=$(dirname ${PROTO_FILE}) ${PROTO_FILE}
+protoc -I "$(dirname $(which protoc))/../include" -I $(dirname ${PROTO_FILE}) --go_out=Mgoogle/protobuf/timestamp.proto=go.pedge.io/google-protobuf:$(dirname ${PROTO_FILE}) --protolog_out=$(dirname ${PROTO_FILE}) ${PROTO_FILE}
 
 rm -f ${PB_GO_FILE}.tmp
 head -4 ${PB_GO_FILE} > ${PB_GO_FILE}.tmp

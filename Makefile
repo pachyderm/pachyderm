@@ -89,7 +89,7 @@ launch: docker-clean-launch docker-build-pfsd docker-build-ppsd
 	docker-compose up -d --force-recreate --no-build ppsd
 
 proto:
-	go get -v github.com/peter-edge/go-tools/docker-protoc-all
+	go get -v go.pedge.io/tools/docker-protoc-all
 	docker pull pedge/protolog
 	DEBUG=1 REL_PROTOC_INCLUDE_PATH=src PROTO_FILES_INCLUDE_DIR=src docker-protoc-all github.com/pachyderm/pachyderm
 

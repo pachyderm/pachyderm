@@ -29,8 +29,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pkg/executil"
-	"github.com/peter-edge/go-google-protobuf"
 	"github.com/satori/go.uuid"
+	"go.pedge.io/google-protobuf"
 )
 
 const (

@@ -58,7 +58,7 @@ test: testdeps pretest
 	go test -test.v ./...
 
 bench: testdeps proto
-	go get -v github.com/peter-edge/go-tools/go-benchmark-columns
+	go get -v go.pedge.io/tools/go-benchmark-columns
 	go test -test.v -bench . ./benchmark | go-benchmark-columns
 
 clean:

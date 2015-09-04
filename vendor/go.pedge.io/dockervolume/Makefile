@@ -57,7 +57,7 @@ clean:
 	GOOS=linux go clean ./...
 
 proto:
-	go get -v github.com/peter-edge/go-tools/docker-protoc-all
+	go get -v go.pedge.io/tools/docker-protoc-all
 	docker pull pedge/protolog
 	docker-protoc-all go.pedge.io/dockervolume
 	rm -f /tmp/protolog.pb.go
