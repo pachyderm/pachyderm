@@ -21,16 +21,16 @@ version:
 	@go run /tmp/pachyderm_version.go
 
 deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -insecure ./src/...
+	GO15VENDOREXPERIMENT=0 go get -d -v ./src/...
 
 update-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -u -f -insecure ./src/...
+	GO15VENDOREXPERIMENT=0 go get -d -v -u -f ./src/...
 
 test-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -t -insecure ./src/...
+	GO15VENDOREXPERIMENT=0 go get -d -v -t ./src/...
 
 update-test-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f -insecure ./src/...
+	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/...
 
 update-vendor: update-test-deps
 	go get -u github.com/tools/godep
@@ -82,12 +82,10 @@ docker-push: docker-push-ppsd docker-push-pfsd docker-push-pfs-volume-driver
 run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
 
-launch-pfsd: docker-clean-test docker-build-pfsd
-	docker-compose kill pfsd
-	docker-compose rm -f pfsd
+launch-pfsd: docker-clean-launch docker-build-pfsd
 	docker-compose up -d --force-recreate --no-build pfsd
 
-launch: docker-clean-launch docker-build-pfs-volume-driver docker-build-pfsd docker-build-ppsd
+launch: docker-clean-launch docker-build-pfsd docker-build-ppsd
 	docker-compose up -d --force-recreate --no-build ppsd
 
 proto:

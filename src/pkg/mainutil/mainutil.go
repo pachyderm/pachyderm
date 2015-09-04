@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/peter-edge/go-env"
+	"go.pedge.io/env"
 )
 
 func Main(do func(interface{}) error, appEnv interface{}, defaultEnv map[string]string) {

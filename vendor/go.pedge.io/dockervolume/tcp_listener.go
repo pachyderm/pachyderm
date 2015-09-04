@@ -17,22 +17,26 @@ func newTCPListener(
 	volumeDriverName string,
 	address string,
 	start <-chan struct{},
-) (net.Listener, error) {
+) (net.Listener, string, error) {
 	listener, err := sockets.NewTCPSocket(address, nil, start)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	if err := writeSpec(volumeDriverName, listener.Addr().String()); err != nil {
-		return nil, err
+	spec, err := writeSpec(volumeDriverName, listener.Addr().String())
+	if err != nil {
+		return nil, "", err
 	}
-	return listener, nil
+	return listener, spec, nil
 }
 
-func writeSpec(name string, address string) error {
+func writeSpec(name string, address string) (string, error) {
 	if err := os.MkdirAll(pluginSpecDir, 0755); err != nil {
-		return err
+		return "", err
 	}
 	spec := filepath.Join(pluginSpecDir, name+".spec")
 	url := "tcp://" + address
-	return ioutil.WriteFile(spec, []byte(url), 0644)
+	if err := ioutil.WriteFile(spec, []byte(url), 0644); err != nil {
+		return "", err
+	}
+	return spec, nil
 }

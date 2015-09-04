@@ -21,6 +21,8 @@
 
 We are in the midst of a refactor! See the release branch for the current, working release of Pachyderm.
 
+Check out our docker volume driver! https://github.com/pachyderm/pachyderm/tree/master/src/cmd/pfs-volume-driver.
+
 WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
 
 ### What is Pachyderm?

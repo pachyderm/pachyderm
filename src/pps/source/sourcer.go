@@ -44,7 +44,7 @@ func githubClone(githubPipelineSource *pps.GithubPipelineSource) (string, error)
 		githubPipelineSource.User,
 		githubPipelineSource.Repository,
 		githubPipelineSource.Branch,
-		"",
+		githubPipelineSource.CommitId,
 		githubPipelineSource.AccessToken,
 	); err != nil {
 		return "", err

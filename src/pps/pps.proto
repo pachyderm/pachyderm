@@ -65,7 +65,8 @@ message GithubPipelineSource {
   string user = 2;
   string repository = 3;
   string branch = 4;
-  string access_token = 5;
+  string commit_id = 5;
+  string access_token = 6;
 }
 
 message PipelineSource {
