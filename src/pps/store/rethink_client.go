@@ -152,26 +152,26 @@ func (c *rethinkClient) AddPipelineRunStatus(id string, statusType pps.PipelineR
 	return err
 }
 
-func (c *rethinkClient) GetPipelineRunStatusLatest(id string) (*pps.PipelineRunStatus, error) {
+func (c *rethinkClient) GetAllPipelineRunStatuses(id string) ([]*pps.PipelineRunStatus, error) {
 	cursor, err := c.statuses.
 		GetAllByIndex("pipeline_run_id", id).
 		OrderBy(gorethink.Desc("timestamp")).
-		Nth(0).
 		Without("id").
 		ToJSON().
 		Run(c.session)
 	if err != nil {
 		return nil, err
 	}
+	var pipelineRunStatuses []*pps.PipelineRunStatus
 	data := ""
-	if !cursor.Next(&data) {
-		return nil, cursor.Err()
+	for cursor.Next(&data) {
+		var pipelineRunStatus pps.PipelineRunStatus
+		if err := jsonpb.UnmarshalString(data, &pipelineRunStatus); err != nil {
+			return nil, err
+		}
+		pipelineRunStatuses = append(pipelineRunStatuses, &pipelineRunStatus)
 	}
-	var pipelineRunStatus pps.PipelineRunStatus
-	if err := jsonpb.UnmarshalString(data, &pipelineRunStatus); err != nil {
-		return nil, err
-	}
-	return &pipelineRunStatus, nil
+	return pipelineRunStatuses, cursor.Err()
 }
 
 func (c *rethinkClient) AddPipelineRunContainers(containers ...*pps.PipelineRunContainer) error {
@@ -308,7 +308,7 @@ func (c *rethinkClient) GetPipelineSource(id string) (*pps.PipelineSource, error
 	return &pipelineSource, nil
 }
 
-func (c *rethinkClient) UpdatePipelineSource(pipelineSource *pipelineSource) error {
+func (c *rethinkClient) UpdatePipelineSource(pipelineSource *pps.PipelineSource) error {
 	return errors.New("not implemented")
 }
 
@@ -318,7 +318,7 @@ func (c *rethinkClient) DeletePipelineSource(id string) error {
 }
 
 func (c *rethinkClient) GetAllPipelineSources() ([]*pps.PipelineSource, error) {
-	cursor, err := term.Get(id).ToJSON().Run(c.session)
+	cursor, err := c.pipelineSources.ToJSON().Run(c.session)
 	if err != nil {
 		return nil, err
 	}
@@ -327,12 +327,12 @@ func (c *rethinkClient) GetAllPipelineSources() ([]*pps.PipelineSource, error) {
 	for cursor.Next(&data) {
 		var pipelineSource pps.PipelineSource
 		if err := jsonpb.UnmarshalString(data, &pipelineSource); err != nil {
-			return err
+			return nil, err
 		}
-		pipelineSources = append(pipelineSources, pipelineSource)
+		pipelineSources = append(pipelineSources, &pipelineSource)
 		data = ""
 	}
-	return cursor.Err()
+	return pipelineSources, cursor.Err()
 }
 
 func (c *rethinkClient) addMessage(term gorethink.Term, message proto.Message) error {
