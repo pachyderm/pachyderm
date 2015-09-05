@@ -5,66 +5,41 @@ import (
 	"golang.org/x/net/context"
 )
 
-func GetPipelineGithub(
+func GetPipeline(
 	apiClient pps.ApiClient,
-	contextDir string,
-	user string,
-	repository string,
-	branch string,
-	commitID string,
-	accessToken string,
+	pipelineSourceID string,
 ) (*pps.GetPipelineResponse, error) {
 	return apiClient.GetPipeline(
 		context.Background(),
 		&pps.GetPipelineRequest{
-			PipelineSource: &pps.PipelineSource{
-				GithubPipelineSource: &pps.GithubPipelineSource{
-					ContextDir:  contextDir,
-					User:        user,
-					Repository:  repository,
-					Branch:      branch,
-					CommitId:    commitID,
-					AccessToken: accessToken,
-				},
-			},
+			PipelineSourceId: pipelineSourceID,
 		},
 	)
 }
 
-func StartPipelineRunGithub(
+func StartPipelineRun(
 	apiClient pps.ApiClient,
-	contextDir string,
-	user string,
-	repository string,
-	branch string,
-	commitID string,
-	accessToken string,
-) (*pps.StartPipelineRunResponse, error) {
-	return apiClient.StartPipelineRun(
+	pipelineRunID string,
+) error {
+	_, err := apiClient.StartPipelineRun(
 		context.Background(),
 		&pps.StartPipelineRunRequest{
-			PipelineSource: &pps.PipelineSource{
-				GithubPipelineSource: &pps.GithubPipelineSource{
-					ContextDir:  contextDir,
-					User:        user,
-					Repository:  repository,
-					Branch:      branch,
-					CommitId:    commitID,
-					AccessToken: accessToken,
-				},
-			},
+			PipelineRunId: pipelineRunID,
 		},
 	)
+	return err
 }
 
 func GetPipelineRunStatus(
 	apiClient pps.ApiClient,
 	pipelineRunID string,
+	all bool,
 ) (*pps.GetPipelineRunStatusResponse, error) {
 	return apiClient.GetPipelineRunStatus(
 		context.Background(),
 		&pps.GetPipelineRunStatusRequest{
 			PipelineRunId: pipelineRunID,
+			All:           all,
 		},
 	)
 }
