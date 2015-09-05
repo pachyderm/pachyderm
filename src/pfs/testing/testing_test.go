@@ -32,6 +32,7 @@ func TestSimple(t *testing.T) {
 }
 
 func TestFailures(t *testing.T) {
+	t.Skip()
 	RunTest(t, testFailures)
 }
 
