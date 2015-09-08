@@ -122,7 +122,7 @@ type cluster struct {
 
 func (c *cluster) WaitForAvailability() {
 	cancel := make(chan bool)
-	time.AfterFunc(30*time.Second, func() { close(cancel) })
+	time.AfterFunc(45*time.Second, func() { close(cancel) })
 	var _shardToMasterAddress map[int]route.Address
 	var _shardToReplicaAddress map[int]map[int]route.Address
 	err := c.addresser.WatchShardToAddress(cancel, func(shardToMasterAddress map[int]route.Address, shardToReplicaAddress map[int]map[int]route.Address) (uint64, error) {
