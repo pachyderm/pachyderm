@@ -5,9 +5,9 @@ import (
 
 	"go.pedge.io/protolog/logrus"
 
+	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/parse"
-	"github.com/stretchr/testify/require"
 )
 
 func init() {

@@ -17,7 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
-	"github.com/stretchr/testify/require"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"google.golang.org/grpc"
 )
 
@@ -123,7 +123,11 @@ type cluster struct {
 func (c *cluster) WaitForAvailability() {
 	cancel := make(chan bool)
 	time.AfterFunc(30*time.Second, func() { close(cancel) })
+	var _shardToMasterAddress map[int]route.Address
+	var _shardToReplicaAddress map[int]map[int]route.Address
 	err := c.addresser.WatchShardToAddress(cancel, func(shardToMasterAddress map[int]route.Address, shardToReplicaAddress map[int]map[int]route.Address) (uint64, error) {
+		_shardToMasterAddress = shardToMasterAddress
+		_shardToReplicaAddress = shardToReplicaAddress
 		if len(shardToMasterAddress) != testShardsPerServer*testNumServers {
 			return 0, nil
 		}
@@ -155,7 +159,7 @@ func (c *cluster) WaitForAvailability() {
 		}
 		return 0, fmt.Errorf("Complete")
 	})
-	require.Equal(c.tb, err, fmt.Errorf("Complete"))
+	require.Equal(c.tb, err.Error(), "Complete")
 }
 
 func (c *cluster) Kill(server int) {
