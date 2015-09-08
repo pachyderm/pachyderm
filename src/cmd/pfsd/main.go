@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"os"
 
+	"golang.org/x/net/context"
+
+	"github.com/gengo/grpc-gateway/runtime"
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
@@ -24,6 +27,7 @@ var (
 	defaultEnv = map[string]string{
 		"PFS_NUM_SHARDS":  "16",
 		"PFS_PORT":        "650",
+		"PFS_HTTP_PORT":   "750",
 		"PFS_DRIVER_TYPE": "btrfs",
 	}
 )
@@ -34,6 +38,7 @@ type appEnv struct {
 	NumShards  int    `env:"PFS_NUM_SHARDS"`
 	Address    string `env:"PFS_ADDRESS"`
 	Port       int    `env:"PFS_PORT"`
+	HTTPPort   int    `env:"PFS_HTTP_PORT"`
 	TracePort  int    `env:"PFS_TRACE_PORT"`
 }
 
@@ -89,11 +94,15 @@ func do(appEnvObj interface{}) error {
 	)
 	return grpcutil.GrpcDo(
 		appEnv.Port,
+		appEnv.HTTPPort,
 		appEnv.TracePort,
 		pachyderm.Version,
 		func(s *grpc.Server) {
 			pfs.RegisterApiServer(s, combinedAPIServer)
 			pfs.RegisterInternalApiServer(s, combinedAPIServer)
+		},
+		func(ctx context.Context, mux *runtime.ServeMux, endpoint string) error {
+			return pfs.RegisterApiHandlerFromEndpoint(ctx, mux, endpoint)
 		},
 	)
 }

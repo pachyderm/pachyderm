@@ -6,6 +6,10 @@ import (
 	"net"
 	"net/http"
 
+	"golang.org/x/net/context"
+
+	"github.com/gengo/grpc-gateway/runtime"
+	"github.com/golang/glog"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/protoversion"
 	"google.golang.org/grpc"
@@ -38,9 +42,11 @@ func NewProvider(discoveryRegistry discovery.Registry, dialer Dialer) Provider {
 
 func GrpcDo(
 	port int,
+	httpPort int,
 	tracePort int,
 	version *protoversion.Version,
 	registerFunc func(*grpc.Server),
+	httpRegisterFunc func(context.Context, *runtime.ServeMux, string) error,
 ) error {
 	s := grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
 	registerFunc(s)
@@ -53,6 +59,16 @@ func GrpcDo(
 	go func() { errC <- s.Serve(listener) }()
 	if tracePort != 0 {
 		go func() { errC <- http.ListenAndServe(fmt.Sprintf(":%d", tracePort), nil) }()
+	}
+	if httpPort != 0 && httpRegisterFunc != nil {
+		defer glog.Flush()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		mux := runtime.NewServeMux()
+		if err := httpRegisterFunc(ctx, mux, fmt.Sprintf("0.0.0.0:%d", port)); err != nil {
+			return err
+		}
+		go func() { errC <- http.ListenAndServe(fmt.Sprintf(":%d", httpPort), mux) }()
 	}
 	return <-errC
 }
