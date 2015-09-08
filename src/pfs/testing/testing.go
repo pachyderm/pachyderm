@@ -123,7 +123,7 @@ type cluster struct {
 func (c *cluster) WaitForAvailability() {
 	cancel := make(chan bool)
 	time.AfterFunc(30*time.Second, func() { close(cancel) })
-	err := c.addresser.WatchShardToAddress(cancel, func(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (uint64, error) {
+	err := c.addresser.WatchShardToAddress(cancel, func(shardToMasterAddress map[int]route.Address, shardToReplicaAddress map[int]map[int]route.Address) (uint64, error) {
 		if len(shardToMasterAddress) != testShardsPerServer*testNumServers {
 			return 0, nil
 		}
@@ -136,13 +136,19 @@ func (c *cluster) WaitForAvailability() {
 			}
 		}
 		for _, address := range shardToMasterAddress {
-			if _, ok := c.rolers[address]; !ok {
+			if address.Backfilling {
+				return 0, nil
+			}
+			if _, ok := c.rolers[address.Address]; !ok {
 				return 0, nil
 			}
 		}
 		for _, addresses := range shardToReplicaAddress {
 			for _, address := range addresses {
-				if _, ok := c.rolers[address]; !ok {
+				if address.Backfilling {
+					return 0, nil
+				}
+				if _, ok := c.rolers[address.Address]; !ok {
 					return 0, nil
 				}
 			}

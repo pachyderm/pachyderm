@@ -19,22 +19,27 @@ func NewSharder(numShards int) Sharder {
 // namespace/pfs/shard/num/master -> address
 // namespace/pfs/shard/num/replica/address -> true
 
+type Address struct {
+	Address     string
+	Backfilling bool
+}
+
 type Addresser interface {
 	// TODO consider splitting Addresser's interface into read an write methods.
 	// Each user of Addresser seems to use only one of these interfaces.
-	GetMasterAddress(shard int) (string, bool, error)
-	GetReplicaAddresses(shard int) (map[string]bool, error)
-	GetShardToMasterAddress() (map[int]string, error)
-	WatchShardToAddress(chan bool, func(map[int]string, map[int]map[int]string) (uint64, error)) error
-	GetShardToReplicaAddresses() (map[int]map[int]string, error)
-	SetMasterAddress(shard int, address string) (uint64, error)
-	ClaimMasterAddress(shard int, address string, prevAddress string) (uint64, error)
-	HoldMasterAddress(shard int, address string, cancel chan bool) error
-	SetReplicaAddress(shard int, index int, address string) (uint64, error)
-	ClaimReplicaAddress(shard int, index int, address string, prevAddress string) (uint64, error)
-	HoldReplicaAddress(shard int, index int, address string, cancel chan bool) error
+	GetMasterAddress(shard int) (Address, bool, error)
+	GetReplicaAddresses(shard int) (map[Address]bool, error)
+	GetShardToMasterAddress() (map[int]Address, error)
+	WatchShardToAddress(chan bool, func(map[int]Address, map[int]map[int]Address) (uint64, error)) error
+	GetShardToReplicaAddresses() (map[int]map[int]Address, error)
+	SetMasterAddress(shard int, address Address) (uint64, error)
+	ClaimMasterAddress(shard int, address Address, prevAddress Address) (uint64, error)
+	HoldMasterAddress(shard int, address Address, cancel chan bool) error
+	SetReplicaAddress(shard int, index int, address Address) (uint64, error)
+	ClaimReplicaAddress(shard int, index int, address Address, prevAddress Address) (uint64, error)
+	HoldReplicaAddress(shard int, index int, address Address, cancel chan bool) error
 	DeleteMasterAddress(shard int) (uint64, error)
-	DeleteReplicaAddress(shard int, index int, address string) (uint64, error)
+	DeleteReplicaAddress(shard int, index int, address Address) (uint64, error)
 }
 
 func NewDiscoveryAddresser(discoveryClient discovery.Client, namespace string) Addresser {
