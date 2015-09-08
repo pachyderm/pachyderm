@@ -65,6 +65,13 @@ func Nil(tb testing.TB, object interface{}, msgAndArgs ...interface{}) {
 func True(tb testing.TB, value bool, msgAndArgs ...interface{}) {
 	if !value {
 		logMessage(tb, msgAndArgs...)
-		tb.Errorf("Should be true")
+		tb.Errorf("Should be true.")
+	}
+}
+
+func False(tb testing.TB, value bool, msgAndArgs ...interface{}) {
+	if value {
+		logMessage(tb, msgAndArgs...)
+		tb.Errorf("Should be false.")
 	}
 }
