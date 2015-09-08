@@ -33,16 +33,24 @@ func (r *roler) Cancel() {
 	}
 }
 
-func (r *roler) hasRoleForShard(shard int, shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) bool {
+func (r *roler) localNormalAddress() route.Address {
+	return route.Address{r.localAddress, false}
+}
+
+func (r *roler) localBackfillingAddress() route.Address {
+	return route.Address{r.localAddress, true}
+}
+
+func (r *roler) hasRoleForShard(shard int, shardToMasterAddress map[int]route.Address, shardToReplicaAddress map[int]map[int]route.Address) bool {
 	address, ok := shardToMasterAddress[shard]
-	if ok && address == r.localAddress {
+	if ok && address.Address == r.localAddress {
 		return true
 	}
 
 	addresses, ok := shardToReplicaAddress[shard]
 	if ok {
 		for _, address := range addresses {
-			if address == r.localAddress {
+			if address.Address == r.localAddress {
 				return true
 			}
 		}
@@ -50,7 +58,7 @@ func (r *roler) hasRoleForShard(shard int, shardToMasterAddress map[int]string, 
 	return false
 }
 
-func (r *roler) openMasterRole(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (int, bool) {
+func (r *roler) openMasterRole(shardToMasterAddress map[int]route.Address, shardToReplicaAddress map[int]map[int]route.Address) (int, bool) {
 	for _, i := range rand.Perm(r.sharder.NumShards()) {
 		_, ok := shardToMasterAddress[i]
 		if !ok && !r.hasRoleForShard(i, shardToMasterAddress, shardToReplicaAddress) {
@@ -60,7 +68,7 @@ func (r *roler) openMasterRole(shardToMasterAddress map[int]string, shardToRepli
 	return 0, false
 }
 
-func (r *roler) openReplicaRole(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (int, int, bool) {
+func (r *roler) openReplicaRole(shardToMasterAddress map[int]route.Address, shardToReplicaAddress map[int]map[int]route.Address) (int, int, bool) {
 	for _, shard := range rand.Perm(r.sharder.NumShards()) {
 		addresses := shardToReplicaAddress[shard]
 		if len(addresses) < r.numReplicas && !r.hasRoleForShard(shard, shardToMasterAddress, shardToReplicaAddress) {
@@ -76,49 +84,49 @@ func (r *roler) openReplicaRole(shardToMasterAddress map[int]string, shardToRepl
 
 func (r *roler) randomMasterRole(
 	maxAddress string,
-	shardToMasterAddress map[int]string,
-	shardToReplicaAddress map[int]map[int]string,
-) (int, bool) {
+	shardToMasterAddress map[int]route.Address,
+	shardToReplicaAddress map[int]map[int]route.Address,
+) (route.Address, int, bool) {
 	// we want this function to return a random shard which belongs to address
-	// so that not everyone tries to steal the same shard since Go 1 the
+	// so that not everyone tries to steal the same shard. Since Go 1 the
 	// runtime randomizes iteration of maps to prevent people from depending on
 	// a stable ordering. We're doing the opposite here which is depending on
 	// the randomness, this seems ok to me but maybe we should change it?
 	// Note we only depend on the randomness for performance reason, this code
 	// is all still correct if the order isn't random.
 	for shard, address := range shardToMasterAddress {
-		if address == maxAddress && !r.hasRoleForShard(shard, shardToMasterAddress, shardToReplicaAddress) {
-			return shard, true
+		if address.Address == maxAddress && !r.hasRoleForShard(shard, shardToMasterAddress, shardToReplicaAddress) {
+			return address, shard, true
 		}
 	}
-	return 0, false
+	return route.Address{}, 0, false
 }
 
 func (r *roler) randomReplicaRole(
 	maxAddress string,
-	shardToMasterAddress map[int]string,
-	shardToReplicaAddress map[int]map[int]string,
-) (int, int, bool) {
+	shardToMasterAddress map[int]route.Address,
+	shardToReplicaAddress map[int]map[int]route.Address,
+) (route.Address, int, int, bool) {
 	for shard, addresses := range shardToReplicaAddress {
 		for index, address := range addresses {
-			if address == maxAddress && !r.hasRoleForShard(shard, shardToMasterAddress, shardToReplicaAddress) {
-				return shard, index, true
+			if address.Address == maxAddress && !r.hasRoleForShard(shard, shardToMasterAddress, shardToReplicaAddress) {
+				return address, shard, index, true
 			}
 		}
 	}
-	return 0, 0, false
+	return route.Address{}, 0, 0, false
 }
 
-func (r *roler) masterCounts(shardToMasterAddress map[int]string, out map[string]int) {
+func (r *roler) masterCounts(shardToMasterAddress map[int]route.Address, out map[string]int) {
 	for _, address := range shardToMasterAddress {
-		out[address]++
+		out[address.Address]++
 	}
 }
 
-func (r *roler) replicaCounts(shardToReplicaAddress map[int]map[int]string, out map[string]int) {
+func (r *roler) replicaCounts(shardToReplicaAddress map[int]map[int]route.Address, out map[string]int) {
 	for _, addresses := range shardToReplicaAddress {
 		for _, address := range addresses {
-			out[address]++
+			out[address.Address]++
 		}
 	}
 }
@@ -147,8 +155,8 @@ func (r *roler) maxCount(counts map[string]int) (string, int) {
 	return address, result
 }
 
-func (r *roler) beMaster(shard int, prevAddress string) (uint64, error) {
-	modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localAddress, prevAddress)
+func (r *roler) beMaster(shard int, prevAddress route.Address) (uint64, error) {
+	modifiedIndex, err := r.addresser.ClaimMasterAddress(shard, r.localNormalAddress(), prevAddress)
 	if err != nil {
 		return 0, nil
 	}
@@ -156,14 +164,14 @@ func (r *roler) beMaster(shard int, prevAddress string) (uint64, error) {
 		return 0, err
 	}
 	go func() {
-		r.addresser.HoldMasterAddress(shard, r.localAddress, r.cancel)
+		r.addresser.HoldMasterAddress(shard, r.localNormalAddress(), r.cancel)
 		r.server.Clear(shard)
 	}()
 	return modifiedIndex, nil
 }
 
-func (r *roler) beReplica(shard int, index int, prevAddress string) (uint64, error) {
-	modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, index, r.localAddress, prevAddress)
+func (r *roler) beReplica(shard int, index int, prevAddress route.Address) (uint64, error) {
+	modifiedIndex, err := r.addresser.ClaimReplicaAddress(shard, index, r.localNormalAddress(), prevAddress)
 	if err != nil {
 		return 0, nil
 	}
@@ -171,13 +179,13 @@ func (r *roler) beReplica(shard int, index int, prevAddress string) (uint64, err
 		return 0, err
 	}
 	go func() {
-		r.addresser.HoldReplicaAddress(shard, index, r.localAddress, r.cancel)
+		r.addresser.HoldReplicaAddress(shard, index, r.localNormalAddress(), r.cancel)
 		r.server.Clear(shard)
 	}()
 	return modifiedIndex, nil
 }
 
-func (r *roler) findRole(shardToMasterAddress map[int]string, shardToReplicaAddress map[int]map[int]string) (uint64, error) {
+func (r *roler) findRole(shardToMasterAddress map[int]route.Address, shardToReplicaAddress map[int]map[int]route.Address) (uint64, error) {
 	counts := make(map[string]int)
 	r.masterCounts(shardToMasterAddress, counts)
 	r.replicaCounts(shardToReplicaAddress, counts)
@@ -191,13 +199,13 @@ func (r *roler) findRole(shardToMasterAddress map[int]string, shardToReplicaAddr
 	// slots.
 	shard, ok := r.openMasterRole(shardToMasterAddress, shardToReplicaAddress)
 	if ok {
-		return r.beMaster(shard, "")
+		return r.beMaster(shard, route.Address{})
 	}
 
 	// No open masters found. Next we look for unclaimed replica roles.
 	shard, index, ok := r.openReplicaRole(shardToMasterAddress, shardToReplicaAddress)
 	if ok {
-		return r.beReplica(shard, index, "")
+		return r.beReplica(shard, index, route.Address{})
 	}
 
 	// No unclaimed roles were found. Next we check if there's someone in the
@@ -207,15 +215,15 @@ func (r *roler) findRole(shardToMasterAddress map[int]string, shardToReplicaAddr
 	if counts[r.localAddress]+1 <= max-1 {
 		// When stealing we consider replica shards first because migrating
 		// replicas is less disruptive to the cluster.
-		shard, index, ok = r.randomReplicaRole(maxAddress, shardToMasterAddress, shardToReplicaAddress)
+		prevAddress, shard, index, ok := r.randomReplicaRole(maxAddress, shardToMasterAddress, shardToReplicaAddress)
 		if ok {
-			return r.beReplica(shard, index, maxAddress)
+			return r.beReplica(shard, index, prevAddress)
 		}
 
 		// Lastly we steal a master role
-		shard, ok = r.randomMasterRole(maxAddress, shardToMasterAddress, shardToReplicaAddress)
+		prevAddress, shard, ok = r.randomMasterRole(maxAddress, shardToMasterAddress, shardToReplicaAddress)
 		if ok {
-			return r.beMaster(shard, maxAddress)
+			return r.beMaster(shard, prevAddress)
 		}
 		return 0, fmt.Errorf("Error we need to be able to find a role here.")
 	}

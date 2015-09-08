@@ -57,9 +57,9 @@ clean:
 	GOOS=linux go clean ./...
 
 proto:
-	go get -v go.pedge.io/tools/docker-protoc-all
+	go get -v go.pedge.io/tools/protoc-all
 	docker pull pedge/protolog
-	docker-protoc-all go.pedge.io/dockervolume
+	protoc-all go.pedge.io/dockervolume
 	rm -f /tmp/protolog.pb.go
 	tail -n +$$(grep -n 'package dockervolume' protolog.pb.go | cut -f 1 -d :) protolog.pb.go > /tmp/protolog.pb.go
 	mv /tmp/protolog.pb.go protolog.pb.go

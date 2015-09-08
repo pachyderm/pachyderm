@@ -90,10 +90,7 @@ launch: docker-clean-launch docker-build-pfsd docker-build-ppsd
 
 proto:
 	go get -v go.pedge.io/tools/protoc-all
-	if [ -z "${NO_DOCKER}" ]; then \
-		docker pull pedge/protolog; \
-	fi
-	DEBUG=1 PROTOC_INCLUDE_PATH=src protoc-all github.com/pachyderm/pachyderm
+	PROTOC_INCLUDE_PATH=src protoc-all github.com/pachyderm/pachyderm
 
 pretest:
 	go get -v github.com/kisielk/errcheck

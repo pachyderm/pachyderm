@@ -32,7 +32,7 @@ func (r *router) GetMasterShards() (map[int]bool, error) {
 	}
 	m := make(map[int]bool, 0)
 	for shard, address := range shardToMasterAddress {
-		if address == r.localAddress {
+		if address.Address == r.localAddress && !address.Backfilling {
 			m[shard] = true
 		}
 	}
@@ -47,7 +47,7 @@ func (r *router) GetReplicaShards() (map[int]bool, error) {
 	m := make(map[int]bool, 0)
 	for shard, addresses := range shardToReplicaAddresses {
 		for _, address := range addresses {
-			if address == r.localAddress {
+			if address.Address == r.localAddress && !address.Backfilling {
 				m[shard] = true
 			}
 		}
@@ -63,7 +63,10 @@ func (r *router) GetMasterClientConn(shard int) (*grpc.ClientConn, error) {
 	if !ok {
 		return nil, fmt.Errorf("no master found for %d", shard)
 	}
-	return r.dialer.Dial(address)
+	if address.Backfilling {
+		return nil, fmt.Errorf("master %s for shard %d is backfilling", address.Address, shard)
+	}
+	return r.dialer.Dial(address.Address)
 }
 
 func (r *router) GetMasterOrReplicaClientConn(shard int) (*grpc.ClientConn, error) {
@@ -72,16 +75,11 @@ func (r *router) GetMasterOrReplicaClientConn(shard int) (*grpc.ClientConn, erro
 		return nil, err
 	}
 	for address := range addresses {
-		return r.dialer.Dial(address)
+		if !address.Backfilling {
+			return r.dialer.Dial(address.Address)
+		}
 	}
-	address, ok, err := r.addresser.GetMasterAddress(shard)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, fmt.Errorf("no master or replica found for %d", shard)
-	}
-	return r.dialer.Dial(address)
+	return r.GetMasterClientConn(shard)
 }
 
 func (r *router) GetReplicaClientConns(shard int) ([]*grpc.ClientConn, error) {
@@ -91,11 +89,13 @@ func (r *router) GetReplicaClientConns(shard int) ([]*grpc.ClientConn, error) {
 	}
 	var result []*grpc.ClientConn
 	for address := range addresses {
-		conn, err := r.dialer.Dial(address)
-		if err != nil {
-			return nil, err
+		if !address.Backfilling {
+			conn, err := r.dialer.Dial(address.Address)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, conn)
 		}
-		result = append(result, conn)
 	}
 	return result, nil
 }
@@ -108,8 +108,8 @@ func (r *router) GetAllClientConns() ([]*grpc.ClientConn, error) {
 	var clientConns []*grpc.ClientConn
 	for address := range addresses {
 		// TODO(pedge): huge race, this whole thing is bad
-		if address != r.localAddress {
-			clientConn, err := r.dialer.Dial(address)
+		if address.Address != r.localAddress && !address.Backfilling {
+			clientConn, err := r.dialer.Dial(address.Address)
 			if err != nil {
 				return nil, err
 			}
@@ -119,8 +119,8 @@ func (r *router) GetAllClientConns() ([]*grpc.ClientConn, error) {
 	return clientConns, nil
 }
 
-func (r *router) getAllAddresses() (map[string]bool, error) {
-	m := make(map[string]bool, 0)
+func (r *router) getAllAddresses() (map[Address]bool, error) {
+	m := make(map[Address]bool, 0)
 	shardToMasterAddress, err := r.addresser.GetShardToMasterAddress()
 	if err != nil {
 		return nil, err

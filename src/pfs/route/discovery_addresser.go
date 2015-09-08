@@ -22,24 +22,25 @@ func newDiscoveryAddresser(discoveryClient discovery.Client, namespace string) *
 	return &discoveryAddresser{discoveryClient, namespace}
 }
 
-func (a *discoveryAddresser) GetMasterAddress(shard int) (string, bool, error) {
-	return a.discoveryClient.Get(a.masterKey(shard))
+func (a *discoveryAddresser) GetMasterAddress(shard int) (Address, bool, error) {
+	address, ok, err := a.discoveryClient.Get(a.masterKey(shard))
+	return decodeAddress(address), ok, err
 }
 
-func (a *discoveryAddresser) GetReplicaAddresses(shard int) (map[string]bool, error) {
+func (a *discoveryAddresser) GetReplicaAddresses(shard int) (map[Address]bool, error) {
 	base := a.replicaShardDir(shard)
 	addresses, err := a.discoveryClient.GetAll(base)
 	if err != nil {
 		return nil, err
 	}
-	m := make(map[string]bool, 0)
+	m := make(map[Address]bool, 0)
 	for _, address := range addresses {
-		m[address] = true
+		m[decodeAddress(address)] = true
 	}
 	return m, nil
 }
 
-func (a *discoveryAddresser) GetShardToMasterAddress() (map[int]string, error) {
+func (a *discoveryAddresser) GetShardToMasterAddress() (map[int]Address, error) {
 	addresses, err := a.discoveryClient.GetAll(a.masterDir())
 	if err != nil {
 		return nil, err
@@ -47,7 +48,7 @@ func (a *discoveryAddresser) GetShardToMasterAddress() (map[int]string, error) {
 	return a.makeMasterMap(addresses)
 }
 
-func (a *discoveryAddresser) WatchShardToAddress(cancel chan bool, callBack func(map[int]string, map[int]map[int]string) (uint64, error)) error {
+func (a *discoveryAddresser) WatchShardToAddress(cancel chan bool, callBack func(map[int]Address, map[int]map[int]Address) (uint64, error)) error {
 	return a.discoveryClient.WatchAll(
 		a.shardDir(),
 		cancel,
@@ -61,7 +62,7 @@ func (a *discoveryAddresser) WatchShardToAddress(cancel chan bool, callBack func
 	)
 }
 
-func (a *discoveryAddresser) GetShardToReplicaAddresses() (map[int]map[int]string, error) {
+func (a *discoveryAddresser) GetShardToReplicaAddresses() (map[int]map[int]Address, error) {
 	base := a.replicaDir()
 	addresses, err := a.discoveryClient.GetAll(base)
 	if err != nil {
@@ -70,36 +71,50 @@ func (a *discoveryAddresser) GetShardToReplicaAddresses() (map[int]map[int]strin
 	return a.makeReplicaMap(addresses)
 }
 
-func (a *discoveryAddresser) SetMasterAddress(shard int, address string) (uint64, error) {
-	return a.discoveryClient.Set(a.masterKey(shard), address, 0)
+func (a *discoveryAddresser) SetMasterAddress(shard int, address Address) (uint64, error) {
+	return a.discoveryClient.Set(a.masterKey(shard), encodeAddress(address), 0)
 }
 
-func (a *discoveryAddresser) ClaimMasterAddress(shard int, address string, prevAddress string) (uint64, error) {
-	return a.discoveryClient.CheckAndSet(a.masterKey(shard), address, holdTTL, prevAddress)
+func (a *discoveryAddresser) ClaimMasterAddress(shard int, address Address, prevAddress Address) (uint64, error) {
+	return a.discoveryClient.CheckAndSet(a.masterKey(shard), encodeAddress(address), holdTTL, encodeAddress(prevAddress))
 }
 
-func (a *discoveryAddresser) HoldMasterAddress(shard int, address string, cancel chan bool) error {
-	return a.discoveryClient.Hold(a.masterKey(shard), address, holdTTL, cancel)
+func (a *discoveryAddresser) HoldMasterAddress(shard int, address Address, cancel chan bool) error {
+	return a.discoveryClient.Hold(a.masterKey(shard), encodeAddress(address), holdTTL, cancel)
 }
 
-func (a *discoveryAddresser) SetReplicaAddress(shard int, index int, address string) (uint64, error) {
-	return a.discoveryClient.CreateInDir(a.replicaKey(shard, index), address, holdTTL)
+func (a *discoveryAddresser) SetReplicaAddress(shard int, index int, address Address) (uint64, error) {
+	return a.discoveryClient.CreateInDir(a.replicaKey(shard, index), encodeAddress(address), holdTTL)
 }
 
-func (a *discoveryAddresser) ClaimReplicaAddress(shard int, index int, address string, prevAddress string) (uint64, error) {
-	return a.discoveryClient.CheckAndSet(a.replicaKey(shard, index), address, holdTTL, prevAddress)
+func (a *discoveryAddresser) ClaimReplicaAddress(shard int, index int, address Address, prevAddress Address) (uint64, error) {
+	return a.discoveryClient.CheckAndSet(a.replicaKey(shard, index), encodeAddress(address), holdTTL, encodeAddress(prevAddress))
 }
 
-func (a *discoveryAddresser) HoldReplicaAddress(shard int, index int, address string, cancel chan bool) error {
-	return a.discoveryClient.Hold(a.replicaKey(shard, index), address, holdTTL, cancel)
+func (a *discoveryAddresser) HoldReplicaAddress(shard int, index int, address Address, cancel chan bool) error {
+	return a.discoveryClient.Hold(a.replicaKey(shard, index), encodeAddress(address), holdTTL, cancel)
 }
 
 func (a *discoveryAddresser) DeleteMasterAddress(shard int) (uint64, error) {
 	return a.discoveryClient.Delete(a.masterKey(shard))
 }
 
-func (a *discoveryAddresser) DeleteReplicaAddress(shard int, index int, address string) (uint64, error) {
+func (a *discoveryAddresser) DeleteReplicaAddress(shard int, index int, address Address) (uint64, error) {
 	return a.discoveryClient.Delete(a.replicaKey(shard, index))
+}
+
+func decodeAddress(rawAddress string) Address {
+	return Address{
+		strings.TrimPrefix(rawAddress, "-"),
+		strings.HasPrefix(rawAddress, "-"),
+	}
+}
+
+func encodeAddress(address Address) string {
+	if address.Backfilling {
+		return "-" + address.Address
+	}
+	return address.Address
 }
 
 func (a *discoveryAddresser) shardDir() string {
@@ -126,9 +141,9 @@ func (a *discoveryAddresser) replicaKey(shard int, index int) string {
 	return path.Join(a.replicaShardDir(shard), fmt.Sprint(index))
 }
 
-func (a *discoveryAddresser) makeShardMaps(addresses map[string]string) (map[int]string, map[int]map[int]string, error) {
-	masterMap := make(map[int]string)
-	replicaMap := make(map[int]map[int]string)
+func (a *discoveryAddresser) makeShardMaps(addresses map[string]string) (map[int]Address, map[int]map[int]Address, error) {
+	masterMap := make(map[int]Address)
+	replicaMap := make(map[int]map[int]Address)
 	masterPrefix := fmt.Sprintf("%s/", a.masterDir())
 	replicaPrefix := fmt.Sprintf("%s/", a.replicaDir())
 	for shardString, address := range addresses {
@@ -137,7 +152,7 @@ func (a *discoveryAddresser) makeShardMaps(addresses map[string]string) (map[int
 			if err != nil {
 				return nil, nil, err
 			}
-			masterMap[int(shard)] = address
+			masterMap[int(shard)] = decodeAddress(address)
 		}
 		if strings.HasPrefix(shardString, replicaPrefix) {
 			shardString = strings.TrimPrefix(shardString, replicaPrefix)
@@ -151,20 +166,20 @@ func (a *discoveryAddresser) makeShardMaps(addresses map[string]string) (map[int
 				return nil, nil, err
 			}
 			if _, ok := replicaMap[int(shard)]; !ok {
-				replicaMap[int(shard)] = make(map[int]string, 0)
+				replicaMap[int(shard)] = make(map[int]Address, 0)
 			}
-			replicaMap[int(shard)][int(index)] = address
+			replicaMap[int(shard)][int(index)] = decodeAddress(address)
 		}
 	}
 	return masterMap, replicaMap, nil
 }
 
-func (a *discoveryAddresser) makeMasterMap(addresses map[string]string) (map[int]string, error) {
+func (a *discoveryAddresser) makeMasterMap(addresses map[string]string) (map[int]Address, error) {
 	result, _, err := a.makeShardMaps(addresses)
 	return result, err
 }
 
-func (a *discoveryAddresser) makeReplicaMap(addresses map[string]string) (map[int]map[int]string, error) {
+func (a *discoveryAddresser) makeReplicaMap(addresses map[string]string) (map[int]map[int]Address, error) {
 	_, result, err := a.makeShardMaps(addresses)
 	return result, err
 }
