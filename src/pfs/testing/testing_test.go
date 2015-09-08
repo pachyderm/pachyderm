@@ -15,7 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
-	"github.com/stretchr/testify/require"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
 )
 
 const (
@@ -33,6 +33,7 @@ func TestSimple(t *testing.T) {
 
 func TestFailures(t *testing.T) {
 	t.Skip()
+	t.Parallel()
 	RunTest(t, testFailures)
 }
 
