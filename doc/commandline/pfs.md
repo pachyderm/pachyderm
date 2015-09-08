@@ -1,7 +1,7 @@
 # Pachyderm File System CLI
 
 ## Terms
-__repository:__ A repository (aka: repo) is a grouping of data that you want to track changes over. Repos in pfs behave just like repos in Git, except they work over huge datasets instead of just source code. You can take snapshots (commits) on a repo and multiple repos can exist in a single cluster. For example, if you have multiple production databases dumping data into pfs on a hourly or daily basis, it may make sense for each of those to be a separate repo. 
+__repository:__ A repository (aka: repo) is a set of data over which you want to track changes. Repos in pfs behave just like repos in Git, except they work over huge datasets instead of just source code. You can take snapshots (commits) on a repo and multiple repos can exist in a single cluster. For example, if you have multiple production databases dumping data into pfs on a hourly or daily basis, it may make sense for each of those to be a separate repo. 
 
 __commit:__ A commit is an immutable snapshot of a repo at a given time. Commits can either be open or closed. An open commit is writable, allowing you to add, change, or remove files. A closed or "committed" commit is read-only and cannot be changed. 
 
@@ -13,11 +13,20 @@ __file/directory:__ Files are the base unit of data in pfs. Files can be organiz
     Usage: pfs help COMMAND
     
     Returns information about a pfs command
+    
+##### Example
+    # Learn more about the `get` command
+    $pfs help get
 
 #### version
     Usage: pfs version
     
     Returns the currently running version of pfs
+    
+##### Example
+    # Find out the running version of Pachyderm
+    $pfs version
+    Pachyderm v0.9
 
 #### mount
     Usage: pfs mount REPOSITORY [MOUNTPOINT]
@@ -29,7 +38,7 @@ __file/directory:__ Files are the base unit of data in pfs. Files can be organiz
     
     Return:
 
-Once you mount a repo in pfs to a local mountpoint, any reads or writes pointed at the local mountpoint percolate to the repo in the distributed file system. 
+Once you mount a repo in pfs to a local mountpoint, any reads or writes pointed at the local mountpoint are applied to the repo in the distributed file system. 
 
 ##### Example
     # mount the `user_data` repo in pfs to your working directory
