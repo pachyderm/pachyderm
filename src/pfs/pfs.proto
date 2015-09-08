@@ -1,5 +1,6 @@
 syntax = "proto3";
 
+import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
@@ -142,7 +143,11 @@ message ListCommitsResponse {
 service Api {
   // InitRepository creates a new repository.
   // An error is returned if the specified repository already exists.
-  rpc InitRepository(InitRepositoryRequest) returns (google.protobuf.Empty) {}
+  rpc InitRepository(InitRepositoryRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/repos/{repository.name}"
+    };
+  }
   // ListRepositories lists the existing repositories.
   rpc ListRepositories(ListRepositoriesRequest) returns (ListRepositoriesResponse) {}
   // GetFile returns a byte stream of the specified file.

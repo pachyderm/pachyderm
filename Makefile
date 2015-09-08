@@ -95,7 +95,7 @@ proto:
 pretest:
 	go get -v github.com/kisielk/errcheck
 	go get -v github.com/golang/lint/golint
-	for file in $$(find "./src" -name '*.go' | grep -v '\.pb\.go'); do \
+	for file in $$(find "./src" -name '*.go' | grep -v '\.pb\.go' | grep -v '\.pb\.gw\.go'); do \
 		golint $$file | grep -v unexported; \
 		if [ -n "$$(golint $$file | grep -v unexported)" ]; then \
 			exit 1; \
