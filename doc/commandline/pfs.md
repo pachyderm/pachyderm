@@ -1,9 +1,16 @@
+#TODO:
+- commit definition
+- mount: add flags and lots of examples
+- talk abou standard unix error codes, 0, 1
+
 # Pachyderm File System CLI
 
 ## Terms
 __repository:__ A repository (aka: repo) is a set of data over which you want to track changes. Repos in pfs behave just like repos in Git, except they work over huge datasets instead of just source code. You can take snapshots (commits) on a repo and multiple repos can exist in a single cluster. For example, if you have multiple production databases dumping data into pfs on a hourly or daily basis, it may make sense for each of those to be a separate repo. 
 
 __commit:__ A commit is an immutable snapshot of a repo at a given time. Commits can either be open or closed. An open commit is writable, allowing you to add, change, or remove files. A closed or "committed" commit is read-only and cannot be changed. 
+
+commits reference each other in dag...
 
 __file/directory:__ Files are the base unit of data in pfs. Files can be organized in directories, just like any normal file system. 
 
@@ -16,7 +23,10 @@ __file/directory:__ Files are the base unit of data in pfs. Files can be organiz
     
 ##### Example
     # Learn more about the `get` command
-    $pfs help get
+    $ pfs help get
+    Get a file from stdout. commit-id must be a readable commit.
+    Usage:
+      pfs get repository-name commit-id path/to/file
 
 #### version
     Usage: pfs version
@@ -26,26 +36,28 @@ __file/directory:__ Files are the base unit of data in pfs. Files can be organiz
 ##### Example
     # Find out the running version of Pachyderm
     $pfs version
-    Pachyderm v0.9
+    Client: v0.9
+    Server: v0.9
 
 #### mount
-    Usage: pfs mount REPOSITORY [MOUNTPOINT]
+    Usage: pfs mount MOUNTPOINT REPOSITORY [COMMIT_ID] [OPTIONS]
     
     MOUNTPOINT          The local directory used to access the pfs repo. 
                         Defaults to your working directory if unspecified.
+    COMMIT_ID           Only mount the data for a specific commit
+    -s, --shard=0       
+    -m, --modulus=1     
     
     Mounts a repo in the distributed file system onto the local mountpoint. 
     
-    Return:
-
-Once you mount a repo in pfs to a local mountpoint, any reads or writes pointed at the local mountpoint are applied to the repo in the distributed file system. 
+Mounting a repo in pfs lets you access its contents as if it was a local file system. Any reads or writes pointed at the local mountpoint are applied to the repo in the distributed file system. 
 
 ##### Example
     # mount the `user_data` repo in pfs to your working directory
-    $pfs mount user_data
+    $ pfs mount user_data
 
     # mount the `user_data` repo in pfs to your home directory
-    $pfs mount user_data ~
+    $ pfs mount user_data ~
 
 
 
@@ -54,25 +66,25 @@ Once you mount a repo in pfs to a local mountpoint, any reads or writes pointed 
     Usage: pfs init REPOSITORY
     
     Create a new repository
-    
-    Return: REPOSITORY
+Repository names cannot contain `/`.
+
 ##### Example
-    # Create  the repository `user_data`
-    $pfs init user_data
-    user_data
+    # Create the repository `user_data`
+    $ pfs init user_data
 
 #### list-commits
     Usage: pfs list-commits REPOSITORY
     
     Lists all commits in a repository
     
-    Return format: Commit_ID
+    Return format: ID  PARENT  STATUS  TIME_OPENED  TIME_CLOSED  TOTAL_SIZE  DIFF_SIZE
 ##### Example
     # List all commits in the repository `user_data`
-    $pfs list-commits user_data
-    Commit_ID
-    UUID1
-    UUID2
+    $ pfs list-commits user_data
+    ID      PARENT      STATUS      TIME_OPENED         TIME_CLOSED     TOTAL_SIZE    DIFF_SIZE
+    ID_2    ID_1        writable    about an hour ago                   801.2 GB      100 MB   
+    ID_1    scratch     read-only   2 hours ago         2 hours ago     801.1 GB      801.1 GB                     
+    
 
 ### Commands that can be called on a commit:
 #### branch
