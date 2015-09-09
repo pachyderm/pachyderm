@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/satori/go.uuid"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBasicRethink(t *testing.T) {

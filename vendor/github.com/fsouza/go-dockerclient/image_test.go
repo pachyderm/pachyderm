@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -24,6 +25,7 @@ func newTestClient(rt *FakeRoundTripper) Client {
 	testAPIVersion, _ := NewAPIVersion("1.17")
 	client := Client{
 		HTTPClient:             &http.Client{Transport: rt},
+		Dialer:                 &net.Dialer{},
 		endpoint:               endpoint,
 		endpointURL:            u,
 		SkipServerVersionCheck: true,

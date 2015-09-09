@@ -6,7 +6,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 )

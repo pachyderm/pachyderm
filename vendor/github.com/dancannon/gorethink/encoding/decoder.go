@@ -52,6 +52,11 @@ func Decode(dst interface{}, src interface{}) (err error) {
 
 // decode decodes the source value into the destination value
 func decode(dv, sv reflect.Value) {
+	if dv.IsValid() {
+		dv = indirect(dv, false)
+		dv.Set(reflect.Zero(dv.Type()))
+	}
+
 	valueDecoder(dv, sv)(dv, sv)
 }
 
@@ -67,11 +72,6 @@ var decoderCache struct {
 func valueDecoder(dv, sv reflect.Value) decoderFunc {
 	if !sv.IsValid() {
 		return invalidValueDecoder
-	}
-
-	if dv.IsValid() {
-		dv = indirect(dv, false)
-		dv.Set(reflect.Zero(dv.Type()))
 	}
 
 	return typeDecoder(dv.Type(), sv.Type())

@@ -130,6 +130,7 @@ type Client struct {
 	SkipServerVersionCheck bool
 	HTTPClient             *http.Client
 	TLSConfig              *tls.Config
+	Dialer                 *net.Dialer
 
 	endpoint            string
 	endpointURL         *url.URL
@@ -191,6 +192,7 @@ func NewVersionedClient(endpoint string, apiVersionString string) (*Client, erro
 	}
 	return &Client{
 		HTTPClient:          http.DefaultClient,
+		Dialer:              &net.Dialer{},
 		endpoint:            endpoint,
 		endpointURL:         u,
 		eventMonitor:        new(eventMonitoringState),
@@ -302,6 +304,7 @@ func NewVersionedTLSClientFromBytes(endpoint string, certPEMBlock, keyPEMBlock, 
 	return &Client{
 		HTTPClient:          &http.Client{Transport: tr},
 		TLSConfig:           tlsConfig,
+		Dialer:              &net.Dialer{},
 		endpoint:            endpoint,
 		endpointURL:         u,
 		eventMonitor:        new(eventMonitoringState),
@@ -395,7 +398,7 @@ func (c *Client) do(method, path string, doOptions doOptions) ([]byte, int, erro
 	address := c.endpointURL.Path
 	if protocol == "unix" {
 		var dial net.Conn
-		dial, err = net.Dial(protocol, address)
+		dial, err = c.Dialer.Dial(protocol, address)
 		if err != nil {
 			return nil, -1, err
 		}
@@ -473,7 +476,7 @@ func (c *Client) stream(method, path string, streamOptions streamOptions) error 
 		defer t.Close()
 	}
 	if protocol == "unix" {
-		dial, err := net.Dial(protocol, address)
+		dial, err := c.Dialer.Dial(protocol, address)
 		if err != nil {
 			return err
 		}
@@ -599,12 +602,12 @@ func (c *Client) hijack(method, path string, hijackOptions hijackOptions) error 
 	}
 	var dial net.Conn
 	if c.TLSConfig != nil && protocol != "unix" {
-		dial, err = tlsDial(protocol, address, c.TLSConfig)
+		dial, err = tlsDialWithDialer(c.Dialer, protocol, address, c.TLSConfig)
 		if err != nil {
 			return err
 		}
 	} else {
-		dial, err = net.Dial(protocol, address)
+		dial, err = c.Dialer.Dial(protocol, address)
 		if err != nil {
 			return err
 		}
