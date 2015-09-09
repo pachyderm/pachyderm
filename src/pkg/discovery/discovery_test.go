@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
 )
 
 func TestEtcdClient(t *testing.T) {

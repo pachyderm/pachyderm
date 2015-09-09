@@ -10,7 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
-	"github.com/stretchr/testify/require"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
 )
 
 const (

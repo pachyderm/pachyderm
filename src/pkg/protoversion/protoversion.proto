@@ -1,5 +1,6 @@
 syntax = "proto3";
 
+import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 
 package protoversion;
@@ -16,5 +17,9 @@ message GetVersionResponse {
 }
 
 service Api {
-  rpc GetVersion(google.protobuf.Empty) returns (GetVersionResponse) {}
+  rpc GetVersion(google.protobuf.Empty) returns (GetVersionResponse) {
+    option (google.api.http) = {
+      get: "/version"
+    };
+  }
 }

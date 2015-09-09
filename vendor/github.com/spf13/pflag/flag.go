@@ -157,8 +157,9 @@ type Flag struct {
 	Changed             bool                // If the user set the value (or if left to default)
 	NoOptDefVal         string              //default value (as text); if the flag is on the command line without any options
 	Deprecated          string              // If this flag is deprecated, this string is the new or now thing to use
+	Hidden              bool                // used by cobra.Command to allow flags to be hidden from help/usage text
 	ShorthandDeprecated string              // If the shorthand of this flag is deprecated, this string is the new or now thing to use
-	Annotations         map[string][]string // used by cobra.Command  bash autocomple code
+	Annotations         map[string][]string // used by cobra.Command bash autocomple code
 }
 
 // Value is the interface to the dynamic value stored in a flag.
@@ -321,6 +322,17 @@ func (f *FlagSet) MarkShorthandDeprecated(name string, usageMessage string) erro
 	return nil
 }
 
+// MarkHidden sets a flag to 'hidden' in your program. It will continue to
+// function but will not show up in help or usage messages.
+func (f *FlagSet) MarkHidden(name string) error {
+	flag := f.Lookup(name)
+	if flag == nil {
+		return fmt.Errorf("flag %q does not exist", name)
+	}
+	flag.Hidden = true
+	return nil
+}
+
 // Lookup returns the Flag structure of the named command-line flag,
 // returning nil if none exists.
 func Lookup(name string) *Flag {
@@ -394,7 +406,7 @@ func (f *FlagSet) FlagUsages() string {
 	x := new(bytes.Buffer)
 
 	f.VisitAll(func(flag *Flag) {
-		if len(flag.Deprecated) > 0 {
+		if len(flag.Deprecated) > 0 || flag.Hidden {
 			return
 		}
 		format := ""

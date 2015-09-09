@@ -1371,6 +1371,7 @@ func TestExportContainerViaUnixSocket(t *testing.T) {
 	u, _ := parseEndpoint(endpoint, false)
 	client := Client{
 		HTTPClient:             http.DefaultClient,
+		Dialer:                 &net.Dialer{},
 		endpoint:               endpoint,
 		endpointURL:            u,
 		SkipServerVersionCheck: true,
@@ -1438,7 +1439,7 @@ func TestPutContainerArchive(t *testing.T) {
 	err := client.PutContainerArchive("a123456", opts)
 
 	if err != nil {
-		t.Errorf("PutContainerArchive: caugh error %#v while copying from container, expected nil", err.Error())
+		t.Errorf("PutContainerArchive: caugh error %#v while copying to container, expected nil", err)
 	}
 
 	req := fakeRT.requests[0]

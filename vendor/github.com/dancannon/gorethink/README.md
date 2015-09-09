@@ -8,7 +8,7 @@
 
 ![GoRethink Logo](https://raw.github.com/wiki/dancannon/gorethink/gopher-and-thinker-s.png "Golang Gopher and RethinkDB Thinker")
 
-Current version: v1.1.1 (RethinkDB v2.1)
+Current version: v1.1.3 (RethinkDB v2.1)
 
 Please note that this version of the driver only supports versions of RethinkDB using the v0.4 protocol (any versions of the driver older than RethinkDB 2.0 will not work).
 
@@ -214,6 +214,16 @@ Field int `gorethink:",omitempty"`
 **NOTE:** It is strongly recommended that struct tags are used to explicitly define the mapping between your Go type and how the data is stored by RethinkDB. This is especially important when using an `Id` field as by default RethinkDB will create a field named `id` as the primary key (note that the RethinkDB field is lowercase but the Go version starts with a capital letter).
 
 When encoding maps with non-string keys the key values are automatically converted to strings where possible, however it is recommended that you use strings where possible (for example `map[string]T`).
+
+## Logging
+
+By default the driver logs errors when it fails to connect to the database. If you would like more verbose error logging you can call `r.SetVerbose(true)`.
+
+Alternatively if you wish to modify the logging behaviour you can modify the logger provided by `github.com/Sirupsen/logrus`. For example the following code completely disable the logger:
+
+```go
+r.Log.Out = ioutil.Discard
+```
 
 ## Benchmarks
 

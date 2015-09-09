@@ -163,7 +163,7 @@ func (c *Connection) sendQuery(q Query) error {
 	}
 
 	// Set timeout
-	if c.opts.Timeout == 0 {
+	if c.opts.WriteTimeout == 0 {
 		c.conn.SetWriteDeadline(time.Time{})
 	} else {
 		c.conn.SetWriteDeadline(time.Now().Add(c.opts.WriteTimeout))
@@ -189,7 +189,7 @@ func (c *Connection) nextToken() int64 {
 // could be read then an error is returned.
 func (c *Connection) readResponse() (*Response, error) {
 	// Set timeout
-	if c.opts.Timeout == 0 {
+	if c.opts.ReadTimeout == 0 {
 		c.conn.SetReadDeadline(time.Time{})
 	} else {
 		c.conn.SetReadDeadline(time.Now().Add(c.opts.ReadTimeout))
