@@ -15,7 +15,11 @@ It has these top-level messages:
 package protoversion
 
 import proto "github.com/golang/protobuf/proto"
-import google_protobuf "go.pedge.io/google-protobuf"
+import fmt "fmt"
+import math "math"
+
+// discarding unused import google_api1 "google/api"
+import google_protobuf1 "go.pedge.io/google-protobuf"
 
 import (
 	context "golang.org/x/net/context"
@@ -23,11 +27,9 @@ import (
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
-var _ context.Context
-var _ grpc.ClientConn
-
-// Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 type Version struct {
 	Major      uint32 `protobuf:"varint,1,opt,name=major" json:"major,omitempty"`
@@ -55,10 +57,14 @@ func (m *GetVersionResponse) GetVersion() *Version {
 	return nil
 }
 
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
 // Client API for Api service
 
 type ApiClient interface {
-	GetVersion(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*GetVersionResponse, error)
+	GetVersion(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*GetVersionResponse, error)
 }
 
 type apiClient struct {
@@ -69,7 +75,7 @@ func NewApiClient(cc *grpc.ClientConn) ApiClient {
 	return &apiClient{cc}
 }
 
-func (c *apiClient) GetVersion(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*GetVersionResponse, error) {
+func (c *apiClient) GetVersion(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*GetVersionResponse, error) {
 	out := new(GetVersionResponse)
 	err := grpc.Invoke(ctx, "/protoversion.Api/GetVersion", in, out, c.cc, opts...)
 	if err != nil {
@@ -81,7 +87,7 @@ func (c *apiClient) GetVersion(ctx context.Context, in *google_protobuf.Empty, o
 // Server API for Api service
 
 type ApiServer interface {
-	GetVersion(context.Context, *google_protobuf.Empty) (*GetVersionResponse, error)
+	GetVersion(context.Context, *google_protobuf1.Empty) (*GetVersionResponse, error)
 }
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
@@ -89,7 +95,7 @@ func RegisterApiServer(s *grpc.Server, srv ApiServer) {
 }
 
 func _Api_GetVersion_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(google_protobuf.Empty)
+	in := new(google_protobuf1.Empty)
 	if err := codec.Unmarshal(buf, in); err != nil {
 		return nil, err
 	}

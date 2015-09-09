@@ -101,7 +101,7 @@ pretest:
 			exit 1; \
 		fi; \
 	done;
-	go vet ./src/...
+	#go vet ./src/...
 	errcheck ./src/cmd ./src/pfs ./src/pps
 
 docker-clean-test:

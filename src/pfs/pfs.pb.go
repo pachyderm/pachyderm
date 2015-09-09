@@ -38,9 +38,13 @@ It has these top-level messages:
 package pfs
 
 import proto "github.com/golang/protobuf/proto"
-import google_protobuf "go.pedge.io/google-protobuf"
+import fmt "fmt"
+import math "math"
+
+// discarding unused import google_api1 "google/api"
 import google_protobuf1 "go.pedge.io/google-protobuf"
 import google_protobuf2 "go.pedge.io/google-protobuf"
+import google_protobuf3 "go.pedge.io/google-protobuf"
 
 import (
 	context "golang.org/x/net/context"
@@ -48,11 +52,9 @@ import (
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
-var _ context.Context
-var _ grpc.ClientConn
-
-// Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 // CommitType represents the type of commit.
 type CommitType int32
@@ -151,7 +153,7 @@ type FileInfo struct {
 	FileType     FileType                    `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
 	SizeBytes    uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
 	Perm         uint32                      `protobuf:"varint,4,opt,name=perm" json:"perm,omitempty"`
-	LastModified *google_protobuf1.Timestamp `protobuf:"bytes,5,opt,name=last_modified" json:"last_modified,omitempty"`
+	LastModified *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=last_modified" json:"last_modified,omitempty"`
 }
 
 func (m *FileInfo) Reset()         { *m = FileInfo{} }
@@ -165,7 +167,7 @@ func (m *FileInfo) GetPath() *Path {
 	return nil
 }
 
-func (m *FileInfo) GetLastModified() *google_protobuf1.Timestamp {
+func (m *FileInfo) GetLastModified() *google_protobuf2.Timestamp {
 	if m != nil {
 		return m.LastModified
 	}
@@ -519,12 +521,16 @@ func init() {
 	proto.RegisterEnum("pfs.FileType", FileType_name, FileType_value)
 }
 
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
 // Client API for Api service
 
 type ApiClient interface {
 	// InitRepository creates a new repository.
 	// An error is returned if the specified repository already exists.
-	InitRepository(ctx context.Context, in *InitRepositoryRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	InitRepository(ctx context.Context, in *InitRepositoryRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// ListRepositories lists the existing repositories.
 	ListRepositories(ctx context.Context, in *ListRepositoriesRequest, opts ...grpc.CallOption) (*ListRepositoriesResponse, error)
 	// GetFile returns a byte stream of the specified file.
@@ -533,10 +539,10 @@ type ApiClient interface {
 	// GetFileInfo returns a FileInfo for a file.
 	GetFileInfo(ctx context.Context, in *GetFileInfoRequest, opts ...grpc.CallOption) (*GetFileInfoResponse, error)
 	// MakeDirectory makes a directory on the file system.
-	MakeDirectory(ctx context.Context, in *MakeDirectoryRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	MakeDirectory(ctx context.Context, in *MakeDirectoryRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// PutFile writes the specified file to PFS.
 	// An error is returned if the specified commit is not a write commit.
-	PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// ListFiles lists the files within a directory.
 	// An error is returned if the specified path is not a directory.
 	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error)
@@ -545,7 +551,7 @@ type ApiClient interface {
 	Branch(ctx context.Context, in *BranchRequest, opts ...grpc.CallOption) (*BranchResponse, error)
 	// Commit turns the specified write commit into a read commit.
 	// An error is returned if the specified commit is not a write commit.
-	Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// GetCommitInfo returns the CommitInfo for a commit.
 	GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest, opts ...grpc.CallOption) (*GetCommitInfoResponse, error)
 	// ListCommitInfo lists the commits on a repo
@@ -560,8 +566,8 @@ func NewApiClient(cc *grpc.ClientConn) ApiClient {
 	return &apiClient{cc}
 }
 
-func (c *apiClient) InitRepository(ctx context.Context, in *InitRepositoryRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
+func (c *apiClient) InitRepository(ctx context.Context, in *InitRepositoryRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/InitRepository", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -594,7 +600,7 @@ func (c *apiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grp
 }
 
 type Api_GetFileClient interface {
-	Recv() (*google_protobuf2.BytesValue, error)
+	Recv() (*google_protobuf3.BytesValue, error)
 	grpc.ClientStream
 }
 
@@ -602,8 +608,8 @@ type apiGetFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *apiGetFileClient) Recv() (*google_protobuf2.BytesValue, error) {
-	m := new(google_protobuf2.BytesValue)
+func (x *apiGetFileClient) Recv() (*google_protobuf3.BytesValue, error) {
+	m := new(google_protobuf3.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -619,8 +625,8 @@ func (c *apiClient) GetFileInfo(ctx context.Context, in *GetFileInfoRequest, opt
 	return out, nil
 }
 
-func (c *apiClient) MakeDirectory(ctx context.Context, in *MakeDirectoryRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
+func (c *apiClient) MakeDirectory(ctx context.Context, in *MakeDirectoryRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/MakeDirectory", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -628,8 +634,8 @@ func (c *apiClient) MakeDirectory(ctx context.Context, in *MakeDirectoryRequest,
 	return out, nil
 }
 
-func (c *apiClient) PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
+func (c *apiClient) PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/PutFile", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -655,8 +661,8 @@ func (c *apiClient) Branch(ctx context.Context, in *BranchRequest, opts ...grpc.
 	return out, nil
 }
 
-func (c *apiClient) Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
+func (c *apiClient) Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/Commit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -687,7 +693,7 @@ func (c *apiClient) ListCommits(ctx context.Context, in *ListCommitsRequest, opt
 type ApiServer interface {
 	// InitRepository creates a new repository.
 	// An error is returned if the specified repository already exists.
-	InitRepository(context.Context, *InitRepositoryRequest) (*google_protobuf.Empty, error)
+	InitRepository(context.Context, *InitRepositoryRequest) (*google_protobuf1.Empty, error)
 	// ListRepositories lists the existing repositories.
 	ListRepositories(context.Context, *ListRepositoriesRequest) (*ListRepositoriesResponse, error)
 	// GetFile returns a byte stream of the specified file.
@@ -696,10 +702,10 @@ type ApiServer interface {
 	// GetFileInfo returns a FileInfo for a file.
 	GetFileInfo(context.Context, *GetFileInfoRequest) (*GetFileInfoResponse, error)
 	// MakeDirectory makes a directory on the file system.
-	MakeDirectory(context.Context, *MakeDirectoryRequest) (*google_protobuf.Empty, error)
+	MakeDirectory(context.Context, *MakeDirectoryRequest) (*google_protobuf1.Empty, error)
 	// PutFile writes the specified file to PFS.
 	// An error is returned if the specified commit is not a write commit.
-	PutFile(context.Context, *PutFileRequest) (*google_protobuf.Empty, error)
+	PutFile(context.Context, *PutFileRequest) (*google_protobuf1.Empty, error)
 	// ListFiles lists the files within a directory.
 	// An error is returned if the specified path is not a directory.
 	ListFiles(context.Context, *ListFilesRequest) (*ListFilesResponse, error)
@@ -708,7 +714,7 @@ type ApiServer interface {
 	Branch(context.Context, *BranchRequest) (*BranchResponse, error)
 	// Commit turns the specified write commit into a read commit.
 	// An error is returned if the specified commit is not a write commit.
-	Commit(context.Context, *CommitRequest) (*google_protobuf.Empty, error)
+	Commit(context.Context, *CommitRequest) (*google_protobuf1.Empty, error)
 	// GetCommitInfo returns the CommitInfo for a commit.
 	GetCommitInfo(context.Context, *GetCommitInfoRequest) (*GetCommitInfoResponse, error)
 	// ListCommitInfo lists the commits on a repo
@@ -752,7 +758,7 @@ func _Api_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type Api_GetFileServer interface {
-	Send(*google_protobuf2.BytesValue) error
+	Send(*google_protobuf3.BytesValue) error
 	grpc.ServerStream
 }
 
@@ -760,7 +766,7 @@ type apiGetFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *apiGetFileServer) Send(m *google_protobuf2.BytesValue) error {
+func (x *apiGetFileServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -921,7 +927,7 @@ type InternalApiClient interface {
 	// commit to the commit's parent.
 	PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (InternalApi_PullDiffClient, error)
 	// Push diff pushes a diff from the specified commit.
-	PushDiff(ctx context.Context, in *PushDiffRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	PushDiff(ctx context.Context, in *PushDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 }
 
 type internalApiClient struct {
@@ -948,7 +954,7 @@ func (c *internalApiClient) PullDiff(ctx context.Context, in *PullDiffRequest, o
 }
 
 type InternalApi_PullDiffClient interface {
-	Recv() (*google_protobuf2.BytesValue, error)
+	Recv() (*google_protobuf3.BytesValue, error)
 	grpc.ClientStream
 }
 
@@ -956,16 +962,16 @@ type internalApiPullDiffClient struct {
 	grpc.ClientStream
 }
 
-func (x *internalApiPullDiffClient) Recv() (*google_protobuf2.BytesValue, error) {
-	m := new(google_protobuf2.BytesValue)
+func (x *internalApiPullDiffClient) Recv() (*google_protobuf3.BytesValue, error) {
+	m := new(google_protobuf3.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (c *internalApiClient) PushDiff(ctx context.Context, in *PushDiffRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
+func (c *internalApiClient) PushDiff(ctx context.Context, in *PushDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.InternalApi/PushDiff", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -980,7 +986,7 @@ type InternalApiServer interface {
 	// commit to the commit's parent.
 	PullDiff(*PullDiffRequest, InternalApi_PullDiffServer) error
 	// Push diff pushes a diff from the specified commit.
-	PushDiff(context.Context, *PushDiffRequest) (*google_protobuf.Empty, error)
+	PushDiff(context.Context, *PushDiffRequest) (*google_protobuf1.Empty, error)
 }
 
 func RegisterInternalApiServer(s *grpc.Server, srv InternalApiServer) {
@@ -996,7 +1002,7 @@ func _InternalApi_PullDiff_Handler(srv interface{}, stream grpc.ServerStream) er
 }
 
 type InternalApi_PullDiffServer interface {
-	Send(*google_protobuf2.BytesValue) error
+	Send(*google_protobuf3.BytesValue) error
 	grpc.ServerStream
 }
 
@@ -1004,7 +1010,7 @@ type internalApiPullDiffServer struct {
 	grpc.ServerStream
 }
 
-func (x *internalApiPullDiffServer) Send(m *google_protobuf2.BytesValue) error {
+func (x *internalApiPullDiffServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 

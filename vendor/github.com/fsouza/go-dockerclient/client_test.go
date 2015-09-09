@@ -366,6 +366,7 @@ func TestPingErrorWithUnixSocket(t *testing.T) {
 	u, _ := parseEndpoint(endpoint, false)
 	client := Client{
 		HTTPClient:             http.DefaultClient,
+		Dialer:                 &net.Dialer{},
 		endpoint:               endpoint,
 		endpointURL:            u,
 		SkipServerVersionCheck: true,
