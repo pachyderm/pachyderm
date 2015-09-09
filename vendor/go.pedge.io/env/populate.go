@@ -166,7 +166,7 @@ func parseField(structField reflect.StructField, value string) (interface{}, err
 	fieldKind := structField.Type.Kind()
 	switch fieldKind {
 	case reflect.Bool:
-		return value != "" && value != "false", nil
+		return value != "" && value != "false" && value != "0", nil
 	case reflect.Int:
 		parsedValue, err := strconv.ParseInt(value, 10, 0)
 		if err != nil {

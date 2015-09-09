@@ -124,6 +124,11 @@ type S13 struct {
 	S8
 }
 
+type PointerBasic struct {
+	X int
+	Y *int
+}
+
 type Pointer struct {
 	PPoint *Point
 	Point  Point
@@ -141,6 +146,11 @@ type Ambig struct {
 	First  int `gorethink:"HELLO"`
 	Second int `gorethink:"Hello"`
 }
+
+// Decode test helper vars
+var (
+	sampleInt = 2
+)
 
 var decodeTests = []decodeTest{
 	// basic types
@@ -252,6 +262,16 @@ var decodeTests = []decodeTest{
 		in:  map[string]interface{}{"Point": map[string]interface{}{"Z": 2}},
 		ptr: new(Pointer),
 		out: Pointer{PPoint: nil, Point: Point{Z: 2}},
+	},
+	{
+		in:  map[string]interface{}{"x": 2},
+		ptr: new(PointerBasic),
+		out: PointerBasic{X: 2, Y: nil},
+	},
+	{
+		in:  map[string]interface{}{"x": 2, "y": 2},
+		ptr: new(PointerBasic),
+		out: PointerBasic{X: 2, Y: &sampleInt},
 	},
 }
 

@@ -1635,7 +1635,8 @@ type CreateRequest struct {
 	Name   string
 	Flags  OpenFlags
 	Mode   os.FileMode
-	Umask  os.FileMode
+	// Umask of the request. Not supported on OS X.
+	Umask os.FileMode
 }
 
 var _ = Request(&CreateRequest{})
@@ -1681,7 +1682,8 @@ type MkdirRequest struct {
 	Header `json:"-"`
 	Name   string
 	Mode   os.FileMode
-	Umask  os.FileMode
+	// Umask of the request. Not supported on OS X.
+	Umask os.FileMode
 }
 
 var _ = Request(&MkdirRequest{})
@@ -2189,7 +2191,8 @@ type MknodRequest struct {
 	Name   string
 	Mode   os.FileMode
 	Rdev   uint32
-	Umask  os.FileMode
+	// Umask of the request. Not supported on OS X.
+	Umask os.FileMode
 }
 
 var _ = Request(&MknodRequest{})
