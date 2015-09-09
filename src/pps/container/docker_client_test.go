@@ -6,7 +6,7 @@ import (
 
 	"go.pedge.io/protolog/logrus"
 
-	"github.com/stretchr/testify/require"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
 )
 
 const (
