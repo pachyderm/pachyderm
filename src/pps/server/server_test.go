@@ -15,13 +15,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	pfstesting "github.com/pachyderm/pachyderm/src/pfs/testing"
 	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"github.com/pachyderm/pachyderm/src/pps/store"
 	"github.com/satori/go.uuid"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
 
