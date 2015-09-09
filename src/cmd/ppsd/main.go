@@ -63,11 +63,13 @@ func do(appEnvObj interface{}) error {
 	}
 	return grpcutil.GrpcDo(
 		appEnv.Port,
+		0,
 		appEnv.TracePort,
 		pachyderm.Version,
 		func(s *grpc.Server) {
 			pps.RegisterApiServer(s, server.NewAPIServer(pfs.NewApiClient(clientConn), containerClient, rethinkClient, timing.NewSystemTimer()))
 		},
+		nil,
 	)
 }
 

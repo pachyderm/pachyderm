@@ -6,18 +6,21 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 )
 
-var errNoAvail = errors.New("no available fuse devices")
+var (
+	errNoAvail         = errors.New("no available fuse devices")
+	errNotLoaded       = errors.New("osxfuse is not loaded")
+	errOSXFUSENotFound = errors.New("cannot locate OSXFUSE")
+)
 
-var errNotLoaded = errors.New("osxfusefs is not loaded")
-
-func loadOSXFUSE() error {
-	cmd := exec.Command("/Library/Filesystems/osxfusefs.fs/Support/load_osxfusefs")
+func loadOSXFUSE(bin string) error {
+	cmd := exec.Command(bin)
 	cmd.Dir = "/"
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -25,11 +28,11 @@ func loadOSXFUSE() error {
 	return err
 }
 
-func openOSXFUSEDev() (*os.File, error) {
+func openOSXFUSEDev(devPrefix string) (*os.File, error) {
 	var f *os.File
 	var err error
 	for i := uint64(0); ; i++ {
-		path := "/dev/osxfuse" + strconv.FormatUint(i, 10)
+		path := devPrefix + strconv.FormatUint(i, 10)
 		f, err = os.OpenFile(path, os.O_RDWR, 0000)
 		if os.IsNotExist(err) {
 			if i == 0 {
@@ -53,12 +56,10 @@ func openOSXFUSEDev() (*os.File, error) {
 	}
 }
 
-func handleMountOSXFUSE(errCh chan<- error) func(line string) (ignore bool) {
+func handleMountOSXFUSE(helperName string, errCh chan<- error) func(line string) (ignore bool) {
+	var noMountpointPrefix = helperName + `: `
+	const noMountpointSuffix = `: No such file or directory`
 	return func(line string) (ignore bool) {
-		const (
-			noMountpointPrefix = `mount_osxfusefs: `
-			noMountpointSuffix = `: No such file or directory`
-		)
 		if strings.HasPrefix(line, noMountpointPrefix) && strings.HasSuffix(line, noMountpointSuffix) {
 			// re-extract it from the error message in case some layer
 			// changed the path
@@ -90,9 +91,7 @@ func isBoringMountOSXFUSEError(err error) bool {
 	return false
 }
 
-func callMount(dir string, conf *mountConfig, f *os.File, ready chan<- struct{}, errp *error) error {
-	bin := "/Library/Filesystems/osxfusefs.fs/Support/mount_osxfusefs"
-
+func callMount(bin string, dir string, conf *mountConfig, f *os.File, ready chan<- struct{}, errp *error) error {
 	for k, v := range conf.options {
 		if strings.Contains(k, ",") || strings.Contains(v, ",") {
 			// Silly limitation but the mount helper does not
@@ -116,8 +115,13 @@ func callMount(dir string, conf *mountConfig, f *os.File, ready chan<- struct{},
 	cmd.ExtraFiles = []*os.File{f}
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "MOUNT_FUSEFS_CALL_BY_LIB=")
+
 	// TODO this is used for fs typenames etc, let app influence it
+
+	// for OSXFUSE 2.x
 	cmd.Env = append(cmd.Env, "MOUNT_FUSEFS_DAEMON_PATH="+bin)
+	// for OSXFUSE 3.x
+	cmd.Env = append(cmd.Env, "MOUNT_OSXFUSE_DAEMON_PATH="+bin)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -136,7 +140,8 @@ func callMount(dir string, conf *mountConfig, f *os.File, ready chan<- struct{},
 		var wg sync.WaitGroup
 		wg.Add(2)
 		go lineLogger(&wg, "mount helper output", neverIgnoreLine, stdout)
-		go lineLogger(&wg, "mount helper error", handleMountOSXFUSE(helperErrCh), stderr)
+		helperName := path.Base(bin)
+		go lineLogger(&wg, "mount helper error", handleMountOSXFUSE(helperName, helperErrCh), stderr)
 		wg.Wait()
 		if err := cmd.Wait(); err != nil {
 			// see if we have a better error to report
@@ -167,22 +172,36 @@ func callMount(dir string, conf *mountConfig, f *os.File, ready chan<- struct{},
 }
 
 func mount(dir string, conf *mountConfig, ready chan<- struct{}, errp *error) (*os.File, error) {
-	f, err := openOSXFUSEDev()
-	if err == errNotLoaded {
-		err = loadOSXFUSE()
+	locations := conf.osxfuseLocations
+	if locations == nil {
+		locations = []OSXFUSEPaths{
+			OSXFUSELocationV3,
+			OSXFUSELocationV2,
+		}
+	}
+	for _, loc := range locations {
+		f, err := openOSXFUSEDev(loc.DevicePrefix)
+		if err == errNotLoaded {
+			err = loadOSXFUSE(loc.Load)
+			if err != nil {
+				if os.IsNotExist(err) {
+					// try the other locations
+					continue
+				}
+				return nil, err
+			}
+			// try again
+			f, err = openOSXFUSEDev(loc.DevicePrefix)
+		}
 		if err != nil {
 			return nil, err
 		}
-		// try again
-		f, err = openOSXFUSEDev()
+		err = callMount(loc.Mount, dir, conf, f, ready, errp)
+		if err != nil {
+			f.Close()
+			return nil, err
+		}
+		return f, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-	err = callMount(dir, conf, f, ready, errp)
-	if err != nil {
-		f.Close()
-		return nil, err
-	}
-	return f, nil
+	return nil, errOSXFUSENotFound
 }

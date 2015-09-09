@@ -159,6 +159,8 @@ const (
 	OpenWriteOnly OpenFlags = syscall.O_WRONLY
 	OpenReadWrite OpenFlags = syscall.O_RDWR
 
+	// File was opened in append-only mode, all writes will go to end
+	// of file. OS X does not provide this information.
 	OpenAppend    OpenFlags = syscall.O_APPEND
 	OpenCreate    OpenFlags = syscall.O_CREAT
 	OpenDirectory OpenFlags = syscall.O_DIRECTORY
@@ -252,12 +254,13 @@ var openResponseFlagNames = []flagName{
 type InitFlags uint32
 
 const (
-	InitAsyncRead       InitFlags = 1 << 0
-	InitPosixLocks      InitFlags = 1 << 1
-	InitFileOps         InitFlags = 1 << 2
-	InitAtomicTrunc     InitFlags = 1 << 3
-	InitExportSupport   InitFlags = 1 << 4
-	InitBigWrites       InitFlags = 1 << 5
+	InitAsyncRead     InitFlags = 1 << 0
+	InitPosixLocks    InitFlags = 1 << 1
+	InitFileOps       InitFlags = 1 << 2
+	InitAtomicTrunc   InitFlags = 1 << 3
+	InitExportSupport InitFlags = 1 << 4
+	InitBigWrites     InitFlags = 1 << 5
+	// Do not mask file access modes with umask. Not supported on OS X.
 	InitDontMask        InitFlags = 1 << 6
 	InitSpliceWrite     InitFlags = 1 << 7
 	InitSpliceMove      InitFlags = 1 << 8
