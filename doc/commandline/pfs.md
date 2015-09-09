@@ -1,7 +1,10 @@
 #TODO:
 - commit definition
 - mount: add flags and lots of examples
-- talk abou standard unix error codes, 0, 1
+- add to put/get?
+- talk about standard unix error codes, 0, 1
+- user_data --> repo
+- UUID--> ID
 
 # Pachyderm File System CLI
 
@@ -90,37 +93,41 @@ Repository names cannot contain `/`.
 #### branch
     Usage: pfs branch REPOSITORY [PARENT_COMMIT]
     
-    PARENT-COMMIT       The local directory used to access the pfs repo. 
-                        Commit will have no parent if left unspecified
-                        
-    Creates an open commit with the specified parent
+    PARENT-COMMIT       Commit will have no parent if left unspecified  
+                    
+    Creates an open commit with the specified parent. 
     
-    Returns: COMMIT_ID
+    Return: COMMIT_ID
+    
+Commits start out containing exactly the contents of the parent commit and then record changes.
+    
+   
 ##### Example
-    # Create a new, writable commit with the parent commit `UUID1` in the `user_data` repository
-    $pfs branch user_data UUID1 
-    UUID2
+    # Create a new, writable commit with the parent commit `ID_1` in the `user_data` repository
+    $ pfs branch user_data ID_1 
+    ID_2
+    
 #### commit
     Usage: pfs commit REPOSITORY COMMIT_ID
     
-    Turns an writable commit into a read-only commit
+    Turns a writable commit into a read-only commit
     
-    Returns: COMMIT_ID
 ##### Example
-    # Make the writable commit `UUID2` into read-only in the repository `user_data`
-    $pfs commit user_data UUID2
-    UUID2
+    # Make the writable commit `ID_2` into read-only in the repository `user_data`
+    $ pfs commit user_data ID_2
+
 #### commit-info
     Usage: pfs commit-info REPOSITORY COMMIT_ID
     
     Returns metadata about the specified commit
     
-    Return format: ID  timestamp  status  parent  size  ETC,ETC,ETC?
+    Return format:  ID  PARENT  STATUS  TIME_OPENED  TIME_CLOSED  TOTAL_SIZE  DIFF_SIZE
+
 ##### Example
-    # Get infomation about commit `UUID2` in repository `user_data`
-    $pfs commit-info user_data UUID2
-    ID        timestamp       status        parent      diff-size
-    UUID2     00:00:00:00     read-only     UUID1       81.2MB
+    # Get infomation about commit `ID_2` in repository `user_data`
+    $ pfs commit-info user_data ID_2
+    ID      PARENT      STATUS      TIME_OPENED         TIME_CLOSED     TOTAL_SIZE    DIFF_SIZE
+    ID_2    ID_1        writable    about an hour ago                   801.2 GB      100 MB   
 
 ### Commands that can be called on a file or directory:
 #### mkdir
@@ -128,64 +135,66 @@ Repository names cannot contain `/`.
     
     Creates a new empty directory
 
-Use `/` to add heirarchy to directories. Works recursively. You can only create a new directory on a writable commit.
+Use `/` to add heirarchy to directories. Works recursively (see example). You can only create a new directory on a writable commit.
 
 ##### Example
-    # Create directory `bar` inside directory `foo` on commit `UUID2` in repository `user_data`
-    $pfs mkdir user_data UUID2 foo/bar
+    # Create directory `bar` inside directory `foo` on commit `ID_2` in repository `user_data`.
+    # `foo` need not exist. If it doesn't, it will also be created. 
+    $ pfs mkdir user_data ID_2 foo/bar
     
 #### ls
-    Usage: pfs ls REPOSITORY COMMIT_ID DIRECTORY_PATH
+    Usage: pfs ls REPOSITORY COMMIT_ID [DIRECTORY_PATH]
     
-    Lists all of the files and directories in the specified path. Works just like the `ls` command in shell. 
+        DIRECTORY_PATH       Defaults to `/`, the root of the file system  
+                    
+    Lists all of the files and directories in the specified path. Similar to the `ls` command in shell. 
+    
+    Return format: NAME  TYPE  MODIFIED  CREATED  LAST_COMMIT_MODIFIED  SIZE  PERMISSIONS
 
 ##### Example
-    # List all files and directories in the directory `foo`, commit `UUID2`, repository `user_data`
-    $pfs ls user_data UUID2 foo
-    name        type
-    bar         directory
-    file1       file
-    file2       file
+    # List all files and directories in the directory `foo`, commit `ID_2`, repository `user_data`
+    $ pfs ls user_data ID_2 foo
+    NAME    TYPE    MODIFIED        LAST_COMMIT_MODIFIED    SIZE        PERMISSIONS
+    bar     dir     35 minutes ago  ID_1                    4K          448
+    file1   file    35 minutes ago  ID_1                    5.1 MB      420 
+    file2   file    35 minutes ago  ID_1                    14.8 GB     420
     
 #### put 
-    Usage: FILE | pfs ls REPOSITORY COMMIT_ID FILE_PATH
+    Usage: pfs put REPOSITORY COMMIT_ID FILE_PATH
     
-    Adds a file into pfs
-    
-    Return: FILE_PATH
+    Adds a file into pfs. Reads contents from stdin.
 
-Including a `/` in the file name will create the directory and add the file. Files can only be added to writable commits. 
+Including a `/` in the file name will create directories as needed. Files can only be added to writable commits. 
 
 ##### Example
-    # Add the file `file1` to commit `UUID2` in the repository `user_data`
-    $ local_file | pfs put user_data UUID2 file1
-    file1
+    # Add the contents of `local_file` to pfs. Name it `file1` in commit `ID_2` and repository `repo`
+    $ pfs put repo ID_2 file1 <local_file
     
-    # Create the directory `foo` and add the file `file1` to that directory.
-    $ local_file | pfs put user_data UUID2 foo/file1
-    foo/file1
+    # Create the directory `foo` and dump the contents of a Postgres database into the file `dump`
+    $ pg_dump database | pfs put repo ID_2 foo/dump
 
 #### get
     Usage: pfs get REPOSITORY COMMIT_ID FILE_PATH
     
-    Reads a file out of pfs
+    Reads a file out of pfs and outputs the content to stdout
     
     Return: file contents
 
 ##### Example
-    # Get the file `file1` from commit `UUID2` in the repository `user_data`
-    $ pfs get user_data UUID2 file1
-    file1
+    # Get the file `file1` from commit `ID_2` in the repository `repo`
+    $ pfs get repo ID_2 file1
+    <contents of file1>
     
 #### file-info
     Usage: pfs file-info REPOSITORY COMMIT_ID FILE_PATH
     
     Returns metadata about the specified file
     
-    Return format: name  size  date_added  commit_added
+    Return format: NAME  TYPE  MODIFIED  LAST_COMMIT_MODIFIED  SIZE  PERMISSIONS
+
 
 ##### Example
     # Get the file `file1` from commit `UUID2` in the repository `user_data`
     $ pfs file-info user_data UUID2 file1
-    name        size        date_added      commit_added
-    file1       3.1MB       1/1/2015        UUID1
+    NAME    TYPE    MODIFIED        LAST_COMMIT_MODIFIED    SIZE        PERMISSIONS
+    file1   file    35 minutes ago  ID_1                    5.1 MB      420 
