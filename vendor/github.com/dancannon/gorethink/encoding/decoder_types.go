@@ -185,7 +185,9 @@ func interfaceDecoder(dv, sv reflect.Value) {
 }
 
 func interfaceAsTypeDecoder(dv, sv reflect.Value) {
-	decode(dv, sv.Elem())
+	if !sv.IsNil() {
+		decode(dv, sv.Elem())
+	}
 }
 
 type ptrDecoder struct {

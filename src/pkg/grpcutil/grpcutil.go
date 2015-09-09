@@ -46,7 +46,7 @@ func GrpcDo(
 	tracePort int,
 	version *protoversion.Version,
 	registerFunc func(*grpc.Server),
-	httpRegisterFunc func(context.Context, *runtime.ServeMux, string) error,
+	httpRegisterFunc func(context.Context, *runtime.ServeMux, *grpc.ClientConn) error,
 ) error {
 	s := grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
 	registerFunc(s)
@@ -65,7 +65,20 @@ func GrpcDo(
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		mux := runtime.NewServeMux()
-		if err := httpRegisterFunc(ctx, mux, fmt.Sprintf("0.0.0.0:%d", port)); err != nil {
+		conn, err := grpc.Dial(fmt.Sprintf("0.0.0.0:%d", port), grpc.WithInsecure())
+		if err != nil {
+			return err
+		}
+		go func() {
+			<-ctx.Done()
+			_ = conn.Close()
+		}()
+		if err := protoversion.RegisterApiHandler(ctx, mux, conn); err != nil {
+			_ = conn.Close()
+			return err
+		}
+		if err := httpRegisterFunc(ctx, mux, conn); err != nil {
+			_ = conn.Close()
 			return err
 		}
 		go func() { errC <- http.ListenAndServe(fmt.Sprintf(":%d", httpPort), mux) }()

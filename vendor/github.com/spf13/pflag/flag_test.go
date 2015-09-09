@@ -831,3 +831,35 @@ func TestMultipleNormalizeFlagNameInvocations(t *testing.T) {
 		t.Fatal("Expected normalizeFlagNameInvocations to be 1; got ", normalizeFlagNameInvocations)
 	}
 }
+
+//
+func TestHiddenFlagInUsage(t *testing.T) {
+	f := NewFlagSet("bob", ContinueOnError)
+	f.Bool("secretFlag", true, "shhh")
+	f.MarkHidden("secretFlag")
+
+	out := new(bytes.Buffer)
+	f.SetOutput(out)
+	f.PrintDefaults()
+
+	if strings.Contains(out.String(), "secretFlag") {
+		t.Errorf("found hidden flag in usage!")
+	}
+}
+
+//
+func TestHiddenFlagUsage(t *testing.T) {
+	f := NewFlagSet("bob", ContinueOnError)
+	f.Bool("secretFlag", true, "shhh")
+	f.MarkHidden("secretFlag")
+
+	args := []string{"--secretFlag"}
+	out, err := parseReturnStderr(t, f, args)
+	if err != nil {
+		t.Fatal("expected no error; got ", err)
+	}
+
+	if strings.Contains(out, "shhh") {
+		t.Errorf("usage message printed when using a hidden flag!")
+	}
+}

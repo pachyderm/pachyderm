@@ -55,6 +55,7 @@ pfsd:
     - PFS_DRIVER_ROOT=/pfs/btrfs
   ports:
     - "650:650"
+    - "750:750"
   links:
     - btrfs
     - etcd

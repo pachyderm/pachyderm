@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -297,11 +298,17 @@ func (readAll) ReadAll(ctx context.Context) ([]byte, error) {
 }
 
 func testReadAll(t *testing.T, path string) {
-	data, err := ioutil.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
-		t.Fatalf("readAll: %v", err)
+		t.Fatal(err)
 	}
-	if string(data) != hi {
+	defer f.Close()
+	data := make([]byte, 4096)
+	n, err := f.Read(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data[:n]) != hi {
 		t.Errorf("readAll = %q, want %q", data, hi)
 	}
 }
@@ -386,6 +393,15 @@ func TestReadFileFlags(t *testing.T) {
 	_ = f.Close()
 
 	want := fuse.OpenReadWrite | fuse.OpenAppend
+	if runtime.GOOS == "darwin" {
+		// OSXFUSE shares one read and one write handle for all
+		// clients, so it uses a OpenReadOnly handle for performing
+		// our read.
+		//
+		// If this test starts failing in the future, that probably
+		// means they added the feature, and we want to notice that!
+		want = fuse.OpenReadOnly
+	}
 	if g, e := r.fileFlags.Recorded().(fuse.OpenFlags), want; g != e {
 		t.Errorf("read saw file flags %+v, want %+v", g, e)
 	}
@@ -399,6 +415,13 @@ type writeFlags struct {
 func (r *writeFlags) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Mode = 0666
 	a.Size = uint64(len(hi))
+	return nil
+}
+
+func (r *writeFlags) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
+	// OSXFUSE 3.0.4 does a read-modify-write cycle even when the
+	// write was for 4096 bytes.
+	fuseutil.HandleRead(req, resp, []byte(hi))
 	return nil
 }
 
@@ -432,6 +455,15 @@ func TestWriteFileFlags(t *testing.T) {
 	_ = f.Close()
 
 	want := fuse.OpenReadWrite | fuse.OpenAppend
+	if runtime.GOOS == "darwin" {
+		// OSXFUSE shares one read and one write handle for all
+		// clients, so it uses a OpenWriteOnly handle for performing
+		// our read.
+		//
+		// If this test starts failing in the future, that probably
+		// means they added the feature, and we want to notice that!
+		want = fuse.OpenWriteOnly
+	}
 	if g, e := r.fileFlags.Recorded().(fuse.OpenFlags), want; g != e {
 		t.Errorf("write saw file flags %+v, want %+v", g, e)
 	}
@@ -621,6 +653,10 @@ func TestMkdir(t *testing.T) {
 	if mnt.Conn.Protocol().HasUmask() {
 		want.Umask = 0022
 	}
+	if runtime.GOOS == "darwin" {
+		// https://github.com/osxfuse/osxfuse/issues/225
+		want.Umask = 0
+	}
 	if g, e := f.RecordedMkdir(), want; g != e {
 		t.Errorf("mkdir saw %+v, want %+v", g, e)
 	}
@@ -679,6 +715,9 @@ func TestCreate(t *testing.T) {
 		// OS X does not pass O_TRUNC here, Linux does; as this is a
 		// Create, that's acceptable
 		want.Flags &^= fuse.OpenTruncate
+
+		// https://github.com/osxfuse/osxfuse/issues/225
+		want.Umask = 0
 	}
 	got := f.f.RecordedCreate()
 	if runtime.GOOS == "linux" {
@@ -952,6 +991,10 @@ func TestMknod(t *testing.T) {
 	}
 	if mnt.Conn.Protocol().HasUmask() {
 		want.Umask = 0022
+	}
+	if runtime.GOOS == "darwin" {
+		// https://github.com/osxfuse/osxfuse/issues/225
+		want.Umask = 0
 	}
 	if g, e := f.RecordedMknod(), want; g != e {
 		t.Fatalf("mknod saw %+v, want %+v", g, e)
@@ -1445,6 +1488,10 @@ func (f *openNonSeekable) Open(ctx context.Context, req *fuse.OpenRequest, resp 
 }
 
 func TestOpenNonSeekable(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("OSXFUSE shares one read and one write handle for all clients, does not support open modes")
+	}
+
 	t.Parallel()
 	f := &openNonSeekable{}
 	mnt, err := fstestutil.MountedT(t, fstestutil.SimpleFS{&fstestutil.ChildMap{"child": f}}, nil)
@@ -2190,8 +2237,20 @@ func TestInvalidateNodeAttr(t *testing.T) {
 			t.Fatalf("stat error: %v", err)
 		}
 	}
-	if g, e := a.attr.Count(), uint32(1); g != e {
-		t.Errorf("wrong Attr call count: %d != %d", g, e)
+	// With OSXFUSE 3.0.4, we seem to see typically two Attr calls by
+	// this point; something not populating the in-kernel cache
+	// properly? Cope with it; we care more about seeing a new Attr
+	// call after the invalidation.
+	//
+	// We still enforce a max number here so that we know that the
+	// invalidate actually did something, and it's not just that every
+	// Stat results in an Attr.
+	before := a.attr.Count()
+	if before == 0 {
+		t.Error("no Attr call seen")
+	}
+	if g, e := before, uint32(3); g > e {
+		t.Errorf("too many Attr calls seen: %d > %d", g, e)
 	}
 
 	t.Logf("invalidating...")
@@ -2204,7 +2263,7 @@ func TestInvalidateNodeAttr(t *testing.T) {
 			t.Fatalf("stat error: %v", err)
 		}
 	}
-	if g, e := a.attr.Count(), uint32(2); g != e {
+	if g, e := a.attr.Count(), before+1; g != e {
 		t.Errorf("wrong Attr call count: %d != %d", g, e)
 	}
 }
@@ -2214,9 +2273,13 @@ type invalidateData struct {
 	t    testing.TB
 	attr record.Counter
 	read record.Counter
+	data atomic.Value
 }
 
-const invalidateDataContent = "hello, world\n"
+const (
+	invalidateDataContent1 = "hello, world\n"
+	invalidateDataContent2 = "so long!\n"
+)
 
 var _ fs.Node = (*invalidateData)(nil)
 
@@ -2224,7 +2287,7 @@ func (i *invalidateData) Attr(ctx context.Context, a *fuse.Attr) error {
 	i.attr.Inc()
 	i.t.Logf("Attr called, #%d", i.attr.Count())
 	a.Mode = 0600
-	a.Size = uint64(len(invalidateDataContent))
+	a.Size = uint64(len(i.data.Load().(string)))
 	return nil
 }
 
@@ -2233,7 +2296,7 @@ var _ fs.HandleReader = (*invalidateData)(nil)
 func (i *invalidateData) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
 	i.read.Inc()
 	i.t.Logf("Read called, #%d", i.read.Count())
-	fuseutil.HandleRead(req, resp, []byte(invalidateDataContent))
+	fuseutil.HandleRead(req, resp, []byte(i.data.Load().(string)))
 	return nil
 }
 
@@ -2244,6 +2307,7 @@ func TestInvalidateNodeData(t *testing.T) {
 	a := &invalidateData{
 		t: t,
 	}
+	a.data.Store(invalidateDataContent1)
 	mnt, err := fstestutil.MountedT(t, fstestutil.SimpleFS{&fstestutil.ChildMap{"child": a}}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -2260,31 +2324,46 @@ func TestInvalidateNodeData(t *testing.T) {
 	}
 	defer f.Close()
 
-	buf := make([]byte, 4)
-	for i := 0; i < 10; i++ {
-		if _, err := f.ReadAt(buf, 0); err != nil {
-			t.Fatalf("readat error: %v", err)
+	{
+		buf := make([]byte, 100)
+		for i := 0; i < 10; i++ {
+			n, err := f.ReadAt(buf, 0)
+			if err != nil && err != io.EOF {
+				t.Fatalf("readat error: %v", err)
+			}
+			if g, e := string(buf[:n]), invalidateDataContent1; g != e {
+				t.Errorf("wrong content: %q != %q", g, e)
+			}
 		}
 	}
-	if g, e := a.attr.Count(), uint32(1); g != e {
-		t.Errorf("wrong Attr call count: %d != %d", g, e)
+	attrBefore := a.attr.Count()
+	if g, min := attrBefore, uint32(1); g < min {
+		t.Errorf("wrong Attr call count: %d < %d", g, min)
 	}
 	if g, e := a.read.Count(), uint32(1); g != e {
 		t.Errorf("wrong Read call count: %d != %d", g, e)
 	}
 
 	t.Logf("invalidating...")
+	a.data.Store(invalidateDataContent2)
 	if err := mnt.Server.InvalidateNodeData(a); err != nil {
 		t.Fatalf("invalidate error: %v", err)
 	}
 
-	for i := 0; i < 10; i++ {
-		if _, err := f.ReadAt(buf, 0); err != nil {
-			t.Fatalf("readat error: %v", err)
+	{
+		buf := make([]byte, 100)
+		for i := 0; i < 10; i++ {
+			n, err := f.ReadAt(buf, 0)
+			if err != nil && err != io.EOF {
+				t.Fatalf("readat error: %v", err)
+			}
+			if g, e := string(buf[:n]), invalidateDataContent2; g != e {
+				t.Errorf("wrong content: %q != %q", g, e)
+			}
 		}
 	}
-	if g, e := a.attr.Count(), uint32(1); g != e {
-		t.Errorf("wrong Attr call count: %d != %d", g, e)
+	if g, prev := a.attr.Count(), attrBefore; g <= prev {
+		t.Errorf("did not see Attr call after invalidate: %d <= %d", g, prev)
 	}
 	if g, e := a.read.Count(), uint32(2); g != e {
 		t.Errorf("wrong Read call count: %d != %d", g, e)
@@ -2348,8 +2427,9 @@ func TestInvalidateNodeDataRange(t *testing.T) {
 			t.Fatalf("readat error: %v", err)
 		}
 	}
-	if g, e := a.attr.Count(), uint32(1); g != e {
-		t.Errorf("wrong Attr call count: %d != %d", g, e)
+	attrBefore := a.attr.Count()
+	if g, min := attrBefore, uint32(1); g < min {
+		t.Errorf("wrong Attr call count: %d < %d", g, min)
 	}
 	if g, e := a.read.Count(), uint32(1); g != e {
 		t.Errorf("wrong Read call count: %d != %d", g, e)
@@ -2365,8 +2445,8 @@ func TestInvalidateNodeDataRange(t *testing.T) {
 			t.Fatalf("readat error: %v", err)
 		}
 	}
-	if g, e := a.attr.Count(), uint32(1); g != e {
-		t.Errorf("wrong Attr call count: %d != %d", g, e)
+	if g, prev := a.attr.Count(), attrBefore; g <= prev {
+		t.Errorf("did not see Attr call after invalidate: %d <= %d", g, prev)
 	}
 	// The page invalidated is not the page we're reading, so it
 	// should stay in cache.

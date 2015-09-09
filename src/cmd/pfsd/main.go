@@ -101,8 +101,8 @@ func do(appEnvObj interface{}) error {
 			pfs.RegisterApiServer(s, combinedAPIServer)
 			pfs.RegisterInternalApiServer(s, combinedAPIServer)
 		},
-		func(ctx context.Context, mux *runtime.ServeMux, endpoint string) error {
-			return pfs.RegisterApiHandlerFromEndpoint(ctx, mux, endpoint)
+		func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
+			return pfs.RegisterApiHandler(ctx, mux, clientConn)
 		},
 	)
 }
