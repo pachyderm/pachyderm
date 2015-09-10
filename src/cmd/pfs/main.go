@@ -97,10 +97,13 @@ func do(appEnvObj interface{}) error {
 			if err != nil {
 				return err
 			}
+
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pfs.PrintFileInfoHeader(writer)
 			for _, fileInfo := range listFilesResponse.FileInfo {
-				fmt.Printf("%+v\n", fileInfo)
+				pfs.PrintFileInfo(writer, fileInfo)
 			}
-			return nil
+			return writer.Flush()
 		},
 	}.ToCobraCommand()
 	lsCmd.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
