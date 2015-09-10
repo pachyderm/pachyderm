@@ -60,6 +60,24 @@ func do(appEnvObj interface{}) error {
 		},
 	}.ToCobraCommand()
 
+	listReposCmd := cobramainutil.Command{
+		Use:     "list-repos",
+		Long:    "List repositories.",
+		NumArgs: 0,
+		Run: func(cmd *cobra.Command, args []string) error {
+			listRepositoriesResponse, err := pfsutil.ListRepositories(apiClient)
+			if err != nil {
+				return err
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pfs.PrintRepositoryHeader(writer)
+			for _, repository := range listRepositoriesResponse.Repository {
+				pfs.PrintRepository(writer, repository)
+			}
+			return writer.Flush()
+		},
+	}.ToCobraCommand()
+
 	mkdirCmd := cobramainutil.Command{
 		Use:     "mkdir repository-name commit-id path/to/dir",
 		Long:    "Make a directory. Sub directories must already exist.",
@@ -97,7 +115,6 @@ func do(appEnvObj interface{}) error {
 			if err != nil {
 				return err
 			}
-
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pfs.PrintFileInfoHeader(writer)
 			for _, fileInfo := range listFilesResponse.FileInfo {
@@ -196,6 +213,7 @@ The environment variable PFS_ADDRESS controls what server the CLI connects to, t
 
 	rootCmd.AddCommand(protoclient.NewVersionCommand(clientConn, pachyderm.Version, nil))
 	rootCmd.AddCommand(initCmd)
+	rootCmd.AddCommand(listReposCmd)
 	rootCmd.AddCommand(mkdirCmd)
 	rootCmd.AddCommand(putCmd)
 	rootCmd.AddCommand(getCmd)

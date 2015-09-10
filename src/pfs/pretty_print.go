@@ -8,6 +8,15 @@ import (
 	"github.com/docker/docker/pkg/units"
 )
 
+func PrintRepositoryHeader(w io.Writer) {
+	fmt.Fprintln(w, "NAME\t")
+}
+
+func PrintRepository(w io.Writer, repository *Repository) {
+	fmt.Fprintf(w, "%s\t", repository.Name)
+	fmt.Fprintln(w, "")
+}
+
 func PrintCommitInfoHeader(w io.Writer) {
 	fmt.Fprintln(w, "ID\tPARENT\tSTATUS\tTIME_OPENED\tTIME_CLOSED\tTOTAL_SIZE\tDIFF_SIZE\t")
 }
