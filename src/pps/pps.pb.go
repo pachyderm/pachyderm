@@ -64,7 +64,7 @@ type PipelineRunStatusType int32
 
 const (
 	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE    PipelineRunStatusType = 0
-	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ADDED   PipelineRunStatusType = 1
+	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_CREATED PipelineRunStatusType = 1
 	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED PipelineRunStatusType = 2
 	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR   PipelineRunStatusType = 3
 	PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS PipelineRunStatusType = 4
@@ -72,14 +72,14 @@ const (
 
 var PipelineRunStatusType_name = map[int32]string{
 	0: "PIPELINE_RUN_STATUS_TYPE_NONE",
-	1: "PIPELINE_RUN_STATUS_TYPE_ADDED",
+	1: "PIPELINE_RUN_STATUS_TYPE_CREATED",
 	2: "PIPELINE_RUN_STATUS_TYPE_STARTED",
 	3: "PIPELINE_RUN_STATUS_TYPE_ERROR",
 	4: "PIPELINE_RUN_STATUS_TYPE_SUCCESS",
 }
 var PipelineRunStatusType_value = map[string]int32{
 	"PIPELINE_RUN_STATUS_TYPE_NONE":    0,
-	"PIPELINE_RUN_STATUS_TYPE_ADDED":   1,
+	"PIPELINE_RUN_STATUS_TYPE_CREATED": 1,
 	"PIPELINE_RUN_STATUS_TYPE_STARTED": 2,
 	"PIPELINE_RUN_STATUS_TYPE_ERROR":   3,
 	"PIPELINE_RUN_STATUS_TYPE_SUCCESS": 4,
@@ -195,8 +195,10 @@ func (m *DockerService) String() string { return proto.CompactTextString(m) }
 func (*DockerService) ProtoMessage()    {}
 
 type Pipeline struct {
-	NameToNode          map[string]*Node          `protobuf:"bytes,1,rep,name=name_to_node" json:"name_to_node,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	NameToDockerService map[string]*DockerService `protobuf:"bytes,2,rep,name=name_to_docker_service" json:"name_to_docker_service,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Id                  string                    `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	PipelineSourceId    string                    `protobuf:"bytes,2,opt,name=pipeline_source_id" json:"pipeline_source_id,omitempty"`
+	NameToNode          map[string]*Node          `protobuf:"bytes,3,rep,name=name_to_node" json:"name_to_node,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	NameToDockerService map[string]*DockerService `protobuf:"bytes,4,rep,name=name_to_docker_service" json:"name_to_docker_service,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
 func (m *Pipeline) Reset()         { *m = Pipeline{} }
@@ -231,9 +233,8 @@ func (m *GithubPipelineSource) String() string { return proto.CompactTextString(
 func (*GithubPipelineSource) ProtoMessage()    {}
 
 type PipelineSource struct {
-	Id     string            `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Active bool              `protobuf:"varint,2,opt,name=active" json:"active,omitempty"`
-	Tags   map[string]string `protobuf:"bytes,3,rep,name=tags" json:"tags,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Id   string            `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Tags map[string]string `protobuf:"bytes,2,rep,name=tags" json:"tags,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Types that are valid to be assigned to TypedPipelineSource:
 	//	*PipelineSource_GithubPipelineSource
 	TypedPipelineSource isPipelineSource_TypedPipelineSource `protobuf_oneof:"typed_pipeline_source"`
@@ -248,7 +249,7 @@ type isPipelineSource_TypedPipelineSource interface {
 }
 
 type PipelineSource_GithubPipelineSource struct {
-	GithubPipelineSource *GithubPipelineSource `protobuf:"bytes,4,opt,name=github_pipeline_source"`
+	GithubPipelineSource *GithubPipelineSource `protobuf:"bytes,3,opt,name=github_pipeline_source"`
 }
 
 func (*PipelineSource_GithubPipelineSource) isPipelineSource_TypedPipelineSource() {}
@@ -286,7 +287,7 @@ func _PipelineSource_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	// typed_pipeline_source
 	switch x := m.TypedPipelineSource.(type) {
 	case *PipelineSource_GithubPipelineSource:
-		b.EncodeVarint(4<<3 | proto.WireBytes)
+		b.EncodeVarint(3<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.GithubPipelineSource); err != nil {
 			return err
 		}
@@ -300,7 +301,7 @@ func _PipelineSource_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 func _PipelineSource_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
 	m := msg.(*PipelineSource)
 	switch tag {
-	case 4: // typed_pipeline_source.github_pipeline_source
+	case 3: // typed_pipeline_source.github_pipeline_source
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -314,28 +315,13 @@ func _PipelineSource_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto
 }
 
 type PipelineRun struct {
-	Id             string          `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	PipelineSource *PipelineSource `protobuf:"bytes,2,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
-	Pipeline       *Pipeline       `protobuf:"bytes,3,opt,name=pipeline" json:"pipeline,omitempty"`
+	Id         string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	PipelineId string `protobuf:"bytes,2,opt,name=pipeline_id" json:"pipeline_id,omitempty"`
 }
 
 func (m *PipelineRun) Reset()         { *m = PipelineRun{} }
 func (m *PipelineRun) String() string { return proto.CompactTextString(m) }
 func (*PipelineRun) ProtoMessage()    {}
-
-func (m *PipelineRun) GetPipelineSource() *PipelineSource {
-	if m != nil {
-		return m.PipelineSource
-	}
-	return nil
-}
-
-func (m *PipelineRun) GetPipeline() *Pipeline {
-	if m != nil {
-		return m.Pipeline
-	}
-	return nil
-}
 
 type PipelineRunStatus struct {
 	PipelineRunId         string                      `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
@@ -548,7 +534,7 @@ func (m *GetPipelineResponse) GetPipeline() *Pipeline {
 }
 
 type CreatePipelineRunRequest struct {
-	PipelineSourceId string `protobuf:"bytes,1,opt,name=pipeline_source_id" json:"pipeline_source_id,omitempty"`
+	PipelineId string `protobuf:"bytes,1,opt,name=pipeline_id" json:"pipeline_id,omitempty"`
 }
 
 func (m *CreatePipelineRunRequest) Reset()         { *m = CreatePipelineRunRequest{} }
