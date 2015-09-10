@@ -5,7 +5,10 @@ import (
 	"math"
 	"os"
 
-	"github.com/pachyderm/pachyderm/src/pkg/protoversion"
+	"go.pedge.io/google-protobuf"
+	"go.pedge.io/proto/version"
+	"golang.org/x/net/context"
+
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 )
@@ -51,7 +54,7 @@ func NewVersionCommand(clientConn *grpc.ClientConn, clientVersion *protoversion.
 		Use:  "version",
 		Long: "Print the version.",
 		Run: func(cmd *cobra.Command, args []string) error {
-			serverVersion, err := protoversion.GetVersion(protoversion.NewApiClient(clientConn))
+			serverVersion, err := protoversion.NewAPIClient(clientConn).GetVersion(context.Background, &google_protobuf.Empty{})
 			if err != nil {
 				return err
 			}

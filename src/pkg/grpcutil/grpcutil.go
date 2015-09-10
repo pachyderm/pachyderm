@@ -6,12 +6,13 @@ import (
 	"net"
 	"net/http"
 
+	"go.pedge.io/proto/version"
+
 	"golang.org/x/net/context"
 
 	"github.com/gengo/grpc-gateway/runtime"
 	"github.com/golang/glog"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
-	"github.com/pachyderm/pachyderm/src/pkg/protoversion"
 	"google.golang.org/grpc"
 )
 
@@ -50,7 +51,7 @@ func GrpcDo(
 ) error {
 	s := grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
 	registerFunc(s)
-	protoversion.RegisterApiServer(s, protoversion.NewAPIServer(version))
+	protoversion.RegisterAPIServer(s, protoversion.NewAPIServer(version))
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return err
@@ -73,7 +74,7 @@ func GrpcDo(
 			<-ctx.Done()
 			_ = conn.Close()
 		}()
-		if err := protoversion.RegisterApiHandler(ctx, mux, conn); err != nil {
+		if err := protoversion.RegisterAPIHandler(ctx, mux, conn); err != nil {
 			_ = conn.Close()
 			return err
 		}
