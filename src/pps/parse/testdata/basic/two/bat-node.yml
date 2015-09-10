@@ -1,0 +1,11 @@
+pps:
+  kind: node
+  name: bat-node
+# note that bat-node is re-using the bar service
+service: bar
+input:
+  pfs:
+    bat-repository: /in
+output:
+  pfs:
+    bat-repository-out: /out
