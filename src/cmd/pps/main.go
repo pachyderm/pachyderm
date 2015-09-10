@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"go.pedge.io/proto/client"
 	"go.pedge.io/proto/time"
 
 	"google.golang.org/grpc"
@@ -186,7 +187,7 @@ func do(appEnvObj interface{}) error {
 Note that this CLI is experimental and does not even check for common errors.
 The environment variable PPS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:651.`,
 	}
-	rootCmd.AddCommand(cobramainutil.NewVersionCommand(clientConn, pachyderm.Version))
+	rootCmd.AddCommand(protoclient.NewVersionCommand(clientConn, pachyderm.Version, nil))
 	rootCmd.AddCommand(inspectCmd)
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(statusCmd)

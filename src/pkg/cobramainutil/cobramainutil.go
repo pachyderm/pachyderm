@@ -5,12 +5,7 @@ import (
 	"math"
 	"os"
 
-	"go.pedge.io/google-protobuf"
-	"go.pedge.io/proto/version"
-	"golang.org/x/net/context"
-
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
 )
 
 type Command struct {
@@ -47,21 +42,6 @@ func (c Command) ToCobraCommand() *cobra.Command {
 			check(c.Run(cmd, args))
 		},
 	}
-}
-
-func NewVersionCommand(clientConn *grpc.ClientConn, clientVersion *protoversion.Version) *cobra.Command {
-	return Command{
-		Use:  "version",
-		Long: "Print the version.",
-		Run: func(cmd *cobra.Command, args []string) error {
-			serverVersion, err := protoversion.NewAPIClient(clientConn).GetVersion(context.Background, &google_protobuf.Empty{})
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Client: %s\nServer: %s\n", clientVersion.VersionString(), serverVersion.VersionString())
-			return nil
-		},
-	}.ToCobraCommand()
 }
 
 func checkArgs(args []string, expected int, usage string) error {
