@@ -1,6 +1,6 @@
 package pachyderm
 
-import "github.com/pachyderm/pachyderm/src/pkg/protoversion"
+import "go.pedge.io/proto/version"
 
 const (
 	// MajorVersion is the current major version for pachyderm.
