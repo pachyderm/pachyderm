@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"go.pedge.io/env"
 	"go.pedge.io/proto/client"
 
 	"github.com/pachyderm/pachyderm"
@@ -12,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
-	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 )
@@ -29,7 +29,7 @@ type appEnv struct {
 }
 
 func main() {
-	mainutil.Main(do, &appEnv{}, defaultEnv)
+	env.Main(do, &appEnv{}, defaultEnv)
 }
 
 func do(appEnvObj interface{}) error {
