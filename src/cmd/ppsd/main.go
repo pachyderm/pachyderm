@@ -6,9 +6,10 @@ import (
 	"os"
 	"strings"
 
+	"go.pedge.io/proto/server"
+
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
@@ -61,15 +62,15 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	return grpcutil.GrpcDo(
+	return protoserver.Serve(
 		appEnv.Port,
-		0,
-		appEnv.TracePort,
-		pachyderm.Version,
 		func(s *grpc.Server) {
 			pps.RegisterApiServer(s, server.NewAPIServer(pfs.NewApiClient(clientConn), containerClient, rethinkClient, timing.NewSystemTimer()))
 		},
-		nil,
+		protoserver.ServeOptions{
+			TracePort: appEnv.TracePort,
+			Version:   pachyderm.Version,
+		},
 	)
 }
 
