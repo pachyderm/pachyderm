@@ -12,12 +12,8 @@ message Version {
   string additional = 4;
 }
 
-message GetVersionResponse {
-  Version version = 1;
-}
-
-service Api {
-  rpc GetVersion(google.protobuf.Empty) returns (GetVersionResponse) {
+service API {
+  rpc GetVersion(google.protobuf.Empty) returns (Version) {
     option (google.api.http) = {
       get: "/version"
     };

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 
+	"go.pedge.io/proto/server"
+
 	"golang.org/x/net/context"
 
 	"github.com/gengo/grpc-gateway/runtime"
@@ -92,17 +94,19 @@ func do(appEnvObj interface{}) error {
 		),
 		driver,
 	)
-	return grpcutil.GrpcDo(
-		appEnv.Port,
-		appEnv.HTTPPort,
-		appEnv.TracePort,
-		pachyderm.Version,
+	return protoserver.Serve(
+		uint16(appEnv.Port),
 		func(s *grpc.Server) {
 			pfs.RegisterApiServer(s, combinedAPIServer)
 			pfs.RegisterInternalApiServer(s, combinedAPIServer)
 		},
-		func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
-			return pfs.RegisterApiHandler(ctx, mux, clientConn)
+		protoserver.ServeOptions{
+			HTTPPort:  uint16(appEnv.HTTPPort),
+			TracePort: uint16(appEnv.TracePort),
+			Version:   pachyderm.Version,
+			HTTPRegisterFunc: func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
+				return pfs.RegisterApiHandler(ctx, mux, clientConn)
+			},
 		},
 	)
 }

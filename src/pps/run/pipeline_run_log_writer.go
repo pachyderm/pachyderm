@@ -3,7 +3,8 @@ package run
 import (
 	"fmt"
 
-	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
+	"go.pedge.io/proto/time"
+
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/store"
@@ -47,7 +48,7 @@ func (w *pipelineRunLogWriter) Write(p []byte) (int, error) {
 			ContainerId:   w.containerID,
 			Node:          w.node,
 			OutputStream:  w.outputStream,
-			Timestamp:     protoutil.TimeToTimestamp(w.timer.Now()),
+			Timestamp:     prototime.TimeToTimestamp(w.timer.Now()),
 			Data:          c,
 		},
 	); err != nil {

@@ -8,8 +8,9 @@ import (
 	"io"
 	"io/ioutil"
 
+	"go.pedge.io/proto/stream"
+
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"golang.org/x/net/context"
 )
 
@@ -105,7 +106,7 @@ func GetFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 	if err != nil {
 		return err
 	}
-	if err := protoutil.WriteFromStreamingBytesClient(apiGetFileClient, writer); err != nil {
+	if err := protostream.WriteFromStreamingBytesClient(apiGetFileClient, writer); err != nil {
 		return err
 	}
 	return nil
@@ -205,7 +206,7 @@ func PullDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, co
 	if err != nil {
 		return err
 	}
-	if err := protoutil.WriteFromStreamingBytesClient(apiPullDiffClient, writer); err != nil {
+	if err := protostream.WriteFromStreamingBytesClient(apiPullDiffClient, writer); err != nil {
 		return err
 	}
 	return nil
