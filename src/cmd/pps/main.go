@@ -6,12 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"go.pedge.io/proto/time"
+
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
 	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
-	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"github.com/spf13/cobra"
@@ -165,7 +166,7 @@ func do(appEnvObj interface{}) error {
 					Node:         pipelineRunLog.Node,
 					ContainerID:  containerID,
 					OutputStream: name,
-					Time:         protoutil.TimestampToTime(pipelineRunLog.Timestamp),
+					Time:         prototime.TimestampToTime(pipelineRunLog.Timestamp),
 				}
 				logInfoData, err := json.Marshal(logInfo)
 				if err != nil {

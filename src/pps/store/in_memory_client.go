@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
+	"go.pedge.io/proto/time"
+
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 )
@@ -62,7 +63,7 @@ func (c *inMemoryClient) AddPipelineRun(pipelineRun *pps.PipelineRun) error {
 	c.idToRunStatuses[pipelineRun.Id] = make([]*pps.PipelineRunStatus, 1)
 	c.idToRunStatuses[pipelineRun.Id][0] = &pps.PipelineRunStatus{
 		PipelineRunStatusType: pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ADDED,
-		Timestamp:             protoutil.TimeToTimestamp(c.timer.Now()),
+		Timestamp:             prototime.TimeToTimestamp(c.timer.Now()),
 	}
 	c.idToContainers[pipelineRun.Id] = make([]*pps.PipelineRunContainer, 0)
 	c.idToLogs[pipelineRun.Id] = make([]*pps.PipelineRunLog, 0)
@@ -95,7 +96,7 @@ func (c *inMemoryClient) AddPipelineRunStatus(id string, statusType pps.Pipeline
 	runStatus := &pps.PipelineRunStatus{
 		PipelineRunId:         id,
 		PipelineRunStatusType: statusType,
-		Timestamp:             protoutil.TimeToTimestamp(c.timer.Now()),
+		Timestamp:             prototime.TimeToTimestamp(c.timer.Now()),
 	}
 	c.runStatusesLock.Lock()
 	defer c.runStatusesLock.Unlock()
