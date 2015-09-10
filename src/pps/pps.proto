@@ -7,7 +7,7 @@ package pps;
 
 enum PipelineRunStatusType {
   PIPELINE_RUN_STATUS_TYPE_NONE = 0;
-  PIPELINE_RUN_STATUS_TYPE_ADDED = 1;
+  PIPELINE_RUN_STATUS_TYPE_CREATED = 1;
   PIPELINE_RUN_STATUS_TYPE_STARTED = 2;
   PIPELINE_RUN_STATUS_TYPE_ERROR = 3;
   PIPELINE_RUN_STATUS_TYPE_SUCCESS = 4;
@@ -44,8 +44,10 @@ message DockerService {
 }
 
 message Pipeline {
-  map<string, Node> name_to_node = 1;
-  map<string, DockerService> name_to_docker_service = 2;
+  string id = 1;
+  string pipeline_source_id = 2;
+  map<string, Node> name_to_node = 3;
+  map<string, DockerService> name_to_docker_service = 4;
 }
 
 message GithubPipelineSource {
@@ -59,17 +61,15 @@ message GithubPipelineSource {
 
 message PipelineSource {
   string id = 1;
-  bool active = 2;
-  map<string, string> tags = 3;
+  map<string, string> tags = 2;
   oneof typed_pipeline_source {
-    GithubPipelineSource github_pipeline_source = 4;
+    GithubPipelineSource github_pipeline_source = 3;
   }
 }
 
 message PipelineRun {
   string id = 1;
-  PipelineSource pipeline_source = 2;
-  Pipeline pipeline = 3;
+  string pipeline_id = 2;
 }
 
 message PipelineRunStatus {
@@ -146,7 +146,7 @@ message GetPipelineResponse {
 }
 
 message CreatePipelineRunRequest {
-  string pipeline_source_id = 1;
+  string pipeline_id = 1;
 }
 
 message CreatePipelineRunResponse {
