@@ -30,6 +30,13 @@ func InitRepository(apiClient pfs.ApiClient, repositoryName string) error {
 	return err
 }
 
+func ListRepositories(apiClient pfs.ApiClient) (*pfs.ListRepositoriesResponse, error) {
+	return apiClient.ListRepositories(
+		context.Background(),
+		&pfs.ListRepositoriesRequest{},
+	)
+}
+
 func Branch(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.BranchResponse, error) {
 	return apiClient.Branch(
 		context.Background(),
