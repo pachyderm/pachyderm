@@ -3,15 +3,10 @@
 # DOCKER_OPTS: docker-compose options for run, test, launch-*
 # TESTPKGS: packages for test, default ./src/...
 # TESTFLAGS: flags for test
-# NOCACHE: do not use dependency cache for docker
 ####
 
 ifndef TESTPKGS
 TESTPKGS = ./src/...
-endif
-
-ifdef NOCACHE
-NOCACHE_CMD = touch etc/deps/deps.list
 endif
 
 all: build
@@ -49,13 +44,11 @@ install: deps
 	go install ./src/cmd/pfs-volume-driver ./src/cmd/pfs ./src/cmd/pps
 
 docker-build-test:
-	$(NOCACHE_CMD)
 	docker-compose build btrfs
 	docker-compose build test
 	mkdir -p /tmp/pachyderm-test
 
 docker-build-compile:
-	$(NOCACHE_CMD)
 	docker-compose build compile
 
 docker-build-pfs-volume-driver: docker-build-compile
