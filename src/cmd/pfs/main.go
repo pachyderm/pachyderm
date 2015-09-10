@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
+	"github.com/pachyderm/pachyderm/src/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -99,9 +100,9 @@ func do(appEnvObj interface{}) error {
 			}
 
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pfs.PrintFileInfoHeader(writer)
+			pretty.PrintFileInfoHeader(writer)
 			for _, fileInfo := range listFilesResponse.FileInfo {
-				pfs.PrintFileInfo(writer, fileInfo)
+				pretty.PrintFileInfo(writer, fileInfo)
 			}
 			return writer.Flush()
 		},
@@ -156,9 +157,9 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pfs.PrintCommitInfoHeader(writer)
+			pretty.PrintCommitInfoHeader(writer)
 			for _, commitInfo := range listCommitsResponse.CommitInfo {
-				pfs.PrintCommitInfo(writer, commitInfo)
+				pretty.PrintCommitInfo(writer, commitInfo)
 			}
 			return writer.Flush()
 		},
