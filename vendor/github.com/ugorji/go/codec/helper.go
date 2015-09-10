@@ -471,6 +471,10 @@ type structFieldInfo struct {
 	toArray   bool // if field is _struct, is the toArray set?
 }
 
+func (si *structFieldInfo) isZero() bool {
+	return si.encName == "" && len(si.is) == 0 && si.i == 0 && !si.omitEmpty && !si.toArray
+}
+
 // rv returns the field of the struct.
 // If anonymous, it returns an Invalid
 func (si *structFieldInfo) field(v reflect.Value, update bool) (rv2 reflect.Value) {
@@ -516,9 +520,9 @@ func (si *structFieldInfo) setToZeroValue(v reflect.Value) {
 }
 
 func parseStructFieldInfo(fname string, stag string) *structFieldInfo {
-	if fname == "" {
-		panic(noFieldNameToStructFieldInfoErr)
-	}
+	// if fname == "" {
+	// 	panic(noFieldNameToStructFieldInfoErr)
+	// }
 	si := structFieldInfo{
 		encName: fname,
 	}
@@ -723,8 +727,20 @@ func rgetTypeInfo(rt reflect.Type, indexstack []int, fnameToHastag map[string]bo
 		if r1, _ := utf8.DecodeRuneInString(f.Name); r1 == utf8.RuneError || !unicode.IsUpper(r1) {
 			continue
 		}
-		// if anonymous and there is no struct tag and its a struct (or pointer to struct), inline it.
-		if f.Anonymous && stag == "" {
+		var si *structFieldInfo
+		// if anonymous and there is no struct tag (or it's blank)
+		// and its a struct (or pointer to struct), inline it.
+		var doInline bool
+		if f.Anonymous {
+			doInline = stag == ""
+			if !doInline {
+				si = parseStructFieldInfo("", stag)
+				doInline = si.isZero()
+				// fmt.Printf(">>>> doInline for si.isZero: %s: %v\n", f.Name, doInline)
+			}
+		}
+
+		if doInline {
 			ft := f.Type
 			for ft.Kind() == reflect.Ptr {
 				ft = ft.Elem()
@@ -744,7 +760,14 @@ func rgetTypeInfo(rt reflect.Type, indexstack []int, fnameToHastag map[string]bo
 		if _, ok := fnameToHastag[f.Name]; ok {
 			continue
 		}
-		si := parseStructFieldInfo(f.Name, stag)
+		if f.Name == "" {
+			panic(noFieldNameToStructFieldInfoErr)
+		}
+		if si == nil {
+			si = parseStructFieldInfo(f.Name, stag)
+		} else if si.encName == "" {
+			si.encName = f.Name
+		}
 		// si.ikind = int(f.Type.Kind())
 		if len(indexstack) == 0 {
 			si.i = int16(j)

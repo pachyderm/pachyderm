@@ -1,4 +1,4 @@
-package protoutil
+package protostream
 
 import "go.pedge.io/google-protobuf"
 

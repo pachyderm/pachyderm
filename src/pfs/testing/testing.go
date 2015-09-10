@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"go.pedge.io/proto/test"
+
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
@@ -15,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
-	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"google.golang.org/grpc"
@@ -47,7 +48,7 @@ func RunTest(
 	discoveryClient, err := getEtcdClient()
 	require.NoError(t, err)
 	var cluster Cluster
-	grpctest.Run(
+	prototest.RunT(
 		t,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {
@@ -81,7 +82,7 @@ func RunBench(
 	discoveryClient, err := getEtcdClient()
 	require.NoError(b, err)
 	var cluster Cluster
-	grpctest.RunB(
+	prototest.RunB(
 		b,
 		testNumServers,
 		func(servers map[string]*grpc.Server) {

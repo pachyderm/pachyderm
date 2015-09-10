@@ -3,9 +3,10 @@ package server
 import (
 	"sort"
 
+	"go.pedge.io/proto/time"
+
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/graph"
-	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
@@ -88,5 +89,5 @@ type sortByTimestamp []*pps.PipelineRunLog
 func (s sortByTimestamp) Len() int          { return len(s) }
 func (s sortByTimestamp) Swap(i int, j int) { s[i], s[j] = s[j], s[i] }
 func (s sortByTimestamp) Less(i int, j int) bool {
-	return protoutil.TimestampLess(s[i].Timestamp, s[j].Timestamp)
+	return prototime.TimestampLess(s[i].Timestamp, s[j].Timestamp)
 }
