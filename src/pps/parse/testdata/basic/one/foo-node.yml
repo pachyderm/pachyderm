@@ -1,0 +1,22 @@
+pps:
+  # a node is a pipeline/job/whatever we call it
+  kind: node
+  name: foo-node
+service: foo
+input:
+  # /in is the mountpoint
+  # foo-repository is a pfs repository
+  pfs:
+    foo-repository: /in
+output:
+  # /out is the mountpoint
+  # foo-repository-out is expected to exists on runs,
+  # but we will include functionality to create all
+  # non-existent output repositories for a specification
+  # outputs must be globally unique across all nodes
+  pfs:
+    foo-repository-out: /out
+# commands will be issued in order
+# no commands are fine, the docker image will just be run
+run:
+  - echo /something/something.txt
