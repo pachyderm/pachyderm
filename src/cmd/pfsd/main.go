@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
 
 	"golang.org/x/net/context"
@@ -20,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"google.golang.org/grpc"
 )
@@ -45,7 +45,7 @@ type appEnv struct {
 }
 
 func main() {
-	mainutil.Main(do, &appEnv{}, defaultEnv)
+	env.Main(do, &appEnv{}, defaultEnv)
 }
 
 func do(appEnvObj interface{}) error {

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"go.pedge.io/env"
 	"go.pedge.io/proto/client"
 	"go.pedge.io/proto/time"
 
@@ -13,7 +14,6 @@ import (
 
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
-	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"github.com/spf13/cobra"
@@ -31,7 +31,7 @@ type appEnv struct {
 }
 
 func main() {
-	mainutil.Main(do, &appEnv{}, defaultEnv)
+	env.Main(do, &appEnv{}, defaultEnv)
 }
 
 func do(appEnvObj interface{}) error {
