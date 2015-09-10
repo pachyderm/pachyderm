@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -149,10 +150,12 @@ func do(appEnvObj interface{}) error {
 			if err != nil {
 				return err
 			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pfs.PrintCommitInfoHeader(writer)
 			for _, commitInfo := range listCommitsResponse.CommitInfo {
-				fmt.Printf("%+v\n", commitInfo)
+				pfs.PrintCommitInfo(writer, commitInfo)
 			}
-			return nil
+			return writer.Flush()
 		},
 	}.ToCobraCommand()
 
