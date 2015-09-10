@@ -25,10 +25,12 @@ func getDirPathAndPipeline(pipelineSource *pps.PipelineSource) (string, *pps.Pip
 		if err != nil {
 			return "", nil, err
 		}
-		pipeline, err := parse.NewParser().ParsePipeline(dirPath, pipelineSource.GithubPipelineSource.ContextDir)
+		dirPath = filePath.Join(dirPath, pipelineSource.GithubPipelineSource.ContextDir)
+		pipeline, err := parse.NewParser().ParsePipeline(dirPath)
 		if err != nil {
 			return "", nil, err
 		}
+		pipeline.PipelineSourceId = pipelineSource.Id
 		return dirPath, pipeline, nil
 	}
 	return "", nil, fmt.Errorf("must specify pipeline source")
