@@ -180,14 +180,15 @@ func mount(dir string, conf *mountConfig, ready chan<- struct{}, errp *error) (*
 		}
 	}
 	for _, loc := range locations {
+		if _, err := os.Stat(loc.Mount); os.IsNotExist(err) {
+			// try the other locations
+			continue
+		}
+
 		f, err := openOSXFUSEDev(loc.DevicePrefix)
 		if err == errNotLoaded {
 			err = loadOSXFUSE(loc.Load)
 			if err != nil {
-				if os.IsNotExist(err) {
-					// try the other locations
-					continue
-				}
 				return nil, err
 			}
 			// try again

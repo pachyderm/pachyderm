@@ -1,4 +1,4 @@
-package grpctest
+package prototest
 
 import (
 	"fmt"
@@ -6,12 +6,12 @@ import (
 	"net"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 )
 
-func Run(
+// RunT runs the testFunc in the context of a number of grpc Servers.
+func RunT(
 	t *testing.T,
 	numServers int,
 	registerFunc func(map[string]*grpc.Server),
@@ -25,6 +25,7 @@ func Run(
 	suite.Run(t, grpcSuite)
 }
 
+// RunB runs the benchFunc in the context of a number of grpc Servers.
 func RunB(
 	b *testing.B,
 	numServers int,
@@ -55,15 +56,15 @@ func (g *grpcSuite) SetupSuite() {
 	g.servers = make(map[string]*grpc.Server)
 	listeners := make(map[string]net.Listener)
 	ports, err := getPorts(g.numServers)
-	require.NoError(g.T(), err)
+	requireNoError(g.T(), err)
 	for i := 0; i < g.numServers; i++ {
 		port := ports[i]
-		require.NoError(g.T(), err)
+		requireNoError(g.T(), err)
 		address := fmt.Sprintf("0.0.0.0:%s", port)
 		server := grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
 		g.servers[address] = server
 		listener, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
-		require.NoError(g.T(), err)
+		requireNoError(g.T(), err)
 		listeners[address] = listener
 	}
 	g.registerFunc(g.servers)
@@ -87,14 +88,14 @@ func (g *grpcSuite) SetupSuite() {
 		clientConn, err := grpc.Dial(address, grpc.WithInsecure())
 		if err != nil {
 			g.TearDownSuite()
-			require.NoError(g.T(), err)
+			requireNoError(g.T(), err)
 		}
 		g.clientConns[address] = clientConn
 	}
 }
 
 func (g *grpcSuite) KillServer(address string) {
-	require.NoError(g.T(), g.clientConns[address].Close())
+	requireNoError(g.T(), g.clientConns[address].Close())
 	delete(g.clientConns, address)
 	g.servers[address].Stop()
 	delete(g.servers, address)
@@ -111,14 +112,18 @@ func (g *grpcSuite) TestSuite() {
 	g.testFunc(g.T(), g.clientConns)
 }
 
-func getPorts(count int) ([]string, error) {
+func getPorts(count int) (_ []string, retErr error) {
 	ports := make([]string, count)
 	for i := 0; i < count; i++ {
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			return nil, err
 		}
-		defer listener.Close()
+		defer func() {
+			if err := listener.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
 		address := listener.Addr().String()
 		_, port, err := net.SplitHostPort(address)
 		if err != nil {
@@ -127,4 +132,20 @@ func getPorts(count int) ([]string, error) {
 		ports[i] = port
 	}
 	return ports, nil
+}
+
+func requireNoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
+	if err != nil {
+		logMessage(tb, msgAndArgs...)
+		tb.Errorf("No error is expected but got %v", err)
+	}
+}
+
+func logMessage(tb testing.TB, msgAndArgs ...interface{}) {
+	if len(msgAndArgs) == 1 {
+		tb.Logf(msgAndArgs[0].(string))
+	}
+	if len(msgAndArgs) > 1 {
+		tb.Logf(msgAndArgs[0].(string), msgAndArgs[1:]...)
+	}
 }

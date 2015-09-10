@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"go.pedge.io/proto/test"
 	"go.pedge.io/protolog"
 	"go.pedge.io/protolog/logrus"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	pfstesting "github.com/pachyderm/pachyderm/src/pfs/testing"
-	"github.com/pachyderm/pachyderm/src/pkg/grpctest"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
@@ -194,7 +194,7 @@ func runTest(
 	pfstesting.RunTest(
 		t,
 		func(t *testing.T, apiClient pfs.ApiClient, internalApiClient pfs.InternalApiClient, cluster pfstesting.Cluster) {
-			grpctest.Run(
+			prototest.RunT(
 				t,
 				testNumServers,
 				func(servers map[string]*grpc.Server) {

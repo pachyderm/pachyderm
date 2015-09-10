@@ -6,9 +6,9 @@ import (
 	"github.com/dancannon/gorethink"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
+	"go.pedge.io/proto/time"
 )
 
 const (
@@ -142,7 +142,7 @@ func (c *rethinkClient) AddPipelineRunStatus(id string, statusType pps.PipelineR
 	runStatus := &pps.PipelineRunStatus{
 		PipelineRunId:         id,
 		PipelineRunStatusType: statusType,
-		Timestamp:             protoutil.TimeToTimestamp(c.timer.Now()),
+		Timestamp:             prototime.TimeToTimestamp(c.timer.Now()),
 	}
 	data, err := marshaller.MarshalToString(runStatus)
 	if err != nil {

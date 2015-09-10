@@ -519,7 +519,7 @@ func (c *commitScanner) Scan() bool {
 		if !c.textScanner.Scan() {
 			return false
 		}
-		if _, ok := c.parseCommit(c.textScanner.Text()); ok {
+		if _, ok := c.parseCommit(); ok {
 			return true
 		}
 	}
@@ -530,12 +530,12 @@ func (c *commitScanner) Err() error {
 }
 
 func (c *commitScanner) Commit() string {
-	commit, _ := c.parseCommit(c.textScanner.Text())
+	commit, _ := c.parseCommit()
 	return commit
 }
 
-func (c *commitScanner) parseCommit(listLine string) (string, bool) {
-	// listLine looks like:
+func (c *commitScanner) parseCommit() (string, bool) {
+	// c.textScanner.Text() looks like:
 	// ID 905 gen 865 top level 5 path <FS_TREE>/[namespace/]repo/commit
 	// 0  1   2   3   4   5     6 7    8
 	tokens := strings.Split(c.textScanner.Text(), " ")

@@ -1,4 +1,4 @@
-package protoutil
+package protostream
 
 import (
 	"bytes"
@@ -18,14 +18,15 @@ func newStreamingBytesReader(
 }
 
 func (s *streamingBytesReader) Read(p []byte) (int, error) {
-	//TODO this is doing an unneeded copy (unless go is smarter than I think it
-	//is)
+	// TODO this is doing an unneeded copy (unless go is smarter than I think it is)
 	if s.buffer.Len() == 0 {
 		value, err := s.streamingBytesClient.Recv()
 		if err != nil {
 			return 0, err
 		}
-		s.buffer.Write(value.Value)
+		if _, err := s.buffer.Write(value.Value); err != nil {
+			return 0, err
+		}
 	}
 	return s.buffer.Read(p)
 }
