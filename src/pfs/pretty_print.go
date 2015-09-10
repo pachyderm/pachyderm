@@ -3,6 +3,7 @@ package pfs
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/docker/docker/pkg/units"
 )
@@ -30,7 +31,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *CommitInfo) {
 	fmt.Fprintln(w, "")
 }
 
-func PrintFileHeader(w io.Writer) {
+func PrintFileInfoHeader(w io.Writer) {
 	fmt.Fprintln(w, "NAME\tTYPE\tMODIFIED\tLAST_COMMIT_MODIFIED\tSIZE\tPERMISSIONS\t")
 }
 
@@ -41,9 +42,16 @@ func PrintFileInfo(w io.Writer, fileInfo *FileInfo) {
 	} else {
 		fmt.Fprint(w, "dir\t")
 	}
+	fmt.Fprintf(w, "%s ago\t", units.HumanDuration(
+		time.Since(
+			time.Unix(
+				fileInfo.LastModified.Seconds,
+				int64(fileInfo.LastModified.Nanos),
+			),
+		),
+	))
 	fmt.Fprint(w, "-\t")
-	fmt.Fprintf(w, "%d\t", units.BytesSize(float64(fileInfo.SizeBytes)))
+	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(fileInfo.SizeBytes)))
 	fmt.Fprintf(w, "%d\t", fileInfo.Perm)
-	fmt.Fprint(w, "-\t")
 	fmt.Fprintln(w, "")
 }
