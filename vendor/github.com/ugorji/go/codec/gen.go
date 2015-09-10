@@ -24,6 +24,7 @@ import (
 // ---------------------------------------------------
 // codecgen only works in the following:
 //   - extensions are not supported. Do not make a type a Selfer and an extension.
+//   - Canonical is not supported.
 //   - Selfer takes precedence.
 //     Any type that implements it knows how to encode/decode itself statically.
 //     Extensions are only known at runtime.
@@ -94,14 +95,18 @@ var (
 // genRunner holds some state used during a Gen run.
 type genRunner struct {
 	w io.Writer      // output
-	c uint64         // ctr used for generating varsfx
+	c uint64         // counter used for generating varsfx
 	t []reflect.Type // list of types to run selfer on
 
-	tc reflect.Type              // currently running selfer on this type
-	te map[uintptr]bool          // types for which the encoder has been created
-	td map[uintptr]bool          // types for which the decoder has been created
-	cp string                    // codec import path
-	im map[string]reflect.Type   // imports to add
+	tc reflect.Type     // currently running selfer on this type
+	te map[uintptr]bool // types for which the encoder has been created
+	td map[uintptr]bool // types for which the decoder has been created
+	cp string           // codec import path
+
+	im  map[string]reflect.Type // imports to add
+	imn map[string]string       // package names of imports to add
+	imc uint64                  // counter for import numbers
+
 	is map[reflect.Type]struct{} // types seen during import search
 	bp string                    // base PkgPath, for which we are generating for
 
@@ -128,6 +133,7 @@ func Gen(w io.Writer, buildTags, pkgName string, useUnsafe bool, typ ...reflect.
 		te:     make(map[uintptr]bool),
 		td:     make(map[uintptr]bool),
 		im:     make(map[string]reflect.Type),
+		imn:    make(map[string]string),
 		is:     make(map[reflect.Type]struct{}),
 		ts:     make(map[reflect.Type]struct{}),
 		bp:     typ[0].PkgPath(),
@@ -163,7 +169,7 @@ func Gen(w io.Writer, buildTags, pkgName string, useUnsafe bool, typ ...reflect.
 		x.linef("%s \"%s\"", genCodecPkg, x.cp)
 	}
 	for k, _ := range x.im {
-		x.line("\"" + k + "\"")
+		x.linef("%s \"%s\"", x.imn[k], k)
 	}
 	// add required packages
 	for _, k := range [...]string{"reflect", "unsafe", "runtime", "fmt", "errors"} {
@@ -210,8 +216,8 @@ func Gen(w io.Writer, buildTags, pkgName string, useUnsafe bool, typ ...reflect.
 	x.linef("}")
 	x.line("if false { // reference the types, but skip this branch at build/run time")
 	var n int
-	for _, t := range x.im {
-		x.linef("var v%v %s", n, t.String())
+	for k, t := range x.im {
+		x.linef("var v%v %s.%s", n, x.imn[k], t.Name())
 		n++
 	}
 	if x.unsafe {
@@ -298,7 +304,15 @@ func (x *genRunner) genRefPkgs(t reflect.Type) {
 	x.is[t] = struct{}{}
 	tpkg, tname := t.PkgPath(), t.Name()
 	if tpkg != "" && tpkg != x.bp && tpkg != x.cp && tname != "" && tname[0] >= 'A' && tname[0] <= 'Z' {
-		x.im[tpkg] = t
+		if _, ok := x.im[tpkg]; !ok {
+			x.im[tpkg] = t
+			if idx := strings.LastIndex(tpkg, "/"); idx < 0 {
+				x.imn[tpkg] = tpkg
+			} else {
+				x.imc++
+				x.imn[tpkg] = "pkg" + strconv.FormatUint(x.imc, 10) + "_" + tpkg[idx+1:]
+			}
+		}
 	}
 	switch t.Kind() {
 	case reflect.Array, reflect.Slice, reflect.Ptr, reflect.Chan:
@@ -342,7 +356,65 @@ func (x *genRunner) outf(s string, params ...interface{}) {
 }
 
 func (x *genRunner) genTypeName(t reflect.Type) (n string) {
-	return genTypeName(t, x.tc)
+	// defer func() { fmt.Printf(">>>> ####: genTypeName: t: %v, name: '%s'\n", t, n) }()
+
+	// if the type has a PkgPath, which doesn't match the current package,
+	// then include it.
+	// We cannot depend on t.String() because it includes current package,
+	// or t.PkgPath because it includes full import path,
+	//
+	var ptrPfx string
+	for t.Kind() == reflect.Ptr {
+		ptrPfx += "*"
+		t = t.Elem()
+	}
+	if tn := t.Name(); tn != "" {
+		return ptrPfx + x.genTypeNamePrim(t)
+	}
+	switch t.Kind() {
+	case reflect.Map:
+		return ptrPfx + "map[" + x.genTypeName(t.Key()) + "]" + x.genTypeName(t.Elem())
+	case reflect.Slice:
+		return ptrPfx + "[]" + x.genTypeName(t.Elem())
+	case reflect.Array:
+		return ptrPfx + "[" + strconv.FormatInt(int64(t.Len()), 10) + "]" + x.genTypeName(t.Elem())
+	case reflect.Chan:
+		return ptrPfx + t.ChanDir().String() + " " + x.genTypeName(t.Elem())
+	default:
+		if t == intfTyp {
+			return ptrPfx + "interface{}"
+		} else {
+			return ptrPfx + x.genTypeNamePrim(t)
+		}
+	}
+}
+
+func (x *genRunner) genTypeNamePrim(t reflect.Type) (n string) {
+	if t.Name() == "" {
+		return t.String()
+	} else if t.PkgPath() == "" || t.PkgPath() == x.tc.PkgPath() {
+		return t.Name()
+	} else {
+		return x.imn[t.PkgPath()] + "." + t.Name()
+		// return t.String() // best way to get the package name inclusive
+	}
+}
+
+func (x *genRunner) genZeroValueR(t reflect.Type) string {
+	// if t is a named type, w
+	switch t.Kind() {
+	case reflect.Ptr, reflect.Interface, reflect.Chan, reflect.Func,
+		reflect.Slice, reflect.Map, reflect.Invalid:
+		return "nil"
+	case reflect.Bool:
+		return "false"
+	case reflect.String:
+		return `""`
+	case reflect.Struct, reflect.Array:
+		return x.genTypeName(t) + "{}"
+	default: // all numbers
+		return "0"
+	}
 }
 
 func (x *genRunner) genMethodNameT(t reflect.Type) (s string) {
@@ -647,7 +719,7 @@ func (x *genRunner) encStruct(varname string, rtid uintptr, t reflect.Type) {
 		case reflect.Map, reflect.Slice, reflect.Array, reflect.Chan:
 			omitline += "len(" + varname + "." + t2.Name + ") != 0"
 		default:
-			omitline += varname + "." + t2.Name + " != " + genZeroValueR(t2.Type, x.tc)
+			omitline += varname + "." + t2.Name + " != " + x.genZeroValueR(t2.Type)
 		}
 		x.linef("%s[%v] = %s", numfieldsvar, j, omitline)
 	}
@@ -844,7 +916,7 @@ func (x *genRunner) decVar(varname string, t reflect.Type, canBeNil bool) {
 			if strings.IndexByte(varname, '.') != -1 {
 				x.line(varname + " = nil")
 			} else {
-				x.line("*" + varname + " = " + genZeroValueR(t.Elem(), x.tc))
+				x.line("*" + varname + " = " + x.genZeroValueR(t.Elem()))
 			}
 			// x.line("*" + varname + " = nil")
 			x.line("}")
@@ -852,7 +924,7 @@ func (x *genRunner) decVar(varname string, t reflect.Type, canBeNil bool) {
 		} else {
 			// x.line("var " + genTempVarPfx + i + " " + x.genTypeName(t))
 			// x.line(varname + " = " + genTempVarPfx + i)
-			x.line(varname + " = " + genZeroValueR(t, x.tc))
+			x.line(varname + " = " + x.genZeroValueR(t))
 		}
 		x.line("} else {")
 	} else {
@@ -1037,10 +1109,10 @@ func (x *genRunner) decTryAssignPrimitive(varname string, t reflect.Type) (tryAs
 	// Consequently, we replace:
 	//      case reflect.Uint32: x.line(varname + " = uint32(r.DecodeUint(32))")
 	// with:
-	//      case reflect.Uint32: x.line(varname + " = " + genTypeNamePrimitiveKind(t, x.tc) + "(r.DecodeUint(32))")
+	//      case reflect.Uint32: x.line(varname + " = " + genTypeNamePrim(t, x.tc) + "(r.DecodeUint(32))")
 
 	xfn := func(t reflect.Type) string {
-		return genTypeNamePrimitiveKind(t, x.tc)
+		return x.genTypeNamePrim(t)
 	}
 	switch t.Kind() {
 	case reflect.Int:
@@ -1105,7 +1177,7 @@ func (x *genRunner) decListFallback(varname string, rtid uintptr, t reflect.Type
 		return ts.TempVar + s + ts.Rand
 	}
 	funcs["zero"] = func() string {
-		return genZeroValueR(telem, x.tc)
+		return x.genZeroValueR(telem)
 	}
 	funcs["isArray"] = func() bool {
 		return t.Kind() == reflect.Array
@@ -1393,59 +1465,17 @@ func genTitleCaseName(s string) string {
 	}
 }
 
-func genTypeNamePrimitiveKind(t reflect.Type, tRef reflect.Type) (n string) {
-	if tRef != nil && t.PkgPath() == tRef.PkgPath() && t.Name() != "" {
-		return t.Name()
-	} else {
-		return t.String() // best way to get the package name inclusive
-	}
-}
-
-func genTypeName(t reflect.Type, tRef reflect.Type) (n string) {
-	// defer func() { fmt.Printf(">>>> ####: genTypeName: t: %v, name: '%s'\n", t, n) }()
-
-	// if the type has a PkgPath, which doesn't match the current package,
-	// then include it.
-	// We cannot depend on t.String() because it includes current package,
-	// or t.PkgPath because it includes full import path,
-	//
-	var ptrPfx string
-	for t.Kind() == reflect.Ptr {
-		ptrPfx += "*"
-		t = t.Elem()
-	}
-	if tn := t.Name(); tn != "" {
-		return ptrPfx + genTypeNamePrimitiveKind(t, tRef)
-	}
-	switch t.Kind() {
-	case reflect.Map:
-		return ptrPfx + "map[" + genTypeName(t.Key(), tRef) + "]" + genTypeName(t.Elem(), tRef)
-	case reflect.Slice:
-		return ptrPfx + "[]" + genTypeName(t.Elem(), tRef)
-	case reflect.Array:
-		return ptrPfx + "[" + strconv.FormatInt(int64(t.Len()), 10) + "]" + genTypeName(t.Elem(), tRef)
-	case reflect.Chan:
-		return ptrPfx + t.ChanDir().String() + " " + genTypeName(t.Elem(), tRef)
-	default:
-		if t == intfTyp {
-			return ptrPfx + "interface{}"
-		} else {
-			return ptrPfx + genTypeNamePrimitiveKind(t, tRef)
-		}
-	}
-}
-
 func genMethodNameT(t reflect.Type, tRef reflect.Type) (n string) {
 	var ptrPfx string
 	for t.Kind() == reflect.Ptr {
 		ptrPfx += "Ptrto"
 		t = t.Elem()
 	}
+	tstr := t.String()
 	if tn := t.Name(); tn != "" {
 		if tRef != nil && t.PkgPath() == tRef.PkgPath() {
 			return ptrPfx + tn
 		} else {
-			tstr := t.String()
 			if genQNameRegex.MatchString(tstr) {
 				return ptrPfx + strings.Replace(tstr, ".", "_", 1000)
 			} else {
@@ -1479,13 +1509,12 @@ func genMethodNameT(t reflect.Type, tRef reflect.Type) (n string) {
 				if t.Name() != "" {
 					return ptrPfx + t.Name()
 				} else {
-					return ptrPfx + genCustomTypeName(t.String())
+					return ptrPfx + genCustomTypeName(tstr)
 				}
 			} else {
 				// best way to get the package name inclusive
-				// return ptrPfx + strings.Replace(t.String(), ".", "_", 1000)
-				// return ptrPfx + genBase64enc.EncodeToString([]byte(t.String()))
-				tstr := t.String()
+				// return ptrPfx + strings.Replace(tstr, ".", "_", 1000)
+				// return ptrPfx + genBase64enc.EncodeToString([]byte(tstr))
 				if t.Name() != "" && genQNameRegex.MatchString(tstr) {
 					return ptrPfx + strings.Replace(tstr, ".", "_", 1000)
 				} else {
@@ -1514,23 +1543,6 @@ func genCustomTypeName(tstr string) string {
 
 func genIsImmutable(t reflect.Type) (v bool) {
 	return isMutableKind(t.Kind())
-}
-
-func genZeroValueR(t reflect.Type, tRef reflect.Type) string {
-	// if t is a named type, w
-	switch t.Kind() {
-	case reflect.Ptr, reflect.Interface, reflect.Chan, reflect.Func,
-		reflect.Slice, reflect.Map, reflect.Invalid:
-		return "nil"
-	case reflect.Bool:
-		return "false"
-	case reflect.String:
-		return `""`
-	case reflect.Struct, reflect.Array:
-		return genTypeName(t, tRef) + "{}"
-	default: // all numbers
-		return "0"
-	}
 }
 
 type genInternal struct {

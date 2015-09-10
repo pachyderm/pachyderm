@@ -5,6 +5,7 @@
 package docker
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -186,7 +187,12 @@ func TestGetURL(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
-	err := newError(400, []byte("bad parameter"))
+	fakeBody := ioutil.NopCloser(bytes.NewBufferString("bad parameter"))
+	resp := &http.Response{
+		StatusCode: 400,
+		Body:       fakeBody,
+	}
+	err := newError(resp)
 	expected := Error{Status: 400, Message: "bad parameter"}
 	if !reflect.DeepEqual(expected, *err) {
 		t.Errorf("Wrong error type. Want %#v. Got %#v.", expected, *err)
