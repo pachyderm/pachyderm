@@ -3,10 +3,11 @@ package branch
 import (
 	"sync"
 
+	"go.pedge.io/proto/time"
+
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/concurrent"
-	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/store"
@@ -125,7 +126,7 @@ func (b *brancher) CommitOutstanding() error {
 					InputCommitId:    inputRepositoryCommit.commitID,
 					OutputRepository: repositoryName,
 					OutputCommitId:   commitID,
-					Timestamp:        protoutil.TimeToTimestamp(b.timer.Now()),
+					Timestamp:        prototime.TimeToTimestamp(b.timer.Now()),
 				},
 			); err != nil {
 				return err

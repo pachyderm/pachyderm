@@ -6,7 +6,9 @@ See the README at https://github.com/peter-edge/go-env/blob/master/README.md for
 package env
 
 import (
+	"fmt"
 	"io"
+	"os"
 	"reflect"
 )
 
@@ -43,4 +45,19 @@ type PopulateOptions struct {
 // See the test for an example.
 func Populate(object interface{}, populateOptions PopulateOptions) error {
 	return populate(reflect.ValueOf(object), populateOptions, false)
+}
+
+// Main runs the common functionality needed in a go main function.
+// appEnv will be populated and passed to do, defaultEnv can be nil
+// if there is an error, os.Exit(1) will be called.
+func Main(do func(interface{}) error, appEnv interface{}, defaultEnv map[string]string) {
+	if err := Populate(appEnv, PopulateOptions{Defaults: defaultEnv}); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+		os.Exit(1)
+	}
+	if err := do(appEnv); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+		os.Exit(1)
+	}
+	os.Exit(0)
 }

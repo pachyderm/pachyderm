@@ -6,12 +6,14 @@ import (
 	"strings"
 	"time"
 
+	"go.pedge.io/env"
+	"go.pedge.io/proto/client"
+	"go.pedge.io/proto/time"
+
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
-	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
-	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"github.com/spf13/cobra"
@@ -29,7 +31,7 @@ type appEnv struct {
 }
 
 func main() {
-	mainutil.Main(do, &appEnv{}, defaultEnv)
+	env.Main(do, &appEnv{}, defaultEnv)
 }
 
 func do(appEnvObj interface{}) error {
@@ -165,7 +167,7 @@ func do(appEnvObj interface{}) error {
 					Node:         pipelineRunLog.Node,
 					ContainerID:  containerID,
 					OutputStream: name,
-					Time:         protoutil.TimestampToTime(pipelineRunLog.Timestamp),
+					Time:         prototime.TimestampToTime(pipelineRunLog.Timestamp),
 				}
 				logInfoData, err := json.Marshal(logInfo)
 				if err != nil {
@@ -185,7 +187,7 @@ func do(appEnvObj interface{}) error {
 Note that this CLI is experimental and does not even check for common errors.
 The environment variable PPS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:651.`,
 	}
-	rootCmd.AddCommand(cobramainutil.NewVersionCommand(clientConn, pachyderm.Version))
+	rootCmd.AddCommand(protoclient.NewVersionCommand(clientConn, pachyderm.Version, nil))
 	rootCmd.AddCommand(inspectCmd)
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(statusCmd)

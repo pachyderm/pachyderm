@@ -113,8 +113,9 @@ type EncodeOptions struct {
 	// Canonical representation means that encoding a value will always result in the same
 	// sequence of bytes.
 	//
-	// This mostly will apply to maps. In this case, codec will do more work to encode the
-	// map keys out of band, and then sort them, before writing out the map to the stream.
+	// This only affects maps, as the iteration order for maps is random.
+	// In this case, the map keys will first be encoded into []byte, and then sorted,
+	// before writing the sorted keys and the corresponding map values to the stream.
 	Canonical bool
 
 	// AsSymbols defines what should be encoded as symbols.
@@ -722,7 +723,7 @@ func (f encFnInfo) kMap(rv reflect.Value) {
 	if e.h.Canonical {
 		// first encode each key to a []byte first, then sort them, then record
 		// println(">>>>>>>> CANONICAL <<<<<<<<")
-		var mksv []byte // temporary byte slice for the encoding
+		var mksv []byte = make([]byte, 0, len(mks)*16) // temporary byte slice for the encoding
 		e2 := NewEncoderBytes(&mksv, e.hh)
 		mksbv := make([]encStructFieldBytesV, len(mks))
 		for i, k := range mks {
@@ -873,7 +874,8 @@ func NewEncoderBytes(out *[]byte, h Handle) *Encoder {
 // The empty values (for omitempty option) are false, 0, any nil pointer
 // or interface value, and any array, slice, map, or string of length zero.
 //
-// Anonymous fields are encoded inline if no struct tag is present.
+// Anonymous fields are encoded inline if the struct tag is "effectively" blank
+// i.e. it is not present or does not have any parameters specified.
 // Else they are encoded as regular fields.
 //
 // Examples:
@@ -1110,7 +1112,8 @@ func (e *Encoder) getEncFn(rtid uintptr, rt reflect.Type, checkFastpath, checkCo
 		fn.f = (encFnInfo).textMarshal
 	} else {
 		rk := rt.Kind()
-		if fastpathEnabled && checkFastpath && (rk == reflect.Map || rk == reflect.Slice) {
+		// if fastpathEnabled && checkFastpath && (rk == reflect.Map || rk == reflect.Slice) {
+		if fastpathEnabled && checkFastpath && (rk == reflect.Slice || (rk == reflect.Map && !e.h.Canonical)) {
 			if rt.PkgPath() == "" {
 				if idx := fastpathAV.index(rtid); idx != -1 {
 					fi.encFnInfoX = &encFnInfoX{e: e, ti: ti}

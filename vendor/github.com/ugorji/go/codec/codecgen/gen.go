@@ -23,6 +23,8 @@ import (
 	"time"
 )
 
+const genCodecPkg = "codec1978" // keep this in sync with codec.genCodecPkg
+
 const genFrunMainTmpl = `//+build ignore
 
 package main
@@ -123,7 +125,7 @@ func Generate(outfile, buildTag, codecPkgPath string, useUnsafe bool, goRunTag s
 		UseUnsafe       bool
 	}
 	tv := tmplT{
-		CodecPkgName:    "codec1978",
+		CodecPkgName:    genCodecPkg,
 		OutFile:         outfile,
 		CodecImportPath: codecPkgPath,
 		BuildTag:        buildTag,

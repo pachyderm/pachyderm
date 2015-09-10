@@ -6,12 +6,14 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"go.pedge.io/env"
+	"go.pedge.io/proto/client"
+
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
-	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 )
@@ -28,7 +30,7 @@ type appEnv struct {
 }
 
 func main() {
-	mainutil.Main(do, &appEnv{}, defaultEnv)
+	env.Main(do, &appEnv{}, defaultEnv)
 }
 
 func do(appEnvObj interface{}) error {
@@ -189,7 +191,7 @@ Note that this CLI is experimental and does not even check for common errors.
 The environment variable PFS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:650.`,
 	}
 
-	rootCmd.AddCommand(cobramainutil.NewVersionCommand(clientConn, pachyderm.Version))
+	rootCmd.AddCommand(protoclient.NewVersionCommand(clientConn, pachyderm.Version, nil))
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(mkdirCmd)
 	rootCmd.AddCommand(putCmd)

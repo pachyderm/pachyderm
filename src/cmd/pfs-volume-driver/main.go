@@ -10,11 +10,11 @@ import (
 	"sync/atomic"
 
 	"go.pedge.io/dockervolume"
+	"go.pedge.io/env"
 	"go.pedge.io/protolog/logrus"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
-	"github.com/pachyderm/pachyderm/src/pkg/mainutil"
 	"github.com/satori/go.uuid"
 	"google.golang.org/grpc"
 )
@@ -41,7 +41,7 @@ type appEnv struct {
 }
 
 func main() {
-	mainutil.Main(do, &appEnv{}, defaultEnv)
+	env.Main(do, &appEnv{}, defaultEnv)
 }
 
 func do(appEnvObj interface{}) error {
