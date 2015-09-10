@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	versionToParseFunc = map[string]func(string, string, *config) (*pps.Pipeline, error){
+	versionToParseFunc = map[string]func(string, *config) (*pps.Pipeline, error){
 		"v1": parsePipelineV1,
 	}
 )
@@ -24,19 +24,18 @@ func newParser() *parser {
 	return &parser{}
 }
 
-func (p *parser) ParsePipeline(dirPath string, contextDirPath string) (*pps.Pipeline, error) {
-	return parsePipeline(dirPath, contextDirPath)
+func (p *parser) ParsePipeline(dirPath string) (*pps.Pipeline, error) {
+	return parsePipeline(dirPath)
 }
 
 type config struct {
 	Version string
 	Include []string
-	Exclude []string
 }
 
-func parsePipeline(dirPath string, contextDirPath string) (*pps.Pipeline, error) {
+func parsePipeline(dirPath string) (*pps.Pipeline, error) {
 	dirPath = filepath.Clean(dirPath)
-	config, err := parseConfig(dirPath, contextDirPath)
+	config, err := parseConfig(dirPath)
 	if err != nil {
 		return nil, err
 	}
@@ -47,11 +46,11 @@ func parsePipeline(dirPath string, contextDirPath string) (*pps.Pipeline, error)
 	if !ok {
 		return nil, fmt.Errorf("unknown pps specification version: %s", config.Version)
 	}
-	return parseFunc(dirPath, contextDirPath, config)
+	return parseFunc(dirPath, config)
 }
 
-func parseConfig(dirPath string, contextDirPath string) (*config, error) {
-	configFilePath := filepath.Join(dirPath, contextDirPath, "pps.yml")
+func parseConfig(dirPath string) (*config, error) {
+	configFilePath := filepath.Join(dirPath, "pps.yml")
 	if err := checkFileExists(configFilePath); err != nil {
 		return nil, err
 	}
@@ -66,134 +65,74 @@ func parseConfig(dirPath string, contextDirPath string) (*config, error) {
 	return config, nil
 }
 
-func parsePipelineV1(dirPath string, contextDirPath string, config *config) (*pps.Pipeline, error) {
-	filePaths, err := getAllFilePaths(dirPath, contextDirPath, config.Include, config.Exclude)
-	if err != nil {
-		return nil, err
+func parsePipelineV1(dirPath string, config *config) (*pps.Pipeline, error) {
+	filePaths := make([]string, len(config.Include))
+	for i, include := range config.Include {
+		filePaths[i] = filepath.Join(dirPath, include)
 	}
 	pipeline := &pps.Pipeline{
-		NameToElement: make(map[string]*pps.Element),
+		NameToNode:          make(map[string]*pps.Node),
+		NameToDockerService: make(map[string]*pps.DockerService),
 	}
+	names := make(map[string]bool)
 	for _, filePath := range filePaths {
-		element, err := getElementForPipelineFile(dirPath, filePath)
+		data, err := ioutil.ReadFile(filePath)
 		if err != nil {
 			return nil, err
 		}
-		if _, ok := pipeline.NameToElement[element.Name]; ok {
-			return nil, fmt.Errorf("duplicate element: %s", element.Name)
+		m := make(map[interface{}]interface{})
+		if err := yaml.Unmarshal(data, &m); err != nil {
+			return nil, err
 		}
-		pipeline.NameToElement[element.Name] = element
+		ppsMetaObj, ok := m["pps"]
+		if !ok {
+			return nil, fmt.Errorf("no pps section for %s", filePath)
+		}
+		ppsMeta := ppsMetaObj.(map[interface{}]interface{})
+		if ppsMeta["kind"] == "" {
+			return nil, fmt.Errorf("no kind specified for %s", filePath)
+		}
+		nameObj, ok := ppsMeta["name"]
+		if !ok {
+			return nil, fmt.Errorf("no name specified for %s", filePath)
+		}
+		name := strings.TrimSpace(nameObj.(string))
+		if name == "" {
+			return nil, fmt.Errorf("no name specified for %s", filePath)
+		}
+		if _, ok := names[name]; ok {
+			return nil, fmt.Errorf("duplicate element: %s", name)
+		}
+		kindObj, ok := ppsMeta["kind"]
+		if !ok {
+			return nil, fmt.Errorf("no kind specified for %s", filePath)
+		}
+		kind := strings.TrimSpace(kindObj.(string))
+		switch kind {
+		case "node":
+			node := &pps.Node{}
+			if err := yaml.Unmarshal(data, node); err != nil {
+				return nil, err
+			}
+			pipeline.NameToNode[name] = node
+		case "docker_service":
+			dockerService := &pps.DockerService{}
+			if err := yaml.Unmarshal(data, dockerService); err != nil {
+				return nil, err
+			}
+			if dockerService.Build != "" {
+				dockerService.Build = filepath.Clean(filepath.Join(filepath.Dir(filePath), dockerService.Build))
+			}
+			pipeline.NameToDockerService[name] = dockerService
+		default:
+			return nil, fmt.Errorf("unknown kind %s for %s", kind, filePath)
+		}
 	}
 	return pipeline, nil
 }
 
-func getAllFilePaths(dirPath string, contextDirPath string, includes []string, excludes []string) ([]string, error) {
-	var filePaths []string
-	if err := filepath.Walk(
-		filepath.Join(dirPath, contextDirPath),
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if !info.IsDir() {
-				filePaths = append(filePaths, path)
-			}
-			return nil
-		},
-	); err != nil {
-		return nil, err
-	}
-	relFilePaths := make([]string, len(filePaths))
-	for i, filePath := range filePaths {
-		relFilePath, err := filepath.Rel(dirPath, filePath)
-		if err != nil {
-			return nil, err
-		}
-		relFilePaths[i] = relFilePath
-	}
-	var filteredRelFilePaths []string
-	for _, relFilePath := range relFilePaths {
-		isPipelineFile, err := isPipelineFile(relFilePath, contextDirPath, includes, excludes)
-		if err != nil {
-			return nil, err
-		}
-		if isPipelineFile {
-			filteredRelFilePaths = append(filteredRelFilePaths, relFilePath)
-		}
-	}
-	return filteredRelFilePaths, nil
-}
-
-func isPipelineFile(filePath string, contextDirPath string, includes []string, excludes []string) (bool, error) {
-	var err error
-	if contextDirPath != "" {
-		filePath, err = filepath.Rel(contextDirPath, filePath)
-		if err != nil {
-			return false, err
-		}
-	}
-	isPipelineFileIncluded, err := isPipelineFileIncluded(filePath, includes)
-	if err != nil {
-		return false, err
-	}
-	isPipelineFileExcluded, err := isPipelineFileExcluded(filePath, excludes)
-	if err != nil {
-		return false, err
-	}
-	return isPipelineFileIncluded && !isPipelineFileExcluded, nil
-}
-
-func isPipelineFileIncluded(filePath string, includes []string) (bool, error) {
-	if !strings.HasSuffix(filePath, ".yml") {
-		return false, nil
-	}
-	if filePath == "pps.yml" {
-		return false, nil
-	}
-	if len(includes) == 0 {
-		return true, nil
-	}
-	for _, include := range includes {
-		matched, err := matches(include, filePath)
-		if err != nil {
-			return false, err
-		}
-		if matched {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func isPipelineFileExcluded(filePath string, excludes []string) (bool, error) {
-	if !strings.HasSuffix(filePath, ".yml") {
-		return true, nil
-	}
-	for _, exclude := range excludes {
-		matched, err := matches(exclude, filePath)
-		if err != nil {
-			return false, err
-		}
-		if matched {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func matches(match string, filePath string) (bool, error) {
-	if strings.HasPrefix(filePath, match) {
-		return true, nil
-	}
-	matched, err := filepath.Match(match, filePath)
-	if err != nil {
-		return false, err
-	}
-	return matched, nil
-}
-
-func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element, error) {
-	filePath := filepath.Join(dirPath, relFilePath)
+func getElementForPipelineFile(dirPath string, filePath string) (*pps.Element, error) {
+	filePath := filepath.Join(dirPath, filePath)
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -204,26 +143,23 @@ func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element
 	}
 	ppsMetaObj, ok := m["pps"]
 	if !ok {
-		return nil, fmt.Errorf("no pps section for %s", relFilePath)
+		return nil, fmt.Errorf("no pps section for %s", filePath)
 	}
 	ppsMeta := ppsMetaObj.(map[interface{}]interface{})
 	if ppsMeta["kind"] == "" {
-		return nil, fmt.Errorf("no kind specified for %s", relFilePath)
+		return nil, fmt.Errorf("no kind specified for %s", filePath)
 	}
 	nameObj, ok := ppsMeta["name"]
 	if !ok {
-		return nil, fmt.Errorf("no name specified for %s", relFilePath)
+		return nil, fmt.Errorf("no name specified for %s", filePath)
 	}
 	name := strings.TrimSpace(nameObj.(string))
 	if name == "" {
-		return nil, fmt.Errorf("no name specified for %s", relFilePath)
-	}
-	element := &pps.Element{
-		Name: name,
+		return nil, fmt.Errorf("no name specified for %s", filePath)
 	}
 	kindObj, ok := ppsMeta["kind"]
 	if !ok {
-		return nil, fmt.Errorf("no kind specified for %s", relFilePath)
+		return nil, fmt.Errorf("no kind specified for %s", filePath)
 	}
 	kind := strings.TrimSpace(kindObj.(string))
 	switch kind {
@@ -239,11 +175,11 @@ func getElementForPipelineFile(dirPath string, relFilePath string) (*pps.Element
 			return nil, err
 		}
 		if dockerService.Build != "" {
-			dockerService.Build = filepath.Clean(filepath.Join(filepath.Dir(relFilePath), dockerService.Build))
+			dockerService.Build = filepath.Clean(filepath.Join(filepath.Dir(filePath), dockerService.Build))
 		}
 		element.DockerService = dockerService
 	default:
-		return nil, fmt.Errorf("unknown kind %s for %s", kind, relFilePath)
+		return nil, fmt.Errorf("unknown kind %s for %s", kind, filePath)
 	}
 	return element, nil
 }

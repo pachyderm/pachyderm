@@ -39,7 +39,7 @@ func (r *runner) Start(pipelineRun *pps.PipelineRun) error {
 		return err
 	}
 	nameToNodeFunc := make(map[string]func() error)
-	for name, node := range nameToNode {
+	for name, node := range pipelineRun.Pipeline.NameToNode {
 		nodeFunc, err := r.getNodeFunc(
 			pipelineRun.Id,
 			name,
