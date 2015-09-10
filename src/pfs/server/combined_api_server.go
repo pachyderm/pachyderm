@@ -14,8 +14,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
-	"github.com/pachyderm/pachyderm/src/pkg/protoutil"
 	"go.pedge.io/google-protobuf"
+	"go.pedge.io/proto/stream"
 )
 
 var (
@@ -129,7 +129,7 @@ func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFi
 		if err != nil {
 			return err
 		}
-		return protoutil.RelayFromStreamingBytesClient(apiGetFileClient, apiGetFileServer)
+		return protostream.RelayFromStreamingBytesClient(apiGetFileClient, apiGetFileServer)
 	}
 	file, err := a.driver.GetFile(getFileRequest.Path, shard)
 	if err != nil {
@@ -140,7 +140,7 @@ func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFi
 			retErr = err
 		}
 	}()
-	return protoutil.WriteToStreamingBytesServer(
+	return protostream.WriteToStreamingBytesServer(
 		io.NewSectionReader(file, getFileRequest.OffsetBytes, getFileRequest.SizeBytes),
 		apiGetFileServer,
 	)
@@ -356,11 +356,11 @@ func (a *combinedAPIServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPu
 		if err != nil {
 			return err
 		}
-		return protoutil.RelayFromStreamingBytesClient(apiPullDiffClient, apiPullDiffServer)
+		return protostream.RelayFromStreamingBytesClient(apiPullDiffClient, apiPullDiffServer)
 	}
 	var buffer bytes.Buffer
 	a.driver.PullDiff(pullDiffRequest.Commit, int(pullDiffRequest.Shard), &buffer)
-	return protoutil.WriteToStreamingBytesServer(
+	return protostream.WriteToStreamingBytesServer(
 		&buffer,
 		apiPullDiffServer,
 	)
@@ -565,7 +565,7 @@ func (a *combinedAPIServer) Master(shard int) error {
 				if err != nil {
 					return err
 				}
-				if err := a.driver.PushDiff(commitInfo.Commit, protoutil.NewStreamingBytesReader(pullDiffClient)); err != nil {
+				if err := a.driver.PushDiff(commitInfo.Commit, protostream.NewStreamingBytesReader(pullDiffClient)); err != nil {
 					return err
 				}
 			}
