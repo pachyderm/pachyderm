@@ -95,14 +95,14 @@ func do(appEnvObj interface{}) error {
 		driver,
 	)
 	return protoserver.Serve(
-		appEnv.Port,
+		uint16(appEnv.Port),
 		func(s *grpc.Server) {
 			pfs.RegisterApiServer(s, combinedAPIServer)
 			pfs.RegisterInternalApiServer(s, combinedAPIServer)
 		},
 		protoserver.ServeOptions{
-			HTTPPort:  appEnv.HTTPPort,
-			TracePort: appEnv.TracePort,
+			HTTPPort:  uint16(appEnv.HTTPPort),
+			TracePort: uint16(appEnv.TracePort),
 			Version:   pachyderm.Version,
 			HTTPRegisterFunc: func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
 				return pfs.RegisterApiHandler(ctx, mux, clientConn)

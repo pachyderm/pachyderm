@@ -63,12 +63,12 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	return protoserver.Serve(
-		appEnv.Port,
+		uint16(appEnv.Port),
 		func(s *grpc.Server) {
 			pps.RegisterApiServer(s, server.NewAPIServer(pfs.NewApiClient(clientConn), containerClient, rethinkClient, timing.NewSystemTimer()))
 		},
 		protoserver.ServeOptions{
-			TracePort: appEnv.TracePort,
+			TracePort: uint16(appEnv.TracePort),
 			Version:   pachyderm.Version,
 		},
 	)
