@@ -26,6 +26,11 @@ message Repository {
   string name = 1;
 }
 
+// Repositories represents multiple repositories.
+message Repositories {
+  repeated Repository repository = 1;
+}
+
 // Commit represents a specific commit in a repository.
 message Commit {
   Repository repository = 1;
@@ -47,6 +52,10 @@ message FileInfo {
   google.protobuf.Timestamp last_modified = 5;
 }
 
+message FileInfos {
+  repeated FileInfo file_info = 1;
+}
+
 // Shard represents a dynamic shard within PFS.
 // number must always be less than modulo.
 message Shard {
@@ -61,17 +70,17 @@ message CommitInfo {
   Commit parent_commit = 3;
 }
 
+message CommitInfos {
+  repeated CommitInfo commit_info = 1;
+}
+
 message InitRepositoryRequest {
   Repository repository = 1;
   bool redirect = 2;
 }
 
 message ListRepositoriesRequest {
-    bool redirect = 1;
-}
-
-message ListRepositoriesResponse {
-    repeated Repository repository = 1;
+  bool redirect = 1;
 }
 
 message GetFileRequest {
@@ -82,10 +91,6 @@ message GetFileRequest {
 
 message GetFileInfoRequest {
   Path path = 1;
-}
-
-message GetFileInfoResponse {
-  FileInfo file_info = 1;
 }
 
 message MakeDirectoryRequest {
@@ -105,21 +110,13 @@ message ListFilesRequest {
   bool redirect = 3;
 }
 
-message ListFilesResponse {
-  repeated FileInfo file_info = 1;
-}
-
 message BranchRequest {
   Commit commit = 1;
   Commit new_commit = 2;
   bool redirect = 3;
 }
 
-message BranchResponse {
-  Commit commit = 1;
-}
-
-message CommitRequest {
+message WriteRequest {
   Commit commit = 1;
   bool redirect = 2;
 }
@@ -128,51 +125,61 @@ message GetCommitInfoRequest {
   Commit commit = 1;
 }
 
-message GetCommitInfoResponse {
-  CommitInfo commit_info = 1;
-}
-
 message ListCommitsRequest {
   Repository repository = 1;
-}
-
-message ListCommitsResponse {
-	repeated CommitInfo commit_info = 1;
 }
 
 service Api {
   // InitRepository creates a new repository.
   // An error is returned if the specified repository already exists.
   rpc InitRepository(InitRepositoryRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post: "/v1/repos/{repository.name}"
-    };
+    option (google.api.http) = { post: "/repos/{repository.name}" };
   }
   // ListRepositories lists the existing repositories.
-  rpc ListRepositories(ListRepositoriesRequest) returns (ListRepositoriesResponse) {}
+  rpc ListRepositories(ListRepositoriesRequest) returns (Repositories) {
+    option (google.api.http) = { get: "/repos" };
+  }
   // GetFile returns a byte stream of the specified file.
   // An error is returned if the specified commit is a write commit.
-  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {
+    option (google.api.http) = { get: "/files/{path.commit.repository.name}/{path.commit.id}/{path.path}" };
+  }
   // GetFileInfo returns a FileInfo for a file.
-  rpc GetFileInfo(GetFileInfoRequest) returns (GetFileInfoResponse) {}
+  rpc GetFileInfo(GetFileInfoRequest) returns (FileInfo) {
+    option (google.api.http) = { get: "/fileinfos/{path.commit.repository.name}/{path.commit.id}/{path.path}" };
+  }
   // MakeDirectory makes a directory on the file system.
-  rpc MakeDirectory(MakeDirectoryRequest) returns (google.protobuf.Empty) {}
+  rpc MakeDirectory(MakeDirectoryRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = { post: "/directories/{path.commit.repository.name}/{path.commit.id}/{path.path}" };
+  }
   // PutFile writes the specified file to PFS.
   // An error is returned if the specified commit is not a write commit.
-  rpc PutFile(PutFileRequest) returns (google.protobuf.Empty) {}
+  rpc PutFile(PutFileRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = { post: "/files/{path.commit.repository.name}/{path.commit.id}/{path.path}" };
+  }
   // ListFiles lists the files within a directory.
   // An error is returned if the specified path is not a directory.
-  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse) {}
+  rpc ListFiles(ListFilesRequest) returns (FileInfos) {
+    option (google.api.http) = { get: "/directories/{path.commit.repository.name}/{path.commit.id}/{path.path}" };
+  }
   // Branch creates a new write commit from a base commit.
   // An error is returned if the base commit is not a read commit.
-  rpc Branch(BranchRequest) returns (BranchResponse) {}
-  // Commit turns the specified write commit into a read commit.
+  rpc Branch(BranchRequest) returns (Commit) {
+    option (google.api.http) = { post: "/commits/{commit.repository.name}/{commit.id}" };
+  }
+  // Write turns the specified write commit into a read commit.
   // An error is returned if the specified commit is not a write commit.
-  rpc Commit(CommitRequest) returns (google.protobuf.Empty) {}
+  rpc Write(WriteRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = { post: "/branches/{commit.repository.name}/{commit.id}" };
+  }
   // GetCommitInfo returns the CommitInfo for a commit.
-  rpc GetCommitInfo(GetCommitInfoRequest) returns (GetCommitInfoResponse) {}
+  rpc GetCommitInfo(GetCommitInfoRequest) returns (CommitInfo) {
+    option (google.api.http) = { post: "/commitinfos/{commit.repository.name}/{commit.id}" };
+  }
   // ListCommitInfo lists the commits on a repo
-  rpc ListCommits(ListCommitsRequest) returns (ListCommitsResponse) {}
+  rpc ListCommits(ListCommitsRequest) returns (CommitInfos) {
+    option (google.api.http) = { get: "/repos/{repository.name}" };
+  }
 }
 
 message PullDiffRequest {
