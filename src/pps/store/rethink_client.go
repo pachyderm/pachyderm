@@ -12,16 +12,50 @@ import (
 )
 
 const (
-	runTable              = "pipeline_runs"
-	statusTable           = "pipeline_run_statuses"
-	containerTable        = "pipeline_containers"
-	logTable              = "pipeline_logs"
-	pfsCommitMappingTable = "pfs_commit_mappings"
-	pipelineSourcesTable  = "pipeline_sources"
+	pfsCommitMappingsTable   = "pfs_commit_mappings"
+	pipelinesTable           = "pipelines"
+	pipelineContainersTable  = "pipeline_pipelineContainers"
+	pipelineLogsTable        = "pipeline_pipelineLogs"
+	pipelineRunsTable        = "pipeline_pipelineRuns"
+	pipelineRunStatusesTable = "pipeline_run_pipelineRunStatuses"
+	pipelineSourcesTable     = "pipeline_sources"
 )
 
 var (
 	marshaller = &jsonpb.Marshaler{}
+
+	tables = []string{
+		pfsCommitMappingsTable,
+		pipelinesTable,
+		pipelineContainersTable,
+		pipelineLogsTable,
+		pipelineRunsTable,
+		pipelineRunStatusesTable,
+		pipelineSourcesTable,
+	}
+
+	tableToTableCreateOpts = map[string][]gorethink.TableCreateOpts{
+		pipelineContainersTable: []gorethink.TableCreateOpts{
+			gorethink.TableCreateOpts{
+				PrimaryKey: "container_id",
+			},
+		},
+	}
+
+	tableToIndexes = map[string][]string{
+		pfsCommitMappingsTable: []string{
+			"input_commit_id",
+		},
+		pipelineContainersTable: []string{
+			"pipeline_run_id",
+		},
+		pipelineLogsTable: []string{
+			"pipeline_run_id",
+		},
+		pipelineRunStatusesTable: []string{
+			"pipeline_run_id",
+		},
+	}
 )
 
 // InitDBs prepares a RethinkDB instance to be used by rethinkClient.
@@ -37,58 +71,39 @@ func InitDBs(address string, databaseName string) error {
 	if _, err := gorethink.DBCreate(databaseName).RunWrite(session); err != nil {
 		return err
 	}
-	if _, err := gorethink.DB(databaseName).TableCreate(runTable).RunWrite(session); err != nil {
-		return err
+	for _, table := range tables {
+		tableCreateOpts, ok := tableToTableCreateOpts[table]
+		if ok {
+			if _, err := gorethink.DB(databaseName).TableCreate(table, tableCreateOpts...).RunWrite(session); err != nil {
+				return err
+			}
+		} else {
+			if _, err := gorethink.DB(databaseName).TableCreate(table).RunWrite(session); err != nil {
+				return err
+			}
+		}
 	}
-	if _, err := gorethink.DB(databaseName).TableCreate(statusTable).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).TableCreate(
-		containerTable,
-		gorethink.TableCreateOpts{
-			PrimaryKey: "container_id",
-		},
-	).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).TableCreate(logTable).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).TableCreate(pfsCommitMappingTable).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).TableCreate(pipelineSourcesTable).RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(statusTable).
-		IndexCreate("pipeline_run_id").RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(containerTable).
-		IndexCreate("pipeline_run_id").RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(logTable).
-		IndexCreate("pipeline_run_id").RunWrite(session); err != nil {
-		return err
-	}
-	if _, err := gorethink.DB(databaseName).Table(pfsCommitMappingTable).
-		IndexCreate("input_commit_id").RunWrite(session); err != nil {
-		return err
+	for table, indexes := range tableToIndexes {
+		for _, index := range indexes {
+			if _, err := gorethink.DB(databaseName).Table(table).IndexCreate(index).RunWrite(session); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
 
 type rethinkClient struct {
-	session           *gorethink.Session
-	databaseName      string
-	timer             timing.Timer
-	runs              gorethink.Term
-	statuses          gorethink.Term
-	containers        gorethink.Term
-	logs              gorethink.Term
-	pfsCommitMappings gorethink.Term
-	pipelineSources   gorethink.Term
+	session             *gorethink.Session
+	databaseName        string
+	timer               timing.Timer
+	pfsCommitMappings   gorethink.Term
+	pipelines           gorethink.Term
+	pipelineContainers  gorethink.Term
+	pipelineLogs        gorethink.Term
+	pipelineRuns        gorethink.Term
+	pipelineRunStatuses gorethink.Term
+	pipelineSources     gorethink.Term
 }
 
 func newRethinkClient(address string, databaseName string) (*rethinkClient, error) {
@@ -100,11 +115,12 @@ func newRethinkClient(address string, databaseName string) (*rethinkClient, erro
 		session,
 		databaseName,
 		timing.NewSystemTimer(),
-		gorethink.DB(databaseName).Table(runTable),
-		gorethink.DB(databaseName).Table(statusTable),
-		gorethink.DB(databaseName).Table(containerTable),
-		gorethink.DB(databaseName).Table(logTable),
-		gorethink.DB(databaseName).Table(pfsCommitMappingTable),
+		gorethink.DB(databaseName).Table(pfsCommitMappingsTable),
+		gorethink.DB(databaseName).Table(pipelinesTable),
+		gorethink.DB(databaseName).Table(pipelineContainersTable),
+		gorethink.DB(databaseName).Table(pipelineLogsTable),
+		gorethink.DB(databaseName).Table(pipelineRunsTable),
+		gorethink.DB(databaseName).Table(pipelineRunStatusesTable),
 		gorethink.DB(databaseName).Table(pipelineSourcesTable),
 	}, nil
 }
@@ -118,12 +134,12 @@ func (c *rethinkClient) CreatePipelineRun(pipelineRun *pps.PipelineRun) error {
 	if err != nil {
 		return err
 	}
-	_, err = c.runs.Insert(gorethink.JSON(data)).RunWrite(c.session)
+	_, err = c.pipelineRuns.Insert(gorethink.JSON(data)).RunWrite(c.session)
 	return err
 }
 
 func (c *rethinkClient) GetPipelineRun(id string) (*pps.PipelineRun, error) {
-	cursor, err := c.runs.Get(id).ToJSON().Run(c.session)
+	cursor, err := c.pipelineRuns.Get(id).ToJSON().Run(c.session)
 	if err != nil {
 		return nil, err
 	}
@@ -148,13 +164,13 @@ func (c *rethinkClient) CreatePipelineRunStatus(id string, statusType pps.Pipeli
 	if err != nil {
 		return err
 	}
-	_, err = c.statuses.Insert(gorethink.JSON(data)).RunWrite(c.session)
+	_, err = c.pipelineRunStatuses.Insert(gorethink.JSON(data)).RunWrite(c.session)
 	return err
 }
 
-func (c *rethinkClient) GetAllPipelineRunStatuses(id string) ([]*pps.PipelineRunStatus, error) {
-	cursor, err := c.statuses.
-		GetAllByIndex("pipeline_run_id", id).
+func (c *rethinkClient) GetAllPipelineRunStatuses(pipelineRunID string) ([]*pps.PipelineRunStatus, error) {
+	cursor, err := c.pipelineRunStatuses.
+		GetAllByIndex("pipeline_run_id", pipelineRunID).
 		OrderBy(gorethink.Desc("timestamp")).
 		Without("id").
 		ToJSON().
@@ -174,26 +190,24 @@ func (c *rethinkClient) GetAllPipelineRunStatuses(id string) ([]*pps.PipelineRun
 	return pipelineRunStatuses, cursor.Err()
 }
 
-func (c *rethinkClient) CreatePipelineRunContainers(containers ...*pps.PipelineRunContainer) error {
-	var pipelineContainers []gorethink.Term
-	for _, pipelineContainer := range containers {
+func (c *rethinkClient) CreatePipelineRunContainers(pipelineContainers ...*pps.PipelineRunContainer) error {
+	var pipelineContainerTerms []gorethink.Term
+	for _, pipelineContainer := range pipelineContainers {
 		data, err := marshaller.MarshalToString(pipelineContainer)
 		if err != nil {
 			return err
 		}
-		pipelineContainers = append(pipelineContainers, gorethink.JSON(data))
+		pipelineContainerTerms = append(pipelineContainerTerms, gorethink.JSON(data))
 	}
-	if _, err := c.containers.
-		Insert(pipelineContainers).
-		RunWrite(c.session); err != nil {
+	if _, err := c.pipelineContainers.Insert(pipelineContainerTerms).RunWrite(c.session); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *rethinkClient) GetPipelineRunContainers(id string) ([]*pps.PipelineRunContainer, error) {
-	cursor, err := c.containers.
-		GetAllByIndex("pipeline_run_id", id).
+func (c *rethinkClient) GetPipelineRunContainers(pipelineRunID string) ([]*pps.PipelineRunContainer, error) {
+	cursor, err := c.pipelineContainers.
+		GetAllByIndex("pipeline_run_id", pipelineRunID).
 		Map(func(row gorethink.Term) interface{} {
 		return row.ToJSON()
 	}).
@@ -201,45 +215,42 @@ func (c *rethinkClient) GetPipelineRunContainers(id string) ([]*pps.PipelineRunC
 	if err != nil {
 		return nil, err
 	}
-	var pipelineContainers []string
-	if err := cursor.All(&pipelineContainers); err != nil {
+	var pipelineRunContainers []string
+	if err := cursor.All(&pipelineRunContainers); err != nil {
 		return nil, err
 	}
 	var result []*pps.PipelineRunContainer
-	for _, data := range pipelineContainers {
-		var pipelineContainer pps.PipelineRunContainer
-		if err := jsonpb.UnmarshalString(data, &pipelineContainer); err != nil {
+	for _, data := range pipelineRunContainers {
+		var pipelineRunContainer pps.PipelineRunContainer
+		if err := jsonpb.UnmarshalString(data, &pipelineRunContainer); err != nil {
 			return nil, err
 		}
-		result = append(result, &pipelineContainer)
+		result = append(result, &pipelineRunContainer)
 	}
 	return result, nil
 }
 
-func (c *rethinkClient) CreatePipelineRunLogs(logs ...*pps.PipelineRunLog) error {
-	var pipelineLogs []gorethink.Term
-	for _, pipelineLog := range logs {
+func (c *rethinkClient) CreatePipelineRunLogs(pipelineLogs ...*pps.PipelineRunLog) error {
+	var pipelineLogTerms []gorethink.Term
+	for _, pipelineLog := range pipelineLogs {
 		data, err := marshaller.MarshalToString(pipelineLog)
 		if err != nil {
 			return err
 		}
-		pipelineLogs = append(pipelineLogs, gorethink.JSON(data))
+		pipelineLogTerms = append(pipelineLogTerms, gorethink.JSON(data))
 	}
-	if _, err := c.logs.
-		Insert(pipelineLogs).
-		RunWrite(c.session); err != nil {
+	if _, err := c.pipelineLogs.Insert(pipelineLogTerms).RunWrite(c.session); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *rethinkClient) GetPipelineRunLogs(id string) ([]*pps.PipelineRunLog, error) {
-	cursor, err := c.logs.
-		GetAllByIndex("pipeline_run_id", id).
+func (c *rethinkClient) GetPipelineRunLogs(pipelineRunID string) ([]*pps.PipelineRunLog, error) {
+	cursor, err := c.pipelineLogs.
+		GetAllByIndex("pipeline_run_id", pipelineRunID).
 		Map(func(row gorethink.Term) interface{} {
 		return row.ToJSON()
-	}).
-		Run(c.session)
+	}).Run(c.session)
 	if err != nil {
 		return nil, err
 	}
@@ -263,9 +274,7 @@ func (c *rethinkClient) CreatePfsCommitMapping(pfsCommitMapping *pps.PfsCommitMa
 	if err != nil {
 		return err
 	}
-	if _, err := c.pfsCommitMappings.
-		Insert(gorethink.JSON(data)).
-		RunWrite(c.session); err != nil {
+	if _, err := c.pfsCommitMappings.Insert(gorethink.JSON(data)).RunWrite(c.session); err != nil {
 		return err
 	}
 	return nil

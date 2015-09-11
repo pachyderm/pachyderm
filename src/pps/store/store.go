@@ -7,11 +7,11 @@ type Client interface {
 	CreatePipelineRun(pipelineRun *pps.PipelineRun) error
 	GetPipelineRun(id string) (*pps.PipelineRun, error)
 	CreatePipelineRunStatus(id string, statusType pps.PipelineRunStatusType) error
-	GetAllPipelineRunStatuses(id string) ([]*pps.PipelineRunStatus, error)
+	GetAllPipelineRunStatuses(pipelineRunID string) ([]*pps.PipelineRunStatus, error)
 	CreatePipelineRunContainers(pipelineContainers ...*pps.PipelineRunContainer) error
-	GetPipelineRunContainers(id string) ([]*pps.PipelineRunContainer, error)
+	GetPipelineRunContainers(pipelineRunID string) ([]*pps.PipelineRunContainer, error)
 	CreatePipelineRunLogs(pipelineRunLogs ...*pps.PipelineRunLog) error
-	GetPipelineRunLogs(id string) ([]*pps.PipelineRunLog, error)
+	GetPipelineRunLogs(pipelineRunID string) ([]*pps.PipelineRunLog, error)
 	CreatePfsCommitMapping(pfsCommitMapping *pps.PfsCommitMapping) error
 	GetPfsCommitMappingLatest(inputRepository string, inputCommitID string) (*pps.PfsCommitMapping, error)
 	CreatePipelineSource(pipelineSource *pps.PipelineSource) error
