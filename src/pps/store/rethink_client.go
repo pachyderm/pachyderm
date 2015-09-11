@@ -14,10 +14,10 @@ import (
 const (
 	pfsCommitMappingsTable   = "pfs_commit_mappings"
 	pipelinesTable           = "pipelines"
-	pipelineContainersTable  = "pipeline_pipelineContainers"
-	pipelineLogsTable        = "pipeline_pipelineLogs"
-	pipelineRunsTable        = "pipeline_pipelineRuns"
-	pipelineRunStatusesTable = "pipeline_run_pipelineRunStatuses"
+	pipelineContainersTable  = "pipeline_containers"
+	pipelineLogsTable        = "pipeline_logs"
+	pipelineRunsTable        = "pipeline_runs"
+	pipelineRunStatusesTable = "pipeline_run_statuses"
 	pipelineSourcesTable     = "pipeline_sources"
 )
 
@@ -46,11 +46,17 @@ var (
 		pfsCommitMappingsTable: []string{
 			"input_commit_id",
 		},
+		pipelinesTable: []string{
+			"pipeline_source_id",
+		},
 		pipelineContainersTable: []string{
 			"pipeline_run_id",
 		},
 		pipelineLogsTable: []string{
 			"pipeline_run_id",
+		},
+		pipelineRunsTable: []string{
+			"pipeline_id",
 		},
 		pipelineRunStatusesTable: []string{
 			"pipeline_run_id",
@@ -154,6 +160,66 @@ func (c *rethinkClient) GetPipelineRun(id string) (*pps.PipelineRun, error) {
 	return &pipelineRun, nil
 }
 
+func (c *rethinkClient) GetAllPipelineRuns(pipelineID string) ([]*pps.PipelineRun, error) {
+	cursor, err := c.pipelineRuns.
+		GetAllByIndex("pipeline_id", pipelineID).
+		Map(func(row gorethink.Term) interface{} {
+		return row.ToJSON()
+	}).Run(c.session)
+	if err != nil {
+		return nil, err
+	}
+	var pipelineRuns []string
+	if err := cursor.All(&pipelineRuns); err != nil {
+		return nil, err
+	}
+	var result []*pps.PipelineRun
+	for _, data := range pipelineRuns {
+		var pipelineRun pps.PipelineRun
+		if err := jsonpb.UnmarshalString(data, &pipelineRun); err != nil {
+			return nil, err
+		}
+		result = append(result, &pipelineRun)
+	}
+	return result, nil
+}
+
+func (c *rethinkClient) CreatePipeline(pipeline *pps.Pipeline) error {
+	return c.addMessage(c.pipelines, pipeline)
+}
+
+func (c *rethinkClient) GetPipeline(id string) (*pps.Pipeline, error) {
+	var pipeline pps.Pipeline
+	if err := c.getMessageByID(c.pipelines, id, &pipeline); err != nil {
+		return nil, err
+	}
+	return &pipeline, nil
+}
+
+func (c *rethinkClient) GetAllPipelines(pipelineSourceID string) ([]*pps.Pipeline, error) {
+	cursor, err := c.pipelines.
+		GetAllByIndex("pipeline_source_id", pipelineSourceID).
+		Map(func(row gorethink.Term) interface{} {
+		return row.ToJSON()
+	}).Run(c.session)
+	if err != nil {
+		return nil, err
+	}
+	var pipelines []string
+	if err := cursor.All(&pipelines); err != nil {
+		return nil, err
+	}
+	var result []*pps.Pipeline
+	for _, data := range pipelines {
+		var pipeline pps.Pipeline
+		if err := jsonpb.UnmarshalString(data, &pipeline); err != nil {
+			return nil, err
+		}
+		result = append(result, &pipeline)
+	}
+	return result, nil
+}
+
 func (c *rethinkClient) CreatePipelineRunStatus(id string, statusType pps.PipelineRunStatusType) error {
 	runStatus := &pps.PipelineRunStatus{
 		PipelineRunId:         id,
@@ -210,8 +276,7 @@ func (c *rethinkClient) GetPipelineRunContainers(pipelineRunID string) ([]*pps.P
 		GetAllByIndex("pipeline_run_id", pipelineRunID).
 		Map(func(row gorethink.Term) interface{} {
 		return row.ToJSON()
-	}).
-		Run(c.session)
+	}).Run(c.session)
 	if err != nil {
 		return nil, err
 	}
