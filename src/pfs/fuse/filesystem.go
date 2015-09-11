@@ -80,7 +80,7 @@ func (d *directory) nodeFromFileInfo(fileInfo *pfs.FileInfo) (fs.Node, error) {
 
 func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
 	if d.commitID == "" {
-		response, err := pfsutil.GetCommitInfo(
+		commitInfo, err := pfsutil.GetCommitInfo(
 			d.fs.apiClient,
 			d.fs.repositoryName,
 			name,
@@ -88,18 +88,18 @@ func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		if response.CommitInfo == nil {
+		if commitInfo == nil {
 			return nil, fuse.ENOENT
 		}
 		return &directory{
 				d.fs,
 				name,
-				response.CommitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_WRITE,
+				commitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_WRITE,
 				"",
 			},
 			nil
 	}
-	response, err := pfsutil.GetFileInfo(
+	fileInfo, err := pfsutil.GetFileInfo(
 		d.fs.apiClient,
 		d.fs.repositoryName,
 		d.commitID,
@@ -108,16 +108,16 @@ func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return d.nodeFromFileInfo(response.FileInfo)
+	return d.nodeFromFileInfo(fileInfo)
 }
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
-	response, err := pfsutil.ListCommits(d.fs.apiClient, d.fs.repositoryName)
+	commitInfos, err := pfsutil.ListCommits(d.fs.apiClient, d.fs.repositoryName)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]fuse.Dirent, 0, len(response.CommitInfo))
-	for _, commitInfo := range response.CommitInfo {
+	result := make([]fuse.Dirent, 0, len(commitInfos.CommitInfo))
+	for _, commitInfo := range commitInfos.CommitInfo {
 		result = append(result, fuse.Dirent{Name: commitInfo.Commit.Id, Type: fuse.DT_Dir})
 	}
 	return result, nil
@@ -127,12 +127,12 @@ func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	if d.commitID == "" {
 		return d.readCommits(ctx)
 	}
-	response, err := pfsutil.ListFiles(d.fs.apiClient, d.fs.repositoryName, d.commitID, d.path, d.fs.shard, d.fs.modulus)
+	fileInfos, err := pfsutil.ListFiles(d.fs.apiClient, d.fs.repositoryName, d.commitID, d.path, d.fs.shard, d.fs.modulus)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]fuse.Dirent, 0, len(response.FileInfo))
-	for _, fileInfo := range response.FileInfo {
+	result := make([]fuse.Dirent, 0, len(fileInfos.FileInfo))
+	for _, fileInfo := range fileInfos.FileInfo {
 		shortPath := strings.TrimPrefix(fileInfo.Path.Path, d.path)
 		switch fileInfo.FileType {
 		case pfs.FileType_FILE_TYPE_NONE:
@@ -183,7 +183,7 @@ type file struct {
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
-	response, err := pfsutil.GetFileInfo(
+	fileInfo, err := pfsutil.GetFileInfo(
 		f.fs.apiClient,
 		f.fs.repositoryName,
 		f.commitID,
@@ -192,8 +192,8 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
 	if err != nil {
 		return err
 	}
-	if response.FileInfo != nil {
-		a.Size = response.FileInfo.SizeBytes
+	if fileInfo != nil {
+		a.Size = fileInfo.SizeBytes
 	}
 	a.Mode = 0666
 	return nil

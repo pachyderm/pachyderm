@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"text/tabwriter"
 
 	"go.pedge.io/env"
 	"go.pedge.io/proto/client"
@@ -12,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
+	"github.com/pachyderm/pachyderm/src/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -96,10 +98,13 @@ func do(appEnvObj interface{}) error {
 			if err != nil {
 				return err
 			}
+
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintFileInfoHeader(writer)
 			for _, fileInfo := range listFilesResponse.FileInfo {
-				fmt.Printf("%+v\n", fileInfo)
+				pretty.PrintFileInfo(writer, fileInfo)
 			}
-			return nil
+			return writer.Flush()
 		},
 	}.ToCobraCommand()
 	lsCmd.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
@@ -110,11 +115,11 @@ func do(appEnvObj interface{}) error {
 		Long:    "Branch a commit. commit-id must be a readable commit.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			branchResponse, err := pfsutil.Branch(apiClient, args[0], args[1])
+			commit, err := pfsutil.Branch(apiClient, args[0], args[1])
 			if err != nil {
 				return err
 			}
-			fmt.Println(branchResponse.Commit.Id)
+			fmt.Println(commit.Id)
 			return nil
 		},
 	}.ToCobraCommand()
@@ -124,7 +129,7 @@ func do(appEnvObj interface{}) error {
 		Long:    "Commit a branch. branch-id must be a writeable commit.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			return pfsutil.Commit(apiClient, args[0], args[1])
+			return pfsutil.Write(apiClient, args[0], args[1])
 		},
 	}.ToCobraCommand()
 
@@ -133,11 +138,11 @@ func do(appEnvObj interface{}) error {
 		Long:    "Get info for a commit.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			commitInfoResponse, err := pfsutil.GetCommitInfo(apiClient, args[0], args[1])
+			commitInfo, err := pfsutil.GetCommitInfo(apiClient, args[0], args[1])
 			if err != nil {
 				return err
 			}
-			fmt.Printf("%+v\n", commitInfoResponse.CommitInfo)
+			fmt.Printf("%+v\n", commitInfo)
 			return nil
 		},
 	}.ToCobraCommand()
@@ -151,10 +156,12 @@ func do(appEnvObj interface{}) error {
 			if err != nil {
 				return err
 			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintCommitInfoHeader(writer)
 			for _, commitInfo := range listCommitsResponse.CommitInfo {
-				fmt.Printf("%+v\n", commitInfo)
+				pretty.PrintCommitInfo(writer, commitInfo)
 			}
-			return nil
+			return writer.Flush()
 		},
 	}.ToCobraCommand()
 

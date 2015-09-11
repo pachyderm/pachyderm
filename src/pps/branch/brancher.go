@@ -112,7 +112,7 @@ func (b *brancher) CommitOutstanding() error {
 		return err
 	}
 	for repositoryName, commitID := range b.outputRepositoryToBranchID {
-		if err := pfsutil.Commit(
+		if err := pfsutil.Write(
 			b.pfsAPIClient,
 			repositoryName,
 			commitID,
@@ -140,7 +140,7 @@ func (b *brancher) getParentCommitID(
 	repositoryName string,
 	commitID string,
 ) (string, error) {
-	getCommitInfoResponse, err := pfsutil.GetCommitInfo(
+	commitInfo, err := pfsutil.GetCommitInfo(
 		b.pfsAPIClient,
 		repositoryName,
 		commitID,
@@ -148,17 +148,17 @@ func (b *brancher) getParentCommitID(
 	if err != nil {
 		return "", err
 	}
-	if getCommitInfoResponse.CommitInfo.ParentCommit == nil {
+	if commitInfo.ParentCommit == nil {
 		return "", nil
 	}
-	return getCommitInfoResponse.CommitInfo.ParentCommit.Id, nil
+	return commitInfo.ParentCommit.Id, nil
 }
 
 func (b *brancher) branch(
 	repositoryName string,
 	commitID string,
 ) (string, error) {
-	pfsBranchResponse, err := pfsutil.Branch(
+	commit, err := pfsutil.Branch(
 		b.pfsAPIClient,
 		repositoryName,
 		commitID,
@@ -172,6 +172,6 @@ func (b *brancher) branch(
 		// TODO(pedge) delete new branch
 		return existingCommitID, nil
 	}
-	b.outputRepositoryToBranchID[repositoryName] = pfsBranchResponse.Commit.Id
-	return pfsBranchResponse.Commit.Id, nil
+	b.outputRepositoryToBranchID[repositoryName] = commit.Id
+	return commit.Id, nil
 }
