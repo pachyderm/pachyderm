@@ -131,59 +131,6 @@ func parsePipelineV1(dirPath string, config *config) (*pps.Pipeline, error) {
 	return pipeline, nil
 }
 
-func getElementForPipelineFile(dirPath string, filePath string) (*pps.Element, error) {
-	filePath := filepath.Join(dirPath, filePath)
-	data, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-	m := make(map[interface{}]interface{})
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return nil, err
-	}
-	ppsMetaObj, ok := m["pps"]
-	if !ok {
-		return nil, fmt.Errorf("no pps section for %s", filePath)
-	}
-	ppsMeta := ppsMetaObj.(map[interface{}]interface{})
-	if ppsMeta["kind"] == "" {
-		return nil, fmt.Errorf("no kind specified for %s", filePath)
-	}
-	nameObj, ok := ppsMeta["name"]
-	if !ok {
-		return nil, fmt.Errorf("no name specified for %s", filePath)
-	}
-	name := strings.TrimSpace(nameObj.(string))
-	if name == "" {
-		return nil, fmt.Errorf("no name specified for %s", filePath)
-	}
-	kindObj, ok := ppsMeta["kind"]
-	if !ok {
-		return nil, fmt.Errorf("no kind specified for %s", filePath)
-	}
-	kind := strings.TrimSpace(kindObj.(string))
-	switch kind {
-	case "node":
-		node := &pps.Node{}
-		if err := yaml.Unmarshal(data, node); err != nil {
-			return nil, err
-		}
-		element.Node = node
-	case "docker_service":
-		dockerService := &pps.DockerService{}
-		if err := yaml.Unmarshal(data, dockerService); err != nil {
-			return nil, err
-		}
-		if dockerService.Build != "" {
-			dockerService.Build = filepath.Clean(filepath.Join(filepath.Dir(filePath), dockerService.Build))
-		}
-		element.DockerService = dockerService
-	default:
-		return nil, fmt.Errorf("unknown kind %s for %s", kind, filePath)
-	}
-	return element, nil
-}
-
 func checkFileExists(path string) error {
 	_, err := os.Stat(path)
 	return err
