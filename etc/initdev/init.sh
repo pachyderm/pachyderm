@@ -3,8 +3,8 @@
 # this script is expected to be run as root
 # ${1}: user to install for
 
-GO_VERSION=1.5rc1
-DOCKER_COMPOSE_VERSION=1.4.0rc3
+GO_VERSION=1.5
+DOCKER_COMPOSE_VERSION=1.4.0
 KUBERNETES_VERSION=1.0.1
 
 apt-get update -yq && \
@@ -22,7 +22,6 @@ apt-get install -yq --no-install-recommends \
   pkg-config
 
 # installs go
-# we use the beta for now since it will be released in a few weeks
 curl -sSL https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz | tar -C /usr/local -xz
 echo 'export PATH=${PATH}:/usr/local/go/bin' >> '/etc/profile'
 su - ${1} -c "echo mkdir -p /home/${1}/go >> /home/${1}/.profile"
@@ -30,7 +29,7 @@ su - ${1} -c "echo export GOPATH=/home/${1}/go >> /home/${1}/.profile"
 su - ${1} -c "echo export GO15VENDOREXPERIMENT=1 >> /home/${1}/.profile"
 
 # installs docker
-curl -sSL https://get.docker.com | sh
+curl -sSL https://experimental.docker.com | sh
 # sudoless use of docker
 groupadd docker || true
 usermod -aG docker ${1}
