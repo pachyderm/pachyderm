@@ -62,8 +62,9 @@ message GithubPipelineSource {
 message PipelineSource {
   string id = 1;
   map<string, string> tags = 2;
+  bool archived = 3;
   oneof typed_pipeline_source {
-    GithubPipelineSource github_pipeline_source = 3;
+    GithubPipelineSource github_pipeline_source = 4;
   }
 }
 
@@ -129,7 +130,7 @@ message UpdatePipelineSourceRequest {
   PipelineSource pipeline_source = 1;
 }
 
-message DeletePipelineSourceRequest {
+message ArchivePipelineSourceRequest {
   string pipeline_source_id = 1;
 }
 
@@ -167,9 +168,9 @@ service Api {
   rpc CreatePipelineSource(CreatePipelineSourceRequest) returns (PipelineSource) {}
   rpc GetPipelineSource(GetPipelineSourceRequest) returns (PipelineSource) {}
   rpc UpdatePipelineSource(UpdatePipelineSourceRequest) returns (PipelineSource) {}
-  rpc DeletePipelineSource(DeletePipelineSourceRequest) returns (google.protobuf.Empty) {}
+  rpc ArchivePipelineSource(ArchivePipelineSourceRequest) returns (google.protobuf.Empty) {}
   rpc ListPipelineSources(ListPipelineSourcesRequest) returns (PipelineSources) {}
-  rpc GetPipeline(GetPipelineRequest) returns (Pipeline) {} 
+  rpc CreateAndGetPipeline(GetPipelineRequest) returns (Pipeline) {} 
   rpc CreatePipelineRun(CreatePipelineRunRequest) returns (PipelineRun) {}
   rpc StartPipelineRun(StartPipelineRunRequest) returns (google.protobuf.Empty) {}
   rpc ListPipelineRuns(ListPipelineRunsRequest) returns (PipelineRuns) {}

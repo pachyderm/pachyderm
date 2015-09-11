@@ -4,20 +4,20 @@ import "github.com/pachyderm/pachyderm/src/pps"
 
 type Client interface {
 	Close() error
-	AddPipelineRun(pipelineRun *pps.PipelineRun) error
+	CreatePipelineRun(pipelineRun *pps.PipelineRun) error
 	GetPipelineRun(id string) (*pps.PipelineRun, error)
-	AddPipelineRunStatus(id string, statusType pps.PipelineRunStatusType) error
+	CreatePipelineRunStatus(id string, statusType pps.PipelineRunStatusType) error
 	GetAllPipelineRunStatuses(id string) ([]*pps.PipelineRunStatus, error)
-	AddPipelineRunContainers(pipelineContainers ...*pps.PipelineRunContainer) error
+	CreatePipelineRunContainers(pipelineContainers ...*pps.PipelineRunContainer) error
 	GetPipelineRunContainers(id string) ([]*pps.PipelineRunContainer, error)
-	AddPipelineRunLogs(pipelineRunLogs ...*pps.PipelineRunLog) error
+	CreatePipelineRunLogs(pipelineRunLogs ...*pps.PipelineRunLog) error
 	GetPipelineRunLogs(id string) ([]*pps.PipelineRunLog, error)
-	AddPfsCommitMapping(pfsCommitMapping *pps.PfsCommitMapping) error
+	CreatePfsCommitMapping(pfsCommitMapping *pps.PfsCommitMapping) error
 	GetPfsCommitMappingLatest(inputRepository string, inputCommitID string) (*pps.PfsCommitMapping, error)
-	AddPipelineSource(pipelineSource *pps.PipelineSource) error
+	CreatePipelineSource(pipelineSource *pps.PipelineSource) error
 	GetPipelineSource(id string) (*pps.PipelineSource, error)
 	UpdatePipelineSource(pipelineSource *pps.PipelineSource) error
-	DeletePipelineSource(id string) error
+	ArchivePipelineSource(id string) error
 	GetAllPipelineSources() ([]*pps.PipelineSource, error)
 }
 

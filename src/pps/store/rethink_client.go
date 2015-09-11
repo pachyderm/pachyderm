@@ -30,7 +30,7 @@ var (
 // InitDBs should only be run once per instance of RethinkDB, it will error if
 // it's called a second time.
 func InitDBs(address string, databaseName string) error {
-	session, err := gorethink.Connect(gorethink.ConnectOpts{Address: address})
+	session, err := gorethink.Connect(gorethink.ConnectOpts{Createress: address})
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ type rethinkClient struct {
 }
 
 func newRethinkClient(address string, databaseName string) (*rethinkClient, error) {
-	session, err := gorethink.Connect(gorethink.ConnectOpts{Address: address})
+	session, err := gorethink.Connect(gorethink.ConnectOpts{Createress: address})
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (c *rethinkClient) Close() error {
 	return c.session.Close()
 }
 
-func (c *rethinkClient) AddPipelineRun(pipelineRun *pps.PipelineRun) error {
+func (c *rethinkClient) CreatePipelineRun(pipelineRun *pps.PipelineRun) error {
 	data, err := marshaller.MarshalToString(pipelineRun)
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func (c *rethinkClient) GetPipelineRun(id string) (*pps.PipelineRun, error) {
 	return &pipelineRun, nil
 }
 
-func (c *rethinkClient) AddPipelineRunStatus(id string, statusType pps.PipelineRunStatusType) error {
+func (c *rethinkClient) CreatePipelineRunStatus(id string, statusType pps.PipelineRunStatusType) error {
 	runStatus := &pps.PipelineRunStatus{
 		PipelineRunId:         id,
 		PipelineRunStatusType: statusType,
@@ -174,7 +174,7 @@ func (c *rethinkClient) GetAllPipelineRunStatuses(id string) ([]*pps.PipelineRun
 	return pipelineRunStatuses, cursor.Err()
 }
 
-func (c *rethinkClient) AddPipelineRunContainers(containers ...*pps.PipelineRunContainer) error {
+func (c *rethinkClient) CreatePipelineRunContainers(containers ...*pps.PipelineRunContainer) error {
 	var pipelineContainers []gorethink.Term
 	for _, pipelineContainer := range containers {
 		data, err := marshaller.MarshalToString(pipelineContainer)
@@ -216,7 +216,7 @@ func (c *rethinkClient) GetPipelineRunContainers(id string) ([]*pps.PipelineRunC
 	return result, nil
 }
 
-func (c *rethinkClient) AddPipelineRunLogs(logs ...*pps.PipelineRunLog) error {
+func (c *rethinkClient) CreatePipelineRunLogs(logs ...*pps.PipelineRunLog) error {
 	var pipelineLogs []gorethink.Term
 	for _, pipelineLog := range logs {
 		data, err := marshaller.MarshalToString(pipelineLog)
@@ -258,7 +258,7 @@ func (c *rethinkClient) GetPipelineRunLogs(id string) ([]*pps.PipelineRunLog, er
 	return result, nil
 }
 
-func (c *rethinkClient) AddPfsCommitMapping(pfsCommitMapping *pps.PfsCommitMapping) error {
+func (c *rethinkClient) CreatePfsCommitMapping(pfsCommitMapping *pps.PfsCommitMapping) error {
 	data, err := marshaller.MarshalToString(pfsCommitMapping)
 	if err != nil {
 		return err
@@ -296,7 +296,7 @@ func (c *rethinkClient) GetPfsCommitMappingLatest(inputRepositoryName string, in
 	return getPfsCommitMappingLatestInMemory(result, inputRepositoryName)
 }
 
-func (c *rethinkClient) AddPipelineSource(pipelineSource *pps.PipelineSource) error {
+func (c *rethinkClient) CreatePipelineSource(pipelineSource *pps.PipelineSource) error {
 	return c.addMessage(c.pipelineSources, pipelineSource)
 }
 
@@ -312,7 +312,8 @@ func (c *rethinkClient) UpdatePipelineSource(pipelineSource *pps.PipelineSource)
 	return errors.New("not implemented")
 }
 
-func (c *rethinkClient) DeletePipelineSource(id string) error {
+func (c *rethinkClient) ArchivePipelineSource(id string) error {
+	// TODO(pedge): do not delete
 	_, err := c.pipelineSources.Get(id).Delete().RunWrite(c.session)
 	return err
 }

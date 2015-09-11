@@ -28,7 +28,7 @@ It has these top-level messages:
 	CreatePipelineSourceRequest
 	GetPipelineSourceRequest
 	UpdatePipelineSourceRequest
-	DeletePipelineSourceRequest
+	ArchivePipelineSourceRequest
 	ListPipelineSourcesRequest
 	GetPipelineRequest
 	CreatePipelineRunRequest
@@ -228,8 +228,9 @@ func (m *GithubPipelineSource) String() string { return proto.CompactTextString(
 func (*GithubPipelineSource) ProtoMessage()    {}
 
 type PipelineSource struct {
-	Id   string            `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Tags map[string]string `protobuf:"bytes,2,rep,name=tags" json:"tags,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Id       string            `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Tags     map[string]string `protobuf:"bytes,2,rep,name=tags" json:"tags,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Archived bool              `protobuf:"varint,3,opt,name=archived" json:"archived,omitempty"`
 	// Types that are valid to be assigned to TypedPipelineSource:
 	//	*PipelineSource_GithubPipelineSource
 	TypedPipelineSource isPipelineSource_TypedPipelineSource `protobuf_oneof:"typed_pipeline_source"`
@@ -244,7 +245,7 @@ type isPipelineSource_TypedPipelineSource interface {
 }
 
 type PipelineSource_GithubPipelineSource struct {
-	GithubPipelineSource *GithubPipelineSource `protobuf:"bytes,3,opt,name=github_pipeline_source"`
+	GithubPipelineSource *GithubPipelineSource `protobuf:"bytes,4,opt,name=github_pipeline_source"`
 }
 
 func (*PipelineSource_GithubPipelineSource) isPipelineSource_TypedPipelineSource() {}
@@ -282,7 +283,7 @@ func _PipelineSource_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	// typed_pipeline_source
 	switch x := m.TypedPipelineSource.(type) {
 	case *PipelineSource_GithubPipelineSource:
-		b.EncodeVarint(3<<3 | proto.WireBytes)
+		b.EncodeVarint(4<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.GithubPipelineSource); err != nil {
 			return err
 		}
@@ -296,7 +297,7 @@ func _PipelineSource_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 func _PipelineSource_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
 	m := msg.(*PipelineSource)
 	switch tag {
-	case 3: // typed_pipeline_source.github_pipeline_source
+	case 4: // typed_pipeline_source.github_pipeline_source
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -482,13 +483,13 @@ func (m *UpdatePipelineSourceRequest) GetPipelineSource() *PipelineSource {
 	return nil
 }
 
-type DeletePipelineSourceRequest struct {
+type ArchivePipelineSourceRequest struct {
 	PipelineSourceId string `protobuf:"bytes,1,opt,name=pipeline_source_id" json:"pipeline_source_id,omitempty"`
 }
 
-func (m *DeletePipelineSourceRequest) Reset()         { *m = DeletePipelineSourceRequest{} }
-func (m *DeletePipelineSourceRequest) String() string { return proto.CompactTextString(m) }
-func (*DeletePipelineSourceRequest) ProtoMessage()    {}
+func (m *ArchivePipelineSourceRequest) Reset()         { *m = ArchivePipelineSourceRequest{} }
+func (m *ArchivePipelineSourceRequest) String() string { return proto.CompactTextString(m) }
+func (*ArchivePipelineSourceRequest) ProtoMessage()    {}
 
 type ListPipelineSourcesRequest struct {
 	Tags map[string]string `protobuf:"bytes,1,rep,name=tags" json:"tags,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -570,9 +571,9 @@ type ApiClient interface {
 	CreatePipelineSource(ctx context.Context, in *CreatePipelineSourceRequest, opts ...grpc.CallOption) (*PipelineSource, error)
 	GetPipelineSource(ctx context.Context, in *GetPipelineSourceRequest, opts ...grpc.CallOption) (*PipelineSource, error)
 	UpdatePipelineSource(ctx context.Context, in *UpdatePipelineSourceRequest, opts ...grpc.CallOption) (*PipelineSource, error)
-	DeletePipelineSource(ctx context.Context, in *DeletePipelineSourceRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	ArchivePipelineSource(ctx context.Context, in *ArchivePipelineSourceRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	ListPipelineSources(ctx context.Context, in *ListPipelineSourcesRequest, opts ...grpc.CallOption) (*PipelineSources, error)
-	GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
+	CreateAndGetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
 	CreatePipelineRun(ctx context.Context, in *CreatePipelineRunRequest, opts ...grpc.CallOption) (*PipelineRun, error)
 	StartPipelineRun(ctx context.Context, in *StartPipelineRunRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	ListPipelineRuns(ctx context.Context, in *ListPipelineRunsRequest, opts ...grpc.CallOption) (*PipelineRuns, error)
@@ -615,9 +616,9 @@ func (c *apiClient) UpdatePipelineSource(ctx context.Context, in *UpdatePipeline
 	return out, nil
 }
 
-func (c *apiClient) DeletePipelineSource(ctx context.Context, in *DeletePipelineSourceRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+func (c *apiClient) ArchivePipelineSource(ctx context.Context, in *ArchivePipelineSourceRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
 	out := new(google_protobuf.Empty)
-	err := grpc.Invoke(ctx, "/pps.Api/DeletePipelineSource", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pps.Api/ArchivePipelineSource", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -633,9 +634,9 @@ func (c *apiClient) ListPipelineSources(ctx context.Context, in *ListPipelineSou
 	return out, nil
 }
 
-func (c *apiClient) GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
+func (c *apiClient) CreateAndGetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
 	out := new(Pipeline)
-	err := grpc.Invoke(ctx, "/pps.Api/GetPipeline", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pps.Api/CreateAndGetPipeline", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -693,9 +694,9 @@ type ApiServer interface {
 	CreatePipelineSource(context.Context, *CreatePipelineSourceRequest) (*PipelineSource, error)
 	GetPipelineSource(context.Context, *GetPipelineSourceRequest) (*PipelineSource, error)
 	UpdatePipelineSource(context.Context, *UpdatePipelineSourceRequest) (*PipelineSource, error)
-	DeletePipelineSource(context.Context, *DeletePipelineSourceRequest) (*google_protobuf.Empty, error)
+	ArchivePipelineSource(context.Context, *ArchivePipelineSourceRequest) (*google_protobuf.Empty, error)
 	ListPipelineSources(context.Context, *ListPipelineSourcesRequest) (*PipelineSources, error)
-	GetPipeline(context.Context, *GetPipelineRequest) (*Pipeline, error)
+	CreateAndGetPipeline(context.Context, *GetPipelineRequest) (*Pipeline, error)
 	CreatePipelineRun(context.Context, *CreatePipelineRunRequest) (*PipelineRun, error)
 	StartPipelineRun(context.Context, *StartPipelineRunRequest) (*google_protobuf.Empty, error)
 	ListPipelineRuns(context.Context, *ListPipelineRunsRequest) (*PipelineRuns, error)
@@ -743,12 +744,12 @@ func _Api_UpdatePipelineSource_Handler(srv interface{}, ctx context.Context, cod
 	return out, nil
 }
 
-func _Api_DeletePipelineSource_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(DeletePipelineSourceRequest)
+func _Api_ArchivePipelineSource_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(ArchivePipelineSourceRequest)
 	if err := codec.Unmarshal(buf, in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).DeletePipelineSource(ctx, in)
+	out, err := srv.(ApiServer).ArchivePipelineSource(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -767,12 +768,12 @@ func _Api_ListPipelineSources_Handler(srv interface{}, ctx context.Context, code
 	return out, nil
 }
 
-func _Api_GetPipeline_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_CreateAndGetPipeline_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
 	in := new(GetPipelineRequest)
 	if err := codec.Unmarshal(buf, in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).GetPipeline(ctx, in)
+	out, err := srv.(ApiServer).CreateAndGetPipeline(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -856,16 +857,16 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_UpdatePipelineSource_Handler,
 		},
 		{
-			MethodName: "DeletePipelineSource",
-			Handler:    _Api_DeletePipelineSource_Handler,
+			MethodName: "ArchivePipelineSource",
+			Handler:    _Api_ArchivePipelineSource_Handler,
 		},
 		{
 			MethodName: "ListPipelineSources",
 			Handler:    _Api_ListPipelineSources_Handler,
 		},
 		{
-			MethodName: "GetPipeline",
-			Handler:    _Api_GetPipeline_Handler,
+			MethodName: "CreateAndGetPipeline",
+			Handler:    _Api_CreateAndGetPipeline_Handler,
 		},
 		{
 			MethodName: "CreatePipelineRun",
