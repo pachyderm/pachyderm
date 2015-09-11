@@ -120,7 +120,7 @@ func (b *brancher) CommitOutstanding() error {
 			return err
 		}
 		for inputRepositoryCommit := range b.outputRepositoryToInputRepositories[repositoryName] {
-			if err := b.storeClient.AddPfsCommitMapping(
+			if err := b.storeClient.CreatePfsCommitMapping(
 				&pps.PfsCommitMapping{
 					InputRepository:  inputRepositoryCommit.repositoryName,
 					InputCommitId:    inputRepositoryCommit.commitID,

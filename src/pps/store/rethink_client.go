@@ -30,7 +30,7 @@ var (
 // InitDBs should only be run once per instance of RethinkDB, it will error if
 // it's called a second time.
 func InitDBs(address string, databaseName string) error {
-	session, err := gorethink.Connect(gorethink.ConnectOpts{Createress: address})
+	session, err := gorethink.Connect(gorethink.ConnectOpts{Address: address})
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ type rethinkClient struct {
 }
 
 func newRethinkClient(address string, databaseName string) (*rethinkClient, error) {
-	session, err := gorethink.Connect(gorethink.ConnectOpts{Createress: address})
+	session, err := gorethink.Connect(gorethink.ConnectOpts{Address: address})
 	if err != nil {
 		return nil, err
 	}
