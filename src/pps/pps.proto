@@ -67,15 +67,27 @@ message PipelineSource {
   }
 }
 
+message PipelineSources {
+  repeated PipelineSource pipeline_source = 1;
+}
+
 message PipelineRun {
   string id = 1;
   string pipeline_id = 2;
+}
+
+message PipelineRuns {
+  repeated PipelineRun pipeline_run = 1;
 }
 
 message PipelineRunStatus {
   string pipeline_run_id = 1;
   PipelineRunStatusType pipeline_run_status_type = 2;
   google.protobuf.Timestamp timestamp = 3;
+}
+
+message PipelineRunStatuses {
+  repeated PipelineRunStatus pipeline_run_status = 1;
 }
 
 message PipelineRunContainer {
@@ -93,6 +105,10 @@ message PipelineRunLog {
   bytes data = 6;
 }
 
+message PipelineRunLogs {
+  repeated PipelineRunLog pipeline_run_log = 1;
+}
+
 message PfsCommitMapping {
   string input_repository = 1;
   string input_commit_id = 2;
@@ -105,23 +121,11 @@ message CreatePipelineSourceRequest {
   PipelineSource pipeline_source = 1;
 }
 
-message CreatePipelineSourceResponse {
-  PipelineSource pipeline_source = 1;
-}
-
 message GetPipelineSourceRequest {
   string pipeline_source_id = 1;
 }
 
-message GetPipelineSourceResponse {
-  PipelineSource pipeline_source = 1;
-}
-
 message UpdatePipelineSourceRequest {
-  PipelineSource pipeline_source = 1;
-}
-
-message UpdatePipelineSourceResponse {
   PipelineSource pipeline_source = 1;
 }
 
@@ -133,24 +137,12 @@ message ListPipelineSourcesRequest {
   map<string, string> tags = 1;
 }
 
-message ListPipelineSourcesResponse {
-  repeated PipelineSource pipeline_source = 1;
-}
-
 message GetPipelineRequest {
   string pipeline_source_id = 1;
 }
 
-message GetPipelineResponse {
-  Pipeline pipeline = 1;
-}
-
 message CreatePipelineRunRequest {
   string pipeline_id = 1;
-}
-
-message CreatePipelineRunResponse {
-  PipelineRun pipeline_run = 1;
 }
 
 message StartPipelineRunRequest {
@@ -161,17 +153,9 @@ message ListPipelineRunsRequest {
   string pipeline_source_id = 1;
 }
 
-message ListPipelineRunsResponse {
-  repeated PipelineRun pipeline_run = 1;
-}
-
 message GetPipelineRunStatusRequest {
   string pipeline_run_id = 1;
   bool all = 2;
-}
-
-message GetPipelineRunStatusResponse {
-  repeated PipelineRunStatus pipeline_run_status = 1;
 }
 
 message GetPipelineRunLogsRequest {
@@ -179,20 +163,16 @@ message GetPipelineRunLogsRequest {
   string node = 2;
 }
 
-message GetPipelineRunLogsResponse {
-  repeated PipelineRunLog pipeline_run_log = 1;
-}
-
 service Api {
-  rpc CreatePipelineSource(CreatePipelineSourceRequest) returns (CreatePipelineSourceResponse) {}
-  rpc GetPipelineSource(GetPipelineSourceRequest) returns (GetPipelineSourceResponse) {}
-  rpc UpdatePipelineSource(UpdatePipelineSourceRequest) returns (UpdatePipelineSourceResponse) {}
+  rpc CreatePipelineSource(CreatePipelineSourceRequest) returns (PipelineSource) {}
+  rpc GetPipelineSource(GetPipelineSourceRequest) returns (PipelineSource) {}
+  rpc UpdatePipelineSource(UpdatePipelineSourceRequest) returns (PipelineSource) {}
   rpc DeletePipelineSource(DeletePipelineSourceRequest) returns (google.protobuf.Empty) {}
-  rpc ListPipelineSources(ListPipelineSourcesRequest) returns (ListPipelineSourcesResponse) {}
-  rpc GetPipeline(GetPipelineRequest) returns (GetPipelineResponse) {} 
-  rpc CreatePipelineRun(CreatePipelineRunRequest) returns (CreatePipelineRunResponse) {}
+  rpc ListPipelineSources(ListPipelineSourcesRequest) returns (PipelineSources) {}
+  rpc GetPipeline(GetPipelineRequest) returns (Pipeline) {} 
+  rpc CreatePipelineRun(CreatePipelineRunRequest) returns (PipelineRun) {}
   rpc StartPipelineRun(StartPipelineRunRequest) returns (google.protobuf.Empty) {}
-  rpc ListPipelineRuns(ListPipelineRunsRequest) returns (ListPipelineRunsResponse) {}
-  rpc GetPipelineRunStatus(GetPipelineRunStatusRequest) returns (GetPipelineRunStatusResponse) {}
-  rpc GetPipelineRunLogs(GetPipelineRunLogsRequest) returns (GetPipelineRunLogsResponse) {}
+  rpc ListPipelineRuns(ListPipelineRunsRequest) returns (PipelineRuns) {}
+  rpc GetPipelineRunStatus(GetPipelineRunStatusRequest) returns (PipelineRunStatuses) {}
+  rpc GetPipelineRunLogs(GetPipelineRunLogsRequest) returns (PipelineRunLogs) {}
 }

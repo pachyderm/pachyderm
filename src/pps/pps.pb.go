@@ -16,31 +16,26 @@ It has these top-level messages:
 	Pipeline
 	GithubPipelineSource
 	PipelineSource
+	PipelineSources
 	PipelineRun
+	PipelineRuns
 	PipelineRunStatus
+	PipelineRunStatuses
 	PipelineRunContainer
 	PipelineRunLog
+	PipelineRunLogs
 	PfsCommitMapping
 	CreatePipelineSourceRequest
-	CreatePipelineSourceResponse
 	GetPipelineSourceRequest
-	GetPipelineSourceResponse
 	UpdatePipelineSourceRequest
-	UpdatePipelineSourceResponse
 	DeletePipelineSourceRequest
 	ListPipelineSourcesRequest
-	ListPipelineSourcesResponse
 	GetPipelineRequest
-	GetPipelineResponse
 	CreatePipelineRunRequest
-	CreatePipelineRunResponse
 	StartPipelineRunRequest
 	ListPipelineRunsRequest
-	ListPipelineRunsResponse
 	GetPipelineRunStatusRequest
-	GetPipelineRunStatusResponse
 	GetPipelineRunLogsRequest
-	GetPipelineRunLogsResponse
 */
 package pps
 
@@ -314,6 +309,21 @@ func _PipelineSource_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto
 	}
 }
 
+type PipelineSources struct {
+	PipelineSource []*PipelineSource `protobuf:"bytes,1,rep,name=pipeline_source" json:"pipeline_source,omitempty"`
+}
+
+func (m *PipelineSources) Reset()         { *m = PipelineSources{} }
+func (m *PipelineSources) String() string { return proto.CompactTextString(m) }
+func (*PipelineSources) ProtoMessage()    {}
+
+func (m *PipelineSources) GetPipelineSource() []*PipelineSource {
+	if m != nil {
+		return m.PipelineSource
+	}
+	return nil
+}
+
 type PipelineRun struct {
 	Id         string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
 	PipelineId string `protobuf:"bytes,2,opt,name=pipeline_id" json:"pipeline_id,omitempty"`
@@ -322,6 +332,21 @@ type PipelineRun struct {
 func (m *PipelineRun) Reset()         { *m = PipelineRun{} }
 func (m *PipelineRun) String() string { return proto.CompactTextString(m) }
 func (*PipelineRun) ProtoMessage()    {}
+
+type PipelineRuns struct {
+	PipelineRun []*PipelineRun `protobuf:"bytes,1,rep,name=pipeline_run" json:"pipeline_run,omitempty"`
+}
+
+func (m *PipelineRuns) Reset()         { *m = PipelineRuns{} }
+func (m *PipelineRuns) String() string { return proto.CompactTextString(m) }
+func (*PipelineRuns) ProtoMessage()    {}
+
+func (m *PipelineRuns) GetPipelineRun() []*PipelineRun {
+	if m != nil {
+		return m.PipelineRun
+	}
+	return nil
+}
 
 type PipelineRunStatus struct {
 	PipelineRunId         string                      `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
@@ -336,6 +361,21 @@ func (*PipelineRunStatus) ProtoMessage()    {}
 func (m *PipelineRunStatus) GetTimestamp() *google_protobuf1.Timestamp {
 	if m != nil {
 		return m.Timestamp
+	}
+	return nil
+}
+
+type PipelineRunStatuses struct {
+	PipelineRunStatus []*PipelineRunStatus `protobuf:"bytes,1,rep,name=pipeline_run_status" json:"pipeline_run_status,omitempty"`
+}
+
+func (m *PipelineRunStatuses) Reset()         { *m = PipelineRunStatuses{} }
+func (m *PipelineRunStatuses) String() string { return proto.CompactTextString(m) }
+func (*PipelineRunStatuses) ProtoMessage()    {}
+
+func (m *PipelineRunStatuses) GetPipelineRunStatus() []*PipelineRunStatus {
+	if m != nil {
+		return m.PipelineRunStatus
 	}
 	return nil
 }
@@ -366,6 +406,21 @@ func (*PipelineRunLog) ProtoMessage()    {}
 func (m *PipelineRunLog) GetTimestamp() *google_protobuf1.Timestamp {
 	if m != nil {
 		return m.Timestamp
+	}
+	return nil
+}
+
+type PipelineRunLogs struct {
+	PipelineRunLog []*PipelineRunLog `protobuf:"bytes,1,rep,name=pipeline_run_log" json:"pipeline_run_log,omitempty"`
+}
+
+func (m *PipelineRunLogs) Reset()         { *m = PipelineRunLogs{} }
+func (m *PipelineRunLogs) String() string { return proto.CompactTextString(m) }
+func (*PipelineRunLogs) ProtoMessage()    {}
+
+func (m *PipelineRunLogs) GetPipelineRunLog() []*PipelineRunLog {
+	if m != nil {
+		return m.PipelineRunLog
 	}
 	return nil
 }
@@ -404,21 +459,6 @@ func (m *CreatePipelineSourceRequest) GetPipelineSource() *PipelineSource {
 	return nil
 }
 
-type CreatePipelineSourceResponse struct {
-	PipelineSource *PipelineSource `protobuf:"bytes,1,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
-}
-
-func (m *CreatePipelineSourceResponse) Reset()         { *m = CreatePipelineSourceResponse{} }
-func (m *CreatePipelineSourceResponse) String() string { return proto.CompactTextString(m) }
-func (*CreatePipelineSourceResponse) ProtoMessage()    {}
-
-func (m *CreatePipelineSourceResponse) GetPipelineSource() *PipelineSource {
-	if m != nil {
-		return m.PipelineSource
-	}
-	return nil
-}
-
 type GetPipelineSourceRequest struct {
 	PipelineSourceId string `protobuf:"bytes,1,opt,name=pipeline_source_id" json:"pipeline_source_id,omitempty"`
 }
@@ -426,21 +466,6 @@ type GetPipelineSourceRequest struct {
 func (m *GetPipelineSourceRequest) Reset()         { *m = GetPipelineSourceRequest{} }
 func (m *GetPipelineSourceRequest) String() string { return proto.CompactTextString(m) }
 func (*GetPipelineSourceRequest) ProtoMessage()    {}
-
-type GetPipelineSourceResponse struct {
-	PipelineSource *PipelineSource `protobuf:"bytes,1,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
-}
-
-func (m *GetPipelineSourceResponse) Reset()         { *m = GetPipelineSourceResponse{} }
-func (m *GetPipelineSourceResponse) String() string { return proto.CompactTextString(m) }
-func (*GetPipelineSourceResponse) ProtoMessage()    {}
-
-func (m *GetPipelineSourceResponse) GetPipelineSource() *PipelineSource {
-	if m != nil {
-		return m.PipelineSource
-	}
-	return nil
-}
 
 type UpdatePipelineSourceRequest struct {
 	PipelineSource *PipelineSource `protobuf:"bytes,1,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
@@ -451,21 +476,6 @@ func (m *UpdatePipelineSourceRequest) String() string { return proto.CompactText
 func (*UpdatePipelineSourceRequest) ProtoMessage()    {}
 
 func (m *UpdatePipelineSourceRequest) GetPipelineSource() *PipelineSource {
-	if m != nil {
-		return m.PipelineSource
-	}
-	return nil
-}
-
-type UpdatePipelineSourceResponse struct {
-	PipelineSource *PipelineSource `protobuf:"bytes,1,opt,name=pipeline_source" json:"pipeline_source,omitempty"`
-}
-
-func (m *UpdatePipelineSourceResponse) Reset()         { *m = UpdatePipelineSourceResponse{} }
-func (m *UpdatePipelineSourceResponse) String() string { return proto.CompactTextString(m) }
-func (*UpdatePipelineSourceResponse) ProtoMessage()    {}
-
-func (m *UpdatePipelineSourceResponse) GetPipelineSource() *PipelineSource {
 	if m != nil {
 		return m.PipelineSource
 	}
@@ -495,21 +505,6 @@ func (m *ListPipelineSourcesRequest) GetTags() map[string]string {
 	return nil
 }
 
-type ListPipelineSourcesResponse struct {
-	PipelineSource []*PipelineSource `protobuf:"bytes,1,rep,name=pipeline_source" json:"pipeline_source,omitempty"`
-}
-
-func (m *ListPipelineSourcesResponse) Reset()         { *m = ListPipelineSourcesResponse{} }
-func (m *ListPipelineSourcesResponse) String() string { return proto.CompactTextString(m) }
-func (*ListPipelineSourcesResponse) ProtoMessage()    {}
-
-func (m *ListPipelineSourcesResponse) GetPipelineSource() []*PipelineSource {
-	if m != nil {
-		return m.PipelineSource
-	}
-	return nil
-}
-
 type GetPipelineRequest struct {
 	PipelineSourceId string `protobuf:"bytes,1,opt,name=pipeline_source_id" json:"pipeline_source_id,omitempty"`
 }
@@ -518,21 +513,6 @@ func (m *GetPipelineRequest) Reset()         { *m = GetPipelineRequest{} }
 func (m *GetPipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*GetPipelineRequest) ProtoMessage()    {}
 
-type GetPipelineResponse struct {
-	Pipeline *Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
-}
-
-func (m *GetPipelineResponse) Reset()         { *m = GetPipelineResponse{} }
-func (m *GetPipelineResponse) String() string { return proto.CompactTextString(m) }
-func (*GetPipelineResponse) ProtoMessage()    {}
-
-func (m *GetPipelineResponse) GetPipeline() *Pipeline {
-	if m != nil {
-		return m.Pipeline
-	}
-	return nil
-}
-
 type CreatePipelineRunRequest struct {
 	PipelineId string `protobuf:"bytes,1,opt,name=pipeline_id" json:"pipeline_id,omitempty"`
 }
@@ -540,21 +520,6 @@ type CreatePipelineRunRequest struct {
 func (m *CreatePipelineRunRequest) Reset()         { *m = CreatePipelineRunRequest{} }
 func (m *CreatePipelineRunRequest) String() string { return proto.CompactTextString(m) }
 func (*CreatePipelineRunRequest) ProtoMessage()    {}
-
-type CreatePipelineRunResponse struct {
-	PipelineRun *PipelineRun `protobuf:"bytes,1,opt,name=pipeline_run" json:"pipeline_run,omitempty"`
-}
-
-func (m *CreatePipelineRunResponse) Reset()         { *m = CreatePipelineRunResponse{} }
-func (m *CreatePipelineRunResponse) String() string { return proto.CompactTextString(m) }
-func (*CreatePipelineRunResponse) ProtoMessage()    {}
-
-func (m *CreatePipelineRunResponse) GetPipelineRun() *PipelineRun {
-	if m != nil {
-		return m.PipelineRun
-	}
-	return nil
-}
 
 type StartPipelineRunRequest struct {
 	PipelineRunId string `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
@@ -572,21 +537,6 @@ func (m *ListPipelineRunsRequest) Reset()         { *m = ListPipelineRunsRequest
 func (m *ListPipelineRunsRequest) String() string { return proto.CompactTextString(m) }
 func (*ListPipelineRunsRequest) ProtoMessage()    {}
 
-type ListPipelineRunsResponse struct {
-	PipelineRun []*PipelineRun `protobuf:"bytes,1,rep,name=pipeline_run" json:"pipeline_run,omitempty"`
-}
-
-func (m *ListPipelineRunsResponse) Reset()         { *m = ListPipelineRunsResponse{} }
-func (m *ListPipelineRunsResponse) String() string { return proto.CompactTextString(m) }
-func (*ListPipelineRunsResponse) ProtoMessage()    {}
-
-func (m *ListPipelineRunsResponse) GetPipelineRun() []*PipelineRun {
-	if m != nil {
-		return m.PipelineRun
-	}
-	return nil
-}
-
 type GetPipelineRunStatusRequest struct {
 	PipelineRunId string `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
 	All           bool   `protobuf:"varint,2,opt,name=all" json:"all,omitempty"`
@@ -596,21 +546,6 @@ func (m *GetPipelineRunStatusRequest) Reset()         { *m = GetPipelineRunStatu
 func (m *GetPipelineRunStatusRequest) String() string { return proto.CompactTextString(m) }
 func (*GetPipelineRunStatusRequest) ProtoMessage()    {}
 
-type GetPipelineRunStatusResponse struct {
-	PipelineRunStatus []*PipelineRunStatus `protobuf:"bytes,1,rep,name=pipeline_run_status" json:"pipeline_run_status,omitempty"`
-}
-
-func (m *GetPipelineRunStatusResponse) Reset()         { *m = GetPipelineRunStatusResponse{} }
-func (m *GetPipelineRunStatusResponse) String() string { return proto.CompactTextString(m) }
-func (*GetPipelineRunStatusResponse) ProtoMessage()    {}
-
-func (m *GetPipelineRunStatusResponse) GetPipelineRunStatus() []*PipelineRunStatus {
-	if m != nil {
-		return m.PipelineRunStatus
-	}
-	return nil
-}
-
 type GetPipelineRunLogsRequest struct {
 	PipelineRunId string `protobuf:"bytes,1,opt,name=pipeline_run_id" json:"pipeline_run_id,omitempty"`
 	Node          string `protobuf:"bytes,2,opt,name=node" json:"node,omitempty"`
@@ -619,21 +554,6 @@ type GetPipelineRunLogsRequest struct {
 func (m *GetPipelineRunLogsRequest) Reset()         { *m = GetPipelineRunLogsRequest{} }
 func (m *GetPipelineRunLogsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetPipelineRunLogsRequest) ProtoMessage()    {}
-
-type GetPipelineRunLogsResponse struct {
-	PipelineRunLog []*PipelineRunLog `protobuf:"bytes,1,rep,name=pipeline_run_log" json:"pipeline_run_log,omitempty"`
-}
-
-func (m *GetPipelineRunLogsResponse) Reset()         { *m = GetPipelineRunLogsResponse{} }
-func (m *GetPipelineRunLogsResponse) String() string { return proto.CompactTextString(m) }
-func (*GetPipelineRunLogsResponse) ProtoMessage()    {}
-
-func (m *GetPipelineRunLogsResponse) GetPipelineRunLog() []*PipelineRunLog {
-	if m != nil {
-		return m.PipelineRunLog
-	}
-	return nil
-}
 
 func init() {
 	proto.RegisterEnum("pps.PipelineRunStatusType", PipelineRunStatusType_name, PipelineRunStatusType_value)
@@ -647,17 +567,17 @@ var _ grpc.ClientConn
 // Client API for Api service
 
 type ApiClient interface {
-	CreatePipelineSource(ctx context.Context, in *CreatePipelineSourceRequest, opts ...grpc.CallOption) (*CreatePipelineSourceResponse, error)
-	GetPipelineSource(ctx context.Context, in *GetPipelineSourceRequest, opts ...grpc.CallOption) (*GetPipelineSourceResponse, error)
-	UpdatePipelineSource(ctx context.Context, in *UpdatePipelineSourceRequest, opts ...grpc.CallOption) (*UpdatePipelineSourceResponse, error)
+	CreatePipelineSource(ctx context.Context, in *CreatePipelineSourceRequest, opts ...grpc.CallOption) (*PipelineSource, error)
+	GetPipelineSource(ctx context.Context, in *GetPipelineSourceRequest, opts ...grpc.CallOption) (*PipelineSource, error)
+	UpdatePipelineSource(ctx context.Context, in *UpdatePipelineSourceRequest, opts ...grpc.CallOption) (*PipelineSource, error)
 	DeletePipelineSource(ctx context.Context, in *DeletePipelineSourceRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
-	ListPipelineSources(ctx context.Context, in *ListPipelineSourcesRequest, opts ...grpc.CallOption) (*ListPipelineSourcesResponse, error)
-	GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*GetPipelineResponse, error)
-	CreatePipelineRun(ctx context.Context, in *CreatePipelineRunRequest, opts ...grpc.CallOption) (*CreatePipelineRunResponse, error)
+	ListPipelineSources(ctx context.Context, in *ListPipelineSourcesRequest, opts ...grpc.CallOption) (*PipelineSources, error)
+	GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
+	CreatePipelineRun(ctx context.Context, in *CreatePipelineRunRequest, opts ...grpc.CallOption) (*PipelineRun, error)
 	StartPipelineRun(ctx context.Context, in *StartPipelineRunRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
-	ListPipelineRuns(ctx context.Context, in *ListPipelineRunsRequest, opts ...grpc.CallOption) (*ListPipelineRunsResponse, error)
-	GetPipelineRunStatus(ctx context.Context, in *GetPipelineRunStatusRequest, opts ...grpc.CallOption) (*GetPipelineRunStatusResponse, error)
-	GetPipelineRunLogs(ctx context.Context, in *GetPipelineRunLogsRequest, opts ...grpc.CallOption) (*GetPipelineRunLogsResponse, error)
+	ListPipelineRuns(ctx context.Context, in *ListPipelineRunsRequest, opts ...grpc.CallOption) (*PipelineRuns, error)
+	GetPipelineRunStatus(ctx context.Context, in *GetPipelineRunStatusRequest, opts ...grpc.CallOption) (*PipelineRunStatuses, error)
+	GetPipelineRunLogs(ctx context.Context, in *GetPipelineRunLogsRequest, opts ...grpc.CallOption) (*PipelineRunLogs, error)
 }
 
 type apiClient struct {
@@ -668,8 +588,8 @@ func NewApiClient(cc *grpc.ClientConn) ApiClient {
 	return &apiClient{cc}
 }
 
-func (c *apiClient) CreatePipelineSource(ctx context.Context, in *CreatePipelineSourceRequest, opts ...grpc.CallOption) (*CreatePipelineSourceResponse, error) {
-	out := new(CreatePipelineSourceResponse)
+func (c *apiClient) CreatePipelineSource(ctx context.Context, in *CreatePipelineSourceRequest, opts ...grpc.CallOption) (*PipelineSource, error) {
+	out := new(PipelineSource)
 	err := grpc.Invoke(ctx, "/pps.Api/CreatePipelineSource", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -677,8 +597,8 @@ func (c *apiClient) CreatePipelineSource(ctx context.Context, in *CreatePipeline
 	return out, nil
 }
 
-func (c *apiClient) GetPipelineSource(ctx context.Context, in *GetPipelineSourceRequest, opts ...grpc.CallOption) (*GetPipelineSourceResponse, error) {
-	out := new(GetPipelineSourceResponse)
+func (c *apiClient) GetPipelineSource(ctx context.Context, in *GetPipelineSourceRequest, opts ...grpc.CallOption) (*PipelineSource, error) {
+	out := new(PipelineSource)
 	err := grpc.Invoke(ctx, "/pps.Api/GetPipelineSource", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -686,8 +606,8 @@ func (c *apiClient) GetPipelineSource(ctx context.Context, in *GetPipelineSource
 	return out, nil
 }
 
-func (c *apiClient) UpdatePipelineSource(ctx context.Context, in *UpdatePipelineSourceRequest, opts ...grpc.CallOption) (*UpdatePipelineSourceResponse, error) {
-	out := new(UpdatePipelineSourceResponse)
+func (c *apiClient) UpdatePipelineSource(ctx context.Context, in *UpdatePipelineSourceRequest, opts ...grpc.CallOption) (*PipelineSource, error) {
+	out := new(PipelineSource)
 	err := grpc.Invoke(ctx, "/pps.Api/UpdatePipelineSource", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -704,8 +624,8 @@ func (c *apiClient) DeletePipelineSource(ctx context.Context, in *DeletePipeline
 	return out, nil
 }
 
-func (c *apiClient) ListPipelineSources(ctx context.Context, in *ListPipelineSourcesRequest, opts ...grpc.CallOption) (*ListPipelineSourcesResponse, error) {
-	out := new(ListPipelineSourcesResponse)
+func (c *apiClient) ListPipelineSources(ctx context.Context, in *ListPipelineSourcesRequest, opts ...grpc.CallOption) (*PipelineSources, error) {
+	out := new(PipelineSources)
 	err := grpc.Invoke(ctx, "/pps.Api/ListPipelineSources", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -713,8 +633,8 @@ func (c *apiClient) ListPipelineSources(ctx context.Context, in *ListPipelineSou
 	return out, nil
 }
 
-func (c *apiClient) GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*GetPipelineResponse, error) {
-	out := new(GetPipelineResponse)
+func (c *apiClient) GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
+	out := new(Pipeline)
 	err := grpc.Invoke(ctx, "/pps.Api/GetPipeline", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -722,8 +642,8 @@ func (c *apiClient) GetPipeline(ctx context.Context, in *GetPipelineRequest, opt
 	return out, nil
 }
 
-func (c *apiClient) CreatePipelineRun(ctx context.Context, in *CreatePipelineRunRequest, opts ...grpc.CallOption) (*CreatePipelineRunResponse, error) {
-	out := new(CreatePipelineRunResponse)
+func (c *apiClient) CreatePipelineRun(ctx context.Context, in *CreatePipelineRunRequest, opts ...grpc.CallOption) (*PipelineRun, error) {
+	out := new(PipelineRun)
 	err := grpc.Invoke(ctx, "/pps.Api/CreatePipelineRun", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -740,8 +660,8 @@ func (c *apiClient) StartPipelineRun(ctx context.Context, in *StartPipelineRunRe
 	return out, nil
 }
 
-func (c *apiClient) ListPipelineRuns(ctx context.Context, in *ListPipelineRunsRequest, opts ...grpc.CallOption) (*ListPipelineRunsResponse, error) {
-	out := new(ListPipelineRunsResponse)
+func (c *apiClient) ListPipelineRuns(ctx context.Context, in *ListPipelineRunsRequest, opts ...grpc.CallOption) (*PipelineRuns, error) {
+	out := new(PipelineRuns)
 	err := grpc.Invoke(ctx, "/pps.Api/ListPipelineRuns", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -749,8 +669,8 @@ func (c *apiClient) ListPipelineRuns(ctx context.Context, in *ListPipelineRunsRe
 	return out, nil
 }
 
-func (c *apiClient) GetPipelineRunStatus(ctx context.Context, in *GetPipelineRunStatusRequest, opts ...grpc.CallOption) (*GetPipelineRunStatusResponse, error) {
-	out := new(GetPipelineRunStatusResponse)
+func (c *apiClient) GetPipelineRunStatus(ctx context.Context, in *GetPipelineRunStatusRequest, opts ...grpc.CallOption) (*PipelineRunStatuses, error) {
+	out := new(PipelineRunStatuses)
 	err := grpc.Invoke(ctx, "/pps.Api/GetPipelineRunStatus", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -758,8 +678,8 @@ func (c *apiClient) GetPipelineRunStatus(ctx context.Context, in *GetPipelineRun
 	return out, nil
 }
 
-func (c *apiClient) GetPipelineRunLogs(ctx context.Context, in *GetPipelineRunLogsRequest, opts ...grpc.CallOption) (*GetPipelineRunLogsResponse, error) {
-	out := new(GetPipelineRunLogsResponse)
+func (c *apiClient) GetPipelineRunLogs(ctx context.Context, in *GetPipelineRunLogsRequest, opts ...grpc.CallOption) (*PipelineRunLogs, error) {
+	out := new(PipelineRunLogs)
 	err := grpc.Invoke(ctx, "/pps.Api/GetPipelineRunLogs", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -770,17 +690,17 @@ func (c *apiClient) GetPipelineRunLogs(ctx context.Context, in *GetPipelineRunLo
 // Server API for Api service
 
 type ApiServer interface {
-	CreatePipelineSource(context.Context, *CreatePipelineSourceRequest) (*CreatePipelineSourceResponse, error)
-	GetPipelineSource(context.Context, *GetPipelineSourceRequest) (*GetPipelineSourceResponse, error)
-	UpdatePipelineSource(context.Context, *UpdatePipelineSourceRequest) (*UpdatePipelineSourceResponse, error)
+	CreatePipelineSource(context.Context, *CreatePipelineSourceRequest) (*PipelineSource, error)
+	GetPipelineSource(context.Context, *GetPipelineSourceRequest) (*PipelineSource, error)
+	UpdatePipelineSource(context.Context, *UpdatePipelineSourceRequest) (*PipelineSource, error)
 	DeletePipelineSource(context.Context, *DeletePipelineSourceRequest) (*google_protobuf.Empty, error)
-	ListPipelineSources(context.Context, *ListPipelineSourcesRequest) (*ListPipelineSourcesResponse, error)
-	GetPipeline(context.Context, *GetPipelineRequest) (*GetPipelineResponse, error)
-	CreatePipelineRun(context.Context, *CreatePipelineRunRequest) (*CreatePipelineRunResponse, error)
+	ListPipelineSources(context.Context, *ListPipelineSourcesRequest) (*PipelineSources, error)
+	GetPipeline(context.Context, *GetPipelineRequest) (*Pipeline, error)
+	CreatePipelineRun(context.Context, *CreatePipelineRunRequest) (*PipelineRun, error)
 	StartPipelineRun(context.Context, *StartPipelineRunRequest) (*google_protobuf.Empty, error)
-	ListPipelineRuns(context.Context, *ListPipelineRunsRequest) (*ListPipelineRunsResponse, error)
-	GetPipelineRunStatus(context.Context, *GetPipelineRunStatusRequest) (*GetPipelineRunStatusResponse, error)
-	GetPipelineRunLogs(context.Context, *GetPipelineRunLogsRequest) (*GetPipelineRunLogsResponse, error)
+	ListPipelineRuns(context.Context, *ListPipelineRunsRequest) (*PipelineRuns, error)
+	GetPipelineRunStatus(context.Context, *GetPipelineRunStatusRequest) (*PipelineRunStatuses, error)
+	GetPipelineRunLogs(context.Context, *GetPipelineRunLogsRequest) (*PipelineRunLogs, error)
 }
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
