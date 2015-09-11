@@ -3,13 +3,12 @@ package run
 import (
 	"github.com/pachyderm/pachyderm/src/pkg/graph"
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
-	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
 	"github.com/pachyderm/pachyderm/src/pps/store"
 )
 
 type Runner interface {
-	Start(pipelineRun *pps.PipelineRun) error
+	Start(pipelineRunID string) error
 }
 
 func NewRunner(
