@@ -6,6 +6,10 @@ type Client interface {
 	Close() error
 	CreatePipelineRun(pipelineRun *pps.PipelineRun) error
 	GetPipelineRun(id string) (*pps.PipelineRun, error)
+	GetAllPipelineRuns(pipelineID string) ([]*pps.PipelineRun, error)
+	CreatePipeline(pipeline *pps.Pipeline) error
+	GetPipeline(id string) (*pps.Pipeline, error)
+	GetAllPipelines(pipelineSourceID string) ([]*pps.Pipeline, error)
 	CreatePipelineRunStatus(id string, statusType pps.PipelineRunStatusType) error
 	GetAllPipelineRunStatuses(pipelineRunID string) ([]*pps.PipelineRunStatus, error)
 	CreatePipelineRunContainers(pipelineContainers ...*pps.PipelineRunContainer) error

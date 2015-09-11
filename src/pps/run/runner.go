@@ -33,19 +33,27 @@ func newRunner(
 	}
 }
 
-func (r *runner) Start(pipelineRun *pps.PipelineRun) error {
-	nameToNodeInfo, err := getNameToNodeInfo(pipelineRun.Pipeline.NameToNode)
+func (r *runner) Start(pipelineRunID string) error {
+	pipelineRun, err := r.storeClient.GetPipelineRun(pipelineRunID)
+	if err != nil {
+		return err
+	}
+	pipeline, err := r.storeClient.GetPipeline(pipelineRun.PipelineId)
+	if err != nil {
+		return err
+	}
+	nameToNodeInfo, err := getNameToNodeInfo(pipeline.NameToNode)
 	if err != nil {
 		return err
 	}
 	nameToNodeFunc := make(map[string]func() error)
-	for name, node := range pipelineRun.Pipeline.NameToNode {
+	for name, node := range pipeline.NameToNode {
 		nodeFunc, err := r.getNodeFunc(
 			pipelineRun.Id,
 			name,
 			node,
-			pipelineRun.Pipeline.NameToDockerService,
-			dirPath,
+			pipeline.NameToDockerService,
+			//dirPath,
 			1,
 		)
 		if err != nil {
@@ -60,16 +68,16 @@ func (r *runner) Start(pipelineRun *pps.PipelineRun) error {
 	if err != nil {
 		return err
 	}
-	if err := r.storeClient.AddPipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED); err != nil {
+	if err := r.storeClient.CreatePipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED); err != nil {
 		return err
 	}
 	go func() {
 		if err := run.Do(); err != nil {
-			if storeErr := r.storeClient.AddPipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR); storeErr != nil {
+			if storeErr := r.storeClient.CreatePipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR); storeErr != nil {
 				protolog.Errorln(storeErr.Error())
 			}
 		} else {
-			if storeErr := r.storeClient.AddPipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS); storeErr != nil {
+			if storeErr := r.storeClient.CreatePipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS); storeErr != nil {
 				protolog.Errorln(storeErr.Error())
 			}
 		}
@@ -82,7 +90,7 @@ func (r *runner) getNodeFunc(
 	name string,
 	node *pps.Node,
 	nameToDockerService map[string]*pps.DockerService,
-	dirPath string,
+	//dirPath string,
 	numContainers int,
 ) (func() error, error) {
 	dockerService, ok := nameToDockerService[node.Service]
