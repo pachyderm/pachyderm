@@ -57,18 +57,18 @@ func do(appEnvObj interface{}) error {
 		MinNumArgs: 1,
 		MaxNumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			pipelineArgs, err := getPipelineArgs(args)
+			githubPipelineSource, err := getGithubPipelineSource(args)
 			if err != nil {
 				return err
 			}
 			getPipelineResponse, err := ppsutil.GetPipelineGithub(
 				apiClient,
-				pipelineArgs.contextDir,
-				pipelineArgs.user,
-				pipelineArgs.repository,
-				pipelineArgs.branch,
+				githubPipelineSource.contextDir,
+				githubPipelineSource.user,
+				githubPipelineSource.repository,
+				githubPipelineSource.branch,
 				"",
-				pipelineArgs.accessToken,
+				githubPipelineSource.accessToken,
 			)
 			if err != nil {
 				return err
@@ -93,18 +93,18 @@ func do(appEnvObj interface{}) error {
 		MinNumArgs: 1,
 		MaxNumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			pipelineArgs, err := getPipelineArgs(args)
+			githubPipelineSource, err := getGithubPipelineSource(args)
 			if err != nil {
 				return err
 			}
 			startPipelineRunResponse, err := ppsutil.StartPipelineRunGithub(
 				apiClient,
-				pipelineArgs.contextDir,
-				pipelineArgs.user,
-				pipelineArgs.repository,
-				pipelineArgs.branch,
+				githubPipelineSource.contextDir,
+				githubPipelineSource.user,
+				githubPipelineSource.repository,
+				githubPipelineSource.branch,
 				"",
-				pipelineArgs.accessToken,
+				githubPipelineSource.accessToken,
 			)
 			if err != nil {
 				return err
@@ -195,15 +195,7 @@ The environment variable PPS_ADDRESS controls what server the CLI connects to, t
 	return rootCmd.Execute()
 }
 
-type pipelineArgs struct {
-	contextDir  string
-	user        string
-	repository  string
-	branch      string
-	accessToken string
-}
-
-func getPipelineArgs(args []string) (*pipelineArgs, error) {
+func getGithubPipelineSource(args []string) (*pps.GithubPipelineSource, error) {
 	path := args[0]
 	if !strings.HasPrefix(path, "github.com/") {
 		return nil, fmt.Errorf("%s is not supported", path)
@@ -216,12 +208,10 @@ func getPipelineArgs(args []string) (*pipelineArgs, error) {
 	if len(args) > 1 {
 		contextDir = args[1]
 	}
-	return &pipelineArgs{
-		contextDir:  contextDir,
-		user:        split[1],
-		repository:  split[2],
-		branch:      "",
-		accessToken: "",
+	return &pps.GithubPipelineSource{
+		ContextDir: contextDir,
+		User:       split[1],
+		Repository: split[2],
 	}, nil
 }
 
