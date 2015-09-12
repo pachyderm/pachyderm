@@ -127,10 +127,12 @@ func (c *Client) AuthCheck(conf *AuthConfiguration) error {
 	if conf == nil {
 		return fmt.Errorf("conf is nil")
 	}
-	resp, err := c.do("POST", "/auth", doOptions{data: conf})
+	body, statusCode, err := c.do("POST", "/auth", doOptions{data: conf})
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	if statusCode > 400 {
+		return fmt.Errorf("auth error (%d): %s", statusCode, body)
+	}
 	return nil
 }
