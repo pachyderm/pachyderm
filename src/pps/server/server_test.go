@@ -48,11 +48,13 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 		context.Background(),
 		&pps.CreatePipelineSourceRequest{
 			PipelineSource: &pps.PipelineSource{
-				TypedPipelineSource: &pps.GithubPipelineSource{
-					ContextDir: "src/pps/server/testdata/basic",
-					User:       "pachyderm",
-					Repository: "pachyderm",
-					Branch:     "master",
+				TypedPipelineSource: &pps.PipelineSource_GithubPipelineSource{
+					GithubPipelineSource: &pps.GithubPipelineSource{
+						ContextDir: "src/pps/server/testdata/basic",
+						User:       "pachyderm",
+						Repository: "pachyderm",
+						Branch:     "master",
+					},
 				},
 			},
 		},
@@ -66,14 +68,14 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 	)
 	require.NoError(t, err)
 	pipelineRun, err := apiClient.CreatePipelineRun(
+		context.Background(),
 		&pps.CreatePipelineRunRequest{
-			PipelineRun: &pps.PipelineRun{
-				PipelineId: pipeline.Id,
-			},
+			PipelineId: pipeline.Id,
 		},
 	)
 	require.NoError(t, err)
-	_, err := apiClient.StartPipelineRun(
+	_, err = apiClient.StartPipelineRun(
+		context.Background(),
 		&pps.StartPipelineRunRequest{
 			PipelineRunId: pipelineRun.Id,
 		},
@@ -199,7 +201,7 @@ func getFinalPipelineRunStatus(apiClient pps.ApiClient, pipelineRunID string) (*
 		if err != nil {
 			return nil, err
 		}
-		pipelineRunStatus = pipelineRunStatuses[0]
+		pipelineRunStatus = pipelineRunStatuses.PipelineRunStatus[0]
 		protolog.Printf("status at tick %d: %v\n", i, pipelineRunStatus)
 		switch pipelineRunStatus.PipelineRunStatusType {
 		case pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR:
