@@ -2,8 +2,8 @@ syntax = "proto3";
 
 import "pps/pps.proto";
 
-package run;
+package server;
 
-message AddedPipelineRun {
+message CreatedPipelineRun {
   pps.PipelineRun pipeline_run = 1;
 }

@@ -138,7 +138,7 @@ message ListPipelineSourcesRequest {
   map<string, string> tags = 1;
 }
 
-message GetPipelineRequest {
+message CreateAndGetPipelineRequest {
   string pipeline_source_id = 1;
 }
 
@@ -170,7 +170,7 @@ service Api {
   rpc UpdatePipelineSource(UpdatePipelineSourceRequest) returns (PipelineSource) {}
   rpc ArchivePipelineSource(ArchivePipelineSourceRequest) returns (google.protobuf.Empty) {}
   rpc ListPipelineSources(ListPipelineSourcesRequest) returns (PipelineSources) {}
-  rpc CreateAndGetPipeline(GetPipelineRequest) returns (Pipeline) {} 
+  rpc CreateAndGetPipeline(CreateAndGetPipelineRequest) returns (Pipeline) {} 
   rpc CreatePipelineRun(CreatePipelineRunRequest) returns (PipelineRun) {}
   rpc StartPipelineRun(StartPipelineRunRequest) returns (google.protobuf.Empty) {}
   rpc ListPipelineRuns(ListPipelineRunsRequest) returns (PipelineRuns) {}

@@ -30,7 +30,7 @@ It has these top-level messages:
 	UpdatePipelineSourceRequest
 	ArchivePipelineSourceRequest
 	ListPipelineSourcesRequest
-	GetPipelineRequest
+	CreateAndGetPipelineRequest
 	CreatePipelineRunRequest
 	StartPipelineRunRequest
 	ListPipelineRunsRequest
@@ -506,13 +506,13 @@ func (m *ListPipelineSourcesRequest) GetTags() map[string]string {
 	return nil
 }
 
-type GetPipelineRequest struct {
+type CreateAndGetPipelineRequest struct {
 	PipelineSourceId string `protobuf:"bytes,1,opt,name=pipeline_source_id" json:"pipeline_source_id,omitempty"`
 }
 
-func (m *GetPipelineRequest) Reset()         { *m = GetPipelineRequest{} }
-func (m *GetPipelineRequest) String() string { return proto.CompactTextString(m) }
-func (*GetPipelineRequest) ProtoMessage()    {}
+func (m *CreateAndGetPipelineRequest) Reset()         { *m = CreateAndGetPipelineRequest{} }
+func (m *CreateAndGetPipelineRequest) String() string { return proto.CompactTextString(m) }
+func (*CreateAndGetPipelineRequest) ProtoMessage()    {}
 
 type CreatePipelineRunRequest struct {
 	PipelineId string `protobuf:"bytes,1,opt,name=pipeline_id" json:"pipeline_id,omitempty"`
@@ -573,7 +573,7 @@ type ApiClient interface {
 	UpdatePipelineSource(ctx context.Context, in *UpdatePipelineSourceRequest, opts ...grpc.CallOption) (*PipelineSource, error)
 	ArchivePipelineSource(ctx context.Context, in *ArchivePipelineSourceRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	ListPipelineSources(ctx context.Context, in *ListPipelineSourcesRequest, opts ...grpc.CallOption) (*PipelineSources, error)
-	CreateAndGetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
+	CreateAndGetPipeline(ctx context.Context, in *CreateAndGetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
 	CreatePipelineRun(ctx context.Context, in *CreatePipelineRunRequest, opts ...grpc.CallOption) (*PipelineRun, error)
 	StartPipelineRun(ctx context.Context, in *StartPipelineRunRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	ListPipelineRuns(ctx context.Context, in *ListPipelineRunsRequest, opts ...grpc.CallOption) (*PipelineRuns, error)
@@ -634,7 +634,7 @@ func (c *apiClient) ListPipelineSources(ctx context.Context, in *ListPipelineSou
 	return out, nil
 }
 
-func (c *apiClient) CreateAndGetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
+func (c *apiClient) CreateAndGetPipeline(ctx context.Context, in *CreateAndGetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
 	out := new(Pipeline)
 	err := grpc.Invoke(ctx, "/pps.Api/CreateAndGetPipeline", in, out, c.cc, opts...)
 	if err != nil {
@@ -696,7 +696,7 @@ type ApiServer interface {
 	UpdatePipelineSource(context.Context, *UpdatePipelineSourceRequest) (*PipelineSource, error)
 	ArchivePipelineSource(context.Context, *ArchivePipelineSourceRequest) (*google_protobuf.Empty, error)
 	ListPipelineSources(context.Context, *ListPipelineSourcesRequest) (*PipelineSources, error)
-	CreateAndGetPipeline(context.Context, *GetPipelineRequest) (*Pipeline, error)
+	CreateAndGetPipeline(context.Context, *CreateAndGetPipelineRequest) (*Pipeline, error)
 	CreatePipelineRun(context.Context, *CreatePipelineRunRequest) (*PipelineRun, error)
 	StartPipelineRun(context.Context, *StartPipelineRunRequest) (*google_protobuf.Empty, error)
 	ListPipelineRuns(context.Context, *ListPipelineRunsRequest) (*PipelineRuns, error)
@@ -769,7 +769,7 @@ func _Api_ListPipelineSources_Handler(srv interface{}, ctx context.Context, code
 }
 
 func _Api_CreateAndGetPipeline_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(GetPipelineRequest)
+	in := new(CreateAndGetPipelineRequest)
 	if err := codec.Unmarshal(buf, in); err != nil {
 		return nil, err
 	}
