@@ -1,11 +1,14 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
+	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/time"
+	"go.pedge.io/protolog"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/graph"
@@ -20,7 +23,7 @@ import (
 )
 
 var (
-	emptyInstance := &google_protobuf.Empty{}
+	emptyInstance = &google_protobuf.Empty{}
 )
 
 type apiServer struct {
@@ -34,48 +37,44 @@ func newAPIServer(pfsAPIClient pfs.ApiClient, containerClient container.Client, 
 	return &apiServer{pfsAPIClient, containerClient, storeClient, timer}
 }
 
-func (a *apiServer) CreatePipelineSource(ctx context.Context, request *pps.CreatePipelineSourceRequest) (*pps.CreatePipelineSourceResponse, error) {
+func (a *apiServer) CreatePipelineSource(ctx context.Context, request *pps.CreatePipelineSourceRequest) (*pps.PipelineSource, error) {
 	pipelineSource := request.PipelineSource
 	if pipelineSource.Id != "" {
 		return nil, fmt.Errorf("cannot set id when creating a pipeline source: %+v", pipelineSource)
 	}
-	pipelineSource.Id = strings.Replace(uuid.NewV4().String, "-", "", -1)
+	pipelineSource.Id = strings.Replace(uuid.NewV4().String(), "-", "", -1)
 	if err := a.storeClient.CreatePipelineSource(pipelineSource); err != nil {
 		return nil, err
 	}
-	return &pps.CreatePipelineSourceResponse{
-		PipelineSource: pipelineSource,
-	}, nil
+	return pipelineSource, nil
 }
 
-func (a *apiServer) GetPipelineSource(ctx context.Context, request *pps.GetPipelineSourceRequest) (*pps.GetPipelineSourceResponse, error) {
+func (a *apiServer) GetPipelineSource(ctx context.Context, request *pps.GetPipelineSourceRequest) (*pps.PipelineSource, error) {
 	pipelineSource, err := a.storeClient.GetPipelineSource(request.PipelineSourceId)
 	if err != nil {
 		return nil, err
 	}
-	return &pps.GetPipelineSourceResponse{
-		PipelineSource: pipelineSource,
-	}, nil
+	return pipelineSource, nil
 }
 
-func (a *apiServer) UpdatePipelineSource(ctx context.Context, request *pps.UpdatePipelineSourceRequest) (*pps.UpdatePipelineSourceResponse, error) {
+func (a *apiServer) UpdatePipelineSource(ctx context.Context, request *pps.UpdatePipelineSourceRequest) (*pps.PipelineSource, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (a *apiServer) DeletePipelineSource(ctx context.Context, request *pps.DeletePipelineSourceRequest) (*google_protobuf.Empty, error) {
-	if err := a.storeClient.DeletePipelineSource(request.PipelineSourceId); err != nil {
+func (a *apiServer) ArchivePipelineSource(ctx context.Context, request *pps.ArchivePipelineSourceRequest) (*google_protobuf.Empty, error) {
+	if err := a.storeClient.ArchivePipelineSource(request.PipelineSourceId); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
 }
 
-func (a *apiServer) ListPipelineSources(ctx context.Context, request *pps.ListPipelineSourcesRequest) (*pps.ListPipelineSourcesResponse, error) {
+func (a *apiServer) ListPipelineSources(ctx context.Context, request *pps.ListPipelineSourcesRequest) (*pps.PipelineSources, error) {
 	pipelineSources, err := a.storeClient.GetAllPipelineSources()
 	if err != nil {
 		return nil, err
 	}
 	if request.Tags == nil || len(request.Tags) == 0 {
-		return &pps.ListPipelineSourcesResponse{
+		return &pps.PipelineSources{
 			PipelineSource: pipelineSources,
 		}, nil
 	}
@@ -85,7 +84,7 @@ func (a *apiServer) ListPipelineSources(ctx context.Context, request *pps.ListPi
 			filteredPipelineSources = append(filteredPipelineSources, pipelineSource)
 		}
 	}
-	return &pps.ListPipelineSourcesResponse{
+	return &pps.PipelineSources{
 		PipelineSource: pipelineSources,
 	}, nil
 }
@@ -99,7 +98,7 @@ func tagsMatch(expected map[string]string, tags map[string]string) bool {
 	return true
 }
 
-func (a *apiServer) GetPipeline(ctx context.Context, request *pps.GetPipelineRequest) (*pps.GetPipelineResponse, error) {
+func (a *apiServer) CreateAndGetPipeline(ctx context.Context, request *pps.CreateAndGetPipelineRequest) (*pps.Pipeline, error) {
 	pipelineSource, err := a.storeClient.GetPipelineSource(request.PipelineSourceId)
 	if err != nil {
 		return nil, err
@@ -108,74 +107,60 @@ func (a *apiServer) GetPipeline(ctx context.Context, request *pps.GetPipelineReq
 	if err != nil {
 		return nil, err
 	}
-	return &pps.GetPipelineResponse{
-		Pipeline: pipeline,
-	}, nil
-}
-
-func (a *apiServer) CreatePipelineRun(ctx context.Context, request *pps.CreatePipelineRunRequest) (*pps.CreatePipelineRunResponse, error) {
-	pipelineSource, err := a.storeClient.GetPipelineSource(request.PipelineSourceId)
-	if err != nil {
+	pipeline.Id = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+	if err := a.storeClient.CreatePipeline(pipeline); err != nil {
 		return nil, err
 	}
-	dirPath, pipeline, err := source.NewSourcer().GetDirPathAndPipeline(pipelineSource)
-	if err != nil {
-		return "", err
-	}
-	pipelineRunID := strings.Replace(uuid.NewV4().String(), "-", "", -1)
+	return pipeline, nil
+}
+
+func (a *apiServer) CreatePipelineRun(ctx context.Context, request *pps.CreatePipelineRunRequest) (*pps.PipelineRun, error) {
 	pipelineRun := &pps.PipelineRun{
-		Id:             pipelineRunID,
-		Pipeline:       pipeline,
-		PipelineSource: pipelineSource,
+		Id:         strings.Replace(uuid.NewV4().String(), "-", "", -1),
+		PipelineId: request.PipelineId,
 	}
-	if err := r.storeClient.AddPipelineRun(pipelineRun); err != nil {
-		return "", err
+	if err := a.storeClient.CreatePipelineRun(pipelineRun); err != nil {
+		return nil, err
 	}
 	protolog.Info(
-		&AddedPipelineRun{
+		&CreatedPipelineRun{
 			PipelineRun: pipelineRun,
 		},
 	)
-	return &pps.CreatePipelineRunResponse{
-		PipelineRun: pipelineRun,
-	}
+	return pipelineRun, nil
 }
 
 func (a *apiServer) StartPipelineRun(ctx context.Context, request *pps.StartPipelineRunRequest) (*google_protobuf.Empty, error) {
-	pipelineRun, err := a.storeClient.GetPipelineRun(request.PipelineRunId)
-	if err != nil {
-		return nil, err
-	}
 	runner := run.NewRunner(
 		graph.NewGrapher(),
 		a.containerClient,
 		a.storeClient,
 		a.timer,
 	)
-	if err := runner.Start(startPipelineRunRequest.PipelineSource); err != nil {
+	if err := runner.Start(request.PipelineRunId); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
 }
 
-func (a *apiServer) ListPipelineRunsRequest(ctx context.Context, request *pps.ListPipelineRunsRequest) (*pps.ListPipelineRunsResponse, error) {
+func (a *apiServer) ListPipelineRuns(ctx context.Context, request *pps.ListPipelineRunsRequest) (*pps.PipelineRuns, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (a *apiServer) GetPipelineRunStatus(ctx context.Context, request *pps.GetPipelineRunStatusRequest) (*pps.GetPipelineRunStatusResponse, error) {
+func (a *apiServer) GetPipelineRunStatus(ctx context.Context, request *pps.GetPipelineRunStatusRequest) (*pps.PipelineRunStatuses, error) {
 	pipelineRunStatuses, err := a.storeClient.GetAllPipelineRunStatuses(request.PipelineRunId)
 	if err != nil {
 		return nil, err
 	}
 	if !request.All {
-		pipelineRunStatuses = []*pps.PipelineRunStatus{pipelineRunStatus[0]}
+		pipelineRunStatuses = []*pps.PipelineRunStatus{pipelineRunStatuses[0]}
 	}
-	return &pps.GetPipelineRunStatusResponse{
+	return &pps.PipelineRunStatuses{
 		PipelineRunStatus: pipelineRunStatuses,
 	}, nil
 }
 
-func (a *apiServer) GetPipelineRunLogs(ctx context.Context, getRunLogsRequest *pps.GetPipelineRunLogsRequest) (*pps.GetPipelineRunLogsResponse, error) {
+func (a *apiServer) GetPipelineRunLogs(ctx context.Context, getRunLogsRequest *pps.GetPipelineRunLogsRequest) (*pps.PipelineRunLogs, error) {
 	pipelineRunLogs, err := a.storeClient.GetPipelineRunLogs(getRunLogsRequest.PipelineRunId)
 	if err != nil {
 		return nil, err
@@ -190,7 +175,7 @@ func (a *apiServer) GetPipelineRunLogs(ctx context.Context, getRunLogsRequest *p
 		}
 	}
 	sort.Sort(sortByTimestamp(filteredPipelineRunLogs))
-	return &pps.GetPipelineRunLogsResponse{
+	return &pps.PipelineRunLogs{
 		PipelineRunLog: filteredPipelineRunLogs,
 	}, nil
 }
