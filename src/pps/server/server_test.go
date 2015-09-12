@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"go.pedge.io/proto/test"
 	"go.pedge.io/protolog"
 	"go.pedge.io/protolog/logrus"
@@ -19,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
-	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"github.com/pachyderm/pachyderm/src/pps/store"
 	"github.com/satori/go.uuid"
 	"google.golang.org/grpc"
@@ -35,7 +36,7 @@ func init() {
 
 func TestBasic(t *testing.T) {
 	//if testing.Short() {
-		//t.Skip()
+	//t.Skip()
 	//}
 	t.Parallel()
 	runTest(t, testBasic)
@@ -49,9 +50,9 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 			PipelineSource: &pps.PipelineSource{
 				TypedPipelineSource: &pps.GithubPipelineSource{
 					ContextDir: "src/pps/server/testdata/basic",
-					User: "pachyderm",
+					User:       "pachyderm",
 					Repository: "pachyderm",
-					Branch: "master",
+					Branch:     "master",
 				},
 			},
 		},
@@ -69,6 +70,12 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 			PipelineRun: &pps.PipelineRun{
 				PipelineId: pipeline.Id,
 			},
+		},
+	)
+	require.NoError(t, err)
+	_, err := apiClient.StartPipelineRun(
+		&pps.StartPipelineRunRequest{
+			PipelineRunId: pipelineRun.Id,
 		},
 	)
 	require.NoError(t, err)
@@ -184,10 +191,10 @@ func getFinalPipelineRunStatus(apiClient pps.ApiClient, pipelineRunID string) (*
 	for i := 0; i < 60; i++ {
 		<-ticker.C
 		pipelineRunStatuses, err := apiClient.GetPipelineRunStatus(
-			context.Background()
+			context.Background(),
 			&pps.GetPipelineRunStatusRequest{
 				PipelineRunId: pipelineRunID,
-			}
+			},
 		)
 		if err != nil {
 			return nil, err
