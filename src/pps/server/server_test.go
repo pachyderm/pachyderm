@@ -35,9 +35,9 @@ func init() {
 }
 
 func TestBasic(t *testing.T) {
-	//if testing.Short() {
-	//t.Skip()
-	//}
+	if testing.Short() {
+		t.Skip()
+	}
 	t.Parallel()
 	runTest(t, testBasic)
 }
@@ -201,7 +201,7 @@ func getFinalPipelineRunStatus(apiClient pps.ApiClient, pipelineRunID string) (*
 		if err != nil {
 			return nil, err
 		}
-		pipelineRunStatus = pipelineRunStatuses.PipelineRunStatus[0]
+		pipelineRunStatus := pipelineRunStatuses.PipelineRunStatus[0]
 		protolog.Printf("status at tick %d: %v\n", i, pipelineRunStatus)
 		switch pipelineRunStatus.PipelineRunStatusType {
 		case pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR:
