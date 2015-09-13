@@ -95,6 +95,39 @@ func (a *combinedAPIServer) RepoCreate(ctx context.Context, request *pfs.RepoCre
 	return emptyInstance, nil
 }
 
+func (a *combinedAPIServer) RepoInspect(ctx context.Context, request *pfs.RepoInspectRequest) (*pfs.RepoInspectResponse, error) {
+	masterShards, err := a.router.GetMasterShards()
+	if err != nil {
+		return nil, err
+	}
+	for shard := range masterShards {
+		repoInfo, ok, err := a.driver.RepoInspect(request.Repo, shard)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return &pfs.RepoInspectResponse{}, nil
+		}
+		return &pfs.RepoInspectResponse{RepoInfo: repoInfo}, nil
+	}
+	if !request.Redirect {
+		clientConns, err := a.router.GetAllClientConns()
+		if err != nil {
+			return nil, err
+		}
+		for _, clientConn := range clientConns {
+			return pfs.NewApiClient(clientConn).RepoInspect(
+				ctx,
+				&pfs.RepoInspectRequest{
+					Repo:     request.Repo,
+					Redirect: true,
+				},
+			)
+		}
+	}
+	return nil, fmt.Errorf("pachyderm: no available masters")
+}
+
 func (a *combinedAPIServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) (*pfs.RepoListResponse, error) {
 	masterShards, err := a.router.GetMasterShards()
 	if err != nil {
