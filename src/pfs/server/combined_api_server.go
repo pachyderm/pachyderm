@@ -152,6 +152,42 @@ func (a *combinedAPIServer) RepoList(ctx context.Context, request *pfs.RepoListR
 	return nil, fmt.Errorf("pachyderm: no available masters")
 }
 
+func (a *combinedAPIServer) RepoDelete(ctx context.Context, request *pfs.RepoDeleteRequest) (*google_protobuf.Empty, error) {
+	masterShards, err := a.router.GetMasterShards()
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.RepoDelete(request.Repo, masterShards); err != nil {
+		return nil, err
+	}
+	replicaShards, err := a.router.GetReplicaShards()
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.RepoDelete(request.Repo, replicaShards); err != nil {
+		return nil, err
+	}
+	if !request.Redirect {
+		clientConns, err := a.router.GetAllClientConns()
+		if err != nil {
+			return nil, err
+		}
+		for _, clientConn := range clientConns {
+			if _, err := pfs.NewApiClient(clientConn).RepoCreate(
+				ctx,
+				&pfs.RepoCreateRequest{
+					Repo:     request.Repo,
+					Redirect: true,
+				},
+			); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return emptyInstance, nil
+
+}
+
 func (a *combinedAPIServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.Api_FileGetServer) (retErr error) {
 	shard, clientConn, err := a.getShardAndClientConnIfNecessary(request.File, false)
 	if err != nil {
