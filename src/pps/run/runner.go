@@ -2,7 +2,6 @@ package run
 
 import (
 	"fmt"
-	"strings"
 
 	"go.pedge.io/protolog"
 
@@ -10,13 +9,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
-	"github.com/pachyderm/pachyderm/src/pps/source"
 	"github.com/pachyderm/pachyderm/src/pps/store"
-	"github.com/satori/go.uuid"
 )
 
 type runner struct {
-	sourcer         source.Sourcer
 	grapher         graph.Grapher
 	containerClient container.Client
 	storeClient     store.Client
@@ -24,14 +20,12 @@ type runner struct {
 }
 
 func newRunner(
-	sourcer source.Sourcer,
 	grapher graph.Grapher,
 	containerClient container.Client,
 	storeClient store.Client,
 	timer timing.Timer,
 ) *runner {
 	return &runner{
-		sourcer,
 		grapher,
 		containerClient,
 		storeClient,
@@ -39,43 +33,31 @@ func newRunner(
 	}
 }
 
-func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
-	dirPath, pipeline, err := r.sourcer.GetDirPathAndPipeline(pipelineSource)
+func (r *runner) Start(pipelineRunID string) error {
+	pipelineRun, err := r.storeClient.GetPipelineRun(pipelineRunID)
 	if err != nil {
-		return "", err
+		return err
 	}
-	pipelineRunID := strings.Replace(uuid.NewV4().String(), "-", "", -1)
-	pipelineRun := &pps.PipelineRun{
-		Id:             pipelineRunID,
-		Pipeline:       pipeline,
-		PipelineSource: pipelineSource,
-	}
-	if err := r.storeClient.AddPipelineRun(pipelineRun); err != nil {
-		return "", err
-	}
-	protolog.Info(
-		&AddedPipelineRun{
-			PipelineRun: pipelineRun,
-		},
-	)
-	nameToNode := pps.GetNameToNode(pipeline)
-	nameToDockerService := pps.GetNameToDockerService(pipeline)
-	nameToNodeInfo, err := getNameToNodeInfo(nameToNode)
+	pipeline, err := r.storeClient.GetPipeline(pipelineRun.PipelineId)
 	if err != nil {
-		return "", err
+		return err
+	}
+	nameToNodeInfo, err := getNameToNodeInfo(pipeline.NameToNode)
+	if err != nil {
+		return err
 	}
 	nameToNodeFunc := make(map[string]func() error)
-	for name, node := range nameToNode {
+	for name, node := range pipeline.NameToNode {
 		nodeFunc, err := r.getNodeFunc(
-			pipelineRunID,
+			pipelineRun.Id,
 			name,
 			node,
-			nameToDockerService,
-			dirPath,
+			pipeline.NameToDockerService,
+			//dirPath,
 			1,
 		)
 		if err != nil {
-			return "", err
+			return err
 		}
 		nameToNodeFunc[name] = nodeFunc
 	}
@@ -84,23 +66,23 @@ func (r *runner) Start(pipelineSource *pps.PipelineSource) (string, error) {
 		nameToNodeFunc,
 	)
 	if err != nil {
-		return "", err
+		return err
 	}
-	if err := r.storeClient.AddPipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED); err != nil {
-		return "", err
+	if err := r.storeClient.CreatePipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_STARTED); err != nil {
+		return err
 	}
 	go func() {
 		if err := run.Do(); err != nil {
-			if storeErr := r.storeClient.AddPipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR); storeErr != nil {
+			if storeErr := r.storeClient.CreatePipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR); storeErr != nil {
 				protolog.Errorln(storeErr.Error())
 			}
 		} else {
-			if storeErr := r.storeClient.AddPipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS); storeErr != nil {
+			if storeErr := r.storeClient.CreatePipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS); storeErr != nil {
 				protolog.Errorln(storeErr.Error())
 			}
 		}
 	}()
-	return pipelineRunID, nil
+	return nil
 }
 
 func (r *runner) getNodeFunc(
@@ -108,7 +90,7 @@ func (r *runner) getNodeFunc(
 	name string,
 	node *pps.Node,
 	nameToDockerService map[string]*pps.DockerService,
-	dirPath string,
+	//dirPath string,
 	numContainers int,
 ) (func() error, error) {
 	dockerService, ok := nameToDockerService[node.Service]

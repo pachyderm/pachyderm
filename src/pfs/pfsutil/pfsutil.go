@@ -30,14 +30,14 @@ func InitRepository(apiClient pfs.ApiClient, repositoryName string) error {
 	return err
 }
 
-func ListRepositories(apiClient pfs.ApiClient) (*pfs.ListRepositoriesResponse, error) {
+func ListRepositories(apiClient pfs.ApiClient) (*pfs.Repositories, error) {
 	return apiClient.ListRepositories(
 		context.Background(),
 		&pfs.ListRepositoriesRequest{},
 	)
 }
 
-func Branch(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.BranchResponse, error) {
+func Branch(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.Commit, error) {
 	return apiClient.Branch(
 		context.Background(),
 		&pfs.BranchRequest{
@@ -119,7 +119,7 @@ func GetFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 	return nil
 }
 
-func GetFileInfo(apiClient pfs.ApiClient, repositoryName string, commitID string, path string) (*pfs.GetFileInfoResponse, error) {
+func GetFileInfo(apiClient pfs.ApiClient, repositoryName string, commitID string, path string) (*pfs.FileInfo, error) {
 	return apiClient.GetFileInfo(
 		context.Background(),
 		&pfs.GetFileInfoRequest{
@@ -136,7 +136,7 @@ func GetFileInfo(apiClient pfs.ApiClient, repositoryName string, commitID string
 	)
 }
 
-func ListFiles(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, shard uint64, modulus uint64) (*pfs.ListFilesResponse, error) {
+func ListFiles(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, shard uint64, modulus uint64) (*pfs.FileInfos, error) {
 	return apiClient.ListFiles(
 		context.Background(),
 		&pfs.ListFilesRequest{
@@ -157,10 +157,10 @@ func ListFiles(apiClient pfs.ApiClient, repositoryName string, commitID string, 
 	)
 }
 
-func Commit(apiClient pfs.ApiClient, repositoryName string, commitID string) error {
-	_, err := apiClient.Commit(
+func Write(apiClient pfs.ApiClient, repositoryName string, commitID string) error {
+	_, err := apiClient.Write(
 		context.Background(),
-		&pfs.CommitRequest{
+		&pfs.WriteRequest{
 			Commit: &pfs.Commit{
 				Repository: &pfs.Repository{
 					Name: repositoryName,
@@ -172,7 +172,7 @@ func Commit(apiClient pfs.ApiClient, repositoryName string, commitID string) err
 	return err
 }
 
-func GetCommitInfo(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.GetCommitInfoResponse, error) {
+func GetCommitInfo(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.CommitInfo, error) {
 	return apiClient.GetCommitInfo(
 		context.Background(),
 		&pfs.GetCommitInfoRequest{
@@ -186,7 +186,7 @@ func GetCommitInfo(apiClient pfs.ApiClient, repositoryName string, commitID stri
 	)
 }
 
-func ListCommits(apiClient pfs.ApiClient, repositoryName string) (*pfs.ListCommitsResponse, error) {
+func ListCommits(apiClient pfs.ApiClient, repositoryName string) (*pfs.CommitInfos, error) {
 	return apiClient.ListCommits(
 		context.Background(),
 		&pfs.ListCommitsRequest{

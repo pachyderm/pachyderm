@@ -22,15 +22,20 @@ import (
 )
 
 // ---------------------------------------------------
-// codecgen only works in the following:
-//   - extensions are not supported. Do not make a type a Selfer and an extension.
-//   - Canonical is not supported.
-//   - Selfer takes precedence.
-//     Any type that implements it knows how to encode/decode itself statically.
-//     Extensions are only known at runtime.
-//     codecgen only looks at the Kind of the type.
+// codecgen MOSTLY supports things that are static.
+// This means that, for dynamic things, we MUST use reflection to at least get the reflect.Type.
 //
-//   - the following types are supported:
+// Currently, codecgen doesn't support the following:
+//   - extensions
+//
+// In addition, codecgen doesn't support the following:
+//   - Canonical option. (codecgen IGNORES it currently)
+//     This is just because it has not been implemented.
+//
+// During encode/decode, Selfer takes precedence.
+// A type implementing Selfer will know how to encode/decode itself statically.
+//
+//  The following field types are supported:
 //     array: [n]T
 //     slice: []T
 //     map: map[K]V
@@ -139,9 +144,9 @@ func Gen(w io.Writer, buildTags, pkgName string, useUnsafe bool, typ ...reflect.
 		bp:     typ[0].PkgPath(),
 		rr:     rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
-
 	// gather imports first:
 	x.cp = reflect.TypeOf(x).PkgPath()
+	x.imn[x.cp] = genCodecPkg
 	for _, t := range typ {
 		// fmt.Printf("###########: PkgPath: '%v', Name: '%s'\n", t.PkgPath(), t.Name())
 		if t.PkgPath() != x.bp {
@@ -542,17 +547,20 @@ func (x *genRunner) encVar(varname string, t reflect.Type) {
 // enc will encode a variable (varname) of type T,
 // except t is of kind reflect.Struct or reflect.Array, wherein varname is of type *T (to prevent copying)
 func (x *genRunner) enc(varname string, t reflect.Type) {
-	// varName here must be to a pointer to a struct, or to a value directly.
+	// varName here must be to a pointer to a struct/array, or to a value directly.
 	rtid := reflect.ValueOf(t).Pointer()
 	// We call CodecEncodeSelf if one of the following are honored:
 	//   - the type already implements Selfer, call that
 	//   - the type has a Selfer implementation just created, use that
 	//   - the type is in the list of the ones we will generate for, but it is not currently being generated
+
+	tptr := reflect.PtrTo(t)
 	if t.Implements(selferTyp) {
 		x.line(varname + ".CodecEncodeSelf(e)")
 		return
 	}
-	if t.Kind() == reflect.Struct && reflect.PtrTo(t).Implements(selferTyp) {
+	// if t.Kind() == reflect.Struct && tptr.Implements(selferTyp) { //TODO: verify that no need to check struct
+	if tptr.Implements(selferTyp) {
 		x.line(varname + ".CodecEncodeSelf(e)")
 		return
 	}
@@ -577,6 +585,39 @@ func (x *genRunner) enc(varname string, t reflect.Type) {
 		x.te[rtid] = true
 		rtidAdded = true
 	}
+
+	// check if
+	//   - type is RawExt
+	//   - the type implements (Text|JSON|Binary)(Unm|M)arshal
+	mi := x.varsfx()
+	x.linef("%sm%s := z.EncBinary()", genTempVarPfx, mi)
+	x.linef("_ = %sm%s", genTempVarPfx, mi)
+	x.line("if false {")           //start if block
+	defer func() { x.line("}") }() //end if block
+
+	if t == rawExtTyp {
+		x.linef("} else { r.EncodeRawExt(%v, e)", varname)
+		return
+	}
+	// HACK: Support for Builtins.
+	//       Currently, only Binc supports builtins, and the only builtin type is time.Time.
+	//       Have a method that returns the rtid for time.Time if Handle is Binc.
+	if t == timeTyp {
+		vrtid := genTempVarPfx + "m" + x.varsfx()
+		x.linef("} else if %s := z.TimeRtidIfBinc(); %s != 0 { ", vrtid, vrtid)
+		x.linef("r.EncodeBuiltin(%s, %s)", vrtid, varname)
+	}
+
+	if t.Implements(binaryMarshalerTyp) || tptr.Implements(binaryMarshalerTyp) {
+		x.linef("} else if %sm%s { z.EncBinaryMarshal(%v) ", genTempVarPfx, mi, varname)
+	}
+	if t.Implements(textMarshalerTyp) || tptr.Implements(textMarshalerTyp) {
+		x.linef("} else if !%sm%s { z.EncTextMarshal(%v) ", genTempVarPfx, mi, varname)
+	} else if t.Implements(jsonMarshalerTyp) || tptr.Implements(jsonMarshalerTyp) {
+		x.linef("} else if !%sm%s { z.EncJSONMarshal(%v) ", genTempVarPfx, mi, varname)
+	}
+
+	x.line("} else {")
 
 	switch t.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -971,6 +1012,7 @@ func (x *genRunner) dec(varname string, t reflect.Type) {
 	//   - the varname is to a pointer already. No need to take address of it
 
 	rtid := reflect.ValueOf(t).Pointer()
+	tptr := reflect.PtrTo(t)
 	if t.Implements(selferTyp) || (t.Kind() == reflect.Struct &&
 		reflect.PtrTo(t).Implements(selferTyp)) {
 		x.line(varname + ".CodecDecodeSelf(d)")
@@ -997,6 +1039,40 @@ func (x *genRunner) dec(varname string, t reflect.Type) {
 		x.td[rtid] = true
 		rtidAdded = true
 	}
+
+	// check if
+	//   - type is RawExt
+	//   - the type implements (Text|JSON|Binary)(Unm|M)arshal
+	mi := x.varsfx()
+	x.linef("%sm%s := z.DecBinary()", genTempVarPfx, mi)
+	x.linef("_ = %sm%s", genTempVarPfx, mi)
+	x.line("if false {")           //start if block
+	defer func() { x.line("}") }() //end if block
+
+	if t == rawExtTyp {
+		x.linef("} else { r.DecodeExt(%v, 0, nil)", varname)
+		return
+	}
+
+	// HACK: Support for Builtins.
+	//       Currently, only Binc supports builtins, and the only builtin type is time.Time.
+	//       Have a method that returns the rtid for time.Time if Handle is Binc.
+	if t == timeTyp {
+		vrtid := genTempVarPfx + "m" + x.varsfx()
+		x.linef("} else if %s := z.TimeRtidIfBinc(); %s != 0 { ", vrtid, vrtid)
+		x.linef("r.DecodeBuiltin(%s, %s)", vrtid, varname)
+	}
+
+	if t.Implements(binaryUnmarshalerTyp) || tptr.Implements(binaryUnmarshalerTyp) {
+		x.linef("} else if %sm%s { z.DecBinaryUnmarshal(%v) ", genTempVarPfx, mi, varname)
+	}
+	if t.Implements(textUnmarshalerTyp) || tptr.Implements(textUnmarshalerTyp) {
+		x.linef("} else if !%sm%s { z.DecTextUnmarshal(%v)", genTempVarPfx, mi, varname)
+	} else if t.Implements(jsonUnmarshalerTyp) || tptr.Implements(jsonUnmarshalerTyp) {
+		x.linef("} else if !%sm%s { z.DecJSONUnmarshal(%v)", genTempVarPfx, mi, varname)
+	}
+
+	x.line("} else {")
 
 	// Since these are pointers, we cannot share, and have to use them one by one
 	switch t.Kind() {
