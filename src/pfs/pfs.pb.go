@@ -695,7 +695,7 @@ type ApiClient interface {
 	// CommitList returns info about all commits.
 	CommitList(ctx context.Context, in *CommitListRequest, opts ...grpc.CallOption) (*CommitListResponse, error)
 	// CommitDelete deletes a commit.
-	CommitDelete(ctx context.Context, in *CommitDeleteRequest, opts ...grpc.CallOption) (*CommitDeleteRequest, error)
+	CommitDelete(ctx context.Context, in *CommitDeleteRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	// File rpcs
 	// FileGet returns a byte stream of the contents of the file.
 	FileGet(ctx context.Context, in *FileGetRequest, opts ...grpc.CallOption) (Api_FileGetClient, error)
@@ -790,8 +790,8 @@ func (c *apiClient) CommitList(ctx context.Context, in *CommitListRequest, opts 
 	return out, nil
 }
 
-func (c *apiClient) CommitDelete(ctx context.Context, in *CommitDeleteRequest, opts ...grpc.CallOption) (*CommitDeleteRequest, error) {
-	out := new(CommitDeleteRequest)
+func (c *apiClient) CommitDelete(ctx context.Context, in *CommitDeleteRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/CommitDelete", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -892,7 +892,7 @@ type ApiServer interface {
 	// CommitList returns info about all commits.
 	CommitList(context.Context, *CommitListRequest) (*CommitListResponse, error)
 	// CommitDelete deletes a commit.
-	CommitDelete(context.Context, *CommitDeleteRequest) (*CommitDeleteRequest, error)
+	CommitDelete(context.Context, *CommitDeleteRequest) (*google_protobuf.Empty, error)
 	// File rpcs
 	// FileGet returns a byte stream of the contents of the file.
 	FileGet(*FileGetRequest, Api_FileGetServer) error

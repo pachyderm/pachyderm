@@ -453,6 +453,35 @@ func (a *combinedAPIServer) CommitList(ctx context.Context, request *pfs.CommitL
 	}, nil
 }
 
+func (a *combinedAPIServer) CommitDelete(ctx context.Context, request *pfs.CommitDeleteRequest) (*google_protobuf.Empty, error) {
+	shards, err := a.router.GetMasterShards()
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.CommitDelete(request.Commit, shards); err != nil {
+		return nil, err
+	}
+	// TODO push delete to replicas
+	if !request.Redirect {
+		clientConns, err := a.router.GetAllClientConns()
+		if err != nil {
+			return nil, err
+		}
+		for _, clientConn := range clientConns {
+			if _, err := pfs.NewApiClient(clientConn).CommitDelete(
+				ctx,
+				&pfs.CommitDeleteRequest{
+					Commit:   request.Commit,
+					Redirect: true,
+				},
+			); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return emptyInstance, nil
+}
+
 func (a *combinedAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalApi_PullDiffServer) error {
 	clientConn, err := a.getClientConnIfNecessary(int(request.Shard), false)
 	if err != nil {
