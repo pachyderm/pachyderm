@@ -19,6 +19,6 @@ func (s *sharder) NumShards() int {
 	return s.numShards
 }
 
-func (s *sharder) GetShard(pfsPath *pfs.Path) (int, error) {
-	return int(adler32.Checksum([]byte(path.Clean(pfsPath.Path)))) % s.numShards, nil
+func (s *sharder) GetShard(file *pfs.File) (int, error) {
+	return int(adler32.Checksum([]byte(path.Clean(file.Path)))) % s.numShards, nil
 }
