@@ -112,7 +112,7 @@ func (b *brancher) CommitOutstanding() error {
 		return err
 	}
 	for repositoryName, commitID := range b.outputRepositoryToBranchID {
-		if err := pfsutil.Write(
+		if err := pfsutil.CommitFinish(
 			b.pfsAPIClient,
 			repositoryName,
 			commitID,
@@ -140,7 +140,7 @@ func (b *brancher) getParentCommitID(
 	repositoryName string,
 	commitID string,
 ) (string, error) {
-	commitInfo, err := pfsutil.GetCommitInfo(
+	commitInfo, err := pfsutil.CommitInspect(
 		b.pfsAPIClient,
 		repositoryName,
 		commitID,
@@ -158,7 +158,7 @@ func (b *brancher) branch(
 	repositoryName string,
 	commitID string,
 ) (string, error) {
-	commit, err := pfsutil.Branch(
+	commit, err := pfsutil.CommitStart(
 		b.pfsAPIClient,
 		repositoryName,
 		commitID,
