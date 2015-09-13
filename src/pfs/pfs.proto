@@ -208,7 +208,7 @@ service Api {
   // CommitList returns info about all commits.
   rpc CommitList(CommitListRequest) returns (CommitListResponse) {}
   // CommitDelete deletes a commit.
-  rpc CommitDelete(CommitDeleteRequest) returns (CommitDeleteRequest) {}
+  rpc CommitDelete(CommitDeleteRequest) returns (google.protobuf.Empty) {}
 
   // File rpcs
   // FileGet returns a byte stream of the contents of the file.
