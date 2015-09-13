@@ -3,6 +3,7 @@ package source
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 
 	"github.com/pachyderm/pachyderm/src/pkg/clone"
 	"github.com/pachyderm/pachyderm/src/pps"
@@ -20,15 +21,17 @@ func (s *sourcer) GetDirPathAndPipeline(pipelineSource *pps.PipelineSource) (str
 }
 
 func getDirPathAndPipeline(pipelineSource *pps.PipelineSource) (string, *pps.Pipeline, error) {
-	if pipelineSource.GithubPipelineSource != nil {
-		dirPath, err := githubClone(pipelineSource.GithubPipelineSource)
+	if pipelineSource.GetGithubPipelineSource() != nil {
+		dirPath, err := githubClone(pipelineSource.GetGithubPipelineSource())
 		if err != nil {
 			return "", nil, err
 		}
-		pipeline, err := parse.NewParser().ParsePipeline(dirPath, pipelineSource.GithubPipelineSource.ContextDir)
+		dirPath = filepath.Join(dirPath, pipelineSource.GetGithubPipelineSource().ContextDir)
+		pipeline, err := parse.NewParser().ParsePipeline(dirPath)
 		if err != nil {
 			return "", nil, err
 		}
+		pipeline.PipelineSourceId = pipelineSource.Id
 		return dirPath, pipeline, nil
 	}
 	return "", nil, fmt.Errorf("must specify pipeline source")

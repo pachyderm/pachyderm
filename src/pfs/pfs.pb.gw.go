@@ -61,6 +61,451 @@ func request_Api_InitRepository_0(ctx context.Context, client ApiClient, req *ht
 	return client.InitRepository(ctx, &protoReq)
 }
 
+var (
+	filter_Api_ListRepositories_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+)
+
+func request_Api_ListRepositories_0(ctx context.Context, client ApiClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq ListRepositoriesRequest
+
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Api_ListRepositories_0); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.ListRepositories(ctx, &protoReq)
+}
+
+var (
+	filter_Api_GetFile_0 = &utilities.DoubleArray{Encoding: map[string]int{"path": 0, "commit": 1, "repository": 2, "name": 3, "id": 4}, Base: []int{1, 7, 1, 2, 2, 2, 0, 0, 5, 5, 0}, Check: []int{0, 1, 2, 2, 4, 5, 3, 6, 2, 9, 10}}
+)
+
+func request_Api_GetFile_0(ctx context.Context, client ApiClient, req *http.Request, pathParams map[string]string) (Api_GetFileClient, error) {
+	var protoReq GetFileRequest
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["path.commit.repository.name"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.commit.repository.name")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.commit.repository.name", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	val, ok = pathParams["path.commit.id"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.commit.id")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.commit.id", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	val, ok = pathParams["path.path"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.path")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.path", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Api_GetFile_0); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.GetFile(ctx, &protoReq)
+}
+
+var (
+	filter_Api_GetFileInfo_0 = &utilities.DoubleArray{Encoding: map[string]int{"path": 0, "commit": 1, "repository": 2, "name": 3, "id": 4}, Base: []int{1, 7, 1, 2, 2, 2, 0, 0, 5, 5, 0}, Check: []int{0, 1, 2, 2, 4, 5, 3, 6, 2, 9, 10}}
+)
+
+func request_Api_GetFileInfo_0(ctx context.Context, client ApiClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq GetFileInfoRequest
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["path.commit.repository.name"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.commit.repository.name")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.commit.repository.name", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	val, ok = pathParams["path.commit.id"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.commit.id")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.commit.id", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	val, ok = pathParams["path.path"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.path")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.path", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Api_GetFileInfo_0); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.GetFileInfo(ctx, &protoReq)
+}
+
+var (
+	filter_Api_MakeDirectory_0 = &utilities.DoubleArray{Encoding: map[string]int{"path": 0, "commit": 1, "repository": 2, "name": 3, "id": 4}, Base: []int{1, 7, 1, 2, 2, 2, 0, 0, 5, 5, 0}, Check: []int{0, 1, 2, 2, 4, 5, 3, 6, 2, 9, 10}}
+)
+
+func request_Api_MakeDirectory_0(ctx context.Context, client ApiClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq MakeDirectoryRequest
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["path.commit.repository.name"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.commit.repository.name")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.commit.repository.name", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	val, ok = pathParams["path.commit.id"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.commit.id")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.commit.id", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	val, ok = pathParams["path.path"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.path")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.path", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Api_MakeDirectory_0); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.MakeDirectory(ctx, &protoReq)
+}
+
+var (
+	filter_Api_PutFile_0 = &utilities.DoubleArray{Encoding: map[string]int{"path": 0, "commit": 1, "repository": 2, "name": 3, "id": 4}, Base: []int{1, 7, 1, 2, 2, 2, 0, 0, 5, 5, 0}, Check: []int{0, 1, 2, 2, 4, 5, 3, 6, 2, 9, 10}}
+)
+
+func request_Api_PutFile_0(ctx context.Context, client ApiClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq PutFileRequest
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["path.commit.repository.name"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.commit.repository.name")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.commit.repository.name", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	val, ok = pathParams["path.commit.id"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.commit.id")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.commit.id", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	val, ok = pathParams["path.path"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.path")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.path", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Api_PutFile_0); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.PutFile(ctx, &protoReq)
+}
+
+var (
+	filter_Api_ListFiles_0 = &utilities.DoubleArray{Encoding: map[string]int{"path": 0, "commit": 1, "repository": 2, "name": 3, "id": 4}, Base: []int{1, 7, 1, 2, 2, 2, 0, 0, 5, 5, 0}, Check: []int{0, 1, 2, 2, 4, 5, 3, 6, 2, 9, 10}}
+)
+
+func request_Api_ListFiles_0(ctx context.Context, client ApiClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq ListFilesRequest
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["path.commit.repository.name"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.commit.repository.name")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.commit.repository.name", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	val, ok = pathParams["path.commit.id"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.commit.id")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.commit.id", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	val, ok = pathParams["path.path"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "path.path")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "path.path", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Api_ListFiles_0); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.ListFiles(ctx, &protoReq)
+}
+
+var (
+	filter_Api_Branch_0 = &utilities.DoubleArray{Encoding: map[string]int{"commit": 0, "repository": 1, "name": 2, "id": 3}, Base: []int{1, 1, 1, 1, 2, 0, 0}, Check: []int{0, 1, 2, 3, 2, 4, 5}}
+)
+
+func request_Api_Branch_0(ctx context.Context, client ApiClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq BranchRequest
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["commit.repository.name"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "commit.repository.name")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "commit.repository.name", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	val, ok = pathParams["commit.id"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "commit.id")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "commit.id", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Api_Branch_0); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.Branch(ctx, &protoReq)
+}
+
+var (
+	filter_Api_Write_0 = &utilities.DoubleArray{Encoding: map[string]int{"commit": 0, "repository": 1, "name": 2, "id": 3}, Base: []int{1, 1, 1, 1, 2, 0, 0}, Check: []int{0, 1, 2, 3, 2, 4, 5}}
+)
+
+func request_Api_Write_0(ctx context.Context, client ApiClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq WriteRequest
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["commit.repository.name"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "commit.repository.name")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "commit.repository.name", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	val, ok = pathParams["commit.id"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "commit.id")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "commit.id", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Api_Write_0); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.Write(ctx, &protoReq)
+}
+
+var (
+	filter_Api_GetCommitInfo_0 = &utilities.DoubleArray{Encoding: map[string]int{"commit": 0, "repository": 1, "name": 2, "id": 3}, Base: []int{1, 1, 1, 1, 2, 0, 0}, Check: []int{0, 1, 2, 3, 2, 4, 5}}
+)
+
+func request_Api_GetCommitInfo_0(ctx context.Context, client ApiClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq GetCommitInfoRequest
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["commit.repository.name"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "commit.repository.name")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "commit.repository.name", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	val, ok = pathParams["commit.id"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "commit.id")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "commit.id", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Api_GetCommitInfo_0); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.GetCommitInfo(ctx, &protoReq)
+}
+
+var (
+	filter_Api_ListCommits_0 = &utilities.DoubleArray{Encoding: map[string]int{"repository": 0, "name": 1}, Base: []int{1, 1, 1, 0}, Check: []int{0, 1, 2, 3}}
+)
+
+func request_Api_ListCommits_0(ctx context.Context, client ApiClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq ListCommitsRequest
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["repository.name"]
+	if !ok {
+		return nil, grpc.Errorf(codes.InvalidArgument, "missing parameter %s", "repository.name")
+	}
+
+	err = runtime.PopulateFieldFromPath(&protoReq, "repository.name", val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Api_ListCommits_0); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.ListCommits(ctx, &protoReq)
+}
+
 // RegisterApiHandlerFromEndpoint is same as RegisterApiHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
 func RegisterApiHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string) (err error) {
@@ -102,13 +547,163 @@ func RegisterApiHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.C
 
 	})
 
+	mux.Handle("GET", pattern_Api_ListRepositories_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_Api_ListRepositories_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_Api_ListRepositories_0(ctx, w, req, resp)
+
+	})
+
+	mux.Handle("GET", pattern_Api_GetFile_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_Api_GetFile_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_Api_GetFile_0(ctx, w, req, func() (proto.Message, error) { return resp.Recv() })
+
+	})
+
+	mux.Handle("GET", pattern_Api_GetFileInfo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_Api_GetFileInfo_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_Api_GetFileInfo_0(ctx, w, req, resp)
+
+	})
+
+	mux.Handle("POST", pattern_Api_MakeDirectory_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_Api_MakeDirectory_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_Api_MakeDirectory_0(ctx, w, req, resp)
+
+	})
+
+	mux.Handle("POST", pattern_Api_PutFile_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_Api_PutFile_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_Api_PutFile_0(ctx, w, req, resp)
+
+	})
+
+	mux.Handle("GET", pattern_Api_ListFiles_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_Api_ListFiles_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_Api_ListFiles_0(ctx, w, req, resp)
+
+	})
+
+	mux.Handle("POST", pattern_Api_Branch_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_Api_Branch_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_Api_Branch_0(ctx, w, req, resp)
+
+	})
+
+	mux.Handle("POST", pattern_Api_Write_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_Api_Write_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_Api_Write_0(ctx, w, req, resp)
+
+	})
+
+	mux.Handle("POST", pattern_Api_GetCommitInfo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_Api_GetCommitInfo_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_Api_GetCommitInfo_0(ctx, w, req, resp)
+
+	})
+
+	mux.Handle("GET", pattern_Api_ListCommits_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_Api_ListCommits_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_Api_ListCommits_0(ctx, w, req, resp)
+
+	})
+
 	return nil
 }
 
 var (
-	pattern_Api_InitRepository_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "repos", "repository.name"}, ""))
+	pattern_Api_InitRepository_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"repos", "repository.name"}, ""))
+
+	pattern_Api_ListRepositories_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"repos"}, ""))
+
+	pattern_Api_GetFile_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 1, 0, 4, 1, 5, 2, 1, 0, 4, 1, 5, 3}, []string{"files", "path.commit.repository.name", "path.commit.id", "path.path"}, ""))
+
+	pattern_Api_GetFileInfo_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 1, 0, 4, 1, 5, 2, 1, 0, 4, 1, 5, 3}, []string{"fileinfos", "path.commit.repository.name", "path.commit.id", "path.path"}, ""))
+
+	pattern_Api_MakeDirectory_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 1, 0, 4, 1, 5, 2, 1, 0, 4, 1, 5, 3}, []string{"directories", "path.commit.repository.name", "path.commit.id", "path.path"}, ""))
+
+	pattern_Api_PutFile_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 1, 0, 4, 1, 5, 2, 1, 0, 4, 1, 5, 3}, []string{"files", "path.commit.repository.name", "path.commit.id", "path.path"}, ""))
+
+	pattern_Api_ListFiles_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 1, 0, 4, 1, 5, 2, 1, 0, 4, 1, 5, 3}, []string{"directories", "path.commit.repository.name", "path.commit.id", "path.path"}, ""))
+
+	pattern_Api_Branch_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 1, 0, 4, 1, 5, 2}, []string{"commits", "commit.repository.name", "commit.id"}, ""))
+
+	pattern_Api_Write_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 1, 0, 4, 1, 5, 2}, []string{"branches", "commit.repository.name", "commit.id"}, ""))
+
+	pattern_Api_GetCommitInfo_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1, 1, 0, 4, 1, 5, 2}, []string{"commitinfos", "commit.repository.name", "commit.id"}, ""))
+
+	pattern_Api_ListCommits_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"repos", "repository.name"}, ""))
 )
 
 var (
 	forward_Api_InitRepository_0 = runtime.ForwardResponseMessage
+
+	forward_Api_ListRepositories_0 = runtime.ForwardResponseMessage
+
+	forward_Api_GetFile_0 = runtime.ForwardResponseStream
+
+	forward_Api_GetFileInfo_0 = runtime.ForwardResponseMessage
+
+	forward_Api_MakeDirectory_0 = runtime.ForwardResponseMessage
+
+	forward_Api_PutFile_0 = runtime.ForwardResponseMessage
+
+	forward_Api_ListFiles_0 = runtime.ForwardResponseMessage
+
+	forward_Api_Branch_0 = runtime.ForwardResponseMessage
+
+	forward_Api_Write_0 = runtime.ForwardResponseMessage
+
+	forward_Api_GetCommitInfo_0 = runtime.ForwardResponseMessage
+
+	forward_Api_ListCommits_0 = runtime.ForwardResponseMessage
 )

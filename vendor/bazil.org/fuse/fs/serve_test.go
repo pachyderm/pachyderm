@@ -2300,7 +2300,53 @@ func (i *invalidateData) Read(ctx context.Context, req *fuse.ReadRequest, resp *
 	return nil
 }
 
-func TestInvalidateNodeData(t *testing.T) {
+func TestInvalidateNodeDataInvalidatesAttr(t *testing.T) {
+	// This test may see false positive failures when run under
+	// extreme memory pressure.
+	t.Parallel()
+	a := &invalidateData{
+		t: t,
+	}
+	a.data.Store(invalidateDataContent1)
+	mnt, err := fstestutil.MountedT(t, fstestutil.SimpleFS{&fstestutil.ChildMap{"child": a}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mnt.Close()
+
+	if !mnt.Conn.Protocol().HasInvalidate() {
+		t.Skip("Old FUSE protocol")
+	}
+
+	f, err := os.Open(mnt.Dir + "/child")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	attrBefore := a.attr.Count()
+	if g, min := attrBefore, uint32(1); g < min {
+		t.Errorf("wrong Attr call count: %d < %d", g, min)
+	}
+
+	t.Logf("invalidating...")
+	a.data.Store(invalidateDataContent2)
+	if err := mnt.Server.InvalidateNodeData(a); err != nil {
+		t.Fatalf("invalidate error: %v", err)
+	}
+
+	// on OSXFUSE 3.0.6, the Attr has already triggered here, so don't
+	// check the count at this point
+
+	if _, err := f.Stat(); err != nil {
+		t.Errorf("stat error: %v", err)
+	}
+	if g, prev := a.attr.Count(), attrBefore; g <= prev {
+		t.Errorf("did not see Attr call after invalidate: %d <= %d", g, prev)
+	}
+}
+
+func TestInvalidateNodeDataInvalidatesData(t *testing.T) {
 	// This test may see false positive failures when run under
 	// extreme memory pressure.
 	t.Parallel()
@@ -2336,10 +2382,6 @@ func TestInvalidateNodeData(t *testing.T) {
 			}
 		}
 	}
-	attrBefore := a.attr.Count()
-	if g, min := attrBefore, uint32(1); g < min {
-		t.Errorf("wrong Attr call count: %d < %d", g, min)
-	}
 	if g, e := a.read.Count(), uint32(1); g != e {
 		t.Errorf("wrong Read call count: %d != %d", g, e)
 	}
@@ -2350,20 +2392,25 @@ func TestInvalidateNodeData(t *testing.T) {
 		t.Fatalf("invalidate error: %v", err)
 	}
 
+	if g, e := a.read.Count(), uint32(1); g != e {
+		t.Errorf("wrong Read call count: %d != %d", g, e)
+	}
+
 	{
-		buf := make([]byte, 100)
+		// explicitly don't cross the EOF, to trigger more edge cases
+		// (Linux will always do Getattr if you cross what it believes
+		// the EOF to be)
+		const bufSize = len(invalidateDataContent2) - 3
+		buf := make([]byte, bufSize)
 		for i := 0; i < 10; i++ {
 			n, err := f.ReadAt(buf, 0)
 			if err != nil && err != io.EOF {
 				t.Fatalf("readat error: %v", err)
 			}
-			if g, e := string(buf[:n]), invalidateDataContent2; g != e {
+			if g, e := string(buf[:n]), invalidateDataContent2[:bufSize]; g != e {
 				t.Errorf("wrong content: %q != %q", g, e)
 			}
 		}
-	}
-	if g, prev := a.attr.Count(), attrBefore; g <= prev {
-		t.Errorf("did not see Attr call after invalidate: %d <= %d", g, prev)
 	}
 	if g, e := a.read.Count(), uint32(2); g != e {
 		t.Errorf("wrong Read call count: %d != %d", g, e)
@@ -2398,7 +2445,7 @@ func (i *invalidateDataPartial) Read(ctx context.Context, req *fuse.ReadRequest,
 	return nil
 }
 
-func TestInvalidateNodeDataRange(t *testing.T) {
+func TestInvalidateNodeDataRangeMiss(t *testing.T) {
 	// This test may see false positive failures when run under
 	// extreme memory pressure.
 	t.Parallel()
@@ -2427,15 +2474,11 @@ func TestInvalidateNodeDataRange(t *testing.T) {
 			t.Fatalf("readat error: %v", err)
 		}
 	}
-	attrBefore := a.attr.Count()
-	if g, min := attrBefore, uint32(1); g < min {
-		t.Errorf("wrong Attr call count: %d < %d", g, min)
-	}
 	if g, e := a.read.Count(), uint32(1); g != e {
 		t.Errorf("wrong Read call count: %d != %d", g, e)
 	}
 
-	t.Logf("invalidating...")
+	t.Logf("invalidating an uninteresting block...")
 	if err := mnt.Server.InvalidateNodeDataRange(a, 4096, 4096); err != nil {
 		t.Fatalf("invalidate error: %v", err)
 	}
@@ -2445,12 +2488,59 @@ func TestInvalidateNodeDataRange(t *testing.T) {
 			t.Fatalf("readat error: %v", err)
 		}
 	}
-	if g, prev := a.attr.Count(), attrBefore; g <= prev {
-		t.Errorf("did not see Attr call after invalidate: %d <= %d", g, prev)
-	}
 	// The page invalidated is not the page we're reading, so it
 	// should stay in cache.
 	if g, e := a.read.Count(), uint32(1); g != e {
+		t.Errorf("wrong Read call count: %d != %d", g, e)
+	}
+}
+
+func TestInvalidateNodeDataRangeHit(t *testing.T) {
+	// This test may see false positive failures when run under
+	// extreme memory pressure.
+	t.Parallel()
+	a := &invalidateDataPartial{
+		t: t,
+	}
+	mnt, err := fstestutil.MountedT(t, fstestutil.SimpleFS{&fstestutil.ChildMap{"child": a}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mnt.Close()
+
+	if !mnt.Conn.Protocol().HasInvalidate() {
+		t.Skip("Old FUSE protocol")
+	}
+
+	f, err := os.Open(mnt.Dir + "/child")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	const offset = 4096
+	buf := make([]byte, 4)
+	for i := 0; i < 10; i++ {
+		if _, err := f.ReadAt(buf, offset); err != nil {
+			t.Fatalf("readat error: %v", err)
+		}
+	}
+	if g, e := a.read.Count(), uint32(1); g != e {
+		t.Errorf("wrong Read call count: %d != %d", g, e)
+	}
+
+	t.Logf("invalidating where the reads are...")
+	if err := mnt.Server.InvalidateNodeDataRange(a, offset, 4096); err != nil {
+		t.Fatalf("invalidate error: %v", err)
+	}
+
+	for i := 0; i < 10; i++ {
+		if _, err := f.ReadAt(buf, offset); err != nil {
+			t.Fatalf("readat error: %v", err)
+		}
+	}
+	// One new read
+	if g, e := a.read.Count(), uint32(2); g != e {
 		t.Errorf("wrong Read call count: %d != %d", g, e)
 	}
 }

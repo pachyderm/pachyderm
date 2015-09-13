@@ -386,6 +386,14 @@ func (f decFnInfo) textUnmarshal(rv reflect.Value) {
 	}
 }
 
+func (f decFnInfo) jsonUnmarshal(rv reflect.Value) {
+	tm := f.getValueForUnmarshalInterface(rv, f.ti.junmIndir).(jsonUnmarshaler)
+	fnerr := tm.UnmarshalJSON(f.dd.DecodeBytes(f.d.b[:], true, true))
+	if fnerr != nil {
+		panic(fnerr)
+	}
+}
+
 func (f decFnInfo) kErr(rv reflect.Value) {
 	f.d.errorf("no decoding function defined for kind %v", rv.Kind())
 }
@@ -1275,6 +1283,10 @@ func (d *Decoder) getDecFn(rt reflect.Type, checkFastpath, checkCodecSelfer bool
 	} else if supportMarshalInterfaces && !d.be && ti.tunm {
 		fi.decFnInfoX = &decFnInfoX{d: d, ti: ti}
 		fn.f = (decFnInfo).textUnmarshal
+	} else if supportMarshalInterfaces && !d.be && ti.junm {
+		//TODO: This only works NOW, as JSON is the ONLY text format.
+		fi.decFnInfoX = &decFnInfoX{d: d, ti: ti}
+		fn.f = (decFnInfo).jsonUnmarshal
 	} else {
 		rk := rt.Kind()
 		if fastpathEnabled && checkFastpath && (rk == reflect.Map || rk == reflect.Slice) {

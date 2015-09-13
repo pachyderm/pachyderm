@@ -13,47 +13,34 @@ import (
 )
 
 func TestBasicRethink(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
 	runTestRethink(t, testBasic)
-}
-
-func TestBasicInMem(t *testing.T) {
-	runTestInMem(t, testBasic)
 }
 
 func testBasic(t *testing.T, client Client) {
 	pipelineRun := &pps.PipelineRun{
-		Id: "id",
-		PipelineSource: &pps.PipelineSource{
-			GithubPipelineSource: &pps.GithubPipelineSource{
-				ContextDir:  "dir",
-				User:        "user",
-				Repository:  "repo",
-				Branch:      "branch",
-				AccessToken: "token",
-			},
-		},
+		Id:         "id",
+		PipelineId: "pipeline_id",
 	}
-	require.NoError(t, client.AddPipelineRun(pipelineRun))
+	require.NoError(t, client.CreatePipelineRun(pipelineRun))
 	pipelineRunResponse, err := client.GetPipelineRun("id")
 	require.NoError(t, err)
 	require.Equal(t, pipelineRun, pipelineRunResponse)
-	require.NoError(t, client.AddPipelineRunStatus("id", pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE))
-	pipelineRunStatusResponse, err := client.GetPipelineRunStatusLatest("id")
+	require.NoError(t, client.CreatePipelineRunStatus("id", pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_CREATED))
+	pipelineRunStatusResponse, err := client.GetAllPipelineRunStatuses("id")
 	require.NoError(t, err)
-	require.Equal(t, pipelineRunStatusResponse.PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_NONE)
-	require.NoError(t, client.AddPipelineRunStatus("id", pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS))
-	pipelineRunStatusResponse, err = client.GetPipelineRunStatusLatest("id")
+	require.Equal(t, pipelineRunStatusResponse[0].PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_CREATED)
+	require.NoError(t, client.CreatePipelineRunStatus("id", pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS))
+	pipelineRunStatusResponse, err = client.GetAllPipelineRunStatuses("id")
 	require.NoError(t, err)
-	require.Equal(t, pipelineRunStatusResponse.PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS)
+	require.Equal(t, pipelineRunStatusResponse[0].PipelineRunStatusType, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS)
 
-	require.NoError(t, client.AddPipelineRunContainers(&pps.PipelineRunContainer{PipelineRunId: "id", ContainerId: "container", Node: "node"}))
+	require.NoError(t, client.CreatePipelineRunContainers(&pps.PipelineRunContainer{PipelineRunId: "id", ContainerId: "container", Node: "node"}))
 	containerIDs, err := client.GetPipelineRunContainers("id")
 	require.NoError(t, err)
 	require.Equal(t, []*pps.PipelineRunContainer{&pps.PipelineRunContainer{PipelineRunId: "id", ContainerId: "container", Node: "node"}}, containerIDs)
-}
-
-func runTestInMem(t *testing.T, testFunc func(*testing.T, Client)) {
-	testFunc(t, NewInMemoryClient())
 }
 
 func runTestRethink(t *testing.T, testFunc func(*testing.T, Client)) {

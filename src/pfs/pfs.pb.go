@@ -10,28 +10,25 @@ It is generated from these files:
 
 It has these top-level messages:
 	Repository
+	Repositories
 	Commit
 	Path
 	FileInfo
+	FileInfos
 	Shard
 	CommitInfo
+	CommitInfos
 	InitRepositoryRequest
 	ListRepositoriesRequest
-	ListRepositoriesResponse
 	GetFileRequest
 	GetFileInfoRequest
-	GetFileInfoResponse
 	MakeDirectoryRequest
 	PutFileRequest
 	ListFilesRequest
-	ListFilesResponse
 	BranchRequest
-	BranchResponse
-	CommitRequest
+	WriteRequest
 	GetCommitInfoRequest
-	GetCommitInfoResponse
 	ListCommitsRequest
-	ListCommitsResponse
 	PullDiffRequest
 	PushDiffRequest
 */
@@ -60,17 +57,20 @@ var _ = math.Inf
 type CommitType int32
 
 const (
-	CommitType_COMMIT_TYPE_READ  CommitType = 0
-	CommitType_COMMIT_TYPE_WRITE CommitType = 1
+	CommitType_COMMIT_TYPE_NONE  CommitType = 0
+	CommitType_COMMIT_TYPE_READ  CommitType = 1
+	CommitType_COMMIT_TYPE_WRITE CommitType = 2
 )
 
 var CommitType_name = map[int32]string{
-	0: "COMMIT_TYPE_READ",
-	1: "COMMIT_TYPE_WRITE",
+	0: "COMMIT_TYPE_NONE",
+	1: "COMMIT_TYPE_READ",
+	2: "COMMIT_TYPE_WRITE",
 }
 var CommitType_value = map[string]int32{
-	"COMMIT_TYPE_READ":  0,
-	"COMMIT_TYPE_WRITE": 1,
+	"COMMIT_TYPE_NONE":  0,
+	"COMMIT_TYPE_READ":  1,
+	"COMMIT_TYPE_WRITE": 2,
 }
 
 func (x CommitType) String() string {
@@ -112,6 +112,22 @@ type Repository struct {
 func (m *Repository) Reset()         { *m = Repository{} }
 func (m *Repository) String() string { return proto.CompactTextString(m) }
 func (*Repository) ProtoMessage()    {}
+
+// Repositories represents multiple repositories.
+type Repositories struct {
+	Repository []*Repository `protobuf:"bytes,1,rep,name=repository" json:"repository,omitempty"`
+}
+
+func (m *Repositories) Reset()         { *m = Repositories{} }
+func (m *Repositories) String() string { return proto.CompactTextString(m) }
+func (*Repositories) ProtoMessage()    {}
+
+func (m *Repositories) GetRepository() []*Repository {
+	if m != nil {
+		return m.Repository
+	}
+	return nil
+}
 
 // Commit represents a specific commit in a repository.
 type Commit struct {
@@ -174,6 +190,21 @@ func (m *FileInfo) GetLastModified() *google_protobuf2.Timestamp {
 	return nil
 }
 
+type FileInfos struct {
+	FileInfo []*FileInfo `protobuf:"bytes,1,rep,name=file_info" json:"file_info,omitempty"`
+}
+
+func (m *FileInfos) Reset()         { *m = FileInfos{} }
+func (m *FileInfos) String() string { return proto.CompactTextString(m) }
+func (*FileInfos) ProtoMessage()    {}
+
+func (m *FileInfos) GetFileInfo() []*FileInfo {
+	if m != nil {
+		return m.FileInfo
+	}
+	return nil
+}
+
 // Shard represents a dynamic shard within PFS.
 // number must always be less than modulo.
 type Shard struct {
@@ -210,6 +241,21 @@ func (m *CommitInfo) GetParentCommit() *Commit {
 	return nil
 }
 
+type CommitInfos struct {
+	CommitInfo []*CommitInfo `protobuf:"bytes,1,rep,name=commit_info" json:"commit_info,omitempty"`
+}
+
+func (m *CommitInfos) Reset()         { *m = CommitInfos{} }
+func (m *CommitInfos) String() string { return proto.CompactTextString(m) }
+func (*CommitInfos) ProtoMessage()    {}
+
+func (m *CommitInfos) GetCommitInfo() []*CommitInfo {
+	if m != nil {
+		return m.CommitInfo
+	}
+	return nil
+}
+
 type InitRepositoryRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
 	Redirect   bool        `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
@@ -233,21 +279,6 @@ type ListRepositoriesRequest struct {
 func (m *ListRepositoriesRequest) Reset()         { *m = ListRepositoriesRequest{} }
 func (m *ListRepositoriesRequest) String() string { return proto.CompactTextString(m) }
 func (*ListRepositoriesRequest) ProtoMessage()    {}
-
-type ListRepositoriesResponse struct {
-	Repository []*Repository `protobuf:"bytes,1,rep,name=repository" json:"repository,omitempty"`
-}
-
-func (m *ListRepositoriesResponse) Reset()         { *m = ListRepositoriesResponse{} }
-func (m *ListRepositoriesResponse) String() string { return proto.CompactTextString(m) }
-func (*ListRepositoriesResponse) ProtoMessage()    {}
-
-func (m *ListRepositoriesResponse) GetRepository() []*Repository {
-	if m != nil {
-		return m.Repository
-	}
-	return nil
-}
 
 type GetFileRequest struct {
 	Path        *Path `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
@@ -277,21 +308,6 @@ func (*GetFileInfoRequest) ProtoMessage()    {}
 func (m *GetFileInfoRequest) GetPath() *Path {
 	if m != nil {
 		return m.Path
-	}
-	return nil
-}
-
-type GetFileInfoResponse struct {
-	FileInfo *FileInfo `protobuf:"bytes,1,opt,name=file_info" json:"file_info,omitempty"`
-}
-
-func (m *GetFileInfoResponse) Reset()         { *m = GetFileInfoResponse{} }
-func (m *GetFileInfoResponse) String() string { return proto.CompactTextString(m) }
-func (*GetFileInfoResponse) ProtoMessage()    {}
-
-func (m *GetFileInfoResponse) GetFileInfo() *FileInfo {
-	if m != nil {
-		return m.FileInfo
 	}
 	return nil
 }
@@ -353,21 +369,6 @@ func (m *ListFilesRequest) GetShard() *Shard {
 	return nil
 }
 
-type ListFilesResponse struct {
-	FileInfo []*FileInfo `protobuf:"bytes,1,rep,name=file_info" json:"file_info,omitempty"`
-}
-
-func (m *ListFilesResponse) Reset()         { *m = ListFilesResponse{} }
-func (m *ListFilesResponse) String() string { return proto.CompactTextString(m) }
-func (*ListFilesResponse) ProtoMessage()    {}
-
-func (m *ListFilesResponse) GetFileInfo() []*FileInfo {
-	if m != nil {
-		return m.FileInfo
-	}
-	return nil
-}
-
 type BranchRequest struct {
 	Commit    *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	NewCommit *Commit `protobuf:"bytes,2,opt,name=new_commit" json:"new_commit,omitempty"`
@@ -392,31 +393,16 @@ func (m *BranchRequest) GetNewCommit() *Commit {
 	return nil
 }
 
-type BranchResponse struct {
-	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-}
-
-func (m *BranchResponse) Reset()         { *m = BranchResponse{} }
-func (m *BranchResponse) String() string { return proto.CompactTextString(m) }
-func (*BranchResponse) ProtoMessage()    {}
-
-func (m *BranchResponse) GetCommit() *Commit {
-	if m != nil {
-		return m.Commit
-	}
-	return nil
-}
-
-type CommitRequest struct {
+type WriteRequest struct {
 	Commit   *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	Redirect bool    `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
 }
 
-func (m *CommitRequest) Reset()         { *m = CommitRequest{} }
-func (m *CommitRequest) String() string { return proto.CompactTextString(m) }
-func (*CommitRequest) ProtoMessage()    {}
+func (m *WriteRequest) Reset()         { *m = WriteRequest{} }
+func (m *WriteRequest) String() string { return proto.CompactTextString(m) }
+func (*WriteRequest) ProtoMessage()    {}
 
-func (m *CommitRequest) GetCommit() *Commit {
+func (m *WriteRequest) GetCommit() *Commit {
 	if m != nil {
 		return m.Commit
 	}
@@ -438,21 +424,6 @@ func (m *GetCommitInfoRequest) GetCommit() *Commit {
 	return nil
 }
 
-type GetCommitInfoResponse struct {
-	CommitInfo *CommitInfo `protobuf:"bytes,1,opt,name=commit_info" json:"commit_info,omitempty"`
-}
-
-func (m *GetCommitInfoResponse) Reset()         { *m = GetCommitInfoResponse{} }
-func (m *GetCommitInfoResponse) String() string { return proto.CompactTextString(m) }
-func (*GetCommitInfoResponse) ProtoMessage()    {}
-
-func (m *GetCommitInfoResponse) GetCommitInfo() *CommitInfo {
-	if m != nil {
-		return m.CommitInfo
-	}
-	return nil
-}
-
 type ListCommitsRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
 }
@@ -464,21 +435,6 @@ func (*ListCommitsRequest) ProtoMessage()    {}
 func (m *ListCommitsRequest) GetRepository() *Repository {
 	if m != nil {
 		return m.Repository
-	}
-	return nil
-}
-
-type ListCommitsResponse struct {
-	CommitInfo []*CommitInfo `protobuf:"bytes,1,rep,name=commit_info" json:"commit_info,omitempty"`
-}
-
-func (m *ListCommitsResponse) Reset()         { *m = ListCommitsResponse{} }
-func (m *ListCommitsResponse) String() string { return proto.CompactTextString(m) }
-func (*ListCommitsResponse) ProtoMessage()    {}
-
-func (m *ListCommitsResponse) GetCommitInfo() []*CommitInfo {
-	if m != nil {
-		return m.CommitInfo
 	}
 	return nil
 }
@@ -532,12 +488,12 @@ type ApiClient interface {
 	// An error is returned if the specified repository already exists.
 	InitRepository(ctx context.Context, in *InitRepositoryRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// ListRepositories lists the existing repositories.
-	ListRepositories(ctx context.Context, in *ListRepositoriesRequest, opts ...grpc.CallOption) (*ListRepositoriesResponse, error)
+	ListRepositories(ctx context.Context, in *ListRepositoriesRequest, opts ...grpc.CallOption) (*Repositories, error)
 	// GetFile returns a byte stream of the specified file.
 	// An error is returned if the specified commit is a write commit.
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error)
 	// GetFileInfo returns a FileInfo for a file.
-	GetFileInfo(ctx context.Context, in *GetFileInfoRequest, opts ...grpc.CallOption) (*GetFileInfoResponse, error)
+	GetFileInfo(ctx context.Context, in *GetFileInfoRequest, opts ...grpc.CallOption) (*FileInfo, error)
 	// MakeDirectory makes a directory on the file system.
 	MakeDirectory(ctx context.Context, in *MakeDirectoryRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// PutFile writes the specified file to PFS.
@@ -545,17 +501,17 @@ type ApiClient interface {
 	PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// ListFiles lists the files within a directory.
 	// An error is returned if the specified path is not a directory.
-	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error)
+	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*FileInfos, error)
 	// Branch creates a new write commit from a base commit.
 	// An error is returned if the base commit is not a read commit.
-	Branch(ctx context.Context, in *BranchRequest, opts ...grpc.CallOption) (*BranchResponse, error)
-	// Commit turns the specified write commit into a read commit.
+	Branch(ctx context.Context, in *BranchRequest, opts ...grpc.CallOption) (*Commit, error)
+	// Write turns the specified write commit into a read commit.
 	// An error is returned if the specified commit is not a write commit.
-	Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	Write(ctx context.Context, in *WriteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// GetCommitInfo returns the CommitInfo for a commit.
-	GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest, opts ...grpc.CallOption) (*GetCommitInfoResponse, error)
+	GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest, opts ...grpc.CallOption) (*CommitInfo, error)
 	// ListCommitInfo lists the commits on a repo
-	ListCommits(ctx context.Context, in *ListCommitsRequest, opts ...grpc.CallOption) (*ListCommitsResponse, error)
+	ListCommits(ctx context.Context, in *ListCommitsRequest, opts ...grpc.CallOption) (*CommitInfos, error)
 }
 
 type apiClient struct {
@@ -575,8 +531,8 @@ func (c *apiClient) InitRepository(ctx context.Context, in *InitRepositoryReques
 	return out, nil
 }
 
-func (c *apiClient) ListRepositories(ctx context.Context, in *ListRepositoriesRequest, opts ...grpc.CallOption) (*ListRepositoriesResponse, error) {
-	out := new(ListRepositoriesResponse)
+func (c *apiClient) ListRepositories(ctx context.Context, in *ListRepositoriesRequest, opts ...grpc.CallOption) (*Repositories, error) {
+	out := new(Repositories)
 	err := grpc.Invoke(ctx, "/pfs.Api/ListRepositories", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -616,8 +572,8 @@ func (x *apiGetFileClient) Recv() (*google_protobuf3.BytesValue, error) {
 	return m, nil
 }
 
-func (c *apiClient) GetFileInfo(ctx context.Context, in *GetFileInfoRequest, opts ...grpc.CallOption) (*GetFileInfoResponse, error) {
-	out := new(GetFileInfoResponse)
+func (c *apiClient) GetFileInfo(ctx context.Context, in *GetFileInfoRequest, opts ...grpc.CallOption) (*FileInfo, error) {
+	out := new(FileInfo)
 	err := grpc.Invoke(ctx, "/pfs.Api/GetFileInfo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -643,8 +599,8 @@ func (c *apiClient) PutFile(ctx context.Context, in *PutFileRequest, opts ...grp
 	return out, nil
 }
 
-func (c *apiClient) ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error) {
-	out := new(ListFilesResponse)
+func (c *apiClient) ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*FileInfos, error) {
+	out := new(FileInfos)
 	err := grpc.Invoke(ctx, "/pfs.Api/ListFiles", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -652,8 +608,8 @@ func (c *apiClient) ListFiles(ctx context.Context, in *ListFilesRequest, opts ..
 	return out, nil
 }
 
-func (c *apiClient) Branch(ctx context.Context, in *BranchRequest, opts ...grpc.CallOption) (*BranchResponse, error) {
-	out := new(BranchResponse)
+func (c *apiClient) Branch(ctx context.Context, in *BranchRequest, opts ...grpc.CallOption) (*Commit, error) {
+	out := new(Commit)
 	err := grpc.Invoke(ctx, "/pfs.Api/Branch", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -661,17 +617,17 @@ func (c *apiClient) Branch(ctx context.Context, in *BranchRequest, opts ...grpc.
 	return out, nil
 }
 
-func (c *apiClient) Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *apiClient) Write(ctx context.Context, in *WriteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.Api/Commit", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.Api/Write", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest, opts ...grpc.CallOption) (*GetCommitInfoResponse, error) {
-	out := new(GetCommitInfoResponse)
+func (c *apiClient) GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest, opts ...grpc.CallOption) (*CommitInfo, error) {
+	out := new(CommitInfo)
 	err := grpc.Invoke(ctx, "/pfs.Api/GetCommitInfo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -679,8 +635,8 @@ func (c *apiClient) GetCommitInfo(ctx context.Context, in *GetCommitInfoRequest,
 	return out, nil
 }
 
-func (c *apiClient) ListCommits(ctx context.Context, in *ListCommitsRequest, opts ...grpc.CallOption) (*ListCommitsResponse, error) {
-	out := new(ListCommitsResponse)
+func (c *apiClient) ListCommits(ctx context.Context, in *ListCommitsRequest, opts ...grpc.CallOption) (*CommitInfos, error) {
+	out := new(CommitInfos)
 	err := grpc.Invoke(ctx, "/pfs.Api/ListCommits", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -695,12 +651,12 @@ type ApiServer interface {
 	// An error is returned if the specified repository already exists.
 	InitRepository(context.Context, *InitRepositoryRequest) (*google_protobuf1.Empty, error)
 	// ListRepositories lists the existing repositories.
-	ListRepositories(context.Context, *ListRepositoriesRequest) (*ListRepositoriesResponse, error)
+	ListRepositories(context.Context, *ListRepositoriesRequest) (*Repositories, error)
 	// GetFile returns a byte stream of the specified file.
 	// An error is returned if the specified commit is a write commit.
 	GetFile(*GetFileRequest, Api_GetFileServer) error
 	// GetFileInfo returns a FileInfo for a file.
-	GetFileInfo(context.Context, *GetFileInfoRequest) (*GetFileInfoResponse, error)
+	GetFileInfo(context.Context, *GetFileInfoRequest) (*FileInfo, error)
 	// MakeDirectory makes a directory on the file system.
 	MakeDirectory(context.Context, *MakeDirectoryRequest) (*google_protobuf1.Empty, error)
 	// PutFile writes the specified file to PFS.
@@ -708,17 +664,17 @@ type ApiServer interface {
 	PutFile(context.Context, *PutFileRequest) (*google_protobuf1.Empty, error)
 	// ListFiles lists the files within a directory.
 	// An error is returned if the specified path is not a directory.
-	ListFiles(context.Context, *ListFilesRequest) (*ListFilesResponse, error)
+	ListFiles(context.Context, *ListFilesRequest) (*FileInfos, error)
 	// Branch creates a new write commit from a base commit.
 	// An error is returned if the base commit is not a read commit.
-	Branch(context.Context, *BranchRequest) (*BranchResponse, error)
-	// Commit turns the specified write commit into a read commit.
+	Branch(context.Context, *BranchRequest) (*Commit, error)
+	// Write turns the specified write commit into a read commit.
 	// An error is returned if the specified commit is not a write commit.
-	Commit(context.Context, *CommitRequest) (*google_protobuf1.Empty, error)
+	Write(context.Context, *WriteRequest) (*google_protobuf1.Empty, error)
 	// GetCommitInfo returns the CommitInfo for a commit.
-	GetCommitInfo(context.Context, *GetCommitInfoRequest) (*GetCommitInfoResponse, error)
+	GetCommitInfo(context.Context, *GetCommitInfoRequest) (*CommitInfo, error)
 	// ListCommitInfo lists the commits on a repo
-	ListCommits(context.Context, *ListCommitsRequest) (*ListCommitsResponse, error)
+	ListCommits(context.Context, *ListCommitsRequest) (*CommitInfos, error)
 }
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
@@ -830,12 +786,12 @@ func _Api_Branch_Handler(srv interface{}, ctx context.Context, codec grpc.Codec,
 	return out, nil
 }
 
-func _Api_Commit_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(CommitRequest)
+func _Api_Write_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(WriteRequest)
 	if err := codec.Unmarshal(buf, in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).Commit(ctx, in)
+	out, err := srv.(ApiServer).Write(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -899,8 +855,8 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_Branch_Handler,
 		},
 		{
-			MethodName: "Commit",
-			Handler:    _Api_Commit_Handler,
+			MethodName: "Write",
+			Handler:    _Api_Write_Handler,
 		},
 		{
 			MethodName: "GetCommitInfo",

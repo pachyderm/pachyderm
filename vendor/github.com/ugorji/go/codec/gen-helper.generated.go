@@ -10,6 +10,8 @@
 
 package codec
 
+import "encoding"
+
 // This file is used to generate helper code for codecgen.
 // The values here i.e. genHelper(En|De)coder are not to be used directly by
 // library users. They WILL change continously and without notice.
@@ -61,6 +63,32 @@ func (f genHelperEncoder) EncFallback(iv interface{}) {
 }
 
 // FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperEncoder) EncTextMarshal(iv encoding.TextMarshaler) {
+	bs, fnerr := iv.MarshalText()
+	f.e.marshal(bs, fnerr, c_UTF8)
+}
+
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperEncoder) EncJSONMarshal(iv jsonMarshaler) {
+	bs, fnerr := iv.MarshalJSON()
+	f.e.marshal(bs, fnerr, c_UTF8)
+}
+
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperEncoder) EncBinaryMarshal(iv encoding.BinaryMarshaler) {
+	bs, fnerr := iv.MarshalBinary()
+	f.e.marshal(bs, fnerr, c_RAW)
+}
+
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperEncoder) TimeRtidIfBinc() uintptr {
+	if _, ok := f.e.hh.(*BincHandle); ok {
+		return timeTypId
+	}
+	return 0
+}
+
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
 func (f genHelperDecoder) DecBasicHandle() *BasicHandle {
 	return f.d.h
 }
@@ -99,4 +127,36 @@ func (f genHelperDecoder) DecStructFieldNotFound(index int, name string) {
 // FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
 func (f genHelperDecoder) DecArrayCannotExpand(sliceLen, streamLen int) {
 	f.d.arrayCannotExpand(sliceLen, streamLen)
+}
+
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperDecoder) DecTextUnmarshal(tm encoding.TextUnmarshaler) {
+	fnerr := tm.UnmarshalText(f.d.d.DecodeBytes(f.d.b[:], true, true))
+	if fnerr != nil {
+		panic(fnerr)
+	}
+}
+
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperDecoder) DecJSONUnmarshal(tm jsonUnmarshaler) {
+	fnerr := tm.UnmarshalJSON(f.d.d.DecodeBytes(f.d.b[:], true, true))
+	if fnerr != nil {
+		panic(fnerr)
+	}
+}
+
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperDecoder) DecBinaryUnmarshal(bm encoding.BinaryUnmarshaler) {
+	fnerr := bm.UnmarshalBinary(f.d.d.DecodeBytes(nil, false, true))
+	if fnerr != nil {
+		panic(fnerr)
+	}
+}
+
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperDecoder) TimeRtidIfBinc() uintptr {
+	if _, ok := f.d.hh.(*BincHandle); ok {
+		return timeTypId
+	}
+	return 0
 }
