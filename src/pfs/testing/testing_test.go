@@ -63,37 +63,37 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 	err := pfsutil.InitRepository(apiClient, repositoryName)
 	require.NoError(t, err)
 
-	getCommitInfoResponse, err := pfsutil.GetCommitInfo(apiClient, repositoryName, "scratch")
+	commitInfo, err := pfsutil.GetCommitInfo(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
-	require.NotNil(t, getCommitInfoResponse)
-	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.Commit.Id)
-	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, getCommitInfoResponse.CommitInfo.CommitType)
-	require.Nil(t, getCommitInfoResponse.CommitInfo.ParentCommit)
-	scratchCommitInfo := getCommitInfoResponse.CommitInfo
+	require.NotNil(t, commitInfo)
+	require.Equal(t, "scratch", commitInfo.Commit.Id)
+	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	require.Nil(t, commitInfo.ParentCommit)
+	scratchCommitInfo := commitInfo
 
-	listCommitsResponse, err := pfsutil.ListCommits(apiClient, repositoryName)
+	commitInfos, err := pfsutil.ListCommits(apiClient, repositoryName)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(listCommitsResponse.CommitInfo))
-	require.Equal(t, scratchCommitInfo, listCommitsResponse.CommitInfo[0])
+	require.Equal(t, 1, len(commitInfos.CommitInfo))
+	require.Equal(t, scratchCommitInfo, commitInfos.CommitInfo[0])
 
-	branchResponse, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
+	commit, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
-	require.NotNil(t, branchResponse)
-	newCommitID := branchResponse.Commit.Id
+	require.NotNil(t, commit)
+	newCommitID := commit.Id
 
-	getCommitInfoResponse, err = pfsutil.GetCommitInfo(apiClient, repositoryName, newCommitID)
+	commitInfo, err = pfsutil.GetCommitInfo(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
-	require.NotNil(t, getCommitInfoResponse)
-	require.Equal(t, newCommitID, getCommitInfoResponse.CommitInfo.Commit.Id)
-	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, getCommitInfoResponse.CommitInfo.CommitType)
-	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.ParentCommit.Id)
-	newCommitInfo := getCommitInfoResponse.CommitInfo
+	require.NotNil(t, commitInfo)
+	require.Equal(t, newCommitID, commitInfo.Commit.Id)
+	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, commitInfo.CommitType)
+	require.Equal(t, "scratch", commitInfo.ParentCommit.Id)
+	newCommitInfo := commitInfo
 
-	listCommitsResponse, err = pfsutil.ListCommits(apiClient, repositoryName)
+	commitInfos, err = pfsutil.ListCommits(apiClient, repositoryName)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(listCommitsResponse.CommitInfo))
-	require.Equal(t, newCommitInfo, listCommitsResponse.CommitInfo[0])
-	require.Equal(t, scratchCommitInfo, listCommitsResponse.CommitInfo[1])
+	require.Equal(t, 2, len(commitInfos.CommitInfo))
+	require.Equal(t, newCommitInfo, commitInfos.CommitInfo[0])
+	require.Equal(t, scratchCommitInfo, commitInfos.CommitInfo[1])
 
 	err = pfsutil.MakeDirectory(apiClient, repositoryName, newCommitID, "a/b")
 	require.NoError(t, err)
@@ -102,41 +102,41 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 
 	doWrites(t, apiClient, repositoryName, newCommitID)
 
-	err = pfsutil.Commit(apiClient, repositoryName, newCommitID)
+	err = pfsutil.Write(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
 
-	getCommitInfoResponse, err = pfsutil.GetCommitInfo(apiClient, repositoryName, newCommitID)
+	commitInfo, err = pfsutil.GetCommitInfo(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
-	require.NotNil(t, getCommitInfoResponse)
-	require.Equal(t, newCommitID, getCommitInfoResponse.CommitInfo.Commit.Id)
-	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, getCommitInfoResponse.CommitInfo.CommitType)
-	require.Equal(t, "scratch", getCommitInfoResponse.CommitInfo.ParentCommit.Id)
+	require.NotNil(t, commitInfo)
+	require.Equal(t, newCommitID, commitInfo.Commit.Id)
+	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	require.Equal(t, "scratch", commitInfo.ParentCommit.Id)
 
 	checkWrites(t, apiClient, repositoryName, newCommitID)
 
-	listFilesResponse, err := pfsutil.ListFiles(apiClient, repositoryName, newCommitID, "a/b", 0, 1)
+	fileInfos, err := pfsutil.ListFiles(apiClient, repositoryName, newCommitID, "a/b", 0, 1)
 	require.NoError(t, err)
-	require.Equal(t, testSize, len(listFilesResponse.FileInfo))
-	listFilesResponse, err = pfsutil.ListFiles(apiClient, repositoryName, newCommitID, "a/c", 0, 1)
+	require.Equal(t, testSize, len(fileInfos.FileInfo))
+	fileInfos, err = pfsutil.ListFiles(apiClient, repositoryName, newCommitID, "a/c", 0, 1)
 	require.NoError(t, err)
-	require.Equal(t, testSize, len(listFilesResponse.FileInfo))
+	require.Equal(t, testSize, len(fileInfos.FileInfo))
 
-	var fileInfos [7][]*pfs.FileInfo
+	var fileInfos2 [7][]*pfs.FileInfo
 	var wg sync.WaitGroup
 	for i := 0; i < 7; i++ {
 		i := i
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			listFilesResponse, iErr := pfsutil.ListFiles(apiClient, repositoryName, newCommitID, "a/b", uint64(i), 7)
+			fileInfos3, iErr := pfsutil.ListFiles(apiClient, repositoryName, newCommitID, "a/b", uint64(i), 7)
 			require.NoError(t, iErr)
-			fileInfos[i] = listFilesResponse.FileInfo
+			fileInfos2[i] = fileInfos3.FileInfo
 		}()
 	}
 	wg.Wait()
 	count := 0
 	for i := 0; i < 7; i++ {
-		count += len(fileInfos[i])
+		count += len(fileInfos2[i])
 	}
 	require.Equal(t, testSize, count)
 }
@@ -147,10 +147,10 @@ func testFailures(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 	err := pfsutil.InitRepository(apiClient, repositoryName)
 	require.NoError(t, err)
 
-	branchResponse, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
+	commit, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
-	require.NotNil(t, branchResponse)
-	newCommitID := branchResponse.Commit.Id
+	require.NotNil(t, commit)
+	newCommitID := commit.Id
 
 	err = pfsutil.MakeDirectory(apiClient, repositoryName, newCommitID, "a/b")
 	require.NoError(t, err)
@@ -159,7 +159,7 @@ func testFailures(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 
 	doWrites(t, apiClient, repositoryName, newCommitID)
 
-	err = pfsutil.Commit(apiClient, repositoryName, newCommitID)
+	err = pfsutil.Write(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
 
 	checkWrites(t, apiClient, repositoryName, newCommitID)
@@ -186,10 +186,10 @@ func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Inte
 	_, err = os.Stat(filepath.Join(directory, "scratch"))
 	require.NoError(t, err)
 
-	branchResponse, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
+	commit, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
-	require.NotNil(t, branchResponse)
-	newCommitID := branchResponse.Commit.Id
+	require.NotNil(t, commit)
+	newCommitID := commit.Id
 
 	_, err = os.Stat(filepath.Join(directory, newCommitID))
 	require.NoError(t, err)
@@ -211,7 +211,7 @@ func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Inte
 	_, err = pfsutil.PutFile(apiClient, repositoryName, newCommitID, "big2", 0, bytes.NewReader(bigValue))
 	require.NoError(t, err)
 
-	err = pfsutil.Commit(apiClient, repositoryName, newCommitID)
+	err = pfsutil.Write(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
 
 	fInfo, err := os.Stat(filepath.Join(directory, newCommitID, "foo"))
@@ -254,10 +254,10 @@ func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 	_, err = os.Stat(filepath.Join(directory, "scratch"))
 	require.NoError(t, err)
 
-	branchResponse, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
+	commit, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
-	require.NotNil(t, branchResponse)
-	newCommitID := branchResponse.Commit.Id
+	require.NotNil(t, commit)
+	newCommitID := commit.Id
 
 	bigValue := make([]byte, 1024*1024*300)
 	for i := 0; i < 1024*1024*300; i++ {
@@ -275,7 +275,7 @@ func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 	}
 	wg.Wait()
 
-	err = pfsutil.Commit(apiClient, repositoryName, newCommitID)
+	err = pfsutil.Write(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
 
 	wg = sync.WaitGroup{}
@@ -325,14 +325,14 @@ func benchMount(b *testing.B, apiClient pfs.ApiClient) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		branchResponse, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
+		commit, err := pfsutil.Branch(apiClient, repositoryName, "scratch")
 		if err != nil {
 			b.Error(err)
 		}
-		if branchResponse == nil {
+		if commit == nil {
 			b.Error("nil branch")
 		}
-		newCommitID := branchResponse.Commit.Id
+		newCommitID := commit.Id
 		var wg sync.WaitGroup
 		for j := 0; j < 1024; j++ {
 			wg.Add(1)
@@ -344,7 +344,7 @@ func benchMount(b *testing.B, apiClient pfs.ApiClient) {
 			}(j)
 		}
 		wg.Wait()
-		if err := pfsutil.Commit(apiClient, repositoryName, newCommitID); err != nil {
+		if err := pfsutil.Write(apiClient, repositoryName, newCommitID); err != nil {
 			b.Error(err)
 		}
 	}

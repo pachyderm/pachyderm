@@ -18,6 +18,8 @@ import (
 )
 
 import (
+	"bytes"
+
 	"bazil.org/fuse"
 	"bazil.org/fuse/fuseutil"
 )
@@ -652,20 +654,23 @@ type notification struct {
 }
 
 func (n notification) String() string {
-	switch {
-	case n.Out != nil:
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "=> %s %v", n.Op, n.Node)
+	if n.Out != nil {
 		// make sure (seemingly) empty values are readable
 		switch n.Out.(type) {
 		case string:
-			return fmt.Sprintf("=> %s %d %q Err:%v", n.Op, n.Node, n.Out, n.Err)
+			fmt.Fprintf(&buf, " %q", n.Out)
 		case []byte:
-			return fmt.Sprintf("=> %s %d [% x] Err:%v", n.Op, n.Node, n.Out, n.Err)
+			fmt.Fprintf(&buf, " [% x]", n.Out)
 		default:
-			return fmt.Sprintf("=> %s %d %s Err:%v", n.Op, n.Node, n.Out, n.Err)
+			fmt.Fprintf(&buf, " %s", n.Out)
 		}
-	default:
-		return fmt.Sprintf("=> %s %d Err:%v", n.Op, n.Node, n.Err)
 	}
+	if n.Err != "" {
+		fmt.Fprintf(&buf, " Err:%v", n.Err)
+	}
+	return buf.String()
 }
 
 type logMissingNode struct {

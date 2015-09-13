@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"go.pedge.io/proto/test"
 	"go.pedge.io/protolog"
 	"go.pedge.io/protolog/logrus"
@@ -19,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/timing"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/container"
-	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"github.com/pachyderm/pachyderm/src/pps/store"
 	"github.com/satori/go.uuid"
 	"google.golang.org/grpc"
@@ -43,17 +44,44 @@ func TestBasic(t *testing.T) {
 
 func testBasic(t *testing.T, apiClient pps.ApiClient) {
 	_ = os.RemoveAll("/tmp/pachyderm-test")
-	startPipelineRunResponse, err := ppsutil.StartPipelineRunGithub(
-		apiClient,
-		"src/pps/server/testdata/basic",
-		"pachyderm",
-		"pachyderm",
-		"master",
-		"",
-		"",
+	pipelineSource, err := apiClient.CreatePipelineSource(
+		context.Background(),
+		&pps.CreatePipelineSourceRequest{
+			PipelineSource: &pps.PipelineSource{
+				TypedPipelineSource: &pps.PipelineSource_GithubPipelineSource{
+					GithubPipelineSource: &pps.GithubPipelineSource{
+						ContextDir: "src/pps/server/testdata/basic",
+						User:       "pachyderm",
+						Repository: "pachyderm",
+						Branch:     "master",
+					},
+				},
+			},
+		},
 	)
 	require.NoError(t, err)
-	pipelineRunID := startPipelineRunResponse.PipelineRunId
+	pipeline, err := apiClient.CreateAndGetPipeline(
+		context.Background(),
+		&pps.CreateAndGetPipelineRequest{
+			PipelineSourceId: pipelineSource.Id,
+		},
+	)
+	require.NoError(t, err)
+	pipelineRun, err := apiClient.CreatePipelineRun(
+		context.Background(),
+		&pps.CreatePipelineRunRequest{
+			PipelineId: pipeline.Id,
+		},
+	)
+	require.NoError(t, err)
+	_, err = apiClient.StartPipelineRun(
+		context.Background(),
+		&pps.StartPipelineRunRequest{
+			PipelineRunId: pipelineRun.Id,
+		},
+	)
+	require.NoError(t, err)
+	pipelineRunID := pipelineRun.Id
 	pipelineRunStatus, err := getFinalPipelineRunStatus(apiClient, pipelineRunID)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_SUCCESS, pipelineRunStatus.PipelineRunStatusType)
@@ -164,15 +192,17 @@ func getFinalPipelineRunStatus(apiClient pps.ApiClient, pipelineRunID string) (*
 	ticker := time.NewTicker(time.Second)
 	for i := 0; i < 60; i++ {
 		<-ticker.C
-		getPipelineRunStatusResponse, err := ppsutil.GetPipelineRunStatus(
-			apiClient,
-			pipelineRunID,
+		pipelineRunStatuses, err := apiClient.GetPipelineRunStatus(
+			context.Background(),
+			&pps.GetPipelineRunStatusRequest{
+				PipelineRunId: pipelineRunID,
+			},
 		)
 		if err != nil {
 			return nil, err
 		}
-		protolog.Printf("status at tick %d: %v\n", i, getPipelineRunStatusResponse.PipelineRunStatus)
-		pipelineRunStatus := getPipelineRunStatusResponse.PipelineRunStatus
+		pipelineRunStatus := pipelineRunStatuses.PipelineRunStatus[0]
+		protolog.Printf("status at tick %d: %v\n", i, pipelineRunStatus)
 		switch pipelineRunStatus.PipelineRunStatusType {
 		case pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR:
 			return pipelineRunStatus, nil

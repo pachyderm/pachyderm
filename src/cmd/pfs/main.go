@@ -71,9 +71,9 @@ func do(appEnvObj interface{}) error {
 				return err
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pfs.PrintRepositoryHeader(writer)
+			pretty.PrintRepositoryHeader(writer)
 			for _, repository := range listRepositoriesResponse.Repository {
-				pfs.PrintRepository(writer, repository)
+				pretty.PrintRepository(writer, repository)
 			}
 			return writer.Flush()
 		},
@@ -132,11 +132,11 @@ func do(appEnvObj interface{}) error {
 		Long:    "Branch a commit. commit-id must be a readable commit.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			branchResponse, err := pfsutil.Branch(apiClient, args[0], args[1])
+			commit, err := pfsutil.Branch(apiClient, args[0], args[1])
 			if err != nil {
 				return err
 			}
-			fmt.Println(branchResponse.Commit.Id)
+			fmt.Println(commit.Id)
 			return nil
 		},
 	}.ToCobraCommand()
@@ -146,7 +146,7 @@ func do(appEnvObj interface{}) error {
 		Long:    "Commit a branch. branch-id must be a writeable commit.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			return pfsutil.Commit(apiClient, args[0], args[1])
+			return pfsutil.Write(apiClient, args[0], args[1])
 		},
 	}.ToCobraCommand()
 
@@ -155,11 +155,11 @@ func do(appEnvObj interface{}) error {
 		Long:    "Get info for a commit.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			commitInfoResponse, err := pfsutil.GetCommitInfo(apiClient, args[0], args[1])
+			commitInfo, err := pfsutil.GetCommitInfo(apiClient, args[0], args[1])
 			if err != nil {
 				return err
 			}
-			fmt.Printf("%+v\n", commitInfoResponse.CommitInfo)
+			fmt.Printf("%+v\n", commitInfo)
 			return nil
 		},
 	}.ToCobraCommand()

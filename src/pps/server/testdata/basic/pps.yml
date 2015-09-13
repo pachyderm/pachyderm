@@ -1,1 +1,8 @@
 version: v1
+include:
+  - 1-node.yml
+  - 2-node.yml
+  - 3-node.yml
+  - 4-node.yml
+  - 5-node.yml
+  - ubuntu-service.yml

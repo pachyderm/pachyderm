@@ -334,27 +334,27 @@ func (c *Client) checkAPIVersion() error {
 // See https://goo.gl/kQCfJj for more details.
 func (c *Client) Ping() error {
 	path := "/_ping"
-	resp, err := c.do("GET", path, doOptions{})
+	body, status, err := c.do("GET", path, doOptions{})
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return newError(resp)
+	if status != http.StatusOK {
+		return newError(status, body)
 	}
 	return nil
 }
 
 func (c *Client) getServerAPIVersionString() (version string, err error) {
-	resp, err := c.do("GET", "/version", doOptions{})
+	body, status, err := c.do("GET", "/version", doOptions{})
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Received unexpected status %d while trying to retrieve the server version", resp.StatusCode)
+	if status != http.StatusOK {
+		return "", fmt.Errorf("Received unexpected status %d while trying to retrieve the server version", status)
 	}
 	var versionResponse map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&versionResponse); err != nil {
+	err = json.Unmarshal(body, &versionResponse)
+	if err != nil {
 		return "", err
 	}
 	if version, ok := (versionResponse["ApiVersion"]).(string); ok {
@@ -368,24 +368,24 @@ type doOptions struct {
 	forceJSON bool
 }
 
-func (c *Client) do(method, path string, doOptions doOptions) (*http.Response, error) {
+func (c *Client) do(method, path string, doOptions doOptions) ([]byte, int, error) {
 	var params io.Reader
 	if doOptions.data != nil || doOptions.forceJSON {
 		buf, err := json.Marshal(doOptions.data)
 		if err != nil {
-			return nil, err
+			return nil, -1, err
 		}
 		params = bytes.NewBuffer(buf)
 	}
 	if path != "/version" && !c.SkipServerVersionCheck && c.expectedAPIVersion == nil {
 		err := c.checkAPIVersion()
 		if err != nil {
-			return nil, err
+			return nil, -1, err
 		}
 	}
 	req, err := http.NewRequest(method, c.getURL(path), params)
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 	req.Header.Set("User-Agent", userAgent)
 	if doOptions.data != nil {
@@ -400,13 +400,13 @@ func (c *Client) do(method, path string, doOptions doOptions) (*http.Response, e
 		var dial net.Conn
 		dial, err = c.Dialer.Dial(protocol, address)
 		if err != nil {
-			return nil, err
+			return nil, -1, err
 		}
 		defer dial.Close()
 		breader := bufio.NewReader(dial)
 		err = req.Write(dial)
 		if err != nil {
-			return nil, err
+			return nil, -1, err
 		}
 		resp, err = http.ReadResponse(breader, req)
 	} else {
@@ -414,15 +414,19 @@ func (c *Client) do(method, path string, doOptions doOptions) (*http.Response, e
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
-			return nil, ErrConnectionRefused
+			return nil, -1, ErrConnectionRefused
 		}
-		return nil, err
+		return nil, -1, err
 	}
-
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, -1, err
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
-		return nil, newError(resp)
+		return nil, resp.StatusCode, newError(resp.StatusCode, body)
 	}
-	return resp, nil
+	return body, resp.StatusCode, nil
 }
 
 type streamOptions struct {
@@ -508,7 +512,11 @@ func (c *Client) stream(method, path string, streamOptions streamOptions) error 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
-		return newError(resp)
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		return newError(resp.StatusCode, body)
 	}
 	if streamOptions.useJSONDecoder || resp.Header.Get("Content-Type") == "application/json" {
 		// if we want to get raw json stream, just copy it back to output
@@ -742,13 +750,8 @@ type Error struct {
 	Message string
 }
 
-func newError(resp *http.Response) *Error {
-	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return &Error{Status: resp.StatusCode, Message: fmt.Sprintf("cannot read body, err: %v", err)}
-	}
-	return &Error{Status: resp.StatusCode, Message: string(data)}
+func newError(status int, body []byte) *Error {
+	return &Error{Status: status, Message: string(body)}
 }
 
 func (e *Error) Error() string {

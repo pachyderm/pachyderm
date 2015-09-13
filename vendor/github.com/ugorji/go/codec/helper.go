@@ -186,6 +186,14 @@ const (
 
 type seqType uint8
 
+// mirror json.Marshaler and json.Unmarshaler here, so we don't import the encoding/json package
+type jsonMarshaler interface {
+	MarshalJSON() ([]byte, error)
+}
+type jsonUnmarshaler interface {
+	UnmarshalJSON([]byte) error
+}
+
 const (
 	_ seqType = iota
 	seqTypeArray
@@ -216,6 +224,9 @@ var (
 
 	textMarshalerTyp   = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 	textUnmarshalerTyp = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+
+	jsonMarshalerTyp   = reflect.TypeOf((*jsonMarshaler)(nil)).Elem()
+	jsonUnmarshalerTyp = reflect.TypeOf((*jsonUnmarshaler)(nil)).Elem()
 
 	selferTyp = reflect.TypeOf((*Selfer)(nil)).Elem()
 
@@ -593,6 +604,11 @@ type typeInfo struct {
 	tmIndir   int8 // number of indirections to get to textMarshaler type
 	tunmIndir int8 // number of indirections to get to textUnmarshaler type
 
+	jm        bool // base type (T or *T) is a jsonMarshaler
+	junm      bool // base type (T or *T) is a jsonUnmarshaler
+	jmIndir   int8 // number of indirections to get to jsonMarshaler type
+	junmIndir int8 // number of indirections to get to jsonUnmarshaler type
+
 	cs      bool // base type (T or *T) is a Selfer
 	csIndir int8 // number of indirections to get to Selfer type
 
@@ -667,6 +683,12 @@ func getTypeInfo(rtid uintptr, rt reflect.Type) (pti *typeInfo) {
 	}
 	if ok, indir = implementsIntf(rt, textUnmarshalerTyp); ok {
 		ti.tunm, ti.tunmIndir = true, indir
+	}
+	if ok, indir = implementsIntf(rt, jsonMarshalerTyp); ok {
+		ti.jm, ti.jmIndir = true, indir
+	}
+	if ok, indir = implementsIntf(rt, jsonUnmarshalerTyp); ok {
+		ti.junm, ti.junmIndir = true, indir
 	}
 	if ok, indir = implementsIntf(rt, selferTyp); ok {
 		ti.cs, ti.csIndir = true, indir

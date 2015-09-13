@@ -3,6 +3,7 @@ package testing
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"sync/atomic"
 	"testing"
@@ -123,7 +124,7 @@ type cluster struct {
 
 func (c *cluster) WaitForAvailability() {
 	cancel := make(chan bool)
-	time.AfterFunc(45*time.Second, func() { close(cancel) })
+	time.AfterFunc(60*time.Second, func() { close(cancel) })
 	var _shardToMasterAddress map[int]route.Address
 	var _shardToReplicaAddress map[int]map[int]route.Address
 	err := c.addresser.WatchShardToAddress(cancel, func(shardToMasterAddress map[int]route.Address, shardToReplicaAddress map[int]map[int]route.Address) (uint64, error) {
@@ -160,6 +161,7 @@ func (c *cluster) WaitForAvailability() {
 		}
 		return 0, fmt.Errorf("Complete")
 	})
+	log.Print("_shardToMasterAddress: %+v\n _shardToReplicaAddress: %+v", _shardToMasterAddress, _shardToReplicaAddress)
 	require.Equal(c.tb, err.Error(), "Complete")
 }
 
