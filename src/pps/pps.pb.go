@@ -34,6 +34,8 @@ It has these top-level messages:
 package pps
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 import google_protobuf "go.pedge.io/google-protobuf"
 
 import (
@@ -42,11 +44,9 @@ import (
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
-var _ context.Context
-var _ grpc.ClientConn
-
-// Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 type PipelineRunStatusType int32
 
@@ -200,27 +200,103 @@ func (m *DockerService) String() string { return proto.CompactTextString(m) }
 func (*DockerService) ProtoMessage()    {}
 
 type Element struct {
-	Name          string         `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	Node          *Node          `protobuf:"bytes,2,opt,name=node" json:"node,omitempty"`
-	DockerService *DockerService `protobuf:"bytes,3,opt,name=docker_service" json:"docker_service,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	// Types that are valid to be assigned to TypedElement:
+	//	*Element_Node
+	//	*Element_DockerService
+	TypedElement isElement_TypedElement `protobuf_oneof:"typed_element"`
 }
 
 func (m *Element) Reset()         { *m = Element{} }
 func (m *Element) String() string { return proto.CompactTextString(m) }
 func (*Element) ProtoMessage()    {}
 
-func (m *Element) GetNode() *Node {
+type isElement_TypedElement interface {
+	isElement_TypedElement()
+}
+
+type Element_Node struct {
+	Node *Node `protobuf:"bytes,2,opt,name=node,oneof"`
+}
+type Element_DockerService struct {
+	DockerService *DockerService `protobuf:"bytes,3,opt,name=docker_service,oneof"`
+}
+
+func (*Element_Node) isElement_TypedElement()          {}
+func (*Element_DockerService) isElement_TypedElement() {}
+
+func (m *Element) GetTypedElement() isElement_TypedElement {
 	if m != nil {
-		return m.Node
+		return m.TypedElement
+	}
+	return nil
+}
+
+func (m *Element) GetNode() *Node {
+	if x, ok := m.GetTypedElement().(*Element_Node); ok {
+		return x.Node
 	}
 	return nil
 }
 
 func (m *Element) GetDockerService() *DockerService {
-	if m != nil {
-		return m.DockerService
+	if x, ok := m.GetTypedElement().(*Element_DockerService); ok {
+		return x.DockerService
 	}
 	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*Element) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _Element_OneofMarshaler, _Element_OneofUnmarshaler, []interface{}{
+		(*Element_Node)(nil),
+		(*Element_DockerService)(nil),
+	}
+}
+
+func _Element_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*Element)
+	// typed_element
+	switch x := m.TypedElement.(type) {
+	case *Element_Node:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Node); err != nil {
+			return err
+		}
+	case *Element_DockerService:
+		b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.DockerService); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("Element.TypedElement has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _Element_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*Element)
+	switch tag {
+	case 2: // typed_element.node
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Node)
+		err := b.DecodeMessage(msg)
+		m.TypedElement = &Element_Node{msg}
+		return true, err
+	case 3: // typed_element.docker_service
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(DockerService)
+		err := b.DecodeMessage(msg)
+		m.TypedElement = &Element_DockerService{msg}
+		return true, err
+	default:
+		return false, nil
+	}
 }
 
 type Pipeline struct {
@@ -252,18 +328,76 @@ func (m *GithubPipelineSource) String() string { return proto.CompactTextString(
 func (*GithubPipelineSource) ProtoMessage()    {}
 
 type PipelineSource struct {
-	GithubPipelineSource *GithubPipelineSource `protobuf:"bytes,1,opt,name=github_pipeline_source" json:"github_pipeline_source,omitempty"`
+	// Types that are valid to be assigned to TypedPipelineSource:
+	//	*PipelineSource_GithubPipelineSource
+	TypedPipelineSource isPipelineSource_TypedPipelineSource `protobuf_oneof:"typed_pipeline_source"`
 }
 
 func (m *PipelineSource) Reset()         { *m = PipelineSource{} }
 func (m *PipelineSource) String() string { return proto.CompactTextString(m) }
 func (*PipelineSource) ProtoMessage()    {}
 
-func (m *PipelineSource) GetGithubPipelineSource() *GithubPipelineSource {
+type isPipelineSource_TypedPipelineSource interface {
+	isPipelineSource_TypedPipelineSource()
+}
+
+type PipelineSource_GithubPipelineSource struct {
+	GithubPipelineSource *GithubPipelineSource `protobuf:"bytes,1,opt,name=github_pipeline_source,oneof"`
+}
+
+func (*PipelineSource_GithubPipelineSource) isPipelineSource_TypedPipelineSource() {}
+
+func (m *PipelineSource) GetTypedPipelineSource() isPipelineSource_TypedPipelineSource {
 	if m != nil {
-		return m.GithubPipelineSource
+		return m.TypedPipelineSource
 	}
 	return nil
+}
+
+func (m *PipelineSource) GetGithubPipelineSource() *GithubPipelineSource {
+	if x, ok := m.GetTypedPipelineSource().(*PipelineSource_GithubPipelineSource); ok {
+		return x.GithubPipelineSource
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*PipelineSource) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _PipelineSource_OneofMarshaler, _PipelineSource_OneofUnmarshaler, []interface{}{
+		(*PipelineSource_GithubPipelineSource)(nil),
+	}
+}
+
+func _PipelineSource_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*PipelineSource)
+	// typed_pipeline_source
+	switch x := m.TypedPipelineSource.(type) {
+	case *PipelineSource_GithubPipelineSource:
+		b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.GithubPipelineSource); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("PipelineSource.TypedPipelineSource has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _PipelineSource_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*PipelineSource)
+	switch tag {
+	case 1: // typed_pipeline_source.github_pipeline_source
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(GithubPipelineSource)
+		err := b.DecodeMessage(msg)
+		m.TypedPipelineSource = &PipelineSource_GithubPipelineSource{msg}
+		return true, err
+	default:
+		return false, nil
+	}
 }
 
 type PipelineRun struct {
@@ -443,6 +577,10 @@ func init() {
 	proto.RegisterEnum("pps.PipelineRunStatusType", PipelineRunStatusType_name, PipelineRunStatusType_value)
 	proto.RegisterEnum("pps.OutputStream", OutputStream_name, OutputStream_value)
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
 
 // Client API for Api service
 
