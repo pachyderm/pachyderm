@@ -12,12 +12,22 @@ import (
 )
 
 func PrintRepoHeader(w io.Writer) {
-	fmt.Fprintln(w, "NAME\t")
+	fmt.Fprintln(w, "NAME\tCREATED\tSIZE\t")
 }
 
-func PrintRepo(w io.Writer, repo *pfs.Repo) {
-	fmt.Fprintf(w, "%s\t", repo.Name)
-	fmt.Fprintln(w, "")
+func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
+	fmt.Fprintf(w, "%s\t", repoInfo.Repo.Name)
+	fmt.Fprintf(
+		w,
+		"%s ago\t", units.HumanDuration(
+			time.Since(
+				prototime.TimestampToTime(
+					repoInfo.Created,
+				),
+			),
+		),
+	)
+	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(repoInfo.SizeBytes)))
 }
 
 func PrintCommitInfoHeader(w io.Writer) {
