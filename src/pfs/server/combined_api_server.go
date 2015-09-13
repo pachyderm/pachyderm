@@ -82,7 +82,7 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 		}); err != nil {
 			return nil, err
 		}
-		if _, err = a.Commit(ctx, &pfs.CommitRequest{
+		if _, err = a.Write(ctx, &pfs.WriteRequest{
 			Commit: &pfs.Commit{
 				Repository: initRepositoryRequest.Repository,
 				Id:         InitialCommitID,
@@ -95,7 +95,7 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 	return emptyInstance, nil
 }
 
-func (a *combinedAPIServer) ListRepositories(ctx context.Context, listRepositoriesRequest *pfs.ListRepositoriesRequest) (*pfs.ListRepositoriesResponse, error) {
+func (a *combinedAPIServer) ListRepositories(ctx context.Context, listRepositoriesRequest *pfs.ListRepositoriesRequest) (*pfs.Repositories, error) {
 	masterShards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (a *combinedAPIServer) ListRepositories(ctx context.Context, listRepositori
 		if err != nil {
 			return nil, err
 		}
-		return &pfs.ListRepositoriesResponse{Repository: repositories}, nil
+		return &pfs.Repositories{Repository: repositories}, nil
 	}
 	if !listRepositoriesRequest.Redirect {
 		clientConns, err := a.router.GetAllClientConns()
@@ -146,7 +146,7 @@ func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFi
 	)
 }
 
-func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest *pfs.GetFileInfoRequest) (*pfs.GetFileInfoResponse, error) {
+func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest *pfs.GetFileInfoRequest) (*pfs.FileInfo, error) {
 	shard, clientConn, err := a.getShardAndClientConnIfNecessary(getFileInfoRequest.Path, false)
 	if err != nil {
 		return nil, err
@@ -159,11 +159,9 @@ func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest 
 		return nil, err
 	}
 	if !ok {
-		return &pfs.GetFileInfoResponse{}, nil
+		return &pfs.FileInfo{}, nil
 	}
-	return &pfs.GetFileInfoResponse{
-		FileInfo: fileInfo,
-	}, nil
+	return fileInfo, nil
 }
 
 func (a *combinedAPIServer) MakeDirectory(ctx context.Context, makeDirectoryRequest *pfs.MakeDirectoryRequest) (*google_protobuf.Empty, error) {
@@ -215,7 +213,7 @@ func (a *combinedAPIServer) PutFile(ctx context.Context, putFileRequest *pfs.Put
 	return emptyInstance, nil
 }
 
-func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs.ListFilesRequest) (*pfs.ListFilesResponse, error) {
+func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs.ListFilesRequest) (*pfs.FileInfos, error) {
 	shards, err := a.getAllShards(false)
 	if err != nil {
 		return nil, err
@@ -275,12 +273,12 @@ func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs
 			}
 		}
 	}
-	return &pfs.ListFilesResponse{
+	return &pfs.FileInfos{
 		FileInfo: fileInfos,
 	}, nil
 }
 
-func (a *combinedAPIServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest) (*pfs.BranchResponse, error) {
+func (a *combinedAPIServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest) (*pfs.Commit, error) {
 	if branchRequest.Redirect && branchRequest.NewCommit == nil {
 		return nil, fmt.Errorf("must set a new commit for redirect %+v", branchRequest)
 	}
@@ -310,12 +308,10 @@ func (a *combinedAPIServer) Branch(ctx context.Context, branchRequest *pfs.Branc
 			}
 		}
 	}
-	return &pfs.BranchResponse{
-		Commit: newCommit,
-	}, nil
+	return newCommit, nil
 }
 
-func (a *combinedAPIServer) Commit(ctx context.Context, commitRequest *pfs.CommitRequest) (*google_protobuf.Empty, error) {
+func (a *combinedAPIServer) Write(ctx context.Context, commitRequest *pfs.WriteRequest) (*google_protobuf.Empty, error) {
 	shards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
@@ -332,9 +328,9 @@ func (a *combinedAPIServer) Commit(ctx context.Context, commitRequest *pfs.Commi
 			return nil, err
 		}
 		for _, clientConn := range clientConns {
-			if _, err := pfs.NewApiClient(clientConn).Commit(
+			if _, err := pfs.NewApiClient(clientConn).Write(
 				ctx,
-				&pfs.CommitRequest{
+				&pfs.WriteRequest{
 					Commit:   commitRequest.Commit,
 					Redirect: true,
 				},
@@ -378,7 +374,7 @@ func (a *combinedAPIServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.P
 }
 
 // TODO(pedge): race on Branch
-func (a *combinedAPIServer) GetCommitInfo(ctx context.Context, getCommitInfoRequest *pfs.GetCommitInfoRequest) (*pfs.GetCommitInfoResponse, error) {
+func (a *combinedAPIServer) GetCommitInfo(ctx context.Context, getCommitInfoRequest *pfs.GetCommitInfoRequest) (*pfs.CommitInfo, error) {
 	shard, clientConn, err := a.getMasterShardOrMasterClientConnIfNecessary()
 	if err != nil {
 		return nil, err
@@ -391,14 +387,12 @@ func (a *combinedAPIServer) GetCommitInfo(ctx context.Context, getCommitInfoRequ
 		return nil, err
 	}
 	if !ok {
-		return &pfs.GetCommitInfoResponse{}, nil
+		return &pfs.CommitInfo{}, nil
 	}
-	return &pfs.GetCommitInfoResponse{
-		CommitInfo: commitInfo,
-	}, nil
+	return commitInfo, nil
 }
 
-func (a *combinedAPIServer) ListCommits(ctx context.Context, listCommitsRequest *pfs.ListCommitsRequest) (*pfs.ListCommitsResponse, error) {
+func (a *combinedAPIServer) ListCommits(ctx context.Context, listCommitsRequest *pfs.ListCommitsRequest) (*pfs.CommitInfos, error) {
 	shard, clientConn, err := a.getMasterShardOrMasterClientConnIfNecessary()
 	if err != nil {
 		return nil, err
@@ -410,7 +404,7 @@ func (a *combinedAPIServer) ListCommits(ctx context.Context, listCommitsRequest 
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.ListCommitsResponse{
+	return &pfs.CommitInfos{
 		CommitInfo: commitInfos,
 	}, nil
 }

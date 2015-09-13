@@ -42,7 +42,7 @@ func (w *pipelineRunLogWriter) Write(p []byte) (int, error) {
 	if n := copy(c, p); n != len(p) {
 		return 0, fmt.Errorf("tried to copy %d bytes, only copied %d bytes", len(p), n)
 	}
-	if err := w.storeClient.AddPipelineRunLogs(
+	if err := w.storeClient.CreatePipelineRunLogs(
 		&pps.PipelineRunLog{
 			PipelineRunId: w.pipelineRunID,
 			ContainerId:   w.containerID,

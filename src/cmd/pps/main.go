@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"go.pedge.io/env"
 	"go.pedge.io/proto/client"
 	"go.pedge.io/proto/time"
@@ -15,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
 	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"github.com/spf13/cobra"
 )
 
@@ -57,26 +58,36 @@ func do(appEnvObj interface{}) error {
 		MinNumArgs: 1,
 		MaxNumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			pipelineArgs, err := getPipelineArgs(args)
+			githubPipelineSource, err := getGithubPipelineSource(args)
 			if err != nil {
 				return err
 			}
-			getPipelineResponse, err := ppsutil.GetPipelineGithub(
-				apiClient,
-				pipelineArgs.contextDir,
-				pipelineArgs.user,
-				pipelineArgs.repository,
-				pipelineArgs.branch,
-				"",
-				pipelineArgs.accessToken,
+			pipelineSource, err := apiClient.CreatePipelineSource(
+				context.Background(),
+				&pps.CreatePipelineSourceRequest{
+					PipelineSource: &pps.PipelineSource{
+						TypedPipelineSource: &pps.PipelineSource_GithubPipelineSource{
+							GithubPipelineSource: githubPipelineSource,
+						},
+					},
+				},
+			)
+			if err != nil {
+				return err
+			}
+			pipeline, err := apiClient.CreateAndGetPipeline(
+				context.Background(),
+				&pps.CreateAndGetPipelineRequest{
+					PipelineSourceId: pipelineSource.Id,
+				},
 			)
 			if err != nil {
 				return err
 			}
 			if protoFlag {
-				fmt.Printf("%v\n", getPipelineResponse.Pipeline)
+				fmt.Printf("%v\n", pipeline)
 			} else {
-				data, err := json.MarshalIndent(getPipelineResponse.Pipeline, "", "\t ")
+				data, err := json.MarshalIndent(pipeline, "", "\t ")
 				if err != nil {
 					return err
 				}
@@ -93,23 +104,51 @@ func do(appEnvObj interface{}) error {
 		MinNumArgs: 1,
 		MaxNumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			pipelineArgs, err := getPipelineArgs(args)
+			githubPipelineSource, err := getGithubPipelineSource(args)
 			if err != nil {
 				return err
 			}
-			startPipelineRunResponse, err := ppsutil.StartPipelineRunGithub(
-				apiClient,
-				pipelineArgs.contextDir,
-				pipelineArgs.user,
-				pipelineArgs.repository,
-				pipelineArgs.branch,
-				"",
-				pipelineArgs.accessToken,
+			pipelineSource, err := apiClient.CreatePipelineSource(
+				context.Background(),
+				&pps.CreatePipelineSourceRequest{
+					PipelineSource: &pps.PipelineSource{
+						TypedPipelineSource: &pps.PipelineSource_GithubPipelineSource{
+							GithubPipelineSource: githubPipelineSource,
+						},
+					},
+				},
 			)
 			if err != nil {
 				return err
 			}
-			fmt.Println(startPipelineRunResponse.PipelineRunId)
+			pipeline, err := apiClient.CreateAndGetPipeline(
+				context.Background(),
+				&pps.CreateAndGetPipelineRequest{
+					PipelineSourceId: pipelineSource.Id,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			pipelineRun, err := apiClient.CreatePipelineRun(
+				context.Background(),
+				&pps.CreatePipelineRunRequest{
+					PipelineId: pipeline.Id,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			_, err = apiClient.StartPipelineRun(
+				context.Background(),
+				&pps.StartPipelineRunRequest{
+					PipelineRunId: pipelineRun.Id,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			fmt.Println(pipelineRun.Id)
 			return nil
 		},
 	}.ToCobraCommand()
@@ -119,14 +158,17 @@ func do(appEnvObj interface{}) error {
 		Long:    "Get the status of a pipeline run.",
 		NumArgs: 1,
 		Run: func(cmd *cobra.Command, args []string) error {
-			getPipelineRunStatusResponse, err := ppsutil.GetPipelineRunStatus(
-				apiClient,
-				args[0],
+			pipelineRunStatuses, err := apiClient.GetPipelineRunStatus(
+				context.Background(),
+				&pps.GetPipelineRunStatusRequest{
+					PipelineRunId: args[0],
+				},
 			)
 			if err != nil {
 				return err
 			}
-			name, ok := pps.PipelineRunStatusType_name[int32(getPipelineRunStatusResponse.PipelineRunStatus.PipelineRunStatusType)]
+			pipelineRunStatus := pipelineRunStatuses.PipelineRunStatus[0]
+			name, ok := pps.PipelineRunStatusType_name[int32(pipelineRunStatus.PipelineRunStatusType)]
 			if !ok {
 				return fmt.Errorf("unknown run status")
 			}
@@ -145,15 +187,17 @@ func do(appEnvObj interface{}) error {
 			if len(args) == 2 {
 				node = args[1]
 			}
-			getPipelineRunLogsResponse, err := ppsutil.GetPipelineRunLogs(
-				apiClient,
-				args[0],
-				node,
+			pipelineRunLogs, err := apiClient.GetPipelineRunLogs(
+				context.Background(),
+				&pps.GetPipelineRunLogsRequest{
+					PipelineRunId: args[0],
+					Node:          node,
+				},
 			)
 			if err != nil {
 				return err
 			}
-			for _, pipelineRunLog := range getPipelineRunLogsResponse.PipelineRunLog {
+			for _, pipelineRunLog := range pipelineRunLogs.PipelineRunLog {
 				name, ok := pps.OutputStream_name[int32(pipelineRunLog.OutputStream)]
 				if !ok {
 					return fmt.Errorf("unknown pps.OutputStream")
@@ -195,15 +239,7 @@ The environment variable PPS_ADDRESS controls what server the CLI connects to, t
 	return rootCmd.Execute()
 }
 
-type pipelineArgs struct {
-	contextDir  string
-	user        string
-	repository  string
-	branch      string
-	accessToken string
-}
-
-func getPipelineArgs(args []string) (*pipelineArgs, error) {
+func getGithubPipelineSource(args []string) (*pps.GithubPipelineSource, error) {
 	path := args[0]
 	if !strings.HasPrefix(path, "github.com/") {
 		return nil, fmt.Errorf("%s is not supported", path)
@@ -216,12 +252,10 @@ func getPipelineArgs(args []string) (*pipelineArgs, error) {
 	if len(args) > 1 {
 		contextDir = args[1]
 	}
-	return &pipelineArgs{
-		contextDir:  contextDir,
-		user:        split[1],
-		repository:  split[2],
-		branch:      "",
-		accessToken: "",
+	return &pps.GithubPipelineSource{
+		ContextDir: contextDir,
+		User:       split[1],
+		Repository: split[2],
 	}, nil
 }
 

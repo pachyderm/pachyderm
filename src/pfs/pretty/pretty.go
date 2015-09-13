@@ -15,7 +15,7 @@ func PrintRepositoryHeader(w io.Writer) {
 	fmt.Fprintln(w, "NAME\t")
 }
 
-func PrintRepository(w io.Writer, repository *Repository) {
+func PrintRepository(w io.Writer, repository *pfs.Repository) {
 	fmt.Fprintf(w, "%s\t", repository.Name)
 	fmt.Fprintln(w, "")
 }

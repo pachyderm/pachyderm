@@ -38,13 +38,12 @@ type ListVolumesOptions struct {
 //
 // See https://goo.gl/FZA4BK for more details.
 func (c *Client) ListVolumes(opts ListVolumesOptions) ([]Volume, error) {
-	resp, err := c.do("GET", "/volumes?"+queryString(opts), doOptions{})
+	body, _, err := c.do("GET", "/volumes?"+queryString(opts), doOptions{})
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 	m := make(map[string]interface{})
-	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+	if err := json.Unmarshal(body, &m); err != nil {
 		return nil, err
 	}
 	var volumes []Volume
@@ -75,13 +74,12 @@ type CreateVolumeOptions struct {
 //
 // See https://goo.gl/pBUbZ9 for more details.
 func (c *Client) CreateVolume(opts CreateVolumeOptions) (*Volume, error) {
-	resp, err := c.do("POST", "/volumes", doOptions{data: opts})
+	body, _, err := c.do("POST", "/volumes", doOptions{data: opts})
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 	var volume Volume
-	if err := json.NewDecoder(resp.Body).Decode(&volume); err != nil {
+	if err := json.Unmarshal(body, &volume); err != nil {
 		return nil, err
 	}
 	return &volume, nil
@@ -91,16 +89,15 @@ func (c *Client) CreateVolume(opts CreateVolumeOptions) (*Volume, error) {
 //
 // See https://goo.gl/0g9A6i for more details.
 func (c *Client) InspectVolume(name string) (*Volume, error) {
-	resp, err := c.do("GET", "/volumes/"+name, doOptions{})
+	body, status, err := c.do("GET", "/volumes/"+name, doOptions{})
+	if status == http.StatusNotFound {
+		return nil, ErrNoSuchVolume
+	}
 	if err != nil {
-		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
-			return nil, ErrNoSuchVolume
-		}
 		return nil, err
 	}
-	defer resp.Body.Close()
 	var volume Volume
-	if err := json.NewDecoder(resp.Body).Decode(&volume); err != nil {
+	if err := json.Unmarshal(body, &volume); err != nil {
 		return nil, err
 	}
 	return &volume, nil
@@ -110,18 +107,12 @@ func (c *Client) InspectVolume(name string) (*Volume, error) {
 //
 // See https://goo.gl/79GNQz for more details.
 func (c *Client) RemoveVolume(name string) error {
-	resp, err := c.do("DELETE", "/volumes/"+name, doOptions{})
-	if err != nil {
-		if e, ok := err.(*Error); ok {
-			if e.Status == http.StatusNotFound {
-				return ErrNoSuchVolume
-			}
-			if e.Status == http.StatusConflict {
-				return ErrVolumeInUse
-			}
-		}
-		return nil
+	_, status, err := c.do("DELETE", "/volumes/"+name, doOptions{})
+	if status == http.StatusNotFound {
+		return ErrNoSuchVolume
 	}
-	defer resp.Body.Close()
-	return nil
+	if status == http.StatusConflict {
+		return ErrVolumeInUse
+	}
+	return err
 }
