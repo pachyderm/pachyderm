@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-import "google/api/annotations.proto";
+//import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
@@ -15,43 +15,32 @@ enum CommitType {
 
 // FileType represents a type of file from ListFiles.
 enum FileType {
-  FILE_TYPE_NONE = 0;
-  FILE_TYPE_OTHER = 1;
-  FILE_TYPE_REGULAR = 2;
-  FILE_TYPE_DIR = 3;
+  FILE_TYPE_REGULAR = 0;
+  FILE_TYPE_DIR = 1;
 }
 
-// Repository represents a repository.
-message Repository {
+// Repo represents a repo.
+message Repo {
   string name = 1;
 }
 
-// Commit represents a specific commit in a repository.
+// Commit represents a specific commit in a repo.
 message Commit {
-  Repository repository = 1;
+  Repo repo = 1;
   string id = 2;
 }
 
-// Path represents the full path to a file or directory within PFS.
-message Path {
+// File represents the full path to a file or directory within pfs.
+message File {
   Commit commit = 1;
   string path = 2;
 }
 
-// FileInfo represents information about a file.
-message FileInfo {
-  Path path = 1;
-  FileType file_type = 2;
-  uint64 size_bytes = 3;
-  uint32 perm = 4;
-  google.protobuf.Timestamp last_modified = 5;
-}
-
-// Shard represents a dynamic shard within PFS.
-// number must always be less than modulo.
-message Shard {
-  uint64 number = 1;
-  uint64 modulo = 2;
+// RepoInfo represent information about a repo.
+message RepoInfo {
+    Repo repo = 1;
+    google.protobuf.Timestamp created = 2;
+    uint64 size_bytes = 3;
 }
 
 // CommitInfo represents information about a commit.
@@ -59,120 +48,179 @@ message CommitInfo {
   Commit commit = 1;
   CommitType commit_type = 2;
   Commit parent_commit = 3;
+  google.protobuf.Timestamp opened = 4;
+  google.protobuf.Timestamp closed = 5;
+  uint64 commit_bytes = 6;
+  uint64 total_bytes = 7;
 }
 
-message InitRepositoryRequest {
-  Repository repository = 1;
+// FileInfo represents information about a file.
+message FileInfo {
+  File file = 1;
+  FileType file_type = 2;
+  uint64 size_bytes = 3;
+  uint32 perm = 4;
+  google.protobuf.Timestamp last_modified = 5;
+}
+
+// Shard represents a dynamic shard within pfs.
+// number must always be less than modulo.
+message Shard {
+  uint64 number = 1;
+  uint64 modulo = 2;
+}
+
+// Change represents a change to a file.
+message Change {
+    File path = 2;
+    uint64 size_bytes = 3;
+    uint64 offset_bytes = 4;
+}
+
+message RepoCreateRequest {
+  Repo repo = 1;
   bool redirect = 2;
 }
 
-message ListRepositoriesRequest {
+message RepoInspectRequest {
+    Repo repo = 1;
+    bool redirect = 2;
+}
+
+message RepoInspectResponse {
+    RepoInfo repo_info = 1; // nil when not found
+}
+
+message RepoListRequest {
     bool redirect = 1;
 }
 
-message ListRepositoriesResponse {
-    repeated Repository repository = 1;
+message RepoListResponse {
+    repeated RepoInfo repo_info = 1;
 }
 
-message GetFileRequest {
-  Path path = 1;
+message RepoDeleteRequest {
+    Repo repo = 1;
+    bool redirect = 2;
+}
+
+message CommitStartRequest {
+  Commit parent = 1;
+  Commit commit = 2;
+  bool redirect = 3;
+}
+
+message CommitStartResponse {
+  Commit commit = 1;
+}
+
+message CommitFinishRequest {
+  Commit commit = 1;
+  bool redirect = 2;
+}
+
+message CommitInspectRequest {
+  Commit commit = 1;
+  bool redirect = 2;
+}
+
+message CommitInspectResponse {
+  CommitInfo commit_info = 1; // nil when not found
+}
+
+message CommitListRequest {
+  Repo repo = 1;
+}
+
+message CommitListResponse {
+	repeated CommitInfo commit_info = 1;
+}
+
+message CommitDeleteRequest {
+    Commit commit = 1;
+    bool redirect = 2;
+}
+
+message FileGetRequest {
+  File file = 1;
   int64 offset_bytes = 2;
   int64 size_bytes = 3;
 }
 
-message GetFileInfoRequest {
-  Path path = 1;
+message FilePutRequest {
+  File file = 1;
+  int64 offset_bytes = 2;
+  bytes value = 3;
+  bool directory = 4;
+  bool redirect = 5;
 }
 
-message GetFileInfoResponse {
+message FileInspectRequest {
+  File file = 1;
+}
+
+message FileInspectResponse {
   FileInfo file_info = 1;
 }
 
 message MakeDirectoryRequest {
-  Path path = 1;
+  File file = 1;
   bool redirect = 2;
 }
 
-message PutFileRequest {
-  Path path = 1;
-  int64 offset_bytes = 2;
-  bytes value = 3;
-}
-
-message ListFilesRequest {
-  Path path = 1;
-  Shard shard = 2;
+message FileListRequest {
+  File file = 1;
+  Shard shard = 2; // can be left nil
   bool redirect = 3;
 }
 
-message ListFilesResponse {
+message FileListResponse {
   repeated FileInfo file_info = 1;
 }
 
-message BranchRequest {
-  Commit commit = 1;
-  Commit new_commit = 2;
-  bool redirect = 3;
-}
-
-message BranchResponse {
-  Commit commit = 1;
-}
-
-message CommitRequest {
-  Commit commit = 1;
-  bool redirect = 2;
-}
-
-message GetCommitInfoRequest {
-  Commit commit = 1;
-}
-
-message GetCommitInfoResponse {
-  CommitInfo commit_info = 1;
-}
-
-message ListCommitsRequest {
-  Repository repository = 1;
-}
-
-message ListCommitsResponse {
-	repeated CommitInfo commit_info = 1;
+message FileDeleteRequest {
+    File file = 1;
+    bool redirect = 2;
 }
 
 service Api {
-  // InitRepository creates a new repository.
-  // An error is returned if the specified repository already exists.
-  rpc InitRepository(InitRepositoryRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post: "/v1/repos/{repository.name}"
-    };
-  }
-  // ListRepositories lists the existing repositories.
-  rpc ListRepositories(ListRepositoriesRequest) returns (ListRepositoriesResponse) {}
-  // GetFile returns a byte stream of the specified file.
-  // An error is returned if the specified commit is a write commit.
-  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
-  // GetFileInfo returns a FileInfo for a file.
-  rpc GetFileInfo(GetFileInfoRequest) returns (GetFileInfoResponse) {}
-  // MakeDirectory makes a directory on the file system.
-  rpc MakeDirectory(MakeDirectoryRequest) returns (google.protobuf.Empty) {}
-  // PutFile writes the specified file to PFS.
+  // Repo rpcs
+  // RepoCreate creates a new repo.
+  // An error is returned if the repo already exists.
+  rpc RepoCreate(RepoCreateRequest) returns (google.protobuf.Empty) {}
+  // RepoInspect returns info about a repo.
+  rpc RepoInspect(RepoInspectRequest) returns (RepoInspectResponse) {}
+  // RepoList returns info about all repos.
+  rpc RepoList(RepoListRequest) returns (RepoListResponse) {}
+  // RepoDelete deletes a repo.
+  rpc RepoDelete(RepoDeleteRequest) returns (google.protobuf.Empty) {}
+
+  // Commit rpcs
+  // CommitStart creates a new write commit from a parent commit.
+  // An error is returned if the parent commit is not a read commit.
+  rpc CommitStart(CommitStartRequest) returns (CommitStartResponse) {}
+  // CommitFinish turns a write commit into a read commit.
+  // An error is returned if the commit is not a write commit.
+  rpc CommitFinish(CommitFinishRequest) returns (google.protobuf.Empty) {}
+  // CommitInspect returns the info about a commit.
+  rpc CommitInspect(CommitInspectRequest) returns (CommitInspectResponse) {}
+  // CommitList returns info about all commits.
+  rpc CommitList(CommitListRequest) returns (CommitListResponse) {}
+  // CommitDelete deletes a commit.
+  rpc CommitDelete(CommitDeleteRequest) returns (CommitDeleteRequest) {}
+
+  // File rpcs
+  // FileGet returns a byte stream of the contents of the file.
+  rpc FileGet(FileGetRequest) returns (stream google.protobuf.BytesValue) {}
+  // FilePut writes the specified file to pfs.
   // An error is returned if the specified commit is not a write commit.
-  rpc PutFile(PutFileRequest) returns (google.protobuf.Empty) {}
-  // ListFiles lists the files within a directory.
-  // An error is returned if the specified path is not a directory.
-  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse) {}
-  // Branch creates a new write commit from a base commit.
-  // An error is returned if the base commit is not a read commit.
-  rpc Branch(BranchRequest) returns (BranchResponse) {}
-  // Commit turns the specified write commit into a read commit.
-  // An error is returned if the specified commit is not a write commit.
-  rpc Commit(CommitRequest) returns (google.protobuf.Empty) {}
-  // GetCommitInfo returns the CommitInfo for a commit.
-  rpc GetCommitInfo(GetCommitInfoRequest) returns (GetCommitInfoResponse) {}
-  // ListCommitInfo lists the commits on a repo
-  rpc ListCommits(ListCommitsRequest) returns (ListCommitsResponse) {}
+  rpc FilePut(FilePutRequest) returns (google.protobuf.Empty) {}
+  // FileInspect returns a info about a file.
+  rpc FileInspect(FileInspectRequest) returns (FileInspectResponse) {}
+  // FileList returns info about all files.
+  rpc FileList(FileListRequest) returns (FileListResponse) {}
+  // FileDelete deletes a file.
+  rpc FileDelete(FileDeleteRequest) returns (google.protobuf.Empty) {}
 }
 
 message PullDiffRequest {

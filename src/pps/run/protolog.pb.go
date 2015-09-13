@@ -14,10 +14,14 @@ It has these top-level messages:
 package run
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 import pps "github.com/pachyderm/pachyderm/src/pps"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 type AddedPipelineRun struct {
 	PipelineRun *pps.PipelineRun `protobuf:"bytes,1,opt,name=pipeline_run" json:"pipeline_run,omitempty"`
