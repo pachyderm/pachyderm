@@ -11,12 +11,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
-func PrintRepositoryHeader(w io.Writer) {
+func PrintRepoHeader(w io.Writer) {
 	fmt.Fprintln(w, "NAME\t")
 }
 
-func PrintRepository(w io.Writer, repository *pfs.Repository) {
-	fmt.Fprintf(w, "%s\t", repository.Name)
+func PrintRepo(w io.Writer, repo *pfs.Repo) {
+	fmt.Fprintf(w, "%s\t", repo.Name)
 	fmt.Fprintln(w, "")
 }
 
@@ -47,7 +47,7 @@ func PrintFileInfoHeader(w io.Writer) {
 }
 
 func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
-	fmt.Fprintf(w, "%s\t", fileInfo.Path.Path)
+	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 		fmt.Fprint(w, "file\t")
 	} else {
