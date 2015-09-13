@@ -18,69 +18,146 @@ const (
 	GetAll int64 = 1<<63 - 1
 )
 
-func InitRepository(apiClient pfs.ApiClient, repositoryName string) error {
-	_, err := apiClient.InitRepository(
+func RepoCreate(apiClient pfs.ApiClient, repoName string) error {
+	_, err := apiClient.RepoCreate(
 		context.Background(),
-		&pfs.InitRepositoryRequest{
-			Repository: &pfs.Repository{
-				Name: repositoryName,
+		&pfs.RepoCreateRequest{
+			Repo: &pfs.Repo{
+				Name: repoName,
 			},
 		},
 	)
 	return err
 }
 
-func ListRepositories(apiClient pfs.ApiClient) (*pfs.Repositories, error) {
-	return apiClient.ListRepositories(
+func RepoInspect(apiClient pfs.ApiClient, repoName string) (*pfs.RepoInfo, error) {
+	response, err := apiClient.RepoInspect(
 		context.Background(),
-		&pfs.ListRepositoriesRequest{},
+		&pfs.RepoInspectRequest{
+			Repo: &pfs.Repo{
+				Name: repoName,
+			},
+		},
 	)
+	if err != nil {
+		return nil, err
+	}
+	return response.RepoInfo, nil
 }
 
-func Branch(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.Commit, error) {
-	return apiClient.Branch(
+func RepoList(apiClient pfs.ApiClient) ([]*pfs.RepoInfo, error) {
+	response, err := apiClient.RepoList(
 		context.Background(),
-		&pfs.BranchRequest{
+		&pfs.RepoListRequest{},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return response.RepoInfo, nil
+}
+
+func RepoDelete(apiClient pfs.ApiClient, repoName string) error {
+	_, err := apiClient.RepoDelete(
+		context.Background(),
+		&pfs.RepoDeleteRequest{
+			Repo: &pfs.Repo{
+				Name: repoName,
+			},
+		},
+	)
+	return err
+}
+
+func CommitStart(apiClient pfs.ApiClient, repoName string, parentCommit string) (*pfs.Commit, error) {
+	response, err := apiClient.CommitStart(
+		context.Background(),
+		&pfs.CommitStartRequest{
+			Parent: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: repoName,
+				},
+				Id: parentCommit,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return response.Commit, nil
+}
+
+func CommitFinish(apiClient pfs.ApiClient, repoName string, commitID string) error {
+	_, err := apiClient.CommitFinish(
+		context.Background(),
+		&pfs.CommitFinishRequest{
 			Commit: &pfs.Commit{
-				Repository: &pfs.Repository{
-					Name: repositoryName,
+				Repo: &pfs.Repo{
+					Name: repoName,
 				},
 				Id: commitID,
 			},
 		},
 	)
+	return err
 }
 
-func MakeDirectory(apiClient pfs.ApiClient, repositoryName string, commitID string, path string) error {
-	_, err := apiClient.MakeDirectory(
+func CommitInspect(apiClient pfs.ApiClient, repoName string, commitID string) (*pfs.CommitInfo, error) {
+	response, err := apiClient.CommitInspect(
 		context.Background(),
-		&pfs.MakeDirectoryRequest{
-			Path: &pfs.Path{
-				Commit: &pfs.Commit{
-					Repository: &pfs.Repository{
-						Name: repositoryName,
-					},
-					Id: commitID,
+		&pfs.CommitInspectRequest{
+			Commit: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: repoName,
 				},
-				Path: path,
+				Id: commitID,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return response.CommitInfo, nil
+}
+
+func CommitList(apiClient pfs.ApiClient, repoName string) ([]*pfs.CommitInfo, error) {
+	response, err := apiClient.CommitList(
+		context.Background(),
+		&pfs.CommitListRequest{
+			Repo: &pfs.Repo{
+				Name: repoName,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return response.CommitInfo, nil
+}
+
+func CommitDelete(apiClient pfs.ApiClient, repoName string, commitID string) error {
+	_, err := apiClient.CommitList(
+		context.Background(),
+		&pfs.CommitListRequest{
+			Repo: &pfs.Repo{
+				Name: repoName,
 			},
 		},
 	)
 	return err
 }
 
-func PutFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, offset int64, reader io.Reader) (int64, error) {
+func FilePut(apiClient pfs.ApiClient, repoName string, commitID string, path string, offset int64, reader io.Reader) (int64, error) {
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return 0, err
 	}
-	_, err = apiClient.PutFile(
+	_, err = apiClient.FilePut(
 		context.Background(),
-		&pfs.PutFileRequest{
-			Path: &pfs.Path{
+		&pfs.FilePutRequest{
+			File: &pfs.File{
 				Commit: &pfs.Commit{
-					Repository: &pfs.Repository{
-						Name: repositoryName,
+					Repo: &pfs.Repo{
+						Name: repoName,
 					},
 					Id: commitID,
 				},
@@ -93,14 +170,14 @@ func PutFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 	return int64(len(value)), err
 }
 
-func GetFile(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
-	apiGetFileClient, err := apiClient.GetFile(
+func FileGet(apiClient pfs.ApiClient, repoName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
+	apiGetFileClient, err := apiClient.FileGet(
 		context.Background(),
-		&pfs.GetFileRequest{
-			Path: &pfs.Path{
+		&pfs.FileGetRequest{
+			File: &pfs.File{
 				Commit: &pfs.Commit{
-					Repository: &pfs.Repository{
-						Name: repositoryName,
+					Repo: &pfs.Repo{
+						Name: repoName,
 					},
 					Id: commitID,
 				},
@@ -119,14 +196,14 @@ func GetFile(apiClient pfs.ApiClient, repositoryName string, commitID string, pa
 	return nil
 }
 
-func GetFileInfo(apiClient pfs.ApiClient, repositoryName string, commitID string, path string) (*pfs.FileInfo, error) {
-	return apiClient.GetFileInfo(
+func FileInspect(apiClient pfs.ApiClient, repoName string, commitID string, path string) (*pfs.FileInfo, error) {
+	response, err := apiClient.FileInspect(
 		context.Background(),
-		&pfs.GetFileInfoRequest{
-			Path: &pfs.Path{
+		&pfs.FileInspectRequest{
+			File: &pfs.File{
 				Commit: &pfs.Commit{
-					Repository: &pfs.Repository{
-						Name: repositoryName,
+					Repo: &pfs.Repo{
+						Name: repoName,
 					},
 					Id: commitID,
 				},
@@ -134,16 +211,20 @@ func GetFileInfo(apiClient pfs.ApiClient, repositoryName string, commitID string
 			},
 		},
 	)
+	if err != nil {
+		return nil, err
+	}
+	return response.FileInfo, nil
 }
 
-func ListFiles(apiClient pfs.ApiClient, repositoryName string, commitID string, path string, shard uint64, modulus uint64) (*pfs.FileInfos, error) {
-	return apiClient.ListFiles(
+func FileList(apiClient pfs.ApiClient, repoName string, commitID string, path string, shard uint64, modulus uint64) ([]*pfs.FileInfo, error) {
+	response, err := apiClient.FileList(
 		context.Background(),
-		&pfs.ListFilesRequest{
-			Path: &pfs.Path{
+		&pfs.FileListRequest{
+			File: &pfs.File{
 				Commit: &pfs.Commit{
-					Repository: &pfs.Repository{
-						Name: repositoryName,
+					Repo: &pfs.Repo{
+						Name: repoName,
 					},
 					Id: commitID,
 				},
@@ -155,55 +236,19 @@ func ListFiles(apiClient pfs.ApiClient, repositoryName string, commitID string, 
 			},
 		},
 	)
+	if err != nil {
+		return nil, err
+	}
+	return response.FileInfo, nil
 }
 
-func Write(apiClient pfs.ApiClient, repositoryName string, commitID string) error {
-	_, err := apiClient.Write(
-		context.Background(),
-		&pfs.WriteRequest{
-			Commit: &pfs.Commit{
-				Repository: &pfs.Repository{
-					Name: repositoryName,
-				},
-				Id: commitID,
-			},
-		},
-	)
-	return err
-}
-
-func GetCommitInfo(apiClient pfs.ApiClient, repositoryName string, commitID string) (*pfs.CommitInfo, error) {
-	return apiClient.GetCommitInfo(
-		context.Background(),
-		&pfs.GetCommitInfoRequest{
-			Commit: &pfs.Commit{
-				Repository: &pfs.Repository{
-					Name: repositoryName,
-				},
-				Id: commitID,
-			},
-		},
-	)
-}
-
-func ListCommits(apiClient pfs.ApiClient, repositoryName string) (*pfs.CommitInfos, error) {
-	return apiClient.ListCommits(
-		context.Background(),
-		&pfs.ListCommitsRequest{
-			Repository: &pfs.Repository{
-				Name: repositoryName,
-			},
-		},
-	)
-}
-
-func PullDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, commitID string, shard uint64, writer io.Writer) error {
+func PullDiff(internalAPIClient pfs.InternalApiClient, repoName string, commitID string, shard uint64, writer io.Writer) error {
 	apiPullDiffClient, err := internalAPIClient.PullDiff(
 		context.Background(),
 		&pfs.PullDiffRequest{
 			Commit: &pfs.Commit{
-				Repository: &pfs.Repository{
-					Name: repositoryName,
+				Repo: &pfs.Repo{
+					Name: repoName,
 				},
 				Id: commitID,
 			},
@@ -219,7 +264,7 @@ func PullDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, co
 	return nil
 }
 
-func PushDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, commitID string, shard uint64, reader io.Reader) error {
+func PushDiff(internalAPIClient pfs.InternalApiClient, repoName string, commitID string, shard uint64, reader io.Reader) error {
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return err
@@ -228,8 +273,8 @@ func PushDiff(internalAPIClient pfs.InternalApiClient, repositoryName string, co
 		context.Background(),
 		&pfs.PushDiffRequest{
 			Commit: &pfs.Commit{
-				Repository: &pfs.Repository{
-					Name: repositoryName,
+				Repo: &pfs.Repo{
+					Name: repoName,
 				},
 				Id: commitID,
 			},
