@@ -242,6 +242,25 @@ func FileList(apiClient pfs.ApiClient, repoName string, commitID string, path st
 	return response.FileInfo, nil
 }
 
+func MakeDirectory(apiClient pfs.ApiClient, repoName string, commitID string, path string) error {
+	_, err := apiClient.FilePut(
+		context.Background(),
+		&pfs.FilePutRequest{
+			File: &pfs.File{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: repoName,
+					},
+					Id: commitID,
+				},
+				Path: path,
+			},
+			Directory: true,
+		},
+	)
+	return err
+}
+
 func PullDiff(internalAPIClient pfs.InternalApiClient, repoName string, commitID string, shard uint64, writer io.Writer) error {
 	apiPullDiffClient, err := internalAPIClient.PullDiff(
 		context.Background(),
