@@ -188,167 +188,6 @@ func (a *combinedAPIServer) RepoDelete(ctx context.Context, request *pfs.RepoDel
 
 }
 
-func (a *combinedAPIServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.Api_FileGetServer) (retErr error) {
-	shard, clientConn, err := a.getShardAndClientConnIfNecessary(request.File, false)
-	if err != nil {
-		return err
-	}
-	if clientConn != nil {
-		apiFileGetClient, err := pfs.NewApiClient(clientConn).FileGet(context.Background(), request)
-		if err != nil {
-			return err
-		}
-		return protostream.RelayFromStreamingBytesClient(apiFileGetClient, apiFileGetServer)
-	}
-	file, err := a.driver.FileGet(request.File, shard)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := file.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	return protostream.WriteToStreamingBytesServer(
-		io.NewSectionReader(file, request.OffsetBytes, request.SizeBytes),
-		apiFileGetServer,
-	)
-}
-
-func (a *combinedAPIServer) FileInspect(ctx context.Context, request *pfs.FileInspectRequest) (*pfs.FileInspectResponse, error) {
-	shard, clientConn, err := a.getShardAndClientConnIfNecessary(request.File, false)
-	if err != nil {
-		return nil, err
-	}
-	if clientConn != nil {
-		return pfs.NewApiClient(clientConn).FileInspect(context.Background(), request)
-	}
-	fileInfo, ok, err := a.driver.FileInspect(request.File, shard)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return &pfs.FileInspectResponse{}, nil
-	}
-	return &pfs.FileInspectResponse{
-		FileInfo: fileInfo,
-	}, nil
-}
-
-// func (a *combinedAPIServer) MakeDirectory(ctx context.Context, request *pfs.MakeDirectoryRequest) (*google_protobuf.Empty, error) {
-// 	shards, err := a.getAllShards(false)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if err := a.driver.MakeDirectory(request.File, shards); err != nil {
-// 		return nil, err
-// 	}
-// 	if !request.Redirect {
-// 		clientConns, err := a.router.GetAllClientConns()
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		for _, clientConn := range clientConns {
-// 			if _, err := pfs.NewApiClient(clientConn).MakeDirectory(
-// 				ctx,
-// 				&pfs.MakeDirectoryRequest{
-// 					Path:     makeDirectoryRequest.Path,
-// 					Redirect: true,
-// 				},
-// 			); err != nil {
-// 				return nil, err
-// 			}
-// 		}
-// 	}
-// 	return emptyInstance, nil
-// }
-
-func (a *combinedAPIServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*google_protobuf.Empty, error) {
-	if strings.HasPrefix(request.File.Path, "/") {
-		// This is a subtle error case, the paths foo and /foo will hash to
-		// different shards but will produce the same change once they get to
-		// those shards due to how path.Join. This can go wrong in a number of
-		// ways so we forbid leading slashes.
-		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
-	}
-	shard, clientConn, err := a.getShardAndClientConnIfNecessary(request.File, false)
-	if err != nil {
-		return nil, err
-	}
-	if clientConn != nil {
-		return pfs.NewApiClient(clientConn).FilePut(ctx, request)
-	}
-	if err := a.driver.FilePut(request.File, shard, request.OffsetBytes, bytes.NewReader(request.Value)); err != nil {
-		return nil, err
-	}
-	return emptyInstance, nil
-}
-
-func (a *combinedAPIServer) FileList(ctx context.Context, request *pfs.FileListRequest) (*pfs.FileListResponse, error) {
-	shards, err := a.getAllShards(false)
-	if err != nil {
-		return nil, err
-	}
-	dynamicShard := request.Shard
-	if dynamicShard == nil {
-		dynamicShard = &pfs.Shard{Number: 0, Modulo: 1}
-	}
-	filteredShards := make(map[int]bool)
-	for shard := range shards {
-		if uint64(shard)%dynamicShard.Modulo == dynamicShard.Number {
-			filteredShards[shard] = true
-		}
-	}
-	var fileInfos []*pfs.FileInfo
-	seenDirectories := make(map[string]bool)
-	for shard := range filteredShards {
-		subFileInfos, err := a.driver.FileList(request.File, shard)
-		if err != nil {
-			return nil, err
-		}
-		for _, fileInfo := range subFileInfos {
-			if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-				if seenDirectories[fileInfo.File.Path] {
-					continue
-				}
-				seenDirectories[fileInfo.File.Path] = true
-			}
-			fileInfos = append(fileInfos, fileInfo)
-		}
-	}
-	if !request.Redirect {
-		clientConns, err := a.router.GetAllClientConns()
-		if err != nil {
-			return nil, err
-		}
-		for _, clientConn := range clientConns {
-			listFilesResponse, err := pfs.NewApiClient(clientConn).FileList(
-				ctx,
-				&pfs.FileListRequest{
-					File:     request.File,
-					Shard:    request.Shard,
-					Redirect: true,
-				},
-			)
-			if err != nil {
-				return nil, err
-			}
-			for _, fileInfo := range listFilesResponse.FileInfo {
-				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-					if seenDirectories[fileInfo.File.Path] {
-						continue
-					}
-					seenDirectories[fileInfo.File.Path] = true
-				}
-				fileInfos = append(fileInfos, fileInfo)
-			}
-		}
-	}
-	return &pfs.FileListResponse{
-		FileInfo: fileInfos,
-	}, nil
-}
-
 func (a *combinedAPIServer) CommitStart(ctx context.Context, request *pfs.CommitStartRequest) (*pfs.CommitStartResponse, error) {
 	if request.Redirect && request.Commit == nil {
 		return nil, fmt.Errorf("must set a commit for redirect %+v", request)
@@ -482,6 +321,188 @@ func (a *combinedAPIServer) CommitDelete(ctx context.Context, request *pfs.Commi
 	return emptyInstance, nil
 }
 
+func (a *combinedAPIServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*google_protobuf.Empty, error) {
+	if strings.HasPrefix(request.File.Path, "/") {
+		// This is a subtle error case, the paths foo and /foo will hash to
+		// different shards but will produce the same change once they get to
+		// those shards due to how path.Join. This can go wrong in a number of
+		// ways so we forbid leading slashes.
+		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
+	}
+	shard, clientConn, err := a.getShardAndClientConnIfNecessary(request.File, false)
+	if err != nil {
+		return nil, err
+	}
+	if clientConn != nil {
+		return pfs.NewApiClient(clientConn).FilePut(ctx, request)
+	}
+	if err := a.driver.FilePut(request.File, shard, request.OffsetBytes, bytes.NewReader(request.Value)); err != nil {
+		return nil, err
+	}
+	return emptyInstance, nil
+}
+
+// func (a *combinedAPIServer) MakeDirectory(ctx context.Context, request *pfs.MakeDirectoryRequest) (*google_protobuf.Empty, error) {
+// 	shards, err := a.getAllShards(false)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	if err := a.driver.MakeDirectory(request.File, shards); err != nil {
+// 		return nil, err
+// 	}
+// 	if !request.Redirect {
+// 		clientConns, err := a.router.GetAllClientConns()
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		for _, clientConn := range clientConns {
+// 			if _, err := pfs.NewApiClient(clientConn).MakeDirectory(
+// 				ctx,
+// 				&pfs.MakeDirectoryRequest{
+// 					Path:     makeDirectoryRequest.Path,
+// 					Redirect: true,
+// 				},
+// 			); err != nil {
+// 				return nil, err
+// 			}
+// 		}
+// 	}
+// 	return emptyInstance, nil
+// }
+
+func (a *combinedAPIServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.Api_FileGetServer) (retErr error) {
+	shard, clientConn, err := a.getShardAndClientConnIfNecessary(request.File, false)
+	if err != nil {
+		return err
+	}
+	if clientConn != nil {
+		apiFileGetClient, err := pfs.NewApiClient(clientConn).FileGet(context.Background(), request)
+		if err != nil {
+			return err
+		}
+		return protostream.RelayFromStreamingBytesClient(apiFileGetClient, apiFileGetServer)
+	}
+	file, err := a.driver.FileGet(request.File, shard)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := file.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	return protostream.WriteToStreamingBytesServer(
+		io.NewSectionReader(file, request.OffsetBytes, request.SizeBytes),
+		apiFileGetServer,
+	)
+}
+
+func (a *combinedAPIServer) FileInspect(ctx context.Context, request *pfs.FileInspectRequest) (*pfs.FileInspectResponse, error) {
+	shard, clientConn, err := a.getShardAndClientConnIfNecessary(request.File, false)
+	if err != nil {
+		return nil, err
+	}
+	if clientConn != nil {
+		return pfs.NewApiClient(clientConn).FileInspect(context.Background(), request)
+	}
+	fileInfo, ok, err := a.driver.FileInspect(request.File, shard)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return &pfs.FileInspectResponse{}, nil
+	}
+	return &pfs.FileInspectResponse{
+		FileInfo: fileInfo,
+	}, nil
+}
+
+func (a *combinedAPIServer) FileList(ctx context.Context, request *pfs.FileListRequest) (*pfs.FileListResponse, error) {
+	shards, err := a.getAllShards(false)
+	if err != nil {
+		return nil, err
+	}
+	dynamicShard := request.Shard
+	if dynamicShard == nil {
+		dynamicShard = &pfs.Shard{Number: 0, Modulo: 1}
+	}
+	filteredShards := make(map[int]bool)
+	for shard := range shards {
+		if uint64(shard)%dynamicShard.Modulo == dynamicShard.Number {
+			filteredShards[shard] = true
+		}
+	}
+	var fileInfos []*pfs.FileInfo
+	seenDirectories := make(map[string]bool)
+	for shard := range filteredShards {
+		subFileInfos, err := a.driver.FileList(request.File, shard)
+		if err != nil {
+			return nil, err
+		}
+		for _, fileInfo := range subFileInfos {
+			if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+				if seenDirectories[fileInfo.File.Path] {
+					continue
+				}
+				seenDirectories[fileInfo.File.Path] = true
+			}
+			fileInfos = append(fileInfos, fileInfo)
+		}
+	}
+	if !request.Redirect {
+		clientConns, err := a.router.GetAllClientConns()
+		if err != nil {
+			return nil, err
+		}
+		for _, clientConn := range clientConns {
+			listFilesResponse, err := pfs.NewApiClient(clientConn).FileList(
+				ctx,
+				&pfs.FileListRequest{
+					File:     request.File,
+					Shard:    request.Shard,
+					Redirect: true,
+				},
+			)
+			if err != nil {
+				return nil, err
+			}
+			for _, fileInfo := range listFilesResponse.FileInfo {
+				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+					if seenDirectories[fileInfo.File.Path] {
+						continue
+					}
+					seenDirectories[fileInfo.File.Path] = true
+				}
+				fileInfos = append(fileInfos, fileInfo)
+			}
+		}
+	}
+	return &pfs.FileListResponse{
+		FileInfo: fileInfos,
+	}, nil
+}
+
+func (a *combinedAPIServer) FileDelete(ctx context.Context, request *pfs.FileDeleteRequest) (*google_protobuf.Empty, error) {
+	if strings.HasPrefix(request.File.Path, "/") {
+		// This is a subtle error case, the paths foo and /foo will hash to
+		// different shards but will produce the same change once they get to
+		// those shards due to how path.Join. This can go wrong in a number of
+		// ways so we forbid leading slashes.
+		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
+	}
+	shard, clientConn, err := a.getShardAndClientConnIfNecessary(request.File, false)
+	if err != nil {
+		return nil, err
+	}
+	if clientConn != nil {
+		return pfs.NewApiClient(clientConn).FileDelete(ctx, request)
+	}
+	if err := a.driver.FileDelete(request.File, shard); err != nil {
+		return nil, err
+	}
+	return emptyInstance, nil
+}
+
 func (a *combinedAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalApi_PullDiffServer) error {
 	clientConn, err := a.getClientConnIfNecessary(int(request.Shard), false)
 	if err != nil {
@@ -511,6 +532,63 @@ func (a *combinedAPIServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.P
 		return nil, fmt.Errorf("pachyderm: illegal PushDiffRequest for unknown shard %d", pushDiffRequest.Shard)
 	}
 	return emptyInstance, a.driver.DiffPush(pushDiffRequest.Commit, bytes.NewReader(pushDiffRequest.Value))
+}
+
+func (a *combinedAPIServer) Master(shard int) error {
+	clientConns, err := a.router.GetReplicaClientConns(shard)
+	if err != nil {
+		return err
+	}
+	for _, clientConn := range clientConns {
+		apiClient := pfs.NewApiClient(clientConn)
+		response, err := apiClient.RepoList(context.Background(), &pfs.RepoListRequest{})
+		if err != nil {
+			return err
+		}
+		for _, repoInfo := range response.RepoInfo {
+			if err := a.driver.RepoCreate(repoInfo.Repo, map[int]bool{shard: true}); err != nil {
+				return err
+			}
+			response, err := apiClient.CommitList(context.Background(), &pfs.CommitListRequest{Repo: repoInfo.Repo})
+			if err != nil {
+				return err
+			}
+			localCommitInfo, err := a.driver.CommitList(repoInfo.Repo, shard)
+			if err != nil {
+				return err
+			}
+			for i, commitInfo := range response.CommitInfo {
+				if i < len(localCommitInfo) {
+					if *commitInfo != *localCommitInfo[i] {
+						return fmt.Errorf("divergent data")
+					}
+					continue
+				}
+				pullDiffClient, err := pfs.NewInternalApiClient(clientConn).PullDiff(
+					context.Background(),
+					&pfs.PullDiffRequest{
+						Commit: commitInfo.Commit,
+						Shard:  uint64(shard),
+					},
+				)
+				if err != nil {
+					return err
+				}
+				if err := a.driver.DiffPush(commitInfo.Commit, protostream.NewStreamingBytesReader(pullDiffClient)); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (a *combinedAPIServer) Replica(shard int) error {
+	return nil
+}
+
+func (a *combinedAPIServer) Clear(shard int) error {
+	return nil
 }
 
 func (a *combinedAPIServer) getShardAndClientConnIfNecessary(file *pfs.File, replicaOk bool) (int, *grpc.ClientConn, error) {
@@ -620,62 +698,5 @@ func (a *combinedAPIServer) commitToReplicas(ctx context.Context, commit *pfs.Co
 			}
 		}
 	}
-	return nil
-}
-
-func (a *combinedAPIServer) Master(shard int) error {
-	clientConns, err := a.router.GetReplicaClientConns(shard)
-	if err != nil {
-		return err
-	}
-	for _, clientConn := range clientConns {
-		apiClient := pfs.NewApiClient(clientConn)
-		response, err := apiClient.RepoList(context.Background(), &pfs.RepoListRequest{})
-		if err != nil {
-			return err
-		}
-		for _, repoInfo := range response.RepoInfo {
-			if err := a.driver.RepoCreate(repoInfo.Repo, map[int]bool{shard: true}); err != nil {
-				return err
-			}
-			response, err := apiClient.CommitList(context.Background(), &pfs.CommitListRequest{Repo: repoInfo.Repo})
-			if err != nil {
-				return err
-			}
-			localCommitInfo, err := a.driver.CommitList(repoInfo.Repo, shard)
-			if err != nil {
-				return err
-			}
-			for i, commitInfo := range response.CommitInfo {
-				if i < len(localCommitInfo) {
-					if *commitInfo != *localCommitInfo[i] {
-						return fmt.Errorf("divergent data")
-					}
-					continue
-				}
-				pullDiffClient, err := pfs.NewInternalApiClient(clientConn).PullDiff(
-					context.Background(),
-					&pfs.PullDiffRequest{
-						Commit: commitInfo.Commit,
-						Shard:  uint64(shard),
-					},
-				)
-				if err != nil {
-					return err
-				}
-				if err := a.driver.DiffPush(commitInfo.Commit, protostream.NewStreamingBytesReader(pullDiffClient)); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func (a *combinedAPIServer) Replica(shard int) error {
-	return nil
-}
-
-func (a *combinedAPIServer) Clear(shard int) error {
 	return nil
 }
