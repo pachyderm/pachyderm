@@ -9,7 +9,7 @@ import (
 
 type Sharder interface {
 	NumShards() int
-	GetShard(path *pfs.Path) (int, error)
+	GetShard(file *pfs.File) (int, error)
 }
 
 func NewSharder(numShards int) Sharder {
