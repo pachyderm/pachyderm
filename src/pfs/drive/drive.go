@@ -17,17 +17,21 @@ type ReaderAtCloser interface {
 
 // Driver represents a low-level pfs storage driver.
 type Driver interface {
-	InitRepository(repository *pfs.Repository, shard map[int]bool) error
-	ListRepositories(shard int) ([]*pfs.Repository, error)
-	GetFile(path *pfs.Path, shard int) (ReaderAtCloser, error)
-	GetFileInfo(path *pfs.Path, shard int) (*pfs.FileInfo, bool, error)
-	MakeDirectory(path *pfs.Path, shards map[int]bool) error
-	PutFile(path *pfs.Path, shard int, offset int64, reader io.Reader) error
-	ListFiles(path *pfs.Path, shard int) ([]*pfs.FileInfo, error)
-	Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error)
-	Commit(commit *pfs.Commit, shards map[int]bool) error
-	PullDiff(commit *pfs.Commit, shard int, diff io.Writer) error
-	PushDiff(commit *pfs.Commit, diff io.Reader) error
-	GetCommitInfo(commit *pfs.Commit, shard int) (*pfs.CommitInfo, bool, error)
-	ListCommits(repository *pfs.Repository, shard int) ([]*pfs.CommitInfo, error)
+	RepoCreate(repo *pfs.Repo, shard map[int]bool) error
+	RepoInspect(repo *pfs.Repo, shard int) (*pfs.RepoInfo, bool, error)
+	RepoList(shard int) ([]*pfs.RepoInfo, error)
+	RepoDelete(repo *pfs.Repo, shard map[int]bool) error
+	CommitStart(parent *pfs.Commit, commit *pfs.Commit, shard map[int]bool) (*pfs.Commit, error)
+	CommitFinish(commit *pfs.Commit, shard map[int]bool) error
+	CommitInspect(commit *pfs.Commit, shard int) (*pfs.CommitInfo, bool, error)
+	CommitList(repo *pfs.Repo, shard int) ([]*pfs.CommitInfo, error)
+	CommitDelete(commit *pfs.Commit, shard map[int]bool) error
+	FilePut(file *pfs.File, shard int, offset int64, reader io.Reader) error
+	MakeDirectory(file *pfs.File, shard map[int]bool) error
+	FileGet(file *pfs.File, shard int) (ReaderAtCloser, error)
+	FileInspect(file *pfs.File, shard int) (*pfs.FileInfo, bool, error)
+	FileList(file *pfs.File, shard int) ([]*pfs.FileInfo, error)
+	FileDelete(file *pfs.File, shard int) error
+	DiffPull(commit *pfs.Commit, shard int, diff io.Writer) error
+	DiffPush(commit *pfs.Commit, diff io.Reader) error
 }

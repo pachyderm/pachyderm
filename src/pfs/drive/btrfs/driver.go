@@ -5,9 +5,9 @@
 directory structure
 
   .
-  |-- repositoryName
+  |-- repoName
 	  |-- scratch
-		  |-- shardNum // the read-only read created on InitRepository, this is where to start branching
+		  |-- shardNum // the read-only read created on InitRepo, this is where to start branching
       |-- commitID
 	      |-- shardNum // this is where subvolumes are
 
@@ -22,6 +22,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -51,53 +52,206 @@ func newDriver(rootDir string, namespace string) (*driver, error) {
 	return &driver{rootDir, namespace}, nil
 }
 
-func (d *driver) InitRepository(repository *pfs.Repository, shards map[int]bool) error {
-	if err := execSubvolumeCreate(d.repositoryPath(repository)); err != nil && !execSubvolumeExists(d.repositoryPath(repository)) {
+func (d *driver) RepoCreate(repo *pfs.Repo, shard map[int]bool) error {
+	if err := execSubvolumeCreate(d.repoPath(repo)); err != nil && !execSubvolumeExists(d.repoPath(repo)) {
 		return err
 	}
 	return nil
 }
 
-func (d *driver) ListRepositories(shard int) ([]*pfs.Repository, error) {
+func (d *driver) RepoInspect(repo *pfs.Repo, shard int) (*pfs.RepoInfo, bool, error) {
+	stat, err := os.Stat(d.repoPath(repo))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	return &pfs.RepoInfo{
+			Repo: repo,
+			Created: &google_protobuf.Timestamp{
+				Seconds: stat.ModTime().UnixNano() / int64(time.Second),
+				Nanos:   int32(stat.ModTime().UnixNano() % int64(time.Second)),
+			},
+		},
+		true,
+		nil
+
+}
+
+func (d *driver) RepoList(shard int) ([]*pfs.RepoInfo, error) {
 	repositories, err := ioutil.ReadDir(d.basePath())
 	if err != nil {
 		return nil, err
 	}
-	var result []*pfs.Repository
-	for _, repository := range repositories {
-		result = append(result, &pfs.Repository{repository.Name()})
+	var result []*pfs.RepoInfo
+	for _, repo := range repositories {
+		repoInfo, ok, err := d.RepoInspect(&pfs.Repo{repo.Name()}, shard)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, fmt.Errorf("repo should exist")
+		}
+		result = append(result, repoInfo)
 	}
 	return result, nil
 }
 
-func (d *driver) GetFile(path *pfs.Path, shard int) (drive.ReaderAtCloser, error) {
-	filePath, err := d.filePath(path, shard)
-	if err != nil {
-		return nil, err
-	}
-	return os.Open(filePath)
+func (d *driver) RepoDelete(repo *pfs.Repo, shard map[int]bool) error {
+	return fmt.Errorf("not implemented")
 }
 
-func (d *driver) GetFileInfo(path *pfs.Path, shard int) (_ *pfs.FileInfo, ok bool, _ error) {
-	filePath, err := d.stat(path, shard)
-	if err != nil && os.IsNotExist(err) {
+func (d *driver) CommitStart(parent *pfs.Commit, commit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error) {
+	if parent == nil && commit == nil {
+		return nil, fmt.Errorf("pachyderm: must specify either parent or commit")
+	}
+	if commit == nil {
+		commit = &pfs.Commit{
+			Repo: parent.Repo,
+			Id:   newCommitID(),
+		}
+	}
+	if err := execSubvolumeCreate(d.commitPathNoShard(commit)); err != nil && !execSubvolumeExists(d.commitPathNoShard(commit)) {
+		return nil, err
+	}
+	for shard := range shards {
+		commitPath := d.writeCommitPath(commit, shard)
+		if parent != nil {
+			if err := d.checkReadOnly(parent, shard); err != nil {
+				return nil, err
+			}
+			parentPath, err := d.commitPath(parent, shard)
+			if err != nil {
+				return nil, err
+			}
+			if err := execSubvolumeSnapshot(parentPath, commitPath, false); err != nil {
+				return nil, err
+			}
+			filePath, err := d.filePath(&pfs.File{Commit: commit, Path: filepath.Join(metadataDir, "parent")}, shard)
+			if err != nil {
+				return nil, err
+			}
+			if err := ioutil.WriteFile(filePath, []byte(parent.Id), 0600); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := execSubvolumeCreate(commitPath); err != nil {
+				return nil, err
+			}
+			filePath, err := d.filePath(&pfs.File{Commit: commit, Path: metadataDir}, shard)
+			if err != nil {
+				return nil, err
+			}
+			if err := os.Mkdir(filePath, 0700); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return commit, nil
+}
+
+func (d *driver) CommitFinish(commit *pfs.Commit, shards map[int]bool) error {
+	for shard := range shards {
+		if err := execSubvolumeSnapshot(d.writeCommitPath(commit, shard), d.readCommitPath(commit, shard), true); err != nil {
+			return err
+		}
+		if err := execSubvolumeDelete(d.writeCommitPath(commit, shard)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *driver) CommitInspect(commit *pfs.Commit, shard int) (*pfs.CommitInfo, bool, error) {
+	_, readErr := os.Stat(d.readCommitPath(commit, shard))
+	_, writeErr := os.Stat(d.writeCommitPath(commit, shard))
+	if readErr != nil && os.IsNotExist(readErr) && writeErr != nil && os.IsNotExist(writeErr) {
 		return nil, false, nil
 	}
+	parent, err := d.getParent(commit, shard)
 	if err != nil {
 		return nil, false, err
 	}
-	return filePath, true, nil
+	readOnly, err := d.getReadOnly(commit, shard)
+	if err != nil {
+		return nil, false, err
+	}
+	commitType := pfs.CommitType_COMMIT_TYPE_WRITE
+	if readOnly {
+		commitType = pfs.CommitType_COMMIT_TYPE_READ
+	}
+	return &pfs.CommitInfo{
+		Commit:       commit,
+		CommitType:   commitType,
+		ParentCommit: parent,
+	}, true, nil
 }
 
-func (d *driver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
+func (d *driver) CommitList(repo *pfs.Repo, shard int) ([]*pfs.CommitInfo, error) {
+	var commitInfos []*pfs.CommitInfo
+	//TODO this buffer might get too big
+	var buffer bytes.Buffer
+	if err := execSubvolumeList(d.repoPath(repo), "", false, &buffer); err != nil {
+		return nil, err
+	}
+	commitScanner := newCommitScanner(&buffer, d.namespace, repo.Name)
+	for commitScanner.Scan() {
+		commitID := commitScanner.Commit()
+		commitInfo, ok, err := d.CommitInspect(
+			&pfs.Commit{
+				Repo: repo,
+				Id:   commitID,
+			},
+			shard,
+		)
+		if !ok {
+			// This is a really weird error to get since we got this commit
+			// name by listing commits. This is probably indicative of a
+			// race condition.
+			return nil, fmt.Errorf("Commit %s not found.", commitID)
+		}
+		if err != nil {
+			return nil, err
+		}
+		commitInfos = append(commitInfos, commitInfo)
+	}
+	return commitInfos, nil
+}
+
+func (d *driver) CommitDelete(commit *pfs.Commit, shard map[int]bool) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (d *driver) FilePut(file *pfs.File, shard int, offset int64, reader io.Reader) error {
+	if err := d.checkWrite(file.Commit, shard); err != nil {
+		return err
+	}
+	filePath, err := d.filePath(file, shard)
+	if err != nil {
+		return err
+	}
+	osFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		return err
+	}
+	defer osFile.Close()
+	if _, err := osFile.Seek(offset, 0); err != nil { // 0 means relative to start
+		return err
+	}
+	_, err = bufio.NewReader(reader).WriteTo(osFile)
+	return err
+}
+
+func (d *driver) MakeDirectory(file *pfs.File, shards map[int]bool) error {
 	// TODO(pedge): if PutFile fails here or on another shard, the directories
 	// will still exist and be returned from ListFiles, we want to do this
 	// iteratively and with rollback
 	for shard := range shards {
-		if err := d.checkWrite(path.Commit, shard); err != nil {
+		if err := d.checkWrite(file.Commit, shard); err != nil {
 			return err
 		}
-		filePath, err := d.filePath(path, shard)
+		filePath, err := d.filePath(file, shard)
 		if err != nil {
 			return err
 		}
@@ -108,28 +262,27 @@ func (d *driver) MakeDirectory(path *pfs.Path, shards map[int]bool) error {
 	return nil
 }
 
-func (d *driver) PutFile(path *pfs.Path, shard int, offset int64, reader io.Reader) error {
-	if err := d.checkWrite(path.Commit, shard); err != nil {
-		return err
-	}
-	filePath, err := d.filePath(path, shard)
+func (d *driver) FileGet(file *pfs.File, shard int) (drive.ReaderAtCloser, error) {
+	filePath, err := d.filePath(file, shard)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	if _, err := file.Seek(offset, 0); err != nil { // 0 means relative to start
-		return err
-	}
-	_, err = bufio.NewReader(reader).WriteTo(file)
-	return err
+	return os.Open(filePath)
 }
 
-func (d *driver) ListFiles(path *pfs.Path, shard int) (_ []*pfs.FileInfo, retErr error) {
-	filePath, err := d.filePath(path, shard)
+func (d *driver) FileInspect(file *pfs.File, shard int) (_ *pfs.FileInfo, ok bool, _ error) {
+	filePath, err := d.stat(file, shard)
+	if err != nil && os.IsNotExist(err) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	return filePath, true, nil
+}
+
+func (d *driver) FileList(file *pfs.File, shard int) (_ []*pfs.FileInfo, retErr error) {
+	filePath, err := d.filePath(file, shard)
 	if err != nil {
 		return nil, err
 	}
@@ -160,9 +313,9 @@ func (d *driver) ListFiles(path *pfs.Path, shard int) (_ []*pfs.FileInfo, retErr
 				continue
 			}
 			fileInfo, err := d.stat(
-				&pfs.Path{
-					Commit: path.Commit,
-					Path:   filepath.Join(path.Path, name),
+				&pfs.File{
+					Commit: file.Commit,
+					Path:   path.Join(file.Path, name),
 				},
 				shard,
 			)
@@ -175,96 +328,18 @@ func (d *driver) ListFiles(path *pfs.Path, shard int) (_ []*pfs.FileInfo, retErr
 	return fileInfos, nil
 }
 
-func (d *driver) stat(path *pfs.Path, shard int) (*pfs.FileInfo, error) {
-	filePath, err := d.filePath(path, shard)
+func (d *driver) FileDelete(file *pfs.File, shard int) error {
+	if err := d.checkWrite(file.Commit, shard); err != nil {
+		return err
+	}
+	filePath, err := d.filePath(file, shard)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	stat, err := os.Stat(filePath)
-	if err != nil {
-		return nil, err
-	}
-	fileType := pfs.FileType_FILE_TYPE_OTHER
-	if stat.Mode().IsRegular() {
-		fileType = pfs.FileType_FILE_TYPE_REGULAR
-	}
-	if stat.Mode().IsDir() {
-		fileType = pfs.FileType_FILE_TYPE_DIR
-	}
-	return &pfs.FileInfo{
-		Path:      path,
-		FileType:  fileType,
-		SizeBytes: uint64(stat.Size()),
-		Perm:      uint32(stat.Mode() & os.ModePerm),
-		LastModified: &google_protobuf.Timestamp{
-			Seconds: stat.ModTime().UnixNano() / int64(time.Second),
-			Nanos:   int32(stat.ModTime().UnixNano() % int64(time.Second)),
-		},
-	}, nil
+	return os.Remove(filePath)
 }
 
-func (d *driver) Branch(commit *pfs.Commit, newCommit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error) {
-	if commit == nil && newCommit == nil {
-		return nil, fmt.Errorf("pachyderm: must specify either commit or newCommit")
-	}
-	if newCommit == nil {
-		newCommit = &pfs.Commit{
-			Repository: commit.Repository,
-			Id:         newCommitID(),
-		}
-	}
-	if err := execSubvolumeCreate(d.commitPathNoShard(newCommit)); err != nil && !execSubvolumeExists(d.commitPathNoShard(newCommit)) {
-		return nil, err
-	}
-	for shard := range shards {
-		newCommitPath := d.writeCommitPath(newCommit, shard)
-		if commit != nil {
-			if err := d.checkReadOnly(commit, shard); err != nil {
-				return nil, err
-			}
-			commitPath, err := d.commitPath(commit, shard)
-			if err != nil {
-				return nil, err
-			}
-			if err := execSubvolumeSnapshot(commitPath, newCommitPath, false); err != nil {
-				return nil, err
-			}
-			filePath, err := d.filePath(&pfs.Path{Commit: newCommit, Path: filepath.Join(metadataDir, "parent")}, shard)
-			if err != nil {
-				return nil, err
-			}
-			if err := ioutil.WriteFile(filePath, []byte(commit.Id), 0600); err != nil {
-				return nil, err
-			}
-		} else {
-			if err := execSubvolumeCreate(newCommitPath); err != nil {
-				return nil, err
-			}
-			filePath, err := d.filePath(&pfs.Path{Commit: newCommit, Path: metadataDir}, shard)
-			if err != nil {
-				return nil, err
-			}
-			if err := os.Mkdir(filePath, 0700); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return newCommit, nil
-}
-
-func (d *driver) Commit(commit *pfs.Commit, shards map[int]bool) error {
-	for shard := range shards {
-		if err := execSubvolumeSnapshot(d.writeCommitPath(commit, shard), d.readCommitPath(commit, shard), true); err != nil {
-			return err
-		}
-		if err := execSubvolumeDelete(d.writeCommitPath(commit, shard)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (d *driver) PullDiff(commit *pfs.Commit, shard int, diff io.Writer) error {
+func (d *driver) DiffPull(commit *pfs.Commit, shard int, diff io.Writer) error {
 	parent, err := d.getParent(commit, shard)
 	if err != nil {
 		return err
@@ -275,71 +350,42 @@ func (d *driver) PullDiff(commit *pfs.Commit, shard int, diff io.Writer) error {
 	return execSend(d.readCommitPath(commit, shard), d.readCommitPath(parent, shard), diff)
 }
 
-func (d *driver) PushDiff(commit *pfs.Commit, diff io.Reader) error {
+func (d *driver) DiffPush(commit *pfs.Commit, diff io.Reader) error {
 	if err := execSubvolumeCreate(d.commitPathNoShard(commit)); err != nil && !execSubvolumeExists(d.commitPathNoShard(commit)) {
 		return err
 	}
 	return execRecv(d.commitPathNoShard(commit), diff)
 }
 
-func (d *driver) GetCommitInfo(commit *pfs.Commit, shard int) (_ *pfs.CommitInfo, ok bool, _ error) {
-	_, readErr := os.Stat(d.readCommitPath(commit, shard))
-	_, writeErr := os.Stat(d.writeCommitPath(commit, shard))
-	if readErr != nil && os.IsNotExist(readErr) && writeErr != nil && os.IsNotExist(writeErr) {
-		return nil, false, nil
-	}
-	parent, err := d.getParent(commit, shard)
+func (d *driver) stat(file *pfs.File, shard int) (*pfs.FileInfo, error) {
+	filePath, err := d.filePath(file, shard)
 	if err != nil {
-		return nil, false, err
-	}
-	readOnly, err := d.getReadOnly(commit, shard)
-	if err != nil {
-		return nil, false, err
-	}
-	commitType := pfs.CommitType_COMMIT_TYPE_WRITE
-	if readOnly {
-		commitType = pfs.CommitType_COMMIT_TYPE_READ
-	}
-	return &pfs.CommitInfo{
-		Commit:       commit,
-		CommitType:   commitType,
-		ParentCommit: parent,
-	}, true, nil
-}
-
-func (d *driver) ListCommits(repository *pfs.Repository, shard int) (_ []*pfs.CommitInfo, retErr error) {
-	var commitInfos []*pfs.CommitInfo
-	//TODO this buffer might get too big
-	var buffer bytes.Buffer
-	if err := execSubvolumeList(d.repositoryPath(repository), "", false, &buffer); err != nil {
 		return nil, err
 	}
-	commitScanner := newCommitScanner(&buffer, d.namespace, repository.Name)
-	for commitScanner.Scan() {
-		commitID := commitScanner.Commit()
-		commitInfo, ok, err := d.GetCommitInfo(
-			&pfs.Commit{
-				Repository: repository,
-				Id:         commitID,
-			},
-			shard,
-		)
-		if !ok {
-			// This is a really weird error to get since we got this commit
-			// name by listing commits. This is probably indicative of a
-			// race condition.
-			return nil, fmt.Errorf("Commit %s not found.", commitID)
-		}
-		if err != nil {
-			return nil, err
-		}
-		commitInfos = append(commitInfos, commitInfo)
+	stat, err := os.Stat(filePath)
+	if err != nil {
+		return nil, err
 	}
-	return commitInfos, nil
+	var fileType pfs.FileType
+	if stat.Mode().IsDir() {
+		fileType = pfs.FileType_FILE_TYPE_DIR
+	} else {
+		fileType = pfs.FileType_FILE_TYPE_REGULAR
+	}
+	return &pfs.FileInfo{
+		File:      file,
+		FileType:  fileType,
+		SizeBytes: uint64(stat.Size()),
+		Perm:      uint32(stat.Mode() & os.ModePerm),
+		LastModified: &google_protobuf.Timestamp{
+			Seconds: stat.ModTime().UnixNano() / int64(time.Second),
+			Nanos:   int32(stat.ModTime().UnixNano() % int64(time.Second)),
+		},
+	}, nil
 }
 
 func (d *driver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
-	filePath, err := d.filePath(&pfs.Path{Commit: commit, Path: filepath.Join(metadataDir, "parent")}, shard)
+	filePath, err := d.filePath(&pfs.File{Commit: commit, Path: filepath.Join(metadataDir, "parent")}, shard)
 	if err != nil {
 		return nil, err
 	}
@@ -351,8 +397,8 @@ func (d *driver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
 		return nil, err
 	}
 	return &pfs.Commit{
-		Repository: commit.Repository,
-		Id:         string(data),
+		Repo: commit.Repo,
+		Id:   string(data),
 	}, nil
 }
 
@@ -392,12 +438,12 @@ func (d *driver) basePath() string {
 	return filepath.Join(d.rootDir, d.namespace)
 }
 
-func (d *driver) repositoryPath(repository *pfs.Repository) string {
-	return filepath.Join(d.basePath(), repository.Name)
+func (d *driver) repoPath(repo *pfs.Repo) string {
+	return filepath.Join(d.basePath(), repo.Name)
 }
 
 func (d *driver) commitPathNoShard(commit *pfs.Commit) string {
-	return filepath.Join(d.repositoryPath(commit.Repository), commit.Id)
+	return filepath.Join(d.repoPath(commit.Repo), commit.Id)
 }
 
 func (d *driver) readCommitPath(commit *pfs.Commit, shard int) string {
@@ -419,12 +465,12 @@ func (d *driver) commitPath(commit *pfs.Commit, shard int) (string, error) {
 	return d.writeCommitPath(commit, shard), nil
 }
 
-func (d *driver) filePath(path *pfs.Path, shard int) (string, error) {
-	commitPath, err := d.commitPath(path.Commit, shard)
+func (d *driver) filePath(file *pfs.File, shard int) (string, error) {
+	commitPath, err := d.commitPath(file.Commit, shard)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(commitPath, path.Path), nil
+	return filepath.Join(commitPath, file.Path), nil
 }
 
 func newCommitID() string {
@@ -507,11 +553,11 @@ func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Wr
 type commitScanner struct {
 	textScanner *bufio.Scanner
 	namespace   string
-	repository  string
+	repo        string
 }
 
-func newCommitScanner(reader io.Reader, namespace string, repository string) *commitScanner {
-	return &commitScanner{bufio.NewScanner(reader), namespace, repository}
+func newCommitScanner(reader io.Reader, namespace string, repo string) *commitScanner {
+	return &commitScanner{bufio.NewScanner(reader), namespace, repo}
 }
 
 func (c *commitScanner) Scan() bool {
@@ -543,11 +589,11 @@ func (c *commitScanner) parseCommit() (string, bool) {
 		return "", false
 	}
 	if c.namespace == "" {
-		if strings.HasPrefix(tokens[8], filepath.Join("<FS_TREE>", c.repository)) && len(strings.Split(tokens[8], "/")) == 3 {
+		if strings.HasPrefix(tokens[8], filepath.Join("<FS_TREE>", c.repo)) && len(strings.Split(tokens[8], "/")) == 3 {
 			return strings.Split(tokens[8], "/")[2], true
 		}
 	} else {
-		if strings.HasPrefix(tokens[8], filepath.Join("<FS_TREE>", c.namespace, c.repository)) && len(strings.Split(tokens[8], "/")) == 4 {
+		if strings.HasPrefix(tokens[8], filepath.Join("<FS_TREE>", c.namespace, c.repo)) && len(strings.Split(tokens[8], "/")) == 4 {
 			return strings.Split(tokens[8], "/")[3], true
 		}
 	}
