@@ -40,52 +40,52 @@ func newCombinedAPIServer(
 	}
 }
 
-func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRequest *pfs.InitRepositoryRequest) (*google_protobuf.Empty, error) {
+func (a *combinedAPIServer) RepoCreate(ctx context.Context, request *pfs.RepoCreateRequest) (*google_protobuf.Empty, error) {
 	masterShards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.InitRepository(initRepositoryRequest.Repository, masterShards); err != nil {
+	if err := a.driver.RepoCreate(request.Repo, masterShards); err != nil {
 		return nil, err
 	}
 	replicaShards, err := a.router.GetReplicaShards()
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.InitRepository(initRepositoryRequest.Repository, replicaShards); err != nil {
+	if err := a.driver.RepoCreate(request.Repo, replicaShards); err != nil {
 		return nil, err
 	}
-	if !initRepositoryRequest.Redirect {
+	if !request.Redirect {
 		clientConns, err := a.router.GetAllClientConns()
 		if err != nil {
 			return nil, err
 		}
 		for _, clientConn := range clientConns {
-			if _, err := pfs.NewApiClient(clientConn).InitRepository(
+			if _, err := pfs.NewApiClient(clientConn).RepoCreate(
 				ctx,
-				&pfs.InitRepositoryRequest{
-					Repository: initRepositoryRequest.Repository,
-					Redirect:   true,
+				&pfs.RepoCreateRequest{
+					Repo:     request.Repo,
+					Redirect: true,
 				},
 			); err != nil {
 				return nil, err
 			}
 		}
 		// Create the initial commit
-		if _, err = a.Branch(ctx, &pfs.BranchRequest{
-			Commit: nil,
-			NewCommit: &pfs.Commit{
-				Repository: initRepositoryRequest.Repository,
-				Id:         InitialCommitID,
+		if _, err = a.CommitStart(ctx, &pfs.CommitStartRequest{
+			Parent: nil,
+			Commit: &pfs.Commit{
+				Repo: request.Repo,
+				Id:   InitialCommitID,
 			},
 			Redirect: false,
 		}); err != nil {
 			return nil, err
 		}
-		if _, err = a.Write(ctx, &pfs.WriteRequest{
+		if _, err = a.CommitFinish(ctx, &pfs.CommitFinishRequest{
 			Commit: &pfs.Commit{
-				Repository: initRepositoryRequest.Repository,
-				Id:         InitialCommitID,
+				Repo: request.Repo,
+				Id:   InitialCommitID,
 			},
 			Redirect: false,
 		}); err != nil {
@@ -95,43 +95,43 @@ func (a *combinedAPIServer) InitRepository(ctx context.Context, initRepositoryRe
 	return emptyInstance, nil
 }
 
-func (a *combinedAPIServer) ListRepositories(ctx context.Context, listRepositoriesRequest *pfs.ListRepositoriesRequest) (*pfs.Repositories, error) {
+func (a *combinedAPIServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) (*pfs.RepoListResponse, error) {
 	masterShards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
 	}
 	for shard := range masterShards {
-		repositories, err := a.driver.ListRepositories(shard)
+		repos, err := a.driver.RepoList(shard)
 		if err != nil {
 			return nil, err
 		}
-		return &pfs.Repositories{Repository: repositories}, nil
+		return &pfs.RepoListResponse{RepoInfo: repos}, nil
 	}
-	if !listRepositoriesRequest.Redirect {
+	if !request.Redirect {
 		clientConns, err := a.router.GetAllClientConns()
 		if err != nil {
 			return nil, err
 		}
 		for _, clientConn := range clientConns {
-			return pfs.NewApiClient(clientConn).ListRepositories(ctx, &pfs.ListRepositoriesRequest{Redirect: true})
+			return pfs.NewApiClient(clientConn).RepoList(ctx, &pfs.RepoListRequest{Redirect: true})
 		}
 	}
 	return nil, fmt.Errorf("pachyderm: no available masters")
 }
 
-func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) (retErr error) {
-	shard, clientConn, err := a.getShardAndClientConnIfNecessary(getFileRequest.Path, false)
+func (a *combinedAPIServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.Api_FileGetServer) (retErr error) {
+	shard, clientConn, err := a.getShardAndClientConnIfNecessary(request.File, false)
 	if err != nil {
 		return err
 	}
 	if clientConn != nil {
-		apiGetFileClient, err := pfs.NewApiClient(clientConn).GetFile(context.Background(), getFileRequest)
+		apiFileGetClient, err := pfs.NewApiClient(clientConn).FileGet(context.Background(), request)
 		if err != nil {
 			return err
 		}
-		return protostream.RelayFromStreamingBytesClient(apiGetFileClient, apiGetFileServer)
+		return protostream.RelayFromStreamingBytesClient(apiFileGetClient, apiFileGetServer)
 	}
-	file, err := a.driver.GetFile(getFileRequest.Path, shard)
+	file, err := a.driver.FileGet(request.File, shard)
 	if err != nil {
 		return err
 	}
@@ -141,84 +141,86 @@ func (a *combinedAPIServer) GetFile(getFileRequest *pfs.GetFileRequest, apiGetFi
 		}
 	}()
 	return protostream.WriteToStreamingBytesServer(
-		io.NewSectionReader(file, getFileRequest.OffsetBytes, getFileRequest.SizeBytes),
-		apiGetFileServer,
+		io.NewSectionReader(file, request.OffsetBytes, request.SizeBytes),
+		apiFileGetServer,
 	)
 }
 
-func (a *combinedAPIServer) GetFileInfo(ctx context.Context, getFileInfoRequest *pfs.GetFileInfoRequest) (*pfs.FileInfo, error) {
-	shard, clientConn, err := a.getShardAndClientConnIfNecessary(getFileInfoRequest.Path, false)
+func (a *combinedAPIServer) FileInspect(ctx context.Context, request *pfs.FileInspectRequest) (*pfs.FileInspectResponse, error) {
+	shard, clientConn, err := a.getShardAndClientConnIfNecessary(request.File, false)
 	if err != nil {
 		return nil, err
 	}
 	if clientConn != nil {
-		return pfs.NewApiClient(clientConn).GetFileInfo(context.Background(), getFileInfoRequest)
+		return pfs.NewApiClient(clientConn).FileInspect(context.Background(), request)
 	}
-	fileInfo, ok, err := a.driver.GetFileInfo(getFileInfoRequest.Path, shard)
+	fileInfo, ok, err := a.driver.FileInspect(request.File, shard)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		return &pfs.FileInfo{}, nil
+		return &pfs.FileInspectResponse{}, nil
 	}
-	return fileInfo, nil
+	return &pfs.FileInspectResponse{
+		FileInfo: fileInfo,
+	}, nil
 }
 
-func (a *combinedAPIServer) MakeDirectory(ctx context.Context, makeDirectoryRequest *pfs.MakeDirectoryRequest) (*google_protobuf.Empty, error) {
-	shards, err := a.getAllShards(false)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.driver.MakeDirectory(makeDirectoryRequest.Path, shards); err != nil {
-		return nil, err
-	}
-	if !makeDirectoryRequest.Redirect {
-		clientConns, err := a.router.GetAllClientConns()
-		if err != nil {
-			return nil, err
-		}
-		for _, clientConn := range clientConns {
-			if _, err := pfs.NewApiClient(clientConn).MakeDirectory(
-				ctx,
-				&pfs.MakeDirectoryRequest{
-					Path:     makeDirectoryRequest.Path,
-					Redirect: true,
-				},
-			); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return emptyInstance, nil
-}
+// func (a *combinedAPIServer) MakeDirectory(ctx context.Context, request *pfs.MakeDirectoryRequest) (*google_protobuf.Empty, error) {
+// 	shards, err := a.getAllShards(false)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	if err := a.driver.MakeDirectory(request.File, shards); err != nil {
+// 		return nil, err
+// 	}
+// 	if !request.Redirect {
+// 		clientConns, err := a.router.GetAllClientConns()
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		for _, clientConn := range clientConns {
+// 			if _, err := pfs.NewApiClient(clientConn).MakeDirectory(
+// 				ctx,
+// 				&pfs.MakeDirectoryRequest{
+// 					Path:     makeDirectoryRequest.Path,
+// 					Redirect: true,
+// 				},
+// 			); err != nil {
+// 				return nil, err
+// 			}
+// 		}
+// 	}
+// 	return emptyInstance, nil
+// }
 
-func (a *combinedAPIServer) PutFile(ctx context.Context, putFileRequest *pfs.PutFileRequest) (*google_protobuf.Empty, error) {
-	if strings.HasPrefix(putFileRequest.Path.Path, "/") {
+func (a *combinedAPIServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*google_protobuf.Empty, error) {
+	if strings.HasPrefix(request.File.Path, "/") {
 		// This is a subtle error case, the paths foo and /foo will hash to
 		// different shards but will produce the same change once they get to
 		// those shards due to how path.Join. This can go wrong in a number of
 		// ways so we forbid leading slashes.
-		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", putFileRequest.Path.Path)
+		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
 	}
-	shard, clientConn, err := a.getShardAndClientConnIfNecessary(putFileRequest.Path, false)
+	shard, clientConn, err := a.getShardAndClientConnIfNecessary(request.File, false)
 	if err != nil {
 		return nil, err
 	}
 	if clientConn != nil {
-		return pfs.NewApiClient(clientConn).PutFile(ctx, putFileRequest)
+		return pfs.NewApiClient(clientConn).FilePut(ctx, request)
 	}
-	if err := a.driver.PutFile(putFileRequest.Path, shard, putFileRequest.OffsetBytes, bytes.NewReader(putFileRequest.Value)); err != nil {
+	if err := a.driver.FilePut(request.File, shard, request.OffsetBytes, bytes.NewReader(request.Value)); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
 }
 
-func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs.ListFilesRequest) (*pfs.FileInfos, error) {
+func (a *combinedAPIServer) FileList(ctx context.Context, request *pfs.FileListRequest) (*pfs.FileListResponse, error) {
 	shards, err := a.getAllShards(false)
 	if err != nil {
 		return nil, err
 	}
-	dynamicShard := listFilesRequest.Shard
+	dynamicShard := request.Shard
 	if dynamicShard == nil {
 		dynamicShard = &pfs.Shard{Number: 0, Modulo: 1}
 	}
@@ -231,31 +233,31 @@ func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs
 	var fileInfos []*pfs.FileInfo
 	seenDirectories := make(map[string]bool)
 	for shard := range filteredShards {
-		subFileInfos, err := a.driver.ListFiles(listFilesRequest.Path, shard)
+		subFileInfos, err := a.driver.FileList(request.File, shard)
 		if err != nil {
 			return nil, err
 		}
 		for _, fileInfo := range subFileInfos {
 			if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-				if seenDirectories[fileInfo.Path.Path] {
+				if seenDirectories[fileInfo.File.Path] {
 					continue
 				}
-				seenDirectories[fileInfo.Path.Path] = true
+				seenDirectories[fileInfo.File.Path] = true
 			}
 			fileInfos = append(fileInfos, fileInfo)
 		}
 	}
-	if !listFilesRequest.Redirect {
+	if !request.Redirect {
 		clientConns, err := a.router.GetAllClientConns()
 		if err != nil {
 			return nil, err
 		}
 		for _, clientConn := range clientConns {
-			listFilesResponse, err := pfs.NewApiClient(clientConn).ListFiles(
+			listFilesResponse, err := pfs.NewApiClient(clientConn).FileList(
 				ctx,
-				&pfs.ListFilesRequest{
-					Path:     listFilesRequest.Path,
-					Shard:    listFilesRequest.Shard,
+				&pfs.FileListRequest{
+					File:     request.File,
+					Shard:    request.Shard,
 					Redirect: true,
 				},
 			)
@@ -264,74 +266,76 @@ func (a *combinedAPIServer) ListFiles(ctx context.Context, listFilesRequest *pfs
 			}
 			for _, fileInfo := range listFilesResponse.FileInfo {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-					if seenDirectories[fileInfo.Path.Path] {
+					if seenDirectories[fileInfo.File.Path] {
 						continue
 					}
-					seenDirectories[fileInfo.Path.Path] = true
+					seenDirectories[fileInfo.File.Path] = true
 				}
 				fileInfos = append(fileInfos, fileInfo)
 			}
 		}
 	}
-	return &pfs.FileInfos{
+	return &pfs.FileListResponse{
 		FileInfo: fileInfos,
 	}, nil
 }
 
-func (a *combinedAPIServer) Branch(ctx context.Context, branchRequest *pfs.BranchRequest) (*pfs.Commit, error) {
-	if branchRequest.Redirect && branchRequest.NewCommit == nil {
-		return nil, fmt.Errorf("must set a new commit for redirect %+v", branchRequest)
+func (a *combinedAPIServer) CommitStart(ctx context.Context, request *pfs.CommitStartRequest) (*pfs.CommitStartResponse, error) {
+	if request.Redirect && request.Commit == nil {
+		return nil, fmt.Errorf("must set a commit for redirect %+v", request)
 	}
 	shards, err := a.getAllShards(false)
 	if err != nil {
 		return nil, err
 	}
-	newCommit, err := a.driver.Branch(branchRequest.Commit, branchRequest.NewCommit, shards)
+	commit, err := a.driver.CommitStart(request.Parent, request.Commit, shards)
 	if err != nil {
 		return nil, err
 	}
-	if !branchRequest.Redirect {
+	if !request.Redirect {
 		clientConns, err := a.router.GetAllClientConns()
 		if err != nil {
 			return nil, err
 		}
 		for _, clientConn := range clientConns {
-			if _, err := pfs.NewApiClient(clientConn).Branch(
+			if _, err := pfs.NewApiClient(clientConn).CommitStart(
 				ctx,
-				&pfs.BranchRequest{
-					Commit:    branchRequest.Commit,
-					Redirect:  true,
-					NewCommit: newCommit,
+				&pfs.CommitStartRequest{
+					Parent:   request.Parent,
+					Commit:   commit,
+					Redirect: true,
 				},
 			); err != nil {
 				return nil, err
 			}
 		}
 	}
-	return newCommit, nil
+	return &pfs.CommitStartResponse{
+		Commit: commit,
+	}, nil
 }
 
-func (a *combinedAPIServer) Write(ctx context.Context, commitRequest *pfs.WriteRequest) (*google_protobuf.Empty, error) {
+func (a *combinedAPIServer) CommitFinish(ctx context.Context, request *pfs.CommitFinishRequest) (*google_protobuf.Empty, error) {
 	shards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.Commit(commitRequest.Commit, shards); err != nil {
+	if err := a.driver.CommitFinish(request.Commit, shards); err != nil {
 		return nil, err
 	}
-	if err := a.commitToReplicas(ctx, commitRequest.Commit); err != nil {
+	if err := a.commitToReplicas(ctx, request.Commit); err != nil {
 		return nil, err
 	}
-	if !commitRequest.Redirect {
+	if !request.Redirect {
 		clientConns, err := a.router.GetAllClientConns()
 		if err != nil {
 			return nil, err
 		}
 		for _, clientConn := range clientConns {
-			if _, err := pfs.NewApiClient(clientConn).Write(
+			if _, err := pfs.NewApiClient(clientConn).CommitFinish(
 				ctx,
-				&pfs.WriteRequest{
-					Commit:   commitRequest.Commit,
+				&pfs.CommitFinishRequest{
+					Commit:   request.Commit,
 					Redirect: true,
 				},
 			); err != nil {
@@ -342,20 +346,58 @@ func (a *combinedAPIServer) Write(ctx context.Context, commitRequest *pfs.WriteR
 	return emptyInstance, nil
 }
 
-func (a *combinedAPIServer) PullDiff(pullDiffRequest *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalApi_PullDiffServer) error {
-	clientConn, err := a.getClientConnIfNecessary(int(pullDiffRequest.Shard), false)
+// TODO(pedge): race on Branch
+func (a *combinedAPIServer) CommitInspect(ctx context.Context, request *pfs.CommitInspectRequest) (*pfs.CommitInspectResponse, error) {
+	shard, clientConn, err := a.getMasterShardOrMasterClientConnIfNecessary()
+	if err != nil {
+		return nil, err
+	}
+	if clientConn != nil {
+		return pfs.NewApiClient(clientConn).CommitInspect(ctx, request)
+	}
+	commitInfo, ok, err := a.driver.CommitInspect(request.Commit, shard)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return &pfs.CommitInspectResponse{}, nil
+	}
+	return &pfs.CommitInspectResponse{
+		CommitInfo: commitInfo,
+	}, nil
+}
+
+func (a *combinedAPIServer) CommitList(ctx context.Context, request *pfs.CommitListRequest) (*pfs.CommitListResponse, error) {
+	shard, clientConn, err := a.getMasterShardOrMasterClientConnIfNecessary()
+	if err != nil {
+		return nil, err
+	}
+	if clientConn != nil {
+		return pfs.NewApiClient(clientConn).CommitList(ctx, request)
+	}
+	commitInfos, err := a.driver.CommitList(request.Repo, shard)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.CommitListResponse{
+		CommitInfo: commitInfos,
+	}, nil
+}
+
+func (a *combinedAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalApi_PullDiffServer) error {
+	clientConn, err := a.getClientConnIfNecessary(int(request.Shard), false)
 	if err != nil {
 		return err
 	}
 	if clientConn != nil {
-		apiPullDiffClient, err := pfs.NewInternalApiClient(clientConn).PullDiff(context.Background(), pullDiffRequest)
+		apiPullDiffClient, err := pfs.NewInternalApiClient(clientConn).PullDiff(context.Background(), request)
 		if err != nil {
 			return err
 		}
 		return protostream.RelayFromStreamingBytesClient(apiPullDiffClient, apiPullDiffServer)
 	}
 	var buffer bytes.Buffer
-	a.driver.PullDiff(pullDiffRequest.Commit, int(pullDiffRequest.Shard), &buffer)
+	a.driver.DiffPull(request.Commit, int(request.Shard), &buffer)
 	return protostream.WriteToStreamingBytesServer(
 		&buffer,
 		apiPullDiffServer,
@@ -370,47 +412,11 @@ func (a *combinedAPIServer) PushDiff(ctx context.Context, pushDiffRequest *pfs.P
 	if !ok {
 		return nil, fmt.Errorf("pachyderm: illegal PushDiffRequest for unknown shard %d", pushDiffRequest.Shard)
 	}
-	return emptyInstance, a.driver.PushDiff(pushDiffRequest.Commit, bytes.NewReader(pushDiffRequest.Value))
+	return emptyInstance, a.driver.DiffPush(pushDiffRequest.Commit, bytes.NewReader(pushDiffRequest.Value))
 }
 
-// TODO(pedge): race on Branch
-func (a *combinedAPIServer) GetCommitInfo(ctx context.Context, getCommitInfoRequest *pfs.GetCommitInfoRequest) (*pfs.CommitInfo, error) {
-	shard, clientConn, err := a.getMasterShardOrMasterClientConnIfNecessary()
-	if err != nil {
-		return nil, err
-	}
-	if clientConn != nil {
-		return pfs.NewApiClient(clientConn).GetCommitInfo(ctx, getCommitInfoRequest)
-	}
-	commitInfo, ok, err := a.driver.GetCommitInfo(getCommitInfoRequest.Commit, shard)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return &pfs.CommitInfo{}, nil
-	}
-	return commitInfo, nil
-}
-
-func (a *combinedAPIServer) ListCommits(ctx context.Context, listCommitsRequest *pfs.ListCommitsRequest) (*pfs.CommitInfos, error) {
-	shard, clientConn, err := a.getMasterShardOrMasterClientConnIfNecessary()
-	if err != nil {
-		return nil, err
-	}
-	if clientConn != nil {
-		return pfs.NewApiClient(clientConn).ListCommits(ctx, listCommitsRequest)
-	}
-	commitInfos, err := a.driver.ListCommits(listCommitsRequest.Repository, shard)
-	if err != nil {
-		return nil, err
-	}
-	return &pfs.CommitInfos{
-		CommitInfo: commitInfos,
-	}, nil
-}
-
-func (a *combinedAPIServer) getShardAndClientConnIfNecessary(path *pfs.Path, replicaOk bool) (int, *grpc.ClientConn, error) {
-	shard, err := a.sharder.GetShard(path)
+func (a *combinedAPIServer) getShardAndClientConnIfNecessary(file *pfs.File, replicaOk bool) (int, *grpc.ClientConn, error) {
+	shard, err := a.sharder.GetShard(file)
 	if err != nil {
 		return shard, nil, err
 	}
@@ -500,7 +506,7 @@ func (a *combinedAPIServer) commitToReplicas(ctx context.Context, commit *pfs.Co
 			return err
 		}
 		var diff bytes.Buffer
-		if err = a.driver.PullDiff(commit, shard, &diff); err != nil {
+		if err = a.driver.DiffPull(commit, shard, &diff); err != nil {
 			return err
 		}
 		for _, clientConn := range clientConns {
@@ -526,19 +532,19 @@ func (a *combinedAPIServer) Master(shard int) error {
 	}
 	for _, clientConn := range clientConns {
 		apiClient := pfs.NewApiClient(clientConn)
-		response, err := apiClient.ListRepositories(context.Background(), &pfs.ListRepositoriesRequest{})
+		response, err := apiClient.RepoList(context.Background(), &pfs.RepoListRequest{})
 		if err != nil {
 			return err
 		}
-		for _, repository := range response.Repository {
-			if err := a.driver.InitRepository(repository, map[int]bool{shard: true}); err != nil {
+		for _, repoInfo := range response.RepoInfo {
+			if err := a.driver.RepoCreate(repoInfo.Repo, map[int]bool{shard: true}); err != nil {
 				return err
 			}
-			response, err := apiClient.ListCommits(context.Background(), &pfs.ListCommitsRequest{Repository: repository})
+			response, err := apiClient.CommitList(context.Background(), &pfs.CommitListRequest{Repo: repoInfo.Repo})
 			if err != nil {
 				return err
 			}
-			localCommitInfo, err := a.driver.ListCommits(repository, shard)
+			localCommitInfo, err := a.driver.CommitList(repoInfo.Repo, shard)
 			if err != nil {
 				return err
 			}
@@ -559,7 +565,7 @@ func (a *combinedAPIServer) Master(shard int) error {
 				if err != nil {
 					return err
 				}
-				if err := a.driver.PushDiff(commitInfo.Commit, protostream.NewStreamingBytesReader(pullDiffClient)); err != nil {
+				if err := a.driver.DiffPush(commitInfo.Commit, protostream.NewStreamingBytesReader(pullDiffClient)); err != nil {
 					return err
 				}
 			}
