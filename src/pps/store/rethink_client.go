@@ -239,7 +239,7 @@ func (c *rethinkClient) GetAllPipelineRunStatuses(pipelineRunID string) ([]*pps.
 		GetAllByIndex("pipeline_run_id", pipelineRunID).
 		OrderBy(gorethink.Desc("timestamp")).
 		Without("id").
-		ToJSON().
+		Map(rethinkToJSON).
 		Run(c.session)
 	if err != nil {
 		return nil, err
@@ -274,9 +274,9 @@ func (c *rethinkClient) CreatePipelineRunContainers(pipelineContainers ...*pps.P
 func (c *rethinkClient) GetPipelineRunContainers(pipelineRunID string) ([]*pps.PipelineRunContainer, error) {
 	cursor, err := c.pipelineContainers.
 		GetAllByIndex("pipeline_run_id", pipelineRunID).
-		Map(func(row gorethink.Term) interface{} {
-		return row.ToJSON()
-	}).Run(c.session)
+		Without("id").
+		Map(rethinkToJSON).
+		Run(c.session)
 	if err != nil {
 		return nil, err
 	}
@@ -432,4 +432,8 @@ func (c *rethinkClient) getMessageByID(term gorethink.Term, id string, message p
 		return err
 	}
 	return nil
+}
+
+func rethinkToJSON(row gorethink.Term) interface{} {
+	return row.ToJSON()
 }

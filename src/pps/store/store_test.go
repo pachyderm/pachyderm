@@ -13,9 +13,9 @@ import (
 )
 
 func TestBasicRethink(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
+	//if testing.Short() {
+	//t.Skip()
+	//}
 	runTestRethink(t, testBasic)
 }
 
