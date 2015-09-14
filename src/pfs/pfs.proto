@@ -188,7 +188,9 @@ service Api {
   // Repo rpcs
   // RepoCreate creates a new repo.
   // An error is returned if the repo already exists.
-  rpc RepoCreate(RepoCreateRequest) returns (google.protobuf.Empty) {}
+  rpc RepoCreate(RepoCreateRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = { put: "/repos/{repo.name}" };
+  }
   // RepoInspect returns info about a repo.
   rpc RepoInspect(RepoInspectRequest) returns (RepoInspectResponse) {}
   // RepoList returns info about all repos.
