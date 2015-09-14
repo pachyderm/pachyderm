@@ -163,6 +163,7 @@ func FilePut(apiClient pfs.ApiClient, repoName string, commitID string, path str
 				},
 				Path: path,
 			},
+			FileType:    pfs.FileType_FILE_TYPE_REGULAR,
 			OffsetBytes: offset,
 			Value:       value,
 		},
@@ -255,7 +256,7 @@ func MakeDirectory(apiClient pfs.ApiClient, repoName string, commitID string, pa
 				},
 				Path: path,
 			},
-			Directory: true,
+			FileType: pfs.FileType_FILE_TYPE_DIR,
 		},
 	)
 	return err

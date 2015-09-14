@@ -150,9 +150,9 @@ message FileGetRequest {
 
 message FilePutRequest {
   File file = 1;
-  int64 offset_bytes = 2;
-  bytes value = 3;
-  bool directory = 4;
+  FileType file_type = 2;
+  int64 offset_bytes = 3;
+  bytes value = 4;
   bool redirect = 5;
 }
 
