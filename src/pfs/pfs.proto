@@ -211,11 +211,11 @@ service Api {
   rpc CommitDelete(CommitDeleteRequest) returns (google.protobuf.Empty) {}
 
   // File rpcs
-  // FileGet returns a byte stream of the contents of the file.
-  rpc FileGet(FileGetRequest) returns (stream google.protobuf.BytesValue) {}
   // FilePut writes the specified file to pfs.
   // An error is returned if the specified commit is not a write commit.
   rpc FilePut(FilePutRequest) returns (google.protobuf.Empty) {}
+  // FileGet returns a byte stream of the contents of the file.
+  rpc FileGet(FileGetRequest) returns (stream google.protobuf.BytesValue) {}
   // FileInspect returns a info about a file.
   rpc FileInspect(FileInspectRequest) returns (FileInspectResponse) {}
   // FileList returns info about all files.
