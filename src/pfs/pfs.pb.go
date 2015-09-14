@@ -13,31 +13,27 @@ It has these top-level messages:
 	Commit
 	File
 	RepoInfo
+	RepoInfos
 	CommitInfo
+	CommitInfos
 	FileInfo
+	FileInfos
 	Shard
 	Change
 	RepoCreateRequest
 	RepoInspectRequest
-	RepoInspectResponse
 	RepoListRequest
-	RepoListResponse
 	RepoDeleteRequest
 	CommitStartRequest
-	CommitStartResponse
 	CommitFinishRequest
 	CommitInspectRequest
-	CommitInspectResponse
 	CommitListRequest
-	CommitListResponse
 	CommitDeleteRequest
 	FileGetRequest
 	FilePutRequest
 	FileInspectRequest
-	FileInspectResponse
 	MakeDirectoryRequest
 	FileListRequest
-	FileListResponse
 	FileDeleteRequest
 	PullDiffRequest
 	PushDiffRequest
@@ -176,6 +172,21 @@ func (m *RepoInfo) GetCreated() *google_protobuf2.Timestamp {
 	return nil
 }
 
+type RepoInfos struct {
+	RepoInfo []*RepoInfo `protobuf:"bytes,1,rep,name=repo_info" json:"repo_info,omitempty"`
+}
+
+func (m *RepoInfos) Reset()         { *m = RepoInfos{} }
+func (m *RepoInfos) String() string { return proto.CompactTextString(m) }
+func (*RepoInfos) ProtoMessage()    {}
+
+func (m *RepoInfos) GetRepoInfo() []*RepoInfo {
+	if m != nil {
+		return m.RepoInfo
+	}
+	return nil
+}
+
 // CommitInfo represents information about a commit.
 type CommitInfo struct {
 	Commit       *Commit                     `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
@@ -219,6 +230,21 @@ func (m *CommitInfo) GetClosed() *google_protobuf2.Timestamp {
 	return nil
 }
 
+type CommitInfos struct {
+	CommitInfo []*CommitInfo `protobuf:"bytes,1,rep,name=commit_info" json:"commit_info,omitempty"`
+}
+
+func (m *CommitInfos) Reset()         { *m = CommitInfos{} }
+func (m *CommitInfos) String() string { return proto.CompactTextString(m) }
+func (*CommitInfos) ProtoMessage()    {}
+
+func (m *CommitInfos) GetCommitInfo() []*CommitInfo {
+	if m != nil {
+		return m.CommitInfo
+	}
+	return nil
+}
+
 // FileInfo represents information about a file.
 type FileInfo struct {
 	File         *File                       `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
@@ -242,6 +268,21 @@ func (m *FileInfo) GetFile() *File {
 func (m *FileInfo) GetLastModified() *google_protobuf2.Timestamp {
 	if m != nil {
 		return m.LastModified
+	}
+	return nil
+}
+
+type FileInfos struct {
+	FileInfo []*FileInfo `protobuf:"bytes,1,rep,name=file_info" json:"file_info,omitempty"`
+}
+
+func (m *FileInfos) Reset()         { *m = FileInfos{} }
+func (m *FileInfos) String() string { return proto.CompactTextString(m) }
+func (*FileInfos) ProtoMessage()    {}
+
+func (m *FileInfos) GetFileInfo() []*FileInfo {
+	if m != nil {
+		return m.FileInfo
 	}
 	return nil
 }
@@ -307,21 +348,6 @@ func (m *RepoInspectRequest) GetRepo() *Repo {
 	return nil
 }
 
-type RepoInspectResponse struct {
-	RepoInfo *RepoInfo `protobuf:"bytes,1,opt,name=repo_info" json:"repo_info,omitempty"`
-}
-
-func (m *RepoInspectResponse) Reset()         { *m = RepoInspectResponse{} }
-func (m *RepoInspectResponse) String() string { return proto.CompactTextString(m) }
-func (*RepoInspectResponse) ProtoMessage()    {}
-
-func (m *RepoInspectResponse) GetRepoInfo() *RepoInfo {
-	if m != nil {
-		return m.RepoInfo
-	}
-	return nil
-}
-
 type RepoListRequest struct {
 	Redirect bool `protobuf:"varint,1,opt,name=redirect" json:"redirect,omitempty"`
 }
@@ -329,21 +355,6 @@ type RepoListRequest struct {
 func (m *RepoListRequest) Reset()         { *m = RepoListRequest{} }
 func (m *RepoListRequest) String() string { return proto.CompactTextString(m) }
 func (*RepoListRequest) ProtoMessage()    {}
-
-type RepoListResponse struct {
-	RepoInfo []*RepoInfo `protobuf:"bytes,1,rep,name=repo_info" json:"repo_info,omitempty"`
-}
-
-func (m *RepoListResponse) Reset()         { *m = RepoListResponse{} }
-func (m *RepoListResponse) String() string { return proto.CompactTextString(m) }
-func (*RepoListResponse) ProtoMessage()    {}
-
-func (m *RepoListResponse) GetRepoInfo() []*RepoInfo {
-	if m != nil {
-		return m.RepoInfo
-	}
-	return nil
-}
 
 type RepoDeleteRequest struct {
 	Repo     *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
@@ -385,21 +396,6 @@ func (m *CommitStartRequest) GetCommit() *Commit {
 	return nil
 }
 
-type CommitStartResponse struct {
-	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-}
-
-func (m *CommitStartResponse) Reset()         { *m = CommitStartResponse{} }
-func (m *CommitStartResponse) String() string { return proto.CompactTextString(m) }
-func (*CommitStartResponse) ProtoMessage()    {}
-
-func (m *CommitStartResponse) GetCommit() *Commit {
-	if m != nil {
-		return m.Commit
-	}
-	return nil
-}
-
 type CommitFinishRequest struct {
 	Commit   *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	Redirect bool    `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
@@ -432,21 +428,6 @@ func (m *CommitInspectRequest) GetCommit() *Commit {
 	return nil
 }
 
-type CommitInspectResponse struct {
-	CommitInfo *CommitInfo `protobuf:"bytes,1,opt,name=commit_info" json:"commit_info,omitempty"`
-}
-
-func (m *CommitInspectResponse) Reset()         { *m = CommitInspectResponse{} }
-func (m *CommitInspectResponse) String() string { return proto.CompactTextString(m) }
-func (*CommitInspectResponse) ProtoMessage()    {}
-
-func (m *CommitInspectResponse) GetCommitInfo() *CommitInfo {
-	if m != nil {
-		return m.CommitInfo
-	}
-	return nil
-}
-
 type CommitListRequest struct {
 	Repo *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 }
@@ -458,21 +439,6 @@ func (*CommitListRequest) ProtoMessage()    {}
 func (m *CommitListRequest) GetRepo() *Repo {
 	if m != nil {
 		return m.Repo
-	}
-	return nil
-}
-
-type CommitListResponse struct {
-	CommitInfo []*CommitInfo `protobuf:"bytes,1,rep,name=commit_info" json:"commit_info,omitempty"`
-}
-
-func (m *CommitListResponse) Reset()         { *m = CommitListResponse{} }
-func (m *CommitListResponse) String() string { return proto.CompactTextString(m) }
-func (*CommitListResponse) ProtoMessage()    {}
-
-func (m *CommitListResponse) GetCommitInfo() []*CommitInfo {
-	if m != nil {
-		return m.CommitInfo
 	}
 	return nil
 }
@@ -544,21 +510,6 @@ func (m *FileInspectRequest) GetFile() *File {
 	return nil
 }
 
-type FileInspectResponse struct {
-	FileInfo *FileInfo `protobuf:"bytes,1,opt,name=file_info" json:"file_info,omitempty"`
-}
-
-func (m *FileInspectResponse) Reset()         { *m = FileInspectResponse{} }
-func (m *FileInspectResponse) String() string { return proto.CompactTextString(m) }
-func (*FileInspectResponse) ProtoMessage()    {}
-
-func (m *FileInspectResponse) GetFileInfo() *FileInfo {
-	if m != nil {
-		return m.FileInfo
-	}
-	return nil
-}
-
 type MakeDirectoryRequest struct {
 	File     *File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 	Redirect bool  `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
@@ -595,21 +546,6 @@ func (m *FileListRequest) GetFile() *File {
 func (m *FileListRequest) GetShard() *Shard {
 	if m != nil {
 		return m.Shard
-	}
-	return nil
-}
-
-type FileListResponse struct {
-	FileInfo []*FileInfo `protobuf:"bytes,1,rep,name=file_info" json:"file_info,omitempty"`
-}
-
-func (m *FileListResponse) Reset()         { *m = FileListResponse{} }
-func (m *FileListResponse) String() string { return proto.CompactTextString(m) }
-func (*FileListResponse) ProtoMessage()    {}
-
-func (m *FileListResponse) GetFileInfo() []*FileInfo {
-	if m != nil {
-		return m.FileInfo
 	}
 	return nil
 }
@@ -680,22 +616,22 @@ type ApiClient interface {
 	// An error is returned if the repo already exists.
 	RepoCreate(ctx context.Context, in *RepoCreateRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// RepoInspect returns info about a repo.
-	RepoInspect(ctx context.Context, in *RepoInspectRequest, opts ...grpc.CallOption) (*RepoInspectResponse, error)
+	RepoInspect(ctx context.Context, in *RepoInspectRequest, opts ...grpc.CallOption) (*RepoInfo, error)
 	// RepoList returns info about all repos.
-	RepoList(ctx context.Context, in *RepoListRequest, opts ...grpc.CallOption) (*RepoListResponse, error)
+	RepoList(ctx context.Context, in *RepoListRequest, opts ...grpc.CallOption) (*RepoInfos, error)
 	// RepoDelete deletes a repo.
 	RepoDelete(ctx context.Context, in *RepoDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// Commit rpcs
 	// CommitStart creates a new write commit from a parent commit.
 	// An error is returned if the parent commit is not a read commit.
-	CommitStart(ctx context.Context, in *CommitStartRequest, opts ...grpc.CallOption) (*CommitStartResponse, error)
+	CommitStart(ctx context.Context, in *CommitStartRequest, opts ...grpc.CallOption) (*Commit, error)
 	// CommitFinish turns a write commit into a read commit.
 	// An error is returned if the commit is not a write commit.
 	CommitFinish(ctx context.Context, in *CommitFinishRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// CommitInspect returns the info about a commit.
-	CommitInspect(ctx context.Context, in *CommitInspectRequest, opts ...grpc.CallOption) (*CommitInspectResponse, error)
+	CommitInspect(ctx context.Context, in *CommitInspectRequest, opts ...grpc.CallOption) (*CommitInfo, error)
 	// CommitList returns info about all commits.
-	CommitList(ctx context.Context, in *CommitListRequest, opts ...grpc.CallOption) (*CommitListResponse, error)
+	CommitList(ctx context.Context, in *CommitListRequest, opts ...grpc.CallOption) (*CommitInfos, error)
 	// CommitDelete deletes a commit.
 	CommitDelete(ctx context.Context, in *CommitDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// File rpcs
@@ -705,9 +641,9 @@ type ApiClient interface {
 	// FileGet returns a byte stream of the contents of the file.
 	FileGet(ctx context.Context, in *FileGetRequest, opts ...grpc.CallOption) (Api_FileGetClient, error)
 	// FileInspect returns a info about a file.
-	FileInspect(ctx context.Context, in *FileInspectRequest, opts ...grpc.CallOption) (*FileInspectResponse, error)
+	FileInspect(ctx context.Context, in *FileInspectRequest, opts ...grpc.CallOption) (*FileInfo, error)
 	// FileList returns info about all files.
-	FileList(ctx context.Context, in *FileListRequest, opts ...grpc.CallOption) (*FileListResponse, error)
+	FileList(ctx context.Context, in *FileListRequest, opts ...grpc.CallOption) (*FileInfos, error)
 	// FileDelete deletes a file.
 	FileDelete(ctx context.Context, in *FileDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 }
@@ -729,8 +665,8 @@ func (c *apiClient) RepoCreate(ctx context.Context, in *RepoCreateRequest, opts 
 	return out, nil
 }
 
-func (c *apiClient) RepoInspect(ctx context.Context, in *RepoInspectRequest, opts ...grpc.CallOption) (*RepoInspectResponse, error) {
-	out := new(RepoInspectResponse)
+func (c *apiClient) RepoInspect(ctx context.Context, in *RepoInspectRequest, opts ...grpc.CallOption) (*RepoInfo, error) {
+	out := new(RepoInfo)
 	err := grpc.Invoke(ctx, "/pfs.Api/RepoInspect", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -738,8 +674,8 @@ func (c *apiClient) RepoInspect(ctx context.Context, in *RepoInspectRequest, opt
 	return out, nil
 }
 
-func (c *apiClient) RepoList(ctx context.Context, in *RepoListRequest, opts ...grpc.CallOption) (*RepoListResponse, error) {
-	out := new(RepoListResponse)
+func (c *apiClient) RepoList(ctx context.Context, in *RepoListRequest, opts ...grpc.CallOption) (*RepoInfos, error) {
+	out := new(RepoInfos)
 	err := grpc.Invoke(ctx, "/pfs.Api/RepoList", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -756,8 +692,8 @@ func (c *apiClient) RepoDelete(ctx context.Context, in *RepoDeleteRequest, opts 
 	return out, nil
 }
 
-func (c *apiClient) CommitStart(ctx context.Context, in *CommitStartRequest, opts ...grpc.CallOption) (*CommitStartResponse, error) {
-	out := new(CommitStartResponse)
+func (c *apiClient) CommitStart(ctx context.Context, in *CommitStartRequest, opts ...grpc.CallOption) (*Commit, error) {
+	out := new(Commit)
 	err := grpc.Invoke(ctx, "/pfs.Api/CommitStart", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -774,8 +710,8 @@ func (c *apiClient) CommitFinish(ctx context.Context, in *CommitFinishRequest, o
 	return out, nil
 }
 
-func (c *apiClient) CommitInspect(ctx context.Context, in *CommitInspectRequest, opts ...grpc.CallOption) (*CommitInspectResponse, error) {
-	out := new(CommitInspectResponse)
+func (c *apiClient) CommitInspect(ctx context.Context, in *CommitInspectRequest, opts ...grpc.CallOption) (*CommitInfo, error) {
+	out := new(CommitInfo)
 	err := grpc.Invoke(ctx, "/pfs.Api/CommitInspect", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -783,8 +719,8 @@ func (c *apiClient) CommitInspect(ctx context.Context, in *CommitInspectRequest,
 	return out, nil
 }
 
-func (c *apiClient) CommitList(ctx context.Context, in *CommitListRequest, opts ...grpc.CallOption) (*CommitListResponse, error) {
-	out := new(CommitListResponse)
+func (c *apiClient) CommitList(ctx context.Context, in *CommitListRequest, opts ...grpc.CallOption) (*CommitInfos, error) {
+	out := new(CommitInfos)
 	err := grpc.Invoke(ctx, "/pfs.Api/CommitList", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -842,8 +778,8 @@ func (x *apiFileGetClient) Recv() (*google_protobuf3.BytesValue, error) {
 	return m, nil
 }
 
-func (c *apiClient) FileInspect(ctx context.Context, in *FileInspectRequest, opts ...grpc.CallOption) (*FileInspectResponse, error) {
-	out := new(FileInspectResponse)
+func (c *apiClient) FileInspect(ctx context.Context, in *FileInspectRequest, opts ...grpc.CallOption) (*FileInfo, error) {
+	out := new(FileInfo)
 	err := grpc.Invoke(ctx, "/pfs.Api/FileInspect", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -851,8 +787,8 @@ func (c *apiClient) FileInspect(ctx context.Context, in *FileInspectRequest, opt
 	return out, nil
 }
 
-func (c *apiClient) FileList(ctx context.Context, in *FileListRequest, opts ...grpc.CallOption) (*FileListResponse, error) {
-	out := new(FileListResponse)
+func (c *apiClient) FileList(ctx context.Context, in *FileListRequest, opts ...grpc.CallOption) (*FileInfos, error) {
+	out := new(FileInfos)
 	err := grpc.Invoke(ctx, "/pfs.Api/FileList", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -877,22 +813,22 @@ type ApiServer interface {
 	// An error is returned if the repo already exists.
 	RepoCreate(context.Context, *RepoCreateRequest) (*google_protobuf1.Empty, error)
 	// RepoInspect returns info about a repo.
-	RepoInspect(context.Context, *RepoInspectRequest) (*RepoInspectResponse, error)
+	RepoInspect(context.Context, *RepoInspectRequest) (*RepoInfo, error)
 	// RepoList returns info about all repos.
-	RepoList(context.Context, *RepoListRequest) (*RepoListResponse, error)
+	RepoList(context.Context, *RepoListRequest) (*RepoInfos, error)
 	// RepoDelete deletes a repo.
 	RepoDelete(context.Context, *RepoDeleteRequest) (*google_protobuf1.Empty, error)
 	// Commit rpcs
 	// CommitStart creates a new write commit from a parent commit.
 	// An error is returned if the parent commit is not a read commit.
-	CommitStart(context.Context, *CommitStartRequest) (*CommitStartResponse, error)
+	CommitStart(context.Context, *CommitStartRequest) (*Commit, error)
 	// CommitFinish turns a write commit into a read commit.
 	// An error is returned if the commit is not a write commit.
 	CommitFinish(context.Context, *CommitFinishRequest) (*google_protobuf1.Empty, error)
 	// CommitInspect returns the info about a commit.
-	CommitInspect(context.Context, *CommitInspectRequest) (*CommitInspectResponse, error)
+	CommitInspect(context.Context, *CommitInspectRequest) (*CommitInfo, error)
 	// CommitList returns info about all commits.
-	CommitList(context.Context, *CommitListRequest) (*CommitListResponse, error)
+	CommitList(context.Context, *CommitListRequest) (*CommitInfos, error)
 	// CommitDelete deletes a commit.
 	CommitDelete(context.Context, *CommitDeleteRequest) (*google_protobuf1.Empty, error)
 	// File rpcs
@@ -902,9 +838,9 @@ type ApiServer interface {
 	// FileGet returns a byte stream of the contents of the file.
 	FileGet(*FileGetRequest, Api_FileGetServer) error
 	// FileInspect returns a info about a file.
-	FileInspect(context.Context, *FileInspectRequest) (*FileInspectResponse, error)
+	FileInspect(context.Context, *FileInspectRequest) (*FileInfo, error)
 	// FileList returns info about all files.
-	FileList(context.Context, *FileListRequest) (*FileListResponse, error)
+	FileList(context.Context, *FileListRequest) (*FileInfos, error)
 	// FileDelete deletes a file.
 	FileDelete(context.Context, *FileDeleteRequest) (*google_protobuf1.Empty, error)
 }

@@ -31,7 +31,7 @@ func RepoCreate(apiClient pfs.ApiClient, repoName string) error {
 }
 
 func RepoInspect(apiClient pfs.ApiClient, repoName string) (*pfs.RepoInfo, error) {
-	response, err := apiClient.RepoInspect(
+	repoInfo, err := apiClient.RepoInspect(
 		context.Background(),
 		&pfs.RepoInspectRequest{
 			Repo: &pfs.Repo{
@@ -42,18 +42,18 @@ func RepoInspect(apiClient pfs.ApiClient, repoName string) (*pfs.RepoInfo, error
 	if err != nil {
 		return nil, err
 	}
-	return response.RepoInfo, nil
+	return repoInfo, nil
 }
 
 func RepoList(apiClient pfs.ApiClient) ([]*pfs.RepoInfo, error) {
-	response, err := apiClient.RepoList(
+	repoInfos, err := apiClient.RepoList(
 		context.Background(),
 		&pfs.RepoListRequest{},
 	)
 	if err != nil {
 		return nil, err
 	}
-	return response.RepoInfo, nil
+	return repoInfos.RepoInfo, nil
 }
 
 func RepoDelete(apiClient pfs.ApiClient, repoName string) error {
@@ -69,7 +69,7 @@ func RepoDelete(apiClient pfs.ApiClient, repoName string) error {
 }
 
 func CommitStart(apiClient pfs.ApiClient, repoName string, parentCommit string) (*pfs.Commit, error) {
-	response, err := apiClient.CommitStart(
+	commit, err := apiClient.CommitStart(
 		context.Background(),
 		&pfs.CommitStartRequest{
 			Parent: &pfs.Commit{
@@ -83,7 +83,7 @@ func CommitStart(apiClient pfs.ApiClient, repoName string, parentCommit string) 
 	if err != nil {
 		return nil, err
 	}
-	return response.Commit, nil
+	return commit, nil
 }
 
 func CommitFinish(apiClient pfs.ApiClient, repoName string, commitID string) error {
@@ -102,7 +102,7 @@ func CommitFinish(apiClient pfs.ApiClient, repoName string, commitID string) err
 }
 
 func CommitInspect(apiClient pfs.ApiClient, repoName string, commitID string) (*pfs.CommitInfo, error) {
-	response, err := apiClient.CommitInspect(
+	commitInfo, err := apiClient.CommitInspect(
 		context.Background(),
 		&pfs.CommitInspectRequest{
 			Commit: &pfs.Commit{
@@ -116,11 +116,11 @@ func CommitInspect(apiClient pfs.ApiClient, repoName string, commitID string) (*
 	if err != nil {
 		return nil, err
 	}
-	return response.CommitInfo, nil
+	return commitInfo, nil
 }
 
 func CommitList(apiClient pfs.ApiClient, repoName string) ([]*pfs.CommitInfo, error) {
-	response, err := apiClient.CommitList(
+	commitInfos, err := apiClient.CommitList(
 		context.Background(),
 		&pfs.CommitListRequest{
 			Repo: &pfs.Repo{
@@ -131,7 +131,7 @@ func CommitList(apiClient pfs.ApiClient, repoName string) ([]*pfs.CommitInfo, er
 	if err != nil {
 		return nil, err
 	}
-	return response.CommitInfo, nil
+	return commitInfos.CommitInfo, nil
 }
 
 func CommitDelete(apiClient pfs.ApiClient, repoName string, commitID string) error {
@@ -198,7 +198,7 @@ func FileGet(apiClient pfs.ApiClient, repoName string, commitID string, path str
 }
 
 func FileInspect(apiClient pfs.ApiClient, repoName string, commitID string, path string) (*pfs.FileInfo, error) {
-	response, err := apiClient.FileInspect(
+	fileInfo, err := apiClient.FileInspect(
 		context.Background(),
 		&pfs.FileInspectRequest{
 			File: &pfs.File{
@@ -215,11 +215,11 @@ func FileInspect(apiClient pfs.ApiClient, repoName string, commitID string, path
 	if err != nil {
 		return nil, err
 	}
-	return response.FileInfo, nil
+	return fileInfo, nil
 }
 
 func FileList(apiClient pfs.ApiClient, repoName string, commitID string, path string, shard uint64, modulus uint64) ([]*pfs.FileInfo, error) {
-	response, err := apiClient.FileList(
+	fileInfos, err := apiClient.FileList(
 		context.Background(),
 		&pfs.FileListRequest{
 			File: &pfs.File{
@@ -240,7 +240,7 @@ func FileList(apiClient pfs.ApiClient, repoName string, commitID string, path st
 	if err != nil {
 		return nil, err
 	}
-	return response.FileInfo, nil
+	return fileInfos.FileInfo, nil
 }
 
 func FileDelete(apiClient pfs.ApiClient, repoName string, commitID string, path string) error {
