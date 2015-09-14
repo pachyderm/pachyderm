@@ -243,6 +243,24 @@ func FileList(apiClient pfs.ApiClient, repoName string, commitID string, path st
 	return response.FileInfo, nil
 }
 
+func FileDelete(apiClient pfs.ApiClient, repoName string, commitID string, path string) error {
+	_, err := apiClient.FileDelete(
+		context.Background(),
+		&pfs.FileDeleteRequest{
+			File: &pfs.File{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: repoName,
+					},
+					Id: commitID,
+				},
+				Path: path,
+			},
+		},
+	)
+	return err
+}
+
 func MakeDirectory(apiClient pfs.ApiClient, repoName string, commitID string, path string) error {
 	_, err := apiClient.FilePut(
 		context.Background(),

@@ -52,18 +52,40 @@ func do(appEnvObj interface{}) error {
 	var shard int
 	var modulus int
 
-	initCmd := cobramainutil.Command{
-		Use:     "init repo-name",
-		Long:    "Initalize a repo.",
+	repoCreate := cobramainutil.Command{
+		Use:     "repo-create repo-name",
+		Short:   "Create a new repo.",
+		Long:    "Create a new repo.",
 		NumArgs: 1,
 		Run: func(cmd *cobra.Command, args []string) error {
 			return pfsutil.RepoCreate(apiClient, args[0])
 		},
 	}.ToCobraCommand()
 
-	listReposCmd := cobramainutil.Command{
-		Use:     "list-repos",
-		Long:    "List repositories.",
+	repoInspect := cobramainutil.Command{
+		Use:     "repo-inspect repo-name",
+		Short:   "Return info about a repo.",
+		Long:    "Return info about a repo.",
+		NumArgs: 1,
+		Run: func(cmd *cobra.Command, args []string) error {
+			repoInfo, err := pfsutil.RepoInspect(apiClient, args[0])
+			if err != nil {
+				return err
+			}
+			if repoInfo == nil {
+				return fmt.Errorf("repo %s not found", args[0])
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintRepoHeader(writer)
+			pretty.PrintRepoInfo(writer, repoInfo)
+			return writer.Flush()
+		},
+	}.ToCobraCommand()
+
+	repoList := cobramainutil.Command{
+		Use:     "repo-list",
+		Short:   "Return all repos.",
+		Long:    "Reutrn all repos.",
 		NumArgs: 0,
 		Run: func(cmd *cobra.Command, args []string) error {
 			repoInfos, err := pfsutil.RepoList(apiClient)
@@ -79,57 +101,20 @@ func do(appEnvObj interface{}) error {
 		},
 	}.ToCobraCommand()
 
-	mkdirCmd := cobramainutil.Command{
-		Use:     "mkdir repo-name commit-id path/to/dir",
-		Long:    "Make a directory. Sub directories must already exist.",
-		NumArgs: 3,
+	repoDelete := cobramainutil.Command{
+		Use:     "repo-delete repo-name",
+		Short:   "Delete a repo.",
+		Long:    "Delete a repo.",
+		NumArgs: 1,
 		Run: func(cmd *cobra.Command, args []string) error {
-			return pfsutil.MakeDirectory(apiClient, args[0], args[1], args[2])
+			return pfsutil.RepoDelete(apiClient, args[0])
 		},
 	}.ToCobraCommand()
 
-	putCmd := cobramainutil.Command{
-		Use:     "put repo-name branch-id path/to/file",
-		Long:    "Put a file from stdin. Directories must exist. branch-id must be a writeable commit.",
-		NumArgs: 3,
-		Run: func(cmd *cobra.Command, args []string) error {
-			_, err := pfsutil.FilePut(apiClient, args[0], args[1], args[2], 0, os.Stdin)
-			return err
-		},
-	}.ToCobraCommand()
-
-	getCmd := cobramainutil.Command{
-		Use:     "get repo-name commit-id path/to/file",
-		Long:    "Get a file from stdout. commit-id must be a readable commit.",
-		NumArgs: 3,
-		Run: func(cmd *cobra.Command, args []string) error {
-			return pfsutil.FileGet(apiClient, args[0], args[1], args[2], 0, pfsutil.GetAll, os.Stdout)
-		},
-	}.ToCobraCommand()
-
-	lsCmd := cobramainutil.Command{
-		Use:     "ls repo-name branch-id path/to/dir",
-		Long:    "List a directory. Directory must exist.",
-		NumArgs: 3,
-		Run: func(cmd *cobra.Command, args []string) error {
-			fileInfos, err := pfsutil.FileList(apiClient, args[0], args[1], args[2], uint64(shard), uint64(modulus))
-			if err != nil {
-				return err
-			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintFileInfoHeader(writer)
-			for _, fileInfo := range fileInfos {
-				pretty.PrintFileInfo(writer, fileInfo)
-			}
-			return writer.Flush()
-		},
-	}.ToCobraCommand()
-	lsCmd.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
-	lsCmd.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
-
-	branchCmd := cobramainutil.Command{
-		Use:     "branch repo-name commit-id",
-		Long:    "Branch a commit. commit-id must be a readable commit.",
+	commitStart := cobramainutil.Command{
+		Use:     "commit-start repo-name parent-commit-id",
+		Short:   "Start a new commit.",
+		Long:    "Start a new commit with parent-commit-id as the parent.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
 			commit, err := pfsutil.CommitStart(apiClient, args[0], args[1])
@@ -141,32 +126,40 @@ func do(appEnvObj interface{}) error {
 		},
 	}.ToCobraCommand()
 
-	commitCmd := cobramainutil.Command{
-		Use:     "commit repo-name branch-id",
-		Long:    "Commit a branch. branch-id must be a writeable commit.",
+	commitFinish := cobramainutil.Command{
+		Use:     "commit-finish repo-name commit-id",
+		Short:   "Finish a started commit.",
+		Long:    "Finish a started commit. Commit-id must be a writeable commit.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
 			return pfsutil.CommitFinish(apiClient, args[0], args[1])
 		},
 	}.ToCobraCommand()
 
-	commitInfoCmd := cobramainutil.Command{
-		Use:     "commit-info repo-name commit-id",
-		Long:    "Get info for a commit.",
+	commitInspect := cobramainutil.Command{
+		Use:     "commit-inspect repo-name commit-id",
+		Short:   "Return info about a commit.",
+		Long:    "Return info about a commit.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
 			commitInfo, err := pfsutil.CommitInspect(apiClient, args[0], args[1])
 			if err != nil {
 				return err
 			}
-			fmt.Printf("%+v\n", commitInfo)
-			return nil
+			if commitInfo == nil {
+				return fmt.Errorf("commit %s not found", args[1])
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintCommitInfoHeader(writer)
+			pretty.PrintCommitInfo(writer, commitInfo)
+			return writer.Flush()
 		},
 	}.ToCobraCommand()
 
-	listCommitsCmd := cobramainutil.Command{
-		Use:     "list-commits repo-name",
-		Long:    "List commits on the repo.",
+	commitList := cobramainutil.Command{
+		Use:     "commit-list repo-name",
+		Short:   "Return all commits on a repo.",
+		Long:    "Return all commits on a repo.",
 		NumArgs: 1,
 		Run: func(cmd *cobra.Command, args []string) error {
 			commitInfos, err := pfsutil.CommitList(apiClient, args[0])
@@ -182,8 +175,101 @@ func do(appEnvObj interface{}) error {
 		},
 	}.ToCobraCommand()
 
-	mountCmd := cobramainutil.Command{
+	commitDelete := cobramainutil.Command{
+		Use:     "commit-delete repo-name commit-id",
+		Short:   "Delete a commit.",
+		Long:    "Delete a commit.",
+		NumArgs: 2,
+		Run: func(cmd *cobra.Command, args []string) error {
+			return pfsutil.CommitDelete(apiClient, args[0], args[1])
+		},
+	}.ToCobraCommand()
+
+	mkdir := cobramainutil.Command{
+		Use:     "mkdir repo-name commit-id path/to/dir",
+		Short:   "Make a directory.",
+		Long:    "Make a directory. Parent directories need not exist.",
+		NumArgs: 3,
+		Run: func(cmd *cobra.Command, args []string) error {
+			return pfsutil.MakeDirectory(apiClient, args[0], args[1], args[2])
+		},
+	}.ToCobraCommand()
+
+	filePut := cobramainutil.Command{
+		Use:     "file-put repo-name commit-id path/to/file",
+		Short:   "Put a file from stdin",
+		Long:    "Put a file from stdin. Directories must exist. Commit -id must be a writeable commit.",
+		NumArgs: 3,
+		Run: func(cmd *cobra.Command, args []string) error {
+			_, err := pfsutil.FilePut(apiClient, args[0], args[1], args[2], 0, os.Stdin)
+			return err
+		},
+	}.ToCobraCommand()
+
+	fileGet := cobramainutil.Command{
+		Use:     "file-get repo-name commit-id path/to/file",
+		Short:   "Return the contents of a file.",
+		Long:    "Return the contents of a file.",
+		NumArgs: 3,
+		Run: func(cmd *cobra.Command, args []string) error {
+			return pfsutil.FileGet(apiClient, args[0], args[1], args[2], 0, pfsutil.GetAll, os.Stdout)
+		},
+	}.ToCobraCommand()
+
+	fileInspect := cobramainutil.Command{
+		Use:     "file-inspect repo-name branch-id path/to/file",
+		Short:   "Return info about a file.",
+		Long:    "Return info about a file.",
+		NumArgs: 3,
+		Run: func(cmd *cobra.Command, args []string) error {
+			fileInfo, err := pfsutil.FileInspect(apiClient, args[0], args[1], args[2])
+			if err != nil {
+				return err
+			}
+			if fileInfo == nil {
+				return fmt.Errorf("file %s not found", args[2])
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintFileInfoHeader(writer)
+			pretty.PrintFileInfo(writer, fileInfo)
+			return writer.Flush()
+		},
+	}.ToCobraCommand()
+
+	fileList := cobramainutil.Command{
+		Use:     "file-list repo-name commit-id path/to/dir",
+		Short:   "Return the files in a directory.",
+		Long:    "Return the files in a directory.",
+		NumArgs: 3,
+		Run: func(cmd *cobra.Command, args []string) error {
+			fileInfos, err := pfsutil.FileList(apiClient, args[0], args[1], args[2], uint64(shard), uint64(modulus))
+			if err != nil {
+				return err
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintFileInfoHeader(writer)
+			for _, fileInfo := range fileInfos {
+				pretty.PrintFileInfo(writer, fileInfo)
+			}
+			return writer.Flush()
+		},
+	}.ToCobraCommand()
+	fileList.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
+	fileList.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
+
+	fileDelete := cobramainutil.Command{
+		Use:     "file-delete repo-name commit-id path/to/file",
+		Short:   "Delete a file.",
+		Long:    "Delete a file.",
+		NumArgs: 2,
+		Run: func(cmd *cobra.Command, args []string) error {
+			return pfsutil.FileDelete(apiClient, args[0], args[1], args[2])
+		},
+	}.ToCobraCommand()
+
+	mount := cobramainutil.Command{
 		Use:        "mount mountpoint repo-name [commit-id]",
+		Short:      "Mount a repo as a local file system.",
 		Long:       "Mount a repo as a local file system.",
 		MinNumArgs: 2,
 		MaxNumArgs: 3,
@@ -201,8 +287,8 @@ func do(appEnvObj interface{}) error {
 			return mounter.Wait(mountPoint)
 		},
 	}.ToCobraCommand()
-	mountCmd.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
-	mountCmd.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
+	mount.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
+	mount.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	rootCmd := &cobra.Command{
 		Use: "pfs",
@@ -213,16 +299,21 @@ The environment variable PFS_ADDRESS controls what server the CLI connects to, t
 	}
 
 	rootCmd.AddCommand(protoclient.NewVersionCommand(clientConn, pachyderm.Version, nil))
-	rootCmd.AddCommand(initCmd)
-	rootCmd.AddCommand(listReposCmd)
-	rootCmd.AddCommand(mkdirCmd)
-	rootCmd.AddCommand(putCmd)
-	rootCmd.AddCommand(getCmd)
-	rootCmd.AddCommand(lsCmd)
-	rootCmd.AddCommand(branchCmd)
-	rootCmd.AddCommand(commitCmd)
-	rootCmd.AddCommand(commitInfoCmd)
-	rootCmd.AddCommand(listCommitsCmd)
-	rootCmd.AddCommand(mountCmd)
+	rootCmd.AddCommand(repoCreate)
+	rootCmd.AddCommand(repoInspect)
+	rootCmd.AddCommand(repoList)
+	rootCmd.AddCommand(repoDelete)
+	rootCmd.AddCommand(commitStart)
+	rootCmd.AddCommand(commitFinish)
+	rootCmd.AddCommand(commitInspect)
+	rootCmd.AddCommand(commitList)
+	rootCmd.AddCommand(commitDelete)
+	rootCmd.AddCommand(mkdir)
+	rootCmd.AddCommand(filePut)
+	rootCmd.AddCommand(fileGet)
+	rootCmd.AddCommand(fileInspect)
+	rootCmd.AddCommand(fileList)
+	rootCmd.AddCommand(fileDelete)
+	rootCmd.AddCommand(mount)
 	return rootCmd.Execute()
 }

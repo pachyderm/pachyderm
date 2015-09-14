@@ -10,6 +10,7 @@ import (
 
 type Command struct {
 	Use        string
+	Short      string
 	Long       string
 	NumArgs    int
 	MinNumArgs int
@@ -19,8 +20,9 @@ type Command struct {
 
 func (c Command) ToCobraCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:  c.Use,
-		Long: c.Long,
+		Use:   c.Use,
+		Short: c.Short,
+		Long:  c.Long,
 		Run: func(cmd *cobra.Command, args []string) {
 			if c.NumArgs > 0 {
 				if c.MinNumArgs > 0 || c.MaxNumArgs > 0 {
