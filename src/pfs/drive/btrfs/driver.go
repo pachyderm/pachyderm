@@ -25,13 +25,12 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pkg/executil"
 	"github.com/satori/go.uuid"
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/proto/time"
 )
 
 const (
@@ -69,10 +68,9 @@ func (d *driver) RepoInspect(repo *pfs.Repo, shard int) (*pfs.RepoInfo, bool, er
 	}
 	return &pfs.RepoInfo{
 			Repo: repo,
-			Created: &google_protobuf.Timestamp{
-				Seconds: stat.ModTime().UnixNano() / int64(time.Second),
-				Nanos:   int32(stat.ModTime().UnixNano() % int64(time.Second)),
-			},
+			Created: prototime.TimeToTimestamp(
+				stat.ModTime(),
+			),
 		},
 		true,
 		nil
@@ -377,10 +375,9 @@ func (d *driver) stat(file *pfs.File, shard int) (*pfs.FileInfo, error) {
 		FileType:  fileType,
 		SizeBytes: uint64(stat.Size()),
 		Perm:      uint32(stat.Mode() & os.ModePerm),
-		LastModified: &google_protobuf.Timestamp{
-			Seconds: stat.ModTime().UnixNano() / int64(time.Second),
-			Nanos:   int32(stat.ModTime().UnixNano() % int64(time.Second)),
-		},
+		LastModified: prototime.TimeToTimestamp(
+			stat.ModTime(),
+		),
 	}, nil
 }
 
