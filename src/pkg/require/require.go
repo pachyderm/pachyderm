@@ -2,30 +2,23 @@ package require
 
 import (
 	"reflect"
+	"runtime"
 	"testing"
 )
 
-func logMessage(tb testing.TB, msgAndArgs ...interface{}) {
-	if len(msgAndArgs) == 1 {
-		tb.Logf(msgAndArgs[0].(string))
-	}
-	if len(msgAndArgs) > 1 {
-		tb.Logf(msgAndArgs[0].(string), msgAndArgs[1:]...)
-	}
-}
-
 func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	if !reflect.DeepEqual(expected, actual) {
-		logMessage(tb, msgAndArgs...)
-		tb.Errorf("Not equal: %#v (expected)\n"+
-			"        != %#v (actual)", expected, actual)
+		fatal(
+			tb,
+			msgAndArgs,
+			"Not equal: %#v (expected)\n"+
+				"        != %#v (actual)", expected, actual)
 	}
 }
 
 func NoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	if err != nil {
-		logMessage(tb, msgAndArgs...)
-		tb.Errorf("No error is expected but got %v", err)
+		fatal(tb, msgAndArgs, "No error is expected but got %v", err)
 	}
 }
 
@@ -43,8 +36,7 @@ func NotNil(tb testing.TB, object interface{}, msgAndArgs ...interface{}) {
 	}
 
 	if !success {
-		logMessage(tb, msgAndArgs...)
-		tb.Errorf("Expected value not to be nil.")
+		fatal(tb, msgAndArgs, "Expected value not to be nil.")
 	}
 }
 
@@ -58,20 +50,35 @@ func Nil(tb testing.TB, object interface{}, msgAndArgs ...interface{}) {
 		return
 	}
 
-	logMessage(tb, msgAndArgs...)
-	tb.Errorf("Expected value to be nil.")
+	fatal(tb, msgAndArgs, "Expected value to be nil.")
 }
 
 func True(tb testing.TB, value bool, msgAndArgs ...interface{}) {
 	if !value {
-		logMessage(tb, msgAndArgs...)
-		tb.Errorf("Should be true.")
+		fatal(tb, msgAndArgs, "Should be true.")
 	}
 }
 
 func False(tb testing.TB, value bool, msgAndArgs ...interface{}) {
 	if value {
-		logMessage(tb, msgAndArgs...)
-		tb.Errorf("Should be false.")
+		fatal(tb, msgAndArgs, "Should be false.")
 	}
+}
+
+func logMessage(tb testing.TB, msgAndArgs []interface{}) {
+	if len(msgAndArgs) == 1 {
+		tb.Logf(msgAndArgs[0].(string))
+	}
+	if len(msgAndArgs) > 1 {
+		tb.Logf(msgAndArgs[0].(string), msgAndArgs[1:]...)
+	}
+}
+
+func fatal(tb testing.TB, userMsgAndArgs []interface{}, msgFmt string, msgArgs ...interface{}) {
+	logMessage(tb, userMsgAndArgs)
+	_, file, line, ok := runtime.Caller(2)
+	if ok {
+		tb.Logf("%s:%d", file, line)
+	}
+	tb.Fatalf(msgFmt, msgArgs...)
 }
