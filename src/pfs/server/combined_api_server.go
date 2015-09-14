@@ -95,7 +95,7 @@ func (a *combinedAPIServer) RepoCreate(ctx context.Context, request *pfs.RepoCre
 	return emptyInstance, nil
 }
 
-func (a *combinedAPIServer) RepoInspect(ctx context.Context, request *pfs.RepoInspectRequest) (*pfs.RepoInspectResponse, error) {
+func (a *combinedAPIServer) RepoInspect(ctx context.Context, request *pfs.RepoInspectRequest) (*pfs.RepoInfo, error) {
 	masterShards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
@@ -106,9 +106,9 @@ func (a *combinedAPIServer) RepoInspect(ctx context.Context, request *pfs.RepoIn
 			return nil, err
 		}
 		if !ok {
-			return &pfs.RepoInspectResponse{}, nil
+			return &pfs.RepoInfo{}, nil
 		}
-		return &pfs.RepoInspectResponse{RepoInfo: repoInfo}, nil
+		return repoInfo, nil
 	}
 	if !request.Redirect {
 		clientConns, err := a.router.GetAllClientConns()
@@ -128,7 +128,7 @@ func (a *combinedAPIServer) RepoInspect(ctx context.Context, request *pfs.RepoIn
 	return nil, fmt.Errorf("pachyderm: no available masters")
 }
 
-func (a *combinedAPIServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) (*pfs.RepoListResponse, error) {
+func (a *combinedAPIServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) (*pfs.RepoInfos, error) {
 	masterShards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
@@ -138,7 +138,7 @@ func (a *combinedAPIServer) RepoList(ctx context.Context, request *pfs.RepoListR
 		if err != nil {
 			return nil, err
 		}
-		return &pfs.RepoListResponse{RepoInfo: repos}, nil
+		return &pfs.RepoInfos{RepoInfo: repos}, nil
 	}
 	if !request.Redirect {
 		clientConns, err := a.router.GetAllClientConns()
@@ -188,7 +188,7 @@ func (a *combinedAPIServer) RepoDelete(ctx context.Context, request *pfs.RepoDel
 
 }
 
-func (a *combinedAPIServer) CommitStart(ctx context.Context, request *pfs.CommitStartRequest) (*pfs.CommitStartResponse, error) {
+func (a *combinedAPIServer) CommitStart(ctx context.Context, request *pfs.CommitStartRequest) (*pfs.Commit, error) {
 	if request.Redirect && request.Commit == nil {
 		return nil, fmt.Errorf("must set a commit for redirect %+v", request)
 	}
@@ -218,9 +218,7 @@ func (a *combinedAPIServer) CommitStart(ctx context.Context, request *pfs.Commit
 			}
 		}
 	}
-	return &pfs.CommitStartResponse{
-		Commit: commit,
-	}, nil
+	return commit, nil
 }
 
 func (a *combinedAPIServer) CommitFinish(ctx context.Context, request *pfs.CommitFinishRequest) (*google_protobuf.Empty, error) {
@@ -255,7 +253,7 @@ func (a *combinedAPIServer) CommitFinish(ctx context.Context, request *pfs.Commi
 }
 
 // TODO(pedge): race on Branch
-func (a *combinedAPIServer) CommitInspect(ctx context.Context, request *pfs.CommitInspectRequest) (*pfs.CommitInspectResponse, error) {
+func (a *combinedAPIServer) CommitInspect(ctx context.Context, request *pfs.CommitInspectRequest) (*pfs.CommitInfo, error) {
 	shard, clientConn, err := a.getMasterShardOrMasterClientConnIfNecessary()
 	if err != nil {
 		return nil, err
@@ -268,14 +266,12 @@ func (a *combinedAPIServer) CommitInspect(ctx context.Context, request *pfs.Comm
 		return nil, err
 	}
 	if !ok {
-		return &pfs.CommitInspectResponse{}, nil
+		return &pfs.CommitInfo{}, nil
 	}
-	return &pfs.CommitInspectResponse{
-		CommitInfo: commitInfo,
-	}, nil
+	return commitInfo, nil
 }
 
-func (a *combinedAPIServer) CommitList(ctx context.Context, request *pfs.CommitListRequest) (*pfs.CommitListResponse, error) {
+func (a *combinedAPIServer) CommitList(ctx context.Context, request *pfs.CommitListRequest) (*pfs.CommitInfos, error) {
 	shard, clientConn, err := a.getMasterShardOrMasterClientConnIfNecessary()
 	if err != nil {
 		return nil, err
@@ -287,7 +283,7 @@ func (a *combinedAPIServer) CommitList(ctx context.Context, request *pfs.CommitL
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.CommitListResponse{
+	return &pfs.CommitInfos{
 		CommitInfo: commitInfos,
 	}, nil
 }
@@ -400,7 +396,7 @@ func (a *combinedAPIServer) FileGet(request *pfs.FileGetRequest, apiFileGetServe
 	)
 }
 
-func (a *combinedAPIServer) FileInspect(ctx context.Context, request *pfs.FileInspectRequest) (*pfs.FileInspectResponse, error) {
+func (a *combinedAPIServer) FileInspect(ctx context.Context, request *pfs.FileInspectRequest) (*pfs.FileInfo, error) {
 	shard, clientConn, err := a.getShardAndClientConnIfNecessary(request.File, false)
 	if err != nil {
 		return nil, err
@@ -413,14 +409,12 @@ func (a *combinedAPIServer) FileInspect(ctx context.Context, request *pfs.FileIn
 		return nil, err
 	}
 	if !ok {
-		return &pfs.FileInspectResponse{}, nil
+		return &pfs.FileInfo{}, nil
 	}
-	return &pfs.FileInspectResponse{
-		FileInfo: fileInfo,
-	}, nil
+	return fileInfo, nil
 }
 
-func (a *combinedAPIServer) FileList(ctx context.Context, request *pfs.FileListRequest) (*pfs.FileListResponse, error) {
+func (a *combinedAPIServer) FileList(ctx context.Context, request *pfs.FileListRequest) (*pfs.FileInfos, error) {
 	shards, err := a.getAllShards(false)
 	if err != nil {
 		return nil, err
@@ -480,7 +474,7 @@ func (a *combinedAPIServer) FileList(ctx context.Context, request *pfs.FileListR
 			}
 		}
 	}
-	return &pfs.FileListResponse{
+	return &pfs.FileInfos{
 		FileInfo: fileInfos,
 	}, nil
 }
