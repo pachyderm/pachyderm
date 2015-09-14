@@ -89,7 +89,7 @@ func (d *driver) RepoList(shard int) ([]*pfs.RepoInfo, error) {
 			return nil, err
 		}
 		if !ok {
-			return nil, fmt.Errorf("repo should exist")
+			return nil, fmt.Errorf("repo %s should exist", repo.Name())
 		}
 		result = append(result, repoInfo)
 	}
