@@ -10,7 +10,10 @@
 
 package codec
 
-import "encoding"
+import (
+	"encoding"
+	"reflect"
+)
 
 // This file is used to generate helper code for codecgen. 
 // The values here i.e. genHelper(En|De)coder are not to be used directly by 
@@ -82,6 +85,23 @@ func (f genHelperEncoder) TimeRtidIfBinc() uintptr {
 	}
 	return 0
 }
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperEncoder) HasExtensions() bool {
+	return len(f.e.h.extHandle) != 0
+}
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperEncoder) EncExt(v interface{}) (r bool) {
+	rt := reflect.TypeOf(v)
+	if rt.Kind() == reflect.Ptr {
+		rt = rt.Elem()
+	}
+	rtid := reflect.ValueOf(rt).Pointer()
+	if xfFn := f.e.h.getExt(rtid); xfFn != nil {
+		f.e.e.EncodeExt(v, xfFn.tag, xfFn.ext, f.e)
+		return true
+	}
+	return false 
+}
 
 // FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
 func (f genHelperDecoder) DecBasicHandle() *BasicHandle {
@@ -143,6 +163,20 @@ func (f genHelperDecoder) TimeRtidIfBinc() uintptr {
 		return timeTypId 
 	}
 	return 0
+}
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperDecoder) HasExtensions() bool {
+	return len(f.d.h.extHandle) != 0
+}
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperDecoder) DecExt(v interface{}) (r bool) {
+	rt := reflect.TypeOf(v).Elem()
+	rtid := reflect.ValueOf(rt).Pointer()
+	if xfFn := f.d.h.getExt(rtid); xfFn != nil {
+		f.d.d.DecodeExt(v, xfFn.tag, xfFn.ext)
+		return true
+	}
+	return false 
 }
 
 {{/*

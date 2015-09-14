@@ -22,20 +22,25 @@ import (
 )
 
 // ---------------------------------------------------
-// codecgen MOSTLY supports things that are static.
+// codecgen supports the full cycle of reflection-based codec:
+//    - RawExt
+//    - Builtins
+//    - Extensions
+//    - (Binary|Text|JSON)(Unm|M)arshal
+//    - generic by-kind
+//
 // This means that, for dynamic things, we MUST use reflection to at least get the reflect.Type.
+// In those areas, we try to only do reflection or interface-conversion when NECESSARY:
+//    - Extensions, only if Extensions are configured.
 //
-// Currently, codecgen doesn't support the following:
-//   - extensions
-//
-// In addition, codecgen doesn't support the following:
+// However, codecgen doesn't support the following:
 //   - Canonical option. (codecgen IGNORES it currently)
 //     This is just because it has not been implemented.
 //
 // During encode/decode, Selfer takes precedence.
 // A type implementing Selfer will know how to encode/decode itself statically.
 //
-//  The following field types are supported:
+// The following field types are supported:
 //     array: [n]T
 //     slice: []T
 //     map: map[K]V
@@ -607,7 +612,11 @@ func (x *genRunner) enc(varname string, t reflect.Type) {
 		x.linef("} else if %s := z.TimeRtidIfBinc(); %s != 0 { ", vrtid, vrtid)
 		x.linef("r.EncodeBuiltin(%s, %s)", vrtid, varname)
 	}
-
+	// only check for extensions if the type is named, and has a packagePath.
+	if t.PkgPath() != "" && t.Name() != "" {
+		// first check if extensions are configued, before doing the interface conversion
+		x.linef("} else if z.HasExtensions() && z.EncExt(%s) {", varname)
+	}
 	if t.Implements(binaryMarshalerTyp) || tptr.Implements(binaryMarshalerTyp) {
 		x.linef("} else if %sm%s { z.EncBinaryMarshal(%v) ", genTempVarPfx, mi, varname)
 	}
@@ -1010,7 +1019,7 @@ func (x *genRunner) decVar(varname string, t reflect.Type, canBeNil bool) {
 func (x *genRunner) dec(varname string, t reflect.Type) {
 	// assumptions:
 	//   - the varname is to a pointer already. No need to take address of it
-
+	//   - t is always a baseType T (not a *T, etc).
 	rtid := reflect.ValueOf(t).Pointer()
 	tptr := reflect.PtrTo(t)
 	if t.Implements(selferTyp) || (t.Kind() == reflect.Struct &&
@@ -1061,6 +1070,11 @@ func (x *genRunner) dec(varname string, t reflect.Type) {
 		vrtid := genTempVarPfx + "m" + x.varsfx()
 		x.linef("} else if %s := z.TimeRtidIfBinc(); %s != 0 { ", vrtid, vrtid)
 		x.linef("r.DecodeBuiltin(%s, %s)", vrtid, varname)
+	}
+	// only check for extensions if the type is named, and has a packagePath.
+	if t.PkgPath() != "" && t.Name() != "" {
+		// first check if extensions are configued, before doing the interface conversion
+		x.linef("} else if z.HasExtensions() && z.DecExt(%s) {", varname)
 	}
 
 	if t.Implements(binaryUnmarshalerTyp) || tptr.Implements(binaryUnmarshalerTyp) {
