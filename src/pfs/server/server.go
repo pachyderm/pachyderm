@@ -19,19 +19,36 @@ var (
 	}
 )
 
-type CombinedAPIServer interface {
+type ApiServer interface {
 	pfs.ApiServer
+	role.Server
+}
+
+type InternalApiServer interface {
 	pfs.InternalApiServer
 	role.Server
 }
 
-// NewCombinedAPIServer returns a new CombinedAPIServer.
-func NewCombinedAPIServer(
+// NewApiServer returns a new ApiServer.
+func NewApiServer(
 	sharder route.Sharder,
 	router route.Router,
 	driver drive.Driver,
-) CombinedAPIServer {
-	return newCombinedAPIServer(
+) ApiServer {
+	return newApiServer(
+		sharder,
+		router,
+		driver,
+	)
+}
+
+// NewApiServer returns a new ApiServer.
+func NewInternalApiServer(
+	sharder route.Sharder,
+	router route.Router,
+	driver drive.Driver,
+) InternalApiServer {
+	return newInternalApiServer(
 		sharder,
 		router,
 		driver,
