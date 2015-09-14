@@ -509,11 +509,11 @@ func (m *FileGetRequest) GetFile() *File {
 }
 
 type FilePutRequest struct {
-	File        *File  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	OffsetBytes int64  `protobuf:"varint,2,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
-	Value       []byte `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
-	Directory   bool   `protobuf:"varint,4,opt,name=directory" json:"directory,omitempty"`
-	Redirect    bool   `protobuf:"varint,5,opt,name=redirect" json:"redirect,omitempty"`
+	File        *File    `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	FileType    FileType `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
+	OffsetBytes int64    `protobuf:"varint,3,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
+	Value       []byte   `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	Redirect    bool     `protobuf:"varint,5,opt,name=redirect" json:"redirect,omitempty"`
 }
 
 func (m *FilePutRequest) Reset()         { *m = FilePutRequest{} }

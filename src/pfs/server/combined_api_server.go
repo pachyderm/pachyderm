@@ -322,6 +322,37 @@ func (a *combinedAPIServer) CommitDelete(ctx context.Context, request *pfs.Commi
 }
 
 func (a *combinedAPIServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*google_protobuf.Empty, error) {
+	if request.FileType == pfs.FileType_FILE_TYPE_DIR {
+		if len(request.Value) > 0 {
+			return emptyInstance, fmt.Errorf("FilePutRequest shouldn't have type dir and a value")
+		}
+		shards, err := a.getAllShards(false)
+		if err != nil {
+			return nil, err
+		}
+		if err := a.driver.MakeDirectory(request.File, shards); err != nil {
+			return nil, err
+		}
+		if !request.Redirect {
+			clientConns, err := a.router.GetAllClientConns()
+			if err != nil {
+				return nil, err
+			}
+			for _, clientConn := range clientConns {
+				if _, err := pfs.NewApiClient(clientConn).FilePut(
+					ctx,
+					&pfs.FilePutRequest{
+						File:     request.File,
+						FileType: pfs.FileType_FILE_TYPE_DIR,
+						Redirect: true,
+					},
+				); err != nil {
+					return nil, err
+				}
+			}
+		}
+		return emptyInstance, nil
+	}
 	if strings.HasPrefix(request.File.Path, "/") {
 		// This is a subtle error case, the paths foo and /foo will hash to
 		// different shards but will produce the same change once they get to
@@ -341,34 +372,6 @@ func (a *combinedAPIServer) FilePut(ctx context.Context, request *pfs.FilePutReq
 	}
 	return emptyInstance, nil
 }
-
-// func (a *combinedAPIServer) MakeDirectory(ctx context.Context, request *pfs.MakeDirectoryRequest) (*google_protobuf.Empty, error) {
-// 	shards, err := a.getAllShards(false)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if err := a.driver.MakeDirectory(request.File, shards); err != nil {
-// 		return nil, err
-// 	}
-// 	if !request.Redirect {
-// 		clientConns, err := a.router.GetAllClientConns()
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		for _, clientConn := range clientConns {
-// 			if _, err := pfs.NewApiClient(clientConn).MakeDirectory(
-// 				ctx,
-// 				&pfs.MakeDirectoryRequest{
-// 					Path:     makeDirectoryRequest.Path,
-// 					Redirect: true,
-// 				},
-// 			); err != nil {
-// 				return nil, err
-// 			}
-// 		}
-// 	}
-// 	return emptyInstance, nil
-// }
 
 func (a *combinedAPIServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.Api_FileGetServer) (retErr error) {
 	shard, clientConn, err := a.getShardAndClientConnIfNecessary(request.File, false)
