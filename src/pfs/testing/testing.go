@@ -3,7 +3,6 @@ package testing
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"sync/atomic"
 	"testing"
@@ -161,7 +160,6 @@ func (c *cluster) WaitForAvailability() {
 		}
 		return 0, fmt.Errorf("Complete")
 	})
-	log.Print("_shardToMasterAddress: %+v\n _shardToReplicaAddress: %+v", _shardToMasterAddress, _shardToReplicaAddress)
 	require.Equal(c.tb, err.Error(), "Complete")
 }
 
