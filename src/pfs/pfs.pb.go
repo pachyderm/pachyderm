@@ -317,8 +317,7 @@ func (m *Change) GetPath() *File {
 }
 
 type RepoCreateRequest struct {
-	Repo     *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
-	Redirect bool  `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
+	Repo *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 }
 
 func (m *RepoCreateRequest) Reset()         { *m = RepoCreateRequest{} }
@@ -333,8 +332,7 @@ func (m *RepoCreateRequest) GetRepo() *Repo {
 }
 
 type RepoInspectRequest struct {
-	Repo     *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
-	Redirect bool  `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
+	Repo *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 }
 
 func (m *RepoInspectRequest) Reset()         { *m = RepoInspectRequest{} }
@@ -349,7 +347,6 @@ func (m *RepoInspectRequest) GetRepo() *Repo {
 }
 
 type RepoListRequest struct {
-	Redirect bool `protobuf:"varint,1,opt,name=redirect" json:"redirect,omitempty"`
 }
 
 func (m *RepoListRequest) Reset()         { *m = RepoListRequest{} }
@@ -357,8 +354,7 @@ func (m *RepoListRequest) String() string { return proto.CompactTextString(m) }
 func (*RepoListRequest) ProtoMessage()    {}
 
 type RepoDeleteRequest struct {
-	Repo     *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
-	Redirect bool  `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
+	Repo *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 }
 
 func (m *RepoDeleteRequest) Reset()         { *m = RepoDeleteRequest{} }
@@ -373,9 +369,8 @@ func (m *RepoDeleteRequest) GetRepo() *Repo {
 }
 
 type CommitStartRequest struct {
-	Parent   *Commit `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
-	Commit   *Commit `protobuf:"bytes,2,opt,name=commit" json:"commit,omitempty"`
-	Redirect bool    `protobuf:"varint,3,opt,name=redirect" json:"redirect,omitempty"`
+	Parent *Commit `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
+	Commit *Commit `protobuf:"bytes,2,opt,name=commit" json:"commit,omitempty"`
 }
 
 func (m *CommitStartRequest) Reset()         { *m = CommitStartRequest{} }
@@ -397,8 +392,7 @@ func (m *CommitStartRequest) GetCommit() *Commit {
 }
 
 type CommitFinishRequest struct {
-	Commit   *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	Redirect bool    `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
 func (m *CommitFinishRequest) Reset()         { *m = CommitFinishRequest{} }
@@ -413,8 +407,7 @@ func (m *CommitFinishRequest) GetCommit() *Commit {
 }
 
 type CommitInspectRequest struct {
-	Commit   *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	Redirect bool    `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
 func (m *CommitInspectRequest) Reset()         { *m = CommitInspectRequest{} }
@@ -444,8 +437,7 @@ func (m *CommitListRequest) GetRepo() *Repo {
 }
 
 type CommitDeleteRequest struct {
-	Commit   *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	Redirect bool    `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
 func (m *CommitDeleteRequest) Reset()         { *m = CommitDeleteRequest{} }
@@ -481,7 +473,6 @@ type FilePutRequest struct {
 	FileType    FileType `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
 	OffsetBytes int64    `protobuf:"varint,3,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
 	Value       []byte   `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
-	Redirect    bool     `protobuf:"varint,5,opt,name=redirect" json:"redirect,omitempty"`
 }
 
 func (m *FilePutRequest) Reset()         { *m = FilePutRequest{} }
@@ -511,8 +502,7 @@ func (m *FileInspectRequest) GetFile() *File {
 }
 
 type MakeDirectoryRequest struct {
-	File     *File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	Redirect bool  `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
+	File *File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 }
 
 func (m *MakeDirectoryRequest) Reset()         { *m = MakeDirectoryRequest{} }
@@ -527,9 +517,8 @@ func (m *MakeDirectoryRequest) GetFile() *File {
 }
 
 type FileListRequest struct {
-	File     *File  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	Shard    *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
-	Redirect bool   `protobuf:"varint,3,opt,name=redirect" json:"redirect,omitempty"`
+	File  *File  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	Shard *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *FileListRequest) Reset()         { *m = FileListRequest{} }
@@ -551,8 +540,7 @@ func (m *FileListRequest) GetShard() *Shard {
 }
 
 type FileDeleteRequest struct {
-	File     *File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	Redirect bool  `protobuf:"varint,2,opt,name=redirect" json:"redirect,omitempty"`
+	File *File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 }
 
 func (m *FileDeleteRequest) Reset()         { *m = FileDeleteRequest{} }
@@ -1095,6 +1083,42 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 // Client API for InternalApi service
 
 type InternalApiClient interface {
+	// Repo rpcs
+	// RepoCreate creates a new repo.
+	// An error is returned if the repo already exists.
+	RepoCreate(ctx context.Context, in *RepoCreateRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	// RepoInspect returns info about a repo.
+	RepoInspect(ctx context.Context, in *RepoInspectRequest, opts ...grpc.CallOption) (*RepoInfo, error)
+	// RepoList returns info about all repos.
+	RepoList(ctx context.Context, in *RepoListRequest, opts ...grpc.CallOption) (*RepoInfos, error)
+	// RepoDelete deletes a repo.
+	RepoDelete(ctx context.Context, in *RepoDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	// Commit rpcs
+	// CommitStart creates a new write commit from a parent commit.
+	// An error is returned if the parent commit is not a read commit.
+	CommitStart(ctx context.Context, in *CommitStartRequest, opts ...grpc.CallOption) (*Commit, error)
+	// CommitFinish turns a write commit into a read commit.
+	// An error is returned if the commit is not a write commit.
+	CommitFinish(ctx context.Context, in *CommitFinishRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	// CommitInspect returns the info about a commit.
+	CommitInspect(ctx context.Context, in *CommitInspectRequest, opts ...grpc.CallOption) (*CommitInfo, error)
+	// CommitList returns info about all commits.
+	CommitList(ctx context.Context, in *CommitListRequest, opts ...grpc.CallOption) (*CommitInfos, error)
+	// CommitDelete deletes a commit.
+	CommitDelete(ctx context.Context, in *CommitDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	// File rpcs
+	// FilePut writes the specified file to pfs.
+	// An error is returned if the specified commit is not a write commit.
+	FilePut(ctx context.Context, in *FilePutRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	// FileGet returns a byte stream of the contents of the file.
+	FileGet(ctx context.Context, in *FileGetRequest, opts ...grpc.CallOption) (InternalApi_FileGetClient, error)
+	// FileInspect returns a info about a file.
+	FileInspect(ctx context.Context, in *FileInspectRequest, opts ...grpc.CallOption) (*FileInfo, error)
+	// FileList returns info about all files.
+	FileList(ctx context.Context, in *FileListRequest, opts ...grpc.CallOption) (*FileInfos, error)
+	// FileDelete deletes a file.
+	FileDelete(ctx context.Context, in *FileDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	// Diff rpcs
 	// PullDiff pulls a binary stream of the diff from the specified
 	// commit to the commit's parent.
 	PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (InternalApi_PullDiffClient, error)
@@ -1110,8 +1134,157 @@ func NewInternalApiClient(cc *grpc.ClientConn) InternalApiClient {
 	return &internalApiClient{cc}
 }
 
+func (c *internalApiClient) RepoCreate(ctx context.Context, in *RepoCreateRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/RepoCreate", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalApiClient) RepoInspect(ctx context.Context, in *RepoInspectRequest, opts ...grpc.CallOption) (*RepoInfo, error) {
+	out := new(RepoInfo)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/RepoInspect", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalApiClient) RepoList(ctx context.Context, in *RepoListRequest, opts ...grpc.CallOption) (*RepoInfos, error) {
+	out := new(RepoInfos)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/RepoList", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalApiClient) RepoDelete(ctx context.Context, in *RepoDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/RepoDelete", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalApiClient) CommitStart(ctx context.Context, in *CommitStartRequest, opts ...grpc.CallOption) (*Commit, error) {
+	out := new(Commit)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/CommitStart", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalApiClient) CommitFinish(ctx context.Context, in *CommitFinishRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/CommitFinish", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalApiClient) CommitInspect(ctx context.Context, in *CommitInspectRequest, opts ...grpc.CallOption) (*CommitInfo, error) {
+	out := new(CommitInfo)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/CommitInspect", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalApiClient) CommitList(ctx context.Context, in *CommitListRequest, opts ...grpc.CallOption) (*CommitInfos, error) {
+	out := new(CommitInfos)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/CommitList", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalApiClient) CommitDelete(ctx context.Context, in *CommitDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/CommitDelete", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalApiClient) FilePut(ctx context.Context, in *FilePutRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/FilePut", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalApiClient) FileGet(ctx context.Context, in *FileGetRequest, opts ...grpc.CallOption) (InternalApi_FileGetClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[0], c.cc, "/pfs.InternalApi/FileGet", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &internalApiFileGetClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type InternalApi_FileGetClient interface {
+	Recv() (*google_protobuf3.BytesValue, error)
+	grpc.ClientStream
+}
+
+type internalApiFileGetClient struct {
+	grpc.ClientStream
+}
+
+func (x *internalApiFileGetClient) Recv() (*google_protobuf3.BytesValue, error) {
+	m := new(google_protobuf3.BytesValue)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *internalApiClient) FileInspect(ctx context.Context, in *FileInspectRequest, opts ...grpc.CallOption) (*FileInfo, error) {
+	out := new(FileInfo)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/FileInspect", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalApiClient) FileList(ctx context.Context, in *FileListRequest, opts ...grpc.CallOption) (*FileInfos, error) {
+	out := new(FileInfos)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/FileList", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalApiClient) FileDelete(ctx context.Context, in *FileDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/FileDelete", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *internalApiClient) PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (InternalApi_PullDiffClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[0], c.cc, "/pfs.InternalApi/PullDiff", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[1], c.cc, "/pfs.InternalApi/PullDiff", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1154,6 +1327,42 @@ func (c *internalApiClient) PushDiff(ctx context.Context, in *PushDiffRequest, o
 // Server API for InternalApi service
 
 type InternalApiServer interface {
+	// Repo rpcs
+	// RepoCreate creates a new repo.
+	// An error is returned if the repo already exists.
+	RepoCreate(context.Context, *RepoCreateRequest) (*google_protobuf1.Empty, error)
+	// RepoInspect returns info about a repo.
+	RepoInspect(context.Context, *RepoInspectRequest) (*RepoInfo, error)
+	// RepoList returns info about all repos.
+	RepoList(context.Context, *RepoListRequest) (*RepoInfos, error)
+	// RepoDelete deletes a repo.
+	RepoDelete(context.Context, *RepoDeleteRequest) (*google_protobuf1.Empty, error)
+	// Commit rpcs
+	// CommitStart creates a new write commit from a parent commit.
+	// An error is returned if the parent commit is not a read commit.
+	CommitStart(context.Context, *CommitStartRequest) (*Commit, error)
+	// CommitFinish turns a write commit into a read commit.
+	// An error is returned if the commit is not a write commit.
+	CommitFinish(context.Context, *CommitFinishRequest) (*google_protobuf1.Empty, error)
+	// CommitInspect returns the info about a commit.
+	CommitInspect(context.Context, *CommitInspectRequest) (*CommitInfo, error)
+	// CommitList returns info about all commits.
+	CommitList(context.Context, *CommitListRequest) (*CommitInfos, error)
+	// CommitDelete deletes a commit.
+	CommitDelete(context.Context, *CommitDeleteRequest) (*google_protobuf1.Empty, error)
+	// File rpcs
+	// FilePut writes the specified file to pfs.
+	// An error is returned if the specified commit is not a write commit.
+	FilePut(context.Context, *FilePutRequest) (*google_protobuf1.Empty, error)
+	// FileGet returns a byte stream of the contents of the file.
+	FileGet(*FileGetRequest, InternalApi_FileGetServer) error
+	// FileInspect returns a info about a file.
+	FileInspect(context.Context, *FileInspectRequest) (*FileInfo, error)
+	// FileList returns info about all files.
+	FileList(context.Context, *FileListRequest) (*FileInfos, error)
+	// FileDelete deletes a file.
+	FileDelete(context.Context, *FileDeleteRequest) (*google_protobuf1.Empty, error)
+	// Diff rpcs
 	// PullDiff pulls a binary stream of the diff from the specified
 	// commit to the commit's parent.
 	PullDiff(*PullDiffRequest, InternalApi_PullDiffServer) error
@@ -1163,6 +1372,183 @@ type InternalApiServer interface {
 
 func RegisterInternalApiServer(s *grpc.Server, srv InternalApiServer) {
 	s.RegisterService(&_InternalApi_serviceDesc, srv)
+}
+
+func _InternalApi_RepoCreate_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(RepoCreateRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).RepoCreate(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalApi_RepoInspect_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(RepoInspectRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).RepoInspect(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalApi_RepoList_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(RepoListRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).RepoList(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalApi_RepoDelete_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(RepoDeleteRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).RepoDelete(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalApi_CommitStart_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(CommitStartRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).CommitStart(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalApi_CommitFinish_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(CommitFinishRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).CommitFinish(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalApi_CommitInspect_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(CommitInspectRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).CommitInspect(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalApi_CommitList_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(CommitListRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).CommitList(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalApi_CommitDelete_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(CommitDeleteRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).CommitDelete(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalApi_FilePut_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(FilePutRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).FilePut(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalApi_FileGet_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(FileGetRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(InternalApiServer).FileGet(m, &internalApiFileGetServer{stream})
+}
+
+type InternalApi_FileGetServer interface {
+	Send(*google_protobuf3.BytesValue) error
+	grpc.ServerStream
+}
+
+type internalApiFileGetServer struct {
+	grpc.ServerStream
+}
+
+func (x *internalApiFileGetServer) Send(m *google_protobuf3.BytesValue) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _InternalApi_FileInspect_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(FileInspectRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).FileInspect(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalApi_FileList_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(FileListRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).FileList(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalApi_FileDelete_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(FileDeleteRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).FileDelete(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func _InternalApi_PullDiff_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -1203,11 +1589,68 @@ var _InternalApi_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*InternalApiServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "RepoCreate",
+			Handler:    _InternalApi_RepoCreate_Handler,
+		},
+		{
+			MethodName: "RepoInspect",
+			Handler:    _InternalApi_RepoInspect_Handler,
+		},
+		{
+			MethodName: "RepoList",
+			Handler:    _InternalApi_RepoList_Handler,
+		},
+		{
+			MethodName: "RepoDelete",
+			Handler:    _InternalApi_RepoDelete_Handler,
+		},
+		{
+			MethodName: "CommitStart",
+			Handler:    _InternalApi_CommitStart_Handler,
+		},
+		{
+			MethodName: "CommitFinish",
+			Handler:    _InternalApi_CommitFinish_Handler,
+		},
+		{
+			MethodName: "CommitInspect",
+			Handler:    _InternalApi_CommitInspect_Handler,
+		},
+		{
+			MethodName: "CommitList",
+			Handler:    _InternalApi_CommitList_Handler,
+		},
+		{
+			MethodName: "CommitDelete",
+			Handler:    _InternalApi_CommitDelete_Handler,
+		},
+		{
+			MethodName: "FilePut",
+			Handler:    _InternalApi_FilePut_Handler,
+		},
+		{
+			MethodName: "FileInspect",
+			Handler:    _InternalApi_FileInspect_Handler,
+		},
+		{
+			MethodName: "FileList",
+			Handler:    _InternalApi_FileList_Handler,
+		},
+		{
+			MethodName: "FileDelete",
+			Handler:    _InternalApi_FileDelete_Handler,
+		},
+		{
 			MethodName: "PushDiff",
 			Handler:    _InternalApi_PushDiff_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "FileGet",
+			Handler:       _InternalApi_FileGet_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "PullDiff",
 			Handler:       _InternalApi_PullDiff_Handler,

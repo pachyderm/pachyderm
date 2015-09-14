@@ -58,13 +58,13 @@ func (d *driver) RepoCreate(repo *pfs.Repo, shard map[int]bool) error {
 	return nil
 }
 
-func (d *driver) RepoInspect(repo *pfs.Repo, shard int) (*pfs.RepoInfo, bool, error) {
+func (d *driver) RepoInspect(repo *pfs.Repo, shard int) (*pfs.RepoInfo, error) {
 	stat, err := os.Stat(d.repoPath(repo))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, false, nil
+			return nil, nil
 		}
-		return nil, false, err
+		return nil, err
 	}
 	return &pfs.RepoInfo{
 			Repo: repo,
@@ -72,7 +72,6 @@ func (d *driver) RepoInspect(repo *pfs.Repo, shard int) (*pfs.RepoInfo, bool, er
 				stat.ModTime(),
 			),
 		},
-		true,
 		nil
 
 }
@@ -161,19 +160,19 @@ func (d *driver) CommitFinish(commit *pfs.Commit, shards map[int]bool) error {
 	return nil
 }
 
-func (d *driver) CommitInspect(commit *pfs.Commit, shard int) (*pfs.CommitInfo, bool, error) {
+func (d *driver) CommitInspect(commit *pfs.Commit, shard int) (*pfs.CommitInfo, error) {
 	_, readErr := os.Stat(d.readCommitPath(commit, shard))
 	_, writeErr := os.Stat(d.writeCommitPath(commit, shard))
 	if readErr != nil && os.IsNotExist(readErr) && writeErr != nil && os.IsNotExist(writeErr) {
-		return nil, false, nil
+		return nil, nil
 	}
 	parent, err := d.getParent(commit, shard)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	readOnly, err := d.getReadOnly(commit, shard)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	commitType := pfs.CommitType_COMMIT_TYPE_WRITE
 	if readOnly {
@@ -183,7 +182,7 @@ func (d *driver) CommitInspect(commit *pfs.Commit, shard int) (*pfs.CommitInfo, 
 		Commit:       commit,
 		CommitType:   commitType,
 		ParentCommit: parent,
-	}, true, nil
+	}, nil
 }
 
 func (d *driver) CommitList(repo *pfs.Repo, shard int) ([]*pfs.CommitInfo, error) {
@@ -268,15 +267,15 @@ func (d *driver) FileGet(file *pfs.File, shard int) (drive.ReaderAtCloser, error
 	return os.Open(filePath)
 }
 
-func (d *driver) FileInspect(file *pfs.File, shard int) (_ *pfs.FileInfo, ok bool, _ error) {
-	filePath, err := d.stat(file, shard)
+func (d *driver) FileInspect(file *pfs.File, shard int) (*pfs.FileInfo, error) {
+	fileInfo, err := d.stat(file, shard)
 	if err != nil && os.IsNotExist(err) {
-		return nil, false, nil
+		return nil, nil
 	}
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	return filePath, true, nil
+	return fileInfo, nil
 }
 
 func (d *driver) FileList(file *pfs.File, shard int) (_ []*pfs.FileInfo, retErr error) {
@@ -353,6 +352,10 @@ func (d *driver) DiffPush(commit *pfs.Commit, diff io.Reader) error {
 		return err
 	}
 	return execRecv(d.commitPathNoShard(commit), diff)
+}
+
+func newCommitID() string {
+	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
 }
 
 func (d *driver) stat(file *pfs.File, shard int) (*pfs.FileInfo, error) {
@@ -468,10 +471,6 @@ func (d *driver) filePath(file *pfs.File, shard int) (string, error) {
 		return "", err
 	}
 	return filepath.Join(commitPath, file.Path), nil
-}
-
-func newCommitID() string {
-	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
 }
 
 func inMetadataDir(name string) bool {
