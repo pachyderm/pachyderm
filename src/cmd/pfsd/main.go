@@ -7,9 +7,13 @@ import (
 	"fmt"
 	"os"
 
+	"golang.org/x/net/context"
+
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
 
+	"github.com/gengo/grpc-gateway/runtime"
+	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
@@ -96,7 +100,14 @@ func do(appEnvObj interface{}) error {
 			pfs.RegisterApiServer(s, combinedAPIServer)
 			pfs.RegisterInternalApiServer(s, combinedAPIServer)
 		},
-		protoserver.ServeOptions{},
+		protoserver.ServeOptions{
+			HTTPPort:  uint16(appEnv.HTTPPort),
+			TracePort: uint16(appEnv.TracePort),
+			Version:   pachyderm.Version,
+			HTTPRegisterFunc: func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
+				return pfs.RegisterApiHandler(ctx, mux, clientConn)
+			},
+		},
 	)
 }
 
