@@ -47,9 +47,11 @@ package pfs
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "go.pedge.io/google-protobuf"
+
+// discarding unused import google_api1 "google/api"
 import google_protobuf1 "go.pedge.io/google-protobuf"
 import google_protobuf2 "go.pedge.io/google-protobuf"
+import google_protobuf3 "go.pedge.io/google-protobuf"
 
 import (
 	context "golang.org/x/net/context"
@@ -152,7 +154,7 @@ func (m *File) GetCommit() *Commit {
 // RepoInfo represent information about a repo.
 type RepoInfo struct {
 	Repo      *Repo                       `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
-	Created   *google_protobuf1.Timestamp `protobuf:"bytes,2,opt,name=created" json:"created,omitempty"`
+	Created   *google_protobuf2.Timestamp `protobuf:"bytes,2,opt,name=created" json:"created,omitempty"`
 	SizeBytes uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
@@ -167,7 +169,7 @@ func (m *RepoInfo) GetRepo() *Repo {
 	return nil
 }
 
-func (m *RepoInfo) GetCreated() *google_protobuf1.Timestamp {
+func (m *RepoInfo) GetCreated() *google_protobuf2.Timestamp {
 	if m != nil {
 		return m.Created
 	}
@@ -179,8 +181,8 @@ type CommitInfo struct {
 	Commit       *Commit                     `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	CommitType   CommitType                  `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
 	ParentCommit *Commit                     `protobuf:"bytes,3,opt,name=parent_commit" json:"parent_commit,omitempty"`
-	Opened       *google_protobuf1.Timestamp `protobuf:"bytes,4,opt,name=opened" json:"opened,omitempty"`
-	Closed       *google_protobuf1.Timestamp `protobuf:"bytes,5,opt,name=closed" json:"closed,omitempty"`
+	Opened       *google_protobuf2.Timestamp `protobuf:"bytes,4,opt,name=opened" json:"opened,omitempty"`
+	Closed       *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=closed" json:"closed,omitempty"`
 	CommitBytes  uint64                      `protobuf:"varint,6,opt,name=commit_bytes" json:"commit_bytes,omitempty"`
 	TotalBytes   uint64                      `protobuf:"varint,7,opt,name=total_bytes" json:"total_bytes,omitempty"`
 }
@@ -203,14 +205,14 @@ func (m *CommitInfo) GetParentCommit() *Commit {
 	return nil
 }
 
-func (m *CommitInfo) GetOpened() *google_protobuf1.Timestamp {
+func (m *CommitInfo) GetOpened() *google_protobuf2.Timestamp {
 	if m != nil {
 		return m.Opened
 	}
 	return nil
 }
 
-func (m *CommitInfo) GetClosed() *google_protobuf1.Timestamp {
+func (m *CommitInfo) GetClosed() *google_protobuf2.Timestamp {
 	if m != nil {
 		return m.Closed
 	}
@@ -223,7 +225,7 @@ type FileInfo struct {
 	FileType     FileType                    `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
 	SizeBytes    uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
 	Perm         uint32                      `protobuf:"varint,4,opt,name=perm" json:"perm,omitempty"`
-	LastModified *google_protobuf1.Timestamp `protobuf:"bytes,5,opt,name=last_modified" json:"last_modified,omitempty"`
+	LastModified *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=last_modified" json:"last_modified,omitempty"`
 }
 
 func (m *FileInfo) Reset()         { *m = FileInfo{} }
@@ -237,7 +239,7 @@ func (m *FileInfo) GetFile() *File {
 	return nil
 }
 
-func (m *FileInfo) GetLastModified() *google_protobuf1.Timestamp {
+func (m *FileInfo) GetLastModified() *google_protobuf2.Timestamp {
 	if m != nil {
 		return m.LastModified
 	}
@@ -676,38 +678,38 @@ type ApiClient interface {
 	// Repo rpcs
 	// RepoCreate creates a new repo.
 	// An error is returned if the repo already exists.
-	RepoCreate(ctx context.Context, in *RepoCreateRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	RepoCreate(ctx context.Context, in *RepoCreateRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// RepoInspect returns info about a repo.
 	RepoInspect(ctx context.Context, in *RepoInspectRequest, opts ...grpc.CallOption) (*RepoInspectResponse, error)
 	// RepoList returns info about all repos.
 	RepoList(ctx context.Context, in *RepoListRequest, opts ...grpc.CallOption) (*RepoListResponse, error)
 	// RepoDelete deletes a repo.
-	RepoDelete(ctx context.Context, in *RepoDeleteRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	RepoDelete(ctx context.Context, in *RepoDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// Commit rpcs
 	// CommitStart creates a new write commit from a parent commit.
 	// An error is returned if the parent commit is not a read commit.
 	CommitStart(ctx context.Context, in *CommitStartRequest, opts ...grpc.CallOption) (*CommitStartResponse, error)
 	// CommitFinish turns a write commit into a read commit.
 	// An error is returned if the commit is not a write commit.
-	CommitFinish(ctx context.Context, in *CommitFinishRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	CommitFinish(ctx context.Context, in *CommitFinishRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// CommitInspect returns the info about a commit.
 	CommitInspect(ctx context.Context, in *CommitInspectRequest, opts ...grpc.CallOption) (*CommitInspectResponse, error)
 	// CommitList returns info about all commits.
 	CommitList(ctx context.Context, in *CommitListRequest, opts ...grpc.CallOption) (*CommitListResponse, error)
 	// CommitDelete deletes a commit.
-	CommitDelete(ctx context.Context, in *CommitDeleteRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	CommitDelete(ctx context.Context, in *CommitDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// File rpcs
-	// FileGet returns a byte stream of the contents of the file.
-	FileGet(ctx context.Context, in *FileGetRequest, opts ...grpc.CallOption) (Api_FileGetClient, error)
 	// FilePut writes the specified file to pfs.
 	// An error is returned if the specified commit is not a write commit.
-	FilePut(ctx context.Context, in *FilePutRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	FilePut(ctx context.Context, in *FilePutRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	// FileGet returns a byte stream of the contents of the file.
+	FileGet(ctx context.Context, in *FileGetRequest, opts ...grpc.CallOption) (Api_FileGetClient, error)
 	// FileInspect returns a info about a file.
 	FileInspect(ctx context.Context, in *FileInspectRequest, opts ...grpc.CallOption) (*FileInspectResponse, error)
 	// FileList returns info about all files.
 	FileList(ctx context.Context, in *FileListRequest, opts ...grpc.CallOption) (*FileListResponse, error)
 	// FileDelete deletes a file.
-	FileDelete(ctx context.Context, in *FileDeleteRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	FileDelete(ctx context.Context, in *FileDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 }
 
 type apiClient struct {
@@ -718,8 +720,8 @@ func NewApiClient(cc *grpc.ClientConn) ApiClient {
 	return &apiClient{cc}
 }
 
-func (c *apiClient) RepoCreate(ctx context.Context, in *RepoCreateRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
+func (c *apiClient) RepoCreate(ctx context.Context, in *RepoCreateRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/RepoCreate", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -745,8 +747,8 @@ func (c *apiClient) RepoList(ctx context.Context, in *RepoListRequest, opts ...g
 	return out, nil
 }
 
-func (c *apiClient) RepoDelete(ctx context.Context, in *RepoDeleteRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
+func (c *apiClient) RepoDelete(ctx context.Context, in *RepoDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/RepoDelete", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -763,8 +765,8 @@ func (c *apiClient) CommitStart(ctx context.Context, in *CommitStartRequest, opt
 	return out, nil
 }
 
-func (c *apiClient) CommitFinish(ctx context.Context, in *CommitFinishRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
+func (c *apiClient) CommitFinish(ctx context.Context, in *CommitFinishRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/CommitFinish", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -790,9 +792,18 @@ func (c *apiClient) CommitList(ctx context.Context, in *CommitListRequest, opts 
 	return out, nil
 }
 
-func (c *apiClient) CommitDelete(ctx context.Context, in *CommitDeleteRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
+func (c *apiClient) CommitDelete(ctx context.Context, in *CommitDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/CommitDelete", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiClient) FilePut(ctx context.Context, in *FilePutRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/pfs.Api/FilePut", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -815,7 +826,7 @@ func (c *apiClient) FileGet(ctx context.Context, in *FileGetRequest, opts ...grp
 }
 
 type Api_FileGetClient interface {
-	Recv() (*google_protobuf2.BytesValue, error)
+	Recv() (*google_protobuf3.BytesValue, error)
 	grpc.ClientStream
 }
 
@@ -823,21 +834,12 @@ type apiFileGetClient struct {
 	grpc.ClientStream
 }
 
-func (x *apiFileGetClient) Recv() (*google_protobuf2.BytesValue, error) {
-	m := new(google_protobuf2.BytesValue)
+func (x *apiFileGetClient) Recv() (*google_protobuf3.BytesValue, error) {
+	m := new(google_protobuf3.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
-}
-
-func (c *apiClient) FilePut(ctx context.Context, in *FilePutRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
-	err := grpc.Invoke(ctx, "/pfs.Api/FilePut", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *apiClient) FileInspect(ctx context.Context, in *FileInspectRequest, opts ...grpc.CallOption) (*FileInspectResponse, error) {
@@ -858,8 +860,8 @@ func (c *apiClient) FileList(ctx context.Context, in *FileListRequest, opts ...g
 	return out, nil
 }
 
-func (c *apiClient) FileDelete(ctx context.Context, in *FileDeleteRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
+func (c *apiClient) FileDelete(ctx context.Context, in *FileDeleteRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/FileDelete", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -873,38 +875,38 @@ type ApiServer interface {
 	// Repo rpcs
 	// RepoCreate creates a new repo.
 	// An error is returned if the repo already exists.
-	RepoCreate(context.Context, *RepoCreateRequest) (*google_protobuf.Empty, error)
+	RepoCreate(context.Context, *RepoCreateRequest) (*google_protobuf1.Empty, error)
 	// RepoInspect returns info about a repo.
 	RepoInspect(context.Context, *RepoInspectRequest) (*RepoInspectResponse, error)
 	// RepoList returns info about all repos.
 	RepoList(context.Context, *RepoListRequest) (*RepoListResponse, error)
 	// RepoDelete deletes a repo.
-	RepoDelete(context.Context, *RepoDeleteRequest) (*google_protobuf.Empty, error)
+	RepoDelete(context.Context, *RepoDeleteRequest) (*google_protobuf1.Empty, error)
 	// Commit rpcs
 	// CommitStart creates a new write commit from a parent commit.
 	// An error is returned if the parent commit is not a read commit.
 	CommitStart(context.Context, *CommitStartRequest) (*CommitStartResponse, error)
 	// CommitFinish turns a write commit into a read commit.
 	// An error is returned if the commit is not a write commit.
-	CommitFinish(context.Context, *CommitFinishRequest) (*google_protobuf.Empty, error)
+	CommitFinish(context.Context, *CommitFinishRequest) (*google_protobuf1.Empty, error)
 	// CommitInspect returns the info about a commit.
 	CommitInspect(context.Context, *CommitInspectRequest) (*CommitInspectResponse, error)
 	// CommitList returns info about all commits.
 	CommitList(context.Context, *CommitListRequest) (*CommitListResponse, error)
 	// CommitDelete deletes a commit.
-	CommitDelete(context.Context, *CommitDeleteRequest) (*google_protobuf.Empty, error)
+	CommitDelete(context.Context, *CommitDeleteRequest) (*google_protobuf1.Empty, error)
 	// File rpcs
-	// FileGet returns a byte stream of the contents of the file.
-	FileGet(*FileGetRequest, Api_FileGetServer) error
 	// FilePut writes the specified file to pfs.
 	// An error is returned if the specified commit is not a write commit.
-	FilePut(context.Context, *FilePutRequest) (*google_protobuf.Empty, error)
+	FilePut(context.Context, *FilePutRequest) (*google_protobuf1.Empty, error)
+	// FileGet returns a byte stream of the contents of the file.
+	FileGet(*FileGetRequest, Api_FileGetServer) error
 	// FileInspect returns a info about a file.
 	FileInspect(context.Context, *FileInspectRequest) (*FileInspectResponse, error)
 	// FileList returns info about all files.
 	FileList(context.Context, *FileListRequest) (*FileListResponse, error)
 	// FileDelete deletes a file.
-	FileDelete(context.Context, *FileDeleteRequest) (*google_protobuf.Empty, error)
+	FileDelete(context.Context, *FileDeleteRequest) (*google_protobuf1.Empty, error)
 }
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
@@ -1019,27 +1021,6 @@ func _Api_CommitDelete_Handler(srv interface{}, ctx context.Context, codec grpc.
 	return out, nil
 }
 
-func _Api_FileGet_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(FileGetRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(ApiServer).FileGet(m, &apiFileGetServer{stream})
-}
-
-type Api_FileGetServer interface {
-	Send(*google_protobuf2.BytesValue) error
-	grpc.ServerStream
-}
-
-type apiFileGetServer struct {
-	grpc.ServerStream
-}
-
-func (x *apiFileGetServer) Send(m *google_protobuf2.BytesValue) error {
-	return x.ServerStream.SendMsg(m)
-}
-
 func _Api_FilePut_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
 	in := new(FilePutRequest)
 	if err := codec.Unmarshal(buf, in); err != nil {
@@ -1050,6 +1031,27 @@ func _Api_FilePut_Handler(srv interface{}, ctx context.Context, codec grpc.Codec
 		return nil, err
 	}
 	return out, nil
+}
+
+func _Api_FileGet_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(FileGetRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ApiServer).FileGet(m, &apiFileGetServer{stream})
+}
+
+type Api_FileGetServer interface {
+	Send(*google_protobuf3.BytesValue) error
+	grpc.ServerStream
+}
+
+type apiFileGetServer struct {
+	grpc.ServerStream
+}
+
+func (x *apiFileGetServer) Send(m *google_protobuf3.BytesValue) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _Api_FileInspect_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
@@ -1161,7 +1163,7 @@ type InternalApiClient interface {
 	// commit to the commit's parent.
 	PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (InternalApi_PullDiffClient, error)
 	// Push diff pushes a diff from the specified commit.
-	PushDiff(ctx context.Context, in *PushDiffRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	PushDiff(ctx context.Context, in *PushDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 }
 
 type internalApiClient struct {
@@ -1188,7 +1190,7 @@ func (c *internalApiClient) PullDiff(ctx context.Context, in *PullDiffRequest, o
 }
 
 type InternalApi_PullDiffClient interface {
-	Recv() (*google_protobuf2.BytesValue, error)
+	Recv() (*google_protobuf3.BytesValue, error)
 	grpc.ClientStream
 }
 
@@ -1196,16 +1198,16 @@ type internalApiPullDiffClient struct {
 	grpc.ClientStream
 }
 
-func (x *internalApiPullDiffClient) Recv() (*google_protobuf2.BytesValue, error) {
-	m := new(google_protobuf2.BytesValue)
+func (x *internalApiPullDiffClient) Recv() (*google_protobuf3.BytesValue, error) {
+	m := new(google_protobuf3.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (c *internalApiClient) PushDiff(ctx context.Context, in *PushDiffRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
+func (c *internalApiClient) PushDiff(ctx context.Context, in *PushDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.InternalApi/PushDiff", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -1220,7 +1222,7 @@ type InternalApiServer interface {
 	// commit to the commit's parent.
 	PullDiff(*PullDiffRequest, InternalApi_PullDiffServer) error
 	// Push diff pushes a diff from the specified commit.
-	PushDiff(context.Context, *PushDiffRequest) (*google_protobuf.Empty, error)
+	PushDiff(context.Context, *PushDiffRequest) (*google_protobuf1.Empty, error)
 }
 
 func RegisterInternalApiServer(s *grpc.Server, srv InternalApiServer) {
@@ -1236,7 +1238,7 @@ func _InternalApi_PullDiff_Handler(srv interface{}, stream grpc.ServerStream) er
 }
 
 type InternalApi_PullDiffServer interface {
-	Send(*google_protobuf2.BytesValue) error
+	Send(*google_protobuf3.BytesValue) error
 	grpc.ServerStream
 }
 
@@ -1244,7 +1246,7 @@ type internalApiPullDiffServer struct {
 	grpc.ServerStream
 }
 
-func (x *internalApiPullDiffServer) Send(m *google_protobuf2.BytesValue) error {
+func (x *internalApiPullDiffServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
