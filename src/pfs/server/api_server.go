@@ -243,63 +243,6 @@ func (a *apiServer) FileDelete(ctx context.Context, request *pfs.FileDeleteReque
 	return pfs.NewInternalApiClient(clientConn).FileDelete(ctx, request)
 }
 
-func (a *apiServer) Master(shard int) error {
-	clientConns, err := a.router.GetReplicaClientConns(shard)
-	if err != nil {
-		return err
-	}
-	for _, clientConn := range clientConns {
-		apiClient := pfs.NewApiClient(clientConn)
-		response, err := apiClient.RepoList(context.Background(), &pfs.RepoListRequest{})
-		if err != nil {
-			return err
-		}
-		for _, repoInfo := range response.RepoInfo {
-			if err := a.driver.RepoCreate(repoInfo.Repo, map[int]bool{shard: true}); err != nil {
-				return err
-			}
-			response, err := apiClient.CommitList(context.Background(), &pfs.CommitListRequest{Repo: repoInfo.Repo})
-			if err != nil {
-				return err
-			}
-			localCommitInfo, err := a.driver.CommitList(repoInfo.Repo, shard)
-			if err != nil {
-				return err
-			}
-			for i, commitInfo := range response.CommitInfo {
-				if i < len(localCommitInfo) {
-					if *commitInfo != *localCommitInfo[i] {
-						return fmt.Errorf("divergent data")
-					}
-					continue
-				}
-				pullDiffClient, err := pfs.NewInternalApiClient(clientConn).PullDiff(
-					context.Background(),
-					&pfs.PullDiffRequest{
-						Commit: commitInfo.Commit,
-						Shard:  uint64(shard),
-					},
-				)
-				if err != nil {
-					return err
-				}
-				if err := a.driver.DiffPush(commitInfo.Commit, protostream.NewStreamingBytesReader(pullDiffClient)); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func (a *apiServer) Replica(shard int) error {
-	return nil
-}
-
-func (a *apiServer) Clear(shard int) error {
-	return nil
-}
-
 func (a *apiServer) getClientConn() (*grpc.ClientConn, error) {
 	shards, err := a.router.GetMasterShards()
 	if err != nil {

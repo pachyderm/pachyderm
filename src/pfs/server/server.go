@@ -23,7 +23,6 @@ var (
 
 type APIServer interface {
 	pfs.ApiServer
-	role.Server
 }
 
 type InternalAPIServer interface {

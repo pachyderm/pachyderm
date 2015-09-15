@@ -133,7 +133,7 @@ func (r *router) GetAllClientConns() ([]*grpc.ClientConn, error) {
 	var clientConns []*grpc.ClientConn
 	for address := range addresses {
 		// TODO(pedge): huge race, this whole thing is bad
-		if address.Address != r.localAddress && !address.Backfilling {
+		if !address.Backfilling {
 			clientConn, err := r.dialer.Dial(address.Address)
 			if err != nil {
 				return nil, err

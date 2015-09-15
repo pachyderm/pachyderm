@@ -34,11 +34,7 @@ func newInternalAPIServer(
 }
 
 func (a *internalAPIServer) RepoCreate(ctx context.Context, request *pfs.RepoCreateRequest) (*google_protobuf.Empty, error) {
-	shards, err := a.router.GetAllShards()
-	if err != nil {
-		return nil, err
-	}
-	if err := a.driver.RepoCreate(request.Repo, shards); err != nil {
+	if err := a.driver.RepoCreate(request.Repo); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
@@ -295,7 +291,7 @@ func (a *internalAPIServer) Master(shard int) error {
 			return err
 		}
 		for _, repoInfo := range response.RepoInfo {
-			if err := a.driver.RepoCreate(repoInfo.Repo, map[int]bool{shard: true}); err != nil {
+			if err := a.driver.RepoCreate(repoInfo.Repo); err != nil {
 				return err
 			}
 			response, err := apiClient.CommitList(context.Background(), &pfs.CommitListRequest{Repo: repoInfo.Repo})
