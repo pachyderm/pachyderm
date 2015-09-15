@@ -17,10 +17,6 @@ import (
 	"go.pedge.io/proto/stream"
 )
 
-var (
-	emptyInstance = &google_protobuf.Empty{}
-)
-
 type apiServer struct {
 	sharder route.Sharder
 	router  route.Router

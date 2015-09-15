@@ -49,6 +49,7 @@ func NewDiscoveryAddresser(discoveryClient discovery.Client, namespace string) A
 type Router interface {
 	GetMasterShards() (map[int]bool, error)
 	GetReplicaShards() (map[int]bool, error)
+	GetAllShards() (map[int]bool, error)
 	GetMasterClientConn(shard int) (*grpc.ClientConn, error)
 	GetMasterOrReplicaClientConn(shard int) (*grpc.ClientConn, error)
 	GetReplicaClientConns(shard int) ([]*grpc.ClientConn, error)
