@@ -10,7 +10,6 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/satori/go.uuid"
 	"go.pedge.io/google-protobuf"
@@ -20,18 +19,15 @@ import (
 type apiServer struct {
 	sharder route.Sharder
 	router  route.Router
-	driver  drive.Driver
 }
 
 func newAPIServer(
 	sharder route.Sharder,
 	router route.Router,
-	driver drive.Driver,
 ) *apiServer {
 	return &apiServer{
 		sharder,
 		router,
-		driver,
 	}
 }
 
