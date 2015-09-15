@@ -8,10 +8,10 @@ var (
 
 type logger struct{}
 
-func (l *logger) LogMethodInvocation(methodInvocation *MethodInvocation) {
-	if methodInvocation.Error != "" {
-		protolog.Error(methodInvocation)
+func (l *logger) LogCall(call *Call) {
+	if call.Error != "" {
+		protolog.Error(call)
 	} else {
-		protolog.Info(methodInvocation)
+		protolog.Info(call)
 	}
 }

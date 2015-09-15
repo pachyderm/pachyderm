@@ -31,11 +31,9 @@ func newUnixListener(
 }
 
 func fullSocketAddress(address string) (string, error) {
-	if err := os.MkdirAll(pluginSockDir, 0755); err != nil {
+	dir := filepath.Join(pluginSockDir, address)
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", err
 	}
-	if filepath.IsAbs(address) {
-		return address, nil
-	}
-	return filepath.Join(pluginSockDir, address+".sock"), nil
+	return filepath.Join(dir, address+".sock"), nil
 }

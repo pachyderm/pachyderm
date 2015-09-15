@@ -7,9 +7,9 @@ package dockervolume
 import "go.pedge.io/protolog"
 
 func init() {
-	protolog.Register("dockervolume.MethodInvocation", func() protolog.Message { return &MethodInvocation{} })
+	protolog.Register("dockervolume.Call", func() protolog.Message { return &Call{} })
 }
 
-func (m *MethodInvocation) ProtologName() string {
-	return "dockervolume.MethodInvocation"
+func (m *Call) ProtologName() string {
+	return "dockervolume.Call"
 }

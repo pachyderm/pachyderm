@@ -17,11 +17,7 @@ const (
 // Protocol represents TCP or Unix.
 type Protocol int
 
-// VolumeDriver mimics docker's volumedrivers.VolumeDriver, except
-// does not use the volumedrivers.opts type. This allows this interface
-// to be implemented in other packages.
-//
-// TODO(pedge): replace this if volumedrivers.VolumeDriver stops doing this.
+// VolumeDriver is the interface that should be implemented for custom volume drivers.
 type VolumeDriver interface {
 	// Create a volume with the given name
 	Create(name string, opts map[string]string) (err error)
@@ -37,20 +33,27 @@ type VolumeDriver interface {
 
 // Logger is a generic interface for logging requests to a VolumeDriver.
 type Logger interface {
-	LogMethodInvocation(methodInvocation *MethodInvocation)
+	LogCall(call *Call)
 }
 
-// VolumeDriverHandlerOptions are options for a new volume driver handler.
-type VolumeDriverHandlerOptions struct {
+// Handler is the http.Handler used for the volume driver plugin, plus additional methods.
+type Handler interface {
+	http.Handler
+}
+
+// HandlerOptions are options for a new volume driver handler.
+type HandlerOptions struct {
 	// Logger specifies a customer logger.
 	//
 	// If not specified, the default Logger will be used.
 	Logger Logger
+	// Reset specifies to not use previous state.
+	Reset bool
 }
 
-// NewVolumeDriverHandler returns a new http.Handler.
-func NewVolumeDriverHandler(volumeDriver VolumeDriver, opts VolumeDriverHandlerOptions) http.Handler {
-	return newVolumeDriverHandler(volumeDriver, opts)
+// NewHandler returns a new http.Handler.
+func NewHandler(volumeDriver VolumeDriver, opts HandlerOptions) Handler {
+	return newHandler(volumeDriver, opts)
 }
 
 // NewTCPListener returns a new net.Listener for TCP.
@@ -85,13 +88,13 @@ func NewUnixListener(
 
 // Serve serves the volume driver handler.
 func Serve(
-	volumeDriverHandler http.Handler,
+	handler Handler,
 	protocol Protocol,
 	volumeDriverName string,
 	groupOrAddress string,
 ) (retErr error) {
 	server := &http.Server{
-		Handler: volumeDriverHandler,
+		Handler: handler,
 	}
 	start := make(chan struct{})
 	var listener net.Listener
