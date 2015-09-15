@@ -3,7 +3,7 @@
 # this script is expected to be run as root
 # ${1}: user to install for
 
-GO_VERSION=1.5
+GO_VERSION=1.5.1
 DOCKER_COMPOSE_VERSION=1.4.0
 KUBERNETES_VERSION=1.0.1
 

@@ -6,21 +6,9 @@ import (
 	"testing"
 
 	"go.pedge.io/protolog"
-	"go.pedge.io/protolog/logrus"
 
-	stdlogrus "github.com/Sirupsen/logrus"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 )
-
-func init() {
-	logrus.SetPusherOptions(
-		logrus.PusherOptions{
-			Formatter: &stdlogrus.TextFormatter{
-				ForceColors: true,
-			},
-		},
-	)
-}
 
 func TestBuild(t *testing.T) {
 	intC := make(chan int, 8)

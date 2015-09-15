@@ -11,6 +11,7 @@ import (
 	"go.pedge.io/env"
 	"go.pedge.io/proto/client"
 	"go.pedge.io/proto/time"
+	"go.pedge.io/protolog/logrus"
 
 	"google.golang.org/grpc"
 
@@ -37,7 +38,7 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-
+	logrus.Register()
 	address := appEnv.PachydermPpsd1Port
 	if address == "" {
 		address = appEnv.Address
