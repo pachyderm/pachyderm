@@ -40,7 +40,6 @@ lint: testdeps
 	done
 
 vet: testdeps
-	-go get -v golang.org/x/tools/cmd/vet
 	go vet ./...
 
 errcheck: testdeps
@@ -58,8 +57,4 @@ clean:
 
 proto:
 	go get -v go.pedge.io/tools/protoc-all
-	docker pull pedge/protolog
-	protoc-all go.pedge.io/dockervolume
-	rm -f /tmp/protolog.pb.go
-	tail -n +$$(grep -n 'package dockervolume' protolog.pb.go | cut -f 1 -d :) protolog.pb.go > /tmp/protolog.pb.go
-	mv /tmp/protolog.pb.go protolog.pb.go
+	STRIP_PACKAGE_COMMENTS=1 protoc-all go.pedge.io/dockervolume
