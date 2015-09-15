@@ -620,10 +620,10 @@ func (x *genRunner) enc(varname string, t reflect.Type) {
 	if t.Implements(binaryMarshalerTyp) || tptr.Implements(binaryMarshalerTyp) {
 		x.linef("} else if %sm%s { z.EncBinaryMarshal(%v) ", genTempVarPfx, mi, varname)
 	}
-	if t.Implements(textMarshalerTyp) || tptr.Implements(textMarshalerTyp) {
+	if t.Implements(jsonMarshalerTyp) || tptr.Implements(jsonMarshalerTyp) {
+		x.linef("} else if !%sm%s && z.IsJSONHandle() { z.EncJSONMarshal(%v) ", genTempVarPfx, mi, varname)
+	} else if t.Implements(textMarshalerTyp) || tptr.Implements(textMarshalerTyp) {
 		x.linef("} else if !%sm%s { z.EncTextMarshal(%v) ", genTempVarPfx, mi, varname)
-	} else if t.Implements(jsonMarshalerTyp) || tptr.Implements(jsonMarshalerTyp) {
-		x.linef("} else if !%sm%s { z.EncJSONMarshal(%v) ", genTempVarPfx, mi, varname)
 	}
 
 	x.line("} else {")
@@ -1080,10 +1080,10 @@ func (x *genRunner) dec(varname string, t reflect.Type) {
 	if t.Implements(binaryUnmarshalerTyp) || tptr.Implements(binaryUnmarshalerTyp) {
 		x.linef("} else if %sm%s { z.DecBinaryUnmarshal(%v) ", genTempVarPfx, mi, varname)
 	}
-	if t.Implements(textUnmarshalerTyp) || tptr.Implements(textUnmarshalerTyp) {
+	if t.Implements(jsonUnmarshalerTyp) || tptr.Implements(jsonUnmarshalerTyp) {
+		x.linef("} else if !%sm%s && z.IsJSONHandle() { z.DecJSONUnmarshal(%v)", genTempVarPfx, mi, varname)
+	} else if t.Implements(textUnmarshalerTyp) || tptr.Implements(textUnmarshalerTyp) {
 		x.linef("} else if !%sm%s { z.DecTextUnmarshal(%v)", genTempVarPfx, mi, varname)
-	} else if t.Implements(jsonUnmarshalerTyp) || tptr.Implements(jsonUnmarshalerTyp) {
-		x.linef("} else if !%sm%s { z.DecJSONUnmarshal(%v)", genTempVarPfx, mi, varname)
 	}
 
 	x.line("} else {")
