@@ -54,7 +54,7 @@ func do(appEnvObj interface{}) error {
 		address = strings.Replace(address, "tcp://", "", -1)
 	}
 	return dockervolume.Serve(
-		dockervolume.NewVolumeDriverHandler(
+		dockervolume.NewHandler(
 			newVolumeDriver(
 				func() (fuse.Mounter, error) {
 					clientConn, err := grpc.Dial(address, grpc.WithInsecure())
@@ -69,7 +69,7 @@ func do(appEnvObj interface{}) error {
 				},
 				appEnv.BaseMountpoint,
 			),
-			dockervolume.VolumeDriverHandlerOptions{},
+			dockervolume.HandlerOptions{},
 		),
 		dockervolume.ProtocolUnix,
 		volumeDriverName,

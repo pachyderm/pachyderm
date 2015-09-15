@@ -11,7 +11,7 @@ enum Method {
   METHOD_UNMOUNT = 5;
 }
 
-message MethodInvocation {
+message Call {
   Method method = 1;
   string name = 2;
   map<string, string> opts = 3;

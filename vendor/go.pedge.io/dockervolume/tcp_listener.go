@@ -30,10 +30,11 @@ func newTCPListener(
 }
 
 func writeSpec(name string, address string) (string, error) {
-	if err := os.MkdirAll(pluginSpecDir, 0755); err != nil {
+	dir := filepath.Join(pluginSpecDir, name)
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", err
 	}
-	spec := filepath.Join(pluginSpecDir, name+".spec")
+	spec := filepath.Join(dir, name+".spec")
 	url := "tcp://" + address
 	if err := ioutil.WriteFile(spec, []byte(url), 0644); err != nil {
 		return "", err

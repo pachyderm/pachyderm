@@ -14,7 +14,11 @@ var (
 	activateResponse = []byte("{\"Implements\": [\"VolumeDriver\"]}\n")
 )
 
-func newVolumeDriverHandler(volumeDriver VolumeDriver, opts VolumeDriverHandlerOptions) *http.ServeMux {
+type handler struct {
+	*http.ServeMux
+}
+
+func newHandler(volumeDriver VolumeDriver, opts HandlerOptions) *handler {
 	serveMux := http.NewServeMux()
 	serveMux.HandleFunc(
 		"/Plugin.Activate",
@@ -73,13 +77,15 @@ func newVolumeDriverHandler(volumeDriver VolumeDriver, opts VolumeDriverHandlerO
 			opts,
 		),
 	)
-	return serveMux
+	return &handler{
+		serveMux,
+	}
 }
 
 func newGenericHandlerFunc(
 	method Method,
 	f func(string, map[string]string) (string, error),
-	opts VolumeDriverHandlerOptions,
+	opts HandlerOptions,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(responseWriter http.ResponseWriter, request *http.Request) {
 		m := make(map[string]interface{})
@@ -99,16 +105,16 @@ func wrap(
 	request map[string]interface{},
 ) map[string]interface{} {
 	name, opts, err := extractParameters(request)
-	methodInvocation := &MethodInvocation{
+	call := &Call{
 		Method: method,
 		Name:   name,
 		Opts:   opts,
 	}
 	if err != nil {
-		return handleResponse(logger, methodInvocation, "", err)
+		return handleResponse(logger, call, "", err)
 	}
 	mountpoint, err := f(name, opts)
-	return handleResponse(logger, methodInvocation, mountpoint, err)
+	return handleResponse(logger, call, mountpoint, err)
 }
 
 func extractParameters(request map[string]interface{}) (string, map[string]string, error) {
@@ -123,18 +129,18 @@ func extractParameters(request map[string]interface{}) (string, map[string]strin
 	return name, opts, nil
 }
 
-func handleResponse(logger Logger, methodInvocation *MethodInvocation, mountpoint string, err error) map[string]interface{} {
+func handleResponse(logger Logger, call *Call, mountpoint string, err error) map[string]interface{} {
 	response := make(map[string]interface{})
 	if mountpoint != "" {
 		response["Mountpoint"] = mountpoint
-		methodInvocation.Mountpoint = mountpoint
+		call.Mountpoint = mountpoint
 	}
 	if err != nil {
 		errString := err.Error()
 		response["Err"] = errString
-		methodInvocation.Error = errString
+		call.Error = errString
 	}
-	logger.LogMethodInvocation(methodInvocation)
+	logger.LogCall(call)
 	return response
 }
 
@@ -147,7 +153,7 @@ func checkRequiredParameters(request map[string]interface{}, parameters ...strin
 	return nil
 }
 
-func getLogger(opts VolumeDriverHandlerOptions) Logger {
+func getLogger(opts HandlerOptions) Logger {
 	if opts.Logger != nil {
 		return opts.Logger
 	}
