@@ -34,12 +34,10 @@ type InternalAPIServer interface {
 func NewAPIServer(
 	sharder route.Sharder,
 	router route.Router,
-	driver drive.Driver,
 ) APIServer {
 	return newAPIServer(
 		sharder,
 		router,
-		driver,
 	)
 }
 

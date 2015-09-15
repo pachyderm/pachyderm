@@ -204,7 +204,6 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 				),
 				address,
 			),
-			getDriver(tb, address),
 		)
 		pfs.RegisterApiServer(s, apiServer)
 		internalAPIServer := server.NewInternalAPIServer(

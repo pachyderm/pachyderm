@@ -62,7 +62,7 @@ func (d *driver) RepoInspect(repo *pfs.Repo, shard int) (*pfs.RepoInfo, error) {
 	stat, err := os.Stat(d.repoPath(repo))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return nil, fmt.Errorf("repo %s not found", d.repoPath(repo))
 		}
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (d *driver) CommitInspect(commit *pfs.Commit, shard int) (*pfs.CommitInfo, 
 	_, readErr := os.Stat(d.readCommitPath(commit, shard))
 	_, writeErr := os.Stat(d.writeCommitPath(commit, shard))
 	if readErr != nil && os.IsNotExist(readErr) && writeErr != nil && os.IsNotExist(writeErr) {
-		return nil, nil
+		return nil, fmt.Errorf("commit %s not found", d.readCommitPath(commit, shard))
 	}
 	parent, err := d.getParent(commit, shard)
 	if err != nil {
@@ -270,7 +270,7 @@ func (d *driver) FileGet(file *pfs.File, shard int) (drive.ReaderAtCloser, error
 func (d *driver) FileInspect(file *pfs.File, shard int) (*pfs.FileInfo, error) {
 	fileInfo, err := d.stat(file, shard)
 	if err != nil && os.IsNotExist(err) {
-		return nil, nil
+		return nil, fmt.Errorf("file %s not found", file.Path)
 	}
 	if err != nil {
 		return nil, err

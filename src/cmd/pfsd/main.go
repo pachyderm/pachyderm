@@ -92,7 +92,6 @@ func do(appEnvObj interface{}) error {
 			),
 			address,
 		),
-		driver,
 	)
 	internalAPIServer := server.NewInternalAPIServer(
 		route.NewSharder(
