@@ -83,11 +83,11 @@ func (d *driver) RepoList(shard int) ([]*pfs.RepoInfo, error) {
 	}
 	var result []*pfs.RepoInfo
 	for _, repo := range repositories {
-		repoInfo, ok, err := d.RepoInspect(&pfs.Repo{repo.Name()}, shard)
+		repoInfo, err := d.RepoInspect(&pfs.Repo{repo.Name()}, shard)
 		if err != nil {
 			return nil, err
 		}
-		if !ok {
+		if repoInfo == nil {
 			return nil, fmt.Errorf("repo %s should exist", repo.Name())
 		}
 		result = append(result, repoInfo)
@@ -195,18 +195,18 @@ func (d *driver) CommitList(repo *pfs.Repo, shard int) ([]*pfs.CommitInfo, error
 	commitScanner := newCommitScanner(&buffer, d.namespace, repo.Name)
 	for commitScanner.Scan() {
 		commitID := commitScanner.Commit()
-		commitInfo, ok, err := d.CommitInspect(
+		commitInfo, err := d.CommitInspect(
 			&pfs.Commit{
 				Repo: repo,
 				Id:   commitID,
 			},
 			shard,
 		)
-		if !ok {
+		if commitInfo == nil {
 			// This is a really weird error to get since we got this commit
 			// name by listing commits. This is probably indicative of a
 			// race condition.
-			return nil, fmt.Errorf("Commit %s not found.", commitID)
+			return nil, fmt.Errorf("commit %s should exist", commitID)
 		}
 		if err != nil {
 			return nil, err

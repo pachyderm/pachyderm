@@ -15,25 +15,25 @@ import (
 	"go.pedge.io/proto/stream"
 )
 
-type internalApiServer struct {
+type internalAPIServer struct {
 	sharder route.Sharder
 	router  route.Router
 	driver  drive.Driver
 }
 
-func newInternalApiServer(
+func newInternalAPIServer(
 	sharder route.Sharder,
 	router route.Router,
 	driver drive.Driver,
-) *internalApiServer {
-	return &internalApiServer{
+) *internalAPIServer {
+	return &internalAPIServer{
 		sharder,
 		router,
 		driver,
 	}
 }
 
-func (a *internalApiServer) RepoCreate(ctx context.Context, request *pfs.RepoCreateRequest) (*google_protobuf.Empty, error) {
+func (a *internalAPIServer) RepoCreate(ctx context.Context, request *pfs.RepoCreateRequest) (*google_protobuf.Empty, error) {
 	shards, err := a.router.GetAllShards()
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func (a *internalApiServer) RepoCreate(ctx context.Context, request *pfs.RepoCre
 	return emptyInstance, nil
 }
 
-func (a *internalApiServer) RepoInspect(ctx context.Context, request *pfs.RepoInspectRequest) (*pfs.RepoInfo, error) {
+func (a *internalAPIServer) RepoInspect(ctx context.Context, request *pfs.RepoInspectRequest) (*pfs.RepoInfo, error) {
 	shards, err := a.router.GetAllShards()
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (a *internalApiServer) RepoInspect(ctx context.Context, request *pfs.RepoIn
 	return nil, fmt.Errorf("pachyderm: RepoInspect on server with no shards")
 }
 
-func (a *internalApiServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) (*pfs.RepoInfos, error) {
+func (a *internalAPIServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) (*pfs.RepoInfos, error) {
 	shards, err := a.router.GetAllShards()
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func (a *internalApiServer) RepoList(ctx context.Context, request *pfs.RepoListR
 	return nil, fmt.Errorf("pachyderm: RepoList on server with no shards")
 }
 
-func (a *internalApiServer) RepoDelete(ctx context.Context, request *pfs.RepoDeleteRequest) (*google_protobuf.Empty, error) {
+func (a *internalAPIServer) RepoDelete(ctx context.Context, request *pfs.RepoDeleteRequest) (*google_protobuf.Empty, error) {
 	shards, err := a.router.GetAllShards()
 	if err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func (a *internalApiServer) RepoDelete(ctx context.Context, request *pfs.RepoDel
 
 }
 
-func (a *internalApiServer) CommitStart(ctx context.Context, request *pfs.CommitStartRequest) (*pfs.Commit, error) {
+func (a *internalAPIServer) CommitStart(ctx context.Context, request *pfs.CommitStartRequest) (*pfs.Commit, error) {
 	shards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func (a *internalApiServer) CommitStart(ctx context.Context, request *pfs.Commit
 	return a.driver.CommitStart(request.Parent, request.Commit, shards)
 }
 
-func (a *internalApiServer) CommitFinish(ctx context.Context, request *pfs.CommitFinishRequest) (*google_protobuf.Empty, error) {
+func (a *internalAPIServer) CommitFinish(ctx context.Context, request *pfs.CommitFinishRequest) (*google_protobuf.Empty, error) {
 	shards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func (a *internalApiServer) CommitFinish(ctx context.Context, request *pfs.Commi
 }
 
 // TODO(pedge): race on Branch
-func (a *internalApiServer) CommitInspect(ctx context.Context, request *pfs.CommitInspectRequest) (*pfs.CommitInfo, error) {
+func (a *internalAPIServer) CommitInspect(ctx context.Context, request *pfs.CommitInspectRequest) (*pfs.CommitInfo, error) {
 	shards, err := a.router.GetAllShards()
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (a *internalApiServer) CommitInspect(ctx context.Context, request *pfs.Comm
 	return nil, fmt.Errorf("pachyderm: CommitInspect on server with no shards")
 }
 
-func (a *internalApiServer) CommitList(ctx context.Context, request *pfs.CommitListRequest) (*pfs.CommitInfos, error) {
+func (a *internalAPIServer) CommitList(ctx context.Context, request *pfs.CommitListRequest) (*pfs.CommitInfos, error) {
 	shards, err := a.router.GetAllShards()
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func (a *internalApiServer) CommitList(ctx context.Context, request *pfs.CommitL
 	return nil, fmt.Errorf("pachyderm: CommitList on server with no shards")
 }
 
-func (a *internalApiServer) CommitDelete(ctx context.Context, request *pfs.CommitDeleteRequest) (*google_protobuf.Empty, error) {
+func (a *internalAPIServer) CommitDelete(ctx context.Context, request *pfs.CommitDeleteRequest) (*google_protobuf.Empty, error) {
 	shards, err := a.router.GetAllShards()
 	if err != nil {
 		return nil, err
@@ -142,7 +142,7 @@ func (a *internalApiServer) CommitDelete(ctx context.Context, request *pfs.Commi
 	return emptyInstance, nil
 }
 
-func (a *internalApiServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*google_protobuf.Empty, error) {
+func (a *internalAPIServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*google_protobuf.Empty, error) {
 	if strings.HasPrefix(request.File.Path, "/") {
 		// This is a subtle error case, the paths foo and /foo will hash to
 		// different shards but will produce the same change once they get to
@@ -173,7 +173,7 @@ func (a *internalApiServer) FilePut(ctx context.Context, request *pfs.FilePutReq
 	return emptyInstance, nil
 }
 
-func (a *internalApiServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.InternalApi_FileGetServer) (retErr error) {
+func (a *internalAPIServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.InternalApi_FileGetServer) (retErr error) {
 	shard, err := a.getShardForFile(request.File)
 	if err != nil {
 		return err
@@ -193,7 +193,7 @@ func (a *internalApiServer) FileGet(request *pfs.FileGetRequest, apiFileGetServe
 	)
 }
 
-func (a *internalApiServer) FileInspect(ctx context.Context, request *pfs.FileInspectRequest) (*pfs.FileInfo, error) {
+func (a *internalAPIServer) FileInspect(ctx context.Context, request *pfs.FileInspectRequest) (*pfs.FileInfo, error) {
 	shard, err := a.getShardForFile(request.File)
 	if err != nil {
 		return nil, err
@@ -201,7 +201,7 @@ func (a *internalApiServer) FileInspect(ctx context.Context, request *pfs.FileIn
 	return a.driver.FileInspect(request.File, shard)
 }
 
-func (a *internalApiServer) FileList(ctx context.Context, request *pfs.FileListRequest) (*pfs.FileInfos, error) {
+func (a *internalAPIServer) FileList(ctx context.Context, request *pfs.FileListRequest) (*pfs.FileInfos, error) {
 	shards, err := a.router.GetAllShards()
 	if err != nil {
 		return nil, err
@@ -238,7 +238,7 @@ func (a *internalApiServer) FileList(ctx context.Context, request *pfs.FileListR
 	}, nil
 }
 
-func (a *internalApiServer) FileDelete(ctx context.Context, request *pfs.FileDeleteRequest) (*google_protobuf.Empty, error) {
+func (a *internalAPIServer) FileDelete(ctx context.Context, request *pfs.FileDeleteRequest) (*google_protobuf.Empty, error) {
 	if strings.HasPrefix(request.File.Path, "/") {
 		// This is a subtle error case, the paths foo and /foo will hash to
 		// different shards but will produce the same change once they get to
@@ -256,7 +256,7 @@ func (a *internalApiServer) FileDelete(ctx context.Context, request *pfs.FileDel
 	return emptyInstance, nil
 }
 
-func (a *internalApiServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalApi_PullDiffServer) error {
+func (a *internalAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalApi_PullDiffServer) error {
 	ok, err := a.isLocalShard(int(request.Shard))
 	if err != nil {
 		return err
@@ -272,7 +272,7 @@ func (a *internalApiServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffSe
 	)
 }
 
-func (a *internalApiServer) PushDiff(ctx context.Context, request *pfs.PushDiffRequest) (*google_protobuf.Empty, error) {
+func (a *internalAPIServer) PushDiff(ctx context.Context, request *pfs.PushDiffRequest) (*google_protobuf.Empty, error) {
 	ok, err := a.isLocalReplicaShard(int(request.Shard))
 	if err != nil {
 		return nil, err
@@ -283,7 +283,7 @@ func (a *internalApiServer) PushDiff(ctx context.Context, request *pfs.PushDiffR
 	return emptyInstance, a.driver.DiffPush(request.Commit, bytes.NewReader(request.Value))
 }
 
-func (a *internalApiServer) Master(shard int) error {
+func (a *internalAPIServer) Master(shard int) error {
 	clientConns, err := a.router.GetReplicaClientConns(shard)
 	if err != nil {
 		return err
@@ -332,15 +332,15 @@ func (a *internalApiServer) Master(shard int) error {
 	return nil
 }
 
-func (a *internalApiServer) Replica(shard int) error {
+func (a *internalAPIServer) Replica(shard int) error {
 	return nil
 }
 
-func (a *internalApiServer) Clear(shard int) error {
+func (a *internalAPIServer) Clear(shard int) error {
 	return nil
 }
 
-func (a *internalApiServer) getMasterShardForFile(file *pfs.File) (int, error) {
+func (a *internalAPIServer) getMasterShardForFile(file *pfs.File) (int, error) {
 	shard, err := a.sharder.GetShard(file)
 	if err != nil {
 		return -1, err
@@ -356,7 +356,7 @@ func (a *internalApiServer) getMasterShardForFile(file *pfs.File) (int, error) {
 	return shard, nil
 }
 
-func (a *internalApiServer) getShardForFile(file *pfs.File) (int, error) {
+func (a *internalAPIServer) getShardForFile(file *pfs.File) (int, error) {
 	shard, err := a.sharder.GetShard(file)
 	if err != nil {
 		return -1, err
@@ -372,7 +372,7 @@ func (a *internalApiServer) getShardForFile(file *pfs.File) (int, error) {
 	return shard, nil
 }
 
-func (a *internalApiServer) isLocalMasterShard(shard int) (bool, error) {
+func (a *internalAPIServer) isLocalMasterShard(shard int) (bool, error) {
 	shards, err := a.router.GetMasterShards()
 	if err != nil {
 		return false, err
@@ -381,7 +381,7 @@ func (a *internalApiServer) isLocalMasterShard(shard int) (bool, error) {
 	return ok, nil
 }
 
-func (a *internalApiServer) isLocalReplicaShard(shard int) (bool, error) {
+func (a *internalAPIServer) isLocalReplicaShard(shard int) (bool, error) {
 	shards, err := a.router.GetReplicaShards()
 	if err != nil {
 		return false, err
@@ -390,7 +390,7 @@ func (a *internalApiServer) isLocalReplicaShard(shard int) (bool, error) {
 	return ok, nil
 }
 
-func (a *internalApiServer) isLocalShard(shard int) (bool, error) {
+func (a *internalAPIServer) isLocalShard(shard int) (bool, error) {
 	shards, err := a.router.GetAllShards()
 	if err != nil {
 		return false, err
@@ -399,7 +399,7 @@ func (a *internalApiServer) isLocalShard(shard int) (bool, error) {
 	return ok, nil
 }
 
-func (a *internalApiServer) commitToReplicas(ctx context.Context, commit *pfs.Commit) error {
+func (a *internalAPIServer) commitToReplicas(ctx context.Context, commit *pfs.Commit) error {
 	shards, err := a.router.GetMasterShards()
 	if err != nil {
 		return err

@@ -81,7 +81,20 @@ func do(appEnvObj interface{}) error {
 	default:
 		return fmt.Errorf("unknown value for PFS_DRIVER_TYPE: %s", appEnv.DriverType)
 	}
-	combinedAPIServer := server.NewCombinedAPIServer(
+	apiServer := server.NewAPIServer(
+		route.NewSharder(
+			appEnv.NumShards,
+		),
+		route.NewRouter(
+			addresser,
+			grpcutil.NewDialer(
+				grpc.WithInsecure(),
+			),
+			address,
+		),
+		driver,
+	)
+	internalAPIServer := server.NewInternalAPIServer(
 		route.NewSharder(
 			appEnv.NumShards,
 		),
@@ -97,8 +110,8 @@ func do(appEnvObj interface{}) error {
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
-			pfs.RegisterApiServer(s, combinedAPIServer)
-			pfs.RegisterInternalApiServer(s, combinedAPIServer)
+			pfs.RegisterApiServer(s, apiServer)
+			pfs.RegisterInternalApiServer(s, internalAPIServer)
 		},
 		protoserver.ServeOptions{
 			HTTPPort:  uint16(appEnv.HTTPPort),

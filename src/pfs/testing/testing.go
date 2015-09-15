@@ -113,12 +113,13 @@ type Cluster interface {
 }
 
 type cluster struct {
-	addresses []string
-	rolers    map[string]role.Roler
-	servers   map[string]server.CombinedAPIServer
-	addresser route.Addresser
-	sharder   route.Sharder
-	tb        testing.TB
+	addresses       []string
+	rolers          map[string]role.Roler
+	servers         map[string]server.APIServer
+	internalServers map[string]server.InternalAPIServer
+	addresser       route.Addresser
+	sharder         route.Sharder
+	tb              testing.TB
 }
 
 func (c *cluster) WaitForAvailability() {
@@ -169,7 +170,7 @@ func (c *cluster) Kill(server int) {
 }
 
 func (c *cluster) Restart(server int) {
-	c.rolers[c.addresses[server]] = role.NewRoler(c.addresser, c.sharder, c.servers[c.addresses[server]], c.addresses[server], testNumReplicas)
+	c.rolers[c.addresses[server]] = role.NewRoler(c.addresser, c.sharder, c.internalServers[c.addresses[server]], c.addresses[server], testNumReplicas)
 	go func() { require.Equal(c.tb, c.rolers[c.addresses[server]].Run(), discovery.ErrCancelled) }()
 }
 
@@ -181,8 +182,9 @@ func (c *cluster) Shutdown() {
 
 func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) Cluster {
 	cluster := cluster{
-		rolers:  make(map[string]role.Roler),
-		servers: make(map[string]server.CombinedAPIServer),
+		rolers:          make(map[string]role.Roler),
+		servers:         make(map[string]server.APIServer),
+		internalServers: make(map[string]server.InternalAPIServer),
 		addresser: route.NewDiscoveryAddresser(
 			discoveryClient,
 			testNamespace(),
@@ -193,7 +195,7 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		tb: tb,
 	}
 	for address, s := range servers {
-		combinedAPIServer := server.NewCombinedAPIServer(
+		apiServer := server.NewAPIServer(
 			cluster.sharder,
 			route.NewRouter(
 				cluster.addresser,
@@ -204,13 +206,25 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 			),
 			getDriver(tb, address),
 		)
-		pfs.RegisterApiServer(s, combinedAPIServer)
-		pfs.RegisterInternalApiServer(s, combinedAPIServer)
-		roler := role.NewRoler(cluster.addresser, cluster.sharder, combinedAPIServer, address, testNumReplicas)
+		pfs.RegisterApiServer(s, apiServer)
+		internalAPIServer := server.NewInternalAPIServer(
+			cluster.sharder,
+			route.NewRouter(
+				cluster.addresser,
+				grpcutil.NewDialer(
+					grpc.WithInsecure(),
+				),
+				address,
+			),
+			getDriver(tb, address),
+		)
+		pfs.RegisterInternalApiServer(s, internalAPIServer)
+		roler := role.NewRoler(cluster.addresser, cluster.sharder, internalAPIServer, address, testNumReplicas)
 		go func() { require.Equal(tb, roler.Run(), discovery.ErrCancelled) }()
 		cluster.addresses = append(cluster.addresses, address)
 		cluster.rolers[address] = roler
-		cluster.servers[address] = combinedAPIServer
+		cluster.servers[address] = apiServer
+		cluster.internalServers[address] = internalAPIServer
 	}
 	return &cluster
 }
