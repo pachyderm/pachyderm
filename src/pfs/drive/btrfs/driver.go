@@ -51,7 +51,7 @@ func newDriver(rootDir string, namespace string) (*driver, error) {
 	return &driver{rootDir, namespace}, nil
 }
 
-func (d *driver) RepoCreate(repo *pfs.Repo, shard map[int]bool) error {
+func (d *driver) RepoCreate(repo *pfs.Repo) error {
 	if err := execSubvolumeCreate(d.repoPath(repo)); err != nil && !execSubvolumeExists(d.repoPath(repo)) {
 		return err
 	}

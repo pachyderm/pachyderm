@@ -17,7 +17,7 @@ type ReaderAtCloser interface {
 
 // Driver represents a low-level pfs storage driver.
 type Driver interface {
-	RepoCreate(repo *pfs.Repo, shard map[int]bool) error
+	RepoCreate(repo *pfs.Repo) error
 	RepoInspect(repo *pfs.Repo, shard int) (*pfs.RepoInfo, error)
 	RepoList(shard int) ([]*pfs.RepoInfo, error)
 	RepoDelete(repo *pfs.Repo, shard map[int]bool) error
