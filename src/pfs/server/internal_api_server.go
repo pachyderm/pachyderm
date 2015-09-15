@@ -198,7 +198,7 @@ func (a *internalAPIServer) FileInspect(ctx context.Context, request *pfs.FileIn
 }
 
 func (a *internalAPIServer) FileList(ctx context.Context, request *pfs.FileListRequest) (*pfs.FileInfos, error) {
-	shards, err := a.router.GetAllShards()
+	shards, err := a.router.GetMasterShards()
 	if err != nil {
 		return nil, err
 	}
