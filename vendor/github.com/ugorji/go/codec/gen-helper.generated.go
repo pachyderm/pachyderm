@@ -68,19 +68,19 @@ func (f genHelperEncoder) EncFallback(iv interface{}) {
 // FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
 func (f genHelperEncoder) EncTextMarshal(iv encoding.TextMarshaler) {
 	bs, fnerr := iv.MarshalText()
-	f.e.marshal(bs, fnerr, c_UTF8)
+	f.e.marshal(bs, fnerr, false, c_UTF8)
 }
 
 // FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
 func (f genHelperEncoder) EncJSONMarshal(iv jsonMarshaler) {
 	bs, fnerr := iv.MarshalJSON()
-	f.e.marshal(bs, fnerr, c_UTF8)
+	f.e.marshal(bs, fnerr, true, c_UTF8)
 }
 
 // FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
 func (f genHelperEncoder) EncBinaryMarshal(iv encoding.BinaryMarshaler) {
 	bs, fnerr := iv.MarshalBinary()
-	f.e.marshal(bs, fnerr, c_RAW)
+	f.e.marshal(bs, fnerr, false, c_RAW)
 }
 
 // FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
@@ -89,6 +89,11 @@ func (f genHelperEncoder) TimeRtidIfBinc() uintptr {
 		return timeTypId
 	}
 	return 0
+}
+
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperEncoder) IsJSONHandle() bool {
+	return f.e.js
 }
 
 // FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
@@ -161,7 +166,12 @@ func (f genHelperDecoder) DecTextUnmarshal(tm encoding.TextUnmarshaler) {
 
 // FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
 func (f genHelperDecoder) DecJSONUnmarshal(tm jsonUnmarshaler) {
-	fnerr := tm.UnmarshalJSON(f.d.d.DecodeBytes(f.d.b[:], true, true))
+	// bs := f.dd.DecodeBytes(f.d.b[:], true, true)
+	f.d.r.track()
+	f.d.swallow()
+	bs := f.d.r.stopTrack()
+	// fmt.Printf(">>>>>> CODECGEN JSON: %s\n", bs)
+	fnerr := tm.UnmarshalJSON(bs)
 	if fnerr != nil {
 		panic(fnerr)
 	}
@@ -181,6 +191,11 @@ func (f genHelperDecoder) TimeRtidIfBinc() uintptr {
 		return timeTypId
 	}
 	return 0
+}
+
+// FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*
+func (f genHelperDecoder) IsJSONHandle() bool {
+	return f.d.js
 }
 
 // FOR USE BY CODECGEN ONLY. IT *WILL* CHANGE WITHOUT NOTICE. *DO NOT USE*

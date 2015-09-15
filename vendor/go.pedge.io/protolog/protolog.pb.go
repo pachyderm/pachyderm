@@ -5,10 +5,14 @@
 package protolog
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 import google_protobuf "go.pedge.io/google-protobuf"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 // Level is a logging level.
 type Level int32

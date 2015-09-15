@@ -482,9 +482,9 @@ type structFieldInfo struct {
 	toArray   bool // if field is _struct, is the toArray set?
 }
 
-func (si *structFieldInfo) isZero() bool {
-	return si.encName == "" && len(si.is) == 0 && si.i == 0 && !si.omitEmpty && !si.toArray
-}
+// func (si *structFieldInfo) isZero() bool {
+// 	return si.encName == "" && len(si.is) == 0 && si.i == 0 && !si.omitEmpty && !si.toArray
+// }
 
 // rv returns the field of the struct.
 // If anonymous, it returns an Invalid
@@ -753,11 +753,12 @@ func rgetTypeInfo(rt reflect.Type, indexstack []int, fnameToHastag map[string]bo
 		// if anonymous and there is no struct tag (or it's blank)
 		// and its a struct (or pointer to struct), inline it.
 		var doInline bool
-		if f.Anonymous {
+		if f.Anonymous && f.Type.Kind() != reflect.Interface {
 			doInline = stag == ""
 			if !doInline {
 				si = parseStructFieldInfo("", stag)
-				doInline = si.isZero()
+				doInline = si.encName == ""
+				// doInline = si.isZero()
 				// fmt.Printf(">>>> doInline for si.isZero: %s: %v\n", f.Name, doInline)
 			}
 		}

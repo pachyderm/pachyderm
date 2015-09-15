@@ -337,7 +337,7 @@ func (f encFnInfo) selferMarshal(rv reflect.Value) {
 func (f encFnInfo) binaryMarshal(rv reflect.Value) {
 	if v, proceed := f.getValueForMarshalInterface(rv, f.ti.bmIndir); proceed {
 		bs, fnerr := v.(encoding.BinaryMarshaler).MarshalBinary()
-		f.e.marshal(bs, fnerr, c_RAW)
+		f.e.marshal(bs, fnerr, false, c_RAW)
 	}
 }
 
@@ -345,14 +345,14 @@ func (f encFnInfo) textMarshal(rv reflect.Value) {
 	if v, proceed := f.getValueForMarshalInterface(rv, f.ti.tmIndir); proceed {
 		// debugf(">>>> encoding.TextMarshaler: %T", rv.Interface())
 		bs, fnerr := v.(encoding.TextMarshaler).MarshalText()
-		f.e.marshal(bs, fnerr, c_UTF8)
+		f.e.marshal(bs, fnerr, false, c_UTF8)
 	}
 }
 
 func (f encFnInfo) jsonMarshal(rv reflect.Value) {
 	if v, proceed := f.getValueForMarshalInterface(rv, f.ti.jmIndir); proceed {
 		bs, fnerr := v.(jsonMarshaler).MarshalJSON()
-		f.e.marshal(bs, fnerr, c_UTF8)
+		f.e.marshal(bs, fnerr, true, c_UTF8)
 	}
 }
 
@@ -794,6 +794,7 @@ type Encoder struct {
 	w  encWriter
 	s  []rtidEncFn
 	be bool // is binary encoding
+	js bool // is json handle
 
 	wi ioEncWriter
 	wb bytesEncWriter
@@ -820,6 +821,7 @@ func NewEncoder(w io.Writer, h Handle) *Encoder {
 	}
 	e.wi.w = ww
 	e.w = &e.wi
+	_, e.js = h.(*JsonHandle)
 	e.e = h.newEncDriver(e)
 	return e
 }
@@ -837,6 +839,7 @@ func NewEncoderBytes(out *[]byte, h Handle) *Encoder {
 	}
 	e.wb.b, e.wb.out = in, out
 	e.w = &e.wb
+	_, e.js = h.(*JsonHandle)
 	e.e = h.newEncDriver(e)
 	return e
 }
@@ -867,9 +870,9 @@ func NewEncoderBytes(out *[]byte, h Handle) *Encoder {
 // The empty values (for omitempty option) are false, 0, any nil pointer
 // or interface value, and any array, slice, map, or string of length zero.
 //
-// Anonymous fields are encoded inline if the struct tag is "effectively" blank
-// i.e. it is not present or does not have any parameters specified.
-// Else they are encoded as regular fields.
+// Anonymous fields are encoded inline except:
+//    - the struct tag specifies a replacement name (first value)
+//    - the field is of an interface type
 //
 // Examples:
 //
@@ -880,6 +883,9 @@ func NewEncoderBytes(out *[]byte, h Handle) *Encoder {
 //          Field2 int      `codec:"myName"`       //Use key "myName" in encode stream
 //          Field3 int32    `codec:",omitempty"`   //use key "Field3". Omit if empty.
 //          Field4 bool     `codec:"f4,omitempty"` //use key "f4". Omit if empty.
+//          io.Reader                              //use key "Reader".
+//          MyStruct        `codec:"my1"           //use key "my1".
+//          MyStruct                               //inline it
 //          ...
 //      }
 //
@@ -889,8 +895,9 @@ func NewEncoderBytes(out *[]byte, h Handle) *Encoder {
 //      }
 //
 // The mode of encoding is based on the type of the value. When a value is seen:
+//   - If a Selfer, call its CodecEncodeSelf method
 //   - If an extension is registered for it, call that extension function
-//   - If it implements BinaryMarshaler, call its MarshalBinary() (data []byte, err error)
+//   - If it implements encoding.(Binary|Text|JSON)Marshaler, call its Marshal(Binary|Text|JSON) method
 //   - Else encode it based on its reflect.Kind
 //
 // Note that struct field names and keys in map[string]XXX will be treated as symbols.
@@ -1100,13 +1107,13 @@ func (e *Encoder) getEncFn(rtid uintptr, rt reflect.Type, checkFastpath, checkCo
 	} else if supportMarshalInterfaces && e.be && ti.bm {
 		fi.encFnInfoX = &encFnInfoX{e: e, ti: ti}
 		fn.f = (encFnInfo).binaryMarshal
+	} else if supportMarshalInterfaces && !e.be && e.js && ti.jm {
+		//If JSON, we should check JSONMarshal before textMarshal
+		fi.encFnInfoX = &encFnInfoX{e: e, ti: ti}
+		fn.f = (encFnInfo).jsonMarshal
 	} else if supportMarshalInterfaces && !e.be && ti.tm {
 		fi.encFnInfoX = &encFnInfoX{e: e, ti: ti}
 		fn.f = (encFnInfo).textMarshal
-	} else if supportMarshalInterfaces && !e.be && ti.jm {
-		//TODO: This only works NOW, as JSON is the ONLY text format.
-		fi.encFnInfoX = &encFnInfoX{e: e, ti: ti}
-		fn.f = (encFnInfo).jsonMarshal
 	} else {
 		rk := rt.Kind()
 		// if fastpathEnabled && checkFastpath && (rk == reflect.Map || rk == reflect.Slice) {
@@ -1193,12 +1200,14 @@ func (e *Encoder) getEncFn(rtid uintptr, rt reflect.Type, checkFastpath, checkCo
 	return
 }
 
-func (e *Encoder) marshal(bs []byte, fnerr error, c charEncoding) {
+func (e *Encoder) marshal(bs []byte, fnerr error, asis bool, c charEncoding) {
 	if fnerr != nil {
 		panic(fnerr)
 	}
 	if bs == nil {
 		e.e.EncodeNil()
+	} else if asis {
+		e.w.writeb(bs)
 	} else {
 		e.e.EncodeStringBytes(c, bs)
 	}
