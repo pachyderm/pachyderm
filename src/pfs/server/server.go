@@ -21,36 +21,36 @@ var (
 	emptyInstance = &google_protobuf.Empty{}
 )
 
-type ApiServer interface {
+type APIServer interface {
 	pfs.ApiServer
 	role.Server
 }
 
-type InternalApiServer interface {
+type InternalAPIServer interface {
 	pfs.InternalApiServer
 	role.Server
 }
 
-// NewApiServer returns a new ApiServer.
-func NewApiServer(
+// NewAPIServer returns a new APIServer.
+func NewAPIServer(
 	sharder route.Sharder,
 	router route.Router,
 	driver drive.Driver,
-) ApiServer {
-	return newApiServer(
+) APIServer {
+	return newAPIServer(
 		sharder,
 		router,
 		driver,
 	)
 }
 
-// NewApiServer returns a new ApiServer.
-func NewInternalApiServer(
+// NewInternalAPIServer returns a new InternalAPIServer.
+func NewInternalAPIServer(
 	sharder route.Sharder,
 	router route.Router,
 	driver drive.Driver,
-) InternalApiServer {
-	return newInternalApiServer(
+) InternalAPIServer {
+	return newInternalAPIServer(
 		sharder,
 		router,
 		driver,

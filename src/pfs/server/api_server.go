@@ -23,7 +23,7 @@ type apiServer struct {
 	driver  drive.Driver
 }
 
-func newApiServer(
+func newAPIServer(
 	sharder route.Sharder,
 	router route.Router,
 	driver drive.Driver,
