@@ -4,14 +4,8 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"go.pedge.io/protolog/logrus"
-
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 )
-
-func init() {
-	logrus.Register()
-}
 
 func TestBasic(t *testing.T) {
 	dirPath, err := ioutil.TempDir("", "pachyderm")

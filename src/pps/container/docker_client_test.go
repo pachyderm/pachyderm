@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"testing"
 
-	"go.pedge.io/protolog/logrus"
-
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 )
 
@@ -19,10 +17,6 @@ var (
 		Host: defaultTestDockerHost,
 	}
 )
-
-func init() {
-	logrus.Register()
-}
 
 func TestCommandsSimple(t *testing.T) {
 	testRun(

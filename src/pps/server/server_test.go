@@ -13,7 +13,6 @@ import (
 
 	"go.pedge.io/proto/test"
 	"go.pedge.io/protolog"
-	"go.pedge.io/protolog/logrus"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	pfstesting "github.com/pachyderm/pachyderm/src/pfs/testing"
@@ -29,10 +28,6 @@ import (
 const (
 	testNumServers = 1
 )
-
-func init() {
-	logrus.Register()
-}
 
 func TestBasic(t *testing.T) {
 	if testing.Short() {

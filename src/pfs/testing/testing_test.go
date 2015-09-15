@@ -10,8 +10,6 @@ import (
 	"sync"
 	"testing"
 
-	"go.pedge.io/protolog/logrus"
-
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
@@ -21,10 +19,6 @@ import (
 const (
 	testSize = 100
 )
-
-func init() {
-	logrus.Register()
-}
 
 func TestSimple(t *testing.T) {
 	t.Parallel()

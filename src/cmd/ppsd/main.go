@@ -8,6 +8,7 @@ import (
 
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
+	"go.pedge.io/protolog/logrus"
 
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -44,6 +45,7 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
+	logrus.Register()
 	containerClient, err := getContainerClient(appEnv.DockerHost)
 	if err != nil {
 		return err
