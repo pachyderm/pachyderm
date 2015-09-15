@@ -55,6 +55,31 @@ func (r *router) GetReplicaShards() (map[int]bool, error) {
 	return m, nil
 }
 
+func (r *router) GetAllShards() (map[int]bool, error) {
+	shardToMasterAddress, err := r.addresser.GetShardToMasterAddress()
+	if err != nil {
+		return nil, err
+	}
+	shardToReplicaAddresses, err := r.addresser.GetShardToReplicaAddresses()
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[int]bool, 0)
+	for shard, address := range shardToMasterAddress {
+		if address.Address == r.localAddress && !address.Backfilling {
+			m[shard] = true
+		}
+	}
+	for shard, addresses := range shardToReplicaAddresses {
+		for _, address := range addresses {
+			if address.Address == r.localAddress && !address.Backfilling {
+				m[shard] = true
+			}
+		}
+	}
+	return m, nil
+}
+
 func (r *router) GetMasterClientConn(shard int) (*grpc.ClientConn, error) {
 	address, ok, err := r.addresser.GetMasterAddress(shard)
 	if err != nil {
