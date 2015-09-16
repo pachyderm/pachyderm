@@ -1,22 +1,22 @@
 package protolog
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/satori/go.uuid"
 )
 
 var (
-	defaultIDAllocator   = &idAllocator{instanceID, 0}
-	defaultTimer         = &timer{}
-	defaultErrorHandler  = &errorHandler{}
-	defaultMarshaller    = &marshaller{}
-	defaultUnmarshaller  = &unmarshaller{}
-	defaultMarshalFunc   = proto.Marshal
-	defaultUnmarshalFunc = proto.Unmarshal
+	defaultIDAllocator  = &idAllocator{instanceID, 0}
+	defaultTimer        = &timer{}
+	defaultErrorHandler = &errorHandler{}
+	defaultMarshaller   = &marshaller{}
+	defaultUnmarshaller = &unmarshaller{}
 
 	// go.uuid calls rand.Read, which gets down to a mutex
 	// we just need ids to be unique across logging processes
@@ -49,11 +49,16 @@ func (e *errorHandler) Handle(err error) {
 type marshaller struct{}
 
 func (m *marshaller) Marshal(entry *Entry) ([]byte, error) {
-	return proto.Marshal(entry)
+	buffer := bytes.NewBuffer(nil)
+	if _, err := pbutil.WriteDelimited(buffer, entry); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
 }
 
 type unmarshaller struct{}
 
-func (u *unmarshaller) Unmarshal(p []byte, entry *Entry) error {
-	return proto.Unmarshal(p, entry)
+func (u *unmarshaller) Unmarshal(reader io.Reader, entry *Entry) error {
+	_, err := pbutil.ReadDelimited(reader, entry)
+	return err
 }

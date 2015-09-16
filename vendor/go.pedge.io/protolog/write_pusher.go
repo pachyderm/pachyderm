@@ -1,6 +1,9 @@
 package protolog
 
-import "sync"
+import (
+	"bytes"
+	"sync"
+)
 
 var (
 	newlineBytes = []byte{'\n'}
@@ -9,7 +12,7 @@ var (
 type writePusher struct {
 	writeFlusher WriteFlusher
 	marshaller   Marshaller
-	encoder      Encoder
+	newline      bool
 	lock         *sync.Mutex
 }
 
@@ -17,7 +20,7 @@ func newWritePusher(writeFlusher WriteFlusher, options WritePusherOptions) *writ
 	writePusher := &writePusher{
 		writeFlusher,
 		options.Marshaller,
-		options.Encoder,
+		options.Newline,
 		&sync.Mutex{},
 	}
 	if writePusher.marshaller == nil {
@@ -35,19 +38,14 @@ func (w *writePusher) Push(entry *Entry) error {
 	if err != nil {
 		return err
 	}
-	if w.encoder != nil {
-		data, err = w.encoder.Encode(data)
-		if err != nil {
-			return err
-		}
+	if w.newline {
+		buffer := bytes.NewBuffer(data)
+		_, _ = buffer.Write(newlineBytes)
+		data = buffer.Bytes()
 	}
 	w.lock.Lock()
 	defer w.lock.Unlock()
 	if _, err := w.writeFlusher.Write(data); err != nil {
-		return err
-	}
-	if w.encoder == nil {
-		_, err := w.writeFlusher.Write(newlineBytes)
 		return err
 	}
 	return nil

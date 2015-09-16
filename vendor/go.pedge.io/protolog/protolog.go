@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"go.pedge.io/google-protobuf"
 )
 
 var (
@@ -124,9 +123,6 @@ type LoggerOptions struct {
 	IDAllocator  IDAllocator
 	Timer        Timer
 	ErrorHandler ErrorHandler
-	// MarshalFunc is the function used to serialize protobuf Messages.
-	// The default behavior is to call proto.Marshal.
-	MarshalFunc func(proto.Message) ([]byte, error)
 }
 
 // NewLogger constructs a new Logger using the given Pusher.
@@ -141,6 +137,7 @@ func NewStandardLogger(writeFlusher WriteFlusher) Logger {
 			writeFlusher,
 			WritePusherOptions{
 				Marshaller: NewTextMarshaller(MarshallerOptions{}),
+				Newline:    true,
 			},
 		),
 		LoggerOptions{},
@@ -154,16 +151,10 @@ type Marshaller interface {
 	Marshal(entry *Entry) ([]byte, error)
 }
 
-// Encoder encodes a marshalled Entry. This is used for adding metadata
-// if the marshalled Entry is being sent over the wire.
-type Encoder interface {
-	Encode(p []byte) ([]byte, error)
-}
-
 // WritePusherOptions defines options for constructing a new write Pusher.
 type WritePusherOptions struct {
 	Marshaller Marshaller
-	Encoder    Encoder
+	Newline    bool
 }
 
 // NewWritePusher constructs a new Pusher that writes to the given WriteFlusher.
@@ -176,27 +167,21 @@ type Puller interface {
 	Pull() (*Entry, error)
 }
 
-// Unmarshaller unmarshalls a marshalled Entry object.
+// Unmarshaller unmarshalls a marshalled Entry object. At the end
+// of a stream, Unmarshaller will return io.EOF.
 type Unmarshaller interface {
-	Unmarshal(p []byte, entry *Entry) error
-}
-
-// Decoder decodes Entry objects from an io.Reader. At the end
-// of a stream, Decoder will return io.EOF.
-type Decoder interface {
-	Decode(reader io.Reader) ([]byte, error)
+	Unmarshal(reader io.Reader, entry *Entry) error
 }
 
 // ReadPullerOptions defines options for a read Puller.
 type ReadPullerOptions struct {
-	Unmarshaller  Unmarshaller
-	UnmarshalFunc func([]byte, proto.Message) error
+	Unmarshaller Unmarshaller
 }
 
 // NewReadPuller constructs a new Puller that reads from the given Reader
-// and decodes using the given Decoder.
-func NewReadPuller(reader io.Reader, decoder Decoder, options ReadPullerOptions) Puller {
-	return newReadPuller(reader, decoder, options)
+// and decodes using the given Unmarshaller.
+func NewReadPuller(reader io.Reader, options ReadPullerOptions) Puller {
+	return newReadPuller(reader, options)
 }
 
 // MarshallerOptions provides options for creating Marshallers.
@@ -209,28 +194,12 @@ type MarshallerOptions struct {
 	DisableLevel bool
 	// DisableContexts will suppress the printing of Entry contexts.
 	DisableContexts bool
-	// UnmarshalFunc is the function used to unmarshal previously
-	// marshalled protobuf Messages. The default behavior is to use
-	// proto.Unmarshal
-	UnmarshalFunc func([]byte, proto.Message) error
 }
 
 // NewTextMarshaller constructs a new Marshaller that produces human-readable
 // marshalled Entry objects. This Marshaller is current inefficient.
 func NewTextMarshaller(options MarshallerOptions) Marshaller {
 	return newTextMarshaller(options)
-}
-
-// NewWireEncoder constructs an Encoder that produces values which can
-// be sent over the wire.
-func NewWireEncoder() Encoder {
-	return wireEncoderInstance
-}
-
-// NewWireDecoder constructs a Decoder that can decode values encoded
-// with a wire Encoder.
-func NewWireDecoder() Decoder {
-	return wireDecoderInstance
 }
 
 // NewWriterFlusher wraps an io.Writer into a WriteFlusher.
@@ -256,29 +225,13 @@ func (f *FileFlusher) Flush() error {
 }
 
 // UnmarshalledContexts returns the context Messages marshalled on an Entry object.
-func (m *Entry) UnmarshalledContexts(unmarshalFunc func([]byte, proto.Message) error) ([]Message, error) {
-	return entryMessagesToMessages(m.Context, unmarshalFunc)
+func (m *Entry) UnmarshalledContexts() ([]Message, error) {
+	return entryMessagesToMessages(m.Context)
 }
 
 // UnmarshalledEvent returns the event Message marshalled on an Entry object.
-func (m *Entry) UnmarshalledEvent(unmarshalFunc func([]byte, proto.Message) error) (Message, error) {
-	return entryMessageToMessage(m.Event, unmarshalFunc)
-}
-
-// TimeToTimestamp is a utility function that converts a time.Time into
-// a *google_protobuf.Timestamp.
-func TimeToTimestamp(t time.Time) *google_protobuf.Timestamp {
-	unixNano := t.UnixNano()
-	return &google_protobuf.Timestamp{
-		Seconds: unixNano / int64(time.Second),
-		Nanos:   int32(unixNano % int64(time.Second)),
-	}
-}
-
-// TimestampToTime is a utility function that converts a *google_protobuf.Timestamp
-// into a time.Time.
-func TimestampToTime(timestamp *google_protobuf.Timestamp) time.Time {
-	return time.Unix(timestamp.Seconds, int64(timestamp.Nanos)).UTC()
+func (m *Entry) UnmarshalledEvent() (Message, error) {
+	return entryMessageToMessage(m.Event)
 }
 
 // Flush calls Flush on the global Logger.

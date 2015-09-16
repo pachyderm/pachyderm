@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/golang/protobuf/proto"
 
 	"go.pedge.io/protolog"
 )
@@ -26,7 +25,6 @@ type PusherOptions struct {
 	Formatter       logrus.Formatter
 	EnableID        bool
 	DisableContexts bool
-	UnmarshalFunc   func([]byte, proto.Message) error
 }
 
 // NewPusher creates a new protolog.Pusher that logs using Logrus.
