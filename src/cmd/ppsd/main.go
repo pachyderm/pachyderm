@@ -3,8 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
+
+	"golang.org/x/net/trace"
 
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
@@ -24,6 +27,7 @@ var (
 	defaultEnv = map[string]string{
 		"PPS_ADDRESS":       "0.0.0.0",
 		"PPS_PORT":          "651",
+		"PPS_TRACE_PORT":    "1051",
 		"PPS_DATABASE_NAME": "pachyderm",
 	}
 )
@@ -63,6 +67,10 @@ func do(appEnvObj interface{}) error {
 	clientConn, err := grpc.Dial(pfsAddress, grpc.WithInsecure())
 	if err != nil {
 		return err
+	}
+	// TODO(pedge): no!
+	trace.AuthRequest = func(_ *http.Request) (bool, bool) {
+		return true, true
 	}
 	return protoserver.Serve(
 		uint16(appEnv.Port),

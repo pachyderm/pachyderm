@@ -5,9 +5,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 
 	"golang.org/x/net/context"
+	"golang.org/x/net/trace"
 
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
@@ -31,6 +33,7 @@ var (
 		"PFS_NUM_SHARDS":  "16",
 		"PFS_PORT":        "650",
 		"PFS_HTTP_PORT":   "750",
+		"PFS_TRACE_PORT":  "1050",
 		"PFS_DRIVER_TYPE": "btrfs",
 	}
 )
@@ -108,6 +111,10 @@ func do(appEnvObj interface{}) error {
 		),
 		driver,
 	)
+	// TODO(pedge): no!
+	trace.AuthRequest = func(_ *http.Request) (bool, bool) {
+		return true, true
+	}
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
