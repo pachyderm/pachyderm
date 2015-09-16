@@ -1,7 +1,6 @@
 package route
 
 import (
-	"bytes"
 	"fmt"
 	"path"
 	"strconv"
@@ -9,25 +8,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/libkv/store"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 )
 
 var (
-	holdTTL      uint64              = 20
-	writeOptions *store.WriteOptions = &store.WriteOptions{TTL: time.Second * 20}
-	marshaler                        = &jsonpb.Marshaler{}
+	holdTTL   uint64 = 20
+	marshaler        = &jsonpb.Marshaler{}
 )
 
 type discoveryAddresser struct {
 	discoveryClient discovery.Client
 	namespace       string
-	store           store.Store
 }
 
-func newDiscoveryAddresser(discoveryClient discovery.Client, store store.Store, namespace string) *discoveryAddresser {
-	return &discoveryAddresser{discoveryClient, namespace, store}
+func newDiscoveryAddresser(discoveryClient discovery.Client, namespace string) *discoveryAddresser {
+	return &discoveryAddresser{discoveryClient, namespace}
 }
 
 func (a *discoveryAddresser) GetMasterAddress(shard int) (Address, bool, error) {
@@ -218,64 +214,22 @@ func (a *discoveryAddresser) makeReplicaMap(addresses map[string]string) (map[in
 
 func (a *discoveryAddresser) Announce(cancel chan bool, id string, address string, server Server) (retErr error) {
 	var once sync.Once
-	internalCancel := make(chan struct{})
 	versionChan := make(chan int64)
+	internalCancel := make(chan bool)
 	go func() {
-		serverState := &ServerState{
-			Id:      id,
-			Address: address,
-			Version: -1,
-		}
-		for {
-			var buffer bytes.Buffer
-			if err := marshaler.Marshal(&buffer, serverState); err != nil {
-				once.Do(func() {
-					retErr = err
-					close(internalCancel)
-				})
-				return
-			}
-			if err := a.store.Put(a.serverStateKey(id), buffer.Bytes(), writeOptions); err != nil {
-				once.Do(func() {
-					retErr = err
-					close(internalCancel)
-				})
-				return
-			}
-			select {
-			case <-internalCancel:
-				return
-			case version := <-versionChan:
-				serverState.Version = version
-			case <-time.After(writeOptions.TTL / 2):
-			}
-		}
-	}()
-	go func() {
-		kvPairs, err := a.store.Watch(a.serverRoleKey(id), internalCancel)
-		if err != nil {
+		if err := a.announceState(id, address, server, versionChan, internalCancel); err != nil {
 			once.Do(func() {
 				retErr = err
 				close(internalCancel)
 			})
-			return
 		}
-		for kvPair := range kvPairs {
-			var serverRole ServerRole
-			if err := jsonpb.Unmarshal(bytes.NewBuffer(kvPair.Value), &serverRole); err != nil {
-				once.Do(func() {
-					retErr = err
-					close(internalCancel)
-				})
-				return
-			}
-			if err := a.runRole(serverRole, server); err != nil {
-				once.Do(func() {
-					retErr = err
-					close(internalCancel)
-				})
-				return
-			}
+	}()
+	go func() {
+		if err := a.fillRoles(id, server, versionChan, internalCancel); err != nil {
+			once.Do(func() {
+				retErr = err
+				close(internalCancel)
+			})
 		}
 	}()
 	<-cancel
@@ -286,5 +240,85 @@ func (a *discoveryAddresser) Announce(cancel chan bool, id string, address strin
 	return
 }
 
+func (a *discoveryAddresser) WatchServers(chan bool, func(map[string]ServerState) error) error {
+	return nil
+}
+
 func (a *discoveryAddresser) Version() (string, error) {
+	return "", nil
+}
+
+func (a *discoveryAddresser) announceState(
+	id string,
+	address string,
+	server Server,
+	versionChan chan int64,
+	cancel chan bool,
+) error {
+	serverState := &ServerState{
+		Id:      id,
+		Address: address,
+		Version: -1,
+	}
+	for {
+		encodedServerState, err := marshaler.MarshalToString(serverState)
+		if err != nil {
+			return err
+		}
+		if _, err := a.discoveryClient.Set(a.serverStateKey(id), encodedServerState, holdTTL); err != nil {
+			return err
+		}
+		select {
+		case <-cancel:
+			return nil
+		case version := <-versionChan:
+			serverState.Version = version
+		case <-time.After(time.Second * time.Duration(holdTTL/2)):
+		}
+	}
+}
+
+func (a *discoveryAddresser) fillRoles(
+	id string,
+	server Server,
+	versionChan chan int64,
+	cancel chan bool,
+) error {
+	return a.discoveryClient.Watch(
+		a.serverRoleKey(id),
+		cancel,
+		func(data string) (uint64, error) {
+			var serverRole ServerRole
+			if err := jsonpb.UnmarshalString(data, &serverRole); err != nil {
+				return 0, err
+			}
+			var wg sync.WaitGroup
+			errChan := make(chan error, len(serverRole.Master)+len(serverRole.Replica))
+			for _, shard := range serverRole.Master {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					if err := server.Master(int(shard)); err != nil {
+						errChan <- err
+					}
+				}()
+			}
+			for _, shard := range serverRole.Replica {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					if err := server.Replica(int(shard)); err != nil {
+						errChan <- err
+					}
+				}()
+			}
+			wg.Wait()
+			close(errChan)
+			for err := range errChan {
+				return 0, err
+			}
+			versionChan <- serverRole.Version
+			return 0, nil
+		},
+	)
 }

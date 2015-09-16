@@ -77,11 +77,19 @@ import (
 //   It was a concious decision to have gen.go always explicitly call EncodeNil or TryDecodeAsNil.
 //   This way, there isn't a function call overhead just to see that we should not enter a block of code.
 
-const GenVersion = 2 // increment this value each time codecgen changes fundamentally.
+// GenVersion is the current version of codecgen.
+//
+// NOTE: Increment this value each time codecgen changes fundamentally.
+// Fundamental changes are:
+//   - helper methods change (signature change, new ones added, some removed, etc)
+//   - codecgen command line changes
+//
+const GenVersion = 3
 
 const (
-	genCodecPkg   = "codec1978"
-	genTempVarPfx = "yy"
+	genCodecPkg        = "codec1978"
+	genTempVarPfx      = "yy"
+	genTopLevelVarName = "x"
 
 	// ignore canBeNil parameter, and always set to true.
 	// This is because nil can appear anywhere, so we should always check.
@@ -123,16 +131,20 @@ type genRunner struct {
 	cpfx   string // codec package prefix
 	unsafe bool   // is unsafe to be used in generated code?
 
-	ts map[reflect.Type]struct{} // types for which enc/dec must be generated
-	xs string                    // top level variable/constant suffix
-	hn string                    // fn helper type name
+	tm map[reflect.Type]struct{} // types for which enc/dec must be generated
+	ts []reflect.Type            // types for which enc/dec must be generated
 
-	rr *rand.Rand // random generator for file-specific types
+	xs string // top level variable/constant suffix
+	hn string // fn helper type name
+
+	// rr *rand.Rand // random generator for file-specific types
 }
 
 // Gen will write a complete go file containing Selfer implementations for each
 // type passed. All the types must be in the same package.
-func Gen(w io.Writer, buildTags, pkgName string, useUnsafe bool, typ ...reflect.Type) {
+//
+// Library users: *DO NOT USE IT DIRECTLY. IT WILL CHANGE CONTINOUSLY WITHOUT NOTICE.*
+func Gen(w io.Writer, buildTags, pkgName, uid string, useUnsafe bool, typ ...reflect.Type) {
 	if len(typ) == 0 {
 		return
 	}
@@ -145,10 +157,16 @@ func Gen(w io.Writer, buildTags, pkgName string, useUnsafe bool, typ ...reflect.
 		im:     make(map[string]reflect.Type),
 		imn:    make(map[string]string),
 		is:     make(map[reflect.Type]struct{}),
-		ts:     make(map[reflect.Type]struct{}),
+		tm:     make(map[reflect.Type]struct{}),
+		ts:     []reflect.Type{},
 		bp:     typ[0].PkgPath(),
-		rr:     rand.New(rand.NewSource(time.Now().UnixNano())),
+		xs:     uid,
 	}
+	if x.xs == "" {
+		rr := rand.New(rand.NewSource(time.Now().UnixNano()))
+		x.xs = strconv.FormatInt(rr.Int63n(9999), 10)
+	}
+
 	// gather imports first:
 	x.cp = reflect.TypeOf(x).PkgPath()
 	x.imn[x.cp] = genCodecPkg
@@ -192,8 +210,6 @@ func Gen(w io.Writer, buildTags, pkgName string, useUnsafe bool, typ ...reflect.
 	}
 	x.line(")")
 	x.line("")
-
-	x.xs = strconv.FormatInt(x.rr.Int63n(9999), 10)
 
 	x.line("const (")
 	x.linef("codecSelferC_UTF8%s = %v", x.xs, int64(c_UTF8))
@@ -255,7 +271,7 @@ func Gen(w io.Writer, buildTags, pkgName string, useUnsafe bool, typ ...reflect.
 		x.selfer(false)
 	}
 
-	for t, _ := range x.ts {
+	for _, t := range x.ts {
 		rtid := reflect.ValueOf(t).Pointer()
 		// generate enc functions for all these slice/map types.
 		x.linef("func (x %s) enc%s(v %s%s, e *%sEncoder) {", x.hn, x.genMethodNameT(t), x.arr2str(t, "*"), x.genTypeName(t), x.cpfx)
@@ -287,6 +303,12 @@ func Gen(w io.Writer, buildTags, pkgName string, useUnsafe bool, typ ...reflect.
 	}
 
 	x.line("")
+}
+
+func (x *genRunner) checkForSelfer(t reflect.Type, varname string) bool {
+	// return varname != genTopLevelVarName && t != x.tc
+	// the only time we checkForSelfer is if we are not at the TOP of the generated code.
+	return varname != genTopLevelVarName
 }
 
 func (x *genRunner) arr2str(t reflect.Type, s string) string {
@@ -450,16 +472,16 @@ func (x *genRunner) selfer(encode bool) {
 	if encode {
 		x.line(") CodecEncodeSelf(e *" + x.cpfx + "Encoder) {")
 		x.genRequiredMethodVars(true)
-		// x.enc("x", t)
-		x.encVar("x", t)
+		// x.enc(genTopLevelVarName, t)
+		x.encVar(genTopLevelVarName, t)
 	} else {
 		x.line(") CodecDecodeSelf(d *" + x.cpfx + "Decoder) {")
 		x.genRequiredMethodVars(false)
 		// do not use decVar, as there is no need to check TryDecodeAsNil
 		// or way to elegantly handle that, and also setting it to a
 		// non-nil value doesn't affect the pointer passed.
-		// x.decVar("x", t, false)
-		x.dec("x", t0)
+		// x.decVar(genTopLevelVarName, t, false)
+		x.dec(genTopLevelVarName, t0)
 	}
 	x.line("}")
 	x.line("")
@@ -473,21 +495,21 @@ func (x *genRunner) selfer(encode bool) {
 		x.out(fnSigPfx)
 		x.line(") codecDecodeSelfFromMap(l int, d *" + x.cpfx + "Decoder) {")
 		x.genRequiredMethodVars(false)
-		x.decStructMap("x", "l", reflect.ValueOf(t0).Pointer(), t0, 0)
+		x.decStructMap(genTopLevelVarName, "l", reflect.ValueOf(t0).Pointer(), t0, 0)
 		x.line("}")
 		x.line("")
 	} else {
 		x.out(fnSigPfx)
 		x.line(") codecDecodeSelfFromMapLenPrefix(l int, d *" + x.cpfx + "Decoder) {")
 		x.genRequiredMethodVars(false)
-		x.decStructMap("x", "l", reflect.ValueOf(t0).Pointer(), t0, 1)
+		x.decStructMap(genTopLevelVarName, "l", reflect.ValueOf(t0).Pointer(), t0, 1)
 		x.line("}")
 		x.line("")
 
 		x.out(fnSigPfx)
 		x.line(") codecDecodeSelfFromMapCheckBreak(l int, d *" + x.cpfx + "Decoder) {")
 		x.genRequiredMethodVars(false)
-		x.decStructMap("x", "l", reflect.ValueOf(t0).Pointer(), t0, 2)
+		x.decStructMap(genTopLevelVarName, "l", reflect.ValueOf(t0).Pointer(), t0, 2)
 		x.line("}")
 		x.line("")
 	}
@@ -496,7 +518,7 @@ func (x *genRunner) selfer(encode bool) {
 	x.out(fnSigPfx)
 	x.line(") codecDecodeSelfFromArray(l int, d *" + x.cpfx + "Decoder) {")
 	x.genRequiredMethodVars(false)
-	x.decStructArray("x", "l", "return", reflect.ValueOf(t0).Pointer(), t0)
+	x.decStructArray(genTopLevelVarName, "l", "return", reflect.ValueOf(t0).Pointer(), t0)
 	x.line("}")
 	x.line("")
 
@@ -511,12 +533,16 @@ func (x *genRunner) xtraSM(varname string, encode bool, t reflect.Type) {
 		x.linef("h.dec%s((*%s)(%s), d)", x.genMethodNameT(t), x.genTypeName(t), varname)
 		// x.line("h.dec" + x.genMethodNameT(t) + "((*" + x.genTypeName(t) + ")(" + varname + "), d)")
 	}
-	x.ts[t] = struct{}{}
+	if _, ok := x.tm[t]; !ok {
+		x.tm[t] = struct{}{}
+		x.ts = append(x.ts, t)
+	}
 }
 
 // encVar will encode a variable.
 // The parameter, t, is the reflect.Type of the variable itself
 func (x *genRunner) encVar(varname string, t reflect.Type) {
+	// fmt.Printf(">>>>>> varname: %s, t: %v\n", varname, t)
 	var checkNil bool
 	switch t.Kind() {
 	case reflect.Ptr, reflect.Interface, reflect.Slice, reflect.Map, reflect.Chan:
@@ -560,31 +586,31 @@ func (x *genRunner) enc(varname string, t reflect.Type) {
 	//   - the type is in the list of the ones we will generate for, but it is not currently being generated
 
 	tptr := reflect.PtrTo(t)
-	if t.Implements(selferTyp) {
-		x.line(varname + ".CodecEncodeSelf(e)")
-		return
-	}
-	// if t.Kind() == reflect.Struct && tptr.Implements(selferTyp) { //TODO: verify that no need to check struct
-	if tptr.Implements(selferTyp) {
-		x.line(varname + ".CodecEncodeSelf(e)")
-		return
-	}
-	if _, ok := x.te[rtid]; ok {
-		x.line(varname + ".CodecEncodeSelf(e)")
-		return
+	tk := t.Kind()
+	if x.checkForSelfer(t, varname) {
+		if t.Implements(selferTyp) || (tptr.Implements(selferTyp) && (tk == reflect.Array || tk == reflect.Struct)) {
+			x.line(varname + ".CodecEncodeSelf(e)")
+			return
+		}
+
+		if _, ok := x.te[rtid]; ok {
+			x.line(varname + ".CodecEncodeSelf(e)")
+			return
+		}
 	}
 
 	inlist := false
 	for _, t0 := range x.t {
 		if t == t0 {
 			inlist = true
-			if t != x.tc {
+			if x.checkForSelfer(t, varname) {
 				x.line(varname + ".CodecEncodeSelf(e)")
 				return
 			}
 			break
 		}
 	}
+
 	var rtidAdded bool
 	if t == x.tc {
 		x.te[rtid] = true
@@ -631,7 +657,7 @@ func (x *genRunner) enc(varname string, t reflect.Type) {
 	switch t.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		x.line("r.EncodeInt(int64(" + varname + "))")
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		x.line("r.EncodeUint(uint64(" + varname + "))")
 	case reflect.Float32:
 		x.line("r.EncodeFloat32(float32(" + varname + "))")
@@ -697,7 +723,7 @@ func (x *genRunner) encZero(t reflect.Type) {
 	switch t.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		x.line("r.EncodeInt(0)")
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		x.line("r.EncodeUint(0)")
 	case reflect.Float32:
 		x.line("r.EncodeFloat32(0)")
@@ -1022,27 +1048,29 @@ func (x *genRunner) dec(varname string, t reflect.Type) {
 	//   - t is always a baseType T (not a *T, etc).
 	rtid := reflect.ValueOf(t).Pointer()
 	tptr := reflect.PtrTo(t)
-	if t.Implements(selferTyp) || (t.Kind() == reflect.Struct &&
-		reflect.PtrTo(t).Implements(selferTyp)) {
-		x.line(varname + ".CodecDecodeSelf(d)")
-		return
-	}
-	if _, ok := x.td[rtid]; ok {
-		x.line(varname + ".CodecDecodeSelf(d)")
-		return
+	if x.checkForSelfer(t, varname) {
+		if t.Implements(selferTyp) || tptr.Implements(selferTyp) {
+			x.line(varname + ".CodecDecodeSelf(d)")
+			return
+		}
+		if _, ok := x.td[rtid]; ok {
+			x.line(varname + ".CodecDecodeSelf(d)")
+			return
+		}
 	}
 
 	inlist := false
 	for _, t0 := range x.t {
 		if t == t0 {
 			inlist = true
-			if t != x.tc {
+			if x.checkForSelfer(t, varname) {
 				x.line(varname + ".CodecDecodeSelf(d)")
 				return
 			}
 			break
 		}
 	}
+
 	var rtidAdded bool
 	if t == x.tc {
 		x.td[rtid] = true
@@ -1121,6 +1149,8 @@ func (x *genRunner) dec(varname string, t reflect.Type) {
 	case reflect.Uint64:
 		x.line("*((*uint64)(" + varname + ")) = uint64(r.DecodeUint(64))")
 		//x.line("z.DecUint64((*uint64)(" + varname + "))")
+	case reflect.Uintptr:
+		x.line("*((*uintptr)(" + varname + ")) = uintptr(r.DecodeUint(codecSelferBitsize" + x.xs + "))")
 
 	case reflect.Float32:
 		x.line("*((*float32)(" + varname + ")) = float32(r.DecodeFloat(true))")
@@ -1226,6 +1256,8 @@ func (x *genRunner) decTryAssignPrimitive(varname string, t reflect.Type) (tryAs
 		x.linef("%s = %s(r.DecodeUint(32))", varname, xfn(t))
 	case reflect.Uint64:
 		x.linef("%s = %s(r.DecodeUint(64))", varname, xfn(t))
+	case reflect.Uintptr:
+		x.linef("%s = %s(r.DecodeUint(codecSelferBitsize%s))", varname, xfn(t), x.xs)
 
 	case reflect.Float32:
 		x.linef("%s = %s(r.DecodeFloat(true))", varname, xfn(t))

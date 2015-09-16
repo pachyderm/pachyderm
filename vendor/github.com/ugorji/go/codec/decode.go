@@ -496,6 +496,10 @@ func (f decFnInfo) kUint(rv reflect.Value) {
 	rv.SetUint(f.dd.DecodeUint(uintBitsize))
 }
 
+func (f decFnInfo) kUintptr(rv reflect.Value) {
+	rv.SetUint(f.dd.DecodeUint(uintBitsize))
+}
+
 func (f decFnInfo) kUint32(rv reflect.Value) {
 	rv.SetUint(f.dd.DecodeUint(32))
 }
@@ -1401,6 +1405,8 @@ func (d *Decoder) getDecFn(rt reflect.Type, checkFastpath, checkCodecSelfer bool
 				fn.f = (decFnInfo).kUint16
 				// case reflect.Ptr:
 				// 	fn.f = (decFnInfo).kPtr
+			case reflect.Uintptr:
+				fn.f = (decFnInfo).kUintptr
 			case reflect.Interface:
 				fi.decFnInfoX = &decFnInfoX{d: d, ti: ti}
 				fn.f = (decFnInfo).kInterface

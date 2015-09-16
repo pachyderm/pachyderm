@@ -826,7 +826,8 @@ func panicToErr(err *error) {
 // }
 
 func isMutableKind(k reflect.Kind) (v bool) {
-	return k == reflect.Int ||
+	return false ||
+		k == reflect.Int ||
 		k == reflect.Int8 ||
 		k == reflect.Int16 ||
 		k == reflect.Int32 ||
@@ -836,6 +837,7 @@ func isMutableKind(k reflect.Kind) (v bool) {
 		k == reflect.Uint16 ||
 		k == reflect.Uint32 ||
 		k == reflect.Uint64 ||
+		k == reflect.Uintptr ||
 		k == reflect.Float32 ||
 		k == reflect.Float64 ||
 		k == reflect.Bool ||

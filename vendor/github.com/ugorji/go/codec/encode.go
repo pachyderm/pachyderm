@@ -303,8 +303,8 @@ func (f encFnInfo) rawExt(rv reflect.Value) {
 }
 
 func (f encFnInfo) ext(rv reflect.Value) {
-	// if this is a struct and it was addressable, then pass the address directly (not the value)
-	if rv.CanAddr() && rv.Kind() == reflect.Struct {
+	// if this is a struct|array and it was addressable, then pass the address directly (not the value)
+	if k := rv.Kind(); (k == reflect.Struct || k == reflect.Array) && rv.CanAddr() {
 		rv = rv.Addr()
 	}
 	f.ee.EncodeExt(rv.Interface(), f.xfTag, f.xfFn, f.e)
@@ -314,7 +314,16 @@ func (f encFnInfo) getValueForMarshalInterface(rv reflect.Value, indir int8) (v 
 	if indir == 0 {
 		v = rv.Interface()
 	} else if indir == -1 {
-		v = rv.Addr().Interface()
+		// If a non-pointer was passed to Encode(), then that value is not addressable.
+		// Take addr if addresable, else copy value to an addressable value.
+		if rv.CanAddr() {
+			v = rv.Addr().Interface()
+		} else {
+			rv2 := reflect.New(rv.Type())
+			rv2.Elem().Set(rv)
+			v = rv2.Interface()
+			// fmt.Printf("rv.Type: %v, rv2.Type: %v, v: %v\n", rv.Type(), rv2.Type(), v)
+		}
 	} else {
 		for j := int8(0); j < indir; j++ {
 			if rv.IsNil() {
@@ -1012,12 +1021,15 @@ func (e *Encoder) encode(iv interface{}) {
 
 	default:
 		// canonical mode is not supported for fastpath of maps (but is fine for slices)
+		const checkCodecSelfer1 = true // in case T is passed, where *T is a Selfer, still checkCodecSelfer
 		if e.h.Canonical {
 			if !fastpathEncodeTypeSwitchSlice(iv, e) {
-				e.encodeI(iv, false, false)
+				e.encodeI(iv, false, checkCodecSelfer1)
 			}
-		} else if !fastpathEncodeTypeSwitch(iv, e) {
-			e.encodeI(iv, false, false)
+		} else {
+			if !fastpathEncodeTypeSwitch(iv, e) {
+				e.encodeI(iv, false, checkCodecSelfer1)
+			}
 		}
 	}
 }
@@ -1155,7 +1167,7 @@ func (e *Encoder) getEncFn(rtid uintptr, rt reflect.Type, checkFastpath, checkCo
 				fn.f = (encFnInfo).kFloat32
 			case reflect.Int, reflect.Int8, reflect.Int64, reflect.Int32, reflect.Int16:
 				fn.f = (encFnInfo).kInt
-			case reflect.Uint8, reflect.Uint64, reflect.Uint, reflect.Uint32, reflect.Uint16:
+			case reflect.Uint8, reflect.Uint64, reflect.Uint, reflect.Uint32, reflect.Uint16, reflect.Uintptr:
 				fn.f = (encFnInfo).kUint
 			case reflect.Invalid:
 				fn.f = (encFnInfo).kInvalid
