@@ -3,6 +3,7 @@ package route
 import (
 	"fmt"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -278,47 +279,99 @@ func (a *discoveryAddresser) announceState(
 	}
 }
 
+type int64Slice []int64
+
+func (s int64Slice) Len() int           { return len(s) }
+func (s int64Slice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s int64Slice) Less(i, j int) bool { return s[i] < s[j] }
+
 func (a *discoveryAddresser) fillRoles(
 	id string,
 	server Server,
 	versionChan chan int64,
 	cancel chan bool,
 ) error {
-	return a.discoveryClient.Watch(
+	oldRoles := make(map[int64]ServerRole)
+	return a.discoveryClient.WatchAll(
 		a.serverRoleKey(id),
 		cancel,
-		func(data string) (uint64, error) {
-			var serverRole ServerRole
-			if err := jsonpb.UnmarshalString(data, &serverRole); err != nil {
-				return 0, err
+		func(roles map[string]string) (uint64, error) {
+			newRoles := make(map[int64]ServerRole, len(roles))
+			var newVersions int64Slice
+			// Decode the roles
+			for version, encodedServerRole := range roles {
+				var serverRole ServerRole
+				if err := jsonpb.UnmarshalString(encodedServerRole, &serverRole); err != nil {
+					return 0, err
+				}
+				newRoles[serverRole.Version] = serverRole
+				newVersions = append(newVersions, serverRole.Version)
 			}
+			sort.Sort(newVersions)
+			var once sync.Once
+			// For each new version bring the server up to date
+			for _, version := range newVersions {
+				if _, ok := oldRoles[version]; ok {
+					// we've already seen these roles, so nothing to do here
+					continue
+				}
+				serverRole := newRoles[version]
+				var wg sync.WaitGroup
+				var addRoleErr error
+				for _, shard := range append(serverRole.Master, serverRole.Replica...) {
+					if !containsShard(oldRoles, shard) {
+						wg.Add(1)
+						go func() {
+							defer wg.Done()
+							if err := server.AddRole(shard); err != nil {
+								once.Do(func() {
+									addRoleErr = err
+								})
+							}
+						}()
+					}
+				}
+				wg.Wait()
+				if addRoleErr != nil {
+					return 0, addRoleErr
+				}
+				versionChan <- version
+			}
+			// See if there are any old roles that aren't needed
 			var wg sync.WaitGroup
-			errChan := make(chan error, len(serverRole.Master)+len(serverRole.Replica))
-			for _, shard := range serverRole.Master {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					if err := server.Master(int(shard)); err != nil {
-						errChan <- err
+			var removeRoleErr error
+			for version, serverRole := range oldRoles {
+				if _, ok := newRoles[version]; ok {
+					// these roles haven't expired yet, so nothing to do
+					continue
+				}
+				for _, shard := range append(serverRole.Master, serverRole.Replica...) {
+					if !containsShard(newRoles, shard) {
+						wg.Add(1)
+						go func() {
+							defer wg.Done()
+							if err := server.RemoveRole(shard); err != nil {
+								once.Do(func() {
+									removeRoleErr = err
+								})
+							}
+						}()
 					}
-				}()
-			}
-			for _, shard := range serverRole.Replica {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					if err := server.Replica(int(shard)); err != nil {
-						errChan <- err
-					}
-				}()
+				}
 			}
 			wg.Wait()
-			close(errChan)
-			for err := range errChan {
-				return 0, err
-			}
-			versionChan <- serverRole.Version
-			return 0, nil
+			return 0, removeRoleErr
 		},
 	)
+}
+
+func containsShard(roles map[int64]ServerRole, shard uint64) bool {
+	for _, serverRole := range roles {
+		for _, iShard := range append(serverRole.Master, serverRole.Replica...) {
+			if shard == iShard {
+				return true
+			}
+		}
+	}
+	return false
 }

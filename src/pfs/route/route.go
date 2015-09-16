@@ -42,7 +42,7 @@ type Addresser interface {
 	DeleteReplicaAddress(shard int, index int, address Address) (uint64, error)
 
 	Announce(cancel chan bool, address string, server Server) error
-	WatchServers(chan bool, func(map[string]ServerInfo) error) error
+	WatchServers(chan bool, func(map[string]ServerState) error) error
 	Version() (string, error)
 	Set(layout Layout) error
 }
@@ -52,14 +52,10 @@ func NewDiscoveryAddresser(discoveryClient discovery.Client, namespace string) A
 }
 
 type Server interface {
-	// Master tells the server that it is now the master for shard.
-	// After this returns the Peer is expected to service Master requests for shard.
-	Master(shard int) error
-	// Replica tells the server that it is now a replica for shard.
-	// After this returns the Server is expected to service Replica requests for shard.
-	Replica(shard int) error
-	// Clear tells the server that it is no longer filling any role for shard.
-	Clear(shard int) error
+	// AddRole tells the server it now has a role for a shard
+	AddRole(shard uint64) error
+	// RemoveRole tells the server it no longer has a role for a shard
+	RemoveRole(shard uint64) error
 }
 
 // Announcer announces a server to the outside world.

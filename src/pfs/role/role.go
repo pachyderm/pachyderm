@@ -19,6 +19,10 @@ type Server interface {
 	Replica(shard int) error
 	// Clear tells the server that it is no longer filling any role for shard.
 	Clear(shard int) error
+	// AddRole tells the server it now has a role for a shard
+	AddRole(shard int) error
+	// RemoveRole tells the server it no longer has a role for a shard
+	RemoveRole(shard int) error
 }
 
 func NewRoler(addresser route.Addresser, sharder route.Sharder, server Server, localAddress string, numReplicas int) Roler {
