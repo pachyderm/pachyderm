@@ -1,25 +1,33 @@
 package route
 
 import (
+	"bytes"
 	"fmt"
 	"path"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/docker/libkv/store"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 )
 
 var (
-	holdTTL uint64 = 20
+	holdTTL      uint64              = 20
+	writeOptions *store.WriteOptions = &store.WriteOptions{TTL: time.Second * 20}
+	marshaler                        = &jsonpb.Marshaler{}
 )
 
 type discoveryAddresser struct {
 	discoveryClient discovery.Client
 	namespace       string
+	store           store.Store
 }
 
-func newDiscoveryAddresser(discoveryClient discovery.Client, namespace string) *discoveryAddresser {
-	return &discoveryAddresser{discoveryClient, namespace}
+func newDiscoveryAddresser(discoveryClient discovery.Client, store store.Store, namespace string) *discoveryAddresser {
+	return &discoveryAddresser{discoveryClient, namespace, store}
 }
 
 func (a *discoveryAddresser) GetMasterAddress(shard int) (Address, bool, error) {
@@ -141,6 +149,30 @@ func (a *discoveryAddresser) replicaKey(shard int, index int) string {
 	return path.Join(a.replicaShardDir(shard), fmt.Sprint(index))
 }
 
+func (a *discoveryAddresser) serverDir() string {
+	return fmt.Sprintf("%s/pfs/server", a.namespace)
+}
+
+func (a *discoveryAddresser) serverKey(id string) string {
+	return path.Join(a.serverDir(), id)
+}
+
+func (a *discoveryAddresser) serverAliveKey(id string) string {
+	return path.Join(a.serverDir(), "alive", id)
+}
+
+func (a *discoveryAddresser) serverStateKey(id string) string {
+	return path.Join(a.serverDir(), "state", id)
+}
+
+func (a *discoveryAddresser) serverRoleKey(id string) string {
+	return path.Join(a.serverDir(), "role", id)
+}
+
+func (a *discoveryAddresser) addressDir() string {
+	return fmt.Sprintf("%s/pfs/address", a.namespace)
+}
+
 func (a *discoveryAddresser) makeShardMaps(addresses map[string]string) (map[int]Address, map[int]map[int]Address, error) {
 	masterMap := make(map[int]Address)
 	replicaMap := make(map[int]map[int]Address)
@@ -182,4 +214,77 @@ func (a *discoveryAddresser) makeMasterMap(addresses map[string]string) (map[int
 func (a *discoveryAddresser) makeReplicaMap(addresses map[string]string) (map[int]map[int]Address, error) {
 	_, result, err := a.makeShardMaps(addresses)
 	return result, err
+}
+
+func (a *discoveryAddresser) Announce(cancel chan bool, id string, address string, server Server) (retErr error) {
+	var once sync.Once
+	internalCancel := make(chan struct{})
+	versionChan := make(chan int64)
+	go func() {
+		serverState := &ServerState{
+			Id:      id,
+			Address: address,
+			Version: -1,
+		}
+		for {
+			var buffer bytes.Buffer
+			if err := marshaler.Marshal(&buffer, serverState); err != nil {
+				once.Do(func() {
+					retErr = err
+					close(internalCancel)
+				})
+				return
+			}
+			if err := a.store.Put(a.serverStateKey(id), buffer.Bytes(), writeOptions); err != nil {
+				once.Do(func() {
+					retErr = err
+					close(internalCancel)
+				})
+				return
+			}
+			select {
+			case <-internalCancel:
+				return
+			case version := <-versionChan:
+				serverState.Version = version
+			case <-time.After(writeOptions.TTL / 2):
+			}
+		}
+	}()
+	go func() {
+		kvPairs, err := a.store.Watch(a.serverRoleKey(id), internalCancel)
+		if err != nil {
+			once.Do(func() {
+				retErr = err
+				close(internalCancel)
+			})
+			return
+		}
+		for kvPair := range kvPairs {
+			var serverRole ServerRole
+			if err := jsonpb.Unmarshal(bytes.NewBuffer(kvPair.Value), &serverRole); err != nil {
+				once.Do(func() {
+					retErr = err
+					close(internalCancel)
+				})
+				return
+			}
+			if err := a.runRole(serverRole, server); err != nil {
+				once.Do(func() {
+					retErr = err
+					close(internalCancel)
+				})
+				return
+			}
+		}
+	}()
+	<-cancel
+	once.Do(func() {
+		retErr = fmt.Errorf("announce cancelled")
+		close(internalCancel)
+	})
+	return
+}
+
+func (a *discoveryAddresser) Version() (string, error) {
 }

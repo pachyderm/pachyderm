@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package route ;
+
+message ServerState {
+    string id = 1;
+    string address = 2;
+    int64 version = 3;
+}
+
+message ServerRole {
+    int64 version = 1;
+    repeated uint64 master = 2 [packed=true];
+    repeated uint64 replica = 3 [packed=true];
+}
