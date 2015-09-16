@@ -2,11 +2,8 @@ package protolog
 
 import "github.com/golang/protobuf/proto"
 
-func messageToEntryMessage(message Message, marshalFunc func(proto.Message) ([]byte, error)) (*Entry_Message, error) {
-	if marshalFunc == nil {
-		marshalFunc = defaultMarshalFunc
-	}
-	value, err := marshalFunc(message)
+func messageToEntryMessage(message Message) (*Entry_Message, error) {
+	value, err := proto.Marshal(message)
 	if err != nil {
 		return nil, err
 	}
@@ -16,24 +13,21 @@ func messageToEntryMessage(message Message, marshalFunc func(proto.Message) ([]b
 	}, nil
 }
 
-func entryMessageToMessage(entryMessage *Entry_Message, unmarshalFunc func([]byte, proto.Message) error) (Message, error) {
-	if unmarshalFunc == nil {
-		unmarshalFunc = defaultUnmarshalFunc
-	}
+func entryMessageToMessage(entryMessage *Entry_Message) (Message, error) {
 	message, err := newMessage(entryMessage.Name)
 	if err != nil {
 		return nil, err
 	}
-	if err := unmarshalFunc(entryMessage.Value, message); err != nil {
+	if err := proto.Unmarshal(entryMessage.Value, message); err != nil {
 		return nil, err
 	}
 	return message, nil
 }
 
-func messagesToEntryMessages(messages []Message, marshalFunc func(proto.Message) ([]byte, error)) ([]*Entry_Message, error) {
+func messagesToEntryMessages(messages []Message) ([]*Entry_Message, error) {
 	entryMessages := make([]*Entry_Message, len(messages))
 	for i, message := range messages {
-		entryMessage, err := messageToEntryMessage(message, marshalFunc)
+		entryMessage, err := messageToEntryMessage(message)
 		if err != nil {
 			return nil, err
 		}
@@ -42,10 +36,10 @@ func messagesToEntryMessages(messages []Message, marshalFunc func(proto.Message)
 	return entryMessages, nil
 }
 
-func entryMessagesToMessages(entryMessages []*Entry_Message, unmarshalFunc func([]byte, proto.Message) error) ([]Message, error) {
+func entryMessagesToMessages(entryMessages []*Entry_Message) ([]Message, error) {
 	messages := make([]Message, len(entryMessages))
 	for i, entryMessage := range entryMessages {
-		message, err := entryMessageToMessage(entryMessage, unmarshalFunc)
+		message, err := entryMessageToMessage(entryMessage)
 		if err != nil {
 			return nil, err
 		}

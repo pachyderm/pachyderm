@@ -24,9 +24,7 @@ func TestRoundtripAndTextMarshaller(t *testing.T) {
 	logger := protolog.NewLogger(
 		protolog.NewWritePusher(
 			protolog.NewWriterFlusher(buffer),
-			protolog.WritePusherOptions{
-				Encoder: protolog.NewWireEncoder(),
-			},
+			protolog.WritePusherOptions{},
 		),
 		protolog.LoggerOptions{
 			IDAllocator: newFakeIDAllocator(),
@@ -65,7 +63,6 @@ func TestRoundtripAndTextMarshaller(t *testing.T) {
 
 	puller := protolog.NewReadPuller(
 		buffer,
-		protolog.NewWireDecoder(),
 		protolog.ReadPullerOptions{},
 	)
 	writeBuffer := bytes.NewBuffer(nil)
@@ -77,6 +74,7 @@ func TestRoundtripAndTextMarshaller(t *testing.T) {
 					DisableTimestamp: true,
 				},
 			),
+			Newline: true,
 		},
 	)
 	for entry, pullErr := puller.Pull(); pullErr != io.EOF; entry, pullErr = puller.Pull() {

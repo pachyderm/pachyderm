@@ -60,15 +60,15 @@ func BenchmarkProtoStdLogrus(b *testing.B) {
 }
 
 func BenchmarkProtoLogrus(b *testing.B) {
-	runBenchmarkLogrus(b, func() { protolog.Println(foo) }, true)
+	runBenchmarkLogrus(b, func() { protolog.Print(foo) }, false)
 }
 
 func BenchmarkProtoGLog(b *testing.B) {
-	runBenchmarkGLog(b, func() { protolog.Println(foo) }, true)
+	runBenchmarkGLog(b, func() { protolog.Print(foo) }, false)
 }
 
 func BenchmarkProtoStdGLog(b *testing.B) {
-	runBenchmarkStdGLog(b, func() { stdglog.Infoln(foo) }, true)
+	runBenchmarkStdGLog(b, func() { stdglog.Infoln(foo) }, false)
 }
 
 func BenchmarkThreadProto(b *testing.B) {
@@ -88,11 +88,11 @@ func BenchmarkThreadProtoStdLogrus(b *testing.B) {
 }
 
 func BenchmarkThreadProtoLogrus(b *testing.B) {
-	runBenchmarkLogrus(b, func() { protolog.Println(foo) }, true)
+	runBenchmarkLogrus(b, func() { protolog.Print(foo) }, true)
 }
 
 func BenchmarkThreadProtoGLog(b *testing.B) {
-	runBenchmarkGLog(b, func() { protolog.Println(foo) }, true)
+	runBenchmarkGLog(b, func() { protolog.Print(foo) }, true)
 }
 
 func BenchmarkThreadProtoStdGLog(b *testing.B) {

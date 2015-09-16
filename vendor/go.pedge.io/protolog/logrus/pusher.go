@@ -12,6 +12,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"go.pedge.io/proto/time"
 	"go.pedge.io/protolog"
 )
 
@@ -68,14 +69,14 @@ func (p *pusher) getLogrusEntry(entry *protolog.Entry) (*logrus.Entry, error) {
 		return nil, fmt.Errorf("protolog: no logrus Level for %v", entry.Level)
 	}
 	logrusEntry := logrus.NewEntry(p.logger)
-	logrusEntry.Time = protolog.TimestampToTime(entry.Timestamp)
+	logrusEntry.Time = prototime.TimestampToTime(entry.Timestamp)
 	logrusEntry.Level = logrusLevel
 
 	if p.options.EnableID {
 		logrusEntry.Data["_id"] = entry.Id
 	}
 	if !p.options.DisableContexts {
-		contexts, err := entry.UnmarshalledContexts(p.options.UnmarshalFunc)
+		contexts, err := entry.UnmarshalledContexts()
 		if err != nil {
 			return nil, err
 		}
@@ -99,7 +100,7 @@ func (p *pusher) getLogrusEntry(entry *protolog.Entry) (*logrus.Entry, error) {
 			}
 		}
 	}
-	event, err := entry.UnmarshalledEvent(p.options.UnmarshalFunc)
+	event, err := entry.UnmarshalledEvent()
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +161,20 @@ func getFieldsForProtoMessage(message proto.Message) (map[string]interface{}, er
 	if err := json.Unmarshal(buffer.Bytes(), &m); err != nil {
 		return nil, err
 	}
-	return m, nil
+	n := make(map[string]interface{}, len(m))
+	for key, value := range m {
+		switch value.(type) {
+		case map[string]interface{}:
+			data, err := json.Marshal(value)
+			if err != nil {
+				return nil, err
+			}
+			n[key] = string(data)
+		default:
+			n[key] = value
+		}
+	}
+	return n, nil
 }
 
 func trimRightSpace(s string) string {

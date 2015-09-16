@@ -8,6 +8,8 @@ import (
 	"time"
 	"unicode"
 
+	"go.pedge.io/proto/time"
+
 	"github.com/golang/protobuf/jsonpb"
 )
 
@@ -30,7 +32,7 @@ func (t *textMarshaller) Marshal(entry *Entry) ([]byte, error) {
 		_ = buffer.WriteByte(' ')
 	}
 	if !t.options.DisableTimestamp {
-		stdTime := TimestampToTime(entry.Timestamp)
+		stdTime := prototime.TimestampToTime(entry.Timestamp)
 		_, _ = buffer.WriteString(stdTime.Format(time.RFC3339))
 		_ = buffer.WriteByte(' ')
 	}
@@ -43,7 +45,7 @@ func (t *textMarshaller) Marshal(entry *Entry) ([]byte, error) {
 			_ = buffer.WriteByte(' ')
 		}
 	}
-	event, err := entry.UnmarshalledEvent(t.options.UnmarshalFunc)
+	event, err := entry.UnmarshalledEvent()
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +70,7 @@ func (t *textMarshaller) Marshal(entry *Entry) ([]byte, error) {
 	}
 	if entry.Context != nil && len(entry.Context) > 0 && !t.options.DisableContexts {
 		_, _ = buffer.WriteString(" contexts=[")
-		contexts, err := entry.UnmarshalledContexts(t.options.UnmarshalFunc)
+		contexts, err := entry.UnmarshalledContexts()
 		if err != nil {
 			return nil, err
 		}
