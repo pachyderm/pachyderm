@@ -27,9 +27,9 @@ type Address struct {
 type Addresser interface {
 	// TODO consider splitting Addresser's interface into read an write methods.
 	// Each user of Addresser seems to use only one of these interfaces.
-	GetMasterAddress(shard int) (Address, bool, error)
-	GetReplicaAddresses(shard int) (map[Address]bool, error)
-	GetShardToMasterAddress() (map[int]Address, error)
+	GetMasterAddress(shard int, version string) (Address, bool, error)
+	GetReplicaAddresses(shard int, version string) (map[Address]bool, error)
+	GetShardToMasterAddress(version string) (map[int]Address, error)
 	WatchShardToAddress(chan bool, func(map[int]Address, map[int]map[int]Address) (uint64, error)) error
 	GetShardToReplicaAddresses() (map[int]map[int]Address, error)
 	SetMasterAddress(shard int, address Address) (uint64, error)
@@ -40,10 +40,31 @@ type Addresser interface {
 	HoldReplicaAddress(shard int, index int, address Address, cancel chan bool) error
 	DeleteMasterAddress(shard int) (uint64, error)
 	DeleteReplicaAddress(shard int, index int, address Address) (uint64, error)
+
+	Announce(cancel chan bool, address string, server Server) error
+	WatchServers(chan bool, func(map[string]ServerInfo) error) error
+	Version() (string, error)
+	Set(layout Layout) error
 }
 
 func NewDiscoveryAddresser(discoveryClient discovery.Client, namespace string) Addresser {
 	return newDiscoveryAddresser(discoveryClient, namespace)
+}
+
+type Server interface {
+	// Master tells the server that it is now the master for shard.
+	// After this returns the Peer is expected to service Master requests for shard.
+	Master(shard int) error
+	// Replica tells the server that it is now a replica for shard.
+	// After this returns the Server is expected to service Replica requests for shard.
+	Replica(shard int) error
+	// Clear tells the server that it is no longer filling any role for shard.
+	Clear(shard int) error
+}
+
+// Announcer announces a server to the outside world.
+type Announcer interface {
+	Announce(address string, server Server) error
 }
 
 type Router interface {
