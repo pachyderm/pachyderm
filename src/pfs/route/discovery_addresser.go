@@ -311,20 +311,17 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 					}
 				}
 			}
-			for id, serverState := range serverStates {
-				oldServerRole, ok := oldRoles[id]
-				if !ok {
-					continue
+			version++
+			for id, serverRole := range newRoles {
+				encodedServerRole, err := marshaler.MarshalToString(&serverRole)
+				if err != nil {
+					return 0, err
 				}
-				newServerRole := newRoles[serverState.Id]
-				for i := 0; i < masterRolesPerServer; i++ {
-					newServerRole.Master = append(newServerRole.Master, oldServerRole.Master[i])
-				}
-				for i := 0; i < replicaRolesPerServer; i++ {
-					newServerRole.Replica = append(newServerRole.Replica, oldServerRole.Replica[i])
+				if _, err := a.discoveryClient.Set(a.serverRoleKey(id), encodedServerRole, 0); err != nil {
+					return 0, err
 				}
 			}
-			version++
+			oldRoles = newRoles
 			return 0, nil
 		})
 }
