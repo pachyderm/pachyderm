@@ -181,18 +181,21 @@ func (c *cluster) Shutdown() {
 }
 
 func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) Cluster {
+	sharder := route.NewSharder(
+		testShardsPerServer*testNumServers,
+		testNumReplicas,
+	)
 	cluster := cluster{
 		rolers:          make(map[string]role.Roler),
 		servers:         make(map[string]server.APIServer),
 		internalServers: make(map[string]server.InternalAPIServer),
 		addresser: route.NewDiscoveryAddresser(
 			discoveryClient,
+			sharder,
 			testNamespace(),
 		),
-		sharder: route.NewSharder(
-			testShardsPerServer * testNumServers,
-		),
-		tb: tb,
+		sharder: sharder,
+		tb:      tb,
 	}
 	for address, s := range servers {
 		apiServer := server.NewAPIServer(

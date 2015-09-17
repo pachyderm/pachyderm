@@ -770,7 +770,7 @@ func (c *Client) Stats(opts StatsOptions) (retErr error) {
 
 	decoder := json.NewDecoder(readCloser)
 	stats := new(Stats)
-	for err := decoder.Decode(&stats); err != io.EOF; err = decoder.Decode(stats) {
+	for err := decoder.Decode(stats); err != io.EOF; err = decoder.Decode(stats) {
 		if err != nil {
 			return err
 		}

@@ -276,7 +276,7 @@ func startingRoles(numShards int, numReplicas int) ServerRole {
 func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 	oldRoles := make(map[string]ServerRole)
 	oldRoles[""] = startingRoles(a.sharder.NumShards(), a.sharder.NumReplicas())
-	var version int64 = 0
+	var version int64
 	return a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
 		func(encodedServerStates map[string]string) (uint64, error) {
 			serverStates := make(map[string]ServerState)
