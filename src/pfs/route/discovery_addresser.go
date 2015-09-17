@@ -380,7 +380,7 @@ func (a *discoveryAddresser) fillRoles(
 			newRoles := make(map[int64]ServerRole, len(roles))
 			var newVersions int64Slice
 			// Decode the roles
-			for version, encodedServerRole := range roles {
+			for _, encodedServerRole := range roles {
 				var serverRole ServerRole
 				if err := jsonpb.UnmarshalString(encodedServerRole, &serverRole); err != nil {
 					return 0, err

@@ -13,8 +13,8 @@ type Sharder interface {
 	GetShard(file *pfs.File) (int, error)
 }
 
-func NewSharder(numShards int) Sharder {
-	return newSharder(numShards)
+func NewSharder(numShards int, numReplicas int) Sharder {
+	return newSharder(numShards, numReplicas)
 }
 
 // namespace/pfs/shard/num/master -> address
@@ -28,9 +28,9 @@ type Address struct {
 type Addresser interface {
 	// TODO consider splitting Addresser's interface into read an write methods.
 	// Each user of Addresser seems to use only one of these interfaces.
-	GetMasterAddress(shard int, version string) (Address, bool, error)
-	GetReplicaAddresses(shard int, version string) (map[Address]bool, error)
-	GetShardToMasterAddress(version string) (map[int]Address, error)
+	GetMasterAddress(shard int) (Address, bool, error)
+	GetReplicaAddresses(shard int) (map[Address]bool, error)
+	GetShardToMasterAddress() (map[int]Address, error)
 	WatchShardToAddress(chan bool, func(map[int]Address, map[int]map[int]Address) (uint64, error)) error
 	GetShardToReplicaAddresses() (map[int]map[int]Address, error)
 	SetMasterAddress(shard int, address Address) (uint64, error)
@@ -42,13 +42,13 @@ type Addresser interface {
 	DeleteMasterAddress(shard int) (uint64, error)
 	DeleteReplicaAddress(shard int, index int, address Address) (uint64, error)
 
-	Announce(cancel chan bool, address string, server Server) error
+	Announce(cancel chan bool, id string, address string, server Server) error
 	AssignRoles(chan bool) error
 	Version() (string, error)
 }
 
-func NewDiscoveryAddresser(discoveryClient discovery.Client, namespace string) Addresser {
-	return newDiscoveryAddresser(discoveryClient, namespace)
+func NewDiscoveryAddresser(discoveryClient discovery.Client, sharder Sharder, namespace string) Addresser {
+	return newDiscoveryAddresser(discoveryClient, sharder, namespace)
 }
 
 type Server interface {
