@@ -65,7 +65,7 @@ type serverGroup struct {
 }
 
 func NewServerGroup(t *testing.T, addresser route.Addresser, numServers int, offset int, numReplicas int) *serverGroup {
-	sharder := route.NewSharder(testNumShards)
+	sharder := route.NewSharder(testNumShards, numReplicas)
 	serverGroup := serverGroup{offset: offset}
 	for i := 0; i < numServers; i++ {
 		serverGroup.servers = append(serverGroup.servers, newServer(t))
@@ -103,7 +103,8 @@ func (s *serverGroup) satisfied(rolesLen int) bool {
 }
 
 func runMasterOnlyTest(t *testing.T, client discovery.Client) {
-	addresser := route.NewDiscoveryAddresser(client, "TestMasterOnlyRoler")
+	sharder := route.NewSharder(testNumShards, testNumReplicas)
+	addresser := route.NewDiscoveryAddresser(client, sharder, "TestMasterOnlyRoler")
 	serverGroup1 := NewServerGroup(t, addresser, testNumServers/2, 0, 0)
 	go serverGroup1.run(t)
 	start := time.Now()
@@ -134,7 +135,8 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 }
 
 func runMasterReplicaTest(t *testing.T, client discovery.Client) {
-	addresser := route.NewDiscoveryAddresser(client, "TestMasterReplicaRoler")
+	sharder := route.NewSharder(testNumShards, testNumReplicas)
+	addresser := route.NewDiscoveryAddresser(client, sharder, "TestMasterReplicaRoler")
 	serverGroup1 := NewServerGroup(t, addresser, testNumServers/2, 0, testNumReplicas)
 	go serverGroup1.run(t)
 	start := time.Now()

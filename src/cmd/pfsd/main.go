@@ -66,9 +66,11 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 	}
+	sharder := route.NewSharder(appEnv.NumShards, 0)
 	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
 	addresser := route.NewDiscoveryAddresser(
 		discoveryClient,
+		sharder,
 		"namespace",
 	)
 	for i := 0; i < appEnv.NumShards; i++ {
@@ -89,6 +91,7 @@ func do(appEnvObj interface{}) error {
 	apiServer := server.NewAPIServer(
 		route.NewSharder(
 			appEnv.NumShards,
+			0,
 		),
 		route.NewRouter(
 			addresser,
@@ -101,6 +104,7 @@ func do(appEnvObj interface{}) error {
 	internalAPIServer := server.NewInternalAPIServer(
 		route.NewSharder(
 			appEnv.NumShards,
+			0,
 		),
 		route.NewRouter(
 			addresser,
