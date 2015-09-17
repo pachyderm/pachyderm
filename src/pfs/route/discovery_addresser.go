@@ -20,11 +20,12 @@ var (
 
 type discoveryAddresser struct {
 	discoveryClient discovery.Client
+	sharder         Sharder
 	namespace       string
 }
 
-func newDiscoveryAddresser(discoveryClient discovery.Client, namespace string) *discoveryAddresser {
-	return &discoveryAddresser{discoveryClient, namespace}
+func newDiscoveryAddresser(discoveryClient discovery.Client, sharder Sharder, namespace string) *discoveryAddresser {
+	return &discoveryAddresser{discoveryClient, sharder, namespace}
 }
 
 func (a *discoveryAddresser) GetMasterAddress(shard int) (Address, bool, error) {
@@ -150,20 +151,20 @@ func (a *discoveryAddresser) serverDir() string {
 	return fmt.Sprintf("%s/pfs/server", a.namespace)
 }
 
-func (a *discoveryAddresser) serverKey(id string) string {
-	return path.Join(a.serverDir(), id)
-}
-
-func (a *discoveryAddresser) serverAliveKey(id string) string {
-	return path.Join(a.serverDir(), "alive", id)
+func (a *discoveryAddresser) serverStateDir() string {
+	return path.Join(a.serverDir(), "state")
 }
 
 func (a *discoveryAddresser) serverStateKey(id string) string {
-	return path.Join(a.serverDir(), "state", id)
+	return path.Join(a.serverStateDir(), id)
+}
+
+func (a *discoveryAddresser) serverRoleDir() string {
+	return path.Join(a.serverDir(), "role")
 }
 
 func (a *discoveryAddresser) serverRoleKey(id string) string {
-	return path.Join(a.serverDir(), "role", id)
+	return path.Join(a.serverRoleDir(), id)
 }
 
 func (a *discoveryAddresser) addressDir() string {
@@ -241,8 +242,91 @@ func (a *discoveryAddresser) Announce(cancel chan bool, id string, address strin
 	return
 }
 
-func (a *discoveryAddresser) WatchServers(chan bool, func(map[string]ServerState) error) error {
-	return nil
+func assignMaster(serverRoles map[string]ServerRole, id string, shard uint64, masterRolesPerServer int) bool {
+	serverRole, ok := serverRoles[id]
+	if ok && len(serverRole.Master) < masterRolesPerServer {
+		serverRole.Master = append(serverRole.Master, shard)
+		serverRoles[id] = serverRole
+		return true
+	}
+	return false
+}
+
+func assignReplica(serverRoles map[string]ServerRole, id string, shard uint64, replicaRolesPerServer int) bool {
+	serverRole, ok := serverRoles[id]
+	if ok && len(serverRole.Replica) < replicaRolesPerServer {
+		serverRole.Replica = append(serverRole.Replica, shard)
+		serverRoles[id] = serverRole
+		return true
+	}
+	return false
+}
+
+func startingRoles(numShards int, numReplicas int) ServerRole {
+	var serverRole ServerRole
+	for i := 0; i < numShards; i++ {
+		serverRole.Master = append(serverRole.Master, uint64(i))
+		for j := 0; j < numReplicas; j++ {
+			serverRole.Replica = append(serverRole.Replica, uint64(i))
+		}
+	}
+	return serverRole
+}
+
+func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
+	oldRoles := make(map[string]ServerRole)
+	oldRoles[""] = startingRoles(a.sharder.NumShards(), a.sharder.NumReplicas())
+	var version int64 = 0
+	return a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
+		func(encodedServerStates map[string]string) (uint64, error) {
+			serverStates := make(map[string]ServerState)
+			newRoles := make(map[string]ServerRole)
+			masterRolesPerServer := a.sharder.NumShards() / len(encodedServerStates)
+			replicaRolesPerServer := (a.sharder.NumShards() * (a.sharder.NumReplicas())) / len(encodedServerStates)
+			for _, encodedServerState := range encodedServerStates {
+				var serverState ServerState
+				if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
+					return 0, err
+				}
+				serverStates[serverState.Id] = serverState
+				newRoles[serverState.Id] = ServerRole{Version: version}
+			}
+			for id, oldServerRole := range oldRoles {
+				for _, shard := range oldServerRole.Master {
+					if !assignMaster(newRoles, id, shard, masterRolesPerServer) {
+						for id := range newRoles {
+							if assignMaster(newRoles, id, shard, masterRolesPerServer) {
+								break
+							}
+						}
+					}
+				}
+				for _, shard := range oldServerRole.Replica {
+					if !assignReplica(newRoles, id, shard, replicaRolesPerServer) {
+						for id := range newRoles {
+							if assignReplica(newRoles, id, shard, replicaRolesPerServer) {
+								break
+							}
+						}
+					}
+				}
+			}
+			for id, serverState := range serverStates {
+				oldServerRole, ok := oldRoles[id]
+				if !ok {
+					continue
+				}
+				newServerRole := newRoles[serverState.Id]
+				for i := 0; i < masterRolesPerServer; i++ {
+					newServerRole.Master = append(newServerRole.Master, oldServerRole.Master[i])
+				}
+				for i := 0; i < replicaRolesPerServer; i++ {
+					newServerRole.Replica = append(newServerRole.Replica, oldServerRole.Replica[i])
+				}
+			}
+			version++
+			return 0, nil
+		})
 }
 
 func (a *discoveryAddresser) Version() (string, error) {
@@ -335,6 +419,7 @@ func (a *discoveryAddresser) fillRoles(
 				if addRoleErr != nil {
 					return 0, addRoleErr
 				}
+				oldRoles[version] = serverRole
 				versionChan <- version
 			}
 			// See if there are any old roles that aren't needed

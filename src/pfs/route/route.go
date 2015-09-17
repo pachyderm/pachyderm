@@ -9,6 +9,7 @@ import (
 
 type Sharder interface {
 	NumShards() int
+	NumReplicas() int
 	GetShard(file *pfs.File) (int, error)
 }
 
@@ -42,9 +43,8 @@ type Addresser interface {
 	DeleteReplicaAddress(shard int, index int, address Address) (uint64, error)
 
 	Announce(cancel chan bool, address string, server Server) error
-	WatchServers(chan bool, func(map[string]ServerState) error) error
+	AssignRoles(chan bool) error
 	Version() (string, error)
-	Set(layout Layout) error
 }
 
 func NewDiscoveryAddresser(discoveryClient discovery.Client, namespace string) Addresser {
