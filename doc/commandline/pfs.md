@@ -72,7 +72,7 @@ Alias: lr
     $ pfs list-repos
     NAME    TIME_CREATED        NUM_COMMITS     TOTAL_SIZE    
     repo    about a year ago    520187          468.4 TB
-    repo2   106 days ago         129840         977.9 GB     
+    repo2   106 days ago        129840          977.9 GB     
 
 ### Commands that can be called on a repository:
 #### create-repo
