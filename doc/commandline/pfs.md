@@ -26,7 +26,7 @@ __file/directory:__ Files are the base unit of data in pfs. Files can be organiz
     $ pfs help get
     Get a file from stdout. commit-id must be a readable commit.
     Usage:
-      pfs get repository-name commit-id path/to/file
+      pfs get repository-name commit-id path
 
 #### version
     Usage: pfs version
