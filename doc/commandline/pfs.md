@@ -1,6 +1,6 @@
 #TODO:
-- mount: better decription, add flags and lots of examples. Talk about umount and how other pfs commands don't work the same (or do).
-- add more details to put/get?
+- mount: better decription, add flags and lots of examples. Talk about umount and how other pfs commands do/don't work the same after mount.
+- add more details to put/get? Any specifics or nuances that people could get stuck on. 
 - talk about standard unix error codes -- 0, 1
 
 # Pachyderm File System CLI
@@ -58,6 +58,21 @@ Mounting a repo in pfs lets you access its contents as if it was a local file sy
     # mount the `repo` repo in pfs to your home directory
     $ pfs mount repo ~
 
+#### list-repos
+Alias: lr
+
+    Usage: pfs list-repos
+    
+    Lists all repositories in pfs
+    
+    Return format: NAME  TIME_CREATED  NUM_COMMITS  TOTAL_SIZE
+    
+##### Example
+    # List all repositories in pfs
+    $ pfs list-repos
+    NAME    TIME_CREATED        NUM_COMMITS     TOTAL_SIZE    
+    repo    about a year ago    520187          468.4 TB
+    repo2   106 days ago         129840         977.9 GB     
 
 ### Commands that can be called on a repository:
 #### create-repo
@@ -73,6 +88,31 @@ Repository names cannot contain `/`.
     # Create the repository `repo`
     $ pfs create-repo repo
 
+#### inspect-repo
+Alias: ir
+
+    Usage: pfs inspect-repo REPOSITORY
+    
+    Returns additional information about a repository
+    
+    Return format: NAME  TIME_CREATED  NUM_COMMITS  TOTAL_SIZE
+##### Example
+    # List all repositories in pfs
+    $ pfs inspect-repo
+    NAME    TIME_CREATED        NUM_COMMITS     TOTAL_SIZE    
+    repo    about a year ago    520187          468.4 TB
+
+#### delete-repo
+Alias: dr
+
+    Usage: pfs delete-repo REPOSITORY
+    
+    Deletes a repository including all its commits and data
+
+##### Example
+    # Delete the repository `repo`
+    $ pfs delete-repo repo
+    
 #### list-commits
 Alias: lc
 
@@ -187,7 +227,7 @@ Including a `/` in the file name will create directories as needed. Files can on
 
 #### get-file
 Alias: gf, get
-    Usage: pfs get-file REPOSITORY COMMIT_ID FILE_PATH
+    Usage: pfs get-file REPOSITORY COMMIT_ID PATH
     
     Reads a file out of pfs and outputs the content to stdout
     
@@ -197,17 +237,27 @@ Alias: gf, get
     # Read the file `file1` from commit `ID_2` in the repository `repo`
     $ pfs get-file repo ID_2 file1
     <contents of file1>
+
+#### delete-file
+Alias: df
+    Usage: pfs delete-file REPOSITORY COMMIT_ID PATH
+    
+    Deletes a file in pfs
+    
+##### Example
+    # Delete the file `file1` from commit `ID_2` in the repository `repo`
+    $ pfs dlete-file repo ID_2 file1
     
 #### inspect-file
 Alias: if
-    Usage: pfs inspect-file REPOSITORY COMMIT_ID FILE_PATH
+    Usage: pfs inspect-file REPOSITORY COMMIT_ID PATH
     
     Returns metadata about the specified file
     
     Return format: NAME  TYPE  MODIFIED  LAST_COMMIT_MODIFIED  SIZE  PERMISSIONS
 
 ##### Example
-    # Get the file `file1` from commit `ID_2` in the repository `repo`
+    # Get information about the file `file1` from commit `ID_2` in the repository `repo`
     $ pfs inspect-file repo ID_2 file1
     NAME    TYPE    MODIFIED        LAST_COMMIT_MODIFIED    SIZE        PERMISSIONS
     file1   file    35 minutes ago  ID_1                    5.1 MB      420 
