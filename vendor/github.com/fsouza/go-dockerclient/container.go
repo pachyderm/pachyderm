@@ -5,7 +5,6 @@
 package docker
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -61,13 +60,13 @@ type APIContainers struct {
 // See https://goo.gl/47a6tO for more details.
 func (c *Client) ListContainers(opts ListContainersOptions) ([]APIContainers, error) {
 	path := "/containers/json?" + queryString(opts)
-	body, _, err := c.do("GET", path, doOptions{})
+	resp, err := c.do("GET", path, doOptions{})
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	var containers []APIContainers
-	err = json.Unmarshal(body, &containers)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&containers); err != nil {
 		return nil, err
 	}
 	return containers, nil
@@ -306,8 +305,12 @@ type RenameContainerOptions struct {
 //
 // See https://goo.gl/laSOIy for more details.
 func (c *Client) RenameContainer(opts RenameContainerOptions) error {
-	_, _, err := c.do("POST", fmt.Sprintf("/containers/"+opts.ID+"/rename?%s", queryString(opts)), doOptions{})
-	return err
+	resp, err := c.do("POST", fmt.Sprintf("/containers/"+opts.ID+"/rename?%s", queryString(opts)), doOptions{})
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
 }
 
 // InspectContainer returns information about a container by its ID.
@@ -315,16 +318,16 @@ func (c *Client) RenameContainer(opts RenameContainerOptions) error {
 // See https://goo.gl/RdIq0b for more details.
 func (c *Client) InspectContainer(id string) (*Container, error) {
 	path := "/containers/" + id + "/json"
-	body, status, err := c.do("GET", path, doOptions{})
-	if status == http.StatusNotFound {
-		return nil, &NoSuchContainer{ID: id}
-	}
+	resp, err := c.do("GET", path, doOptions{})
 	if err != nil {
+		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
+			return nil, &NoSuchContainer{ID: id}
+		}
 		return nil, err
 	}
+	defer resp.Body.Close()
 	var container Container
-	err = json.Unmarshal(body, &container)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&container); err != nil {
 		return nil, err
 	}
 	return &container, nil
@@ -335,16 +338,16 @@ func (c *Client) InspectContainer(id string) (*Container, error) {
 // See https://goo.gl/9GsTIF for more details.
 func (c *Client) ContainerChanges(id string) ([]Change, error) {
 	path := "/containers/" + id + "/changes"
-	body, status, err := c.do("GET", path, doOptions{})
-	if status == http.StatusNotFound {
-		return nil, &NoSuchContainer{ID: id}
-	}
+	resp, err := c.do("GET", path, doOptions{})
 	if err != nil {
+		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
+			return nil, &NoSuchContainer{ID: id}
+		}
 		return nil, err
 	}
+	defer resp.Body.Close()
 	var changes []Change
-	err = json.Unmarshal(body, &changes)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&changes); err != nil {
 		return nil, err
 	}
 	return changes, nil
@@ -365,7 +368,7 @@ type CreateContainerOptions struct {
 // See https://goo.gl/WxQzrr for more details.
 func (c *Client) CreateContainer(opts CreateContainerOptions) (*Container, error) {
 	path := "/containers/create?" + queryString(opts)
-	body, status, err := c.do(
+	resp, err := c.do(
 		"POST",
 		path,
 		doOptions{
@@ -379,18 +382,21 @@ func (c *Client) CreateContainer(opts CreateContainerOptions) (*Container, error
 		},
 	)
 
-	if status == http.StatusNotFound {
-		return nil, ErrNoSuchImage
+	if e, ok := err.(*Error); ok {
+		if e.Status == http.StatusNotFound {
+			return nil, ErrNoSuchImage
+		}
+		if e.Status == http.StatusConflict {
+			return nil, ErrContainerAlreadyExists
+		}
 	}
-	if status == http.StatusConflict {
-		return nil, ErrContainerAlreadyExists
-	}
+
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	var container Container
-	err = json.Unmarshal(body, &container)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&container); err != nil {
 		return nil, err
 	}
 
@@ -490,16 +496,17 @@ type HostConfig struct {
 // See https://goo.gl/MrBAJv for more details.
 func (c *Client) StartContainer(id string, hostConfig *HostConfig) error {
 	path := "/containers/" + id + "/start"
-	_, status, err := c.do("POST", path, doOptions{data: hostConfig, forceJSON: true})
-	if status == http.StatusNotFound {
-		return &NoSuchContainer{ID: id, Err: err}
-	}
-	if status == http.StatusNotModified {
-		return &ContainerAlreadyRunning{ID: id}
-	}
+	resp, err := c.do("POST", path, doOptions{data: hostConfig, forceJSON: true})
 	if err != nil {
+		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
+			return &NoSuchContainer{ID: id, Err: err}
+		}
 		return err
 	}
+	if resp.StatusCode == http.StatusNotModified {
+		return &ContainerAlreadyRunning{ID: id}
+	}
+	resp.Body.Close()
 	return nil
 }
 
@@ -509,16 +516,17 @@ func (c *Client) StartContainer(id string, hostConfig *HostConfig) error {
 // See https://goo.gl/USqsFt for more details.
 func (c *Client) StopContainer(id string, timeout uint) error {
 	path := fmt.Sprintf("/containers/%s/stop?t=%d", id, timeout)
-	_, status, err := c.do("POST", path, doOptions{})
-	if status == http.StatusNotFound {
-		return &NoSuchContainer{ID: id}
-	}
-	if status == http.StatusNotModified {
-		return &ContainerNotRunning{ID: id}
-	}
+	resp, err := c.do("POST", path, doOptions{})
 	if err != nil {
+		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
+			return &NoSuchContainer{ID: id}
+		}
 		return err
 	}
+	if resp.StatusCode == http.StatusNotModified {
+		return &ContainerNotRunning{ID: id}
+	}
+	resp.Body.Close()
 	return nil
 }
 
@@ -528,13 +536,14 @@ func (c *Client) StopContainer(id string, timeout uint) error {
 // See https://goo.gl/QzsDnz for more details.
 func (c *Client) RestartContainer(id string, timeout uint) error {
 	path := fmt.Sprintf("/containers/%s/restart?t=%d", id, timeout)
-	_, status, err := c.do("POST", path, doOptions{})
-	if status == http.StatusNotFound {
-		return &NoSuchContainer{ID: id}
-	}
+	resp, err := c.do("POST", path, doOptions{})
 	if err != nil {
+		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
+			return &NoSuchContainer{ID: id}
+		}
 		return err
 	}
+	resp.Body.Close()
 	return nil
 }
 
@@ -543,13 +552,14 @@ func (c *Client) RestartContainer(id string, timeout uint) error {
 // See https://goo.gl/OF7W9X for more details.
 func (c *Client) PauseContainer(id string) error {
 	path := fmt.Sprintf("/containers/%s/pause", id)
-	_, status, err := c.do("POST", path, doOptions{})
-	if status == http.StatusNotFound {
-		return &NoSuchContainer{ID: id}
-	}
+	resp, err := c.do("POST", path, doOptions{})
 	if err != nil {
+		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
+			return &NoSuchContainer{ID: id}
+		}
 		return err
 	}
+	resp.Body.Close()
 	return nil
 }
 
@@ -558,13 +568,14 @@ func (c *Client) PauseContainer(id string) error {
 // See https://goo.gl/7dwyPA for more details.
 func (c *Client) UnpauseContainer(id string) error {
 	path := fmt.Sprintf("/containers/%s/unpause", id)
-	_, status, err := c.do("POST", path, doOptions{})
-	if status == http.StatusNotFound {
-		return &NoSuchContainer{ID: id}
-	}
+	resp, err := c.do("POST", path, doOptions{})
 	if err != nil {
+		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
+			return &NoSuchContainer{ID: id}
+		}
 		return err
 	}
+	resp.Body.Close()
 	return nil
 }
 
@@ -587,15 +598,15 @@ func (c *Client) TopContainer(id string, psArgs string) (TopResult, error) {
 		args = fmt.Sprintf("?ps_args=%s", psArgs)
 	}
 	path := fmt.Sprintf("/containers/%s/top%s", id, args)
-	body, status, err := c.do("GET", path, doOptions{})
-	if status == http.StatusNotFound {
-		return result, &NoSuchContainer{ID: id}
-	}
+	resp, err := c.do("GET", path, doOptions{})
 	if err != nil {
+		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
+			return result, &NoSuchContainer{ID: id}
+		}
 		return result, err
 	}
-	err = json.Unmarshal(body, &result)
-	if err != nil {
+	defer resp.Body.Close()
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return result, err
 	}
 	return result, nil
@@ -799,13 +810,14 @@ type KillContainerOptions struct {
 // See https://goo.gl/hkS9i8 for more details.
 func (c *Client) KillContainer(opts KillContainerOptions) error {
 	path := "/containers/" + opts.ID + "/kill" + "?" + queryString(opts)
-	_, status, err := c.do("POST", path, doOptions{})
-	if status == http.StatusNotFound {
-		return &NoSuchContainer{ID: opts.ID}
-	}
+	resp, err := c.do("POST", path, doOptions{})
 	if err != nil {
+		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
+			return &NoSuchContainer{ID: opts.ID}
+		}
 		return err
 	}
+	resp.Body.Close()
 	return nil
 }
 
@@ -830,13 +842,14 @@ type RemoveContainerOptions struct {
 // See https://goo.gl/RQyX62 for more details.
 func (c *Client) RemoveContainer(opts RemoveContainerOptions) error {
 	path := "/containers/" + opts.ID + "?" + queryString(opts)
-	_, status, err := c.do("DELETE", path, doOptions{})
-	if status == http.StatusNotFound {
-		return &NoSuchContainer{ID: opts.ID}
-	}
+	resp, err := c.do("DELETE", path, doOptions{})
 	if err != nil {
+		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
+			return &NoSuchContainer{ID: opts.ID}
+		}
 		return err
 	}
+	resp.Body.Close()
 	return nil
 }
 
@@ -900,14 +913,15 @@ func (c *Client) CopyFromContainer(opts CopyFromContainerOptions) error {
 		return &NoSuchContainer{ID: opts.Container}
 	}
 	url := fmt.Sprintf("/containers/%s/copy", opts.Container)
-	body, status, err := c.do("POST", url, doOptions{data: opts})
-	if status == http.StatusNotFound {
-		return &NoSuchContainer{ID: opts.Container}
-	}
+	resp, err := c.do("POST", url, doOptions{data: opts})
 	if err != nil {
+		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
+			return &NoSuchContainer{ID: opts.Container}
+		}
 		return err
 	}
-	_, err = io.Copy(opts.OutputStream, bytes.NewBuffer(body))
+	defer resp.Body.Close()
+	_, err = io.Copy(opts.OutputStream, resp.Body)
 	return err
 }
 
@@ -916,16 +930,16 @@ func (c *Client) CopyFromContainer(opts CopyFromContainerOptions) error {
 //
 // See https://goo.gl/Gc1rge for more details.
 func (c *Client) WaitContainer(id string) (int, error) {
-	body, status, err := c.do("POST", "/containers/"+id+"/wait", doOptions{})
-	if status == http.StatusNotFound {
-		return 0, &NoSuchContainer{ID: id}
-	}
+	resp, err := c.do("POST", "/containers/"+id+"/wait", doOptions{})
 	if err != nil {
+		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
+			return 0, &NoSuchContainer{ID: id}
+		}
 		return 0, err
 	}
+	defer resp.Body.Close()
 	var r struct{ StatusCode int }
-	err = json.Unmarshal(body, &r)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
 		return 0, err
 	}
 	return r.StatusCode, nil
@@ -948,16 +962,16 @@ type CommitContainerOptions struct {
 // See https://goo.gl/mqfoCw for more details.
 func (c *Client) CommitContainer(opts CommitContainerOptions) (*Image, error) {
 	path := "/commit?" + queryString(opts)
-	body, status, err := c.do("POST", path, doOptions{data: opts.Run})
-	if status == http.StatusNotFound {
-		return nil, &NoSuchContainer{ID: opts.Container}
-	}
+	resp, err := c.do("POST", path, doOptions{data: opts.Run})
 	if err != nil {
+		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
+			return nil, &NoSuchContainer{ID: opts.Container}
+		}
 		return nil, err
 	}
+	defer resp.Body.Close()
 	var image Image
-	err = json.Unmarshal(body, &image)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&image); err != nil {
 		return nil, err
 	}
 	return &image, nil
@@ -1060,8 +1074,12 @@ func (c *Client) ResizeContainerTTY(id string, height, width int) error {
 	params := make(url.Values)
 	params.Set("h", strconv.Itoa(height))
 	params.Set("w", strconv.Itoa(width))
-	_, _, err := c.do("POST", "/containers/"+id+"/resize?"+params.Encode(), doOptions{})
-	return err
+	resp, err := c.do("POST", "/containers/"+id+"/resize?"+params.Encode(), doOptions{})
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
 }
 
 // ExportContainerOptions is the set of parameters to the ExportContainer
