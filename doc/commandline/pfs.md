@@ -126,8 +126,8 @@ Alias: lc
     # List all commits in the repository `repo`
     $ pfs list-commits repo
     ID      PARENT      STATUS      TIME_OPENED         TIME_CLOSED     TOTAL_SIZE    DIFF_SIZE
-    ID_2    ID_1        writable    about an hour ago                   801.2 GB      100 MB   
-    ID_1    scratch     read-only   2 hours ago         2 hours ago     801.1 GB      801.1 GB                     
+    ID_2    ID_1        writable    about an hour ago                   801.2 GB      100 MB
+    ID_1    scratch     read-only   2 hours ago         2 hours ago     801.1 GB      801.1 GB
     
 
 ### Commands that can be called on a commit:
