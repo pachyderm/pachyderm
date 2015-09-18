@@ -8,7 +8,7 @@
 ## Terms
 __repository:__ A repository (aka: repo) is a set of data over which you want to track changes. Repos in pfs behave just like repos in Git, except they work over huge datasets instead of just source code. You can take snapshots (commits) on a repo and multiple repos can exist in a single cluster. For example, if you have multiple production databases dumping data into pfs on a hourly or daily basis, it may make sense for each of those to be a separate repo. 
 
-__commit:__ A commit is an immutable snapshot of a repo at a given time. Commits can be in two states, started or finished. Starting a commit creates a new commit that is writable, meaning you can add, modify, or remove files. Finishing a commit turns a writable commit into an immutable read-only state. Finished commits are replicated through the cluster, but writable commits are considered in a "dirty" state and are not replicated until they are finished. Commits reference each other in a tree structure. 
+__commit:__ A commit is an immutable snapshot of a repo at a given time. Commits can be in two states, started or finished. Starting a commit creates a new commit that is writable, meaning you can add, modify, or remove files. Finishing a commit turns a writable commit into an immutable read-only state. Finished commits are fully replicated, but writable commits are considered in a "dirty" state and are not replicated until they are finished. Commits reference each other in a tree structure. 
 
 __file/directory:__ Files are the base unit of data in pfs. Files can be organized in directories, just like any normal file system. 
 
