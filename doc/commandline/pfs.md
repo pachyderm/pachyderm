@@ -150,7 +150,7 @@ Commits start out containing exactly the contents of the parent commit and then 
     $ pfs start-commit repo ID_1 
     ID_2
     
-#### finish
+#### finish-commit
 Alias: fc
 
     Usage: pfs finish-commit REPOSITORY COMMIT_ID
@@ -198,7 +198,8 @@ Alias: ls, lf
     
         PATH       If unspecified, will return all files and directories recursively.
                     
-    Lists all of the files and directories in the specified path. The PATH `/` will return the top-level directories and         files without recursing. Similar to the `ls` shell command.
+    Lists all of the files and directories in the specified path. The PATH `/` will return
+    the top-level directories and files without recursing. Similar to the `ls` shell command.
     
     Return format: NAME  TYPE  MODIFIED  CREATED  LAST_COMMIT_MODIFIED  SIZE  PERMISSIONS
 
