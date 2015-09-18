@@ -244,12 +244,16 @@ func (a *discoveryAddresser) Register(cancel chan bool, id string, address strin
 
 func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 	oldRoles := make(map[string]ServerRole)
-	oldRoles[""] = startingRoles(a.sharder.NumShards(), a.sharder.NumReplicas())
+	oldMasters := make(map[uint64]string)
+	oldReplicas := make(map[uint64][]string)
 	var version int64
 	return a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
 		func(encodedServerStates map[string]string) (uint64, error) {
 			serverStates := make(map[string]ServerState)
+			shardLocations := make(map[uint64][]string)
 			newRoles := make(map[string]ServerRole)
+			newMasters := make(map[uint64]string)
+			newReplicas := make(map[uint64][]string)
 			masterRolesPerServer := a.sharder.NumShards() / len(encodedServerStates)
 			replicaRolesPerServer := (a.sharder.NumShards() * (a.sharder.NumReplicas())) / len(encodedServerStates)
 			for _, encodedServerState := range encodedServerStates {
@@ -259,23 +263,65 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 				}
 				serverStates[serverState.Id] = serverState
 				newRoles[serverState.Id] = ServerRole{Version: version}
+				for _, shard := range serverState.Shards {
+					shardLocations[shard] = append(shardLocations[shard], serverState.Id)
+				}
 			}
-			for id, oldServerRole := range oldRoles {
-				for _, shard := range oldServerRole.Masters {
-					if !assignMaster(newRoles, id, shard, masterRolesPerServer) {
-						for id := range newRoles {
-							if assignMaster(newRoles, id, shard, masterRolesPerServer) {
-								break
-							}
+		Master:
+			for shard := uint64(0); shard < uint64(a.sharder.NumShards()); shard++ {
+				if id, ok := oldMasters[shard]; ok {
+					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer) {
+						continue Master
+					}
+				}
+				for _, id := range oldReplicas[shard] {
+					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer) {
+						continue Master
+					}
+				}
+				for _, id := range shardLocations[shard] {
+					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer) {
+						continue Master
+					}
+				}
+				for id := range serverStates {
+					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer) {
+						continue Master
+					}
+				}
+			}
+		Replica:
+			for shard := uint64(0); shard < uint64(a.sharder.NumShards()); shard++ {
+				numReplicas := 0
+				if id, ok := oldMasters[shard]; ok {
+					if assignReplica(newRoles, newReplicas, id, shard, replicaRolesPerServer) {
+						numReplicas++
+						if numReplicas == a.sharder.NumReplicas() {
+							continue Replica
 						}
 					}
 				}
-				for _, shard := range oldServerRole.Replicas {
-					if !assignReplica(newRoles, id, shard, replicaRolesPerServer) {
-						for id := range newRoles {
-							if assignReplica(newRoles, id, shard, replicaRolesPerServer) {
-								break
-							}
+				for _, id := range oldReplicas[shard] {
+					if assignReplica(newRoles, newReplicas, id, shard, replicaRolesPerServer) {
+						numReplicas++
+						if numReplicas == a.sharder.NumReplicas() {
+							continue Replica
+						}
+					}
+				}
+				for _, id := range shardLocations[shard] {
+					if assignReplica(newRoles, newReplicas, id, shard, replicaRolesPerServer) {
+						numReplicas++
+						if numReplicas == a.sharder.NumReplicas() {
+							continue Replica
+						}
+					}
+				}
+				for id := range serverStates {
+					if assignReplica(newRoles, newReplicas, id, shard, replicaRolesPerServer) {
+						numReplicas++
+						if numReplicas == a.sharder.NumReplicas() {
+							continue Replica
 						}
 					}
 				}
@@ -291,6 +337,8 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 				}
 			}
 			oldRoles = newRoles
+			oldMasters = newMasters
+			oldReplicas = newReplicas
 			return 0, nil
 		})
 }
@@ -299,21 +347,23 @@ func (a *discoveryAddresser) Version() (string, error) {
 	return "", nil
 }
 
-func assignMaster(serverRoles map[string]ServerRole, id string, shard uint64, masterRolesPerServer int) bool {
+func assignMaster(serverRoles map[string]ServerRole, masters map[uint64]string, id string, shard uint64, masterRolesPerServer int) bool {
 	serverRole, ok := serverRoles[id]
 	if ok && len(serverRole.Masters) < masterRolesPerServer {
 		serverRole.Masters = append(serverRole.Masters, shard)
 		serverRoles[id] = serverRole
+		masters[shard] = id
 		return true
 	}
 	return false
 }
 
-func assignReplica(serverRoles map[string]ServerRole, id string, shard uint64, replicaRolesPerServer int) bool {
+func assignReplica(serverRoles map[string]ServerRole, replicas map[uint64][]string, id string, shard uint64, replicaRolesPerServer int) bool {
 	serverRole, ok := serverRoles[id]
 	if ok && len(serverRole.Replicas) < replicaRolesPerServer {
 		serverRole.Replicas = append(serverRole.Replicas, shard)
 		serverRoles[id] = serverRole
+		replicas[shard] = append(replicas[shard], id)
 		return true
 	}
 	return false

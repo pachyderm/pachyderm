@@ -6,11 +6,11 @@ message ServerState {
     string id = 1;
     string address = 2;
     int64 version = 3;
-	repeated uint64 shards = 4 [packed=true];
+	repeated uint64 shards = 4[packed=true];
 }
 
 message ServerRole {
     int64 version = 1;
-    repeated uint64 masters = 2 [packed=true];
-    repeated uint64 replicas = 3 [packed=true];
+    repeated uint64 masters = 2[packed=true];
+    repeated uint64 replicas = 3[packed=true];
 }
