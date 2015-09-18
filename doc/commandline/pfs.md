@@ -242,13 +242,14 @@ Alias: gf, get
 
 #### delete-file
 Alias: df
+
     Usage: pfs delete-file REPOSITORY COMMIT_ID PATH
     
     Deletes a file in pfs
     
 ##### Example
     # Delete the file `file1` from commit `ID_2` in the repository `repo`
-    $ pfs dlete-file repo ID_2 file1
+    $ pfs delete-file repo ID_2 file1
     
 #### inspect-file
 Alias: if
