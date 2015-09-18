@@ -214,7 +214,7 @@ func (a *discoveryAddresser) makeReplicaMap(addresses map[string]string) (map[in
 	return result, err
 }
 
-func (a *discoveryAddresser) Announce(cancel chan bool, id string, address string, server Server) (retErr error) {
+func (a *discoveryAddresser) Register(cancel chan bool, id string, address string, server Server) (retErr error) {
 	var once sync.Once
 	versionChan := make(chan int64)
 	internalCancel := make(chan bool)
@@ -242,37 +242,6 @@ func (a *discoveryAddresser) Announce(cancel chan bool, id string, address strin
 	return
 }
 
-func assignMaster(serverRoles map[string]ServerRole, id string, shard uint64, masterRolesPerServer int) bool {
-	serverRole, ok := serverRoles[id]
-	if ok && len(serverRole.Master) < masterRolesPerServer {
-		serverRole.Master = append(serverRole.Master, shard)
-		serverRoles[id] = serverRole
-		return true
-	}
-	return false
-}
-
-func assignReplica(serverRoles map[string]ServerRole, id string, shard uint64, replicaRolesPerServer int) bool {
-	serverRole, ok := serverRoles[id]
-	if ok && len(serverRole.Replica) < replicaRolesPerServer {
-		serverRole.Replica = append(serverRole.Replica, shard)
-		serverRoles[id] = serverRole
-		return true
-	}
-	return false
-}
-
-func startingRoles(numShards int, numReplicas int) ServerRole {
-	var serverRole ServerRole
-	for i := 0; i < numShards; i++ {
-		serverRole.Master = append(serverRole.Master, uint64(i))
-		for j := 0; j < numReplicas; j++ {
-			serverRole.Replica = append(serverRole.Replica, uint64(i))
-		}
-	}
-	return serverRole
-}
-
 func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 	oldRoles := make(map[string]ServerRole)
 	oldRoles[""] = startingRoles(a.sharder.NumShards(), a.sharder.NumReplicas())
@@ -292,7 +261,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 				newRoles[serverState.Id] = ServerRole{Version: version}
 			}
 			for id, oldServerRole := range oldRoles {
-				for _, shard := range oldServerRole.Master {
+				for _, shard := range oldServerRole.Masters {
 					if !assignMaster(newRoles, id, shard, masterRolesPerServer) {
 						for id := range newRoles {
 							if assignMaster(newRoles, id, shard, masterRolesPerServer) {
@@ -301,7 +270,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 						}
 					}
 				}
-				for _, shard := range oldServerRole.Replica {
+				for _, shard := range oldServerRole.Replicas {
 					if !assignReplica(newRoles, id, shard, replicaRolesPerServer) {
 						for id := range newRoles {
 							if assignReplica(newRoles, id, shard, replicaRolesPerServer) {
@@ -330,6 +299,37 @@ func (a *discoveryAddresser) Version() (string, error) {
 	return "", nil
 }
 
+func assignMaster(serverRoles map[string]ServerRole, id string, shard uint64, masterRolesPerServer int) bool {
+	serverRole, ok := serverRoles[id]
+	if ok && len(serverRole.Masters) < masterRolesPerServer {
+		serverRole.Masters = append(serverRole.Masters, shard)
+		serverRoles[id] = serverRole
+		return true
+	}
+	return false
+}
+
+func assignReplica(serverRoles map[string]ServerRole, id string, shard uint64, replicaRolesPerServer int) bool {
+	serverRole, ok := serverRoles[id]
+	if ok && len(serverRole.Replicas) < replicaRolesPerServer {
+		serverRole.Replicas = append(serverRole.Replicas, shard)
+		serverRoles[id] = serverRole
+		return true
+	}
+	return false
+}
+
+func startingRoles(numShards int, numReplicas int) ServerRole {
+	var serverRole ServerRole
+	for i := 0; i < numShards; i++ {
+		serverRole.Masters = append(serverRole.Masters, uint64(i))
+		for j := 0; j < numReplicas; j++ {
+			serverRole.Replicas = append(serverRole.Replicas, uint64(i))
+		}
+	}
+	return serverRole
+}
+
 func (a *discoveryAddresser) announceState(
 	id string,
 	address string,
@@ -343,6 +343,11 @@ func (a *discoveryAddresser) announceState(
 		Version: -1,
 	}
 	for {
+		shards, err := server.LocalShards()
+		if err != nil {
+			return err
+		}
+		serverState.Shards = shards
 		encodedServerState, err := marshaler.MarshalToString(serverState)
 		if err != nil {
 			return err
@@ -399,7 +404,7 @@ func (a *discoveryAddresser) fillRoles(
 				serverRole := newRoles[version]
 				var wg sync.WaitGroup
 				var addRoleErr error
-				for _, shard := range append(serverRole.Master, serverRole.Replica...) {
+				for _, shard := range append(serverRole.Masters, serverRole.Replicas...) {
 					if !containsShard(oldRoles, shard) {
 						wg.Add(1)
 						go func() {
@@ -427,7 +432,7 @@ func (a *discoveryAddresser) fillRoles(
 					// these roles haven't expired yet, so nothing to do
 					continue
 				}
-				for _, shard := range append(serverRole.Master, serverRole.Replica...) {
+				for _, shard := range append(serverRole.Masters, serverRole.Replicas...) {
 					if !containsShard(newRoles, shard) {
 						wg.Add(1)
 						go func() {
@@ -449,7 +454,7 @@ func (a *discoveryAddresser) fillRoles(
 
 func containsShard(roles map[int64]ServerRole, shard uint64) bool {
 	for _, serverRole := range roles {
-		for _, iShard := range append(serverRole.Master, serverRole.Replica...) {
+		for _, iShard := range append(serverRole.Masters, serverRole.Replicas...) {
 			if shard == iShard {
 				return true
 			}

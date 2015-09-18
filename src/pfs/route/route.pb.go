@@ -24,9 +24,10 @@ var _ = fmt.Errorf
 var _ = math.Inf
 
 type ServerState struct {
-	Id      string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Address string `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
-	Version int64  `protobuf:"varint,3,opt,name=version" json:"version,omitempty"`
+	Id      string   `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Address string   `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
+	Version int64    `protobuf:"varint,3,opt,name=version" json:"version,omitempty"`
+	Shards  []uint64 `protobuf:"varint,4,rep,packed,name=shards" json:"shards,omitempty"`
 }
 
 func (m *ServerState) Reset()         { *m = ServerState{} }
@@ -34,9 +35,9 @@ func (m *ServerState) String() string { return proto.CompactTextString(m) }
 func (*ServerState) ProtoMessage()    {}
 
 type ServerRole struct {
-	Version int64    `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
-	Master  []uint64 `protobuf:"varint,2,rep,packed,name=master" json:"master,omitempty"`
-	Replica []uint64 `protobuf:"varint,3,rep,packed,name=replica" json:"replica,omitempty"`
+	Version  int64    `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
+	Masters  []uint64 `protobuf:"varint,2,rep,packed,name=masters" json:"masters,omitempty"`
+	Replicas []uint64 `protobuf:"varint,3,rep,packed,name=replicas" json:"replicas,omitempty"`
 }
 
 func (m *ServerRole) Reset()         { *m = ServerRole{} }
