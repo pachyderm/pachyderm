@@ -1,4 +1,5 @@
 #TODO:
+- add table of contents at top
 - mount: better decription, add flags and lots of examples. Talk about umount and how other pfs commands do/don't work the same after mount.
 - add more details to put/get? Any specifics or nuances that people could get stuck on. 
 - talk about standard unix error codes -- 0, 1
