@@ -3,6 +3,7 @@ package route
 import (
 	"fmt"
 	"log"
+	"math"
 	"path"
 	"sort"
 	"strconv"
@@ -169,6 +170,10 @@ func (a *discoveryAddresser) serverRoleKey(id string) string {
 	return path.Join(a.serverRoleDir(), id)
 }
 
+func (a *discoveryAddresser) serverRoleKeyVersion(id string, version int64) string {
+	return path.Join(a.serverRoleKey(id), fmt.Sprint(version))
+}
+
 func (a *discoveryAddresser) addressDir() string {
 	return fmt.Sprintf("%s/pfs/address", a.namespace)
 }
@@ -245,17 +250,17 @@ func (a *discoveryAddresser) Register(cancel chan bool, id string, address strin
 }
 
 func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
+	var version int64
 	oldServerStates := make(map[string]ServerState)
 	oldRoles := make(map[string]ServerRole)
 	oldMasters := make(map[uint64]string)
 	oldReplicas := make(map[uint64][]string)
-	var version int64
+	var oldMinVersion int64
 	err := a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
 		func(encodedServerStates map[string]string) (uint64, error) {
 			if len(encodedServerStates) == 0 {
 				return 0, nil
 			}
-			log.Printf("encodedServerStates: %s", encodedServerStates)
 			newServerStates := make(map[string]ServerState)
 			shardLocations := make(map[uint64][]string)
 			newRoles := make(map[string]ServerRole)
@@ -268,12 +273,40 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 				if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
 					return 0, err
 				}
+				log.Printf("%+v", serverState)
 				newServerStates[serverState.Id] = serverState
 				newRoles[serverState.Id] = ServerRole{Version: version}
 				for _, shard := range serverState.Shards {
 					shardLocations[shard] = append(shardLocations[shard], serverState.Id)
 				}
 			}
+			// See if there's any roles we can delete
+			minVersion := int64(math.MaxInt64)
+			for _, serverState := range newServerStates {
+				if serverState.Version < minVersion {
+					minVersion = serverState.Version
+				}
+			}
+			if minVersion > oldMinVersion {
+				oldMinVersion = minVersion
+				serverRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
+				if err != nil {
+					return 0, err
+				}
+				for key, encodedServerRole := range serverRoles {
+					var serverRole ServerRole
+					if err := jsonpb.UnmarshalString(encodedServerRole, &serverRole); err != nil {
+						return 0, err
+					}
+					if serverRole.Version < minVersion {
+						if _, err := a.discoveryClient.Delete(key); err != nil {
+							return 0, err
+						}
+					}
+				}
+			}
+			// if the servers are identical to last time then we know we'll
+			// assign shards the same way
 			if sameServers(oldServerStates, newServerStates) {
 				return 0, nil
 			}
@@ -336,17 +369,17 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 					}
 				}
 			}
-			version++
 			for id, serverRole := range newRoles {
 				encodedServerRole, err := marshaler.MarshalToString(&serverRole)
 				if err != nil {
 					return 0, err
 				}
-				if _, err := a.discoveryClient.Set(a.serverRoleKey(id), encodedServerRole, 0); err != nil {
+				log.Printf("%s -> %s", id, encodedServerRole)
+				if _, err := a.discoveryClient.Set(a.serverRoleKeyVersion(id, version), encodedServerRole, 0); err != nil {
 					return 0, err
 				}
-				log.Printf("%s -> %s", id, encodedServerRole)
 			}
+			version++
 			oldServerStates = newServerStates
 			oldRoles = newRoles
 			oldMasters = newMasters
@@ -447,31 +480,35 @@ func (a *discoveryAddresser) fillRoles(
 	return a.discoveryClient.WatchAll(
 		a.serverRoleKey(id),
 		cancel,
-		func(roles map[string]string) (uint64, error) {
-			newRoles := make(map[int64]ServerRole, len(roles))
-			var newVersions int64Slice
+		func(encodedServerRoles map[string]string) (uint64, error) {
+			roles := make(map[int64]ServerRole, len(encodedServerRoles))
+			var versions int64Slice
 			// Decode the roles
-			for _, encodedServerRole := range roles {
+			for _, encodedServerRole := range encodedServerRoles {
 				var serverRole ServerRole
 				if err := jsonpb.UnmarshalString(encodedServerRole, &serverRole); err != nil {
 					return 0, err
 				}
-				newRoles[serverRole.Version] = serverRole
-				newVersions = append(newVersions, serverRole.Version)
+				roles[serverRole.Version] = serverRole
+				versions = append(versions, serverRole.Version)
 			}
-			sort.Sort(newVersions)
+			sort.Sort(versions)
+			log.Printf("%s: oldRoles: %+v", id, oldRoles)
+			log.Printf("%s: roles: %+v", id, roles)
 			// For each new version bring the server up to date
-			for _, version := range newVersions {
+			for _, version := range versions {
 				if _, ok := oldRoles[version]; ok {
 					// we've already seen these roles, so nothing to do here
+					log.Printf("Skipping due to old version: %d", version)
 					continue
 				}
-				serverRole := newRoles[version]
+				serverRole := roles[version]
 				var wg sync.WaitGroup
 				var addShardErr error
 				var addShardOnce sync.Once
 				for _, shard := range append(serverRole.Masters, serverRole.Replicas...) {
 					if !containsShard(oldRoles, shard) {
+						log.Printf("Adding: %d", shard)
 						wg.Add(1)
 						go func(shard uint64) {
 							defer wg.Done()
@@ -481,6 +518,8 @@ func (a *discoveryAddresser) fillRoles(
 								})
 							}
 						}(shard)
+					} else {
+						log.Printf("Already had: %d", shard)
 					}
 				}
 				wg.Wait()
@@ -495,12 +534,12 @@ func (a *discoveryAddresser) fillRoles(
 			var removeShardErr error
 			var removeShardOnce sync.Once
 			for version, serverRole := range oldRoles {
-				if _, ok := newRoles[version]; ok {
+				if _, ok := roles[version]; ok {
 					// these roles haven't expired yet, so nothing to do
 					continue
 				}
 				for _, shard := range append(serverRole.Masters, serverRole.Replicas...) {
-					if !containsShard(newRoles, shard) {
+					if !containsShard(roles, shard) {
 						wg.Add(1)
 						go func(shard uint64) {
 							defer wg.Done()
@@ -514,6 +553,9 @@ func (a *discoveryAddresser) fillRoles(
 				}
 			}
 			wg.Wait()
+			for version, serverRole := range roles {
+				oldRoles[version] = serverRole
+			}
 			return 0, removeShardErr
 		},
 	)

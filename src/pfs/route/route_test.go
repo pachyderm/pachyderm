@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	testNumShards   = 2
-	testNumServers  = 2
-	testNumReplicas = 0
+	testNumShards   = 16
+	testNumServers  = 4
+	testNumReplicas = 1
 )
 
 func TestMasterOnlyRoler(t *testing.T) {
@@ -101,7 +101,7 @@ func (s *serverGroup) satisfied(shardsLen int) bool {
 }
 
 func runMasterOnlyTest(t *testing.T, client discovery.Client) {
-	sharder := NewSharder(testNumShards, testNumReplicas)
+	sharder := NewSharder(testNumShards, 0)
 	addresser := NewDiscoveryAddresser(client, sharder, "TestMasterOnlyRoler")
 	cancel := make(chan bool)
 	go func() {
@@ -132,6 +132,7 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 	}
 	log.Print("Cancel Group 1")
 	close(serverGroup1.cancel)
+	start = time.Now()
 	for !serverGroup2.satisfied(testNumShards / (testNumServers / 2)) {
 		time.Sleep(500 * time.Millisecond)
 		if time.Since(start) > time.Second*time.Duration(60) {
