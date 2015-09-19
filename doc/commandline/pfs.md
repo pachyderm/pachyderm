@@ -7,8 +7,8 @@
 # Pachyderm File System CLI
 
 * [Terms](#Terms)
-* [Error Codes](#what-is-pachyderm)
-* [Commands](#key-features)
+* [Error Codes](#Error-Codes)
+* [Commands](#Commands)
     * [help] (#help)
     * [version] (#version)
     * [mount] (#mount)
