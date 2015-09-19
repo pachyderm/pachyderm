@@ -6,9 +6,9 @@
 
 # Pachyderm File System CLI
 
-* [Terms](#Terms)
-* [Error Codes](#Error-Codes)
-* [Commands](#Commands)
+* [Terms](#terms)
+* [Error Codes](#error-codes)
+* [Commands](#commands)
     * [help] (#help)
     * [version] (#version)
     * [mount] (#mount)
