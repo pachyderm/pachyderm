@@ -6,6 +6,27 @@
 
 # Pachyderm File System CLI
 
+* [Terms](#Terms)
+* [Error Codes](#what-is-pachyderm)
+* [Commands](#key-features)
+    * [help] (#help)
+    * [version] (#version)
+    * [mount] (#mount)
+    * [list-repos] (#list-repos)
+    * [create-repo] (#create-repo)
+    * [inspect-repo] (#inspect-repo)
+    * [delete-repo] (#delete-repo)
+    * [list-commits] (#list-commits)
+    * [start-commit] (#start-commit)
+    * [finish-commit] (#finish-commit)
+    * [inspect-commit] (#inspect-commit)
+    * [mkdir] (#mkdir)
+    * [list-files] (#list-files)
+    * [put-file] (#put-file)
+    * [get-file] (#get-file)
+    * [inspect-file] (#inspect-file)
+    * [delete-file] (#delete-file)
+
 ## Terms
 __repository:__ A repository (aka: repo) is a set of data over which you want to track changes. Repos in pfs behave just like repos in Git, except they work over huge datasets instead of just source code. You can take snapshots (commits) on a repo and multiple repos can exist in a single cluster. For example, if you have multiple production databases dumping data into pfs on a hourly or daily basis, it may make sense for each of those to be a separate repo. 
 
@@ -240,17 +261,6 @@ Alias: gf, get
     $ pfs get-file repo ID_2 file1
     <contents of file1>
 
-#### delete-file
-Alias: df
-
-    Usage: pfs delete-file REPOSITORY COMMIT_ID PATH
-    
-    Deletes a file in pfs
-    
-##### Example
-    # Delete the file `file1` from commit `ID_2` in the repository `repo`
-    $ pfs delete-file repo ID_2 file1
-    
 #### inspect-file
 Alias: if
     Usage: pfs inspect-file REPOSITORY COMMIT_ID PATH
@@ -264,3 +274,15 @@ Alias: if
     $ pfs inspect-file repo ID_2 file1
     NAME    TYPE    MODIFIED        LAST_COMMIT_MODIFIED    SIZE        PERMISSIONS
     file1   file    35 minutes ago  ID_1                    5.1 MB      420 
+
+#### delete-file
+Alias: df
+
+    Usage: pfs delete-file REPOSITORY COMMIT_ID PATH
+    
+    Deletes a file in pfs
+    
+##### Example
+    # Delete the file `file1` from commit `ID_2` in the repository `repo`
+    $ pfs delete-file repo ID_2 file1
+    
