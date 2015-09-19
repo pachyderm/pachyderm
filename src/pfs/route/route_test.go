@@ -3,6 +3,7 @@ package route
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 	"testing"
@@ -82,7 +83,7 @@ func (s *serverGroup) run(t *testing.T) {
 			defer wg.Done()
 			require.Equal(
 				t,
-				discovery.ErrCancelled,
+				ErrCancelled,
 				s.addresser.Register(s.cancel, fmt.Sprintf("server-%d", i+s.offset), fmt.Sprintf("address-%d", i+s.offset), server),
 			)
 		}(i, server)
@@ -103,10 +104,13 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 	sharder := NewSharder(testNumShards, testNumReplicas)
 	addresser := NewDiscoveryAddresser(client, sharder, "TestMasterOnlyRoler")
 	cancel := make(chan bool)
-	go addresser.AssignRoles(cancel)
+	go func() {
+		require.Equal(t, ErrCancelled, addresser.AssignRoles(cancel))
+	}()
 	defer func() {
 		close(cancel)
 	}()
+	log.Print("Start Group 1")
 	serverGroup1 := NewServerGroup(t, addresser, testNumServers/2, 0)
 	go serverGroup1.run(t)
 	start := time.Now()
@@ -116,7 +120,7 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 			t.Fatal("test timed out")
 		}
 	}
-
+	log.Print("Start Group 2")
 	serverGroup2 := NewServerGroup(t, addresser, testNumServers/2, testNumServers/2)
 	go serverGroup2.run(t)
 	start = time.Now()
@@ -126,7 +130,7 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 			t.Fatal("test timed out")
 		}
 	}
-
+	log.Print("Cancel Group 1")
 	close(serverGroup1.cancel)
 	for !serverGroup2.satisfied(testNumShards / (testNumServers / 2)) {
 		time.Sleep(500 * time.Millisecond)

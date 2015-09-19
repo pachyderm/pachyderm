@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	holdTTL   uint64 = 20
-	marshaler        = &jsonpb.Marshaler{}
+	holdTTL      uint64 = 20
+	marshaler           = &jsonpb.Marshaler{}
+	ErrCancelled        = fmt.Errorf("cancelled by user")
 )
 
 type discoveryAddresser struct {
@@ -237,7 +238,7 @@ func (a *discoveryAddresser) Register(cancel chan bool, id string, address strin
 	}()
 	<-cancel
 	once.Do(func() {
-		retErr = fmt.Errorf("register cancelled")
+		retErr = ErrCancelled
 		close(internalCancel)
 	})
 	return
@@ -249,7 +250,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 	oldMasters := make(map[uint64]string)
 	oldReplicas := make(map[uint64][]string)
 	var version int64
-	return a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
+	err := a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
 		func(encodedServerStates map[string]string) (uint64, error) {
 			if len(encodedServerStates) == 0 {
 				return 0, nil
@@ -352,6 +353,10 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 			oldReplicas = newReplicas
 			return 0, nil
 		})
+	if err == discovery.ErrCancelled {
+		return ErrCancelled
+	}
+	return err
 }
 
 func (a *discoveryAddresser) Version() (string, error) {
