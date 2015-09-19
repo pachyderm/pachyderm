@@ -53,9 +53,9 @@ func NewDiscoveryAddresser(discoveryClient discovery.Client, sharder Sharder, na
 
 type Server interface {
 	// AddRole tells the server it now has a role for a shard.
-	AddRole(shard uint64) error
+	AddShard(shard uint64) error
 	// RemoveRole tells the server it no longer has a role for a shard.
-	RemoveRole(shard uint64) error
+	RemoveShard(shard uint64) error
 	// LocalRoles asks the server which shards it has on disk and how many commits each shard has.
 	LocalShards() ([]uint64, error)
 }

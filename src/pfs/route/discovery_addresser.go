@@ -2,6 +2,7 @@ package route
 
 import (
 	"fmt"
+	"log"
 	"path"
 	"sort"
 	"strconv"
@@ -236,20 +237,25 @@ func (a *discoveryAddresser) Register(cancel chan bool, id string, address strin
 	}()
 	<-cancel
 	once.Do(func() {
-		retErr = fmt.Errorf("announce cancelled")
+		retErr = fmt.Errorf("register cancelled")
 		close(internalCancel)
 	})
 	return
 }
 
 func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
+	oldServerStates := make(map[string]ServerState)
 	oldRoles := make(map[string]ServerRole)
 	oldMasters := make(map[uint64]string)
 	oldReplicas := make(map[uint64][]string)
 	var version int64
 	return a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
 		func(encodedServerStates map[string]string) (uint64, error) {
-			serverStates := make(map[string]ServerState)
+			if len(encodedServerStates) == 0 {
+				return 0, nil
+			}
+			log.Printf("encodedServerStates: %s", encodedServerStates)
+			newServerStates := make(map[string]ServerState)
 			shardLocations := make(map[uint64][]string)
 			newRoles := make(map[string]ServerRole)
 			newMasters := make(map[uint64]string)
@@ -261,11 +267,14 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 				if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
 					return 0, err
 				}
-				serverStates[serverState.Id] = serverState
+				newServerStates[serverState.Id] = serverState
 				newRoles[serverState.Id] = ServerRole{Version: version}
 				for _, shard := range serverState.Shards {
 					shardLocations[shard] = append(shardLocations[shard], serverState.Id)
 				}
+			}
+			if sameServers(oldServerStates, newServerStates) {
+				return 0, nil
 			}
 		Master:
 			for shard := uint64(0); shard < uint64(a.sharder.NumShards()); shard++ {
@@ -284,7 +293,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 						continue Master
 					}
 				}
-				for id := range serverStates {
+				for id := range newServerStates {
 					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer) {
 						continue Master
 					}
@@ -317,7 +326,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 						}
 					}
 				}
-				for id := range serverStates {
+				for id := range newServerStates {
 					if assignReplica(newRoles, newReplicas, id, shard, replicaRolesPerServer) {
 						numReplicas++
 						if numReplicas == a.sharder.NumReplicas() {
@@ -335,7 +344,9 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 				if _, err := a.discoveryClient.Set(a.serverRoleKey(id), encodedServerRole, 0); err != nil {
 					return 0, err
 				}
+				log.Printf("%s -> %s", id, encodedServerRole)
 			}
+			oldServerStates = newServerStates
 			oldRoles = newRoles
 			oldMasters = newMasters
 			oldReplicas = newReplicas
@@ -444,7 +455,6 @@ func (a *discoveryAddresser) fillRoles(
 				newVersions = append(newVersions, serverRole.Version)
 			}
 			sort.Sort(newVersions)
-			var once sync.Once
 			// For each new version bring the server up to date
 			for _, version := range newVersions {
 				if _, ok := oldRoles[version]; ok {
@@ -453,30 +463,32 @@ func (a *discoveryAddresser) fillRoles(
 				}
 				serverRole := newRoles[version]
 				var wg sync.WaitGroup
-				var addRoleErr error
+				var addShardErr error
+				var addShardOnce sync.Once
 				for _, shard := range append(serverRole.Masters, serverRole.Replicas...) {
 					if !containsShard(oldRoles, shard) {
 						wg.Add(1)
-						go func() {
+						go func(shard uint64) {
 							defer wg.Done()
-							if err := server.AddRole(shard); err != nil {
-								once.Do(func() {
-									addRoleErr = err
+							if err := server.AddShard(shard); err != nil {
+								addShardOnce.Do(func() {
+									addShardErr = err
 								})
 							}
-						}()
+						}(shard)
 					}
 				}
 				wg.Wait()
-				if addRoleErr != nil {
-					return 0, addRoleErr
+				if addShardErr != nil {
+					return 0, addShardErr
 				}
 				oldRoles[version] = serverRole
 				versionChan <- version
 			}
 			// See if there are any old roles that aren't needed
 			var wg sync.WaitGroup
-			var removeRoleErr error
+			var removeShardErr error
+			var removeShardOnce sync.Once
 			for version, serverRole := range oldRoles {
 				if _, ok := newRoles[version]; ok {
 					// these roles haven't expired yet, so nothing to do
@@ -485,19 +497,19 @@ func (a *discoveryAddresser) fillRoles(
 				for _, shard := range append(serverRole.Masters, serverRole.Replicas...) {
 					if !containsShard(newRoles, shard) {
 						wg.Add(1)
-						go func() {
+						go func(shard uint64) {
 							defer wg.Done()
-							if err := server.RemoveRole(shard); err != nil {
-								once.Do(func() {
-									removeRoleErr = err
+							if err := server.RemoveShard(shard); err != nil {
+								removeShardOnce.Do(func() {
+									removeShardErr = err
 								})
 							}
-						}()
+						}(shard)
 					}
 				}
 			}
 			wg.Wait()
-			return 0, removeRoleErr
+			return 0, removeShardErr
 		},
 	)
 }
@@ -511,4 +523,16 @@ func containsShard(roles map[int64]ServerRole, shard uint64) bool {
 		}
 	}
 	return false
+}
+
+func sameServers(oldServerStates map[string]ServerState, newServerStates map[string]ServerState) bool {
+	if len(oldServerStates) != len(newServerStates) {
+		return false
+	}
+	for id := range oldServerStates {
+		if _, ok := newServerStates[id]; !ok {
+			return false
+		}
+	}
+	return true
 }
