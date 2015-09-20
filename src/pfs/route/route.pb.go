@@ -24,22 +24,43 @@ var _ = fmt.Errorf
 var _ = math.Inf
 
 type ServerState struct {
-	Id      string   `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Address string   `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
-	Version int64    `protobuf:"varint,3,opt,name=version" json:"version,omitempty"`
-	Shards  []uint64 `protobuf:"varint,4,rep,packed,name=shards" json:"shards,omitempty"`
+	Id      string          `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Address string          `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
+	Version int64           `protobuf:"varint,3,opt,name=version" json:"version,omitempty"`
+	Shards  map[uint64]bool `protobuf:"bytes,4,rep,name=shards" json:"shards,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 }
 
 func (m *ServerState) Reset()         { *m = ServerState{} }
 func (m *ServerState) String() string { return proto.CompactTextString(m) }
 func (*ServerState) ProtoMessage()    {}
 
+func (m *ServerState) GetShards() map[uint64]bool {
+	if m != nil {
+		return m.Shards
+	}
+	return nil
+}
+
 type ServerRole struct {
-	Version  int64    `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
-	Masters  []uint64 `protobuf:"varint,2,rep,packed,name=masters" json:"masters,omitempty"`
-	Replicas []uint64 `protobuf:"varint,3,rep,packed,name=replicas" json:"replicas,omitempty"`
+	Version  int64           `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
+	Masters  map[uint64]bool `protobuf:"bytes,2,rep,name=masters" json:"masters,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	Replicas map[uint64]bool `protobuf:"bytes,3,rep,name=replicas" json:"replicas,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 }
 
 func (m *ServerRole) Reset()         { *m = ServerRole{} }
 func (m *ServerRole) String() string { return proto.CompactTextString(m) }
 func (*ServerRole) ProtoMessage()    {}
+
+func (m *ServerRole) GetMasters() map[uint64]bool {
+	if m != nil {
+		return m.Masters
+	}
+	return nil
+}
+
+func (m *ServerRole) GetReplicas() map[uint64]bool {
+	if m != nil {
+		return m.Replicas
+	}
+	return nil
+}
