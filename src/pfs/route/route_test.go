@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	testNumShards   = 16
-	testNumServers  = 4
+	testNumShards   = 512
+	testNumServers  = 8
 	testNumReplicas = 1
 )
 
@@ -94,6 +94,7 @@ func (s *serverGroup) satisfied(shardsLen int) bool {
 	result := true
 	for _, server := range s.servers {
 		if len(server.shards) != shardsLen {
+			log.Printf("have: %d, want: %d", len(server.shards), shardsLen)
 			result = false
 		}
 	}

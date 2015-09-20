@@ -499,7 +499,7 @@ func (a *discoveryAddresser) fillRoles(
 			for _, version := range versions {
 				if _, ok := oldRoles[version]; ok {
 					// we've already seen these roles, so nothing to do here
-					log.Printf("Skipping due to old version: %d", version)
+					log.Printf("%s: skipping due to old version: %d", id, version)
 					continue
 				}
 				serverRole := roles[version]
@@ -508,7 +508,7 @@ func (a *discoveryAddresser) fillRoles(
 				var addShardOnce sync.Once
 				for _, shard := range append(serverRole.Masters, serverRole.Replicas...) {
 					if !containsShard(oldRoles, shard) {
-						log.Printf("Adding: %d", shard)
+						log.Printf("%s: adding: %d", id, shard)
 						wg.Add(1)
 						go func(shard uint64) {
 							defer wg.Done()
@@ -519,7 +519,7 @@ func (a *discoveryAddresser) fillRoles(
 							}
 						}(shard)
 					} else {
-						log.Printf("Already had: %d", shard)
+						log.Printf("%s: already had: %d", id, shard)
 					}
 				}
 				wg.Wait()
@@ -540,6 +540,7 @@ func (a *discoveryAddresser) fillRoles(
 				}
 				for _, shard := range append(serverRole.Masters, serverRole.Replicas...) {
 					if !containsShard(roles, shard) {
+						log.Printf("%s: removing: %d", id, shard)
 						wg.Add(1)
 						go func(shard uint64) {
 							defer wg.Done()
@@ -553,6 +554,7 @@ func (a *discoveryAddresser) fillRoles(
 				}
 			}
 			wg.Wait()
+			oldRoles = make(map[int64]ServerRole, len(roles))
 			for version, serverRole := range roles {
 				oldRoles[version] = serverRole
 			}
