@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	testNumShards   = 512
-	testNumServers  = 8
+	testNumShards   = 4
+	testNumServers  = 2
 	testNumReplicas = 1
 )
 
@@ -26,7 +26,6 @@ func TestMasterOnlyRoler(t *testing.T) {
 }
 
 func TestMasterReplicaRoler(t *testing.T) {
-	t.Skip()
 	client, err := getEtcdClient()
 	require.NoError(t, err)
 	runMasterReplicaTest(t, client)
@@ -51,7 +50,7 @@ func (s *server) RemoveShard(shard uint64) error {
 	return nil
 }
 
-func (s *server) LocalShards() ([]uint64, error) {
+func (s *server) LocalShards() (map[uint64]bool, error) {
 	return nil, nil
 }
 

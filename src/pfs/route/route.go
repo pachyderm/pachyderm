@@ -57,7 +57,7 @@ type Server interface {
 	// RemoveRole tells the server it no longer has a role for a shard.
 	RemoveShard(shard uint64) error
 	// LocalRoles asks the server which shards it has on disk and how many commits each shard has.
-	LocalShards() ([]uint64, error)
+	LocalShards() (map[uint64]bool, error)
 }
 
 // Announcer announces a server to the outside world.
