@@ -267,8 +267,10 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 			newMasters := make(map[uint64]string)
 			newReplicas := make(map[uint64][]string)
 			masterRolesPerServer := a.sharder.NumShards() / len(encodedServerStates)
+			masterRolesRemainder := a.sharder.NumShards() % len(encodedServerStates)
 			replicaRolesPerServer := (a.sharder.NumShards() * (a.sharder.NumReplicas())) / len(encodedServerStates)
-			log.Printf("masterRolesPerServer: %d, replicaRolesPerServer: %d", masterRolesPerServer, replicaRolesPerServer)
+			replicaRolesRemainder := (a.sharder.NumShards() * (a.sharder.NumReplicas())) % len(encodedServerStates)
+			log.Printf("masterRolesPerServer: %d + %d, replicaRolesPerServer: %d + %d", masterRolesPerServer, masterRolesRemainder, replicaRolesPerServer, replicaRolesRemainder)
 			for _, encodedServerState := range encodedServerStates {
 				var serverState ServerState
 				if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
@@ -318,22 +320,22 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 		Master:
 			for shard := uint64(0); shard < uint64(a.sharder.NumShards()); shard++ {
 				if id, ok := oldMasters[shard]; ok {
-					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer) {
+					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer, &masterRolesRemainder) {
 						continue Master
 					}
 				}
 				for _, id := range oldReplicas[shard] {
-					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer) {
+					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer, &masterRolesRemainder) {
 						continue Master
 					}
 				}
 				for _, id := range shardLocations[shard] {
-					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer) {
+					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer, &masterRolesRemainder) {
 						continue Master
 					}
 				}
 				for id := range newServerStates {
-					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer) {
+					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer, &masterRolesPerServer) {
 						continue Master
 					}
 				}
@@ -343,22 +345,22 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 			Replica:
 				for shard := uint64(0); shard < uint64(a.sharder.NumShards()); shard++ {
 					if id, ok := oldMasters[shard]; ok {
-						if assignReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer) {
+						if assignReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer, &replicaRolesRemainder) {
 							continue Replica
 						}
 					}
 					for _, id := range oldReplicas[shard] {
-						if assignReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer) {
+						if assignReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer, &replicaRolesRemainder) {
 							continue Replica
 						}
 					}
 					for _, id := range shardLocations[shard] {
-						if assignReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer) {
+						if assignReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer, &replicaRolesRemainder) {
 							continue Replica
 						}
 					}
 					for id := range newServerStates {
-						if assignReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer) {
+						if assignReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer, &replicaRolesRemainder) {
 							continue Replica
 						}
 					}
@@ -412,16 +414,23 @@ func assignMaster(
 	id string,
 	shard uint64,
 	masterRolesPerServer int,
+	masterRolesRemainder *int,
 ) bool {
 	serverRole, ok := serverRoles[id]
 	if !ok {
 		return false
 	}
-	if len(serverRole.Masters) == masterRolesPerServer {
+	if len(serverRole.Masters) > masterRolesPerServer {
+		return false
+	}
+	if len(serverRole.Masters) == masterRolesPerServer && *masterRolesRemainder == 0 {
 		return false
 	}
 	if hasShard(serverRole, shard) {
 		return false
+	}
+	if len(serverRole.Masters) == masterRolesPerServer && *masterRolesRemainder > 0 {
+		*masterRolesRemainder--
 	}
 	serverRole.Masters[shard] = true
 	serverRoles[id] = serverRole
@@ -436,16 +445,23 @@ func assignReplica(
 	id string,
 	shard uint64,
 	replicaRolesPerServer int,
+	replicaRolesRemainder *int,
 ) bool {
 	serverRole, ok := serverRoles[id]
 	if !ok {
 		return false
 	}
-	if len(serverRole.Replicas) == replicaRolesPerServer {
+	if len(serverRole.Replicas) > replicaRolesPerServer {
+		return false
+	}
+	if len(serverRole.Replicas) == replicaRolesPerServer && *replicaRolesRemainder == 0 {
 		return false
 	}
 	if hasShard(serverRole, shard) {
 		return false
+	}
+	if len(serverRole.Replicas) == replicaRolesPerServer && *replicaRolesRemainder > 0 {
+		*replicaRolesRemainder--
 	}
 	serverRole.Replicas[shard] = true
 	serverRoles[id] = serverRole
@@ -465,11 +481,11 @@ func swapReplica(
 	if !ok {
 		return false
 	}
-	if len(serverRole.Replicas) == replicaRolesPerServer {
+	if len(serverRole.Replicas) >= replicaRolesPerServer {
 		return false
 	}
-	for swapId, swapServerRole := range serverRoles {
-		if swapId == id {
+	for swapID, swapServerRole := range serverRoles {
+		if swapID == id {
 			continue
 		}
 		for swapShard := range serverRole.Replicas {
@@ -480,12 +496,17 @@ func swapReplica(
 				continue
 			}
 			delete(swapServerRole.Replicas, swapShard)
-			serverRoles[swapId] = swapServerRole
-			removeReplica(replicas, swapShard, swapId)
-			// Note we don't limit  the swapped servers replicaRolesPerServer, that's because it's
-			// replacing an already existing shard.
-			assignReplica(serverRoles, masters, replicas, swapId, shard, math.MaxInt64)
-			assignReplica(serverRoles, masters, replicas, id, swapShard, replicaRolesPerServer)
+			serverRoles[swapID] = swapServerRole
+			removeReplica(replicas, swapShard, swapID)
+			// We do some weird things with the limits here, both servers
+			// receive a 0 replicaRolesRemainder, swapID doesn't need a
+			// remainder because we're replacing a shard we stole so it also
+			// has MaxInt64 for replicaRolesPerServer. We already know id
+			// doesn't need the remainder since we check that it has fewer than
+			// replicaRolesPerServer replicas.
+			noReplicaRemainder := 0
+			assignReplica(serverRoles, masters, replicas, swapID, shard, math.MaxInt64, &noReplicaRemainder)
+			assignReplica(serverRoles, masters, replicas, id, swapShard, replicaRolesPerServer, &noReplicaRemainder)
 		}
 	}
 	return false
