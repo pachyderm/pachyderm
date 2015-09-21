@@ -337,6 +337,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 						continue Master
 					}
 				}
+				return 0, fmt.Errorf("failed to assign master for shard %d", shard)
 			}
 			for replica := 0; replica < a.sharder.NumReplicas(); replica++ {
 			Replica:
@@ -361,6 +362,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 							continue Replica
 						}
 					}
+					return 0, fmt.Errorf("failed to assign replica for shard %d", shard)
 				}
 			}
 			for id, serverRole := range newRoles {
@@ -390,6 +392,20 @@ func (a *discoveryAddresser) Version() (string, error) {
 	return "", nil
 }
 
+func hasShard(serverRole ServerRole, shard uint64) bool {
+	return serverRole.Masters[shard] || serverRole.Replicas[shard]
+}
+
+func removeReplica(replicas map[uint64][]string, shard uint64, id string) {
+	var ids []string
+	for _, replicaID := range replicas[shard] {
+		if id != replicaID {
+			ids = append(ids, replicaID)
+		}
+	}
+	replicas[shard] = ids
+}
+
 func assignMaster(
 	serverRoles map[string]ServerRole,
 	masters map[uint64]string,
@@ -401,10 +417,10 @@ func assignMaster(
 	if !ok {
 		return false
 	}
-	if serverRole.Masters[shard] || serverRole.Replicas[shard] {
+	if len(serverRole.Masters) == masterRolesPerServer {
 		return false
 	}
-	if len(serverRole.Masters) == masterRolesPerServer {
+	if hasShard(serverRole, shard) {
 		return false
 	}
 	serverRole.Masters[shard] = true
@@ -425,16 +441,54 @@ func assignReplica(
 	if !ok {
 		return false
 	}
-	if serverRole.Masters[shard] || serverRole.Replicas[shard] {
+	if len(serverRole.Replicas) == replicaRolesPerServer {
 		return false
 	}
-	if len(serverRole.Replicas) == replicaRolesPerServer {
+	if hasShard(serverRole, shard) {
 		return false
 	}
 	serverRole.Replicas[shard] = true
 	serverRoles[id] = serverRole
 	replicas[shard] = append(replicas[shard], id)
 	return true
+}
+
+func swapReplica(
+	serverRoles map[string]ServerRole,
+	masters map[uint64]string,
+	replicas map[uint64][]string,
+	id string,
+	shard uint64,
+	replicaRolesPerServer int,
+) bool {
+	serverRole, ok := serverRoles[id]
+	if !ok {
+		return false
+	}
+	if len(serverRole.Replicas) == replicaRolesPerServer {
+		return false
+	}
+	for swapId, swapServerRole := range serverRoles {
+		if swapId == id {
+			continue
+		}
+		for swapShard := range serverRole.Replicas {
+			if hasShard(serverRole, swapShard) {
+				continue
+			}
+			if hasShard(swapServerRole, shard) {
+				continue
+			}
+			delete(swapServerRole.Replicas, swapShard)
+			serverRoles[swapId] = swapServerRole
+			removeReplica(replicas, swapShard, swapId)
+			// Note we don't limit  the swapped servers replicaRolesPerServer, that's because it's
+			// replacing an already existing shard.
+			assignReplica(serverRoles, masters, replicas, swapId, shard, math.MaxInt64)
+			assignReplica(serverRoles, masters, replicas, id, swapShard, replicaRolesPerServer)
+		}
+	}
+	return false
 }
 
 func (a *discoveryAddresser) announceState(

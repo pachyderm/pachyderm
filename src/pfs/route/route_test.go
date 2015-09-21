@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	testNumShards   = 4
-	testNumServers  = 2
+	testNumShards   = 8
+	testNumServers  = 8
 	testNumReplicas = 1
 )
 
@@ -91,9 +91,9 @@ func (s *serverGroup) run(t *testing.T) {
 
 func (s *serverGroup) satisfied(shardsLen int) bool {
 	result := true
-	for _, server := range s.servers {
+	for i, server := range s.servers {
 		if len(server.shards) != shardsLen {
-			log.Printf("have: %d, want: %d", len(server.shards), shardsLen)
+			log.Printf("%s: have: %d, want: %d", fmt.Sprintf("server-%d", i+s.offset), len(server.shards), shardsLen)
 			result = false
 		}
 	}
@@ -101,6 +101,7 @@ func (s *serverGroup) satisfied(shardsLen int) bool {
 }
 
 func runMasterOnlyTest(t *testing.T, client discovery.Client) {
+	log.Printf("==MasterOnlyTest==")
 	sharder := NewSharder(testNumShards, 0)
 	addresser := NewDiscoveryAddresser(client, sharder, "TestMasterOnlyRoler")
 	cancel := make(chan bool)
@@ -110,7 +111,7 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 	defer func() {
 		close(cancel)
 	}()
-	log.Print("Start Group 1")
+	log.Print("==Start Group 1==")
 	serverGroup1 := NewServerGroup(t, addresser, testNumServers/2, 0)
 	go serverGroup1.run(t)
 	start := time.Now()
@@ -120,7 +121,7 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 			t.Fatal("test timed out")
 		}
 	}
-	log.Print("Start Group 2")
+	log.Print("==Start Group 2==")
 	serverGroup2 := NewServerGroup(t, addresser, testNumServers/2, testNumServers/2)
 	go serverGroup2.run(t)
 	start = time.Now()
@@ -130,7 +131,7 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 			t.Fatal("test timed out")
 		}
 	}
-	log.Print("Cancel Group 1")
+	log.Print("==Cancel Group 1==")
 	close(serverGroup1.cancel)
 	start = time.Now()
 	for !serverGroup2.satisfied(testNumShards / (testNumServers / 2)) {
@@ -142,6 +143,7 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 }
 
 func runMasterReplicaTest(t *testing.T, client discovery.Client) {
+	log.Printf("==MasterReplicaTest==")
 	sharder := NewSharder(testNumShards, testNumReplicas)
 	addresser := NewDiscoveryAddresser(client, sharder, "TestMasterReplicaRoler")
 	cancel := make(chan bool)
@@ -149,6 +151,7 @@ func runMasterReplicaTest(t *testing.T, client discovery.Client) {
 	defer func() {
 		close(cancel)
 	}()
+	log.Printf("==Start group 1==")
 	serverGroup1 := NewServerGroup(t, addresser, testNumServers/2, 0)
 	go serverGroup1.run(t)
 	start := time.Now()
@@ -159,6 +162,7 @@ func runMasterReplicaTest(t *testing.T, client discovery.Client) {
 		}
 	}
 
+	log.Printf("==Start group 2==")
 	serverGroup2 := NewServerGroup(t, addresser, testNumServers/2, testNumServers/2)
 	go serverGroup2.run(t)
 	start = time.Now()
@@ -170,6 +174,7 @@ func runMasterReplicaTest(t *testing.T, client discovery.Client) {
 		}
 	}
 
+	log.Printf("==Stop group 1==")
 	close(serverGroup1.cancel)
 	for !serverGroup2.satisfied((testNumShards * (testNumReplicas + 1)) / (testNumServers / 2)) {
 		time.Sleep(500 * time.Millisecond)
