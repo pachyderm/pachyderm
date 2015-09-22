@@ -11,6 +11,8 @@ It is generated from these files:
 It has these top-level messages:
 	ServerState
 	ServerRole
+	ShardDirectory
+	Roles
 */
 package route
 
@@ -61,6 +63,31 @@ func (m *ServerRole) GetMasters() map[uint64]bool {
 func (m *ServerRole) GetReplicas() map[uint64]bool {
 	if m != nil {
 		return m.Replicas
+	}
+	return nil
+}
+
+type ShardDirectory struct {
+	Master   string   `protobuf:"bytes,1,opt,name=master" json:"master,omitempty"`
+	Replicas []string `protobuf:"bytes,2,rep,name=replicas" json:"replicas,omitempty"`
+}
+
+func (m *ShardDirectory) Reset()         { *m = ShardDirectory{} }
+func (m *ShardDirectory) String() string { return proto.CompactTextString(m) }
+func (*ShardDirectory) ProtoMessage()    {}
+
+type Roles struct {
+	Version   int64                      `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
+	Directory map[uint64]*ShardDirectory `protobuf:"bytes,2,rep,name=directory" json:"directory,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+}
+
+func (m *Roles) Reset()         { *m = Roles{} }
+func (m *Roles) String() string { return proto.CompactTextString(m) }
+func (*Roles) ProtoMessage()    {}
+
+func (m *Roles) GetDirectory() map[uint64]*ShardDirectory {
+	if m != nil {
+		return m.Directory
 	}
 	return nil
 }

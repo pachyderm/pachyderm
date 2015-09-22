@@ -30,12 +30,12 @@ func newDiscoveryAddresser(discoveryClient discovery.Client, sharder Sharder, na
 	return &discoveryAddresser{discoveryClient, sharder, namespace}
 }
 
-func (a *discoveryAddresser) GetMasterAddress(shard int) (Address, bool, error) {
+func (a *discoveryAddresser) GetMasterAddress(shard int, version int64) (Address, bool, error) {
 	address, ok, err := a.discoveryClient.Get(a.masterKey(shard))
 	return decodeAddress(address), ok, err
 }
 
-func (a *discoveryAddresser) GetReplicaAddresses(shard int) (map[Address]bool, error) {
+func (a *discoveryAddresser) GetReplicaAddresses(shard int, version int64) (map[Address]bool, error) {
 	base := a.replicaShardDir(shard)
 	addresses, err := a.discoveryClient.GetAll(base)
 	if err != nil {
@@ -48,12 +48,21 @@ func (a *discoveryAddresser) GetReplicaAddresses(shard int) (map[Address]bool, e
 	return m, nil
 }
 
-func (a *discoveryAddresser) GetShardToMasterAddress() (map[int]Address, error) {
+func (a *discoveryAddresser) GetShardToMasterAddress(version int64) (map[int]Address, error) {
 	addresses, err := a.discoveryClient.GetAll(a.masterDir())
 	if err != nil {
 		return nil, err
 	}
 	return a.makeMasterMap(addresses)
+}
+
+func (a *discoveryAddresser) GetShardToReplicaAddresses(version int64) (map[int]map[int]Address, error) {
+	base := a.replicaDir()
+	addresses, err := a.discoveryClient.GetAll(base)
+	if err != nil {
+		return nil, err
+	}
+	return a.makeReplicaMap(addresses)
 }
 
 func (a *discoveryAddresser) WatchShardToAddress(cancel chan bool, callBack func(map[int]Address, map[int]map[int]Address) (uint64, error)) error {
@@ -68,15 +77,6 @@ func (a *discoveryAddresser) WatchShardToAddress(cancel chan bool, callBack func
 			return callBack(shardToMasterAddress, shardToReplicaAddress)
 		},
 	)
-}
-
-func (a *discoveryAddresser) GetShardToReplicaAddresses() (map[int]map[int]Address, error) {
-	base := a.replicaDir()
-	addresses, err := a.discoveryClient.GetAll(base)
-	if err != nil {
-		return nil, err
-	}
-	return a.makeReplicaMap(addresses)
 }
 
 func (a *discoveryAddresser) SetMasterAddress(shard int, address Address) (uint64, error) {
@@ -173,8 +173,12 @@ func (a *discoveryAddresser) serverRoleKeyVersion(id string, version int64) stri
 	return path.Join(a.serverRoleKey(id), fmt.Sprint(version))
 }
 
-func (a *discoveryAddresser) addressDir() string {
-	return fmt.Sprintf("%s/pfs/address", a.namespace)
+func (a *discoveryAddresser) rolesDir() string {
+	return fmt.Sprintf("%s/pfs/roles", a.namespace)
+}
+
+func (a *discoveryAddresser) rolesKey(version int64) string {
+	return path.Join(a.rolesDir(), fmt.Sprint(version))
 }
 
 func (a *discoveryAddresser) makeShardMaps(addresses map[string]string) (map[int]Address, map[int]map[int]Address, error) {
@@ -370,6 +374,10 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 					return 0, nil
 				}
 			}
+			roles := Roles{
+				Version:   version,
+				Directory: make(map[uint64]*ShardDirectory),
+			}
 			for id, serverRole := range newRoles {
 				encodedServerRole, err := marshaler.MarshalToString(&serverRole)
 				if err != nil {
@@ -378,6 +386,24 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 				if _, err := a.discoveryClient.Set(a.serverRoleKeyVersion(id, version), encodedServerRole, 0); err != nil {
 					return 0, err
 				}
+				address := newServerStates[id].Address
+				for shard := range serverRole.Masters {
+					shardDirectory := roles.Directory[shard]
+					shardDirectory.Master = address
+					roles.Directory[shard] = shardDirectory
+				}
+				for shard := range serverRole.Replicas {
+					shardDirectory := roles.Directory[shard]
+					shardDirectory.Replicas = append(shardDirectory.Replicas, address)
+					roles.Directory[shard] = shardDirectory
+				}
+			}
+			encodedRoles, err := marshaler.MarshalToString(&roles)
+			if err != nil {
+				return 0, err
+			}
+			if _, err := a.discoveryClient.Set(a.rolesKey(version), encodedRoles, 0); err != nil {
+				return 0, err
 			}
 			version++
 			oldServerStates = newServerStates
