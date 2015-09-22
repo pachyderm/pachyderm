@@ -91,9 +91,9 @@ func (s *serverGroup) run(t *testing.T) {
 
 func (s *serverGroup) satisfied(shardsLen int) bool {
 	result := true
-	for i, server := range s.servers {
+	for _, server := range s.servers {
 		if len(server.shards) != shardsLen {
-			log.Printf("%s: have: %d, want: %d", fmt.Sprintf("server-%d", i+s.offset), len(server.shards), shardsLen)
+			//log.Printf("%s: have: %d, want: %d", fmt.Sprintf("server-%d", i+s.offset), len(server.shards), shardsLen)
 			result = false
 		}
 	}

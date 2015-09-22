@@ -271,6 +271,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 			replicaRolesPerServer := (a.sharder.NumShards() * (a.sharder.NumReplicas())) / len(encodedServerStates)
 			replicaRolesRemainder := (a.sharder.NumShards() * (a.sharder.NumReplicas())) % len(encodedServerStates)
 			log.Printf("masterRolesPerServer: %d + %d, replicaRolesPerServer: %d + %d", masterRolesPerServer, masterRolesRemainder, replicaRolesPerServer, replicaRolesRemainder)
+			log.Printf("NumServers: %d", len(encodedServerStates))
 			for _, encodedServerState := range encodedServerStates {
 				var serverState ServerState
 				if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
@@ -335,10 +336,11 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 					}
 				}
 				for id := range newServerStates {
-					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer, &masterRolesPerServer) {
+					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer, &masterRolesRemainder) {
 						continue Master
 					}
 				}
+				log.Printf("newRoles: %+v", newRoles)
 				return 0, fmt.Errorf("failed to assign master for shard %d", shard)
 			}
 			for replica := 0; replica < a.sharder.NumReplicas(); replica++ {
@@ -364,6 +366,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 							continue Replica
 						}
 					}
+					log.Printf("newRoles: %+v", newRoles)
 					return 0, fmt.Errorf("failed to assign replica for shard %d", shard)
 				}
 			}
@@ -416,22 +419,28 @@ func assignMaster(
 	masterRolesPerServer int,
 	masterRolesRemainder *int,
 ) bool {
+	log.Printf("assignMaster: %s %d, remainder: %d", id, shard, *masterRolesRemainder)
 	serverRole, ok := serverRoles[id]
 	if !ok {
 		return false
 	}
 	if len(serverRole.Masters) > masterRolesPerServer {
+		log.Printf("%s: way too many masters %d", id, shard)
 		return false
 	}
 	if len(serverRole.Masters) == masterRolesPerServer && *masterRolesRemainder == 0 {
+		log.Printf("%s: too many masters and no remainder %d", id, shard)
 		return false
 	}
 	if hasShard(serverRole, shard) {
+		log.Printf("%s: already have shard %d", id, shard)
 		return false
 	}
 	if len(serverRole.Masters) == masterRolesPerServer && *masterRolesRemainder > 0 {
+		log.Printf("%s: decrementing %d", id, shard)
 		*masterRolesRemainder--
 	}
+	log.Printf("%s: assigning %d", id, shard)
 	serverRole.Masters[shard] = true
 	serverRoles[id] = serverRole
 	masters[shard] = id
