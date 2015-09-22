@@ -392,8 +392,22 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 	return err
 }
 
-func (a *discoveryAddresser) Version() (string, error) {
-	return "", nil
+func (a *discoveryAddresser) Version() (int64, error) {
+	minVersion := int64(math.MaxInt64)
+	encodedServerStates, err := a.discoveryClient.GetAll(a.serverStateDir())
+	if err != nil {
+		return 0, err
+	}
+	for _, encodedServerState := range encodedServerStates {
+		var serverState ServerState
+		if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
+			return 0, err
+		}
+		if serverState.Version < minVersion {
+			minVersion = serverState.Version
+		}
+	}
+	return minVersion, nil
 }
 
 func hasShard(serverRole ServerRole, shard uint64) bool {
