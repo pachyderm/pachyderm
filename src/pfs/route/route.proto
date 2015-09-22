@@ -15,12 +15,12 @@ message ServerRole {
     map<uint64, bool> replicas = 3;
 }
 
-message ShardDirectory {
+message ShardAddresses {
     string master = 1;
     repeated string replicas = 2;
 }
 
-message Roles {
+message Addresses {
     int64 version = 1;
-    map<uint64, ShardDirectory> directory = 2;
+    map<uint64, ShardAddresses> addresses = 2;
 }
