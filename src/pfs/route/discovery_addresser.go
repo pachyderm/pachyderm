@@ -24,10 +24,11 @@ type discoveryAddresser struct {
 	discoveryClient discovery.Client
 	sharder         Sharder
 	namespace       string
+	addresses       map[int64]*Addresses
 }
 
 func newDiscoveryAddresser(discoveryClient discovery.Client, sharder Sharder, namespace string) *discoveryAddresser {
-	return &discoveryAddresser{discoveryClient, sharder, namespace}
+	return &discoveryAddresser{discoveryClient, sharder, namespace, make(map[int64]*Addresses)}
 }
 
 func (a *discoveryAddresser) GetMasterAddress(shard int, version int64) (Address, bool, error) {
@@ -374,9 +375,9 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 					return 0, nil
 				}
 			}
-			roles := Roles{
+			addresses := Addresses{
 				Version:   version,
-				Directory: make(map[uint64]*ShardDirectory),
+				Addresses: make(map[uint64]*ShardAddresses),
 			}
 			for id, serverRole := range newRoles {
 				encodedServerRole, err := marshaler.MarshalToString(&serverRole)
@@ -388,21 +389,21 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 				}
 				address := newServerStates[id].Address
 				for shard := range serverRole.Masters {
-					shardDirectory := roles.Directory[shard]
-					shardDirectory.Master = address
-					roles.Directory[shard] = shardDirectory
+					shardAddresses := addresses.Addresses[shard]
+					shardAddresses.Master = address
+					addresses.Addresses[shard] = shardAddresses
 				}
 				for shard := range serverRole.Replicas {
-					shardDirectory := roles.Directory[shard]
-					shardDirectory.Replicas = append(shardDirectory.Replicas, address)
-					roles.Directory[shard] = shardDirectory
+					shardAddresses := addresses.Addresses[shard]
+					shardAddresses.Replicas = append(shardAddresses.Replicas, address)
+					addresses.Addresses[shard] = shardAddresses
 				}
 			}
-			encodedRoles, err := marshaler.MarshalToString(&roles)
+			encodedAddresses, err := marshaler.MarshalToString(&addresses)
 			if err != nil {
 				return 0, err
 			}
-			if _, err := a.discoveryClient.Set(a.rolesKey(version), encodedRoles, 0); err != nil {
+			if _, err := a.discoveryClient.Set(a.rolesKey(version), encodedAddresses, 0); err != nil {
 				return 0, err
 			}
 			version++
