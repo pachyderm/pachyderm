@@ -18,13 +18,13 @@ const (
 	testNumReplicas = 3
 )
 
-func TestMasterOnlyRoler(t *testing.T) {
+func TestMasterOnly(t *testing.T) {
 	client, err := getEtcdClient()
 	require.NoError(t, err)
 	runMasterOnlyTest(t, client)
 }
 
-func TestMasterReplicaRoler(t *testing.T) {
+func TestMasterReplica(t *testing.T) {
 	client, err := getEtcdClient()
 	require.NoError(t, err)
 	runMasterReplicaTest(t, client)
