@@ -2,7 +2,6 @@ package discovery
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -51,10 +50,8 @@ func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) (
 		if err := c.watchWithoutRetry(key, cancel, callBack); err != nil {
 			etcdErr, ok := err.(*etcd.EtcdError)
 			if ok && etcdErr.ErrorCode == 401 {
-				log.Printf("Restarting watch.")
 				continue
 			}
-			log.Printf("Returning: %+v, ok: %t", err, ok)
 			return err
 		}
 	}
@@ -104,10 +101,8 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 		if err := c.watchAllWithoutRetry(key, cancel, callBack); err != nil {
 			etcdErr, ok := err.(*etcd.EtcdError)
 			if ok && etcdErr.ErrorCode == 401 {
-				log.Printf("Restarting WatchAll.")
 				continue
 			}
-			log.Printf("Returning: %+v, ok: %t", err, ok)
 			return err
 		}
 	}
