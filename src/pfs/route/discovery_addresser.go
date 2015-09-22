@@ -2,7 +2,6 @@ package route
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"path"
 	"sort"
@@ -270,8 +269,6 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 			masterRolesRemainder := a.sharder.NumShards() % len(encodedServerStates)
 			replicaRolesPerServer := (a.sharder.NumShards() * (a.sharder.NumReplicas())) / len(encodedServerStates)
 			replicaRolesRemainder := (a.sharder.NumShards() * (a.sharder.NumReplicas())) % len(encodedServerStates)
-			log.Printf("masterRolesPerServer: %d + %d, replicaRolesPerServer: %d + %d", masterRolesPerServer, masterRolesRemainder, replicaRolesPerServer, replicaRolesRemainder)
-			log.Printf("NumServers: %d", len(encodedServerStates))
 			for _, encodedServerState := range encodedServerStates {
 				var serverState ServerState
 				if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
@@ -340,7 +337,6 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 						continue Master
 					}
 				}
-				log.Printf("failed to assign master for shard %d", shard)
 				return 0, nil
 			}
 			for replica := 0; replica < a.sharder.NumReplicas(); replica++ {
@@ -371,12 +367,10 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 							continue Replica
 						}
 					}
-					log.Printf("failed to assign replica for shard %d", shard)
 					return 0, nil
 				}
 			}
 			for id, serverRole := range newRoles {
-				log.Printf("%s -> %+v", id, serverRole)
 				encodedServerRole, err := marshaler.MarshalToString(&serverRole)
 				if err != nil {
 					return 0, err
@@ -485,13 +479,11 @@ func swapReplica(
 	shard uint64,
 	replicaRolesPerServer int,
 ) bool {
-	log.Printf("%s: swapReplica %d", id, shard)
 	serverRole, ok := serverRoles[id]
 	if !ok {
 		return false
 	}
 	if len(serverRole.Replicas) >= replicaRolesPerServer {
-		log.Printf("too many replicas")
 		return false
 	}
 	for swapID, swapServerRole := range serverRoles {
@@ -499,13 +491,10 @@ func swapReplica(
 			continue
 		}
 		for swapShard := range swapServerRole.Replicas {
-			log.Printf("try swapping with %s %d", swapID, swapShard)
 			if hasShard(serverRole, swapShard) {
-				log.Printf("%s already has swapShard %d", id, swapShard)
 				continue
 			}
 			if hasShard(swapServerRole, shard) {
-				log.Printf("%s already has shard %d", swapID, shard)
 				continue
 			}
 			delete(swapServerRole.Replicas, swapShard)
