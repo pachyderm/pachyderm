@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	testNumShards   = 8
-	testNumServers  = 8
-	testNumReplicas = 1
+	testNumShards   = 2048
+	testNumServers  = 128
+	testNumReplicas = 3
 )
 
 func TestMasterOnlyRoler(t *testing.T) {

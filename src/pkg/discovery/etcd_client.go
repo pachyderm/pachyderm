@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -46,6 +47,20 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 }
 
 func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) (uint64, error)) error {
+	for {
+		if err := c.watchWithoutRetry(key, cancel, callBack); err != nil {
+			etcdErr, ok := err.(*etcd.EtcdError)
+			if ok && etcdErr.ErrorCode == 401 {
+				log.Printf("Restarting watch.")
+				continue
+			}
+			log.Printf("Returning: %+v, ok: %t", err, ok)
+			return err
+		}
+	}
+}
+
+func (c *etcdClient) watchWithoutRetry(key string, cancel chan bool, callBack func(string) (uint64, error)) error {
 	var waitIndex uint64 = 1
 	var modifiedIndex uint64
 	// First get the starting value of the key
@@ -85,6 +100,20 @@ func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) (
 }
 
 func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[string]string) (uint64, error)) error {
+	for {
+		if err := c.watchAllWithoutRetry(key, cancel, callBack); err != nil {
+			etcdErr, ok := err.(*etcd.EtcdError)
+			if ok && etcdErr.ErrorCode == 401 {
+				log.Printf("Restarting WatchAll.")
+				continue
+			}
+			log.Printf("Returning: %+v, ok: %t", err, ok)
+			return err
+		}
+	}
+}
+
+func (c *etcdClient) watchAllWithoutRetry(key string, cancel chan bool, callBack func(map[string]string) (uint64, error)) error {
 	var waitIndex uint64 = 1
 	var modifiedIndex uint64
 	value := make(map[string]string)

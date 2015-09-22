@@ -340,8 +340,8 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 						continue Master
 					}
 				}
-				log.Printf("newRoles: %+v", newRoles)
-				return 0, fmt.Errorf("failed to assign master for shard %d", shard)
+				log.Printf("failed to assign master for shard %d", shard)
+				return 0, nil
 			}
 			for replica := 0; replica < a.sharder.NumReplicas(); replica++ {
 			Replica:
@@ -366,8 +366,13 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 							continue Replica
 						}
 					}
-					log.Printf("newRoles: %+v", newRoles)
-					return 0, fmt.Errorf("failed to assign replica for shard %d", shard)
+					for id := range newServerStates {
+						if swapReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer) {
+							continue Replica
+						}
+					}
+					log.Printf("failed to assign replica for shard %d", shard)
+					return 0, nil
 				}
 			}
 			for id, serverRole := range newRoles {
@@ -419,28 +424,22 @@ func assignMaster(
 	masterRolesPerServer int,
 	masterRolesRemainder *int,
 ) bool {
-	log.Printf("assignMaster: %s %d, remainder: %d", id, shard, *masterRolesRemainder)
 	serverRole, ok := serverRoles[id]
 	if !ok {
 		return false
 	}
 	if len(serverRole.Masters) > masterRolesPerServer {
-		log.Printf("%s: way too many masters %d", id, shard)
 		return false
 	}
 	if len(serverRole.Masters) == masterRolesPerServer && *masterRolesRemainder == 0 {
-		log.Printf("%s: too many masters and no remainder %d", id, shard)
 		return false
 	}
 	if hasShard(serverRole, shard) {
-		log.Printf("%s: already have shard %d", id, shard)
 		return false
 	}
 	if len(serverRole.Masters) == masterRolesPerServer && *masterRolesRemainder > 0 {
-		log.Printf("%s: decrementing %d", id, shard)
 		*masterRolesRemainder--
 	}
-	log.Printf("%s: assigning %d", id, shard)
 	serverRole.Masters[shard] = true
 	serverRoles[id] = serverRole
 	masters[shard] = id
@@ -486,22 +485,27 @@ func swapReplica(
 	shard uint64,
 	replicaRolesPerServer int,
 ) bool {
+	log.Printf("%s: swapReplica %d", id, shard)
 	serverRole, ok := serverRoles[id]
 	if !ok {
 		return false
 	}
 	if len(serverRole.Replicas) >= replicaRolesPerServer {
+		log.Printf("too many replicas")
 		return false
 	}
 	for swapID, swapServerRole := range serverRoles {
 		if swapID == id {
 			continue
 		}
-		for swapShard := range serverRole.Replicas {
+		for swapShard := range swapServerRole.Replicas {
+			log.Printf("try swapping with %s %d", swapID, swapShard)
 			if hasShard(serverRole, swapShard) {
+				log.Printf("%s already has swapShard %d", id, swapShard)
 				continue
 			}
 			if hasShard(swapServerRole, shard) {
+				log.Printf("%s already has shard %d", swapID, shard)
 				continue
 			}
 			delete(swapServerRole.Replicas, swapShard)
@@ -516,6 +520,7 @@ func swapReplica(
 			noReplicaRemainder := 0
 			assignReplica(serverRoles, masters, replicas, swapID, shard, math.MaxInt64, &noReplicaRemainder)
 			assignReplica(serverRoles, masters, replicas, id, swapShard, replicaRolesPerServer, &noReplicaRemainder)
+			return true
 		}
 	}
 	return false
@@ -592,7 +597,6 @@ func (a *discoveryAddresser) fillRoles(
 					continue
 				}
 				serverRole := roles[version]
-				log.Printf("%s: invoking %+v", id, serverRole)
 				var wg sync.WaitGroup
 				var addShardErr error
 				var addShardOnce sync.Once
@@ -601,7 +605,6 @@ func (a *discoveryAddresser) fillRoles(
 						wg.Add(1)
 						go func(shard uint64) {
 							defer wg.Done()
-							log.Printf("%s: adding %d", id, shard)
 							if err := server.AddShard(shard); err != nil {
 								addShardOnce.Do(func() {
 									addShardErr = err
@@ -626,13 +629,11 @@ func (a *discoveryAddresser) fillRoles(
 					// these roles haven't expired yet, so nothing to do
 					continue
 				}
-				log.Printf("%s: revoking %+v", id, serverRole)
 				for _, shard := range shards(serverRole) {
 					if !containsShard(roles, shard) {
 						wg.Add(1)
 						go func(shard uint64) {
 							defer wg.Done()
-							log.Printf("%s: removing %d", id, shard)
 							if err := server.RemoveShard(shard); err != nil {
 								removeShardOnce.Do(func() {
 									removeShardErr = err
