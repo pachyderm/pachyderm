@@ -410,6 +410,35 @@ func (a *discoveryAddresser) Version() (int64, error) {
 	return minVersion, nil
 }
 
+func (a *discoveryAddresser) WaitOneVersion() error {
+	errComplete := fmt.Errorf("COMPLETE")
+	err := a.discoveryClient.WatchAll(a.serverStateDir(), nil,
+		func(encodedServerStates map[string]string) (uint64, error) {
+			if len(encodedServerStates) == 0 {
+				return 0, nil
+			}
+			versions := make(map[int64]bool)
+			for _, encodedServerState := range encodedServerStates {
+				var serverState ServerState
+				if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
+					return 0, err
+				}
+				if serverState.Version == -1 {
+					return 0, nil
+				}
+				versions[serverState.Version] = true
+			}
+			if len(versions) == 1 {
+				return 0, errComplete
+			}
+			return 0, nil
+		})
+	if err != errComplete {
+		return err
+	}
+	return nil
+}
+
 func hasShard(serverRole ServerRole, shard uint64) bool {
 	return serverRole.Masters[shard] || serverRole.Replicas[shard]
 }

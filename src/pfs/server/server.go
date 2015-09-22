@@ -28,6 +28,7 @@ type APIServer interface {
 type InternalAPIServer interface {
 	pfs.InternalApiServer
 	role.Server
+	route.Server
 }
 
 // NewAPIServer returns a new APIServer.

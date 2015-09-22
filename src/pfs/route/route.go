@@ -45,6 +45,7 @@ type Addresser interface {
 	Register(cancel chan bool, id string, address string, server Server) error
 	AssignRoles(chan bool) error
 	Version() (int64, error)
+	WaitOneVersion() error
 }
 
 func NewDiscoveryAddresser(discoveryClient discovery.Client, sharder Sharder, namespace string) Addresser {
@@ -52,9 +53,9 @@ func NewDiscoveryAddresser(discoveryClient discovery.Client, sharder Sharder, na
 }
 
 type Server interface {
-	// AddRole tells the server it now has a role for a shard.
+	// AddShard tells the server it now has a role for a shard.
 	AddShard(shard uint64) error
-	// RemoveRole tells the server it no longer has a role for a shard.
+	// RemoveShard tells the server it no longer has a role for a shard.
 	RemoveShard(shard uint64) error
 	// LocalRoles asks the server which shards it has on disk and how many commits each shard has.
 	LocalShards() (map[uint64]bool, error)

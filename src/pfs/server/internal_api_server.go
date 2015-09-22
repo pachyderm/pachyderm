@@ -336,6 +336,18 @@ func (a *internalAPIServer) Clear(shard int) error {
 	return nil
 }
 
+func (a *internalAPIServer) AddShard(shard uint64) error {
+	return nil
+}
+
+func (a *internalAPIServer) RemoveShard(shard uint64) error {
+	return nil
+}
+
+func (a *internalAPIServer) LocalShards() (map[uint64]bool, error) {
+	return nil, nil
+}
+
 func (a *internalAPIServer) getMasterShardForFile(file *pfs.File) (int, error) {
 	shard, err := a.sharder.GetShard(file)
 	if err != nil {

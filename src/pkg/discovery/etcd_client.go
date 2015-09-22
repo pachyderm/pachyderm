@@ -46,6 +46,7 @@ func (c *etcdClient) GetAll(key string) (map[string]string, error) {
 }
 
 func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) (uint64, error)) error {
+	// This retry is needed for when the etcd cluster gets overloaded.
 	for {
 		if err := c.watchWithoutRetry(key, cancel, callBack); err != nil {
 			etcdErr, ok := err.(*etcd.EtcdError)
@@ -53,45 +54,6 @@ func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) (
 				continue
 			}
 			return err
-		}
-	}
-}
-
-func (c *etcdClient) watchWithoutRetry(key string, cancel chan bool, callBack func(string) (uint64, error)) error {
-	var waitIndex uint64 = 1
-	var modifiedIndex uint64
-	// First get the starting value of the key
-	response, err := c.client.Get(key, false, false)
-	if err != nil {
-		if strings.HasPrefix(err.Error(), "100: Key not found") {
-			modifiedIndex, err = callBack("")
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	} else {
-		modifiedIndex, err = callBack(response.Node.Value)
-		if err != nil {
-			return err
-		}
-		waitIndex = response.Node.ModifiedIndex + 1
-	}
-	for {
-		response, err := c.client.Watch(key, waitIndex, false, nil, cancel)
-		if err != nil {
-			if err == etcd.ErrWatchStoppedByUser {
-				return ErrCancelled
-			}
-			return err
-		}
-		if response.Node.ModifiedIndex >= modifiedIndex {
-			modifiedIndex, err = callBack(response.Node.Value)
-			if err != nil {
-				return err
-			}
-			waitIndex = response.Node.ModifiedIndex + 1
 		}
 	}
 }
@@ -104,49 +66,6 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 				continue
 			}
 			return err
-		}
-	}
-}
-
-func (c *etcdClient) watchAllWithoutRetry(key string, cancel chan bool, callBack func(map[string]string) (uint64, error)) error {
-	var waitIndex uint64 = 1
-	var modifiedIndex uint64
-	value := make(map[string]string)
-	// First get the starting value of the key
-	response, err := c.client.Get(key, false, false)
-	if err != nil {
-		if strings.HasPrefix(err.Error(), "100: Key not found") {
-			modifiedIndex, err = callBack(nil)
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	} else {
-		waitIndex = maxModifiedIndex(response.Node) + 1
-		if nodeToMap(response.Node, value) {
-			modifiedIndex, err = callBack(value)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	for {
-		response, err := c.client.Watch(key, waitIndex, true, nil, cancel)
-		if err != nil {
-			if err == etcd.ErrWatchStoppedByUser {
-				return ErrCancelled
-			}
-			return err
-		}
-		responseModifiedIndex := maxModifiedIndex(response.Node)
-		waitIndex = responseModifiedIndex + 1
-		if nodeToMap(response.Node, value) && responseModifiedIndex >= modifiedIndex {
-			modifiedIndex, err = callBack(value)
-			if err != nil {
-				return err
-			}
 		}
 	}
 }
@@ -261,4 +180,86 @@ func maxModifiedIndex(node *etcd.Node) uint64 {
 		}
 	}
 	return result
+}
+
+func (c *etcdClient) watchWithoutRetry(key string, cancel chan bool, callBack func(string) (uint64, error)) error {
+	var waitIndex uint64 = 1
+	var modifiedIndex uint64
+	// First get the starting value of the key
+	response, err := c.client.Get(key, false, false)
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "100: Key not found") {
+			modifiedIndex, err = callBack("")
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	} else {
+		modifiedIndex, err = callBack(response.Node.Value)
+		if err != nil {
+			return err
+		}
+		waitIndex = response.Node.ModifiedIndex + 1
+	}
+	for {
+		response, err := c.client.Watch(key, waitIndex, false, nil, cancel)
+		if err != nil {
+			if err == etcd.ErrWatchStoppedByUser {
+				return ErrCancelled
+			}
+			return err
+		}
+		if response.Node.ModifiedIndex >= modifiedIndex {
+			modifiedIndex, err = callBack(response.Node.Value)
+			if err != nil {
+				return err
+			}
+			waitIndex = response.Node.ModifiedIndex + 1
+		}
+	}
+}
+
+func (c *etcdClient) watchAllWithoutRetry(key string, cancel chan bool, callBack func(map[string]string) (uint64, error)) error {
+	var waitIndex uint64 = 1
+	var modifiedIndex uint64
+	value := make(map[string]string)
+	// First get the starting value of the key
+	response, err := c.client.Get(key, false, false)
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "100: Key not found") {
+			modifiedIndex, err = callBack(nil)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	} else {
+		waitIndex = maxModifiedIndex(response.Node) + 1
+		if nodeToMap(response.Node, value) {
+			modifiedIndex, err = callBack(value)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	for {
+		response, err := c.client.Watch(key, waitIndex, true, nil, cancel)
+		if err != nil {
+			if err == etcd.ErrWatchStoppedByUser {
+				return ErrCancelled
+			}
+			return err
+		}
+		responseModifiedIndex := maxModifiedIndex(response.Node)
+		waitIndex = responseModifiedIndex + 1
+		if nodeToMap(response.Node, value) && responseModifiedIndex >= modifiedIndex {
+			modifiedIndex, err = callBack(value)
+			if err != nil {
+				return err
+			}
+		}
+	}
 }
