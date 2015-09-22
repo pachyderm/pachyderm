@@ -28,11 +28,12 @@ type Address struct {
 type Addresser interface {
 	// TODO consider splitting Addresser's interface into read an write methods.
 	// Each user of Addresser seems to use only one of these interfaces.
-	GetMasterAddress(shard int) (Address, bool, error)
-	GetReplicaAddresses(shard int) (map[Address]bool, error)
-	GetShardToMasterAddress() (map[int]Address, error)
+	GetMasterAddress(shard int, version int64) (Address, bool, error)
+	GetReplicaAddresses(shard int, version int64) (map[Address]bool, error)
+	GetShardToMasterAddress(version int64) (map[int]Address, error)
+	GetShardToReplicaAddresses(version int64) (map[int]map[int]Address, error)
+
 	WatchShardToAddress(chan bool, func(map[int]Address, map[int]map[int]Address) (uint64, error)) error
-	GetShardToReplicaAddresses() (map[int]map[int]Address, error)
 	SetMasterAddress(shard int, address Address) (uint64, error)
 	ClaimMasterAddress(shard int, address Address, prevAddress Address) (uint64, error)
 	HoldMasterAddress(shard int, address Address, cancel chan bool) error
