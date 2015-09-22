@@ -147,7 +147,9 @@ func runMasterReplicaTest(t *testing.T, client discovery.Client) {
 	sharder := NewSharder(testNumShards, testNumReplicas)
 	addresser := NewDiscoveryAddresser(client, sharder, "TestMasterReplicaRoler")
 	cancel := make(chan bool)
-	go addresser.AssignRoles(cancel)
+	go func() {
+		require.Equal(t, ErrCancelled, addresser.AssignRoles(cancel))
+	}()
 	defer func() {
 		close(cancel)
 	}()
