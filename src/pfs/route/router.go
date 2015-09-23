@@ -155,3 +155,7 @@ func (r *router) getAllAddresses(version int64) (map[string]bool, error) {
 	}
 	return result, nil
 }
+
+func (r *router) Version() (int64, error) {
+	return r.addresser.Version()
+}

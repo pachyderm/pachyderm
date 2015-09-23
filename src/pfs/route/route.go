@@ -8,12 +8,12 @@ import (
 )
 
 type Sharder interface {
-	NumShards() int
-	NumReplicas() int
-	GetShard(file *pfs.File) (int, error)
+	NumShards() uint64
+	NumReplicas() uint64
+	GetShard(file *pfs.File) (uint64, error)
 }
 
-func NewSharder(numShards int, numReplicas int) Sharder {
+func NewSharder(numShards uint64, numReplicas uint64) Sharder {
 	return newSharder(numShards, numReplicas)
 }
 
@@ -55,6 +55,7 @@ type Router interface {
 	GetMasterOrReplicaClientConn(shard uint64, version int64) (*grpc.ClientConn, error)
 	GetReplicaClientConns(shard uint64, version int64) ([]*grpc.ClientConn, error)
 	GetAllClientConns(version int64) ([]*grpc.ClientConn, error)
+	Version() (int64, error)
 }
 
 func NewRouter(
