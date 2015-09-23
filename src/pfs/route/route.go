@@ -48,13 +48,13 @@ type Announcer interface {
 }
 
 type Router interface {
-	GetMasterShards() (map[int]bool, error)
-	GetReplicaShards() (map[int]bool, error)
-	GetAllShards() (map[int]bool, error)
-	GetMasterClientConn(shard int) (*grpc.ClientConn, error)
-	GetMasterOrReplicaClientConn(shard int) (*grpc.ClientConn, error)
-	GetReplicaClientConns(shard int) ([]*grpc.ClientConn, error)
-	GetAllClientConns() ([]*grpc.ClientConn, error)
+	GetMasterShards(version int64) (map[uint64]bool, error)
+	GetReplicaShards(version int64) (map[uint64]bool, error)
+	GetAllShards(version int64) (map[uint64]bool, error)
+	GetMasterClientConn(shard uint64, version int64) (*grpc.ClientConn, error)
+	GetMasterOrReplicaClientConn(shard uint64, version int64) (*grpc.ClientConn, error)
+	GetReplicaClientConns(shard uint64, version int64) ([]*grpc.ClientConn, error)
+	GetAllClientConns(version int64) ([]*grpc.ClientConn, error)
 }
 
 func NewRouter(
