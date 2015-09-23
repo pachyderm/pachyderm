@@ -25,142 +25,133 @@ func newRouter(
 	}
 }
 
-func (r *router) GetMasterShards() (map[int]bool, error) {
-	shardToMasterAddress, err := r.addresser.GetShardToMasterAddress()
+func (r *router) GetMasterShards(version int64) (map[uint64]bool, error) {
+	shardToMasterAddress, err := r.addresser.GetShardToMasterAddress(version)
 	if err != nil {
 		return nil, err
 	}
-	m := make(map[int]bool, 0)
+	result := make(map[uint64]bool)
 	for shard, address := range shardToMasterAddress {
-		if address.Address == r.localAddress && !address.Backfilling {
-			m[shard] = true
+		if address == r.localAddress {
+			result[shard] = true
 		}
 	}
-	return m, nil
+	return result, nil
 }
 
-func (r *router) GetReplicaShards() (map[int]bool, error) {
-	shardToReplicaAddresses, err := r.addresser.GetShardToReplicaAddresses()
+func (r *router) GetReplicaShards(version int64) (map[uint64]bool, error) {
+	shardToReplicaAddresses, err := r.addresser.GetShardToReplicaAddresses(version)
 	if err != nil {
 		return nil, err
 	}
-	m := make(map[int]bool, 0)
+	result := make(map[uint64]bool)
 	for shard, addresses := range shardToReplicaAddresses {
-		for _, address := range addresses {
-			if address.Address == r.localAddress && !address.Backfilling {
-				m[shard] = true
+		for address := range addresses {
+			if address == r.localAddress {
+				result[shard] = true
 			}
 		}
 	}
-	return m, nil
+	return result, nil
 }
 
-func (r *router) GetAllShards() (map[int]bool, error) {
-	shardToMasterAddress, err := r.addresser.GetShardToMasterAddress()
+func (r *router) GetAllShards(version int64) (map[uint64]bool, error) {
+	shardToMasterAddress, err := r.addresser.GetShardToMasterAddress(version)
 	if err != nil {
 		return nil, err
 	}
-	shardToReplicaAddresses, err := r.addresser.GetShardToReplicaAddresses()
+	shardToReplicaAddresses, err := r.addresser.GetShardToReplicaAddresses(version)
 	if err != nil {
 		return nil, err
 	}
-	m := make(map[int]bool, 0)
+	result := make(map[uint64]bool)
 	for shard, address := range shardToMasterAddress {
-		if address.Address == r.localAddress && !address.Backfilling {
-			m[shard] = true
+		if address == r.localAddress {
+			result[shard] = true
 		}
 	}
 	for shard, addresses := range shardToReplicaAddresses {
-		for _, address := range addresses {
-			if address.Address == r.localAddress && !address.Backfilling {
-				m[shard] = true
+		for address := range addresses {
+			if address == r.localAddress {
+				result[shard] = true
 			}
 		}
 	}
-	return m, nil
+	return result, nil
 }
 
-func (r *router) GetMasterClientConn(shard int) (*grpc.ClientConn, error) {
-	address, ok, err := r.addresser.GetMasterAddress(shard)
+func (r *router) GetMasterClientConn(shard uint64, version int64) (*grpc.ClientConn, error) {
+	address, ok, err := r.addresser.GetMasterAddress(shard, version)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
 		return nil, fmt.Errorf("no master found for %d", shard)
 	}
-	if address.Backfilling {
-		return nil, fmt.Errorf("master %s for shard %d is backfilling", address.Address, shard)
-	}
-	return r.dialer.Dial(address.Address)
+	return r.dialer.Dial(address)
 }
 
-func (r *router) GetMasterOrReplicaClientConn(shard int) (*grpc.ClientConn, error) {
-	addresses, err := r.addresser.GetReplicaAddresses(shard)
+func (r *router) GetMasterOrReplicaClientConn(shard uint64, version int64) (*grpc.ClientConn, error) {
+	addresses, err := r.addresser.GetReplicaAddresses(shard, version)
 	if err != nil {
 		return nil, err
 	}
 	for address := range addresses {
-		if !address.Backfilling {
-			return r.dialer.Dial(address.Address)
-		}
+		return r.dialer.Dial(address)
 	}
-	return r.GetMasterClientConn(shard)
+	return r.GetMasterClientConn(shard, version)
 }
 
-func (r *router) GetReplicaClientConns(shard int) ([]*grpc.ClientConn, error) {
-	addresses, err := r.addresser.GetReplicaAddresses(shard)
+func (r *router) GetReplicaClientConns(shard uint64, version int64) ([]*grpc.ClientConn, error) {
+	addresses, err := r.addresser.GetReplicaAddresses(shard, version)
 	if err != nil {
 		return nil, err
 	}
 	var result []*grpc.ClientConn
 	for address := range addresses {
-		if !address.Backfilling {
-			conn, err := r.dialer.Dial(address.Address)
-			if err != nil {
-				return nil, err
-			}
-			result = append(result, conn)
+		conn, err := r.dialer.Dial(address)
+		if err != nil {
+			return nil, err
 		}
+		result = append(result, conn)
 	}
 	return result, nil
 }
 
-func (r *router) GetAllClientConns() ([]*grpc.ClientConn, error) {
-	addresses, err := r.getAllAddresses()
+func (r *router) GetAllClientConns(version int64) ([]*grpc.ClientConn, error) {
+	addresses, err := r.getAllAddresses(version)
 	if err != nil {
 		return nil, err
 	}
 	var clientConns []*grpc.ClientConn
 	for address := range addresses {
 		// TODO(pedge): huge race, this whole thing is bad
-		if !address.Backfilling {
-			clientConn, err := r.dialer.Dial(address.Address)
-			if err != nil {
-				return nil, err
-			}
-			clientConns = append(clientConns, clientConn)
+		clientConn, err := r.dialer.Dial(address)
+		if err != nil {
+			return nil, err
 		}
+		clientConns = append(clientConns, clientConn)
 	}
 	return clientConns, nil
 }
 
-func (r *router) getAllAddresses() (map[Address]bool, error) {
-	m := make(map[Address]bool, 0)
-	shardToMasterAddress, err := r.addresser.GetShardToMasterAddress()
+func (r *router) getAllAddresses(version int64) (map[string]bool, error) {
+	result := make(map[string]bool)
+	shardToMasterAddress, err := r.addresser.GetShardToMasterAddress(version)
 	if err != nil {
 		return nil, err
 	}
 	for _, address := range shardToMasterAddress {
-		m[address] = true
+		result[address] = true
 	}
-	shardToReplicaAddresses, err := r.addresser.GetShardToReplicaAddresses()
+	shardToReplicaAddresses, err := r.addresser.GetShardToReplicaAddresses(version)
 	if err != nil {
 		return nil, err
 	}
 	for _, addresses := range shardToReplicaAddresses {
-		for _, address := range addresses {
-			m[address] = true
+		for address := range addresses {
+			result[address] = true
 		}
 	}
-	return m, nil
+	return result, nil
 }
