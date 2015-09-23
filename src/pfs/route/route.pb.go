@@ -68,13 +68,20 @@ func (m *ServerRole) GetReplicas() map[uint64]bool {
 }
 
 type ShardAddresses struct {
-	Master   string   `protobuf:"bytes,1,opt,name=master" json:"master,omitempty"`
-	Replicas []string `protobuf:"bytes,2,rep,name=replicas" json:"replicas,omitempty"`
+	Master   string          `protobuf:"bytes,1,opt,name=master" json:"master,omitempty"`
+	Replicas map[string]bool `protobuf:"bytes,2,rep,name=replicas" json:"replicas,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 }
 
 func (m *ShardAddresses) Reset()         { *m = ShardAddresses{} }
 func (m *ShardAddresses) String() string { return proto.CompactTextString(m) }
 func (*ShardAddresses) ProtoMessage()    {}
+
+func (m *ShardAddresses) GetReplicas() map[string]bool {
+	if m != nil {
+		return m.Replicas
+	}
+	return nil
+}
 
 type Addresses struct {
 	Version   int64                      `protobuf:"varint,1,opt,name=version" json:"version,omitempty"`
