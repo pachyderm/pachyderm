@@ -17,7 +17,7 @@ message ServerRole {
 
 message ShardAddresses {
     string master = 1;
-    repeated string replicas = 2;
+    map<string, bool> replicas = 2;
 }
 
 message Addresses {
