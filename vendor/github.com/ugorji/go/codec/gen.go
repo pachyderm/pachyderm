@@ -84,7 +84,12 @@ import (
 //   - helper methods change (signature change, new ones added, some removed, etc)
 //   - codecgen command line changes
 //
-const GenVersion = 3
+// v1: Initial Version
+// v2:
+// v3: Changes for Kubernetes:
+//     changes in signature of some unpublished helper methods and codecgen cmdline arguments.
+// v4: Removed separator support from (en|de)cDriver, and refactored codec(gen)
+const GenVersion = 4
 
 const (
 	genCodecPkg        = "codec1978"
@@ -746,21 +751,19 @@ func (x *genRunner) encStruct(varname string, rtid uintptr, t reflect.Type) {
 	ti := getTypeInfo(rtid, t)
 	i := x.varsfx()
 	sepVarname := genTempVarPfx + "sep" + i
-	firstVarname := genTempVarPfx + "first" + i
 	numfieldsvar := genTempVarPfx + "q" + i
 	ti2arrayvar := genTempVarPfx + "r" + i
 	struct2arrvar := genTempVarPfx + "2arr" + i
 
 	x.line(sepVarname + " := !z.EncBinary()")
 	x.linef("%s := z.EncBasicHandle().StructToArray", struct2arrvar)
-	x.line("var " + firstVarname + " bool")
 	tisfi := ti.sfip // always use sequence from file. decStruct expects same thing.
 	// due to omitEmpty, we need to calculate the
 	// number of non-empty things we write out first.
 	// This is required as we need to pre-determine the size of the container,
 	// to support length-prefixing.
 	x.linef("var %s [%v]bool", numfieldsvar, len(tisfi))
-	x.linef("_, _, _, _ = %s, %s, %s, %s", sepVarname, firstVarname, numfieldsvar, struct2arrvar)
+	x.linef("_, _, _ = %s, %s, %s", sepVarname, numfieldsvar, struct2arrvar)
 	x.linef("const %s bool = %v", ti2arrayvar, ti.toArray)
 	nn := 0
 	for j, si := range tisfi {
@@ -845,11 +848,6 @@ func (x *genRunner) encStruct(varname string, rtid uintptr, t reflect.Type) {
 		// if the type of the field is a Selfer, or one of the ones
 
 		x.linef("if %s || %s {", ti2arrayvar, struct2arrvar) // if ti.toArray
-		if j > 0 {
-			x.line("if " + sepVarname + " {")
-			x.line("r.EncodeArrayEntrySeparator()")
-			x.line("}")
-		}
 		if labelUsed {
 			x.line("if " + isNilVarName + " { r.EncodeNil() } else { ")
 		}
@@ -881,17 +879,8 @@ func (x *genRunner) encStruct(varname string, rtid uintptr, t reflect.Type) {
 			// }
 			// x.line(varname + "." + t2.Name + " != " + genZeroValueR(t2.Type, x.tc) + " {")
 		}
-		if j == 0 {
-			x.linef("%s = true", firstVarname)
-		} else {
-			x.linef("if %s { r.EncodeMapEntrySeparator() } else { %s = true }", firstVarname, firstVarname)
-		}
-
 		// x.line("r.EncodeString(codecSelferC_UTF8" + x.xs + ", string(\"" + t2.Name + "\"))")
 		x.line("r.EncodeString(codecSelferC_UTF8" + x.xs + ", string(\"" + si.encName + "\"))")
-		x.line("if " + sepVarname + " {")
-		x.line("r.EncodeMapKVSeparator()")
-		x.line("}")
 		if labelUsed {
 			x.line("if " + isNilVarName + " { r.EncodeNil() } else { ")
 			x.encVar(varname+"."+t2.Name, t2.Type)
@@ -905,11 +894,7 @@ func (x *genRunner) encStruct(varname string, rtid uintptr, t reflect.Type) {
 		x.linef("} ") // end if/else ti.toArray
 	}
 	x.line("if " + sepVarname + " {")
-	x.linef("if %s || %s {", ti2arrayvar, struct2arrvar) // if ti.toArray {
-	x.line("r.EncodeArrayEnd()")
-	x.linef("} else {") // if not ti.toArray
-	x.line("r.EncodeMapEnd()")
-	x.linef("} ") // end if/else ti.toArray
+	x.line("r.EncodeEnd()")
 	x.line("}")
 }
 
@@ -917,56 +902,27 @@ func (x *genRunner) encListFallback(varname string, t reflect.Type) {
 	i := x.varsfx()
 	g := genTempVarPfx
 	x.line("r.EncodeArrayStart(len(" + varname + "))")
-	x.line(genTempVarPfx + "s" + i + " := !z.EncBinary()")
-	x.line("if " + genTempVarPfx + "s" + i + " {")
 	if t.Kind() == reflect.Chan {
 		x.linef("for %si%s, %si2%s := 0, len(%s); %si%s < %si2%s; %si%s++ {", g, i, g, i, varname, g, i, g, i, g, i)
 		x.linef("%sv%s := <-%s", g, i, varname)
 	} else {
-		x.linef("for %si%s, %sv%s := range %s {", genTempVarPfx, i, genTempVarPfx, i, varname)
-	}
-	x.linef("if %si%s > 0 { r.EncodeArrayEntrySeparator() }", genTempVarPfx, i)
-	x.encVar(genTempVarPfx+"v"+i, t.Elem())
-	x.line("}")
-	x.line("r.EncodeArrayEnd()")
-	x.line("} else {")
-	if t.Kind() == reflect.Chan {
-		x.linef("for %si%s, %si2%s := 0, len(%s); %si%s < %si2%s; %si%s++ {", g, i, g, i, varname, g, i, g, i, g, i)
-		x.linef("%sv%s := <-%s", g, i, varname)
-	} else {
-		x.line("for _, " + genTempVarPfx + "v" + i + " := range " + varname + " {")
+		// x.linef("for %si%s, %sv%s := range %s {", genTempVarPfx, i, genTempVarPfx, i, varname)
+		x.linef("for _, %sv%s := range %s {", genTempVarPfx, i, varname)
 	}
 	x.encVar(genTempVarPfx+"v"+i, t.Elem())
 	x.line("}")
-	x.line("}")
+	x.line("r.EncodeEnd()")
 }
 
 func (x *genRunner) encMapFallback(varname string, t reflect.Type) {
 	i := x.varsfx()
 	x.line("r.EncodeMapStart(len(" + varname + "))")
-	x.line(genTempVarPfx + "s" + i + " := !z.EncBinary()")
-
-	x.line(genTempVarPfx + "j" + i + " := 0")
-
-	x.line("if " + genTempVarPfx + "s" + i + " {")
-
-	x.line("for " + genTempVarPfx + "k" + i + ", " +
-		genTempVarPfx + "v" + i + " := range " + varname + " {")
-	x.line("if " + genTempVarPfx + "j" + i + " > 0 { r.EncodeMapEntrySeparator() }")
-	x.encVar(genTempVarPfx+"k"+i, t.Key())
-	x.line("r.EncodeMapKVSeparator()")
-	x.encVar(genTempVarPfx+"v"+i, t.Elem())
-	x.line(genTempVarPfx + "j" + i + "++")
-	x.line("}")
-	x.line("r.EncodeMapEnd()")
-
-	x.line("} else {")
 	x.linef("for %sk%s, %sv%s := range %s {", genTempVarPfx, i, genTempVarPfx, i, varname)
+	// x.line("for " + genTempVarPfx + "k" + i + ", " + genTempVarPfx + "v" + i + " := range " + varname + " {")
 	x.encVar(genTempVarPfx+"k"+i, t.Key())
 	x.encVar(genTempVarPfx+"v"+i, t.Elem())
 	x.line("}")
-
-	x.line("}")
+	x.line("r.EncodeEnd()")
 }
 
 func (x *genRunner) decVar(varname string, t reflect.Type, canBeNil bool) {
@@ -1426,13 +1382,11 @@ func (x *genRunner) decStructMap(varname, lenvarname string, rtid uintptr, t ref
 		x.linef("for %sj%s := 0; %sj%s < %s; %sj%s++ {", tpfx, i, tpfx, i, lenvarname, tpfx, i)
 	case 2:
 		x.linef("for %sj%s := 0; !r.CheckBreak(); %sj%s++ {", tpfx, i, tpfx, i)
-		x.linef("if %sj%s > 0 { r.ReadMapEntrySeparator() }", tpfx, i)
 	default: // 0, otherwise.
 		x.linef("var %shl%s bool = %s >= 0", tpfx, i, lenvarname) // has length
 		x.linef("for %sj%s := 0; ; %sj%s++ {", tpfx, i, tpfx, i)
 		x.linef("if %shl%s { if %sj%s >= %s { break }", tpfx, i, tpfx, i, lenvarname)
-		x.linef("} else { if r.CheckBreak() { break }; if %sj%s > 0 { r.ReadMapEntrySeparator() } }",
-			tpfx, i)
+		x.line("} else { if r.CheckBreak() { break }; }")
 	}
 	// x.line(kName + " = z.ReadStringAsBytes(" + kName + ")")
 	// x.line(kName + " = z.ReadString()")
@@ -1446,22 +1400,15 @@ func (x *genRunner) decStructMap(varname, lenvarname string, rtid uintptr, t ref
 	} else {
 		x.line(kName + " := string(" + kName + "Slc)")
 	}
-	switch style {
-	case 1:
-	case 2:
-		x.line("r.ReadMapKVSeparator()")
-	default:
-		x.linef("if !%shl%s { r.ReadMapKVSeparator() }", tpfx, i)
-	}
 	x.decStructMapSwitch(kName, varname, rtid, t)
 
 	x.line("} // end for " + tpfx + "j" + i)
 	switch style {
 	case 1:
 	case 2:
-		x.line("r.ReadMapEnd()")
+		x.line("r.ReadEnd()")
 	default:
-		x.linef("if !%shl%s { r.ReadMapEnd() }", tpfx, i)
+		x.linef("if !%shl%s { r.ReadEnd() }", tpfx, i)
 	}
 }
 
@@ -1474,7 +1421,7 @@ func (x *genRunner) decStructArray(varname, lenvarname, breakString string, rtid
 	x.linef("var %sb%s bool", tpfx, i) // break
 	// x.linef("var %sl%s := r.ReadArrayStart()", tpfx, i)
 	x.linef("var %shl%s bool = %s >= 0", tpfx, i, lenvarname) // has length
-	for j, si := range tisfi {
+	for _, si := range tisfi {
 		var t2 reflect.StructField
 		if si.i != -1 {
 			t2 = t.Field(int(si.i))
@@ -1487,10 +1434,7 @@ func (x *genRunner) decStructArray(varname, lenvarname, breakString string, rtid
 			tpfx, i, lenvarname, tpfx, i)
 		// x.line("if " + tpfx + "j" + i + "++; " + tpfx + "j" +
 		// i + " <=  " + tpfx + "l" + i + " {")
-		x.linef("if %sb%s { r.ReadArrayEnd(); %s }", tpfx, i, breakString)
-		if j > 0 {
-			x.line("r.ReadArrayEntrySeparator()")
-		}
+		x.linef("if %sb%s { r.ReadEnd(); %s }", tpfx, i, breakString)
 		x.decVar(varname+"."+t2.Name, t2.Type, true)
 		// x.line("} // end if " + tpfx + "j" + i + " <=  " + tpfx + "l" + i)
 	}
@@ -1500,10 +1444,9 @@ func (x *genRunner) decStructArray(varname, lenvarname, breakString string, rtid
 		tpfx, i, tpfx, i, tpfx, i,
 		tpfx, i, lenvarname, tpfx, i)
 	x.linef("if %sb%s { break }", tpfx, i)
-	x.linef("if %sj%s > 1 { r.ReadArrayEntrySeparator() }", tpfx, i)
 	x.linef(`z.DecStructFieldNotFound(%sj%s - 1, "")`, tpfx, i)
 	x.line("}")
-	x.line("r.ReadArrayEnd()")
+	x.line("r.ReadEnd()")
 }
 
 func (x *genRunner) decStruct(varname string, rtid uintptr, t reflect.Type) {
@@ -1513,7 +1456,7 @@ func (x *genRunner) decStruct(varname string, rtid uintptr, t reflect.Type) {
 	x.line("if r.IsContainerType(codecSelverValueTypeMap" + x.xs + ") {")
 	x.line(genTempVarPfx + "l" + i + " := r.ReadMapStart()")
 	x.linef("if %sl%s == 0 {", genTempVarPfx, i)
-	x.line("r.ReadMapEnd()")
+	x.line("r.ReadEnd()")
 	if genUseOneFunctionForDecStructMap {
 		x.line("} else { ")
 		x.linef("x.codecDecodeSelfFromMap(%sl%s, d)", genTempVarPfx, i)
@@ -1530,7 +1473,7 @@ func (x *genRunner) decStruct(varname string, rtid uintptr, t reflect.Type) {
 	x.line("} else if r.IsContainerType(codecSelverValueTypeArray" + x.xs + ") {")
 	x.line(genTempVarPfx + "l" + i + " := r.ReadArrayStart()")
 	x.linef("if %sl%s == 0 {", genTempVarPfx, i)
-	x.line("r.ReadArrayEnd()")
+	x.line("r.ReadEnd()")
 	x.line("} else { ")
 	x.linef("x.codecDecodeSelfFromArray(%sl%s, d)", genTempVarPfx, i)
 	x.line("}")
