@@ -58,7 +58,7 @@ func (d *driver) RepoCreate(repo *pfs.Repo) error {
 	return nil
 }
 
-func (d *driver) RepoInspect(repo *pfs.Repo, shard int) (*pfs.RepoInfo, error) {
+func (d *driver) RepoInspect(repo *pfs.Repo, shard uint64) (*pfs.RepoInfo, error) {
 	stat, err := os.Stat(d.repoPath(repo))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -76,7 +76,7 @@ func (d *driver) RepoInspect(repo *pfs.Repo, shard int) (*pfs.RepoInfo, error) {
 
 }
 
-func (d *driver) RepoList(shard int) ([]*pfs.RepoInfo, error) {
+func (d *driver) RepoList(shard uint64) ([]*pfs.RepoInfo, error) {
 	repositories, err := ioutil.ReadDir(d.basePath())
 	if err != nil {
 		return nil, err
@@ -95,7 +95,7 @@ func (d *driver) RepoList(shard int) ([]*pfs.RepoInfo, error) {
 	return result, nil
 }
 
-func (d *driver) RepoDelete(repo *pfs.Repo, shard map[int]bool) error {
+func (d *driver) RepoDelete(repo *pfs.Repo, shard map[uint64]bool) error {
 	return fmt.Errorf("not implemented")
 }
 
@@ -160,7 +160,7 @@ func (d *driver) CommitFinish(commit *pfs.Commit, shards map[int]bool) error {
 	return nil
 }
 
-func (d *driver) CommitInspect(commit *pfs.Commit, shard int) (*pfs.CommitInfo, error) {
+func (d *driver) CommitInspect(commit *pfs.Commit, shard uint64) (*pfs.CommitInfo, error) {
 	_, readErr := os.Stat(d.readCommitPath(commit, shard))
 	_, writeErr := os.Stat(d.writeCommitPath(commit, shard))
 	if readErr != nil && os.IsNotExist(readErr) && writeErr != nil && os.IsNotExist(writeErr) {
@@ -185,7 +185,7 @@ func (d *driver) CommitInspect(commit *pfs.Commit, shard int) (*pfs.CommitInfo, 
 	}, nil
 }
 
-func (d *driver) CommitList(repo *pfs.Repo, shard int) ([]*pfs.CommitInfo, error) {
+func (d *driver) CommitList(repo *pfs.Repo, shard uint64) ([]*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	//TODO this buffer might get too big
 	var buffer bytes.Buffer
@@ -216,11 +216,11 @@ func (d *driver) CommitList(repo *pfs.Repo, shard int) ([]*pfs.CommitInfo, error
 	return commitInfos, nil
 }
 
-func (d *driver) CommitDelete(commit *pfs.Commit, shard map[int]bool) error {
+func (d *driver) CommitDelete(commit *pfs.Commit, shard map[uint64]bool) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (d *driver) FilePut(file *pfs.File, shard int, offset int64, reader io.Reader) error {
+func (d *driver) FilePut(file *pfs.File, shard uint64, offset int64, reader io.Reader) error {
 	if err := d.checkWrite(file.Commit, shard); err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func (d *driver) MakeDirectory(file *pfs.File, shards map[int]bool) error {
 	return nil
 }
 
-func (d *driver) FileGet(file *pfs.File, shard int) (drive.ReaderAtCloser, error) {
+func (d *driver) FileGet(file *pfs.File, shard uint64) (drive.ReaderAtCloser, error) {
 	filePath, err := d.filePath(file, shard)
 	if err != nil {
 		return nil, err
@@ -267,7 +267,7 @@ func (d *driver) FileGet(file *pfs.File, shard int) (drive.ReaderAtCloser, error
 	return os.Open(filePath)
 }
 
-func (d *driver) FileInspect(file *pfs.File, shard int) (*pfs.FileInfo, error) {
+func (d *driver) FileInspect(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
 	fileInfo, err := d.stat(file, shard)
 	if err != nil && os.IsNotExist(err) {
 		return nil, fmt.Errorf("file %s not found", file.Path)
@@ -278,7 +278,7 @@ func (d *driver) FileInspect(file *pfs.File, shard int) (*pfs.FileInfo, error) {
 	return fileInfo, nil
 }
 
-func (d *driver) FileList(file *pfs.File, shard int) (_ []*pfs.FileInfo, retErr error) {
+func (d *driver) FileList(file *pfs.File, shard uint64) (_ []*pfs.FileInfo, retErr error) {
 	filePath, err := d.filePath(file, shard)
 	if err != nil {
 		return nil, err
@@ -325,7 +325,7 @@ func (d *driver) FileList(file *pfs.File, shard int) (_ []*pfs.FileInfo, retErr 
 	return fileInfos, nil
 }
 
-func (d *driver) FileDelete(file *pfs.File, shard int) error {
+func (d *driver) FileDelete(file *pfs.File, shard uint64) error {
 	if err := d.checkWrite(file.Commit, shard); err != nil {
 		return err
 	}
@@ -336,7 +336,7 @@ func (d *driver) FileDelete(file *pfs.File, shard int) error {
 	return os.Remove(filePath)
 }
 
-func (d *driver) DiffPull(commit *pfs.Commit, shard int, diff io.Writer) error {
+func (d *driver) DiffPull(commit *pfs.Commit, shard uint64, diff io.Writer) error {
 	parent, err := d.getParent(commit, shard)
 	if err != nil {
 		return err
@@ -358,7 +358,7 @@ func newCommitID() string {
 	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
 }
 
-func (d *driver) stat(file *pfs.File, shard int) (*pfs.FileInfo, error) {
+func (d *driver) stat(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
 	filePath, err := d.filePath(file, shard)
 	if err != nil {
 		return nil, err
@@ -384,7 +384,7 @@ func (d *driver) stat(file *pfs.File, shard int) (*pfs.FileInfo, error) {
 	}, nil
 }
 
-func (d *driver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
+func (d *driver) getParent(commit *pfs.Commit, shard uint64) (*pfs.Commit, error) {
 	filePath, err := d.filePath(&pfs.File{Commit: commit, Path: filepath.Join(metadataDir, "parent")}, shard)
 	if err != nil {
 		return nil, err
@@ -402,7 +402,7 @@ func (d *driver) getParent(commit *pfs.Commit, shard int) (*pfs.Commit, error) {
 	}, nil
 }
 
-func (d *driver) checkReadOnly(commit *pfs.Commit, shard int) error {
+func (d *driver) checkReadOnly(commit *pfs.Commit, shard uint64) error {
 	ok, err := d.getReadOnly(commit, shard)
 	if err != nil {
 		return err
@@ -413,7 +413,7 @@ func (d *driver) checkReadOnly(commit *pfs.Commit, shard int) error {
 	return nil
 }
 
-func (d *driver) checkWrite(commit *pfs.Commit, shard int) error {
+func (d *driver) checkWrite(commit *pfs.Commit, shard uint64) error {
 	ok, err := d.getReadOnly(commit, shard)
 	if err != nil {
 		return err
@@ -424,7 +424,7 @@ func (d *driver) checkWrite(commit *pfs.Commit, shard int) error {
 	return nil
 }
 
-func (d *driver) getReadOnly(commit *pfs.Commit, shard int) (bool, error) {
+func (d *driver) getReadOnly(commit *pfs.Commit, shard uint64) (bool, error) {
 	if execSubvolumeExists(d.readCommitPath(commit, shard)) {
 		return true, nil
 	} else if execSubvolumeExists(d.writeCommitPath(commit, shard)) {
@@ -446,15 +446,15 @@ func (d *driver) commitPathNoShard(commit *pfs.Commit) string {
 	return filepath.Join(d.repoPath(commit.Repo), commit.Id)
 }
 
-func (d *driver) readCommitPath(commit *pfs.Commit, shard int) string {
+func (d *driver) readCommitPath(commit *pfs.Commit, shard uint64) string {
 	return filepath.Join(d.commitPathNoShard(commit), fmt.Sprint(shard))
 }
 
-func (d *driver) writeCommitPath(commit *pfs.Commit, shard int) string {
+func (d *driver) writeCommitPath(commit *pfs.Commit, shard uint64) string {
 	return d.readCommitPath(commit, shard) + ".write"
 }
 
-func (d *driver) commitPath(commit *pfs.Commit, shard int) (string, error) {
+func (d *driver) commitPath(commit *pfs.Commit, shard uint64) (string, error) {
 	readOnly, err := d.getReadOnly(commit, shard)
 	if err != nil {
 		return "", err
@@ -465,7 +465,7 @@ func (d *driver) commitPath(commit *pfs.Commit, shard int) (string, error) {
 	return d.writeCommitPath(commit, shard), nil
 }
 
-func (d *driver) filePath(file *pfs.File, shard int) (string, error) {
+func (d *driver) filePath(file *pfs.File, shard uint64) (string, error) {
 	commitPath, err := d.commitPath(file.Commit, shard)
 	if err != nil {
 		return "", err

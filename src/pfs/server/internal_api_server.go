@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
+
+	"google.golang.org/grpc/metadata"
 
 	"golang.org/x/net/context"
 
@@ -41,7 +44,11 @@ func (a *internalAPIServer) RepoCreate(ctx context.Context, request *pfs.RepoCre
 }
 
 func (a *internalAPIServer) RepoInspect(ctx context.Context, request *pfs.RepoInspectRequest) (*pfs.RepoInfo, error) {
-	shards, err := a.router.GetAllShards()
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetAllShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +59,11 @@ func (a *internalAPIServer) RepoInspect(ctx context.Context, request *pfs.RepoIn
 }
 
 func (a *internalAPIServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) (*pfs.RepoInfos, error) {
-	shards, err := a.router.GetAllShards()
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetAllShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +75,11 @@ func (a *internalAPIServer) RepoList(ctx context.Context, request *pfs.RepoListR
 }
 
 func (a *internalAPIServer) RepoDelete(ctx context.Context, request *pfs.RepoDeleteRequest) (*google_protobuf.Empty, error) {
-	shards, err := a.router.GetAllShards()
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetAllShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +91,11 @@ func (a *internalAPIServer) RepoDelete(ctx context.Context, request *pfs.RepoDel
 }
 
 func (a *internalAPIServer) CommitStart(ctx context.Context, request *pfs.CommitStartRequest) (*pfs.Commit, error) {
-	shards, err := a.router.GetMasterShards()
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +103,11 @@ func (a *internalAPIServer) CommitStart(ctx context.Context, request *pfs.Commit
 }
 
 func (a *internalAPIServer) CommitFinish(ctx context.Context, request *pfs.CommitFinishRequest) (*google_protobuf.Empty, error) {
-	shards, err := a.router.GetMasterShards()
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +122,11 @@ func (a *internalAPIServer) CommitFinish(ctx context.Context, request *pfs.Commi
 
 // TODO(pedge): race on Branch
 func (a *internalAPIServer) CommitInspect(ctx context.Context, request *pfs.CommitInspectRequest) (*pfs.CommitInfo, error) {
-	shards, err := a.router.GetAllShards()
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetAllShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +137,11 @@ func (a *internalAPIServer) CommitInspect(ctx context.Context, request *pfs.Comm
 }
 
 func (a *internalAPIServer) CommitList(ctx context.Context, request *pfs.CommitListRequest) (*pfs.CommitInfos, error) {
-	shards, err := a.router.GetAllShards()
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetAllShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +158,11 @@ func (a *internalAPIServer) CommitList(ctx context.Context, request *pfs.CommitL
 }
 
 func (a *internalAPIServer) CommitDelete(ctx context.Context, request *pfs.CommitDeleteRequest) (*google_protobuf.Empty, error) {
-	shards, err := a.router.GetAllShards()
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetAllShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -139,6 +174,10 @@ func (a *internalAPIServer) CommitDelete(ctx context.Context, request *pfs.Commi
 }
 
 func (a *internalAPIServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*google_protobuf.Empty, error) {
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if strings.HasPrefix(request.File.Path, "/") {
 		// This is a subtle error case, the paths foo and /foo will hash to
 		// different shards but will produce the same change once they get to
@@ -150,7 +189,7 @@ func (a *internalAPIServer) FilePut(ctx context.Context, request *pfs.FilePutReq
 		if len(request.Value) > 0 {
 			return emptyInstance, fmt.Errorf("FilePutRequest shouldn't have type dir and a value")
 		}
-		shards, err := a.router.GetMasterShards()
+		shards, err := a.router.GetMasterShards(version)
 		if err != nil {
 			return nil, err
 		}
@@ -159,7 +198,7 @@ func (a *internalAPIServer) FilePut(ctx context.Context, request *pfs.FilePutReq
 		}
 		return emptyInstance, nil
 	}
-	shard, err := a.getMasterShardForFile(request.File)
+	shard, err := a.getMasterShardForFile(request.File, version)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +209,11 @@ func (a *internalAPIServer) FilePut(ctx context.Context, request *pfs.FilePutReq
 }
 
 func (a *internalAPIServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.InternalApi_FileGetServer) (retErr error) {
-	shard, err := a.getShardForFile(request.File)
+	version, err := a.getVersion(apiFileGetServer.Context())
+	if err != nil {
+		return err
+	}
+	shard, err := a.getShardForFile(request.File, version)
 	if err != nil {
 		return err
 	}
@@ -190,7 +233,11 @@ func (a *internalAPIServer) FileGet(request *pfs.FileGetRequest, apiFileGetServe
 }
 
 func (a *internalAPIServer) FileInspect(ctx context.Context, request *pfs.FileInspectRequest) (*pfs.FileInfo, error) {
-	shard, err := a.getShardForFile(request.File)
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shard, err := a.getShardForFile(request.File, version)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +245,11 @@ func (a *internalAPIServer) FileInspect(ctx context.Context, request *pfs.FileIn
 }
 
 func (a *internalAPIServer) FileList(ctx context.Context, request *pfs.FileListRequest) (*pfs.FileInfos, error) {
-	shards, err := a.router.GetMasterShards()
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +257,7 @@ func (a *internalAPIServer) FileList(ctx context.Context, request *pfs.FileListR
 	if dynamicShard == nil {
 		dynamicShard = &pfs.Shard{Number: 0, Modulo: 1}
 	}
-	filteredShards := make(map[int]bool)
+	filteredShards := make(map[uint64]bool)
 	for shard := range shards {
 		if uint64(shard)%dynamicShard.Modulo == dynamicShard.Number {
 			filteredShards[shard] = true
@@ -235,6 +286,10 @@ func (a *internalAPIServer) FileList(ctx context.Context, request *pfs.FileListR
 }
 
 func (a *internalAPIServer) FileDelete(ctx context.Context, request *pfs.FileDeleteRequest) (*google_protobuf.Empty, error) {
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if strings.HasPrefix(request.File.Path, "/") {
 		// This is a subtle error case, the paths foo and /foo will hash to
 		// different shards but will produce the same change once they get to
@@ -242,7 +297,7 @@ func (a *internalAPIServer) FileDelete(ctx context.Context, request *pfs.FileDel
 		// ways so we forbid leading slashes.
 		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
 	}
-	shard, err := a.getMasterShardForFile(request.File)
+	shard, err := a.getMasterShardForFile(request.File, version)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +308,11 @@ func (a *internalAPIServer) FileDelete(ctx context.Context, request *pfs.FileDel
 }
 
 func (a *internalAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalApi_PullDiffServer) error {
-	ok, err := a.isLocalShard(int(request.Shard))
+	version, err := a.getVersion(apiPullDiffServer.Context())
+	if err != nil {
+		return err
+	}
+	ok, err := a.isLocalShard(request.Shard, version)
 	if err != nil {
 		return err
 	}
@@ -261,7 +320,7 @@ func (a *internalAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffSe
 		return fmt.Errorf("pachyderm: illegal PullDiffRequest for unknown shard %d", request.Shard)
 	}
 	var buffer bytes.Buffer
-	a.driver.DiffPull(request.Commit, int(request.Shard), &buffer)
+	a.driver.DiffPull(request.Commit, request.Shard, &buffer)
 	return protostream.WriteToStreamingBytesServer(
 		&buffer,
 		apiPullDiffServer,
@@ -269,7 +328,11 @@ func (a *internalAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffSe
 }
 
 func (a *internalAPIServer) PushDiff(ctx context.Context, request *pfs.PushDiffRequest) (*google_protobuf.Empty, error) {
-	ok, err := a.isLocalReplicaShard(int(request.Shard))
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ok, err := a.isLocalReplicaShard(request.Shard, version)
 	if err != nil {
 		return nil, err
 	}
@@ -277,63 +340,6 @@ func (a *internalAPIServer) PushDiff(ctx context.Context, request *pfs.PushDiffR
 		return nil, fmt.Errorf("pachyderm: illegal PushDiffRequest for unknown shard %d", request.Shard)
 	}
 	return emptyInstance, a.driver.DiffPush(request.Commit, bytes.NewReader(request.Value))
-}
-
-func (a *internalAPIServer) Master(shard int) error {
-	clientConns, err := a.router.GetReplicaClientConns(shard)
-	if err != nil {
-		return err
-	}
-	for _, clientConn := range clientConns {
-		apiClient := pfs.NewApiClient(clientConn)
-		response, err := apiClient.RepoList(context.Background(), &pfs.RepoListRequest{})
-		if err != nil {
-			return err
-		}
-		for _, repoInfo := range response.RepoInfo {
-			if err := a.driver.RepoCreate(repoInfo.Repo); err != nil {
-				return err
-			}
-			response, err := apiClient.CommitList(context.Background(), &pfs.CommitListRequest{Repo: repoInfo.Repo})
-			if err != nil {
-				return err
-			}
-			localCommitInfo, err := a.driver.CommitList(repoInfo.Repo, shard)
-			if err != nil {
-				return err
-			}
-			for i, commitInfo := range response.CommitInfo {
-				if i < len(localCommitInfo) {
-					if *commitInfo != *localCommitInfo[i] {
-						return fmt.Errorf("divergent data")
-					}
-					continue
-				}
-				pullDiffClient, err := pfs.NewInternalApiClient(clientConn).PullDiff(
-					context.Background(),
-					&pfs.PullDiffRequest{
-						Commit: commitInfo.Commit,
-						Shard:  uint64(shard),
-					},
-				)
-				if err != nil {
-					return err
-				}
-				if err := a.driver.DiffPush(commitInfo.Commit, protostream.NewStreamingBytesReader(pullDiffClient)); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func (a *internalAPIServer) Replica(shard int) error {
-	return nil
-}
-
-func (a *internalAPIServer) Clear(shard int) error {
-	return nil
 }
 
 func (a *internalAPIServer) AddShard(shard uint64) error {
@@ -348,40 +354,40 @@ func (a *internalAPIServer) LocalShards() (map[uint64]bool, error) {
 	return nil, nil
 }
 
-func (a *internalAPIServer) getMasterShardForFile(file *pfs.File) (int, error) {
+func (a *internalAPIServer) getMasterShardForFile(file *pfs.File, version int64) (uint64, error) {
 	shard, err := a.sharder.GetShard(file)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
-	shards, err := a.router.GetMasterShards()
+	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	_, ok := shards[shard]
 	if !ok {
-		return -1, fmt.Errorf("pachyderm: shard %d not found locally", shard)
+		return 0, fmt.Errorf("pachyderm: shard %d not found locally", shard)
 	}
 	return shard, nil
 }
 
-func (a *internalAPIServer) getShardForFile(file *pfs.File) (int, error) {
+func (a *internalAPIServer) getShardForFile(file *pfs.File, version int64) (uint64, error) {
 	shard, err := a.sharder.GetShard(file)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
-	shards, err := a.router.GetAllShards()
+	shards, err := a.router.GetAllShards(version)
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 	_, ok := shards[shard]
 	if !ok {
-		return -1, fmt.Errorf("pachyderm: shard %d not found locally", shard)
+		return 0, fmt.Errorf("pachyderm: shard %d not found locally", shard)
 	}
 	return shard, nil
 }
 
-func (a *internalAPIServer) isLocalMasterShard(shard int) (bool, error) {
-	shards, err := a.router.GetMasterShards()
+func (a *internalAPIServer) isLocalMasterShard(shard uint64, version int64) (bool, error) {
+	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return false, err
 	}
@@ -389,8 +395,8 @@ func (a *internalAPIServer) isLocalMasterShard(shard int) (bool, error) {
 	return ok, nil
 }
 
-func (a *internalAPIServer) isLocalReplicaShard(shard int) (bool, error) {
-	shards, err := a.router.GetReplicaShards()
+func (a *internalAPIServer) isLocalReplicaShard(shard uint64, version int64) (bool, error) {
+	shards, err := a.router.GetReplicaShards(version)
 	if err != nil {
 		return false, err
 	}
@@ -398,8 +404,8 @@ func (a *internalAPIServer) isLocalReplicaShard(shard int) (bool, error) {
 	return ok, nil
 }
 
-func (a *internalAPIServer) isLocalShard(shard int) (bool, error) {
-	shards, err := a.router.GetAllShards()
+func (a *internalAPIServer) isLocalShard(shard uint64, version int64) (bool, error) {
+	shards, err := a.router.GetAllShards(version)
 	if err != nil {
 		return false, err
 	}
@@ -408,12 +414,16 @@ func (a *internalAPIServer) isLocalShard(shard int) (bool, error) {
 }
 
 func (a *internalAPIServer) commitToReplicas(ctx context.Context, commit *pfs.Commit) error {
-	shards, err := a.router.GetMasterShards()
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return err
+	}
+	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return err
 	}
 	for shard := range shards {
-		clientConns, err := a.router.GetReplicaClientConns(shard)
+		clientConns, err := a.router.GetReplicaClientConns(shard, version)
 		if err != nil {
 			return err
 		}
@@ -435,4 +445,19 @@ func (a *internalAPIServer) commitToReplicas(ctx context.Context, commit *pfs.Co
 		}
 	}
 	return nil
+}
+
+func (a *internalAPIServer) getVersion(ctx context.Context) (int64, error) {
+	md, ok := metadata.FromContext(ctx)
+	if !ok {
+		return 0, fmt.Errorf("version not found in context")
+	}
+	encodedVersion, ok := md["version"]
+	if !ok {
+		return 0, fmt.Errorf("version not found in context")
+	}
+	if len(encodedVersion) != 1 {
+		return 0, fmt.Errorf("version not found in context")
+	}
+	return strconv.ParseInt(encodedVersion[0], 10, 64)
 }
