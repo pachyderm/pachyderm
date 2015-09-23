@@ -99,7 +99,7 @@ func (d *driver) RepoDelete(repo *pfs.Repo, shard map[uint64]bool) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (d *driver) CommitStart(parent *pfs.Commit, commit *pfs.Commit, shards map[int]bool) (*pfs.Commit, error) {
+func (d *driver) CommitStart(parent *pfs.Commit, commit *pfs.Commit, shards map[uint64]bool) (*pfs.Commit, error) {
 	if parent == nil && commit == nil {
 		return nil, fmt.Errorf("pachyderm: must specify either parent or commit")
 	}
@@ -148,7 +148,7 @@ func (d *driver) CommitStart(parent *pfs.Commit, commit *pfs.Commit, shards map[
 	return commit, nil
 }
 
-func (d *driver) CommitFinish(commit *pfs.Commit, shards map[int]bool) error {
+func (d *driver) CommitFinish(commit *pfs.Commit, shards map[uint64]bool) error {
 	for shard := range shards {
 		if err := execSubvolumeSnapshot(d.writeCommitPath(commit, shard), d.readCommitPath(commit, shard), true); err != nil {
 			return err
@@ -240,7 +240,7 @@ func (d *driver) FilePut(file *pfs.File, shard uint64, offset int64, reader io.R
 	return err
 }
 
-func (d *driver) MakeDirectory(file *pfs.File, shards map[int]bool) error {
+func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
 	// TODO(pedge): if PutFile fails here or on another shard, the directories
 	// will still exist and be returned from ListFiles, we want to do this
 	// iteratively and with rollback

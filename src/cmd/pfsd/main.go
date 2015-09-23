@@ -5,6 +5,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
@@ -41,7 +42,7 @@ var (
 type appEnv struct {
 	DriverRoot string `env:"PFS_DRIVER_ROOT,required"`
 	DriverType string `env:"PFS_DRIVER_TYPE"`
-	NumShards  int    `env:"PFS_NUM_SHARDS"`
+	NumShards  uint64 `env:"PFS_NUM_SHARDS"`
 	Address    string `env:"PFS_ADDRESS"`
 	Port       int    `env:"PFS_PORT"`
 	HTTPPort   int    `env:"PFS_HTTP_PORT"`
@@ -73,11 +74,6 @@ func do(appEnvObj interface{}) error {
 		sharder,
 		"namespace",
 	)
-	for i := 0; i < appEnv.NumShards; i++ {
-		if _, err := addresser.SetMasterAddress(i, route.Address{address, false}); err != nil {
-			return err
-		}
-	}
 	var driver drive.Driver
 	switch appEnv.DriverType {
 	case "btrfs":
@@ -115,6 +111,16 @@ func do(appEnvObj interface{}) error {
 		),
 		driver,
 	)
+	go func() {
+		if err := addresser.Register(nil, "id", address, internalAPIServer); err != nil {
+			log.Print(err)
+		}
+	}()
+	go func() {
+		if err := addresser.AssignRoles(nil); err != nil {
+			log.Print(err)
+		}
+	}()
 	// TODO(pedge): no!
 	trace.AuthRequest = func(_ *http.Request) (bool, bool) {
 		return true, true
