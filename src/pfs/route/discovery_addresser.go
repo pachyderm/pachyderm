@@ -174,12 +174,12 @@ func (a *discoveryAddresser) serverRoleKeyVersion(id string, version int64) stri
 	return path.Join(a.serverRoleKey(id), fmt.Sprint(version))
 }
 
-func (a *discoveryAddresser) rolesDir() string {
+func (a *discoveryAddresser) addressesDir() string {
 	return fmt.Sprintf("%s/pfs/roles", a.namespace)
 }
 
-func (a *discoveryAddresser) rolesKey(version int64) string {
-	return path.Join(a.rolesDir(), fmt.Sprint(version))
+func (a *discoveryAddresser) addressesKey(version int64) string {
+	return path.Join(a.addressesDir(), fmt.Sprint(version))
 }
 
 func (a *discoveryAddresser) makeShardMaps(addresses map[string]string) (map[int]Address, map[int]map[int]Address, error) {
@@ -403,7 +403,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 			if err != nil {
 				return 0, err
 			}
-			if _, err := a.discoveryClient.Set(a.rolesKey(version), encodedAddresses, 0); err != nil {
+			if _, err := a.discoveryClient.Set(a.addressesKey(version), encodedAddresses, 0); err != nil {
 				return 0, err
 			}
 			version++
@@ -464,6 +464,24 @@ func (a *discoveryAddresser) WaitOneVersion() error {
 		return err
 	}
 	return nil
+}
+
+func (a *discoveryAddresser) getAddresses(version int64) (*Addresses, error) {
+	if addresses, ok := a.addresses[version]; ok {
+		return addresses, nil
+	}
+	encodedAddresses, ok, err := a.discoveryClient.Get(a.addressesKey(version))
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		fmt.Errorf("version %d not found", version)
+	}
+	var addresses Addresses
+	if err := jsonpb.UnmarshalString(encodedAddresses, &addresses); err != nil {
+		return nil, err
+	}
+	return &addresses, nil
 }
 
 func hasShard(serverRole ServerRole, shard uint64) bool {
