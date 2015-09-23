@@ -100,7 +100,7 @@ func (s *serverGroup) satisfied(shardsLen int) bool {
 
 func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 	sharder := NewSharder(testNumShards, 0)
-	addresser := NewDiscoveryAddresser(client, sharder, "TestMasterOnlyRoler")
+	addresser := NewDiscoveryAddresser(client, sharder, "TestMasterOnly")
 	cancel := make(chan bool)
 	go func() {
 		require.Equal(t, ErrCancelled, addresser.AssignRoles(cancel))
@@ -138,7 +138,7 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 
 func runMasterReplicaTest(t *testing.T, client discovery.Client) {
 	sharder := NewSharder(testNumShards, testNumReplicas)
-	addresser := NewDiscoveryAddresser(client, sharder, "TestMasterReplicaRoler")
+	addresser := NewDiscoveryAddresser(client, sharder, "TestMasterReplica")
 	cancel := make(chan bool)
 	go func() {
 		require.Equal(t, ErrCancelled, addresser.AssignRoles(cancel))
