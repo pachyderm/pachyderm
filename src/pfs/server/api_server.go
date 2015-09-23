@@ -32,7 +32,11 @@ func newAPIServer(
 }
 
 func (a *apiServer) RepoCreate(ctx context.Context, request *pfs.RepoCreateRequest) (*google_protobuf.Empty, error) {
-	clientConns, err := a.router.GetAllClientConns()
+	version, err := a.router.Version()
+	if err != nil {
+		return nil, err
+	}
+	clientConns, err := a.router.GetAllClientConns(version)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +67,11 @@ func (a *apiServer) RepoCreate(ctx context.Context, request *pfs.RepoCreateReque
 }
 
 func (a *apiServer) RepoInspect(ctx context.Context, request *pfs.RepoInspectRequest) (*pfs.RepoInfo, error) {
-	clientConn, err := a.getClientConn()
+	version, err := a.router.Version()
+	if err != nil {
+		return nil, err
+	}
+	clientConn, err := a.getClientConn(version)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +79,11 @@ func (a *apiServer) RepoInspect(ctx context.Context, request *pfs.RepoInspectReq
 }
 
 func (a *apiServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) (*pfs.RepoInfos, error) {
-	clientConn, err := a.getClientConn()
+	version, err := a.router.Version()
+	if err != nil {
+		return nil, err
+	}
+	clientConn, err := a.getClientConn(version)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +91,11 @@ func (a *apiServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) 
 }
 
 func (a *apiServer) RepoDelete(ctx context.Context, request *pfs.RepoDeleteRequest) (*google_protobuf.Empty, error) {
-	clientConns, err := a.router.GetAllClientConns()
+	version, err := a.router.Version()
+	if err != nil {
+		return nil, err
+	}
+	clientConns, err := a.router.GetAllClientConns(version)
 	if err != nil {
 		return nil, err
 	}
@@ -93,15 +109,19 @@ func (a *apiServer) RepoDelete(ctx context.Context, request *pfs.RepoDeleteReque
 }
 
 func (a *apiServer) CommitStart(ctx context.Context, request *pfs.CommitStartRequest) (*pfs.Commit, error) {
+	version, err := a.router.Version()
+	if err != nil {
+		return nil, err
+	}
+	clientConns, err := a.router.GetAllClientConns(version)
+	if err != nil {
+		return nil, err
+	}
 	if request.Commit == nil {
 		request.Commit = &pfs.Commit{
 			Repo: request.Parent.Repo,
 			Id:   strings.Replace(uuid.NewV4().String(), "-", "", -1),
 		}
-	}
-	clientConns, err := a.router.GetAllClientConns()
-	if err != nil {
-		return nil, err
 	}
 	for _, clientConn := range clientConns {
 		if _, err := pfs.NewInternalApiClient(clientConn).CommitStart(ctx, request); err != nil {
@@ -112,7 +132,11 @@ func (a *apiServer) CommitStart(ctx context.Context, request *pfs.CommitStartReq
 }
 
 func (a *apiServer) CommitFinish(ctx context.Context, request *pfs.CommitFinishRequest) (*google_protobuf.Empty, error) {
-	clientConns, err := a.router.GetAllClientConns()
+	version, err := a.router.Version()
+	if err != nil {
+		return nil, err
+	}
+	clientConns, err := a.router.GetAllClientConns(version)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +150,11 @@ func (a *apiServer) CommitFinish(ctx context.Context, request *pfs.CommitFinishR
 
 // TODO(pedge): race on Branch
 func (a *apiServer) CommitInspect(ctx context.Context, request *pfs.CommitInspectRequest) (*pfs.CommitInfo, error) {
-	clientConn, err := a.getClientConn()
+	version, err := a.router.Version()
+	if err != nil {
+		return nil, err
+	}
+	clientConn, err := a.getClientConn(version)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +162,11 @@ func (a *apiServer) CommitInspect(ctx context.Context, request *pfs.CommitInspec
 }
 
 func (a *apiServer) CommitList(ctx context.Context, request *pfs.CommitListRequest) (*pfs.CommitInfos, error) {
-	clientConn, err := a.getClientConn()
+	version, err := a.router.Version()
+	if err != nil {
+		return nil, err
+	}
+	clientConn, err := a.getClientConn(version)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +174,11 @@ func (a *apiServer) CommitList(ctx context.Context, request *pfs.CommitListReque
 }
 
 func (a *apiServer) CommitDelete(ctx context.Context, request *pfs.CommitDeleteRequest) (*google_protobuf.Empty, error) {
-	clientConns, err := a.router.GetAllClientConns()
+	version, err := a.router.Version()
+	if err != nil {
+		return nil, err
+	}
+	clientConns, err := a.router.GetAllClientConns(version)
 	if err != nil {
 		return nil, err
 	}
@@ -155,6 +191,10 @@ func (a *apiServer) CommitDelete(ctx context.Context, request *pfs.CommitDeleteR
 }
 
 func (a *apiServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*google_protobuf.Empty, error) {
+	version, err := a.router.Version()
+	if err != nil {
+		return nil, err
+	}
 	if strings.HasPrefix(request.File.Path, "/") {
 		// This is a subtle error case, the paths foo and /foo will hash to
 		// different shards but will produce the same change once they get to
@@ -166,7 +206,7 @@ func (a *apiServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*
 		if len(request.Value) > 0 {
 			return emptyInstance, fmt.Errorf("FilePutRequest shouldn't have type dir and a value")
 		}
-		clientConns, err := a.router.GetAllClientConns()
+		clientConns, err := a.router.GetAllClientConns(version)
 		if err != nil {
 			return nil, err
 		}
@@ -177,7 +217,7 @@ func (a *apiServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*
 		}
 		return emptyInstance, nil
 	}
-	clientConn, err := a.getClientConnForFile(request.File)
+	clientConn, err := a.getClientConnForFile(request.File, version)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +225,11 @@ func (a *apiServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*
 }
 
 func (a *apiServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.Api_FileGetServer) error {
-	clientConn, err := a.getClientConnForFile(request.File)
+	version, err := a.router.Version()
+	if err != nil {
+		return err
+	}
+	clientConn, err := a.getClientConnForFile(request.File, version)
 	if err != nil {
 		return err
 	}
@@ -197,7 +241,11 @@ func (a *apiServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.Ap
 }
 
 func (a *apiServer) FileInspect(ctx context.Context, request *pfs.FileInspectRequest) (*pfs.FileInfo, error) {
-	clientConn, err := a.getClientConnForFile(request.File)
+	version, err := a.router.Version()
+	if err != nil {
+		return nil, err
+	}
+	clientConn, err := a.getClientConnForFile(request.File, version)
 	if err != nil {
 		return nil, err
 	}
@@ -205,12 +253,16 @@ func (a *apiServer) FileInspect(ctx context.Context, request *pfs.FileInspectReq
 }
 
 func (a *apiServer) FileList(ctx context.Context, request *pfs.FileListRequest) (*pfs.FileInfos, error) {
-	var fileInfos []*pfs.FileInfo
-	seenDirectories := make(map[string]bool)
-	clientConns, err := a.router.GetAllClientConns()
+	version, err := a.router.Version()
 	if err != nil {
 		return nil, err
 	}
+	clientConns, err := a.router.GetAllClientConns(version)
+	if err != nil {
+		return nil, err
+	}
+	var fileInfos []*pfs.FileInfo
+	seenDirectories := make(map[string]bool)
 	for _, clientConn := range clientConns {
 		subFileInfos, err := pfs.NewInternalApiClient(clientConn).FileList(ctx, request)
 		if err != nil {
@@ -232,30 +284,32 @@ func (a *apiServer) FileList(ctx context.Context, request *pfs.FileListRequest) 
 }
 
 func (a *apiServer) FileDelete(ctx context.Context, request *pfs.FileDeleteRequest) (*google_protobuf.Empty, error) {
-	clientConn, err := a.getClientConnForFile(request.File)
+	version, err := a.router.Version()
+	if err != nil {
+		return nil, err
+	}
+	clientConn, err := a.getClientConnForFile(request.File, version)
 	if err != nil {
 		return nil, err
 	}
 	return pfs.NewInternalApiClient(clientConn).FileDelete(ctx, request)
 }
 
-func (a *apiServer) getClientConn() (*grpc.ClientConn, error) {
-	shards, err := a.router.GetMasterShards()
+func (a *apiServer) getClientConn(version int64) (*grpc.ClientConn, error) {
+	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return nil, err
 	}
-	if len(shards) > 0 {
-		for shard := range shards {
-			return a.router.GetMasterClientConn(shard)
-		}
+	for shard := range shards {
+		return a.router.GetMasterClientConn(shard, version)
 	}
-	return a.router.GetMasterClientConn(int(rand.Uint32()) % a.sharder.NumShards())
+	return a.router.GetMasterClientConn(uint64(rand.Int())%a.sharder.NumShards(), version)
 }
 
-func (a *apiServer) getClientConnForFile(file *pfs.File) (*grpc.ClientConn, error) {
+func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.ClientConn, error) {
 	shard, err := a.sharder.GetShard(file)
 	if err != nil {
 		return nil, err
 	}
-	return a.router.GetMasterClientConn(shard)
+	return a.router.GetMasterClientConn(shard, version)
 }

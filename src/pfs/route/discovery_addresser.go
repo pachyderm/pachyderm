@@ -178,10 +178,10 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 			newRoles := make(map[string]ServerRole)
 			newMasters := make(map[uint64]string)
 			newReplicas := make(map[uint64][]string)
-			masterRolesPerServer := a.sharder.NumShards() / len(encodedServerStates)
-			masterRolesRemainder := a.sharder.NumShards() % len(encodedServerStates)
-			replicaRolesPerServer := (a.sharder.NumShards() * (a.sharder.NumReplicas())) / len(encodedServerStates)
-			replicaRolesRemainder := (a.sharder.NumShards() * (a.sharder.NumReplicas())) % len(encodedServerStates)
+			masterRolesPerServer := a.sharder.NumShards() / uint64(len(encodedServerStates))
+			masterRolesRemainder := a.sharder.NumShards() % uint64(len(encodedServerStates))
+			replicaRolesPerServer := (a.sharder.NumShards() * (a.sharder.NumReplicas())) / uint64(len(encodedServerStates))
+			replicaRolesRemainder := (a.sharder.NumShards() * (a.sharder.NumReplicas())) % uint64(len(encodedServerStates))
 			for _, encodedServerState := range encodedServerStates {
 				var serverState ServerState
 				if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
@@ -229,7 +229,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 				return 0, nil
 			}
 		Master:
-			for shard := uint64(0); shard < uint64(a.sharder.NumShards()); shard++ {
+			for shard := uint64(0); shard < a.sharder.NumShards(); shard++ {
 				if id, ok := oldMasters[shard]; ok {
 					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer, &masterRolesRemainder) {
 						continue Master
@@ -252,9 +252,9 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 				}
 				return 0, nil
 			}
-			for replica := 0; replica < a.sharder.NumReplicas(); replica++ {
+			for replica := uint64(0); replica < a.sharder.NumReplicas(); replica++ {
 			Replica:
-				for shard := uint64(0); shard < uint64(a.sharder.NumShards()); shard++ {
+				for shard := uint64(0); shard < a.sharder.NumShards(); shard++ {
 					if id, ok := oldMasters[shard]; ok {
 						if assignReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer, &replicaRolesRemainder) {
 							continue Replica
@@ -411,23 +411,23 @@ func assignMaster(
 	masters map[uint64]string,
 	id string,
 	shard uint64,
-	masterRolesPerServer int,
-	masterRolesRemainder *int,
+	masterRolesPerServer uint64,
+	masterRolesRemainder *uint64,
 ) bool {
 	serverRole, ok := serverRoles[id]
 	if !ok {
 		return false
 	}
-	if len(serverRole.Masters) > masterRolesPerServer {
+	if uint64(len(serverRole.Masters)) > masterRolesPerServer {
 		return false
 	}
-	if len(serverRole.Masters) == masterRolesPerServer && *masterRolesRemainder == 0 {
+	if uint64(len(serverRole.Masters)) == masterRolesPerServer && *masterRolesRemainder == 0 {
 		return false
 	}
 	if hasShard(serverRole, shard) {
 		return false
 	}
-	if len(serverRole.Masters) == masterRolesPerServer && *masterRolesRemainder > 0 {
+	if uint64(len(serverRole.Masters)) == masterRolesPerServer && *masterRolesRemainder > 0 {
 		*masterRolesRemainder--
 	}
 	serverRole.Masters[shard] = true
@@ -442,23 +442,23 @@ func assignReplica(
 	replicas map[uint64][]string,
 	id string,
 	shard uint64,
-	replicaRolesPerServer int,
-	replicaRolesRemainder *int,
+	replicaRolesPerServer uint64,
+	replicaRolesRemainder *uint64,
 ) bool {
 	serverRole, ok := serverRoles[id]
 	if !ok {
 		return false
 	}
-	if len(serverRole.Replicas) > replicaRolesPerServer {
+	if uint64(len(serverRole.Replicas)) > replicaRolesPerServer {
 		return false
 	}
-	if len(serverRole.Replicas) == replicaRolesPerServer && *replicaRolesRemainder == 0 {
+	if uint64(len(serverRole.Replicas)) == replicaRolesPerServer && *replicaRolesRemainder == 0 {
 		return false
 	}
 	if hasShard(serverRole, shard) {
 		return false
 	}
-	if len(serverRole.Replicas) == replicaRolesPerServer && *replicaRolesRemainder > 0 {
+	if uint64(len(serverRole.Replicas)) == replicaRolesPerServer && *replicaRolesRemainder > 0 {
 		*replicaRolesRemainder--
 	}
 	serverRole.Replicas[shard] = true
@@ -473,13 +473,13 @@ func swapReplica(
 	replicas map[uint64][]string,
 	id string,
 	shard uint64,
-	replicaRolesPerServer int,
+	replicaRolesPerServer uint64,
 ) bool {
 	serverRole, ok := serverRoles[id]
 	if !ok {
 		return false
 	}
-	if len(serverRole.Replicas) >= replicaRolesPerServer {
+	if uint64(len(serverRole.Replicas)) >= replicaRolesPerServer {
 		return false
 	}
 	for swapID, swapServerRole := range serverRoles {
@@ -502,8 +502,8 @@ func swapReplica(
 			// has MaxInt64 for replicaRolesPerServer. We already know id
 			// doesn't need the remainder since we check that it has fewer than
 			// replicaRolesPerServer replicas.
-			noReplicaRemainder := 0
-			assignReplica(serverRoles, masters, replicas, swapID, shard, math.MaxInt64, &noReplicaRemainder)
+			var noReplicaRemainder uint64
+			assignReplica(serverRoles, masters, replicas, swapID, shard, math.MaxUint64, &noReplicaRemainder)
 			assignReplica(serverRoles, masters, replicas, id, swapShard, replicaRolesPerServer, &noReplicaRemainder)
 			return true
 		}

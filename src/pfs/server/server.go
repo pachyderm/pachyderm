@@ -3,7 +3,6 @@ package server
 import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pfs/role"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"go.pedge.io/google-protobuf"
 )
@@ -27,7 +26,6 @@ type APIServer interface {
 
 type InternalAPIServer interface {
 	pfs.InternalApiServer
-	role.Server
 	route.Server
 }
 
