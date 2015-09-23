@@ -287,6 +287,9 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) error {
 				Version:   version,
 				Addresses: make(map[uint64]*ShardAddresses),
 			}
+			for shard := uint64(0); shard < a.sharder.NumShards(); shard++ {
+				addresses.Addresses[shard] = &ShardAddresses{Replicas: make(map[string]bool)}
+			}
 			for id, serverRole := range newRoles {
 				encodedServerRole, err := marshaler.MarshalToString(&serverRole)
 				if err != nil {
