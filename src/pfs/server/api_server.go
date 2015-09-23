@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"golang.org/x/net/context"
 
@@ -32,7 +33,7 @@ func newAPIServer(
 }
 
 func (a *apiServer) RepoCreate(ctx context.Context, request *pfs.RepoCreateRequest) (*google_protobuf.Empty, error) {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +68,7 @@ func (a *apiServer) RepoCreate(ctx context.Context, request *pfs.RepoCreateReque
 }
 
 func (a *apiServer) RepoInspect(ctx context.Context, request *pfs.RepoInspectRequest) (*pfs.RepoInfo, error) {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +80,7 @@ func (a *apiServer) RepoInspect(ctx context.Context, request *pfs.RepoInspectReq
 }
 
 func (a *apiServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) (*pfs.RepoInfos, error) {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +92,7 @@ func (a *apiServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) 
 }
 
 func (a *apiServer) RepoDelete(ctx context.Context, request *pfs.RepoDeleteRequest) (*google_protobuf.Empty, error) {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +110,7 @@ func (a *apiServer) RepoDelete(ctx context.Context, request *pfs.RepoDeleteReque
 }
 
 func (a *apiServer) CommitStart(ctx context.Context, request *pfs.CommitStartRequest) (*pfs.Commit, error) {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +133,7 @@ func (a *apiServer) CommitStart(ctx context.Context, request *pfs.CommitStartReq
 }
 
 func (a *apiServer) CommitFinish(ctx context.Context, request *pfs.CommitFinishRequest) (*google_protobuf.Empty, error) {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +151,7 @@ func (a *apiServer) CommitFinish(ctx context.Context, request *pfs.CommitFinishR
 
 // TODO(pedge): race on Branch
 func (a *apiServer) CommitInspect(ctx context.Context, request *pfs.CommitInspectRequest) (*pfs.CommitInfo, error) {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +163,7 @@ func (a *apiServer) CommitInspect(ctx context.Context, request *pfs.CommitInspec
 }
 
 func (a *apiServer) CommitList(ctx context.Context, request *pfs.CommitListRequest) (*pfs.CommitInfos, error) {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +175,7 @@ func (a *apiServer) CommitList(ctx context.Context, request *pfs.CommitListReque
 }
 
 func (a *apiServer) CommitDelete(ctx context.Context, request *pfs.CommitDeleteRequest) (*google_protobuf.Empty, error) {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +192,7 @@ func (a *apiServer) CommitDelete(ctx context.Context, request *pfs.CommitDeleteR
 }
 
 func (a *apiServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*google_protobuf.Empty, error) {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +226,7 @@ func (a *apiServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*
 }
 
 func (a *apiServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.Api_FileGetServer) error {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(context.Background())
 	if err != nil {
 		return err
 	}
@@ -233,7 +234,7 @@ func (a *apiServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.Ap
 	if err != nil {
 		return err
 	}
-	fileGetClient, err := pfs.NewInternalApiClient(clientConn).FileGet(context.Background(), request)
+	fileGetClient, err := pfs.NewInternalApiClient(clientConn).FileGet(ctx, request)
 	if err != nil {
 		return err
 	}
@@ -241,7 +242,7 @@ func (a *apiServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.Ap
 }
 
 func (a *apiServer) FileInspect(ctx context.Context, request *pfs.FileInspectRequest) (*pfs.FileInfo, error) {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +254,7 @@ func (a *apiServer) FileInspect(ctx context.Context, request *pfs.FileInspectReq
 }
 
 func (a *apiServer) FileList(ctx context.Context, request *pfs.FileListRequest) (*pfs.FileInfos, error) {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +285,7 @@ func (a *apiServer) FileList(ctx context.Context, request *pfs.FileListRequest) 
 }
 
 func (a *apiServer) FileDelete(ctx context.Context, request *pfs.FileDeleteRequest) (*google_protobuf.Empty, error) {
-	version, err := a.router.Version()
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -312,4 +313,16 @@ func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.C
 		return nil, err
 	}
 	return a.router.GetMasterClientConn(shard, version)
+}
+
+func (a *apiServer) versionAndCtx(ctx context.Context) (int64, context.Context, error) {
+	version, err := a.router.Version()
+	if err != nil {
+		return 0, nil, err
+	}
+	newCtx := metadata.NewContext(
+		ctx,
+		metadata.Pairs("version", fmt.Sprint(version)),
+	)
+	return version, newCtx, nil
 }
