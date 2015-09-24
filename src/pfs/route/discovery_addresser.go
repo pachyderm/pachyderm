@@ -5,6 +5,7 @@ import (
 	"math"
 	"path"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -350,26 +351,42 @@ func (a *discoveryAddresser) Version() (int64, error) {
 
 func (a *discoveryAddresser) WaitOneVersion() error {
 	errComplete := fmt.Errorf("COMPLETE")
-	err := a.discoveryClient.WatchAll(a.serverStateDir(), nil,
-		func(encodedServerStates map[string]string) (uint64, error) {
-			if len(encodedServerStates) == 0 {
-				return 0, nil
+	err := a.discoveryClient.WatchAll(a.serverDir(), nil,
+		func(encodedServerStatesAndRoles map[string]string) (uint64, error) {
+			var serverStates []ServerState
+			var serverRoles []ServerRole
+			for key, encodedServerStateOrRole := range encodedServerStatesAndRoles {
+				if strings.HasPrefix(key, a.serverStateDir()) {
+					var serverState ServerState
+					if err := jsonpb.UnmarshalString(encodedServerStateOrRole, &serverState); err != nil {
+						return 0, err
+					}
+					serverStates = append(serverStates, serverState)
+				}
+				if strings.HasPrefix(key, a.serverRoleDir()) {
+					var serverRole ServerRole
+					if err := jsonpb.UnmarshalString(encodedServerStateOrRole, &serverRole); err != nil {
+						return 0, err
+					}
+					serverRoles = append(serverRoles, serverRole)
+				}
 			}
 			versions := make(map[int64]bool)
-			for _, encodedServerState := range encodedServerStates {
-				var serverState ServerState
-				if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
-					return 0, err
-				}
+			for _, serverState := range serverStates {
 				if serverState.Version == -1 {
 					return 0, nil
 				}
 				versions[serverState.Version] = true
 			}
-			if len(versions) == 1 {
-				return 0, errComplete
+			if len(versions) != 1 {
+				return 0, nil
 			}
-			return 0, nil
+			for _, serverRole := range serverRoles {
+				if !versions[serverRole.Version] {
+					return 0, nil
+				}
+			}
+			return 0, errComplete
 		})
 	if err != errComplete {
 		return err
