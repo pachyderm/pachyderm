@@ -126,7 +126,7 @@ func (a *internalAPIServer) CommitInspect(ctx context.Context, request *pfs.Comm
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetAllShards(version)
+	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func (a *internalAPIServer) CommitList(ctx context.Context, request *pfs.CommitL
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetAllShards(version)
+	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func (a *internalAPIServer) CommitDelete(ctx context.Context, request *pfs.Commi
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetAllShards(version)
+	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +375,7 @@ func (a *internalAPIServer) getShardForFile(file *pfs.File, version int64) (uint
 	if err != nil {
 		return 0, err
 	}
-	shards, err := a.router.GetAllShards(version)
+	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return 0, err
 	}
