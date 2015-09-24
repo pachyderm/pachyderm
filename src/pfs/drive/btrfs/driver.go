@@ -162,9 +162,7 @@ func (d *driver) CommitFinish(commit *pfs.Commit, shards map[uint64]bool) error 
 }
 
 func (d *driver) CommitInspect(commit *pfs.Commit, shard uint64) (*pfs.CommitInfo, error) {
-	_, readErr := os.Stat(d.readCommitPath(commit, shard))
-	_, writeErr := os.Stat(d.writeCommitPath(commit, shard))
-	if readErr != nil && os.IsNotExist(readErr) && writeErr != nil && os.IsNotExist(writeErr) {
+	if !execSubvolumeExists(d.readCommitPath(commit, shard)) && !execSubvolumeExists(d.writeCommitPath(commit, shard)) {
 		return nil, fmt.Errorf("commit %s not found", d.readCommitPath(commit, shard))
 	}
 	parent, err := d.getParent(commit, shard)

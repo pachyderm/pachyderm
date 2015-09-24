@@ -122,7 +122,14 @@ type cluster struct {
 }
 
 func (c *cluster) WaitForAvailability() {
-	require.NoError(c.tb, c.addresser.WaitOneVersion())
+	// We use address as the id for servers too
+	var ids []string
+	for _, address := range c.addresses {
+		if _, ok := c.cancels[address]; ok {
+			ids = append(ids, address)
+		}
+	}
+	require.NoError(c.tb, c.addresser.WaitForAvailability(ids))
 }
 
 func (c *cluster) Kill(server int) {
