@@ -488,21 +488,21 @@ func errorToString(err error) string {
 
 func execSubvolumeCreate(path string) (retErr error) {
 	defer func() {
-		protolog.Debug(&SubvolumeCreate{path, errorToString(retErr)})
+		protolog.Info(&SubvolumeCreate{path, errorToString(retErr)})
 	}()
 	return executil.Run("btrfs", "subvolume", "create", path)
 }
 
 func execSubvolumeDelete(path string) (retErr error) {
 	defer func() {
-		protolog.Debug(&SubvolumeDelete{path, errorToString(retErr)})
+		protolog.Info(&SubvolumeDelete{path, errorToString(retErr)})
 	}()
 	return executil.Run("btrfs", "subvolume", "delete", path)
 }
 
 func execSubvolumeExists(path string) (result bool) {
 	defer func() {
-		protolog.Debug(&SubvolumeExists{path, result})
+		protolog.Info(&SubvolumeExists{path, result})
 	}()
 	if err := executil.Run("btrfs", "subvolume", "show", path); err != nil {
 		return false
@@ -512,7 +512,7 @@ func execSubvolumeExists(path string) (result bool) {
 
 func execSubvolumeSnapshot(src string, dest string, readOnly bool) (retErr error) {
 	defer func() {
-		protolog.Debug(&SubvolumeSnapshot{src, dest, readOnly, errorToString(retErr)})
+		protolog.Info(&SubvolumeSnapshot{src, dest, readOnly, errorToString(retErr)})
 	}()
 	if readOnly {
 		return executil.Run("btrfs", "subvolume", "snapshot", "-r", src, dest)
@@ -522,7 +522,7 @@ func execSubvolumeSnapshot(src string, dest string, readOnly bool) (retErr error
 
 func execTransID(path string) (result string, retErr error) {
 	defer func() {
-		protolog.Debug(&TransID{path, result, errorToString(retErr)})
+		protolog.Info(&TransID{path, result, errorToString(retErr)})
 	}()
 	//  "9223372036854775810" == 2 ** 63 we use a very big number there so that
 	//  we get the transid of the from path. According to the internet this is
@@ -553,7 +553,7 @@ func execTransID(path string) (result string, retErr error) {
 
 func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Writer) (retErr error) {
 	defer func() {
-		protolog.Debug(&SubvolumeList{path, fromCommit, ascending, errorToString(retErr)})
+		protolog.Info(&SubvolumeList{path, fromCommit, ascending, errorToString(retErr)})
 	}()
 	var sort string
 	if ascending {
@@ -574,7 +574,7 @@ func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Wr
 
 func execSend(path string, parent string, diff io.Writer) (retErr error) {
 	defer func() {
-		protolog.Debug(&Send{path, parent, errorToString(retErr)})
+		protolog.Info(&Send{path, parent, errorToString(retErr)})
 	}()
 	if parent == "" {
 		return executil.RunStdout(diff, "btrfs", "send", path)
@@ -584,7 +584,7 @@ func execSend(path string, parent string, diff io.Writer) (retErr error) {
 
 func execRecv(path string, diff io.Reader) (retErr error) {
 	defer func() {
-		protolog.Debug(&Recv{path, errorToString(retErr)})
+		protolog.Info(&Recv{path, errorToString(retErr)})
 	}()
 	return executil.RunStdin(diff, "btrfs", "receive", path)
 }
