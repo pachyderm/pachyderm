@@ -477,13 +477,6 @@ func inMetadataDir(name string) bool {
 	return (len(parts) > 0 && parts[0] == metadataDir)
 }
 
-func errorToString(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
-}
-
 func execSubvolumeCreate(path string) (retErr error) {
 	defer func() {
 		protolog.Info(&SubvolumeCreate{path, errorToString(retErr)})
@@ -635,4 +628,12 @@ func (c *commitScanner) parseCommit() (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// TODO this code is duplicate elsewhere, we should put it somehwere.
+func errorToString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
