@@ -546,6 +546,17 @@ func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Wr
 	return executil.RunStdout(out, "btrfs", "subvolume", "list", "-aC", "+"+transid, "--sort", sort, path)
 }
 
+func execSend(path string, parent string, diff io.Writer) error {
+	if parent == "" {
+		return executil.RunStdout(diff, "btrfs", "send", path)
+	}
+	return executil.RunStdout(diff, "btrfs", "send", "-p", parent, path)
+}
+
+func execRecv(path string, diff io.Reader) error {
+	return executil.RunStdin(diff, "btrfs", "receive", path)
+}
+
 type commitScanner struct {
 	textScanner *bufio.Scanner
 	namespace   string
@@ -594,15 +605,4 @@ func (c *commitScanner) parseCommit() (string, bool) {
 		}
 	}
 	return "", false
-}
-
-func execSend(path string, parent string, diff io.Writer) error {
-	if parent == "" {
-		return executil.RunStdout(diff, "btrfs", "send", path)
-	}
-	return executil.RunStdout(diff, "btrfs", "send", "-p", parent, path)
-}
-
-func execRecv(path string, diff io.Reader) error {
-	return executil.RunStdin(diff, "btrfs", "receive", path)
 }
