@@ -31,6 +31,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/executil"
 	"github.com/satori/go.uuid"
 	"go.pedge.io/proto/time"
+	"go.pedge.io/protolog"
 )
 
 const (
@@ -478,29 +479,51 @@ func inMetadataDir(name string) bool {
 	return (len(parts) > 0 && parts[0] == metadataDir)
 }
 
-func execSubvolumeCreate(path string) error {
+func errorToString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
+func execSubvolumeCreate(path string) (retErr error) {
+	defer func() {
+		protolog.Debug(&SubvolumeCreate{path, errorToString(retErr)})
+	}()
 	return executil.Run("btrfs", "subvolume", "create", path)
 }
 
-func execSubvolumeDelete(path string) error {
+func execSubvolumeDelete(path string) (retErr error) {
+	defer func() {
+		protolog.Debug(&SubvolumeDelete{path, errorToString(retErr)})
+	}()
 	return executil.Run("btrfs", "subvolume", "delete", path)
 }
 
-func execSubvolumeExists(path string) bool {
+func execSubvolumeExists(path string) (result bool) {
+	defer func() {
+		protolog.Debug(&SubvolumeExists{path, result})
+	}()
 	if err := executil.Run("btrfs", "subvolume", "show", path); err != nil {
 		return false
 	}
 	return true
 }
 
-func execSubvolumeSnapshot(src string, dest string, readOnly bool) error {
+func execSubvolumeSnapshot(src string, dest string, readOnly bool) (retErr error) {
+	defer func() {
+		protolog.Debug(&SubvolumeSnapshot{src, dest, readOnly, errorToString(retErr)})
+	}()
 	if readOnly {
 		return executil.Run("btrfs", "subvolume", "snapshot", "-r", src, dest)
 	}
 	return executil.Run("btrfs", "subvolume", "snapshot", src, dest)
 }
 
-func execTransID(path string) (string, error) {
+func execTransID(path string) (result string, retErr error) {
+	defer func() {
+		protolog.Debug(&TransID{path, result, errorToString(retErr)})
+	}()
 	//  "9223372036854775810" == 2 ** 63 we use a very big number there so that
 	//  we get the transid of the from path. According to the internet this is
 	//  the nicest way to get it from btrfs.
@@ -528,7 +551,10 @@ func execTransID(path string) (string, error) {
 	return "", fmt.Errorf("pachyderm: empty output from find-new")
 }
 
-func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Writer) error {
+func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Writer) (retErr error) {
+	defer func() {
+		protolog.Debug(&SubvolumeList{path, fromCommit, ascending, errorToString(retErr)})
+	}()
 	var sort string
 	if ascending {
 		sort = "+ogen"
@@ -546,14 +572,20 @@ func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Wr
 	return executil.RunStdout(out, "btrfs", "subvolume", "list", "-aC", "+"+transid, "--sort", sort, path)
 }
 
-func execSend(path string, parent string, diff io.Writer) error {
+func execSend(path string, parent string, diff io.Writer) (retErr error) {
+	defer func() {
+		protolog.Debug(&Send{path, parent, errorToString(retErr)})
+	}()
 	if parent == "" {
 		return executil.RunStdout(diff, "btrfs", "send", path)
 	}
 	return executil.RunStdout(diff, "btrfs", "send", "-p", parent, path)
 }
 
-func execRecv(path string, diff io.Reader) error {
+func execRecv(path string, diff io.Reader) (retErr error) {
+	defer func() {
+		protolog.Debug(&Recv{path, errorToString(retErr)})
+	}()
 	return executil.RunStdin(diff, "btrfs", "receive", path)
 }
 
