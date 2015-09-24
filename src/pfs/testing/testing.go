@@ -188,9 +188,9 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		cluster.servers[address] = apiServer
 		cluster.internalServers[address] = internalAPIServer
 		cluster.cancels[address] = make(chan bool)
-		go func() {
+		go func(address string) {
 			require.Equal(tb, cluster.addresser.Register(cluster.cancels[address], address, address, cluster.internalServers[address]), route.ErrCancelled)
-		}()
+		}(address)
 	}
 	go func() {
 		require.Equal(tb, cluster.addresser.AssignRoles(cluster.cancel), route.ErrCancelled)
