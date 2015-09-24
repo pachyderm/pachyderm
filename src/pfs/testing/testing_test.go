@@ -26,6 +26,7 @@ func TestSimple(t *testing.T) {
 }
 
 func TestFailures(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 	RunTest(t, testFailures)
 }
