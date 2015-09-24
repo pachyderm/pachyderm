@@ -26,7 +26,7 @@ type Addresser interface {
 	Register(cancel chan bool, id string, address string, server Server) error
 	AssignRoles(chan bool) error
 	Version() (int64, error)
-	WaitOneVersion() error
+	WaitForAvailability(ids []string) error
 }
 
 func NewDiscoveryAddresser(discoveryClient discovery.Client, sharder Sharder, namespace string) Addresser {
