@@ -1,5 +1,3 @@
-// +build linux
-
 /*
 
 directory structure
@@ -329,6 +327,32 @@ func (d *driver) ListFile(file *pfs.File, shard uint64) (_ []*pfs.FileInfo, retE
 	return fileInfos, nil
 }
 
+func (d *driver) ListChange(file *pfs.File, from *pfs.Commit, shard uint64) ([]*pfs.Change, error) {
+	//TODO this buffer might get too big
+	var buffer bytes.Buffer
+	commitPath, err := d.commitPath(file.Commit, shard)
+	if err != nil {
+		return nil, err
+	}
+	var fromCommitPath string
+	if from != nil {
+		fromCommitPath, err = d.commitPath(from, shard)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := execSubvolumeFindNew(commitPath, fromCommitPath, &buffer); err != nil {
+		return nil, err
+	}
+	var changes []*pfs.Change
+	changeScanner := newChangeScanner(&buffer, file.Commit)
+	for changeScanner.Scan() {
+		change := changeScanner.Change()
+		changes = append(changes, change)
+	}
+	return changes, nil
+}
+
 func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 	if err := d.checkWrite(file.Commit, shard); err != nil {
 		return err
@@ -565,18 +589,18 @@ func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Wr
 	return executil.RunStdout(out, "btrfs", "subvolume", "list", "-aC", "+"+transid, "--sort", sort, path)
 }
 
-func execSubvolumeFindNew(path string, commit string, fromCommit string, out io.Writer) (retErr error) {
+func execSubvolumeFindNew(commit string, fromCommit string, out io.Writer) (retErr error) {
 	defer func() {
-		protolog.Info(&SubvolumeFindNew{path, commit, fromCommit, errorToString(retErr)})
+		protolog.Info(&SubvolumeFindNew{commit, fromCommit, errorToString(retErr)})
 	}()
 	if fromCommit == "" {
-		return executil.RunStdout(out, "btrfs", "subvolume", "find-new", path, "0")
+		return executil.RunStdout(out, "btrfs", "subvolume", "find-new", commit, "0")
 	}
 	transid, err := execTransID(fromCommit)
 	if err != nil {
 		return err
 	}
-	return executil.RunStdout(out, "btrfs", "subvolume", "find-new", path, transid)
+	return executil.RunStdout(out, "btrfs", "subvolume", "find-new", commit, transid)
 }
 
 func execSend(path string, parent string, diff io.Writer) (retErr error) {

@@ -298,6 +298,52 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 	}, nil
 }
 
+func (a *internalAPIServer) ListChange(ctx context.Context, request *pfs.ListChangeRequest) (*pfs.Changes, error) {
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetMasterShards(version)
+	if err != nil {
+		return nil, err
+	}
+	dynamicShard := request.Shard
+	if dynamicShard == nil {
+		dynamicShard = &pfs.Shard{Number: 0, Modulo: 1}
+	}
+	var wg sync.WaitGroup
+	var lock sync.Mutex
+	var changes []*pfs.Change
+	var loopErr error
+	for shard := range shards {
+		wg.Add(1)
+		go func(shard uint64) {
+			defer wg.Done()
+			subChanges, err := a.driver.ListChange(request.File, request.From, shard)
+			lock.Lock()
+			defer lock.Unlock()
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
+				}
+				return
+			}
+			for _, change := range subChanges {
+				if a.sharder.GetShard(change.File)%dynamicShard.Modulo == dynamicShard.Number {
+					changes = append(changes, change)
+				}
+			}
+		}(shard)
+	}
+	wg.Wait()
+	if loopErr != nil {
+		return nil, loopErr
+	}
+	return &pfs.Changes{
+		Change: changes,
+	}, nil
+}
+
 func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (*google_protobuf.Empty, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
