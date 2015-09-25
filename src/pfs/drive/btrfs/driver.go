@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -535,9 +536,6 @@ func execTransID(path string) (result string, retErr error) {
 		if len(tokens) != 4 {
 			return "", fmt.Errorf("pachyderm: failed to parse find-new output")
 		}
-		// We want to increment the transid because it's inclusive, if we
-		// don't increment we'll get things from the previous commit as
-		// well.
 		return tokens[3], nil
 	}
 	if scanner.Err() != nil {
@@ -565,6 +563,20 @@ func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Wr
 		return err
 	}
 	return executil.RunStdout(out, "btrfs", "subvolume", "list", "-aC", "+"+transid, "--sort", sort, path)
+}
+
+func execSubvolumeFindNew(path string, commit string, fromCommit string, out io.Writer) (retErr error) {
+	defer func() {
+		protolog.Info(&SubvolumeFindNew{path, commit, fromCommit, errorToString(retErr)})
+	}()
+	if fromCommit == "" {
+		return executil.RunStdout(out, "btrfs", "subvolume", "find-new", path, "0")
+	}
+	transid, err := execTransID(fromCommit)
+	if err != nil {
+		return err
+	}
+	return executil.RunStdout(out, "btrfs", "subvolume", "find-new", path, transid)
 }
 
 func execSend(path string, parent string, diff io.Writer) (retErr error) {
@@ -632,6 +644,61 @@ func (c *commitScanner) parseCommit() (string, bool) {
 		}
 	}
 	return "", false
+}
+
+type changeScanner struct {
+	textScanner *bufio.Scanner
+	commit      *pfs.Commit
+}
+
+func newChangeScanner(reader io.Reader, commit *pfs.Commit) *changeScanner {
+	return &changeScanner{bufio.NewScanner(reader), commit}
+}
+
+func (c *changeScanner) Scan() bool {
+	for {
+		if !c.textScanner.Scan() {
+			return false
+		}
+		if _, ok := c.parseChange(); ok {
+			return true
+		}
+	}
+}
+
+func (c *changeScanner) Err() error {
+	return c.textScanner.Err()
+}
+
+func (c *changeScanner) Change() *pfs.Change {
+	change, _ := c.parseChange()
+	return change
+}
+
+func (c *changeScanner) parseChange() (*pfs.Change, bool) {
+	// c.textScanner.Text() looks like:
+	// inode 258 file offset 0 len 7 disk start 0 offset 0 gen 330 flags INLINE path/to/file
+	// 0     1   2    3      4 5   6 7    8     9 10     1112  13  14    15     16
+	tokens := strings.Split(c.textScanner.Text(), " ")
+	if len(tokens) != 17 {
+		return nil, false
+	}
+	offset, err := strconv.ParseUint(tokens[4], 10, 64)
+	if err != nil {
+		return nil, false
+	}
+	length, err := strconv.ParseUint(tokens[6], 10, 64)
+	if err != nil {
+		return nil, false
+	}
+	return &pfs.Change{
+		File: &pfs.File{
+			Commit: c.commit,
+			Path:   tokens[16],
+		},
+		OffsetBytes: offset,
+		SizeBytes:   length,
+	}, true
 }
 
 // TODO this code is duplicate elsewhere, we should put it somehwere.
