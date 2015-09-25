@@ -6,6 +6,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 
 	"google.golang.org/grpc/metadata"
 
@@ -257,28 +258,40 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 	if dynamicShard == nil {
 		dynamicShard = &pfs.Shard{Number: 0, Modulo: 1}
 	}
-	filteredShards := make(map[uint64]bool)
-	for shard := range shards {
-		if uint64(shard)%dynamicShard.Modulo == dynamicShard.Number {
-			filteredShards[shard] = true
-		}
-	}
+	var wg sync.WaitGroup
+	var lock sync.Mutex
 	var fileInfos []*pfs.FileInfo
 	seenDirectories := make(map[string]bool)
-	for shard := range filteredShards {
-		subFileInfos, err := a.driver.ListFile(request.File, shard)
-		if err != nil {
-			return nil, err
-		}
-		for _, fileInfo := range subFileInfos {
-			if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-				if seenDirectories[fileInfo.File.Path] {
-					continue
+	var loopErr error
+	for shard := range shards {
+		wg.Add(1)
+		go func(shard uint64) {
+			defer wg.Done()
+			subFileInfos, err := a.driver.ListFile(request.File, shard)
+			lock.Lock()
+			defer lock.Unlock()
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
 				}
-				seenDirectories[fileInfo.File.Path] = true
+				return
 			}
-			fileInfos = append(fileInfos, fileInfo)
-		}
+			for _, fileInfo := range subFileInfos {
+				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+					if seenDirectories[fileInfo.File.Path] {
+						continue
+					}
+					seenDirectories[fileInfo.File.Path] = true
+				}
+				if a.sharder.GetShard(fileInfo.File)%dynamicShard.Modulo == dynamicShard.Number {
+					fileInfos = append(fileInfos, fileInfo)
+				}
+			}
+		}(shard)
+	}
+	wg.Wait()
+	if loopErr != nil {
+		return nil, loopErr
 	}
 	return &pfs.FileInfos{
 		FileInfo: fileInfos,
@@ -400,10 +413,7 @@ func (a *internalAPIServer) LocalShards() (map[uint64]bool, error) {
 }
 
 func (a *internalAPIServer) getMasterShardForFile(file *pfs.File, version int64) (uint64, error) {
-	shard, err := a.sharder.GetShard(file)
-	if err != nil {
-		return 0, err
-	}
+	shard := a.sharder.GetShard(file)
 	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return 0, err
@@ -416,10 +426,7 @@ func (a *internalAPIServer) getMasterShardForFile(file *pfs.File, version int64)
 }
 
 func (a *internalAPIServer) getShardForFile(file *pfs.File, version int64) (uint64, error) {
-	shard, err := a.sharder.GetShard(file)
-	if err != nil {
-		return 0, err
-	}
+	shard := a.sharder.GetShard(file)
 	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return 0, err
@@ -481,7 +488,7 @@ func (a *internalAPIServer) commitToReplicas(ctx context.Context, commit *pfs.Co
 				ctx,
 				&pfs.PushDiffRequest{
 					Commit: commit,
-					Shard:  uint64(shard),
+					Shard:  shard,
 					Value:  diff.Bytes(),
 				},
 			); err != nil {
