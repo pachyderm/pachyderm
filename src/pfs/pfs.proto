@@ -120,6 +120,7 @@ message CommitInspectRequest {
 
 message CommitListRequest {
   Repo repo = 1;
+  Commit from = 2;
 }
 
 message CommitDeleteRequest {

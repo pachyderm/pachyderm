@@ -24,7 +24,7 @@ type Driver interface {
 	CommitStart(parent *pfs.Commit, commit *pfs.Commit, shards map[uint64]bool) (*pfs.Commit, error)
 	CommitFinish(commit *pfs.Commit, shards map[uint64]bool) error
 	CommitInspect(commit *pfs.Commit, shard uint64) (*pfs.CommitInfo, error)
-	CommitList(repo *pfs.Repo, shard uint64) ([]*pfs.CommitInfo, error)
+	CommitList(repo *pfs.Repo, from *pfs.Commit, shard uint64) ([]*pfs.CommitInfo, error)
 	CommitDelete(commit *pfs.Commit, shards map[uint64]bool) error
 	FilePut(file *pfs.File, shard uint64, offset int64, reader io.Reader) error
 	MakeDirectory(file *pfs.File, shards map[uint64]bool) error

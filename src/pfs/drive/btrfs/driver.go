@@ -163,7 +163,7 @@ func (d *driver) CommitFinish(commit *pfs.Commit, shards map[uint64]bool) error 
 
 func (d *driver) CommitInspect(commit *pfs.Commit, shard uint64) (*pfs.CommitInfo, error) {
 	if !execSubvolumeExists(d.readCommitPath(commit, shard)) && !execSubvolumeExists(d.writeCommitPath(commit, shard)) {
-		return nil, fmt.Errorf("commit %s not found", d.readCommitPath(commit, shard))
+		return nil, nil // returning nil means not found
 	}
 	parent, err := d.getParent(commit, shard)
 	if err != nil {
@@ -184,11 +184,15 @@ func (d *driver) CommitInspect(commit *pfs.Commit, shard uint64) (*pfs.CommitInf
 	}, nil
 }
 
-func (d *driver) CommitList(repo *pfs.Repo, shard uint64) ([]*pfs.CommitInfo, error) {
+func (d *driver) CommitList(repo *pfs.Repo, from *pfs.Commit, shard uint64) ([]*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	//TODO this buffer might get too big
 	var buffer bytes.Buffer
-	if err := execSubvolumeList(d.repoPath(repo), "", false, &buffer); err != nil {
+	var fromCommit string
+	if from != nil {
+		fromCommit = from.Id
+	}
+	if err := execSubvolumeList(d.repoPath(repo), fromCommit, false, &buffer); err != nil {
 		return nil, err
 	}
 	commitScanner := newCommitScanner(&buffer, d.namespace, repo.Name)

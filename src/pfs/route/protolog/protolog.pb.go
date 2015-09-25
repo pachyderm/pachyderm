@@ -98,6 +98,7 @@ func (m *SetServerState) GetServerState() *routeproto.ServerState {
 
 type AddServerRole struct {
 	ServerRole *routeproto.ServerRole `protobuf:"bytes,1,opt,name=serverRole" json:"serverRole,omitempty"`
+	Error      string                 `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
 }
 
 func (m *AddServerRole) Reset()         { *m = AddServerRole{} }
@@ -113,6 +114,7 @@ func (m *AddServerRole) GetServerRole() *routeproto.ServerRole {
 
 type RemoveServerRole struct {
 	ServerRole *routeproto.ServerRole `protobuf:"bytes,1,opt,name=serverRole" json:"serverRole,omitempty"`
+	Error      string                 `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
 }
 
 func (m *RemoveServerRole) Reset()         { *m = RemoveServerRole{} }

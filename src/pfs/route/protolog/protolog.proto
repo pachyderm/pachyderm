@@ -33,10 +33,12 @@ message SetServerState {
 
 message AddServerRole {
     routeproto.ServerRole serverRole = 1;
+    string error = 2;
 }
 
 message RemoveServerRole {
     routeproto.ServerRole serverRole = 1;
+    string error = 2;
 }
 
 message SetServerRole {
