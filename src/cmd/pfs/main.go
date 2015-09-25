@@ -268,6 +268,27 @@ func do(appEnvObj interface{}) error {
 		},
 	}.ToCobraCommand()
 
+	listChange := cobramainutil.Command{
+		Use:     "list-change repo-name commit-id path/to/dir",
+		Short:   "Return the changes in a directory.",
+		Long:    "Return the changes in a directory.",
+		NumArgs: 3,
+		Run: func(cmd *cobra.Command, args []string) error {
+			changeInfos, err := pfsutil.ListChange(apiClient, args[0], args[1], args[2], uint64(shard), uint64(modulus))
+			if err != nil {
+				return err
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintChangeHeader(writer)
+			for _, changeInfo := range changeInfos {
+				pretty.PrintChange(writer, changeInfo)
+			}
+			return writer.Flush()
+		},
+	}.ToCobraCommand()
+	listChange.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
+	listChange.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
+
 	inspectServer := cobramainutil.Command{
 		Use:     "inspect-server server-id",
 		Short:   "Inspect a server.",
@@ -351,6 +372,7 @@ The environment variable PFS_ADDRESS controls what server the CLI connects to, t
 	rootCmd.AddCommand(inspectFile)
 	rootCmd.AddCommand(listFile)
 	rootCmd.AddCommand(deleteFile)
+	rootCmd.AddCommand(listChange)
 	rootCmd.AddCommand(inspectServer)
 	rootCmd.AddCommand(listServer)
 	rootCmd.AddCommand(mount)
