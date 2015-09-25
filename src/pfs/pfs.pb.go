@@ -422,7 +422,8 @@ func (m *CommitInspectRequest) GetCommit() *Commit {
 }
 
 type CommitListRequest struct {
-	Repo *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
+	Repo *Repo   `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
+	From *Commit `protobuf:"bytes,2,opt,name=from" json:"from,omitempty"`
 }
 
 func (m *CommitListRequest) Reset()         { *m = CommitListRequest{} }
@@ -432,6 +433,13 @@ func (*CommitListRequest) ProtoMessage()    {}
 func (m *CommitListRequest) GetRepo() *Repo {
 	if m != nil {
 		return m.Repo
+	}
+	return nil
+}
+
+func (m *CommitListRequest) GetFrom() *Commit {
+	if m != nil {
+		return m.From
 	}
 	return nil
 }

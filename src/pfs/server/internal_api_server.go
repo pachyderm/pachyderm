@@ -146,7 +146,7 @@ func (a *internalAPIServer) CommitList(ctx context.Context, request *pfs.CommitL
 		return nil, err
 	}
 	for shard := range shards {
-		commitInfos, err := a.driver.CommitList(request.Repo, shard)
+		commitInfos, err := a.driver.CommitList(request.Repo, request.From, shard)
 		if err != nil {
 			return nil, err
 		}
@@ -343,6 +343,51 @@ func (a *internalAPIServer) PushDiff(ctx context.Context, request *pfs.PushDiffR
 }
 
 func (a *internalAPIServer) AddShard(shard uint64) error {
+	version, ctx, err := a.versionAndCtx(context.Background())
+	if err != nil {
+		return err
+	}
+	if version == route.InvalidVersion {
+		return nil
+	}
+	clientConn, err := a.router.GetMasterOrReplicaClientConn(shard, version)
+	if err != nil {
+		return err
+	}
+	repoInfos, err := pfs.NewInternalApiClient(clientConn).RepoList(ctx, &pfs.RepoListRequest{})
+	if err != nil {
+		return err
+	}
+	for _, repoInfo := range repoInfos.RepoInfo {
+		if err := a.driver.RepoCreate(repoInfo.Repo); err != nil {
+			return err
+		}
+		commitInfos, err := pfs.NewInternalApiClient(clientConn).CommitList(ctx, &pfs.CommitListRequest{Repo: repoInfo.Repo})
+		if err != nil {
+			return err
+		}
+		for i := range commitInfos.CommitInfo {
+			commit := commitInfos.CommitInfo[len(commitInfos.CommitInfo)-(i+1)].Commit
+			commitInfo, err := a.driver.CommitInspect(commit, shard)
+			if err != nil {
+				return err
+			}
+			if commitInfo != nil {
+				// we already have the commit so nothing to do
+				continue
+			}
+			pullDiffRequest := &pfs.PullDiffRequest{
+				Commit: commit,
+				Shard:  shard,
+			}
+			pullDiffClient, err := pfs.NewInternalApiClient(clientConn).PullDiff(ctx, pullDiffRequest)
+			if err != nil {
+				return err
+			}
+			diffReader := protostream.NewStreamingBytesReader(pullDiffClient)
+			a.driver.DiffPush(commit, diffReader)
+		}
+	}
 	return nil
 }
 
@@ -460,4 +505,16 @@ func (a *internalAPIServer) getVersion(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("version not found in context")
 	}
 	return strconv.ParseInt(encodedVersion[0], 10, 64)
+}
+
+func (a *internalAPIServer) versionAndCtx(ctx context.Context) (int64, context.Context, error) {
+	version, err := a.router.Version()
+	if err != nil {
+		return 0, nil, err
+	}
+	newCtx := metadata.NewContext(
+		ctx,
+		metadata.Pairs("version", fmt.Sprint(version)),
+	)
+	return version, newCtx, nil
 }

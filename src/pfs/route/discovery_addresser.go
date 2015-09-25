@@ -16,6 +16,8 @@ import (
 	"go.pedge.io/protolog"
 )
 
+const InvalidVersion int64 = -1
+
 var (
 	holdTTL      uint64 = 20
 	marshaler           = &jsonpb.Marshaler{}
@@ -416,7 +418,7 @@ func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
 			}
 			versions := make(map[int64]bool)
 			for _, serverState := range serverStates {
-				if serverState.Version == -1 {
+				if serverState.Version == InvalidVersion {
 					return 0, nil
 				}
 				versions[serverState.Version] = true
@@ -438,6 +440,9 @@ func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
 }
 
 func (a *discoveryAddresser) getAddresses(version int64) (*proto.Addresses, error) {
+	if version == InvalidVersion {
+		return nil, fmt.Errorf("invalid version")
+	}
 	if addresses, ok := a.addresses[version]; ok {
 		return addresses, nil
 	}
@@ -584,7 +589,7 @@ func (a *discoveryAddresser) announceState(
 	serverState := &proto.ServerState{
 		Id:      id,
 		Address: address,
-		Version: -1,
+		Version: InvalidVersion,
 	}
 	for {
 		shards, err := server.LocalShards()
@@ -646,7 +651,6 @@ func (a *discoveryAddresser) fillRoles(
 					continue
 				}
 				serverRole := roles[version]
-				protolog.Info(&log.AddServerRole{&serverRole})
 				var wg sync.WaitGroup
 				var addShardErr error
 				var addShardOnce sync.Once
@@ -665,21 +669,22 @@ func (a *discoveryAddresser) fillRoles(
 				}
 				wg.Wait()
 				if addShardErr != nil {
+					protolog.Info(&log.AddServerRole{&serverRole, addShardErr.Error()})
 					return 0, addShardErr
 				}
+				protolog.Info(&log.AddServerRole{&serverRole, ""})
 				oldRoles[version] = serverRole
 				versionChan <- version
 			}
 			// See if there are any old roles that aren't needed
-			var wg sync.WaitGroup
-			var removeShardErr error
-			var removeShardOnce sync.Once
 			for version, serverRole := range oldRoles {
+				var wg sync.WaitGroup
+				var removeShardErr error
+				var removeShardOnce sync.Once
 				if _, ok := roles[version]; ok {
 					// these roles haven't expired yet, so nothing to do
 					continue
 				}
-				protolog.Info(&log.DeleteServerRole{&serverRole})
 				for _, shard := range shards(serverRole) {
 					if !containsShard(roles, shard) {
 						wg.Add(1)
@@ -693,13 +698,18 @@ func (a *discoveryAddresser) fillRoles(
 						}(shard)
 					}
 				}
+				wg.Wait()
+				if removeShardErr != nil {
+					protolog.Info(&log.RemoveServerRole{&serverRole, removeShardErr.Error()})
+					return 0, removeShardErr
+				}
+				protolog.Info(&log.RemoveServerRole{&serverRole, ""})
 			}
-			wg.Wait()
 			oldRoles = make(map[int64]proto.ServerRole)
 			for version, serverRole := range roles {
 				oldRoles[version] = serverRole
 			}
-			return 0, removeShardErr
+			return 0, nil
 		},
 	)
 }
