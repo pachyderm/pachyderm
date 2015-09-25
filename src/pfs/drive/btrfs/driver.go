@@ -641,6 +641,7 @@ func (c *commitScanner) Err() error {
 
 func (c *commitScanner) Commit() string {
 	commit, _ := c.parseCommit()
+	protolog.Info(&SubvolumeListLine{c.textScanner.Text()})
 	return commit
 }
 
@@ -690,6 +691,7 @@ func (c *changeScanner) Err() error {
 
 func (c *changeScanner) Change() *pfs.Change {
 	change, _ := c.parseChange()
+	protolog.Info(&SubvolumeFindNewLine{c.textScanner.Text()})
 	return change
 }
 
@@ -699,6 +701,9 @@ func (c *changeScanner) parseChange() (*pfs.Change, bool) {
 	// 0     1   2    3      4 5   6 7    8     9 10     1112  13  14    15     16
 	tokens := strings.Split(c.textScanner.Text(), " ")
 	if len(tokens) != 17 {
+		return nil, false
+	}
+	if strings.HasPrefix(tokens[16], metadataDir) {
 		return nil, false
 	}
 	offset, err := strconv.ParseUint(tokens[4], 10, 64)

@@ -37,10 +37,18 @@ message SubvolumeList {
     string error = 4;
 }
 
+message SubvolumeListLine {
+    string line = 1;
+}
+
 message SubvolumeFindNew {
     string commit = 1;
     string fromCommit = 2;
     string error = 3;
+}
+
+message SubvolumeFindNewLine {
+    string line = 1;
 }
 
 message Send {
