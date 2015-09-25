@@ -24,6 +24,6 @@ func (s *sharder) NumReplicas() uint64 {
 	return s.numReplicas
 }
 
-func (s *sharder) GetShard(file *pfs.File) (uint64, error) {
-	return uint64(adler32.Checksum([]byte(path.Clean(file.Path)))) % s.numShards, nil
+func (s *sharder) GetShard(file *pfs.File) uint64 {
+	return uint64(adler32.Checksum([]byte(path.Clean(file.Path)))) % s.numShards
 }

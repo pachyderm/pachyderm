@@ -23,6 +23,7 @@ It has these top-level messages:
 	ServerInfos
 	Shard
 	Change
+	Changes
 	CreateRepoRequest
 	InspectRepoRequest
 	ListRepoRequest
@@ -38,6 +39,7 @@ It has these top-level messages:
 	MakeDirectoryRequest
 	ListFileRequest
 	DeleteFileRequest
+	ListChangeRequest
 	InspectServerRequest
 	ListServerRequest
 	PullDiffRequest
@@ -362,7 +364,7 @@ func (*Shard) ProtoMessage()    {}
 
 // Change represents a change to a file.
 type Change struct {
-	Path        *File  `protobuf:"bytes,2,opt,name=path" json:"path,omitempty"`
+	File        *File  `protobuf:"bytes,2,opt,name=file" json:"file,omitempty"`
 	SizeBytes   uint64 `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
 	OffsetBytes uint64 `protobuf:"varint,4,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
 }
@@ -371,9 +373,24 @@ func (m *Change) Reset()         { *m = Change{} }
 func (m *Change) String() string { return proto.CompactTextString(m) }
 func (*Change) ProtoMessage()    {}
 
-func (m *Change) GetPath() *File {
+func (m *Change) GetFile() *File {
 	if m != nil {
-		return m.Path
+		return m.File
+	}
+	return nil
+}
+
+type Changes struct {
+	Change []*Change `protobuf:"bytes,1,rep,name=change" json:"change,omitempty"`
+}
+
+func (m *Changes) Reset()         { *m = Changes{} }
+func (m *Changes) String() string { return proto.CompactTextString(m) }
+func (*Changes) ProtoMessage()    {}
+
+func (m *Changes) GetChange() []*Change {
+	if m != nil {
+		return m.Change
 	}
 	return nil
 }
@@ -624,6 +641,29 @@ func (m *DeleteFileRequest) GetFile() *File {
 	return nil
 }
 
+type ListChangeRequest struct {
+	File  *File  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	Shard *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
+}
+
+func (m *ListChangeRequest) Reset()         { *m = ListChangeRequest{} }
+func (m *ListChangeRequest) String() string { return proto.CompactTextString(m) }
+func (*ListChangeRequest) ProtoMessage()    {}
+
+func (m *ListChangeRequest) GetFile() *File {
+	if m != nil {
+		return m.File
+	}
+	return nil
+}
+
+func (m *ListChangeRequest) GetShard() *Shard {
+	if m != nil {
+		return m.Shard
+	}
+	return nil
+}
+
 type InspectServerRequest struct {
 	Server *Server `protobuf:"bytes,1,opt,name=server" json:"server,omitempty"`
 }
@@ -726,6 +766,8 @@ type ApiClient interface {
 	ListFile(ctx context.Context, in *ListFileRequest, opts ...grpc.CallOption) (*FileInfos, error)
 	// DeleteFile deletes a file.
 	DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	// ListChange returns changes to the filesystem.
+	ListChange(ctx context.Context, in *ListChangeRequest, opts ...grpc.CallOption) (*Changes, error)
 	// Server rpcs
 	// InspectServer returns info about a server.
 	InspectServer(ctx context.Context, in *InspectServerRequest, opts ...grpc.CallOption) (*ServerInfo, error)
@@ -890,6 +932,15 @@ func (c *apiClient) DeleteFile(ctx context.Context, in *DeleteFileRequest, opts 
 	return out, nil
 }
 
+func (c *apiClient) ListChange(ctx context.Context, in *ListChangeRequest, opts ...grpc.CallOption) (*Changes, error) {
+	out := new(Changes)
+	err := grpc.Invoke(ctx, "/pfs.Api/ListChange", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *apiClient) InspectServer(ctx context.Context, in *InspectServerRequest, opts ...grpc.CallOption) (*ServerInfo, error) {
 	out := new(ServerInfo)
 	err := grpc.Invoke(ctx, "/pfs.Api/InspectServer", in, out, c.cc, opts...)
@@ -946,6 +997,8 @@ type ApiServer interface {
 	ListFile(context.Context, *ListFileRequest) (*FileInfos, error)
 	// DeleteFile deletes a file.
 	DeleteFile(context.Context, *DeleteFileRequest) (*google_protobuf1.Empty, error)
+	// ListChange returns changes to the filesystem.
+	ListChange(context.Context, *ListChangeRequest) (*Changes, error)
 	// Server rpcs
 	// InspectServer returns info about a server.
 	InspectServer(context.Context, *InspectServerRequest) (*ServerInfo, error)
@@ -1134,6 +1187,18 @@ func _Api_DeleteFile_Handler(srv interface{}, ctx context.Context, codec grpc.Co
 	return out, nil
 }
 
+func _Api_ListChange_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(ListChangeRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).ListChange(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func _Api_InspectServer_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
 	in := new(InspectServerRequest)
 	if err := codec.Unmarshal(buf, in); err != nil {
@@ -1215,6 +1280,10 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_DeleteFile_Handler,
 		},
 		{
+			MethodName: "ListChange",
+			Handler:    _Api_ListChange_Handler,
+		},
+		{
 			MethodName: "InspectServer",
 			Handler:    _Api_InspectServer_Handler,
 		},
@@ -1270,6 +1339,8 @@ type InternalApiClient interface {
 	ListFile(ctx context.Context, in *ListFileRequest, opts ...grpc.CallOption) (*FileInfos, error)
 	// DeleteFile deletes a file.
 	DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	// ListChange returns changes to the filesystem.
+	ListChange(ctx context.Context, in *ListChangeRequest, opts ...grpc.CallOption) (*Changes, error)
 	// Diff rpcs
 	// PullDiff pulls a binary stream of the diff from the specified
 	// commit to the commit's parent.
@@ -1435,6 +1506,15 @@ func (c *internalApiClient) DeleteFile(ctx context.Context, in *DeleteFileReques
 	return out, nil
 }
 
+func (c *internalApiClient) ListChange(ctx context.Context, in *ListChangeRequest, opts ...grpc.CallOption) (*Changes, error) {
+	out := new(Changes)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/ListChange", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *internalApiClient) PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (InternalApi_PullDiffClient, error) {
 	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[1], c.cc, "/pfs.InternalApi/PullDiff", opts...)
 	if err != nil {
@@ -1514,6 +1594,8 @@ type InternalApiServer interface {
 	ListFile(context.Context, *ListFileRequest) (*FileInfos, error)
 	// DeleteFile deletes a file.
 	DeleteFile(context.Context, *DeleteFileRequest) (*google_protobuf1.Empty, error)
+	// ListChange returns changes to the filesystem.
+	ListChange(context.Context, *ListChangeRequest) (*Changes, error)
 	// Diff rpcs
 	// PullDiff pulls a binary stream of the diff from the specified
 	// commit to the commit's parent.
@@ -1703,6 +1785,18 @@ func _InternalApi_DeleteFile_Handler(srv interface{}, ctx context.Context, codec
 	return out, nil
 }
 
+func _InternalApi_ListChange_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(ListChangeRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).ListChange(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func _InternalApi_PullDiff_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(PullDiffRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -1791,6 +1885,10 @@ var _InternalApi_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteFile",
 			Handler:    _InternalApi_DeleteFile_Handler,
+		},
+		{
+			MethodName: "ListChange",
+			Handler:    _InternalApi_ListChange_Handler,
 		},
 		{
 			MethodName: "PushDiff",

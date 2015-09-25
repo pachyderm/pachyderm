@@ -10,7 +10,7 @@ import (
 type Sharder interface {
 	NumShards() uint64
 	NumReplicas() uint64
-	GetShard(file *pfs.File) (uint64, error)
+	GetShard(file *pfs.File) uint64
 }
 
 func NewSharder(numShards uint64, numReplicas uint64) Sharder {
