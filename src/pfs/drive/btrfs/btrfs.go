@@ -1,5 +1,3 @@
-// +build linux
-
 package btrfs
 
 import "github.com/pachyderm/pachyderm/src/pfs/drive"

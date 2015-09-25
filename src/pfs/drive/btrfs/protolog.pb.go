@@ -90,10 +90,9 @@ func (m *SubvolumeList) String() string { return proto.CompactTextString(m) }
 func (*SubvolumeList) ProtoMessage()    {}
 
 type SubvolumeFindNew struct {
-	Path       string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
-	Commit     string `protobuf:"bytes,2,opt,name=commit" json:"commit,omitempty"`
-	FromCommit string `protobuf:"bytes,3,opt,name=fromCommit" json:"fromCommit,omitempty"`
-	Error      string `protobuf:"bytes,4,opt,name=error" json:"error,omitempty"`
+	Commit     string `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	FromCommit string `protobuf:"bytes,2,opt,name=fromCommit" json:"fromCommit,omitempty"`
+	Error      string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
 func (m *SubvolumeFindNew) Reset()         { *m = SubvolumeFindNew{} }

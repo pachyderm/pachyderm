@@ -642,8 +642,9 @@ func (m *DeleteFileRequest) GetFile() *File {
 }
 
 type ListChangeRequest struct {
-	File  *File  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	Shard *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
+	File  *File   `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	From  *Commit `protobuf:"bytes,2,opt,name=from" json:"from,omitempty"`
+	Shard *Shard  `protobuf:"bytes,3,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *ListChangeRequest) Reset()         { *m = ListChangeRequest{} }
@@ -653,6 +654,13 @@ func (*ListChangeRequest) ProtoMessage()    {}
 func (m *ListChangeRequest) GetFile() *File {
 	if m != nil {
 		return m.File
+	}
+	return nil
+}
+
+func (m *ListChangeRequest) GetFrom() *Commit {
+	if m != nil {
+		return m.From
 	}
 	return nil
 }

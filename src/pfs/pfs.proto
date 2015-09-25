@@ -180,7 +180,8 @@ message DeleteFileRequest {
 
 message ListChangeRequest {
 	File file = 1;
-	Shard shard = 2;
+	Commit from = 2;
+	Shard shard = 3; // can be left nil
 }
 
 message InspectServerRequest {

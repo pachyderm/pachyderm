@@ -31,6 +31,7 @@ type Driver interface {
 	GetFile(file *pfs.File, shard uint64) (ReaderAtCloser, error)
 	InspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error)
 	ListFile(file *pfs.File, shard uint64) ([]*pfs.FileInfo, error)
+	ListChange(file *pfs.File, from *pfs.Commit, shard uint64) ([]*pfs.Change, error)
 	DeleteFile(file *pfs.File, shard uint64) error
 	PullDiff(commit *pfs.Commit, shard uint64, diff io.Writer) error
 	PushDiff(commit *pfs.Commit, diff io.Reader) error
