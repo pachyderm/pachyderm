@@ -91,16 +91,16 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteR
 
 }
 
-func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (*pfs.Commit, error) {
+func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (*google_protobuf.Empty, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
-		return nil, err
+		return emptyInstance, err
 	}
 	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
-		return nil, err
+		return emptyInstance, err
 	}
-	return a.driver.StartCommit(request.Parent, request.Commit, shards)
+	return emptyInstance, a.driver.StartCommit(request.Parent, request.Commit, shards)
 }
 
 func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (*google_protobuf.Empty, error) {

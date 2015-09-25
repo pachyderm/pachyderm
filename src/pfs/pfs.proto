@@ -267,7 +267,7 @@ service InternalApi {
   // Commit rpcs
   // StartCommit creates a new write commit from a parent commit.
   // An error is returned if the parent commit is not a read commit.
-  rpc StartCommit(StartCommitRequest) returns (Commit) {}
+  rpc StartCommit(StartCommitRequest) returns (google.protobuf.Empty) {}
   // FinishCommit turns a write commit into a read commit.
   // An error is returned if the commit is not a write commit.
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
