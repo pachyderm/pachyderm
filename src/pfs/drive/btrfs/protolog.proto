@@ -37,6 +37,13 @@ message SubvolumeList {
     string error = 4;
 }
 
+message SubvolumeFindNew {
+    string path = 1;
+    string commit = 2;
+    string fromCommit = 3;
+    string error = 4;
+}
+
 message Send {
     string path = 1;
     string parent = 2;
