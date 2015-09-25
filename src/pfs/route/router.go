@@ -3,6 +3,7 @@ package route
 import (
 	"fmt"
 
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"google.golang.org/grpc"
 )
@@ -158,4 +159,12 @@ func (r *router) getAllAddresses(version int64) (map[string]bool, error) {
 
 func (r *router) Version() (int64, error) {
 	return r.addresser.Version()
+}
+
+func (r *router) InspectServer(server *pfs.Server) (*pfs.ServerInfo, error) {
+	return r.addresser.InspectServer(server)
+}
+
+func (r *router) ListServer() ([]*pfs.ServerInfo, error) {
+	return r.addresser.ListServer()
 }

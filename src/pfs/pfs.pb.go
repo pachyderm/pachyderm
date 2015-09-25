@@ -12,12 +12,15 @@ It has these top-level messages:
 	Repo
 	Commit
 	File
+	Server
 	RepoInfo
 	RepoInfos
 	CommitInfo
 	CommitInfos
 	FileInfo
 	FileInfos
+	ServerInfo
+	ServerInfos
 	Shard
 	Change
 	CreateRepoRequest
@@ -35,6 +38,8 @@ It has these top-level messages:
 	MakeDirectoryRequest
 	ListFileRequest
 	DeleteFileRequest
+	InspectServerRequest
+	ListServerRequest
 	PullDiffRequest
 	PushDiffRequest
 */
@@ -48,6 +53,7 @@ import math "math"
 import google_protobuf1 "go.pedge.io/google-protobuf"
 import google_protobuf2 "go.pedge.io/google-protobuf"
 import google_protobuf3 "go.pedge.io/google-protobuf"
+import routeproto "github.com/pachyderm/pachyderm/src/pfs/route/proto"
 
 import (
 	context "golang.org/x/net/context"
@@ -146,6 +152,15 @@ func (m *File) GetCommit() *Commit {
 	}
 	return nil
 }
+
+// Server represents a server in the pfs cluster.
+type Server struct {
+	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+}
+
+func (m *Server) Reset()         { *m = Server{} }
+func (m *Server) String() string { return proto.CompactTextString(m) }
+func (*Server) ProtoMessage()    {}
 
 // RepoInfo represent information about a repo.
 type RepoInfo struct {
@@ -283,6 +298,53 @@ func (*FileInfos) ProtoMessage()    {}
 func (m *FileInfos) GetFileInfo() []*FileInfo {
 	if m != nil {
 		return m.FileInfo
+	}
+	return nil
+}
+
+// ServerInfo represents information about a server.
+type ServerInfo struct {
+	Server      *Server                          `protobuf:"bytes,1,opt,name=server" json:"server,omitempty"`
+	ServerState *routeproto.ServerState          `protobuf:"bytes,2,opt,name=server_state" json:"server_state,omitempty"`
+	ServerRole  map[int64]*routeproto.ServerRole `protobuf:"bytes,3,rep,name=server_role" json:"server_role,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+}
+
+func (m *ServerInfo) Reset()         { *m = ServerInfo{} }
+func (m *ServerInfo) String() string { return proto.CompactTextString(m) }
+func (*ServerInfo) ProtoMessage()    {}
+
+func (m *ServerInfo) GetServer() *Server {
+	if m != nil {
+		return m.Server
+	}
+	return nil
+}
+
+func (m *ServerInfo) GetServerState() *routeproto.ServerState {
+	if m != nil {
+		return m.ServerState
+	}
+	return nil
+}
+
+func (m *ServerInfo) GetServerRole() map[int64]*routeproto.ServerRole {
+	if m != nil {
+		return m.ServerRole
+	}
+	return nil
+}
+
+type ServerInfos struct {
+	ServerInfo []*ServerInfo `protobuf:"bytes,1,rep,name=server_info" json:"server_info,omitempty"`
+}
+
+func (m *ServerInfos) Reset()         { *m = ServerInfos{} }
+func (m *ServerInfos) String() string { return proto.CompactTextString(m) }
+func (*ServerInfos) ProtoMessage()    {}
+
+func (m *ServerInfos) GetServerInfo() []*ServerInfo {
+	if m != nil {
+		return m.ServerInfo
 	}
 	return nil
 }
@@ -562,6 +624,28 @@ func (m *DeleteFileRequest) GetFile() *File {
 	return nil
 }
 
+type InspectServerRequest struct {
+	Server *Server `protobuf:"bytes,1,opt,name=server" json:"server,omitempty"`
+}
+
+func (m *InspectServerRequest) Reset()         { *m = InspectServerRequest{} }
+func (m *InspectServerRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectServerRequest) ProtoMessage()    {}
+
+func (m *InspectServerRequest) GetServer() *Server {
+	if m != nil {
+		return m.Server
+	}
+	return nil
+}
+
+type ListServerRequest struct {
+}
+
+func (m *ListServerRequest) Reset()         { *m = ListServerRequest{} }
+func (m *ListServerRequest) String() string { return proto.CompactTextString(m) }
+func (*ListServerRequest) ProtoMessage()    {}
+
 type PullDiffRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	Shard  uint64  `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
@@ -642,6 +726,11 @@ type ApiClient interface {
 	ListFile(ctx context.Context, in *ListFileRequest, opts ...grpc.CallOption) (*FileInfos, error)
 	// DeleteFile deletes a file.
 	DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	// Server rpcs
+	// InspectServer returns info about a server.
+	InspectServer(ctx context.Context, in *InspectServerRequest, opts ...grpc.CallOption) (*ServerInfo, error)
+	// ListServer returns info about all servers.
+	ListServer(ctx context.Context, in *ListServerRequest, opts ...grpc.CallOption) (*ServerInfos, error)
 }
 
 type apiClient struct {
@@ -801,6 +890,24 @@ func (c *apiClient) DeleteFile(ctx context.Context, in *DeleteFileRequest, opts 
 	return out, nil
 }
 
+func (c *apiClient) InspectServer(ctx context.Context, in *InspectServerRequest, opts ...grpc.CallOption) (*ServerInfo, error) {
+	out := new(ServerInfo)
+	err := grpc.Invoke(ctx, "/pfs.Api/InspectServer", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiClient) ListServer(ctx context.Context, in *ListServerRequest, opts ...grpc.CallOption) (*ServerInfos, error) {
+	out := new(ServerInfos)
+	err := grpc.Invoke(ctx, "/pfs.Api/ListServer", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for Api service
 
 type ApiServer interface {
@@ -839,6 +946,11 @@ type ApiServer interface {
 	ListFile(context.Context, *ListFileRequest) (*FileInfos, error)
 	// DeleteFile deletes a file.
 	DeleteFile(context.Context, *DeleteFileRequest) (*google_protobuf1.Empty, error)
+	// Server rpcs
+	// InspectServer returns info about a server.
+	InspectServer(context.Context, *InspectServerRequest) (*ServerInfo, error)
+	// ListServer returns info about all servers.
+	ListServer(context.Context, *ListServerRequest) (*ServerInfos, error)
 }
 
 func RegisterApiServer(s *grpc.Server, srv ApiServer) {
@@ -1022,6 +1134,30 @@ func _Api_DeleteFile_Handler(srv interface{}, ctx context.Context, codec grpc.Co
 	return out, nil
 }
 
+func _Api_InspectServer_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(InspectServerRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).InspectServer(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _Api_ListServer_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(ListServerRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).ListServer(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 var _Api_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pfs.Api",
 	HandlerType: (*ApiServer)(nil),
@@ -1077,6 +1213,14 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteFile",
 			Handler:    _Api_DeleteFile_Handler,
+		},
+		{
+			MethodName: "InspectServer",
+			Handler:    _Api_InspectServer_Handler,
+		},
+		{
+			MethodName: "ListServer",
+			Handler:    _Api_ListServer_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
