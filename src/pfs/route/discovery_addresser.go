@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/pachyderm/pachyderm/src/pfs"
 	proto "github.com/pachyderm/pachyderm/src/pfs/route/proto"
 	log "github.com/pachyderm/pachyderm/src/pfs/route/protolog"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
@@ -100,60 +101,41 @@ func (a *discoveryAddresser) GetShardToReplicaAddresses(version int64) (result m
 	return _result, nil
 }
 
-func (a *discoveryAddresser) shardDir() string {
-	return fmt.Sprintf("%s/pfs/shard", a.namespace)
+func (a *discoveryAddresser) InspectServer(server *pfs.Server) (*pfs.ServerInfo, error) {
+	serverState, err := a.getServerState(server.Id)
+	if err != nil {
+		return nil, err
+	}
+	serverRole, err := a.getServerRole(server.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.ServerInfo{
+		Server:      server,
+		ServerState: serverState,
+		ServerRole:  serverRole,
+	}, nil
 }
 
-func (a *discoveryAddresser) masterDir() string {
-	return path.Join(a.shardDir(), "master")
-}
-
-func (a *discoveryAddresser) masterKey(shard int) string {
-	return path.Join(a.masterDir(), fmt.Sprint(shard))
-}
-
-func (a *discoveryAddresser) replicaDir() string {
-	return path.Join(a.shardDir(), "replica")
-}
-
-func (a *discoveryAddresser) replicaShardDir(shard int) string {
-	return path.Join(a.replicaDir(), fmt.Sprint(shard))
-}
-
-func (a *discoveryAddresser) replicaKey(shard int, index int) string {
-	return path.Join(a.replicaShardDir(shard), fmt.Sprint(index))
-}
-
-func (a *discoveryAddresser) serverDir() string {
-	return fmt.Sprintf("%s/pfs/server", a.namespace)
-}
-
-func (a *discoveryAddresser) serverStateDir() string {
-	return path.Join(a.serverDir(), "state")
-}
-
-func (a *discoveryAddresser) serverStateKey(id string) string {
-	return path.Join(a.serverStateDir(), id)
-}
-
-func (a *discoveryAddresser) serverRoleDir() string {
-	return path.Join(a.serverDir(), "role")
-}
-
-func (a *discoveryAddresser) serverRoleKey(id string) string {
-	return path.Join(a.serverRoleDir(), id)
-}
-
-func (a *discoveryAddresser) serverRoleKeyVersion(id string, version int64) string {
-	return path.Join(a.serverRoleKey(id), fmt.Sprint(version))
-}
-
-func (a *discoveryAddresser) addressesDir() string {
-	return fmt.Sprintf("%s/pfs/roles", a.namespace)
-}
-
-func (a *discoveryAddresser) addressesKey(version int64) string {
-	return path.Join(a.addressesDir(), fmt.Sprint(version))
+func (a *discoveryAddresser) ListServer() ([]*pfs.ServerInfo, error) {
+	serverStates, err := a.getServerStates()
+	if err != nil {
+		return nil, err
+	}
+	var result []*pfs.ServerInfo
+	for _, serverState := range serverStates {
+		serverRole, err := a.getServerRole(serverState.Id)
+		if err != nil {
+			return nil, err
+		}
+		serverInfo := &pfs.ServerInfo{
+			Server:      &pfs.Server{Id: serverState.Id},
+			ServerState: serverState,
+			ServerRole:  serverRole,
+		}
+		result = append(result, serverInfo)
+	}
+	return result, nil
 }
 
 func (a *discoveryAddresser) Register(cancel chan bool, id string, address string, server Server) (retErr error) {
@@ -194,8 +176,8 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 		protolog.Info(&log.FinishAssignRoles{errorToString(retErr)})
 	}()
 	var version int64
-	oldServerStates := make(map[string]proto.ServerState)
-	oldRoles := make(map[string]proto.ServerRole)
+	oldServerStates := make(map[string]*proto.ServerState)
+	oldRoles := make(map[string]*proto.ServerRole)
 	oldMasters := make(map[uint64]string)
 	oldReplicas := make(map[uint64][]string)
 	var oldMinVersion int64
@@ -204,9 +186,9 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 			if len(encodedServerStates) == 0 {
 				return 0, nil
 			}
-			newServerStates := make(map[string]proto.ServerState)
+			newServerStates := make(map[string]*proto.ServerState)
 			shardLocations := make(map[uint64][]string)
-			newRoles := make(map[string]proto.ServerRole)
+			newRoles := make(map[string]*proto.ServerRole)
 			newMasters := make(map[uint64]string)
 			newReplicas := make(map[uint64][]string)
 			masterRolesPerServer := a.sharder.NumShards() / uint64(len(encodedServerStates))
@@ -214,12 +196,12 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 			replicaRolesPerServer := (a.sharder.NumShards() * (a.sharder.NumReplicas())) / uint64(len(encodedServerStates))
 			replicaRolesRemainder := (a.sharder.NumShards() * (a.sharder.NumReplicas())) % uint64(len(encodedServerStates))
 			for _, encodedServerState := range encodedServerStates {
-				var serverState proto.ServerState
-				if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
+				serverState, err := decodeServerState(encodedServerState)
+				if err != nil {
 					return 0, err
 				}
 				newServerStates[serverState.Id] = serverState
-				newRoles[serverState.Id] = proto.ServerRole{
+				newRoles[serverState.Id] = &proto.ServerRole{
 					Id:       serverState.Id,
 					Version:  version,
 					Masters:  make(map[uint64]bool),
@@ -244,15 +226,15 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 					return 0, err
 				}
 				for key, encodedServerRole := range serverRoles {
-					var serverRole proto.ServerRole
-					if err := jsonpb.UnmarshalString(encodedServerRole, &serverRole); err != nil {
+					serverRole, err := decodeServerRole(encodedServerRole)
+					if err != nil {
 						return 0, err
 					}
 					if serverRole.Version < minVersion {
 						if _, err := a.discoveryClient.Delete(key); err != nil {
 							return 0, err
 						}
-						protolog.Info(&log.DeleteServerRole{&serverRole})
+						protolog.Info(&log.DeleteServerRole{serverRole})
 					}
 				}
 			}
@@ -324,14 +306,14 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 				addresses.Addresses[shard] = &proto.ShardAddresses{Replicas: make(map[string]bool)}
 			}
 			for id, serverRole := range newRoles {
-				encodedServerRole, err := marshaler.MarshalToString(&serverRole)
+				encodedServerRole, err := marshaler.MarshalToString(serverRole)
 				if err != nil {
 					return 0, err
 				}
 				if _, err := a.discoveryClient.Set(a.serverRoleKeyVersion(id, version), encodedServerRole, 0); err != nil {
 					return 0, err
 				}
-				protolog.Info(&log.SetServerRole{&serverRole})
+				protolog.Info(&log.SetServerRole{serverRole})
 				address := newServerStates[id].Address
 				for shard := range serverRole.Masters {
 					shardAddresses := addresses.Addresses[shard]
@@ -375,8 +357,8 @@ func (a *discoveryAddresser) Version() (result int64, retErr error) {
 		return 0, err
 	}
 	for _, encodedServerState := range encodedServerStates {
-		var serverState proto.ServerState
-		if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
+		serverState, err := decodeServerState(encodedServerState)
+		if err != nil {
 			return 0, err
 		}
 		if serverState.Version < minVersion {
@@ -390,19 +372,19 @@ func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
 	errComplete := fmt.Errorf("COMPLETE")
 	err := a.discoveryClient.WatchAll(a.serverDir(), nil,
 		func(encodedServerStatesAndRoles map[string]string) (uint64, error) {
-			serverStates := make(map[string]proto.ServerState)
-			var serverRoles []proto.ServerRole
+			serverStates := make(map[string]*proto.ServerState)
+			var serverRoles []*proto.ServerRole
 			for key, encodedServerStateOrRole := range encodedServerStatesAndRoles {
 				if strings.HasPrefix(key, a.serverStateDir()) {
-					var serverState proto.ServerState
-					if err := jsonpb.UnmarshalString(encodedServerStateOrRole, &serverState); err != nil {
+					serverState, err := decodeServerState(encodedServerStateOrRole)
+					if err != nil {
 						return 0, err
 					}
 					serverStates[serverState.Id] = serverState
 				}
 				if strings.HasPrefix(key, a.serverRoleDir()) {
-					var serverRole proto.ServerRole
-					if err := jsonpb.UnmarshalString(encodedServerStateOrRole, &serverRole); err != nil {
+					serverRole, err := decodeServerRole(encodedServerStateOrRole)
+					if err != nil {
 						return 0, err
 					}
 					serverRoles = append(serverRoles, serverRole)
@@ -439,6 +421,116 @@ func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
 	return nil
 }
 
+func (a *discoveryAddresser) serverDir() string {
+	return fmt.Sprintf("%s/pfs/server", a.namespace)
+}
+
+func (a *discoveryAddresser) serverStateDir() string {
+	return path.Join(a.serverDir(), "state")
+}
+
+func (a *discoveryAddresser) serverStateKey(id string) string {
+	return path.Join(a.serverStateDir(), id)
+}
+
+func (a *discoveryAddresser) serverRoleDir() string {
+	return path.Join(a.serverDir(), "role")
+}
+
+func (a *discoveryAddresser) serverRoleKey(id string) string {
+	return path.Join(a.serverRoleDir(), id)
+}
+
+func (a *discoveryAddresser) serverRoleKeyVersion(id string, version int64) string {
+	return path.Join(a.serverRoleKey(id), fmt.Sprint(version))
+}
+
+func (a *discoveryAddresser) addressesDir() string {
+	return fmt.Sprintf("%s/pfs/roles", a.namespace)
+}
+
+func (a *discoveryAddresser) addressesKey(version int64) string {
+	return path.Join(a.addressesDir(), fmt.Sprint(version))
+}
+
+func decodeServerState(encodedServerState string) (*proto.ServerState, error) {
+	var serverState proto.ServerState
+	if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
+		return nil, err
+	}
+	return &serverState, nil
+}
+
+func (a *discoveryAddresser) getServerStates() (map[string]*proto.ServerState, error) {
+	encodedServerStates, err := a.discoveryClient.GetAll(a.serverStateDir())
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]*proto.ServerState)
+	for _, encodedServerState := range encodedServerStates {
+		serverState, err := decodeServerState(encodedServerState)
+		if err != nil {
+			return nil, err
+		}
+		result[serverState.Id] = serverState
+	}
+	return result, nil
+}
+
+func (a *discoveryAddresser) getServerState(id string) (*proto.ServerState, error) {
+	encodedServerState, ok, err := a.discoveryClient.Get(a.serverStateKey(id))
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("server %s not found", id)
+	}
+	return decodeServerState(encodedServerState)
+}
+
+func decodeServerRole(encodedServerRole string) (*proto.ServerRole, error) {
+	var serverRole proto.ServerRole
+	if err := jsonpb.UnmarshalString(encodedServerRole, &serverRole); err != nil {
+		return nil, err
+	}
+	return &serverRole, nil
+}
+
+func (a *discoveryAddresser) getServerRoles() (map[string]map[int64]*proto.ServerRole, error) {
+	encodedServerRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]map[int64]*proto.ServerRole)
+	for _, encodedServerRole := range encodedServerRoles {
+		serverRole, err := decodeServerRole(encodedServerRole)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := result[serverRole.Id]; !ok {
+			result[serverRole.Id] = make(map[int64]*proto.ServerRole)
+		}
+		result[serverRole.Id][serverRole.Version] = serverRole
+	}
+	return result, nil
+}
+
+func (a *discoveryAddresser) getServerRole(id string) (map[int64]*proto.ServerRole, error) {
+	encodedServerRoles, err := a.discoveryClient.GetAll(a.serverRoleKey(id))
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[int64]*proto.ServerRole)
+	for _, encodedServerRole := range encodedServerRoles {
+		serverRole, err := decodeServerRole(encodedServerRole)
+		if err != nil {
+			return nil, err
+		}
+		result[serverRole.Version] = serverRole
+	}
+	return result, nil
+}
+
 func (a *discoveryAddresser) getAddresses(version int64) (*proto.Addresses, error) {
 	if version == InvalidVersion {
 		return nil, fmt.Errorf("invalid version")
@@ -460,7 +552,7 @@ func (a *discoveryAddresser) getAddresses(version int64) (*proto.Addresses, erro
 	return &addresses, nil
 }
 
-func hasShard(serverRole proto.ServerRole, shard uint64) bool {
+func hasShard(serverRole *proto.ServerRole, shard uint64) bool {
 	return serverRole.Masters[shard] || serverRole.Replicas[shard]
 }
 
@@ -475,7 +567,7 @@ func removeReplica(replicas map[uint64][]string, shard uint64, id string) {
 }
 
 func assignMaster(
-	serverRoles map[string]proto.ServerRole,
+	serverRoles map[string]*proto.ServerRole,
 	masters map[uint64]string,
 	id string,
 	shard uint64,
@@ -505,7 +597,7 @@ func assignMaster(
 }
 
 func assignReplica(
-	serverRoles map[string]proto.ServerRole,
+	serverRoles map[string]*proto.ServerRole,
 	masters map[uint64]string,
 	replicas map[uint64][]string,
 	id string,
@@ -536,7 +628,7 @@ func assignReplica(
 }
 
 func swapReplica(
-	serverRoles map[string]proto.ServerRole,
+	serverRoles map[string]*proto.ServerRole,
 	masters map[uint64]string,
 	replicas map[uint64][]string,
 	id string,
@@ -734,7 +826,7 @@ func containsShard(roles map[int64]proto.ServerRole, shard uint64) bool {
 	return false
 }
 
-func sameServers(oldServerStates map[string]proto.ServerState, newServerStates map[string]proto.ServerState) bool {
+func sameServers(oldServerStates map[string]*proto.ServerState, newServerStates map[string]*proto.ServerState) bool {
 	if len(oldServerStates) != len(newServerStates) {
 		return false
 	}

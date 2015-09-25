@@ -296,6 +296,20 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	return pfs.NewInternalApiClient(clientConn).DeleteFile(ctx, request)
 }
 
+func (a *apiServer) InspectServer(ctx context.Context, request *pfs.InspectServerRequest) (*pfs.ServerInfo, error) {
+	return a.router.InspectServer(request.Server)
+}
+
+func (a *apiServer) ListServer(ctx context.Context, request *pfs.ListServerRequest) (*pfs.ServerInfos, error) {
+	serverInfo, err := a.router.ListServer()
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.ServerInfos{
+		ServerInfo: serverInfo,
+	}, nil
+}
+
 func (a *apiServer) getClientConn(version int64) (*grpc.ClientConn, error) {
 	shards, err := a.router.GetMasterShards(version)
 	if err != nil {

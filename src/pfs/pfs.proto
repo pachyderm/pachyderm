@@ -4,6 +4,7 @@ import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
+import "pfs/route/proto/route.proto";
 
 package pfs;
 
@@ -35,6 +36,11 @@ message Commit {
 message File {
   Commit commit = 1;
   string path = 2;
+}
+
+// Server represents a server in the pfs cluster.
+message Server {
+    string id = 1;
 }
 
 // RepoInfo represent information about a repo.
@@ -74,6 +80,17 @@ message FileInfo {
 
 message FileInfos {
   repeated FileInfo file_info = 1;
+}
+
+// ServerInfo represents information about a server.
+message ServerInfo {
+    Server server = 1;
+    routeproto.ServerState server_state = 2;
+    map<int64, routeproto.ServerRole> server_role = 3;
+}
+
+message ServerInfos {
+    repeated ServerInfo server_info = 1;
 }
 
 // Shard represents a dynamic shard within pfs.
@@ -157,6 +174,13 @@ message DeleteFileRequest {
     File file = 1;
 }
 
+message InspectServerRequest {
+    Server server = 1;
+}
+
+message ListServerRequest {
+}
+
 service Api {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -197,6 +221,12 @@ service Api {
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
   // DeleteFile deletes a file.
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
+
+  // Server rpcs
+  // InspectServer returns info about a server.
+  rpc InspectServer(InspectServerRequest) returns (ServerInfo) {}
+  // ListServer returns info about all servers.
+  rpc ListServer(ListServerRequest) returns (ServerInfos) {}
 }
 
 message PullDiffRequest {
