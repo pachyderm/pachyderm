@@ -246,6 +246,31 @@ func ListFile(apiClient pfs.ApiClient, repoName string, commitID string, path st
 	return fileInfos.FileInfo, nil
 }
 
+func ListChange(apiClient pfs.ApiClient, repoName string, commitID string, path string, shard uint64, modulus uint64) ([]*pfs.Change, error) {
+	changes, err := apiClient.ListChange(
+		context.Background(),
+		&pfs.ListChangeRequest{
+			File: &pfs.File{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: repoName,
+					},
+					Id: commitID,
+				},
+				Path: path,
+			},
+			Shard: &pfs.Shard{
+				Number: shard,
+				Modulo: modulus,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return changes.Change, nil
+}
+
 func DeleteFile(apiClient pfs.ApiClient, repoName string, commitID string, path string) error {
 	_, err := apiClient.DeleteFile(
 		context.Background(),
