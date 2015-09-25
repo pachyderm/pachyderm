@@ -283,6 +283,28 @@ func MakeDirectory(apiClient pfs.ApiClient, repoName string, commitID string, pa
 	return err
 }
 
+func InspectServer(apiClient pfs.ApiClient, serverID string) (*pfs.ServerInfo, error) {
+	return apiClient.InspectServer(
+		context.Background(),
+		&pfs.InspectServerRequest{
+			Server: &pfs.Server{
+				Id: serverID,
+			},
+		},
+	)
+}
+
+func ListServer(apiClient pfs.ApiClient) ([]*pfs.ServerInfo, error) {
+	serverInfos, err := apiClient.ListServer(
+		context.Background(),
+		&pfs.ListServerRequest{},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return serverInfos.ServerInfo, nil
+}
+
 func PullDiff(internalAPIClient pfs.InternalApiClient, repoName string, commitID string, shard uint64, writer io.Writer) error {
 	apiPullDiffClient, err := internalAPIClient.PullDiff(
 		context.Background(),
