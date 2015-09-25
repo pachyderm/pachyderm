@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"sync"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -262,25 +263,81 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	if err != nil {
 		return nil, err
 	}
+	var wg sync.WaitGroup
+	var lock sync.Mutex
 	var fileInfos []*pfs.FileInfo
 	seenDirectories := make(map[string]bool)
+	var loopErr error
 	for _, clientConn := range clientConns {
-		subFileInfos, err := pfs.NewInternalApiClient(clientConn).ListFile(ctx, request)
-		if err != nil {
-			return nil, err
-		}
-		for _, fileInfo := range subFileInfos.FileInfo {
-			if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-				if seenDirectories[fileInfo.File.Path] {
-					continue
+		wg.Add(1)
+		go func(clientConn *grpc.ClientConn) {
+			defer wg.Done()
+			subFileInfos, err := pfs.NewInternalApiClient(clientConn).ListFile(ctx, request)
+			lock.Lock()
+			defer lock.Unlock()
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
 				}
-				seenDirectories[fileInfo.File.Path] = true
+				return
 			}
-			fileInfos = append(fileInfos, fileInfo)
-		}
+			for _, fileInfo := range subFileInfos.FileInfo {
+				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+					if seenDirectories[fileInfo.File.Path] {
+						continue
+					}
+					seenDirectories[fileInfo.File.Path] = true
+				}
+				fileInfos = append(fileInfos, fileInfo)
+			}
+		}(clientConn)
+	}
+	wg.Wait()
+	if loopErr != nil {
+		return nil, loopErr
 	}
 	return &pfs.FileInfos{
 		FileInfo: fileInfos,
+	}, nil
+}
+
+func (a *apiServer) ListChange(ctx context.Context, request *pfs.ListChangeRequest) (*pfs.Changes, error) {
+	version, ctx, err := a.versionAndCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	clientConns, err := a.router.GetAllClientConns(version)
+	if err != nil {
+		return nil, err
+	}
+	var wg sync.WaitGroup
+	var lock sync.Mutex
+	var changes []*pfs.Change
+	var loopErr error
+	for _, clientConn := range clientConns {
+		wg.Add(1)
+		go func(clientConn *grpc.ClientConn) {
+			defer wg.Done()
+			subChanges, err := pfs.NewInternalApiClient(clientConn).ListChange(ctx, request)
+			lock.Lock()
+			defer lock.Unlock()
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
+				}
+				return
+			}
+			for _, change := range subChanges.Change {
+				changes = append(changes, change)
+			}
+		}(clientConn)
+	}
+	wg.Wait()
+	if loopErr != nil {
+		return nil, loopErr
+	}
+	return &pfs.Changes{
+		Change: changes,
 	}, nil
 }
 
@@ -322,11 +379,7 @@ func (a *apiServer) getClientConn(version int64) (*grpc.ClientConn, error) {
 }
 
 func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.ClientConn, error) {
-	shard, err := a.sharder.GetShard(file)
-	if err != nil {
-		return nil, err
-	}
-	return a.router.GetMasterClientConn(shard, version)
+	return a.router.GetMasterClientConn(a.sharder.GetShard(file), version)
 }
 
 func (a *apiServer) versionAndCtx(ctx context.Context) (int64, context.Context, error) {

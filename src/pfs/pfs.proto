@@ -102,9 +102,13 @@ message Shard {
 
 // Change represents a change to a file.
 message Change {
-    File path = 2;
+    File file = 2;
     uint64 size_bytes = 3;
     uint64 offset_bytes = 4;
+}
+
+message Changes {
+	repeated Change change = 1;
 }
 
 message CreateRepoRequest {
@@ -174,6 +178,11 @@ message DeleteFileRequest {
     File file = 1;
 }
 
+message ListChangeRequest {
+	File file = 1;
+	Shard shard = 2;
+}
+
 message InspectServerRequest {
     Server server = 1;
 }
@@ -221,6 +230,8 @@ service Api {
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
   // DeleteFile deletes a file.
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
+  // ListChange returns changes to the filesystem.
+  rpc ListChange(ListChangeRequest) returns (Changes) {}
 
   // Server rpcs
   // InspectServer returns info about a server.
@@ -278,6 +289,8 @@ service InternalApi {
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
   // DeleteFile deletes a file.
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
+  // ListChange returns changes to the filesystem.
+  rpc ListChange(ListChangeRequest) returns (Changes) {}
 
   // Diff rpcs
   // PullDiff pulls a binary stream of the diff from the specified
