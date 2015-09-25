@@ -90,57 +90,57 @@ message Change {
     uint64 offset_bytes = 4;
 }
 
-message RepoCreateRequest {
+message CreateRepoRequest {
   Repo repo = 1;
 }
 
-message RepoInspectRequest {
+message InspectRepoRequest {
     Repo repo = 1;
 }
 
-message RepoListRequest {
+message ListRepoRequest {
 }
 
-message RepoDeleteRequest {
+message DeleteRepoRequest {
     Repo repo = 1;
 }
 
-message CommitStartRequest {
+message StartCommitRequest {
   Commit parent = 1;
   Commit commit = 2;
 }
 
-message CommitFinishRequest {
+message FinishCommitRequest {
   Commit commit = 1;
 }
 
-message CommitInspectRequest {
+message InspectCommitRequest {
   Commit commit = 1;
 }
 
-message CommitListRequest {
+message ListCommitRequest {
   Repo repo = 1;
   Commit from = 2;
 }
 
-message CommitDeleteRequest {
+message DeleteCommitRequest {
     Commit commit = 1;
 }
 
-message FileGetRequest {
+message GetFileRequest {
   File file = 1;
   int64 offset_bytes = 2;
   int64 size_bytes = 3;
 }
 
-message FilePutRequest {
+message PutFileRequest {
   File file = 1;
   FileType file_type = 2;
   int64 offset_bytes = 3;
   bytes value = 4;
 }
 
-message FileInspectRequest {
+message InspectFileRequest {
   File file = 1;
 }
 
@@ -148,55 +148,55 @@ message MakeDirectoryRequest {
   File file = 1;
 }
 
-message FileListRequest {
+message ListFileRequest {
   File file = 1;
   Shard shard = 2; // can be left nil
 }
 
-message FileDeleteRequest {
+message DeleteFileRequest {
     File file = 1;
 }
 
 service Api {
   // Repo rpcs
-  // RepoCreate creates a new repo.
+  // CreateRepo creates a new repo.
   // An error is returned if the repo already exists.
-  rpc RepoCreate(RepoCreateRequest) returns (google.protobuf.Empty) {
+  rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = { put: "/repos/{repo.name}" };
   }
-  // RepoInspect returns info about a repo.
-  rpc RepoInspect(RepoInspectRequest) returns (RepoInfo) {}
-  // RepoList returns info about all repos.
-  rpc RepoList(RepoListRequest) returns (RepoInfos) {}
-  // RepoDelete deletes a repo.
-  rpc RepoDelete(RepoDeleteRequest) returns (google.protobuf.Empty) {}
+  // InspectRepo returns info about a repo.
+  rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
+  // ListRepo returns info about all repos.
+  rpc ListRepo(ListRepoRequest) returns (RepoInfos) {}
+  // DeleteRepo deletes a repo.
+  rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
 
   // Commit rpcs
-  // CommitStart creates a new write commit from a parent commit.
+  // StartCommit creates a new write commit from a parent commit.
   // An error is returned if the parent commit is not a read commit.
-  rpc CommitStart(CommitStartRequest) returns (Commit) {}
-  // CommitFinish turns a write commit into a read commit.
+  rpc StartCommit(StartCommitRequest) returns (Commit) {}
+  // FinishCommit turns a write commit into a read commit.
   // An error is returned if the commit is not a write commit.
-  rpc CommitFinish(CommitFinishRequest) returns (google.protobuf.Empty) {}
-  // CommitInspect returns the info about a commit.
-  rpc CommitInspect(CommitInspectRequest) returns (CommitInfo) {}
-  // CommitList returns info about all commits.
-  rpc CommitList(CommitListRequest) returns (CommitInfos) {}
-  // CommitDelete deletes a commit.
-  rpc CommitDelete(CommitDeleteRequest) returns (google.protobuf.Empty) {}
+  rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
+  // InspectCommit returns the info about a commit.
+  rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
+  // ListCommit returns info about all commits.
+  rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
+  // DeleteCommit deletes a commit.
+  rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
 
   // File rpcs
-  // FilePut writes the specified file to pfs.
+  // PutFile writes the specified file to pfs.
   // An error is returned if the specified commit is not a write commit.
-  rpc FilePut(FilePutRequest) returns (google.protobuf.Empty) {}
-  // FileGet returns a byte stream of the contents of the file.
-  rpc FileGet(FileGetRequest) returns (stream google.protobuf.BytesValue) {}
-  // FileInspect returns a info about a file.
-  rpc FileInspect(FileInspectRequest) returns (FileInfo) {}
-  // FileList returns info about all files.
-  rpc FileList(FileListRequest) returns (FileInfos) {}
-  // FileDelete deletes a file.
-  rpc FileDelete(FileDeleteRequest) returns (google.protobuf.Empty) {}
+  rpc PutFile(PutFileRequest) returns (google.protobuf.Empty) {}
+  // GetFile returns a byte stream of the contents of the file.
+  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+  // InspectFile returns a info about a file.
+  rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
+  // ListFile returns info about all files.
+  rpc ListFile(ListFileRequest) returns (FileInfos) {}
+  // DeleteFile deletes a file.
+  rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
 }
 
 message PullDiffRequest {
@@ -212,42 +212,42 @@ message PushDiffRequest {
 
 service InternalApi {
   // Repo rpcs
-  // RepoCreate creates a new repo.
+  // CreateRepo creates a new repo.
   // An error is returned if the repo already exists.
-  rpc RepoCreate(RepoCreateRequest) returns (google.protobuf.Empty) {}
-  // RepoInspect returns info about a repo.
-  rpc RepoInspect(RepoInspectRequest) returns (RepoInfo) {}
-  // RepoList returns info about all repos.
-  rpc RepoList(RepoListRequest) returns (RepoInfos) {}
-  // RepoDelete deletes a repo.
-  rpc RepoDelete(RepoDeleteRequest) returns (google.protobuf.Empty) {}
+  rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
+  // InspectRepo returns info about a repo.
+  rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
+  // ListRepo returns info about all repos.
+  rpc ListRepo(ListRepoRequest) returns (RepoInfos) {}
+  // DeleteRepo deletes a repo.
+  rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
 
   // Commit rpcs
-  // CommitStart creates a new write commit from a parent commit.
+  // StartCommit creates a new write commit from a parent commit.
   // An error is returned if the parent commit is not a read commit.
-  rpc CommitStart(CommitStartRequest) returns (Commit) {}
-  // CommitFinish turns a write commit into a read commit.
+  rpc StartCommit(StartCommitRequest) returns (Commit) {}
+  // FinishCommit turns a write commit into a read commit.
   // An error is returned if the commit is not a write commit.
-  rpc CommitFinish(CommitFinishRequest) returns (google.protobuf.Empty) {}
-  // CommitInspect returns the info about a commit.
-  rpc CommitInspect(CommitInspectRequest) returns (CommitInfo) {}
-  // CommitList returns info about all commits.
-  rpc CommitList(CommitListRequest) returns (CommitInfos) {}
-  // CommitDelete deletes a commit.
-  rpc CommitDelete(CommitDeleteRequest) returns (google.protobuf.Empty) {}
+  rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
+  // InspectCommit returns the info about a commit.
+  rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
+  // ListCommit returns info about all commits.
+  rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
+  // DeleteCommit deletes a commit.
+  rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
 
   // File rpcs
-  // FilePut writes the specified file to pfs.
+  // PutFile writes the specified file to pfs.
   // An error is returned if the specified commit is not a write commit.
-  rpc FilePut(FilePutRequest) returns (google.protobuf.Empty) {}
-  // FileGet returns a byte stream of the contents of the file.
-  rpc FileGet(FileGetRequest) returns (stream google.protobuf.BytesValue) {}
-  // FileInspect returns a info about a file.
-  rpc FileInspect(FileInspectRequest) returns (FileInfo) {}
-  // FileList returns info about all files.
-  rpc FileList(FileListRequest) returns (FileInfos) {}
-  // FileDelete deletes a file.
-  rpc FileDelete(FileDeleteRequest) returns (google.protobuf.Empty) {}
+  rpc PutFile(PutFileRequest) returns (google.protobuf.Empty) {}
+  // GetFile returns a byte stream of the contents of the file.
+  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+  // InspectFile returns a info about a file.
+  rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
+  // ListFile returns info about all files.
+  rpc ListFile(ListFileRequest) returns (FileInfos) {}
+  // DeleteFile deletes a file.
+  rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
 
   // Diff rpcs
   // PullDiff pulls a binary stream of the diff from the specified

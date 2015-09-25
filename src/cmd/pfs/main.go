@@ -54,22 +54,22 @@ func do(appEnvObj interface{}) error {
 	var modulus int
 
 	repoCreate := cobramainutil.Command{
-		Use:     "repo-create repo-name",
+		Use:     "create-repo repo-name",
 		Short:   "Create a new repo.",
 		Long:    "Create a new repo.",
 		NumArgs: 1,
 		Run: func(cmd *cobra.Command, args []string) error {
-			return pfsutil.RepoCreate(apiClient, args[0])
+			return pfsutil.CreateRepo(apiClient, args[0])
 		},
 	}.ToCobraCommand()
 
 	repoInspect := cobramainutil.Command{
-		Use:     "repo-inspect repo-name",
+		Use:     "inspect-repo repo-name",
 		Short:   "Return info about a repo.",
 		Long:    "Return info about a repo.",
 		NumArgs: 1,
 		Run: func(cmd *cobra.Command, args []string) error {
-			repoInfo, err := pfsutil.RepoInspect(apiClient, args[0])
+			repoInfo, err := pfsutil.InspectRepo(apiClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -84,12 +84,12 @@ func do(appEnvObj interface{}) error {
 	}.ToCobraCommand()
 
 	repoList := cobramainutil.Command{
-		Use:     "repo-list",
+		Use:     "list-repo",
 		Short:   "Return all repos.",
 		Long:    "Reutrn all repos.",
 		NumArgs: 0,
 		Run: func(cmd *cobra.Command, args []string) error {
-			repoInfos, err := pfsutil.RepoList(apiClient)
+			repoInfos, err := pfsutil.ListRepo(apiClient)
 			if err != nil {
 				return err
 			}
@@ -103,22 +103,22 @@ func do(appEnvObj interface{}) error {
 	}.ToCobraCommand()
 
 	repoDelete := cobramainutil.Command{
-		Use:     "repo-delete repo-name",
+		Use:     "delete-repo repo-name",
 		Short:   "Delete a repo.",
 		Long:    "Delete a repo.",
 		NumArgs: 1,
 		Run: func(cmd *cobra.Command, args []string) error {
-			return pfsutil.RepoDelete(apiClient, args[0])
+			return pfsutil.DeleteRepo(apiClient, args[0])
 		},
 	}.ToCobraCommand()
 
 	commitStart := cobramainutil.Command{
-		Use:     "commit-start repo-name parent-commit-id",
+		Use:     "start-commit repo-name parent-commit-id",
 		Short:   "Start a new commit.",
 		Long:    "Start a new commit with parent-commit-id as the parent.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			commit, err := pfsutil.CommitStart(apiClient, args[0], args[1])
+			commit, err := pfsutil.StartCommit(apiClient, args[0], args[1])
 			if err != nil {
 				return err
 			}
@@ -128,22 +128,22 @@ func do(appEnvObj interface{}) error {
 	}.ToCobraCommand()
 
 	commitFinish := cobramainutil.Command{
-		Use:     "commit-finish repo-name commit-id",
+		Use:     "finish-commit repo-name commit-id",
 		Short:   "Finish a started commit.",
 		Long:    "Finish a started commit. Commit-id must be a writeable commit.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			return pfsutil.CommitFinish(apiClient, args[0], args[1])
+			return pfsutil.FinishCommit(apiClient, args[0], args[1])
 		},
 	}.ToCobraCommand()
 
 	commitInspect := cobramainutil.Command{
-		Use:     "commit-inspect repo-name commit-id",
+		Use:     "inspect-commit repo-name commit-id",
 		Short:   "Return info about a commit.",
 		Long:    "Return info about a commit.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			commitInfo, err := pfsutil.CommitInspect(apiClient, args[0], args[1])
+			commitInfo, err := pfsutil.InspectCommit(apiClient, args[0], args[1])
 			if err != nil {
 				return err
 			}
@@ -158,12 +158,12 @@ func do(appEnvObj interface{}) error {
 	}.ToCobraCommand()
 
 	commitList := cobramainutil.Command{
-		Use:     "commit-list repo-name",
+		Use:     "list-commit repo-name",
 		Short:   "Return all commits on a repo.",
 		Long:    "Return all commits on a repo.",
 		NumArgs: 1,
 		Run: func(cmd *cobra.Command, args []string) error {
-			commitInfos, err := pfsutil.CommitList(apiClient, args[0])
+			commitInfos, err := pfsutil.ListCommit(apiClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -177,12 +177,12 @@ func do(appEnvObj interface{}) error {
 	}.ToCobraCommand()
 
 	commitDelete := cobramainutil.Command{
-		Use:     "commit-delete repo-name commit-id",
+		Use:     "delete-commit repo-name commit-id",
 		Short:   "Delete a commit.",
 		Long:    "Delete a commit.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			return pfsutil.CommitDelete(apiClient, args[0], args[1])
+			return pfsutil.DeleteCommit(apiClient, args[0], args[1])
 		},
 	}.ToCobraCommand()
 
@@ -197,33 +197,33 @@ func do(appEnvObj interface{}) error {
 	}.ToCobraCommand()
 
 	filePut := cobramainutil.Command{
-		Use:     "file-put repo-name commit-id path/to/file",
+		Use:     "put-file repo-name commit-id path/to/file",
 		Short:   "Put a file from stdin",
 		Long:    "Put a file from stdin. Directories must exist. Commit -id must be a writeable commit.",
 		NumArgs: 3,
 		Run: func(cmd *cobra.Command, args []string) error {
-			_, err := pfsutil.FilePut(apiClient, args[0], args[1], args[2], 0, os.Stdin)
+			_, err := pfsutil.PutFile(apiClient, args[0], args[1], args[2], 0, os.Stdin)
 			return err
 		},
 	}.ToCobraCommand()
 
 	fileGet := cobramainutil.Command{
-		Use:     "file-get repo-name commit-id path/to/file",
+		Use:     "get-file repo-name commit-id path/to/file",
 		Short:   "Return the contents of a file.",
 		Long:    "Return the contents of a file.",
 		NumArgs: 3,
 		Run: func(cmd *cobra.Command, args []string) error {
-			return pfsutil.FileGet(apiClient, args[0], args[1], args[2], 0, pfsutil.GetAll, os.Stdout)
+			return pfsutil.GetFile(apiClient, args[0], args[1], args[2], 0, pfsutil.GetAll, os.Stdout)
 		},
 	}.ToCobraCommand()
 
 	fileInspect := cobramainutil.Command{
-		Use:     "file-inspect repo-name branch-id path/to/file",
+		Use:     "inspect-file repo-name branch-id path/to/file",
 		Short:   "Return info about a file.",
 		Long:    "Return info about a file.",
 		NumArgs: 3,
 		Run: func(cmd *cobra.Command, args []string) error {
-			fileInfo, err := pfsutil.FileInspect(apiClient, args[0], args[1], args[2])
+			fileInfo, err := pfsutil.InspectFile(apiClient, args[0], args[1], args[2])
 			if err != nil {
 				return err
 			}
@@ -238,12 +238,12 @@ func do(appEnvObj interface{}) error {
 	}.ToCobraCommand()
 
 	fileList := cobramainutil.Command{
-		Use:     "file-list repo-name commit-id path/to/dir",
+		Use:     "list-file repo-name commit-id path/to/dir",
 		Short:   "Return the files in a directory.",
 		Long:    "Return the files in a directory.",
 		NumArgs: 3,
 		Run: func(cmd *cobra.Command, args []string) error {
-			fileInfos, err := pfsutil.FileList(apiClient, args[0], args[1], args[2], uint64(shard), uint64(modulus))
+			fileInfos, err := pfsutil.ListFile(apiClient, args[0], args[1], args[2], uint64(shard), uint64(modulus))
 			if err != nil {
 				return err
 			}
@@ -259,12 +259,12 @@ func do(appEnvObj interface{}) error {
 	fileList.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	fileDelete := cobramainutil.Command{
-		Use:     "file-delete repo-name commit-id path/to/file",
+		Use:     "delete-file repo-name commit-id path/to/file",
 		Short:   "Delete a file.",
 		Long:    "Delete a file.",
 		NumArgs: 2,
 		Run: func(cmd *cobra.Command, args []string) error {
-			return pfsutil.FileDelete(apiClient, args[0], args[1], args[2])
+			return pfsutil.DeleteFile(apiClient, args[0], args[1], args[2])
 		},
 	}.ToCobraCommand()
 

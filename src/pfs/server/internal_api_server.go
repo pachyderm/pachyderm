@@ -36,14 +36,14 @@ func newInternalAPIServer(
 	}
 }
 
-func (a *internalAPIServer) RepoCreate(ctx context.Context, request *pfs.RepoCreateRequest) (*google_protobuf.Empty, error) {
-	if err := a.driver.RepoCreate(request.Repo); err != nil {
+func (a *internalAPIServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (*google_protobuf.Empty, error) {
+	if err := a.driver.CreateRepo(request.Repo); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
 }
 
-func (a *internalAPIServer) RepoInspect(ctx context.Context, request *pfs.RepoInspectRequest) (*pfs.RepoInfo, error) {
+func (a *internalAPIServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (*pfs.RepoInfo, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -53,12 +53,12 @@ func (a *internalAPIServer) RepoInspect(ctx context.Context, request *pfs.RepoIn
 		return nil, err
 	}
 	for shard := range shards {
-		return a.driver.RepoInspect(request.Repo, shard)
+		return a.driver.InspectRepo(request.Repo, shard)
 	}
-	return nil, fmt.Errorf("pachyderm: RepoInspect on server with no shards")
+	return nil, fmt.Errorf("pachyderm: InspectRepo on server with no shards")
 }
 
-func (a *internalAPIServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) (*pfs.RepoInfos, error) {
+func (a *internalAPIServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (*pfs.RepoInfos, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -68,13 +68,13 @@ func (a *internalAPIServer) RepoList(ctx context.Context, request *pfs.RepoListR
 		return nil, err
 	}
 	for shard := range shards {
-		repoInfos, err := a.driver.RepoList(shard)
+		repoInfos, err := a.driver.ListRepo(shard)
 		return &pfs.RepoInfos{RepoInfo: repoInfos}, err
 	}
-	return nil, fmt.Errorf("pachyderm: RepoList on server with no shards")
+	return nil, fmt.Errorf("pachyderm: ListRepo on server with no shards")
 }
 
-func (a *internalAPIServer) RepoDelete(ctx context.Context, request *pfs.RepoDeleteRequest) (*google_protobuf.Empty, error) {
+func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (*google_protobuf.Empty, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -83,14 +83,14 @@ func (a *internalAPIServer) RepoDelete(ctx context.Context, request *pfs.RepoDel
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.RepoDelete(request.Repo, shards); err != nil {
+	if err := a.driver.DeleteRepo(request.Repo, shards); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
 
 }
 
-func (a *internalAPIServer) CommitStart(ctx context.Context, request *pfs.CommitStartRequest) (*pfs.Commit, error) {
+func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -99,10 +99,10 @@ func (a *internalAPIServer) CommitStart(ctx context.Context, request *pfs.Commit
 	if err != nil {
 		return nil, err
 	}
-	return a.driver.CommitStart(request.Parent, request.Commit, shards)
+	return a.driver.StartCommit(request.Parent, request.Commit, shards)
 }
 
-func (a *internalAPIServer) CommitFinish(ctx context.Context, request *pfs.CommitFinishRequest) (*google_protobuf.Empty, error) {
+func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (*google_protobuf.Empty, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func (a *internalAPIServer) CommitFinish(ctx context.Context, request *pfs.Commi
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.CommitFinish(request.Commit, shards); err != nil {
+	if err := a.driver.FinishCommit(request.Commit, shards); err != nil {
 		return nil, err
 	}
 	if err := a.commitToReplicas(ctx, request.Commit); err != nil {
@@ -121,7 +121,7 @@ func (a *internalAPIServer) CommitFinish(ctx context.Context, request *pfs.Commi
 }
 
 // TODO(pedge): race on Branch
-func (a *internalAPIServer) CommitInspect(ctx context.Context, request *pfs.CommitInspectRequest) (*pfs.CommitInfo, error) {
+func (a *internalAPIServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -131,12 +131,12 @@ func (a *internalAPIServer) CommitInspect(ctx context.Context, request *pfs.Comm
 		return nil, err
 	}
 	for shard := range shards {
-		return a.driver.CommitInspect(request.Commit, shard)
+		return a.driver.InspectCommit(request.Commit, shard)
 	}
-	return nil, fmt.Errorf("pachyderm: CommitInspect on server with no shards")
+	return nil, fmt.Errorf("pachyderm: InspectCommit on server with no shards")
 }
 
-func (a *internalAPIServer) CommitList(ctx context.Context, request *pfs.CommitListRequest) (*pfs.CommitInfos, error) {
+func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (*pfs.CommitInfos, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -146,7 +146,7 @@ func (a *internalAPIServer) CommitList(ctx context.Context, request *pfs.CommitL
 		return nil, err
 	}
 	for shard := range shards {
-		commitInfos, err := a.driver.CommitList(request.Repo, request.From, shard)
+		commitInfos, err := a.driver.ListCommit(request.Repo, request.From, shard)
 		if err != nil {
 			return nil, err
 		}
@@ -154,10 +154,10 @@ func (a *internalAPIServer) CommitList(ctx context.Context, request *pfs.CommitL
 			CommitInfo: commitInfos,
 		}, nil
 	}
-	return nil, fmt.Errorf("pachyderm: CommitList on server with no shards")
+	return nil, fmt.Errorf("pachyderm: ListCommit on server with no shards")
 }
 
-func (a *internalAPIServer) CommitDelete(ctx context.Context, request *pfs.CommitDeleteRequest) (*google_protobuf.Empty, error) {
+func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (*google_protobuf.Empty, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -166,14 +166,14 @@ func (a *internalAPIServer) CommitDelete(ctx context.Context, request *pfs.Commi
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.CommitDelete(request.Commit, shards); err != nil {
+	if err := a.driver.DeleteCommit(request.Commit, shards); err != nil {
 		return nil, err
 	}
 	// TODO push delete to replicas
 	return emptyInstance, nil
 }
 
-func (a *internalAPIServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*google_protobuf.Empty, error) {
+func (a *internalAPIServer) PutFile(ctx context.Context, request *pfs.PutFileRequest) (*google_protobuf.Empty, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -187,7 +187,7 @@ func (a *internalAPIServer) FilePut(ctx context.Context, request *pfs.FilePutReq
 	}
 	if request.FileType == pfs.FileType_FILE_TYPE_DIR {
 		if len(request.Value) > 0 {
-			return emptyInstance, fmt.Errorf("FilePutRequest shouldn't have type dir and a value")
+			return emptyInstance, fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
 		}
 		shards, err := a.router.GetMasterShards(version)
 		if err != nil {
@@ -202,14 +202,14 @@ func (a *internalAPIServer) FilePut(ctx context.Context, request *pfs.FilePutReq
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.FilePut(request.File, shard, request.OffsetBytes, bytes.NewReader(request.Value)); err != nil {
+	if err := a.driver.PutFile(request.File, shard, request.OffsetBytes, bytes.NewReader(request.Value)); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
 }
 
-func (a *internalAPIServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.InternalApi_FileGetServer) (retErr error) {
-	version, err := a.getVersion(apiFileGetServer.Context())
+func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.InternalApi_GetFileServer) (retErr error) {
+	version, err := a.getVersion(apiGetFileServer.Context())
 	if err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func (a *internalAPIServer) FileGet(request *pfs.FileGetRequest, apiFileGetServe
 	if err != nil {
 		return err
 	}
-	file, err := a.driver.FileGet(request.File, shard)
+	file, err := a.driver.GetFile(request.File, shard)
 	if err != nil {
 		return err
 	}
@@ -228,11 +228,11 @@ func (a *internalAPIServer) FileGet(request *pfs.FileGetRequest, apiFileGetServe
 	}()
 	return protostream.WriteToStreamingBytesServer(
 		io.NewSectionReader(file, request.OffsetBytes, request.SizeBytes),
-		apiFileGetServer,
+		apiGetFileServer,
 	)
 }
 
-func (a *internalAPIServer) FileInspect(ctx context.Context, request *pfs.FileInspectRequest) (*pfs.FileInfo, error) {
+func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -241,10 +241,10 @@ func (a *internalAPIServer) FileInspect(ctx context.Context, request *pfs.FileIn
 	if err != nil {
 		return nil, err
 	}
-	return a.driver.FileInspect(request.File, shard)
+	return a.driver.InspectFile(request.File, shard)
 }
 
-func (a *internalAPIServer) FileList(ctx context.Context, request *pfs.FileListRequest) (*pfs.FileInfos, error) {
+func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (*pfs.FileInfos, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -266,7 +266,7 @@ func (a *internalAPIServer) FileList(ctx context.Context, request *pfs.FileListR
 	var fileInfos []*pfs.FileInfo
 	seenDirectories := make(map[string]bool)
 	for shard := range filteredShards {
-		subFileInfos, err := a.driver.FileList(request.File, shard)
+		subFileInfos, err := a.driver.ListFile(request.File, shard)
 		if err != nil {
 			return nil, err
 		}
@@ -285,7 +285,7 @@ func (a *internalAPIServer) FileList(ctx context.Context, request *pfs.FileListR
 	}, nil
 }
 
-func (a *internalAPIServer) FileDelete(ctx context.Context, request *pfs.FileDeleteRequest) (*google_protobuf.Empty, error) {
+func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (*google_protobuf.Empty, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -301,7 +301,7 @@ func (a *internalAPIServer) FileDelete(ctx context.Context, request *pfs.FileDel
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.FileDelete(request.File, shard); err != nil {
+	if err := a.driver.DeleteFile(request.File, shard); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
@@ -320,7 +320,7 @@ func (a *internalAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffSe
 		return fmt.Errorf("pachyderm: illegal PullDiffRequest for unknown shard %d", request.Shard)
 	}
 	var buffer bytes.Buffer
-	a.driver.DiffPull(request.Commit, request.Shard, &buffer)
+	a.driver.PullDiff(request.Commit, request.Shard, &buffer)
 	return protostream.WriteToStreamingBytesServer(
 		&buffer,
 		apiPullDiffServer,
@@ -339,7 +339,7 @@ func (a *internalAPIServer) PushDiff(ctx context.Context, request *pfs.PushDiffR
 	if !ok {
 		return nil, fmt.Errorf("pachyderm: illegal PushDiffRequest for unknown shard %d", request.Shard)
 	}
-	return emptyInstance, a.driver.DiffPush(request.Commit, bytes.NewReader(request.Value))
+	return emptyInstance, a.driver.PushDiff(request.Commit, bytes.NewReader(request.Value))
 }
 
 func (a *internalAPIServer) AddShard(shard uint64) error {
@@ -354,21 +354,21 @@ func (a *internalAPIServer) AddShard(shard uint64) error {
 	if err != nil {
 		return err
 	}
-	repoInfos, err := pfs.NewInternalApiClient(clientConn).RepoList(ctx, &pfs.RepoListRequest{})
+	repoInfos, err := pfs.NewInternalApiClient(clientConn).ListRepo(ctx, &pfs.ListRepoRequest{})
 	if err != nil {
 		return err
 	}
 	for _, repoInfo := range repoInfos.RepoInfo {
-		if err := a.driver.RepoCreate(repoInfo.Repo); err != nil {
+		if err := a.driver.CreateRepo(repoInfo.Repo); err != nil {
 			return err
 		}
-		commitInfos, err := pfs.NewInternalApiClient(clientConn).CommitList(ctx, &pfs.CommitListRequest{Repo: repoInfo.Repo})
+		commitInfos, err := pfs.NewInternalApiClient(clientConn).ListCommit(ctx, &pfs.ListCommitRequest{Repo: repoInfo.Repo})
 		if err != nil {
 			return err
 		}
 		for i := range commitInfos.CommitInfo {
 			commit := commitInfos.CommitInfo[len(commitInfos.CommitInfo)-(i+1)].Commit
-			commitInfo, err := a.driver.CommitInspect(commit, shard)
+			commitInfo, err := a.driver.InspectCommit(commit, shard)
 			if err != nil {
 				return err
 			}
@@ -385,7 +385,7 @@ func (a *internalAPIServer) AddShard(shard uint64) error {
 				return err
 			}
 			diffReader := protostream.NewStreamingBytesReader(pullDiffClient)
-			a.driver.DiffPush(commit, diffReader)
+			a.driver.PushDiff(commit, diffReader)
 		}
 	}
 	return nil
@@ -473,7 +473,7 @@ func (a *internalAPIServer) commitToReplicas(ctx context.Context, commit *pfs.Co
 			return err
 		}
 		var diff bytes.Buffer
-		if err = a.driver.DiffPull(commit, shard, &diff); err != nil {
+		if err = a.driver.PullDiff(commit, shard, &diff); err != nil {
 			return err
 		}
 		for _, clientConn := range clientConns {
