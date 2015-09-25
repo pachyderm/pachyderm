@@ -11,6 +11,7 @@ import (
 
 // ReaderAtCloser is an interface that implements both io.ReaderAt and io.Closer.
 type ReaderAtCloser interface {
+	io.Reader
 	io.ReaderAt
 	io.Closer
 }
@@ -21,7 +22,7 @@ type Driver interface {
 	InspectRepo(repo *pfs.Repo, shard uint64) (*pfs.RepoInfo, error)
 	ListRepo(shard uint64) ([]*pfs.RepoInfo, error)
 	DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error
-	StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[uint64]bool) (*pfs.Commit, error)
+	StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[uint64]bool) error
 	FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error
 	InspectCommit(commit *pfs.Commit, shard uint64) (*pfs.CommitInfo, error)
 	ListCommit(repo *pfs.Repo, from *pfs.Commit, shard uint64) ([]*pfs.CommitInfo, error)

@@ -33,12 +33,6 @@ var (
 	counter int32
 )
 
-func TestRepositoryName() string {
-	// TODO could be nice to add callee to this string to make it easy to
-	// recover results for debugging
-	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
-}
-
 func RunTest(
 	t *testing.T,
 	f func(*testing.T, pfs.ApiClient, pfs.InternalApiClient, Cluster),

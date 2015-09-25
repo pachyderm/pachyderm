@@ -99,53 +99,47 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shard map[uint64]bool) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[uint64]bool) (*pfs.Commit, error) {
-	if parent == nil && commit == nil {
-		return nil, fmt.Errorf("pachyderm: must specify either parent or commit")
-	}
+func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[uint64]bool) error {
 	if commit == nil {
-		commit = &pfs.Commit{
-			Repo: parent.Repo,
-			Id:   newCommitID(),
-		}
+		return fmt.Errorf("pachyderm: nil commit")
 	}
 	if err := execSubvolumeCreate(d.commitPathNoShard(commit)); err != nil && !execSubvolumeExists(d.commitPathNoShard(commit)) {
-		return nil, err
+		return err
 	}
 	for shard := range shards {
 		commitPath := d.writeCommitPath(commit, shard)
 		if parent != nil {
 			if err := d.checkReadOnly(parent, shard); err != nil {
-				return nil, err
+				return err
 			}
 			parentPath, err := d.commitPath(parent, shard)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if err := execSubvolumeSnapshot(parentPath, commitPath, false); err != nil {
-				return nil, err
+				return err
 			}
 			filePath, err := d.filePath(&pfs.File{Commit: commit, Path: filepath.Join(metadataDir, "parent")}, shard)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if err := ioutil.WriteFile(filePath, []byte(parent.Id), 0600); err != nil {
-				return nil, err
+				return err
 			}
 		} else {
 			if err := execSubvolumeCreate(commitPath); err != nil {
-				return nil, err
+				return err
 			}
 			filePath, err := d.filePath(&pfs.File{Commit: commit, Path: metadataDir}, shard)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if err := os.Mkdir(filePath, 0700); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
-	return commit, nil
+	return nil
 }
 
 func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error {

@@ -1325,7 +1325,7 @@ type InternalApiClient interface {
 	// Commit rpcs
 	// StartCommit creates a new write commit from a parent commit.
 	// An error is returned if the parent commit is not a read commit.
-	StartCommit(ctx context.Context, in *StartCommitRequest, opts ...grpc.CallOption) (*Commit, error)
+	StartCommit(ctx context.Context, in *StartCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// FinishCommit turns a write commit into a read commit.
 	// An error is returned if the commit is not a write commit.
 	FinishCommit(ctx context.Context, in *FinishCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
@@ -1401,8 +1401,8 @@ func (c *internalApiClient) DeleteRepo(ctx context.Context, in *DeleteRepoReques
 	return out, nil
 }
 
-func (c *internalApiClient) StartCommit(ctx context.Context, in *StartCommitRequest, opts ...grpc.CallOption) (*Commit, error) {
-	out := new(Commit)
+func (c *internalApiClient) StartCommit(ctx context.Context, in *StartCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.InternalApi/StartCommit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -1580,7 +1580,7 @@ type InternalApiServer interface {
 	// Commit rpcs
 	// StartCommit creates a new write commit from a parent commit.
 	// An error is returned if the parent commit is not a read commit.
-	StartCommit(context.Context, *StartCommitRequest) (*Commit, error)
+	StartCommit(context.Context, *StartCommitRequest) (*google_protobuf1.Empty, error)
 	// FinishCommit turns a write commit into a read commit.
 	// An error is returned if the commit is not a write commit.
 	FinishCommit(context.Context, *FinishCommitRequest) (*google_protobuf1.Empty, error)
