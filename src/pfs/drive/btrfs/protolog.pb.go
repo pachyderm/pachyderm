@@ -15,7 +15,9 @@ It has these top-level messages:
 	SubvolumeSnapshot
 	TransID
 	SubvolumeList
+	SubvolumeListLine
 	SubvolumeFindNew
+	SubvolumeFindNewLine
 	Send
 	Recv
 */
@@ -89,6 +91,14 @@ func (m *SubvolumeList) Reset()         { *m = SubvolumeList{} }
 func (m *SubvolumeList) String() string { return proto.CompactTextString(m) }
 func (*SubvolumeList) ProtoMessage()    {}
 
+type SubvolumeListLine struct {
+	Line string `protobuf:"bytes,1,opt,name=line" json:"line,omitempty"`
+}
+
+func (m *SubvolumeListLine) Reset()         { *m = SubvolumeListLine{} }
+func (m *SubvolumeListLine) String() string { return proto.CompactTextString(m) }
+func (*SubvolumeListLine) ProtoMessage()    {}
+
 type SubvolumeFindNew struct {
 	Commit     string `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	FromCommit string `protobuf:"bytes,2,opt,name=fromCommit" json:"fromCommit,omitempty"`
@@ -98,6 +108,14 @@ type SubvolumeFindNew struct {
 func (m *SubvolumeFindNew) Reset()         { *m = SubvolumeFindNew{} }
 func (m *SubvolumeFindNew) String() string { return proto.CompactTextString(m) }
 func (*SubvolumeFindNew) ProtoMessage()    {}
+
+type SubvolumeFindNewLine struct {
+	Line string `protobuf:"bytes,1,opt,name=line" json:"line,omitempty"`
+}
+
+func (m *SubvolumeFindNewLine) Reset()         { *m = SubvolumeFindNewLine{} }
+func (m *SubvolumeFindNewLine) String() string { return proto.CompactTextString(m) }
+func (*SubvolumeFindNewLine) ProtoMessage()    {}
 
 type Send struct {
 	Path   string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`

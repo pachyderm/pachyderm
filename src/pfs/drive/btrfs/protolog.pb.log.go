@@ -13,7 +13,9 @@ func init() {
 	protolog.Register("btrfs.SubvolumeSnapshot", func() protolog.Message { return &SubvolumeSnapshot{} })
 	protolog.Register("btrfs.TransID", func() protolog.Message { return &TransID{} })
 	protolog.Register("btrfs.SubvolumeList", func() protolog.Message { return &SubvolumeList{} })
+	protolog.Register("btrfs.SubvolumeListLine", func() protolog.Message { return &SubvolumeListLine{} })
 	protolog.Register("btrfs.SubvolumeFindNew", func() protolog.Message { return &SubvolumeFindNew{} })
+	protolog.Register("btrfs.SubvolumeFindNewLine", func() protolog.Message { return &SubvolumeFindNewLine{} })
 	protolog.Register("btrfs.Send", func() protolog.Message { return &Send{} })
 	protolog.Register("btrfs.Recv", func() protolog.Message { return &Recv{} })
 }
@@ -36,8 +38,14 @@ func (m *TransID) ProtologName() string {
 func (m *SubvolumeList) ProtologName() string {
 	return "btrfs.SubvolumeList"
 }
+func (m *SubvolumeListLine) ProtologName() string {
+	return "btrfs.SubvolumeListLine"
+}
 func (m *SubvolumeFindNew) ProtologName() string {
 	return "btrfs.SubvolumeFindNew"
+}
+func (m *SubvolumeFindNewLine) ProtologName() string {
+	return "btrfs.SubvolumeFindNewLine"
 }
 func (m *Send) ProtologName() string {
 	return "btrfs.Send"

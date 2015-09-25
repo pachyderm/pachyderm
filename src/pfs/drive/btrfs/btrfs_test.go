@@ -37,6 +37,23 @@ func TestSimple(t *testing.T) {
 	contents, err := ioutil.ReadAll(reader)
 	require.NoError(t, err)
 	require.Equal(t, string(contents), "foo")
+	commit2 := &pfs.Commit{
+		Repo: repo,
+		Id:   "commit2",
+	}
+	require.NoError(t, driver.StartCommit(commit1, commit2, shards))
+	file2 := &pfs.File{
+		Commit: commit2,
+		Path:   "bar",
+	}
+	require.NoError(t, driver.PutFile(file2, 0, 0, strings.NewReader("bar")))
+	require.NoError(t, driver.FinishCommit(commit2, shards))
+	changes, err := driver.ListChange(file2, commit1, 0)
+	require.NoError(t, err)
+	require.Equal(t, len(changes), 1)
+	require.Equal(t, changes[0].File, file2)
+	require.Equal(t, changes[0].OffsetBytes, uint64(0))
+	require.Equal(t, changes[0].SizeBytes, uint64(3))
 }
 
 func getBtrfsRootDir(tb testing.TB) string {
