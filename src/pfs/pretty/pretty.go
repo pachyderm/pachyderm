@@ -13,7 +13,7 @@ import (
 )
 
 func PrintRepoHeader(w io.Writer) {
-	fmt.Fprintln(w, "NAME\tCREATED\tSIZE\t")
+	fmt.Fprint(w, "NAME\tCREATED\tSIZE\t\n")
 }
 
 func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
@@ -32,7 +32,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 }
 
 func PrintCommitInfoHeader(w io.Writer) {
-	fmt.Fprintln(w, "ID\tPARENT\tSTATUS\tTIME_OPENED\tTIME_CLOSED\tTOTAL_SIZE\tDIFF_SIZE\t")
+	fmt.Fprint(w, "ID\tPARENT\tSTATUS\tTIME_OPENED\tTIME_CLOSED\tTOTAL_SIZE\tDIFF_SIZE\t\n")
 }
 
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
@@ -54,7 +54,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 }
 
 func PrintFileInfoHeader(w io.Writer) {
-	fmt.Fprintln(w, "NAME\tTYPE\tMODIFIED\tLAST_COMMIT_MODIFIED\tSIZE\tPERMISSIONS\t")
+	fmt.Fprint(w, "NAME\tTYPE\tMODIFIED\tLAST_COMMIT_MODIFIED\tSIZE\tPERMISSIONS\t\n")
 }
 
 func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
@@ -80,7 +80,7 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 }
 
 func PrintServerInfoHeader(w io.Writer) {
-	fmt.Fprintln(w, "ID\tADDRESS\tVERSION\tMASTER\tREPLICA\t")
+	fmt.Fprint(w, "ID\tADDRESS\tVERSION\tMASTER\tREPLICA\t\n")
 }
 
 func PrintServerInfo(w io.Writer, serverInfo *pfs.ServerInfo) {
@@ -111,6 +111,16 @@ func PrintServerInfo(w io.Writer, serverInfo *pfs.ServerInfo) {
 		}
 	}
 	fmt.Fprint(w, "\t\n")
+}
+
+func PrintChangeHeader(w io.Writer) {
+	fmt.Fprintf(w, "NAME\tOFFSET\tSIZE\t\n")
+}
+
+func PrintChange(w io.Writer, change *pfs.Change) {
+	fmt.Fprintf(w, "%s\t", change.File.Path)
+	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(change.OffsetBytes)))
+	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(change.SizeBytes)))
 }
 
 type uint64Slice []uint64
