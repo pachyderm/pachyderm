@@ -30,11 +30,11 @@ var _ = json.Marshal
 var _ = utilities.PascalFromSnake
 
 var (
-	filter_Api_RepoCreate_0 = &utilities.DoubleArray{Encoding: map[string]int{"repo": 0, "name": 1}, Base: []int{1, 1, 1, 0}, Check: []int{0, 1, 2, 3}}
+	filter_Api_CreateRepo_0 = &utilities.DoubleArray{Encoding: map[string]int{"repo": 0, "name": 1}, Base: []int{1, 1, 1, 0}, Check: []int{0, 1, 2, 3}}
 )
 
-func request_Api_RepoCreate_0(ctx context.Context, client ApiClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
-	var protoReq RepoCreateRequest
+func request_Api_CreateRepo_0(ctx context.Context, client ApiClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq CreateRepoRequest
 
 	var (
 		val string
@@ -54,11 +54,11 @@ func request_Api_RepoCreate_0(ctx context.Context, client ApiClient, req *http.R
 		return nil, err
 	}
 
-	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Api_RepoCreate_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Api_CreateRepo_0); err != nil {
 		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	return client.RepoCreate(ctx, &protoReq)
+	return client.CreateRepo(ctx, &protoReq)
 }
 
 // RegisterApiHandlerFromEndpoint is same as RegisterApiHandler but
@@ -91,14 +91,14 @@ func RegisterApiHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, 
 func RegisterApiHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
 	client := NewApiClient(conn)
 
-	mux.Handle("PUT", pattern_Api_RepoCreate_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		resp, err := request_Api_RepoCreate_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+	mux.Handle("PUT", pattern_Api_CreateRepo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_Api_CreateRepo_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
 		if err != nil {
 			runtime.HTTPError(ctx, w, err)
 			return
 		}
 
-		forward_Api_RepoCreate_0(ctx, w, req, resp)
+		forward_Api_CreateRepo_0(ctx, w, req, resp)
 
 	})
 
@@ -106,9 +106,9 @@ func RegisterApiHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.C
 }
 
 var (
-	pattern_Api_RepoCreate_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"repos", "repo.name"}, ""))
+	pattern_Api_CreateRepo_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"repos", "repo.name"}, ""))
 )
 
 var (
-	forward_Api_RepoCreate_0 = runtime.ForwardResponseMessage
+	forward_Api_CreateRepo_0 = runtime.ForwardResponseMessage
 )

@@ -32,7 +32,7 @@ func newAPIServer(
 	}
 }
 
-func (a *apiServer) RepoCreate(ctx context.Context, request *pfs.RepoCreateRequest) (*google_protobuf.Empty, error) {
+func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (*google_protobuf.Empty, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -42,12 +42,12 @@ func (a *apiServer) RepoCreate(ctx context.Context, request *pfs.RepoCreateReque
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewInternalApiClient(clientConn).RepoCreate(ctx, request); err != nil {
+		if _, err := pfs.NewInternalApiClient(clientConn).CreateRepo(ctx, request); err != nil {
 			return nil, err
 		}
 	}
 	// Create the initial commit
-	if _, err = a.CommitStart(ctx, &pfs.CommitStartRequest{
+	if _, err = a.StartCommit(ctx, &pfs.StartCommitRequest{
 		Parent: nil,
 		Commit: &pfs.Commit{
 			Repo: request.Repo,
@@ -56,7 +56,7 @@ func (a *apiServer) RepoCreate(ctx context.Context, request *pfs.RepoCreateReque
 	}); err != nil {
 		return nil, err
 	}
-	if _, err = a.CommitFinish(ctx, &pfs.CommitFinishRequest{
+	if _, err = a.FinishCommit(ctx, &pfs.FinishCommitRequest{
 		Commit: &pfs.Commit{
 			Repo: request.Repo,
 			Id:   InitialCommitID,
@@ -67,7 +67,7 @@ func (a *apiServer) RepoCreate(ctx context.Context, request *pfs.RepoCreateReque
 	return emptyInstance, nil
 }
 
-func (a *apiServer) RepoInspect(ctx context.Context, request *pfs.RepoInspectRequest) (*pfs.RepoInfo, error) {
+func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (*pfs.RepoInfo, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -76,10 +76,10 @@ func (a *apiServer) RepoInspect(ctx context.Context, request *pfs.RepoInspectReq
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewInternalApiClient(clientConn).RepoInspect(ctx, request)
+	return pfs.NewInternalApiClient(clientConn).InspectRepo(ctx, request)
 }
 
-func (a *apiServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) (*pfs.RepoInfos, error) {
+func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (*pfs.RepoInfos, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -88,10 +88,10 @@ func (a *apiServer) RepoList(ctx context.Context, request *pfs.RepoListRequest) 
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewInternalApiClient(clientConn).RepoList(ctx, request)
+	return pfs.NewInternalApiClient(clientConn).ListRepo(ctx, request)
 }
 
-func (a *apiServer) RepoDelete(ctx context.Context, request *pfs.RepoDeleteRequest) (*google_protobuf.Empty, error) {
+func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (*google_protobuf.Empty, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (a *apiServer) RepoDelete(ctx context.Context, request *pfs.RepoDeleteReque
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewInternalApiClient(clientConn).RepoDelete(ctx, request); err != nil {
+		if _, err := pfs.NewInternalApiClient(clientConn).DeleteRepo(ctx, request); err != nil {
 			return nil, err
 		}
 	}
@@ -109,7 +109,7 @@ func (a *apiServer) RepoDelete(ctx context.Context, request *pfs.RepoDeleteReque
 
 }
 
-func (a *apiServer) CommitStart(ctx context.Context, request *pfs.CommitStartRequest) (*pfs.Commit, error) {
+func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -125,14 +125,14 @@ func (a *apiServer) CommitStart(ctx context.Context, request *pfs.CommitStartReq
 		}
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewInternalApiClient(clientConn).CommitStart(ctx, request); err != nil {
+		if _, err := pfs.NewInternalApiClient(clientConn).StartCommit(ctx, request); err != nil {
 			return nil, err
 		}
 	}
 	return request.Commit, nil
 }
 
-func (a *apiServer) CommitFinish(ctx context.Context, request *pfs.CommitFinishRequest) (*google_protobuf.Empty, error) {
+func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (*google_protobuf.Empty, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -142,7 +142,7 @@ func (a *apiServer) CommitFinish(ctx context.Context, request *pfs.CommitFinishR
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewInternalApiClient(clientConn).CommitFinish(ctx, request); err != nil {
+		if _, err := pfs.NewInternalApiClient(clientConn).FinishCommit(ctx, request); err != nil {
 			return nil, err
 		}
 	}
@@ -150,7 +150,7 @@ func (a *apiServer) CommitFinish(ctx context.Context, request *pfs.CommitFinishR
 }
 
 // TODO(pedge): race on Branch
-func (a *apiServer) CommitInspect(ctx context.Context, request *pfs.CommitInspectRequest) (*pfs.CommitInfo, error) {
+func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -159,10 +159,10 @@ func (a *apiServer) CommitInspect(ctx context.Context, request *pfs.CommitInspec
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewInternalApiClient(clientConn).CommitInspect(ctx, request)
+	return pfs.NewInternalApiClient(clientConn).InspectCommit(ctx, request)
 }
 
-func (a *apiServer) CommitList(ctx context.Context, request *pfs.CommitListRequest) (*pfs.CommitInfos, error) {
+func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (*pfs.CommitInfos, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -171,10 +171,10 @@ func (a *apiServer) CommitList(ctx context.Context, request *pfs.CommitListReque
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewInternalApiClient(clientConn).CommitList(ctx, request)
+	return pfs.NewInternalApiClient(clientConn).ListCommit(ctx, request)
 }
 
-func (a *apiServer) CommitDelete(ctx context.Context, request *pfs.CommitDeleteRequest) (*google_protobuf.Empty, error) {
+func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (*google_protobuf.Empty, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -184,14 +184,14 @@ func (a *apiServer) CommitDelete(ctx context.Context, request *pfs.CommitDeleteR
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewApiClient(clientConn).CommitDelete(ctx, request); err != nil {
+		if _, err := pfs.NewApiClient(clientConn).DeleteCommit(ctx, request); err != nil {
 			return nil, err
 		}
 	}
 	return emptyInstance, nil
 }
 
-func (a *apiServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*google_protobuf.Empty, error) {
+func (a *apiServer) PutFile(ctx context.Context, request *pfs.PutFileRequest) (*google_protobuf.Empty, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -205,14 +205,14 @@ func (a *apiServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*
 	}
 	if request.FileType == pfs.FileType_FILE_TYPE_DIR {
 		if len(request.Value) > 0 {
-			return emptyInstance, fmt.Errorf("FilePutRequest shouldn't have type dir and a value")
+			return emptyInstance, fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
 		}
 		clientConns, err := a.router.GetAllClientConns(version)
 		if err != nil {
 			return nil, err
 		}
 		for _, clientConn := range clientConns {
-			if _, err := pfs.NewInternalApiClient(clientConn).FilePut(ctx, request); err != nil {
+			if _, err := pfs.NewInternalApiClient(clientConn).PutFile(ctx, request); err != nil {
 				return nil, err
 			}
 		}
@@ -222,10 +222,10 @@ func (a *apiServer) FilePut(ctx context.Context, request *pfs.FilePutRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewInternalApiClient(clientConn).FilePut(ctx, request)
+	return pfs.NewInternalApiClient(clientConn).PutFile(ctx, request)
 }
 
-func (a *apiServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.Api_FileGetServer) error {
+func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) error {
 	version, ctx, err := a.versionAndCtx(context.Background())
 	if err != nil {
 		return err
@@ -234,14 +234,14 @@ func (a *apiServer) FileGet(request *pfs.FileGetRequest, apiFileGetServer pfs.Ap
 	if err != nil {
 		return err
 	}
-	fileGetClient, err := pfs.NewInternalApiClient(clientConn).FileGet(ctx, request)
+	fileGetClient, err := pfs.NewInternalApiClient(clientConn).GetFile(ctx, request)
 	if err != nil {
 		return err
 	}
-	return protostream.RelayFromStreamingBytesClient(fileGetClient, apiFileGetServer)
+	return protostream.RelayFromStreamingBytesClient(fileGetClient, apiGetFileServer)
 }
 
-func (a *apiServer) FileInspect(ctx context.Context, request *pfs.FileInspectRequest) (*pfs.FileInfo, error) {
+func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -250,10 +250,10 @@ func (a *apiServer) FileInspect(ctx context.Context, request *pfs.FileInspectReq
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewInternalApiClient(clientConn).FileInspect(ctx, request)
+	return pfs.NewInternalApiClient(clientConn).InspectFile(ctx, request)
 }
 
-func (a *apiServer) FileList(ctx context.Context, request *pfs.FileListRequest) (*pfs.FileInfos, error) {
+func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (*pfs.FileInfos, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -265,7 +265,7 @@ func (a *apiServer) FileList(ctx context.Context, request *pfs.FileListRequest) 
 	var fileInfos []*pfs.FileInfo
 	seenDirectories := make(map[string]bool)
 	for _, clientConn := range clientConns {
-		subFileInfos, err := pfs.NewInternalApiClient(clientConn).FileList(ctx, request)
+		subFileInfos, err := pfs.NewInternalApiClient(clientConn).ListFile(ctx, request)
 		if err != nil {
 			return nil, err
 		}
@@ -284,7 +284,7 @@ func (a *apiServer) FileList(ctx context.Context, request *pfs.FileListRequest) 
 	}, nil
 }
 
-func (a *apiServer) FileDelete(ctx context.Context, request *pfs.FileDeleteRequest) (*google_protobuf.Empty, error) {
+func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (*google_protobuf.Empty, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -293,7 +293,7 @@ func (a *apiServer) FileDelete(ctx context.Context, request *pfs.FileDeleteReque
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewInternalApiClient(clientConn).FileDelete(ctx, request)
+	return pfs.NewInternalApiClient(clientConn).DeleteFile(ctx, request)
 }
 
 func (a *apiServer) getClientConn(version int64) (*grpc.ClientConn, error) {
