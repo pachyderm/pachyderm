@@ -24,8 +24,8 @@ const (
 	// TODO(pedge): large numbers of shards takes forever because
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
-	testShardsPerServer = 8
-	testNumServers      = 8
+	testShardsPerServer = 4
+	testNumServers      = 4
 	testNumReplicas     = 1
 )
 
