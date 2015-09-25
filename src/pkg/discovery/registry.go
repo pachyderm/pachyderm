@@ -40,7 +40,7 @@ func (r *registry) GetAll() ([]string, error) {
 
 func (r *registry) register(value string, errChan chan<- error) {
 	for {
-		if _, err := r.client.Set(r.directory+"/"+value, value, registryRefreshSec*2); err != nil {
+		if err := r.client.Set(r.directory+"/"+value, value, registryRefreshSec*2); err != nil {
 			errChan <- err
 			return
 		}
