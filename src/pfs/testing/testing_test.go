@@ -53,10 +53,10 @@ func BenchmarkFuse(b *testing.B) {
 func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient, cluster Cluster) {
 	repositoryName := TestRepositoryName()
 
-	err := pfsutil.RepoCreate(apiClient, repositoryName)
+	err := pfsutil.CreateRepo(apiClient, repositoryName)
 	require.NoError(t, err)
 
-	commitInfo, err := pfsutil.CommitInspect(apiClient, repositoryName, "scratch")
+	commitInfo, err := pfsutil.InspectCommit(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
 	require.NotNil(t, commitInfo)
 	require.Equal(t, "scratch", commitInfo.Commit.Id)
@@ -64,17 +64,17 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 	require.Nil(t, commitInfo.ParentCommit)
 	scratchCommitInfo := commitInfo
 
-	commitInfos, err := pfsutil.CommitList(apiClient, repositoryName)
+	commitInfos, err := pfsutil.ListCommit(apiClient, repositoryName)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	require.Equal(t, scratchCommitInfo, commitInfos[0])
 
-	commit, err := pfsutil.CommitStart(apiClient, repositoryName, "scratch")
+	commit, err := pfsutil.StartCommit(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.Id
 
-	commitInfo, err = pfsutil.CommitInspect(apiClient, repositoryName, newCommitID)
+	commitInfo, err = pfsutil.InspectCommit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
 	require.NotNil(t, commitInfo)
 	require.Equal(t, newCommitID, commitInfo.Commit.Id)
@@ -82,7 +82,7 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 	require.Equal(t, "scratch", commitInfo.ParentCommit.Id)
 	newCommitInfo := commitInfo
 
-	commitInfos, err = pfsutil.CommitList(apiClient, repositoryName)
+	commitInfos, err = pfsutil.ListCommit(apiClient, repositoryName)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 	require.Equal(t, newCommitInfo, commitInfos[0])
@@ -95,10 +95,10 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 
 	doWrites(t, apiClient, repositoryName, newCommitID)
 
-	err = pfsutil.CommitFinish(apiClient, repositoryName, newCommitID)
+	err = pfsutil.FinishCommit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
 
-	commitInfo, err = pfsutil.CommitInspect(apiClient, repositoryName, newCommitID)
+	commitInfo, err = pfsutil.InspectCommit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
 	require.NotNil(t, commitInfo)
 	require.Equal(t, newCommitID, commitInfo.Commit.Id)
@@ -107,10 +107,10 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 
 	checkWrites(t, apiClient, repositoryName, newCommitID)
 
-	fileInfos, err := pfsutil.FileList(apiClient, repositoryName, newCommitID, "a/b", 0, 1)
+	fileInfos, err := pfsutil.ListFile(apiClient, repositoryName, newCommitID, "a/b", 0, 1)
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(fileInfos))
-	fileInfos, err = pfsutil.FileList(apiClient, repositoryName, newCommitID, "a/c", 0, 1)
+	fileInfos, err = pfsutil.ListFile(apiClient, repositoryName, newCommitID, "a/c", 0, 1)
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(fileInfos))
 
@@ -121,7 +121,7 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			fileInfos3, iErr := pfsutil.FileList(apiClient, repositoryName, newCommitID, "a/b", uint64(i), 7)
+			fileInfos3, iErr := pfsutil.ListFile(apiClient, repositoryName, newCommitID, "a/b", uint64(i), 7)
 			require.NoError(t, iErr)
 			fileInfos2[i] = fileInfos3
 		}()
@@ -137,10 +137,10 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 func testFailures(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient, cluster Cluster) {
 	repositoryName := TestRepositoryName()
 
-	err := pfsutil.RepoCreate(apiClient, repositoryName)
+	err := pfsutil.CreateRepo(apiClient, repositoryName)
 	require.NoError(t, err)
 
-	commit, err := pfsutil.CommitStart(apiClient, repositoryName, "scratch")
+	commit, err := pfsutil.StartCommit(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.Id
@@ -152,7 +152,7 @@ func testFailures(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 
 	doWrites(t, apiClient, repositoryName, newCommitID)
 
-	err = pfsutil.CommitFinish(apiClient, repositoryName, newCommitID)
+	err = pfsutil.FinishCommit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
 
 	checkWrites(t, apiClient, repositoryName, newCommitID)
@@ -168,7 +168,7 @@ func testFailures(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient, cluster Cluster) {
 	repositoryName := TestRepositoryName()
 
-	err := pfsutil.RepoCreate(apiClient, repositoryName)
+	err := pfsutil.CreateRepo(apiClient, repositoryName)
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
@@ -179,7 +179,7 @@ func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Inte
 	_, err = os.Stat(filepath.Join(directory, "scratch"))
 	require.NoError(t, err)
 
-	commit, err := pfsutil.CommitStart(apiClient, repositoryName, "scratch")
+	commit, err := pfsutil.StartCommit(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.Id
@@ -190,7 +190,7 @@ func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Inte
 	err = ioutil.WriteFile(filepath.Join(directory, newCommitID, "foo"), []byte("foo"), 0666)
 	require.NoError(t, err)
 
-	_, err = pfsutil.FilePut(apiClient, repositoryName, newCommitID, "bar", 0, strings.NewReader("bar"))
+	_, err = pfsutil.PutFile(apiClient, repositoryName, newCommitID, "bar", 0, strings.NewReader("bar"))
 	require.NoError(t, err)
 
 	bigValue := make([]byte, 1024*1024)
@@ -201,10 +201,10 @@ func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Inte
 	err = ioutil.WriteFile(filepath.Join(directory, newCommitID, "big1"), bigValue, 0666)
 	require.NoError(t, err)
 
-	_, err = pfsutil.FilePut(apiClient, repositoryName, newCommitID, "big2", 0, bytes.NewReader(bigValue))
+	_, err = pfsutil.PutFile(apiClient, repositoryName, newCommitID, "big2", 0, bytes.NewReader(bigValue))
 	require.NoError(t, err)
 
-	err = pfsutil.CommitFinish(apiClient, repositoryName, newCommitID)
+	err = pfsutil.FinishCommit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
 
 	fInfo, err := os.Stat(filepath.Join(directory, newCommitID, "foo"))
@@ -236,7 +236,7 @@ func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Inte
 func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient, cluster Cluster) {
 	repositoryName := TestRepositoryName()
 
-	err := pfsutil.RepoCreate(apiClient, repositoryName)
+	err := pfsutil.CreateRepo(apiClient, repositoryName)
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
@@ -247,7 +247,7 @@ func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 	_, err = os.Stat(filepath.Join(directory, "scratch"))
 	require.NoError(t, err)
 
-	commit, err := pfsutil.CommitStart(apiClient, repositoryName, "scratch")
+	commit, err := pfsutil.StartCommit(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.Id
@@ -268,7 +268,7 @@ func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 	}
 	wg.Wait()
 
-	err = pfsutil.CommitFinish(apiClient, repositoryName, newCommitID)
+	err = pfsutil.FinishCommit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
 
 	wg = sync.WaitGroup{}
@@ -292,7 +292,7 @@ func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 func benchMount(b *testing.B, apiClient pfs.ApiClient) {
 	repositoryName := TestRepositoryName()
 
-	if err := pfsutil.RepoCreate(apiClient, repositoryName); err != nil {
+	if err := pfsutil.CreateRepo(apiClient, repositoryName); err != nil {
 		b.Error(err)
 	}
 
@@ -318,7 +318,7 @@ func benchMount(b *testing.B, apiClient pfs.ApiClient) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		commit, err := pfsutil.CommitStart(apiClient, repositoryName, "scratch")
+		commit, err := pfsutil.StartCommit(apiClient, repositoryName, "scratch")
 		if err != nil {
 			b.Error(err)
 		}
@@ -337,7 +337,7 @@ func benchMount(b *testing.B, apiClient pfs.ApiClient) {
 			}(j)
 		}
 		wg.Wait()
-		if err := pfsutil.CommitFinish(apiClient, repositoryName, newCommitID); err != nil {
+		if err := pfsutil.FinishCommit(apiClient, repositoryName, newCommitID); err != nil {
 			b.Error(err)
 		}
 	}
@@ -351,10 +351,10 @@ func doWrites(tb testing.TB, apiClient pfs.ApiClient, repositoryName string, com
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, iErr := pfsutil.FilePut(apiClient, repositoryName, commitID,
+			_, iErr := pfsutil.PutFile(apiClient, repositoryName, commitID,
 				fmt.Sprintf("a/b/file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
 			require.NoError(tb, iErr)
-			_, iErr = pfsutil.FilePut(apiClient, repositoryName, commitID,
+			_, iErr = pfsutil.PutFile(apiClient, repositoryName, commitID,
 				fmt.Sprintf("a/c/file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
 			require.NoError(tb, iErr)
 		}()
@@ -370,12 +370,12 @@ func checkWrites(tb testing.TB, apiClient pfs.ApiClient, repositoryName string, 
 		go func() {
 			defer wg.Done()
 			buffer := bytes.NewBuffer(nil)
-			iErr := pfsutil.FileGet(apiClient, repositoryName, commitID,
+			iErr := pfsutil.GetFile(apiClient, repositoryName, commitID,
 				fmt.Sprintf("a/b/file%d", i), 0, pfsutil.GetAll, buffer)
 			require.NoError(tb, iErr)
 			require.Equal(tb, fmt.Sprintf("hello%d", i), buffer.String())
 			buffer = bytes.NewBuffer(nil)
-			iErr = pfsutil.FileGet(apiClient, repositoryName, commitID,
+			iErr = pfsutil.GetFile(apiClient, repositoryName, commitID,
 				fmt.Sprintf("a/c/file%d", i), 0, pfsutil.GetAll, buffer)
 			require.NoError(tb, iErr)
 			require.Equal(tb, fmt.Sprintf("hello%d", i), buffer.String())
