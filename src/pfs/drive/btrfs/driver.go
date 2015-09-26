@@ -317,13 +317,13 @@ func (d *driver) PutBlock(parent *pfs.Commit, block *pfs.Block, shard uint64, re
 			retErr = err
 		}
 	}()
-	size_bytes, err := bufio.NewReader(reader).WriteTo(osFile)
+	sizeBytes, err := bufio.NewReader(reader).WriteTo(osFile)
 	if err != nil {
 		return err
 	}
 	blockInfo := pfs.BlockInfo{
 		Block:     block,
-		SizeBytes: uint64(size_bytes),
+		SizeBytes: uint64(sizeBytes),
 	}
 	encodedBlockInfo, err := proto.Marshal(&blockInfo)
 	if err != nil {
