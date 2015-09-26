@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
@@ -154,30 +155,75 @@ func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 	return nil
 }
 
-func (d *driver) InspectCommit(commit *pfs.Commit, shard uint64) (*pfs.CommitInfo, error) {
-	if !execSubvolumeExists(d.readCommitPath(commit, shard)) && !execSubvolumeExists(d.writeCommitPath(commit, shard)) {
-		return nil, nil // returning nil means not found
+func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
+	var wg sync.WaitGroup
+	var lock sync.Mutex
+	result := &pfs.CommitInfo{Commit: commit, CommitType: pfs.CommitType_COMMIT_TYPE_WRITE}
+	var errOnce sync.Once
+	var loopErr error
+	notFound := false
+	for shard := range shards {
+		wg.Add(1)
+		go func(shard uint64) {
+			defer wg.Done()
+			if !execSubvolumeExists(d.readCommitPath(commit, shard)) && !execSubvolumeExists(d.writeCommitPath(commit, shard)) {
+				errOnce.Do(func() { notFound = true })
+				return
+			}
+			parent, err := d.getParent(commit, shard)
+			if err != nil {
+				errOnce.Do(func() { loopErr = err })
+				return
+			}
+			readOnly, err := d.getReadOnly(commit, shard)
+			if err != nil {
+				errOnce.Do(func() { loopErr = err })
+				return
+			}
+			commitType := pfs.CommitType_COMMIT_TYPE_WRITE
+			if readOnly {
+				commitType = pfs.CommitType_COMMIT_TYPE_READ
+			}
+			changes, err := d.ListChange(&pfs.File{Commit: commit}, parent, shard)
+			if err != nil {
+				errOnce.Do(func() { loopErr = err })
+				return
+			}
+			var commitBytes uint64
+			for _, change := range changes {
+				commitBytes += change.SizeBytes
+			}
+			commitPath, err := d.commitPath(commit, shard)
+			if err != nil {
+				errOnce.Do(func() { loopErr = err })
+				return
+			}
+			totalBytes, err := d.recursiveSize(commitPath)
+			if err != nil {
+				errOnce.Do(func() { loopErr = err })
+				return
+			}
+			lock.Lock()
+			defer lock.Unlock()
+			if result.CommitType != pfs.CommitType_COMMIT_TYPE_READ {
+				result.CommitType = commitType
+			}
+			result.ParentCommit = parent
+			result.CommitBytes += commitBytes
+			result.TotalBytes += totalBytes
+		}(shard)
 	}
-	parent, err := d.getParent(commit, shard)
-	if err != nil {
-		return nil, err
+	wg.Wait()
+	if notFound {
+		return nil, nil
 	}
-	readOnly, err := d.getReadOnly(commit, shard)
-	if err != nil {
-		return nil, err
+	if loopErr != nil {
+		return nil, loopErr
 	}
-	commitType := pfs.CommitType_COMMIT_TYPE_WRITE
-	if readOnly {
-		commitType = pfs.CommitType_COMMIT_TYPE_READ
-	}
-	return &pfs.CommitInfo{
-		Commit:       commit,
-		CommitType:   commitType,
-		ParentCommit: parent,
-	}, nil
+	return result, nil
 }
 
-func (d *driver) ListCommit(repo *pfs.Repo, from *pfs.Commit, shard uint64) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListCommit(repo *pfs.Repo, from *pfs.Commit, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	//TODO this buffer might get too big
 	var buffer bytes.Buffer
@@ -196,13 +242,12 @@ func (d *driver) ListCommit(repo *pfs.Repo, from *pfs.Commit, shard uint64) ([]*
 				Repo: repo,
 				Id:   commitID,
 			},
-			shard,
+			shards,
 		)
 		if commitInfo == nil {
-			// This is a really weird error to get since we got this commit
-			// name by listing commits. This is probably indicative of a
-			// race condition.
-			return nil, fmt.Errorf("commit %s should exist", commitID)
+			// It's possible for us to not find a commit if it's in the middle
+			// of being committed, we ignore partial commits.
+			continue
 		}
 		if err != nil {
 			return nil, err
@@ -500,6 +545,26 @@ func inMetadataDir(name string) bool {
 	return (len(parts) > 0 && parts[0] == metadataDir)
 }
 
+func (d *driver) recursiveSize(root string) (uint64, error) {
+	var result int64
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if inMetadataDir(path) {
+			return filepath.SkipDir
+		}
+		if info.IsDir() {
+			result += info.Size()
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return uint64(result), err
+}
+
 func execSubvolumeCreate(path string) (retErr error) {
 	defer func() {
 		protolog.Info(&SubvolumeCreate{path, errorToString(retErr)})
@@ -703,7 +768,7 @@ func (c *changeScanner) parseChange() (*pfs.Change, bool) {
 	if len(tokens) != 17 {
 		return nil, false
 	}
-	if strings.HasPrefix(tokens[16], metadataDir) {
+	if inMetadataDir(tokens[16]) {
 		return nil, false
 	}
 	offset, err := strconv.ParseUint(tokens[4], 10, 64)

@@ -32,7 +32,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 }
 
 func PrintCommitInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "ID\tPARENT\tSTATUS\tTIME_OPENED\tTIME_CLOSED\tTOTAL_SIZE\tDIFF_SIZE\t\n")
+	fmt.Fprint(w, "ID\tPARENT\tSTATUS\tSTARTED\tFINISHED\tTOTAL_SIZE\tDIFF_SIZE\t\n")
 }
 
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
@@ -49,8 +49,8 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	}
 	fmt.Fprint(w, "-\t")
 	fmt.Fprint(w, "-\t")
-	fmt.Fprint(w, "-\t")
-	fmt.Fprint(w, "-\t\n")
+	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.TotalBytes)))
+	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.CommitBytes)))
 }
 
 func PrintFileInfoHeader(w io.Writer) {
