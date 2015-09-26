@@ -295,6 +295,8 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shard map[uint64]bool) error {
 }
 
 func (d *driver) PutBlock(parent *pfs.Commit, block *pfs.Block, shard uint64, reader io.Reader) (retErr error) {
+	// TODO we need to do more with parent. The thing we want to do is make
+	// sure that this commit references the block, otherwise we'll leak it.
 	if err := d.checkWrite(parent, shard); err != nil {
 		return err
 	}
