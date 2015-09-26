@@ -209,8 +209,8 @@ type CommitInfo struct {
 	Commit       *Commit                     `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	CommitType   CommitType                  `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
 	ParentCommit *Commit                     `protobuf:"bytes,3,opt,name=parent_commit" json:"parent_commit,omitempty"`
-	Opened       *google_protobuf2.Timestamp `protobuf:"bytes,4,opt,name=opened" json:"opened,omitempty"`
-	Closed       *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=closed" json:"closed,omitempty"`
+	Start        *google_protobuf2.Timestamp `protobuf:"bytes,4,opt,name=start" json:"start,omitempty"`
+	Finish       *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=finish" json:"finish,omitempty"`
 	CommitBytes  uint64                      `protobuf:"varint,6,opt,name=commit_bytes" json:"commit_bytes,omitempty"`
 	TotalBytes   uint64                      `protobuf:"varint,7,opt,name=total_bytes" json:"total_bytes,omitempty"`
 }
@@ -233,16 +233,16 @@ func (m *CommitInfo) GetParentCommit() *Commit {
 	return nil
 }
 
-func (m *CommitInfo) GetOpened() *google_protobuf2.Timestamp {
+func (m *CommitInfo) GetStart() *google_protobuf2.Timestamp {
 	if m != nil {
-		return m.Opened
+		return m.Start
 	}
 	return nil
 }
 
-func (m *CommitInfo) GetClosed() *google_protobuf2.Timestamp {
+func (m *CommitInfo) GetFinish() *google_protobuf2.Timestamp {
 	if m != nil {
-		return m.Closed
+		return m.Finish
 	}
 	return nil
 }

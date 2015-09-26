@@ -16,6 +16,7 @@ import (
 	"github.com/satori/go.uuid"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
+	"go.pedge.io/proto/time"
 )
 
 type apiServer struct {
@@ -197,17 +198,24 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	idToCommitInfo := make(map[string]*pfs.CommitInfo)
 	idToSeenCount := make(map[string]int)
 	for _, subCommitInfos := range commitInfos {
-		for _, commitInfo := range subCommitInfos {
-			idToSeenCount[commitInfo.Commit.Id] = idToSeenCount[commitInfo.Commit.Id] + 1
-			if _, ok := idToCommitInfo[commitInfo.Commit.Id]; !ok {
-				idToCommitInfo[commitInfo.Commit.Id] = commitInfo
+		for _, subCommitInfo := range subCommitInfos {
+			idToSeenCount[subCommitInfo.Commit.Id] = idToSeenCount[subCommitInfo.Commit.Id] + 1
+			commitInfo, ok := idToCommitInfo[subCommitInfo.Commit.Id]
+			if !ok {
+				idToCommitInfo[subCommitInfo.Commit.Id] = subCommitInfo
 				continue
 			}
-			if idToCommitInfo[commitInfo.Commit.Id].CommitType != pfs.CommitType_COMMIT_TYPE_READ {
-				idToCommitInfo[commitInfo.Commit.Id].CommitType = commitInfo.CommitType
+			if commitInfo.CommitType != pfs.CommitType_COMMIT_TYPE_READ {
+				commitInfo.CommitType = subCommitInfo.CommitType
 			}
-			idToCommitInfo[commitInfo.Commit.Id].CommitBytes += commitInfo.CommitBytes
-			idToCommitInfo[commitInfo.Commit.Id].TotalBytes += commitInfo.TotalBytes
+			if prototime.TimestampToTime(subCommitInfo.Start).Before(prototime.TimestampToTime(commitInfo.Start)) {
+				commitInfo.Start = subCommitInfo.Start
+			}
+			if prototime.TimestampToTime(subCommitInfo.Finish).After(prototime.TimestampToTime(commitInfo.Finish)) {
+				commitInfo.Finish = subCommitInfo.Finish
+			}
+			commitInfo.CommitBytes += subCommitInfo.CommitBytes
+			commitInfo.TotalBytes += subCommitInfo.TotalBytes
 		}
 	}
 	var result []*pfs.CommitInfo

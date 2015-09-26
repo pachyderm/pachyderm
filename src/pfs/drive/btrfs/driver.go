@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
@@ -148,10 +149,12 @@ func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 		if err := execSubvolumeSnapshot(d.writeCommitPath(commit, shard), d.readCommitPath(commit, shard), true); err != nil {
 			return err
 		}
-		if err := execSubvolumeDelete(d.writeCommitPath(commit, shard)); err != nil {
-			return err
-		}
 	}
+	// TODO we don't delete the writeCommit here because we want to use it to
+	// figure out when the commit started. However if we recorded the ModTime
+	// on that directory then we could go back to deleting it. This isn't
+	// hugely important, due to COW the write snapshot doesn't take up much
+	// space.
 	return nil
 }
 
@@ -184,6 +187,22 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 			if readOnly {
 				commitType = pfs.CommitType_COMMIT_TYPE_READ
 			}
+			writeStat, err := os.Stat(d.writeCommitPath(commit, shard))
+			if err != nil {
+				errOnce.Do(func() { loopErr = err })
+				return
+			}
+			startTime := writeStat.ModTime()
+			var finishTime *time.Time
+			if commitType == pfs.CommitType_COMMIT_TYPE_READ {
+				readStat, err := os.Stat(d.readCommitPath(commit, shard))
+				if err != nil {
+					errOnce.Do(func() { loopErr = err })
+					return
+				}
+				_finishTime := readStat.ModTime()
+				finishTime = &_finishTime
+			}
 			changes, err := d.ListChange(&pfs.File{Commit: commit}, parent, shard)
 			if err != nil {
 				errOnce.Do(func() { loopErr = err })
@@ -209,6 +228,12 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 				result.CommitType = commitType
 			}
 			result.ParentCommit = parent
+			if result.Start == nil || startTime.Before(prototime.TimestampToTime(result.Start)) {
+				result.Start = prototime.TimeToTimestamp(startTime)
+			}
+			if finishTime != nil && (result.Finish == nil || finishTime.After(prototime.TimestampToTime(result.Finish))) {
+				result.Finish = prototime.TimeToTimestamp(*finishTime)
+			}
 			result.CommitBytes += commitBytes
 			result.TotalBytes += totalBytes
 		}(shard)
