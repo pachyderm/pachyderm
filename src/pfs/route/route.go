@@ -11,6 +11,7 @@ type Sharder interface {
 	NumShards() uint64
 	NumReplicas() uint64
 	GetShard(file *pfs.File) uint64
+	GetBlockShard(block *pfs.Block) uint64
 }
 
 func NewSharder(numShards uint64, numReplicas uint64) Sharder {

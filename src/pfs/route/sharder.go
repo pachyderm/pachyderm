@@ -27,3 +27,7 @@ func (s *sharder) NumReplicas() uint64 {
 func (s *sharder) GetShard(file *pfs.File) uint64 {
 	return uint64(adler32.Checksum([]byte(path.Clean(file.Path)))) % s.numShards
 }
+
+func (s *sharder) GetBlockShard(block *pfs.Block) uint64 {
+	return uint64(adler32.Checksum([]byte(block.Hash))) % s.numShards
+}
