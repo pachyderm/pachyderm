@@ -59,8 +59,8 @@ message CommitInfo {
   Commit commit = 1;
   CommitType commit_type = 2;
   Commit parent_commit = 3;
-  google.protobuf.Timestamp opened = 4;
-  google.protobuf.Timestamp closed = 5;
+  google.protobuf.Timestamp start = 4;
+  google.protobuf.Timestamp finish = 5;
   uint64 commit_bytes = 6;
   uint64 total_bytes = 7;
 }
