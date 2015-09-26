@@ -16,7 +16,6 @@ import (
 	"github.com/satori/go.uuid"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
-	"go.pedge.io/protolog"
 )
 
 type apiServer struct {
@@ -195,7 +194,6 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	if loopErr != nil {
 		return nil, loopErr
 	}
-	protolog.Printf("Got commitInfos: %+v", commitInfos)
 	idToCommitInfo := make(map[string]*pfs.CommitInfo)
 	idToSeenCount := make(map[string]int)
 	for _, subCommitInfos := range commitInfos {
