@@ -52,7 +52,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 		"%s ago\t", units.HumanDuration(
 			time.Since(
 				prototime.TimestampToTime(
-					commitInfo.Start,
+					commitInfo.Started,
 				),
 			),
 		),
@@ -62,7 +62,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 		"%s ago\t", units.HumanDuration(
 			time.Since(
 				prototime.TimestampToTime(
-					commitInfo.Finish,
+					commitInfo.Finished,
 				),
 			),
 		),
@@ -87,7 +87,7 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 		"%s ago\t", units.HumanDuration(
 			time.Since(
 				prototime.TimestampToTime(
-					fileInfo.LastModified,
+					fileInfo.Modified,
 				),
 			),
 		),

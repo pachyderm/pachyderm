@@ -228,11 +228,11 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 				result.CommitType = commitType
 			}
 			result.ParentCommit = parent
-			if result.Start == nil || startTime.Before(prototime.TimestampToTime(result.Start)) {
-				result.Start = prototime.TimeToTimestamp(startTime)
+			if result.Started == nil || startTime.Before(prototime.TimestampToTime(result.Started)) {
+				result.Started = prototime.TimeToTimestamp(startTime)
 			}
-			if finishTime != nil && (result.Finish == nil || finishTime.After(prototime.TimestampToTime(result.Finish))) {
-				result.Finish = prototime.TimeToTimestamp(*finishTime)
+			if finishTime != nil && (result.Finished == nil || finishTime.After(prototime.TimestampToTime(result.Finished))) {
+				result.Finished = prototime.TimeToTimestamp(*finishTime)
 			}
 			result.CommitBytes += commitBytes
 			result.TotalBytes += totalBytes
@@ -470,7 +470,7 @@ func (d *driver) stat(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
 		FileType:  fileType,
 		SizeBytes: uint64(stat.Size()),
 		Perm:      uint32(stat.Mode() & os.ModePerm),
-		LastModified: prototime.TimeToTimestamp(
+		Modified: prototime.TimeToTimestamp(
 			stat.ModTime(),
 		),
 	}, nil
