@@ -32,6 +32,11 @@ message Commit {
   string id = 2;
 }
 
+// Block represents a block in the block store.
+message Block {
+    string hash = 1;
+}
+
 // File represents the full path to a file or directory within pfs.
 message File {
   Commit commit = 1;
@@ -67,6 +72,18 @@ message CommitInfo {
 
 message CommitInfos {
   repeated CommitInfo commit_info = 1;
+}
+
+message BlockInfo {
+    Block block = 1;
+    repeated Commit ref_commit = 2;
+    repeated Commit deref_commit = 3;
+    google.protobuf.Timestamp created = 4;
+    uint64 size_bytes = 5;
+}
+
+message BlockInfos {
+    repeated BlockInfo block_info = 1;
 }
 
 // FileInfo represents information about a file.
@@ -148,6 +165,23 @@ message DeleteCommitRequest {
     Commit commit = 1;
 }
 
+message GetBlockRequest {
+    Block block = 1;
+}
+
+message PutBlockRequest {
+    Commit commit = 1;
+    bytes value = 2;
+}
+
+message InspectBlockRequest {
+    Block block = 1;
+}
+
+message ListBlockRequest {
+    Shard shard = 1;
+}
+
 message GetFileRequest {
   File file = 1;
   int64 offset_bytes = 2;
@@ -207,10 +241,8 @@ service Api {
 
   // Commit rpcs
   // StartCommit creates a new write commit from a parent commit.
-  // An error is returned if the parent commit is not a read commit.
   rpc StartCommit(StartCommitRequest) returns (Commit) {}
   // FinishCommit turns a write commit into a read commit.
-  // An error is returned if the commit is not a write commit.
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
   // InspectCommit returns the info about a commit.
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
@@ -219,13 +251,22 @@ service Api {
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
 
+  // Block rpcs
+  // PutBlock writes the specified block to the block store.
+  rpc PutBlock(PutBlockRequest) returns (Block) {}
+  // GetBlock returns a byte stream of the contents of the block.
+  rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
+  // InspectBlock returns info about a block.
+  rpc InspectBlock(InspectBlockRequest) returns (stream google.protobuf.BytesValue) {}
+  // ListBlock returns info about all blocks.
+  rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
+
   // File rpcs
   // PutFile writes the specified file to pfs.
-  // An error is returned if the specified commit is not a write commit.
   rpc PutFile(PutFileRequest) returns (google.protobuf.Empty) {}
   // GetFile returns a byte stream of the contents of the file.
   rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
-  // InspectFile returns a info about a file.
+  // InspectFile returns info about a file.
   rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
   // ListFile returns info about all files.
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
@@ -292,6 +333,16 @@ service InternalApi {
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
   // ListChange returns changes to the filesystem.
   rpc ListChange(ListChangeRequest) returns (Changes) {}
+
+  // Block rpcs
+  // PutBlock writes the specified block to the block store.
+  rpc PutBlock(PutBlockRequest) returns (Block) {}
+  // GetBlock returns a byte stream of the contents of the block.
+  rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
+  // InspectBlock returns info about a block.
+  rpc InspectBlock(InspectBlockRequest) returns (stream google.protobuf.BytesValue) {}
+  // ListBlock returns info about all blocks.
+  rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
 
   // Diff rpcs
   // PullDiff pulls a binary stream of the diff from the specified
