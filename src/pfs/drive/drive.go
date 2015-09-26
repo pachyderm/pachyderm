@@ -27,6 +27,10 @@ type Driver interface {
 	InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error)
 	ListCommit(repo *pfs.Repo, from *pfs.Commit, shards map[uint64]bool) ([]*pfs.CommitInfo, error)
 	DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error
+	PutBlock(parent *pfs.Commit, block *pfs.Block, shard uint64, reader io.Reader) error
+	GetBlock(block *pfs.Block, shard uint64) (ReaderAtCloser, error)
+	InspectBlock(block *pfs.Block, shard uint64) (*pfs.BlockInfo, error)
+	ListBlock(shard uint64) ([]*pfs.BlockInfo, error)
 	PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) error
 	MakeDirectory(file *pfs.File, shards map[uint64]bool) error
 	GetFile(file *pfs.File, shard uint64) (ReaderAtCloser, error)
