@@ -175,11 +175,6 @@ func (a *internalAPIServer) PutBlock(ctx context.Context, request *pfs.PutBlockR
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetMasterShards(version)
-	if err != nil {
-		return nil, err
-	}
-
 	hash := sha512.Sum512(request.Value)
 	block := &pfs.Block{
 		Hash: base64.StdEncoding.EncodeToString(hash[:]),
@@ -191,7 +186,7 @@ func (a *internalAPIServer) PutBlock(ctx context.Context, request *pfs.PutBlockR
 	return emptyInstance, a.driver.PutBlock(request.Parent, block, shard, bytes.NewReader(request.Value))
 }
 
-func (a *internalAPIServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.InternalApi_GetFileServer) (retErr error) {
+func (a *internalAPIServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.InternalApi_GetBlockServer) (retErr error) {
 	version, err := a.getVersion(apiGetBlockServer.Context())
 	if err != nil {
 		return err

@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/sha512"
+	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -247,6 +249,93 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 	return emptyInstance, nil
 }
 
+func (a *apiServer) PutBlock(ctx context.Context, request *pfs.PutBlockRequest) (*pfs.Block, error) {
+	version, ctx, err := a.versionAndCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	hash := sha512.Sum512(request.Value)
+	block := &pfs.Block{
+		Hash: base64.StdEncoding.EncodeToString(hash[:]),
+	}
+	clientConn, err := a.getClientConnForBlock(block, version)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := pfs.NewInternalApiClient(clientConn).PutBlock(ctx, request); err != nil {
+		return nil, err
+	}
+	return block, nil
+}
+
+func (a *apiServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.Api_GetBlockServer) (retErr error) {
+	version, ctx, err := a.versionAndCtx(context.Background())
+	if err != nil {
+		return err
+	}
+	clientConn, err := a.getClientConnForBlock(request.Block, version)
+	if err != nil {
+		return err
+	}
+	blockGetClient, err := pfs.NewInternalApiClient(clientConn).GetBlock(ctx, request)
+	if err != nil {
+		return err
+	}
+	return protostream.RelayFromStreamingBytesClient(blockGetClient, apiGetBlockServer)
+}
+
+func (a *apiServer) InspectBlock(ctx context.Context, request *pfs.InspectBlockRequest) (*pfs.BlockInfo, error) {
+	version, ctx, err := a.versionAndCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	clientConn, err := a.getClientConnForBlock(request.Block, version)
+	if err != nil {
+		return nil, err
+	}
+	return pfs.NewInternalApiClient(clientConn).InspectBlock(ctx, request)
+}
+
+func (a *apiServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest) (*pfs.BlockInfos, error) {
+	version, ctx, err := a.versionAndCtx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	clientConns, err := a.router.GetAllClientConns(version)
+	if err != nil {
+		return nil, err
+	}
+	var wg sync.WaitGroup
+	var lock sync.Mutex
+	var blockInfos []*pfs.BlockInfo
+	var loopErr error
+	for _, clientConn := range clientConns {
+		wg.Add(1)
+		go func(clientConn *grpc.ClientConn) {
+			defer wg.Done()
+			subBlockInfos, err := pfs.NewInternalApiClient(clientConn).ListBlock(ctx, request)
+			lock.Lock()
+			defer lock.Unlock()
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
+				}
+				return
+			}
+			for _, blockInfo := range subBlockInfos.BlockInfo {
+				blockInfos = append(blockInfos, blockInfo)
+			}
+		}(clientConn)
+	}
+	wg.Wait()
+	if loopErr != nil {
+		return nil, loopErr
+	}
+	return &pfs.BlockInfos{
+		BlockInfo: blockInfos,
+	}, nil
+}
+
 func (a *apiServer) PutFile(ctx context.Context, request *pfs.PutFileRequest) (*google_protobuf.Empty, error) {
 	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
@@ -431,6 +520,10 @@ func (a *apiServer) getClientConn(version int64) (*grpc.ClientConn, error) {
 		return a.router.GetMasterClientConn(shard, version)
 	}
 	return a.router.GetMasterClientConn(uint64(rand.Int())%a.sharder.NumShards(), version)
+}
+
+func (a *apiServer) getClientConnForBlock(block *pfs.Block, version int64) (*grpc.ClientConn, error) {
+	return a.router.GetMasterClientConn(a.sharder.GetBlockShard(block), version)
 }
 
 func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.ClientConn, error) {
