@@ -131,10 +131,7 @@ func (a *internalAPIServer) InspectCommit(ctx context.Context, request *pfs.Insp
 	if err != nil {
 		return nil, err
 	}
-	for shard := range shards {
-		return a.driver.InspectCommit(request.Commit, shard)
-	}
-	return nil, fmt.Errorf("pachyderm: InspectCommit on server with no shards")
+	return a.driver.InspectCommit(request.Commit, shards)
 }
 
 func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (*pfs.CommitInfos, error) {
@@ -146,16 +143,13 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 	if err != nil {
 		return nil, err
 	}
-	for shard := range shards {
-		commitInfos, err := a.driver.ListCommit(request.Repo, request.From, shard)
-		if err != nil {
-			return nil, err
-		}
-		return &pfs.CommitInfos{
-			CommitInfo: commitInfos,
-		}, nil
+	commitInfos, err := a.driver.ListCommit(request.Repo, request.From, shards)
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("pachyderm: ListCommit on server with no shards")
+	return &pfs.CommitInfos{
+		CommitInfo: commitInfos,
+	}, nil
 }
 
 func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (*google_protobuf.Empty, error) {
@@ -427,7 +421,7 @@ func (a *internalAPIServer) AddShard(shard uint64) error {
 		}
 		for i := range commitInfos.CommitInfo {
 			commit := commitInfos.CommitInfo[len(commitInfos.CommitInfo)-(i+1)].Commit
-			commitInfo, err := a.driver.InspectCommit(commit, shard)
+			commitInfo, err := a.driver.InspectCommit(commit, map[uint64]bool{shard: true})
 			if err != nil {
 				return err
 			}
