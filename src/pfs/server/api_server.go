@@ -208,11 +208,11 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 			if commitInfo.CommitType != pfs.CommitType_COMMIT_TYPE_READ {
 				commitInfo.CommitType = subCommitInfo.CommitType
 			}
-			if prototime.TimestampToTime(subCommitInfo.Start).Before(prototime.TimestampToTime(commitInfo.Start)) {
-				commitInfo.Start = subCommitInfo.Start
+			if prototime.TimestampToTime(subCommitInfo.Started).Before(prototime.TimestampToTime(commitInfo.Started)) {
+				commitInfo.Started = subCommitInfo.Started
 			}
-			if prototime.TimestampToTime(subCommitInfo.Finish).After(prototime.TimestampToTime(commitInfo.Finish)) {
-				commitInfo.Finish = subCommitInfo.Finish
+			if prototime.TimestampToTime(subCommitInfo.Finished).After(prototime.TimestampToTime(commitInfo.Finished)) {
+				commitInfo.Finished = subCommitInfo.Finished
 			}
 			commitInfo.CommitBytes += subCommitInfo.CommitBytes
 			commitInfo.TotalBytes += subCommitInfo.TotalBytes

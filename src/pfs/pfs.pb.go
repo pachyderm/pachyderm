@@ -209,8 +209,8 @@ type CommitInfo struct {
 	Commit       *Commit                     `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	CommitType   CommitType                  `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
 	ParentCommit *Commit                     `protobuf:"bytes,3,opt,name=parent_commit" json:"parent_commit,omitempty"`
-	Start        *google_protobuf2.Timestamp `protobuf:"bytes,4,opt,name=start" json:"start,omitempty"`
-	Finish       *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=finish" json:"finish,omitempty"`
+	Started      *google_protobuf2.Timestamp `protobuf:"bytes,4,opt,name=started" json:"started,omitempty"`
+	Finished     *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=finished" json:"finished,omitempty"`
 	CommitBytes  uint64                      `protobuf:"varint,6,opt,name=commit_bytes" json:"commit_bytes,omitempty"`
 	TotalBytes   uint64                      `protobuf:"varint,7,opt,name=total_bytes" json:"total_bytes,omitempty"`
 }
@@ -233,16 +233,16 @@ func (m *CommitInfo) GetParentCommit() *Commit {
 	return nil
 }
 
-func (m *CommitInfo) GetStart() *google_protobuf2.Timestamp {
+func (m *CommitInfo) GetStarted() *google_protobuf2.Timestamp {
 	if m != nil {
-		return m.Start
+		return m.Started
 	}
 	return nil
 }
 
-func (m *CommitInfo) GetFinish() *google_protobuf2.Timestamp {
+func (m *CommitInfo) GetFinished() *google_protobuf2.Timestamp {
 	if m != nil {
-		return m.Finish
+		return m.Finished
 	}
 	return nil
 }
@@ -264,11 +264,11 @@ func (m *CommitInfos) GetCommitInfo() []*CommitInfo {
 
 // FileInfo represents information about a file.
 type FileInfo struct {
-	File         *File                       `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	FileType     FileType                    `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
-	SizeBytes    uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
-	Perm         uint32                      `protobuf:"varint,4,opt,name=perm" json:"perm,omitempty"`
-	LastModified *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=last_modified" json:"last_modified,omitempty"`
+	File      *File                       `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	FileType  FileType                    `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
+	SizeBytes uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
+	Perm      uint32                      `protobuf:"varint,4,opt,name=perm" json:"perm,omitempty"`
+	Modified  *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=modified" json:"modified,omitempty"`
 }
 
 func (m *FileInfo) Reset()         { *m = FileInfo{} }
@@ -282,9 +282,9 @@ func (m *FileInfo) GetFile() *File {
 	return nil
 }
 
-func (m *FileInfo) GetLastModified() *google_protobuf2.Timestamp {
+func (m *FileInfo) GetModified() *google_protobuf2.Timestamp {
 	if m != nil {
-		return m.LastModified
+		return m.Modified
 	}
 	return nil
 }

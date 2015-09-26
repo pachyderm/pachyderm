@@ -59,8 +59,8 @@ message CommitInfo {
   Commit commit = 1;
   CommitType commit_type = 2;
   Commit parent_commit = 3;
-  google.protobuf.Timestamp start = 4;
-  google.protobuf.Timestamp finish = 5;
+  google.protobuf.Timestamp started = 4;
+  google.protobuf.Timestamp finished = 5;
   uint64 commit_bytes = 6;
   uint64 total_bytes = 7;
 }
@@ -75,7 +75,7 @@ message FileInfo {
   FileType file_type = 2;
   uint64 size_bytes = 3;
   uint32 perm = 4;
-  google.protobuf.Timestamp last_modified = 5;
+  google.protobuf.Timestamp modified = 5;
 }
 
 message FileInfos {
