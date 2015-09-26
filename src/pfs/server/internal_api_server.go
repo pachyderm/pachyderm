@@ -2,6 +2,8 @@ package server
 
 import (
 	"bytes"
+	"crypto/sha512"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"strconv"
@@ -168,6 +170,106 @@ func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.Delet
 	return emptyInstance, nil
 }
 
+func (a *internalAPIServer) PutBlock(ctx context.Context, request *pfs.PutBlockRequest) (*google_protobuf.Empty, error) {
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetMasterShards(version)
+	if err != nil {
+		return nil, err
+	}
+
+	hash := sha512.Sum512(request.Value)
+	block := &pfs.Block{
+		Hash: base64.StdEncoding.EncodeToString(hash[:]),
+	}
+	shard, err := a.getMasterShardForBlock(block, version)
+	if err != nil {
+		return nil, err
+	}
+	return emptyInstance, a.driver.PutBlock(request.Parent, block, shard, bytes.NewReader(request.Value))
+}
+
+func (a *internalAPIServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.InternalApi_GetFileServer) (retErr error) {
+	version, err := a.getVersion(apiGetBlockServer.Context())
+	if err != nil {
+		return err
+	}
+	shard, err := a.getShardForBlock(request.Block, version)
+	if err != nil {
+		return err
+	}
+	block, err := a.driver.GetBlock(request.Block, shard)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := block.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	return protostream.WriteToStreamingBytesServer(block, apiGetBlockServer)
+}
+
+func (a *internalAPIServer) InspectBlock(ctx context.Context, request *pfs.InspectBlockRequest) (*pfs.BlockInfo, error) {
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shard, err := a.getShardForBlock(request.Block, version)
+	if err != nil {
+		return nil, err
+	}
+	return a.driver.InspectBlock(request.Block, shard)
+}
+
+func (a *internalAPIServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest) (*pfs.BlockInfos, error) {
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetMasterShards(version)
+	if err != nil {
+		return nil, err
+	}
+	if request.Shard == nil {
+		request.Shard = &pfs.Shard{Number: 0, Modulo: 1}
+	}
+	sharder := route.NewSharder(request.Shard.Modulo, 0)
+	var wg sync.WaitGroup
+	var lock sync.Mutex
+	var blockInfos []*pfs.BlockInfo
+	var loopErr error
+	for shard := range shards {
+		wg.Add(1)
+		go func(shard uint64) {
+			defer wg.Done()
+			subBlockInfos, err := a.driver.ListBlock(shard)
+			lock.Lock()
+			defer lock.Unlock()
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
+				}
+				return
+			}
+			for _, blockInfo := range subBlockInfos {
+				if sharder.GetBlockShard(blockInfo.Block) == request.Shard.Number {
+					blockInfos = append(blockInfos, blockInfo)
+				}
+			}
+		}(shard)
+	}
+	wg.Wait()
+	if loopErr != nil {
+		return nil, loopErr
+	}
+	return &pfs.BlockInfos{
+		BlockInfo: blockInfos,
+	}, nil
+}
+
 func (a *internalAPIServer) PutFile(ctx context.Context, request *pfs.PutFileRequest) (*google_protobuf.Empty, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
@@ -248,10 +350,10 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 	if err != nil {
 		return nil, err
 	}
-	dynamicShard := request.Shard
-	if dynamicShard == nil {
-		dynamicShard = &pfs.Shard{Number: 0, Modulo: 1}
+	if request.Shard == nil {
+		request.Shard = &pfs.Shard{Number: 0, Modulo: 1}
 	}
+	sharder := route.NewSharder(request.Shard.Modulo, 0)
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	var fileInfos []*pfs.FileInfo
@@ -277,7 +379,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 					}
 					seenDirectories[fileInfo.File.Path] = true
 				}
-				if a.sharder.GetShard(fileInfo.File)%dynamicShard.Modulo == dynamicShard.Number {
+				if sharder.GetShard(fileInfo.File) == request.Shard.Number {
 					fileInfos = append(fileInfos, fileInfo)
 				}
 			}
@@ -301,10 +403,10 @@ func (a *internalAPIServer) ListChange(ctx context.Context, request *pfs.ListCha
 	if err != nil {
 		return nil, err
 	}
-	dynamicShard := request.Shard
-	if dynamicShard == nil {
-		dynamicShard = &pfs.Shard{Number: 0, Modulo: 1}
+	if request.Shard == nil {
+		request.Shard = &pfs.Shard{Number: 0, Modulo: 1}
 	}
+	sharder := route.NewSharder(request.Shard.Modulo, 0)
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	var changes []*pfs.Change
@@ -323,7 +425,7 @@ func (a *internalAPIServer) ListChange(ctx context.Context, request *pfs.ListCha
 				return
 			}
 			for _, change := range subChanges {
-				if a.sharder.GetShard(change.File)%dynamicShard.Modulo == dynamicShard.Number {
+				if sharder.GetShard(change.File) == request.Shard.Number {
 					changes = append(changes, change)
 				}
 			}
@@ -450,6 +552,32 @@ func (a *internalAPIServer) RemoveShard(shard uint64) error {
 
 func (a *internalAPIServer) LocalShards() (map[uint64]bool, error) {
 	return nil, nil
+}
+
+func (a *internalAPIServer) getMasterShardForBlock(block *pfs.Block, version int64) (uint64, error) {
+	shard := a.sharder.GetBlockShard(block)
+	shards, err := a.router.GetMasterShards(version)
+	if err != nil {
+		return 0, err
+	}
+	_, ok := shards[shard]
+	if !ok {
+		return 0, fmt.Errorf("pachyderm: shard %d not found locally", shard)
+	}
+	return shard, nil
+}
+
+func (a *internalAPIServer) getShardForBlock(block *pfs.Block, version int64) (uint64, error) {
+	shard := a.sharder.GetBlockShard(block)
+	shards, err := a.router.GetMasterShards(version)
+	if err != nil {
+		return 0, err
+	}
+	_, ok := shards[shard]
+	if !ok {
+		return 0, fmt.Errorf("pachyderm: shard %d not found locally", shard)
+	}
+	return shard, nil
 }
 
 func (a *internalAPIServer) getMasterShardForFile(file *pfs.File, version int64) (uint64, error) {

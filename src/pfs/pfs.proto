@@ -170,7 +170,7 @@ message GetBlockRequest {
 }
 
 message PutBlockRequest {
-    Commit commit = 1;
+    Commit parent = 1;
     bytes value = 2;
 }
 
@@ -257,7 +257,7 @@ service Api {
   // GetBlock returns a byte stream of the contents of the block.
   rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
   // InspectBlock returns info about a block.
-  rpc InspectBlock(InspectBlockRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
   // ListBlock returns info about all blocks.
   rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
 
@@ -296,7 +296,6 @@ message PushDiffRequest {
 service InternalApi {
   // Repo rpcs
   // CreateRepo creates a new repo.
-  // An error is returned if the repo already exists.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
   // InspectRepo returns info about a repo.
   rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
@@ -307,10 +306,8 @@ service InternalApi {
 
   // Commit rpcs
   // StartCommit creates a new write commit from a parent commit.
-  // An error is returned if the parent commit is not a read commit.
   rpc StartCommit(StartCommitRequest) returns (google.protobuf.Empty) {}
   // FinishCommit turns a write commit into a read commit.
-  // An error is returned if the commit is not a write commit.
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
   // InspectCommit returns the info about a commit.
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
@@ -321,7 +318,6 @@ service InternalApi {
 
   // File rpcs
   // PutFile writes the specified file to pfs.
-  // An error is returned if the specified commit is not a write commit.
   rpc PutFile(PutFileRequest) returns (google.protobuf.Empty) {}
   // GetFile returns a byte stream of the contents of the file.
   rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
@@ -336,11 +332,11 @@ service InternalApi {
 
   // Block rpcs
   // PutBlock writes the specified block to the block store.
-  rpc PutBlock(PutBlockRequest) returns (Block) {}
+  rpc PutBlock(PutBlockRequest) returns (google.protobuf.Empty) {}
   // GetBlock returns a byte stream of the contents of the block.
   rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
   // InspectBlock returns info about a block.
-  rpc InspectBlock(InspectBlockRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
   // ListBlock returns info about all blocks.
   rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
 
