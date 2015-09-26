@@ -11,12 +11,15 @@ It is generated from these files:
 It has these top-level messages:
 	Repo
 	Commit
+	Block
 	File
 	Server
 	RepoInfo
 	RepoInfos
 	CommitInfo
 	CommitInfos
+	BlockInfo
+	BlockInfos
 	FileInfo
 	FileInfos
 	ServerInfo
@@ -33,6 +36,10 @@ It has these top-level messages:
 	InspectCommitRequest
 	ListCommitRequest
 	DeleteCommitRequest
+	GetBlockRequest
+	PutBlockRequest
+	InspectBlockRequest
+	ListBlockRequest
 	GetFileRequest
 	PutFileRequest
 	InspectFileRequest
@@ -137,6 +144,15 @@ func (m *Commit) GetRepo() *Repo {
 	}
 	return nil
 }
+
+// Block represents a block in the block store.
+type Block struct {
+	Hash string `protobuf:"bytes,1,opt,name=hash" json:"hash,omitempty"`
+}
+
+func (m *Block) Reset()         { *m = Block{} }
+func (m *Block) String() string { return proto.CompactTextString(m) }
+func (*Block) ProtoMessage()    {}
 
 // File represents the full path to a file or directory within pfs.
 type File struct {
@@ -258,6 +274,61 @@ func (*CommitInfos) ProtoMessage()    {}
 func (m *CommitInfos) GetCommitInfo() []*CommitInfo {
 	if m != nil {
 		return m.CommitInfo
+	}
+	return nil
+}
+
+type BlockInfo struct {
+	Block       *Block                      `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	RefCommit   []*Commit                   `protobuf:"bytes,2,rep,name=ref_commit" json:"ref_commit,omitempty"`
+	DerefCommit []*Commit                   `protobuf:"bytes,3,rep,name=deref_commit" json:"deref_commit,omitempty"`
+	Created     *google_protobuf2.Timestamp `protobuf:"bytes,4,opt,name=created" json:"created,omitempty"`
+	SizeBytes   uint64                      `protobuf:"varint,5,opt,name=size_bytes" json:"size_bytes,omitempty"`
+}
+
+func (m *BlockInfo) Reset()         { *m = BlockInfo{} }
+func (m *BlockInfo) String() string { return proto.CompactTextString(m) }
+func (*BlockInfo) ProtoMessage()    {}
+
+func (m *BlockInfo) GetBlock() *Block {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
+
+func (m *BlockInfo) GetRefCommit() []*Commit {
+	if m != nil {
+		return m.RefCommit
+	}
+	return nil
+}
+
+func (m *BlockInfo) GetDerefCommit() []*Commit {
+	if m != nil {
+		return m.DerefCommit
+	}
+	return nil
+}
+
+func (m *BlockInfo) GetCreated() *google_protobuf2.Timestamp {
+	if m != nil {
+		return m.Created
+	}
+	return nil
+}
+
+type BlockInfos struct {
+	BlockInfo []*BlockInfo `protobuf:"bytes,1,rep,name=block_info" json:"block_info,omitempty"`
+}
+
+func (m *BlockInfos) Reset()         { *m = BlockInfos{} }
+func (m *BlockInfos) String() string { return proto.CompactTextString(m) }
+func (*BlockInfos) ProtoMessage()    {}
+
+func (m *BlockInfos) GetBlockInfo() []*BlockInfo {
+	if m != nil {
+		return m.BlockInfo
 	}
 	return nil
 }
@@ -538,6 +609,67 @@ func (m *DeleteCommitRequest) GetCommit() *Commit {
 	return nil
 }
 
+type GetBlockRequest struct {
+	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+}
+
+func (m *GetBlockRequest) Reset()         { *m = GetBlockRequest{} }
+func (m *GetBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*GetBlockRequest) ProtoMessage()    {}
+
+func (m *GetBlockRequest) GetBlock() *Block {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
+
+type PutBlockRequest struct {
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	Value  []byte  `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+}
+
+func (m *PutBlockRequest) Reset()         { *m = PutBlockRequest{} }
+func (m *PutBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*PutBlockRequest) ProtoMessage()    {}
+
+func (m *PutBlockRequest) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
+
+type InspectBlockRequest struct {
+	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+}
+
+func (m *InspectBlockRequest) Reset()         { *m = InspectBlockRequest{} }
+func (m *InspectBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectBlockRequest) ProtoMessage()    {}
+
+func (m *InspectBlockRequest) GetBlock() *Block {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
+
+type ListBlockRequest struct {
+	Shard *Shard `protobuf:"bytes,1,opt,name=shard" json:"shard,omitempty"`
+}
+
+func (m *ListBlockRequest) Reset()         { *m = ListBlockRequest{} }
+func (m *ListBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*ListBlockRequest) ProtoMessage()    {}
+
+func (m *ListBlockRequest) GetShard() *Shard {
+	if m != nil {
+		return m.Shard
+	}
+	return nil
+}
+
 type GetFileRequest struct {
 	File        *File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 	OffsetBytes int64 `protobuf:"varint,2,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
@@ -751,10 +883,8 @@ type ApiClient interface {
 	DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// Commit rpcs
 	// StartCommit creates a new write commit from a parent commit.
-	// An error is returned if the parent commit is not a read commit.
 	StartCommit(ctx context.Context, in *StartCommitRequest, opts ...grpc.CallOption) (*Commit, error)
 	// FinishCommit turns a write commit into a read commit.
-	// An error is returned if the commit is not a write commit.
 	FinishCommit(ctx context.Context, in *FinishCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// InspectCommit returns the info about a commit.
 	InspectCommit(ctx context.Context, in *InspectCommitRequest, opts ...grpc.CallOption) (*CommitInfo, error)
@@ -762,13 +892,21 @@ type ApiClient interface {
 	ListCommit(ctx context.Context, in *ListCommitRequest, opts ...grpc.CallOption) (*CommitInfos, error)
 	// DeleteCommit deletes a commit.
 	DeleteCommit(ctx context.Context, in *DeleteCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	// Block rpcs
+	// PutBlock writes the specified block to the block store.
+	PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*Block, error)
+	// GetBlock returns a byte stream of the contents of the block.
+	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (Api_GetBlockClient, error)
+	// InspectBlock returns info about a block.
+	InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (Api_InspectBlockClient, error)
+	// ListBlock returns info about all blocks.
+	ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
-	// An error is returned if the specified commit is not a write commit.
 	PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// GetFile returns a byte stream of the contents of the file.
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error)
-	// InspectFile returns a info about a file.
+	// InspectFile returns info about a file.
 	InspectFile(ctx context.Context, in *InspectFileRequest, opts ...grpc.CallOption) (*FileInfo, error)
 	// ListFile returns info about all files.
 	ListFile(ctx context.Context, in *ListFileRequest, opts ...grpc.CallOption) (*FileInfos, error)
@@ -872,6 +1010,88 @@ func (c *apiClient) DeleteCommit(ctx context.Context, in *DeleteCommitRequest, o
 	return out, nil
 }
 
+func (c *apiClient) PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*Block, error) {
+	out := new(Block)
+	err := grpc.Invoke(ctx, "/pfs.Api/PutBlock", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (Api_GetBlockClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_Api_serviceDesc.Streams[0], c.cc, "/pfs.Api/GetBlock", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &apiGetBlockClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Api_GetBlockClient interface {
+	Recv() (*google_protobuf3.BytesValue, error)
+	grpc.ClientStream
+}
+
+type apiGetBlockClient struct {
+	grpc.ClientStream
+}
+
+func (x *apiGetBlockClient) Recv() (*google_protobuf3.BytesValue, error) {
+	m := new(google_protobuf3.BytesValue)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *apiClient) InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (Api_InspectBlockClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_Api_serviceDesc.Streams[1], c.cc, "/pfs.Api/InspectBlock", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &apiInspectBlockClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Api_InspectBlockClient interface {
+	Recv() (*google_protobuf3.BytesValue, error)
+	grpc.ClientStream
+}
+
+type apiInspectBlockClient struct {
+	grpc.ClientStream
+}
+
+func (x *apiInspectBlockClient) Recv() (*google_protobuf3.BytesValue, error) {
+	m := new(google_protobuf3.BytesValue)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *apiClient) ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error) {
+	out := new(BlockInfos)
+	err := grpc.Invoke(ctx, "/pfs.Api/ListBlock", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *apiClient) PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/PutFile", in, out, c.cc, opts...)
@@ -882,7 +1102,7 @@ func (c *apiClient) PutFile(ctx context.Context, in *PutFileRequest, opts ...grp
 }
 
 func (c *apiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Api_serviceDesc.Streams[0], c.cc, "/pfs.Api/GetFile", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_Api_serviceDesc.Streams[2], c.cc, "/pfs.Api/GetFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -982,10 +1202,8 @@ type ApiServer interface {
 	DeleteRepo(context.Context, *DeleteRepoRequest) (*google_protobuf1.Empty, error)
 	// Commit rpcs
 	// StartCommit creates a new write commit from a parent commit.
-	// An error is returned if the parent commit is not a read commit.
 	StartCommit(context.Context, *StartCommitRequest) (*Commit, error)
 	// FinishCommit turns a write commit into a read commit.
-	// An error is returned if the commit is not a write commit.
 	FinishCommit(context.Context, *FinishCommitRequest) (*google_protobuf1.Empty, error)
 	// InspectCommit returns the info about a commit.
 	InspectCommit(context.Context, *InspectCommitRequest) (*CommitInfo, error)
@@ -993,13 +1211,21 @@ type ApiServer interface {
 	ListCommit(context.Context, *ListCommitRequest) (*CommitInfos, error)
 	// DeleteCommit deletes a commit.
 	DeleteCommit(context.Context, *DeleteCommitRequest) (*google_protobuf1.Empty, error)
+	// Block rpcs
+	// PutBlock writes the specified block to the block store.
+	PutBlock(context.Context, *PutBlockRequest) (*Block, error)
+	// GetBlock returns a byte stream of the contents of the block.
+	GetBlock(*GetBlockRequest, Api_GetBlockServer) error
+	// InspectBlock returns info about a block.
+	InspectBlock(*InspectBlockRequest, Api_InspectBlockServer) error
+	// ListBlock returns info about all blocks.
+	ListBlock(context.Context, *ListBlockRequest) (*BlockInfos, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
-	// An error is returned if the specified commit is not a write commit.
 	PutFile(context.Context, *PutFileRequest) (*google_protobuf1.Empty, error)
 	// GetFile returns a byte stream of the contents of the file.
 	GetFile(*GetFileRequest, Api_GetFileServer) error
-	// InspectFile returns a info about a file.
+	// InspectFile returns info about a file.
 	InspectFile(context.Context, *InspectFileRequest) (*FileInfo, error)
 	// ListFile returns info about all files.
 	ListFile(context.Context, *ListFileRequest) (*FileInfos, error)
@@ -1120,6 +1346,72 @@ func _Api_DeleteCommit_Handler(srv interface{}, ctx context.Context, codec grpc.
 		return nil, err
 	}
 	out, err := srv.(ApiServer).DeleteCommit(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _Api_PutBlock_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(PutBlockRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).PutBlock(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _Api_GetBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetBlockRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ApiServer).GetBlock(m, &apiGetBlockServer{stream})
+}
+
+type Api_GetBlockServer interface {
+	Send(*google_protobuf3.BytesValue) error
+	grpc.ServerStream
+}
+
+type apiGetBlockServer struct {
+	grpc.ServerStream
+}
+
+func (x *apiGetBlockServer) Send(m *google_protobuf3.BytesValue) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Api_InspectBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(InspectBlockRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ApiServer).InspectBlock(m, &apiInspectBlockServer{stream})
+}
+
+type Api_InspectBlockServer interface {
+	Send(*google_protobuf3.BytesValue) error
+	grpc.ServerStream
+}
+
+type apiInspectBlockServer struct {
+	grpc.ServerStream
+}
+
+func (x *apiInspectBlockServer) Send(m *google_protobuf3.BytesValue) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Api_ListBlock_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(ListBlockRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(ApiServer).ListBlock(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -1272,6 +1564,14 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_DeleteCommit_Handler,
 		},
 		{
+			MethodName: "PutBlock",
+			Handler:    _Api_PutBlock_Handler,
+		},
+		{
+			MethodName: "ListBlock",
+			Handler:    _Api_ListBlock_Handler,
+		},
+		{
 			MethodName: "PutFile",
 			Handler:    _Api_PutFile_Handler,
 		},
@@ -1301,6 +1601,16 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetBlock",
+			Handler:       _Api_GetBlock_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "InspectBlock",
+			Handler:       _Api_InspectBlock_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "GetFile",
 			Handler:       _Api_GetFile_Handler,
@@ -1349,6 +1659,15 @@ type InternalApiClient interface {
 	DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// ListChange returns changes to the filesystem.
 	ListChange(ctx context.Context, in *ListChangeRequest, opts ...grpc.CallOption) (*Changes, error)
+	// Block rpcs
+	// PutBlock writes the specified block to the block store.
+	PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*Block, error)
+	// GetBlock returns a byte stream of the contents of the block.
+	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (InternalApi_GetBlockClient, error)
+	// InspectBlock returns info about a block.
+	InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (InternalApi_InspectBlockClient, error)
+	// ListBlock returns info about all blocks.
+	ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error)
 	// Diff rpcs
 	// PullDiff pulls a binary stream of the diff from the specified
 	// commit to the commit's parent.
@@ -1523,8 +1842,90 @@ func (c *internalApiClient) ListChange(ctx context.Context, in *ListChangeReques
 	return out, nil
 }
 
+func (c *internalApiClient) PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*Block, error) {
+	out := new(Block)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/PutBlock", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalApiClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (InternalApi_GetBlockClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[1], c.cc, "/pfs.InternalApi/GetBlock", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &internalApiGetBlockClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type InternalApi_GetBlockClient interface {
+	Recv() (*google_protobuf3.BytesValue, error)
+	grpc.ClientStream
+}
+
+type internalApiGetBlockClient struct {
+	grpc.ClientStream
+}
+
+func (x *internalApiGetBlockClient) Recv() (*google_protobuf3.BytesValue, error) {
+	m := new(google_protobuf3.BytesValue)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *internalApiClient) InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (InternalApi_InspectBlockClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[2], c.cc, "/pfs.InternalApi/InspectBlock", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &internalApiInspectBlockClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type InternalApi_InspectBlockClient interface {
+	Recv() (*google_protobuf3.BytesValue, error)
+	grpc.ClientStream
+}
+
+type internalApiInspectBlockClient struct {
+	grpc.ClientStream
+}
+
+func (x *internalApiInspectBlockClient) Recv() (*google_protobuf3.BytesValue, error) {
+	m := new(google_protobuf3.BytesValue)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *internalApiClient) ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error) {
+	out := new(BlockInfos)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/ListBlock", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *internalApiClient) PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (InternalApi_PullDiffClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[1], c.cc, "/pfs.InternalApi/PullDiff", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[3], c.cc, "/pfs.InternalApi/PullDiff", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1604,6 +2005,15 @@ type InternalApiServer interface {
 	DeleteFile(context.Context, *DeleteFileRequest) (*google_protobuf1.Empty, error)
 	// ListChange returns changes to the filesystem.
 	ListChange(context.Context, *ListChangeRequest) (*Changes, error)
+	// Block rpcs
+	// PutBlock writes the specified block to the block store.
+	PutBlock(context.Context, *PutBlockRequest) (*Block, error)
+	// GetBlock returns a byte stream of the contents of the block.
+	GetBlock(*GetBlockRequest, InternalApi_GetBlockServer) error
+	// InspectBlock returns info about a block.
+	InspectBlock(*InspectBlockRequest, InternalApi_InspectBlockServer) error
+	// ListBlock returns info about all blocks.
+	ListBlock(context.Context, *ListBlockRequest) (*BlockInfos, error)
 	// Diff rpcs
 	// PullDiff pulls a binary stream of the diff from the specified
 	// commit to the commit's parent.
@@ -1805,6 +2215,72 @@ func _InternalApi_ListChange_Handler(srv interface{}, ctx context.Context, codec
 	return out, nil
 }
 
+func _InternalApi_PutBlock_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(PutBlockRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).PutBlock(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalApi_GetBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetBlockRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(InternalApiServer).GetBlock(m, &internalApiGetBlockServer{stream})
+}
+
+type InternalApi_GetBlockServer interface {
+	Send(*google_protobuf3.BytesValue) error
+	grpc.ServerStream
+}
+
+type internalApiGetBlockServer struct {
+	grpc.ServerStream
+}
+
+func (x *internalApiGetBlockServer) Send(m *google_protobuf3.BytesValue) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _InternalApi_InspectBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(InspectBlockRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(InternalApiServer).InspectBlock(m, &internalApiInspectBlockServer{stream})
+}
+
+type InternalApi_InspectBlockServer interface {
+	Send(*google_protobuf3.BytesValue) error
+	grpc.ServerStream
+}
+
+type internalApiInspectBlockServer struct {
+	grpc.ServerStream
+}
+
+func (x *internalApiInspectBlockServer) Send(m *google_protobuf3.BytesValue) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _InternalApi_ListBlock_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(ListBlockRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalApiServer).ListBlock(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func _InternalApi_PullDiff_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(PullDiffRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -1899,6 +2375,14 @@ var _InternalApi_serviceDesc = grpc.ServiceDesc{
 			Handler:    _InternalApi_ListChange_Handler,
 		},
 		{
+			MethodName: "PutBlock",
+			Handler:    _InternalApi_PutBlock_Handler,
+		},
+		{
+			MethodName: "ListBlock",
+			Handler:    _InternalApi_ListBlock_Handler,
+		},
+		{
 			MethodName: "PushDiff",
 			Handler:    _InternalApi_PushDiff_Handler,
 		},
@@ -1907,6 +2391,16 @@ var _InternalApi_serviceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "GetFile",
 			Handler:       _InternalApi_GetFile_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetBlock",
+			Handler:       _InternalApi_GetBlock_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "InspectBlock",
+			Handler:       _InternalApi_InspectBlock_Handler,
 			ServerStreams: true,
 		},
 		{
