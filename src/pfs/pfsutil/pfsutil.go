@@ -149,6 +149,74 @@ func DeleteCommit(apiClient pfs.ApiClient, repoName string, commitID string) err
 	return err
 }
 
+func PutBlock(apiClient pfs.ApiClient, repoName string, commitID string, reader io.Reader) (*pfs.Block, error) {
+	value, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	return apiClient.PutBlock(
+		context.Background(),
+		&pfs.PutBlockRequest{
+			Parent: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: repoName,
+				},
+				Id: commitID,
+			},
+			Value: value,
+		},
+	)
+}
+
+func GetBlock(apiClient pfs.ApiClient, hash string, writer io.Writer) error {
+	apiGetBlockClient, err := apiClient.GetBlock(
+		context.Background(),
+		&pfs.GetBlockRequest{
+			Block: &pfs.Block{
+				Hash: hash,
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if err := protostream.WriteFromStreamingBytesClient(apiGetBlockClient, writer); err != nil {
+		return err
+	}
+	return nil
+}
+
+func InspectBlock(apiClient pfs.ApiClient, hash string) (*pfs.BlockInfo, error) {
+	blockInfo, err := apiClient.InspectBlock(
+		context.Background(),
+		&pfs.InspectBlockRequest{
+			Block: &pfs.Block{
+				Hash: hash,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return blockInfo, nil
+}
+
+func ListBlock(apiClient pfs.ApiClient, shard uint64, modulus uint64) ([]*pfs.BlockInfo, error) {
+	blockInfos, err := apiClient.ListBlock(
+		context.Background(),
+		&pfs.ListBlockRequest{
+			Shard: &pfs.Shard{
+				Number: shard,
+				Modulo: modulus,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return blockInfos.BlockInfo, nil
+}
+
 func PutFile(apiClient pfs.ApiClient, repoName string, commitID string, path string, offset int64, reader io.Reader) (int64, error) {
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
