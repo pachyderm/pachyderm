@@ -56,37 +56,35 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 	err := pfsutil.CreateRepo(apiClient, repositoryName)
 	require.NoError(t, err)
 
-	commitInfo, err := pfsutil.InspectCommit(apiClient, repositoryName, "scratch")
+	scratchCommitInfo, err := pfsutil.InspectCommit(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
-	require.NotNil(t, commitInfo)
-	require.Equal(t, "scratch", commitInfo.Commit.Id)
-	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
-	require.Nil(t, commitInfo.ParentCommit)
-	scratchCommitInfo := commitInfo
+	require.NotNil(t, scratchCommitInfo)
+	require.Equal(t, "scratch", scratchCommitInfo.Commit.Id)
+	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, scratchCommitInfo.CommitType)
+	require.Nil(t, scratchCommitInfo.ParentCommit)
 
 	commitInfos, err := pfsutil.ListCommit(apiClient, repositoryName)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
-	require.Equal(t, scratchCommitInfo, commitInfos[0])
+	require.Equal(t, scratchCommitInfo.Commit, commitInfos[0].Commit)
 
 	commit, err := pfsutil.StartCommit(apiClient, repositoryName, "scratch")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.Id
 
-	commitInfo, err = pfsutil.InspectCommit(apiClient, repositoryName, newCommitID)
+	newCommitInfo, err := pfsutil.InspectCommit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
-	require.NotNil(t, commitInfo)
-	require.Equal(t, newCommitID, commitInfo.Commit.Id)
-	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, commitInfo.CommitType)
-	require.Equal(t, "scratch", commitInfo.ParentCommit.Id)
-	newCommitInfo := commitInfo
+	require.NotNil(t, newCommitInfo)
+	require.Equal(t, newCommitID, newCommitInfo.Commit.Id)
+	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, newCommitInfo.CommitType)
+	require.Equal(t, "scratch", newCommitInfo.ParentCommit.Id)
 
 	commitInfos, err = pfsutil.ListCommit(apiClient, repositoryName)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-	require.Equal(t, newCommitInfo, commitInfos[0])
-	require.Equal(t, scratchCommitInfo, commitInfos[1])
+	require.Equal(t, newCommitInfo.Commit, commitInfos[0].Commit)
+	require.Equal(t, scratchCommitInfo.Commit, commitInfos[1].Commit)
 
 	err = pfsutil.MakeDirectory(apiClient, repositoryName, newCommitID, "a/b")
 	require.NoError(t, err)
@@ -98,12 +96,12 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 	err = pfsutil.FinishCommit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
 
-	commitInfo, err = pfsutil.InspectCommit(apiClient, repositoryName, newCommitID)
+	newCommitInfo, err = pfsutil.InspectCommit(apiClient, repositoryName, newCommitID)
 	require.NoError(t, err)
-	require.NotNil(t, commitInfo)
-	require.Equal(t, newCommitID, commitInfo.Commit.Id)
-	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
-	require.Equal(t, "scratch", commitInfo.ParentCommit.Id)
+	require.NotNil(t, newCommitInfo)
+	require.Equal(t, newCommitID, newCommitInfo.Commit.Id)
+	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, newCommitInfo.CommitType)
+	require.Equal(t, "scratch", newCommitInfo.ParentCommit.Id)
 
 	checkWrites(t, apiClient, repositoryName, newCommitID)
 

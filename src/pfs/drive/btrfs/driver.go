@@ -845,22 +845,27 @@ func (c *commitScanner) Commit() string {
 
 func (c *commitScanner) parseCommit() (string, bool) {
 	// c.textScanner.Text() looks like:
-	// ID 905 gen 865 top level 5 path <FS_TREE>/[namespace/]repo/commit
+	// ID 905 gen 865 top level 5 path <FS_TREE>/[c.namespace/]repoDir/c.repo/commit
 	// 0  1   2   3   4   5     6 7    8
 	tokens := strings.Split(c.textScanner.Text(), " ")
 	if len(tokens) != 9 {
 		return "", false
 	}
+	var prefix string
 	if c.namespace == "" {
-		if strings.HasPrefix(tokens[8], filepath.Join("<FS_TREE>", c.repo)) && len(strings.Split(tokens[8], "/")) == 3 {
-			return strings.Split(tokens[8], "/")[2], true
-		}
+		prefix = filepath.Join("<FS_TREE>", repoDir, c.repo) + "/"
 	} else {
-		if strings.HasPrefix(tokens[8], filepath.Join("<FS_TREE>", c.namespace, c.repo)) && len(strings.Split(tokens[8], "/")) == 4 {
-			return strings.Split(tokens[8], "/")[3], true
-		}
+		prefix = filepath.Join("<FS_TREE>", c.namespace, repoDir, c.repo) + "/"
 	}
-	return "", false
+	if !strings.HasPrefix(tokens[8], prefix) {
+		return "", false
+	}
+	commit := strings.TrimPrefix(tokens[8], prefix)
+	if len(strings.Split(commit, "/")) != 1 {
+		// this happens when commit is `scratch/1.write` or something
+		return "", false
+	}
+	return commit, true
 }
 
 type changeScanner struct {
