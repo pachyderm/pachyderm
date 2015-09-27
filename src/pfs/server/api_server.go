@@ -213,8 +213,12 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 			if prototime.TimestampToTime(subCommitInfo.Started).Before(prototime.TimestampToTime(commitInfo.Started)) {
 				commitInfo.Started = subCommitInfo.Started
 			}
-			if prototime.TimestampToTime(subCommitInfo.Finished).After(prototime.TimestampToTime(commitInfo.Finished)) {
-				commitInfo.Finished = subCommitInfo.Finished
+			if commitInfo.Finished != nil {
+				if subCommitInfo.Finished == nil {
+					commitInfo.Finished = nil
+				} else if prototime.TimestampToTime(subCommitInfo.Finished).After(prototime.TimestampToTime(commitInfo.Finished)) {
+					commitInfo.Finished = subCommitInfo.Finished
+				}
 			}
 			commitInfo.CommitBytes += subCommitInfo.CommitBytes
 			commitInfo.TotalBytes += subCommitInfo.TotalBytes
