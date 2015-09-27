@@ -14,10 +14,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-const (
-	GetAll int64 = 1<<63 - 1
-)
-
 func CreateRepo(apiClient pfs.ApiClient, repoName string) error {
 	_, err := apiClient.CreateRepo(
 		context.Background(),

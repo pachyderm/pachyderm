@@ -1,6 +1,8 @@
 package route
 
 import (
+	"crypto/sha512"
+	"encoding/base64"
 	"hash/adler32"
 	"path"
 
@@ -22,6 +24,13 @@ func (s *sharder) NumShards() uint64 {
 
 func (s *sharder) NumReplicas() uint64 {
 	return s.numReplicas
+}
+
+func (s *sharder) GetBlock(value []byte) *pfs.Block {
+	hash := sha512.Sum512(value)
+	return &pfs.Block{
+		Hash: base64.URLEncoding.EncodeToString(hash[:]),
+	}
 }
 
 func (s *sharder) GetShard(file *pfs.File) uint64 {

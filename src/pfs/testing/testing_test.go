@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
+	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 )
 
@@ -355,6 +357,9 @@ func doWrites(tb testing.TB, apiClient pfs.ApiClient, repositoryName string, com
 			_, iErr = pfsutil.PutFile(apiClient, repositoryName, commitID,
 				fmt.Sprintf("a/c/file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
 			require.NoError(tb, iErr)
+			_, iErr = pfsutil.PutBlock(apiClient, repositoryName, commitID,
+				strings.NewReader(fmt.Sprintf("hello%d", i)))
+			require.NoError(tb, iErr)
 		}()
 	}
 }
@@ -369,12 +374,18 @@ func checkWrites(tb testing.TB, apiClient pfs.ApiClient, repositoryName string, 
 			defer wg.Done()
 			buffer := bytes.NewBuffer(nil)
 			iErr := pfsutil.GetFile(apiClient, repositoryName, commitID,
-				fmt.Sprintf("a/b/file%d", i), 0, pfsutil.GetAll, buffer)
+				fmt.Sprintf("a/b/file%d", i), 0, math.MaxInt64, buffer)
 			require.NoError(tb, iErr)
 			require.Equal(tb, fmt.Sprintf("hello%d", i), buffer.String())
 			buffer = bytes.NewBuffer(nil)
 			iErr = pfsutil.GetFile(apiClient, repositoryName, commitID,
-				fmt.Sprintf("a/c/file%d", i), 0, pfsutil.GetAll, buffer)
+				fmt.Sprintf("a/c/file%d", i), 0, math.MaxInt64, buffer)
+			require.NoError(tb, iErr)
+			require.Equal(tb, fmt.Sprintf("hello%d", i), buffer.String())
+			sharder := route.NewSharder(testShardsPerServer*testNumServers, testNumReplicas)
+			block := sharder.GetBlock([]byte(fmt.Sprintf("hello%d", i)))
+			buffer = bytes.NewBuffer(nil)
+			iErr = pfsutil.GetBlock(apiClient, block.Hash, buffer)
 			require.NoError(tb, iErr)
 			require.Equal(tb, fmt.Sprintf("hello%d", i), buffer.String())
 		}()

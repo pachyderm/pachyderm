@@ -87,7 +87,7 @@ func (d *driver) InspectRepo(repo *pfs.Repo, shard uint64) (*pfs.RepoInfo, error
 }
 
 func (d *driver) ListRepo(shard uint64) ([]*pfs.RepoInfo, error) {
-	repositories, err := ioutil.ReadDir(d.basePath())
+	repositories, err := ioutil.ReadDir(d.repoDir())
 	if err != nil {
 		return nil, err
 	}
@@ -308,6 +308,9 @@ func (d *driver) PutBlock(parent *pfs.Commit, block *pfs.Block, shard uint64, re
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
+	if err := os.MkdirAll(d.blockShardDir(shard), 0700); err != nil {
+		return err
+	}
 	osFile, err := os.OpenFile(d.blockPath(block, shard), os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
@@ -329,7 +332,9 @@ func (d *driver) PutBlock(parent *pfs.Commit, block *pfs.Block, shard uint64, re
 	if err != nil {
 		return err
 	}
-	ioutil.WriteFile(d.blockInfoPath(block, shard), encodedBlockInfo, 0666)
+	if err := ioutil.WriteFile(d.blockInfoPath(block, shard), encodedBlockInfo, 0666); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -349,11 +354,23 @@ func (d *driver) InspectBlock(block *pfs.Block, shard uint64) (*pfs.BlockInfo, e
 	if err := proto.Unmarshal(encodedBlockInfo, &result); err != nil {
 		return nil, err
 	}
+	stat, err := os.Stat(d.blockPath(block, shard))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	result.Created = prototime.TimeToTimestamp(stat.ModTime())
 	return &result, nil
 }
 
 func (d *driver) ListBlock(shard uint64) (_ []*pfs.BlockInfo, retErr error) {
-	dir, err := os.Open(d.blockDir())
+	var result []*pfs.BlockInfo
+	dir, err := os.Open(d.blockShardDir(shard))
+	if os.IsNotExist(err) {
+		return result, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +379,6 @@ func (d *driver) ListBlock(shard uint64) (_ []*pfs.BlockInfo, retErr error) {
 			retErr = err
 		}
 	}()
-	var result []*pfs.BlockInfo
 	var names []string
 	for names, err = dir.Readdirnames(readDirBatch); err == nil; names, err = dir.Readdirnames(readDirBatch) {
 		for _, name := range names {
@@ -630,16 +646,24 @@ func (d *driver) blockDir() string {
 	return filepath.Join(d.basePath(), blockDir)
 }
 
+func (d *driver) blockShardDir(shard uint64) string {
+	return filepath.Join(d.blockDir(), fmt.Sprint(shard))
+}
+
 func (d *driver) blockPath(block *pfs.Block, shard uint64) string {
-	return filepath.Join(d.blockDir(), fmt.Sprint(shard), block.Hash)
+	return filepath.Join(d.blockShardDir(shard), block.Hash)
 }
 
 func (d *driver) blockInfoPath(block *pfs.Block, shard uint64) string {
-	return filepath.Join(d.basePath(), blockDir, fmt.Sprint(shard), block.Hash, infoSuffix)
+	return filepath.Join(d.basePath(), blockDir, fmt.Sprint(shard), block.Hash+infoSuffix)
+}
+
+func (d *driver) repoDir() string {
+	return filepath.Join(d.basePath(), repoDir)
 }
 
 func (d *driver) repoPath(repo *pfs.Repo) string {
-	return filepath.Join(d.basePath(), repoDir, repo.Name)
+	return filepath.Join(d.repoDir(), repo.Name)
 }
 
 func (d *driver) commitPathNoShard(commit *pfs.Commit) string {

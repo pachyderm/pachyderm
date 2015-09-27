@@ -2,8 +2,6 @@ package server
 
 import (
 	"bytes"
-	"crypto/sha512"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"strconv"
@@ -175,10 +173,7 @@ func (a *internalAPIServer) PutBlock(ctx context.Context, request *pfs.PutBlockR
 	if err != nil {
 		return nil, err
 	}
-	hash := sha512.Sum512(request.Value)
-	block := &pfs.Block{
-		Hash: base64.StdEncoding.EncodeToString(hash[:]),
-	}
+	block := a.sharder.GetBlock(request.Value)
 	shard, err := a.getMasterShardForBlock(block, version)
 	if err != nil {
 		return nil, err
@@ -250,7 +245,7 @@ func (a *internalAPIServer) ListBlock(ctx context.Context, request *pfs.ListBloc
 				return
 			}
 			for _, blockInfo := range subBlockInfos {
-				if sharder.GetBlockShard(blockInfo.Block) == request.Shard.Number {
+				if request.Shard == nil || sharder.GetBlockShard(blockInfo.Block) == request.Shard.Number {
 					blockInfos = append(blockInfos, blockInfo)
 				}
 			}
