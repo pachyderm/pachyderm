@@ -10,6 +10,7 @@ import (
 type Sharder interface {
 	NumShards() uint64
 	NumReplicas() uint64
+	GetBlock(value []byte) *pfs.Block
 	GetShard(file *pfs.File) uint64
 	GetBlockShard(block *pfs.Block) uint64
 }

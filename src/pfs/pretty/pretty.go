@@ -141,6 +141,25 @@ func PrintChange(w io.Writer, change *pfs.Change) {
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(change.SizeBytes)))
 }
 
+func PrintBlockInfoHeader(w io.Writer) {
+	fmt.Fprintf(w, "HASH\tCREATED\tSIZE\t\n")
+}
+
+func PrintBlockInfo(w io.Writer, blockInfo *pfs.BlockInfo) {
+	fmt.Fprintf(w, "%s\t", blockInfo.Block.Hash)
+	fmt.Fprintf(
+		w,
+		"%s ago\t", units.HumanDuration(
+			time.Since(
+				prototime.TimestampToTime(
+					blockInfo.Created,
+				),
+			),
+		),
+	)
+	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(blockInfo.SizeBytes)))
+}
+
 type uint64Slice []uint64
 
 func (s uint64Slice) Len() int           { return len(s) }

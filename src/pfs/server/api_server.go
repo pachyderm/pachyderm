@@ -1,8 +1,6 @@
 package server
 
 import (
-	"crypto/sha512"
-	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -258,10 +256,7 @@ func (a *apiServer) PutBlock(ctx context.Context, request *pfs.PutBlockRequest) 
 	if err != nil {
 		return nil, err
 	}
-	hash := sha512.Sum512(request.Value)
-	block := &pfs.Block{
-		Hash: base64.StdEncoding.EncodeToString(hash[:]),
-	}
+	block := a.sharder.GetBlock(request.Value)
 	clientConn, err := a.getClientConnForBlock(block, version)
 	if err != nil {
 		return nil, err

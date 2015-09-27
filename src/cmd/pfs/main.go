@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -186,6 +187,72 @@ func do(appEnvObj interface{}) error {
 		},
 	}.ToCobraCommand()
 
+	putBlock := cobramainutil.Command{
+		Use:     "put-block repo-name commit-id",
+		Short:   "Put a block from stdin",
+		Long:    "Put a block from stdin. Directories must exist. commit-id must be a writeable commit.",
+		NumArgs: 2,
+		Run: func(cmd *cobra.Command, args []string) error {
+			block, err := pfsutil.PutBlock(apiClient, args[0], args[1], os.Stdin)
+			if err != nil {
+				return err
+			}
+			fmt.Println(block.Hash)
+			return nil
+		},
+	}.ToCobraCommand()
+
+	getBlock := cobramainutil.Command{
+		Use:     "get-block hash",
+		Short:   "Return the contents of a block.",
+		Long:    "Return the contents of a block.",
+		NumArgs: 1,
+		Run: func(cmd *cobra.Command, args []string) error {
+			return pfsutil.GetBlock(apiClient, args[0], os.Stdout)
+		},
+	}.ToCobraCommand()
+
+	inspectBlock := cobramainutil.Command{
+		Use:     "inspect-block hash",
+		Short:   "Return info about a block.",
+		Long:    "Return info about a block.",
+		NumArgs: 1,
+		Run: func(cmd *cobra.Command, args []string) error {
+			blockInfo, err := pfsutil.InspectBlock(apiClient, args[0])
+			if err != nil {
+				return err
+			}
+			if blockInfo == nil {
+				return fmt.Errorf("block %s not found", args[2])
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintBlockInfoHeader(writer)
+			pretty.PrintBlockInfo(writer, blockInfo)
+			return writer.Flush()
+		},
+	}.ToCobraCommand()
+
+	listBlock := cobramainutil.Command{
+		Use:     "list-block",
+		Short:   "Return the blocks in a directory.",
+		Long:    "Return the blocks in a directory.",
+		NumArgs: 0,
+		Run: func(cmd *cobra.Command, args []string) error {
+			blockInfos, err := pfsutil.ListBlock(apiClient, uint64(shard), uint64(modulus))
+			if err != nil {
+				return err
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintBlockInfoHeader(writer)
+			for _, blockInfo := range blockInfos {
+				pretty.PrintBlockInfo(writer, blockInfo)
+			}
+			return writer.Flush()
+		},
+	}.ToCobraCommand()
+	listBlock.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
+	listBlock.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
+
 	mkdir := cobramainutil.Command{
 		Use:     "mkdir repo-name commit-id path/to/dir",
 		Short:   "Make a directory.",
@@ -199,7 +266,7 @@ func do(appEnvObj interface{}) error {
 	putFile := cobramainutil.Command{
 		Use:     "put-file repo-name commit-id path/to/file",
 		Short:   "Put a file from stdin",
-		Long:    "Put a file from stdin. Directories must exist. Commit -id must be a writeable commit.",
+		Long:    "Put a file from stdin. Directories must exist. commit-id must be a writeable commit.",
 		NumArgs: 3,
 		Run: func(cmd *cobra.Command, args []string) error {
 			_, err := pfsutil.PutFile(apiClient, args[0], args[1], args[2], 0, os.Stdin)
@@ -213,12 +280,12 @@ func do(appEnvObj interface{}) error {
 		Long:    "Return the contents of a file.",
 		NumArgs: 3,
 		Run: func(cmd *cobra.Command, args []string) error {
-			return pfsutil.GetFile(apiClient, args[0], args[1], args[2], 0, pfsutil.GetAll, os.Stdout)
+			return pfsutil.GetFile(apiClient, args[0], args[1], args[2], 0, math.MaxInt64, os.Stdout)
 		},
 	}.ToCobraCommand()
 
 	inspectFile := cobramainutil.Command{
-		Use:     "inspect-file repo-name branch-id path/to/file",
+		Use:     "inspect-file repo-name commit-id path/to/file",
 		Short:   "Return info about a file.",
 		Long:    "Return info about a file.",
 		NumArgs: 3,
@@ -367,6 +434,10 @@ The environment variable PFS_ADDRESS controls what server the CLI connects to, t
 	rootCmd.AddCommand(listCommit)
 	rootCmd.AddCommand(deleteCommit)
 	rootCmd.AddCommand(mkdir)
+	rootCmd.AddCommand(putBlock)
+	rootCmd.AddCommand(getBlock)
+	rootCmd.AddCommand(inspectBlock)
+	rootCmd.AddCommand(listBlock)
 	rootCmd.AddCommand(putFile)
 	rootCmd.AddCommand(getFile)
 	rootCmd.AddCommand(inspectFile)
