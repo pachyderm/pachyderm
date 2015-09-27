@@ -178,7 +178,7 @@ func (a *internalAPIServer) PutBlock(ctx context.Context, request *pfs.PutBlockR
 	if err != nil {
 		return nil, err
 	}
-	return emptyInstance, a.driver.PutBlock(request.Parent, block, shard, bytes.NewReader(request.Value))
+	return emptyInstance, a.driver.PutBlock(request.File, block, shard, bytes.NewReader(request.Value))
 }
 
 func (a *internalAPIServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.InternalApi_GetBlockServer) (retErr error) {

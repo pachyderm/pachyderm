@@ -74,12 +74,11 @@ message CommitInfos {
   repeated CommitInfo commit_info = 1;
 }
 
+// BlockInfo represents information about a block.
 message BlockInfo {
     Block block = 1;
-    repeated File reference = 2;
-    repeated File unreference = 3;
-    google.protobuf.Timestamp created = 4;
-    uint64 size_bytes = 5;
+    google.protobuf.Timestamp created = 2;
+    uint64 size_bytes = 3;
 }
 
 message BlockInfos {
@@ -170,7 +169,7 @@ message GetBlockRequest {
 }
 
 message PutBlockRequest {
-    Commit parent = 1;
+    File file = 1;
     bytes value = 2;
 }
 

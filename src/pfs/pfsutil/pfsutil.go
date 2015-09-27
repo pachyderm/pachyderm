@@ -145,7 +145,7 @@ func DeleteCommit(apiClient pfs.ApiClient, repoName string, commitID string) err
 	return err
 }
 
-func PutBlock(apiClient pfs.ApiClient, repoName string, commitID string, reader io.Reader) (*pfs.Block, error) {
+func PutBlock(apiClient pfs.ApiClient, repoName string, commitID string, path string, reader io.Reader) (*pfs.Block, error) {
 	value, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return nil, err
@@ -153,11 +153,14 @@ func PutBlock(apiClient pfs.ApiClient, repoName string, commitID string, reader 
 	return apiClient.PutBlock(
 		context.Background(),
 		&pfs.PutBlockRequest{
-			Parent: &pfs.Commit{
-				Repo: &pfs.Repo{
-					Name: repoName,
+			File: &pfs.File{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: repoName,
+					},
+					Id: commitID,
 				},
-				Id: commitID,
+				Path: path,
 			},
 			Value: value,
 		},

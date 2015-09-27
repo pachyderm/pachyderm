@@ -188,12 +188,12 @@ func do(appEnvObj interface{}) error {
 	}.ToCobraCommand()
 
 	putBlock := cobramainutil.Command{
-		Use:     "put-block repo-name commit-id",
+		Use:     "put-block repo-name commit-id path/to/file",
 		Short:   "Put a block from stdin",
 		Long:    "Put a block from stdin. Directories must exist. commit-id must be a writeable commit.",
-		NumArgs: 2,
+		NumArgs: 3,
 		Run: func(cmd *cobra.Command, args []string) error {
-			block, err := pfsutil.PutBlock(apiClient, args[0], args[1], os.Stdin)
+			block, err := pfsutil.PutBlock(apiClient, args[0], args[1], args[2], os.Stdin)
 			if err != nil {
 				return err
 			}
