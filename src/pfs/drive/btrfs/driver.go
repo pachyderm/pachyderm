@@ -295,12 +295,30 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shard map[uint64]bool) error {
 }
 
 func (d *driver) PutBlock(file *pfs.File, block *pfs.Block, shard uint64, reader io.Reader) (retErr error) {
-	// TODO we need to do more with parent. The thing we want to do is make
-	// sure that this commit references the block, otherwise we'll leak it.
 	if err := d.checkWrite(file.Commit, shard); err != nil {
 		return err
 	}
-	_, err := os.Stat(d.blockPath(block, shard))
+	filePath, err := d.filePath(file, shard)
+	if err != nil {
+		return err
+	}
+	fileFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := fileFile.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	encodedBlock, err := proto.Marshal(block)
+	if err != nil {
+		return err
+	}
+	if _, err := fileFile.Write(encodedBlock); err != nil {
+		return err
+	}
+	_, err = os.Stat(d.blockPath(block, shard))
 	if err == nil {
 		// No error means the block already exists
 		return nil
@@ -311,16 +329,16 @@ func (d *driver) PutBlock(file *pfs.File, block *pfs.Block, shard uint64, reader
 	if err := os.MkdirAll(d.blockShardDir(shard), 0700); err != nil {
 		return err
 	}
-	osFile, err := os.OpenFile(d.blockPath(block, shard), os.O_CREATE|os.O_WRONLY, 0666)
+	blockFile, err := os.OpenFile(d.blockPath(block, shard), os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if err := osFile.Close(); err != nil && retErr == nil {
+		if err := blockFile.Close(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
-	sizeBytes, err := bufio.NewReader(reader).WriteTo(osFile)
+	sizeBytes, err := bufio.NewReader(reader).WriteTo(blockFile)
 	if err != nil {
 		return err
 	}
