@@ -278,12 +278,11 @@ func (m *CommitInfos) GetCommitInfo() []*CommitInfo {
 	return nil
 }
 
+// BlockInfo represents information about a block.
 type BlockInfo struct {
-	Block       *Block                      `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
-	Reference   []*File                     `protobuf:"bytes,2,rep,name=reference" json:"reference,omitempty"`
-	Unreference []*File                     `protobuf:"bytes,3,rep,name=unreference" json:"unreference,omitempty"`
-	Created     *google_protobuf2.Timestamp `protobuf:"bytes,4,opt,name=created" json:"created,omitempty"`
-	SizeBytes   uint64                      `protobuf:"varint,5,opt,name=size_bytes" json:"size_bytes,omitempty"`
+	Block     *Block                      `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	Created   *google_protobuf2.Timestamp `protobuf:"bytes,2,opt,name=created" json:"created,omitempty"`
+	SizeBytes uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
 func (m *BlockInfo) Reset()         { *m = BlockInfo{} }
@@ -293,20 +292,6 @@ func (*BlockInfo) ProtoMessage()    {}
 func (m *BlockInfo) GetBlock() *Block {
 	if m != nil {
 		return m.Block
-	}
-	return nil
-}
-
-func (m *BlockInfo) GetReference() []*File {
-	if m != nil {
-		return m.Reference
-	}
-	return nil
-}
-
-func (m *BlockInfo) GetUnreference() []*File {
-	if m != nil {
-		return m.Unreference
 	}
 	return nil
 }
@@ -625,17 +610,17 @@ func (m *GetBlockRequest) GetBlock() *Block {
 }
 
 type PutBlockRequest struct {
-	Parent *Commit `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
-	Value  []byte  `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	File  *File  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 func (m *PutBlockRequest) Reset()         { *m = PutBlockRequest{} }
 func (m *PutBlockRequest) String() string { return proto.CompactTextString(m) }
 func (*PutBlockRequest) ProtoMessage()    {}
 
-func (m *PutBlockRequest) GetParent() *Commit {
+func (m *PutBlockRequest) GetFile() *File {
 	if m != nil {
-		return m.Parent
+		return m.File
 	}
 	return nil
 }
