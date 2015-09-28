@@ -38,3 +38,16 @@ func TimestampLess(i *google_protobuf.Timestamp, j *google_protobuf.Timestamp) b
 	}
 	return i.Nanos < j.Nanos
 }
+
+// DurationToProto converts a go Duration to a protobuf Duration.
+func DurationToProto(d time.Duration) *google_protobuf.Duration {
+	return &google_protobuf.Duration{
+		Seconds: int64(d) / int64(time.Second),
+		Nanos:   int32(int64(d) % int64(time.Second)),
+	}
+}
+
+// DurationFromProto converts a protobuf Duration to a go Duration.
+func DurationFromProto(duration *google_protobuf.Duration) time.Duration {
+	return time.Duration((duration.Seconds * int64(time.Second)) + int64(duration.Nanos))
+}
