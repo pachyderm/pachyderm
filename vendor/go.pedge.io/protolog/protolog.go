@@ -5,6 +5,7 @@ package protolog
 
 import (
 	"io"
+	"io/ioutil"
 	"os"
 	"sync"
 	"time"
@@ -13,6 +14,9 @@ import (
 )
 
 var (
+	// DiscardLogger is a Logger that discards all logs.
+	DiscardLogger = NewStandardLogger(NewWriterFlusher(ioutil.Discard))
+
 	globalLogger = NewStandardLogger(NewFileFlusher(os.Stderr))
 	globalLock   = &sync.Mutex{}
 )

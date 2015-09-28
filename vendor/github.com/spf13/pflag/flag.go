@@ -315,9 +315,9 @@ func (f *FlagSet) MarkDeprecated(name string, usageMessage string) error {
 	return nil
 }
 
-// Mark the shorthand of a flag deprecated in your program. It will
-// continue to function but will not show up in help or usage messages. Using
-// this flag will also print the given usageMessage.
+// MarkShorthandDeprecated will mark the shorthand of a flag deprecated in your
+// program. It will continue to function but will not show up in help or usage
+// messages. Using this flag will also print the given usageMessage.
 func (f *FlagSet) MarkShorthandDeprecated(name string, usageMessage string) error {
 	flag := f.Lookup(name)
 	if flag == nil {
@@ -821,7 +821,7 @@ func NewFlagSet(name string, errorHandling ErrorHandling) *FlagSet {
 	return f
 }
 
-// SetIntersperesed sets whether to support interspersed option/non-option arguments.
+// SetInterspersed sets whether to support interspersed option/non-option arguments.
 func (f *FlagSet) SetInterspersed(interspersed bool) {
 	f.interspersed = interspersed
 }
