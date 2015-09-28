@@ -36,6 +36,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"reflect"
 	"strconv"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -1078,6 +1079,10 @@ func (h *JsonHandle) newDecDriver(d *Decoder) decDriver {
 	hd := jsonDecDriver{d: d, r: d.r, h: h}
 	hd.n.bytes = d.b[:]
 	return &hd
+}
+
+func (h *JsonHandle) SetInterfaceExt(rt reflect.Type, tag uint64, ext InterfaceExt) (err error) {
+	return h.SetExt(rt, tag, &setExtWrapper{i: ext})
 }
 
 var jsonEncodeTerminate = []byte{' '}
