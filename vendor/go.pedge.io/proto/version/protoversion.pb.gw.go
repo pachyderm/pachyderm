@@ -34,7 +34,7 @@ func request_API_GetVersion_0(ctx context.Context, client APIClient, req *http.R
 // RegisterAPIHandlerFromEndpoint is same as RegisterAPIHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
 func RegisterAPIHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string) (err error) {
-	conn, err := grpc.Dial(endpoint)
+	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
 	if err != nil {
 		return err
 	}

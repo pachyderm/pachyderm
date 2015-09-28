@@ -6,8 +6,11 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"time"
 
+	"go.pedge.io/proto/time"
 	"go.pedge.io/proto/version"
+	"go.pedge.io/protolog"
 
 	"golang.org/x/net/context"
 
@@ -29,6 +32,7 @@ type ServeOptions struct {
 	TracePort        uint16
 	Version          *protoversion.Version
 	HTTPRegisterFunc func(context.Context, *runtime.ServeMux, *grpc.ClientConn) error
+	ConnState        func(net.Conn, http.ConnState)
 }
 
 // Serve serves stuff.
@@ -36,7 +40,24 @@ func Serve(
 	port uint16,
 	registerFunc func(*grpc.Server),
 	opts ServeOptions,
-) error {
+) (retErr error) {
+	start := time.Now()
+	defer func() {
+		if retErr != nil {
+			protolog.Error(
+				&ServerFinished{
+					Error:    retErr.Error(),
+					Duration: prototime.DurationToProto(time.Since(start)),
+				},
+			)
+		} else {
+			protolog.Info(
+				&ServerFinished{
+					Duration: prototime.DurationToProto(time.Since(start)),
+				},
+			)
+		}
+	}()
 	if port == 0 {
 		return ErrMustSpecifyPort
 	}
@@ -82,7 +103,19 @@ func Serve(
 				return err
 			}
 		}
-		go func() { errC <- http.ListenAndServe(fmt.Sprintf(":%d", opts.HTTPPort), mux) }()
+		httpServer := &http.Server{
+			Addr:      fmt.Sprintf(":%d", opts.HTTPPort),
+			Handler:   mux,
+			ConnState: opts.ConnState,
+		}
+		go func() { errC <- httpServer.ListenAndServe() }()
 	}
+	protolog.Info(
+		&ServerStarted{
+			Port:      uint32(port),
+			HttpPort:  uint32(opts.HTTPPort),
+			TracePort: uint32(opts.TracePort),
+		},
+	)
 	return <-errC
 }
