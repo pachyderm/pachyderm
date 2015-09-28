@@ -51,14 +51,18 @@ type driver struct {
 }
 
 func newDriver(rootDir string, namespace string) (*driver, error) {
-	d := driver{rootDir, namespace}
-	if err := os.MkdirAll(filepath.Join(d.basePath(), blockDir), 0700); err != nil {
+	driver := &driver{
+		rootDir,
+		namespace,
+	}
+	if err := os.MkdirAll(driver.blockDir(), 0700); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Join(d.basePath(), repoDir), 0700); err != nil {
+	if err := os.MkdirAll(driver.repoDir(), 0700); err != nil {
+		_ = os.Remove(driver.blockDir())
 		return nil, err
 	}
-	return &d, nil
+	return driver, nil
 }
 
 func (d *driver) CreateRepo(repo *pfs.Repo) error {
