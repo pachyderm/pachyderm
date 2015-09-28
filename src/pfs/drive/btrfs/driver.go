@@ -718,7 +718,7 @@ func (d *driver) recursiveSize(root string) (uint64, error) {
 }
 
 func inMetadataDir(name string) bool {
-	parts := filepath.SplitList(name)
+	parts := strings.Split(name, "/")
 	return len(parts) > 0 && parts[0] == metadataDir
 }
 
