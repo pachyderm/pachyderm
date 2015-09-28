@@ -69,3 +69,10 @@ type Baz_Bat_Ban struct {
 func (m *Baz_Bat_Ban) Reset()         { *m = Baz_Bat_Ban{} }
 func (m *Baz_Bat_Ban) String() string { return proto.CompactTextString(m) }
 func (*Baz_Bat_Ban) ProtoMessage()    {}
+
+type Empty struct {
+}
+
+func (m *Empty) Reset()         { *m = Empty{} }
+func (m *Empty) String() string { return proto.CompactTextString(m) }
+func (*Empty) ProtoMessage()    {}
