@@ -322,6 +322,9 @@ func (d *driver) PutBlock(file *pfs.File, block *pfs.Block, shard uint64, reader
 	if _, err := fileFile.Write(encodedBlock); err != nil {
 		return err
 	}
+	if err := os.MkdirAll(d.blockShardDir(shard), 0700); err != nil {
+		return err
+	}
 	_, err = os.Stat(d.blockPath(block, shard))
 	if err == nil {
 		// No error means the block already exists
@@ -330,9 +333,7 @@ func (d *driver) PutBlock(file *pfs.File, block *pfs.Block, shard uint64, reader
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	if err := os.MkdirAll(d.blockShardDir(shard), 0700); err != nil {
-		return err
-	}
+	protolog.Printf("PutBlock %s", d.blockPath(block, shard))
 	blockFile, err := os.OpenFile(d.blockPath(block, shard), os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
