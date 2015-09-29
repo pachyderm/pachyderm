@@ -37,11 +37,12 @@ type ServeOptions struct {
 	Version          *protoversion.Version
 	HTTPRegisterFunc func(context.Context, *runtime.ServeMux, *grpc.ClientConn) error
 	// either HTTPPort or HTTPAddress can be set, but not both
-	HTTPAddress     string
-	HTTPListener    net.Listener
-	ServeMuxOptions []runtime.ServeMuxOption
-	CleanupFunc     func()
-	Start           chan struct{}
+	HTTPAddress           string
+	HTTPListener          net.Listener
+	ServeMuxOptions       []runtime.ServeMuxOption
+	HTTPBeforeShutdown    func()
+	HTTPShutdownInitiated func()
+	HTTPStart             chan struct{}
 }
 
 // Serve serves stuff.
@@ -145,18 +146,19 @@ func Serve(
 			Handler: mux,
 		}
 		gracefulServer := &graceful.Server{
-			Timeout: 1 * time.Second,
+			Timeout:        1 * time.Second,
+			BeforeShutdown: opts.HTTPBeforeShutdown,
 			ShutdownInitiated: func() {
 				glog.Flush()
 				cancel()
-				if opts.CleanupFunc != nil {
-					opts.CleanupFunc()
+				if opts.HTTPShutdownInitiated != nil {
+					opts.HTTPShutdownInitiated()
 				}
 			},
 			Server: httpServer,
 		}
-		if opts.Start != nil {
-			close(opts.Start)
+		if opts.HTTPStart != nil {
+			close(opts.HTTPStart)
 		}
 		errCCount++
 		go func() {
