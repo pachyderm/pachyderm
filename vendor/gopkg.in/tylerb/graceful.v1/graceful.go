@@ -40,6 +40,10 @@ type Server struct {
 	// must not be set directly.
 	ConnState func(net.Conn, http.ConnState)
 
+	// BeforeShutdown is an optional callback function that is called
+	// before the listener is closed.
+	BeforeShutdown func()
+
 	// ShutdownInitiated is an optional callback function that is called
 	// when shutdown is initiated. It can be used to notify the client
 	// side of long lived connections (e.g. websockets) to reconnect.
@@ -296,6 +300,10 @@ func (srv *Server) interruptChan() chan os.Signal {
 
 func (srv *Server) handleInterrupt(interrupt chan os.Signal, listener net.Listener) {
 	<-interrupt
+
+	if srv.BeforeShutdown != nil {
+		srv.BeforeShutdown()
+	}
 
 	srv.SetKeepAlivesEnabled(false)
 	_ = listener.Close() // we are shutting down anyway. ignore error.
