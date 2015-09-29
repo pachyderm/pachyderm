@@ -46,7 +46,7 @@ type appEnv struct {
 	Address    string `env:"PFS_ADDRESS"`
 	Port       int    `env:"PFS_PORT"`
 	HTTPPort   int    `env:"PFS_HTTP_PORT"`
-	TracePort  int    `env:"PFS_TRACE_PORT"`
+	DebugPort  int    `env:"PFS_TRACE_PORT"`
 }
 
 func main() {
@@ -133,7 +133,7 @@ func do(appEnvObj interface{}) error {
 		},
 		protoserver.ServeOptions{
 			HTTPPort:  uint16(appEnv.HTTPPort),
-			TracePort: uint16(appEnv.TracePort),
+			DebugPort: uint16(appEnv.DebugPort),
 			Version:   pachyderm.Version,
 			HTTPRegisterFunc: func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
 				return pfs.RegisterApiHandler(ctx, mux, clientConn)
