@@ -8,7 +8,7 @@ if [ -n "${SETUP}" ]; then
   echo hello | pfs put-file test ${commit_id} foo.txt
   pfs finish-commit test ${commit_id}
 else
-  commit_id="$(pfs list-commit test | head -1 | cut -f 5 -d : | cut -f 1 -d ' ' | sed 's/"//g')"
+  commit_id="$(pfs list-commit test | head -2 | tail -1 | cut -f 1 -d ' ')"
 fi
 pfs list-file test ${commit_id} /
 docker volume create --driver=pfs --opt repository=test --opt commit_id=${commit_id} --opt shard=0 --opt modulus=1 --name foo
