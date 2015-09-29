@@ -31,7 +31,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pkg/executil"
-	"github.com/satori/go.uuid"
 	"go.pedge.io/proto/time"
 	"go.pedge.io/protolog"
 )
@@ -178,8 +177,9 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	var loopErr error
 	notFound := false
 	for shard := range shards {
+		shard := shard
 		wg.Add(1)
-		go func(shard uint64) {
+		go func() {
 			defer wg.Done()
 			if !execSubvolumeExists(d.readCommitPath(commit, shard)) && !execSubvolumeExists(d.writeCommitPath(commit, shard)) {
 				errOnce.Do(func() { notFound = true })
@@ -248,7 +248,7 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 			}
 			result.CommitBytes += commitBytes
 			result.TotalBytes += totalBytes
-		}(shard)
+		}()
 	}
 	wg.Wait()
 	if notFound {
@@ -581,10 +581,6 @@ func (d *driver) PushDiff(commit *pfs.Commit, diff io.Reader) error {
 	return execRecv(d.commitPathNoShard(commit), diff)
 }
 
-func newCommitID() string {
-	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
-}
-
 func (d *driver) stat(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
 	filePath, err := d.filePath(file, shard)
 	if err != nil {
@@ -720,11 +716,6 @@ func (d *driver) filePath(file *pfs.File, shard uint64) (string, error) {
 	return filepath.Join(commitPath, file.Path), nil
 }
 
-func inMetadataDir(name string) bool {
-	parts := strings.Split(name, "/")
-	return (len(parts) > 0 && parts[0] == metadataDir)
-}
-
 func (d *driver) recursiveSize(root string) (uint64, error) {
 	var result int64
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -743,6 +734,11 @@ func (d *driver) recursiveSize(root string) (uint64, error) {
 		return 0, err
 	}
 	return uint64(result), err
+}
+
+func inMetadataDir(name string) bool {
+	parts := strings.Split(name, "/")
+	return len(parts) > 0 && parts[0] == metadataDir
 }
 
 func execSubvolumeCreate(path string) (retErr error) {

@@ -35,7 +35,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
     echo "error: brew not installed" >&2
     exit 1
   fi
-  brew install openssl
+  brew install cmake openssl
   CMAKE_FLAGS="${CMAKE_FLAGS} -DOPENSSL_ROOT_DIR=$(brew --prefix openssl)"
   OPENSSL_DIR=$(brew --prefix openssl)/lib
 else
