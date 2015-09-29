@@ -146,7 +146,10 @@ func (a *discoveryAddresser) Register(cancel chan bool, id string, address strin
 	var once sync.Once
 	versionChan := make(chan int64)
 	internalCancel := make(chan bool)
+	var wg sync.WaitGroup
+	wg.Add(3)
 	go func() {
+		defer wg.Done()
 		if err := a.announceState(id, address, server, versionChan, internalCancel); err != nil {
 			once.Do(func() {
 				retErr = err
@@ -155,6 +158,7 @@ func (a *discoveryAddresser) Register(cancel chan bool, id string, address strin
 		}
 	}()
 	go func() {
+		defer wg.Done()
 		if err := a.fillRoles(id, server, versionChan, internalCancel); err != nil {
 			once.Do(func() {
 				retErr = err
@@ -162,11 +166,18 @@ func (a *discoveryAddresser) Register(cancel chan bool, id string, address strin
 			})
 		}
 	}()
-	<-cancel
-	once.Do(func() {
-		retErr = ErrCancelled
-		close(internalCancel)
-	})
+	go func() {
+		defer wg.Done()
+		select {
+		case <-cancel:
+			once.Do(func() {
+				retErr = ErrCancelled
+				close(internalCancel)
+			})
+		case <-internalCancel:
+		}
+	}()
+	wg.Wait()
 	return
 }
 
