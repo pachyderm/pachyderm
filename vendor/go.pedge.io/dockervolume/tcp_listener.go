@@ -1,10 +1,12 @@
 package dockervolume
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/docker/docker/pkg/sockets"
 )
@@ -35,6 +37,9 @@ func writeSpec(name string, address string) (string, error) {
 		return "", err
 	}
 	spec := filepath.Join(dir, name+".spec")
+	if strings.HasPrefix(address, "[::]:") {
+		address = fmt.Sprintf("0.0.0.0:%s", strings.TrimPrefix(address, "[::]:"))
+	}
 	url := "tcp://" + address
 	if err := ioutil.WriteFile(spec, []byte(url), 0644); err != nil {
 		return "", err
