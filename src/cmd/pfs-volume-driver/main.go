@@ -20,8 +20,7 @@ import (
 )
 
 const (
-	volumeDriverName  = "pfs"
-	volumeDriverGroup = "root"
+	volumeDriverName = "pfs"
 
 	defaultShard   = 0
 	defaultModulus = 1
@@ -31,7 +30,8 @@ var (
 	defaultEnv = map[string]string{
 		"PFS_ADDRESS":     "0.0.0.0:650",
 		"BASE_MOUNTPOINT": "/tmp/pfs-volume-driver",
-		"PORT":            "850",
+		"GRPC_PORT":       "1850",
+		"HTTP_PORT":       "1950",
 	}
 )
 
@@ -39,7 +39,8 @@ type appEnv struct {
 	PachydermPfsd1Port string `env:"PACHYDERM_PFSD_1_PORT"`
 	PfsAddress         string `env:"PFS_ADDRESS"`
 	BaseMountpoint     string `env:"BASE_MOUNTPOINT"`
-	Port               int    `env:"PORT"`
+	GRPCPort           int    `env:"GRPC_PORT"`
+	HTTPPort           int    `env:"HTTP_PORT"`
 }
 
 func main() {
@@ -55,7 +56,7 @@ func do(appEnvObj interface{}) error {
 	} else {
 		address = strings.Replace(address, "tcp://", "", -1)
 	}
-	return dockervolume.NewUnixServer(
+	return dockervolume.NewTCPServer(
 		newVolumeDriver(
 			func() (fuse.Mounter, error) {
 				clientConn, err := grpc.Dial(address, grpc.WithInsecure())
@@ -71,8 +72,8 @@ func do(appEnvObj interface{}) error {
 			appEnv.BaseMountpoint,
 		),
 		volumeDriverName,
-		uint16(appEnv.Port),
-		volumeDriverGroup,
+		uint16(appEnv.GRPCPort),
+		fmt.Sprintf(":%d", appEnv.HTTPPort),
 		dockervolume.ServerOptions{},
 	).Serve()
 }
