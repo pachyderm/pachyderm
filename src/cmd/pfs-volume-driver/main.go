@@ -20,8 +20,7 @@ import (
 )
 
 const (
-	volumeDriverName  = "pfs"
-	volumeDriverGroup = "root"
+	volumeDriverName = "pfs"
 
 	defaultShard   = 0
 	defaultModulus = 1
@@ -31,6 +30,8 @@ var (
 	defaultEnv = map[string]string{
 		"PFS_ADDRESS":     "0.0.0.0:650",
 		"BASE_MOUNTPOINT": "/tmp/pfs-volume-driver",
+		"GRPC_PORT":       "1850",
+		"HTTP_PORT":       "1950",
 	}
 )
 
@@ -38,6 +39,8 @@ type appEnv struct {
 	PachydermPfsd1Port string `env:"PACHYDERM_PFSD_1_PORT"`
 	PfsAddress         string `env:"PFS_ADDRESS"`
 	BaseMountpoint     string `env:"BASE_MOUNTPOINT"`
+	GRPCPort           int    `env:"GRPC_PORT"`
+	HTTPPort           int    `env:"HTTP_PORT"`
 }
 
 func main() {
@@ -53,28 +56,26 @@ func do(appEnvObj interface{}) error {
 	} else {
 		address = strings.Replace(address, "tcp://", "", -1)
 	}
-	return dockervolume.Serve(
-		dockervolume.NewHandler(
-			newVolumeDriver(
-				func() (fuse.Mounter, error) {
-					clientConn, err := grpc.Dial(address, grpc.WithInsecure())
-					if err != nil {
-						return nil, err
-					}
-					return fuse.NewMounter(
-						pfs.NewApiClient(
-							clientConn,
-						),
-					), nil
-				},
-				appEnv.BaseMountpoint,
-			),
-			dockervolume.HandlerOptions{},
+	return dockervolume.NewTCPServer(
+		newVolumeDriver(
+			func() (fuse.Mounter, error) {
+				clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+				if err != nil {
+					return nil, err
+				}
+				return fuse.NewMounter(
+					pfs.NewApiClient(
+						clientConn,
+					),
+				), nil
+			},
+			appEnv.BaseMountpoint,
 		),
-		dockervolume.ProtocolUnix,
 		volumeDriverName,
-		volumeDriverGroup,
-	)
+		uint16(appEnv.GRPCPort),
+		fmt.Sprintf(":%d", appEnv.HTTPPort),
+		dockervolume.ServerOptions{},
+	).Serve()
 }
 
 type volume struct {

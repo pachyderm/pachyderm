@@ -40,7 +40,7 @@ type appEnv struct {
 	Port               int    `env:"PPS_PORT"`
 	DatabaseAddress    string `env:"PPS_DATABASE_ADDRESS"`
 	DatabaseName       string `env:"PPS_DATABASE_NAME"`
-	TracePort          int    `env:"PPS_TRACE_PORT"`
+	DebugPort          int    `env:"PPS_TRACE_PORT"`
 }
 
 func main() {
@@ -78,7 +78,7 @@ func do(appEnvObj interface{}) error {
 			pps.RegisterApiServer(s, server.NewAPIServer(pfs.NewApiClient(clientConn), containerClient, rethinkClient, timing.NewSystemTimer()))
 		},
 		protoserver.ServeOptions{
-			TracePort: uint16(appEnv.TracePort),
+			DebugPort: uint16(appEnv.DebugPort),
 			Version:   pachyderm.Version,
 		},
 	)

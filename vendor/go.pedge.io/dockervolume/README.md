@@ -7,9 +7,7 @@ A small library taking care of the generic code for docker volume plugins writte
 * https://github.com/docker/docker/blob/master/docs/extend/plugin_api.md
 * https://github.com/docker/docker/blob/master/docs/extend/plugins_volume.md
 
-This libary was originally inspired by https://github.com/calavera/dkvolume, but exposes
-similar functionality in a slightly different style, along with adding logging of all
-calls by default using [go.pedge.io/protolog](http://go.pedge.io/protolog).
+This libary was originally inspired by https://github.com/calavera/dkvolume.
 
 ### Usage
 
@@ -33,15 +31,13 @@ To launch your plugin using Unix sockets, do:
 
 ```
 func launch(volumeDriver dockervolume.VolumeDriver) error {
-  return dockervolume.Serve(
-    dockervolume.NewHandler(
-      volumeDriver,
-      dockervolume.HandlerOptions{},
-    ),
-    dockervolume.ProtocolUnix,
+  return dockervolume.NewUnixServer(
+    volumeDriver,
     "volume_driver_name",
+    1050,
     "root",
-  )
+    dockervolume.ServerOptions{},
+  ).Serve()
 }
 ```
 
@@ -49,15 +45,13 @@ To launch your plugin using TCP, do:
 
 ```
 func launch(volumeDriver dockervolume.VolumeDriver) error {
-  return dockervolume.Serve(
-    dockervolume.NewHandler(
-      volumeDriver,
-      dockervolume.HandlerOptions{},
-    ),
-    dockervolume.ProtocolTCP,
+  return dockervolume.NewTCPServer(
+    volumeDriver,
     "volume_driver_name",
+    1050,
     "address",
-  )
+    dockervolume.ServerOptions{},
+  ).Serve()
 }
 ```
 

@@ -15,9 +15,10 @@ var _ = fmt.Errorf
 var _ = math.Inf
 
 type ServerStarted struct {
-	Port      uint32 `protobuf:"varint,1,opt,name=port" json:"port,omitempty"`
-	HttpPort  uint32 `protobuf:"varint,2,opt,name=http_port" json:"http_port,omitempty"`
-	TracePort uint32 `protobuf:"varint,3,opt,name=trace_port" json:"trace_port,omitempty"`
+	Port        uint32 `protobuf:"varint,1,opt,name=port" json:"port,omitempty"`
+	HttpPort    uint32 `protobuf:"varint,2,opt,name=http_port" json:"http_port,omitempty"`
+	DebugPort   uint32 `protobuf:"varint,3,opt,name=debug_port" json:"debug_port,omitempty"`
+	HttpAddress string `protobuf:"bytes,4,opt,name=http_address" json:"http_address,omitempty"`
 }
 
 func (m *ServerStarted) Reset()         { *m = ServerStarted{} }
