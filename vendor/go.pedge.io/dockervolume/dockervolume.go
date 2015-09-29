@@ -1,21 +1,6 @@
 package dockervolume
 
-import (
-	"fmt"
-	"net"
-	"net/http"
-	"os"
-)
-
-const (
-	// ProtocolTCP denotes using TCP.
-	ProtocolTCP Protocol = iota
-	// ProtocolUnix denotes using Unix sockets.
-	ProtocolUnix
-)
-
-// Protocol represents TCP or Unix.
-type Protocol int
+import "google.golang.org/grpc"
 
 // VolumeDriver is the interface that should be implemented for custom volume drivers.
 type VolumeDriver interface {
@@ -31,95 +16,58 @@ type VolumeDriver interface {
 	Unmount(name string) (err error)
 }
 
-// Logger is a generic interface for logging requests to a VolumeDriver.
-type Logger interface {
-	LogCall(call *Call)
+// VolumeDriverClient can call VolumeDrivers, along with additional functionality.
+type VolumeDriverClient interface {
+	VolumeDriver
 }
 
-// Handler is the http.Handler used for the volume driver plugin, plus additional methods.
-type Handler interface {
-	http.Handler
+// NewVolumeDriverClient creates a new VolumeDriverClient for the given *grpc.ClientConn.
+func NewVolumeDriverClient(clientConn *grpc.ClientConn) VolumeDriverClient {
+	return newVolumeDriverClient(clientConn)
 }
 
-// HandlerOptions are options for a new volume driver handler.
-type HandlerOptions struct {
-	// Logger specifies a customer logger.
-	//
-	// If not specified, the default Logger will be used.
-	Logger Logger
-	// Reset specifies to not use previous state.
-	Reset bool
+// Server serves a VolumeDriver.
+type Server interface {
+	Serve() error
 }
 
-// NewHandler returns a new http.Handler.
-func NewHandler(volumeDriver VolumeDriver, opts HandlerOptions) Handler {
-	return newHandler(volumeDriver, opts)
+// ServerOptions are options for a Server.
+type ServerOptions struct {
+	GRPCDebugPort uint16
 }
 
-// NewTCPListener returns a new net.Listener for TCP.
-//
-// The string returned is a file that should be removed when finished with the listener.
-func NewTCPListener(
+// NewTCPServer returns a new Server for TCP.
+func NewTCPServer(
+	volumeDriver VolumeDriver,
 	volumeDriverName string,
+	grpcPort uint16,
 	address string,
-	start <-chan struct{},
-) (net.Listener, string, error) {
-	return newTCPListener(
+	opts ServerOptions,
+) Server {
+	return newServer(
+		protocolTCP,
+		volumeDriver,
 		volumeDriverName,
+		grpcPort,
 		address,
-		start,
+		opts,
 	)
 }
 
-// NewUnixListener returns a new net.Listener for Unix.
-//
-// The string returned is a file that should be removed when finished with the listener.
-func NewUnixListener(
+// NewUnixServer returns a new Server for Unix sockets.
+func NewUnixServer(
+	volumeDriver VolumeDriver,
 	volumeDriverName string,
+	grpcPort uint16,
 	group string,
-	start <-chan struct{},
-) (net.Listener, string, error) {
-	return newUnixListener(
+	opts ServerOptions,
+) Server {
+	return newServer(
+		protocolUnix,
+		volumeDriver,
 		volumeDriverName,
+		grpcPort,
 		group,
-		start,
+		opts,
 	)
-}
-
-// Serve serves the volume driver handler.
-func Serve(
-	handler Handler,
-	protocol Protocol,
-	volumeDriverName string,
-	groupOrAddress string,
-) (retErr error) {
-	server := &http.Server{
-		Handler: handler,
-	}
-	start := make(chan struct{})
-	var listener net.Listener
-	var spec string
-	var err error
-	switch protocol {
-	case ProtocolTCP:
-		listener, spec, err = NewTCPListener(volumeDriverName, groupOrAddress, start)
-		server.Addr = groupOrAddress
-	case ProtocolUnix:
-		listener, spec, err = NewUnixListener(volumeDriverName, groupOrAddress, start)
-		server.Addr = volumeDriverName
-	default:
-		return fmt.Errorf("unknown protocol: %v", protocol)
-	}
-	if spec != "" {
-		defer func() {
-			if err := os.Remove(spec); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-	}
-	if err != nil {
-		return err
-	}
-	close(start)
-	return server.Serve(listener)
 }

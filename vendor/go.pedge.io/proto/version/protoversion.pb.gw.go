@@ -68,7 +68,7 @@ func RegisterAPIHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.C
 			return
 		}
 
-		forward_API_GetVersion_0(ctx, w, req, resp)
+		forward_API_GetVersion_0(ctx, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 

@@ -24,15 +24,20 @@ var (
 	ErrMustSpecifyPort = errors.New("must specify port")
 	// ErrMustSpecifyRegisterFunc is the error if no registerFunc is specifed to Serve.
 	ErrMustSpecifyRegisterFunc = errors.New("must specify registerFunc")
+	// ErrCannotSpecifyBothHTTPPortAndHTTPAddress is the error if both HTTPPort and HTTPAddress are specified in ServeOptions.
+	ErrCannotSpecifyBothHTTPPortAndHTTPAddress = errors.New("cannot specify both HTTPPort and HTTPAddress")
 )
 
 // ServeOptions represent optional fields for serving.
 type ServeOptions struct {
 	HTTPPort         uint16
-	TracePort        uint16
+	DebugPort        uint16
 	Version          *protoversion.Version
 	HTTPRegisterFunc func(context.Context, *runtime.ServeMux, *grpc.ClientConn) error
-	ConnState        func(net.Conn, http.ConnState)
+	// either HTTPPort or HTTPAddress can be set, but not both
+	HTTPAddress     string
+	HTTPListener    net.Listener
+	ServeMuxOptions []runtime.ServeMuxOption
 }
 
 // Serve serves stuff.
@@ -64,6 +69,9 @@ func Serve(
 	if registerFunc == nil {
 		return ErrMustSpecifyRegisterFunc
 	}
+	if opts.HTTPPort != 0 && opts.HTTPAddress != "" {
+		return ErrCannotSpecifyBothHTTPPortAndHTTPAddress
+	}
 	s := grpc.NewServer(grpc.MaxConcurrentStreams(math.MaxUint32))
 	registerFunc(s)
 	if opts.Version != nil {
@@ -75,14 +83,19 @@ func Serve(
 	}
 	errC := make(chan error)
 	go func() { errC <- s.Serve(listener) }()
-	if opts.TracePort != 0 {
-		go func() { errC <- http.ListenAndServe(fmt.Sprintf(":%d", opts.TracePort), nil) }()
+	if opts.DebugPort != 0 {
+		go func() { errC <- http.ListenAndServe(fmt.Sprintf(":%d", opts.DebugPort), nil) }()
 	}
-	if opts.HTTPPort != 0 && (opts.Version != nil || opts.HTTPRegisterFunc != nil) {
+	if (opts.HTTPPort != 0 || opts.HTTPAddress != "") && (opts.Version != nil || opts.HTTPRegisterFunc != nil) {
 		defer glog.Flush()
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		mux := runtime.NewServeMux()
+		var mux *runtime.ServeMux
+		if len(opts.ServeMuxOptions) == 0 {
+			mux = runtime.NewServeMux()
+		} else {
+			mux = runtime.NewServeMux(opts.ServeMuxOptions...)
+		}
 		conn, err := grpc.Dial(fmt.Sprintf("0.0.0.0:%d", port), grpc.WithInsecure())
 		if err != nil {
 			return err
@@ -103,18 +116,28 @@ func Serve(
 				return err
 			}
 		}
-		httpServer := &http.Server{
-			Addr:      fmt.Sprintf(":%d", opts.HTTPPort),
-			Handler:   mux,
-			ConnState: opts.ConnState,
+		httpAddress := fmt.Sprintf(":%d", opts.HTTPPort)
+		if opts.HTTPAddress != "" {
+			httpAddress = opts.HTTPAddress
 		}
-		go func() { errC <- httpServer.ListenAndServe() }()
+		httpServer := &http.Server{
+			Addr:    httpAddress,
+			Handler: mux,
+		}
+		go func() {
+			if opts.HTTPListener != nil {
+				errC <- httpServer.Serve(listener)
+			} else {
+				errC <- httpServer.ListenAndServe()
+			}
+		}()
 	}
 	protolog.Info(
 		&ServerStarted{
-			Port:      uint32(port),
-			HttpPort:  uint32(opts.HTTPPort),
-			TracePort: uint32(opts.TracePort),
+			Port:        uint32(port),
+			HttpPort:    uint32(opts.HTTPPort),
+			DebugPort:   uint32(opts.DebugPort),
+			HttpAddress: opts.HTTPAddress,
 		},
 	)
 	return <-errC
