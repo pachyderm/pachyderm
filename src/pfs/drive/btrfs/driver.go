@@ -302,30 +302,10 @@ func (d *driver) PutBlock(file *pfs.File, block *pfs.Block, shard uint64, reader
 	if err := d.checkWrite(file.Commit, shard); err != nil {
 		return err
 	}
-	filePath, err := d.filePath(file, shard)
-	if err != nil {
-		return err
-	}
-	fileFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := fileFile.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	encodedBlock, err := proto.Marshal(block)
-	if err != nil {
-		return err
-	}
-	if _, err := fileFile.Write(encodedBlock); err != nil {
-		return err
-	}
 	if err := os.MkdirAll(d.blockShardDir(shard), 0700); err != nil {
 		return err
 	}
-	_, err = os.Stat(d.blockPath(block, shard))
+	_, err := os.Stat(d.blockPath(block, shard))
 	if err == nil {
 		// No error means the block already exists
 		return nil
@@ -420,7 +400,7 @@ func (d *driver) ListBlock(shard uint64) (_ []*pfs.BlockInfo, retErr error) {
 	return result, nil
 }
 
-func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) error {
+func (d *driver) PutFile(file *pfs.File, shard uint64, blockMap *pfs.BlockMap) error {
 	if err := d.checkWrite(file.Commit, shard); err != nil {
 		return err
 	}
@@ -433,10 +413,11 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 		return err
 	}
 	defer osFile.Close()
-	if _, err := osFile.Seek(offset, 0); err != nil { // 0 means relative to start
+	encodedBlockMap, err := proto.Marshal(blockMap)
+	if err != nil {
 		return err
 	}
-	_, err = bufio.NewReader(reader).WriteTo(osFile)
+	_, err = osFile.Write(encodedBlockMap)
 	return err
 }
 
@@ -459,12 +440,29 @@ func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
 	return nil
 }
 
-func (d *driver) GetFile(file *pfs.File, shard uint64) (drive.ReaderAtCloser, error) {
+func (d *driver) GetFile(file *pfs.File, shard uint64) (_ *pfs.BlockMap, retErr error) {
 	filePath, err := d.filePath(file, shard)
 	if err != nil {
 		return nil, err
 	}
-	return os.Open(filePath)
+	osFile, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := osFile.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	encodedBlockMap, err := ioutil.ReadAll(osFile)
+	if err != nil {
+		return nil, err
+	}
+	var result pfs.BlockMap
+	if err := proto.Unmarshal(encodedBlockMap, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 func (d *driver) InspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {

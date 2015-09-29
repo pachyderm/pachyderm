@@ -187,21 +187,6 @@ func do(appEnvObj interface{}) error {
 		},
 	}.ToCobraCommand()
 
-	putBlock := cobramainutil.Command{
-		Use:     "put-block repo-name commit-id path/to/file",
-		Short:   "Put a block from stdin",
-		Long:    "Put a block from stdin. Directories must exist. commit-id must be a writeable commit.",
-		NumArgs: 3,
-		Run: func(cmd *cobra.Command, args []string) error {
-			block, err := pfsutil.PutBlock(apiClient, args[0], args[1], args[2], os.Stdin)
-			if err != nil {
-				return err
-			}
-			fmt.Println(block.Hash)
-			return nil
-		},
-	}.ToCobraCommand()
-
 	getBlock := cobramainutil.Command{
 		Use:     "get-block hash",
 		Short:   "Return the contents of a block.",
@@ -434,7 +419,6 @@ The environment variable PFS_ADDRESS controls what server the CLI connects to, t
 	rootCmd.AddCommand(listCommit)
 	rootCmd.AddCommand(deleteCommit)
 	rootCmd.AddCommand(mkdir)
-	rootCmd.AddCommand(putBlock)
 	rootCmd.AddCommand(getBlock)
 	rootCmd.AddCommand(inspectBlock)
 	rootCmd.AddCommand(listBlock)

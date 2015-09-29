@@ -145,28 +145,6 @@ func DeleteCommit(apiClient pfs.ApiClient, repoName string, commitID string) err
 	return err
 }
 
-func PutBlock(apiClient pfs.ApiClient, repoName string, commitID string, path string, reader io.Reader) (*pfs.Block, error) {
-	value, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return nil, err
-	}
-	return apiClient.PutBlock(
-		context.Background(),
-		&pfs.PutBlockRequest{
-			File: &pfs.File{
-				Commit: &pfs.Commit{
-					Repo: &pfs.Repo{
-						Name: repoName,
-					},
-					Id: commitID,
-				},
-				Path: path,
-			},
-			Value: value,
-		},
-	)
-}
-
 func GetBlock(apiClient pfs.ApiClient, hash string, writer io.Writer) error {
 	apiGetBlockClient, err := apiClient.GetBlock(
 		context.Background(),
@@ -233,9 +211,8 @@ func PutFile(apiClient pfs.ApiClient, repoName string, commitID string, path str
 				},
 				Path: path,
 			},
-			FileType:    pfs.FileType_FILE_TYPE_REGULAR,
-			OffsetBytes: offset,
-			Value:       value,
+			FileType: pfs.FileType_FILE_TYPE_REGULAR,
+			Value:    &pfs.PutFileRequest_Raw{value},
 		},
 	)
 	return int64(len(value)), err

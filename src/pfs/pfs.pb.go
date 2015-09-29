@@ -12,6 +12,7 @@ It has these top-level messages:
 	Repo
 	Commit
 	Block
+	BlockMap
 	File
 	Server
 	RepoInfo
@@ -153,6 +154,38 @@ type Block struct {
 func (m *Block) Reset()         { *m = Block{} }
 func (m *Block) String() string { return proto.CompactTextString(m) }
 func (*Block) ProtoMessage()    {}
+
+// A block represents several blocks concatenated.
+type BlockMap struct {
+	Block []*BlockMap_BlockAndSize `protobuf:"bytes,1,rep,name=block" json:"block,omitempty"`
+}
+
+func (m *BlockMap) Reset()         { *m = BlockMap{} }
+func (m *BlockMap) String() string { return proto.CompactTextString(m) }
+func (*BlockMap) ProtoMessage()    {}
+
+func (m *BlockMap) GetBlock() []*BlockMap_BlockAndSize {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
+
+type BlockMap_BlockAndSize struct {
+	Block     *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	SizeBytes uint64 `protobuf:"varint,2,opt,name=size_bytes" json:"size_bytes,omitempty"`
+}
+
+func (m *BlockMap_BlockAndSize) Reset()         { *m = BlockMap_BlockAndSize{} }
+func (m *BlockMap_BlockAndSize) String() string { return proto.CompactTextString(m) }
+func (*BlockMap_BlockAndSize) ProtoMessage()    {}
+
+func (m *BlockMap_BlockAndSize) GetBlock() *Block {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
 
 // File represents the full path to a file or directory within pfs.
 type File struct {
@@ -673,21 +706,108 @@ func (m *GetFileRequest) GetFile() *File {
 }
 
 type PutFileRequest struct {
-	File        *File    `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	FileType    FileType `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
-	OffsetBytes int64    `protobuf:"varint,3,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
-	Value       []byte   `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	File     *File    `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	FileType FileType `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
+	// Types that are valid to be assigned to Value:
+	//	*PutFileRequest_Raw
+	//	*PutFileRequest_BlockMap
+	Value isPutFileRequest_Value `protobuf_oneof:"value"`
 }
 
 func (m *PutFileRequest) Reset()         { *m = PutFileRequest{} }
 func (m *PutFileRequest) String() string { return proto.CompactTextString(m) }
 func (*PutFileRequest) ProtoMessage()    {}
 
+type isPutFileRequest_Value interface {
+	isPutFileRequest_Value()
+}
+
+type PutFileRequest_Raw struct {
+	Raw []byte `protobuf:"bytes,3,opt,name=raw,proto3,oneof"`
+}
+type PutFileRequest_BlockMap struct {
+	BlockMap *BlockMap `protobuf:"bytes,4,opt,name=block_map,oneof"`
+}
+
+func (*PutFileRequest_Raw) isPutFileRequest_Value()      {}
+func (*PutFileRequest_BlockMap) isPutFileRequest_Value() {}
+
+func (m *PutFileRequest) GetValue() isPutFileRequest_Value {
+	if m != nil {
+		return m.Value
+	}
+	return nil
+}
+
 func (m *PutFileRequest) GetFile() *File {
 	if m != nil {
 		return m.File
 	}
 	return nil
+}
+
+func (m *PutFileRequest) GetRaw() []byte {
+	if x, ok := m.GetValue().(*PutFileRequest_Raw); ok {
+		return x.Raw
+	}
+	return nil
+}
+
+func (m *PutFileRequest) GetBlockMap() *BlockMap {
+	if x, ok := m.GetValue().(*PutFileRequest_BlockMap); ok {
+		return x.BlockMap
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*PutFileRequest) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _PutFileRequest_OneofMarshaler, _PutFileRequest_OneofUnmarshaler, []interface{}{
+		(*PutFileRequest_Raw)(nil),
+		(*PutFileRequest_BlockMap)(nil),
+	}
+}
+
+func _PutFileRequest_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*PutFileRequest)
+	// value
+	switch x := m.Value.(type) {
+	case *PutFileRequest_Raw:
+		b.EncodeVarint(3<<3 | proto.WireBytes)
+		b.EncodeRawBytes(x.Raw)
+	case *PutFileRequest_BlockMap:
+		b.EncodeVarint(4<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.BlockMap); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("PutFileRequest.Value has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _PutFileRequest_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*PutFileRequest)
+	switch tag {
+	case 3: // value.raw
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeRawBytes(true)
+		m.Value = &PutFileRequest_Raw{x}
+		return true, err
+	case 4: // value.block_map
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(BlockMap)
+		err := b.DecodeMessage(msg)
+		m.Value = &PutFileRequest_BlockMap{msg}
+		return true, err
+	default:
+		return false, nil
+	}
 }
 
 type InspectFileRequest struct {
@@ -878,8 +998,6 @@ type ApiClient interface {
 	// DeleteCommit deletes a commit.
 	DeleteCommit(ctx context.Context, in *DeleteCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// Block rpcs
-	// PutBlock writes the specified block to the block store.
-	PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*Block, error)
 	// GetBlock returns a byte stream of the contents of the block.
 	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (Api_GetBlockClient, error)
 	// InspectBlock returns info about a block.
@@ -989,15 +1107,6 @@ func (c *apiClient) ListCommit(ctx context.Context, in *ListCommitRequest, opts 
 func (c *apiClient) DeleteCommit(ctx context.Context, in *DeleteCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/pfs.Api/DeleteCommit", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *apiClient) PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*Block, error) {
-	out := new(Block)
-	err := grpc.Invoke(ctx, "/pfs.Api/PutBlock", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1174,8 +1283,6 @@ type ApiServer interface {
 	// DeleteCommit deletes a commit.
 	DeleteCommit(context.Context, *DeleteCommitRequest) (*google_protobuf1.Empty, error)
 	// Block rpcs
-	// PutBlock writes the specified block to the block store.
-	PutBlock(context.Context, *PutBlockRequest) (*Block, error)
 	// GetBlock returns a byte stream of the contents of the block.
 	GetBlock(*GetBlockRequest, Api_GetBlockServer) error
 	// InspectBlock returns info about a block.
@@ -1308,18 +1415,6 @@ func _Api_DeleteCommit_Handler(srv interface{}, ctx context.Context, codec grpc.
 		return nil, err
 	}
 	out, err := srv.(ApiServer).DeleteCommit(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _Api_PutBlock_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
-	in := new(PutBlockRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(ApiServer).PutBlock(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -1517,10 +1612,6 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_DeleteCommit_Handler,
 		},
 		{
-			MethodName: "PutBlock",
-			Handler:    _Api_PutBlock_Handler,
-		},
-		{
 			MethodName: "InspectBlock",
 			Handler:    _Api_InspectBlock_Handler,
 		},
@@ -1598,7 +1689,7 @@ type InternalApiClient interface {
 	// PutFile writes the specified file to pfs.
 	PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// GetFile returns a byte stream of the contents of the file.
-	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (InternalApi_GetFileClient, error)
+	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (*BlockMap, error)
 	// InspectFile returns a info about a file.
 	InspectFile(ctx context.Context, in *InspectFileRequest, opts ...grpc.CallOption) (*FileInfo, error)
 	// ListFile returns info about all files.
@@ -1722,36 +1813,13 @@ func (c *internalApiClient) PutFile(ctx context.Context, in *PutFileRequest, opt
 	return out, nil
 }
 
-func (c *internalApiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (InternalApi_GetFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[0], c.cc, "/pfs.InternalApi/GetFile", opts...)
+func (c *internalApiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (*BlockMap, error) {
+	out := new(BlockMap)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/GetFile", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &internalApiGetFileClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type InternalApi_GetFileClient interface {
-	Recv() (*google_protobuf3.BytesValue, error)
-	grpc.ClientStream
-}
-
-type internalApiGetFileClient struct {
-	grpc.ClientStream
-}
-
-func (x *internalApiGetFileClient) Recv() (*google_protobuf3.BytesValue, error) {
-	m := new(google_protobuf3.BytesValue)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *internalApiClient) InspectFile(ctx context.Context, in *InspectFileRequest, opts ...grpc.CallOption) (*FileInfo, error) {
@@ -1800,7 +1868,7 @@ func (c *internalApiClient) PutBlock(ctx context.Context, in *PutBlockRequest, o
 }
 
 func (c *internalApiClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (InternalApi_GetBlockClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[1], c.cc, "/pfs.InternalApi/GetBlock", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[0], c.cc, "/pfs.InternalApi/GetBlock", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1850,7 +1918,7 @@ func (c *internalApiClient) ListBlock(ctx context.Context, in *ListBlockRequest,
 }
 
 func (c *internalApiClient) PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (InternalApi_PullDiffClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[2], c.cc, "/pfs.InternalApi/PullDiff", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[1], c.cc, "/pfs.InternalApi/PullDiff", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1917,7 +1985,7 @@ type InternalApiServer interface {
 	// PutFile writes the specified file to pfs.
 	PutFile(context.Context, *PutFileRequest) (*google_protobuf1.Empty, error)
 	// GetFile returns a byte stream of the contents of the file.
-	GetFile(*GetFileRequest, InternalApi_GetFileServer) error
+	GetFile(context.Context, *GetFileRequest) (*BlockMap, error)
 	// InspectFile returns a info about a file.
 	InspectFile(context.Context, *InspectFileRequest) (*FileInfo, error)
 	// ListFile returns info about all files.
@@ -2067,25 +2135,16 @@ func _InternalApi_PutFile_Handler(srv interface{}, ctx context.Context, codec gr
 	return out, nil
 }
 
-func _InternalApi_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetFileRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _InternalApi_GetFile_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(GetFileRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
 	}
-	return srv.(InternalApiServer).GetFile(m, &internalApiGetFileServer{stream})
-}
-
-type InternalApi_GetFileServer interface {
-	Send(*google_protobuf3.BytesValue) error
-	grpc.ServerStream
-}
-
-type internalApiGetFileServer struct {
-	grpc.ServerStream
-}
-
-func (x *internalApiGetFileServer) Send(m *google_protobuf3.BytesValue) error {
-	return x.ServerStream.SendMsg(m)
+	out, err := srv.(InternalApiServer).GetFile(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func _InternalApi_InspectFile_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
@@ -2271,6 +2330,10 @@ var _InternalApi_serviceDesc = grpc.ServiceDesc{
 			Handler:    _InternalApi_PutFile_Handler,
 		},
 		{
+			MethodName: "GetFile",
+			Handler:    _InternalApi_GetFile_Handler,
+		},
+		{
 			MethodName: "InspectFile",
 			Handler:    _InternalApi_InspectFile_Handler,
 		},
@@ -2304,11 +2367,6 @@ var _InternalApi_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "GetFile",
-			Handler:       _InternalApi_GetFile_Handler,
-			ServerStreams: true,
-		},
 		{
 			StreamName:    "GetBlock",
 			Handler:       _InternalApi_GetBlock_Handler,

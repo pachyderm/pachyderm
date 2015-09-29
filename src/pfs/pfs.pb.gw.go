@@ -98,7 +98,7 @@ func RegisterApiHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.C
 			return
 		}
 
-		forward_Api_CreateRepo_0(ctx, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_Api_CreateRepo_0(ctx, w, req, resp)
 
 	})
 

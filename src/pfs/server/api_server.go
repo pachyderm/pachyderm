@@ -19,6 +19,8 @@ import (
 	"go.pedge.io/proto/time"
 )
 
+const blockChunk = 64 * 1024 * 1024 //64 megabyte chunks
+
 type apiServer struct {
 	sharder route.Sharder
 	router  route.Router
@@ -251,22 +253,6 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 	return emptyInstance, nil
 }
 
-func (a *apiServer) PutBlock(ctx context.Context, request *pfs.PutBlockRequest) (*pfs.Block, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	block := a.sharder.GetBlock(request.Value)
-	clientConn, err := a.getClientConnForBlock(block, version)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := pfs.NewInternalApiClient(clientConn).PutBlock(ctx, request); err != nil {
-		return nil, err
-	}
-	return block, nil
-}
-
 func (a *apiServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.Api_GetBlockServer) (retErr error) {
 	version, ctx, err := a.versionAndCtx(context.Background())
 	if err != nil {
@@ -348,9 +334,6 @@ func (a *apiServer) PutFile(ctx context.Context, request *pfs.PutFileRequest) (*
 		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
 	}
 	if request.FileType == pfs.FileType_FILE_TYPE_DIR {
-		if len(request.Value) > 0 {
-			return emptyInstance, fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
-		}
 		clientConns, err := a.router.GetAllClientConns(version)
 		if err != nil {
 			return nil, err
@@ -366,6 +349,32 @@ func (a *apiServer) PutFile(ctx context.Context, request *pfs.PutFileRequest) (*
 	if err != nil {
 		return nil, err
 	}
+	if request.GetBlockMap() != nil {
+		return pfs.NewInternalApiClient(clientConn).PutFile(ctx, request)
+	}
+	var blockMap pfs.BlockMap
+	for i := 0; i*blockChunk < len(request.GetRaw()); i++ {
+		var blockValue []byte
+		if i+1*blockChunk < len(request.GetRaw()) {
+			blockValue = request.GetRaw()[i*blockChunk : i+1*blockChunk]
+		} else {
+			blockValue = request.GetRaw()[i*blockChunk : len(request.GetRaw())-1]
+		}
+		block := a.sharder.GetBlock(blockValue)
+		clientConn, err := a.getClientConnForBlock(block, version)
+		if err != nil {
+			return nil, err
+		}
+		putBlockRequest := &pfs.PutBlockRequest{
+			File:  request.File,
+			Value: blockValue,
+		}
+		if _, err := pfs.NewInternalApiClient(clientConn).PutBlock(ctx, putBlockRequest); err != nil {
+			return nil, err
+		}
+		blockMap.Block = append(blockMap.Block, &pfs.BlockMap_BlockAndSize{block, uint64(len(blockValue))})
+	}
+	request.Value = &pfs.PutFileRequest_BlockMap{&blockMap}
 	return pfs.NewInternalApiClient(clientConn).PutFile(ctx, request)
 }
 
@@ -378,11 +387,25 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.Ap
 	if err != nil {
 		return err
 	}
-	fileGetClient, err := pfs.NewInternalApiClient(clientConn).GetFile(ctx, request)
+	blockMap, err := pfs.NewInternalApiClient(clientConn).GetFile(ctx, request)
 	if err != nil {
 		return err
 	}
-	return protostream.RelayFromStreamingBytesClient(fileGetClient, apiGetFileServer)
+	// TODO jdoliner parallelize me
+	for _, block := range blockMap.Block {
+		clientConn, err := a.getClientConnForBlock(block.Block, version)
+		if err != nil {
+			return err
+		}
+		blockGetClient, err := pfs.NewInternalApiClient(clientConn).GetBlock(ctx, &pfs.GetBlockRequest{block.Block})
+		if err != nil {
+			return err
+		}
+		if err := protostream.RelayFromStreamingBytesClient(blockGetClient, apiGetFileServer); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (*pfs.FileInfo, error) {

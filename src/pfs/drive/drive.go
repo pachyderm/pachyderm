@@ -27,13 +27,15 @@ type Driver interface {
 	InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error)
 	ListCommit(repo *pfs.Repo, from *pfs.Commit, shards map[uint64]bool) ([]*pfs.CommitInfo, error)
 	DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error
+	// PutBlock puts a block for storage
+	// shard should be the shard for block not file.
 	PutBlock(file *pfs.File, block *pfs.Block, shard uint64, reader io.Reader) error
 	GetBlock(block *pfs.Block, shard uint64) (ReaderAtCloser, error)
 	InspectBlock(block *pfs.Block, shard uint64) (*pfs.BlockInfo, error)
 	ListBlock(shard uint64) ([]*pfs.BlockInfo, error)
-	PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) error
+	PutFile(file *pfs.File, shard uint64, blockMap *pfs.BlockMap) error
 	MakeDirectory(file *pfs.File, shards map[uint64]bool) error
-	GetFile(file *pfs.File, shard uint64) (ReaderAtCloser, error)
+	GetFile(file *pfs.File, shard uint64) (*pfs.BlockMap, error)
 	InspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error)
 	ListFile(file *pfs.File, shard uint64) ([]*pfs.FileInfo, error)
 	ListChange(file *pfs.File, from *pfs.Commit, shard uint64) ([]*pfs.Change, error)

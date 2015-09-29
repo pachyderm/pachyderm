@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"sync"
@@ -272,10 +271,10 @@ func (a *internalAPIServer) PutFile(ctx context.Context, request *pfs.PutFileReq
 		// ways so we forbid leading slashes.
 		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
 	}
+	if request.GetRaw() != nil {
+		return nil, fmt.Errorf("pachyderm: internalAPIServer shouldn't receive Raw PutFile")
+	}
 	if request.FileType == pfs.FileType_FILE_TYPE_DIR {
-		if len(request.Value) > 0 {
-			return emptyInstance, fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
-		}
 		shards, err := a.router.GetMasterShards(version)
 		if err != nil {
 			return nil, err
@@ -289,34 +288,22 @@ func (a *internalAPIServer) PutFile(ctx context.Context, request *pfs.PutFileReq
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.PutFile(request.File, shard, request.OffsetBytes, bytes.NewReader(request.Value)); err != nil {
+	if err := a.driver.PutFile(request.File, shard, request.GetBlockMap()); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
 }
 
-func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.InternalApi_GetFileServer) (retErr error) {
-	version, err := a.getVersion(apiGetFileServer.Context())
+func (a *internalAPIServer) GetFile(ctx context.Context, request *pfs.GetFileRequest) (*pfs.BlockMap, error) {
+	version, err := a.getVersion(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	shard, err := a.getShardForFile(request.File, version)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	file, err := a.driver.GetFile(request.File, shard)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := file.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	return protostream.WriteToStreamingBytesServer(
-		io.NewSectionReader(file, request.OffsetBytes, request.SizeBytes),
-		apiGetFileServer,
-	)
+	return a.driver.GetFile(request.File, shard)
 }
 
 func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
