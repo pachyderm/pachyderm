@@ -110,7 +110,7 @@ type cluster struct {
 	internalServers map[string]server.InternalAPIServer
 	cancels         map[string]chan bool
 	cancel          chan bool
-	addresser       route.Addresser
+	addresser       route.TestAddresser
 	sharder         route.Sharder
 	tb              testing.TB
 }
@@ -151,7 +151,7 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		testShardsPerServer*testNumServers,
 		testNumReplicas,
 	)
-	addresser := route.NewDiscoveryAddresser(discoveryClient, sharder, testNamespace())
+	addresser := route.NewDiscoveryTestAddresser(discoveryClient, sharder, testNamespace())
 	cluster := cluster{
 		servers:         make(map[string]server.APIServer),
 		internalServers: make(map[string]server.InternalAPIServer),

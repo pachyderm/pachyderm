@@ -12,6 +12,7 @@ func init() {
 	protolog.Register("protolog.testing.Baz", func() protolog.Message { return &Baz{} })
 	protolog.Register("protolog.testing.Baz.Bat", func() protolog.Message { return &Baz_Bat{} })
 	protolog.Register("protolog.testing.Baz.Bat.Ban", func() protolog.Message { return &Baz_Bat_Ban{} })
+	protolog.Register("protolog.testing.Empty", func() protolog.Message { return &Empty{} })
 }
 
 func (m *Foo) ProtologName() string {
@@ -28,4 +29,7 @@ func (m *Baz_Bat) ProtologName() string {
 }
 func (m *Baz_Bat_Ban) ProtologName() string {
 	return "protolog.testing.Baz.Bat.Ban"
+}
+func (m *Empty) ProtologName() string {
+	return "protolog.testing.Empty"
 }

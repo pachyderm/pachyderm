@@ -22,3 +22,6 @@ message Baz {
   }
   Bat bat = 1;
 }
+
+message Empty {
+}
