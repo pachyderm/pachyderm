@@ -5,6 +5,11 @@ import "google/protobuf/empty.proto";
 
 package dockervolume;
 
+message RemoveVolumeAttempt {
+    string name = 1;
+    string err = 2;
+}
+
 message ActivateResponse {
   repeated string implements = 1;
 }
@@ -52,6 +57,11 @@ message UnmountResponse {
   string err = 1;
 }
 
+message CleanupResponse {
+  repeated RemoveVolumeAttempt remove_volume_attempt = 1;
+  string err = 2;
+}
+
 service API {
   rpc Activate(google.protobuf.Empty) returns (ActivateResponse) {
     option (google.api.http) = {
@@ -86,6 +96,12 @@ service API {
   rpc Unmount(UnmountRequest) returns (UnmountResponse) {
     option (google.api.http) = {
       post: "/VolumeDriver.Unmount"
+      body: "*"
+    };
+  }
+  rpc Cleanup(google.protobuf.Empty) returns (CleanupResponse) {
+    option (google.api.http) = {
+      post: "/VolumeDriver.Cleanup"
       body: "*"
     };
   }

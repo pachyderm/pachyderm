@@ -85,6 +85,16 @@ func request_API_Unmount_0(ctx context.Context, client APIClient, req *http.Requ
 	return client.Unmount(ctx, &protoReq)
 }
 
+func request_API_Cleanup_0(ctx context.Context, client APIClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+	var protoReq google_protobuf.Empty
+
+	if err := json.NewDecoder(req.Body).Decode(&protoReq); err != nil {
+		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	return client.Cleanup(ctx, &protoReq)
+}
+
 // RegisterAPIHandlerFromEndpoint is same as RegisterAPIHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
 func RegisterAPIHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string) (err error) {
@@ -181,6 +191,17 @@ func RegisterAPIHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.C
 
 	})
 
+	mux.Handle("POST", pattern_API_Cleanup_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_API_Cleanup_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		if err != nil {
+			runtime.HTTPError(ctx, w, err)
+			return
+		}
+
+		forward_API_Cleanup_0(ctx, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	return nil
 }
 
@@ -196,6 +217,8 @@ var (
 	pattern_API_Mount_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"VolumeDriver.Mount"}, ""))
 
 	pattern_API_Unmount_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"VolumeDriver.Unmount"}, ""))
+
+	pattern_API_Cleanup_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0}, []string{"VolumeDriver.Cleanup"}, ""))
 )
 
 var (
@@ -210,4 +233,6 @@ var (
 	forward_API_Mount_0 = runtime.ForwardResponseMessage
 
 	forward_API_Unmount_0 = runtime.ForwardResponseMessage
+
+	forward_API_Cleanup_0 = runtime.ForwardResponseMessage
 )

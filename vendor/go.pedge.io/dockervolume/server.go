@@ -20,7 +20,7 @@ const (
 
 type server struct {
 	protocol         int
-	volumeDriver     VolumeDriver
+	apiServer        *apiServer
 	volumeDriverName string
 	grpcPort         uint16
 	groupOrAddress   string
@@ -37,7 +37,7 @@ func newServer(
 ) *server {
 	return &server{
 		protocol,
-		volumeDriver,
+		newAPIServer(volumeDriver, volumeDriverName),
 		volumeDriverName,
 		grpcPort,
 		groupOrAddress,
@@ -67,7 +67,7 @@ func (s *server) Serve() (retErr error) {
 	return protoserver.Serve(
 		s.grpcPort,
 		func(grpcServer *grpc.Server) {
-			RegisterAPIServer(grpcServer, newAPIServer(s.volumeDriver))
+			RegisterAPIServer(grpcServer, s.apiServer)
 		},
 		protoserver.ServeOptions{
 			DebugPort: s.opts.GRPCDebugPort,
@@ -84,12 +84,17 @@ func (s *server) Serve() (retErr error) {
 					},
 				),
 			},
-			CleanupFunc: func() {
+			HTTPBeforeShutdown: func() { _ = s.cleanup() },
+			HTTPShutdownInitiated: func() {
 				if spec != "" {
 					_ = os.Remove(spec)
 				}
 			},
-			Start: start,
+			HTTPStart: start,
 		},
 	)
+}
+
+func (s *server) cleanup() error {
+	return nil
 }

@@ -3,16 +3,17 @@ package dockervolume
 import (
 	"errors"
 
+	"go.pedge.io/google-protobuf"
+
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 )
 
 type volumeDriverClient struct {
 	apiClient APIClient
 }
 
-func newVolumeDriverClient(clientConn *grpc.ClientConn) *volumeDriverClient {
-	return &volumeDriverClient{NewAPIClient(clientConn)}
+func newVolumeDriverClient(apiClient APIClient) *volumeDriverClient {
+	return &volumeDriverClient{apiClient}
 }
 
 func (v *volumeDriverClient) Create(name string, opts map[string]string) error {
@@ -94,4 +95,18 @@ func (v *volumeDriverClient) Unmount(name string) error {
 		return errors.New(response.Err)
 	}
 	return nil
+}
+
+func (v *volumeDriverClient) Cleanup() ([]*RemoveVolumeAttempt, error) {
+	response, err := v.apiClient.Cleanup(
+		context.Background(),
+		&google_protobuf.Empty{},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if response.Err != "" {
+		return nil, errors.New(response.Err)
+	}
+	return response.RemoveVolumeAttempt, nil
 }
