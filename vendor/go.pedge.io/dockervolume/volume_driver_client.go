@@ -105,8 +105,49 @@ func (v *volumeDriverClient) Cleanup() ([]*RemoveVolumeAttempt, error) {
 	if err != nil {
 		return nil, err
 	}
-	if response.Err != "" {
-		return nil, errors.New(response.Err)
-	}
 	return response.RemoveVolumeAttempt, nil
+}
+
+func (v *volumeDriverClient) GetVolume(name string) (*Volume, error) {
+	return v.apiClient.GetVolume(
+		context.Background(),
+		&GetVolumeRequest{
+			Name: name,
+		},
+	)
+}
+
+func (v *volumeDriverClient) ListVolumes() ([]*Volume, error) {
+	response, err := v.apiClient.ListVolumes(
+		context.Background(),
+		&google_protobuf.Empty{},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return response.Volume, nil
+}
+
+func (v *volumeDriverClient) GetEventsByVolume(name string) ([]*Event, error) {
+	response, err := v.apiClient.GetEventsByVolume(
+		context.Background(),
+		&GetEventsByVolumeRequest{
+			VolumeName: name,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return response.Event, nil
+}
+
+func (v *volumeDriverClient) ListEvents() ([]*Event, error) {
+	response, err := v.apiClient.ListEvents(
+		context.Background(),
+		&google_protobuf.Empty{},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return response.Event, nil
 }

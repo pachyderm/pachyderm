@@ -8,6 +8,7 @@ import (
 
 	"github.com/gengo/grpc-gateway/runtime"
 	"github.com/golang/protobuf/proto"
+	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/server"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -22,7 +23,6 @@ type server struct {
 	protocol         int
 	apiServer        *apiServer
 	volumeDriverName string
-	grpcPort         uint16
 	groupOrAddress   string
 	opts             ServerOptions
 }
@@ -31,15 +31,17 @@ func newServer(
 	protocol int,
 	volumeDriver VolumeDriver,
 	volumeDriverName string,
-	grpcPort uint16,
 	groupOrAddress string,
 	opts ServerOptions,
 ) *server {
 	return &server{
 		protocol,
-		newAPIServer(volumeDriver, volumeDriverName),
+		newAPIServer(
+			volumeDriver,
+			volumeDriverName,
+			opts.NoEvents,
+		),
 		volumeDriverName,
-		grpcPort,
 		groupOrAddress,
 		opts,
 	}
@@ -64,8 +66,12 @@ func (s *server) Serve() (retErr error) {
 	if err != nil {
 		return err
 	}
+	grpcPort := s.opts.GRPCPort
+	if grpcPort == 0 {
+		grpcPort = DefaultGRPCPort
+	}
 	return protoserver.Serve(
-		s.grpcPort,
+		grpcPort,
 		func(grpcServer *grpc.Server) {
 			RegisterAPIServer(grpcServer, s.apiServer)
 		},
@@ -96,5 +102,12 @@ func (s *server) Serve() (retErr error) {
 }
 
 func (s *server) cleanup() error {
+	if !s.opts.NoCleanupOnShutdown {
+		_, err := s.apiServer.Cleanup(
+			context.Background(),
+			&google_protobuf.Empty{},
+		)
+		return err
+	}
 	return nil
 }

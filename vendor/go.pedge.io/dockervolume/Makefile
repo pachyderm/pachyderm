@@ -5,6 +5,7 @@
 	testdeps \
 	updatetestdeps \
 	build \
+	install \
 	lint \
 	vet \
 	errcheck \
@@ -30,6 +31,9 @@ updatetestdeps:
 build: deps
 	GOOS=linux go build ./...
 
+install: deps
+	go install ./...
+
 lint: testdeps
 	go get -v github.com/golang/lint/golint
 	for file in $$(find . -name '*.go' | grep -v '\.pb\.go' | grep -v '\.pb\.gw\.go' | grep -v '\.pb\.log\.go'); do \
@@ -40,7 +44,7 @@ lint: testdeps
 	done
 
 vet: testdeps
-	#go vet ./...
+	go vet ./... 2>&1 | grep -v 'not a string in call to Errorf'
 
 errcheck: testdeps
 	go get -v github.com/kisielk/errcheck
@@ -54,6 +58,7 @@ test: testdeps pretest
 clean:
 	go clean ./...
 	GOOS=linux go clean ./...
+	go clean -i ./...
 
 proto:
 	go get -v go.pedge.io/tools/protoc-all
