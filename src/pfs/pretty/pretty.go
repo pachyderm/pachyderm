@@ -132,13 +132,11 @@ func PrintServerInfo(w io.Writer, serverInfo *pfs.ServerInfo) {
 }
 
 func PrintChangeHeader(w io.Writer) {
-	fmt.Fprintf(w, "NAME\tOFFSET\tSIZE\t\n")
+	fmt.Fprintf(w, "NAME\t\n")
 }
 
 func PrintChange(w io.Writer, change *pfs.Change) {
-	fmt.Fprintf(w, "%s\t", change.File.Path)
-	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(change.OffsetBytes)))
-	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(change.SizeBytes)))
+	fmt.Fprintf(w, "%s\t\n", change.File.Path)
 }
 
 func PrintBlockInfoHeader(w io.Writer) {

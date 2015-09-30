@@ -372,7 +372,7 @@ func (a *apiServer) PutFile(ctx context.Context, request *pfs.PutFileRequest) (*
 		if _, err := pfs.NewInternalApiClient(clientConn).PutBlock(ctx, putBlockRequest); err != nil {
 			return nil, err
 		}
-		blockMap.Block = append(blockMap.Block, &pfs.BlockMap_BlockAndSize{block, uint64(len(blockValue))})
+		blockMap.Block = append(blockMap.Block, &pfs.BlockAndSize{block, uint64(len(blockValue))})
 	}
 	request.Value = &pfs.PutFileRequest_BlockMap{&blockMap}
 	return pfs.NewInternalApiClient(clientConn).PutFile(ctx, request)
