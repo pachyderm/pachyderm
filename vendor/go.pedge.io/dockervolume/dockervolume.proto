@@ -2,12 +2,45 @@ syntax = "proto3";
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 package dockervolume;
 
+enum EventType {
+  EVENT_TYPE_NONE = 0;
+  EVENT_TYPE_CREATED = 1;
+  EVENT_TYPE_REMOVED = 2;
+  EVENT_TYPE_MOUNTED = 3;
+  EVENT_TYPE_UNMOUNTED = 4;
+}
+
+message Volume {
+  string name = 1;
+  map<string, string> opts = 2;
+  string mountpoint = 3;
+}
+
+message Volumes {
+  repeated Volume volume = 1;
+}
+
+message Event {
+  EventType event_type = 1;
+  Volume volume = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message Events {
+  repeated Event event = 1;
+}
+
 message RemoveVolumeAttempt {
-    string name = 1;
-    string err = 2;
+  Volume volume = 1;
+  string err = 2;
+}
+
+message RemoveVolumeAttempts {
+  repeated RemoveVolumeAttempt remove_volume_attempt = 1;
 }
 
 message ActivateResponse {
@@ -57,9 +90,12 @@ message UnmountResponse {
   string err = 1;
 }
 
-message CleanupResponse {
-  repeated RemoveVolumeAttempt remove_volume_attempt = 1;
-  string err = 2;
+message GetVolumeRequest {
+  string name = 1;
+}
+
+message GetEventsByVolumeRequest {
+  string volume_name = 1;
 }
 
 service API {
@@ -99,10 +135,29 @@ service API {
       body: "*"
     };
   }
-  rpc Cleanup(google.protobuf.Empty) returns (CleanupResponse) {
+  rpc Cleanup(google.protobuf.Empty) returns (RemoveVolumeAttempts) {
     option (google.api.http) = {
-      post: "/VolumeDriver.Cleanup"
-      body: "*"
+      get: "/api/cleanup"
+    };
+  }
+  rpc GetVolume(GetVolumeRequest)  returns (Volume) {
+    option (google.api.http) = {
+      get: "/api/volumes/{name}"
+    };
+  }
+  rpc ListVolumes(google.protobuf.Empty) returns (Volumes) {
+    option (google.api.http) = {
+      get: "/api/volumes"
+    };
+  }
+  rpc GetEventsByVolume(GetEventsByVolumeRequest) returns (Events) {
+    option (google.api.http) = {
+      get: "/api/events/{volume_name}"
+    };
+  }
+  rpc ListEvents(google.protobuf.Empty) returns (Events) {
+    option (google.api.http) = {
+      get: "/api/events"
     };
   }
 }

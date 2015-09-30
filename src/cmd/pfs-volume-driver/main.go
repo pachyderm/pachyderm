@@ -30,7 +30,7 @@ var (
 	defaultEnv = map[string]string{
 		"PFS_ADDRESS":     "0.0.0.0:650",
 		"BASE_MOUNTPOINT": "/tmp/pfs-volume-driver",
-		"GRPC_PORT":       "1850",
+		"GRPC_PORT":       "2150",
 		"HTTP_PORT":       "1950",
 	}
 )
@@ -72,9 +72,10 @@ func do(appEnvObj interface{}) error {
 			appEnv.BaseMountpoint,
 		),
 		volumeDriverName,
-		uint16(appEnv.GRPCPort),
 		fmt.Sprintf(":%d", appEnv.HTTPPort),
-		dockervolume.ServerOptions{},
+		dockervolume.ServerOptions{
+			GRPCPort: uint16(appEnv.GRPCPort),
+		},
 	).Serve()
 }
 

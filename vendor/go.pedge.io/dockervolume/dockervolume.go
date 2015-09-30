@@ -1,5 +1,10 @@
 package dockervolume
 
+const (
+	// DefaultGRPCPort is the default port used for grpc.
+	DefaultGRPCPort uint16 = 2150
+)
+
 // VolumeDriver is the interface that should be implemented for custom volume drivers.
 type VolumeDriver interface {
 	// Create a volume with the given name and opts.
@@ -29,6 +34,16 @@ type VolumeDriverClient interface {
 	Unmount(name string) (err error)
 	// Cleanup all volumes.
 	Cleanup() ([]*RemoveVolumeAttempt, error)
+	// Get a volume by name.
+	GetVolume(name string) (*Volume, error)
+	// List all volumes.
+	ListVolumes() ([]*Volume, error)
+	// Get events by volume name. Note that events are just in a cache,
+	// which will be wiped when there are too many events.
+	GetEventsByVolume(name string) ([]*Event, error)
+	// List all events. Note that events are just in a cache,
+	// which will be wupred when there are too many events.
+	ListEvents() ([]*Event, error)
 }
 
 // NewVolumeDriverClient creates a new VolumeDriverClient for the given APIClient.
@@ -43,14 +58,16 @@ type Server interface {
 
 // ServerOptions are options for a Server.
 type ServerOptions struct {
-	GRPCDebugPort uint16
+	NoEvents            bool
+	GRPCPort            uint16
+	GRPCDebugPort       uint16
+	NoCleanupOnShutdown bool
 }
 
 // NewTCPServer returns a new Server for TCP.
 func NewTCPServer(
 	volumeDriver VolumeDriver,
 	volumeDriverName string,
-	grpcPort uint16,
 	address string,
 	opts ServerOptions,
 ) Server {
@@ -58,7 +75,6 @@ func NewTCPServer(
 		protocolTCP,
 		volumeDriver,
 		volumeDriverName,
-		grpcPort,
 		address,
 		opts,
 	)
@@ -68,7 +84,6 @@ func NewTCPServer(
 func NewUnixServer(
 	volumeDriver VolumeDriver,
 	volumeDriverName string,
-	grpcPort uint16,
 	group string,
 	opts ServerOptions,
 ) Server {
@@ -76,7 +91,6 @@ func NewUnixServer(
 		protocolUnix,
 		volumeDriver,
 		volumeDriverName,
-		grpcPort,
 		group,
 		opts,
 	)
