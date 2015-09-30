@@ -21,6 +21,15 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+type RemoveVolumeAttempt struct {
+	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Err  string `protobuf:"bytes,2,opt,name=err" json:"err,omitempty"`
+}
+
+func (m *RemoveVolumeAttempt) Reset()         { *m = RemoveVolumeAttempt{} }
+func (m *RemoveVolumeAttempt) String() string { return proto.CompactTextString(m) }
+func (*RemoveVolumeAttempt) ProtoMessage()    {}
+
 type ActivateResponse struct {
 	Implements []string `protobuf:"bytes,1,rep,name=implements" json:"implements,omitempty"`
 }
@@ -119,6 +128,22 @@ func (m *UnmountResponse) Reset()         { *m = UnmountResponse{} }
 func (m *UnmountResponse) String() string { return proto.CompactTextString(m) }
 func (*UnmountResponse) ProtoMessage()    {}
 
+type CleanupResponse struct {
+	RemoveVolumeAttempt []*RemoveVolumeAttempt `protobuf:"bytes,1,rep,name=remove_volume_attempt" json:"remove_volume_attempt,omitempty"`
+	Err                 string                 `protobuf:"bytes,2,opt,name=err" json:"err,omitempty"`
+}
+
+func (m *CleanupResponse) Reset()         { *m = CleanupResponse{} }
+func (m *CleanupResponse) String() string { return proto.CompactTextString(m) }
+func (*CleanupResponse) ProtoMessage()    {}
+
+func (m *CleanupResponse) GetRemoveVolumeAttempt() []*RemoveVolumeAttempt {
+	if m != nil {
+		return m.RemoveVolumeAttempt
+	}
+	return nil
+}
+
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
 var _ grpc.ClientConn
@@ -132,6 +157,7 @@ type APIClient interface {
 	Path(ctx context.Context, in *PathRequest, opts ...grpc.CallOption) (*PathResponse, error)
 	Mount(ctx context.Context, in *MountRequest, opts ...grpc.CallOption) (*MountResponse, error)
 	Unmount(ctx context.Context, in *UnmountRequest, opts ...grpc.CallOption) (*UnmountResponse, error)
+	Cleanup(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*CleanupResponse, error)
 }
 
 type aPIClient struct {
@@ -196,6 +222,15 @@ func (c *aPIClient) Unmount(ctx context.Context, in *UnmountRequest, opts ...grp
 	return out, nil
 }
 
+func (c *aPIClient) Cleanup(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*CleanupResponse, error) {
+	out := new(CleanupResponse)
+	err := grpc.Invoke(ctx, "/dockervolume.API/Cleanup", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for API service
 
 type APIServer interface {
@@ -205,6 +240,7 @@ type APIServer interface {
 	Path(context.Context, *PathRequest) (*PathResponse, error)
 	Mount(context.Context, *MountRequest) (*MountResponse, error)
 	Unmount(context.Context, *UnmountRequest) (*UnmountResponse, error)
+	Cleanup(context.Context, *google_protobuf1.Empty) (*CleanupResponse, error)
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
@@ -283,6 +319,18 @@ func _API_Unmount_Handler(srv interface{}, ctx context.Context, codec grpc.Codec
 	return out, nil
 }
 
+func _API_Cleanup_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(google_protobuf1.Empty)
+	if err := codec.Unmarshal(buf, in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).Cleanup(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 var _API_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "dockervolume.API",
 	HandlerType: (*APIServer)(nil),
@@ -310,6 +358,10 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Unmount",
 			Handler:    _API_Unmount_Handler,
+		},
+		{
+			MethodName: "Cleanup",
+			Handler:    _API_Cleanup_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},
