@@ -5,19 +5,27 @@ const (
 	DefaultGRPCPort uint16 = 2150
 )
 
+// Opts are options given to a VolumeDriver method.
+type Opts interface {
+	GetRequiredString(key string) (string, error)
+	GetOptionalString(key string, defaultValue string) (string, error)
+	GetRequiredUInt64(key string) (uint64, error)
+	GetOptionalUInt64(key string, defaultValue uint64) (uint64, error)
+}
+
 // VolumeDriver is the interface that should be implemented for custom volume drivers.
 type VolumeDriver interface {
 	// Create a volume with the given name and opts.
-	Create(name string, opts map[string]string) (err error)
+	Create(name string, opts Opts) (err error)
 	// Remove the volume with the given name. opts and mountpoint were the opts
 	// given when created, and mountpoint when mounted, if ever mounted.
-	Remove(name string, opts map[string]string, mountpoint string) (err error)
+	Remove(name string, opts Opts, mountpoint string) (err error)
 	// Mount the given volume and return the mountpoint. opts were the opts
 	// given when created.
-	Mount(name string, opts map[string]string) (mountpoint string, err error)
+	Mount(name string, opts Opts) (mountpoint string, err error)
 	// Unmount the given volume. opts were the opts and mountpoint were the
 	// opts given when created, and mountpoint when mounted.
-	Unmount(name string, opts map[string]string, mountpoint string) (err error)
+	Unmount(name string, opts Opts, mountpoint string) (err error)
 }
 
 // VolumeDriverClient is a wrapper for APIClient.

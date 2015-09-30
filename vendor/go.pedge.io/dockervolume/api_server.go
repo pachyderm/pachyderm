@@ -68,7 +68,7 @@ func (a *apiServer) Create(_ context.Context, request *CreateRequest) (response 
 			Err: fmt.Sprintf("dockervolume: volume already created: %s", request.Name),
 		}, nil
 	}
-	if err := a.volumeDriver.Create(request.Name, request.Opts); err != nil {
+	if err := a.volumeDriver.Create(request.Name, newOpts(copyStringStringMap(request.Opts))); err != nil {
 		a.lock.Unlock()
 		return &CreateResponse{
 			Err: err.Error(),
@@ -93,7 +93,7 @@ func (a *apiServer) Remove(_ context.Context, request *RemoveRequest) (response 
 	}
 	delete(a.nameToVolume, request.Name)
 	a.addEvent(EventType_EVENT_TYPE_REMOVED, volume)
-	if err := a.volumeDriver.Remove(volume.Name, copyStringStringMap(volume.Opts), volume.Mountpoint); err != nil {
+	if err := a.volumeDriver.Remove(volume.Name, newOpts(copyStringStringMap(volume.Opts)), volume.Mountpoint); err != nil {
 		a.lock.Unlock()
 		return &RemoveResponse{
 			Err: err.Error(),
@@ -137,7 +137,7 @@ func (a *apiServer) Mount(_ context.Context, request *MountRequest) (response *M
 			Err: fmt.Sprintf("dockervolume: volume already mounted: %s at %s", volume.Name, volume.Mountpoint),
 		}, nil
 	}
-	mountpoint, err := a.volumeDriver.Mount(volume.Name, copyStringStringMap(volume.Opts))
+	mountpoint, err := a.volumeDriver.Mount(volume.Name, newOpts(copyStringStringMap(volume.Opts)))
 	volume.Mountpoint = mountpoint
 	a.addEvent(EventType_EVENT_TYPE_MOUNTED, volume)
 	if err != nil {
@@ -173,7 +173,7 @@ func (a *apiServer) Unmount(_ context.Context, request *UnmountRequest) (respons
 	a.addEvent(EventType_EVENT_TYPE_UNMOUNTED, volume)
 	mountpoint := volume.Mountpoint
 	volume.Mountpoint = ""
-	if err := a.volumeDriver.Unmount(volume.Name, copyStringStringMap(volume.Opts), mountpoint); err != nil {
+	if err := a.volumeDriver.Unmount(volume.Name, newOpts(copyStringStringMap(volume.Opts)), mountpoint); err != nil {
 		a.lock.Unlock()
 		return &UnmountResponse{
 			Err: err.Error(),
