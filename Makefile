@@ -43,6 +43,7 @@ build: deps
 
 install: deps
 	go install ./src/cmd/pfs-volume-driver ./src/cmd/pfs ./src/cmd/pps
+	go install ./vendor/go.pedge.io/dockervolume/cmd/dockervolume
 
 docker-build-test:
 	docker-compose build btrfs
