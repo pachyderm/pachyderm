@@ -61,17 +61,9 @@ func (s *server) Serve() (retErr error) {
 	default:
 		return fmt.Errorf("unknown protocol: %d", s.protocol)
 	}
-	if spec != "" {
-		defer func() {
-			if err := os.Remove(spec); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-	}
 	if err != nil {
 		return err
 	}
-	close(start)
 	return protoserver.Serve(
 		s.grpcPort,
 		func(grpcServer *grpc.Server) {
@@ -92,6 +84,12 @@ func (s *server) Serve() (retErr error) {
 					},
 				),
 			},
+			CleanupFunc: func() {
+				if spec != "" {
+					_ = os.Remove(spec)
+				}
+			},
+			Start: start,
 		},
 	)
 }

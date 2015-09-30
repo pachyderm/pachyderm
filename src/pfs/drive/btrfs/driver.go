@@ -333,7 +333,6 @@ func (d *driver) PutBlock(file *pfs.File, block *pfs.Block, shard uint64, reader
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	protolog.Printf("PutBlock %s", d.blockPath(block, shard))
 	blockFile, err := os.OpenFile(d.blockPath(block, shard), os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return err
