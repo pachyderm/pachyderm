@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"time"
 
+	"gopkg.in/tylerb/graceful.v1"
+
 	"go.pedge.io/proto/time"
 	"go.pedge.io/proto/version"
 	"go.pedge.io/protolog"
@@ -35,9 +37,12 @@ type ServeOptions struct {
 	Version          *protoversion.Version
 	HTTPRegisterFunc func(context.Context, *runtime.ServeMux, *grpc.ClientConn) error
 	// either HTTPPort or HTTPAddress can be set, but not both
-	HTTPAddress     string
-	HTTPListener    net.Listener
-	ServeMuxOptions []runtime.ServeMuxOption
+	HTTPAddress           string
+	HTTPListener          net.Listener
+	ServeMuxOptions       []runtime.ServeMuxOption
+	HTTPBeforeShutdown    func()
+	HTTPShutdownInitiated func()
+	HTTPStart             chan struct{}
 }
 
 // Serve serves stuff.
@@ -81,15 +86,25 @@ func Serve(
 	if err != nil {
 		return err
 	}
-	errC := make(chan error)
-	go func() { errC <- s.Serve(listener) }()
+	grpcErrC := make(chan error)
+	grpcDebugErrC := make(chan error)
+	httpErrC := make(chan error)
+	errCCount := 1
+	go func() { grpcErrC <- s.Serve(listener) }()
 	if opts.DebugPort != 0 {
-		go func() { errC <- http.ListenAndServe(fmt.Sprintf(":%d", opts.DebugPort), nil) }()
+		errCCount++
+		debugServer := &graceful.Server{
+			Timeout: 1 * time.Second,
+			Server: &http.Server{
+				Addr:    fmt.Sprintf(":%d", opts.DebugPort),
+				Handler: http.DefaultServeMux,
+			},
+		}
+		go func() { grpcDebugErrC <- debugServer.ListenAndServe() }()
 	}
 	if (opts.HTTPPort != 0 || opts.HTTPAddress != "") && (opts.Version != nil || opts.HTTPRegisterFunc != nil) {
-		defer glog.Flush()
+		time.Sleep(1 * time.Second)
 		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
 		var mux *runtime.ServeMux
 		if len(opts.ServeMuxOptions) == 0 {
 			mux = runtime.NewServeMux()
@@ -98,6 +113,8 @@ func Serve(
 		}
 		conn, err := grpc.Dial(fmt.Sprintf("0.0.0.0:%d", port), grpc.WithInsecure())
 		if err != nil {
+			glog.Flush()
+			cancel()
 			return err
 		}
 		go func() {
@@ -107,12 +124,16 @@ func Serve(
 		if opts.Version != nil {
 			if err := protoversion.RegisterAPIHandler(ctx, mux, conn); err != nil {
 				_ = conn.Close()
+				glog.Flush()
+				cancel()
 				return err
 			}
 		}
 		if opts.HTTPRegisterFunc != nil {
 			if err := opts.HTTPRegisterFunc(ctx, mux, conn); err != nil {
 				_ = conn.Close()
+				glog.Flush()
+				cancel()
 				return err
 			}
 		}
@@ -124,11 +145,27 @@ func Serve(
 			Addr:    httpAddress,
 			Handler: mux,
 		}
+		gracefulServer := &graceful.Server{
+			Timeout:        1 * time.Second,
+			BeforeShutdown: opts.HTTPBeforeShutdown,
+			ShutdownInitiated: func() {
+				glog.Flush()
+				cancel()
+				if opts.HTTPShutdownInitiated != nil {
+					opts.HTTPShutdownInitiated()
+				}
+			},
+			Server: httpServer,
+		}
+		if opts.HTTPStart != nil {
+			close(opts.HTTPStart)
+		}
+		errCCount++
 		go func() {
 			if opts.HTTPListener != nil {
-				errC <- httpServer.Serve(listener)
+				httpErrC <- gracefulServer.Serve(opts.HTTPListener)
 			} else {
-				errC <- httpServer.ListenAndServe()
+				httpErrC <- gracefulServer.ListenAndServe()
 			}
 		}()
 	}
@@ -140,5 +177,37 @@ func Serve(
 			HttpAddress: opts.HTTPAddress,
 		},
 	)
-	return <-errC
+	var errs []error
+	grpcStopped := false
+	for i := 0; i < errCCount; i++ {
+		select {
+		case grpcErr := <-grpcErrC:
+			if grpcErr != nil {
+				errs = append(errs, fmt.Errorf("grpc error: %s", grpcErr.Error()))
+			}
+			grpcStopped = true
+		case grpcDebugErr := <-grpcDebugErrC:
+			if grpcDebugErr != nil {
+				errs = append(errs, fmt.Errorf("grpc debug error: %s", grpcDebugErr.Error()))
+			}
+			if !grpcStopped {
+				s.Stop()
+				_ = listener.Close()
+				grpcStopped = true
+			}
+		case httpErr := <-httpErrC:
+			if httpErr != nil {
+				errs = append(errs, fmt.Errorf("http error: %s", httpErr.Error()))
+			}
+			if !grpcStopped {
+				s.Stop()
+				_ = listener.Close()
+				grpcStopped = true
+			}
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%v", errs)
+	}
+	return nil
 }
