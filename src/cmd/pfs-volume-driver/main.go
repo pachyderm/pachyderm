@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -101,32 +100,32 @@ func newVolumeDriver(
 	}
 }
 
-func (v *volumeDriver) Create(_ string, _ map[string]string) error {
+func (v *volumeDriver) Create(_ string, _ dockervolume.Opts) error {
 	return nil
 }
 
-func (v *volumeDriver) Remove(_ string, _ map[string]string, _ string) error {
+func (v *volumeDriver) Remove(_ string, _ dockervolume.Opts, _ string) error {
 	return nil
 }
 
-func (v *volumeDriver) Mount(name string, opts map[string]string) (string, error) {
-	repository, err := getRequiredString(opts, "repository")
+func (v *volumeDriver) Mount(name string, opts dockervolume.Opts) (string, error) {
+	repository, err := opts.GetRequiredString("repository")
 	if err != nil {
 		return "", err
 	}
-	commitID, err := getRequiredString(opts, "commit_id")
+	commitID, err := opts.GetRequiredString("commit_id")
 	if err != nil {
 		return "", err
 	}
-	shard, err := getOptionalUint64(opts, "shard", defaultShard)
+	shard, err := opts.GetOptionalUInt64("shard", defaultShard)
 	if err != nil {
 		return "", err
 	}
-	modulus, err := getOptionalUint64(opts, "modulus", defaultModulus)
+	modulus, err := opts.GetOptionalUInt64("modulus", defaultModulus)
 	if err != nil {
 		return "", err
 	}
-	mountpoint := filepath.Join(v.baseMountpoint, fmt.Sprintf("name-%s", strings.Replace(uuid.NewV4().String(), "-", "", -1)))
+	mountpoint := filepath.Join(v.baseMountpoint, fmt.Sprintf("%s-%s-%d-%d-%s", repository, commitID, shard, modulus, strings.Replace(uuid.NewV4().String(), "-", "", -1)))
 	if err := os.MkdirAll(mountpoint, 0777); err != nil {
 		return "", err
 	}
@@ -146,7 +145,7 @@ func (v *volumeDriver) Mount(name string, opts map[string]string) (string, error
 	return mountpoint, nil
 }
 
-func (v *volumeDriver) Unmount(_ string, _ map[string]string, mountpoint string) error {
+func (v *volumeDriver) Unmount(_ string, _ dockervolume.Opts, mountpoint string) error {
 	mounter, err := v.getMounter()
 	if err != nil {
 		return err
@@ -173,36 +172,4 @@ func (v *volumeDriver) getMounter() (fuse.Mounter, error) {
 		return nil, errObj.(error)
 	}
 	return mounterObj.(fuse.Mounter), nil
-}
-
-func getOptionalString(m map[string]string, key string, defaultValue string) (string, error) {
-	value, ok := m[key]
-	if !ok {
-		return defaultValue, nil
-	}
-	return value, nil
-}
-
-func getRequiredString(m map[string]string, key string) (string, error) {
-	value, ok := m[key]
-	if !ok {
-		return "", fmt.Errorf("pfs-volume-driver: must pass opt %s (--opt %s=VALUE)", key, key)
-	}
-	return value, nil
-}
-
-func getOptionalUint64(m map[string]string, key string, defaultValue uint64) (uint64, error) {
-	valueObj, err := getOptionalString(m, key, strconv.FormatUint(defaultValue, 10))
-	if err != nil {
-		return 0, err
-	}
-	return strconv.ParseUint(valueObj, 10, 64)
-}
-
-func getRequiredUint64(m map[string]string, key string) (uint64, error) {
-	valueObj, err := getRequiredString(m, key)
-	if err != nil {
-		return 0, err
-	}
-	return strconv.ParseUint(valueObj, 10, 64)
 }
