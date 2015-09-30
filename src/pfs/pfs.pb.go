@@ -12,6 +12,7 @@ It has these top-level messages:
 	Repo
 	Commit
 	Block
+	BlockAndSize
 	BlockMap
 	File
 	Server
@@ -155,32 +156,32 @@ func (m *Block) Reset()         { *m = Block{} }
 func (m *Block) String() string { return proto.CompactTextString(m) }
 func (*Block) ProtoMessage()    {}
 
-// A block represents several blocks concatenated.
-type BlockMap struct {
-	Block []*BlockMap_BlockAndSize `protobuf:"bytes,1,rep,name=block" json:"block,omitempty"`
+type BlockAndSize struct {
+	Block     *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	SizeBytes uint64 `protobuf:"varint,2,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
-func (m *BlockMap) Reset()         { *m = BlockMap{} }
-func (m *BlockMap) String() string { return proto.CompactTextString(m) }
-func (*BlockMap) ProtoMessage()    {}
+func (m *BlockAndSize) Reset()         { *m = BlockAndSize{} }
+func (m *BlockAndSize) String() string { return proto.CompactTextString(m) }
+func (*BlockAndSize) ProtoMessage()    {}
 
-func (m *BlockMap) GetBlock() []*BlockMap_BlockAndSize {
+func (m *BlockAndSize) GetBlock() *Block {
 	if m != nil {
 		return m.Block
 	}
 	return nil
 }
 
-type BlockMap_BlockAndSize struct {
-	Block     *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
-	SizeBytes uint64 `protobuf:"varint,2,opt,name=size_bytes" json:"size_bytes,omitempty"`
+// A block represents several blocks concatenated.
+type BlockMap struct {
+	Block []*BlockAndSize `protobuf:"bytes,1,rep,name=block" json:"block,omitempty"`
 }
 
-func (m *BlockMap_BlockAndSize) Reset()         { *m = BlockMap_BlockAndSize{} }
-func (m *BlockMap_BlockAndSize) String() string { return proto.CompactTextString(m) }
-func (*BlockMap_BlockAndSize) ProtoMessage()    {}
+func (m *BlockMap) Reset()         { *m = BlockMap{} }
+func (m *BlockMap) String() string { return proto.CompactTextString(m) }
+func (*BlockMap) ProtoMessage()    {}
 
-func (m *BlockMap_BlockAndSize) GetBlock() *Block {
+func (m *BlockMap) GetBlock() []*BlockAndSize {
 	if m != nil {
 		return m.Block
 	}
@@ -453,9 +454,9 @@ func (*Shard) ProtoMessage()    {}
 
 // Change represents a change to a file.
 type Change struct {
-	File        *File  `protobuf:"bytes,2,opt,name=file" json:"file,omitempty"`
-	SizeBytes   uint64 `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
-	OffsetBytes uint64 `protobuf:"varint,4,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
+	File *File                   `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	New  map[int64]*BlockAndSize `protobuf:"bytes,2,rep,name=new" json:"new,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Old  map[int64]*BlockAndSize `protobuf:"bytes,3,rep,name=old" json:"old,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
 func (m *Change) Reset()         { *m = Change{} }
@@ -465,6 +466,20 @@ func (*Change) ProtoMessage()    {}
 func (m *Change) GetFile() *File {
 	if m != nil {
 		return m.File
+	}
+	return nil
+}
+
+func (m *Change) GetNew() map[int64]*BlockAndSize {
+	if m != nil {
+		return m.New
+	}
+	return nil
+}
+
+func (m *Change) GetOld() map[int64]*BlockAndSize {
+	if m != nil {
+		return m.Old
 	}
 	return nil
 }

@@ -37,12 +37,13 @@ message Block {
     string hash = 1;
 }
 
+message BlockAndSize {
+    Block block = 1;
+    uint64 size_bytes = 2;
+}
+
 // A block represents several blocks concatenated.
 message BlockMap {
-    message BlockAndSize {
-        Block block = 1;
-        uint64 size_bytes = 2;
-    }
     repeated BlockAndSize block = 1;
 }
 
@@ -127,9 +128,9 @@ message Shard {
 
 // Change represents a change to a file.
 message Change {
-    File file = 2;
-    uint64 size_bytes = 3;
-    uint64 offset_bytes = 4;
+    File file = 1;
+    map<int64, BlockAndSize> new = 2;
+    map<int64, BlockAndSize> old = 3;
 }
 
 message Changes {

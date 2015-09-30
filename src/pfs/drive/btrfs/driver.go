@@ -22,7 +22,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -222,7 +221,12 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 			}
 			var commitBytes uint64
 			for _, change := range changes {
-				commitBytes += change.SizeBytes
+				for _, blockAndSize := range change.New {
+					commitBytes += blockAndSize.SizeBytes
+				}
+				for _, blockAndSize := range change.Old {
+					commitBytes -= blockAndSize.SizeBytes
+				}
 			}
 			commitPath, err := d.commitPath(commit, shard)
 			if err != nil {
@@ -477,6 +481,7 @@ func (d *driver) InspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error
 }
 
 func (d *driver) ListFile(file *pfs.File, shard uint64) (_ []*pfs.FileInfo, retErr error) {
+	var result []*pfs.FileInfo
 	filePath, err := d.filePath(file, shard)
 	if err != nil {
 		return nil, err
@@ -486,7 +491,12 @@ func (d *driver) ListFile(file *pfs.File, shard uint64) (_ []*pfs.FileInfo, retE
 		return nil, err
 	}
 	if !stat.IsDir() {
-		return nil, fmt.Errorf("%s is not a directory", filePath)
+		fileInfo, err := d.stat(file, shard)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, fileInfo)
+		return result, nil
 	}
 	dir, err := os.Open(filePath)
 	if err != nil {
@@ -497,7 +507,6 @@ func (d *driver) ListFile(file *pfs.File, shard uint64) (_ []*pfs.FileInfo, retE
 			retErr = err
 		}
 	}()
-	var fileInfos []*pfs.FileInfo
 	// TODO(pedge): constant
 	for names, err := dir.Readdirnames(readDirBatch); err != io.EOF; names, err = dir.Readdirnames(readDirBatch) {
 		if err != nil {
@@ -517,36 +526,55 @@ func (d *driver) ListFile(file *pfs.File, shard uint64) (_ []*pfs.FileInfo, retE
 			if err != nil {
 				return nil, err
 			}
-			fileInfos = append(fileInfos, fileInfo)
+			result = append(result, fileInfo)
 		}
 	}
-	return fileInfos, nil
+	return result, nil
 }
 
 func (d *driver) ListChange(file *pfs.File, from *pfs.Commit, shard uint64) ([]*pfs.Change, error) {
-	//TODO this buffer might get too big
-	var buffer bytes.Buffer
-	commitPath, err := d.commitPath(file.Commit, shard)
-	if err != nil {
+	var result []*pfs.Change
+	newFileInfos, err := d.ListFile(file, shard)
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	var fromCommitPath string
-	if from != nil {
-		fromCommitPath, err = d.commitPath(from, shard)
+	oldFile := *file
+	oldFile.Commit = from
+	oldFileInfos, err := d.ListFile(&oldFile, shard)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	for _, newFileInfo := range newFileInfos {
+		newBlockMap, err := d.GetFile(newFileInfo.File, shard)
 		if err != nil {
 			return nil, err
 		}
+		oldFileInfo := *newFileInfo
+		oldFileInfo.File.Commit = from
+		oldBlockMap, err := d.GetFile(oldFileInfo.File, shard)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+		result = append(result, change(newFileInfo.File, oldBlockMap, newBlockMap))
 	}
-	if err := execSubvolumeFindNew(commitPath, fromCommitPath, &buffer); err != nil {
-		return nil, err
+	for _, oldFileInfo := range oldFileInfos {
+		oldBlockMap, err := d.GetFile(oldFileInfo.File, shard)
+		if err != nil {
+			return nil, err
+		}
+		newFileInfo := *oldFileInfo
+		newFileInfo.File.Commit = file.Commit
+		newBlockMap, err := d.GetFile(newFileInfo.File, shard)
+		if err == nil {
+			// non nil means we handled this above
+			continue
+		}
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+		result = append(result, change(newFileInfo.File, oldBlockMap, newBlockMap))
 	}
-	var changes []*pfs.Change
-	changeScanner := newChangeScanner(&buffer, file.Commit)
-	for changeScanner.Scan() {
-		change := changeScanner.Change()
-		changes = append(changes, change)
-	}
-	return changes, nil
+	return result, nil
 }
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
@@ -821,20 +849,6 @@ func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Wr
 	return executil.RunStdout(out, "btrfs", "subvolume", "list", "-aC", "+"+transid, "--sort", sort, path)
 }
 
-func execSubvolumeFindNew(commit string, fromCommit string, out io.Writer) (retErr error) {
-	defer func() {
-		protolog.Info(&SubvolumeFindNew{commit, fromCommit, errorToString(retErr)})
-	}()
-	if fromCommit == "" {
-		return executil.RunStdout(out, "btrfs", "subvolume", "find-new", commit, "0")
-	}
-	transid, err := execTransID(fromCommit)
-	if err != nil {
-		return err
-	}
-	return executil.RunStdout(out, "btrfs", "subvolume", "find-new", commit, transid)
-}
-
 func execSend(path string, parent string, diff io.Writer) (retErr error) {
 	defer func() {
 		protolog.Info(&Send{path, parent, errorToString(retErr)})
@@ -908,69 +922,35 @@ func (c *commitScanner) parseCommit() (string, bool) {
 	return commit, true
 }
 
-type changeScanner struct {
-	textScanner *bufio.Scanner
-	commit      *pfs.Commit
-}
-
-func newChangeScanner(reader io.Reader, commit *pfs.Commit) *changeScanner {
-	return &changeScanner{bufio.NewScanner(reader), commit}
-}
-
-func (c *changeScanner) Scan() bool {
-	for {
-		if !c.textScanner.Scan() {
-			return false
-		}
-		if _, ok := c.parseChange(); ok {
-			return true
-		}
-	}
-}
-
-func (c *changeScanner) Err() error {
-	return c.textScanner.Err()
-}
-
-func (c *changeScanner) Change() *pfs.Change {
-	change, _ := c.parseChange()
-	protolog.Info(&SubvolumeFindNewLine{c.textScanner.Text()})
-	return change
-}
-
-func (c *changeScanner) parseChange() (*pfs.Change, bool) {
-	// c.textScanner.Text() looks like:
-	// inode 258 file offset 0 len 7 disk start 0 offset 0 gen 330 flags INLINE path/to/file
-	// 0     1   2    3      4 5   6 7    8     9 10     1112  13  14    15     16
-	tokens := strings.Split(c.textScanner.Text(), " ")
-	if len(tokens) != 17 {
-		return nil, false
-	}
-	if inMetadataDir(tokens[16]) {
-		return nil, false
-	}
-	offset, err := strconv.ParseUint(tokens[4], 10, 64)
-	if err != nil {
-		return nil, false
-	}
-	length, err := strconv.ParseUint(tokens[6], 10, 64)
-	if err != nil {
-		return nil, false
-	}
-	return &pfs.Change{
-		File: &pfs.File{
-			Commit: c.commit,
-			Path:   tokens[16],
-		},
-		OffsetBytes: offset,
-		SizeBytes:   length,
-	}, true
-}
-
 // TODO this code is duplicate elsewhere, we should put it somehwere.
 func errorToString(err error) string {
 	if err == nil {
 		return ""
 	}
 	return err.Error()
+}
+
+func change(file *pfs.File, old *pfs.BlockMap, _new *pfs.BlockMap) *pfs.Change {
+	result := pfs.Change{
+		File: file,
+		Old:  make(map[int64]*pfs.BlockAndSize),
+		New:  make(map[int64]*pfs.BlockAndSize),
+	}
+	if old != nil {
+		for i, block := range old.Block {
+			if _new != nil && i < len(_new.Block) && *_new.Block[i] == *block {
+				continue
+			}
+			result.Old[int64(i)] = block
+		}
+	}
+	if _new != nil {
+		for i, block := range _new.Block {
+			if old != nil && i < len(old.Block) && *old.Block[i] == *block {
+				continue
+			}
+			result.New[int64(i)] = block
+		}
+	}
+	return &result
 }

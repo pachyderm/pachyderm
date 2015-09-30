@@ -1,9 +1,7 @@
 package btrfs
 
 import (
-	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -30,13 +28,13 @@ func TestSimple(t *testing.T) {
 		Commit: commit1,
 		Path:   "foo",
 	}
-	require.NoError(t, driver.PutFile(file1, 0, 0, strings.NewReader("foo")))
+	blockMap := pfs.BlockMap{}
+	blockMap.Block = append(blockMap.Block, &pfs.BlockAndSize{&pfs.Block{"foo"}, 3})
+	require.NoError(t, driver.PutFile(file1, 0, &blockMap))
 	require.NoError(t, driver.FinishCommit(commit1, shards))
-	reader, err := driver.GetFile(file1, 0)
+	resultBlockMap, err := driver.GetFile(file1, 0)
 	require.NoError(t, err)
-	contents, err := ioutil.ReadAll(reader)
-	require.NoError(t, err)
-	require.Equal(t, string(contents), "foo")
+	require.Equal(t, blockMap, *resultBlockMap)
 	commit2 := &pfs.Commit{
 		Repo: repo,
 		Id:   "commit2",
@@ -46,14 +44,16 @@ func TestSimple(t *testing.T) {
 		Commit: commit2,
 		Path:   "bar",
 	}
-	require.NoError(t, driver.PutFile(file2, 0, 0, strings.NewReader("bar")))
+	blockMap = pfs.BlockMap{}
+	blockMap.Block = append(blockMap.Block, &pfs.BlockAndSize{&pfs.Block{"bar"}, 3})
+	require.NoError(t, driver.PutFile(file2, 0, &blockMap))
 	require.NoError(t, driver.FinishCommit(commit2, shards))
 	changes, err := driver.ListChange(file2, commit1, 0)
 	require.NoError(t, err)
 	require.Equal(t, len(changes), 1)
 	require.Equal(t, changes[0].File, file2)
-	require.Equal(t, changes[0].OffsetBytes, uint64(0))
-	require.Equal(t, changes[0].SizeBytes, uint64(3))
+	require.Equal(t, changes[0].New[0].Block, &pfs.Block{"bar"})
+	require.Equal(t, changes[0].New[0].SizeBytes, uint64(3))
 }
 
 func getBtrfsRootDir(tb testing.TB) string {
