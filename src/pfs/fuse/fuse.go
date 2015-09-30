@@ -25,3 +25,11 @@ type Mounter interface {
 func NewMounter(apiClient pfs.ApiClient) Mounter {
 	return newMounter(apiClient)
 }
+
+type MounterProvider interface {
+	Get() (Mounter, error)
+}
+
+func NewMounterProvider(pfsAddress string) MounterProvider {
+	return newMounterProvider(pfsAddress)
+}
