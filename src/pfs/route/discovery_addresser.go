@@ -192,7 +192,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 	oldMasters := make(map[uint64]string)
 	oldReplicas := make(map[uint64][]string)
 	var oldMinVersion int64
-	// Reconstruct old state from the server
+	// Reconstruct state from a previous run
 	serverRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
 	if err != nil {
 		return err
@@ -205,6 +205,9 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 		if oldServerRole, ok := oldRoles[serverRole.Id]; !ok || oldServerRole.Version < serverRole.Version {
 			oldRoles[serverRole.Id] = serverRole
 			oldServers[serverRole.Id] = true
+		}
+		if version < serverRole.Version {
+			version = serverRole.Version
 		}
 	}
 	for _, oldServerRole := range oldRoles {
@@ -406,11 +409,13 @@ func (a *discoveryAddresser) Version() (result int64, retErr error) {
 }
 
 func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
+	defer protolog.Printf("Done WaitForAvailability ids: %+v", ids)
+	protolog.Printf("WaitForAvailability ids: %+v", ids)
 	errComplete := fmt.Errorf("COMPLETE")
-	err := a.discoveryClient.WatchAll(a.serverDir(), nil,
+	if err := a.discoveryClient.WatchAll(a.serverDir(), nil,
 		func(encodedServerStatesAndRoles map[string]string) error {
 			serverStates := make(map[string]*proto.ServerState)
-			var serverRoles []*proto.ServerRole
+			serverRoles := make(map[string]map[int64]*proto.ServerRole)
 			for key, encodedServerStateOrRole := range encodedServerStatesAndRoles {
 				if strings.HasPrefix(key, a.serverStateDir()) {
 					serverState, err := decodeServerState(encodedServerStateOrRole)
@@ -424,14 +429,23 @@ func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
 					if err != nil {
 						return err
 					}
-					serverRoles = append(serverRoles, serverRole)
+					if _, ok := serverRoles[serverRole.Id]; !ok {
+						serverRoles[serverRole.Id] = make(map[int64]*proto.ServerRole)
+					}
+					serverRoles[serverRole.Id][serverRole.Version] = serverRole
 				}
 			}
 			if len(serverStates) != len(ids) {
 				return nil
 			}
+			if len(serverRoles) != len(ids) {
+				return nil
+			}
 			for _, id := range ids {
 				if _, ok := serverStates[id]; !ok {
+					return nil
+				}
+				if _, ok := serverRoles[id]; !ok {
 					return nil
 				}
 			}
@@ -445,14 +459,18 @@ func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
 			if len(versions) != 1 {
 				return nil
 			}
-			for _, serverRole := range serverRoles {
-				if !versions[serverRole.Version] {
+			for _, versionToServerRole := range serverRoles {
+				if len(versionToServerRole) != 1 {
 					return nil
+				}
+				for version := range versionToServerRole {
+					if !versions[version] {
+						return nil
+					}
 				}
 			}
 			return errComplete
-		})
-	if err != errComplete {
+		}); err != errComplete {
 		return err
 	}
 	return nil
