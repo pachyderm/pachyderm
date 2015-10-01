@@ -9,13 +9,10 @@ import (
 	"io/ioutil"
 
 	"go.pedge.io/proto/stream"
-	"go.pedge.io/protolog"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"golang.org/x/net/context"
 )
-
-const chunkSize = 4096
 
 func CreateRepo(apiClient pfs.ApiClient, repoName string) error {
 	_, err := apiClient.CreateRepo(
@@ -219,50 +216,29 @@ func ListBlock(apiClient pfs.ApiClient, shard uint64, modulus uint64) ([]*pfs.Bl
 	return blockInfos.BlockInfo, nil
 }
 
-func PutFile(apiClient pfs.ApiClient, repoName string, commitID string, path string, offset int64, reader io.Reader) (_ int, retErr error) {
-	putFileClient, err := apiClient.PutFile(context.Background())
+func PutFile(apiClient pfs.ApiClient, repoName string, commitID string, path string, offset int64, reader io.Reader) (int64, error) {
+	value, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return 0, err
 	}
-	defer func() {
-		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr != nil {
-			retErr = err
-		}
-	}()
-	request := pfs.PutFileRequest{
-		File: &pfs.File{
-			Commit: &pfs.Commit{
-				Repo: &pfs.Repo{
-					Name: repoName,
+	_, err = apiClient.PutFile(
+		context.Background(),
+		&pfs.PutFileRequest{
+			File: &pfs.File{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: repoName,
+					},
+					Id: commitID,
 				},
-				Id: commitID,
+				Path: path,
 			},
-			Path: path,
+			FileType:    pfs.FileType_FILE_TYPE_REGULAR,
+			OffsetBytes: offset,
+			Value:       value,
 		},
-		FileType:    pfs.FileType_FILE_TYPE_REGULAR,
-		OffsetBytes: offset,
-	}
-	var size int
-	for {
-		value := make([]byte, chunkSize)
-		iSize, err := reader.Read(value)
-		request.Value = value[0:iSize]
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return 0, err
-		}
-		size += iSize
-		protolog.Printf("pfsutil.PutFile Send(%+v)", request)
-		if err := putFileClient.Send(&request); err != nil {
-			return 0, err
-		}
-	}
-	if err != nil && err != io.EOF {
-		return 0, err
-	}
-	return size, err
+	)
+	return int64(len(value)), err
 }
 
 func GetFile(apiClient pfs.ApiClient, repoName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
@@ -380,17 +356,9 @@ func DeleteFile(apiClient pfs.ApiClient, repoName string, commitID string, path 
 	return err
 }
 
-func MakeDirectory(apiClient pfs.ApiClient, repoName string, commitID string, path string) (retErr error) {
-	putFileClient, err := apiClient.PutFile(context.Background())
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr != nil {
-			retErr = err
-		}
-	}()
-	return putFileClient.Send(
+func MakeDirectory(apiClient pfs.ApiClient, repoName string, commitID string, path string) error {
+	_, err := apiClient.PutFile(
+		context.Background(),
 		&pfs.PutFileRequest{
 			File: &pfs.File{
 				Commit: &pfs.Commit{
@@ -404,6 +372,7 @@ func MakeDirectory(apiClient pfs.ApiClient, repoName string, commitID string, pa
 			FileType: pfs.FileType_FILE_TYPE_DIR,
 		},
 	)
+	return err
 }
 
 func InspectServer(apiClient pfs.ApiClient, serverID string) (*pfs.ServerInfo, error) {

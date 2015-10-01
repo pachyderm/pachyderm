@@ -888,7 +888,7 @@ type ApiClient interface {
 	ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
-	PutFile(ctx context.Context, opts ...grpc.CallOption) (Api_PutFileClient, error)
+	PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// GetFile returns a byte stream of the contents of the file.
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error)
 	// InspectFile returns info about a file.
@@ -1054,42 +1054,17 @@ func (c *apiClient) ListBlock(ctx context.Context, in *ListBlockRequest, opts ..
 	return out, nil
 }
 
-func (c *apiClient) PutFile(ctx context.Context, opts ...grpc.CallOption) (Api_PutFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Api_serviceDesc.Streams[1], c.cc, "/pfs.Api/PutFile", opts...)
+func (c *apiClient) PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/pfs.Api/PutFile", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &apiPutFileClient{stream}
-	return x, nil
-}
-
-type Api_PutFileClient interface {
-	Send(*PutFileRequest) error
-	CloseAndRecv() (*google_protobuf1.Empty, error)
-	grpc.ClientStream
-}
-
-type apiPutFileClient struct {
-	grpc.ClientStream
-}
-
-func (x *apiPutFileClient) Send(m *PutFileRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *apiPutFileClient) CloseAndRecv() (*google_protobuf1.Empty, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	m := new(google_protobuf1.Empty)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *apiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Api_serviceDesc.Streams[2], c.cc, "/pfs.Api/GetFile", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_Api_serviceDesc.Streams[1], c.cc, "/pfs.Api/GetFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1209,7 +1184,7 @@ type ApiServer interface {
 	ListBlock(context.Context, *ListBlockRequest) (*BlockInfos, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
-	PutFile(Api_PutFileServer) error
+	PutFile(context.Context, *PutFileRequest) (*google_protobuf1.Empty, error)
 	// GetFile returns a byte stream of the contents of the file.
 	GetFile(*GetFileRequest, Api_GetFileServer) error
 	// InspectFile returns info about a file.
@@ -1396,30 +1371,16 @@ func _Api_ListBlock_Handler(srv interface{}, ctx context.Context, codec grpc.Cod
 	return out, nil
 }
 
-func _Api_PutFile_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ApiServer).PutFile(&apiPutFileServer{stream})
-}
-
-type Api_PutFileServer interface {
-	SendAndClose(*google_protobuf1.Empty) error
-	Recv() (*PutFileRequest, error)
-	grpc.ServerStream
-}
-
-type apiPutFileServer struct {
-	grpc.ServerStream
-}
-
-func (x *apiPutFileServer) SendAndClose(m *google_protobuf1.Empty) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *apiPutFileServer) Recv() (*PutFileRequest, error) {
-	m := new(PutFileRequest)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
+func _Api_PutFile_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(PutFileRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
 		return nil, err
 	}
-	return m, nil
+	out, err := srv.(ApiServer).PutFile(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func _Api_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -1568,6 +1529,10 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Api_ListBlock_Handler,
 		},
 		{
+			MethodName: "PutFile",
+			Handler:    _Api_PutFile_Handler,
+		},
+		{
 			MethodName: "InspectFile",
 			Handler:    _Api_InspectFile_Handler,
 		},
@@ -1597,11 +1562,6 @@ var _Api_serviceDesc = grpc.ServiceDesc{
 			StreamName:    "GetBlock",
 			Handler:       _Api_GetBlock_Handler,
 			ServerStreams: true,
-		},
-		{
-			StreamName:    "PutFile",
-			Handler:       _Api_PutFile_Handler,
-			ClientStreams: true,
 		},
 		{
 			StreamName:    "GetFile",
@@ -1636,7 +1596,7 @@ type InternalApiClient interface {
 	DeleteCommit(ctx context.Context, in *DeleteCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
-	PutFile(ctx context.Context, opts ...grpc.CallOption) (InternalApi_PutFileClient, error)
+	PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// GetFile returns a byte stream of the contents of the file.
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (InternalApi_GetFileClient, error)
 	// InspectFile returns a info about a file.
@@ -1753,42 +1713,17 @@ func (c *internalApiClient) DeleteCommit(ctx context.Context, in *DeleteCommitRe
 	return out, nil
 }
 
-func (c *internalApiClient) PutFile(ctx context.Context, opts ...grpc.CallOption) (InternalApi_PutFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[0], c.cc, "/pfs.InternalApi/PutFile", opts...)
+func (c *internalApiClient) PutFile(ctx context.Context, in *PutFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/pfs.InternalApi/PutFile", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &internalApiPutFileClient{stream}
-	return x, nil
-}
-
-type InternalApi_PutFileClient interface {
-	Send(*PutFileRequest) error
-	CloseAndRecv() (*google_protobuf1.Empty, error)
-	grpc.ClientStream
-}
-
-type internalApiPutFileClient struct {
-	grpc.ClientStream
-}
-
-func (x *internalApiPutFileClient) Send(m *PutFileRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *internalApiPutFileClient) CloseAndRecv() (*google_protobuf1.Empty, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	m := new(google_protobuf1.Empty)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return out, nil
 }
 
 func (c *internalApiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (InternalApi_GetFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[1], c.cc, "/pfs.InternalApi/GetFile", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[0], c.cc, "/pfs.InternalApi/GetFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1865,7 +1800,7 @@ func (c *internalApiClient) PutBlock(ctx context.Context, in *PutBlockRequest, o
 }
 
 func (c *internalApiClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (InternalApi_GetBlockClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[2], c.cc, "/pfs.InternalApi/GetBlock", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[1], c.cc, "/pfs.InternalApi/GetBlock", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1915,7 +1850,7 @@ func (c *internalApiClient) ListBlock(ctx context.Context, in *ListBlockRequest,
 }
 
 func (c *internalApiClient) PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (InternalApi_PullDiffClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[3], c.cc, "/pfs.InternalApi/PullDiff", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[2], c.cc, "/pfs.InternalApi/PullDiff", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1980,7 +1915,7 @@ type InternalApiServer interface {
 	DeleteCommit(context.Context, *DeleteCommitRequest) (*google_protobuf1.Empty, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
-	PutFile(InternalApi_PutFileServer) error
+	PutFile(context.Context, *PutFileRequest) (*google_protobuf1.Empty, error)
 	// GetFile returns a byte stream of the contents of the file.
 	GetFile(*GetFileRequest, InternalApi_GetFileServer) error
 	// InspectFile returns a info about a file.
@@ -2120,30 +2055,16 @@ func _InternalApi_DeleteCommit_Handler(srv interface{}, ctx context.Context, cod
 	return out, nil
 }
 
-func _InternalApi_PutFile_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(InternalApiServer).PutFile(&internalApiPutFileServer{stream})
-}
-
-type InternalApi_PutFileServer interface {
-	SendAndClose(*google_protobuf1.Empty) error
-	Recv() (*PutFileRequest, error)
-	grpc.ServerStream
-}
-
-type internalApiPutFileServer struct {
-	grpc.ServerStream
-}
-
-func (x *internalApiPutFileServer) SendAndClose(m *google_protobuf1.Empty) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *internalApiPutFileServer) Recv() (*PutFileRequest, error) {
-	m := new(PutFileRequest)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
+func _InternalApi_PutFile_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+	in := new(PutFileRequest)
+	if err := codec.Unmarshal(buf, in); err != nil {
 		return nil, err
 	}
-	return m, nil
+	out, err := srv.(InternalApiServer).PutFile(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func _InternalApi_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -2346,6 +2267,10 @@ var _InternalApi_serviceDesc = grpc.ServiceDesc{
 			Handler:    _InternalApi_DeleteCommit_Handler,
 		},
 		{
+			MethodName: "PutFile",
+			Handler:    _InternalApi_PutFile_Handler,
+		},
+		{
 			MethodName: "InspectFile",
 			Handler:    _InternalApi_InspectFile_Handler,
 		},
@@ -2379,11 +2304,6 @@ var _InternalApi_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "PutFile",
-			Handler:       _InternalApi_PutFile_Handler,
-			ClientStreams: true,
-		},
 		{
 			StreamName:    "GetFile",
 			Handler:       _InternalApi_GetFile_Handler,

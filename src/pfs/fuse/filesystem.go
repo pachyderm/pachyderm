@@ -210,9 +210,9 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 	if err != nil {
 		return err
 	}
-	response.Size = written
-	if f.size < request.Offset+int64(written) {
-		f.size = request.Offset + int64(written)
+	response.Size = int(written)
+	if f.size < request.Offset+written {
+		f.size = request.Offset + written
 	}
 	return nil
 }

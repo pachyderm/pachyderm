@@ -260,74 +260,39 @@ func (a *internalAPIServer) ListBlock(ctx context.Context, request *pfs.ListBloc
 	}, nil
 }
 
-type putFileServerReader struct {
-	putFileServer pfs.Api_PutFileServer
-	buffer        bytes.Buffer
-}
-
-func (r *putFileServerReader) Read(p []byte) (int, error) {
-	if r.buffer.Len() == 0 {
-		request, err := r.putFileServer.Recv()
-		if err != nil {
-			return 0, err
-		}
-		_, err = r.buffer.Write(request.Value)
-		if err != nil {
-			return 0, err
-		}
-	}
-	return r.buffer.Read(p)
-}
-
-func (a *internalAPIServer) PutFile(putFileServer pfs.InternalApi_PutFileServer) (retErr error) {
-	version, err := a.getVersion(putFileServer.Context())
+func (a *internalAPIServer) PutFile(ctx context.Context, request *pfs.PutFileRequest) (*google_protobuf.Empty, error) {
+	version, err := a.getVersion(ctx)
 	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := putFileServer.SendAndClose(emptyInstance); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	request, err := putFileServer.Recv()
-	if err != nil {
-		return err
+		return nil, err
 	}
 	if strings.HasPrefix(request.File.Path, "/") {
 		// This is a subtle error case, the paths foo and /foo will hash to
 		// different shards but will produce the same change once they get to
 		// those shards due to how path.Join. This can go wrong in a number of
 		// ways so we forbid leading slashes.
-		return fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
+		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
 	}
 	if request.FileType == pfs.FileType_FILE_TYPE_DIR {
 		if len(request.Value) > 0 {
-			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
+			return emptyInstance, fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
 		}
 		shards, err := a.router.GetMasterShards(version)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if err := a.driver.MakeDirectory(request.File, shards); err != nil {
-			return err
+			return nil, err
 		}
-		return nil
+		return emptyInstance, nil
 	}
 	shard, err := a.getMasterShardForFile(request.File, version)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	reader := putFileServerReader{
-		putFileServer: putFileServer,
+	if err := a.driver.PutFile(request.File, shard, request.OffsetBytes, bytes.NewReader(request.Value)); err != nil {
+		return nil, err
 	}
-	_, err = reader.buffer.Write(request.Value)
-	if err != nil {
-		return err
-	}
-	if err := a.driver.PutFile(request.File, shard, request.OffsetBytes, &reader); err != nil {
-		return err
-	}
-	return nil
+	return emptyInstance, nil
 }
 
 func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.InternalApi_GetFileServer) (retErr error) {

@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	testSize = 200
+	testSize = 100
 )
 
 func TestSimple(t *testing.T) {
