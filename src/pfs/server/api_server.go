@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"io"
 	"math/rand"
 	"strings"
 	"sync"
@@ -336,81 +335,38 @@ func (a *apiServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest
 	}, nil
 }
 
-func (a *apiServer) PutFile(putFileServer pfs.Api_PutFileServer) (retErr error) {
-	version, ctx, err := a.versionAndCtx(putFileServer.Context())
+func (a *apiServer) PutFile(ctx context.Context, request *pfs.PutFileRequest) (*google_protobuf.Empty, error) {
+	version, ctx, err := a.versionAndCtx(ctx)
 	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := putFileServer.SendAndClose(emptyInstance); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	request, err := putFileServer.Recv()
-	if err != nil {
-		return err
+		return nil, err
 	}
 	if strings.HasPrefix(request.File.Path, "/") {
 		// This is a subtle error case, the paths foo and /foo will hash to
 		// different shards but will produce the same change once they get to
 		// those shards due to how path.Join. This can go wrong in a number of
 		// ways so we forbid leading slashes.
-		return fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
+		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
 	}
 	if request.FileType == pfs.FileType_FILE_TYPE_DIR {
 		if len(request.Value) > 0 {
-			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
+			return emptyInstance, fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
 		}
 		clientConns, err := a.router.GetAllClientConns(version)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, clientConn := range clientConns {
-			putFileClient, err := pfs.NewInternalApiClient(clientConn).PutFile(ctx)
-			if err != nil {
-				return err
-			}
-			if err := putFileClient.Send(request); err != nil {
-				return err
-			}
-			if _, err := putFileClient.CloseAndRecv(); err != nil {
-				return err
+			if _, err := pfs.NewInternalApiClient(clientConn).PutFile(ctx, request); err != nil {
+				return nil, err
 			}
 		}
-		return nil
+		return emptyInstance, nil
 	}
 	clientConn, err := a.getClientConnForFile(request.File, version)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	putFileClient, err := pfs.NewInternalApiClient(clientConn).PutFile(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	if err := putFileClient.Send(request); err != nil {
-		return err
-	}
-	for {
-		request, err := putFileServer.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		if err := putFileClient.Send(request); err != nil {
-			return err
-		}
-	}
-	if _, err := putFileClient.CloseAndRecv(); err != nil {
-		return err
-	}
-	return nil
+	return pfs.NewInternalApiClient(clientConn).PutFile(ctx, request)
 }
 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) error {

@@ -65,8 +65,9 @@ func getPFSAddress(appEnv *appEnv) string {
 	address := appEnv.PachydermPfsd1Port
 	if address == "" {
 		return appEnv.PfsAddress
+	} else {
+		return strings.Replace(address, "tcp://", "", -1)
 	}
-	return strings.Replace(address, "tcp://", "", -1)
 }
 
 type volumeDriver struct {
