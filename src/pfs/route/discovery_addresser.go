@@ -187,12 +187,35 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 		protolog.Info(&log.FinishAssignRoles{errorToString(retErr)})
 	}()
 	var version int64
-	oldServerStates := make(map[string]*proto.ServerState)
+	oldServers := make(map[string]bool)
 	oldRoles := make(map[string]*proto.ServerRole)
 	oldMasters := make(map[uint64]string)
 	oldReplicas := make(map[uint64][]string)
 	var oldMinVersion int64
-	err := a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
+	// Reconstruct old state from the server
+	serverRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
+	if err != nil {
+		return err
+	}
+	for _, encodedServerRole := range serverRoles {
+		serverRole, err := decodeServerRole(encodedServerRole)
+		if err != nil {
+			return err
+		}
+		if oldServerRole, ok := oldRoles[serverRole.Id]; !ok || oldServerRole.Version < serverRole.Version {
+			oldRoles[serverRole.Id] = serverRole
+			oldServers[serverRole.Id] = true
+		}
+	}
+	for _, oldServerRole := range oldRoles {
+		for shard := range oldServerRole.Masters {
+			oldMasters[shard] = oldServerRole.Id
+		}
+		for shard := range oldServerRole.Replicas {
+			oldReplicas[shard] = append(oldReplicas[shard], oldServerRole.Id)
+		}
+	}
+	err = a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
 		func(encodedServerStates map[string]string) error {
 			if len(encodedServerStates) == 0 {
 				return nil
@@ -251,7 +274,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 			}
 			// if the servers are identical to last time then we know we'll
 			// assign shards the same way
-			if sameServers(oldServerStates, newServerStates) {
+			if sameServers(oldServers, newServerStates) {
 				return nil
 			}
 		Master:
@@ -346,7 +369,10 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 			}
 			protolog.Info(&log.SetAddresses{&addresses})
 			version++
-			oldServerStates = newServerStates
+			oldServers = make(map[string]bool)
+			for id := range newServerStates {
+				oldServers[id] = true
+			}
 			oldRoles = newRoles
 			oldMasters = newMasters
 			oldReplicas = newReplicas
@@ -832,11 +858,11 @@ func containsShard(roles map[int64]proto.ServerRole, shard uint64) bool {
 	return false
 }
 
-func sameServers(oldServerStates map[string]*proto.ServerState, newServerStates map[string]*proto.ServerState) bool {
-	if len(oldServerStates) != len(newServerStates) {
+func sameServers(oldServers map[string]bool, newServerStates map[string]*proto.ServerState) bool {
+	if len(oldServers) != len(newServerStates) {
 		return false
 	}
-	for id := range oldServerStates {
+	for id := range oldServers {
 		if _, ok := newServerStates[id]; !ok {
 			return false
 		}
