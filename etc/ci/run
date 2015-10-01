@@ -7,4 +7,4 @@ PATH="$GOPATH/bin:/usr/local/go/bin:$PATH"
 export GOPATH PATH
 
 numcpu="$(cat /proc/cpuinfo | grep processor | wc -l)"
-make -j"$numcpu" clean install-git2go build test docker-build
+make -j"$numcpu" -o clean install-git2go build test docker-build
