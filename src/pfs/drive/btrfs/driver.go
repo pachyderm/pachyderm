@@ -172,7 +172,6 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	result := &pfs.CommitInfo{Commit: commit, CommitType: pfs.CommitType_COMMIT_TYPE_WRITE}
-	var errOnce sync.Once
 	var loopErr error
 	notFound := false
 	for shard := range shards {
@@ -181,17 +180,17 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 		go func() {
 			defer wg.Done()
 			if !execSubvolumeExists(d.readCommitPath(commit, shard)) && !execSubvolumeExists(d.writeCommitPath(commit, shard)) {
-				errOnce.Do(func() { notFound = true })
+				notFound = true
 				return
 			}
 			parent, err := d.getParent(commit, shard)
-			if err != nil {
-				errOnce.Do(func() { loopErr = err })
+			if err != nil && loopErr == nil {
+				loopErr = err
 				return
 			}
 			readOnly, err := d.getReadOnly(commit, shard)
-			if err != nil {
-				errOnce.Do(func() { loopErr = err })
+			if err != nil && loopErr == nil {
+				loopErr = err
 				return
 			}
 			commitType := pfs.CommitType_COMMIT_TYPE_WRITE
@@ -199,24 +198,25 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 				commitType = pfs.CommitType_COMMIT_TYPE_READ
 			}
 			writeStat, err := os.Stat(d.writeCommitPath(commit, shard))
-			if err != nil {
-				errOnce.Do(func() { loopErr = err })
+			if err != nil && loopErr == nil {
+				loopErr = err
 				return
 			}
 			startTime := writeStat.ModTime()
 			var finishTime *time.Time
 			if commitType == pfs.CommitType_COMMIT_TYPE_READ {
 				readStat, err := os.Stat(d.readCommitPath(commit, shard))
-				if err != nil {
-					errOnce.Do(func() { loopErr = err })
+				if err != nil && loopErr == nil {
+					loopErr = err
 					return
 				}
 				_finishTime := readStat.ModTime()
 				finishTime = &_finishTime
 			}
 			changes, err := d.ListChange(&pfs.File{Commit: commit}, parent, shard)
-			if err != nil {
-				errOnce.Do(func() { loopErr = err })
+			if err != nil && loopErr == nil {
+				protolog.Printf("ListChange errored: %+v", err)
+				loopErr = err
 				return
 			}
 			var commitBytes uint64
@@ -229,13 +229,13 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 				}
 			}
 			commitPath, err := d.commitPath(commit, shard)
-			if err != nil {
-				errOnce.Do(func() { loopErr = err })
+			if err != nil && loopErr == nil {
+				loopErr = err
 				return
 			}
 			totalBytes, err := d.recursiveSize(commitPath)
-			if err != nil {
-				errOnce.Do(func() { loopErr = err })
+			if err != nil && loopErr == nil {
+				loopErr = err
 				return
 			}
 			lock.Lock()
@@ -532,17 +532,30 @@ func (d *driver) ListFile(file *pfs.File, shard uint64) (_ []*pfs.FileInfo, retE
 	return result, nil
 }
 
-func (d *driver) ListChange(file *pfs.File, from *pfs.Commit, shard uint64) ([]*pfs.Change, error) {
+func (d *driver) ListChange(file *pfs.File, from *pfs.Commit, shard uint64) (_ []*pfs.Change, retErr error) {
+	defer protolog.Printf("ListChange: %+v, %+v, %+d, %+v", file, from, shard, retErr)
 	var result []*pfs.Change
-	newFileInfos, err := d.ListFile(file, shard)
-	if err != nil && !os.IsNotExist(err) {
+	var newFileInfos []*pfs.FileInfo
+	if err := d.walk(file, shard, func(fileInfo *pfs.FileInfo) error {
+		if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
+			newFileInfos = append(newFileInfos, fileInfo)
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-	oldFile := *file
-	oldFile.Commit = from
-	oldFileInfos, err := d.ListFile(&oldFile, shard)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, err
+	var oldFileInfos []*pfs.FileInfo
+	if from != nil {
+		oldFile := *file
+		oldFile.Commit = from
+		if err := d.walk(file, shard, func(fileInfo *pfs.FileInfo) error {
+			if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
+				newFileInfos = append(newFileInfos, fileInfo)
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
 	}
 	for _, newFileInfo := range newFileInfos {
 		newBlockMap, err := d.GetFile(newFileInfo.File, shard)
@@ -566,12 +579,13 @@ func (d *driver) ListChange(file *pfs.File, from *pfs.Commit, shard uint64) ([]*
 		newFileInfo.File.Commit = file.Commit
 		newBlockMap, err := d.GetFile(newFileInfo.File, shard)
 		if err == nil {
-			// non nil means we handled this above
+			// nil means we handled this above
 			continue
 		}
 		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}
+		// newBlockMap is always nil at this point
 		result = append(result, change(newFileInfo.File, oldBlockMap, newBlockMap))
 	}
 	return result, nil
@@ -615,21 +629,7 @@ func (d *driver) stat(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	var fileType pfs.FileType
-	if stat.Mode().IsDir() {
-		fileType = pfs.FileType_FILE_TYPE_DIR
-	} else {
-		fileType = pfs.FileType_FILE_TYPE_REGULAR
-	}
-	return &pfs.FileInfo{
-		File:      file,
-		FileType:  fileType,
-		SizeBytes: uint64(stat.Size()),
-		Perm:      uint32(stat.Mode() & os.ModePerm),
-		Modified: prototime.TimeToTimestamp(
-			stat.ModTime(),
-		),
-	}, nil
+	return osFileInfoToFileInfo(file, stat), nil
 }
 
 func (d *driver) getParent(commit *pfs.Commit, shard uint64) (*pfs.Commit, error) {
@@ -759,6 +759,34 @@ func (d *driver) recursiveSize(root string) (uint64, error) {
 		return 0, err
 	}
 	return uint64(result), err
+}
+
+func (d *driver) walk(root *pfs.File, shard uint64, walkFunc func(fileInfo *pfs.FileInfo) error) error {
+	rootPath, err := d.filePath(root, shard)
+	if err != nil {
+		return err
+	}
+	if err := filepath.Walk(rootPath, func(path string, osFileInfo os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		commitPath, err := d.commitPath(root.Commit, shard)
+		if err != nil {
+			return err
+		}
+		filePath := strings.TrimPrefix(path, commitPath)
+		if inMetadataDir(filePath) {
+			return nil
+		}
+		file := pfs.File{
+			Commit: root.Commit,
+			Path:   filePath,
+		}
+		return walkFunc(osFileInfoToFileInfo(&file, osFileInfo))
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func inMetadataDir(name string) bool {
@@ -953,4 +981,22 @@ func change(file *pfs.File, old *pfs.BlockMap, _new *pfs.BlockMap) *pfs.Change {
 		}
 	}
 	return &result
+}
+
+func osFileInfoToFileInfo(file *pfs.File, osFileInfo os.FileInfo) *pfs.FileInfo {
+	var fileType pfs.FileType
+	if osFileInfo.Mode().IsDir() {
+		fileType = pfs.FileType_FILE_TYPE_DIR
+	} else {
+		fileType = pfs.FileType_FILE_TYPE_REGULAR
+	}
+	return &pfs.FileInfo{
+		File:      file,
+		FileType:  fileType,
+		SizeBytes: uint64(osFileInfo.Size()),
+		Perm:      uint32(osFileInfo.Mode() & os.ModePerm),
+		Modified: prototime.TimeToTimestamp(
+			osFileInfo.ModTime(),
+		),
+	}
 }
