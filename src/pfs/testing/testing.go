@@ -101,6 +101,8 @@ type Cluster interface {
 	WaitForAvailability()
 	Kill(server int)
 	Restart(server int)
+	KillRoleAssigner()
+	RestartRoleAssigner()
 	Shutdown()
 }
 
@@ -116,7 +118,7 @@ type cluster struct {
 }
 
 func (c *cluster) WaitForAvailability() {
-	// We use address as the id for servers too
+	// We use address as the id for servers
 	var ids []string
 	for _, address := range c.addresses {
 		if _, ok := c.cancels[address]; ok {
@@ -126,16 +128,40 @@ func (c *cluster) WaitForAvailability() {
 	require.NoError(c.tb, c.addresser.WaitForAvailability(ids))
 }
 
-func (c *cluster) Kill(server int) {
-	close(c.cancels[c.addresses[server]])
-	delete(c.cancels, c.addresses[server])
+func (c *cluster) Kill(index int) {
+	close(c.cancels[c.addresses[index]])
+	delete(c.cancels, c.addresses[index])
+	delete(c.internalServers, c.addresses[index])
 }
 
-func (c *cluster) Restart(server int) {
-	address := c.addresses[server]
+func (c *cluster) Restart(index int) {
+	address := c.addresses[index]
 	c.cancels[address] = make(chan bool)
+	internalAPIServer := server.NewInternalAPIServer(
+		c.sharder,
+		route.NewRouter(
+			c.addresser,
+			grpcutil.NewDialer(
+				grpc.WithInsecure(),
+			),
+			address,
+		),
+		getDriver(c.tb, address),
+	)
+	c.internalServers[address] = internalAPIServer
 	go func() {
 		require.Equal(c.tb, c.addresser.Register(c.cancels[address], address, address, c.internalServers[address]), route.ErrCancelled)
+	}()
+}
+
+func (c *cluster) KillRoleAssigner() {
+	close(c.cancel)
+}
+
+func (c *cluster) RestartRoleAssigner() {
+	c.cancel = make(chan bool)
+	go func() {
+		require.Equal(c.tb, c.addresser.AssignRoles(c.cancel), route.ErrCancelled)
 	}()
 }
 
