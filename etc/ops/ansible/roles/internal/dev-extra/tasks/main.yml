@@ -7,4 +7,5 @@
     - libgit2-dev
     - python-libcloud
     - screen
+    - shellcheck
     - tree
