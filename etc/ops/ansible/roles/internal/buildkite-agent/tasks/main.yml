@@ -1,0 +1,15 @@
+---
+- apt_repository:
+    repo="deb https://apt.buildkite.com/buildkite-agent stable main"
+    state=present
+- apt_key:
+    keyserver="hkp://keyserver.ubuntu.com:80"
+    id="32A37959C2FA5C3C99EFBC32A79206696452D198"
+- apt: name=buildkite-agent
+- service: name=buildkite-agent state=started
+- lineinfile:
+    dest=/etc/buildkite-agent/buildkite-agent.cfg
+    regexp="^token="
+    line="token=\"{{buildkite_agent_token}}\""
+    backrefs=yes
+    state=present
