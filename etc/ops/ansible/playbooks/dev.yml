@@ -9,3 +9,4 @@
     - docker
     - { role: docker-gc, docker_gc_frequency: "daily" }
     - dev-extra
+    - deb-build
