@@ -2,7 +2,7 @@
 Package pfsutil provides utility functions that wrap a pfs.ApiClient
 to make the calling code slightly cleaner.
 */
-package pfsutil
+package pfsutil //import "go.pachyderm.com/pachyderm/src/pfs/pfsutil"
 
 import (
 	"io"

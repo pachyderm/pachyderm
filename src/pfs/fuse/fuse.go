@@ -1,4 +1,4 @@
-package fuse
+package fuse //import "go.pachyderm.com/pachyderm/src/pfs/fuse"
 
 import (
 	"go.pachyderm.com/pachyderm/src/pfs"

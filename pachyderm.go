@@ -1,4 +1,4 @@
-package pachyderm
+package pachyderm // import "go.pachyderm.com/pachyderm"
 
 import "go.pedge.io/proto/version"
 

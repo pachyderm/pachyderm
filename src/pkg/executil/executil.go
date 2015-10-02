@@ -1,4 +1,4 @@
-package executil
+package executil //import "go.pachyderm.com/pachyderm/src/pkg/executil"
 
 import (
 	"bytes"

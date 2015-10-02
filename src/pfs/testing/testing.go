@@ -1,4 +1,4 @@
-package testing
+package testing //import "go.pachyderm.com/pachyderm/src/pfs/testing"
 
 import (
 	"errors"

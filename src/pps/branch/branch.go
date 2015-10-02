@@ -1,4 +1,4 @@
-package branch
+package branch //import "go.pachyderm.com/pachyderm/src/pps/branch"
 
 import (
 	"go.pachyderm.com/pachyderm/src/pfs"
