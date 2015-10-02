@@ -1,0 +1,9 @@
+# Setup a Pachyderm CI machine with the Buildkite build agent running.
+---
+- hosts: localhost
+  roles:
+    - joshualund.golang
+    - franklinkim.docker-compose
+    - docker
+    - { role: docker-gc, docker_gc_frequency: "daily" }
+    - buildkite-agent
