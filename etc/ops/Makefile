@@ -1,4 +1,5 @@
 .PHONE: \
+	ansible-ci \
 	ansible-dev \
 	ansible-install
 
@@ -16,3 +17,7 @@ ansible-install:
 
 ansible-dev:
 	@ ansible-playbook --diff -s ansible/playbooks/dev.yml
+
+ansible-ci:
+	@ ansible-playbook --diff -s ansible/playbooks/ci.yml \
+			-e "buildkite_agent_token=${BUILDKITE_AGENT_TOKEN}"
