@@ -4,7 +4,7 @@
     - ansible-doc
     - git
     - jq
-    - libgit2
+    - libgit2-dev
     - python-libcloud
     - screen
     - tree
