@@ -1,0 +1,10 @@
+---
+- apt: pkg={{ item }} state=present
+  with_items:
+    - ansible-doc
+    - git
+    - jq
+    - libgit2
+    - python-libcloud
+    - screen
+    - tree
