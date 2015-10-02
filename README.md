@@ -102,9 +102,8 @@ With golang, it's generally easiest to have your fork match the import paths in 
 
 ```
 # assuming your github username is alice
-rm -rf ${GOPATH}/src/github.com/pachyderm/pachyderm
-mkdir -p ${GOPATH}/src/github.com/pachyderm
-cd ${GOPATH}/src/github.com/pachyderm
+rm -rf ${GOPATH}/src/go.pachyderm.com/pachyderm
+cd ${GOPATH}/src/go.pachyderm.com
 git clone https://github.com/alice/pachyderm.git
 git remote add upstream https://github.com/pachyderm/pachyderm.git # so you can run 'git fetch upstream' to get upstream changes
 ```
@@ -134,8 +133,8 @@ vagrant ssh # ssh into the vagrant box
 Once in the vagrant box, set everything up and verify that it works:
 
 ```
-go get github.com/pachyderm/pachyderm/...
-cd ~/go/src/github.com/pachyderm/pachyderm
+go get go.pachyderm.com/pachyderm/...
+cd ~/go/src/go.pachyderm.com/pachyderm
 make test
 ```
 

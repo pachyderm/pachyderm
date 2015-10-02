@@ -3,8 +3,8 @@ package run
 import (
 	"fmt"
 
-	"github.com/pachyderm/pachyderm/src/pkg/graph"
-	"github.com/pachyderm/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pkg/graph"
+	"go.pachyderm.com/pachyderm/src/pps"
 )
 
 func getInputBinds(input *pps.Input) []string {

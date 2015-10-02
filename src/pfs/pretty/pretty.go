@@ -9,7 +9,7 @@ import (
 	"go.pedge.io/proto/time"
 
 	"github.com/docker/docker/pkg/units"
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pfs"
 )
 
 func PrintRepoHeader(w io.Writer) {

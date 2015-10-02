@@ -3,8 +3,8 @@ package run
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/pkg/require"
-	"github.com/pachyderm/pachyderm/src/pps/parse"
+	"go.pachyderm.com/pachyderm/src/pkg/require"
+	"go.pachyderm.com/pachyderm/src/pps/parse"
 )
 
 func TestGetNameToNodeInfo(t *testing.T) {

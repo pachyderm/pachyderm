@@ -31,7 +31,7 @@ package routeprotolog
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import routeproto "github.com/pachyderm/pachyderm/src/pfs/route/proto"
+import routeproto "go.pachyderm.com/pachyderm/src/pfs/route/proto"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal

@@ -6,8 +6,8 @@ import (
 	"github.com/dancannon/gorethink"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/pachyderm/pachyderm/src/pkg/timing"
-	"github.com/pachyderm/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pkg/timing"
+	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pedge.io/proto/time"
 )
 

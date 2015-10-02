@@ -12,9 +12,9 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pfs/route"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pfs/drive"
+	"go.pachyderm.com/pachyderm/src/pfs/route"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
 )

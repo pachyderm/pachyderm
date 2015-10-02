@@ -10,7 +10,7 @@ import (
 
 	"go.pedge.io/proto/stream"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pfs"
 	"golang.org/x/net/context"
 )
 
