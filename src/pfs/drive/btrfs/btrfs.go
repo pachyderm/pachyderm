@@ -1,4 +1,4 @@
-package btrfs //import "go.pachyderm.com/pachyderm/src/pfs/driver/btrfs"
+package btrfs //import "go.pachyderm.com/pachyderm/src/pfs/drive/btrfs"
 
 import "go.pachyderm.com/pachyderm/src/pfs/drive"
 
