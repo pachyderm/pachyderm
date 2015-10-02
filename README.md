@@ -19,6 +19,8 @@
 
 ### News
 
+Note the custom golang import path! `go get go.pachyderm.com/pachyderm`.
+
 We are in the midst of a refactor! See the release branch for the current, working release of Pachyderm.
 
 Check out our docker volume driver! https://github.com/pachyderm/pachyderm/tree/master/src/cmd/pfs-volume-driver.
