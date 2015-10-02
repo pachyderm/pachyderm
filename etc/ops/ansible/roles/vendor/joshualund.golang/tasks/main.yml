@@ -17,7 +17,3 @@
 - name: Add the Go bin directory to the PATH environment variable for all users
   copy: src=go-bin.sh
         dest=/etc/profile.d
-
-- name: Set GOPATH for all users
-  copy: src=go-path.sh
-        dest=/etc/profile.d
