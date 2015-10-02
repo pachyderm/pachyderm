@@ -10,15 +10,15 @@ import (
 	"go.pedge.io/proto/time"
 	"go.pedge.io/protolog"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/graph"
-	"github.com/pachyderm/pachyderm/src/pkg/timing"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/container"
-	"github.com/pachyderm/pachyderm/src/pps/run"
-	"github.com/pachyderm/pachyderm/src/pps/source"
-	"github.com/pachyderm/pachyderm/src/pps/store"
 	"github.com/satori/go.uuid"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pkg/graph"
+	"go.pachyderm.com/pachyderm/src/pkg/timing"
+	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/container"
+	"go.pachyderm.com/pachyderm/src/pps/run"
+	"go.pachyderm.com/pachyderm/src/pps/source"
+	"go.pachyderm.com/pachyderm/src/pps/store"
 	"golang.org/x/net/context"
 )
 

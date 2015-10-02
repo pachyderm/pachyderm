@@ -28,9 +28,9 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pkg/executil"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pfs/drive"
+	"go.pachyderm.com/pachyderm/src/pkg/executil"
 	"go.pedge.io/proto/time"
 	"go.pedge.io/protolog"
 )

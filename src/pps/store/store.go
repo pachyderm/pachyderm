@@ -1,6 +1,6 @@
 package store
 
-import "github.com/pachyderm/pachyderm/src/pps"
+import "go.pachyderm.com/pachyderm/src/pps"
 
 type Client interface {
 	Close() error

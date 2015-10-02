@@ -62,7 +62,7 @@ import math "math"
 import google_protobuf1 "go.pedge.io/google-protobuf"
 import google_protobuf2 "go.pedge.io/google-protobuf"
 import google_protobuf3 "go.pedge.io/google-protobuf"
-import routeproto "github.com/pachyderm/pachyderm/src/pfs/route/proto"
+import routeproto "go.pachyderm.com/pachyderm/src/pfs/route/proto"
 
 import (
 	context "golang.org/x/net/context"

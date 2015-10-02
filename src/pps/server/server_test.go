@@ -14,14 +14,14 @@ import (
 	"go.pedge.io/proto/test"
 	"go.pedge.io/protolog"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
-	pfstesting "github.com/pachyderm/pachyderm/src/pfs/testing"
-	"github.com/pachyderm/pachyderm/src/pkg/require"
-	"github.com/pachyderm/pachyderm/src/pkg/timing"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/container"
-	"github.com/pachyderm/pachyderm/src/pps/store"
 	"github.com/satori/go.uuid"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	pfstesting "go.pachyderm.com/pachyderm/src/pfs/testing"
+	"go.pachyderm.com/pachyderm/src/pkg/require"
+	"go.pachyderm.com/pachyderm/src/pkg/timing"
+	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/container"
+	"go.pachyderm.com/pachyderm/src/pps/store"
 	"google.golang.org/grpc"
 )
 

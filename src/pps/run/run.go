@@ -1,10 +1,10 @@
 package run
 
 import (
-	"github.com/pachyderm/pachyderm/src/pkg/graph"
-	"github.com/pachyderm/pachyderm/src/pkg/timing"
-	"github.com/pachyderm/pachyderm/src/pps/container"
-	"github.com/pachyderm/pachyderm/src/pps/store"
+	"go.pachyderm.com/pachyderm/src/pkg/graph"
+	"go.pachyderm.com/pachyderm/src/pkg/timing"
+	"go.pachyderm.com/pachyderm/src/pps/container"
+	"go.pachyderm.com/pachyderm/src/pps/store"
 )
 
 type Runner interface {

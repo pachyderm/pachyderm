@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	proto "github.com/pachyderm/pachyderm/src/pfs/route/proto"
-	log "github.com/pachyderm/pachyderm/src/pfs/route/protolog"
-	"github.com/pachyderm/pachyderm/src/pkg/discovery"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	proto "go.pachyderm.com/pachyderm/src/pfs/route/proto"
+	log "go.pachyderm.com/pachyderm/src/pfs/route/protolog"
+	"go.pachyderm.com/pachyderm/src/pkg/discovery"
 	"go.pedge.io/protolog"
 )
 

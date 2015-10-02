@@ -7,7 +7,7 @@ import (
 
 	"go.pedge.io/protolog"
 
-	"github.com/pachyderm/pachyderm/src/pkg/require"
+	"go.pachyderm.com/pachyderm/src/pkg/require"
 )
 
 func TestBuild(t *testing.T) {
