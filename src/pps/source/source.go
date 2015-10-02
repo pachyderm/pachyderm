@@ -1,4 +1,4 @@
-package source
+package source //import "go.pachyderm.com/pachyderm/src/pps/source"
 
 import "go.pachyderm.com/pachyderm/src/pps"
 

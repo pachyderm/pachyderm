@@ -1,4 +1,4 @@
-package graph
+package graph //import "go.pachyderm.com/pachyderm/src/pkg/graph"
 
 type NodeInfo struct {
 	Parents []string

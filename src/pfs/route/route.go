@@ -1,4 +1,4 @@
-package route
+package route //import "go.pachyderm.com/pachyderm/src/pfs/route"
 
 import (
 	"go.pachyderm.com/pachyderm/src/pfs"

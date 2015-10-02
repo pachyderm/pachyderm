@@ -1,4 +1,4 @@
-package run
+package run //import "go.pachyderm.com/pachyderm/src/pps/run"
 
 import (
 	"go.pachyderm.com/pachyderm/src/pkg/graph"

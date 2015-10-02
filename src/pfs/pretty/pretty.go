@@ -1,4 +1,4 @@
-package pretty
+package pretty //import "go.pachyderm.com/pachyderm/src/pfs/pretty"
 
 import (
 	"fmt"

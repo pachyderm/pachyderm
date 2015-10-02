@@ -1,4 +1,4 @@
-package store
+package store //import "go.pachyderm.com/pachyderm/src/pps/store"
 
 import "go.pachyderm.com/pachyderm/src/pps"
 

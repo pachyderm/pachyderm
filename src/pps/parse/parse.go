@@ -1,4 +1,4 @@
-package parse
+package parse //import "go.pachyderm.com/pachyderm/src/pps/parse"
 
 import "go.pachyderm.com/pachyderm/src/pps"
 

@@ -1,4 +1,4 @@
-package server
+package server //import "go.pachyderm.com/pachyderm/src/pfs/server"
 
 import (
 	"go.pachyderm.com/pachyderm/src/pfs"

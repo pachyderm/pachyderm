@@ -1,4 +1,4 @@
-package netutil
+package netutil //import "go.pachyderm.com/pachyderm/src/pkg/netutil"
 
 import (
 	"errors"
