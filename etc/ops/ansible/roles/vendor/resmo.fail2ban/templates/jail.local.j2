@@ -1,0 +1,31 @@
+# Fail2Ban configuration file.
+
+[DEFAULT]
+
+# "ignoreip" can be an IP address, a CIDR mask or a DNS host
+ignoreip = {{ fail2ban_config_ignoreip }}
+bantime  = {{ fail2ban_config_bantime }}
+maxretry = {{ fail2ban_config_maxretry }}
+
+# Destination email address used solely for the interpolations in
+# jail.{conf,local} configuration files.
+destemail = {{ fail2ban_config_destemail }}
+
+#
+# JAILS
+#
+
+[ssh]
+
+enabled  = {{ fail2ban_config_jail_ssh_enabled }}
+port     = ssh
+filter   = sshd
+logpath  = /var/log/auth.log
+
+
+[ssh-ddos]
+
+enabled  = {{ fail2ban_config_jail_sshddos_enabled }}
+port     = ssh
+filter   = sshd-ddos
+logpath  = /var/log/auth.log
