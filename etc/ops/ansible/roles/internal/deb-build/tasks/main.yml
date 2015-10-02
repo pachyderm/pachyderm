@@ -2,14 +2,14 @@
 ---
 - apt: pkg={{ item }} state=present
   with_items:
+    - build-essential
     - cdbs
     - debhelper
     - devscripts
     - dpkg-dev
-    - software-properties-common
-    - devscripts
-    - build-essential
     - lintian
+    - ruby-dev
+    - software-properties-common
 - gem: name={{ item }} state=present
   with_items:
     - fpm
