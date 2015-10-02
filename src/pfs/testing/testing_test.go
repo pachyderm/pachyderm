@@ -161,9 +161,11 @@ func testFailures(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 
 	checkWrites(t, apiClient, repositoryName, newCommitID)
 
+	cluster.KillRoleAssigner()
 	for server := 0; server < testNumReplicas; server++ {
 		cluster.Kill(server)
 	}
+	cluster.RestartRoleAssigner()
 	cluster.WaitForAvailability()
 
 	checkWrites(t, apiClient, repositoryName, newCommitID)

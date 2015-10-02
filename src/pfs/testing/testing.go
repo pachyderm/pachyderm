@@ -24,7 +24,7 @@ const (
 	// TODO(pedge): large numbers of shards takes forever because
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
-	testShardsPerServer = 4
+	testShardsPerServer = 2
 	testNumServers      = 4
 	testNumReplicas     = 1
 )
@@ -39,7 +39,7 @@ func RunTest(
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(t, err)
-	var cluster Cluster
+	var cluster *cluster
 	prototest.RunT(
 		t,
 		testNumServers,
@@ -52,6 +52,10 @@ func RunTest(
 				clientConn = c
 				break
 			}
+			go func() {
+				require.Equal(t, cluster.addresser.AssignRoles(cluster.cancel), route.ErrCancelled)
+			}()
+			cluster.WaitForAvailability()
 			f(
 				t,
 				pfs.NewApiClient(
@@ -73,7 +77,7 @@ func RunBench(
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(b, err)
-	var cluster Cluster
+	var cluster *cluster
 	prototest.RunB(
 		b,
 		testNumServers,
@@ -86,6 +90,10 @@ func RunBench(
 				clientConn = c
 				break
 			}
+			go func() {
+				require.Equal(b, cluster.addresser.AssignRoles(cluster.cancel), route.ErrCancelled)
+			}()
+			cluster.WaitForAvailability()
 			f(
 				b,
 				pfs.NewApiClient(
@@ -172,7 +180,7 @@ func (c *cluster) Shutdown() {
 	}
 }
 
-func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) Cluster {
+func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) *cluster {
 	sharder := route.NewSharder(
 		testShardsPerServer*testNumServers,
 		testNumReplicas,
@@ -219,16 +227,11 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 			require.Equal(tb, cluster.addresser.Register(cluster.cancels[address], address, address, cluster.internalServers[address]), route.ErrCancelled)
 		}(address)
 	}
-	go func() {
-		require.Equal(tb, cluster.addresser.AssignRoles(cluster.cancel), route.ErrCancelled)
-	}()
 	return &cluster
 }
 
-func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) Cluster {
-	cluster := newCluster(tb, discoveryClient, servers)
-	cluster.WaitForAvailability()
-	return cluster
+func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) *cluster {
+	return newCluster(tb, discoveryClient, servers)
 }
 
 func getDriver(tb testing.TB, namespace string) drive.Driver {

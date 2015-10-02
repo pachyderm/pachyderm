@@ -206,8 +206,8 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 			oldRoles[serverRole.Id] = serverRole
 			oldServers[serverRole.Id] = true
 		}
-		if version < serverRole.Version {
-			version = serverRole.Version
+		if version < serverRole.Version+1 {
+			version = serverRole.Version + 1
 		}
 	}
 	for _, oldServerRole := range oldRoles {
@@ -248,6 +248,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 					shardLocations[shard] = append(shardLocations[shard], serverState.Id)
 				}
 			}
+			protolog.Printf("newServerStates: %+v", newServerStates)
 			// See if there's any roles we can delete
 			minVersion := int64(math.MaxInt64)
 			for _, serverState := range newServerStates {
