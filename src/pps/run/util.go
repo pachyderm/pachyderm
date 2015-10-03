@@ -8,14 +8,14 @@ import (
 )
 
 func getInputBinds(input *pps.Input) []string {
-	if input.Host != nil {
+	if input != nil && input.Host != nil {
 		return getBinds(input.Host, "ro")
 	}
 	return []string{}
 }
 
 func getOutputBinds(output *pps.Output) []string {
-	if output.Host != nil {
+	if output != nil && output.Host != nil {
 		return getBinds(output.Host, "rw")
 	}
 	return []string{}

@@ -177,7 +177,7 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 			"/tmp/pachyderm-test/5-out/5.txt.copy4",
 			"/tmp/pachyderm-test/5-out/50.txt.copy3",
 			"/tmp/pachyderm-test/5-out/50.txt.copy4",
-			"/tmp/pachyderm-test/5-out/build-file.txt",
+			//"/tmp/pachyderm-test/5-out/build-file.txt",
 		},
 		matches,
 	)
