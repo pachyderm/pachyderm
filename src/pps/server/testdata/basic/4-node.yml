@@ -10,3 +10,4 @@ output:
     /tmp/pachyderm-test/4-out: /out
 run:
   - for file in /in/*; do echo copying $file; cp $file /out/$(basename $file)4; done
+  - cp /build-file.txt /out/build-file.txt4
