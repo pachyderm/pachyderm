@@ -16,8 +16,9 @@ export ANSIBLE_INVENTORY \
 	ANSIBLE_HOST_KEY_CHECKING
 
 ansible-ci:
-	@ ansible-playbook --diff -s ansible/playbooks/ci.yml \
-			-e "buildkite_agent_token=${BUILDKITE_AGENT_TOKEN}"
+	@ ansible-playbook --diff -s -u dev \
+		--private-key=~/.ssh/dev_rsa \
+		ansible/playbooks/ci.yml
 
 ansible-dev:
 	@ ansible-playbook --diff -s -u dev \
