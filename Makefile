@@ -54,6 +54,9 @@ docker-build-test:
 docker-build-compile:
 	docker-compose build compile
 
+docker-build-pfs-mount: docker-build-compile
+	docker-compose run compile sh etc/compile/compile.sh pfs pfs-mount
+
 docker-build-pfs-volume-driver: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh pfs-volume-driver
 
@@ -63,6 +66,9 @@ docker-build-pfsd: docker-build-compile
 
 docker-build-ppsd: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh ppsd
+
+docker-push-pfs-mount: docker-build-pfs-mount
+	docker push pachyderm/pfs-mount
 
 docker-push-pfs-volume-driver: docker-build-pfs-volume-driver
 	docker push pachyderm/pfs-volume-driver
