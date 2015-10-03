@@ -4,7 +4,6 @@ Package logrus defines functionality for integration with Logrus.
 package logrus
 
 import (
-	"io"
 	"sync"
 
 	"github.com/Sirupsen/logrus"
@@ -20,7 +19,7 @@ var (
 
 // PusherOptions defines options for constructing a new Logrus protolog.Pusher.
 type PusherOptions struct {
-	Out             io.Writer
+	Out             protolog.WriteFlusher
 	Hooks           []logrus.Hook
 	Formatter       logrus.Formatter
 	EnableID        bool

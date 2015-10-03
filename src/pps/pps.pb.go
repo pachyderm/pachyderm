@@ -708,9 +708,9 @@ func RegisterApiServer(s *grpc.Server, srv ApiServer) {
 	s.RegisterService(&_Api_serviceDesc, srv)
 }
 
-func _Api_CreatePipelineSource_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_CreatePipelineSource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(CreatePipelineSourceRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).CreatePipelineSource(ctx, in)
@@ -720,9 +720,9 @@ func _Api_CreatePipelineSource_Handler(srv interface{}, ctx context.Context, cod
 	return out, nil
 }
 
-func _Api_GetPipelineSource_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_GetPipelineSource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(GetPipelineSourceRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).GetPipelineSource(ctx, in)
@@ -732,9 +732,9 @@ func _Api_GetPipelineSource_Handler(srv interface{}, ctx context.Context, codec 
 	return out, nil
 }
 
-func _Api_UpdatePipelineSource_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_UpdatePipelineSource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(UpdatePipelineSourceRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).UpdatePipelineSource(ctx, in)
@@ -744,9 +744,9 @@ func _Api_UpdatePipelineSource_Handler(srv interface{}, ctx context.Context, cod
 	return out, nil
 }
 
-func _Api_ArchivePipelineSource_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_ArchivePipelineSource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ArchivePipelineSourceRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).ArchivePipelineSource(ctx, in)
@@ -756,9 +756,9 @@ func _Api_ArchivePipelineSource_Handler(srv interface{}, ctx context.Context, co
 	return out, nil
 }
 
-func _Api_ListPipelineSources_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_ListPipelineSources_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListPipelineSourcesRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).ListPipelineSources(ctx, in)
@@ -768,9 +768,9 @@ func _Api_ListPipelineSources_Handler(srv interface{}, ctx context.Context, code
 	return out, nil
 }
 
-func _Api_CreateAndGetPipeline_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_CreateAndGetPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(CreateAndGetPipelineRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).CreateAndGetPipeline(ctx, in)
@@ -780,9 +780,9 @@ func _Api_CreateAndGetPipeline_Handler(srv interface{}, ctx context.Context, cod
 	return out, nil
 }
 
-func _Api_CreatePipelineRun_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_CreatePipelineRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(CreatePipelineRunRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).CreatePipelineRun(ctx, in)
@@ -792,9 +792,9 @@ func _Api_CreatePipelineRun_Handler(srv interface{}, ctx context.Context, codec 
 	return out, nil
 }
 
-func _Api_StartPipelineRun_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_StartPipelineRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(StartPipelineRunRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).StartPipelineRun(ctx, in)
@@ -804,9 +804,9 @@ func _Api_StartPipelineRun_Handler(srv interface{}, ctx context.Context, codec g
 	return out, nil
 }
 
-func _Api_ListPipelineRuns_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_ListPipelineRuns_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListPipelineRunsRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).ListPipelineRuns(ctx, in)
@@ -816,9 +816,9 @@ func _Api_ListPipelineRuns_Handler(srv interface{}, ctx context.Context, codec g
 	return out, nil
 }
 
-func _Api_GetPipelineRunStatus_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_GetPipelineRunStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(GetPipelineRunStatusRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).GetPipelineRunStatus(ctx, in)
@@ -828,9 +828,9 @@ func _Api_GetPipelineRunStatus_Handler(srv interface{}, ctx context.Context, cod
 	return out, nil
 }
 
-func _Api_GetPipelineRunLogs_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_GetPipelineRunLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(GetPipelineRunLogsRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).GetPipelineRunLogs(ctx, in)

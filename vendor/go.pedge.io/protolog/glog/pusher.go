@@ -36,10 +36,13 @@ func (p *pusher) Push(entry *protolog.Entry) error {
 	case protolog.Level_LEVEL_ERROR:
 		glog.Errorln(data)
 	case protolog.Level_LEVEL_FATAL:
-		glog.Fatalln(data)
+		// cannot use fatal since this will exit before logging completes,
+		// which is particularly important for a multi-pusher
+		glog.Errorln(data)
 	case protolog.Level_LEVEL_PANIC:
-		glog.Fatalln(data)
-		panic(data)
+		// cannot use panic since this will panic before logging completes,
+		// which is particularly important for a multi-pusher
+		glog.Errorln(data)
 	}
 	return nil
 }
