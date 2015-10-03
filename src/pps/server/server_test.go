@@ -149,6 +149,7 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 			"/tmp/pachyderm-test/4-out/40.txt.copy4",
 			"/tmp/pachyderm-test/4-out/5.txt.copy4",
 			"/tmp/pachyderm-test/4-out/50.txt.copy4",
+			"/tmp/pachyderm-test/4-out/build-file.txt4",
 		},
 		matches,
 	)
@@ -177,7 +178,8 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 			"/tmp/pachyderm-test/5-out/5.txt.copy4",
 			"/tmp/pachyderm-test/5-out/50.txt.copy3",
 			"/tmp/pachyderm-test/5-out/50.txt.copy4",
-			"/tmp/pachyderm-test/5-out/build-file.txt",
+			"/tmp/pachyderm-test/5-out/build-file.txt2",
+			"/tmp/pachyderm-test/4-out/build-file.txt4",
 		},
 		matches,
 	)
@@ -186,7 +188,7 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 func getFinalPipelineRunStatus(apiClient pps.ApiClient, pipelineRunID string) (*pps.PipelineRunStatus, error) {
 	// TODO(pedge): not good
 	ticker := time.NewTicker(time.Second)
-	for i := 0; i < 60; i++ {
+	for i := 0; i < 20; i++ {
 		<-ticker.C
 		pipelineRunStatuses, err := apiClient.GetPipelineRunStatus(
 			context.Background(),

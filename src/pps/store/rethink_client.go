@@ -9,6 +9,7 @@ import (
 	"go.pachyderm.com/pachyderm/src/pkg/timing"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pedge.io/proto/time"
+	"go.pedge.io/protolog"
 )
 
 const (
@@ -231,6 +232,7 @@ func (c *rethinkClient) CreatePipelineRunStatus(id string, statusType pps.Pipeli
 		return err
 	}
 	_, err = c.pipelineRunStatuses.Insert(gorethink.JSON(data)).RunWrite(c.session)
+	protolog.Debugf("created pipeline run status: %v\n", runStatus)
 	return err
 }
 
