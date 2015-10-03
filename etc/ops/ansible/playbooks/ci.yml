@@ -1,6 +1,6 @@
 # Setup a Pachyderm CI machine with the Buildkite build agent running.
 ---
-- hosts: localhost
+- hosts: tag_ci
   roles:
     - joshualund.golang
     - franklinkim.docker-compose
