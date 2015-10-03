@@ -16,7 +16,9 @@ ansible-install:
 		-p ansible/roles/vendor
 
 ansible-dev:
-	@ ansible-playbook --diff -s ansible/playbooks/dev.yml
+	@ ansible-playbook --diff -s -u dev \
+		--private-key=~/.ssh/dev_rsa \
+		ansible/playbooks/dev.yml
 
 ansible-ci:
 	@ ansible-playbook --diff -s ansible/playbooks/ci.yml \
