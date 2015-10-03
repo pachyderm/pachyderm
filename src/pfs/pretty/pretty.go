@@ -57,16 +57,17 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 			),
 		),
 	)
-	fmt.Fprintf(
-		w,
-		"%s ago\t", units.HumanDuration(
+	finished := "\t"
+	if commitInfo.Finished != nil {
+		finished = fmt.Sprintf("%s ago\t", units.HumanDuration(
 			time.Since(
 				prototime.TimestampToTime(
 					commitInfo.Finished,
 				),
 			),
-		),
-	)
+		))
+	}
+	fmt.Fprintf(w, finished)
 	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.TotalBytes)))
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.CommitBytes)))
 }
