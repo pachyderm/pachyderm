@@ -16,6 +16,9 @@ func TimeToTimestamp(t time.Time) *google_protobuf.Timestamp {
 
 // TimestampToTime converts a protobuf Timestamp to a go Time.
 func TimestampToTime(timestamp *google_protobuf.Timestamp) time.Time {
+	if timestamp == nil {
+		return time.Unix(0, 0).UTC()
+	}
 	return time.Unix(
 		timestamp.Seconds,
 		int64(timestamp.Nanos),
@@ -49,5 +52,8 @@ func DurationToProto(d time.Duration) *google_protobuf.Duration {
 
 // DurationFromProto converts a protobuf Duration to a go Duration.
 func DurationFromProto(duration *google_protobuf.Duration) time.Duration {
+	if duration == nil {
+		return 0
+	}
 	return time.Duration((duration.Seconds * int64(time.Second)) + int64(duration.Nanos))
 }
