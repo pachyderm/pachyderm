@@ -3,6 +3,7 @@
 	ansible-dev \
 	ansible-roles \
 	setup-dev-keys \
+	terraform-ci \
 	terraform-dev
 
 ANSIBLE_INVENTORY = $(shell pwd)/ansible/inventory/gce.py
@@ -32,6 +33,12 @@ ansible-roles:
 setup-dev-keys:
 	@ gcloud compute project-info add-metadata \
 		--metadata-from-file sshKeys=terraform/dev/keys.pub
+
+terraform-ci:
+	@ terraform apply \
+		-state terraform/state/ci.tfstate \
+		-var-file terraform/ci/terraform.tfvars \
+		terraform/ci
 
 terraform-dev:
 	@ terraform apply \
