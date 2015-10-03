@@ -8,8 +8,11 @@
 ANSIBLE_INVENTORY = $(shell pwd)/ansible/inventory/gce.py
 ANSIBLE_ROLES_PATH = \
 	$(shell pwd)/ansible/roles/internal:$(shell pwd)/ansible/roles/vendor
+ANSIBLE_HOST_KEY_CHECKING = False
 
-export ANSIBLE_INVENTORY ANSIBLE_ROLES_PATH
+export ANSIBLE_INVENTORY \
+	ANSIBLE_ROLES_PATH \
+	ANSIBLE_HOST_KEY_CHECKING
 
 ansible-ci:
 	@ ansible-playbook --diff -s ansible/playbooks/ci.yml \
