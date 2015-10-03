@@ -1,7 +1,7 @@
 pps:
   kind: node
   name: "4"
-service: ubuntu
+service: ubuntu-build
 input:
   host:
     /tmp/pachyderm-test/2-out: /in
