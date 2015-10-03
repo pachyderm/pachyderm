@@ -23,5 +23,5 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # allows volumes from host machine if calling docker from host machine
   config.vm.synced_folder ENV['HOME'], ENV['HOME']
 
-  config.vm.provision "shell", path: "etc/initdev/init.sh", args: "vagrant"
+  config.vm.provision "shell", path: "init.sh", args: "vagrant"
 end

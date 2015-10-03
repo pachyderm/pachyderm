@@ -97,6 +97,7 @@ func (r *runner) getNodeFunc(
 	if !ok {
 		return nil, fmt.Errorf("no service for name %s", node.Service)
 	}
+	// TODO(pedge): implement
 	if dockerService.Build != "" || dockerService.Dockerfile != "" {
 		return nil, fmt.Errorf("build/dockerfile not supported yet")
 	}

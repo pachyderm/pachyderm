@@ -110,7 +110,7 @@ git clone https://github.com/alice/pachyderm.git
 git remote add upstream https://github.com/pachyderm/pachyderm.git # so you can run 'git fetch upstream' to get upstream changes
 ```
 
-The [Vagrantfile](Vagrantfile) in this repository will set up a development environment for Pachyderm
+The [Vagrantfile](etc/initdev/Vagrantfile) in this repository will set up a development environment for Pachyderm
 that has all dependencies installed.
 
 The easiest way to install Vagrant on your mac is probably:
@@ -125,9 +125,8 @@ Basic usage:
 ```
 mkdir -p pachyderm_vagrant
 cd pachyderm_vagrant
-mkdir -p etc/initdev
-curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/Vagrantfile > Vagrantfile
-curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/initdev/init.sh > etc/initdev/init.sh
+curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/initdev/Vagrantfile > Vagrantfile
+curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/initdev/init.sh > init.sh
 vagrant up # starts the vagrant box
 vagrant ssh # ssh into the vagrant box
 ```
