@@ -186,6 +186,9 @@ func interfaceDecoder(dv, sv reflect.Value) {
 
 func interfaceAsTypeDecoder(dv, sv reflect.Value) {
 	if !sv.IsNil() {
+		dv = indirect(dv, false)
+		dv.Set(reflect.Zero(dv.Type()))
+
 		decode(dv, sv.Elem())
 	}
 }

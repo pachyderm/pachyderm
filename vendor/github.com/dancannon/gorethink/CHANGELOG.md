@@ -2,6 +2,20 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## v1.1.4
+### Added
+ - Added root table terms (`r.TableCreate`, `r.TableList` and `r.TableDrop`)
+
+### Removed
+ - Removed `ReadMode` option from `RunOpts` and `ExecOpts` (incorrectly added in v1.1.0)
+
+### Fixed 
+ - Fixed `Decode` no longer setting pointer to nil on document not found
+ - Fixed panic when `fetchMore` returns an error
+ - Fixed deadlock when closing changefeed
+ - Fixed stop query incorrectly waiting for response
+ - Fixed pointers not to be properly decoded
+
 ## v1.1.3
 ### Fixed
  - Fixed pointers not to be properly decoded

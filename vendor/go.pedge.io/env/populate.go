@@ -46,6 +46,12 @@ func populate(reflectValue reflect.Value, populateOptions PopulateOptions, recur
 		if err != nil {
 			return err
 		}
+		if envTag == nil {
+			if err := populate(reflectValue.Field(i), populateOptions, true); err != nil {
+				return err
+			}
+			continue
+		}
 		value, ok := decoderEnv[envTag.key]
 		if !ok {
 			value = os.Getenv(envTag.key)
@@ -127,7 +133,10 @@ type envTag struct {
 func getEnvTag(structField reflect.StructField, restrictTo map[string]bool) (*envTag, error) {
 	tag := structField.Tag.Get("env")
 	if tag == "" {
-		return nil, fmt.Errorf("%s: %v", envTagNotSetErr, structField)
+		if structField.Type.Kind() != reflect.Struct {
+			return nil, fmt.Errorf("%s: %v", envTagNotSetErr, structField)
+		}
+		return nil, nil
 	}
 	split := strings.SplitN(tag, ",", 2)
 	key := split[0]
