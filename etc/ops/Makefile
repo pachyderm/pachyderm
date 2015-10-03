@@ -21,3 +21,9 @@ ansible-dev:
 ansible-ci:
 	@ ansible-playbook --diff -s ansible/playbooks/ci.yml \
 			-e "buildkite_agent_token=${BUILDKITE_AGENT_TOKEN}"
+
+terraform-dev:
+	@ terraform apply \
+		-state terraform/terraform.tfstate \
+		-var-file terraform/dev/terraform.tfvars \
+		terraform/dev
