@@ -120,7 +120,11 @@ func (a *apiServer) CreatePipelineRun(ctx context.Context, request *pps.CreatePi
 		Id:         strings.Replace(uuid.NewV4().String(), "-", "", -1),
 		PipelineId: request.PipelineId,
 	}
+	// TODO(pedge): should be transactional with call to CreatePipelineRunStatus
 	if err := a.storeClient.CreatePipelineRun(pipelineRun); err != nil {
+		return nil, err
+	}
+	if err := a.storeClient.CreatePipelineRunStatus(pipelineRun.Id, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_CREATED); err != nil {
 		return nil, err
 	}
 	protolog.Info(

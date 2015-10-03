@@ -73,6 +73,7 @@ func (r *runner) Start(pipelineRunID string) error {
 	}
 	go func() {
 		if err := run.Do(); err != nil {
+			protolog.Errorln(err.Error())
 			if storeErr := r.storeClient.CreatePipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR); storeErr != nil {
 				protolog.Errorln(storeErr.Error())
 			}
