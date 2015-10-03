@@ -27,6 +27,7 @@ resource "google_compute_instance" "dev" {
   service_account {
     scopes = ["https://www.googleapis.com/auth/cloud-platform"]
   }
+  metadata_startup_script = "${file("terraform/dev/startup.sh")}"
   network_interface {
     network = "default"
     access_config {
