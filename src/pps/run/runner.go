@@ -99,7 +99,7 @@ func (r *runner) getNodeFunc(
 	}
 	// TODO(pedge): implement
 	if dockerService.Build != "" || dockerService.Dockerfile != "" {
-		return nil, fmt.Errorf("build/dockerfile not supported yet")
+		return nil, fmt.Errorf("build/dockerfile not supported yet, had build: %s, dockerfile: %s", dockerService.Build, dockerService.Dockerfile)
 	}
 	return func() (retErr error) {
 		if err := r.containerClient.Pull(
