@@ -20,6 +20,7 @@ resource "google_compute_instance" "dev" {
   name = "dev-${var.gcloud_user}"
   machine_type = "${var.gcloud_machine_type}"
   zone = "${google_compute_disk.dev.zone}"
+  tags = ["dev"]
   disk {
     disk = "${google_compute_disk.dev.name}"
   }
