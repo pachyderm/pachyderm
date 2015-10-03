@@ -32,6 +32,6 @@ setup-dev-keys:
 
 terraform-dev:
 	@ terraform apply \
-		-state terraform/terraform.tfstate \
+		-state terraform/state/dev.tfstate \
 		-var-file terraform/dev/terraform.tfvars \
 		terraform/dev
