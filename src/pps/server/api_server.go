@@ -57,6 +57,7 @@ func (a *apiServer) GetPipelineSource(ctx context.Context, request *pps.GetPipel
 	return pipelineSource, nil
 }
 
+// TODO(pedge): implement
 func (a *apiServer) UpdatePipelineSource(ctx context.Context, request *pps.UpdatePipelineSourceRequest) (*pps.PipelineSource, error) {
 	return nil, errors.New("not implemented")
 }
@@ -143,6 +144,7 @@ func (a *apiServer) StartPipelineRun(ctx context.Context, request *pps.StartPipe
 	return emptyInstance, nil
 }
 
+// TODO(pedge): implement
 func (a *apiServer) ListPipelineRuns(ctx context.Context, request *pps.ListPipelineRunsRequest) (*pps.PipelineRuns, error) {
 	return nil, errors.New("not implemented")
 }
