@@ -30,9 +30,6 @@ const (
 )
 
 func TestBasic(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
 	t.Parallel()
 	runTest(t, testBasic)
 }
@@ -178,8 +175,8 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 			"/tmp/pachyderm-test/5-out/5.txt.copy4",
 			"/tmp/pachyderm-test/5-out/50.txt.copy3",
 			"/tmp/pachyderm-test/5-out/50.txt.copy4",
-			"/tmp/pachyderm-test/5-out/build-file.txt2",
-			"/tmp/pachyderm-test/4-out/build-file.txt4",
+			"/tmp/pachyderm-test/5-out/build-file.txt4",
+			"/tmp/pachyderm-test/5-out/build-file2.txt",
 		},
 		matches,
 	)
