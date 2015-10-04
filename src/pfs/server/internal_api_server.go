@@ -17,7 +17,6 @@ import (
 	"go.pachyderm.com/pachyderm/src/pfs/route"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
-	"go.pedge.io/protolog"
 )
 
 type internalAPIServer struct {
@@ -61,7 +60,6 @@ func (a *internalAPIServer) InspectRepo(ctx context.Context, request *pfs.Inspec
 }
 
 func (a *internalAPIServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (*pfs.RepoInfos, error) {
-	protolog.Printf("Recv ListRepo")
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -501,12 +499,8 @@ func (a *internalAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffSe
 	if !ok {
 		return fmt.Errorf("pachyderm: illegal PullDiffRequest for unknown shard %d", request.Shard)
 	}
-	var buffer bytes.Buffer
-	a.driver.PullDiff(request.Commit, request.Shard, &buffer)
-	return protostream.WriteToStreamingBytesServer(
-		&buffer,
-		apiPullDiffServer,
-	)
+	writer := protostream.NewStreamingBytesWriter(apiPullDiffServer)
+	return a.driver.PullDiff(request.Commit, request.Shard, writer)
 }
 
 func (a *internalAPIServer) PushDiff(ctx context.Context, request *pfs.PushDiffRequest) (*google_protobuf.Empty, error) {
@@ -521,7 +515,7 @@ func (a *internalAPIServer) PushDiff(ctx context.Context, request *pfs.PushDiffR
 	if !ok {
 		return nil, fmt.Errorf("pachyderm: illegal PushDiffRequest for unknown shard %d", request.Shard)
 	}
-	return emptyInstance, a.driver.PushDiff(request.Commit, bytes.NewReader(request.Value))
+	return emptyInstance, a.driver.PushDiff(request.Commit, request.Shard, bytes.NewReader(request.Value))
 }
 
 func (a *internalAPIServer) AddShard(shard uint64) error {
@@ -536,7 +530,6 @@ func (a *internalAPIServer) AddShard(shard uint64) error {
 	if err != nil {
 		return err
 	}
-	protolog.Printf("Send ListRepo %d\n clientConn: %+v", shard, clientConn)
 	repoInfos, err := pfs.NewInternalApiClient(clientConn).ListRepo(ctx, &pfs.ListRepoRequest{})
 	if err != nil {
 		return err
@@ -563,13 +556,14 @@ func (a *internalAPIServer) AddShard(shard uint64) error {
 				Commit: commit,
 				Shard:  shard,
 			}
-			protolog.Printf("PullDiff %+v", clientConn)
 			pullDiffClient, err := pfs.NewInternalApiClient(clientConn).PullDiff(ctx, pullDiffRequest)
 			if err != nil {
 				return err
 			}
 			diffReader := protostream.NewStreamingBytesReader(pullDiffClient)
-			a.driver.PushDiff(commit, diffReader)
+			if err := a.driver.PushDiff(commit, shard, diffReader); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

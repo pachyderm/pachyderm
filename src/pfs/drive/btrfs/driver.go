@@ -185,13 +185,17 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 				return
 			}
 			parent, err := d.getParent(commit, shard)
-			if err != nil && loopErr == nil {
-				loopErr = err
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
+				}
 				return
 			}
 			readOnly, err := d.getReadOnly(commit, shard)
-			if err != nil && loopErr == nil {
-				loopErr = err
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
+				}
 				return
 			}
 			commitType := pfs.CommitType_COMMIT_TYPE_WRITE
@@ -199,8 +203,10 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 				commitType = pfs.CommitType_COMMIT_TYPE_READ
 			}
 			writeStat, err := os.Stat(d.writeCommitPath(commit, shard))
-			if err != nil && loopErr == nil {
-				loopErr = err
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
+				}
 				return
 			}
 			startTime := writeStat.ModTime()
@@ -215,8 +221,10 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 				finishTime = &_finishTime
 			}
 			changes, err := d.ListChange(&pfs.File{Commit: commit}, parent, shard)
-			if err != nil && loopErr == nil {
-				loopErr = err
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
+				}
 				return
 			}
 			var commitBytes uint64
@@ -224,13 +232,17 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 				commitBytes += change.SizeBytes
 			}
 			commitPath, err := d.commitPath(commit, shard)
-			if err != nil && loopErr == nil {
-				loopErr = err
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
+				}
 				return
 			}
 			totalBytes, err := d.recursiveSize(commitPath)
-			if err != nil && loopErr == nil {
-				loopErr = err
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
+				}
 				return
 			}
 			lock.Lock()
@@ -419,7 +431,7 @@ func (d *driver) ListBlock(shard uint64) (_ []*pfs.BlockInfo, retErr error) {
 	return result, nil
 }
 
-func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) error {
+func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) (retErr error) {
 	if err := d.checkWrite(file.Commit, shard); err != nil {
 		return err
 	}
@@ -431,7 +443,11 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	if err != nil {
 		return err
 	}
-	defer osFile.Close()
+	defer func() {
+		if err := osFile.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 	if _, err := osFile.Seek(offset, 0); err != nil { // 0 means relative to start
 		return err
 	}
@@ -562,6 +578,7 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 }
 
 func (d *driver) PullDiff(commit *pfs.Commit, shard uint64, diff io.Writer) error {
+	protolog.Printf("PullDiff: %s", d.readCommitPath(commit, shard))
 	parent, err := d.getParent(commit, shard)
 	if err != nil {
 		return err
@@ -572,11 +589,18 @@ func (d *driver) PullDiff(commit *pfs.Commit, shard uint64, diff io.Writer) erro
 	return execSend(d.readCommitPath(commit, shard), d.readCommitPath(parent, shard), diff)
 }
 
-func (d *driver) PushDiff(commit *pfs.Commit, diff io.Reader) error {
+func (d *driver) PushDiff(commit *pfs.Commit, shard uint64, diff io.Reader) error {
+	protolog.Printf("PushDiff: %s", d.readCommitPath(commit, shard))
 	if err := execSubvolumeCreate(d.commitPathNoShard(commit)); err != nil && !execSubvolumeExists(d.commitPathNoShard(commit)) {
 		return err
 	}
-	return execRecv(d.commitPathNoShard(commit), diff)
+	if err := execRecv(d.commitPathNoShard(commit), diff); err != nil {
+		return err
+	}
+	if !execSubvolumeExists(d.readCommitPath(commit, shard)) {
+		return fmt.Errorf("PushDiff failed %s", d.readCommitPath(commit, shard))
+	}
+	return nil
 }
 
 func (d *driver) stat(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
@@ -651,7 +675,7 @@ func (d *driver) getReadOnly(commit *pfs.Commit, shard uint64) (bool, error) {
 	} else if execSubvolumeExists(d.writeCommitPath(commit, shard)) {
 		return false, nil
 	} else {
-		return false, fmt.Errorf("pachyderm: commit %s doesn't exist", commit.Id)
+		return false, fmt.Errorf("Commit not found: %s", d.readCommitPath(commit, shard))
 	}
 }
 
@@ -765,7 +789,7 @@ func execSubvolumeExists(path string) (result bool) {
 
 func execSubvolumeSnapshot(src string, dest string, readOnly bool) (retErr error) {
 	defer func() {
-		protolog.Debug(&SubvolumeSnapshot{src, dest, readOnly, errorToString(retErr)})
+		protolog.Info(&SubvolumeSnapshot{src, dest, readOnly, errorToString(retErr)})
 	}()
 	if readOnly {
 		return executil.Run("btrfs", "subvolume", "snapshot", "-r", src, dest)

@@ -38,7 +38,7 @@ func newDiscoveryAddresser(discoveryClient discovery.Client, sharder Sharder, na
 
 func (a *discoveryAddresser) GetMasterAddress(shard uint64, version int64) (result string, ok bool, retErr error) {
 	defer func() {
-		protolog.Info(&log.GetMasterAddress{shard, version, result, ok, errorToString(retErr)})
+		protolog.Debug(&log.GetMasterAddress{shard, version, result, ok, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -53,7 +53,7 @@ func (a *discoveryAddresser) GetMasterAddress(shard uint64, version int64) (resu
 
 func (a *discoveryAddresser) GetReplicaAddresses(shard uint64, version int64) (result map[string]bool, retErr error) {
 	defer func() {
-		protolog.Info(&log.GetReplicaAddresses{shard, version, result, errorToString(retErr)})
+		protolog.Debug(&log.GetReplicaAddresses{shard, version, result, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -68,7 +68,7 @@ func (a *discoveryAddresser) GetReplicaAddresses(shard uint64, version int64) (r
 
 func (a *discoveryAddresser) GetShardToMasterAddress(version int64) (result map[uint64]string, retErr error) {
 	defer func() {
-		protolog.Info(&log.GetShardToMasterAddress{version, result, errorToString(retErr)})
+		protolog.Debug(&log.GetShardToMasterAddress{version, result, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -88,7 +88,7 @@ func (a *discoveryAddresser) GetShardToReplicaAddresses(version int64) (result m
 		for shard, addresses := range result {
 			resultPrime[shard] = &log.ReplicaAddresses{addresses}
 		}
-		protolog.Info(&log.GetShardToReplicaAddresses{version, resultPrime, errorToString(retErr)})
+		protolog.Debug(&log.GetShardToReplicaAddresses{version, resultPrime, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -390,7 +390,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 
 func (a *discoveryAddresser) Version() (result int64, retErr error) {
 	defer func() {
-		protolog.Info(&log.Version{result, errorToString(retErr)})
+		protolog.Debug(&log.Version{result, errorToString(retErr)})
 	}()
 	minVersion := int64(math.MaxInt64)
 	encodedServerStates, err := a.discoveryClient.GetAll(a.serverStateDir())
@@ -746,7 +746,7 @@ func (a *discoveryAddresser) announceState(
 		if err := a.discoveryClient.Set(a.serverStateKey(id), encodedServerState, holdTTL); err != nil {
 			return err
 		}
-		protolog.Info(&log.SetServerState{serverState})
+		protolog.Debug(&log.SetServerState{serverState})
 		select {
 		case <-cancel:
 			return nil
