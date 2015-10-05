@@ -32,7 +32,7 @@ ansible-roles:
 		-p ansible/roles/vendor
 
 setup-dev-keys:
-	@ gcloud compute project-info add-metadata \
+	@ gcloud --project pachyderm-dev-us1 compute project-info add-metadata \
 		--metadata-from-file sshKeys=terraform/dev/keys.pub
 
 terraform-ci:
