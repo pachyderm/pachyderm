@@ -1,4 +1,4 @@
-.PHONE: \
+.PHONY: \
 	ansible-ci \
 	ansible-dev \
 	ansible-roles \
