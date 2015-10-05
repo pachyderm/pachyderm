@@ -2,7 +2,6 @@ variable "gcloud_project" {}
 variable "gcloud_region" {}
 variable "gcloud_account_file" {}
 variable "gcloud_zone" {}
-variable "gcloud_user" {}
 variable "gcloud_image" {
   description = "Base image of the GCE Virtual Machine"
   default = "ubuntu-1504-vivid-v20150911"
