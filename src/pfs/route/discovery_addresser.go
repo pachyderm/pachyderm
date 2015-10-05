@@ -748,6 +748,7 @@ func (a *discoveryAddresser) fillRoles(
 					continue
 				}
 				serverRole := roles[version]
+				protolog.Printf("StartAddServerRole %+v", serverRole)
 				var wg sync.WaitGroup
 				var addShardErr error
 				var addShardOnce sync.Once
