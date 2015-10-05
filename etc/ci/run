@@ -6,4 +6,12 @@ PATH="/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 PATH="$GOPATH/bin:/usr/local/go/bin:$PATH"
 export GOPATH PATH
 
+OPENSSL_DIR=/usr/lib/x86_64-linux-gnu
+INSTALL_DIR=/usr
+export CGO_LDFLAGS="${CGO_LDFLAGS} ${INSTALL_DIR}/lib/x86_64-linux-gnu/libgit2.a $(pkg-config --libs --static ${INSTALL_DIR}/lib/x86_64-linux-gnu/pkgconfig/libgit2.pc) \
+${OPENSSL_DIR}/libssl.a $(pkg-config --libs --static ${OPENSSL_DIR}/pkgconfig/libssl.pc)"
+go get -d gopkg.in/libgit2/git2go.v22
+go clean -i gopkg.in/libgit2/git2go.v22
+go install gopkg.in/libgit2/git2go.v22
+
 make clean build test docker-build
