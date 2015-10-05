@@ -1,0 +1,23 @@
+---
+- apt_repository:
+    repo="deb https://apt.buildkite.com/buildkite-agent stable main"
+    state=present
+- apt_key:
+    keyserver="hkp://keyserver.ubuntu.com:80"
+    id="32A37959C2FA5C3C99EFBC32A79206696452D198"
+    state=present
+- apt: name=buildkite-agent update_cache=true
+- service: name=buildkite-agent state=started
+- apt: name=python-httplib2 state=present
+- uri:
+    url="http://metadata/computeMetadata/v1/instance/attributes/agent_token"
+    method=GET
+    HEADER_Metadata-Flavor=Google
+    return_content=yes
+  register: buildkite_agent_token
+- lineinfile:
+    dest=/etc/buildkite-agent/buildkite-agent.cfg
+    regexp="^token="
+    line="token=\"{{buildkite_agent_token.content}}\""
+    backrefs=yes
+    state=present

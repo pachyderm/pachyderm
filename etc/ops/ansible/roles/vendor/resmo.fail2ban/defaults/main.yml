@@ -1,0 +1,19 @@
+---
+# Enable service on boot
+fail2ban_service_enabled: yes
+
+# Allowed setting are: started, stopped
+fail2ban_service_state: started
+
+# Allowed setting are: installed, latest
+fail2ban_pkg_state: installed
+
+# "ignoreip" can be an IP address, a CIDR mask or a DNS host
+fail2ban_config_ignoreip: 127.0.0.1/8
+fail2ban_config_bantime: 600
+fail2ban_config_maxretry: 4
+fail2ban_config_destemail: root@localhost
+
+# Jails
+fail2ban_config_jail_ssh_enabled: yes
+fail2ban_config_jail_sshddos_enabled: yes
