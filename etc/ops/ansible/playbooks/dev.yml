@@ -9,4 +9,5 @@
     - docker
     - { role: docker-gc, docker_gc_frequency: "daily" }
     - dev-extra
+    - { role: dev-gcloud, gcloud_snapshot_frequency: "daily" }
     - deb-build
