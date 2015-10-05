@@ -29,6 +29,10 @@ compile:
   privileged: true
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
+pfs-mount:
+  build: .
+  dockerfile: Dockerfile.pfs-mount
+  privileged: true
 pfs-volume-driver:
   build: .
   dockerfile: Dockerfile.pfs-volume-driver

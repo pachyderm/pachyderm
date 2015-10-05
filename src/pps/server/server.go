@@ -1,11 +1,11 @@
-package server
+package server //import "go.pachyderm.com/pachyderm/src/pps/server"
 
 import (
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/timing"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/container"
-	"github.com/pachyderm/pachyderm/src/pps/store"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pkg/timing"
+	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/container"
+	"go.pachyderm.com/pachyderm/src/pps/store"
 )
 
 func NewAPIServer(pfsAPIClient pfs.ApiClient, containerClient container.Client, storeClient store.Client, timer timing.Timer) pps.ApiServer {

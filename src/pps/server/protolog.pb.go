@@ -16,7 +16,7 @@ package server
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import pps "github.com/pachyderm/pachyderm/src/pps"
+import pps "go.pachyderm.com/pachyderm/src/pps"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal

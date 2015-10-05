@@ -29,8 +29,8 @@ ENV PATH /go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go
 ENV GO15VENDOREXPERIMENT 1
 RUN go get github.com/kisielk/errcheck github.com/golang/lint/golint
-RUN mkdir -p /go/src/github.com/pachyderm/pachyderm/etc/git2go
-WORKDIR /go/src/github.com/pachyderm/pachyderm
-ADD etc/git2go/install.sh /go/src/github.com/pachyderm/pachyderm/etc/git2go/
+RUN mkdir -p /go/src/go.pachyderm.com/pachyderm/etc/git2go
+WORKDIR /go/src/go.pachyderm.com/pachyderm
+ADD etc/git2go/install.sh /go/src/go.pachyderm.com/pachyderm/etc/git2go/
 RUN sh -x etc/git2go/install.sh
-ADD . /go/src/github.com/pachyderm/pachyderm/
+ADD . /go/src/go.pachyderm.com/pachyderm/

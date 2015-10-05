@@ -5,9 +5,9 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/pachyderm/pachyderm/src/pkg/clone"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/parse"
+	"go.pachyderm.com/pachyderm/src/pkg/clone"
+	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/parse"
 )
 
 type sourcer struct{}

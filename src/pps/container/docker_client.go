@@ -26,10 +26,10 @@ func newDockerClient(dockerClientOptions DockerClientOptions) (*dockerClient, er
 			dockerClientOptions.DockerTLSOptions.KeyPEMBlock,
 			dockerClientOptions.DockerTLSOptions.CaPEMCert,
 		)
+	} else if dockerClientOptions.Host != "" {
+		client, err = docker.NewClient(dockerClientOptions.Host)
 	} else {
-		client, err = docker.NewClient(
-			dockerClientOptions.Host,
-		)
+		client, err = docker.NewClientFromEnv()
 	}
 	if err != nil {
 		return nil, err

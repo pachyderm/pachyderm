@@ -1,7 +1,7 @@
 pps:
   kind: node
   name: "5"
-service: ubuntu
+service: ubuntu-build-foo
 input:
   host:
     /tmp/pachyderm-test/3-out: /in3
@@ -12,3 +12,4 @@ output:
 run:
   - for file in /in3/*; do echo copying $file; cp $file /out/$(basename $file); done
   - for file in /in4/*; do echo copying $file; cp $file /out/$(basename $file); done
+  - cp /build-file2.txt /out/build-file2.txt

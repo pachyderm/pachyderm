@@ -13,13 +13,13 @@ import (
 	"go.pedge.io/proto/server"
 	"go.pedge.io/protolog/logrus"
 
-	"github.com/pachyderm/pachyderm"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/timing"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/container"
-	"github.com/pachyderm/pachyderm/src/pps/server"
-	"github.com/pachyderm/pachyderm/src/pps/store"
+	"go.pachyderm.com/pachyderm"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pkg/timing"
+	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/container"
+	"go.pachyderm.com/pachyderm/src/pps/server"
+	"go.pachyderm.com/pachyderm/src/pps/store"
 	"google.golang.org/grpc"
 )
 

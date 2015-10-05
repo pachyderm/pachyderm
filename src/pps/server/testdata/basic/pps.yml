@@ -6,3 +6,5 @@ include:
   - 4-node.yml
   - 5-node.yml
   - ubuntu-service.yml
+  - ubuntu-build-service.yml
+  - ubuntu-build-foo-service.yml

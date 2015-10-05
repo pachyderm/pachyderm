@@ -60,6 +60,9 @@ func (p *pusher) Push(entry *protolog.Entry) error {
 }
 
 func (p *pusher) Flush() error {
+	if p.options.Out != nil {
+		return p.options.Out.Flush()
+	}
 	return nil
 }
 

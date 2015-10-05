@@ -15,10 +15,10 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/pachyderm/pachyderm"
-	"github.com/pachyderm/pachyderm/src/pkg/cobramainutil"
-	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/spf13/cobra"
+	"go.pachyderm.com/pachyderm"
+	"go.pachyderm.com/pachyderm/src/pkg/cobramainutil"
+	"go.pachyderm.com/pachyderm/src/pps"
 )
 
 var (

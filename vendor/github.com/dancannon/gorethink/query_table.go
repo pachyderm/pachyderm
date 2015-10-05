@@ -21,6 +21,18 @@ func (o *TableCreateOpts) toMap() map[string]interface{} {
 // documents.
 //
 // Note: Only alphanumeric characters and underscores are valid for the table name.
+func TableCreate(name interface{}, optArgs ...TableCreateOpts) Term {
+	opts := map[string]interface{}{}
+	if len(optArgs) >= 1 {
+		opts = optArgs[0].toMap()
+	}
+	return constructRootTerm("TableCreate", p.Term_TABLE_CREATE, []interface{}{name}, opts)
+}
+
+// TableCreate creates a table. A RethinkDB table is a collection of JSON
+// documents.
+//
+// Note: Only alphanumeric characters and underscores are valid for the table name.
 func (t Term) TableCreate(name interface{}, optArgs ...TableCreateOpts) Term {
 	opts := map[string]interface{}{}
 	if len(optArgs) >= 1 {
@@ -30,8 +42,18 @@ func (t Term) TableCreate(name interface{}, optArgs ...TableCreateOpts) Term {
 }
 
 // TableDrop deletes a table. The table and all its data will be deleted.
+func TableDrop(args ...interface{}) Term {
+	return constructRootTerm("TableDrop", p.Term_TABLE_DROP, args, map[string]interface{}{})
+}
+
+// TableDrop deletes a table. The table and all its data will be deleted.
 func (t Term) TableDrop(args ...interface{}) Term {
 	return constructMethodTerm(t, "TableDrop", p.Term_TABLE_DROP, args, map[string]interface{}{})
+}
+
+// TableList lists all table names in a database.
+func TableList(args ...interface{}) Term {
+	return constructRootTerm("TableList", p.Term_TABLE_LIST, args, map[string]interface{}{})
 }
 
 // TableList lists all table names in a database.

@@ -8,7 +8,7 @@
 
 ![GoRethink Logo](https://raw.github.com/wiki/dancannon/gorethink/gopher-and-thinker-s.png "Golang Gopher and RethinkDB Thinker")
 
-Current version: v1.1.3 (RethinkDB v2.1)
+Current version: v1.1.4 (RethinkDB v2.1)
 
 Please note that this version of the driver only supports versions of RethinkDB using the v0.4 protocol (any versions of the driver older than RethinkDB 2.0 will not work).
 

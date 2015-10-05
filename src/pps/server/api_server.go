@@ -10,15 +10,15 @@ import (
 	"go.pedge.io/proto/time"
 	"go.pedge.io/protolog"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/graph"
-	"github.com/pachyderm/pachyderm/src/pkg/timing"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/container"
-	"github.com/pachyderm/pachyderm/src/pps/run"
-	"github.com/pachyderm/pachyderm/src/pps/source"
-	"github.com/pachyderm/pachyderm/src/pps/store"
 	"github.com/satori/go.uuid"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pkg/graph"
+	"go.pachyderm.com/pachyderm/src/pkg/timing"
+	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/container"
+	"go.pachyderm.com/pachyderm/src/pps/run"
+	"go.pachyderm.com/pachyderm/src/pps/source"
+	"go.pachyderm.com/pachyderm/src/pps/store"
 	"golang.org/x/net/context"
 )
 
@@ -57,6 +57,7 @@ func (a *apiServer) GetPipelineSource(ctx context.Context, request *pps.GetPipel
 	return pipelineSource, nil
 }
 
+// TODO(pedge): implement
 func (a *apiServer) UpdatePipelineSource(ctx context.Context, request *pps.UpdatePipelineSourceRequest) (*pps.PipelineSource, error) {
 	return nil, errors.New("not implemented")
 }
@@ -119,7 +120,11 @@ func (a *apiServer) CreatePipelineRun(ctx context.Context, request *pps.CreatePi
 		Id:         strings.Replace(uuid.NewV4().String(), "-", "", -1),
 		PipelineId: request.PipelineId,
 	}
+	// TODO(pedge): should be transactional with call to CreatePipelineRunStatus
 	if err := a.storeClient.CreatePipelineRun(pipelineRun); err != nil {
+		return nil, err
+	}
+	if err := a.storeClient.CreatePipelineRunStatus(pipelineRun.Id, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_CREATED); err != nil {
 		return nil, err
 	}
 	protolog.Info(
@@ -143,6 +148,7 @@ func (a *apiServer) StartPipelineRun(ctx context.Context, request *pps.StartPipe
 	return emptyInstance, nil
 }
 
+// TODO(pedge): implement
 func (a *apiServer) ListPipelineRuns(ctx context.Context, request *pps.ListPipelineRunsRequest) (*pps.PipelineRuns, error) {
 	return nil, errors.New("not implemented")
 }

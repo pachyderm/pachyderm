@@ -1,7 +1,7 @@
-package fuse
+package fuse //import "go.pachyderm.com/pachyderm/src/pfs/fuse"
 
 import (
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pfs"
 )
 
 type Mounter interface {

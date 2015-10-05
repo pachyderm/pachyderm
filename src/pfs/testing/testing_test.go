@@ -11,11 +11,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/fuse"
-	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
-	"github.com/pachyderm/pachyderm/src/pfs/route"
-	"github.com/pachyderm/pachyderm/src/pkg/require"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pfs/fuse"
+	"go.pachyderm.com/pachyderm/src/pfs/pfsutil"
+	"go.pachyderm.com/pachyderm/src/pfs/route"
+	"go.pachyderm.com/pachyderm/src/pkg/require"
 )
 
 const (
@@ -161,9 +161,11 @@ func testFailures(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 
 	checkWrites(t, apiClient, repositoryName, newCommitID)
 
+	cluster.KillRoleAssigner()
 	for server := 0; server < testNumReplicas; server++ {
 		cluster.Kill(server)
 	}
+	cluster.RestartRoleAssigner()
 	cluster.WaitForAvailability()
 
 	checkWrites(t, apiClient, repositoryName, newCommitID)

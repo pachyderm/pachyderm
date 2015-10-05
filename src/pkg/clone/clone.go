@@ -1,4 +1,4 @@
-package clone
+package clone //import "go.pachyderm.com/pachyderm/src/pkg/clone"
 
 import (
 	"fmt"

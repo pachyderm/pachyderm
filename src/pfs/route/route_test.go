@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/pkg/discovery"
-	"github.com/pachyderm/pachyderm/src/pkg/require"
+	"go.pachyderm.com/pachyderm/src/pkg/discovery"
+	"go.pachyderm.com/pachyderm/src/pkg/require"
 )
 
 const (
