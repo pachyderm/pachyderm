@@ -1,0 +1,2 @@
+---
+go_download_location: "http://golang.org/dl/{{ go_tarball }}"

@@ -1,0 +1,16 @@
+# Install packages required for building debian packages
+---
+- apt: pkg={{ item }} state=present
+  with_items:
+    - build-essential
+    - cdbs
+    - debhelper
+    - devscripts
+    - dpkg-dev
+    - lintian
+    - ruby-dev
+    - software-properties-common
+- gem: name={{ item }} state=present
+  with_items:
+    - fpm
+    - package_cloud

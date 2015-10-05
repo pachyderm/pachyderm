@@ -1,0 +1,9 @@
+- hosts: localhost
+  remote_user: root
+  vars_files:
+    - 'vars/main.yml'
+    - 'defaults/main.yml'
+  tasks:
+    - include: 'tasks/main.yml'
+  handlers:
+    - include: 'handlers/main.yml'
