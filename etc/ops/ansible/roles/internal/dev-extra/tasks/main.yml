@@ -6,6 +6,7 @@
     - jq
     - libgit2-dev
     - python-libcloud
+    - pkg-config
     - screen
     - shellcheck
     - tree
