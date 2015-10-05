@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-set -eo pipefail
-
-GOPATH="$(pwd)/go"
-PATH="/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-PATH="$GOPATH/bin:/usr/local/go/bin:$PATH"
-export GOPATH PATH
-
-make test docker-build
