@@ -11,5 +11,5 @@
     - apt: pkg={{ item }} state=present
       with_items:
         - make
-    - user: name=dev groups=docker append=yes
+    - user: name=buildkite-agent groups=docker append=yes
     - file: path="/var/run/docker.sock" mode="g+rw"
