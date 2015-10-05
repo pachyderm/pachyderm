@@ -697,7 +697,7 @@ func (x *genRunner) enc(varname string, t reflect.Type) {
 		if rtid == uint8SliceTypId {
 			x.line("r.EncodeStringBytes(codecSelferC_RAW" + x.xs + ", []byte(" + varname + "))")
 		} else if fastpathAV.index(rtid) != -1 {
-			g := genV{Slice: true, Elem: x.genTypeName(t.Elem())}
+			g := x.newGenV(t)
 			x.line("z.F." + g.MethodNamePfx("Enc", false) + "V(" + varname + ", false, e)")
 		} else {
 			x.xtraSM(varname, true, t)
@@ -711,9 +711,7 @@ func (x *genRunner) enc(varname string, t reflect.Type) {
 		// - else call Encoder.encode(XXX) on it.
 		// x.line("if " + varname + " == nil { \nr.EncodeNil()\n } else { ")
 		if fastpathAV.index(rtid) != -1 {
-			g := genV{Slice: false,
-				Elem:   x.genTypeName(t.Elem()),
-				MapKey: x.genTypeName(t.Key())}
+			g := x.newGenV(t)
 			x.line("z.F." + g.MethodNamePfx("Enc", false) + "V(" + varname + ", false, e)")
 		} else {
 			x.xtraSM(varname, true, t)
@@ -1143,7 +1141,7 @@ func (x *genRunner) dec(varname string, t reflect.Type) {
 		if rtid == uint8SliceTypId {
 			x.line("*" + varname + " = r.DecodeBytes(*(*[]byte)(" + varname + "), false, false)")
 		} else if fastpathAV.index(rtid) != -1 {
-			g := genV{Slice: true, Elem: x.genTypeName(t.Elem())}
+			g := x.newGenV(t)
 			x.line("z.F." + g.MethodNamePfx("Dec", false) + "X(" + varname + ", false, d)")
 			// x.line("z." + g.MethodNamePfx("Dec", false) + "(" + varname + ")")
 			// x.line(g.FastpathName(false) + "(" + varname + ", d)")
@@ -1157,7 +1155,7 @@ func (x *genRunner) dec(varname string, t reflect.Type) {
 		// - if elements are primitives or Selfers, call dedicated function on each member.
 		// - else call Encoder.encode(XXX) on it.
 		if fastpathAV.index(rtid) != -1 {
-			g := genV{Slice: false, Elem: x.genTypeName(t.Elem()), MapKey: x.genTypeName(t.Key())}
+			g := x.newGenV(t)
 			x.line("z.F." + g.MethodNamePfx("Dec", false) + "X(" + varname + ", false, d)")
 			// x.line("z." + g.MethodNamePfx("Dec", false) + "(" + varname + ")")
 			// x.line(g.FastpathName(false) + "(" + varname + ", d)")
@@ -1248,11 +1246,13 @@ func (x *genRunner) decListFallback(varname string, rtid uintptr, t reflect.Type
 		CTyp      string
 		Typ       string
 		Immutable bool
+		Size      int
 	}
 	telem := t.Elem()
-	ts := tstruc{genTempVarPfx, x.varsfx(), varname, x.genTypeName(t), x.genTypeName(telem), genIsImmutable(telem)}
+	ts := tstruc{genTempVarPfx, x.varsfx(), varname, x.genTypeName(t), x.genTypeName(telem), genIsImmutable(telem), int(telem.Size())}
 
 	funcs := make(template.FuncMap)
+
 	funcs["decLineVar"] = func(varname string) string {
 		x.decVar(varname, telem, false)
 		return ""
@@ -1292,10 +1292,11 @@ func (x *genRunner) decMapFallback(varname string, rtid uintptr, t reflect.Type)
 		Varname string
 		KTyp    string
 		Typ     string
+		Size    int
 	}
 	telem := t.Elem()
 	tkey := t.Key()
-	ts := tstruc{genTempVarPfx, x.varsfx(), varname, x.genTypeName(tkey), x.genTypeName(telem)}
+	ts := tstruc{genTempVarPfx, x.varsfx(), varname, x.genTypeName(tkey), x.genTypeName(telem), int(telem.Size() + tkey.Size())}
 	funcs := make(template.FuncMap)
 	funcs["decLineVarK"] = func(varname string) string {
 		x.decVar(varname, tkey, false)
@@ -1497,11 +1498,28 @@ func (x *genRunner) decStruct(varname string, rtid uintptr, t reflect.Type) {
 // --------
 
 type genV struct {
-	// genV is either a primitive (Primitive != "") or a slice (Slice = true) or a map.
-	Slice     bool
+	// genV is either a primitive (Primitive != "") or a map (MapKey != "") or a slice
 	MapKey    string
 	Elem      string
 	Primitive string
+	Size      int
+}
+
+func (x *genRunner) newGenV(t reflect.Type) (v genV) {
+	switch t.Kind() {
+	case reflect.Slice, reflect.Array:
+		te := t.Elem()
+		v.Elem = x.genTypeName(te)
+		v.Size = int(te.Size())
+	case reflect.Map:
+		te, tk := t.Elem(), t.Key()
+		v.Elem = x.genTypeName(te)
+		v.MapKey = x.genTypeName(tk)
+		v.Size = int(te.Size() + tk.Size())
+	default:
+		panic("unexpected type for newGenV. Requires map or slice type")
+	}
+	return
 }
 
 func (x *genV) MethodNamePfx(prefix string, prim bool) string {
@@ -1512,7 +1530,7 @@ func (x *genV) MethodNamePfx(prefix string, prim bool) string {
 	if prim {
 		name = append(name, genTitleCaseName(x.Primitive)...)
 	} else {
-		if x.Slice {
+		if x.MapKey == "" {
 			name = append(name, "Slice"...)
 		} else {
 			name = append(name, "Map"...)
@@ -1640,7 +1658,7 @@ func genCustomTypeName(tstr string) string {
 }
 
 func genIsImmutable(t reflect.Type) (v bool) {
-	return isMutableKind(t.Kind())
+	return isImmutableKind(t.Kind())
 }
 
 type genInternal struct {
@@ -1770,23 +1788,42 @@ func genInternalInit() {
 		"float64",
 		"bool",
 	}
-	mapvaltypes2 := make(map[string]bool)
-	for _, s := range mapvaltypes {
-		mapvaltypes2[s] = true
+	wordSizeBytes := int(intBitsize) / 8
+
+	mapvaltypes2 := map[string]int{
+		"interface{}": 2 * wordSizeBytes,
+		"string":      2 * wordSizeBytes,
+		"uint":        1 * wordSizeBytes,
+		"uint8":       1,
+		"uint16":      2,
+		"uint32":      4,
+		"uint64":      8,
+		"int":         1 * wordSizeBytes,
+		"int8":        1,
+		"int16":       2,
+		"int32":       4,
+		"int64":       8,
+		"float32":     4,
+		"float64":     8,
+		"bool":        1,
 	}
+	// mapvaltypes2 := make(map[string]bool)
+	// for _, s := range mapvaltypes {
+	// 	mapvaltypes2[s] = true
+	// }
 	var gt genInternal
 
 	// For each slice or map type, there must be a (symetrical) Encode and Decode fast-path function
 	for _, s := range types {
-		gt.Values = append(gt.Values, genV{false, "", "", s})
+		gt.Values = append(gt.Values, genV{Primitive: s, Size: mapvaltypes2[s]})
 		if s != "uint8" { // do not generate fast path for slice of bytes. Treat specially already.
-			gt.Values = append(gt.Values, genV{true, "", s, ""})
+			gt.Values = append(gt.Values, genV{Elem: s, Size: mapvaltypes2[s]})
 		}
-		if !mapvaltypes2[s] {
-			gt.Values = append(gt.Values, genV{false, s, s, ""})
+		if _, ok := mapvaltypes2[s]; !ok {
+			gt.Values = append(gt.Values, genV{MapKey: s, Elem: s, Size: 2 * mapvaltypes2[s]})
 		}
 		for _, ms := range mapvaltypes {
-			gt.Values = append(gt.Values, genV{false, s, ms, ""})
+			gt.Values = append(gt.Values, genV{MapKey: s, Elem: ms, Size: mapvaltypes2[s] + mapvaltypes2[ms]})
 		}
 	}
 

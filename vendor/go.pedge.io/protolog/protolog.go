@@ -18,8 +18,9 @@ var (
 	// DiscardLogger is a Logger that discards all logs.
 	DiscardLogger = NewStandardLogger(NewStandardWritePusher(NewWriterFlusher(ioutil.Discard)))
 
-	globalLogger = NewStandardLogger(NewStandardWritePusher(NewFileFlusher(os.Stderr)))
-	globalLock   = &sync.Mutex{}
+	globalLogger            = NewStandardLogger(NewStandardWritePusher(NewFileFlusher(os.Stderr)))
+	globalRedirectStdLogger = false
+	globalLock              = &sync.Mutex{}
 )
 
 // GlobalLogger returns the global Logger instance.
@@ -32,6 +33,7 @@ func SetLogger(logger Logger) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 	globalLogger = logger
+	redirectStdLogger()
 }
 
 // SetLevel sets the global Logger to to be at the given Level.
@@ -39,15 +41,23 @@ func SetLevel(level Level) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 	globalLogger = globalLogger.AtLevel(level)
+	redirectStdLogger()
 }
 
 // RedirectStdLogger will redirect logs to golang's standard logger to the global Logger instance.
 func RedirectStdLogger() {
 	globalLock.Lock()
 	defer globalLock.Unlock()
-	log.SetFlags(0)
-	log.SetOutput(globalLogger.Writer())
-	log.SetPrefix("")
+	globalRedirectStdLogger = true
+	redirectStdLogger()
+}
+
+func redirectStdLogger() {
+	if globalRedirectStdLogger {
+		log.SetFlags(0)
+		log.SetOutput(globalLogger.Writer())
+		log.SetPrefix("")
+	}
 }
 
 // Message is a proto.Message that also has the ProtologName() method to get the name of the message.
