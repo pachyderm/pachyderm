@@ -1,6 +1,6 @@
-package parse
+package parse //import "go.pachyderm.com/pachyderm/src/pps/parse"
 
-import "github.com/pachyderm/pachyderm/src/pps"
+import "go.pachyderm.com/pachyderm/src/pps"
 
 type Parser interface {
 	// ParsePipeline parses the pipeline

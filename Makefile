@@ -12,7 +12,7 @@ endif
 all: build
 
 version:
-	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm"; func main() { fmt.Println(pachyderm.Version.VersionString()) }' > /tmp/pachyderm_version.go
+	@echo 'package main; import "fmt"; import "go.pachyderm.com/pachyderm"; func main() { fmt.Println(pachyderm.Version.VersionString()) }' > /tmp/pachyderm_version.go
 	@go run /tmp/pachyderm_version.go
 
 deps:
@@ -31,6 +31,7 @@ vendor:
 	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/...
 	go get -u github.com/tools/godep
 	rm -rf Godeps
+	rm -rf vendor
 	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 godep save ./src/...
 	rm -rf Godeps
 	rm -rf vendor/gopkg.in/libgit2
@@ -53,6 +54,9 @@ docker-build-test:
 docker-build-compile:
 	docker-compose build compile
 
+docker-build-pfs-mount: docker-build-compile
+	docker-compose run compile sh etc/compile/compile.sh pfs pfs-mount
+
 docker-build-pfs-volume-driver: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh pfs-volume-driver
 
@@ -64,6 +68,9 @@ docker-build-ppsd: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh ppsd
 
 docker-build: docker-build-pfs-volume-driver docker-build-pfsd docker-build-ppsd
+
+docker-push-pfs-mount: docker-build-pfs-mount
+	docker push pachyderm/pfs-mount
 
 docker-push-pfs-volume-driver: docker-build-pfs-volume-driver
 	docker push pachyderm/pfs-volume-driver
@@ -87,7 +94,7 @@ launch: docker-clean-launch docker-build-pfsd docker-build-ppsd
 
 proto:
 	go get -v go.pedge.io/tools/protoc-all
-	PROTOC_INCLUDE_PATH=src protoc-all github.com/pachyderm/pachyderm
+	PROTOC_INCLUDE_PATH=src protoc-all go.pachyderm.com/pachyderm
 
 pretest:
 	go get -v github.com/kisielk/errcheck

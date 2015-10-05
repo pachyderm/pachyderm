@@ -1,4 +1,4 @@
-package timing
+package timing //import "go.pachyderm.com/pachyderm/src/pkg/timing"
 
 import (
 	"sync/atomic"

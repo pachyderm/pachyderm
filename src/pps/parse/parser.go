@@ -9,7 +9,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/pachyderm/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps"
 )
 
 var (

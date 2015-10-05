@@ -2,14 +2,15 @@ package run
 
 import (
 	"fmt"
+	"io/ioutil"
 
 	"go.pedge.io/protolog"
 
-	"github.com/pachyderm/pachyderm/src/pkg/graph"
-	"github.com/pachyderm/pachyderm/src/pkg/timing"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/container"
-	"github.com/pachyderm/pachyderm/src/pps/store"
+	"go.pachyderm.com/pachyderm/src/pkg/graph"
+	"go.pachyderm.com/pachyderm/src/pkg/timing"
+	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/container"
+	"go.pachyderm.com/pachyderm/src/pps/store"
 )
 
 type runner struct {
@@ -73,6 +74,7 @@ func (r *runner) Start(pipelineRunID string) error {
 	}
 	go func() {
 		if err := run.Do(); err != nil {
+			protolog.Errorln(err.Error())
 			if storeErr := r.storeClient.CreatePipelineRunStatus(pipelineRunID, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_ERROR); storeErr != nil {
 				protolog.Errorln(storeErr.Error())
 			}
@@ -97,27 +99,28 @@ func (r *runner) getNodeFunc(
 	if !ok {
 		return nil, fmt.Errorf("no service for name %s", node.Service)
 	}
-	if dockerService.Build != "" || dockerService.Dockerfile != "" {
-		return nil, fmt.Errorf("build/dockerfile not supported yet")
-	}
 	return func() (retErr error) {
-		if err := r.containerClient.Pull(
+		image := dockerService.Image
+		if dockerService.Build != "" {
+			image = node.Service
+			if err := r.containerClient.Build(
+				node.Service,
+				dockerService.Build,
+				container.BuildOptions{
+					Dockerfile:   dockerService.Dockerfile,
+					OutputStream: ioutil.Discard,
+				},
+			); err != nil {
+				return err
+			}
+		} else if err := r.containerClient.Pull(
 			dockerService.Image,
-			container.PullOptions{
-			//OutputStream: newPipelineRunLogWriter(
-			//pipelineRunID,
-			//"",
-			//name,
-			//pps.OutputStream_OUTPUT_STREAM_NONE,
-			//r.timer,
-			//r.storeClient,
-			//),
-			},
+			container.PullOptions{},
 		); err != nil {
 			return err
 		}
 		containers, err := r.containerClient.Create(
-			dockerService.Image,
+			image,
 			container.CreateOptions{
 				Binds:         append(getInputBinds(node.Input), getOutputBinds(node.Output)...),
 				HasCommand:    len(node.Run) > 0,

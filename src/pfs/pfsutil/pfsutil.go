@@ -2,16 +2,15 @@
 Package pfsutil provides utility functions that wrap a pfs.ApiClient
 to make the calling code slightly cleaner.
 */
-package pfsutil
+package pfsutil //import "go.pachyderm.com/pachyderm/src/pfs/pfsutil"
 
 import (
 	"io"
 	"io/ioutil"
 
 	"go.pedge.io/proto/stream"
-	"go.pedge.io/protolog"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pfs"
 	"golang.org/x/net/context"
 )
 
@@ -254,7 +253,6 @@ func PutFile(apiClient pfs.ApiClient, repoName string, commitID string, path str
 			return 0, err
 		}
 		size += iSize
-		protolog.Printf("pfsutil.PutFile Send(%+v)", request)
 		if err := putFileClient.Send(&request); err != nil {
 			return 0, err
 		}

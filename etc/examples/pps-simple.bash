@@ -7,7 +7,7 @@ source "${DIR}/source.bash"
 
 simple() {
   run pps version
-  id="$(run pps start github.com/pachyderm/pachyderm src/pps/server/testdata/basic)"
+  id="$(run pps start go.pachyderm.com/pachyderm src/pps/server/testdata/basic)"
   echo "${id}"
   status="$(run pps status "${id}")"
   echo "${status}"

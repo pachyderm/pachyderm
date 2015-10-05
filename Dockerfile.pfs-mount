@@ -1,0 +1,14 @@
+FROM ubuntu:14.04
+MAINTAINER peter@pachyderm.io
+
+VOLUME ["/pfs-mount"]
+RUN \
+  apt-get update -yq && \
+  apt-get install -yq --no-install-recommends \
+    btrfs-tools \
+    ca-certificates \
+    fuse && \
+  apt-get clean && \
+  rm -rf /var/lib/apt
+ADD _tmp/pfs /
+ENTRYPOINT ["/pfs", "mount", "/pfs-mount"]

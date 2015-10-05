@@ -14,14 +14,14 @@ import (
 	"go.pedge.io/proto/test"
 	"go.pedge.io/protolog"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
-	pfstesting "github.com/pachyderm/pachyderm/src/pfs/testing"
-	"github.com/pachyderm/pachyderm/src/pkg/require"
-	"github.com/pachyderm/pachyderm/src/pkg/timing"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/container"
-	"github.com/pachyderm/pachyderm/src/pps/store"
 	"github.com/satori/go.uuid"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	pfstesting "go.pachyderm.com/pachyderm/src/pfs/testing"
+	"go.pachyderm.com/pachyderm/src/pkg/require"
+	"go.pachyderm.com/pachyderm/src/pkg/timing"
+	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/container"
+	"go.pachyderm.com/pachyderm/src/pps/store"
 	"google.golang.org/grpc"
 )
 
@@ -30,9 +30,7 @@ const (
 )
 
 func TestBasic(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
+	t.Skip()
 	t.Parallel()
 	runTest(t, testBasic)
 }
@@ -149,6 +147,7 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 			"/tmp/pachyderm-test/4-out/40.txt.copy4",
 			"/tmp/pachyderm-test/4-out/5.txt.copy4",
 			"/tmp/pachyderm-test/4-out/50.txt.copy4",
+			"/tmp/pachyderm-test/4-out/build-file.txt4",
 		},
 		matches,
 	)
@@ -177,6 +176,8 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 			"/tmp/pachyderm-test/5-out/5.txt.copy4",
 			"/tmp/pachyderm-test/5-out/50.txt.copy3",
 			"/tmp/pachyderm-test/5-out/50.txt.copy4",
+			"/tmp/pachyderm-test/5-out/build-file.txt4",
+			"/tmp/pachyderm-test/5-out/build-file2.txt",
 		},
 		matches,
 	)
@@ -185,7 +186,7 @@ func testBasic(t *testing.T, apiClient pps.ApiClient) {
 func getFinalPipelineRunStatus(apiClient pps.ApiClient, pipelineRunID string) (*pps.PipelineRunStatus, error) {
 	// TODO(pedge): not good
 	ticker := time.NewTicker(time.Second)
-	for i := 0; i < 60; i++ {
+	for i := 0; i < 20; i++ {
 		<-ticker.C
 		pipelineRunStatuses, err := apiClient.GetPipelineRunStatus(
 			context.Background(),

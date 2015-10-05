@@ -19,6 +19,8 @@
 
 ### News
 
+Note the custom golang import path! `go get go.pachyderm.com/pachyderm`.
+
 We are in the midst of a refactor! See the release branch for the current, working release of Pachyderm.
 
 Check out our docker volume driver! https://github.com/pachyderm/pachyderm/tree/master/src/cmd/pfs-volume-driver.
@@ -102,14 +104,13 @@ With golang, it's generally easiest to have your fork match the import paths in 
 
 ```
 # assuming your github username is alice
-rm -rf ${GOPATH}/src/github.com/pachyderm/pachyderm
-mkdir -p ${GOPATH}/src/github.com/pachyderm
-cd ${GOPATH}/src/github.com/pachyderm
+rm -rf ${GOPATH}/src/go.pachyderm.com/pachyderm
+cd ${GOPATH}/src/go.pachyderm.com
 git clone https://github.com/alice/pachyderm.git
 git remote add upstream https://github.com/pachyderm/pachyderm.git # so you can run 'git fetch upstream' to get upstream changes
 ```
 
-The [Vagrantfile](Vagrantfile) in this repository will set up a development environment for Pachyderm
+The [Vagrantfile](etc/initdev/Vagrantfile) in this repository will set up a development environment for Pachyderm
 that has all dependencies installed.
 
 The easiest way to install Vagrant on your mac is probably:
@@ -124,9 +125,8 @@ Basic usage:
 ```
 mkdir -p pachyderm_vagrant
 cd pachyderm_vagrant
-mkdir -p etc/initdev
-curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/Vagrantfile > Vagrantfile
-curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/initdev/init.sh > etc/initdev/init.sh
+curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/initdev/Vagrantfile > Vagrantfile
+curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/initdev/init.sh > init.sh
 vagrant up # starts the vagrant box
 vagrant ssh # ssh into the vagrant box
 ```
@@ -134,8 +134,8 @@ vagrant ssh # ssh into the vagrant box
 Once in the vagrant box, set everything up and verify that it works:
 
 ```
-go get github.com/pachyderm/pachyderm/...
-cd ~/go/src/github.com/pachyderm/pachyderm
+go get go.pachyderm.com/pachyderm/...
+cd ~/go/src/go.pachyderm.com/pachyderm
 make test
 ```
 

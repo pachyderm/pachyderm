@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	proto "github.com/pachyderm/pachyderm/src/pfs/route/proto"
-	log "github.com/pachyderm/pachyderm/src/pfs/route/protolog"
-	"github.com/pachyderm/pachyderm/src/pkg/discovery"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	proto "go.pachyderm.com/pachyderm/src/pfs/route/proto"
+	log "go.pachyderm.com/pachyderm/src/pfs/route/protolog"
+	"go.pachyderm.com/pachyderm/src/pkg/discovery"
 	"go.pedge.io/protolog"
 )
 
@@ -187,12 +187,38 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 		protolog.Info(&log.FinishAssignRoles{errorToString(retErr)})
 	}()
 	var version int64
-	oldServerStates := make(map[string]*proto.ServerState)
+	oldServers := make(map[string]bool)
 	oldRoles := make(map[string]*proto.ServerRole)
 	oldMasters := make(map[uint64]string)
 	oldReplicas := make(map[uint64][]string)
 	var oldMinVersion int64
-	err := a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
+	// Reconstruct state from a previous run
+	serverRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
+	if err != nil {
+		return err
+	}
+	for _, encodedServerRole := range serverRoles {
+		serverRole, err := decodeServerRole(encodedServerRole)
+		if err != nil {
+			return err
+		}
+		if oldServerRole, ok := oldRoles[serverRole.Id]; !ok || oldServerRole.Version < serverRole.Version {
+			oldRoles[serverRole.Id] = serverRole
+			oldServers[serverRole.Id] = true
+		}
+		if version < serverRole.Version+1 {
+			version = serverRole.Version + 1
+		}
+	}
+	for _, oldServerRole := range oldRoles {
+		for shard := range oldServerRole.Masters {
+			oldMasters[shard] = oldServerRole.Id
+		}
+		for shard := range oldServerRole.Replicas {
+			oldReplicas[shard] = append(oldReplicas[shard], oldServerRole.Id)
+		}
+	}
+	err = a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
 		func(encodedServerStates map[string]string) error {
 			if len(encodedServerStates) == 0 {
 				return nil
@@ -222,6 +248,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 					shardLocations[shard] = append(shardLocations[shard], serverState.Id)
 				}
 			}
+			protolog.Printf("newServerStates: %+v", newServerStates)
 			// See if there's any roles we can delete
 			minVersion := int64(math.MaxInt64)
 			for _, serverState := range newServerStates {
@@ -251,7 +278,7 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 			}
 			// if the servers are identical to last time then we know we'll
 			// assign shards the same way
-			if sameServers(oldServerStates, newServerStates) {
+			if sameServers(oldServers, newServerStates) {
 				return nil
 			}
 		Master:
@@ -346,7 +373,10 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 			}
 			protolog.Info(&log.SetAddresses{&addresses})
 			version++
-			oldServerStates = newServerStates
+			oldServers = make(map[string]bool)
+			for id := range newServerStates {
+				oldServers[id] = true
+			}
 			oldRoles = newRoles
 			oldMasters = newMasters
 			oldReplicas = newReplicas
@@ -380,11 +410,13 @@ func (a *discoveryAddresser) Version() (result int64, retErr error) {
 }
 
 func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
+	defer protolog.Printf("Done WaitForAvailability ids: %+v", ids)
+	protolog.Printf("WaitForAvailability ids: %+v", ids)
 	errComplete := fmt.Errorf("COMPLETE")
-	err := a.discoveryClient.WatchAll(a.serverDir(), nil,
+	if err := a.discoveryClient.WatchAll(a.serverDir(), nil,
 		func(encodedServerStatesAndRoles map[string]string) error {
 			serverStates := make(map[string]*proto.ServerState)
-			var serverRoles []*proto.ServerRole
+			serverRoles := make(map[string]map[int64]*proto.ServerRole)
 			for key, encodedServerStateOrRole := range encodedServerStatesAndRoles {
 				if strings.HasPrefix(key, a.serverStateDir()) {
 					serverState, err := decodeServerState(encodedServerStateOrRole)
@@ -398,14 +430,23 @@ func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
 					if err != nil {
 						return err
 					}
-					serverRoles = append(serverRoles, serverRole)
+					if _, ok := serverRoles[serverRole.Id]; !ok {
+						serverRoles[serverRole.Id] = make(map[int64]*proto.ServerRole)
+					}
+					serverRoles[serverRole.Id][serverRole.Version] = serverRole
 				}
 			}
 			if len(serverStates) != len(ids) {
 				return nil
 			}
+			if len(serverRoles) != len(ids) {
+				return nil
+			}
 			for _, id := range ids {
 				if _, ok := serverStates[id]; !ok {
+					return nil
+				}
+				if _, ok := serverRoles[id]; !ok {
 					return nil
 				}
 			}
@@ -419,14 +460,18 @@ func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
 			if len(versions) != 1 {
 				return nil
 			}
-			for _, serverRole := range serverRoles {
-				if !versions[serverRole.Version] {
+			for _, versionToServerRole := range serverRoles {
+				if len(versionToServerRole) != 1 {
 					return nil
+				}
+				for version := range versionToServerRole {
+					if !versions[version] {
+						return nil
+					}
 				}
 			}
 			return errComplete
-		})
-	if err != errComplete {
+		}); err != errComplete {
 		return err
 	}
 	return nil
@@ -832,11 +877,11 @@ func containsShard(roles map[int64]proto.ServerRole, shard uint64) bool {
 	return false
 }
 
-func sameServers(oldServerStates map[string]*proto.ServerState, newServerStates map[string]*proto.ServerState) bool {
-	if len(oldServerStates) != len(newServerStates) {
+func sameServers(oldServers map[string]bool, newServerStates map[string]*proto.ServerState) bool {
+	if len(oldServers) != len(newServerStates) {
 		return false
 	}
-	for id := range oldServerStates {
+	for id := range oldServers {
 		if _, ok := newServerStates[id]; !ok {
 			return false
 		}

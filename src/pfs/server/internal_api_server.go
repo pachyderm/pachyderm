@@ -12,11 +12,12 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pfs/route"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pfs/drive"
+	"go.pachyderm.com/pachyderm/src/pfs/route"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
+	"go.pedge.io/protolog"
 )
 
 type internalAPIServer struct {
@@ -60,6 +61,7 @@ func (a *internalAPIServer) InspectRepo(ctx context.Context, request *pfs.Inspec
 }
 
 func (a *internalAPIServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (*pfs.RepoInfos, error) {
+	protolog.Printf("Recv ListRepo")
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -534,6 +536,7 @@ func (a *internalAPIServer) AddShard(shard uint64) error {
 	if err != nil {
 		return err
 	}
+	protolog.Printf("Send ListRepo %d\n clientConn: %+v", shard, clientConn)
 	repoInfos, err := pfs.NewInternalApiClient(clientConn).ListRepo(ctx, &pfs.ListRepoRequest{})
 	if err != nil {
 		return err
@@ -560,6 +563,7 @@ func (a *internalAPIServer) AddShard(shard uint64) error {
 				Commit: commit,
 				Shard:  shard,
 			}
+			protolog.Printf("PullDiff %+v", clientConn)
 			pullDiffClient, err := pfs.NewInternalApiClient(clientConn).PullDiff(ctx, pullDiffRequest)
 			if err != nil {
 				return err

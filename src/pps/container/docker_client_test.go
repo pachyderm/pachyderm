@@ -4,18 +4,11 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/pkg/require"
-)
-
-const (
-	// TODO(pedge)
-	defaultTestDockerHost = "unix:///var/run/docker.sock"
+	"go.pachyderm.com/pachyderm/src/pkg/require"
 )
 
 var (
-	defaultTestDockerClientOptions = DockerClientOptions{
-		Host: defaultTestDockerHost,
-	}
+	defaultTestDockerClientOptions = DockerClientOptions{}
 )
 
 func TestCommandsSimple(t *testing.T) {

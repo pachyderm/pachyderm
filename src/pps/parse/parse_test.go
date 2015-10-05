@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/pkg/require"
+	"go.pachyderm.com/pachyderm/src/pkg/require"
 )
 
 func TestBasic(t *testing.T) {

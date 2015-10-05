@@ -62,7 +62,7 @@ import math "math"
 import google_protobuf1 "go.pedge.io/google-protobuf"
 import google_protobuf2 "go.pedge.io/google-protobuf"
 import google_protobuf3 "go.pedge.io/google-protobuf"
-import routeproto "github.com/pachyderm/pachyderm/src/pfs/route/proto"
+import routeproto "go.pachyderm.com/pachyderm/src/pfs/route/proto"
 
 import (
 	context "golang.org/x/net/context"
@@ -1231,9 +1231,9 @@ func RegisterApiServer(s *grpc.Server, srv ApiServer) {
 	s.RegisterService(&_Api_serviceDesc, srv)
 }
 
-func _Api_CreateRepo_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_CreateRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(CreateRepoRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).CreateRepo(ctx, in)
@@ -1243,9 +1243,9 @@ func _Api_CreateRepo_Handler(srv interface{}, ctx context.Context, codec grpc.Co
 	return out, nil
 }
 
-func _Api_InspectRepo_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_InspectRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectRepoRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).InspectRepo(ctx, in)
@@ -1255,9 +1255,9 @@ func _Api_InspectRepo_Handler(srv interface{}, ctx context.Context, codec grpc.C
 	return out, nil
 }
 
-func _Api_ListRepo_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_ListRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListRepoRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).ListRepo(ctx, in)
@@ -1267,9 +1267,9 @@ func _Api_ListRepo_Handler(srv interface{}, ctx context.Context, codec grpc.Code
 	return out, nil
 }
 
-func _Api_DeleteRepo_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_DeleteRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(DeleteRepoRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).DeleteRepo(ctx, in)
@@ -1279,9 +1279,9 @@ func _Api_DeleteRepo_Handler(srv interface{}, ctx context.Context, codec grpc.Co
 	return out, nil
 }
 
-func _Api_StartCommit_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_StartCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(StartCommitRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).StartCommit(ctx, in)
@@ -1291,9 +1291,9 @@ func _Api_StartCommit_Handler(srv interface{}, ctx context.Context, codec grpc.C
 	return out, nil
 }
 
-func _Api_FinishCommit_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_FinishCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(FinishCommitRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).FinishCommit(ctx, in)
@@ -1303,9 +1303,9 @@ func _Api_FinishCommit_Handler(srv interface{}, ctx context.Context, codec grpc.
 	return out, nil
 }
 
-func _Api_InspectCommit_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_InspectCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectCommitRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).InspectCommit(ctx, in)
@@ -1315,9 +1315,9 @@ func _Api_InspectCommit_Handler(srv interface{}, ctx context.Context, codec grpc
 	return out, nil
 }
 
-func _Api_ListCommit_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_ListCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListCommitRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).ListCommit(ctx, in)
@@ -1327,9 +1327,9 @@ func _Api_ListCommit_Handler(srv interface{}, ctx context.Context, codec grpc.Co
 	return out, nil
 }
 
-func _Api_DeleteCommit_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_DeleteCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(DeleteCommitRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).DeleteCommit(ctx, in)
@@ -1339,9 +1339,9 @@ func _Api_DeleteCommit_Handler(srv interface{}, ctx context.Context, codec grpc.
 	return out, nil
 }
 
-func _Api_PutBlock_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_PutBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(PutBlockRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).PutBlock(ctx, in)
@@ -1372,9 +1372,9 @@ func (x *apiGetBlockServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _Api_InspectBlock_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_InspectBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectBlockRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).InspectBlock(ctx, in)
@@ -1384,9 +1384,9 @@ func _Api_InspectBlock_Handler(srv interface{}, ctx context.Context, codec grpc.
 	return out, nil
 }
 
-func _Api_ListBlock_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_ListBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListBlockRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).ListBlock(ctx, in)
@@ -1443,9 +1443,9 @@ func (x *apiGetFileServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _Api_InspectFile_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_InspectFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectFileRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).InspectFile(ctx, in)
@@ -1455,9 +1455,9 @@ func _Api_InspectFile_Handler(srv interface{}, ctx context.Context, codec grpc.C
 	return out, nil
 }
 
-func _Api_ListFile_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_ListFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListFileRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).ListFile(ctx, in)
@@ -1467,9 +1467,9 @@ func _Api_ListFile_Handler(srv interface{}, ctx context.Context, codec grpc.Code
 	return out, nil
 }
 
-func _Api_DeleteFile_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(DeleteFileRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).DeleteFile(ctx, in)
@@ -1479,9 +1479,9 @@ func _Api_DeleteFile_Handler(srv interface{}, ctx context.Context, codec grpc.Co
 	return out, nil
 }
 
-func _Api_ListChange_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_ListChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListChangeRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).ListChange(ctx, in)
@@ -1491,9 +1491,9 @@ func _Api_ListChange_Handler(srv interface{}, ctx context.Context, codec grpc.Co
 	return out, nil
 }
 
-func _Api_InspectServer_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_InspectServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectServerRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).InspectServer(ctx, in)
@@ -1503,9 +1503,9 @@ func _Api_InspectServer_Handler(srv interface{}, ctx context.Context, codec grpc
 	return out, nil
 }
 
-func _Api_ListServer_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _Api_ListServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListServerRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(ApiServer).ListServer(ctx, in)
@@ -2012,9 +2012,9 @@ func RegisterInternalApiServer(s *grpc.Server, srv InternalApiServer) {
 	s.RegisterService(&_InternalApi_serviceDesc, srv)
 }
 
-func _InternalApi_CreateRepo_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_CreateRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(CreateRepoRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).CreateRepo(ctx, in)
@@ -2024,9 +2024,9 @@ func _InternalApi_CreateRepo_Handler(srv interface{}, ctx context.Context, codec
 	return out, nil
 }
 
-func _InternalApi_InspectRepo_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_InspectRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectRepoRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).InspectRepo(ctx, in)
@@ -2036,9 +2036,9 @@ func _InternalApi_InspectRepo_Handler(srv interface{}, ctx context.Context, code
 	return out, nil
 }
 
-func _InternalApi_ListRepo_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_ListRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListRepoRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).ListRepo(ctx, in)
@@ -2048,9 +2048,9 @@ func _InternalApi_ListRepo_Handler(srv interface{}, ctx context.Context, codec g
 	return out, nil
 }
 
-func _InternalApi_DeleteRepo_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_DeleteRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(DeleteRepoRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).DeleteRepo(ctx, in)
@@ -2060,9 +2060,9 @@ func _InternalApi_DeleteRepo_Handler(srv interface{}, ctx context.Context, codec
 	return out, nil
 }
 
-func _InternalApi_StartCommit_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_StartCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(StartCommitRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).StartCommit(ctx, in)
@@ -2072,9 +2072,9 @@ func _InternalApi_StartCommit_Handler(srv interface{}, ctx context.Context, code
 	return out, nil
 }
 
-func _InternalApi_FinishCommit_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_FinishCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(FinishCommitRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).FinishCommit(ctx, in)
@@ -2084,9 +2084,9 @@ func _InternalApi_FinishCommit_Handler(srv interface{}, ctx context.Context, cod
 	return out, nil
 }
 
-func _InternalApi_InspectCommit_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_InspectCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectCommitRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).InspectCommit(ctx, in)
@@ -2096,9 +2096,9 @@ func _InternalApi_InspectCommit_Handler(srv interface{}, ctx context.Context, co
 	return out, nil
 }
 
-func _InternalApi_ListCommit_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_ListCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListCommitRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).ListCommit(ctx, in)
@@ -2108,9 +2108,9 @@ func _InternalApi_ListCommit_Handler(srv interface{}, ctx context.Context, codec
 	return out, nil
 }
 
-func _InternalApi_DeleteCommit_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_DeleteCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(DeleteCommitRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).DeleteCommit(ctx, in)
@@ -2167,9 +2167,9 @@ func (x *internalApiGetFileServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _InternalApi_InspectFile_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_InspectFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectFileRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).InspectFile(ctx, in)
@@ -2179,9 +2179,9 @@ func _InternalApi_InspectFile_Handler(srv interface{}, ctx context.Context, code
 	return out, nil
 }
 
-func _InternalApi_ListFile_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_ListFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListFileRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).ListFile(ctx, in)
@@ -2191,9 +2191,9 @@ func _InternalApi_ListFile_Handler(srv interface{}, ctx context.Context, codec g
 	return out, nil
 }
 
-func _InternalApi_DeleteFile_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(DeleteFileRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).DeleteFile(ctx, in)
@@ -2203,9 +2203,9 @@ func _InternalApi_DeleteFile_Handler(srv interface{}, ctx context.Context, codec
 	return out, nil
 }
 
-func _InternalApi_ListChange_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_ListChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListChangeRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).ListChange(ctx, in)
@@ -2215,9 +2215,9 @@ func _InternalApi_ListChange_Handler(srv interface{}, ctx context.Context, codec
 	return out, nil
 }
 
-func _InternalApi_PutBlock_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_PutBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(PutBlockRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).PutBlock(ctx, in)
@@ -2248,9 +2248,9 @@ func (x *internalApiGetBlockServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _InternalApi_InspectBlock_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_InspectBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectBlockRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).InspectBlock(ctx, in)
@@ -2260,9 +2260,9 @@ func _InternalApi_InspectBlock_Handler(srv interface{}, ctx context.Context, cod
 	return out, nil
 }
 
-func _InternalApi_ListBlock_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_ListBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListBlockRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).ListBlock(ctx, in)
@@ -2293,9 +2293,9 @@ func (x *internalApiPullDiffServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _InternalApi_PushDiff_Handler(srv interface{}, ctx context.Context, codec grpc.Codec, buf []byte) (interface{}, error) {
+func _InternalApi_PushDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(PushDiffRequest)
-	if err := codec.Unmarshal(buf, in); err != nil {
+	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(InternalApiServer).PushDiff(ctx, in)

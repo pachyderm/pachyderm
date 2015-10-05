@@ -1,9 +1,9 @@
-package branch
+package branch //import "go.pachyderm.com/pachyderm/src/pps/branch"
 
 import (
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/timing"
-	"github.com/pachyderm/pachyderm/src/pps/store"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pkg/timing"
+	"go.pachyderm.com/pachyderm/src/pps/store"
 )
 
 type Brancher interface {

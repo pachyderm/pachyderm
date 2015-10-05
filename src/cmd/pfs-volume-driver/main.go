@@ -10,8 +10,8 @@ import (
 	"go.pedge.io/env"
 	"go.pedge.io/protolog/logrus"
 
-	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/satori/go.uuid"
+	"go.pachyderm.com/pachyderm/src/pfs/fuse"
 )
 
 const (

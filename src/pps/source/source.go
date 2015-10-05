@@ -1,6 +1,6 @@
-package source
+package source //import "go.pachyderm.com/pachyderm/src/pps/source"
 
-import "github.com/pachyderm/pachyderm/src/pps"
+import "go.pachyderm.com/pachyderm/src/pps"
 
 type Sourcer interface {
 	// Id will not be set!

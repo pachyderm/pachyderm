@@ -1,4 +1,4 @@
-package cobramainutil
+package cobramainutil //import "go.pachyderm.com/pachyderm/src/pkg/cobramainutil"
 
 import (
 	"fmt"
