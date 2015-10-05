@@ -7,3 +7,7 @@
     - docker
     - { role: docker-gc, docker_gc_frequency: "daily" }
     - buildkite-agent
+  tasks:
+    - apt: pkg={{ item }} state=present
+      with_items:
+        - make
