@@ -10,3 +10,4 @@
     - screen
     - shellcheck
     - tree
+- user: name=dev groups=docker append=yes
