@@ -30,7 +30,7 @@ import (
 var (
 	defaultEnv = map[string]string{
 		"PFS_NUM_SHARDS":   "16",
-		"PFS_NUM_REPLICAS": "1",
+		"PFS_NUM_REPLICAS": "0",
 		"PFS_PORT":         "650",
 		"PFS_HTTP_PORT":    "750",
 		"PFS_TRACE_PORT":   "1050",

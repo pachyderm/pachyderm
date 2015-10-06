@@ -15,7 +15,7 @@ import (
 var (
 	defaultEnv = map[string]string{
 		"PFS_NUM_SHARDS":   "16",
-		"PFS_NUM_REPLICAS": "1",
+		"PFS_NUM_REPLICAS": "0",
 	}
 )
 
