@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: ppsd
+  name: ppsd
+spec:
+  ports:
+   - port: 651
+     targetPort: 651
+  type: LoadBalancer
+  selector:
+    app: ppsd
