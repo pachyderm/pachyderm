@@ -26,7 +26,7 @@ const (
 	// we can do about that?
 	testShardsPerServer = 8
 	testNumServers      = 8
-	testNumReplicas     = 3
+	testNumReplicas     = 1
 )
 
 var (
