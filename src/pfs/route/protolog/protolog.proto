@@ -27,6 +27,12 @@ message FinishAssignRoles {
     string error = 1;
 }
 
+message FailedToAssignRoles {
+    map<string, routeproto.ServerState> server_states = 1;
+    uint64 num_shards = 2;
+    uint64 num_replicas = 3;
+}
+
 message SetServerState {
     routeproto.ServerState serverState = 1;
 }

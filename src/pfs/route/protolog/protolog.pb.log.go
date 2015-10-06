@@ -12,6 +12,7 @@ func init() {
 	protolog.Register("routeprotolog.Version", func() protolog.Message { return &Version{} })
 	protolog.Register("routeprotolog.StartAssignRoles", func() protolog.Message { return &StartAssignRoles{} })
 	protolog.Register("routeprotolog.FinishAssignRoles", func() protolog.Message { return &FinishAssignRoles{} })
+	protolog.Register("routeprotolog.FailedToAssignRoles", func() protolog.Message { return &FailedToAssignRoles{} })
 	protolog.Register("routeprotolog.SetServerState", func() protolog.Message { return &SetServerState{} })
 	protolog.Register("routeprotolog.AddServerRole", func() protolog.Message { return &AddServerRole{} })
 	protolog.Register("routeprotolog.RemoveServerRole", func() protolog.Message { return &RemoveServerRole{} })
@@ -39,6 +40,9 @@ func (m *StartAssignRoles) ProtologName() string {
 }
 func (m *FinishAssignRoles) ProtologName() string {
 	return "routeprotolog.FinishAssignRoles"
+}
+func (m *FailedToAssignRoles) ProtologName() string {
+	return "routeprotolog.FailedToAssignRoles"
 }
 func (m *SetServerState) ProtologName() string {
 	return "routeprotolog.SetServerState"

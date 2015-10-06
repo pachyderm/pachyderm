@@ -24,8 +24,8 @@ const (
 	// TODO(pedge): large numbers of shards takes forever because
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
-	testShardsPerServer = 2
-	testNumServers      = 4
+	testShardsPerServer = 8
+	testNumServers      = 8
 	testNumReplicas     = 1
 )
 
@@ -224,7 +224,7 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		cluster.internalServers[address] = internalAPIServer
 		cluster.cancels[address] = make(chan bool)
 		go func(address string) {
-			require.Equal(tb, cluster.addresser.Register(cluster.cancels[address], address, address, cluster.internalServers[address]), route.ErrCancelled)
+			require.Equal(tb, cluster.addresser.Register(cluster.cancels[address], address, address, cluster.internalServers[address]).Error(), route.ErrCancelled.Error())
 		}(address)
 	}
 	return &cluster
