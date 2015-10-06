@@ -46,6 +46,12 @@ pfs-volume-driver:
   links:
     - pfsd
     - etcd
+pfs-roler:
+  build: .
+  dockerfile: Dockerfile.pfs-roler
+  privileged: true
+  links:
+    - etcd
 pfsd:
   build: .
   dockerfile: Dockerfile.pfsd
@@ -64,6 +70,7 @@ pfsd:
   links:
     - btrfs
     - etcd
+    - pfs-roler
 ppsd:
   build: .
   dockerfile: Dockerfile.ppsd

@@ -1,5 +1,3 @@
-// +build linux
-
 package main
 
 import (
@@ -31,22 +29,24 @@ import (
 
 var (
 	defaultEnv = map[string]string{
-		"PFS_NUM_SHARDS":  "16",
-		"PFS_PORT":        "650",
-		"PFS_HTTP_PORT":   "750",
-		"PFS_TRACE_PORT":  "1050",
-		"PFS_DRIVER_TYPE": "btrfs",
+		"PFS_NUM_SHARDS":   "16",
+		"PFS_NUM_REPLICAS": "0",
+		"PFS_PORT":         "650",
+		"PFS_HTTP_PORT":    "750",
+		"PFS_TRACE_PORT":   "1050",
+		"PFS_DRIVER_TYPE":  "btrfs",
 	}
 )
 
 type appEnv struct {
-	DriverRoot string `env:"PFS_DRIVER_ROOT,required"`
-	DriverType string `env:"PFS_DRIVER_TYPE"`
-	NumShards  uint64 `env:"PFS_NUM_SHARDS"`
-	Address    string `env:"PFS_ADDRESS"`
-	Port       int    `env:"PFS_PORT"`
-	HTTPPort   int    `env:"PFS_HTTP_PORT"`
-	DebugPort  int    `env:"PFS_TRACE_PORT"`
+	DriverRoot  string `env:"PFS_DRIVER_ROOT,required"`
+	DriverType  string `env:"PFS_DRIVER_TYPE"`
+	NumShards   uint64 `env:"PFS_NUM_SHARDS"`
+	NumReplicas uint64 `env:"PFS_NUM_REPLICAS"`
+	Address     string `env:"PFS_ADDRESS"`
+	Port        int    `env:"PFS_PORT"`
+	HTTPPort    int    `env:"PFS_HTTP_PORT"`
+	DebugPort   int    `env:"PFS_TRACE_PORT"`
 }
 
 func main() {
@@ -67,7 +67,7 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 	}
-	sharder := route.NewSharder(appEnv.NumShards, 0)
+	sharder := route.NewSharder(appEnv.NumShards, appEnv.NumReplicas)
 	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
 	addresser := route.NewDiscoveryAddresser(
 		discoveryClient,
@@ -113,11 +113,6 @@ func do(appEnvObj interface{}) error {
 	)
 	go func() {
 		if err := addresser.Register(nil, "id", address, internalAPIServer); err != nil {
-			log.Print(err)
-		}
-	}()
-	go func() {
-		if err := addresser.AssignRoles(nil); err != nil {
 			log.Print(err)
 		}
 	}()

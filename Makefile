@@ -60,6 +60,9 @@ docker-build-pfs-mount: docker-build-compile
 docker-build-pfs-volume-driver: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh pfs-volume-driver
 
+docker-build-pfs-roler: docker-build-compile
+	docker-compose run compile sh etc/compile/compile.sh pfs-roler
+
 docker-build-pfsd: docker-build-compile
 	docker-compose build btrfs
 	docker-compose run compile sh etc/compile/compile.sh pfsd
@@ -67,13 +70,16 @@ docker-build-pfsd: docker-build-compile
 docker-build-ppsd: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh ppsd
 
-docker-build: docker-build-pfs-volume-driver docker-build-pfsd docker-build-ppsd
+docker-build: docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd
 
 docker-push-pfs-mount: docker-build-pfs-mount
 	docker push pachyderm/pfs-mount
 
 docker-push-pfs-volume-driver: docker-build-pfs-volume-driver
 	docker push pachyderm/pfs-volume-driver
+
+docker-push-pfs-roler: docker-build-pfs-roler
+	docker push pachyderm/pfs-roler
 
 docker-push-pfsd: docker-build-pfsd
 	docker push pachyderm/pfsd
@@ -86,10 +92,10 @@ docker-push: docker-push-ppsd docker-push-pfsd docker-push-pfs-volume-driver
 run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
 
-launch-pfsd: docker-clean-launch docker-build-pfsd
+launch-pfsd: docker-clean-launch docker-build-pfs-roler docker-build-pfsd
 	docker-compose up -d --force-recreate --no-build pfsd
 
-launch: docker-clean-launch docker-build-pfsd docker-build-ppsd
+launch: docker-clean-launch docker-build-pfs-roler docker-build-pfsd docker-build-ppsd
 	docker-compose up -d --force-recreate --no-build ppsd
 
 proto:
@@ -106,7 +112,7 @@ pretest:
 		fi; \
 	done;
 	#go vet ./src/...
-	#errcheck ./src/cmd ./src/pfs ./src/pps
+	errcheck ./src/pfs/...
 
 docker-clean-test:
 	docker-compose kill rethink
@@ -119,6 +125,8 @@ docker-clean-test:
 docker-clean-launch: docker-clean-test
 	docker-compose kill pfs-volume-driver
 	docker-compose rm -f pfs-volume-driver
+	docker-compose kill pfs-roler
+	docker-compose rm -f pfs-roler
 	docker-compose kill pfsd
 	docker-compose rm -f pfsd
 	docker-compose kill ppsd
@@ -137,6 +145,7 @@ clean: docker-clean-launch
 	go clean ./src/...
 	rm -f src/cmd/pfs/pfs
 	rm -f src/cmd/pfs/pfs-volume-driver
+	rm -f src/cmd/pfs/pfs-roler
 	rm -f src/cmd/pfsd/pfsd
 	rm -f src/cmd/pps/pps
 	rm -f src/cmd/ppsd/ppsd
@@ -161,10 +170,12 @@ start-kube:
 	docker-build-test \
 	docker-build-compile \
 	docker-build-pfs-volume-driver \
+	docker-build-pfs-roler \
 	docker-build-pfsd \
 	docker-build-ppsd \
 	docker-build \
 	docker-push-pfs-volume-driver \
+	docker-push-pfs-roler \
 	docker-push-pfsd \
 	docker-push-ppsd \
 	docker-push \
