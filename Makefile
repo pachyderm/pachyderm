@@ -67,6 +67,8 @@ docker-build-pfsd: docker-build-compile
 docker-build-ppsd: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh ppsd
 
+docker-build: docker-build-pfs-volume-driver docker-build-pfsd docker-build-ppsd
+
 docker-push-pfs-mount: docker-build-pfs-mount
 	docker push pachyderm/pfs-mount
 
@@ -161,6 +163,7 @@ start-kube:
 	docker-build-pfs-volume-driver \
 	docker-build-pfsd \
 	docker-build-ppsd \
+	docker-build \
 	docker-push-pfs-volume-driver \
 	docker-push-pfsd \
 	docker-push-ppsd \

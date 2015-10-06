@@ -1,0 +1,19 @@
+---
+- name: install fail2ban for Debian
+  apt: pkg=fail2ban state={{ fail2ban_pkg_state }}
+  when: ansible_os_family == 'Debian'
+  tags: package
+
+- name: install fail2ban for RedHat
+  yum: name=fail2ban state={{ fail2ban_pkg_state }}
+  when: ansible_os_family == 'RedHat'
+  tags: package
+
+- name: configure fail2ban local jails
+  action: template src=jail.local.j2 dest=/etc/fail2ban/jail.local mode=0644
+  notify: restart fail2ban
+  tags: configuration
+
+- name: start/stop fail2ban service
+  service: name=fail2ban state={{ fail2ban_service_state }} enabled={{ fail2ban_service_enabled }}
+  tags: service

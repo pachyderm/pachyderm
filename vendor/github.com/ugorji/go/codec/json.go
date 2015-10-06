@@ -39,6 +39,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"sync"
 	"unicode/utf16"
 	"unicode/utf8"
 )
@@ -134,10 +135,20 @@ func (x *jsonStackElem) sep() (c byte) {
 		}
 	}
 	x.so = !x.so
-	if x.sr {
-		x.sr = false
-	}
+	// Note: Anything more, and this function doesn't inline. Keep it tight.
+	// if x.sr {
+	// 	x.sr = false
+	// }
 	return
+}
+
+const jsonStackPoolArrayLen = 32
+
+// pool used to prevent constant allocation of stacks.
+var jsonStackPool = sync.Pool{
+	New: func() interface{} {
+		return new([jsonStackPoolArrayLen]jsonStackElem)
+	},
 }
 
 // jsonStack contains the stack for tracking the state of the container (branch).
@@ -145,19 +156,28 @@ func (x *jsonStackElem) sep() (c byte) {
 type jsonStack struct {
 	s  []jsonStackElem // stack for map or array end tag. map=}, array=]
 	sc *jsonStackElem  // pointer to current (top) element on the stack.
+	sp *[jsonStackPoolArrayLen]jsonStackElem
 }
 
 func (j *jsonStack) start(c byte) {
+	if j.s == nil {
+		// j.s = make([]jsonStackElem, 0, 8)
+		j.sp = jsonStackPool.Get().(*[jsonStackPoolArrayLen]jsonStackElem)
+		j.s = j.sp[:0]
+	}
 	j.s = append(j.s, jsonStackElem{st: c})
 	j.sc = &(j.s[len(j.s)-1])
 }
 
 func (j *jsonStack) end() {
 	l := len(j.s) - 1 // length of new stack after pop'ing
-	j.s = j.s[:l]
 	if l == 0 {
+		jsonStackPool.Put(j.sp)
+		j.s = nil
+		j.sp = nil
 		j.sc = nil
 	} else {
+		j.s = j.s[:l]
 		j.sc = &(j.s[l-1])
 	}
 	//j.sc = &(j.s[len(j.s)-1])
@@ -481,6 +501,7 @@ type jsonDecDriver struct {
 	ct   valueType // container type. one of unset, array or map.
 	bstr [8]byte   // scratch used for string \UXXX parsing
 	b    [64]byte  // scratch
+	b2   [64]byte
 
 	wsSkipped bool // whitespace skipped
 
@@ -895,14 +916,17 @@ func (d *jsonDecDriver) DecodeBytes(bs []byte, isstring, zerocopy bool) (bsOut [
 	if c := d.s.sc.sep(); c != 0 {
 		d.expectChar(c)
 	}
-	// zerocopy doesn't matter for json, as the bytes must be parsed.
 	bs0 := d.appendStringAsBytes(d.b[:0])
+	// if isstring, then just return the bytes, even if it is using the scratch buffer.
+	// the bytes will be converted to a string as needed.
 	if isstring {
 		return bs0
 	}
 	slen := base64.StdEncoding.DecodedLen(len(bs0))
-	if cap(bs) >= slen {
+	if slen <= cap(bs) {
 		bsOut = bs[:slen]
+	} else if zerocopy && slen <= cap(d.b2) {
+		bsOut = d.b2[:slen]
 	} else {
 		bsOut = make([]byte, slen)
 	}
