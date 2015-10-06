@@ -6,6 +6,7 @@
     - franklinkim.docker-compose
     - docker
     - { role: docker-gc, docker_gc_frequency: "daily" }
+    - dev-extra
     - buildkite-agent
   tasks:
     - apt: pkg={{ item }} state=present
