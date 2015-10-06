@@ -1,4 +1,5 @@
-# dockervolume
+[![CircleCI](https://circleci.com/gh/peter-edge/go-dockervolume/tree/master.png)](https://circleci.com/gh/peter-edge/go-dockervolume/tree/master)
+[![API Documentation](http://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](https://godoc.org/go.pedge.io/dockervolume)
 
 A small library taking care of the generic code for docker volume plugins written in Go.
 

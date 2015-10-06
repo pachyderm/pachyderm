@@ -1,0 +1,8 @@
+---
+
+- include: install.yml
+  tags:
+    - development
+    - docker-compose
+    - docker-compose-install
+

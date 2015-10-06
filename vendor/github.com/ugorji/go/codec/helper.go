@@ -117,6 +117,7 @@ import (
 
 const (
 	scratchByteArrayLen = 32
+	initCollectionCap   = 32 // 32 is defensive. 16 is preferred.
 
 	// Support encoding.(Binary|Text)(Unm|M)arshaler.
 	// This constant flag will enable or disable it.
@@ -147,6 +148,12 @@ const (
 
 	// if derefForIsEmptyValue, deref pointers and interfaces when checking isEmptyValue
 	derefForIsEmptyValue = false
+
+	// if resetSliceElemToZeroValue, then on decoding a slice, reset the element to a zero value first.
+	// Only concern is that, if the slice already contained some garbage, we will decode into that garbage.
+	// The chances of this are slim, so leave this "optimization".
+	// TODO: should this be true, to ensure that we always decode into a "zero" "empty" value?
+	resetSliceElemToZeroValue bool = false
 )
 
 var oneByteArr = [1]byte{0}
@@ -870,7 +877,7 @@ func panicToErr(err *error) {
 // 	panic(fmt.Errorf("%s: "+format, params2...))
 // }
 
-func isMutableKind(k reflect.Kind) (v bool) {
+func isImmutableKind(k reflect.Kind) (v bool) {
 	return false ||
 		k == reflect.Int ||
 		k == reflect.Int8 ||

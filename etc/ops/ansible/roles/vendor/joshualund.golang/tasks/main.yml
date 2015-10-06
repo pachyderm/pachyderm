@@ -1,0 +1,23 @@
+---
+- name: Download the Go tarball
+  get_url: url={{ go_download_location }}
+           dest=/usr/local/src/{{ go_tarball }}
+           sha256sum={{ go_tarball_checksum }}
+
+- name: Register the current Go version (if any)
+  command: /usr/local/go/bin/go version
+  ignore_errors: yes
+  register: go_version
+  changed_when: false
+
+- name: Extract the Go tarball if Go is not yet installed or if it is not the desired version
+  command: tar -C /usr/local -xf /usr/local/src/{{ go_tarball }}
+  when: go_version|failed or go_version.stdout != go_version_target
+
+- name: Add the Go bin directory to the PATH environment variable for all users
+  copy: src=go-bin.sh
+        dest=/etc/profile.d
+
+- name: Set GOPATH for all users
+  copy: src=go-path.sh
+        dest=/etc/profile.d

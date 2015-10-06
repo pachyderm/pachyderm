@@ -1,0 +1,3 @@
+---
+- name: restart buildkite-agent
+  action: service name=buildkite-agent state=restarted
