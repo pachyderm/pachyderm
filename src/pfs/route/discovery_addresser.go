@@ -303,6 +303,11 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 						continue Master
 					}
 				}
+				protolog.Error(&log.FailedToAssignRoles{
+					ServerStates: newServerStates,
+					NumShards:    a.sharder.NumShards(),
+					NumReplicas:  a.sharder.NumReplicas(),
+				})
 				return nil
 			}
 			for replica := uint64(0); replica < a.sharder.NumReplicas(); replica++ {
@@ -333,6 +338,11 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 							continue Replica
 						}
 					}
+					protolog.Error(&log.FailedToAssignRoles{
+						ServerStates: newServerStates,
+						NumShards:    a.sharder.NumShards(),
+						NumReplicas:  a.sharder.NumReplicas(),
+					})
 					return nil
 				}
 			}
