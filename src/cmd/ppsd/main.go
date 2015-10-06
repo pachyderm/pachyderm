@@ -110,9 +110,9 @@ func getRethinkClient(address string, databaseName string) (store.Client, error)
 }
 
 func getRethinkAddress() (string, error) {
-	rethinkAddr := os.Getenv("RETHINK_PORT_28015_TCP_ADDR")
+	rethinkAddr := os.Getenv("RETHINKDB_DRIVER_PORT_28015_TCP_ADDR")
 	if rethinkAddr == "" {
-		return "", errors.New("RETHINK_PORT_28015_TCP_ADDR not set")
+		return "", errors.New("RETHINKDB_PORT_28015_TCP_ADDR not set")
 	}
 	return fmt.Sprintf("%s:28015", rethinkAddr), nil
 }
