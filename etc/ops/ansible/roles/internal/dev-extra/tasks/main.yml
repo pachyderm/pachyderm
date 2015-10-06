@@ -2,6 +2,7 @@
 - apt: pkg={{ item }} state=present
   with_items:
     - ansible-doc
+    - gcc
     - git
     - jq
     - libgit2-dev
