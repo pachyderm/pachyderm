@@ -67,13 +67,18 @@ var (
 
 // InitDBs prepares a RethinkDB instance to be used by rethinkClient.
 // rethinkClients will error if they are pointed at databases that haven't had
-// InitDBs run on them
-// InitDBs should only be run once per instance of RethinkDB, it will error if
-// it's called a second time.
+// InitDBs run on them.
 func InitDBs(address string, databaseName string) error {
 	session, err := gorethink.Connect(gorethink.ConnectOpts{Address: address})
 	if err != nil {
 		return err
+	}
+	ret, err := databaseExists(session, databaseName)
+	if err != nil {
+		return err
+	}
+	if ret {
+		return nil
 	}
 	if _, err := gorethink.DBCreate(databaseName).RunWrite(session); err != nil {
 		return err
@@ -98,6 +103,24 @@ func InitDBs(address string, databaseName string) error {
 		}
 	}
 	return nil
+}
+
+func databaseExists(session *gorethink.Session, databaseName string) (bool, error) {
+	var databases []string
+	response, err := gorethink.DBList().Run(session)
+	if err != nil {
+		return false, err
+	}
+	err = response.All(&databases)
+	if err != nil {
+		return false, err
+	}
+	for _, database := range databases {
+		if database == databaseName {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 type rethinkClient struct {
