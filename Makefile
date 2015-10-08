@@ -67,7 +67,11 @@ docker-build-pfsd: docker-build-compile
 docker-build-ppsd: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh ppsd
 
-docker-build: docker-build-pfs-volume-driver docker-build-pfsd docker-build-ppsd
+docker-build-etcd-k8: docker-build-compile
+	docker-compose run compile sh etc/compile/compile.sh etcd-k8
+
+docker-build: docker-build-pfs-volume-driver docker-build-pfsd \
+	docker-build-ppsd docker-build-etcd-k8
 
 docker-push-pfs-mount: docker-build-pfs-mount
 	docker push pachyderm/pfs-mount
