@@ -127,7 +127,8 @@ type parser struct {
 	s io.Reader
 }
 
-// msgFixedHeader defines the header of a gRPC message (go/grpc-wirefmt).
+// msgFixedHeader defines the header of a gRPC message. Find more detail
+// at http://www.grpc.io/docs/guides/wire.html.
 type msgFixedHeader struct {
 	T      payloadFormat
 	Length uint32
@@ -138,10 +139,21 @@ type msgFixedHeader struct {
 // EOF is returned with nil msg and 0 pf if the entire stream is done. Other
 // non-nil error is returned if something is wrong on reading.
 func (p *parser) recvMsg() (pf payloadFormat, msg []byte, err error) {
+	const (
+		headerSize  = 5
+		formatIndex = 1
+	)
+
 	var hdr msgFixedHeader
-	if err := binary.Read(p.s, binary.BigEndian, &hdr); err != nil {
+	var buf [headerSize]byte
+
+	if _, err := io.ReadFull(p.s, buf[:]); err != nil {
 		return 0, nil, err
 	}
+
+	hdr.T = payloadFormat(buf[formatIndex])
+	hdr.Length = binary.BigEndian.Uint32(buf[formatIndex:])
+
 	if hdr.Length == 0 {
 		return hdr.T, nil, nil
 	}
@@ -187,7 +199,11 @@ func recv(p *parser, c Codec, m interface{}) error {
 	switch pf {
 	case compressionNone:
 		if err := c.Unmarshal(d, m); err != nil {
-			return Errorf(codes.Internal, "grpc: %v", err)
+			if rErr, ok := err.(rpcError); ok {
+				return rErr
+			} else {
+				return Errorf(codes.Internal, "grpc: %v", err)
+			}
 		}
 	default:
 		return Errorf(codes.Internal, "gprc: compression is not supported yet.")

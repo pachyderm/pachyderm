@@ -375,6 +375,7 @@ func (c *Client) getServerAPIVersionString() (version string, err error) {
 type doOptions struct {
 	data      interface{}
 	forceJSON bool
+	headers   map[string]string
 }
 
 func (c *Client) do(method, path string, doOptions doOptions) (*http.Response, error) {
@@ -412,6 +413,10 @@ func (c *Client) do(method, path string, doOptions doOptions) (*http.Response, e
 		req.Header.Set("Content-Type", "application/json")
 	} else if method == "POST" {
 		req.Header.Set("Content-Type", "plain/text")
+	}
+
+	for k, v := range doOptions.headers {
+		req.Header.Set(k, v)
 	}
 
 	resp, err := httpClient.Do(req)
@@ -466,13 +471,9 @@ func (c *Client) stream(method, path string, streamOptions streamOptions) error 
 	address := c.endpointURL.Path
 	if streamOptions.stdout == nil {
 		streamOptions.stdout = ioutil.Discard
-	} else if t, ok := streamOptions.stdout.(io.Closer); ok {
-		defer t.Close()
 	}
 	if streamOptions.stderr == nil {
 		streamOptions.stderr = ioutil.Discard
-	} else if t, ok := streamOptions.stderr.(io.Closer); ok {
-		defer t.Close()
 	}
 	if protocol == "unix" {
 		dial, err := c.Dialer.Dial(protocol, address)
@@ -841,7 +842,7 @@ func getDockerEnv() (*dockerEnv, error) {
 	dockerHost := os.Getenv("DOCKER_HOST")
 	var err error
 	if dockerHost == "" {
-		dockerHost, err = getDefaultDockerHost()
+		dockerHost, err = DefaultDockerHost()
 		if err != nil {
 			return nil, err
 		}
@@ -869,14 +870,15 @@ func getDockerEnv() (*dockerEnv, error) {
 	}, nil
 }
 
-func getDefaultDockerHost() (string, error) {
+// DefaultDockerHost returns the default docker socket for the current OS
+func DefaultDockerHost() (string, error) {
 	var defaultHost string
-	if runtime.GOOS != "windows" {
-		// If we do not have a host, default to unix socket
-		defaultHost = fmt.Sprintf("unix://%s", opts.DefaultUnixSocket)
-	} else {
+	if runtime.GOOS == "windows" {
 		// If we do not have a host, default to TCP socket on Windows
 		defaultHost = fmt.Sprintf("tcp://%s:%d", opts.DefaultHTTPHost, opts.DefaultHTTPPort)
+	} else {
+		// If we do not have a host, default to unix socket
+		defaultHost = fmt.Sprintf("unix://%s", opts.DefaultUnixSocket)
 	}
 	return opts.ValidateHost(defaultHost)
 }
