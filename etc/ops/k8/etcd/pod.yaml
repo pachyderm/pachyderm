@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    db: etcd
+  name: etcd
+spec:
+  containers:
+  - image: gcr.io/pachyderm-dev-us1/etcd-k8:latest
+    name: etcd-k8
+    env:
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    ports:
+    - containerPort: 2379
+      name: client-port
+    - containerPort: 2380
+      name: peer-port
+    volumeMounts:
+    - mountPath: /data/etcd
+      name: etcd-storage
+  volumes:
+  - name: etcd-storage
+    emptyDir: {}
