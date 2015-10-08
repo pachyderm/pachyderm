@@ -10,12 +10,12 @@ import (
 	"golang.org/x/net/trace"
 
 	"go.pedge.io/env"
+	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/server"
 	"go.pedge.io/protolog/logrus"
 
 	"go.pachyderm.com/pachyderm"
 	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pkg/timing"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/container"
 	"go.pachyderm.com/pachyderm/src/pps/server"
@@ -75,7 +75,7 @@ func do(appEnvObj interface{}) error {
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
-			pps.RegisterApiServer(s, server.NewAPIServer(pfs.NewApiClient(clientConn), containerClient, rethinkClient, timing.NewSystemTimer()))
+			pps.RegisterApiServer(s, server.NewAPIServer(pfs.NewApiClient(clientConn), containerClient, rethinkClient, pkgtime.NewSystemTimer()))
 		},
 		protoserver.ServeOptions{
 			DebugPort: uint16(appEnv.DebugPort),

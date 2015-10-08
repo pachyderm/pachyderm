@@ -2,8 +2,8 @@ package branch //import "go.pachyderm.com/pachyderm/src/pps/branch"
 
 import (
 	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pkg/timing"
 	"go.pachyderm.com/pachyderm/src/pps/store"
+	"go.pedge.io/pkg/time"
 )
 
 type Brancher interface {
@@ -20,7 +20,7 @@ type Brancher interface {
 func NewBrancher(
 	pfsAPIClient pfs.ApiClient,
 	storeClient store.Client,
-	timer timing.Timer,
+	timer pkgtime.Timer,
 ) Brancher {
 	return newBrancher(
 		pfsAPIClient,
