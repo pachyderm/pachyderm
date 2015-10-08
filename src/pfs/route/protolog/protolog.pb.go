@@ -14,6 +14,7 @@ It has these top-level messages:
 	Version
 	StartAssignRoles
 	FinishAssignRoles
+	FailedToAssignRoles
 	SetServerState
 	AddServerRole
 	RemoveServerRole
@@ -80,6 +81,23 @@ type FinishAssignRoles struct {
 func (m *FinishAssignRoles) Reset()         { *m = FinishAssignRoles{} }
 func (m *FinishAssignRoles) String() string { return proto.CompactTextString(m) }
 func (*FinishAssignRoles) ProtoMessage()    {}
+
+type FailedToAssignRoles struct {
+	ServerStates map[string]*routeproto.ServerState `protobuf:"bytes,1,rep,name=server_states" json:"server_states,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	NumShards    uint64                             `protobuf:"varint,2,opt,name=num_shards" json:"num_shards,omitempty"`
+	NumReplicas  uint64                             `protobuf:"varint,3,opt,name=num_replicas" json:"num_replicas,omitempty"`
+}
+
+func (m *FailedToAssignRoles) Reset()         { *m = FailedToAssignRoles{} }
+func (m *FailedToAssignRoles) String() string { return proto.CompactTextString(m) }
+func (*FailedToAssignRoles) ProtoMessage()    {}
+
+func (m *FailedToAssignRoles) GetServerStates() map[string]*routeproto.ServerState {
+	if m != nil {
+		return m.ServerStates
+	}
+	return nil
+}
 
 type SetServerState struct {
 	ServerState *routeproto.ServerState `protobuf:"bytes,1,opt,name=serverState" json:"serverState,omitempty"`

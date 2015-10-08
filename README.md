@@ -1,5 +1,5 @@
 # Pachyderm
-![Build status](https://badge.buildkite.com/69c8b8a239b2796b43520ddff1576d8bffeb85fc86adad99d2.svg)
+![Build status](https://badge.buildkite.com/69c8b8a239b2796b43520ddff1576d8bffeb85fc86adad99d2.svg?branch=master)
 
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
 [![GitHub license](https://img.shields.io/github/license/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
