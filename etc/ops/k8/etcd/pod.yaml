@@ -6,7 +6,7 @@ metadata:
   name: etcd
 spec:
   containers:
-  - image: gcr.io/pachyderm-dev-us1/etcd-k8:latest
+  - image: gcr.io/pachyderm-dev-us1/etcd-k8:5f2ae2e
     name: etcd-k8
     env:
     - name: POD_NAMESPACE
