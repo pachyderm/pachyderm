@@ -36,7 +36,6 @@ type appEnv struct {
 	DockerHost         string `env:"DOCKER_HOST"`
 	PachydermPfsd1Port string `env:"PACHYDERM_PFSD_1_PORT"`
 	PfsAddress         string `env:"PFS_ADDRESS"`
-	Address            string `env:"PPS_ADDRESS"`
 	Port               int    `env:"PPS_PORT"`
 	DatabaseAddress    string `env:"PPS_DATABASE_ADDRESS"`
 	DatabaseName       string `env:"PPS_DATABASE_NAME"`
