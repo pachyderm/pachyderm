@@ -36,10 +36,6 @@ import (
 )
 
 func main() {
-	for _, e := range os.Environ() {
-		fmt.Printf("  %s\n", e)
-	}
-
 	name, err := os.Hostname()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error: could not determine hostname")
@@ -52,41 +48,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	disco := ""
-	if len(os.Args) >= 2 {
-		disco = os.Args[1]
-	}
-	if disco == "" {
-		fmt.Fprintln(os.Stderr, "Usage: k8s-etcd DISCOVERY")
-		os.Exit(2)
-	}
-
 	clientURLs := fmt.Sprintf("http://%s:2379", ip)
 	peerURLs := fmt.Sprintf("http://%s:2380", ip)
 
-	fmt.Printf("$ etcd\n")
-	fmt.Printf("    -name %s\n", name)
-	fmt.Printf("    -discovery %s\n", disco)
-	fmt.Printf("    -initial-cluster-state new\n")
-	fmt.Printf("    -initial-advertise-peer-urls %s\n", peerURLs)
-	fmt.Printf("    -listen-peer-urls %s\n", peerURLs)
-	fmt.Printf("    -advertise-client-urls %s\n", clientURLs)
-	fmt.Printf("    -listen-client-urls %s\n", clientURLs)
-
 	cmd := exec.Command(
 		"etcd",
-
-		"-name", name,
-
-		"-discovery", disco,
-
-		"-initial-cluster-state", "new",
-
-		"-initial-advertise-peer-urls", peerURLs,
-		"-listen-peer-urls", peerURLs,
-
-		"-advertise-client-urls", clientURLs,
-		"-listen-client-urls", clientURLs,
+		"--name", name,
+		"--advertise-client-urls", clientURLs,
+		"--listen-client-urls", clientURLs,
+		"--initial-advertise-peer-urls", peerURLs,
+		"--listen-peer-urls", peerURLs,
+		"--initial-cluster-token", "etcd-cluster-1",
+		"--initial-cluster", fmt.Sprintf("%s=%s", name, peerURLs),
+		"--initial-cluster-state", "new",
 	)
 
 	cmd.Stdout = os.Stdout
