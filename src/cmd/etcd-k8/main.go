@@ -61,6 +61,7 @@ func main() {
 		"--initial-cluster-token", "etcd-cluster-1",
 		"--initial-cluster", fmt.Sprintf("%s=%s", name, peerURLs),
 		"--initial-cluster-state", "new",
+		"--data-dir", "/data/etcd",
 	)
 
 	cmd.Stdout = os.Stdout
