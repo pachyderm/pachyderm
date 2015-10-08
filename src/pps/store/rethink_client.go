@@ -6,8 +6,8 @@ import (
 	"github.com/dancannon/gorethink"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
-	"go.pachyderm.com/pachyderm/src/pkg/timing"
 	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/time"
 	"go.pedge.io/protolog"
 )
@@ -103,7 +103,7 @@ func InitDBs(address string, databaseName string) error {
 type rethinkClient struct {
 	session             *gorethink.Session
 	databaseName        string
-	timer               timing.Timer
+	timer               pkgtime.Timer
 	pfsCommitMappings   gorethink.Term
 	pipelines           gorethink.Term
 	pipelineContainers  gorethink.Term
@@ -121,7 +121,7 @@ func newRethinkClient(address string, databaseName string) (*rethinkClient, erro
 	return &rethinkClient{
 		session,
 		databaseName,
-		timing.NewSystemTimer(),
+		pkgtime.NewSystemTimer(),
 		gorethink.DB(databaseName).Table(pfsCommitMappingsTable),
 		gorethink.DB(databaseName).Table(pipelinesTable),
 		gorethink.DB(databaseName).Table(pipelineContainersTable),

@@ -7,13 +7,13 @@ import (
 	"strings"
 
 	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pkg/graph"
+	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/time"
 	"go.pedge.io/protolog"
 
 	"github.com/satori/go.uuid"
 	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pkg/graph"
-	"go.pachyderm.com/pachyderm/src/pkg/timing"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/container"
 	"go.pachyderm.com/pachyderm/src/pps/run"
@@ -30,10 +30,10 @@ type apiServer struct {
 	pfsAPIClient    pfs.ApiClient
 	containerClient container.Client
 	storeClient     store.Client
-	timer           timing.Timer
+	timer           pkgtime.Timer
 }
 
-func newAPIServer(pfsAPIClient pfs.ApiClient, containerClient container.Client, storeClient store.Client, timer timing.Timer) *apiServer {
+func newAPIServer(pfsAPIClient pfs.ApiClient, containerClient container.Client, storeClient store.Client, timer pkgtime.Timer) *apiServer {
 	return &apiServer{pfsAPIClient, containerClient, storeClient, timer}
 }
 
@@ -137,7 +137,7 @@ func (a *apiServer) CreatePipelineRun(ctx context.Context, request *pps.CreatePi
 
 func (a *apiServer) StartPipelineRun(ctx context.Context, request *pps.StartPipelineRunRequest) (*google_protobuf.Empty, error) {
 	runner := run.NewRunner(
-		graph.NewGrapher(),
+		pkggraph.NewGrapher(),
 		a.containerClient,
 		a.storeClient,
 		a.timer,

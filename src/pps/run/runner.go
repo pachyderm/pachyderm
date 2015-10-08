@@ -4,27 +4,27 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"go.pedge.io/pkg/graph"
+	"go.pedge.io/pkg/time"
 	"go.pedge.io/protolog"
 
-	"go.pachyderm.com/pachyderm/src/pkg/graph"
-	"go.pachyderm.com/pachyderm/src/pkg/timing"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/container"
 	"go.pachyderm.com/pachyderm/src/pps/store"
 )
 
 type runner struct {
-	grapher         graph.Grapher
+	grapher         pkggraph.Grapher
 	containerClient container.Client
 	storeClient     store.Client
-	timer           timing.Timer
+	timer           pkgtime.Timer
 }
 
 func newRunner(
-	grapher graph.Grapher,
+	grapher pkggraph.Grapher,
 	containerClient container.Client,
 	storeClient store.Client,
-	timer timing.Timer,
+	timer pkgtime.Timer,
 ) *runner {
 	return &runner{
 		grapher,

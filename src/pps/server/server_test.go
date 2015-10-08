@@ -11,6 +11,7 @@ import (
 
 	"golang.org/x/net/context"
 
+	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/test"
 	"go.pedge.io/protolog"
 
@@ -18,7 +19,6 @@ import (
 	"go.pachyderm.com/pachyderm/src/pfs"
 	pfstesting "go.pachyderm.com/pachyderm/src/pfs/testing"
 	"go.pachyderm.com/pachyderm/src/pkg/require"
-	"go.pachyderm.com/pachyderm/src/pkg/timing"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/container"
 	"go.pachyderm.com/pachyderm/src/pps/store"
@@ -225,7 +225,7 @@ func runTest(
 				testNumServers,
 				func(servers map[string]*grpc.Server) {
 					for _, server := range servers {
-						pps.RegisterApiServer(server, newAPIServer(apiClient, containerClient, storeClient, timing.NewSystemTimer()))
+						pps.RegisterApiServer(server, newAPIServer(apiClient, containerClient, storeClient, pkgtime.NewSystemTimer()))
 					}
 				},
 				func(t *testing.T, clientConns map[string]*grpc.ClientConn) {

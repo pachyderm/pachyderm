@@ -3,12 +3,12 @@ package branch
 import (
 	"sync"
 
+	"go.pedge.io/pkg/sync"
+	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/time"
 
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pfs/pfsutil"
-	"go.pachyderm.com/pachyderm/src/pkg/concurrent"
-	"go.pachyderm.com/pachyderm/src/pkg/timing"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/store"
 )
@@ -21,9 +21,9 @@ type repositoryCommit struct {
 type brancher struct {
 	pfsAPIClient pfs.ApiClient
 	storeClient  store.Client
-	timer        timing.Timer
+	timer        pkgtime.Timer
 
-	destroyable                         concurrent.Destroyable
+	destroyable                         pkgsync.Destroyable
 	outputRepositoryToInputRepositories map[string]map[repositoryCommit]bool
 	outputRepositoryToBranchID          map[string]string
 	lock                                *sync.RWMutex
@@ -32,13 +32,13 @@ type brancher struct {
 func newBrancher(
 	pfsAPIClient pfs.ApiClient,
 	storeClient store.Client,
-	timer timing.Timer,
+	timer pkgtime.Timer,
 ) *brancher {
 	return &brancher{
 		pfsAPIClient,
 		storeClient,
 		timer,
-		concurrent.NewDestroyable(),
+		pkgsync.NewDestroyable(),
 		make(map[string]map[repositoryCommit]bool),
 		make(map[string]string),
 		&sync.RWMutex{},

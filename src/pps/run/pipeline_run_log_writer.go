@@ -3,9 +3,9 @@ package run
 import (
 	"fmt"
 
+	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/time"
 
-	"go.pachyderm.com/pachyderm/src/pkg/timing"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/store"
 )
@@ -15,7 +15,7 @@ type pipelineRunLogWriter struct {
 	containerID   string
 	node          string
 	outputStream  pps.OutputStream
-	timer         timing.Timer
+	timer         pkgtime.Timer
 	storeClient   store.Client
 }
 
@@ -24,7 +24,7 @@ func newPipelineRunLogWriter(
 	containerID string,
 	node string,
 	outputStream pps.OutputStream,
-	timer timing.Timer,
+	timer pkgtime.Timer,
 	storeClient store.Client,
 ) *pipelineRunLogWriter {
 	return &pipelineRunLogWriter{

@@ -3,7 +3,8 @@ package run
 import (
 	"fmt"
 
-	"go.pachyderm.com/pachyderm/src/pkg/graph"
+	"go.pedge.io/pkg/graph"
+
 	"go.pachyderm.com/pachyderm/src/pps"
 )
 
@@ -29,12 +30,12 @@ func getBinds(host map[string]string, postfix string) []string {
 	return binds
 }
 
-func getNameToNodeInfo(nodes map[string]*pps.Node) (map[string]*graph.NodeInfo, error) {
+func getNameToNodeInfo(nodes map[string]*pps.Node) (map[string]*pkggraph.NodeInfo, error) {
 	nodeToInputs := getNodeNameToInputStrings(nodes)
 	outputToNodes := getOutputStringToNodeNames(nodes)
-	nodeInfos := make(map[string](*graph.NodeInfo))
+	nodeInfos := make(map[string](*pkggraph.NodeInfo))
 	for name := range nodes {
-		nodeInfo := &graph.NodeInfo{
+		nodeInfo := &pkggraph.NodeInfo{
 			Parents: make([]string, 0),
 		}
 		parents := make(map[string]bool)
