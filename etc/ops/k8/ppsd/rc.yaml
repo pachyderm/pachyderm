@@ -14,7 +14,7 @@ spec:
         app: ppsd
     spec:
       containers:
-      - image: gcr.io/pachyderm-dev-us1/ppsd:1a2bd79
+      - image: gcr.io/pachyderm-dev-us1/ppsd:3f63846
         name: ppsd
         env:
         - name: POD_NAMESPACE

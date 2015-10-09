@@ -6,7 +6,7 @@ metadata:
   name: pfsd
 spec:
   containers:
-  - image: gcr.io/pachyderm-dev-us1/pfsd:3486278
+  - image: gcr.io/pachyderm-dev-us1/pfsd:3f63846
     name: pfsd
     env:
     - name: PFS_DRIVER_ROOT
