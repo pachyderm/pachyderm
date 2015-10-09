@@ -16,27 +16,8 @@ type dockerClient struct {
 	client *docker.Client
 }
 
-func newDockerClient(dockerClientOptions DockerClientOptions) (*dockerClient, error) {
-	var client *docker.Client
-	var err error
-	if dockerClientOptions.DockerTLSOptions != nil {
-		client, err = docker.NewTLSClientFromBytes(
-			dockerClientOptions.Host,
-			dockerClientOptions.DockerTLSOptions.CertPEMBlock,
-			dockerClientOptions.DockerTLSOptions.KeyPEMBlock,
-			dockerClientOptions.DockerTLSOptions.CaPEMCert,
-		)
-	} else if dockerClientOptions.Host != "" {
-		client, err = docker.NewClient(dockerClientOptions.Host)
-	} else {
-		client, err = docker.NewClientFromEnv()
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &dockerClient{
-		client,
-	}, nil
+func newDockerClient(client *docker.Client) *dockerClient {
+	return &dockerClient{client}
 }
 
 func (c *dockerClient) Build(imageName string, contextDir string, options BuildOptions) error {
@@ -85,31 +66,23 @@ func (c *dockerClient) Pull(imageName string, options PullOptions) error {
 	)
 }
 
-func (c *dockerClient) Create(imageName string, options CreateOptions) (_ []string, retErr error) {
+func (c *dockerClient) Create(imageName string, options CreateOptions) (_ string, retErr error) {
 	createContainerOptions, err := getDockerCreateContainerOptions(imageName, options)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	numContainers := options.NumContainers
-	if numContainers == 0 {
-		numContainers = 1
-	}
-	var containerIDs []string
+	var containerID string
 	defer func() {
 		if retErr != nil {
-			for _, containerID := range containerIDs {
-				_ = c.Remove(containerID, RemoveOptions{})
-			}
+			_ = c.Remove(containerID, RemoveOptions{})
 		}
 	}()
-	for i := 0; i < numContainers; i++ {
-		container, err := c.client.CreateContainer(createContainerOptions)
-		if err != nil {
-			return nil, err
-		}
-		containerIDs = append(containerIDs, container.ID)
+	container, err := c.client.CreateContainer(createContainerOptions)
+	if err != nil {
+		return "", err
 	}
-	return containerIDs, nil
+	containerID = container.ID
+	return containerID, nil
 }
 
 func (c *dockerClient) Start(containerID string, options StartOptions) error {
