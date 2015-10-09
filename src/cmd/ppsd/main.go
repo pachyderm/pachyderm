@@ -7,17 +7,19 @@ import (
 	"os"
 	"strings"
 
+	"github.com/fsouza/go-dockerclient"
+
 	"golang.org/x/net/trace"
 
 	"go.pedge.io/env"
+	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/server"
 	"go.pedge.io/protolog/logrus"
 
 	"go.pachyderm.com/pachyderm"
 	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pkg/timing"
+	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/container"
 	"go.pachyderm.com/pachyderm/src/pps/server"
 	"go.pachyderm.com/pachyderm/src/pps/store"
 	"google.golang.org/grpc"
@@ -33,7 +35,6 @@ var (
 )
 
 type appEnv struct {
-	DockerHost         string `env:"DOCKER_HOST"`
 	PachydermPfsd1Port string `env:"PACHYDERM_PFSD_1_PORT"`
 	PfsAddress         string `env:"PFS_ADDRESS"`
 	PfsdPort           string `env:"PFSD_PORT_650_TCP"`
@@ -50,7 +51,7 @@ func main() {
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 	logrus.Register()
-	containerClient, err := getContainerClient(appEnv.DockerHost)
+	containerClient, err := getContainerClient()
 	if err != nil {
 		return err
 	}
@@ -79,7 +80,7 @@ func do(appEnvObj interface{}) error {
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
-			pps.RegisterApiServer(s, server.NewAPIServer(pfs.NewApiClient(clientConn), containerClient, rethinkClient, timing.NewSystemTimer()))
+			pps.RegisterApiServer(s, server.NewAPIServer(pfs.NewApiClient(clientConn), containerClient, rethinkClient, pkgtime.NewSystemTimer()))
 		},
 		protoserver.ServeOptions{
 			DebugPort: uint16(appEnv.DebugPort),
@@ -88,15 +89,12 @@ func do(appEnvObj interface{}) error {
 	)
 }
 
-func getContainerClient(dockerHost string) (container.Client, error) {
-	if dockerHost == "" {
-		dockerHost = "unix:///var/run/docker.sock"
+func getContainerClient() (container.Client, error) {
+	client, err := docker.NewClientFromEnv()
+	if err != nil {
+		return nil, err
 	}
-	return container.NewDockerClient(
-		container.DockerClientOptions{
-			Host: dockerHost,
-		},
-	)
+	return container.NewDockerClient(client), nil
 }
 
 func getRethinkClient(address string, databaseName string) (store.Client, error) {

@@ -1,3 +1,9 @@
+# 0.9.0 (Unreleased)
+
+* logrus/text_formatter: don't emit empty msg
+* logrus/hooks/airbrake: move out of main repository
+* logrus/hooks/sentry: move out of main repository
+
 # 0.8.7
 
 * logrus/core: fix possible race (#216)

@@ -65,8 +65,6 @@ var (
 	// ErrClientConnTimeout indicates that the connection could not be
 	// established or re-established within the specified timeout.
 	ErrClientConnTimeout = errors.New("grpc: timed out trying to connect")
-	// ErrTransientFailure indicates the connection failed due to a transient error.
-	ErrTransientFailure = errors.New("grpc: transient connection failure")
 	// minimum time to give a connection to complete
 	minConnectTimeout = 20 * time.Second
 )
@@ -151,12 +149,21 @@ func Dial(target string, opts ...DialOption) (*ClientConn, error) {
 	for _, opt := range opts {
 		opt(&cc.dopts)
 	}
+	if cc.dopts.codec == nil {
+		// Set the default codec.
+		cc.dopts.codec = protoCodec{}
+	}
 	if cc.dopts.picker == nil {
 		cc.dopts.picker = &unicastPicker{}
 	}
 	if err := cc.dopts.picker.Init(cc); err != nil {
 		return nil, err
 	}
+	colonPos := strings.LastIndex(target, ":")
+	if colonPos == -1 {
+		colonPos = len(target)
+	}
+	cc.authority = target[:colonPos]
 	return cc, nil
 }
 
@@ -195,8 +202,9 @@ func (s ConnectivityState) String() string {
 
 // ClientConn represents a client connection to an RPC service.
 type ClientConn struct {
-	target string
-	dopts  dialOptions
+	target    string
+	authority string
+	dopts     dialOptions
 }
 
 // State returns the connectivity state of cc.
@@ -220,7 +228,6 @@ func (cc *ClientConn) Close() error {
 // Conn is a client connection to a single destination.
 type Conn struct {
 	target       string
-	authority    string
 	dopts        dialOptions
 	shutdownChan chan struct{}
 	events       trace.EventLog
@@ -264,15 +271,6 @@ func NewConn(cc *ClientConn) (*Conn, error) {
 				return nil, ErrCredentialsMisuse
 			}
 		}
-	}
-	colonPos := strings.LastIndex(c.target, ":")
-	if colonPos == -1 {
-		colonPos = len(c.target)
-	}
-	c.authority = c.target[:colonPos]
-	if c.dopts.codec == nil {
-		// Set the default codec.
-		c.dopts.codec = protoCodec{}
 	}
 	c.stateCV = sync.NewCond(&c.mu)
 	if c.dopts.block {
@@ -468,7 +466,7 @@ func (cc *Conn) transportMonitor() {
 	}
 }
 
-// Wait blocks until i) the new transport is up or ii) ctx is done or iii)
+// Wait blocks until i) the new transport is up or ii) ctx is done or iii) cc is closed.
 func (cc *Conn) Wait(ctx context.Context) (transport.ClientTransport, error) {
 	for {
 		cc.mu.Lock()
@@ -479,11 +477,6 @@ func (cc *Conn) Wait(ctx context.Context) (transport.ClientTransport, error) {
 		case cc.state == Ready:
 			cc.mu.Unlock()
 			return cc.transport, nil
-		case cc.state == TransientFailure:
-			cc.mu.Unlock()
-			// Break out so that the caller gets chance to pick another transport to
-			// perform rpc instead of sticking to this transport.
-			return nil, ErrTransientFailure
 		default:
 			ready := cc.ready
 			if ready == nil {

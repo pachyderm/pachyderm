@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package pkggraph;
+
+message NodeWaiting {
+  string node = 1;
+  string parent_node = 2;
+}
+
+message NodeFinishedWaiting {
+  string node = 1;
+  string parent_error = 2;
+}
+
+message NodeStarting {
+  string node = 1;
+}
+
+message NodeFinished {
+  string node = 1;
+  string error = 2;
+}
+
+message NodeSending {
+  string node = 1;
+  string child_node = 2;
+  string error = 3;
+}

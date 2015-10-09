@@ -4,27 +4,27 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"go.pedge.io/pkg/graph"
+	"go.pedge.io/pkg/time"
 	"go.pedge.io/protolog"
 
-	"go.pachyderm.com/pachyderm/src/pkg/graph"
-	"go.pachyderm.com/pachyderm/src/pkg/timing"
+	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/container"
 	"go.pachyderm.com/pachyderm/src/pps/store"
 )
 
 type runner struct {
-	grapher         graph.Grapher
+	grapher         pkggraph.Grapher
 	containerClient container.Client
 	storeClient     store.Client
-	timer           timing.Timer
+	timer           pkgtime.Timer
 }
 
 func newRunner(
-	grapher graph.Grapher,
+	grapher pkggraph.Grapher,
 	containerClient container.Client,
 	storeClient store.Client,
-	timer timing.Timer,
+	timer pkgtime.Timer,
 ) *runner {
 	return &runner{
 		grapher,
@@ -119,23 +119,26 @@ func (r *runner) getNodeFunc(
 		); err != nil {
 			return err
 		}
-		containers, err := r.containerClient.Create(
-			image,
-			container.CreateOptions{
-				Binds:         append(getInputBinds(node.Input), getOutputBinds(node.Output)...),
-				HasCommand:    len(node.Run) > 0,
-				NumContainers: numContainers,
-			},
-		)
-		if err != nil {
-			return err
-		}
+		var containers []string
 		defer func() {
 			for _, containerID := range containers {
 				_ = r.containerClient.Kill(containerID, container.KillOptions{})
 				_ = r.containerClient.Remove(containerID, container.RemoveOptions{})
 			}
 		}()
+		for i := 0; i < numContainers; i++ {
+			container, err := r.containerClient.Create(
+				image,
+				container.CreateOptions{
+					Binds:      append(getInputBinds(node.Input), getOutputBinds(node.Output)...),
+					HasCommand: len(node.Run) > 0,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			containers = append(containers, container)
+		}
 		for _, containerID := range containers {
 			if err := r.containerClient.Start(
 				containerID,
@@ -178,7 +181,7 @@ func (r *runner) getNodeFunc(
 				return err
 			}
 		}
-		err = nil
+		var err error
 		for _ = range containers {
 			if logsErr := <-errC; logsErr != nil && err == nil {
 				err = logsErr

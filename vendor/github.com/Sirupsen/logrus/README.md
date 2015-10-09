@@ -75,16 +75,11 @@ package main
 import (
   "os"
   log "github.com/Sirupsen/logrus"
-  "github.com/Sirupsen/logrus/hooks/airbrake"
 )
 
 func init() {
   // Log as JSON instead of the default ASCII formatter.
   log.SetFormatter(&log.JSONFormatter{})
-
-  // Use the Airbrake hook to report errors that have Error severity or above to
-  // an exception tracker. You can create custom hooks, see the Hooks section.
-  log.AddHook(airbrake.NewHook("https://example.com", "xyz", "development"))
 
   // Output to stderr instead of stdout, could also be a file.
   log.SetOutput(os.Stderr)
@@ -182,13 +177,16 @@ Logrus comes with [built-in hooks](hooks/). Add those, or your custom hook, in
 ```go
 import (
   log "github.com/Sirupsen/logrus"
-  "github.com/Sirupsen/logrus/hooks/airbrake"
+  "gopkg.in/gemnasium/logrus-airbrake-hook.v2" // the package is named "aibrake"
   logrus_syslog "github.com/Sirupsen/logrus/hooks/syslog"
   "log/syslog"
 )
 
 func init() {
-  log.AddHook(airbrake.NewHook("https://example.com", "xyz", "development"))
+
+  // Use the Airbrake hook to report errors that have Error severity or above to
+  // an exception tracker. You can create custom hooks, see the Hooks section.
+  log.AddHook(airbrake.NewHook(123, "xyz", "production"))
 
   hook, err := logrus_syslog.NewSyslogHook("udp", "localhost:514", syslog.LOG_INFO, "")
   if err != nil {
@@ -198,20 +196,21 @@ func init() {
   }
 }
 ```
-
+Note: Syslog hook also support connecting to local syslog (Ex. "/dev/log" or "/var/run/syslog" or "/var/run/log"). For the detail, please check the [syslog hook README](hooks/syslog/README.md).
 
 | Hook  | Description |
 | ----- | ----------- |
-| [Airbrake](https://github.com/Sirupsen/logrus/blob/master/hooks/airbrake/airbrake.go) | Send errors to an exception tracking service compatible with the Airbrake API. Uses [`airbrake-go`](https://github.com/tobi/airbrake-go) behind the scenes. |
+| [Airbrake](https://github.com/gemnasium/logrus-airbrake-hook) | Send errors to the Airbrake API V3. Uses the official [`gobrake`](https://github.com/airbrake/gobrake) behind the scenes. |
+| [Airbrake "legacy"](https://github.com/gemnasium/logrus-airbrake-legacy-hook) | Send errors to an exception tracking service compatible with the Airbrake API V2. Uses [`airbrake-go`](https://github.com/tobi/airbrake-go) behind the scenes. |
 | [Papertrail](https://github.com/Sirupsen/logrus/blob/master/hooks/papertrail/papertrail.go) | Send errors to the Papertrail hosted logging service via UDP. |
 | [Syslog](https://github.com/Sirupsen/logrus/blob/master/hooks/syslog/syslog.go) | Send errors to remote syslog server. Uses standard library `log/syslog` behind the scenes. |
 | [BugSnag](https://github.com/Sirupsen/logrus/blob/master/hooks/bugsnag/bugsnag.go) | Send errors to the Bugsnag exception tracking service. |
-| [Sentry](https://github.com/Sirupsen/logrus/blob/master/hooks/sentry/sentry.go) | Send errors to the Sentry error logging and aggregation service. |
+| [Sentry](https://github.com/evalphobia/logrus_sentry) | Send errors to the Sentry error logging and aggregation service. |
 | [Hiprus](https://github.com/nubo/hiprus) | Send errors to a channel in hipchat. |
 | [Logrusly](https://github.com/sebest/logrusly) | Send logs to [Loggly](https://www.loggly.com/) |
 | [Slackrus](https://github.com/johntdyer/slackrus) | Hook for Slack chat. |
 | [Journalhook](https://github.com/wercker/journalhook) | Hook for logging to `systemd-journald` |
-| [Graylog](https://github.com/gemnasium/logrus-hooks/tree/master/graylog) | Hook for logging to [Graylog](http://graylog2.org/) |
+| [Graylog](https://github.com/gemnasium/logrus-graylog-hook) | Hook for logging to [Graylog](http://graylog2.org/) |
 | [Raygun](https://github.com/squirkle/logrus-raygun-hook) | Hook for logging to [Raygun.io](http://raygun.io/) |
 | [LFShook](https://github.com/rifflock/lfshook) | Hook for logging to the local filesystem |
 | [Honeybadger](https://github.com/agonzalezro/logrus_honeybadger) | Hook for sending exceptions to Honeybadger |
@@ -296,10 +295,10 @@ The built-in logging formatters are:
     field to `true`.  To force no colored output even if there is a TTY  set the
     `DisableColors` field to `true`
 * `logrus.JSONFormatter`. Logs fields as JSON.
-* `logrus_logstash.LogstashFormatter`. Logs fields as Logstash Events (http://logstash.net).
+* `logrus/formatters/logstash.LogstashFormatter`. Logs fields as [Logstash](http://logstash.net) Events.
 
     ```go
-      logrus.SetFormatter(&logrus_logstash.LogstashFormatter{Type: “application_name"})
+      logrus.SetFormatter(&logstash.LogstashFormatter{Type: “application_name"})
     ```
 
 Third party logging formatters:

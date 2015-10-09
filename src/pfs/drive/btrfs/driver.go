@@ -30,7 +30,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pfs/drive"
-	"go.pachyderm.com/pachyderm/src/pkg/executil"
+	"go.pedge.io/pkg/exec"
 	"go.pedge.io/proto/time"
 	"go.pedge.io/protolog"
 )
@@ -767,21 +767,21 @@ func execSubvolumeCreate(path string) (retErr error) {
 	defer func() {
 		protolog.Debug(&SubvolumeCreate{path, errorToString(retErr)})
 	}()
-	return executil.Run("btrfs", "subvolume", "create", path)
+	return pkgexec.Run("btrfs", "subvolume", "create", path)
 }
 
 func execSubvolumeDelete(path string) (retErr error) {
 	defer func() {
 		protolog.Debug(&SubvolumeDelete{path, errorToString(retErr)})
 	}()
-	return executil.Run("btrfs", "subvolume", "delete", path)
+	return pkgexec.Run("btrfs", "subvolume", "delete", path)
 }
 
 func execSubvolumeExists(path string) (result bool) {
 	defer func() {
 		protolog.Debug(&SubvolumeExists{path, result})
 	}()
-	if err := executil.Run("btrfs", "subvolume", "show", path); err != nil {
+	if err := pkgexec.Run("btrfs", "subvolume", "show", path); err != nil {
 		return false
 	}
 	return true
@@ -792,9 +792,9 @@ func execSubvolumeSnapshot(src string, dest string, readOnly bool) (retErr error
 		protolog.Info(&SubvolumeSnapshot{src, dest, readOnly, errorToString(retErr)})
 	}()
 	if readOnly {
-		return executil.Run("btrfs", "subvolume", "snapshot", "-r", src, dest)
+		return pkgexec.Run("btrfs", "subvolume", "snapshot", "-r", src, dest)
 	}
-	return executil.Run("btrfs", "subvolume", "snapshot", src, dest)
+	return pkgexec.Run("btrfs", "subvolume", "snapshot", src, dest)
 }
 
 func execTransID(path string) (result string, retErr error) {
@@ -805,7 +805,7 @@ func execTransID(path string) (result string, retErr error) {
 	//  we get the transid of the from path. According to the internet this is
 	//  the nicest way to get it from btrfs.
 	var buffer bytes.Buffer
-	if err := executil.RunStdout(&buffer, "btrfs", "subvolume", "find-new", path, "9223372036854775808"); err != nil {
+	if err := pkgexec.RunStdout(&buffer, "btrfs", "subvolume", "find-new", path, "9223372036854775808"); err != nil {
 		return "", err
 	}
 	scanner := bufio.NewScanner(&buffer)
@@ -837,13 +837,13 @@ func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Wr
 	}
 
 	if fromCommit == "" {
-		return executil.RunStdout(out, "btrfs", "subvolume", "list", "-a", "--sort", sort, path)
+		return pkgexec.RunStdout(out, "btrfs", "subvolume", "list", "-a", "--sort", sort, path)
 	}
 	transid, err := execTransID(fromCommit)
 	if err != nil {
 		return err
 	}
-	return executil.RunStdout(out, "btrfs", "subvolume", "list", "-aC", "+"+transid, "--sort", sort, path)
+	return pkgexec.RunStdout(out, "btrfs", "subvolume", "list", "-aC", "+"+transid, "--sort", sort, path)
 }
 
 func execSubvolumeFindNew(commit string, fromCommit string, out io.Writer) (retErr error) {
@@ -851,13 +851,13 @@ func execSubvolumeFindNew(commit string, fromCommit string, out io.Writer) (retE
 		protolog.Debug(&SubvolumeFindNew{commit, fromCommit, errorToString(retErr)})
 	}()
 	if fromCommit == "" {
-		return executil.RunStdout(out, "btrfs", "subvolume", "find-new", commit, "0")
+		return pkgexec.RunStdout(out, "btrfs", "subvolume", "find-new", commit, "0")
 	}
 	transid, err := execTransID(fromCommit)
 	if err != nil {
 		return err
 	}
-	return executil.RunStdout(out, "btrfs", "subvolume", "find-new", commit, transid)
+	return pkgexec.RunStdout(out, "btrfs", "subvolume", "find-new", commit, transid)
 }
 
 func execSend(path string, parent string, diff io.Writer) (retErr error) {
@@ -865,16 +865,16 @@ func execSend(path string, parent string, diff io.Writer) (retErr error) {
 		protolog.Debug(&Send{path, parent, errorToString(retErr)})
 	}()
 	if parent == "" {
-		return executil.RunStdout(diff, "btrfs", "send", path)
+		return pkgexec.RunStdout(diff, "btrfs", "send", path)
 	}
-	return executil.RunStdout(diff, "btrfs", "send", "-p", parent, path)
+	return pkgexec.RunStdout(diff, "btrfs", "send", "-p", parent, path)
 }
 
 func execRecv(path string, diff io.Reader) (retErr error) {
 	defer func() {
 		protolog.Debug(&Recv{path, errorToString(retErr)})
 	}()
-	return executil.RunStdin(diff, "btrfs", "receive", path)
+	return pkgexec.RunStdin(diff, "btrfs", "receive", path)
 }
 
 type commitScanner struct {

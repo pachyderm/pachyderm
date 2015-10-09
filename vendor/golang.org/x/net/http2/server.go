@@ -499,13 +499,6 @@ func (sc *serverConn) onNewHeaderField(f hpack.HeaderField) {
 			return
 		}
 		*dst = f.Value
-	case f.Name == "cookie":
-		sc.req.sawRegularHeader = true
-		if s, ok := sc.req.header["Cookie"]; ok && len(s) == 1 {
-			s[0] = s[0] + "; " + f.Value
-		} else {
-			sc.req.header.Add("Cookie", f.Value)
-		}
 	default:
 		sc.req.sawRegularHeader = true
 		sc.req.header.Add(sc.canonicalHeader(f.Name), f.Value)
@@ -1372,6 +1365,10 @@ func (sc *serverConn) newWriterAndRequest() (*responseWriter, *http.Request, err
 	needsContinue := rp.header.Get("Expect") == "100-continue"
 	if needsContinue {
 		rp.header.Del("Expect")
+	}
+	// Merge Cookie headers into one "; "-delimited value.
+	if cookies := rp.header["Cookie"]; len(cookies) > 1 {
+		rp.header.Set("Cookie", strings.Join(cookies, "; "))
 	}
 	bodyOpen := rp.stream.state == stateOpen
 	body := &requestBody{

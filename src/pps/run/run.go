@@ -1,10 +1,10 @@
 package run //import "go.pachyderm.com/pachyderm/src/pps/run"
 
 import (
-	"go.pachyderm.com/pachyderm/src/pkg/graph"
-	"go.pachyderm.com/pachyderm/src/pkg/timing"
-	"go.pachyderm.com/pachyderm/src/pps/container"
+	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps/store"
+	"go.pedge.io/pkg/graph"
+	"go.pedge.io/pkg/time"
 )
 
 type Runner interface {
@@ -12,10 +12,10 @@ type Runner interface {
 }
 
 func NewRunner(
-	grapher graph.Grapher,
+	grapher pkggraph.Grapher,
 	containerClient container.Client,
 	storeClient store.Client,
-	timer timing.Timer,
+	timer pkgtime.Timer,
 ) Runner {
 	return newRunner(
 		grapher,
