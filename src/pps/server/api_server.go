@@ -3,6 +3,8 @@ package server
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -14,10 +16,11 @@ import (
 
 	"github.com/satori/go.uuid"
 	"go.pachyderm.com/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pkg/clone"
 	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/parse"
 	"go.pachyderm.com/pachyderm/src/pps/run"
-	"go.pachyderm.com/pachyderm/src/pps/source"
 	"go.pachyderm.com/pachyderm/src/pps/store"
 	"golang.org/x/net/context"
 )
@@ -104,11 +107,10 @@ func (a *apiServer) CreateAndGetPipeline(ctx context.Context, request *pps.Creat
 	if err != nil {
 		return nil, err
 	}
-	_, pipeline, err := source.NewSourcer().GetDirPathAndPipeline(pipelineSource)
+	_, pipeline, err := getDirPathAndPipeline(pipelineSource)
 	if err != nil {
 		return nil, err
 	}
-	pipeline.Id = strings.Replace(uuid.NewV4().String(), "-", "", -1)
 	if err := a.storeClient.CreatePipeline(pipeline); err != nil {
 		return nil, err
 	}
@@ -184,6 +186,46 @@ func (a *apiServer) GetPipelineRunLogs(ctx context.Context, getRunLogsRequest *p
 	return &pps.PipelineRunLogs{
 		PipelineRunLog: filteredPipelineRunLogs,
 	}, nil
+}
+
+func getDirPathAndPipeline(pipelineSource *pps.PipelineSource) (string, *pps.Pipeline, error) {
+	if pipelineSource.GetGithubPipelineSource() != nil {
+		dirPath, err := githubClone(pipelineSource.GetGithubPipelineSource())
+		if err != nil {
+			return "", nil, err
+		}
+		dirPath = filepath.Join(dirPath, pipelineSource.GetGithubPipelineSource().ContextDir)
+		pipeline, err := parse.NewParser().ParsePipeline(dirPath)
+		if err != nil {
+			return "", nil, err
+		}
+		pipeline.PipelineSourceId = pipelineSource.Id
+		pipeline.Id = strings.Replace(uuid.NewV4().String(), "-", "", -1)
+		return dirPath, pipeline, nil
+	}
+	return "", nil, fmt.Errorf("must specify pipeline source")
+}
+
+func githubClone(githubPipelineSource *pps.GithubPipelineSource) (string, error) {
+	dirPath, err := makeTempDir()
+	if err != nil {
+		return "", err
+	}
+	if err := clone.GithubClone(
+		dirPath,
+		githubPipelineSource.User,
+		githubPipelineSource.Repository,
+		githubPipelineSource.Branch,
+		githubPipelineSource.CommitId,
+		githubPipelineSource.AccessToken,
+	); err != nil {
+		return "", err
+	}
+	return dirPath, nil
+}
+
+func makeTempDir() (string, error) {
+	return ioutil.TempDir("", "pachyderm")
 }
 
 type sortByTimestamp []*pps.PipelineRunLog
