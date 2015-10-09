@@ -1,4 +1,4 @@
-FROM gcr.io/google_containers/etcd:2.0.12
+FROM quay.io/coreos/etcd:v2.1.1
 MAINTAINER sr@pachyderm.com
 ADD _tmp/etcd-k8 /etcd-k8
 ENV PATH /:$PATH
