@@ -1,7 +1,0 @@
-syntax = "proto3";
-
-package executil;
-
-message RunningCommand {
-  string args = 1;
-}
