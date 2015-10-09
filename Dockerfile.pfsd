@@ -4,11 +4,9 @@ MAINTAINER peter@pachyderm.io
 RUN \
   apt-get update -yq && \
   apt-get install -yq --no-install-recommends \
-    btrfs-tools \
     ca-certificates \
     fuse && \
   apt-get clean && \
   rm -rf /var/lib/apt
-ADD etc/btrfs/btrfs-mount.sh /
 ADD _tmp/pfsd /
-ENTRYPOINT ["sh", "btrfs-mount.sh", "/pfsd"]
+ENTRYPOINT ["/pfsd"]
