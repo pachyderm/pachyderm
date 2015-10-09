@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: pfsd
+  name: pfsd
+spec:
+  containers:
+  - image: gcr.io/pachyderm-dev-us1/pfsd:3486278
+    name: pfsd
+    env:
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    ports:
+    - containerPort: 650
+      name: api-grpc-port
+    - containerPort: 750
+      name: api-http-port
+    - containerPort: 1050
+      name: trace-port
+    volumeMounts:
+    - mountPath: /pfs/btrfs
+      name: pfs-disk
+  volumes:
+  - name: pfs-disk
+    gcePersistentDisk:
+        pdName: pch-pfs
+        fsType: "btrfs"
