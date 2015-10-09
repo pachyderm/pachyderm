@@ -9,6 +9,8 @@ spec:
   - image: gcr.io/pachyderm-dev-us1/pfsd:3486278
     name: pfsd
     env:
+    - name: PFS_DRIVER_ROOT
+      value: /pfs/btrfs
     - name: POD_NAMESPACE
       valueFrom:
         fieldRef:
