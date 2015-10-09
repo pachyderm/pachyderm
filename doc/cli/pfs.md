@@ -284,4 +284,3 @@ Alias: df
 ##### Example
     # Delete the file `file1` from commit `ID_2` in the repository `repo`
     $ pfs delete-file repo ID_2 file1
-    
