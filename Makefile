@@ -46,8 +46,10 @@ install: deps
 	go install ./src/cmd/pfs-volume-driver ./src/cmd/pfs ./src/cmd/pps
 	go install ./vendor/go.pedge.io/dockervolume/cmd/dockervolume
 
-docker-build-test:
+docker-build-btrfs:
 	docker-compose build btrfs
+
+docker-build-test: docker-build-btrfs
 	docker-compose build test
 	mkdir -p /tmp/pachyderm-test
 
@@ -63,14 +65,13 @@ docker-build-pfs-volume-driver: docker-build-compile
 docker-build-pfs-roler: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh pfs-roler
 
-docker-build-pfsd: docker-build-compile
-	docker-compose build btrfs
+docker-build-pfsd: docker-build-btrfs docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh pfsd
 
 docker-build-ppsd: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh ppsd
 
-docker-build: docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd
+docker-build: docker-build-pfs-mount docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd
 
 docker-push-pfs-mount: docker-build-pfs-mount
 	docker push pachyderm/pfs-mount
@@ -87,7 +88,7 @@ docker-push-pfsd: docker-build-pfsd
 docker-push-ppsd: docker-build-ppsd
 	docker push pachyderm/ppsd
 
-docker-push: docker-push-ppsd docker-push-pfsd docker-push-pfs-volume-driver
+docker-push: docker-push-pfs-mount docker-push-pfs-roler docker-push-ppsd docker-push-pfsd docker-push-pfs-volume-driver
 
 run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
@@ -150,16 +151,12 @@ test-pps-extra: pretest docker-clean-test docker-build-test
 clean: docker-clean-launch
 	go clean ./src/...
 	rm -f src/cmd/pfs/pfs
+	rm -f src/cmd/pfs/pfs-mount
 	rm -f src/cmd/pfs/pfs-volume-driver
 	rm -f src/cmd/pfs/pfs-roler
 	rm -f src/cmd/pfsd/pfsd
 	rm -f src/cmd/pps/pps
 	rm -f src/cmd/ppsd/ppsd
-
-start-kube:
-	docker run --net=host -d gcr.io/google_containers/etcd:2.0.12 /usr/local/bin/etcd --addr=127.0.0.1:4001 --bind-addr=0.0.0.0:4001 --data-dir=/var/etcd/data
-	docker run --net=host -d -v /var/run/docker.sock:/var/run/docker.sock  gcr.io/google_containers/hyperkube:v1.0.1 /hyperkube kubelet --api_servers=http://localhost:8080 --v=2 --address=0.0.0.0 --enable_server --hostname_override=127.0.0.1 --config=/etc/kubernetes/manifests
-	docker run -d --net=host --privileged gcr.io/google_containers/hyperkube:v1.0.1 /hyperkube proxy --master=http://127.0.0.1:8080 --v=2
 
 .PHONY: \
 	all \
@@ -168,11 +165,11 @@ start-kube:
 	update-deps \
 	test-deps \
 	update-test-deps \
-	update-deps-list \
 	vendor \
 	install-git2go \
 	build \
 	install \
+	docker-build-btrfs \
 	docker-build-test \
 	docker-build-compile \
 	docker-build-pfs-volume-driver \
@@ -195,5 +192,4 @@ start-kube:
 	test \
 	test-pfs-extra \
 	test-pps-extra \
-	clean \
-	start-kube
+	clean
