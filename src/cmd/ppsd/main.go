@@ -36,6 +36,7 @@ type appEnv struct {
 	DockerHost         string `env:"DOCKER_HOST"`
 	PachydermPfsd1Port string `env:"PACHYDERM_PFSD_1_PORT"`
 	PfsAddress         string `env:"PFS_ADDRESS"`
+	PfsdPort           string `env:"PFSD_PORT_650_TCP"`
 	Port               int    `env:"PPS_PORT"`
 	DatabaseAddress    string `env:"PPS_DATABASE_ADDRESS"`
 	DatabaseName       string `env:"PPS_DATABASE_NAME"`
@@ -57,11 +58,15 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	pfsAddress := appEnv.PachydermPfsd1Port
+	var pfsAddress string
+	pfsAddress = appEnv.PachydermPfsd1Port
 	if pfsAddress == "" {
 		pfsAddress = appEnv.PfsAddress
 	} else {
 		pfsAddress = strings.Replace(pfsAddress, "tcp://", "", -1)
+	}
+	if pfsAddress == "" {
+		pfsAddress = strings.Replace(appEnv.PfsdPort, "tcp://", "", -1)
 	}
 	clientConn, err := grpc.Dial(pfsAddress, grpc.WithInsecure())
 	if err != nil {
