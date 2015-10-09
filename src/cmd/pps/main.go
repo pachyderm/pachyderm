@@ -9,6 +9,7 @@ import (
 	"golang.org/x/net/context"
 
 	"go.pedge.io/env"
+	"go.pedge.io/pkg/cobra"
 	"go.pedge.io/proto/client"
 	"go.pedge.io/proto/time"
 	"go.pedge.io/protolog/logrus"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"go.pachyderm.com/pachyderm"
-	"go.pachyderm.com/pachyderm/src/pkg/cobramainutil"
 	"go.pachyderm.com/pachyderm/src/pps"
 )
 
@@ -53,12 +53,10 @@ func do(appEnvObj interface{}) error {
 
 	var protoFlag bool
 
-	inspectCmd := cobramainutil.Command{
-		Use:        "inspect github.com/user/repository [path/to/specDir]",
-		Long:       "Inspect a pipeline specification.",
-		MinNumArgs: 1,
-		MaxNumArgs: 2,
-		Run: func(cmd *cobra.Command, args []string) error {
+	inspectCmd := &cobra.Command{
+		Use:  "inspect github.com/user/repository [path/to/specDir]",
+		Long: "Inspect a pipeline specification.",
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 1, Max: 2}, func(args []string) error {
 			githubPipelineSource, err := getGithubPipelineSource(args)
 			if err != nil {
 				return err
@@ -95,16 +93,14 @@ func do(appEnvObj interface{}) error {
 				fmt.Println(string(data))
 			}
 			return nil
-		},
-	}.ToCobraCommand()
+		}),
+	}
 	inspectCmd.Flags().BoolVar(&protoFlag, "proto", false, "Print in proto format instead of JSON.")
 
-	startCmd := cobramainutil.Command{
-		Use:        "start github.com/user/repository [path/to/specDir]",
-		Long:       "Start a pipeline specification run.",
-		MinNumArgs: 1,
-		MaxNumArgs: 2,
-		Run: func(cmd *cobra.Command, args []string) error {
+	startCmd := &cobra.Command{
+		Use:  "start github.com/user/repository [path/to/specDir]",
+		Long: "Start a pipeline specification run.",
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 1, Max: 2}, func(args []string) error {
 			githubPipelineSource, err := getGithubPipelineSource(args)
 			if err != nil {
 				return err
@@ -151,14 +147,13 @@ func do(appEnvObj interface{}) error {
 			}
 			fmt.Println(pipelineRun.Id)
 			return nil
-		},
-	}.ToCobraCommand()
+		}),
+	}
 
-	statusCmd := cobramainutil.Command{
-		Use:     "status pipelineRunID",
-		Long:    "Get the status of a pipeline run.",
-		NumArgs: 1,
-		Run: func(cmd *cobra.Command, args []string) error {
+	statusCmd := &cobra.Command{
+		Use:  "status pipelineRunID",
+		Long: "Get the status of a pipeline run.",
+		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
 			pipelineRunStatuses, err := apiClient.GetPipelineRunStatus(
 				context.Background(),
 				&pps.GetPipelineRunStatusRequest{
@@ -175,15 +170,13 @@ func do(appEnvObj interface{}) error {
 			}
 			fmt.Printf("%s %s\n", args[0], strings.Replace(name, "PIPELINE_RUN_STATUS_TYPE_", "", -1))
 			return nil
-		},
-	}.ToCobraCommand()
+		}),
+	}
 
-	logsCmd := cobramainutil.Command{
-		Use:        "logs pipelineRunID [node]",
-		Long:       "Get the logs from a pipeline run.",
-		MinNumArgs: 1,
-		MaxNumArgs: 2,
-		Run: func(cmd *cobra.Command, args []string) error {
+	logsCmd := &cobra.Command{
+		Use:  "logs pipelineRunID [node]",
+		Long: "Get the logs from a pipeline run.",
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 1, Max: 2}, func(args []string) error {
 			node := ""
 			if len(args) == 2 {
 				node = args[1]
@@ -222,8 +215,8 @@ func do(appEnvObj interface{}) error {
 				fmt.Println(strings.TrimSpace(s))
 			}
 			return nil
-		},
-	}.ToCobraCommand()
+		}),
+	}
 
 	rootCmd := &cobra.Command{
 		Use: "pps",
