@@ -111,8 +111,14 @@ pretest:
 			exit 1; \
 		fi; \
 	done;
-	#go vet ./src/...
-	errcheck ./src/pfs/...
+	go vet -n ./src/... | while read line; do \
+		modified=$$(echo $$line | sed "s/ [a-z0-9_/]*\.pb\.gw\.go//g"); \
+		$$modified; \
+		if [ -n "$$($$modified)" ]; then \
+			exit 1; \
+		fi; \
+	done
+	errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pkg/clone | grep -v src/pps$$ | grep -v src/pps/server)
 
 docker-clean-test:
 	docker-compose kill rethink
