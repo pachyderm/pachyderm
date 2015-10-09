@@ -4,17 +4,15 @@ import (
 	"bytes"
 	"testing"
 
-	"go.pachyderm.com/pachyderm/src/pkg/require"
-)
+	"github.com/fsouza/go-dockerclient"
 
-var (
-	defaultTestDockerClientOptions = DockerClientOptions{}
+	"go.pachyderm.com/pachyderm/src/pkg/require"
 )
 
 func TestCommandsSimple(t *testing.T) {
 	testRun(
 		t,
-		"ubuntu:15.04",
+		"ubuntu:14.04",
 		[]string{
 			"echo hello",
 		},
@@ -26,7 +24,7 @@ func TestCommandsSimple(t *testing.T) {
 func TestCommandsForLoops(t *testing.T) {
 	testRun(
 		t,
-		"ubuntu:15.04",
+		"ubuntu:14.04",
 		[]string{
 			"for i in 1 2 3 4 5; do echo $i; done",
 			"for i in 1 2 3 4 5; do echo X$i >&2; done",
@@ -41,15 +39,13 @@ func testRun(t *testing.T, imageName string, commands []string, expectedStdout s
 	require.NoError(t, err)
 	err = client.Pull(imageName, PullOptions{})
 	require.NoError(t, err)
-	containers, err := client.Create(
+	container, err := client.Create(
 		imageName,
 		CreateOptions{
 			HasCommand: commands != nil,
 		},
 	)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(containers))
-	container := containers[0]
 	err = client.Start(
 		container,
 		StartOptions{
@@ -70,5 +66,9 @@ func testRun(t *testing.T, imageName string, commands []string, expectedStdout s
 }
 
 func newTestDockerClient() (*dockerClient, error) {
-	return newDockerClient(defaultTestDockerClientOptions)
+	client, err := docker.NewClientFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	return newDockerClient(client), nil
 }

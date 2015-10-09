@@ -15,12 +15,13 @@ import (
 	"go.pedge.io/proto/test"
 	"go.pedge.io/protolog"
 
+	"github.com/fsouza/go-dockerclient"
 	"github.com/satori/go.uuid"
 	"go.pachyderm.com/pachyderm/src/pfs"
 	pfstesting "go.pachyderm.com/pachyderm/src/pfs/testing"
+	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pkg/require"
 	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/container"
 	"go.pachyderm.com/pachyderm/src/pps/store"
 	"google.golang.org/grpc"
 )
@@ -247,15 +248,11 @@ func runTest(
 }
 
 func getContainerClient() (container.Client, error) {
-	dockerHost := os.Getenv("DOCKER_HOST")
-	if dockerHost == "" {
-		dockerHost = "unix:///var/run/docker.sock"
+	client, err := docker.NewClientFromEnv()
+	if err != nil {
+		return nil, err
 	}
-	return container.NewDockerClient(
-		container.DockerClientOptions{
-			Host: dockerHost,
-		},
-	)
+	return container.NewDockerClient(client), nil
 }
 
 func getRethinkClient() (store.Client, error) {

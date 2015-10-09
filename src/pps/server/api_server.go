@@ -14,8 +14,8 @@ import (
 
 	"github.com/satori/go.uuid"
 	"go.pachyderm.com/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/container"
 	"go.pachyderm.com/pachyderm/src/pps/run"
 	"go.pachyderm.com/pachyderm/src/pps/source"
 	"go.pachyderm.com/pachyderm/src/pps/store"
