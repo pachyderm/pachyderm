@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "pfs/pfs.proto";
+
+package pps;
+
+enum JobStatusType {
+  JOB_STATUS_TYPE_NONE = 0;
+  JOB_STATUS_TYPE_CREATED = 1;
+  JOB_STATUS_TYPE_STARTED = 2;
+  JOB_STATUS_TYPE_ERROR = 3;
+  JOB_STATUS_TYPE_SUCCESS = 4;
+}
+
+enum OutputStream {
+  OUTPUT_STREAM_NONE = 0;
+  OUTPUT_STREAM_STDOUT = 1;
+  OUTPUT_STREAM_STDERR = 2;
+}
+
+message Transform {
+  string image = 1;
+  string build = 2;
+  string dockerfile = 3;
+  repeated string cmd = 4;
+}
+
+message Job {
+  string id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  bool archived = 3;
+
+  oneof spec {
+    Transform transform = 2;
+    string pipeline_id = 3;
+  }
+  repeated pfs.Commit input_commit = 3;
+  repeated pfs.Commit output_commit = 4;
+}
+
+message Jobs {
+  repeated Job job = 1;
+}
+
+message JobStatus {
+  JobStatusType type = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message JobInfo {
+  string job_id = 1;
+  repeated JobStatus job_status = 2;
+  string error = 3;
+}
+
+message Pipeline {
+  string id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  bool archived = 3;
+
+  string name = 4;
+  Transform transform = 5;
+  repeated pfs.Repo input_repo = 6;
+  repeated pfs.Repo output_repo = 7;
+}
+
+message Pipelines {
+  repeated Pipeline pipeline = 1;
+}
+
+message CreateJobRequest {
+  Job job = 1;
+}
+
+message GetJobRequest {
+  string job_id = 1;
+}
+
+message GetJobsByPipelineIDRequest {
+  string pipeline_id = 1;
+}
+
+message GetJobStatusRequest {
+  string job_id = 1;
+}
+
+message GetJobLogsRequest {
+  string job_id = 1;
+  OutputStream output_stream = 2;
+}
+
+message CreatePipelineRequest {
+  Pipeline pipeline = 1;
+}
+
+message GetPipelineRequest {
+  string pipeline_id = 1;
+}
+
+message GetPipelineByNameRequest {
+  string pipeline_name = 1;
+}
+
+message GetPipelinesByInputRepoRequest {
+  pfs.Repo input_repo = 1;
+}
+
+service Api {
+  rpc CreateJob(CreateJobRequest) returns (Job) {}
+  rpc GetJob(GetJobRequest) returns (Job) {}
+  rpc GetJobsByPipelineID(GetJobsByPipelineIDRequest) returns (Jobs) {}
+  rpc GetJobStatus(GetJobStatusRequest) returns (JobStatus) {}
+  rpc GetJobLogs(GetJobLogsRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc CreatePipeline(CreatePipelineRequest) returns (Pipeline) {}
+  rpc GetPipeline(GetPipelineRequest) returns (Pipeline) {}
+  rpc GetPipelineByName(GetPipelineByNameRequest) returns (Pipeline) {}
+  rpc GetPipelinesByInputRepo(GetPipelineByInputRepoRequest) returns (Pipelines) {}
+}
