@@ -7,6 +7,7 @@ package hpack
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"sync"
 )
@@ -22,14 +23,39 @@ func HuffmanDecode(w io.Writer, v []byte) (int, error) {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer bufPool.Put(buf)
+	if err := huffmanDecode(buf, v); err != nil {
+		return 0, err
+	}
+	return w.Write(buf.Bytes())
+}
 
+// HuffmanDecodeToString decodes the string in v.
+func HuffmanDecodeToString(v []byte) (string, error) {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+	if err := huffmanDecode(buf, v); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+// ErrInvalidHuffman is returned for errors found decoding
+// Huffman-encoded strings.
+var ErrInvalidHuffman = errors.New("hpack: invalid Huffman-encoded data")
+
+func huffmanDecode(buf *bytes.Buffer, v []byte) error {
 	n := rootHuffmanNode
 	cur, nbits := uint(0), uint8(0)
 	for _, b := range v {
 		cur = cur<<8 | uint(b)
 		nbits += 8
 		for nbits >= 8 {
-			n = n.children[byte(cur>>(nbits-8))]
+			idx := byte(cur >> (nbits - 8))
+			n = n.children[idx]
+			if n == nil {
+				return ErrInvalidHuffman
+			}
 			if n.children == nil {
 				buf.WriteByte(n.sym)
 				nbits -= n.codeLen
@@ -48,7 +74,7 @@ func HuffmanDecode(w io.Writer, v []byte) (int, error) {
 		nbits -= n.codeLen
 		n = rootHuffmanNode
 	}
-	return w.Write(buf.Bytes())
+	return nil
 }
 
 type node struct {
@@ -67,10 +93,10 @@ func newInternalNode() *node {
 var rootHuffmanNode = newInternalNode()
 
 func init() {
+	if len(huffmanCodes) != 256 {
+		panic("unexpected size")
+	}
 	for i, code := range huffmanCodes {
-		if i > 255 {
-			panic("too many huffman codes")
-		}
 		addDecoderNode(byte(i), code, huffmanCodeLen[i])
 	}
 }

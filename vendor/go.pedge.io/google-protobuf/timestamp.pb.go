@@ -14,9 +14,13 @@ It has these top-level messages:
 package google_protobuf
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 // A Timestamp represents a point in time independent of any time zone
 // or calendar, represented as seconds and fractions of seconds at
@@ -64,11 +68,12 @@ var _ = proto.Marshal
 //     Timestamp timestamp = Timestamp.newBuilder().setSeconds(millis / 1000)
 //         .setNanos((int) ((millis % 1000) * 1000000)).build();
 //
-// Example 5: Compute Timestamp from Python `datetime.datetime`.
 //
-//     now = datetime.datetime.utcnow()
-//     seconds = int(time.mktime(now.timetuple()))
-//     nanos = now.microsecond * 1000
+// Example 5: Compute Timestamp from current time in Python.
+//
+//     now = time.time()
+//     seconds = int(now)
+//     nanos = int((now - seconds) * 10**9)
 //     timestamp = Timestamp(seconds=seconds, nanos=nanos)
 //
 type Timestamp struct {

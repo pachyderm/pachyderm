@@ -64,6 +64,8 @@ type Decoder struct {
 	dynTab dynamicTable
 	emit   func(f HeaderField)
 
+	emitEnabled bool // whether calls to emit are enabled
+
 	// buf is the unparsed buffer. It's only written to
 	// saveBuf if it was truncated in the middle of a header
 	// block. Because it's usually not owned, we can only
@@ -72,14 +74,31 @@ type Decoder struct {
 	saveBuf bytes.Buffer
 }
 
-func NewDecoder(maxSize uint32, emitFunc func(f HeaderField)) *Decoder {
+// NewDecoder returns a new decoder with the provided maximum dynamic
+// table size. The emitFunc will be called for each valid field
+// parsed, in the same goroutine as calls to Write, before Write returns.
+func NewDecoder(maxDynamicTableSize uint32, emitFunc func(f HeaderField)) *Decoder {
 	d := &Decoder{
-		emit: emitFunc,
+		emit:        emitFunc,
+		emitEnabled: true,
 	}
-	d.dynTab.allowedMaxSize = maxSize
-	d.dynTab.setMaxSize(maxSize)
+	d.dynTab.allowedMaxSize = maxDynamicTableSize
+	d.dynTab.setMaxSize(maxDynamicTableSize)
 	return d
 }
+
+// SetEmitEnabled controls whether the emitFunc provided to NewDecoder
+// should be called. The default is true.
+//
+// This facility exists to let servers enforce MAX_HEADER_LIST_SIZE
+// while still decoding and keeping in-sync with decoder state, but
+// without doing unnecessary decompression or generating unnecessary
+// garbage for header fields past the limit.
+func (d *Decoder) SetEmitEnabled(v bool) { d.emitEnabled = v }
+
+// EmitEnabled reports whether calls to the emitFunc provided to NewDecoder
+// are currently enabled. The default is true.
+func (d *Decoder) EmitEnabled() bool { return d.emitEnabled }
 
 // TODO: add method *Decoder.Reset(maxSize, emitFunc) to let callers re-use Decoders and their
 // underlying buffers for garbage reasons.
@@ -255,7 +274,6 @@ func (d *Decoder) Write(p []byte) (n int, err error) {
 			break
 		}
 	}
-
 	return len(p), err
 }
 
@@ -323,7 +341,7 @@ func (d *Decoder) parseFieldIndexed() error {
 	if !ok {
 		return DecodingError{InvalidIndexError(idx)}
 	}
-	d.emit(HeaderField{Name: hf.Name, Value: hf.Value})
+	d.callEmit(HeaderField{Name: hf.Name, Value: hf.Value})
 	d.buf = buf
 	return nil
 }
@@ -337,6 +355,7 @@ func (d *Decoder) parseFieldLiteral(n uint8, it indexType) error {
 	}
 
 	var hf HeaderField
+	wantStr := d.emitEnabled || it.indexed()
 	if nameIdx > 0 {
 		ihf, ok := d.at(nameIdx)
 		if !ok {
@@ -344,12 +363,12 @@ func (d *Decoder) parseFieldLiteral(n uint8, it indexType) error {
 		}
 		hf.Name = ihf.Name
 	} else {
-		hf.Name, buf, err = readString(buf)
+		hf.Name, buf, err = readString(buf, wantStr)
 		if err != nil {
 			return err
 		}
 	}
-	hf.Value, buf, err = readString(buf)
+	hf.Value, buf, err = readString(buf, wantStr)
 	if err != nil {
 		return err
 	}
@@ -358,8 +377,14 @@ func (d *Decoder) parseFieldLiteral(n uint8, it indexType) error {
 		d.dynTab.add(hf)
 	}
 	hf.Sensitive = it.sensitive()
-	d.emit(hf)
+	d.callEmit(hf)
 	return nil
+}
+
+func (d *Decoder) callEmit(hf HeaderField) {
+	if d.emitEnabled {
+		d.emit(hf)
+	}
 }
 
 // (same invariants and behavior as parseHeaderFieldRepr)
@@ -420,7 +445,15 @@ func readVarInt(n byte, p []byte) (i uint64, remain []byte, err error) {
 	return 0, origP, errNeedMore
 }
 
-func readString(p []byte) (s string, remain []byte, err error) {
+// readString decodes an hpack string from p.
+//
+// wantStr is whether s will be used. If false, decompression and
+// []byte->string garbage are skipped if s will be ignored
+// anyway. This does mean that huffman decoding errors for non-indexed
+// strings past the MAX_HEADER_LIST_SIZE are ignored, but the server
+// is returning an error anyway, and because they're not indexed, the error
+// won't affect the decoding state.
+func readString(p []byte, wantStr bool) (s string, remain []byte, err error) {
 	if len(p) == 0 {
 		return "", p, errNeedMore
 	}
@@ -433,13 +466,17 @@ func readString(p []byte) (s string, remain []byte, err error) {
 		return "", p, errNeedMore
 	}
 	if !isHuff {
-		return string(p[:strLen]), p[strLen:], nil
+		if wantStr {
+			s = string(p[:strLen])
+		}
+		return s, p[strLen:], nil
 	}
 
-	// TODO: optimize this garbage:
-	var buf bytes.Buffer
-	if _, err := HuffmanDecode(&buf, p[:strLen]); err != nil {
-		return "", nil, err
+	if wantStr {
+		s, err = HuffmanDecodeToString(p[:strLen])
+		if err != nil {
+			return "", nil, err
+		}
 	}
-	return buf.String(), p[strLen:], nil
+	return s, p[strLen:], nil
 }

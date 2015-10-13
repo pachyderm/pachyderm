@@ -88,6 +88,7 @@ func Run(addr string, timeout time.Duration, n http.Handler) {
 			logger.Fatal(err)
 		}
 	}
+
 }
 
 // ListenAndServe is equivalent to http.Server.ListenAndServe with graceful shutdown enabled.
@@ -111,9 +112,6 @@ func (srv *Server) ListenAndServe() error {
 		return err
 	}
 
-	if srv.ListenLimit != 0 {
-		l = netutil.LimitListener(l, srv.ListenLimit)
-	}
 	return srv.Serve(l)
 }
 
@@ -166,6 +164,7 @@ func (srv *Server) ListenAndServeTLS(certFile, keyFile string) error {
 	if err != nil {
 		return err
 	}
+
 	return srv.Serve(l)
 }
 
@@ -197,6 +196,11 @@ func Serve(server *http.Server, l net.Listener, timeout time.Duration) error {
 
 // Serve is equivalent to http.Server.Serve with graceful shutdown enabled.
 func (srv *Server) Serve(listener net.Listener) error {
+
+	if srv.ListenLimit != 0 {
+		listener = netutil.LimitListener(listener, srv.ListenLimit)
+	}
+
 	// Track connection state
 	add := make(chan net.Conn)
 	remove := make(chan net.Conn)
