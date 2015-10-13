@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
 import "pps/pps.proto";
 
 package pachyderm.pps.persist;
@@ -17,12 +18,20 @@ message Job {
   repeated pps.JobOutput job_output = 5;
 }
 
+message Jobs {
+  repeated Job job = 1;
+}
+
 message JobStatus {
   string id = 1;
   string job_id = 2;
   pps.JobStatusType type = 3;
   google.protobuf.Timestamp timestamp = 4;
   string message = 5;
+}
+
+message JobStatuses {
+  repeated JobStatus job_status = 1;
 }
 
 message JobLog {
@@ -33,11 +42,45 @@ message JobLog {
   bytes value = 5;
 }
 
+message JobLogs {
+  repeated JobLog job_log = 1;
+}
+
 message Pipeline {
   string id = 1;
   string previous_id = 2;
   string name = 3;
-  pps.Transform transform = 4;
-  repeated pps.PipelineInput pipeline_input = 5;
-  repeated pps.PipelineOutput pipeline_output = 6;
+  google.protobuf.Timestamp created_at = 4;
+  pps.Transform transform = 5;
+  repeated pps.PipelineInput pipeline_input = 6;
+  repeated pps.PipelineOutput pipeline_output = 7;
+}
+
+message Pipelines {
+  repeated Pipeline pipeline = 1;
+}
+
+service API {
+  // id cannot be set
+  // a JobStatus of type created will also be created
+  rpc CreateJob(Job) returns (Job) {}
+  rpc GetJobByID(google.protobuf.StringValue) returns (Job) {}
+  rpc GetJobsByPipelineID(google.protobuf.StringValue) returns (Jobs) {}
+  // id cannot be set
+  rpc CreateJobStatus(JobStatus) returns (JobStatus) {}
+  // ordered by time, latest to earliest
+  rpc GetJobStatusesByJobID(google.protobuf.StringValue) returns (JobStatuses) {}
+  // id cannot be set
+  rpc CreateJobLog(JobLog) returns (JobLog) {}
+  // ordered by time, latest to earliest
+  rpc GetJobLogsByJobID(google.protobuf.StringValue) returns (JobLogs) {}
+  // id and previous_id cannot be set
+  // name must not already exist
+  rpc CreatePipeline(Pipeline) returns (Pipeline) {}
+  // id and previous_id cannot be set
+  // update by name, name must already exist
+  rpc UpdatePipeline(Pipeline) returns (Pipeline) {}
+  rpc GetPipelineByID(google.protobuf.StringValue) returns (Pipeline) {}
+  // ordered by time, latest to earliest
+  rpc GetPipelinesByName(google.protobuf.StringValue) returns (Pipeline) {}
 }
