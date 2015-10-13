@@ -35,7 +35,7 @@ func newAPIServer(
 		sharder,
 		router,
 		route.InvalidVersion,
-		sync.Mutex{},
+		sync.RWMutex{},
 	}
 }
 
