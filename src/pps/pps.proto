@@ -5,7 +5,9 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "pfs/pfs.proto";
 
-package pps;
+package pachyderm.pps;
+
+option go_package = "pps";
 
 enum JobStatusType {
   JOB_STATUS_TYPE_NONE = 0;
