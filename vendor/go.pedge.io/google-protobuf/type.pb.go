@@ -18,9 +18,36 @@ It has these top-level messages:
 package google_protobuf
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
+
+// Syntax specifies the syntax in which a service element was defined.
+type Syntax int32
+
+const (
+	// Syntax "proto2"
+	Syntax_SYNTAX_PROTO2 Syntax = 0
+	// Syntax "proto3"
+	Syntax_SYNTAX_PROTO3 Syntax = 1
+)
+
+var Syntax_name = map[int32]string{
+	0: "SYNTAX_PROTO2",
+	1: "SYNTAX_PROTO3",
+}
+var Syntax_value = map[string]int32{
+	"SYNTAX_PROTO2": 0,
+	"SYNTAX_PROTO3": 1,
+}
+
+func (x Syntax) String() string {
+	return proto.EnumName(Syntax_name, int32(x))
+}
 
 // Kind represents a basic field type.
 type Field_Kind int32
@@ -46,6 +73,8 @@ const (
 	Field_TYPE_BOOL Field_Kind = 8
 	// Field type string.
 	Field_TYPE_STRING Field_Kind = 9
+	// Field type group (deprecated proto2 type)
+	Field_TYPE_GROUP Field_Kind = 10
 	// Field type message.
 	Field_TYPE_MESSAGE Field_Kind = 11
 	// Field type bytes.
@@ -75,6 +104,7 @@ var Field_Kind_name = map[int32]string{
 	7:  "TYPE_FIXED32",
 	8:  "TYPE_BOOL",
 	9:  "TYPE_STRING",
+	10: "TYPE_GROUP",
 	11: "TYPE_MESSAGE",
 	12: "TYPE_BYTES",
 	13: "TYPE_UINT32",
@@ -95,6 +125,7 @@ var Field_Kind_value = map[string]int32{
 	"TYPE_FIXED32":  7,
 	"TYPE_BOOL":     8,
 	"TYPE_STRING":   9,
+	"TYPE_GROUP":    10,
 	"TYPE_MESSAGE":  11,
 	"TYPE_BYTES":    12,
 	"TYPE_UINT32":   13,
@@ -148,12 +179,13 @@ type Type struct {
 	// The list of fields.
 	Fields []*Field `protobuf:"bytes,2,rep,name=fields" json:"fields,omitempty"`
 	// The list of oneof definitions.
-	// The list of oneofs declared in this Type
 	Oneofs []string `protobuf:"bytes,3,rep,name=oneofs" json:"oneofs,omitempty"`
 	// The proto options.
 	Options []*Option `protobuf:"bytes,4,rep,name=options" json:"options,omitempty"`
 	// The source context.
 	SourceContext *SourceContext `protobuf:"bytes,5,opt,name=source_context" json:"source_context,omitempty"`
+	// The source syntax.
+	Syntax Syntax `protobuf:"varint,6,opt,name=syntax,enum=google.protobuf.Syntax" json:"syntax,omitempty"`
 }
 
 func (m *Type) Reset()         { *m = Type{} }
@@ -200,6 +232,8 @@ type Field struct {
 	Packed bool `protobuf:"varint,8,opt,name=packed" json:"packed,omitempty"`
 	// The proto options.
 	Options []*Option `protobuf:"bytes,9,rep,name=options" json:"options,omitempty"`
+	// The JSON name for this field.
+	JsonName string `protobuf:"bytes,10,opt,name=json_name" json:"json_name,omitempty"`
 }
 
 func (m *Field) Reset()         { *m = Field{} }
@@ -223,6 +257,8 @@ type Enum struct {
 	Options []*Option `protobuf:"bytes,3,rep,name=options" json:"options,omitempty"`
 	// The source context.
 	SourceContext *SourceContext `protobuf:"bytes,4,opt,name=source_context" json:"source_context,omitempty"`
+	// The source syntax.
+	Syntax Syntax `protobuf:"varint,5,opt,name=syntax,enum=google.protobuf.Syntax" json:"syntax,omitempty"`
 }
 
 func (m *Enum) Reset()         { *m = Enum{} }
@@ -291,6 +327,7 @@ func (m *Option) GetValue() *Any {
 }
 
 func init() {
+	proto.RegisterEnum("google.protobuf.Syntax", Syntax_name, Syntax_value)
 	proto.RegisterEnum("google.protobuf.Field_Kind", Field_Kind_name, Field_Kind_value)
 	proto.RegisterEnum("google.protobuf.Field_Cardinality", Field_Cardinality_name, Field_Cardinality_value)
 }

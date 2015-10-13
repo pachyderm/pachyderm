@@ -28,4 +28,5 @@ for proto_file in ${PROTO_FILES}; do
     fi
     i="$((i+1))"
   done
+  sed -i "s/package descriptor/package google_protobuf/g" ${output_file}
 done
