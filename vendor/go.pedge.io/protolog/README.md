@@ -23,7 +23,6 @@ go get go.pedge.io/protolog
 
 ### TODO
 
-* syslog writer
 * journal writer?
 * colors in terminals
 * better text formatting/options

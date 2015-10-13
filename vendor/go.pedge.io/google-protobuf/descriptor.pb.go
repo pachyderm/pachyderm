@@ -3,7 +3,7 @@
 // DO NOT EDIT!
 
 /*
-Package google_protobuf is a generated protocol buffer package.
+Package descriptor is a generated protocol buffer package.
 
 It is generated from these files:
 	descriptor.proto
@@ -31,10 +31,12 @@ It has these top-level messages:
 package google_protobuf
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
 import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
 var _ = math.Inf
 
 type FieldDescriptorProto_Type int32
@@ -850,7 +852,9 @@ type FileOptions struct {
 	JavaMultipleFiles *bool `protobuf:"varint,10,opt,name=java_multiple_files,def=0" json:"java_multiple_files,omitempty"`
 	// If set true, then the Java code generator will generate equals() and
 	// hashCode() methods for all messages defined in the .proto file.
-	// - In the full runtime, this is purely a speed optimization, as the
+	// This increases generated code size, potentially substantially for large
+	// protos, which may harm a memory-constrained application.
+	// - In the full runtime this is a speed optimization, as the
 	// AbstractMessage base class includes reflection-based implementations of
 	// these methods.
 	// - In the lite runtime, setting this option changes the semantics of
@@ -899,6 +903,9 @@ type FileOptions struct {
 	ObjcClassPrefix *string `protobuf:"bytes,36,opt,name=objc_class_prefix" json:"objc_class_prefix,omitempty"`
 	// Namespace for generated classes; defaults to the package.
 	CsharpNamespace *string `protobuf:"bytes,37,opt,name=csharp_namespace" json:"csharp_namespace,omitempty"`
+	// Whether the nano proto compiler should generate in the deprecated non-nano
+	// suffixed package.
+	JavananoUseDeprecatedPackage *bool `protobuf:"varint,38,opt,name=javanano_use_deprecated_package" json:"javanano_use_deprecated_package,omitempty"`
 	// The parser stores options it doesn't recognize here. See above.
 	UninterpretedOption []*UninterpretedOption    `protobuf:"bytes,999,rep,name=uninterpreted_option" json:"uninterpreted_option,omitempty"`
 	XXX_extensions      map[int32]proto.Extension `json:"-"`
@@ -1029,6 +1036,13 @@ func (m *FileOptions) GetCsharpNamespace() string {
 		return *m.CsharpNamespace
 	}
 	return ""
+}
+
+func (m *FileOptions) GetJavananoUseDeprecatedPackage() bool {
+	if m != nil && m.JavananoUseDeprecatedPackage != nil {
+		return *m.JavananoUseDeprecatedPackage
+	}
+	return false
 }
 
 func (m *FileOptions) GetUninterpretedOption() []*UninterpretedOption {

@@ -11,13 +11,18 @@ It is generated from these files:
 It has these top-level messages:
 	Api
 	Method
+	Mixin
 */
 package google_protobuf
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 // Api is a light-weight descriptor for a protocol buffer service.
 type Api struct {
@@ -49,13 +54,14 @@ type Api struct {
 	// be omitted. Zero major versions must only be used for
 	// experimental, none-GA apis.
 	//
-	// See also: [design doc](http://go/api-versioning).
-	//
-	//
 	Version string `protobuf:"bytes,4,opt,name=version" json:"version,omitempty"`
 	// Source context for the protocol buffer service represented by this
 	// message.
 	SourceContext *SourceContext `protobuf:"bytes,5,opt,name=source_context" json:"source_context,omitempty"`
+	// Included APIs. See [Mixin][].
+	Mixins []*Mixin `protobuf:"bytes,6,rep,name=mixins" json:"mixins,omitempty"`
+	// The source syntax of the service.
+	Syntax Syntax `protobuf:"varint,7,opt,name=syntax,enum=google.protobuf.Syntax" json:"syntax,omitempty"`
 }
 
 func (m *Api) Reset()         { *m = Api{} }
@@ -83,6 +89,13 @@ func (m *Api) GetSourceContext() *SourceContext {
 	return nil
 }
 
+func (m *Api) GetMixins() []*Mixin {
+	if m != nil {
+		return m.Mixins
+	}
+	return nil
+}
+
 // Method represents a method of an api.
 type Method struct {
 	// The simple name of this method.
@@ -97,6 +110,8 @@ type Method struct {
 	ResponseStreaming bool `protobuf:"varint,5,opt,name=response_streaming" json:"response_streaming,omitempty"`
 	// Any metadata attached to the method.
 	Options []*Option `protobuf:"bytes,6,rep,name=options" json:"options,omitempty"`
+	// The source syntax of this method.
+	Syntax Syntax `protobuf:"varint,7,opt,name=syntax,enum=google.protobuf.Syntax" json:"syntax,omitempty"`
 }
 
 func (m *Method) Reset()         { *m = Method{} }
@@ -109,3 +124,93 @@ func (m *Method) GetOptions() []*Option {
 	}
 	return nil
 }
+
+// Declares an API to be included in this API. The including API must
+// redeclare all the methods from the included API, but documentation
+// and options are inherited as follows:
+//
+// - If after comment and whitespace stripping, the documentation
+//   string of the redeclared method is empty, it will be inherited
+//   from the original method.
+//
+// - Each annotation belonging to the service config (http,
+//   visibility) which is not set in the redeclared method will be
+//   inherited.
+//
+// - If an http annotation is inherited, the path pattern will be
+//   modified as follows. Any version prefix will be replaced by the
+//   version of the including API plus the [root][] path if specified.
+//
+// Example of a simple mixin:
+//
+//     package google.acl.v1;
+//     service AccessControl {
+//       // Get the underlying ACL object.
+//       rpc GetAcl(GetAclRequest) returns (Acl) {
+//         option (google.api.http).get = "/v1/{resource=**}:getAcl";
+//       }
+//     }
+//
+//     package google.storage.v2;
+//     service Storage {
+//       // (-- see AccessControl.GetAcl --)
+//       rpc GetAcl(GetAclRequest) returns (Acl);
+//
+//       // Get a data record.
+//       rpc GetData(GetDataRequest) returns (Data) {
+//         option (google.api.http).get = "/v2/{resource=**}";
+//       }
+//     }
+//
+// Example of a mixin configuration:
+//
+//     apis:
+//     - name: google.storage.v2.Storage
+//       mixins:
+//       - name: google.acl.v1.AccessControl
+//
+// The mixin construct implies that all methods in `AccessControl` are
+// also declared with same name and request/response types in
+// `Storage`. A documentation generator or annotation processor will
+// see the effective `Storage.GetAcl` method after inherting
+// documentation and annotations as follows:
+//
+//     service Storage {
+//       // Get the underlying ACL object.
+//       rpc GetAcl(GetAclRequest) returns (Acl) {
+//         option (google.api.http).get = "/v2/{resource=**}:getAcl";
+//       }
+//       ...
+//     }
+//
+// Note how the version in the path pattern changed from `v1` to `v2`.
+//
+// If the `root` field in the mixin is specified, it should be a
+// relative path under which inherited HTTP paths are placed. Example:
+//
+//     apis:
+//     - name: google.storage.v2.Storage
+//       mixins:
+//       - name: google.acl.v1.AccessControl
+//         root: acls
+//
+// This implies the following inherited HTTP annotation:
+//
+//     service Storage {
+//       // Get the underlying ACL object.
+//       rpc GetAcl(GetAclRequest) returns (Acl) {
+//         option (google.api.http).get = "/v2/acls/{resource=**}:getAcl";
+//       }
+//       ...
+//     }
+type Mixin struct {
+	// The fully qualified name of the API which is included.
+	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	// If non-empty specifies a path under which inherited HTTP paths
+	// are rooted.
+	Root string `protobuf:"bytes,2,opt,name=root" json:"root,omitempty"`
+}
+
+func (m *Mixin) Reset()         { *m = Mixin{} }
+func (m *Mixin) String() string { return proto.CompactTextString(m) }
+func (*Mixin) ProtoMessage()    {}
