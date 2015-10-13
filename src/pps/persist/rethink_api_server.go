@@ -17,9 +17,16 @@ const (
 	jobStatusesTable Table = "job_statuses"
 	jobLogsTable     Table = "job_logs"
 	pipelinesTable   Table = "pipelines"
+
+	idPrimaryKey PrimaryKey = "id"
+
+	jobIDIndex Index = "job_id"
+	typeIndex  Index = "type"
+	nameIndex  Index = "name"
 )
 
 type Table string
+type PrimaryKey string
 type Index string
 
 var (
@@ -32,9 +39,41 @@ var (
 		pipelinesTable,
 	}
 
-	tableToTableCreateOpts = map[Table][]gorethink.TableCreateOpts{}
+	tableToTableCreateOpts = map[Table][]gorethink.TableCreateOpts{
+		jobsTable: []gorethink.TableCreateOpts{
+			gorethink.TableCreateOpts{
+				PrimaryKey: idPrimaryKey,
+			},
+		},
+		jobStatusesTable: []gorethink.TableCreateOpts{
+			gorethink.TableCreateOpts{
+				PrimaryKey: idPrimaryKey,
+			},
+		},
+		jobLogsTable: []gorethink.TableCreateOpts{
+			gorethink.TableCreateOpts{
+				PrimaryKey: idPrimaryKey,
+			},
+		},
+		pipelinesTable: []gorethink.TableCreateOpts{
+			gorethink.TableCreateOpts{
+				PrimaryKey: idPrimaryKey,
+			},
+		},
+	}
 
-	tableToIndexes = map[Table][]Index{}
+	tableToIndexes = map[Table][]Index{
+		jobStatusesTable: []Index{
+			jobIDIndex,
+			typeIndex,
+		},
+		jobLogsTable: []Index{
+			jobIDIndex,
+		},
+		pipelinesTable: []Index{
+			nameIndex,
+		},
+	}
 )
 
 // InitDBs prepares a RethinkDB instance to be used by the rethink server.
@@ -102,6 +141,7 @@ func (a *rethinkAPIServer) CreateJob(ctx context.Context, request *Job) (*Job, e
 	if err := a.insertMessage(jobsTable, request); err != nil {
 		return nil, err
 	}
+	// TODO(pedge): not transactional
 	if err := a.insertMessage(
 		jobStatusesTable,
 		&JobStatus{
@@ -117,7 +157,11 @@ func (a *rethinkAPIServer) CreateJob(ctx context.Context, request *Job) (*Job, e
 }
 
 func (a *rethinkAPIServer) GetJobByID(ctx context.Context, request *google_protobuf.StringValue) (*Job, error) {
-	return nil, nil
+	job := &Job{}
+	if err := a.getMessageByPrimaryKey(jobsTable, request.Value, job); err != nil {
+		return nil, err
+	}
+	return job, nil
 }
 
 func (a *rethinkAPIServer) GetJobsByPipelineID(ctx context.Context, request *google_protobuf.StringValue) (*Jobs, error) {
@@ -174,8 +218,8 @@ func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) err
 	return err
 }
 
-func (a *rethinkAPIServer) getMessageByID(table Table, id string, message proto.Message) error {
-	cursor, err := a.getTerm(table).Get(id).ToJSON().Run(a.session)
+func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, Value interface{}, message proto.Message) error {
+	cursor, err := a.getTerm(table).Get(Value).ToJSON().Run(a.session)
 	if err != nil {
 		return err
 	}
@@ -187,6 +231,38 @@ func (a *rethinkAPIServer) getMessageByID(table Table, id string, message proto.
 		return err
 	}
 	return nil
+}
+
+func (a *rethinkAPIServer) getMessageByIndex(
+	table Table,
+	index Index,
+	value interface{},
+	messageConstructor func() proto.Message,
+	modifiers ...func(gorethink.Term) gorethink.Term,
+) ([]interface{}, error) {
+	term := a.getTerm(table).GetAllByIndex(index, value).Map(func(row gorethink.Term) interface{} {
+		return row.ToJSON()
+	})
+	for _, modifier := range modifiers {
+		term = modifier(term)
+	}
+	cursor, err := term.Run(a.session)
+	if err != nil {
+		return nil, err
+	}
+	var data []string
+	if err := cursor.All(&data); err != nil {
+		return nil, err
+	}
+	result := make([]interface{}, len(data))
+	for i, datum := range data {
+		message := messageConstructor()
+		if err := jsonpb.UnmarshalString(datum, message); err != nil {
+			return nil, err
+		}
+		result[i] = message
+	}
+	return result, nil
 }
 
 func (a *rethinkAPIServer) getTerm(table Table) gorethink.Term {
