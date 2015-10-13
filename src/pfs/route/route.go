@@ -36,7 +36,7 @@ type Addresser interface {
 
 type TestAddresser interface {
 	Addresser
-	WaitForAvailability(ids []string) error
+	WaitForAvailability(frontendIds []string, serverIds []string) error
 }
 
 func NewDiscoveryAddresser(discoveryClient discovery.Client, sharder Sharder, namespace string) Addresser {
