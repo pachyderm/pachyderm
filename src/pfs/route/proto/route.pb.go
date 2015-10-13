@@ -10,6 +10,7 @@ It is generated from these files:
 
 It has these top-level messages:
 	ServerState
+	FrontendState
 	ServerRole
 	ShardAddresses
 	Addresses
@@ -42,6 +43,15 @@ func (m *ServerState) GetShards() map[uint64]bool {
 	}
 	return nil
 }
+
+type FrontendState struct {
+	Address string `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	Version int64  `protobuf:"varint,2,opt,name=version" json:"version,omitempty"`
+}
+
+func (m *FrontendState) Reset()         { *m = FrontendState{} }
+func (m *FrontendState) String() string { return proto.CompactTextString(m) }
+func (*FrontendState) ProtoMessage()    {}
 
 type ServerRole struct {
 	Id       string          `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`

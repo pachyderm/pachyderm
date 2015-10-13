@@ -23,6 +23,8 @@ import (
 type apiServer struct {
 	sharder route.Sharder
 	router  route.Router
+	version int64
+	lock    sync.RWMutex
 }
 
 func newAPIServer(
@@ -32,6 +34,8 @@ func newAPIServer(
 	return &apiServer{
 		sharder,
 		router,
+		route.InvalidVersion,
+		sync.Mutex{},
 	}
 }
 
@@ -554,6 +558,13 @@ func (a *apiServer) ListServer(ctx context.Context, request *pfs.ListServerReque
 	}, nil
 }
 
+func (a *apiServer) Version(version int64) error {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	a.version = version
+	return nil
+}
+
 func (a *apiServer) getClientConn(version int64) (*grpc.ClientConn, error) {
 	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
@@ -573,14 +584,15 @@ func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.C
 	return a.router.GetMasterClientConn(a.sharder.GetShard(file), version)
 }
 
-func (a *apiServer) versionAndCtx(ctx context.Context) (int64, context.Context, error) {
-	version, err := a.router.Version()
-	if err != nil {
-		return 0, nil, err
-	}
+func (a *apiServer) startRequest(ctx context.Context) (int64, context.Context) {
+	a.lock.RLock()
 	newCtx := metadata.NewContext(
 		ctx,
-		metadata.Pairs("version", fmt.Sprint(version)),
+		metadata.Pairs("version", fmt.Sprint(a.version)),
 	)
-	return version, newCtx, nil
+	return a.version, newCtx
+}
+
+func (a *apiServer) finishRequest() {
+	a.lock.RUnlock()
 }
