@@ -141,6 +141,10 @@ test: pretest docker-clean-test docker-build-test
 test-pfs-extra: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pfs/server"
 
+test-pps-extra: docker-clean-test docker-build-test
+	go build ./src/pps/persist/...
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pps/persist"
+
 clean: docker-clean-launch
 	go clean ./src/...
 	rm -f src/cmd/pfs/pfs
@@ -183,4 +187,5 @@ clean: docker-clean-launch
 	docker-clean-launch \
 	test \
 	test-pfs-extra \
+	test-pps-extra \
 	clean
