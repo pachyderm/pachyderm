@@ -20,9 +20,10 @@ const (
 
 	idPrimaryKey PrimaryKey = "id"
 
-	jobIDIndex Index = "job_id"
-	typeIndex  Index = "type"
-	nameIndex  Index = "name"
+	pipelineIDIndex Index = "pipeline_id"
+	jobIDIndex      Index = "job_id"
+	typeIndex       Index = "type"
+	nameIndex       Index = "name"
 )
 
 type Table string
@@ -63,6 +64,9 @@ var (
 	}
 
 	tableToIndexes = map[Table][]Index{
+		jobsTable: []Index{
+			pipelineIDIndex,
+		},
 		jobStatusesTable: []Index{
 			jobIDIndex,
 			typeIndex,
@@ -142,13 +146,11 @@ func (a *rethinkAPIServer) CreateJob(ctx context.Context, request *Job) (*Job, e
 		return nil, err
 	}
 	// TODO(pedge): not transactional
-	if err := a.insertMessage(
-		jobStatusesTable,
+	if _, err := a.CreateJobStatus(
+		ctx,
 		&JobStatus{
-			Id:        newID(),
-			JobId:     request.Id,
-			Type:      pps.JobStatusType_JOB_STATUS_TYPE_CREATED,
-			Timestamp: a.now(),
+			JobId: request.Id,
+			Type:  pps.JobStatusType_JOB_STATUS_TYPE_CREATED,
 		},
 	); err != nil {
 		return nil, err
@@ -165,12 +167,39 @@ func (a *rethinkAPIServer) GetJobByID(ctx context.Context, request *google_proto
 }
 
 func (a *rethinkAPIServer) GetJobsByPipelineID(ctx context.Context, request *google_protobuf.StringValue) (*Jobs, error) {
-	return nil, nil
+	jobObjs, err := a.getMessageByIndex(
+		jobsTable,
+		pipelineIDIndex,
+		request.Value,
+		func() proto.Message { return &Job{} },
+	)
+	if err != nil {
+		return nil, err
+	}
+	jobs := make([]*Job, len(jobObjs))
+	for i, jobObj := range jobObjs {
+		jobs[i] = jobObj.(*Job)
+	}
+	return &Jobs{
+		Job: jobs,
+	}, nil
 }
 
 // id cannot be set
+// timestamp cannot be set
 func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *JobStatus) (*JobStatus, error) {
-	return nil, nil
+	if request.Id != "" {
+		return nil, ErrIDSet
+	}
+	if request.Timestamp != nil {
+		return nil, ErrTimestampSet
+	}
+	request.Id = newID()
+	request.Timestamp = a.now()
+	if err := a.insertMessage(jobStatusesTable, request); err != nil {
+		return nil, err
+	}
+	return request, nil
 }
 
 // ordered by time, latest to earliest
@@ -195,6 +224,7 @@ func (a *rethinkAPIServer) CreatePipeline(ctx context.Context, request *Pipeline
 }
 
 // id and previous_id cannot be set
+// timestamp cannot be set
 // update by name, name must already exist
 func (a *rethinkAPIServer) UpdatePipeline(ctx context.Context, request *Pipeline) (*Pipeline, error) {
 	return nil, nil
