@@ -432,7 +432,7 @@ func (m *Jobs) GetJob() []*Job {
 }
 
 type JobStatus struct {
-	Type      JobStatusType               `protobuf:"varint,1,opt,name=type,enum=pps.JobStatusType" json:"type,omitempty"`
+	Type      JobStatusType               `protobuf:"varint,1,opt,name=type,enum=pachyderm.pps.JobStatusType" json:"type,omitempty"`
 	Timestamp *google_protobuf1.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
 }
 
@@ -744,7 +744,7 @@ func (*GetJobStatusRequest) ProtoMessage()    {}
 
 type GetJobLogsRequest struct {
 	JobId        string       `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
-	OutputStream OutputStream `protobuf:"varint,2,opt,name=output_stream,enum=pps.OutputStream" json:"output_stream,omitempty"`
+	OutputStream OutputStream `protobuf:"varint,2,opt,name=output_stream,enum=pachyderm.pps.OutputStream" json:"output_stream,omitempty"`
 }
 
 func (m *GetJobLogsRequest) Reset()         { *m = GetJobLogsRequest{} }
@@ -775,8 +775,8 @@ func (m *GetPipelineRequest) String() string { return proto.CompactTextString(m)
 func (*GetPipelineRequest) ProtoMessage()    {}
 
 func init() {
-	proto.RegisterEnum("pps.JobStatusType", JobStatusType_name, JobStatusType_value)
-	proto.RegisterEnum("pps.OutputStream", OutputStream_name, OutputStream_value)
+	proto.RegisterEnum("pachyderm.pps.JobStatusType", JobStatusType_name, JobStatusType_value)
+	proto.RegisterEnum("pachyderm.pps.OutputStream", OutputStream_name, OutputStream_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -806,7 +806,7 @@ func NewAPIClient(cc *grpc.ClientConn) APIClient {
 
 func (c *aPIClient) CreateJob(ctx context.Context, in *CreateJobRequest, opts ...grpc.CallOption) (*Job, error) {
 	out := new(Job)
-	err := grpc.Invoke(ctx, "/pps.API/CreateJob", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/CreateJob", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -815,7 +815,7 @@ func (c *aPIClient) CreateJob(ctx context.Context, in *CreateJobRequest, opts ..
 
 func (c *aPIClient) GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*Job, error) {
 	out := new(Job)
-	err := grpc.Invoke(ctx, "/pps.API/GetJob", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/GetJob", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -824,7 +824,7 @@ func (c *aPIClient) GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.
 
 func (c *aPIClient) GetJobsByPipelineName(ctx context.Context, in *GetJobsByPipelineNameRequest, opts ...grpc.CallOption) (*Jobs, error) {
 	out := new(Jobs)
-	err := grpc.Invoke(ctx, "/pps.API/GetJobsByPipelineName", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/GetJobsByPipelineName", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -833,7 +833,7 @@ func (c *aPIClient) GetJobsByPipelineName(ctx context.Context, in *GetJobsByPipe
 
 func (c *aPIClient) GetJobStatus(ctx context.Context, in *GetJobStatusRequest, opts ...grpc.CallOption) (*JobStatus, error) {
 	out := new(JobStatus)
-	err := grpc.Invoke(ctx, "/pps.API/GetJobStatus", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/GetJobStatus", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -841,7 +841,7 @@ func (c *aPIClient) GetJobStatus(ctx context.Context, in *GetJobStatusRequest, o
 }
 
 func (c *aPIClient) GetJobLogs(ctx context.Context, in *GetJobLogsRequest, opts ...grpc.CallOption) (API_GetJobLogsClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[0], c.cc, "/pps.API/GetJobLogs", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[0], c.cc, "/pachyderm.pps.API/GetJobLogs", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -874,7 +874,7 @@ func (x *aPIGetJobLogsClient) Recv() (*google_protobuf2.BytesValue, error) {
 
 func (c *aPIClient) CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
 	out := new(Pipeline)
-	err := grpc.Invoke(ctx, "/pps.API/CreatePipeline", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/CreatePipeline", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -883,7 +883,7 @@ func (c *aPIClient) CreatePipeline(ctx context.Context, in *CreatePipelineReques
 
 func (c *aPIClient) GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
 	out := new(Pipeline)
-	err := grpc.Invoke(ctx, "/pps.API/GetPipeline", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/GetPipeline", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -892,7 +892,7 @@ func (c *aPIClient) GetPipeline(ctx context.Context, in *GetPipelineRequest, opt
 
 func (c *aPIClient) GetAllPipelines(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*Pipelines, error) {
 	out := new(Pipelines)
-	err := grpc.Invoke(ctx, "/pps.API/GetAllPipelines", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/GetAllPipelines", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1022,7 +1022,7 @@ func _API_GetAllPipelines_Handler(srv interface{}, ctx context.Context, dec func
 }
 
 var _API_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "pps.API",
+	ServiceName: "pachyderm.pps.API",
 	HandlerType: (*APIServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
