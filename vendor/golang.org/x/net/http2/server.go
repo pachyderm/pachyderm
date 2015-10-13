@@ -201,8 +201,7 @@ func (srv *Server) handleConn(hs *http.Server, c net.Conn, h http.Handler) {
 		bw:               newBufferedWriter(c),
 		handler:          h,
 		streams:          make(map[uint32]*stream),
-		readFrameCh:      make(chan frameAndGate),
-		readFrameErrCh:   make(chan error, 1), // must be buffered for 1
+		readFrameCh:      make(chan readFrameResult),
 		wantWriteFrameCh: make(chan frameWriteMsg, 8),
 		wroteFrameCh:     make(chan struct{}, 1), // buffered; one send in reading goroutine
 		bodyReadCh:       make(chan bodyReadMsg), // buffering doesn't matter either way
@@ -302,21 +301,11 @@ func isBadCipher(cipher uint16) bool {
 }
 
 func (sc *serverConn) rejectConn(err ErrCode, debug string) {
-	log.Printf("REJECTING conn: %v, %s", err, debug)
+	sc.vlogf("REJECTING conn: %v, %s", err, debug)
 	// ignoring errors. hanging up anyway.
 	sc.framer.WriteGoAway(0, err, []byte(debug))
 	sc.bw.Flush()
 	sc.conn.Close()
-}
-
-// frameAndGates coordinates the readFrames and serve
-// goroutines. Because the Framer interface only permits the most
-// recently-read Frame from being accessed, the readFrames goroutine
-// blocks until it has a frame, passes it to serve, and then waits for
-// serve to be done with it before reading the next one.
-type frameAndGate struct {
-	f Frame
-	g gate
 }
 
 type serverConn struct {
@@ -328,9 +317,8 @@ type serverConn struct {
 	handler          http.Handler
 	framer           *Framer
 	hpackDecoder     *hpack.Decoder
-	doneServing      chan struct{}     // closed when serverConn.serve ends
-	readFrameCh      chan frameAndGate // written by serverConn.readFrames
-	readFrameErrCh   chan error
+	doneServing      chan struct{}        // closed when serverConn.serve ends
+	readFrameCh      chan readFrameResult // written by serverConn.readFrames
 	wantWriteFrameCh chan frameWriteMsg   // from handlers -> serve
 	wroteFrameCh     chan struct{}        // from writeFrameAsync -> serve, tickles more frame writes
 	bodyReadCh       chan bodyReadMsg     // from handlers -> serve
@@ -353,7 +341,7 @@ type serverConn struct {
 	streams               map[uint32]*stream
 	initialWindowSize     int32
 	headerTableSize       uint32
-	maxHeaderListSize     uint32            // zero means unknown (default)
+	peerMaxHeaderListSize uint32            // zero means unknown (default)
 	canonHeader           map[string]string // http2-lower-case -> Go-Canonical-Case
 	req                   requestParam      // non-zero while reading request headers
 	writingFrame          bool              // started write goroutine but haven't heard back on wroteFrameCh
@@ -370,6 +358,18 @@ type serverConn struct {
 	hpackEncoder   *hpack.Encoder
 }
 
+func (sc *serverConn) maxHeaderListSize() uint32 {
+	n := sc.hs.MaxHeaderBytes
+	if n <= 0 {
+		n = http.DefaultMaxHeaderBytes
+	}
+	// http2's count is in a slightly different unit and includes 32 bytes per pair.
+	// So, take the net/http.Server value and pad it up a bit, assuming 10 headers.
+	const perFieldOverhead = 32 // per http2 spec
+	const typicalHeaders = 10   // conservative
+	return uint32(n + typicalHeaders*perFieldOverhead)
+}
+
 // requestParam is the state of the next request, initialized over
 // potentially several frames HEADERS + zero or more CONTINUATION
 // frames.
@@ -380,8 +380,9 @@ type requestParam struct {
 	header            http.Header
 	method, path      string
 	scheme, authority string
-	sawRegularHeader  bool // saw a non-pseudo header already
-	invalidHeader     bool // an invalid header was seen
+	sawRegularHeader  bool  // saw a non-pseudo header already
+	invalidHeader     bool  // an invalid header was seen
+	headerListSize    int64 // actually uint32, but easier math this way
 }
 
 // stream represents a stream. This is the minimal metadata needed by
@@ -502,6 +503,11 @@ func (sc *serverConn) onNewHeaderField(f hpack.HeaderField) {
 	default:
 		sc.req.sawRegularHeader = true
 		sc.req.header.Add(sc.canonicalHeader(f.Name), f.Value)
+		const headerFieldOverhead = 32 // per spec
+		sc.req.headerListSize += int64(len(f.Name)) + int64(len(f.Value)) + headerFieldOverhead
+		if sc.req.headerListSize > int64(sc.maxHeaderListSize()) {
+			sc.hpackDecoder.SetEmitEnabled(false)
+		}
 	}
 }
 
@@ -523,24 +529,34 @@ func (sc *serverConn) canonicalHeader(v string) string {
 	return cv
 }
 
+type readFrameResult struct {
+	f   Frame // valid until readMore is called
+	err error
+
+	// readMore should be called once the consumer no longer needs or
+	// retains f. After readMore, f is invalid and more frames can be
+	// read.
+	readMore func()
+}
+
 // readFrames is the loop that reads incoming frames.
+// It takes care to only read one frame at a time, blocking until the
+// consumer is done with the frame.
 // It's run on its own goroutine.
 func (sc *serverConn) readFrames() {
-	g := make(gate, 1)
+	gate := make(gate)
 	for {
 		f, err := sc.framer.ReadFrame()
-		if err != nil {
-			sc.readFrameErrCh <- err
-			close(sc.readFrameCh)
+		select {
+		case sc.readFrameCh <- readFrameResult{f, err, gate.Done}:
+		case <-sc.doneServing:
 			return
 		}
-		sc.readFrameCh <- frameAndGate{f, g}
-		// We can't read another frame until this one is
-		// processed, as the ReadFrame interface doesn't copy
-		// memory.  The Frame accessor methods access the last
-		// frame's (shared) buffer. So we wait for the
-		// serve goroutine to tell us it's done:
-		g.Wait()
+		select {
+		case <-gate:
+		case <-sc.doneServing:
+			return
+		}
 	}
 }
 
@@ -602,6 +618,7 @@ func (sc *serverConn) serve() {
 		write: writeSettings{
 			{SettingMaxFrameSize, sc.srv.maxReadFrameSize()},
 			{SettingMaxConcurrentStreams, sc.advMaxStreams},
+			{SettingMaxHeaderListSize, sc.maxHeaderListSize()},
 
 			// TODO: more actual settings, notably
 			// SettingInitialWindowSize, but then we also
@@ -629,13 +646,11 @@ func (sc *serverConn) serve() {
 			}
 			sc.writingFrame = false
 			sc.scheduleFrameWrite()
-		case fg, ok := <-sc.readFrameCh:
-			if !ok {
-				sc.readFrameCh = nil
-			}
-			if !sc.processFrameFromReader(fg, ok) {
+		case res := <-sc.readFrameCh:
+			if !sc.processFrameFromReader(res) {
 				return
 			}
+			res.readMore()
 			if settingsTimer.C != nil {
 				settingsTimer.Stop()
 				settingsTimer.C = nil
@@ -882,17 +897,15 @@ func (sc *serverConn) curHeaderStreamID() uint32 {
 // processFrameFromReader processes the serve loop's read from readFrameCh from the
 // frame-reading goroutine.
 // processFrameFromReader returns whether the connection should be kept open.
-func (sc *serverConn) processFrameFromReader(fg frameAndGate, fgValid bool) bool {
+func (sc *serverConn) processFrameFromReader(res readFrameResult) bool {
 	sc.serveG.check()
-	var clientGone bool
-	var err error
-	if !fgValid {
-		err = <-sc.readFrameErrCh
+	err := res.err
+	if err != nil {
 		if err == ErrFrameTooLarge {
 			sc.goAway(ErrCodeFrameSize)
 			return true // goAway will close the loop
 		}
-		clientGone = err == io.EOF || strings.Contains(err.Error(), "use of closed network connection")
+		clientGone := err == io.EOF || strings.Contains(err.Error(), "use of closed network connection")
 		if clientGone {
 			// TODO: could we also get into this state if
 			// the peer does a half close
@@ -904,13 +917,10 @@ func (sc *serverConn) processFrameFromReader(fg frameAndGate, fgValid bool) bool
 			// just for testing we could have a non-TLS mode.
 			return false
 		}
-	}
-
-	if fgValid {
-		f := fg.f
+	} else {
+		f := res.f
 		sc.vlogf("got %v: %#v", f.Header(), f)
 		err = sc.processFrame(f)
-		fg.g.Done() // unblock the readFrames goroutine
 		if err == nil {
 			return true
 		}
@@ -928,13 +938,13 @@ func (sc *serverConn) processFrameFromReader(fg frameAndGate, fgValid bool) bool
 		sc.goAway(ErrCode(ev))
 		return true // goAway will handle shutdown
 	default:
-		if !fgValid {
+		if res.err != nil {
 			sc.logf("disconnecting; error reading frame from client %s: %v", sc.conn.RemoteAddr(), err)
 		} else {
 			sc.logf("disconnection due to other error: %v", err)
 		}
+		return false
 	}
-	return false
 }
 
 func (sc *serverConn) processFrame(f Frame) error {
@@ -978,7 +988,7 @@ func (sc *serverConn) processFrame(f Frame) error {
 		// frame as a connection error (Section 5.4.1) of type PROTOCOL_ERROR.
 		return ConnectionError(ErrCodeProtocol)
 	default:
-		log.Printf("Ignoring frame: %v", f.Header())
+		sc.vlogf("Ignoring frame: %v", f.Header())
 		return nil
 	}
 }
@@ -1100,7 +1110,7 @@ func (sc *serverConn) processSetting(s Setting) error {
 	case SettingMaxFrameSize:
 		sc.writeSched.maxFrameSize = s.Val
 	case SettingMaxHeaderListSize:
-		sc.maxHeaderListSize = s.Val
+		sc.peerMaxHeaderListSize = s.Val
 	default:
 		// Unknown setting: "An endpoint that receives a SETTINGS
 		// frame with any unknown or unsupported identifier MUST
@@ -1233,6 +1243,7 @@ func (sc *serverConn) processHeaders(f *HeadersFrame) error {
 		stream: st,
 		header: make(http.Header),
 	}
+	sc.hpackDecoder.SetEmitEnabled(true)
 	return sc.processHeaderBlockFragment(st, f.HeaderBlockFragment(), f.HeadersEnded())
 }
 
@@ -1284,7 +1295,14 @@ func (sc *serverConn) processHeaderBlockFragment(st *stream, frag []byte, end bo
 	}
 	st.body = req.Body.(*requestBody).pipe // may be nil
 	st.declBodyBytes = req.ContentLength
-	go sc.runHandler(rw, req)
+
+	handler := sc.handler.ServeHTTP
+	if !sc.hpackDecoder.EmitEnabled() {
+		// Their header list was too long. Send a 431 error.
+		handler = handleHeaderListTooLong
+	}
+
+	go sc.runHandler(rw, req, handler)
 	return nil
 }
 
@@ -1424,10 +1442,20 @@ func (sc *serverConn) newWriterAndRequest() (*responseWriter, *http.Request, err
 }
 
 // Run on its own goroutine.
-func (sc *serverConn) runHandler(rw *responseWriter, req *http.Request) {
+func (sc *serverConn) runHandler(rw *responseWriter, req *http.Request, handler func(http.ResponseWriter, *http.Request)) {
 	defer rw.handlerDone()
 	// TODO: catch panics like net/http.Server
-	sc.handler.ServeHTTP(rw, req)
+	handler(rw, req)
+}
+
+func handleHeaderListTooLong(w http.ResponseWriter, r *http.Request) {
+	// 10.5.1 Limits on Header Block Size:
+	// .. "A server that receives a larger header block than it is
+	// willing to handle can send an HTTP 431 (Request Header Fields Too
+	// Large) status code"
+	const statusRequestHeaderFieldsTooLarge = 431 // only in Go 1.6+
+	w.WriteHeader(statusRequestHeaderFieldsTooLarge)
+	io.WriteString(w, "<h1>HTTP Error 431</h1><p>Request Header Field(s) Too Large</p>")
 }
 
 // called from handler goroutines.

@@ -95,6 +95,14 @@ type DecodeOptions struct {
 	// If nil, we use []interface{}
 	SliceType reflect.Type
 
+	// MaxInitLen defines the initial length that we "make" a collection (slice, chan or map) with.
+	// If 0 or negative, we default to a sensible value based on the size of an element in the collection.
+	//
+	// For example, when decoding, a stream may say that it has MAX_UINT elements.
+	// We should not auto-matically provision a slice of that length, to prevent Out-Of-Memory crash.
+	// Instead, we provision up to MaxInitLen, fill that up, and start appending after that.
+	MaxInitLen int
+
 	// If ErrorIfNoField, return an error when decoding a map
 	// from a codec stream into a struct, and no matching struct field is found.
 	ErrorIfNoField bool
@@ -107,13 +115,32 @@ type DecodeOptions struct {
 	// If SignedInteger, use the int64 during schema-less decoding of unsigned values (not uint64).
 	SignedInteger bool
 
-	// MaxInitLen defines the initial length that we "make" a collection (slice, chan or map) with.
-	// If 0 or negative, we default to a sensible value based on the size of an element in the collection.
+	// MapValueReset controls how we decode into a map value.
 	//
-	// For example, when decoding, a stream may say that it has MAX_UINT elements.
-	// We should not auto-matically provision a slice of that length, to prevent Out-Of-Memory crash.
-	// Instead, we provision up to MaxInitLen, fill that up, and start appending after that.
-	MaxInitLen int
+	// By default, we MAY retrieve the mapping for a key, and then decode into that.
+	// However, especially with big maps, that retrieval may be expensive and unnecessary
+	// if the stream already contains all that is necessary to recreate the value.
+	//
+	// If true, we will never retrieve the previous mapping,
+	// but rather decode into a new value and set that in the map.
+	//
+	// If false, we will retrieve the previous mapping if necessary e.g.
+	// the previous mapping is a pointer, or is a struct or array with pre-set state,
+	// or is an interface.
+	MapValueReset bool
+
+	// InterfaceReset controls how we decode into an interface.
+	//
+	// By default, when we see a field that is an interface{...},
+	// or a map with interface{...} value, we will attempt decoding into the
+	// "contained" value.
+	//
+	// However, this prevents us from reading a string into an interface{}
+	// that formerly contained a number.
+	//
+	// If true, we will decode into a new "blank" value, and set that in the interface.
+	// If true, we will decode into whatever is contained in the interface.
+	InterfaceReset bool
 }
 
 // ------------------------------------
@@ -582,25 +609,34 @@ func (f *decFnInfo) kInterface(rv reflect.Value) {
 	// to decode into what was there before.
 	// We do not replace with a generic value (as got from decodeNaked).
 
+	var rvn reflect.Value
 	if rv.IsNil() {
-		rvn := f.kInterfaceNaked()
+		rvn = f.kInterfaceNaked()
 		if rvn.IsValid() {
 			rv.Set(rvn)
 		}
+	} else if f.d.h.InterfaceReset {
+		rvn = f.kInterfaceNaked()
+		if rvn.IsValid() {
+			rv.Set(rvn)
+		} else {
+			// reset to zero value based on current type in there.
+			rv.Set(reflect.Zero(rv.Elem().Type()))
+		}
 	} else {
-		rve := rv.Elem()
+		rvn = rv.Elem()
 		// Note: interface{} is settable, but underlying type may not be.
 		// Consequently, we have to set the reflect.Value directly.
 		// if underlying type is settable (e.g. ptr or interface),
 		// we just decode into it.
 		// Else we create a settable value, decode into it, and set on the interface.
-		if rve.CanSet() {
-			f.d.decodeValue(rve, nil)
+		if rvn.CanSet() {
+			f.d.decodeValue(rvn, nil)
 		} else {
-			rve2 := reflect.New(rve.Type()).Elem()
-			rve2.Set(rve)
-			f.d.decodeValue(rve2, nil)
-			rv.Set(rve2)
+			rvn2 := reflect.New(rvn.Type()).Elem()
+			rvn2.Set(rvn)
+			f.d.decodeValue(rvn2, nil)
+			rv.Set(rvn2)
 		}
 	}
 }
@@ -887,10 +923,30 @@ func (f *decFnInfo) kMap(rv reflect.Value) {
 	for xtyp = vtype; xtyp.Kind() == reflect.Ptr; xtyp = xtyp.Elem() {
 	}
 	valFn = d.getDecFn(xtyp, true, true)
+	var mapGet bool
+	if !f.d.h.MapValueReset {
+		// if pointer, mapGet = true
+		// if interface, mapGet = true if !DecodeNakedAlways (else false)
+		// if builtin, mapGet = false
+		// else mapGet = true
+		vtypeKind := vtype.Kind()
+		if vtypeKind == reflect.Ptr {
+			mapGet = true
+		} else if vtypeKind == reflect.Interface {
+			if !f.d.h.InterfaceReset {
+				mapGet = true
+			}
+		} else if !isImmutableKind(vtypeKind) {
+			mapGet = true
+		}
+	}
+
+	var rvk, rvv reflect.Value
+
 	// for j := 0; j < containerLen; j++ {
 	if containerLen > 0 {
 		for j := 0; j < containerLen; j++ {
-			rvk := reflect.New(ktype).Elem()
+			rvk = reflect.New(ktype).Elem()
 			d.decodeValue(rvk, keyFn)
 
 			// special case if a byte array.
@@ -900,9 +956,12 @@ func (f *decFnInfo) kMap(rv reflect.Value) {
 					rvk = reflect.ValueOf(string(rvk.Bytes()))
 				}
 			}
-			rvv := rv.MapIndex(rvk)
-			// TODO: is !IsValid check required?
-			if !rvv.IsValid() {
+			if mapGet {
+				rvv = rv.MapIndex(rvk)
+				if !rvv.IsValid() {
+					rvv = reflect.New(vtype).Elem()
+				}
+			} else {
 				rvv = reflect.New(vtype).Elem()
 			}
 			d.decodeValue(rvv, valFn)
@@ -910,7 +969,7 @@ func (f *decFnInfo) kMap(rv reflect.Value) {
 		}
 	} else {
 		for j := 0; !dd.CheckBreak(); j++ {
-			rvk := reflect.New(ktype).Elem()
+			rvk = reflect.New(ktype).Elem()
 			d.decodeValue(rvk, keyFn)
 
 			// special case if a byte array.
@@ -920,8 +979,12 @@ func (f *decFnInfo) kMap(rv reflect.Value) {
 					rvk = reflect.ValueOf(string(rvk.Bytes()))
 				}
 			}
-			rvv := rv.MapIndex(rvk)
-			if !rvv.IsValid() {
+			if mapGet {
+				rvv = rv.MapIndex(rvk)
+				if !rvv.IsValid() {
+					rvv = reflect.New(vtype).Elem()
+				}
+			} else {
 				rvv = reflect.New(vtype).Elem()
 			}
 			d.decodeValue(rvv, valFn)
@@ -1309,7 +1372,7 @@ func (d *Decoder) getDecFn(rt reflect.Type, checkFastpath, checkCodecSelfer bool
 	}
 
 	// debugf("\tCreating new dec fn for type: %v\n", rt)
-	ti := getTypeInfo(rtid, rt)
+	ti := d.h.getTypeInfo(rtid, rt)
 	fi := &(fn.i)
 	fi.d = d
 	fi.ti = ti
