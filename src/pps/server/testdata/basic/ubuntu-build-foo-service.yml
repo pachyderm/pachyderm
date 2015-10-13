@@ -1,5 +1,0 @@
-pps:
-  kind: docker_service
-  name: ubuntu-build-foo
-build: .
-dockerfile: Dockerfile.foo

@@ -41,6 +41,3 @@ chmod +x /usr/local/bin/docker-compose
 # installs kubernetes cli
 curl -sSL https://storage.googleapis.com/kubernetes-release/release/v${KUBERNETES_VERSION}/bin/linux/amd64/kubectl > /usr/local/bin/kubectl
 chmod +x /usr/local/bin/kubectl
-
-# installs git2go statically linked to libgit2
-curl -sSL https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/git2go/install.sh | sh

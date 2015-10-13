@@ -1,4 +1,0 @@
-pps:
-  kind: docker_service
-  name: ubuntu-build
-build: .

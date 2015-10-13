@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-import "pps/pps.proto";
-
-package server;
-
-message CreatedPipelineRun {
-  pps.PipelineRun pipeline_run = 1;
-}
