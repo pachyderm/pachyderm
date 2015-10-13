@@ -36,9 +36,6 @@ vendor:
 	rm -rf Godeps
 	rm -rf vendor/gopkg.in/libgit2
 
-install-git2go:
-	sh etc/git2go/install.sh
-
 build: deps
 	go build ./src/...
 
@@ -145,9 +142,6 @@ test: pretest docker-clean-test docker-build-test
 test-pfs-extra: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pfs/server"
 
-test-pps-extra: pretest docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pps/server"
-
 clean: docker-clean-launch
 	go clean ./src/...
 	rm -f src/cmd/pfs/pfs
@@ -166,7 +160,6 @@ clean: docker-clean-launch
 	test-deps \
 	update-test-deps \
 	vendor \
-	install-git2go \
 	build \
 	install \
 	docker-build-btrfs \
@@ -191,5 +184,4 @@ clean: docker-clean-launch
 	docker-clean-launch \
 	test \
 	test-pfs-extra \
-	test-pps-extra \
 	clean

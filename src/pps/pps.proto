@@ -2,15 +2,17 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "pfs/pfs.proto";
 
 package pps;
 
-enum PipelineRunStatusType {
-  PIPELINE_RUN_STATUS_TYPE_NONE = 0;
-  PIPELINE_RUN_STATUS_TYPE_CREATED = 1;
-  PIPELINE_RUN_STATUS_TYPE_STARTED = 2;
-  PIPELINE_RUN_STATUS_TYPE_ERROR = 3;
-  PIPELINE_RUN_STATUS_TYPE_SUCCESS = 4;
+enum JobStatusType {
+  JOB_STATUS_TYPE_NONE = 0;
+  JOB_STATUS_TYPE_CREATED = 1;
+  JOB_STATUS_TYPE_STARTED = 2;
+  JOB_STATUS_TYPE_ERROR = 3;
+  JOB_STATUS_TYPE_SUCCESS = 4;
 }
 
 enum OutputStream {
@@ -19,161 +21,113 @@ enum OutputStream {
   OUTPUT_STREAM_STDERR = 2;
 }
 
-message Input {
-  repeated string node = 1;
-  map<string, string> host = 2;
-  map<string, string> pfs = 3;
-}
-
-message Output {
-  map<string, string> host = 1;
-  map<string, string> pfs = 2;
-}
-
-message Node {
-  string service = 1;
-  Input input = 2;
-  Output output = 3;
-  repeated string run = 4;
-}
-
-message DockerService {
+message Transform {
   string image = 1;
   string build = 2;
   string dockerfile = 3;
+  repeated string cmd = 4;
 }
 
-message Pipeline {
-  string id = 1;
-  string pipeline_source_id = 2;
-  map<string, Node> name_to_node = 3;
-  map<string, DockerService> name_to_docker_service = 4;
-}
-
-message GithubPipelineSource {
-  string context_dir = 1;
-  string user = 2;
-  string repository = 3;
-  string branch = 4;
-  string commit_id = 5;
-  string access_token = 6;
-}
-
-message PipelineSource {
-  string id = 1;
-  map<string, string> tags = 2;
-  bool archived = 3;
-  oneof typed_pipeline_source {
-    GithubPipelineSource github_pipeline_source = 4;
+message JobInput {
+  oneof input {
+    string host_dir = 1;
+    pfs.Commit commit = 2;
   }
 }
 
-message PipelineSources {
-  repeated PipelineSource pipeline_source = 1;
+message JobOutput {
+  oneof input {
+    string host_dir = 1;
+    pfs.Commit commit = 2;
+  }
 }
 
-message PipelineRun {
+message Job {
   string id = 1;
-  string pipeline_id = 2;
+  oneof spec {
+    Transform transform = 2;
+    string pipeline_id = 3;
+  }
+  repeated JobInput job_input = 4;
+  repeated JobOutput job_output = 5;
 }
 
-message PipelineRuns {
-  repeated PipelineRun pipeline_run = 1;
+message Jobs {
+  repeated Job job = 1;
 }
 
-message PipelineRunStatus {
-  string pipeline_run_id = 1;
-  PipelineRunStatusType pipeline_run_status_type = 2;
-  google.protobuf.Timestamp timestamp = 3;
+message JobStatus {
+  JobStatusType type = 1;
+  google.protobuf.Timestamp timestamp = 2;
 }
 
-message PipelineRunStatuses {
-  repeated PipelineRunStatus pipeline_run_status = 1;
+message JobInfo {
+  string job_id = 1;
+  repeated JobStatus job_status = 2;
+  string error = 3;
 }
 
-message PipelineRunContainer {
-  string pipeline_run_id = 1;
-  string container_id = 2;
-  string node = 3;
+message PipelineInput {
+  oneof input {
+    string host_dir = 1;
+    pfs.Repo repo = 2;
+  }
 }
 
-message PipelineRunLog {
-  string pipeline_run_id = 1;
-  string container_id = 2;
-  string node = 3;
-  google.protobuf.Timestamp timestamp = 4;
-  OutputStream output_stream = 5;
-  bytes data = 6;
+message PipelineOutput {
+  oneof output {
+    string host_dir = 1;
+    pfs.Repo repo = 2;
+  }
 }
 
-message PipelineRunLogs {
-  repeated PipelineRunLog pipeline_run_log = 1;
+message Pipeline {
+  string name = 1;
+  Transform transform = 2;
+  repeated PipelineInput pipeline_input = 3;
+  repeated PipelineOutput pipeline_output = 4;
 }
 
-message PfsCommitMapping {
-  string input_repository = 1;
-  string input_commit_id = 2;
-  string output_repository = 3;
-  string output_commit_id = 4;
-  google.protobuf.Timestamp timestamp = 5;
+message Pipelines {
+  repeated Pipeline pipeline = 1;
 }
 
-message CreatePipelineSourceRequest {
-  PipelineSource pipeline_source = 1;
+message CreateJobRequest {
+  Job job = 1;
 }
 
-message GetPipelineSourceRequest {
-  string pipeline_source_id = 1;
+message GetJobRequest {
+  string job_id = 1;
 }
 
-message UpdatePipelineSourceRequest {
-  PipelineSource pipeline_source = 1;
+message GetJobsByPipelineNameRequest {
+  string pipeline_name = 1;
 }
 
-message ArchivePipelineSourceRequest {
-  string pipeline_source_id = 1;
+message GetJobStatusRequest {
+  string job_id = 1;
 }
 
-message ListPipelineSourcesRequest {
-  map<string, string> tags = 1;
+message GetJobLogsRequest {
+  string job_id = 1;
+  OutputStream output_stream = 2;
 }
 
-message CreateAndGetPipelineRequest {
-  string pipeline_source_id = 1;
+message CreatePipelineRequest {
+  Pipeline pipeline = 1;
 }
 
-message CreatePipelineRunRequest {
-  string pipeline_id = 1;
+message GetPipelineRequest {
+  string pipeline_name = 1;
 }
 
-message StartPipelineRunRequest {
-  string pipeline_run_id = 1;
-}
-
-message ListPipelineRunsRequest {
-  string pipeline_source_id = 1;
-}
-
-message GetPipelineRunStatusRequest {
-  string pipeline_run_id = 1;
-  bool all = 2;
-}
-
-message GetPipelineRunLogsRequest {
-  string pipeline_run_id = 1;
-  string node = 2;
-}
-
-service Api {
-  rpc CreatePipelineSource(CreatePipelineSourceRequest) returns (PipelineSource) {}
-  rpc GetPipelineSource(GetPipelineSourceRequest) returns (PipelineSource) {}
-  rpc UpdatePipelineSource(UpdatePipelineSourceRequest) returns (PipelineSource) {}
-  rpc ArchivePipelineSource(ArchivePipelineSourceRequest) returns (google.protobuf.Empty) {}
-  rpc ListPipelineSources(ListPipelineSourcesRequest) returns (PipelineSources) {}
-  rpc CreateAndGetPipeline(CreateAndGetPipelineRequest) returns (Pipeline) {} 
-  rpc CreatePipelineRun(CreatePipelineRunRequest) returns (PipelineRun) {}
-  rpc StartPipelineRun(StartPipelineRunRequest) returns (google.protobuf.Empty) {}
-  rpc ListPipelineRuns(ListPipelineRunsRequest) returns (PipelineRuns) {}
-  rpc GetPipelineRunStatus(GetPipelineRunStatusRequest) returns (PipelineRunStatuses) {}
-  rpc GetPipelineRunLogs(GetPipelineRunLogsRequest) returns (PipelineRunLogs) {}
+service API {
+  rpc CreateJob(CreateJobRequest) returns (Job) {}
+  rpc GetJob(GetJobRequest) returns (Job) {}
+  rpc GetJobsByPipelineName(GetJobsByPipelineNameRequest) returns (Jobs) {}
+  rpc GetJobStatus(GetJobStatusRequest) returns (JobStatus) {}
+  rpc GetJobLogs(GetJobLogsRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc CreatePipeline(CreatePipelineRequest) returns (Pipeline) {}
+  rpc GetPipeline(GetPipelineRequest) returns (Pipeline) {}
+  rpc GetAllPipelines(google.protobuf.Empty) returns (Pipelines) {}
 }

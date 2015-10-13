@@ -1,4 +1,0 @@
-pps:
-  kind: docker_service
-  name: ubuntu
-image: ubuntu:14.04
