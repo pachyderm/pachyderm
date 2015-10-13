@@ -476,7 +476,8 @@ func (a *discoveryAddresser) Version() (result int64, retErr error) {
 	return minVersion, nil
 }
 
-func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
+func (a *discoveryAddresser) WaitForAvailability(frontendIds []string, serverIds []string) error {
+	version := InvalidVersion
 	if err := a.discoveryClient.WatchAll(a.serverDir(), nil,
 		func(encodedServerStatesAndRoles map[string]string) error {
 			serverStates := make(map[string]*proto.ServerState)
@@ -500,13 +501,13 @@ func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
 					serverRoles[serverRole.Id][serverRole.Version] = serverRole
 				}
 			}
-			if len(serverStates) != len(ids) {
+			if len(serverStates) != len(serverIds) {
 				return nil
 			}
-			if len(serverRoles) != len(ids) {
+			if len(serverRoles) != len(serverIds) {
 				return nil
 			}
-			for _, id := range ids {
+			for _, id := range serverIds {
 				if _, ok := serverStates[id]; !ok {
 					return nil
 				}
@@ -534,8 +535,41 @@ func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
 					}
 				}
 			}
+			// This loop actually does something, it sets the outside
+			// version variable.
+			for version = range versions {
+			}
 			return errComplete
 		}); err != errComplete {
+		return err
+	}
+
+	if err := a.discoveryClient.WatchAll(
+		a.frontendStateDir(),
+		nil,
+		func(encodedFrontendStates map[string]string) error {
+			frontendStates := make(map[string]*proto.FrontendState)
+			for _, encodedFrontendState := range encodedFrontendStates {
+				frontendState, err := decodeFrontendState(encodedFrontendState)
+				if err != nil {
+					return err
+				}
+
+				if frontendState.Version != version {
+					return nil
+				}
+				frontendStates[frontendState.Address] = frontendState
+			}
+			if len(frontendStates) != len(frontendIds) {
+				return nil
+			}
+			for _, id := range frontendIds {
+				if _, ok := frontendStates[id]; !ok {
+					return nil
+				}
+			}
+			return errComplete
+		}); err != nil && err != errComplete {
 		return err
 	}
 	return nil
