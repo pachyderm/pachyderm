@@ -23,6 +23,7 @@ var (
 	holdTTL      uint64 = 20
 	marshaler           = &jsonpb.Marshaler{}
 	ErrCancelled        = fmt.Errorf("cancelled by user")
+	errComplete         = fmt.Errorf("COMPLETE")
 )
 
 type discoveryAddresser struct {
@@ -298,6 +299,23 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 			// Delete roles that no servers are using anymore
 			if minVersion > oldMinVersion {
 				oldMinVersion = minVersion
+				if err := a.discoveryClient.WatchAll(
+					a.frontendStateDir(),
+					cancel,
+					func(encodedFrontendStates map[string]string) error {
+						for _, encodedFrontendState := range encodedFrontendStates {
+							frontendState, err := decodeFrontendState(encodedFrontendState)
+							if err != nil {
+								return err
+							}
+							if frontendState.Version < minVersion {
+								return nil
+							}
+						}
+						return errComplete
+					}); err != nil && err != errComplete {
+					return err
+				}
 				serverRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
 				if err != nil {
 					return err
@@ -459,7 +477,6 @@ func (a *discoveryAddresser) Version() (result int64, retErr error) {
 }
 
 func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
-	errComplete := fmt.Errorf("COMPLETE")
 	if err := a.discoveryClient.WatchAll(a.serverDir(), nil,
 		func(encodedServerStatesAndRoles map[string]string) error {
 			serverStates := make(map[string]*proto.ServerState)
@@ -578,6 +595,14 @@ func decodeServerState(encodedServerState string) (*proto.ServerState, error) {
 		return nil, err
 	}
 	return &serverState, nil
+}
+
+func decodeFrontendState(encodedFrontendState string) (*proto.FrontendState, error) {
+	var frontendState proto.FrontendState
+	if err := jsonpb.UnmarshalString(encodedFrontendState, &frontendState); err != nil {
+		return nil, err
+	}
+	return &frontendState, nil
 }
 
 func (a *discoveryAddresser) getServerStates() (map[string]*proto.ServerState, error) {
@@ -959,7 +984,30 @@ func (a *discoveryAddresser) runFrontend(
 	versionChan chan int64,
 	cancel chan bool,
 ) error {
-	return nil
+	version := InvalidVersion
+	return a.discoveryClient.WatchAll(
+		a.serverStateDir(),
+		cancel,
+		func(encodedServerStates map[string]string) error {
+			minVersion := int64(math.MaxInt64)
+			for _, encodedServerState := range encodedServerStates {
+				serverRole, err := decodeServerState(encodedServerState)
+				if err != nil {
+					return err
+				}
+				if serverRole.Version < minVersion {
+					minVersion = serverRole.Version
+				}
+			}
+			if minVersion > version {
+				if err := frontend.Version(version); err != nil {
+					return err
+				}
+				version = minVersion
+				versionChan <- version
+			}
+			return nil
+		})
 }
 
 func shards(serverRole proto.ServerRole) []uint64 {
