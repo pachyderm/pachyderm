@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "pps/pps.proto";
+
+package pachyderm.pps.persist;
+
+option go_package = "persist";
+
+message Job {
+  string id = 1;
+  oneof spec {
+    pps.Transform transform = 2;
+    string pipeline_id = 3;
+  }
+  repeated pps.JobInput job_input = 4;
+  repeated pps.JobOutput job_output = 5;
+}
+
+message JobStatus {
+  string id = 1;
+  string job_id = 2;
+  pps.JobStatusType type = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  string message = 5;
+}
+
+message JobLog {
+  string id = 1;
+  string job_id = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  pps.OutputStream output_stream = 4;
+  bytes value = 5;
+}
+
+message Pipeline {
+  string id = 1;
+  string previous_id = 2;
+  string name = 3;
+  pps.Transform transform = 4;
+  repeated pps.PipelineInput pipeline_input = 5;
+  repeated pps.PipelineOutput pipeline_output = 6;
+}
