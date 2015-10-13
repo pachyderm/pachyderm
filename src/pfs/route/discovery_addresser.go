@@ -151,7 +151,7 @@ func (a *discoveryAddresser) Register(cancel chan bool, id string, address strin
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		if err := a.announceState(id, address, server, versionChan, internalCancel); err != nil {
+		if err := a.announceServer(id, address, server, versionChan, internalCancel); err != nil {
 			once.Do(func() {
 				retErr = err
 				close(internalCancel)
@@ -161,6 +161,45 @@ func (a *discoveryAddresser) Register(cancel chan bool, id string, address strin
 	go func() {
 		defer wg.Done()
 		if err := a.fillRoles(id, server, versionChan, internalCancel); err != nil {
+			once.Do(func() {
+				retErr = err
+				close(internalCancel)
+			})
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		select {
+		case <-cancel:
+			once.Do(func() {
+				retErr = ErrCancelled
+				close(internalCancel)
+			})
+		case <-internalCancel:
+		}
+	}()
+	wg.Wait()
+	return
+}
+
+func (a *discoveryAddresser) RegisterFrontend(cancel chan bool, address string, frontend Frontend) (retErr error) {
+	var once sync.Once
+	versionChan := make(chan int64)
+	internalCancel := make(chan bool)
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		if err := a.announceFrontend(address, frontend, versionChan, internalCancel); err != nil {
+			once.Do(func() {
+				retErr = err
+				close(internalCancel)
+			})
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if err := a.runFrontend(address, frontend, versionChan, internalCancel); err != nil {
 			once.Do(func() {
 				retErr = err
 				close(internalCancel)
@@ -485,32 +524,48 @@ func (a *discoveryAddresser) WaitForAvailability(ids []string) error {
 	return nil
 }
 
+func (a *discoveryAddresser) routeDir() string {
+	return fmt.Sprintf("%s/pfs/route", a.namespace)
+}
+
 func (a *discoveryAddresser) serverDir() string {
-	return fmt.Sprintf("%s/pfs/server", a.namespace)
+	return path.Join(a.routeDir(), "server")
 }
 
 func (a *discoveryAddresser) serverStateDir() string {
 	return path.Join(a.serverDir(), "state")
 }
 
-func (a *discoveryAddresser) serverStateKey(id string) string {
-	return path.Join(a.serverStateDir(), id)
+func (a *discoveryAddresser) serverStateKey(address string) string {
+	return path.Join(a.serverStateDir(), address)
 }
 
 func (a *discoveryAddresser) serverRoleDir() string {
 	return path.Join(a.serverDir(), "role")
 }
 
-func (a *discoveryAddresser) serverRoleKey(id string) string {
-	return path.Join(a.serverRoleDir(), id)
+func (a *discoveryAddresser) serverRoleKey(address string) string {
+	return path.Join(a.serverRoleDir(), address)
 }
 
-func (a *discoveryAddresser) serverRoleKeyVersion(id string, version int64) string {
-	return path.Join(a.serverRoleKey(id), fmt.Sprint(version))
+func (a *discoveryAddresser) serverRoleKeyVersion(address string, version int64) string {
+	return path.Join(a.serverRoleKey(address), fmt.Sprint(version))
+}
+
+func (a *discoveryAddresser) frontendDir() string {
+	return path.Join(a.routeDir(), "frontend")
+}
+
+func (a *discoveryAddresser) frontendStateDir() string {
+	return path.Join(a.frontendDir(), "state")
+}
+
+func (a *discoveryAddresser) frontendStateKey(address string) string {
+	return path.Join(a.frontendStateDir(), address)
 }
 
 func (a *discoveryAddresser) addressesDir() string {
-	return fmt.Sprintf("%s/pfs/roles", a.namespace)
+	return path.Join(a.routeDir(), "addresses")
 }
 
 func (a *discoveryAddresser) addressesKey(version int64) string {
@@ -735,7 +790,7 @@ func swapReplica(
 	return false
 }
 
-func (a *discoveryAddresser) announceState(
+func (a *discoveryAddresser) announceServer(
 	id string,
 	address string,
 	server Server,
@@ -766,6 +821,35 @@ func (a *discoveryAddresser) announceState(
 			return nil
 		case version := <-versionChan:
 			serverState.Version = version
+		case <-time.After(time.Second * time.Duration(holdTTL/2)):
+		}
+	}
+}
+
+func (a *discoveryAddresser) announceFrontend(
+	address string,
+	frontend Frontend,
+	versionChan chan int64,
+	cancel chan bool,
+) error {
+	frontendState := &proto.FrontendState{
+		Address: address,
+		Version: InvalidVersion,
+	}
+	for {
+		encodedFrontendState, err := marshaler.MarshalToString(frontendState)
+		if err != nil {
+			return err
+		}
+		if err := a.discoveryClient.Set(a.frontendStateKey(address), encodedFrontendState, holdTTL); err != nil {
+			return err
+		}
+		protolog.Debug(&log.SetFrontendState{frontendState})
+		select {
+		case <-cancel:
+			return nil
+		case version := <-versionChan:
+			frontendState.Version = version
 		case <-time.After(time.Second * time.Duration(holdTTL/2)):
 		}
 	}
@@ -867,6 +951,15 @@ func (a *discoveryAddresser) fillRoles(
 			return nil
 		},
 	)
+}
+
+func (a *discoveryAddresser) runFrontend(
+	id string,
+	frontend Frontend,
+	versionChan chan int64,
+	cancel chan bool,
+) error {
+	return nil
 }
 
 func shards(serverRole proto.ServerRole) []uint64 {

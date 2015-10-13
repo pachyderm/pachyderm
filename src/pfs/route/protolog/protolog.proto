@@ -37,6 +37,10 @@ message SetServerState {
     routeproto.ServerState serverState = 1;
 }
 
+message SetFrontendState {
+    routeproto.FrontendState frontendState = 1;
+}
+
 message AddServerRole {
     routeproto.ServerRole serverRole = 1;
     string error = 2;
