@@ -10,9 +10,13 @@ It is generated from these files:
 
 It has these top-level messages:
 	Job
+	Jobs
 	JobStatus
+	JobStatuses
 	JobLog
+	JobLogs
 	Pipeline
+	Pipelines
 */
 package persist
 
@@ -20,7 +24,13 @@ import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import google_protobuf "go.pedge.io/google-protobuf"
+import google_protobuf1 "go.pedge.io/google-protobuf"
 import pachyderm_pps "go.pachyderm.com/pachyderm/src/pps"
+
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -140,6 +150,21 @@ func _Job_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (b
 	}
 }
 
+type Jobs struct {
+	Job []*Job `protobuf:"bytes,1,rep,name=job" json:"job,omitempty"`
+}
+
+func (m *Jobs) Reset()         { *m = Jobs{} }
+func (m *Jobs) String() string { return proto.CompactTextString(m) }
+func (*Jobs) ProtoMessage()    {}
+
+func (m *Jobs) GetJob() []*Job {
+	if m != nil {
+		return m.Job
+	}
+	return nil
+}
+
 type JobStatus struct {
 	Id        string                      `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
 	JobId     string                      `protobuf:"bytes,2,opt,name=job_id" json:"job_id,omitempty"`
@@ -155,6 +180,21 @@ func (*JobStatus) ProtoMessage()    {}
 func (m *JobStatus) GetTimestamp() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.Timestamp
+	}
+	return nil
+}
+
+type JobStatuses struct {
+	JobStatus []*JobStatus `protobuf:"bytes,1,rep,name=job_status" json:"job_status,omitempty"`
+}
+
+func (m *JobStatuses) Reset()         { *m = JobStatuses{} }
+func (m *JobStatuses) String() string { return proto.CompactTextString(m) }
+func (*JobStatuses) ProtoMessage()    {}
+
+func (m *JobStatuses) GetJobStatus() []*JobStatus {
+	if m != nil {
+		return m.JobStatus
 	}
 	return nil
 }
@@ -178,18 +218,41 @@ func (m *JobLog) GetTimestamp() *google_protobuf.Timestamp {
 	return nil
 }
 
+type JobLogs struct {
+	JobLog []*JobLog `protobuf:"bytes,1,rep,name=job_log" json:"job_log,omitempty"`
+}
+
+func (m *JobLogs) Reset()         { *m = JobLogs{} }
+func (m *JobLogs) String() string { return proto.CompactTextString(m) }
+func (*JobLogs) ProtoMessage()    {}
+
+func (m *JobLogs) GetJobLog() []*JobLog {
+	if m != nil {
+		return m.JobLog
+	}
+	return nil
+}
+
 type Pipeline struct {
 	Id             string                          `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
 	PreviousId     string                          `protobuf:"bytes,2,opt,name=previous_id" json:"previous_id,omitempty"`
 	Name           string                          `protobuf:"bytes,3,opt,name=name" json:"name,omitempty"`
-	Transform      *pachyderm_pps.Transform        `protobuf:"bytes,4,opt,name=transform" json:"transform,omitempty"`
-	PipelineInput  []*pachyderm_pps.PipelineInput  `protobuf:"bytes,5,rep,name=pipeline_input" json:"pipeline_input,omitempty"`
-	PipelineOutput []*pachyderm_pps.PipelineOutput `protobuf:"bytes,6,rep,name=pipeline_output" json:"pipeline_output,omitempty"`
+	CreatedAt      *google_protobuf.Timestamp      `protobuf:"bytes,4,opt,name=created_at" json:"created_at,omitempty"`
+	Transform      *pachyderm_pps.Transform        `protobuf:"bytes,5,opt,name=transform" json:"transform,omitempty"`
+	PipelineInput  []*pachyderm_pps.PipelineInput  `protobuf:"bytes,6,rep,name=pipeline_input" json:"pipeline_input,omitempty"`
+	PipelineOutput []*pachyderm_pps.PipelineOutput `protobuf:"bytes,7,rep,name=pipeline_output" json:"pipeline_output,omitempty"`
 }
 
 func (m *Pipeline) Reset()         { *m = Pipeline{} }
 func (m *Pipeline) String() string { return proto.CompactTextString(m) }
 func (*Pipeline) ProtoMessage()    {}
+
+func (m *Pipeline) GetCreatedAt() *google_protobuf.Timestamp {
+	if m != nil {
+		return m.CreatedAt
+	}
+	return nil
+}
 
 func (m *Pipeline) GetTransform() *pachyderm_pps.Transform {
 	if m != nil {
@@ -210,4 +273,372 @@ func (m *Pipeline) GetPipelineOutput() []*pachyderm_pps.PipelineOutput {
 		return m.PipelineOutput
 	}
 	return nil
+}
+
+type Pipelines struct {
+	Pipeline []*Pipeline `protobuf:"bytes,1,rep,name=pipeline" json:"pipeline,omitempty"`
+}
+
+func (m *Pipelines) Reset()         { *m = Pipelines{} }
+func (m *Pipelines) String() string { return proto.CompactTextString(m) }
+func (*Pipelines) ProtoMessage()    {}
+
+func (m *Pipelines) GetPipeline() []*Pipeline {
+	if m != nil {
+		return m.Pipeline
+	}
+	return nil
+}
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// Client API for API service
+
+type APIClient interface {
+	// id cannot be set
+	// a JobStatus of type created will also be created
+	CreateJob(ctx context.Context, in *Job, opts ...grpc.CallOption) (*Job, error)
+	GetJobByID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Job, error)
+	GetJobsByPipelineID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Jobs, error)
+	// id cannot be set
+	CreateJobStatus(ctx context.Context, in *JobStatus, opts ...grpc.CallOption) (*JobStatus, error)
+	// ordered by time, latest to earliest
+	GetJobStatusesByJobID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*JobStatuses, error)
+	// id cannot be set
+	CreateJobLog(ctx context.Context, in *JobLog, opts ...grpc.CallOption) (*JobLog, error)
+	// ordered by time, latest to earliest
+	GetJobLogsByJobID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*JobLogs, error)
+	// id and previous_id cannot be set
+	// name must not already exist
+	CreatePipeline(ctx context.Context, in *Pipeline, opts ...grpc.CallOption) (*Pipeline, error)
+	// id and previous_id cannot be set
+	// update by name, name must already exist
+	UpdatePipeline(ctx context.Context, in *Pipeline, opts ...grpc.CallOption) (*Pipeline, error)
+	GetPipelineByID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Pipeline, error)
+	// ordered by time, latest to earliest
+	GetPipelinesByName(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Pipeline, error)
+}
+
+type aPIClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewAPIClient(cc *grpc.ClientConn) APIClient {
+	return &aPIClient{cc}
+}
+
+func (c *aPIClient) CreateJob(ctx context.Context, in *Job, opts ...grpc.CallOption) (*Job, error) {
+	out := new(Job)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/CreateJob", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) GetJobByID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Job, error) {
+	out := new(Job)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetJobByID", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) GetJobsByPipelineID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Jobs, error) {
+	out := new(Jobs)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetJobsByPipelineID", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) CreateJobStatus(ctx context.Context, in *JobStatus, opts ...grpc.CallOption) (*JobStatus, error) {
+	out := new(JobStatus)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/CreateJobStatus", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) GetJobStatusesByJobID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*JobStatuses, error) {
+	out := new(JobStatuses)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetJobStatusesByJobID", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) CreateJobLog(ctx context.Context, in *JobLog, opts ...grpc.CallOption) (*JobLog, error) {
+	out := new(JobLog)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/CreateJobLog", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) GetJobLogsByJobID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*JobLogs, error) {
+	out := new(JobLogs)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetJobLogsByJobID", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) CreatePipeline(ctx context.Context, in *Pipeline, opts ...grpc.CallOption) (*Pipeline, error) {
+	out := new(Pipeline)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/CreatePipeline", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) UpdatePipeline(ctx context.Context, in *Pipeline, opts ...grpc.CallOption) (*Pipeline, error) {
+	out := new(Pipeline)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/UpdatePipeline", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) GetPipelineByID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Pipeline, error) {
+	out := new(Pipeline)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetPipelineByID", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) GetPipelinesByName(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Pipeline, error) {
+	out := new(Pipeline)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetPipelinesByName", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for API service
+
+type APIServer interface {
+	// id cannot be set
+	// a JobStatus of type created will also be created
+	CreateJob(context.Context, *Job) (*Job, error)
+	GetJobByID(context.Context, *google_protobuf1.StringValue) (*Job, error)
+	GetJobsByPipelineID(context.Context, *google_protobuf1.StringValue) (*Jobs, error)
+	// id cannot be set
+	CreateJobStatus(context.Context, *JobStatus) (*JobStatus, error)
+	// ordered by time, latest to earliest
+	GetJobStatusesByJobID(context.Context, *google_protobuf1.StringValue) (*JobStatuses, error)
+	// id cannot be set
+	CreateJobLog(context.Context, *JobLog) (*JobLog, error)
+	// ordered by time, latest to earliest
+	GetJobLogsByJobID(context.Context, *google_protobuf1.StringValue) (*JobLogs, error)
+	// id and previous_id cannot be set
+	// name must not already exist
+	CreatePipeline(context.Context, *Pipeline) (*Pipeline, error)
+	// id and previous_id cannot be set
+	// update by name, name must already exist
+	UpdatePipeline(context.Context, *Pipeline) (*Pipeline, error)
+	GetPipelineByID(context.Context, *google_protobuf1.StringValue) (*Pipeline, error)
+	// ordered by time, latest to earliest
+	GetPipelinesByName(context.Context, *google_protobuf1.StringValue) (*Pipeline, error)
+}
+
+func RegisterAPIServer(s *grpc.Server, srv APIServer) {
+	s.RegisterService(&_API_serviceDesc, srv)
+}
+
+func _API_CreateJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(Job)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).CreateJob(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_GetJobByID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(google_protobuf1.StringValue)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).GetJobByID(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_GetJobsByPipelineID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(google_protobuf1.StringValue)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).GetJobsByPipelineID(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_CreateJobStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(JobStatus)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).CreateJobStatus(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_GetJobStatusesByJobID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(google_protobuf1.StringValue)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).GetJobStatusesByJobID(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_CreateJobLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(JobLog)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).CreateJobLog(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_GetJobLogsByJobID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(google_protobuf1.StringValue)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).GetJobLogsByJobID(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_CreatePipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(Pipeline)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).CreatePipeline(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_UpdatePipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(Pipeline)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).UpdatePipeline(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_GetPipelineByID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(google_protobuf1.StringValue)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).GetPipelineByID(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_GetPipelinesByName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(google_protobuf1.StringValue)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).GetPipelinesByName(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+var _API_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pachyderm.pps.persist.API",
+	HandlerType: (*APIServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateJob",
+			Handler:    _API_CreateJob_Handler,
+		},
+		{
+			MethodName: "GetJobByID",
+			Handler:    _API_GetJobByID_Handler,
+		},
+		{
+			MethodName: "GetJobsByPipelineID",
+			Handler:    _API_GetJobsByPipelineID_Handler,
+		},
+		{
+			MethodName: "CreateJobStatus",
+			Handler:    _API_CreateJobStatus_Handler,
+		},
+		{
+			MethodName: "GetJobStatusesByJobID",
+			Handler:    _API_GetJobStatusesByJobID_Handler,
+		},
+		{
+			MethodName: "CreateJobLog",
+			Handler:    _API_CreateJobLog_Handler,
+		},
+		{
+			MethodName: "GetJobLogsByJobID",
+			Handler:    _API_GetJobLogsByJobID_Handler,
+		},
+		{
+			MethodName: "CreatePipeline",
+			Handler:    _API_CreatePipeline_Handler,
+		},
+		{
+			MethodName: "UpdatePipeline",
+			Handler:    _API_UpdatePipeline_Handler,
+		},
+		{
+			MethodName: "GetPipelineByID",
+			Handler:    _API_GetPipelineByID_Handler,
+		},
+		{
+			MethodName: "GetPipelinesByName",
+			Handler:    _API_GetPipelinesByName_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{},
 }
