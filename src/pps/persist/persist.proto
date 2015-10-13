@@ -67,6 +67,7 @@ service API {
   rpc GetJobByID(google.protobuf.StringValue) returns (Job) {}
   rpc GetJobsByPipelineID(google.protobuf.StringValue) returns (Jobs) {}
   // id cannot be set
+  // timestamp cannot be set
   rpc CreateJobStatus(JobStatus) returns (JobStatus) {}
   // ordered by time, latest to earliest
   rpc GetJobStatusesByJobID(google.protobuf.StringValue) returns (JobStatuses) {}
@@ -75,6 +76,7 @@ service API {
   // ordered by time, latest to earliest
   rpc GetJobLogsByJobID(google.protobuf.StringValue) returns (JobLogs) {}
   // id and previous_id cannot be set
+  // timestamp cannot be set
   // name must not already exist
   rpc CreatePipeline(Pipeline) returns (Pipeline) {}
   // id and previous_id cannot be set
