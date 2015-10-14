@@ -119,6 +119,7 @@ type cluster struct {
 	servers         map[string]server.APIServer
 	internalServers map[string]server.InternalAPIServer
 	cancels         map[string]chan bool
+	internalCancels map[string]chan bool
 	cancel          chan bool
 	addresser       route.TestAddresser
 	sharder         route.Sharder
@@ -127,13 +128,17 @@ type cluster struct {
 
 func (c *cluster) WaitForAvailability() {
 	// We use address as the id for servers
-	var ids []string
+	var frontendIds []string
+	var serverIds []string
 	for _, address := range c.addresses {
 		if _, ok := c.cancels[address]; ok {
-			ids = append(ids, address)
+			frontendIds = append(frontendIds, address)
+		}
+		if _, ok := c.internalCancels[address]; ok {
+			serverIds = append(serverIds, address)
 		}
 	}
-	require.NoError(c.tb, c.addresser.WaitForAvailability(ids))
+	require.NoError(c.tb, c.addresser.WaitForAvailability(frontendIds, serverIds))
 }
 
 func (c *cluster) Kill(index int) {
@@ -190,12 +195,14 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		servers:         make(map[string]server.APIServer),
 		internalServers: make(map[string]server.InternalAPIServer),
 		cancels:         make(map[string]chan bool),
+		internalCancels: make(map[string]chan bool),
 		cancel:          make(chan bool),
 		addresser:       addresser,
 		sharder:         sharder,
 		tb:              tb,
 	}
 	for address, s := range servers {
+		cluster.addresses = append(cluster.addresses, address)
 		apiServer := server.NewAPIServer(
 			cluster.sharder,
 			route.NewRouter(
@@ -206,6 +213,11 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 				address,
 			),
 		)
+		cluster.servers[address] = apiServer
+		cluster.cancels[address] = make(chan bool)
+		go func(address string) {
+			require.Equal(tb, cluster.addresser.RegisterFrontend(cluster.cancels[address], address, cluster.servers[address]), route.ErrCancelled)
+		}(address)
 		pfs.RegisterApiServer(s, apiServer)
 		internalAPIServer := server.NewInternalAPIServer(
 			cluster.sharder,
@@ -219,12 +231,10 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 			getDriver(tb, address),
 		)
 		pfs.RegisterInternalApiServer(s, internalAPIServer)
-		cluster.addresses = append(cluster.addresses, address)
-		cluster.servers[address] = apiServer
 		cluster.internalServers[address] = internalAPIServer
-		cluster.cancels[address] = make(chan bool)
+		cluster.internalCancels[address] = make(chan bool)
 		go func(address string) {
-			require.Equal(tb, cluster.addresser.Register(cluster.cancels[address], address, address, cluster.internalServers[address]).Error(), route.ErrCancelled.Error())
+			require.Equal(tb, cluster.addresser.Register(cluster.internalCancels[address], address, address, cluster.internalServers[address]), route.ErrCancelled)
 		}(address)
 	}
 	return &cluster
