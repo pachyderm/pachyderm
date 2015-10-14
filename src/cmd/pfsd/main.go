@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
@@ -12,6 +11,7 @@ import (
 
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
+	"go.pedge.io/protolog"
 	"go.pedge.io/protolog/logrus"
 
 	"github.com/gengo/grpc-gateway/runtime"
@@ -97,6 +97,11 @@ func do(appEnvObj interface{}) error {
 			address,
 		),
 	)
+	go func() {
+		if err := addresser.RegisterFrontend(nil, address, apiServer); err != nil {
+			protolog.Printf("Error from addresser.RegisterFrontend %s", err.Error())
+		}
+	}()
 	internalAPIServer := server.NewInternalAPIServer(
 		route.NewSharder(
 			appEnv.NumShards,
@@ -113,7 +118,7 @@ func do(appEnvObj interface{}) error {
 	)
 	go func() {
 		if err := addresser.Register(nil, "id", address, internalAPIServer); err != nil {
-			log.Print(err)
+			protolog.Printf("Error from addresser.Register %s", err.Error())
 		}
 	}()
 	// TODO(pedge): no!
