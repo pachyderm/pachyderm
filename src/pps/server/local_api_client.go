@@ -5,6 +5,7 @@ import (
 
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pedge.io/google-protobuf"
+	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 )
 
@@ -36,7 +37,12 @@ func (a *localAPIClient) GetJobStatus(ctx context.Context, request *pps.GetJobSt
 	return a.apiServer.GetJobStatus(ctx, request)
 }
 
-func (a *localAPIClient) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pps.API_GetJobLogsServer) (err error) {
+func (a *localAPIClient) GetJobLogs(ctx context.Context, request *pps.GetJobLogsRequest, _ ...grpc.CallOption) (client pps.API_GetJobLogsClient, err error) {
+	steamingBytesRelayer := protostream.NewStreamingBytesRelayer(ctx)
+	if err := a.apiServer.GetJobLogs(request, steamingBytesRelayer); err != nil {
+		return nil, err
+	}
+	return steamingBytesRelayer, nil
 }
 
 func (a *localAPIClient) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest, _ ...grpc.CallOption) (response *pps.Pipeline, err error) {
