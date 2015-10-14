@@ -13,5 +13,5 @@ func NewRethinkAPIServer(address string, databaseName string) (APIServer, error)
 	if err != nil {
 		return nil, err
 	}
-	return newLogServer(apiServer), nil
+	return newLogAPIServer(apiServer), nil
 }
