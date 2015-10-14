@@ -9,5 +9,9 @@ var (
 )
 
 func NewRethinkAPIServer(address string, databaseName string) (APIServer, error) {
-	return newRethinkAPIServer(address, databaseName)
+	apiServer, err := newRethinkAPIServer(address, databaseName)
+	if err != nil {
+		return nil, err
+	}
+	return newLogServer(apiServer), nil
 }
