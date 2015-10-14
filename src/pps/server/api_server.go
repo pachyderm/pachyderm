@@ -7,6 +7,10 @@ import (
 	"golang.org/x/net/context"
 )
 
+var (
+	emptyInstance = &google_protobuf.Empty{}
+)
+
 type apiServer struct {
 	persistAPIClient persist.APIClient
 }
@@ -51,7 +55,14 @@ func (a *apiServer) GetJobsByPipelineName(ctx context.Context, request *pps.GetJ
 }
 
 func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (response *google_protobuf.Empty, err error) {
-	return nil, nil
+	persistJob, err := a.persistAPIClient.GetJobByID(ctx, &google_protobuf.StringValue{Value: request.JobId})
+	if err != nil {
+		return nil, err
+	}
+	if err := a.startPersistJob(persistJob); err != nil {
+		return nil, err
+	}
+	return emptyInstance, nil
 }
 
 func (a *apiServer) GetJobStatus(ctx context.Context, request *pps.GetJobStatusRequest) (response *pps.JobStatus, err error) {
@@ -72,6 +83,10 @@ func (a *apiServer) GetPipeline(ctx context.Context, request *pps.GetPipelineReq
 
 func (a *apiServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (response *pps.Pipelines, err error) {
 	return nil, nil
+}
+
+func (a *apiServer) startPersistJob(persistJob *persist.Job) error {
+	return nil
 }
 
 func jobToPersist(job *pps.Job) *persist.Job {
