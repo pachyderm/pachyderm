@@ -204,7 +204,25 @@ func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *JobStat
 
 // ordered by time, latest to earliest
 func (a *rethinkAPIServer) GetJobStatusesByJobID(ctx context.Context, request *google_protobuf.StringValue) (*JobStatuses, error) {
-	return nil, nil
+	jobStatusObjs, err := a.getMessageByIndex(
+		jobStatusesTable,
+		jobIDIndex,
+		request.Value,
+		func() proto.Message { return &JobStatus{} },
+		func(term gorethink.Term) gorethink.Term {
+			return term.OrderBy(gorethink.Desc("timestamp"))
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	jobStatuses := make([]*JobStatus, len(jobStatusObjs))
+	for i, jobStatusObj := range jobStatusObjs {
+		jobStatuses[i] = jobStatusObj.(*JobStatus)
+	}
+	return &JobStatuses{
+		JobStatus: jobStatuses,
+	}, nil
 }
 
 // id cannot be set
