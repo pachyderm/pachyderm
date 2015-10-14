@@ -2,9 +2,20 @@ package protostream
 
 import (
 	"bufio"
+	"errors"
 	"io"
 
+	"golang.org/x/net/context"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+
 	"go.pedge.io/google-protobuf"
+)
+
+var (
+	// ErrAlreadyClosed is the error returned if CloseSend() is called twice on a StreamingBytesRelayer.
+	ErrAlreadyClosed = errors.New("protostream: already closed")
 )
 
 // StreamingBytesServer represents a server for an rpc method of the form:
@@ -62,4 +73,21 @@ func RelayFromStreamingBytesClient(streamingBytesClient StreamingBytesClient, st
 			return streamingBytesServer.Send(bytesValue)
 		},
 	).Handle(streamingBytesClient)
+}
+
+// StreamingBytesRelayer represents both generated Clients and servers for streams of *google_protobuf.BytesValue.
+type StreamingBytesRelayer interface {
+	StreamingBytesClient
+	StreamingBytesServer
+	Header() (metadata.MD, error)
+	Trailer() metadata.MD
+	CloseSend()
+	SendHeader(metadata.MD) error
+	SetTrailer(metadata.MD)
+	grpc.Stream
+}
+
+// NewStreamingBytesRelayer returns a new StreamingBytesRelayer for the context.Context.
+func NewStreamingBytesRelayer(ctx context.Context) StreamingBytesRelayer {
+	return newStreamingBytesRelayer(ctx)
 }
