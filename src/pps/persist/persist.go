@@ -15,3 +15,7 @@ func NewRethinkAPIServer(address string, databaseName string) (APIServer, error)
 	}
 	return newLogAPIServer(apiServer), nil
 }
+
+func NewLocalAPIClient(apiServer APIServer) APIClient {
+	return newLocalAPIClient(apiServer)
+}
