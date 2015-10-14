@@ -96,7 +96,7 @@ func (d *driver) ListRepo(shard uint64) ([]*pfs.RepoInfo, error) {
 	}
 	var result []*pfs.RepoInfo
 	for _, repo := range repositories {
-		repoInfo, err := d.InspectRepo(&pfs.Repo{repo.Name()}, shard)
+		repoInfo, err := d.InspectRepo(&pfs.Repo{Name: repo.Name()}, shard)
 		if err != nil {
 			return nil, err
 		}

@@ -22,6 +22,7 @@ var (
 
 type APIServer interface {
 	pfs.ApiServer
+	route.Frontend
 }
 
 type InternalAPIServer interface {

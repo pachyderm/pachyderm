@@ -57,8 +57,22 @@ func newServer(t *testing.T) *server {
 	return &server{make(map[uint64]bool), sync.Mutex{}, t}
 }
 
+type frontend struct {
+	version int64
+}
+
+func (f *frontend) Version(version int64) error {
+	f.version = version
+	return nil
+}
+
+func newFrontend(t *testing.T) *frontend {
+	return &frontend{InvalidVersion}
+}
+
 type serverGroup struct {
 	servers   []*server
+	frontends []*frontend
 	cancel    chan bool
 	addresser Addresser
 	offset    int
@@ -85,6 +99,17 @@ func (s *serverGroup) run(t *testing.T) {
 				s.addresser.Register(s.cancel, fmt.Sprintf("server-%d", i+s.offset), fmt.Sprintf("address-%d", i+s.offset), server),
 			)
 		}(i, server)
+	}
+	for i, frontend := range s.frontends {
+		wg.Add(1)
+		go func(i int, frontend Frontend) {
+			defer wg.Done()
+			require.Equal(
+				t,
+				ErrCancelled,
+				s.addresser.RegisterFrontend(s.cancel, fmt.Sprintf("address-%d", i+s.offset), frontend),
+			)
+		}(i, frontend)
 	}
 }
 

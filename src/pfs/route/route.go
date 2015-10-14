@@ -29,13 +29,14 @@ type Addresser interface {
 	ListServer() ([]*pfs.ServerInfo, error)
 
 	Register(cancel chan bool, id string, address string, server Server) error
+	RegisterFrontend(cancel chan bool, address string, frontend Frontend) error
 	AssignRoles(chan bool) error
 	Version() (int64, error)
 }
 
 type TestAddresser interface {
 	Addresser
-	WaitForAvailability(ids []string) error
+	WaitForAvailability(frontendIds []string, serverIds []string) error
 }
 
 func NewDiscoveryAddresser(discoveryClient discovery.Client, sharder Sharder, namespace string) Addresser {
@@ -53,6 +54,12 @@ type Server interface {
 	RemoveShard(shard uint64) error
 	// LocalRoles asks the server which shards it has on disk and how many commits each shard has.
 	LocalShards() (map[uint64]bool, error)
+}
+
+type Frontend interface {
+	// Version tells the Frontend a new version exists.
+	// Version should block until the Frontend is done using the previous version.
+	Version(version int64) error
 }
 
 // Announcer announces a server to the outside world.

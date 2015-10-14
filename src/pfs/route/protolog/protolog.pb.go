@@ -16,6 +16,7 @@ It has these top-level messages:
 	FinishAssignRoles
 	FailedToAssignRoles
 	SetServerState
+	SetFrontendState
 	AddServerRole
 	RemoveServerRole
 	SetServerRole
@@ -110,6 +111,21 @@ func (*SetServerState) ProtoMessage()    {}
 func (m *SetServerState) GetServerState() *routeproto.ServerState {
 	if m != nil {
 		return m.ServerState
+	}
+	return nil
+}
+
+type SetFrontendState struct {
+	FrontendState *routeproto.FrontendState `protobuf:"bytes,1,opt,name=frontendState" json:"frontendState,omitempty"`
+}
+
+func (m *SetFrontendState) Reset()         { *m = SetFrontendState{} }
+func (m *SetFrontendState) String() string { return proto.CompactTextString(m) }
+func (*SetFrontendState) ProtoMessage()    {}
+
+func (m *SetFrontendState) GetFrontendState() *routeproto.FrontendState {
+	if m != nil {
+		return m.FrontendState
 	}
 	return nil
 }

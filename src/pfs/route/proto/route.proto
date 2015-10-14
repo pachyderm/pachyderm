@@ -9,6 +9,11 @@ message ServerState {
     map<uint64, bool> shards = 4;
 }
 
+message FrontendState {
+	string address = 1;
+    int64 version = 2;
+}
+
 message ServerRole {
     string id = 1;
     int64 version = 2;
