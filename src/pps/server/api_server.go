@@ -32,7 +32,22 @@ func (a *apiServer) GetJob(ctx context.Context, request *pps.GetJobRequest) (res
 }
 
 func (a *apiServer) GetJobsByPipelineName(ctx context.Context, request *pps.GetJobsByPipelineNameRequest) (response *pps.Jobs, err error) {
-	return nil, nil
+	persistPipelines, err := a.persistAPIClient.GetPipelinesByName(ctx, &google_protobuf.StringValue{Value: request.PipelineName})
+	if err != nil {
+		return nil, err
+	}
+	jobs := make([]*pps.Job, 0)
+	for _, persistPipeline := range persistPipelines.Pipeline {
+		persistJobs, err := a.persistAPIClient.GetJobsByPipelineID(ctx, &google_protobuf.StringValue{Value: persistPipeline.Id})
+		if err != nil {
+			return nil, err
+		}
+		iJobs := persistToJobs(persistJobs)
+		jobs = append(jobs, iJobs.Job...)
+	}
+	return &pps.Jobs{
+		Job: jobs,
+	}, nil
 }
 
 func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (response *google_protobuf.Empty, err error) {
@@ -93,4 +108,24 @@ func persistToJob(persistJob *persist.Job) *pps.Job {
 		}
 	}
 	return job
+}
+
+func jobsToPersist(jobs *pps.Jobs) *persist.Jobs {
+	persistJobs := make([]*persist.Job, len(jobs.Job))
+	for i, job := range jobs.Job {
+		persistJobs[i] = jobToPersist(job)
+	}
+	return &persist.Jobs{
+		Job: persistJobs,
+	}
+}
+
+func persistToJobs(persistJobs *persist.Jobs) *pps.Jobs {
+	jobs := make([]*pps.Job, len(persistJobs.Job))
+	for i, persistJob := range persistJobs.Job {
+		jobs[i] = persistToJob(persistJob)
+	}
+	return &pps.Jobs{
+		Job: jobs,
+	}
 }
