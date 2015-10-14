@@ -226,13 +226,43 @@ func (a *rethinkAPIServer) GetJobStatusesByJobID(ctx context.Context, request *g
 }
 
 // id cannot be set
+// timestamp cannot be set
 func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *JobLog) (*JobLog, error) {
-	return nil, nil
+	if request.Id != "" {
+		return nil, ErrIDSet
+	}
+	if request.Timestamp != nil {
+		return nil, ErrTimestampSet
+	}
+	request.Id = newID()
+	request.Timestamp = a.now()
+	if err := a.insertMessage(jobLogsTable, request); err != nil {
+		return nil, err
+	}
+	return request, nil
 }
 
 // ordered by time, latest to earliest
 func (a *rethinkAPIServer) GetJobLogsByJobID(ctx context.Context, request *google_protobuf.StringValue) (*JobLogs, error) {
-	return nil, nil
+	jobLogObjs, err := a.getMessageByIndex(
+		jobLogsTable,
+		jobIDIndex,
+		request.Value,
+		func() proto.Message { return &JobLog{} },
+		func(term gorethink.Term) gorethink.Term {
+			return term.OrderBy(gorethink.Desc("timestamp"))
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	jobLogs := make([]*JobLog, len(jobLogObjs))
+	for i, jobLogObj := range jobLogObjs {
+		jobLogs[i] = jobLogObj.(*JobLog)
+	}
+	return &JobLogs{
+		JobLog: jobLogs,
+	}, nil
 }
 
 // id and previous_id cannot be set
