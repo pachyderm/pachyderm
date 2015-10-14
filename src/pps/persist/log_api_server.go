@@ -14,7 +14,7 @@ type logAPIServer struct {
 }
 
 func newLogAPIServer(delegate APIServer) *logAPIServer {
-	return &logAPIServer{protorpclog.NewLogger("pachyderm.pps.persist"), delegate}
+	return &logAPIServer{protorpclog.NewLogger("pachyderm.pps.persist.API"), delegate}
 }
 
 func (a *logAPIServer) CreateJob(ctx context.Context, request *Job) (response *Job, err error) {
