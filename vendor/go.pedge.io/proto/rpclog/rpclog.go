@@ -1,6 +1,7 @@
 package protorpclog
 import (
 	"runtime"
+	"strings"
 	"time"
 
 	"go.pedge.io/proto/time"
@@ -91,5 +92,6 @@ func event(serviceName string, methodName string, request proto.Message, respons
 func getMethodName(depth int) string {
 	pc := make([]uintptr, 2+depth)
 	runtime.Callers(2+depth, pc)
-	return runtime.FuncForPC(pc[0]).Name()
+	split := strings.Split(runtime.FuncForPC(pc[0]).Name(), ".")
+	return split[len(split)-1]
 }
