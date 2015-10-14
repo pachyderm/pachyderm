@@ -45,7 +45,7 @@ func runTestRethink(t *testing.T, testFunc func(*testing.T, APIServer)) {
 	defer func() {
 		require.NoError(t, apiServer.Close())
 	}()
-	testFunc(t, newLogServer(apiServer))
+	testFunc(t, newLogAPIServer(apiServer))
 }
 
 func getTestRethinkAPIServer() (*rethinkAPIServer, error) {
