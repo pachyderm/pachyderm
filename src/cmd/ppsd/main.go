@@ -1,13 +1,22 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strings"
+
+	"github.com/fsouza/go-dockerclient"
 
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
 
 	"go.pachyderm.com/pachyderm"
+	"go.pachyderm.com/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pkg/container"
+	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"go.pachyderm.com/pachyderm/src/pps/server"
 	"google.golang.org/grpc"
 )
 
@@ -36,6 +45,14 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
+	containerClient, err := getContainerClient()
+	if err != nil {
+		return err
+	}
+	rethinkAPIClient, err := getRethinkAPIClient(appEnv.DatabaseAddress, appEnv.DatabaseName)
+	if err != nil {
+		return err
+	}
 	pfsAddress := appEnv.PachydermPfsd1Port
 	if pfsAddress == "" {
 		pfsAddress = appEnv.PfsAddress
@@ -46,15 +63,50 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(clientConn)
+	pfsAPIClient := pfs.NewApiClient(clientConn)
+	fmt.Println(containerClient, pfsAPIClient)
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
-			//pps.RegisterApiServer(s, server.NewAPIServer(pfs.NewApiClient(clientConn), containerClient, rethinkClient, pkgtime.NewSystemTimer()))
+			pps.RegisterAPIServer(s, server.NewAPIServer(rethinkAPIClient))
 		},
 		protoserver.ServeOptions{
 			DebugPort: uint16(appEnv.DebugPort),
 			Version:   pachyderm.Version,
 		},
 	)
+}
+
+func getContainerClient() (container.Client, error) {
+	client, err := docker.NewClientFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	return container.NewDockerClient(client), nil
+}
+
+func getRethinkAPIClient(address string, databaseName string) (persist.APIClient, error) {
+	var err error
+	if address == "" {
+		address, err = getRethinkAddress()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := persist.InitDBs(address, databaseName); err != nil {
+		return nil, err
+	}
+	rethinkAPIServer, err := persist.NewRethinkAPIServer(address, databaseName)
+	if err != nil {
+		return nil, err
+	}
+	return persist.NewLocalAPIClient(rethinkAPIServer), nil
+}
+
+func getRethinkAddress() (string, error) {
+	rethinkAddr := os.Getenv("RETHINK_PORT_28015_TCP_ADDR")
+	if rethinkAddr == "" {
+		return "", errors.New("RETHINK_PORT_28015_TCP_ADDR not set")
+	}
+	return fmt.Sprintf("%s:28015", rethinkAddr), nil
 }

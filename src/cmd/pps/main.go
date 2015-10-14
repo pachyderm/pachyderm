@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pedge.io/env"
-	"go.pedge.io/protolog/logrus"
 
 	"google.golang.org/grpc"
 
@@ -29,7 +29,6 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	logrus.Register()
 	address := appEnv.PachydermPpsd1Port
 	if address == "" {
 		address = appEnv.Address
@@ -40,7 +39,8 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(clientConn)
+	apiClient := pps.NewAPIClient(clientConn)
+	fmt.Println(apiClient)
 	rootCmd := &cobra.Command{
 		Use: "pps",
 		Long: `Access the PPS API.
