@@ -23,6 +23,7 @@ It has these top-level messages:
 	CreateJobRequest
 	GetJobRequest
 	GetJobsByPipelineNameRequest
+	StartJobRequest
 	GetJobStatusRequest
 	GetJobLogsRequest
 	CreatePipelineRequest
@@ -210,7 +211,7 @@ func _JobInput_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffe
 type JobOutput struct {
 	// Types that are valid to be assigned to Input:
 	//	*JobOutput_HostDir
-	//	*JobOutput_Commit
+	//	*JobOutput_ParentCommit
 	Input isJobOutput_Input `protobuf_oneof:"input"`
 }
 
@@ -225,12 +226,12 @@ type isJobOutput_Input interface {
 type JobOutput_HostDir struct {
 	HostDir string `protobuf:"bytes,1,opt,name=host_dir,oneof"`
 }
-type JobOutput_Commit struct {
-	Commit *pfs.Commit `protobuf:"bytes,2,opt,name=commit,oneof"`
+type JobOutput_ParentCommit struct {
+	ParentCommit *pfs.Commit `protobuf:"bytes,2,opt,name=parent_commit,oneof"`
 }
 
-func (*JobOutput_HostDir) isJobOutput_Input() {}
-func (*JobOutput_Commit) isJobOutput_Input()  {}
+func (*JobOutput_HostDir) isJobOutput_Input()      {}
+func (*JobOutput_ParentCommit) isJobOutput_Input() {}
 
 func (m *JobOutput) GetInput() isJobOutput_Input {
 	if m != nil {
@@ -246,9 +247,9 @@ func (m *JobOutput) GetHostDir() string {
 	return ""
 }
 
-func (m *JobOutput) GetCommit() *pfs.Commit {
-	if x, ok := m.GetInput().(*JobOutput_Commit); ok {
-		return x.Commit
+func (m *JobOutput) GetParentCommit() *pfs.Commit {
+	if x, ok := m.GetInput().(*JobOutput_ParentCommit); ok {
+		return x.ParentCommit
 	}
 	return nil
 }
@@ -257,7 +258,7 @@ func (m *JobOutput) GetCommit() *pfs.Commit {
 func (*JobOutput) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
 	return _JobOutput_OneofMarshaler, _JobOutput_OneofUnmarshaler, []interface{}{
 		(*JobOutput_HostDir)(nil),
-		(*JobOutput_Commit)(nil),
+		(*JobOutput_ParentCommit)(nil),
 	}
 }
 
@@ -268,9 +269,9 @@ func _JobOutput_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	case *JobOutput_HostDir:
 		b.EncodeVarint(1<<3 | proto.WireBytes)
 		b.EncodeStringBytes(x.HostDir)
-	case *JobOutput_Commit:
+	case *JobOutput_ParentCommit:
 		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Commit); err != nil {
+		if err := b.EncodeMessage(x.ParentCommit); err != nil {
 			return err
 		}
 	case nil:
@@ -290,13 +291,13 @@ func _JobOutput_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buff
 		x, err := b.DecodeStringBytes()
 		m.Input = &JobOutput_HostDir{x}
 		return true, err
-	case 2: // input.commit
+	case 2: // input.parent_commit
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(pfs.Commit)
 		err := b.DecodeMessage(msg)
-		m.Input = &JobOutput_Commit{msg}
+		m.Input = &JobOutput_ParentCommit{msg}
 		return true, err
 	default:
 		return false, nil
@@ -734,6 +735,14 @@ func (m *GetJobsByPipelineNameRequest) Reset()         { *m = GetJobsByPipelineN
 func (m *GetJobsByPipelineNameRequest) String() string { return proto.CompactTextString(m) }
 func (*GetJobsByPipelineNameRequest) ProtoMessage()    {}
 
+type StartJobRequest struct {
+	JobId string `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
+}
+
+func (m *StartJobRequest) Reset()         { *m = StartJobRequest{} }
+func (m *StartJobRequest) String() string { return proto.CompactTextString(m) }
+func (*StartJobRequest) ProtoMessage()    {}
+
 type GetJobStatusRequest struct {
 	JobId string `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
 }
@@ -789,6 +798,7 @@ type APIClient interface {
 	CreateJob(ctx context.Context, in *CreateJobRequest, opts ...grpc.CallOption) (*Job, error)
 	GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*Job, error)
 	GetJobsByPipelineName(ctx context.Context, in *GetJobsByPipelineNameRequest, opts ...grpc.CallOption) (*Jobs, error)
+	StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	GetJobStatus(ctx context.Context, in *GetJobStatusRequest, opts ...grpc.CallOption) (*JobStatus, error)
 	GetJobLogs(ctx context.Context, in *GetJobLogsRequest, opts ...grpc.CallOption) (API_GetJobLogsClient, error)
 	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
@@ -825,6 +835,15 @@ func (c *aPIClient) GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.
 func (c *aPIClient) GetJobsByPipelineName(ctx context.Context, in *GetJobsByPipelineNameRequest, opts ...grpc.CallOption) (*Jobs, error) {
 	out := new(Jobs)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.API/GetJobsByPipelineName", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/StartJob", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -905,6 +924,7 @@ type APIServer interface {
 	CreateJob(context.Context, *CreateJobRequest) (*Job, error)
 	GetJob(context.Context, *GetJobRequest) (*Job, error)
 	GetJobsByPipelineName(context.Context, *GetJobsByPipelineNameRequest) (*Jobs, error)
+	StartJob(context.Context, *StartJobRequest) (*google_protobuf.Empty, error)
 	GetJobStatus(context.Context, *GetJobStatusRequest) (*JobStatus, error)
 	GetJobLogs(*GetJobLogsRequest, API_GetJobLogsServer) error
 	CreatePipeline(context.Context, *CreatePipelineRequest) (*Pipeline, error)
@@ -946,6 +966,18 @@ func _API_GetJobsByPipelineName_Handler(srv interface{}, ctx context.Context, de
 		return nil, err
 	}
 	out, err := srv.(APIServer).GetJobsByPipelineName(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_StartJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(StartJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).StartJob(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -1036,6 +1068,10 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetJobsByPipelineName",
 			Handler:    _API_GetJobsByPipelineName_Handler,
+		},
+		{
+			MethodName: "StartJob",
+			Handler:    _API_StartJob_Handler,
 		},
 		{
 			MethodName: "GetJobStatus",
