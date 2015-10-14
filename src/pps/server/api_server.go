@@ -24,6 +24,10 @@ func (a *apiServer) GetJobsByPipelineName(ctx context.Context, request *pps.GetJ
 	return nil, nil
 }
 
+func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (response *google_protobuf.Empty, err error) {
+	return nil, nil
+}
+
 func (a *apiServer) GetJobStatus(ctx context.Context, request *pps.GetJobStatusRequest) (response *pps.JobStatus, err error) {
 	return nil, nil
 }

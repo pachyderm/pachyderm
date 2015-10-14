@@ -40,7 +40,7 @@ message JobInput {
 message JobOutput {
   oneof input {
     string host_dir = 1;
-    pfs.Commit commit = 2;
+    pfs.Commit parent_commit = 2;
   }
 }
 
@@ -106,6 +106,10 @@ message GetJobsByPipelineNameRequest {
   string pipeline_name = 1;
 }
 
+message StartJobRequest {
+  string job_id = 1;
+}
+
 message GetJobStatusRequest {
   string job_id = 1;
 }
@@ -127,6 +131,7 @@ service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc GetJob(GetJobRequest) returns (Job) {}
   rpc GetJobsByPipelineName(GetJobsByPipelineNameRequest) returns (Jobs) {}
+  rpc StartJob(StartJobRequest) returns (google.protobuf.Empty) {}
   rpc GetJobStatus(GetJobStatusRequest) returns (JobStatus) {}
   rpc GetJobLogs(GetJobLogsRequest) returns (stream google.protobuf.BytesValue) {}
   rpc CreatePipeline(CreatePipelineRequest) returns (Pipeline) {}
