@@ -80,6 +80,5 @@ ppsd:
     - "651:651"
     - "1051:1051"
   links:
-    - etcd
     - pfsd
     - rethink

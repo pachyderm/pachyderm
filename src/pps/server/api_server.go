@@ -40,7 +40,7 @@ func (a *apiServer) GetJobsByPipelineName(ctx context.Context, request *pps.GetJ
 	if err != nil {
 		return nil, err
 	}
-	jobs := make([]*pps.Job, 0)
+	var jobs []*pps.Job
 	for _, persistPipeline := range persistPipelines.Pipeline {
 		persistJobs, err := a.persistAPIClient.GetJobsByPipelineID(ctx, &google_protobuf.StringValue{Value: persistPipeline.Id})
 		if err != nil {
