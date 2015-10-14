@@ -25,8 +25,8 @@ const (
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
 	testShardsPerServer = 8
-	testNumServers      = 1
-	testNumReplicas     = 0
+	testNumServers      = 8
+	testNumReplicas     = 1
 )
 
 var (
