@@ -71,11 +71,14 @@ func (s *streamingBytesRelayer) Trailer() metadata.MD {
 	return s.trailer
 }
 
-func (s *streamingBytesRelayer) CloseSend() {
+func (s *streamingBytesRelayer) CloseSend() error {
 	s.cv.L.Lock()
 	defer s.cv.L.Unlock()
-	s.closed.CompareAndSwap(false, true)
+	if !s.closed.CompareAndSwap(false, true) {
+		return ErrAlreadyClosed
+	}
 	s.cv.Broadcast()
+	return nil
 }
 
 func (s *streamingBytesRelayer) SendHeader(md metadata.MD) error {

@@ -81,7 +81,7 @@ type StreamingBytesRelayer interface {
 	StreamingBytesServer
 	Header() (metadata.MD, error)
 	Trailer() metadata.MD
-	CloseSend()
+	CloseSend() error
 	SendHeader(metadata.MD) error
 	SetTrailer(metadata.MD)
 	grpc.Stream
