@@ -1,6 +1,8 @@
 package persist
 
 import (
+	"fmt"
+
 	"github.com/dancannon/gorethink"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -268,23 +270,87 @@ func (a *rethinkAPIServer) GetJobLogsByJobID(ctx context.Context, request *googl
 // id and previous_id cannot be set
 // name must not already exist
 func (a *rethinkAPIServer) CreatePipeline(ctx context.Context, request *Pipeline) (*Pipeline, error) {
-	return nil, nil
+	pipeline, err := a.getLastPipeline(ctx, request.Name)
+	if err != nil {
+		return nil, err
+	}
+	if pipeline != nil {
+		return nil, fmt.Errorf("pachyderm.pps.persist: pipeline already exists with name %s", request.Name)
+	}
+	return a.createPipeline(ctx, request)
 }
 
 // id and previous_id cannot be set
 // timestamp cannot be set
 // update by name, name must already exist
 func (a *rethinkAPIServer) UpdatePipeline(ctx context.Context, request *Pipeline) (*Pipeline, error) {
-	return nil, nil
+	pipeline, err := a.getLastPipeline(ctx, request.Name)
+	if err != nil {
+		return nil, err
+	}
+	if pipeline == nil {
+		return nil, fmt.Errorf("pachyderm.pps.persist: pipeline does not exist with name %s", request.Name)
+	}
+	request.PreviousId = pipeline.Id
+	return a.createPipeline(ctx, request)
+}
+
+func (a *rethinkAPIServer) getLastPipeline(ctx context.Context, name string) (*Pipeline, error) {
+	// TODO(pedge): not transactional
+	pipelines, err := a.GetPipelinesByName(ctx, &google_protobuf.StringValue{Value: name})
+	if err != nil {
+		return nil, err
+	}
+	if len(pipelines.Pipeline) == 0 {
+		return nil, nil
+	}
+	return pipelines.Pipeline[0], nil
+}
+
+func (a *rethinkAPIServer) createPipeline(ctx context.Context, request *Pipeline) (*Pipeline, error) {
+	if request.Id != "" {
+		return nil, ErrIDSet
+	}
+	if request.CreatedAt != nil {
+		return nil, ErrTimestampSet
+	}
+	request.Id = newID()
+	request.CreatedAt = a.now()
+	if err := a.insertMessage(pipelinesTable, request); err != nil {
+		return nil, err
+	}
+	return request, nil
 }
 
 func (a *rethinkAPIServer) GetPipelineByID(ctx context.Context, request *google_protobuf.StringValue) (*Pipeline, error) {
-	return nil, nil
+	pipeline := &Pipeline{}
+	if err := a.getMessageByPrimaryKey(pipelinesTable, request.Value, pipeline); err != nil {
+		return nil, err
+	}
+	return pipeline, nil
 }
 
 // ordered by time, latest to earliest
-func (a *rethinkAPIServer) GetPipelinesByName(ctx context.Context, request *google_protobuf.StringValue) (*Pipeline, error) {
-	return nil, nil
+func (a *rethinkAPIServer) GetPipelinesByName(ctx context.Context, request *google_protobuf.StringValue) (*Pipelines, error) {
+	pipelineObjs, err := a.getMessageByIndex(
+		pipelinesTable,
+		jobIDIndex,
+		request.Value,
+		func() proto.Message { return &Pipeline{} },
+		func(term gorethink.Term) gorethink.Term {
+			return term.OrderBy(gorethink.Desc("created_at"))
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	pipelines := make([]*Pipeline, len(pipelineObjs))
+	for i, pipelineObj := range pipelineObjs {
+		pipelines[i] = pipelineObj.(*Pipeline)
+	}
+	return &Pipelines{
+		Pipeline: pipelines,
+	}, nil
 }
 
 func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) error {

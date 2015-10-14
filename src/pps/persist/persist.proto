@@ -84,5 +84,5 @@ service API {
   rpc UpdatePipeline(Pipeline) returns (Pipeline) {}
   rpc GetPipelineByID(google.protobuf.StringValue) returns (Pipeline) {}
   // ordered by time, latest to earliest
-  rpc GetPipelinesByName(google.protobuf.StringValue) returns (Pipeline) {}
+  rpc GetPipelinesByName(google.protobuf.StringValue) returns (Pipelines) {}
 }

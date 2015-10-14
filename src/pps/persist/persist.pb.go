@@ -303,6 +303,7 @@ type APIClient interface {
 	GetJobByID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Job, error)
 	GetJobsByPipelineID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Jobs, error)
 	// id cannot be set
+	// timestamp cannot be set
 	CreateJobStatus(ctx context.Context, in *JobStatus, opts ...grpc.CallOption) (*JobStatus, error)
 	// ordered by time, latest to earliest
 	GetJobStatusesByJobID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*JobStatuses, error)
@@ -311,6 +312,7 @@ type APIClient interface {
 	// ordered by time, latest to earliest
 	GetJobLogsByJobID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*JobLogs, error)
 	// id and previous_id cannot be set
+	// timestamp cannot be set
 	// name must not already exist
 	CreatePipeline(ctx context.Context, in *Pipeline, opts ...grpc.CallOption) (*Pipeline, error)
 	// id and previous_id cannot be set
@@ -318,7 +320,7 @@ type APIClient interface {
 	UpdatePipeline(ctx context.Context, in *Pipeline, opts ...grpc.CallOption) (*Pipeline, error)
 	GetPipelineByID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Pipeline, error)
 	// ordered by time, latest to earliest
-	GetPipelinesByName(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Pipeline, error)
+	GetPipelinesByName(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Pipelines, error)
 }
 
 type aPIClient struct {
@@ -419,8 +421,8 @@ func (c *aPIClient) GetPipelineByID(ctx context.Context, in *google_protobuf1.St
 	return out, nil
 }
 
-func (c *aPIClient) GetPipelinesByName(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Pipeline, error) {
-	out := new(Pipeline)
+func (c *aPIClient) GetPipelinesByName(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Pipelines, error) {
+	out := new(Pipelines)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetPipelinesByName", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -437,6 +439,7 @@ type APIServer interface {
 	GetJobByID(context.Context, *google_protobuf1.StringValue) (*Job, error)
 	GetJobsByPipelineID(context.Context, *google_protobuf1.StringValue) (*Jobs, error)
 	// id cannot be set
+	// timestamp cannot be set
 	CreateJobStatus(context.Context, *JobStatus) (*JobStatus, error)
 	// ordered by time, latest to earliest
 	GetJobStatusesByJobID(context.Context, *google_protobuf1.StringValue) (*JobStatuses, error)
@@ -445,6 +448,7 @@ type APIServer interface {
 	// ordered by time, latest to earliest
 	GetJobLogsByJobID(context.Context, *google_protobuf1.StringValue) (*JobLogs, error)
 	// id and previous_id cannot be set
+	// timestamp cannot be set
 	// name must not already exist
 	CreatePipeline(context.Context, *Pipeline) (*Pipeline, error)
 	// id and previous_id cannot be set
@@ -452,7 +456,7 @@ type APIServer interface {
 	UpdatePipeline(context.Context, *Pipeline) (*Pipeline, error)
 	GetPipelineByID(context.Context, *google_protobuf1.StringValue) (*Pipeline, error)
 	// ordered by time, latest to earliest
-	GetPipelinesByName(context.Context, *google_protobuf1.StringValue) (*Pipeline, error)
+	GetPipelinesByName(context.Context, *google_protobuf1.StringValue) (*Pipelines, error)
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
