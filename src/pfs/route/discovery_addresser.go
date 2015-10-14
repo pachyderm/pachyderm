@@ -556,10 +556,12 @@ func (a *discoveryAddresser) WaitForAvailability(frontendIds []string, serverIds
 				}
 
 				if frontendState.Version != version {
+					protolog.Printf("Wrong version: %d != %d", frontendState.Version, version)
 					return nil
 				}
 				frontendStates[frontendState.Address] = frontendState
 			}
+			protolog.Printf("frontendStates: %+v", frontendStates)
 			if len(frontendStates) != len(frontendIds) {
 				return nil
 			}
@@ -908,6 +910,7 @@ func (a *discoveryAddresser) announceFrontend(
 		case <-cancel:
 			return nil
 		case version := <-versionChan:
+			protolog.Printf("Got frontend version: %d", version)
 			frontendState.Version = version
 		case <-time.After(time.Second * time.Duration(holdTTL/2)):
 		}
@@ -1023,18 +1026,22 @@ func (a *discoveryAddresser) runFrontend(
 		a.serverStateDir(),
 		cancel,
 		func(encodedServerStates map[string]string) error {
+			if len(encodedServerStates) == 0 {
+				return nil
+			}
 			minVersion := int64(math.MaxInt64)
 			for _, encodedServerState := range encodedServerStates {
-				serverRole, err := decodeServerState(encodedServerState)
+				serverState, err := decodeServerState(encodedServerState)
 				if err != nil {
 					return err
 				}
-				if serverRole.Version < minVersion {
-					minVersion = serverRole.Version
+				if serverState.Version < minVersion {
+					minVersion = serverState.Version
 				}
+				protolog.Printf("serverState: %+v", serverState)
 			}
 			if minVersion > version {
-				if err := frontend.Version(version); err != nil {
+				if err := frontend.Version(minVersion); err != nil {
 					return err
 				}
 				version = minVersion

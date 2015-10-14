@@ -25,8 +25,8 @@ const (
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
 	testShardsPerServer = 8
-	testNumServers      = 8
-	testNumReplicas     = 1
+	testNumServers      = 1
+	testNumReplicas     = 0
 )
 
 var (
@@ -215,6 +215,9 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		)
 		cluster.servers[address] = apiServer
 		cluster.cancels[address] = make(chan bool)
+		go func(address string) {
+			require.Equal(tb, cluster.addresser.RegisterFrontend(cluster.cancels[address], address, cluster.servers[address]), route.ErrCancelled)
+		}(address)
 		pfs.RegisterApiServer(s, apiServer)
 		internalAPIServer := server.NewInternalAPIServer(
 			cluster.sharder,
@@ -231,7 +234,7 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		cluster.internalServers[address] = internalAPIServer
 		cluster.internalCancels[address] = make(chan bool)
 		go func(address string) {
-			require.Equal(tb, cluster.addresser.Register(cluster.internalCancels[address], address, address, cluster.internalServers[address]).Error(), route.ErrCancelled.Error())
+			require.Equal(tb, cluster.addresser.Register(cluster.internalCancels[address], address, address, cluster.internalServers[address]), route.ErrCancelled)
 		}(address)
 	}
 	return &cluster
