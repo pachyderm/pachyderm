@@ -180,5 +180,30 @@ func (a *apiServer) startPersistJob(persistJob *persist.Job) error {
 }
 
 func (a *apiServer) runJob(persistJob *persist.Job) error {
+	switch {
+	case persistJob.GetTransform() != nil:
+		return a.reallyRunJob(persistJob.GetTransform(), persistJob.JobInput, persistJob.JobOutput)
+	case persistJob.GetPipelineId() != "":
+		persistPipeline, err := a.persistAPIClient.GetPipelineByID(
+			context.Background(),
+			&google_protobuf.StringValue{Value: persistJob.GetPipelineId()},
+		)
+		if err != nil {
+			return err
+		}
+		if persistPipeline.Transform == nil {
+			return fmt.Errorf("pachyderm.pps.server: transform not set on pipeline %v", persistPipeline)
+		}
+		return a.reallyRunJob(persistPipeline.Transform, persistJob.JobInput, persistJob.JobOutput)
+	default:
+		return fmt.Errorf("pachyderm.pps.server: neither transform or pipeline id set on job %v", persistJob)
+	}
+}
+
+func (a *apiServer) reallyRunJob(
+	transform *pps.Transform,
+	jobInputs []*pps.JobInput,
+	jobOutputs []*pps.JobOutput,
+) error {
 	return nil
 }
