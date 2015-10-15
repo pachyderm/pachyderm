@@ -113,7 +113,27 @@ func (a *apiServer) GetPipeline(ctx context.Context, request *pps.GetPipelineReq
 }
 
 func (a *apiServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (response *pps.Pipelines, err error) {
-	return nil, nil
+	persistPipelines, err := a.persistAPIClient.GetAllPipelines(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	pipelineMap := make(map[string]*pps.Pipeline)
+	for _, persistPipeline := range persistPipelines.Pipeline {
+		// pipelines are ordered newest to oldest, so if we have already
+		// seen a pipeline with the same name, it is newer
+		if _, ok := pipelineMap[persistPipeline.Name]; !ok {
+			pipelineMap[persistPipeline.Name] = persistToPipeline(persistPipeline)
+		}
+	}
+	pipelines := make([]*pps.Pipeline, len(pipelineMap))
+	i := 0
+	for _, pipeline := range pipelineMap {
+		pipelines[i] = pipeline
+		i++
+	}
+	return &pps.Pipelines{
+		Pipeline: pipelines,
+	}, nil
 }
 
 func (a *apiServer) startPersistJob(persistJob *persist.Job) error {
