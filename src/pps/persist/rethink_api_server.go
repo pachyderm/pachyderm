@@ -334,7 +334,7 @@ func (a *rethinkAPIServer) GetPipelineByID(ctx context.Context, request *google_
 func (a *rethinkAPIServer) GetPipelinesByName(ctx context.Context, request *google_protobuf.StringValue) (*Pipelines, error) {
 	pipelineObjs, err := a.getMessagesByIndex(
 		pipelinesTable,
-		jobIDIndex,
+		nameIndex,
 		request.Value,
 		func() proto.Message { return &Pipeline{} },
 		func(term gorethink.Term) gorethink.Term {
