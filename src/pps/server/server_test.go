@@ -35,8 +35,8 @@ func runTest(
 	t *testing.T,
 	f func(t *testing.T, apiClient pps.APIClient),
 ) {
-	//containerClient, err := getTestContainerClient()
-	//require.NoError(t, err)
+	containerClient, err := getTestContainerClient()
+	require.NoError(t, err)
 	persistAPIServer, err := getTestRethinkAPIServer()
 	require.NoError(t, err)
 	persistAPIClient := persist.NewLocalAPIClient(persistAPIServer)
@@ -48,7 +48,7 @@ func runTest(
 				testNumServers,
 				func(servers map[string]*grpc.Server) {
 					for _, server := range servers {
-						pps.RegisterAPIServer(server, NewAPIServer(persistAPIClient))
+						pps.RegisterAPIServer(server, NewAPIServer(persistAPIClient, containerClient))
 					}
 				},
 				func(t *testing.T, clientConns map[string]*grpc.ClientConn) {

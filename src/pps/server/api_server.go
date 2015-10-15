@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 
+	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
@@ -15,10 +16,11 @@ var (
 
 type apiServer struct {
 	persistAPIClient persist.APIClient
+	containerClient  container.Client
 }
 
-func newAPIServer(persistAPIClient persist.APIClient) *apiServer {
-	return &apiServer{persistAPIClient}
+func newAPIServer(persistAPIClient persist.APIClient, containerClient container.Client) *apiServer {
+	return &apiServer{persistAPIClient, containerClient}
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, err error) {
