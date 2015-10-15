@@ -8,8 +8,8 @@ import (
 	"go.pedge.io/env"
 	"go.pedge.io/protolog/logrus"
 
-	"go.pachyderm.com/pachyderm/src/pfs/route"
 	"go.pachyderm.com/pachyderm/src/pkg/discovery"
+	"go.pachyderm.com/pachyderm/src/pkg/shard"
 )
 
 var (
@@ -35,13 +35,13 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	sharder := route.NewSharder(appEnv.NumShards, appEnv.NumReplicas)
-	addresser := route.NewDiscoveryAddresser(
+	sharder := shard.NewSharder(
 		discoveryClient,
-		sharder,
+		appEnv.NumShards,
+		appEnv.NumReplicas,
 		"namespace",
 	)
-	return addresser.AssignRoles(nil)
+	return sharder.AssignRoles(nil)
 }
 
 func getEtcdClient() (discovery.Client, error) {

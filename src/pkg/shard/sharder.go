@@ -10,10 +10,9 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
-	"go.pachyderm.com/pachyderm/src/pfs"
-	proto "go.pachyderm.com/pachyderm/src/pfs/route/proto"
-	log "go.pachyderm.com/pachyderm/src/pfs/route/protolog"
 	"go.pachyderm.com/pachyderm/src/pkg/discovery"
+	proto "go.pachyderm.com/pachyderm/src/pkg/shard/proto"
+	log "go.pachyderm.com/pachyderm/src/pkg/shard/protolog"
 	"go.pedge.io/protolog"
 )
 
@@ -102,43 +101,6 @@ func (a *sharder) GetShardToReplicaAddresses(version int64) (result map[uint64]m
 		_result[shard] = shardAddresses.Replicas
 	}
 	return _result, nil
-}
-
-func (a *sharder) InspectServer(server *pfs.Server) (*pfs.ServerInfo, error) {
-	serverState, err := a.getServerState(server.Id)
-	if err != nil {
-		return nil, err
-	}
-	serverRole, err := a.getServerRole(server.Id)
-	if err != nil {
-		return nil, err
-	}
-	return &pfs.ServerInfo{
-		Server:      server,
-		ServerState: serverState,
-		ServerRole:  serverRole,
-	}, nil
-}
-
-func (a *sharder) ListServer() ([]*pfs.ServerInfo, error) {
-	serverStates, err := a.getServerStates()
-	if err != nil {
-		return nil, err
-	}
-	var result []*pfs.ServerInfo
-	for _, serverState := range serverStates {
-		serverRole, err := a.getServerRole(serverState.Id)
-		if err != nil {
-			return nil, err
-		}
-		serverInfo := &pfs.ServerInfo{
-			Server:      &pfs.Server{Id: serverState.Id},
-			ServerState: serverState,
-			ServerRole:  serverRole,
-		}
-		result = append(result, serverInfo)
-	}
-	return result, nil
 }
 
 func (a *sharder) Register(cancel chan bool, id string, address string, server Server) (retErr error) {

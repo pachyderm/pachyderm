@@ -15,6 +15,7 @@ import (
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pfs/drive"
 	"go.pachyderm.com/pachyderm/src/pfs/route"
+	"go.pachyderm.com/pachyderm/src/pkg/shard"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
 )
@@ -518,12 +519,12 @@ func (a *internalAPIServer) PushDiff(ctx context.Context, request *pfs.PushDiffR
 	return emptyInstance, a.driver.PushDiff(request.Commit, request.Shard, bytes.NewReader(request.Value))
 }
 
-func (a *internalAPIServer) AddShard(shard uint64, version int64) error {
-	if version == route.InvalidVersion {
+func (a *internalAPIServer) AddShard(_shard uint64, version int64) error {
+	if version == shard.InvalidVersion {
 		return nil
 	}
 	ctx := versionToContext(version, context.Background())
-	clientConn, err := a.router.GetMasterOrReplicaClientConn(shard, version)
+	clientConn, err := a.router.GetMasterOrReplicaClientConn(_shard, version)
 	if err != nil {
 		return err
 	}
@@ -541,7 +542,7 @@ func (a *internalAPIServer) AddShard(shard uint64, version int64) error {
 		}
 		for i := range commitInfos.CommitInfo {
 			commit := commitInfos.CommitInfo[len(commitInfos.CommitInfo)-(i+1)].Commit
-			commitInfo, err := a.driver.InspectCommit(commit, map[uint64]bool{shard: true})
+			commitInfo, err := a.driver.InspectCommit(commit, map[uint64]bool{_shard: true})
 			if err != nil {
 				return err
 			}
@@ -551,14 +552,14 @@ func (a *internalAPIServer) AddShard(shard uint64, version int64) error {
 			}
 			pullDiffRequest := &pfs.PullDiffRequest{
 				Commit: commit,
-				Shard:  shard,
+				Shard:  _shard,
 			}
 			pullDiffClient, err := pfs.NewInternalApiClient(clientConn).PullDiff(ctx, pullDiffRequest)
 			if err != nil {
 				return err
 			}
 			diffReader := protostream.NewStreamingBytesReader(pullDiffClient)
-			if err := a.driver.PushDiff(commit, shard, diffReader); err != nil {
+			if err := a.driver.PushDiff(commit, _shard, diffReader); err != nil {
 				return err
 			}
 		}

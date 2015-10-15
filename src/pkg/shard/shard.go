@@ -11,9 +11,6 @@ type Sharder interface {
 	GetShardToMasterAddress(version int64) (map[uint64]string, error)
 	GetShardToReplicaAddresses(version int64) (map[uint64]map[string]bool, error)
 
-	InspectServer(server *pfs.Server) (*pfs.ServerInfo, error)
-	ListServer() ([]*pfs.ServerInfo, error)
-
 	Register(cancel chan bool, id string, address string, server Server) error
 	RegisterFrontend(cancel chan bool, address string, frontend Frontend) error
 	AssignRoles(chan bool) error
