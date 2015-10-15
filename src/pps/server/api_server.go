@@ -2,6 +2,10 @@ package server
 
 import (
 	"fmt"
+	"io/ioutil"
+	"strings"
+
+	"github.com/satori/go.uuid"
 
 	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
@@ -182,7 +186,7 @@ func (a *apiServer) startPersistJob(persistJob *persist.Job) error {
 func (a *apiServer) runJob(persistJob *persist.Job) error {
 	switch {
 	case persistJob.GetTransform() != nil:
-		return a.reallyRunJob(persistJob.GetTransform(), persistJob.JobInput, persistJob.JobOutput)
+		return a.reallyRunJob(strings.Replace(uuid.NewV4().String(), "-", "", -1), persistJob.GetTransform(), persistJob.JobInput, persistJob.JobOutput)
 	case persistJob.GetPipelineId() != "":
 		persistPipeline, err := a.persistAPIClient.GetPipelineByID(
 			context.Background(),
@@ -194,16 +198,42 @@ func (a *apiServer) runJob(persistJob *persist.Job) error {
 		if persistPipeline.Transform == nil {
 			return fmt.Errorf("pachyderm.pps.server: transform not set on pipeline %v", persistPipeline)
 		}
-		return a.reallyRunJob(persistPipeline.Transform, persistJob.JobInput, persistJob.JobOutput)
+		return a.reallyRunJob(persistPipeline.Name, persistPipeline.Transform, persistJob.JobInput, persistJob.JobOutput)
 	default:
 		return fmt.Errorf("pachyderm.pps.server: neither transform or pipeline id set on job %v", persistJob)
 	}
 }
 
 func (a *apiServer) reallyRunJob(
+	name string,
 	transform *pps.Transform,
 	jobInputs []*pps.JobInput,
 	jobOutputs []*pps.JobOutput,
 ) error {
 	return nil
+}
+
+// return image name
+func (a *apiServer) buildOrPull(name string, transform *pps.Transform) (string, error) {
+	image := transform.Image
+	if transform.Build != "" {
+		image = fmt.Sprintf("ppspipelines/%s", name)
+		if err := a.containerClient.Build(
+			image,
+			transform.Build,
+			// TODO(pedge): this will not work, the path to a dockerfile is not real
+			container.BuildOptions{
+				Dockerfile:   transform.Dockerfile,
+				OutputStream: ioutil.Discard,
+			},
+		); err != nil {
+			return "", err
+		}
+	} else if err := a.containerClient.Pull(
+		transform.Image,
+		container.PullOptions{},
+	); err != nil {
+		return "", err
+	}
+	return image, nil
 }
