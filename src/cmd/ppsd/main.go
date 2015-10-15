@@ -64,11 +64,11 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	pfsAPIClient := pfs.NewApiClient(clientConn)
-	fmt.Println(containerClient, pfsAPIClient)
+	fmt.Println(pfsAPIClient)
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
-			pps.RegisterAPIServer(s, server.NewAPIServer(rethinkAPIClient))
+			pps.RegisterAPIServer(s, server.NewAPIServer(rethinkAPIClient, containerClient))
 		},
 		protoserver.ServeOptions{
 			DebugPort: uint16(appEnv.DebugPort),
