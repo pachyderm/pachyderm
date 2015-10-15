@@ -7,6 +7,7 @@ import (
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
+	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 )
 
@@ -139,5 +140,45 @@ func (a *apiServer) GetAllPipelines(ctx context.Context, request *google_protobu
 }
 
 func (a *apiServer) startPersistJob(persistJob *persist.Job) error {
+	if _, err := a.persistAPIClient.CreateJobStatus(
+		context.Background(),
+		&persist.JobStatus{
+			JobId: persistJob.Id,
+			Type:  pps.JobStatusType_JOB_STATUS_TYPE_STARTED,
+		},
+	); err != nil {
+		return err
+	}
+	// TODO(pedge): throttling? worker pool?
+	go func() {
+		if err := a.runJob(persistJob); err != nil {
+			protolog.Errorln(err.Error())
+			// TODO(pedge): how to handle the error?
+			if _, err = a.persistAPIClient.CreateJobStatus(
+				context.Background(),
+				&persist.JobStatus{
+					JobId: persistJob.Id,
+					Type:  pps.JobStatusType_JOB_STATUS_TYPE_ERROR,
+				},
+			); err != nil {
+				protolog.Errorln(err.Error())
+			}
+		} else {
+			// TODO(pedge): how to handle the error?
+			if _, err = a.persistAPIClient.CreateJobStatus(
+				context.Background(),
+				&persist.JobStatus{
+					JobId: persistJob.Id,
+					Type:  pps.JobStatusType_JOB_STATUS_TYPE_SUCCESS,
+				},
+			); err != nil {
+				protolog.Errorln(err.Error())
+			}
+		}
+	}()
+	return nil
+}
+
+func (a *apiServer) runJob(persistJob *persist.Job) error {
 	return nil
 }
