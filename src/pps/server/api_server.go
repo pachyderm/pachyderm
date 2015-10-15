@@ -186,7 +186,7 @@ func (a *apiServer) startPersistJob(persistJob *persist.Job) error {
 func (a *apiServer) runJob(persistJob *persist.Job) error {
 	switch {
 	case persistJob.GetTransform() != nil:
-		return a.reallyRunJob(strings.Replace(uuid.NewV4().String(), "-", "", -1), persistJob.GetTransform(), persistJob.JobInput, persistJob.JobOutput)
+		return a.reallyRunJob(strings.Replace(uuid.NewV4().String(), "-", "", -1), persistJob.GetTransform(), persistJob.JobInput, persistJob.JobOutput, 1)
 	case persistJob.GetPipelineId() != "":
 		persistPipeline, err := a.persistAPIClient.GetPipelineByID(
 			context.Background(),
@@ -198,7 +198,7 @@ func (a *apiServer) runJob(persistJob *persist.Job) error {
 		if persistPipeline.Transform == nil {
 			return fmt.Errorf("pachyderm.pps.server: transform not set on pipeline %v", persistPipeline)
 		}
-		return a.reallyRunJob(persistPipeline.Name, persistPipeline.Transform, persistJob.JobInput, persistJob.JobOutput)
+		return a.reallyRunJob(persistPipeline.Name, persistPipeline.Transform, persistJob.JobInput, persistJob.JobOutput, 1)
 	default:
 		return fmt.Errorf("pachyderm.pps.server: neither transform or pipeline id set on job %v", persistJob)
 	}
@@ -209,7 +209,32 @@ func (a *apiServer) reallyRunJob(
 	transform *pps.Transform,
 	jobInputs []*pps.JobInput,
 	jobOutputs []*pps.JobOutput,
+	numContainers int,
 ) error {
+	image, err := a.buildOrPull(name, transform)
+	if err != nil {
+		return err
+	}
+	var containers []string
+	defer func() {
+		for _, containerID := range containers {
+			_ = a.containerClient.Kill(containerID, container.KillOptions{})
+			_ = a.containerClient.Remove(containerID, container.RemoveOptions{})
+		}
+	}()
+	for i := 0; i < numContainers; i++ {
+		container, err := a.containerClient.Create(
+			image,
+			container.CreateOptions{
+				Binds:      append(getInputBinds(jobInputs), getOutputBinds(jobOutputs)...),
+				HasCommand: len(transform.Cmd) > 0,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		containers = append(containers, container)
+	}
 	return nil
 }
 
@@ -236,4 +261,28 @@ func (a *apiServer) buildOrPull(name string, transform *pps.Transform) (string, 
 		return "", err
 	}
 	return image, nil
+}
+
+func getInputBinds(jobInputs []*pps.JobInput) []string {
+	var binds []string
+	for _, jobInput := range jobInputs {
+		if jobInput.GetHostDir() != "" {
+			binds = append(binds, getBinds(jobInput.GetHostDir(), fmt.Sprintf("/var/lib/pps/host/%s", jobInput.GetHostDir()), "ro"))
+		}
+	}
+	return binds
+}
+
+func getOutputBinds(jobOutputs []*pps.JobOutput) []string {
+	var binds []string
+	for _, jobOutput := range jobOutputs {
+		if jobOutput.GetHostDir() != "" {
+			binds = append(binds, getBinds(jobOutput.GetHostDir(), fmt.Sprintf("/var/lib/pps/host/%s", jobOutput.GetHostDir()), "rw"))
+		}
+	}
+	return binds
+}
+
+func getBinds(from string, to string, postfix string) string {
+	return fmt.Sprintf("%s:%s:%s", from, to, postfix)
 }
