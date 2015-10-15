@@ -435,6 +435,7 @@ func (m *Jobs) GetJob() []*Job {
 type JobStatus struct {
 	Type      JobStatusType               `protobuf:"varint,1,opt,name=type,enum=pachyderm.pps.JobStatusType" json:"type,omitempty"`
 	Timestamp *google_protobuf1.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
+	Message   string                      `protobuf:"bytes,3,opt,name=message" json:"message,omitempty"`
 }
 
 func (m *JobStatus) Reset()         { *m = JobStatus{} }
@@ -451,7 +452,6 @@ func (m *JobStatus) GetTimestamp() *google_protobuf1.Timestamp {
 type JobInfo struct {
 	JobId     string       `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
 	JobStatus []*JobStatus `protobuf:"bytes,2,rep,name=job_status" json:"job_status,omitempty"`
-	Error     string       `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
 func (m *JobInfo) Reset()         { *m = JobInfo{} }

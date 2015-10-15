@@ -71,3 +71,8 @@ func (a *logAPIServer) GetPipelinesByName(ctx context.Context, request *google_p
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	return a.delegate.GetPipelinesByName(ctx, request)
 }
+
+func (a *logAPIServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (response *Pipelines, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	return a.delegate.GetAllPipelines(ctx, request)
+}
