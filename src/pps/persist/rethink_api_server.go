@@ -169,7 +169,7 @@ func (a *rethinkAPIServer) GetJobByID(ctx context.Context, request *google_proto
 }
 
 func (a *rethinkAPIServer) GetJobsByPipelineID(ctx context.Context, request *google_protobuf.StringValue) (*Jobs, error) {
-	jobObjs, err := a.getMessageByIndex(
+	jobObjs, err := a.getMessagesByIndex(
 		jobsTable,
 		pipelineIDIndex,
 		request.Value,
@@ -206,7 +206,7 @@ func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *JobStat
 
 // ordered by time, latest to earliest
 func (a *rethinkAPIServer) GetJobStatusesByJobID(ctx context.Context, request *google_protobuf.StringValue) (*JobStatuses, error) {
-	jobStatusObjs, err := a.getMessageByIndex(
+	jobStatusObjs, err := a.getMessagesByIndex(
 		jobStatusesTable,
 		jobIDIndex,
 		request.Value,
@@ -246,7 +246,7 @@ func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *JobLog) (*
 
 // ordered by time, latest to earliest
 func (a *rethinkAPIServer) GetJobLogsByJobID(ctx context.Context, request *google_protobuf.StringValue) (*JobLogs, error) {
-	jobLogObjs, err := a.getMessageByIndex(
+	jobLogObjs, err := a.getMessagesByIndex(
 		jobLogsTable,
 		jobIDIndex,
 		request.Value,
@@ -332,10 +332,30 @@ func (a *rethinkAPIServer) GetPipelineByID(ctx context.Context, request *google_
 
 // ordered by time, latest to earliest
 func (a *rethinkAPIServer) GetPipelinesByName(ctx context.Context, request *google_protobuf.StringValue) (*Pipelines, error) {
-	pipelineObjs, err := a.getMessageByIndex(
+	pipelineObjs, err := a.getMessagesByIndex(
 		pipelinesTable,
 		jobIDIndex,
 		request.Value,
+		func() proto.Message { return &Pipeline{} },
+		func(term gorethink.Term) gorethink.Term {
+			return term.OrderBy(gorethink.Desc("created_at"))
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	pipelines := make([]*Pipeline, len(pipelineObjs))
+	for i, pipelineObj := range pipelineObjs {
+		pipelines[i] = pipelineObj.(*Pipeline)
+	}
+	return &Pipelines{
+		Pipeline: pipelines,
+	}, nil
+}
+
+func (a *rethinkAPIServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (*Pipelines, error) {
+	pipelineObjs, err := a.getAllMessages(
+		pipelinesTable,
 		func() proto.Message { return &Pipeline{} },
 		func(term gorethink.Term) gorethink.Term {
 			return term.OrderBy(gorethink.Desc("created_at"))
@@ -377,14 +397,38 @@ func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, Value interface{}
 	return nil
 }
 
-func (a *rethinkAPIServer) getMessageByIndex(
+func (a *rethinkAPIServer) getMessagesByIndex(
 	table Table,
 	index Index,
 	value interface{},
 	messageConstructor func() proto.Message,
 	modifiers ...func(gorethink.Term) gorethink.Term,
 ) ([]interface{}, error) {
-	term := a.getTerm(table).GetAllByIndex(index, value).Map(func(row gorethink.Term) interface{} {
+	return a.getMultiple(
+		a.getTerm(table).GetAllByIndex(index, value),
+		messageConstructor,
+		modifiers...,
+	)
+}
+
+func (a *rethinkAPIServer) getAllMessages(
+	table Table,
+	messageConstructor func() proto.Message,
+	modifiers ...func(gorethink.Term) gorethink.Term,
+) ([]interface{}, error) {
+	return a.getMultiple(
+		a.getTerm(table),
+		messageConstructor,
+		modifiers...,
+	)
+}
+
+func (a *rethinkAPIServer) getMultiple(
+	term gorethink.Term,
+	messageConstructor func() proto.Message,
+	modifiers ...func(gorethink.Term) gorethink.Term,
+) ([]interface{}, error) {
+	term = term.Map(func(row gorethink.Term) interface{} {
 		return row.ToJSON()
 	})
 	for _, modifier := range modifiers {
@@ -394,6 +438,21 @@ func (a *rethinkAPIServer) getMessageByIndex(
 	if err != nil {
 		return nil, err
 	}
+	return processMultipleCursor(cursor, messageConstructor)
+}
+
+func (a *rethinkAPIServer) getTerm(table Table) gorethink.Term {
+	return gorethink.DB(a.databaseName).Table(table)
+}
+
+func (a *rethinkAPIServer) now() *google_protobuf.Timestamp {
+	return prototime.TimeToTimestamp(a.timer.Now())
+}
+
+func processMultipleCursor(
+	cursor *gorethink.Cursor,
+	messageConstructor func() proto.Message,
+) ([]interface{}, error) {
 	var data []string
 	if err := cursor.All(&data); err != nil {
 		return nil, err
@@ -407,14 +466,6 @@ func (a *rethinkAPIServer) getMessageByIndex(
 		result[i] = message
 	}
 	return result, nil
-}
-
-func (a *rethinkAPIServer) getTerm(table Table) gorethink.Term {
-	return gorethink.DB(a.databaseName).Table(table)
-}
-
-func (a *rethinkAPIServer) now() *google_protobuf.Timestamp {
-	return prototime.TimeToTimestamp(a.timer.Now())
 }
 
 func rethinkToJSON(row gorethink.Term) interface{} {
