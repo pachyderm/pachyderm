@@ -25,6 +25,7 @@ import fmt "fmt"
 import math "math"
 import google_protobuf "go.pedge.io/google-protobuf"
 import google_protobuf1 "go.pedge.io/google-protobuf"
+import google_protobuf2 "go.pedge.io/google-protobuf"
 import pachyderm_pps "go.pachyderm.com/pachyderm/src/pps"
 
 import (
@@ -169,7 +170,7 @@ type JobStatus struct {
 	Id        string                      `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
 	JobId     string                      `protobuf:"bytes,2,opt,name=job_id" json:"job_id,omitempty"`
 	Type      pachyderm_pps.JobStatusType `protobuf:"varint,3,opt,name=type,enum=pachyderm.pps.JobStatusType" json:"type,omitempty"`
-	Timestamp *google_protobuf.Timestamp  `protobuf:"bytes,4,opt,name=timestamp" json:"timestamp,omitempty"`
+	Timestamp *google_protobuf1.Timestamp `protobuf:"bytes,4,opt,name=timestamp" json:"timestamp,omitempty"`
 	Message   string                      `protobuf:"bytes,5,opt,name=message" json:"message,omitempty"`
 }
 
@@ -177,7 +178,7 @@ func (m *JobStatus) Reset()         { *m = JobStatus{} }
 func (m *JobStatus) String() string { return proto.CompactTextString(m) }
 func (*JobStatus) ProtoMessage()    {}
 
-func (m *JobStatus) GetTimestamp() *google_protobuf.Timestamp {
+func (m *JobStatus) GetTimestamp() *google_protobuf1.Timestamp {
 	if m != nil {
 		return m.Timestamp
 	}
@@ -200,18 +201,18 @@ func (m *JobStatuses) GetJobStatus() []*JobStatus {
 }
 
 type JobLog struct {
-	Id           string                     `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	JobId        string                     `protobuf:"bytes,2,opt,name=job_id" json:"job_id,omitempty"`
-	Timestamp    *google_protobuf.Timestamp `protobuf:"bytes,3,opt,name=timestamp" json:"timestamp,omitempty"`
-	OutputStream pachyderm_pps.OutputStream `protobuf:"varint,4,opt,name=output_stream,enum=pachyderm.pps.OutputStream" json:"output_stream,omitempty"`
-	Value        []byte                     `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"`
+	Id           string                      `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	JobId        string                      `protobuf:"bytes,2,opt,name=job_id" json:"job_id,omitempty"`
+	Timestamp    *google_protobuf1.Timestamp `protobuf:"bytes,3,opt,name=timestamp" json:"timestamp,omitempty"`
+	OutputStream pachyderm_pps.OutputStream  `protobuf:"varint,4,opt,name=output_stream,enum=pachyderm.pps.OutputStream" json:"output_stream,omitempty"`
+	Value        []byte                      `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 func (m *JobLog) Reset()         { *m = JobLog{} }
 func (m *JobLog) String() string { return proto.CompactTextString(m) }
 func (*JobLog) ProtoMessage()    {}
 
-func (m *JobLog) GetTimestamp() *google_protobuf.Timestamp {
+func (m *JobLog) GetTimestamp() *google_protobuf1.Timestamp {
 	if m != nil {
 		return m.Timestamp
 	}
@@ -237,7 +238,7 @@ type Pipeline struct {
 	Id             string                          `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
 	PreviousId     string                          `protobuf:"bytes,2,opt,name=previous_id" json:"previous_id,omitempty"`
 	Name           string                          `protobuf:"bytes,3,opt,name=name" json:"name,omitempty"`
-	CreatedAt      *google_protobuf.Timestamp      `protobuf:"bytes,4,opt,name=created_at" json:"created_at,omitempty"`
+	CreatedAt      *google_protobuf1.Timestamp     `protobuf:"bytes,4,opt,name=created_at" json:"created_at,omitempty"`
 	Transform      *pachyderm_pps.Transform        `protobuf:"bytes,5,opt,name=transform" json:"transform,omitempty"`
 	PipelineInput  []*pachyderm_pps.PipelineInput  `protobuf:"bytes,6,rep,name=pipeline_input" json:"pipeline_input,omitempty"`
 	PipelineOutput []*pachyderm_pps.PipelineOutput `protobuf:"bytes,7,rep,name=pipeline_output" json:"pipeline_output,omitempty"`
@@ -247,7 +248,7 @@ func (m *Pipeline) Reset()         { *m = Pipeline{} }
 func (m *Pipeline) String() string { return proto.CompactTextString(m) }
 func (*Pipeline) ProtoMessage()    {}
 
-func (m *Pipeline) GetCreatedAt() *google_protobuf.Timestamp {
+func (m *Pipeline) GetCreatedAt() *google_protobuf1.Timestamp {
 	if m != nil {
 		return m.CreatedAt
 	}
@@ -300,17 +301,17 @@ type APIClient interface {
 	// id cannot be set
 	// a JobStatus of type created will also be created
 	CreateJob(ctx context.Context, in *Job, opts ...grpc.CallOption) (*Job, error)
-	GetJobByID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Job, error)
-	GetJobsByPipelineID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Jobs, error)
+	GetJobByID(ctx context.Context, in *google_protobuf2.StringValue, opts ...grpc.CallOption) (*Job, error)
+	GetJobsByPipelineID(ctx context.Context, in *google_protobuf2.StringValue, opts ...grpc.CallOption) (*Jobs, error)
 	// id cannot be set
 	// timestamp cannot be set
 	CreateJobStatus(ctx context.Context, in *JobStatus, opts ...grpc.CallOption) (*JobStatus, error)
 	// ordered by time, latest to earliest
-	GetJobStatusesByJobID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*JobStatuses, error)
+	GetJobStatusesByJobID(ctx context.Context, in *google_protobuf2.StringValue, opts ...grpc.CallOption) (*JobStatuses, error)
 	// id cannot be set
 	CreateJobLog(ctx context.Context, in *JobLog, opts ...grpc.CallOption) (*JobLog, error)
 	// ordered by time, latest to earliest
-	GetJobLogsByJobID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*JobLogs, error)
+	GetJobLogsByJobID(ctx context.Context, in *google_protobuf2.StringValue, opts ...grpc.CallOption) (*JobLogs, error)
 	// id and previous_id cannot be set
 	// timestamp cannot be set
 	// name must not already exist
@@ -318,9 +319,11 @@ type APIClient interface {
 	// id and previous_id cannot be set
 	// update by name, name must already exist
 	UpdatePipeline(ctx context.Context, in *Pipeline, opts ...grpc.CallOption) (*Pipeline, error)
-	GetPipelineByID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Pipeline, error)
+	GetPipelineByID(ctx context.Context, in *google_protobuf2.StringValue, opts ...grpc.CallOption) (*Pipeline, error)
 	// ordered by time, latest to earliest
-	GetPipelinesByName(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Pipelines, error)
+	GetPipelinesByName(ctx context.Context, in *google_protobuf2.StringValue, opts ...grpc.CallOption) (*Pipelines, error)
+	// ordered by time, latest to earliest
+	GetAllPipelines(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*Pipelines, error)
 }
 
 type aPIClient struct {
@@ -340,7 +343,7 @@ func (c *aPIClient) CreateJob(ctx context.Context, in *Job, opts ...grpc.CallOpt
 	return out, nil
 }
 
-func (c *aPIClient) GetJobByID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Job, error) {
+func (c *aPIClient) GetJobByID(ctx context.Context, in *google_protobuf2.StringValue, opts ...grpc.CallOption) (*Job, error) {
 	out := new(Job)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetJobByID", in, out, c.cc, opts...)
 	if err != nil {
@@ -349,7 +352,7 @@ func (c *aPIClient) GetJobByID(ctx context.Context, in *google_protobuf1.StringV
 	return out, nil
 }
 
-func (c *aPIClient) GetJobsByPipelineID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Jobs, error) {
+func (c *aPIClient) GetJobsByPipelineID(ctx context.Context, in *google_protobuf2.StringValue, opts ...grpc.CallOption) (*Jobs, error) {
 	out := new(Jobs)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetJobsByPipelineID", in, out, c.cc, opts...)
 	if err != nil {
@@ -367,7 +370,7 @@ func (c *aPIClient) CreateJobStatus(ctx context.Context, in *JobStatus, opts ...
 	return out, nil
 }
 
-func (c *aPIClient) GetJobStatusesByJobID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*JobStatuses, error) {
+func (c *aPIClient) GetJobStatusesByJobID(ctx context.Context, in *google_protobuf2.StringValue, opts ...grpc.CallOption) (*JobStatuses, error) {
 	out := new(JobStatuses)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetJobStatusesByJobID", in, out, c.cc, opts...)
 	if err != nil {
@@ -385,7 +388,7 @@ func (c *aPIClient) CreateJobLog(ctx context.Context, in *JobLog, opts ...grpc.C
 	return out, nil
 }
 
-func (c *aPIClient) GetJobLogsByJobID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*JobLogs, error) {
+func (c *aPIClient) GetJobLogsByJobID(ctx context.Context, in *google_protobuf2.StringValue, opts ...grpc.CallOption) (*JobLogs, error) {
 	out := new(JobLogs)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetJobLogsByJobID", in, out, c.cc, opts...)
 	if err != nil {
@@ -412,7 +415,7 @@ func (c *aPIClient) UpdatePipeline(ctx context.Context, in *Pipeline, opts ...gr
 	return out, nil
 }
 
-func (c *aPIClient) GetPipelineByID(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Pipeline, error) {
+func (c *aPIClient) GetPipelineByID(ctx context.Context, in *google_protobuf2.StringValue, opts ...grpc.CallOption) (*Pipeline, error) {
 	out := new(Pipeline)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetPipelineByID", in, out, c.cc, opts...)
 	if err != nil {
@@ -421,9 +424,18 @@ func (c *aPIClient) GetPipelineByID(ctx context.Context, in *google_protobuf1.St
 	return out, nil
 }
 
-func (c *aPIClient) GetPipelinesByName(ctx context.Context, in *google_protobuf1.StringValue, opts ...grpc.CallOption) (*Pipelines, error) {
+func (c *aPIClient) GetPipelinesByName(ctx context.Context, in *google_protobuf2.StringValue, opts ...grpc.CallOption) (*Pipelines, error) {
 	out := new(Pipelines)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetPipelinesByName", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) GetAllPipelines(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*Pipelines, error) {
+	out := new(Pipelines)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetAllPipelines", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -436,17 +448,17 @@ type APIServer interface {
 	// id cannot be set
 	// a JobStatus of type created will also be created
 	CreateJob(context.Context, *Job) (*Job, error)
-	GetJobByID(context.Context, *google_protobuf1.StringValue) (*Job, error)
-	GetJobsByPipelineID(context.Context, *google_protobuf1.StringValue) (*Jobs, error)
+	GetJobByID(context.Context, *google_protobuf2.StringValue) (*Job, error)
+	GetJobsByPipelineID(context.Context, *google_protobuf2.StringValue) (*Jobs, error)
 	// id cannot be set
 	// timestamp cannot be set
 	CreateJobStatus(context.Context, *JobStatus) (*JobStatus, error)
 	// ordered by time, latest to earliest
-	GetJobStatusesByJobID(context.Context, *google_protobuf1.StringValue) (*JobStatuses, error)
+	GetJobStatusesByJobID(context.Context, *google_protobuf2.StringValue) (*JobStatuses, error)
 	// id cannot be set
 	CreateJobLog(context.Context, *JobLog) (*JobLog, error)
 	// ordered by time, latest to earliest
-	GetJobLogsByJobID(context.Context, *google_protobuf1.StringValue) (*JobLogs, error)
+	GetJobLogsByJobID(context.Context, *google_protobuf2.StringValue) (*JobLogs, error)
 	// id and previous_id cannot be set
 	// timestamp cannot be set
 	// name must not already exist
@@ -454,9 +466,11 @@ type APIServer interface {
 	// id and previous_id cannot be set
 	// update by name, name must already exist
 	UpdatePipeline(context.Context, *Pipeline) (*Pipeline, error)
-	GetPipelineByID(context.Context, *google_protobuf1.StringValue) (*Pipeline, error)
+	GetPipelineByID(context.Context, *google_protobuf2.StringValue) (*Pipeline, error)
 	// ordered by time, latest to earliest
-	GetPipelinesByName(context.Context, *google_protobuf1.StringValue) (*Pipelines, error)
+	GetPipelinesByName(context.Context, *google_protobuf2.StringValue) (*Pipelines, error)
+	// ordered by time, latest to earliest
+	GetAllPipelines(context.Context, *google_protobuf.Empty) (*Pipelines, error)
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
@@ -476,7 +490,7 @@ func _API_CreateJob_Handler(srv interface{}, ctx context.Context, dec func(inter
 }
 
 func _API_GetJobByID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(google_protobuf1.StringValue)
+	in := new(google_protobuf2.StringValue)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -488,7 +502,7 @@ func _API_GetJobByID_Handler(srv interface{}, ctx context.Context, dec func(inte
 }
 
 func _API_GetJobsByPipelineID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(google_protobuf1.StringValue)
+	in := new(google_protobuf2.StringValue)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -512,7 +526,7 @@ func _API_CreateJobStatus_Handler(srv interface{}, ctx context.Context, dec func
 }
 
 func _API_GetJobStatusesByJobID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(google_protobuf1.StringValue)
+	in := new(google_protobuf2.StringValue)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -536,7 +550,7 @@ func _API_CreateJobLog_Handler(srv interface{}, ctx context.Context, dec func(in
 }
 
 func _API_GetJobLogsByJobID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(google_protobuf1.StringValue)
+	in := new(google_protobuf2.StringValue)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -572,7 +586,7 @@ func _API_UpdatePipeline_Handler(srv interface{}, ctx context.Context, dec func(
 }
 
 func _API_GetPipelineByID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(google_protobuf1.StringValue)
+	in := new(google_protobuf2.StringValue)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -584,11 +598,23 @@ func _API_GetPipelineByID_Handler(srv interface{}, ctx context.Context, dec func
 }
 
 func _API_GetPipelinesByName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(google_protobuf1.StringValue)
+	in := new(google_protobuf2.StringValue)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	out, err := srv.(APIServer).GetPipelinesByName(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_GetAllPipelines_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(google_protobuf.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).GetAllPipelines(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -642,6 +668,10 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPipelinesByName",
 			Handler:    _API_GetPipelinesByName_Handler,
+		},
+		{
+			MethodName: "GetAllPipelines",
+			Handler:    _API_GetAllPipelines_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},

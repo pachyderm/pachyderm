@@ -139,8 +139,18 @@ type DecodeOptions struct {
 	// that formerly contained a number.
 	//
 	// If true, we will decode into a new "blank" value, and set that in the interface.
-	// If true, we will decode into whatever is contained in the interface.
+	// If false, we will decode into whatever is contained in the interface.
 	InterfaceReset bool
+
+	// InternString controls interning of strings during decoding.
+	//
+	// Some handles, e.g. json, typically will read map keys as strings.
+	// If the set of keys are finite, it may help reduce allocation to
+	// look them up from a map (than to allocate them afresh).
+	//
+	// Note: Handles will be smart when using the intern functionality.
+	// So everything will not be interned.
+	InternString bool
 }
 
 // ------------------------------------
@@ -953,7 +963,7 @@ func (f *decFnInfo) kMap(rv reflect.Value) {
 			if ktypeId == intfTypId {
 				rvk = rvk.Elem()
 				if rvk.Type() == uint8SliceTyp {
-					rvk = reflect.ValueOf(string(rvk.Bytes()))
+					rvk = reflect.ValueOf(d.string(rvk.Bytes()))
 				}
 			}
 			if mapGet {
@@ -976,7 +986,7 @@ func (f *decFnInfo) kMap(rv reflect.Value) {
 			if ktypeId == intfTypId {
 				rvk = rvk.Elem()
 				if rvk.Type() == uint8SliceTyp {
-					rvk = reflect.ValueOf(string(rvk.Bytes()))
+					rvk = reflect.ValueOf(d.string(rvk.Bytes()))
 				}
 			}
 			if mapGet {
@@ -1020,6 +1030,8 @@ type Decoder struct {
 
 	ri ioDecReader
 	f  map[uintptr]*decFn
+	is map[string]string // used for interning strings
+
 	// _  uintptr // for alignment purposes, so next one starts from a cache line
 
 	b [scratchByteArrayLen]byte
@@ -1040,6 +1052,9 @@ func NewDecoder(r io.Reader, h Handle) (d *Decoder) {
 		d.ri.br = &d.ri.bs
 	}
 	d.r = &d.ri
+	if d.h.InternString {
+		d.is = make(map[string]string, 32)
+	}
 	_, d.js = h.(*JsonHandle)
 	d.d = h.newDecDriver(d)
 	return
@@ -1053,6 +1068,9 @@ func NewDecoderBytes(in []byte, h Handle) (d *Decoder) {
 	d.rb.b = in
 	d.rb.a = len(in)
 	d.r = &d.rb
+	if d.h.InternString {
+		d.is = make(map[string]string, 32)
+	}
 	_, d.js = h.(*JsonHandle)
 	d.d = h.newDecDriver(d)
 	// d.d = h.newDecDriver(decReaderT{true, &d.rb, &d.ri})
@@ -1533,6 +1551,24 @@ func (d *Decoder) errorf(format string, params ...interface{}) {
 	copy(params2[1:], params)
 	err := fmt.Errorf("[pos %d]: "+format, params2...)
 	panic(err)
+}
+
+func (d *Decoder) string(v []byte) (s string) {
+	if d.is != nil {
+		s, ok := d.is[string(v)] // no allocation here.
+		if !ok {
+			s = string(v)
+			d.is[s] = s
+		}
+		return s
+	}
+	return string(v) // don't return stringView, as we need a real string here.
+}
+
+func (d *Decoder) intern(s string) {
+	if d.is != nil {
+		d.is[s] = s
+	}
 }
 
 // --------------------------------------------------

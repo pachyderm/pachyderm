@@ -954,7 +954,14 @@ func (d *jsonDecDriver) DecodeString() (s string) {
 	if c := d.s.sc.sep(); c != 0 {
 		d.expectChar(c)
 	}
+	return d.decString()
+}
+
+func (d *jsonDecDriver) decString() (s string) {
 	d.appendStringAsBytes()
+	if x := d.s.sc; x != nil && x.st == '}' && x.so { // map key
+		return d.d.string(d.bs)
+	}
 	return string(d.bs)
 }
 
@@ -1051,8 +1058,7 @@ func (d *jsonDecDriver) DecodeNaked() (v interface{}, vt valueType, decodeFurthe
 		decodeFurther = true
 	case '"':
 		vt = valueTypeString
-		d.appendStringAsBytes()
-		v = string(d.bs) // same as d.DecodeString(), but skipping sep() call.
+		v = d.decString() // same as d.DecodeString(), but skipping sep() call.
 	default: // number
 		d.decNum(true)
 		n := &d.n
