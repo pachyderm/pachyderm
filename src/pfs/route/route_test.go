@@ -36,13 +36,13 @@ type server struct {
 	t      *testing.T
 }
 
-func (s *server) AddShard(shard uint64) error {
+func (s *server) AddShard(shard uint64, version int64) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	s.shards[shard] = true
 	return nil
 }
-func (s *server) RemoveShard(shard uint64) error {
+func (s *server) RemoveShard(shard uint64, version int64) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	delete(s.shards, shard)

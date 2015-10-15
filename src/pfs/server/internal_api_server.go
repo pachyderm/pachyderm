@@ -518,14 +518,11 @@ func (a *internalAPIServer) PushDiff(ctx context.Context, request *pfs.PushDiffR
 	return emptyInstance, a.driver.PushDiff(request.Commit, request.Shard, bytes.NewReader(request.Value))
 }
 
-func (a *internalAPIServer) AddShard(shard uint64) error {
-	version, ctx, err := a.versionAndCtx(context.Background())
-	if err != nil {
-		return err
-	}
+func (a *internalAPIServer) AddShard(shard uint64, version int64) error {
 	if version == route.InvalidVersion {
 		return nil
 	}
+	ctx := versionToContext(version, context.Background())
 	clientConn, err := a.router.GetMasterOrReplicaClientConn(shard, version)
 	if err != nil {
 		return err
@@ -569,7 +566,7 @@ func (a *internalAPIServer) AddShard(shard uint64) error {
 	return nil
 }
 
-func (a *internalAPIServer) RemoveShard(shard uint64) error {
+func (a *internalAPIServer) RemoveShard(shard uint64, version int64) error {
 	return nil
 }
 
@@ -703,16 +700,4 @@ func (a *internalAPIServer) getVersion(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("version not found in context")
 	}
 	return strconv.ParseInt(encodedVersion[0], 10, 64)
-}
-
-func (a *internalAPIServer) versionAndCtx(ctx context.Context) (int64, context.Context, error) {
-	version, err := a.router.Version()
-	if err != nil {
-		return 0, nil, err
-	}
-	newCtx := metadata.NewContext(
-		ctx,
-		metadata.Pairs("version", fmt.Sprint(version)),
-	)
-	return version, newCtx, nil
 }
