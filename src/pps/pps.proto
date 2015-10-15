@@ -61,12 +61,12 @@ message Jobs {
 message JobStatus {
   JobStatusType type = 1;
   google.protobuf.Timestamp timestamp = 2;
+  string message = 3;
 }
 
 message JobInfo {
   string job_id = 1;
   repeated JobStatus job_status = 2;
-  string error = 3;
 }
 
 message PipelineInput {

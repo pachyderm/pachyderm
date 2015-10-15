@@ -58,3 +58,7 @@ func (a *localAPIClient) GetPipelineByID(ctx context.Context, request *google_pr
 func (a *localAPIClient) GetPipelinesByName(ctx context.Context, request *google_protobuf.StringValue, _ ...grpc.CallOption) (response *Pipelines, err error) {
 	return a.apiServer.GetPipelinesByName(ctx, request)
 }
+
+func (a *localAPIClient) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty, _ ...grpc.CallOption) (response *Pipelines, err error) {
+	return a.apiServer.GetAllPipelines(ctx, request)
+}
