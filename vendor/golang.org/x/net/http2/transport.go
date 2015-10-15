@@ -1,7 +1,6 @@
-// Copyright 2015 The Go Authors.
-// See https://go.googlesource.com/go/+/master/CONTRIBUTORS
-// Licensed under the same terms as Go itself:
-// https://go.googlesource.com/go/+/master/LICENSE
+// Copyright 2015 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
 package http2
 
