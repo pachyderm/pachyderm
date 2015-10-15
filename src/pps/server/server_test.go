@@ -3,13 +3,17 @@ package server
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/net/context"
 
 	"go.pedge.io/proto/test"
+	"go.pedge.io/protolog"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/satori/go.uuid"
@@ -64,6 +68,91 @@ func testCreateAndGetPipeline(t *testing.T, apiClient pps.APIClient) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, expectedPipeline, getPipeline)
+}
+
+func TestBasicCreateAndStartJob(t *testing.T) {
+	runTest(t, testBasicCreateAndStartJob)
+}
+
+func testBasicCreateAndStartJob(t *testing.T, apiClient pps.APIClient) {
+	inputDir, err := ioutil.TempDir("/tmp/pachyderm-test", "")
+	require.NoError(t, err)
+	outputDir, err := ioutil.TempDir("/tmp/pachyderm-test", "")
+	require.NoError(t, err)
+	file, err := os.Create(filepath.Join(inputDir, "foo.txt"))
+	require.NoError(t, err)
+	_, err = file.Write([]byte("hello"))
+	require.NoError(t, err)
+	require.NoError(t, file.Close())
+	job := &pps.Job{
+		Spec: &pps.Job_Transform{
+			Transform: &pps.Transform{
+				Image: "ubuntu:14.04",
+				Cmd: []string{
+					fmt.Sprintf("for i in /var/lib/pps/host/%s/*; do cp $i /var/lib/pps/host/%s/; done", inputDir, outputDir),
+				},
+			},
+		},
+		JobInput: []*pps.JobInput{
+			&pps.JobInput{
+				Input: &pps.JobInput_HostDir{
+					HostDir: inputDir,
+				},
+			},
+		},
+		JobOutput: []*pps.JobOutput{
+			&pps.JobOutput{
+				Output: &pps.JobOutput_HostDir{
+					HostDir: outputDir,
+				},
+			},
+		},
+	}
+	createJob, err := apiClient.CreateJob(
+		context.Background(),
+		&pps.CreateJobRequest{
+			Job: job,
+		},
+	)
+	require.NoError(t, err)
+	_, err = apiClient.StartJob(
+		context.Background(),
+		&pps.StartJobRequest{
+			JobId: createJob.Id,
+		},
+	)
+	require.NoError(t, err)
+	jobStatus, err := getFinalJobStatus(apiClient, createJob.Id)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobStatusType_JOB_STATUS_TYPE_SUCCESS, jobStatus.Type)
+	data, err := ioutil.ReadFile(filepath.Join(outputDir, "foo.txt"))
+	require.NoError(t, err)
+	require.Equal(t, []byte("hello"), data)
+}
+
+func getFinalJobStatus(apiClient pps.APIClient, jobID string) (*pps.JobStatus, error) {
+	// TODO(pedge): not good
+	ticker := time.NewTicker(time.Second)
+	for i := 0; i < 20; i++ {
+		<-ticker.C
+		jobStatus, err := apiClient.GetJobStatus(
+			context.Background(),
+			&pps.GetJobStatusRequest{
+				JobId: jobID,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+		protolog.Printf("status at tick %d: %v\n", i, jobStatus)
+		switch jobStatus.Type {
+		case pps.JobStatusType_JOB_STATUS_TYPE_ERROR:
+			return jobStatus, nil
+		case pps.JobStatusType_JOB_STATUS_TYPE_SUCCESS:
+			return jobStatus, nil
+		}
+	}
+	return nil, fmt.Errorf("did not get final job status for %s", jobID)
 }
 
 func runTest(

@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	"github.com/satori/go.uuid"
@@ -161,8 +162,9 @@ func (a *apiServer) startPersistJob(persistJob *persist.Job) error {
 			if _, err = a.persistAPIClient.CreateJobStatus(
 				context.Background(),
 				&persist.JobStatus{
-					JobId: persistJob.Id,
-					Type:  pps.JobStatusType_JOB_STATUS_TYPE_ERROR,
+					JobId:   persistJob.Id,
+					Type:    pps.JobStatusType_JOB_STATUS_TYPE_ERROR,
+					Message: err.Error(),
 				},
 			); err != nil {
 				protolog.Errorln(err.Error())
@@ -287,7 +289,7 @@ func (a *apiServer) buildOrPull(name string, transform *pps.Transform) (string, 
 func (a *apiServer) removeContainers(containerIDs []string) {
 	for _, containerID := range containerIDs {
 		_ = a.containerClient.Kill(containerID, container.KillOptions{})
-		_ = a.containerClient.Remove(containerID, container.RemoveOptions{})
+		//_ = a.containerClient.Remove(containerID, container.RemoveOptions{})
 	}
 }
 
@@ -313,7 +315,7 @@ func getInputBinds(jobInputs []*pps.JobInput) []string {
 	var binds []string
 	for _, jobInput := range jobInputs {
 		if jobInput.GetHostDir() != "" {
-			binds = append(binds, getBinds(jobInput.GetHostDir(), fmt.Sprintf("/var/lib/pps/host/%s", jobInput.GetHostDir()), "ro"))
+			binds = append(binds, getBinds(jobInput.GetHostDir(), filepath.Join("/var/lib/pps/host", jobInput.GetHostDir()), "ro"))
 		}
 	}
 	return binds
@@ -323,7 +325,7 @@ func getOutputBinds(jobOutputs []*pps.JobOutput) []string {
 	var binds []string
 	for _, jobOutput := range jobOutputs {
 		if jobOutput.GetHostDir() != "" {
-			binds = append(binds, getBinds(jobOutput.GetHostDir(), fmt.Sprintf("/var/lib/pps/host/%s", jobOutput.GetHostDir()), "rw"))
+			binds = append(binds, getBinds(jobOutput.GetHostDir(), filepath.Join("/var/lib/pps/host", jobOutput.GetHostDir()), "rw"))
 		}
 	}
 	return binds
