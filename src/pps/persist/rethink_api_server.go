@@ -428,12 +428,12 @@ func (a *rethinkAPIServer) getMultiple(
 	messageConstructor func() proto.Message,
 	modifiers ...func(gorethink.Term) gorethink.Term,
 ) ([]interface{}, error) {
-	term = term.Map(func(row gorethink.Term) interface{} {
-		return row.ToJSON()
-	})
 	for _, modifier := range modifiers {
 		term = modifier(term)
 	}
+	term = term.Map(func(row gorethink.Term) interface{} {
+		return row.ToJSON()
+	})
 	cursor, err := term.Run(a.session)
 	if err != nil {
 		return nil, err

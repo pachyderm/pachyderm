@@ -38,7 +38,7 @@ message JobInput {
 }
 
 message JobOutput {
-  oneof input {
+  oneof output {
     string host_dir = 1;
     pfs.Commit parent_commit = 2;
   }

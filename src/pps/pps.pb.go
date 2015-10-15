@@ -209,18 +209,18 @@ func _JobInput_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffe
 }
 
 type JobOutput struct {
-	// Types that are valid to be assigned to Input:
+	// Types that are valid to be assigned to Output:
 	//	*JobOutput_HostDir
 	//	*JobOutput_ParentCommit
-	Input isJobOutput_Input `protobuf_oneof:"input"`
+	Output isJobOutput_Output `protobuf_oneof:"output"`
 }
 
 func (m *JobOutput) Reset()         { *m = JobOutput{} }
 func (m *JobOutput) String() string { return proto.CompactTextString(m) }
 func (*JobOutput) ProtoMessage()    {}
 
-type isJobOutput_Input interface {
-	isJobOutput_Input()
+type isJobOutput_Output interface {
+	isJobOutput_Output()
 }
 
 type JobOutput_HostDir struct {
@@ -230,25 +230,25 @@ type JobOutput_ParentCommit struct {
 	ParentCommit *pfs.Commit `protobuf:"bytes,2,opt,name=parent_commit,oneof"`
 }
 
-func (*JobOutput_HostDir) isJobOutput_Input()      {}
-func (*JobOutput_ParentCommit) isJobOutput_Input() {}
+func (*JobOutput_HostDir) isJobOutput_Output()      {}
+func (*JobOutput_ParentCommit) isJobOutput_Output() {}
 
-func (m *JobOutput) GetInput() isJobOutput_Input {
+func (m *JobOutput) GetOutput() isJobOutput_Output {
 	if m != nil {
-		return m.Input
+		return m.Output
 	}
 	return nil
 }
 
 func (m *JobOutput) GetHostDir() string {
-	if x, ok := m.GetInput().(*JobOutput_HostDir); ok {
+	if x, ok := m.GetOutput().(*JobOutput_HostDir); ok {
 		return x.HostDir
 	}
 	return ""
 }
 
 func (m *JobOutput) GetParentCommit() *pfs.Commit {
-	if x, ok := m.GetInput().(*JobOutput_ParentCommit); ok {
+	if x, ok := m.GetOutput().(*JobOutput_ParentCommit); ok {
 		return x.ParentCommit
 	}
 	return nil
@@ -264,8 +264,8 @@ func (*JobOutput) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) err
 
 func _JobOutput_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	m := msg.(*JobOutput)
-	// input
-	switch x := m.Input.(type) {
+	// output
+	switch x := m.Output.(type) {
 	case *JobOutput_HostDir:
 		b.EncodeVarint(1<<3 | proto.WireBytes)
 		b.EncodeStringBytes(x.HostDir)
@@ -276,7 +276,7 @@ func _JobOutput_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 		}
 	case nil:
 	default:
-		return fmt.Errorf("JobOutput.Input has unexpected type %T", x)
+		return fmt.Errorf("JobOutput.Output has unexpected type %T", x)
 	}
 	return nil
 }
@@ -284,20 +284,20 @@ func _JobOutput_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 func _JobOutput_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
 	m := msg.(*JobOutput)
 	switch tag {
-	case 1: // input.host_dir
+	case 1: // output.host_dir
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		x, err := b.DecodeStringBytes()
-		m.Input = &JobOutput_HostDir{x}
+		m.Output = &JobOutput_HostDir{x}
 		return true, err
-	case 2: // input.parent_commit
+	case 2: // output.parent_commit
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(pfs.Commit)
 		err := b.DecodeMessage(msg)
-		m.Input = &JobOutput_ParentCommit{msg}
+		m.Output = &JobOutput_ParentCommit{msg}
 		return true, err
 	default:
 		return false, nil
