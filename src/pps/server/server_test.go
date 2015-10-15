@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/net/context"
+
 	"go.pedge.io/proto/test"
 
 	"github.com/fsouza/go-dockerclient"
@@ -24,11 +26,36 @@ const (
 	testNumServers = 1
 )
 
-func TestBasic(t *testing.T) {
-	runTest(t, testBasic)
+func TestCreateAndGetPipeline(t *testing.T) {
+	runTest(t, testCreateAndGetPipeline)
 }
 
-func testBasic(t *testing.T, apiClient pps.APIClient) {
+func testCreateAndGetPipeline(t *testing.T, apiClient pps.APIClient) {
+	expectedPipeline := &pps.Pipeline{
+		Name: "foo",
+		Transform: &pps.Transform{
+			Image: "ubuntu:14.04",
+			Cmd: []string{
+				"which",
+				"bash",
+			},
+		},
+		PipelineInput: []*pps.PipelineInput{
+			&pps.PipelineInput{
+				Input: &pps.PipelineInput_HostDir{
+					HostDir: "/path/to/dir",
+				},
+			},
+		},
+	}
+	pipeline, err := apiClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: expectedPipeline,
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, expectedPipeline, pipeline)
 }
 
 func runTest(
