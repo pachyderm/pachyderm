@@ -186,7 +186,7 @@ func (a *apiServer) startPersistJob(persistJob *persist.Job) error {
 func (a *apiServer) runJob(persistJob *persist.Job) error {
 	switch {
 	case persistJob.GetTransform() != nil:
-		return a.reallyRunJob(strings.Replace(uuid.NewV4().String(), "-", "", -1), persistJob.GetTransform(), persistJob.JobInput, persistJob.JobOutput, 1)
+		return a.reallyRunJob(strings.Replace(uuid.NewV4().String(), "-", "", -1), persistJob.Id, persistJob.GetTransform(), persistJob.JobInput, persistJob.JobOutput, 1)
 	case persistJob.GetPipelineId() != "":
 		persistPipeline, err := a.persistAPIClient.GetPipelineByID(
 			context.Background(),
@@ -198,7 +198,7 @@ func (a *apiServer) runJob(persistJob *persist.Job) error {
 		if persistPipeline.Transform == nil {
 			return fmt.Errorf("pachyderm.pps.server: transform not set on pipeline %v", persistPipeline)
 		}
-		return a.reallyRunJob(persistPipeline.Name, persistPipeline.Transform, persistJob.JobInput, persistJob.JobOutput, 1)
+		return a.reallyRunJob(persistPipeline.Name, persistJob.Id, persistPipeline.Transform, persistJob.JobInput, persistJob.JobOutput, 1)
 	default:
 		return fmt.Errorf("pachyderm.pps.server: neither transform or pipeline id set on job %v", persistJob)
 	}
@@ -206,6 +206,7 @@ func (a *apiServer) runJob(persistJob *persist.Job) error {
 
 func (a *apiServer) reallyRunJob(
 	name string,
+	jobID string,
 	transform *pps.Transform,
 	jobInputs []*pps.JobInput,
 	jobOutputs []*pps.JobOutput,
@@ -215,15 +216,10 @@ func (a *apiServer) reallyRunJob(
 	if err != nil {
 		return err
 	}
-	var containers []string
-	defer func() {
-		for _, containerID := range containers {
-			_ = a.containerClient.Kill(containerID, container.KillOptions{})
-			_ = a.containerClient.Remove(containerID, container.RemoveOptions{})
-		}
-	}()
+	var containerIDs []string
+	defer a.removeContainers(containerIDs)
 	for i := 0; i < numContainers; i++ {
-		container, err := a.containerClient.Create(
+		containerID, err := a.containerClient.Create(
 			image,
 			container.CreateOptions{
 				Binds:      append(getInputBinds(jobInputs), getOutputBinds(jobOutputs)...),
@@ -233,9 +229,34 @@ func (a *apiServer) reallyRunJob(
 		if err != nil {
 			return err
 		}
-		containers = append(containers, container)
+		containerIDs = append(containerIDs, containerID)
 	}
-	return nil
+	for _, containerID := range containerIDs {
+		if err := a.containerClient.Start(
+			containerID,
+			container.StartOptions{
+				Commands: transform.Cmd,
+			},
+		); err != nil {
+			return err
+		}
+	}
+	errC := make(chan error, len(containerIDs))
+	for _, containerID := range containerIDs {
+		go a.writeContainerLogs(containerID, jobID, errC)
+	}
+	for _, containerID := range containerIDs {
+		if err := a.containerClient.Wait(containerID, container.WaitOptions{}); err != nil {
+			return err
+		}
+	}
+	err = nil
+	for _ = range containerIDs {
+		if logsErr := <-errC; logsErr != nil && err == nil {
+			err = logsErr
+		}
+	}
+	return err
 }
 
 // return image name
@@ -261,6 +282,31 @@ func (a *apiServer) buildOrPull(name string, transform *pps.Transform) (string, 
 		return "", err
 	}
 	return image, nil
+}
+
+func (a *apiServer) removeContainers(containerIDs []string) {
+	for _, containerID := range containerIDs {
+		_ = a.containerClient.Kill(containerID, container.KillOptions{})
+		_ = a.containerClient.Remove(containerID, container.RemoveOptions{})
+	}
+}
+
+func (a *apiServer) writeContainerLogs(containerID string, jobID string, errC chan error) {
+	errC <- a.containerClient.Logs(
+		containerID,
+		container.LogsOptions{
+			Stdout: newJobLogWriter(
+				jobID,
+				pps.OutputStream_OUTPUT_STREAM_STDOUT,
+				a.persistAPIClient,
+			),
+			Stderr: newJobLogWriter(
+				jobID,
+				pps.OutputStream_OUTPUT_STREAM_STDERR,
+				a.persistAPIClient,
+			),
+		},
+	)
 }
 
 func getInputBinds(jobInputs []*pps.JobInput) []string {
