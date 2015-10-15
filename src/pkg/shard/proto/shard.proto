@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package routeproto;
+package shardproto;
 
 message ServerState {
     string id = 1;

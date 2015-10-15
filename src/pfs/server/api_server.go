@@ -15,6 +15,7 @@ import (
 	"github.com/satori/go.uuid"
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pfs/route"
+	"go.pachyderm.com/pachyderm/src/pkg/shard"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
 	"go.pedge.io/proto/time"
@@ -38,7 +39,7 @@ func newAPIServer(
 	return &apiServer{
 		sharder,
 		router,
-		route.InvalidVersion,
+		shard.InvalidVersion,
 		sync.RWMutex{},
 	}
 }
@@ -524,17 +525,11 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 }
 
 func (a *apiServer) InspectServer(ctx context.Context, request *pfs.InspectServerRequest) (*pfs.ServerInfo, error) {
-	return a.router.InspectServer(request.Server)
+	return nil, fmt.Errorf("not implemented")
 }
 
 func (a *apiServer) ListServer(ctx context.Context, request *pfs.ListServerRequest) (*pfs.ServerInfos, error) {
-	serverInfo, err := a.router.ListServer()
-	if err != nil {
-		return nil, err
-	}
-	return &pfs.ServerInfos{
-		ServerInfo: serverInfo,
-	}, nil
+	return nil, fmt.Errorf("not implemented")
 }
 
 func (a *apiServer) Version(version int64) error {
