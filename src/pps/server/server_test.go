@@ -56,6 +56,14 @@ func testCreateAndGetPipeline(t *testing.T, apiClient pps.APIClient) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, expectedPipeline, pipeline)
+	getPipeline, err := apiClient.GetPipeline(
+		context.Background(),
+		&pps.GetPipelineRequest{
+			PipelineName: "foo",
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, expectedPipeline, getPipeline)
 }
 
 func runTest(
