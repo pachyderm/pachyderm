@@ -61,11 +61,6 @@ type Frontend interface {
 	Version(version int64) error
 }
 
-// Announcer announces a server to the outside world.
-type Announcer interface {
-	Announce(address string, server Server) error
-}
-
 type Router interface {
 	GetMasterShards(version int64) (map[uint64]bool, error)
 	GetReplicaShards(version int64) (map[uint64]bool, error)
