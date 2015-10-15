@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
@@ -66,19 +68,48 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 }
 
 func (a *apiServer) GetJobStatus(ctx context.Context, request *pps.GetJobStatusRequest) (response *pps.JobStatus, err error) {
-	return nil, nil
+	persistJobStatuses, err := a.persistAPIClient.GetJobStatusesByJobID(ctx, &google_protobuf.StringValue{Value: request.JobId})
+	if err != nil {
+		return nil, err
+	}
+	if len(persistJobStatuses.JobStatus) == 0 {
+		return nil, fmt.Errorf("pachyderm.pps.server: no job statuses for %s", request.JobId)
+	}
+	return persistToJobStatus(persistJobStatuses.JobStatus[0]), nil
 }
 
 func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pps.API_GetJobLogsServer) (err error) {
+	persistJobLogs, err := a.persistAPIClient.GetJobLogsByJobID(context.Background(), &google_protobuf.StringValue{Value: request.JobId})
+	if err != nil {
+		return err
+	}
+	for _, persistJobLog := range persistJobLogs.JobLog {
+		if persistJobLog.OutputStream == request.OutputStream {
+			if err := responseServer.Send(&google_protobuf.BytesValue{Value: persistJobLog.Value}); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *pps.Pipeline, err error) {
-	return nil, nil
+	persistPipeline, err := a.persistAPIClient.CreatePipeline(ctx, pipelineToPersist(request.Pipeline))
+	if err != nil {
+		return nil, err
+	}
+	return persistToPipeline(persistPipeline), nil
 }
 
 func (a *apiServer) GetPipeline(ctx context.Context, request *pps.GetPipelineRequest) (response *pps.Pipeline, err error) {
-	return nil, nil
+	persistPipelines, err := a.persistAPIClient.GetPipelinesByName(ctx, &google_protobuf.StringValue{Value: request.PipelineName})
+	if err != nil {
+		return nil, err
+	}
+	if len(persistPipelines.Pipeline) == 0 {
+		return nil, fmt.Errorf("pachyderm.pps.server: no piplines for name %s", request.PipelineName)
+	}
+	return persistToPipeline(persistPipelines.Pipeline[0]), nil
 }
 
 func (a *apiServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (response *pps.Pipelines, err error) {
@@ -142,5 +173,31 @@ func persistToJobs(persistJobs *persist.Jobs) *pps.Jobs {
 	}
 	return &pps.Jobs{
 		Job: jobs,
+	}
+}
+
+func persistToJobStatus(persistJobStatus *persist.JobStatus) *pps.JobStatus {
+	return &pps.JobStatus{
+		Type:      persistJobStatus.Type,
+		Timestamp: persistJobStatus.Timestamp,
+		Message:   persistJobStatus.Message,
+	}
+}
+
+func pipelineToPersist(pipeline *pps.Pipeline) *persist.Pipeline {
+	return &persist.Pipeline{
+		Name:           pipeline.Name,
+		Transform:      pipeline.Transform,
+		PipelineInput:  pipeline.PipelineInput,
+		PipelineOutput: pipeline.PipelineOutput,
+	}
+}
+
+func persistToPipeline(persistPipeline *persist.Pipeline) *pps.Pipeline {
+	return &pps.Pipeline{
+		Name:           persistPipeline.Name,
+		Transform:      persistPipeline.Transform,
+		PipelineInput:  persistPipeline.PipelineInput,
+		PipelineOutput: persistPipeline.PipelineOutput,
 	}
 }
