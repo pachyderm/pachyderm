@@ -31,7 +31,6 @@ type Addresser interface {
 	Register(cancel chan bool, id string, address string, server Server) error
 	RegisterFrontend(cancel chan bool, address string, frontend Frontend) error
 	AssignRoles(chan bool) error
-	Version() (int64, error)
 }
 
 type TestAddresser interface {
@@ -49,9 +48,9 @@ func NewDiscoveryTestAddresser(discoveryClient discovery.Client, sharder Sharder
 
 type Server interface {
 	// AddShard tells the server it now has a role for a shard.
-	AddShard(shard uint64) error
+	AddShard(shard uint64, version int64) error
 	// RemoveShard tells the server it no longer has a role for a shard.
-	RemoveShard(shard uint64) error
+	RemoveShard(shard uint64, version int64) error
 	// LocalRoles asks the server which shards it has on disk and how many commits each shard has.
 	LocalShards() (map[uint64]bool, error)
 }
@@ -75,7 +74,6 @@ type Router interface {
 	GetMasterOrReplicaClientConn(shard uint64, version int64) (*grpc.ClientConn, error)
 	GetReplicaClientConns(shard uint64, version int64) ([]*grpc.ClientConn, error)
 	GetAllClientConns(version int64) ([]*grpc.ClientConn, error)
-	Version() (int64, error)
 	InspectServer(server *pfs.Server) (*pfs.ServerInfo, error)
 	ListServer() ([]*pfs.ServerInfo, error)
 }

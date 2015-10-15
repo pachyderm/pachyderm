@@ -455,27 +455,6 @@ func (a *discoveryAddresser) AssignRoles(cancel chan bool) (retErr error) {
 	return err
 }
 
-func (a *discoveryAddresser) Version() (result int64, retErr error) {
-	defer func() {
-		protolog.Debug(&log.Version{result, errorToString(retErr)})
-	}()
-	minVersion := int64(math.MaxInt64)
-	encodedServerStates, err := a.discoveryClient.GetAll(a.serverStateDir())
-	if err != nil {
-		return 0, err
-	}
-	for _, encodedServerState := range encodedServerStates {
-		serverState, err := decodeServerState(encodedServerState)
-		if err != nil {
-			return 0, err
-		}
-		if serverState.Version < minVersion {
-			minVersion = serverState.Version
-		}
-	}
-	return minVersion, nil
-}
-
 func (a *discoveryAddresser) WaitForAvailability(frontendIds []string, serverIds []string) error {
 	version := InvalidVersion
 	if err := a.discoveryClient.WatchAll(a.serverDir(), nil,
@@ -964,7 +943,7 @@ func (a *discoveryAddresser) fillRoles(
 						shard := shard
 						go func() {
 							defer wg.Done()
-							if err := server.AddShard(shard); err != nil && addShardErr == nil {
+							if err := server.AddShard(shard, version-1); err != nil && addShardErr == nil {
 								addShardErr = err
 							}
 						}()
@@ -993,7 +972,7 @@ func (a *discoveryAddresser) fillRoles(
 						shard := shard
 						go func(shard uint64) {
 							defer wg.Done()
-							if err := server.RemoveShard(shard); err != nil && removeShardErr == nil {
+							if err := server.RemoveShard(shard, version-1); err != nil && removeShardErr == nil {
 								removeShardErr = err
 							}
 						}(shard)
