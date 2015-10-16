@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package pachyderm.pps.watch;
+
+option go_package = "watch";
+
+message ChangeEvent {
+  enum Type {
+    CHANGE_EVENT_TYPE_NONE = 0;
+    CHANGE_EVENT_TYPE_CREATE = 1;
+    CHANGE_EVENT_TYPE_UPDATE = 2;
+    CHANGE_EVENT_TYPE_DELETE = 3;
+  }
+  Type type = 1;
+  string pipeline_name = 2;
+}
+
+service API {
+  rpc RegisterChangeEvent(ChangeEvent) returns (google.protobuf.Empty) {}
+}
