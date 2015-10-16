@@ -2,12 +2,14 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pachyderm.com/pachyderm/src/pps/watch"
 	"go.pedge.io/google-protobuf"
+	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 )
 
@@ -51,13 +53,7 @@ func (a *apiServer) Start(ctx context.Context, request *google_protobuf.Empty) (
 		return nil, err
 	}
 	for _, pipeline := range pipelines {
-		pipelineController := newPipelineController(
-			a.pfsAPIClient,
-			a.persistAPIClient,
-			pipeline,
-		)
-		a.pipelineNameToPipelineController[pipeline.Name] = pipelineController
-		if err := pipelineController.Start(); err != nil {
+		if err := a.addPipelineController(pipeline); err != nil {
 			return nil, err
 		}
 	}
@@ -65,7 +61,98 @@ func (a *apiServer) Start(ctx context.Context, request *google_protobuf.Empty) (
 }
 
 func (a *apiServer) RegisterChangeEvent(ctx context.Context, request *watch.ChangeEvent) (*google_protobuf.Empty, error) {
+	if request.Type == watch.ChangeEvent_CHANGE_EVENT_TYPE_NONE {
+		return nil, fmt.Errorf("pachyderm.pps.watch.server: change event type not set for %v", request)
+	}
+	if request.PipelineName == "" {
+		return nil, fmt.Errorf("pachyderm.pps.watch.server: pipeline name not set for %v", request)
+	}
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	switch request.Type {
+	case watch.ChangeEvent_CHANGE_EVENT_TYPE_CREATE:
+		if !a.pipelineRegistered(request.PipelineName) {
+			pipeline, err := a.getPipeline(request.PipelineName)
+			if err != nil {
+				return nil, err
+			}
+			if err := a.addPipelineController(pipeline); err != nil {
+				return nil, err
+			}
+			// TODO(pedge): what to do?
+		} else {
+			protolog.Warnf("pachyderm.pps.watch.server: had a create change event for an existing pipeline: %v", request)
+			fallthrough
+		}
+	case watch.ChangeEvent_CHANGE_EVENT_TYPE_UPDATE:
+		if !a.pipelineRegistered(request.PipelineName) {
+			protolog.Warnf("pachyderm.pps.watch.server: had an update change event for a pipeline that was not registered: %v", request)
+			pipeline, err := a.getPipeline(request.PipelineName)
+			if err != nil {
+				return nil, err
+			}
+			if err := a.addPipelineController(pipeline); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := a.removePipelineController(request.PipelineName); err != nil {
+				return nil, err
+			}
+			pipeline, err := a.getPipeline(request.PipelineName)
+			if err != nil {
+				return nil, err
+			}
+			if err := a.addPipelineController(pipeline); err != nil {
+				return nil, err
+			}
+		}
+	case watch.ChangeEvent_CHANGE_EVENT_TYPE_DELETE:
+		if !a.pipelineRegistered(request.PipelineName) {
+			protolog.Warnf("pachyderm.pps.watch.server: had a delete change event for a pipeline that was not registered: %v", request)
+		} else {
+			if err := a.removePipelineController(request.PipelineName); err != nil {
+				return nil, err
+			}
+		}
+	default:
+		return nil, fmt.Errorf("pachyderm.pps.watch.server: unknown change event type: %v", request.Type)
+	}
 	return emptyInstance, nil
+}
+
+func (a *apiServer) pipelineRegistered(name string) bool {
+	_, ok := a.pipelineNameToPipelineController[name]
+	return ok
+}
+
+func (a *apiServer) addPipelineController(pipeline *persist.Pipeline) error {
+	pipelineController := newPipelineController(
+		a.pfsAPIClient,
+		a.persistAPIClient,
+		pipeline,
+	)
+	a.pipelineNameToPipelineController[pipeline.Name] = pipelineController
+	return pipelineController.Start()
+}
+
+func (a *apiServer) removePipelineController(name string) error {
+	pipelineController, ok := a.pipelineNameToPipelineController[name]
+	if !ok {
+		return fmt.Errorf("pachyderm.pps.watch.server: no pipeline registered for name: %s", name)
+	}
+	pipelineController.Cancel()
+	return nil
+}
+
+func (a *apiServer) getPipeline(name string) (*persist.Pipeline, error) {
+	pipelines, err := a.persistAPIClient.GetPipelinesByName(context.Background(), &google_protobuf.StringValue{Value: name})
+	if err != nil {
+		return nil, err
+	}
+	if len(pipelines.Pipeline) == 0 {
+		return nil, fmt.Errorf("pachyderm.pps.watch.server: no piplines for name %s", name)
+	}
+	return pipelines.Pipeline[0], nil
 }
 
 func (a *apiServer) getAllPipelines() ([]*persist.Pipeline, error) {
