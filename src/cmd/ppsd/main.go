@@ -6,9 +6,12 @@ import (
 	"os"
 	"strings"
 
+	"golang.org/x/net/context"
+
 	"github.com/fsouza/go-dockerclient"
 
 	"go.pedge.io/env"
+	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/server"
 
 	"go.pachyderm.com/pachyderm"
@@ -69,6 +72,9 @@ func do(appEnvObj interface{}) error {
 	pfsAPIClient := pfs.NewApiClient(clientConn)
 	watchAPIServer := watchserver.NewAPIServer(pfsAPIClient, rethinkAPIClient)
 	watchAPIClient := watch.NewLocalAPIClient(watchAPIServer)
+	if _, err := watchAPIClient.Start(context.Background(), &google_protobuf.Empty{}); err != nil {
+		return err
+	}
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
