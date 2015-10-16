@@ -18,6 +18,8 @@ import (
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	persistserver "go.pachyderm.com/pachyderm/src/pps/persist/server"
 	"go.pachyderm.com/pachyderm/src/pps/server"
+	"go.pachyderm.com/pachyderm/src/pps/watch"
+	watchserver "go.pachyderm.com/pachyderm/src/pps/watch/server"
 	"google.golang.org/grpc"
 )
 
@@ -65,11 +67,12 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	pfsAPIClient := pfs.NewApiClient(clientConn)
-	fmt.Println(pfsAPIClient)
+	watchAPIServer := watchserver.NewAPIServer(pfsAPIClient, rethinkAPIClient)
+	watchAPIClient := watch.NewLocalAPIClient(watchAPIServer)
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
-			pps.RegisterAPIServer(s, server.NewAPIServer(rethinkAPIClient, containerClient))
+			pps.RegisterAPIServer(s, server.NewAPIServer(rethinkAPIClient, watchAPIClient, containerClient))
 		},
 		protoserver.ServeOptions{
 			DebugPort: uint16(appEnv.DebugPort),
