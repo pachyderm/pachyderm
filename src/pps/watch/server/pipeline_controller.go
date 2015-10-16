@@ -14,7 +14,7 @@ const (
 )
 
 type pipelineController struct {
-	pfsAPIClient     pfs.ApiClient
+	pfsAPIClient     pfs.APIClient
 	persistAPIClient persist.APIClient
 
 	pipeline        *persist.Pipeline
@@ -23,7 +23,7 @@ type pipelineController struct {
 }
 
 func newPipelineController(
-	pfsAPIClient pfs.ApiClient,
+	pfsAPIClient pfs.APIClient,
 	persistAPIClient persist.APIClient,
 	pipeline *persist.Pipeline,
 ) *pipelineController {

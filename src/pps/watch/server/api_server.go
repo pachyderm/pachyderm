@@ -18,7 +18,7 @@ var (
 )
 
 type apiServer struct {
-	pfsAPIClient     pfs.ApiClient
+	pfsAPIClient     pfs.APIClient
 	persistAPIClient persist.APIClient
 
 	started                          bool
@@ -27,7 +27,7 @@ type apiServer struct {
 }
 
 func newAPIServer(
-	pfsAPIClient pfs.ApiClient,
+	pfsAPIClient pfs.APIClient,
 	persistAPIClient persist.APIClient,
 ) *apiServer {
 	return &apiServer{

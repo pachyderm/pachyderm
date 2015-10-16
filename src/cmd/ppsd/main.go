@@ -69,7 +69,7 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	pfsAPIClient := pfs.NewApiClient(clientConn)
+	pfsAPIClient := pfs.NewAPIClient(clientConn)
 	watchAPIServer := watchserver.NewAPIServer(pfsAPIClient, rethinkAPIClient)
 	watchAPIClient := watch.NewLocalAPIClient(watchAPIServer)
 	if _, err := watchAPIClient.Start(context.Background(), &google_protobuf.Empty{}); err != nil {

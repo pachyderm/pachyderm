@@ -48,7 +48,7 @@ func (m *mounterProvider) getOnce() (Mounter, error) {
 		return nil, err
 	}
 	return NewMounter(
-		pfs.NewApiClient(
+		pfs.NewAPIClient(
 			clientConn,
 		),
 	), nil

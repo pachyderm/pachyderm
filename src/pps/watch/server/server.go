@@ -7,7 +7,7 @@ import (
 )
 
 func NewAPIServer(
-	pfsAPIClient pfs.ApiClient,
+	pfsAPIClient pfs.APIClient,
 	persistAPIClient persist.APIClient,
 ) watch.APIServer {
 	return newAPIServer(

@@ -169,7 +169,7 @@ func runTest(
 	persistAPIClient := persist.NewLocalAPIClient(persistAPIServer)
 	pfstesting.RunTest(
 		t,
-		func(t *testing.T, apiClient pfs.ApiClient, internalApiClient pfs.InternalApiClient, cluster pfstesting.Cluster) {
+		func(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.InternalAPIClient, cluster pfstesting.Cluster) {
 			prototest.RunT(
 				t,
 				testNumServers,

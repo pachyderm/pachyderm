@@ -49,7 +49,7 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	apiClient := pfs.NewApiClient(clientConn)
+	apiClient := pfs.NewAPIClient(clientConn)
 
 	var shard int
 	var modulus int

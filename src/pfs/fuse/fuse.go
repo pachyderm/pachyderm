@@ -22,7 +22,7 @@ type Mounter interface {
 	Wait(mountPoint string) error
 }
 
-func NewMounter(apiClient pfs.ApiClient) Mounter {
+func NewMounter(apiClient pfs.APIClient) Mounter {
 	return newMounter(apiClient)
 }
 
