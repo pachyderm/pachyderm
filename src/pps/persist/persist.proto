@@ -17,6 +17,9 @@ message Job {
   }
   repeated pps.JobInput job_input = 4;
   repeated pps.JobOutput job_output = 5;
+  // TODO(pedge): we might want to have ACL for PPS API access, in which case
+  // this would become user/created_by_user
+  bool created_from_watch = 6;
 }
 
 message Jobs {

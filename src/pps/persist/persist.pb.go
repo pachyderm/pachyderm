@@ -46,6 +46,9 @@ type Job struct {
 	Spec      isJob_Spec                 `protobuf_oneof:"spec"`
 	JobInput  []*pachyderm_pps.JobInput  `protobuf:"bytes,4,rep,name=job_input" json:"job_input,omitempty"`
 	JobOutput []*pachyderm_pps.JobOutput `protobuf:"bytes,5,rep,name=job_output" json:"job_output,omitempty"`
+	// TODO(pedge): we might want to have ACL for PPS API access, in which case
+	// this would become user/created_by_user
+	CreatedFromWatch bool `protobuf:"varint,6,opt,name=created_from_watch" json:"created_from_watch,omitempty"`
 }
 
 func (m *Job) Reset()         { *m = Job{} }
