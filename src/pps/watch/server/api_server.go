@@ -1,9 +1,10 @@
-package watch
+package server
 
 import (
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"go.pachyderm.com/pachyderm/src/pps/watch"
 	"go.pedge.io/google-protobuf"
 	"golang.org/x/net/context"
 )
@@ -34,6 +35,6 @@ func (a *apiServer) Start(ctx context.Context, request *google_protobuf.Empty) (
 	return emptyInstance, nil
 }
 
-func (a *apiServer) RegisterChangeEvent(ctx context.Context, request *ChangeEvent) (*google_protobuf.Empty, error) {
+func (a *apiServer) RegisterChangeEvent(ctx context.Context, request *watch.ChangeEvent) (*google_protobuf.Empty, error) {
 	return emptyInstance, nil
 }

@@ -9,7 +9,3 @@ import (
 func NewAPIServer(persistAPIClient persist.APIClient, containerClient container.Client) pps.APIServer {
 	return newLogAPIServer(newAPIServer(persistAPIClient, containerClient))
 }
-
-func NewLocalAPIClient(apiServer pps.APIServer) pps.APIClient {
-	return newLocalAPIClient(apiServer)
-}

@@ -16,6 +16,7 @@ import (
 	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
+	persistserver "go.pachyderm.com/pachyderm/src/pps/persist/server"
 	"go.pachyderm.com/pachyderm/src/pps/server"
 	"google.golang.org/grpc"
 )
@@ -93,10 +94,10 @@ func getRethinkAPIClient(address string, databaseName string) (persist.APIClient
 			return nil, err
 		}
 	}
-	if err := persist.InitDBs(address, databaseName); err != nil {
+	if err := persistserver.InitDBs(address, databaseName); err != nil {
 		return nil, err
 	}
-	rethinkAPIServer, err := persist.NewRethinkAPIServer(address, databaseName)
+	rethinkAPIServer, err := persistserver.NewRethinkAPIServer(address, databaseName)
 	if err != nil {
 		return nil, err
 	}
