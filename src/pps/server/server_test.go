@@ -23,6 +23,7 @@ import (
 	"go.pachyderm.com/pachyderm/src/pkg/require"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
+	persistserver "go.pachyderm.com/pachyderm/src/pps/persist/server"
 	"google.golang.org/grpc"
 )
 
@@ -207,10 +208,10 @@ func getTestRethinkAPIServer() (persist.APIServer, error) {
 		return nil, err
 	}
 	databaseName := strings.Replace(uuid.NewV4().String(), "-", "", -1)
-	if err := persist.InitDBs(address, databaseName); err != nil {
+	if err := persistserver.InitDBs(address, databaseName); err != nil {
 		return nil, err
 	}
-	return persist.NewRethinkAPIServer(address, databaseName)
+	return persistserver.NewRethinkAPIServer(address, databaseName)
 }
 
 func getTestRethinkAddress() (string, error) {
