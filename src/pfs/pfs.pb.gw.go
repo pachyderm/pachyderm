@@ -30,10 +30,10 @@ var _ = json.Marshal
 var _ = utilities.PascalFromSnake
 
 var (
-	filter_Api_CreateRepo_0 = &utilities.DoubleArray{Encoding: map[string]int{"repo": 0, "name": 1}, Base: []int{1, 1, 1, 0}, Check: []int{0, 1, 2, 3}}
+	filter_API_CreateRepo_0 = &utilities.DoubleArray{Encoding: map[string]int{"repo": 0, "name": 1}, Base: []int{1, 1, 1, 0}, Check: []int{0, 1, 2, 3}}
 )
 
-func request_Api_CreateRepo_0(ctx context.Context, client ApiClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+func request_API_CreateRepo_0(ctx context.Context, client APIClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
 	var protoReq CreateRepoRequest
 
 	var (
@@ -54,16 +54,16 @@ func request_Api_CreateRepo_0(ctx context.Context, client ApiClient, req *http.R
 		return nil, err
 	}
 
-	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Api_CreateRepo_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_API_CreateRepo_0); err != nil {
 		return nil, grpc.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	return client.CreateRepo(ctx, &protoReq)
 }
 
-// RegisterApiHandlerFromEndpoint is same as RegisterApiHandler but
+// RegisterAPIHandlerFromEndpoint is same as RegisterAPIHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterApiHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string) (err error) {
+func RegisterAPIHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string) (err error) {
 	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
 	if err != nil {
 		return err
@@ -83,22 +83,22 @@ func RegisterApiHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, 
 		}()
 	}()
 
-	return RegisterApiHandler(ctx, mux, conn)
+	return RegisterAPIHandler(ctx, mux, conn)
 }
 
-// RegisterApiHandler registers the http handlers for service Api to "mux".
+// RegisterAPIHandler registers the http handlers for service API to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterApiHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	client := NewApiClient(conn)
+func RegisterAPIHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	client := NewAPIClient(conn)
 
-	mux.Handle("PUT", pattern_Api_CreateRepo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		resp, err := request_Api_CreateRepo_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+	mux.Handle("PUT", pattern_API_CreateRepo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		resp, err := request_API_CreateRepo_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
 		if err != nil {
 			runtime.HTTPError(ctx, w, err)
 			return
 		}
 
-		forward_Api_CreateRepo_0(ctx, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_API_CreateRepo_0(ctx, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -106,9 +106,9 @@ func RegisterApiHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.C
 }
 
 var (
-	pattern_Api_CreateRepo_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"repos", "repo.name"}, ""))
+	pattern_API_CreateRepo_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 1, 0, 4, 1, 5, 1}, []string{"repos", "repo.name"}, ""))
 )
 
 var (
-	forward_Api_CreateRepo_0 = runtime.ForwardResponseMessage
+	forward_API_CreateRepo_0 = runtime.ForwardResponseMessage
 )

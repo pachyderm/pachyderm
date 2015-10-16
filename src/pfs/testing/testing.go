@@ -35,7 +35,7 @@ var (
 
 func RunTest(
 	t *testing.T,
-	f func(*testing.T, pfs.ApiClient, pfs.InternalApiClient, Cluster),
+	f func(*testing.T, pfs.APIClient, pfs.InternalAPIClient, Cluster),
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(t, err)
@@ -58,10 +58,10 @@ func RunTest(
 			cluster.WaitForAvailability()
 			f(
 				t,
-				pfs.NewApiClient(
+				pfs.NewAPIClient(
 					clientConn,
 				),
-				pfs.NewInternalApiClient(
+				pfs.NewInternalAPIClient(
 					clientConn,
 				),
 				cluster,
@@ -73,7 +73,7 @@ func RunTest(
 
 func RunBench(
 	b *testing.B,
-	f func(*testing.B, pfs.ApiClient),
+	f func(*testing.B, pfs.APIClient),
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(b, err)
@@ -96,7 +96,7 @@ func RunBench(
 			cluster.WaitForAvailability()
 			f(
 				b,
-				pfs.NewApiClient(
+				pfs.NewAPIClient(
 					clientConn,
 				),
 			)
@@ -218,7 +218,7 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		go func(address string) {
 			require.Equal(tb, cluster.addresser.RegisterFrontend(cluster.cancels[address], address, cluster.servers[address]), route.ErrCancelled)
 		}(address)
-		pfs.RegisterApiServer(s, apiServer)
+		pfs.RegisterAPIServer(s, apiServer)
 		internalAPIServer := server.NewInternalAPIServer(
 			cluster.sharder,
 			route.NewRouter(
@@ -230,7 +230,7 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 			),
 			getDriver(tb, address),
 		)
-		pfs.RegisterInternalApiServer(s, internalAPIServer)
+		pfs.RegisterInternalAPIServer(s, internalAPIServer)
 		cluster.internalServers[address] = internalAPIServer
 		cluster.internalCancels[address] = make(chan bool)
 		go func(address string) {
