@@ -74,6 +74,7 @@ var _ grpc.ClientConn
 // Client API for API service
 
 type APIClient interface {
+	Start(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	RegisterChangeEvent(ctx context.Context, in *ChangeEvent, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 }
 
@@ -83,6 +84,15 @@ type aPIClient struct {
 
 func NewAPIClient(cc *grpc.ClientConn) APIClient {
 	return &aPIClient{cc}
+}
+
+func (c *aPIClient) Start(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.watch.API/Start", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *aPIClient) RegisterChangeEvent(ctx context.Context, in *ChangeEvent, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
@@ -97,11 +107,24 @@ func (c *aPIClient) RegisterChangeEvent(ctx context.Context, in *ChangeEvent, op
 // Server API for API service
 
 type APIServer interface {
+	Start(context.Context, *google_protobuf.Empty) (*google_protobuf.Empty, error)
 	RegisterChangeEvent(context.Context, *ChangeEvent) (*google_protobuf.Empty, error)
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 	s.RegisterService(&_API_serviceDesc, srv)
+}
+
+func _API_Start_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(google_protobuf.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).Start(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func _API_RegisterChangeEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
@@ -120,6 +143,10 @@ var _API_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pachyderm.pps.watch.API",
 	HandlerType: (*APIServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Start",
+			Handler:    _API_Start_Handler,
+		},
 		{
 			MethodName: "RegisterChangeEvent",
 			Handler:    _API_RegisterChangeEvent_Handler,
