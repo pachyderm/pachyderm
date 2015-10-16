@@ -24,6 +24,8 @@ import (
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	persistserver "go.pachyderm.com/pachyderm/src/pps/persist/server"
+	"go.pachyderm.com/pachyderm/src/pps/watch"
+	watchserver "go.pachyderm.com/pachyderm/src/pps/watch/server"
 	"google.golang.org/grpc"
 )
 
@@ -172,8 +174,10 @@ func runTest(
 				t,
 				testNumServers,
 				func(servers map[string]*grpc.Server) {
+					watchAPIServer := watchserver.NewAPIServer(apiClient, persistAPIClient)
+					watchAPIClient := watch.NewLocalAPIClient(watchAPIServer)
 					for _, server := range servers {
-						pps.RegisterAPIServer(server, NewAPIServer(persistAPIClient, containerClient))
+						pps.RegisterAPIServer(server, NewAPIServer(persistAPIClient, watchAPIServer, containerClient))
 					}
 				},
 				func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
