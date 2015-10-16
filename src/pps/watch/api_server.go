@@ -30,6 +30,10 @@ func newAPIServer(
 	}
 }
 
+func (a *apiServer) Start(ctx context.Context, request *google_protobuf.Empty) (*google_protobuf.Empty, error) {
+	return emptyInstance, nil
+}
+
 func (a *apiServer) RegisterChangeEvent(ctx context.Context, request *ChangeEvent) (*google_protobuf.Empty, error) {
 	return emptyInstance, nil
 }

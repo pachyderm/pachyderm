@@ -18,5 +18,6 @@ message ChangeEvent {
 }
 
 service API {
+  rpc Start(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc RegisterChangeEvent(ChangeEvent) returns (google.protobuf.Empty) {}
 }
