@@ -82,7 +82,16 @@ func (a *apiServer) RegisterChangeEvent(ctx context.Context, request *watch.Chan
 			// TODO(pedge): what to do?
 		} else {
 			protolog.Warnf("pachyderm.pps.watch.server: had a create change event for an existing pipeline: %v", request)
-			fallthrough
+			if err := a.removePipelineController(request.PipelineName); err != nil {
+				return nil, err
+			}
+			pipeline, err := a.getPipeline(request.PipelineName)
+			if err != nil {
+				return nil, err
+			}
+			if err := a.addPipelineController(pipeline); err != nil {
+				return nil, err
+			}
 		}
 	case watch.ChangeEvent_CHANGE_EVENT_TYPE_UPDATE:
 		if !a.pipelineRegistered(request.PipelineName) {
