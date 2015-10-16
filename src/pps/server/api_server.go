@@ -112,6 +112,16 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err != nil {
 		return nil, err
 	}
+	if _, err := a.watchAPIClient.RegisterChangeEvent(
+		ctx,
+		&watch.ChangeEvent{
+			Type:         watch.ChangeEvent_CHANGE_EVENT_TYPE_CREATE,
+			PipelineName: persistPipeline.Name,
+		},
+	); err != nil {
+		// TODO(pedge): need to roll back the db create
+		return nil, err
+	}
 	return persistToPipeline(persistPipeline), nil
 }
 
