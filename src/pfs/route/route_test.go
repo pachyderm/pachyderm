@@ -10,6 +10,7 @@ import (
 
 	"go.pachyderm.com/pachyderm/src/pkg/discovery"
 	"go.pachyderm.com/pachyderm/src/pkg/require"
+	"go.pachyderm.com/pachyderm/src/pkg/shard"
 )
 
 const (
@@ -67,19 +68,19 @@ func (f *frontend) Version(version int64) error {
 }
 
 func newFrontend(t *testing.T) *frontend {
-	return &frontend{InvalidVersion}
+	return &frontend{shard.InvalidVersion}
 }
 
 type serverGroup struct {
 	servers   []*server
 	frontends []*frontend
 	cancel    chan bool
-	addresser Addresser
+	sharder   shard.Sharder
 	offset    int
 }
 
-func NewServerGroup(t *testing.T, addresser Addresser, numServers int, offset int) *serverGroup {
-	serverGroup := serverGroup{cancel: make(chan bool), addresser: addresser, offset: offset}
+func NewServerGroup(t *testing.T, sharder shard.Sharder, numServers int, offset int) *serverGroup {
+	serverGroup := serverGroup{cancel: make(chan bool), sharder: sharder, offset: offset}
 	for i := 0; i < numServers; i++ {
 		serverGroup.servers = append(serverGroup.servers, newServer(t))
 	}
@@ -91,25 +92,29 @@ func (s *serverGroup) run(t *testing.T) {
 	defer wg.Wait()
 	for i, server := range s.servers {
 		wg.Add(1)
-		go func(i int, server Server) {
+		i := i
+		server := server
+		go func() {
 			defer wg.Done()
 			require.Equal(
 				t,
-				ErrCancelled,
-				s.addresser.Register(s.cancel, fmt.Sprintf("server-%d", i+s.offset), fmt.Sprintf("address-%d", i+s.offset), server),
+				shard.ErrCancelled,
+				s.sharder.Register(s.cancel, fmt.Sprintf("server-%d", i+s.offset), fmt.Sprintf("address-%d", i+s.offset), server),
 			)
-		}(i, server)
+		}()
 	}
 	for i, frontend := range s.frontends {
 		wg.Add(1)
-		go func(i int, frontend Frontend) {
+		i := i
+		frontend := frontend
+		go func() {
 			defer wg.Done()
 			require.Equal(
 				t,
-				ErrCancelled,
-				s.addresser.RegisterFrontend(s.cancel, fmt.Sprintf("address-%d", i+s.offset), frontend),
+				shard.ErrCancelled,
+				s.sharder.RegisterFrontend(s.cancel, fmt.Sprintf("address-%d", i+s.offset), frontend),
 			)
-		}(i, frontend)
+		}()
 	}
 }
 
@@ -124,16 +129,15 @@ func (s *serverGroup) satisfied(shardsLen int) bool {
 }
 
 func runMasterOnlyTest(t *testing.T, client discovery.Client) {
-	sharder := NewSharder(testNumShards, 0)
-	addresser := NewDiscoveryAddresser(client, sharder, "TestMasterOnly")
+	sharder := shard.NewSharder(client, testNumShards, 0, "TestMasterOnly")
 	cancel := make(chan bool)
 	go func() {
-		require.Equal(t, ErrCancelled, addresser.AssignRoles(cancel))
+		require.Equal(t, shard.ErrCancelled, sharder.AssignRoles(cancel))
 	}()
 	defer func() {
 		close(cancel)
 	}()
-	serverGroup1 := NewServerGroup(t, addresser, testNumServers/2, 0)
+	serverGroup1 := NewServerGroup(t, sharder, testNumServers/2, 0)
 	go serverGroup1.run(t)
 	start := time.Now()
 	for !serverGroup1.satisfied(testNumShards / (testNumServers / 2)) {
@@ -142,7 +146,7 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 			t.Fatal("test timed out")
 		}
 	}
-	serverGroup2 := NewServerGroup(t, addresser, testNumServers/2, testNumServers/2)
+	serverGroup2 := NewServerGroup(t, sharder, testNumServers/2, testNumServers/2)
 	go serverGroup2.run(t)
 	start = time.Now()
 	for !serverGroup1.satisfied(testNumShards/testNumServers) || !serverGroup2.satisfied(testNumShards/testNumServers) {
@@ -162,16 +166,15 @@ func runMasterOnlyTest(t *testing.T, client discovery.Client) {
 }
 
 func runMasterReplicaTest(t *testing.T, client discovery.Client) {
-	sharder := NewSharder(testNumShards, testNumReplicas)
-	addresser := NewDiscoveryAddresser(client, sharder, "TestMasterReplica")
+	sharder := shard.NewSharder(client, testNumShards, testNumReplicas, "TestMasterReplica")
 	cancel := make(chan bool)
 	go func() {
-		require.Equal(t, ErrCancelled, addresser.AssignRoles(cancel))
+		require.Equal(t, shard.ErrCancelled, sharder.AssignRoles(cancel))
 	}()
 	defer func() {
 		close(cancel)
 	}()
-	serverGroup1 := NewServerGroup(t, addresser, testNumServers/2, 0)
+	serverGroup1 := NewServerGroup(t, sharder, testNumServers/2, 0)
 	go serverGroup1.run(t)
 	start := time.Now()
 	for !serverGroup1.satisfied((testNumShards * (testNumReplicas + 1)) / (testNumServers / 2)) {
@@ -181,7 +184,7 @@ func runMasterReplicaTest(t *testing.T, client discovery.Client) {
 		}
 	}
 
-	serverGroup2 := NewServerGroup(t, addresser, testNumServers/2, testNumServers/2)
+	serverGroup2 := NewServerGroup(t, sharder, testNumServers/2, testNumServers/2)
 	go serverGroup2.run(t)
 	start = time.Now()
 	for !serverGroup1.satisfied((testNumShards*(testNumReplicas+1))/testNumServers) ||
