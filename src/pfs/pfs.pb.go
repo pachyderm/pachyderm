@@ -853,9 +853,9 @@ func init() {
 var _ context.Context
 var _ grpc.ClientConn
 
-// Client API for Api service
+// Client API for API service
 
-type ApiClient interface {
+type APIClient interface {
 	// Repo rpcs
 	// CreateRepo creates a new repo.
 	// An error is returned if the repo already exists.
@@ -881,16 +881,16 @@ type ApiClient interface {
 	// PutBlock writes the specified block to the block store.
 	PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*Block, error)
 	// GetBlock returns a byte stream of the contents of the block.
-	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (Api_GetBlockClient, error)
+	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (API_GetBlockClient, error)
 	// InspectBlock returns info about a block.
 	InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error)
 	// ListBlock returns info about all blocks.
 	ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
-	PutFile(ctx context.Context, opts ...grpc.CallOption) (Api_PutFileClient, error)
+	PutFile(ctx context.Context, opts ...grpc.CallOption) (API_PutFileClient, error)
 	// GetFile returns a byte stream of the contents of the file.
-	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error)
+	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (API_GetFileClient, error)
 	// InspectFile returns info about a file.
 	InspectFile(ctx context.Context, in *InspectFileRequest, opts ...grpc.CallOption) (*FileInfo, error)
 	// ListFile returns info about all files.
@@ -906,110 +906,110 @@ type ApiClient interface {
 	ListServer(ctx context.Context, in *ListServerRequest, opts ...grpc.CallOption) (*ServerInfos, error)
 }
 
-type apiClient struct {
+type aPIClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewApiClient(cc *grpc.ClientConn) ApiClient {
-	return &apiClient{cc}
+func NewAPIClient(cc *grpc.ClientConn) APIClient {
+	return &aPIClient{cc}
 }
 
-func (c *apiClient) CreateRepo(ctx context.Context, in *CreateRepoRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *aPIClient) CreateRepo(ctx context.Context, in *CreateRepoRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.Api/CreateRepo", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/CreateRepo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) InspectRepo(ctx context.Context, in *InspectRepoRequest, opts ...grpc.CallOption) (*RepoInfo, error) {
+func (c *aPIClient) InspectRepo(ctx context.Context, in *InspectRepoRequest, opts ...grpc.CallOption) (*RepoInfo, error) {
 	out := new(RepoInfo)
-	err := grpc.Invoke(ctx, "/pfs.Api/InspectRepo", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/InspectRepo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) ListRepo(ctx context.Context, in *ListRepoRequest, opts ...grpc.CallOption) (*RepoInfos, error) {
+func (c *aPIClient) ListRepo(ctx context.Context, in *ListRepoRequest, opts ...grpc.CallOption) (*RepoInfos, error) {
 	out := new(RepoInfos)
-	err := grpc.Invoke(ctx, "/pfs.Api/ListRepo", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/ListRepo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *aPIClient) DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.Api/DeleteRepo", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/DeleteRepo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) StartCommit(ctx context.Context, in *StartCommitRequest, opts ...grpc.CallOption) (*Commit, error) {
+func (c *aPIClient) StartCommit(ctx context.Context, in *StartCommitRequest, opts ...grpc.CallOption) (*Commit, error) {
 	out := new(Commit)
-	err := grpc.Invoke(ctx, "/pfs.Api/StartCommit", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/StartCommit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) FinishCommit(ctx context.Context, in *FinishCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *aPIClient) FinishCommit(ctx context.Context, in *FinishCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.Api/FinishCommit", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/FinishCommit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) InspectCommit(ctx context.Context, in *InspectCommitRequest, opts ...grpc.CallOption) (*CommitInfo, error) {
+func (c *aPIClient) InspectCommit(ctx context.Context, in *InspectCommitRequest, opts ...grpc.CallOption) (*CommitInfo, error) {
 	out := new(CommitInfo)
-	err := grpc.Invoke(ctx, "/pfs.Api/InspectCommit", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/InspectCommit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) ListCommit(ctx context.Context, in *ListCommitRequest, opts ...grpc.CallOption) (*CommitInfos, error) {
+func (c *aPIClient) ListCommit(ctx context.Context, in *ListCommitRequest, opts ...grpc.CallOption) (*CommitInfos, error) {
 	out := new(CommitInfos)
-	err := grpc.Invoke(ctx, "/pfs.Api/ListCommit", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/ListCommit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) DeleteCommit(ctx context.Context, in *DeleteCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *aPIClient) DeleteCommit(ctx context.Context, in *DeleteCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.Api/DeleteCommit", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/DeleteCommit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*Block, error) {
+func (c *aPIClient) PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*Block, error) {
 	out := new(Block)
-	err := grpc.Invoke(ctx, "/pfs.Api/PutBlock", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/PutBlock", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (Api_GetBlockClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Api_serviceDesc.Streams[0], c.cc, "/pfs.Api/GetBlock", opts...)
+func (c *aPIClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (API_GetBlockClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[0], c.cc, "/pfs.API/GetBlock", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &apiGetBlockClient{stream}
+	x := &aPIGetBlockClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -1019,16 +1019,16 @@ func (c *apiClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...g
 	return x, nil
 }
 
-type Api_GetBlockClient interface {
+type API_GetBlockClient interface {
 	Recv() (*google_protobuf3.BytesValue, error)
 	grpc.ClientStream
 }
 
-type apiGetBlockClient struct {
+type aPIGetBlockClient struct {
 	grpc.ClientStream
 }
 
-func (x *apiGetBlockClient) Recv() (*google_protobuf3.BytesValue, error) {
+func (x *aPIGetBlockClient) Recv() (*google_protobuf3.BytesValue, error) {
 	m := new(google_protobuf3.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -1036,48 +1036,48 @@ func (x *apiGetBlockClient) Recv() (*google_protobuf3.BytesValue, error) {
 	return m, nil
 }
 
-func (c *apiClient) InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error) {
+func (c *aPIClient) InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error) {
 	out := new(BlockInfo)
-	err := grpc.Invoke(ctx, "/pfs.Api/InspectBlock", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/InspectBlock", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error) {
+func (c *aPIClient) ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error) {
 	out := new(BlockInfos)
-	err := grpc.Invoke(ctx, "/pfs.Api/ListBlock", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/ListBlock", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) PutFile(ctx context.Context, opts ...grpc.CallOption) (Api_PutFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Api_serviceDesc.Streams[1], c.cc, "/pfs.Api/PutFile", opts...)
+func (c *aPIClient) PutFile(ctx context.Context, opts ...grpc.CallOption) (API_PutFileClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[1], c.cc, "/pfs.API/PutFile", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &apiPutFileClient{stream}
+	x := &aPIPutFileClient{stream}
 	return x, nil
 }
 
-type Api_PutFileClient interface {
+type API_PutFileClient interface {
 	Send(*PutFileRequest) error
 	CloseAndRecv() (*google_protobuf1.Empty, error)
 	grpc.ClientStream
 }
 
-type apiPutFileClient struct {
+type aPIPutFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *apiPutFileClient) Send(m *PutFileRequest) error {
+func (x *aPIPutFileClient) Send(m *PutFileRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *apiPutFileClient) CloseAndRecv() (*google_protobuf1.Empty, error) {
+func (x *aPIPutFileClient) CloseAndRecv() (*google_protobuf1.Empty, error) {
 	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
 	}
@@ -1088,12 +1088,12 @@ func (x *apiPutFileClient) CloseAndRecv() (*google_protobuf1.Empty, error) {
 	return m, nil
 }
 
-func (c *apiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (Api_GetFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_Api_serviceDesc.Streams[2], c.cc, "/pfs.Api/GetFile", opts...)
+func (c *aPIClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (API_GetFileClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[2], c.cc, "/pfs.API/GetFile", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &apiGetFileClient{stream}
+	x := &aPIGetFileClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -1103,16 +1103,16 @@ func (c *apiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grp
 	return x, nil
 }
 
-type Api_GetFileClient interface {
+type API_GetFileClient interface {
 	Recv() (*google_protobuf3.BytesValue, error)
 	grpc.ClientStream
 }
 
-type apiGetFileClient struct {
+type aPIGetFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *apiGetFileClient) Recv() (*google_protobuf3.BytesValue, error) {
+func (x *aPIGetFileClient) Recv() (*google_protobuf3.BytesValue, error) {
 	m := new(google_protobuf3.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -1120,63 +1120,63 @@ func (x *apiGetFileClient) Recv() (*google_protobuf3.BytesValue, error) {
 	return m, nil
 }
 
-func (c *apiClient) InspectFile(ctx context.Context, in *InspectFileRequest, opts ...grpc.CallOption) (*FileInfo, error) {
+func (c *aPIClient) InspectFile(ctx context.Context, in *InspectFileRequest, opts ...grpc.CallOption) (*FileInfo, error) {
 	out := new(FileInfo)
-	err := grpc.Invoke(ctx, "/pfs.Api/InspectFile", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/InspectFile", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) ListFile(ctx context.Context, in *ListFileRequest, opts ...grpc.CallOption) (*FileInfos, error) {
+func (c *aPIClient) ListFile(ctx context.Context, in *ListFileRequest, opts ...grpc.CallOption) (*FileInfos, error) {
 	out := new(FileInfos)
-	err := grpc.Invoke(ctx, "/pfs.Api/ListFile", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/ListFile", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *aPIClient) DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.Api/DeleteFile", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/DeleteFile", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) ListChange(ctx context.Context, in *ListChangeRequest, opts ...grpc.CallOption) (*Changes, error) {
+func (c *aPIClient) ListChange(ctx context.Context, in *ListChangeRequest, opts ...grpc.CallOption) (*Changes, error) {
 	out := new(Changes)
-	err := grpc.Invoke(ctx, "/pfs.Api/ListChange", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/ListChange", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) InspectServer(ctx context.Context, in *InspectServerRequest, opts ...grpc.CallOption) (*ServerInfo, error) {
+func (c *aPIClient) InspectServer(ctx context.Context, in *InspectServerRequest, opts ...grpc.CallOption) (*ServerInfo, error) {
 	out := new(ServerInfo)
-	err := grpc.Invoke(ctx, "/pfs.Api/InspectServer", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/InspectServer", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) ListServer(ctx context.Context, in *ListServerRequest, opts ...grpc.CallOption) (*ServerInfos, error) {
+func (c *aPIClient) ListServer(ctx context.Context, in *ListServerRequest, opts ...grpc.CallOption) (*ServerInfos, error) {
 	out := new(ServerInfos)
-	err := grpc.Invoke(ctx, "/pfs.Api/ListServer", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.API/ListServer", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for Api service
+// Server API for API service
 
-type ApiServer interface {
+type APIServer interface {
 	// Repo rpcs
 	// CreateRepo creates a new repo.
 	// An error is returned if the repo already exists.
@@ -1202,16 +1202,16 @@ type ApiServer interface {
 	// PutBlock writes the specified block to the block store.
 	PutBlock(context.Context, *PutBlockRequest) (*Block, error)
 	// GetBlock returns a byte stream of the contents of the block.
-	GetBlock(*GetBlockRequest, Api_GetBlockServer) error
+	GetBlock(*GetBlockRequest, API_GetBlockServer) error
 	// InspectBlock returns info about a block.
 	InspectBlock(context.Context, *InspectBlockRequest) (*BlockInfo, error)
 	// ListBlock returns info about all blocks.
 	ListBlock(context.Context, *ListBlockRequest) (*BlockInfos, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
-	PutFile(Api_PutFileServer) error
+	PutFile(API_PutFileServer) error
 	// GetFile returns a byte stream of the contents of the file.
-	GetFile(*GetFileRequest, Api_GetFileServer) error
+	GetFile(*GetFileRequest, API_GetFileServer) error
 	// InspectFile returns info about a file.
 	InspectFile(context.Context, *InspectFileRequest) (*FileInfo, error)
 	// ListFile returns info about all files.
@@ -1227,194 +1227,194 @@ type ApiServer interface {
 	ListServer(context.Context, *ListServerRequest) (*ServerInfos, error)
 }
 
-func RegisterApiServer(s *grpc.Server, srv ApiServer) {
-	s.RegisterService(&_Api_serviceDesc, srv)
+func RegisterAPIServer(s *grpc.Server, srv APIServer) {
+	s.RegisterService(&_API_serviceDesc, srv)
 }
 
-func _Api_CreateRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_CreateRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(CreateRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).CreateRepo(ctx, in)
+	out, err := srv.(APIServer).CreateRepo(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_InspectRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_InspectRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).InspectRepo(ctx, in)
+	out, err := srv.(APIServer).InspectRepo(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_ListRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_ListRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).ListRepo(ctx, in)
+	out, err := srv.(APIServer).ListRepo(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_DeleteRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_DeleteRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(DeleteRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).DeleteRepo(ctx, in)
+	out, err := srv.(APIServer).DeleteRepo(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_StartCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_StartCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(StartCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).StartCommit(ctx, in)
+	out, err := srv.(APIServer).StartCommit(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_FinishCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_FinishCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(FinishCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).FinishCommit(ctx, in)
+	out, err := srv.(APIServer).FinishCommit(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_InspectCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_InspectCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).InspectCommit(ctx, in)
+	out, err := srv.(APIServer).InspectCommit(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_ListCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_ListCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).ListCommit(ctx, in)
+	out, err := srv.(APIServer).ListCommit(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_DeleteCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_DeleteCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(DeleteCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).DeleteCommit(ctx, in)
+	out, err := srv.(APIServer).DeleteCommit(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_PutBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_PutBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(PutBlockRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).PutBlock(ctx, in)
+	out, err := srv.(APIServer).PutBlock(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_GetBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _API_GetBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(GetBlockRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(ApiServer).GetBlock(m, &apiGetBlockServer{stream})
+	return srv.(APIServer).GetBlock(m, &aPIGetBlockServer{stream})
 }
 
-type Api_GetBlockServer interface {
+type API_GetBlockServer interface {
 	Send(*google_protobuf3.BytesValue) error
 	grpc.ServerStream
 }
 
-type apiGetBlockServer struct {
+type aPIGetBlockServer struct {
 	grpc.ServerStream
 }
 
-func (x *apiGetBlockServer) Send(m *google_protobuf3.BytesValue) error {
+func (x *aPIGetBlockServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _Api_InspectBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_InspectBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectBlockRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).InspectBlock(ctx, in)
+	out, err := srv.(APIServer).InspectBlock(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_ListBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_ListBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListBlockRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).ListBlock(ctx, in)
+	out, err := srv.(APIServer).ListBlock(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_PutFile_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ApiServer).PutFile(&apiPutFileServer{stream})
+func _API_PutFile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(APIServer).PutFile(&aPIPutFileServer{stream})
 }
 
-type Api_PutFileServer interface {
+type API_PutFileServer interface {
 	SendAndClose(*google_protobuf1.Empty) error
 	Recv() (*PutFileRequest, error)
 	grpc.ServerStream
 }
 
-type apiPutFileServer struct {
+type aPIPutFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *apiPutFileServer) SendAndClose(m *google_protobuf1.Empty) error {
+func (x *aPIPutFileServer) SendAndClose(m *google_protobuf1.Empty) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *apiPutFileServer) Recv() (*PutFileRequest, error) {
+func (x *aPIPutFileServer) Recv() (*PutFileRequest, error) {
 	m := new(PutFileRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -1422,198 +1422,198 @@ func (x *apiPutFileServer) Recv() (*PutFileRequest, error) {
 	return m, nil
 }
 
-func _Api_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _API_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(GetFileRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(ApiServer).GetFile(m, &apiGetFileServer{stream})
+	return srv.(APIServer).GetFile(m, &aPIGetFileServer{stream})
 }
 
-type Api_GetFileServer interface {
+type API_GetFileServer interface {
 	Send(*google_protobuf3.BytesValue) error
 	grpc.ServerStream
 }
 
-type apiGetFileServer struct {
+type aPIGetFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *apiGetFileServer) Send(m *google_protobuf3.BytesValue) error {
+func (x *aPIGetFileServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _Api_InspectFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_InspectFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).InspectFile(ctx, in)
+	out, err := srv.(APIServer).InspectFile(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_ListFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_ListFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).ListFile(ctx, in)
+	out, err := srv.(APIServer).ListFile(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(DeleteFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).DeleteFile(ctx, in)
+	out, err := srv.(APIServer).DeleteFile(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_ListChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_ListChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListChangeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).ListChange(ctx, in)
+	out, err := srv.(APIServer).ListChange(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_InspectServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_InspectServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectServerRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).InspectServer(ctx, in)
+	out, err := srv.(APIServer).InspectServer(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _Api_ListServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_ListServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListServerRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(ApiServer).ListServer(ctx, in)
+	out, err := srv.(APIServer).ListServer(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-var _Api_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "pfs.Api",
-	HandlerType: (*ApiServer)(nil),
+var _API_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pfs.API",
+	HandlerType: (*APIServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "CreateRepo",
-			Handler:    _Api_CreateRepo_Handler,
+			Handler:    _API_CreateRepo_Handler,
 		},
 		{
 			MethodName: "InspectRepo",
-			Handler:    _Api_InspectRepo_Handler,
+			Handler:    _API_InspectRepo_Handler,
 		},
 		{
 			MethodName: "ListRepo",
-			Handler:    _Api_ListRepo_Handler,
+			Handler:    _API_ListRepo_Handler,
 		},
 		{
 			MethodName: "DeleteRepo",
-			Handler:    _Api_DeleteRepo_Handler,
+			Handler:    _API_DeleteRepo_Handler,
 		},
 		{
 			MethodName: "StartCommit",
-			Handler:    _Api_StartCommit_Handler,
+			Handler:    _API_StartCommit_Handler,
 		},
 		{
 			MethodName: "FinishCommit",
-			Handler:    _Api_FinishCommit_Handler,
+			Handler:    _API_FinishCommit_Handler,
 		},
 		{
 			MethodName: "InspectCommit",
-			Handler:    _Api_InspectCommit_Handler,
+			Handler:    _API_InspectCommit_Handler,
 		},
 		{
 			MethodName: "ListCommit",
-			Handler:    _Api_ListCommit_Handler,
+			Handler:    _API_ListCommit_Handler,
 		},
 		{
 			MethodName: "DeleteCommit",
-			Handler:    _Api_DeleteCommit_Handler,
+			Handler:    _API_DeleteCommit_Handler,
 		},
 		{
 			MethodName: "PutBlock",
-			Handler:    _Api_PutBlock_Handler,
+			Handler:    _API_PutBlock_Handler,
 		},
 		{
 			MethodName: "InspectBlock",
-			Handler:    _Api_InspectBlock_Handler,
+			Handler:    _API_InspectBlock_Handler,
 		},
 		{
 			MethodName: "ListBlock",
-			Handler:    _Api_ListBlock_Handler,
+			Handler:    _API_ListBlock_Handler,
 		},
 		{
 			MethodName: "InspectFile",
-			Handler:    _Api_InspectFile_Handler,
+			Handler:    _API_InspectFile_Handler,
 		},
 		{
 			MethodName: "ListFile",
-			Handler:    _Api_ListFile_Handler,
+			Handler:    _API_ListFile_Handler,
 		},
 		{
 			MethodName: "DeleteFile",
-			Handler:    _Api_DeleteFile_Handler,
+			Handler:    _API_DeleteFile_Handler,
 		},
 		{
 			MethodName: "ListChange",
-			Handler:    _Api_ListChange_Handler,
+			Handler:    _API_ListChange_Handler,
 		},
 		{
 			MethodName: "InspectServer",
-			Handler:    _Api_InspectServer_Handler,
+			Handler:    _API_InspectServer_Handler,
 		},
 		{
 			MethodName: "ListServer",
-			Handler:    _Api_ListServer_Handler,
+			Handler:    _API_ListServer_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "GetBlock",
-			Handler:       _Api_GetBlock_Handler,
+			Handler:       _API_GetBlock_Handler,
 			ServerStreams: true,
 		},
 		{
 			StreamName:    "PutFile",
-			Handler:       _Api_PutFile_Handler,
+			Handler:       _API_PutFile_Handler,
 			ClientStreams: true,
 		},
 		{
 			StreamName:    "GetFile",
-			Handler:       _Api_GetFile_Handler,
+			Handler:       _API_GetFile_Handler,
 			ServerStreams: true,
 		},
 	},
 }
 
-// Client API for InternalApi service
+// Client API for InternalAPI service
 
-type InternalApiClient interface {
+type InternalAPIClient interface {
 	// Repo rpcs
 	// CreateRepo creates a new repo.
 	CreateRepo(ctx context.Context, in *CreateRepoRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
@@ -1636,9 +1636,9 @@ type InternalApiClient interface {
 	DeleteCommit(ctx context.Context, in *DeleteCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
-	PutFile(ctx context.Context, opts ...grpc.CallOption) (InternalApi_PutFileClient, error)
+	PutFile(ctx context.Context, opts ...grpc.CallOption) (InternalAPI_PutFileClient, error)
 	// GetFile returns a byte stream of the contents of the file.
-	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (InternalApi_GetFileClient, error)
+	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (InternalAPI_GetFileClient, error)
 	// InspectFile returns a info about a file.
 	InspectFile(ctx context.Context, in *InspectFileRequest, opts ...grpc.CallOption) (*FileInfo, error)
 	// ListFile returns info about all files.
@@ -1651,7 +1651,7 @@ type InternalApiClient interface {
 	// PutBlock writes the specified block to the block store.
 	PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	// GetBlock returns a byte stream of the contents of the block.
-	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (InternalApi_GetBlockClient, error)
+	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (InternalAPI_GetBlockClient, error)
 	// InspectBlock returns info about a block.
 	InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error)
 	// ListBlock returns info about all blocks.
@@ -1659,124 +1659,124 @@ type InternalApiClient interface {
 	// Diff rpcs
 	// PullDiff pulls a binary stream of the diff from the specified
 	// commit to the commit's parent.
-	PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (InternalApi_PullDiffClient, error)
+	PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (InternalAPI_PullDiffClient, error)
 	// Push diff pushes a diff from the specified commit.
 	PushDiff(ctx context.Context, in *PushDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 }
 
-type internalApiClient struct {
+type internalAPIClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewInternalApiClient(cc *grpc.ClientConn) InternalApiClient {
-	return &internalApiClient{cc}
+func NewInternalAPIClient(cc *grpc.ClientConn) InternalAPIClient {
+	return &internalAPIClient{cc}
 }
 
-func (c *internalApiClient) CreateRepo(ctx context.Context, in *CreateRepoRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *internalAPIClient) CreateRepo(ctx context.Context, in *CreateRepoRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/CreateRepo", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/CreateRepo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) InspectRepo(ctx context.Context, in *InspectRepoRequest, opts ...grpc.CallOption) (*RepoInfo, error) {
+func (c *internalAPIClient) InspectRepo(ctx context.Context, in *InspectRepoRequest, opts ...grpc.CallOption) (*RepoInfo, error) {
 	out := new(RepoInfo)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/InspectRepo", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/InspectRepo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) ListRepo(ctx context.Context, in *ListRepoRequest, opts ...grpc.CallOption) (*RepoInfos, error) {
+func (c *internalAPIClient) ListRepo(ctx context.Context, in *ListRepoRequest, opts ...grpc.CallOption) (*RepoInfos, error) {
 	out := new(RepoInfos)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/ListRepo", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/ListRepo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *internalAPIClient) DeleteRepo(ctx context.Context, in *DeleteRepoRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/DeleteRepo", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/DeleteRepo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) StartCommit(ctx context.Context, in *StartCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *internalAPIClient) StartCommit(ctx context.Context, in *StartCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/StartCommit", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/StartCommit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) FinishCommit(ctx context.Context, in *FinishCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *internalAPIClient) FinishCommit(ctx context.Context, in *FinishCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/FinishCommit", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/FinishCommit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) InspectCommit(ctx context.Context, in *InspectCommitRequest, opts ...grpc.CallOption) (*CommitInfo, error) {
+func (c *internalAPIClient) InspectCommit(ctx context.Context, in *InspectCommitRequest, opts ...grpc.CallOption) (*CommitInfo, error) {
 	out := new(CommitInfo)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/InspectCommit", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/InspectCommit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) ListCommit(ctx context.Context, in *ListCommitRequest, opts ...grpc.CallOption) (*CommitInfos, error) {
+func (c *internalAPIClient) ListCommit(ctx context.Context, in *ListCommitRequest, opts ...grpc.CallOption) (*CommitInfos, error) {
 	out := new(CommitInfos)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/ListCommit", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/ListCommit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) DeleteCommit(ctx context.Context, in *DeleteCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *internalAPIClient) DeleteCommit(ctx context.Context, in *DeleteCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/DeleteCommit", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/DeleteCommit", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) PutFile(ctx context.Context, opts ...grpc.CallOption) (InternalApi_PutFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[0], c.cc, "/pfs.InternalApi/PutFile", opts...)
+func (c *internalAPIClient) PutFile(ctx context.Context, opts ...grpc.CallOption) (InternalAPI_PutFileClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_InternalAPI_serviceDesc.Streams[0], c.cc, "/pfs.InternalAPI/PutFile", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &internalApiPutFileClient{stream}
+	x := &internalAPIPutFileClient{stream}
 	return x, nil
 }
 
-type InternalApi_PutFileClient interface {
+type InternalAPI_PutFileClient interface {
 	Send(*PutFileRequest) error
 	CloseAndRecv() (*google_protobuf1.Empty, error)
 	grpc.ClientStream
 }
 
-type internalApiPutFileClient struct {
+type internalAPIPutFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *internalApiPutFileClient) Send(m *PutFileRequest) error {
+func (x *internalAPIPutFileClient) Send(m *PutFileRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *internalApiPutFileClient) CloseAndRecv() (*google_protobuf1.Empty, error) {
+func (x *internalAPIPutFileClient) CloseAndRecv() (*google_protobuf1.Empty, error) {
 	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
 	}
@@ -1787,12 +1787,12 @@ func (x *internalApiPutFileClient) CloseAndRecv() (*google_protobuf1.Empty, erro
 	return m, nil
 }
 
-func (c *internalApiClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (InternalApi_GetFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[1], c.cc, "/pfs.InternalApi/GetFile", opts...)
+func (c *internalAPIClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (InternalAPI_GetFileClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_InternalAPI_serviceDesc.Streams[1], c.cc, "/pfs.InternalAPI/GetFile", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &internalApiGetFileClient{stream}
+	x := &internalAPIGetFileClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -1802,16 +1802,16 @@ func (c *internalApiClient) GetFile(ctx context.Context, in *GetFileRequest, opt
 	return x, nil
 }
 
-type InternalApi_GetFileClient interface {
+type InternalAPI_GetFileClient interface {
 	Recv() (*google_protobuf3.BytesValue, error)
 	grpc.ClientStream
 }
 
-type internalApiGetFileClient struct {
+type internalAPIGetFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *internalApiGetFileClient) Recv() (*google_protobuf3.BytesValue, error) {
+func (x *internalAPIGetFileClient) Recv() (*google_protobuf3.BytesValue, error) {
 	m := new(google_protobuf3.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -1819,57 +1819,57 @@ func (x *internalApiGetFileClient) Recv() (*google_protobuf3.BytesValue, error) 
 	return m, nil
 }
 
-func (c *internalApiClient) InspectFile(ctx context.Context, in *InspectFileRequest, opts ...grpc.CallOption) (*FileInfo, error) {
+func (c *internalAPIClient) InspectFile(ctx context.Context, in *InspectFileRequest, opts ...grpc.CallOption) (*FileInfo, error) {
 	out := new(FileInfo)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/InspectFile", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/InspectFile", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) ListFile(ctx context.Context, in *ListFileRequest, opts ...grpc.CallOption) (*FileInfos, error) {
+func (c *internalAPIClient) ListFile(ctx context.Context, in *ListFileRequest, opts ...grpc.CallOption) (*FileInfos, error) {
 	out := new(FileInfos)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/ListFile", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/ListFile", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *internalAPIClient) DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/DeleteFile", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/DeleteFile", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) ListChange(ctx context.Context, in *ListChangeRequest, opts ...grpc.CallOption) (*Changes, error) {
+func (c *internalAPIClient) ListChange(ctx context.Context, in *ListChangeRequest, opts ...grpc.CallOption) (*Changes, error) {
 	out := new(Changes)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/ListChange", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/ListChange", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *internalAPIClient) PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/PutBlock", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/PutBlock", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (InternalApi_GetBlockClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[2], c.cc, "/pfs.InternalApi/GetBlock", opts...)
+func (c *internalAPIClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (InternalAPI_GetBlockClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_InternalAPI_serviceDesc.Streams[2], c.cc, "/pfs.InternalAPI/GetBlock", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &internalApiGetBlockClient{stream}
+	x := &internalAPIGetBlockClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -1879,16 +1879,16 @@ func (c *internalApiClient) GetBlock(ctx context.Context, in *GetBlockRequest, o
 	return x, nil
 }
 
-type InternalApi_GetBlockClient interface {
+type InternalAPI_GetBlockClient interface {
 	Recv() (*google_protobuf3.BytesValue, error)
 	grpc.ClientStream
 }
 
-type internalApiGetBlockClient struct {
+type internalAPIGetBlockClient struct {
 	grpc.ClientStream
 }
 
-func (x *internalApiGetBlockClient) Recv() (*google_protobuf3.BytesValue, error) {
+func (x *internalAPIGetBlockClient) Recv() (*google_protobuf3.BytesValue, error) {
 	m := new(google_protobuf3.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -1896,30 +1896,30 @@ func (x *internalApiGetBlockClient) Recv() (*google_protobuf3.BytesValue, error)
 	return m, nil
 }
 
-func (c *internalApiClient) InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error) {
+func (c *internalAPIClient) InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error) {
 	out := new(BlockInfo)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/InspectBlock", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/InspectBlock", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error) {
+func (c *internalAPIClient) ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error) {
 	out := new(BlockInfos)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/ListBlock", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/ListBlock", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *internalApiClient) PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (InternalApi_PullDiffClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalApi_serviceDesc.Streams[3], c.cc, "/pfs.InternalApi/PullDiff", opts...)
+func (c *internalAPIClient) PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (InternalAPI_PullDiffClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_InternalAPI_serviceDesc.Streams[3], c.cc, "/pfs.InternalAPI/PullDiff", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &internalApiPullDiffClient{stream}
+	x := &internalAPIPullDiffClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -1929,16 +1929,16 @@ func (c *internalApiClient) PullDiff(ctx context.Context, in *PullDiffRequest, o
 	return x, nil
 }
 
-type InternalApi_PullDiffClient interface {
+type InternalAPI_PullDiffClient interface {
 	Recv() (*google_protobuf3.BytesValue, error)
 	grpc.ClientStream
 }
 
-type internalApiPullDiffClient struct {
+type internalAPIPullDiffClient struct {
 	grpc.ClientStream
 }
 
-func (x *internalApiPullDiffClient) Recv() (*google_protobuf3.BytesValue, error) {
+func (x *internalAPIPullDiffClient) Recv() (*google_protobuf3.BytesValue, error) {
 	m := new(google_protobuf3.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -1946,18 +1946,18 @@ func (x *internalApiPullDiffClient) Recv() (*google_protobuf3.BytesValue, error)
 	return m, nil
 }
 
-func (c *internalApiClient) PushDiff(ctx context.Context, in *PushDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *internalAPIClient) PushDiff(ctx context.Context, in *PushDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.InternalApi/PushDiff", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pfs.InternalAPI/PushDiff", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// Server API for InternalApi service
+// Server API for InternalAPI service
 
-type InternalApiServer interface {
+type InternalAPIServer interface {
 	// Repo rpcs
 	// CreateRepo creates a new repo.
 	CreateRepo(context.Context, *CreateRepoRequest) (*google_protobuf1.Empty, error)
@@ -1980,9 +1980,9 @@ type InternalApiServer interface {
 	DeleteCommit(context.Context, *DeleteCommitRequest) (*google_protobuf1.Empty, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
-	PutFile(InternalApi_PutFileServer) error
+	PutFile(InternalAPI_PutFileServer) error
 	// GetFile returns a byte stream of the contents of the file.
-	GetFile(*GetFileRequest, InternalApi_GetFileServer) error
+	GetFile(*GetFileRequest, InternalAPI_GetFileServer) error
 	// InspectFile returns a info about a file.
 	InspectFile(context.Context, *InspectFileRequest) (*FileInfo, error)
 	// ListFile returns info about all files.
@@ -1995,7 +1995,7 @@ type InternalApiServer interface {
 	// PutBlock writes the specified block to the block store.
 	PutBlock(context.Context, *PutBlockRequest) (*google_protobuf1.Empty, error)
 	// GetBlock returns a byte stream of the contents of the block.
-	GetBlock(*GetBlockRequest, InternalApi_GetBlockServer) error
+	GetBlock(*GetBlockRequest, InternalAPI_GetBlockServer) error
 	// InspectBlock returns info about a block.
 	InspectBlock(context.Context, *InspectBlockRequest) (*BlockInfo, error)
 	// ListBlock returns info about all blocks.
@@ -2003,142 +2003,142 @@ type InternalApiServer interface {
 	// Diff rpcs
 	// PullDiff pulls a binary stream of the diff from the specified
 	// commit to the commit's parent.
-	PullDiff(*PullDiffRequest, InternalApi_PullDiffServer) error
+	PullDiff(*PullDiffRequest, InternalAPI_PullDiffServer) error
 	// Push diff pushes a diff from the specified commit.
 	PushDiff(context.Context, *PushDiffRequest) (*google_protobuf1.Empty, error)
 }
 
-func RegisterInternalApiServer(s *grpc.Server, srv InternalApiServer) {
-	s.RegisterService(&_InternalApi_serviceDesc, srv)
+func RegisterInternalAPIServer(s *grpc.Server, srv InternalAPIServer) {
+	s.RegisterService(&_InternalAPI_serviceDesc, srv)
 }
 
-func _InternalApi_CreateRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_CreateRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(CreateRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).CreateRepo(ctx, in)
+	out, err := srv.(InternalAPIServer).CreateRepo(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_InspectRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_InspectRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).InspectRepo(ctx, in)
+	out, err := srv.(InternalAPIServer).InspectRepo(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_ListRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_ListRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).ListRepo(ctx, in)
+	out, err := srv.(InternalAPIServer).ListRepo(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_DeleteRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_DeleteRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(DeleteRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).DeleteRepo(ctx, in)
+	out, err := srv.(InternalAPIServer).DeleteRepo(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_StartCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_StartCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(StartCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).StartCommit(ctx, in)
+	out, err := srv.(InternalAPIServer).StartCommit(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_FinishCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_FinishCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(FinishCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).FinishCommit(ctx, in)
+	out, err := srv.(InternalAPIServer).FinishCommit(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_InspectCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_InspectCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).InspectCommit(ctx, in)
+	out, err := srv.(InternalAPIServer).InspectCommit(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_ListCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_ListCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).ListCommit(ctx, in)
+	out, err := srv.(InternalAPIServer).ListCommit(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_DeleteCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_DeleteCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(DeleteCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).DeleteCommit(ctx, in)
+	out, err := srv.(InternalAPIServer).DeleteCommit(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_PutFile_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(InternalApiServer).PutFile(&internalApiPutFileServer{stream})
+func _InternalAPI_PutFile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(InternalAPIServer).PutFile(&internalAPIPutFileServer{stream})
 }
 
-type InternalApi_PutFileServer interface {
+type InternalAPI_PutFileServer interface {
 	SendAndClose(*google_protobuf1.Empty) error
 	Recv() (*PutFileRequest, error)
 	grpc.ServerStream
 }
 
-type internalApiPutFileServer struct {
+type internalAPIPutFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *internalApiPutFileServer) SendAndClose(m *google_protobuf1.Empty) error {
+func (x *internalAPIPutFileServer) SendAndClose(m *google_protobuf1.Empty) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *internalApiPutFileServer) Recv() (*PutFileRequest, error) {
+func (x *internalAPIPutFileServer) Recv() (*PutFileRequest, error) {
 	m := new(PutFileRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -2146,257 +2146,257 @@ func (x *internalApiPutFileServer) Recv() (*PutFileRequest, error) {
 	return m, nil
 }
 
-func _InternalApi_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _InternalAPI_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(GetFileRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(InternalApiServer).GetFile(m, &internalApiGetFileServer{stream})
+	return srv.(InternalAPIServer).GetFile(m, &internalAPIGetFileServer{stream})
 }
 
-type InternalApi_GetFileServer interface {
+type InternalAPI_GetFileServer interface {
 	Send(*google_protobuf3.BytesValue) error
 	grpc.ServerStream
 }
 
-type internalApiGetFileServer struct {
+type internalAPIGetFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *internalApiGetFileServer) Send(m *google_protobuf3.BytesValue) error {
+func (x *internalAPIGetFileServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _InternalApi_InspectFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_InspectFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).InspectFile(ctx, in)
+	out, err := srv.(InternalAPIServer).InspectFile(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_ListFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_ListFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).ListFile(ctx, in)
+	out, err := srv.(InternalAPIServer).ListFile(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(DeleteFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).DeleteFile(ctx, in)
+	out, err := srv.(InternalAPIServer).DeleteFile(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_ListChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_ListChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListChangeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).ListChange(ctx, in)
+	out, err := srv.(InternalAPIServer).ListChange(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_PutBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_PutBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(PutBlockRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).PutBlock(ctx, in)
+	out, err := srv.(InternalAPIServer).PutBlock(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_GetBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _InternalAPI_GetBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(GetBlockRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(InternalApiServer).GetBlock(m, &internalApiGetBlockServer{stream})
+	return srv.(InternalAPIServer).GetBlock(m, &internalAPIGetBlockServer{stream})
 }
 
-type InternalApi_GetBlockServer interface {
+type InternalAPI_GetBlockServer interface {
 	Send(*google_protobuf3.BytesValue) error
 	grpc.ServerStream
 }
 
-type internalApiGetBlockServer struct {
+type internalAPIGetBlockServer struct {
 	grpc.ServerStream
 }
 
-func (x *internalApiGetBlockServer) Send(m *google_protobuf3.BytesValue) error {
+func (x *internalAPIGetBlockServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _InternalApi_InspectBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_InspectBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(InspectBlockRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).InspectBlock(ctx, in)
+	out, err := srv.(InternalAPIServer).InspectBlock(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_ListBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_ListBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(ListBlockRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).ListBlock(ctx, in)
+	out, err := srv.(InternalAPIServer).ListBlock(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _InternalApi_PullDiff_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _InternalAPI_PullDiff_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(PullDiffRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(InternalApiServer).PullDiff(m, &internalApiPullDiffServer{stream})
+	return srv.(InternalAPIServer).PullDiff(m, &internalAPIPullDiffServer{stream})
 }
 
-type InternalApi_PullDiffServer interface {
+type InternalAPI_PullDiffServer interface {
 	Send(*google_protobuf3.BytesValue) error
 	grpc.ServerStream
 }
 
-type internalApiPullDiffServer struct {
+type internalAPIPullDiffServer struct {
 	grpc.ServerStream
 }
 
-func (x *internalApiPullDiffServer) Send(m *google_protobuf3.BytesValue) error {
+func (x *internalAPIPullDiffServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _InternalApi_PushDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_PushDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(PushDiffRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalApiServer).PushDiff(ctx, in)
+	out, err := srv.(InternalAPIServer).PushDiff(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-var _InternalApi_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "pfs.InternalApi",
-	HandlerType: (*InternalApiServer)(nil),
+var _InternalAPI_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pfs.InternalAPI",
+	HandlerType: (*InternalAPIServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "CreateRepo",
-			Handler:    _InternalApi_CreateRepo_Handler,
+			Handler:    _InternalAPI_CreateRepo_Handler,
 		},
 		{
 			MethodName: "InspectRepo",
-			Handler:    _InternalApi_InspectRepo_Handler,
+			Handler:    _InternalAPI_InspectRepo_Handler,
 		},
 		{
 			MethodName: "ListRepo",
-			Handler:    _InternalApi_ListRepo_Handler,
+			Handler:    _InternalAPI_ListRepo_Handler,
 		},
 		{
 			MethodName: "DeleteRepo",
-			Handler:    _InternalApi_DeleteRepo_Handler,
+			Handler:    _InternalAPI_DeleteRepo_Handler,
 		},
 		{
 			MethodName: "StartCommit",
-			Handler:    _InternalApi_StartCommit_Handler,
+			Handler:    _InternalAPI_StartCommit_Handler,
 		},
 		{
 			MethodName: "FinishCommit",
-			Handler:    _InternalApi_FinishCommit_Handler,
+			Handler:    _InternalAPI_FinishCommit_Handler,
 		},
 		{
 			MethodName: "InspectCommit",
-			Handler:    _InternalApi_InspectCommit_Handler,
+			Handler:    _InternalAPI_InspectCommit_Handler,
 		},
 		{
 			MethodName: "ListCommit",
-			Handler:    _InternalApi_ListCommit_Handler,
+			Handler:    _InternalAPI_ListCommit_Handler,
 		},
 		{
 			MethodName: "DeleteCommit",
-			Handler:    _InternalApi_DeleteCommit_Handler,
+			Handler:    _InternalAPI_DeleteCommit_Handler,
 		},
 		{
 			MethodName: "InspectFile",
-			Handler:    _InternalApi_InspectFile_Handler,
+			Handler:    _InternalAPI_InspectFile_Handler,
 		},
 		{
 			MethodName: "ListFile",
-			Handler:    _InternalApi_ListFile_Handler,
+			Handler:    _InternalAPI_ListFile_Handler,
 		},
 		{
 			MethodName: "DeleteFile",
-			Handler:    _InternalApi_DeleteFile_Handler,
+			Handler:    _InternalAPI_DeleteFile_Handler,
 		},
 		{
 			MethodName: "ListChange",
-			Handler:    _InternalApi_ListChange_Handler,
+			Handler:    _InternalAPI_ListChange_Handler,
 		},
 		{
 			MethodName: "PutBlock",
-			Handler:    _InternalApi_PutBlock_Handler,
+			Handler:    _InternalAPI_PutBlock_Handler,
 		},
 		{
 			MethodName: "InspectBlock",
-			Handler:    _InternalApi_InspectBlock_Handler,
+			Handler:    _InternalAPI_InspectBlock_Handler,
 		},
 		{
 			MethodName: "ListBlock",
-			Handler:    _InternalApi_ListBlock_Handler,
+			Handler:    _InternalAPI_ListBlock_Handler,
 		},
 		{
 			MethodName: "PushDiff",
-			Handler:    _InternalApi_PushDiff_Handler,
+			Handler:    _InternalAPI_PushDiff_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "PutFile",
-			Handler:       _InternalApi_PutFile_Handler,
+			Handler:       _InternalAPI_PutFile_Handler,
 			ClientStreams: true,
 		},
 		{
 			StreamName:    "GetFile",
-			Handler:       _InternalApi_GetFile_Handler,
+			Handler:       _InternalAPI_GetFile_Handler,
 			ServerStreams: true,
 		},
 		{
 			StreamName:    "GetBlock",
-			Handler:       _InternalApi_GetBlock_Handler,
+			Handler:       _InternalAPI_GetBlock_Handler,
 			ServerStreams: true,
 		},
 		{
 			StreamName:    "PullDiff",
-			Handler:       _InternalApi_PullDiff_Handler,
+			Handler:       _InternalAPI_PullDiff_Handler,
 			ServerStreams: true,
 		},
 	},
