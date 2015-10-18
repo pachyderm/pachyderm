@@ -16,7 +16,7 @@ import (
 )
 
 type filesystem struct {
-	apiClient      pfs.ApiClient
+	apiClient      pfs.APIClient
 	repositoryName string
 	commitID       string
 	shard          uint64
@@ -24,7 +24,7 @@ type filesystem struct {
 }
 
 func newFilesystem(
-	apiClient pfs.ApiClient,
+	apiClient pfs.APIClient,
 	repositoryName string,
 	commitID string,
 	shard uint64,

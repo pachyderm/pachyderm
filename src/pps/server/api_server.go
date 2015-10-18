@@ -11,6 +11,7 @@ import (
 	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"go.pachyderm.com/pachyderm/src/pps/watch"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
@@ -22,11 +23,16 @@ var (
 
 type apiServer struct {
 	persistAPIClient persist.APIClient
+	watchAPIClient   watch.APIClient
 	containerClient  container.Client
 }
 
-func newAPIServer(persistAPIClient persist.APIClient, containerClient container.Client) *apiServer {
-	return &apiServer{persistAPIClient, containerClient}
+func newAPIServer(
+	persistAPIClient persist.APIClient,
+	watchAPIClient watch.APIClient,
+	containerClient container.Client,
+) *apiServer {
+	return &apiServer{persistAPIClient, watchAPIClient, containerClient}
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, err error) {
@@ -104,6 +110,16 @@ func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pp
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *pps.Pipeline, err error) {
 	persistPipeline, err := a.persistAPIClient.CreatePipeline(ctx, pipelineToPersist(request.Pipeline))
 	if err != nil {
+		return nil, err
+	}
+	if _, err := a.watchAPIClient.RegisterChangeEvent(
+		ctx,
+		&watch.ChangeEvent{
+			Type:         watch.ChangeEvent_CHANGE_EVENT_TYPE_CREATE,
+			PipelineName: persistPipeline.Name,
+		},
+	); err != nil {
+		// TODO(pedge): need to roll back the db create
 		return nil, err
 	}
 	return persistToPipeline(persistPipeline), nil

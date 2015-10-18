@@ -53,7 +53,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewInternalApiClient(clientConn).CreateRepo(ctx, request); err != nil {
+		if _, err := pfs.NewInternalAPIClient(clientConn).CreateRepo(ctx, request); err != nil {
 			return nil, err
 		}
 	}
@@ -86,7 +86,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewInternalApiClient(clientConn).InspectRepo(ctx, request)
+	return pfs.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
 }
 
 func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (*pfs.RepoInfos, error) {
@@ -97,7 +97,7 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewInternalApiClient(clientConn).ListRepo(ctx, request)
+	return pfs.NewInternalAPIClient(clientConn).ListRepo(ctx, request)
 }
 
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (*google_protobuf.Empty, error) {
@@ -109,7 +109,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewInternalApiClient(clientConn).DeleteRepo(ctx, request); err != nil {
+		if _, err := pfs.NewInternalAPIClient(clientConn).DeleteRepo(ctx, request); err != nil {
 			return nil, err
 		}
 	}
@@ -132,7 +132,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 		}
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewInternalApiClient(clientConn).StartCommit(ctx, request); err != nil {
+		if _, err := pfs.NewInternalAPIClient(clientConn).StartCommit(ctx, request); err != nil {
 			return nil, err
 		}
 	}
@@ -148,7 +148,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewInternalApiClient(clientConn).FinishCommit(ctx, request); err != nil {
+		if _, err := pfs.NewInternalAPIClient(clientConn).FinishCommit(ctx, request); err != nil {
 			return nil, err
 		}
 	}
@@ -164,7 +164,7 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewInternalApiClient(clientConn).InspectCommit(ctx, request)
+	return pfs.NewInternalAPIClient(clientConn).InspectCommit(ctx, request)
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (*pfs.CommitInfos, error) {
@@ -183,7 +183,7 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
-			subCommitInfos, err := pfs.NewInternalApiClient(clientConn).ListCommit(ctx, request)
+			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).ListCommit(ctx, request)
 			lock.Lock()
 			defer lock.Unlock()
 			if err != nil {
@@ -245,7 +245,7 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewApiClient(clientConn).DeleteCommit(ctx, request); err != nil {
+		if _, err := pfs.NewAPIClient(clientConn).DeleteCommit(ctx, request); err != nil {
 			return nil, err
 		}
 	}
@@ -261,19 +261,19 @@ func (a *apiServer) PutBlock(ctx context.Context, request *pfs.PutBlockRequest) 
 	if err != nil {
 		return nil, err
 	}
-	if _, err := pfs.NewInternalApiClient(clientConn).PutBlock(ctx, request); err != nil {
+	if _, err := pfs.NewInternalAPIClient(clientConn).PutBlock(ctx, request); err != nil {
 		return nil, err
 	}
 	return block, nil
 }
 
-func (a *apiServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.Api_GetBlockServer) (retErr error) {
+func (a *apiServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.API_GetBlockServer) (retErr error) {
 	ctx := versionToContext(a.version, apiGetBlockServer.Context())
 	clientConn, err := a.getClientConnForBlock(request.Block, a.version)
 	if err != nil {
 		return err
 	}
-	blockGetClient, err := pfs.NewInternalApiClient(clientConn).GetBlock(ctx, request)
+	blockGetClient, err := pfs.NewInternalAPIClient(clientConn).GetBlock(ctx, request)
 	if err != nil {
 		return err
 	}
@@ -288,7 +288,7 @@ func (a *apiServer) InspectBlock(ctx context.Context, request *pfs.InspectBlockR
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewInternalApiClient(clientConn).InspectBlock(ctx, request)
+	return pfs.NewInternalAPIClient(clientConn).InspectBlock(ctx, request)
 }
 
 func (a *apiServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest) (*pfs.BlockInfos, error) {
@@ -307,7 +307,7 @@ func (a *apiServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
-			subBlockInfos, err := pfs.NewInternalApiClient(clientConn).ListBlock(ctx, request)
+			subBlockInfos, err := pfs.NewInternalAPIClient(clientConn).ListBlock(ctx, request)
 			lock.Lock()
 			defer lock.Unlock()
 			if err != nil {
@@ -330,7 +330,7 @@ func (a *apiServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest
 	}, nil
 }
 
-func (a *apiServer) PutFile(putFileServer pfs.Api_PutFileServer) (retErr error) {
+func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
 	ctx := versionToContext(a.version, putFileServer.Context())
 	defer func() {
 		if err := putFileServer.SendAndClose(emptyInstance); err != nil && retErr == nil {
@@ -357,7 +357,7 @@ func (a *apiServer) PutFile(putFileServer pfs.Api_PutFileServer) (retErr error) 
 			return err
 		}
 		for _, clientConn := range clientConns {
-			putFileClient, err := pfs.NewInternalApiClient(clientConn).PutFile(ctx)
+			putFileClient, err := pfs.NewInternalAPIClient(clientConn).PutFile(ctx)
 			if err != nil {
 				return err
 			}
@@ -374,7 +374,7 @@ func (a *apiServer) PutFile(putFileServer pfs.Api_PutFileServer) (retErr error) 
 	if err != nil {
 		return err
 	}
-	putFileClient, err := pfs.NewInternalApiClient(clientConn).PutFile(ctx)
+	putFileClient, err := pfs.NewInternalAPIClient(clientConn).PutFile(ctx)
 	if err != nil {
 		return err
 	}
@@ -404,13 +404,13 @@ func (a *apiServer) PutFile(putFileServer pfs.Api_PutFileServer) (retErr error) 
 	return nil
 }
 
-func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) error {
+func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) error {
 	ctx := versionToContext(a.version, apiGetFileServer.Context())
 	clientConn, err := a.getClientConnForFile(request.File, a.version)
 	if err != nil {
 		return err
 	}
-	fileGetClient, err := pfs.NewInternalApiClient(clientConn).GetFile(ctx, request)
+	fileGetClient, err := pfs.NewInternalAPIClient(clientConn).GetFile(ctx, request)
 	if err != nil {
 		return err
 	}
@@ -425,7 +425,7 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewInternalApiClient(clientConn).InspectFile(ctx, request)
+	return pfs.NewInternalAPIClient(clientConn).InspectFile(ctx, request)
 }
 
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (*pfs.FileInfos, error) {
@@ -445,7 +445,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
-			subFileInfos, err := pfs.NewInternalApiClient(clientConn).ListFile(ctx, request)
+			subFileInfos, err := pfs.NewInternalAPIClient(clientConn).ListFile(ctx, request)
 			lock.Lock()
 			defer lock.Unlock()
 			if err != nil {
@@ -490,7 +490,7 @@ func (a *apiServer) ListChange(ctx context.Context, request *pfs.ListChangeReque
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
-			subChanges, err := pfs.NewInternalApiClient(clientConn).ListChange(ctx, request)
+			subChanges, err := pfs.NewInternalAPIClient(clientConn).ListChange(ctx, request)
 			lock.Lock()
 			defer lock.Unlock()
 			if err != nil {
@@ -521,7 +521,7 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewInternalApiClient(clientConn).DeleteFile(ctx, request)
+	return pfs.NewInternalAPIClient(clientConn).DeleteFile(ctx, request)
 }
 
 func (a *apiServer) InspectServer(ctx context.Context, request *pfs.InspectServerRequest) (*pfs.ServerInfo, error) {

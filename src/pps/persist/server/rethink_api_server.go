@@ -1,4 +1,4 @@
-package persist
+package server
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/satori/go.uuid"
 	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/time"
@@ -139,7 +140,7 @@ func (a *rethinkAPIServer) Close() error {
 
 // id cannot be set
 // a JobStatus of type created will also be created
-func (a *rethinkAPIServer) CreateJob(ctx context.Context, request *Job) (*Job, error) {
+func (a *rethinkAPIServer) CreateJob(ctx context.Context, request *persist.Job) (*persist.Job, error) {
 	if request.Id != "" {
 		return nil, ErrIDSet
 	}
@@ -150,7 +151,7 @@ func (a *rethinkAPIServer) CreateJob(ctx context.Context, request *Job) (*Job, e
 	// TODO(pedge): not transactional
 	if _, err := a.CreateJobStatus(
 		ctx,
-		&JobStatus{
+		&persist.JobStatus{
 			JobId: request.Id,
 			Type:  pps.JobStatusType_JOB_STATUS_TYPE_CREATED,
 		},
@@ -160,36 +161,36 @@ func (a *rethinkAPIServer) CreateJob(ctx context.Context, request *Job) (*Job, e
 	return request, nil
 }
 
-func (a *rethinkAPIServer) GetJobByID(ctx context.Context, request *google_protobuf.StringValue) (*Job, error) {
-	job := &Job{}
+func (a *rethinkAPIServer) GetJobByID(ctx context.Context, request *google_protobuf.StringValue) (*persist.Job, error) {
+	job := &persist.Job{}
 	if err := a.getMessageByPrimaryKey(jobsTable, request.Value, job); err != nil {
 		return nil, err
 	}
 	return job, nil
 }
 
-func (a *rethinkAPIServer) GetJobsByPipelineID(ctx context.Context, request *google_protobuf.StringValue) (*Jobs, error) {
+func (a *rethinkAPIServer) GetJobsByPipelineID(ctx context.Context, request *google_protobuf.StringValue) (*persist.Jobs, error) {
 	jobObjs, err := a.getMessagesByIndex(
 		jobsTable,
 		pipelineIDIndex,
 		request.Value,
-		func() proto.Message { return &Job{} },
+		func() proto.Message { return &persist.Job{} },
 	)
 	if err != nil {
 		return nil, err
 	}
-	jobs := make([]*Job, len(jobObjs))
+	jobs := make([]*persist.Job, len(jobObjs))
 	for i, jobObj := range jobObjs {
-		jobs[i] = jobObj.(*Job)
+		jobs[i] = jobObj.(*persist.Job)
 	}
-	return &Jobs{
+	return &persist.Jobs{
 		Job: jobs,
 	}, nil
 }
 
 // id cannot be set
 // timestamp cannot be set
-func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *JobStatus) (*JobStatus, error) {
+func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *persist.JobStatus) (*persist.JobStatus, error) {
 	if request.Id != "" {
 		return nil, ErrIDSet
 	}
@@ -205,12 +206,12 @@ func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *JobStat
 }
 
 // ordered by time, latest to earliest
-func (a *rethinkAPIServer) GetJobStatusesByJobID(ctx context.Context, request *google_protobuf.StringValue) (*JobStatuses, error) {
+func (a *rethinkAPIServer) GetJobStatusesByJobID(ctx context.Context, request *google_protobuf.StringValue) (*persist.JobStatuses, error) {
 	jobStatusObjs, err := a.getMessagesByIndex(
 		jobStatusesTable,
 		jobIDIndex,
 		request.Value,
-		func() proto.Message { return &JobStatus{} },
+		func() proto.Message { return &persist.JobStatus{} },
 		func(term gorethink.Term) gorethink.Term {
 			return term.OrderBy(gorethink.Desc("timestamp"))
 		},
@@ -218,18 +219,18 @@ func (a *rethinkAPIServer) GetJobStatusesByJobID(ctx context.Context, request *g
 	if err != nil {
 		return nil, err
 	}
-	jobStatuses := make([]*JobStatus, len(jobStatusObjs))
+	jobStatuses := make([]*persist.JobStatus, len(jobStatusObjs))
 	for i, jobStatusObj := range jobStatusObjs {
-		jobStatuses[i] = jobStatusObj.(*JobStatus)
+		jobStatuses[i] = jobStatusObj.(*persist.JobStatus)
 	}
-	return &JobStatuses{
+	return &persist.JobStatuses{
 		JobStatus: jobStatuses,
 	}, nil
 }
 
 // id cannot be set
 // timestamp cannot be set
-func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *JobLog) (*JobLog, error) {
+func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *persist.JobLog) (*persist.JobLog, error) {
 	if request.Id != "" {
 		return nil, ErrIDSet
 	}
@@ -245,12 +246,12 @@ func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *JobLog) (*
 }
 
 // ordered by time, latest to earliest
-func (a *rethinkAPIServer) GetJobLogsByJobID(ctx context.Context, request *google_protobuf.StringValue) (*JobLogs, error) {
+func (a *rethinkAPIServer) GetJobLogsByJobID(ctx context.Context, request *google_protobuf.StringValue) (*persist.JobLogs, error) {
 	jobLogObjs, err := a.getMessagesByIndex(
 		jobLogsTable,
 		jobIDIndex,
 		request.Value,
-		func() proto.Message { return &JobLog{} },
+		func() proto.Message { return &persist.JobLog{} },
 		func(term gorethink.Term) gorethink.Term {
 			return term.OrderBy(gorethink.Desc("timestamp"))
 		},
@@ -258,24 +259,24 @@ func (a *rethinkAPIServer) GetJobLogsByJobID(ctx context.Context, request *googl
 	if err != nil {
 		return nil, err
 	}
-	jobLogs := make([]*JobLog, len(jobLogObjs))
+	jobLogs := make([]*persist.JobLog, len(jobLogObjs))
 	for i, jobLogObj := range jobLogObjs {
-		jobLogs[i] = jobLogObj.(*JobLog)
+		jobLogs[i] = jobLogObj.(*persist.JobLog)
 	}
-	return &JobLogs{
+	return &persist.JobLogs{
 		JobLog: jobLogs,
 	}, nil
 }
 
 // id and previous_id cannot be set
 // name must not already exist
-func (a *rethinkAPIServer) CreatePipeline(ctx context.Context, request *Pipeline) (*Pipeline, error) {
+func (a *rethinkAPIServer) CreatePipeline(ctx context.Context, request *persist.Pipeline) (*persist.Pipeline, error) {
 	pipeline, err := a.getLastPipeline(ctx, request.Name)
 	if err != nil {
 		return nil, err
 	}
 	if pipeline != nil {
-		return nil, fmt.Errorf("pachyderm.pps.persist: pipeline already exists with name %s", request.Name)
+		return nil, fmt.Errorf("pachyderm.pps.persist.server: pipeline already exists with name %s", request.Name)
 	}
 	return a.createPipeline(ctx, request)
 }
@@ -283,19 +284,19 @@ func (a *rethinkAPIServer) CreatePipeline(ctx context.Context, request *Pipeline
 // id and previous_id cannot be set
 // timestamp cannot be set
 // update by name, name must already exist
-func (a *rethinkAPIServer) UpdatePipeline(ctx context.Context, request *Pipeline) (*Pipeline, error) {
+func (a *rethinkAPIServer) UpdatePipeline(ctx context.Context, request *persist.Pipeline) (*persist.Pipeline, error) {
 	pipeline, err := a.getLastPipeline(ctx, request.Name)
 	if err != nil {
 		return nil, err
 	}
 	if pipeline == nil {
-		return nil, fmt.Errorf("pachyderm.pps.persist: pipeline does not exist with name %s", request.Name)
+		return nil, fmt.Errorf("pachyderm.pps.persist.server: pipeline does not exist with name %s", request.Name)
 	}
 	request.PreviousId = pipeline.Id
 	return a.createPipeline(ctx, request)
 }
 
-func (a *rethinkAPIServer) getLastPipeline(ctx context.Context, name string) (*Pipeline, error) {
+func (a *rethinkAPIServer) getLastPipeline(ctx context.Context, name string) (*persist.Pipeline, error) {
 	// TODO(pedge): not transactional
 	pipelines, err := a.GetPipelinesByName(ctx, &google_protobuf.StringValue{Value: name})
 	if err != nil {
@@ -307,7 +308,7 @@ func (a *rethinkAPIServer) getLastPipeline(ctx context.Context, name string) (*P
 	return pipelines.Pipeline[0], nil
 }
 
-func (a *rethinkAPIServer) createPipeline(ctx context.Context, request *Pipeline) (*Pipeline, error) {
+func (a *rethinkAPIServer) createPipeline(ctx context.Context, request *persist.Pipeline) (*persist.Pipeline, error) {
 	if request.Id != "" {
 		return nil, ErrIDSet
 	}
@@ -322,8 +323,8 @@ func (a *rethinkAPIServer) createPipeline(ctx context.Context, request *Pipeline
 	return request, nil
 }
 
-func (a *rethinkAPIServer) GetPipelineByID(ctx context.Context, request *google_protobuf.StringValue) (*Pipeline, error) {
-	pipeline := &Pipeline{}
+func (a *rethinkAPIServer) GetPipelineByID(ctx context.Context, request *google_protobuf.StringValue) (*persist.Pipeline, error) {
+	pipeline := &persist.Pipeline{}
 	if err := a.getMessageByPrimaryKey(pipelinesTable, request.Value, pipeline); err != nil {
 		return nil, err
 	}
@@ -331,12 +332,12 @@ func (a *rethinkAPIServer) GetPipelineByID(ctx context.Context, request *google_
 }
 
 // ordered by time, latest to earliest
-func (a *rethinkAPIServer) GetPipelinesByName(ctx context.Context, request *google_protobuf.StringValue) (*Pipelines, error) {
+func (a *rethinkAPIServer) GetPipelinesByName(ctx context.Context, request *google_protobuf.StringValue) (*persist.Pipelines, error) {
 	pipelineObjs, err := a.getMessagesByIndex(
 		pipelinesTable,
 		nameIndex,
 		request.Value,
-		func() proto.Message { return &Pipeline{} },
+		func() proto.Message { return &persist.Pipeline{} },
 		func(term gorethink.Term) gorethink.Term {
 			return term.OrderBy(gorethink.Desc("created_at"))
 		},
@@ -344,19 +345,19 @@ func (a *rethinkAPIServer) GetPipelinesByName(ctx context.Context, request *goog
 	if err != nil {
 		return nil, err
 	}
-	pipelines := make([]*Pipeline, len(pipelineObjs))
+	pipelines := make([]*persist.Pipeline, len(pipelineObjs))
 	for i, pipelineObj := range pipelineObjs {
-		pipelines[i] = pipelineObj.(*Pipeline)
+		pipelines[i] = pipelineObj.(*persist.Pipeline)
 	}
-	return &Pipelines{
+	return &persist.Pipelines{
 		Pipeline: pipelines,
 	}, nil
 }
 
-func (a *rethinkAPIServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (*Pipelines, error) {
+func (a *rethinkAPIServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (*persist.Pipelines, error) {
 	pipelineObjs, err := a.getAllMessages(
 		pipelinesTable,
-		func() proto.Message { return &Pipeline{} },
+		func() proto.Message { return &persist.Pipeline{} },
 		func(term gorethink.Term) gorethink.Term {
 			return term.OrderBy(gorethink.Desc("created_at"))
 		},
@@ -364,11 +365,11 @@ func (a *rethinkAPIServer) GetAllPipelines(ctx context.Context, request *google_
 	if err != nil {
 		return nil, err
 	}
-	pipelines := make([]*Pipeline, len(pipelineObjs))
+	pipelines := make([]*persist.Pipeline, len(pipelineObjs))
 	for i, pipelineObj := range pipelineObjs {
-		pipelines[i] = pipelineObj.(*Pipeline)
+		pipelines[i] = pipelineObj.(*persist.Pipeline)
 	}
-	return &Pipelines{
+	return &persist.Pipelines{
 		Pipeline: pipelines,
 	}, nil
 }

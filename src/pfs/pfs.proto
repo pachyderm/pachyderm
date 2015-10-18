@@ -224,7 +224,7 @@ message InspectServerRequest {
 message ListServerRequest {
 }
 
-service Api {
+service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
   // An error is returned if the repo already exists.
@@ -292,7 +292,7 @@ message PushDiffRequest {
   bytes value = 3;
 }
 
-service InternalApi {
+service InternalAPI {
   // Repo rpcs
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}

@@ -23,6 +23,9 @@ import (
 	"go.pachyderm.com/pachyderm/src/pkg/require"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
+	persistserver "go.pachyderm.com/pachyderm/src/pps/persist/server"
+	"go.pachyderm.com/pachyderm/src/pps/watch"
+	watchserver "go.pachyderm.com/pachyderm/src/pps/watch/server"
 	"google.golang.org/grpc"
 )
 
@@ -166,13 +169,15 @@ func runTest(
 	persistAPIClient := persist.NewLocalAPIClient(persistAPIServer)
 	pfstesting.RunTest(
 		t,
-		func(t *testing.T, apiClient pfs.ApiClient, internalApiClient pfs.InternalApiClient, cluster pfstesting.Cluster) {
+		func(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.InternalAPIClient, cluster pfstesting.Cluster) {
 			prototest.RunT(
 				t,
 				testNumServers,
 				func(servers map[string]*grpc.Server) {
+					watchAPIServer := watchserver.NewAPIServer(apiClient, persistAPIClient)
+					watchAPIClient := watch.NewLocalAPIClient(watchAPIServer)
 					for _, server := range servers {
-						pps.RegisterAPIServer(server, NewAPIServer(persistAPIClient, containerClient))
+						pps.RegisterAPIServer(server, NewAPIServer(persistAPIClient, watchAPIServer, containerClient))
 					}
 				},
 				func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
@@ -207,10 +212,10 @@ func getTestRethinkAPIServer() (persist.APIServer, error) {
 		return nil, err
 	}
 	databaseName := strings.Replace(uuid.NewV4().String(), "-", "", -1)
-	if err := persist.InitDBs(address, databaseName); err != nil {
+	if err := persistserver.InitDBs(address, databaseName); err != nil {
 		return nil, err
 	}
-	return persist.NewRethinkAPIServer(address, databaseName)
+	return persistserver.NewRethinkAPIServer(address, databaseName)
 }
 
 func getTestRethinkAddress() (string, error) {

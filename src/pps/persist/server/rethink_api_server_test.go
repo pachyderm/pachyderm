@@ -1,4 +1,4 @@
-package persist
+package server
 
 import (
 	"errors"
@@ -7,21 +7,22 @@ import (
 	"strings"
 	"testing"
 
+	"go.pachyderm.com/pachyderm/src/pkg/require"
+	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
 	"golang.org/x/net/context"
 
 	"github.com/satori/go.uuid"
-	"go.pachyderm.com/pachyderm/src/pkg/require"
 )
 
 func TestBasicRethink(t *testing.T) {
 	runTestRethink(t, testBasicRethink)
 }
 
-func testBasicRethink(t *testing.T, apiServer APIServer) {
+func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	job, err := apiServer.CreateJob(
 		context.Background(),
-		&Job{
+		&persist.Job{
 			Spec: &Job_PipelineId{
 				PipelineId: "456",
 			},
@@ -39,7 +40,7 @@ func testBasicRethink(t *testing.T, apiServer APIServer) {
 	require.Equal(t, "456", getJob.GetPipelineId())
 }
 
-func runTestRethink(t *testing.T, testFunc func(*testing.T, APIServer)) {
+func runTestRethink(t *testing.T, testFunc func(*testing.T, persist.APIServer)) {
 	apiServer, err := getTestRethinkAPIServer()
 	require.NoError(t, err)
 	defer func() {

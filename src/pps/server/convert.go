@@ -10,6 +10,11 @@ func jobToPersist(job *pps.Job) *persist.Job {
 		Id:        job.Id,
 		JobInput:  job.JobInput,
 		JobOutput: job.JobOutput,
+		// TODO(pedge): this relies on the current implementation where
+		// the watch implementation directly calls persist api client,
+		// if the watch implementation were to call the api client,
+		// then this setting of the field would be incorrect
+		CreatedFromWatch: false,
 	}
 	if job.GetTransform() != nil {
 		persistJob.Spec = &persist.Job_Transform{

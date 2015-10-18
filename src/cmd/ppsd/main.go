@@ -6,9 +6,12 @@ import (
 	"os"
 	"strings"
 
+	"golang.org/x/net/context"
+
 	"github.com/fsouza/go-dockerclient"
 
 	"go.pedge.io/env"
+	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/server"
 
 	"go.pachyderm.com/pachyderm"
@@ -16,7 +19,10 @@ import (
 	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
+	persistserver "go.pachyderm.com/pachyderm/src/pps/persist/server"
 	"go.pachyderm.com/pachyderm/src/pps/server"
+	"go.pachyderm.com/pachyderm/src/pps/watch"
+	watchserver "go.pachyderm.com/pachyderm/src/pps/watch/server"
 	"google.golang.org/grpc"
 )
 
@@ -63,12 +69,16 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	pfsAPIClient := pfs.NewApiClient(clientConn)
-	fmt.Println(pfsAPIClient)
+	pfsAPIClient := pfs.NewAPIClient(clientConn)
+	watchAPIServer := watchserver.NewAPIServer(pfsAPIClient, rethinkAPIClient)
+	watchAPIClient := watch.NewLocalAPIClient(watchAPIServer)
+	if _, err := watchAPIClient.Start(context.Background(), &google_protobuf.Empty{}); err != nil {
+		return err
+	}
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
-			pps.RegisterAPIServer(s, server.NewAPIServer(rethinkAPIClient, containerClient))
+			pps.RegisterAPIServer(s, server.NewAPIServer(rethinkAPIClient, watchAPIClient, containerClient))
 		},
 		protoserver.ServeOptions{
 			DebugPort: uint16(appEnv.DebugPort),
@@ -93,10 +103,10 @@ func getRethinkAPIClient(address string, databaseName string) (persist.APIClient
 			return nil, err
 		}
 	}
-	if err := persist.InitDBs(address, databaseName); err != nil {
+	if err := persistserver.InitDBs(address, databaseName); err != nil {
 		return nil, err
 	}
-	rethinkAPIServer, err := persist.NewRethinkAPIServer(address, databaseName)
+	rethinkAPIServer, err := persistserver.NewRethinkAPIServer(address, databaseName)
 	if err != nil {
 		return nil, err
 	}

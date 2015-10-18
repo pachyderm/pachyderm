@@ -52,7 +52,7 @@ func BenchmarkFuse(b *testing.B) {
 	RunBench(b, benchMount)
 }
 
-func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient, cluster Cluster) {
+func testSimple(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.InternalAPIClient, cluster Cluster) {
 	repositoryName := "testSimpleRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repositoryName)
@@ -138,7 +138,7 @@ func testSimple(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Int
 	require.Equal(t, testSize, count)
 }
 
-func testFailures(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient, cluster Cluster) {
+func testFailures(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.InternalAPIClient, cluster Cluster) {
 	repositoryName := "testFailuresRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repositoryName)
@@ -171,7 +171,7 @@ func testFailures(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 	checkWrites(t, apiClient, repositoryName, newCommitID)
 }
 
-func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient, cluster Cluster) {
+func testMount(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.InternalAPIClient, cluster Cluster) {
 	repositoryName := "testMountRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repositoryName)
@@ -239,7 +239,7 @@ func testMount(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.Inte
 	require.NoError(t, err)
 }
 
-func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.InternalApiClient, cluster Cluster) {
+func testMountBig(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.InternalAPIClient, cluster Cluster) {
 	repositoryName := "testMountBigRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repositoryName)
@@ -295,7 +295,7 @@ func testMountBig(t *testing.T, apiClient pfs.ApiClient, internalAPIClient pfs.I
 	require.NoError(t, err)
 }
 
-func benchMount(b *testing.B, apiClient pfs.ApiClient) {
+func benchMount(b *testing.B, apiClient pfs.APIClient) {
 	repositoryName := "benchMountRepo"
 
 	if err := pfsutil.CreateRepo(apiClient, repositoryName); err != nil {
@@ -349,7 +349,7 @@ func benchMount(b *testing.B, apiClient pfs.ApiClient) {
 	}
 }
 
-func doWrites(tb testing.TB, apiClient pfs.ApiClient, repositoryName string, commitID string) {
+func doWrites(tb testing.TB, apiClient pfs.APIClient, repositoryName string, commitID string) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for i := 0; i < testSize; i++ {
@@ -367,7 +367,7 @@ func doWrites(tb testing.TB, apiClient pfs.ApiClient, repositoryName string, com
 	}
 }
 
-func doBlockWrites(tb testing.TB, apiClient pfs.ApiClient, repositoryName string, commitID string) {
+func doBlockWrites(tb testing.TB, apiClient pfs.APIClient, repositoryName string, commitID string) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for i := 0; i < testSize; i++ {
@@ -382,7 +382,7 @@ func doBlockWrites(tb testing.TB, apiClient pfs.ApiClient, repositoryName string
 	}
 }
 
-func checkWrites(tb testing.TB, apiClient pfs.ApiClient, repositoryName string, commitID string) {
+func checkWrites(tb testing.TB, apiClient pfs.APIClient, repositoryName string, commitID string) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for i := 0; i < testSize; i++ {
@@ -406,7 +406,7 @@ func checkWrites(tb testing.TB, apiClient pfs.ApiClient, repositoryName string, 
 	}
 }
 
-func checkBlockWrites(tb testing.TB, apiClient pfs.ApiClient, repositoryName string, commitID string) {
+func checkBlockWrites(tb testing.TB, apiClient pfs.APIClient, repositoryName string, commitID string) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for i := 0; i < testSize; i++ {
