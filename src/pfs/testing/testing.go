@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sync/atomic"
 	"testing"
+
+	"github.com/satori/go.uuid"
 
 	"go.pedge.io/proto/test"
 
@@ -28,10 +29,6 @@ const (
 	testShardsPerServer = 8
 	testNumServers      = 8
 	testNumReplicas     = 1
-)
-
-var (
-	counter int32
 )
 
 func RunTest(
@@ -277,5 +274,5 @@ func getEtcdAddress() (string, error) {
 }
 
 func testNamespace() string {
-	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
+	return fmt.Sprintf("test-%s", uuid.NewV4().String())
 }
