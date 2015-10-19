@@ -1,27 +1,19 @@
 package server
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"sort"
 	"strings"
 
-	"go.pedge.io/google-protobuf"
-	"go.pedge.io/pkg/graph"
-	"go.pedge.io/pkg/time"
-	"go.pedge.io/proto/time"
-	"go.pedge.io/protolog"
-
 	"github.com/satori/go.uuid"
-	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pkg/clone"
+
 	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/parse"
-	"go.pachyderm.com/pachyderm/src/pps/run"
-	"go.pachyderm.com/pachyderm/src/pps/store"
+	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"go.pachyderm.com/pachyderm/src/pps/watch"
+	"go.pedge.io/google-protobuf"
+	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 )
 
@@ -30,208 +22,331 @@ var (
 )
 
 type apiServer struct {
-	pfsAPIClient    pfs.ApiClient
-	containerClient container.Client
-	storeClient     store.Client
-	timer           pkgtime.Timer
+	persistAPIClient persist.APIClient
+	watchAPIClient   watch.APIClient
+	containerClient  container.Client
 }
 
-func newAPIServer(pfsAPIClient pfs.ApiClient, containerClient container.Client, storeClient store.Client, timer pkgtime.Timer) *apiServer {
-	return &apiServer{pfsAPIClient, containerClient, storeClient, timer}
+func newAPIServer(
+	persistAPIClient persist.APIClient,
+	watchAPIClient watch.APIClient,
+	containerClient container.Client,
+) *apiServer {
+	return &apiServer{persistAPIClient, watchAPIClient, containerClient}
 }
 
-func (a *apiServer) CreatePipelineSource(ctx context.Context, request *pps.CreatePipelineSourceRequest) (*pps.PipelineSource, error) {
-	pipelineSource := request.PipelineSource
-	if pipelineSource.Id != "" {
-		return nil, fmt.Errorf("cannot set id when creating a pipeline source: %+v", pipelineSource)
-	}
-	pipelineSource.Id = strings.Replace(uuid.NewV4().String(), "-", "", -1)
-	if err := a.storeClient.CreatePipelineSource(pipelineSource); err != nil {
-		return nil, err
-	}
-	return pipelineSource, nil
-}
-
-func (a *apiServer) GetPipelineSource(ctx context.Context, request *pps.GetPipelineSourceRequest) (*pps.PipelineSource, error) {
-	pipelineSource, err := a.storeClient.GetPipelineSource(request.PipelineSourceId)
+func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, err error) {
+	persistJob, err := a.persistAPIClient.CreateJob(ctx, jobToPersist(request.Job))
 	if err != nil {
 		return nil, err
 	}
-	return pipelineSource, nil
+	return persistToJob(persistJob), nil
 }
 
-// TODO(pedge): implement
-func (a *apiServer) UpdatePipelineSource(ctx context.Context, request *pps.UpdatePipelineSourceRequest) (*pps.PipelineSource, error) {
-	return nil, errors.New("not implemented")
+func (a *apiServer) GetJob(ctx context.Context, request *pps.GetJobRequest) (response *pps.Job, err error) {
+	persistJob, err := a.persistAPIClient.GetJobByID(ctx, &google_protobuf.StringValue{Value: request.JobId})
+	if err != nil {
+		return nil, err
+	}
+	return persistToJob(persistJob), nil
 }
 
-func (a *apiServer) ArchivePipelineSource(ctx context.Context, request *pps.ArchivePipelineSourceRequest) (*google_protobuf.Empty, error) {
-	if err := a.storeClient.ArchivePipelineSource(request.PipelineSourceId); err != nil {
+func (a *apiServer) GetJobsByPipelineName(ctx context.Context, request *pps.GetJobsByPipelineNameRequest) (response *pps.Jobs, err error) {
+	persistPipelines, err := a.persistAPIClient.GetPipelinesByName(ctx, &google_protobuf.StringValue{Value: request.PipelineName})
+	if err != nil {
+		return nil, err
+	}
+	var jobs []*pps.Job
+	for _, persistPipeline := range persistPipelines.Pipeline {
+		persistJobs, err := a.persistAPIClient.GetJobsByPipelineID(ctx, &google_protobuf.StringValue{Value: persistPipeline.Id})
+		if err != nil {
+			return nil, err
+		}
+		iJobs := persistToJobs(persistJobs)
+		jobs = append(jobs, iJobs.Job...)
+	}
+	return &pps.Jobs{
+		Job: jobs,
+	}, nil
+}
+
+func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (response *google_protobuf.Empty, err error) {
+	persistJob, err := a.persistAPIClient.GetJobByID(ctx, &google_protobuf.StringValue{Value: request.JobId})
+	if err != nil {
+		return nil, err
+	}
+	if err := a.startPersistJob(persistJob); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
 }
 
-func (a *apiServer) ListPipelineSources(ctx context.Context, request *pps.ListPipelineSourcesRequest) (*pps.PipelineSources, error) {
-	pipelineSources, err := a.storeClient.GetAllPipelineSources()
+func (a *apiServer) GetJobStatus(ctx context.Context, request *pps.GetJobStatusRequest) (response *pps.JobStatus, err error) {
+	persistJobStatuses, err := a.persistAPIClient.GetJobStatusesByJobID(ctx, &google_protobuf.StringValue{Value: request.JobId})
 	if err != nil {
 		return nil, err
 	}
-	if request.Tags == nil || len(request.Tags) == 0 {
-		return &pps.PipelineSources{
-			PipelineSource: pipelineSources,
-		}, nil
+	if len(persistJobStatuses.JobStatus) == 0 {
+		return nil, fmt.Errorf("pachyderm.pps.server: no job statuses for %s", request.JobId)
 	}
-	var filteredPipelineSources []*pps.PipelineSource
-	for _, pipelineSource := range pipelineSources {
-		if tagsMatch(request.Tags, pipelineSource.Tags) {
-			filteredPipelineSources = append(filteredPipelineSources, pipelineSource)
-		}
-	}
-	return &pps.PipelineSources{
-		PipelineSource: pipelineSources,
-	}, nil
+	return persistToJobStatus(persistJobStatuses.JobStatus[0]), nil
 }
 
-func tagsMatch(expected map[string]string, tags map[string]string) bool {
-	for key, value := range expected {
-		if tags[key] != value {
-			return false
-		}
-	}
-	return true
-}
-
-func (a *apiServer) CreateAndGetPipeline(ctx context.Context, request *pps.CreateAndGetPipelineRequest) (*pps.Pipeline, error) {
-	pipelineSource, err := a.storeClient.GetPipelineSource(request.PipelineSourceId)
+func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pps.API_GetJobLogsServer) (err error) {
+	persistJobLogs, err := a.persistAPIClient.GetJobLogsByJobID(context.Background(), &google_protobuf.StringValue{Value: request.JobId})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	_, pipeline, err := getDirPathAndPipeline(pipelineSource)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.storeClient.CreatePipeline(pipeline); err != nil {
-		return nil, err
-	}
-	return pipeline, nil
-}
-
-func (a *apiServer) CreatePipelineRun(ctx context.Context, request *pps.CreatePipelineRunRequest) (*pps.PipelineRun, error) {
-	pipelineRun := &pps.PipelineRun{
-		Id:         strings.Replace(uuid.NewV4().String(), "-", "", -1),
-		PipelineId: request.PipelineId,
-	}
-	// TODO(pedge): should be transactional with call to CreatePipelineRunStatus
-	if err := a.storeClient.CreatePipelineRun(pipelineRun); err != nil {
-		return nil, err
-	}
-	if err := a.storeClient.CreatePipelineRunStatus(pipelineRun.Id, pps.PipelineRunStatusType_PIPELINE_RUN_STATUS_TYPE_CREATED); err != nil {
-		return nil, err
-	}
-	protolog.Info(
-		&CreatedPipelineRun{
-			PipelineRun: pipelineRun,
-		},
-	)
-	return pipelineRun, nil
-}
-
-func (a *apiServer) StartPipelineRun(ctx context.Context, request *pps.StartPipelineRunRequest) (*google_protobuf.Empty, error) {
-	runner := run.NewRunner(
-		pkggraph.NewGrapher(),
-		a.containerClient,
-		a.storeClient,
-		a.timer,
-	)
-	if err := runner.Start(request.PipelineRunId); err != nil {
-		return nil, err
-	}
-	return emptyInstance, nil
-}
-
-// TODO(pedge): implement
-func (a *apiServer) ListPipelineRuns(ctx context.Context, request *pps.ListPipelineRunsRequest) (*pps.PipelineRuns, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (a *apiServer) GetPipelineRunStatus(ctx context.Context, request *pps.GetPipelineRunStatusRequest) (*pps.PipelineRunStatuses, error) {
-	pipelineRunStatuses, err := a.storeClient.GetAllPipelineRunStatuses(request.PipelineRunId)
-	if err != nil {
-		return nil, err
-	}
-	if !request.All {
-		pipelineRunStatuses = []*pps.PipelineRunStatus{pipelineRunStatuses[0]}
-	}
-	return &pps.PipelineRunStatuses{
-		PipelineRunStatus: pipelineRunStatuses,
-	}, nil
-}
-
-func (a *apiServer) GetPipelineRunLogs(ctx context.Context, getRunLogsRequest *pps.GetPipelineRunLogsRequest) (*pps.PipelineRunLogs, error) {
-	pipelineRunLogs, err := a.storeClient.GetPipelineRunLogs(getRunLogsRequest.PipelineRunId)
-	if err != nil {
-		return nil, err
-	}
-	filteredPipelineRunLogs := pipelineRunLogs
-	if getRunLogsRequest.Node != "" {
-		filteredPipelineRunLogs = make([]*pps.PipelineRunLog, 0)
-		for _, pipelineRunLog := range pipelineRunLogs {
-			if pipelineRunLog.Node == getRunLogsRequest.Node {
-				filteredPipelineRunLogs = append(filteredPipelineRunLogs, pipelineRunLog)
+	for _, persistJobLog := range persistJobLogs.JobLog {
+		if persistJobLog.OutputStream == request.OutputStream {
+			if err := responseServer.Send(&google_protobuf.BytesValue{Value: persistJobLog.Value}); err != nil {
+				return err
 			}
 		}
 	}
-	sort.Sort(sortByTimestamp(filteredPipelineRunLogs))
-	return &pps.PipelineRunLogs{
-		PipelineRunLog: filteredPipelineRunLogs,
+	return nil
+}
+
+func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *pps.Pipeline, err error) {
+	persistPipeline, err := a.persistAPIClient.CreatePipeline(ctx, pipelineToPersist(request.Pipeline))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := a.watchAPIClient.RegisterChangeEvent(
+		ctx,
+		&watch.ChangeEvent{
+			Type:         watch.ChangeEvent_CHANGE_EVENT_TYPE_CREATE,
+			PipelineName: persistPipeline.Name,
+		},
+	); err != nil {
+		// TODO(pedge): need to roll back the db create
+		return nil, err
+	}
+	return persistToPipeline(persistPipeline), nil
+}
+
+func (a *apiServer) GetPipeline(ctx context.Context, request *pps.GetPipelineRequest) (response *pps.Pipeline, err error) {
+	persistPipelines, err := a.persistAPIClient.GetPipelinesByName(ctx, &google_protobuf.StringValue{Value: request.PipelineName})
+	if err != nil {
+		return nil, err
+	}
+	if len(persistPipelines.Pipeline) == 0 {
+		return nil, fmt.Errorf("pachyderm.pps.server: no piplines for name %s", request.PipelineName)
+	}
+	return persistToPipeline(persistPipelines.Pipeline[0]), nil
+}
+
+func (a *apiServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (response *pps.Pipelines, err error) {
+	persistPipelines, err := a.persistAPIClient.GetAllPipelines(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	pipelineMap := make(map[string]*pps.Pipeline)
+	for _, persistPipeline := range persistPipelines.Pipeline {
+		// pipelines are ordered newest to oldest, so if we have already
+		// seen a pipeline with the same name, it is newer
+		if _, ok := pipelineMap[persistPipeline.Name]; !ok {
+			pipelineMap[persistPipeline.Name] = persistToPipeline(persistPipeline)
+		}
+	}
+	pipelines := make([]*pps.Pipeline, len(pipelineMap))
+	i := 0
+	for _, pipeline := range pipelineMap {
+		pipelines[i] = pipeline
+		i++
+	}
+	return &pps.Pipelines{
+		Pipeline: pipelines,
 	}, nil
 }
 
-func getDirPathAndPipeline(pipelineSource *pps.PipelineSource) (string, *pps.Pipeline, error) {
-	if pipelineSource.GetGithubPipelineSource() != nil {
-		dirPath, err := githubClone(pipelineSource.GetGithubPipelineSource())
-		if err != nil {
-			return "", nil, err
-		}
-		dirPath = filepath.Join(dirPath, pipelineSource.GetGithubPipelineSource().ContextDir)
-		pipeline, err := parse.NewParser().ParsePipeline(dirPath)
-		if err != nil {
-			return "", nil, err
-		}
-		pipeline.PipelineSourceId = pipelineSource.Id
-		pipeline.Id = strings.Replace(uuid.NewV4().String(), "-", "", -1)
-		return dirPath, pipeline, nil
+func (a *apiServer) startPersistJob(persistJob *persist.Job) error {
+	if _, err := a.persistAPIClient.CreateJobStatus(
+		context.Background(),
+		&persist.JobStatus{
+			JobId: persistJob.Id,
+			Type:  pps.JobStatusType_JOB_STATUS_TYPE_STARTED,
+		},
+	); err != nil {
+		return err
 	}
-	return "", nil, fmt.Errorf("must specify pipeline source")
+	// TODO(pedge): throttling? worker pool?
+	go func() {
+		if err := a.runJob(persistJob); err != nil {
+			protolog.Errorln(err.Error())
+			// TODO(pedge): how to handle the error?
+			if _, err = a.persistAPIClient.CreateJobStatus(
+				context.Background(),
+				&persist.JobStatus{
+					JobId:   persistJob.Id,
+					Type:    pps.JobStatusType_JOB_STATUS_TYPE_ERROR,
+					Message: err.Error(),
+				},
+			); err != nil {
+				protolog.Errorln(err.Error())
+			}
+		} else {
+			// TODO(pedge): how to handle the error?
+			if _, err = a.persistAPIClient.CreateJobStatus(
+				context.Background(),
+				&persist.JobStatus{
+					JobId: persistJob.Id,
+					Type:  pps.JobStatusType_JOB_STATUS_TYPE_SUCCESS,
+				},
+			); err != nil {
+				protolog.Errorln(err.Error())
+			}
+		}
+	}()
+	return nil
 }
 
-func githubClone(githubPipelineSource *pps.GithubPipelineSource) (string, error) {
-	dirPath, err := makeTempDir()
-	if err != nil {
-		return "", err
+func (a *apiServer) runJob(persistJob *persist.Job) error {
+	switch {
+	case persistJob.GetTransform() != nil:
+		return a.reallyRunJob(strings.Replace(uuid.NewV4().String(), "-", "", -1), persistJob.Id, persistJob.GetTransform(), persistJob.JobInput, persistJob.JobOutput, 1)
+	case persistJob.GetPipelineId() != "":
+		persistPipeline, err := a.persistAPIClient.GetPipelineByID(
+			context.Background(),
+			&google_protobuf.StringValue{Value: persistJob.GetPipelineId()},
+		)
+		if err != nil {
+			return err
+		}
+		if persistPipeline.Transform == nil {
+			return fmt.Errorf("pachyderm.pps.server: transform not set on pipeline %v", persistPipeline)
+		}
+		return a.reallyRunJob(persistPipeline.Name, persistJob.Id, persistPipeline.Transform, persistJob.JobInput, persistJob.JobOutput, 1)
+	default:
+		return fmt.Errorf("pachyderm.pps.server: neither transform or pipeline id set on job %v", persistJob)
 	}
-	if err := clone.GithubClone(
-		dirPath,
-		githubPipelineSource.User,
-		githubPipelineSource.Repository,
-		githubPipelineSource.Branch,
-		githubPipelineSource.CommitId,
-		githubPipelineSource.AccessToken,
+}
+
+func (a *apiServer) reallyRunJob(
+	name string,
+	jobID string,
+	transform *pps.Transform,
+	jobInputs []*pps.JobInput,
+	jobOutputs []*pps.JobOutput,
+	numContainers int,
+) error {
+	image, err := a.buildOrPull(name, transform)
+	if err != nil {
+		return err
+	}
+	var containerIDs []string
+	defer a.removeContainers(containerIDs)
+	for i := 0; i < numContainers; i++ {
+		containerID, err := a.containerClient.Create(
+			image,
+			container.CreateOptions{
+				Binds:      append(getInputBinds(jobInputs), getOutputBinds(jobOutputs)...),
+				HasCommand: len(transform.Cmd) > 0,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		containerIDs = append(containerIDs, containerID)
+	}
+	for _, containerID := range containerIDs {
+		if err := a.containerClient.Start(
+			containerID,
+			container.StartOptions{
+				Commands: transform.Cmd,
+			},
+		); err != nil {
+			return err
+		}
+	}
+	errC := make(chan error, len(containerIDs))
+	for _, containerID := range containerIDs {
+		go a.writeContainerLogs(containerID, jobID, errC)
+	}
+	for _, containerID := range containerIDs {
+		if err := a.containerClient.Wait(containerID, container.WaitOptions{}); err != nil {
+			return err
+		}
+	}
+	err = nil
+	for _ = range containerIDs {
+		if logsErr := <-errC; logsErr != nil && err == nil {
+			err = logsErr
+		}
+	}
+	return err
+}
+
+// return image name
+func (a *apiServer) buildOrPull(name string, transform *pps.Transform) (string, error) {
+	image := transform.Image
+	if transform.Build != "" {
+		image = fmt.Sprintf("ppspipelines/%s", name)
+		if err := a.containerClient.Build(
+			image,
+			transform.Build,
+			// TODO(pedge): this will not work, the path to a dockerfile is not real
+			container.BuildOptions{
+				Dockerfile:   transform.Dockerfile,
+				OutputStream: ioutil.Discard,
+			},
+		); err != nil {
+			return "", err
+		}
+	} else if err := a.containerClient.Pull(
+		transform.Image,
+		container.PullOptions{},
 	); err != nil {
 		return "", err
 	}
-	return dirPath, nil
+	return image, nil
 }
 
-func makeTempDir() (string, error) {
-	return ioutil.TempDir("", "pachyderm")
+func (a *apiServer) removeContainers(containerIDs []string) {
+	for _, containerID := range containerIDs {
+		_ = a.containerClient.Kill(containerID, container.KillOptions{})
+		//_ = a.containerClient.Remove(containerID, container.RemoveOptions{})
+	}
 }
 
-type sortByTimestamp []*pps.PipelineRunLog
+func (a *apiServer) writeContainerLogs(containerID string, jobID string, errC chan error) {
+	errC <- a.containerClient.Logs(
+		containerID,
+		container.LogsOptions{
+			Stdout: newJobLogWriter(
+				jobID,
+				pps.OutputStream_OUTPUT_STREAM_STDOUT,
+				a.persistAPIClient,
+			),
+			Stderr: newJobLogWriter(
+				jobID,
+				pps.OutputStream_OUTPUT_STREAM_STDERR,
+				a.persistAPIClient,
+			),
+		},
+	)
+}
 
-func (s sortByTimestamp) Len() int          { return len(s) }
-func (s sortByTimestamp) Swap(i int, j int) { s[i], s[j] = s[j], s[i] }
-func (s sortByTimestamp) Less(i int, j int) bool {
-	return prototime.TimestampLess(s[i].Timestamp, s[j].Timestamp)
+func getInputBinds(jobInputs []*pps.JobInput) []string {
+	var binds []string
+	for _, jobInput := range jobInputs {
+		if jobInput.GetHostDir() != "" {
+			binds = append(binds, getBinds(jobInput.GetHostDir(), filepath.Join("/var/lib/pps/host", jobInput.GetHostDir()), "ro"))
+		}
+	}
+	return binds
+}
+
+func getOutputBinds(jobOutputs []*pps.JobOutput) []string {
+	var binds []string
+	for _, jobOutput := range jobOutputs {
+		if jobOutput.GetHostDir() != "" {
+			binds = append(binds, getBinds(jobOutput.GetHostDir(), filepath.Join("/var/lib/pps/host", jobOutput.GetHostDir()), "rw"))
+		}
+	}
+	return binds
+}
+
+func getBinds(from string, to string, postfix string) string {
+	return fmt.Sprintf("%s:%s:%s", from, to, postfix)
 }

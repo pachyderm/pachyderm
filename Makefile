@@ -34,10 +34,6 @@ vendor:
 	rm -rf vendor
 	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 godep save ./src/...
 	rm -rf Godeps
-	rm -rf vendor/gopkg.in/libgit2
-
-install-git2go:
-	sh etc/git2go/install.sh
 
 build: deps
 	go build ./src/...
@@ -124,7 +120,7 @@ pretest:
 			exit 1; \
 		fi; \
 	done
-	errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pkg/clone | grep -v src/pps$$ | grep -v src/pps/server)
+	errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$ | grep -v src/pps/server | grep -v src/pps/persist)
 
 docker-clean-test:
 	docker-compose kill rethink
@@ -150,8 +146,9 @@ test: pretest docker-clean-test docker-build-test
 test-pfs-extra: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pfs/server"
 
-test-pps-extra: pretest docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pps/server"
+test-pps-extra: docker-clean-test docker-build-test
+	go build ./src/pps/persist/...
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pps/persist"
 
 clean: docker-clean-launch
 	go clean ./src/...
@@ -171,7 +168,6 @@ clean: docker-clean-launch
 	test-deps \
 	update-test-deps \
 	vendor \
-	install-git2go \
 	build \
 	install \
 	docker-build-btrfs \

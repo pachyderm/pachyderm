@@ -3,31 +3,31 @@ package route
 import (
 	"fmt"
 
-	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pkg/grpcutil"
+	"go.pachyderm.com/pachyderm/src/pkg/shard"
 	"google.golang.org/grpc"
 )
 
 type router struct {
-	addresser    Addresser
+	sharder      shard.Sharder
 	dialer       grpcutil.Dialer
 	localAddress string
 }
 
 func newRouter(
-	addresser Addresser,
+	sharder shard.Sharder,
 	dialer grpcutil.Dialer,
 	localAddress string,
 ) *router {
 	return &router{
-		addresser,
+		sharder,
 		dialer,
 		localAddress,
 	}
 }
 
 func (r *router) GetMasterShards(version int64) (map[uint64]bool, error) {
-	shardToMasterAddress, err := r.addresser.GetShardToMasterAddress(version)
+	shardToMasterAddress, err := r.sharder.GetShardToMasterAddress(version)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (r *router) GetMasterShards(version int64) (map[uint64]bool, error) {
 }
 
 func (r *router) GetReplicaShards(version int64) (map[uint64]bool, error) {
-	shardToReplicaAddresses, err := r.addresser.GetShardToReplicaAddresses(version)
+	shardToReplicaAddresses, err := r.sharder.GetShardToReplicaAddresses(version)
 	if err != nil {
 		return nil, err
 	}
@@ -57,11 +57,11 @@ func (r *router) GetReplicaShards(version int64) (map[uint64]bool, error) {
 }
 
 func (r *router) GetAllShards(version int64) (map[uint64]bool, error) {
-	shardToMasterAddress, err := r.addresser.GetShardToMasterAddress(version)
+	shardToMasterAddress, err := r.sharder.GetShardToMasterAddress(version)
 	if err != nil {
 		return nil, err
 	}
-	shardToReplicaAddresses, err := r.addresser.GetShardToReplicaAddresses(version)
+	shardToReplicaAddresses, err := r.sharder.GetShardToReplicaAddresses(version)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (r *router) GetAllShards(version int64) (map[uint64]bool, error) {
 }
 
 func (r *router) GetMasterClientConn(shard uint64, version int64) (*grpc.ClientConn, error) {
-	address, ok, err := r.addresser.GetMasterAddress(shard, version)
+	address, ok, err := r.sharder.GetMasterAddress(shard, version)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (r *router) GetMasterClientConn(shard uint64, version int64) (*grpc.ClientC
 }
 
 func (r *router) GetMasterOrReplicaClientConn(shard uint64, version int64) (*grpc.ClientConn, error) {
-	addresses, err := r.addresser.GetReplicaAddresses(shard, version)
+	addresses, err := r.sharder.GetReplicaAddresses(shard, version)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (r *router) GetMasterOrReplicaClientConn(shard uint64, version int64) (*grp
 }
 
 func (r *router) GetReplicaClientConns(shard uint64, version int64) ([]*grpc.ClientConn, error) {
-	addresses, err := r.addresser.GetReplicaAddresses(shard, version)
+	addresses, err := r.sharder.GetReplicaAddresses(shard, version)
 	if err != nil {
 		return nil, err
 	}
@@ -138,14 +138,14 @@ func (r *router) GetAllClientConns(version int64) ([]*grpc.ClientConn, error) {
 
 func (r *router) getAllAddresses(version int64) (map[string]bool, error) {
 	result := make(map[string]bool)
-	shardToMasterAddress, err := r.addresser.GetShardToMasterAddress(version)
+	shardToMasterAddress, err := r.sharder.GetShardToMasterAddress(version)
 	if err != nil {
 		return nil, err
 	}
 	for _, address := range shardToMasterAddress {
 		result[address] = true
 	}
-	shardToReplicaAddresses, err := r.addresser.GetShardToReplicaAddresses(version)
+	shardToReplicaAddresses, err := r.sharder.GetShardToReplicaAddresses(version)
 	if err != nil {
 		return nil, err
 	}
@@ -155,16 +155,4 @@ func (r *router) getAllAddresses(version int64) (map[string]bool, error) {
 		}
 	}
 	return result, nil
-}
-
-func (r *router) Version() (int64, error) {
-	return r.addresser.Version()
-}
-
-func (r *router) InspectServer(server *pfs.Server) (*pfs.ServerInfo, error) {
-	return r.addresser.InspectServer(server)
-}
-
-func (r *router) ListServer() ([]*pfs.ServerInfo, error) {
-	return r.addresser.ListServer()
 }

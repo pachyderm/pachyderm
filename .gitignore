@@ -30,3 +30,4 @@ src/cmd/pps/pps
 src/cmd/ppsd/ppsd
 etc/initdev/.vagrant
 _tmp
+old_pps

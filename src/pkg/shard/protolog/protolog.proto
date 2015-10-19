@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+import "pkg/shard/proto/shard.proto";
+
+package shardprotolog;
+
+message StartRegister {
+    string id = 1;
+    string address = 2;
+}
+
+message FinishRegister {
+    string id = 1;
+    string address = 2;
+    string error = 3;
+}
+
+message Version {
+    int64 result = 1;
+    string error = 2;
+}
+
+message StartAssignRoles {
+}
+
+message FinishAssignRoles {
+    string error = 1;
+}
+
+message FailedToAssignRoles {
+    map<string, shardproto.ServerState> server_states = 1;
+    uint64 num_shards = 2;
+    uint64 num_replicas = 3;
+}
+
+message SetServerState {
+    shardproto.ServerState serverState = 1;
+}
+
+message SetFrontendState {
+    shardproto.FrontendState frontendState = 1;
+}
+
+message AddServerRole {
+    shardproto.ServerRole serverRole = 1;
+    string error = 2;
+}
+
+message RemoveServerRole {
+    shardproto.ServerRole serverRole = 1;
+    string error = 2;
+}
+
+message SetServerRole {
+    shardproto.ServerRole serverRole = 2;
+}
+
+message DeleteServerRole {
+    shardproto.ServerRole serverRole = 2;
+}
+
+message SetAddresses {
+    shardproto.Addresses addresses = 1;
+}
+
+message GetMasterAddress {
+    uint64 shard = 1;
+    int64 version = 2; 
+    string result = 3;
+    bool ok = 4;
+    string error = 5;
+}
+
+message GetReplicaAddresses {
+    uint64 shard = 1;
+    int64 version = 2; 
+    map<string, bool> result = 3;
+    string error = 4;
+}
+
+message GetShardToMasterAddress {
+    int64 version = 1; 
+    map<uint64, string> result = 2;
+    string error = 3;
+}
+
+message ReplicaAddresses {
+    map<string, bool> addresses = 1;
+}
+
+message GetShardToReplicaAddresses {
+    int64 version = 1;
+    map<uint64, ReplicaAddresses>  result = 2;
+    string error = 3;
+}

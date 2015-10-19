@@ -22,11 +22,17 @@ It has these top-level messages:
 package google_protobuf
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
-// Wrapper message for double.
+// Wrapper message for `double`.
+//
+// The JSON representation for `DoubleValue` is JSON number.
 type DoubleValue struct {
 	// The double value.
 	Value float64 `protobuf:"fixed64,1,opt,name=value" json:"value,omitempty"`
@@ -36,7 +42,9 @@ func (m *DoubleValue) Reset()         { *m = DoubleValue{} }
 func (m *DoubleValue) String() string { return proto.CompactTextString(m) }
 func (*DoubleValue) ProtoMessage()    {}
 
-// Wrapper message for float.
+// Wrapper message for `float`.
+//
+// The JSON representation for `FloatValue` is JSON number.
 type FloatValue struct {
 	// The float value.
 	Value float32 `protobuf:"fixed32,1,opt,name=value" json:"value,omitempty"`
@@ -46,7 +54,9 @@ func (m *FloatValue) Reset()         { *m = FloatValue{} }
 func (m *FloatValue) String() string { return proto.CompactTextString(m) }
 func (*FloatValue) ProtoMessage()    {}
 
-// Wrapper message for int64.
+// Wrapper message for `int64`.
+//
+// The JSON representation for `Int64Value` is JSON string.
 type Int64Value struct {
 	// The int64 value.
 	Value int64 `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
@@ -56,7 +66,9 @@ func (m *Int64Value) Reset()         { *m = Int64Value{} }
 func (m *Int64Value) String() string { return proto.CompactTextString(m) }
 func (*Int64Value) ProtoMessage()    {}
 
-// Wrapper message for uint64.
+// Wrapper message for `uint64`.
+//
+// The JSON representation for `UInt64Value` is JSON string.
 type UInt64Value struct {
 	// The uint64 value.
 	Value uint64 `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
@@ -66,7 +78,9 @@ func (m *UInt64Value) Reset()         { *m = UInt64Value{} }
 func (m *UInt64Value) String() string { return proto.CompactTextString(m) }
 func (*UInt64Value) ProtoMessage()    {}
 
-// Wrapper message for int32.
+// Wrapper message for `int32`.
+//
+// The JSON representation for `Int32Value` is JSON number.
 type Int32Value struct {
 	// The int32 value.
 	Value int32 `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
@@ -76,7 +90,9 @@ func (m *Int32Value) Reset()         { *m = Int32Value{} }
 func (m *Int32Value) String() string { return proto.CompactTextString(m) }
 func (*Int32Value) ProtoMessage()    {}
 
-// Wrapper message for uint32.
+// Wrapper message for `uint32`.
+//
+// The JSON representation for `UInt32Value` is JSON number.
 type UInt32Value struct {
 	// The uint32 value.
 	Value uint32 `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
@@ -86,7 +102,9 @@ func (m *UInt32Value) Reset()         { *m = UInt32Value{} }
 func (m *UInt32Value) String() string { return proto.CompactTextString(m) }
 func (*UInt32Value) ProtoMessage()    {}
 
-// Wrapper message for bool.
+// Wrapper message for `bool`.
+//
+// The JSON representation for `BoolValue` is JSON `true` and `false`.
 type BoolValue struct {
 	// The bool value.
 	Value bool `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
@@ -96,7 +114,9 @@ func (m *BoolValue) Reset()         { *m = BoolValue{} }
 func (m *BoolValue) String() string { return proto.CompactTextString(m) }
 func (*BoolValue) ProtoMessage()    {}
 
-// Wrapper message for string.
+// Wrapper message for `string`.
+//
+// The JSON representation for `StringValue` is JSON string.
 type StringValue struct {
 	// The string value.
 	Value string `protobuf:"bytes,1,opt,name=value" json:"value,omitempty"`
@@ -106,7 +126,9 @@ func (m *StringValue) Reset()         { *m = StringValue{} }
 func (m *StringValue) String() string { return proto.CompactTextString(m) }
 func (*StringValue) ProtoMessage()    {}
 
-// Wrapper message for bytes.
+// Wrapper message for `bytes`.
+//
+// The JSON representation for `BytesValue` is JSON string.
 type BytesValue struct {
 	// The bytes value.
 	Value []byte `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`

@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sync/atomic"
 	"testing"
+
+	"github.com/satori/go.uuid"
 
 	"go.pedge.io/proto/test"
 
@@ -17,6 +18,7 @@ import (
 	"go.pachyderm.com/pachyderm/src/pkg/discovery"
 	"go.pachyderm.com/pachyderm/src/pkg/grpcutil"
 	"go.pachyderm.com/pachyderm/src/pkg/require"
+	"go.pachyderm.com/pachyderm/src/pkg/shard"
 	"google.golang.org/grpc"
 )
 
@@ -29,13 +31,9 @@ const (
 	testNumReplicas     = 1
 )
 
-var (
-	counter int32
-)
-
 func RunTest(
 	t *testing.T,
-	f func(*testing.T, pfs.ApiClient, pfs.InternalApiClient, Cluster),
+	f func(*testing.T, pfs.APIClient, pfs.InternalAPIClient, Cluster),
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(t, err)
@@ -53,15 +51,15 @@ func RunTest(
 				break
 			}
 			go func() {
-				require.Equal(t, cluster.addresser.AssignRoles(cluster.cancel), route.ErrCancelled)
+				require.Equal(t, cluster.realSharder.AssignRoles(cluster.cancel), shard.ErrCancelled)
 			}()
 			cluster.WaitForAvailability()
 			f(
 				t,
-				pfs.NewApiClient(
+				pfs.NewAPIClient(
 					clientConn,
 				),
-				pfs.NewInternalApiClient(
+				pfs.NewInternalAPIClient(
 					clientConn,
 				),
 				cluster,
@@ -73,7 +71,7 @@ func RunTest(
 
 func RunBench(
 	b *testing.B,
-	f func(*testing.B, pfs.ApiClient),
+	f func(*testing.B, pfs.APIClient),
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(b, err)
@@ -91,12 +89,12 @@ func RunBench(
 				break
 			}
 			go func() {
-				require.Equal(b, cluster.addresser.AssignRoles(cluster.cancel), route.ErrCancelled)
+				require.Equal(b, cluster.realSharder.AssignRoles(cluster.cancel), shard.ErrCancelled)
 			}()
 			cluster.WaitForAvailability()
 			f(
 				b,
-				pfs.NewApiClient(
+				pfs.NewAPIClient(
 					clientConn,
 				),
 			)
@@ -119,21 +117,26 @@ type cluster struct {
 	servers         map[string]server.APIServer
 	internalServers map[string]server.InternalAPIServer
 	cancels         map[string]chan bool
+	internalCancels map[string]chan bool
 	cancel          chan bool
-	addresser       route.TestAddresser
+	realSharder     shard.TestSharder
 	sharder         route.Sharder
 	tb              testing.TB
 }
 
 func (c *cluster) WaitForAvailability() {
 	// We use address as the id for servers
-	var ids []string
+	var frontendIds []string
+	var serverIds []string
 	for _, address := range c.addresses {
 		if _, ok := c.cancels[address]; ok {
-			ids = append(ids, address)
+			frontendIds = append(frontendIds, address)
+		}
+		if _, ok := c.internalCancels[address]; ok {
+			serverIds = append(serverIds, address)
 		}
 	}
-	require.NoError(c.tb, c.addresser.WaitForAvailability(ids))
+	require.NoError(c.tb, c.realSharder.WaitForAvailability(frontendIds, serverIds))
 }
 
 func (c *cluster) Kill(index int) {
@@ -148,7 +151,7 @@ func (c *cluster) Restart(index int) {
 	internalAPIServer := server.NewInternalAPIServer(
 		c.sharder,
 		route.NewRouter(
-			c.addresser,
+			c.realSharder,
 			grpcutil.NewDialer(
 				grpc.WithInsecure(),
 			),
@@ -158,7 +161,7 @@ func (c *cluster) Restart(index int) {
 	)
 	c.internalServers[address] = internalAPIServer
 	go func() {
-		require.Equal(c.tb, c.addresser.Register(c.cancels[address], address, address, c.internalServers[address]), route.ErrCancelled)
+		require.Equal(c.tb, c.realSharder.Register(c.cancels[address], address, address, c.internalServers[address]), shard.ErrCancelled)
 	}()
 }
 
@@ -169,7 +172,7 @@ func (c *cluster) KillRoleAssigner() {
 func (c *cluster) RestartRoleAssigner() {
 	c.cancel = make(chan bool)
 	go func() {
-		require.Equal(c.tb, c.addresser.AssignRoles(c.cancel), route.ErrCancelled)
+		require.Equal(c.tb, c.realSharder.AssignRoles(c.cancel), shard.ErrCancelled)
 	}()
 }
 
@@ -181,50 +184,55 @@ func (c *cluster) Shutdown() {
 }
 
 func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[string]*grpc.Server) *cluster {
+	realSharder := shard.NewTestSharder(
+		discoveryClient,
+		testShardsPerServer*testNumServers,
+		testNumReplicas,
+		testNamespace(),
+	)
 	sharder := route.NewSharder(
 		testShardsPerServer*testNumServers,
 		testNumReplicas,
 	)
-	addresser := route.NewDiscoveryTestAddresser(discoveryClient, sharder, testNamespace())
 	cluster := cluster{
 		servers:         make(map[string]server.APIServer),
 		internalServers: make(map[string]server.InternalAPIServer),
 		cancels:         make(map[string]chan bool),
+		internalCancels: make(map[string]chan bool),
 		cancel:          make(chan bool),
-		addresser:       addresser,
+		realSharder:     realSharder,
 		sharder:         sharder,
 		tb:              tb,
 	}
 	for address, s := range servers {
+		cluster.addresses = append(cluster.addresses, address)
+		router := route.NewRouter(
+			cluster.realSharder,
+			grpcutil.NewDialer(
+				grpc.WithInsecure(),
+			),
+			address,
+		)
 		apiServer := server.NewAPIServer(
 			cluster.sharder,
-			route.NewRouter(
-				cluster.addresser,
-				grpcutil.NewDialer(
-					grpc.WithInsecure(),
-				),
-				address,
-			),
+			router,
 		)
-		pfs.RegisterApiServer(s, apiServer)
-		internalAPIServer := server.NewInternalAPIServer(
-			cluster.sharder,
-			route.NewRouter(
-				cluster.addresser,
-				grpcutil.NewDialer(
-					grpc.WithInsecure(),
-				),
-				address,
-			),
-			getDriver(tb, address),
-		)
-		pfs.RegisterInternalApiServer(s, internalAPIServer)
-		cluster.addresses = append(cluster.addresses, address)
 		cluster.servers[address] = apiServer
-		cluster.internalServers[address] = internalAPIServer
 		cluster.cancels[address] = make(chan bool)
 		go func(address string) {
-			require.Equal(tb, cluster.addresser.Register(cluster.cancels[address], address, address, cluster.internalServers[address]).Error(), route.ErrCancelled.Error())
+			require.Equal(tb, cluster.realSharder.RegisterFrontend(cluster.cancels[address], address, cluster.servers[address]), shard.ErrCancelled)
+		}(address)
+		pfs.RegisterAPIServer(s, apiServer)
+		internalAPIServer := server.NewInternalAPIServer(
+			cluster.sharder,
+			router,
+			getDriver(tb, address),
+		)
+		pfs.RegisterInternalAPIServer(s, internalAPIServer)
+		cluster.internalServers[address] = internalAPIServer
+		cluster.internalCancels[address] = make(chan bool)
+		go func(address string) {
+			require.Equal(tb, cluster.realSharder.Register(cluster.internalCancels[address], address, address, cluster.internalServers[address]), shard.ErrCancelled)
 		}(address)
 	}
 	return &cluster
@@ -266,5 +274,5 @@ func getEtcdAddress() (string, error) {
 }
 
 func testNamespace() string {
-	return fmt.Sprintf("test-%d", atomic.AddInt32(&counter, 1))
+	return fmt.Sprintf("test-%s", uuid.NewV4().String())
 }

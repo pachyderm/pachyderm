@@ -15,6 +15,7 @@ import (
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pfs/drive"
 	"go.pachyderm.com/pachyderm/src/pfs/route"
+	"go.pachyderm.com/pachyderm/src/pkg/shard"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
 )
@@ -181,7 +182,7 @@ func (a *internalAPIServer) PutBlock(ctx context.Context, request *pfs.PutBlockR
 	return emptyInstance, a.driver.PutBlock(request.File, block, shard, bytes.NewReader(request.Value))
 }
 
-func (a *internalAPIServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.InternalApi_GetBlockServer) (retErr error) {
+func (a *internalAPIServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.InternalAPI_GetBlockServer) (retErr error) {
 	version, err := a.getVersion(apiGetBlockServer.Context())
 	if err != nil {
 		return err
@@ -261,7 +262,7 @@ func (a *internalAPIServer) ListBlock(ctx context.Context, request *pfs.ListBloc
 }
 
 type putFileServerReader struct {
-	putFileServer pfs.Api_PutFileServer
+	putFileServer pfs.API_PutFileServer
 	buffer        bytes.Buffer
 }
 
@@ -279,7 +280,7 @@ func (r *putFileServerReader) Read(p []byte) (int, error) {
 	return r.buffer.Read(p)
 }
 
-func (a *internalAPIServer) PutFile(putFileServer pfs.InternalApi_PutFileServer) (retErr error) {
+func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer) (retErr error) {
 	version, err := a.getVersion(putFileServer.Context())
 	if err != nil {
 		return err
@@ -330,7 +331,7 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalApi_PutFileServer)
 	return nil
 }
 
-func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.InternalApi_GetFileServer) (retErr error) {
+func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.InternalAPI_GetFileServer) (retErr error) {
 	version, err := a.getVersion(apiGetFileServer.Context())
 	if err != nil {
 		return err
@@ -487,7 +488,7 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 	return emptyInstance, nil
 }
 
-func (a *internalAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalApi_PullDiffServer) error {
+func (a *internalAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalAPI_PullDiffServer) error {
 	version, err := a.getVersion(apiPullDiffServer.Context())
 	if err != nil {
 		return err
@@ -518,19 +519,16 @@ func (a *internalAPIServer) PushDiff(ctx context.Context, request *pfs.PushDiffR
 	return emptyInstance, a.driver.PushDiff(request.Commit, request.Shard, bytes.NewReader(request.Value))
 }
 
-func (a *internalAPIServer) AddShard(shard uint64) error {
-	version, ctx, err := a.versionAndCtx(context.Background())
-	if err != nil {
-		return err
-	}
-	if version == route.InvalidVersion {
+func (a *internalAPIServer) AddShard(_shard uint64, version int64) error {
+	if version == shard.InvalidVersion {
 		return nil
 	}
-	clientConn, err := a.router.GetMasterOrReplicaClientConn(shard, version)
+	ctx := versionToContext(version, context.Background())
+	clientConn, err := a.router.GetMasterOrReplicaClientConn(_shard, version)
 	if err != nil {
 		return err
 	}
-	repoInfos, err := pfs.NewInternalApiClient(clientConn).ListRepo(ctx, &pfs.ListRepoRequest{})
+	repoInfos, err := pfs.NewInternalAPIClient(clientConn).ListRepo(ctx, &pfs.ListRepoRequest{})
 	if err != nil {
 		return err
 	}
@@ -538,13 +536,13 @@ func (a *internalAPIServer) AddShard(shard uint64) error {
 		if err := a.driver.CreateRepo(repoInfo.Repo); err != nil {
 			return err
 		}
-		commitInfos, err := pfs.NewInternalApiClient(clientConn).ListCommit(ctx, &pfs.ListCommitRequest{Repo: repoInfo.Repo})
+		commitInfos, err := pfs.NewInternalAPIClient(clientConn).ListCommit(ctx, &pfs.ListCommitRequest{Repo: repoInfo.Repo})
 		if err != nil {
 			return err
 		}
 		for i := range commitInfos.CommitInfo {
 			commit := commitInfos.CommitInfo[len(commitInfos.CommitInfo)-(i+1)].Commit
-			commitInfo, err := a.driver.InspectCommit(commit, map[uint64]bool{shard: true})
+			commitInfo, err := a.driver.InspectCommit(commit, map[uint64]bool{_shard: true})
 			if err != nil {
 				return err
 			}
@@ -554,14 +552,14 @@ func (a *internalAPIServer) AddShard(shard uint64) error {
 			}
 			pullDiffRequest := &pfs.PullDiffRequest{
 				Commit: commit,
-				Shard:  shard,
+				Shard:  _shard,
 			}
-			pullDiffClient, err := pfs.NewInternalApiClient(clientConn).PullDiff(ctx, pullDiffRequest)
+			pullDiffClient, err := pfs.NewInternalAPIClient(clientConn).PullDiff(ctx, pullDiffRequest)
 			if err != nil {
 				return err
 			}
 			diffReader := protostream.NewStreamingBytesReader(pullDiffClient)
-			if err := a.driver.PushDiff(commit, shard, diffReader); err != nil {
+			if err := a.driver.PushDiff(commit, _shard, diffReader); err != nil {
 				return err
 			}
 		}
@@ -569,7 +567,7 @@ func (a *internalAPIServer) AddShard(shard uint64) error {
 	return nil
 }
 
-func (a *internalAPIServer) RemoveShard(shard uint64) error {
+func (a *internalAPIServer) RemoveShard(shard uint64, version int64) error {
 	return nil
 }
 
@@ -675,7 +673,7 @@ func (a *internalAPIServer) commitToReplicas(ctx context.Context, commit *pfs.Co
 			return err
 		}
 		for _, clientConn := range clientConns {
-			if _, err = pfs.NewInternalApiClient(clientConn).PushDiff(
+			if _, err = pfs.NewInternalAPIClient(clientConn).PushDiff(
 				ctx,
 				&pfs.PushDiffRequest{
 					Commit: commit,
@@ -703,16 +701,4 @@ func (a *internalAPIServer) getVersion(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("version not found in context")
 	}
 	return strconv.ParseInt(encodedVersion[0], 10, 64)
-}
-
-func (a *internalAPIServer) versionAndCtx(ctx context.Context) (int64, context.Context, error) {
-	version, err := a.router.Version()
-	if err != nil {
-		return 0, nil, err
-	}
-	newCtx := metadata.NewContext(
-		ctx,
-		metadata.Pairs("version", fmt.Sprint(version)),
-	)
-	return version, newCtx, nil
 }

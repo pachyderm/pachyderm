@@ -2,9 +2,20 @@ package protostream
 
 import (
 	"bufio"
+	"errors"
 	"io"
 
+	"golang.org/x/net/context"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+
 	"go.pedge.io/google-protobuf"
+)
+
+var (
+	// ErrAlreadyClosed is the error returned if CloseSend() is called twice on a StreamingBytesRelayer.
+	ErrAlreadyClosed = errors.New("protostream: already closed")
 )
 
 // StreamingBytesServer represents a server for an rpc method of the form:
@@ -13,10 +24,28 @@ type StreamingBytesServer interface {
 	Send(bytesValue *google_protobuf.BytesValue) error
 }
 
+// StreamingBytesServeCloser is a StreamingBytesServer with close.
+type StreamingBytesServeCloser interface {
+	StreamingBytesServer
+	CloseSend() error
+}
+
 // StreamingBytesClient represents a client for an rpc method of the form:
 //   rpc Foo(Bar) returns (stream google.protobuf.BytesValue) {}
 type StreamingBytesClient interface {
 	Recv() (*google_protobuf.BytesValue, error)
+}
+
+// StreamingBytesDuplexer is both a StreamingBytesClient and StreamingBytesServer.
+type StreamingBytesDuplexer interface {
+	StreamingBytesClient
+	StreamingBytesServer
+}
+
+// StreamingBytesDuplexCloser is a StreamingBytesDuplexer with close.
+type StreamingBytesDuplexCloser interface {
+	StreamingBytesClient
+	StreamingBytesServeCloser
 }
 
 // StreamingBytesClientHandler handles a StreamingBytesClient.
@@ -62,4 +91,20 @@ func RelayFromStreamingBytesClient(streamingBytesClient StreamingBytesClient, st
 			return streamingBytesServer.Send(bytesValue)
 		},
 	).Handle(streamingBytesClient)
+}
+
+// StreamingBytesRelayer represents both generated Clients and servers for streams of *google_protobuf.BytesValue.
+type StreamingBytesRelayer interface {
+	StreamingBytesDuplexer
+	Header() (metadata.MD, error)
+	Trailer() metadata.MD
+	CloseSend() error
+	SendHeader(metadata.MD) error
+	SetTrailer(metadata.MD)
+	grpc.Stream
+}
+
+// NewStreamingBytesRelayer returns a new StreamingBytesRelayer for the context.Context.
+func NewStreamingBytesRelayer(ctx context.Context) StreamingBytesRelayer {
+	return newStreamingBytesRelayer(ctx)
 }

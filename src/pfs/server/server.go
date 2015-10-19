@@ -4,6 +4,7 @@ import (
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pfs/drive"
 	"go.pachyderm.com/pachyderm/src/pfs/route"
+	"go.pachyderm.com/pachyderm/src/pkg/shard"
 	"go.pedge.io/google-protobuf"
 )
 
@@ -21,12 +22,13 @@ var (
 )
 
 type APIServer interface {
-	pfs.ApiServer
+	pfs.APIServer
+	shard.Frontend
 }
 
 type InternalAPIServer interface {
-	pfs.InternalApiServer
-	route.Server
+	pfs.InternalAPIServer
+	shard.Server
 }
 
 // NewAPIServer returns a new APIServer.

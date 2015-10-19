@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
@@ -12,6 +11,7 @@ import (
 
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
+	"go.pedge.io/protolog"
 	"go.pedge.io/protolog/logrus"
 
 	"github.com/gengo/grpc-gateway/runtime"
@@ -24,6 +24,7 @@ import (
 	"go.pachyderm.com/pachyderm/src/pkg/discovery"
 	"go.pachyderm.com/pachyderm/src/pkg/grpcutil"
 	"go.pachyderm.com/pachyderm/src/pkg/netutil"
+	"go.pachyderm.com/pachyderm/src/pkg/shard"
 	"google.golang.org/grpc"
 )
 
@@ -67,11 +68,11 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 	}
-	sharder := route.NewSharder(appEnv.NumShards, appEnv.NumReplicas)
 	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
-	addresser := route.NewDiscoveryAddresser(
+	sharder := shard.NewSharder(
 		discoveryClient,
-		sharder,
+		appEnv.NumShards,
+		appEnv.NumReplicas,
 		"namespace",
 	)
 	var driver drive.Driver
@@ -90,20 +91,25 @@ func do(appEnvObj interface{}) error {
 			0,
 		),
 		route.NewRouter(
-			addresser,
+			sharder,
 			grpcutil.NewDialer(
 				grpc.WithInsecure(),
 			),
 			address,
 		),
 	)
+	go func() {
+		if err := sharder.RegisterFrontend(nil, address, apiServer); err != nil {
+			protolog.Printf("Error from sharder.RegisterFrontend %s", err.Error())
+		}
+	}()
 	internalAPIServer := server.NewInternalAPIServer(
 		route.NewSharder(
 			appEnv.NumShards,
 			0,
 		),
 		route.NewRouter(
-			addresser,
+			sharder,
 			grpcutil.NewDialer(
 				grpc.WithInsecure(),
 			),
@@ -112,8 +118,8 @@ func do(appEnvObj interface{}) error {
 		driver,
 	)
 	go func() {
-		if err := addresser.Register(nil, "id", address, internalAPIServer); err != nil {
-			log.Print(err)
+		if err := sharder.Register(nil, "id", address, internalAPIServer); err != nil {
+			protolog.Printf("Error from sharder.Register %s", err.Error())
 		}
 	}()
 	// TODO(pedge): no!
@@ -123,15 +129,15 @@ func do(appEnvObj interface{}) error {
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
-			pfs.RegisterApiServer(s, apiServer)
-			pfs.RegisterInternalApiServer(s, internalAPIServer)
+			pfs.RegisterAPIServer(s, apiServer)
+			pfs.RegisterInternalAPIServer(s, internalAPIServer)
 		},
 		protoserver.ServeOptions{
 			HTTPPort:  uint16(appEnv.HTTPPort),
 			DebugPort: uint16(appEnv.DebugPort),
 			Version:   pachyderm.Version,
 			HTTPRegisterFunc: func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
-				return pfs.RegisterApiHandler(ctx, mux, clientConn)
+				return pfs.RegisterAPIHandler(ctx, mux, clientConn)
 			},
 		},
 	)

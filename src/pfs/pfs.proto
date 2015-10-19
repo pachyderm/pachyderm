@@ -4,7 +4,7 @@ import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
-import "pfs/route/proto/route.proto";
+import "pkg/shard/proto/shard.proto";
 
 package pfs;
 
@@ -101,8 +101,8 @@ message FileInfos {
 // ServerInfo represents information about a server.
 message ServerInfo {
     Server server = 1;
-    routeproto.ServerState server_state = 2;
-    map<int64, routeproto.ServerRole> server_role = 3;
+    shardproto.ServerState server_state = 2;
+    map<int64, shardproto.ServerRole> server_role = 3;
 }
 
 message ServerInfos {
@@ -224,7 +224,7 @@ message InspectServerRequest {
 message ListServerRequest {
 }
 
-service Api {
+service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
   // An error is returned if the repo already exists.
@@ -292,7 +292,7 @@ message PushDiffRequest {
   bytes value = 3;
 }
 
-service InternalApi {
+service InternalAPI {
   // Repo rpcs
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}

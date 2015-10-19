@@ -14,9 +14,13 @@ It has these top-level messages:
 package google_protobuf
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 // A generic empty message that you can re-use to avoid defining duplicated
 // empty messages in your APIs. A typical example is to use it as the request
@@ -26,6 +30,7 @@ var _ = proto.Marshal
 //       rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);
 //     }
 //
+// The JSON representation for `Empty` is empty JSON object `{}`.
 type Empty struct {
 }
 

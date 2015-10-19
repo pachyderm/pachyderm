@@ -15,14 +15,21 @@ import (
 	"github.com/satori/go.uuid"
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pfs/route"
+	"go.pachyderm.com/pachyderm/src/pkg/shard"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
 	"go.pedge.io/proto/time"
+	"go.pedge.io/protolog"
 )
 
 type apiServer struct {
 	sharder route.Sharder
 	router  route.Router
+	version int64
+	// versionLock protects the version field.
+	// versionLock must be held BEFORE reading from version and UNTIL all
+	// requests using version have returned
+	versionLock sync.RWMutex
 }
 
 func newAPIServer(
@@ -32,20 +39,21 @@ func newAPIServer(
 	return &apiServer{
 		sharder,
 		router,
+		shard.InvalidVersion,
+		sync.RWMutex{},
 	}
 }
 
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (*google_protobuf.Empty, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	clientConns, err := a.router.GetAllClientConns(version)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewInternalApiClient(clientConn).CreateRepo(ctx, request); err != nil {
+		if _, err := pfs.NewInternalAPIClient(clientConn).CreateRepo(ctx, request); err != nil {
 			return nil, err
 		}
 	}
@@ -71,40 +79,37 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 }
 
 func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (*pfs.RepoInfo, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConn, err := a.getClientConn(a.version)
 	if err != nil {
 		return nil, err
 	}
-	clientConn, err := a.getClientConn(version)
-	if err != nil {
-		return nil, err
-	}
-	return pfs.NewInternalApiClient(clientConn).InspectRepo(ctx, request)
+	return pfs.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
 }
 
 func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (*pfs.RepoInfos, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConn, err := a.getClientConn(a.version)
 	if err != nil {
 		return nil, err
 	}
-	clientConn, err := a.getClientConn(version)
-	if err != nil {
-		return nil, err
-	}
-	return pfs.NewInternalApiClient(clientConn).ListRepo(ctx, request)
+	return pfs.NewInternalAPIClient(clientConn).ListRepo(ctx, request)
 }
 
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (*google_protobuf.Empty, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	clientConns, err := a.router.GetAllClientConns(version)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewInternalApiClient(clientConn).DeleteRepo(ctx, request); err != nil {
+		if _, err := pfs.NewInternalAPIClient(clientConn).DeleteRepo(ctx, request); err != nil {
 			return nil, err
 		}
 	}
@@ -113,11 +118,10 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 }
 
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (*pfs.Commit, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	clientConns, err := a.router.GetAllClientConns(version)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +132,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 		}
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewInternalApiClient(clientConn).StartCommit(ctx, request); err != nil {
+		if _, err := pfs.NewInternalAPIClient(clientConn).StartCommit(ctx, request); err != nil {
 			return nil, err
 		}
 	}
@@ -136,16 +140,15 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 }
 
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (*google_protobuf.Empty, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	clientConns, err := a.router.GetAllClientConns(version)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewInternalApiClient(clientConn).FinishCommit(ctx, request); err != nil {
+		if _, err := pfs.NewInternalAPIClient(clientConn).FinishCommit(ctx, request); err != nil {
 			return nil, err
 		}
 	}
@@ -154,23 +157,21 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 
 // TODO(pedge): race on Branch
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConn, err := a.getClientConn(a.version)
 	if err != nil {
 		return nil, err
 	}
-	clientConn, err := a.getClientConn(version)
-	if err != nil {
-		return nil, err
-	}
-	return pfs.NewInternalApiClient(clientConn).InspectCommit(ctx, request)
+	return pfs.NewInternalAPIClient(clientConn).InspectCommit(ctx, request)
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (*pfs.CommitInfos, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	clientConns, err := a.router.GetAllClientConns(version)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +183,7 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
-			subCommitInfos, err := pfs.NewInternalApiClient(clientConn).ListCommit(ctx, request)
+			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).ListCommit(ctx, request)
 			lock.Lock()
 			defer lock.Unlock()
 			if err != nil {
@@ -236,16 +237,15 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 }
 
 func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (*google_protobuf.Empty, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	clientConns, err := a.router.GetAllClientConns(version)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
 	for _, clientConn := range clientConns {
-		if _, err := pfs.NewApiClient(clientConn).DeleteCommit(ctx, request); err != nil {
+		if _, err := pfs.NewAPIClient(clientConn).DeleteCommit(ctx, request); err != nil {
 			return nil, err
 		}
 	}
@@ -253,31 +253,27 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 }
 
 func (a *apiServer) PutBlock(ctx context.Context, request *pfs.PutBlockRequest) (*pfs.Block, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
 	block := a.sharder.GetBlock(request.Value)
-	clientConn, err := a.getClientConnForBlock(block, version)
+	clientConn, err := a.getClientConnForBlock(block, a.version)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := pfs.NewInternalApiClient(clientConn).PutBlock(ctx, request); err != nil {
+	if _, err := pfs.NewInternalAPIClient(clientConn).PutBlock(ctx, request); err != nil {
 		return nil, err
 	}
 	return block, nil
 }
 
-func (a *apiServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.Api_GetBlockServer) (retErr error) {
-	version, ctx, err := a.versionAndCtx(context.Background())
+func (a *apiServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.API_GetBlockServer) (retErr error) {
+	ctx := versionToContext(a.version, apiGetBlockServer.Context())
+	clientConn, err := a.getClientConnForBlock(request.Block, a.version)
 	if err != nil {
 		return err
 	}
-	clientConn, err := a.getClientConnForBlock(request.Block, version)
-	if err != nil {
-		return err
-	}
-	blockGetClient, err := pfs.NewInternalApiClient(clientConn).GetBlock(ctx, request)
+	blockGetClient, err := pfs.NewInternalAPIClient(clientConn).GetBlock(ctx, request)
 	if err != nil {
 		return err
 	}
@@ -285,23 +281,21 @@ func (a *apiServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs
 }
 
 func (a *apiServer) InspectBlock(ctx context.Context, request *pfs.InspectBlockRequest) (*pfs.BlockInfo, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConn, err := a.getClientConnForBlock(request.Block, a.version)
 	if err != nil {
 		return nil, err
 	}
-	clientConn, err := a.getClientConnForBlock(request.Block, version)
-	if err != nil {
-		return nil, err
-	}
-	return pfs.NewInternalApiClient(clientConn).InspectBlock(ctx, request)
+	return pfs.NewInternalAPIClient(clientConn).InspectBlock(ctx, request)
 }
 
 func (a *apiServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest) (*pfs.BlockInfos, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	clientConns, err := a.router.GetAllClientConns(version)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +307,7 @@ func (a *apiServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
-			subBlockInfos, err := pfs.NewInternalApiClient(clientConn).ListBlock(ctx, request)
+			subBlockInfos, err := pfs.NewInternalAPIClient(clientConn).ListBlock(ctx, request)
 			lock.Lock()
 			defer lock.Unlock()
 			if err != nil {
@@ -336,11 +330,8 @@ func (a *apiServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest
 	}, nil
 }
 
-func (a *apiServer) PutFile(putFileServer pfs.Api_PutFileServer) (retErr error) {
-	version, ctx, err := a.versionAndCtx(putFileServer.Context())
-	if err != nil {
-		return err
-	}
+func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
+	ctx := versionToContext(a.version, putFileServer.Context())
 	defer func() {
 		if err := putFileServer.SendAndClose(emptyInstance); err != nil && retErr == nil {
 			retErr = err
@@ -361,12 +352,12 @@ func (a *apiServer) PutFile(putFileServer pfs.Api_PutFileServer) (retErr error) 
 		if len(request.Value) > 0 {
 			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
 		}
-		clientConns, err := a.router.GetAllClientConns(version)
+		clientConns, err := a.router.GetAllClientConns(a.version)
 		if err != nil {
 			return err
 		}
 		for _, clientConn := range clientConns {
-			putFileClient, err := pfs.NewInternalApiClient(clientConn).PutFile(ctx)
+			putFileClient, err := pfs.NewInternalAPIClient(clientConn).PutFile(ctx)
 			if err != nil {
 				return err
 			}
@@ -379,11 +370,11 @@ func (a *apiServer) PutFile(putFileServer pfs.Api_PutFileServer) (retErr error) 
 		}
 		return nil
 	}
-	clientConn, err := a.getClientConnForFile(request.File, version)
+	clientConn, err := a.getClientConnForFile(request.File, a.version)
 	if err != nil {
 		return err
 	}
-	putFileClient, err := pfs.NewInternalApiClient(clientConn).PutFile(ctx)
+	putFileClient, err := pfs.NewInternalAPIClient(clientConn).PutFile(ctx)
 	if err != nil {
 		return err
 	}
@@ -413,16 +404,13 @@ func (a *apiServer) PutFile(putFileServer pfs.Api_PutFileServer) (retErr error) 
 	return nil
 }
 
-func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.Api_GetFileServer) error {
-	version, ctx, err := a.versionAndCtx(context.Background())
+func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) error {
+	ctx := versionToContext(a.version, apiGetFileServer.Context())
+	clientConn, err := a.getClientConnForFile(request.File, a.version)
 	if err != nil {
 		return err
 	}
-	clientConn, err := a.getClientConnForFile(request.File, version)
-	if err != nil {
-		return err
-	}
-	fileGetClient, err := pfs.NewInternalApiClient(clientConn).GetFile(ctx, request)
+	fileGetClient, err := pfs.NewInternalAPIClient(clientConn).GetFile(ctx, request)
 	if err != nil {
 		return err
 	}
@@ -430,23 +418,21 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.Ap
 }
 
 func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (*pfs.FileInfo, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConn, err := a.getClientConnForFile(request.File, a.version)
 	if err != nil {
 		return nil, err
 	}
-	clientConn, err := a.getClientConnForFile(request.File, version)
-	if err != nil {
-		return nil, err
-	}
-	return pfs.NewInternalApiClient(clientConn).InspectFile(ctx, request)
+	return pfs.NewInternalAPIClient(clientConn).InspectFile(ctx, request)
 }
 
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (*pfs.FileInfos, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	clientConns, err := a.router.GetAllClientConns(version)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
@@ -459,7 +445,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
-			subFileInfos, err := pfs.NewInternalApiClient(clientConn).ListFile(ctx, request)
+			subFileInfos, err := pfs.NewInternalAPIClient(clientConn).ListFile(ctx, request)
 			lock.Lock()
 			defer lock.Unlock()
 			if err != nil {
@@ -489,11 +475,10 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 }
 
 func (a *apiServer) ListChange(ctx context.Context, request *pfs.ListChangeRequest) (*pfs.Changes, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	clientConns, err := a.router.GetAllClientConns(version)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
@@ -505,7 +490,7 @@ func (a *apiServer) ListChange(ctx context.Context, request *pfs.ListChangeReque
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
-			subChanges, err := pfs.NewInternalApiClient(clientConn).ListChange(ctx, request)
+			subChanges, err := pfs.NewInternalAPIClient(clientConn).ListChange(ctx, request)
 			lock.Lock()
 			defer lock.Unlock()
 			if err != nil {
@@ -529,33 +514,35 @@ func (a *apiServer) ListChange(ctx context.Context, request *pfs.ListChangeReque
 }
 
 func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (*google_protobuf.Empty, error) {
-	version, ctx, err := a.versionAndCtx(ctx)
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConn, err := a.getClientConnForFile(request.File, a.version)
 	if err != nil {
 		return nil, err
 	}
-	clientConn, err := a.getClientConnForFile(request.File, version)
-	if err != nil {
-		return nil, err
-	}
-	return pfs.NewInternalApiClient(clientConn).DeleteFile(ctx, request)
+	return pfs.NewInternalAPIClient(clientConn).DeleteFile(ctx, request)
 }
 
 func (a *apiServer) InspectServer(ctx context.Context, request *pfs.InspectServerRequest) (*pfs.ServerInfo, error) {
-	return a.router.InspectServer(request.Server)
+	return nil, fmt.Errorf("not implemented")
 }
 
 func (a *apiServer) ListServer(ctx context.Context, request *pfs.ListServerRequest) (*pfs.ServerInfos, error) {
-	serverInfo, err := a.router.ListServer()
-	if err != nil {
-		return nil, err
-	}
-	return &pfs.ServerInfos{
-		ServerInfo: serverInfo,
-	}, nil
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (a *apiServer) Version(version int64) error {
+	protolog.Printf("apiServer.Version %d", version)
+	a.versionLock.Lock()
+	defer a.versionLock.Unlock()
+	protolog.Printf("got lock")
+	a.version = version
+	return nil
 }
 
 func (a *apiServer) getClientConn(version int64) (*grpc.ClientConn, error) {
-	shards, err := a.router.GetMasterShards(version)
+	shards, err := a.router.GetMasterShards(a.version)
 	if err != nil {
 		return nil, err
 	}
@@ -573,14 +560,9 @@ func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.C
 	return a.router.GetMasterClientConn(a.sharder.GetShard(file), version)
 }
 
-func (a *apiServer) versionAndCtx(ctx context.Context) (int64, context.Context, error) {
-	version, err := a.router.Version()
-	if err != nil {
-		return 0, nil, err
-	}
-	newCtx := metadata.NewContext(
+func versionToContext(version int64, ctx context.Context) context.Context {
+	return metadata.NewContext(
 		ctx,
 		metadata.Pairs("version", fmt.Sprint(version)),
 	)
-	return version, newCtx, nil
 }

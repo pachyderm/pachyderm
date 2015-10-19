@@ -14,9 +14,13 @@ It has these top-level messages:
 package google_protobuf
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
+import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 // `FieldMask` represents a set of symbolic field paths, for example:
 //
@@ -32,6 +36,7 @@ var _ = proto.Marshal
 // Field masks also have a custom JSON encoding (see below).
 //
 // # Field Masks in Projections
+//
 // When used in the context of a projection, a response message or
 // sub-message is filtered by the API to only contain those fields as
 // specified in the mask. For example, if the mask in the previous
@@ -77,6 +82,7 @@ var _ = proto.Marshal
 // behavior for APIs.
 //
 // # Field Masks in Update Operations
+//
 // A field mask in update operations specifies which fields of the
 // targeted resource are going to be updated. The API is required
 // to only change the values of the fields as specified in the mask
@@ -104,11 +110,13 @@ var _ = proto.Marshal
 // required to be honored by the API.
 //
 // ## Considerations for HTTP REST
+//
 // The HTTP kind of an update operation which uses a field mask must
 // be set to PATCH instead of PUT in order to satisfy HTTP semantics
 // (PUT must only be used for full updates).
 //
 // # JSON Encoding of Field Masks
+//
 // In JSON, a field mask is encoded as a single string where paths are
 // separated by a comma. Fields name in each path are converted
 // to/from lower-camel naming conventions.

@@ -6,3 +6,4 @@ src/cmd/pfsd/pfsd
 src/cmd/pps/pps
 src/cmd/ppsd/ppsd
 .vagrant
+old_pps

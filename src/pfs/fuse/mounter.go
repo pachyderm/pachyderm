@@ -16,13 +16,13 @@ const (
 )
 
 type mounter struct {
-	apiClient pfs.ApiClient
+	apiClient pfs.APIClient
 
 	mountpointToErrChan map[string]<-chan error
 	lock                *sync.Mutex
 }
 
-func newMounter(apiClient pfs.ApiClient) Mounter {
+func newMounter(apiClient pfs.APIClient) Mounter {
 	return &mounter{
 		apiClient,
 		make(map[string]<-chan error),

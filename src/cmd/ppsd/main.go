@@ -3,25 +3,26 @@ package main
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 
+	"golang.org/x/net/context"
+
 	"github.com/fsouza/go-dockerclient"
 
-	"golang.org/x/net/trace"
-
 	"go.pedge.io/env"
-	"go.pedge.io/pkg/time"
+	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/server"
-	"go.pedge.io/protolog/logrus"
 
 	"go.pachyderm.com/pachyderm"
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/persist"
+	persistserver "go.pachyderm.com/pachyderm/src/pps/persist/server"
 	"go.pachyderm.com/pachyderm/src/pps/server"
-	"go.pachyderm.com/pachyderm/src/pps/store"
+	"go.pachyderm.com/pachyderm/src/pps/watch"
+	watchserver "go.pachyderm.com/pachyderm/src/pps/watch/server"
 	"google.golang.org/grpc"
 )
 
@@ -50,12 +51,11 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	logrus.Register()
 	containerClient, err := getContainerClient()
 	if err != nil {
 		return err
 	}
-	rethinkClient, err := getRethinkClient(appEnv.DatabaseAddress, appEnv.DatabaseName)
+	rethinkAPIClient, err := getRethinkAPIClient(appEnv.DatabaseAddress, appEnv.DatabaseName)
 	if err != nil {
 		return err
 	}
@@ -73,14 +73,16 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	// TODO(pedge): no!
-	trace.AuthRequest = func(_ *http.Request) (bool, bool) {
-		return true, true
+	pfsAPIClient := pfs.NewAPIClient(clientConn)
+	watchAPIServer := watchserver.NewAPIServer(pfsAPIClient, rethinkAPIClient)
+	watchAPIClient := watch.NewLocalAPIClient(watchAPIServer)
+	if _, err := watchAPIClient.Start(context.Background(), &google_protobuf.Empty{}); err != nil {
+		return err
 	}
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
-			pps.RegisterApiServer(s, server.NewAPIServer(pfs.NewApiClient(clientConn), containerClient, rethinkClient, pkgtime.NewSystemTimer()))
+			pps.RegisterAPIServer(s, server.NewAPIServer(rethinkAPIClient, watchAPIClient, containerClient))
 		},
 		protoserver.ServeOptions{
 			DebugPort: uint16(appEnv.DebugPort),
@@ -97,7 +99,7 @@ func getContainerClient() (container.Client, error) {
 	return container.NewDockerClient(client), nil
 }
 
-func getRethinkClient(address string, databaseName string) (store.Client, error) {
+func getRethinkAPIClient(address string, databaseName string) (persist.APIClient, error) {
 	var err error
 	if address == "" {
 		address, err = getRethinkAddress()
@@ -105,10 +107,14 @@ func getRethinkClient(address string, databaseName string) (store.Client, error)
 			return nil, err
 		}
 	}
-	if err := store.InitDBs(address, databaseName); err != nil {
+	if err := persistserver.InitDBs(address, databaseName); err != nil {
 		return nil, err
 	}
-	return store.NewRethinkClient(address, databaseName)
+	rethinkAPIServer, err := persistserver.NewRethinkAPIServer(address, databaseName)
+	if err != nil {
+		return nil, err
+	}
+	return persist.NewLocalAPIClient(rethinkAPIServer), nil
 }
 
 func getRethinkAddress() (string, error) {
