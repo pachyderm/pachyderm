@@ -144,7 +144,11 @@ func (a *rethinkAPIServer) CreateJob(ctx context.Context, request *persist.Job) 
 	if request.Id != "" {
 		return nil, ErrIDSet
 	}
+	if request.CreatedAt != nil {
+		return nil, ErrTimestampSet
+	}
 	request.Id = newID()
+	request.CreatedAt = a.now()
 	if err := a.insertMessage(jobsTable, request); err != nil {
 		return nil, err
 	}
@@ -175,6 +179,9 @@ func (a *rethinkAPIServer) GetJobsByPipelineID(ctx context.Context, request *goo
 		pipelineIDIndex,
 		request.Value,
 		func() proto.Message { return &persist.Job{} },
+		func(term gorethink.Term) gorethink.Term {
+			return term.OrderBy(gorethink.Desc("created_at"))
+		},
 	)
 	if err != nil {
 		return nil, err
