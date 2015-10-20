@@ -158,6 +158,7 @@ message InspectCommitRequest {
 message ListCommitRequest {
   Repo repo = 1;
   Commit from = 2;
+  bool block = 3;
 }
 
 message DeleteCommitRequest {

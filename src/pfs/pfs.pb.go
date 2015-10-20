@@ -557,8 +557,9 @@ func (m *InspectCommitRequest) GetCommit() *Commit {
 }
 
 type ListCommitRequest struct {
-	Repo *Repo   `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
-	From *Commit `protobuf:"bytes,2,opt,name=from" json:"from,omitempty"`
+	Repo  *Repo   `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
+	From  *Commit `protobuf:"bytes,2,opt,name=from" json:"from,omitempty"`
+	Block bool    `protobuf:"varint,3,opt,name=block" json:"block,omitempty"`
 }
 
 func (m *ListCommitRequest) Reset()         { *m = ListCommitRequest{} }
