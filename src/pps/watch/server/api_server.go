@@ -93,28 +93,6 @@ func (a *apiServer) RegisterChangeEvent(ctx context.Context, request *watch.Chan
 				return nil, err
 			}
 		}
-	case watch.ChangeEvent_CHANGE_EVENT_TYPE_UPDATE:
-		if !a.pipelineRegistered(request.PipelineName) {
-			protolog.Warnf("pachyderm.pps.watch.server: had an update change event for a pipeline that was not registered: %v", request)
-			pipeline, err := a.getPipeline(request.PipelineName)
-			if err != nil {
-				return nil, err
-			}
-			if err := a.addPipelineController(pipeline); err != nil {
-				return nil, err
-			}
-		} else {
-			if err := a.removePipelineController(request.PipelineName); err != nil {
-				return nil, err
-			}
-			pipeline, err := a.getPipeline(request.PipelineName)
-			if err != nil {
-				return nil, err
-			}
-			if err := a.addPipelineController(pipeline); err != nil {
-				return nil, err
-			}
-		}
 	case watch.ChangeEvent_CHANGE_EVENT_TYPE_DELETE:
 		if !a.pipelineRegistered(request.PipelineName) {
 			protolog.Warnf("pachyderm.pps.watch.server: had a delete change event for a pipeline that was not registered: %v", request)

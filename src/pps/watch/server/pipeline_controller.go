@@ -1,16 +1,9 @@
 package server
 
 import (
-	"time"
-
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pedge.io/protolog"
-)
-
-const (
-	// TODO(pedge)
-	sleepDuration = 10 * time.Second
 )
 
 type pipelineController struct {
@@ -59,12 +52,11 @@ func (p *pipelineController) run() {
 			if err := p.poll(); err != nil {
 				protolog.Errorln(err.Error())
 			}
-			// TODO(pedge): this means a cancel can take up to 10 seconds
-			time.Sleep(sleepDuration)
 		}
 	}
 }
 
+// TODO(pedge): this is where the list commits logic goes
 func (p *pipelineController) poll() error {
 	return nil
 }

@@ -10,8 +10,7 @@ message ChangeEvent {
   enum Type {
     CHANGE_EVENT_TYPE_NONE = 0;
     CHANGE_EVENT_TYPE_CREATE = 1;
-    CHANGE_EVENT_TYPE_UPDATE = 2;
-    CHANGE_EVENT_TYPE_DELETE = 3;
+    CHANGE_EVENT_TYPE_DELETE = 2;
   }
   Type type = 1;
   string pipeline_name = 2;
