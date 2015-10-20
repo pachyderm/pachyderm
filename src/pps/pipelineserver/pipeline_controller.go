@@ -1,4 +1,4 @@
-package server
+package pipelineserver
 
 import (
 	"fmt"
@@ -6,12 +6,14 @@ import (
 	"golang.org/x/net/context"
 
 	"go.pachyderm.com/pachyderm/src/pfs"
+	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pedge.io/protolog"
 )
 
 type pipelineController struct {
 	pfsAPIClient     pfs.APIClient
+	jobAPIClient     pps.JobAPIClient
 	persistAPIClient persist.APIClient
 
 	pipeline        *persist.Pipeline
@@ -21,11 +23,13 @@ type pipelineController struct {
 
 func newPipelineController(
 	pfsAPIClient pfs.APIClient,
+	jobAPIClient pps.JobAPIClient,
 	persistAPIClient persist.APIClient,
 	pipeline *persist.Pipeline,
 ) *pipelineController {
 	return &pipelineController{
 		pfsAPIClient,
+		jobAPIClient,
 		persistAPIClient,
 		pipeline,
 		make(chan bool),
@@ -103,7 +107,7 @@ func (p *pipelineController) run(lastCommit *pfs.Commit) error {
 				return err
 			}
 			if len(commitInfos.CommitInfo) == 0 {
-				return fmt.Errorf("pachyderm.pps.watch.server: we expected at least one *pfs.CommitInfo returned from blocking call, but no *pfs.CommitInfo structs were returned for %v", lastCommit)
+				return fmt.Errorf("pachyderm.pps.pipelineserver: we expected at least one *pfs.CommitInfo returned from blocking call, but no *pfs.CommitInfo structs were returned for %v", lastCommit)
 			}
 			// going in reverse order, oldest to newest
 			for _, commitInfo := range commitInfos.CommitInfo {
@@ -122,34 +126,34 @@ func (p *pipelineController) createAndStartJobForCommitInfo(commitInfo *pfs.Comm
 
 func getRepoForPipeline(pipeline *persist.Pipeline) (*pfs.Repo, error) {
 	if len(pipeline.PipelineInput) == 0 {
-		return nil, fmt.Errorf("pachyderm.pps.watch.server: had pipeline with no PipelineInput, this is not currently allowed, %v", pipeline)
+		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline with no PipelineInput, this is not currently allowed, %v", pipeline)
 	}
 	if len(pipeline.PipelineInput) > 0 {
-		return nil, fmt.Errorf("pachyderm.pps.watch.server: had pipeline with more than one PipelineInput, this is not currently allowed, %v", pipeline)
+		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline with more than one PipelineInput, this is not currently allowed, %v", pipeline)
 	}
 	pipelineInput := pipeline.PipelineInput[0]
 	if pipelineInput.GetHostDir() != "" {
-		return nil, fmt.Errorf("pachyderm.pps.watch.server: had pipeline with host dir set, this is not allowed, %v", pipeline)
+		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline with host dir set, this is not allowed, %v", pipeline)
 	}
 	if pipelineInput.GetRepo() == nil {
-		return nil, fmt.Errorf("pachyderm.pps.watch.server: had pipeline without repo set, this is not allowed, %v", pipeline)
+		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline without repo set, this is not allowed, %v", pipeline)
 	}
 	return pipelineInput.GetRepo(), nil
 }
 
 func getCommitForJob(job *persist.Job) (*pfs.Commit, error) {
 	if len(job.JobInput) == 0 {
-		return nil, fmt.Errorf("pachyderm.pps.watch.server: had job with no JobInput, this is not currently allowed, %v", job)
+		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job with no JobInput, this is not currently allowed, %v", job)
 	}
 	if len(job.JobInput) > 0 {
-		return nil, fmt.Errorf("pachyderm.pps.watch.server: had job with more than one JobInput, this is not currently allowed, %v", job)
+		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job with more than one JobInput, this is not currently allowed, %v", job)
 	}
 	jobInput := job.JobInput[0]
 	if jobInput.GetHostDir() != "" {
-		return nil, fmt.Errorf("pachyderm.pps.watch.server: had job with host dir set, this is not allowed, %v", job)
+		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job with host dir set, this is not allowed, %v", job)
 	}
 	if jobInput.GetCommit() == nil {
-		return nil, fmt.Errorf("pachyderm.pps.watch.server: had job without commit set, this is not allowed, %v", job)
+		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job without commit set, this is not allowed, %v", job)
 	}
 	return jobInput.GetCommit(), nil
 }

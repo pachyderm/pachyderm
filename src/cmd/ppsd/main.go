@@ -6,23 +6,19 @@ import (
 	"os"
 	"strings"
 
-	"golang.org/x/net/context"
-
 	"github.com/fsouza/go-dockerclient"
 
 	"go.pedge.io/env"
-	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/server"
 
 	"go.pachyderm.com/pachyderm"
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/jobserver"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	persistserver "go.pachyderm.com/pachyderm/src/pps/persist/server"
-	"go.pachyderm.com/pachyderm/src/pps/server"
-	"go.pachyderm.com/pachyderm/src/pps/watch"
-	watchserver "go.pachyderm.com/pachyderm/src/pps/watch/server"
+	"go.pachyderm.com/pachyderm/src/pps/pipelineserver"
 	"google.golang.org/grpc"
 )
 
@@ -69,16 +65,15 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	jobAPIServer := jobserver.NewAPIServer(rethinkAPIClient, containerClient)
+	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 	pfsAPIClient := pfs.NewAPIClient(clientConn)
-	watchAPIServer := watchserver.NewAPIServer(pfsAPIClient, rethinkAPIClient)
-	watchAPIClient := watch.NewLocalAPIClient(watchAPIServer)
-	if _, err := watchAPIClient.Start(context.Background(), &google_protobuf.Empty{}); err != nil {
-		return err
-	}
+	pipelineAPIServer := pipelineserver.NewAPIServer(pfsAPIClient, jobAPIClient, rethinkAPIClient)
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
-			pps.RegisterAPIServer(s, server.NewAPIServer(rethinkAPIClient, watchAPIClient, containerClient))
+			pps.RegisterJobAPIServer(s, jobAPIServer)
+			pps.RegisterPipelineAPIServer(s, pipelineAPIServer)
 		},
 		protoserver.ServeOptions{
 			DebugPort: uint16(appEnv.DebugPort),

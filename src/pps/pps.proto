@@ -127,13 +127,16 @@ message GetPipelineRequest {
   string pipeline_name = 1;
 }
 
-service API {
+service JobAPI {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc GetJob(GetJobRequest) returns (Job) {}
   rpc GetJobsByPipelineName(GetJobsByPipelineNameRequest) returns (Jobs) {}
   rpc StartJob(StartJobRequest) returns (google.protobuf.Empty) {}
   rpc GetJobStatus(GetJobStatusRequest) returns (JobStatus) {}
   rpc GetJobLogs(GetJobLogsRequest) returns (stream google.protobuf.BytesValue) {}
+}
+
+service PipelineAPI {
   rpc CreatePipeline(CreatePipelineRequest) returns (Pipeline) {}
   rpc GetPipeline(GetPipelineRequest) returns (Pipeline) {}
   rpc GetAllPipelines(google.protobuf.Empty) returns (Pipelines) {}
