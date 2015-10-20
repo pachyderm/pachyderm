@@ -40,3 +40,25 @@ func getAllPipelines(persistAPIClient persist.APIClient) ([]*persist.Pipeline, e
 	}
 	return pipelines, nil
 }
+
+func getJobsByPipelineName(persistAPIClient persist.APIClient, name string) ([]*persist.Job, error) {
+	pipelines, err := persistAPIClient.GetPipelinesByName(context.Background(), &google_protobuf.StringValue{Value: name})
+	if err != nil {
+		return nil, err
+	}
+	if len(pipelines.Pipeline) == 0 {
+		return nil, fmt.Errorf("pachyderm.pps.watch.server: no piplines for name %s", name)
+	}
+	var jobs []*persist.Job
+	for _, pipeline := range pipelines.Pipeline {
+		protoJobs, err := persistAPIClient.GetJobsByPipelineID(context.Background(), &google_protobuf.StringValue{Value: pipeline.Id})
+		if err != nil {
+			return nil, err
+		}
+		if len(protoJobs.Job) > 0 {
+			jobs = append(jobs, protoJobs.Job...)
+		}
+	}
+	// TODO(pedge): sort by timestamp
+	return jobs, nil
+}
