@@ -1,4 +1,4 @@
-package server
+package pipelineserver
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ func getPipeline(persistAPIClient persist.APIClient, name string) (*persist.Pipe
 		return nil, err
 	}
 	if len(pipelines.Pipeline) == 0 {
-		return nil, fmt.Errorf("pachyderm.pps.watch.server: no piplines for name %s", name)
+		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: no piplines for name %s", name)
 	}
 	return pipelines.Pipeline[0], nil
 }
@@ -50,7 +50,7 @@ func getJobsByPipelineName(persistAPIClient persist.APIClient, name string) ([]*
 		return nil, err
 	}
 	if len(pipelines.Pipeline) == 0 {
-		return nil, fmt.Errorf("pachyderm.pps.watch.server: no piplines for name %s", name)
+		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: no piplines for name %s", name)
 	}
 	var jobs []*persist.Job
 	for _, pipeline := range pipelines.Pipeline {

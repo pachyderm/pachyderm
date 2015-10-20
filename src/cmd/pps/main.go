@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pedge.io/env"
 
 	"google.golang.org/grpc"
@@ -39,8 +38,7 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	apiClient := pps.NewAPIClient(clientConn)
-	fmt.Println(apiClient)
+	fmt.Println(clientConn)
 	rootCmd := &cobra.Command{
 		Use: "pps",
 		Long: `Access the PPS API.
