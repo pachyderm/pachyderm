@@ -48,7 +48,7 @@ func (a *apiServer) Start(ctx context.Context, request *google_protobuf.Empty) (
 		return nil, errors.New("pachyderm.pps.watch.server: already started")
 	}
 	a.started = true
-	pipelines, err := a.getAllPipelines()
+	pipelines, err := getAllPipelines(a.persistAPIClient)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (a *apiServer) RegisterChangeEvent(ctx context.Context, request *watch.Chan
 	switch request.Type {
 	case watch.ChangeEvent_CHANGE_EVENT_TYPE_CREATE:
 		if !a.pipelineRegistered(request.PipelineName) {
-			pipeline, err := a.getPipeline(request.PipelineName)
+			pipeline, err := getPipeline(a.persistAPIClient, request.PipelineName)
 			if err != nil {
 				return nil, err
 			}
@@ -85,7 +85,7 @@ func (a *apiServer) RegisterChangeEvent(ctx context.Context, request *watch.Chan
 			if err := a.removePipelineController(request.PipelineName); err != nil {
 				return nil, err
 			}
-			pipeline, err := a.getPipeline(request.PipelineName)
+			pipeline, err := getPipeline(a.persistAPIClient, request.PipelineName)
 			if err != nil {
 				return nil, err
 			}
@@ -129,37 +129,4 @@ func (a *apiServer) removePipelineController(name string) error {
 	}
 	pipelineController.Cancel()
 	return nil
-}
-
-func (a *apiServer) getPipeline(name string) (*persist.Pipeline, error) {
-	pipelines, err := a.persistAPIClient.GetPipelinesByName(context.Background(), &google_protobuf.StringValue{Value: name})
-	if err != nil {
-		return nil, err
-	}
-	if len(pipelines.Pipeline) == 0 {
-		return nil, fmt.Errorf("pachyderm.pps.watch.server: no piplines for name %s", name)
-	}
-	return pipelines.Pipeline[0], nil
-}
-
-func (a *apiServer) getAllPipelines() ([]*persist.Pipeline, error) {
-	protoPipelines, err := a.persistAPIClient.GetAllPipelines(context.Background(), emptyInstance)
-	if err != nil {
-		return nil, err
-	}
-	pipelineMap := make(map[string]*persist.Pipeline)
-	for _, pipeline := range protoPipelines.Pipeline {
-		// pipelines are ordered newest to oldest, so if we have already
-		// seen a pipeline with the same name, it is newer
-		if _, ok := pipelineMap[pipeline.Name]; !ok {
-			pipelineMap[pipeline.Name] = pipeline
-		}
-	}
-	pipelines := make([]*persist.Pipeline, len(pipelineMap))
-	i := 0
-	for _, pipeline := range pipelineMap {
-		pipelines[i] = pipeline
-		i++
-	}
-	return pipelines, nil
 }
