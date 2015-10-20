@@ -11,15 +11,14 @@ option go_package = "persist";
 
 message Job {
   string id = 1;
+  // TODO(pedge): remove the created job status
+  google.protobuf.Timestamp created_at = 2;
   oneof spec {
-    pps.Transform transform = 2;
-    string pipeline_id = 3;
+    pps.Transform transform = 3;
+    string pipeline_id = 4;
   }
-  repeated pps.JobInput job_input = 4;
-  repeated pps.JobOutput job_output = 5;
-  // TODO(pedge): we might want to have ACL for PPS API access, in which case
-  // this would become user/created_by_user
-  bool created_from_watch = 6;
+  repeated pps.JobInput job_input = 5;
+  repeated pps.JobOutput job_output = 6;
 }
 
 message Jobs {
