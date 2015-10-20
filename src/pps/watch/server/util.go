@@ -43,6 +43,7 @@ func getAllPipelines(persistAPIClient persist.APIClient) ([]*persist.Pipeline, e
 	return pipelines, nil
 }
 
+// returns jobs in order of created at timestamp in descending order
 func getJobsByPipelineName(persistAPIClient persist.APIClient, name string) ([]*persist.Job, error) {
 	pipelines, err := persistAPIClient.GetPipelinesByName(context.Background(), &google_protobuf.StringValue{Value: name})
 	if err != nil {
