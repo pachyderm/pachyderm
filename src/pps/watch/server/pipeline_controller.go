@@ -3,7 +3,6 @@ package server
 import (
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
-	"go.pedge.io/protolog"
 )
 
 type pipelineController struct {
@@ -48,15 +47,8 @@ func (p *pipelineController) run() {
 			close(p.finishedCancelC)
 			return
 		default:
-			// TODO(pedge): what to do with the error?
-			if err := p.poll(); err != nil {
-				protolog.Errorln(err.Error())
-			}
+			// TODO(pedge)
+			return
 		}
 	}
-}
-
-// TODO(pedge): this is where the list commits logic goes
-func (p *pipelineController) poll() error {
-	return nil
 }
