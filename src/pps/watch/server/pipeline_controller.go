@@ -38,27 +38,23 @@ func (p *pipelineController) Start() error {
 	if err != nil {
 		return err
 	}
-	// TODO(pedge): use InitialCommitID
-	lastCommitID := "scratch"
+	repo, err := getRepoForPipeline(p.pipeline)
+	if err != nil {
+		return err
+	}
+	lastCommit := &pfs.Commit{
+		Repo: repo,
+		// TODO(pedge): use initial commit id when moved to pfs package
+		Id: "scratch",
+	}
 	if len(jobs) > 0 {
-		lastJob := jobs[0]
-		if len(lastJob.JobInput) == 0 {
-			return fmt.Errorf("pachyderm.pps.watch.server: had job with no JobInput, this is not currently allowed, %v", lastJob)
+		lastCommit, err = getCommitForJob(jobs[0])
+		if err != nil {
+			return err
 		}
-		if len(lastJob.JobInput) > 0 {
-			return fmt.Errorf("pachyderm.pps.watch.server: had job with more than one JobInput, this is not currently allowed, %v", lastJob)
-		}
-		jobInput := lastJob.JobInput[0]
-		if jobInput.GetHostDir() != "" {
-			return fmt.Errorf("pachyderm.pps.watch.server: had job with host dir set, this is not allowed, %v", lastJob)
-		}
-		if jobInput.GetCommit() == nil {
-			return fmt.Errorf("pachyderm.pps.watch.server: had job without commit set, this is not allowed, %v", lastJob)
-		}
-		lastCommitID = jobInput.GetCommit().Id
 	}
 	go func() {
-		if err := p.run(lastCommitID); err != nil {
+		if err := p.run(lastCommit); err != nil {
 			// TODO(pedge): what to do with error?
 			protolog.Errorln(err.Error())
 		}
@@ -72,7 +68,7 @@ func (p *pipelineController) Cancel() {
 	<-p.finishedCancelC
 }
 
-func (p *pipelineController) run(lastCommitID string) error {
+func (p *pipelineController) run(lastCommit *pfs.Commit) error {
 	for {
 		select {
 		case <-p.cancelC:
@@ -82,4 +78,38 @@ func (p *pipelineController) run(lastCommitID string) error {
 		default:
 		}
 	}
+}
+
+func getRepoForPipeline(pipeline *persist.Pipeline) (*pfs.Repo, error) {
+	if len(pipeline.PipelineInput) == 0 {
+		return nil, fmt.Errorf("pachyderm.pps.watch.server: had pipeline with no PipelineInput, this is not currently allowed, %v", pipeline)
+	}
+	if len(pipeline.PipelineInput) > 0 {
+		return nil, fmt.Errorf("pachyderm.pps.watch.server: had pipeline with more than one PipelineInput, this is not currently allowed, %v", pipeline)
+	}
+	pipelineInput := pipeline.PipelineInput[0]
+	if pipelineInput.GetHostDir() != "" {
+		return nil, fmt.Errorf("pachyderm.pps.watch.server: had pipeline with host dir set, this is not allowed, %v", pipeline)
+	}
+	if pipelineInput.GetRepo() == nil {
+		return nil, fmt.Errorf("pachyderm.pps.watch.server: had pipeline without repo set, this is not allowed, %v", pipeline)
+	}
+	return pipelineInput.GetRepo(), nil
+}
+
+func getCommitForJob(job *persist.Job) (*pfs.Commit, error) {
+	if len(job.JobInput) == 0 {
+		return nil, fmt.Errorf("pachyderm.pps.watch.server: had job with no JobInput, this is not currently allowed, %v", job)
+	}
+	if len(job.JobInput) > 0 {
+		return nil, fmt.Errorf("pachyderm.pps.watch.server: had job with more than one JobInput, this is not currently allowed, %v", job)
+	}
+	jobInput := job.JobInput[0]
+	if jobInput.GetHostDir() != "" {
+		return nil, fmt.Errorf("pachyderm.pps.watch.server: had job with host dir set, this is not allowed, %v", job)
+	}
+	if jobInput.GetCommit() == nil {
+		return nil, fmt.Errorf("pachyderm.pps.watch.server: had job without commit set, this is not allowed, %v", job)
+	}
+	return jobInput.GetCommit(), nil
 }
