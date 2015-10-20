@@ -61,6 +61,8 @@ func getJobsByPipelineName(persistAPIClient persist.APIClient, name string) ([]*
 			jobs = append(jobs, protoJobs.Job...)
 		}
 	}
+	// TODO(pedge): could do a smart merge since jobs are already sorted in this order for each call,
+	// or if we eliminate many pipelines per name, this is not needed
 	sort.Sort(jobsByCreatedAtDesc(jobs))
 	return jobs, nil
 }
