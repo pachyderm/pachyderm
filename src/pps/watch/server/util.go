@@ -2,9 +2,11 @@ package server
 
 import (
 	"fmt"
+	"sort"
 
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
+	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 )
 
@@ -59,6 +61,14 @@ func getJobsByPipelineName(persistAPIClient persist.APIClient, name string) ([]*
 			jobs = append(jobs, protoJobs.Job...)
 		}
 	}
-	// TODO(pedge): sort by timestamp
+	sort.Sort(jobsByCreatedAtDesc(jobs))
 	return jobs, nil
+}
+
+type jobsByCreatedAtDesc []*persist.Job
+
+func (s jobsByCreatedAtDesc) Len() int      { return len(s) }
+func (s jobsByCreatedAtDesc) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s jobsByCreatedAtDesc) Less(i, j int) bool {
+	return prototime.TimestampLess(s[j].CreatedAt, s[i].CreatedAt)
 }
