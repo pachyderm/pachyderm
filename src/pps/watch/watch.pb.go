@@ -33,21 +33,18 @@ type ChangeEvent_Type int32
 const (
 	ChangeEvent_CHANGE_EVENT_TYPE_NONE   ChangeEvent_Type = 0
 	ChangeEvent_CHANGE_EVENT_TYPE_CREATE ChangeEvent_Type = 1
-	ChangeEvent_CHANGE_EVENT_TYPE_UPDATE ChangeEvent_Type = 2
-	ChangeEvent_CHANGE_EVENT_TYPE_DELETE ChangeEvent_Type = 3
+	ChangeEvent_CHANGE_EVENT_TYPE_DELETE ChangeEvent_Type = 2
 )
 
 var ChangeEvent_Type_name = map[int32]string{
 	0: "CHANGE_EVENT_TYPE_NONE",
 	1: "CHANGE_EVENT_TYPE_CREATE",
-	2: "CHANGE_EVENT_TYPE_UPDATE",
-	3: "CHANGE_EVENT_TYPE_DELETE",
+	2: "CHANGE_EVENT_TYPE_DELETE",
 }
 var ChangeEvent_Type_value = map[string]int32{
 	"CHANGE_EVENT_TYPE_NONE":   0,
 	"CHANGE_EVENT_TYPE_CREATE": 1,
-	"CHANGE_EVENT_TYPE_UPDATE": 2,
-	"CHANGE_EVENT_TYPE_DELETE": 3,
+	"CHANGE_EVENT_TYPE_DELETE": 2,
 }
 
 func (x ChangeEvent_Type) String() string {
