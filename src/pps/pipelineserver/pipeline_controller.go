@@ -95,9 +95,10 @@ func (p *pipelineController) run(lastCommit *pfs.Commit) error {
 			commitInfos, err = p.pfsAPIClient.ListCommit(
 				context.Background(),
 				&pfs.ListCommitRequest{
-					Repo:  lastCommit.Repo,
-					From:  lastCommit,
-					Block: true,
+					Repo:       lastCommit.Repo,
+					CommitType: pfs.CommitType_COMMIT_TYPE_READ,
+					From:       lastCommit,
+					Block:      true,
 				},
 			)
 			done <- true
