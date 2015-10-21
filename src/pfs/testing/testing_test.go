@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -173,6 +174,7 @@ func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, internalAPIClie
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		time.Sleep(1)
 		commit, err := pfsutil.StartCommit(apiClient, repoName, "scratch")
 		require.NoError(t, err)
 		require.NotNil(t, commit)
@@ -180,6 +182,25 @@ func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, internalAPIClie
 	}()
 	listCommitRequest.Block = true
 	listCommitRequest.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
+	commitInfos, err = apiClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	wg.Wait()
+	require.NoError(t, err)
+	require.Equal(t, len(commitInfos.CommitInfo), 1)
+	require.Equal(t, newCommit, commitInfos.CommitInfo[0].Commit)
+
+	wg = sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		time.Sleep(1)
+		err := pfsutil.FinishCommit(apiClient, repoName, newCommit.Id)
+		require.NoError(t, err)
+	}()
+	listCommitRequest.Block = true
+	listCommitRequest.CommitType = pfs.CommitType_COMMIT_TYPE_READ
 	commitInfos, err = apiClient.ListCommit(
 		context.Background(),
 		listCommitRequest,
