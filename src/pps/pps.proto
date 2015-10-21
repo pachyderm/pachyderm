@@ -30,32 +30,8 @@ message Transform {
   repeated string cmd = 4;
 }
 
-message JobInput {
-  oneof input {
-    string host_dir = 1;
-    pfs.Commit commit = 2;
-  }
-}
-
-message JobOutput {
-  oneof output {
-    string host_dir = 1;
-    pfs.Commit parent_commit = 2;
-  }
-}
-
 message Job {
   string id = 1;
-  oneof spec {
-    Transform transform = 2;
-    string pipeline_id = 3;
-  }
-  repeated JobInput job_input = 4;
-  repeated JobOutput job_output = 5;
-}
-
-message Jobs {
-  repeated Job job = 1;
 }
 
 message JobStatus {
@@ -65,79 +41,95 @@ message JobStatus {
 }
 
 message JobInfo {
-  string job_id = 1;
-  repeated JobStatus job_status = 2;
+  Job job = 1;
+  oneof spec {
+    Transform transform = 2;
+    Pipeline pipeline = 3;
+  }
+  repeated pfs.Commit inputs = 4;
+  pfs.Commit output = 5;
+  repeated JobStatus statuses = 6;
 }
 
-message PipelineInput {
-  oneof input {
-    string host_dir = 1;
-    pfs.Repo repo = 2;
-  }
-}
-
-message PipelineOutput {
-  oneof output {
-    string host_dir = 1;
-    pfs.Repo repo = 2;
-  }
+message JobInfos {
+  repeated JobInfo job_info = 1;
 }
 
 message Pipeline {
   string name = 1;
-  Transform transform = 2;
-  repeated PipelineInput pipeline_input = 3;
-  repeated PipelineOutput pipeline_output = 4;
 }
 
-message Pipelines {
-  repeated Pipeline pipeline = 1;
+message PipelineInfo {
+  Pipeline pipeline = 1;
+  Transform transform = 2;
+  repeated pfs.Repo inputs = 3;
+  pfs.Repo output = 4;
+}
+
+message PipelineInfos {
+  repeated PipelineInfo pipeline_info = 1;
 }
 
 message CreateJobRequest {
+  oneof spec {
+    Transform transform = 1;
+    Pipeline pipeline = 2;
+  }
+  repeated pfs.Commit inputs = 3;
+  pfs.Commit output_parent = 4;
+}
+
+message InspectJobRequest {
   Job job = 1;
 }
 
-message GetJobRequest {
-  string job_id = 1;
+message ListJobRequest {
+  Pipeline pipeline = 1; // nil means all pipelines
 }
 
-message GetJobsByPipelineNameRequest {
-  string pipeline_name = 1;
-}
-
-message StartJobRequest {
-  string job_id = 1;
+message DeleteJobRequest {
+    Job job = 1;
 }
 
 message GetJobStatusRequest {
-  string job_id = 1;
+  Job job = 1;
 }
 
 message GetJobLogsRequest {
-  string job_id = 1;
+  Job job = 1;
   OutputStream output_stream = 2;
 }
 
 message CreatePipelineRequest {
   Pipeline pipeline = 1;
+  Transform transform = 2;
+  repeated pfs.Repo inputs = 3;
+  pfs.Repo output = 4;
 }
 
-message GetPipelineRequest {
-  string pipeline_name = 1;
+message InspectPipelineRequest {
+    Pipeline pipeline = 1;
+}
+
+message ListPipelineRequest {
+}
+
+message DeletePipelineRequest {
+    Pipeline pipeline = 1;
 }
 
 service JobAPI {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
-  rpc GetJob(GetJobRequest) returns (Job) {}
-  rpc GetJobsByPipelineName(GetJobsByPipelineNameRequest) returns (Jobs) {}
-  rpc StartJob(StartJobRequest) returns (google.protobuf.Empty) {}
+  rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
+  rpc ListJob(ListJobRequest) returns (JobInfos) {}
+  rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc GetJobStatus(GetJobStatusRequest) returns (JobStatus) {}
   rpc GetJobLogs(GetJobLogsRequest) returns (stream google.protobuf.BytesValue) {}
 }
 
 service PipelineAPI {
-  rpc CreatePipeline(CreatePipelineRequest) returns (Pipeline) {}
-  rpc GetPipeline(GetPipelineRequest) returns (Pipeline) {}
-  rpc GetAllPipelines(google.protobuf.Empty) returns (Pipelines) {}
+  rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
+  rpc InspectPipeline(InspectPipelineRequest) returns (Pipeline) {}
+  rpc ListPipeline(ListPipelineRequest) returns (PipelineInfos) {}
+  rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
 }
