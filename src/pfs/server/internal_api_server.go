@@ -157,7 +157,7 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 	if err != nil {
 		return nil, err
 	}
-	commitInfos, err := a.driver.ListCommit(request.Repo, request.From, shards)
+	commitInfos, err := a.filteredListCommits(request.Repo, request.From, request.CommitType, shards)
 	if err != nil {
 		return nil, err
 	}
@@ -732,7 +732,7 @@ func (a *internalAPIServer) registerCommitWaiter(request *pfs.ListCommitRequest,
 	defer a.commitWaitersLock.Unlock()
 	// We need to redo the call to ListCommit because commits may have been
 	// created between then and now.
-	commitInfos, err := a.driver.ListCommit(request.Repo, request.From, shards)
+	commitInfos, err := a.filteredListCommits(request.Repo, request.From, request.CommitType, shards)
 	if err != nil {
 		return err
 	}
@@ -762,4 +762,21 @@ func (a *internalAPIServer) pulseCommitWaiters(commit *pfs.Commit, shards map[ui
 	}
 	delete(a.commitWaiters, *commit.Repo)
 	return nil
+}
+
+func (a *internalAPIServer) filteredListCommits(repo *pfs.Repo, from *pfs.Commit, commitType pfs.CommitType, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+	commitInfos, err := a.driver.ListCommit(repo, from, shards)
+	if err != nil {
+		return nil, err
+	}
+	if commitType != pfs.CommitType_COMMIT_TYPE_NONE {
+		var filtered []*pfs.CommitInfo
+		for _, commitInfo := range commitInfos {
+			if commitInfo.CommitType == commitType {
+				filtered = append(filtered, commitInfo)
+			}
+		}
+		commitInfos = filtered
+	}
+	return commitInfos, nil
 }

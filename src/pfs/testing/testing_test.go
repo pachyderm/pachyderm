@@ -168,25 +168,26 @@ func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, internalAPIClie
 	require.NoError(t, err)
 	require.Equal(t, len(commitInfos.CommitInfo), 0)
 
-	var listCommitID string
+	var newCommit *pfs.Commit
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		listCommitRequest.Block = true
-		commitInfos, err := apiClient.ListCommit(
-			context.Background(),
-			listCommitRequest,
-		)
+		commit, err := pfsutil.StartCommit(apiClient, repoName, "scratch")
 		require.NoError(t, err)
-		require.Equal(t, len(commitInfos.CommitInfo), 1)
-		listCommitID = commitInfos.CommitInfo[0].Commit.Id
+		require.NotNil(t, commit)
+		newCommit = commit
 	}()
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "scratch")
-	require.NoError(t, err)
-	require.NotNil(t, commit)
+	listCommitRequest.Block = true
+	listCommitRequest.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
+	commitInfos, err = apiClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
 	wg.Wait()
-	require.Equal(t, commit.Id, listCommitID)
+	require.NoError(t, err)
+	require.Equal(t, len(commitInfos.CommitInfo), 1)
+	require.Equal(t, newCommit, commitInfos.CommitInfo[0].Commit)
 }
 
 func testFailures(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.InternalAPIClient, cluster Cluster) {
