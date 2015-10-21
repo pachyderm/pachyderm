@@ -1,18 +1,20 @@
-package server
+package jobserver
 
 import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/satori/go.uuid"
 
 	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/convert"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
-	"go.pachyderm.com/pachyderm/src/pps/watch"
 	"go.pedge.io/google-protobuf"
+	"go.pedge.io/proto/time"
 	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 )
@@ -23,24 +25,22 @@ var (
 
 type apiServer struct {
 	persistAPIClient persist.APIClient
-	watchAPIClient   watch.APIClient
 	containerClient  container.Client
 }
 
 func newAPIServer(
 	persistAPIClient persist.APIClient,
-	watchAPIClient watch.APIClient,
 	containerClient container.Client,
 ) *apiServer {
-	return &apiServer{persistAPIClient, watchAPIClient, containerClient}
+	return &apiServer{persistAPIClient, containerClient}
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, err error) {
-	persistJob, err := a.persistAPIClient.CreateJob(ctx, jobToPersist(request.Job))
+	persistJob, err := a.persistAPIClient.CreateJob(ctx, convert.JobToPersist(request.Job))
 	if err != nil {
 		return nil, err
 	}
-	return persistToJob(persistJob), nil
+	return convert.PersistToJob(persistJob), nil
 }
 
 func (a *apiServer) GetJob(ctx context.Context, request *pps.GetJobRequest) (response *pps.Job, err error) {
@@ -48,7 +48,7 @@ func (a *apiServer) GetJob(ctx context.Context, request *pps.GetJobRequest) (res
 	if err != nil {
 		return nil, err
 	}
-	return persistToJob(persistJob), nil
+	return convert.PersistToJob(persistJob), nil
 }
 
 func (a *apiServer) GetJobsByPipelineName(ctx context.Context, request *pps.GetJobsByPipelineNameRequest) (response *pps.Jobs, err error) {
@@ -56,18 +56,19 @@ func (a *apiServer) GetJobsByPipelineName(ctx context.Context, request *pps.GetJ
 	if err != nil {
 		return nil, err
 	}
-	var jobs []*pps.Job
+	var persistJobs []*persist.Job
 	for _, persistPipeline := range persistPipelines.Pipeline {
-		persistJobs, err := a.persistAPIClient.GetJobsByPipelineID(ctx, &google_protobuf.StringValue{Value: persistPipeline.Id})
+		iPersistJobs, err := a.persistAPIClient.GetJobsByPipelineID(ctx, &google_protobuf.StringValue{Value: persistPipeline.Id})
 		if err != nil {
 			return nil, err
 		}
-		iJobs := persistToJobs(persistJobs)
-		jobs = append(jobs, iJobs.Job...)
+		persistJobs = append(persistJobs, iPersistJobs.Job...)
 	}
-	return &pps.Jobs{
-		Job: jobs,
-	}, nil
+	// TODO(pedge): could do a smart merge since jobs are already sorted in this order for each call,
+	// or if we eliminate many pipelines per name, this is not needed
+	sort.Sort(jobsByCreatedAtDesc(persistJobs))
+	jobs := convert.PersistToJobs(&persist.Jobs{Job: persistJobs})
+	return jobs, nil
 }
 
 func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (response *google_protobuf.Empty, err error) {
@@ -89,10 +90,10 @@ func (a *apiServer) GetJobStatus(ctx context.Context, request *pps.GetJobStatusR
 	if len(persistJobStatuses.JobStatus) == 0 {
 		return nil, fmt.Errorf("pachyderm.pps.server: no job statuses for %s", request.JobId)
 	}
-	return persistToJobStatus(persistJobStatuses.JobStatus[0]), nil
+	return convert.PersistToJobStatus(persistJobStatuses.JobStatus[0]), nil
 }
 
-func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pps.API_GetJobLogsServer) (err error) {
+func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pps.JobAPI_GetJobLogsServer) (err error) {
 	persistJobLogs, err := a.persistAPIClient.GetJobLogsByJobID(context.Background(), &google_protobuf.StringValue{Value: request.JobId})
 	if err != nil {
 		return err
@@ -105,59 +106,6 @@ func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pp
 		}
 	}
 	return nil
-}
-
-func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *pps.Pipeline, err error) {
-	persistPipeline, err := a.persistAPIClient.CreatePipeline(ctx, pipelineToPersist(request.Pipeline))
-	if err != nil {
-		return nil, err
-	}
-	if _, err := a.watchAPIClient.RegisterChangeEvent(
-		ctx,
-		&watch.ChangeEvent{
-			Type:         watch.ChangeEvent_CHANGE_EVENT_TYPE_CREATE,
-			PipelineName: persistPipeline.Name,
-		},
-	); err != nil {
-		// TODO(pedge): need to roll back the db create
-		return nil, err
-	}
-	return persistToPipeline(persistPipeline), nil
-}
-
-func (a *apiServer) GetPipeline(ctx context.Context, request *pps.GetPipelineRequest) (response *pps.Pipeline, err error) {
-	persistPipelines, err := a.persistAPIClient.GetPipelinesByName(ctx, &google_protobuf.StringValue{Value: request.PipelineName})
-	if err != nil {
-		return nil, err
-	}
-	if len(persistPipelines.Pipeline) == 0 {
-		return nil, fmt.Errorf("pachyderm.pps.server: no piplines for name %s", request.PipelineName)
-	}
-	return persistToPipeline(persistPipelines.Pipeline[0]), nil
-}
-
-func (a *apiServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (response *pps.Pipelines, err error) {
-	persistPipelines, err := a.persistAPIClient.GetAllPipelines(ctx, request)
-	if err != nil {
-		return nil, err
-	}
-	pipelineMap := make(map[string]*pps.Pipeline)
-	for _, persistPipeline := range persistPipelines.Pipeline {
-		// pipelines are ordered newest to oldest, so if we have already
-		// seen a pipeline with the same name, it is newer
-		if _, ok := pipelineMap[persistPipeline.Name]; !ok {
-			pipelineMap[persistPipeline.Name] = persistToPipeline(persistPipeline)
-		}
-	}
-	pipelines := make([]*pps.Pipeline, len(pipelineMap))
-	i := 0
-	for _, pipeline := range pipelineMap {
-		pipelines[i] = pipeline
-		i++
-	}
-	return &pps.Pipelines{
-		Pipeline: pipelines,
-	}, nil
 }
 
 func (a *apiServer) startPersistJob(persistJob *persist.Job) error {
@@ -349,4 +297,12 @@ func getOutputBinds(jobOutputs []*pps.JobOutput) []string {
 
 func getBinds(from string, to string, postfix string) string {
 	return fmt.Sprintf("%s:%s:%s", from, to, postfix)
+}
+
+type jobsByCreatedAtDesc []*persist.Job
+
+func (s jobsByCreatedAtDesc) Len() int      { return len(s) }
+func (s jobsByCreatedAtDesc) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s jobsByCreatedAtDesc) Less(i, j int) bool {
+	return prototime.TimestampLess(s[j].CreatedAt, s[i].CreatedAt)
 }

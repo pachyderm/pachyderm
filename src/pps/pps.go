@@ -1,5 +1,9 @@
 package pps // import "go.pachyderm.com/pachyderm/src/pps"
 
-func NewLocalAPIClient(apiServer APIServer) APIClient {
-	return newLocalAPIClient(apiServer)
+func NewLocalJobAPIClient(jobAPIServer JobAPIServer) JobAPIClient {
+	return newLocalJobAPIClient(jobAPIServer)
+}
+
+func NewLocalPipelineAPIClient(pipelineAPIServer PipelineAPIServer) PipelineAPIClient {
+	return newLocalPipelineAPIClient(pipelineAPIServer)
 }
