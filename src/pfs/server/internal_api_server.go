@@ -21,9 +21,11 @@ import (
 )
 
 type internalAPIServer struct {
-	sharder route.Sharder
-	router  route.Router
-	driver  drive.Driver
+	sharder           route.Sharder
+	router            route.Router
+	driver            drive.Driver
+	commitWaiters     map[pfs.Repo][]chan *pfs.CommitInfo
+	commitWaitersLock sync.Mutex
 }
 
 func newInternalAPIServer(
@@ -35,6 +37,8 @@ func newInternalAPIServer(
 		sharder,
 		router,
 		driver,
+		make(map[pfs.Repo][]chan *pfs.CommitInfo),
+		sync.Mutex{},
 	}
 }
 
@@ -95,13 +99,19 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteR
 func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (*google_protobuf.Empty, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
-		return emptyInstance, err
+		return nil, err
 	}
 	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
-		return emptyInstance, err
+		return nil, err
 	}
-	return emptyInstance, a.driver.StartCommit(request.Parent, request.Commit, shards)
+	if err := a.driver.StartCommit(request.Parent, request.Commit, shards); err != nil {
+		return nil, err
+	}
+	if err := a.pulseCommitWaiters(request.Commit, shards); err != nil {
+		return nil, err
+	}
+	return emptyInstance, nil
 }
 
 func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (*google_protobuf.Empty, error) {
@@ -114,6 +124,9 @@ func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.Finis
 		return nil, err
 	}
 	if err := a.driver.FinishCommit(request.Commit, shards); err != nil {
+		return nil, err
+	}
+	if err := a.pulseCommitWaiters(request.Commit, shards); err != nil {
 		return nil, err
 	}
 	if err := a.commitToReplicas(ctx, request.Commit); err != nil {
@@ -147,6 +160,15 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 	commitInfos, err := a.driver.ListCommit(request.Repo, request.From, shards)
 	if err != nil {
 		return nil, err
+	}
+	if len(commitInfos) == 0 && request.Block {
+		commitChan := make(chan *pfs.CommitInfo)
+		if err := a.registerCommitWaiter(request, shards, commitChan); err != nil {
+			return nil, err
+		}
+		for commitInfo := range commitChan {
+			commitInfos = append(commitInfos, commitInfo)
+		}
 	}
 	return &pfs.CommitInfos{
 		CommitInfo: commitInfos,
@@ -701,4 +723,43 @@ func (a *internalAPIServer) getVersion(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("version not found in context")
 	}
 	return strconv.ParseInt(encodedVersion[0], 10, 64)
+}
+
+func (a *internalAPIServer) registerCommitWaiter(request *pfs.ListCommitRequest, shards map[uint64]bool, outChan chan *pfs.CommitInfo) error {
+	// This is a blocking request, which means we need to block until we
+	// have at least one response.
+	a.commitWaitersLock.Lock()
+	defer a.commitWaitersLock.Unlock()
+	// We need to redo the call to ListCommit because commits may have been
+	// created between then and now.
+	commitInfos, err := a.driver.ListCommit(request.Repo, request.From, shards)
+	if err != nil {
+		return err
+	}
+	if len(commitInfos) != 0 {
+		go func() {
+			for _, commitInfo := range commitInfos {
+				outChan <- commitInfo
+			}
+			close(outChan)
+		}()
+	}
+	a.commitWaiters[*request.Repo] = append(a.commitWaiters[*request.Repo], outChan)
+	return nil
+}
+
+func (a *internalAPIServer) pulseCommitWaiters(commit *pfs.Commit, shards map[uint64]bool) error {
+	a.commitWaitersLock.Lock()
+	defer a.commitWaitersLock.Unlock()
+	commitInfo, err := a.driver.InspectCommit(commit, shards)
+	if err != nil {
+		return err
+	}
+	commitWaiters := a.commitWaiters[*commit.Repo]
+	for _, commitWaiter := range commitWaiters {
+		commitWaiter <- commitInfo
+		close(commitWaiter)
+	}
+	delete(a.commitWaiters, *commit.Repo)
+	return nil
 }
