@@ -15,6 +15,7 @@ type pipelineController struct {
 	pfsAPIClient     pfs.APIClient
 	jobAPIClient     pps.JobAPIClient
 	persistAPIClient persist.APIClient
+	test             bool
 
 	pipeline        *persist.Pipeline
 	cancelC         chan bool
@@ -25,12 +26,14 @@ func newPipelineController(
 	pfsAPIClient pfs.APIClient,
 	jobAPIClient pps.JobAPIClient,
 	persistAPIClient persist.APIClient,
+	test bool,
 	pipeline *persist.Pipeline,
 ) *pipelineController {
 	return &pipelineController{
 		pfsAPIClient,
 		jobAPIClient,
 		persistAPIClient,
+		test,
 		pipeline,
 		make(chan bool),
 		make(chan bool),
@@ -44,27 +47,31 @@ func (p *pipelineController) Start() error {
 	if err != nil {
 		return err
 	}
-	repo, err := getRepoForPipeline(p.pipeline)
+	repo, err := getRepoForPipeline(p.pipeline, p.test)
 	if err != nil {
 		return err
 	}
-	lastCommit := &pfs.Commit{
-		Repo: repo,
-		// TODO(pedge): use initial commit id when moved to pfs package
-		Id: "scratch",
-	}
-	if len(jobs) > 0 {
-		lastCommit, err = getCommitForJob(jobs[0])
-		if err != nil {
-			return err
+	if repo != nil {
+		lastCommit := &pfs.Commit{
+			Repo: repo,
+			// TODO(pedge): use initial commit id when moved to pfs package
+			Id: "scratch",
+		}
+		if len(jobs) > 0 {
+			lastCommit, err = getCommitForJob(jobs[0], p.test)
+			if err != nil {
+				return err
+			}
+		}
+		if lastCommit != nil {
+			go func() {
+				if err := p.run(lastCommit); err != nil {
+					// TODO(pedge): what to do with error?
+					protolog.Errorln(err.Error())
+				}
+			}()
 		}
 	}
-	go func() {
-		if err := p.run(lastCommit); err != nil {
-			// TODO(pedge): what to do with error?
-			protolog.Errorln(err.Error())
-		}
-	}()
 	return nil
 }
 
@@ -124,16 +131,19 @@ func (p *pipelineController) createAndStartJobForCommitInfo(commitInfo *pfs.Comm
 	return nil
 }
 
-func getRepoForPipeline(pipeline *persist.Pipeline) (*pfs.Repo, error) {
+func getRepoForPipeline(pipeline *persist.Pipeline, test bool) (*pfs.Repo, error) {
 	if len(pipeline.PipelineInput) == 0 {
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline with no PipelineInput, this is not currently allowed, %v", pipeline)
 	}
-	if len(pipeline.PipelineInput) > 0 {
+	if len(pipeline.PipelineInput) > 1 {
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline with more than one PipelineInput, this is not currently allowed, %v", pipeline)
 	}
 	pipelineInput := pipeline.PipelineInput[0]
 	if pipelineInput.GetHostDir() != "" {
-		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline with host dir set, this is not allowed, %v", pipeline)
+		if !test {
+			return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline with host dir set, this is not allowed, %v", pipeline)
+		}
+		return nil, nil
 	}
 	if pipelineInput.GetRepo() == nil {
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline without repo set, this is not allowed, %v", pipeline)
@@ -141,16 +151,19 @@ func getRepoForPipeline(pipeline *persist.Pipeline) (*pfs.Repo, error) {
 	return pipelineInput.GetRepo(), nil
 }
 
-func getCommitForJob(job *persist.Job) (*pfs.Commit, error) {
+func getCommitForJob(job *persist.Job, test bool) (*pfs.Commit, error) {
 	if len(job.JobInput) == 0 {
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job with no JobInput, this is not currently allowed, %v", job)
 	}
-	if len(job.JobInput) > 0 {
+	if len(job.JobInput) > 1 {
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job with more than one JobInput, this is not currently allowed, %v", job)
 	}
 	jobInput := job.JobInput[0]
 	if jobInput.GetHostDir() != "" {
-		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job with host dir set, this is not allowed, %v", job)
+		if !test {
+			return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job with host dir set, this is not allowed, %v", job)
+		}
+		return nil, nil
 	}
 	if jobInput.GetCommit() == nil {
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job without commit set, this is not allowed, %v", job)

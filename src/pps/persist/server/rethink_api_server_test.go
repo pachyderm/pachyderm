@@ -23,7 +23,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	job, err := apiServer.CreateJob(
 		context.Background(),
 		&persist.Job{
-			Spec: &Job_PipelineId{
+			Spec: &persist.Job_PipelineId{
 				PipelineId: "456",
 			},
 		},

@@ -29,6 +29,7 @@ type apiServer struct {
 	pfsAPIClient     pfs.APIClient
 	jobAPIClient     pps.JobAPIClient
 	persistAPIClient persist.APIClient
+	test             bool
 
 	started                          bool
 	pipelineNameToPipelineController map[string]*pipelineController
@@ -39,11 +40,13 @@ func newAPIServer(
 	pfsAPIClient pfs.APIClient,
 	jobAPIClient pps.JobAPIClient,
 	persistAPIClient persist.APIClient,
+	test bool,
 ) *apiServer {
 	return &apiServer{
 		pfsAPIClient,
 		jobAPIClient,
 		persistAPIClient,
+		test,
 		false,
 		make(map[string]*pipelineController),
 		&sync.Mutex{},
@@ -179,6 +182,7 @@ func (a *apiServer) addPipelineController(pipeline *persist.Pipeline) error {
 		a.pfsAPIClient,
 		a.jobAPIClient,
 		a.persistAPIClient,
+		a.test,
 		pipeline,
 	)
 	a.pipelineNameToPipelineController[pipeline.Name] = pipelineController
