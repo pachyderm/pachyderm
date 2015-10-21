@@ -1,20 +1,15 @@
-package server
+package convert // import "go.pachyderm.com/pachyderm/src/pps/convert"
 
 import (
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 )
 
-func jobToPersist(job *pps.Job) *persist.Job {
+func JobToPersist(job *pps.Job) *persist.Job {
 	persistJob := &persist.Job{
 		Id:        job.Id,
 		JobInput:  job.JobInput,
 		JobOutput: job.JobOutput,
-		// TODO(pedge): this relies on the current implementation where
-		// the watch implementation directly calls persist api client,
-		// if the watch implementation were to call the api client,
-		// then this setting of the field would be incorrect
-		CreatedFromWatch: false,
 	}
 	if job.GetTransform() != nil {
 		persistJob.Spec = &persist.Job_Transform{
@@ -28,7 +23,7 @@ func jobToPersist(job *pps.Job) *persist.Job {
 	return persistJob
 }
 
-func persistToJob(persistJob *persist.Job) *pps.Job {
+func PersistToJob(persistJob *persist.Job) *pps.Job {
 	job := &pps.Job{
 		Id:        persistJob.Id,
 		JobInput:  persistJob.JobInput,
@@ -46,27 +41,27 @@ func persistToJob(persistJob *persist.Job) *pps.Job {
 	return job
 }
 
-func jobsToPersist(jobs *pps.Jobs) *persist.Jobs {
+func JobsToPersist(jobs *pps.Jobs) *persist.Jobs {
 	persistJobs := make([]*persist.Job, len(jobs.Job))
 	for i, job := range jobs.Job {
-		persistJobs[i] = jobToPersist(job)
+		persistJobs[i] = JobToPersist(job)
 	}
 	return &persist.Jobs{
 		Job: persistJobs,
 	}
 }
 
-func persistToJobs(persistJobs *persist.Jobs) *pps.Jobs {
+func PersistToJobs(persistJobs *persist.Jobs) *pps.Jobs {
 	jobs := make([]*pps.Job, len(persistJobs.Job))
 	for i, persistJob := range persistJobs.Job {
-		jobs[i] = persistToJob(persistJob)
+		jobs[i] = PersistToJob(persistJob)
 	}
 	return &pps.Jobs{
 		Job: jobs,
 	}
 }
 
-func persistToJobStatus(persistJobStatus *persist.JobStatus) *pps.JobStatus {
+func PersistToJobStatus(persistJobStatus *persist.JobStatus) *pps.JobStatus {
 	return &pps.JobStatus{
 		Type:      persistJobStatus.Type,
 		Timestamp: persistJobStatus.Timestamp,
@@ -74,7 +69,7 @@ func persistToJobStatus(persistJobStatus *persist.JobStatus) *pps.JobStatus {
 	}
 }
 
-func pipelineToPersist(pipeline *pps.Pipeline) *persist.Pipeline {
+func PipelineToPersist(pipeline *pps.Pipeline) *persist.Pipeline {
 	return &persist.Pipeline{
 		Name:           pipeline.Name,
 		Transform:      pipeline.Transform,
@@ -83,7 +78,7 @@ func pipelineToPersist(pipeline *pps.Pipeline) *persist.Pipeline {
 	}
 }
 
-func persistToPipeline(persistPipeline *persist.Pipeline) *pps.Pipeline {
+func PersistToPipeline(persistPipeline *persist.Pipeline) *pps.Pipeline {
 	return &pps.Pipeline{
 		Name:           persistPipeline.Name,
 		Transform:      persistPipeline.Transform,

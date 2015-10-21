@@ -1,4 +1,4 @@
-package server
+package testing
 
 import (
 	"errors"
@@ -22,10 +22,10 @@ import (
 	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pkg/require"
 	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/jobserver"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	persistserver "go.pachyderm.com/pachyderm/src/pps/persist/server"
-	"go.pachyderm.com/pachyderm/src/pps/watch"
-	watchserver "go.pachyderm.com/pachyderm/src/pps/watch/server"
+	"go.pachyderm.com/pachyderm/src/pps/pipelineserver"
 	"google.golang.org/grpc"
 )
 
@@ -37,7 +37,7 @@ func TestCreateAndGetPipeline(t *testing.T) {
 	runTest(t, testCreateAndGetPipeline)
 }
 
-func testCreateAndGetPipeline(t *testing.T, apiClient pps.APIClient) {
+func testCreateAndGetPipeline(t *testing.T, jobAPIClient pps.JobAPIClient, pipelineAPIClient pps.PipelineAPIClient) {
 	expectedPipeline := &pps.Pipeline{
 		Name: "foo",
 		Transform: &pps.Transform{
@@ -55,7 +55,7 @@ func testCreateAndGetPipeline(t *testing.T, apiClient pps.APIClient) {
 			},
 		},
 	}
-	pipeline, err := apiClient.CreatePipeline(
+	pipeline, err := pipelineAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
 			Pipeline: expectedPipeline,
@@ -63,7 +63,7 @@ func testCreateAndGetPipeline(t *testing.T, apiClient pps.APIClient) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, expectedPipeline, pipeline)
-	getPipeline, err := apiClient.GetPipeline(
+	getPipeline, err := pipelineAPIClient.GetPipeline(
 		context.Background(),
 		&pps.GetPipelineRequest{
 			PipelineName: "foo",
@@ -77,7 +77,7 @@ func TestBasicCreateAndStartJob(t *testing.T) {
 	runTest(t, testBasicCreateAndStartJob)
 }
 
-func testBasicCreateAndStartJob(t *testing.T, apiClient pps.APIClient) {
+func testBasicCreateAndStartJob(t *testing.T, jobAPIClient pps.JobAPIClient, pipelineAPIClient pps.PipelineAPIClient) {
 	inputDir, err := ioutil.TempDir("/tmp/pachyderm-test", "")
 	require.NoError(t, err)
 	outputDir, err := ioutil.TempDir("/tmp/pachyderm-test", "")
@@ -111,21 +111,21 @@ func testBasicCreateAndStartJob(t *testing.T, apiClient pps.APIClient) {
 			},
 		},
 	}
-	createJob, err := apiClient.CreateJob(
+	createJob, err := jobAPIClient.CreateJob(
 		context.Background(),
 		&pps.CreateJobRequest{
 			Job: job,
 		},
 	)
 	require.NoError(t, err)
-	_, err = apiClient.StartJob(
+	_, err = jobAPIClient.StartJob(
 		context.Background(),
 		&pps.StartJobRequest{
 			JobId: createJob.Id,
 		},
 	)
 	require.NoError(t, err)
-	jobStatus, err := getFinalJobStatus(apiClient, createJob.Id)
+	jobStatus, err := getFinalJobStatus(jobAPIClient, createJob.Id)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobStatusType_JOB_STATUS_TYPE_SUCCESS, jobStatus.Type)
 	data, err := ioutil.ReadFile(filepath.Join(outputDir, "foo.txt"))
@@ -133,12 +133,12 @@ func testBasicCreateAndStartJob(t *testing.T, apiClient pps.APIClient) {
 	require.Equal(t, []byte("hello"), data)
 }
 
-func getFinalJobStatus(apiClient pps.APIClient, jobID string) (*pps.JobStatus, error) {
+func getFinalJobStatus(jobAPIClient pps.JobAPIClient, jobID string) (*pps.JobStatus, error) {
 	// TODO(pedge): not good
 	ticker := time.NewTicker(time.Second)
 	for i := 0; i < 20; i++ {
 		<-ticker.C
-		jobStatus, err := apiClient.GetJobStatus(
+		jobStatus, err := jobAPIClient.GetJobStatus(
 			context.Background(),
 			&pps.GetJobStatusRequest{
 				JobId: jobID,
@@ -160,7 +160,7 @@ func getFinalJobStatus(apiClient pps.APIClient, jobID string) (*pps.JobStatus, e
 
 func runTest(
 	t *testing.T,
-	f func(t *testing.T, apiClient pps.APIClient),
+	f func(t *testing.T, jobAPIClient pps.JobAPIClient, pipelineAPIClient pps.PipelineAPIClient),
 ) {
 	containerClient, err := getTestContainerClient()
 	require.NoError(t, err)
@@ -174,10 +174,11 @@ func runTest(
 				t,
 				testNumServers,
 				func(servers map[string]*grpc.Server) {
-					watchAPIServer := watchserver.NewAPIServer(apiClient, persistAPIClient)
-					watchAPIClient := watch.NewLocalAPIClient(watchAPIServer)
+					jobAPIServer := jobserver.NewAPIServer(persistAPIClient, containerClient)
+					jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 					for _, server := range servers {
-						pps.RegisterAPIServer(server, NewAPIServer(persistAPIClient, watchAPIServer, containerClient))
+						pps.RegisterJobAPIServer(server, jobAPIServer)
+						pps.RegisterPipelineAPIServer(server, pipelineserver.NewTestAPIServer(apiClient, jobAPIClient, persistAPIClient))
 					}
 				},
 				func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
@@ -188,7 +189,10 @@ func runTest(
 					}
 					f(
 						t,
-						pps.NewAPIClient(
+						pps.NewJobAPIClient(
+							clientConn,
+						),
+						pps.NewPipelineAPIClient(
 							clientConn,
 						),
 					)

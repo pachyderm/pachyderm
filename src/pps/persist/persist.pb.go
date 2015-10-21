@@ -40,15 +40,14 @@ var _ = math.Inf
 
 type Job struct {
 	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	// TODO(pedge): remove the created job status
+	CreatedAt *google_protobuf1.Timestamp `protobuf:"bytes,2,opt,name=created_at" json:"created_at,omitempty"`
 	// Types that are valid to be assigned to Spec:
 	//	*Job_Transform
 	//	*Job_PipelineId
 	Spec      isJob_Spec                 `protobuf_oneof:"spec"`
-	JobInput  []*pachyderm_pps.JobInput  `protobuf:"bytes,4,rep,name=job_input" json:"job_input,omitempty"`
-	JobOutput []*pachyderm_pps.JobOutput `protobuf:"bytes,5,rep,name=job_output" json:"job_output,omitempty"`
-	// TODO(pedge): we might want to have ACL for PPS API access, in which case
-	// this would become user/created_by_user
-	CreatedFromWatch bool `protobuf:"varint,6,opt,name=created_from_watch" json:"created_from_watch,omitempty"`
+	JobInput  []*pachyderm_pps.JobInput  `protobuf:"bytes,5,rep,name=job_input" json:"job_input,omitempty"`
+	JobOutput []*pachyderm_pps.JobOutput `protobuf:"bytes,6,rep,name=job_output" json:"job_output,omitempty"`
 }
 
 func (m *Job) Reset()         { *m = Job{} }
@@ -60,10 +59,10 @@ type isJob_Spec interface {
 }
 
 type Job_Transform struct {
-	Transform *pachyderm_pps.Transform `protobuf:"bytes,2,opt,name=transform,oneof"`
+	Transform *pachyderm_pps.Transform `protobuf:"bytes,3,opt,name=transform,oneof"`
 }
 type Job_PipelineId struct {
-	PipelineId string `protobuf:"bytes,3,opt,name=pipeline_id,oneof"`
+	PipelineId string `protobuf:"bytes,4,opt,name=pipeline_id,oneof"`
 }
 
 func (*Job_Transform) isJob_Spec()  {}
@@ -72,6 +71,13 @@ func (*Job_PipelineId) isJob_Spec() {}
 func (m *Job) GetSpec() isJob_Spec {
 	if m != nil {
 		return m.Spec
+	}
+	return nil
+}
+
+func (m *Job) GetCreatedAt() *google_protobuf1.Timestamp {
+	if m != nil {
+		return m.CreatedAt
 	}
 	return nil
 }
@@ -117,12 +123,12 @@ func _Job_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 	// spec
 	switch x := m.Spec.(type) {
 	case *Job_Transform:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
+		b.EncodeVarint(3<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Transform); err != nil {
 			return err
 		}
 	case *Job_PipelineId:
-		b.EncodeVarint(3<<3 | proto.WireBytes)
+		b.EncodeVarint(4<<3 | proto.WireBytes)
 		b.EncodeStringBytes(x.PipelineId)
 	case nil:
 	default:
@@ -134,7 +140,7 @@ func _Job_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 func _Job_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
 	m := msg.(*Job)
 	switch tag {
-	case 2: // spec.transform
+	case 3: // spec.transform
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -142,7 +148,7 @@ func _Job_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (b
 		err := b.DecodeMessage(msg)
 		m.Spec = &Job_Transform{msg}
 		return true, err
-	case 3: // spec.pipeline_id
+	case 4: // spec.pipeline_id
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
