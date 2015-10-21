@@ -557,9 +557,10 @@ func (m *InspectCommitRequest) GetCommit() *Commit {
 }
 
 type ListCommitRequest struct {
-	Repo  *Repo   `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
-	From  *Commit `protobuf:"bytes,2,opt,name=from" json:"from,omitempty"`
-	Block bool    `protobuf:"varint,3,opt,name=block" json:"block,omitempty"`
+	Repo       *Repo      `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
+	CommitType CommitType `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
+	From       *Commit    `protobuf:"bytes,3,opt,name=from" json:"from,omitempty"`
+	Block      bool       `protobuf:"varint,4,opt,name=block" json:"block,omitempty"`
 }
 
 func (m *ListCommitRequest) Reset()         { *m = ListCommitRequest{} }
