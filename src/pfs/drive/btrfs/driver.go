@@ -277,7 +277,7 @@ func (d *driver) ListCommit(repo *pfs.Repo, from *pfs.Commit, shards map[uint64]
 	var buffer bytes.Buffer
 	var fromCommit string
 	if from != nil {
-		fromCommit = from.Id
+		fromCommit = d.commitPathNoShard(from)
 	}
 	if err := execSubvolumeList(d.repoPath(repo), fromCommit, false, &buffer); err != nil {
 		return nil, err
@@ -825,9 +825,9 @@ func execTransID(path string) (result string, retErr error) {
 	return "", fmt.Errorf("pachyderm: empty output from find-new")
 }
 
-func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Writer) (retErr error) {
+func execSubvolumeList(path string, fromPath string, ascending bool, out io.Writer) (retErr error) {
 	defer func() {
-		protolog.Debug(&SubvolumeList{path, fromCommit, ascending, errorToString(retErr)})
+		protolog.Debug(&SubvolumeList{path, fromPath, ascending, errorToString(retErr)})
 	}()
 	var sort string
 	if ascending {
@@ -836,10 +836,10 @@ func execSubvolumeList(path string, fromCommit string, ascending bool, out io.Wr
 		sort = "-ogen"
 	}
 
-	if fromCommit == "" {
+	if fromPath == "" {
 		return pkgexec.RunStdout(out, "btrfs", "subvolume", "list", "-a", "--sort", sort, path)
 	}
-	transid, err := execTransID(fromCommit)
+	transid, err := execTransID(fromPath)
 	if err != nil {
 		return err
 	}
