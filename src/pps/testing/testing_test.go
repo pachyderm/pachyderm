@@ -22,8 +22,10 @@ import (
 	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pkg/require"
 	"go.pachyderm.com/pachyderm/src/pps"
+	"go.pachyderm.com/pachyderm/src/pps/jobserver"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	persistserver "go.pachyderm.com/pachyderm/src/pps/persist/server"
+	"go.pachyderm.com/pachyderm/src/pps/pipelineserver"
 	"google.golang.org/grpc"
 )
 
@@ -75,7 +77,7 @@ func TestBasicCreateAndStartJob(t *testing.T) {
 	runTest(t, testBasicCreateAndStartJob)
 }
 
-func testBasicCreateAndStartJob(t *testing.T, jobAPIClient pps.APIClient, pipelineAPIClient pps.PipelineAPIClient) {
+func testBasicCreateAndStartJob(t *testing.T, jobAPIClient pps.JobAPIClient, pipelineAPIClient pps.PipelineAPIClient) {
 	inputDir, err := ioutil.TempDir("/tmp/pachyderm-test", "")
 	require.NoError(t, err)
 	outputDir, err := ioutil.TempDir("/tmp/pachyderm-test", "")
@@ -176,7 +178,7 @@ func runTest(
 					jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 					for _, server := range servers {
 						pps.RegisterJobAPIServer(server, jobAPIServer)
-						pps.RegisterPipelineAPIServer(server, pipelineserver.NewAPIServer(pfsAPIClient, jobAPIClient, persistAPIClient))
+						pps.RegisterPipelineAPIServer(server, pipelineserver.NewTestAPIServer(apiClient, jobAPIClient, persistAPIClient))
 					}
 				},
 				func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
