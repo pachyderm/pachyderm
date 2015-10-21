@@ -7,17 +7,16 @@ import (
 
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pedge.io/protolog"
 )
 
 type pipelineController struct {
-	pfsAPIClient     pfs.APIClient
-	jobAPIClient     pps.JobAPIClient
-	persistAPIClient persist.APIClient
-	test             bool
+	pfsAPIClient      pfs.APIClient
+	jobAPIClient      pps.JobAPIClient
+	pipelineAPIClient pps.PipelineAPIClient
+	test              bool
 
-	pipeline        *persist.Pipeline
+	pipeline        *pps.Pipeline
 	cancelC         chan bool
 	finishedCancelC chan bool
 }
@@ -25,14 +24,14 @@ type pipelineController struct {
 func newPipelineController(
 	pfsAPIClient pfs.APIClient,
 	jobAPIClient pps.JobAPIClient,
-	persistAPIClient persist.APIClient,
+	pipelineAPIClient pps.PipelineAPIClient,
 	test bool,
-	pipeline *persist.Pipeline,
+	pipeline *pps.Pipeline,
 ) *pipelineController {
 	return &pipelineController{
 		pfsAPIClient,
 		jobAPIClient,
-		persistAPIClient,
+		pipelineAPIClient,
 		test,
 		pipeline,
 		make(chan bool),
@@ -43,7 +42,7 @@ func newPipelineController(
 func (p *pipelineController) Start() error {
 	// TODO(pedge): do not get all jobs each time, need a limit call on persist, more
 	// generally, need all persist calls to have a limit
-	jobs, err := getJobsByPipelineName(p.persistAPIClient, p.pipeline.Name)
+	jobs, err := p.jobAPIClient.GetJobsByPipelineName(context.Background(), &pps.GetJobsByPipelineNameRequest{PipelineName: p.pipeline.Name})
 	if err != nil {
 		return err
 	}
@@ -57,8 +56,8 @@ func (p *pipelineController) Start() error {
 			// TODO(pedge): use initial commit id when moved to pfs package
 			Id: "scratch",
 		}
-		if len(jobs) > 0 {
-			lastCommit, err = getCommitForJob(jobs[0], p.test)
+		if len(jobs.Job) > 0 {
+			lastCommit, err = getCommitForJob(jobs.Job[0], p.test)
 			if err != nil {
 				return err
 			}
@@ -131,7 +130,7 @@ func (p *pipelineController) createAndStartJobForCommitInfo(commitInfo *pfs.Comm
 	return nil
 }
 
-func getRepoForPipeline(pipeline *persist.Pipeline, test bool) (*pfs.Repo, error) {
+func getRepoForPipeline(pipeline *pps.Pipeline, test bool) (*pfs.Repo, error) {
 	if len(pipeline.PipelineInput) == 0 {
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline with no PipelineInput, this is not currently allowed, %v", pipeline)
 	}
@@ -151,7 +150,7 @@ func getRepoForPipeline(pipeline *persist.Pipeline, test bool) (*pfs.Repo, error
 	return pipelineInput.GetRepo(), nil
 }
 
-func getCommitForJob(job *persist.Job, test bool) (*pfs.Commit, error) {
+func getCommitForJob(job *pps.Job, test bool) (*pfs.Commit, error) {
 	if len(job.JobInput) == 0 {
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job with no JobInput, this is not currently allowed, %v", job)
 	}
