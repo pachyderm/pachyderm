@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/fsouza/go-dockerclient"
 
@@ -69,17 +70,27 @@ func do(appEnvObj interface{}) error {
 	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 	pfsAPIClient := pfs.NewAPIClient(clientConn)
 	pipelineAPIServer := pipelineserver.NewAPIServer(pfsAPIClient, jobAPIClient, rethinkAPIClient)
-	return protoserver.Serve(
-		uint16(appEnv.Port),
-		func(s *grpc.Server) {
-			pps.RegisterJobAPIServer(s, jobAPIServer)
-			pps.RegisterPipelineAPIServer(s, pipelineAPIServer)
-		},
-		protoserver.ServeOptions{
-			DebugPort: uint16(appEnv.DebugPort),
-			Version:   pachyderm.Version,
-		},
-	)
+	errC := make(chan error)
+	go func() {
+		errC <- protoserver.Serve(
+			uint16(appEnv.Port),
+			func(s *grpc.Server) {
+				pps.RegisterJobAPIServer(s, jobAPIServer)
+				pps.RegisterPipelineAPIServer(s, pipelineAPIServer)
+			},
+			protoserver.ServeOptions{
+				DebugPort: uint16(appEnv.DebugPort),
+				Version:   pachyderm.Version,
+			},
+		)
+	}()
+	// TODO(pedge): pretty sure I had this problem before, this is bad, we would
+	// prefer a callback for when the server is ready to accept requests
+	time.Sleep(1 * time.Second)
+	if err := pipelineAPIServer.Start(); err != nil {
+		return err
+	}
+	return <-errC
 }
 
 func getContainerClient() (container.Client, error) {
