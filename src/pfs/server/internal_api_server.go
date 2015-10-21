@@ -24,7 +24,7 @@ type internalAPIServer struct {
 	sharder           route.Sharder
 	router            route.Router
 	driver            drive.Driver
-	commitWaiters     map[pfs.Repo][]chan *pfs.CommitInfo
+	commitWaiters     map[commitWait][]chan *pfs.CommitInfo
 	commitWaitersLock sync.Mutex
 }
 
@@ -37,7 +37,7 @@ func newInternalAPIServer(
 		sharder,
 		router,
 		driver,
-		make(map[pfs.Repo][]chan *pfs.CommitInfo),
+		make(map[commitWait][]chan *pfs.CommitInfo),
 		sync.Mutex{},
 	}
 }
@@ -108,7 +108,7 @@ func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartC
 	if err := a.driver.StartCommit(request.Parent, request.Commit, shards); err != nil {
 		return nil, err
 	}
-	if err := a.pulseCommitWaiters(request.Commit, shards); err != nil {
+	if err := a.pulseCommitWaiters(request.Commit, pfs.CommitType_COMMIT_TYPE_WRITE, shards); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
@@ -126,7 +126,7 @@ func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.Finis
 	if err := a.driver.FinishCommit(request.Commit, shards); err != nil {
 		return nil, err
 	}
-	if err := a.pulseCommitWaiters(request.Commit, shards); err != nil {
+	if err := a.pulseCommitWaiters(request.Commit, pfs.CommitType_COMMIT_TYPE_READ, shards); err != nil {
 		return nil, err
 	}
 	if err := a.commitToReplicas(ctx, request.Commit); err != nil {
@@ -725,6 +725,12 @@ func (a *internalAPIServer) getVersion(ctx context.Context) (int64, error) {
 	return strconv.ParseInt(encodedVersion[0], 10, 64)
 }
 
+// commitWait contains the values that describe which commits you're waiting for
+type commitWait struct {
+	repo       pfs.Repo
+	commitType pfs.CommitType
+}
+
 func (a *internalAPIServer) registerCommitWaiter(request *pfs.ListCommitRequest, shards map[uint64]bool, outChan chan *pfs.CommitInfo) error {
 	// This is a blocking request, which means we need to block until we
 	// have at least one response.
@@ -744,23 +750,36 @@ func (a *internalAPIServer) registerCommitWaiter(request *pfs.ListCommitRequest,
 			close(outChan)
 		}()
 	}
-	a.commitWaiters[*request.Repo] = append(a.commitWaiters[*request.Repo], outChan)
+	key := commitWait{*request.Repo, request.CommitType}
+	a.commitWaiters[key] =
+		append(a.commitWaiters[key], outChan)
 	return nil
 }
 
-func (a *internalAPIServer) pulseCommitWaiters(commit *pfs.Commit, shards map[uint64]bool) error {
+func (a *internalAPIServer) pulseCommitWaiters(commit *pfs.Commit, commitType pfs.CommitType, shards map[uint64]bool) error {
 	a.commitWaitersLock.Lock()
 	defer a.commitWaitersLock.Unlock()
 	commitInfo, err := a.driver.InspectCommit(commit, shards)
 	if err != nil {
 		return err
 	}
-	commitWaiters := a.commitWaiters[*commit.Repo]
+	key := commitWait{*commit.Repo, commitType}
+	commitWaiters := a.commitWaiters[key]
 	for _, commitWaiter := range commitWaiters {
 		commitWaiter <- commitInfo
 		close(commitWaiter)
 	}
-	delete(a.commitWaiters, *commit.Repo)
+	delete(a.commitWaiters, key)
+
+	if commitType != pfs.CommitType_COMMIT_TYPE_NONE {
+		key.commitType = pfs.CommitType_COMMIT_TYPE_NONE
+		commitWaiters := a.commitWaiters[key]
+		for _, commitWaiter := range commitWaiters {
+			commitWaiter <- commitInfo
+			close(commitWaiter)
+		}
+		delete(a.commitWaiters, key)
+	}
 	return nil
 }
 
