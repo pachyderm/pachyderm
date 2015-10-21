@@ -62,11 +62,11 @@ func (a *apiServer) Start() error {
 		return errors.New("pachyderm.pps.pipelineserver: already started")
 	}
 	a.started = true
-	pipelines, err := getAllPipelines(a.persistAPIClient)
+	pipelines, err := a.GetAllPipelines(context.Background(), emptyInstance)
 	if err != nil {
 		return err
 	}
-	for _, pipeline := range pipelines {
+	for _, pipeline := range pipelines.Pipeline {
 		if err := a.addPipelineController(pipeline); err != nil {
 			return err
 		}
@@ -80,6 +80,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 	if err := a.registerChangeEvent(
+		ctx,
 		&changeEvent{
 			Type:         changeEventTypeCreate,
 			PipelineName: persistPipeline.Name,
@@ -131,13 +132,13 @@ type changeEvent struct {
 	PipelineName string
 }
 
-func (a *apiServer) registerChangeEvent(request *changeEvent) error {
+func (a *apiServer) registerChangeEvent(ctx context.Context, request *changeEvent) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	switch request.Type {
 	case changeEventTypeCreate:
 		if !a.pipelineRegistered(request.PipelineName) {
-			pipeline, err := getPipeline(a.persistAPIClient, request.PipelineName)
+			pipeline, err := a.GetPipeline(ctx, &pps.GetPipelineRequest{PipelineName: request.PipelineName})
 			if err != nil {
 				return err
 			}
@@ -150,7 +151,7 @@ func (a *apiServer) registerChangeEvent(request *changeEvent) error {
 			if err := a.removePipelineController(request.PipelineName); err != nil {
 				return err
 			}
-			pipeline, err := getPipeline(a.persistAPIClient, request.PipelineName)
+			pipeline, err := a.GetPipeline(ctx, &pps.GetPipelineRequest{PipelineName: request.PipelineName})
 			if err != nil {
 				return err
 			}
@@ -177,11 +178,11 @@ func (a *apiServer) pipelineRegistered(name string) bool {
 	return ok
 }
 
-func (a *apiServer) addPipelineController(pipeline *persist.Pipeline) error {
+func (a *apiServer) addPipelineController(pipeline *pps.Pipeline) error {
 	pipelineController := newPipelineController(
 		a.pfsAPIClient,
 		a.jobAPIClient,
-		a.persistAPIClient,
+		pps.NewLocalPipelineAPIClient(a),
 		a.test,
 		pipeline,
 	)
