@@ -792,79 +792,76 @@ func init() {
 var _ context.Context
 var _ grpc.ClientConn
 
-// Client API for API service
+// Client API for JobAPI service
 
-type APIClient interface {
+type JobAPIClient interface {
 	CreateJob(ctx context.Context, in *CreateJobRequest, opts ...grpc.CallOption) (*Job, error)
 	GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*Job, error)
 	GetJobsByPipelineName(ctx context.Context, in *GetJobsByPipelineNameRequest, opts ...grpc.CallOption) (*Jobs, error)
 	StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	GetJobStatus(ctx context.Context, in *GetJobStatusRequest, opts ...grpc.CallOption) (*JobStatus, error)
-	GetJobLogs(ctx context.Context, in *GetJobLogsRequest, opts ...grpc.CallOption) (API_GetJobLogsClient, error)
-	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
-	GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
-	GetAllPipelines(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*Pipelines, error)
+	GetJobLogs(ctx context.Context, in *GetJobLogsRequest, opts ...grpc.CallOption) (JobAPI_GetJobLogsClient, error)
 }
 
-type aPIClient struct {
+type jobAPIClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewAPIClient(cc *grpc.ClientConn) APIClient {
-	return &aPIClient{cc}
+func NewJobAPIClient(cc *grpc.ClientConn) JobAPIClient {
+	return &jobAPIClient{cc}
 }
 
-func (c *aPIClient) CreateJob(ctx context.Context, in *CreateJobRequest, opts ...grpc.CallOption) (*Job, error) {
+func (c *jobAPIClient) CreateJob(ctx context.Context, in *CreateJobRequest, opts ...grpc.CallOption) (*Job, error) {
 	out := new(Job)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.API/CreateJob", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/CreateJob", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aPIClient) GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*Job, error) {
+func (c *jobAPIClient) GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*Job, error) {
 	out := new(Job)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.API/GetJob", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/GetJob", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aPIClient) GetJobsByPipelineName(ctx context.Context, in *GetJobsByPipelineNameRequest, opts ...grpc.CallOption) (*Jobs, error) {
+func (c *jobAPIClient) GetJobsByPipelineName(ctx context.Context, in *GetJobsByPipelineNameRequest, opts ...grpc.CallOption) (*Jobs, error) {
 	out := new(Jobs)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.API/GetJobsByPipelineName", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/GetJobsByPipelineName", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aPIClient) StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+func (c *jobAPIClient) StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
 	out := new(google_protobuf.Empty)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.API/StartJob", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/StartJob", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aPIClient) GetJobStatus(ctx context.Context, in *GetJobStatusRequest, opts ...grpc.CallOption) (*JobStatus, error) {
+func (c *jobAPIClient) GetJobStatus(ctx context.Context, in *GetJobStatusRequest, opts ...grpc.CallOption) (*JobStatus, error) {
 	out := new(JobStatus)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.API/GetJobStatus", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/GetJobStatus", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *aPIClient) GetJobLogs(ctx context.Context, in *GetJobLogsRequest, opts ...grpc.CallOption) (API_GetJobLogsClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[0], c.cc, "/pachyderm.pps.API/GetJobLogs", opts...)
+func (c *jobAPIClient) GetJobLogs(ctx context.Context, in *GetJobLogsRequest, opts ...grpc.CallOption) (JobAPI_GetJobLogsClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_JobAPI_serviceDesc.Streams[0], c.cc, "/pachyderm.pps.JobAPI/GetJobLogs", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &aPIGetJobLogsClient{stream}
+	x := &jobAPIGetJobLogsClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -874,16 +871,16 @@ func (c *aPIClient) GetJobLogs(ctx context.Context, in *GetJobLogsRequest, opts 
 	return x, nil
 }
 
-type API_GetJobLogsClient interface {
+type JobAPI_GetJobLogsClient interface {
 	Recv() (*google_protobuf2.BytesValue, error)
 	grpc.ClientStream
 }
 
-type aPIGetJobLogsClient struct {
+type jobAPIGetJobLogsClient struct {
 	grpc.ClientStream
 }
 
-func (x *aPIGetJobLogsClient) Recv() (*google_protobuf2.BytesValue, error) {
+func (x *jobAPIGetJobLogsClient) Recv() (*google_protobuf2.BytesValue, error) {
 	m := new(google_protobuf2.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -891,210 +888,243 @@ func (x *aPIGetJobLogsClient) Recv() (*google_protobuf2.BytesValue, error) {
 	return m, nil
 }
 
-func (c *aPIClient) CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
-	out := new(Pipeline)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.API/CreatePipeline", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
+// Server API for JobAPI service
 
-func (c *aPIClient) GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
-	out := new(Pipeline)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.API/GetPipeline", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *aPIClient) GetAllPipelines(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*Pipelines, error) {
-	out := new(Pipelines)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.API/GetAllPipelines", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Server API for API service
-
-type APIServer interface {
+type JobAPIServer interface {
 	CreateJob(context.Context, *CreateJobRequest) (*Job, error)
 	GetJob(context.Context, *GetJobRequest) (*Job, error)
 	GetJobsByPipelineName(context.Context, *GetJobsByPipelineNameRequest) (*Jobs, error)
 	StartJob(context.Context, *StartJobRequest) (*google_protobuf.Empty, error)
 	GetJobStatus(context.Context, *GetJobStatusRequest) (*JobStatus, error)
-	GetJobLogs(*GetJobLogsRequest, API_GetJobLogsServer) error
-	CreatePipeline(context.Context, *CreatePipelineRequest) (*Pipeline, error)
-	GetPipeline(context.Context, *GetPipelineRequest) (*Pipeline, error)
-	GetAllPipelines(context.Context, *google_protobuf.Empty) (*Pipelines, error)
+	GetJobLogs(*GetJobLogsRequest, JobAPI_GetJobLogsServer) error
 }
 
-func RegisterAPIServer(s *grpc.Server, srv APIServer) {
-	s.RegisterService(&_API_serviceDesc, srv)
+func RegisterJobAPIServer(s *grpc.Server, srv JobAPIServer) {
+	s.RegisterService(&_JobAPI_serviceDesc, srv)
 }
 
-func _API_CreateJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _JobAPI_CreateJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(CreateJobRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).CreateJob(ctx, in)
+	out, err := srv.(JobAPIServer).CreateJob(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _API_GetJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _JobAPI_GetJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(GetJobRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).GetJob(ctx, in)
+	out, err := srv.(JobAPIServer).GetJob(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _API_GetJobsByPipelineName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _JobAPI_GetJobsByPipelineName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(GetJobsByPipelineNameRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).GetJobsByPipelineName(ctx, in)
+	out, err := srv.(JobAPIServer).GetJobsByPipelineName(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _API_StartJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _JobAPI_StartJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(StartJobRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).StartJob(ctx, in)
+	out, err := srv.(JobAPIServer).StartJob(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _API_GetJobStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _JobAPI_GetJobStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(GetJobStatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).GetJobStatus(ctx, in)
+	out, err := srv.(JobAPIServer).GetJobStatus(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _API_GetJobLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _JobAPI_GetJobLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(GetJobLogsRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(APIServer).GetJobLogs(m, &aPIGetJobLogsServer{stream})
+	return srv.(JobAPIServer).GetJobLogs(m, &jobAPIGetJobLogsServer{stream})
 }
 
-type API_GetJobLogsServer interface {
+type JobAPI_GetJobLogsServer interface {
 	Send(*google_protobuf2.BytesValue) error
 	grpc.ServerStream
 }
 
-type aPIGetJobLogsServer struct {
+type jobAPIGetJobLogsServer struct {
 	grpc.ServerStream
 }
 
-func (x *aPIGetJobLogsServer) Send(m *google_protobuf2.BytesValue) error {
+func (x *jobAPIGetJobLogsServer) Send(m *google_protobuf2.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _API_CreatePipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(CreatePipelineRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(APIServer).CreatePipeline(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _API_GetPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(GetPipelineRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(APIServer).GetPipeline(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _API_GetAllPipelines_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(google_protobuf.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(APIServer).GetAllPipelines(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-var _API_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "pachyderm.pps.API",
-	HandlerType: (*APIServer)(nil),
+var _JobAPI_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pachyderm.pps.JobAPI",
+	HandlerType: (*JobAPIServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "CreateJob",
-			Handler:    _API_CreateJob_Handler,
+			Handler:    _JobAPI_CreateJob_Handler,
 		},
 		{
 			MethodName: "GetJob",
-			Handler:    _API_GetJob_Handler,
+			Handler:    _JobAPI_GetJob_Handler,
 		},
 		{
 			MethodName: "GetJobsByPipelineName",
-			Handler:    _API_GetJobsByPipelineName_Handler,
+			Handler:    _JobAPI_GetJobsByPipelineName_Handler,
 		},
 		{
 			MethodName: "StartJob",
-			Handler:    _API_StartJob_Handler,
+			Handler:    _JobAPI_StartJob_Handler,
 		},
 		{
 			MethodName: "GetJobStatus",
-			Handler:    _API_GetJobStatus_Handler,
-		},
-		{
-			MethodName: "CreatePipeline",
-			Handler:    _API_CreatePipeline_Handler,
-		},
-		{
-			MethodName: "GetPipeline",
-			Handler:    _API_GetPipeline_Handler,
-		},
-		{
-			MethodName: "GetAllPipelines",
-			Handler:    _API_GetAllPipelines_Handler,
+			Handler:    _JobAPI_GetJobStatus_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "GetJobLogs",
-			Handler:       _API_GetJobLogs_Handler,
+			Handler:       _JobAPI_GetJobLogs_Handler,
 			ServerStreams: true,
 		},
 	},
+}
+
+// Client API for PipelineAPI service
+
+type PipelineAPIClient interface {
+	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
+	GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
+	GetAllPipelines(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*Pipelines, error)
+}
+
+type pipelineAPIClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewPipelineAPIClient(cc *grpc.ClientConn) PipelineAPIClient {
+	return &pipelineAPIClient{cc}
+}
+
+func (c *pipelineAPIClient) CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
+	out := new(Pipeline)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.PipelineAPI/CreatePipeline", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *pipelineAPIClient) GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
+	out := new(Pipeline)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.PipelineAPI/GetPipeline", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *pipelineAPIClient) GetAllPipelines(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*Pipelines, error) {
+	out := new(Pipelines)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.PipelineAPI/GetAllPipelines", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for PipelineAPI service
+
+type PipelineAPIServer interface {
+	CreatePipeline(context.Context, *CreatePipelineRequest) (*Pipeline, error)
+	GetPipeline(context.Context, *GetPipelineRequest) (*Pipeline, error)
+	GetAllPipelines(context.Context, *google_protobuf.Empty) (*Pipelines, error)
+}
+
+func RegisterPipelineAPIServer(s *grpc.Server, srv PipelineAPIServer) {
+	s.RegisterService(&_PipelineAPI_serviceDesc, srv)
+}
+
+func _PipelineAPI_CreatePipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(CreatePipelineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(PipelineAPIServer).CreatePipeline(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _PipelineAPI_GetPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(GetPipelineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(PipelineAPIServer).GetPipeline(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _PipelineAPI_GetAllPipelines_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(google_protobuf.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(PipelineAPIServer).GetAllPipelines(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+var _PipelineAPI_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pachyderm.pps.PipelineAPI",
+	HandlerType: (*PipelineAPIServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreatePipeline",
+			Handler:    _PipelineAPI_CreatePipeline_Handler,
+		},
+		{
+			MethodName: "GetPipeline",
+			Handler:    _PipelineAPI_GetPipeline_Handler,
+		},
+		{
+			MethodName: "GetAllPipelines",
+			Handler:    _PipelineAPI_GetAllPipelines_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{},
 }

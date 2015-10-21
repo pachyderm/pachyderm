@@ -1,4 +1,4 @@
-package server
+package jobserver
 
 import (
 	"time"
@@ -11,11 +11,11 @@ import (
 
 type logAPIServer struct {
 	protorpclog.Logger
-	delegate pps.APIServer
+	delegate pps.JobAPIServer
 }
 
-func newLogAPIServer(delegate pps.APIServer) *logAPIServer {
-	return &logAPIServer{protorpclog.NewLogger("pachyderm.pps.API"), delegate}
+func newLogAPIServer(delegate pps.JobAPIServer) *logAPIServer {
+	return &logAPIServer{protorpclog.NewLogger("pachyderm.pps.JobAPI"), delegate}
 }
 
 func (a *logAPIServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, err error) {
@@ -43,22 +43,7 @@ func (a *logAPIServer) GetJobStatus(ctx context.Context, request *pps.GetJobStat
 	return a.delegate.GetJobStatus(ctx, request)
 }
 
-func (a *logAPIServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pps.API_GetJobLogsServer) (err error) {
+func (a *logAPIServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pps.JobAPI_GetJobLogsServer) (err error) {
 	// TODO(pedge): log
 	return a.delegate.GetJobLogs(request, responseServer)
-}
-
-func (a *logAPIServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *pps.Pipeline, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	return a.delegate.CreatePipeline(ctx, request)
-}
-
-func (a *logAPIServer) GetPipeline(ctx context.Context, request *pps.GetPipelineRequest) (response *pps.Pipeline, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	return a.delegate.GetPipeline(ctx, request)
-}
-
-func (a *logAPIServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (response *pps.Pipelines, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	return a.delegate.GetAllPipelines(ctx, request)
 }
