@@ -14,6 +14,7 @@ import (
 
 var (
 	emptyInstance = &google_protobuf.Empty{}
+	pfsdImage     = "gcr.io/pachyderm-dev-us1/pfsd:3f63846"
 )
 
 type apiServer struct {
@@ -54,7 +55,7 @@ func pfsReplicationController(name string, nodes uint64, shards uint64, replicas
 		api.ObjectMeta{
 			Name: fmt.Sprintf("pfsd-rc-%s", name),
 			Labels: map[string]string{
-				app: app,
+				"app": app,
 			},
 		},
 		api.ReplicationControllerSpec{
@@ -62,7 +63,59 @@ func pfsReplicationController(name string, nodes uint64, shards uint64, replicas
 			Selector: map[string]string{
 				"app": app,
 			},
-			Template: &api.PodTemplateSpec{},
+			Template: &api.PodTemplateSpec{
+				api.ObjectMeta{
+					Name: fmt.Sprintf("pfsd-%s", name),
+					Labels: map[string]string{
+						"app": app,
+					},
+				},
+				api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  "pfsd",
+							Image: pfsdImage,
+							Env: []api.EnvVar{
+								{
+									Name:  "PFS_DRIVER_ROOT",
+									Value: "/pfs/btrfs",
+								},
+							},
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 650,
+									Name:          "api-grpc-port",
+								},
+								{
+									ContainerPort: 750,
+									Name:          "api-http-port",
+								},
+								{
+									ContainerPort: 1050,
+									Name:          "trace-port",
+								},
+							},
+							VolumeMounts: []api.VolumeMount{
+								{
+									Name:      "pfs-disk",
+									MountPath: "/pfs/btrfs",
+								},
+							},
+						},
+					},
+					Volumes: []api.Volume{
+						{
+							"pfs-disk",
+							api.VolumeSource{
+								GCEPersistentDisk: &api.GCEPersistentDiskVolumeSource{
+									PDName: "pch-pfs",
+									FSType: "btrfs",
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		api.ReplicationControllerStatus{},
 	}
