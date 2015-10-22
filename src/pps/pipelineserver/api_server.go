@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/convert"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
+	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 )
@@ -26,6 +28,7 @@ var (
 )
 
 type apiServer struct {
+	protorpclog.Logger
 	pfsAPIClient     pfs.APIClient
 	jobAPIClient     pps.JobAPIClient
 	persistAPIClient persist.APIClient
@@ -43,6 +46,7 @@ func newAPIServer(
 	test bool,
 ) *apiServer {
 	return &apiServer{
+		protorpclog.NewLogger("pachyderm.pps.PipelineAPI"),
 		pfsAPIClient,
 		jobAPIClient,
 		persistAPIClient,
@@ -75,6 +79,7 @@ func (a *apiServer) Start() error {
 }
 
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *pps.Pipeline, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistPipeline, err := a.persistAPIClient.CreatePipeline(ctx, convert.PipelineToPersist(request.Pipeline))
 	if err != nil {
 		return nil, err
@@ -93,6 +98,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 }
 
 func (a *apiServer) GetPipeline(ctx context.Context, request *pps.GetPipelineRequest) (response *pps.Pipeline, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistPipelines, err := a.persistAPIClient.GetPipelinesByName(ctx, &google_protobuf.StringValue{Value: request.PipelineName})
 	if err != nil {
 		return nil, err
@@ -104,6 +110,7 @@ func (a *apiServer) GetPipeline(ctx context.Context, request *pps.GetPipelineReq
 }
 
 func (a *apiServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (response *pps.Pipelines, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistPipelines, err := a.persistAPIClient.GetAllPipelines(ctx, request)
 	if err != nil {
 		return nil, err
