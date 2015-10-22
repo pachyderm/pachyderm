@@ -10,7 +10,7 @@ package pachyderm.pps.persist;
 option go_package = "persist";
 
 message JobInfo {
-  pachyderm.pps.Job job = 1;
+  string job_id = 1;
   oneof spec {
     pachyderm.pps.Transform transform = 2;
     pachyderm.pps.Pipeline pipeline = 3;

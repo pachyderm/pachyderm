@@ -16,17 +16,19 @@ import (
 )
 
 const (
-	jobsTable        Table = "jobs"
-	jobStatusesTable Table = "job_statuses"
-	jobLogsTable     Table = "job_logs"
-	pipelinesTable   Table = "pipelines"
+	jobInfosTable      Table = "job_infos"
+	jobStatusesTable   Table = "job_statuses"
+	jobOutputsTable    Table = "job_outputs"
+	jobLogsTable       Table = "job_logs"
+	pipelineInfosTable Table = "pipeline_infos"
 
-	idPrimaryKey PrimaryKey = "id"
+	idPrimaryKey       PrimaryKey = "id"
+	jobPrimaryKey      PrimaryKey = "job.id"
+	pipelinePrimaryKey PrimaryKey = "pipeline.name"
 
-	pipelineIDIndex Index = "pipeline_id"
-	jobIDIndex      Index = "job_id"
-	typeIndex       Index = "type"
-	nameIndex       Index = "name"
+	pipelineIndex Index = "pipeline.name"
+	jobIndex      Index = "job.id"
+	typeIndex     Index = "type"
 )
 
 type Table string
@@ -37,16 +39,17 @@ var (
 	marshaller = &jsonpb.Marshaler{}
 
 	tables = []Table{
-		jobsTable,
+		jobInfosTable,
 		jobStatusesTable,
+		jobOutputsTable,
 		jobLogsTable,
-		pipelinesTable,
+		pipelineInfosTable,
 	}
 
 	tableToTableCreateOpts = map[Table][]gorethink.TableCreateOpts{
-		jobsTable: []gorethink.TableCreateOpts{
+		jobInfosTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
-				PrimaryKey: idPrimaryKey,
+				PrimaryKey: jobPrimaryKey,
 			},
 		},
 		jobStatusesTable: []gorethink.TableCreateOpts{
@@ -54,32 +57,35 @@ var (
 				PrimaryKey: idPrimaryKey,
 			},
 		},
+		jobOutputsTable: []gorethink.TableCreateOpts{
+			gorethink.TableCreateOpts{
+				PrimaryKey: jobPrimaryKey,
+			},
+		},
 		jobLogsTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
 				PrimaryKey: idPrimaryKey,
 			},
 		},
-		pipelinesTable: []gorethink.TableCreateOpts{
+		pipelineInfosTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
-				PrimaryKey: idPrimaryKey,
+				PrimaryKey: pipelinePrimaryKey,
 			},
 		},
 	}
 
 	tableToIndexes = map[Table][]Index{
-		jobsTable: []Index{
-			pipelineIDIndex,
+		jobInfosTable: []Index{
+			pipelineIndex,
 		},
 		jobStatusesTable: []Index{
-			jobIDIndex,
+			jobIndex,
 			typeIndex,
 		},
 		jobLogsTable: []Index{
-			jobIDIndex,
+			jobIndex,
 		},
-		pipelinesTable: []Index{
-			nameIndex,
-		},
+		pipelineInfosTable: []Index{},
 	}
 )
 
@@ -140,16 +146,13 @@ func (a *rethinkAPIServer) Close() error {
 
 // id cannot be set
 // a JobStatus of type created will also be created
-func (a *rethinkAPIServer) CreateJob(ctx context.Context, request *persist.Job) (*persist.Job, error) {
-	if request.Id != "" {
-		return nil, ErrIDSet
-	}
+func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.JobInfo) (*persist.JobInfo, error) {
 	if request.CreatedAt != nil {
 		return nil, ErrTimestampSet
 	}
 	request.Id = newID()
 	request.CreatedAt = a.now()
-	if err := a.insertMessage(jobsTable, request); err != nil {
+	if err := a.insertMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}
 	// TODO(pedge): not transactional
@@ -167,7 +170,7 @@ func (a *rethinkAPIServer) CreateJob(ctx context.Context, request *persist.Job) 
 
 func (a *rethinkAPIServer) GetJobByID(ctx context.Context, request *google_protobuf.StringValue) (*persist.Job, error) {
 	job := &persist.Job{}
-	if err := a.getMessageByPrimaryKey(jobsTable, request.Value, job); err != nil {
+	if err := a.getMessageByPrimaryKey(jobInfosTable, request.Value, job); err != nil {
 		return nil, err
 	}
 	return job, nil
@@ -175,7 +178,7 @@ func (a *rethinkAPIServer) GetJobByID(ctx context.Context, request *google_proto
 
 func (a *rethinkAPIServer) GetJobsByPipelineID(ctx context.Context, request *google_protobuf.StringValue) (*persist.Jobs, error) {
 	jobObjs, err := a.getMessagesByIndex(
-		jobsTable,
+		jobInfosTable,
 		pipelineIDIndex,
 		request.Value,
 		func() proto.Message { return &persist.Job{} },
@@ -324,7 +327,7 @@ func (a *rethinkAPIServer) createPipeline(ctx context.Context, request *persist.
 	}
 	request.Id = newID()
 	request.CreatedAt = a.now()
-	if err := a.insertMessage(pipelinesTable, request); err != nil {
+	if err := a.insertMessage(pipelineInfosTable, request); err != nil {
 		return nil, err
 	}
 	return request, nil
@@ -332,7 +335,7 @@ func (a *rethinkAPIServer) createPipeline(ctx context.Context, request *persist.
 
 func (a *rethinkAPIServer) GetPipelineByID(ctx context.Context, request *google_protobuf.StringValue) (*persist.Pipeline, error) {
 	pipeline := &persist.Pipeline{}
-	if err := a.getMessageByPrimaryKey(pipelinesTable, request.Value, pipeline); err != nil {
+	if err := a.getMessageByPrimaryKey(pipelineInfosTable, request.Value, pipeline); err != nil {
 		return nil, err
 	}
 	return pipeline, nil
@@ -341,7 +344,7 @@ func (a *rethinkAPIServer) GetPipelineByID(ctx context.Context, request *google_
 // ordered by time, latest to earliest
 func (a *rethinkAPIServer) GetPipelinesByName(ctx context.Context, request *google_protobuf.StringValue) (*persist.Pipelines, error) {
 	pipelineObjs, err := a.getMessagesByIndex(
-		pipelinesTable,
+		pipelineInfosTable,
 		nameIndex,
 		request.Value,
 		func() proto.Message { return &persist.Pipeline{} },
@@ -363,7 +366,7 @@ func (a *rethinkAPIServer) GetPipelinesByName(ctx context.Context, request *goog
 
 func (a *rethinkAPIServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (*persist.Pipelines, error) {
 	pipelineObjs, err := a.getAllMessages(
-		pipelinesTable,
+		pipelineInfosTable,
 		func() proto.Message { return &persist.Pipeline{} },
 		func(term gorethink.Term) gorethink.Term {
 			return term.OrderBy(gorethink.Desc("created_at"))
