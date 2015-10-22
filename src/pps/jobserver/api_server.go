@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/satori/go.uuid"
 
@@ -14,6 +15,7 @@ import (
 	"go.pachyderm.com/pachyderm/src/pps/convert"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
+	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/time"
 	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
@@ -24,6 +26,7 @@ var (
 )
 
 type apiServer struct {
+	protorpclog.Logger
 	persistAPIClient persist.APIClient
 	containerClient  container.Client
 }
@@ -32,10 +35,15 @@ func newAPIServer(
 	persistAPIClient persist.APIClient,
 	containerClient container.Client,
 ) *apiServer {
-	return &apiServer{persistAPIClient, containerClient}
+	return &apiServer{
+		protorpclog.NewLogger("pachyderm.pps.JobAPI"),
+		persistAPIClient,
+		containerClient,
+	}
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistJob, err := a.persistAPIClient.CreateJob(ctx, convert.JobToPersist(request.Job))
 	if err != nil {
 		return nil, err
@@ -44,6 +52,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 }
 
 func (a *apiServer) GetJob(ctx context.Context, request *pps.GetJobRequest) (response *pps.Job, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistJob, err := a.persistAPIClient.GetJobByID(ctx, &google_protobuf.StringValue{Value: request.JobId})
 	if err != nil {
 		return nil, err
@@ -52,6 +61,7 @@ func (a *apiServer) GetJob(ctx context.Context, request *pps.GetJobRequest) (res
 }
 
 func (a *apiServer) GetJobsByPipelineName(ctx context.Context, request *pps.GetJobsByPipelineNameRequest) (response *pps.Jobs, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistPipelines, err := a.persistAPIClient.GetPipelinesByName(ctx, &google_protobuf.StringValue{Value: request.PipelineName})
 	if err != nil {
 		return nil, err
@@ -72,6 +82,7 @@ func (a *apiServer) GetJobsByPipelineName(ctx context.Context, request *pps.GetJ
 }
 
 func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistJob, err := a.persistAPIClient.GetJobByID(ctx, &google_protobuf.StringValue{Value: request.JobId})
 	if err != nil {
 		return nil, err
@@ -83,6 +94,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 }
 
 func (a *apiServer) GetJobStatus(ctx context.Context, request *pps.GetJobStatusRequest) (response *pps.JobStatus, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistJobStatuses, err := a.persistAPIClient.GetJobStatusesByJobID(ctx, &google_protobuf.StringValue{Value: request.JobId})
 	if err != nil {
 		return nil, err
