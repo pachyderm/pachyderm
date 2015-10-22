@@ -21,9 +21,8 @@ import (
 	"golang.org/x/net/http2/hpack"
 )
 
+// Transport is an HTTP/2 Transport.
 type Transport struct {
-	Fallback http.RoundTripper
-
 	// TODO: remove this and make more general with a TLS dial hook, like http
 	InsecureTLSDial bool
 
@@ -82,10 +81,7 @@ func (sew stickyErrWriter) Write(p []byte) (n int, err error) {
 
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.URL.Scheme != "https" {
-		if t.Fallback == nil {
-			return nil, errors.New("http2: unsupported scheme and no Fallback")
-		}
-		return t.Fallback.RoundTrip(req)
+		return nil, errors.New("http2: unsupported scheme")
 	}
 
 	host, port, err := net.SplitHostPort(req.URL.Host)
@@ -157,29 +153,61 @@ func filterOutClientConn(in []*clientConn, exclude *clientConn) []*clientConn {
 	return out
 }
 
-func (t *Transport) getClientConn(host, port string) (*clientConn, error) {
+// AddIdleConn adds c as an idle conn for Transport.
+// It assumes that c has not yet exchanged SETTINGS frames.
+// The addr maybe be either "host" or "host:port".
+func (t *Transport) AddIdleConn(addr string, c *tls.Conn) error {
+	var key string
+	host, _, err := net.SplitHostPort(addr)
+	if err == nil {
+		key = addr
+	} else {
+		host = addr
+		key = addr + ":443"
+	}
+	cc, err := t.newClientConn(host, key, c)
+	if err != nil {
+		return err
+	}
+
+	t.addConn(key, cc)
+	return nil
+}
+
+func (t *Transport) addConn(key string, cc *clientConn) {
 	t.connMu.Lock()
 	defer t.connMu.Unlock()
-
-	key := net.JoinHostPort(host, port)
-
-	for _, cc := range t.conns[key] {
-		if cc.canTakeNewRequest() {
-			return cc, nil
-		}
-	}
 	if t.conns == nil {
 		t.conns = make(map[string][]*clientConn)
 	}
-	cc, err := t.newClientConn(host, port, key)
+	t.conns[key] = append(t.conns[key], cc)
+}
+
+func (t *Transport) getClientConn(host, port string) (*clientConn, error) {
+	key := net.JoinHostPort(host, port)
+
+	t.connMu.Lock()
+	for _, cc := range t.conns[key] {
+		if cc.canTakeNewRequest() {
+			t.connMu.Unlock()
+			return cc, nil
+		}
+	}
+	t.connMu.Unlock()
+
+	// TODO(bradfitz): use a singleflight.Group to only lock once per 'key'.
+	// Probably need to vendor it in as github.com/golang/sync/singleflight
+	// though, since the net package already uses it? Also lines up with
+	// sameer, bcmills, et al wanting to open source some sync stuff.
+	cc, err := t.dialClientConn(host, port, key)
 	if err != nil {
 		return nil, err
 	}
-	t.conns[key] = append(t.conns[key], cc)
+	t.addConn(key, cc)
 	return cc, nil
 }
 
-func (t *Transport) newClientConn(host, port, key string) (*clientConn, error) {
+func (t *Transport) dialClientConn(host, port, key string) (*clientConn, error) {
 	cfg := &tls.Config{
 		ServerName:         host,
 		NextProtos:         []string{NextProtoTLS},
@@ -189,21 +217,24 @@ func (t *Transport) newClientConn(host, port, key string) (*clientConn, error) {
 	if err != nil {
 		return nil, err
 	}
+	return t.newClientConn(host, key, tconn)
+}
+
+func (t *Transport) newClientConn(host, key string, tconn *tls.Conn) (*clientConn, error) {
 	if err := tconn.Handshake(); err != nil {
 		return nil, err
 	}
 	if !t.InsecureTLSDial {
-		if err := tconn.VerifyHostname(cfg.ServerName); err != nil {
+		if err := tconn.VerifyHostname(host); err != nil {
 			return nil, err
 		}
 	}
 	state := tconn.ConnectionState()
 	if p := state.NegotiatedProtocol; p != NextProtoTLS {
-		// TODO(bradfitz): fall back to Fallback
-		return nil, fmt.Errorf("bad protocol: %v", p)
+		return nil, fmt.Errorf("http2: unexpected ALPN protocol %q; want %q", p, NextProtoTLS)
 	}
 	if !state.NegotiatedProtocolIsMutual {
-		return nil, errors.New("could not negotiate protocol mutually")
+		return nil, errors.New("http2: could not negotiate protocol mutually")
 	}
 	if _, err := tconn.Write(clientPreface); err != nil {
 		return nil, err
@@ -256,7 +287,7 @@ func (t *Transport) newClientConn(host, port, key string) (*clientConn, error) {
 			cc.initialWindowSize = s.Val
 		default:
 			// TODO(bradfitz): handle more
-			log.Printf("Unhandled Setting: %v", s)
+			t.vlogf("Unhandled Setting: %v", s)
 		}
 		return nil
 	})
@@ -383,7 +414,6 @@ func (cc *clientConn) encodeHeaders(req *http.Request) []byte {
 }
 
 func (cc *clientConn) writeHeader(name, value string) {
-	log.Printf("sending %q = %q", name, value)
 	cc.henc.WriteField(hpack.HeaderField{Name: name, Value: value})
 }
 
@@ -442,21 +472,21 @@ func (cc *clientConn) readLoop() {
 			cc.readerErr = err
 			return
 		}
-		log.Printf("Transport received %v: %#v", f.Header(), f)
+		cc.vlogf("Transport received %v: %#v", f.Header(), f)
 
 		streamID := f.Header().StreamID
 
 		_, isContinue := f.(*ContinuationFrame)
 		if isContinue {
 			if streamID != continueStreamID {
-				log.Printf("Protocol violation: got CONTINUATION with id %d; want %d", streamID, continueStreamID)
+				cc.logf("Protocol violation: got CONTINUATION with id %d; want %d", streamID, continueStreamID)
 				cc.readerErr = ConnectionError(ErrCodeProtocol)
 				return
 			}
 		} else if continueStreamID != 0 {
 			// Continue frames need to be adjacent in the stream
 			// and we were in the middle of headers.
-			log.Printf("Protocol violation: got %T for stream %d, want CONTINUATION for %d", f, streamID, continueStreamID)
+			cc.logf("Protocol violation: got %T for stream %d, want CONTINUATION for %d", f, streamID, continueStreamID)
 			cc.readerErr = ConnectionError(ErrCodeProtocol)
 			return
 		}
@@ -473,7 +503,7 @@ func (cc *clientConn) readLoop() {
 
 		cs := cc.streamByID(streamID, streamEnded)
 		if cs == nil {
-			log.Printf("Received frame for untracked stream ID %d", streamID)
+			cc.logf("Received frame for untracked stream ID %d", streamID)
 			continue
 		}
 
@@ -489,17 +519,19 @@ func (cc *clientConn) readLoop() {
 		case *ContinuationFrame:
 			cc.hdec.Write(f.HeaderBlockFragment())
 		case *DataFrame:
-			log.Printf("DATA: %q", f.Data())
+			if VerboseLogs {
+				cc.logf("DATA: %q", f.Data())
+			}
 			cs.pw.Write(f.Data())
 		case *GoAwayFrame:
 			cc.t.removeClientConn(cc)
 			if f.ErrCode != 0 {
 				// TODO: deal with GOAWAY more. particularly the error code
-				log.Printf("transport got GOAWAY with error code = %v", f.ErrCode)
+				cc.vlogf("transport got GOAWAY with error code = %v", f.ErrCode)
 			}
 			cc.setGoAway(f)
 		default:
-			log.Printf("Transport: unhandled response frame type %T", f)
+			cc.logf("Transport: unhandled response frame type %T", f)
 		}
 		headersEnded := false
 		if he, ok := f.(headersEnder); ok {
@@ -533,7 +565,9 @@ func (cc *clientConn) readLoop() {
 func (cc *clientConn) onNewHeaderField(f hpack.HeaderField) {
 	// TODO: verifiy pseudo headers come before non-pseudo headers
 	// TODO: verifiy the status is set
-	log.Printf("Header field: %+v", f)
+	if VerboseLogs {
+		cc.logf("Header field: %+v", f)
+	}
 	if f.Name == ":status" {
 		code, err := strconv.Atoi(f.Value)
 		if err != nil {
@@ -549,4 +583,22 @@ func (cc *clientConn) onNewHeaderField(f hpack.HeaderField) {
 		return
 	}
 	cc.nextRes.Header.Add(http.CanonicalHeaderKey(f.Name), f.Value)
+}
+
+func (cc *clientConn) logf(format string, args ...interface{}) {
+	cc.t.logf(format, args...)
+}
+
+func (cc *clientConn) vlogf(format string, args ...interface{}) {
+	cc.t.vlogf(format, args...)
+}
+
+func (t *Transport) vlogf(format string, args ...interface{}) {
+	if VerboseLogs {
+		t.logf(format, args...)
+	}
+}
+
+func (t *Transport) logf(format string, args ...interface{}) {
+	log.Printf(format, args...)
 }
