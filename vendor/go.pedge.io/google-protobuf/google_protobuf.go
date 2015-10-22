@@ -3,3 +3,8 @@ Package google_protobuf compiles all the proto files in https://github.com/googl
 into golang structs, and removes cyclical imports. This allows easy use of these commonly used messages in other repositories.
 */
 package google_protobuf
+
+var (
+	// EmptyInstance is an instance of *Empty.
+	EmptyInstance = &Empty{}
+)
