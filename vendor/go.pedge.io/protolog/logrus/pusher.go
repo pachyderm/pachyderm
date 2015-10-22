@@ -26,7 +26,7 @@ var (
 		protolog.Level_LEVEL_PANIC: logrus.PanicLevel,
 	}
 
-	jsonpbMarshaller = &jsonpb.Marshaler{EnumsAsString: true}
+	jsonpbMarshaller = &jsonpb.Marshaler{}
 )
 
 type pusher struct {

@@ -1,8 +1,6 @@
 [![CircleCI](https://circleci.com/gh/peter-edge/go-env/tree/master.png)](https://circleci.com/gh/peter-edge/go-env/tree/master)
-[![API Documentation](http://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](https://godoc.org/go.pedge.io/env)
-[![GitHub License](https://img.shields.io/github/license/peter-edge/go-env.svg?style=flat-square)](https://github.com/peter-edge/go-env/blob/master/LICENSE)
-
-See the [Godoc](https://godoc.org/go.pedge.io/env) for usage.
+[![GoDoc](http://img.shields.io/badge/GoDoc-Reference-blue.svg)](https://godoc.org/go.pedge.io/env)
+[![MIT License](http://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/peter-edge/go-env/blob/master/LICENSE)
 
 Package env handles environment variables in a structured manner. It uses reflection
 to set fields on a struct pointer passed to the main public method, `Populate`.
