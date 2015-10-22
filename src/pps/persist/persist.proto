@@ -2,33 +2,32 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/wrappers.proto";
+import "pfs/pfs.proto";
 import "pps/pps.proto";
 
 package pachyderm.pps.persist;
 
 option go_package = "persist";
 
-message Job {
-  string id = 1;
-  // TODO(pedge): remove the created job status
-  google.protobuf.Timestamp created_at = 2;
+message JobInfo {
+  pachyderm.pps.Job job = 1;
   oneof spec {
-    pps.Transform transform = 3;
-    string pipeline_id = 4;
+    pachyderm.pps.Transform transform = 2;
+    pachyderm.pps.Pipeline pipeline = 3;
   }
-  repeated pps.JobInput job_input = 5;
-  repeated pps.JobOutput job_output = 6;
+  pfs.Commit input = 4;
+  pfs.Commit output_parent = 5;
+  google.protobuf.Timestamp created_at = 6;
 }
 
-message Jobs {
-  repeated Job job = 1;
+message JobInfos {
+  repeated JobInfo job_info = 1;
 }
 
 message JobStatus {
   string id = 1;
-  string job_id = 2;
-  pps.JobStatusType type = 3;
+  pachyderm.pps.Job job = 2;
+  pachyderm.pps.JobStatusType type = 3;
   google.protobuf.Timestamp timestamp = 4;
   string message = 5;
 }
@@ -37,11 +36,20 @@ message JobStatuses {
   repeated JobStatus job_status = 1;
 }
 
+// maybe name JobOutputCommit? we name the fields
+// input and output, not input_commit and output_commit
+message JobOutput {
+  // if we wanted to be able to have multuple output pfs repos,
+  // we would need JobOutputCommit to have a separate id
+  pachyderm.pps.Job job = 1;
+  pfs.Commit output = 2;
+}
+
 message JobLog {
   string id = 1;
-  string job_id = 2;
+  pachyderm.pps.Job job = 2;
   google.protobuf.Timestamp timestamp = 3;
-  pps.OutputStream output_stream = 4;
+  pachyderm.pps.OutputStream output_stream = 4;
   bytes value = 5;
 }
 
@@ -49,45 +57,36 @@ message JobLogs {
   repeated JobLog job_log = 1;
 }
 
-message Pipeline {
-  string id = 1;
-  string previous_id = 2;
-  string name = 3;
-  google.protobuf.Timestamp created_at = 4;
-  pps.Transform transform = 5;
-  repeated pps.PipelineInput pipeline_input = 6;
-  repeated pps.PipelineOutput pipeline_output = 7;
+message PipelineInfo {
+  pachyderm.pps.Pipeline pipeline = 1;
+  pachyderm.pps.Transform transform = 2;
+  pfs.Repo input = 3;
+  pfs.Repo output = 4;
+  google.protobuf.Timestamp created_at = 5;
 }
 
-message Pipelines {
-  repeated Pipeline pipeline = 1;
+message PipelineInfos {
+  repeated PipelineInfo pipeline_info = 1;
 }
 
 service API {
-  // id cannot be set
-  // a JobStatus of type created will also be created
-  rpc CreateJob(Job) returns (Job) {}
-  rpc GetJobByID(google.protobuf.StringValue) returns (Job) {}
-  rpc GetJobsByPipelineID(google.protobuf.StringValue) returns (Jobs) {}
+  // timestamp cannot be set
+  rpc CreateJobInfo(JobInfo) returns (JobInfo) {}
+  rpc GetJobInfo(pachyderm.pps.Job) returns (JobInfo) {}
+  rpc GetJobInfosByPipeline(pachyderm.pps.Pipeline) returns (JobInfos) {}
   // id cannot be set
   // timestamp cannot be set
   rpc CreateJobStatus(JobStatus) returns (JobStatus) {}
   // ordered by time, latest to earliest
-  rpc GetJobStatusesByJobID(google.protobuf.StringValue) returns (JobStatuses) {}
+  rpc GetJobStatuses(pachyderm.pps.Job) returns (JobStatuses) {}
   // id cannot be set
   rpc CreateJobLog(JobLog) returns (JobLog) {}
   // ordered by time, latest to earliest
-  rpc GetJobLogsByJobID(google.protobuf.StringValue) returns (JobLogs) {}
-  // id and previous_id cannot be set
+  rpc GetJobLogs(pachyderm.pps.Job) returns (JobLogs) {}
   // timestamp cannot be set
-  // name must not already exist
-  rpc CreatePipeline(Pipeline) returns (Pipeline) {}
-  // id and previous_id cannot be set
-  // update by name, name must already exist
-  rpc UpdatePipeline(Pipeline) returns (Pipeline) {}
-  rpc GetPipelineByID(google.protobuf.StringValue) returns (Pipeline) {}
+  rpc CreatePipelineInfo(PipelineInfo) returns (PipelineInfo) {}
+  rpc GetPipelineInfo(pachyderm.pps.Pipeline) returns (PipelineInfo) {}
   // ordered by time, latest to earliest
-  rpc GetPipelinesByName(google.protobuf.StringValue) returns (Pipelines) {}
-  // ordered by time, latest to earliest
-  rpc GetAllPipelines(google.protobuf.Empty) returns (Pipelines) {}
+  rpc GetAllPipelineInfos(google.protobuf.Empty) returns (PipelineInfos) {}
+  rpc DeletePipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
 }

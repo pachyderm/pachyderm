@@ -10,24 +10,22 @@ It is generated from these files:
 
 It has these top-level messages:
 	Transform
-	JobInput
-	JobOutput
 	Job
-	Jobs
 	JobStatus
 	JobInfo
-	PipelineInput
-	PipelineOutput
+	JobInfos
 	Pipeline
-	Pipelines
+	PipelineInfo
+	PipelineInfos
 	CreateJobRequest
-	GetJobRequest
-	GetJobsByPipelineNameRequest
-	StartJobRequest
-	GetJobStatusRequest
+	InspectJobRequest
+	ListJobRequest
+	DeleteJobRequest
 	GetJobLogsRequest
 	CreatePipelineRequest
-	GetPipelineRequest
+	InspectPipelineRequest
+	ListPipelineRequest
+	DeletePipelineRequest
 */
 package pps
 
@@ -53,25 +51,22 @@ type JobStatusType int32
 
 const (
 	JobStatusType_JOB_STATUS_TYPE_NONE    JobStatusType = 0
-	JobStatusType_JOB_STATUS_TYPE_CREATED JobStatusType = 1
-	JobStatusType_JOB_STATUS_TYPE_STARTED JobStatusType = 2
-	JobStatusType_JOB_STATUS_TYPE_ERROR   JobStatusType = 3
-	JobStatusType_JOB_STATUS_TYPE_SUCCESS JobStatusType = 4
+	JobStatusType_JOB_STATUS_TYPE_STARTED JobStatusType = 1
+	JobStatusType_JOB_STATUS_TYPE_ERROR   JobStatusType = 2
+	JobStatusType_JOB_STATUS_TYPE_SUCCESS JobStatusType = 3
 )
 
 var JobStatusType_name = map[int32]string{
 	0: "JOB_STATUS_TYPE_NONE",
-	1: "JOB_STATUS_TYPE_CREATED",
-	2: "JOB_STATUS_TYPE_STARTED",
-	3: "JOB_STATUS_TYPE_ERROR",
-	4: "JOB_STATUS_TYPE_SUCCESS",
+	1: "JOB_STATUS_TYPE_STARTED",
+	2: "JOB_STATUS_TYPE_ERROR",
+	3: "JOB_STATUS_TYPE_SUCCESS",
 }
 var JobStatusType_value = map[string]int32{
 	"JOB_STATUS_TYPE_NONE":    0,
-	"JOB_STATUS_TYPE_CREATED": 1,
-	"JOB_STATUS_TYPE_STARTED": 2,
-	"JOB_STATUS_TYPE_ERROR":   3,
-	"JOB_STATUS_TYPE_SUCCESS": 4,
+	"JOB_STATUS_TYPE_STARTED": 1,
+	"JOB_STATUS_TYPE_ERROR":   2,
+	"JOB_STATUS_TYPE_SUCCESS": 3,
 }
 
 func (x JobStatusType) String() string {
@@ -102,335 +97,21 @@ func (x OutputStream) String() string {
 }
 
 type Transform struct {
-	Image      string   `protobuf:"bytes,1,opt,name=image" json:"image,omitempty"`
-	Build      string   `protobuf:"bytes,2,opt,name=build" json:"build,omitempty"`
-	Dockerfile string   `protobuf:"bytes,3,opt,name=dockerfile" json:"dockerfile,omitempty"`
-	Cmd        []string `protobuf:"bytes,4,rep,name=cmd" json:"cmd,omitempty"`
+	Image string   `protobuf:"bytes,1,opt,name=image" json:"image,omitempty"`
+	Cmd   []string `protobuf:"bytes,2,rep,name=cmd" json:"cmd,omitempty"`
 }
 
 func (m *Transform) Reset()         { *m = Transform{} }
 func (m *Transform) String() string { return proto.CompactTextString(m) }
 func (*Transform) ProtoMessage()    {}
 
-type JobInput struct {
-	// Types that are valid to be assigned to Input:
-	//	*JobInput_HostDir
-	//	*JobInput_Commit
-	Input isJobInput_Input `protobuf_oneof:"input"`
-}
-
-func (m *JobInput) Reset()         { *m = JobInput{} }
-func (m *JobInput) String() string { return proto.CompactTextString(m) }
-func (*JobInput) ProtoMessage()    {}
-
-type isJobInput_Input interface {
-	isJobInput_Input()
-}
-
-type JobInput_HostDir struct {
-	HostDir string `protobuf:"bytes,1,opt,name=host_dir,oneof"`
-}
-type JobInput_Commit struct {
-	Commit *pfs.Commit `protobuf:"bytes,2,opt,name=commit,oneof"`
-}
-
-func (*JobInput_HostDir) isJobInput_Input() {}
-func (*JobInput_Commit) isJobInput_Input()  {}
-
-func (m *JobInput) GetInput() isJobInput_Input {
-	if m != nil {
-		return m.Input
-	}
-	return nil
-}
-
-func (m *JobInput) GetHostDir() string {
-	if x, ok := m.GetInput().(*JobInput_HostDir); ok {
-		return x.HostDir
-	}
-	return ""
-}
-
-func (m *JobInput) GetCommit() *pfs.Commit {
-	if x, ok := m.GetInput().(*JobInput_Commit); ok {
-		return x.Commit
-	}
-	return nil
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*JobInput) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
-	return _JobInput_OneofMarshaler, _JobInput_OneofUnmarshaler, []interface{}{
-		(*JobInput_HostDir)(nil),
-		(*JobInput_Commit)(nil),
-	}
-}
-
-func _JobInput_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*JobInput)
-	// input
-	switch x := m.Input.(type) {
-	case *JobInput_HostDir:
-		b.EncodeVarint(1<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.HostDir)
-	case *JobInput_Commit:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Commit); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("JobInput.Input has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _JobInput_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*JobInput)
-	switch tag {
-	case 1: // input.host_dir
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.Input = &JobInput_HostDir{x}
-		return true, err
-	case 2: // input.commit
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs.Commit)
-		err := b.DecodeMessage(msg)
-		m.Input = &JobInput_Commit{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-type JobOutput struct {
-	// Types that are valid to be assigned to Output:
-	//	*JobOutput_HostDir
-	//	*JobOutput_ParentCommit
-	Output isJobOutput_Output `protobuf_oneof:"output"`
-}
-
-func (m *JobOutput) Reset()         { *m = JobOutput{} }
-func (m *JobOutput) String() string { return proto.CompactTextString(m) }
-func (*JobOutput) ProtoMessage()    {}
-
-type isJobOutput_Output interface {
-	isJobOutput_Output()
-}
-
-type JobOutput_HostDir struct {
-	HostDir string `protobuf:"bytes,1,opt,name=host_dir,oneof"`
-}
-type JobOutput_ParentCommit struct {
-	ParentCommit *pfs.Commit `protobuf:"bytes,2,opt,name=parent_commit,oneof"`
-}
-
-func (*JobOutput_HostDir) isJobOutput_Output()      {}
-func (*JobOutput_ParentCommit) isJobOutput_Output() {}
-
-func (m *JobOutput) GetOutput() isJobOutput_Output {
-	if m != nil {
-		return m.Output
-	}
-	return nil
-}
-
-func (m *JobOutput) GetHostDir() string {
-	if x, ok := m.GetOutput().(*JobOutput_HostDir); ok {
-		return x.HostDir
-	}
-	return ""
-}
-
-func (m *JobOutput) GetParentCommit() *pfs.Commit {
-	if x, ok := m.GetOutput().(*JobOutput_ParentCommit); ok {
-		return x.ParentCommit
-	}
-	return nil
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*JobOutput) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
-	return _JobOutput_OneofMarshaler, _JobOutput_OneofUnmarshaler, []interface{}{
-		(*JobOutput_HostDir)(nil),
-		(*JobOutput_ParentCommit)(nil),
-	}
-}
-
-func _JobOutput_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*JobOutput)
-	// output
-	switch x := m.Output.(type) {
-	case *JobOutput_HostDir:
-		b.EncodeVarint(1<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.HostDir)
-	case *JobOutput_ParentCommit:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ParentCommit); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("JobOutput.Output has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _JobOutput_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*JobOutput)
-	switch tag {
-	case 1: // output.host_dir
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.Output = &JobOutput_HostDir{x}
-		return true, err
-	case 2: // output.parent_commit
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs.Commit)
-		err := b.DecodeMessage(msg)
-		m.Output = &JobOutput_ParentCommit{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
 type Job struct {
 	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	// Types that are valid to be assigned to Spec:
-	//	*Job_Transform
-	//	*Job_PipelineId
-	Spec      isJob_Spec   `protobuf_oneof:"spec"`
-	JobInput  []*JobInput  `protobuf:"bytes,4,rep,name=job_input" json:"job_input,omitempty"`
-	JobOutput []*JobOutput `protobuf:"bytes,5,rep,name=job_output" json:"job_output,omitempty"`
 }
 
 func (m *Job) Reset()         { *m = Job{} }
 func (m *Job) String() string { return proto.CompactTextString(m) }
 func (*Job) ProtoMessage()    {}
-
-type isJob_Spec interface {
-	isJob_Spec()
-}
-
-type Job_Transform struct {
-	Transform *Transform `protobuf:"bytes,2,opt,name=transform,oneof"`
-}
-type Job_PipelineId struct {
-	PipelineId string `protobuf:"bytes,3,opt,name=pipeline_id,oneof"`
-}
-
-func (*Job_Transform) isJob_Spec()  {}
-func (*Job_PipelineId) isJob_Spec() {}
-
-func (m *Job) GetSpec() isJob_Spec {
-	if m != nil {
-		return m.Spec
-	}
-	return nil
-}
-
-func (m *Job) GetTransform() *Transform {
-	if x, ok := m.GetSpec().(*Job_Transform); ok {
-		return x.Transform
-	}
-	return nil
-}
-
-func (m *Job) GetPipelineId() string {
-	if x, ok := m.GetSpec().(*Job_PipelineId); ok {
-		return x.PipelineId
-	}
-	return ""
-}
-
-func (m *Job) GetJobInput() []*JobInput {
-	if m != nil {
-		return m.JobInput
-	}
-	return nil
-}
-
-func (m *Job) GetJobOutput() []*JobOutput {
-	if m != nil {
-		return m.JobOutput
-	}
-	return nil
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*Job) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
-	return _Job_OneofMarshaler, _Job_OneofUnmarshaler, []interface{}{
-		(*Job_Transform)(nil),
-		(*Job_PipelineId)(nil),
-	}
-}
-
-func _Job_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*Job)
-	// spec
-	switch x := m.Spec.(type) {
-	case *Job_Transform:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Transform); err != nil {
-			return err
-		}
-	case *Job_PipelineId:
-		b.EncodeVarint(3<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.PipelineId)
-	case nil:
-	default:
-		return fmt.Errorf("Job.Spec has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _Job_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*Job)
-	switch tag {
-	case 2: // spec.transform
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(Transform)
-		err := b.DecodeMessage(msg)
-		m.Spec = &Job_Transform{msg}
-		return true, err
-	case 3: // spec.pipeline_id
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.Spec = &Job_PipelineId{x}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-type Jobs struct {
-	Job []*Job `protobuf:"bytes,1,rep,name=job" json:"job,omitempty"`
-}
-
-func (m *Jobs) Reset()         { *m = Jobs{} }
-func (m *Jobs) String() string { return proto.CompactTextString(m) }
-func (*Jobs) ProtoMessage()    {}
-
-func (m *Jobs) GetJob() []*Job {
-	if m != nil {
-		return m.Job
-	}
-	return nil
-}
 
 type JobStatus struct {
 	Type      JobStatusType               `protobuf:"varint,1,opt,name=type,enum=pachyderm.pps.JobStatusType" json:"type,omitempty"`
@@ -450,13 +131,76 @@ func (m *JobStatus) GetTimestamp() *google_protobuf1.Timestamp {
 }
 
 type JobInfo struct {
-	JobId     string       `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
-	JobStatus []*JobStatus `protobuf:"bytes,2,rep,name=job_status" json:"job_status,omitempty"`
+	Job *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	// Types that are valid to be assigned to Spec:
+	//	*JobInfo_Transform
+	//	*JobInfo_Pipeline
+	Spec   isJobInfo_Spec `protobuf_oneof:"spec"`
+	Input  *pfs.Commit    `protobuf:"bytes,4,opt,name=input" json:"input,omitempty"`
+	Output *pfs.Commit    `protobuf:"bytes,5,opt,name=output" json:"output,omitempty"`
+	// latest to earliest
+	JobStatus []*JobStatus `protobuf:"bytes,6,rep,name=job_status" json:"job_status,omitempty"`
 }
 
 func (m *JobInfo) Reset()         { *m = JobInfo{} }
 func (m *JobInfo) String() string { return proto.CompactTextString(m) }
 func (*JobInfo) ProtoMessage()    {}
+
+type isJobInfo_Spec interface {
+	isJobInfo_Spec()
+}
+
+type JobInfo_Transform struct {
+	Transform *Transform `protobuf:"bytes,2,opt,name=transform,oneof"`
+}
+type JobInfo_Pipeline struct {
+	Pipeline *Pipeline `protobuf:"bytes,3,opt,name=pipeline,oneof"`
+}
+
+func (*JobInfo_Transform) isJobInfo_Spec() {}
+func (*JobInfo_Pipeline) isJobInfo_Spec()  {}
+
+func (m *JobInfo) GetSpec() isJobInfo_Spec {
+	if m != nil {
+		return m.Spec
+	}
+	return nil
+}
+
+func (m *JobInfo) GetJob() *Job {
+	if m != nil {
+		return m.Job
+	}
+	return nil
+}
+
+func (m *JobInfo) GetTransform() *Transform {
+	if x, ok := m.GetSpec().(*JobInfo_Transform); ok {
+		return x.Transform
+	}
+	return nil
+}
+
+func (m *JobInfo) GetPipeline() *Pipeline {
+	if x, ok := m.GetSpec().(*JobInfo_Pipeline); ok {
+		return x.Pipeline
+	}
+	return nil
+}
+
+func (m *JobInfo) GetInput() *pfs.Commit {
+	if m != nil {
+		return m.Input
+	}
+	return nil
+}
+
+func (m *JobInfo) GetOutput() *pfs.Commit {
+	if m != nil {
+		return m.Output
+	}
+	return nil
+}
 
 func (m *JobInfo) GetJobStatus() []*JobStatus {
 	if m != nil {
@@ -465,294 +209,298 @@ func (m *JobInfo) GetJobStatus() []*JobStatus {
 	return nil
 }
 
-type PipelineInput struct {
-	// Types that are valid to be assigned to Input:
-	//	*PipelineInput_HostDir
-	//	*PipelineInput_Repo
-	Input isPipelineInput_Input `protobuf_oneof:"input"`
-}
-
-func (m *PipelineInput) Reset()         { *m = PipelineInput{} }
-func (m *PipelineInput) String() string { return proto.CompactTextString(m) }
-func (*PipelineInput) ProtoMessage()    {}
-
-type isPipelineInput_Input interface {
-	isPipelineInput_Input()
-}
-
-type PipelineInput_HostDir struct {
-	HostDir string `protobuf:"bytes,1,opt,name=host_dir,oneof"`
-}
-type PipelineInput_Repo struct {
-	Repo *pfs.Repo `protobuf:"bytes,2,opt,name=repo,oneof"`
-}
-
-func (*PipelineInput_HostDir) isPipelineInput_Input() {}
-func (*PipelineInput_Repo) isPipelineInput_Input()    {}
-
-func (m *PipelineInput) GetInput() isPipelineInput_Input {
-	if m != nil {
-		return m.Input
-	}
-	return nil
-}
-
-func (m *PipelineInput) GetHostDir() string {
-	if x, ok := m.GetInput().(*PipelineInput_HostDir); ok {
-		return x.HostDir
-	}
-	return ""
-}
-
-func (m *PipelineInput) GetRepo() *pfs.Repo {
-	if x, ok := m.GetInput().(*PipelineInput_Repo); ok {
-		return x.Repo
-	}
-	return nil
-}
-
 // XXX_OneofFuncs is for the internal use of the proto package.
-func (*PipelineInput) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
-	return _PipelineInput_OneofMarshaler, _PipelineInput_OneofUnmarshaler, []interface{}{
-		(*PipelineInput_HostDir)(nil),
-		(*PipelineInput_Repo)(nil),
+func (*JobInfo) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _JobInfo_OneofMarshaler, _JobInfo_OneofUnmarshaler, []interface{}{
+		(*JobInfo_Transform)(nil),
+		(*JobInfo_Pipeline)(nil),
 	}
 }
 
-func _PipelineInput_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*PipelineInput)
-	// input
-	switch x := m.Input.(type) {
-	case *PipelineInput_HostDir:
-		b.EncodeVarint(1<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.HostDir)
-	case *PipelineInput_Repo:
+func _JobInfo_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*JobInfo)
+	// spec
+	switch x := m.Spec.(type) {
+	case *JobInfo_Transform:
 		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Repo); err != nil {
+		if err := b.EncodeMessage(x.Transform); err != nil {
+			return err
+		}
+	case *JobInfo_Pipeline:
+		b.EncodeVarint(3<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Pipeline); err != nil {
 			return err
 		}
 	case nil:
 	default:
-		return fmt.Errorf("PipelineInput.Input has unexpected type %T", x)
+		return fmt.Errorf("JobInfo.Spec has unexpected type %T", x)
 	}
 	return nil
 }
 
-func _PipelineInput_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*PipelineInput)
+func _JobInfo_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*JobInfo)
 	switch tag {
-	case 1: // input.host_dir
+	case 2: // spec.transform
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		x, err := b.DecodeStringBytes()
-		m.Input = &PipelineInput_HostDir{x}
-		return true, err
-	case 2: // input.repo
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs.Repo)
+		msg := new(Transform)
 		err := b.DecodeMessage(msg)
-		m.Input = &PipelineInput_Repo{msg}
+		m.Spec = &JobInfo_Transform{msg}
+		return true, err
+	case 3: // spec.pipeline
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Pipeline)
+		err := b.DecodeMessage(msg)
+		m.Spec = &JobInfo_Pipeline{msg}
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-type PipelineOutput struct {
-	// Types that are valid to be assigned to Output:
-	//	*PipelineOutput_HostDir
-	//	*PipelineOutput_Repo
-	Output isPipelineOutput_Output `protobuf_oneof:"output"`
+type JobInfos struct {
+	JobInfo []*JobInfo `protobuf:"bytes,1,rep,name=job_info" json:"job_info,omitempty"`
 }
 
-func (m *PipelineOutput) Reset()         { *m = PipelineOutput{} }
-func (m *PipelineOutput) String() string { return proto.CompactTextString(m) }
-func (*PipelineOutput) ProtoMessage()    {}
+func (m *JobInfos) Reset()         { *m = JobInfos{} }
+func (m *JobInfos) String() string { return proto.CompactTextString(m) }
+func (*JobInfos) ProtoMessage()    {}
 
-type isPipelineOutput_Output interface {
-	isPipelineOutput_Output()
-}
-
-type PipelineOutput_HostDir struct {
-	HostDir string `protobuf:"bytes,1,opt,name=host_dir,oneof"`
-}
-type PipelineOutput_Repo struct {
-	Repo *pfs.Repo `protobuf:"bytes,2,opt,name=repo,oneof"`
-}
-
-func (*PipelineOutput_HostDir) isPipelineOutput_Output() {}
-func (*PipelineOutput_Repo) isPipelineOutput_Output()    {}
-
-func (m *PipelineOutput) GetOutput() isPipelineOutput_Output {
+func (m *JobInfos) GetJobInfo() []*JobInfo {
 	if m != nil {
-		return m.Output
+		return m.JobInfo
 	}
 	return nil
-}
-
-func (m *PipelineOutput) GetHostDir() string {
-	if x, ok := m.GetOutput().(*PipelineOutput_HostDir); ok {
-		return x.HostDir
-	}
-	return ""
-}
-
-func (m *PipelineOutput) GetRepo() *pfs.Repo {
-	if x, ok := m.GetOutput().(*PipelineOutput_Repo); ok {
-		return x.Repo
-	}
-	return nil
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*PipelineOutput) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
-	return _PipelineOutput_OneofMarshaler, _PipelineOutput_OneofUnmarshaler, []interface{}{
-		(*PipelineOutput_HostDir)(nil),
-		(*PipelineOutput_Repo)(nil),
-	}
-}
-
-func _PipelineOutput_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*PipelineOutput)
-	// output
-	switch x := m.Output.(type) {
-	case *PipelineOutput_HostDir:
-		b.EncodeVarint(1<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.HostDir)
-	case *PipelineOutput_Repo:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Repo); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("PipelineOutput.Output has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _PipelineOutput_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*PipelineOutput)
-	switch tag {
-	case 1: // output.host_dir
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.Output = &PipelineOutput_HostDir{x}
-		return true, err
-	case 2: // output.repo
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs.Repo)
-		err := b.DecodeMessage(msg)
-		m.Output = &PipelineOutput_Repo{msg}
-		return true, err
-	default:
-		return false, nil
-	}
 }
 
 type Pipeline struct {
-	Name           string            `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
-	Transform      *Transform        `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	PipelineInput  []*PipelineInput  `protobuf:"bytes,3,rep,name=pipeline_input" json:"pipeline_input,omitempty"`
-	PipelineOutput []*PipelineOutput `protobuf:"bytes,4,rep,name=pipeline_output" json:"pipeline_output,omitempty"`
+	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 }
 
 func (m *Pipeline) Reset()         { *m = Pipeline{} }
 func (m *Pipeline) String() string { return proto.CompactTextString(m) }
 func (*Pipeline) ProtoMessage()    {}
 
-func (m *Pipeline) GetTransform() *Transform {
-	if m != nil {
-		return m.Transform
-	}
-	return nil
+type PipelineInfo struct {
+	Pipeline  *Pipeline  `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Transform *Transform `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	Input     *pfs.Repo  `protobuf:"bytes,3,opt,name=input" json:"input,omitempty"`
+	Output    *pfs.Repo  `protobuf:"bytes,4,opt,name=output" json:"output,omitempty"`
 }
 
-func (m *Pipeline) GetPipelineInput() []*PipelineInput {
-	if m != nil {
-		return m.PipelineInput
-	}
-	return nil
-}
+func (m *PipelineInfo) Reset()         { *m = PipelineInfo{} }
+func (m *PipelineInfo) String() string { return proto.CompactTextString(m) }
+func (*PipelineInfo) ProtoMessage()    {}
 
-func (m *Pipeline) GetPipelineOutput() []*PipelineOutput {
-	if m != nil {
-		return m.PipelineOutput
-	}
-	return nil
-}
-
-type Pipelines struct {
-	Pipeline []*Pipeline `protobuf:"bytes,1,rep,name=pipeline" json:"pipeline,omitempty"`
-}
-
-func (m *Pipelines) Reset()         { *m = Pipelines{} }
-func (m *Pipelines) String() string { return proto.CompactTextString(m) }
-func (*Pipelines) ProtoMessage()    {}
-
-func (m *Pipelines) GetPipeline() []*Pipeline {
+func (m *PipelineInfo) GetPipeline() *Pipeline {
 	if m != nil {
 		return m.Pipeline
 	}
 	return nil
 }
 
+func (m *PipelineInfo) GetTransform() *Transform {
+	if m != nil {
+		return m.Transform
+	}
+	return nil
+}
+
+func (m *PipelineInfo) GetInput() *pfs.Repo {
+	if m != nil {
+		return m.Input
+	}
+	return nil
+}
+
+func (m *PipelineInfo) GetOutput() *pfs.Repo {
+	if m != nil {
+		return m.Output
+	}
+	return nil
+}
+
+type PipelineInfos struct {
+	PipelineInfo []*PipelineInfo `protobuf:"bytes,1,rep,name=pipeline_info" json:"pipeline_info,omitempty"`
+}
+
+func (m *PipelineInfos) Reset()         { *m = PipelineInfos{} }
+func (m *PipelineInfos) String() string { return proto.CompactTextString(m) }
+func (*PipelineInfos) ProtoMessage()    {}
+
+func (m *PipelineInfos) GetPipelineInfo() []*PipelineInfo {
+	if m != nil {
+		return m.PipelineInfo
+	}
+	return nil
+}
+
 type CreateJobRequest struct {
-	Job *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	// Types that are valid to be assigned to Spec:
+	//	*CreateJobRequest_Transform
+	//	*CreateJobRequest_Pipeline
+	Spec         isCreateJobRequest_Spec `protobuf_oneof:"spec"`
+	Input        *pfs.Commit             `protobuf:"bytes,3,opt,name=input" json:"input,omitempty"`
+	OutputParent *pfs.Commit             `protobuf:"bytes,4,opt,name=output_parent" json:"output_parent,omitempty"`
 }
 
 func (m *CreateJobRequest) Reset()         { *m = CreateJobRequest{} }
 func (m *CreateJobRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateJobRequest) ProtoMessage()    {}
 
-func (m *CreateJobRequest) GetJob() *Job {
+type isCreateJobRequest_Spec interface {
+	isCreateJobRequest_Spec()
+}
+
+type CreateJobRequest_Transform struct {
+	Transform *Transform `protobuf:"bytes,1,opt,name=transform,oneof"`
+}
+type CreateJobRequest_Pipeline struct {
+	Pipeline *Pipeline `protobuf:"bytes,2,opt,name=pipeline,oneof"`
+}
+
+func (*CreateJobRequest_Transform) isCreateJobRequest_Spec() {}
+func (*CreateJobRequest_Pipeline) isCreateJobRequest_Spec()  {}
+
+func (m *CreateJobRequest) GetSpec() isCreateJobRequest_Spec {
+	if m != nil {
+		return m.Spec
+	}
+	return nil
+}
+
+func (m *CreateJobRequest) GetTransform() *Transform {
+	if x, ok := m.GetSpec().(*CreateJobRequest_Transform); ok {
+		return x.Transform
+	}
+	return nil
+}
+
+func (m *CreateJobRequest) GetPipeline() *Pipeline {
+	if x, ok := m.GetSpec().(*CreateJobRequest_Pipeline); ok {
+		return x.Pipeline
+	}
+	return nil
+}
+
+func (m *CreateJobRequest) GetInput() *pfs.Commit {
+	if m != nil {
+		return m.Input
+	}
+	return nil
+}
+
+func (m *CreateJobRequest) GetOutputParent() *pfs.Commit {
+	if m != nil {
+		return m.OutputParent
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*CreateJobRequest) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _CreateJobRequest_OneofMarshaler, _CreateJobRequest_OneofUnmarshaler, []interface{}{
+		(*CreateJobRequest_Transform)(nil),
+		(*CreateJobRequest_Pipeline)(nil),
+	}
+}
+
+func _CreateJobRequest_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*CreateJobRequest)
+	// spec
+	switch x := m.Spec.(type) {
+	case *CreateJobRequest_Transform:
+		b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Transform); err != nil {
+			return err
+		}
+	case *CreateJobRequest_Pipeline:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Pipeline); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("CreateJobRequest.Spec has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _CreateJobRequest_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*CreateJobRequest)
+	switch tag {
+	case 1: // spec.transform
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Transform)
+		err := b.DecodeMessage(msg)
+		m.Spec = &CreateJobRequest_Transform{msg}
+		return true, err
+	case 2: // spec.pipeline
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(Pipeline)
+		err := b.DecodeMessage(msg)
+		m.Spec = &CreateJobRequest_Pipeline{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+type InspectJobRequest struct {
+	Job *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+}
+
+func (m *InspectJobRequest) Reset()         { *m = InspectJobRequest{} }
+func (m *InspectJobRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectJobRequest) ProtoMessage()    {}
+
+func (m *InspectJobRequest) GetJob() *Job {
 	if m != nil {
 		return m.Job
 	}
 	return nil
 }
 
-type GetJobRequest struct {
-	JobId string `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
+type ListJobRequest struct {
+	Pipeline *Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
 }
 
-func (m *GetJobRequest) Reset()         { *m = GetJobRequest{} }
-func (m *GetJobRequest) String() string { return proto.CompactTextString(m) }
-func (*GetJobRequest) ProtoMessage()    {}
+func (m *ListJobRequest) Reset()         { *m = ListJobRequest{} }
+func (m *ListJobRequest) String() string { return proto.CompactTextString(m) }
+func (*ListJobRequest) ProtoMessage()    {}
 
-type GetJobsByPipelineNameRequest struct {
-	PipelineName string `protobuf:"bytes,1,opt,name=pipeline_name" json:"pipeline_name,omitempty"`
+func (m *ListJobRequest) GetPipeline() *Pipeline {
+	if m != nil {
+		return m.Pipeline
+	}
+	return nil
 }
 
-func (m *GetJobsByPipelineNameRequest) Reset()         { *m = GetJobsByPipelineNameRequest{} }
-func (m *GetJobsByPipelineNameRequest) String() string { return proto.CompactTextString(m) }
-func (*GetJobsByPipelineNameRequest) ProtoMessage()    {}
-
-type StartJobRequest struct {
-	JobId string `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
+type DeleteJobRequest struct {
+	Job *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
 }
 
-func (m *StartJobRequest) Reset()         { *m = StartJobRequest{} }
-func (m *StartJobRequest) String() string { return proto.CompactTextString(m) }
-func (*StartJobRequest) ProtoMessage()    {}
+func (m *DeleteJobRequest) Reset()         { *m = DeleteJobRequest{} }
+func (m *DeleteJobRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteJobRequest) ProtoMessage()    {}
 
-type GetJobStatusRequest struct {
-	JobId string `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
+func (m *DeleteJobRequest) GetJob() *Job {
+	if m != nil {
+		return m.Job
+	}
+	return nil
 }
-
-func (m *GetJobStatusRequest) Reset()         { *m = GetJobStatusRequest{} }
-func (m *GetJobStatusRequest) String() string { return proto.CompactTextString(m) }
-func (*GetJobStatusRequest) ProtoMessage()    {}
 
 type GetJobLogsRequest struct {
-	JobId        string       `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
+	Job          *Job         `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
 	OutputStream OutputStream `protobuf:"varint,2,opt,name=output_stream,enum=pachyderm.pps.OutputStream" json:"output_stream,omitempty"`
 }
 
@@ -760,8 +508,18 @@ func (m *GetJobLogsRequest) Reset()         { *m = GetJobLogsRequest{} }
 func (m *GetJobLogsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetJobLogsRequest) ProtoMessage()    {}
 
+func (m *GetJobLogsRequest) GetJob() *Job {
+	if m != nil {
+		return m.Job
+	}
+	return nil
+}
+
 type CreatePipelineRequest struct {
-	Pipeline *Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Pipeline  *Pipeline  `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Transform *Transform `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	Input     *pfs.Repo  `protobuf:"bytes,3,opt,name=input" json:"input,omitempty"`
+	Output    *pfs.Repo  `protobuf:"bytes,4,opt,name=output" json:"output,omitempty"`
 }
 
 func (m *CreatePipelineRequest) Reset()         { *m = CreatePipelineRequest{} }
@@ -775,13 +533,63 @@ func (m *CreatePipelineRequest) GetPipeline() *Pipeline {
 	return nil
 }
 
-type GetPipelineRequest struct {
-	PipelineName string `protobuf:"bytes,1,opt,name=pipeline_name" json:"pipeline_name,omitempty"`
+func (m *CreatePipelineRequest) GetTransform() *Transform {
+	if m != nil {
+		return m.Transform
+	}
+	return nil
 }
 
-func (m *GetPipelineRequest) Reset()         { *m = GetPipelineRequest{} }
-func (m *GetPipelineRequest) String() string { return proto.CompactTextString(m) }
-func (*GetPipelineRequest) ProtoMessage()    {}
+func (m *CreatePipelineRequest) GetInput() *pfs.Repo {
+	if m != nil {
+		return m.Input
+	}
+	return nil
+}
+
+func (m *CreatePipelineRequest) GetOutput() *pfs.Repo {
+	if m != nil {
+		return m.Output
+	}
+	return nil
+}
+
+type InspectPipelineRequest struct {
+	Pipeline *Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+}
+
+func (m *InspectPipelineRequest) Reset()         { *m = InspectPipelineRequest{} }
+func (m *InspectPipelineRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectPipelineRequest) ProtoMessage()    {}
+
+func (m *InspectPipelineRequest) GetPipeline() *Pipeline {
+	if m != nil {
+		return m.Pipeline
+	}
+	return nil
+}
+
+type ListPipelineRequest struct {
+}
+
+func (m *ListPipelineRequest) Reset()         { *m = ListPipelineRequest{} }
+func (m *ListPipelineRequest) String() string { return proto.CompactTextString(m) }
+func (*ListPipelineRequest) ProtoMessage()    {}
+
+type DeletePipelineRequest struct {
+	Pipeline *Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+}
+
+func (m *DeletePipelineRequest) Reset()         { *m = DeletePipelineRequest{} }
+func (m *DeletePipelineRequest) String() string { return proto.CompactTextString(m) }
+func (*DeletePipelineRequest) ProtoMessage()    {}
+
+func (m *DeletePipelineRequest) GetPipeline() *Pipeline {
+	if m != nil {
+		return m.Pipeline
+	}
+	return nil
+}
 
 func init() {
 	proto.RegisterEnum("pachyderm.pps.JobStatusType", JobStatusType_name, JobStatusType_value)
@@ -796,10 +604,9 @@ var _ grpc.ClientConn
 
 type JobAPIClient interface {
 	CreateJob(ctx context.Context, in *CreateJobRequest, opts ...grpc.CallOption) (*Job, error)
-	GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*Job, error)
-	GetJobsByPipelineName(ctx context.Context, in *GetJobsByPipelineNameRequest, opts ...grpc.CallOption) (*Jobs, error)
-	StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
-	GetJobStatus(ctx context.Context, in *GetJobStatusRequest, opts ...grpc.CallOption) (*JobStatus, error)
+	InspectJob(ctx context.Context, in *InspectJobRequest, opts ...grpc.CallOption) (*JobInfo, error)
+	ListJob(ctx context.Context, in *ListJobRequest, opts ...grpc.CallOption) (*JobInfos, error)
+	DeleteJob(ctx context.Context, in *DeleteJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	GetJobLogs(ctx context.Context, in *GetJobLogsRequest, opts ...grpc.CallOption) (JobAPI_GetJobLogsClient, error)
 }
 
@@ -820,36 +627,27 @@ func (c *jobAPIClient) CreateJob(ctx context.Context, in *CreateJobRequest, opts
 	return out, nil
 }
 
-func (c *jobAPIClient) GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*Job, error) {
-	out := new(Job)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/GetJob", in, out, c.cc, opts...)
+func (c *jobAPIClient) InspectJob(ctx context.Context, in *InspectJobRequest, opts ...grpc.CallOption) (*JobInfo, error) {
+	out := new(JobInfo)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/InspectJob", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *jobAPIClient) GetJobsByPipelineName(ctx context.Context, in *GetJobsByPipelineNameRequest, opts ...grpc.CallOption) (*Jobs, error) {
-	out := new(Jobs)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/GetJobsByPipelineName", in, out, c.cc, opts...)
+func (c *jobAPIClient) ListJob(ctx context.Context, in *ListJobRequest, opts ...grpc.CallOption) (*JobInfos, error) {
+	out := new(JobInfos)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/ListJob", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *jobAPIClient) StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+func (c *jobAPIClient) DeleteJob(ctx context.Context, in *DeleteJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
 	out := new(google_protobuf.Empty)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/StartJob", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *jobAPIClient) GetJobStatus(ctx context.Context, in *GetJobStatusRequest, opts ...grpc.CallOption) (*JobStatus, error) {
-	out := new(JobStatus)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/GetJobStatus", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/DeleteJob", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -892,10 +690,9 @@ func (x *jobAPIGetJobLogsClient) Recv() (*google_protobuf2.BytesValue, error) {
 
 type JobAPIServer interface {
 	CreateJob(context.Context, *CreateJobRequest) (*Job, error)
-	GetJob(context.Context, *GetJobRequest) (*Job, error)
-	GetJobsByPipelineName(context.Context, *GetJobsByPipelineNameRequest) (*Jobs, error)
-	StartJob(context.Context, *StartJobRequest) (*google_protobuf.Empty, error)
-	GetJobStatus(context.Context, *GetJobStatusRequest) (*JobStatus, error)
+	InspectJob(context.Context, *InspectJobRequest) (*JobInfo, error)
+	ListJob(context.Context, *ListJobRequest) (*JobInfos, error)
+	DeleteJob(context.Context, *DeleteJobRequest) (*google_protobuf.Empty, error)
 	GetJobLogs(*GetJobLogsRequest, JobAPI_GetJobLogsServer) error
 }
 
@@ -915,48 +712,36 @@ func _JobAPI_CreateJob_Handler(srv interface{}, ctx context.Context, dec func(in
 	return out, nil
 }
 
-func _JobAPI_GetJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(GetJobRequest)
+func _JobAPI_InspectJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(InspectJobRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(JobAPIServer).GetJob(ctx, in)
+	out, err := srv.(JobAPIServer).InspectJob(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _JobAPI_GetJobsByPipelineName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(GetJobsByPipelineNameRequest)
+func _JobAPI_ListJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ListJobRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(JobAPIServer).GetJobsByPipelineName(ctx, in)
+	out, err := srv.(JobAPIServer).ListJob(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _JobAPI_StartJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(StartJobRequest)
+func _JobAPI_DeleteJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(DeleteJobRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(JobAPIServer).StartJob(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _JobAPI_GetJobStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(GetJobStatusRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(JobAPIServer).GetJobStatus(ctx, in)
+	out, err := srv.(JobAPIServer).DeleteJob(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -993,20 +778,16 @@ var _JobAPI_serviceDesc = grpc.ServiceDesc{
 			Handler:    _JobAPI_CreateJob_Handler,
 		},
 		{
-			MethodName: "GetJob",
-			Handler:    _JobAPI_GetJob_Handler,
+			MethodName: "InspectJob",
+			Handler:    _JobAPI_InspectJob_Handler,
 		},
 		{
-			MethodName: "GetJobsByPipelineName",
-			Handler:    _JobAPI_GetJobsByPipelineName_Handler,
+			MethodName: "ListJob",
+			Handler:    _JobAPI_ListJob_Handler,
 		},
 		{
-			MethodName: "StartJob",
-			Handler:    _JobAPI_StartJob_Handler,
-		},
-		{
-			MethodName: "GetJobStatus",
-			Handler:    _JobAPI_GetJobStatus_Handler,
+			MethodName: "DeleteJob",
+			Handler:    _JobAPI_DeleteJob_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
@@ -1021,9 +802,10 @@ var _JobAPI_serviceDesc = grpc.ServiceDesc{
 // Client API for PipelineAPI service
 
 type PipelineAPIClient interface {
-	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
-	GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
-	GetAllPipelines(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*Pipelines, error)
+	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	InspectPipeline(ctx context.Context, in *InspectPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
+	ListPipeline(ctx context.Context, in *ListPipelineRequest, opts ...grpc.CallOption) (*PipelineInfos, error)
+	DeletePipeline(ctx context.Context, in *DeletePipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 }
 
 type pipelineAPIClient struct {
@@ -1034,8 +816,8 @@ func NewPipelineAPIClient(cc *grpc.ClientConn) PipelineAPIClient {
 	return &pipelineAPIClient{cc}
 }
 
-func (c *pipelineAPIClient) CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
-	out := new(Pipeline)
+func (c *pipelineAPIClient) CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.PipelineAPI/CreatePipeline", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -1043,18 +825,27 @@ func (c *pipelineAPIClient) CreatePipeline(ctx context.Context, in *CreatePipeli
 	return out, nil
 }
 
-func (c *pipelineAPIClient) GetPipeline(ctx context.Context, in *GetPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
+func (c *pipelineAPIClient) InspectPipeline(ctx context.Context, in *InspectPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
 	out := new(Pipeline)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.PipelineAPI/GetPipeline", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.PipelineAPI/InspectPipeline", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *pipelineAPIClient) GetAllPipelines(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*Pipelines, error) {
-	out := new(Pipelines)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.PipelineAPI/GetAllPipelines", in, out, c.cc, opts...)
+func (c *pipelineAPIClient) ListPipeline(ctx context.Context, in *ListPipelineRequest, opts ...grpc.CallOption) (*PipelineInfos, error) {
+	out := new(PipelineInfos)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.PipelineAPI/ListPipeline", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *pipelineAPIClient) DeletePipeline(ctx context.Context, in *DeletePipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.PipelineAPI/DeletePipeline", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1064,9 +855,10 @@ func (c *pipelineAPIClient) GetAllPipelines(ctx context.Context, in *google_prot
 // Server API for PipelineAPI service
 
 type PipelineAPIServer interface {
-	CreatePipeline(context.Context, *CreatePipelineRequest) (*Pipeline, error)
-	GetPipeline(context.Context, *GetPipelineRequest) (*Pipeline, error)
-	GetAllPipelines(context.Context, *google_protobuf.Empty) (*Pipelines, error)
+	CreatePipeline(context.Context, *CreatePipelineRequest) (*google_protobuf.Empty, error)
+	InspectPipeline(context.Context, *InspectPipelineRequest) (*Pipeline, error)
+	ListPipeline(context.Context, *ListPipelineRequest) (*PipelineInfos, error)
+	DeletePipeline(context.Context, *DeletePipelineRequest) (*google_protobuf.Empty, error)
 }
 
 func RegisterPipelineAPIServer(s *grpc.Server, srv PipelineAPIServer) {
@@ -1085,24 +877,36 @@ func _PipelineAPI_CreatePipeline_Handler(srv interface{}, ctx context.Context, d
 	return out, nil
 }
 
-func _PipelineAPI_GetPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(GetPipelineRequest)
+func _PipelineAPI_InspectPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(InspectPipelineRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(PipelineAPIServer).GetPipeline(ctx, in)
+	out, err := srv.(PipelineAPIServer).InspectPipeline(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func _PipelineAPI_GetAllPipelines_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(google_protobuf.Empty)
+func _PipelineAPI_ListPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ListPipelineRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(PipelineAPIServer).GetAllPipelines(ctx, in)
+	out, err := srv.(PipelineAPIServer).ListPipeline(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _PipelineAPI_DeletePipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(DeletePipelineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(PipelineAPIServer).DeletePipeline(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -1118,12 +922,16 @@ var _PipelineAPI_serviceDesc = grpc.ServiceDesc{
 			Handler:    _PipelineAPI_CreatePipeline_Handler,
 		},
 		{
-			MethodName: "GetPipeline",
-			Handler:    _PipelineAPI_GetPipeline_Handler,
+			MethodName: "InspectPipeline",
+			Handler:    _PipelineAPI_InspectPipeline_Handler,
 		},
 		{
-			MethodName: "GetAllPipelines",
-			Handler:    _PipelineAPI_GetAllPipelines_Handler,
+			MethodName: "ListPipeline",
+			Handler:    _PipelineAPI_ListPipeline_Handler,
+		},
+		{
+			MethodName: "DeletePipeline",
+			Handler:    _PipelineAPI_DeletePipeline_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{},
