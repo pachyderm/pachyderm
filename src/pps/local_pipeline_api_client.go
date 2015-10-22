@@ -1,9 +1,9 @@
 package pps
 
 import (
+	"go.pedge.io/google-protobuf"
 	"google.golang.org/grpc"
 
-	"go.pedge.io/google-protobuf"
 	"golang.org/x/net/context"
 )
 
@@ -15,14 +15,22 @@ func newLocalPipelineAPIClient(pipelineAPIServer PipelineAPIServer) *localPipeli
 	return &localPipelineAPIClient{pipelineAPIServer}
 }
 
-func (a *localPipelineAPIClient) CreatePipeline(ctx context.Context, request *CreatePipelineRequest, _ ...grpc.CallOption) (response *Pipeline, err error) {
+func (a *localPipelineAPIClient) CreatePipeline(ctx context.Context, request *CreatePipelineRequest, _ ...grpc.CallOption) (response *google_protobuf.Empty, err error) {
 	return a.pipelineAPIServer.CreatePipeline(ctx, request)
 }
 
-func (a *localPipelineAPIClient) GetPipeline(ctx context.Context, request *GetPipelineRequest, _ ...grpc.CallOption) (response *Pipeline, err error) {
-	return a.pipelineAPIServer.GetPipeline(ctx, request)
+func (a *localPipelineAPIClient) InspectPipeline(ctx context.Context, request *InspectPipelineRequest, _ ...grpc.CallOption) (response *PipelineInfo, err error) {
+	return a.pipelineAPIServer.InspectPipeline(ctx, request)
 }
 
-func (a *localPipelineAPIClient) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty, _ ...grpc.CallOption) (response *Pipelines, err error) {
-	return a.pipelineAPIServer.GetAllPipelines(ctx, request)
+func (a *localPipelineAPIClient) ListPipeline(ctx context.Context, request *ListPipelineRequest, _ ...grpc.CallOption) (response *PipelineInfos, err error) {
+	return a.pipelineAPIServer.ListPipeline(ctx, request)
 }
+
+func (a *localPipelineAPIClient) DeletePipeline(ctx context.Context, request *DeletePipelineRequest, _ ...grpc.CallOption) (response *google_protobuf.Empty, err error) {
+	return a.pipelineAPIServer.DeletePipeline(ctx, request)
+}
+
+//func (a *localPipelineAPIClient) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty, _ ...grpc.CallOption) (response *Pipelines, err error) {
+//return a.pipelineAPIServer.GetAllPipelines(ctx, request)
+//}

@@ -20,7 +20,6 @@ It has these top-level messages:
 	CreateJobRequest
 	InspectJobRequest
 	ListJobRequest
-	DeleteJobRequest
 	GetJobLogsRequest
 	CreatePipelineRequest
 	InspectPipelineRequest
@@ -484,21 +483,6 @@ func (m *ListJobRequest) GetPipeline() *Pipeline {
 	return nil
 }
 
-type DeleteJobRequest struct {
-	Job *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
-}
-
-func (m *DeleteJobRequest) Reset()         { *m = DeleteJobRequest{} }
-func (m *DeleteJobRequest) String() string { return proto.CompactTextString(m) }
-func (*DeleteJobRequest) ProtoMessage()    {}
-
-func (m *DeleteJobRequest) GetJob() *Job {
-	if m != nil {
-		return m.Job
-	}
-	return nil
-}
-
 type GetJobLogsRequest struct {
 	Job          *Job         `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
 	OutputStream OutputStream `protobuf:"varint,2,opt,name=output_stream,enum=pachyderm.pps.OutputStream" json:"output_stream,omitempty"`
@@ -606,7 +590,6 @@ type JobAPIClient interface {
 	CreateJob(ctx context.Context, in *CreateJobRequest, opts ...grpc.CallOption) (*Job, error)
 	InspectJob(ctx context.Context, in *InspectJobRequest, opts ...grpc.CallOption) (*JobInfo, error)
 	ListJob(ctx context.Context, in *ListJobRequest, opts ...grpc.CallOption) (*JobInfos, error)
-	DeleteJob(ctx context.Context, in *DeleteJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	GetJobLogs(ctx context.Context, in *GetJobLogsRequest, opts ...grpc.CallOption) (JobAPI_GetJobLogsClient, error)
 }
 
@@ -639,15 +622,6 @@ func (c *jobAPIClient) InspectJob(ctx context.Context, in *InspectJobRequest, op
 func (c *jobAPIClient) ListJob(ctx context.Context, in *ListJobRequest, opts ...grpc.CallOption) (*JobInfos, error) {
 	out := new(JobInfos)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/ListJob", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *jobAPIClient) DeleteJob(ctx context.Context, in *DeleteJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
-	out := new(google_protobuf.Empty)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.JobAPI/DeleteJob", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -692,7 +666,6 @@ type JobAPIServer interface {
 	CreateJob(context.Context, *CreateJobRequest) (*Job, error)
 	InspectJob(context.Context, *InspectJobRequest) (*JobInfo, error)
 	ListJob(context.Context, *ListJobRequest) (*JobInfos, error)
-	DeleteJob(context.Context, *DeleteJobRequest) (*google_protobuf.Empty, error)
 	GetJobLogs(*GetJobLogsRequest, JobAPI_GetJobLogsServer) error
 }
 
@@ -736,18 +709,6 @@ func _JobAPI_ListJob_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return out, nil
 }
 
-func _JobAPI_DeleteJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(DeleteJobRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(JobAPIServer).DeleteJob(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func _JobAPI_GetJobLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(GetJobLogsRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -785,10 +746,6 @@ var _JobAPI_serviceDesc = grpc.ServiceDesc{
 			MethodName: "ListJob",
 			Handler:    _JobAPI_ListJob_Handler,
 		},
-		{
-			MethodName: "DeleteJob",
-			Handler:    _JobAPI_DeleteJob_Handler,
-		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -803,7 +760,7 @@ var _JobAPI_serviceDesc = grpc.ServiceDesc{
 
 type PipelineAPIClient interface {
 	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
-	InspectPipeline(ctx context.Context, in *InspectPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error)
+	InspectPipeline(ctx context.Context, in *InspectPipelineRequest, opts ...grpc.CallOption) (*PipelineInfo, error)
 	ListPipeline(ctx context.Context, in *ListPipelineRequest, opts ...grpc.CallOption) (*PipelineInfos, error)
 	DeletePipeline(ctx context.Context, in *DeletePipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 }
@@ -825,8 +782,8 @@ func (c *pipelineAPIClient) CreatePipeline(ctx context.Context, in *CreatePipeli
 	return out, nil
 }
 
-func (c *pipelineAPIClient) InspectPipeline(ctx context.Context, in *InspectPipelineRequest, opts ...grpc.CallOption) (*Pipeline, error) {
-	out := new(Pipeline)
+func (c *pipelineAPIClient) InspectPipeline(ctx context.Context, in *InspectPipelineRequest, opts ...grpc.CallOption) (*PipelineInfo, error) {
+	out := new(PipelineInfo)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.PipelineAPI/InspectPipeline", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -856,7 +813,7 @@ func (c *pipelineAPIClient) DeletePipeline(ctx context.Context, in *DeletePipeli
 
 type PipelineAPIServer interface {
 	CreatePipeline(context.Context, *CreatePipelineRequest) (*google_protobuf.Empty, error)
-	InspectPipeline(context.Context, *InspectPipelineRequest) (*Pipeline, error)
+	InspectPipeline(context.Context, *InspectPipelineRequest) (*PipelineInfo, error)
 	ListPipeline(context.Context, *ListPipelineRequest) (*PipelineInfos, error)
 	DeletePipeline(context.Context, *DeletePipelineRequest) (*google_protobuf.Empty, error)
 }
