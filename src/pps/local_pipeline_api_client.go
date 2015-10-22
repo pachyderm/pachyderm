@@ -30,7 +30,3 @@ func (a *localPipelineAPIClient) ListPipeline(ctx context.Context, request *List
 func (a *localPipelineAPIClient) DeletePipeline(ctx context.Context, request *DeletePipelineRequest, _ ...grpc.CallOption) (response *google_protobuf.Empty, err error) {
 	return a.pipelineAPIServer.DeletePipeline(ctx, request)
 }
-
-//func (a *localPipelineAPIClient) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty, _ ...grpc.CallOption) (response *Pipelines, err error) {
-//return a.pipelineAPIServer.GetAllPipelines(ctx, request)
-//}
