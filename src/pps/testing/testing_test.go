@@ -1,34 +1,6 @@
 package testing
 
-import (
-	"errors"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
-	"time"
-
-	"golang.org/x/net/context"
-
-	"go.pedge.io/proto/test"
-	"go.pedge.io/protolog"
-
-	"github.com/fsouza/go-dockerclient"
-	"github.com/satori/go.uuid"
-	"go.pachyderm.com/pachyderm/src/pfs"
-	pfstesting "go.pachyderm.com/pachyderm/src/pfs/testing"
-	"go.pachyderm.com/pachyderm/src/pkg/container"
-	"go.pachyderm.com/pachyderm/src/pkg/require"
-	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/jobserver"
-	"go.pachyderm.com/pachyderm/src/pps/persist"
-	persistserver "go.pachyderm.com/pachyderm/src/pps/persist/server"
-	"go.pachyderm.com/pachyderm/src/pps/pipelineserver"
-	"google.golang.org/grpc"
-)
-
+/*
 const (
 	testNumServers = 1
 )
@@ -230,3 +202,4 @@ func getTestRethinkAddress() (string, error) {
 	}
 	return fmt.Sprintf("%s:28015", rethinkAddr), nil
 }
+*/
