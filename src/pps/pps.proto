@@ -11,10 +11,9 @@ option go_package = "pps";
 
 enum JobStatusType {
   JOB_STATUS_TYPE_NONE = 0;
-  JOB_STATUS_TYPE_CREATED = 1;
-  JOB_STATUS_TYPE_STARTED = 2;
-  JOB_STATUS_TYPE_ERROR = 3;
-  JOB_STATUS_TYPE_SUCCESS = 4;
+  JOB_STATUS_TYPE_STARTED = 1;
+  JOB_STATUS_TYPE_ERROR = 2;
+  JOB_STATUS_TYPE_SUCCESS = 3;
 }
 
 enum OutputStream {
@@ -25,9 +24,7 @@ enum OutputStream {
 
 message Transform {
   string image = 1;
-  string build = 2;
-  string dockerfile = 3;
-  repeated string cmd = 4;
+  repeated string cmd = 2;
 }
 
 message Job {
@@ -46,9 +43,10 @@ message JobInfo {
     Transform transform = 2;
     Pipeline pipeline = 3;
   }
-  repeated pfs.Commit inputs = 4;
+  pfs.Commit input = 4;
   pfs.Commit output = 5;
-  repeated JobStatus statuses = 6;
+  // latest to earliest
+  repeated JobStatus job_status = 6;
 }
 
 message JobInfos {
@@ -62,7 +60,7 @@ message Pipeline {
 message PipelineInfo {
   Pipeline pipeline = 1;
   Transform transform = 2;
-  repeated pfs.Repo inputs = 3;
+  pfs.Repo input = 3;
   pfs.Repo output = 4;
 }
 
@@ -75,7 +73,7 @@ message CreateJobRequest {
     Transform transform = 1;
     Pipeline pipeline = 2;
   }
-  repeated pfs.Commit inputs = 3;
+  pfs.Commit input = 3;
   pfs.Commit output_parent = 4;
 }
 
@@ -91,10 +89,6 @@ message DeleteJobRequest {
   Job job = 1;
 }
 
-message GetJobStatusRequest {
-  Job job = 1;
-}
-
 message GetJobLogsRequest {
   Job job = 1;
   OutputStream output_stream = 2;
@@ -103,7 +97,7 @@ message GetJobLogsRequest {
 message CreatePipelineRequest {
   Pipeline pipeline = 1;
   Transform transform = 2;
-  repeated pfs.Repo inputs = 3;
+  pfs.Repo input = 3;
   pfs.Repo output = 4;
 }
 
@@ -123,7 +117,6 @@ service JobAPI {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
-  rpc GetJobStatus(GetJobStatusRequest) returns (JobStatus) {}
   rpc GetJobLogs(GetJobLogsRequest) returns (stream google.protobuf.BytesValue) {}
 }
 
