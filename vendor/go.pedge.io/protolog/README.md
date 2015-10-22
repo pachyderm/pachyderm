@@ -1,6 +1,6 @@
-# protolog
-
 [![CircleCI](https://circleci.com/gh/peter-edge/go-protolog/tree/master.png)](https://circleci.com/gh/peter-edge/go-protolog/tree/master)
+[![GoDoc](http://img.shields.io/badge/GoDoc-Reference-blue.svg)](https://godoc.org/go.pedge.io/protolog)
+[![MIT License](http://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/peter-edge/go-protolog/blob/master/LICENSE)
 
 ```shell
 go get go.pedge.io/protolog

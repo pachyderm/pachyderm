@@ -32,7 +32,7 @@ fmt:
 	gofmt -w $(SRCS)
 
 fmtcheck:
-	$(foreach file,$(SRCS),gofmt $(file) | diff -u $(file) - || exit;)
+	$(foreach file,$(SRCS),gofmt -d $(file);)
 
 pretest: lint vet fmtcheck
 

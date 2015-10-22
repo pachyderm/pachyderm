@@ -2,18 +2,16 @@ package main
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
-	"go/format"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
 
-	"github.com/golang/protobuf/proto"
+	"go.pedge.io/proto/plugin"
+
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"github.com/golang/protobuf/protoc-gen-go/plugin"
 )
 
 var (
@@ -57,64 +55,17 @@ func main() {
 }
 
 func do() error {
-	data, err := ioutil.ReadAll(os.Stdin)
-	if err != nil {
-		return err
-	}
-	codeGeneratorRequest := &google_protobuf_compiler.CodeGeneratorRequest{}
-	if err := proto.Unmarshal(data, codeGeneratorRequest); err != nil {
-		return err
-	}
-	if codeGeneratorRequest.Parameter != nil {
-		for _, parameter := range strings.Split(codeGeneratorRequest.GetParameter(), ",") {
-			split := strings.SplitN(parameter, "=", 2)
-			if len(split) == 1 {
-				if err := flag.CommandLine.Set(parameter, ""); err != nil {
-					return err
-				}
-			} else {
-				if err := flag.CommandLine.Set(split[0], split[1]); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	files := make([]*google_protobuf_compiler.CodeGeneratorResponse_File, len(codeGeneratorRequest.FileToGenerate))
-	for i, fileToGenerate := range codeGeneratorRequest.FileToGenerate {
-		file, generateErr := generate(fileToGenerate, codeGeneratorRequest.ProtoFile)
-		if generateErr != nil {
-			return writeError(generateErr)
-		}
-		files[i] = file
-	}
-	return writeFiles(files)
+	return protoplugin.NewPlugin("pb.log.go", newGenerator(), protoplugin.PluginOptions{GoFmt: true}).Handle()
 }
 
-func writeFiles(files []*google_protobuf_compiler.CodeGeneratorResponse_File) error {
-	return writeCodeGeneratorResponse(&google_protobuf_compiler.CodeGeneratorResponse{File: files})
+type generator struct{}
+
+func newGenerator() *generator {
+	return &generator{}
 }
 
-func writeError(err error) error {
-	return writeCodeGeneratorResponse(&google_protobuf_compiler.CodeGeneratorResponse{Error: proto.String(err.Error())})
-}
-
-func writeCodeGeneratorResponse(codeGeneratorResponse *google_protobuf_compiler.CodeGeneratorResponse) error {
-	data, err := proto.Marshal(codeGeneratorResponse)
-	if err != nil {
-		return err
-	}
-	if _, err := os.Stdout.Write(data); err != nil {
-		return err
-	}
-	return nil
-}
-
-func generate(fileToGenerate string, protoFiles []*descriptor.FileDescriptorProto) (*google_protobuf_compiler.CodeGeneratorResponse_File, error) {
-	protoFile, err := getProtoFile(fileToGenerate, protoFiles)
-	if err != nil {
-		return nil, err
-	}
-	tmplData, err := getTmplData(protoFile)
+func (g *generator) Generate(fileDescriptorProto *descriptor.FileDescriptorProto) (io.Reader, error) {
+	tmplData, err := getTmplData(fileDescriptorProto)
 	if err != nil {
 		return nil, err
 	}
@@ -122,34 +73,18 @@ func generate(fileToGenerate string, protoFiles []*descriptor.FileDescriptorProt
 	if err := tmpl.Execute(buffer, tmplData); err != nil {
 		return nil, err
 	}
-	formatted, err := format.Source(buffer.Bytes())
-	if err != nil {
-		return nil, err
-	}
-	return &google_protobuf_compiler.CodeGeneratorResponse_File{
-		Name:    proto.String(getFileName(protoFile)),
-		Content: proto.String(string(formatted)),
-	}, nil
+	return buffer, nil
 }
 
-func getProtoFile(fileToGenerate string, protoFiles []*descriptor.FileDescriptorProto) (*descriptor.FileDescriptorProto, error) {
-	for _, protoFile := range protoFiles {
-		if protoFile.GetName() == fileToGenerate {
-			return protoFile, nil
-		}
-	}
-	return nil, fmt.Errorf("no FileDescriptorProto for %s", fileToGenerate)
-}
-
-func getTmplData(protoFile *descriptor.FileDescriptorProto) (*tmplData, error) {
+func getTmplData(fileDescriptorProto *descriptor.FileDescriptorProto) (*tmplData, error) {
 	var messageDatas []*tmplMessageData
-	for _, messageType := range protoFile.MessageType {
+	for _, messageType := range fileDescriptorProto.MessageType {
 		var parents []string
-		messageDatas = getTmplMessageDatas(protoFile.GetPackage(), parents, messageType, messageDatas)
+		messageDatas = getTmplMessageDatas(fileDescriptorProto.GetPackage(), parents, messageType, messageDatas)
 	}
 	return &tmplData{
-		Name:         protoFile.GetName(),
-		GoPackage:    getGoPackage(protoFile),
+		Name:         fileDescriptorProto.GetName(),
+		GoPackage:    getGoPackage(fileDescriptorProto),
 		MessageDatas: messageDatas,
 	}, nil
 }
@@ -185,19 +120,14 @@ func getTmplMessageDatas(pkg string, parents []string, messageType *descriptor.D
 	return messageDatas
 }
 
-func getGoPackage(protoFile *descriptor.FileDescriptorProto) string {
-	if protoFile.Options != nil && protoFile.Options.GoPackage != nil {
-		return protoFile.Options.GetGoPackage()
+func getGoPackage(fileDescriptorProto *descriptor.FileDescriptorProto) string {
+	if fileDescriptorProto.Options != nil && fileDescriptorProto.Options.GoPackage != nil {
+		return fileDescriptorProto.Options.GetGoPackage()
 	}
-	if protoFile.Package == nil {
-		base := filepath.Base(protoFile.GetName())
+	if fileDescriptorProto.Package == nil {
+		base := filepath.Base(fileDescriptorProto.GetName())
 		ext := filepath.Ext(base)
 		return strings.TrimSuffix(base, ext)
 	}
-	return strings.Replace(protoFile.GetPackage(), ".", "_", -1)
-}
-
-func getFileName(protoFile *descriptor.FileDescriptorProto) string {
-	name := protoFile.GetName()
-	return fmt.Sprintf("%s.pb.log.go", strings.TrimSuffix(name, filepath.Ext(name)))
+	return strings.Replace(fileDescriptorProto.GetPackage(), ".", "_", -1)
 }

@@ -399,23 +399,7 @@ func (p *parser) html(out *bytes.Buffer, data []byte, doRender bool) int {
 
 // HTML comment, lax form
 func (p *parser) htmlComment(out *bytes.Buffer, data []byte, doRender bool) int {
-	if data[0] != '<' || data[1] != '!' || data[2] != '-' || data[3] != '-' {
-		return 0
-	}
-
-	i := 5
-
-	// scan for an end-of-comment marker, across lines if necessary
-	for i < len(data) && !(data[i-2] == '-' && data[i-1] == '-' && data[i] == '>') {
-		i++
-	}
-	i++
-
-	// no end-of-comment marker
-	if i >= len(data) {
-		return 0
-	}
-
+	i := p.inlineHtmlComment(out, data)
 	// needs to end with a blank line
 	if j := p.isEmpty(data[i:]); j > 0 {
 		size := i + j
@@ -429,7 +413,6 @@ func (p *parser) htmlComment(out *bytes.Buffer, data []byte, doRender bool) int 
 		}
 		return size
 	}
-
 	return 0
 }
 

@@ -18,8 +18,7 @@ var (
 		"ADDRESS": defaultAddress,
 	}
 	marshaler = &jsonpb.Marshaler{
-		EnumsAsString: true,
-		Indent:        "  ",
+		Indent: "  ",
 	}
 )
 

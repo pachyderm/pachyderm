@@ -38,6 +38,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"os"
 	"time"
@@ -127,54 +128,43 @@ type parser struct {
 	s io.Reader
 }
 
-// msgFixedHeader defines the header of a gRPC message. Find more detail
-// at http://www.grpc.io/docs/guides/wire.html.
-type msgFixedHeader struct {
-	T      payloadFormat
-	Length uint32
-}
-
 // recvMsg is to read a complete gRPC message from the stream. It is blocking if
 // the message has not been complete yet. It returns the message and its type,
 // EOF is returned with nil msg and 0 pf if the entire stream is done. Other
 // non-nil error is returned if something is wrong on reading.
 func (p *parser) recvMsg() (pf payloadFormat, msg []byte, err error) {
-	const (
-		headerSize  = 5
-		formatIndex = 1
-	)
-
-	var hdr msgFixedHeader
-	var buf [headerSize]byte
+	// The header of a gRPC message. Find more detail
+	// at http://www.grpc.io/docs/guides/wire.html.
+	var buf [5]byte
 
 	if _, err := io.ReadFull(p.s, buf[:]); err != nil {
 		return 0, nil, err
 	}
 
-	hdr.T = payloadFormat(buf[formatIndex])
-	hdr.Length = binary.BigEndian.Uint32(buf[formatIndex:])
+	pf = payloadFormat(buf[0])
+	length := binary.BigEndian.Uint32(buf[1:])
 
-	if hdr.Length == 0 {
-		return hdr.T, nil, nil
+	if length == 0 {
+		return pf, nil, nil
 	}
-	msg = make([]byte, int(hdr.Length))
+	msg = make([]byte, int(length))
 	if _, err := io.ReadFull(p.s, msg); err != nil {
 		if err == io.EOF {
 			err = io.ErrUnexpectedEOF
 		}
 		return 0, nil, err
 	}
-	return hdr.T, msg, nil
+	return pf, msg, nil
 }
 
 // encode serializes msg and prepends the message header. If msg is nil, it
 // generates the message header of 0 message length.
 func encode(c Codec, msg interface{}, pf payloadFormat) ([]byte, error) {
 	var buf bytes.Buffer
-	// Write message fixed header.
+	// Write message into the fixed header.
 	buf.WriteByte(uint8(pf))
 	var b []byte
-	var length uint32
+	var length uint
 	if msg != nil {
 		var err error
 		// TODO(zhaoq): optimize to reduce memory alloc and copying.
@@ -182,10 +172,13 @@ func encode(c Codec, msg interface{}, pf payloadFormat) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		length = uint32(len(b))
+		length = uint(len(b))
+	}
+	if length > math.MaxUint32 {
+		return nil, Errorf(codes.InvalidArgument, "grpc: message too large (%d bytes)", length)
 	}
 	var szHdr [4]byte
-	binary.BigEndian.PutUint32(szHdr[:], length)
+	binary.BigEndian.PutUint32(szHdr[:], uint32(length))
 	buf.Write(szHdr[:])
 	buf.Write(b)
 	return buf.Bytes(), nil
@@ -260,6 +253,8 @@ func Errorf(c codes.Code, format string, a ...interface{}) error {
 // toRPCErr converts an error into a rpcError.
 func toRPCErr(err error) error {
 	switch e := err.(type) {
+	case rpcError:
+		return err
 	case transport.StreamError:
 		return rpcError{
 			code: e.Code,
