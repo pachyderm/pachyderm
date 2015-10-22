@@ -85,10 +85,6 @@ message ListJobRequest {
   Pipeline pipeline = 1; // nil means all pipelines
 }
 
-message DeleteJobRequest {
-  Job job = 1;
-}
-
 message GetJobLogsRequest {
   Job job = 1;
   OutputStream output_stream = 2;
@@ -116,13 +112,12 @@ service JobAPI {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
-  rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc GetJobLogs(GetJobLogsRequest) returns (stream google.protobuf.BytesValue) {}
 }
 
 service PipelineAPI {
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
-  rpc InspectPipeline(InspectPipelineRequest) returns (Pipeline) {}
+  rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
   rpc ListPipeline(ListPipelineRequest) returns (PipelineInfos) {}
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
 }
