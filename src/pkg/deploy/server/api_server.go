@@ -15,6 +15,7 @@ import (
 var (
 	emptyInstance = &google_protobuf.Empty{}
 	pfsdImage     = "pachyderm/pfsd"
+	etcdImage     = "gcr.io/google_containers/etcd:2.0.12"
 )
 
 type apiServer struct {
@@ -26,15 +27,21 @@ func newAPIServer(client *client.Client) APIServer {
 }
 
 func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClusterRequest) (*google_protobuf.Empty, error) {
-	_, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(
+	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(etcdReplicationController()); err != nil {
+		return nil, err
+	}
+
+	if _, err := a.client.Services(api.NamespaceDefault).Create(etcdService()); err != nil {
+		return nil, err
+	}
+	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(
 		pfsReplicationController(
 			request.Cluster.Name,
 			request.Nodes,
 			request.Shards,
 			request.Replicas,
 		),
-	)
-	if err != nil {
+	); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
@@ -129,5 +136,105 @@ func pfsReplicationController(name string, nodes uint64, shards uint64, replicas
 			},
 		},
 		api.ReplicationControllerStatus{},
+	}
+}
+
+func etcdReplicationController() *api.ReplicationController {
+	app := "etcd"
+	return &api.ReplicationController{
+		unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		api.ObjectMeta{
+			Name: "etcd-rc",
+			Labels: map[string]string{
+				"app": app,
+			},
+		},
+		api.ReplicationControllerSpec{
+			Replicas: 1,
+			Selector: map[string]string{
+				"app": app,
+			},
+			Template: &api.PodTemplateSpec{
+				api.ObjectMeta{
+					Name: "etcd-pod",
+					Labels: map[string]string{
+						"app": app,
+					},
+				},
+				api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  "etcd",
+							Image: etcdImage,
+							//TODO figure out how to get a cluster of these to talk to each other
+							Command: []string{"/usr/local/bin/etcd", "--addr=127.0.0.1:4001", "--bind-addr=0.0.0.0:4001", "--data-dir=/var/etcd/data"},
+							Env: []api.EnvVar{
+								{
+									Name:  "PFS_DRIVER_ROOT",
+									Value: "/pfs/btrfs",
+								},
+							},
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 2379,
+									Name:          "client-port",
+								},
+								{
+									ContainerPort: 2380,
+									Name:          "peer-port",
+								},
+							},
+							VolumeMounts: []api.VolumeMount{
+								{
+									Name:      "etcd-storage",
+									MountPath: "/data/etcd",
+								},
+							},
+						},
+					},
+					Volumes: []api.Volume{
+						{
+							Name: "etcd-storage",
+						},
+					},
+				},
+			},
+		},
+		api.ReplicationControllerStatus{},
+	}
+}
+
+func etcdService() *api.Service {
+	app := "etcd"
+	return &api.Service{
+		unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		api.ObjectMeta{
+			Name: "etcd",
+			Labels: map[string]string{
+				"app": app,
+			},
+		},
+		api.ServiceSpec{
+			Selector: map[string]string{
+				"app": app,
+			},
+			Ports: []api.ServicePort{
+				{
+					Port: 2379,
+					Name: "client-port",
+				},
+				{
+					Port: 2380,
+					Name: "peer-port",
+				},
+			},
+		},
+		api.ServiceStatus{},
 	}
 }
