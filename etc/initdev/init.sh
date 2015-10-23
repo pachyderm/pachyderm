@@ -4,8 +4,7 @@
 # ${1}: user to install for
 
 GO_VERSION=1.5.1
-DOCKER_COMPOSE_VERSION=1.4.2
-KUBERNETES_VERSION=1.0.1
+DOCKER_COMPOSE_VERSION=1.5.0rc1
 
 apt-get update -yq && \
 apt-get upgrade -yq && \
@@ -38,6 +37,3 @@ service docker restart
 # installs docker-compose
 curl -sSL https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m) > /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
-# installs kubernetes cli
-curl -sSL https://storage.googleapis.com/kubernetes-release/release/v${KUBERNETES_VERSION}/bin/linux/amd64/kubectl > /usr/local/bin/kubectl
-chmod +x /usr/local/bin/kubectl
