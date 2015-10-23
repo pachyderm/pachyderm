@@ -70,9 +70,11 @@ message PipelineInfos {
 }
 
 service API {
+  // job_id cannot be set
   // timestamp cannot be set
   rpc CreateJobInfo(JobInfo) returns (JobInfo) {}
   rpc GetJobInfo(pachyderm.pps.Job) returns (JobInfo) {}
+  // ordered by time, latest to earliest
   rpc GetJobInfosByPipeline(pachyderm.pps.Pipeline) returns (JobInfos) {}
   // id cannot be set
   // timestamp cannot be set
