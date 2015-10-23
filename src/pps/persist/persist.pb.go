@@ -331,6 +331,7 @@ type APIClient interface {
 	GetJobInfo(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*JobInfo, error)
 	// ordered by time, latest to earliest
 	GetJobInfosByPipeline(ctx context.Context, in *pachyderm_pps.Pipeline, opts ...grpc.CallOption) (*JobInfos, error)
+	ListJobInfos(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*JobInfos, error)
 	// id cannot be set
 	// timestamp cannot be set
 	CreateJobStatus(ctx context.Context, in *JobStatus, opts ...grpc.CallOption) (*JobStatus, error)
@@ -379,6 +380,15 @@ func (c *aPIClient) GetJobInfo(ctx context.Context, in *pachyderm_pps.Job, opts 
 func (c *aPIClient) GetJobInfosByPipeline(ctx context.Context, in *pachyderm_pps.Pipeline, opts ...grpc.CallOption) (*JobInfos, error) {
 	out := new(JobInfos)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetJobInfosByPipeline", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) ListJobInfos(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*JobInfos, error) {
+	out := new(JobInfos)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/ListJobInfos", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -484,6 +494,7 @@ type APIServer interface {
 	GetJobInfo(context.Context, *pachyderm_pps.Job) (*JobInfo, error)
 	// ordered by time, latest to earliest
 	GetJobInfosByPipeline(context.Context, *pachyderm_pps.Pipeline) (*JobInfos, error)
+	ListJobInfos(context.Context, *google_protobuf.Empty) (*JobInfos, error)
 	// id cannot be set
 	// timestamp cannot be set
 	CreateJobStatus(context.Context, *JobStatus) (*JobStatus, error)
@@ -537,6 +548,18 @@ func _API_GetJobInfosByPipeline_Handler(srv interface{}, ctx context.Context, de
 		return nil, err
 	}
 	out, err := srv.(APIServer).GetJobInfosByPipeline(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_ListJobInfos_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(google_protobuf.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).ListJobInfos(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -678,6 +701,10 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetJobInfosByPipeline",
 			Handler:    _API_GetJobInfosByPipeline_Handler,
+		},
+		{
+			MethodName: "ListJobInfos",
+			Handler:    _API_ListJobInfos_Handler,
 		},
 		{
 			MethodName: "CreateJobStatus",

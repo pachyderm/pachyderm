@@ -10,5 +10,5 @@ func NewAPIServer(
 	persistAPIClient persist.APIClient,
 	containerClient container.Client,
 ) pps.JobAPIServer {
-	return newLogAPIServer(newAPIServer(persistAPIClient, containerClient))
+	return newAPIServer(persistAPIClient, containerClient)
 }
