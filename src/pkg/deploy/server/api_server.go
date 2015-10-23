@@ -30,7 +30,6 @@ func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClu
 	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(etcdReplicationController()); err != nil {
 		return nil, err
 	}
-
 	if _, err := a.client.Services(api.NamespaceDefault).Create(etcdService()); err != nil {
 		return nil, err
 	}
@@ -42,6 +41,9 @@ func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClu
 			request.Replicas,
 		),
 	); err != nil {
+		return nil, err
+	}
+	if _, err := a.client.Services(api.NamespaceDefault).Create(pfsService(request.Cluster.Name)); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
@@ -136,6 +138,38 @@ func pfsReplicationController(name string, nodes uint64, shards uint64, replicas
 			},
 		},
 		api.ReplicationControllerStatus{},
+	}
+}
+
+func pfsService(name string) *api.Service {
+	app := fmt.Sprintf("pfsd-%s", name)
+	return &api.Service{
+		unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		api.ObjectMeta{
+			Name: fmt.Sprintf("pfsd-%s", name),
+			Labels: map[string]string{
+				"app": app,
+			},
+		},
+		api.ServiceSpec{
+			Selector: map[string]string{
+				"app": app,
+			},
+			Ports: []api.ServicePort{
+				{
+					Port: 650,
+					Name: "api-grpc-port",
+				},
+				{
+					Port: 750,
+					Name: "api-http-port",
+				},
+			},
+		},
+		api.ServiceStatus{},
 	}
 }
 
