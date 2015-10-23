@@ -160,18 +160,7 @@ func (a *apiServer) registerChangeEvent(ctx context.Context, request *changeEven
 	switch request.Type {
 	case changeEventTypeCreate:
 		if !a.pipelineRegistered(request.PipelineName) {
-			pipelineInfo, err := a.InspectPipeline(
-				ctx,
-				&pps.InspectPipelineRequest{
-					Pipeline: &pps.Pipeline{
-						Name: request.PipelineName,
-					},
-				},
-			)
-			if err != nil {
-				return err
-			}
-			if err := a.addPipelineController(pipelineInfo); err != nil {
+			if err := a.addPipelineControllerByName(ctx, request.PipelineName); err != nil {
 				return err
 			}
 			// TODO(pedge): what to do?
@@ -180,18 +169,7 @@ func (a *apiServer) registerChangeEvent(ctx context.Context, request *changeEven
 			if err := a.removePipelineController(request.PipelineName); err != nil {
 				return err
 			}
-			pipelineInfo, err := a.InspectPipeline(
-				ctx,
-				&pps.InspectPipelineRequest{
-					Pipeline: &pps.Pipeline{
-						Name: request.PipelineName,
-					},
-				},
-			)
-			if err != nil {
-				return err
-			}
-			if err := a.addPipelineController(pipelineInfo); err != nil {
+			if err := a.addPipelineControllerByName(ctx, request.PipelineName); err != nil {
 				return err
 			}
 		}
@@ -212,6 +190,21 @@ func (a *apiServer) registerChangeEvent(ctx context.Context, request *changeEven
 func (a *apiServer) pipelineRegistered(name string) bool {
 	_, ok := a.pipelineNameToPipelineController[name]
 	return ok
+}
+
+func (a *apiServer) addPipelineControllerByName(ctx context.Context, name string) error {
+	pipelineInfo, err := a.InspectPipeline(
+		ctx,
+		&pps.InspectPipelineRequest{
+			Pipeline: &pps.Pipeline{
+				Name: name,
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+	return a.addPipelineController(pipelineInfo)
 }
 
 func (a *apiServer) addPipelineController(pipelineInfo *pps.PipelineInfo) error {
