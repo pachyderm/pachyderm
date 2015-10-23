@@ -14,7 +14,7 @@ import (
 
 var (
 	emptyInstance = &google_protobuf.Empty{}
-	pfsdImage     = "gcr.io/pachyderm-dev-us1/pfsd:3f63846"
+	pfsdImage     = "pachyderm/pfsd"
 )
 
 type apiServer struct {
