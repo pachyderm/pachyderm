@@ -41,6 +41,11 @@ func endsStream(w writeFramer) bool {
 		return v.endStream
 	case *writeResHeaders:
 		return v.endStream
+	case nil:
+		// This can only happen if the caller reuses w after it's
+		// been intentionally nil'ed out to prevent use. Keep this
+		// here to catch future refactoring breaking it.
+		panic("endsStream called on nil writeFramer")
 	}
 	return false
 }

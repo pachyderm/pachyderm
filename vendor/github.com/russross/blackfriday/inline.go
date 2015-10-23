@@ -191,6 +191,13 @@ const (
 	linkInlineFootnote
 )
 
+func isReferenceStyleLink(data []byte, pos int, t linkType) bool {
+	if t == linkDeferredFootnote {
+		return false
+	}
+	return pos < len(data)-1 && data[pos] == '[' && data[pos+1] != '^'
+}
+
 // '[': parse a link or an image or a footnote
 func link(p *parser, out *bytes.Buffer, data []byte, offset int) int {
 	// no links allowed inside regular links, footnote, and deferred footnotes
@@ -353,7 +360,7 @@ func link(p *parser, out *bytes.Buffer, data []byte, offset int) int {
 		i++
 
 	// reference style link
-	case i < len(data)-1 && data[i] == '[' && data[i+1] != '^':
+	case isReferenceStyleLink(data, i, t):
 		var id []byte
 		altContentConsidered := false
 
@@ -395,7 +402,6 @@ func link(p *parser, out *bytes.Buffer, data []byte, offset int) int {
 		lr, ok := p.getRef(string(id))
 		if !ok {
 			return 0
-
 		}
 
 		// keep link and title from reference
@@ -547,12 +553,33 @@ func link(p *parser, out *bytes.Buffer, data []byte, offset int) int {
 	return i
 }
 
+func (p *parser) inlineHtmlComment(out *bytes.Buffer, data []byte) int {
+	if len(data) < 5 {
+		return 0
+	}
+	if data[0] != '<' || data[1] != '!' || data[2] != '-' || data[3] != '-' {
+		return 0
+	}
+	i := 5
+	// scan for an end-of-comment marker, across lines if necessary
+	for i < len(data) && !(data[i-2] == '-' && data[i-1] == '-' && data[i] == '>') {
+		i++
+	}
+	// no end-of-comment marker
+	if i >= len(data) {
+		return 0
+	}
+	return i + 1
+}
+
 // '<' when tags or autolinks are allowed
 func leftAngle(p *parser, out *bytes.Buffer, data []byte, offset int) int {
 	data = data[offset:]
 	altype := LINK_TYPE_NOT_AUTOLINK
 	end := tagLength(data, &altype)
-
+	if size := p.inlineHtmlComment(out, data); size > 0 {
+		end = size
+	}
 	if end > 2 {
 		if altype != LINK_TYPE_NOT_AUTOLINK {
 			var uLink bytes.Buffer
@@ -910,7 +937,7 @@ func isMailtoAutoLink(data []byte) int {
 
 // look for the next emph char, skipping other constructs
 func helperFindEmphChar(data []byte, c byte) int {
-	i := 1
+	i := 0
 
 	for i < len(data) {
 		for i < len(data) && data[i] != c && data[i] != '`' && data[i] != '[' {
@@ -919,14 +946,13 @@ func helperFindEmphChar(data []byte, c byte) int {
 		if i >= len(data) {
 			return 0
 		}
-		if data[i] == c {
-			return i
-		}
-
 		// do not count escaped chars
 		if i != 0 && data[i-1] == '\\' {
 			i++
 			continue
+		}
+		if data[i] == c {
+			return i
 		}
 
 		if data[i] == '`' {
