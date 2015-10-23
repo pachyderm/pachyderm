@@ -39,35 +39,24 @@ func newPipelineController(
 func (p *pipelineController) Start() error {
 	// TODO(pedge): do not get all jobs each time, need a limit call on persist, more
 	// generally, need all persist calls to have a limit
-	jobs, err := p.jobAPIClient.GetJobsByPipelineName(context.Background(), &pps.GetJobsByPipelineNameRequest{PipelineName: p.pipeline.Name})
+	jobInfos, err := p.jobAPIClient.ListJob(context.Background(), &pps.ListRequest{Pipeline: p.pipelineInfo.Pipeline})
 	if err != nil {
 		return err
 	}
-	repo, err := getRepoForPipeline(p.pipeline, p.test)
-	if err != nil {
-		return err
+	lastCommit := &pfs.Commit{
+		Repo: a.PipelineInfo.Input,
+		// TODO(pedge): use initial commit id when moved to pfs package
+		Id: "scratch",
 	}
-	if repo != nil {
-		lastCommit := &pfs.Commit{
-			Repo: repo,
-			// TODO(pedge): use initial commit id when moved to pfs package
-			Id: "scratch",
-		}
-		if len(jobs.Job) > 0 {
-			lastCommit, err = getCommitForJob(jobs.Job[0], p.test)
-			if err != nil {
-				return err
-			}
-		}
-		if lastCommit != nil {
-			go func() {
-				if err := p.run(lastCommit); err != nil {
-					// TODO(pedge): what to do with error?
-					protolog.Errorln(err.Error())
-				}
-			}()
-		}
+	if len(jobs.Job) > 0 {
+		lastCommit = jobs.Job[0].Input
 	}
+	go func() {
+		if err := p.run(lastCommit); err != nil {
+			// TODO(pedge): what to do with error?
+			protolog.Errorln(err.Error())
+		}
+	}()
 	return nil
 }
 
@@ -115,7 +104,7 @@ func (p *pipelineController) run(lastCommit *pfs.Commit) error {
 			}
 			// going in reverse order, oldest to newest
 			for _, commitInfo := range commitInfos.CommitInfo {
-				if err := p.createAndStartJobForCommitInfo(commitInfo); err != nil {
+				if err := p.createJobForCommitInfo(commitInfo); err != nil {
 					return err
 				}
 			}
@@ -124,6 +113,6 @@ func (p *pipelineController) run(lastCommit *pfs.Commit) error {
 }
 
 // TODO(pedge): implement
-func (p *pipelineController) createAndStartJobForCommitInfo(commitInfo *pfs.CommitInfo) error {
+func (p *pipelineController) createJobForCommitInfo(commitInfo *pfs.CommitInfo) error {
 	return nil
 }
