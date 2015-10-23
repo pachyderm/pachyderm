@@ -325,15 +325,19 @@ var _ grpc.ClientConn
 // Client API for API service
 
 type APIClient interface {
+	// job_id cannot be set
 	// timestamp cannot be set
 	CreateJobInfo(ctx context.Context, in *JobInfo, opts ...grpc.CallOption) (*JobInfo, error)
 	GetJobInfo(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*JobInfo, error)
+	// ordered by time, latest to earliest
 	GetJobInfosByPipeline(ctx context.Context, in *pachyderm_pps.Pipeline, opts ...grpc.CallOption) (*JobInfos, error)
 	// id cannot be set
 	// timestamp cannot be set
 	CreateJobStatus(ctx context.Context, in *JobStatus, opts ...grpc.CallOption) (*JobStatus, error)
 	// ordered by time, latest to earliest
 	GetJobStatuses(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*JobStatuses, error)
+	CreateJobOutput(ctx context.Context, in *JobOutput, opts ...grpc.CallOption) (*JobOutput, error)
+	GetJobOutput(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*JobOutput, error)
 	// id cannot be set
 	CreateJobLog(ctx context.Context, in *JobLog, opts ...grpc.CallOption) (*JobLog, error)
 	// ordered by time, latest to earliest
@@ -399,6 +403,24 @@ func (c *aPIClient) GetJobStatuses(ctx context.Context, in *pachyderm_pps.Job, o
 	return out, nil
 }
 
+func (c *aPIClient) CreateJobOutput(ctx context.Context, in *JobOutput, opts ...grpc.CallOption) (*JobOutput, error) {
+	out := new(JobOutput)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/CreateJobOutput", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) GetJobOutput(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*JobOutput, error) {
+	out := new(JobOutput)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetJobOutput", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *aPIClient) CreateJobLog(ctx context.Context, in *JobLog, opts ...grpc.CallOption) (*JobLog, error) {
 	out := new(JobLog)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/CreateJobLog", in, out, c.cc, opts...)
@@ -456,15 +478,19 @@ func (c *aPIClient) DeletePipelineInfo(ctx context.Context, in *pachyderm_pps.Pi
 // Server API for API service
 
 type APIServer interface {
+	// job_id cannot be set
 	// timestamp cannot be set
 	CreateJobInfo(context.Context, *JobInfo) (*JobInfo, error)
 	GetJobInfo(context.Context, *pachyderm_pps.Job) (*JobInfo, error)
+	// ordered by time, latest to earliest
 	GetJobInfosByPipeline(context.Context, *pachyderm_pps.Pipeline) (*JobInfos, error)
 	// id cannot be set
 	// timestamp cannot be set
 	CreateJobStatus(context.Context, *JobStatus) (*JobStatus, error)
 	// ordered by time, latest to earliest
 	GetJobStatuses(context.Context, *pachyderm_pps.Job) (*JobStatuses, error)
+	CreateJobOutput(context.Context, *JobOutput) (*JobOutput, error)
+	GetJobOutput(context.Context, *pachyderm_pps.Job) (*JobOutput, error)
 	// id cannot be set
 	CreateJobLog(context.Context, *JobLog) (*JobLog, error)
 	// ordered by time, latest to earliest
@@ -535,6 +561,30 @@ func _API_GetJobStatuses_Handler(srv interface{}, ctx context.Context, dec func(
 		return nil, err
 	}
 	out, err := srv.(APIServer).GetJobStatuses(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_CreateJobOutput_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(JobOutput)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).CreateJobOutput(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_GetJobOutput_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(pachyderm_pps.Job)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).GetJobOutput(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -636,6 +686,14 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetJobStatuses",
 			Handler:    _API_GetJobStatuses_Handler,
+		},
+		{
+			MethodName: "CreateJobOutput",
+			Handler:    _API_CreateJobOutput_Handler,
+		},
+		{
+			MethodName: "GetJobOutput",
+			Handler:    _API_GetJobOutput_Handler,
 		},
 		{
 			MethodName: "CreateJobLog",

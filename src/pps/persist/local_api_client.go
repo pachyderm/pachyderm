@@ -36,6 +36,14 @@ func (a *localAPIClient) GetJobStatuses(ctx context.Context, request *pps.Job, _
 	return a.apiServer.GetJobStatuses(ctx, request)
 }
 
+func (a *localAPIClient) CreateJobOutput(ctx context.Context, request *JobOutput, _ ...grpc.CallOption) (response *JobOutput, err error) {
+	return a.apiServer.CreateJobOutput(ctx, request)
+}
+
+func (a *localAPIClient) GetJobOutput(ctx context.Context, request *pps.Job, _ ...grpc.CallOption) (response *JobOutput, err error) {
+	return a.apiServer.GetJobOutput(ctx, request)
+}
+
 func (a *localAPIClient) CreateJobLog(ctx context.Context, request *JobLog, _ ...grpc.CallOption) (response *JobLog, err error) {
 	return a.apiServer.CreateJobLog(ctx, request)
 }

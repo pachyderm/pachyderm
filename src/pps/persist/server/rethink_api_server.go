@@ -229,6 +229,21 @@ func (a *rethinkAPIServer) GetJobStatuses(ctx context.Context, request *pps.Job)
 	}, nil
 }
 
+func (a *rethinkAPIServer) CreateJobOutput(ctx context.Context, request *persist.JobOutput) (*persist.JobOutput, error) {
+	if err := a.insertMessage(jobOutputsTable, request); err != nil {
+		return nil, err
+	}
+	return request, nil
+}
+
+func (a *rethinkAPIServer) GetJobOutput(ctx context.Context, request *pps.Job) (*persist.JobOutput, error) {
+	jobOutput := &persist.JobOutput{}
+	if err := a.getMessageByPrimaryKey(jobOutputsTable, request.Id, jobOutput); err != nil {
+		return nil, err
+	}
+	return jobOutput, nil
+}
+
 // id cannot be set
 // timestamp cannot be set
 func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *persist.JobLog) (*persist.JobLog, error) {

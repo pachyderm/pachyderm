@@ -40,20 +40,72 @@ func newAPIServer(
 
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	persistJob, err := a.persistAPIClient.CreateJob(ctx, convert.JobToPersist(request.Job))
+	persistJobInfo := &persist.JobInfo{
+		Input: request.Input,
+		OutputParent: request.OutputParent
+	}
+	if request.GetTransform() != nil {
+		persist.Spec = &persist.JobInfo_Transform{
+			Transform: request.GetTransform(),
+		}
+	} else if request.GetPipeline() != nil {
+		persist.Spec = &persist.JobInfo_PipelineName{
+			PipelineName: request.GetPipeline().Name,
+		}
+	} else {
+		return nil, fmt.Errorf("pachyderm.pps.jobserver: both transform and pipeline are not set on %v", request)
+	}
+	persistJobInfo, err := a.persistAPIClient.CreateJobInfo(ctx, persistJobInfo)
 	if err != nil {
 		return nil, err
 	}
-	return convert.PersistToJob(persistJob), nil
+	return &pps.Job{
+		Id: persistJobInfo.Id,
+	}, nil
 }
 
-func (a *apiServer) GetJob(ctx context.Context, request *pps.GetJobRequest) (response *pps.Job, err error) {
+func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	persistJob, err := a.persistAPIClient.GetJobByID(ctx, &google_protobuf.StringValue{Value: request.JobId})
+	persistJobInfo, err := a.persistAPIClient.GetJobInfo(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
-	return convert.PersistToJob(persistJob), nil
+	persistJobStatuses, err := a.persistAPIClient.GetJobStatuses(ctx, request.Job)
+	if err != nil {
+		return nil, err
+	}
+	persistJobOutput, err := a.persistAPI.GetJobOutput(ctx, request.Job)
+	if err != nil {
+		return nil, err
+	}
+	jobInfo := &pps.JobInfo{
+		Job: request.Job,
+		Input: persistJobInfo.Input,
+	}
+	if persistJobInfo.GetTransform() != nil {
+		jobInfo.Spec = &pps.JobInfo_Transform{
+			Transform: persistJobInfo.GetTransform(),
+		}
+	}
+	if persistJobInfo.GetPipelineName() != "" {
+		jobInfo.Spec = &pps.JobInfo_Pipeline{
+			Pipeline: &pps.Pipeline{
+				Name: persistJobInfo.GetPipelineName(),
+			},
+		}
+	}
+	jobInfo.JobStatus = make([]*pps.JobStatus, len(persistJobStatuses.JobStatus))
+	for i, persistJobStatus := range persistJobStatuses.JobStatus {
+		jobInfo.JobStatus[i] = &pps.JobStatus{
+			Type: persistJobStatus.Type,
+			Timestamp: persistJobStatus.Timestamp,
+			Message: persistJobStatus.Message,
+		}
+	}
+	if persistJobOutput != nil {
+		jobInfo.Output = persistJobOutput.Output
+	}
+	return jobInfo, nil
 }
 
 func (a *apiServer) GetJobsByPipelineName(ctx context.Context, request *pps.GetJobsByPipelineNameRequest) (response *pps.Jobs, err error) {
