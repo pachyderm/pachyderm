@@ -28,6 +28,10 @@ func (a *localAPIClient) GetJobInfosByPipeline(ctx context.Context, request *pps
 	return a.apiServer.GetJobInfosByPipeline(ctx, request)
 }
 
+func (a *localAPIClient) ListJobInfos(ctx context.Context, request *google_protobuf.Empty, _ ...grpc.CallOption) (response *JobInfos, err error) {
+	return a.apiServer.ListJobInfos(ctx, request)
+}
+
 func (a *localAPIClient) CreateJobStatus(ctx context.Context, request *JobStatus, _ ...grpc.CallOption) (response *JobStatus, err error) {
 	return a.apiServer.CreateJobStatus(ctx, request)
 }
