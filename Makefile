@@ -27,13 +27,17 @@ test-deps:
 update-test-deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/...
 
-vendor:
+vendor-update:
 	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/...
+
+vendor-without-update:
 	go get -u github.com/tools/godep
 	rm -rf Godeps
 	rm -rf vendor
 	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 godep save ./src/...
 	rm -rf Godeps
+
+vendor: vendor-update vendor-without-update
 
 build:
 	go build ./src/...
@@ -164,6 +168,8 @@ clean: docker-clean-launch
 	update-deps \
 	test-deps \
 	update-test-deps \
+	vendor-update \
+	vendor-without-update \
 	vendor \
 	build \
 	install \
