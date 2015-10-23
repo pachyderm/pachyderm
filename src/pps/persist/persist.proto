@@ -78,6 +78,8 @@ service API {
   rpc GetJobInfosByPipeline(pachyderm.pps.Pipeline) returns (JobInfos) {}
   // ordered by time, latest to earliest
   rpc ListJobInfos(google.protobuf.Empty) returns (JobInfos) {}
+  // should only be called when rolling back if a Job does not start!
+  rpc DeleteJobInfo(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
   // id cannot be set
   // timestamp cannot be set
   rpc CreateJobStatus(JobStatus) returns (JobStatus) {}

@@ -32,6 +32,10 @@ func (a *localAPIClient) ListJobInfos(ctx context.Context, request *google_proto
 	return a.apiServer.ListJobInfos(ctx, request)
 }
 
+func (a *localAPIClient) DeleteJobInfo(ctx context.Context, request *pps.Job, _ ...grpc.CallOption) (response *google_protobuf.Empty, err error) {
+	return a.apiServer.DeleteJobInfo(ctx, request)
+}
+
 func (a *localAPIClient) CreateJobStatus(ctx context.Context, request *JobStatus, _ ...grpc.CallOption) (response *JobStatus, err error) {
 	return a.apiServer.CreateJobStatus(ctx, request)
 }

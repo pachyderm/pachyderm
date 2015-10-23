@@ -331,7 +331,10 @@ type APIClient interface {
 	GetJobInfo(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*JobInfo, error)
 	// ordered by time, latest to earliest
 	GetJobInfosByPipeline(ctx context.Context, in *pachyderm_pps.Pipeline, opts ...grpc.CallOption) (*JobInfos, error)
+	// ordered by time, latest to earliest
 	ListJobInfos(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*JobInfos, error)
+	// should only be called when rolling back if a Job does not start!
+	DeleteJobInfo(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	// id cannot be set
 	// timestamp cannot be set
 	CreateJobStatus(ctx context.Context, in *JobStatus, opts ...grpc.CallOption) (*JobStatus, error)
@@ -389,6 +392,15 @@ func (c *aPIClient) GetJobInfosByPipeline(ctx context.Context, in *pachyderm_pps
 func (c *aPIClient) ListJobInfos(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*JobInfos, error) {
 	out := new(JobInfos)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/ListJobInfos", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) DeleteJobInfo(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/DeleteJobInfo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -494,7 +506,10 @@ type APIServer interface {
 	GetJobInfo(context.Context, *pachyderm_pps.Job) (*JobInfo, error)
 	// ordered by time, latest to earliest
 	GetJobInfosByPipeline(context.Context, *pachyderm_pps.Pipeline) (*JobInfos, error)
+	// ordered by time, latest to earliest
 	ListJobInfos(context.Context, *google_protobuf.Empty) (*JobInfos, error)
+	// should only be called when rolling back if a Job does not start!
+	DeleteJobInfo(context.Context, *pachyderm_pps.Job) (*google_protobuf.Empty, error)
 	// id cannot be set
 	// timestamp cannot be set
 	CreateJobStatus(context.Context, *JobStatus) (*JobStatus, error)
@@ -560,6 +575,18 @@ func _API_ListJobInfos_Handler(srv interface{}, ctx context.Context, dec func(in
 		return nil, err
 	}
 	out, err := srv.(APIServer).ListJobInfos(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_DeleteJobInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(pachyderm_pps.Job)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).DeleteJobInfo(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -705,6 +732,10 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListJobInfos",
 			Handler:    _API_ListJobInfos_Handler,
+		},
+		{
+			MethodName: "DeleteJobInfo",
+			Handler:    _API_DeleteJobInfo_Handler,
 		},
 		{
 			MethodName: "CreateJobStatus",
