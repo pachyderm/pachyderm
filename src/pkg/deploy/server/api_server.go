@@ -116,13 +116,13 @@ func pfsReplicationController(name string, nodes uint64, shards uint64, replicas
 					},
 					Volumes: []api.Volume{
 						{
-							"pfs-disk",
-							api.VolumeSource{
-								GCEPersistentDisk: &api.GCEPersistentDiskVolumeSource{
-									PDName: "pch-pfs",
-									FSType: "btrfs",
-								},
-							},
+							Name: "pfs-disk",
+							//api.VolumeSource{
+							//	GCEPersistentDisk: &api.GCEPersistentDiskVolumeSource{
+							//		PDName: "pch-pfs",
+							//		FSType: "btrfs",
+							//	},
+							//},
 						},
 					},
 				},
