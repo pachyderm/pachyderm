@@ -10,6 +10,6 @@ type APIServer interface {
 	deploy.APIServer
 }
 
-func NewAPIServer(client k8s.Client) APIServer {
+func NewAPIServer(client *k8s.Client) APIServer {
 	return newAPIServer(client)
 }

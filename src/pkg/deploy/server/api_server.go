@@ -18,14 +18,25 @@ var (
 )
 
 type apiServer struct {
-	client client.Client
+	client *client.Client
 }
 
-func newAPIServer(client client.Client) APIServer {
+func newAPIServer(client *client.Client) APIServer {
 	return &apiServer{client}
 }
 
 func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClusterRequest) (*google_protobuf.Empty, error) {
+	_, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(
+		pfsReplicationController(
+			request.Cluster.Name,
+			request.Nodes,
+			request.Shards,
+			request.Replicas,
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
 	return emptyInstance, nil
 }
 
