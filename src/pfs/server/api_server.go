@@ -75,7 +75,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	}); err != nil {
 		return nil, err
 	}
-	return emptyInstance, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (*pfs.RepoInfo, error) {
@@ -113,7 +113,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 			return nil, err
 		}
 	}
-	return emptyInstance, nil
+	return google_protobuf.EmptyInstance, nil
 
 }
 
@@ -152,7 +152,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 			return nil, err
 		}
 	}
-	return emptyInstance, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 // TODO(pedge): race on Branch
@@ -249,7 +249,7 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 			return nil, err
 		}
 	}
-	return emptyInstance, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *apiServer) PutBlock(ctx context.Context, request *pfs.PutBlockRequest) (*pfs.Block, error) {
@@ -333,7 +333,7 @@ func (a *apiServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
 	ctx := versionToContext(a.version, putFileServer.Context())
 	defer func() {
-		if err := putFileServer.SendAndClose(emptyInstance); err != nil && retErr == nil {
+		if err := putFileServer.SendAndClose(google_protobuf.EmptyInstance); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()

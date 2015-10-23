@@ -46,7 +46,7 @@ func (a *internalAPIServer) CreateRepo(ctx context.Context, request *pfs.CreateR
 	if err := a.driver.CreateRepo(request.Repo); err != nil {
 		return nil, err
 	}
-	return emptyInstance, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *internalAPIServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (*pfs.RepoInfo, error) {
@@ -92,7 +92,7 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteR
 	if err := a.driver.DeleteRepo(request.Repo, shards); err != nil {
 		return nil, err
 	}
-	return emptyInstance, nil
+	return google_protobuf.EmptyInstance, nil
 
 }
 
@@ -111,7 +111,7 @@ func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartC
 	if err := a.pulseCommitWaiters(request.Commit, pfs.CommitType_COMMIT_TYPE_WRITE, shards); err != nil {
 		return nil, err
 	}
-	return emptyInstance, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (*google_protobuf.Empty, error) {
@@ -132,7 +132,7 @@ func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.Finis
 	if err := a.commitToReplicas(ctx, request.Commit); err != nil {
 		return nil, err
 	}
-	return emptyInstance, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 // TODO(pedge): race on Branch
@@ -188,7 +188,7 @@ func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.Delet
 		return nil, err
 	}
 	// TODO push delete to replicas
-	return emptyInstance, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *internalAPIServer) PutBlock(ctx context.Context, request *pfs.PutBlockRequest) (*google_protobuf.Empty, error) {
@@ -201,7 +201,7 @@ func (a *internalAPIServer) PutBlock(ctx context.Context, request *pfs.PutBlockR
 	if err != nil {
 		return nil, err
 	}
-	return emptyInstance, a.driver.PutBlock(request.File, block, shard, bytes.NewReader(request.Value))
+	return google_protobuf.EmptyInstance, a.driver.PutBlock(request.File, block, shard, bytes.NewReader(request.Value))
 }
 
 func (a *internalAPIServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.InternalAPI_GetBlockServer) (retErr error) {
@@ -308,7 +308,7 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 		return err
 	}
 	defer func() {
-		if err := putFileServer.SendAndClose(emptyInstance); err != nil && retErr == nil {
+		if err := putFileServer.SendAndClose(google_protobuf.EmptyInstance); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
@@ -507,7 +507,7 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 	if err := a.driver.DeleteFile(request.File, shard); err != nil {
 		return nil, err
 	}
-	return emptyInstance, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *internalAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffServer pfs.InternalAPI_PullDiffServer) error {
@@ -538,7 +538,7 @@ func (a *internalAPIServer) PushDiff(ctx context.Context, request *pfs.PushDiffR
 	if !ok {
 		return nil, fmt.Errorf("pachyderm: illegal PushDiffRequest for unknown shard %d", request.Shard)
 	}
-	return emptyInstance, a.driver.PushDiff(request.Commit, request.Shard, bytes.NewReader(request.Value))
+	return google_protobuf.EmptyInstance, a.driver.PushDiff(request.Commit, request.Shard, bytes.NewReader(request.Value))
 }
 
 func (a *internalAPIServer) AddShard(_shard uint64, version int64) error {

@@ -23,10 +23,6 @@ const (
 
 type changeEventType int
 
-var (
-	emptyInstance = &google_protobuf.Empty{}
-)
-
 type apiServer struct {
 	protorpclog.Logger
 	pfsAPIClient     pfs.APIClient
@@ -66,7 +62,7 @@ func (a *apiServer) Start() error {
 		return errors.New("pachyderm.pps.pipelineserver: already started")
 	}
 	a.started = true
-	pipelines, err := a.GetAllPipelines(context.Background(), emptyInstance)
+	pipelines, err := a.GetAllPipelines(context.Background(), google_protobuf.EmptyInstance)
 	if err != nil {
 		return err
 	}
