@@ -189,6 +189,26 @@ func (a *rethinkAPIServer) GetJobInfosByPipeline(ctx context.Context, request *p
 	}, nil
 }
 
+func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *google_protobuf.Empty) (*persist.JobInfos, error) {
+	jobInfoObjs, err := a.getAllMessages(
+		jobInfosTable,
+		func() proto.Message { return &persist.JobInfo{} },
+		func(term gorethink.Term) gorethink.Term {
+			return term.OrderBy(gorethink.Desc("created_at"))
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	jobInfos := make([]*persist.JobInfo, len(jobInfoObjs))
+	for i, jobInfoObj := range jobInfoObjs {
+		jobInfos[i] = jobInfoObj.(*persist.JobInfo)
+	}
+	return &persist.JobInfos{
+		JobInfo: jobInfos,
+	}, nil
+}
+
 // id cannot be set
 // timestamp cannot be set
 func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *persist.JobStatus) (*persist.JobStatus, error) {
