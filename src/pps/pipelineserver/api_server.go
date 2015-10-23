@@ -8,7 +8,6 @@ import (
 
 	"go.pachyderm.com/pachyderm/src/pfs"
 	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/convert"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/rpclog"
@@ -28,7 +27,6 @@ type apiServer struct {
 	pfsAPIClient     pfs.APIClient
 	jobAPIClient     pps.JobAPIClient
 	persistAPIClient persist.APIClient
-	test             bool
 
 	started                          bool
 	pipelineNameToPipelineController map[string]*pipelineController
@@ -39,14 +37,12 @@ func newAPIServer(
 	pfsAPIClient pfs.APIClient,
 	jobAPIClient pps.JobAPIClient,
 	persistAPIClient persist.APIClient,
-	test bool,
 ) *apiServer {
 	return &apiServer{
 		protorpclog.NewLogger("pachyderm.pps.PipelineAPI"),
 		pfsAPIClient,
 		jobAPIClient,
 		persistAPIClient,
-		test,
 		false,
 		make(map[string]*pipelineController),
 		&sync.Mutex{},
@@ -62,72 +58,93 @@ func (a *apiServer) Start() error {
 		return errors.New("pachyderm.pps.pipelineserver: already started")
 	}
 	a.started = true
-	pipelines, err := a.GetAllPipelines(context.Background(), google_protobuf.EmptyInstance)
+	pipelineInfos, err := a.ListPipeline(context.Background(), &pps.ListPipelineRequest{})
 	if err != nil {
 		return err
 	}
-	for _, pipeline := range pipelines.Pipeline {
-		if err := a.addPipelineController(pipeline); err != nil {
+	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
+		if err := a.addPipelineController(pipelineInfo); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *pps.Pipeline, err error) {
+func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	persistPipeline, err := a.persistAPIClient.CreatePipeline(ctx, convert.PipelineToPersist(request.Pipeline))
-	if err != nil {
+	if _, err := a.persistAPIClient.CreatePipelineInfo(
+		ctx,
+		&persist.PipelineInfo{
+			PipelineName: request.Pipeline.Name,
+			Transform:    request.Transform,
+			Input:        request.Input,
+			Output:       request.Output,
+		},
+	); err != nil {
 		return nil, err
 	}
 	if err := a.registerChangeEvent(
 		ctx,
 		&changeEvent{
 			Type:         changeEventTypeCreate,
-			PipelineName: persistPipeline.Name,
+			PipelineName: request.Pipeline.Name,
 		},
 	); err != nil {
 		// TODO(pedge): need to roll back the db create
 		return nil, err
 	}
-	return convert.PersistToPipeline(persistPipeline), nil
+	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *apiServer) GetPipeline(ctx context.Context, request *pps.GetPipelineRequest) (response *pps.Pipeline, err error) {
+func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	persistPipelines, err := a.persistAPIClient.GetPipelinesByName(ctx, &google_protobuf.StringValue{Value: request.PipelineName})
+	persistPipelineInfo, err := a.persistAPIClient.GetPipelineInfo(ctx, request.Pipeline)
 	if err != nil {
 		return nil, err
 	}
-	if len(persistPipelines.Pipeline) == 0 {
-		return nil, fmt.Errorf("pachyderm.pps.server: no piplines for name %s", request.PipelineName)
-	}
-	return convert.PersistToPipeline(persistPipelines.Pipeline[0]), nil
+	return persistPipelineInfoToPipelineInfo(persistPipelineInfo), nil
 }
 
-func (a *apiServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (response *pps.Pipelines, err error) {
+func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineRequest) (response *pps.PipelineInfos, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	persistPipelines, err := a.persistAPIClient.GetAllPipelines(ctx, request)
+	persistPipelineInfos, err := a.persistAPIClient.ListPipelineInfos(ctx, google_protobuf.EmptyInstance)
 	if err != nil {
 		return nil, err
 	}
-	pipelineMap := make(map[string]*pps.Pipeline)
-	for _, persistPipeline := range persistPipelines.Pipeline {
-		// pipelines are ordered newest to oldest, so if we have already
-		// seen a pipeline with the same name, it is newer
-		if _, ok := pipelineMap[persistPipeline.Name]; !ok {
-			pipelineMap[persistPipeline.Name] = convert.PersistToPipeline(persistPipeline)
-		}
+	pipelineInfos := make([]*pps.PipelineInfo, len(persistPipelineInfos.PipelineInfo))
+	for i, persistPipelineInfo := range persistPipelineInfos.PipelineInfo {
+		pipelineInfos[i] = persistPipelineInfoToPipelineInfo(persistPipelineInfo)
 	}
-	pipelines := make([]*pps.Pipeline, len(pipelineMap))
-	i := 0
-	for _, pipeline := range pipelineMap {
-		pipelines[i] = pipeline
-		i++
-	}
-	return &pps.Pipelines{
-		Pipeline: pipelines,
+	return &pps.PipelineInfos{
+		PipelineInfo: pipelineInfos,
 	}, nil
+}
+
+func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
+	if _, err := a.persistAPIClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
+		return nil, err
+	}
+	if err := a.registerChangeEvent(
+		ctx,
+		&changeEvent{
+			Type:         changeEventTypeDelete,
+			PipelineName: request.Pipeline.Name,
+		},
+	); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
+func persistPipelineInfoToPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *pps.PipelineInfo {
+	return &pps.PipelineInfo{
+		Pipeline: &pps.Pipeline{
+			Name: persistPipelineInfo.PipelineName,
+		},
+		Transform: persistPipelineInfo.Transform,
+		Input:     persistPipelineInfo.Input,
+		Output:    persistPipelineInfo.Output,
+	}
 }
 
 type changeEvent struct {
@@ -135,17 +152,26 @@ type changeEvent struct {
 	PipelineName string
 }
 
+// TODO(pedge): this is relateively out of date, we can just do this directly in the functions, and
+// with the create at least, we avoid a db read
 func (a *apiServer) registerChangeEvent(ctx context.Context, request *changeEvent) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	switch request.Type {
 	case changeEventTypeCreate:
 		if !a.pipelineRegistered(request.PipelineName) {
-			pipeline, err := a.GetPipeline(ctx, &pps.GetPipelineRequest{PipelineName: request.PipelineName})
+			pipelineInfo, err := a.InspectPipeline(
+				ctx,
+				&pps.InspectPipelineRequest{
+					Pipeline: &pps.Pipeline{
+						Name: request.PipelineName,
+					},
+				},
+			)
 			if err != nil {
 				return err
 			}
-			if err := a.addPipelineController(pipeline); err != nil {
+			if err := a.addPipelineController(pipelineInfo); err != nil {
 				return err
 			}
 			// TODO(pedge): what to do?
@@ -154,11 +180,18 @@ func (a *apiServer) registerChangeEvent(ctx context.Context, request *changeEven
 			if err := a.removePipelineController(request.PipelineName); err != nil {
 				return err
 			}
-			pipeline, err := a.GetPipeline(ctx, &pps.GetPipelineRequest{PipelineName: request.PipelineName})
+			pipelineInfo, err := a.InspectPipeline(
+				ctx,
+				&pps.InspectPipelineRequest{
+					Pipeline: &pps.Pipeline{
+						Name: request.PipelineName,
+					},
+				},
+			)
 			if err != nil {
 				return err
 			}
-			if err := a.addPipelineController(pipeline); err != nil {
+			if err := a.addPipelineController(pipelineInfo); err != nil {
 				return err
 			}
 		}
@@ -181,15 +214,14 @@ func (a *apiServer) pipelineRegistered(name string) bool {
 	return ok
 }
 
-func (a *apiServer) addPipelineController(pipeline *pps.Pipeline) error {
+func (a *apiServer) addPipelineController(pipelineInfo *pps.PipelineInfo) error {
 	pipelineController := newPipelineController(
 		a.pfsAPIClient,
 		a.jobAPIClient,
 		pps.NewLocalPipelineAPIClient(a),
-		a.test,
-		pipeline,
+		pipelineInfo,
 	)
-	a.pipelineNameToPipelineController[pipeline.Name] = pipelineController
+	a.pipelineNameToPipelineController[pipelineInfo.Pipeline.Name] = pipelineController
 	return pipelineController.Start()
 }
 
