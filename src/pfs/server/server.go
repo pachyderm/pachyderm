@@ -5,7 +5,6 @@ import (
 	"go.pachyderm.com/pachyderm/src/pfs/drive"
 	"go.pachyderm.com/pachyderm/src/pfs/route"
 	"go.pachyderm.com/pachyderm/src/pkg/shard"
-	"go.pedge.io/google-protobuf"
 )
 
 const (
@@ -18,7 +17,6 @@ var (
 	ReservedCommitIDs = map[string]bool{
 		InitialCommitID: true,
 	}
-	emptyInstance = &google_protobuf.Empty{}
 )
 
 type APIServer interface {

@@ -21,10 +21,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-var (
-	emptyInstance = &google_protobuf.Empty{}
-)
-
 type apiServer struct {
 	protorpclog.Logger
 	persistAPIClient persist.APIClient
@@ -90,7 +86,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	if err := a.startPersistJob(persistJob); err != nil {
 		return nil, err
 	}
-	return emptyInstance, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *apiServer) GetJobStatus(ctx context.Context, request *pps.GetJobStatusRequest) (response *pps.JobStatus, err error) {
