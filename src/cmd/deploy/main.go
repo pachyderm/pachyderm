@@ -15,7 +15,7 @@ import (
 
 var (
 	defaultEnv = map[string]string{
-		"KUBERNETES_ADDRESS": "https://localhost:8080",
+		"KUBERNETES_ADDRESS": "http://localhost:8080",
 	}
 )
 
