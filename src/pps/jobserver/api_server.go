@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"go.pachyderm.com/pachyderm/src/pkg/container"
 	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/jobserver/run"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
@@ -21,14 +20,11 @@ type apiServer struct {
 
 func newAPIServer(
 	persistAPIClient persist.APIClient,
-	containerClient container.Client,
+	jobRunner jobserverrun.JobRunner,
 ) *apiServer {
 	return &apiServer{
 		protorpclog.NewLogger("pachyderm.pps.JobAPI"),
-		jobserverrun.NewJobRunner(
-			persistAPIClient,
-			containerClient,
-		),
+		jobRunner,
 		persistAPIClient,
 	}
 }
