@@ -9,6 +9,11 @@ type JobRunner interface {
 	Start(*persist.JobInfo) error
 }
 
+type TestJobRunner interface {
+	JobRunner
+	GetJobIDToPersistJobInfo() map[string]*persist.JobInfo
+}
+
 func NewJobRunner(
 	persistAPIClient persist.APIClient,
 	containerClient container.Client,
@@ -17,4 +22,8 @@ func NewJobRunner(
 		persistAPIClient,
 		containerClient,
 	)
+}
+
+func NewTestJobRunner() TestJobRunner {
+	return newTestJobRunner()
 }
