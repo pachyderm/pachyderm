@@ -56,7 +56,15 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		return nil, err
 	}
 	if err := a.startPersistJobInfo(persistJobInfo); err != nil {
-		// TODO(pedge): rollback persist job info create
+		// TODO(pedge): proper rollback
+		if _, rollbackErr := a.persistAPIClient.DeleteJobInfo(
+			ctx,
+			&pps.Job{
+				Id: persistJobInfo.JobId,
+			},
+		); rollbackErr != nil {
+			return nil, fmt.Errorf("%v", []error{err, rollbackErr})
+		}
 		return nil, err
 	}
 	return &pps.Job{
