@@ -12,6 +12,11 @@ var (
 	ErrTimestampSet = errors.New("pachyderm.pps.persist.server: Timestamp set")
 )
 
-func NewRethinkAPIServer(address string, databaseName string) (persist.APIServer, error) {
+type APIServer interface {
+	persist.APIServer
+	Close() error
+}
+
+func NewRethinkAPIServer(address string, databaseName string) (APIServer, error) {
 	return newRethinkAPIServer(address, databaseName)
 }
