@@ -2,7 +2,6 @@ package pipelineserver
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -14,13 +13,6 @@ import (
 	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 )
-
-const (
-	changeEventTypeCreate changeEventType = iota
-	changeEventTypeDelete
-)
-
-type changeEventType int
 
 type apiServer struct {
 	protorpclog.Logger
@@ -72,24 +64,18 @@ func (a *apiServer) Start() error {
 
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	if _, err := a.persistAPIClient.CreatePipelineInfo(
-		ctx,
-		&persist.PipelineInfo{
-			PipelineName: request.Pipeline.Name,
-			Transform:    request.Transform,
-			Input:        request.Input,
-			Output:       request.Output,
-		},
-	); err != nil {
+	persistPipelineInfo := &persist.PipelineInfo{
+		PipelineName: request.Pipeline.Name,
+		Transform:    request.Transform,
+		Input:        request.Input,
+		Output:       request.Output,
+	}
+	if _, err := a.persistAPIClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
 	}
-	if err := a.registerChangeEvent(
-		ctx,
-		&changeEvent{
-			Type:         changeEventTypeCreate,
-			PipelineName: request.Pipeline.Name,
-		},
-	); err != nil {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	if err := a.addPipelineController(persistPipelineInfoToPipelineInfo(persistPipelineInfo)); err != nil {
 		// TODO(pedge): need to roll back the db create
 		return nil, err
 	}
@@ -124,13 +110,9 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	if _, err := a.persistAPIClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
-	if err := a.registerChangeEvent(
-		ctx,
-		&changeEvent{
-			Type:         changeEventTypeDelete,
-			PipelineName: request.Pipeline.Name,
-		},
-	); err != nil {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	if err := a.removePipelineController(request.Pipeline.Name); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -147,67 +129,13 @@ func persistPipelineInfoToPipelineInfo(persistPipelineInfo *persist.PipelineInfo
 	}
 }
 
-type changeEvent struct {
-	Type         changeEventType
-	PipelineName string
-}
-
-// TODO(pedge): this is relateively out of date, we can just do this directly in the functions, and
-// with the create at least, we avoid a db read
-func (a *apiServer) registerChangeEvent(ctx context.Context, request *changeEvent) error {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-	switch request.Type {
-	case changeEventTypeCreate:
-		if !a.pipelineRegistered(request.PipelineName) {
-			if err := a.addPipelineControllerByName(ctx, request.PipelineName); err != nil {
-				return err
-			}
-			// TODO(pedge): what to do?
-		} else {
-			protolog.Warnf("pachyderm.pps.pipelineserver: had a create change event for an existing pipeline: %v", request)
-			if err := a.removePipelineController(request.PipelineName); err != nil {
-				return err
-			}
-			if err := a.addPipelineControllerByName(ctx, request.PipelineName); err != nil {
-				return err
-			}
-		}
-	case changeEventTypeDelete:
-		if !a.pipelineRegistered(request.PipelineName) {
-			protolog.Warnf("pachyderm.pps.pipelineserver: had a delete change event for a pipeline that was not registered: %v", request)
-		} else {
-			if err := a.removePipelineController(request.PipelineName); err != nil {
-				return err
-			}
-		}
-	default:
-		return fmt.Errorf("pachyderm.pps.pipelineserver: unknown change event type: %v", request.Type)
-	}
-	return nil
-}
-
-func (a *apiServer) pipelineRegistered(name string) bool {
-	_, ok := a.pipelineNameToPipelineController[name]
-	return ok
-}
-
-func (a *apiServer) addPipelineControllerByName(ctx context.Context, name string) error {
-	pipelineInfo, err := a.InspectPipeline(
-		ctx,
-		&pps.InspectPipelineRequest{
-			Pipeline: &pps.Pipeline{
-				Name: name,
-			},
-		},
-	)
-	if err != nil {
-		return err
-	}
-	return a.addPipelineController(pipelineInfo)
-}
-
 func (a *apiServer) addPipelineController(pipelineInfo *pps.PipelineInfo) error {
+	if _, ok := a.pipelineNameToPipelineController[pipelineInfo.Pipeline.Name]; ok {
+		protolog.Warnf("pachyderm.pps.pipelineserver: had a create change event for an existing pipeline: %v", pipelineInfo)
+		if err := a.removePipelineController(pipelineInfo.Pipeline.Name); err != nil {
+			return err
+		}
+	}
 	pipelineController := newPipelineController(
 		a.pfsAPIClient,
 		a.jobAPIClient,
@@ -221,8 +149,9 @@ func (a *apiServer) addPipelineController(pipelineInfo *pps.PipelineInfo) error 
 func (a *apiServer) removePipelineController(name string) error {
 	pipelineController, ok := a.pipelineNameToPipelineController[name]
 	if !ok {
-		return fmt.Errorf("pachyderm.pps.pipelineserver: no pipeline registered for name: %s", name)
+		protolog.Warnf("pachyderm.pps.pipelineserver: no pipeline registered for name: %s", name)
+	} else {
+		pipelineController.Cancel()
 	}
-	pipelineController.Cancel()
 	return nil
 }
