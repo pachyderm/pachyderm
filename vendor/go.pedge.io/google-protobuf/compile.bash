@@ -11,7 +11,7 @@ INCLUDE_DIR="${1}"
 OUTPUT_DIR="${2}"
 
 PROTO_DIR="${INCLUDE_DIR}/google/protobuf"
-PROTO_FILES="$(ls "${PROTO_DIR}" | grep "\.proto$")"
+PROTO_FILES="$(ls "${PROTO_DIR}" | grep "\.proto$" | grep -v 'descriptor\.proto')"
 NUM_PROTO_FILES="$(echo "${PROTO_FILES}" | wc -w)"
 
 for proto_file in ${PROTO_FILES}; do
@@ -28,5 +28,4 @@ for proto_file in ${PROTO_FILES}; do
     fi
     i="$((i+1))"
   done
-  sed -i "s/package descriptor/package google_protobuf/g" ${output_file}
 done

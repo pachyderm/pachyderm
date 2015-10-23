@@ -4,3 +4,5 @@
 
 This package compiles all the proto files in [$(which protoc)../include/google/protobuf](https://github.com/google/protobuf/tree/master/src/google/protobuf) into golang structs,
 and removes cyclical imports. This allows easy use of these commonly-used messages in other repositories.
+
+This package does not include descriptor.proto, this is in https://github.com/golang/protobuf/tree/master/protoc-gen-go/descriptor.
