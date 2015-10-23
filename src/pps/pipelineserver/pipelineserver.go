@@ -20,19 +20,5 @@ func NewAPIServer(
 		pfsAPIClient,
 		jobAPIClient,
 		persistAPIClient,
-		false,
-	)
-}
-
-func NewTestAPIServer(
-	pfsAPIClient pfs.APIClient,
-	jobAPIClient pps.JobAPIClient,
-	persistAPIClient persist.APIClient,
-) APIServer {
-	return newAPIServer(
-		pfsAPIClient,
-		jobAPIClient,
-		persistAPIClient,
-		true,
 	)
 }
