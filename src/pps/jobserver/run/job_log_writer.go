@@ -1,4 +1,4 @@
-package jobserver
+package jobserverrun
 
 import (
 	"fmt"
