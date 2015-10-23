@@ -170,13 +170,7 @@ func etcdReplicationController() *api.ReplicationController {
 							Name:  "etcd",
 							Image: etcdImage,
 							//TODO figure out how to get a cluster of these to talk to each other
-							Command: []string{"/usr/local/bin/etcd", "--addr=127.0.0.1:4001", "--bind-addr=0.0.0.0:4001", "--data-dir=/var/etcd/data"},
-							Env: []api.EnvVar{
-								{
-									Name:  "PFS_DRIVER_ROOT",
-									Value: "/pfs/btrfs",
-								},
-							},
+							Command: []string{"/usr/local/bin/etcd", "--bind-addr=0.0.0.0:2379", "--data-dir=/var/etcd/data"},
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 2379,
@@ -190,7 +184,7 @@ func etcdReplicationController() *api.ReplicationController {
 							VolumeMounts: []api.VolumeMount{
 								{
 									Name:      "etcd-storage",
-									MountPath: "/data/etcd",
+									MountPath: "/var/data/etcd",
 								},
 							},
 						},
