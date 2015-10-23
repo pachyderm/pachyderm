@@ -209,6 +209,13 @@ func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *google_pro
 	}, nil
 }
 
+func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *pps.Job) (*google_protobuf.Empty, error) {
+	if err := a.deleteMessageByPrimaryKey(jobInfosTable, request.Id); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
+}
+
 // id cannot be set
 // timestamp cannot be set
 func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *persist.JobStatus) (*persist.JobStatus, error) {
