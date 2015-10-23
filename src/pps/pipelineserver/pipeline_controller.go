@@ -39,17 +39,17 @@ func newPipelineController(
 func (p *pipelineController) Start() error {
 	// TODO(pedge): do not get all jobs each time, need a limit call on persist, more
 	// generally, need all persist calls to have a limit
-	jobInfos, err := p.jobAPIClient.ListJob(context.Background(), &pps.ListRequest{Pipeline: p.pipelineInfo.Pipeline})
+	jobInfos, err := p.jobAPIClient.ListJob(context.Background(), &pps.ListJobRequest{Pipeline: p.pipelineInfo.Pipeline})
 	if err != nil {
 		return err
 	}
 	lastCommit := &pfs.Commit{
-		Repo: a.PipelineInfo.Input,
+		Repo: p.pipelineInfo.Input,
 		// TODO(pedge): use initial commit id when moved to pfs package
 		Id: "scratch",
 	}
-	if len(jobs.Job) > 0 {
-		lastCommit = jobs.Job[0].Input
+	if len(jobInfos.JobInfo) > 0 {
+		lastCommit = jobInfos.JobInfo[0].Input
 	}
 	go func() {
 		if err := p.run(lastCommit); err != nil {
