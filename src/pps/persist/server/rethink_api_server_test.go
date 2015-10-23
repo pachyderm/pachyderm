@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"go.pachyderm.com/pachyderm/src/pkg/require"
+	"go.pachyderm.com/pachyderm/src/pps"
 	"go.pachyderm.com/pachyderm/src/pps/persist"
-	"go.pedge.io/google-protobuf"
 	"golang.org/x/net/context"
 
 	"github.com/satori/go.uuid"
@@ -20,24 +20,25 @@ func TestBasicRethink(t *testing.T) {
 }
 
 func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
-	job, err := apiServer.CreateJob(
+	jobInfo, err := apiServer.CreateJobInfo(
 		context.Background(),
-		&persist.Job{
-			Spec: &persist.Job_PipelineId{
-				PipelineId: "456",
+		&persist.JobInfo{
+			Spec: &persist.JobInfo_PipelineName{
+				PipelineName: "foo",
 			},
 		},
 	)
 	require.NoError(t, err)
-	getJob, err := apiServer.GetJobByID(
+	getJobInfo, err := apiServer.GetJobInfo(
 		context.Background(),
-		&google_protobuf.StringValue{
-			Value: job.Id,
+		&pps.Job{
+			Id: jobInfo.JobId,
 		},
 	)
 	require.NoError(t, err)
-	require.Equal(t, job.Id, getJob.Id)
-	require.Equal(t, "456", getJob.GetPipelineId())
+	require.Equal(t, jobInfo.JobId, getJobInfo.JobId)
+	require.Equal(t, "foo", getJobInfo.GetPipelineName())
+	require.NotNil(t, getJobInfo.CreatedAt)
 }
 
 func runTestRethink(t *testing.T, testFunc func(*testing.T, persist.APIServer)) {
@@ -46,7 +47,7 @@ func runTestRethink(t *testing.T, testFunc func(*testing.T, persist.APIServer)) 
 	defer func() {
 		require.NoError(t, apiServer.Close())
 	}()
-	testFunc(t, newLogAPIServer(apiServer))
+	testFunc(t, apiServer)
 }
 
 func getTestRethinkAPIServer() (*rethinkAPIServer, error) {
