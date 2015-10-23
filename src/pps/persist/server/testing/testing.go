@@ -8,12 +8,13 @@ import (
 	"testing"
 
 	"go.pachyderm.com/pachyderm/src/pkg/require"
+	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pachyderm.com/pachyderm/src/pps/persist/server"
 
 	"github.com/satori/go.uuid"
 )
 
-func RunTestWithRethinkAPIServer(t *testing.T, testFunc func(t *testing.T, persistAPIServer server.APIServer)) {
+func RunTestWithRethinkAPIServer(t *testing.T, testFunc func(t *testing.T, persistAPIServer persist.APIServer)) {
 	apiServer, err := NewTestRethinkAPIServer()
 	require.NoError(t, err)
 	defer func() {
