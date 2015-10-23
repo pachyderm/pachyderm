@@ -14,9 +14,8 @@ type pipelineController struct {
 	pfsAPIClient      pfs.APIClient
 	jobAPIClient      pps.JobAPIClient
 	pipelineAPIClient pps.PipelineAPIClient
-	test              bool
 
-	pipeline        *pps.Pipeline
+	pipelineInfo    *pps.PipelineInfo
 	cancelC         chan bool
 	finishedCancelC chan bool
 }
@@ -25,15 +24,13 @@ func newPipelineController(
 	pfsAPIClient pfs.APIClient,
 	jobAPIClient pps.JobAPIClient,
 	pipelineAPIClient pps.PipelineAPIClient,
-	test bool,
-	pipeline *pps.Pipeline,
+	pipelineInfo *pps.PipelineInfo,
 ) *pipelineController {
 	return &pipelineController{
 		pfsAPIClient,
 		jobAPIClient,
 		pipelineAPIClient,
-		test,
-		pipeline,
+		pipelineInfo,
 		make(chan bool),
 		make(chan bool),
 	}
@@ -129,44 +126,4 @@ func (p *pipelineController) run(lastCommit *pfs.Commit) error {
 // TODO(pedge): implement
 func (p *pipelineController) createAndStartJobForCommitInfo(commitInfo *pfs.CommitInfo) error {
 	return nil
-}
-
-func getRepoForPipeline(pipeline *pps.Pipeline, test bool) (*pfs.Repo, error) {
-	if len(pipeline.PipelineInput) == 0 {
-		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline with no PipelineInput, this is not currently allowed, %v", pipeline)
-	}
-	if len(pipeline.PipelineInput) > 1 {
-		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline with more than one PipelineInput, this is not currently allowed, %v", pipeline)
-	}
-	pipelineInput := pipeline.PipelineInput[0]
-	if pipelineInput.GetHostDir() != "" {
-		if !test {
-			return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline with host dir set, this is not allowed, %v", pipeline)
-		}
-		return nil, nil
-	}
-	if pipelineInput.GetRepo() == nil {
-		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had pipeline without repo set, this is not allowed, %v", pipeline)
-	}
-	return pipelineInput.GetRepo(), nil
-}
-
-func getCommitForJob(job *pps.Job, test bool) (*pfs.Commit, error) {
-	if len(job.JobInput) == 0 {
-		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job with no JobInput, this is not currently allowed, %v", job)
-	}
-	if len(job.JobInput) > 1 {
-		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job with more than one JobInput, this is not currently allowed, %v", job)
-	}
-	jobInput := job.JobInput[0]
-	if jobInput.GetHostDir() != "" {
-		if !test {
-			return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job with host dir set, this is not allowed, %v", job)
-		}
-		return nil, nil
-	}
-	if jobInput.GetCommit() == nil {
-		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: had job without commit set, this is not allowed, %v", job)
-	}
-	return jobInput.GetCommit(), nil
 }
