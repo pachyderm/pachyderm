@@ -104,6 +104,22 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	}, nil
 }
 
+func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pps.JobAPI_GetJobLogsServer) (err error) {
+	// TODO(pedge): filter by output stream
+	persistJobLogs, err := a.persistAPIClient.GetJobLogs(context.Background(), request.Job)
+	if err != nil {
+		return err
+	}
+	for _, persistJobLog := range persistJobLogs.JobLog {
+		if persistJobLog.OutputStream == request.OutputStream {
+			if err := responseServer.Send(&google_protobuf.BytesValue{Value: persistJobLog.Value}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // TODO(pedge): bulk get
 func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo *persist.JobInfo) (*pps.JobInfo, error) {
 	job := &pps.Job{Id: persistJobInfo.JobId}
@@ -143,20 +159,4 @@ func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo 
 		jobInfo.Output = persistJobOutput.Output
 	}
 	return jobInfo, nil
-}
-
-func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pps.JobAPI_GetJobLogsServer) (err error) {
-	// TODO(pedge): filter by output stream
-	persistJobLogs, err := a.persistAPIClient.GetJobLogs(context.Background(), request.Job)
-	if err != nil {
-		return err
-	}
-	for _, persistJobLog := range persistJobLogs.JobLog {
-		if persistJobLog.OutputStream == request.OutputStream {
-			if err := responseServer.Send(&google_protobuf.BytesValue{Value: persistJobLog.Value}); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
