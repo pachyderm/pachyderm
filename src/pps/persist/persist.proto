@@ -13,7 +13,7 @@ message JobInfo {
   string job_id = 1;
   oneof spec {
     pachyderm.pps.Transform transform = 2;
-    pachyderm.pps.Pipeline pipeline = 3;
+    string pipeline_name = 3;
   }
   pfs.Commit input = 4;
   pfs.Commit output_parent = 5;
@@ -26,7 +26,7 @@ message JobInfos {
 
 message JobStatus {
   string id = 1;
-  pachyderm.pps.Job job = 2;
+  string job_id = 2;
   pachyderm.pps.JobStatusType type = 3;
   google.protobuf.Timestamp timestamp = 4;
   string message = 5;
@@ -41,13 +41,13 @@ message JobStatuses {
 message JobOutput {
   // if we wanted to be able to have multuple output pfs repos,
   // we would need JobOutputCommit to have a separate id
-  pachyderm.pps.Job job = 1;
+  string job_id = 1;
   pfs.Commit output = 2;
 }
 
 message JobLog {
   string id = 1;
-  pachyderm.pps.Job job = 2;
+  string job_id = 2;
   google.protobuf.Timestamp timestamp = 3;
   pachyderm.pps.OutputStream output_stream = 4;
   bytes value = 5;
@@ -58,7 +58,7 @@ message JobLogs {
 }
 
 message PipelineInfo {
-  pachyderm.pps.Pipeline pipeline = 1;
+  string pipeline_name = 1;
   pachyderm.pps.Transform transform = 2;
   pfs.Repo input = 3;
   pfs.Repo output = 4;
@@ -87,6 +87,6 @@ service API {
   rpc CreatePipelineInfo(PipelineInfo) returns (PipelineInfo) {}
   rpc GetPipelineInfo(pachyderm.pps.Pipeline) returns (PipelineInfo) {}
   // ordered by time, latest to earliest
-  rpc GetAllPipelineInfos(google.protobuf.Empty) returns (PipelineInfos) {}
+  rpc ListPipelineInfos(google.protobuf.Empty) returns (PipelineInfos) {}
   rpc DeletePipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
 }

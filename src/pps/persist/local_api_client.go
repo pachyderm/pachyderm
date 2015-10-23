@@ -52,8 +52,8 @@ func (a *localAPIClient) GetPipelineInfo(ctx context.Context, request *pps.Pipel
 	return a.apiServer.GetPipelineInfo(ctx, request)
 }
 
-func (a *localAPIClient) GetAllPipelineInfos(ctx context.Context, request *google_protobuf.Empty, _ ...grpc.CallOption) (response *PipelineInfos, err error) {
-	return a.apiServer.GetAllPipelineInfos(ctx, request)
+func (a *localAPIClient) ListPipelineInfos(ctx context.Context, request *google_protobuf.Empty, _ ...grpc.CallOption) (response *PipelineInfos, err error) {
+	return a.apiServer.ListPipelineInfos(ctx, request)
 }
 
 func (a *localAPIClient) DeletePipelineInfo(ctx context.Context, request *pps.Pipeline, _ ...grpc.CallOption) (response *google_protobuf.Empty, err error) {

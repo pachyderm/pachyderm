@@ -40,10 +40,10 @@ var _ = fmt.Errorf
 var _ = math.Inf
 
 type JobInfo struct {
-	Job *pachyderm_pps.Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	JobId string `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
 	// Types that are valid to be assigned to Spec:
 	//	*JobInfo_Transform
-	//	*JobInfo_Pipeline
+	//	*JobInfo_PipelineName
 	Spec         isJobInfo_Spec              `protobuf_oneof:"spec"`
 	Input        *pfs.Commit                 `protobuf:"bytes,4,opt,name=input" json:"input,omitempty"`
 	OutputParent *pfs.Commit                 `protobuf:"bytes,5,opt,name=output_parent" json:"output_parent,omitempty"`
@@ -61,23 +61,16 @@ type isJobInfo_Spec interface {
 type JobInfo_Transform struct {
 	Transform *pachyderm_pps.Transform `protobuf:"bytes,2,opt,name=transform,oneof"`
 }
-type JobInfo_Pipeline struct {
-	Pipeline *pachyderm_pps.Pipeline `protobuf:"bytes,3,opt,name=pipeline,oneof"`
+type JobInfo_PipelineName struct {
+	PipelineName string `protobuf:"bytes,3,opt,name=pipeline_name,oneof"`
 }
 
-func (*JobInfo_Transform) isJobInfo_Spec() {}
-func (*JobInfo_Pipeline) isJobInfo_Spec()  {}
+func (*JobInfo_Transform) isJobInfo_Spec()    {}
+func (*JobInfo_PipelineName) isJobInfo_Spec() {}
 
 func (m *JobInfo) GetSpec() isJobInfo_Spec {
 	if m != nil {
 		return m.Spec
-	}
-	return nil
-}
-
-func (m *JobInfo) GetJob() *pachyderm_pps.Job {
-	if m != nil {
-		return m.Job
 	}
 	return nil
 }
@@ -89,11 +82,11 @@ func (m *JobInfo) GetTransform() *pachyderm_pps.Transform {
 	return nil
 }
 
-func (m *JobInfo) GetPipeline() *pachyderm_pps.Pipeline {
-	if x, ok := m.GetSpec().(*JobInfo_Pipeline); ok {
-		return x.Pipeline
+func (m *JobInfo) GetPipelineName() string {
+	if x, ok := m.GetSpec().(*JobInfo_PipelineName); ok {
+		return x.PipelineName
 	}
-	return nil
+	return ""
 }
 
 func (m *JobInfo) GetInput() *pfs.Commit {
@@ -121,7 +114,7 @@ func (m *JobInfo) GetCreatedAt() *google_protobuf1.Timestamp {
 func (*JobInfo) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
 	return _JobInfo_OneofMarshaler, _JobInfo_OneofUnmarshaler, []interface{}{
 		(*JobInfo_Transform)(nil),
-		(*JobInfo_Pipeline)(nil),
+		(*JobInfo_PipelineName)(nil),
 	}
 }
 
@@ -134,11 +127,9 @@ func _JobInfo_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
 		if err := b.EncodeMessage(x.Transform); err != nil {
 			return err
 		}
-	case *JobInfo_Pipeline:
+	case *JobInfo_PipelineName:
 		b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Pipeline); err != nil {
-			return err
-		}
+		b.EncodeStringBytes(x.PipelineName)
 	case nil:
 	default:
 		return fmt.Errorf("JobInfo.Spec has unexpected type %T", x)
@@ -157,13 +148,12 @@ func _JobInfo_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer
 		err := b.DecodeMessage(msg)
 		m.Spec = &JobInfo_Transform{msg}
 		return true, err
-	case 3: // spec.pipeline
+	case 3: // spec.pipeline_name
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(pachyderm_pps.Pipeline)
-		err := b.DecodeMessage(msg)
-		m.Spec = &JobInfo_Pipeline{msg}
+		x, err := b.DecodeStringBytes()
+		m.Spec = &JobInfo_PipelineName{x}
 		return true, err
 	default:
 		return false, nil
@@ -187,7 +177,7 @@ func (m *JobInfos) GetJobInfo() []*JobInfo {
 
 type JobStatus struct {
 	Id        string                      `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Job       *pachyderm_pps.Job          `protobuf:"bytes,2,opt,name=job" json:"job,omitempty"`
+	JobId     string                      `protobuf:"bytes,2,opt,name=job_id" json:"job_id,omitempty"`
 	Type      pachyderm_pps.JobStatusType `protobuf:"varint,3,opt,name=type,enum=pachyderm.pps.JobStatusType" json:"type,omitempty"`
 	Timestamp *google_protobuf1.Timestamp `protobuf:"bytes,4,opt,name=timestamp" json:"timestamp,omitempty"`
 	Message   string                      `protobuf:"bytes,5,opt,name=message" json:"message,omitempty"`
@@ -196,13 +186,6 @@ type JobStatus struct {
 func (m *JobStatus) Reset()         { *m = JobStatus{} }
 func (m *JobStatus) String() string { return proto.CompactTextString(m) }
 func (*JobStatus) ProtoMessage()    {}
-
-func (m *JobStatus) GetJob() *pachyderm_pps.Job {
-	if m != nil {
-		return m.Job
-	}
-	return nil
-}
 
 func (m *JobStatus) GetTimestamp() *google_protobuf1.Timestamp {
 	if m != nil {
@@ -231,20 +214,13 @@ func (m *JobStatuses) GetJobStatus() []*JobStatus {
 type JobOutput struct {
 	// if we wanted to be able to have multuple output pfs repos,
 	// we would need JobOutputCommit to have a separate id
-	Job    *pachyderm_pps.Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
-	Output *pfs.Commit        `protobuf:"bytes,2,opt,name=output" json:"output,omitempty"`
+	JobId  string      `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
+	Output *pfs.Commit `protobuf:"bytes,2,opt,name=output" json:"output,omitempty"`
 }
 
 func (m *JobOutput) Reset()         { *m = JobOutput{} }
 func (m *JobOutput) String() string { return proto.CompactTextString(m) }
 func (*JobOutput) ProtoMessage()    {}
-
-func (m *JobOutput) GetJob() *pachyderm_pps.Job {
-	if m != nil {
-		return m.Job
-	}
-	return nil
-}
 
 func (m *JobOutput) GetOutput() *pfs.Commit {
 	if m != nil {
@@ -255,7 +231,7 @@ func (m *JobOutput) GetOutput() *pfs.Commit {
 
 type JobLog struct {
 	Id           string                      `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Job          *pachyderm_pps.Job          `protobuf:"bytes,2,opt,name=job" json:"job,omitempty"`
+	JobId        string                      `protobuf:"bytes,2,opt,name=job_id" json:"job_id,omitempty"`
 	Timestamp    *google_protobuf1.Timestamp `protobuf:"bytes,3,opt,name=timestamp" json:"timestamp,omitempty"`
 	OutputStream pachyderm_pps.OutputStream  `protobuf:"varint,4,opt,name=output_stream,enum=pachyderm.pps.OutputStream" json:"output_stream,omitempty"`
 	Value        []byte                      `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"`
@@ -264,13 +240,6 @@ type JobLog struct {
 func (m *JobLog) Reset()         { *m = JobLog{} }
 func (m *JobLog) String() string { return proto.CompactTextString(m) }
 func (*JobLog) ProtoMessage()    {}
-
-func (m *JobLog) GetJob() *pachyderm_pps.Job {
-	if m != nil {
-		return m.Job
-	}
-	return nil
-}
 
 func (m *JobLog) GetTimestamp() *google_protobuf1.Timestamp {
 	if m != nil {
@@ -295,23 +264,16 @@ func (m *JobLogs) GetJobLog() []*JobLog {
 }
 
 type PipelineInfo struct {
-	Pipeline  *pachyderm_pps.Pipeline     `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
-	Transform *pachyderm_pps.Transform    `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Input     *pfs.Repo                   `protobuf:"bytes,3,opt,name=input" json:"input,omitempty"`
-	Output    *pfs.Repo                   `protobuf:"bytes,4,opt,name=output" json:"output,omitempty"`
-	CreatedAt *google_protobuf1.Timestamp `protobuf:"bytes,5,opt,name=created_at" json:"created_at,omitempty"`
+	PipelineName string                      `protobuf:"bytes,1,opt,name=pipeline_name" json:"pipeline_name,omitempty"`
+	Transform    *pachyderm_pps.Transform    `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	Input        *pfs.Repo                   `protobuf:"bytes,3,opt,name=input" json:"input,omitempty"`
+	Output       *pfs.Repo                   `protobuf:"bytes,4,opt,name=output" json:"output,omitempty"`
+	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,5,opt,name=created_at" json:"created_at,omitempty"`
 }
 
 func (m *PipelineInfo) Reset()         { *m = PipelineInfo{} }
 func (m *PipelineInfo) String() string { return proto.CompactTextString(m) }
 func (*PipelineInfo) ProtoMessage()    {}
-
-func (m *PipelineInfo) GetPipeline() *pachyderm_pps.Pipeline {
-	if m != nil {
-		return m.Pipeline
-	}
-	return nil
-}
 
 func (m *PipelineInfo) GetTransform() *pachyderm_pps.Transform {
 	if m != nil {
@@ -380,7 +342,7 @@ type APIClient interface {
 	CreatePipelineInfo(ctx context.Context, in *PipelineInfo, opts ...grpc.CallOption) (*PipelineInfo, error)
 	GetPipelineInfo(ctx context.Context, in *pachyderm_pps.Pipeline, opts ...grpc.CallOption) (*PipelineInfo, error)
 	// ordered by time, latest to earliest
-	GetAllPipelineInfos(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*PipelineInfos, error)
+	ListPipelineInfos(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*PipelineInfos, error)
 	DeletePipelineInfo(ctx context.Context, in *pachyderm_pps.Pipeline, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 }
 
@@ -473,9 +435,9 @@ func (c *aPIClient) GetPipelineInfo(ctx context.Context, in *pachyderm_pps.Pipel
 	return out, nil
 }
 
-func (c *aPIClient) GetAllPipelineInfos(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*PipelineInfos, error) {
+func (c *aPIClient) ListPipelineInfos(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*PipelineInfos, error) {
 	out := new(PipelineInfos)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetAllPipelineInfos", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/ListPipelineInfos", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -511,7 +473,7 @@ type APIServer interface {
 	CreatePipelineInfo(context.Context, *PipelineInfo) (*PipelineInfo, error)
 	GetPipelineInfo(context.Context, *pachyderm_pps.Pipeline) (*PipelineInfo, error)
 	// ordered by time, latest to earliest
-	GetAllPipelineInfos(context.Context, *google_protobuf.Empty) (*PipelineInfos, error)
+	ListPipelineInfos(context.Context, *google_protobuf.Empty) (*PipelineInfos, error)
 	DeletePipelineInfo(context.Context, *pachyderm_pps.Pipeline) (*google_protobuf.Empty, error)
 }
 
@@ -627,12 +589,12 @@ func _API_GetPipelineInfo_Handler(srv interface{}, ctx context.Context, dec func
 	return out, nil
 }
 
-func _API_GetAllPipelineInfos_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_ListPipelineInfos_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
 	in := new(google_protobuf.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).GetAllPipelineInfos(ctx, in)
+	out, err := srv.(APIServer).ListPipelineInfos(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -692,8 +654,8 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			Handler:    _API_GetPipelineInfo_Handler,
 		},
 		{
-			MethodName: "GetAllPipelineInfos",
-			Handler:    _API_GetAllPipelineInfos_Handler,
+			MethodName: "ListPipelineInfos",
+			Handler:    _API_ListPipelineInfos_Handler,
 		},
 		{
 			MethodName: "DeletePipelineInfo",
