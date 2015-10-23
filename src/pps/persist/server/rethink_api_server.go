@@ -1,6 +1,8 @@
 package server
 
 import (
+	"time"
+
 	"github.com/dancannon/gorethink"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -9,6 +11,7 @@ import (
 	"go.pachyderm.com/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/pkg/time"
+	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 )
@@ -121,6 +124,7 @@ func InitDBs(address string, databaseName string) error {
 }
 
 type rethinkAPIServer struct {
+	protorpclog.Logger
 	session      *gorethink.Session
 	databaseName string
 	timer        pkgtime.Timer
@@ -132,6 +136,7 @@ func newRethinkAPIServer(address string, databaseName string) (*rethinkAPIServer
 		return nil, err
 	}
 	return &rethinkAPIServer{
+		protorpclog.NewLogger("pachyderm.pps.persist.API"),
 		session,
 		databaseName,
 		pkgtime.NewSystemTimer(),
@@ -144,7 +149,8 @@ func (a *rethinkAPIServer) Close() error {
 
 // job_id cannot be set
 // timestamp cannot be set
-func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.JobInfo) (*persist.JobInfo, error) {
+func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.JobInfo) (response *persist.JobInfo, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if request.JobId != "" {
 		return nil, ErrIDSet
 	}
@@ -159,7 +165,8 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	return request, nil
 }
 
-func (a *rethinkAPIServer) GetJobInfo(ctx context.Context, request *pps.Job) (*persist.JobInfo, error) {
+func (a *rethinkAPIServer) GetJobInfo(ctx context.Context, request *pps.Job) (response *persist.JobInfo, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobInfo := &persist.JobInfo{}
 	if err := a.getMessageByPrimaryKey(jobInfosTable, request.Id, jobInfo); err != nil {
 		return nil, err
@@ -167,7 +174,8 @@ func (a *rethinkAPIServer) GetJobInfo(ctx context.Context, request *pps.Job) (*p
 	return jobInfo, nil
 }
 
-func (a *rethinkAPIServer) GetJobInfosByPipeline(ctx context.Context, request *pps.Pipeline) (*persist.JobInfos, error) {
+func (a *rethinkAPIServer) GetJobInfosByPipeline(ctx context.Context, request *pps.Pipeline) (response *persist.JobInfos, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobInfoObjs, err := a.getMessagesByIndex(
 		jobInfosTable,
 		pipelineNameIndex,
@@ -189,7 +197,8 @@ func (a *rethinkAPIServer) GetJobInfosByPipeline(ctx context.Context, request *p
 	}, nil
 }
 
-func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *google_protobuf.Empty) (*persist.JobInfos, error) {
+func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *google_protobuf.Empty) (response *persist.JobInfos, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobInfoObjs, err := a.getAllMessages(
 		jobInfosTable,
 		func() proto.Message { return &persist.JobInfo{} },
@@ -209,7 +218,8 @@ func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *google_pro
 	}, nil
 }
 
-func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *pps.Job) (*google_protobuf.Empty, error) {
+func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *pps.Job) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if err := a.deleteMessageByPrimaryKey(jobInfosTable, request.Id); err != nil {
 		return nil, err
 	}
@@ -218,7 +228,8 @@ func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *pps.Job) 
 
 // id cannot be set
 // timestamp cannot be set
-func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *persist.JobStatus) (*persist.JobStatus, error) {
+func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *persist.JobStatus) (response *persist.JobStatus, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if request.Id != "" {
 		return nil, ErrIDSet
 	}
@@ -234,7 +245,8 @@ func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *persist
 }
 
 // ordered by time, latest to earliest
-func (a *rethinkAPIServer) GetJobStatuses(ctx context.Context, request *pps.Job) (*persist.JobStatuses, error) {
+func (a *rethinkAPIServer) GetJobStatuses(ctx context.Context, request *pps.Job) (response *persist.JobStatuses, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobStatusObjs, err := a.getMessagesByIndex(
 		jobStatusesTable,
 		jobIDIndex,
@@ -256,14 +268,16 @@ func (a *rethinkAPIServer) GetJobStatuses(ctx context.Context, request *pps.Job)
 	}, nil
 }
 
-func (a *rethinkAPIServer) CreateJobOutput(ctx context.Context, request *persist.JobOutput) (*persist.JobOutput, error) {
+func (a *rethinkAPIServer) CreateJobOutput(ctx context.Context, request *persist.JobOutput) (response *persist.JobOutput, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if err := a.insertMessage(jobOutputsTable, request); err != nil {
 		return nil, err
 	}
 	return request, nil
 }
 
-func (a *rethinkAPIServer) GetJobOutput(ctx context.Context, request *pps.Job) (*persist.JobOutput, error) {
+func (a *rethinkAPIServer) GetJobOutput(ctx context.Context, request *pps.Job) (response *persist.JobOutput, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobOutput := &persist.JobOutput{}
 	if err := a.getMessageByPrimaryKey(jobOutputsTable, request.Id, jobOutput); err != nil {
 		return nil, err
@@ -273,7 +287,8 @@ func (a *rethinkAPIServer) GetJobOutput(ctx context.Context, request *pps.Job) (
 
 // id cannot be set
 // timestamp cannot be set
-func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *persist.JobLog) (*persist.JobLog, error) {
+func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *persist.JobLog) (response *persist.JobLog, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if request.Id != "" {
 		return nil, ErrIDSet
 	}
@@ -292,7 +307,8 @@ func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *persist.Jo
 }
 
 // ordered by time, latest to earliest
-func (a *rethinkAPIServer) GetJobLogs(ctx context.Context, request *pps.Job) (*persist.JobLogs, error) {
+func (a *rethinkAPIServer) GetJobLogs(ctx context.Context, request *pps.Job) (response *persist.JobLogs, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobLogObjs, err := a.getMessagesByIndex(
 		jobLogsTable,
 		jobIDIndex,
@@ -315,7 +331,8 @@ func (a *rethinkAPIServer) GetJobLogs(ctx context.Context, request *pps.Job) (*p
 }
 
 // timestamp cannot be set
-func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (*persist.PipelineInfo, error) {
+func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *persist.PipelineInfo, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if request.CreatedAt != nil {
 		return nil, ErrTimestampSet
 	}
@@ -326,7 +343,8 @@ func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *pers
 	return request, nil
 }
 
-func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *pps.Pipeline) (*persist.PipelineInfo, error) {
+func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *pps.Pipeline) (response *persist.PipelineInfo, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	pipelineInfo := &persist.PipelineInfo{}
 	if err := a.getMessageByPrimaryKey(pipelineInfosTable, request.Name, pipelineInfo); err != nil {
 		return nil, err
@@ -334,7 +352,8 @@ func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *pps.Pip
 	return pipelineInfo, nil
 }
 
-func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *google_protobuf.Empty) (*persist.PipelineInfos, error) {
+func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *google_protobuf.Empty) (response *persist.PipelineInfos, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	pipelineInfoObjs, err := a.getAllMessages(
 		pipelineInfosTable,
 		func() proto.Message { return &persist.PipelineInfo{} },
@@ -354,7 +373,8 @@ func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *googl
 	}, nil
 }
 
-func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *pps.Pipeline) (*google_protobuf.Empty, error) {
+func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *pps.Pipeline) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if err := a.deleteMessageByPrimaryKey(pipelineInfosTable, request.Name); err != nil {
 		return nil, err
 	}
