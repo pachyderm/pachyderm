@@ -1,5 +1,6 @@
 [![CircleCI](https://circleci.com/gh/peter-edge/go-dockervolume/tree/master.png)](https://circleci.com/gh/peter-edge/go-dockervolume/tree/master)
-[![API Documentation](http://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](https://godoc.org/go.pedge.io/dockervolume)
+[![GoDoc](http://img.shields.io/badge/GoDoc-Reference-blue.svg)](https://godoc.org/go.pedge.io/dockervolume)
+[![MIT License](http://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/peter-edge/go-dockervolume/blob/master/LICENSE)
 
 A small library taking care of the generic code for docker volume plugins written in Go.
 

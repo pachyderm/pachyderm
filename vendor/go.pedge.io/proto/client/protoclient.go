@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"golang.org/x/net/context"
-
-	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/version"
 
 	"github.com/spf13/cobra"
@@ -23,10 +20,7 @@ func NewVersionCommand(
 		Use:  "version",
 		Long: "Print the version.",
 		Run: func(cmd *cobra.Command, args []string) {
-			serverVersion, err := protoversion.NewAPIClient(clientConn).GetVersion(
-				context.Background(),
-				&google_protobuf.Empty{},
-			)
+			serverVersion, err := protoversion.GetServerVersion(clientConn)
 			if err != nil {
 				if errorHandler != nil {
 					errorHandler(err)

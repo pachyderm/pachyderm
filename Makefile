@@ -35,10 +35,10 @@ vendor:
 	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 godep save ./src/...
 	rm -rf Godeps
 
-build: deps
+build:
 	go build ./src/...
 
-install: deps
+install:
 	go install ./src/cmd/pfs-volume-driver ./src/cmd/pfs ./src/cmd/pps ./src/cmd/deploy
 	go install ./vendor/go.pedge.io/dockervolume/cmd/dockervolume
 
