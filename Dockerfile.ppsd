@@ -4,7 +4,8 @@ MAINTAINER peter@pachyderm.io
 RUN \
   apt-get update -yq && \
   apt-get install -yq --no-install-recommends \
-    ca-certificates && \
+    ca-certificates \
+    socat && \
   apt-get clean && \
   rm -rf /var/lib/apt
 ADD _tmp/ppsd /ppsd

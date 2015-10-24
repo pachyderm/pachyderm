@@ -12,8 +12,8 @@ RUN \
     fuse \
     git \
     libssl-dev \
-    pkg-config \
-    mercurial && \
+    mercurial \
+    pkg-config && \
   apt-get clean && \
   rm -rf /var/lib/apt
 RUN \

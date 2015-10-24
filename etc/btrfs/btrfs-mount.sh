@@ -7,6 +7,9 @@ if [ -z "${BTRFS_DEVICE}" ]; then
   exit 1
 fi
 
-mkdir -p /pfs/btrfs
-mount "${BTRFS_DEVICE}" /pfs/btrfs
+mkdir -p $(dirname "${BTRFS_DEVICE}")
+truncate "${BTRFS_DEVICE}" -s 10G
+mkfs.btrfs "${BTRFS_DEVICE}"
+mkdir -p "${PFS_DRIVER_ROOT}"
+mount "${BTRFS_DEVICE}" "${PFS_DRIVER_ROOT}"
 $@

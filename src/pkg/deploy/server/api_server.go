@@ -15,7 +15,9 @@ import (
 var (
 	emptyInstance = &google_protobuf.Empty{}
 	pfsdImage     = "pachyderm/pfsd"
+	btrfsImage    = "pachyderm_btrfs"
 	etcdImage     = "gcr.io/google_containers/etcd:2.0.12"
+	trueVal       = true
 )
 
 type apiServer struct {
@@ -100,6 +102,10 @@ func pfsReplicationController(name string, nodes uint64, shards uint64, replicas
 									Name:  "PFS_DRIVER_ROOT",
 									Value: "/pfs/btrfs",
 								},
+								{
+									Name:  "BTRFS_DEVICE",
+									Value: "/pfs-img/btrfs.img",
+								},
 							},
 							Ports: []api.ContainerPort{
 								{
@@ -120,6 +126,9 @@ func pfsReplicationController(name string, nodes uint64, shards uint64, replicas
 									Name:      "pfs-disk",
 									MountPath: "/pfs/btrfs",
 								},
+							},
+							SecurityContext: &api.SecurityContext{
+								Privileged: &trueVal, // god is this dumb
 							},
 						},
 					},
