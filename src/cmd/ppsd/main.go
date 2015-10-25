@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/fsouza/go-dockerclient"
@@ -56,13 +55,11 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	pfsAddress := appEnv.PachydermPfsd1Port
-	if pfsAddress == "" {
-		pfsAddress = appEnv.PfsAddress
-	} else {
-		pfsAddress = strings.Replace(pfsAddress, "tcp://", "", -1)
+	pfsdAddress, err := getPfsdAddress()
+	if err != nil {
+		return err
 	}
-	clientConn, err := grpc.Dial(pfsAddress, grpc.WithInsecure())
+	clientConn, err := grpc.Dial(pfsdAddress, grpc.WithInsecure())
 	if err != nil {
 		return err
 	}
@@ -125,4 +122,12 @@ func getRethinkAddress() (string, error) {
 		return "", errors.New("RETHINK_PORT_28015_TCP_ADDR not set")
 	}
 	return fmt.Sprintf("%s:28015", rethinkAddr), nil
+}
+
+func getPfsdAddress() (string, error) {
+	pfsdAddr := os.Getenv("PFSD_PORT_650_TCP_ADDR")
+	if pfsdAddr == "" {
+		return "", errors.New("PFSD_PORT_650_TCP_ADDR not set")
+	}
+	return fmt.Sprintf("%s:650", pfsdAddr), nil
 }

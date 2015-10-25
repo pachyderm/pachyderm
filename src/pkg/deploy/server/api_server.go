@@ -1,7 +1,7 @@
 package server
 
 import (
-	"fmt"
+	"strconv"
 
 	"go.pachyderm.com/pachyderm/src/pkg/deploy"
 	"golang.org/x/net/context"
@@ -25,23 +25,11 @@ var (
 	etcdServiceName    = "etcd"
 	rethinkRcName      = "rethink-rc"
 	rethinkServiceName = "rethink"
+	pfsdRcName         = "pfsd-rc"
+	pfsdServiceName    = "pfsd"
+	ppsdRcName         = "ppsd-rc"
+	ppsdServiceName    = "ppsd"
 )
-
-func pfsdRcName(name string) string {
-	return fmt.Sprintf("pfsd-rc-%s", name)
-}
-
-func pfsdServiceName(name string) string {
-	return fmt.Sprintf("pfsd-%s", name)
-}
-
-func ppsdRcName(name string) string {
-	return fmt.Sprintf("ppsd-rc-%s", name)
-}
-
-func ppsdServiceName(name string) string {
-	return fmt.Sprintf("ppsd-%s", name)
-}
 
 type apiServer struct {
 	client *client.Client
@@ -66,7 +54,6 @@ func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClu
 	}
 	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(
 		pfsdRc(
-			request.Cluster.Name,
 			request.Nodes,
 			request.Shards,
 			request.Replicas,
@@ -74,18 +61,17 @@ func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClu
 	); err != nil {
 		return nil, err
 	}
-	if _, err := a.client.Services(api.NamespaceDefault).Create(pfsdService(request.Cluster.Name)); err != nil {
+	if _, err := a.client.Services(api.NamespaceDefault).Create(pfsdService()); err != nil {
 		return nil, err
 	}
 	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(
 		ppsdRc(
-			request.Cluster.Name,
 			request.Nodes,
 		),
 	); err != nil {
 		return nil, err
 	}
-	if _, err := a.client.Services(api.NamespaceDefault).Create(ppsService(request.Cluster.Name)); err != nil {
+	if _, err := a.client.Services(api.NamespaceDefault).Create(ppsService()); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
@@ -116,30 +102,30 @@ func (a *apiServer) DeleteCluster(ctx context.Context, request *deploy.DeleteClu
 	if err := a.client.Services(api.NamespaceDefault).Delete(rethinkServiceName); err != nil {
 		return nil, err
 	}
-	if err := a.client.ReplicationControllers(api.NamespaceDefault).Delete(pfsdRcName(request.Cluster.Name)); err != nil {
+	if err := a.client.ReplicationControllers(api.NamespaceDefault).Delete(pfsdRcName); err != nil {
 		return nil, err
 	}
-	if err := a.client.Services(api.NamespaceDefault).Delete(pfsdServiceName(request.Cluster.Name)); err != nil {
+	if err := a.client.Services(api.NamespaceDefault).Delete(pfsdServiceName); err != nil {
 		return nil, err
 	}
-	if err := a.client.ReplicationControllers(api.NamespaceDefault).Delete(ppsdRcName(request.Cluster.Name)); err != nil {
+	if err := a.client.ReplicationControllers(api.NamespaceDefault).Delete(ppsdRcName); err != nil {
 		return nil, err
 	}
-	if err := a.client.Services(api.NamespaceDefault).Delete(ppsdServiceName(request.Cluster.Name)); err != nil {
+	if err := a.client.Services(api.NamespaceDefault).Delete(ppsdServiceName); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil
 }
 
-func pfsdRc(name string, nodes uint64, shards uint64, replicas uint64) *api.ReplicationController {
-	app := fmt.Sprintf("pfsd-%s", name)
+func pfsdRc(nodes uint64, shards uint64, replicas uint64) *api.ReplicationController {
+	app := "pfsd"
 	return &api.ReplicationController{
 		unversioned.TypeMeta{
 			Kind:       "ReplicationController",
 			APIVersion: "v1",
 		},
 		api.ObjectMeta{
-			Name: pfsdRcName(name),
+			Name: pfsdRcName,
 			Labels: map[string]string{
 				"app": app,
 			},
@@ -151,7 +137,7 @@ func pfsdRc(name string, nodes uint64, shards uint64, replicas uint64) *api.Repl
 			},
 			Template: &api.PodTemplateSpec{
 				api.ObjectMeta{
-					Name: fmt.Sprintf("pfsd-%s", name),
+					Name: "pfsd",
 					Labels: map[string]string{
 						"app": app,
 					},
@@ -169,6 +155,14 @@ func pfsdRc(name string, nodes uint64, shards uint64, replicas uint64) *api.Repl
 								{
 									Name:  "BTRFS_DEVICE",
 									Value: "/pfs-img/btrfs.img",
+								},
+								{
+									Name:  "PFS_NUM_SHARDS",
+									Value: strconv.FormatUint(shards, 10),
+								},
+								{
+									Name:  "PFS_NUM_REPLICAS",
+									Value: strconv.FormatUint(replicas, 10),
 								},
 							},
 							Ports: []api.ContainerPort{
@@ -214,15 +208,15 @@ func pfsdRc(name string, nodes uint64, shards uint64, replicas uint64) *api.Repl
 	}
 }
 
-func pfsdService(name string) *api.Service {
-	app := fmt.Sprintf("pfsd-%s", name)
+func pfsdService() *api.Service {
+	app := "pfsd"
 	return &api.Service{
 		unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
 		api.ObjectMeta{
-			Name: pfsdServiceName(name),
+			Name: pfsdServiceName,
 			Labels: map[string]string{
 				"app": app,
 			},
@@ -246,15 +240,15 @@ func pfsdService(name string) *api.Service {
 	}
 }
 
-func ppsdRc(name string, nodes uint64) *api.ReplicationController {
-	app := fmt.Sprintf("ppsd-%s", name)
+func ppsdRc(nodes uint64) *api.ReplicationController {
+	app := "ppsd"
 	return &api.ReplicationController{
 		unversioned.TypeMeta{
 			Kind:       "ReplicationController",
 			APIVersion: "v1",
 		},
 		api.ObjectMeta{
-			Name: ppsdRcName(name),
+			Name: ppsdRcName,
 			Labels: map[string]string{
 				"app": app,
 			},
@@ -266,7 +260,7 @@ func ppsdRc(name string, nodes uint64) *api.ReplicationController {
 			},
 			Template: &api.PodTemplateSpec{
 				api.ObjectMeta{
-					Name: fmt.Sprintf("ppsd-%s", name),
+					Name: "ppsd",
 					Labels: map[string]string{
 						"app": app,
 					},
@@ -296,15 +290,15 @@ func ppsdRc(name string, nodes uint64) *api.ReplicationController {
 	}
 }
 
-func ppsService(name string) *api.Service {
-	app := fmt.Sprintf("ppsd-%s", name)
+func ppsService() *api.Service {
+	app := "ppsd"
 	return &api.Service{
 		unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
 		api.ObjectMeta{
-			Name: ppsdServiceName(name),
+			Name: ppsdServiceName,
 			Labels: map[string]string{
 				"app": app,
 			},
