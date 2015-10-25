@@ -70,6 +70,22 @@ func do(appEnvObj interface{}) error {
 		}),
 	}
 
+	deleteCluster := &cobra.Command{
+		Use:   "delete-cluster cluster-name",
+		Short: "Delete a cluster.",
+		Long:  "Delete a cluster.",
+		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			_, err = apiServer.DeleteCluster(
+				context.Background(),
+				&deploy.DeleteClusterRequest{
+					Cluster: &deploy.Cluster{
+						Name: args[0],
+					},
+				})
+			return err
+		}),
+	}
+
 	rootCmd := &cobra.Command{
 		Use: "deploy",
 		Long: `Deploy Pachyderm clusters.
@@ -77,5 +93,6 @@ func do(appEnvObj interface{}) error {
 The environment variable KUBERNETES_ADDRESS controls the Kubernetes endpoint the CLI connects to, the default is https://localhost:8080.`,
 	}
 	rootCmd.AddCommand(createCluster)
+	rootCmd.AddCommand(deleteCluster)
 	return rootCmd.Execute()
 }
