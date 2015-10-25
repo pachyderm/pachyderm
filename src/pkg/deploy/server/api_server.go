@@ -16,6 +16,7 @@ import (
 var (
 	emptyInstance      = &google_protobuf.Empty{}
 	pfsdImage          = "pachyderm/pfsd"
+	rolerImage         = "pachyderm/pfs-roler"
 	ppsdImage          = "pachyderm/ppsd"
 	btrfsImage         = "pachyderm_btrfs"
 	etcdImage          = "gcr.io/google_containers/etcd:2.0.12"
@@ -26,6 +27,7 @@ var (
 	rethinkRcName      = "rethink-rc"
 	rethinkServiceName = "rethink"
 	pfsdRcName         = "pfsd-rc"
+	rolerRcName        = "roler-rc"
 	pfsdServiceName    = "pfsd"
 	ppsdRcName         = "ppsd-rc"
 	ppsdServiceName    = "ppsd"
@@ -62,6 +64,14 @@ func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClu
 		return nil, err
 	}
 	if _, err := a.client.Services(api.NamespaceDefault).Create(pfsdService()); err != nil {
+		return nil, err
+	}
+	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(
+		rolerRc(
+			request.Shards,
+			request.Replicas,
+		),
+	); err != nil {
 		return nil, err
 	}
 	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(
@@ -106,6 +116,9 @@ func (a *apiServer) DeleteCluster(ctx context.Context, request *deploy.DeleteClu
 		return nil, err
 	}
 	if err := a.client.Services(api.NamespaceDefault).Delete(pfsdServiceName); err != nil {
+		return nil, err
+	}
+	if err := a.client.Services(api.NamespaceDefault).Delete(rolerRcName); err != nil {
 		return nil, err
 	}
 	if err := a.client.ReplicationControllers(api.NamespaceDefault).Delete(ppsdRcName); err != nil {
@@ -237,6 +250,55 @@ func pfsdService() *api.Service {
 			},
 		},
 		api.ServiceStatus{},
+	}
+}
+
+func rolerRc(shards uint64, replicas uint64) *api.ReplicationController {
+	app := "roler"
+	return &api.ReplicationController{
+		unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		api.ObjectMeta{
+			Name: rolerRcName,
+			Labels: map[string]string{
+				"app": app,
+			},
+		},
+		api.ReplicationControllerSpec{
+			Replicas: 1,
+			Selector: map[string]string{
+				"app": app,
+			},
+			Template: &api.PodTemplateSpec{
+				api.ObjectMeta{
+					Name: "rolerkj",
+					Labels: map[string]string{
+						"app": app,
+					},
+				},
+				api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  "roler",
+							Image: rolerImage,
+							Env: []api.EnvVar{
+								{
+									Name:  "PFS_NUM_SHARDS",
+									Value: strconv.FormatUint(shards, 10),
+								},
+								{
+									Name:  "PFS_NUM_REPLICAS",
+									Value: strconv.FormatUint(replicas, 10),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		api.ReplicationControllerStatus{},
 	}
 }
 
