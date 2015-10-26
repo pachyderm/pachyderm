@@ -316,7 +316,7 @@ func ppsdRc(nodes uint64) *api.ReplicationController {
 			},
 		},
 		api.ReplicationControllerSpec{
-			Replicas: int(nodes),
+			Replicas: 1,
 			Selector: map[string]string{
 				"app": app,
 			},
