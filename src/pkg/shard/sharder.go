@@ -816,7 +816,7 @@ func (a *sharder) announceServer(
 			return err
 		}
 		if err := a.discoveryClient.Set(a.serverStateKey(id), encodedServerState, holdTTL); err != nil {
-			return err
+			protolog.Printf("Error setting server state: %s", err.Error())
 		}
 		protolog.Debug(&log.SetServerState{serverState})
 		select {
@@ -845,7 +845,7 @@ func (a *sharder) announceFrontend(
 			return err
 		}
 		if err := a.discoveryClient.Set(a.frontendStateKey(address), encodedFrontendState, holdTTL); err != nil {
-			return err
+			protolog.Printf("Error setting server state: %s", err.Error())
 		}
 		protolog.Debug(&log.SetFrontendState{frontendState})
 		select {
