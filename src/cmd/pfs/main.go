@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"strings"
 	"text/tabwriter"
 
 	"go.pedge.io/env"
@@ -37,15 +36,9 @@ func main() {
 }
 
 func do(appEnvObj interface{}) error {
-	appEnv := appEnvObj.(*appEnv)
 	logrus.Register()
-	address := appEnv.PachydermPfsd1Port
-	if address == "" {
-		address = appEnv.Address
-	} else {
-		address = strings.Replace(address, "tcp://", "", -1)
-	}
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	pfsdAddr := getPfsdAddress()
+	clientConn, err := grpc.Dial(pfsdAddr, grpc.WithInsecure())
 	if err != nil {
 		return err
 	}
@@ -424,4 +417,12 @@ The environment variable PFS_ADDRESS controls what server the CLI connects to, t
 	rootCmd.AddCommand(listServer)
 	rootCmd.AddCommand(mount)
 	return rootCmd.Execute()
+}
+
+func getPfsdAddress() string {
+	pfsdAddr := os.Getenv("PFSD_PORT_650_TCP_ADDR")
+	if pfsdAddr == "" {
+		return "0.0.0.0:650"
+	}
+	return fmt.Sprintf("%s:650", pfsdAddr)
 }
