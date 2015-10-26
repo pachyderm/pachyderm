@@ -99,7 +99,7 @@ func (s *serverGroup) run(t *testing.T) {
 			require.Equal(
 				t,
 				shard.ErrCancelled,
-				s.sharder.Register(s.cancel, fmt.Sprintf("server-%d", i+s.offset), fmt.Sprintf("address-%d", i+s.offset), server),
+				s.sharder.Register(s.cancel, fmt.Sprintf("address-%d", i+s.offset), server),
 			)
 		}()
 	}

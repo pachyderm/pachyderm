@@ -133,29 +133,29 @@ func (a *apiServer) DeleteCluster(ctx context.Context, request *deploy.DeleteClu
 func pfsdRc(nodes uint64, shards uint64, replicas uint64) *api.ReplicationController {
 	app := "pfsd"
 	return &api.ReplicationController{
-		unversioned.TypeMeta{
+		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
 			APIVersion: "v1",
 		},
-		api.ObjectMeta{
+		ObjectMeta: api.ObjectMeta{
 			Name: pfsdRcName,
 			Labels: map[string]string{
 				"app": app,
 			},
 		},
-		api.ReplicationControllerSpec{
+		Spec: api.ReplicationControllerSpec{
 			Replicas: int(nodes),
 			Selector: map[string]string{
 				"app": app,
 			},
 			Template: &api.PodTemplateSpec{
-				api.ObjectMeta{
+				ObjectMeta: api.ObjectMeta{
 					Name: "pfsd",
 					Labels: map[string]string{
 						"app": app,
 					},
 				},
-				api.PodSpec{
+				Spec: api.PodSpec{
 					Containers: []api.Container{
 						{
 							Name:  "pfsd",
@@ -217,24 +217,23 @@ func pfsdRc(nodes uint64, shards uint64, replicas uint64) *api.ReplicationContro
 				},
 			},
 		},
-		api.ReplicationControllerStatus{},
 	}
 }
 
 func pfsdService() *api.Service {
 	app := "pfsd"
 	return &api.Service{
-		unversioned.TypeMeta{
+		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		api.ObjectMeta{
+		ObjectMeta: api.ObjectMeta{
 			Name: pfsdServiceName,
 			Labels: map[string]string{
 				"app": app,
 			},
 		},
-		api.ServiceSpec{
+		Spec: api.ServiceSpec{
 			Selector: map[string]string{
 				"app": app,
 			},
@@ -249,36 +248,35 @@ func pfsdService() *api.Service {
 				},
 			},
 		},
-		api.ServiceStatus{},
 	}
 }
 
 func rolerRc(shards uint64, replicas uint64) *api.ReplicationController {
 	app := "roler"
 	return &api.ReplicationController{
-		unversioned.TypeMeta{
+		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
 			APIVersion: "v1",
 		},
-		api.ObjectMeta{
+		ObjectMeta: api.ObjectMeta{
 			Name: rolerRcName,
 			Labels: map[string]string{
 				"app": app,
 			},
 		},
-		api.ReplicationControllerSpec{
+		Spec: api.ReplicationControllerSpec{
 			Replicas: 1,
 			Selector: map[string]string{
 				"app": app,
 			},
 			Template: &api.PodTemplateSpec{
-				api.ObjectMeta{
+				ObjectMeta: api.ObjectMeta{
 					Name: "rolerkj",
 					Labels: map[string]string{
 						"app": app,
 					},
 				},
-				api.PodSpec{
+				Spec: api.PodSpec{
 					Containers: []api.Container{
 						{
 							Name:  "roler",
@@ -298,36 +296,35 @@ func rolerRc(shards uint64, replicas uint64) *api.ReplicationController {
 				},
 			},
 		},
-		api.ReplicationControllerStatus{},
 	}
 }
 
 func ppsdRc(nodes uint64) *api.ReplicationController {
 	app := "ppsd"
 	return &api.ReplicationController{
-		unversioned.TypeMeta{
+		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
 			APIVersion: "v1",
 		},
-		api.ObjectMeta{
+		ObjectMeta: api.ObjectMeta{
 			Name: ppsdRcName,
 			Labels: map[string]string{
 				"app": app,
 			},
 		},
-		api.ReplicationControllerSpec{
+		Spec: api.ReplicationControllerSpec{
 			Replicas: 1,
 			Selector: map[string]string{
 				"app": app,
 			},
 			Template: &api.PodTemplateSpec{
-				api.ObjectMeta{
+				ObjectMeta: api.ObjectMeta{
 					Name: "ppsd",
 					Labels: map[string]string{
 						"app": app,
 					},
 				},
-				api.PodSpec{
+				Spec: api.PodSpec{
 					Containers: []api.Container{
 						{
 							Name:  "ppsd",
@@ -348,24 +345,23 @@ func ppsdRc(nodes uint64) *api.ReplicationController {
 				},
 			},
 		},
-		api.ReplicationControllerStatus{},
 	}
 }
 
 func ppsService() *api.Service {
 	app := "ppsd"
 	return &api.Service{
-		unversioned.TypeMeta{
+		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		api.ObjectMeta{
+		ObjectMeta: api.ObjectMeta{
 			Name: ppsdServiceName,
 			Labels: map[string]string{
 				"app": app,
 			},
 		},
-		api.ServiceSpec{
+		Spec: api.ServiceSpec{
 			Selector: map[string]string{
 				"app": app,
 			},
@@ -376,36 +372,35 @@ func ppsService() *api.Service {
 				},
 			},
 		},
-		api.ServiceStatus{},
 	}
 }
 
 func etcdReplicationController() *api.ReplicationController {
 	app := "etcd"
 	return &api.ReplicationController{
-		unversioned.TypeMeta{
+		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
 			APIVersion: "v1",
 		},
-		api.ObjectMeta{
+		ObjectMeta: api.ObjectMeta{
 			Name: etcdRcName,
 			Labels: map[string]string{
 				"app": app,
 			},
 		},
-		api.ReplicationControllerSpec{
+		Spec: api.ReplicationControllerSpec{
 			Replicas: 1,
 			Selector: map[string]string{
 				"app": app,
 			},
 			Template: &api.PodTemplateSpec{
-				api.ObjectMeta{
+				ObjectMeta: api.ObjectMeta{
 					Name: "etcd-pod",
 					Labels: map[string]string{
 						"app": app,
 					},
 				},
-				api.PodSpec{
+				Spec: api.PodSpec{
 					Containers: []api.Container{
 						{
 							Name:  "etcd",
@@ -438,24 +433,23 @@ func etcdReplicationController() *api.ReplicationController {
 				},
 			},
 		},
-		api.ReplicationControllerStatus{},
 	}
 }
 
 func etcdService() *api.Service {
 	app := "etcd"
 	return &api.Service{
-		unversioned.TypeMeta{
+		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		api.ObjectMeta{
+		ObjectMeta: api.ObjectMeta{
 			Name: etcdServiceName,
 			Labels: map[string]string{
 				"app": app,
 			},
 		},
-		api.ServiceSpec{
+		Spec: api.ServiceSpec{
 			Selector: map[string]string{
 				"app": app,
 			},
@@ -470,36 +464,35 @@ func etcdService() *api.Service {
 				},
 			},
 		},
-		api.ServiceStatus{},
 	}
 }
 
 func rethinkReplicationController() *api.ReplicationController {
 	app := "rethink"
 	return &api.ReplicationController{
-		unversioned.TypeMeta{
+		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
 			APIVersion: "v1",
 		},
-		api.ObjectMeta{
+		ObjectMeta: api.ObjectMeta{
 			Name: rethinkRcName,
 			Labels: map[string]string{
 				"app": app,
 			},
 		},
-		api.ReplicationControllerSpec{
+		Spec: api.ReplicationControllerSpec{
 			Replicas: 1,
 			Selector: map[string]string{
 				"app": app,
 			},
 			Template: &api.PodTemplateSpec{
-				api.ObjectMeta{
+				ObjectMeta: api.ObjectMeta{
 					Name: "rethink-pod",
 					Labels: map[string]string{
 						"app": app,
 					},
 				},
-				api.PodSpec{
+				Spec: api.PodSpec{
 					Containers: []api.Container{
 						{
 							Name:  "rethink",
@@ -537,24 +530,23 @@ func rethinkReplicationController() *api.ReplicationController {
 				},
 			},
 		},
-		api.ReplicationControllerStatus{},
 	}
 }
 
 func rethinkService() *api.Service {
 	app := "rethink"
 	return &api.Service{
-		unversioned.TypeMeta{
+		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		api.ObjectMeta{
+		ObjectMeta: api.ObjectMeta{
 			Name: rethinkServiceName,
 			Labels: map[string]string{
 				"app": app,
 			},
 		},
-		api.ServiceSpec{
+		Spec: api.ServiceSpec{
 			Selector: map[string]string{
 				"app": app,
 			},
@@ -573,6 +565,5 @@ func rethinkService() *api.Service {
 				},
 			},
 		},
-		api.ServiceStatus{},
 	}
 }

@@ -3,6 +3,8 @@ package discovery
 import (
 	"strings"
 
+	"go.pedge.io/protolog"
+
 	"github.com/coreos/go-etcd/etcd"
 )
 
@@ -49,6 +51,7 @@ func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) e
 				continue
 			}
 			if ok && etcdErr.ErrorCode == 501 {
+				protolog.Printf("Ignoring: %s", err.Error())
 				continue
 			}
 			return err
@@ -64,6 +67,7 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 				continue
 			}
 			if ok && etcdErr.ErrorCode == 501 {
+				protolog.Printf("Ignoring: %s", err.Error())
 				continue
 			}
 			return err
