@@ -67,7 +67,13 @@ docker-build-pfsd: docker-build-btrfs docker-build-compile
 docker-build-ppsd: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh ppsd
 
-docker-build: docker-build-pfs-mount docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd
+docker-build-pfs: docker-build-compile
+	docker-compose run compile sh etc/compile/compile.sh pfs 
+
+docker-build-pps: docker-build-compile
+	docker-compose run compile sh etc/compile/compile.sh pps
+
+docker-build: docker-build-pfs-mount docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pfs docker-build-pps
 
 docker-push-pfs-mount: docker-build-pfs-mount
 	docker push pachyderm/pfs-mount

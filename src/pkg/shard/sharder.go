@@ -852,7 +852,6 @@ func (a *sharder) announceFrontend(
 		case <-cancel:
 			return nil
 		case version := <-versionChan:
-			protolog.Printf("Got frontend version: %d", version)
 			frontendState.Version = version
 		case <-time.After(time.Second * time.Duration(holdTTL/2)):
 		}
