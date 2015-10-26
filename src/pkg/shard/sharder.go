@@ -977,7 +977,6 @@ func (a *sharder) runFrontend(
 				if serverState.Version < minVersion {
 					minVersion = serverState.Version
 				}
-				protolog.Printf("serverState: %+v", serverState)
 			}
 			if minVersion > version {
 				if err := frontend.Version(minVersion); err != nil {
