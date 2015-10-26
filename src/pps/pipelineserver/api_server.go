@@ -153,9 +153,8 @@ func (a *apiServer) addPipelineController(pipelineInfo *pps.PipelineInfo) error 
 func (a *apiServer) removePipelineController(name string) error {
 	pipelineController, ok := a.pipelineNameToPipelineController[name]
 	if !ok {
-		protolog.Warnf("pachyderm.pps.pipelineserver: no pipeline registered for name: %s", name)
-	} else {
-		pipelineController.Cancel()
+		return pipelineController.Cancel()
 	}
+	protolog.Warnf("pachyderm.pps.pipelineserver: no pipeline registered for name: %s", name)
 	return nil
 }
