@@ -3,10 +3,9 @@ syntax = "proto3";
 package shardproto;
 
 message ServerState {
-    string id = 1;
-    string address = 2;
-    int64 version = 3;
-    map<uint64, bool> shards = 4;
+    string address = 1;
+    int64 version = 2;
+    map<uint64, bool> shards = 3;
 }
 
 message FrontendState {
@@ -15,7 +14,7 @@ message FrontendState {
 }
 
 message ServerRole {
-    string id = 1;
+    string address = 1;
     int64 version = 2;
     map<uint64, bool> masters = 3;
     map<uint64, bool> replicas = 4;

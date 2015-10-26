@@ -99,11 +99,10 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 }
 
 func PrintServerInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "ID\tADDRESS\tVERSION\tMASTER\tREPLICA\t\n")
+	fmt.Fprint(w, "ADDRESS\tVERSION\tMASTER\tREPLICA\t\n")
 }
 
 func PrintServerInfo(w io.Writer, serverInfo *pfs.ServerInfo) {
-	fmt.Fprintf(w, "%s\t", serverInfo.ServerState.Id)
 	fmt.Fprintf(w, "%s\t", serverInfo.ServerState.Address)
 	fmt.Fprintf(w, "%d\t", serverInfo.ServerState.Version)
 	var masters uint64Slice

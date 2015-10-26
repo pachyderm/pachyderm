@@ -118,7 +118,7 @@ func do(appEnvObj interface{}) error {
 		driver,
 	)
 	go func() {
-		if err := sharder.Register(nil, "id", address, internalAPIServer); err != nil {
+		if err := sharder.Register(nil, address, internalAPIServer); err != nil {
 			protolog.Printf("Error from sharder.Register %s", err.Error())
 		}
 	}()

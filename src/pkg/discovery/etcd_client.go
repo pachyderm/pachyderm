@@ -48,6 +48,9 @@ func (c *etcdClient) Watch(key string, cancel chan bool, callBack func(string) e
 			if ok && etcdErr.ErrorCode == 401 {
 				continue
 			}
+			if ok && etcdErr.ErrorCode == 501 {
+				continue
+			}
 			return err
 		}
 	}
@@ -58,6 +61,9 @@ func (c *etcdClient) WatchAll(key string, cancel chan bool, callBack func(map[st
 		if err := c.watchAllWithoutRetry(key, cancel, callBack); err != nil {
 			etcdErr, ok := err.(*etcd.EtcdError)
 			if ok && etcdErr.ErrorCode == 401 {
+				continue
+			}
+			if ok && etcdErr.ErrorCode == 501 {
 				continue
 			}
 			return err

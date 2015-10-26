@@ -5,14 +5,12 @@ import "pkg/shard/proto/shard.proto";
 package shardprotolog;
 
 message StartRegister {
-    string id = 1;
-    string address = 2;
+    string address = 1;
 }
 
 message FinishRegister {
-    string id = 1;
-    string address = 2;
-    string error = 3;
+    string address = 1;
+    string error = 2;
 }
 
 message Version {

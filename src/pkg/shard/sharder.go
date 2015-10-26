@@ -103,10 +103,10 @@ func (a *sharder) GetShardToReplicaAddresses(version int64) (result map[uint64]m
 	return _result, nil
 }
 
-func (a *sharder) Register(cancel chan bool, id string, address string, server Server) (retErr error) {
-	protolog.Info(&log.StartRegister{id, address})
+func (a *sharder) Register(cancel chan bool, address string, server Server) (retErr error) {
+	protolog.Info(&log.StartRegister{address})
 	defer func() {
-		protolog.Info(&log.FinishRegister{id, address, errorToString(retErr)})
+		protolog.Info(&log.FinishRegister{address, errorToString(retErr)})
 	}()
 	var once sync.Once
 	versionChan := make(chan int64)
@@ -115,7 +115,7 @@ func (a *sharder) Register(cancel chan bool, id string, address string, server S
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		if err := a.announceServer(id, address, server, versionChan, internalCancel); err != nil {
+		if err := a.announceServer(address, server, versionChan, internalCancel); err != nil {
 			once.Do(func() {
 				retErr = err
 				close(internalCancel)
@@ -124,7 +124,7 @@ func (a *sharder) Register(cancel chan bool, id string, address string, server S
 	}()
 	go func() {
 		defer wg.Done()
-		if err := a.fillRoles(id, server, versionChan, internalCancel); err != nil {
+		if err := a.fillRoles(address, server, versionChan, internalCancel); err != nil {
 			once.Do(func() {
 				retErr = err
 				close(internalCancel)
@@ -206,9 +206,9 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 		if err != nil {
 			return err
 		}
-		if oldServerRole, ok := oldRoles[serverRole.Id]; !ok || oldServerRole.Version < serverRole.Version {
-			oldRoles[serverRole.Id] = serverRole
-			oldServers[serverRole.Id] = true
+		if oldServerRole, ok := oldRoles[serverRole.Address]; !ok || oldServerRole.Version < serverRole.Version {
+			oldRoles[serverRole.Address] = serverRole
+			oldServers[serverRole.Address] = true
 		}
 		if version < serverRole.Version+1 {
 			version = serverRole.Version + 1
@@ -216,10 +216,10 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 	}
 	for _, oldServerRole := range oldRoles {
 		for shard := range oldServerRole.Masters {
-			oldMasters[shard] = oldServerRole.Id
+			oldMasters[shard] = oldServerRole.Address
 		}
 		for shard := range oldServerRole.Replicas {
-			oldReplicas[shard] = append(oldReplicas[shard], oldServerRole.Id)
+			oldReplicas[shard] = append(oldReplicas[shard], oldServerRole.Address)
 		}
 	}
 	err = a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
@@ -241,15 +241,15 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 				if err != nil {
 					return err
 				}
-				newServerStates[serverState.Id] = serverState
-				newRoles[serverState.Id] = &proto.ServerRole{
-					Id:       serverState.Id,
+				newServerStates[serverState.Address] = serverState
+				newRoles[serverState.Address] = &proto.ServerRole{
+					Address:  serverState.Address,
 					Version:  version,
 					Masters:  make(map[uint64]bool),
 					Replicas: make(map[uint64]bool),
 				}
 				for shard := range serverState.Shards {
-					shardLocations[shard] = append(shardLocations[shard], serverState.Id)
+					shardLocations[shard] = append(shardLocations[shard], serverState.Address)
 				}
 			}
 			// See if there's any roles we can delete
@@ -303,23 +303,23 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 			}
 		Master:
 			for shard := uint64(0); shard < a.numShards; shard++ {
-				if id, ok := oldMasters[shard]; ok {
-					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer, &masterRolesRemainder) {
+				if address, ok := oldMasters[shard]; ok {
+					if assignMaster(newRoles, newMasters, address, shard, masterRolesPerServer, &masterRolesRemainder) {
 						continue Master
 					}
 				}
-				for _, id := range oldReplicas[shard] {
-					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer, &masterRolesRemainder) {
+				for _, address := range oldReplicas[shard] {
+					if assignMaster(newRoles, newMasters, address, shard, masterRolesPerServer, &masterRolesRemainder) {
 						continue Master
 					}
 				}
-				for _, id := range shardLocations[shard] {
-					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer, &masterRolesRemainder) {
+				for _, address := range shardLocations[shard] {
+					if assignMaster(newRoles, newMasters, address, shard, masterRolesPerServer, &masterRolesRemainder) {
 						continue Master
 					}
 				}
-				for id := range newServerStates {
-					if assignMaster(newRoles, newMasters, id, shard, masterRolesPerServer, &masterRolesRemainder) {
+				for address := range newServerStates {
+					if assignMaster(newRoles, newMasters, address, shard, masterRolesPerServer, &masterRolesRemainder) {
 						continue Master
 					}
 				}
@@ -333,28 +333,28 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 			for replica := uint64(0); replica < a.numReplicas; replica++ {
 			Replica:
 				for shard := uint64(0); shard < a.numShards; shard++ {
-					if id, ok := oldMasters[shard]; ok {
-						if assignReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer, &replicaRolesRemainder) {
+					if address, ok := oldMasters[shard]; ok {
+						if assignReplica(newRoles, newMasters, newReplicas, address, shard, replicaRolesPerServer, &replicaRolesRemainder) {
 							continue Replica
 						}
 					}
-					for _, id := range oldReplicas[shard] {
-						if assignReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer, &replicaRolesRemainder) {
+					for _, address := range oldReplicas[shard] {
+						if assignReplica(newRoles, newMasters, newReplicas, address, shard, replicaRolesPerServer, &replicaRolesRemainder) {
 							continue Replica
 						}
 					}
-					for _, id := range shardLocations[shard] {
-						if assignReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer, &replicaRolesRemainder) {
+					for _, address := range shardLocations[shard] {
+						if assignReplica(newRoles, newMasters, newReplicas, address, shard, replicaRolesPerServer, &replicaRolesRemainder) {
 							continue Replica
 						}
 					}
-					for id := range newServerStates {
-						if assignReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer, &replicaRolesRemainder) {
+					for address := range newServerStates {
+						if assignReplica(newRoles, newMasters, newReplicas, address, shard, replicaRolesPerServer, &replicaRolesRemainder) {
 							continue Replica
 						}
 					}
-					for id := range newServerStates {
-						if swapReplica(newRoles, newMasters, newReplicas, id, shard, replicaRolesPerServer) {
+					for address := range newServerStates {
+						if swapReplica(newRoles, newMasters, newReplicas, address, shard, replicaRolesPerServer) {
 							continue Replica
 						}
 					}
@@ -373,16 +373,16 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 			for shard := uint64(0); shard < a.numShards; shard++ {
 				addresses.Addresses[shard] = &proto.ShardAddresses{Replicas: make(map[string]bool)}
 			}
-			for id, serverRole := range newRoles {
+			for address, serverRole := range newRoles {
 				encodedServerRole, err := marshaler.MarshalToString(serverRole)
 				if err != nil {
 					return err
 				}
-				if err := a.discoveryClient.Set(a.serverRoleKeyVersion(id, version), encodedServerRole, 0); err != nil {
+				if err := a.discoveryClient.Set(a.serverRoleKeyVersion(address, version), encodedServerRole, 0); err != nil {
 					return err
 				}
 				protolog.Info(&log.SetServerRole{serverRole})
-				address := newServerStates[id].Address
+				address := newServerStates[address].Address
 				for shard := range serverRole.Masters {
 					shardAddresses := addresses.Addresses[shard]
 					shardAddresses.Master = address
@@ -404,8 +404,8 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 			protolog.Info(&log.SetAddresses{&addresses})
 			version++
 			oldServers = make(map[string]bool)
-			for id := range newServerStates {
-				oldServers[id] = true
+			for address := range newServerStates {
+				oldServers[address] = true
 			}
 			oldRoles = newRoles
 			oldMasters = newMasters
@@ -418,7 +418,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 	return err
 }
 
-func (a *sharder) WaitForAvailability(frontendIds []string, serverIds []string) error {
+func (a *sharder) WaitForAvailability(frontendAddresses []string, serverAddresses []string) error {
 	version := InvalidVersion
 	if err := a.discoveryClient.WatchAll(a.serverDir(), nil,
 		func(encodedServerStatesAndRoles map[string]string) error {
@@ -430,30 +430,30 @@ func (a *sharder) WaitForAvailability(frontendIds []string, serverIds []string) 
 					if err != nil {
 						return err
 					}
-					serverStates[serverState.Id] = serverState
+					serverStates[serverState.Address] = serverState
 				}
 				if strings.HasPrefix(key, a.serverRoleDir()) {
 					serverRole, err := decodeServerRole(encodedServerStateOrRole)
 					if err != nil {
 						return err
 					}
-					if _, ok := serverRoles[serverRole.Id]; !ok {
-						serverRoles[serverRole.Id] = make(map[int64]*proto.ServerRole)
+					if _, ok := serverRoles[serverRole.Address]; !ok {
+						serverRoles[serverRole.Address] = make(map[int64]*proto.ServerRole)
 					}
-					serverRoles[serverRole.Id][serverRole.Version] = serverRole
+					serverRoles[serverRole.Address][serverRole.Version] = serverRole
 				}
 			}
-			if len(serverStates) != len(serverIds) {
+			if len(serverStates) != len(serverAddresses) {
 				return nil
 			}
-			if len(serverRoles) != len(serverIds) {
+			if len(serverRoles) != len(serverAddresses) {
 				return nil
 			}
-			for _, id := range serverIds {
-				if _, ok := serverStates[id]; !ok {
+			for _, address := range serverAddresses {
+				if _, ok := serverStates[address]; !ok {
 					return nil
 				}
-				if _, ok := serverRoles[id]; !ok {
+				if _, ok := serverRoles[address]; !ok {
 					return nil
 				}
 			}
@@ -504,11 +504,11 @@ func (a *sharder) WaitForAvailability(frontendIds []string, serverIds []string) 
 				frontendStates[frontendState.Address] = frontendState
 			}
 			protolog.Printf("frontendStates: %+v", frontendStates)
-			if len(frontendStates) != len(frontendIds) {
+			if len(frontendStates) != len(frontendAddresses) {
 				return nil
 			}
-			for _, id := range frontendIds {
-				if _, ok := frontendStates[id]; !ok {
+			for _, address := range frontendAddresses {
+				if _, ok := frontendStates[address]; !ok {
 					return nil
 				}
 			}
@@ -594,13 +594,13 @@ func (a *sharder) getServerStates() (map[string]*proto.ServerState, error) {
 		if err != nil {
 			return nil, err
 		}
-		result[serverState.Id] = serverState
+		result[serverState.Address] = serverState
 	}
 	return result, nil
 }
 
-func (a *sharder) getServerState(id string) (*proto.ServerState, error) {
-	encodedServerState, err := a.discoveryClient.Get(a.serverStateKey(id))
+func (a *sharder) getServerState(address string) (*proto.ServerState, error) {
+	encodedServerState, err := a.discoveryClient.Get(a.serverStateKey(address))
 	if err != nil {
 		return nil, err
 	}
@@ -626,16 +626,16 @@ func (a *sharder) getServerRoles() (map[string]map[int64]*proto.ServerRole, erro
 		if err != nil {
 			return nil, err
 		}
-		if _, ok := result[serverRole.Id]; !ok {
-			result[serverRole.Id] = make(map[int64]*proto.ServerRole)
+		if _, ok := result[serverRole.Address]; !ok {
+			result[serverRole.Address] = make(map[int64]*proto.ServerRole)
 		}
-		result[serverRole.Id][serverRole.Version] = serverRole
+		result[serverRole.Address][serverRole.Version] = serverRole
 	}
 	return result, nil
 }
 
-func (a *sharder) getServerRole(id string) (map[int64]*proto.ServerRole, error) {
-	encodedServerRoles, err := a.discoveryClient.GetAll(a.serverRoleKey(id))
+func (a *sharder) getServerRole(address string) (map[int64]*proto.ServerRole, error) {
+	encodedServerRoles, err := a.discoveryClient.GetAll(a.serverRoleKey(address))
 	if err != nil {
 		return nil, err
 	}
@@ -678,25 +678,25 @@ func hasShard(serverRole *proto.ServerRole, shard uint64) bool {
 	return serverRole.Masters[shard] || serverRole.Replicas[shard]
 }
 
-func removeReplica(replicas map[uint64][]string, shard uint64, id string) {
-	var ids []string
-	for _, replicaID := range replicas[shard] {
-		if id != replicaID {
-			ids = append(ids, replicaID)
+func removeReplica(replicas map[uint64][]string, shard uint64, address string) {
+	var addresses []string
+	for _, replicaAddress := range replicas[shard] {
+		if address != replicaAddress {
+			addresses = append(addresses, replicaAddress)
 		}
 	}
-	replicas[shard] = ids
+	replicas[shard] = addresses
 }
 
 func assignMaster(
 	serverRoles map[string]*proto.ServerRole,
 	masters map[uint64]string,
-	id string,
+	address string,
 	shard uint64,
 	masterRolesPerServer uint64,
 	masterRolesRemainder *uint64,
 ) bool {
-	serverRole, ok := serverRoles[id]
+	serverRole, ok := serverRoles[address]
 	if !ok {
 		return false
 	}
@@ -713,8 +713,8 @@ func assignMaster(
 		*masterRolesRemainder--
 	}
 	serverRole.Masters[shard] = true
-	serverRoles[id] = serverRole
-	masters[shard] = id
+	serverRoles[address] = serverRole
+	masters[shard] = address
 	return true
 }
 
@@ -722,12 +722,12 @@ func assignReplica(
 	serverRoles map[string]*proto.ServerRole,
 	masters map[uint64]string,
 	replicas map[uint64][]string,
-	id string,
+	address string,
 	shard uint64,
 	replicaRolesPerServer uint64,
 	replicaRolesRemainder *uint64,
 ) bool {
-	serverRole, ok := serverRoles[id]
+	serverRole, ok := serverRoles[address]
 	if !ok {
 		return false
 	}
@@ -744,8 +744,8 @@ func assignReplica(
 		*replicaRolesRemainder--
 	}
 	serverRole.Replicas[shard] = true
-	serverRoles[id] = serverRole
-	replicas[shard] = append(replicas[shard], id)
+	serverRoles[address] = serverRole
+	replicas[shard] = append(replicas[shard], address)
 	return true
 }
 
@@ -753,11 +753,11 @@ func swapReplica(
 	serverRoles map[string]*proto.ServerRole,
 	masters map[uint64]string,
 	replicas map[uint64][]string,
-	id string,
+	address string,
 	shard uint64,
 	replicaRolesPerServer uint64,
 ) bool {
-	serverRole, ok := serverRoles[id]
+	serverRole, ok := serverRoles[address]
 	if !ok {
 		return false
 	}
@@ -765,7 +765,7 @@ func swapReplica(
 		return false
 	}
 	for swapID, swapServerRole := range serverRoles {
-		if swapID == id {
+		if swapID == address {
 			continue
 		}
 		for swapShard := range swapServerRole.Replicas {
@@ -781,12 +781,12 @@ func swapReplica(
 			// We do some weird things with the limits here, both servers
 			// receive a 0 replicaRolesRemainder, swapID doesn't need a
 			// remainder because we're replacing a shard we stole so it also
-			// has MaxInt64 for replicaRolesPerServer. We already know id
+			// has MaxInt64 for replicaRolesPerServer. We already know address
 			// doesn't need the remainder since we check that it has fewer than
 			// replicaRolesPerServer replicas.
 			var noReplicaRemainder uint64
 			assignReplica(serverRoles, masters, replicas, swapID, shard, math.MaxUint64, &noReplicaRemainder)
-			assignReplica(serverRoles, masters, replicas, id, swapShard, replicaRolesPerServer, &noReplicaRemainder)
+			assignReplica(serverRoles, masters, replicas, address, swapShard, replicaRolesPerServer, &noReplicaRemainder)
 			return true
 		}
 	}
@@ -794,14 +794,12 @@ func swapReplica(
 }
 
 func (a *sharder) announceServer(
-	id string,
 	address string,
 	server Server,
 	versionChan chan int64,
 	cancel chan bool,
 ) error {
 	serverState := &proto.ServerState{
-		Id:      id,
 		Address: address,
 		Version: InvalidVersion,
 	}
@@ -815,7 +813,7 @@ func (a *sharder) announceServer(
 		if err != nil {
 			return err
 		}
-		if err := a.discoveryClient.Set(a.serverStateKey(id), encodedServerState, holdTTL); err != nil {
+		if err := a.discoveryClient.Set(a.serverStateKey(address), encodedServerState, holdTTL); err != nil {
 			protolog.Printf("Error setting server state: %s", err.Error())
 		}
 		protolog.Debug(&log.SetServerState{serverState})
@@ -865,14 +863,14 @@ func (s int64Slice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s int64Slice) Less(i, j int) bool { return s[i] < s[j] }
 
 func (a *sharder) fillRoles(
-	id string,
+	address string,
 	server Server,
 	versionChan chan int64,
 	cancel chan bool,
 ) error {
 	oldRoles := make(map[int64]proto.ServerRole)
 	return a.discoveryClient.WatchAll(
-		a.serverRoleKey(id),
+		a.serverRoleKey(address),
 		cancel,
 		func(encodedServerRoles map[string]string) error {
 			roles := make(map[int64]proto.ServerRole)
@@ -957,7 +955,7 @@ func (a *sharder) fillRoles(
 }
 
 func (a *sharder) runFrontend(
-	id string,
+	address string,
 	frontend Frontend,
 	versionChan chan int64,
 	cancel chan bool,
@@ -1016,8 +1014,8 @@ func sameServers(oldServers map[string]bool, newServerStates map[string]*proto.S
 	if len(oldServers) != len(newServerStates) {
 		return false
 	}
-	for id := range oldServers {
-		if _, ok := newServerStates[id]; !ok {
+	for address := range oldServers {
+		if _, ok := newServerStates[address]; !ok {
 			return false
 		}
 	}

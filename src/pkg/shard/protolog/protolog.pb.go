@@ -41,8 +41,7 @@ var _ = fmt.Errorf
 var _ = math.Inf
 
 type StartRegister struct {
-	Id      string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Address string `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
+	Address string `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
 }
 
 func (m *StartRegister) Reset()         { *m = StartRegister{} }
@@ -50,9 +49,8 @@ func (m *StartRegister) String() string { return proto.CompactTextString(m) }
 func (*StartRegister) ProtoMessage()    {}
 
 type FinishRegister struct {
-	Id      string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Address string `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
-	Error   string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
+	Address string `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
+	Error   string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
 }
 
 func (m *FinishRegister) Reset()         { *m = FinishRegister{} }

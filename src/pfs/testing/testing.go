@@ -161,7 +161,7 @@ func (c *cluster) Restart(index int) {
 	)
 	c.internalServers[address] = internalAPIServer
 	go func() {
-		require.Equal(c.tb, c.realSharder.Register(c.cancels[address], address, address, c.internalServers[address]), shard.ErrCancelled)
+		require.Equal(c.tb, c.realSharder.Register(c.cancels[address], address, c.internalServers[address]), shard.ErrCancelled)
 	}()
 }
 
@@ -232,7 +232,7 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		cluster.internalServers[address] = internalAPIServer
 		cluster.internalCancels[address] = make(chan bool)
 		go func(address string) {
-			require.Equal(tb, cluster.realSharder.Register(cluster.internalCancels[address], address, address, cluster.internalServers[address]), shard.ErrCancelled)
+			require.Equal(tb, cluster.realSharder.Register(cluster.internalCancels[address], address, cluster.internalServers[address]), shard.ErrCancelled)
 		}(address)
 	}
 	return &cluster
