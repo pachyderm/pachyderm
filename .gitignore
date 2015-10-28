@@ -24,10 +24,11 @@ _testmain.go
 
 *.swp
 
+_tmp
+etc/initdev/.vagrant
+src/cmd/pfs/pfs-roler
+src/cmd/pfs/pfs-volume-driver
 src/cmd/pfs/pfs
 src/cmd/pfsd/pfsd
 src/cmd/pps/pps
 src/cmd/ppsd/ppsd
-etc/initdev/.vagrant
-_tmp
-old_pps
