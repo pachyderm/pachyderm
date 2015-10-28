@@ -27,9 +27,11 @@ const (
 	jobIDPrimaryKey        PrimaryKey = "job_id"
 	pipelineNamePrimaryKey PrimaryKey = "pipeline_name"
 
-	pipelineNameIndex Index = "pipeline_name"
-	jobIDIndex        Index = "job_id"
-	typeIndex         Index = "type"
+	pipelineNameIndex         Index = "pipeline_name"
+	pipelineNameAndInputIndex Index = "pipeline_name_and_input"
+	inputIndex                Index = "input"
+	jobIDIndex                Index = "job_id"
+	typeIndex                 Index = "type"
 )
 
 type Table string
@@ -120,6 +122,27 @@ func InitDBs(address string, databaseName string) error {
 			}
 		}
 	}
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
+		pipelineNameAndInputIndex,
+		func(row gorethink.Term) interface{} {
+			return []interface{}{
+				row.Field("pipeline_name"),
+				row.Field("input").Field("repo").Field("name"),
+				row.Field("input").Field("id"),
+			}
+		}).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
+		inputIndex,
+		func(row gorethink.Term) interface{} {
+			return []interface{}{
+				row.Field("input").Field("repo").Field("name"),
+				row.Field("input").Field("id"),
+			}
+		}).RunWrite(session); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -197,8 +220,25 @@ func (a *rethinkAPIServer) GetJobInfosByPipeline(ctx context.Context, request *p
 	}, nil
 }
 
-func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *google_protobuf.Empty) (response *persist.JobInfos, err error) {
+func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJobRequest) (response *persist.JobInfos, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	query := a.getTerm(jobInfosTable)
+	if request.Pipeline != nil && request.Input != nil {
+		query = query.GetAllByIndex(
+			pipelineNameAndInputIndex,
+			gorethink.Expr([]string{request.Pipeline.Name, request.Input.Repo.Name, request.Input.Id}),
+		)
+	} else if request.Pipeline != nil {
+		query = query.GetAllByIndex(
+			pipelineNameIndex,
+			request.Pipeline.Name,
+		)
+	} else if request.Input != nil {
+		query = query.GetAllByIndex(
+			inputIndex,
+			gorethink.Expr([]string{request.Input.Repo.Name, request.Input.Id}),
+		)
+	}
 	jobInfoObjs, err := a.getAllMessages(
 		jobInfosTable,
 		func() proto.Message { return &persist.JobInfo{} },

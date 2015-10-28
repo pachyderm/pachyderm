@@ -75,9 +75,7 @@ service API {
   rpc CreateJobInfo(JobInfo) returns (JobInfo) {}
   rpc GetJobInfo(pachyderm.pps.Job) returns (JobInfo) {}
   // ordered by time, latest to earliest
-  rpc GetJobInfosByPipeline(pachyderm.pps.Pipeline) returns (JobInfos) {}
-  // ordered by time, latest to earliest
-  rpc ListJobInfos(google.protobuf.Empty) returns (JobInfos) {}
+  rpc ListJobInfos(pachyderm.pps.ListJobRequest) returns (JobInfos) {}
   // should only be called when rolling back if a Job does not start!
   rpc DeleteJobInfo(pachyderm.pps.Job) returns (google.protobuf.Empty) {}
   // id cannot be set
