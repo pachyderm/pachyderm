@@ -11,8 +11,6 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"go.pachyderm.com/pachyderm/src/pkg/discovery"
-	proto "go.pachyderm.com/pachyderm/src/pkg/shard/proto"
-	log "go.pachyderm.com/pachyderm/src/pkg/shard/protolog"
 	"go.pedge.io/protolog"
 )
 
@@ -30,17 +28,17 @@ type sharder struct {
 	numShards       uint64
 	numReplicas     uint64
 	namespace       string
-	addresses       map[int64]*proto.Addresses
+	addresses       map[int64]*Addresses
 	addressesLock   sync.RWMutex
 }
 
 func newSharder(discoveryClient discovery.Client, numShards uint64, numReplicas uint64, namespace string) *sharder {
-	return &sharder{discoveryClient, numShards, numReplicas, namespace, make(map[int64]*proto.Addresses), sync.RWMutex{}}
+	return &sharder{discoveryClient, numShards, numReplicas, namespace, make(map[int64]*Addresses), sync.RWMutex{}}
 }
 
 func (a *sharder) GetMasterAddress(shard uint64, version int64) (result string, ok bool, retErr error) {
 	defer func() {
-		protolog.Debug(&log.GetMasterAddress{shard, version, result, ok, errorToString(retErr)})
+		protolog.Debug(&GetMasterAddress{shard, version, result, ok, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -55,7 +53,7 @@ func (a *sharder) GetMasterAddress(shard uint64, version int64) (result string, 
 
 func (a *sharder) GetReplicaAddresses(shard uint64, version int64) (result map[string]bool, retErr error) {
 	defer func() {
-		protolog.Debug(&log.GetReplicaAddresses{shard, version, result, errorToString(retErr)})
+		protolog.Debug(&GetReplicaAddresses{shard, version, result, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -70,7 +68,7 @@ func (a *sharder) GetReplicaAddresses(shard uint64, version int64) (result map[s
 
 func (a *sharder) GetShardToMasterAddress(version int64) (result map[uint64]string, retErr error) {
 	defer func() {
-		protolog.Debug(&log.GetShardToMasterAddress{version, result, errorToString(retErr)})
+		protolog.Debug(&GetShardToMasterAddress{version, result, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -86,11 +84,11 @@ func (a *sharder) GetShardToMasterAddress(version int64) (result map[uint64]stri
 func (a *sharder) GetShardToReplicaAddresses(version int64) (result map[uint64]map[string]bool, retErr error) {
 	defer func() {
 		// We need resultPrime is because proto3 can't do maps of maps.
-		resultPrime := make(map[uint64]*log.ReplicaAddresses)
+		resultPrime := make(map[uint64]*ReplicaAddresses)
 		for shard, addresses := range result {
-			resultPrime[shard] = &log.ReplicaAddresses{addresses}
+			resultPrime[shard] = &ReplicaAddresses{addresses}
 		}
-		protolog.Debug(&log.GetShardToReplicaAddresses{version, resultPrime, errorToString(retErr)})
+		protolog.Debug(&GetShardToReplicaAddresses{version, resultPrime, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -104,9 +102,9 @@ func (a *sharder) GetShardToReplicaAddresses(version int64) (result map[uint64]m
 }
 
 func (a *sharder) Register(cancel chan bool, id string, address string, server Server) (retErr error) {
-	protolog.Info(&log.StartRegister{id, address})
+	protolog.Info(&StartRegister{id, address})
 	defer func() {
-		protolog.Info(&log.FinishRegister{id, address, errorToString(retErr)})
+		protolog.Info(&FinishRegister{id, address, errorToString(retErr)})
 	}()
 	var once sync.Once
 	versionChan := make(chan int64)
@@ -186,13 +184,13 @@ func (a *sharder) RegisterFrontend(cancel chan bool, address string, frontend Fr
 }
 
 func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
-	protolog.Info(&log.StartAssignRoles{})
+	protolog.Info(&StartAssignRoles{})
 	defer func() {
-		protolog.Info(&log.FinishAssignRoles{errorToString(retErr)})
+		protolog.Info(&FinishAssignRoles{errorToString(retErr)})
 	}()
 	var version int64
 	oldServers := make(map[string]bool)
-	oldRoles := make(map[string]*proto.ServerRole)
+	oldRoles := make(map[string]*ServerRole)
 	oldMasters := make(map[uint64]string)
 	oldReplicas := make(map[uint64][]string)
 	var oldMinVersion int64
@@ -227,9 +225,9 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 			if len(encodedServerStates) == 0 {
 				return nil
 			}
-			newServerStates := make(map[string]*proto.ServerState)
+			newServerStates := make(map[string]*ServerState)
 			shardLocations := make(map[uint64][]string)
-			newRoles := make(map[string]*proto.ServerRole)
+			newRoles := make(map[string]*ServerRole)
 			newMasters := make(map[uint64]string)
 			newReplicas := make(map[uint64][]string)
 			masterRolesPerServer := a.numShards / uint64(len(encodedServerStates))
@@ -242,7 +240,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 					return err
 				}
 				newServerStates[serverState.Id] = serverState
-				newRoles[serverState.Id] = &proto.ServerRole{
+				newRoles[serverState.Id] = &ServerRole{
 					Id:       serverState.Id,
 					Version:  version,
 					Masters:  make(map[uint64]bool),
@@ -292,7 +290,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 						if err := a.discoveryClient.Delete(key); err != nil {
 							return err
 						}
-						protolog.Info(&log.DeleteServerRole{serverRole})
+						protolog.Info(&DeleteServerRole{serverRole})
 					}
 				}
 			}
@@ -323,7 +321,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 						continue Master
 					}
 				}
-				protolog.Error(&log.FailedToAssignRoles{
+				protolog.Error(&FailedToAssignRoles{
 					ServerStates: newServerStates,
 					NumShards:    a.numShards,
 					NumReplicas:  a.numReplicas,
@@ -358,7 +356,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 							continue Replica
 						}
 					}
-					protolog.Error(&log.FailedToAssignRoles{
+					protolog.Error(&FailedToAssignRoles{
 						ServerStates: newServerStates,
 						NumShards:    a.numShards,
 						NumReplicas:  a.numReplicas,
@@ -366,12 +364,12 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 					return nil
 				}
 			}
-			addresses := proto.Addresses{
+			addresses := Addresses{
 				Version:   version,
-				Addresses: make(map[uint64]*proto.ShardAddresses),
+				Addresses: make(map[uint64]*ShardAddresses),
 			}
 			for shard := uint64(0); shard < a.numShards; shard++ {
-				addresses.Addresses[shard] = &proto.ShardAddresses{Replicas: make(map[string]bool)}
+				addresses.Addresses[shard] = &ShardAddresses{Replicas: make(map[string]bool)}
 			}
 			for id, serverRole := range newRoles {
 				encodedServerRole, err := marshaler.MarshalToString(serverRole)
@@ -381,7 +379,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 				if err := a.discoveryClient.Set(a.serverRoleKeyVersion(id, version), encodedServerRole, 0); err != nil {
 					return err
 				}
-				protolog.Info(&log.SetServerRole{serverRole})
+				protolog.Info(&SetServerRole{serverRole})
 				address := newServerStates[id].Address
 				for shard := range serverRole.Masters {
 					shardAddresses := addresses.Addresses[shard]
@@ -401,7 +399,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 			if err := a.discoveryClient.Set(a.addressesKey(version), encodedAddresses, 0); err != nil {
 				return err
 			}
-			protolog.Info(&log.SetAddresses{&addresses})
+			protolog.Info(&SetAddresses{&addresses})
 			version++
 			oldServers = make(map[string]bool)
 			for id := range newServerStates {
@@ -422,8 +420,8 @@ func (a *sharder) WaitForAvailability(frontendIds []string, serverIds []string) 
 	version := InvalidVersion
 	if err := a.discoveryClient.WatchAll(a.serverDir(), nil,
 		func(encodedServerStatesAndRoles map[string]string) error {
-			serverStates := make(map[string]*proto.ServerState)
-			serverRoles := make(map[string]map[int64]*proto.ServerRole)
+			serverStates := make(map[string]*ServerState)
+			serverRoles := make(map[string]map[int64]*ServerRole)
 			for key, encodedServerStateOrRole := range encodedServerStatesAndRoles {
 				if strings.HasPrefix(key, a.serverStateDir()) {
 					serverState, err := decodeServerState(encodedServerStateOrRole)
@@ -438,7 +436,7 @@ func (a *sharder) WaitForAvailability(frontendIds []string, serverIds []string) 
 						return err
 					}
 					if _, ok := serverRoles[serverRole.Id]; !ok {
-						serverRoles[serverRole.Id] = make(map[int64]*proto.ServerRole)
+						serverRoles[serverRole.Id] = make(map[int64]*ServerRole)
 					}
 					serverRoles[serverRole.Id][serverRole.Version] = serverRole
 				}
@@ -490,7 +488,7 @@ func (a *sharder) WaitForAvailability(frontendIds []string, serverIds []string) 
 		a.frontendStateDir(),
 		nil,
 		func(encodedFrontendStates map[string]string) error {
-			frontendStates := make(map[string]*proto.FrontendState)
+			frontendStates := make(map[string]*FrontendState)
 			for _, encodedFrontendState := range encodedFrontendStates {
 				frontendState, err := decodeFrontendState(encodedFrontendState)
 				if err != nil {
@@ -567,28 +565,28 @@ func (a *sharder) addressesKey(version int64) string {
 	return path.Join(a.addressesDir(), fmt.Sprint(version))
 }
 
-func decodeServerState(encodedServerState string) (*proto.ServerState, error) {
-	var serverState proto.ServerState
+func decodeServerState(encodedServerState string) (*ServerState, error) {
+	var serverState ServerState
 	if err := jsonpb.UnmarshalString(encodedServerState, &serverState); err != nil {
 		return nil, err
 	}
 	return &serverState, nil
 }
 
-func decodeFrontendState(encodedFrontendState string) (*proto.FrontendState, error) {
-	var frontendState proto.FrontendState
+func decodeFrontendState(encodedFrontendState string) (*FrontendState, error) {
+	var frontendState FrontendState
 	if err := jsonpb.UnmarshalString(encodedFrontendState, &frontendState); err != nil {
 		return nil, err
 	}
 	return &frontendState, nil
 }
 
-func (a *sharder) getServerStates() (map[string]*proto.ServerState, error) {
+func (a *sharder) getServerStates() (map[string]*ServerState, error) {
 	encodedServerStates, err := a.discoveryClient.GetAll(a.serverStateDir())
 	if err != nil {
 		return nil, err
 	}
-	result := make(map[string]*proto.ServerState)
+	result := make(map[string]*ServerState)
 	for _, encodedServerState := range encodedServerStates {
 		serverState, err := decodeServerState(encodedServerState)
 		if err != nil {
@@ -599,7 +597,7 @@ func (a *sharder) getServerStates() (map[string]*proto.ServerState, error) {
 	return result, nil
 }
 
-func (a *sharder) getServerState(id string) (*proto.ServerState, error) {
+func (a *sharder) getServerState(id string) (*ServerState, error) {
 	encodedServerState, err := a.discoveryClient.Get(a.serverStateKey(id))
 	if err != nil {
 		return nil, err
@@ -607,39 +605,39 @@ func (a *sharder) getServerState(id string) (*proto.ServerState, error) {
 	return decodeServerState(encodedServerState)
 }
 
-func decodeServerRole(encodedServerRole string) (*proto.ServerRole, error) {
-	var serverRole proto.ServerRole
+func decodeServerRole(encodedServerRole string) (*ServerRole, error) {
+	var serverRole ServerRole
 	if err := jsonpb.UnmarshalString(encodedServerRole, &serverRole); err != nil {
 		return nil, err
 	}
 	return &serverRole, nil
 }
 
-func (a *sharder) getServerRoles() (map[string]map[int64]*proto.ServerRole, error) {
+func (a *sharder) getServerRoles() (map[string]map[int64]*ServerRole, error) {
 	encodedServerRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
 	if err != nil {
 		return nil, err
 	}
-	result := make(map[string]map[int64]*proto.ServerRole)
+	result := make(map[string]map[int64]*ServerRole)
 	for _, encodedServerRole := range encodedServerRoles {
 		serverRole, err := decodeServerRole(encodedServerRole)
 		if err != nil {
 			return nil, err
 		}
 		if _, ok := result[serverRole.Id]; !ok {
-			result[serverRole.Id] = make(map[int64]*proto.ServerRole)
+			result[serverRole.Id] = make(map[int64]*ServerRole)
 		}
 		result[serverRole.Id][serverRole.Version] = serverRole
 	}
 	return result, nil
 }
 
-func (a *sharder) getServerRole(id string) (map[int64]*proto.ServerRole, error) {
+func (a *sharder) getServerRole(id string) (map[int64]*ServerRole, error) {
 	encodedServerRoles, err := a.discoveryClient.GetAll(a.serverRoleKey(id))
 	if err != nil {
 		return nil, err
 	}
-	result := make(map[int64]*proto.ServerRole)
+	result := make(map[int64]*ServerRole)
 	for _, encodedServerRole := range encodedServerRoles {
 		serverRole, err := decodeServerRole(encodedServerRole)
 		if err != nil {
@@ -650,7 +648,7 @@ func (a *sharder) getServerRole(id string) (map[int64]*proto.ServerRole, error) 
 	return result, nil
 }
 
-func (a *sharder) getAddresses(version int64) (*proto.Addresses, error) {
+func (a *sharder) getAddresses(version int64) (*Addresses, error) {
 	if version == InvalidVersion {
 		return nil, fmt.Errorf("invalid version")
 	}
@@ -666,7 +664,7 @@ func (a *sharder) getAddresses(version int64) (*proto.Addresses, error) {
 	if err != nil {
 		return nil, err
 	}
-	var addresses proto.Addresses
+	var addresses Addresses
 	if err := jsonpb.UnmarshalString(encodedAddresses, &addresses); err != nil {
 		return nil, err
 	}
@@ -674,7 +672,7 @@ func (a *sharder) getAddresses(version int64) (*proto.Addresses, error) {
 	return &addresses, nil
 }
 
-func hasShard(serverRole *proto.ServerRole, shard uint64) bool {
+func hasShard(serverRole *ServerRole, shard uint64) bool {
 	return serverRole.Masters[shard] || serverRole.Replicas[shard]
 }
 
@@ -689,7 +687,7 @@ func removeReplica(replicas map[uint64][]string, shard uint64, id string) {
 }
 
 func assignMaster(
-	serverRoles map[string]*proto.ServerRole,
+	serverRoles map[string]*ServerRole,
 	masters map[uint64]string,
 	id string,
 	shard uint64,
@@ -719,7 +717,7 @@ func assignMaster(
 }
 
 func assignReplica(
-	serverRoles map[string]*proto.ServerRole,
+	serverRoles map[string]*ServerRole,
 	masters map[uint64]string,
 	replicas map[uint64][]string,
 	id string,
@@ -750,7 +748,7 @@ func assignReplica(
 }
 
 func swapReplica(
-	serverRoles map[string]*proto.ServerRole,
+	serverRoles map[string]*ServerRole,
 	masters map[uint64]string,
 	replicas map[uint64][]string,
 	id string,
@@ -800,7 +798,7 @@ func (a *sharder) announceServer(
 	versionChan chan int64,
 	cancel chan bool,
 ) error {
-	serverState := &proto.ServerState{
+	serverState := &ServerState{
 		Id:      id,
 		Address: address,
 		Version: InvalidVersion,
@@ -818,7 +816,7 @@ func (a *sharder) announceServer(
 		if err := a.discoveryClient.Set(a.serverStateKey(id), encodedServerState, holdTTL); err != nil {
 			return err
 		}
-		protolog.Debug(&log.SetServerState{serverState})
+		protolog.Debug(&SetServerState{serverState})
 		select {
 		case <-cancel:
 			return nil
@@ -835,7 +833,7 @@ func (a *sharder) announceFrontend(
 	versionChan chan int64,
 	cancel chan bool,
 ) error {
-	frontendState := &proto.FrontendState{
+	frontendState := &FrontendState{
 		Address: address,
 		Version: InvalidVersion,
 	}
@@ -847,7 +845,7 @@ func (a *sharder) announceFrontend(
 		if err := a.discoveryClient.Set(a.frontendStateKey(address), encodedFrontendState, holdTTL); err != nil {
 			return err
 		}
-		protolog.Debug(&log.SetFrontendState{frontendState})
+		protolog.Debug(&SetFrontendState{frontendState})
 		select {
 		case <-cancel:
 			return nil
@@ -871,16 +869,16 @@ func (a *sharder) fillRoles(
 	versionChan chan int64,
 	cancel chan bool,
 ) error {
-	oldRoles := make(map[int64]proto.ServerRole)
+	oldRoles := make(map[int64]ServerRole)
 	return a.discoveryClient.WatchAll(
 		a.serverRoleKey(id),
 		cancel,
 		func(encodedServerRoles map[string]string) error {
-			roles := make(map[int64]proto.ServerRole)
+			roles := make(map[int64]ServerRole)
 			var versions int64Slice
 			// Decode the roles
 			for _, encodedServerRole := range encodedServerRoles {
-				var serverRole proto.ServerRole
+				var serverRole ServerRole
 				if err := jsonpb.UnmarshalString(encodedServerRole, &serverRole); err != nil {
 					return err
 				}
@@ -914,10 +912,10 @@ func (a *sharder) fillRoles(
 				}
 				wg.Wait()
 				if addShardErr != nil {
-					protolog.Info(&log.AddServerRole{&serverRole, addShardErr.Error()})
+					protolog.Info(&AddServerRole{&serverRole, addShardErr.Error()})
 					return addShardErr
 				}
-				protolog.Info(&log.AddServerRole{&serverRole, ""})
+				protolog.Info(&AddServerRole{&serverRole, ""})
 				oldRoles[version] = serverRole
 				versionChan <- version
 			}
@@ -943,12 +941,12 @@ func (a *sharder) fillRoles(
 				}
 				wg.Wait()
 				if removeShardErr != nil {
-					protolog.Info(&log.RemoveServerRole{&serverRole, removeShardErr.Error()})
+					protolog.Info(&RemoveServerRole{&serverRole, removeShardErr.Error()})
 					return removeShardErr
 				}
-				protolog.Info(&log.RemoveServerRole{&serverRole, ""})
+				protolog.Info(&RemoveServerRole{&serverRole, ""})
 			}
-			oldRoles = make(map[int64]proto.ServerRole)
+			oldRoles = make(map[int64]ServerRole)
 			for _, version := range versions {
 				oldRoles[version] = roles[version]
 			}
@@ -993,7 +991,7 @@ func (a *sharder) runFrontend(
 		})
 }
 
-func shards(serverRole proto.ServerRole) []uint64 {
+func shards(serverRole ServerRole) []uint64 {
 	var result []uint64
 	for shard := range serverRole.Masters {
 		result = append(result, shard)
@@ -1004,7 +1002,7 @@ func shards(serverRole proto.ServerRole) []uint64 {
 	return result
 }
 
-func containsShard(roles map[int64]proto.ServerRole, shard uint64) bool {
+func containsShard(roles map[int64]ServerRole, shard uint64) bool {
 	for _, serverRole := range roles {
 		if serverRole.Masters[shard] || serverRole.Replicas[shard] {
 			return true
@@ -1013,7 +1011,7 @@ func containsShard(roles map[int64]proto.ServerRole, shard uint64) bool {
 	return false
 }
 
-func sameServers(oldServers map[string]bool, newServerStates map[string]*proto.ServerState) bool {
+func sameServers(oldServers map[string]bool, newServerStates map[string]*ServerState) bool {
 	if len(oldServers) != len(newServerStates) {
 		return false
 	}

@@ -4,7 +4,7 @@ import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
-import "pkg/shard/proto/shard.proto";
+import "pkg/shard/shard.proto";
 
 package pfs;
 
@@ -101,8 +101,8 @@ message FileInfos {
 // ServerInfo represents information about a server.
 message ServerInfo {
     Server server = 1;
-    shardproto.ServerState server_state = 2;
-    map<int64, shardproto.ServerRole> server_role = 3;
+    shard.ServerState server_state = 2;
+    map<int64, shard.ServerRole> server_role = 3;
 }
 
 message ServerInfos {

@@ -62,7 +62,7 @@ import math "math"
 import google_protobuf1 "go.pedge.io/google-protobuf"
 import google_protobuf2 "go.pedge.io/google-protobuf"
 import google_protobuf3 "go.pedge.io/google-protobuf"
-import shardproto "go.pachyderm.com/pachyderm/src/pkg/shard/proto"
+import shard "go.pachyderm.com/pachyderm/src/pkg/shard"
 
 import (
 	context "golang.org/x/net/context"
@@ -362,9 +362,9 @@ func (m *FileInfos) GetFileInfo() []*FileInfo {
 
 // ServerInfo represents information about a server.
 type ServerInfo struct {
-	Server      *Server                          `protobuf:"bytes,1,opt,name=server" json:"server,omitempty"`
-	ServerState *shardproto.ServerState          `protobuf:"bytes,2,opt,name=server_state" json:"server_state,omitempty"`
-	ServerRole  map[int64]*shardproto.ServerRole `protobuf:"bytes,3,rep,name=server_role" json:"server_role,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Server      *Server                     `protobuf:"bytes,1,opt,name=server" json:"server,omitempty"`
+	ServerState *shard.ServerState          `protobuf:"bytes,2,opt,name=server_state" json:"server_state,omitempty"`
+	ServerRole  map[int64]*shard.ServerRole `protobuf:"bytes,3,rep,name=server_role" json:"server_role,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
 func (m *ServerInfo) Reset()         { *m = ServerInfo{} }
@@ -378,14 +378,14 @@ func (m *ServerInfo) GetServer() *Server {
 	return nil
 }
 
-func (m *ServerInfo) GetServerState() *shardproto.ServerState {
+func (m *ServerInfo) GetServerState() *shard.ServerState {
 	if m != nil {
 		return m.ServerState
 	}
 	return nil
 }
 
-func (m *ServerInfo) GetServerRole() map[int64]*shardproto.ServerRole {
+func (m *ServerInfo) GetServerRole() map[int64]*shard.ServerRole {
 	if m != nil {
 		return m.ServerRole
 	}
