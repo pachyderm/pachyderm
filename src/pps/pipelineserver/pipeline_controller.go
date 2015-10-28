@@ -120,16 +120,33 @@ func (p *pipelineController) runInner(ctx context.Context, lastCommit *pfs.Commi
 	}
 	// going in reverse order, oldest to newest
 	for _, commitInfo := range commitInfos.CommitInfo {
-		if err := p.createJobForCommitInfo(commitInfo); err != nil {
+		if err := p.createJobForCommitInfo(ctx, commitInfo); err != nil {
 			return commitErrorPair{Err: err}
 		}
 	}
 	return commitErrorPair{Commit: commitInfos.CommitInfo[len(commitInfos.CommitInfo)-1].Commit}
 }
 
-// TODO(pedge): implement
-func (p *pipelineController) createJobForCommitInfo(commitInfo *pfs.CommitInfo) error {
-	return nil
+func (p *pipelineController) createJobForCommitInfo(ctx context.Context, commitInfo *pfs.CommitInfo) error {
+	parentOutputCommit, err := p.getParentOutputCommit(commitInfo)
+	if err != nil {
+		return err
+	}
+	_, err = p.jobAPIClient.CreateJob(
+		ctx,
+		&pps.CreateJobRequest{
+			Spec: &pps.CreateJobRequest_Pipeline{
+				Pipeline: p.pipelineInfo.Pipeline,
+			},
+			Input:        commitInfo.Commit,
+			OutputParent: parentOutputCommit,
+		},
+	)
+	return err
+}
+
+func (p *pipelineController) getParentOutputCommit(commitInfo *pfs.CommitInfo) (*pfs.Commit, error) {
+	return nil, nil
 }
 
 func ignoreCanceledError(err error) error {
