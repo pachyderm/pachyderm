@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pkg/require"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
 )
 
 var (

@@ -3,9 +3,9 @@ package testing
 import (
 	"testing"
 
-	"go.pachyderm.com/pachyderm/src/pkg/require"
-	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"golang.org/x/net/context"
 )
 

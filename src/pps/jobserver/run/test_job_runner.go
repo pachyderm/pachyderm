@@ -3,7 +3,7 @@ package jobserverrun
 import (
 	"sync"
 
-	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
 
 type testJobRunner struct {

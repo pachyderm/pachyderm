@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"go.pachyderm.com/pachyderm/src/pkg/discovery"
-	"go.pachyderm.com/pachyderm/src/pkg/require"
-	"go.pachyderm.com/pachyderm/src/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
+	"github.com/pachyderm/pachyderm/src/pkg/shard"
 )
 
 const (

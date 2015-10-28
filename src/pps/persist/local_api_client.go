@@ -3,7 +3,7 @@ package persist
 import (
 	"google.golang.org/grpc"
 
-	"go.pachyderm.com/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps"
 	"go.pedge.io/google-protobuf"
 	"golang.org/x/net/context"
 )

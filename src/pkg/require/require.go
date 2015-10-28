@@ -1,4 +1,4 @@
-package require //import "go.pachyderm.com/pachyderm/src/pkg/require"
+package require
 
 import (
 	"reflect"

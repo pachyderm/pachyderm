@@ -7,7 +7,7 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	"go.pachyderm.com/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
 const (

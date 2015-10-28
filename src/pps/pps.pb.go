@@ -34,7 +34,7 @@ import math "math"
 import google_protobuf "go.pedge.io/google-protobuf"
 import google_protobuf1 "go.pedge.io/google-protobuf"
 import google_protobuf2 "go.pedge.io/google-protobuf"
-import pfs "go.pachyderm.com/pachyderm/src/pfs"
+import pfs "github.com/pachyderm/pachyderm/src/pfs"
 
 import (
 	context "golang.org/x/net/context"
