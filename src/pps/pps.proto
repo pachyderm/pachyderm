@@ -85,6 +85,7 @@ message InspectJobRequest {
 
 message ListJobRequest {
   Pipeline pipeline = 1; // nil means all pipelines
+  pfs.Commit input = 2; // nil means all inputs
 }
 
 message GetJobLogsRequest {
