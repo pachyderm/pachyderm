@@ -100,7 +100,7 @@ launch: docker-clean-launch docker-build-pfs-roler docker-build-pfsd docker-buil
 	docker-compose up -d --force-recreate --no-build ppsd
 
 proto:
-	go get -v go.pedge.io/tools/protoc-all
+	go get -u -v go.pedge.io/protolog/cmd/protoc-gen-protolog go.pedge.io/tools/protoc-all
 	PROTOC_INCLUDE_PATH=src protoc-all go.pachyderm.com/pachyderm
 
 pretest:
