@@ -7,17 +7,17 @@ package btrfs
 import "go.pedge.io/protolog"
 
 func init() {
-	protolog.Register("btrfs.SubvolumeCreate", func() protolog.Message { return &SubvolumeCreate{} })
-	protolog.Register("btrfs.SubvolumeDelete", func() protolog.Message { return &SubvolumeDelete{} })
-	protolog.Register("btrfs.SubvolumeExists", func() protolog.Message { return &SubvolumeExists{} })
-	protolog.Register("btrfs.SubvolumeSnapshot", func() protolog.Message { return &SubvolumeSnapshot{} })
-	protolog.Register("btrfs.TransID", func() protolog.Message { return &TransID{} })
-	protolog.Register("btrfs.SubvolumeList", func() protolog.Message { return &SubvolumeList{} })
-	protolog.Register("btrfs.SubvolumeListLine", func() protolog.Message { return &SubvolumeListLine{} })
-	protolog.Register("btrfs.SubvolumeFindNew", func() protolog.Message { return &SubvolumeFindNew{} })
-	protolog.Register("btrfs.SubvolumeFindNewLine", func() protolog.Message { return &SubvolumeFindNewLine{} })
-	protolog.Register("btrfs.Send", func() protolog.Message { return &Send{} })
-	protolog.Register("btrfs.Recv", func() protolog.Message { return &Recv{} })
+	protolog.Register("btrfs.SubvolumeCreate", protolog.MessageType_MESSAGE_TYPE_EVENT, func() protolog.Message { return &SubvolumeCreate{} })
+	protolog.Register("btrfs.SubvolumeDelete", protolog.MessageType_MESSAGE_TYPE_EVENT, func() protolog.Message { return &SubvolumeDelete{} })
+	protolog.Register("btrfs.SubvolumeExists", protolog.MessageType_MESSAGE_TYPE_EVENT, func() protolog.Message { return &SubvolumeExists{} })
+	protolog.Register("btrfs.SubvolumeSnapshot", protolog.MessageType_MESSAGE_TYPE_EVENT, func() protolog.Message { return &SubvolumeSnapshot{} })
+	protolog.Register("btrfs.TransID", protolog.MessageType_MESSAGE_TYPE_EVENT, func() protolog.Message { return &TransID{} })
+	protolog.Register("btrfs.SubvolumeList", protolog.MessageType_MESSAGE_TYPE_EVENT, func() protolog.Message { return &SubvolumeList{} })
+	protolog.Register("btrfs.SubvolumeListLine", protolog.MessageType_MESSAGE_TYPE_EVENT, func() protolog.Message { return &SubvolumeListLine{} })
+	protolog.Register("btrfs.SubvolumeFindNew", protolog.MessageType_MESSAGE_TYPE_EVENT, func() protolog.Message { return &SubvolumeFindNew{} })
+	protolog.Register("btrfs.SubvolumeFindNewLine", protolog.MessageType_MESSAGE_TYPE_EVENT, func() protolog.Message { return &SubvolumeFindNewLine{} })
+	protolog.Register("btrfs.Send", protolog.MessageType_MESSAGE_TYPE_EVENT, func() protolog.Message { return &Send{} })
+	protolog.Register("btrfs.Recv", protolog.MessageType_MESSAGE_TYPE_EVENT, func() protolog.Message { return &Recv{} })
 }
 
 func (m *SubvolumeCreate) ProtologName() string {
