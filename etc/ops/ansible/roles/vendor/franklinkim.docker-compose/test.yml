@@ -1,9 +1,0 @@
----
-
-- hosts: all
-  sudo: yes
-  roles:
-    - franklinkim.docker
-    - franklinkim.docker-compose
-  vars:
-    docker_compose_version: 1.3.0

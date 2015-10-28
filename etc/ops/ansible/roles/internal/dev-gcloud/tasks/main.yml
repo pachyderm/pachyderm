@@ -1,7 +1,0 @@
----
-- copy:
-    dest="/etc/cron.{{gcloud_snapshot_frequency}}/gcloud-snapshot"
-    src=gcloud-snapshot
-    mode=755
-    owner=root
-    group=root
