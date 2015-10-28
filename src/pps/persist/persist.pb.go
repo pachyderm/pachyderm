@@ -330,9 +330,7 @@ type APIClient interface {
 	CreateJobInfo(ctx context.Context, in *JobInfo, opts ...grpc.CallOption) (*JobInfo, error)
 	GetJobInfo(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*JobInfo, error)
 	// ordered by time, latest to earliest
-	GetJobInfosByPipeline(ctx context.Context, in *pachyderm_pps.Pipeline, opts ...grpc.CallOption) (*JobInfos, error)
-	// ordered by time, latest to earliest
-	ListJobInfos(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*JobInfos, error)
+	ListJobInfos(ctx context.Context, in *pachyderm_pps.ListJobRequest, opts ...grpc.CallOption) (*JobInfos, error)
 	// should only be called when rolling back if a Job does not start!
 	DeleteJobInfo(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	// id cannot be set
@@ -380,16 +378,7 @@ func (c *aPIClient) GetJobInfo(ctx context.Context, in *pachyderm_pps.Job, opts 
 	return out, nil
 }
 
-func (c *aPIClient) GetJobInfosByPipeline(ctx context.Context, in *pachyderm_pps.Pipeline, opts ...grpc.CallOption) (*JobInfos, error) {
-	out := new(JobInfos)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetJobInfosByPipeline", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *aPIClient) ListJobInfos(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*JobInfos, error) {
+func (c *aPIClient) ListJobInfos(ctx context.Context, in *pachyderm_pps.ListJobRequest, opts ...grpc.CallOption) (*JobInfos, error) {
 	out := new(JobInfos)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/ListJobInfos", in, out, c.cc, opts...)
 	if err != nil {
@@ -505,9 +494,7 @@ type APIServer interface {
 	CreateJobInfo(context.Context, *JobInfo) (*JobInfo, error)
 	GetJobInfo(context.Context, *pachyderm_pps.Job) (*JobInfo, error)
 	// ordered by time, latest to earliest
-	GetJobInfosByPipeline(context.Context, *pachyderm_pps.Pipeline) (*JobInfos, error)
-	// ordered by time, latest to earliest
-	ListJobInfos(context.Context, *google_protobuf.Empty) (*JobInfos, error)
+	ListJobInfos(context.Context, *pachyderm_pps.ListJobRequest) (*JobInfos, error)
 	// should only be called when rolling back if a Job does not start!
 	DeleteJobInfo(context.Context, *pachyderm_pps.Job) (*google_protobuf.Empty, error)
 	// id cannot be set
@@ -557,20 +544,8 @@ func _API_GetJobInfo_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return out, nil
 }
 
-func _API_GetJobInfosByPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(pachyderm_pps.Pipeline)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(APIServer).GetJobInfosByPipeline(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func _API_ListJobInfos_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(google_protobuf.Empty)
+	in := new(pachyderm_pps.ListJobRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -724,10 +699,6 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetJobInfo",
 			Handler:    _API_GetJobInfo_Handler,
-		},
-		{
-			MethodName: "GetJobInfosByPipeline",
-			Handler:    _API_GetJobInfosByPipeline_Handler,
 		},
 		{
 			MethodName: "ListJobInfos",

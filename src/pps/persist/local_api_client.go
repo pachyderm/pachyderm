@@ -24,11 +24,7 @@ func (a *localAPIClient) GetJobInfo(ctx context.Context, request *pps.Job, _ ...
 	return a.apiServer.GetJobInfo(ctx, request)
 }
 
-func (a *localAPIClient) GetJobInfosByPipeline(ctx context.Context, request *pps.Pipeline, _ ...grpc.CallOption) (response *JobInfos, err error) {
-	return a.apiServer.GetJobInfosByPipeline(ctx, request)
-}
-
-func (a *localAPIClient) ListJobInfos(ctx context.Context, request *google_protobuf.Empty, _ ...grpc.CallOption) (response *JobInfos, err error) {
+func (a *localAPIClient) ListJobInfos(ctx context.Context, request *pps.ListJobRequest, _ ...grpc.CallOption) (response *JobInfos, err error) {
 	return a.apiServer.ListJobInfos(ctx, request)
 }
 

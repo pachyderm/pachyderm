@@ -79,11 +79,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	var persistJobInfos *persist.JobInfos
-	if request.Pipeline == nil {
-		persistJobInfos, err = a.persistAPIClient.ListJobInfos(ctx, google_protobuf.EmptyInstance)
-	} else {
-		persistJobInfos, err = a.persistAPIClient.GetJobInfosByPipeline(ctx, request.Pipeline)
-	}
+	persistJobInfos, err = a.persistAPIClient.ListJobInfos(ctx, request)
 	if err != nil {
 		return nil, err
 	}
