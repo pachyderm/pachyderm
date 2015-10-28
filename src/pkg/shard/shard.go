@@ -1,7 +1,7 @@
 package shard
 
 import (
-	"go.pachyderm.com/pachyderm/src/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 )
 
 // Sharder distributes shards between a set of servers.

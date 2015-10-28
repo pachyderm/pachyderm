@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
-	"go.pachyderm.com/pachyderm/src/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"go.pedge.io/protolog"
 )
 

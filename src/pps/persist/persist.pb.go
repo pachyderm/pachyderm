@@ -26,8 +26,8 @@ import fmt "fmt"
 import math "math"
 import google_protobuf "go.pedge.io/google-protobuf"
 import google_protobuf1 "go.pedge.io/google-protobuf"
-import pfs "go.pachyderm.com/pachyderm/src/pfs"
-import pachyderm_pps "go.pachyderm.com/pachyderm/src/pps"
+import pfs "github.com/pachyderm/pachyderm/src/pfs"
+import pachyderm_pps "github.com/pachyderm/pachyderm/src/pps"
 
 import (
 	context "golang.org/x/net/context"

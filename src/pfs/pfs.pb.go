@@ -62,7 +62,7 @@ import math "math"
 import google_protobuf1 "go.pedge.io/google-protobuf"
 import google_protobuf2 "go.pedge.io/google-protobuf"
 import google_protobuf3 "go.pedge.io/google-protobuf"
-import shard "go.pachyderm.com/pachyderm/src/pkg/shard"
+import shard "github.com/pachyderm/pachyderm/src/pkg/shard"
 
 import (
 	context "golang.org/x/net/context"

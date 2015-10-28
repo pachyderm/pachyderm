@@ -9,8 +9,8 @@ import (
 
 	"golang.org/x/net/context"
 
-	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pps"
 	"go.pedge.io/protolog"
 )
 

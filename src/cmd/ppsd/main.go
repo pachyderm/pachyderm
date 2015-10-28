@@ -12,14 +12,14 @@ import (
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
 
-	"go.pachyderm.com/pachyderm"
-	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pkg/container"
-	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/jobserver"
-	"go.pachyderm.com/pachyderm/src/pps/persist"
-	persistserver "go.pachyderm.com/pachyderm/src/pps/persist/server"
-	"go.pachyderm.com/pachyderm/src/pps/pipelineserver"
+	"github.com/pachyderm/pachyderm"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pkg/container"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/jobserver"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
+	persistserver "github.com/pachyderm/pachyderm/src/pps/persist/server"
+	"github.com/pachyderm/pachyderm/src/pps/pipelineserver"
 	"google.golang.org/grpc"
 )
 

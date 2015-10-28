@@ -1,9 +1,9 @@
-package server // import "go.pachyderm.com/pachyderm/src/pps/persist/server"
+package server
 
 import (
 	"errors"
 
-	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
 
 var (
