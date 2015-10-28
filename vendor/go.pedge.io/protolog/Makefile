@@ -15,7 +15,7 @@
 	clean \
 	proto
 
-all: proto test
+all: test
 
 deps:
 	go get -d -v ./...
@@ -63,9 +63,9 @@ bench: testdeps proto
 clean:
 	go clean -i ./...
 
-proto: install
+proto:
 	go get -v go.pedge.io/tools/protoc-all
-	STRIP_PACKAGE_COMMENTS=1 protoc-all go.pedge.io/dockervolume
+	STRIP_PACKAGE_COMMENTS=1 protoc-all go.pedge.io/protolog
 	rm -f protolog.pb.log.go.tmp
-	cat protolog.pb.log.go | grep -v import | sed "s/protolog.Register/Register/" | sed "s/protolog.Message/Message/" > protolog.pb.log.go.tmp
+	cat protolog.pb.log.go | grep -v import | sed "s/protolog.Register/Register/g" | sed "s/protolog.Message/Message/g" > protolog.pb.log.go.tmp
 	mv protolog.pb.log.go.tmp protolog.pb.log.go

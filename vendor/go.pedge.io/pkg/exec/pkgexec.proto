@@ -1,7 +1,10 @@
 syntax = "proto3";
 
+import "go.pedge.io/protolog/protolog.proto";
+
 package pkgexec;
 
 message RunningCommand {
+  option (protolog.event) = true;
   string args = 1;
 }
