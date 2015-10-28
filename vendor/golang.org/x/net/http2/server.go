@@ -65,6 +65,7 @@ const (
 var (
 	errClientDisconnected = errors.New("client disconnected")
 	errClosedBody         = errors.New("body closed by handler")
+	errHandlerComplete    = errors.New("http2: request body closed due to handler exiting")
 	errStreamClosed       = errors.New("http2: stream closed")
 )
 
@@ -872,7 +873,7 @@ func (sc *serverConn) wroteFrame(res frameWriteResult) {
 			errCancel := StreamError{st.id, ErrCodeCancel}
 			sc.resetStream(errCancel)
 		case stateHalfClosedRemote:
-			sc.closeStream(st, nil)
+			sc.closeStream(st, errHandlerComplete)
 		}
 	}
 
@@ -1142,7 +1143,7 @@ func (sc *serverConn) closeStream(st *stream, err error) {
 	}
 	delete(sc.streams, st.id)
 	if p := st.body; p != nil {
-		p.Close(err)
+		p.CloseWithError(err)
 	}
 	st.cw.Close() // signals Handler's CloseNotifier, unblocks writes, etc
 	sc.writeSched.forgetStream(st.id)
@@ -1246,7 +1247,7 @@ func (sc *serverConn) processData(f *DataFrame) error {
 
 	// Sender sending more than they'd declared?
 	if st.declBodyBytes != -1 && st.bodyBytes+int64(len(data)) > st.declBodyBytes {
-		st.body.Close(fmt.Errorf("sender tried to send more than declared Content-Length of %d bytes", st.declBodyBytes))
+		st.body.CloseWithError(fmt.Errorf("sender tried to send more than declared Content-Length of %d bytes", st.declBodyBytes))
 		return StreamError{id, ErrCodeStreamClosed}
 	}
 	if len(data) > 0 {
@@ -1266,10 +1267,10 @@ func (sc *serverConn) processData(f *DataFrame) error {
 	}
 	if f.StreamEnded() {
 		if st.declBodyBytes != -1 && st.declBodyBytes != st.bodyBytes {
-			st.body.Close(fmt.Errorf("request declared a Content-Length of %d but only wrote %d bytes",
+			st.body.CloseWithError(fmt.Errorf("request declared a Content-Length of %d but only wrote %d bytes",
 				st.declBodyBytes, st.bodyBytes))
 		} else {
-			st.body.Close(io.EOF)
+			st.body.CloseWithError(io.EOF)
 		}
 		st.state = stateHalfClosedRemote
 	}
@@ -1493,9 +1494,8 @@ func (sc *serverConn) newWriterAndRequest() (*responseWriter, *http.Request, err
 	}
 	if bodyOpen {
 		body.pipe = &pipe{
-			b: buffer{buf: make([]byte, initialWindowSize)}, // TODO: share/remove XXX
+			b: &fixedBuffer{buf: make([]byte, initialWindowSize)}, // TODO: share/remove XXX
 		}
-		body.pipe.c.L = &body.pipe.m
 
 		if vv, ok := rp.header["Content-Length"]; ok {
 			req.ContentLength, _ = strconv.ParseInt(vv[0], 10, 64)
@@ -1588,7 +1588,10 @@ type bodyReadMsg struct {
 // and schedules flow control tokens to be sent.
 func (sc *serverConn) noteBodyReadFromHandler(st *stream, n int) {
 	sc.serveG.checkNotOn() // NOT on
-	sc.bodyReadCh <- bodyReadMsg{st, n}
+	select {
+	case sc.bodyReadCh <- bodyReadMsg{st, n}:
+	case <-sc.doneServing:
+	}
 }
 
 func (sc *serverConn) noteBodyRead(st *stream, n int) {
@@ -1655,7 +1658,7 @@ type requestBody struct {
 
 func (b *requestBody) Close() error {
 	if b.pipe != nil {
-		b.pipe.Close(errClosedBody)
+		b.pipe.CloseWithError(errClosedBody)
 	}
 	b.closed = true
 	return nil

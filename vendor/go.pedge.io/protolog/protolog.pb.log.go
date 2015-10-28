@@ -6,11 +6,9 @@ package protolog
 
 
 func init() {
-	Register("protolog.Fields", func() Message { return &Fields{} })
-	Register("protolog.Event", func() Message { return &Event{} })
-	Register("protolog.WriterOutput", func() Message { return &WriterOutput{} })
-	Register("protolog.Entry", func() Message { return &Entry{} })
-	Register("protolog.Entry.Message", func() Message { return &Entry_Message{} })
+	Register("protolog.Fields", MessageType_MESSAGE_TYPE_CONTEXT, func() Message { return &Fields{} })
+	Register("protolog.Event", MessageType_MESSAGE_TYPE_EVENT, func() Message { return &Event{} })
+	Register("protolog.WriterOutput", MessageType_MESSAGE_TYPE_EVENT, func() Message { return &WriterOutput{} })
 }
 
 func (m *Fields) ProtologName() string {
@@ -21,10 +19,4 @@ func (m *Event) ProtologName() string {
 }
 func (m *WriterOutput) ProtologName() string {
 	return "protolog.WriterOutput"
-}
-func (m *Entry) ProtologName() string {
-	return "protolog.Entry"
-}
-func (m *Entry_Message) ProtologName() string {
-	return "protolog.Entry.Message"
 }
