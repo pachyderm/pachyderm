@@ -13,11 +13,11 @@ import (
 	"go.pedge.io/protolog/logrus"
 
 	"github.com/spf13/cobra"
-	"go.pachyderm.com/pachyderm"
-	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pfs/fuse"
-	"go.pachyderm.com/pachyderm/src/pfs/pfsutil"
-	"go.pachyderm.com/pachyderm/src/pfs/pretty"
+	"github.com/pachyderm/pachyderm"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/fuse"
+	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
+	"github.com/pachyderm/pachyderm/src/pfs/pretty"
 	"google.golang.org/grpc"
 )
 

@@ -1,4 +1,4 @@
-package testing // import "go.pachyderm.com/pachyderm/src/pps/persist/server/testing"
+package testing
 
 import (
 	"errors"
@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"go.pachyderm.com/pachyderm/src/pkg/require"
-	"go.pachyderm.com/pachyderm/src/pps/persist"
-	"go.pachyderm.com/pachyderm/src/pps/persist/server"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/pps/persist/server"
 
 	"github.com/satori/go.uuid"
 )

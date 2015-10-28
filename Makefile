@@ -12,7 +12,7 @@ endif
 all: build
 
 version:
-	@echo 'package main; import "fmt"; import "go.pachyderm.com/pachyderm"; func main() { fmt.Println(pachyderm.Version.VersionString()) }' > /tmp/pachyderm_version.go
+	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm"; func main() { fmt.Println(pachyderm.Version.VersionString()) }' > /tmp/pachyderm_version.go
 	@go run /tmp/pachyderm_version.go
 
 deps:
@@ -101,7 +101,7 @@ launch: docker-clean-launch docker-build-pfs-roler docker-build-pfsd docker-buil
 
 proto:
 	go get -u -v go.pedge.io/protolog/cmd/protoc-gen-protolog go.pedge.io/tools/protoc-all
-	PROTOC_INCLUDE_PATH=src protoc-all go.pachyderm.com/pachyderm
+	PROTOC_INCLUDE_PATH=src protoc-all github.com/pachyderm/pachyderm
 
 pretest:
 	go get -v github.com/kisielk/errcheck
