@@ -10,8 +10,8 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pfs/pfsutil"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"golang.org/x/net/context"
 )
 

@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/satori/go.uuid"
-	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pkg/container"
-	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pkg/container"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 )

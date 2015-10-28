@@ -1,8 +1,8 @@
-package jobserverrun // import "go.pachyderm.com/pachyderm/src/pps/jobserver/run"
+package jobserverrun
 
 import (
-	"go.pachyderm.com/pachyderm/src/pkg/container"
-	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/pkg/container"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
 
 type JobRunner interface {

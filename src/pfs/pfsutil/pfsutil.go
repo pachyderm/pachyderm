@@ -2,7 +2,7 @@
 Package pfsutil provides utility functions that wrap a pfs.APIClient
 to make the calling code slightly cleaner.
 */
-package pfsutil //import "go.pachyderm.com/pachyderm/src/pfs/pfsutil"
+package pfsutil
 
 import (
 	"io"
@@ -10,7 +10,7 @@ import (
 
 	"go.pedge.io/proto/stream"
 
-	"go.pachyderm.com/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"golang.org/x/net/context"
 )
 

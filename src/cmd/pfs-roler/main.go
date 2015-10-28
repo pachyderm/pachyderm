@@ -8,8 +8,8 @@ import (
 	"go.pedge.io/env"
 	"go.pedge.io/protolog/logrus"
 
-	"go.pachyderm.com/pachyderm/src/pkg/discovery"
-	"go.pachyderm.com/pachyderm/src/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/pkg/shard"
 )
 
 var (

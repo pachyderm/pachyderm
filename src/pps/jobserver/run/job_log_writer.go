@@ -7,8 +7,8 @@ import (
 
 	"go.pedge.io/pkg/time"
 
-	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
 
 type jobLogWriter struct {

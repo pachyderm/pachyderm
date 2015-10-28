@@ -6,7 +6,7 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 
-	"go.pachyderm.com/pachyderm/src/pkg/require"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
 )
 
 func TestCommandsSimple(t *testing.T) {

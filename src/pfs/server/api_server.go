@@ -13,9 +13,9 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/satori/go.uuid"
-	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pfs/route"
-	"go.pachyderm.com/pachyderm/src/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/route"
+	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
 	"go.pedge.io/proto/time"

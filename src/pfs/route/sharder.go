@@ -6,7 +6,7 @@ import (
 	"hash/adler32"
 	"path"
 
-	"go.pachyderm.com/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
 type sharder struct {

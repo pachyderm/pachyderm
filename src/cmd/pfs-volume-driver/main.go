@@ -11,7 +11,7 @@ import (
 	"go.pedge.io/protolog/logrus"
 
 	"github.com/satori/go.uuid"
-	"go.pachyderm.com/pachyderm/src/pfs/fuse"
+	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 )
 
 const (
