@@ -1,5 +1,5 @@
 FROM ubuntu:14.04
-MAINTAINER peter@pachyderm.io
+MAINTAINER jdoliner@pachyderm.io
 
 RUN \
   apt-get update -yq && \
