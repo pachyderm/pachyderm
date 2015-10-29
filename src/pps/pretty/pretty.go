@@ -37,10 +37,22 @@ func PrintJobInfo(w io.Writer, jobInfo *pps.JobInfo) {
 		fmt.Fprintf(w, "-\t")
 	}
 	if len(jobInfo.JobStatus) > 0 {
-		fmt.Fprintf(w, "%s\t", jobInfo.JobStatus[0].Message)
+		fmt.Fprintf(w, "%s\t\n", jobInfo.JobStatus[0].Message)
 	} else {
-		fmt.Fprintf(w, "-\t")
+		fmt.Fprintf(w, "-\t\n")
 	}
+}
+
+func PrintPipelineHeader(w io.Writer) {
+	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT\tIMAGE\tCOMMAND\t\n")
+}
+
+func PrintPipelineInfo(w io.Writer, pipelineInfo *pps.PipelineInfo) {
+	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
+	fmt.Fprintf(w, "%s\t", pipelineInfo.Input.Name)
+	fmt.Fprintf(w, "%s\t", pipelineInfo.Output.Name)
+	fmt.Fprintf(w, "%s\t", pipelineInfo.Transform.Image)
+	fmt.Fprintf(w, "%s\t\n", strings.Join(pipelineInfo.Transform.Cmd, " "))
 }
 
 type uint64Slice []uint64

@@ -179,7 +179,7 @@ You can find out the name of the commit with inspect-job.`,
 	}
 
 	createPipeline := &cobra.Command{
-		Use:   "create-pipeline pipeline-name input-repo output-repo command [args]",
+		Use:   "create-pipeline pipeline-name input-repo output-repo -i image command [args]",
 		Short: "Create a new pipeline.",
 		Long:  "Create a new pipeline.",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -190,8 +190,8 @@ You can find out the name of the commit with inspect-job.`,
 						Name: args[0],
 					},
 					Transform: &pps.Transform{
-						Image: args[3],
-						Cmd:   args[4:],
+						Image: image,
+						Cmd:   args[3:],
 					},
 					Input: &pfs.Repo{
 						Name: args[1],
@@ -205,6 +205,7 @@ You can find out the name of the commit with inspect-job.`,
 			}
 		},
 	}
+	createPipeline.Flags().StringVarP(&image, "image", "i", "ubuntu", "The image to run the pipeline's jobs in.")
 
 	rootCmd.AddCommand(createJob)
 	rootCmd.AddCommand(inspectJob)
