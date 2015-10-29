@@ -19,4 +19,4 @@ go build \
   -o _tmp/${BINARY} \
   src/cmd/${BINARY}/main.go
 docker-compose build ${IMAGE}
-docker tag -f pachyderm_${IMAGE}:latest pachyderm/${IMAGE}:latest
+#docker tag -f pachyderm_${IMAGE}:latest pachyderm/${IMAGE}:latest

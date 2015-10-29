@@ -53,6 +53,8 @@ Note that this CLI is experimental and does not even check for common errors.
 The environment variable PPS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:651.`,
 	}
 
+	var image string
+	var outParentCommitId string
 	createJob := &cobra.Command{
 		Use:   "create-job in-repo-name in-commit-id out-repo-name -i image -p out-parent-commit-id command [args]",
 		Short: "Create a new job. Returns the id of the created job.",
@@ -63,14 +65,24 @@ You can find out the name of the commit with inspect-job.`,
 			job, err := apiClient.CreateJob(
 				context.Background(),
 				&pps.CreateJobRequest{
-					// Types that are valid to be assigned to Spec:
-					//	*CreateJobRequest_Transform
-					//	*CreateJobRequest_Pipeline
 					Spec: &pps.CreateJobRequest_Transform{
-						Transform: &pps.Transform{},
+						Transform: &pps.Transform{
+							Image: image,
+							Cmd:   args[3:],
+						},
 					},
-					Input:        &pfs.Commit{},
-					OutputParent: &pfs.Commit{},
+					Input: &pfs.Commit{
+						Repo: &pfs.Repo{
+							Name: args[0],
+						},
+						Id: args[1],
+					},
+					OutputParent: &pfs.Commit{
+						Repo: &pfs.Repo{
+							Name: args[2],
+						},
+						Id: outParentCommitId,
+					},
 				})
 			if err != nil {
 				errorAndExit("Error on CreateJob: %s", err.Error())
@@ -78,6 +90,8 @@ You can find out the name of the commit with inspect-job.`,
 			fmt.Println(job.Id)
 		},
 	}
+	createJob.Flags().StringVarP(&image, "image", "i", "ubuntu", "The image to run the job in.")
+	createJob.Flags().StringVarP(&outParentCommitId, "parent", "p", "", "The parent to use for the output commit.")
 
 	rootCmd.AddCommand(createJob)
 	return rootCmd.Execute()
