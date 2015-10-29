@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pps"
 
 	"go.pedge.io/env"
+	"go.pedge.io/pkg/cobra"
 
 	"google.golang.org/grpc"
 
@@ -85,7 +87,7 @@ You can find out the name of the commit with inspect-job.`,
 					},
 				})
 			if err != nil {
-				errorAndExit("Error on CreateJob: %s", err.Error())
+				errorAndExit("Error from CreateJob: %s", err.Error())
 			}
 			fmt.Println(job.Id)
 		},
@@ -93,7 +95,29 @@ You can find out the name of the commit with inspect-job.`,
 	createJob.Flags().StringVarP(&image, "image", "i", "ubuntu", "The image to run the job in.")
 	createJob.Flags().StringVarP(&outParentCommitId, "parent", "p", "", "The parent to use for the output commit.")
 
+	inspectJob := &cobra.Command{
+		Use:   "inspect-job job-id",
+		Short: "Return info about a job.",
+		Long:  "Return info about a job.",
+		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			jobInfo, err := apiClient.InspectJob(
+				context.Background(),
+				&pps.InspectJobRequest{
+					Job: &pps.Job{
+						Id: args[0],
+					},
+				},
+			)
+			if err != nil {
+				errorAndExit("Error from InspectJob: %s", err.Error())
+			}
+			log.Print(jobInfo)
+			return nil
+		}),
+	}
+
 	rootCmd.AddCommand(createJob)
+	rootCmd.AddCommand(inspectJob)
 	return rootCmd.Execute()
 }
 
