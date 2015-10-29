@@ -20,6 +20,7 @@ enum OutputStream {
   OUTPUT_STREAM_NONE = 0;
   OUTPUT_STREAM_STDOUT = 1;
   OUTPUT_STREAM_STDERR = 2;
+  OUTPUT_STREAM_ALL = 3;
 }
 
 message Transform {

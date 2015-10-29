@@ -78,17 +78,20 @@ const (
 	OutputStream_OUTPUT_STREAM_NONE   OutputStream = 0
 	OutputStream_OUTPUT_STREAM_STDOUT OutputStream = 1
 	OutputStream_OUTPUT_STREAM_STDERR OutputStream = 2
+	OutputStream_OUTPUT_STREAM_ALL    OutputStream = 3
 )
 
 var OutputStream_name = map[int32]string{
 	0: "OUTPUT_STREAM_NONE",
 	1: "OUTPUT_STREAM_STDOUT",
 	2: "OUTPUT_STREAM_STDERR",
+	3: "OUTPUT_STREAM_ALL",
 }
 var OutputStream_value = map[string]int32{
 	"OUTPUT_STREAM_NONE":   0,
 	"OUTPUT_STREAM_STDOUT": 1,
 	"OUTPUT_STREAM_STDERR": 2,
+	"OUTPUT_STREAM_ALL":    3,
 }
 
 func (x OutputStream) String() string {
