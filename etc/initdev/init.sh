@@ -4,7 +4,7 @@
 # ${1}: user to install for
 
 GO_VERSION=1.5.1
-DOCKER_COMPOSE_VERSION=1.5.0rc1
+DOCKER_COMPOSE_VERSION=3.5.0rc3
 
 apt-get update -yq && \
 apt-get upgrade -yq && \
