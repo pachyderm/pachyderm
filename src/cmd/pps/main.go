@@ -2,14 +2,15 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
+	"text/tabwriter"
 
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/pretty"
 
 	"go.pedge.io/env"
 	"go.pedge.io/pkg/cobra"
@@ -111,7 +112,10 @@ You can find out the name of the commit with inspect-job.`,
 			if err != nil {
 				errorAndExit("Error from InspectJob: %s", err.Error())
 			}
-			log.Print(jobInfo)
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintJobHeader(writer)
+			pretty.PrintJobInfo(writer, jobInfo)
+			return writer.Flush()
 			return nil
 		}),
 	}
