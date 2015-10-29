@@ -48,7 +48,8 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	apiClient := pps.NewJobAPIClient(clientConn)
+	jobAPIClient := pps.NewJobAPIClient(clientConn)
+	pipelineAPIClient := pps.NewPipelineAPIClient(clientConn)
 	rootCmd := &cobra.Command{
 		Use: "pps",
 		Long: `Access the PPS API.
@@ -66,7 +67,7 @@ The environment variable PPS_ADDRESS controls what server the CLI connects to, t
 out-repo-name as output. A commit will be created for the output.
 You can find out the name of the commit with inspect-job.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			job, err := apiClient.CreateJob(
+			job, err := jobAPIClient.CreateJob(
 				context.Background(),
 				&pps.CreateJobRequest{
 					Spec: &pps.CreateJobRequest_Transform{
@@ -102,7 +103,7 @@ You can find out the name of the commit with inspect-job.`,
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			jobInfo, err := apiClient.InspectJob(
+			jobInfo, err := jobAPIClient.InspectJob(
 				context.Background(),
 				&pps.InspectJobRequest{
 					Job: &pps.Job{
@@ -133,7 +134,7 @@ You can find out the name of the commit with inspect-job.`,
 					Name: pipelineName,
 				}
 			}
-			jobInfos, err := apiClient.ListJob(
+			jobInfos, err := jobAPIClient.ListJob(
 				context.Background(),
 				&pps.ListJobRequest{
 					Pipeline: pipeline,
@@ -158,7 +159,7 @@ You can find out the name of the commit with inspect-job.`,
 		Short: "Return logs from a job.",
 		Long:  "Return logs from a job.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			logsClient, err := apiClient.GetJobLogs(
+			logsClient, err := jobAPIClient.GetJobLogs(
 				context.Background(),
 				&pps.GetJobLogsRequest{
 					Job: &pps.Job{
@@ -177,10 +178,39 @@ You can find out the name of the commit with inspect-job.`,
 		}),
 	}
 
+	createPipeline := &cobra.Command{
+		Use:   "create-pipeline pipeline-name input-repo output-repo command [args]",
+		Short: "Create a new pipeline.",
+		Long:  "Create a new pipeline.",
+		Run: func(cmd *cobra.Command, args []string) {
+			if _, err := pipelineAPIClient.CreatePipeline(
+				context.Background(),
+				&pps.CreatePipelineRequest{
+					Pipeline: &pps.Pipeline{
+						Name: args[0],
+					},
+					Transform: &pps.Transform{
+						Image: args[3],
+						Cmd:   args[4:],
+					},
+					Input: &pfs.Repo{
+						Name: args[1],
+					},
+					Output: &pfs.Repo{
+						Name: args[2],
+					},
+				},
+			); err != nil {
+				errorAndExit("Error from CreatePipeline: %s", err.Error())
+			}
+		},
+	}
+
 	rootCmd.AddCommand(createJob)
 	rootCmd.AddCommand(inspectJob)
 	rootCmd.AddCommand(listJob)
 	rootCmd.AddCommand(getJobLogs)
+	rootCmd.AddCommand(createPipeline)
 	return rootCmd.Execute()
 }
 
