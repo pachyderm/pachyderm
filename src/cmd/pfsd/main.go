@@ -12,7 +12,6 @@ import (
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
 	"go.pedge.io/protolog"
-	"go.pedge.io/protolog/logrus"
 
 	"github.com/gengo/grpc-gateway/runtime"
 	"github.com/pachyderm/pachyderm"
@@ -56,7 +55,6 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	logrus.Register()
 	discoveryClient, err := getEtcdClient()
 	if err != nil {
 		return err

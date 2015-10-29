@@ -545,15 +545,18 @@ func (cs *clientStream) writeRequestBody(body io.Reader, gotResHeaders <-chan st
 	done := false
 	for !done {
 		buf := cc.frameScratchBuffer()
-		n, err := io.ReadFull(body, buf)
-		if err == io.ErrUnexpectedEOF {
-			done = true
-		} else if err != nil {
+
+		taken, err := cs.awaitFlowControl(int32(len(buf)))
+		if err != nil {
 			return err
 		}
 
-		// Await for n flow control tokens.
-		if err := cs.awaitFlowControl(int32(n)); err != nil {
+		n, err := io.ReadFull(body, buf[:taken])
+		if err == io.ErrUnexpectedEOF {
+			done = true
+		} else if err == io.EOF {
+			break
+		} else if err != nil {
 			return err
 		}
 
@@ -567,8 +570,8 @@ func (cs *clientStream) writeRequestBody(body io.Reader, gotResHeaders <-chan st
 			err = cc.fr.WriteData(cs.ID, done, buf[:n])
 		}
 		cc.wmu.Unlock()
-
 		cc.putFrameScratchBuffer(buf)
+
 		if err != nil {
 			return err
 		}
@@ -588,20 +591,27 @@ func (cs *clientStream) writeRequestBody(body io.Reader, gotResHeaders <-chan st
 	return err
 }
 
-func (cs *clientStream) awaitFlowControl(n int32) error {
+// awaitFlowControl waits for [1,max] flow control tokens from the server. It
+// returns either the non-zero number of tokens taken or an error if the stream
+// is dead.
+func (cs *clientStream) awaitFlowControl(max int32) (taken int32, err error) {
 	cc := cs.cc
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 	for {
 		if cc.closed {
-			return errClientConnClosed
+			return 0, errClientConnClosed
 		}
 		if err := cs.checkReset(); err != nil {
-			return err
+			return 0, err
 		}
-		if cs.flow.available() >= n {
-			cs.flow.take(n)
-			return nil
+		if a := cs.flow.available(); a > 0 {
+			take := a
+			if take > max {
+				take = max
+			}
+			cs.flow.take(take)
+			return take, nil
 		}
 		cc.cond.Wait()
 	}
@@ -617,14 +627,14 @@ func (cc *clientConn) encodeHeaders(req *http.Request) []byte {
 		host = req.URL.Host
 	}
 
-	path := req.URL.Path
-	if path == "" {
-		path = "/"
-	}
-
+	// 8.1.2.3 Request Pseudo-Header Fields
+	// The :path pseudo-header field includes the path and query parts of the
+	// target URI (the path-absolute production and optionally a '?' character
+	// followed by the query production (see Sections 3.3 and 3.4 of
+	// [RFC3986]).
 	cc.writeHeader(":authority", host) // probably not right for all sites
 	cc.writeHeader(":method", req.Method)
-	cc.writeHeader(":path", path)
+	cc.writeHeader(":path", req.URL.RequestURI())
 	cc.writeHeader(":scheme", "https")
 
 	for k, vv := range req.Header {
