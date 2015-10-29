@@ -14,6 +14,7 @@ import (
 
 	"go.pedge.io/env"
 	"go.pedge.io/pkg/cobra"
+	"go.pedge.io/proto/stream"
 
 	"google.golang.org/grpc"
 
@@ -120,8 +121,66 @@ You can find out the name of the commit with inspect-job.`,
 		}),
 	}
 
+	var pipelineName string
+	listJob := &cobra.Command{
+		Use:   "list-job -p pipeline-name",
+		Short: "Return info all jobs.",
+		Long:  "Return info all jobs.",
+		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			var pipeline *pps.Pipeline
+			if pipelineName != "" {
+				pipeline = &pps.Pipeline{
+					Name: pipelineName,
+				}
+			}
+			jobInfos, err := apiClient.ListJob(
+				context.Background(),
+				&pps.ListJobRequest{
+					Pipeline: pipeline,
+				},
+			)
+			if err != nil {
+				errorAndExit("Error from InspectJob: %s", err.Error())
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintJobHeader(writer)
+			for _, jobInfo := range jobInfos.JobInfo {
+				pretty.PrintJobInfo(writer, jobInfo)
+			}
+			return writer.Flush()
+			return nil
+		}),
+	}
+	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
+
+	getJobLogs := &cobra.Command{
+		Use:   "logs job-id",
+		Short: "Return logs from a job.",
+		Long:  "Return logs from a job.",
+		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			logsClient, err := apiClient.GetJobLogs(
+				context.Background(),
+				&pps.GetJobLogsRequest{
+					Job: &pps.Job{
+						Id: args[0],
+					},
+					OutputStream: pps.OutputStream_OUTPUT_STREAM_ALL,
+				},
+			)
+			if err != nil {
+				errorAndExit("Error from InspectJob: %s", err.Error())
+			}
+			if err := protostream.WriteFromStreamingBytesClient(logsClient, os.Stdout); err != nil {
+				return err
+			}
+			return nil
+		}),
+	}
+
 	rootCmd.AddCommand(createJob)
 	rootCmd.AddCommand(inspectJob)
+	rootCmd.AddCommand(listJob)
+	rootCmd.AddCommand(getJobLogs)
 	return rootCmd.Execute()
 }
 

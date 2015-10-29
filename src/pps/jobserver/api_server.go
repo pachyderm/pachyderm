@@ -103,7 +103,7 @@ func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pp
 		return err
 	}
 	for _, persistJobLog := range persistJobLogs.JobLog {
-		if persistJobLog.OutputStream == request.OutputStream {
+		if request.OutputStream == pps.OutputStream_OUTPUT_STREAM_ALL || persistJobLog.OutputStream == request.OutputStream {
 			if err := responseServer.Send(&google_protobuf.BytesValue{Value: persistJobLog.Value}); err != nil {
 				return err
 			}
