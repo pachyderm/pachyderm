@@ -82,3 +82,13 @@ ppsd:
   links:
     - pfsd
     - rethink
+pfs:
+  build: .
+  dockerfile: Dockerfile.pfs
+  links:
+    - pfsd
+pps:
+  build: .
+  dockerfile: Dockerfile.pps
+  links:
+    - ppsd
