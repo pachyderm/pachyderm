@@ -118,15 +118,14 @@ You can find out the name of the commit with inspect-job.`,
 			pretty.PrintJobHeader(writer)
 			pretty.PrintJobInfo(writer, jobInfo)
 			return writer.Flush()
-			return nil
 		}),
 	}
 
 	var pipelineName string
 	listJob := &cobra.Command{
 		Use:   "list-job -p pipeline-name",
-		Short: "Return info all jobs.",
-		Long:  "Return info all jobs.",
+		Short: "Return info about all jobs.",
+		Long:  "Return info about all jobs.",
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
 			var pipeline *pps.Pipeline
 			if pipelineName != "" {
@@ -149,7 +148,6 @@ You can find out the name of the commit with inspect-job.`,
 				pretty.PrintJobInfo(writer, jobInfo)
 			}
 			return writer.Flush()
-			return nil
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
@@ -207,11 +205,77 @@ You can find out the name of the commit with inspect-job.`,
 	}
 	createPipeline.Flags().StringVarP(&image, "image", "i", "ubuntu", "The image to run the pipeline's jobs in.")
 
+	inspectPipeline := &cobra.Command{
+		Use:   "inspect-pipeline pipeline-name",
+		Short: "Return info about a pipeline.",
+		Long:  "Return info about a pipeline.",
+		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			pipelineInfo, err := pipelineAPIClient.InspectPipeline(
+				context.Background(),
+				&pps.InspectPipelineRequest{
+					Pipeline: &pps.Pipeline{
+						Name: args[0],
+					},
+				},
+			)
+			if err != nil {
+				errorAndExit("Error from InspectPipeline: %s", err.Error())
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintPipelineHeader(writer)
+			pretty.PrintPipelineInfo(writer, pipelineInfo)
+			return writer.Flush()
+		}),
+	}
+
+	listPipeline := &cobra.Command{
+		Use:   "list-pipeline",
+		Short: "Return info about all pipelines.",
+		Long:  "Return info about all pipelines.",
+		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			pipelineInfos, err := pipelineAPIClient.ListPipeline(
+				context.Background(),
+				&pps.ListPipelineRequest{},
+			)
+			if err != nil {
+				errorAndExit("Error from ListPipeline: %s", err.Error())
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintPipelineHeader(writer)
+			for _, pipelineInfo := range pipelineInfos.PipelineInfo {
+				pretty.PrintPipelineInfo(writer, pipelineInfo)
+			}
+			return writer.Flush()
+		}),
+	}
+
+	deletePipeline := &cobra.Command{
+		Use:   "delete-pipeline pipeline-name",
+		Short: "Delete a pipeline.",
+		Long:  "Delete a pipeline.",
+		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			if _, err := pipelineAPIClient.DeletePipeline(
+				context.Background(),
+				&pps.DeletePipelineRequest{
+					Pipeline: &pps.Pipeline{
+						Name: args[0],
+					},
+				},
+			); err != nil {
+				errorAndExit("Error from DeletePipeline: %s", err.Error())
+			}
+			return nil
+		}),
+	}
+
 	rootCmd.AddCommand(createJob)
 	rootCmd.AddCommand(inspectJob)
 	rootCmd.AddCommand(listJob)
 	rootCmd.AddCommand(getJobLogs)
 	rootCmd.AddCommand(createPipeline)
+	rootCmd.AddCommand(inspectPipeline)
+	rootCmd.AddCommand(listPipeline)
+	rootCmd.AddCommand(deletePipeline)
 	return rootCmd.Execute()
 }
 
