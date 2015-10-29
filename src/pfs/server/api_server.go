@@ -12,10 +12,10 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/satori/go.uuid"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
+	"github.com/satori/go.uuid"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
 	"go.pedge.io/proto/time"
@@ -62,7 +62,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 		Parent: nil,
 		Commit: &pfs.Commit{
 			Repo: request.Repo,
-			Id:   InitialCommitID,
+			Id:   pfs.InitialCommitID,
 		},
 	}); err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	if _, err = a.FinishCommit(ctx, &pfs.FinishCommitRequest{
 		Commit: &pfs.Commit{
 			Repo: request.Repo,
-			Id:   InitialCommitID,
+			Id:   pfs.InitialCommitID,
 		},
 	}); err != nil {
 		return nil, err
