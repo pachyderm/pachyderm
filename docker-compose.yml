@@ -85,6 +85,7 @@ ppsd:
 pfs:
   build: .
   dockerfile: Dockerfile.pfs
+  privileged: true
   links:
     - pfsd
 pps:
