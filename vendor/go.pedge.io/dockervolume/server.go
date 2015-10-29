@@ -105,7 +105,7 @@ func (s *server) cleanup() error {
 	if s.opts.CleanupOnShutdown {
 		_, err := s.apiServer.Cleanup(
 			context.Background(),
-			&google_protobuf.Empty{},
+			google_protobuf.EmptyInstance,
 		)
 		return err
 	}
