@@ -29,6 +29,7 @@ import (
 	"crypto/md5"
 	"crypto/rand"
 	"crypto/sha1"
+	"database/sql/driver"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -272,6 +273,11 @@ func (u *UUID) UnmarshalBinary(data []byte) (err error) {
 	copy(u[:], data)
 
 	return
+}
+
+// Value implements the driver.Valuer interface.
+func (u UUID) Value() (driver.Value, error) {
+	return u.String(), nil
 }
 
 // Scan implements the sql.Scanner interface.

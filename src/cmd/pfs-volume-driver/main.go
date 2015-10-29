@@ -8,6 +8,7 @@ import (
 
 	"go.pedge.io/dockervolume"
 	"go.pedge.io/env"
+	"go.pedge.io/pkg/map"
 
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/satori/go.uuid"
@@ -82,15 +83,15 @@ func newVolumeDriver(
 	}
 }
 
-func (v *volumeDriver) Create(_ string, _ dockervolume.Opts) error {
+func (v *volumeDriver) Create(_ string, _ pkgmap.StringStringMap) error {
 	return nil
 }
 
-func (v *volumeDriver) Remove(_ string, _ dockervolume.Opts, _ string) error {
+func (v *volumeDriver) Remove(_ string, _ pkgmap.StringStringMap, _ string) error {
 	return nil
 }
 
-func (v *volumeDriver) Mount(name string, opts dockervolume.Opts) (string, error) {
+func (v *volumeDriver) Mount(name string, opts pkgmap.StringStringMap) (string, error) {
 	mount, err := getMount(opts, v.baseMountpoint)
 	if err != nil {
 		return "", err
@@ -114,7 +115,7 @@ func (v *volumeDriver) Mount(name string, opts dockervolume.Opts) (string, error
 	return mount.mountpoint, nil
 }
 
-func (v *volumeDriver) Unmount(_ string, _ dockervolume.Opts, mountpoint string) error {
+func (v *volumeDriver) Unmount(_ string, _ pkgmap.StringStringMap, mountpoint string) error {
 	mounter, err := v.mounterProvider.Get()
 	if err != nil {
 		return err
@@ -133,7 +134,7 @@ type mount struct {
 	mountpoint string
 }
 
-func getMount(opts dockervolume.Opts, baseMountpoint string) (*mount, error) {
+func getMount(opts pkgmap.StringStringMap, baseMountpoint string) (*mount, error) {
 	repository, err := opts.GetRequiredString("repository")
 	if err != nil {
 		return nil, err
@@ -142,13 +143,19 @@ func getMount(opts dockervolume.Opts, baseMountpoint string) (*mount, error) {
 	if err != nil {
 		return nil, err
 	}
-	shard, err := opts.GetOptionalUInt64("shard", defaultShard)
+	shard, err := opts.GetUint64("shard")
 	if err != nil {
 		return nil, err
 	}
-	modulus, err := opts.GetOptionalUInt64("modulus", defaultModulus)
+	if shard == 0 {
+		shard = defaultShard
+	}
+	modulus, err := opts.GetUint64("modulus")
 	if err != nil {
 		return nil, err
+	}
+	if modulus == 0 {
+		modulus = defaultModulus
 	}
 	return &mount{
 		repository,
