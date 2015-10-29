@@ -114,6 +114,9 @@ You can find out the name of the commit with inspect-job.`,
 			if err != nil {
 				errorAndExit("Error from InspectJob: %s", err.Error())
 			}
+			if jobInfo == nil {
+				errorAndExit("Job %s not found.", args[0])
+			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintJobHeader(writer)
 			pretty.PrintJobInfo(writer, jobInfo)
@@ -220,6 +223,9 @@ You can find out the name of the commit with inspect-job.`,
 			)
 			if err != nil {
 				errorAndExit("Error from InspectPipeline: %s", err.Error())
+			}
+			if pipelineInfo == nil {
+				errorAndExit("Pipeline %s not found.", args[0])
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintPipelineHeader(writer)
