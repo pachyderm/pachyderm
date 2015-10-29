@@ -8,10 +8,9 @@ import (
 
 	"go.pedge.io/dockervolume"
 	"go.pedge.io/env"
-	"go.pedge.io/protolog/logrus"
 
-	"github.com/satori/go.uuid"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
+	"github.com/satori/go.uuid"
 )
 
 const (
@@ -39,7 +38,6 @@ type appEnv struct {
 }
 
 func main() {
-	logrus.Register()
 	env.Main(do, &appEnv{}, defaultEnv)
 }
 

@@ -10,14 +10,13 @@ import (
 	"go.pedge.io/env"
 	"go.pedge.io/pkg/cobra"
 	"go.pedge.io/proto/client"
-	"go.pedge.io/protolog/logrus"
 
-	"github.com/spf13/cobra"
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/pretty"
+	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 )
 
@@ -38,7 +37,6 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	logrus.Register()
 	address := appEnv.PachydermPfsd1Port
 	if address == "" {
 		address = appEnv.Address
