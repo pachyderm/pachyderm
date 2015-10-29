@@ -61,7 +61,7 @@ The environment variable PPS_ADDRESS controls what server the CLI connects to, t
 	var image string
 	var outParentCommitId string
 	createJob := &cobra.Command{
-		Use:   "create-job in-repo-name in-commit-id out-repo-name -i image -p out-parent-commit-id command [args]",
+		Use:   "create-job in-repo-name in-commit-id out-repo-name command [args]",
 		Short: "Create a new job. Returns the id of the created job.",
 		Long: `Create a new job. With repo-name/commit-id as input and
 out-repo-name as output. A commit will be created for the output.
@@ -177,7 +177,7 @@ You can find out the name of the commit with inspect-job.`,
 	}
 
 	createPipeline := &cobra.Command{
-		Use:   "create-pipeline pipeline-name input-repo output-repo -i image command [args]",
+		Use:   "create-pipeline pipeline-name input-repo output-repo command [args]",
 		Short: "Create a new pipeline.",
 		Long:  "Create a new pipeline.",
 		Run: func(cmd *cobra.Command, args []string) {
