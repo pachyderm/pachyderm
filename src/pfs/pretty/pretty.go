@@ -1,4 +1,4 @@
-package pretty //import "go.pachyderm.com/pachyderm/src/pfs/pretty"
+package pretty
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"go.pedge.io/proto/time"
 
 	"github.com/docker/docker/pkg/units"
-	"go.pachyderm.com/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
 func PrintRepoHeader(w io.Writer) {

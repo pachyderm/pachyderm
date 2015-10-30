@@ -33,6 +33,8 @@ pfs-mount:
   build: .
   dockerfile: Dockerfile.pfs-mount
   privileged: true
+  links:
+    - pfsd
 pfs-volume-driver:
   build: .
   dockerfile: Dockerfile.pfs-volume-driver
@@ -85,6 +87,7 @@ ppsd:
 pfs:
   build: .
   dockerfile: Dockerfile.pfs
+  privileged: true
   links:
     - pfsd
 pps:

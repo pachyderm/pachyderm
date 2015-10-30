@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+import "google/protobuf/duration.proto";
+import "go.pedge.io/protolog/protolog.proto";
+
+package protorpclog;
+
+message Call {
+  option (protolog.event) = true;
+  string service = 1;
+  string method = 2;
+  string request = 3;
+  string response = 4;
+  string error = 5;
+  google.protobuf.Duration duration = 6;
+}

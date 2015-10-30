@@ -12,7 +12,7 @@ endif
 all: build
 
 version:
-	@echo 'package main; import "fmt"; import "go.pachyderm.com/pachyderm"; func main() { fmt.Println(pachyderm.Version.VersionString()) }' > /tmp/pachyderm_version.go
+	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm"; func main() { fmt.Println(pachyderm.Version.VersionString()) }' > /tmp/pachyderm_version.go
 	@go run /tmp/pachyderm_version.go
 
 deps:
@@ -27,13 +27,17 @@ test-deps:
 update-test-deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/...
 
-vendor:
+vendor-update:
 	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/...
+
+vendor-without-update:
 	go get -u github.com/tools/godep
 	rm -rf Godeps
 	rm -rf vendor
 	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 godep save ./src/...
 	rm -rf Godeps
+
+vendor: vendor-update vendor-without-update
 
 build:
 	go build ./src/...
@@ -68,7 +72,7 @@ docker-build-ppsd: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh ppsd
 
 docker-build-pfs: docker-build-compile
-	docker-compose run compile sh etc/compile/compile.sh pfs 
+	docker-compose run compile sh etc/compile/compile.sh pfs
 
 docker-build-pps: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh pps
@@ -95,15 +99,12 @@ docker-push: docker-push-pfs-mount docker-push-pfs-roler docker-push-ppsd docker
 run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
 
-launch-pfsd: docker-clean-launch docker-build-pfs-roler docker-build-pfsd
-	docker-compose up -d --force-recreate --no-build pfsd
-
 launch: docker-clean-launch docker-build-pfs-roler docker-build-pfsd docker-build-ppsd
-	docker-compose up -d --force-recreate --no-build ppsd
+	docker-compose up -d --force-recreate --no-build ppsd pfsd pfs-mount
 
 proto:
-	go get -v go.pedge.io/tools/protoc-all
-	PROTOC_INCLUDE_PATH=src protoc-all go.pachyderm.com/pachyderm
+	go get -u -v go.pedge.io/protolog/cmd/protoc-gen-protolog go.pedge.io/tools/protoc-all
+	PROTOC_INCLUDE_PATH=src protoc-all github.com/pachyderm/pachyderm
 
 pretest:
 	go get -v github.com/kisielk/errcheck
@@ -141,8 +142,10 @@ docker-clean-launch: docker-clean-test
 	docker-compose kill ppsd
 	docker-compose rm -f ppsd
 
-test: pretest docker-clean-test docker-build-test
+go-test: docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test -test.short $(TESTFLAGS) $(TESTPKGS)"
+
+test: pretest go-test
 
 test-pfs-extra: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pfs/server"
@@ -168,6 +171,8 @@ clean: docker-clean-launch
 	update-deps \
 	test-deps \
 	update-test-deps \
+	vendor-update \
+	vendor-without-update \
 	vendor \
 	build \
 	install \
@@ -191,6 +196,7 @@ clean: docker-clean-launch
 	pretest \
 	docker-clean-test \
 	docker-clean-launch \
+	go-test \
 	test \
 	test-pfs-extra \
 	test-pps-extra \

@@ -1,24 +1,10 @@
-package server //import "go.pachyderm.com/pachyderm/src/pfs/server"
+package server
 
 import (
-	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pfs/drive"
-	"go.pachyderm.com/pachyderm/src/pfs/route"
-	"go.pachyderm.com/pachyderm/src/pkg/shard"
-	"go.pedge.io/google-protobuf"
-)
-
-const (
-	// InitialCommitID is the initial id before any commits are made in a repository.
-	InitialCommitID = "scratch"
-)
-
-var (
-	// ReservedCommitIDs are the commit ids used by the system.
-	ReservedCommitIDs = map[string]bool{
-		InitialCommitID: true,
-	}
-	emptyInstance = &google_protobuf.Empty{}
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs/route"
+	"github.com/pachyderm/pachyderm/src/pkg/shard"
 )
 
 type APIServer interface {

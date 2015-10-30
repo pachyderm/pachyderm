@@ -21,9 +21,13 @@ clean:
 	go clean ./...
 
 proto:
-	docker pull pedge/proto3grpc
-	docker run --volume $$(pwd):/compile pedge/proto3grpc bash /compile/compile.bash /usr/include /compile
-	for file in *.pb.go; do \
-		sudo chown $$(whoami) $$file; \
-		sudo chgrp $$(whoami) $$file; \
+	rm -rf /tmp/google-protobuf
+	git clone https://github.com/google/protobuf.git /tmp/google-protobuf
+	rm -rf google/protobuf
+	mkdir -p google/protobuf
+	for file in $$(ls /tmp/google-protobuf/src/google/protobuf/*\.proto | grep -v test | grep -v descriptor\.proto); do \
+		cp $$file google/protobuf/; \
 	done
+	protoc --proto_path=. --go_out=. google/protobuf/*\.proto
+	mv google/protobuf/* .
+	rm -rf google

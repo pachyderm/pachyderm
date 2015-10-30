@@ -1,7 +1,7 @@
 /*
 Package container provides functionality to interact with containers.
 */
-package container //import "go.pachyderm.com/pachyderm/src/pkg/container"
+package container
 
 import (
 	"io"

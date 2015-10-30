@@ -2,17 +2,8 @@ syntax = "proto3";
 
 import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
 
 package dockervolume;
-
-enum EventType {
-  EVENT_TYPE_NONE = 0;
-  EVENT_TYPE_CREATED = 1;
-  EVENT_TYPE_REMOVED = 2;
-  EVENT_TYPE_MOUNTED = 3;
-  EVENT_TYPE_UNMOUNTED = 4;
-}
 
 message Volume {
   string name = 1;
@@ -24,78 +15,26 @@ message Volumes {
   repeated Volume volume = 1;
 }
 
-message Event {
-  EventType event_type = 1;
-  Volume volume = 2;
-  google.protobuf.Timestamp timestamp = 3;
+message NameOptsRequest {
+  string name = 1;
+  map<string, string> opts = 2;
 }
 
-message Events {
-  repeated Event event = 1;
-}
-
-message RemoveVolumeAttempt {
-  Volume volume = 1;
-  string err = 2;
-}
-
-message RemoveVolumeAttempts {
-  repeated RemoveVolumeAttempt remove_volume_attempt = 1;
+message NameRequest {
+  string name = 1;
 }
 
 message ActivateResponse {
   repeated string implements = 1;
 }
 
-message CreateRequest {
-  string name = 1;
-  map<string, string> opts = 2;
-}
-
-message CreateResponse {
+message ErrResponse {
   string err = 1;
 }
 
-message RemoveRequest {
-  string name = 1;
-}
-
-message RemoveResponse {
-  string err = 1;
-}
-
-message PathRequest {
-  string name = 1;
-}
-
-message PathResponse {
+message MountpointErrResponse {
   string mountpoint = 1;
   string err = 2;
-}
-
-message MountRequest {
-  string name = 1;
-}
-
-message MountResponse {
-  string mountpoint = 1;
-  string err = 2;
-}
-
-message UnmountRequest {
-  string name = 1;
-}
-
-message UnmountResponse {
-  string err = 1;
-}
-
-message GetVolumeRequest {
-  string name = 1;
-}
-
-message GetEventsByVolumeRequest {
-  string volume_name = 1;
 }
 
 service API {
@@ -105,42 +44,42 @@ service API {
       body: "*"
     };
   }
-  rpc Create(CreateRequest) returns (CreateResponse) {
+  rpc Create(NameOptsRequest) returns (ErrResponse) {
     option (google.api.http) = {
       post: "/VolumeDriver.Create"
       body: "*"
     };
   }
-  rpc Remove(RemoveRequest) returns (RemoveResponse) {
+  rpc Remove(NameRequest) returns (ErrResponse) {
     option (google.api.http) = {
       post: "/VolumeDriver.Remove"
       body: "*"
     };
   }
-  rpc Path(PathRequest) returns (PathResponse) {
+  rpc Path(NameRequest) returns (MountpointErrResponse) {
     option (google.api.http) = {
       post: "/VolumeDriver.Path"
       body: "*"
     };
   }
-  rpc Mount(MountRequest) returns (MountResponse) {
+  rpc Mount(NameRequest) returns (MountpointErrResponse) {
     option (google.api.http) = {
       post: "/VolumeDriver.Mount"
       body: "*"
     };
   }
-  rpc Unmount(UnmountRequest) returns (UnmountResponse) {
+  rpc Unmount(NameRequest) returns (ErrResponse) {
     option (google.api.http) = {
       post: "/VolumeDriver.Unmount"
       body: "*"
     };
   }
-  rpc Cleanup(google.protobuf.Empty) returns (RemoveVolumeAttempts) {
+  rpc Cleanup(google.protobuf.Empty) returns (Volumes) {
     option (google.api.http) = {
       get: "/api/cleanup"
     };
   }
-  rpc GetVolume(GetVolumeRequest)  returns (Volume) {
+  rpc GetVolume(NameRequest)  returns (Volume) {
     option (google.api.http) = {
       get: "/api/volumes/{name}"
     };
@@ -148,16 +87,6 @@ service API {
   rpc ListVolumes(google.protobuf.Empty) returns (Volumes) {
     option (google.api.http) = {
       get: "/api/volumes"
-    };
-  }
-  rpc GetEventsByVolume(GetEventsByVolumeRequest) returns (Events) {
-    option (google.api.http) = {
-      get: "/api/events/{volume_name}"
-    };
-  }
-  rpc ListEvents(google.protobuf.Empty) returns (Events) {
-    option (google.api.http) = {
-      get: "/api/events"
     };
   }
 }

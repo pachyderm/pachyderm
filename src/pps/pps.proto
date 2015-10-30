@@ -11,51 +11,25 @@ option go_package = "pps";
 
 enum JobStatusType {
   JOB_STATUS_TYPE_NONE = 0;
-  JOB_STATUS_TYPE_CREATED = 1;
-  JOB_STATUS_TYPE_STARTED = 2;
-  JOB_STATUS_TYPE_ERROR = 3;
-  JOB_STATUS_TYPE_SUCCESS = 4;
+  JOB_STATUS_TYPE_STARTED = 1;
+  JOB_STATUS_TYPE_ERROR = 2;
+  JOB_STATUS_TYPE_SUCCESS = 3;
 }
 
 enum OutputStream {
   OUTPUT_STREAM_NONE = 0;
   OUTPUT_STREAM_STDOUT = 1;
   OUTPUT_STREAM_STDERR = 2;
+  OUTPUT_STREAM_ALL = 3;
 }
 
 message Transform {
   string image = 1;
-  string build = 2;
-  string dockerfile = 3;
-  repeated string cmd = 4;
-}
-
-message JobInput {
-  oneof input {
-    string host_dir = 1;
-    pfs.Commit commit = 2;
-  }
-}
-
-message JobOutput {
-  oneof output {
-    string host_dir = 1;
-    pfs.Commit parent_commit = 2;
-  }
+  repeated string cmd = 2;
 }
 
 message Job {
   string id = 1;
-  oneof spec {
-    Transform transform = 2;
-    string pipeline_id = 3;
-  }
-  repeated JobInput job_input = 4;
-  repeated JobOutput job_output = 5;
-}
-
-message Jobs {
-  repeated Job job = 1;
 }
 
 message JobStatus {
@@ -64,80 +38,90 @@ message JobStatus {
   string message = 3;
 }
 
+// TODO(pedge): add created at?
 message JobInfo {
-  string job_id = 1;
-  repeated JobStatus job_status = 2;
+  Job job = 1;
+  oneof spec {
+    Transform transform = 2;
+    Pipeline pipeline = 3;
+  }
+  pfs.Commit input = 4;
+  pfs.Commit output = 5;
+  // latest to earliest
+  repeated JobStatus job_status = 6;
 }
 
-message PipelineInput {
-  oneof input {
-    string host_dir = 1;
-    pfs.Repo repo = 2;
-  }
-}
-
-message PipelineOutput {
-  oneof output {
-    string host_dir = 1;
-    pfs.Repo repo = 2;
-  }
+message JobInfos {
+  repeated JobInfo job_info = 1;
 }
 
 message Pipeline {
   string name = 1;
-  Transform transform = 2;
-  repeated PipelineInput pipeline_input = 3;
-  repeated PipelineOutput pipeline_output = 4;
 }
 
-message Pipelines {
-  repeated Pipeline pipeline = 1;
+// TODO(pedge): add created at?
+message PipelineInfo {
+  Pipeline pipeline = 1;
+  Transform transform = 2;
+  pfs.Repo input = 3;
+  pfs.Repo output = 4;
+}
+
+message PipelineInfos {
+  repeated PipelineInfo pipeline_info = 1;
 }
 
 message CreateJobRequest {
+  oneof spec {
+    Transform transform = 1;
+    Pipeline pipeline = 2;
+  }
+  pfs.Commit input = 3;
+  pfs.Commit output_parent = 4;
+}
+
+message InspectJobRequest {
   Job job = 1;
 }
 
-message GetJobRequest {
-  string job_id = 1;
-}
-
-message GetJobsByPipelineNameRequest {
-  string pipeline_name = 1;
-}
-
-message StartJobRequest {
-  string job_id = 1;
-}
-
-message GetJobStatusRequest {
-  string job_id = 1;
+message ListJobRequest {
+  Pipeline pipeline = 1; // nil means all pipelines
+  pfs.Commit input = 2; // nil means all inputs
 }
 
 message GetJobLogsRequest {
-  string job_id = 1;
+  Job job = 1;
   OutputStream output_stream = 2;
 }
 
 message CreatePipelineRequest {
   Pipeline pipeline = 1;
+  Transform transform = 2;
+  pfs.Repo input = 3;
+  pfs.Repo output = 4;
 }
 
-message GetPipelineRequest {
-  string pipeline_name = 1;
+message InspectPipelineRequest {
+  Pipeline pipeline = 1;
+}
+
+message ListPipelineRequest {
+}
+
+message DeletePipelineRequest {
+  Pipeline pipeline = 1;
 }
 
 service JobAPI {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
-  rpc GetJob(GetJobRequest) returns (Job) {}
-  rpc GetJobsByPipelineName(GetJobsByPipelineNameRequest) returns (Jobs) {}
-  rpc StartJob(StartJobRequest) returns (google.protobuf.Empty) {}
-  rpc GetJobStatus(GetJobStatusRequest) returns (JobStatus) {}
+  rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
+  rpc ListJob(ListJobRequest) returns (JobInfos) {}
   rpc GetJobLogs(GetJobLogsRequest) returns (stream google.protobuf.BytesValue) {}
 }
 
 service PipelineAPI {
-  rpc CreatePipeline(CreatePipelineRequest) returns (Pipeline) {}
-  rpc GetPipeline(GetPipelineRequest) returns (Pipeline) {}
-  rpc GetAllPipelines(google.protobuf.Empty) returns (Pipelines) {}
+  rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
+  rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
+  rpc ListPipeline(ListPipelineRequest) returns (PipelineInfos) {}
+  rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
 }

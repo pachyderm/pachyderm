@@ -3,8 +3,8 @@ package route
 import (
 	"fmt"
 
-	"go.pachyderm.com/pachyderm/src/pkg/grpcutil"
-	"go.pachyderm.com/pachyderm/src/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"google.golang.org/grpc"
 )
 

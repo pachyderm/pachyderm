@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -21,7 +22,7 @@ var (
 	lock        = &sync.Mutex{}
 )
 
-// SetDebug sets debug mode for pkgexec. This will log commands at the debug level, and
+// SetDebug sets debug mode for  This will log commands at the debug level, and
 // include the output of a command in the resulting error if the command fails.
 func SetDebug(debug bool) {
 	// sort of unnecessary but hey, standards
@@ -90,6 +91,22 @@ func RunIO(ioObj IO, args ...string) error {
 			}
 		}
 		return fmt.Errorf("%s: %s", strings.Join(args, " "), err.Error())
+	}
+	return nil
+}
+
+// Chown changes the filepath to be owned by the current user and group.
+// It uses 'sudo chown' and 'sudo chgrp'.
+//
+// TODO(pedge): how to escalate privileges from go?
+func Chown(filePath string) error {
+	uid := fmt.Sprintf("%d", os.Getuid())
+	gid := fmt.Sprintf("%d", os.Getgid())
+	if err := RunIO(IO{Stdout: os.Stderr, Stderr: os.Stderr}, "sudo", "chown", uid, filePath); err != nil {
+		return err
+	}
+	if err := RunIO(IO{Stdout: os.Stderr, Stderr: os.Stderr}, "sudo", "chgrp", gid, filePath); err != nil {
+		return err
 	}
 	return nil
 }

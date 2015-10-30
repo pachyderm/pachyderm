@@ -1,4 +1,4 @@
-package grpcutil //import "go.pachyderm.com/pachyderm/src/pkg/grpcutil"
+package grpcutil
 
 import "google.golang.org/grpc"
 

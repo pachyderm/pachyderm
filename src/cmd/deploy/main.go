@@ -3,9 +3,9 @@ package main
 import (
 	"strconv"
 
+	"github.com/pachyderm/pachyderm/src/pkg/deploy"
+	"github.com/pachyderm/pachyderm/src/pkg/deploy/server"
 	"github.com/spf13/cobra"
-	"go.pachyderm.com/pachyderm/src/pkg/deploy"
-	"go.pachyderm.com/pachyderm/src/pkg/deploy/server"
 	"go.pedge.io/env"
 	"go.pedge.io/pkg/cobra"
 	"go.pedge.io/protolog/logrus"

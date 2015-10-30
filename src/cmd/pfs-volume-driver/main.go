@@ -8,10 +8,10 @@ import (
 
 	"go.pedge.io/dockervolume"
 	"go.pedge.io/env"
-	"go.pedge.io/protolog/logrus"
+	"go.pedge.io/pkg/map"
 
+	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/satori/go.uuid"
-	"go.pachyderm.com/pachyderm/src/pfs/fuse"
 )
 
 const (
@@ -39,7 +39,6 @@ type appEnv struct {
 }
 
 func main() {
-	logrus.Register()
 	env.Main(do, &appEnv{}, defaultEnv)
 }
 
@@ -50,6 +49,7 @@ func do(appEnvObj interface{}) error {
 func newServer(appEnv *appEnv) dockervolume.Server {
 	return dockervolume.NewTCPServer(
 		newVolumeDriver(
+			getPFSAddress(appEnv),
 			fuse.NewMounterProvider(getPFSAddress(appEnv)),
 			appEnv.BaseMountpoint,
 		),
@@ -70,29 +70,32 @@ func getPFSAddress(appEnv *appEnv) string {
 }
 
 type volumeDriver struct {
+	pfsAddress      string
 	mounterProvider fuse.MounterProvider
 	baseMountpoint  string
 }
 
 func newVolumeDriver(
+	pfsAddress string,
 	mounterProvider fuse.MounterProvider,
 	baseMountpoint string,
 ) *volumeDriver {
 	return &volumeDriver{
+		pfsAddress,
 		mounterProvider,
 		baseMountpoint,
 	}
 }
 
-func (v *volumeDriver) Create(_ string, _ dockervolume.Opts) error {
+func (v *volumeDriver) Create(_ string, _ pkgmap.StringStringMap) error {
 	return nil
 }
 
-func (v *volumeDriver) Remove(_ string, _ dockervolume.Opts, _ string) error {
+func (v *volumeDriver) Remove(_ string, _ pkgmap.StringStringMap, _ string) error {
 	return nil
 }
 
-func (v *volumeDriver) Mount(name string, opts dockervolume.Opts) (string, error) {
+func (v *volumeDriver) Mount(name string, opts pkgmap.StringStringMap) (string, error) {
 	mount, err := getMount(opts, v.baseMountpoint)
 	if err != nil {
 		return "", err
@@ -105,8 +108,7 @@ func (v *volumeDriver) Mount(name string, opts dockervolume.Opts) (string, error
 		return "", err
 	}
 	if err := mounter.Mount(
-		mount.repository,
-		mount.commitID,
+		v.pfsAddress,
 		mount.mountpoint,
 		mount.shard,
 		mount.modulus,
@@ -116,15 +118,12 @@ func (v *volumeDriver) Mount(name string, opts dockervolume.Opts) (string, error
 	return mount.mountpoint, nil
 }
 
-func (v *volumeDriver) Unmount(_ string, _ dockervolume.Opts, mountpoint string) error {
+func (v *volumeDriver) Unmount(_ string, _ pkgmap.StringStringMap, mountpoint string) error {
 	mounter, err := v.mounterProvider.Get()
 	if err != nil {
 		return err
 	}
-	if err := mounter.Unmount(mountpoint); err != nil {
-		return err
-	}
-	return mounter.Wait(mountpoint)
+	return mounter.Unmount(mountpoint)
 }
 
 type mount struct {
@@ -135,7 +134,7 @@ type mount struct {
 	mountpoint string
 }
 
-func getMount(opts dockervolume.Opts, baseMountpoint string) (*mount, error) {
+func getMount(opts pkgmap.StringStringMap, baseMountpoint string) (*mount, error) {
 	repository, err := opts.GetRequiredString("repository")
 	if err != nil {
 		return nil, err
@@ -144,13 +143,19 @@ func getMount(opts dockervolume.Opts, baseMountpoint string) (*mount, error) {
 	if err != nil {
 		return nil, err
 	}
-	shard, err := opts.GetOptionalUInt64("shard", defaultShard)
+	shard, err := opts.GetUint64("shard")
 	if err != nil {
 		return nil, err
 	}
-	modulus, err := opts.GetOptionalUInt64("modulus", defaultModulus)
+	if shard == 0 {
+		shard = defaultShard
+	}
+	modulus, err := opts.GetUint64("modulus")
 	if err != nil {
 		return nil, err
+	}
+	if modulus == 0 {
+		modulus = defaultModulus
 	}
 	return &mount{
 		repository,

@@ -1,4 +1,4 @@
-package pps // import "go.pachyderm.com/pachyderm/src/pps"
+package pps
 
 func NewLocalJobAPIClient(jobAPIServer JobAPIServer) JobAPIClient {
 	return newLocalJobAPIClient(jobAPIServer)

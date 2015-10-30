@@ -32,6 +32,7 @@ import (
 	"github.com/fsouza/go-dockerclient/external/github.com/docker/docker/opts"
 	"github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/homedir"
 	"github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/stdcopy"
+	"github.com/fsouza/go-dockerclient/external/github.com/hashicorp/go-cleanhttp"
 )
 
 const userAgent = "go-dockerclient"
@@ -191,7 +192,7 @@ func NewVersionedClient(endpoint string, apiVersionString string) (*Client, erro
 		}
 	}
 	return &Client{
-		HTTPClient:          &http.Client{},
+		HTTPClient:          cleanhttp.DefaultClient(),
 		Dialer:              &net.Dialer{},
 		endpoint:            endpoint,
 		endpointURL:         u,
@@ -294,9 +295,8 @@ func NewVersionedTLSClientFromBytes(endpoint string, certPEMBlock, keyPEMBlock, 
 		}
 		tlsConfig.RootCAs = caPool
 	}
-	tr := &http.Transport{
-		TLSClientConfig: tlsConfig,
-	}
+	tr := cleanhttp.DefaultTransport()
+	tr.TLSClientConfig = tlsConfig
 	if err != nil {
 		return nil, err
 	}

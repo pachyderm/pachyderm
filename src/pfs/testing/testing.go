@@ -1,4 +1,4 @@
-package testing //import "go.pachyderm.com/pachyderm/src/pfs/testing"
+package testing
 
 import (
 	"errors"
@@ -10,15 +10,15 @@ import (
 
 	"go.pedge.io/proto/test"
 
-	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pfs/drive"
-	"go.pachyderm.com/pachyderm/src/pfs/drive/btrfs"
-	"go.pachyderm.com/pachyderm/src/pfs/route"
-	"go.pachyderm.com/pachyderm/src/pfs/server"
-	"go.pachyderm.com/pachyderm/src/pkg/discovery"
-	"go.pachyderm.com/pachyderm/src/pkg/grpcutil"
-	"go.pachyderm.com/pachyderm/src/pkg/require"
-	"go.pachyderm.com/pachyderm/src/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
+	"github.com/pachyderm/pachyderm/src/pfs/route"
+	"github.com/pachyderm/pachyderm/src/pfs/server"
+	"github.com/pachyderm/pachyderm/src/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
+	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"google.golang.org/grpc"
 )
 

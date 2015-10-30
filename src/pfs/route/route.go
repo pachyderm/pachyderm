@@ -1,9 +1,9 @@
-package route //import "go.pachyderm.com/pachyderm/src/pfs/route"
+package route
 
 import (
-	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pkg/grpcutil"
-	"go.pachyderm.com/pachyderm/src/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"google.golang.org/grpc"
 )
 

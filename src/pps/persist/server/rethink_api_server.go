@@ -1,32 +1,37 @@
 package server
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/dancannon/gorethink"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/satori/go.uuid"
-	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/pkg/time"
+	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 )
 
 const (
-	jobsTable        Table = "jobs"
-	jobStatusesTable Table = "job_statuses"
-	jobLogsTable     Table = "job_logs"
-	pipelinesTable   Table = "pipelines"
+	jobInfosTable      Table = "job_infos"
+	jobStatusesTable   Table = "job_statuses"
+	jobOutputsTable    Table = "job_outputs"
+	jobLogsTable       Table = "job_logs"
+	pipelineInfosTable Table = "pipeline_infos"
 
-	idPrimaryKey PrimaryKey = "id"
+	idPrimaryKey           PrimaryKey = "id"
+	jobIDPrimaryKey        PrimaryKey = "job_id"
+	pipelineNamePrimaryKey PrimaryKey = "pipeline_name"
 
-	pipelineIDIndex Index = "pipeline_id"
-	jobIDIndex      Index = "job_id"
-	typeIndex       Index = "type"
-	nameIndex       Index = "name"
+	pipelineNameIndex         Index = "pipeline_name"
+	pipelineNameAndInputIndex Index = "pipeline_name_and_input"
+	inputIndex                Index = "input"
+	jobIDIndex                Index = "job_id"
+	typeIndex                 Index = "type"
 )
 
 type Table string
@@ -37,16 +42,17 @@ var (
 	marshaller = &jsonpb.Marshaler{}
 
 	tables = []Table{
-		jobsTable,
+		jobInfosTable,
 		jobStatusesTable,
+		jobOutputsTable,
 		jobLogsTable,
-		pipelinesTable,
+		pipelineInfosTable,
 	}
 
 	tableToTableCreateOpts = map[Table][]gorethink.TableCreateOpts{
-		jobsTable: []gorethink.TableCreateOpts{
+		jobInfosTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
-				PrimaryKey: idPrimaryKey,
+				PrimaryKey: jobIDPrimaryKey,
 			},
 		},
 		jobStatusesTable: []gorethink.TableCreateOpts{
@@ -54,21 +60,26 @@ var (
 				PrimaryKey: idPrimaryKey,
 			},
 		},
+		jobOutputsTable: []gorethink.TableCreateOpts{
+			gorethink.TableCreateOpts{
+				PrimaryKey: jobIDPrimaryKey,
+			},
+		},
 		jobLogsTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
 				PrimaryKey: idPrimaryKey,
 			},
 		},
-		pipelinesTable: []gorethink.TableCreateOpts{
+		pipelineInfosTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
-				PrimaryKey: idPrimaryKey,
+				PrimaryKey: pipelineNamePrimaryKey,
 			},
 		},
 	}
 
 	tableToIndexes = map[Table][]Index{
-		jobsTable: []Index{
-			pipelineIDIndex,
+		jobInfosTable: []Index{
+			pipelineNameIndex,
 		},
 		jobStatusesTable: []Index{
 			jobIDIndex,
@@ -77,9 +88,7 @@ var (
 		jobLogsTable: []Index{
 			jobIDIndex,
 		},
-		pipelinesTable: []Index{
-			nameIndex,
-		},
+		pipelineInfosTable: []Index{},
 	}
 )
 
@@ -113,10 +122,32 @@ func InitDBs(address string, databaseName string) error {
 			}
 		}
 	}
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
+		pipelineNameAndInputIndex,
+		func(row gorethink.Term) interface{} {
+			return []interface{}{
+				row.Field("pipeline_name"),
+				row.Field("input").Field("repo").Field("name"),
+				row.Field("input").Field("id"),
+			}
+		}).RunWrite(session); err != nil {
+		return err
+	}
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
+		inputIndex,
+		func(row gorethink.Term) interface{} {
+			return []interface{}{
+				row.Field("input").Field("repo").Field("name"),
+				row.Field("input").Field("id"),
+			}
+		}).RunWrite(session); err != nil {
+		return err
+	}
 	return nil
 }
 
 type rethinkAPIServer struct {
+	protorpclog.Logger
 	session      *gorethink.Session
 	databaseName string
 	timer        pkgtime.Timer
@@ -128,6 +159,7 @@ func newRethinkAPIServer(address string, databaseName string) (*rethinkAPIServer
 		return nil, err
 	}
 	return &rethinkAPIServer{
+		protorpclog.NewLogger("pachyderm.pps.persist.API"),
 		session,
 		databaseName,
 		pkgtime.NewSystemTimer(),
@@ -138,47 +170,40 @@ func (a *rethinkAPIServer) Close() error {
 	return a.session.Close()
 }
 
-// id cannot be set
-// a JobStatus of type created will also be created
-func (a *rethinkAPIServer) CreateJob(ctx context.Context, request *persist.Job) (*persist.Job, error) {
-	if request.Id != "" {
+// job_id cannot be set
+// timestamp cannot be set
+func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.JobInfo) (response *persist.JobInfo, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if request.JobId != "" {
 		return nil, ErrIDSet
 	}
 	if request.CreatedAt != nil {
 		return nil, ErrTimestampSet
 	}
-	request.Id = newID()
+	request.JobId = newID()
 	request.CreatedAt = a.now()
-	if err := a.insertMessage(jobsTable, request); err != nil {
-		return nil, err
-	}
-	// TODO(pedge): not transactional
-	if _, err := a.CreateJobStatus(
-		ctx,
-		&persist.JobStatus{
-			JobId: request.Id,
-			Type:  pps.JobStatusType_JOB_STATUS_TYPE_CREATED,
-		},
-	); err != nil {
+	if err := a.insertMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}
 	return request, nil
 }
 
-func (a *rethinkAPIServer) GetJobByID(ctx context.Context, request *google_protobuf.StringValue) (*persist.Job, error) {
-	job := &persist.Job{}
-	if err := a.getMessageByPrimaryKey(jobsTable, request.Value, job); err != nil {
+func (a *rethinkAPIServer) GetJobInfo(ctx context.Context, request *pps.Job) (response *persist.JobInfo, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	jobInfo := &persist.JobInfo{}
+	if err := a.getMessageByPrimaryKey(jobInfosTable, request.Id, jobInfo); err != nil {
 		return nil, err
 	}
-	return job, nil
+	return jobInfo, nil
 }
 
-func (a *rethinkAPIServer) GetJobsByPipelineID(ctx context.Context, request *google_protobuf.StringValue) (*persist.Jobs, error) {
-	jobObjs, err := a.getMessagesByIndex(
-		jobsTable,
-		pipelineIDIndex,
-		request.Value,
-		func() proto.Message { return &persist.Job{} },
+func (a *rethinkAPIServer) GetJobInfosByPipeline(ctx context.Context, request *pps.Pipeline) (response *persist.JobInfos, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	jobInfoObjs, err := a.getMessagesByIndex(
+		jobInfosTable,
+		pipelineNameIndex,
+		request.Name,
+		func() proto.Message { return &persist.JobInfo{} },
 		func(term gorethink.Term) gorethink.Term {
 			return term.OrderBy(gorethink.Desc("created_at"))
 		},
@@ -186,18 +211,65 @@ func (a *rethinkAPIServer) GetJobsByPipelineID(ctx context.Context, request *goo
 	if err != nil {
 		return nil, err
 	}
-	jobs := make([]*persist.Job, len(jobObjs))
-	for i, jobObj := range jobObjs {
-		jobs[i] = jobObj.(*persist.Job)
+	jobInfos := make([]*persist.JobInfo, len(jobInfoObjs))
+	for i, jobInfoObj := range jobInfoObjs {
+		jobInfos[i] = jobInfoObj.(*persist.JobInfo)
 	}
-	return &persist.Jobs{
-		Job: jobs,
+	return &persist.JobInfos{
+		JobInfo: jobInfos,
 	}, nil
+}
+
+func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJobRequest) (response *persist.JobInfos, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	query := a.getTerm(jobInfosTable)
+	if request.Pipeline != nil && request.Input != nil {
+		query = query.GetAllByIndex(
+			pipelineNameAndInputIndex,
+			gorethink.Expr([]string{request.Pipeline.Name, request.Input.Repo.Name, request.Input.Id}),
+		)
+	} else if request.Pipeline != nil {
+		query = query.GetAllByIndex(
+			pipelineNameIndex,
+			request.Pipeline.Name,
+		)
+	} else if request.Input != nil {
+		query = query.GetAllByIndex(
+			inputIndex,
+			gorethink.Expr([]string{request.Input.Repo.Name, request.Input.Id}),
+		)
+	}
+	jobInfoObjs, err := a.getAllMessages(
+		jobInfosTable,
+		func() proto.Message { return &persist.JobInfo{} },
+		func(term gorethink.Term) gorethink.Term {
+			return term.OrderBy(gorethink.Desc("created_at"))
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	jobInfos := make([]*persist.JobInfo, len(jobInfoObjs))
+	for i, jobInfoObj := range jobInfoObjs {
+		jobInfos[i] = jobInfoObj.(*persist.JobInfo)
+	}
+	return &persist.JobInfos{
+		JobInfo: jobInfos,
+	}, nil
+}
+
+func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *pps.Job) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if err := a.deleteMessageByPrimaryKey(jobInfosTable, request.Id); err != nil {
+		return nil, err
+	}
+	return google_protobuf.EmptyInstance, nil
 }
 
 // id cannot be set
 // timestamp cannot be set
-func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *persist.JobStatus) (*persist.JobStatus, error) {
+func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *persist.JobStatus) (response *persist.JobStatus, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if request.Id != "" {
 		return nil, ErrIDSet
 	}
@@ -213,11 +285,12 @@ func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *persist
 }
 
 // ordered by time, latest to earliest
-func (a *rethinkAPIServer) GetJobStatusesByJobID(ctx context.Context, request *google_protobuf.StringValue) (*persist.JobStatuses, error) {
+func (a *rethinkAPIServer) GetJobStatuses(ctx context.Context, request *pps.Job) (response *persist.JobStatuses, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobStatusObjs, err := a.getMessagesByIndex(
 		jobStatusesTable,
 		jobIDIndex,
-		request.Value,
+		request.Id,
 		func() proto.Message { return &persist.JobStatus{} },
 		func(term gorethink.Term) gorethink.Term {
 			return term.OrderBy(gorethink.Desc("timestamp"))
@@ -235,12 +308,33 @@ func (a *rethinkAPIServer) GetJobStatusesByJobID(ctx context.Context, request *g
 	}, nil
 }
 
+func (a *rethinkAPIServer) CreateJobOutput(ctx context.Context, request *persist.JobOutput) (response *persist.JobOutput, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if err := a.insertMessage(jobOutputsTable, request); err != nil {
+		return nil, err
+	}
+	return request, nil
+}
+
+func (a *rethinkAPIServer) GetJobOutput(ctx context.Context, request *pps.Job) (response *persist.JobOutput, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	jobOutput := &persist.JobOutput{}
+	if err := a.getMessageByPrimaryKey(jobOutputsTable, request.Id, jobOutput); err != nil {
+		return nil, err
+	}
+	return jobOutput, nil
+}
+
 // id cannot be set
 // timestamp cannot be set
-func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *persist.JobLog) (*persist.JobLog, error) {
+func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *persist.JobLog) (response *persist.JobLog, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if request.Id != "" {
 		return nil, ErrIDSet
 	}
+	// TODO(pedge): do we want to set the timestamp here, or have it be based on the actual log time?
+	// actual log time (which we do not propogate yet) seems like a better option, but to be consistent
+	// while the persist API is not well documented, setting it here for now
 	if request.Timestamp != nil {
 		return nil, ErrTimestampSet
 	}
@@ -253,11 +347,12 @@ func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *persist.Jo
 }
 
 // ordered by time, latest to earliest
-func (a *rethinkAPIServer) GetJobLogsByJobID(ctx context.Context, request *google_protobuf.StringValue) (*persist.JobLogs, error) {
+func (a *rethinkAPIServer) GetJobLogs(ctx context.Context, request *pps.Job) (response *persist.JobLogs, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobLogObjs, err := a.getMessagesByIndex(
 		jobLogsTable,
 		jobIDIndex,
-		request.Value,
+		request.Id,
 		func() proto.Message { return &persist.JobLog{} },
 		func(term gorethink.Term) gorethink.Term {
 			return term.OrderBy(gorethink.Desc("timestamp"))
@@ -275,76 +370,33 @@ func (a *rethinkAPIServer) GetJobLogsByJobID(ctx context.Context, request *googl
 	}, nil
 }
 
-// id and previous_id cannot be set
-// name must not already exist
-func (a *rethinkAPIServer) CreatePipeline(ctx context.Context, request *persist.Pipeline) (*persist.Pipeline, error) {
-	pipeline, err := a.getLastPipeline(ctx, request.Name)
-	if err != nil {
-		return nil, err
-	}
-	if pipeline != nil {
-		return nil, fmt.Errorf("pachyderm.pps.persist.server: pipeline already exists with name %s", request.Name)
-	}
-	return a.createPipeline(ctx, request)
-}
-
-// id and previous_id cannot be set
 // timestamp cannot be set
-// update by name, name must already exist
-func (a *rethinkAPIServer) UpdatePipeline(ctx context.Context, request *persist.Pipeline) (*persist.Pipeline, error) {
-	pipeline, err := a.getLastPipeline(ctx, request.Name)
-	if err != nil {
-		return nil, err
-	}
-	if pipeline == nil {
-		return nil, fmt.Errorf("pachyderm.pps.persist.server: pipeline does not exist with name %s", request.Name)
-	}
-	request.PreviousId = pipeline.Id
-	return a.createPipeline(ctx, request)
-}
-
-func (a *rethinkAPIServer) getLastPipeline(ctx context.Context, name string) (*persist.Pipeline, error) {
-	// TODO(pedge): not transactional
-	pipelines, err := a.GetPipelinesByName(ctx, &google_protobuf.StringValue{Value: name})
-	if err != nil {
-		return nil, err
-	}
-	if len(pipelines.Pipeline) == 0 {
-		return nil, nil
-	}
-	return pipelines.Pipeline[0], nil
-}
-
-func (a *rethinkAPIServer) createPipeline(ctx context.Context, request *persist.Pipeline) (*persist.Pipeline, error) {
-	if request.Id != "" {
-		return nil, ErrIDSet
-	}
+func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *persist.PipelineInfo) (response *persist.PipelineInfo, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if request.CreatedAt != nil {
 		return nil, ErrTimestampSet
 	}
-	request.Id = newID()
 	request.CreatedAt = a.now()
-	if err := a.insertMessage(pipelinesTable, request); err != nil {
+	if err := a.insertMessage(pipelineInfosTable, request); err != nil {
 		return nil, err
 	}
 	return request, nil
 }
 
-func (a *rethinkAPIServer) GetPipelineByID(ctx context.Context, request *google_protobuf.StringValue) (*persist.Pipeline, error) {
-	pipeline := &persist.Pipeline{}
-	if err := a.getMessageByPrimaryKey(pipelinesTable, request.Value, pipeline); err != nil {
+func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *pps.Pipeline) (response *persist.PipelineInfo, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	pipelineInfo := &persist.PipelineInfo{}
+	if err := a.getMessageByPrimaryKey(pipelineInfosTable, request.Name, pipelineInfo); err != nil {
 		return nil, err
 	}
-	return pipeline, nil
+	return pipelineInfo, nil
 }
 
-// ordered by time, latest to earliest
-func (a *rethinkAPIServer) GetPipelinesByName(ctx context.Context, request *google_protobuf.StringValue) (*persist.Pipelines, error) {
-	pipelineObjs, err := a.getMessagesByIndex(
-		pipelinesTable,
-		nameIndex,
-		request.Value,
-		func() proto.Message { return &persist.Pipeline{} },
+func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *google_protobuf.Empty) (response *persist.PipelineInfos, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	pipelineInfoObjs, err := a.getAllMessages(
+		pipelineInfosTable,
+		func() proto.Message { return &persist.PipelineInfo{} },
 		func(term gorethink.Term) gorethink.Term {
 			return term.OrderBy(gorethink.Desc("created_at"))
 		},
@@ -352,33 +404,21 @@ func (a *rethinkAPIServer) GetPipelinesByName(ctx context.Context, request *goog
 	if err != nil {
 		return nil, err
 	}
-	pipelines := make([]*persist.Pipeline, len(pipelineObjs))
-	for i, pipelineObj := range pipelineObjs {
-		pipelines[i] = pipelineObj.(*persist.Pipeline)
+	pipelineInfos := make([]*persist.PipelineInfo, len(pipelineInfoObjs))
+	for i, pipelineInfoObj := range pipelineInfoObjs {
+		pipelineInfos[i] = pipelineInfoObj.(*persist.PipelineInfo)
 	}
-	return &persist.Pipelines{
-		Pipeline: pipelines,
+	return &persist.PipelineInfos{
+		PipelineInfo: pipelineInfos,
 	}, nil
 }
 
-func (a *rethinkAPIServer) GetAllPipelines(ctx context.Context, request *google_protobuf.Empty) (*persist.Pipelines, error) {
-	pipelineObjs, err := a.getAllMessages(
-		pipelinesTable,
-		func() proto.Message { return &persist.Pipeline{} },
-		func(term gorethink.Term) gorethink.Term {
-			return term.OrderBy(gorethink.Desc("created_at"))
-		},
-	)
-	if err != nil {
+func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *pps.Pipeline) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if err := a.deleteMessageByPrimaryKey(pipelineInfosTable, request.Name); err != nil {
 		return nil, err
 	}
-	pipelines := make([]*persist.Pipeline, len(pipelineObjs))
-	for i, pipelineObj := range pipelineObjs {
-		pipelines[i] = pipelineObj.(*persist.Pipeline)
-	}
-	return &persist.Pipelines{
-		Pipeline: pipelines,
-	}, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) error {
@@ -390,8 +430,8 @@ func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) err
 	return err
 }
 
-func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, Value interface{}, message proto.Message) error {
-	cursor, err := a.getTerm(table).Get(Value).ToJSON().Run(a.session)
+func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, value interface{}, message proto.Message) error {
+	cursor, err := a.getTerm(table).Get(value).ToJSON().Run(a.session)
 	if err != nil {
 		return err
 	}
@@ -403,6 +443,11 @@ func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, Value interface{}
 		return err
 	}
 	return nil
+}
+
+func (a *rethinkAPIServer) deleteMessageByPrimaryKey(table Table, value interface{}) error {
+	_, err := a.getTerm(table).Get(value).Delete().RunWrite(a.session)
+	return err
 }
 
 func (a *rethinkAPIServer) getMessagesByIndex(

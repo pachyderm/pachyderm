@@ -3,7 +3,7 @@ package server
 import (
 	"strconv"
 
-	"go.pachyderm.com/pachyderm/src/pkg/deploy"
+	"github.com/pachyderm/pachyderm/src/pkg/deploy"
 	"golang.org/x/net/context"
 
 	"go.pedge.io/google-protobuf"
