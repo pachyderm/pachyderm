@@ -122,7 +122,7 @@ pretest:
 			exit 1; \
 		fi; \
 	done
-	errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$ | grep -v src/pps/server | grep -v src/pps/persist)
+	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$ | grep -v src/pps/server | grep -v src/pps/persist)
 
 docker-clean-test:
 	docker-compose kill rethink
