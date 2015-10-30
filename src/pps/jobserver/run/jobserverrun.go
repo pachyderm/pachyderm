@@ -6,6 +6,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
 
+const (
+	InputMountDir  = "/pfs/in"
+	OutputMountDir = "/pfs/out"
+)
+
 type JobRunner interface {
 	Start(*persist.JobInfo) error
 }

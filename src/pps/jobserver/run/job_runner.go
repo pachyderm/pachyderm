@@ -2,6 +2,8 @@ package jobserverrun
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -36,6 +38,8 @@ func newJobRunner(
 		options,
 	}
 }
+
+// TODO(pedge): propogate context from api server?
 
 func (j *jobRunner) Start(persistJobInfo *persist.JobInfo) error {
 	if _, err := j.persistAPIClient.CreateJobStatus(
@@ -125,14 +129,21 @@ func (j *jobRunner) reallyRunJobInfo(
 	if err != nil {
 		return err
 	}
-	// TODO(pedge): branch from output parent
+	output, err := j.startOutputCommit(outputParent)
+	if err != nil {
+		return err
+	}
+	binds, err := j.getBinds(input, output)
+	if err != nil {
+		return err
+	}
 	var containerIDs []string
 	defer j.removeContainers(containerIDs)
 	for i := 0; i < numContainers; i++ {
 		containerID, err := j.containerClient.Create(
 			image,
-			// TODO(pedge): binds
 			container.CreateOptions{
+				Binds:      binds,
 				HasCommand: len(transform.Cmd) > 0,
 			},
 		)
@@ -195,6 +206,37 @@ func (j *jobRunner) buildOrPull(name string, transform *pps.Transform) (string, 
 	return image, nil
 }
 
+func (j *jobRunner) startOutputCommit(outputParentCommit *pfs.Commit) (*pfs.Commit, error) {
+	if outputParentCommit == nil {
+		return nil, nil
+	}
+	return j.pfsAPIClient.StartCommit(
+		context.Background(),
+		&pfs.StartCommitRequest{
+			Parent: outputParentCommit,
+		},
+	)
+}
+
+func (j *jobRunner) getBinds(inputCommit *pfs.Commit, outputCommit *pfs.Commit) ([]string, error) {
+	var binds []string
+	if inputCommit != nil {
+		inputDir := filepath.Join(j.pfsMountDir, inputCommit.Repo.Name, inputCommit.Id)
+		if err := checkDirExists(inputDir); err != nil {
+			return nil, err
+		}
+		binds = append(binds, fmt.Sprintf("%s:%s:ro", inputDir, InputMountDir))
+	}
+	if outputCommit != nil {
+		outputDir := filepath.Join(j.pfsMountDir, outputCommit.Repo.Name, outputCommit.Id)
+		if err := checkDirExists(outputDir); err != nil {
+			return nil, err
+		}
+		binds = append(binds, fmt.Sprintf("%s:%s:rw", outputDir, OutputMountDir))
+	}
+	return binds, nil
+}
+
 func (j *jobRunner) removeContainers(containerIDs []string) {
 	for _, containerID := range containerIDs {
 		_ = j.containerClient.Kill(containerID, container.KillOptions{})
@@ -220,4 +262,15 @@ func (j *jobRunner) writeContainerLogs(containerID string, jobID string, errC ch
 			),
 		},
 	)
+}
+
+func checkDirExists(dirPath string) error {
+	stat, err := os.Stat(dirPath)
+	if err != nil {
+		return err
+	}
+	if !stat.IsDir() {
+		return fmt.Errorf("pachyderm.pps.jobserver.run: %s is not a directory", dirPath)
+	}
+	return nil
 }
