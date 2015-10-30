@@ -94,7 +94,7 @@ func do(appEnvObj interface{}) error {
 			},
 		)
 	}()
-	// TODO: pretty sure I had this problem before, this is bad, we would
+	// TODO: pretty sure without this there is a problem, this is bad, we would
 	// prefer a callback for when the server is ready to accept requests
 	time.Sleep(1 * time.Second)
 	if err := pipelineAPIServer.Start(); err != nil {
