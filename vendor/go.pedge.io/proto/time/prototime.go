@@ -42,6 +42,11 @@ func TimestampLess(i *google_protobuf.Timestamp, j *google_protobuf.Timestamp) b
 	return i.Nanos < j.Nanos
 }
 
+// Now returns the current time as a protobuf Timestamp.
+func Now() *google_protobuf.Timestamp {
+	return TimeToTimestamp(time.Now().UTC())
+}
+
 // DurationToProto converts a go Duration to a protobuf Duration.
 func DurationToProto(d time.Duration) *google_protobuf.Duration {
 	return &google_protobuf.Duration{

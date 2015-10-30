@@ -1,4 +1,40 @@
+/*
+Package dockervolume is a library taking care of the generic code for docker volume plugins written in go.
+
+Your volume plugin must implement the VolumeDriver interface.
+
+The API in this package exposes additional functionality on top of the
+docker volume plugin API. See the protocol buffers file for details.
+
+To launch your plugin using Unix sockets, do:
+
+	func launch(volumeDriver dockervolume.VolumeDriver) error {
+	  return dockervolume.NewUnixServer(
+		volumeDriver,
+		"volume_driver_name",
+		"root",
+		dockervolume.ServerOptions{},
+	  ).Serve()
+	}
+
+To launch your plugin using TCP, do:
+
+	func launch(volumeDriver dockervolume.VolumeDriver) error {
+	  return dockervolume.NewTCPServer(
+		volumeDriver,
+		"volume_driver_name",
+		"address",
+		dockervolume.ServerOptions{},
+	  ).Serve()
+	}
+
+Examples:
+
+https://github.com/peter-edge/go-dockervolume/tree/master/example/cmd/dockervolume-example
+https://github.com/pachyderm/pachyderm/tree/master/src/cmd/pfs-volume-driver
+*/
 package dockervolume
+
 import "go.pedge.io/pkg/map"
 
 const (

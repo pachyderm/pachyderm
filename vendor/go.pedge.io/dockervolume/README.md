@@ -11,6 +11,9 @@ A small library taking care of the generic code for docker volume plugins writte
 
 This libary was originally inspired by https://github.com/calavera/dkvolume.
 
+Note that most of my work now is going toward the [Open Storage Project](https://github.com/libopenstorage),
+however this package is basically feature complete for the current docker volume plugin API.
+
 ### Usage
 
 Note the custom URL:
@@ -27,7 +30,13 @@ import (
 )
 ```
 
+All public functionality is exposed in the [dockervolume.go](dockervolume.go) file and
+the generated [dockervolume.pb.go](dockervolume.pb.go) file.
+
 Your volume plugin must implement the `VolumeDriver` interface.
+
+The API in this package exposes additional functionality on top of the
+docker volume plugin API. See [dockervolume.proto](dockervolume.proto) for more details.
 
 To launch your plugin using Unix sockets, do:
 
@@ -36,7 +45,6 @@ func launch(volumeDriver dockervolume.VolumeDriver) error {
   return dockervolume.NewUnixServer(
     volumeDriver,
     "volume_driver_name",
-    1050,
     "root",
     dockervolume.ServerOptions{},
   ).Serve()
@@ -50,13 +58,13 @@ func launch(volumeDriver dockervolume.VolumeDriver) error {
   return dockervolume.NewTCPServer(
     volumeDriver,
     "volume_driver_name",
-    1050,
     "address",
     dockervolume.ServerOptions{},
   ).Serve()
 }
 ```
 
-### Example
+### Examples
 
-https://github.com/pachyderm/pachyderm/tree/master/src/cmd/pfs-volume-driver
+* [example/cmd/dockervolume-example](example/cmd/dockervolume-example)
+* [pfs-volume-driver](https://github.com/pachyderm/pachyderm/tree/master/src/cmd/pfs-volume-driver)

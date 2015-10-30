@@ -1,3 +1,7 @@
+/*
+Package main contains a CLI binary for the dockervolume API functionality not contained
+within the docker volume plugin API.
+*/
 package main
 
 import (
