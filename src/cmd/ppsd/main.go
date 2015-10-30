@@ -35,6 +35,7 @@ var (
 type appEnv struct {
 	PachydermPfsd1Port string `env:"PACHYDERM_PFSD_1_PORT"`
 	PfsAddress         string `env:"PFS_ADDRESS"`
+	PfsMountDir        string `env:"PFS_MOUNT_DIR"`
 	Address            string `env:"PPS_ADDRESS"`
 	Port               int    `env:"PPS_PORT"`
 	DatabaseAddress    string `env:"PPS_DATABASE_ADDRESS"`
@@ -66,7 +67,7 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	jobAPIServer := jobserver.NewAPIServer(rethinkAPIClient, containerClient)
+	jobAPIServer := jobserver.NewAPIServer(rethinkAPIClient, containerClient, appEnv.PfsMountDir)
 	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 	pfsAPIClient := pfs.NewAPIClient(clientConn)
 	pipelineAPIServer := pipelineserver.NewAPIServer(pfsAPIClient, jobAPIClient, rethinkAPIClient)

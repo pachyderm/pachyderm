@@ -17,10 +17,12 @@ type TestJobRunner interface {
 func NewJobRunner(
 	persistAPIClient persist.APIClient,
 	containerClient container.Client,
+	pfsMountDir string,
 ) JobRunner {
 	return newJobRunner(
 		persistAPIClient,
 		containerClient,
+		pfsMountDir,
 	)
 }
 
