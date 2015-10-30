@@ -10,12 +10,14 @@ import (
 func NewAPIServer(
 	persistAPIClient persist.APIClient,
 	containerClient container.Client,
+	pfsMountDir string,
 ) pps.JobAPIServer {
 	return newAPIServer(
 		persistAPIClient,
 		jobserverrun.NewJobRunner(
 			persistAPIClient,
 			containerClient,
+			pfsMountDir,
 		),
 	)
 }

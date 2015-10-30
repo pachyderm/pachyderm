@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/satori/go.uuid"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/container"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
+	"github.com/satori/go.uuid"
 	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 )
@@ -16,15 +16,18 @@ import (
 type jobRunner struct {
 	persistAPIClient persist.APIClient
 	containerClient  container.Client
+	pfsMountDir      string
 }
 
 func newJobRunner(
 	persistAPIClient persist.APIClient,
 	containerClient container.Client,
+	pfsMountDir string,
 ) JobRunner {
 	return &jobRunner{
 		persistAPIClient,
 		containerClient,
+		pfsMountDir,
 	}
 }
 
