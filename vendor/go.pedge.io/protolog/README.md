@@ -6,6 +6,8 @@
 go get go.pedge.io/protolog
 ```
 
+Initial beta release coming soon - I need to do one more pass on this and then document all the functionality.
+
 * Structured logging with Protocol buffers
 * Child of https://github.com/peter-edge/go-ledge
 * Some compatibility with existing libraries (specifically logrus and glog)

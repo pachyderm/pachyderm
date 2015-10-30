@@ -21,6 +21,7 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// Volume represents a volume managed by the dockervolume package.
 type Volume struct {
 	Name       string            `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	Opts       map[string]string `protobuf:"bytes,2,rep,name=opts" json:"opts,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -38,6 +39,7 @@ func (m *Volume) GetOpts() map[string]string {
 	return nil
 }
 
+// Volumes is the plural of Volume.
 type Volumes struct {
 	Volume []*Volume `protobuf:"bytes,1,rep,name=volume" json:"volume,omitempty"`
 }
@@ -53,6 +55,7 @@ func (m *Volumes) GetVolume() []*Volume {
 	return nil
 }
 
+// NameOptsRequest is a request with a volume name and opts.
 type NameOptsRequest struct {
 	Name string            `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	Opts map[string]string `protobuf:"bytes,2,rep,name=opts" json:"opts,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -69,6 +72,7 @@ func (m *NameOptsRequest) GetOpts() map[string]string {
 	return nil
 }
 
+// NameRequest is a request with a volume name.
 type NameRequest struct {
 	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 }
@@ -77,6 +81,7 @@ func (m *NameRequest) Reset()         { *m = NameRequest{} }
 func (m *NameRequest) String() string { return proto.CompactTextString(m) }
 func (*NameRequest) ProtoMessage()    {}
 
+// ActivateResponse is a response for the docker volume plugin API activate function call.
 type ActivateResponse struct {
 	Implements []string `protobuf:"bytes,1,rep,name=implements" json:"implements,omitempty"`
 }
@@ -85,6 +90,7 @@ func (m *ActivateResponse) Reset()         { *m = ActivateResponse{} }
 func (m *ActivateResponse) String() string { return proto.CompactTextString(m) }
 func (*ActivateResponse) ProtoMessage()    {}
 
+// ErrResponse is a response for the docker volume plugin API with a potential error.
 type ErrResponse struct {
 	Err string `protobuf:"bytes,1,opt,name=err" json:"err,omitempty"`
 }
@@ -93,6 +99,7 @@ func (m *ErrResponse) Reset()         { *m = ErrResponse{} }
 func (m *ErrResponse) String() string { return proto.CompactTextString(m) }
 func (*ErrResponse) ProtoMessage()    {}
 
+// MountpointErrResponse is a response for the docker volume plugin API with a mountpoint and a potential error.
 type MountpointErrResponse struct {
 	Mountpoint string `protobuf:"bytes,1,opt,name=mountpoint" json:"mountpoint,omitempty"`
 	Err        string `protobuf:"bytes,2,opt,name=err" json:"err,omitempty"`
@@ -109,14 +116,26 @@ var _ grpc.ClientConn
 // Client API for API service
 
 type APIClient interface {
+	// Activate is the activate function call for the docker volume plugin API.
 	Activate(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*ActivateResponse, error)
+	// Create is the create function call for the docker volume plugin API.
 	Create(ctx context.Context, in *NameOptsRequest, opts ...grpc.CallOption) (*ErrResponse, error)
+	// Remove is the remove function call for the docker volume plugin API.
 	Remove(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*ErrResponse, error)
+	// Path is the path function call for the docker volume plugin API.
 	Path(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*MountpointErrResponse, error)
+	// Mount is the mount function call for the docker volume plugin API.
 	Mount(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*MountpointErrResponse, error)
+	// Unmount is the unmount function call for the docker volume plugin API.
 	Unmount(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*ErrResponse, error)
+	// Cleanup attempts to remove all volumes managed by the API. If any volume
+	// cannot be removed, for example if it is still attached to a container, this
+	// function will error. This function returns all volumes that were attempted
+	// to be removed.
 	Cleanup(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*Volumes, error)
+	// GetVolume returns the volume managed by the API.
 	GetVolume(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*Volume, error)
+	// ListVolumes returns all volumes managed by the API.
 	ListVolumes(ctx context.Context, in *google_protobuf1.Empty, opts ...grpc.CallOption) (*Volumes, error)
 }
 
@@ -212,14 +231,26 @@ func (c *aPIClient) ListVolumes(ctx context.Context, in *google_protobuf1.Empty,
 // Server API for API service
 
 type APIServer interface {
+	// Activate is the activate function call for the docker volume plugin API.
 	Activate(context.Context, *google_protobuf1.Empty) (*ActivateResponse, error)
+	// Create is the create function call for the docker volume plugin API.
 	Create(context.Context, *NameOptsRequest) (*ErrResponse, error)
+	// Remove is the remove function call for the docker volume plugin API.
 	Remove(context.Context, *NameRequest) (*ErrResponse, error)
+	// Path is the path function call for the docker volume plugin API.
 	Path(context.Context, *NameRequest) (*MountpointErrResponse, error)
+	// Mount is the mount function call for the docker volume plugin API.
 	Mount(context.Context, *NameRequest) (*MountpointErrResponse, error)
+	// Unmount is the unmount function call for the docker volume plugin API.
 	Unmount(context.Context, *NameRequest) (*ErrResponse, error)
+	// Cleanup attempts to remove all volumes managed by the API. If any volume
+	// cannot be removed, for example if it is still attached to a container, this
+	// function will error. This function returns all volumes that were attempted
+	// to be removed.
 	Cleanup(context.Context, *google_protobuf1.Empty) (*Volumes, error)
+	// GetVolume returns the volume managed by the API.
 	GetVolume(context.Context, *NameRequest) (*Volume, error)
+	// ListVolumes returns all volumes managed by the API.
 	ListVolumes(context.Context, *google_protobuf1.Empty) (*Volumes, error)
 }
 
