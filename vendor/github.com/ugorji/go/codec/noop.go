@@ -38,26 +38,21 @@ type noopHandle struct {
 }
 
 type noopDrv struct {
-	d    *Decoder
-	e    *Encoder
 	i    int
 	S    []string
 	B    [][]byte
 	mks  []bool    // stack. if map (true), else if array (false)
 	mk   bool      // top of stack. what container are we on? map or array?
-	ct   valueType // last response for IsContainerType.
-	cb   int       // counter for ContainerType
+	ct   valueType // last request for IsContainerType.
+	cb   bool      // last response for IsContainerType.
 	rand *rand.Rand
 }
 
 func (h *noopDrv) r(v int) int { return h.rand.Intn(v) }
 func (h *noopDrv) m(v int) int { h.i++; return h.i % v }
 
-func (h *noopDrv) newEncDriver(e *Encoder) encDriver { h.e = e; return h }
-func (h *noopDrv) newDecDriver(d *Decoder) decDriver { h.d = d; return h }
-
-func (h *noopDrv) reset()       {}
-func (h *noopDrv) uncacheRead() {}
+func (h *noopDrv) newEncDriver(_ *Encoder) encDriver { return h }
+func (h *noopDrv) newDecDriver(_ *Decoder) decDriver { return h }
 
 // --- encDriver
 
@@ -116,48 +111,18 @@ func (h *noopDrv) ReadEnd() { h.end() }
 func (h *noopDrv) ReadMapStart() int   { h.start(true); return h.m(10) }
 func (h *noopDrv) ReadArrayStart() int { h.start(false); return h.m(10) }
 
-func (h *noopDrv) ContainerType() (vt valueType) {
+func (h *noopDrv) IsContainerType(vt valueType) bool {
 	// return h.m(2) == 0
-	// handle kStruct, which will bomb is it calls this and doesn't get back a map or array.
-	// consequently, if the return value is not map or array, reset it to one of them based on h.m(7) % 2
-	// for kstruct: at least one out of every 2 times, return one of valueTypeMap or Array (else kstruct bombs)
-	// however, every 10th time it is called, we just return something else.
-	var vals = [...]valueType{valueTypeArray, valueTypeMap}
-	//  ------------ TAKE ------------
-	// if h.cb%2 == 0 {
-	// 	if h.ct == valueTypeMap || h.ct == valueTypeArray {
-	// 	} else {
-	// 		h.ct = vals[h.m(2)]
-	// 	}
-	// } else if h.cb%5 == 0 {
-	// 	h.ct = valueType(h.m(8))
-	// } else {
-	// 	h.ct = vals[h.m(2)]
-	// }
-	//  ------------ TAKE ------------
-	// if h.cb%16 == 0 {
-	// 	h.ct = valueType(h.cb % 8)
-	// } else {
-	// 	h.ct = vals[h.cb%2]
-	// }
-	h.ct = vals[h.cb%2]
-	h.cb++
-	return h.ct
-
-	// if h.ct == valueTypeNil || h.ct == valueTypeString || h.ct == valueTypeBytes {
-	// 	return h.ct
-	// }
-	// return valueTypeUnset
-	// TODO: may need to tweak this so it works.
-	// if h.ct == valueTypeMap && vt == valueTypeArray || h.ct == valueTypeArray && vt == valueTypeMap {
-	// 	h.cb = !h.cb
-	// 	h.ct = vt
-	// 	return h.cb
-	// }
-	// // go in a loop and check it.
-	// h.ct = vt
-	// h.cb = h.m(7) == 0
-	// return h.cb
+	// handle kStruct
+	if h.ct == valueTypeMap && vt == valueTypeArray || h.ct == valueTypeArray && vt == valueTypeMap {
+		h.cb = !h.cb
+		h.ct = vt
+		return h.cb
+	}
+	// go in a loop and check it.
+	h.ct = vt
+	h.cb = h.m(7) == 0
+	return h.cb
 }
 func (h *noopDrv) TryDecodeAsNil() bool {
 	if h.mk {
@@ -170,7 +135,7 @@ func (h *noopDrv) DecodeExt(rv interface{}, xtag uint64, ext Ext) uint64 {
 	return 0
 }
 
-func (h *noopDrv) DecodeNaked() {
+func (h *noopDrv) DecodeNaked() (v interface{}, vt valueType, decodeFurther bool) {
 	// use h.r (random) not h.m() because h.m() could cause the same value to be given.
 	var sk int
 	if h.mk {
@@ -179,35 +144,32 @@ func (h *noopDrv) DecodeNaked() {
 	} else {
 		sk = h.r(12)
 	}
-	n := &h.d.n
 	switch sk {
 	case 0:
-		n.v = valueTypeNil
+		vt = valueTypeNil
 	case 1:
-		n.v, n.b = valueTypeBool, false
+		vt, v = valueTypeBool, false
 	case 2:
-		n.v, n.b = valueTypeBool, true
+		vt, v = valueTypeBool, true
 	case 3:
-		n.v, n.i = valueTypeInt, h.DecodeInt(64)
+		vt, v = valueTypeInt, h.DecodeInt(64)
 	case 4:
-		n.v, n.u = valueTypeUint, h.DecodeUint(64)
+		vt, v = valueTypeUint, h.DecodeUint(64)
 	case 5:
-		n.v, n.f = valueTypeFloat, h.DecodeFloat(true)
+		vt, v = valueTypeFloat, h.DecodeFloat(true)
 	case 6:
-		n.v, n.f = valueTypeFloat, h.DecodeFloat(false)
+		vt, v = valueTypeFloat, h.DecodeFloat(false)
 	case 7:
-		n.v, n.s = valueTypeString, h.DecodeString()
+		vt, v = valueTypeString, h.DecodeString()
 	case 8:
-		n.v, n.l = valueTypeBytes, h.B[h.m(len(h.B))]
+		vt, v = valueTypeBytes, h.B[h.m(len(h.B))]
 	case 9:
-		n.v = valueTypeArray
+		vt, decodeFurther = valueTypeArray, true
 	case 10:
-		n.v = valueTypeMap
+		vt, decodeFurther = valueTypeMap, true
 	default:
-		n.v = valueTypeExt
-		n.u = h.DecodeUint(64)
-		n.l = h.B[h.m(len(h.B))]
+		vt, v = valueTypeExt, &RawExt{Tag: h.DecodeUint(64), Data: h.B[h.m(len(h.B))]}
 	}
-	h.ct = n.v
+	h.ct = vt
 	return
 }

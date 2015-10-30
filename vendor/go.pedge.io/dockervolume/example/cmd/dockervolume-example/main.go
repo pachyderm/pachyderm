@@ -1,3 +1,6 @@
+/*
+Package main contains an example implementation of a dockervolume VolumeDriver and binary.
+*/
 package main
 
 import (

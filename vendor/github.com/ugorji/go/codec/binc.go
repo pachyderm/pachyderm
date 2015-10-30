@@ -59,8 +59,8 @@ type bincEncDriver struct {
 	e *Encoder
 	w encWriter
 	m map[string]uint16 // symbols
+	s uint16            // symbols sequencer
 	b [scratchByteArrayLen]byte
-	s uint16 // symbols sequencer
 	encNoSeparator
 }
 
@@ -318,9 +318,9 @@ func (e *bincEncDriver) encLenNumber(bd byte, v uint64) {
 //------------------------------------
 
 type bincDecSymbol struct {
+	i uint16
 	s string
 	b []byte
-	i uint16
 }
 
 type bincDecDriver struct {
@@ -329,6 +329,7 @@ type bincDecDriver struct {
 	r      decReader
 	br     bool // bytes reader
 	bdRead bool
+	bdType valueType
 	bd     byte
 	vd     byte
 	vs     byte
@@ -346,23 +347,24 @@ func (d *bincDecDriver) readNextBd() {
 	d.vd = d.bd >> 4
 	d.vs = d.bd & 0x0f
 	d.bdRead = true
+	d.bdType = valueTypeUnset
 }
 
-func (d *bincDecDriver) ContainerType() (vt valueType) {
-	if d.vd == bincVdSpecial && d.vs == bincSpNil {
-		return valueTypeNil
-	} else if d.vd == bincVdByteArray {
-		return valueTypeBytes
-	} else if d.vd == bincVdString {
-		return valueTypeString
-	} else if d.vd == bincVdArray {
-		return valueTypeArray
-	} else if d.vd == bincVdMap {
-		return valueTypeMap
-	} else {
-		// d.d.errorf("isContainerType: unsupported parameter: %v", vt)
+func (d *bincDecDriver) IsContainerType(vt valueType) (b bool) {
+	switch vt {
+	case valueTypeNil:
+		return d.vd == bincVdSpecial && d.vs == bincSpNil
+	case valueTypeBytes:
+		return d.vd == bincVdByteArray
+	case valueTypeString:
+		return d.vd == bincVdString
+	case valueTypeArray:
+		return d.vd == bincVdArray
+	case valueTypeMap:
+		return d.vd == bincVdMap
 	}
-	return valueTypeUnset
+	d.d.errorf("isContainerType: unsupported parameter: %v", vt)
+	return // "unreachable"
 }
 
 func (d *bincDecDriver) TryDecodeAsNil() bool {
@@ -693,7 +695,7 @@ func (d *bincDecDriver) decStringAndBytes(bs []byte, withString, zerocopy bool) 
 			if withString {
 				s = string(bs2)
 			}
-			d.s = append(d.s, bincDecSymbol{i: symbol, s: s, b: bs2})
+			d.s = append(d.s, bincDecSymbol{symbol, s, bs2})
 		}
 	default:
 		d.d.errorf("Invalid d.vd. Expecting string:0x%x, bytearray:0x%x or symbol: 0x%x. Got: 0x%x",
@@ -782,95 +784,97 @@ func (d *bincDecDriver) decodeExtV(verifyTag bool, tag byte) (xtag byte, xbs []b
 	return
 }
 
-func (d *bincDecDriver) DecodeNaked() {
+func (d *bincDecDriver) DecodeNaked() (v interface{}, vt valueType, decodeFurther bool) {
 	if !d.bdRead {
 		d.readNextBd()
 	}
-
-	n := &d.d.n
-	var decodeFurther bool
 
 	switch d.vd {
 	case bincVdSpecial:
 		switch d.vs {
 		case bincSpNil:
-			n.v = valueTypeNil
+			vt = valueTypeNil
 		case bincSpFalse:
-			n.v = valueTypeBool
-			n.b = false
+			vt = valueTypeBool
+			v = false
 		case bincSpTrue:
-			n.v = valueTypeBool
-			n.b = true
+			vt = valueTypeBool
+			v = true
 		case bincSpNan:
-			n.v = valueTypeFloat
-			n.f = math.NaN()
+			vt = valueTypeFloat
+			v = math.NaN()
 		case bincSpPosInf:
-			n.v = valueTypeFloat
-			n.f = math.Inf(1)
+			vt = valueTypeFloat
+			v = math.Inf(1)
 		case bincSpNegInf:
-			n.v = valueTypeFloat
-			n.f = math.Inf(-1)
+			vt = valueTypeFloat
+			v = math.Inf(-1)
 		case bincSpZeroFloat:
-			n.v = valueTypeFloat
-			n.f = float64(0)
+			vt = valueTypeFloat
+			v = float64(0)
 		case bincSpZero:
-			n.v = valueTypeUint
-			n.u = uint64(0) // int8(0)
+			vt = valueTypeUint
+			v = uint64(0) // int8(0)
 		case bincSpNegOne:
-			n.v = valueTypeInt
-			n.i = int64(-1) // int8(-1)
+			vt = valueTypeInt
+			v = int64(-1) // int8(-1)
 		default:
 			d.d.errorf("decodeNaked: Unrecognized special value 0x%x", d.vs)
+			return
 		}
 	case bincVdSmallInt:
-		n.v = valueTypeUint
-		n.u = uint64(int8(d.vs)) + 1 // int8(d.vs) + 1
+		vt = valueTypeUint
+		v = uint64(int8(d.vs)) + 1 // int8(d.vs) + 1
 	case bincVdPosInt:
-		n.v = valueTypeUint
-		n.u = d.decUint()
+		vt = valueTypeUint
+		v = d.decUint()
 	case bincVdNegInt:
-		n.v = valueTypeInt
-		n.i = -(int64(d.decUint()))
+		vt = valueTypeInt
+		v = -(int64(d.decUint()))
 	case bincVdFloat:
-		n.v = valueTypeFloat
-		n.f = d.decFloat()
+		vt = valueTypeFloat
+		v = d.decFloat()
 	case bincVdSymbol:
-		n.v = valueTypeSymbol
-		n.s = d.DecodeString()
+		vt = valueTypeSymbol
+		v = d.DecodeString()
 	case bincVdString:
-		n.v = valueTypeString
-		n.s = d.DecodeString()
+		vt = valueTypeString
+		v = d.DecodeString()
 	case bincVdByteArray:
-		n.v = valueTypeBytes
-		n.l = d.DecodeBytes(nil, false, false)
+		vt = valueTypeBytes
+		v = d.DecodeBytes(nil, false, false)
 	case bincVdTimestamp:
-		n.v = valueTypeTimestamp
+		vt = valueTypeTimestamp
 		tt, err := decodeTime(d.r.readx(int(d.vs)))
 		if err != nil {
 			panic(err)
 		}
-		n.t = tt
+		v = tt
 	case bincVdCustomExt:
-		n.v = valueTypeExt
+		vt = valueTypeExt
 		l := d.decLen()
-		n.u = uint64(d.r.readn1())
-		n.l = d.r.readx(l)
+		var re RawExt
+		re.Tag = uint64(d.r.readn1())
+		re.Data = d.r.readx(l)
+		v = &re
+		vt = valueTypeExt
 	case bincVdArray:
-		n.v = valueTypeArray
+		vt = valueTypeArray
 		decodeFurther = true
 	case bincVdMap:
-		n.v = valueTypeMap
+		vt = valueTypeMap
 		decodeFurther = true
 	default:
 		d.d.errorf("decodeNaked: Unrecognized d.vd: 0x%x", d.vd)
+		return
 	}
 
 	if !decodeFurther {
 		d.bdRead = false
 	}
-	if n.v == valueTypeUint && d.h.SignedInteger {
-		n.v = valueTypeInt
-		n.i = int64(n.u)
+	if vt == valueTypeUint && d.h.SignedInteger {
+		d.bdType = valueTypeInt
+		v = int64(v.(uint64))
 	}
 	return
 }
@@ -894,10 +898,6 @@ type BincHandle struct {
 	binaryEncodingType
 }
 
-func (h *BincHandle) SetBytesExt(rt reflect.Type, tag uint64, ext BytesExt) (err error) {
-	return h.SetExt(rt, tag, &setExtWrapper{b: ext})
-}
-
 func (h *BincHandle) newEncDriver(e *Encoder) encDriver {
 	return &bincEncDriver{e: e, w: e.w}
 }
@@ -906,12 +906,8 @@ func (h *BincHandle) newDecDriver(d *Decoder) decDriver {
 	return &bincDecDriver{d: d, r: d.r, h: h, br: d.bytes}
 }
 
-func (e *bincEncDriver) reset() {
-	e.w = e.e.w
-}
-
-func (d *bincDecDriver) reset() {
-	d.r = d.d.r
+func (h *BincHandle) SetBytesExt(rt reflect.Type, tag uint64, ext BytesExt) (err error) {
+	return h.SetExt(rt, tag, &setExtWrapper{b: ext})
 }
 
 var _ decDriver = (*bincDecDriver)(nil)

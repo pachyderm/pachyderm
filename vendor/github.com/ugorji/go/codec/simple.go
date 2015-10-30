@@ -29,12 +29,12 @@ const (
 )
 
 type simpleEncDriver struct {
-	noBuiltInTypes
-	encNoSeparator
 	e *Encoder
 	h *SimpleHandle
 	w encWriter
+	noBuiltInTypes
 	b [8]byte
+	encNoSeparator
 }
 
 func (e *simpleEncDriver) EncodeNil() {
@@ -153,6 +153,7 @@ type simpleDecDriver struct {
 	h      *SimpleHandle
 	r      decReader
 	bdRead bool
+	bdType valueType
 	bd     byte
 	br     bool // bytes reader
 	noBuiltInTypes
@@ -164,27 +165,28 @@ type simpleDecDriver struct {
 func (d *simpleDecDriver) readNextBd() {
 	d.bd = d.r.readn1()
 	d.bdRead = true
+	d.bdType = valueTypeUnset
 }
 
-func (d *simpleDecDriver) ContainerType() (vt valueType) {
-	if d.bd == simpleVdNil {
-		return valueTypeNil
-	} else if d.bd == simpleVdByteArray || d.bd == simpleVdByteArray+1 ||
-		d.bd == simpleVdByteArray+2 || d.bd == simpleVdByteArray+3 || d.bd == simpleVdByteArray+4 {
-		return valueTypeBytes
-	} else if d.bd == simpleVdString || d.bd == simpleVdString+1 ||
-		d.bd == simpleVdString+2 || d.bd == simpleVdString+3 || d.bd == simpleVdString+4 {
-		return valueTypeString
-	} else if d.bd == simpleVdArray || d.bd == simpleVdArray+1 ||
-		d.bd == simpleVdArray+2 || d.bd == simpleVdArray+3 || d.bd == simpleVdArray+4 {
-		return valueTypeArray
-	} else if d.bd == simpleVdMap || d.bd == simpleVdMap+1 ||
-		d.bd == simpleVdMap+2 || d.bd == simpleVdMap+3 || d.bd == simpleVdMap+4 {
-		return valueTypeMap
-	} else {
-		// d.d.errorf("isContainerType: unsupported parameter: %v", vt)
+func (d *simpleDecDriver) IsContainerType(vt valueType) bool {
+	switch vt {
+	case valueTypeNil:
+		return d.bd == simpleVdNil
+	case valueTypeBytes:
+		const x uint8 = simpleVdByteArray
+		return d.bd == x || d.bd == x+1 || d.bd == x+2 || d.bd == x+3 || d.bd == x+4
+	case valueTypeString:
+		const x uint8 = simpleVdString
+		return d.bd == x || d.bd == x+1 || d.bd == x+2 || d.bd == x+3 || d.bd == x+4
+	case valueTypeArray:
+		const x uint8 = simpleVdArray
+		return d.bd == x || d.bd == x+1 || d.bd == x+2 || d.bd == x+3 || d.bd == x+4
+	case valueTypeMap:
+		const x uint8 = simpleVdMap
+		return d.bd == x || d.bd == x+1 || d.bd == x+2 || d.bd == x+3 || d.bd == x+4
 	}
-	return valueTypeUnset
+	d.d.errorf("isContainerType: unsupported parameter: %v", vt)
+	return false // "unreachable"
 }
 
 func (d *simpleDecDriver) TryDecodeAsNil() bool {
@@ -408,59 +410,59 @@ func (d *simpleDecDriver) decodeExtV(verifyTag bool, tag byte) (xtag byte, xbs [
 	return
 }
 
-func (d *simpleDecDriver) DecodeNaked() {
+func (d *simpleDecDriver) DecodeNaked() (v interface{}, vt valueType, decodeFurther bool) {
 	if !d.bdRead {
 		d.readNextBd()
 	}
 
-	n := &d.d.n
-	var decodeFurther bool
-
 	switch d.bd {
 	case simpleVdNil:
-		n.v = valueTypeNil
+		vt = valueTypeNil
 	case simpleVdFalse:
-		n.v = valueTypeBool
-		n.b = false
+		vt = valueTypeBool
+		v = false
 	case simpleVdTrue:
-		n.v = valueTypeBool
-		n.b = true
+		vt = valueTypeBool
+		v = true
 	case simpleVdPosInt, simpleVdPosInt + 1, simpleVdPosInt + 2, simpleVdPosInt + 3:
 		if d.h.SignedInteger {
-			n.v = valueTypeInt
-			n.i = d.DecodeInt(64)
+			vt = valueTypeInt
+			v = d.DecodeInt(64)
 		} else {
-			n.v = valueTypeUint
-			n.u = d.DecodeUint(64)
+			vt = valueTypeUint
+			v = d.DecodeUint(64)
 		}
 	case simpleVdNegInt, simpleVdNegInt + 1, simpleVdNegInt + 2, simpleVdNegInt + 3:
-		n.v = valueTypeInt
-		n.i = d.DecodeInt(64)
+		vt = valueTypeInt
+		v = d.DecodeInt(64)
 	case simpleVdFloat32:
-		n.v = valueTypeFloat
-		n.f = d.DecodeFloat(true)
+		vt = valueTypeFloat
+		v = d.DecodeFloat(true)
 	case simpleVdFloat64:
-		n.v = valueTypeFloat
-		n.f = d.DecodeFloat(false)
+		vt = valueTypeFloat
+		v = d.DecodeFloat(false)
 	case simpleVdString, simpleVdString + 1, simpleVdString + 2, simpleVdString + 3, simpleVdString + 4:
-		n.v = valueTypeString
-		n.s = d.DecodeString()
+		vt = valueTypeString
+		v = d.DecodeString()
 	case simpleVdByteArray, simpleVdByteArray + 1, simpleVdByteArray + 2, simpleVdByteArray + 3, simpleVdByteArray + 4:
-		n.v = valueTypeBytes
-		n.l = d.DecodeBytes(nil, false, false)
+		vt = valueTypeBytes
+		v = d.DecodeBytes(nil, false, false)
 	case simpleVdExt, simpleVdExt + 1, simpleVdExt + 2, simpleVdExt + 3, simpleVdExt + 4:
-		n.v = valueTypeExt
+		vt = valueTypeExt
 		l := d.decLen()
-		n.u = uint64(d.r.readn1())
-		n.l = d.r.readx(l)
+		var re RawExt
+		re.Tag = uint64(d.r.readn1())
+		re.Data = d.r.readx(l)
+		v = &re
 	case simpleVdArray, simpleVdArray + 1, simpleVdArray + 2, simpleVdArray + 3, simpleVdArray + 4:
-		n.v = valueTypeArray
+		vt = valueTypeArray
 		decodeFurther = true
 	case simpleVdMap, simpleVdMap + 1, simpleVdMap + 2, simpleVdMap + 3, simpleVdMap + 4:
-		n.v = valueTypeMap
+		vt = valueTypeMap
 		decodeFurther = true
 	default:
 		d.d.errorf("decodeNaked: Unrecognized d.bd: 0x%x", d.bd)
+		return
 	}
 
 	if !decodeFurther {
@@ -494,10 +496,6 @@ type SimpleHandle struct {
 	binaryEncodingType
 }
 
-func (h *SimpleHandle) SetBytesExt(rt reflect.Type, tag uint64, ext BytesExt) (err error) {
-	return h.SetExt(rt, tag, &setExtWrapper{b: ext})
-}
-
 func (h *SimpleHandle) newEncDriver(e *Encoder) encDriver {
 	return &simpleEncDriver{e: e, w: e.w, h: h}
 }
@@ -506,12 +504,8 @@ func (h *SimpleHandle) newDecDriver(d *Decoder) decDriver {
 	return &simpleDecDriver{d: d, r: d.r, h: h, br: d.bytes}
 }
 
-func (e *simpleEncDriver) reset() {
-	e.w = e.e.w
-}
-
-func (d *simpleDecDriver) reset() {
-	d.r = d.d.r
+func (h *SimpleHandle) SetBytesExt(rt reflect.Type, tag uint64, ext BytesExt) (err error) {
+	return h.SetExt(rt, tag, &setExtWrapper{b: ext})
 }
 
 var _ decDriver = (*simpleDecDriver)(nil)

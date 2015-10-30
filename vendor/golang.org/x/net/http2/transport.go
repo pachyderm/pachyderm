@@ -542,36 +542,44 @@ var errServerResponseBeforeRequestBody = errors.New("http2: server sent response
 
 func (cs *clientStream) writeRequestBody(body io.Reader, gotResHeaders <-chan struct{}) error {
 	cc := cs.cc
-	done := false
-	for !done {
-		buf := cc.frameScratchBuffer()
+	sentEnd := false // whether we sent the final DATA frame w/ END_STREAM
+	buf := cc.frameScratchBuffer()
+	defer cc.putFrameScratchBuffer(buf)
 
-		taken, err := cs.awaitFlowControl(int32(len(buf)))
-		if err != nil {
-			return err
-		}
-
-		n, err := io.ReadFull(body, buf[:taken])
+	for !sentEnd {
+		var sawEOF bool
+		n, err := io.ReadFull(body, buf)
 		if err == io.ErrUnexpectedEOF {
-			done = true
+			sawEOF = true
+			err = nil
 		} else if err == io.EOF {
 			break
 		} else if err != nil {
 			return err
 		}
 
-		cc.wmu.Lock()
-		select {
-		case <-gotResHeaders:
-			err = errServerResponseBeforeRequestBody
-		case <-cs.peerReset:
-			err = cs.resetErr
-		default:
-			err = cc.fr.WriteData(cs.ID, done, buf[:n])
-		}
-		cc.wmu.Unlock()
-		cc.putFrameScratchBuffer(buf)
+		toWrite := buf[:n]
+		for len(toWrite) > 0 && err == nil {
+			var allowed int32
+			allowed, err = cs.awaitFlowControl(int32(len(toWrite)))
+			if err != nil {
+				return err
+			}
 
+			cc.wmu.Lock()
+			select {
+			case <-gotResHeaders:
+				err = errServerResponseBeforeRequestBody
+			case <-cs.peerReset:
+				err = cs.resetErr
+			default:
+				data := toWrite[:allowed]
+				toWrite = toWrite[allowed:]
+				sentEnd = sawEOF && len(toWrite) == 0
+				err = cc.fr.WriteData(cs.ID, sentEnd, data)
+			}
+			cc.wmu.Unlock()
+		}
 		if err != nil {
 			return err
 		}
@@ -580,7 +588,7 @@ func (cs *clientStream) writeRequestBody(body io.Reader, gotResHeaders <-chan st
 	var err error
 
 	cc.wmu.Lock()
-	if !done {
+	if !sentEnd {
 		err = cc.fr.WriteData(cs.ID, true, nil)
 	}
 	if ferr := cc.bw.Flush(); ferr != nil && err == nil {
@@ -591,10 +599,11 @@ func (cs *clientStream) writeRequestBody(body io.Reader, gotResHeaders <-chan st
 	return err
 }
 
-// awaitFlowControl waits for [1,max] flow control tokens from the server. It
-// returns either the non-zero number of tokens taken or an error if the stream
-// is dead.
-func (cs *clientStream) awaitFlowControl(max int32) (taken int32, err error) {
+// awaitFlowControl waits for [1, min(maxBytes, cc.cs.maxFrameSize)] flow
+// control tokens from the server.
+// It returns either the non-zero number of tokens taken or an error
+// if the stream is dead.
+func (cs *clientStream) awaitFlowControl(maxBytes int32) (taken int32, err error) {
 	cc := cs.cc
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
@@ -607,8 +616,11 @@ func (cs *clientStream) awaitFlowControl(max int32) (taken int32, err error) {
 		}
 		if a := cs.flow.available(); a > 0 {
 			take := a
-			if take > max {
-				take = max
+			if take > maxBytes {
+				take = maxBytes
+			}
+			if take > int32(cc.maxFrameSize) {
+				take = int32(cc.maxFrameSize)
 			}
 			cs.flow.take(take)
 			return take, nil
