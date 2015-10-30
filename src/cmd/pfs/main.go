@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"go.pedge.io/env"
