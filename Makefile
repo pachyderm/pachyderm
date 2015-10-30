@@ -6,7 +6,7 @@
 ####
 
 ifndef TESTPKGS
-TESTPKGS = ./src/...
+	TESTPKGS = ./src/...
 endif
 
 all: build
@@ -44,7 +44,6 @@ build:
 
 install:
 	go install ./src/cmd/pfs-volume-driver ./src/cmd/pfs ./src/cmd/pps
-	go install ./vendor/go.pedge.io/dockervolume/cmd/dockervolume
 
 docker-build-btrfs:
 	docker-compose build btrfs
@@ -112,17 +111,17 @@ pretest:
 	for file in $$(find "./src" -name '*.go' | grep -v '\.pb\.go' | grep -v '\.pb\.gw\.go'); do \
 		golint $$file | grep -v unexported; \
 		if [ -n "$$(golint $$file | grep -v unexported)" ]; then \
-			exit 1; \
+		exit 1; \
 		fi; \
-	done;
+		done;
 	go vet -n ./src/... | while read line; do \
 		modified=$$(echo $$line | sed "s/ [a-z0-9_/]*\.pb\.gw\.go//g"); \
 		$$modified; \
 		if [ -n "$$($$modified)" ]; then \
-			exit 1; \
+		exit 1; \
 		fi; \
-	done
-	errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$ | grep -v src/pps/server | grep -v src/pps/persist)
+		done
+	errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
 docker-clean-test:
 	docker-compose kill rethink
@@ -149,10 +148,6 @@ test: pretest go-test
 
 test-pfs-extra: pretest docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pfs/server"
-
-test-pps-extra: docker-clean-test docker-build-test
-	go build ./src/pps/persist/...
-	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) ./src/pps/persist"
 
 clean: docker-clean-launch
 	go clean ./src/...
@@ -199,5 +194,4 @@ clean: docker-clean-launch
 	go-test \
 	test \
 	test-pfs-extra \
-	test-pps-extra \
 	clean
