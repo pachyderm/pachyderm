@@ -127,7 +127,7 @@ func (p *pipelineController) runInner(ctx context.Context, lastCommit *pfs.Commi
 }
 
 func (p *pipelineController) createJobForCommitInfo(ctx context.Context, commitInfo *pfs.CommitInfo) error {
-	parentOutputCommit, err := p.getParentOutputCommit(commitInfo)
+	parentOutputCommit, err := p.getParentOutputCommit(ctx, commitInfo)
 	if err != nil {
 		return err
 	}
@@ -144,8 +144,50 @@ func (p *pipelineController) createJobForCommitInfo(ctx context.Context, commitI
 	return err
 }
 
-func (p *pipelineController) getParentOutputCommit(commitInfo *pfs.CommitInfo) (*pfs.Commit, error) {
+func (p *pipelineController) getParentOutputCommit(ctx context.Context, commitInfo *pfs.CommitInfo) (*pfs.Commit, error) {
+	for commitInfo.ParentCommit != nil && commitInfo.ParentCommit.Id != pfs.InitialCommitID {
+		outputCommit, err := p.getOutputCommit(ctx, commitInfo.ParentCommit)
+		if err != nil {
+			return nil, err
+		}
+		if outputCommit != nil {
+			return outputCommit, nil
+		}
+	}
+	return &pfs.Commit{
+		Repo: commitInfo.Commit.Repo,
+		Id:   pfs.InitialCommitID,
+	}, nil
+}
+
+func (p *pipelineController) getOutputCommit(ctx context.Context, inputCommit *pfs.Commit) (*pfs.Commit, error) {
+	jobInfos, err := p.jobAPIClient.ListJob(
+		ctx,
+		&pps.ListJobRequest{
+			Pipeline: p.pipelineInfo.Pipeline,
+			Input:    inputCommit,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	// newest to oldest assumed
+	for _, jobInfo := range jobInfos.JobInfo {
+		if jobInfo.Output != nil && containsSuccessJobStatus(jobInfo.JobStatus) {
+			return jobInfo.Output, nil
+		}
+	}
 	return nil, nil
+}
+
+// TODO(pedge): not assuming that last status is success
+func containsSuccessJobStatus(jobStatuses []*pps.JobStatus) bool {
+	for _, jobStatus := range jobStatuses {
+		if jobStatus.Type == pps.JobStatusType_JOB_STATUS_TYPE_SUCCESS {
+			return true
+		}
+	}
+	return false
 }
 
 func ignoreCanceledError(err error) error {
