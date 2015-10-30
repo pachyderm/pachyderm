@@ -68,7 +68,7 @@ We're hiring! If you like ambitious distributed systems problems and think there
 You need to install docker-compose for the Makefile commands to work.
 
 ```shell
-curl -L https://github.com/docker/compose/releases/download/1.4.0rc2/docker-compose-$(uname -s)-$(uname -m) > /usr/local/bin/docker-compose
+curl -L https://github.com/docker/compose/releases/download/1.5.0rc2/docker-compose-$(uname -s)-$(uname -m) > /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 ```
 
@@ -81,10 +81,9 @@ make test-deps # download all golang dependencies
 make build # build the source code (does not build the tests)
 make test # run all the tests
 make clean # clean up all pachyderm state
-RUNARGS="go test -test.v ./..." make run # equivalent to TESTFLAGS=-test.v make test
 make launch-pfsd # launch the new pfsd daemon
 make install # install all binaries locally
-pfs # if ${GOPATH}/bin is on your path, this will run the new pfs cli, this is very experimental and does not check for common errors
+pfs # if ${GOPATH}/bin is on your path, this will run the pfs cli
 ```
 
 ### Development Notes
@@ -92,8 +91,6 @@ pfs # if ${GOPATH}/bin is on your path, this will run the new pfs cli, this is v
 ##### Logs
 
 We're using [protolog](http://go.pedge.io/protolog) for logging. All new log events should be wrapped in a protobuf message.
-A package that has log messages should have a proto file named `protolog.proto` in it.
-See [src/pps/run/protolog.proto](src/pps/run/protolog.proto) and [src/pps/run/runner.go](src/pps/run/runner.go) for an example.
 
 ### Environment Setup
 
@@ -102,7 +99,7 @@ With golang, it's generally easiest to have your fork match the import paths in 
 ```
 # assuming your github username is alice
 rm -rf ${GOPATH}/src/github.com/pachyderm/pachyderm
-cd ${GOPATH}/src/go.pachyderm.com
+cd ${GOPATH}/src/github.com/pachyderm
 git clone https://github.com/alice/pachyderm.git
 git remote add upstream https://github.com/pachyderm/pachyderm.git # so you can run 'git fetch upstream' to get upstream changes
 ```
@@ -160,7 +157,7 @@ The bin scripts assume you have your user in the docker group as explained in th
 If this is set up properly, you do not need to use `sudo` to run `docker`. If you do not want this, and want to have to use `sudo` for docker development, wrap all commands like so:
 
 ```
-sudo -E bash -c 'bin/run go test ./...' # original command would have been `./bin/run go test ./...`
+sudo -E bash -c 'make test' # original command would have been `make test`
 ```
 
 ## Contributing

@@ -4,14 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/pkg/require"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"github.com/pachyderm/pachyderm/src/pps/persist/server"
-
-	"github.com/satori/go.uuid"
 )
 
 func RunTestWithRethinkAPIServer(t *testing.T, testFunc func(t *testing.T, persistAPIServer persist.APIServer)) {
@@ -28,7 +26,7 @@ func NewTestRethinkAPIServer() (server.APIServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	databaseName := strings.Replace(uuid.NewV4().String(), "-", "", -1)
+	databaseName := uuid.NewWithoutDashes()
 	if err := server.InitDBs(address, databaseName); err != nil {
 		return nil, err
 	}

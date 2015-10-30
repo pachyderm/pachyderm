@@ -28,13 +28,13 @@ func (j *testJobRunner) GetJobIDToPersistJobInfo() map[string]*persist.JobInfo {
 	return copyJobIDToPersistJobInfo(j.jobIDToPersistJobInfo)
 }
 
-// TODO(pedge): actually copy, not an issue for now, but we do not want
+// TODO: actually copy, not an issue for now, but we do not want
 // changes to the input *persist.JobInfo to affect anything in htere
 func copyPersistJobInfo(persistJobInfo *persist.JobInfo) *persist.JobInfo {
 	return persistJobInfo
 }
 
-// TODO(pedge): actually copy
+// TODO: actually copy
 func copyJobIDToPersistJobInfo(jobIDToPersistJobInfo map[string]*persist.JobInfo) map[string]*persist.JobInfo {
 	return jobIDToPersistJobInfo
 }

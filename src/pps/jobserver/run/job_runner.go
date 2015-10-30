@@ -2,31 +2,44 @@ package jobserverrun
 
 import (
 	"fmt"
-	"strings"
+	"os"
+	"path/filepath"
 
-	"github.com/satori/go.uuid"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/container"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
+
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pkg/container"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
 
 type jobRunner struct {
+	pfsAPIClient     pfs.APIClient
 	persistAPIClient persist.APIClient
 	containerClient  container.Client
+	pfsMountDir      string
+	options          JobRunnerOptions
 }
 
 func newJobRunner(
+	pfsAPIClient pfs.APIClient,
 	persistAPIClient persist.APIClient,
 	containerClient container.Client,
+	pfsMountDir string,
+	options JobRunnerOptions,
 ) JobRunner {
 	return &jobRunner{
+		pfsAPIClient,
 		persistAPIClient,
 		containerClient,
+		pfsMountDir,
+		options,
 	}
 }
+
+// TODO: propogate context from api server?
 
 func (j *jobRunner) Start(persistJobInfo *persist.JobInfo) error {
 	if _, err := j.persistAPIClient.CreateJobStatus(
@@ -38,11 +51,11 @@ func (j *jobRunner) Start(persistJobInfo *persist.JobInfo) error {
 	); err != nil {
 		return err
 	}
-	// TODO(pedge): throttling? worker pool?
+	// TODO: throttling? worker pool?
 	go func() {
 		if err := j.runJobInfo(persistJobInfo); err != nil {
 			protolog.Errorln(err.Error())
-			// TODO(pedge): how to handle the error?
+			// TODO: how to handle the error?
 			if _, err = j.persistAPIClient.CreateJobStatus(
 				context.Background(),
 				&persist.JobStatus{
@@ -54,7 +67,7 @@ func (j *jobRunner) Start(persistJobInfo *persist.JobInfo) error {
 				protolog.Errorln(err.Error())
 			}
 		} else {
-			// TODO(pedge): how to handle the error?
+			// TODO: how to handle the error?
 			if _, err = j.persistAPIClient.CreateJobStatus(
 				context.Background(),
 				&persist.JobStatus{
@@ -73,7 +86,7 @@ func (j *jobRunner) runJobInfo(persistJobInfo *persist.JobInfo) error {
 	switch {
 	case persistJobInfo.GetTransform() != nil:
 		return j.reallyRunJobInfo(
-			strings.Replace(uuid.NewV4().String(), "-", "", -1),
+			uuid.NewWithoutDashes(),
 			persistJobInfo.JobId,
 			persistJobInfo.GetTransform(),
 			persistJobInfo.Input,
@@ -116,14 +129,21 @@ func (j *jobRunner) reallyRunJobInfo(
 	if err != nil {
 		return err
 	}
-	// TODO(pedge): branch from output parent
+	output, err := j.startOutputCommit(outputParent)
+	if err != nil {
+		return err
+	}
+	binds, err := j.getBinds(input, output)
+	if err != nil {
+		return err
+	}
 	var containerIDs []string
 	defer j.removeContainers(containerIDs)
 	for i := 0; i < numContainers; i++ {
 		containerID, err := j.containerClient.Create(
 			image,
-			// TODO(pedge): binds
 			container.CreateOptions{
+				Binds:      binds,
 				HasCommand: len(transform.Cmd) > 0,
 			},
 		)
@@ -168,7 +188,7 @@ func (j *jobRunner) buildOrPull(name string, transform *pps.Transform) (string, 
 	//if err := j.containerClient.Build(
 	//image,
 	//transform.Build,
-	//// TODO(pedge): this will not work, the path to a dockerfile is not real
+	//// TODO: this will not work, the path to a dockerfile is not real
 	//container.BuildOptions{
 	//Dockerfile:   transform.Dockerfile,
 	//OutputStream: ioutil.Discard,
@@ -186,10 +206,43 @@ func (j *jobRunner) buildOrPull(name string, transform *pps.Transform) (string, 
 	return image, nil
 }
 
+func (j *jobRunner) startOutputCommit(outputParentCommit *pfs.Commit) (*pfs.Commit, error) {
+	if outputParentCommit == nil {
+		return nil, nil
+	}
+	return j.pfsAPIClient.StartCommit(
+		context.Background(),
+		&pfs.StartCommitRequest{
+			Parent: outputParentCommit,
+		},
+	)
+}
+
+func (j *jobRunner) getBinds(inputCommit *pfs.Commit, outputCommit *pfs.Commit) ([]string, error) {
+	var binds []string
+	if inputCommit != nil {
+		inputDir := filepath.Join(j.pfsMountDir, inputCommit.Repo.Name, inputCommit.Id)
+		if err := checkDirExists(inputDir); err != nil {
+			return nil, err
+		}
+		binds = append(binds, fmt.Sprintf("%s:%s:ro", inputDir, InputMountDir))
+	}
+	if outputCommit != nil {
+		outputDir := filepath.Join(j.pfsMountDir, outputCommit.Repo.Name, outputCommit.Id)
+		if err := checkDirExists(outputDir); err != nil {
+			return nil, err
+		}
+		binds = append(binds, fmt.Sprintf("%s:%s:rw", outputDir, OutputMountDir))
+	}
+	return binds, nil
+}
+
 func (j *jobRunner) removeContainers(containerIDs []string) {
 	for _, containerID := range containerIDs {
 		_ = j.containerClient.Kill(containerID, container.KillOptions{})
-		//_ = j.containerClient.Remove(containerID, container.RemoveOptions{})
+		if j.options.RemoveContainers {
+			_ = j.containerClient.Remove(containerID, container.RemoveOptions{})
+		}
 	}
 }
 
@@ -211,26 +264,13 @@ func (j *jobRunner) writeContainerLogs(containerID string, jobID string, errC ch
 	)
 }
 
-//func getInputBinds(jobInputs []*pps.JobInput) []string {
-//var binds []string
-//for _, jobInput := range jobInputs {
-//if jobInput.GetHostDir() != "" {
-//binds = append(binds, getBinds(jobInput.GetHostDir(), filepath.Join("/var/lib/pps/host", jobInput.GetHostDir()), "ro"))
-//}
-//}
-//return binds
-//}
-
-//func getOutputBinds(jobOutputs []*pps.JobOutput) []string {
-//var binds []string
-//for _, jobOutput := range jobOutputs {
-//if jobOutput.GetHostDir() != "" {
-//binds = append(binds, getBinds(jobOutput.GetHostDir(), filepath.Join("/var/lib/pps/host", jobOutput.GetHostDir()), "rw"))
-//}
-//}
-//return binds
-//}
-
-//func getBinds(from string, to string, postfix string) string {
-//return fmt.Sprintf("%s:%s:%s", from, to, postfix)
-//}
+func checkDirExists(dirPath string) error {
+	stat, err := os.Stat(dirPath)
+	if err != nil {
+		return err
+	}
+	if !stat.IsDir() {
+		return fmt.Errorf("pachyderm.pps.jobserver.run: %s is not a directory", dirPath)
+	}
+	return nil
+}
