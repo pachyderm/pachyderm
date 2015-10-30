@@ -456,7 +456,7 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 }
 
 func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
-	// TODO(pedge): if PutFile fails here or on another shard, the directories
+	// TODO: if PutFile fails here or on another shard, the directories
 	// will still exist and be returned from ListFiles, we want to do this
 	// iteratively and with rollback
 	for shard := range shards {
@@ -515,7 +515,7 @@ func (d *driver) ListFile(file *pfs.File, shard uint64) (_ []*pfs.FileInfo, retE
 		}
 	}()
 	var fileInfos []*pfs.FileInfo
-	// TODO(pedge): constant
+	// TODO: constant
 	for names, err := dir.Readdirnames(readDirBatch); err != io.EOF; names, err = dir.Readdirnames(readDirBatch) {
 		if err != nil {
 			return nil, err

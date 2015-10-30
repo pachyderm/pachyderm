@@ -155,7 +155,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	return google_protobuf.EmptyInstance, nil
 }
 
-// TODO(pedge): race on Branch
+// TODO: race on Branch
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()

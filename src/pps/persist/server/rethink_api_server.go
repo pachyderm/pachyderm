@@ -333,7 +333,7 @@ func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *persist.Jo
 	if request.Id != "" {
 		return nil, ErrIDSet
 	}
-	// TODO(pedge): do we want to set the timestamp here, or have it be based on the actual log time?
+	// TODO: do we want to set the timestamp here, or have it be based on the actual log time?
 	// actual log time (which we do not propogate yet) seems like a better option, but to be consistent
 	// while the persist API is not well documented, setting it here for now
 	if request.Timestamp != nil {

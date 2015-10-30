@@ -39,7 +39,7 @@ func newJobRunner(
 	}
 }
 
-// TODO(pedge): propogate context from api server?
+// TODO: propogate context from api server?
 
 func (j *jobRunner) Start(persistJobInfo *persist.JobInfo) error {
 	if _, err := j.persistAPIClient.CreateJobStatus(
@@ -51,11 +51,11 @@ func (j *jobRunner) Start(persistJobInfo *persist.JobInfo) error {
 	); err != nil {
 		return err
 	}
-	// TODO(pedge): throttling? worker pool?
+	// TODO: throttling? worker pool?
 	go func() {
 		if err := j.runJobInfo(persistJobInfo); err != nil {
 			protolog.Errorln(err.Error())
-			// TODO(pedge): how to handle the error?
+			// TODO: how to handle the error?
 			if _, err = j.persistAPIClient.CreateJobStatus(
 				context.Background(),
 				&persist.JobStatus{
@@ -67,7 +67,7 @@ func (j *jobRunner) Start(persistJobInfo *persist.JobInfo) error {
 				protolog.Errorln(err.Error())
 			}
 		} else {
-			// TODO(pedge): how to handle the error?
+			// TODO: how to handle the error?
 			if _, err = j.persistAPIClient.CreateJobStatus(
 				context.Background(),
 				&persist.JobStatus{
@@ -188,7 +188,7 @@ func (j *jobRunner) buildOrPull(name string, transform *pps.Transform) (string, 
 	//if err := j.containerClient.Build(
 	//image,
 	//transform.Build,
-	//// TODO(pedge): this will not work, the path to a dockerfile is not real
+	//// TODO: this will not work, the path to a dockerfile is not real
 	//container.BuildOptions{
 	//Dockerfile:   transform.Dockerfile,
 	//OutputStream: ioutil.Discard,

@@ -94,7 +94,7 @@ func do(appEnvObj interface{}) error {
 			},
 		)
 	}()
-	// TODO(pedge): pretty sure I had this problem before, this is bad, we would
+	// TODO: pretty sure I had this problem before, this is bad, we would
 	// prefer a callback for when the server is ready to accept requests
 	time.Sleep(1 * time.Second)
 	if err := pipelineAPIServer.Start(); err != nil {
@@ -104,7 +104,7 @@ func do(appEnvObj interface{}) error {
 }
 
 func getContainerClient() (container.Client, error) {
-	// TODO(pedge): this will just connect to the local instance of docker
+	// TODO: this will just connect to the local instance of docker
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		return nil, err

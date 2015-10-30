@@ -79,7 +79,7 @@ func TestSimple(t *testing.T) {
 }
 
 func getBtrfsRootDir(tb testing.TB) string {
-	// TODO(pedge)
+	// TODO
 	rootDir := os.Getenv("PFS_DRIVER_ROOT")
 	if rootDir == "" {
 		tb.Fatal("PFS_DRIVER_ROOT not set")

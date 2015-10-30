@@ -132,7 +132,7 @@ func (m *JobStatus) GetTimestamp() *google_protobuf1.Timestamp {
 	return nil
 }
 
-// TODO(pedge): add created at?
+// TODO: add created at?
 type JobInfo struct {
 	Job *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
 	// Types that are valid to be assigned to Spec:
@@ -288,7 +288,7 @@ func (m *Pipeline) Reset()         { *m = Pipeline{} }
 func (m *Pipeline) String() string { return proto.CompactTextString(m) }
 func (*Pipeline) ProtoMessage()    {}
 
-// TODO(pedge): add created at?
+// TODO: add created at?
 type PipelineInfo struct {
 	Pipeline  *Pipeline  `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
 	Transform *Transform `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
