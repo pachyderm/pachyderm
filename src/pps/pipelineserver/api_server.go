@@ -79,7 +79,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err := a.addPipelineController(persistPipelineInfoToPipelineInfo(persistPipelineInfo)); err != nil {
 		// TODO(pedge): proper create/rollback (do not commit transaction with create)
 		if _, rollbackErr := a.persistAPIClient.DeletePipelineInfo(ctx, request.Pipeline); rollbackErr != nil {
-			return nil, fmt.Errorf("%v", err, rollbackErr)
+			return nil, fmt.Errorf("%v-%v", err, rollbackErr)
 		}
 		return nil, err
 	}

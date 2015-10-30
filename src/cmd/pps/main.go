@@ -59,7 +59,7 @@ The environment variable PPS_ADDRESS controls what server the CLI connects to, t
 	}
 
 	var image string
-	var outParentCommitId string
+	var outParentCommitID string
 	createJob := &cobra.Command{
 		Use:   "create-job in-repo-name in-commit-id out-repo-name command [args]",
 		Short: "Create a new job. Returns the id of the created job.",
@@ -86,7 +86,7 @@ You can find out the name of the commit with inspect-job.`,
 						Repo: &pfs.Repo{
 							Name: args[2],
 						},
-						Id: outParentCommitId,
+						Id: outParentCommitID,
 					},
 				})
 			if err != nil {
@@ -96,7 +96,7 @@ You can find out the name of the commit with inspect-job.`,
 		},
 	}
 	createJob.Flags().StringVarP(&image, "image", "i", "ubuntu", "The image to run the job in.")
-	createJob.Flags().StringVarP(&outParentCommitId, "parent", "p", "", "The parent to use for the output commit.")
+	createJob.Flags().StringVarP(&outParentCommitID, "parent", "p", "", "The parent to use for the output commit.")
 
 	inspectJob := &cobra.Command{
 		Use:   "inspect-job job-id",
