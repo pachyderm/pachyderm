@@ -12,7 +12,6 @@ import (
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/pkg/map"
 	"go.pedge.io/proto/rpclog"
-	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 )
 
@@ -250,8 +249,4 @@ func copyVolume(volume *Volume) *Volume {
 		Opts:       pkgmap.StringStringMap(volume.Opts).Copy(),
 		Mountpoint: volume.Mountpoint,
 	}
-}
-
-func now() *google_protobuf.Timestamp {
-	return prototime.TimeToTimestamp(time.Now().UTC())
 }
