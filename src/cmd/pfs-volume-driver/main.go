@@ -49,6 +49,7 @@ func do(appEnvObj interface{}) error {
 func newServer(appEnv *appEnv) dockervolume.Server {
 	return dockervolume.NewTCPServer(
 		newVolumeDriver(
+			getPFSAddress(appEnv),
 			fuse.NewMounterProvider(getPFSAddress(appEnv)),
 			appEnv.BaseMountpoint,
 		),
@@ -69,15 +70,18 @@ func getPFSAddress(appEnv *appEnv) string {
 }
 
 type volumeDriver struct {
+	pfsAddress      string
 	mounterProvider fuse.MounterProvider
 	baseMountpoint  string
 }
 
 func newVolumeDriver(
+	pfsAddress string,
 	mounterProvider fuse.MounterProvider,
 	baseMountpoint string,
 ) *volumeDriver {
 	return &volumeDriver{
+		pfsAddress,
 		mounterProvider,
 		baseMountpoint,
 	}
@@ -104,8 +108,7 @@ func (v *volumeDriver) Mount(name string, opts pkgmap.StringStringMap) (string, 
 		return "", err
 	}
 	if err := mounter.Mount(
-		mount.repository,
-		mount.commitID,
+		v.pfsAddress,
 		mount.mountpoint,
 		mount.shard,
 		mount.modulus,
@@ -120,10 +123,7 @@ func (v *volumeDriver) Unmount(_ string, _ pkgmap.StringStringMap, mountpoint st
 	if err != nil {
 		return err
 	}
-	if err := mounter.Unmount(mountpoint); err != nil {
-		return err
-	}
-	return mounter.Wait(mountpoint)
+	return mounter.Unmount(mountpoint)
 }
 
 type mount struct {
