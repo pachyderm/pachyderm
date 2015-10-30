@@ -126,7 +126,7 @@ func (r *router) GetAllClientConns(version int64) ([]*grpc.ClientConn, error) {
 	}
 	var clientConns []*grpc.ClientConn
 	for address := range addresses {
-		// TODO(pedge): huge race, this whole thing is bad
+		// TODO: huge race, this whole thing is bad
 		clientConn, err := r.dialer.Dial(address)
 		if err != nil {
 			return nil, err

@@ -15,7 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
-	"github.com/satori/go.uuid"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
 	"go.pedge.io/proto/time"
@@ -128,7 +128,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	if request.Commit == nil {
 		request.Commit = &pfs.Commit{
 			Repo: request.Parent.Repo,
-			Id:   strings.Replace(uuid.NewV4().String(), "-", "", -1),
+			Id:   uuid.NewWithoutDashes(),
 		}
 	}
 	for _, clientConn := range clientConns {
@@ -155,7 +155,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	return google_protobuf.EmptyInstance, nil
 }
 
-// TODO(pedge): race on Branch
+// TODO: race on Branch
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()

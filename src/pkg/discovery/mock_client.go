@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/satori/go.uuid"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 )
 
 type record struct {
@@ -95,7 +95,7 @@ func (c *mockClient) Create(key string, value string, ttl uint64) error {
 func (c *mockClient) CreateInDir(dir string, value string, ttl uint64) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	key := path.Join(dir, strings.Replace(uuid.NewV4().String(), "-", "", -1))
+	key := path.Join(dir, uuid.NewWithoutDashes())
 	return c.unsafeSet(key, value, ttl)
 }
 

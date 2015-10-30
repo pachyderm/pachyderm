@@ -29,7 +29,7 @@ func (m *mounter) Mount(
 	shard uint64,
 	modulus uint64,
 ) (retErr error) {
-	// TODO(pedge): should we make the caller do this?
+	// TODO: should we make the caller do this?
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}

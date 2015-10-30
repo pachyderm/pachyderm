@@ -51,7 +51,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		return nil, err
 	}
 	if err := a.Start(persistJobInfo); err != nil {
-		// TODO(pedge): proper rollback
+		// TODO: proper rollback
 		if _, rollbackErr := a.persistAPIClient.DeleteJobInfo(
 			ctx,
 			&pps.Job{
@@ -97,7 +97,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 }
 
 func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pps.JobAPI_GetJobLogsServer) (err error) {
-	// TODO(pedge): filter by output stream
+	// TODO: filter by output stream
 	persistJobLogs, err := a.persistAPIClient.GetJobLogs(context.Background(), request.Job)
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pp
 	return nil
 }
 
-// TODO(pedge): bulk get
+// TODO: bulk get
 func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo *persist.JobInfo) (*pps.JobInfo, error) {
 	job := &pps.Job{Id: persistJobInfo.JobId}
 	persistJobStatuses, err := a.persistAPIClient.GetJobStatuses(ctx, job)

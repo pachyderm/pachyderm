@@ -6,20 +6,20 @@ import (
 	"os"
 	"time"
 
-	"github.com/fsouza/go-dockerclient"
-
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
+	"google.golang.org/grpc"
 
+	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/container"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/jobserver"
+	"github.com/pachyderm/pachyderm/src/pps/jobserver/run"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	persistserver "github.com/pachyderm/pachyderm/src/pps/persist/server"
 	"github.com/pachyderm/pachyderm/src/pps/pipelineserver"
-	"google.golang.org/grpc"
 )
 
 var (
@@ -34,11 +34,13 @@ var (
 type appEnv struct {
 	PachydermPfsd1Port string `env:"PACHYDERM_PFSD_1_PORT"`
 	PfsAddress         string `env:"PFS_ADDRESS"`
+	PfsMountDir        string `env:"PFS_MOUNT_DIR"`
 	Address            string `env:"PPS_ADDRESS"`
 	Port               int    `env:"PPS_PORT"`
 	DatabaseAddress    string `env:"PPS_DATABASE_ADDRESS"`
 	DatabaseName       string `env:"PPS_DATABASE_NAME"`
 	DebugPort          int    `env:"PPS_TRACE_PORT"`
+	RemoveContainers   bool   `env:"PPS_REMOVE_CONTAINERS"`
 }
 
 func main() {
@@ -63,9 +65,17 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	jobAPIServer := jobserver.NewAPIServer(rethinkAPIClient, containerClient)
-	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 	pfsAPIClient := pfs.NewAPIClient(clientConn)
+	jobAPIServer := jobserver.NewAPIServer(
+		pfsAPIClient,
+		rethinkAPIClient,
+		containerClient,
+		appEnv.PfsMountDir,
+		jobserverrun.JobRunnerOptions{
+			RemoveContainers: appEnv.RemoveContainers,
+		},
+	)
+	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 	pipelineAPIServer := pipelineserver.NewAPIServer(pfsAPIClient, jobAPIClient, rethinkAPIClient)
 	errC := make(chan error)
 	go func() {
@@ -81,7 +91,7 @@ func do(appEnvObj interface{}) error {
 			},
 		)
 	}()
-	// TODO(pedge): pretty sure I had this problem before, this is bad, we would
+	// TODO: pretty sure without this there is a problem, this is bad, we would
 	// prefer a callback for when the server is ready to accept requests
 	time.Sleep(1 * time.Second)
 	if err := pipelineAPIServer.Start(); err != nil {
@@ -91,6 +101,7 @@ func do(appEnvObj interface{}) error {
 }
 
 func getContainerClient() (container.Client, error) {
+	// TODO: this will just connect to the local instance of docker
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		return nil, err

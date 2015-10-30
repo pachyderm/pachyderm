@@ -6,9 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/satori/go.uuid"
-
 	"go.pedge.io/proto/test"
+	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
@@ -19,11 +18,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
-	"google.golang.org/grpc"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 )
 
 const (
-	// TODO(pedge): large numbers of shards takes forever because
+	// TODO: large numbers of shards takes forever because
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
 	testShardsPerServer = 8
@@ -249,7 +248,7 @@ func getDriver(tb testing.TB, namespace string) drive.Driver {
 }
 
 func getBtrfsRootDir(tb testing.TB) string {
-	// TODO(pedge)
+	// TODO
 	rootDir := os.Getenv("PFS_DRIVER_ROOT")
 	if rootDir == "" {
 		tb.Fatal("PFS_DRIVER_ROOT not set")
@@ -274,5 +273,5 @@ func getEtcdAddress() (string, error) {
 }
 
 func testNamespace() string {
-	return fmt.Sprintf("test-%s", uuid.NewV4().String())
+	return fmt.Sprintf("test-%s", uuid.New())
 }

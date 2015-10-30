@@ -38,7 +38,7 @@ message JobStatus {
   string message = 3;
 }
 
-// TODO(pedge): add created at?
+// TODO: add created at?
 message JobInfo {
   Job job = 1;
   oneof spec {
@@ -59,7 +59,7 @@ message Pipeline {
   string name = 1;
 }
 
-// TODO(pedge): add created at?
+// TODO: add created at?
 message PipelineInfo {
   Pipeline pipeline = 1;
   Transform transform = 2;
