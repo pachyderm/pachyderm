@@ -99,11 +99,8 @@ docker-push: docker-push-pfs-mount docker-push-pfs-roler docker-push-ppsd docker
 run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
 
-launch-pfsd: docker-clean-launch docker-build-pfs-roler docker-build-pfsd
-	docker-compose up -d --force-recreate --no-build pfsd
-
 launch: docker-clean-launch docker-build-pfs-roler docker-build-pfsd docker-build-ppsd
-	docker-compose up -d --force-recreate --no-build ppsd
+	docker-compose up -d --force-recreate --no-build ppsd pfsd pfs-mount
 
 proto:
 	go get -u -v go.pedge.io/protolog/cmd/protoc-gen-protolog go.pedge.io/tools/protoc-all
