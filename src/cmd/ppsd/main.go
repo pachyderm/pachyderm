@@ -7,20 +7,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fsouza/go-dockerclient"
-
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
+	"google.golang.org/grpc"
 
+	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/container"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/jobserver"
+	"github.com/pachyderm/pachyderm/src/pps/jobserver/run"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	persistserver "github.com/pachyderm/pachyderm/src/pps/persist/server"
 	"github.com/pachyderm/pachyderm/src/pps/pipelineserver"
-	"google.golang.org/grpc"
 )
 
 var (
@@ -41,6 +41,7 @@ type appEnv struct {
 	DatabaseAddress    string `env:"PPS_DATABASE_ADDRESS"`
 	DatabaseName       string `env:"PPS_DATABASE_NAME"`
 	DebugPort          int    `env:"PPS_TRACE_PORT"`
+	RemoveContainers   bool   `env:"PPS_REMOVE_CONTAINERS"`
 }
 
 func main() {
@@ -67,9 +68,17 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	jobAPIServer := jobserver.NewAPIServer(rethinkAPIClient, containerClient, appEnv.PfsMountDir)
-	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 	pfsAPIClient := pfs.NewAPIClient(clientConn)
+	jobAPIServer := jobserver.NewAPIServer(
+		pfsAPIClient,
+		rethinkAPIClient,
+		containerClient,
+		appEnv.PfsMountDir,
+		jobserverrun.JobRunnerOptions{
+			RemoveContainers: appEnv.RemoveContainers,
+		},
+	)
+	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 	pipelineAPIServer := pipelineserver.NewAPIServer(pfsAPIClient, jobAPIClient, rethinkAPIClient)
 	errC := make(chan error)
 	go func() {
@@ -95,6 +104,7 @@ func do(appEnvObj interface{}) error {
 }
 
 func getContainerClient() (container.Client, error) {
+	// TODO(pedge): this will just connect to the local instance of docker
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		return nil, err

@@ -14,20 +14,26 @@ import (
 )
 
 type jobRunner struct {
+	pfsAPIClient     pfs.APIClient
 	persistAPIClient persist.APIClient
 	containerClient  container.Client
 	pfsMountDir      string
+	options          JobRunnerOptions
 }
 
 func newJobRunner(
+	pfsAPIClient pfs.APIClient,
 	persistAPIClient persist.APIClient,
 	containerClient container.Client,
 	pfsMountDir string,
+	options JobRunnerOptions,
 ) JobRunner {
 	return &jobRunner{
+		pfsAPIClient,
 		persistAPIClient,
 		containerClient,
 		pfsMountDir,
+		options,
 	}
 }
 
@@ -192,7 +198,9 @@ func (j *jobRunner) buildOrPull(name string, transform *pps.Transform) (string, 
 func (j *jobRunner) removeContainers(containerIDs []string) {
 	for _, containerID := range containerIDs {
 		_ = j.containerClient.Kill(containerID, container.KillOptions{})
-		//_ = j.containerClient.Remove(containerID, container.RemoveOptions{})
+		if j.options.RemoveContainers {
+			_ = j.containerClient.Remove(containerID, container.RemoveOptions{})
+		}
 	}
 }
 
@@ -213,27 +221,3 @@ func (j *jobRunner) writeContainerLogs(containerID string, jobID string, errC ch
 		},
 	)
 }
-
-//func getInputBinds(jobInputs []*pps.JobInput) []string {
-//var binds []string
-//for _, jobInput := range jobInputs {
-//if jobInput.GetHostDir() != "" {
-//binds = append(binds, getBinds(jobInput.GetHostDir(), filepath.Join("/var/lib/pps/host", jobInput.GetHostDir()), "ro"))
-//}
-//}
-//return binds
-//}
-
-//func getOutputBinds(jobOutputs []*pps.JobOutput) []string {
-//var binds []string
-//for _, jobOutput := range jobOutputs {
-//if jobOutput.GetHostDir() != "" {
-//binds = append(binds, getBinds(jobOutput.GetHostDir(), filepath.Join("/var/lib/pps/host", jobOutput.GetHostDir()), "rw"))
-//}
-//}
-//return binds
-//}
-
-//func getBinds(from string, to string, postfix string) string {
-//return fmt.Sprintf("%s:%s:%s", from, to, postfix)
-//}
