@@ -3,17 +3,18 @@ package server
 import (
 	"time"
 
-	"github.com/dancannon/gorethink"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/satori/go.uuid"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
+
+	"github.com/dancannon/gorethink"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
 
 const (
@@ -180,7 +181,7 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	if request.CreatedAt != nil {
 		return nil, ErrTimestampSet
 	}
-	request.JobId = newID()
+	request.JobId = uuid.New()
 	request.CreatedAt = a.now()
 	if err := a.insertMessage(jobInfosTable, request); err != nil {
 		return nil, err
@@ -276,7 +277,7 @@ func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *persist
 	if request.Timestamp != nil {
 		return nil, ErrTimestampSet
 	}
-	request.Id = newID()
+	request.Id = uuid.New()
 	request.Timestamp = a.now()
 	if err := a.insertMessage(jobStatusesTable, request); err != nil {
 		return nil, err
@@ -338,7 +339,7 @@ func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *persist.Jo
 	if request.Timestamp != nil {
 		return nil, ErrTimestampSet
 	}
-	request.Id = newID()
+	request.Id = uuid.New()
 	request.Timestamp = a.now()
 	if err := a.insertMessage(jobLogsTable, request); err != nil {
 		return nil, err
@@ -523,8 +524,4 @@ func processMultipleCursor(
 
 func rethinkToJSON(row gorethink.Term) interface{} {
 	return row.ToJSON()
-}
-
-func newID() string {
-	return uuid.NewV4().String()
 }

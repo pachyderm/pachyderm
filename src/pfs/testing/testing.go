@@ -6,9 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/satori/go.uuid"
-
 	"go.pedge.io/proto/test"
+	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
@@ -19,7 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
-	"google.golang.org/grpc"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 )
 
 const (
@@ -274,5 +273,5 @@ func getEtcdAddress() (string, error) {
 }
 
 func testNamespace() string {
-	return fmt.Sprintf("test-%s", uuid.NewV4().String())
+	return fmt.Sprintf("test-%s", uuid.New())
 }
