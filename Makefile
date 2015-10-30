@@ -99,7 +99,7 @@ docker-push: docker-push-pfs-mount docker-push-pfs-roler docker-push-ppsd docker
 run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
 
-launch: docker-clean-launch docker-build-pfs-roler docker-build-pfsd docker-build-ppsd
+launch: docker-clean-launch docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pfs-mount
 	docker-compose up -d --force-recreate --no-build ppsd pfsd pfs-mount
 
 proto:
