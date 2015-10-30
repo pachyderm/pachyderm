@@ -369,21 +369,16 @@ func do(appEnvObj interface{}) error {
 	}
 
 	mount := &cobra.Command{
-		Use:   "mount mountpoint repo-name [commit-id]",
-		Short: "Mount a repo as a local file system.",
-		Long:  "Mount a repo as a local file system.",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 2, Max: 3}, func(args []string) error {
-			mountPoint := args[0]
-			repo := args[1]
-			commitID := ""
-			if len(args) == 3 {
-				commitID = args[2]
+		Use:   "mount [mountpoint]",
+		Short: "Mount pfs locally.",
+		Long:  "Mount pfs locally.",
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 1}, func(args []string) error {
+			mountPoint := "/pfs"
+			if len(args) > 0 {
+				mountPoint = args[0]
 			}
 			mounter := fuse.NewMounter(apiClient)
-			if err := mounter.Mount(repo, commitID, mountPoint, uint64(shard), uint64(modulus)); err != nil {
-				return err
-			}
-			return mounter.Wait(mountPoint)
+			return mounter.Mount(address, mountPoint, uint64(shard), uint64(modulus))
 		}),
 	}
 	mount.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
