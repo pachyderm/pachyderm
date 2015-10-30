@@ -5,85 +5,105 @@ import "google/protobuf/empty.proto";
 
 package dockervolume;
 
+// Volume represents a volume managed by the dockervolume package.
 message Volume {
   string name = 1;
   map<string, string> opts = 2;
   string mountpoint = 3;
 }
 
+// Volumes is the plural of Volume.
 message Volumes {
   repeated Volume volume = 1;
 }
 
+// NameOptsRequest is a request with a volume name and opts.
 message NameOptsRequest {
   string name = 1;
   map<string, string> opts = 2;
 }
 
+// NameRequest is a request with a volume name.
 message NameRequest {
   string name = 1;
 }
 
+// ActivateResponse is a response for the docker volume plugin API activate function call.
 message ActivateResponse {
   repeated string implements = 1;
 }
 
+// ErrResponse is a response for the docker volume plugin API with a potential error.
 message ErrResponse {
   string err = 1;
 }
 
+// MountpointErrResponse is a response for the docker volume plugin API with a mountpoint and a potential error.
 message MountpointErrResponse {
   string mountpoint = 1;
   string err = 2;
 }
 
+// API is the API for the dockervolume package.
 service API {
+  // Activate is the activate function call for the docker volume plugin API.
   rpc Activate(google.protobuf.Empty) returns (ActivateResponse) {
     option (google.api.http) = {
       post: "/Plugin.Activate"
       body: "*"
     };
   }
+  // Create is the create function call for the docker volume plugin API.
   rpc Create(NameOptsRequest) returns (ErrResponse) {
     option (google.api.http) = {
       post: "/VolumeDriver.Create"
       body: "*"
     };
   }
+  // Remove is the remove function call for the docker volume plugin API.
   rpc Remove(NameRequest) returns (ErrResponse) {
     option (google.api.http) = {
       post: "/VolumeDriver.Remove"
       body: "*"
     };
   }
+  // Path is the path function call for the docker volume plugin API.
   rpc Path(NameRequest) returns (MountpointErrResponse) {
     option (google.api.http) = {
       post: "/VolumeDriver.Path"
       body: "*"
     };
   }
+  // Mount is the mount function call for the docker volume plugin API.
   rpc Mount(NameRequest) returns (MountpointErrResponse) {
     option (google.api.http) = {
       post: "/VolumeDriver.Mount"
       body: "*"
     };
   }
+  // Unmount is the unmount function call for the docker volume plugin API.
   rpc Unmount(NameRequest) returns (ErrResponse) {
     option (google.api.http) = {
       post: "/VolumeDriver.Unmount"
       body: "*"
     };
   }
+  // Cleanup attempts to remove all volumes managed by the API. If any volume
+  // cannot be removed, for example if it is still attached to a container, this
+  // function will error. This function returns all volumes that were attempted
+  // to be removed.
   rpc Cleanup(google.protobuf.Empty) returns (Volumes) {
     option (google.api.http) = {
       get: "/api/cleanup"
     };
   }
+  // GetVolume returns the volume managed by the API.
   rpc GetVolume(NameRequest)  returns (Volume) {
     option (google.api.http) = {
       get: "/api/volumes/{name}"
     };
   }
+  // ListVolumes returns all volumes managed by the API.
   rpc ListVolumes(google.protobuf.Empty) returns (Volumes) {
     option (google.api.http) = {
       get: "/api/volumes"

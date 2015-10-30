@@ -542,14 +542,15 @@ var errServerResponseBeforeRequestBody = errors.New("http2: server sent response
 
 func (cs *clientStream) writeRequestBody(body io.Reader, gotResHeaders <-chan struct{}) error {
 	cc := cs.cc
-	done := false
+	sentEnd := false // whether we sent the final DATA frame w/ END_STREAM
 	buf := cc.frameScratchBuffer()
 	defer cc.putFrameScratchBuffer(buf)
 
-	for !done {
+	for !sentEnd {
+		var sawEOF bool
 		n, err := io.ReadFull(body, buf)
 		if err == io.ErrUnexpectedEOF {
-			done = true
+			sawEOF = true
 			err = nil
 		} else if err == io.EOF {
 			break
@@ -572,8 +573,10 @@ func (cs *clientStream) writeRequestBody(body io.Reader, gotResHeaders <-chan st
 			case <-cs.peerReset:
 				err = cs.resetErr
 			default:
-				err = cc.fr.WriteData(cs.ID, done, toWrite[:allowed])
+				data := toWrite[:allowed]
 				toWrite = toWrite[allowed:]
+				sentEnd = sawEOF && len(toWrite) == 0
+				err = cc.fr.WriteData(cs.ID, sentEnd, data)
 			}
 			cc.wmu.Unlock()
 		}
@@ -585,7 +588,7 @@ func (cs *clientStream) writeRequestBody(body io.Reader, gotResHeaders <-chan st
 	var err error
 
 	cc.wmu.Lock()
-	if !done {
+	if !sentEnd {
 		err = cc.fr.WriteData(cs.ID, true, nil)
 	}
 	if ferr := cc.bw.Flush(); ferr != nil && err == nil {
