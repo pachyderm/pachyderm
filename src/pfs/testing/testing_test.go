@@ -252,8 +252,10 @@ func testMount(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.Inte
 
 	directory := "/compile/testMount"
 	mounter := fuse.NewMounter(apiClient)
-	err = mounter.Mount(repoName, directory, "", 0, 1)
-	require.NoError(t, err)
+	go func() {
+		err = mounter.Mount("localhost", directory, 0, 1)
+		require.NoError(t, err)
+	}()
 
 	_, err = os.Stat(filepath.Join(directory, "scratch"))
 	require.NoError(t, err)
@@ -308,8 +310,6 @@ func testMount(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.Inte
 
 	err = mounter.Unmount(directory)
 	require.NoError(t, err)
-	err = mounter.Wait(directory)
-	require.NoError(t, err)
 }
 
 func testMountBig(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.InternalAPIClient, cluster Cluster) {
@@ -320,8 +320,10 @@ func testMountBig(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.I
 
 	directory := "/compile/testMount"
 	mounter := fuse.NewMounter(apiClient)
-	err = mounter.Mount(repoName, "", directory, 0, 1)
-	require.NoError(t, err)
+	go func() {
+		err = mounter.Mount("localhost", directory, 0, 1)
+		require.NoError(t, err)
+	}()
 
 	_, err = os.Stat(filepath.Join(directory, "scratch"))
 	require.NoError(t, err)
@@ -364,8 +366,6 @@ func testMountBig(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.I
 
 	err = mounter.Unmount(directory)
 	require.NoError(t, err)
-	err = mounter.Wait(directory)
-	require.NoError(t, err)
 }
 
 func benchMount(b *testing.B, apiClient pfs.APIClient) {
@@ -377,15 +377,14 @@ func benchMount(b *testing.B, apiClient pfs.APIClient) {
 
 	directory := "/compile/benchMount"
 	mounter := fuse.NewMounter(apiClient)
-	if err := mounter.Mount(repoName, "", directory, 0, 1); err != nil {
-		b.Error(err)
-	}
+	go func() {
+		if err := mounter.Mount("localhost", directory, 0, 1); err != nil {
+			b.Error(err)
+		}
+	}()
 
 	defer func() {
 		if err := mounter.Unmount(directory); err != nil {
-			b.Error(err)
-		}
-		if err := mounter.Wait(directory); err != nil {
 			b.Error(err)
 		}
 	}()

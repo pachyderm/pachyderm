@@ -94,7 +94,6 @@ func (p *pipelineController) run(lastCommit *pfs.Commit) error {
 			lastCommit = commitErrorPair.Commit
 		}
 	}
-	return nil
 }
 
 type commitErrorPair struct {
