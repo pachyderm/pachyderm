@@ -11,7 +11,7 @@ import (
 	"go.pedge.io/pkg/map"
 
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
-	"github.com/satori/go.uuid"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 )
 
 const (
@@ -162,7 +162,7 @@ func getMount(opts pkgmap.StringStringMap, baseMountpoint string) (*mount, error
 		commitID,
 		shard,
 		modulus,
-		filepath.Join(baseMountpoint, fmt.Sprintf("%s-%s-%d-%d-%s", repository, commitID, shard, modulus, strings.Replace(uuid.NewV4().String(), "-", "", -1))),
+		filepath.Join(baseMountpoint, fmt.Sprintf("%s-%s-%d-%d-%s", repository, commitID, shard, modulus, uuid.New())),
 	}, nil
 }
 

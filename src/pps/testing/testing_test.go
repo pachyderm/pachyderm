@@ -182,24 +182,4 @@ func getTestContainerClient() (container.Client, error) {
 	}
 	return container.NewDockerClient(client), nil
 }
-
-func getTestRethinkAPIServer() (persist.APIServer, error) {
-	address, err := getTestRethinkAddress()
-	if err != nil {
-		return nil, err
-	}
-	databaseName := strings.Replace(uuid.NewV4().String(), "-", "", -1)
-	if err := persistserver.InitDBs(address, databaseName); err != nil {
-		return nil, err
-	}
-	return persistserver.NewRethinkAPIServer(address, databaseName)
-}
-
-func getTestRethinkAddress() (string, error) {
-	rethinkAddr := os.Getenv("RETHINK_PORT_28015_TCP_ADDR")
-	if rethinkAddr == "" {
-		return "", errors.New("RETHINK_PORT_28015_TCP_ADDR not set")
-	}
-	return fmt.Sprintf("%s:28015", rethinkAddr), nil
-}
 */

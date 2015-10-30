@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"go.pedge.io/protolog"
+	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/container"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
-	"github.com/satori/go.uuid"
-	"go.pedge.io/protolog"
-	"golang.org/x/net/context"
 )
 
 type jobRunner struct {
@@ -86,7 +86,7 @@ func (j *jobRunner) runJobInfo(persistJobInfo *persist.JobInfo) error {
 	switch {
 	case persistJobInfo.GetTransform() != nil:
 		return j.reallyRunJobInfo(
-			strings.Replace(uuid.NewV4().String(), "-", "", -1),
+			uuid.NewWithoutDashes(),
 			persistJobInfo.JobId,
 			persistJobInfo.GetTransform(),
 			persistJobInfo.Input,
