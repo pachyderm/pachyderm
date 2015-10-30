@@ -11,7 +11,7 @@ func New() string {
 	return uuid.NewV4().String()
 }
 
-// NewWithoutDashes() returns a new uuid without any -'s.
+// NewWithoutDashes returns a new uuid without any -'s.
 func NewWithoutDashes() string {
-	return strings.Replace(NewUUID(), "-", "", -1)
+	return strings.Replace(New(), "-", "", -1)
 }
