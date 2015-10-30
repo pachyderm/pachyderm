@@ -45,9 +45,9 @@ func newAPIServer(
 func (a *apiServer) Start() error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	// TODO(pedge): volatile bool?
+	// TODO: volatile bool?
 	if a.started {
-		// TODO(pedge): abstract error to public variable
+		// TODO: abstract error to public variable
 		return errors.New("pachyderm.pps.pipelineserver: already started")
 	}
 	a.started = true
@@ -77,7 +77,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	if err := a.addPipelineController(persistPipelineInfoToPipelineInfo(persistPipelineInfo)); err != nil {
-		// TODO(pedge): proper create/rollback (do not commit transaction with create)
+		// TODO: proper create/rollback (do not commit transaction with create)
 		if _, rollbackErr := a.persistAPIClient.DeletePipelineInfo(ctx, request.Pipeline); rollbackErr != nil {
 			return nil, fmt.Errorf("%v-%v", err, rollbackErr)
 		}

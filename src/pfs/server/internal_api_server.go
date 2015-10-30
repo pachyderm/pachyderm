@@ -135,7 +135,7 @@ func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.Finis
 	return google_protobuf.EmptyInstance, nil
 }
 
-// TODO(pedge): race on Branch
+// TODO: race on Branch
 func (a *internalAPIServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {

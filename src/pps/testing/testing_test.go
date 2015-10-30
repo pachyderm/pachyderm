@@ -107,7 +107,7 @@ func testBasicCreateAndStartJob(t *testing.T, jobAPIClient pps.JobAPIClient, pip
 }
 
 func getFinalJobStatus(jobAPIClient pps.JobAPIClient, jobID string) (*pps.JobStatus, error) {
-	// TODO(pedge): not good
+	// TODO: not good
 	ticker := time.NewTicker(time.Second)
 	for i := 0; i < 20; i++ {
 		<-ticker.C

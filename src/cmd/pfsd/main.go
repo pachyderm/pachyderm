@@ -120,7 +120,7 @@ func do(appEnvObj interface{}) error {
 			protolog.Printf("Error from sharder.Register %s", err.Error())
 		}
 	}()
-	// TODO(pedge): no!
+	// TODO: no!
 	trace.AuthRequest = func(_ *http.Request) (bool, bool) {
 		return true, true
 	}

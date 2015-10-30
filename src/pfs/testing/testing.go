@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	// TODO(pedge): large numbers of shards takes forever because
+	// TODO: large numbers of shards takes forever because
 	// we are doing tons of btrfs operations on init, is there anything
 	// we can do about that?
 	testShardsPerServer = 8
@@ -248,7 +248,7 @@ func getDriver(tb testing.TB, namespace string) drive.Driver {
 }
 
 func getBtrfsRootDir(tb testing.TB) string {
-	// TODO(pedge)
+	// TODO
 	rootDir := os.Getenv("PFS_DRIVER_ROOT")
 	if rootDir == "" {
 		tb.Fatal("PFS_DRIVER_ROOT not set")

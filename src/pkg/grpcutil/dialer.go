@@ -9,7 +9,7 @@ import (
 
 type dialer struct {
 	opts []grpc.DialOption
-	// TODO(pedge): this is insane for so many reasons
+	// TODO: this is insane for so many reasons
 	addressToClientConn map[string]*grpc.ClientConn
 	lock                *sync.RWMutex
 }
