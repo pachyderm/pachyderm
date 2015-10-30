@@ -1,12 +1,12 @@
 /*
 Package drive provides the definitions for the low-level pfs storage drivers.
 */
-package drive //import "go.pachyderm.com/pachyderm/src/pfs/drive"
+package drive
 
 import (
 	"io"
 
-	"go.pachyderm.com/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
 // ReaderAtCloser is an interface that implements both io.ReaderAt and io.Closer.

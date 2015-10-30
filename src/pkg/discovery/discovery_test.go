@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"go.pachyderm.com/pachyderm/src/pkg/require"
+	"github.com/pachyderm/pachyderm/src/pkg/require"
 )
 
 func TestEtcdClient(t *testing.T) {

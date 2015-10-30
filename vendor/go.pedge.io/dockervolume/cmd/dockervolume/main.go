@@ -94,50 +94,6 @@ func do(appEnvObj interface{}) error {
 		}),
 	}
 
-	getEvents := &cobra.Command{
-		Use:   "get-events volume-name",
-		Short: "Get events by volume name.",
-		Long:  "Get events by volume name.",
-		Run: cobraFunc(1, func(args []string) error {
-			client, err := getClient(appEnv)
-			if err != nil {
-				return err
-			}
-			response, err := client.GetEventsByVolume(args[0])
-			if err != nil {
-				return err
-			}
-			for _, element := range response {
-				if err := marshal(element); err != nil {
-					return err
-				}
-			}
-			return nil
-		}),
-	}
-
-	listEvents := &cobra.Command{
-		Use:   "list-events",
-		Short: "List all events controlled by this driver",
-		Long:  "List all events controlled by this driver",
-		Run: cobraFunc(0, func(_ []string) error {
-			client, err := getClient(appEnv)
-			if err != nil {
-				return err
-			}
-			response, err := client.ListEvents()
-			if err != nil {
-				return err
-			}
-			for _, element := range response {
-				if err := marshal(element); err != nil {
-					return err
-				}
-			}
-			return nil
-		}),
-	}
-
 	rootCmd := &cobra.Command{
 		Use:   "dockervolume",
 		Short: "Access a Docker volume driver.",
@@ -146,8 +102,6 @@ func do(appEnvObj interface{}) error {
 	rootCmd.AddCommand(cleanup)
 	rootCmd.AddCommand(getVolume)
 	rootCmd.AddCommand(listVolumes)
-	rootCmd.AddCommand(getEvents)
-	rootCmd.AddCommand(listEvents)
 	return rootCmd.Execute()
 }
 

@@ -12,19 +12,18 @@ import (
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
 	"go.pedge.io/protolog"
-	"go.pedge.io/protolog/logrus"
 
 	"github.com/gengo/grpc-gateway/runtime"
-	"go.pachyderm.com/pachyderm"
-	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pfs/drive"
-	"go.pachyderm.com/pachyderm/src/pfs/drive/btrfs"
-	"go.pachyderm.com/pachyderm/src/pfs/route"
-	"go.pachyderm.com/pachyderm/src/pfs/server"
-	"go.pachyderm.com/pachyderm/src/pkg/discovery"
-	"go.pachyderm.com/pachyderm/src/pkg/grpcutil"
-	"go.pachyderm.com/pachyderm/src/pkg/netutil"
-	"go.pachyderm.com/pachyderm/src/pkg/shard"
+	"github.com/pachyderm/pachyderm"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
+	"github.com/pachyderm/pachyderm/src/pfs/route"
+	"github.com/pachyderm/pachyderm/src/pfs/server"
+	"github.com/pachyderm/pachyderm/src/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/pkg/netutil"
+	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"google.golang.org/grpc"
 )
 
@@ -56,7 +55,6 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	logrus.Register()
 	discoveryClient, err := getEtcdClient()
 	if err != nil {
 		return err

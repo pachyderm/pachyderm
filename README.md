@@ -1,6 +1,4 @@
 # Pachyderm
-![Build status](https://badge.buildkite.com/69c8b8a239b2796b43520ddff1576d8bffeb85fc86adad99d2.svg?branch=master)
-
 [![GitHub release](https://img.shields.io/github/release/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/releases)
 [![GitHub license](https://img.shields.io/github/license/pachyderm/pachyderm.svg?style=flat-square)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
 
@@ -19,8 +17,6 @@
 * [Contributing](#contributing)
 
 ### News
-
-Note the custom golang import path! `go get go.pachyderm.com/pachyderm`.
 
 We are in the midst of a refactor! See the release branch for the current, working release of Pachyderm.
 
@@ -105,7 +101,7 @@ With golang, it's generally easiest to have your fork match the import paths in 
 
 ```
 # assuming your github username is alice
-rm -rf ${GOPATH}/src/go.pachyderm.com/pachyderm
+rm -rf ${GOPATH}/src/github.com/pachyderm/pachyderm
 cd ${GOPATH}/src/go.pachyderm.com
 git clone https://github.com/alice/pachyderm.git
 git remote add upstream https://github.com/pachyderm/pachyderm.git # so you can run 'git fetch upstream' to get upstream changes
@@ -135,8 +131,8 @@ vagrant ssh # ssh into the vagrant box
 Once in the vagrant box, set everything up and verify that it works:
 
 ```
-go get go.pachyderm.com/pachyderm/...
-cd ~/go/src/go.pachyderm.com/pachyderm
+go get github.com/pachyderm/pachyderm/...
+cd ~/go/src/github.com/pachyderm/pachyderm
 make test
 ```
 

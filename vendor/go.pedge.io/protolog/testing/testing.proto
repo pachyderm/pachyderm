@@ -1,18 +1,26 @@
 syntax = "proto3";
 
+import "go.pedge.io/protolog/protolog.proto";
+
 package protolog.testing;
 
 message Foo {
+  option (protolog.event) = true;
+  option (protolog.context) = true;
   string string_field = 1;
   int32 int32_field = 2;
 }
 
 message Bar {
+  option (protolog.event) = true;
+  option (protolog.context) = true;
   string string_field = 1;
   int32 int32_field = 2;
 }
 
 message Baz {
+  option (protolog.event) = true;
+  option (protolog.context) = true;
   message Bat {
     message Ban {
       string string_field = 1;
@@ -24,4 +32,6 @@ message Baz {
 }
 
 message Empty {
+  option (protolog.event) = true;
+  option (protolog.context) = true;
 }

@@ -1,4 +1,4 @@
-package discovery //import "go.pachyderm.com/pachyderm/src/pkg/discovery"
+package discovery
 
 import (
 	"fmt"

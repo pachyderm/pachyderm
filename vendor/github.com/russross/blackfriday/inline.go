@@ -661,10 +661,7 @@ func entity(p *parser, out *bytes.Buffer, data []byte, offset int) int {
 
 func linkEndsWithEntity(data []byte, linkEnd int) bool {
 	entityRanges := htmlEntity.FindAllIndex(data[:linkEnd], -1)
-	if entityRanges != nil && entityRanges[len(entityRanges)-1][1] == linkEnd {
-		return true
-	}
-	return false
+	return entityRanges != nil && entityRanges[len(entityRanges)-1][1] == linkEnd
 }
 
 func autoLink(p *parser, out *bytes.Buffer, data []byte, offset int) int {

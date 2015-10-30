@@ -1,9 +1,9 @@
-package server // import "go.pachyderm.com/pachyderm/src/pps/persist/server"
+package server
 
 import (
 	"errors"
 
-	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
 
 var (
@@ -12,10 +12,11 @@ var (
 	ErrTimestampSet = errors.New("pachyderm.pps.persist.server: Timestamp set")
 )
 
-func NewRethinkAPIServer(address string, databaseName string) (persist.APIServer, error) {
-	apiServer, err := newRethinkAPIServer(address, databaseName)
-	if err != nil {
-		return nil, err
-	}
-	return newLogAPIServer(apiServer), nil
+type APIServer interface {
+	persist.APIServer
+	Close() error
+}
+
+func NewRethinkAPIServer(address string, databaseName string) (APIServer, error) {
+	return newRethinkAPIServer(address, databaseName)
 }

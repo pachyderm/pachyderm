@@ -662,7 +662,7 @@ func parseUnknownFrame(fh FrameHeader, p []byte) (Frame, error) {
 // See http://http2.github.io/http2-spec/#rfc.section.6.9
 type WindowUpdateFrame struct {
 	FrameHeader
-	Increment uint32
+	Increment uint32 // never read with high bit set
 }
 
 func parseWindowUpdateFrame(fh FrameHeader, p []byte) (Frame, error) {

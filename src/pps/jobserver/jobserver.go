@@ -1,14 +1,21 @@
-package jobserver // import "go.pachyderm.com/pachyderm/src/pps/jobserver"
+package jobserver
 
 import (
-	"go.pachyderm.com/pachyderm/src/pkg/container"
-	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/pkg/container"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/jobserver/run"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
 
 func NewAPIServer(
 	persistAPIClient persist.APIClient,
 	containerClient container.Client,
 ) pps.JobAPIServer {
-	return newLogAPIServer(newAPIServer(persistAPIClient, containerClient))
+	return newAPIServer(
+		persistAPIClient,
+		jobserverrun.NewJobRunner(
+			persistAPIClient,
+			containerClient,
+		),
+	)
 }

@@ -1,1 +1,1 @@
-package deploy // import "go.pachyderm.com/pachyderm/src/pkg/deploy"
+package deploy // import "github.com/pachyderm/pachyderm/src/pkg/deploy"

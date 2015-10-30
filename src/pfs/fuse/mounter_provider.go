@@ -4,7 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"go.pachyderm.com/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"google.golang.org/grpc"
 )
 

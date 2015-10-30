@@ -1,9 +1,9 @@
-package pipelineserver // import "go.pachyderm.com/pachyderm/src/pps/pipelineserver"
+package pipelineserver
 
 import (
-	"go.pachyderm.com/pachyderm/src/pfs"
-	"go.pachyderm.com/pachyderm/src/pps"
-	"go.pachyderm.com/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
 
 type APIServer interface {
@@ -20,19 +20,5 @@ func NewAPIServer(
 		pfsAPIClient,
 		jobAPIClient,
 		persistAPIClient,
-		false,
-	)
-}
-
-func NewTestAPIServer(
-	pfsAPIClient pfs.APIClient,
-	jobAPIClient pps.JobAPIClient,
-	persistAPIClient persist.APIClient,
-) APIServer {
-	return newAPIServer(
-		pfsAPIClient,
-		jobAPIClient,
-		persistAPIClient,
-		true,
 	)
 }
