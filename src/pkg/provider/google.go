@@ -1,4 +1,4 @@
-package storage
+package provider
 
 import (
 	"golang.org/x/net/context"
@@ -21,7 +21,7 @@ func newGoogleProvider(ctx context.Context, project string, zone string) (*googl
 	if err != nil {
 		return nil, err
 	}
-	return &googleClient{
+	return &googleProvider{
 		service: service,
 		project: project,
 		zone:    zone,
@@ -29,16 +29,14 @@ func newGoogleProvider(ctx context.Context, project string, zone string) (*googl
 }
 
 func (p *googleProvider) CreateDisk(name string, sizeGb int64) error {
-	disk, err := p.service.Disks.Insert(
-		project,
-		zone,
+	_, err := p.service.Disks.Insert(
+		p.project,
+		p.zone,
 		&compute.Disk{
 			Name:   name,
 			SizeGb: sizeGb,
 			Type:   "pd-ssd",
 		},
 	).Do()
-	if err != nil {
-		return err
-	}
+	return err
 }
