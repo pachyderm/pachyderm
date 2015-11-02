@@ -18,6 +18,7 @@ import (
 //TODO these names are a bit unwieldy
 var (
 	emptyInstance      = &google_protobuf.Empty{}
+	suite              = "pachyderm"
 	defaultDiskSizeGb  = int64(1000)
 	pfsdImage          = "pachyderm/pfsd"
 	rolerImage         = "pachyderm/pfs-roler"
@@ -148,7 +149,7 @@ func (a *apiServer) DeleteCluster(ctx context.Context, request *deploy.DeleteClu
 func (a *apiServer) createDisks(ctx context.Context, nodes uint64) ([]string, error) {
 	var names []string
 	for i := uint64(0); i < nodes; i++ {
-		name := uuid.NewWithoutDashes()
+		name := "disk-" + uuid.NewWithoutDashes()
 		if err := a.provider.CreateDisk(name, defaultDiskSizeGb); err != nil {
 			return nil, err
 		}
@@ -196,10 +197,8 @@ func pfsdRc(nodes uint64, shards uint64, replicas uint64) *api.ReplicationContro
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name: pfsdRcName,
-			Labels: map[string]string{
-				"app": app,
-			},
+			Name:   pfsdRcName,
+			Labels: labels(app),
 		},
 		Spec: api.ReplicationControllerSpec{
 			Replicas: int(nodes),
@@ -208,10 +207,8 @@ func pfsdRc(nodes uint64, shards uint64, replicas uint64) *api.ReplicationContro
 			},
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name: "pfsd",
-					Labels: map[string]string{
-						"app": app,
-					},
+					Name:   "pfsd",
+					Labels: labels(app),
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
@@ -286,10 +283,8 @@ func pfsdService() *api.Service {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name: pfsdServiceName,
-			Labels: map[string]string{
-				"app": app,
-			},
+			Name:   pfsdServiceName,
+			Labels: labels(app),
 		},
 		Spec: api.ServiceSpec{
 			Selector: map[string]string{
@@ -317,10 +312,8 @@ func rolerRc(shards uint64, replicas uint64) *api.ReplicationController {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name: rolerRcName,
-			Labels: map[string]string{
-				"app": app,
-			},
+			Name:   rolerRcName,
+			Labels: labels(app),
 		},
 		Spec: api.ReplicationControllerSpec{
 			Replicas: 1,
@@ -329,10 +322,8 @@ func rolerRc(shards uint64, replicas uint64) *api.ReplicationController {
 			},
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name: "rolerkj",
-					Labels: map[string]string{
-						"app": app,
-					},
+					Name:   "rolerkj",
+					Labels: labels(app),
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
@@ -365,10 +356,8 @@ func ppsdRc(nodes uint64) *api.ReplicationController {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name: ppsdRcName,
-			Labels: map[string]string{
-				"app": app,
-			},
+			Name:   ppsdRcName,
+			Labels: labels(app),
 		},
 		Spec: api.ReplicationControllerSpec{
 			Replicas: 1,
@@ -377,10 +366,8 @@ func ppsdRc(nodes uint64) *api.ReplicationController {
 			},
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name: "ppsd",
-					Labels: map[string]string{
-						"app": app,
-					},
+					Name:   "ppsd",
+					Labels: labels(app),
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
@@ -414,10 +401,8 @@ func ppsService() *api.Service {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name: ppsdServiceName,
-			Labels: map[string]string{
-				"app": app,
-			},
+			Name:   ppsdServiceName,
+			Labels: labels(app),
 		},
 		Spec: api.ServiceSpec{
 			Selector: map[string]string{
@@ -441,10 +426,8 @@ func etcdReplicationController() *api.ReplicationController {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name: etcdRcName,
-			Labels: map[string]string{
-				"app": app,
-			},
+			Name:   etcdRcName,
+			Labels: labels(app),
 		},
 		Spec: api.ReplicationControllerSpec{
 			Replicas: 1,
@@ -453,10 +436,8 @@ func etcdReplicationController() *api.ReplicationController {
 			},
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name: "etcd-pod",
-					Labels: map[string]string{
-						"app": app,
-					},
+					Name:   "etcd-pod",
+					Labels: labels(app),
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
@@ -502,10 +483,8 @@ func etcdService() *api.Service {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name: etcdServiceName,
-			Labels: map[string]string{
-				"app": app,
-			},
+			Name:   etcdServiceName,
+			Labels: labels(app),
 		},
 		Spec: api.ServiceSpec{
 			Selector: map[string]string{
@@ -533,10 +512,8 @@ func rethinkReplicationController() *api.ReplicationController {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name: rethinkRcName,
-			Labels: map[string]string{
-				"app": app,
-			},
+			Name:   rethinkRcName,
+			Labels: labels(app),
 		},
 		Spec: api.ReplicationControllerSpec{
 			Replicas: 1,
@@ -545,10 +522,8 @@ func rethinkReplicationController() *api.ReplicationController {
 			},
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name: "rethink-pod",
-					Labels: map[string]string{
-						"app": app,
-					},
+					Name:   "rethink-pod",
+					Labels: labels(app),
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
@@ -599,10 +574,8 @@ func rethinkService() *api.Service {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name: rethinkServiceName,
-			Labels: map[string]string{
-				"app": app,
-			},
+			Name:   rethinkServiceName,
+			Labels: labels(app),
 		},
 		Spec: api.ServiceSpec{
 			Selector: map[string]string{
@@ -623,5 +596,12 @@ func rethinkService() *api.Service {
 				},
 			},
 		},
+	}
+}
+
+func labels(app string) map[string]string {
+	return map[string]string{
+		"app":   app,
+		"suite": suite,
 	}
 }
