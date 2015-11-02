@@ -43,14 +43,22 @@ func main() {
 }
 
 func do(appEnvObj interface{}) error {
-	return newServer(appEnvObj.(*appEnv)).Serve()
+	server, err := newServer(appEnvObj.(*appEnv))
+	if err != nil {
+		return err
+	}
+	return server.Serve()
 }
 
-func newServer(appEnv *appEnv) dockervolume.Server {
+func newServer(appEnv *appEnv) (dockervolume.Server, error) {
+	mounter, err := fuse.NewMounter(getPFSAddress(appEnv))
+	if err != nil {
+		return nil, err
+	}
 	return dockervolume.NewTCPServer(
 		newVolumeDriver(
 			getPFSAddress(appEnv),
-			fuse.NewMounterProvider(getPFSAddress(appEnv)),
+			mounter,
 			appEnv.BaseMountpoint,
 		),
 		appEnv.VolumeDriverName,
@@ -58,7 +66,7 @@ func newServer(appEnv *appEnv) dockervolume.Server {
 		dockervolume.ServerOptions{
 			GRPCPort: uint16(appEnv.GRPCPort),
 		},
-	)
+	), nil
 }
 
 func getPFSAddress(appEnv *appEnv) string {
@@ -70,19 +78,19 @@ func getPFSAddress(appEnv *appEnv) string {
 }
 
 type volumeDriver struct {
-	pfsAddress      string
-	mounterProvider fuse.MounterProvider
-	baseMountpoint  string
+	pfsAddress     string
+	mounter        fuse.Mounter
+	baseMountpoint string
 }
 
 func newVolumeDriver(
 	pfsAddress string,
-	mounterProvider fuse.MounterProvider,
+	mounter fuse.Mounter,
 	baseMountpoint string,
 ) *volumeDriver {
 	return &volumeDriver{
 		pfsAddress,
-		mounterProvider,
+		mounter,
 		baseMountpoint,
 	}
 }
@@ -103,11 +111,7 @@ func (v *volumeDriver) Mount(name string, opts pkgmap.StringStringMap) (string, 
 	if err := mount.init(); err != nil {
 		return "", err
 	}
-	mounter, err := v.mounterProvider.Get()
-	if err != nil {
-		return "", err
-	}
-	if err := mounter.Mount(
+	if err := v.mounter.Mount(
 		mount.mountpoint,
 		mount.shard,
 		mount.modulus,
@@ -118,11 +122,7 @@ func (v *volumeDriver) Mount(name string, opts pkgmap.StringStringMap) (string, 
 }
 
 func (v *volumeDriver) Unmount(_ string, _ pkgmap.StringStringMap, mountpoint string) error {
-	mounter, err := v.mounterProvider.Get()
-	if err != nil {
-		return err
-	}
-	return mounter.Unmount(mountpoint)
+	return v.mounter.Unmount(mountpoint)
 }
 
 type mount struct {
