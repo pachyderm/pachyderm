@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/pachyderm/pachyderm/src/pkg/deploy"
@@ -33,8 +34,21 @@ func main() {
 	env.Main(do, &appEnv{}, defaultEnv)
 }
 
+func validateEnv(appEnv *appEnv) error {
+	if appEnv.GCEProject == "" {
+		return fmt.Errorf("envvar GCE_PROJECT must be set.")
+	}
+	if appEnv.GCEZone == "" {
+		return fmt.Errorf("envvar GCE_ZONE must be set.")
+	}
+	return nil
+}
+
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
+	if err := validateEnv(appEnv); err != nil {
+		return err
+	}
 	logrus.Register()
 	config := &client.Config{
 		Host:     appEnv.KubernetesAddress,
