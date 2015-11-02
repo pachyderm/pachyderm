@@ -16,11 +16,13 @@ func RunT(
 	numServers int,
 	registerFunc func(map[string]*grpc.Server),
 	testFunc func(*testing.T, map[string]*grpc.ClientConn),
+	after ...func(),
 ) {
 	grpcSuite := &grpcSuite{
 		numServers:   numServers,
 		registerFunc: registerFunc,
 		testFunc:     testFunc,
+		after:        after,
 	}
 	suite.Run(t, grpcSuite)
 }
@@ -31,10 +33,12 @@ func RunB(
 	numServers int,
 	registerFunc func(map[string]*grpc.Server),
 	benchFunc func(*testing.B, map[string]*grpc.ClientConn),
+	after ...func(),
 ) {
 	grpcSuite := &grpcSuite{
 		numServers:   numServers,
 		registerFunc: registerFunc,
+		after:        after,
 	}
 	grpcSuite.SetupSuite()
 	defer grpcSuite.TearDownSuite()
@@ -46,6 +50,7 @@ type grpcSuite struct {
 	numServers   int
 	registerFunc func(map[string]*grpc.Server)
 	testFunc     func(*testing.T, map[string]*grpc.ClientConn)
+	after        []func()
 	clientConns  map[string]*grpc.ClientConn
 	servers      map[string]*grpc.Server
 	errC         chan error
@@ -102,6 +107,9 @@ func (g *grpcSuite) KillServer(address string) {
 }
 
 func (g *grpcSuite) TearDownSuite() {
+	for _, f := range g.after {
+		f()
+	}
 	for address := range g.clientConns {
 		g.KillServer(address)
 	}
