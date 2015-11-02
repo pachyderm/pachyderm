@@ -31,10 +31,10 @@ func RunTest(
 	require.NoError(t, err)
 	pfstesting.RunTest(
 		t,
-		func(t *testing.T, pfsAPIClient pfs.APIClient, _ pfs.InternalAPIClient, _ pfstesting.Cluster) {
+		func(t *testing.T, pfsAddress string, pfsAPIClient pfs.APIClient, _ pfstesting.Cluster) {
 			pfsMountDir, err := ioutil.TempDir("", "")
 			require.NoError(t, err)
-			testSetupPFSMount(t, pfsAPIClient, pfsMountDir)
+			testSetupPFSMount(t, pfsAddress, pfsMountDir)
 			persistservertesting.RunTestWithRethinkAPIServer(
 				t,
 				func(t *testing.T, persistAPIServer persist.APIServer) {
@@ -95,6 +95,6 @@ func getTestContainerClient() (container.Client, error) {
 	return container.NewDockerClient(client), nil
 }
 
-func testSetupPFSMount(t *testing.T, pfsAPIClient pfs.APIClient, pfsMountDir string) error {
+func testSetupPFSMount(t *testing.T, pfsAddress string, pfsMountDir string) error {
 	return nil
 }

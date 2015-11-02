@@ -60,7 +60,7 @@ func BenchmarkFuse(b *testing.B) {
 	RunBench(b, benchMount)
 }
 
-func testSimple(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.InternalAPIClient, cluster Cluster) {
+func testSimple(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testSimpleRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
@@ -146,7 +146,7 @@ func testSimple(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.Int
 	require.Equal(t, testSize, count)
 }
 
-func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.InternalAPIClient, cluster Cluster) {
+func testBlockListCommits(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testSimpleRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
@@ -211,7 +211,7 @@ func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, internalAPIClie
 	require.Equal(t, newCommit, commitInfos.CommitInfo[0].Commit)
 }
 
-func testFailures(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.InternalAPIClient, cluster Cluster) {
+func testFailures(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testFailuresRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
@@ -244,7 +244,7 @@ func testFailures(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.I
 	checkWrites(t, apiClient, repoName, newCommitID)
 }
 
-func testMount(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.InternalAPIClient, cluster Cluster) {
+func testMount(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testMountRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
@@ -312,7 +312,7 @@ func testMount(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.Inte
 	require.NoError(t, err)
 }
 
-func testMountBig(t *testing.T, apiClient pfs.APIClient, internalAPIClient pfs.InternalAPIClient, cluster Cluster) {
+func testMountBig(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testMountBigRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
