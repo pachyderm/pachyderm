@@ -35,7 +35,7 @@ func RunTest(
 		func(t *testing.T, pfsAddress string, pfsAPIClient pfs.APIClient, _ pfstesting.Cluster) {
 			pfsMountDir, err := ioutil.TempDir("", "")
 			require.NoError(t, err)
-			mounter, err := fuse.NewMounter(pfsAddress)
+			mounter, err := fuse.NewMounter(pfsAddress, pfsAPIClient)
 			require.NoError(t, err)
 			require.NoError(t, mounter.Mount(pfsMountDir, 0, 1))
 			persistservertesting.RunTestWithRethinkAPIServer(

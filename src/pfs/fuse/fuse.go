@@ -1,5 +1,9 @@
 package fuse
 
+import (
+	"github.com/pachyderm/pachyderm/src/pfs"
+)
+
 type Mounter interface {
 	// Mount mounts a repository available as a fuse filesystem at mountPoint.
 	// Mount blocks and will return once the volume is unmounted.
@@ -13,6 +17,8 @@ type Mounter interface {
 	Unmount(mountPoint string) error
 }
 
-func NewMounter(address string) (Mounter, error) {
-	return newMounter(address)
+// NewMounter creates a new Mounter.
+// Address can be left blank, it's used only for aesthetic purposes.
+func NewMounter(address string, apiClient pfs.APIClient) (Mounter, error) {
+	return newMounter(address, apiClient)
 }

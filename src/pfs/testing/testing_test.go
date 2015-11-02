@@ -41,7 +41,6 @@ func TestFailures(t *testing.T) {
 }
 
 func TestFuseMount(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	RunTest(t, testMount)
 }
@@ -56,13 +55,11 @@ func TestFuseMountBig(t *testing.T) {
 
 }
 
-/*
 func BenchmarkFuse(b *testing.B) {
 	RunBench(b, benchMount)
 }
-*/
 
-func testSimple(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
+func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testSimpleRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
@@ -148,7 +145,7 @@ func testSimple(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluste
 	require.Equal(t, testSize, count)
 }
 
-func testBlockListCommits(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
+func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testSimpleRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
@@ -213,7 +210,7 @@ func testBlockListCommits(t *testing.T, pfsAddress string, apiClient pfs.APIClie
 	require.Equal(t, newCommit, commitInfos.CommitInfo[0].Commit)
 }
 
-func testFailures(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
+func testFailures(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testFailuresRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
@@ -246,17 +243,16 @@ func testFailures(t *testing.T, pfsAddress string, apiClient pfs.APIClient, clus
 	checkWrites(t, apiClient, repoName, newCommitID)
 }
 
-func testMount(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
+func testMount(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testMountRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
-	mounter, err := fuse.NewMounter(pfsAddress)
-	require.NoError(t, err)
+	mounter := fuse.NewMounter(apiClient)
 	go func() {
-		err = mounter.Mount(directory, 0, 1)
+		err = mounter.Mount("localhost", directory, 0, 1)
 		require.NoError(t, err)
 	}()
 
@@ -315,17 +311,16 @@ func testMount(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster
 	require.NoError(t, err)
 }
 
-func testMountBig(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
+func testMountBig(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testMountBigRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
-	mounter, err := fuse.NewMounter(pfsAddress)
-	require.NoError(t, err)
+	mounter := fuse.NewMounter(apiClient)
 	go func() {
-		err = mounter.Mount(directory, 0, 1)
+		err = mounter.Mount("localhost", directory, 0, 1)
 		require.NoError(t, err)
 	}()
 
@@ -372,7 +367,6 @@ func testMountBig(t *testing.T, pfsAddress string, apiClient pfs.APIClient, clus
 	require.NoError(t, err)
 }
 
-/*
 func benchMount(b *testing.B, apiClient pfs.APIClient) {
 	repoName := "benchMountRepo"
 
@@ -381,7 +375,7 @@ func benchMount(b *testing.B, apiClient pfs.APIClient) {
 	}
 
 	directory := "/compile/benchMount"
-	mounter := fuse.NewMounter(pfsAddress)
+	mounter := fuse.NewMounter(apiClient)
 	go func() {
 		if err := mounter.Mount("localhost", directory, 0, 1); err != nil {
 			b.Error(err)
@@ -425,7 +419,6 @@ func benchMount(b *testing.B, apiClient pfs.APIClient) {
 		}
 	}
 }
-*/
 
 func doWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commitID string) {
 	var wg sync.WaitGroup
