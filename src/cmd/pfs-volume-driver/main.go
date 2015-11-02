@@ -57,7 +57,6 @@ func newServer(appEnv *appEnv) (dockervolume.Server, error) {
 	}
 	return dockervolume.NewTCPServer(
 		newVolumeDriver(
-			getPFSAddress(appEnv),
 			mounter,
 			appEnv.BaseMountpoint,
 		),
@@ -78,18 +77,15 @@ func getPFSAddress(appEnv *appEnv) string {
 }
 
 type volumeDriver struct {
-	pfsAddress     string
 	mounter        fuse.Mounter
 	baseMountpoint string
 }
 
 func newVolumeDriver(
-	pfsAddress string,
 	mounter fuse.Mounter,
 	baseMountpoint string,
 ) *volumeDriver {
 	return &volumeDriver{
-		pfsAddress,
 		mounter,
 		baseMountpoint,
 	}
