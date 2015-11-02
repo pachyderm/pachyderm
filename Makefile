@@ -194,6 +194,7 @@ clean: docker-clean-launch
 	docker-clean-test \
 	docker-clean-launch \
 	go-test \
+	go-test-long \
 	test \
 	test-long \
 	clean
