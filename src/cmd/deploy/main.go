@@ -15,12 +15,16 @@ import (
 
 var (
 	defaultEnv = map[string]string{
-		"KUBERNETES_ADDRESS": "http://localhost:8080",
+		"KUBERNETES_ADDRESS":  "http://localhost:8080",
+		"KUBERNETES_USERNAME": "admin",
+		"KUBERNETES_PASSWORD": "",
 	}
 )
 
 type appEnv struct {
-	KubernetesAddress string `env:"KUBERNETES_ADDRESS"`
+	KubernetesAddress  string `env:"KUBERNETES_ADDRESS"`
+	KubernetesUsername string `env:"KUBERNETES_USERNAME"`
+	KubernetesPassword string `env:"KUBERNETES_PASSWORD"`
 }
 
 func main() {
@@ -31,7 +35,10 @@ func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 	logrus.Register()
 	config := &client.Config{
-		Host: appEnv.KubernetesAddress,
+		Host:     appEnv.KubernetesAddress,
+		Insecure: true,
+		Username: appEnv.KubernetesUsername,
+		Password: appEnv.KubernetesPassword,
 	}
 	client, err := client.New(config)
 	if err != nil {
