@@ -377,8 +377,11 @@ func do(appEnvObj interface{}) error {
 			if len(args) > 0 {
 				mountPoint = args[0]
 			}
-			mounter := fuse.NewMounter(apiClient)
-			return mounter.Mount(address, mountPoint, uint64(shard), uint64(modulus))
+			mounter, err := fuse.NewMounter(address)
+			if err != nil {
+				return err
+			}
+			return mounter.Mount(mountPoint, uint64(shard), uint64(modulus))
 		}),
 	}
 	mount.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")

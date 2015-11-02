@@ -1,15 +1,10 @@
 package fuse
 
-import (
-	"github.com/pachyderm/pachyderm/src/pfs"
-)
-
 type Mounter interface {
 	// Mount mounts a repository available as a fuse filesystem at mountPoint at the commitID.
 	// commitID is optional - if not passed, all commits will be mounted.
 	// Mount will not block and will return once mounted, or error otherwise.
 	Mount(
-		address string,
 		mountPoint string,
 		shard uint64,
 		modulus uint64,
@@ -19,8 +14,8 @@ type Mounter interface {
 	Unmount(mountPoint string) error
 }
 
-func NewMounter(apiClient pfs.APIClient) Mounter {
-	return newMounter(apiClient)
+func NewMounter(address string) (Mounter, error) {
+	return newMounter(address)
 }
 
 type MounterProvider interface {

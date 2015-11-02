@@ -108,7 +108,6 @@ func (v *volumeDriver) Mount(name string, opts pkgmap.StringStringMap) (string, 
 		return "", err
 	}
 	if err := mounter.Mount(
-		v.pfsAddress,
 		mount.mountpoint,
 		mount.shard,
 		mount.modulus,

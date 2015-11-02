@@ -3,6 +3,8 @@ package fuse
 import (
 	"os"
 
+	"google.golang.org/grpc"
+
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -14,17 +16,23 @@ const (
 )
 
 type mounter struct {
+	address   string
 	apiClient pfs.APIClient
 }
 
-func newMounter(apiClient pfs.APIClient) Mounter {
-	return &mounter{
-		apiClient,
+func newMounter(address string) (Mounter, error) {
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
 	}
+	apiClient := pfs.NewAPIClient(clientConn)
+	return &mounter{
+		address,
+		apiClient,
+	}, nil
 }
 
 func (m *mounter) Mount(
-	address string,
 	mountPoint string,
 	shard uint64,
 	modulus uint64,
@@ -33,7 +41,7 @@ func (m *mounter) Mount(
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
 	}
-	name := namePrefix + address
+	name := namePrefix + m.address
 	conn, err := fuse.Mount(
 		mountPoint,
 		fuse.FSName(name),

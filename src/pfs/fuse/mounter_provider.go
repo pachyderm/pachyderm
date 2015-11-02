@@ -3,9 +3,6 @@ package fuse
 import (
 	"sync"
 	"sync/atomic"
-
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"google.golang.org/grpc"
 )
 
 type mounterProvider struct {
@@ -43,13 +40,5 @@ func (m *mounterProvider) Get() (Mounter, error) {
 }
 
 func (m *mounterProvider) getOnce() (Mounter, error) {
-	clientConn, err := grpc.Dial(m.pfsAddress, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	return NewMounter(
-		pfs.NewAPIClient(
-			clientConn,
-		),
-	), nil
+	return NewMounter(m.pfsAddress)
 }
