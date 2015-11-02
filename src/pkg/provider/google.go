@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"fmt"
+
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/compute/v1"
@@ -35,7 +37,7 @@ func (p *googleProvider) CreateDisk(name string, sizeGb int64) error {
 		&compute.Disk{
 			Name:   name,
 			SizeGb: sizeGb,
-			Type:   "pd-ssd",
+			Type:   fmt.Sprintf("zones/%s/diskTypes/pd-ssd", p.zone),
 		},
 	).Do()
 	return err

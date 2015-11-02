@@ -149,7 +149,7 @@ func (a *apiServer) DeleteCluster(ctx context.Context, request *deploy.DeleteClu
 func (a *apiServer) createDisks(ctx context.Context, nodes uint64) ([]string, error) {
 	var names []string
 	for i := uint64(0); i < nodes; i++ {
-		name := uuid.NewWithoutDashes()
+		name := "disk-" + uuid.NewWithoutDashes()
 		if err := a.provider.CreateDisk(name, defaultDiskSizeGb); err != nil {
 			return nil, err
 		}
