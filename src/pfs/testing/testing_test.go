@@ -56,9 +56,11 @@ func TestFuseMountBig(t *testing.T) {
 
 }
 
+/*
 func BenchmarkFuse(b *testing.B) {
 	RunBench(b, benchMount)
 }
+*/
 
 func testSimple(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testSimpleRepo"
@@ -251,9 +253,10 @@ func testMount(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
-	mounter := fuse.NewMounter(apiClient)
+	mounter, err := fuse.NewMounter(pfsAddress)
+	require.NoError(t, err)
 	go func() {
-		err = mounter.Mount("localhost", directory, 0, 1)
+		err = mounter.Mount(directory, 0, 1)
 		require.NoError(t, err)
 	}()
 
@@ -319,9 +322,10 @@ func testMountBig(t *testing.T, pfsAddress string, apiClient pfs.APIClient, clus
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
-	mounter := fuse.NewMounter(apiClient)
+	mounter, err := fuse.NewMounter(pfsAddress)
+	require.NoError(t, err)
 	go func() {
-		err = mounter.Mount("localhost", directory, 0, 1)
+		err = mounter.Mount(directory, 0, 1)
 		require.NoError(t, err)
 	}()
 
@@ -368,6 +372,7 @@ func testMountBig(t *testing.T, pfsAddress string, apiClient pfs.APIClient, clus
 	require.NoError(t, err)
 }
 
+/*
 func benchMount(b *testing.B, apiClient pfs.APIClient) {
 	repoName := "benchMountRepo"
 
@@ -376,7 +381,7 @@ func benchMount(b *testing.B, apiClient pfs.APIClient) {
 	}
 
 	directory := "/compile/benchMount"
-	mounter := fuse.NewMounter(apiClient)
+	mounter := fuse.NewMounter(pfsAddress)
 	go func() {
 		if err := mounter.Mount("localhost", directory, 0, 1); err != nil {
 			b.Error(err)
@@ -420,6 +425,7 @@ func benchMount(b *testing.B, apiClient pfs.APIClient) {
 		}
 	}
 }
+*/
 
 func doWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commitID string) {
 	var wg sync.WaitGroup
