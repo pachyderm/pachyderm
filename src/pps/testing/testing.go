@@ -6,6 +6,7 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	pfstesting "github.com/pachyderm/pachyderm/src/pfs/testing"
 	"github.com/pachyderm/pachyderm/src/pkg/container"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
@@ -34,7 +35,9 @@ func RunTest(
 		func(t *testing.T, pfsAddress string, pfsAPIClient pfs.APIClient, _ pfstesting.Cluster) {
 			pfsMountDir, err := ioutil.TempDir("", "")
 			require.NoError(t, err)
-			testSetupPFSMount(t, pfsAddress, pfsMountDir)
+			mounter, err := fuse.NewMounter(pfsAddress)
+			require.NoError(t, err)
+			require.NoError(t, mounter.Mount(pfsMountDir, 0, 1))
 			persistservertesting.RunTestWithRethinkAPIServer(
 				t,
 				func(t *testing.T, persistAPIServer persist.APIServer) {
@@ -80,6 +83,9 @@ func RunTest(
 								),
 							)
 						},
+						//func() {
+						//_ = mounter.Unmount(pfsMountDir)
+						//},
 					)
 				},
 			)
@@ -93,8 +99,4 @@ func getTestContainerClient() (container.Client, error) {
 		return nil, err
 	}
 	return container.NewDockerClient(client), nil
-}
-
-func testSetupPFSMount(t *testing.T, pfsAddress string, pfsMountDir string) error {
-	return nil
 }

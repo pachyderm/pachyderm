@@ -36,10 +36,10 @@ func main() {
 
 func validateEnv(appEnv *appEnv) error {
 	if appEnv.GCEProject == "" {
-		return fmt.Errorf("envvar GCE_PROJECT must be set.")
+		return fmt.Errorf("envvar GCE_PROJECT must be set")
 	}
 	if appEnv.GCEZone == "" {
-		return fmt.Errorf("envvar GCE_ZONE must be set.")
+		return fmt.Errorf("envvar GCE_ZONE must be set")
 	}
 	return nil
 }
