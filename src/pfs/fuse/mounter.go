@@ -18,11 +18,11 @@ type mounter struct {
 	apiClient pfs.APIClient
 }
 
-func newMounter(address string, apiClient pfs.APIClient) (Mounter, error) {
+func newMounter(address string, apiClient pfs.APIClient) Mounter {
 	return &mounter{
 		address,
 		apiClient,
-	}, nil
+	}
 }
 
 func (m *mounter) Mount(
