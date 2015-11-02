@@ -5,6 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/pkg/provider"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"golang.org/x/net/context"
 
 	"go.pedge.io/google-protobuf"
@@ -16,6 +17,7 @@ import (
 //TODO these names are a bit unwieldy
 var (
 	emptyInstance      = &google_protobuf.Empty{}
+	defaultDiskSizeGb  = int64(1000)
 	pfsdImage          = "pachyderm/pfsd"
 	rolerImage         = "pachyderm/pfs-roler"
 	ppsdImage          = "pachyderm/ppsd"
@@ -54,6 +56,10 @@ func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClu
 		return nil, err
 	}
 	if _, err := a.client.Services(api.NamespaceDefault).Create(rethinkService()); err != nil {
+		return nil, err
+	}
+	_, err := a.createDisks(ctx, request.Nodes)
+	if err != nil {
 		return nil, err
 	}
 	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(
@@ -130,6 +136,18 @@ func (a *apiServer) DeleteCluster(ctx context.Context, request *deploy.DeleteClu
 		return nil, err
 	}
 	return emptyInstance, nil
+}
+
+func (a *apiServer) createDisks(ctx context.Context, nodes uint64) ([]string, error) {
+	var names []string
+	for i := uint64(0); i < nodes; i++ {
+		name := uuid.NewWithoutDashes()
+		if err := a.provider.CreateDisk(name, defaultDiskSizeGb); err != nil {
+			return nil, err
+		}
+		names = append(names, name)
+	}
+	return names, nil
 }
 
 func pfsdRc(nodes uint64, shards uint64, replicas uint64) *api.ReplicationController {
