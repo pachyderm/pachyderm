@@ -17,11 +17,3 @@ type Mounter interface {
 func NewMounter(address string) (Mounter, error) {
 	return newMounter(address)
 }
-
-type MounterProvider interface {
-	Get() (Mounter, error)
-}
-
-func NewMounterProvider(pfsAddress string) MounterProvider {
-	return newMounterProvider(pfsAddress)
-}
