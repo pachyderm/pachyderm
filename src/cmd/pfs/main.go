@@ -377,10 +377,7 @@ func do(appEnvObj interface{}) error {
 			if len(args) > 0 {
 				mountPoint = args[0]
 			}
-			mounter, err := fuse.NewMounter(address, apiClient)
-			if err != nil {
-				return err
-			}
+			mounter := fuse.NewMounter(address, apiClient)
 			return mounter.Mount(mountPoint, uint64(shard), uint64(modulus))
 		}),
 	}

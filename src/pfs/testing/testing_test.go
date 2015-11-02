@@ -250,9 +250,9 @@ func testMount(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
-	mounter := fuse.NewMounter(apiClient)
+	mounter := fuse.NewMounter("localhost", apiClient)
 	go func() {
-		err = mounter.Mount("localhost", directory, 0, 1)
+		err = mounter.Mount(directory, 0, 1)
 		require.NoError(t, err)
 	}()
 
@@ -318,9 +318,9 @@ func testMountBig(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
-	mounter := fuse.NewMounter(apiClient)
+	mounter := fuse.NewMounter("localhost", apiClient)
 	go func() {
-		err = mounter.Mount("localhost", directory, 0, 1)
+		err = mounter.Mount(directory, 0, 1)
 		require.NoError(t, err)
 	}()
 
@@ -375,9 +375,9 @@ func benchMount(b *testing.B, apiClient pfs.APIClient) {
 	}
 
 	directory := "/compile/benchMount"
-	mounter := fuse.NewMounter(apiClient)
+	mounter := fuse.NewMounter("localhost", apiClient)
 	go func() {
-		if err := mounter.Mount("localhost", directory, 0, 1); err != nil {
+		if err := mounter.Mount(directory, 0, 1); err != nil {
 			b.Error(err)
 		}
 	}()

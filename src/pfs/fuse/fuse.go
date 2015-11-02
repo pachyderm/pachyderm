@@ -19,6 +19,6 @@ type Mounter interface {
 
 // NewMounter creates a new Mounter.
 // Address can be left blank, it's used only for aesthetic purposes.
-func NewMounter(address string, apiClient pfs.APIClient) (Mounter, error) {
+func NewMounter(address string, apiClient pfs.APIClient) Mounter {
 	return newMounter(address, apiClient)
 }

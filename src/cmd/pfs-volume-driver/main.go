@@ -59,10 +59,7 @@ func newServer(appEnv *appEnv) (dockervolume.Server, error) {
 		return nil, err
 	}
 	apiClient := pfs.NewAPIClient(clientConn)
-	mounter, err := fuse.NewMounter(getPFSAddress(appEnv), apiClient)
-	if err != nil {
-		return nil, err
-	}
+	mounter := fuse.NewMounter(getPFSAddress(appEnv), apiClient)
 	return dockervolume.NewTCPServer(
 		newVolumeDriver(
 			mounter,
