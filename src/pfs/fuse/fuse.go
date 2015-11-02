@@ -1,9 +1,8 @@
 package fuse
 
 type Mounter interface {
-	// Mount mounts a repository available as a fuse filesystem at mountPoint at the commitID.
-	// commitID is optional - if not passed, all commits will be mounted.
-	// Mount will not block and will return once mounted, or error otherwise.
+	// Mount mounts a repository available as a fuse filesystem at mountPoint.
+	// Mount blocks and will return once the volume is unmounted.
 	Mount(
 		mountPoint string,
 		shard uint64,
