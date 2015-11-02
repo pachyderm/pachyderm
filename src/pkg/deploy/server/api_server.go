@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/pachyderm/pachyderm/src/pkg/deploy"
+	"github.com/pachyderm/pachyderm/src/pkg/provider"
 	"golang.org/x/net/context"
 
 	"go.pedge.io/google-protobuf"
@@ -34,11 +35,12 @@ var (
 )
 
 type apiServer struct {
-	client *client.Client
+	client   *client.Client
+	provider provider.Provider
 }
 
-func newAPIServer(client *client.Client) APIServer {
-	return &apiServer{client}
+func newAPIServer(client *client.Client, provider provider.Provider) APIServer {
+	return &apiServer{client, provider}
 }
 
 func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClusterRequest) (*google_protobuf.Empty, error) {

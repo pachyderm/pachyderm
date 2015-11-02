@@ -5,6 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/pkg/deploy/server"
+	"github.com/pachyderm/pachyderm/src/pkg/provider"
 	"github.com/spf13/cobra"
 	"go.pedge.io/env"
 	"go.pedge.io/pkg/cobra"
@@ -17,7 +18,6 @@ var (
 	defaultEnv = map[string]string{
 		"KUBERNETES_ADDRESS":  "http://localhost:8080",
 		"KUBERNETES_USERNAME": "admin",
-		"KUBERNETES_PASSWORD": "",
 	}
 )
 
@@ -25,6 +25,8 @@ type appEnv struct {
 	KubernetesAddress  string `env:"KUBERNETES_ADDRESS"`
 	KubernetesUsername string `env:"KUBERNETES_USERNAME"`
 	KubernetesPassword string `env:"KUBERNETES_PASSWORD"`
+	GCEProject         string `env:"GCE_PROJECT"`
+	GCEZone            string `env:"GCE_ZONE"`
 }
 
 func main() {
@@ -44,7 +46,11 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	apiServer := server.NewAPIServer(client)
+	provider, err := provider.NewGoogleProvider(context.TODO(), appEnv.GCEProject, appEnv.GCEZone)
+	if err != nil {
+		return err
+	}
+	apiServer := server.NewAPIServer(client, provider)
 
 	createCluster := &cobra.Command{
 		Use:   "create-cluster cluster-name nodes shards replicas",
