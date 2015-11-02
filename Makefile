@@ -144,7 +144,7 @@ docker-clean-launch: docker-clean-test
 go-test: docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test -test.short $(TESTFLAGS) $(TESTPKGS)"
 
-go-test: docker-clean-test docker-build-test
+go-test-long: docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) $(TESTPKGS)"
 
 test: pretest go-test
