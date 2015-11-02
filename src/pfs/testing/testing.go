@@ -32,7 +32,7 @@ const (
 
 func RunTest(
 	t *testing.T,
-	f func(*testing.T, pfs.APIClient, pfs.InternalAPIClient, Cluster),
+	f func(*testing.T, string, pfs.APIClient, Cluster),
 ) {
 	discoveryClient, err := getEtcdClient()
 	require.NoError(t, err)
@@ -44,8 +44,10 @@ func RunTest(
 			cluster = registerFunc(t, discoveryClient, servers)
 		},
 		func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
+			var address string
 			var clientConn *grpc.ClientConn
-			for _, c := range clientConns {
+			for a, c := range clientConns {
+				address = a
 				clientConn = c
 				break
 			}
@@ -55,10 +57,8 @@ func RunTest(
 			cluster.WaitForAvailability()
 			f(
 				t,
+				address,
 				pfs.NewAPIClient(
-					clientConn,
-				),
-				pfs.NewInternalAPIClient(
 					clientConn,
 				),
 				cluster,
