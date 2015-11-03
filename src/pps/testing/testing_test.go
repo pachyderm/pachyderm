@@ -1,10 +1,12 @@
 package testing
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 	"time"
 
+	"go.pedge.io/proto/stream"
 	"go.pedge.io/protolog"
 
 	"golang.org/x/net/context"
@@ -37,7 +39,7 @@ func TestSimple(t *testing.T) {
 			transform: &pps.Transform{
 				Image: "ubuntu:14.04",
 				Cmd: []string{
-					fmt.Sprintf("for file in %s/*; do cp ${file} %s/${file}.output; done", jobserverrun.InputMountDir, jobserverrun.OutputMountDir),
+					fmt.Sprintf("for file in %s/*; do cp \"${file}\" %s/$(basename \"${file}\").output; done", jobserverrun.InputMountDir, jobserverrun.OutputMountDir),
 				},
 			},
 		},
@@ -191,5 +193,29 @@ func waitForJob(t *testing.T, jobAPIClient pps.JobAPIClient, job *pps.Job, timeo
 }
 
 func checkPFSOutput(t *testing.T, pfsAPIClient pfs.APIClient, outputCommit *pfs.Commit, filePathToContent map[string][]byte) {
+	for filePath, content := range filePathToContent {
+		getContent, err := getPFSContent(pfsAPIClient, outputCommit, filePath)
+		require.NoError(t, err)
+		require.Equal(t, content, getContent)
+	}
+}
 
+func getPFSContent(pfsAPIClient pfs.APIClient, commit *pfs.Commit, filePath string) ([]byte, error) {
+	apiGetFileClient, err = pfsAPIClient.GetFile(
+		context.Background(),
+		&pfs.GetFileRequest{
+			File: &pfs.File{
+				Commit: commit,
+				Path:   filePath,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	buffer := bytes.NewBuffer(nil)
+	if err := protostream.WriteFromStreamingBytesClient(apiGetFileClient, buffer); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
 }
