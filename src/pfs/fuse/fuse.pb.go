@@ -12,12 +12,13 @@ It has these top-level messages:
 	Filesystem
 	Node
 	Attr
-	DirEnt
+	Dirent
 	Root
 	DirectoryAttr
+	DirectoryLookup
 	DirectoryReadDirAll
 	DirectoryCreate
-	DirectoryMkDir
+	DirectoryMkdir
 	FileAttr
 	FileRead
 	FileOpen
@@ -64,14 +65,14 @@ func (m *Attr) Reset()         { *m = Attr{} }
 func (m *Attr) String() string { return proto.CompactTextString(m) }
 func (*Attr) ProtoMessage()    {}
 
-type DirEnt struct {
+type Dirent struct {
 	Inode uint64 `protobuf:"varint,1,opt,name=inode" json:"inode,omitempty"`
 	Name  string `protobuf:"bytes,2,opt,name=name" json:"name,omitempty"`
 }
 
-func (m *DirEnt) Reset()         { *m = DirEnt{} }
-func (m *DirEnt) String() string { return proto.CompactTextString(m) }
-func (*DirEnt) ProtoMessage()    {}
+func (m *Dirent) Reset()         { *m = Dirent{} }
+func (m *Dirent) String() string { return proto.CompactTextString(m) }
+func (*Dirent) ProtoMessage()    {}
 
 type Root struct {
 	Filesystem *Filesystem `protobuf:"bytes,1,opt,name=filesystem" json:"filesystem,omitempty"`
@@ -121,9 +122,34 @@ func (m *DirectoryAttr) GetResult() *Attr {
 	return nil
 }
 
+type DirectoryLookup struct {
+	Directory *Node  `protobuf:"bytes,1,opt,name=directory" json:"directory,omitempty"`
+	Name      string `protobuf:"bytes,2,opt,name=name" json:"name,omitempty"`
+	Result    *Node  `protobuf:"bytes,3,opt,name=result" json:"result,omitempty"`
+	Err       string `protobuf:"bytes,4,opt,name=err" json:"err,omitempty"`
+}
+
+func (m *DirectoryLookup) Reset()         { *m = DirectoryLookup{} }
+func (m *DirectoryLookup) String() string { return proto.CompactTextString(m) }
+func (*DirectoryLookup) ProtoMessage()    {}
+
+func (m *DirectoryLookup) GetDirectory() *Node {
+	if m != nil {
+		return m.Directory
+	}
+	return nil
+}
+
+func (m *DirectoryLookup) GetResult() *Node {
+	if m != nil {
+		return m.Result
+	}
+	return nil
+}
+
 type DirectoryReadDirAll struct {
 	Directory *Node     `protobuf:"bytes,1,opt,name=directory" json:"directory,omitempty"`
-	Result    []*DirEnt `protobuf:"bytes,2,rep,name=result" json:"result,omitempty"`
+	Result    []*Dirent `protobuf:"bytes,2,rep,name=result" json:"result,omitempty"`
 	Error     string    `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
@@ -138,7 +164,7 @@ func (m *DirectoryReadDirAll) GetDirectory() *Node {
 	return nil
 }
 
-func (m *DirectoryReadDirAll) GetResult() []*DirEnt {
+func (m *DirectoryReadDirAll) GetResult() []*Dirent {
 	if m != nil {
 		return m.Result
 	}
@@ -169,24 +195,24 @@ func (m *DirectoryCreate) GetResult() *Node {
 	return nil
 }
 
-type DirectoryMkDir struct {
+type DirectoryMkdir struct {
 	Directory *Node  `protobuf:"bytes,1,opt,name=directory" json:"directory,omitempty"`
 	Result    *Node  `protobuf:"bytes,2,opt,name=result" json:"result,omitempty"`
 	Error     string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *DirectoryMkDir) Reset()         { *m = DirectoryMkDir{} }
-func (m *DirectoryMkDir) String() string { return proto.CompactTextString(m) }
-func (*DirectoryMkDir) ProtoMessage()    {}
+func (m *DirectoryMkdir) Reset()         { *m = DirectoryMkdir{} }
+func (m *DirectoryMkdir) String() string { return proto.CompactTextString(m) }
+func (*DirectoryMkdir) ProtoMessage()    {}
 
-func (m *DirectoryMkDir) GetDirectory() *Node {
+func (m *DirectoryMkdir) GetDirectory() *Node {
 	if m != nil {
 		return m.Directory
 	}
 	return nil
 }
 
-func (m *DirectoryMkDir) GetResult() *Node {
+func (m *DirectoryMkdir) GetResult() *Node {
 	if m != nil {
 		return m.Result
 	}
