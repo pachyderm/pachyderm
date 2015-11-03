@@ -2,8 +2,7 @@ package fuse
 
 import (
 	"os"
-
-	"google.golang.org/grpc"
+	"sync"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -20,23 +19,25 @@ type mounter struct {
 	apiClient pfs.APIClient
 }
 
-func newMounter(address string) (Mounter, error) {
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	apiClient := pfs.NewAPIClient(clientConn)
+func newMounter(address string, apiClient pfs.APIClient) Mounter {
 	return &mounter{
 		address,
 		apiClient,
-	}, nil
+	}
 }
 
 func (m *mounter) Mount(
 	mountPoint string,
 	shard uint64,
 	modulus uint64,
+	ready chan bool,
 ) (retErr error) {
+	var once sync.Once
+	defer once.Do(func() {
+		if ready != nil {
+			close(ready)
+		}
+	})
 	// TODO: should we make the caller do this?
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
@@ -59,6 +60,11 @@ func (m *mounter) Mount(
 			retErr = err
 		}
 	}()
+	once.Do(func() {
+		if ready != nil {
+			close(ready)
+		}
+	})
 	if err := fs.Serve(conn, newFilesystem(m.apiClient, shard, modulus)); err != nil {
 		return err
 	}

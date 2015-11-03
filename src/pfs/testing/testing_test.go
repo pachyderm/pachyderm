@@ -41,7 +41,6 @@ func TestFailures(t *testing.T) {
 }
 
 func TestFuseMount(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	RunTest(t, testMount)
 }
@@ -56,13 +55,11 @@ func TestFuseMountBig(t *testing.T) {
 
 }
 
-/*
 func BenchmarkFuse(b *testing.B) {
 	RunBench(b, benchMount)
 }
-*/
 
-func testSimple(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
+func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testSimpleRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
@@ -148,7 +145,7 @@ func testSimple(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluste
 	require.Equal(t, testSize, count)
 }
 
-func testBlockListCommits(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
+func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testSimpleRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
@@ -213,7 +210,7 @@ func testBlockListCommits(t *testing.T, pfsAddress string, apiClient pfs.APIClie
 	require.Equal(t, newCommit, commitInfos.CommitInfo[0].Commit)
 }
 
-func testFailures(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
+func testFailures(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testFailuresRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
@@ -246,21 +243,25 @@ func testFailures(t *testing.T, pfsAddress string, apiClient pfs.APIClient, clus
 	checkWrites(t, apiClient, repoName, newCommitID)
 }
 
-func testMount(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
+func testMount(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testMountRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
-	mounter, err := fuse.NewMounter(pfsAddress)
-	require.NoError(t, err)
+	mounter := fuse.NewMounter("localhost", apiClient)
+	ready := make(chan bool)
 	go func() {
-		err = mounter.Mount(directory, 0, 1)
+		err = mounter.Mount(directory, 0, 1, ready)
 		require.NoError(t, err)
 	}()
+	<-ready
 
-	_, err = os.Stat(filepath.Join(directory, "scratch"))
+	_, err = os.Stat(filepath.Join(directory, repoName))
+	require.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(directory, repoName, "scratch"))
 	require.NoError(t, err)
 
 	commit, err := pfsutil.StartCommit(apiClient, repoName, "scratch")
@@ -268,10 +269,10 @@ func testMount(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster
 	require.NotNil(t, commit)
 	newCommitID := commit.Id
 
-	_, err = os.Stat(filepath.Join(directory, newCommitID))
+	_, err = os.Stat(filepath.Join(directory, repoName, newCommitID))
 	require.NoError(t, err)
 
-	err = ioutil.WriteFile(filepath.Join(directory, newCommitID, "foo"), []byte("foo"), 0666)
+	err = ioutil.WriteFile(filepath.Join(directory, repoName, newCommitID, "foo"), []byte("foo"), 0666)
 	require.NoError(t, err)
 
 	_, err = pfsutil.PutFile(apiClient, repoName, newCommitID, "bar", 0, strings.NewReader("bar"))
@@ -282,7 +283,7 @@ func testMount(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster
 		bigValue[i] = 'a'
 	}
 
-	err = ioutil.WriteFile(filepath.Join(directory, newCommitID, "big1"), bigValue, 0666)
+	err = ioutil.WriteFile(filepath.Join(directory, repoName, newCommitID, "big1"), bigValue, 0666)
 	require.NoError(t, err)
 
 	_, err = pfsutil.PutFile(apiClient, repoName, newCommitID, "big2", 0, bytes.NewReader(bigValue))
@@ -291,23 +292,23 @@ func testMount(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster
 	err = pfsutil.FinishCommit(apiClient, repoName, newCommitID)
 	require.NoError(t, err)
 
-	fInfo, err := os.Stat(filepath.Join(directory, newCommitID, "foo"))
+	fInfo, err := os.Stat(filepath.Join(directory, repoName, newCommitID, "foo"))
 	require.NoError(t, err)
 	require.Equal(t, int64(3), fInfo.Size())
 
-	data, err := ioutil.ReadFile(filepath.Join(directory, newCommitID, "foo"))
+	data, err := ioutil.ReadFile(filepath.Join(directory, repoName, newCommitID, "foo"))
 	require.NoError(t, err)
 	require.Equal(t, "foo", string(data))
 
-	data, err = ioutil.ReadFile(filepath.Join(directory, newCommitID, "bar"))
+	data, err = ioutil.ReadFile(filepath.Join(directory, repoName, newCommitID, "bar"))
 	require.NoError(t, err)
 	require.Equal(t, "bar", string(data))
 
-	data, err = ioutil.ReadFile(filepath.Join(directory, newCommitID, "big1"))
+	data, err = ioutil.ReadFile(filepath.Join(directory, repoName, newCommitID, "big1"))
 	require.NoError(t, err)
 	require.Equal(t, bigValue, data)
 
-	data, err = ioutil.ReadFile(filepath.Join(directory, newCommitID, "big2"))
+	data, err = ioutil.ReadFile(filepath.Join(directory, repoName, newCommitID, "big2"))
 	require.NoError(t, err)
 	require.Equal(t, bigValue, data)
 
@@ -315,21 +316,25 @@ func testMount(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster
 	require.NoError(t, err)
 }
 
-func testMountBig(t *testing.T, pfsAddress string, apiClient pfs.APIClient, cluster Cluster) {
+func testMountBig(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	repoName := "testMountBigRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
-	mounter, err := fuse.NewMounter(pfsAddress)
-	require.NoError(t, err)
+	mounter := fuse.NewMounter("localhost", apiClient)
+	ready := make(chan bool)
 	go func() {
-		err = mounter.Mount(directory, 0, 1)
+		err = mounter.Mount(directory, 0, 1, ready)
 		require.NoError(t, err)
 	}()
+	<-ready
 
-	_, err = os.Stat(filepath.Join(directory, "scratch"))
+	_, err = os.Stat(filepath.Join(directory, repoName))
+	require.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(directory, repoName, "scratch"))
 	require.NoError(t, err)
 
 	commit, err := pfsutil.StartCommit(apiClient, repoName, "scratch")
@@ -347,7 +352,7 @@ func testMountBig(t *testing.T, pfsAddress string, apiClient pfs.APIClient, clus
 		wg.Add(1)
 		go func(j int) {
 			defer wg.Done()
-			err := ioutil.WriteFile(filepath.Join(directory, newCommitID, fmt.Sprintf("big%d", j)), bigValue, 0666)
+			err := ioutil.WriteFile(filepath.Join(directory, repoName, newCommitID, fmt.Sprintf("big%d", j)), bigValue, 0666)
 			require.NoError(t, err)
 		}(j)
 	}
@@ -361,7 +366,7 @@ func testMountBig(t *testing.T, pfsAddress string, apiClient pfs.APIClient, clus
 		wg.Add(1)
 		go func(j int) {
 			defer wg.Done()
-			data, err := ioutil.ReadFile(filepath.Join(directory, newCommitID, fmt.Sprintf("big%d", j)))
+			data, err := ioutil.ReadFile(filepath.Join(directory, repoName, newCommitID, fmt.Sprintf("big%d", j)))
 			require.NoError(t, err)
 			require.Equal(t, bigValue, data)
 		}(j)
@@ -372,7 +377,6 @@ func testMountBig(t *testing.T, pfsAddress string, apiClient pfs.APIClient, clus
 	require.NoError(t, err)
 }
 
-/*
 func benchMount(b *testing.B, apiClient pfs.APIClient) {
 	repoName := "benchMountRepo"
 
@@ -381,12 +385,13 @@ func benchMount(b *testing.B, apiClient pfs.APIClient) {
 	}
 
 	directory := "/compile/benchMount"
-	mounter := fuse.NewMounter(pfsAddress)
+	mounter := fuse.NewMounter("localhost", apiClient)
+	ready := make(chan bool)
 	go func() {
-		if err := mounter.Mount("localhost", directory, 0, 1); err != nil {
-			b.Error(err)
-		}
+		err := mounter.Mount(directory, 0, 1, ready)
+		require.NoError(b, err)
 	}()
+	<-ready
 
 	defer func() {
 		if err := mounter.Unmount(directory); err != nil {
@@ -414,7 +419,7 @@ func benchMount(b *testing.B, apiClient pfs.APIClient) {
 			wg.Add(1)
 			go func(j int) {
 				defer wg.Done()
-				if err = ioutil.WriteFile(filepath.Join(directory, newCommitID, fmt.Sprintf("big%d", j)), bigValue, 0666); err != nil {
+				if err = ioutil.WriteFile(filepath.Join(directory, repoName, newCommitID, fmt.Sprintf("big%d", j)), bigValue, 0666); err != nil {
 					b.Error(err)
 				}
 			}(j)
@@ -425,7 +430,6 @@ func benchMount(b *testing.B, apiClient pfs.APIClient) {
 		}
 	}
 }
-*/
 
 func doWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commitID string) {
 	var wg sync.WaitGroup

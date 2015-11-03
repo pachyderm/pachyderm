@@ -6,10 +6,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"google.golang.org/grpc"
+
 	"go.pedge.io/dockervolume"
 	"go.pedge.io/env"
 	"go.pedge.io/pkg/map"
 
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 )
@@ -41,10 +44,12 @@ func do(appEnvObj interface{}) error {
 }
 
 func newServer(appEnv *appEnv) (dockervolume.Server, error) {
-	mounter, err := fuse.NewMounter(getPFSAddress(appEnv))
+	clientConn, err := grpc.Dial(getPFSAddress(appEnv), grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
+	apiClient := pfs.NewAPIClient(clientConn)
+	mounter := fuse.NewMounter(getPFSAddress(appEnv), apiClient)
 	return dockervolume.NewTCPServer(
 		newVolumeDriver(
 			mounter,
@@ -101,6 +106,7 @@ func (v *volumeDriver) Mount(name string, opts pkgmap.StringStringMap) (string, 
 		mount.mountpoint,
 		mount.shard,
 		mount.modulus,
+		nil,
 	); err != nil {
 		return "", err
 	}

@@ -891,13 +891,35 @@ func (p *parser) quotePrefix(data []byte) int {
 	return 0
 }
 
+// blockquote ends with at least one blank line
+// followed by something without a blockquote prefix
+func (p *parser) terminateBlockquote(data []byte, beg, end int) bool {
+	if p.isEmpty(data[beg:]) <= 0 {
+		return false
+	}
+	if end >= len(data) {
+		return true
+	}
+	return p.quotePrefix(data[end:]) == 0 && p.isEmpty(data[end:]) == 0
+}
+
 // parse a blockquote fragment
 func (p *parser) quote(out *bytes.Buffer, data []byte) int {
 	var raw bytes.Buffer
 	beg, end := 0, 0
 	for beg < len(data) {
 		end = beg
+		// Step over whole lines, collecting them. While doing that, check for
+		// fenced code and if one's found, incorporate it altogether,
+		// irregardless of any contents inside it
 		for data[end] != '\n' {
+			if p.flags&EXTENSION_FENCED_CODE != 0 {
+				if i := p.fencedCode(out, data[end:], false); i > 0 {
+					// -1 to compensate for the extra end++ after the loop:
+					end += i - 1
+					break
+				}
+			}
 			end++
 		}
 		end++
@@ -905,11 +927,7 @@ func (p *parser) quote(out *bytes.Buffer, data []byte) int {
 		if pre := p.quotePrefix(data[beg:]); pre > 0 {
 			// skip the prefix
 			beg += pre
-		} else if p.isEmpty(data[beg:]) > 0 &&
-			(end >= len(data) ||
-				(p.quotePrefix(data[end:]) == 0 && p.isEmpty(data[end:]) == 0)) {
-			// blockquote ends with at least one blank line
-			// followed by something without a blockquote prefix
+		} else if p.terminateBlockquote(data, beg, end) {
 			break
 		}
 
@@ -1340,6 +1358,14 @@ func (p *parser) paragraph(out *bytes.Buffer, data []byte) int {
 		if p.isPrefixHeader(current) || p.isHRule(current) {
 			p.renderParagraph(out, data[:i])
 			return i
+		}
+
+		// if there's a fenced code block, paragraph is over
+		if p.flags&EXTENSION_FENCED_CODE != 0 {
+			if p.fencedCode(out, current, false) > 0 {
+				p.renderParagraph(out, data[:i])
+				return i
+			}
 		}
 
 		// if there's a definition list item, prev line is a definition term
