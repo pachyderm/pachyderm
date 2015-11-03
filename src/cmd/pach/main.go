@@ -39,7 +39,8 @@ func do(appEnvObj interface{}) error {
 		Use: "pach",
 		Long: `Access the Pachyderm API.
 
-The environment variable PFS_ADDRESS controls which PFS server the CLI connects to, the default is 0.0.0.0:650.`,
+The environment variable PFS_ADDRESS controls which PFS server the CLI connects to, the default is 0.0.0.0:650.
+The environment variable PPS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:651.`,
 	}
 	pfscmds, err := pfscmds.Cmds(address)
 	if err != nil {
