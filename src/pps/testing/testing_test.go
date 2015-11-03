@@ -201,7 +201,7 @@ func checkPFSOutput(t *testing.T, pfsAPIClient pfs.APIClient, outputCommit *pfs.
 }
 
 func getPFSContent(pfsAPIClient pfs.APIClient, commit *pfs.Commit, filePath string) ([]byte, error) {
-	apiGetFileClient, err = pfsAPIClient.GetFile(
+	apiGetFileClient, err := pfsAPIClient.GetFile(
 		context.Background(),
 		&pfs.GetFileRequest{
 			File: &pfs.File{
