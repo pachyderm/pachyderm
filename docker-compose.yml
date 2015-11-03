@@ -95,3 +95,9 @@ pps:
   dockerfile: Dockerfile.pps
   links:
     - ppsd
+pach:
+  build: .
+  dockerfile: Dockerfile.pach
+  links:
+    - pfsd
+    - ppsd

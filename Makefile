@@ -43,7 +43,7 @@ build:
 	go build ./src/...
 
 install:
-	go install ./src/cmd/pfs-volume-driver ./src/cmd/pfs ./src/cmd/pps ./src/cmd/deploy
+	go install ./src/cmd/pfs-volume-driver ./src/cmd/pfs ./src/cmd/pps ./src/cmd/deploy ./src/cmd/pach
 
 docker-build-btrfs:
 	docker-compose build btrfs
@@ -75,6 +75,9 @@ docker-build-pfs: docker-build-compile
 
 docker-build-pps: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh pps
+
+docker-build-pach: docker-build-compile
+	docker-compose run compile sh etc/compile/compile.sh pach 
 
 docker-build: docker-build-pfs-mount docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pfs docker-build-pps
 
