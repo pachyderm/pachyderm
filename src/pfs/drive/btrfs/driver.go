@@ -792,10 +792,8 @@ func execSubvolumeExists(path string) (result bool) {
 	defer func() {
 		protolog.Debug(&SubvolumeExists{path, result})
 	}()
-	if err := pkgexec.Run("btrfs", "subvolume", "show", path); err != nil {
-		return false
-	}
-	return true
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func execSubvolumeSnapshot(src string, dest string, readOnly bool) (retErr error) {
