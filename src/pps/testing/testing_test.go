@@ -27,14 +27,14 @@ func TestSimple(t *testing.T) {
 		t,
 		&simpleJobTest{
 			inputFilePathToContent: map[string][]byte{
-				"/1": []byte("test1"),
-				"/2": []byte("test2"),
-				"/3": []byte("test3"),
+				"1": []byte("test1"),
+				"2": []byte("test2"),
+				"3": []byte("test3"),
 			},
 			outputFilePathToContent: map[string][]byte{
-				"/1.output": []byte("test1"),
-				"/2.output": []byte("test2"),
-				"/3.output": []byte("test3"),
+				"1.output": []byte("test1"),
+				"2.output": []byte("test2"),
+				"3.output": []byte("test3"),
 			},
 			transform: &pps.Transform{
 				Image: "ubuntu:14.04",
