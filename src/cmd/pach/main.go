@@ -7,7 +7,8 @@ import (
 
 	"go.pedge.io/env"
 
-	"github.com/pachyderm/pachyderm/src/cmd/pfs/cmds"
+	pfscmds "github.com/pachyderm/pachyderm/src/cmd/pfs/cmds"
+	ppscmds "github.com/pachyderm/pachyderm/src/cmd/pps/cmds"
 	"github.com/spf13/cobra"
 )
 
@@ -35,17 +36,23 @@ func do(appEnvObj interface{}) error {
 		address = strings.Replace(address, "tcp://", "", -1)
 	}
 	rootCmd := &cobra.Command{
-		Use: "pfs",
-		Long: `Access the PFS API.
+		Use: "pach",
+		Long: `Access the Pachyderm API.
 
-Note that this CLI is experimental and does not even check for common errors.
-The environment variable PFS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:650.`,
+The environment variable PFS_ADDRESS controls which PFS server the CLI connects to, the default is 0.0.0.0:650.`,
 	}
-	cmds, err := cmds.Cmds(address)
+	pfscmds, err := pfscmds.Cmds(address)
 	if err != nil {
 		return err
 	}
-	for _, cmd := range cmds {
+	for _, cmd := range pfscmds {
+		rootCmd.AddCommand(cmd)
+	}
+	ppscmds, err := ppscmds.Cmds(address)
+	if err != nil {
+		return err
+	}
+	for _, cmd := range ppscmds {
 		rootCmd.AddCommand(cmd)
 	}
 
