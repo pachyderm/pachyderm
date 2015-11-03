@@ -22,27 +22,17 @@ const (
 	defaultModulus = 1
 )
 
-var (
-	defaultEnv = map[string]string{
-		"PFS_ADDRESS":        "0.0.0.0:650",
-		"BASE_MOUNTPOINT":    "/tmp/pfs-volume-driver",
-		"GRPC_PORT":          "2150",
-		"HTTP_PORT":          "1950",
-		"VOLUME_DRIVER_NAME": "pfs",
-	}
-)
-
 type appEnv struct {
 	PachydermPfsd1Port string `env:"PACHYDERM_PFSD_1_PORT"`
-	PfsAddress         string `env:"PFS_ADDRESS"`
-	BaseMountpoint     string `env:"BASE_MOUNTPOINT"`
-	GRPCPort           int    `env:"GRPC_PORT"`
-	HTTPPort           int    `env:"HTTP_PORT"`
-	VolumeDriverName   string `env:"VOLUME_DRIVER_NAME"`
+	PfsAddress         string `env:"PFS_ADDRESS,default=0.0.0.0:650"`
+	BaseMountpoint     string `env:"BASE_MOUNTPOINT,default=/tmp/pfs-volume-driver"`
+	GRPCPort           int    `env:"GRPC_PORT,default=2150"`
+	HTTPPort           int    `env:"HTTP_PORT,default=1950"`
+	VolumeDriverName   string `env:"VOLUME_DRIVER_NAME,default=pfs"`
 }
 
 func main() {
-	env.Main(do, &appEnv{}, defaultEnv)
+	env.Main(do, &appEnv{})
 }
 
 func do(appEnvObj interface{}) error {

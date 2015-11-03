@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
 )
 
 // Decoder decodes an env file.
@@ -28,30 +27,19 @@ func NewJSONDecoder(reader io.Reader) Decoder {
 	return newJSONDecoder(reader)
 }
 
-// PopulateOptions are the options to pass to Populate.
-type PopulateOptions struct {
-	// RestrictTo is the set of env keys that are allowed
-	// to be read by structs. Use at the application level to make sure
-	// no env keys are being read that are not made aware of
-	RestrictTo []string
-	// Decoders is a list of Decoders to use, in order,
-	// to read additional env variables.
-	Decoders []Decoder
-	// Defaults sets default values if no value is present in the environment.
-	Defaults map[string]string
-}
-
 // Populate populates an object with environment variables.
-// See the test for an example.
-func Populate(object interface{}, populateOptions PopulateOptions) error {
-	return populate(reflect.ValueOf(object), populateOptions, false)
+//
+// The environment has precedence over the decoders, earlier
+// decoders have precedence over later decoders.
+func Populate(object interface{}, decoders ...Decoder) error {
+	return populate(object, decoders)
 }
 
 // Main runs the common functionality needed in a go main function.
 // appEnv will be populated and passed to do, defaultEnv can be nil
 // if there is an error, os.Exit(1) will be called.
-func Main(do func(interface{}) error, appEnv interface{}, defaultEnv map[string]string) {
-	if err := Populate(appEnv, PopulateOptions{Defaults: defaultEnv}); err != nil {
+func Main(do func(interface{}) error, appEnv interface{}, decoders ...Decoder) {
+	if err := Populate(appEnv, decoders...); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 		os.Exit(1)
 	}

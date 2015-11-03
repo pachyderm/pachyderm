@@ -207,6 +207,8 @@ func (j *jobRunner) buildOrPull(name string, transform *pps.Transform) (string, 
 }
 
 func (j *jobRunner) startOutputCommit(outputParentCommit *pfs.Commit) (*pfs.Commit, error) {
+	// TODO: an api user might not specify a commit and expect a scratch commit is used
+	// figure out what should be done in the case where output parent commit is not set
 	if outputParentCommit == nil {
 		return nil, nil
 	}

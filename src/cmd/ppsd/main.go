@@ -22,29 +22,20 @@ import (
 	"github.com/pachyderm/pachyderm/src/pps/pipelineserver"
 )
 
-var (
-	defaultEnv = map[string]string{
-		"PPS_ADDRESS":       "0.0.0.0",
-		"PPS_PORT":          "651",
-		"PPS_TRACE_PORT":    "1051",
-		"PPS_DATABASE_NAME": "pachyderm",
-	}
-)
-
 type appEnv struct {
 	PachydermPfsd1Port string `env:"PACHYDERM_PFSD_1_PORT"`
 	PfsAddress         string `env:"PFS_ADDRESS"`
 	PfsMountDir        string `env:"PFS_MOUNT_DIR"`
-	Address            string `env:"PPS_ADDRESS"`
-	Port               int    `env:"PPS_PORT"`
+	Address            string `env:"PPS_ADDRESS,default=0.0.0.0"`
+	Port               int    `env:"PPS_PORT,default=651"`
 	DatabaseAddress    string `env:"PPS_DATABASE_ADDRESS"`
-	DatabaseName       string `env:"PPS_DATABASE_NAME"`
-	DebugPort          int    `env:"PPS_TRACE_PORT"`
+	DatabaseName       string `env:"PPS_DATABASE_NAME,default=pachyderm"`
+	DebugPort          int    `env:"PPS_TRACE_PORT,default=1051"`
 	RemoveContainers   bool   `env:"PPS_REMOVE_CONTAINERS"`
 }
 
 func main() {
-	env.Main(do, &appEnv{}, defaultEnv)
+	env.Main(do, &appEnv{})
 }
 
 func do(appEnvObj interface{}) error {
