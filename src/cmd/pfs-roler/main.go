@@ -11,20 +11,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 )
 
-var (
-	defaultEnv = map[string]string{
-		"PFS_NUM_SHARDS":   "16",
-		"PFS_NUM_REPLICAS": "0",
-	}
-)
-
 type appEnv struct {
-	NumShards   uint64 `env:"PFS_NUM_SHARDS"`
+	NumShards   uint64 `env:"PFS_NUM_SHARDS,default=16"`
 	NumReplicas uint64 `env:"PFS_NUM_REPLICAS"`
 }
 
 func main() {
-	env.Main(do, &appEnv{}, defaultEnv)
+	env.Main(do, &appEnv{})
 }
 
 func do(appEnvObj interface{}) error {

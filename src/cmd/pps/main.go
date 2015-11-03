@@ -21,15 +21,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	defaultEnv = map[string]string{
-		"PPS_ADDRESS": "0.0.0.0:651",
-	}
-)
-
 type appEnv struct {
 	PachydermPpsd1Port string `env:"PACHYDERM_PPSD_1_PORT"`
-	Address            string `env:"PPS_ADDRESS"`
+	Address            string `env:"PPS_ADDRESS,default=0.0.0.0:651"`
 }
 
 func main() {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/pachyderm/pachyderm/src/pkg/deploy"
@@ -15,40 +14,20 @@ import (
 	client "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
-var (
-	defaultEnv = map[string]string{
-		"KUBERNETES_ADDRESS":  "http://localhost:8080",
-		"KUBERNETES_USERNAME": "admin",
-	}
-)
-
 type appEnv struct {
-	KubernetesAddress  string `env:"KUBERNETES_ADDRESS"`
-	KubernetesUsername string `env:"KUBERNETES_USERNAME"`
+	KubernetesAddress  string `env:"KUBERNETES_ADDRESS,default=http://localhost:8080"`
+	KubernetesUsername string `env:"KUBERNETES_USERNAME,default=admin"`
 	KubernetesPassword string `env:"KUBERNETES_PASSWORD"`
-	GCEProject         string `env:"GCE_PROJECT"`
-	GCEZone            string `env:"GCE_ZONE"`
+	GCEProject         string `env:"GCE_PROJECT,required"`
+	GCEZone            string `env:"GCE_ZONE,required"`
 }
 
 func main() {
-	env.Main(do, &appEnv{}, defaultEnv)
-}
-
-func validateEnv(appEnv *appEnv) error {
-	if appEnv.GCEProject == "" {
-		return fmt.Errorf("envvar GCE_PROJECT must be set")
-	}
-	if appEnv.GCEZone == "" {
-		return fmt.Errorf("envvar GCE_ZONE must be set")
-	}
-	return nil
+	env.Main(do, &appEnv{})
 }
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	if err := validateEnv(appEnv); err != nil {
-		return err
-	}
 	logrus.Register()
 	config := &client.Config{
 		Host:     appEnv.KubernetesAddress,
