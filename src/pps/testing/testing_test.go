@@ -109,7 +109,7 @@ func setupPFS(t *testing.T, pfsAPIClient pfs.APIClient, inputRepoName string, ou
 	commit, err := pfsAPIClient.StartCommit(
 		context.Background(),
 		&pfs.StartCommitRequest{
-			Commit: &pfs.Commit{
+			Parent: &pfs.Commit{
 				Repo: inputRepo,
 				Id:   pfs.InitialCommitID,
 			},
