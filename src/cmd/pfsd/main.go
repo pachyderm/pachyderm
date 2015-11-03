@@ -25,30 +25,19 @@ import (
 	"google.golang.org/grpc"
 )
 
-var (
-	defaultEnv = map[string]string{
-		"PFS_NUM_SHARDS":   "16",
-		"PFS_NUM_REPLICAS": "0",
-		"PFS_PORT":         "650",
-		"PFS_HTTP_PORT":    "750",
-		"PFS_TRACE_PORT":   "1050",
-		"PFS_DRIVER_TYPE":  "btrfs",
-	}
-)
-
 type appEnv struct {
 	DriverRoot  string `env:"PFS_DRIVER_ROOT,required"`
-	DriverType  string `env:"PFS_DRIVER_TYPE"`
-	NumShards   uint64 `env:"PFS_NUM_SHARDS"`
+	DriverType  string `env:"PFS_DRIVER_TYPE,default=btrfs"`
+	NumShards   uint64 `env:"PFS_NUM_SHARDS,default=16"`
 	NumReplicas uint64 `env:"PFS_NUM_REPLICAS"`
 	Address     string `env:"PFS_ADDRESS"`
-	Port        int    `env:"PFS_PORT"`
-	HTTPPort    int    `env:"PFS_HTTP_PORT"`
-	DebugPort   int    `env:"PFS_TRACE_PORT"`
+	Port        int    `env:"PFS_PORT,default=650"`
+	HTTPPort    int    `env:"PFS_HTTP_PORT,default=750"`
+	DebugPort   int    `env:"PFS_TRACE_PORT,default=1050"`
 }
 
 func main() {
-	env.Main(do, &appEnv{}, defaultEnv)
+	env.Main(do, &appEnv{})
 }
 
 func do(appEnvObj interface{}) error {
