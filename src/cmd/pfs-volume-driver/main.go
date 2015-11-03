@@ -116,6 +116,7 @@ func (v *volumeDriver) Mount(name string, opts pkgmap.StringStringMap) (string, 
 		mount.mountpoint,
 		mount.shard,
 		mount.modulus,
+		nil,
 	); err != nil {
 		return "", err
 	}
