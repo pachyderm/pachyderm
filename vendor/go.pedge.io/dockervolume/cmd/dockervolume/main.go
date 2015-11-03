@@ -17,21 +17,17 @@ import (
 )
 
 var (
-	defaultAddress = fmt.Sprintf("0.0.0.0:%d", dockervolume.DefaultGRPCPort)
-	defaultEnv     = map[string]string{
-		"ADDRESS": defaultAddress,
-	}
 	marshaler = &jsonpb.Marshaler{
 		Indent: "  ",
 	}
 )
 
 type appEnv struct {
-	Address string `env:"ADDRESS"`
+	Address string `env:"ADDRESS,default=0.0.0.0:2150"`
 }
 
 func main() {
-	env.Main(do, &appEnv{}, defaultEnv)
+	env.Main(do, &appEnv{})
 }
 
 func do(appEnvObj interface{}) error {
@@ -101,7 +97,7 @@ func do(appEnvObj interface{}) error {
 	rootCmd := &cobra.Command{
 		Use:   "dockervolume",
 		Short: "Access a Docker volume driver.",
-		Long:  fmt.Sprintf("Access a Dockervolume driver.\n\nThe environment variable ADDRESS controls what server the CLI connects to, the default is %s.", defaultAddress),
+		Long:  "Access a Dockervolume driver.\n\nThe environment variable ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:2150.",
 	}
 	rootCmd.AddCommand(cleanup)
 	rootCmd.AddCommand(getVolume)
