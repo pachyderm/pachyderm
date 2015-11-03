@@ -36,9 +36,9 @@ func newFilesystem(
 	}
 }
 
-func (f *filesystem) Root() (result *directory, retErr error) {
+func (f *filesystem) Root() (result fs.Node, retErr error) {
 	defer func() {
-		protolog.Info(&Root{&f.Filesystem, &result.Node, errorToString(retErr)})
+		protolog.Info(&Root{&f.Filesystem, getNode(result), errorToString(retErr)})
 	}()
 	return &directory{f, Node{"", "", "", true}}, nil
 }
@@ -62,7 +62,7 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 
 func (d *directory) Lookup(ctx context.Context, name string) (result fs.Node, retErr error) {
 	defer func() {
-		protolog.Info(&DirectoryLookup{&d.Node, name, &result.(*directory).Node, errorToString(retErr)})
+		protolog.Info(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
 	}()
 	if d.RepoName == "" {
 		return d.lookUpRepo(ctx, name)
@@ -92,7 +92,7 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 
 func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, response *fuse.CreateResponse) (result fs.Node, _ fs.Handle, retErr error) {
 	defer func() {
-		protolog.Info(&DirectoryCreate{&d.Node, &result.(*directory).Node, errorToString(retErr)})
+		protolog.Info(&DirectoryCreate{&d.Node, getNode(result), errorToString(retErr)})
 	}()
 	if d.CommitID == "" {
 		return nil, 0, fuse.EPERM
@@ -109,7 +109,7 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 
 func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (result fs.Node, retErr error) {
 	defer func() {
-		protolog.Info(&DirectoryMkdir{&d.Node, &result.(*directory).Node, errorToString(retErr)})
+		protolog.Info(&DirectoryMkdir{&d.Node, getNode(result), errorToString(retErr)})
 	}()
 	if d.CommitID == "" {
 		return nil, fuse.EPERM
@@ -293,4 +293,15 @@ func errorToString(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+func getNode(node fs.Node) *Node {
+	switch n := node.(type) {
+	default:
+		return nil
+	case *directory:
+		return &n.Node
+	case *file:
+		return &n.Node
+	}
 }
