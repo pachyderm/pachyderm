@@ -11,6 +11,7 @@ type Mounter interface {
 		mountPoint string,
 		shard uint64,
 		modulus uint64,
+		ready chan bool,
 	) error
 	// Unmount unmounts a mounted filesystem (duh).
 	// There's nothing special about this unmount, it's just doing a syscall under the hood.

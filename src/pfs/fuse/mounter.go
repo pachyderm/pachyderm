@@ -2,6 +2,7 @@ package fuse
 
 import (
 	"os"
+	"sync"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -29,7 +30,14 @@ func (m *mounter) Mount(
 	mountPoint string,
 	shard uint64,
 	modulus uint64,
+	ready chan bool,
 ) (retErr error) {
+	var once sync.Once
+	defer once.Do(func() {
+		if ready != nil {
+			close(ready)
+		}
+	})
 	// TODO: should we make the caller do this?
 	if err := os.MkdirAll(mountPoint, 0777); err != nil {
 		return err
@@ -52,6 +60,11 @@ func (m *mounter) Mount(
 			retErr = err
 		}
 	}()
+	once.Do(func() {
+		if ready != nil {
+			close(ready)
+		}
+	})
 	if err := fs.Serve(conn, newFilesystem(m.apiClient, shard, modulus)); err != nil {
 		return err
 	}
