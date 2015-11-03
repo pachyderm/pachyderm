@@ -609,6 +609,17 @@ func (d *driver) stat(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
 		return nil, err
 	}
 	stat, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		readOnly, err := d.getReadOnly(file.Commit, shard)
+		if err != nil {
+			return nil, err
+		}
+		if !readOnly {
+			return &pfs.FileInfo{
+				File: file,
+			}, nil
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -781,10 +792,8 @@ func execSubvolumeExists(path string) (result bool) {
 	defer func() {
 		protolog.Debug(&SubvolumeExists{path, result})
 	}()
-	if err := pkgexec.Run("btrfs", "subvolume", "show", path); err != nil {
-		return false
-	}
-	return true
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func execSubvolumeSnapshot(src string, dest string, readOnly bool) (retErr error) {

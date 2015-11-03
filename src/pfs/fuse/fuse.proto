@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+import "go.pedge.io/protolog/protolog.proto";
+
+package fuse;
+
+message Filesystem {
+  uint64 shard = 1;
+  uint64 modulus = 2;
+}
+
+message Node {
+  string repoName = 1;
+  string commitID = 2;
+  string path = 3;
+  bool write = 4;
+}
+
+message Attr {
+    uint32 Mode = 1;
+    //TODO there's a lot more fields on Attr
+}
+
+message Dirent {
+    uint64 inode = 1;
+    string name = 2;
+    //TODO Dirent type would be nice to report here as well
+}
+
+message Root {
+  option (protolog.event) = true;
+  Filesystem filesystem = 1;
+  Node result = 2;
+  string error = 3;
+}
+
+message DirectoryAttr {
+  option (protolog.event) = true;
+  Node directory = 1;
+  Attr result = 2;
+  string error = 3;
+}
+
+message DirectoryLookup {
+  option (protolog.event) = true;
+  Node directory = 1;
+  string name = 2;
+  Node result = 3;
+  string err = 4;
+}
+
+message DirectoryReadDirAll {
+  option (protolog.event) = true;
+  Node directory = 1;
+  repeated Dirent result = 2;
+  string error = 3;
+}
+
+message DirectoryCreate {
+  option (protolog.event) = true;
+  Node directory = 1;
+  Node result = 2;
+  string error = 3;
+}
+
+message DirectoryMkdir {
+  option (protolog.event) = true;
+  Node directory = 1;
+  Node result = 2;
+  string error = 3;
+}
+
+message FileAttr {
+  option (protolog.event) = true;
+  Node file = 1;
+  Attr result = 2;
+  string error = 3;
+}
+
+message FileRead {
+  option (protolog.event) = true;
+  Node file = 1;
+  string error = 2;
+}
+
+message FileOpen {
+  option (protolog.event) = true;
+  Node file = 1;
+  string error = 2;
+}
+
+message FileWrite {
+  option (protolog.event) = true;
+  Node file = 1;
+  string error = 2;
+}

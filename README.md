@@ -18,10 +18,6 @@
 
 ### News
 
-We are in the midst of a refactor! See the release branch for the current, working release of Pachyderm.
-
-Check out our docker volume driver! https://github.com/pachyderm/pachyderm/tree/master/src/cmd/pfs-volume-driver.
-
 WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
 
 ### What is Pachyderm?
@@ -33,7 +29,7 @@ Pachyderm is a complete data analytics solution that lets you efficiently store 
 - Complete version control for your data
 - Pipelines are containerized, so you can use any languages and tools you want
 - Both batched and streaming analytics
-- One-click deploy on AWS without data migration 
+- One-click deploy on AWS without data migration
 
 ### Is Pachyderm enterprise production ready?
 

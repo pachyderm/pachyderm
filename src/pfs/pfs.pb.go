@@ -102,17 +102,20 @@ func (x CommitType) String() string {
 type FileType int32
 
 const (
-	FileType_FILE_TYPE_REGULAR FileType = 0
-	FileType_FILE_TYPE_DIR     FileType = 1
+	FileType_FILE_TYPE_NONE    FileType = 0
+	FileType_FILE_TYPE_REGULAR FileType = 1
+	FileType_FILE_TYPE_DIR     FileType = 2
 )
 
 var FileType_name = map[int32]string{
-	0: "FILE_TYPE_REGULAR",
-	1: "FILE_TYPE_DIR",
+	0: "FILE_TYPE_NONE",
+	1: "FILE_TYPE_REGULAR",
+	2: "FILE_TYPE_DIR",
 }
 var FileType_value = map[string]int32{
-	"FILE_TYPE_REGULAR": 0,
-	"FILE_TYPE_DIR":     1,
+	"FILE_TYPE_NONE":    0,
+	"FILE_TYPE_REGULAR": 1,
+	"FILE_TYPE_DIR":     2,
 }
 
 func (x FileType) String() string {

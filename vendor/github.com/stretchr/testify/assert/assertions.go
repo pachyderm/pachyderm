@@ -3,6 +3,7 @@ package assert
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
@@ -35,11 +36,7 @@ func ObjectsAreEqual(expected, actual interface{}) bool {
 		return expected == actual
 	}
 
-	if reflect.DeepEqual(expected, actual) {
-		return true
-	}
-
-	return false
+	return reflect.DeepEqual(expected, actual)
 
 }
 
@@ -54,9 +51,7 @@ func ObjectsAreEqualValues(expected, actual interface{}) bool {
 	expectedValue := reflect.ValueOf(expected)
 	if expectedValue.Type().ConvertibleTo(actualType) {
 		// Attempt comparison after type conversion
-		if reflect.DeepEqual(expectedValue.Convert(actualType).Interface(), actual) {
-			return true
-		}
+		return reflect.DeepEqual(expectedValue.Convert(actualType).Interface(), actual)
 	}
 
 	return false
@@ -274,7 +269,7 @@ func Exactly(t TestingT, expected, actual interface{}, msgAndArgs ...interface{}
 	bType := reflect.TypeOf(actual)
 
 	if aType != bType {
-		return Fail(t, "Types expected to match exactly", "%v != %v", aType, bType)
+		return Fail(t, fmt.Sprintf("Types expected to match exactly\n\r\t%v != %v", aType, bType), msgAndArgs...)
 	}
 
 	return Equal(t, expected, actual, msgAndArgs...)
@@ -504,6 +499,16 @@ func includeElement(list interface{}, element interface{}) (ok, found bool) {
 		return true, strings.Contains(listValue.String(), elementValue.String())
 	}
 
+	if reflect.TypeOf(list).Kind() == reflect.Map {
+		mapKeys := listValue.MapKeys()
+		for i := 0; i < len(mapKeys); i++ {
+			if ObjectsAreEqual(mapKeys[i].Interface(), element) {
+				return true, true
+			}
+		}
+		return true, false
+	}
+
 	for i := 0; i < listValue.Len(); i++ {
 		if ObjectsAreEqual(listValue.Index(i).Interface(), element) {
 			return true, true
@@ -513,11 +518,12 @@ func includeElement(list interface{}, element interface{}) (ok, found bool) {
 
 }
 
-// Contains asserts that the specified string or list(array, slice...) contains the
+// Contains asserts that the specified string, list(array, slice...) or map contains the
 // specified substring or element.
 //
 //    assert.Contains(t, "Hello World", "World", "But 'Hello World' does contain 'World'")
 //    assert.Contains(t, ["Hello", "World"], "World", "But ["Hello", "World"] does contain 'World'")
+//    assert.Contains(t, {"Hello": "World"}, "Hello", "But {'Hello': 'World'} does contain 'Hello'")
 //
 // Returns whether the assertion was successful (true) or not (false).
 func Contains(t TestingT, s, contains interface{}, msgAndArgs ...interface{}) bool {
@@ -534,11 +540,12 @@ func Contains(t TestingT, s, contains interface{}, msgAndArgs ...interface{}) bo
 
 }
 
-// NotContains asserts that the specified string or list(array, slice...) does NOT contain the
+// NotContains asserts that the specified string, list(array, slice...) or map does NOT contain the
 // specified substring or element.
 //
 //    assert.NotContains(t, "Hello World", "Earth", "But 'Hello World' does NOT contain 'Earth'")
 //    assert.NotContains(t, ["Hello", "World"], "Earth", "But ['Hello', 'World'] does NOT contain 'Earth'")
+//    assert.NotContains(t, {"Hello": "World"}, "Earth", "But {'Hello': 'World'} does NOT contain 'Earth'")
 //
 // Returns whether the assertion was successful (true) or not (false).
 func NotContains(t TestingT, s, contains interface{}, msgAndArgs ...interface{}) bool {
@@ -794,7 +801,7 @@ func NoError(t TestingT, err error, msgAndArgs ...interface{}) bool {
 		return true
 	}
 
-	return Fail(t, fmt.Sprintf("No error is expected but got %v", err), msgAndArgs...)
+	return Fail(t, fmt.Sprintf("Received unexpected error %q", err), msgAndArgs...)
 }
 
 // Error asserts that a function returned an error (i.e. not `nil`).
@@ -894,4 +901,23 @@ func NotZero(t TestingT, i interface{}, msgAndArgs ...interface{}) bool {
 		return Fail(t, fmt.Sprintf("Should not be zero, but was %v", i), msgAndArgs...)
 	}
 	return true
+}
+
+// JSONEq asserts that two JSON strings are equivalent.
+//
+//  assert.JSONEq(t, `{"hello": "world", "foo": "bar"}`, `{"foo": "bar", "hello": "world"}`)
+//
+// Returns whether the assertion was successful (true) or not (false).
+func JSONEq(t TestingT, expected string, actual string, msgAndArgs ...interface{}) bool {
+	var expectedJSONAsInterface, actualJSONAsInterface interface{}
+
+	if err := json.Unmarshal([]byte(expected), &expectedJSONAsInterface); err != nil {
+		return Fail(t, fmt.Sprintf("Expected value ('%s') is not valid json.\nJSON parsing error: '%s'", expected, err.Error()), msgAndArgs...)
+	}
+
+	if err := json.Unmarshal([]byte(actual), &actualJSONAsInterface); err != nil {
+		return Fail(t, fmt.Sprintf("Input ('%s') needs to be valid json.\nJSON parsing error: '%s'", actual, err.Error()), msgAndArgs...)
+	}
+
+	return Equal(t, expectedJSONAsInterface, actualJSONAsInterface, msgAndArgs...)
 }
