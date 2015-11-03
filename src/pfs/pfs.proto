@@ -17,8 +17,9 @@ enum CommitType {
 
 // FileType represents a type of file from ListFiles.
 enum FileType {
-  FILE_TYPE_REGULAR = 0;
-  FILE_TYPE_DIR = 1;
+  FILE_TYPE_NONE = 0;
+  FILE_TYPE_REGULAR = 1;
+  FILE_TYPE_DIR = 2;
 }
 
 // Repo represents a repo.

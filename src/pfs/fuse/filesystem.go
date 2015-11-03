@@ -223,7 +223,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	if err != nil {
 		return nil, err
 	}
-	if fileInfo == nil {
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 		return nil, fuse.ENOENT
 	}
 	directory := *d
