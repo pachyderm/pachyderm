@@ -19,7 +19,6 @@ import (
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
 	"go.pedge.io/proto/time"
-	"go.pedge.io/protolog"
 )
 
 type apiServer struct {
@@ -533,10 +532,8 @@ func (a *apiServer) ListServer(ctx context.Context, request *pfs.ListServerReque
 }
 
 func (a *apiServer) Version(version int64) error {
-	protolog.Printf("apiServer.Version %d", version)
 	a.versionLock.Lock()
 	defer a.versionLock.Unlock()
-	protolog.Printf("got lock")
 	a.version = version
 	return nil
 }
