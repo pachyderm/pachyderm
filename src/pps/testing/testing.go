@@ -86,9 +86,9 @@ func RunTest(
 								),
 							)
 						},
-						//func() {
-						//_ = mounter.Unmount(pfsMountDir)
-						//},
+						func() {
+							_ = mounter.Unmount(pfsMountDir)
+						},
 					)
 				},
 			)

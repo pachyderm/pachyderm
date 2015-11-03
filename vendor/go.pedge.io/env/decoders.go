@@ -6,67 +6,17 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"sync"
-	"sync/atomic"
 )
-
-type internalDecoder interface {
-	decode() (map[string]string, error)
-}
-
-type decoder struct {
-	internalDecoder
-
-	once  *sync.Once
-	value *atomic.Value
-	err   *atomic.Value
-}
-
-func newDecoder(internalDecoder internalDecoder) *decoder {
-	return &decoder{
-		internalDecoder,
-		&sync.Once{},
-		&atomic.Value{},
-		&atomic.Value{},
-	}
-}
-
-func (d *decoder) Decode() (map[string]string, error) {
-	d.once.Do(func() {
-		value, err := d.internalDecoder.decode()
-		if value != nil {
-			d.value.Store(value)
-		}
-		if err != nil {
-			d.err.Store(err)
-		}
-	})
-	valueObj := d.value.Load()
-	errObj := d.err.Load()
-	var value map[string]string
-	var err error
-	if valueObj != nil {
-		value = valueObj.(map[string]string)
-	}
-	if errObj != nil {
-		err = errObj.(error)
-	}
-	return value, err
-}
 
 type envFileDecoder struct {
 	reader io.Reader
 }
 
-func newEnvFileDecoder(reader io.Reader) *decoder {
-	return newDecoder(
-		&envFileDecoder{
-			reader,
-		},
-	)
+func newEnvFileDecoder(reader io.Reader) *envFileDecoder {
+	return &envFileDecoder{reader}
 }
 
-func (e *envFileDecoder) decode() (map[string]string, error) {
+func (e *envFileDecoder) Decode() (map[string]string, error) {
 	bufReader := bufio.NewReader(e.reader)
 	env := make(map[string]string)
 	for line, err := bufReader.ReadString('\n'); true; line, err = bufReader.ReadString('\n') {
@@ -95,15 +45,11 @@ type jsonDecoder struct {
 	reader io.Reader
 }
 
-func newJSONDecoder(reader io.Reader) *decoder {
-	return newDecoder(
-		&jsonDecoder{
-			reader,
-		},
-	)
+func newJSONDecoder(reader io.Reader) *jsonDecoder {
+	return &jsonDecoder{reader}
 }
 
-func (j *jsonDecoder) decode() (map[string]string, error) {
+func (j *jsonDecoder) Decode() (map[string]string, error) {
 	data := make(map[string]interface{})
 	if err := json.NewDecoder(j.reader).Decode(&data); err != nil {
 		return nil, err
@@ -120,7 +66,7 @@ func (j *jsonDecoder) decode() (map[string]string, error) {
 		case bool:
 			env[key] = fmt.Sprintf("%v", value.(bool))
 		default:
-			return nil, fmt.Errorf("unhandled type: %T", value)
+			return nil, fmt.Errorf("env: unhandled JSON type: %T", value)
 		}
 	}
 	return env, nil
