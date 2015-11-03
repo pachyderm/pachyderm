@@ -21,10 +21,10 @@ message Attr {
     //TODO there's a lot more fields on Attr
 }
 
-message DirEnt {
+message Dirent {
     uint64 inode = 1;
     string name = 2;
-    //TODO DirEnt type would be nice to report here as well
+    //TODO Dirent type would be nice to report here as well
 }
 
 message Root {
@@ -41,10 +41,18 @@ message DirectoryAttr {
   string error = 3;
 }
 
+message DirectoryLookup {
+  option (protolog.event) = true;
+  Node directory = 1;
+  string name = 2;
+  Node result = 3;
+  string err = 4;
+}
+
 message DirectoryReadDirAll {
   option (protolog.event) = true;
   Node directory = 1;
-  repeated DirEnt result = 2;
+  repeated Dirent result = 2;
   string error = 3;
 }
 
@@ -55,7 +63,7 @@ message DirectoryCreate {
   string error = 3;
 }
 
-message DirectoryMkDir {
+message DirectoryMkdir {
   option (protolog.event) = true;
   Node directory = 1;
   Node result = 2;

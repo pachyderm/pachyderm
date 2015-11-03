@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"go.pedge.io/protolog"
+
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -17,8 +19,7 @@ import (
 
 type filesystem struct {
 	apiClient pfs.APIClient
-	shard     uint64
-	modulus   uint64
+	Filesystem
 }
 
 func newFilesystem(
@@ -28,25 +29,30 @@ func newFilesystem(
 ) *filesystem {
 	return &filesystem{
 		apiClient,
-		shard,
-		modulus,
+		Filesystem{
+			shard,
+			modulus,
+		},
 	}
 }
 
-func (f *filesystem) Root() (fs.Node, error) {
-	return &directory{f, "", "", "", true}, nil
+func (f *filesystem) Root() (result *directory, retErr error) {
+	defer func() {
+		protolog.Info(&Root{&f.Filesystem, &result.Node, errorToString(retErr)})
+	}()
+	return &directory{f, Node{"", "", "", true}}, nil
 }
 
 type directory struct {
-	fs       *filesystem
-	repoName string
-	commitID string
-	path     string
-	write    bool
+	fs *filesystem
+	Node
 }
 
-func (d *directory) Attr(ctx context.Context, a *fuse.Attr) error {
-	if d.write {
+func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
+	defer func() {
+		protolog.Info(&DirectoryAttr{&d.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
+	}()
+	if d.Write {
 		a.Mode = os.ModeDir | 0775
 	} else {
 		a.Mode = os.ModeDir | 0555
@@ -54,50 +60,66 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) error {
 	return nil
 }
 
-func (d *directory) Lookup(ctx context.Context, name string) (fs.Node, error) {
-	if d.repoName == "" {
+func (d *directory) Lookup(ctx context.Context, name string) (result fs.Node, retErr error) {
+	defer func() {
+		protolog.Info(&DirectoryLookup{&d.Node, name, &result.(*directory).Node, errorToString(retErr)})
+	}()
+	if d.RepoName == "" {
 		return d.lookUpRepo(ctx, name)
 	}
-	if d.commitID == "" {
+	if d.CommitID == "" {
 		return d.lookUpCommit(ctx, name)
 	}
 	return d.lookUpFile(ctx, name)
 }
 
-func (d *directory) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	if d.repoName == "" {
+func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retErr error) {
+	defer func() {
+		var dirents []*Dirent
+		for _, dirent := range result {
+			dirents = append(dirents, &Dirent{dirent.Inode, dirent.Name})
+		}
+		protolog.Info(&DirectoryReadDirAll{&d.Node, dirents, errorToString(retErr)})
+	}()
+	if d.RepoName == "" {
 		return d.readRepos(ctx)
 	}
-	if d.commitID == "" {
+	if d.CommitID == "" {
 		return d.readCommits(ctx)
 	}
 	return d.readFiles(ctx)
 }
 
-func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, response *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
-	if d.commitID == "" {
+func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, response *fuse.CreateResponse) (result fs.Node, _ fs.Handle, retErr error) {
+	defer func() {
+		protolog.Info(&DirectoryCreate{&d.Node, &result.(*directory).Node, errorToString(retErr)})
+	}()
+	if d.CommitID == "" {
 		return nil, 0, fuse.EPERM
 	}
 	directory := *d
-	directory.path = path.Join(directory.path, request.Name)
-	result := &file{directory, 0, 0}
-	handle, err := result.Open(ctx, nil, nil)
+	directory.Path = path.Join(directory.Path, request.Name)
+	localResult := &file{directory, 0, 0}
+	handle, err := localResult.Open(ctx, nil, nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	return result, handle, nil
+	return localResult, handle, nil
 }
 
-func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (fs.Node, error) {
-	if d.commitID == "" {
+func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (result fs.Node, retErr error) {
+	defer func() {
+		protolog.Info(&DirectoryMkdir{&d.Node, &result.(*directory).Node, errorToString(retErr)})
+	}()
+	if d.CommitID == "" {
 		return nil, fuse.EPERM
 	}
-	if err := pfsutil.MakeDirectory(d.fs.apiClient, d.repoName, d.commitID, path.Join(d.path, request.Name)); err != nil {
+	if err := pfsutil.MakeDirectory(d.fs.apiClient, d.RepoName, d.CommitID, path.Join(d.Path, request.Name)); err != nil {
 		return nil, err
 	}
-	result := *d
-	result.path = path.Join(result.path, request.Name)
-	return &result, nil
+	localResult := *d
+	localResult.Path = path.Join(localResult.Path, request.Name)
+	return &localResult, nil
 }
 
 type file struct {
@@ -106,12 +128,15 @@ type file struct {
 	size    int64
 }
 
-func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
+func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
+	defer func() {
+		protolog.Info(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
+	}()
 	fileInfo, err := pfsutil.InspectFile(
 		f.fs.apiClient,
-		f.repoName,
-		f.commitID,
-		f.path,
+		f.RepoName,
+		f.CommitID,
+		f.Path,
 	)
 	if err != nil {
 		return err
@@ -123,22 +148,31 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) error {
 	return nil
 }
 
-func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) error {
+func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
+	defer func() {
+		protolog.Info(&FileRead{&f.Node, errorToString(retErr)})
+	}()
 	buffer := bytes.NewBuffer(make([]byte, 0, request.Size))
-	if err := pfsutil.GetFile(f.fs.apiClient, f.repoName, f.commitID, f.path, request.Offset, int64(request.Size), buffer); err != nil {
+	if err := pfsutil.GetFile(f.fs.apiClient, f.RepoName, f.CommitID, f.Path, request.Offset, int64(request.Size), buffer); err != nil {
 		return err
 	}
 	response.Data = buffer.Bytes()
 	return nil
 }
 
-func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fuse.OpenResponse) (fs.Handle, error) {
+func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fuse.OpenResponse) (_ fs.Handle, retErr error) {
+	defer func() {
+		protolog.Info(&FileRead{&f.Node, errorToString(retErr)})
+	}()
 	atomic.AddInt32(&f.handles, 1)
 	return f, nil
 }
 
-func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) error {
-	written, err := pfsutil.PutFile(f.fs.apiClient, f.repoName, f.commitID, f.path, request.Offset, bytes.NewReader(request.Data))
+func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
+	defer func() {
+		protolog.Info(&FileWrite{&f.Node, errorToString(retErr)})
+	}()
+	written, err := pfsutil.PutFile(f.fs.apiClient, f.RepoName, f.CommitID, f.Path, request.Offset, bytes.NewReader(request.Data))
 	if err != nil {
 		return err
 	}
@@ -158,14 +192,14 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 		return nil, fuse.ENOENT
 	}
 	result := *d
-	result.repoName = name
+	result.RepoName = name
 	return &result, nil
 }
 
 func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, error) {
 	commitInfo, err := pfsutil.InspectCommit(
 		d.fs.apiClient,
-		d.repoName,
+		d.RepoName,
 		name,
 	)
 	if err != nil {
@@ -175,16 +209,16 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 		return nil, fuse.ENOENT
 	}
 	result := *d
-	result.commitID = name
+	result.CommitID = name
 	return &result, nil
 }
 
 func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error) {
 	fileInfo, err := pfsutil.InspectFile(
 		d.fs.apiClient,
-		d.repoName,
-		d.commitID,
-		path.Join(d.path, name),
+		d.RepoName,
+		d.CommitID,
+		path.Join(d.Path, name),
 	)
 	if err != nil {
 		return nil, err
@@ -193,10 +227,10 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		return nil, fuse.ENOENT
 	}
 	directory := *d
-	directory.path = fileInfo.File.Path
+	directory.Path = fileInfo.File.Path
 	switch fileInfo.FileType {
 	case pfs.FileType_FILE_TYPE_REGULAR:
-		directory.path = fileInfo.File.Path
+		directory.Path = fileInfo.File.Path
 		return &file{
 			directory,
 			0,
@@ -222,7 +256,7 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
-	commitInfos, err := pfsutil.ListCommit(d.fs.apiClient, d.repoName)
+	commitInfos, err := pfsutil.ListCommit(d.fs.apiClient, d.RepoName)
 	if err != nil {
 		return nil, err
 	}
@@ -234,13 +268,13 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
-	fileInfos, err := pfsutil.ListFile(d.fs.apiClient, d.repoName, d.commitID, d.path, d.fs.shard, d.fs.modulus)
+	fileInfos, err := pfsutil.ListFile(d.fs.apiClient, d.RepoName, d.CommitID, d.Path, d.fs.Shard, d.fs.Modulus)
 	if err != nil {
 		return nil, err
 	}
 	var result []fuse.Dirent
 	for _, fileInfo := range fileInfos {
-		shortPath := strings.TrimPrefix(fileInfo.File.Path, d.path)
+		shortPath := strings.TrimPrefix(fileInfo.File.Path, d.Path)
 		switch fileInfo.FileType {
 		case pfs.FileType_FILE_TYPE_REGULAR:
 			result = append(result, fuse.Dirent{Name: shortPath, Type: fuse.DT_File})
@@ -251,4 +285,12 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 		}
 	}
 	return result, nil
+}
+
+// TODO this code is duplicate elsewhere, we should put it somehwere.
+func errorToString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
