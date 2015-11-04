@@ -30,8 +30,8 @@ func do(appEnvObj interface{}) error {
 		Use: "pps",
 		Long: `Access the PPS API.
 
-Note that this CLI is experimental and does not even check for common errors.
-The environment variable PPS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:651.`,
+Envronment variables:
+  PPS_ADDRESS=0.0.0.0:651, the PPS server to connect to.`,
 	}
 	cmds, err := cmds.Cmds(address)
 	if err != nil {

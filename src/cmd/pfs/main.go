@@ -30,8 +30,8 @@ func do(appEnvObj interface{}) error {
 		Use: "pfs",
 		Long: `Access the PFS API.
 
-Note that this CLI is experimental and does not even check for common errors.
-The environment variable PFS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:650.`,
+Envronment variables:
+  PFS_ADDRESS=0.0.0.0:650, the PFS server to connect to.`,
 	}
 	cmds, err := cmds.Cmds(address)
 	if err != nil {

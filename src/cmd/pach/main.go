@@ -19,8 +19,8 @@ type appEnv struct {
 	KubernetesAddress  string `env:"KUBERNETES_ADDRESS,default=http://localhost:8080"`
 	KubernetesUsername string `env:"KUBERNETES_USERNAME,default=admin"`
 	KubernetesPassword string `env:"KUBERNETES_PASSWORD"`
-	GCEProject         string `env:"GCE_PROJECT,required"`
-	GCEZone            string `env:"GCE_ZONE,required"`
+	GCEProject         string `env:"GCE_PROJECT"`
+	GCEZone            string `env:"GCE_ZONE"`
 }
 
 func main() {
@@ -33,8 +33,14 @@ func do(appEnvObj interface{}) error {
 		Use: "pach",
 		Long: `Access the Pachyderm API.
 
-The environment variable PFS_ADDRESS controls which PFS server the CLI connects to, the default is 0.0.0.0:650.
-The environment variable PPS_ADDRESS controls what server the CLI connects to, the default is 0.0.0.0:651.`,
+Envronment variables:
+  PFS_ADDRESS=0.0.0.0:650, the PFS server to connect to.
+  PPS_ADDRESS=0.0.0.0:651, the PPS server to connect to.
+  KUBERNETES_ADDRESS=http://localhost:8080, the Kubernetes endpoint to connect to.
+  KUBERNETES_USERNAME=admin
+  KUBERNETES_PASSWORD
+  GCE_PROJECT
+  GCE_ZONE`,
 	}
 	pfsAddress := appEnv.PachydermPfsd1Port
 	if pfsAddress == "" {
