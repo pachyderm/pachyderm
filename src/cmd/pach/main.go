@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"strings"
 
 	"go.pedge.io/env"
@@ -44,26 +46,14 @@ Envronment variables:
   GCE_PROJECT
   GCE_ZONE`,
 	}
-	pfsAddress := appEnv.PachydermPfsd1Port
-	if pfsAddress == "" {
-		pfsAddress = appEnv.PfsAddress
-	} else {
-		pfsAddress = strings.Replace(pfsAddress, "tcp://", "", -1)
-	}
-	pfsCmds, err := pfscmds.Cmds(pfsAddress)
+	pfsCmds, err := pfscmds.Cmds(getPfsdAddress(appEnv))
 	if err != nil {
 		return err
 	}
 	for _, cmd := range pfsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	ppsAddress := appEnv.PachydermPpsd1Port
-	if ppsAddress == "" {
-		ppsAddress = appEnv.PpsAddress
-	} else {
-		ppsAddress = strings.Replace(ppsAddress, "tcp://", "", -1)
-	}
-	ppsCmds, err := ppscmds.Cmds(ppsAddress)
+	ppsCmds, err := ppscmds.Cmds(getPpsdAddress(appEnv))
 	if err != nil {
 		return err
 	}
@@ -87,4 +77,24 @@ Envronment variables:
 	}
 
 	return rootCmd.Execute()
+}
+
+func getPfsdAddress(appEnv *appEnv) string {
+	if pfsdAddr := os.Getenv("PFSD_PORT_650_TCP_ADDR"); pfsdAddr != "" {
+		return fmt.Sprintf("%s:650", pfsdAddr)
+	}
+	if appEnv.PachydermPfsd1Port != "" {
+		return strings.Replace(appEnv.PachydermPfsd1Port, "tcp://", "", -1)
+	}
+	return appEnv.PfsAddress
+}
+
+func getPpsdAddress(appEnv *appEnv) string {
+	if ppsdAddr := os.Getenv("PPSD_PORT_650_TCP_ADDR"); ppsdAddr != "" {
+		return fmt.Sprintf("%s:650", ppsdAddr)
+	}
+	if appEnv.PachydermPpsd1Port != "" {
+		return strings.Replace(appEnv.PachydermPpsd1Port, "tcp://", "", -1)
+	}
+	return appEnv.PpsAddress
 }

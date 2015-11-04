@@ -23,6 +23,7 @@ var (
 	pfsdImage          = "pachyderm/pfsd"
 	rolerImage         = "pachyderm/pfs-roler"
 	ppsdImage          = "pachyderm/ppsd"
+	pachImage          = "pachyderm/pach"
 	btrfsImage         = "pachyderm_btrfs"
 	etcdImage          = "gcr.io/google_containers/etcd:2.0.12"
 	rethinkImage       = "rethinkdb:2.1.5"
@@ -33,6 +34,7 @@ var (
 	rethinkServiceName = "rethink"
 	pfsdRcName         = "pfsd-rc"
 	rolerRcName        = "roler-rc"
+	sandboxRcName      = "sandbox-rc"
 	pfsdServiceName    = "pfsd"
 	ppsdRcName         = "ppsd-rc"
 	ppsdServiceName    = "ppsd"
@@ -48,13 +50,13 @@ func newAPIServer(client *client.Client, provider provider.Provider) APIServer {
 }
 
 func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClusterRequest) (*google_protobuf.Empty, error) {
-	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(etcdReplicationController()); err != nil {
+	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(etcdRc()); err != nil {
 		return nil, err
 	}
 	if _, err := a.client.Services(api.NamespaceDefault).Create(etcdService()); err != nil {
 		return nil, err
 	}
-	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(rethinkReplicationController()); err != nil {
+	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(rethinkRc()); err != nil {
 		return nil, err
 	}
 	if _, err := a.client.Services(api.NamespaceDefault).Create(rethinkService()); err != nil {
@@ -97,6 +99,9 @@ func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClu
 			request.Nodes,
 		),
 	); err != nil {
+		return nil, err
+	}
+	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(sandboxRc()); err != nil {
 		return nil, err
 	}
 	if _, err := a.client.Services(api.NamespaceDefault).Create(ppsService()); err != nil {
@@ -420,7 +425,45 @@ func ppsService() *api.Service {
 	}
 }
 
-func etcdReplicationController() *api.ReplicationController {
+func sandboxRc() *api.ReplicationController {
+	app := "sandbox"
+	return &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   sandboxRcName,
+			Labels: labels(app),
+		},
+		Spec: api.ReplicationControllerSpec{
+			Replicas: 1,
+			Selector: map[string]string{
+				"app": app,
+			},
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   "sandbox-pod",
+					Labels: labels(app),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:    "sandbox",
+							Image:   pachImage,
+							Command: []string{"/pach", "mount"},
+							SecurityContext: &api.SecurityContext{
+								Privileged: &trueVal, // god is this dumb
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func etcdRc() *api.ReplicationController {
 	app := "etcd"
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
@@ -506,7 +549,7 @@ func etcdService() *api.Service {
 	}
 }
 
-func rethinkReplicationController() *api.ReplicationController {
+func rethinkRc() *api.ReplicationController {
 	app := "rethink"
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
