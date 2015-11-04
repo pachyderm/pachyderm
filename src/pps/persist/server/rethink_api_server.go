@@ -205,9 +205,6 @@ func (a *rethinkAPIServer) GetJobInfosByPipeline(ctx context.Context, request *p
 		pipelineNameIndex,
 		request.Name,
 		func() proto.Message { return &persist.JobInfo{} },
-		func(term gorethink.Term) gorethink.Term {
-			return term.OrderBy(gorethink.Desc("created_at"))
-		},
 	)
 	if err != nil {
 		return nil, err
@@ -216,6 +213,7 @@ func (a *rethinkAPIServer) GetJobInfosByPipeline(ctx context.Context, request *p
 	for i, jobInfoObj := range jobInfoObjs {
 		jobInfos[i] = jobInfoObj.(*persist.JobInfo)
 	}
+	sortJobInfosByTimestampDesc(jobInfos)
 	return &persist.JobInfos{
 		JobInfo: jobInfos,
 	}, nil
@@ -243,9 +241,6 @@ func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJo
 	jobInfoObjs, err := a.getAllMessages(
 		jobInfosTable,
 		func() proto.Message { return &persist.JobInfo{} },
-		func(term gorethink.Term) gorethink.Term {
-			return term.OrderBy(gorethink.Desc("created_at"))
-		},
 	)
 	if err != nil {
 		return nil, err
@@ -254,6 +249,7 @@ func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJo
 	for i, jobInfoObj := range jobInfoObjs {
 		jobInfos[i] = jobInfoObj.(*persist.JobInfo)
 	}
+	sortJobInfosByTimestampDesc(jobInfos)
 	return &persist.JobInfos{
 		JobInfo: jobInfos,
 	}, nil
@@ -293,9 +289,6 @@ func (a *rethinkAPIServer) GetJobStatuses(ctx context.Context, request *pps.Job)
 		jobIDIndex,
 		request.Id,
 		func() proto.Message { return &persist.JobStatus{} },
-		func(term gorethink.Term) gorethink.Term {
-			return term.OrderBy(gorethink.Desc("timestamp"))
-		},
 	)
 	if err != nil {
 		return nil, err
@@ -304,6 +297,7 @@ func (a *rethinkAPIServer) GetJobStatuses(ctx context.Context, request *pps.Job)
 	for i, jobStatusObj := range jobStatusObjs {
 		jobStatuses[i] = jobStatusObj.(*persist.JobStatus)
 	}
+	sortJobStatusesByTimestampDesc(jobStatuses)
 	return &persist.JobStatuses{
 		JobStatus: jobStatuses,
 	}, nil
@@ -355,9 +349,6 @@ func (a *rethinkAPIServer) GetJobLogs(ctx context.Context, request *pps.Job) (re
 		jobIDIndex,
 		request.Id,
 		func() proto.Message { return &persist.JobLog{} },
-		func(term gorethink.Term) gorethink.Term {
-			return term.OrderBy(gorethink.Desc("timestamp"))
-		},
 	)
 	if err != nil {
 		return nil, err
@@ -366,6 +357,7 @@ func (a *rethinkAPIServer) GetJobLogs(ctx context.Context, request *pps.Job) (re
 	for i, jobLogObj := range jobLogObjs {
 		jobLogs[i] = jobLogObj.(*persist.JobLog)
 	}
+	sortJobLogsByTimestampAsc(jobLogs)
 	return &persist.JobLogs{
 		JobLog: jobLogs,
 	}, nil
@@ -398,9 +390,6 @@ func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *googl
 	pipelineInfoObjs, err := a.getAllMessages(
 		pipelineInfosTable,
 		func() proto.Message { return &persist.PipelineInfo{} },
-		func(term gorethink.Term) gorethink.Term {
-			return term.OrderBy(gorethink.Desc("created_at"))
-		},
 	)
 	if err != nil {
 		return nil, err
@@ -409,6 +398,7 @@ func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *googl
 	for i, pipelineInfoObj := range pipelineInfoObjs {
 		pipelineInfos[i] = pipelineInfoObj.(*persist.PipelineInfo)
 	}
+	sortPipelineInfosByTimestampDesc(pipelineInfos)
 	return &persist.PipelineInfos{
 		PipelineInfo: pipelineInfos,
 	}, nil

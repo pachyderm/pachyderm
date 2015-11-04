@@ -19,98 +19,161 @@ import (
 )
 
 const (
-	defaultJobTimeoutSec = 20
+	defaultJobTimeoutSec = 30
 )
 
-func TestSimple(t *testing.T) {
-	runSimpleJobTest(
-		t,
-		&simpleJobTest{
-			inputFilePathToContent: map[string][]byte{
-				"1": []byte("test1"),
-				"2": []byte("test2"),
-				"3": []byte("test3"),
-			},
-			outputFilePathToContent: map[string][]byte{
-				"1.output": []byte("test1"),
-				"2.output": []byte("test2"),
-				"3.output": []byte("test3"),
-			},
-			transform: &pps.Transform{
-				Image: "ubuntu:14.04",
-				Cmd: []string{
-					fmt.Sprintf("for file in %s/*; do cp \"${file}\" %s/$(basename \"${file}\").output; done", jobserverrun.InputMountDir, jobserverrun.OutputMountDir),
-				},
+var (
+	baseSimpleTest = &simpleTest{
+		inputFilePathToContent: map[string][]byte{
+			"1": []byte("test1"),
+			"2": []byte("test2"),
+			"3": []byte("test3"),
+		},
+		outputFilePathToContent: map[string][]byte{
+			"1.output": []byte("test1"),
+			"2.output": []byte("test2"),
+			"3.output": []byte("test3"),
+		},
+		transform: &pps.Transform{
+			Image: "ubuntu:14.04",
+			Cmd: []string{
+				fmt.Sprintf("for file in %s/*; do cp \"${file}\" %s/$(basename \"${file}\").output; done", jobserverrun.InputMountDir, jobserverrun.OutputMountDir),
 			},
 		},
-	)
+	}
+)
+
+func TestSimpleJob(t *testing.T) {
+	t.Skip()
+	runSimpleJobTest(t, baseSimpleTest.copy())
 }
 
-func runSimpleJobTest(t *testing.T, simpleJobTest *simpleJobTest) {
-	RunTest(t, simpleJobTest.run)
+func TestSimplePipeline(t *testing.T) {
+	t.Skip()
+	runSimplePipelineTest(t, baseSimpleTest.copy())
 }
 
-type simpleJobTest struct {
+func runSimpleJobTest(t *testing.T, simpleTest *simpleTest) {
+	RunTest(t, simpleTest.runJob)
+}
+
+func runSimplePipelineTest(t *testing.T, simpleTest *simpleTest) {
+	RunTest(t, simpleTest.runPipeline)
+}
+
+type simpleTest struct {
 	inputRepoName           string
 	outputRepoName          string
 	inputFilePathToContent  map[string][]byte
 	outputFilePathToContent map[string][]byte
 	transform               *pps.Transform
+	pipelineName            string
 	jobTimeoutSec           int
 	expectError             bool
 }
 
-func (s *simpleJobTest) run(
+func (s *simpleTest) copy() *simpleTest {
+	c := &simpleTest{
+		inputRepoName:           s.inputRepoName,
+		outputRepoName:          s.outputRepoName,
+		inputFilePathToContent:  make(map[string][]byte),
+		outputFilePathToContent: make(map[string][]byte),
+		pipelineName:            s.pipelineName,
+		jobTimeoutSec:           s.jobTimeoutSec,
+		expectError:             s.expectError,
+	}
+	for key, value := range s.inputFilePathToContent {
+		buf := make([]byte, len(value))
+		copy(buf, value)
+		c.inputFilePathToContent[key] = buf
+	}
+	for key, value := range s.outputFilePathToContent {
+		buf := make([]byte, len(value))
+		copy(buf, value)
+		c.outputFilePathToContent[key] = buf
+	}
+	if s.transform != nil {
+		c.transform = &pps.Transform{
+			Image: s.transform.Image,
+			Cmd:   make([]string, len(s.transform.Cmd)),
+		}
+		for i, value := range s.transform.Cmd {
+			c.transform.Cmd[i] = value
+		}
+	}
+	return c
+}
+
+func (s *simpleTest) setup() {
+	if s.inputRepoName == "" {
+		s.inputRepoName = uuid.NewWithoutDashes()
+	}
+	if s.outputRepoName == "" {
+		s.outputRepoName = uuid.NewWithoutDashes()
+	}
+	if s.pipelineName == "" {
+		s.pipelineName = uuid.NewWithoutDashes()
+	}
+	if s.jobTimeoutSec == 0 {
+		s.jobTimeoutSec = defaultJobTimeoutSec
+	}
+}
+
+func (s *simpleTest) runJob(
 	t *testing.T,
 	pfsAPIClient pfs.APIClient,
 	jobAPIClient pps.JobAPIClient,
 	pipelineAPIClient pps.PipelineAPIClient,
 ) {
-	inputRepoName := s.inputRepoName
-	if inputRepoName == "" {
-		inputRepoName = uuid.NewWithoutDashes()
-	}
-	outputRepoName := s.outputRepoName
-	if outputRepoName == "" {
-		outputRepoName = uuid.NewWithoutDashes()
-	}
-	jobTimeoutSec := s.jobTimeoutSec
-	if jobTimeoutSec == 0 {
-		jobTimeoutSec = defaultJobTimeoutSec
-	}
-	inputCommit, outputParentCommit := setupPFS(t, pfsAPIClient, inputRepoName, outputRepoName, s.inputFilePathToContent)
+	s.setup()
+	inputRepo := setupPFSRepo(t, pfsAPIClient, s.inputRepoName)
+	outputRepo := setupPFSRepo(t, pfsAPIClient, s.outputRepoName)
+	inputCommit := setupPFSInputCommit(t, pfsAPIClient, inputRepo, s.inputFilePathToContent)
+	outputParentCommit := setupPFSOutputParentCommit(t, pfsAPIClient, outputRepo)
 	job := createJob(t, jobAPIClient, s.transform, inputCommit, outputParentCommit)
-	jobInfo := waitForJob(t, jobAPIClient, job, jobTimeoutSec, s.expectError)
+	jobInfo := waitForJob(t, jobAPIClient, job, s.jobTimeoutSec, s.expectError)
 	checkPFSOutput(t, pfsAPIClient, jobInfo.Output, s.outputFilePathToContent)
 }
 
-// TODO: handle directories in filePathToContent
-func setupPFS(t *testing.T, pfsAPIClient pfs.APIClient, inputRepoName string, outputRepoName string, filePathToContent map[string][]byte) (*pfs.Commit, *pfs.Commit) {
-	inputRepo := &pfs.Repo{
-		Name: inputRepoName,
+func (s *simpleTest) runPipeline(
+	t *testing.T,
+	pfsAPIClient pfs.APIClient,
+	jobAPIClient pps.JobAPIClient,
+	pipelineAPIClient pps.PipelineAPIClient,
+) {
+	s.setup()
+	inputRepo := setupPFSRepo(t, pfsAPIClient, s.inputRepoName)
+	outputRepo := setupPFSRepo(t, pfsAPIClient, s.outputRepoName)
+	pipeline := createPipeline(t, pipelineAPIClient, s.pipelineName, s.transform, inputRepo, outputRepo)
+	setupPFSInputCommit(t, pfsAPIClient, inputRepo, s.inputFilePathToContent)
+	// TODO: all the waits heh
+	time.Sleep(5 * time.Second)
+	job := getJobForPipeline(t, jobAPIClient, pipeline)
+	jobInfo := waitForJob(t, jobAPIClient, job, s.jobTimeoutSec, s.expectError)
+	checkPFSOutput(t, pfsAPIClient, jobInfo.Output, s.outputFilePathToContent)
+}
+
+func setupPFSRepo(t *testing.T, pfsAPIClient pfs.APIClient, repoName string) *pfs.Repo {
+	repo := &pfs.Repo{
+		Name: repoName,
 	}
 	_, err := pfsAPIClient.CreateRepo(
 		context.Background(),
 		&pfs.CreateRepoRequest{
-			Repo: inputRepo,
+			Repo: repo,
 		},
 	)
 	require.NoError(t, err)
-	outputRepo := &pfs.Repo{
-		Name: outputRepoName,
-	}
-	_, err = pfsAPIClient.CreateRepo(
-		context.Background(),
-		&pfs.CreateRepoRequest{
-			Repo: outputRepo,
-		},
-	)
-	require.NoError(t, err)
+	return repo
+}
+
+// TODO: handle directories in filePathToContent
+func setupPFSInputCommit(t *testing.T, pfsAPIClient pfs.APIClient, repo *pfs.Repo, filePathToContent map[string][]byte) *pfs.Commit {
 	commit, err := pfsAPIClient.StartCommit(
 		context.Background(),
 		&pfs.StartCommitRequest{
 			Parent: &pfs.Commit{
-				Repo: inputRepo,
+				Repo: repo,
 				Id:   pfs.InitialCommitID,
 			},
 		},
@@ -132,8 +195,7 @@ func setupPFS(t *testing.T, pfsAPIClient pfs.APIClient, inputRepoName string, ou
 			},
 		)
 		require.NoError(t, err)
-		_, err = apiPutFileClient.CloseAndRecv()
-		require.NoError(t, err)
+		_, _ = apiPutFileClient.CloseAndRecv()
 	}
 	_, err = pfsAPIClient.FinishCommit(
 		context.Background(),
@@ -142,7 +204,11 @@ func setupPFS(t *testing.T, pfsAPIClient pfs.APIClient, inputRepoName string, ou
 		},
 	)
 	require.NoError(t, err)
-	return commit, &pfs.Commit{Repo: outputRepo, Id: pfs.InitialCommitID}
+	return commit
+}
+
+func setupPFSOutputParentCommit(t *testing.T, pfsAPIClient pfs.APIClient, repo *pfs.Repo) *pfs.Commit {
+	return &pfs.Commit{Repo: repo, Id: pfs.InitialCommitID}
 }
 
 func createJob(t *testing.T, jobAPIClient pps.JobAPIClient, transform *pps.Transform, inputCommit *pfs.Commit, outputParentCommit *pfs.Commit) *pps.Job {
@@ -177,11 +243,13 @@ func waitForJob(t *testing.T, jobAPIClient pps.JobAPIClient, job *pps.Job, timeo
 		protolog.Infof("status of job %s at %d seconds: %v", job.Id, i+1, jobInfo.JobStatus)
 		switch jobStatus.Type {
 		case pps.JobStatusType_JOB_STATUS_TYPE_ERROR:
+			handleEndJobStatus(t, jobAPIClient, jobInfo)
 			if !expectError {
 				t.Fatalf("job %s had error", job.Id)
 			}
 			return jobInfo
 		case pps.JobStatusType_JOB_STATUS_TYPE_SUCCESS:
+			handleEndJobStatus(t, jobAPIClient, jobInfo)
 			if expectError {
 				t.Fatalf("job %s did not have error", job.Id)
 			}
@@ -190,6 +258,53 @@ func waitForJob(t *testing.T, jobAPIClient pps.JobAPIClient, job *pps.Job, timeo
 	}
 	t.Fatalf("job %s did not finish in %d seconds", job.Id, timeoutSec)
 	return nil
+}
+
+func handleEndJobStatus(t *testing.T, jobAPIClient pps.JobAPIClient, jobInfo *pps.JobInfo) {
+	handleEndJobStatusOutputStream(t, jobAPIClient, jobInfo, pps.OutputStream_OUTPUT_STREAM_STDOUT)
+	handleEndJobStatusOutputStream(t, jobAPIClient, jobInfo, pps.OutputStream_OUTPUT_STREAM_STDERR)
+}
+
+func handleEndJobStatusOutputStream(t *testing.T, jobAPIClient pps.JobAPIClient, jobInfo *pps.JobInfo, outputStream pps.OutputStream) {
+	jobAPIGetJobLogsClient, err := jobAPIClient.GetJobLogs(
+		context.Background(),
+		&pps.GetJobLogsRequest{
+			Job:          jobInfo.Job,
+			OutputStream: outputStream,
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, protostream.WriteFromStreamingBytesClient(jobAPIGetJobLogsClient, protolog.Writer()))
+}
+
+func createPipeline(t *testing.T, pipelineAPIClient pps.PipelineAPIClient, pipelineName string, transform *pps.Transform, inputRepo *pfs.Repo, outputRepo *pfs.Repo) *pps.Pipeline {
+	pipeline := &pps.Pipeline{
+		Name: pipelineName,
+	}
+	_, err := pipelineAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline:  pipeline,
+			Transform: transform,
+			Input:     inputRepo,
+			Output:    outputRepo,
+		},
+	)
+	require.NoError(t, err)
+	return pipeline
+}
+
+func getJobForPipeline(t *testing.T, jobAPIClient pps.JobAPIClient, pipeline *pps.Pipeline) *pps.Job {
+	jobInfos, err := jobAPIClient.ListJob(
+		context.Background(),
+		&pps.ListJobRequest{
+			Pipeline: pipeline,
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, jobInfos)
+	require.Equal(t, 1, len(jobInfos.JobInfo))
+	return jobInfos.JobInfo[0].Job
 }
 
 func checkPFSOutput(t *testing.T, pfsAPIClient pfs.APIClient, outputCommit *pfs.Commit, filePathToContent map[string][]byte) {
