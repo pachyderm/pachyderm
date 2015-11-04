@@ -3,10 +3,18 @@
 # DOCKER_OPTS: docker-compose options for run, test, launch-*
 # TESTPKGS: packages for test, default ./src/...
 # TESTFLAGS: flags for test
+# VENDOR_ALL: do not ignore some vendors when updating vendor directory
+# VENDOR_IGNORE_DIRS: ignore vendor dirs
 ####
 
 ifndef TESTPKGS
 	TESTPKGS = ./src/...
+endif
+ifndef VENDOR_IGNORE_DIRS
+	VENDOR_IGNORE_DIRS = go.pedge.io
+endif
+ifdef VENDOR_ALL
+	VENDOR_IGNORE_DIRS =
 endif
 
 all: build
@@ -36,6 +44,7 @@ vendor-without-update:
 	rm -rf vendor
 	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 godep save ./src/...
 	rm -rf Godeps
+	$(foreach vendor_dir, $(VENDOR_IGNORE_DIRS), rm -rf vendor/$(vendor_dir) || exit; git checkout vendor/$(vendor_dir) || exit;)
 
 vendor: vendor-update vendor-without-update
 
@@ -56,19 +65,19 @@ docker-build-compile:
 	docker-compose build compile
 
 docker-build-pfs-volume-driver: docker-build-compile
-	docker-compose run compile sh etc/compile/compile.sh pfs-volume-driver
+	docker-compose run --rm compile sh etc/compile/compile.sh pfs-volume-driver
 
 docker-build-pfs-roler: docker-build-compile
-	docker-compose run compile sh etc/compile/compile.sh pfs-roler
+	docker-compose run --rm compile sh etc/compile/compile.sh pfs-roler
 
 docker-build-pfsd: docker-build-btrfs docker-build-compile
-	docker-compose run compile sh etc/compile/compile.sh pfsd
+	docker-compose run --rm compile sh etc/compile/compile.sh pfsd
 
 docker-build-ppsd: docker-build-compile
-	docker-compose run compile sh etc/compile/compile.sh ppsd
+	docker-compose run --rm compile sh etc/compile/compile.sh ppsd
 
 docker-build-pach: docker-build-compile
-	docker-compose run compile sh etc/compile/compile.sh pach 
+	docker-compose run --rm compile sh etc/compile/compile.sh pach
 
 docker-build: docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pach
 
@@ -87,7 +96,7 @@ docker-push-ppsd: docker-build-ppsd
 docker-push: docker-push-pfs-roler docker-push-ppsd docker-push-pfsd docker-push-pfs-volume-driver
 
 run: docker-build-test
-	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
+	docker-compose run --rm $(DOCKER_OPTS) test $(RUNARGS)
 
 launch: docker-clean-launch docker-build-pfs-roler docker-build-pfsd docker-build-ppsd
 	docker-compose up -d --force-recreate --no-build ppsd pfsd
@@ -138,9 +147,9 @@ go-test: docker-clean-test docker-build-test
 go-test-long: docker-clean-test docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) $(TESTPKGS)"
 
-test: pretest go-test
+test: pretest go-test docker-clean-test
 
-test-long: pretest go-test-long
+test-long: pretest go-test-long docker-clean-test
 
 clean: docker-clean-launch
 	go clean ./src/...

@@ -61,11 +61,9 @@ func (p *pipelineController) Start() error {
 	p.waitGroup.Add(1)
 	go func() {
 		defer p.waitGroup.Done()
-		if err := p.run(lastCommit); ignoreCanceledError(err) != nil {
-			// TODO: what to do with error?
-			protolog.Errorln(err.Error())
-		}
+		p.run(lastCommit)
 	}()
+	protolog.Infof("pachyderm.pps.pipelinserver: started pipeline controller for pipeline %s\n", p.pipelineInfo.Pipeline.Name)
 	return nil
 }
 
@@ -78,7 +76,7 @@ func (p *pipelineController) Cancel() error {
 	return ignoreCanceledError(p.ctx.Err())
 }
 
-func (p *pipelineController) run(lastCommit *pfs.Commit) error {
+func (p *pipelineController) run(lastCommit *pfs.Commit) {
 	for {
 		// http://blog.golang.org/context
 		commitErrorPairC := make(chan commitErrorPair, 1)
@@ -86,12 +84,13 @@ func (p *pipelineController) run(lastCommit *pfs.Commit) error {
 		select {
 		case <-p.ctx.Done():
 			_ = <-commitErrorPairC
-			return ignoreCanceledError(p.ctx.Err())
+			logIfError(p.ctx.Err())
+			return
 		case commitErrorPair := <-commitErrorPairC:
-			if ignoreCanceledError(commitErrorPair.Err) != nil {
-				return commitErrorPair.Err
+			// TODO: this will call with the same arguments over and over, there needs to be a better design here
+			if !logIfError(commitErrorPair.Err) {
+				lastCommit = commitErrorPair.Commit
 			}
-			lastCommit = commitErrorPair.Commit
 		}
 	}
 }
@@ -102,15 +101,15 @@ type commitErrorPair struct {
 }
 
 func (p *pipelineController) runInner(ctx context.Context, lastCommit *pfs.Commit) commitErrorPair {
-	commitInfos, err := p.pfsAPIClient.ListCommit(
-		ctx,
-		&pfs.ListCommitRequest{
-			Repo:       lastCommit.Repo,
-			CommitType: pfs.CommitType_COMMIT_TYPE_READ,
-			From:       lastCommit,
-			Block:      true,
-		},
-	)
+	listCommitRequest := &pfs.ListCommitRequest{
+		Repo:       lastCommit.Repo,
+		CommitType: pfs.CommitType_COMMIT_TYPE_READ,
+		From:       lastCommit,
+		Block:      true,
+	}
+	protolog.Infof("pachyderm.pps.pipelineserver: calling pfs.ListCommit with %v\n", listCommitRequest)
+	commitInfos, err := p.pfsAPIClient.ListCommit(ctx, listCommitRequest)
+	protolog.Infof("pachyderm.pps.pipelineserver: pfs.ListCommit call returned with %v %v\n", commitInfos, err)
 	if err != nil {
 		return commitErrorPair{Err: err}
 	}
@@ -119,6 +118,7 @@ func (p *pipelineController) runInner(ctx context.Context, lastCommit *pfs.Commi
 	}
 	// going in reverse order, oldest to newest
 	for _, commitInfo := range commitInfos.CommitInfo {
+		protolog.Infof("pachyderm.pps.pipelineserver: got new commit for pipeline %s: %s\n", p.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 		if err := p.createJobForCommitInfo(ctx, commitInfo); err != nil {
 			return commitErrorPair{Err: err}
 		}
@@ -186,6 +186,14 @@ func containsSuccessJobStatus(jobStatuses []*pps.JobStatus) bool {
 		if jobStatus.Type == pps.JobStatusType_JOB_STATUS_TYPE_SUCCESS {
 			return true
 		}
+	}
+	return false
+}
+
+func logIfError(err error) bool {
+	if err = ignoreCanceledError(err); err != nil {
+		protolog.Errorf("pachyderm.pps.pipelineserver: error in pipeline controller: %s\n", err.Error())
+		return true
 	}
 	return false
 }
