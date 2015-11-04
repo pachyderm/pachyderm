@@ -11,8 +11,9 @@ type appEnv struct {
 	KubernetesAddress  string `env:"KUBERNETES_ADDRESS,default=http://localhost:8080"`
 	KubernetesUsername string `env:"KUBERNETES_USERNAME,default=admin"`
 	KubernetesPassword string `env:"KUBERNETES_PASSWORD"`
-	GCEProject         string `env:"GCE_PROJECT,required"`
-	GCEZone            string `env:"GCE_ZONE,required"`
+	Provider           string `env:"PROVIDER"`
+	GCEProject         string `env:"GCE_PROJECT"`
+	GCEZone            string `env:"GCE_ZONE"`
 }
 
 func main() {
@@ -27,13 +28,21 @@ func do(appEnvObj interface{}) error {
 		Long: `Deploy Pachyderm clusters.
 
 Envronment variables:
-  KUBERNETES_ADDRESS=http://localhost:8080, the Kubernetes endpoint to connect to.
+  KUBERNETES_ADDRESS=http://localhost:8080
   KUBERNETES_USERNAME=admin
   KUBERNETES_PASSWORD
+  PROVIDER, which provider to use for cluster creation (currently only supports GCE).
   GCE_PROJECT
   GCE_ZONE`,
 	}
-	cmds, err := cmds.Cmds(appEnv.KubernetesAddress, appEnv.KubernetesUsername, appEnv.KubernetesAddress, appEnv.GCEProject, appEnv.GCEZone)
+	cmds, err := cmds.Cmds(
+		appEnv.KubernetesAddress,
+		appEnv.KubernetesUsername,
+		appEnv.KubernetesPassword,
+		appEnv.Provider,
+		appEnv.GCEProject,
+		appEnv.GCEZone,
+	)
 	if err != nil {
 		return err
 	}

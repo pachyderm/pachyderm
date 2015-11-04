@@ -19,6 +19,7 @@ type appEnv struct {
 	KubernetesAddress  string `env:"KUBERNETES_ADDRESS,default=http://localhost:8080"`
 	KubernetesUsername string `env:"KUBERNETES_USERNAME,default=admin"`
 	KubernetesPassword string `env:"KUBERNETES_PASSWORD"`
+	Provider           string `env:"PROVIDER"`
 	GCEProject         string `env:"GCE_PROJECT"`
 	GCEZone            string `env:"GCE_ZONE"`
 }
@@ -39,6 +40,7 @@ Envronment variables:
   KUBERNETES_ADDRESS=http://localhost:8080, the Kubernetes endpoint to connect to.
   KUBERNETES_USERNAME=admin
   KUBERNETES_PASSWORD
+  PROVIDER, which provider to use for cluster creation (currently only supports GCE).
   GCE_PROJECT
   GCE_ZONE`,
 	}
@@ -69,7 +71,14 @@ Envronment variables:
 		rootCmd.AddCommand(cmd)
 	}
 
-	deployCmds, err := deploycmds.Cmds(appEnv.KubernetesAddress, appEnv.KubernetesUsername, appEnv.KubernetesAddress, appEnv.GCEProject, appEnv.GCEZone)
+	deployCmds, err := deploycmds.Cmds(
+		appEnv.KubernetesAddress,
+		appEnv.KubernetesUsername,
+		appEnv.KubernetesAddress,
+		appEnv.Provider,
+		appEnv.GCEProject,
+		appEnv.GCEZone,
+	)
 	if err != nil {
 		return err
 	}
