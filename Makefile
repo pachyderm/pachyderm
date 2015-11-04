@@ -79,7 +79,7 @@ docker-build-pps: docker-build-compile
 docker-build-pach: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh pach 
 
-docker-build: docker-build-pfs-mount docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pfs docker-build-pps
+docker-build: docker-build-pfs-mount docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pfs docker-build-pps docker-build-pach
 
 docker-push-pfs-mount: docker-build-pfs-mount
 	docker push pachyderm/pfs-mount
