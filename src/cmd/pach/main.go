@@ -7,9 +7,9 @@ import (
 
 	"go.pedge.io/env"
 
-	deploycmds "github.com/pachyderm/pachyderm/src/cmd/deploy/cmds"
-	pfscmds "github.com/pachyderm/pachyderm/src/cmd/pfs/cmds"
-	ppscmds "github.com/pachyderm/pachyderm/src/cmd/pps/cmds"
+	pfscmds "github.com/pachyderm/pachyderm/src/pfs/cmds"
+	deploycmds "github.com/pachyderm/pachyderm/src/pkg/deploy/cmds"
+	ppscmds "github.com/pachyderm/pachyderm/src/pps/cmds"
 	"github.com/spf13/cobra"
 )
 
