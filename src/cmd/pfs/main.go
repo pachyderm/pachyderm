@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"os"
 	"strings"
 
 	"go.pedge.io/env"
@@ -44,12 +42,4 @@ The environment variable PFS_ADDRESS controls what server the CLI connects to, t
 	}
 
 	return rootCmd.Execute()
-}
-
-func getPfsdAddress() string {
-	pfsdAddr := os.Getenv("PFSD_PORT_650_TCP_ADDR")
-	if pfsdAddr == "" {
-		return "0.0.0.0:650"
-	}
-	return fmt.Sprintf("%s:650", pfsdAddr)
 }
