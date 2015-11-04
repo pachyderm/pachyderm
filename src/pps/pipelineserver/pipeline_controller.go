@@ -107,9 +107,7 @@ func (p *pipelineController) runInner(ctx context.Context, lastCommit *pfs.Commi
 		From:       lastCommit,
 		Block:      true,
 	}
-	protolog.Infof("pachyderm.pps.pipelineserver: calling pfs.ListCommit with %v\n", listCommitRequest)
 	commitInfos, err := p.pfsAPIClient.ListCommit(ctx, listCommitRequest)
-	protolog.Infof("pachyderm.pps.pipelineserver: pfs.ListCommit call returned with %v %v\n", commitInfos, err)
 	if err != nil {
 		return commitErrorPair{Err: err}
 	}
