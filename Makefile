@@ -43,7 +43,7 @@ build:
 	go build ./src/...
 
 install:
-	go install ./src/cmd/pfs-volume-driver ./src/cmd/pfs ./src/cmd/pps ./src/cmd/deploy ./src/cmd/pach
+	go install ./src/cmd/pfs-volume-driver ./src/cmd/pach
 
 docker-build-btrfs:
 	docker-compose build btrfs
@@ -54,9 +54,6 @@ docker-build-test: docker-build-btrfs
 
 docker-build-compile:
 	docker-compose build compile
-
-docker-build-pfs-mount: docker-build-compile
-	docker-compose run compile sh etc/compile/compile.sh pfs pfs-mount
 
 docker-build-pfs-volume-driver: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh pfs-volume-driver
@@ -70,19 +67,10 @@ docker-build-pfsd: docker-build-btrfs docker-build-compile
 docker-build-ppsd: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh ppsd
 
-docker-build-pfs: docker-build-compile
-	docker-compose run compile sh etc/compile/compile.sh pfs
-
-docker-build-pps: docker-build-compile
-	docker-compose run compile sh etc/compile/compile.sh pps
-
 docker-build-pach: docker-build-compile
 	docker-compose run compile sh etc/compile/compile.sh pach 
 
-docker-build: docker-build-pfs-mount docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pfs docker-build-pps docker-build-pach
-
-docker-push-pfs-mount: docker-build-pfs-mount
-	docker push pachyderm/pfs-mount
+docker-build: docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pach
 
 docker-push-pfs-volume-driver: docker-build-pfs-volume-driver
 	docker push pachyderm/pfs-volume-driver
@@ -96,13 +84,13 @@ docker-push-pfsd: docker-build-pfsd
 docker-push-ppsd: docker-build-ppsd
 	docker push pachyderm/ppsd
 
-docker-push: docker-push-pfs-mount docker-push-pfs-roler docker-push-ppsd docker-push-pfsd docker-push-pfs-volume-driver
+docker-push: docker-push-pfs-roler docker-push-ppsd docker-push-pfsd docker-push-pfs-volume-driver
 
 run: docker-build-test
 	docker-compose run $(DOCKER_OPTS) test $(RUNARGS)
 
-launch: docker-clean-launch docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pfs-mount
-	docker-compose up -d --force-recreate --no-build ppsd pfsd pfs-mount
+launch: docker-clean-launch docker-build-pfs-roler docker-build-pfsd docker-build-ppsd
+	docker-compose up -d --force-recreate --no-build ppsd pfsd
 
 proto:
 	go get -u -v go.pedge.io/protolog/cmd/protoc-gen-protolog go.pedge.io/tools/protoc-all
@@ -156,12 +144,9 @@ test-long: pretest go-test-long
 
 clean: docker-clean-launch
 	go clean ./src/...
-	rm -f src/cmd/pfs/pfs
-	rm -f src/cmd/pfs/pfs-mount
 	rm -f src/cmd/pfs/pfs-volume-driver
 	rm -f src/cmd/pfs/pfs-roler
 	rm -f src/cmd/pfsd/pfsd
-	rm -f src/cmd/pps/pps
 	rm -f src/cmd/ppsd/ppsd
 
 .PHONY: \
