@@ -60,14 +60,16 @@ func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClu
 	if _, err := a.client.Services(api.NamespaceDefault).Create(rethinkService()); err != nil {
 		return nil, err
 	}
-	diskNames, err := a.createDisks(ctx, request.Nodes)
-	if err != nil {
-		return nil, err
-	}
-	persistentVolumes := persistantVolumes(diskNames)
-	for _, persistantVolume := range persistentVolumes {
-		if _, err := a.client.PersistentVolumes().Create(persistantVolume); err != nil {
+	if a.provider != nil {
+		diskNames, err := a.createDisks(ctx, request.Nodes)
+		if err != nil {
 			return nil, err
+		}
+		persistentVolumes := persistantVolumes(diskNames)
+		for _, persistantVolume := range persistentVolumes {
+			if _, err := a.client.PersistentVolumes().Create(persistantVolume); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(

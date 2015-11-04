@@ -10,13 +10,14 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/pkg/deploy/server"
-	"github.com/pachyderm/pachyderm/src/pkg/provider"
+	_provider "github.com/pachyderm/pachyderm/src/pkg/provider"
 )
 
 func Cmds(
 	KubernetesAddress string,
 	KubernetesUsername string,
 	KubernetesPassword string,
+	Provider string,
 	GCEProject string,
 	GCEZone string,
 ) ([]*cobra.Command, error) {
@@ -30,9 +31,12 @@ func Cmds(
 	if err != nil {
 		return nil, err
 	}
-	provider, err := provider.NewGoogleProvider(context.TODO(), GCEProject, GCEZone)
-	if err != nil {
-		return nil, err
+	var provider _provider.Provider
+	if Provider == "GCE" {
+		provider, err = _provider.NewGoogleProvider(context.TODO(), GCEProject, GCEZone)
+		if err != nil {
+			return nil, err
+		}
 	}
 	apiServer := server.NewAPIServer(client, provider)
 
