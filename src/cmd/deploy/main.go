@@ -26,7 +26,12 @@ func do(appEnvObj interface{}) error {
 		Use: "deploy",
 		Long: `Deploy Pachyderm clusters.
 
-The environment variable KUBERNETES_ADDRESS controls the Kubernetes endpoint the CLI connects to, the default is https://localhost:8080.`,
+Envronment variables:
+  KUBERNETES_ADDRESS=http://localhost:8080, the Kubernetes endpoint to connect to.
+  KUBERNETES_USERNAME=admin
+  KUBERNETES_PASSWORD
+  GCE_PROJECT
+  GCE_ZONE`,
 	}
 	cmds, err := cmds.Cmds(appEnv.KubernetesAddress, appEnv.KubernetesUsername, appEnv.KubernetesAddress, appEnv.GCEProject, appEnv.GCEZone)
 	if err != nil {
