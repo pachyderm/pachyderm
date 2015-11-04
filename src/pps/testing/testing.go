@@ -45,6 +45,7 @@ func RunTest(
 				t,
 				func(t *testing.T, persistAPIServer persist.APIServer) {
 					persistAPIClient := persist.NewLocalAPIClient(persistAPIServer)
+					var pipelineAPIServer pipelineserver.APIServer
 					prototest.RunT(
 						t,
 						testNumServers,
@@ -59,7 +60,7 @@ func RunTest(
 								},
 							)
 							jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
-							pipelineAPIServer := pipelineserver.NewAPIServer(
+							pipelineAPIServer = pipelineserver.NewAPIServer(
 								pfsAPIClient,
 								jobAPIClient,
 								persistAPIClient,
@@ -70,6 +71,7 @@ func RunTest(
 							}
 						},
 						func(t *testing.T, clientConns map[string]*grpc.ClientConn) {
+							pipelineAPIServer.Start()
 							var clientConn *grpc.ClientConn
 							for _, c := range clientConns {
 								clientConn = c
