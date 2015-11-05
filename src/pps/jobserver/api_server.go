@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/jobserver/run"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/rpclog"
+	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
@@ -47,20 +49,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	} else {
 		return nil, fmt.Errorf("pachyderm.pps.jobserver: both transform and pipeline are not set on %v", request)
 	}
-	persistJobInfo, err = a.persistAPIClient.CreateJobInfo(ctx, persistJobInfo)
-	if err != nil {
+	persistJobInfo.JobId = uuid.NewWithoutDashes()
+	persistJobInfo.CreatedAt = prototime.TimeToTimestamp(time.Now())
+	if err := jobserverrun.StartJob(a.client, persistJobInfo); err != nil {
 		return nil, err
 	}
-	if err := jobserverrun.StartJob(a.client, persistJobInfo); err != nil {
-		// TODO: proper rollback
-		if _, rollbackErr := a.persistAPIClient.DeleteJobInfo(
-			ctx,
-			&pps.Job{
-				Id: persistJobInfo.JobId,
-			},
-		); rollbackErr != nil {
-			return nil, fmt.Errorf("%v", []error{err, rollbackErr})
-		}
+	_, err = a.persistAPIClient.CreateJobInfo(ctx, persistJobInfo)
+	if err != nil {
 		return nil, err
 	}
 	return &pps.Job{
