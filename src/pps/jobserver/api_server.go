@@ -10,22 +10,23 @@ import (
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
+	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
 type apiServer struct {
 	protorpclog.Logger
-	jobserverrun.JobRunner
 	persistAPIClient persist.APIClient
+	client           *kube.Client
 }
 
 func newAPIServer(
 	persistAPIClient persist.APIClient,
-	jobRunner jobserverrun.JobRunner,
+	client *kube.Client,
 ) *apiServer {
 	return &apiServer{
 		protorpclog.NewLogger("pachyderm.pps.JobAPI"),
-		jobRunner,
 		persistAPIClient,
+		client,
 	}
 }
 
@@ -50,7 +51,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	if err != nil {
 		return nil, err
 	}
-	if err := a.Start(persistJobInfo); err != nil {
+	if err := jobserverrun.StartJob(a.client, persistJobInfo); err != nil {
 		// TODO: proper rollback
 		if _, rollbackErr := a.persistAPIClient.DeleteJobInfo(
 			ctx,
