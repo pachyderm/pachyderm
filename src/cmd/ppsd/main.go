@@ -10,10 +10,8 @@ import (
 	"google.golang.org/grpc"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
-	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/container"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/jobserver"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
@@ -77,15 +75,6 @@ func do(appEnvObj interface{}) error {
 			Version:   pachyderm.Version,
 		},
 	)
-}
-
-func getContainerClient() (container.Client, error) {
-	// TODO: this will just connect to the local instance of docker
-	client, err := docker.NewClientFromEnv()
-	if err != nil {
-		return nil, err
-	}
-	return container.NewDockerClient(client), nil
 }
 
 func getRethinkAPIClient(address string, databaseName string) (persist.APIClient, error) {
