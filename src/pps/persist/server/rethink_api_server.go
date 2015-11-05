@@ -175,14 +175,6 @@ func (a *rethinkAPIServer) Close() error {
 // timestamp cannot be set
 func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.JobInfo) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	if request.JobId != "" {
-		return nil, ErrIDSet
-	}
-	if request.CreatedAt != nil {
-		return nil, ErrTimestampSet
-	}
-	request.JobId = uuid.New()
-	request.CreatedAt = a.now()
 	if err := a.insertMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}
