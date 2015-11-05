@@ -4,31 +4,34 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/pkg/uuid"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/jobserver/run"
-	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
+	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
+
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
 
 type apiServer struct {
 	protorpclog.Logger
 	persistAPIClient persist.APIClient
-	client           *kube.Client
+	kubeClient       *kube.Client
 }
 
 func newAPIServer(
 	persistAPIClient persist.APIClient,
-	client *kube.Client,
+	kubeClient *kube.Client,
 ) *apiServer {
 	return &apiServer{
 		protorpclog.NewLogger("pachyderm.pps.JobAPI"),
 		persistAPIClient,
-		client,
+		kubeClient,
 	}
 }
 
@@ -51,7 +54,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	}
 	persistJobInfo.JobId = uuid.NewWithoutDashes()
 	persistJobInfo.CreatedAt = prototime.TimeToTimestamp(time.Now())
-	if err := jobserverrun.StartJob(a.client, persistJobInfo); err != nil {
+	if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
 		return nil, err
 	}
 	_, err = a.persistAPIClient.CreateJobInfo(ctx, persistJobInfo)
@@ -147,4 +150,44 @@ func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo 
 		jobInfo.Output = persistJobOutput.Output
 	}
 	return jobInfo, nil
+}
+
+func job(jobInfo *persist.JobInfo) *extensions.Job {
+	app := jobInfo.JobId
+	return &extensions.Job{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Job",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name: jobInfo.JobId,
+			Labels: map[string]string{
+				"app": app,
+			},
+		},
+		Spec: extensions.JobSpec{
+			Selector: &extensions.PodSelector{
+				MatchLabels: map[string]string{
+					"app": app,
+				},
+			},
+			Template: api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name: jobInfo.JobId,
+					Labels: map[string]string{
+						"app": app,
+					},
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:    "user",
+							Image:   jobInfo.GetTransform().Image,
+							Command: jobInfo.GetTransform().Cmd,
+						},
+					},
+				},
+			},
+		},
+	}
 }
