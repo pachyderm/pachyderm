@@ -90,8 +90,8 @@ func getPfsdAddress(appEnv *appEnv) string {
 }
 
 func getPpsdAddress(appEnv *appEnv) string {
-	if ppsdAddr := os.Getenv("PPSD_PORT_650_TCP_ADDR"); ppsdAddr != "" {
-		return fmt.Sprintf("%s:650", ppsdAddr)
+	if ppsdAddr := os.Getenv("PPSD_PORT_651_TCP_ADDR"); ppsdAddr != "" {
+		return fmt.Sprintf("%s:651", ppsdAddr)
 	}
 	if appEnv.PachydermPpsd1Port != "" {
 		return strings.Replace(appEnv.PachydermPpsd1Port, "tcp://", "", -1)
