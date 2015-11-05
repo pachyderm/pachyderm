@@ -1,8 +1,6 @@
 package pipelineserver
 
 import (
-	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -21,9 +19,8 @@ type apiServer struct {
 	jobAPIClient     pps.JobAPIClient
 	persistAPIClient persist.APIClient
 
-	started                          bool
-	pipelineNameToPipelineController map[string]*pipelineController
-	lock                             *sync.Mutex
+	cancelFuncs map[pps.Pipeline]func()
+	lock        sync.Mutex
 }
 
 func newAPIServer(
@@ -36,29 +33,22 @@ func newAPIServer(
 		pfsAPIClient,
 		jobAPIClient,
 		persistAPIClient,
-		false,
-		make(map[string]*pipelineController),
-		&sync.Mutex{},
+		make(map[pps.Pipeline]func()),
+		sync.Mutex{},
 	}
 }
 
 func (a *apiServer) Start() error {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-	// TODO: volatile bool?
-	if a.started {
-		// TODO: abstract error to public variable
-		return errors.New("pachyderm.pps.pipelineserver: already started")
-	}
-	a.started = true
 	pipelineInfos, err := a.ListPipeline(context.Background(), &pps.ListPipelineRequest{})
 	if err != nil {
 		return err
 	}
 	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
-		if err := a.addPipelineController(pipelineInfo); err != nil {
-			return err
-		}
+		go func() {
+			if err := a.runPipeline(pipelineInfo); err != nil {
+				protolog.Printf("pipeline errored: %s", err.Error())
+			}
+		}()
 	}
 	return nil
 }
@@ -74,15 +64,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if _, err := a.persistAPIClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
 	}
-	a.lock.Lock()
-	defer a.lock.Unlock()
-	if err := a.addPipelineController(persistPipelineInfoToPipelineInfo(persistPipelineInfo)); err != nil {
-		// TODO: proper create/rollback (do not commit transaction with create)
-		if _, rollbackErr := a.persistAPIClient.DeletePipelineInfo(ctx, request.Pipeline); rollbackErr != nil {
-			return nil, fmt.Errorf("%v-%v", err, rollbackErr)
+	go func() {
+		if err := a.runPipeline(persistPipelineInfoToPipelineInfo(persistPipelineInfo)); err != nil {
+			protolog.Printf("pipeline errored: %s", err.Error())
 		}
-		return nil, err
-	}
+	}()
 	return google_protobuf.EmptyInstance, nil
 }
 
@@ -116,9 +102,8 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	}
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	if err := a.removePipelineController(request.Pipeline.Name); err != nil {
-		return nil, err
-	}
+	a.cancelFuncs[*request.Pipeline]()
+	delete(a.cancelFuncs, *request.Pipeline)
 	return google_protobuf.EmptyInstance, nil
 }
 
@@ -133,29 +118,76 @@ func persistPipelineInfoToPipelineInfo(persistPipelineInfo *persist.PipelineInfo
 	}
 }
 
-func (a *apiServer) addPipelineController(pipelineInfo *pps.PipelineInfo) error {
-	if _, ok := a.pipelineNameToPipelineController[pipelineInfo.Pipeline.Name]; ok {
-		protolog.Warnf("pachyderm.pps.pipelineserver: had a create change event for an existing pipeline: %v", pipelineInfo)
-		if err := a.removePipelineController(pipelineInfo.Pipeline.Name); err != nil {
+func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	a.lock.Lock()
+	a.cancelFuncs[*pipelineInfo.Pipeline] = cancel
+	a.lock.Unlock()
+	for {
+		var lastCommit *pfs.Commit
+		listCommitRequest := &pfs.ListCommitRequest{
+			Repo:       pipelineInfo.Input,
+			CommitType: pfs.CommitType_COMMIT_TYPE_READ,
+			From:       lastCommit,
+			Block:      true,
+		}
+		commitInfos, err := a.pfsAPIClient.ListCommit(ctx, listCommitRequest)
+		if err != nil {
 			return err
 		}
+		for _, commitInfo := range commitInfos.CommitInfo {
+			outParentCommit, err := a.bestParent(pipelineInfo, commitInfo)
+			if err != nil {
+				return err
+			}
+			_, err = a.jobAPIClient.CreateJob(
+				context.Background(),
+				&pps.CreateJobRequest{
+					Spec: &pps.CreateJobRequest_Pipeline{
+						Pipeline: pipelineInfo.Pipeline,
+					},
+					Input:        commitInfo.Commit,
+					OutputParent: outParentCommit,
+				},
+			)
+		}
 	}
-	pipelineController := newPipelineController(
-		a.pfsAPIClient,
-		a.jobAPIClient,
-		pps.NewLocalPipelineAPIClient(a),
-		pipelineInfo,
-	)
-	a.pipelineNameToPipelineController[pipelineInfo.Pipeline.Name] = pipelineController
-	return pipelineController.Start()
+	return nil
 }
 
-func (a *apiServer) removePipelineController(name string) error {
-	pipelineController, ok := a.pipelineNameToPipelineController[name]
-	if ok {
-		delete(a.pipelineNameToPipelineController, name)
-		return pipelineController.Cancel()
+func (a *apiServer) bestParent(pipelineInfo *pps.PipelineInfo, inputCommitInfo *pfs.CommitInfo) (*pfs.Commit, error) {
+	for {
+		jobInfos, err := a.jobAPIClient.ListJob(
+			context.Background(),
+			&pps.ListJobRequest{
+				Pipeline: pipelineInfo.Pipeline,
+				Input:    inputCommitInfo.Commit,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+		// newest to oldest assumed
+		for _, jobInfo := range jobInfos.JobInfo {
+			if jobInfo.Output != nil {
+				outputCommitInfo, err := a.pfsAPIClient.InspectCommit(context.TODO(), &pfs.InspectCommitRequest{Commit: jobInfo.Output})
+				if err != nil {
+					return nil, err
+				}
+				if outputCommitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_READ {
+					return outputCommitInfo.Commit, nil
+				}
+			}
+		}
+		if inputCommitInfo.ParentCommit.Id == pfs.InitialCommitID {
+			return &pfs.Commit{
+				Repo: inputCommitInfo.Commit.Repo,
+				Id:   pfs.InitialCommitID,
+			}, nil
+		}
+		inputCommitInfo, err = a.pfsAPIClient.InspectCommit(context.TODO(), &pfs.InspectCommitRequest{Commit: inputCommitInfo.ParentCommit})
+		if err != nil {
+			return nil, err
+		}
 	}
-	protolog.Warnf("pachyderm.pps.pipelineserver: no pipeline registered for name: %s", name)
-	return nil
 }
