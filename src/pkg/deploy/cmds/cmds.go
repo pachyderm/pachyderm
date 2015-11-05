@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
 	"golang.org/x/net/context"
-	client "k8s.io/kubernetes/pkg/client/unversioned"
+	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
 	"github.com/pachyderm/pachyderm/src/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/pkg/deploy/server"
@@ -21,13 +21,13 @@ func Cmds(
 	GCEProject string,
 	GCEZone string,
 ) ([]*cobra.Command, error) {
-	config := &client.Config{
+	config := &kube.Config{
 		Host:     KubernetesAddress,
 		Insecure: true,
 		Username: KubernetesUsername,
 		Password: KubernetesPassword,
 	}
-	client, err := client.New(config)
+	client, err := kube.New(config)
 	if err != nil {
 		return nil, err
 	}

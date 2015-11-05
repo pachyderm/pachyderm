@@ -9,6 +9,7 @@ import (
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
+	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm"
@@ -16,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/container"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/jobserver"
-	"github.com/pachyderm/pachyderm/src/pps/jobserver/run"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	persistserver "github.com/pachyderm/pachyderm/src/pps/persist/server"
 	"github.com/pachyderm/pachyderm/src/pps/pipelineserver"
@@ -40,10 +40,6 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	containerClient, err := getContainerClient()
-	if err != nil {
-		return err
-	}
 	rethinkAPIClient, err := getRethinkAPIClient(appEnv.DatabaseAddress, appEnv.DatabaseName)
 	if err != nil {
 		return err
@@ -57,14 +53,14 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	pfsAPIClient := pfs.NewAPIClient(clientConn)
+	client, err := kube.NewInCluster()
+	if err != nil {
+		return err
+	}
 	jobAPIServer := jobserver.NewAPIServer(
 		pfsAPIClient,
 		rethinkAPIClient,
-		containerClient,
-		appEnv.PfsMountDir,
-		jobserverrun.JobRunnerOptions{
-			RemoveContainers: appEnv.RemoveContainers,
-		},
+		client,
 	)
 	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 	pipelineAPIServer := pipelineserver.NewAPIServer(pfsAPIClient, jobAPIClient, rethinkAPIClient)

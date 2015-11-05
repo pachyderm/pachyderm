@@ -12,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/jobserver"
-	"github.com/pachyderm/pachyderm/src/pps/jobserver/run"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	persistservertesting "github.com/pachyderm/pachyderm/src/pps/persist/server/testing"
 	"github.com/pachyderm/pachyderm/src/pps/pipelineserver"
@@ -28,8 +27,6 @@ func RunTest(
 	t *testing.T,
 	f func(*testing.T, pfs.APIClient, pps.JobAPIClient, pps.PipelineAPIClient),
 ) {
-	containerClient, err := getTestContainerClient()
-	require.NoError(t, err)
 	pfstesting.RunTest(
 		t,
 		func(t *testing.T, pfsAPIClient pfs.APIClient, _ pfstesting.Cluster) {
@@ -53,11 +50,7 @@ func RunTest(
 							jobAPIServer := jobserver.NewAPIServer(
 								pfsAPIClient,
 								persistAPIClient,
-								containerClient,
-								pfsMountDir,
-								jobserverrun.JobRunnerOptions{
-									RemoveContainers: true,
-								},
+								nil,
 							)
 							jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 							pipelineAPIServer = pipelineserver.NewAPIServer(
