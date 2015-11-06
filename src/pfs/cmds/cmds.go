@@ -8,24 +8,16 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/pretty"
 	"go.pedge.io/pkg/cobra"
-	"go.pedge.io/proto/client"
 
 	"github.com/spf13/cobra"
 )
 
 func Cmds(address string) ([]*cobra.Command, error) {
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	apiClient := pfs.NewAPIClient(clientConn)
-
 	var shard int
 	var modulus int
 
@@ -34,6 +26,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			return pfsutil.CreateRepo(apiClient, args[0])
 		}),
 	}
@@ -43,6 +39,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			repoInfo, err := pfsutil.InspectRepo(apiClient, args[0])
 			if err != nil {
 				return err
@@ -62,6 +62,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return all repos.",
 		Long:  "Reutrn all repos.",
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			repoInfos, err := pfsutil.ListRepo(apiClient)
 			if err != nil {
 				return err
@@ -80,6 +84,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			return pfsutil.DeleteRepo(apiClient, args[0])
 		}),
 	}
@@ -89,6 +97,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Start a new commit.",
 		Long:  "Start a new commit with parent-commit-id as the parent.",
 		Run: pkgcobra.RunFixedArgs(2, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			commit, err := pfsutil.StartCommit(apiClient, args[0], args[1])
 			if err != nil {
 				return err
@@ -103,6 +115,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
 		Run: pkgcobra.RunFixedArgs(2, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			return pfsutil.FinishCommit(apiClient, args[0], args[1])
 		}),
 	}
@@ -112,6 +128,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return info about a commit.",
 		Long:  "Return info about a commit.",
 		Run: pkgcobra.RunFixedArgs(2, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			commitInfo, err := pfsutil.InspectCommit(apiClient, args[0], args[1])
 			if err != nil {
 				return err
@@ -131,6 +151,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return all commits on a repo.",
 		Long:  "Return all commits on a repo.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			commitInfos, err := pfsutil.ListCommit(apiClient, args[0])
 			if err != nil {
 				return err
@@ -149,6 +173,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Delete a commit.",
 		Long:  "Delete a commit.",
 		Run: pkgcobra.RunFixedArgs(2, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			return pfsutil.DeleteCommit(apiClient, args[0], args[1])
 		}),
 	}
@@ -158,6 +186,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Put a block from stdin",
 		Long:  "Put a block from stdin. Directories must exist. commit-id must be a writeable commit.",
 		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			block, err := pfsutil.PutBlock(apiClient, args[0], args[1], args[2], os.Stdin)
 			if err != nil {
 				return err
@@ -172,6 +204,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return the contents of a block.",
 		Long:  "Return the contents of a block.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			return pfsutil.GetBlock(apiClient, args[0], os.Stdout)
 		}),
 	}
@@ -181,6 +217,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return info about a block.",
 		Long:  "Return info about a block.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			blockInfo, err := pfsutil.InspectBlock(apiClient, args[0])
 			if err != nil {
 				return err
@@ -200,6 +240,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return the blocks in a directory.",
 		Long:  "Return the blocks in a directory.",
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			blockInfos, err := pfsutil.ListBlock(apiClient, uint64(shard), uint64(modulus))
 			if err != nil {
 				return err
@@ -220,6 +264,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Make a directory.",
 		Long:  "Make a directory. Parent directories need not exist.",
 		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			return pfsutil.MakeDirectory(apiClient, args[0], args[1], args[2])
 		}),
 	}
@@ -229,7 +277,11 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Put a file from stdin",
 		Long:  "Put a file from stdin. Directories must exist. commit-id must be a writeable commit.",
 		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
-			_, err := pfsutil.PutFile(apiClient, args[0], args[1], args[2], 0, os.Stdin)
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
+			_, err = pfsutil.PutFile(apiClient, args[0], args[1], args[2], 0, os.Stdin)
 			return err
 		}),
 	}
@@ -239,6 +291,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return the contents of a file.",
 		Long:  "Return the contents of a file.",
 		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			return pfsutil.GetFile(apiClient, args[0], args[1], args[2], 0, math.MaxInt64, os.Stdout)
 		}),
 	}
@@ -248,6 +304,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return info about a file.",
 		Long:  "Return info about a file.",
 		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			fileInfo, err := pfsutil.InspectFile(apiClient, args[0], args[1], args[2])
 			if err != nil {
 				return err
@@ -267,6 +327,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return the files in a directory.",
 		Long:  "Return the files in a directory.",
 		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			fileInfos, err := pfsutil.ListFile(apiClient, args[0], args[1], args[2], uint64(shard), uint64(modulus))
 			if err != nil {
 				return err
@@ -287,6 +351,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Delete a file.",
 		Long:  "Delete a file.",
 		Run: pkgcobra.RunFixedArgs(2, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			return pfsutil.DeleteFile(apiClient, args[0], args[1], args[2])
 		}),
 	}
@@ -296,6 +364,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return the changes in a directory.",
 		Long:  "Return the changes in a directory.",
 		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			changeInfos, err := pfsutil.ListChange(apiClient, args[0], args[1], args[2], uint64(shard), uint64(modulus))
 			if err != nil {
 				return err
@@ -316,6 +388,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Inspect a server.",
 		Long:  "Inspect a server.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			serverInfo, err := pfsutil.InspectServer(apiClient, args[0])
 			if err != nil {
 				return err
@@ -332,6 +408,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return all servers in the cluster.",
 		Long:  "Return all servers in the cluster.",
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			serverInfos, err := pfsutil.ListServer(apiClient)
 			if err != nil {
 				return err
@@ -350,6 +430,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Mount pfs locally.",
 		Long:  "Mount pfs locally.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 1}, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			mountPoint := "/pfs"
 			if len(args) > 0 {
 				mountPoint = args[0]
@@ -362,7 +446,6 @@ func Cmds(address string) ([]*cobra.Command, error) {
 	mount.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	var result []*cobra.Command
-	result = append(result, protoclient.NewVersionCommand(clientConn, pachyderm.Version, nil))
 	result = append(result, createRepo)
 	result = append(result, inspectRepo)
 	result = append(result, listRepo)
@@ -387,4 +470,12 @@ func Cmds(address string) ([]*cobra.Command, error) {
 	result = append(result, listServer)
 	result = append(result, mount)
 	return result, nil
+}
+
+func getAPIClient(address string) (pfs.APIClient, error) {
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	return pfs.NewAPIClient(clientConn), nil
 }

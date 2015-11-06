@@ -16,12 +16,6 @@ import (
 )
 
 func Cmds(address string) ([]*cobra.Command, error) {
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	jobAPIClient := pps.NewJobAPIClient(clientConn)
-	pipelineAPIClient := pps.NewPipelineAPIClient(clientConn)
 	var image string
 	var outParentCommitID string
 	createJob := &cobra.Command{
@@ -31,7 +25,11 @@ func Cmds(address string) ([]*cobra.Command, error) {
 out-repo-name as output. A commit will be created for the output.
 You can find out the name of the commit with inspect-job.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			job, err := jobAPIClient.CreateJob(
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				errorAndExit("Error connecting to pps: %s", err.Error())
+			}
+			job, err := apiClient.CreateJob(
 				context.Background(),
 				&pps.CreateJobRequest{
 					Spec: &pps.CreateJobRequest_Transform{
@@ -67,7 +65,11 @@ You can find out the name of the commit with inspect-job.`,
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			jobInfo, err := jobAPIClient.InspectJob(
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
+			jobInfo, err := apiClient.InspectJob(
 				context.Background(),
 				&pps.InspectJobRequest{
 					Job: &pps.Job{
@@ -94,13 +96,17 @@ You can find out the name of the commit with inspect-job.`,
 		Short: "Return info about all jobs.",
 		Long:  "Return info about all jobs.",
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
 			var pipeline *pps.Pipeline
 			if pipelineName != "" {
 				pipeline = &pps.Pipeline{
 					Name: pipelineName,
 				}
 			}
-			jobInfos, err := jobAPIClient.ListJob(
+			jobInfos, err := apiClient.ListJob(
 				context.Background(),
 				&pps.ListJobRequest{
 					Pipeline: pipeline,
@@ -124,7 +130,11 @@ You can find out the name of the commit with inspect-job.`,
 		Short: "Return logs from a job.",
 		Long:  "Return logs from a job.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			logsClient, err := jobAPIClient.GetJobLogs(
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
+			logsClient, err := apiClient.GetJobLogs(
 				context.Background(),
 				&pps.GetJobLogsRequest{
 					Job: &pps.Job{
@@ -148,7 +158,11 @@ You can find out the name of the commit with inspect-job.`,
 		Short: "Create a new pipeline.",
 		Long:  "Create a new pipeline.",
 		Run: func(cmd *cobra.Command, args []string) {
-			if _, err := pipelineAPIClient.CreatePipeline(
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				errorAndExit("Error connecting to pps: %s", err.Error())
+			}
+			if _, err := apiClient.CreatePipeline(
 				context.Background(),
 				&pps.CreatePipelineRequest{
 					Pipeline: &pps.Pipeline{
@@ -177,7 +191,11 @@ You can find out the name of the commit with inspect-job.`,
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			pipelineInfo, err := pipelineAPIClient.InspectPipeline(
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
+			pipelineInfo, err := apiClient.InspectPipeline(
 				context.Background(),
 				&pps.InspectPipelineRequest{
 					Pipeline: &pps.Pipeline{
@@ -203,7 +221,11 @@ You can find out the name of the commit with inspect-job.`,
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
-			pipelineInfos, err := pipelineAPIClient.ListPipeline(
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
+			pipelineInfos, err := apiClient.ListPipeline(
 				context.Background(),
 				&pps.ListPipelineRequest{},
 			)
@@ -224,7 +246,11 @@ You can find out the name of the commit with inspect-job.`,
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			if _, err := pipelineAPIClient.DeletePipeline(
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
+			if _, err := apiClient.DeletePipeline(
 				context.Background(),
 				&pps.DeletePipelineRequest{
 					Pipeline: &pps.Pipeline{
@@ -253,4 +279,12 @@ You can find out the name of the commit with inspect-job.`,
 func errorAndExit(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "%s\n", fmt.Sprintf(format, args...))
 	os.Exit(1)
+}
+
+func getAPIClient(address string) (pps.APIClient, error) {
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	return pps.NewAPIClient(clientConn), nil
 }

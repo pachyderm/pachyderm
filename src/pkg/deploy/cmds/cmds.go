@@ -10,41 +10,26 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/pkg/deploy/server"
-	_provider "github.com/pachyderm/pachyderm/src/pkg/provider"
+	provider "github.com/pachyderm/pachyderm/src/pkg/provider"
 )
 
 func Cmds(
-	KubernetesAddress string,
-	KubernetesUsername string,
-	KubernetesPassword string,
-	Provider string,
-	GCEProject string,
-	GCEZone string,
+	kubernetesAddress string,
+	kubernetesUsername string,
+	kubernetesPassword string,
+	providerName string,
+	gceProject string,
+	gceZone string,
 ) ([]*cobra.Command, error) {
-	config := &kube.Config{
-		Host:     KubernetesAddress,
-		Insecure: true,
-		Username: KubernetesUsername,
-		Password: KubernetesPassword,
-	}
-	client, err := kube.New(config)
-	if err != nil {
-		return nil, err
-	}
-	var provider _provider.Provider
-	if Provider == "GCE" {
-		provider, err = _provider.NewGoogleProvider(context.TODO(), GCEProject, GCEZone)
-		if err != nil {
-			return nil, err
-		}
-	}
-	apiServer := server.NewAPIServer(client, provider)
-
 	createCluster := &cobra.Command{
 		Use:   "create-cluster cluster-name nodes shards replicas",
 		Short: "Create a new pachyderm cluster.",
 		Long:  "Create a new pachyderm cluster.",
 		Run: pkgcobra.RunFixedArgs(4, func(args []string) error {
+			apiServer, err := getAPIServer(kubernetesAddress, kubernetesUsername, kubernetesPassword, providerName, gceProject, gceZone)
+			if err != nil {
+				return err
+			}
 			nodes, err := strconv.ParseUint(args[1], 10, 64)
 			if err != nil {
 				return err
@@ -76,6 +61,10 @@ func Cmds(
 		Short: "Delete a cluster.",
 		Long:  "Delete a cluster.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			apiServer, err := getAPIServer(kubernetesAddress, kubernetesUsername, kubernetesPassword, providerName, gceProject, gceZone)
+			if err != nil {
+				return err
+			}
 			_, err = apiServer.DeleteCluster(
 				context.Background(),
 				&deploy.DeleteClusterRequest{
@@ -91,4 +80,36 @@ func Cmds(
 	result = append(result, createCluster)
 	result = append(result, deleteCluster)
 	return result, nil
+}
+
+func getAPIServer(
+	kubernetesAddress string,
+	kubernetesUsername string,
+	kubernetesPassword string,
+	providerName string,
+	gceProject string,
+	gceZone string,
+) (server.APIServer, error) {
+	config := &kube.Config{
+		Host:     kubernetesAddress,
+		Insecure: true,
+		Username: kubernetesUsername,
+		Password: kubernetesPassword,
+	}
+	kubeClient, err := kube.New(config)
+	if err != nil {
+		return nil, err
+	}
+	provider, err := getProvider(providerName, gceProject, gceZone)
+	if err != nil {
+		return nil, err
+	}
+	return server.NewAPIServer(kubeClient, provider), nil
+}
+
+func getProvider(providerName string, gceProject string, gceZone string) (provider.Provider, error) {
+	if providerName == "gce" {
+		return provider.NewGoogleProvider(context.TODO(), gceProject, gceZone)
+	}
+	return nil, nil
 }
