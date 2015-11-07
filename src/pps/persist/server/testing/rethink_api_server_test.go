@@ -32,5 +32,4 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	require.NoError(t, err)
 	require.Equal(t, jobInfo.JobId, getJobInfo.JobId)
 	require.Equal(t, "foo", getJobInfo.GetPipelineName())
-	require.NotNil(t, getJobInfo.CreatedAt)
 }
