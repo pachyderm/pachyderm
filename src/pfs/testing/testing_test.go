@@ -41,6 +41,7 @@ func TestFailures(t *testing.T) {
 }
 
 func TestFuseMount(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 	RunTest(t, testMount)
 }
