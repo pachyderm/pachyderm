@@ -96,7 +96,7 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteR
 
 }
 
-func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (*pfs.Commit, error) {
+func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (*google_protobuf.Empty, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartC
 	if err := a.pulseCommitWaiters(request.Commit, pfs.CommitType_COMMIT_TYPE_WRITE, shards); err != nil {
 		return nil, err
 	}
-	return request.Commit, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (*google_protobuf.Empty, error) {
@@ -191,7 +191,7 @@ func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.Delet
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *internalAPIServer) PutBlock(ctx context.Context, request *pfs.PutBlockRequest) (*pfs.Block, error) {
+func (a *internalAPIServer) PutBlock(ctx context.Context, request *pfs.PutBlockRequest) (*google_protobuf.Empty, error) {
 	version, err := a.getVersion(ctx)
 	if err != nil {
 		return nil, err
@@ -201,10 +201,10 @@ func (a *internalAPIServer) PutBlock(ctx context.Context, request *pfs.PutBlockR
 	if err != nil {
 		return nil, err
 	}
-	return block, a.driver.PutBlock(request.File, block, shard, bytes.NewReader(request.Value))
+	return google_protobuf.EmptyInstance, a.driver.PutBlock(request.File, block, shard, bytes.NewReader(request.Value))
 }
 
-func (a *internalAPIServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.API_GetBlockServer) (retErr error) {
+func (a *internalAPIServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.InternalAPI_GetBlockServer) (retErr error) {
 	version, err := a.getVersion(apiGetBlockServer.Context())
 	if err != nil {
 		return err
@@ -283,7 +283,7 @@ func (a *internalAPIServer) ListBlock(ctx context.Context, request *pfs.ListBloc
 	}, nil
 }
 
-func (a *internalAPIServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
+func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer) (retErr error) {
 	version, err := a.getVersion(putFileServer.Context())
 	if err != nil {
 		return err
@@ -334,7 +334,7 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr
 	return nil
 }
 
-func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
+func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.InternalAPI_GetFileServer) (retErr error) {
 	version, err := a.getVersion(apiGetFileServer.Context())
 	if err != nil {
 		return err
@@ -547,7 +547,7 @@ func (a *internalAPIServer) AddShard(_shard uint64, version int64) error {
 	if err != nil {
 		return err
 	}
-	repoInfos, err := pfs.NewAPIClient(clientConn).ListRepo(ctx, &pfs.ListRepoRequest{})
+	repoInfos, err := pfs.NewInternalAPIClient(clientConn).ListRepo(ctx, &pfs.ListRepoRequest{})
 	if err != nil {
 		return err
 	}
@@ -555,7 +555,7 @@ func (a *internalAPIServer) AddShard(_shard uint64, version int64) error {
 		if err := a.driver.CreateRepo(repoInfo.Repo); err != nil {
 			return err
 		}
-		commitInfos, err := pfs.NewAPIClient(clientConn).ListCommit(ctx, &pfs.ListCommitRequest{Repo: repoInfo.Repo})
+		commitInfos, err := pfs.NewInternalAPIClient(clientConn).ListCommit(ctx, &pfs.ListCommitRequest{Repo: repoInfo.Repo})
 		if err != nil {
 			return err
 		}
@@ -724,7 +724,7 @@ func (a *internalAPIServer) commitToReplicas(ctx context.Context, commit *pfs.Co
 }
 
 type putFileReader struct {
-	server pfs.API_PutFileServer
+	server pfs.InternalAPI_PutFileServer
 	buffer bytes.Buffer
 }
 

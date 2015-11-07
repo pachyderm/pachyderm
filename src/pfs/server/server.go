@@ -14,7 +14,7 @@ type APIServer interface {
 }
 
 type InternalAPIServer interface {
-	pfs.APIServer
+	pfs.InternalAPIServer
 	pfs.ReplicaAPIServer
 	shard.Server
 }
