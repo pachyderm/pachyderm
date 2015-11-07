@@ -224,7 +224,7 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 			router,
 			getDriver(tb, address),
 		)
-		pfs.RegisterInternalAPIServer(s, internalAPIServer)
+		pfs.RegisterAPIServer(s, internalAPIServer)
 		cluster.internalServers[address] = internalAPIServer
 		cluster.internalCancels[address] = make(chan bool)
 		go func(address string) {

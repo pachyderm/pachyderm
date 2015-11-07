@@ -388,11 +388,11 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Inspect a server.",
 		Long:  "Inspect a server.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			apiClient, err := getAPIClient(address)
+			clusterAPIClient, err := getClusterAPIClient(address)
 			if err != nil {
 				return err
 			}
-			serverInfo, err := pfsutil.InspectServer(apiClient, args[0])
+			serverInfo, err := pfsutil.InspectServer(clusterAPIClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -408,11 +408,11 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return all servers in the cluster.",
 		Long:  "Return all servers in the cluster.",
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
-			apiClient, err := getAPIClient(address)
+			clusterAPIClient, err := getClusterAPIClient(address)
 			if err != nil {
 				return err
 			}
-			serverInfos, err := pfsutil.ListServer(apiClient)
+			serverInfos, err := pfsutil.ListServer(clusterAPIClient)
 			if err != nil {
 				return err
 			}
@@ -478,4 +478,12 @@ func getAPIClient(address string) (pfs.APIClient, error) {
 		return nil, err
 	}
 	return pfs.NewAPIClient(clientConn), nil
+}
+
+func getClusterAPIClient(address string) (pfs.ClusterAPIClient, error) {
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	return pfs.NewClusterAPIClient(clientConn), nil
 }

@@ -111,7 +111,7 @@ func do(appEnvObj interface{}) error {
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
 			pfs.RegisterAPIServer(s, apiServer)
-			pfs.RegisterInternalAPIServer(s, internalAPIServer)
+			pfs.RegisterAPIServer(s, internalAPIServer)
 		},
 		protoserver.ServeOptions{
 			HTTPPort:  uint16(appEnv.HTTPPort),
