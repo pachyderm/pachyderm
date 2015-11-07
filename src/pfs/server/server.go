@@ -9,11 +9,13 @@ import (
 
 type APIServer interface {
 	pfs.APIServer
+	pfs.ClusterAPIServer
 	shard.Frontend
 }
 
 type InternalAPIServer interface {
-	pfs.InternalAPIServer
+	pfs.APIServer
+	pfs.ReplicaAPIServer
 	shard.Server
 }
 

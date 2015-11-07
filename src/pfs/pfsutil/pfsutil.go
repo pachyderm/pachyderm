@@ -245,13 +245,13 @@ func PutFile(apiClient pfs.APIClient, repoName string, commitID string, path str
 	for {
 		value := make([]byte, chunkSize)
 		iSize, err := reader.Read(value)
-		request.Value = value[0:iSize]
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
 			return 0, err
 		}
+		request.Value = value[0:iSize]
 		size += iSize
 		if err := putFileClient.Send(&request); err != nil {
 			return 0, err
@@ -404,8 +404,8 @@ func MakeDirectory(apiClient pfs.APIClient, repoName string, commitID string, pa
 	)
 }
 
-func InspectServer(apiClient pfs.APIClient, serverID string) (*pfs.ServerInfo, error) {
-	return apiClient.InspectServer(
+func InspectServer(clusterAPIClient pfs.ClusterAPIClient, serverID string) (*pfs.ServerInfo, error) {
+	return clusterAPIClient.InspectServer(
 		context.Background(),
 		&pfs.InspectServerRequest{
 			Server: &pfs.Server{
@@ -415,8 +415,8 @@ func InspectServer(apiClient pfs.APIClient, serverID string) (*pfs.ServerInfo, e
 	)
 }
 
-func ListServer(apiClient pfs.APIClient) ([]*pfs.ServerInfo, error) {
-	serverInfos, err := apiClient.ListServer(
+func ListServer(clusterAPIClient pfs.ClusterAPIClient) ([]*pfs.ServerInfo, error) {
+	serverInfos, err := clusterAPIClient.ListServer(
 		context.Background(),
 		&pfs.ListServerRequest{},
 	)
@@ -426,8 +426,8 @@ func ListServer(apiClient pfs.APIClient) ([]*pfs.ServerInfo, error) {
 	return serverInfos.ServerInfo, nil
 }
 
-func PullDiff(internalAPIClient pfs.InternalAPIClient, repoName string, commitID string, shard uint64, writer io.Writer) error {
-	apiPullDiffClient, err := internalAPIClient.PullDiff(
+func PullDiff(replicaAPIClient pfs.ReplicaAPIClient, repoName string, commitID string, shard uint64, writer io.Writer) error {
+	apiPullDiffClient, err := replicaAPIClient.PullDiff(
 		context.Background(),
 		&pfs.PullDiffRequest{
 			Commit: &pfs.Commit{
@@ -448,23 +448,38 @@ func PullDiff(internalAPIClient pfs.InternalAPIClient, repoName string, commitID
 	return nil
 }
 
-func PushDiff(internalAPIClient pfs.InternalAPIClient, repoName string, commitID string, shard uint64, reader io.Reader) error {
-	value, err := ioutil.ReadAll(reader)
+func PushDiff(replicaAPIClient pfs.ReplicaAPIClient, repoName string, commitID string, shard uint64, reader io.Reader) (retErr error) {
+	pushDiffClient, err := replicaAPIClient.PushDiff(context.Background())
 	if err != nil {
 		return err
 	}
-	_, err = internalAPIClient.PushDiff(
-		context.Background(),
-		&pfs.PushDiffRequest{
-			Commit: &pfs.Commit{
-				Repo: &pfs.Repo{
-					Name: repoName,
-				},
-				Id: commitID,
+	defer func() {
+		if _, err := pushDiffClient.CloseAndRecv(); err != nil && retErr != nil {
+			retErr = err
+		}
+	}()
+	request := pfs.PushDiffRequest{
+		Commit: &pfs.Commit{
+			Repo: &pfs.Repo{
+				Name: repoName,
 			},
-			Shard: shard,
-			Value: value,
+			Id: commitID,
 		},
-	)
-	return err
+		Shard: shard,
+	}
+	for {
+		value := make([]byte, chunkSize)
+		size, err := reader.Read(value)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		request.Value = value[0:size]
+		if err = pushDiffClient.Send(&request); err != nil {
+			return err
+		}
+	}
+	return nil
 }
