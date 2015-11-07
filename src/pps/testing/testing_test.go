@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/jobserver/run"
 )
 
 const (
@@ -37,7 +36,7 @@ var (
 		transform: &pps.Transform{
 			Image: "ubuntu:14.04",
 			Cmd: []string{
-				fmt.Sprintf("for file in %s/*; do cp \"${file}\" %s/$(basename \"${file}\").output; done", jobserverrun.InputMountDir, jobserverrun.OutputMountDir),
+				fmt.Sprintf("for file in /pfs/*; do cp \"${file}\" /pfs/$(basename \"${file}\").output; done"),
 			},
 		},
 	}
