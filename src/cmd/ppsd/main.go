@@ -50,14 +50,14 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	pfsAPIClient := pfs.NewAPIClient(clientConn)
-	client, err := kube.NewInCluster()
+	kubeClient, err := kube.NewInCluster()
 	if err != nil {
 		return err
 	}
 	jobAPIServer := jobserver.NewAPIServer(
 		pfsAPIClient,
 		rethinkAPIClient,
-		client,
+		kubeClient,
 	)
 	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 	pipelineAPIServer := pipelineserver.NewAPIServer(pfsAPIClient, jobAPIClient, rethinkAPIClient)
