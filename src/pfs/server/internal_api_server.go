@@ -8,16 +8,15 @@ import (
 	"strings"
 	"sync"
 
-	"google.golang.org/grpc/metadata"
-
+	"go.pedge.io/google-protobuf"
+	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
-	"go.pedge.io/google-protobuf"
-	"go.pedge.io/proto/stream"
 )
 
 type internalAPIServer struct {
@@ -491,8 +490,8 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *internalAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffServer pfs.ReplicaAPI_PullDiffServer) error {
-	version, err := a.getVersion(apiPullDiffServer.Context())
+func (a *internalAPIServer) PullDiff(request *pfs.PullDiffRequest, pullDiffServer pfs.ReplicaAPI_PullDiffServer) error {
+	version, err := a.getVersion(pullDiffServer.Context())
 	if err != nil {
 		return err
 	}
@@ -503,7 +502,7 @@ func (a *internalAPIServer) PullDiff(request *pfs.PullDiffRequest, apiPullDiffSe
 	if !ok {
 		return fmt.Errorf("pachyderm: illegal PullDiffRequest for unknown shard %d", request.Shard)
 	}
-	writer := protostream.NewStreamingBytesWriter(apiPullDiffServer)
+	writer := protostream.NewStreamingBytesWriter(pullDiffServer)
 	return a.driver.PullDiff(request.Commit, request.Shard, writer)
 }
 
@@ -528,14 +527,14 @@ func (a *internalAPIServer) PushDiff(pushDiffServer pfs.ReplicaAPI_PushDiffServe
 	if !ok {
 		return fmt.Errorf("pachyderm: illegal PushDiffRequest for unknown shard %d", request.Shard)
 	}
-	reader := pushDiffReader{
+	reader := &pushDiffReader{
 		server: pushDiffServer,
 	}
 	_, err = reader.buffer.Write(request.Value)
 	if err != nil {
 		return err
 	}
-	return a.driver.PushDiff(request.Commit, request.Shard, &reader)
+	return a.driver.PushDiff(request.Commit, request.Shard, reader)
 }
 
 func (a *internalAPIServer) AddShard(_shard uint64, version int64) error {

@@ -5,6 +5,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
+	"golang.org/x/net/context"
 )
 
 type APIServer interface {
@@ -17,6 +18,10 @@ type InternalAPIServer interface {
 	pfs.InternalAPIServer
 	pfs.ReplicaAPIServer
 	shard.Server
+}
+
+type ReplicaAPIServer interface {
+	pfs.ReplicaAPIServer
 }
 
 // NewAPIServer returns a new APIServer.
@@ -41,4 +46,8 @@ func NewInternalAPIServer(
 		router,
 		driver,
 	)
+}
+
+func NewGoogleReplicaAPIServer(ctx context.Context, bucket string) ReplicaAPIServer {
+	return newGoogleReplicaAPIServer(ctx, bucket)
 }
