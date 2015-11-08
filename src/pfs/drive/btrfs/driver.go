@@ -202,14 +202,6 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 			if readOnly {
 				commitType = pfs.CommitType_COMMIT_TYPE_READ
 			}
-			writeStat, err := os.Stat(d.writeCommitPath(commit, shard))
-			if err != nil {
-				if loopErr == nil {
-					loopErr = err
-				}
-				return
-			}
-			startTime := writeStat.ModTime()
 			var finishTime *time.Time
 			if commitType == pfs.CommitType_COMMIT_TYPE_READ {
 				readStat, err := os.Stat(d.readCommitPath(commit, shard))
@@ -251,9 +243,6 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 				result.CommitType = commitType
 			}
 			result.ParentCommit = parent
-			if result.Started == nil || startTime.Before(prototime.TimestampToTime(result.Started)) {
-				result.Started = prototime.TimeToTimestamp(startTime)
-			}
 			if finishTime != nil && (result.Finished == nil || finishTime.After(prototime.TimestampToTime(result.Finished))) {
 				result.Finished = prototime.TimeToTimestamp(*finishTime)
 			}
@@ -292,13 +281,13 @@ func (d *driver) ListCommit(repo *pfs.Repo, from *pfs.Commit, shards map[uint64]
 			},
 			shards,
 		)
+		if err != nil {
+			return nil, err
+		}
 		if commitInfo == nil {
 			// It's possible for us to not find a commit if it's in the middle
 			// of being committed, we ignore partial commits.
 			continue
-		}
-		if err != nil {
-			return nil, err
 		}
 		commitInfos = append(commitInfos, commitInfo)
 	}
