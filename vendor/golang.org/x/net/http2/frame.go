@@ -574,6 +574,8 @@ type PingFrame struct {
 	Data [8]byte
 }
 
+func (f *PingFrame) IsAck() bool { return f.Flags.Has(FlagPingAck) }
+
 func parsePingFrame(fh FrameHeader, payload []byte) (Frame, error) {
 	if len(payload) != 8 {
 		return nil, ConnectionError(ErrCodeFrameSize)

@@ -20,6 +20,7 @@ package blackfriday
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"unicode/utf8"
 )
@@ -452,7 +453,8 @@ func secondPass(p *parser, input []byte) []byte {
 	if p.flags&EXTENSION_FOOTNOTES != 0 && len(p.notes) > 0 {
 		p.r.Footnotes(&output, func() bool {
 			flags := LIST_ITEM_BEGINNING_OF_LIST
-			for _, ref := range p.notes {
+			for i := 0; i < len(p.notes); i += 1 {
+				ref := p.notes[i]
 				var buf bytes.Buffer
 				if ref.hasBlock {
 					flags |= LIST_ITEM_CONTAINS_BLOCK
@@ -513,6 +515,11 @@ type reference struct {
 	noteId   int // 0 if not a footnote ref
 	hasBlock bool
 	text     []byte
+}
+
+func (r *reference) String() string {
+	return fmt.Sprintf("{link: %q, title: %q, text: %q, noteId: %d, hasBlock: %v}",
+		r.link, r.title, r.text, r.noteId, r.hasBlock)
 }
 
 // Check whether or not data starts with a reference link.

@@ -1076,7 +1076,7 @@ func (sc *serverConn) processFrame(f Frame) error {
 
 func (sc *serverConn) processPing(f *PingFrame) error {
 	sc.serveG.check()
-	if f.Flags.Has(FlagSettingsAck) {
+	if f.IsAck() {
 		// 6.7 PING: " An endpoint MUST NOT respond to PING frames
 		// containing this flag."
 		return nil

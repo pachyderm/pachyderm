@@ -6,7 +6,7 @@ Many of the most widely used Go projects are built using Cobra including:
 
 * [Kubernetes](http://kubernetes.io/)
 * [Hugo](http://gohugo.io)
-* [Rocket](https://github.com/coreos/rkt)
+* [rkt](https://github.com/coreos/rkt)
 * [Docker (distribution)](https://github.com/docker/distribution) 
 * [OpenShift](https://www.openshift.com/)
 * [Delve](https://github.com/derekparker/delve)
@@ -19,7 +19,7 @@ Many of the most widely used Go projects are built using Cobra including:
 
 [![Build Status](https://travis-ci.org/spf13/cobra.svg)](https://travis-ci.org/spf13/cobra)
 
-![cobra2](https://cloud.githubusercontent.com/assets/173412/10886433/03662176-8150-11e5-8509-a0e1997183ba.gif)
+![cobra](https://cloud.githubusercontent.com/assets/173412/10911369/84832a8e-8212-11e5-9f82-cc96660a4794.gif)
 
 ## Overview
 
@@ -85,7 +85,7 @@ A Command has the following structure:
 ### Flags
 
 A Flag is a way to modify the behavior of an command. Cobra supports
-fully posix compliant flags as well as the go flag package. 
+fully posix compliant flags as well as the go flag package.
 A Cobra command can define flags that persist through to children commands
 and flags that are only available to that command.
 
@@ -306,7 +306,7 @@ around it. In fact you can provide your own if you want.
 
 You can provide your own Help command or you own template for the default command to use.
 
-The default help command is 
+The default help command is
 
     func (c *Command) initHelp() {
         if c.helpCommand == nil {
@@ -380,13 +380,13 @@ Like help the function and template are over ridable through public methods.
 
 ## PreRun or PostRun Hooks
 
-It is possible to run functions before or after the main `Run` function of your command. The `PersistentPreRun` and `PreRun` functions will be executed before `Run`. `PersistendPostRun` and `PostRun` will be executed after `Run`.  The `Persistent*Run` functions will be inherrited by children if they do not declare their own.  These function are run in the following order:
+It is possible to run functions before or after the main `Run` function of your command. The `PersistentPreRun` and `PreRun` functions will be executed before `Run`. `PersistentPostRun` and `PostRun` will be executed after `Run`.  The `Persistent*Run` functions will be inherrited by children if they do not declare their own.  These function are run in the following order:
 
 - `PersistentPreRun`
 - `PreRun`
 - `Run`
 - `PostRun`
-- `PersistenPostRun`
+- `PersistentPostRun`
 
 And example of two commands which use all of these features is below.  When the subcommand in executed it will run the root command's `PersistentPreRun` but not the root command's `PersistentPostRun`
 
@@ -448,6 +448,48 @@ func main() {
 }
 ```
 
+
+## Alternative Error Handling
+
+Cobra also has functions where the return signature is an error. This allows for errors to bubble up to the top, providing a way to handle the  errors in one location. The current list of functions that return an error is:
+
+* PersistentPreRunE
+* PreRunE
+* RunE
+* PostRunE
+* PersistentPostRunE
+
+**Example Usage using RunE:**
+
+```go
+package main
+
+import (
+	"errors"
+	"log"
+
+	"github.com/spf13/cobra"
+)
+
+func main() {
+	var rootCmd = &cobra.Command{
+		Use:   "hugo",
+		Short: "Hugo is a very fast static site generator",
+		Long: `A Fast and Flexible Static Site Generator built with
+                love by spf13 and friends in Go.
+                Complete documentation is available at http://hugo.spf13.com`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Do Stuff Here
+			return errors.New("some random error")
+		},
+	}
+
+	if err := rootCmd.Execute(); err != nil {
+		log.Fatal(err)
+	}
+}
+```
+
 ## Suggestions when "unknown command" happens
 
 Cobra will print automatic suggestions when "unknown command" errors happen. This allows Cobra to behavior similarly to the `git` command when a typo happens. For example:
@@ -468,7 +510,7 @@ If you need to disable suggestions or tweak the string distance in your command,
 
     command.DisableSuggestions = true
 
-or 
+or
 
     command.SuggestionsMinimumDistance = 1
 
@@ -552,4 +594,3 @@ Cobra is released under the Apache 2.0 license. See [LICENSE.txt](https://github
 
 
 [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/spf13/cobra/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
-

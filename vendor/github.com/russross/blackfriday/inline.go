@@ -205,19 +205,26 @@ func link(p *parser, out *bytes.Buffer, data []byte, offset int) int {
 		return 0
 	}
 
-	// [text] == regular link
+	var t linkType
+	switch {
+	// special case: ![^text] == deferred footnote (that follows something with
+	// an exclamation point)
+	case p.flags&EXTENSION_FOOTNOTES != 0 && len(data)-1 > offset && data[offset+1] == '^':
+		t = linkDeferredFootnote
 	// ![alt] == image
+	case offset > 0 && data[offset-1] == '!':
+		t = linkImg
 	// ^[text] == inline footnote
 	// [^refId] == deferred footnote
-	var t linkType
-	if offset > 0 && data[offset-1] == '!' {
-		t = linkImg
-	} else if p.flags&EXTENSION_FOOTNOTES != 0 {
+	case p.flags&EXTENSION_FOOTNOTES != 0:
 		if offset > 0 && data[offset-1] == '^' {
 			t = linkInlineFootnote
 		} else if len(data)-1 > offset && data[offset+1] == '^' {
 			t = linkDeferredFootnote
 		}
+	// [text] == regular link
+	default:
+		t = linkNormal
 	}
 
 	data = data[offset:]
