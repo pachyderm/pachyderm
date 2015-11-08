@@ -104,11 +104,11 @@ func guessImportPath() string {
 		er("Cobra only supports project within $GOPATH")
 	}
 
-	return strings.TrimPrefix(projectPath, getSrcPath())
+	return filepath.Clean(strings.TrimPrefix(projectPath, getSrcPath()))
 }
 
 func getSrcPath() string {
-	return os.Getenv("GOPATH") + string(os.PathSeparator) + "src" + string(os.PathSeparator)
+	return filepath.Join(os.Getenv("GOPATH"), "src") + string(os.PathSeparator)
 }
 
 func projectName() string {
@@ -135,7 +135,7 @@ func guessProjectPath() {
 		}
 
 		if projectPath == "" {
-			projectPath = x
+			projectPath = filepath.Clean(x)
 			return
 		}
 	}
@@ -145,7 +145,7 @@ func guessProjectPath() {
 	if strings.ContainsRune(inputPath, os.PathSeparator) {
 		if filepath.IsAbs(inputPath) {
 			// if Absolute, use it
-			projectPath = inputPath
+			projectPath = filepath.Clean(inputPath)
 			return
 		}
 		// If not absolute but contains slashes.. assuming it means create it from $GOPATH
@@ -154,10 +154,10 @@ func guessProjectPath() {
 		switch count {
 		// If only one directory deep assume "github.com"
 		case 1:
-			projectPath = srcPath + "github.com" + string(os.PathSeparator) + inputPath
+			projectPath = filepath.Join(srcPath, "github.com", inputPath)
 			return
 		case 2:
-			projectPath = srcPath + inputPath
+			projectPath = filepath.Join(srcPath, inputPath)
 			return
 		default:
 			er("Unknown directory")
@@ -167,12 +167,12 @@ func guessProjectPath() {
 		if projectBase == "" {
 			x, err := getWd()
 			if err == nil {
-				projectPath = x + string(os.PathSeparator) + inputPath
+				projectPath = filepath.Join(x, inputPath)
 				return
 			}
 			er(err)
 		} else {
-			projectPath = srcPath + projectBase + string(os.PathSeparator) + inputPath
+			projectPath = filepath.Join(srcPath, projectBase, inputPath)
 			return
 		}
 	}

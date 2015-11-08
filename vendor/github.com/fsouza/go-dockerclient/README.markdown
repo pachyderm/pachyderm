@@ -12,7 +12,7 @@ passthrough to the libnetwork remote API.  Note that docker's network API is
 only available in docker 1.8 and above, and only enabled in docker if
 DOCKER_EXPERIMENTAL is defined during the docker build process.
 
-For more details, check the [remote API documentation](http://docs.docker.com/en/latest/reference/api/docker_remote_api/).
+For more details, check the [remote API documentation](http://docs.docker.com/engine/reference/api/docker_remote_api/).
 
 ## Vendoring
 
