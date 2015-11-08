@@ -78,6 +78,59 @@ func TestSimple(t *testing.T) {
 	require.Equal(t, changes[0].SizeBytes, uint64(3))
 }
 
+func TestCommitReordering(t *testing.T) {
+	driver1, err := NewDriver(getBtrfsRootDir(t), "drive.TestCommitReordering")
+	require.NoError(t, err)
+	shards := make(map[uint64]bool)
+	shards[0] = true
+	repo := &pfs.Repo{Name: "repo1"}
+	require.NoError(t, driver1.CreateRepo(repo))
+	commit1 := &pfs.Commit{
+		Repo: repo,
+		Id:   "commit1",
+	}
+	require.NoError(t, driver1.StartCommit(nil, commit1, shards))
+	require.NoError(t, driver1.FinishCommit(commit1, shards))
+	commit2 := &pfs.Commit{
+		Repo: repo,
+		Id:   "commit2",
+	}
+	require.NoError(t, driver1.StartCommit(commit1, commit2, shards))
+	commit3 := &pfs.Commit{
+		Repo: repo,
+		Id:   "commit3",
+	}
+	require.NoError(t, driver1.StartCommit(commit1, commit3, shards))
+	require.NoError(t, driver1.FinishCommit(commit3, shards))
+	require.NoError(t, driver1.FinishCommit(commit2, shards))
+
+	commitInfos, err := driver1.ListCommit(repo, nil, shards)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, commitInfos[0].Commit.Id, "commit3")
+	require.Equal(t, commitInfos[1].Commit.Id, "commit2")
+	require.Equal(t, commitInfos[2].Commit.Id, "commit1")
+	//Replicate repo
+	driver2, err := NewDriver(getBtrfsRootDir(t), "drive.TestCommitReorderingReplica")
+	require.NoError(t, err)
+	require.NoError(t, driver2.CreateRepo(repo))
+	var buffer bytes.Buffer
+	require.NoError(t, driver1.PullDiff(commit1, 0, &buffer))
+	require.NoError(t, driver2.PushDiff(commit1, 0, &buffer))
+	buffer = bytes.Buffer{}
+	require.NoError(t, driver1.PullDiff(commit3, 0, &buffer))
+	require.NoError(t, driver2.PushDiff(commit3, 0, &buffer))
+	buffer = bytes.Buffer{}
+	require.NoError(t, driver1.PullDiff(commit2, 0, &buffer))
+	require.NoError(t, driver2.PushDiff(commit2, 0, &buffer))
+	commitInfos, err = driver2.ListCommit(repo, nil, shards)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, commitInfos[0].Commit.Id, "commit2")
+	require.Equal(t, commitInfos[1].Commit.Id, "commit3")
+	require.Equal(t, commitInfos[2].Commit.Id, "commit1")
+}
+
 func getBtrfsRootDir(tb testing.TB) string {
 	// TODO
 	rootDir := os.Getenv("PFS_DRIVER_ROOT")
