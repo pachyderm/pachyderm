@@ -49,10 +49,10 @@ vendor-without-update:
 vendor: vendor-update vendor-without-update
 
 build:
-	go build ./src/...
+	GO15VENDOREXPERIMENT=1 go build ./src/...
 
 install:
-	go install ./src/cmd/pfs-volume-driver ./src/cmd/pach
+	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pfs-volume-driver ./src/cmd/pach
 
 docker-build-btrfs:
 	docker-compose build btrfs

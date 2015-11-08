@@ -57,16 +57,12 @@ Rather than thinking in terms of map or reduce jobs, pps thinks in terms of pipe
 
 ## Development
 
-We're hiring! If you like ambitious distributed systems problems and think there should be a better alternative to Hadoop, please reach out. Email jobs@pachyderm.io.
+Pachyderm development requires Docker Compose and of course Docker itself. We
+recommend the [docker toolbox](https://www.docker.com/docker-toolbox) if you're
+on a Mac or Windows machine. Linux users should follow [this guide](http://docs.docker.com/engine/installation/ubuntulinux/).
 
 ### Running
 
-You need to install docker-compose for the Makefile commands to work.
-
-```shell
-curl -L https://github.com/docker/compose/releases/download/1.5.0rc2/docker-compose-$(uname -s)-$(uname -m) > /usr/local/bin/docker-compose
-chmod +x /usr/local/bin/docker-compose
-```
 
 You need to have Go 1.5 installed and have `GO15VENDOREXPERIMENT=1`.
 
@@ -77,9 +73,8 @@ make test-deps # download all golang dependencies
 make build # build the source code (does not build the tests)
 make test # run all the tests
 make clean # clean up all pachyderm state
-make launch-pfsd # launch the new pfsd daemon
+make launch # launch pachyderm
 make install # install all binaries locally
-pfs # if ${GOPATH}/bin is on your path, this will run the pfs cli
 ```
 
 ### Development Notes
