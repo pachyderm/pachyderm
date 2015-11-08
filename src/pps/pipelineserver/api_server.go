@@ -44,6 +44,7 @@ func (a *apiServer) Start() error {
 		return err
 	}
 	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
+		pipelineInfo := pipelineInfo
 		go func() {
 			if err := a.runPipeline(pipelineInfo); err != nil {
 				protolog.Printf("pipeline errored: %s", err.Error())
@@ -152,7 +153,6 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 			)
 		}
 	}
-	return nil
 }
 
 func (a *apiServer) bestParent(pipelineInfo *pps.PipelineInfo, inputCommitInfo *pfs.CommitInfo) (*pfs.Commit, error) {

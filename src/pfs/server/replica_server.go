@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	maxChunkSize       int = 1024 * 1024 * 1024 // 1 GB
-	minChunkSize       int = 5 * 1024 * 1024    // 5 MB
-	multipartThreshold int = 100 * 1024 * 1024  // 100 MB
+	maxChunkSize       = 1024 * 1024 * 1024 // 1 GB
+	minChunkSize       = 5 * 1024 * 1024    // 5 MB
+	multipartThreshold = 100 * 1024 * 1024  // 100 MB
 )
 
 type googleReplicaAPIServer struct {
