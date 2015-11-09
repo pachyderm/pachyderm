@@ -7,6 +7,7 @@ import (
 
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
+	"go.pedge.io/protolog"
 	"google.golang.org/grpc"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
@@ -52,7 +53,7 @@ func do(appEnvObj interface{}) error {
 	pfsAPIClient := pfs.NewAPIClient(clientConn)
 	kubeClient, err := kube.NewInCluster()
 	if err != nil {
-		return err
+		protolog.Printf("Error creating kubernetes client: %s", err.Error())
 	}
 	jobAPIServer := jobserver.NewAPIServer(
 		pfsAPIClient,
