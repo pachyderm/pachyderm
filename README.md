@@ -8,12 +8,15 @@
 * [Is Pachyderm enterprise production ready?](#is-pachyderm-enterprise-production-ready)
 * [What is a commit-based file system?](#what-is-a-commit-based-file-system)
 * [What are containerized analytics?](#what-are-containerized-analytics)
-* [Development](#development)
-    * [Running](#running)
-    * [Development Notes](#development-notes)
-      * [Logs](#logs)
-    * [Environment Setup](#environment-setup)
+* [Using Pachyderm](#using-pachyderm)
+    * [Prerequisites](#prerequisites)
+    * [Launch a Development Cluster](#launch-a-development-cluster)
+    * [Launch a Production Cluster](#launch-a-production-cluster)
     * [Common Problems](#common-problems)
+* [Environment Setup](#environment-setup)
+    * [Go Setup](#go-setup)
+    * [Docker Setup](#docker-setup)
+    * [Vagrant](#vagrant)
 * [Contributing](#contributing)
 
 ### News
@@ -55,36 +58,64 @@ an entire cluster's worth of data while still maintaining its commit history.
 
 Rather than thinking in terms of map or reduce jobs, pps thinks in terms of pipelines expressed within a container. A pipeline is a generic way expressing computation over large datasets and it’s containerized to make it easily portable, isolated, and easy to monitor. In Pachyderm, all analysis runs in containers. You can write them in any language you want and include any libraries. 
 
-## Development
+### Using Pachyderm
 
-Pachyderm development requires Docker Compose and of course Docker itself. We
-recommend the [docker toolbox](https://www.docker.com/docker-toolbox) if you're
-on a Mac or Windows machine. Linux users should follow [this guide](http://docs.docker.com/engine/installation/ubuntulinux/).
+#### Prerequisites
 
-### Running
+Requirements:
+- Go 1.5
+- Docker 1.9
 
+[More Info](#environment-setup)
 
-You need to have Go 1.5 installed and have `GO15VENDOREXPERIMENT=1`.
+#### Launch a Development Cluster
+To start a development cluster run:
 
-Useful development commands can be seen in the [Makefile](Makefile). Key commands:
-
-```
-make test-deps # download all golang dependencies
-make build # build the source code (does not build the tests)
-make test # run all the tests
-make clean # clean up all pachyderm state
-make launch # launch pachyderm
-make install # install all binaries locally
+```shell
+make launch
 ```
 
-### Development Notes
+This will compile the code on your local machine and launch it as a docker-compose service.
+A succesful launch looks like this:
 
-##### Logs
+```shell
+docker-compose ps
+        Name                       Command               State                                 Ports
+-----------------------------------------------------------------------------------------------------------------------------------
+pachyderm_btrfs_1       sh entrypoint.sh                 Up
+pachyderm_etcd_1        /etcd -advertise-client-ur ...   Up      0.0.0.0:2379->2379/tcp, 2380/tcp, 4001/tcp, 7001/tcp
+pachyderm_pfs-roler_1   /pfs-roler                       Up
+pachyderm_pfsd_1        sh btrfs-mount.sh /pfsd          Up      0.0.0.0:1050->1050/tcp, 0.0.0.0:650->650/tcp, 0.0.0.0:750->750/tcp
+pachyderm_ppsd_1        /ppsd                            Up      0.0.0.0:1051->1051/tcp, 0.0.0.0:651->651/tcp
+pachyderm_rethink_1     rethinkdb --bind all             Up      28015/tcp, 29015/tcp, 8080/tcp
+```
 
-We're using [protolog](http://go.pedge.io/protolog) for logging. All new log events should be wrapped in a protobuf message.
+#### Pachyderm CLI
+Pachyderm has a CLI called `pach`. To install it:
+
+```shell
+make install
+```
+
+`pach` should be able to access dev clusters without any additional setup.
+
+#### Launch a Production Cluster
+Before you can launch a production cluster you'll need a working Kubernetes deployment.
+You can start one locally on Docker using:
+
+```shell
+etc/kube/start-kube-docker.sh
+```
+
+You can then deploy a Pachyderm cluster on Kubernetes with:
+
+```shell
+pach create-cluster test-cluster 1 1 0
+```
 
 ### Environment Setup
 
+#### Go Setup
 With golang, it's generally easiest to have your fork match the import paths in the code. We recommend you do it like this:
 
 ```
@@ -94,6 +125,14 @@ cd ${GOPATH}/src/github.com/pachyderm
 git clone https://github.com/alice/pachyderm.git
 git remote add upstream https://github.com/pachyderm/pachyderm.git # so you can run 'git fetch upstream' to get upstream changes
 ```
+
+#### Docker Setup
+
+If you're on a Mac or Windows, easiest way to get up and running is the
+[Docker toolbox](https://www.docker.com/docker-toolbox). Linux users should
+follow [this guide](http://docs.docker.com/engine/installation/ubuntulinux/).
+
+#### Vagrant
 
 The [Vagrantfile](etc/initdev/Vagrantfile) in this repository will set up a development environment for Pachyderm
 that has all dependencies installed.
@@ -151,7 +190,7 @@ If this is set up properly, you do not need to use `sudo` to run `docker`. If yo
 sudo -E bash -c 'make test' # original command would have been `make test`
 ```
 
-## Contributing
+### Contributing
 
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
 
