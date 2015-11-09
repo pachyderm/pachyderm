@@ -54,6 +54,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	}
 	persistJobInfo.JobId = uuid.NewWithoutDashes()
 	persistJobInfo.CreatedAt = prototime.TimeToTimestamp(time.Now())
+	if a.kubeClient == nil {
+		return nil, fmt.Errorf("pachyderm.pps.jobserver: no job backend")
+	}
 	if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
 		return nil, err
 	}
