@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+
+import "pfs/pfs.proto";
+
+message BlockRef {
+    uint64 size_bytes = 1;
+    pfs.Block block = 2;
+}
+
+message Index {
+    repeated BlockRef block_refs = 1;
+}
+
+message Commit {
+    map<string, Index> Appends = 1;
+    map<string, bool> Deletes = 2;
+}
