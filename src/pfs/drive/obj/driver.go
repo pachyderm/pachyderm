@@ -214,24 +214,16 @@ func (d *driver) PutBlock(file *pfs.File, block *pfs.Block, shard uint64, reader
 	return nil
 }
 
-func (d *driver) putBlock(block *pfs.Block, data []byte) (retErr error) {
-	writer, err := d.objClient.Writer(d.blockPath(block))
-	if err != nil {
-		return nil
-	}
-	defer func() {
-		if err := writer.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	if _, err := writer.Write(data); err != nil {
-		return err
-	}
-	return nil
+func (d *driver) putBlock(block *pfs.Block) (io.WriteCloser, error) {
+	return d.objClient.Writer(d.blockPath(block))
 }
 
 func (d *driver) GetBlock(block *pfs.Block, shard uint64) (drive.ReaderAtCloser, error) {
 	return nil, nil
+}
+
+func (d *driver) getBlock(block *pfs.Block) (io.ReadCloser, error) {
+	return d.objClient.Reader(d.blockPath(block))
 }
 
 func (d *driver) InspectBlock(block *pfs.Block, shard uint64) (*pfs.BlockInfo, error) {
@@ -282,7 +274,16 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := d.putBlock(block, data); err != nil && retErr == nil {
+			writer, err := d.putBlock(block)
+			if err != nil && retErr == nil {
+				retErr = err
+			}
+			defer func() {
+				if err := writer.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			if _, err := writer.Write(data); err != nil && retErr == nil {
 				retErr = err
 			}
 		}()
@@ -313,7 +314,31 @@ func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
 }
 
 func (d *driver) GetFile(file *pfs.File, shard uint64) (drive.ReaderAtCloser, error) {
-	return nil, nil
+	var blockRefs []*drive.BlockRef
+	commit := file.Commit
+	for commit != nil {
+		if err := func() error {
+			d.lock.RLock()
+			defer d.lock.RUnlock()
+			changes, err := d.commits.shard(commit, shard)
+			if err != nil {
+				return err
+			}
+			if changes.Deletes[file.Path] {
+				blockRefs = changes.Appends[file.Path].BlockRef
+			} else {
+				blockRefs = append(blockRefs, changes.Appends[file.Path].BlockRef...)
+			}
+			commit = changes.Parent
+			return nil
+		}(); err != nil {
+			return nil, err
+		}
+	}
+	return &fileReader{
+		driver:    d,
+		blockRefs: blockRefs,
+	}, nil
 }
 
 func (d *driver) InspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
@@ -386,4 +411,52 @@ func (m commitMap) shard(commit *pfs.Commit, shard uint64) (*drive.Changes, erro
 		return nil, fmt.Errorf("shard %s/%s/%d not found", commit.Repo.Name, commit.Id, shard)
 	}
 	return result, nil
+}
+
+type fileReader struct {
+	driver    *driver
+	blockRefs []*drive.BlockRef
+	index     int
+	reader    io.ReadCloser
+}
+
+func (r *fileReader) Read(data []byte) (int, error) {
+	if r.reader == nil {
+		if r.index == len(r.blockRefs) {
+			return 0, io.EOF
+		}
+		var err error
+		r.reader, err = r.driver.getBlock(r.blockRefs[r.index].Block)
+		if err != nil {
+			return 0, err
+		}
+		r.index++
+	}
+	size, err := r.reader.Read(data)
+	if err != nil && err != io.EOF {
+		return size, err
+	}
+	if err == io.EOF {
+		if err := r.reader.Close(); err != nil {
+			return size, err
+		}
+		r.reader = nil
+		recurseSize, err := r.Read(data[size:])
+		if err != nil {
+			return size + recurseSize, err
+		}
+		size += recurseSize
+	}
+	return size, nil
+}
+
+func (r *fileReader) ReadAt(p []byte, off int64) (n int, err error) {
+	return 0, fmt.Errorf("fileReader.ReadAt: unimplemented")
+}
+
+func (r *fileReader) Close() error {
+	if r.reader != nil {
+		return r.reader.Close()
+	}
+	return nil
 }
