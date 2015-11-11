@@ -19,7 +19,7 @@ import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
-// discarding unused import google_api1 "google/api"
+// discarding unused import google_api1 "github.com/gengo/grpc-gateway/third_party/googleapis/google/api"
 // discarding unused import google_protobuf1 "go.pedge.io/google-protobuf"
 // discarding unused import google_protobuf2 "go.pedge.io/google-protobuf"
 import pfs "github.com/pachyderm/pachyderm/src/pfs"
@@ -61,13 +61,21 @@ func (m *Index) GetBlockRefs() []*BlockRef {
 }
 
 type Commit struct {
-	Appends map[string]*Index `protobuf:"bytes,1,rep,name=Appends" json:"Appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Deletes map[string]bool   `protobuf:"bytes,2,rep,name=Deletes" json:"Deletes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	Parent  *pfs.Commit       `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
+	Appends map[string]*Index `protobuf:"bytes,2,rep,name=Appends" json:"Appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Deletes map[string]bool   `protobuf:"bytes,3,rep,name=Deletes" json:"Deletes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 }
 
 func (m *Commit) Reset()         { *m = Commit{} }
 func (m *Commit) String() string { return proto.CompactTextString(m) }
 func (*Commit) ProtoMessage()    {}
+
+func (m *Commit) GetParent() *pfs.Commit {
+	if m != nil {
+		return m.Parent
+	}
+	return nil
+}
 
 func (m *Commit) GetAppends() map[string]*Index {
 	if m != nil {

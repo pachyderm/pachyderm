@@ -16,6 +16,7 @@ message Index {
 }
 
 message Commit {
-    map<string, Index> Appends = 1;
-    map<string, bool> Deletes = 2;
+	pfs.Commit parent = 1;
+    map<string, Index> Appends = 2;
+    map<string, bool> Deletes = 3;
 }
