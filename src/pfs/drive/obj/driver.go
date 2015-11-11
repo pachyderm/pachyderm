@@ -1,6 +1,7 @@
 package obj
 
 import (
+	"bufio"
 	"crypto/sha512"
 	"encoding/base64"
 	"fmt"
@@ -14,12 +15,18 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/obj"
 )
 
+var (
+	blockSize = 128 * 1024 * 1024 // 128 Megabytes
+)
+
+type commitMap map[pfs.Repo]map[pfs.Commit]map[uint64]*drive.Changes
+
 type driver struct {
 	objClient      obj.Client
 	cacheDir       string
 	namespace      string
-	commits        map[pfs.Repo]map[pfs.Commit]map[uint64]*drive.Commit
-	startedCommits map[pfs.Repo]map[pfs.Commit]map[uint64]*drive.Commit
+	commits        commitMap
+	startedCommits commitMap
 	lock           sync.RWMutex
 }
 
@@ -28,8 +35,8 @@ func newDriver(objClient obj.Client, cacheDir string, namespace string) (drive.D
 		objClient,
 		cacheDir,
 		namespace,
-		make(map[pfs.Repo]map[pfs.Commit]map[uint64]*drive.Commit),
-		make(map[pfs.Repo]map[pfs.Commit]map[uint64]*drive.Commit),
+		make(commitMap),
+		make(commitMap),
 		sync.RWMutex{},
 	}, nil
 }
@@ -37,16 +44,19 @@ func newDriver(objClient obj.Client, cacheDir string, namespace string) (drive.D
 func (d *driver) CreateRepo(repo *pfs.Repo) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	d.commits[*repo] = make(map[pfs.Commit]map[uint64]*drive.Commit)
-	d.startedCommits[*repo] = make(map[pfs.Commit]map[uint64]*drive.Commit)
+	if repoToCommits, _ := d.commits.repo(repo); repoToCommits != nil {
+		return fmt.Errorf("repo %s exists", repo.Name)
+	}
+	d.commits[*repo] = make(map[pfs.Commit]map[uint64]*drive.Changes)
+	d.startedCommits[*repo] = make(map[pfs.Commit]map[uint64]*drive.Changes)
 	return nil
 }
 
 func (d *driver) InspectRepo(repo *pfs.Repo, shard uint64) (*pfs.RepoInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	if _, ok := d.commits[*repo]; !ok {
-		return nil, fmt.Errorf("repo %s not found", repo.Name)
+	if _, err := d.commits.repo(repo); err != nil {
+		return nil, err
 	}
 	return &pfs.RepoInfo{
 		Repo: repo,
@@ -79,12 +89,16 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	if err := d.repoExists(commit.Repo); err != nil {
+	if _, err := d.commits.commit(parent); err != nil {
 		return err
 	}
-	d.startedCommits[*commit.Repo][*commit] = make(map[uint64]*drive.Commit)
+	repoToCommit, err := d.startedCommits.repo(commit.Repo)
+	if err != nil {
+		return err
+	}
+	repoToCommit[*commit] = make(map[uint64]*drive.Changes)
 	for shard := range shards {
-		d.startedCommits[*commit.Repo][*commit][shard] = &drive.Commit{
+		repoToCommit[*commit][shard] = &drive.Changes{
 			Parent: parent,
 		}
 	}
@@ -92,15 +106,18 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[
 }
 
 func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error {
+	var shardToCommit map[uint64]*drive.Changes
 	// closure so we can defer Unlock
 	if err := func() error {
 		d.lock.Lock()
 		defer d.lock.Unlock()
-		if err := d.repoExists(commit.Repo); err != nil {
+		var err error
+		shardToCommit, err = d.startedCommits.commit(commit)
+		if err != nil {
 			return err
 		}
-		d.commits[*commit.Repo][*commit] = d.startedCommits[*commit.Repo][*commit]
 		delete(d.startedCommits[*commit.Repo], *commit)
+		return nil
 	}(); err != nil {
 		return err
 	}
@@ -111,7 +128,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			commit := d.commits[*commit.Repo][*commit][shard]
+			commit := shardToCommit[shard]
 			data, err := proto.Marshal(commit)
 			if err != nil && loopErr == nil {
 				loopErr = err
@@ -131,7 +148,14 @@ func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 		}()
 	}
 	wg.Wait()
-	return loopErr
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	if loopErr != nil {
+		d.startedCommits[*commit.Repo][*commit] = shardToCommit
+		return loopErr
+	}
+	d.commits[*commit.Repo][*commit] = shardToCommit
+	return nil
 }
 
 func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
@@ -140,38 +164,40 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	result := &pfs.CommitInfo{
 		Commit: commit,
 	}
-	var commits map[uint64]*drive.Commit
-	if err := d.commitExists(commit); err != nil {
-		if err := d.startedCommitExists(commit); err != nil {
+	var shardToCommit map[uint64]*drive.Changes
+	var err error
+	if shardToCommit, err = d.commits.commit(commit); err != nil {
+		if shardToCommit, err = d.startedCommits.commit(commit); err != nil {
 			return nil, err
 		}
 		result.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
-		commits = d.startedCommits[*commit.Repo][*commit]
 	} else {
 		result.CommitType = pfs.CommitType_COMMIT_TYPE_READ
-		commits = d.commits[*commit.Repo][*commit]
 	}
-	for _, commit := range shards {
-		result.Parent = commit.Parent
+	for _, commit := range shardToCommit {
+		result.ParentCommit = commit.Parent
+		break
 	}
 	return result, nil
 }
 
 func (d *driver) ListCommit(repo *pfs.Repo, from *pfs.Commit, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
-	var commits map[pfs.Commit]bool
+	var commits []*pfs.Commit
 	func() {
 		d.lock.RLock()
 		defer d.lock.RUnlock()
 		for commit := range d.commits[*repo] {
-			commits[*commit] = true
+			commit := commit
+			commits = append(commits, &commit)
 		}
-		for commit := range d.startCommits[*repo] {
-			commits[*commit] = true
+		for commit := range d.startedCommits[*repo] {
+			commit := commit
+			commits = append(commits, &commit)
 		}
 	}()
 	var result []*pfs.CommitInfo
-	for commit := range commits {
-		commitInfo, err := inspectCommit(commit, shards)
+	for _, commit := range commits {
+		commitInfo, err := d.InspectCommit(commit, shards)
 		if err != nil {
 			return nil, err
 		}
@@ -181,19 +207,26 @@ func (d *driver) ListCommit(repo *pfs.Repo, from *pfs.Commit, shards map[uint64]
 }
 
 func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	if err := d.commitExists(commit); err != nil {
-		if err := d.startedCommitExists(commit); err != nil {
-			return err
-		}
-		delete(d.startCommits, *commit)
-	} else {
-		delete(d.commits, *commit)
-	}
+	return nil
 }
 
 func (d *driver) PutBlock(file *pfs.File, block *pfs.Block, shard uint64, reader io.Reader) error {
+	return nil
+}
+
+func (d *driver) putBlock(block *pfs.Block, data []byte) (retErr error) {
+	writer, err := d.objClient.Writer(d.blockPath(block))
+	if err != nil {
+		return nil
+	}
+	defer func() {
+		if err := writer.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	if _, err := writer.Write(data); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -209,7 +242,69 @@ func (d *driver) ListBlock(shard uint64) ([]*pfs.BlockInfo, error) {
 	return nil, nil
 }
 
-func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) error {
+func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) (retErr error) {
+	d.lock.RLock()
+	_, err := d.startedCommits.shard(file.Commit, shard)
+	d.lock.RUnlock()
+	if err != nil {
+		return err
+	}
+	var blockRefs []*drive.BlockRef
+	scanner := bufio.NewScanner(reader)
+	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if len(data) < blockSize && !atEOF {
+			return 0, nil, nil
+		}
+		if len(data) < blockSize && atEOF {
+			if data[len(data)-1] != '\n' {
+				return len(data), append(data, '\n'), nil
+			}
+			return len(data), data, nil
+		}
+		for i := len(data) - 1; i >= 0; i-- {
+			if data[i] == '\n' {
+				return i + 1, data[:i+1], nil
+			}
+		}
+		return 0, nil, fmt.Errorf("line too long")
+	})
+	var wg sync.WaitGroup
+	for scanner.Scan() {
+		data := scanner.Bytes()
+		sha := sha512.Sum512(data)
+		block := &pfs.Block{
+			Hash: base64.URLEncoding.EncodeToString(sha[:]),
+		}
+		blockRefs = append(blockRefs, &drive.BlockRef{
+			Block:     block,
+			SizeBytes: uint64(len(data)),
+		})
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := d.putBlock(block, data); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+	}
+	wg.Wait()
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	changes, err := d.startedCommits.shard(file.Commit, shard)
+	if err != nil {
+		return err
+	}
+	existingBlockRefs, ok := changes.Appends[file.Path]
+	if ok {
+		existingBlockRefs.BlockRef = append(existingBlockRefs.BlockRef, blockRefs...)
+	} else {
+		changes.Appends[file.Path] = &drive.BlockRefs{
+			BlockRef: blockRefs,
+		}
+	}
 	return nil
 }
 
@@ -246,7 +341,7 @@ func (d *driver) PushDiff(commit *pfs.Commit, shard uint64, diff io.Reader) erro
 }
 
 func (d *driver) repoPath(repo *pfs.Repo) string {
-	return path.Join(d.namespace, repo.Name)
+	return path.Join(d.namespace, "index", repo.Name)
 }
 
 func (d *driver) commitPath(commit *pfs.Commit) string {
@@ -257,27 +352,38 @@ func (d *driver) shardPath(commit *pfs.Commit, shard uint64) string {
 	return path.Join(d.commitPath(commit), fmt.Sprint(shard))
 }
 
-func (d *driver) repoExists(repo *pfs.Repo) error {
-	if _, ok := d.commits[*repo]; !ok {
-		return fmt.Errorf("repo %s not found", repo.Name)
-	}
-	return nil
+func (d *driver) blockPath(block *pfs.Block) string {
+	return path.Join(d.namespace, "block", block.Hash)
 }
 
-func (d *driver) commitExists(commit *pfs.Commit) error {
-	if err := repoExists(*commit.Repo); err != nil {
-		return err
+func (m commitMap) repo(repo *pfs.Repo) (map[pfs.Commit]map[uint64]*drive.Changes, error) {
+	result, ok := m[*repo]
+	if !ok {
+		return nil, fmt.Errorf("repo %s not found", repo.Name)
 	}
-	if _, ok := d.commits[*commit.Repo][*commit]; !ok {
-		return fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
-	}
+	return result, nil
 }
 
-func (d *driver) startedCommitExists(commit *pfs.Commit) error {
-	if err := repoExists(*commit.Repo); err != nil {
-		return err
+func (m commitMap) commit(commit *pfs.Commit) (map[uint64]*drive.Changes, error) {
+	repoToCommit, err := m.repo(commit.Repo)
+	if err != nil {
+		return nil, err
 	}
-	if _, ok := d.startCommits[*commit.Repo][*commit]; !ok {
-		return fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
+	result, ok := repoToCommit[*commit]
+	if !ok {
+		return nil, fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
 	}
+	return result, nil
+}
+
+func (m commitMap) shard(commit *pfs.Commit, shard uint64) (*drive.Changes, error) {
+	shardToChanges, err := m.commit(commit)
+	if err != nil {
+		return nil, err
+	}
+	result, ok := shardToChanges[shard]
+	if !ok {
+		return nil, fmt.Errorf("shard %s/%s/%d not found", commit.Repo.Name, commit.Id, shard)
+	}
+	return result, nil
 }
