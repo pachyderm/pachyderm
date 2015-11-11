@@ -10,8 +10,8 @@ It is generated from these files:
 
 It has these top-level messages:
 	BlockRef
-	Index
-	Commit
+	BlockRefs
+	Changes
 */
 package drive
 
@@ -30,8 +30,8 @@ var _ = fmt.Errorf
 var _ = math.Inf
 
 type BlockRef struct {
-	SizeBytes uint64     `protobuf:"varint,1,opt,name=size_bytes" json:"size_bytes,omitempty"`
-	Block     *pfs.Block `protobuf:"bytes,2,opt,name=block" json:"block,omitempty"`
+	Block     *pfs.Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	SizeBytes uint64     `protobuf:"varint,2,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
 func (m *BlockRef) Reset()         { *m = BlockRef{} }
@@ -45,46 +45,47 @@ func (m *BlockRef) GetBlock() *pfs.Block {
 	return nil
 }
 
-type Index struct {
-	BlockRefs []*BlockRef `protobuf:"bytes,1,rep,name=block_refs" json:"block_refs,omitempty"`
+type BlockRefs struct {
+	BlockRef []*BlockRef `protobuf:"bytes,1,rep,name=block_ref" json:"block_ref,omitempty"`
 }
 
-func (m *Index) Reset()         { *m = Index{} }
-func (m *Index) String() string { return proto.CompactTextString(m) }
-func (*Index) ProtoMessage()    {}
+func (m *BlockRefs) Reset()         { *m = BlockRefs{} }
+func (m *BlockRefs) String() string { return proto.CompactTextString(m) }
+func (*BlockRefs) ProtoMessage()    {}
 
-func (m *Index) GetBlockRefs() []*BlockRef {
+func (m *BlockRefs) GetBlockRef() []*BlockRef {
 	if m != nil {
-		return m.BlockRefs
+		return m.BlockRef
 	}
 	return nil
 }
 
-type Commit struct {
-	Parent  *pfs.Commit       `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
-	Appends map[string]*Index `protobuf:"bytes,2,rep,name=Appends" json:"Appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Deletes map[string]bool   `protobuf:"bytes,3,rep,name=Deletes" json:"Deletes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+type Changes struct {
+	Parent  *pfs.Commit           `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
+	Shard   uint64                `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
+	Appends map[string]*BlockRefs `protobuf:"bytes,3,rep,name=appends" json:"appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Deletes map[string]bool       `protobuf:"bytes,4,rep,name=deletes" json:"deletes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 }
 
-func (m *Commit) Reset()         { *m = Commit{} }
-func (m *Commit) String() string { return proto.CompactTextString(m) }
-func (*Commit) ProtoMessage()    {}
+func (m *Changes) Reset()         { *m = Changes{} }
+func (m *Changes) String() string { return proto.CompactTextString(m) }
+func (*Changes) ProtoMessage()    {}
 
-func (m *Commit) GetParent() *pfs.Commit {
+func (m *Changes) GetParent() *pfs.Commit {
 	if m != nil {
 		return m.Parent
 	}
 	return nil
 }
 
-func (m *Commit) GetAppends() map[string]*Index {
+func (m *Changes) GetAppends() map[string]*BlockRefs {
 	if m != nil {
 		return m.Appends
 	}
 	return nil
 }
 
-func (m *Commit) GetDeletes() map[string]bool {
+func (m *Changes) GetDeletes() map[string]bool {
 	if m != nil {
 		return m.Deletes
 	}

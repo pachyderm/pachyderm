@@ -7,16 +7,17 @@ import "google/protobuf/wrappers.proto";
 import "pfs/pfs.proto";
 
 message BlockRef {
-    uint64 size_bytes = 1;
-    pfs.Block block = 2;
+	pfs.Block block = 1;
+	uint64 size_bytes = 2;
 }
 
-message Index {
-    repeated BlockRef block_refs = 1;
+message BlockRefs {
+    repeated BlockRef block_ref = 1;
 }
 
-message Commit {
+message Changes {
 	pfs.Commit parent = 1;
-    map<string, Index> Appends = 2;
-    map<string, bool> Deletes = 3;
+	uint64 shard = 2;
+    map<string, BlockRefs> appends = 3;
+    map<string, bool> deletes = 4;
 }
