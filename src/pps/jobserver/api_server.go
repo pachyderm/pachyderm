@@ -18,6 +18,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
 
+var (
+	trueVal = true
+	suite   = "pachyderm"
+)
+
 type apiServer struct {
 	protorpclog.Logger
 	persistAPIClient persist.APIClient
@@ -163,35 +168,64 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name: jobInfo.JobId,
-			Labels: map[string]string{
-				"app": app,
-			},
+			Name:   jobInfo.JobId,
+			Labels: labels(app),
 		},
 		Spec: extensions.JobSpec{
 			Selector: &extensions.PodSelector{
-				MatchLabels: map[string]string{
-					"app": app,
-				},
+				MatchLabels: labels(app),
 			},
 			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name: jobInfo.JobId,
-					Labels: map[string]string{
-						"app": app,
-					},
+					Name:   jobInfo.JobId,
+					Labels: labels(app),
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
+						// {
+						// 	Name:    "data",
+						// 	Image:   "pachyderm/pach",
+						// 	Command: []string{"/pach", "mount"},
+						// 	SecurityContext: &api.SecurityContext{
+						// 		Privileged: &trueVal, // god is this dumb
+						// 	},
+						// 	VolumeMounts: []api.VolumeMount{
+						// 		{
+						// 			Name:      "data",
+						// 			MountPath: "/pfs",
+						// 		},
+						// 	},
+						// },
 						{
 							Name:    "user",
-							Image:   jobInfo.GetTransform().Image,
-							Command: jobInfo.GetTransform().Cmd,
+							Image:   "pachyderm/pach",
+							Command: append([]string{"/pach", "mount-exec"}, jobInfo.GetTransform().Cmd...),
+							SecurityContext: &api.SecurityContext{
+								Privileged: &trueVal, // god is this dumb
+							},
+							VolumeMounts: []api.VolumeMount{
+								{
+									Name:      "data",
+									MountPath: "/pfs",
+								},
+							},
 						},
 					},
 					RestartPolicy: "OnFailure",
+					Volumes: []api.Volume{
+						{
+							Name: "data",
+						},
+					},
 				},
 			},
 		},
+	}
+}
+
+func labels(app string) map[string]string {
+	return map[string]string{
+		"app":   app,
+		"suite": suite,
 	}
 }
