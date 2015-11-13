@@ -51,8 +51,12 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	pfsAPIClient := pfs.NewAPIClient(clientConn)
+	kubeAddr, err := getKubeAddress()
+	if err != nil {
+		return err
+	}
 	config := &kube.Config{
-		Host:     "kubernetes",
+		Host:     kubeAddr,
 		Insecure: true,
 	}
 	kubeClient, err := kube.New(config)
@@ -114,4 +118,12 @@ func getPfsdAddress() (string, error) {
 		return "", errors.New("PFSD_PORT_650_TCP_ADDR not set")
 	}
 	return fmt.Sprintf("%s:650", pfsdAddr), nil
+}
+
+func getKubeAddress() (string, error) {
+	kubedAddr := os.Getenv("KUBERNETES_PORT_443_TCP_ADDR")
+	if kubedAddr == "" {
+		return "", errors.New("KUBERNETES_PORT_443_TCP_ADDR not set")
+	}
+	return fmt.Sprintf("%s:443", kubedAddr), nil
 }
