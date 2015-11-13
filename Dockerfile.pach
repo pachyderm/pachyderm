@@ -9,4 +9,3 @@ RUN \
   apt-get clean && \
   rm -rf /var/lib/apt
 ADD _tmp/pach /
-ENTRYPOINT ["/pach"]
