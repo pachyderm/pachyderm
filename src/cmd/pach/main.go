@@ -33,7 +33,7 @@ func main() {
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 	rootCmd := &cobra.Command{
-		Use: "pach",
+		Use: os.Args[0],
 		Long: `Access the Pachyderm API.
 
 Envronment variables:
