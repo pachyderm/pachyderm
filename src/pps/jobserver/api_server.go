@@ -189,6 +189,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 							Command: jobInfo.GetTransform().Cmd,
 						},
 					},
+					RestartPolicy: "OnFailure",
 				},
 			},
 		},
