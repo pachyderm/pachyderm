@@ -51,7 +51,11 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	pfsAPIClient := pfs.NewAPIClient(clientConn)
-	kubeClient, err := kube.NewInCluster()
+	config := &kube.Config{
+		Host:     "kubernetes",
+		Insecure: true,
+	}
+	kubeClient, err := kube.New(config)
 	if err != nil {
 		protolog.Printf("Error creating kubernetes client: %s", err.Error())
 	}
