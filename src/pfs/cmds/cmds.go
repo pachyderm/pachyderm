@@ -473,7 +473,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
 			}
-			if err := pkgexec.RunIO(io, args[1:]...); err != nil {
+			if err := pkgexec.RunIO(io, args...); err != nil {
 				errorAndExit(err.Error())
 			}
 		},
