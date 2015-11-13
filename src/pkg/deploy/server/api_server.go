@@ -329,7 +329,7 @@ func rolerRc(shards uint64, replicas uint64) *api.ReplicationController {
 			},
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name:   "rolerkj",
+					Name:   "roler",
 					Labels: labels(app),
 				},
 				Spec: api.PodSpec{
