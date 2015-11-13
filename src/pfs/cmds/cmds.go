@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/pretty"
 	"go.pedge.io/pkg/cobra"
+	"go.pedge.io/pkg/exec"
 
 	"github.com/spf13/cobra"
 )
@@ -445,6 +446,41 @@ func Cmds(address string) ([]*cobra.Command, error) {
 	mount.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
 	mount.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
+	mountExec := &cobra.Command{
+		Use:   "mount-exec cmd [args]",
+		Short: "Mount pfs and run a command.",
+		Long:  "Mount pfs and run a command.",
+		Run: func(cmd *cobra.Command, args []string) {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				errorAndExit(err.Error())
+			}
+			mounter := fuse.NewMounter(address, apiClient)
+			ready := make(chan bool)
+			go func() {
+				if err := mounter.Mount("/pfs", uint64(shard), uint64(modulus), ready); err != nil {
+					errorAndExit(err.Error())
+				}
+			}()
+			<-ready
+			defer func() {
+				if err := mounter.Unmount("/pfs"); err != nil {
+					errorAndExit(err.Error())
+				}
+			}()
+			io := pkgexec.IO{
+				Stdin:  os.Stdin,
+				Stdout: os.Stdout,
+				Stderr: os.Stderr,
+			}
+			if err := pkgexec.RunIO(io, args[1:]...); err != nil {
+				errorAndExit(err.Error())
+			}
+		},
+	}
+	mountExec.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
+	mountExec.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
+
 	var result []*cobra.Command
 	result = append(result, createRepo)
 	result = append(result, inspectRepo)
@@ -469,6 +505,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 	result = append(result, inspectServer)
 	result = append(result, listServer)
 	result = append(result, mount)
+	result = append(result, mountExec)
 	return result, nil
 }
 
@@ -486,4 +523,9 @@ func getClusterAPIClient(address string) (pfs.ClusterAPIClient, error) {
 		return nil, err
 	}
 	return pfs.NewClusterAPIClient(clientConn), nil
+}
+
+func errorAndExit(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "%s\n", fmt.Sprintf(format, args...))
+	os.Exit(1)
 }

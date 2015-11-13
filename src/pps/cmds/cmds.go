@@ -57,7 +57,7 @@ You can find out the name of the commit with inspect-job.`,
 			fmt.Println(job.Id)
 		},
 	}
-	createJob.Flags().StringVarP(&image, "image", "i", "ubuntu", "The image to run the job in.")
+	createJob.Flags().StringVarP(&image, "image", "i", "pachyderm/pach", "The image to run the job in.")
 	createJob.Flags().StringVarP(&outParentCommitID, "parent", "p", "", "The parent to use for the output commit.")
 
 	inspectJob := &cobra.Command{

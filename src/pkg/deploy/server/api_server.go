@@ -392,6 +392,9 @@ func ppsdRc(nodes uint64) *api.ReplicationController {
 									Name:          "trace-port",
 								},
 							},
+							SecurityContext: &api.SecurityContext{
+								Privileged: &trueVal, // god is this dumb
+							},
 						},
 					},
 				},
