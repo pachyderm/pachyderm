@@ -169,8 +169,8 @@ func (a *apiServer) bestParent(pipelineInfo *pps.PipelineInfo, inputCommitInfo *
 		}
 		// newest to oldest assumed
 		for _, jobInfo := range jobInfos.JobInfo {
-			if jobInfo.Output != nil {
-				outputCommitInfo, err := a.pfsAPIClient.InspectCommit(context.TODO(), &pfs.InspectCommitRequest{Commit: jobInfo.Output})
+			if jobInfo.OutputCommit != nil {
+				outputCommitInfo, err := a.pfsAPIClient.InspectCommit(context.TODO(), &pfs.InspectCommitRequest{Commit: jobInfo.OutputCommit})
 				if err != nil {
 					return nil, err
 				}

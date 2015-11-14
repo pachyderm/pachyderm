@@ -13,6 +13,7 @@ import (
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
@@ -25,16 +26,19 @@ var (
 
 type apiServer struct {
 	protorpclog.Logger
+	pfsAPIClient     pfs.APIClient
 	persistAPIClient persist.APIClient
 	kubeClient       *kube.Client
 }
 
 func newAPIServer(
+	pfsAPIClient pfs.APIClient,
 	persistAPIClient persist.APIClient,
 	kubeClient *kube.Client,
 ) *apiServer {
 	return &apiServer{
 		protorpclog.NewLogger("pachyderm.pps.JobAPI"),
+		pfsAPIClient,
 		persistAPIClient,
 		kubeClient,
 	}
@@ -43,7 +47,7 @@ func newAPIServer(
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistJobInfo := &persist.JobInfo{
-		Input:        request.Input,
+		InputCommit:  request.Input,
 		OutputParent: request.OutputParent,
 	}
 	if request.GetTransform() != nil {
@@ -119,6 +123,46 @@ func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pp
 	return nil
 }
 
+func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (*pps.StartJobResponse, error) {
+	jobInfo, err := a.persistAPIClient.GetJobInfo(ctx, request.Job)
+	if err != nil {
+		return nil, err
+	}
+	commit, err := a.pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+		Parent: jobInfo.OutputParent,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if _, err := a.persistAPIClient.CreateJobOutput(
+		ctx,
+		&persist.JobOutput{
+			JobId:        request.Job.Id,
+			OutputCommit: commit,
+		}); err != nil {
+		return nil, err
+	}
+	return &pps.StartJobResponse{
+		OutputCommit: commit,
+		Shard:        0,
+		Modulus:      1,
+	}, nil
+}
+
+func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest) (*google_protobuf.Empty, error) {
+	jobOutput, err := a.persistAPIClient.GetJobOutput(ctx, request.Job)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := a.pfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+		Commit: jobOutput.OutputCommit,
+	}); err != nil {
+		return nil, err
+	}
+
+	return google_protobuf.EmptyInstance, nil
+}
+
 // TODO: bulk get
 func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo *persist.JobInfo) (*pps.JobInfo, error) {
 	job := &pps.Job{Id: persistJobInfo.JobId}
@@ -126,13 +170,9 @@ func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo 
 	if err != nil {
 		return nil, err
 	}
-	persistJobOutput, err := a.persistAPIClient.GetJobOutput(ctx, job)
-	if err != nil {
-		return nil, err
-	}
 	jobInfo := &pps.JobInfo{
-		Job:   job,
-		Input: persistJobInfo.Input,
+		Job:         job,
+		InputCommit: persistJobInfo.InputCommit,
 	}
 	if persistJobInfo.GetTransform() != nil {
 		jobInfo.Spec = &pps.JobInfo_Transform{
@@ -154,8 +194,12 @@ func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo 
 			Message:   persistJobStatus.Message,
 		}
 	}
+	persistJobOutput, err := a.persistAPIClient.GetJobOutput(ctx, job)
+	if err != nil {
+		return nil, err
+	}
 	if persistJobOutput != nil {
-		jobInfo.Output = persistJobOutput.Output
+		jobInfo.OutputCommit = persistJobOutput.OutputCommit
 	}
 	return jobInfo, nil
 }
@@ -182,20 +226,6 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
-						// {
-						// 	Name:    "data",
-						// 	Image:   "pachyderm/pach",
-						// 	Command: []string{"/pach", "mount"},
-						// 	SecurityContext: &api.SecurityContext{
-						// 		Privileged: &trueVal, // god is this dumb
-						// 	},
-						// 	VolumeMounts: []api.VolumeMount{
-						// 		{
-						// 			Name:      "data",
-						// 			MountPath: "/pfs",
-						// 		},
-						// 	},
-						// },
 						{
 							Name:    "user",
 							Image:   "pachyderm/pach",
@@ -203,20 +233,9 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},
-							VolumeMounts: []api.VolumeMount{
-								{
-									Name:      "data",
-									MountPath: "/pfs",
-								},
-							},
 						},
 					},
 					RestartPolicy: "Never",
-					Volumes: []api.Volume{
-						{
-							Name: "data",
-						},
-					},
 				},
 			},
 		},

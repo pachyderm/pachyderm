@@ -141,9 +141,9 @@ type JobInfo struct {
 	// Types that are valid to be assigned to Spec:
 	//	*JobInfo_Transform
 	//	*JobInfo_Pipeline
-	Spec   isJobInfo_Spec `protobuf_oneof:"spec"`
-	Input  *pfs.Commit    `protobuf:"bytes,4,opt,name=input" json:"input,omitempty"`
-	Output *pfs.Commit    `protobuf:"bytes,5,opt,name=output" json:"output,omitempty"`
+	Spec         isJobInfo_Spec `protobuf_oneof:"spec"`
+	InputCommit  *pfs.Commit    `protobuf:"bytes,4,opt,name=input_commit" json:"input_commit,omitempty"`
+	OutputCommit *pfs.Commit    `protobuf:"bytes,5,opt,name=output_commit" json:"output_commit,omitempty"`
 	// latest to earliest
 	JobStatus []*JobStatus `protobuf:"bytes,6,rep,name=job_status" json:"job_status,omitempty"`
 }
@@ -194,16 +194,16 @@ func (m *JobInfo) GetPipeline() *Pipeline {
 	return nil
 }
 
-func (m *JobInfo) GetInput() *pfs.Commit {
+func (m *JobInfo) GetInputCommit() *pfs.Commit {
 	if m != nil {
-		return m.Input
+		return m.InputCommit
 	}
 	return nil
 }
 
-func (m *JobInfo) GetOutput() *pfs.Commit {
+func (m *JobInfo) GetOutputCommit() *pfs.Commit {
 	if m != nil {
-		return m.Output
+		return m.OutputCommit
 	}
 	return nil
 }
@@ -531,13 +531,21 @@ func (m *StartJobRequest) GetJob() *Job {
 }
 
 type StartJobResponse struct {
-	Shard   uint64 `protobuf:"varint,1,opt,name=shard" json:"shard,omitempty"`
-	Modulus uint64 `protobuf:"varint,2,opt,name=modulus" json:"modulus,omitempty"`
+	OutputCommit *pfs.Commit `protobuf:"bytes,1,opt,name=output_commit" json:"output_commit,omitempty"`
+	Shard        uint64      `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
+	Modulus      uint64      `protobuf:"varint,3,opt,name=modulus" json:"modulus,omitempty"`
 }
 
 func (m *StartJobResponse) Reset()         { *m = StartJobResponse{} }
 func (m *StartJobResponse) String() string { return proto.CompactTextString(m) }
 func (*StartJobResponse) ProtoMessage()    {}
+
+func (m *StartJobResponse) GetOutputCommit() *pfs.Commit {
+	if m != nil {
+		return m.OutputCommit
+	}
+	return nil
+}
 
 type FinishJobRequest struct {
 	Job   *Job   `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`

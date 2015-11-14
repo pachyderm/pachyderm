@@ -45,9 +45,10 @@ type JobInfo struct {
 	//	*JobInfo_Transform
 	//	*JobInfo_PipelineName
 	Spec         isJobInfo_Spec              `protobuf_oneof:"spec"`
-	Input        *pfs.Commit                 `protobuf:"bytes,4,opt,name=input" json:"input,omitempty"`
+	InputCommit  *pfs.Commit                 `protobuf:"bytes,4,opt,name=input_commit" json:"input_commit,omitempty"`
 	OutputParent *pfs.Commit                 `protobuf:"bytes,5,opt,name=output_parent" json:"output_parent,omitempty"`
-	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,6,opt,name=created_at" json:"created_at,omitempty"`
+	OutputCommit []*pfs.Commit               `protobuf:"bytes,6,rep,name=output_commit" json:"output_commit,omitempty"`
+	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,7,opt,name=created_at" json:"created_at,omitempty"`
 }
 
 func (m *JobInfo) Reset()         { *m = JobInfo{} }
@@ -89,9 +90,9 @@ func (m *JobInfo) GetPipelineName() string {
 	return ""
 }
 
-func (m *JobInfo) GetInput() *pfs.Commit {
+func (m *JobInfo) GetInputCommit() *pfs.Commit {
 	if m != nil {
-		return m.Input
+		return m.InputCommit
 	}
 	return nil
 }
@@ -99,6 +100,13 @@ func (m *JobInfo) GetInput() *pfs.Commit {
 func (m *JobInfo) GetOutputParent() *pfs.Commit {
 	if m != nil {
 		return m.OutputParent
+	}
+	return nil
+}
+
+func (m *JobInfo) GetOutputCommit() []*pfs.Commit {
+	if m != nil {
+		return m.OutputCommit
 	}
 	return nil
 }
@@ -214,17 +222,17 @@ func (m *JobStatuses) GetJobStatus() []*JobStatus {
 type JobOutput struct {
 	// if we wanted to be able to have multuple output pfs repos,
 	// we would need JobOutputCommit to have a separate id
-	JobId  string      `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
-	Output *pfs.Commit `protobuf:"bytes,2,opt,name=output" json:"output,omitempty"`
+	JobId        string      `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
+	OutputCommit *pfs.Commit `protobuf:"bytes,2,opt,name=output_commit" json:"output_commit,omitempty"`
 }
 
 func (m *JobOutput) Reset()         { *m = JobOutput{} }
 func (m *JobOutput) String() string { return proto.CompactTextString(m) }
 func (*JobOutput) ProtoMessage()    {}
 
-func (m *JobOutput) GetOutput() *pfs.Commit {
+func (m *JobOutput) GetOutputCommit() *pfs.Commit {
 	if m != nil {
-		return m.Output
+		return m.OutputCommit
 	}
 	return nil
 }
