@@ -55,6 +55,33 @@ func validateHorizontalPodAutoscalerSpec(autoscaler extensions.HorizontalPodAuto
 	if autoscaler.CPUUtilization != nil && autoscaler.CPUUtilization.TargetPercentage < 1 {
 		allErrs = append(allErrs, errs.NewFieldInvalid("cpuUtilization.targetPercentage", autoscaler.CPUUtilization.TargetPercentage, `must be bigger or equal to 1`))
 	}
+	if refErrs := ValidateSubresourceReference(autoscaler.ScaleRef); len(refErrs) > 0 {
+		allErrs = append(allErrs, refErrs.Prefix("scaleRef")...)
+	} else if autoscaler.ScaleRef.Subresource != "scale" {
+		allErrs = append(allErrs, errs.NewFieldValueNotSupported("scaleRef.subresource", autoscaler.ScaleRef.Subresource, []string{"scale"}))
+	}
+	return allErrs
+}
+
+func ValidateSubresourceReference(ref extensions.SubresourceReference) errs.ValidationErrorList {
+	allErrs := errs.ValidationErrorList{}
+	if len(ref.Kind) == 0 {
+		allErrs = append(allErrs, errs.NewFieldRequired("kind"))
+	} else if ok, msg := apivalidation.IsValidPathSegmentName(ref.Kind); !ok {
+		allErrs = append(allErrs, errs.NewFieldInvalid("kind", ref.Kind, msg))
+	}
+
+	if len(ref.Name) == 0 {
+		allErrs = append(allErrs, errs.NewFieldRequired("name"))
+	} else if ok, msg := apivalidation.IsValidPathSegmentName(ref.Name); !ok {
+		allErrs = append(allErrs, errs.NewFieldInvalid("name", ref.Name, msg))
+	}
+
+	if len(ref.Subresource) == 0 {
+		allErrs = append(allErrs, errs.NewFieldRequired("subresource"))
+	} else if ok, msg := apivalidation.IsValidPathSegmentName(ref.Subresource); !ok {
+		allErrs = append(allErrs, errs.NewFieldInvalid("subresource", ref.Subresource, msg))
+	}
 	return allErrs
 }
 
@@ -82,7 +109,7 @@ func ValidateHorizontalPodAutoscalerStatusUpdate(controller, oldController *exte
 	return allErrs
 }
 
-func ValidateThirdPartyResourceUpdate(old, update *extensions.ThirdPartyResource) errs.ValidationErrorList {
+func ValidateThirdPartyResourceUpdate(update, old *extensions.ThirdPartyResource) errs.ValidationErrorList {
 	return ValidateThirdPartyResource(update)
 }
 
@@ -114,11 +141,11 @@ func ValidateDaemonSet(controller *extensions.DaemonSet) errs.ValidationErrorLis
 }
 
 // ValidateDaemonSetUpdate tests if required fields in the DaemonSet are set.
-func ValidateDaemonSetUpdate(oldController, controller *extensions.DaemonSet) errs.ValidationErrorList {
+func ValidateDaemonSetUpdate(controller, oldController *extensions.DaemonSet) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 	allErrs = append(allErrs, apivalidation.ValidateObjectMetaUpdate(&controller.ObjectMeta, &oldController.ObjectMeta).Prefix("metadata")...)
 	allErrs = append(allErrs, ValidateDaemonSetSpec(&controller.Spec).Prefix("spec")...)
-	allErrs = append(allErrs, ValidateDaemonSetTemplateUpdate(oldController.Spec.Template, controller.Spec.Template).Prefix("spec.template")...)
+	allErrs = append(allErrs, ValidateDaemonSetTemplateUpdate(controller.Spec.Template, oldController.Spec.Template).Prefix("spec.template")...)
 	return allErrs
 }
 
@@ -140,7 +167,7 @@ func ValidateDaemonSetStatusUpdate(controller, oldController *extensions.DaemonS
 }
 
 // ValidateDaemonSetTemplateUpdate tests that certain fields in the daemon set's pod template are not updated.
-func ValidateDaemonSetTemplateUpdate(oldPodTemplate, podTemplate *api.PodTemplateSpec) errs.ValidationErrorList {
+func ValidateDaemonSetTemplateUpdate(podTemplate, oldPodTemplate *api.PodTemplateSpec) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 	podSpec := podTemplate.Spec
 	// podTemplate.Spec is not a pointer, so we can modify NodeSelector and NodeName directly.
@@ -271,7 +298,7 @@ func ValidateDeploymentSpec(spec *extensions.DeploymentSpec) errs.ValidationErro
 	return allErrs
 }
 
-func ValidateDeploymentUpdate(old, update *extensions.Deployment) errs.ValidationErrorList {
+func ValidateDeploymentUpdate(update, old *extensions.Deployment) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 	allErrs = append(allErrs, apivalidation.ValidateObjectMetaUpdate(&update.ObjectMeta, &old.ObjectMeta).Prefix("metadata")...)
 	allErrs = append(allErrs, ValidateDeploymentSpec(&update.Spec).Prefix("spec")...)
@@ -285,7 +312,7 @@ func ValidateDeployment(obj *extensions.Deployment) errs.ValidationErrorList {
 	return allErrs
 }
 
-func ValidateThirdPartyResourceDataUpdate(old, update *extensions.ThirdPartyResourceData) errs.ValidationErrorList {
+func ValidateThirdPartyResourceDataUpdate(update, old *extensions.ThirdPartyResourceData) errs.ValidationErrorList {
 	return ValidateThirdPartyResourceData(update)
 }
 
@@ -344,30 +371,30 @@ func ValidateJobStatus(status *extensions.JobStatus) errs.ValidationErrorList {
 	return allErrs
 }
 
-func ValidateJobUpdate(oldJob, job *extensions.Job) errs.ValidationErrorList {
+func ValidateJobUpdate(job, oldJob *extensions.Job) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 	allErrs = append(allErrs, apivalidation.ValidateObjectMetaUpdate(&oldJob.ObjectMeta, &job.ObjectMeta).Prefix("metadata")...)
-	allErrs = append(allErrs, ValidateJobSpecUpdate(oldJob.Spec, job.Spec).Prefix("spec")...)
+	allErrs = append(allErrs, ValidateJobSpecUpdate(job.Spec, oldJob.Spec).Prefix("spec")...)
 	return allErrs
 }
 
-func ValidateJobUpdateStatus(oldJob, job *extensions.Job) errs.ValidationErrorList {
+func ValidateJobUpdateStatus(job, oldJob *extensions.Job) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 	allErrs = append(allErrs, apivalidation.ValidateObjectMetaUpdate(&oldJob.ObjectMeta, &job.ObjectMeta).Prefix("metadata")...)
-	allErrs = append(allErrs, ValidateJobStatusUpdate(oldJob.Status, job.Status).Prefix("status")...)
+	allErrs = append(allErrs, ValidateJobStatusUpdate(job.Status, oldJob.Status).Prefix("status")...)
 	return allErrs
 }
 
-func ValidateJobSpecUpdate(oldSpec, spec extensions.JobSpec) errs.ValidationErrorList {
+func ValidateJobSpecUpdate(spec, oldSpec extensions.JobSpec) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 	allErrs = append(allErrs, ValidateJobSpec(&spec)...)
-	allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldSpec.Completions, spec.Completions, "completions")...)
-	allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldSpec.Selector, spec.Selector, "selector")...)
-	allErrs = append(allErrs, apivalidation.ValidateImmutableField(oldSpec.Template, spec.Template, "template")...)
+	allErrs = append(allErrs, apivalidation.ValidateImmutableField(spec.Completions, oldSpec.Completions, "completions")...)
+	allErrs = append(allErrs, apivalidation.ValidateImmutableField(spec.Selector, oldSpec.Selector, "selector")...)
+	allErrs = append(allErrs, apivalidation.ValidateImmutableField(spec.Template, oldSpec.Template, "template")...)
 	return allErrs
 }
 
-func ValidateJobStatusUpdate(oldStatus, status extensions.JobStatus) errs.ValidationErrorList {
+func ValidateJobStatusUpdate(status, oldStatus extensions.JobStatus) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 	allErrs = append(allErrs, ValidateJobStatus(&status)...)
 	return allErrs
@@ -402,7 +429,7 @@ func ValidateIngressSpec(spec *extensions.IngressSpec) errs.ValidationErrorList 
 }
 
 // ValidateIngressUpdate tests if required fields in the Ingress are set.
-func ValidateIngressUpdate(oldIngress, ingress *extensions.Ingress) errs.ValidationErrorList {
+func ValidateIngressUpdate(ingress, oldIngress *extensions.Ingress) errs.ValidationErrorList {
 	allErrs := errs.ValidationErrorList{}
 	allErrs = append(allErrs, apivalidation.ValidateObjectMetaUpdate(&ingress.ObjectMeta, &oldIngress.ObjectMeta).Prefix("metadata")...)
 	allErrs = append(allErrs, ValidateIngressSpec(&ingress.Spec).Prefix("spec")...)
