@@ -131,7 +131,7 @@ func (s *simpleTest) runJob(
 	outputParentCommit := setupPFSOutputParentCommit(t, pfsAPIClient, outputRepo)
 	job := createJob(t, jobAPIClient, s.transform, inputCommit, outputParentCommit)
 	jobInfo := waitForJob(t, jobAPIClient, job, s.jobTimeoutSec, s.expectError)
-	checkPFSOutput(t, pfsAPIClient, jobInfo.Output, s.outputFilePathToContent)
+	checkPFSOutput(t, pfsAPIClient, jobInfo.OutputCommit, s.outputFilePathToContent)
 }
 
 func (s *simpleTest) runPipeline(
@@ -149,7 +149,7 @@ func (s *simpleTest) runPipeline(
 	time.Sleep(5 * time.Second)
 	job := getJobForPipeline(t, jobAPIClient, pipeline)
 	jobInfo := waitForJob(t, jobAPIClient, job, s.jobTimeoutSec, s.expectError)
-	checkPFSOutput(t, pfsAPIClient, jobInfo.Output, s.outputFilePathToContent)
+	checkPFSOutput(t, pfsAPIClient, jobInfo.OutputCommit, s.outputFilePathToContent)
 }
 
 func setupPFSRepo(t *testing.T, pfsAPIClient pfs.APIClient, repoName string) *pfs.Repo {
