@@ -26,8 +26,7 @@ package btrfs
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-
-// discarding unused import protolog "go.pedge.io/protolog"
+import _ "go.pedge.io/protolog"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -137,3 +136,17 @@ type Recv struct {
 func (m *Recv) Reset()         { *m = Recv{} }
 func (m *Recv) String() string { return proto.CompactTextString(m) }
 func (*Recv) ProtoMessage()    {}
+
+func init() {
+	proto.RegisterType((*SubvolumeCreate)(nil), "btrfs.SubvolumeCreate")
+	proto.RegisterType((*SubvolumeDelete)(nil), "btrfs.SubvolumeDelete")
+	proto.RegisterType((*SubvolumeExists)(nil), "btrfs.SubvolumeExists")
+	proto.RegisterType((*SubvolumeSnapshot)(nil), "btrfs.SubvolumeSnapshot")
+	proto.RegisterType((*TransID)(nil), "btrfs.TransID")
+	proto.RegisterType((*SubvolumeList)(nil), "btrfs.SubvolumeList")
+	proto.RegisterType((*SubvolumeListLine)(nil), "btrfs.SubvolumeListLine")
+	proto.RegisterType((*SubvolumeFindNew)(nil), "btrfs.SubvolumeFindNew")
+	proto.RegisterType((*SubvolumeFindNewLine)(nil), "btrfs.SubvolumeFindNewLine")
+	proto.RegisterType((*Send)(nil), "btrfs.Send")
+	proto.RegisterType((*Recv)(nil), "btrfs.Recv")
+}

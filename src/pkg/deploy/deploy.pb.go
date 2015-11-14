@@ -24,12 +24,10 @@ package deploy
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-
-// discarding unused import google_api1 "github.com/gengo/grpc-gateway/third_party/googleapis/google/api"
+import _ "github.com/gengo/grpc-gateway/third_party/googleapis/google/api"
 import google_protobuf1 "go.pedge.io/google-protobuf"
-
-// discarding unused import google_protobuf2 "go.pedge.io/google-protobuf"
-// discarding unused import google_protobuf3 "go.pedge.io/google-protobuf"
+import _ "go.pedge.io/google-protobuf"
+import _ "go.pedge.io/google-protobuf"
 
 import (
 	context "golang.org/x/net/context"
@@ -159,6 +157,18 @@ func (m *DeleteClusterRequest) GetCluster() *Cluster {
 		return m.Cluster
 	}
 	return nil
+}
+
+func init() {
+	proto.RegisterType((*KubeEndpoint)(nil), "deploy.KubeEndpoint")
+	proto.RegisterType((*Cluster)(nil), "deploy.Cluster")
+	proto.RegisterType((*ClusterInfo)(nil), "deploy.ClusterInfo")
+	proto.RegisterType((*ClusterInfos)(nil), "deploy.ClusterInfos")
+	proto.RegisterType((*CreateClusterRequest)(nil), "deploy.CreateClusterRequest")
+	proto.RegisterType((*UpdateClusterRequest)(nil), "deploy.UpdateClusterRequest")
+	proto.RegisterType((*InspectClusterRequest)(nil), "deploy.InspectClusterRequest")
+	proto.RegisterType((*ListClusterRequest)(nil), "deploy.ListClusterRequest")
+	proto.RegisterType((*DeleteClusterRequest)(nil), "deploy.DeleteClusterRequest")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

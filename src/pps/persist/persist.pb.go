@@ -318,6 +318,18 @@ func (m *PipelineInfos) GetPipelineInfo() []*PipelineInfo {
 	return nil
 }
 
+func init() {
+	proto.RegisterType((*JobInfo)(nil), "pachyderm.pps.persist.JobInfo")
+	proto.RegisterType((*JobInfos)(nil), "pachyderm.pps.persist.JobInfos")
+	proto.RegisterType((*JobStatus)(nil), "pachyderm.pps.persist.JobStatus")
+	proto.RegisterType((*JobStatuses)(nil), "pachyderm.pps.persist.JobStatuses")
+	proto.RegisterType((*JobOutput)(nil), "pachyderm.pps.persist.JobOutput")
+	proto.RegisterType((*JobLog)(nil), "pachyderm.pps.persist.JobLog")
+	proto.RegisterType((*JobLogs)(nil), "pachyderm.pps.persist.JobLogs")
+	proto.RegisterType((*PipelineInfo)(nil), "pachyderm.pps.persist.PipelineInfo")
+	proto.RegisterType((*PipelineInfos)(nil), "pachyderm.pps.persist.PipelineInfos")
+}
+
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
 var _ grpc.ClientConn

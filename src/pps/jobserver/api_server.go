@@ -211,7 +211,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 							},
 						},
 					},
-					RestartPolicy: "OnFailure",
+					RestartPolicy: "Never",
 					Volumes: []api.Volume{
 						{
 							Name: "data",

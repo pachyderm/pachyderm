@@ -38,8 +38,7 @@ package shard
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-
-// discarding unused import protolog "go.pedge.io/protolog"
+import _ "go.pedge.io/protolog"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -371,4 +370,30 @@ func (m *GetShardToReplicaAddresses) GetResult() map[uint64]*ReplicaAddresses {
 		return m.Result
 	}
 	return nil
+}
+
+func init() {
+	proto.RegisterType((*ServerState)(nil), "shard.ServerState")
+	proto.RegisterType((*FrontendState)(nil), "shard.FrontendState")
+	proto.RegisterType((*ServerRole)(nil), "shard.ServerRole")
+	proto.RegisterType((*ShardAddresses)(nil), "shard.ShardAddresses")
+	proto.RegisterType((*Addresses)(nil), "shard.Addresses")
+	proto.RegisterType((*StartRegister)(nil), "shard.StartRegister")
+	proto.RegisterType((*FinishRegister)(nil), "shard.FinishRegister")
+	proto.RegisterType((*Version)(nil), "shard.Version")
+	proto.RegisterType((*StartAssignRoles)(nil), "shard.StartAssignRoles")
+	proto.RegisterType((*FinishAssignRoles)(nil), "shard.FinishAssignRoles")
+	proto.RegisterType((*FailedToAssignRoles)(nil), "shard.FailedToAssignRoles")
+	proto.RegisterType((*SetServerState)(nil), "shard.SetServerState")
+	proto.RegisterType((*SetFrontendState)(nil), "shard.SetFrontendState")
+	proto.RegisterType((*AddServerRole)(nil), "shard.AddServerRole")
+	proto.RegisterType((*RemoveServerRole)(nil), "shard.RemoveServerRole")
+	proto.RegisterType((*SetServerRole)(nil), "shard.SetServerRole")
+	proto.RegisterType((*DeleteServerRole)(nil), "shard.DeleteServerRole")
+	proto.RegisterType((*SetAddresses)(nil), "shard.SetAddresses")
+	proto.RegisterType((*GetMasterAddress)(nil), "shard.GetMasterAddress")
+	proto.RegisterType((*GetReplicaAddresses)(nil), "shard.GetReplicaAddresses")
+	proto.RegisterType((*GetShardToMasterAddress)(nil), "shard.GetShardToMasterAddress")
+	proto.RegisterType((*ReplicaAddresses)(nil), "shard.ReplicaAddresses")
+	proto.RegisterType((*GetShardToReplicaAddresses)(nil), "shard.GetShardToReplicaAddresses")
 }

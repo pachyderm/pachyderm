@@ -57,8 +57,7 @@ package pfs
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-
-// discarding unused import google_api1 "github.com/gengo/grpc-gateway/third_party/googleapis/google/api"
+import _ "github.com/gengo/grpc-gateway/third_party/googleapis/google/api"
 import google_protobuf1 "go.pedge.io/google-protobuf"
 import google_protobuf2 "go.pedge.io/google-protobuf"
 import google_protobuf3 "go.pedge.io/google-protobuf"
@@ -850,6 +849,48 @@ func (m *PushDiffRequest) GetCommit() *Commit {
 }
 
 func init() {
+	proto.RegisterType((*Repo)(nil), "pfs.Repo")
+	proto.RegisterType((*Commit)(nil), "pfs.Commit")
+	proto.RegisterType((*Block)(nil), "pfs.Block")
+	proto.RegisterType((*File)(nil), "pfs.File")
+	proto.RegisterType((*Server)(nil), "pfs.Server")
+	proto.RegisterType((*RepoInfo)(nil), "pfs.RepoInfo")
+	proto.RegisterType((*RepoInfos)(nil), "pfs.RepoInfos")
+	proto.RegisterType((*CommitInfo)(nil), "pfs.CommitInfo")
+	proto.RegisterType((*CommitInfos)(nil), "pfs.CommitInfos")
+	proto.RegisterType((*BlockInfo)(nil), "pfs.BlockInfo")
+	proto.RegisterType((*BlockInfos)(nil), "pfs.BlockInfos")
+	proto.RegisterType((*FileInfo)(nil), "pfs.FileInfo")
+	proto.RegisterType((*FileInfos)(nil), "pfs.FileInfos")
+	proto.RegisterType((*ServerInfo)(nil), "pfs.ServerInfo")
+	proto.RegisterType((*ServerInfos)(nil), "pfs.ServerInfos")
+	proto.RegisterType((*Shard)(nil), "pfs.Shard")
+	proto.RegisterType((*Change)(nil), "pfs.Change")
+	proto.RegisterType((*Changes)(nil), "pfs.Changes")
+	proto.RegisterType((*CreateRepoRequest)(nil), "pfs.CreateRepoRequest")
+	proto.RegisterType((*InspectRepoRequest)(nil), "pfs.InspectRepoRequest")
+	proto.RegisterType((*ListRepoRequest)(nil), "pfs.ListRepoRequest")
+	proto.RegisterType((*DeleteRepoRequest)(nil), "pfs.DeleteRepoRequest")
+	proto.RegisterType((*StartCommitRequest)(nil), "pfs.StartCommitRequest")
+	proto.RegisterType((*FinishCommitRequest)(nil), "pfs.FinishCommitRequest")
+	proto.RegisterType((*InspectCommitRequest)(nil), "pfs.InspectCommitRequest")
+	proto.RegisterType((*ListCommitRequest)(nil), "pfs.ListCommitRequest")
+	proto.RegisterType((*DeleteCommitRequest)(nil), "pfs.DeleteCommitRequest")
+	proto.RegisterType((*GetBlockRequest)(nil), "pfs.GetBlockRequest")
+	proto.RegisterType((*PutBlockRequest)(nil), "pfs.PutBlockRequest")
+	proto.RegisterType((*InspectBlockRequest)(nil), "pfs.InspectBlockRequest")
+	proto.RegisterType((*ListBlockRequest)(nil), "pfs.ListBlockRequest")
+	proto.RegisterType((*GetFileRequest)(nil), "pfs.GetFileRequest")
+	proto.RegisterType((*PutFileRequest)(nil), "pfs.PutFileRequest")
+	proto.RegisterType((*InspectFileRequest)(nil), "pfs.InspectFileRequest")
+	proto.RegisterType((*MakeDirectoryRequest)(nil), "pfs.MakeDirectoryRequest")
+	proto.RegisterType((*ListFileRequest)(nil), "pfs.ListFileRequest")
+	proto.RegisterType((*DeleteFileRequest)(nil), "pfs.DeleteFileRequest")
+	proto.RegisterType((*ListChangeRequest)(nil), "pfs.ListChangeRequest")
+	proto.RegisterType((*InspectServerRequest)(nil), "pfs.InspectServerRequest")
+	proto.RegisterType((*ListServerRequest)(nil), "pfs.ListServerRequest")
+	proto.RegisterType((*PullDiffRequest)(nil), "pfs.PullDiffRequest")
+	proto.RegisterType((*PushDiffRequest)(nil), "pfs.PushDiffRequest")
 	proto.RegisterEnum("pfs.CommitType", CommitType_name, CommitType_value)
 	proto.RegisterEnum("pfs.FileType", FileType_name, FileType_value)
 }

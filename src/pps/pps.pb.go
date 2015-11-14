@@ -21,6 +21,9 @@ It has these top-level messages:
 	InspectJobRequest
 	ListJobRequest
 	GetJobLogsRequest
+	StartJobRequest
+	StartJobResponse
+	FinishJobRequest
 	CreatePipelineRequest
 	InspectPipelineRequest
 	ListPipelineRequest
@@ -512,6 +515,46 @@ func (m *GetJobLogsRequest) GetJob() *Job {
 	return nil
 }
 
+type StartJobRequest struct {
+	Job *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+}
+
+func (m *StartJobRequest) Reset()         { *m = StartJobRequest{} }
+func (m *StartJobRequest) String() string { return proto.CompactTextString(m) }
+func (*StartJobRequest) ProtoMessage()    {}
+
+func (m *StartJobRequest) GetJob() *Job {
+	if m != nil {
+		return m.Job
+	}
+	return nil
+}
+
+type StartJobResponse struct {
+	Shard   uint64 `protobuf:"varint,1,opt,name=shard" json:"shard,omitempty"`
+	Modulus uint64 `protobuf:"varint,2,opt,name=modulus" json:"modulus,omitempty"`
+}
+
+func (m *StartJobResponse) Reset()         { *m = StartJobResponse{} }
+func (m *StartJobResponse) String() string { return proto.CompactTextString(m) }
+func (*StartJobResponse) ProtoMessage()    {}
+
+type FinishJobRequest struct {
+	Job   *Job   `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	Shard uint64 `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
+}
+
+func (m *FinishJobRequest) Reset()         { *m = FinishJobRequest{} }
+func (m *FinishJobRequest) String() string { return proto.CompactTextString(m) }
+func (*FinishJobRequest) ProtoMessage()    {}
+
+func (m *FinishJobRequest) GetJob() *Job {
+	if m != nil {
+		return m.Job
+	}
+	return nil
+}
+
 type CreatePipelineRequest struct {
 	Pipeline  *Pipeline  `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
 	Transform *Transform `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
@@ -589,6 +632,25 @@ func (m *DeletePipelineRequest) GetPipeline() *Pipeline {
 }
 
 func init() {
+	proto.RegisterType((*Transform)(nil), "pachyderm.pps.Transform")
+	proto.RegisterType((*Job)(nil), "pachyderm.pps.Job")
+	proto.RegisterType((*JobStatus)(nil), "pachyderm.pps.JobStatus")
+	proto.RegisterType((*JobInfo)(nil), "pachyderm.pps.JobInfo")
+	proto.RegisterType((*JobInfos)(nil), "pachyderm.pps.JobInfos")
+	proto.RegisterType((*Pipeline)(nil), "pachyderm.pps.Pipeline")
+	proto.RegisterType((*PipelineInfo)(nil), "pachyderm.pps.PipelineInfo")
+	proto.RegisterType((*PipelineInfos)(nil), "pachyderm.pps.PipelineInfos")
+	proto.RegisterType((*CreateJobRequest)(nil), "pachyderm.pps.CreateJobRequest")
+	proto.RegisterType((*InspectJobRequest)(nil), "pachyderm.pps.InspectJobRequest")
+	proto.RegisterType((*ListJobRequest)(nil), "pachyderm.pps.ListJobRequest")
+	proto.RegisterType((*GetJobLogsRequest)(nil), "pachyderm.pps.GetJobLogsRequest")
+	proto.RegisterType((*StartJobRequest)(nil), "pachyderm.pps.StartJobRequest")
+	proto.RegisterType((*StartJobResponse)(nil), "pachyderm.pps.StartJobResponse")
+	proto.RegisterType((*FinishJobRequest)(nil), "pachyderm.pps.FinishJobRequest")
+	proto.RegisterType((*CreatePipelineRequest)(nil), "pachyderm.pps.CreatePipelineRequest")
+	proto.RegisterType((*InspectPipelineRequest)(nil), "pachyderm.pps.InspectPipelineRequest")
+	proto.RegisterType((*ListPipelineRequest)(nil), "pachyderm.pps.ListPipelineRequest")
+	proto.RegisterType((*DeletePipelineRequest)(nil), "pachyderm.pps.DeletePipelineRequest")
 	proto.RegisterEnum("pachyderm.pps.JobStatusType", JobStatusType_name, JobStatusType_value)
 	proto.RegisterEnum("pachyderm.pps.OutputStream", OutputStream_name, OutputStream_value)
 }
@@ -767,6 +829,90 @@ var _JobAPI_serviceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
+}
+
+// Client API for InternalJobAPI service
+
+type InternalJobAPIClient interface {
+	StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error)
+	FinishJob(ctx context.Context, in *FinishJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+}
+
+type internalJobAPIClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewInternalJobAPIClient(cc *grpc.ClientConn) InternalJobAPIClient {
+	return &internalJobAPIClient{cc}
+}
+
+func (c *internalJobAPIClient) StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error) {
+	out := new(StartJobResponse)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.InternalJobAPI/StartJob", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *internalJobAPIClient) FinishJob(ctx context.Context, in *FinishJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.InternalJobAPI/FinishJob", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for InternalJobAPI service
+
+type InternalJobAPIServer interface {
+	StartJob(context.Context, *StartJobRequest) (*StartJobResponse, error)
+	FinishJob(context.Context, *FinishJobRequest) (*google_protobuf.Empty, error)
+}
+
+func RegisterInternalJobAPIServer(s *grpc.Server, srv InternalJobAPIServer) {
+	s.RegisterService(&_InternalJobAPI_serviceDesc, srv)
+}
+
+func _InternalJobAPI_StartJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(StartJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalJobAPIServer).StartJob(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _InternalJobAPI_FinishJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(FinishJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(InternalJobAPIServer).FinishJob(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+var _InternalJobAPI_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pachyderm.pps.InternalJobAPI",
+	HandlerType: (*InternalJobAPIServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "StartJob",
+			Handler:    _InternalJobAPI_StartJob_Handler,
+		},
+		{
+			MethodName: "FinishJob",
+			Handler:    _InternalJobAPI_FinishJob_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{},
 }
 
 // Client API for PipelineAPI service

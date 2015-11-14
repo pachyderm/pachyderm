@@ -29,8 +29,7 @@ package fuse
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-
-// discarding unused import protolog "go.pedge.io/protolog"
+import _ "go.pedge.io/protolog"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -289,4 +288,21 @@ func (m *FileWrite) GetFile() *Node {
 		return m.File
 	}
 	return nil
+}
+
+func init() {
+	proto.RegisterType((*Filesystem)(nil), "fuse.Filesystem")
+	proto.RegisterType((*Node)(nil), "fuse.Node")
+	proto.RegisterType((*Attr)(nil), "fuse.Attr")
+	proto.RegisterType((*Dirent)(nil), "fuse.Dirent")
+	proto.RegisterType((*Root)(nil), "fuse.Root")
+	proto.RegisterType((*DirectoryAttr)(nil), "fuse.DirectoryAttr")
+	proto.RegisterType((*DirectoryLookup)(nil), "fuse.DirectoryLookup")
+	proto.RegisterType((*DirectoryReadDirAll)(nil), "fuse.DirectoryReadDirAll")
+	proto.RegisterType((*DirectoryCreate)(nil), "fuse.DirectoryCreate")
+	proto.RegisterType((*DirectoryMkdir)(nil), "fuse.DirectoryMkdir")
+	proto.RegisterType((*FileAttr)(nil), "fuse.FileAttr")
+	proto.RegisterType((*FileRead)(nil), "fuse.FileRead")
+	proto.RegisterType((*FileOpen)(nil), "fuse.FileOpen")
+	proto.RegisterType((*FileWrite)(nil), "fuse.FileWrite")
 }
