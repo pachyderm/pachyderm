@@ -14,6 +14,7 @@ func NewLocalPipelineAPIClient(pipelineAPIServer PipelineAPIServer) PipelineAPIC
 
 type APIClient interface {
 	JobAPIClient
+	InternalJobAPIClient
 	PipelineAPIClient
 }
 

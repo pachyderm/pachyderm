@@ -82,3 +82,9 @@ pach:
   links:
     - pfsd
     - ppsd
+job-shim:
+  build: .
+  dockerfile: Dockerfile.job-shim
+  links:
+    - pfsd
+    - ppsd

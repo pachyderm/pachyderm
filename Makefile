@@ -79,7 +79,10 @@ docker-build-ppsd: docker-build-compile
 docker-build-pach: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh pach
 
-docker-build: docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pach
+docker-build-job-shim: docker-build-compile
+	docker-compose run --rm compile sh etc/compile/compile.sh job-shim
+
+docker-build: docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pach docker-build-job-shim
 
 docker-push-pfs-volume-driver: docker-build-pfs-volume-driver
 	docker push pachyderm/pfs-volume-driver
