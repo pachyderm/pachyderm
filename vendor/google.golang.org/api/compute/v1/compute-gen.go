@@ -14,10 +14,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/net/context"
-	"golang.org/x/net/context/ctxhttp"
-	"google.golang.org/api/googleapi"
-	"google.golang.org/api/internal"
+	context "golang.org/x/net/context"
+	ctxhttp "golang.org/x/net/context/ctxhttp"
+	gensupport "google.golang.org/api/gensupport"
+	googleapi "google.golang.org/api/googleapi"
 	"io"
 	"net/http"
 	"net/url"
@@ -33,10 +33,10 @@ var _ = fmt.Sprintf
 var _ = json.NewDecoder
 var _ = io.Copy
 var _ = url.Parse
+var _ = gensupport.MarshalJSON
 var _ = googleapi.Version
 var _ = errors.New
 var _ = strings.Replace
-var _ = internal.MarshalJSON
 var _ = context.Canceled
 var _ = ctxhttp.Do
 
@@ -543,7 +543,7 @@ type AccessConfig struct {
 func (s *AccessConfig) MarshalJSON() ([]byte, error) {
 	type noMethod AccessConfig
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Address: A reserved address resource.
@@ -613,7 +613,7 @@ type Address struct {
 func (s *Address) MarshalJSON() ([]byte, error) {
 	type noMethod Address
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type AddressAggregatedList struct {
@@ -651,7 +651,7 @@ type AddressAggregatedList struct {
 func (s *AddressAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod AddressAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // AddressList: Contains a list of address resources.
@@ -690,7 +690,7 @@ type AddressList struct {
 func (s *AddressList) MarshalJSON() ([]byte, error) {
 	type noMethod AddressList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type AddressesScopedList struct {
@@ -713,7 +713,7 @@ type AddressesScopedList struct {
 func (s *AddressesScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod AddressesScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // AddressesScopedListWarning: [Output Only] Informational warning which
@@ -757,7 +757,7 @@ type AddressesScopedListWarning struct {
 func (s *AddressesScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod AddressesScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type AddressesScopedListWarningData struct {
@@ -779,7 +779,7 @@ type AddressesScopedListWarningData struct {
 func (s *AddressesScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod AddressesScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // AttachedDisk: An instance-attached disk resource.
@@ -870,7 +870,7 @@ type AttachedDisk struct {
 func (s *AttachedDisk) MarshalJSON() ([]byte, error) {
 	type noMethod AttachedDisk
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // AttachedDiskInitializeParams: [Input Only] Specifies the parameters
@@ -935,7 +935,7 @@ type AttachedDiskInitializeParams struct {
 func (s *AttachedDiskInitializeParams) MarshalJSON() ([]byte, error) {
 	type noMethod AttachedDiskInitializeParams
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type Autoscaler struct {
@@ -992,7 +992,7 @@ type Autoscaler struct {
 func (s *Autoscaler) MarshalJSON() ([]byte, error) {
 	type noMethod Autoscaler
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type AutoscalerAggregatedList struct {
@@ -1029,7 +1029,7 @@ type AutoscalerAggregatedList struct {
 func (s *AutoscalerAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod AutoscalerAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // AutoscalerList: Contains a list of persistent autoscaler resources.
@@ -1067,7 +1067,7 @@ type AutoscalerList struct {
 func (s *AutoscalerList) MarshalJSON() ([]byte, error) {
 	type noMethod AutoscalerList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type AutoscalersScopedList struct {
@@ -1090,7 +1090,7 @@ type AutoscalersScopedList struct {
 func (s *AutoscalersScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod AutoscalersScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // AutoscalersScopedListWarning: Informational warning which replaces
@@ -1134,7 +1134,7 @@ type AutoscalersScopedListWarning struct {
 func (s *AutoscalersScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod AutoscalersScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type AutoscalersScopedListWarningData struct {
@@ -1156,7 +1156,7 @@ type AutoscalersScopedListWarningData struct {
 func (s *AutoscalersScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod AutoscalersScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // AutoscalingPolicy: Cloud Autoscaler policy.
@@ -1207,7 +1207,7 @@ type AutoscalingPolicy struct {
 func (s *AutoscalingPolicy) MarshalJSON() ([]byte, error) {
 	type noMethod AutoscalingPolicy
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // AutoscalingPolicyCpuUtilization: CPU utilization policy.
@@ -1230,7 +1230,7 @@ type AutoscalingPolicyCpuUtilization struct {
 func (s *AutoscalingPolicyCpuUtilization) MarshalJSON() ([]byte, error) {
 	type noMethod AutoscalingPolicyCpuUtilization
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // AutoscalingPolicyCustomMetricUtilization: Custom utilization metric
@@ -1269,7 +1269,7 @@ type AutoscalingPolicyCustomMetricUtilization struct {
 func (s *AutoscalingPolicyCustomMetricUtilization) MarshalJSON() ([]byte, error) {
 	type noMethod AutoscalingPolicyCustomMetricUtilization
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // AutoscalingPolicyLoadBalancingUtilization: Load balancing utilization
@@ -1296,7 +1296,7 @@ type AutoscalingPolicyLoadBalancingUtilization struct {
 func (s *AutoscalingPolicyLoadBalancingUtilization) MarshalJSON() ([]byte, error) {
 	type noMethod AutoscalingPolicyLoadBalancingUtilization
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Backend: Message containing information of one individual backend.
@@ -1360,7 +1360,7 @@ type Backend struct {
 func (s *Backend) MarshalJSON() ([]byte, error) {
 	type noMethod Backend
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // BackendService: A BackendService resource. This resource defines a
@@ -1442,7 +1442,7 @@ type BackendService struct {
 func (s *BackendService) MarshalJSON() ([]byte, error) {
 	type noMethod BackendService
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type BackendServiceGroupHealth struct {
@@ -1468,7 +1468,7 @@ type BackendServiceGroupHealth struct {
 func (s *BackendServiceGroupHealth) MarshalJSON() ([]byte, error) {
 	type noMethod BackendServiceGroupHealth
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // BackendServiceList: Contains a list of BackendService resources.
@@ -1507,7 +1507,7 @@ type BackendServiceList struct {
 func (s *BackendServiceList) MarshalJSON() ([]byte, error) {
 	type noMethod BackendServiceList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // DeprecationStatus: Deprecation status for a public resource.
@@ -1554,7 +1554,7 @@ type DeprecationStatus struct {
 func (s *DeprecationStatus) MarshalJSON() ([]byte, error) {
 	type noMethod DeprecationStatus
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Disk: A Disk resource.
@@ -1695,7 +1695,7 @@ type Disk struct {
 func (s *Disk) MarshalJSON() ([]byte, error) {
 	type noMethod Disk
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type DiskAggregatedList struct {
@@ -1733,7 +1733,7 @@ type DiskAggregatedList struct {
 func (s *DiskAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod DiskAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // DiskList: A list of Disk resources.
@@ -1772,7 +1772,7 @@ type DiskList struct {
 func (s *DiskList) MarshalJSON() ([]byte, error) {
 	type noMethod DiskList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type DiskMoveRequest struct {
@@ -1806,7 +1806,7 @@ type DiskMoveRequest struct {
 func (s *DiskMoveRequest) MarshalJSON() ([]byte, error) {
 	type noMethod DiskMoveRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // DiskType: A disk type resource.
@@ -1864,7 +1864,7 @@ type DiskType struct {
 func (s *DiskType) MarshalJSON() ([]byte, error) {
 	type noMethod DiskType
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type DiskTypeAggregatedList struct {
@@ -1902,7 +1902,7 @@ type DiskTypeAggregatedList struct {
 func (s *DiskTypeAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod DiskTypeAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // DiskTypeList: Contains a list of disk type resources.
@@ -1941,7 +1941,7 @@ type DiskTypeList struct {
 func (s *DiskTypeList) MarshalJSON() ([]byte, error) {
 	type noMethod DiskTypeList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type DiskTypesScopedList struct {
@@ -1964,7 +1964,7 @@ type DiskTypesScopedList struct {
 func (s *DiskTypesScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod DiskTypesScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // DiskTypesScopedListWarning: [Output Only] Informational warning which
@@ -2008,7 +2008,7 @@ type DiskTypesScopedListWarning struct {
 func (s *DiskTypesScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod DiskTypesScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type DiskTypesScopedListWarningData struct {
@@ -2030,7 +2030,7 @@ type DiskTypesScopedListWarningData struct {
 func (s *DiskTypesScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod DiskTypesScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type DisksScopedList struct {
@@ -2053,7 +2053,7 @@ type DisksScopedList struct {
 func (s *DisksScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod DisksScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // DisksScopedListWarning: [Output Only] Informational warning which
@@ -2097,7 +2097,7 @@ type DisksScopedListWarning struct {
 func (s *DisksScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod DisksScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type DisksScopedListWarningData struct {
@@ -2119,7 +2119,7 @@ type DisksScopedListWarningData struct {
 func (s *DisksScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod DisksScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Firewall: A Firewall resource.
@@ -2212,7 +2212,7 @@ type Firewall struct {
 func (s *Firewall) MarshalJSON() ([]byte, error) {
 	type noMethod Firewall
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type FirewallAllowed struct {
@@ -2242,7 +2242,7 @@ type FirewallAllowed struct {
 func (s *FirewallAllowed) MarshalJSON() ([]byte, error) {
 	type noMethod FirewallAllowed
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // FirewallList: Contains a list of Firewall resources.
@@ -2281,7 +2281,7 @@ type FirewallList struct {
 func (s *FirewallList) MarshalJSON() ([]byte, error) {
 	type noMethod FirewallList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // ForwardingRule: A ForwardingRule resource. A ForwardingRule resource
@@ -2368,7 +2368,7 @@ type ForwardingRule struct {
 func (s *ForwardingRule) MarshalJSON() ([]byte, error) {
 	type noMethod ForwardingRule
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type ForwardingRuleAggregatedList struct {
@@ -2405,7 +2405,7 @@ type ForwardingRuleAggregatedList struct {
 func (s *ForwardingRuleAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod ForwardingRuleAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // ForwardingRuleList: Contains a list of ForwardingRule resources.
@@ -2443,7 +2443,7 @@ type ForwardingRuleList struct {
 func (s *ForwardingRuleList) MarshalJSON() ([]byte, error) {
 	type noMethod ForwardingRuleList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type ForwardingRulesScopedList struct {
@@ -2466,7 +2466,7 @@ type ForwardingRulesScopedList struct {
 func (s *ForwardingRulesScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod ForwardingRulesScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // ForwardingRulesScopedListWarning: Informational warning which
@@ -2510,7 +2510,7 @@ type ForwardingRulesScopedListWarning struct {
 func (s *ForwardingRulesScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod ForwardingRulesScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type ForwardingRulesScopedListWarningData struct {
@@ -2532,7 +2532,7 @@ type ForwardingRulesScopedListWarningData struct {
 func (s *ForwardingRulesScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod ForwardingRulesScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type HealthCheckReference struct {
@@ -2550,7 +2550,7 @@ type HealthCheckReference struct {
 func (s *HealthCheckReference) MarshalJSON() ([]byte, error) {
 	type noMethod HealthCheckReference
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type HealthStatus struct {
@@ -2582,7 +2582,7 @@ type HealthStatus struct {
 func (s *HealthStatus) MarshalJSON() ([]byte, error) {
 	type noMethod HealthStatus
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // HostRule: UrlMaps A host-matching rule for a URL. If matched, will
@@ -2613,7 +2613,7 @@ type HostRule struct {
 func (s *HostRule) MarshalJSON() ([]byte, error) {
 	type noMethod HostRule
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // HttpHealthCheck: An HttpHealthCheck resource. This resource defines a
@@ -2694,7 +2694,7 @@ type HttpHealthCheck struct {
 func (s *HttpHealthCheck) MarshalJSON() ([]byte, error) {
 	type noMethod HttpHealthCheck
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // HttpHealthCheckList: Contains a list of HttpHealthCheck resources.
@@ -2732,7 +2732,7 @@ type HttpHealthCheckList struct {
 func (s *HttpHealthCheckList) MarshalJSON() ([]byte, error) {
 	type noMethod HttpHealthCheckList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // HttpsHealthCheck: An HttpsHealthCheck resource. This resource defines
@@ -2813,7 +2813,7 @@ type HttpsHealthCheck struct {
 func (s *HttpsHealthCheck) MarshalJSON() ([]byte, error) {
 	type noMethod HttpsHealthCheck
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // HttpsHealthCheckList: Contains a list of HttpsHealthCheck resources.
@@ -2851,7 +2851,7 @@ type HttpsHealthCheckList struct {
 func (s *HttpsHealthCheckList) MarshalJSON() ([]byte, error) {
 	type noMethod HttpsHealthCheckList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Image: An Image resource.
@@ -2950,7 +2950,7 @@ type Image struct {
 func (s *Image) MarshalJSON() ([]byte, error) {
 	type noMethod Image
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // ImageRawDisk: The parameters of the raw disk image.
@@ -2985,7 +2985,7 @@ type ImageRawDisk struct {
 func (s *ImageRawDisk) MarshalJSON() ([]byte, error) {
 	type noMethod ImageRawDisk
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // ImageList: Contains a list of Image resources.
@@ -3023,7 +3023,7 @@ type ImageList struct {
 func (s *ImageList) MarshalJSON() ([]byte, error) {
 	type noMethod ImageList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Instance: An Instance resource.
@@ -3141,7 +3141,7 @@ type Instance struct {
 func (s *Instance) MarshalJSON() ([]byte, error) {
 	type noMethod Instance
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceAggregatedList struct {
@@ -3180,7 +3180,7 @@ type InstanceAggregatedList struct {
 func (s *InstanceAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroup struct {
@@ -3251,7 +3251,7 @@ type InstanceGroup struct {
 func (s *InstanceGroup) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroup
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupAggregatedList struct {
@@ -3291,7 +3291,7 @@ type InstanceGroupAggregatedList struct {
 func (s *InstanceGroupAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // InstanceGroupList: A list of InstanceGroup resources.
@@ -3331,7 +3331,7 @@ type InstanceGroupList struct {
 func (s *InstanceGroupList) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // InstanceGroupManager: InstanceGroupManagers
@@ -3416,7 +3416,7 @@ type InstanceGroupManager struct {
 func (s *InstanceGroupManager) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupManager
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupManagerActionsSummary struct {
@@ -3470,7 +3470,7 @@ type InstanceGroupManagerActionsSummary struct {
 func (s *InstanceGroupManagerActionsSummary) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupManagerActionsSummary
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupManagerAggregatedList struct {
@@ -3510,7 +3510,7 @@ type InstanceGroupManagerAggregatedList struct {
 func (s *InstanceGroupManagerAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupManagerAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // InstanceGroupManagerList: [Output Only] A list of managed instance
@@ -3552,7 +3552,7 @@ type InstanceGroupManagerList struct {
 func (s *InstanceGroupManagerList) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupManagerList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupManagersAbandonInstancesRequest struct {
@@ -3572,7 +3572,7 @@ type InstanceGroupManagersAbandonInstancesRequest struct {
 func (s *InstanceGroupManagersAbandonInstancesRequest) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupManagersAbandonInstancesRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupManagersDeleteInstancesRequest struct {
@@ -3592,7 +3592,7 @@ type InstanceGroupManagersDeleteInstancesRequest struct {
 func (s *InstanceGroupManagersDeleteInstancesRequest) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupManagersDeleteInstancesRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupManagersListManagedInstancesResponse struct {
@@ -3616,7 +3616,7 @@ type InstanceGroupManagersListManagedInstancesResponse struct {
 func (s *InstanceGroupManagersListManagedInstancesResponse) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupManagersListManagedInstancesResponse
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupManagersRecreateInstancesRequest struct {
@@ -3635,7 +3635,7 @@ type InstanceGroupManagersRecreateInstancesRequest struct {
 func (s *InstanceGroupManagersRecreateInstancesRequest) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupManagersRecreateInstancesRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupManagersScopedList struct {
@@ -3660,7 +3660,7 @@ type InstanceGroupManagersScopedList struct {
 func (s *InstanceGroupManagersScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupManagersScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // InstanceGroupManagersScopedListWarning: [Output Only] The warning
@@ -3705,7 +3705,7 @@ type InstanceGroupManagersScopedListWarning struct {
 func (s *InstanceGroupManagersScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupManagersScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupManagersScopedListWarningData struct {
@@ -3727,7 +3727,7 @@ type InstanceGroupManagersScopedListWarningData struct {
 func (s *InstanceGroupManagersScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupManagersScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupManagersSetInstanceTemplateRequest struct {
@@ -3748,7 +3748,7 @@ type InstanceGroupManagersSetInstanceTemplateRequest struct {
 func (s *InstanceGroupManagersSetInstanceTemplateRequest) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupManagersSetInstanceTemplateRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupManagersSetTargetPoolsRequest struct {
@@ -3779,7 +3779,7 @@ type InstanceGroupManagersSetTargetPoolsRequest struct {
 func (s *InstanceGroupManagersSetTargetPoolsRequest) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupManagersSetTargetPoolsRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupsAddInstancesRequest struct {
@@ -3798,7 +3798,7 @@ type InstanceGroupsAddInstancesRequest struct {
 func (s *InstanceGroupsAddInstancesRequest) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupsAddInstancesRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupsListInstances struct {
@@ -3838,7 +3838,7 @@ type InstanceGroupsListInstances struct {
 func (s *InstanceGroupsListInstances) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupsListInstances
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupsListInstancesRequest struct {
@@ -3864,7 +3864,7 @@ type InstanceGroupsListInstancesRequest struct {
 func (s *InstanceGroupsListInstancesRequest) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupsListInstancesRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupsRemoveInstancesRequest struct {
@@ -3883,7 +3883,7 @@ type InstanceGroupsRemoveInstancesRequest struct {
 func (s *InstanceGroupsRemoveInstancesRequest) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupsRemoveInstancesRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupsScopedList struct {
@@ -3907,7 +3907,7 @@ type InstanceGroupsScopedList struct {
 func (s *InstanceGroupsScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupsScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // InstanceGroupsScopedListWarning: [Output Only] An informational
@@ -3952,7 +3952,7 @@ type InstanceGroupsScopedListWarning struct {
 func (s *InstanceGroupsScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupsScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupsScopedListWarningData struct {
@@ -3974,7 +3974,7 @@ type InstanceGroupsScopedListWarningData struct {
 func (s *InstanceGroupsScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupsScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceGroupsSetNamedPortsRequest struct {
@@ -4001,7 +4001,7 @@ type InstanceGroupsSetNamedPortsRequest struct {
 func (s *InstanceGroupsSetNamedPortsRequest) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceGroupsSetNamedPortsRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // InstanceList: Contains a list of instance resources.
@@ -4040,7 +4040,7 @@ type InstanceList struct {
 func (s *InstanceList) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceMoveRequest struct {
@@ -4074,7 +4074,7 @@ type InstanceMoveRequest struct {
 func (s *InstanceMoveRequest) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceMoveRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceProperties struct {
@@ -4137,7 +4137,7 @@ type InstanceProperties struct {
 func (s *InstanceProperties) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceProperties
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceReference struct {
@@ -4156,7 +4156,7 @@ type InstanceReference struct {
 func (s *InstanceReference) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceReference
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // InstanceTemplate: An Instance Template resource.
@@ -4208,7 +4208,7 @@ type InstanceTemplate struct {
 func (s *InstanceTemplate) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceTemplate
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // InstanceTemplateList: A list of instance templates.
@@ -4248,7 +4248,7 @@ type InstanceTemplateList struct {
 func (s *InstanceTemplateList) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceTemplateList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstanceWithNamedPorts struct {
@@ -4284,7 +4284,7 @@ type InstanceWithNamedPorts struct {
 func (s *InstanceWithNamedPorts) MarshalJSON() ([]byte, error) {
 	type noMethod InstanceWithNamedPorts
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstancesScopedList struct {
@@ -4307,7 +4307,7 @@ type InstancesScopedList struct {
 func (s *InstancesScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod InstancesScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // InstancesScopedListWarning: [Output Only] Informational warning which
@@ -4351,7 +4351,7 @@ type InstancesScopedListWarning struct {
 func (s *InstancesScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod InstancesScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type InstancesScopedListWarningData struct {
@@ -4373,7 +4373,7 @@ type InstancesScopedListWarningData struct {
 func (s *InstancesScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod InstancesScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // License: A license resource.
@@ -4409,7 +4409,7 @@ type License struct {
 func (s *License) MarshalJSON() ([]byte, error) {
 	type noMethod License
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // MachineType: A Machine Type resource.
@@ -4482,7 +4482,7 @@ type MachineType struct {
 func (s *MachineType) MarshalJSON() ([]byte, error) {
 	type noMethod MachineType
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type MachineTypeScratchDisks struct {
@@ -4501,7 +4501,7 @@ type MachineTypeScratchDisks struct {
 func (s *MachineTypeScratchDisks) MarshalJSON() ([]byte, error) {
 	type noMethod MachineTypeScratchDisks
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type MachineTypeAggregatedList struct {
@@ -4540,7 +4540,7 @@ type MachineTypeAggregatedList struct {
 func (s *MachineTypeAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod MachineTypeAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // MachineTypeList: Contains a list of Machine Type resources.
@@ -4579,7 +4579,7 @@ type MachineTypeList struct {
 func (s *MachineTypeList) MarshalJSON() ([]byte, error) {
 	type noMethod MachineTypeList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type MachineTypesScopedList struct {
@@ -4603,7 +4603,7 @@ type MachineTypesScopedList struct {
 func (s *MachineTypesScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod MachineTypesScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // MachineTypesScopedListWarning: [Output Only] An informational warning
@@ -4647,7 +4647,7 @@ type MachineTypesScopedListWarning struct {
 func (s *MachineTypesScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod MachineTypesScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type MachineTypesScopedListWarningData struct {
@@ -4669,7 +4669,7 @@ type MachineTypesScopedListWarningData struct {
 func (s *MachineTypesScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod MachineTypesScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type ManagedInstance struct {
@@ -4740,7 +4740,7 @@ type ManagedInstance struct {
 func (s *ManagedInstance) MarshalJSON() ([]byte, error) {
 	type noMethod ManagedInstance
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type ManagedInstanceLastAttempt struct {
@@ -4760,7 +4760,7 @@ type ManagedInstanceLastAttempt struct {
 func (s *ManagedInstanceLastAttempt) MarshalJSON() ([]byte, error) {
 	type noMethod ManagedInstanceLastAttempt
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // ManagedInstanceLastAttemptErrors: [Output Only] Encountered errors
@@ -4782,7 +4782,7 @@ type ManagedInstanceLastAttemptErrors struct {
 func (s *ManagedInstanceLastAttemptErrors) MarshalJSON() ([]byte, error) {
 	type noMethod ManagedInstanceLastAttemptErrors
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type ManagedInstanceLastAttemptErrorsErrors struct {
@@ -4808,7 +4808,7 @@ type ManagedInstanceLastAttemptErrorsErrors struct {
 func (s *ManagedInstanceLastAttemptErrorsErrors) MarshalJSON() ([]byte, error) {
 	type noMethod ManagedInstanceLastAttemptErrorsErrors
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Metadata: A metadata key/value entry.
@@ -4841,7 +4841,7 @@ type Metadata struct {
 func (s *Metadata) MarshalJSON() ([]byte, error) {
 	type noMethod Metadata
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type MetadataItems struct {
@@ -4870,7 +4870,7 @@ type MetadataItems struct {
 func (s *MetadataItems) MarshalJSON() ([]byte, error) {
 	type noMethod MetadataItems
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // NamedPort: The named port. For example: .
@@ -4894,7 +4894,7 @@ type NamedPort struct {
 func (s *NamedPort) MarshalJSON() ([]byte, error) {
 	type noMethod NamedPort
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Network: A network resource.
@@ -4953,7 +4953,7 @@ type Network struct {
 func (s *Network) MarshalJSON() ([]byte, error) {
 	type noMethod Network
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // NetworkInterface: A network interface resource attached to an
@@ -5000,7 +5000,7 @@ type NetworkInterface struct {
 func (s *NetworkInterface) MarshalJSON() ([]byte, error) {
 	type noMethod NetworkInterface
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // NetworkList: Contains a list of Network resources.
@@ -5039,7 +5039,7 @@ type NetworkList struct {
 func (s *NetworkList) MarshalJSON() ([]byte, error) {
 	type noMethod NetworkList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Operation: An Operation resource, used to manage asynchronous API
@@ -5155,7 +5155,7 @@ type Operation struct {
 func (s *Operation) MarshalJSON() ([]byte, error) {
 	type noMethod Operation
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // OperationError: [Output Only] If errors are generated during
@@ -5177,7 +5177,7 @@ type OperationError struct {
 func (s *OperationError) MarshalJSON() ([]byte, error) {
 	type noMethod OperationError
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type OperationErrorErrors struct {
@@ -5203,7 +5203,7 @@ type OperationErrorErrors struct {
 func (s *OperationErrorErrors) MarshalJSON() ([]byte, error) {
 	type noMethod OperationErrorErrors
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type OperationWarnings struct {
@@ -5245,7 +5245,7 @@ type OperationWarnings struct {
 func (s *OperationWarnings) MarshalJSON() ([]byte, error) {
 	type noMethod OperationWarnings
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type OperationWarningsData struct {
@@ -5267,7 +5267,7 @@ type OperationWarningsData struct {
 func (s *OperationWarningsData) MarshalJSON() ([]byte, error) {
 	type noMethod OperationWarningsData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type OperationAggregatedList struct {
@@ -5305,7 +5305,7 @@ type OperationAggregatedList struct {
 func (s *OperationAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod OperationAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // OperationList: Contains a list of Operation resources.
@@ -5343,7 +5343,7 @@ type OperationList struct {
 func (s *OperationList) MarshalJSON() ([]byte, error) {
 	type noMethod OperationList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type OperationsScopedList struct {
@@ -5366,7 +5366,7 @@ type OperationsScopedList struct {
 func (s *OperationsScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod OperationsScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // OperationsScopedListWarning: [Output Only] Informational warning
@@ -5410,7 +5410,7 @@ type OperationsScopedListWarning struct {
 func (s *OperationsScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod OperationsScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type OperationsScopedListWarningData struct {
@@ -5432,7 +5432,7 @@ type OperationsScopedListWarningData struct {
 func (s *OperationsScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod OperationsScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // PathMatcher: A matcher for the path portion of the URL. The
@@ -5465,7 +5465,7 @@ type PathMatcher struct {
 func (s *PathMatcher) MarshalJSON() ([]byte, error) {
 	type noMethod PathMatcher
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // PathRule: A path-matching rule for a URL. If matched, will use the
@@ -5493,7 +5493,7 @@ type PathRule struct {
 func (s *PathRule) MarshalJSON() ([]byte, error) {
 	type noMethod PathRule
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Project: A Project resource. Projects can only be created in the
@@ -5553,7 +5553,7 @@ type Project struct {
 func (s *Project) MarshalJSON() ([]byte, error) {
 	type noMethod Project
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Quota: A quotas entry.
@@ -5605,7 +5605,7 @@ type Quota struct {
 func (s *Quota) MarshalJSON() ([]byte, error) {
 	type noMethod Quota
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Region: Region resource.
@@ -5665,7 +5665,7 @@ type Region struct {
 func (s *Region) MarshalJSON() ([]byte, error) {
 	type noMethod Region
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // RegionList: Contains a list of region resources.
@@ -5704,7 +5704,7 @@ type RegionList struct {
 func (s *RegionList) MarshalJSON() ([]byte, error) {
 	type noMethod RegionList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type ResourceGroupReference struct {
@@ -5724,7 +5724,7 @@ type ResourceGroupReference struct {
 func (s *ResourceGroupReference) MarshalJSON() ([]byte, error) {
 	type noMethod ResourceGroupReference
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Route: The route resource. A Route is a rule that specifies how
@@ -5832,7 +5832,7 @@ type Route struct {
 func (s *Route) MarshalJSON() ([]byte, error) {
 	type noMethod Route
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type RouteWarnings struct {
@@ -5874,7 +5874,7 @@ type RouteWarnings struct {
 func (s *RouteWarnings) MarshalJSON() ([]byte, error) {
 	type noMethod RouteWarnings
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type RouteWarningsData struct {
@@ -5896,7 +5896,7 @@ type RouteWarningsData struct {
 func (s *RouteWarningsData) MarshalJSON() ([]byte, error) {
 	type noMethod RouteWarningsData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // RouteList: Contains a list of route resources.
@@ -5934,7 +5934,7 @@ type RouteList struct {
 func (s *RouteList) MarshalJSON() ([]byte, error) {
 	type noMethod RouteList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Scheduling: Sets the scheduling options for an Instance.
@@ -5971,7 +5971,7 @@ type Scheduling struct {
 func (s *Scheduling) MarshalJSON() ([]byte, error) {
 	type noMethod Scheduling
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // SerialPortOutput: An instance's serial console output.
@@ -6002,7 +6002,7 @@ type SerialPortOutput struct {
 func (s *SerialPortOutput) MarshalJSON() ([]byte, error) {
 	type noMethod SerialPortOutput
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // ServiceAccount: A service account.
@@ -6026,7 +6026,7 @@ type ServiceAccount struct {
 func (s *ServiceAccount) MarshalJSON() ([]byte, error) {
 	type noMethod ServiceAccount
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Snapshot: A persistent disk snapshot resource.
@@ -6114,7 +6114,7 @@ type Snapshot struct {
 func (s *Snapshot) MarshalJSON() ([]byte, error) {
 	type noMethod Snapshot
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // SnapshotList: Contains a list of Snapshot resources.
@@ -6152,7 +6152,7 @@ type SnapshotList struct {
 func (s *SnapshotList) MarshalJSON() ([]byte, error) {
 	type noMethod SnapshotList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // SslCertificate: An SslCertificate resource. This resource provides a
@@ -6212,7 +6212,7 @@ type SslCertificate struct {
 func (s *SslCertificate) MarshalJSON() ([]byte, error) {
 	type noMethod SslCertificate
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // SslCertificateList: Contains a list of SslCertificate resources.
@@ -6250,7 +6250,7 @@ type SslCertificateList struct {
 func (s *SslCertificateList) MarshalJSON() ([]byte, error) {
 	type noMethod SslCertificateList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Tags: A set of instance tags.
@@ -6281,7 +6281,7 @@ type Tags struct {
 func (s *Tags) MarshalJSON() ([]byte, error) {
 	type noMethod Tags
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // TargetHttpProxy: A TargetHttpProxy resource. This resource defines an
@@ -6335,7 +6335,7 @@ type TargetHttpProxy struct {
 func (s *TargetHttpProxy) MarshalJSON() ([]byte, error) {
 	type noMethod TargetHttpProxy
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // TargetHttpProxyList: A list of TargetHttpProxy resources.
@@ -6374,7 +6374,7 @@ type TargetHttpProxyList struct {
 func (s *TargetHttpProxyList) MarshalJSON() ([]byte, error) {
 	type noMethod TargetHttpProxyList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetHttpsProxiesSetSslCertificatesRequest struct {
@@ -6395,7 +6395,7 @@ type TargetHttpsProxiesSetSslCertificatesRequest struct {
 func (s *TargetHttpsProxiesSetSslCertificatesRequest) MarshalJSON() ([]byte, error) {
 	type noMethod TargetHttpsProxiesSetSslCertificatesRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // TargetHttpsProxy: A TargetHttpsProxy resource. This resource defines
@@ -6453,7 +6453,7 @@ type TargetHttpsProxy struct {
 func (s *TargetHttpsProxy) MarshalJSON() ([]byte, error) {
 	type noMethod TargetHttpsProxy
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // TargetHttpsProxyList: Contains a list of TargetHttpsProxy resources.
@@ -6491,7 +6491,7 @@ type TargetHttpsProxyList struct {
 func (s *TargetHttpsProxyList) MarshalJSON() ([]byte, error) {
 	type noMethod TargetHttpsProxyList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // TargetInstance: A TargetInstance resource. This resource defines an
@@ -6555,7 +6555,7 @@ type TargetInstance struct {
 func (s *TargetInstance) MarshalJSON() ([]byte, error) {
 	type noMethod TargetInstance
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetInstanceAggregatedList struct {
@@ -6592,7 +6592,7 @@ type TargetInstanceAggregatedList struct {
 func (s *TargetInstanceAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod TargetInstanceAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // TargetInstanceList: Contains a list of TargetInstance resources.
@@ -6630,7 +6630,7 @@ type TargetInstanceList struct {
 func (s *TargetInstanceList) MarshalJSON() ([]byte, error) {
 	type noMethod TargetInstanceList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetInstancesScopedList struct {
@@ -6653,7 +6653,7 @@ type TargetInstancesScopedList struct {
 func (s *TargetInstancesScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod TargetInstancesScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // TargetInstancesScopedListWarning: Informational warning which
@@ -6697,7 +6697,7 @@ type TargetInstancesScopedListWarning struct {
 func (s *TargetInstancesScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod TargetInstancesScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetInstancesScopedListWarningData struct {
@@ -6719,7 +6719,7 @@ type TargetInstancesScopedListWarningData struct {
 func (s *TargetInstancesScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod TargetInstancesScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // TargetPool: A TargetPool resource. This resource defines a pool of
@@ -6836,7 +6836,7 @@ type TargetPool struct {
 func (s *TargetPool) MarshalJSON() ([]byte, error) {
 	type noMethod TargetPool
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetPoolAggregatedList struct {
@@ -6873,7 +6873,7 @@ type TargetPoolAggregatedList struct {
 func (s *TargetPoolAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod TargetPoolAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetPoolInstanceHealth struct {
@@ -6898,7 +6898,7 @@ type TargetPoolInstanceHealth struct {
 func (s *TargetPoolInstanceHealth) MarshalJSON() ([]byte, error) {
 	type noMethod TargetPoolInstanceHealth
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // TargetPoolList: Contains a list of TargetPool resources.
@@ -6936,7 +6936,7 @@ type TargetPoolList struct {
 func (s *TargetPoolList) MarshalJSON() ([]byte, error) {
 	type noMethod TargetPoolList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetPoolsAddHealthCheckRequest struct {
@@ -6955,7 +6955,7 @@ type TargetPoolsAddHealthCheckRequest struct {
 func (s *TargetPoolsAddHealthCheckRequest) MarshalJSON() ([]byte, error) {
 	type noMethod TargetPoolsAddHealthCheckRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetPoolsAddInstanceRequest struct {
@@ -6974,7 +6974,7 @@ type TargetPoolsAddInstanceRequest struct {
 func (s *TargetPoolsAddInstanceRequest) MarshalJSON() ([]byte, error) {
 	type noMethod TargetPoolsAddInstanceRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetPoolsRemoveHealthCheckRequest struct {
@@ -6993,7 +6993,7 @@ type TargetPoolsRemoveHealthCheckRequest struct {
 func (s *TargetPoolsRemoveHealthCheckRequest) MarshalJSON() ([]byte, error) {
 	type noMethod TargetPoolsRemoveHealthCheckRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetPoolsRemoveInstanceRequest struct {
@@ -7012,7 +7012,7 @@ type TargetPoolsRemoveInstanceRequest struct {
 func (s *TargetPoolsRemoveInstanceRequest) MarshalJSON() ([]byte, error) {
 	type noMethod TargetPoolsRemoveInstanceRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetPoolsScopedList struct {
@@ -7035,7 +7035,7 @@ type TargetPoolsScopedList struct {
 func (s *TargetPoolsScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod TargetPoolsScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // TargetPoolsScopedListWarning: Informational warning which replaces
@@ -7079,7 +7079,7 @@ type TargetPoolsScopedListWarning struct {
 func (s *TargetPoolsScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod TargetPoolsScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetPoolsScopedListWarningData struct {
@@ -7101,7 +7101,7 @@ type TargetPoolsScopedListWarningData struct {
 func (s *TargetPoolsScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod TargetPoolsScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetReference struct {
@@ -7119,7 +7119,7 @@ type TargetReference struct {
 func (s *TargetReference) MarshalJSON() ([]byte, error) {
 	type noMethod TargetReference
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetVpnGateway struct {
@@ -7194,7 +7194,7 @@ type TargetVpnGateway struct {
 func (s *TargetVpnGateway) MarshalJSON() ([]byte, error) {
 	type noMethod TargetVpnGateway
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetVpnGatewayAggregatedList struct {
@@ -7232,7 +7232,7 @@ type TargetVpnGatewayAggregatedList struct {
 func (s *TargetVpnGatewayAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod TargetVpnGatewayAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // TargetVpnGatewayList: Contains a list of TargetVpnGateway resources.
@@ -7271,7 +7271,7 @@ type TargetVpnGatewayList struct {
 func (s *TargetVpnGatewayList) MarshalJSON() ([]byte, error) {
 	type noMethod TargetVpnGatewayList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetVpnGatewaysScopedList struct {
@@ -7295,7 +7295,7 @@ type TargetVpnGatewaysScopedList struct {
 func (s *TargetVpnGatewaysScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod TargetVpnGatewaysScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // TargetVpnGatewaysScopedListWarning: [Output Only] Informational
@@ -7339,7 +7339,7 @@ type TargetVpnGatewaysScopedListWarning struct {
 func (s *TargetVpnGatewaysScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod TargetVpnGatewaysScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TargetVpnGatewaysScopedListWarningData struct {
@@ -7361,7 +7361,7 @@ type TargetVpnGatewaysScopedListWarningData struct {
 func (s *TargetVpnGatewaysScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod TargetVpnGatewaysScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type TestFailure struct {
@@ -7385,7 +7385,7 @@ type TestFailure struct {
 func (s *TestFailure) MarshalJSON() ([]byte, error) {
 	type noMethod TestFailure
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // UrlMap: A UrlMap resource. This resource defines the mapping from URL
@@ -7455,7 +7455,7 @@ type UrlMap struct {
 func (s *UrlMap) MarshalJSON() ([]byte, error) {
 	type noMethod UrlMap
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // UrlMapList: Contains a list of UrlMap resources.
@@ -7493,7 +7493,7 @@ type UrlMapList struct {
 func (s *UrlMapList) MarshalJSON() ([]byte, error) {
 	type noMethod UrlMapList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type UrlMapReference struct {
@@ -7511,7 +7511,7 @@ type UrlMapReference struct {
 func (s *UrlMapReference) MarshalJSON() ([]byte, error) {
 	type noMethod UrlMapReference
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // UrlMapTest: Message for the expected URL mappings.
@@ -7541,7 +7541,7 @@ type UrlMapTest struct {
 func (s *UrlMapTest) MarshalJSON() ([]byte, error) {
 	type noMethod UrlMapTest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // UrlMapValidationResult: Message representing the validation result
@@ -7572,7 +7572,7 @@ type UrlMapValidationResult struct {
 func (s *UrlMapValidationResult) MarshalJSON() ([]byte, error) {
 	type noMethod UrlMapValidationResult
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type UrlMapsValidateRequest struct {
@@ -7591,7 +7591,7 @@ type UrlMapsValidateRequest struct {
 func (s *UrlMapsValidateRequest) MarshalJSON() ([]byte, error) {
 	type noMethod UrlMapsValidateRequest
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type UrlMapsValidateResponse struct {
@@ -7613,7 +7613,7 @@ type UrlMapsValidateResponse struct {
 func (s *UrlMapsValidateResponse) MarshalJSON() ([]byte, error) {
 	type noMethod UrlMapsValidateResponse
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // UsageExportLocation: The location in Cloud Storage and naming method
@@ -7646,7 +7646,7 @@ type UsageExportLocation struct {
 func (s *UsageExportLocation) MarshalJSON() ([]byte, error) {
 	type noMethod UsageExportLocation
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type VpnTunnel struct {
@@ -7736,7 +7736,7 @@ type VpnTunnel struct {
 func (s *VpnTunnel) MarshalJSON() ([]byte, error) {
 	type noMethod VpnTunnel
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type VpnTunnelAggregatedList struct {
@@ -7774,7 +7774,7 @@ type VpnTunnelAggregatedList struct {
 func (s *VpnTunnelAggregatedList) MarshalJSON() ([]byte, error) {
 	type noMethod VpnTunnelAggregatedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // VpnTunnelList: Contains a list of VpnTunnel resources.
@@ -7813,7 +7813,7 @@ type VpnTunnelList struct {
 func (s *VpnTunnelList) MarshalJSON() ([]byte, error) {
 	type noMethod VpnTunnelList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type VpnTunnelsScopedList struct {
@@ -7836,7 +7836,7 @@ type VpnTunnelsScopedList struct {
 func (s *VpnTunnelsScopedList) MarshalJSON() ([]byte, error) {
 	type noMethod VpnTunnelsScopedList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // VpnTunnelsScopedListWarning: Informational warning which replaces the
@@ -7880,7 +7880,7 @@ type VpnTunnelsScopedListWarning struct {
 func (s *VpnTunnelsScopedListWarning) MarshalJSON() ([]byte, error) {
 	type noMethod VpnTunnelsScopedListWarning
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type VpnTunnelsScopedListWarningData struct {
@@ -7902,7 +7902,7 @@ type VpnTunnelsScopedListWarningData struct {
 func (s *VpnTunnelsScopedListWarningData) MarshalJSON() ([]byte, error) {
 	type noMethod VpnTunnelsScopedListWarningData
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // Zone: A Zone resource.
@@ -7964,7 +7964,7 @@ type Zone struct {
 func (s *Zone) MarshalJSON() ([]byte, error) {
 	type noMethod Zone
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 type ZoneMaintenanceWindows struct {
@@ -7995,7 +7995,7 @@ type ZoneMaintenanceWindows struct {
 func (s *ZoneMaintenanceWindows) MarshalJSON() ([]byte, error) {
 	type noMethod ZoneMaintenanceWindows
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // ZoneList: Contains a list of zone resources.
@@ -8033,7 +8033,7 @@ type ZoneList struct {
 func (s *ZoneList) MarshalJSON() ([]byte, error) {
 	type noMethod ZoneList
 	raw := noMethod(*s)
-	return internal.MarshalJSON(raw, s.ForceSendFields)
+	return gensupport.MarshalJSON(raw, s.ForceSendFields)
 }
 
 // method id "compute.addresses.aggregatedList":

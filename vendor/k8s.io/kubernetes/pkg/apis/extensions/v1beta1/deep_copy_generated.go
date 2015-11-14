@@ -620,6 +620,9 @@ func deepCopy_v1_Probe(in v1.Probe, out *v1.Probe, c *conversion.Cloner) error {
 	}
 	out.InitialDelaySeconds = in.InitialDelaySeconds
 	out.TimeoutSeconds = in.TimeoutSeconds
+	out.PeriodSeconds = in.PeriodSeconds
+	out.SuccessThreshold = in.SuccessThreshold
+	out.FailureThreshold = in.FailureThreshold
 	return nil
 }
 
@@ -1505,7 +1508,6 @@ func deepCopy_v1beta1_ScaleStatus(in ScaleStatus, out *ScaleStatus, c *conversio
 
 func deepCopy_v1beta1_SubresourceReference(in SubresourceReference, out *SubresourceReference, c *conversion.Cloner) error {
 	out.Kind = in.Kind
-	out.Namespace = in.Namespace
 	out.Name = in.Name
 	out.APIVersion = in.APIVersion
 	out.Subresource = in.Subresource

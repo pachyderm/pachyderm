@@ -65,6 +65,15 @@ type Transport struct {
 	connPoolOrDef ClientConnPool // non-nil version of ConnPool
 }
 
+var errTransportVersion = errors.New("http2: ConfigureTransport is only supported starting at Go 1.6")
+
+// ConfigureTransport configures a net/http HTTP/1 Transport to use HTTP/2.
+// It requires Go 1.6 or later and returns an error if the net/http package is too old
+// or if t1 has already been HTTP/2-enabled.
+func ConfigureTransport(t1 *http.Transport) error {
+	return configureTransport(t1) // in configure_transport.go (go1.6) or go15.go
+}
+
 func (t *Transport) connPool() ClientConnPool {
 	t.connPoolOnce.Do(t.initConnPool)
 	return t.connPoolOrDef
@@ -189,7 +198,7 @@ func (t *Transport) RoundTripOpt(req *http.Request, opt RoundTripOpt) (*http.Res
 			return nil, err
 		}
 		res, err := cc.RoundTrip(req)
-		if shouldRetryRequest(err) { // TODO: or clientconn is overloaded (too many outstanding requests)?
+		if shouldRetryRequest(req, err) {
 			continue
 		}
 		if err != nil {
@@ -208,11 +217,15 @@ func (t *Transport) CloseIdleConnections() {
 	}
 }
 
-var errClientConnClosed = errors.New("http2: client conn is closed")
+var (
+	errClientConnClosed   = errors.New("http2: client conn is closed")
+	errClientConnUnusable = errors.New("http2: client conn not usable")
+)
 
-func shouldRetryRequest(err error) bool {
-	// TODO: or GOAWAY graceful shutdown stuff
-	return err == errClientConnClosed
+func shouldRetryRequest(req *http.Request, err error) bool {
+	// TODO: retry GET requests (no bodies) more aggressively, if shutdown
+	// before response.
+	return err == errClientConnUnusable
 }
 
 func (t *Transport) dialClientConn(addr string) (*ClientConn, error) {
@@ -351,6 +364,10 @@ func (cc *ClientConn) setGoAway(f *GoAwayFrame) {
 func (cc *ClientConn) CanTakeNewRequest() bool {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
+	return cc.canTakeNewRequestLocked()
+}
+
+func (cc *ClientConn) canTakeNewRequestLocked() bool {
 	return cc.goAway == nil &&
 		int64(len(cc.streams)+1) < int64(cc.maxConcurrentStreams) &&
 		cc.nextStreamID < 2147483647
@@ -412,17 +429,17 @@ func (cc *ClientConn) putFrameScratchBuffer(buf []byte) {
 func (cc *ClientConn) RoundTrip(req *http.Request) (*http.Response, error) {
 	cc.mu.Lock()
 
-	if cc.closed {
+	if cc.closed || !cc.canTakeNewRequestLocked() {
 		cc.mu.Unlock()
-		return nil, errClientConnClosed
+		return nil, errClientConnUnusable
 	}
 
 	cs := cc.newStream()
 	hasBody := req.Body != nil
 
-	// we send: HEADERS[+CONTINUATION] + (DATA?)
+	// we send: HEADERS{1}, CONTINUATION{0,} + DATA{0,}
 	hdrs := cc.encodeHeaders(req)
-	first := true
+	first := true // first frame written (HEADERS is first, then CONTINUATION)
 
 	cc.wmu.Lock()
 	frameSize := int(cc.maxFrameSize)
@@ -1072,3 +1089,16 @@ func (t *Transport) logf(format string, args ...interface{}) {
 }
 
 var noBody io.ReadCloser = ioutil.NopCloser(bytes.NewReader(nil))
+
+func strSliceContains(ss []string, s string) bool {
+	for _, v := range ss {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+type erringRoundTripper struct{ err error }
+
+func (rt erringRoundTripper) RoundTrip(*http.Request) (*http.Response, error) { return nil, rt.err }

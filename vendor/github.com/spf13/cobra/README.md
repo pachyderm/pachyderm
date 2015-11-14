@@ -1,13 +1,13 @@
 ![cobra logo](https://cloud.githubusercontent.com/assets/173412/10886352/ad566232-814f-11e5-9cd0-aa101788c117.png)
 
-Cobra is both a library for creating powerful modern CLI applications as well as a program to generate applications and command files. 
+Cobra is both a library for creating powerful modern CLI applications as well as a program to generate applications and command files.
 
 Many of the most widely used Go projects are built using Cobra including:
 
 * [Kubernetes](http://kubernetes.io/)
 * [Hugo](http://gohugo.io)
 * [rkt](https://github.com/coreos/rkt)
-* [Docker (distribution)](https://github.com/docker/distribution) 
+* [Docker (distribution)](https://github.com/docker/distribution)
 * [OpenShift](https://www.openshift.com/)
 * [Delve](https://github.com/derekparker/delve)
 * [GopherJS](http://www.gopherjs.org/)
@@ -119,29 +119,33 @@ The root command represents your binary itself.
 
 Cobra doesn't require any special constructors. Simply create your commands.
 
-    var HugoCmd = &cobra.Command{
-        Use:   "hugo",
-        Short: "Hugo is a very fast static site generator",
-        Long: `A Fast and Flexible Static Site Generator built with
+```go
+var HugoCmd = &cobra.Command{
+	Use:   "hugo",
+	Short: "Hugo is a very fast static site generator",
+	Long: `A Fast and Flexible Static Site Generator built with
                 love by spf13 and friends in Go.
                 Complete documentation is available at http://hugo.spf13.com`,
-        Run: func(cmd *cobra.Command, args []string) {
-            // Do Stuff Here
-        },
-    }
+	Run: func(cmd *cobra.Command, args []string) {
+		// Do Stuff Here
+	},
+}
+```
 
 ### Create additional commands
 
 Additional commands can be defined.
 
-    var versionCmd = &cobra.Command{
-        Use:   "version",
-        Short: "Print the version number of Hugo",
-        Long:  `All software has versions. This is Hugo's`,
-        Run: func(cmd *cobra.Command, args []string) {
-            fmt.Println("Hugo Static Site Generator v0.9 -- HEAD")
-        },
-    }
+```go
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print the version number of Hugo",
+	Long:  `All software has versions. This is Hugo's`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Hugo Static Site Generator v0.9 -- HEAD")
+	},
+}
+```
 
 ### Attach command to its parent
 In this example we are attaching it to the root, but commands can be attached at any level.
@@ -198,59 +202,62 @@ by not providing a 'Run' for the 'rootCmd'.
 We have only defined one flag for a single command.
 
 More documentation about flags is available at https://github.com/spf13/pflag
+```go
+package main
 
-    import(
-        "github.com/spf13/cobra"
-        "fmt"
-        "strings"
-    )
+import (
+	"fmt"
+	"strings"
 
-    func main() {
+	"github.com/spf13/cobra"
+)
 
-        var echoTimes int
+func main() {
 
-        var cmdPrint = &cobra.Command{
-            Use:   "print [string to print]",
-            Short: "Print anything to the screen",
-            Long:  `print is for printing anything back to the screen.
+	var echoTimes int
+
+	var cmdPrint = &cobra.Command{
+		Use:   "print [string to print]",
+		Short: "Print anything to the screen",
+		Long: `print is for printing anything back to the screen.
             For many years people have printed back to the screen.
             `,
-            Run: func(cmd *cobra.Command, args []string) {
-                fmt.Println("Print: " + strings.Join(args, " "))
-            },
-        }
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Print: " + strings.Join(args, " "))
+		},
+	}
 
-        var cmdEcho = &cobra.Command{
-            Use:   "echo [string to echo]",
-            Short: "Echo anything to the screen",
-            Long:  `echo is for echoing anything back.
+	var cmdEcho = &cobra.Command{
+		Use:   "echo [string to echo]",
+		Short: "Echo anything to the screen",
+		Long: `echo is for echoing anything back.
             Echo works a lot like print, except it has a child command.
             `,
-            Run: func(cmd *cobra.Command, args []string) {
-                fmt.Println("Print: " + strings.Join(args, " "))
-            },
-        }
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Print: " + strings.Join(args, " "))
+		},
+	}
 
-        var cmdTimes = &cobra.Command{
-            Use:   "times [# times] [string to echo]",
-            Short: "Echo anything to the screen more times",
-            Long:  `echo things multiple times back to the user by providing
+	var cmdTimes = &cobra.Command{
+		Use:   "times [# times] [string to echo]",
+		Short: "Echo anything to the screen more times",
+		Long: `echo things multiple times back to the user by providing
             a count and a string.`,
-            Run: func(cmd *cobra.Command, args []string) {
-                for i:=0; i < echoTimes; i++ {
-                    fmt.Println("Echo: " + strings.Join(args, " "))
-                }
-            },
-        }
+		Run: func(cmd *cobra.Command, args []string) {
+			for i := 0; i < echoTimes; i++ {
+				fmt.Println("Echo: " + strings.Join(args, " "))
+			}
+		},
+	}
 
-        cmdTimes.Flags().IntVarP(&echoTimes, "times", "t", 1, "times to echo the input")
+	cmdTimes.Flags().IntVarP(&echoTimes, "times", "t", 1, "times to echo the input")
 
-        var rootCmd = &cobra.Command{Use: "app"}
-        rootCmd.AddCommand(cmdPrint, cmdEcho)
-        cmdEcho.AddCommand(cmdTimes)
-        rootCmd.Execute()
-    }
-
+	var rootCmd = &cobra.Command{Use: "app"}
+	rootCmd.AddCommand(cmdPrint, cmdEcho)
+	cmdEcho.AddCommand(cmdTimes)
+	rootCmd.Execute()
+}
+```
 For a more complete example of a larger application, please checkout [Hugo](http://hugo.spf13.com)
 
 ## The Help Command
@@ -308,18 +315,20 @@ You can provide your own Help command or you own template for the default comman
 
 The default help command is
 
-    func (c *Command) initHelp() {
-        if c.helpCommand == nil {
-            c.helpCommand = &Command{
-                Use:   "help [command]",
-                Short: "Help about any command",
-                Long: `Help provides help for any command in the application.
+```go
+func (c *Command) initHelp() {
+	if c.helpCommand == nil {
+		c.helpCommand = &Command{
+			Use:   "help [command]",
+			Short: "Help about any command",
+			Long: `Help provides help for any command in the application.
         Simply type ` + c.Name() + ` help [path to command] for full details.`,
-                Run: c.HelpFunc(),
-            }
-        }
-        c.AddCommand(c.helpCommand)
-    }
+			Run: c.HelpFunc(),
+		}
+	}
+	c.AddCommand(c.helpCommand)
+}
+```
 
 You can provide your own command, function or template through the following methods.
 
@@ -570,6 +579,12 @@ out everything Cobra knows about the flags for each command
   * Ready for integration into Hugo
 * **0.1.0** Sept 3, 2013
   * Implement first draft
+
+## Extensions
+
+Libraries for extending Cobra:
+
+* [cmdns](https://github.com/gosuri/cmdns): Enables name spacing a command's immediate children. It provides an alternative way to structure sub commands, similar to `heroku apps:create` and `ovrclk clusters:launch`.
 
 ## ToDo
 * Launch proper documentation site

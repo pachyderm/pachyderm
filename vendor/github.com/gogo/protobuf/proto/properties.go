@@ -740,6 +740,7 @@ func getPropertiesLocked(t reflect.Type) *StructProperties {
 	prop.Prop = make([]*Properties, t.NumField())
 	prop.order = make([]int, t.NumField())
 
+	isOneofMessage := false
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 		p := new(Properties)
@@ -761,6 +762,9 @@ func getPropertiesLocked(t reflect.Type) *StructProperties {
 			prop.unrecField = toField(&f)
 		}
 		oneof := f.Tag.Get("protobuf_oneof") != "" // special case
+		if oneof {
+			isOneofMessage = true
+		}
 		prop.Prop[i] = p
 		prop.order[i] = i
 		if debug {
@@ -781,7 +785,7 @@ func getPropertiesLocked(t reflect.Type) *StructProperties {
 	type oneofMessage interface {
 		XXX_OneofFuncs() (func(Message, *Buffer) error, func(Message, int, int, *Buffer) (bool, error), []interface{})
 	}
-	if om, ok := reflect.Zero(reflect.PtrTo(t)).Interface().(oneofMessage); ok {
+	if om, ok := reflect.Zero(reflect.PtrTo(t)).Interface().(oneofMessage); isOneofMessage && ok {
 		var oots []interface{}
 		prop.oneofMarshaler, prop.oneofUnmarshaler, oots = om.XXX_OneofFuncs()
 		prop.stype = t

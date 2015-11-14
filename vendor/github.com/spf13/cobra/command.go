@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -92,6 +93,8 @@ type Command struct {
 	PersistentPostRun func(cmd *Command, args []string)
 	// PersistentPostRunE: PersistentPostRun but returns an error
 	PersistentPostRunE func(cmd *Command, args []string) error
+	// DisableAutoGenTag remove
+	DisableAutoGenTag bool
 	// Commands is the list of commands supported by this program.
 	commands []*Command
 	// Parent Command for this command
@@ -473,15 +476,29 @@ func (c *Command) SuggestionsFor(typedName string) []string {
 	return suggestions
 }
 
+func (c *Command) VisitParents(fn func(*Command)) {
+	var traverse func(*Command) *Command
+
+	traverse = func(x *Command) *Command {
+		if x != c {
+			fn(x)
+		}
+		if x.HasParent() {
+			return traverse(x.parent)
+		}
+		return x
+	}
+	traverse(c)
+}
+
 func (c *Command) Root() *Command {
 	var findRoot func(*Command) *Command
 
 	findRoot = func(x *Command) *Command {
 		if x.HasParent() {
 			return findRoot(x.parent)
-		} else {
-			return x
 		}
+		return x
 	}
 
 	return findRoot(c)
@@ -618,7 +635,8 @@ func (c *Command) Execute() (err error) {
 
 	var args []string
 
-	if len(c.args) == 0 && os.Args[0] == c.Name() {
+	// Workaround FAIL with "go test -v" or "cobra.test -test.v", see #155
+	if len(c.args) == 0 && filepath.Base(os.Args[0]) != "cobra.test" {
 		args = os.Args[1:]
 	} else {
 		args = c.args
