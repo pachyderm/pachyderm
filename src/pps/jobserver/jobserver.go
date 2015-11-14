@@ -13,6 +13,7 @@ func NewAPIServer(
 	client *kube.Client,
 ) pps.JobAPIServer {
 	return newAPIServer(
+		pfsAPIClient,
 		persistAPIClient,
 		client,
 	)

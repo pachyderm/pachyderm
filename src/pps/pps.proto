@@ -45,8 +45,8 @@ message JobInfo {
     Transform transform = 2;
     Pipeline pipeline = 3;
   }
-  pfs.Commit input = 4;
-  pfs.Commit output = 5;
+  pfs.Commit input_commit = 4;
+  pfs.Commit output_commit = 5;
   // latest to earliest
   repeated JobStatus job_status = 6;
 }
@@ -99,8 +99,9 @@ message StartJobRequest {
 }
 
 message StartJobResponse {
-    uint64 shard = 1;
-    uint64 modulus = 2;
+    pfs.Commit output_commit = 1;
+    uint64 shard = 2;
+    uint64 modulus = 3;
 }
 
 message FinishJobRequest {

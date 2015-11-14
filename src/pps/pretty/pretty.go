@@ -18,9 +18,9 @@ func PrintJobHeader(w io.Writer) {
 
 func PrintJobInfo(w io.Writer, jobInfo *pps.JobInfo) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.Id)
-	fmt.Fprintf(w, "%s/%s\t", jobInfo.Input.Repo.Name, jobInfo.Input.Id)
-	if jobInfo.Output != nil {
-		fmt.Fprintf(w, "%s/%s\t", jobInfo.Output.Repo.Name, jobInfo.Output.Id)
+	fmt.Fprintf(w, "%s/%s\t", jobInfo.InputCommit.Repo.Name, jobInfo.InputCommit.Id)
+	if jobInfo.OutputCommit != nil {
+		fmt.Fprintf(w, "%s/%s\t", jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.Id)
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}

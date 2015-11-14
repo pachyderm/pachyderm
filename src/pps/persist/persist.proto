@@ -15,9 +15,9 @@ message JobInfo {
     pachyderm.pps.Transform transform = 2;
     string pipeline_name = 3;
   }
-  pfs.Commit input = 4;
+  pfs.Commit input_commit = 4;
   pfs.Commit output_parent = 5;
-  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp created_at = 7;
 }
 
 message JobInfos {
@@ -42,7 +42,7 @@ message JobOutput {
   // if we wanted to be able to have multuple output pfs repos,
   // we would need JobOutputCommit to have a separate id
   string job_id = 1;
-  pfs.Commit output = 2;
+  pfs.Commit output_commit = 2;
 }
 
 message JobLog {
