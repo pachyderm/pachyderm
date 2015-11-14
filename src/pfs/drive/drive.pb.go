@@ -18,10 +18,9 @@ package drive
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-
-// discarding unused import google_api1 "github.com/gengo/grpc-gateway/third_party/googleapis/google/api"
-// discarding unused import google_protobuf1 "go.pedge.io/google-protobuf"
-// discarding unused import google_protobuf2 "go.pedge.io/google-protobuf"
+import _ "github.com/gengo/grpc-gateway/third_party/googleapis/google/api"
+import _ "go.pedge.io/google-protobuf"
+import _ "go.pedge.io/google-protobuf"
 import pfs "github.com/pachyderm/pachyderm/src/pfs"
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -90,4 +89,10 @@ func (m *Changes) GetDeletes() map[string]bool {
 		return m.Deletes
 	}
 	return nil
+}
+
+func init() {
+	proto.RegisterType((*BlockRef)(nil), "BlockRef")
+	proto.RegisterType((*BlockRefs)(nil), "BlockRefs")
+	proto.RegisterType((*Changes)(nil), "Changes")
 }

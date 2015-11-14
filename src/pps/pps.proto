@@ -94,6 +94,20 @@ message GetJobLogsRequest {
   OutputStream output_stream = 2;
 }
 
+message StartJobRequest {
+  Job job = 1;
+}
+
+message StartJobResponse {
+    uint64 shard = 1;
+    uint64 modulus = 2;
+}
+
+message FinishJobRequest {
+    Job job = 1;
+    uint64 shard = 2;
+}
+
 message CreatePipelineRequest {
   Pipeline pipeline = 1;
   Transform transform = 2;
@@ -117,6 +131,11 @@ service JobAPI {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
   rpc GetJobLogs(GetJobLogsRequest) returns (stream google.protobuf.BytesValue) {}
+}
+
+service InternalJobAPI {
+    rpc StartJob(StartJobRequest) returns (StartJobResponse) {}
+    rpc FinishJob(FinishJobRequest) returns (google.protobuf.Empty) {}
 }
 
 service PipelineAPI {
