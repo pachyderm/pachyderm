@@ -228,8 +228,8 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 					Containers: []api.Container{
 						{
 							Name:    "user",
-							Image:   "pachyderm/pach",
-							Command: append([]string{"/pach", "mount-exec"}, jobInfo.GetTransform().Cmd...),
+							Image:   "pachyderm/job-shim",
+							Command: append([]string{"/job-shim"}, jobInfo.GetTransform().Cmd...),
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},
