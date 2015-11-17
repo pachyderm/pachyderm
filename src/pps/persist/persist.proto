@@ -15,8 +15,9 @@ message JobInfo {
     pachyderm.pps.Transform transform = 2;
     string pipeline_name = 3;
   }
-  repeated pfs.Commit input_commit = 4;
-  pfs.Commit output_parent = 5;
+  uint64 parallelism = 4;
+  repeated pfs.Commit input_commit = 5;
+  pfs.Commit output_parent = 6;
   google.protobuf.Timestamp created_at = 7;
 }
 
@@ -56,9 +57,10 @@ message JobLogs {
 message PipelineInfo {
   string pipeline_name = 1;
   pachyderm.pps.Transform transform = 2;
-  repeated pfs.Repo input_repo = 3;
-  pfs.Repo output_repo = 4;
-  google.protobuf.Timestamp created_at = 5;
+  uint64 parallelism = 3;
+  repeated pfs.Repo input_repo = 4;
+  pfs.Repo output_repo = 5;
+  google.protobuf.Timestamp created_at = 6;
 }
 
 message PipelineInfos {

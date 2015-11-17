@@ -2,6 +2,7 @@ package jobserver
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"go.pedge.io/google-protobuf"
@@ -29,6 +30,10 @@ type apiServer struct {
 	pfsAPIClient     pfs.APIClient
 	persistAPIClient persist.APIClient
 	kubeClient       *kube.Client
+	startJobCounter  map[pps.Job]uint64
+	startJobLock     sync.Mutex
+	finishJobCounter map[pps.Job]uint64
+	finishJobLock    sync.Mutex
 }
 
 func newAPIServer(
@@ -41,12 +46,17 @@ func newAPIServer(
 		pfsAPIClient,
 		persistAPIClient,
 		kubeClient,
+		make(map[pps.Job]uint64),
+		sync.Mutex{},
+		make(map[pps.Job]uint64),
+		sync.Mutex{},
 	}
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistJobInfo := &persist.JobInfo{
+		Parallelism:  request.Parallelism,
 		InputCommit:  request.InputCommit,
 		OutputParent: request.OutputParent,
 	}
@@ -128,42 +138,77 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	if err != nil {
 		return nil, err
 	}
-	commit, err := a.pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-		Parent: jobInfo.OutputParent,
-	})
-	if err != nil {
+	var shard uint64
+	if err := func() error {
+		a.startJobLock.Lock()
+		defer a.startJobLock.Unlock()
+		shard = a.startJobCounter[*request.Job]
+		a.startJobCounter[*request.Job] = shard + 1
+		if shard == 0 {
+			commit, err := a.pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+				Parent: jobInfo.OutputParent,
+			})
+			if err != nil {
+				return err
+			}
+			if _, err := a.persistAPIClient.CreateJobOutput(
+				ctx,
+				&persist.JobOutput{
+					JobId:        request.Job.Id,
+					OutputCommit: commit,
+				}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}(); err != nil {
 		return nil, err
 	}
-	if _, err := a.persistAPIClient.CreateJobOutput(
-		ctx,
-		&persist.JobOutput{
-			JobId:        request.Job.Id,
-			OutputCommit: commit,
-		}); err != nil {
-		return nil, err
-	}
-	return &pps.StartJobResponse{
-		OutputCommit: commit,
-		Shard:        0,
-		Modulus:      1,
-	}, nil
-}
-
-func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest) (*google_protobuf.Empty, error) {
 	jobOutput, err := a.persistAPIClient.GetJobOutput(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := a.pfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-		Commit: jobOutput.OutputCommit,
-	}); err != nil {
+	if jobOutput.OutputCommit == nil {
+		return nil, fmt.Errorf("jobOutput.OutputCommit should not be nil (this is likely a bug)")
+	}
+	return &pps.StartJobResponse{
+		InputCommit:  jobInfo.InputCommit,
+		OutputCommit: jobOutput.OutputCommit,
+		Shard:        shard,
+		Modulus:      jobInfo.Parallelism,
+	}, nil
+}
+
+func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest) (*google_protobuf.Empty, error) {
+	jobInfo, err := a.persistAPIClient.GetJobInfo(ctx, request.Job)
+	if err != nil {
 		return nil, err
 	}
-
+	var finished uint64
+	func() {
+		a.finishJobLock.Lock()
+		defer a.finishJobLock.Unlock()
+		a.finishJobCounter[*request.Job] = a.finishJobCounter[*request.Job] + 1
+		finished = a.finishJobCounter[*request.Job]
+	}()
+	if finished == jobInfo.Parallelism {
+		// all of the shards have finished so we finish the commit
+		jobOutput, err := a.persistAPIClient.GetJobOutput(ctx, request.Job)
+		if err != nil {
+			return nil, err
+		}
+		if jobOutput.OutputCommit == nil {
+			return nil, fmt.Errorf("jobOutput.OutputCommit should not be nil (this is likely a bug)")
+		}
+		if _, err := a.pfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+			Commit: jobOutput.OutputCommit,
+		}); err != nil {
+			return nil, err
+		}
+	}
 	return google_protobuf.EmptyInstance, nil
 }
 
-// TODO: bulk get
 func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo *persist.JobInfo) (*pps.JobInfo, error) {
 	job := &pps.Job{Id: persistJobInfo.JobId}
 	persistJobStatuses, err := a.persistAPIClient.GetJobStatuses(ctx, job)
@@ -172,6 +217,7 @@ func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo 
 	}
 	jobInfo := &pps.JobInfo{
 		Job:         job,
+		Parallelism: persistJobInfo.Parallelism,
 		InputCommit: persistJobInfo.InputCommit,
 	}
 	if persistJobInfo.GetTransform() != nil {
@@ -206,6 +252,7 @@ func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo 
 
 func job(jobInfo *persist.JobInfo) *extensions.Job {
 	app := jobInfo.JobId
+	completions := int(jobInfo.Parallelism)
 	return &extensions.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -219,6 +266,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 			Selector: &extensions.PodSelector{
 				MatchLabels: labels(app),
 			},
+			Completions: &completions,
 			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   jobInfo.JobId,
