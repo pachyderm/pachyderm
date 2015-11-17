@@ -36,11 +36,7 @@ message JobStatuses {
   repeated JobStatus job_status = 1;
 }
 
-// maybe name JobOutputCommit? we name the fields
-// input and output, not input_commit and output_commit
 message JobOutput {
-  // if we wanted to be able to have multuple output pfs repos,
-  // we would need JobOutputCommit to have a separate id
   string job_id = 1;
   pfs.Commit output_commit = 2;
 }
@@ -60,8 +56,8 @@ message JobLogs {
 message PipelineInfo {
   string pipeline_name = 1;
   pachyderm.pps.Transform transform = 2;
-  pfs.Repo input = 3;
-  pfs.Repo output = 4;
+  repeated pfs.Repo input_repo = 3;
+  pfs.Repo output_repo = 4;
   google.protobuf.Timestamp created_at = 5;
 }
 

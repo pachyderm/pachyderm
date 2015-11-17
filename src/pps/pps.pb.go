@@ -293,10 +293,10 @@ func (*Pipeline) ProtoMessage()    {}
 
 // TODO: add created at?
 type PipelineInfo struct {
-	Pipeline  *Pipeline  `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
-	Transform *Transform `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Input     *pfs.Repo  `protobuf:"bytes,3,opt,name=input" json:"input,omitempty"`
-	Output    *pfs.Repo  `protobuf:"bytes,4,opt,name=output" json:"output,omitempty"`
+	Pipeline   *Pipeline   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Transform  *Transform  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	InputRepo  []*pfs.Repo `protobuf:"bytes,3,rep,name=input_repo" json:"input_repo,omitempty"`
+	OutputRepo *pfs.Repo   `protobuf:"bytes,4,opt,name=output_repo" json:"output_repo,omitempty"`
 }
 
 func (m *PipelineInfo) Reset()         { *m = PipelineInfo{} }
@@ -317,16 +317,16 @@ func (m *PipelineInfo) GetTransform() *Transform {
 	return nil
 }
 
-func (m *PipelineInfo) GetInput() *pfs.Repo {
+func (m *PipelineInfo) GetInputRepo() []*pfs.Repo {
 	if m != nil {
-		return m.Input
+		return m.InputRepo
 	}
 	return nil
 }
 
-func (m *PipelineInfo) GetOutput() *pfs.Repo {
+func (m *PipelineInfo) GetOutputRepo() *pfs.Repo {
 	if m != nil {
-		return m.Output
+		return m.OutputRepo
 	}
 	return nil
 }
@@ -572,10 +572,10 @@ func (m *FinishJobRequest) GetJob() *Job {
 }
 
 type CreatePipelineRequest struct {
-	Pipeline  *Pipeline  `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
-	Transform *Transform `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Input     *pfs.Repo  `protobuf:"bytes,3,opt,name=input" json:"input,omitempty"`
-	Output    *pfs.Repo  `protobuf:"bytes,4,opt,name=output" json:"output,omitempty"`
+	Pipeline   *Pipeline   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Transform  *Transform  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	InputRepo  []*pfs.Repo `protobuf:"bytes,3,rep,name=input_repo" json:"input_repo,omitempty"`
+	OutputRepo *pfs.Repo   `protobuf:"bytes,4,opt,name=output_repo" json:"output_repo,omitempty"`
 }
 
 func (m *CreatePipelineRequest) Reset()         { *m = CreatePipelineRequest{} }
@@ -596,16 +596,16 @@ func (m *CreatePipelineRequest) GetTransform() *Transform {
 	return nil
 }
 
-func (m *CreatePipelineRequest) GetInput() *pfs.Repo {
+func (m *CreatePipelineRequest) GetInputRepo() []*pfs.Repo {
 	if m != nil {
-		return m.Input
+		return m.InputRepo
 	}
 	return nil
 }
 
-func (m *CreatePipelineRequest) GetOutput() *pfs.Repo {
+func (m *CreatePipelineRequest) GetOutputRepo() *pfs.Repo {
 	if m != nil {
-		return m.Output
+		return m.OutputRepo
 	}
 	return nil
 }

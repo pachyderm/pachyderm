@@ -59,8 +59,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
-		Input:        request.Input,
-		Output:       request.Output,
+		InputRepo:    request.InputRepo,
+		OutputRepo:   request.OutputRepo,
 	}
 	if _, err := a.persistAPIClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
@@ -113,9 +113,9 @@ func persistPipelineInfoToPipelineInfo(persistPipelineInfo *persist.PipelineInfo
 		Pipeline: &pps.Pipeline{
 			Name: persistPipelineInfo.PipelineName,
 		},
-		Transform: persistPipelineInfo.Transform,
-		Input:     persistPipelineInfo.Input,
-		Output:    persistPipelineInfo.Output,
+		Transform:  persistPipelineInfo.Transform,
+		InputRepo:  persistPipelineInfo.InputRepo,
+		OutputRepo: persistPipelineInfo.OutputRepo,
 	}
 }
 
@@ -124,35 +124,60 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 	a.lock.Lock()
 	a.cancelFuncs[*pipelineInfo.Pipeline] = cancel
 	a.lock.Unlock()
-	for {
-		var lastCommit *pfs.Commit
-		listCommitRequest := &pfs.ListCommitRequest{
-			Repo:       pipelineInfo.Input,
-			CommitType: pfs.CommitType_COMMIT_TYPE_READ,
-			From:       lastCommit,
-			Block:      true,
-		}
-		commitInfos, err := a.pfsAPIClient.ListCommit(ctx, listCommitRequest)
-		if err != nil {
-			return err
-		}
-		for _, commitInfo := range commitInfos.CommitInfo {
-			outParentCommit, err := a.bestParent(pipelineInfo, commitInfo)
-			if err != nil {
-				return err
+	var loopErr error
+	//TODO this gets really weird with branching... we need to figure out what that looks like.
+	mostRecentCommit := make(map[pfs.Repo]*pfs.Commit)
+	var lock sync.Mutex
+	var wg sync.WaitGroup
+	for _, inputRepo := range pipelineInfo.InputRepo {
+		inputRepo := inputRepo
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var lastCommit *pfs.Commit
+			listCommitRequest := &pfs.ListCommitRequest{
+				Repo:       inputRepo,
+				CommitType: pfs.CommitType_COMMIT_TYPE_READ,
+				From:       lastCommit,
+				Block:      true,
 			}
-			_, err = a.jobAPIClient.CreateJob(
-				context.Background(),
-				&pps.CreateJobRequest{
-					Spec: &pps.CreateJobRequest_Pipeline{
-						Pipeline: pipelineInfo.Pipeline,
+			commitInfos, err := a.pfsAPIClient.ListCommit(ctx, listCommitRequest)
+			if err != nil && loopErr == nil {
+				loopErr = err
+				return
+			}
+			for _, commitInfo := range commitInfos.CommitInfo {
+				lock.Lock()
+				mostRecentCommit[*inputRepo] = commitInfo.Commit
+				var commits []*pfs.Commit
+				for _, commit := range mostRecentCommit {
+					commits = append(commits, commit)
+				}
+				lock.Unlock()
+				if len(commits) < len(pipelineInfo.InputRepo) {
+					// we don't yet have a commit for every input repo so there's no way to run the job
+					continue
+				}
+				outParentCommit, err := a.bestParent(pipelineInfo, commitInfo)
+				if err != nil && loopErr == nil {
+					loopErr = err
+					return
+				}
+				_, err = a.jobAPIClient.CreateJob(
+					ctx,
+					&pps.CreateJobRequest{
+						Spec: &pps.CreateJobRequest_Pipeline{
+							Pipeline: pipelineInfo.Pipeline,
+						},
+						InputCommit:  []*pfs.Commit{commitInfo.Commit},
+						OutputParent: outParentCommit,
 					},
-					InputCommit:  []*pfs.Commit{commitInfo.Commit},
-					OutputParent: outParentCommit,
-				},
-			)
-		}
+				)
+			}
+		}()
 	}
+	wg.Wait()
+	return loopErr
 }
 
 func (a *apiServer) bestParent(pipelineInfo *pps.PipelineInfo, inputCommitInfo *pfs.CommitInfo) (*pfs.Commit, error) {

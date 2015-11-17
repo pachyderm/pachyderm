@@ -174,10 +174,12 @@ You can find out the name of the commit with inspect-job.`,
 						Image: image,
 						Cmd:   args[3:],
 					},
-					Input: &pfs.Repo{
-						Name: args[1],
+					InputRepo: []*pfs.Repo{
+						{
+							Name: args[1],
+						},
 					},
-					Output: &pfs.Repo{
+					OutputRepo: &pfs.Repo{
 						Name: args[2],
 					},
 				},
