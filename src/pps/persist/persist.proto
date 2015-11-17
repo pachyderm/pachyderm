@@ -15,7 +15,7 @@ message JobInfo {
     pachyderm.pps.Transform transform = 2;
     string pipeline_name = 3;
   }
-  pfs.Commit input_commit = 4;
+  repeated pfs.Commit input_commit = 4;
   pfs.Commit output_parent = 5;
   google.protobuf.Timestamp created_at = 7;
 }

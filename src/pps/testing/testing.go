@@ -35,7 +35,7 @@ func RunTest(
 			mounter := fuse.NewMounter("localhost", pfsAPIClient)
 			ready := make(chan bool)
 			go func() {
-				require.NoError(t, mounter.Mount(pfsMountDir, 0, 1, ready))
+				require.NoError(t, mounter.Mount(pfsMountDir, 0, 1, nil, ready))
 			}()
 			<-ready
 			persistservertesting.RunTestWithRethinkAPIServer(

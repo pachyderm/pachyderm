@@ -11,6 +11,7 @@ type Mounter interface {
 		mountPoint string,
 		shard uint64,
 		modulus uint64,
+		commits []*pfs.Commit, // nil means mount all commits
 		ready chan bool,
 	) error
 	// Unmount unmounts a mounted filesystem (duh).

@@ -147,7 +147,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 					Spec: &pps.CreateJobRequest_Pipeline{
 						Pipeline: pipelineInfo.Pipeline,
 					},
-					Input:        commitInfo.Commit,
+					InputCommit:  []*pfs.Commit{commitInfo.Commit},
 					OutputParent: outParentCommit,
 				},
 			)

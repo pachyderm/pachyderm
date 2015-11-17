@@ -1,12 +1,14 @@
 syntax = "proto3";
 
 import "go.pedge.io/protolog/protolog.proto";
+import "pfs/pfs.proto";
 
 package fuse;
 
 message Filesystem {
   uint64 shard = 1;
   uint64 modulus = 2;
+  repeated pfs.Commit commits = 3;
 }
 
 message Node {

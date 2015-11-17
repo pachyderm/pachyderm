@@ -30,6 +30,7 @@ func (m *mounter) Mount(
 	mountPoint string,
 	shard uint64,
 	modulus uint64,
+	commits []*pfs.Commit,
 	ready chan bool,
 ) (retErr error) {
 	var once sync.Once
@@ -65,7 +66,7 @@ func (m *mounter) Mount(
 			close(ready)
 		}
 	})
-	if err := fs.Serve(conn, newFilesystem(m.apiClient, shard, modulus)); err != nil {
+	if err := fs.Serve(conn, newFilesystem(m.apiClient, shard, modulus, commits)); err != nil {
 		return err
 	}
 	<-conn.Ready
