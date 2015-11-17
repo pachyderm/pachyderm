@@ -30,6 +30,7 @@ import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import _ "go.pedge.io/protolog"
+import pfs "github.com/pachyderm/pachyderm/src/pfs"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -37,13 +38,21 @@ var _ = fmt.Errorf
 var _ = math.Inf
 
 type Filesystem struct {
-	Shard   uint64 `protobuf:"varint,1,opt,name=shard" json:"shard,omitempty"`
-	Modulus uint64 `protobuf:"varint,2,opt,name=modulus" json:"modulus,omitempty"`
+	Shard   uint64        `protobuf:"varint,1,opt,name=shard" json:"shard,omitempty"`
+	Modulus uint64        `protobuf:"varint,2,opt,name=modulus" json:"modulus,omitempty"`
+	Commits []*pfs.Commit `protobuf:"bytes,3,rep,name=commits" json:"commits,omitempty"`
 }
 
 func (m *Filesystem) Reset()         { *m = Filesystem{} }
 func (m *Filesystem) String() string { return proto.CompactTextString(m) }
 func (*Filesystem) ProtoMessage()    {}
+
+func (m *Filesystem) GetCommits() []*pfs.Commit {
+	if m != nil {
+		return m.Commits
+	}
+	return nil
+}
 
 type Node struct {
 	RepoName string `protobuf:"bytes,1,opt,name=repoName" json:"repoName,omitempty"`

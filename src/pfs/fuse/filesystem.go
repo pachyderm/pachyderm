@@ -26,12 +26,14 @@ func newFilesystem(
 	apiClient pfs.APIClient,
 	shard uint64,
 	modulus uint64,
+	commits []*pfs.Commit,
 ) *filesystem {
 	return &filesystem{
 		apiClient,
 		Filesystem{
 			shard,
 			modulus,
+			commits,
 		},
 	}
 }

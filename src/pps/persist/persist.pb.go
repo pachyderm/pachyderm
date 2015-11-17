@@ -45,9 +45,8 @@ type JobInfo struct {
 	//	*JobInfo_Transform
 	//	*JobInfo_PipelineName
 	Spec         isJobInfo_Spec              `protobuf_oneof:"spec"`
-	InputCommit  *pfs.Commit                 `protobuf:"bytes,4,opt,name=input_commit" json:"input_commit,omitempty"`
+	InputCommit  []*pfs.Commit               `protobuf:"bytes,4,rep,name=input_commit" json:"input_commit,omitempty"`
 	OutputParent *pfs.Commit                 `protobuf:"bytes,5,opt,name=output_parent" json:"output_parent,omitempty"`
-	OutputCommit []*pfs.Commit               `protobuf:"bytes,6,rep,name=output_commit" json:"output_commit,omitempty"`
 	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,7,opt,name=created_at" json:"created_at,omitempty"`
 }
 
@@ -90,7 +89,7 @@ func (m *JobInfo) GetPipelineName() string {
 	return ""
 }
 
-func (m *JobInfo) GetInputCommit() *pfs.Commit {
+func (m *JobInfo) GetInputCommit() []*pfs.Commit {
 	if m != nil {
 		return m.InputCommit
 	}
@@ -100,13 +99,6 @@ func (m *JobInfo) GetInputCommit() *pfs.Commit {
 func (m *JobInfo) GetOutputParent() *pfs.Commit {
 	if m != nil {
 		return m.OutputParent
-	}
-	return nil
-}
-
-func (m *JobInfo) GetOutputCommit() []*pfs.Commit {
-	if m != nil {
-		return m.OutputCommit
 	}
 	return nil
 }

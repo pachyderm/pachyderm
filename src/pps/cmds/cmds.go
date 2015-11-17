@@ -38,11 +38,13 @@ You can find out the name of the commit with inspect-job.`,
 							Cmd:   args[3:],
 						},
 					},
-					Input: &pfs.Commit{
-						Repo: &pfs.Repo{
-							Name: args[0],
+					InputCommit: []*pfs.Commit{
+						{
+							Repo: &pfs.Repo{
+								Name: args[0],
+							},
+							Id: args[1],
 						},
-						Id: args[1],
 					},
 					OutputParent: &pfs.Commit{
 						Repo: &pfs.Repo{

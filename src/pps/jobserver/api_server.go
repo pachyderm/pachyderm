@@ -47,7 +47,7 @@ func newAPIServer(
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistJobInfo := &persist.JobInfo{
-		InputCommit:  request.Input,
+		InputCommit:  request.InputCommit,
 		OutputParent: request.OutputParent,
 	}
 	if request.GetTransform() != nil {

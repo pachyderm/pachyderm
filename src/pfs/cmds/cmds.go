@@ -439,7 +439,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 				mountPoint = args[0]
 			}
 			mounter := fuse.NewMounter(address, apiClient)
-			return mounter.Mount(mountPoint, uint64(shard), uint64(modulus), nil)
+			return mounter.Mount(mountPoint, uint64(shard), uint64(modulus), nil, nil)
 		}),
 	}
 	mount.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
