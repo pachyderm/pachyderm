@@ -55,15 +55,20 @@ func (m *Filesystem) GetCommits() []*pfs.Commit {
 }
 
 type Node struct {
-	RepoName string `protobuf:"bytes,1,opt,name=repoName" json:"repoName,omitempty"`
-	CommitID string `protobuf:"bytes,2,opt,name=commitID" json:"commitID,omitempty"`
-	Path     string `protobuf:"bytes,3,opt,name=path" json:"path,omitempty"`
-	Write    bool   `protobuf:"varint,4,opt,name=write" json:"write,omitempty"`
+	File  *pfs.File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	Write bool      `protobuf:"varint,2,opt,name=write" json:"write,omitempty"`
 }
 
 func (m *Node) Reset()         { *m = Node{} }
 func (m *Node) String() string { return proto.CompactTextString(m) }
 func (*Node) ProtoMessage()    {}
+
+func (m *Node) GetFile() *pfs.File {
+	if m != nil {
+		return m.File
+	}
+	return nil
+}
 
 type Attr struct {
 	Mode uint32 `protobuf:"varint,1,opt,name=Mode" json:"Mode,omitempty"`

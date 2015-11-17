@@ -12,10 +12,8 @@ message Filesystem {
 }
 
 message Node {
-  string repoName = 1;
-  string commitID = 2;
-  string path = 3;
-  bool write = 4;
+  pfs.File file = 1;
+  bool write = 2;
 }
 
 message Attr {

@@ -42,7 +42,15 @@ func (f *filesystem) Root() (result fs.Node, retErr error) {
 	defer func() {
 		protolog.Info(&Root{&f.Filesystem, getNode(result), errorToString(retErr)})
 	}()
-	return &directory{f, Node{"", "", "", true}}, nil
+	return &directory{
+		f,
+		Node{&pfs.File{
+			Commit: &pfs.Commit{
+				Repo: &pfs.Repo{},
+			},
+		},
+			true},
+	}, nil
 }
 
 type directory struct {
@@ -66,10 +74,10 @@ func (d *directory) Lookup(ctx context.Context, name string) (result fs.Node, re
 	defer func() {
 		protolog.Info(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
 	}()
-	if d.RepoName == "" {
+	if d.File.Commit.Repo.Name == "" {
 		return d.lookUpRepo(ctx, name)
 	}
-	if d.CommitID == "" {
+	if d.File.Commit.Id == "" {
 		return d.lookUpCommit(ctx, name)
 	}
 	return d.lookUpFile(ctx, name)
@@ -83,10 +91,10 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 		}
 		protolog.Info(&DirectoryReadDirAll{&d.Node, dirents, errorToString(retErr)})
 	}()
-	if d.RepoName == "" {
+	if d.File.Commit.Repo.Name == "" {
 		return d.readRepos(ctx)
 	}
-	if d.CommitID == "" {
+	if d.File.Commit.Id == "" {
 		return d.readCommits(ctx)
 	}
 	return d.readFiles(ctx)
@@ -96,11 +104,11 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 	defer func() {
 		protolog.Info(&DirectoryCreate{&d.Node, getNode(result), errorToString(retErr)})
 	}()
-	if d.CommitID == "" {
+	if d.File.Commit.Id == "" {
 		return nil, 0, fuse.EPERM
 	}
 	directory := *d
-	directory.Path = path.Join(directory.Path, request.Name)
+	directory.File.Path = path.Join(directory.File.Path, request.Name)
 	localResult := &file{directory, 0, 0}
 	handle, err := localResult.Open(ctx, nil, nil)
 	if err != nil {
@@ -113,14 +121,14 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 	defer func() {
 		protolog.Info(&DirectoryMkdir{&d.Node, getNode(result), errorToString(retErr)})
 	}()
-	if d.CommitID == "" {
+	if d.File.Commit.Id == "" {
 		return nil, fuse.EPERM
 	}
-	if err := pfsutil.MakeDirectory(d.fs.apiClient, d.RepoName, d.CommitID, path.Join(d.Path, request.Name)); err != nil {
+	if err := pfsutil.MakeDirectory(d.fs.apiClient, d.File.Commit.Repo.Name, d.File.Commit.Id, path.Join(d.File.Path, request.Name)); err != nil {
 		return nil, err
 	}
 	localResult := *d
-	localResult.Path = path.Join(localResult.Path, request.Name)
+	localResult.File.Path = path.Join(localResult.File.Path, request.Name)
 	return &localResult, nil
 }
 
@@ -136,9 +144,9 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	}()
 	fileInfo, err := pfsutil.InspectFile(
 		f.fs.apiClient,
-		f.RepoName,
-		f.CommitID,
-		f.Path,
+		f.File.Commit.Repo.Name,
+		f.File.Commit.Id,
+		f.File.Path,
 	)
 	if err != nil {
 		return err
@@ -155,7 +163,7 @@ func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fu
 		protolog.Info(&FileRead{&f.Node, errorToString(retErr)})
 	}()
 	buffer := bytes.NewBuffer(make([]byte, 0, request.Size))
-	if err := pfsutil.GetFile(f.fs.apiClient, f.RepoName, f.CommitID, f.Path, request.Offset, int64(request.Size), buffer); err != nil {
+	if err := pfsutil.GetFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.Id, f.File.Path, request.Offset, int64(request.Size), buffer); err != nil {
 		return err
 	}
 	response.Data = buffer.Bytes()
@@ -174,7 +182,7 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 	defer func() {
 		protolog.Info(&FileWrite{&f.Node, errorToString(retErr)})
 	}()
-	written, err := pfsutil.PutFile(f.fs.apiClient, f.RepoName, f.CommitID, f.Path, request.Offset, bytes.NewReader(request.Data))
+	written, err := pfsutil.PutFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.Id, f.File.Path, request.Offset, bytes.NewReader(request.Data))
 	if err != nil {
 		return err
 	}
@@ -194,14 +202,14 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 		return nil, fuse.ENOENT
 	}
 	result := *d
-	result.RepoName = name
+	result.File.Commit.Repo.Name = name
 	return &result, nil
 }
 
 func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, error) {
 	commitInfo, err := pfsutil.InspectCommit(
 		d.fs.apiClient,
-		d.RepoName,
+		d.File.Commit.Repo.Name,
 		name,
 	)
 	if err != nil {
@@ -211,16 +219,16 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 		return nil, fuse.ENOENT
 	}
 	result := *d
-	result.CommitID = name
+	result.File.Commit.Id = name
 	return &result, nil
 }
 
 func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error) {
 	fileInfo, err := pfsutil.InspectFile(
 		d.fs.apiClient,
-		d.RepoName,
-		d.CommitID,
-		path.Join(d.Path, name),
+		d.File.Commit.Repo.Name,
+		d.File.Commit.Id,
+		path.Join(d.File.Path, name),
 	)
 	if err != nil {
 		return nil, err
@@ -229,10 +237,10 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		return nil, fuse.ENOENT
 	}
 	directory := *d
-	directory.Path = fileInfo.File.Path
+	directory.File.Path = fileInfo.File.Path
 	switch fileInfo.FileType {
 	case pfs.FileType_FILE_TYPE_REGULAR:
-		directory.Path = fileInfo.File.Path
+		directory.File.Path = fileInfo.File.Path
 		return &file{
 			directory,
 			0,
@@ -258,7 +266,7 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
-	commitInfos, err := pfsutil.ListCommit(d.fs.apiClient, d.RepoName)
+	commitInfos, err := pfsutil.ListCommit(d.fs.apiClient, d.File.Commit.Repo.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -270,13 +278,13 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
-	fileInfos, err := pfsutil.ListFile(d.fs.apiClient, d.RepoName, d.CommitID, d.Path, d.fs.Shard, d.fs.Modulus)
+	fileInfos, err := pfsutil.ListFile(d.fs.apiClient, d.File.Commit.Repo.Name, d.File.Commit.Id, d.File.Path, d.fs.Shard, d.fs.Modulus)
 	if err != nil {
 		return nil, err
 	}
 	var result []fuse.Dirent
 	for _, fileInfo := range fileInfos {
-		shortPath := strings.TrimPrefix(fileInfo.File.Path, d.Path)
+		shortPath := strings.TrimPrefix(fileInfo.File.Path, d.File.Path)
 		switch fileInfo.FileType {
 		case pfs.FileType_FILE_TYPE_REGULAR:
 			result = append(result, fuse.Dirent{Name: shortPath, Type: fuse.DT_File})
