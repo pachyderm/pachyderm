@@ -174,8 +174,9 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	return &pps.StartJobResponse{
 		InputCommit:  jobInfo.InputCommit,
 		OutputCommit: jobOutput.OutputCommit,
-		Shard:        shard,
-		Modulus:      jobInfo.Parallelism,
+		Shard: &pfs.Shard{shard,
+			jobInfo.Parallelism,
+		},
 	}, nil
 }
 

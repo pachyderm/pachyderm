@@ -105,7 +105,6 @@ func (v *volumeDriver) Mount(name string, opts pkgmap.StringStringMap) (string, 
 	if err := v.mounter.Mount(
 		mount.mountpoint,
 		mount.shard,
-		mount.modulus,
 		nil,
 		nil,
 	); err != nil {
@@ -121,8 +120,7 @@ func (v *volumeDriver) Unmount(_ string, _ pkgmap.StringStringMap, mountpoint st
 type mount struct {
 	repository string
 	commitID   string
-	shard      uint64
-	modulus    uint64
+	shard      *pfs.Shard
 	mountpoint string
 }
 
@@ -152,8 +150,10 @@ func getMount(opts pkgmap.StringStringMap, baseMountpoint string) (*mount, error
 	return &mount{
 		repository,
 		commitID,
-		shard,
-		modulus,
+		&pfs.Shard{
+			shard,
+			modulus,
+		},
 		filepath.Join(baseMountpoint, fmt.Sprintf("%s-%s-%d-%d-%s", repository, commitID, shard, modulus, uuid.New())),
 	}, nil
 }

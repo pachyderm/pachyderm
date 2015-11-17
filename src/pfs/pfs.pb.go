@@ -412,8 +412,8 @@ func (m *ServerInfos) GetServerInfo() []*ServerInfo {
 // Shard represents a dynamic shard within pfs.
 // number must always be less than modulo.
 type Shard struct {
-	Number uint64 `protobuf:"varint,1,opt,name=number" json:"number,omitempty"`
-	Modulo uint64 `protobuf:"varint,2,opt,name=modulo" json:"modulo,omitempty"`
+	Number  uint64 `protobuf:"varint,1,opt,name=number" json:"number,omitempty"`
+	Modulus uint64 `protobuf:"varint,2,opt,name=modulus" json:"modulus,omitempty"`
 }
 
 func (m *Shard) Reset()         { *m = Shard{} }
@@ -600,6 +600,7 @@ func (m *DeleteCommitRequest) GetCommit() *Commit {
 
 type GetBlockRequest struct {
 	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	Shard *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *GetBlockRequest) Reset()         { *m = GetBlockRequest{} }
@@ -609,6 +610,13 @@ func (*GetBlockRequest) ProtoMessage()    {}
 func (m *GetBlockRequest) GetBlock() *Block {
 	if m != nil {
 		return m.Block
+	}
+	return nil
+}
+
+func (m *GetBlockRequest) GetShard() *Shard {
+	if m != nil {
+		return m.Shard
 	}
 	return nil
 }
@@ -631,6 +639,7 @@ func (m *PutBlockRequest) GetFile() *File {
 
 type InspectBlockRequest struct {
 	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	Shard *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *InspectBlockRequest) Reset()         { *m = InspectBlockRequest{} }
@@ -640,6 +649,13 @@ func (*InspectBlockRequest) ProtoMessage()    {}
 func (m *InspectBlockRequest) GetBlock() *Block {
 	if m != nil {
 		return m.Block
+	}
+	return nil
+}
+
+func (m *InspectBlockRequest) GetShard() *Shard {
+	if m != nil {
+		return m.Shard
 	}
 	return nil
 }
@@ -660,9 +676,10 @@ func (m *ListBlockRequest) GetShard() *Shard {
 }
 
 type GetFileRequest struct {
-	File        *File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	OffsetBytes int64 `protobuf:"varint,2,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
-	SizeBytes   int64 `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
+	File        *File  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	OffsetBytes int64  `protobuf:"varint,2,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
+	SizeBytes   int64  `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
+	Shard       *Shard `protobuf:"bytes,4,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *GetFileRequest) Reset()         { *m = GetFileRequest{} }
@@ -672,6 +689,13 @@ func (*GetFileRequest) ProtoMessage()    {}
 func (m *GetFileRequest) GetFile() *File {
 	if m != nil {
 		return m.File
+	}
+	return nil
+}
+
+func (m *GetFileRequest) GetShard() *Shard {
+	if m != nil {
+		return m.Shard
 	}
 	return nil
 }
@@ -695,7 +719,8 @@ func (m *PutFileRequest) GetFile() *File {
 }
 
 type InspectFileRequest struct {
-	File *File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	File  *File  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	Shard *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *InspectFileRequest) Reset()         { *m = InspectFileRequest{} }
@@ -705,6 +730,13 @@ func (*InspectFileRequest) ProtoMessage()    {}
 func (m *InspectFileRequest) GetFile() *File {
 	if m != nil {
 		return m.File
+	}
+	return nil
+}
+
+func (m *InspectFileRequest) GetShard() *Shard {
+	if m != nil {
+		return m.Shard
 	}
 	return nil
 }

@@ -35,7 +35,7 @@ message Commit {
 
 // Block represents a block in the block store.
 message Block {
-    string hash = 1;
+  string hash = 1;
 }
 
 // File represents the full path to a file or directory within pfs.
@@ -46,14 +46,14 @@ message File {
 
 // Server represents a server in the pfs cluster.
 message Server {
-    string id = 1;
+  string id = 1;
 }
 
 // RepoInfo represent information about a repo.
 message RepoInfo {
-    Repo repo = 1;
-    google.protobuf.Timestamp created = 2;
-    uint64 size_bytes = 3;
+  Repo repo = 1;
+  google.protobuf.Timestamp created = 2;
+  uint64 size_bytes = 3;
 }
 
 message RepoInfos {
@@ -77,13 +77,13 @@ message CommitInfos {
 
 // BlockInfo represents information about a block.
 message BlockInfo {
-    Block block = 1;
-    google.protobuf.Timestamp created = 2;
-    uint64 size_bytes = 3;
+  Block block = 1;
+  google.protobuf.Timestamp created = 2;
+  uint64 size_bytes = 3;
 }
 
 message BlockInfos {
-    repeated BlockInfo block_info = 1;
+  repeated BlockInfo block_info = 1;
 }
 
 // FileInfo represents information about a file.
@@ -101,27 +101,27 @@ message FileInfos {
 
 // ServerInfo represents information about a server.
 message ServerInfo {
-    Server server = 1;
-    shard.ServerState server_state = 2;
-    map<int64, shard.ServerRole> server_role = 3;
+  Server server = 1;
+  shard.ServerState server_state = 2;
+  map<int64, shard.ServerRole> server_role = 3;
 }
 
 message ServerInfos {
-    repeated ServerInfo server_info = 1;
+  repeated ServerInfo server_info = 1;
 }
 
 // Shard represents a dynamic shard within pfs.
 // number must always be less than modulo.
 message Shard {
   uint64 number = 1;
-  uint64 modulo = 2;
+  uint64 modulus = 2;
 }
 
 // Change represents a change to a file.
 message Change {
-    File file = 2;
-    uint64 size_bytes = 3;
-    uint64 offset_bytes = 4;
+  File file = 2;
+  uint64 size_bytes = 3;
+  uint64 offset_bytes = 4;
 }
 
 message Changes {
@@ -133,14 +133,14 @@ message CreateRepoRequest {
 }
 
 message InspectRepoRequest {
-    Repo repo = 1;
+  Repo repo = 1;
 }
 
 message ListRepoRequest {
 }
 
 message DeleteRepoRequest {
-    Repo repo = 1;
+  Repo repo = 1;
 }
 
 message StartCommitRequest {
@@ -164,30 +164,33 @@ message ListCommitRequest {
 }
 
 message DeleteCommitRequest {
-    Commit commit = 1;
+  Commit commit = 1;
 }
 
 message GetBlockRequest {
-    Block block = 1;
+  Block block = 1;
+  Shard shard = 2;
 }
 
 message PutBlockRequest {
-    File file = 1;
-    bytes value = 2;
+  File file = 1;
+  bytes value = 2;
 }
 
 message InspectBlockRequest {
-    Block block = 1;
+  Block block = 1;
+  Shard shard = 2;
 }
 
 message ListBlockRequest {
-    Shard shard = 1;
+  Shard shard = 1;
 }
 
 message GetFileRequest {
   File file = 1;
   int64 offset_bytes = 2;
   int64 size_bytes = 3;
+  Shard shard = 4;
 }
 
 message PutFileRequest {
@@ -199,6 +202,7 @@ message PutFileRequest {
 
 message InspectFileRequest {
   File file = 1;
+  Shard shard = 2;
 }
 
 message MakeDirectoryRequest {
@@ -211,7 +215,7 @@ message ListFileRequest {
 }
 
 message DeleteFileRequest {
-    File file = 1;
+  File file = 1;
 }
 
 message ListChangeRequest {
@@ -225,7 +229,7 @@ service API {
   // CreateRepo creates a new repo.
   // An error is returned if the repo already exists.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {
-    option (google.api.http) = { put: "/repos/{repo.name}" };
+  option (google.api.http) = { put: "/repos/{repo.name}" };
   }
   // InspectRepo returns info about a repo.
   rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
@@ -321,7 +325,7 @@ service InternalAPI {
 }
 
 message InspectServerRequest {
-    Server server = 1;
+  Server server = 1;
 }
 
 message ListServerRequest {

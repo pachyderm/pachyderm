@@ -6,8 +6,7 @@ import "pfs/pfs.proto";
 package fuse;
 
 message Filesystem {
-  uint64 shard = 1;
-  uint64 modulus = 2;
+  pfs.Shard shard = 1;
   repeated pfs.Commit commits = 3;
 }
 

@@ -104,13 +104,12 @@ message StartJobRequest {
 message StartJobResponse {
     repeated pfs.Commit input_commit = 1;
     pfs.Commit output_commit = 2;
-    uint64 shard = 3;
-    uint64 modulus = 4;
+    pfs.Shard shard = 3;
 }
 
 message FinishJobRequest {
     Job job = 1;
-    uint64 shard = 2;
+    pfs.Shard shard = 2;
 }
 
 message CreatePipelineRequest {
