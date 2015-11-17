@@ -9,8 +9,7 @@ type Mounter interface {
 	// Mount blocks and will return once the volume is unmounted.
 	Mount(
 		mountPoint string,
-		shard uint64,
-		modulus uint64,
+		shard *pfs.Shard,
 		commits []*pfs.Commit, // nil means mount all commits
 		ready chan bool,
 	) error

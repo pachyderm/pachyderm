@@ -28,8 +28,7 @@ func newMounter(address string, apiClient pfs.APIClient) Mounter {
 
 func (m *mounter) Mount(
 	mountPoint string,
-	shard uint64,
-	modulus uint64,
+	shard *pfs.Shard,
 	commits []*pfs.Commit,
 	ready chan bool,
 ) (retErr error) {
@@ -66,7 +65,7 @@ func (m *mounter) Mount(
 			close(ready)
 		}
 	})
-	if err := fs.Serve(conn, newFilesystem(m.apiClient, shard, modulus, commits)); err != nil {
+	if err := fs.Serve(conn, newFilesystem(m.apiClient, shard, commits)); err != nil {
 		return err
 	}
 	<-conn.Ready

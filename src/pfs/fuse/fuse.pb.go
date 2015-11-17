@@ -38,14 +38,20 @@ var _ = fmt.Errorf
 var _ = math.Inf
 
 type Filesystem struct {
-	Shard   uint64        `protobuf:"varint,1,opt,name=shard" json:"shard,omitempty"`
-	Modulus uint64        `protobuf:"varint,2,opt,name=modulus" json:"modulus,omitempty"`
+	Shard   *pfs.Shard    `protobuf:"bytes,1,opt,name=shard" json:"shard,omitempty"`
 	Commits []*pfs.Commit `protobuf:"bytes,3,rep,name=commits" json:"commits,omitempty"`
 }
 
 func (m *Filesystem) Reset()         { *m = Filesystem{} }
 func (m *Filesystem) String() string { return proto.CompactTextString(m) }
 func (*Filesystem) ProtoMessage()    {}
+
+func (m *Filesystem) GetShard() *pfs.Shard {
+	if m != nil {
+		return m.Shard
+	}
+	return nil
+}
 
 func (m *Filesystem) GetCommits() []*pfs.Commit {
 	if m != nil {

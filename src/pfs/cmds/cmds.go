@@ -18,8 +18,11 @@ import (
 )
 
 func Cmds(address string) ([]*cobra.Command, error) {
-	var shard int
+	var number int
 	var modulus int
+	shard := func() *pfs.Shard {
+		return &pfs.Shard{uint64(number), uint64(modulus)}
+	}
 
 	createRepo := &cobra.Command{
 		Use:   "create-repo repo-name",
@@ -208,9 +211,11 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			if err != nil {
 				return err
 			}
-			return pfsutil.GetBlock(apiClient, args[0], os.Stdout)
+			return pfsutil.GetBlock(apiClient, args[0], shard(), os.Stdout)
 		}),
 	}
+	getBlock.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
+	getBlock.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	inspectBlock := &cobra.Command{
 		Use:   "inspect-block hash",
@@ -221,7 +226,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			if err != nil {
 				return err
 			}
-			blockInfo, err := pfsutil.InspectBlock(apiClient, args[0])
+			blockInfo, err := pfsutil.InspectBlock(apiClient, args[0], shard())
 			if err != nil {
 				return err
 			}
@@ -234,6 +239,8 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			return writer.Flush()
 		}),
 	}
+	inspectBlock.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
+	inspectBlock.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	listBlock := &cobra.Command{
 		Use:   "list-block",
@@ -244,7 +251,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			if err != nil {
 				return err
 			}
-			blockInfos, err := pfsutil.ListBlock(apiClient, uint64(shard), uint64(modulus))
+			blockInfos, err := pfsutil.ListBlock(apiClient, shard())
 			if err != nil {
 				return err
 			}
@@ -256,7 +263,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			return writer.Flush()
 		}),
 	}
-	listBlock.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
+	listBlock.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
 	listBlock.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	mkdir := &cobra.Command{
@@ -295,9 +302,11 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			if err != nil {
 				return err
 			}
-			return pfsutil.GetFile(apiClient, args[0], args[1], args[2], 0, math.MaxInt64, os.Stdout)
+			return pfsutil.GetFile(apiClient, args[0], args[1], args[2], 0, math.MaxInt64, shard(), os.Stdout)
 		}),
 	}
+	getFile.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
+	getFile.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",
@@ -308,7 +317,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			if err != nil {
 				return err
 			}
-			fileInfo, err := pfsutil.InspectFile(apiClient, args[0], args[1], args[2])
+			fileInfo, err := pfsutil.InspectFile(apiClient, args[0], args[1], args[2], shard())
 			if err != nil {
 				return err
 			}
@@ -321,6 +330,8 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			return writer.Flush()
 		}),
 	}
+	getFile.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
+	getFile.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
@@ -331,7 +342,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			if err != nil {
 				return err
 			}
-			fileInfos, err := pfsutil.ListFile(apiClient, args[0], args[1], args[2], uint64(shard), uint64(modulus))
+			fileInfos, err := pfsutil.ListFile(apiClient, args[0], args[1], args[2], shard())
 			if err != nil {
 				return err
 			}
@@ -343,7 +354,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			return writer.Flush()
 		}),
 	}
-	listFile.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
+	listFile.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
 	listFile.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	deleteFile := &cobra.Command{
@@ -368,7 +379,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			if err != nil {
 				return err
 			}
-			changeInfos, err := pfsutil.ListChange(apiClient, args[0], args[1], args[2], uint64(shard), uint64(modulus))
+			changeInfos, err := pfsutil.ListChange(apiClient, args[0], args[1], args[2], shard())
 			if err != nil {
 				return err
 			}
@@ -380,7 +391,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			return writer.Flush()
 		}),
 	}
-	listChange.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
+	listChange.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
 	listChange.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	inspectServer := &cobra.Command{
@@ -439,10 +450,10 @@ func Cmds(address string) ([]*cobra.Command, error) {
 				mountPoint = args[0]
 			}
 			mounter := fuse.NewMounter(address, apiClient)
-			return mounter.Mount(mountPoint, uint64(shard), uint64(modulus), nil, nil)
+			return mounter.Mount(mountPoint, shard(), nil, nil)
 		}),
 	}
-	mount.Flags().IntVarP(&shard, "shard", "s", 0, "shard to read from")
+	mount.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
 	mount.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	var result []*cobra.Command

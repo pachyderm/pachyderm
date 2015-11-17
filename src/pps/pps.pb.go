@@ -536,8 +536,7 @@ func (m *StartJobRequest) GetJob() *Job {
 type StartJobResponse struct {
 	InputCommit  []*pfs.Commit `protobuf:"bytes,1,rep,name=input_commit" json:"input_commit,omitempty"`
 	OutputCommit *pfs.Commit   `protobuf:"bytes,2,opt,name=output_commit" json:"output_commit,omitempty"`
-	Shard        uint64        `protobuf:"varint,3,opt,name=shard" json:"shard,omitempty"`
-	Modulus      uint64        `protobuf:"varint,4,opt,name=modulus" json:"modulus,omitempty"`
+	Shard        *pfs.Shard    `protobuf:"bytes,3,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *StartJobResponse) Reset()         { *m = StartJobResponse{} }
@@ -558,9 +557,16 @@ func (m *StartJobResponse) GetOutputCommit() *pfs.Commit {
 	return nil
 }
 
+func (m *StartJobResponse) GetShard() *pfs.Shard {
+	if m != nil {
+		return m.Shard
+	}
+	return nil
+}
+
 type FinishJobRequest struct {
-	Job   *Job   `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
-	Shard uint64 `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
+	Job   *Job       `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	Shard *pfs.Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *FinishJobRequest) Reset()         { *m = FinishJobRequest{} }
@@ -570,6 +576,13 @@ func (*FinishJobRequest) ProtoMessage()    {}
 func (m *FinishJobRequest) GetJob() *Job {
 	if m != nil {
 		return m.Job
+	}
+	return nil
+}
+
+func (m *FinishJobRequest) GetShard() *pfs.Shard {
+	if m != nil {
+		return m.Shard
 	}
 	return nil
 }

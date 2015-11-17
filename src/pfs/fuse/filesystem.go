@@ -24,15 +24,13 @@ type filesystem struct {
 
 func newFilesystem(
 	apiClient pfs.APIClient,
-	shard uint64,
-	modulus uint64,
+	shard *pfs.Shard,
 	commits []*pfs.Commit,
 ) *filesystem {
 	return &filesystem{
 		apiClient,
 		Filesystem{
 			shard,
-			modulus,
 			commits,
 		},
 	}
@@ -147,6 +145,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		f.File.Commit.Repo.Name,
 		f.File.Commit.Id,
 		f.File.Path,
+		f.fs.Shard,
 	)
 	if err != nil {
 		return err
@@ -162,8 +161,17 @@ func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fu
 	defer func() {
 		protolog.Info(&FileRead{&f.Node, errorToString(retErr)})
 	}()
-	buffer := bytes.NewBuffer(make([]byte, 0, request.Size))
-	if err := pfsutil.GetFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.Id, f.File.Path, request.Offset, int64(request.Size), buffer); err != nil {
+	var buffer bytes.Buffer
+	if err := pfsutil.GetFile(
+		f.fs.apiClient,
+		f.File.Commit.Repo.Name,
+		f.File.Commit.Id,
+		f.File.Path,
+		request.Offset,
+		int64(request.Size),
+		f.fs.Shard,
+		&buffer,
+	); err != nil {
 		return err
 	}
 	response.Data = buffer.Bytes()
@@ -257,6 +265,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		d.File.Commit.Repo.Name,
 		d.File.Commit.Id,
 		path.Join(d.File.Path, name),
+		d.fs.Shard,
 	)
 	if err != nil {
 		return nil, err
@@ -310,7 +319,7 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
-	fileInfos, err := pfsutil.ListFile(d.fs.apiClient, d.File.Commit.Repo.Name, d.File.Commit.Id, d.File.Path, d.fs.Shard, d.fs.Modulus)
+	fileInfos, err := pfsutil.ListFile(d.fs.apiClient, d.File.Commit.Repo.Name, d.File.Commit.Id, d.File.Path, d.fs.Shard)
 	if err != nil {
 		return nil, err
 	}

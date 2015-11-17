@@ -169,13 +169,14 @@ func PutBlock(apiClient pfs.APIClient, repoName string, commitID string, path st
 	)
 }
 
-func GetBlock(apiClient pfs.APIClient, hash string, writer io.Writer) error {
+func GetBlock(apiClient pfs.APIClient, hash string, shard *pfs.Shard, writer io.Writer) error {
 	apiGetBlockClient, err := apiClient.GetBlock(
 		context.Background(),
 		&pfs.GetBlockRequest{
 			Block: &pfs.Block{
 				Hash: hash,
 			},
+			Shard: shard,
 		},
 	)
 	if err != nil {
@@ -187,13 +188,14 @@ func GetBlock(apiClient pfs.APIClient, hash string, writer io.Writer) error {
 	return nil
 }
 
-func InspectBlock(apiClient pfs.APIClient, hash string) (*pfs.BlockInfo, error) {
+func InspectBlock(apiClient pfs.APIClient, hash string, shard *pfs.Shard) (*pfs.BlockInfo, error) {
 	blockInfo, err := apiClient.InspectBlock(
 		context.Background(),
 		&pfs.InspectBlockRequest{
 			Block: &pfs.Block{
 				Hash: hash,
 			},
+			Shard: shard,
 		},
 	)
 	if err != nil {
@@ -202,14 +204,11 @@ func InspectBlock(apiClient pfs.APIClient, hash string) (*pfs.BlockInfo, error) 
 	return blockInfo, nil
 }
 
-func ListBlock(apiClient pfs.APIClient, shard uint64, modulus uint64) ([]*pfs.BlockInfo, error) {
+func ListBlock(apiClient pfs.APIClient, shard *pfs.Shard) ([]*pfs.BlockInfo, error) {
 	blockInfos, err := apiClient.ListBlock(
 		context.Background(),
 		&pfs.ListBlockRequest{
-			Shard: &pfs.Shard{
-				Number: shard,
-				Modulo: modulus,
-			},
+			Shard: shard,
 		},
 	)
 	if err != nil {
@@ -263,7 +262,7 @@ func PutFile(apiClient pfs.APIClient, repoName string, commitID string, path str
 	return size, err
 }
 
-func GetFile(apiClient pfs.APIClient, repoName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
+func GetFile(apiClient pfs.APIClient, repoName string, commitID string, path string, offset int64, size int64, shard *pfs.Shard, writer io.Writer) error {
 	apiGetFileClient, err := apiClient.GetFile(
 		context.Background(),
 		&pfs.GetFileRequest{
@@ -276,6 +275,7 @@ func GetFile(apiClient pfs.APIClient, repoName string, commitID string, path str
 				},
 				Path: path,
 			},
+			Shard:       shard,
 			OffsetBytes: offset,
 			SizeBytes:   size,
 		},
@@ -289,7 +289,7 @@ func GetFile(apiClient pfs.APIClient, repoName string, commitID string, path str
 	return nil
 }
 
-func InspectFile(apiClient pfs.APIClient, repoName string, commitID string, path string) (*pfs.FileInfo, error) {
+func InspectFile(apiClient pfs.APIClient, repoName string, commitID string, path string, shard *pfs.Shard) (*pfs.FileInfo, error) {
 	fileInfo, err := apiClient.InspectFile(
 		context.Background(),
 		&pfs.InspectFileRequest{
@@ -302,6 +302,7 @@ func InspectFile(apiClient pfs.APIClient, repoName string, commitID string, path
 				},
 				Path: path,
 			},
+			Shard: shard,
 		},
 	)
 	if err != nil {
@@ -310,7 +311,7 @@ func InspectFile(apiClient pfs.APIClient, repoName string, commitID string, path
 	return fileInfo, nil
 }
 
-func ListFile(apiClient pfs.APIClient, repoName string, commitID string, path string, shard uint64, modulus uint64) ([]*pfs.FileInfo, error) {
+func ListFile(apiClient pfs.APIClient, repoName string, commitID string, path string, shard *pfs.Shard) ([]*pfs.FileInfo, error) {
 	fileInfos, err := apiClient.ListFile(
 		context.Background(),
 		&pfs.ListFileRequest{
@@ -323,10 +324,7 @@ func ListFile(apiClient pfs.APIClient, repoName string, commitID string, path st
 				},
 				Path: path,
 			},
-			Shard: &pfs.Shard{
-				Number: shard,
-				Modulo: modulus,
-			},
+			Shard: shard,
 		},
 	)
 	if err != nil {
@@ -335,7 +333,7 @@ func ListFile(apiClient pfs.APIClient, repoName string, commitID string, path st
 	return fileInfos.FileInfo, nil
 }
 
-func ListChange(apiClient pfs.APIClient, repoName string, commitID string, path string, shard uint64, modulus uint64) ([]*pfs.Change, error) {
+func ListChange(apiClient pfs.APIClient, repoName string, commitID string, path string, shard *pfs.Shard) ([]*pfs.Change, error) {
 	changes, err := apiClient.ListChange(
 		context.Background(),
 		&pfs.ListChangeRequest{
@@ -348,10 +346,7 @@ func ListChange(apiClient pfs.APIClient, repoName string, commitID string, path 
 				},
 				Path: path,
 			},
-			Shard: &pfs.Shard{
-				Number: shard,
-				Modulo: modulus,
-			},
+			Shard: shard,
 		},
 	)
 	if err != nil {
