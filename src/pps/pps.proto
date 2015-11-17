@@ -63,8 +63,8 @@ message Pipeline {
 message PipelineInfo {
   Pipeline pipeline = 1;
   Transform transform = 2;
-  pfs.Repo input = 3;
-  pfs.Repo output = 4;
+  repeated pfs.Repo input_repo = 3;
+  pfs.Repo output_repo = 4;
 }
 
 message PipelineInfos {
@@ -113,8 +113,8 @@ message FinishJobRequest {
 message CreatePipelineRequest {
   Pipeline pipeline = 1;
   Transform transform = 2;
-  pfs.Repo input = 3;
-  pfs.Repo output = 4;
+  repeated pfs.Repo input_repo = 3;
+  pfs.Repo output_repo = 4;
 }
 
 message InspectPipelineRequest {

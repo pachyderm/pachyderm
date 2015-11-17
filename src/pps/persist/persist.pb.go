@@ -209,11 +209,7 @@ func (m *JobStatuses) GetJobStatus() []*JobStatus {
 	return nil
 }
 
-// maybe name JobOutputCommit? we name the fields
-// input and output, not input_commit and output_commit
 type JobOutput struct {
-	// if we wanted to be able to have multuple output pfs repos,
-	// we would need JobOutputCommit to have a separate id
 	JobId        string      `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
 	OutputCommit *pfs.Commit `protobuf:"bytes,2,opt,name=output_commit" json:"output_commit,omitempty"`
 }
@@ -266,8 +262,8 @@ func (m *JobLogs) GetJobLog() []*JobLog {
 type PipelineInfo struct {
 	PipelineName string                      `protobuf:"bytes,1,opt,name=pipeline_name" json:"pipeline_name,omitempty"`
 	Transform    *pachyderm_pps.Transform    `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Input        *pfs.Repo                   `protobuf:"bytes,3,opt,name=input" json:"input,omitempty"`
-	Output       *pfs.Repo                   `protobuf:"bytes,4,opt,name=output" json:"output,omitempty"`
+	InputRepo    []*pfs.Repo                 `protobuf:"bytes,3,rep,name=input_repo" json:"input_repo,omitempty"`
+	OutputRepo   *pfs.Repo                   `protobuf:"bytes,4,opt,name=output_repo" json:"output_repo,omitempty"`
 	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,5,opt,name=created_at" json:"created_at,omitempty"`
 }
 
@@ -282,16 +278,16 @@ func (m *PipelineInfo) GetTransform() *pachyderm_pps.Transform {
 	return nil
 }
 
-func (m *PipelineInfo) GetInput() *pfs.Repo {
+func (m *PipelineInfo) GetInputRepo() []*pfs.Repo {
 	if m != nil {
-		return m.Input
+		return m.InputRepo
 	}
 	return nil
 }
 
-func (m *PipelineInfo) GetOutput() *pfs.Repo {
+func (m *PipelineInfo) GetOutputRepo() *pfs.Repo {
 	if m != nil {
-		return m.Output
+		return m.OutputRepo
 	}
 	return nil
 }

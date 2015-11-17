@@ -57,8 +57,15 @@ func PrintPipelineHeader(w io.Writer) {
 
 func PrintPipelineInfo(w io.Writer, pipelineInfo *pps.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
-	fmt.Fprintf(w, "%s\t", pipelineInfo.Input.Name)
-	fmt.Fprintf(w, "%s\t", pipelineInfo.Output.Name)
+	for i, repo := range pipelineInfo.InputRepo {
+		fmt.Fprintf(w, "%s", repo.Name)
+		if i == len(pipelineInfo.InputRepo)-1 {
+			fmt.Fprintf(w, "\t")
+		} else {
+			fmt.Fprintf(w, ", ")
+		}
+	}
+	fmt.Fprintf(w, "%s\t", pipelineInfo.OutputRepo.Name)
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Transform.Image)
 	fmt.Fprintf(w, "%s\t\n", strings.Join(pipelineInfo.Transform.Cmd, " "))
 }
