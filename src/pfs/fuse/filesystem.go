@@ -193,7 +193,32 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 	return nil
 }
 
+func (d *directory) repoWhitelisted(name string) bool {
+	found := false
+	for _, commit := range d.fs.Commits {
+		if commit.Repo.Name == name {
+			found = true
+			break
+		}
+	}
+	return found
+}
+
+func (d *directory) commitWhitelisted(name string) bool {
+	found := false
+	for _, commit := range d.fs.Commits {
+		if commit.Repo.Name == d.File.Commit.Repo.Name {
+			found = true
+			break
+		}
+	}
+	return found
+}
+
 func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error) {
+	if !d.repoWhitelisted(name) {
+		return nil, fuse.EPERM
+	}
 	repoInfo, err := pfsutil.InspectRepo(d.fs.apiClient, name)
 	if err != nil {
 		return nil, err
@@ -207,6 +232,9 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 }
 
 func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, error) {
+	if !d.commitWhitelisted(name) {
+		return nil, fuse.EPERM
+	}
 	commitInfo, err := pfsutil.InspectCommit(
 		d.fs.apiClient,
 		d.File.Commit.Repo.Name,
@@ -260,7 +288,9 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 	}
 	var result []fuse.Dirent
 	for _, repoInfo := range repoInfos {
-		result = append(result, fuse.Dirent{Name: repoInfo.Repo.Name, Type: fuse.DT_Dir})
+		if d.repoWhitelisted(repoInfo.Repo.Name) {
+			result = append(result, fuse.Dirent{Name: repoInfo.Repo.Name, Type: fuse.DT_Dir})
+		}
 	}
 	return result, nil
 }
@@ -272,7 +302,9 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 	}
 	result := make([]fuse.Dirent, 0, len(commitInfos))
 	for _, commitInfo := range commitInfos {
-		result = append(result, fuse.Dirent{Name: commitInfo.Commit.Id, Type: fuse.DT_Dir})
+		if d.commitWhitelisted(commitInfo.Commit.Id) {
+			result = append(result, fuse.Dirent{Name: commitInfo.Commit.Id, Type: fuse.DT_Dir})
+		}
 	}
 	return result, nil
 }
