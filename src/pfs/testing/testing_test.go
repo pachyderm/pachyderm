@@ -119,10 +119,10 @@ func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	checkWrites(t, apiClient, repoName, newCommitID)
 	checkBlockWrites(t, apiClient, repoName, newCommitID)
 
-	fileInfos, err := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b", &pfs.Shard{0, 1})
+	fileInfos, err := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b", &pfs.Shard{Number: 0, Modulus: 1})
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(fileInfos))
-	fileInfos, err = pfsutil.ListFile(apiClient, repoName, newCommitID, "a/c", &pfs.Shard{0, 1})
+	fileInfos, err = pfsutil.ListFile(apiClient, repoName, newCommitID, "a/c", &pfs.Shard{Number: 0, Modulus: 1})
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(fileInfos))
 
@@ -133,7 +133,7 @@ func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			fileInfos3, iErr := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b", &pfs.Shard{uint64(i), 7})
+			fileInfos3, iErr := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b", &pfs.Shard{Number: uint64(i), Modulus: 7})
 			require.NoError(t, iErr)
 			fileInfos2[i] = fileInfos3
 		}()
@@ -254,7 +254,7 @@ func testMount(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	mounter := fuse.NewMounter("localhost", apiClient)
 	ready := make(chan bool)
 	go func() {
-		err = mounter.Mount(directory, &pfs.Shard{0, 1}, nil, ready)
+		err = mounter.Mount(directory, &pfs.Shard{Number: 0, Modulus: 1}, nil, ready)
 		require.NoError(t, err)
 	}()
 	<-ready
@@ -327,7 +327,7 @@ func testMountBig(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	mounter := fuse.NewMounter("localhost", apiClient)
 	ready := make(chan bool)
 	go func() {
-		err = mounter.Mount(directory, &pfs.Shard{0, 1}, nil, ready)
+		err = mounter.Mount(directory, &pfs.Shard{Number: 0, Modulus: 1}, nil, ready)
 		require.NoError(t, err)
 	}()
 	<-ready
@@ -389,7 +389,7 @@ func benchMount(b *testing.B, apiClient pfs.APIClient) {
 	mounter := fuse.NewMounter("localhost", apiClient)
 	ready := make(chan bool)
 	go func() {
-		err := mounter.Mount(directory, &pfs.Shard{0, 1}, nil, ready)
+		err := mounter.Mount(directory, &pfs.Shard{Number: 0, Modulus: 1}, nil, ready)
 		require.NoError(b, err)
 	}()
 	<-ready
@@ -481,7 +481,7 @@ func checkWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commit
 				fmt.Sprintf("a/b/file%d", i),
 				0,
 				math.MaxInt64,
-				&pfs.Shard{0, 1},
+				&pfs.Shard{Number: 0, Modulus: 1},
 				buffer,
 			)
 			require.NoError(tb, iErr)
@@ -495,7 +495,7 @@ func checkWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commit
 				fmt.Sprintf("a/c/file%d", i),
 				0,
 				math.MaxInt64,
-				&pfs.Shard{0, 1},
+				&pfs.Shard{Number: 0, Modulus: 1},
 				buffer,
 			)
 			require.NoError(tb, iErr)
@@ -516,7 +516,7 @@ func checkBlockWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, c
 			buffer := bytes.NewBuffer(nil)
 			sharder := route.NewSharder(testShardsPerServer*testNumServers, testNumReplicas)
 			block := sharder.GetBlock([]byte(fmt.Sprintf("hello%d", i)))
-			iErr := pfsutil.GetBlock(apiClient, block.Hash, &pfs.Shard{0, 1}, buffer)
+			iErr := pfsutil.GetBlock(apiClient, block.Hash, &pfs.Shard{Number: 0, Modulus: 1}, buffer)
 			require.NoError(tb, iErr)
 
 			// buffer = bytes.NewBuffer(nil)
