@@ -217,7 +217,7 @@ func createJob(t *testing.T, jobAPIClient pps.JobAPIClient, transform *pps.Trans
 			Spec: &pps.CreateJobRequest_Transform{
 				Transform: transform,
 			},
-			Input:        inputCommit,
+			InputCommit:  []*pfs.Commit{inputCommit},
 			OutputParent: outputParentCommit,
 		},
 	)
@@ -283,10 +283,10 @@ func createPipeline(t *testing.T, pipelineAPIClient pps.PipelineAPIClient, pipel
 	_, err := pipelineAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline:  pipeline,
-			Transform: transform,
-			Input:     inputRepo,
-			Output:    outputRepo,
+			Pipeline:   pipeline,
+			Transform:  transform,
+			InputRepo:  []*pfs.Repo{inputRepo},
+			OutputRepo: outputRepo,
 		},
 	)
 	require.NoError(t, err)
