@@ -18,6 +18,7 @@ import (
 func Cmds(address string) ([]*cobra.Command, error) {
 	var image string
 	var outParentCommitID string
+	var parallism int
 	createJob := &cobra.Command{
 		Use:   "create-job in-repo-name in-commit-id out-repo-name command [args]",
 		Short: "Create a new job. Returns the id of the created job.",
@@ -38,6 +39,7 @@ You can find out the name of the commit with inspect-job.`,
 							Cmd:   args[3:],
 						},
 					},
+					Parallelism: uint64(parallism),
 					InputCommit: []*pfs.Commit{
 						{
 							Repo: &pfs.Repo{
@@ -60,7 +62,8 @@ You can find out the name of the commit with inspect-job.`,
 		},
 	}
 	createJob.Flags().StringVarP(&image, "image", "i", "pachyderm/pach", "The image to run the job in.")
-	createJob.Flags().StringVarP(&outParentCommitID, "parent", "p", "", "The parent to use for the output commit.")
+	createJob.Flags().StringVarP(&outParentCommitID, "parent", "", "", "The parent to use for the output commit.")
+	createJob.Flags().IntVarP(&parallism, "parallism", "p", 1, "The number of containers to run in parallel.")
 
 	inspectJob := &cobra.Command{
 		Use:   "inspect-job job-id",
