@@ -330,8 +330,8 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			return writer.Flush()
 		}),
 	}
-	getFile.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
-	getFile.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
+	inspectFile.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
+	inspectFile.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
