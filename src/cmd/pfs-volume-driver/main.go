@@ -151,8 +151,8 @@ func getMount(opts pkgmap.StringStringMap, baseMountpoint string) (*mount, error
 		repository,
 		commitID,
 		&pfs.Shard{
-			shard,
-			modulus,
+			Number:  shard,
+			Modulus: modulus,
 		},
 		filepath.Join(baseMountpoint, fmt.Sprintf("%s-%s-%d-%d-%s", repository, commitID, shard, modulus, uuid.New())),
 	}, nil

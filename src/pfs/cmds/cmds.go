@@ -21,7 +21,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 	var number int
 	var modulus int
 	shard := func() *pfs.Shard {
-		return &pfs.Shard{uint64(number), uint64(modulus)}
+		return &pfs.Shard{Number: uint64(number), Modulus: uint64(modulus)}
 	}
 
 	createRepo := &cobra.Command{
