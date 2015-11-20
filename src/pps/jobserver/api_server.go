@@ -53,10 +53,10 @@ func newAPIServer(
 	}
 }
 
-func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistJobInfo := &persist.JobInfo{
-		Parallelism:  request.Parallelism,
+		Shards:       request.Shards,
 		InputCommit:  request.InputCommit,
 		OutputParent: request.OutputParent,
 	}
@@ -76,7 +76,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	if a.kubeClient == nil {
 		return nil, fmt.Errorf("pachyderm.pps.jobserver: no job backend")
 	}
-	_, err = a.persistAPIClient.CreateJobInfo(ctx, persistJobInfo)
+	_, err := a.persistAPIClient.CreateJobInfo(ctx, persistJobInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -88,8 +88,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	}, nil
 }
 
-func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.JobInfo, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.JobInfo, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistJobInfo, err := a.persistAPIClient.GetJobInfo(ctx, request.Job)
 	if err != nil {
 		return nil, err
@@ -97,10 +97,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	return a.persistJobInfoToJobInfo(ctx, persistJobInfo)
 }
 
-func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	var persistJobInfos *persist.JobInfos
-	persistJobInfos, err = a.persistAPIClient.ListJobInfos(ctx, request)
+func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	persistJobInfos, err := a.persistAPIClient.ListJobInfos(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +116,8 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	}, nil
 }
 
-func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (response *pps.StartJobResponse, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (response *pps.StartJobResponse, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	jobInfo, err := a.persistAPIClient.GetJobInfo(ctx, request.Job)
 	if err != nil {
 		return nil, err
@@ -161,13 +160,13 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 		OutputCommit: jobOutput.OutputCommit,
 		Shard: &pfs.Shard{
 			Number:  shard,
-			Modulus: jobInfo.Parallelism,
+			Modulus: jobInfo.Shards,
 		},
 	}, nil
 }
 
-func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest) (response *google_protobuf.Empty, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	jobInfo, err := a.persistAPIClient.GetJobInfo(ctx, request.Job)
 	if err != nil {
 		return nil, err
@@ -179,7 +178,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 		a.finishJobCounter[*request.Job] = a.finishJobCounter[*request.Job] + 1
 		finished = a.finishJobCounter[*request.Job]
 	}()
-	if finished == jobInfo.Parallelism {
+	if finished == jobInfo.Shards {
 		// all of the shards have finished so we finish the commit
 		jobOutput, err := a.persistAPIClient.GetJobOutput(ctx, request.Job)
 		if err != nil {
@@ -201,7 +200,7 @@ func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo 
 	job := &pps.Job{Id: persistJobInfo.JobId}
 	jobInfo := &pps.JobInfo{
 		Job:         job,
-		Parallelism: persistJobInfo.Parallelism,
+		Shards:      persistJobInfo.Shards,
 		InputCommit: persistJobInfo.InputCommit,
 	}
 	if persistJobInfo.GetTransform() != nil {
@@ -228,7 +227,7 @@ func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo 
 
 func job(jobInfo *persist.JobInfo) *extensions.Job {
 	app := jobInfo.JobId
-	parallelism := int(jobInfo.Parallelism)
+	shards := int(jobInfo.Shards)
 	return &extensions.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -242,8 +241,8 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 			Selector: &extensions.PodSelector{
 				MatchLabels: labels(app),
 			},
-			Parallelism: &parallelism,
-			Completions: &parallelism,
+			Parallelism: &shards,
+			Completions: &shards,
 			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   jobInfo.JobId,

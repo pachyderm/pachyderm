@@ -17,7 +17,8 @@ import (
 func Cmds(address string) ([]*cobra.Command, error) {
 	var image string
 	var outParentCommitID string
-	var parallism int
+	var shards int
+
 	createJob := &cobra.Command{
 		Use:   "create-job in-repo-name in-commit-id out-repo-name command [args]",
 		Short: "Create a new job. Returns the id of the created job.",
@@ -38,7 +39,7 @@ You can find out the name of the commit with inspect-job.`,
 							Cmd:   args[3:],
 						},
 					},
-					Parallelism: uint64(parallism),
+					Shards: uint64(shards),
 					InputCommit: []*pfs.Commit{
 						{
 							Repo: &pfs.Repo{
@@ -61,8 +62,8 @@ You can find out the name of the commit with inspect-job.`,
 		},
 	}
 	createJob.Flags().StringVarP(&image, "image", "i", "pachyderm/pach", "The image to run the job in.")
-	createJob.Flags().StringVarP(&outParentCommitID, "parent", "", "", "The parent to use for the output commit.")
-	createJob.Flags().IntVarP(&parallism, "parallism", "p", 1, "The number of containers to run in parallel.")
+	createJob.Flags().StringVarP(&outParentCommitID, "parent", "p", "", "The parent to use for the output commit.")
+	createJob.Flags().IntVarP(&shards, "shards", "s", 1, "The sharding factor for the job.")
 
 	inspectJob := &cobra.Command{
 		Use:   "inspect-job job-id",
@@ -148,6 +149,7 @@ You can find out the name of the commit with inspect-job.`,
 						Image: image,
 						Cmd:   args[3:],
 					},
+					Shards: uint64(shards),
 					InputRepo: []*pfs.Repo{
 						{
 							Name: args[1],
@@ -163,6 +165,7 @@ You can find out the name of the commit with inspect-job.`,
 		},
 	}
 	createPipeline.Flags().StringVarP(&image, "image", "i", "ubuntu", "The image to run the pipeline's jobs in.")
+	createPipeline.Flags().IntVarP(&shards, "shards", "s", 1, "The sharding factor for the pipeline's jobs.")
 
 	inspectPipeline := &cobra.Command{
 		Use:   "inspect-pipeline pipeline-name",

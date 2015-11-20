@@ -95,7 +95,7 @@ type JobInfo struct {
 	//	*JobInfo_Transform
 	//	*JobInfo_Pipeline
 	Spec         isJobInfo_Spec `protobuf_oneof:"spec"`
-	Parallelism  uint64         `protobuf:"varint,4,opt,name=parallelism" json:"parallelism,omitempty"`
+	Shards       uint64         `protobuf:"varint,4,opt,name=shards" json:"shards,omitempty"`
 	InputCommit  []*pfs.Commit  `protobuf:"bytes,5,rep,name=input_commit" json:"input_commit,omitempty"`
 	OutputCommit *pfs.Commit    `protobuf:"bytes,6,opt,name=output_commit" json:"output_commit,omitempty"`
 }
@@ -238,11 +238,11 @@ func (*Pipeline) ProtoMessage()    {}
 
 // TODO: add created at?
 type PipelineInfo struct {
-	Pipeline    *Pipeline   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
-	Transform   *Transform  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Parallelism uint64      `protobuf:"varint,3,opt,name=parallelism" json:"parallelism,omitempty"`
-	InputRepo   []*pfs.Repo `protobuf:"bytes,4,rep,name=input_repo" json:"input_repo,omitempty"`
-	OutputRepo  *pfs.Repo   `protobuf:"bytes,5,opt,name=output_repo" json:"output_repo,omitempty"`
+	Pipeline   *Pipeline   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Transform  *Transform  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	Shards     uint64      `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
+	InputRepo  []*pfs.Repo `protobuf:"bytes,4,rep,name=input_repo" json:"input_repo,omitempty"`
+	OutputRepo *pfs.Repo   `protobuf:"bytes,5,opt,name=output_repo" json:"output_repo,omitempty"`
 }
 
 func (m *PipelineInfo) Reset()         { *m = PipelineInfo{} }
@@ -297,7 +297,7 @@ type CreateJobRequest struct {
 	//	*CreateJobRequest_Transform
 	//	*CreateJobRequest_Pipeline
 	Spec         isCreateJobRequest_Spec `protobuf_oneof:"spec"`
-	Parallelism  uint64                  `protobuf:"varint,3,opt,name=parallelism" json:"parallelism,omitempty"`
+	Shards       uint64                  `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
 	InputCommit  []*pfs.Commit           `protobuf:"bytes,4,rep,name=input_commit" json:"input_commit,omitempty"`
 	OutputParent *pfs.Commit             `protobuf:"bytes,5,opt,name=output_parent" json:"output_parent,omitempty"`
 }
@@ -516,11 +516,11 @@ func (m *FinishJobRequest) GetShard() *pfs.Shard {
 }
 
 type CreatePipelineRequest struct {
-	Pipeline    *Pipeline   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
-	Transform   *Transform  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Parallelism uint64      `protobuf:"varint,3,opt,name=parallelism" json:"parallelism,omitempty"`
-	InputRepo   []*pfs.Repo `protobuf:"bytes,4,rep,name=input_repo" json:"input_repo,omitempty"`
-	OutputRepo  *pfs.Repo   `protobuf:"bytes,5,opt,name=output_repo" json:"output_repo,omitempty"`
+	Pipeline   *Pipeline   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Transform  *Transform  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	Shards     uint64      `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
+	InputRepo  []*pfs.Repo `protobuf:"bytes,4,rep,name=input_repo" json:"input_repo,omitempty"`
+	OutputRepo *pfs.Repo   `protobuf:"bytes,5,opt,name=output_repo" json:"output_repo,omitempty"`
 }
 
 func (m *CreatePipelineRequest) Reset()         { *m = CreatePipelineRequest{} }

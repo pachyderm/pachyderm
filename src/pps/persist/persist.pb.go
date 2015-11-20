@@ -41,7 +41,7 @@ type JobInfo struct {
 	//	*JobInfo_Transform
 	//	*JobInfo_PipelineName
 	Spec         isJobInfo_Spec              `protobuf_oneof:"spec"`
-	Parallelism  uint64                      `protobuf:"varint,4,opt,name=parallelism" json:"parallelism,omitempty"`
+	Shards       uint64                      `protobuf:"varint,4,opt,name=shards" json:"shards,omitempty"`
 	InputCommit  []*pfs.Commit               `protobuf:"bytes,5,rep,name=input_commit" json:"input_commit,omitempty"`
 	OutputParent *pfs.Commit                 `protobuf:"bytes,6,opt,name=output_parent" json:"output_parent,omitempty"`
 	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,7,opt,name=created_at" json:"created_at,omitempty"`
@@ -191,7 +191,7 @@ func (m *JobOutput) GetOutputCommit() *pfs.Commit {
 type PipelineInfo struct {
 	PipelineName string                      `protobuf:"bytes,1,opt,name=pipeline_name" json:"pipeline_name,omitempty"`
 	Transform    *pachyderm_pps.Transform    `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Parallelism  uint64                      `protobuf:"varint,3,opt,name=parallelism" json:"parallelism,omitempty"`
+	Shards       uint64                      `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
 	InputRepo    []*pfs.Repo                 `protobuf:"bytes,4,rep,name=input_repo" json:"input_repo,omitempty"`
 	OutputRepo   *pfs.Repo                   `protobuf:"bytes,5,opt,name=output_repo" json:"output_repo,omitempty"`
 	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,6,opt,name=created_at" json:"created_at,omitempty"`
