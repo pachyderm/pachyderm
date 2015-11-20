@@ -56,24 +56,6 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 			return nil, err
 		}
 	}
-	// Create the initial commit
-	if _, err = a.StartCommit(ctx, &pfs.StartCommitRequest{
-		Parent: nil,
-		Commit: &pfs.Commit{
-			Repo: request.Repo,
-			Id:   pfs.InitialCommitID,
-		},
-	}); err != nil {
-		return nil, err
-	}
-	if _, err = a.FinishCommit(ctx, &pfs.FinishCommitRequest{
-		Commit: &pfs.Commit{
-			Repo: request.Repo,
-			Id:   pfs.InitialCommitID,
-		},
-	}); err != nil {
-		return nil, err
-	}
 	return google_protobuf.EmptyInstance, nil
 }
 

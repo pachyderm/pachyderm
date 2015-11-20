@@ -66,19 +66,7 @@ func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	err := pfsutil.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
 
-	scratchCommitInfo, err := pfsutil.InspectCommit(apiClient, repoName, "scratch")
-	require.NoError(t, err)
-	require.NotNil(t, scratchCommitInfo)
-	require.Equal(t, "scratch", scratchCommitInfo.Commit.Id)
-	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, scratchCommitInfo.CommitType)
-	require.Nil(t, scratchCommitInfo.ParentCommit)
-
-	commitInfos, err := pfsutil.ListCommit(apiClient, repoName)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
-	require.Equal(t, scratchCommitInfo.Commit, commitInfos[0].Commit)
-
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "scratch")
+	commit, err := pfsutil.StartCommit(apiClient, repoName, "")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.Id
@@ -88,13 +76,12 @@ func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	require.NotNil(t, newCommitInfo)
 	require.Equal(t, newCommitID, newCommitInfo.Commit.Id)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, newCommitInfo.CommitType)
-	require.Equal(t, "scratch", newCommitInfo.ParentCommit.Id)
+	require.Nil(t, newCommitInfo.ParentCommit)
 
-	commitInfos, err = pfsutil.ListCommit(apiClient, repoName)
+	commitInfos, err := pfsutil.ListCommit(apiClient, repoName)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 1, len(commitInfos))
 	require.Equal(t, newCommitInfo.Commit, commitInfos[0].Commit)
-	require.Equal(t, scratchCommitInfo.Commit, commitInfos[1].Commit)
 
 	err = pfsutil.MakeDirectory(apiClient, repoName, newCommitID, "a/b")
 	require.NoError(t, err)
@@ -114,7 +101,7 @@ func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	require.NotNil(t, newCommitInfo)
 	require.Equal(t, newCommitID, newCommitInfo.Commit.Id)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, newCommitInfo.CommitType)
-	require.Equal(t, "scratch", newCommitInfo.ParentCommit.Id)
+	require.Nil(t, newCommitInfo.ParentCommit)
 
 	checkWrites(t, apiClient, repoName, newCommitID)
 	checkBlockWrites(t, apiClient, repoName, newCommitID)
@@ -147,9 +134,14 @@ func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 }
 
 func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
-	repoName := "testSimpleRepo"
+	repoName := "testBlockListCommitsRepo"
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
+	require.NoError(t, err)
+
+	baseCommit, err := pfsutil.StartCommit(apiClient, repoName, "")
+	require.NoError(t, err)
+	err = pfsutil.FinishCommit(apiClient, repoName, baseCommit.Id)
 	require.NoError(t, err)
 
 	repo := &pfs.Repo{
@@ -157,10 +149,7 @@ func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, cluster Cluster
 	}
 	listCommitRequest := &pfs.ListCommitRequest{
 		Repo: repo,
-		From: &pfs.Commit{
-			Repo: repo,
-			Id:   "scratch",
-		},
+		From: baseCommit,
 	}
 	commitInfos, err := apiClient.ListCommit(
 		context.Background(),
@@ -175,7 +164,7 @@ func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, cluster Cluster
 	go func() {
 		defer wg.Done()
 		time.Sleep(1)
-		commit, err := pfsutil.StartCommit(apiClient, repoName, "scratch")
+		commit, err := pfsutil.StartCommit(apiClient, repoName, baseCommit.Id)
 		require.NoError(t, err)
 		require.NotNil(t, commit)
 		newCommit = commit
@@ -217,7 +206,7 @@ func testFailures(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	err := pfsutil.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
 
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "scratch")
+	commit, err := pfsutil.StartCommit(apiClient, repoName, "")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.Id
@@ -262,10 +251,7 @@ func testMount(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	_, err = os.Stat(filepath.Join(directory, repoName))
 	require.NoError(t, err)
 
-	_, err = os.Stat(filepath.Join(directory, repoName, "scratch"))
-	require.NoError(t, err)
-
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "scratch")
+	commit, err := pfsutil.StartCommit(apiClient, repoName, "")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.Id
@@ -335,10 +321,7 @@ func testMountBig(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	_, err = os.Stat(filepath.Join(directory, repoName))
 	require.NoError(t, err)
 
-	_, err = os.Stat(filepath.Join(directory, repoName, "scratch"))
-	require.NoError(t, err)
-
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "scratch")
+	commit, err := pfsutil.StartCommit(apiClient, repoName, "")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.Id
@@ -407,7 +390,7 @@ func benchMount(b *testing.B, apiClient pfs.APIClient) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		commit, err := pfsutil.StartCommit(apiClient, repoName, "scratch")
+		commit, err := pfsutil.StartCommit(apiClient, repoName, "")
 		if err != nil {
 			b.Error(err)
 		}
