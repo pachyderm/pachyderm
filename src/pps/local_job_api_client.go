@@ -3,7 +3,6 @@ package pps
 import (
 	"google.golang.org/grpc"
 
-	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 )
 
@@ -25,12 +24,4 @@ func (a *localJobAPIClient) InspectJob(ctx context.Context, request *InspectJobR
 
 func (a *localJobAPIClient) ListJob(ctx context.Context, request *ListJobRequest, _ ...grpc.CallOption) (response *JobInfos, err error) {
 	return a.jobAPIServer.ListJob(ctx, request)
-}
-
-func (a *localJobAPIClient) GetJobLogs(ctx context.Context, request *GetJobLogsRequest, _ ...grpc.CallOption) (client JobAPI_GetJobLogsClient, err error) {
-	steamingBytesRelayer := protostream.NewStreamingBytesRelayer(ctx)
-	if err := a.jobAPIServer.GetJobLogs(request, steamingBytesRelayer); err != nil {
-		return nil, err
-	}
-	return steamingBytesRelayer, nil
 }

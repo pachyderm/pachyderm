@@ -117,23 +117,6 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	}, nil
 }
 
-func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pps.JobAPI_GetJobLogsServer) (err error) {
-	defer func(start time.Time) { a.Log(request, nil, err, time.Since(start)) }(time.Now())
-	// TODO: filter by output stream
-	persistJobLogs, err := a.persistAPIClient.GetJobLogs(context.Background(), request.Job)
-	if err != nil {
-		return err
-	}
-	for _, persistJobLog := range persistJobLogs.JobLog {
-		if request.OutputStream == pps.OutputStream_OUTPUT_STREAM_ALL || persistJobLog.OutputStream == request.OutputStream {
-			if err := responseServer.Send(&google_protobuf.BytesValue{Value: persistJobLog.Value}); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (response *pps.StartJobResponse, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobInfo, err := a.persistAPIClient.GetJobInfo(ctx, request.Job)
@@ -216,10 +199,6 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 
 func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo *persist.JobInfo) (*pps.JobInfo, error) {
 	job := &pps.Job{Id: persistJobInfo.JobId}
-	persistJobStatuses, err := a.persistAPIClient.GetJobStatuses(ctx, job)
-	if err != nil {
-		return nil, err
-	}
 	jobInfo := &pps.JobInfo{
 		Job:         job,
 		Parallelism: persistJobInfo.Parallelism,
@@ -235,14 +214,6 @@ func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo 
 			Pipeline: &pps.Pipeline{
 				Name: persistJobInfo.GetPipelineName(),
 			},
-		}
-	}
-	jobInfo.JobStatus = make([]*pps.JobStatus, len(persistJobStatuses.JobStatus))
-	for i, persistJobStatus := range persistJobStatuses.JobStatus {
-		jobInfo.JobStatus[i] = &pps.JobStatus{
-			Type:      persistJobStatus.Type,
-			Timestamp: persistJobStatus.Timestamp,
-			Message:   persistJobStatus.Message,
 		}
 	}
 	persistJobOutput, err := a.persistAPIClient.GetJobOutput(ctx, job)

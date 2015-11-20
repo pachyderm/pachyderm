@@ -12,7 +12,6 @@ import (
 	"github.com/dancannon/gorethink"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
@@ -258,46 +257,6 @@ func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *pps.Job) 
 	return google_protobuf.EmptyInstance, nil
 }
 
-// id cannot be set
-// timestamp cannot be set
-func (a *rethinkAPIServer) CreateJobStatus(ctx context.Context, request *persist.JobStatus) (response *persist.JobStatus, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	if request.Id != "" {
-		return nil, ErrIDSet
-	}
-	if request.Timestamp != nil {
-		return nil, ErrTimestampSet
-	}
-	request.Id = uuid.New()
-	request.Timestamp = a.now()
-	if err := a.insertMessage(jobStatusesTable, request); err != nil {
-		return nil, err
-	}
-	return request, nil
-}
-
-// ordered by time, latest to earliest
-func (a *rethinkAPIServer) GetJobStatuses(ctx context.Context, request *pps.Job) (response *persist.JobStatuses, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	jobStatusObjs, err := a.getMessagesByIndex(
-		jobStatusesTable,
-		jobIDIndex,
-		request.Id,
-		func() proto.Message { return &persist.JobStatus{} },
-	)
-	if err != nil {
-		return nil, err
-	}
-	jobStatuses := make([]*persist.JobStatus, len(jobStatusObjs))
-	for i, jobStatusObj := range jobStatusObjs {
-		jobStatuses[i] = jobStatusObj.(*persist.JobStatus)
-	}
-	sortJobStatusesByTimestampDesc(jobStatuses)
-	return &persist.JobStatuses{
-		JobStatus: jobStatuses,
-	}, nil
-}
-
 func (a *rethinkAPIServer) CreateJobOutput(ctx context.Context, request *persist.JobOutput) (response *persist.JobOutput, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if err := a.insertMessage(jobOutputsTable, request); err != nil {
@@ -313,49 +272,6 @@ func (a *rethinkAPIServer) GetJobOutput(ctx context.Context, request *pps.Job) (
 		return nil, err
 	}
 	return jobOutput, nil
-}
-
-// id cannot be set
-// timestamp cannot be set
-func (a *rethinkAPIServer) CreateJobLog(ctx context.Context, request *persist.JobLog) (response *persist.JobLog, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	if request.Id != "" {
-		return nil, ErrIDSet
-	}
-	// TODO: do we want to set the timestamp here, or have it be based on the actual log time?
-	// actual log time (which we do not propogate yet) seems like a better option, but to be consistent
-	// while the persist API is not well documented, setting it here for now
-	if request.Timestamp != nil {
-		return nil, ErrTimestampSet
-	}
-	request.Id = uuid.New()
-	request.Timestamp = a.now()
-	if err := a.insertMessage(jobLogsTable, request); err != nil {
-		return nil, err
-	}
-	return request, nil
-}
-
-// ordered by time, latest to earliest
-func (a *rethinkAPIServer) GetJobLogs(ctx context.Context, request *pps.Job) (response *persist.JobLogs, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	jobLogObjs, err := a.getMessagesByIndex(
-		jobLogsTable,
-		jobIDIndex,
-		request.Id,
-		func() proto.Message { return &persist.JobLog{} },
-	)
-	if err != nil {
-		return nil, err
-	}
-	jobLogs := make([]*persist.JobLog, len(jobLogObjs))
-	for i, jobLogObj := range jobLogObjs {
-		jobLogs[i] = jobLogObj.(*persist.JobLog)
-	}
-	sortJobLogsByTimestampAsc(jobLogs)
-	return &persist.JobLogs{
-		JobLog: jobLogs,
-	}, nil
 }
 
 // timestamp cannot be set
