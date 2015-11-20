@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pps/pretty"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
-	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -130,34 +129,6 @@ You can find out the name of the commit with inspect-job.`,
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
 
-	getJobLogs := &cobra.Command{
-		Use:   "logs job-id",
-		Short: "Return logs from a job.",
-		Long:  "Return logs from a job.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			apiClient, err := getAPIClient(address)
-			if err != nil {
-				return err
-			}
-			logsClient, err := apiClient.GetJobLogs(
-				context.Background(),
-				&pps.GetJobLogsRequest{
-					Job: &pps.Job{
-						Id: args[0],
-					},
-					OutputStream: pps.OutputStream_OUTPUT_STREAM_ALL,
-				},
-			)
-			if err != nil {
-				errorAndExit("Error from InspectJob: %s", err.Error())
-			}
-			if err := protostream.WriteFromStreamingBytesClient(logsClient, os.Stdout); err != nil {
-				return err
-			}
-			return nil
-		}),
-	}
-
 	createPipeline := &cobra.Command{
 		Use:   "create-pipeline pipeline-name input-repo output-repo command [args]",
 		Short: "Create a new pipeline.",
@@ -275,7 +246,6 @@ You can find out the name of the commit with inspect-job.`,
 	result = append(result, createJob)
 	result = append(result, inspectJob)
 	result = append(result, listJob)
-	result = append(result, getJobLogs)
 	result = append(result, createPipeline)
 	result = append(result, inspectPipeline)
 	result = append(result, listPipeline)

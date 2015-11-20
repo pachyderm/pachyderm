@@ -11,7 +11,6 @@ It is generated from these files:
 It has these top-level messages:
 	Transform
 	Job
-	JobStatus
 	JobInfo
 	JobInfos
 	Pipeline
@@ -20,7 +19,6 @@ It has these top-level messages:
 	CreateJobRequest
 	InspectJobRequest
 	ListJobRequest
-	GetJobLogsRequest
 	StartJobRequest
 	StartJobResponse
 	FinishJobRequest
@@ -35,8 +33,6 @@ import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import google_protobuf "go.pedge.io/google-protobuf"
-import google_protobuf1 "go.pedge.io/google-protobuf"
-import google_protobuf2 "go.pedge.io/google-protobuf"
 import pfs "github.com/pachyderm/pachyderm/src/pfs"
 
 import (
@@ -48,32 +44,6 @@ import (
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-
-type JobStatusType int32
-
-const (
-	JobStatusType_JOB_STATUS_TYPE_NONE    JobStatusType = 0
-	JobStatusType_JOB_STATUS_TYPE_STARTED JobStatusType = 1
-	JobStatusType_JOB_STATUS_TYPE_ERROR   JobStatusType = 2
-	JobStatusType_JOB_STATUS_TYPE_SUCCESS JobStatusType = 3
-)
-
-var JobStatusType_name = map[int32]string{
-	0: "JOB_STATUS_TYPE_NONE",
-	1: "JOB_STATUS_TYPE_STARTED",
-	2: "JOB_STATUS_TYPE_ERROR",
-	3: "JOB_STATUS_TYPE_SUCCESS",
-}
-var JobStatusType_value = map[string]int32{
-	"JOB_STATUS_TYPE_NONE":    0,
-	"JOB_STATUS_TYPE_STARTED": 1,
-	"JOB_STATUS_TYPE_ERROR":   2,
-	"JOB_STATUS_TYPE_SUCCESS": 3,
-}
-
-func (x JobStatusType) String() string {
-	return proto.EnumName(JobStatusType_name, int32(x))
-}
 
 type OutputStream int32
 
@@ -118,23 +88,6 @@ func (m *Job) Reset()         { *m = Job{} }
 func (m *Job) String() string { return proto.CompactTextString(m) }
 func (*Job) ProtoMessage()    {}
 
-type JobStatus struct {
-	Type      JobStatusType               `protobuf:"varint,1,opt,name=type,enum=pachyderm.pps.JobStatusType" json:"type,omitempty"`
-	Timestamp *google_protobuf1.Timestamp `protobuf:"bytes,2,opt,name=timestamp" json:"timestamp,omitempty"`
-	Message   string                      `protobuf:"bytes,3,opt,name=message" json:"message,omitempty"`
-}
-
-func (m *JobStatus) Reset()         { *m = JobStatus{} }
-func (m *JobStatus) String() string { return proto.CompactTextString(m) }
-func (*JobStatus) ProtoMessage()    {}
-
-func (m *JobStatus) GetTimestamp() *google_protobuf1.Timestamp {
-	if m != nil {
-		return m.Timestamp
-	}
-	return nil
-}
-
 // TODO: add created at?
 type JobInfo struct {
 	Job *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
@@ -145,8 +98,6 @@ type JobInfo struct {
 	Parallelism  uint64         `protobuf:"varint,4,opt,name=parallelism" json:"parallelism,omitempty"`
 	InputCommit  []*pfs.Commit  `protobuf:"bytes,5,rep,name=input_commit" json:"input_commit,omitempty"`
 	OutputCommit *pfs.Commit    `protobuf:"bytes,6,opt,name=output_commit" json:"output_commit,omitempty"`
-	// latest to earliest
-	JobStatus []*JobStatus `protobuf:"bytes,7,rep,name=job_status" json:"job_status,omitempty"`
 }
 
 func (m *JobInfo) Reset()         { *m = JobInfo{} }
@@ -205,13 +156,6 @@ func (m *JobInfo) GetInputCommit() []*pfs.Commit {
 func (m *JobInfo) GetOutputCommit() *pfs.Commit {
 	if m != nil {
 		return m.OutputCommit
-	}
-	return nil
-}
-
-func (m *JobInfo) GetJobStatus() []*JobStatus {
-	if m != nil {
-		return m.JobStatus
 	}
 	return nil
 }
@@ -502,22 +446,6 @@ func (m *ListJobRequest) GetInput() *pfs.Commit {
 	return nil
 }
 
-type GetJobLogsRequest struct {
-	Job          *Job         `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
-	OutputStream OutputStream `protobuf:"varint,2,opt,name=output_stream,enum=pachyderm.pps.OutputStream" json:"output_stream,omitempty"`
-}
-
-func (m *GetJobLogsRequest) Reset()         { *m = GetJobLogsRequest{} }
-func (m *GetJobLogsRequest) String() string { return proto.CompactTextString(m) }
-func (*GetJobLogsRequest) ProtoMessage()    {}
-
-func (m *GetJobLogsRequest) GetJob() *Job {
-	if m != nil {
-		return m.Job
-	}
-	return nil
-}
-
 type StartJobRequest struct {
 	Job *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
 }
@@ -667,7 +595,6 @@ func (m *DeletePipelineRequest) GetPipeline() *Pipeline {
 func init() {
 	proto.RegisterType((*Transform)(nil), "pachyderm.pps.Transform")
 	proto.RegisterType((*Job)(nil), "pachyderm.pps.Job")
-	proto.RegisterType((*JobStatus)(nil), "pachyderm.pps.JobStatus")
 	proto.RegisterType((*JobInfo)(nil), "pachyderm.pps.JobInfo")
 	proto.RegisterType((*JobInfos)(nil), "pachyderm.pps.JobInfos")
 	proto.RegisterType((*Pipeline)(nil), "pachyderm.pps.Pipeline")
@@ -676,7 +603,6 @@ func init() {
 	proto.RegisterType((*CreateJobRequest)(nil), "pachyderm.pps.CreateJobRequest")
 	proto.RegisterType((*InspectJobRequest)(nil), "pachyderm.pps.InspectJobRequest")
 	proto.RegisterType((*ListJobRequest)(nil), "pachyderm.pps.ListJobRequest")
-	proto.RegisterType((*GetJobLogsRequest)(nil), "pachyderm.pps.GetJobLogsRequest")
 	proto.RegisterType((*StartJobRequest)(nil), "pachyderm.pps.StartJobRequest")
 	proto.RegisterType((*StartJobResponse)(nil), "pachyderm.pps.StartJobResponse")
 	proto.RegisterType((*FinishJobRequest)(nil), "pachyderm.pps.FinishJobRequest")
@@ -684,7 +610,6 @@ func init() {
 	proto.RegisterType((*InspectPipelineRequest)(nil), "pachyderm.pps.InspectPipelineRequest")
 	proto.RegisterType((*ListPipelineRequest)(nil), "pachyderm.pps.ListPipelineRequest")
 	proto.RegisterType((*DeletePipelineRequest)(nil), "pachyderm.pps.DeletePipelineRequest")
-	proto.RegisterEnum("pachyderm.pps.JobStatusType", JobStatusType_name, JobStatusType_value)
 	proto.RegisterEnum("pachyderm.pps.OutputStream", OutputStream_name, OutputStream_value)
 }
 
@@ -698,7 +623,6 @@ type JobAPIClient interface {
 	CreateJob(ctx context.Context, in *CreateJobRequest, opts ...grpc.CallOption) (*Job, error)
 	InspectJob(ctx context.Context, in *InspectJobRequest, opts ...grpc.CallOption) (*JobInfo, error)
 	ListJob(ctx context.Context, in *ListJobRequest, opts ...grpc.CallOption) (*JobInfos, error)
-	GetJobLogs(ctx context.Context, in *GetJobLogsRequest, opts ...grpc.CallOption) (JobAPI_GetJobLogsClient, error)
 }
 
 type jobAPIClient struct {
@@ -736,45 +660,12 @@ func (c *jobAPIClient) ListJob(ctx context.Context, in *ListJobRequest, opts ...
 	return out, nil
 }
 
-func (c *jobAPIClient) GetJobLogs(ctx context.Context, in *GetJobLogsRequest, opts ...grpc.CallOption) (JobAPI_GetJobLogsClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_JobAPI_serviceDesc.Streams[0], c.cc, "/pachyderm.pps.JobAPI/GetJobLogs", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &jobAPIGetJobLogsClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type JobAPI_GetJobLogsClient interface {
-	Recv() (*google_protobuf2.BytesValue, error)
-	grpc.ClientStream
-}
-
-type jobAPIGetJobLogsClient struct {
-	grpc.ClientStream
-}
-
-func (x *jobAPIGetJobLogsClient) Recv() (*google_protobuf2.BytesValue, error) {
-	m := new(google_protobuf2.BytesValue)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 // Server API for JobAPI service
 
 type JobAPIServer interface {
 	CreateJob(context.Context, *CreateJobRequest) (*Job, error)
 	InspectJob(context.Context, *InspectJobRequest) (*JobInfo, error)
 	ListJob(context.Context, *ListJobRequest) (*JobInfos, error)
-	GetJobLogs(*GetJobLogsRequest, JobAPI_GetJobLogsServer) error
 }
 
 func RegisterJobAPIServer(s *grpc.Server, srv JobAPIServer) {
@@ -817,27 +708,6 @@ func _JobAPI_ListJob_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return out, nil
 }
 
-func _JobAPI_GetJobLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetJobLogsRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(JobAPIServer).GetJobLogs(m, &jobAPIGetJobLogsServer{stream})
-}
-
-type JobAPI_GetJobLogsServer interface {
-	Send(*google_protobuf2.BytesValue) error
-	grpc.ServerStream
-}
-
-type jobAPIGetJobLogsServer struct {
-	grpc.ServerStream
-}
-
-func (x *jobAPIGetJobLogsServer) Send(m *google_protobuf2.BytesValue) error {
-	return x.ServerStream.SendMsg(m)
-}
-
 var _JobAPI_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pachyderm.pps.JobAPI",
 	HandlerType: (*JobAPIServer)(nil),
@@ -855,13 +725,7 @@ var _JobAPI_serviceDesc = grpc.ServiceDesc{
 			Handler:    _JobAPI_ListJob_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "GetJobLogs",
-			Handler:       _JobAPI_GetJobLogs_Handler,
-			ServerStreams: true,
-		},
-	},
+	Streams: []grpc.StreamDesc{},
 }
 
 // Client API for InternalJobAPI service

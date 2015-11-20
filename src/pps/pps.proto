@@ -1,20 +1,11 @@
 syntax = "proto3";
 
 import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/wrappers.proto";
 import "pfs/pfs.proto";
 
 package pachyderm.pps;
 
 option go_package = "pps";
-
-enum JobStatusType {
-  JOB_STATUS_TYPE_NONE = 0;
-  JOB_STATUS_TYPE_STARTED = 1;
-  JOB_STATUS_TYPE_ERROR = 2;
-  JOB_STATUS_TYPE_SUCCESS = 3;
-}
 
 enum OutputStream {
   OUTPUT_STREAM_NONE = 0;
@@ -32,12 +23,6 @@ message Job {
   string id = 1;
 }
 
-message JobStatus {
-  JobStatusType type = 1;
-  google.protobuf.Timestamp timestamp = 2;
-  string message = 3;
-}
-
 // TODO: add created at?
 message JobInfo {
   Job job = 1;
@@ -48,8 +33,6 @@ message JobInfo {
   uint64 parallelism = 4;
   repeated pfs.Commit input_commit = 5;
   pfs.Commit output_commit = 6;
-  // latest to earliest
-  repeated JobStatus job_status = 7;
 }
 
 message JobInfos {
@@ -92,11 +75,6 @@ message ListJobRequest {
   pfs.Commit input = 2; // nil means all inputs
 }
 
-message GetJobLogsRequest {
-  Job job = 1;
-  OutputStream output_stream = 2;
-}
-
 message StartJobRequest {
   Job job = 1;
 }
@@ -135,7 +113,6 @@ service JobAPI {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
-  rpc GetJobLogs(GetJobLogsRequest) returns (stream google.protobuf.BytesValue) {}
 }
 
 service InternalJobAPI {

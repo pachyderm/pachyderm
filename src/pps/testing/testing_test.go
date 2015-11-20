@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"go.pedge.io/proto/stream"
-	"go.pedge.io/protolog"
 
 	"golang.org/x/net/context"
 
@@ -226,54 +225,8 @@ func createJob(t *testing.T, jobAPIClient pps.JobAPIClient, transform *pps.Trans
 }
 
 func waitForJob(t *testing.T, jobAPIClient pps.JobAPIClient, job *pps.Job, timeoutSec int, expectError bool) *pps.JobInfo {
-	for i := 0; i < timeoutSec; i++ {
-		time.Sleep(1 * time.Second)
-		jobInfo, err := jobAPIClient.InspectJob(
-			context.Background(),
-			&pps.InspectJobRequest{
-				Job: job,
-			},
-		)
-		require.NoError(t, err)
-		if len(jobInfo.JobStatus) == 0 {
-			continue
-		}
-		jobStatus := jobInfo.JobStatus[0]
-		protolog.Infof("status of job %s at %d seconds: %v", job.Id, i+1, jobInfo.JobStatus)
-		switch jobStatus.Type {
-		case pps.JobStatusType_JOB_STATUS_TYPE_ERROR:
-			handleEndJobStatus(t, jobAPIClient, jobInfo)
-			if !expectError {
-				t.Fatalf("job %s had error", job.Id)
-			}
-			return jobInfo
-		case pps.JobStatusType_JOB_STATUS_TYPE_SUCCESS:
-			handleEndJobStatus(t, jobAPIClient, jobInfo)
-			if expectError {
-				t.Fatalf("job %s did not have error", job.Id)
-			}
-			return jobInfo
-		}
-	}
-	t.Fatalf("job %s did not finish in %d seconds", job.Id, timeoutSec)
+	// TODO
 	return nil
-}
-
-func handleEndJobStatus(t *testing.T, jobAPIClient pps.JobAPIClient, jobInfo *pps.JobInfo) {
-	handleEndJobStatusOutputStream(t, jobAPIClient, jobInfo, pps.OutputStream_OUTPUT_STREAM_STDOUT)
-	handleEndJobStatusOutputStream(t, jobAPIClient, jobInfo, pps.OutputStream_OUTPUT_STREAM_STDERR)
-}
-
-func handleEndJobStatusOutputStream(t *testing.T, jobAPIClient pps.JobAPIClient, jobInfo *pps.JobInfo, outputStream pps.OutputStream) {
-	jobAPIGetJobLogsClient, err := jobAPIClient.GetJobLogs(
-		context.Background(),
-		&pps.GetJobLogsRequest{
-			Job:          jobInfo.Job,
-			OutputStream: outputStream,
-		},
-	)
-	require.NoError(t, err)
-	require.NoError(t, protostream.WriteFromStreamingBytesClient(jobAPIGetJobLogsClient, protolog.Writer()))
 }
 
 func createPipeline(t *testing.T, pipelineAPIClient pps.PipelineAPIClient, pipelineName string, transform *pps.Transform, inputRepo *pfs.Repo, outputRepo *pfs.Repo) *pps.Pipeline {
