@@ -110,7 +110,7 @@ etc/kube/start-kube-docker.sh
 You can then deploy a Pachyderm cluster on Kubernetes with:
 
 ```shell
-pach create-cluster test-cluster 1 1 0
+pachctl create-cluster test-cluster 1 1 0
 ```
 
 ### Environment Setup

@@ -76,9 +76,9 @@ ppsd:
   links:
     - pfsd
     - rethink
-pach:
+pachctl:
   build: .
-  dockerfile: Dockerfile.pach
+  dockerfile: Dockerfile.pachctl
   links:
     - pfsd
     - ppsd

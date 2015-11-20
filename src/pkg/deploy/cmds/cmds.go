@@ -22,7 +22,7 @@ func Cmds(
 	gceZone string,
 ) ([]*cobra.Command, error) {
 	createCluster := &cobra.Command{
-		Use:   "create-cluster cluster-name nodes shards replicas",
+		Use:   "create-cluster replicas shards ",
 		Short: "Create a new pachyderm cluster.",
 		Long:  "Create a new pachyderm cluster.",
 		Run: pkgcobra.RunFixedArgs(4, func(args []string) error {
@@ -38,39 +38,14 @@ func Cmds(
 			if err != nil {
 				return err
 			}
-			replicas, err := strconv.ParseUint(args[3], 10, 64)
-			if err != nil {
-				return err
-			}
 			_, err = apiServer.CreateCluster(
 				context.Background(),
 				&deploy.CreateClusterRequest{
 					Cluster: &deploy.Cluster{
 						Name: args[0],
 					},
-					Nodes:    nodes,
-					Shards:   shards,
-					Replicas: replicas,
-				})
-			return err
-		}),
-	}
-
-	deleteCluster := &cobra.Command{
-		Use:   "delete-cluster cluster-name",
-		Short: "Delete a cluster.",
-		Long:  "Delete a cluster.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			apiServer, err := getAPIServer(kubernetesAddress, kubernetesUsername, kubernetesPassword, providerName, gceProject, gceZone)
-			if err != nil {
-				return err
-			}
-			_, err = apiServer.DeleteCluster(
-				context.Background(),
-				&deploy.DeleteClusterRequest{
-					Cluster: &deploy.Cluster{
-						Name: args[0],
-					},
+					Nodes:  nodes,
+					Shards: shards,
 				})
 			return err
 		}),
@@ -78,7 +53,6 @@ func Cmds(
 
 	var result []*cobra.Command
 	result = append(result, createCluster)
-	result = append(result, deleteCluster)
 	return result, nil
 }
 
