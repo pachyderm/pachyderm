@@ -77,6 +77,7 @@ func do(appEnvObj interface{}) error {
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
 			pps.RegisterJobAPIServer(s, jobAPIServer)
+			pps.RegisterInternalJobAPIServer(s, jobAPIServer)
 			pps.RegisterPipelineAPIServer(s, pipelineAPIServer)
 		},
 		protoserver.ServeOptions{

@@ -76,11 +76,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	if a.kubeClient == nil {
 		return nil, fmt.Errorf("pachyderm.pps.jobserver: no job backend")
 	}
-	if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
-		return nil, err
-	}
 	_, err = a.persistAPIClient.CreateJobInfo(ctx, persistJobInfo)
 	if err != nil {
+		return nil, err
+	}
+	if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
 		return nil, err
 	}
 	return &pps.Job{
@@ -118,6 +118,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 }
 
 func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pps.JobAPI_GetJobLogsServer) (err error) {
+	defer func(start time.Time) { a.Log(request, nil, err, time.Since(start)) }(time.Now())
 	// TODO: filter by output stream
 	persistJobLogs, err := a.persistAPIClient.GetJobLogs(context.Background(), request.Job)
 	if err != nil {
@@ -133,7 +134,8 @@ func (a *apiServer) GetJobLogs(request *pps.GetJobLogsRequest, responseServer pp
 	return nil
 }
 
-func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (*pps.StartJobResponse, error) {
+func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (response *pps.StartJobResponse, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobInfo, err := a.persistAPIClient.GetJobInfo(ctx, request.Job)
 	if err != nil {
 		return nil, err
@@ -181,7 +183,8 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	}, nil
 }
 
-func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest) (*google_protobuf.Empty, error) {
+func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest) (response *google_protobuf.Empty, err error) {
+	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobInfo, err := a.persistAPIClient.GetJobInfo(ctx, request.Job)
 	if err != nil {
 		return nil, err
@@ -254,7 +257,7 @@ func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo 
 
 func job(jobInfo *persist.JobInfo) *extensions.Job {
 	app := jobInfo.JobId
-	completions := int(jobInfo.Parallelism)
+	parallelism := int(jobInfo.Parallelism)
 	return &extensions.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -268,7 +271,8 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 			Selector: &extensions.PodSelector{
 				MatchLabels: labels(app),
 			},
-			Completions: &completions,
+			Parallelism: &parallelism,
+			Completions: &parallelism,
 			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   jobInfo.JobId,
@@ -279,7 +283,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 						{
 							Name:    "user",
 							Image:   "pachyderm/job-shim",
-							Command: append([]string{"/job-shim"}, jobInfo.GetTransform().Cmd...),
+							Command: append([]string{"/job-shim", jobInfo.JobId}, jobInfo.GetTransform().Cmd...),
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},
