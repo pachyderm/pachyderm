@@ -172,7 +172,7 @@ func setupPFSInputCommit(t *testing.T, pfsAPIClient pfs.APIClient, repo *pfs.Rep
 		&pfs.StartCommitRequest{
 			Parent: &pfs.Commit{
 				Repo: repo,
-				Id:   pfs.InitialCommitID,
+				Id:   "",
 			},
 		},
 	)
@@ -206,7 +206,7 @@ func setupPFSInputCommit(t *testing.T, pfsAPIClient pfs.APIClient, repo *pfs.Rep
 }
 
 func setupPFSOutputParentCommit(t *testing.T, pfsAPIClient pfs.APIClient, repo *pfs.Repo) *pfs.Commit {
-	return &pfs.Commit{Repo: repo, Id: pfs.InitialCommitID}
+	return &pfs.Commit{Repo: repo, Id: ""}
 }
 
 func createJob(t *testing.T, jobAPIClient pps.JobAPIClient, transform *pps.Transform, inputCommit *pfs.Commit, outputParentCommit *pfs.Commit) *pps.Job {

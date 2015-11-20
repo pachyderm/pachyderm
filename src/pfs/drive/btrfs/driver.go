@@ -1,16 +1,3 @@
-/*
-
-directory structure
-
-  .
-  |-- repoName
-	  |-- scratch
-		  |-- shardNum // the read-only read created on InitRepo, this is where to start branching
-      |-- commitID
-	      |-- shardNum // this is where subvolumes are
-
-*/
-
 package btrfs
 
 import (
@@ -121,7 +108,18 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[
 	}
 	for shard := range shards {
 		commitPath := d.writeCommitPath(commit, shard)
-		if parent != nil {
+		if parent == nil || parent.Id == "" {
+			if err := execSubvolumeCreate(commitPath); err != nil {
+				return err
+			}
+			filePath, err := d.filePath(&pfs.File{Commit: commit, Path: metadataDir}, shard)
+			if err != nil {
+				return err
+			}
+			if err := os.Mkdir(filePath, 0700); err != nil {
+				return err
+			}
+		} else {
 			if err := d.checkReadOnly(parent, shard); err != nil {
 				return err
 			}
@@ -137,17 +135,6 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[
 				return err
 			}
 			if err := ioutil.WriteFile(filePath, []byte(parent.Id), 0600); err != nil {
-				return err
-			}
-		} else {
-			if err := execSubvolumeCreate(commitPath); err != nil {
-				return err
-			}
-			filePath, err := d.filePath(&pfs.File{Commit: commit, Path: metadataDir}, shard)
-			if err != nil {
-				return err
-			}
-			if err := os.Mkdir(filePath, 0700); err != nil {
 				return err
 			}
 		}

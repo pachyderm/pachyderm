@@ -204,11 +204,8 @@ func (a *apiServer) bestParent(pipelineInfo *pps.PipelineInfo, inputCommitInfo *
 				}
 			}
 		}
-		if inputCommitInfo.ParentCommit.Id == pfs.InitialCommitID {
-			return &pfs.Commit{
-				Repo: inputCommitInfo.Commit.Repo,
-				Id:   pfs.InitialCommitID,
-			}, nil
+		if inputCommitInfo.ParentCommit.Id == "" {
+			return inputCommitInfo.ParentCommit, nil
 		}
 		inputCommitInfo, err = a.pfsAPIClient.InspectCommit(context.TODO(), &pfs.InspectCommitRequest{Commit: inputCommitInfo.ParentCommit})
 		if err != nil {
