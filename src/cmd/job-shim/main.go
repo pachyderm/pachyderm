@@ -72,7 +72,7 @@ func do(appEnvObj interface{}) error {
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
 			}
-			if err := pkgexec.RunIO(io, args...); err != nil {
+			if err := pkgexec.RunIO(io, args[1:]...); err != nil {
 				errorAndExit(err.Error())
 			}
 			if _, err := ppsAPIClient.FinishJob(
