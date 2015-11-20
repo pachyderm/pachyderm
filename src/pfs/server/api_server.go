@@ -125,6 +125,9 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 		return nil, err
 	}
 	if request.Commit == nil {
+		if request.Parent == nil {
+			return nil, fmt.Errorf("one of Parent or Commit must be non nil")
+		}
 		request.Commit = &pfs.Commit{
 			Repo: request.Parent.Repo,
 			Id:   uuid.NewWithoutDashes(),

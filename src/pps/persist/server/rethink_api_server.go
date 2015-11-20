@@ -417,7 +417,7 @@ func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) err
 }
 
 func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, value interface{}, message proto.Message) error {
-	cursor, err := a.getTerm(table).Get(value).ToJSON().Run(a.session)
+	cursor, err := a.getTerm(table).Get(value).Default(gorethink.Error("value not found")).ToJSON().Run(a.session)
 	if err != nil {
 		return err
 	}

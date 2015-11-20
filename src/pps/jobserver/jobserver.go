@@ -7,11 +7,16 @@ import (
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
+type CombinedJobAPIServer interface {
+	pps.JobAPIServer
+	pps.InternalJobAPIServer
+}
+
 func NewAPIServer(
 	pfsAPIClient pfs.APIClient,
 	persistAPIClient persist.APIClient,
 	client *kube.Client,
-) pps.JobAPIServer {
+) CombinedJobAPIServer {
 	return newAPIServer(
 		pfsAPIClient,
 		persistAPIClient,
