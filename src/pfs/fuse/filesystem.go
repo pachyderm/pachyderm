@@ -202,6 +202,9 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 }
 
 func (d *directory) repoWhitelisted(name string) bool {
+	if len(d.fs.Commits) == 0 {
+		return true
+	}
 	found := false
 	for _, commit := range d.fs.Commits {
 		if commit.Repo.Name == name {
@@ -213,6 +216,9 @@ func (d *directory) repoWhitelisted(name string) bool {
 }
 
 func (d *directory) commitWhitelisted(name string) bool {
+	if len(d.fs.Commits) == 0 {
+		return true
+	}
 	found := false
 	for _, commit := range d.fs.Commits {
 		if commit.Repo.Name == d.File.Commit.Repo.Name {
