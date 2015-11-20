@@ -23,7 +23,7 @@ var (
 	pfsdImage          = "pachyderm/pfsd"
 	rolerImage         = "pachyderm/pfs-roler"
 	ppsdImage          = "pachyderm/ppsd"
-	pachImage          = "pachyderm/pach"
+	pachctlImage       = "pachyderm/pachctl"
 	btrfsImage         = "pachyderm_btrfs"
 	etcdImage          = "gcr.io/google_containers/etcd:2.0.12"
 	rethinkImage       = "rethinkdb:2.1.5"
@@ -453,7 +453,7 @@ func sandboxRc() *api.ReplicationController {
 					Containers: []api.Container{
 						{
 							Name:    "sandbox",
-							Image:   pachImage,
+							Image:   pachctlImage,
 							Command: []string{"/pach", "mount"},
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb

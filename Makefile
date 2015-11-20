@@ -52,7 +52,7 @@ build:
 	GO15VENDOREXPERIMENT=1 go build ./src/...
 
 install:
-	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pfs-volume-driver ./src/cmd/pach
+	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pfs-volume-driver ./src/cmd/pachctl
 
 docker-build-btrfs:
 	docker-compose build btrfs
@@ -76,13 +76,13 @@ docker-build-pfsd: docker-build-btrfs docker-build-compile
 docker-build-ppsd: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh ppsd
 
-docker-build-pach: docker-build-compile
-	docker-compose run --rm compile sh etc/compile/compile.sh pach
+docker-build-pachctl: docker-build-compile
+	docker-compose run --rm compile sh etc/compile/compile.sh pachctl
 
 docker-build-job-shim: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh job-shim
 
-docker-build: docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pach docker-build-job-shim
+docker-build: docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pachctl docker-build-job-shim
 
 docker-push-pfs-volume-driver: docker-build-pfs-volume-driver
 	docker push pachyderm/pfs-volume-driver
