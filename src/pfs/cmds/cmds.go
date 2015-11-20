@@ -96,15 +96,19 @@ func Cmds(address string) ([]*cobra.Command, error) {
 	}
 
 	startCommit := &cobra.Command{
-		Use:   "start-commit repo-name parent-commit-id",
+		Use:   "start-commit repo-name [parent-commit-id]",
 		Short: "Start a new commit.",
 		Long:  "Start a new commit with parent-commit-id as the parent.",
-		Run: pkgcobra.RunFixedArgs(2, func(args []string) error {
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 1, Max: 2}, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
 			}
-			commit, err := pfsutil.StartCommit(apiClient, args[0], args[1])
+			parentCommitID := ""
+			if len(args) == 2 {
+				parentCommitID = args[1]
+			}
+			commit, err := pfsutil.StartCommit(apiClient, args[0], parentCommitID)
 			if err != nil {
 				return err
 			}

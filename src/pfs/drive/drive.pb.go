@@ -19,8 +19,6 @@ import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import _ "github.com/gengo/grpc-gateway/third_party/googleapis/google/api"
-import _ "go.pedge.io/google-protobuf"
-import _ "go.pedge.io/google-protobuf"
 import pfs "github.com/pachyderm/pachyderm/src/pfs"
 
 // Reference imports to suppress errors if they are not otherwise used.

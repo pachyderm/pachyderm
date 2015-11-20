@@ -30,7 +30,7 @@ message JobInfo {
     Transform transform = 2;
     Pipeline pipeline = 3;
   }
-  uint64 parallelism = 4;
+  uint64 shards = 4;
   repeated pfs.Commit input_commit = 5;
   pfs.Commit output_commit = 6;
 }
@@ -47,7 +47,7 @@ message Pipeline {
 message PipelineInfo {
   Pipeline pipeline = 1;
   Transform transform = 2;
-  uint64 parallelism = 3;
+  uint64 shards = 3;
   repeated pfs.Repo input_repo = 4;
   pfs.Repo output_repo = 5;
 }
@@ -61,7 +61,7 @@ message CreateJobRequest {
     Transform transform = 1;
     Pipeline pipeline = 2;
   }
-  uint64 parallelism = 3;
+  uint64 shards = 3;
   repeated pfs.Commit input_commit = 4;
   pfs.Commit output_parent = 5;
 }
@@ -93,7 +93,7 @@ message FinishJobRequest {
 message CreatePipelineRequest {
   Pipeline pipeline = 1;
   Transform transform = 2;
-  uint64 parallelism = 3;
+  uint64 shards = 3;
   repeated pfs.Repo input_repo = 4;
   pfs.Repo output_repo = 5;
 }
