@@ -454,7 +454,7 @@ func sandboxRc() *api.ReplicationController {
 						{
 							Name:    "sandbox",
 							Image:   pachctlImage,
-							Command: []string{"/pach", "mount"},
+							Command: []string{"/bin/pachctl", "mount"},
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},
