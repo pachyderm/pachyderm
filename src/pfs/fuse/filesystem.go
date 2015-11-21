@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"go.pedge.io/protolog"
@@ -20,6 +21,8 @@ import (
 type filesystem struct {
 	apiClient pfs.APIClient
 	Filesystem
+	inodes map[pfs.File]uint64
+	lock   sync.RWMutex
 }
 
 func newFilesystem(
@@ -33,6 +36,8 @@ func newFilesystem(
 			shard,
 			commits,
 		},
+		make(map[pfs.File]uint64),
+		sync.RWMutex{},
 	}
 }
 
@@ -65,6 +70,7 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	} else {
 		a.Mode = os.ModeDir | 0555
 	}
+	a.Inode = d.fs.inode(d.File)
 	return nil
 }
 
@@ -154,6 +160,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		a.Size = fileInfo.SizeBytes
 	}
 	a.Mode = 0666
+	a.Inode = f.fs.inode(f.File)
 	return nil
 }
 
@@ -201,6 +208,41 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 	return nil
 }
 
+func (fs *filesystem) inode(file *pfs.File) uint64 {
+	fs.lock.RLock()
+	inode, ok := fs.inodes[*file]
+	fs.lock.RUnlock()
+	if ok {
+		return inode
+	}
+	fs.lock.Lock()
+	if inode, ok := fs.inodes[*file]; ok {
+		return inode
+	}
+	newInode := uint64(len(fs.inodes))
+	fs.inodes[*file] = newInode
+	fs.lock.Unlock()
+	return newInode
+}
+
+func (d *directory) copy() *directory {
+	return &directory{
+		fs: d.fs,
+		Node: Node{
+			File: &pfs.File{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: d.File.Commit.Repo.Name,
+					},
+					Id: d.File.Commit.Id,
+				},
+				Path: d.File.Path,
+			},
+			Write: d.Write,
+		},
+	}
+}
+
 func (d *directory) repoWhitelisted(name string) bool {
 	if len(d.fs.Commits) == 0 {
 		return true
@@ -240,9 +282,9 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 	if repoInfo == nil {
 		return nil, fuse.ENOENT
 	}
-	result := *d
+	result := d.copy()
 	result.File.Commit.Repo.Name = name
-	return &result, nil
+	return result, nil
 }
 
 func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, error) {
@@ -260,9 +302,9 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 	if commitInfo == nil {
 		return nil, fuse.ENOENT
 	}
-	result := *d
+	result := d.copy()
 	result.File.Commit.Id = name
-	return &result, nil
+	return result, nil
 }
 
 func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error) {
@@ -276,21 +318,20 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	if err != nil {
 		return nil, err
 	}
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
-		return nil, fuse.ENOENT
-	}
-	directory := *d
+	directory := d.copy()
 	directory.File.Path = fileInfo.File.Path
 	switch fileInfo.FileType {
 	case pfs.FileType_FILE_TYPE_REGULAR:
 		directory.File.Path = fileInfo.File.Path
 		return &file{
-			directory,
+			*directory,
 			0,
 			int64(fileInfo.SizeBytes),
 		}, nil
+	case pfs.FileType_FILE_TYPE_NONE:
+		fallthrough
 	case pfs.FileType_FILE_TYPE_DIR:
-		return &directory, nil
+		return directory, nil
 	default:
 		return nil, fmt.Errorf("Unrecognized FileType.")
 	}
