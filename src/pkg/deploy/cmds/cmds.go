@@ -25,16 +25,16 @@ func Cmds(
 		Use:   "create-cluster replicas shards ",
 		Short: "Create a new pachyderm cluster.",
 		Long:  "Create a new pachyderm cluster.",
-		Run: pkgcobra.RunFixedArgs(4, func(args []string) error {
+		Run: pkgcobra.RunFixedArgs(2, func(args []string) error {
 			apiServer, err := getAPIServer(kubernetesAddress, kubernetesUsername, kubernetesPassword, providerName, gceProject, gceZone)
 			if err != nil {
 				return err
 			}
-			nodes, err := strconv.ParseUint(args[1], 10, 64)
+			nodes, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
 				return err
 			}
-			shards, err := strconv.ParseUint(args[2], 10, 64)
+			shards, err := strconv.ParseUint(args[1], 10, 64)
 			if err != nil {
 				return err
 			}
