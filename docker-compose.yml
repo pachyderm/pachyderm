@@ -27,19 +27,6 @@ compile:
   privileged: true
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-pfs-volume-driver:
-  build: .
-  dockerfile: Dockerfile.pfs-volume-driver
-  privileged: true
-  volumes:
-    - /etc/docker/plugins:/etc/docker/plugins
-    - /run/docker/plugins:/run/docker/plugins
-    - /tmp/pfs-volume-driver:/tmp/pfs-volume-driver
-  environment:
-    - BASE_MOUNTPOINT=/tmp/pfs-volume-driver
-  links:
-    - pfsd
-    - etcd
 pfs-roler:
   build: .
   dockerfile: Dockerfile.pfs-roler

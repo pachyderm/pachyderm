@@ -52,7 +52,7 @@ build:
 	GO15VENDOREXPERIMENT=1 go build ./src/...
 
 install:
-	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pfs-volume-driver ./src/cmd/pachctl
+	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pachctl
 
 docker-build-btrfs:
 	docker-compose build btrfs
@@ -63,9 +63,6 @@ docker-build-test: docker-build-btrfs
 
 docker-build-compile:
 	docker-compose build compile
-
-docker-build-pfs-volume-driver: docker-build-compile
-	docker-compose run --rm compile sh etc/compile/compile.sh pfs-volume-driver
 
 docker-build-pfs-roler: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh pfs-roler
@@ -82,10 +79,7 @@ docker-build-pachctl: docker-build-compile
 docker-build-job-shim: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh job-shim
 
-docker-build: docker-build-pfs-volume-driver docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pachctl docker-build-job-shim
-
-docker-push-pfs-volume-driver: docker-build-pfs-volume-driver
-	docker push pachyderm/pfs-volume-driver
+docker-build: docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pachctl docker-build-job-shim
 
 docker-push-pfs-roler: docker-build-pfs-roler
 	docker push pachyderm/pfs-roler
@@ -96,7 +90,13 @@ docker-push-pfsd: docker-build-pfsd
 docker-push-ppsd: docker-build-ppsd
 	docker push pachyderm/ppsd
 
-docker-push: docker-push-pfs-roler docker-push-ppsd docker-push-pfsd docker-push-pfs-volume-driver
+docker-push-pachctl: docker-build-pachctl
+	docker push pachyderm/pachctl
+
+docker-push-job-shim: docker-build-job-shim
+	docker push pachyderm/job-shim
+
+docker-push: docker-push-pfs-roler docker-push-ppsd docker-push-pfsd docker-push-pachctl docker-push-job-shim
 
 run: docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test $(RUNARGS)
@@ -135,8 +135,6 @@ docker-clean-test:
 	docker-compose rm -f btrfs
 
 docker-clean-launch: docker-clean-test
-	docker-compose kill pfs-volume-driver
-	docker-compose rm -f pfs-volume-driver
 	docker-compose kill pfs-roler
 	docker-compose rm -f pfs-roler
 	docker-compose kill pfsd
@@ -156,7 +154,6 @@ test-long: pretest go-test-long docker-clean-test
 
 clean: docker-clean-launch
 	go clean ./src/...
-	rm -f src/cmd/pfs/pfs-volume-driver
 	rm -f src/cmd/pfs/pfs-roler
 	rm -f src/cmd/pfsd/pfsd
 	rm -f src/cmd/ppsd/ppsd
@@ -176,12 +173,10 @@ clean: docker-clean-launch
 	docker-build-btrfs \
 	docker-build-test \
 	docker-build-compile \
-	docker-build-pfs-volume-driver \
 	docker-build-pfs-roler \
 	docker-build-pfsd \
 	docker-build-ppsd \
 	docker-build \
-	docker-push-pfs-volume-driver \
 	docker-push-pfs-roler \
 	docker-push-pfsd \
 	docker-push-ppsd \
