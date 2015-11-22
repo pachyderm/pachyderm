@@ -111,9 +111,9 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 	if d.File.Commit.Id == "" {
 		return nil, 0, fuse.EPERM
 	}
-	directory := *d
+	directory := d.copy()
 	directory.File.Path = path.Join(directory.File.Path, request.Name)
-	localResult := &file{directory, 0, 0}
+	localResult := &file{*directory, 0, 0}
 	handle, err := localResult.Open(ctx, nil, nil)
 	if err != nil {
 		return nil, nil, err
@@ -131,9 +131,9 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 	if err := pfsutil.MakeDirectory(d.fs.apiClient, d.File.Commit.Repo.Name, d.File.Commit.Id, path.Join(d.File.Path, request.Name)); err != nil {
 		return nil, err
 	}
-	localResult := *d
+	localResult := d.copy()
 	localResult.File.Path = path.Join(localResult.File.Path, request.Name)
-	return &localResult, nil
+	return localResult, nil
 }
 
 type file struct {
@@ -318,6 +318,9 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	if err != nil {
 		return nil, err
 	}
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
+		return nil, fuse.ENOENT
+	}
 	directory := d.copy()
 	directory.File.Path = fileInfo.File.Path
 	switch fileInfo.FileType {
@@ -328,8 +331,6 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 			0,
 			int64(fileInfo.SizeBytes),
 		}, nil
-	case pfs.FileType_FILE_TYPE_NONE:
-		fallthrough
 	case pfs.FileType_FILE_TYPE_DIR:
 		return directory, nil
 	default:
