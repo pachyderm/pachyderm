@@ -23,7 +23,6 @@ var (
 	pfsdImage          = "pachyderm/pfsd"
 	rolerImage         = "pachyderm/pfs-roler"
 	ppsdImage          = "pachyderm/ppsd"
-	pachctlImage       = "pachyderm/pachctl"
 	btrfsImage         = "pachyderm_btrfs"
 	etcdImage          = "gcr.io/google_containers/etcd:2.0.12"
 	rethinkImage       = "rethinkdb:2.1.5"
@@ -34,7 +33,6 @@ var (
 	rethinkServiceName = "rethink"
 	pfsdRcName         = "pfsd-rc"
 	rolerRcName        = "roler-rc"
-	sandboxRcName      = "sandbox-rc"
 	pfsdServiceName    = "pfsd"
 	ppsdRcName         = "ppsd-rc"
 	ppsdServiceName    = "ppsd"
@@ -99,9 +97,6 @@ func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClu
 			request.Nodes,
 		),
 	); err != nil {
-		return nil, err
-	}
-	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(sandboxRc()); err != nil {
 		return nil, err
 	}
 	if _, err := a.client.Services(api.NamespaceDefault).Create(ppsService()); err != nil {
@@ -243,6 +238,9 @@ func pfsdRc(nodes uint64, shards uint64, replicas uint64) *api.ReplicationContro
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 650,
+									HostPort:      650,
+									Protocol:      "TCP",
+									HostIP:        "0.0.0.0",
 									Name:          "api-grpc-port",
 								},
 								{
@@ -385,6 +383,9 @@ func ppsdRc(nodes uint64) *api.ReplicationController {
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 651,
+									HostPort:      651,
+									Protocol:      "TCP",
+									HostIP:        "0.0.0.0",
 									Name:          "api-grpc-port",
 								},
 								{
@@ -422,44 +423,6 @@ func ppsService() *api.Service {
 				{
 					Port: 651,
 					Name: "api-grpc-port",
-				},
-			},
-		},
-	}
-}
-
-func sandboxRc() *api.ReplicationController {
-	app := "sandbox"
-	return &api.ReplicationController{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   sandboxRcName,
-			Labels: labels(app),
-		},
-		Spec: api.ReplicationControllerSpec{
-			Replicas: 1,
-			Selector: map[string]string{
-				"app": app,
-			},
-			Template: &api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
-					Name:   "sandbox-pod",
-					Labels: labels(app),
-				},
-				Spec: api.PodSpec{
-					Containers: []api.Container{
-						{
-							Name:    "sandbox",
-							Image:   pachctlImage,
-							Command: []string{"/bin/pachctl", "mount"},
-							SecurityContext: &api.SecurityContext{
-								Privileged: &trueVal, // god is this dumb
-							},
-						},
-					},
 				},
 			},
 		},
