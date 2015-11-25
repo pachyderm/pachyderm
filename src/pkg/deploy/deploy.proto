@@ -16,9 +16,7 @@ message Cluster {
 
 message ClusterInfo {
     Cluster cluster = 1;
-    uint64 nodes = 2;
-    uint64 shards = 3;
-    uint64 replicas = 4;
+    uint64 shards = 2;
 }
 
 message ClusterInfos {
@@ -27,9 +25,7 @@ message ClusterInfos {
 
 message CreateClusterRequest {
     Cluster cluster = 1;
-    uint64 nodes = 2;
-    uint64 shards = 3;
-    uint64 replicas = 4;
+    uint64 shards = 2;
 }
 
 message UpdateClusterRequest {

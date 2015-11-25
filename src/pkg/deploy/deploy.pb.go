@@ -54,10 +54,8 @@ func (m *Cluster) String() string { return proto.CompactTextString(m) }
 func (*Cluster) ProtoMessage()    {}
 
 type ClusterInfo struct {
-	Cluster  *Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
-	Nodes    uint64   `protobuf:"varint,2,opt,name=nodes" json:"nodes,omitempty"`
-	Shards   uint64   `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
-	Replicas uint64   `protobuf:"varint,4,opt,name=replicas" json:"replicas,omitempty"`
+	Cluster *Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
+	Shards  uint64   `protobuf:"varint,2,opt,name=shards" json:"shards,omitempty"`
 }
 
 func (m *ClusterInfo) Reset()         { *m = ClusterInfo{} }
@@ -87,10 +85,8 @@ func (m *ClusterInfos) GetClusterInfos() []*ClusterInfo {
 }
 
 type CreateClusterRequest struct {
-	Cluster  *Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
-	Nodes    uint64   `protobuf:"varint,2,opt,name=nodes" json:"nodes,omitempty"`
-	Shards   uint64   `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
-	Replicas uint64   `protobuf:"varint,4,opt,name=replicas" json:"replicas,omitempty"`
+	Cluster *Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
+	Shards  uint64   `protobuf:"varint,2,opt,name=shards" json:"shards,omitempty"`
 }
 
 func (m *CreateClusterRequest) Reset()         { *m = CreateClusterRequest{} }
