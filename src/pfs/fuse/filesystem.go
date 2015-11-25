@@ -208,20 +208,20 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 	return nil
 }
 
-func (fs *filesystem) inode(file *pfs.File) uint64 {
-	fs.lock.RLock()
-	inode, ok := fs.inodes[*file]
-	fs.lock.RUnlock()
+func (f *filesystem) inode(file *pfs.File) uint64 {
+	f.lock.RLock()
+	inode, ok := f.inodes[*file]
+	f.lock.RUnlock()
 	if ok {
 		return inode
 	}
-	fs.lock.Lock()
-	if inode, ok := fs.inodes[*file]; ok {
+	f.lock.Lock()
+	if inode, ok := f.inodes[*file]; ok {
 		return inode
 	}
-	newInode := uint64(len(fs.inodes))
-	fs.inodes[*file] = newInode
-	fs.lock.Unlock()
+	newInode := uint64(len(f.inodes))
+	f.inodes[*file] = newInode
+	f.lock.Unlock()
 	return newInode
 }
 
