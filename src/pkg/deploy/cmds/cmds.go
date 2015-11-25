@@ -1,8 +1,6 @@
 package cmds
 
 import (
-	"strconv"
-
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
 	"golang.org/x/net/context"
@@ -21,20 +19,14 @@ func Cmds(
 	gceProject string,
 	gceZone string,
 ) ([]*cobra.Command, error) {
+	var name string
+	var shards int
 	createCluster := &cobra.Command{
-		Use:   "create-cluster replicas shards ",
+		Use:   "create-cluster",
 		Short: "Create a new pachyderm cluster.",
 		Long:  "Create a new pachyderm cluster.",
-		Run: pkgcobra.RunFixedArgs(2, func(args []string) error {
+		Run: pkgcobra.RunFixedArgs(0, func([]string) error {
 			apiServer, err := getAPIServer(kubernetesAddress, kubernetesUsername, kubernetesPassword, providerName, gceProject, gceZone)
-			if err != nil {
-				return err
-			}
-			nodes, err := strconv.ParseUint(args[0], 10, 64)
-			if err != nil {
-				return err
-			}
-			shards, err := strconv.ParseUint(args[1], 10, 64)
 			if err != nil {
 				return err
 			}
@@ -42,14 +34,15 @@ func Cmds(
 				context.Background(),
 				&deploy.CreateClusterRequest{
 					Cluster: &deploy.Cluster{
-						Name: args[0],
+						Name: name,
 					},
-					Nodes:  nodes,
-					Shards: shards,
+					Shards: uint64(shards),
 				})
 			return err
 		}),
 	}
+	createCluster.Flags().StringVarP(&name, "name", "n", "pachyderm", "The name of the cluster.")
+	createCluster.Flags().IntVarP(&shards, "shards", "s", 1, "The static number of shards for pfs.")
 
 	var result []*cobra.Command
 	result = append(result, createCluster)

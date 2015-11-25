@@ -5,12 +5,10 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/pkg/provider"
-	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"golang.org/x/net/context"
 
 	"go.pedge.io/google-protobuf"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
 )
@@ -60,23 +58,9 @@ func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClu
 	if _, err := a.client.Services(api.NamespaceDefault).Create(rethinkService()); err != nil {
 		return nil, err
 	}
-	if a.provider != nil {
-		diskNames, err := a.createDisks(ctx, request.Nodes)
-		if err != nil {
-			return nil, err
-		}
-		persistentVolumes := persistantVolumes(diskNames)
-		for _, persistantVolume := range persistentVolumes {
-			if _, err := a.client.PersistentVolumes().Create(persistantVolume); err != nil {
-				return nil, err
-			}
-		}
-	}
 	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(
 		pfsdRc(
-			request.Nodes,
 			request.Shards,
-			request.Replicas,
 		),
 	); err != nil {
 		return nil, err
@@ -87,16 +71,11 @@ func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClu
 	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(
 		rolerRc(
 			request.Shards,
-			request.Replicas,
 		),
 	); err != nil {
 		return nil, err
 	}
-	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(
-		ppsdRc(
-			request.Nodes,
-		),
-	); err != nil {
+	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(ppsdRc()); err != nil {
 		return nil, err
 	}
 	if _, err := a.client.Services(api.NamespaceDefault).Create(ppsService()); err != nil {
@@ -148,50 +127,7 @@ func (a *apiServer) DeleteCluster(ctx context.Context, request *deploy.DeleteClu
 	return emptyInstance, nil
 }
 
-func (a *apiServer) createDisks(ctx context.Context, nodes uint64) ([]string, error) {
-	var names []string
-	for i := uint64(0); i < nodes; i++ {
-		name := "disk-" + uuid.NewWithoutDashes()
-		if err := a.provider.CreateDisk(name, defaultDiskSizeGb); err != nil {
-			return nil, err
-		}
-		names = append(names, name)
-	}
-	return names, nil
-}
-
-func persistantVolumes(names []string) []*api.PersistentVolume {
-	var result []*api.PersistentVolume
-	for _, name := range names {
-		result = append(result, &api.PersistentVolume{
-			TypeMeta: unversioned.TypeMeta{
-				Kind:       "PersistentVolume",
-				APIVersion: "v1",
-			},
-			ObjectMeta: api.ObjectMeta{
-				Name: name,
-			},
-			Spec: api.PersistentVolumeSpec{
-				Capacity: api.ResourceList{
-					"storage": *resource.NewQuantity(defaultDiskSizeGb*1000*1000*1000, resource.DecimalSI),
-				},
-				PersistentVolumeSource: api.PersistentVolumeSource{
-					GCEPersistentDisk: &api.GCEPersistentDiskVolumeSource{
-						PDName: name,
-						FSType: "btrfs",
-					},
-				},
-				AccessModes: []api.PersistentVolumeAccessMode{
-					api.ReadWriteOnce,
-					api.ReadOnlyMany,
-				},
-			},
-		})
-	}
-	return result
-}
-
-func pfsdRc(nodes uint64, shards uint64, replicas uint64) *api.ReplicationController {
+func pfsdRc(shards uint64) *api.ReplicationController {
 	app := "pfsd"
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
@@ -203,7 +139,7 @@ func pfsdRc(nodes uint64, shards uint64, replicas uint64) *api.ReplicationContro
 			Labels: labels(app),
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: int(nodes),
+			Replicas: 1,
 			Selector: map[string]string{
 				"app": app,
 			},
@@ -229,10 +165,6 @@ func pfsdRc(nodes uint64, shards uint64, replicas uint64) *api.ReplicationContro
 								{
 									Name:  "PFS_NUM_SHARDS",
 									Value: strconv.FormatUint(shards, 10),
-								},
-								{
-									Name:  "PFS_NUM_REPLICAS",
-									Value: strconv.FormatUint(replicas, 10),
 								},
 							},
 							Ports: []api.ContainerPort{
@@ -309,7 +241,7 @@ func pfsdService() *api.Service {
 	}
 }
 
-func rolerRc(shards uint64, replicas uint64) *api.ReplicationController {
+func rolerRc(shards uint64) *api.ReplicationController {
 	app := "roler"
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
@@ -340,10 +272,6 @@ func rolerRc(shards uint64, replicas uint64) *api.ReplicationController {
 									Name:  "PFS_NUM_SHARDS",
 									Value: strconv.FormatUint(shards, 10),
 								},
-								{
-									Name:  "PFS_NUM_REPLICAS",
-									Value: strconv.FormatUint(replicas, 10),
-								},
 							},
 						},
 					},
@@ -353,7 +281,7 @@ func rolerRc(shards uint64, replicas uint64) *api.ReplicationController {
 	}
 }
 
-func ppsdRc(nodes uint64) *api.ReplicationController {
+func ppsdRc() *api.ReplicationController {
 	app := "ppsd"
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
