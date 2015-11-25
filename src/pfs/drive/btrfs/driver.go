@@ -31,15 +31,25 @@ const (
 	readDirBatch = 100
 )
 
+// commitSync holds per commit sync structures
+type commitSync struct {
+	fileLocks map[string]*sync.Mutex
+	lock      sync.Mutex
+}
+
 type driver struct {
-	rootDir   string
-	namespace string
+	rootDir     string
+	namespace   string
+	commitSyncs map[uint64]map[string]*commitSync
+	lock        sync.RWMutex
 }
 
 func newDriver(rootDir string, namespace string) (*driver, error) {
 	driver := &driver{
 		rootDir,
 		namespace,
+		make(map[uint64]map[string]*commitSync),
+		sync.RWMutex{},
 	}
 	if err := os.MkdirAll(driver.blockDir(), 0700); err != nil {
 		return nil, err
@@ -112,11 +122,11 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[
 			if err := execSubvolumeCreate(commitPath); err != nil {
 				return err
 			}
-			filePath, err := d.filePath(&pfs.File{Commit: commit, Path: metadataDir}, shard)
+			metadataDirPath, err := d.filePath(&pfs.File{Commit: commit, Path: metadataDir}, shard)
 			if err != nil {
 				return err
 			}
-			if err := os.Mkdir(filePath, 0700); err != nil {
+			if err := os.Mkdir(metadataDirPath, 0700); err != nil {
 				return err
 			}
 		} else {
@@ -130,19 +140,50 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[
 			if err := execSubvolumeSnapshot(parentPath, commitPath, false); err != nil {
 				return err
 			}
-			filePath, err := d.filePath(&pfs.File{Commit: commit, Path: filepath.Join(metadataDir, "parent")}, shard)
+			metadataParentPath, err := d.filePath(&pfs.File{Commit: commit, Path: filepath.Join(metadataDir, "parent")}, shard)
 			if err != nil {
 				return err
 			}
-			if err := ioutil.WriteFile(filePath, []byte(parent.Id), 0600); err != nil {
+			if err := ioutil.WriteFile(metadataParentPath, []byte(parent.Id), 0600); err != nil {
 				return err
 			}
 		}
 	}
+	d.lock.Lock()
+	for shard := range shards {
+		if d.commitSyncs[shard] == nil {
+			d.commitSyncs[shard] = make(map[string]*commitSync)
+		}
+		d.commitSyncs[shard][key(commit)] = &commitSync{
+			make(map[string]*sync.Mutex),
+			sync.Mutex{},
+		}
+	}
+	d.lock.Unlock()
 	return nil
 }
 
 func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error {
+	var commitSyncs []*commitSync
+	d.lock.Lock()
+	for shard := range shards {
+		if d.commitSyncs[shard] == nil || d.commitSyncs[shard][key(commit)] == nil {
+			return fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
+		}
+		commitSync := d.commitSyncs[shard][key(commit)]
+		delete(d.commitSyncs[shard], key(commit))
+		commitSync.lock.Lock()
+		commitSyncs = append(commitSyncs, commitSync)
+	}
+	d.lock.Unlock()
+	for _, commitSync := range commitSyncs {
+		for _, lock := range commitSync.fileLocks {
+			// This might seem like a bug because there's no corresponding Unlock
+			// We're locking to destroy here, once this function returns there will
+			// be no remaining references to the lock and it will be gced
+			lock.Lock()
+		}
+	}
 	for shard := range shards {
 		if err := execSubvolumeSnapshot(d.writeCommitPath(commit, shard), d.readCommitPath(commit, shard), true); err != nil {
 			return err
@@ -415,7 +456,30 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	if err != nil {
 		return err
 	}
-	osFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0666)
+
+	//acquire lock for file
+	commitSync, err := func() (*commitSync, error) {
+		d.lock.RLock()
+		defer d.lock.RUnlock()
+		if d.commitSyncs[shard] == nil || d.commitSyncs[shard][key(file.Commit)] == nil {
+			return nil, fmt.Errorf("can't PutFile, commit %s/%s is in the process of finishing", file.Commit.Repo.Name, file.Commit.Id)
+		}
+		commitSync := d.commitSyncs[shard][key(file.Commit)]
+		commitSync.lock.Lock()
+		return commitSync, nil
+	}()
+	if err != nil {
+		return err
+	}
+	if commitSync.fileLocks[file.Path] == nil {
+		commitSync.fileLocks[file.Path] = &sync.Mutex{}
+	}
+	commitSync.fileLocks[file.Path].Lock()
+	defer commitSync.fileLocks[file.Path].Unlock()
+	commitSync.lock.Unlock()
+
+	// write file
+	osFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return err
 	}
@@ -427,7 +491,7 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	if _, err := osFile.Seek(offset, 0); err != nil { // 0 means relative to start
 		return err
 	}
-	_, err = bufio.NewReader(reader).WriteTo(osFile)
+	_, err = io.Copy(osFile, reader)
 	return err
 }
 
@@ -983,4 +1047,8 @@ func errorToString(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+func key(commit *pfs.Commit) string {
+	return fmt.Sprintf("%s/%s", commit.Repo.Name, commit.Id)
 }
