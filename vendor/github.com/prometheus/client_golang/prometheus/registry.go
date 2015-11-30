@@ -336,6 +336,9 @@ func (r *registry) Push(job, instance, pushURL, method string) error {
 	if !strings.Contains(pushURL, "://") {
 		pushURL = "http://" + pushURL
 	}
+	if strings.HasSuffix(pushURL, "/") {
+		pushURL = pushURL[:len(pushURL)-1]
+	}
 	pushURL = fmt.Sprintf("%s/metrics/jobs/%s", pushURL, url.QueryEscape(job))
 	if instance != "" {
 		pushURL += "/instances/" + url.QueryEscape(instance)

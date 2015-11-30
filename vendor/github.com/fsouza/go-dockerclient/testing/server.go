@@ -665,12 +665,12 @@ func (s *DockerServer) waitContainer(w http.ResponseWriter, r *http.Request) {
 func (s *DockerServer) removeContainer(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	force := r.URL.Query().Get("force")
-	_, index, err := s.findContainer(id)
+	container, index, err := s.findContainer(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if s.containers[index].State.Running && force != "1" {
+	if container.State.Running && force != "1" {
 		msg := "Error: API error (406): Impossible to remove a running container, please stop it first"
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
@@ -678,8 +678,10 @@ func (s *DockerServer) removeContainer(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 	s.cMut.Lock()
 	defer s.cMut.Unlock()
-	s.containers[index] = s.containers[len(s.containers)-1]
-	s.containers = s.containers[:len(s.containers)-1]
+	if s.containers[index].ID == id || s.containers[index].Name == id {
+		s.containers[index] = s.containers[len(s.containers)-1]
+		s.containers = s.containers[:len(s.containers)-1]
+	}
 }
 
 func (s *DockerServer) commitContainer(w http.ResponseWriter, r *http.Request) {
@@ -1085,7 +1087,7 @@ func (s *DockerServer) createNetwork(w http.ResponseWriter, r *http.Request) {
 	network := docker.Network{
 		Name: config.Name,
 		ID:   generatedID,
-		Type: config.NetworkType,
+		Type: config.Driver,
 	}
 	s.netMut.Lock()
 	s.networks = append(s.networks, &network)

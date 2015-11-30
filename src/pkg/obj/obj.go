@@ -12,6 +12,6 @@ type Client interface {
 	Delete(name string) error
 }
 
-func NewClientGoogleClient(ctx context.Context, bucket string) Client {
+func NewClientGoogleClient(ctx context.Context, bucket string) (Client, error) {
 	return newGoogleClient(ctx, bucket)
 }

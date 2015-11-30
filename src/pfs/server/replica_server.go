@@ -22,15 +22,19 @@ var (
 
 type googleReplicaAPIServer struct {
 	ctx    context.Context
-	bucket string
+	bucket *storage.BucketHandle
 }
 
-func newGoogleReplicaAPIServer(ctx context.Context, bucket string) *googleReplicaAPIServer {
-	return &googleReplicaAPIServer{ctx, bucket}
+func newGoogleReplicaAPIServer(ctx context.Context, bucket string) (*googleReplicaAPIServer, error) {
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &googleReplicaAPIServer{ctx, client.Bucket(bucket)}, nil
 }
 
 func (s *googleReplicaAPIServer) PullDiff(request *pfs.PullDiffRequest, pullDiffServer pfs.ReplicaAPI_PullDiffServer) (retErr error) {
-	reader, err := storage.NewReader(s.ctx, s.bucket, fmt.Sprintf("%s/%s/%d", request.Commit.Repo.Name, request.Commit.Id, request.Shard))
+	reader, err := s.bucket.Object(fmt.Sprintf("%s/%s/%d", request.Commit.Repo.Name, request.Commit.Id, request.Shard)).NewReader(s.ctx)
 	if err != nil {
 		return err
 	}
@@ -54,7 +58,7 @@ func (s *googleReplicaAPIServer) PushDiff(pushDiffServer pfs.ReplicaAPI_PushDiff
 	if err != nil {
 		return err
 	}
-	writer := storage.NewWriter(s.ctx, s.bucket, fmt.Sprintf("%s/%s/%d", request.Commit.Repo.Name, request.Commit.Id, request.Shard))
+	writer := s.bucket.Object(fmt.Sprintf("%s/%s/%d", request.Commit.Repo.Name, request.Commit.Id, request.Shard)).NewWriter(s.ctx)
 	defer func() {
 		if err := writer.Close(); err != nil && retErr == nil {
 			retErr = err

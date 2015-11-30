@@ -1,6 +1,7 @@
 package gorethink
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -46,7 +47,7 @@ func newCursor(conn *Connection, cursorType string, token int64, term *Term, opt
 //     err = cursor.Err() // get any error encountered during iteration
 //     ...
 type Cursor struct {
-	releaseConn func(error)
+	releaseConn func() error
 
 	conn       *Connection
 	token      int64
@@ -110,7 +111,7 @@ func (c *Cursor) Close() error {
 	if conn == nil {
 		return nil
 	}
-	if conn.conn == nil {
+	if conn.Conn == nil {
 		return nil
 	}
 
@@ -128,7 +129,9 @@ func (c *Cursor) Close() error {
 	}
 
 	if c.releaseConn != nil {
-		c.releaseConn(err)
+		if err := c.releaseConn(); err != nil {
+			return err
+		}
 	}
 
 	c.closed = true
@@ -200,7 +203,11 @@ func (c *Cursor) loadNextLocked(dest interface{}) (bool, error) {
 		if c.buffer.Len() == 0 && c.responses.Len() > 0 {
 			if response, ok := c.responses.Pop().(json.RawMessage); ok {
 				var value interface{}
-				err := json.Unmarshal(response, &value)
+				decoder := json.NewDecoder(bytes.NewBuffer(response))
+				if c.conn.opts.UseJSONNumber {
+					decoder.UseNumber()
+				}
+				err := decoder.Decode(&value)
 				if err != nil {
 					return false, err
 				}

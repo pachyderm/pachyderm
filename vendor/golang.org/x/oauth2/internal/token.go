@@ -101,16 +101,22 @@ var brokenAuthHeaderProviders = []string{
 	"https://app.box.com/",
 	"https://connect.stripe.com/",
 	"https://login.microsoftonline.com/",
+	"https://login.salesforce.com/",
 	"https://oauth.sandbox.trainingpeaks.com/",
 	"https://oauth.trainingpeaks.com/",
 	"https://oauth.vk.com/",
 	"https://slack.com/",
 	"https://test-sandbox.auth.corp.google.com",
+	"https://test.salesforce.com/",
 	"https://user.gini.net/",
 	"https://www.douban.com/",
 	"https://www.googleapis.com/",
 	"https://www.linkedin.com/",
 	"https://www.strava.com/oauth/",
+}
+
+func RegisterBrokenAuthHeaderProvider(tokenURL string) {
+	brokenAuthHeaderProviders = append(brokenAuthHeaderProviders, tokenURL)
 }
 
 // providerAuthHeaderWorks reports whether the OAuth2 server identified by the tokenURL

@@ -2,7 +2,29 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## v1.1.4
+## v1.2.0 - 2015-11-19
+### Added
+ - Added `UUID` term
+ - Added `Values` term
+ - Added `IncludeInitial` and `ChangefeedQueueSize` to `ChangesOpts`
+ - Added `UseJSONNumber` to `ConnectOpts` which changes the way the JSON unmarshal works when deserializing JSON with interface{}, it's preferred to use json.Number instead float64 as it preserves the original precision.
+ - Added `HostDecayDuration` to `ConnectOpts` to configure how hosts are selected. For more information see the godoc.
+
+### Changed
+ - Timezones from `time.Time` are now stored in the database, before all times were stored as UTC. To convert a go `time.Time` back to UTC you can call  `t.In(time.UTC)`.
+ - Improved host selection to use `hailocab/go-hostpool` to select nodes based on recent responses and timings.
+ - Changed connection pool to use `fatih/pool` instead of a custom connection pool, this has caused some internal API changes and the behaviour of `MaxIdle` and `MaxOpen` has slightly changed. This change was made mostly to make driver maintenance easier.
+     + `MaxIdle` now configures the initial size of the pool, the name of this field will likely change in the future.
+     + Not setting `MaxOpen` no longer creates an unbounded connection pool per host but instead creates a pool with a maximum capacity of 2 per host.
+
+### Deprecated
+ - Deprecated the option `NodeRefreshInterval` in `ConnectOpts`
+ - Deprecated `SetMaxIdleConns` and `SetMaxOpenConns`, these options should now only be set when creating the session.
+
+### Fixed
+ - Fixed some type aliases not being correctly encoded when using `Expr`.
+
+## v1.1.4 - 2015-10-02
 ### Added
  - Added root table terms (`r.TableCreate`, `r.TableList` and `r.TableDrop`)
 
@@ -16,22 +38,22 @@ This project adheres to [Semantic Versioning](http://semver.org/).
  - Fixed stop query incorrectly waiting for response
  - Fixed pointers not to be properly decoded
 
-## v1.1.3
+## v1.1.3 - 2015-09-06
 ### Fixed
  - Fixed pointers not to be properly decoded
  - Fixed queries always timing out when Timeout ConnectOpt is set.
 
-## v1.1.2
+## v1.1.2 - 2015-08-28
 ### Fixed
  - Fixed issue when encoding some maps
 
-## v1.1.1
+## v1.1.1 - 2015-08-21
 ### Fixed
  - Corrected protobuf import
  - Fixed documentation
  - Fixed issues with time pseudotype conversion that caused issues with milliseconds
 
-## v1.1.0
+## v1.1.0 - 2015-08-19
 ### Added
  - Replaced `UseOutdated` with `ReadMode`
  - Added `EmergencyRepair` and `NonVotingReplicaTags` to `ReconfigureOpts`

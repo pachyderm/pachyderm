@@ -89,6 +89,7 @@ type ListImagesOptions struct {
 	All     bool
 	Filters map[string][]string
 	Digests bool
+	Filter  string
 }
 
 // ListImages returns the list of available images in the server.

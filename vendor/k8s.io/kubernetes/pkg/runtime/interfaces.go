@@ -18,6 +18,9 @@ package runtime
 
 import (
 	"io"
+	"net/url"
+
+	"k8s.io/kubernetes/pkg/api/unversioned"
 )
 
 // Codec defines methods for serializing and deserializing API objects.
@@ -30,13 +33,12 @@ type Codec interface {
 type Decoder interface {
 	Decode(data []byte) (Object, error)
 	// TODO: Remove this method?
-	DecodeToVersion(data []byte, version string) (Object, error)
+	DecodeToVersion(data []byte, groupVersion unversioned.GroupVersion) (Object, error)
 	DecodeInto(data []byte, obj Object) error
 	// TODO: Remove this method?
-	DecodeIntoWithSpecifiedVersionKind(data []byte, obj Object, kind, version string) error
+	DecodeIntoWithSpecifiedVersionKind(data []byte, obj Object, groupVersionKind unversioned.GroupVersionKind) error
 
-	// TODO: Add method for processing url parameters.
-	// DecodeParametersInto(parameters url.Values, obj Object) error
+	DecodeParametersInto(parameters url.Values, obj Object) error
 }
 
 // Encoder defines methods for serializing API objects into bytes

@@ -111,6 +111,10 @@ func (t Term) Keys(args ...interface{}) Term {
 	return constructMethodTerm(t, "Keys", p.Term_KEYS, args, map[string]interface{}{})
 }
 
+func (t Term) Values(args ...interface{}) Term {
+	return constructMethodTerm(t, "Values", p.Term_VALUES, args, map[string]interface{}{})
+}
+
 // Object creates an object from a list of key-value pairs, where the keys must be strings.
 func Object(args ...interface{}) Term {
 	return constructRootTerm("Object", p.Term_OBJECT, args, map[string]interface{}{})

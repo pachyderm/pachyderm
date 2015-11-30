@@ -18,8 +18,10 @@ package unversioned
 
 import (
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/labels"
+	"k8s.io/kubernetes/pkg/util"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
@@ -35,8 +37,8 @@ type ServiceInterface interface {
 	Create(srv *api.Service) (*api.Service, error)
 	Update(srv *api.Service) (*api.Service, error)
 	Delete(name string) error
-	Watch(label labels.Selector, field fields.Selector, opts api.ListOptions) (watch.Interface, error)
-	ProxyGet(name, path string, params map[string]string) ResponseWrapper
+	Watch(label labels.Selector, field fields.Selector, opts unversioned.ListOptions) (watch.Interface, error)
+	ProxyGet(scheme, name, port, path string, params map[string]string) ResponseWrapper
 }
 
 // services implements ServicesNamespacer interface
@@ -90,7 +92,7 @@ func (c *services) Delete(name string) error {
 }
 
 // Watch returns a watch.Interface that watches the requested services.
-func (c *services) Watch(label labels.Selector, field fields.Selector, opts api.ListOptions) (watch.Interface, error) {
+func (c *services) Watch(label labels.Selector, field fields.Selector, opts unversioned.ListOptions) (watch.Interface, error) {
 	return c.r.Get().
 		Prefix("watch").
 		Namespace(c.ns).
@@ -102,12 +104,12 @@ func (c *services) Watch(label labels.Selector, field fields.Selector, opts api.
 }
 
 // ProxyGet returns a response of the service by calling it through the proxy.
-func (c *services) ProxyGet(name, path string, params map[string]string) ResponseWrapper {
+func (c *services) ProxyGet(scheme, name, port, path string, params map[string]string) ResponseWrapper {
 	request := c.r.Get().
 		Prefix("proxy").
 		Namespace(c.ns).
 		Resource("services").
-		Name(name).
+		Name(util.JoinSchemeNamePort(scheme, name, port)).
 		Suffix(path)
 	for k, v := range params {
 		request = request.Param(k, v)

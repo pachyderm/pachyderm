@@ -242,6 +242,8 @@ are a few of note:
     point. In particular, it does not do any inline escaping, so input
     that happens to look like LaTeX code will be passed through without
     modification.
+    
+*   [Md2Vim](https://github.com/FooSoft/md2vim): transforms markdown files into vimdoc format.
 
 
 Todo

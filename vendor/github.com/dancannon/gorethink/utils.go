@@ -173,6 +173,10 @@ func optArgsToMap(optArgs OptArgs) map[string]interface{} {
 
 // Convert a list into a slice of terms
 func convertTermList(l []interface{}) termsList {
+	if len(l) == 0 {
+		return nil
+	}
+
 	terms := make(termsList, len(l))
 	for i, v := range l {
 		terms[i] = Expr(v)
@@ -183,6 +187,10 @@ func convertTermList(l []interface{}) termsList {
 
 // Convert a map into a map of terms
 func convertTermObj(o map[string]interface{}) termsObj {
+	if len(o) == 0 {
+		return nil
+	}
+
 	terms := make(termsObj, len(o))
 	for k, v := range o {
 		terms[k] = Expr(v)

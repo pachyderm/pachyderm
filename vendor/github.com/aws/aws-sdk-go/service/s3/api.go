@@ -145,11 +145,11 @@ func (c *S3) CreateMultipartUploadRequest(input *CreateMultipartUploadInput) (re
 
 // Initiates a multipart upload and returns an upload ID.
 //
-// Note: After you initiate multipart upload and upload one or more parts,
-// you must either complete or abort multipart upload in order to stop getting
-// charged for storage of the uploaded parts. Only after you either complete
-// or abort multipart upload, Amazon S3 frees up the parts storage and stops
-// charging you for the parts storage.
+// Note: After you initiate multipart upload and upload one or more parts, you
+// must either complete or abort multipart upload in order to stop getting charged
+// for storage of the uploaded parts. Only after you either complete or abort
+// multipart upload, Amazon S3 frees up the parts storage and stops charging
+// you for the parts storage.
 func (c *S3) CreateMultipartUpload(input *CreateMultipartUploadInput) (*CreateMultipartUploadOutput, error) {
 	req, out := c.CreateMultipartUploadRequest(input)
 	err := req.Send()
@@ -980,6 +980,7 @@ func (c *S3) ListMultipartUploads(input *ListMultipartUploadsInput) (*ListMultip
 
 func (c *S3) ListMultipartUploadsPages(input *ListMultipartUploadsInput, fn func(p *ListMultipartUploadsOutput, lastPage bool) (shouldContinue bool)) error {
 	page, _ := c.ListMultipartUploadsRequest(input)
+	page.Handlers.Build.PushBack(request.MakeAddToUserAgentFreeFormHandler("Paginator"))
 	return page.EachPage(func(p interface{}, lastPage bool) bool {
 		return fn(p.(*ListMultipartUploadsOutput), lastPage)
 	})
@@ -1020,6 +1021,7 @@ func (c *S3) ListObjectVersions(input *ListObjectVersionsInput) (*ListObjectVers
 
 func (c *S3) ListObjectVersionsPages(input *ListObjectVersionsInput, fn func(p *ListObjectVersionsOutput, lastPage bool) (shouldContinue bool)) error {
 	page, _ := c.ListObjectVersionsRequest(input)
+	page.Handlers.Build.PushBack(request.MakeAddToUserAgentFreeFormHandler("Paginator"))
 	return page.EachPage(func(p interface{}, lastPage bool) bool {
 		return fn(p.(*ListObjectVersionsOutput), lastPage)
 	})
@@ -1062,6 +1064,7 @@ func (c *S3) ListObjects(input *ListObjectsInput) (*ListObjectsOutput, error) {
 
 func (c *S3) ListObjectsPages(input *ListObjectsInput, fn func(p *ListObjectsOutput, lastPage bool) (shouldContinue bool)) error {
 	page, _ := c.ListObjectsRequest(input)
+	page.Handlers.Build.PushBack(request.MakeAddToUserAgentFreeFormHandler("Paginator"))
 	return page.EachPage(func(p interface{}, lastPage bool) bool {
 		return fn(p.(*ListObjectsOutput), lastPage)
 	})
@@ -1102,6 +1105,7 @@ func (c *S3) ListParts(input *ListPartsInput) (*ListPartsOutput, error) {
 
 func (c *S3) ListPartsPages(input *ListPartsInput, fn func(p *ListPartsOutput, lastPage bool) (shouldContinue bool)) error {
 	page, _ := c.ListPartsRequest(input)
+	page.Handlers.Build.PushBack(request.MakeAddToUserAgentFreeFormHandler("Paginator"))
 	return page.EachPage(func(p interface{}, lastPage bool) bool {
 		return fn(p.(*ListPartsOutput), lastPage)
 	})
@@ -1572,11 +1576,11 @@ func (c *S3) UploadPartRequest(input *UploadPartInput) (req *request.Request, ou
 
 // Uploads a part in a multipart upload.
 //
-// Note: After you initiate multipart upload and upload one or more parts,
-// you must either complete or abort multipart upload in order to stop getting
-// charged for storage of the uploaded parts. Only after you either complete
-// or abort multipart upload, Amazon S3 frees up the parts storage and stops
-// charging you for the parts storage.
+// Note: After you initiate multipart upload and upload one or more parts, you
+// must either complete or abort multipart upload in order to stop getting charged
+// for storage of the uploaded parts. Only after you either complete or abort
+// multipart upload, Amazon S3 frees up the parts storage and stops charging
+// you for the parts storage.
 func (c *S3) UploadPart(input *UploadPartInput) (*UploadPartOutput, error) {
 	req, out := c.UploadPartRequest(input)
 	err := req.Send()
@@ -6823,6 +6827,8 @@ const (
 	ObjectCannedACLPublicReadWrite = "public-read-write"
 	// @enum ObjectCannedACL
 	ObjectCannedACLAuthenticatedRead = "authenticated-read"
+	// @enum ObjectCannedACL
+	ObjectCannedACLAwsExecRead = "aws-exec-read"
 	// @enum ObjectCannedACL
 	ObjectCannedACLBucketOwnerRead = "bucket-owner-read"
 	// @enum ObjectCannedACL

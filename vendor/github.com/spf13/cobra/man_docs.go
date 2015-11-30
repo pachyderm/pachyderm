@@ -47,7 +47,13 @@ func (cmd *Command) GenManTree(header *GenManHeader, dir string) {
 	}
 	out := new(bytes.Buffer)
 
+	needToResetTitle := header.Title == ""
+
 	cmd.GenMan(header, out)
+
+	if needToResetTitle {
+		header.Title = ""
+	}
 
 	filename := cmd.CommandPath()
 	filename = dir + strings.Replace(filename, " ", "-", -1) + ".1"
@@ -95,7 +101,7 @@ func (cmd *Command) GenMan(header *GenManHeader, out *bytes.Buffer) {
 
 func fillHeader(header *GenManHeader, name string) {
 	if header.Title == "" {
-		header.Title = name
+		header.Title = strings.ToUpper(strings.Replace(name, " ", "\\-", -1))
 	}
 	if header.Section == "" {
 		header.Section = "1"
@@ -111,12 +117,13 @@ func fillHeader(header *GenManHeader, name string) {
 }
 
 func manPreamble(out *bytes.Buffer, header *GenManHeader, name, short, long string) {
+	dashName := strings.Replace(name, " ", "-", -1)
 	fmt.Fprintf(out, `%% %s(%s)%s
 %% %s
 %% %s
 # NAME
 `, header.Title, header.Section, header.date, header.Source, header.Manual)
-	fmt.Fprintf(out, "%s \\- %s\n\n", name, short)
+	fmt.Fprintf(out, "%s \\- %s\n\n", dashName, short)
 	fmt.Fprintf(out, "# SYNOPSIS\n")
 	fmt.Fprintf(out, "**%s** [OPTIONS]\n\n", name)
 	fmt.Fprintf(out, "# DESCRIPTION\n")
@@ -167,11 +174,12 @@ func manPrintOptions(out *bytes.Buffer, command *Command) {
 }
 
 func genMarkdown(cmd *Command, header *GenManHeader) []byte {
-	fillHeader(header, cmd.Name())
 	// something like `rootcmd subcmd1 subcmd2`
 	commandName := cmd.CommandPath()
 	// something like `rootcmd-subcmd1-subcmd2`
 	dashCommandName := strings.Replace(commandName, " ", "-", -1)
+
+	fillHeader(header, commandName)
 
 	buf := new(bytes.Buffer)
 
@@ -192,7 +200,7 @@ func genMarkdown(cmd *Command, header *GenManHeader) []byte {
 		if cmd.HasParent() {
 			parentPath := cmd.Parent().CommandPath()
 			dashParentPath := strings.Replace(parentPath, " ", "-", -1)
-			fmt.Fprintf(buf, "**%s(%s)**, ", dashParentPath, header.Section)
+			fmt.Fprintf(buf, "**%s(%s)**", dashParentPath, header.Section)
 			cmd.VisitParents(func(c *Command) {
 				if c.DisableAutoGenTag {
 					cmd.DisableAutoGenTag = c.DisableAutoGenTag
@@ -201,11 +209,14 @@ func genMarkdown(cmd *Command, header *GenManHeader) []byte {
 		}
 		children := cmd.Commands()
 		sort.Sort(byName(children))
-		for _, c := range children {
+		for i, c := range children {
 			if !c.IsAvailableCommand() || c == cmd.helpCommand {
 				continue
 			}
-			fmt.Fprintf(buf, "**%s-%s(%s)**, ", dashCommandName, c.Name(), header.Section)
+			if cmd.HasParent() || i > 0 {
+				fmt.Fprintf(buf, ", ")
+			}
+			fmt.Fprintf(buf, "**%s-%s(%s)**", dashCommandName, c.Name(), header.Section)
 		}
 		fmt.Fprintf(buf, "\n")
 	}

@@ -73,10 +73,10 @@ href="https://http2.github.io/">HTTP/2</a> demo & interop server.</p>
 
 <p>This server exists for others in the HTTP/2 community to test their HTTP/2 client implementations and point out flaws in our server.</p>
 
-<p> The code is currently at <a
-href="https://golang.org/x/net/http2">golang.org/x/net/http2</a>
-but will move to the Go standard library at some point in the future
-(enabled by default, without users needing to change their code).</p>
+<p>
+The code is at <a href="https://golang.org/x/net/http2">golang.org/x/net/http2</a> and
+is used transparently by the Go standard library from Go 1.6 and later.
+</p>
 
 <p>Contact info: <i>bradfitz@golang.org</i>, or <a
 href="https://golang.org/issues">file a bug</a>.</p>
