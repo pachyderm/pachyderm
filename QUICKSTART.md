@@ -80,9 +80,10 @@ You shouldn't see anything yet, `/pfs` will contain a directory for each
 ### Creating a `Repo`
 
 ```shell
-$ pachctl create-repo foo
+$ pachctl create-repo data
+$ pachctl create-repo output
 $ ls /pfs
-foo
+data output
 ```
 
 ### Creating a `Commit`
@@ -90,7 +91,7 @@ Now that you've created a `Repo` you should see an empty directory `/pfs/foo` if
 you try writing to it, it will fail:
 
 ```shell
-$ echo data >/pfs/foo/file
+$ echo data >/pfs/data/file
 <figure out what this error message is>
 ```
 
