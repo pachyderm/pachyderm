@@ -10,7 +10,7 @@ We're going to assume you have Docker and Go installed already, if not go do
 that, both are pretty easy. Kubernetes can be a bit more finicky, if you've
 already got a Kubernetes cluster you want to use (and `kubectl` works) then
 great! Proceed to the next step. Otherwise run the following command from the
-root of this repo:
+root of this repo to launch a local Kubernetes cluster on Docker:
 
 ```shell
 $ etc/kube/start-kube-docker.sh
