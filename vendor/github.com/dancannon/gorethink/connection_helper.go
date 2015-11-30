@@ -12,7 +12,7 @@ import (
 
 // Write 'data' to conn
 func (c *Connection) writeData(data []byte) error {
-	_, err := c.conn.Write(data[:])
+	_, err := c.Conn.Write(data[:])
 	if err != nil {
 		return RQLConnectionError{err.Error()}
 	}
@@ -46,7 +46,7 @@ func (c *Connection) writeHandshakeReq() error {
 }
 
 func (c *Connection) readHandshakeSuccess() error {
-	reader := bufio.NewReader(c.conn)
+	reader := bufio.NewReader(c.Conn)
 	line, err := reader.ReadBytes('\x00')
 	if err != nil {
 		if err == io.EOF {
@@ -68,7 +68,7 @@ func (c *Connection) readHandshakeSuccess() error {
 func (c *Connection) read(buf []byte, length int) (total int, err error) {
 	var n int
 	for total < length {
-		if n, err = c.conn.Read(buf[total:length]); err != nil {
+		if n, err = c.Conn.Read(buf[total:length]); err != nil {
 			break
 		}
 		total += n

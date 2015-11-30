@@ -145,8 +145,10 @@ func (t Term) IndexWait(args ...interface{}) Term {
 
 // ChangesOpts contains the optional arguments for the Changes term
 type ChangesOpts struct {
-	Squash        interface{} `gorethink:"squash,omitempty"`
-	IncludeStates interface{} `gorethink:"include_states,omitempty"`
+	Squash              interface{} `gorethink:"squash,omitempty"`
+	IncludeInitial      interface{} `gorethink:"include_initial,omitempty"`
+	IncludeStates       interface{} `gorethink:"include_states,omitempty"`
+	ChangefeedQueueSize interface{} `gorethink:"changefeed_queue_size,omitempty"`
 }
 
 // ChangesOpts contains the optional arguments for the Changes term

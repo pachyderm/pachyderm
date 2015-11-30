@@ -54,6 +54,27 @@ type ListMeta struct {
 	ResourceVersion string `json:"resourceVersion,omitempty"`
 }
 
+// ListOptions is the query options to a standard REST list/watch calls.
+type ListOptions struct {
+	TypeMeta `json:",inline"`
+
+	// A selector to restrict the list of returned objects by their labels.
+	// Defaults to everything.
+	LabelSelector LabelSelector `json:"labelSelector,omitempty"`
+	// A selector to restrict the list of returned objects by their fields.
+	// Defaults to everything.
+	FieldSelector FieldSelector `json:"fieldSelector,omitempty"`
+
+	// Watch for changes to the described resources and return them as a stream of
+	// add, update, and remove notifications. Specify resourceVersion.
+	Watch bool `json:"watch,omitempty"`
+	// When specified with a watch call, shows changes that occur after that particular version of a resource.
+	// Defaults to changes from the beginning of history.
+	ResourceVersion string `json:"resourceVersion,omitempty"`
+	// Timeout for the list/watch call.
+	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
+}
+
 // Status is a return value for calls that don't return other objects.
 type Status struct {
 	TypeMeta `json:",inline"`
@@ -78,7 +99,7 @@ type Status struct {
 	// the reason type.
 	Details *StatusDetails `json:"details,omitempty"`
 	// Suggested HTTP return code for this status, 0 if not set.
-	Code int `json:"code,omitempty"`
+	Code int32 `json:"code,omitempty"`
 }
 
 // StatusDetails is a set of additional properties that MAY be set by the
@@ -99,7 +120,7 @@ type StatusDetails struct {
 	// failure. Not all StatusReasons may provide detailed causes.
 	Causes []StatusCause `json:"causes,omitempty"`
 	// If specified, the time in seconds before the operation should be retried.
-	RetryAfterSeconds int `json:"retryAfterSeconds,omitempty"`
+	RetryAfterSeconds int32 `json:"retryAfterSeconds,omitempty"`
 }
 
 // Values of Status.Status
@@ -183,7 +204,7 @@ const (
 	// Details (optional):
 	//   "kind" string - the kind attribute of the resource being acted on.
 	//   "id"   string - the operation that is being attempted.
-	//   "retryAfterSeconds" int - the number of seconds before the operation should be retried
+	//   "retryAfterSeconds" int32 - the number of seconds before the operation should be retried
 	// Status code 500
 	StatusReasonServerTimeout StatusReason = "ServerTimeout"
 
@@ -193,7 +214,7 @@ const (
 	// The request might succeed with an increased value of timeout param. The client *should*
 	// wait at least the number of seconds specified by the retryAfterSeconds field.
 	// Details (optional):
-	//   "retryAfterSeconds" int - the number of seconds before the operation should be retried
+	//   "retryAfterSeconds" int32 - the number of seconds before the operation should be retried
 	// Status code 504
 	StatusReasonTimeout StatusReason = "Timeout"
 
@@ -276,6 +297,7 @@ const (
 	CauseTypeUnexpectedServerResponse CauseType = "UnexpectedServerResponse"
 )
 
+func (*ListOptions) IsAnAPIObject()     {}
 func (*Status) IsAnAPIObject()          {}
 func (*APIVersions) IsAnAPIObject()     {}
 func (*APIGroupList) IsAnAPIObject()    {}

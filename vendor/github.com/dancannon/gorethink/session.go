@@ -31,6 +31,7 @@ type ConnectOpts struct {
 	TLSConfig    *tls.Config   `gorethink:"tlsconfig,omitempty"`
 
 	MaxIdle int `gorethink:"max_idle,omitempty"`
+	// By default a maximum of 2 connections are opened per host.
 	MaxOpen int `gorethink:"max_open,omitempty"`
 
 	// Below options are for cluster discovery, please note there is a high
@@ -42,7 +43,17 @@ type ConnectOpts struct {
 	DiscoverHosts bool `gorethink:"discover_hosts,omitempty"`
 	// NodeRefreshInterval is used to determine how often the driver should
 	// refresh the status of a node.
+	//
+	// Deprecated: This function is no longer used due to changes in the
+	// way hosts are selected.
 	NodeRefreshInterval time.Duration `gorethink:"node_refresh_interval,omitempty"`
+	// HostDecayDuration is used by the go-hostpool package to calculate a weighted
+	// score when selecting a host. By default a value of 5 minutes is used.
+	HostDecayDuration time.Duration
+
+	// Indicates whether the cursors running in this session should use json.Number instead of float64 while
+	// unmarshaling documents with interface{}. The default is `false`.
+	UseJSONNumber bool
 }
 
 func (o *ConnectOpts) toMap() map[string]interface{} {
@@ -220,6 +231,11 @@ func (s *Session) Exec(q Query) error {
 	}
 
 	return s.cluster.Exec(q)
+}
+
+// Server returns the server name and server UUID being used by a connection.
+func (s *Session) Server() (ServerResponse, error) {
+	return s.cluster.Server()
 }
 
 // SetHosts resets the hosts used when connecting to the RethinkDB cluster

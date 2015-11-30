@@ -1,11 +1,11 @@
 {
  "kind": "discovery#restDescription",
- "etag": "\"ye6orv2F-1npMW3u9suM3a7C5Bo/K2YWeNBEH2yOCjdgDssBGJY_KU4\"",
+ "etag": "\"ye6orv2F-1npMW3u9suM3a7C5Bo/3BsBUTzKr01XX9_2lObSs_YRVaA\"",
  "discoveryVersion": "v1",
  "id": "compute:v1",
  "name": "compute",
  "version": "v1",
- "revision": "20151015",
+ "revision": "20151116",
  "title": "Compute Engine API",
  "description": "API for the Google Compute Engine service.",
  "ownerDomain": "google.com",
@@ -788,7 +788,7 @@
     },
     "healthChecks": {
      "type": "array",
-     "description": "The list of URLs to the HttpHealthCheck resource for health checking this BackendService. Currently at most one health check can be specified, and a health check is required.",
+     "description": "The list of URLs to the HttpHealthCheck or HttpsHealthCheck resource for health checking this BackendService. Currently at most one health check can be specified, and a health check is required.",
      "items": {
       "type": "string"
      }
@@ -1543,7 +1543,7 @@
     },
     "portRange": {
      "type": "string",
-     "description": "Applicable only when IPProtocol is TCP, UDP, or SCTP, only packets addressed to ports in the specified range will be forwarded to target. Forwarding rules with the same `[IPAddress, IPProtocol]` pair must have disjoint port ranges."
+     "description": "Applicable only when IPProtocol is TCP, UDP, or SCTP, only packets addressed to ports in the specified range will be forwarded to target. Forwarding rules with the same [IPAddress, IPProtocol] pair must have disjoint port ranges."
     },
     "region": {
      "type": "string",
@@ -2383,7 +2383,7 @@
   "InstanceGroupManager": {
    "id": "InstanceGroupManager",
    "type": "object",
-   "description": "InstanceGroupManagers\n\nNext available tag: 19",
+   "description": "InstanceGroupManagers\n\nNext available tag: 20",
    "properties": {
     "baseInstanceName": {
      "type": "string",
@@ -2443,6 +2443,13 @@
       "required": [
        "compute.instanceGroupManagers.insert"
       ]
+     }
+    },
+    "namedPorts": {
+     "type": "array",
+     "description": "Named ports configured for the Instance Groups complementary to this Instance Group Manager.",
+     "items": {
+      "$ref": "NamedPort"
      }
     },
     "selfLink": {
@@ -4062,8 +4069,7 @@
    "description": "A matcher for the path portion of the URL. The BackendService from the longest-matched rule will serve the URL. If no rule was matched, the default service will be used.",
    "properties": {
     "defaultService": {
-     "type": "string",
-     "description": "The URL to the BackendService resource. This will be used if none of the 'pathRules' defined by this PathMatcher is met by the URL's path portion."
+     "type": "string"
     },
     "description": {
      "type": "string",
@@ -4186,7 +4192,9 @@
       "ROUTES",
       "SNAPSHOTS",
       "SSD_TOTAL_GB",
+      "SSL_CERTIFICATES",
       "STATIC_ADDRESSES",
+      "TARGET_HTTPS_PROXIES",
       "TARGET_HTTP_PROXIES",
       "TARGET_INSTANCES",
       "TARGET_POOLS",
@@ -4195,6 +4203,8 @@
       "VPN_TUNNELS"
      ],
      "enumDescriptions": [
+      "",
+      "",
       "",
       "",
       "",
@@ -7853,7 +7863,7 @@
      "id": "compute.forwardingRules.setTarget",
      "path": "{project}/regions/{region}/forwardingRules/{forwardingRule}/setTarget",
      "httpMethod": "POST",
-     "description": "Changes target url for forwarding rule.",
+     "description": "Changes target url for forwarding rule. The new target should be of the same type as the old target.",
      "parameters": {
       "forwardingRule": {
        "type": "string",
@@ -8185,7 +8195,7 @@
      "id": "compute.globalForwardingRules.setTarget",
      "path": "{project}/global/forwardingRules/{forwardingRule}/setTarget",
      "httpMethod": "POST",
-     "description": "Changes target url for forwarding rule.",
+     "description": "Changes target url for forwarding rule. The new target should be of the same type as the old target.",
      "parameters": {
       "forwardingRule": {
        "type": "string",
@@ -9510,7 +9520,7 @@
      "id": "compute.instanceGroups.addInstances",
      "path": "{project}/zones/{zone}/instanceGroups/{instanceGroup}/addInstances",
      "httpMethod": "POST",
-     "description": "Adds a list of instances to the specified instance group. All of the instances in the instance group must be in the same network/subnetwork. TODO: Change to comment to state \"if IG is load balanced.\"",
+     "description": "Adds a list of instances to the specified instance group. All of the instances in the instance group must be in the same network/subnetwork.",
      "parameters": {
       "instanceGroup": {
        "type": "string",
@@ -12265,7 +12275,7 @@
       },
       "targetHttpsProxy": {
        "type": "string",
-       "description": "Name of the TargetHttpsProxy resource whose URL map is to be set.",
+       "description": "Name of the TargetHttpsProxy resource whose SSLCertificate is to be set.",
        "required": true,
        "pattern": "[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?",
        "location": "path"

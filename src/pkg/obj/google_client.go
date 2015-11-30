@@ -9,21 +9,25 @@ import (
 
 type googleClient struct {
 	ctx    context.Context
-	bucket string
+	bucket *storage.BucketHandle
 }
 
-func newGoogleClient(ctx context.Context, bucket string) *googleClient {
-	return &googleClient{ctx, bucket}
+func newGoogleClient(ctx context.Context, bucket string) (*googleClient, error) {
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &googleClient{ctx, client.Bucket(bucket)}, nil
 }
 
 func (c *googleClient) Writer(name string) (io.WriteCloser, error) {
-	return storage.NewWriter(c.ctx, c.bucket, name), nil
+	return c.bucket.Object(name).NewWriter(c.ctx), nil
 }
 
 func (c *googleClient) Reader(name string) (io.ReadCloser, error) {
-	return storage.NewReader(c.ctx, c.bucket, name)
+	return c.bucket.Object(name).NewReader(c.ctx)
 }
 
 func (c *googleClient) Delete(name string) error {
-	return storage.DeleteObject(c.ctx, c.bucket, name)
+	return c.bucket.Object(name).Delete(c.ctx)
 }

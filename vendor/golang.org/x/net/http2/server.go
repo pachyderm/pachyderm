@@ -1457,6 +1457,11 @@ func (sc *serverConn) newWriterAndRequest() (*responseWriter, *http.Request, err
 		// pseudo-header fields"
 		return nil, nil, StreamError{rp.stream.id, ErrCodeProtocol}
 	}
+	bodyOpen := rp.stream.state == stateOpen
+	if rp.method == "HEAD" && bodyOpen {
+		// HEAD requests can't have bodies
+		return nil, nil, StreamError{rp.stream.id, ErrCodeProtocol}
+	}
 	var tlsState *tls.ConnectionState // nil if not scheme https
 	if rp.scheme == "https" {
 		tlsState = sc.tlsState
@@ -1473,7 +1478,6 @@ func (sc *serverConn) newWriterAndRequest() (*responseWriter, *http.Request, err
 	if cookies := rp.header["Cookie"]; len(cookies) > 1 {
 		rp.header.Set("Cookie", strings.Join(cookies, "; "))
 	}
-	bodyOpen := rp.stream.state == stateOpen
 	body := &requestBody{
 		conn:          sc,
 		stream:        rp.stream,
@@ -1720,6 +1724,9 @@ type responseWriterState struct {
 	sentHeader    bool        // have we sent the header frame?
 	handlerDone   bool        // handler has finished
 
+	sentContentLen int64 // non-zero if handler set a Content-Length header
+	wroteBytes     int64
+
 	closeNotifierMu sync.Mutex // guards closeNotifierCh
 	closeNotifierCh chan bool  // nil until first used
 }
@@ -1738,16 +1745,31 @@ func (rws *responseWriterState) writeChunk(p []byte) (n int, err error) {
 	if !rws.wroteHeader {
 		rws.writeHeader(200)
 	}
+	isHeadResp := rws.req.Method == "HEAD"
 	if !rws.sentHeader {
 		rws.sentHeader = true
-		var ctype, clen string // implicit ones, if we can calculate it
-		if rws.handlerDone && rws.snapHeader.Get("Content-Length") == "" {
+		var ctype, clen string
+		if clen = rws.snapHeader.Get("Content-Length"); clen != "" {
+			rws.snapHeader.Del("Content-Length")
+			clen64, err := strconv.ParseInt(clen, 10, 64)
+			if err == nil && clen64 >= 0 {
+				rws.sentContentLen = clen64
+			} else {
+				clen = ""
+			}
+		}
+		if clen == "" && rws.handlerDone && bodyAllowedForStatus(rws.status) {
 			clen = strconv.Itoa(len(p))
 		}
-		if rws.snapHeader.Get("Content-Type") == "" {
+		if rws.snapHeader.Get("Content-Type") == "" && bodyAllowedForStatus(rws.status) {
 			ctype = http.DetectContentType(p)
 		}
-		endStream := rws.handlerDone && len(p) == 0
+		var date string
+		if _, ok := rws.snapHeader["Date"]; !ok {
+			// TODO(bradfitz): be faster here, like net/http? measure.
+			date = time.Now().UTC().Format(http.TimeFormat)
+		}
+		endStream := (rws.handlerDone && len(p) == 0) || isHeadResp
 		err = rws.conn.writeHeaders(rws.stream, &writeResHeaders{
 			streamID:      rws.stream.id,
 			httpResCode:   rws.status,
@@ -1755,6 +1777,7 @@ func (rws *responseWriterState) writeChunk(p []byte) (n int, err error) {
 			endStream:     endStream,
 			contentType:   ctype,
 			contentLength: clen,
+			date:          date,
 		})
 		if err != nil {
 			return 0, err
@@ -1762,6 +1785,9 @@ func (rws *responseWriterState) writeChunk(p []byte) (n int, err error) {
 		if endStream {
 			return 0, nil
 		}
+	}
+	if isHeadResp {
+		return len(p), nil
 	}
 	if len(p) == 0 && !rws.handlerDone {
 		return 0, nil
@@ -1875,6 +1901,15 @@ func (w *responseWriter) write(lenData int, dataB []byte, dataS string) (n int, 
 	if !rws.wroteHeader {
 		w.WriteHeader(200)
 	}
+	if !bodyAllowedForStatus(rws.status) {
+		return 0, http.ErrBodyNotAllowed
+	}
+	rws.wroteBytes += int64(len(dataB)) + int64(len(dataS)) // only one can be set
+	if rws.sentContentLen != 0 && rws.wroteBytes > rws.sentContentLen {
+		// TODO: send a RST_STREAM
+		return 0, errors.New("http2: handler wrote more than declared Content-Length")
+	}
+
 	if dataB != nil {
 		return rws.bw.Write(dataB)
 	} else {

@@ -2,14 +2,9 @@ package gorethink
 
 import (
 	"sync"
-	"sync/atomic"
-	"time"
 
 	p "github.com/dancannon/gorethink/ql2"
-)
-
-const (
-	maxNodeHealth = 100
+	"github.com/hailocab/go-hostpool"
 )
 
 // Node represents a database server in the cluster
@@ -18,43 +13,22 @@ type Node struct {
 	Host    Host
 	aliases []Host
 
-	cluster         *Cluster
-	pool            *Pool
-	refreshDoneChan chan struct{}
+	cluster *Cluster
+	pool    *Pool
+	hpr     hostpool.HostPoolResponse
 
 	mu     sync.RWMutex
 	closed bool
-	health int64
 }
 
 func newNode(id string, aliases []Host, cluster *Cluster, pool *Pool) *Node {
 	node := &Node{
-		ID:              id,
-		Host:            aliases[0],
-		aliases:         aliases,
-		cluster:         cluster,
-		pool:            pool,
-		health:          maxNodeHealth,
-		refreshDoneChan: make(chan struct{}),
+		ID:      id,
+		Host:    aliases[0],
+		aliases: aliases,
+		cluster: cluster,
+		pool:    pool,
 	}
-	// Start node refresh loop
-	refreshInterval := cluster.opts.NodeRefreshInterval
-	if refreshInterval <= 0 {
-		// Default to refresh every 30 seconds
-		refreshInterval = time.Second * 30
-	}
-
-	go func() {
-		refreshTicker := time.NewTicker(refreshInterval)
-		for {
-			select {
-			case <-refreshTicker.C:
-				node.Refresh()
-			case <-node.refreshDoneChan:
-				return
-			}
-		}
-	}()
 
 	return node
 }
@@ -82,7 +56,6 @@ func (n *Node) Close(optArgs ...CloseOpts) error {
 		}
 	}
 
-	n.refreshDoneChan <- struct{}{}
 	if n.pool != nil {
 		n.pool.Close()
 	}
@@ -120,7 +93,7 @@ func (n *Node) Query(q Query) (cursor *Cursor, err error) {
 
 	cursor, err = n.pool.Query(q)
 	if err != nil {
-		n.DecrementHealth()
+		return cursor, err
 	}
 
 	return cursor, err
@@ -134,102 +107,21 @@ func (n *Node) Exec(q Query) (err error) {
 
 	err = n.pool.Exec(q)
 	if err != nil {
-		n.DecrementHealth()
+		return err
 	}
 
 	return err
 }
 
-// Refresh attempts to connect to the node and check that it is still connected
-// to the cluster.
-//
-// If an error occurred or the node is no longer connected then
-// the nodes health is decrease, if there were no issues then the node is marked
-// as being healthy.
-func (n *Node) Refresh() {
-	if n.cluster.opts.DiscoverHosts {
-		// If host discovery is enabled then check the servers status
-		q, err := newQuery(
-			DB("rethinkdb").Table("server_status").Get(n.ID),
-			map[string]interface{}{},
-			n.cluster.opts,
-		)
-		if err != nil {
-			return
-		}
+// Server returns the server name and server UUID being used by a connection.
+func (n *Node) Server() (ServerResponse, error) {
+	var response ServerResponse
 
-		cursor, err := n.pool.Query(q)
-		if err != nil {
-			n.DecrementHealth()
-			return
-		}
-		defer cursor.Close()
-
-		// Cant find node status so assuming node has been disconnected
-		if cursor.IsNil() {
-			n.DecrementHealth()
-			return
-		}
-
-		// Below check is for RethinkDB 2.0
-		var status nodeStatus
-		err = cursor.One(&status)
-		if err != nil {
-			return
-		}
-
-		if status.Status != "" && status.Status != "connected" {
-			n.DecrementHealth()
-			return
-		}
-	} else {
-		// If host discovery is disabled just execute a simple ping query
-		q, err := newQuery(
-			Expr("OK"),
-			map[string]interface{}{},
-			n.cluster.opts,
-		)
-		if err != nil {
-			return
-		}
-
-		cursor, err := n.pool.Query(q)
-		if err != nil {
-			n.DecrementHealth()
-			return
-		}
-		defer cursor.Close()
-
-		var status string
-		err = cursor.One(&status)
-		if err != nil {
-			return
-		}
-
-		if status != "OK" {
-			n.DecrementHealth()
-			return
-		}
+	if n.Closed() {
+		return response, ErrInvalidNode
 	}
 
-	// If status check was successful reset health
-	n.ResetHealth()
-}
-
-// DecrementHealth decreases the nodes health by 1 (the nodes health starts at maxNodeHealth)
-func (n *Node) DecrementHealth() {
-	atomic.AddInt64(&n.health, -1)
-}
-
-// ResetHealth sets the nodes health back to maxNodeHealth (fully healthy)
-func (n *Node) ResetHealth() {
-	atomic.StoreInt64(&n.health, maxNodeHealth)
-}
-
-// IsHealthy checks the nodes health by ensuring that the health counter is above 0.
-func (n *Node) IsHealthy() bool {
-	health := atomic.LoadInt64(&n.health)
-	return health > 0
+	return n.pool.Server()
 }
 
 type nodeStatus struct {

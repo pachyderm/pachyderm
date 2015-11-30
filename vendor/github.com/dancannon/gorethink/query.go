@@ -83,15 +83,15 @@ func (t Term) build() (interface{}, error) {
 		}
 	}
 
-	args := []interface{}{}
-	optArgs := map[string]interface{}{}
+	args := make([]interface{}, len(t.args))
+	optArgs := make(map[string]interface{}, len(t.optArgs))
 
-	for _, v := range t.args {
+	for i, v := range t.args {
 		arg, err := v.build()
 		if err != nil {
 			return nil, err
 		}
-		args = append(args, arg)
+		args[i] = arg
 	}
 
 	for k, v := range t.optArgs {

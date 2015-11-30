@@ -16,6 +16,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -30,17 +31,17 @@ var initCmd = &cobra.Command{
 	Use:     "init [name]",
 	Aliases: []string{"initialize", "initalise", "create"},
 	Short:   "Initalize a Cobra Application",
-	Long: `Initalize will create a new application, with a license and the appropriate structure
-	for a Cobra based CLI application.
+	Long: `Initialize (cobra init) will create a new application, with a license
+and the appropriate structure for a Cobra-based CLI application.
 
-	If a name is provided it will create it in the current directory.
-	If no name is provided it will assume the current directory.
-	If a relative path is provided it will create it inside of $GOPATH (eg github.com/spf13/hugo).
-	If an absolute path is provided it will create it.
+  * If a name is provided, it will be created in the current directory;
+  * If no name is provided, the current directory will be assumed;
+  * If a relative path is provided, it will be created inside $GOPATH
+    (e.g. github.com/spf13/hugo);
+  * If an absolute path is provided, it will be created;
+  * If the directory already exists but is empty, it will be used.
 
-	If the directory already exists but is empty it will use it.
-
-	Init will not use an exiting directory with contents.`,
+Init will not use an exiting directory with contents.`,
 
 	Run: func(cmd *cobra.Command, args []string) {
 		switch len(args) {
@@ -87,7 +88,16 @@ func initalizePath(path string) {
 
 func createLicenseFile() {
 	lic := getLicense()
-	err := writeStringToFile(ProjectPath(), "LICENSE", lic.Text)
+
+	template := lic.Text
+
+	var data map[string]interface{}
+	data = make(map[string]interface{})
+
+	// Try to remove the email address, if any
+	data["copyright"] = strings.Split(copyrightLine(), " <")[0]
+
+	err := writeTemplateToFile(ProjectPath(), "LICENSE", template, data)
 	_ = err
 	// if err != nil {
 	// 	er(err)
@@ -98,7 +108,6 @@ func createMainFile() {
 	lic := getLicense()
 
 	template := `{{ comment .copyright }}
-//
 {{ comment .license }}
 
 package main
@@ -127,8 +136,8 @@ func createRootCmdFile() {
 	lic := getLicense()
 
 	template := `{{ comment .copyright }}
-//
 {{ comment .license }}
+
 package cmd
 
 import (
@@ -136,29 +145,28 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	{{ if .viper }}"github.com/spf13/viper"{{ end }}
-)
-
+{{ if .viper }}	"github.com/spf13/viper"
+{{ end }})
 {{if .viper}}
 var cfgFile string
 {{ end }}
-
 // This represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "{{ .appName }}",
 	Short: "A brief description of your application",
-	Long: ` + "`" + `A longer description that spans multiple lines and likely contains examples
-and usage of using your application. For example:
+	Long: ` + "`" + `A longer description that spans multiple lines and likely contains
+examples and usage of using your application. For example:
 
-Cobra is a Cli library for Go that empowers applications. This
-application is a tool to generate the needed files to quickly create a Cobra
-application.` + "`" + `,
-// Uncomment the following line if your bare application has an action associated with it
+Cobra is a CLI library for Go that empowers applications.
+This application is a tool to generate the needed files
+to quickly create a Cobra application.` + "`" + `,
+// Uncomment the following line if your bare application
+// has an action associated with it:
 //	Run: func(cmd *cobra.Command, args []string) { },
 }
 
-//Execute adds all child commands to the root command sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd
+// Execute adds all child commands to the root command sets flags appropriately.
+// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -167,21 +175,21 @@ func Execute() {
 }
 
 func init() {
-	{{ if .viper }}cobra.OnInitialize(initConfig){{ end}}
-	// Here you will define your flags and configuration settings
-	// Cobra supports Persistent Flags which if defined here will be global for your application
-	{{ if .viper }}
-  RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.{{ .appName }}.yaml)")
-	{{ else }}
-  // RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.{{ .appName }}.yaml)")
-	{{ end }}
-	// Cobra also supports local flags which will only run when this action is called directly
-	RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle" )
+{{ if .viper }}	cobra.OnInitialize(initConfig)
 
-}
-
+{{ end }}	// Here you will define your flags and configuration settings.
+	// Cobra supports Persistent Flags, which, if defined here,
+	// will be global for your application.
 {{ if .viper }}
-// Read in config file and ENV variables if set.
+	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.{{ .appName }}.yaml)")
+{{ else }}
+	// RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.{{ .appName }}.yaml)")
+{{ end }}	// Cobra also supports local flags, which will only run
+	// when this action is called directly.
+	RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+{{ if .viper }}
+// initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	if cfgFile != "" { // enable ability to specify config file via flag
 		viper.SetConfigFile(cfgFile)
@@ -196,8 +204,7 @@ func initConfig() {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
 }
-{{ end }}
-`
+{{ end }}`
 
 	var data map[string]interface{}
 	data = make(map[string]interface{})
@@ -212,7 +219,7 @@ func initConfig() {
 		er(err)
 	}
 
-	fmt.Println("Yor Cobra application is ready at")
+	fmt.Println("Your Cobra application is ready at")
 	fmt.Println(ProjectPath())
 	fmt.Println("Give it a try by going there and running `go run main.go`")
 	fmt.Println("Add commands to it by running `cobra add [cmdname]`")

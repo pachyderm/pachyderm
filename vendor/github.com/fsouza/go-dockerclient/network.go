@@ -75,9 +75,9 @@ func (c *Client) NetworkInfo(id string) (*Network, error) {
 //
 // See https://goo.gl/FDkCdQ for more details.
 type CreateNetworkOptions struct {
-	Name        string                 `json:"name"`
-	NetworkType string                 `json:"network_type"`
-	Options     map[string]interface{} `json:"options"`
+	Name    string                 `json:"Name"`
+	Driver  string                 `json:"Driver"`
+	Options map[string]interface{} `json:"options"`
 }
 
 // CreateNetwork creates a new network, returning the network instance,
@@ -87,7 +87,7 @@ type CreateNetworkOptions struct {
 func (c *Client) CreateNetwork(opts CreateNetworkOptions) (*Network, error) {
 	resp, err := c.do(
 		"POST",
-		"/networks",
+		"/networks/create",
 		doOptions{
 			data: opts,
 		},
@@ -113,7 +113,7 @@ func (c *Client) CreateNetwork(opts CreateNetworkOptions) (*Network, error) {
 
 	network.Name = opts.Name
 	network.ID = cnr.ID
-	network.Type = opts.NetworkType
+	network.Type = opts.Driver
 
 	return &network, nil
 }

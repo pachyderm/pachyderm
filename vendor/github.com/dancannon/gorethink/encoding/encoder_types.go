@@ -302,7 +302,7 @@ func timePseudoTypeEncoder(v reflect.Value) interface{} {
 	return map[string]interface{}{
 		"$reql_type$": "TIME",
 		"epoch_time":  timeVal,
-		"timezone":    "+00:00",
+		"timezone":    t.Format("-07:00"),
 	}
 }
 

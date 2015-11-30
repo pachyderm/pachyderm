@@ -48,6 +48,6 @@ func NewInternalAPIServer(
 	)
 }
 
-func NewGoogleReplicaAPIServer(ctx context.Context, bucket string) ReplicaAPIServer {
+func NewGoogleReplicaAPIServer(ctx context.Context, bucket string) (ReplicaAPIServer, error) {
 	return newGoogleReplicaAPIServer(ctx, bucket)
 }
