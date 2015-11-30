@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"go.pedge.io/protolog"
 
@@ -21,7 +22,7 @@ import (
 type filesystem struct {
 	apiClient pfs.APIClient
 	Filesystem
-	inodes map[pfs.File]uint64
+	inodes map[string]uint64
 	lock   sync.RWMutex
 }
 
@@ -36,7 +37,7 @@ func newFilesystem(
 			shard,
 			commits,
 		},
-		make(map[pfs.File]uint64),
+		make(map[string]uint64),
 		sync.RWMutex{},
 	}
 }
@@ -65,6 +66,7 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	defer func() {
 		protolog.Info(&DirectoryAttr{&d.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 	}()
+	a.Valid = time.Nanosecond
 	if d.Write {
 		a.Mode = os.ModeDir | 0775
 	} else {
@@ -210,17 +212,17 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 
 func (f *filesystem) inode(file *pfs.File) uint64 {
 	f.lock.RLock()
-	inode, ok := f.inodes[*file]
+	inode, ok := f.inodes[key(file)]
 	f.lock.RUnlock()
 	if ok {
 		return inode
 	}
 	f.lock.Lock()
-	if inode, ok := f.inodes[*file]; ok {
+	if inode, ok := f.inodes[key(file)]; ok {
 		return inode
 	}
 	newInode := uint64(len(f.inodes))
-	f.inodes[*file] = newInode
+	f.inodes[key(file)] = newInode
 	f.lock.Unlock()
 	return newInode
 }
@@ -304,6 +306,11 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 	}
 	result := d.copy()
 	result.File.Commit.Id = name
+	if commitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_READ {
+		result.Write = false
+	} else {
+		result.Write = true
+	}
 	return result, nil
 }
 
@@ -403,4 +410,8 @@ func getNode(node fs.Node) *Node {
 	case *file:
 		return &n.Node
 	}
+}
+
+func key(file *pfs.File) string {
+	return fmt.Sprintf("%s/%s/%s", file.Commit.Repo.Name, file.Commit.Id, file.Path)
 }
