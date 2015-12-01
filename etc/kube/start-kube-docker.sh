@@ -24,4 +24,4 @@ kubelet=$(docker create \
 docker cp etc/kube/master.json $kubelet:/etc/kubernetes/manifests/master.json
 docker start $kubelet
 docker run -d --net=host --privileged gcr.io/google_containers/hyperkube:v1.1.2 /hyperkube proxy --master=http://127.0.0.1:8080 --v=2
-until kubectl version 2>&1 >/dev/null; do sleep 1; done
+until kubectl version 2>&1 >/dev/null; do sleep 5; done
