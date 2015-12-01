@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Job
+metadata:
+  name: pachyderm-test
+spec:
+  selector:
+    matchLabels:
+      app: pachyderm-test
+  template:
+    metadata:
+      name: pachyderm-test
+      labels:
+        app: pachyderm-test
+    spec:
+      containers:
+      - name: pachyderm-test
+        image: pachyderm_test
+        command: ["go",  "test", "."]
+      restartPolicy: Never

@@ -101,8 +101,17 @@ docker-push: docker-push-pfs-roler docker-push-ppsd docker-push-pfsd docker-push
 run: docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test $(RUNARGS)
 
-launch: docker-clean-launch docker-build-pfs-roler docker-build-pfsd docker-build-ppsd
-	docker-compose up -d --force-recreate --no-build ppsd pfsd
+launch-kube:
+	etc/kube/start-kube-docker.sh
+
+launch: launch-kube install
+	pachctl create-cluster
+
+clean-launch:
+	docker kill $$(docker ps -q)
+
+integration-test: launch docker-build-test
+	kubectl create -f etc/kube/test-job.yml
 
 proto:
 	go get -u -v go.pedge.io/protolog/cmd/protoc-gen-protolog go.pedge.io/tools/protoc-all
