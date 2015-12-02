@@ -1,6 +1,5 @@
 syntax = "proto3";
 
-import "go.pedge.io/protolog/protolog.proto";
 import "pfs/pfs.proto";
 
 package fuse;
@@ -27,21 +26,18 @@ message Dirent {
 }
 
 message Root {
-  option (protolog.event) = true;
   Filesystem filesystem = 1;
   Node result = 2;
   string error = 3;
 }
 
 message DirectoryAttr {
-  option (protolog.event) = true;
   Node directory = 1;
   Attr result = 2;
   string error = 3;
 }
 
 message DirectoryLookup {
-  option (protolog.event) = true;
   Node directory = 1;
   string name = 2;
   Node result = 3;
@@ -49,47 +45,40 @@ message DirectoryLookup {
 }
 
 message DirectoryReadDirAll {
-  option (protolog.event) = true;
   Node directory = 1;
   repeated Dirent result = 2;
   string error = 3;
 }
 
 message DirectoryCreate {
-  option (protolog.event) = true;
   Node directory = 1;
   Node result = 2;
   string error = 3;
 }
 
 message DirectoryMkdir {
-  option (protolog.event) = true;
   Node directory = 1;
   Node result = 2;
   string error = 3;
 }
 
 message FileAttr {
-  option (protolog.event) = true;
   Node file = 1;
   Attr result = 2;
   string error = 3;
 }
 
 message FileRead {
-  option (protolog.event) = true;
   Node file = 1;
   string error = 2;
 }
 
 message FileOpen {
-  option (protolog.event) = true;
   Node file = 1;
   string error = 2;
 }
 
 message FileWrite {
-  option (protolog.event) = true;
   Node file = 1;
   string error = 2;
 }

@@ -151,6 +151,9 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	}(); err != nil {
 		return nil, err
 	}
+	if jobInfo.GetTransform() == nil {
+		return nil, fmt.Errorf("jobInfo.GetTransform() should not be nil (this is likely a bug)")
+	}
 	jobOutput, err := a.persistAPIClient.GetJobOutput(ctx, request.Job)
 	if err != nil {
 		return nil, err
@@ -159,6 +162,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 		return nil, fmt.Errorf("jobOutput.OutputCommit should not be nil (this is likely a bug)")
 	}
 	return &pps.StartJobResponse{
+		Transform:    jobInfo.GetTransform(),
 		InputCommit:  jobInfo.InputCommit,
 		OutputCommit: jobOutput.OutputCommit,
 		Shard: &pfs.Shard{
@@ -256,7 +260,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 						{
 							Name:    "user",
 							Image:   "pachyderm/job-shim",
-							Command: append([]string{"/job-shim", jobInfo.JobId}, jobInfo.GetTransform().Cmd...),
+							Command: []string{"/job-shim", jobInfo.JobId},
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},

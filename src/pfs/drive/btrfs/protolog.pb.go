@@ -26,7 +26,6 @@ package btrfs
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import _ "go.pedge.io/protolog"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
