@@ -55,6 +55,9 @@ func newAPIServer(
 
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if request.OutputParent == nil {
+		return nil, fmt.Errorf("pachyderm.pps.jobserver: request.OutputParent cannot be nil")
+	}
 	persistJobInfo := &persist.JobInfo{
 		Shards:       request.Shards,
 		InputCommit:  request.InputCommit,

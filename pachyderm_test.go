@@ -3,28 +3,39 @@ package pachyderm
 import (
 	"fmt"
 	"os"
+	"path"
 	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"google.golang.org/grpc"
 )
 
 func TestSimple(t *testing.T) {
+	dataRepo := newRepo("pachderm.TestSimple.data")
+	outRepo := newRepo("pachderm.TestSimple.output")
 	pfsClient := getPfsClient(t)
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, "data"))
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, "output"))
-	commit, err := pfsutil.StartCommit(pfsClient, "data", "")
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, outRepo))
+	commit, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pfsClient, "data", commit.Id, "file", 0, strings.NewReader("foo"))
+	_, err = pfsutil.PutFile(pfsClient, dataRepo, commit.Id, "file", 0, strings.NewReader("foo"))
 	require.NoError(t, err)
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, "data", commit.Id))
+	require.NoError(t, pfsutil.FinishCommit(pfsClient, dataRepo, commit.Id))
 	ppsClient := getPpsClient(t)
-	_, err = ppsutil.CreateJob(ppsClient, "", []string{"cp", "/pfs/data/file", "/pfs/output/file"}, 1, []*pfs.Commit{commit}, nil)
+	_, err = ppsutil.CreateJob(
+		ppsClient,
+		"",
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), path.Join("/pfs", outRepo, "file")},
+		1,
+		[]*pfs.Commit{commit},
+		&pfs.Commit{Repo: &pfs.Repo{Name: outRepo}},
+	)
 	require.NoError(t, err)
 }
 
@@ -46,4 +57,8 @@ func getPpsClient(t *testing.T) pps.APIClient {
 	clientConn, err := grpc.Dial(fmt.Sprintf("%s:651", ppsdAddr), grpc.WithInsecure())
 	require.NoError(t, err)
 	return pps.NewAPIClient(clientConn)
+}
+
+func newRepo(prefix string) string {
+	return prefix + uuid.NewWithoutDashes()
 }
