@@ -39,6 +39,32 @@ func TestSimple(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestWordCount(t *testing.T) {
+	dataRepo := newRepo("pachyderm.TestWordCount.data")
+	countRepo := newRepo("pachyderm.TestWordCount.count")
+	outRepo := newRepo("pachyderm.TestWordCount.output")
+	pfsClient := getPfsClient(t)
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, countRepo))
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, outRepo))
+	commit, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
+	require.NoError(t, err)
+	for i := 0; i < 100; i++ {
+		_, err = pfsutil.PutFile(pfsClient, dataRepo, commit.Id, fmt.Sprintf("file%d", i), 0, strings.NewReader(`foo bar fizz buzz`))
+		require.NoError(t, err)
+	}
+	require.NoError(t, pfsutil.FinishCommit(pfsClient, dataRepo, commit.Id))
+	ppsClient := getPpsClient(t)
+	_, err = ppsutil.CreateJob(
+		ppsClient,
+		"",
+		[]string{},
+		1,
+		[]*pfs.Commit{commit},
+		&pfs.Commit{Repo: &pfs.Repo{Name: countRepo}},
+	)
+}
+
 func getPfsClient(t *testing.T) pfs.APIClient {
 	pfsdAddr := os.Getenv("PFSD_PORT_650_TCP_ADDR")
 	if pfsdAddr == "" {
@@ -60,5 +86,5 @@ func getPpsClient(t *testing.T) pps.APIClient {
 }
 
 func newRepo(prefix string) string {
-	return prefix + uuid.NewWithoutDashes()
+	return prefix + "." + uuid.NewWithoutDashes()
 }
