@@ -110,10 +110,10 @@ launch: launch-kube install
 clean-launch:
 	docker kill $$(docker ps -q)
 
-run-integration-test: docker-build-test
+run-integration-test: docker-build-test docker-build-job-shim
 	kubectl create -f etc/kube/test-job.yml
 
-integration-test: clean-launch launch run-integration-test
+integration-test: launch run-integration-test
 
 proto:
 	go get -u -v go.pedge.io/protolog/cmd/protoc-gen-protolog go.pedge.io/tools/protoc-all

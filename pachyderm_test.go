@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"google.golang.org/grpc"
 )
 
@@ -22,6 +23,9 @@ func TestSimple(t *testing.T) {
 	_, err = pfsutil.PutFile(pfsClient, "data", commit.Id, "file", 0, strings.NewReader("foo"))
 	require.NoError(t, err)
 	require.NoError(t, pfsutil.FinishCommit(pfsClient, "data", commit.Id))
+	ppsClient := getPpsClient(t)
+	_, err = ppsutil.CreateJob(ppsClient, "", []string{"cp", "/pfs/data/file", "/pfs/output/file"}, 1, []*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
 }
 
 func getPfsClient(t *testing.T) pfs.APIClient {

@@ -245,12 +245,12 @@ func (d *directory) copy() *directory {
 	}
 }
 
-func (d *directory) repoWhitelisted(name string) bool {
-	if len(d.fs.Commits) == 0 {
+func (f *filesystem) repoWhitelisted(name string) bool {
+	if len(f.Commits) == 0 {
 		return true
 	}
 	found := false
-	for _, commit := range d.fs.Commits {
+	for _, commit := range f.Commits {
 		if commit.Repo.Name == name {
 			found = true
 			break
@@ -274,7 +274,7 @@ func (d *directory) commitWhitelisted(name string) bool {
 }
 
 func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error) {
-	if !d.repoWhitelisted(name) {
+	if !d.fs.repoWhitelisted(name) {
 		return nil, fuse.EPERM
 	}
 	repoInfo, err := pfsutil.InspectRepo(d.fs.apiClient, name)
@@ -286,6 +286,14 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 	}
 	result := d.copy()
 	result.File.Commit.Repo.Name = name
+	if d.fs.Commits != nil {
+		for _, commit := range d.fs.Commits {
+			if commit.Repo.Name == name {
+				return result.lookUpCommit(ctx, commit.Id)
+			}
+		}
+		return nil, fmt.Errorf("unreachable")
+	}
 	return result, nil
 }
 
@@ -352,7 +360,7 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 	}
 	var result []fuse.Dirent
 	for _, repoInfo := range repoInfos {
-		if d.repoWhitelisted(repoInfo.Repo.Name) {
+		if d.fs.repoWhitelisted(repoInfo.Repo.Name) {
 			result = append(result, fuse.Dirent{Name: repoInfo.Repo.Name, Type: fuse.DT_Dir})
 		}
 	}
