@@ -75,21 +75,6 @@ message ListJobRequest {
   pfs.Commit input = 2; // nil means all inputs
 }
 
-message StartJobRequest {
-  Job job = 1;
-}
-
-message StartJobResponse {
-    repeated pfs.Commit input_commit = 1;
-    pfs.Commit output_commit = 2;
-    pfs.Shard shard = 3;
-}
-
-message FinishJobRequest {
-    Job job = 1;
-    pfs.Shard shard = 2;
-}
-
 message CreatePipelineRequest {
   Pipeline pipeline = 1;
   Transform transform = 2;
@@ -115,14 +100,30 @@ service JobAPI {
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
 }
 
-service InternalJobAPI {
-    rpc StartJob(StartJobRequest) returns (StartJobResponse) {}
-    rpc FinishJob(FinishJobRequest) returns (google.protobuf.Empty) {}
-}
-
 service PipelineAPI {
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
   rpc ListPipeline(ListPipelineRequest) returns (PipelineInfos) {}
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
 }
+
+message StartJobRequest {
+  Job job = 1;
+}
+
+message StartJobResponse {
+    repeated pfs.Commit input_commit = 1;
+    pfs.Commit output_commit = 2;
+    pfs.Shard shard = 3;
+}
+
+message FinishJobRequest {
+    Job job = 1;
+    pfs.Shard shard = 2;
+}
+
+service InternalJobAPI {
+    rpc StartJob(StartJobRequest) returns (StartJobResponse) {}
+    rpc FinishJob(FinishJobRequest) returns (google.protobuf.Empty) {}
+}
+
