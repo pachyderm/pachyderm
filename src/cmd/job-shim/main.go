@@ -30,7 +30,7 @@ func main() {
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 	rootCmd := &cobra.Command{
-		Use:   os.Args[0] + " job-id cmd [args]",
+		Use:   os.Args[0] + " job-id",
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -72,7 +72,7 @@ func do(appEnvObj interface{}) error {
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
 			}
-			if err := pkgexec.RunIO(io, args[1:]...); err != nil {
+			if err := pkgexec.RunIO(io, response.Transform.Cmd...); err != nil {
 				errorAndExit(err.Error())
 			}
 			if _, err := ppsAPIClient.FinishJob(

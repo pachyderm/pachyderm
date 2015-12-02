@@ -112,9 +112,10 @@ message StartJobRequest {
 }
 
 message StartJobResponse {
-    repeated pfs.Commit input_commit = 1;
-    pfs.Commit output_commit = 2;
-    pfs.Shard shard = 3;
+    Transform transform = 1;
+    repeated pfs.Commit input_commit = 2;
+    pfs.Commit output_commit = 3;
+    pfs.Shard shard = 4;
 }
 
 message FinishJobRequest {

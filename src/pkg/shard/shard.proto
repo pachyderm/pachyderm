@@ -1,7 +1,5 @@
 syntax = "proto3";
 
-import "go.pedge.io/protolog/protolog.proto";
-
 package shard;
 
 message ServerState {
@@ -33,77 +31,63 @@ message Addresses {
 }
 
 message StartRegister {
-  option (protolog.event) = true;
   string address = 1;
 }
 
 message FinishRegister {
-  option (protolog.event) = true;
   string address = 1;
   string error = 2;
 }
 
 message Version {
-  option (protolog.event) = true;
   int64 result = 1;
   string error = 2;
 }
 
 message StartAssignRoles {
-  option (protolog.event) = true;
 }
 
 message FinishAssignRoles {
-  option (protolog.event) = true;
   string error = 1;
 }
 
 message FailedToAssignRoles {
-  option (protolog.event) = true;
   map<string, ServerState> server_states = 1;
   uint64 num_shards = 2;
   uint64 num_replicas = 3;
 }
 
 message SetServerState {
-  option (protolog.event) = true;
   ServerState serverState = 1;
 }
 
 message SetFrontendState {
-  option (protolog.event) = true;
   FrontendState frontendState = 1;
 }
 
 message AddServerRole {
-  option (protolog.event) = true;
   ServerRole serverRole = 1;
   string error = 2;
 }
 
 message RemoveServerRole {
-  option (protolog.event) = true;
   ServerRole serverRole = 1;
   string error = 2;
 }
 
 message SetServerRole {
-  option (protolog.event) = true;
   ServerRole serverRole = 2;
 }
 
 message DeleteServerRole {
-  option (protolog.event) = true;
   ServerRole serverRole = 2;
 }
 
 message SetAddresses {
-  option (protolog.event) = true;
   Addresses addresses = 1;
 }
 
 message GetMasterAddress {
-  option (protolog.event) = true;
   uint64 shard = 1;
   int64 version = 2; 
   string result = 3;
@@ -112,7 +96,6 @@ message GetMasterAddress {
 }
 
 message GetReplicaAddresses {
-  option (protolog.event) = true;
   uint64 shard = 1;
   int64 version = 2; 
   map<string, bool> result = 3;
@@ -120,19 +103,16 @@ message GetReplicaAddresses {
 }
 
 message GetShardToMasterAddress {
-  option (protolog.event) = true;
   int64 version = 1; 
   map<uint64, string> result = 2;
   string error = 3;
 }
 
 message ReplicaAddresses {
-  option (protolog.event) = true;
   map<string, bool> addresses = 1;
 }
 
 message GetShardToReplicaAddresses {
-  option (protolog.event) = true;
   int64 version = 1;
   map<uint64, ReplicaAddresses>  result = 2;
   string error = 3;
