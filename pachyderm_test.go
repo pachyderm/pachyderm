@@ -1,11 +1,14 @@
 package pachyderm
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path"
 	"strings"
 	"testing"
+
+	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
@@ -37,9 +40,25 @@ func TestSimple(t *testing.T) {
 		&pfs.Commit{Repo: &pfs.Repo{Name: outRepo}},
 	)
 	require.NoError(t, err)
+	listCommitRequest := &pfs.ListCommitRequest{
+		Repo:       &pfs.Repo{Name: outRepo},
+		CommitType: pfs.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err := pfsClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+	var buffer bytes.Buffer
+	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
+	require.Equal(t, "foo", buffer.String())
 }
 
 func TestGrep(t *testing.T) {
+	t.Skip()
 	dataRepo := newRepo("pachyderm.TestWordCount.data")
 	outRepo := newRepo("pachyderm.TestWordCount.output")
 	pfsClient := getPfsClient(t)

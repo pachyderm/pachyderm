@@ -110,7 +110,8 @@ launch: install docker-build launch-kube
 clean-launch:
 	docker kill $$(docker ps -q)
 
-run-integration-test: docker-build-test docker-build-job-shim
+run-integration-test: docker-build-test
+	kubectl delete --ignore-not-found -f etc/kube/test-pod.yml
 	kubectl create -f etc/kube/test-pod.yml
 
 integration-test: launch run-integration-test
