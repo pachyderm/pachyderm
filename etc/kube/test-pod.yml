@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pachyderm-test
+spec:
+  containers:
+  - name: pachyderm-test
+    image: pachyderm_test
+    command: ["go",  "test", "."]
+  restartPolicy: Never
