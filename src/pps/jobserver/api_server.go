@@ -270,7 +270,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 							},
 						},
 					},
-					RestartPolicy: "Never",
+					RestartPolicy: "OnFailure",
 				},
 			},
 		},
