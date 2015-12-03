@@ -808,6 +808,7 @@ func (a *internalAPIServer) getVersion(ctx context.Context) (int64, error) {
 
 // commitWait contains the values that describe which commits you're waiting for
 type commitWait struct {
+	//TODO don't use repo here, it's technically fine but using protobufs as map keys is fraught with peril
 	repo       pfs.Repo
 	commitType pfs.CommitType
 }
