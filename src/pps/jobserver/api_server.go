@@ -235,6 +235,10 @@ func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo 
 func job(jobInfo *persist.JobInfo) *extensions.Job {
 	app := jobInfo.JobId
 	shards := int(jobInfo.Shards)
+	image := "pachyderm/job-shim"
+	if jobInfo.GetTransform().Image != "" {
+		image = jobInfo.GetTransform().Image
+	}
 	return &extensions.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
@@ -259,7 +263,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 					Containers: []api.Container{
 						{
 							Name:    "user",
-							Image:   "pachyderm/job-shim",
+							Image:   image,
 							Command: []string{"/job-shim", jobInfo.JobId},
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
