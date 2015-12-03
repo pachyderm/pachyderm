@@ -299,6 +299,8 @@ func (a *internalAPIServer) ListBlock(ctx context.Context, request *pfs.ListBloc
 }
 
 func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer) (retErr error) {
+	var request *pfs.PutFileRequest
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(putFileServer.Context())
 	if err != nil {
 		return err
@@ -308,7 +310,7 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 			retErr = err
 		}
 	}()
-	request, err := putFileServer.Recv()
+	request, err = putFileServer.Recv()
 	if err != nil {
 		return err
 	}
