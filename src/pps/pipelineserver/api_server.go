@@ -59,6 +59,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
+		Shards:       request.Shards,
 		InputRepo:    request.InputRepo,
 		OutputRepo:   request.OutputRepo,
 	}
@@ -114,6 +115,7 @@ func persistPipelineInfoToPipelineInfo(persistPipelineInfo *persist.PipelineInfo
 			Name: persistPipelineInfo.PipelineName,
 		},
 		Transform:  persistPipelineInfo.Transform,
+		Shards:     persistPipelineInfo.Shards,
 		InputRepo:  persistPipelineInfo.InputRepo,
 		OutputRepo: persistPipelineInfo.OutputRepo,
 	}
@@ -166,9 +168,8 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 				_, err = a.jobAPIClient.CreateJob(
 					ctx,
 					&pps.CreateJobRequest{
-						Spec: &pps.CreateJobRequest_Pipeline{
-							Pipeline: pipelineInfo.Pipeline,
-						},
+						Transform:    pipelineInfo.Transform,
+						Shards:       pipelineInfo.Shards,
 						InputCommit:  []*pfs.Commit{commitInfo.Commit},
 						OutputParent: outParentCommit,
 					},

@@ -72,7 +72,7 @@ func TestPipeline(t *testing.T) {
 		"",
 		[]string{"cp", "-r", path.Join("/pfs", dataRepo), path.Join("/pfs", outRepo)},
 		1,
-		[]*pfs.Repo{&pfs.Repo{Name: outRepo}},
+		[]*pfs.Repo{&pfs.Repo{Name: dataRepo}},
 		&pfs.Repo{Name: outRepo},
 	))
 	// Do first commit to repo

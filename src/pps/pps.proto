@@ -26,13 +26,10 @@ message Job {
 // TODO: add created at?
 message JobInfo {
   Job job = 1;
-  oneof spec {
-    Transform transform = 2;
-    Pipeline pipeline = 3;
-  }
-  uint64 shards = 4;
-  repeated pfs.Commit input_commit = 5;
-  pfs.Commit output_commit = 6;
+  Transform transform = 2;
+  uint64 shards = 3;
+  repeated pfs.Commit input_commit = 4;
+  pfs.Commit output_commit = 5;
 }
 
 message JobInfos {
@@ -57,10 +54,7 @@ message PipelineInfos {
 }
 
 message CreateJobRequest {
-  oneof spec {
-    Transform transform = 1;
-    Pipeline pipeline = 2;
-  }
+  Transform transform = 1;
   uint64 shards = 3;
   repeated pfs.Commit input_commit = 4;
   pfs.Commit output_parent = 5;

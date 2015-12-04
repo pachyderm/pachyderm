@@ -58,21 +58,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	if request.OutputParent == nil {
 		return nil, fmt.Errorf("pachyderm.pps.jobserver: request.OutputParent cannot be nil")
 	}
+	if request.Shards == 0 {
+		return nil, fmt.Errorf("pachyderm.pps.jobserver: request.Shards cannot be 0")
+	}
 	persistJobInfo := &persist.JobInfo{
 		Shards:       request.Shards,
+		Transform:    request.Transform,
 		InputCommit:  request.InputCommit,
 		OutputParent: request.OutputParent,
-	}
-	if request.GetTransform() != nil {
-		persistJobInfo.Spec = &persist.JobInfo_Transform{
-			Transform: request.GetTransform(),
-		}
-	} else if request.GetPipeline() != nil {
-		persistJobInfo.Spec = &persist.JobInfo_PipelineName{
-			PipelineName: request.GetPipeline().Name,
-		}
-	} else {
-		return nil, fmt.Errorf("pachyderm.pps.jobserver: both transform and pipeline are not set on %v", request)
 	}
 	persistJobInfo.JobId = uuid.NewWithoutDashes()
 	persistJobInfo.CreatedAt = prototime.TimeToTimestamp(time.Now())
@@ -207,26 +200,12 @@ func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo 
 	job := &pps.Job{Id: persistJobInfo.JobId}
 	jobInfo := &pps.JobInfo{
 		Job:         job,
+		Transform:   persistJobInfo.Transform,
 		Shards:      persistJobInfo.Shards,
 		InputCommit: persistJobInfo.InputCommit,
 	}
-	if persistJobInfo.GetTransform() != nil {
-		jobInfo.Spec = &pps.JobInfo_Transform{
-			Transform: persistJobInfo.GetTransform(),
-		}
-	}
-	if persistJobInfo.GetPipelineName() != "" {
-		jobInfo.Spec = &pps.JobInfo_Pipeline{
-			Pipeline: &pps.Pipeline{
-				Name: persistJobInfo.GetPipelineName(),
-			},
-		}
-	}
 	persistJobOutput, err := a.persistAPIClient.GetJobOutput(ctx, job)
-	if err != nil {
-		return nil, err
-	}
-	if persistJobOutput != nil {
+	if err == nil && persistJobOutput != nil {
 		jobInfo.OutputCommit = persistJobOutput.OutputCommit
 	}
 	return jobInfo, nil

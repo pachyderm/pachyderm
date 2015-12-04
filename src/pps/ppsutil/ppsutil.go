@@ -22,11 +22,9 @@ func CreateJob(
 	return client.CreateJob(
 		context.Background(),
 		&pps.CreateJobRequest{
-			Spec: &pps.CreateJobRequest_Transform{
-				Transform: &pps.Transform{
-					Image: image,
-					Cmd:   cmd,
-				},
+			Transform: &pps.Transform{
+				Image: image,
+				Cmd:   cmd,
 			},
 			Shards:       shards,
 			InputCommit:  inputCommit,

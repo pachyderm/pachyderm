@@ -36,11 +36,8 @@ var _ = fmt.Errorf
 var _ = math.Inf
 
 type JobInfo struct {
-	JobId string `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
-	// Types that are valid to be assigned to Spec:
-	//	*JobInfo_Transform
-	//	*JobInfo_PipelineName
-	Spec         isJobInfo_Spec              `protobuf_oneof:"spec"`
+	JobId        string                      `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
+	Transform    *pachyderm_pps.Transform    `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
 	Shards       uint64                      `protobuf:"varint,4,opt,name=shards" json:"shards,omitempty"`
 	InputCommit  []*pfs.Commit               `protobuf:"bytes,5,rep,name=input_commit" json:"input_commit,omitempty"`
 	OutputParent *pfs.Commit                 `protobuf:"bytes,6,opt,name=output_parent" json:"output_parent,omitempty"`
@@ -51,39 +48,11 @@ func (m *JobInfo) Reset()         { *m = JobInfo{} }
 func (m *JobInfo) String() string { return proto.CompactTextString(m) }
 func (*JobInfo) ProtoMessage()    {}
 
-type isJobInfo_Spec interface {
-	isJobInfo_Spec()
-}
-
-type JobInfo_Transform struct {
-	Transform *pachyderm_pps.Transform `protobuf:"bytes,2,opt,name=transform,oneof"`
-}
-type JobInfo_PipelineName struct {
-	PipelineName string `protobuf:"bytes,3,opt,name=pipeline_name,oneof"`
-}
-
-func (*JobInfo_Transform) isJobInfo_Spec()    {}
-func (*JobInfo_PipelineName) isJobInfo_Spec() {}
-
-func (m *JobInfo) GetSpec() isJobInfo_Spec {
-	if m != nil {
-		return m.Spec
-	}
-	return nil
-}
-
 func (m *JobInfo) GetTransform() *pachyderm_pps.Transform {
-	if x, ok := m.GetSpec().(*JobInfo_Transform); ok {
-		return x.Transform
+	if m != nil {
+		return m.Transform
 	}
 	return nil
-}
-
-func (m *JobInfo) GetPipelineName() string {
-	if x, ok := m.GetSpec().(*JobInfo_PipelineName); ok {
-		return x.PipelineName
-	}
-	return ""
 }
 
 func (m *JobInfo) GetInputCommit() []*pfs.Commit {
@@ -105,56 +74,6 @@ func (m *JobInfo) GetCreatedAt() *google_protobuf1.Timestamp {
 		return m.CreatedAt
 	}
 	return nil
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*JobInfo) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
-	return _JobInfo_OneofMarshaler, _JobInfo_OneofUnmarshaler, []interface{}{
-		(*JobInfo_Transform)(nil),
-		(*JobInfo_PipelineName)(nil),
-	}
-}
-
-func _JobInfo_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*JobInfo)
-	// spec
-	switch x := m.Spec.(type) {
-	case *JobInfo_Transform:
-		b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Transform); err != nil {
-			return err
-		}
-	case *JobInfo_PipelineName:
-		b.EncodeVarint(3<<3 | proto.WireBytes)
-		b.EncodeStringBytes(x.PipelineName)
-	case nil:
-	default:
-		return fmt.Errorf("JobInfo.Spec has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _JobInfo_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*JobInfo)
-	switch tag {
-	case 2: // spec.transform
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pachyderm_pps.Transform)
-		err := b.DecodeMessage(msg)
-		m.Spec = &JobInfo_Transform{msg}
-		return true, err
-	case 3: // spec.pipeline_name
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		x, err := b.DecodeStringBytes()
-		m.Spec = &JobInfo_PipelineName{x}
-		return true, err
-	default:
-		return false, nil
-	}
 }
 
 type JobInfos struct {
