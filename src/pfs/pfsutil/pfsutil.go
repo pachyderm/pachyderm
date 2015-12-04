@@ -7,6 +7,7 @@ package pfsutil
 import (
 	"io"
 	"io/ioutil"
+	"math"
 
 	"go.pedge.io/proto/stream"
 
@@ -263,6 +264,9 @@ func PutFile(apiClient pfs.APIClient, repoName string, commitID string, path str
 }
 
 func GetFile(apiClient pfs.APIClient, repoName string, commitID string, path string, offset int64, size int64, shard *pfs.Shard, writer io.Writer) error {
+	if size == 0 {
+		size = math.MaxInt64
+	}
 	apiGetFileClient, err := apiClient.GetFile(
 		context.Background(),
 		&pfs.GetFileRequest{

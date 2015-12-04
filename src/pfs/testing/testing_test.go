@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -464,7 +463,7 @@ func checkWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commit
 				commitID,
 				fmt.Sprintf("a/b/file%d", i),
 				0,
-				math.MaxInt64,
+				0,
 				&pfs.Shard{Number: 0, Modulus: 1},
 				buffer,
 			)
@@ -478,7 +477,7 @@ func checkWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commit
 				commitID,
 				fmt.Sprintf("a/c/file%d", i),
 				0,
-				math.MaxInt64,
+				0,
 				&pfs.Shard{Number: 0, Modulus: 1},
 				buffer,
 			)
@@ -506,7 +505,7 @@ func checkBlockWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, c
 			// buffer = bytes.NewBuffer(nil)
 			// require.Equal(tb, fmt.Sprintf("hello%d", i), buffer.String())
 			// iErr = pfsutil.GetFile(apiClient, repoName, commitID,
-			// 	fmt.Sprintf("a/d/file%d", i), 0, math.MaxInt64, buffer)
+			// 	fmt.Sprintf("a/d/file%d", i), 0, 0, buffer)
 			// require.NoError(tb, iErr)
 			// require.Equal(tb, fmt.Sprintf("hello%d", i), buffer.String())
 		}()
