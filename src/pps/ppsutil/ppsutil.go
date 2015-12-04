@@ -12,14 +12,14 @@ import (
 )
 
 func CreateJob(
-	c pps.APIClient,
+	client pps.APIClient,
 	image string,
 	cmd []string,
 	shards uint64,
 	inputCommit []*pfs.Commit,
 	outputParent *pfs.Commit,
 ) (*pps.Job, error) {
-	return c.CreateJob(
+	return client.CreateJob(
 		context.Background(),
 		&pps.CreateJobRequest{
 			Spec: &pps.CreateJobRequest_Transform{
@@ -33,4 +33,31 @@ func CreateJob(
 			OutputParent: outputParent,
 		},
 	)
+}
+
+func CreatePipeline(
+	client pps.APIClient,
+	name string,
+	image string,
+	cmd []string,
+	shards uint64,
+	inputRepo []*pfs.Repo,
+	outputRepo *pfs.Repo,
+) error {
+	_, err := client.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{
+				Name: name,
+			},
+			Transform: &pps.Transform{
+				Image: image,
+				Cmd:   cmd,
+			},
+			Shards:     shards,
+			InputRepo:  inputRepo,
+			OutputRepo: outputRepo,
+		},
+	)
+	return err
 }

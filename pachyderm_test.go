@@ -19,9 +19,9 @@ import (
 	"google.golang.org/grpc"
 )
 
-func TestSimple(t *testing.T) {
-	dataRepo := newRepo("pachderm.TestSimple.data")
-	outRepo := newRepo("pachderm.TestSimple.output")
+func TestJob(t *testing.T) {
+	dataRepo := uniqueString("pachderm.TestJob.data")
+	outRepo := uniqueString("pachderm.TestJob.output")
 	pfsClient := getPfsClient(t)
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, outRepo))
@@ -57,10 +57,73 @@ func TestSimple(t *testing.T) {
 	require.Equal(t, "foo", buffer.String())
 }
 
+func TestPipeline(t *testing.T) {
+	pfsClient := getPfsClient(t)
+	ppsClient := getPpsClient(t)
+	// create repos
+	dataRepo := uniqueString("pachderm.TestPipeline.data")
+	outRepo := uniqueString("pachderm.TestPipeline.output")
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, outRepo))
+	// create pipeline
+	require.NoError(t, ppsutil.CreatePipeline(
+		ppsClient,
+		uniqueString("pipeline"),
+		"",
+		[]string{"cp", "-r", path.Join("/pfs", dataRepo), path.Join("/pfs", outRepo)},
+		1,
+		[]*pfs.Repo{&pfs.Repo{Name: outRepo}},
+		&pfs.Repo{Name: outRepo},
+	))
+	// Do first commit to repo
+	commit1, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
+	require.NoError(t, err)
+	_, err = pfsutil.PutFile(pfsClient, dataRepo, commit1.Id, "file1", 0, strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, pfsutil.FinishCommit(pfsClient, dataRepo, commit1.Id))
+	listCommitRequest := &pfs.ListCommitRequest{
+		Repo:       &pfs.Repo{Name: outRepo},
+		CommitType: pfs.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err := pfsClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+	var buffer bytes.Buffer
+	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file1", 0, 0, nil, &buffer))
+	require.Equal(t, "foo", buffer.String())
+	// Do second commit to repo
+	commit2, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
+	require.NoError(t, err)
+	_, err = pfsutil.PutFile(pfsClient, dataRepo, commit2.Id, "file2", 0, strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, pfsutil.FinishCommit(pfsClient, dataRepo, commit2.Id))
+	listCommitRequest = &pfs.ListCommitRequest{
+		Repo:       &pfs.Repo{Name: outRepo},
+		From:       commit1,
+		CommitType: pfs.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err = pfsClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits = listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+	buffer = bytes.Buffer{}
+	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file2", 0, 0, nil, &buffer))
+	require.Equal(t, "bar", buffer.String())
+}
+
 func TestGrep(t *testing.T) {
 	t.Skip()
-	dataRepo := newRepo("pachyderm.TestWordCount.data")
-	outRepo := newRepo("pachyderm.TestWordCount.output")
+	dataRepo := uniqueString("pachyderm.TestWordCount.data")
+	outRepo := uniqueString("pachyderm.TestWordCount.output")
 	pfsClient := getPfsClient(t)
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, outRepo))
@@ -103,6 +166,6 @@ func getPpsClient(t *testing.T) pps.APIClient {
 	return pps.NewAPIClient(clientConn)
 }
 
-func newRepo(prefix string) string {
+func uniqueString(prefix string) string {
 	return prefix + "." + uuid.NewWithoutDashes()
 }
