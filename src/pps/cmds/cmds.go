@@ -33,11 +33,9 @@ You can find out the name of the commit with inspect-job.`,
 			job, err := apiClient.CreateJob(
 				context.Background(),
 				&pps.CreateJobRequest{
-					Spec: &pps.CreateJobRequest_Transform{
-						Transform: &pps.Transform{
-							Image: image,
-							Cmd:   args[3:],
-						},
+					Transform: &pps.Transform{
+						Image: image,
+						Cmd:   args[3:],
 					},
 					Shards: uint64(shards),
 					InputCommit: []*pfs.Commit{

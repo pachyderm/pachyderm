@@ -13,7 +13,7 @@ import (
 )
 
 func PrintJobHeader(w io.Writer) {
-	fmt.Fprint(w, "ID\tINPUT\tOUTPUT\tPIPELINE\tIMAGE\tCOMMAND\t\n")
+	fmt.Fprint(w, "ID\tINPUT\tOUTPUT\tIMAGE\tCOMMAND\t\n")
 }
 
 func PrintJobInfo(w io.Writer, jobInfo *pps.JobInfo) {
@@ -32,17 +32,8 @@ func PrintJobInfo(w io.Writer, jobInfo *pps.JobInfo) {
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}
-	if jobInfo.GetPipeline() != nil {
-		fmt.Fprintf(w, "%s\t", jobInfo.GetPipeline().Name)
-	} else {
-		fmt.Fprintf(w, "-\t")
-	}
-	if jobInfo.GetTransform() != nil {
-		fmt.Fprintf(w, "%s\t", jobInfo.GetTransform().Image)
-		fmt.Fprintf(w, "%s\t\n", strings.Join(jobInfo.GetTransform().Cmd, " "))
-	} else {
-		fmt.Fprintf(w, "-\t\n")
-	}
+	fmt.Fprintf(w, "%s\t", jobInfo.Transform.Image)
+	fmt.Fprintf(w, "%s\t\n", strings.Join(jobInfo.Transform.Cmd, " "))
 }
 
 func PrintPipelineHeader(w io.Writer) {
