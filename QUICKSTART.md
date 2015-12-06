@@ -87,8 +87,8 @@ data output
 ```
 
 ### Creating a `Commit`
-Now that you've created a `Repo` you should see an empty directory `/pfs/foo` if
-you try writing to it, it will fail:
+Now that you've created a `Repo` you should see 2 empty directories `/pfs/data`
+and `/pfs/output` if you try writing to it, it will fail:
 
 ```shell
 $ echo data >/pfs/data/file
@@ -99,7 +99,7 @@ That's because you can't write directly to `Repos`, you have to create a
 `Commit` to write to instead:
 
 ```shell
-$ pachctl start-commit foo
+$ pachctl start-commit data
 6a7ddaf3704b4cb6ae4ec73522efe05f
 ```
 
@@ -107,21 +107,21 @@ this returns a brand new commit id, yours should be different from mine.
 Now if we take a look back at `/pfs` things have changed:
 
 ```shell
-$ ls /pfs/foo
+$ ls /pfs/data
 6a7ddaf3704b4cb6ae4ec73522efe05f
 ```
 
 a new directory has been created for our commit. This we can write to:
 
 ```shell
-$ echo foo >/pfs/foo/6a7ddaf3704b4cb6ae4ec73522efe05f/file
+$ echo foo >/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/file
 ```
 
 However if you try to view the file you'll notice you can't:
 
 ```shell
-$ cat /pfs/foo/6a7ddaf3704b4cb6ae4ec73522efe05f/file
-cat: /pfs/foo/6a7ddaf3704b4cb6ae4ec73522efe05f/file: No such file or directory
+$ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/file
+cat: /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/file: No such file or directory
 ```
 
 Pachyderm won't let you read data from a commit until the commit is finished.
@@ -129,13 +129,13 @@ This prevents reads from racing with other writes and makes every write to the
 filesystem atomic. Let's finish the commit:
 
 ```shell
-$ pachctl finish-commit foo 6a7ddaf3704b4cb6ae4ec73522efe05f
+$ pachctl finish-commit data 6a7ddaf3704b4cb6ae4ec73522efe05f
 ```
 
 Now we can view the files:
 
 ```shell
-$ cat /pfs/foo/6a7ddaf3704b4cb6ae4ec73522efe05f/file
+$ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/file
 foo
 ```
 
