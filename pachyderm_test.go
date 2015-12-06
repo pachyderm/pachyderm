@@ -71,7 +71,7 @@ func TestPipeline(t *testing.T) {
 		ppsClient,
 		uniqueString("pipeline"),
 		"",
-		[]string{"cp", "-r", path.Join("/pfs", dataRepo), path.Join("/pfs", outRepo)},
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), path.Join("/pfs", outRepo, "file")},
 		1,
 		[]*pfs.Repo{&pfs.Repo{Name: dataRepo}},
 		&pfs.Repo{Name: outRepo},
@@ -79,7 +79,7 @@ func TestPipeline(t *testing.T) {
 	// Do first commit to repo
 	commit1, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pfsClient, dataRepo, commit1.Id, "file1", 0, strings.NewReader("foo"))
+	_, err = pfsutil.PutFile(pfsClient, dataRepo, commit1.Id, "file", 0, strings.NewReader("foo"))
 	require.NoError(t, err)
 	require.NoError(t, pfsutil.FinishCommit(pfsClient, dataRepo, commit1.Id))
 	listCommitRequest := &pfs.ListCommitRequest{
@@ -95,12 +95,12 @@ func TestPipeline(t *testing.T) {
 	outCommits := listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	var buffer bytes.Buffer
-	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file1", 0, 0, nil, &buffer))
+	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foo", buffer.String())
 	// Do second commit to repo
 	commit2, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pfsClient, dataRepo, commit2.Id, "file2", 0, strings.NewReader("bar"))
+	_, err = pfsutil.PutFile(pfsClient, dataRepo, commit2.Id, "file", 0, strings.NewReader("bar"))
 	require.NoError(t, err)
 	require.NoError(t, pfsutil.FinishCommit(pfsClient, dataRepo, commit2.Id))
 	listCommitRequest = &pfs.ListCommitRequest{
@@ -117,7 +117,7 @@ func TestPipeline(t *testing.T) {
 	outCommits = listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	buffer = bytes.Buffer{}
-	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file2", 0, 0, nil, &buffer))
+	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "bar", buffer.String())
 }
 
