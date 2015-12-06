@@ -20,8 +20,9 @@ import (
 )
 
 func TestJob(t *testing.T) {
-	dataRepo := uniqueString("pachderm.TestJob.data")
-	outRepo := uniqueString("pachderm.TestJob.output")
+	t.Skip()
+	dataRepo := uniqueString("TestJob.data")
+	outRepo := uniqueString("TestJob.output")
 	pfsClient := getPfsClient(t)
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, outRepo))
@@ -61,8 +62,8 @@ func TestPipeline(t *testing.T) {
 	pfsClient := getPfsClient(t)
 	ppsClient := getPpsClient(t)
 	// create repos
-	dataRepo := uniqueString("pachderm.TestPipeline.data")
-	outRepo := uniqueString("pachderm.TestPipeline.output")
+	dataRepo := uniqueString("TestPipeline.data")
+	outRepo := uniqueString("TestPipeline.output")
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, outRepo))
 	// create pipeline

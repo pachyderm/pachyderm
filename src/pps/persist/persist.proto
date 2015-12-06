@@ -12,6 +12,7 @@ option go_package = "persist";
 message JobInfo {
   string job_id = 1;
   pps.Transform transform = 2;
+  string pipeline_name = 3;
   uint64 shards = 4;
   repeated pfs.Commit input_commit = 5;
   pfs.Commit output_parent = 6;

@@ -92,9 +92,10 @@ func (*Job) ProtoMessage()    {}
 type JobInfo struct {
 	Job          *Job          `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
 	Transform    *Transform    `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Shards       uint64        `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
-	InputCommit  []*pfs.Commit `protobuf:"bytes,4,rep,name=input_commit" json:"input_commit,omitempty"`
-	OutputCommit *pfs.Commit   `protobuf:"bytes,5,opt,name=output_commit" json:"output_commit,omitempty"`
+	Pipeline     *Pipeline     `protobuf:"bytes,3,opt,name=pipeline" json:"pipeline,omitempty"`
+	Shards       uint64        `protobuf:"varint,4,opt,name=shards" json:"shards,omitempty"`
+	InputCommit  []*pfs.Commit `protobuf:"bytes,5,rep,name=input_commit" json:"input_commit,omitempty"`
+	OutputCommit *pfs.Commit   `protobuf:"bytes,6,opt,name=output_commit" json:"output_commit,omitempty"`
 }
 
 func (m *JobInfo) Reset()         { *m = JobInfo{} }
@@ -111,6 +112,13 @@ func (m *JobInfo) GetJob() *Job {
 func (m *JobInfo) GetTransform() *Transform {
 	if m != nil {
 		return m.Transform
+	}
+	return nil
+}
+
+func (m *JobInfo) GetPipeline() *Pipeline {
+	if m != nil {
+		return m.Pipeline
 	}
 	return nil
 }
@@ -210,6 +218,7 @@ func (m *PipelineInfos) GetPipelineInfo() []*PipelineInfo {
 
 type CreateJobRequest struct {
 	Transform    *Transform    `protobuf:"bytes,1,opt,name=transform" json:"transform,omitempty"`
+	Pipeline     *Pipeline     `protobuf:"bytes,2,opt,name=pipeline" json:"pipeline,omitempty"`
 	Shards       uint64        `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
 	InputCommit  []*pfs.Commit `protobuf:"bytes,4,rep,name=input_commit" json:"input_commit,omitempty"`
 	OutputParent *pfs.Commit   `protobuf:"bytes,5,opt,name=output_parent" json:"output_parent,omitempty"`
@@ -222,6 +231,13 @@ func (*CreateJobRequest) ProtoMessage()    {}
 func (m *CreateJobRequest) GetTransform() *Transform {
 	if m != nil {
 		return m.Transform
+	}
+	return nil
+}
+
+func (m *CreateJobRequest) GetPipeline() *Pipeline {
+	if m != nil {
+		return m.Pipeline
 	}
 	return nil
 }

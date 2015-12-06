@@ -130,8 +130,8 @@ func InitDBs(address string, databaseName string) error {
 		func(row gorethink.Term) interface{} {
 			return []interface{}{
 				row.Field("pipeline_name"),
-				row.Field("input").Field("repo").Field("name"),
-				row.Field("input").Field("id"),
+				row.Field("input_commit").Field("repo").Field("name"),
+				row.Field("input_commit").Field("id"),
 			}
 		}).RunWrite(session); err != nil {
 		return err
@@ -140,8 +140,8 @@ func InitDBs(address string, databaseName string) error {
 		inputIndex,
 		func(row gorethink.Term) interface{} {
 			return []interface{}{
-				row.Field("input").Field("repo").Field("name"),
-				row.Field("input").Field("id"),
+				row.Field("input_commit").Field("repo").Field("name"),
+				row.Field("input_commit").Field("id"),
 			}
 		}).RunWrite(session); err != nil {
 		return err

@@ -64,6 +64,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	persistJobInfo := &persist.JobInfo{
 		Shards:       request.Shards,
 		Transform:    request.Transform,
+		PipelineName: request.Pipeline.Name,
 		InputCommit:  request.InputCommit,
 		OutputParent: request.OutputParent,
 	}
@@ -201,6 +202,7 @@ func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo 
 	jobInfo := &pps.JobInfo{
 		Job:         job,
 		Transform:   persistJobInfo.Transform,
+		Pipeline:    &pps.Pipeline{Name: persistJobInfo.PipelineName},
 		Shards:      persistJobInfo.Shards,
 		InputCommit: persistJobInfo.InputCommit,
 	}
