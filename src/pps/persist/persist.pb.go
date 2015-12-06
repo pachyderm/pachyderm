@@ -38,6 +38,7 @@ var _ = math.Inf
 type JobInfo struct {
 	JobId        string                      `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
 	Transform    *pachyderm_pps.Transform    `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	PipelineName string                      `protobuf:"bytes,3,opt,name=pipeline_name" json:"pipeline_name,omitempty"`
 	Shards       uint64                      `protobuf:"varint,4,opt,name=shards" json:"shards,omitempty"`
 	InputCommit  []*pfs.Commit               `protobuf:"bytes,5,rep,name=input_commit" json:"input_commit,omitempty"`
 	OutputParent *pfs.Commit                 `protobuf:"bytes,6,opt,name=output_parent" json:"output_parent,omitempty"`

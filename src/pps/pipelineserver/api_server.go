@@ -158,6 +158,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 				lock.Unlock()
 				if len(commits) < len(pipelineInfo.InputRepo) {
 					// we don't yet have a commit for every input repo so there's no way to run the job
+					// TODO is this actually the right policy? maybe we should run with empty commits
 					continue
 				}
 				outParentCommit, err := a.bestParent(pipelineInfo, commitInfo)
@@ -165,10 +166,12 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 					loopErr = err
 					return
 				}
+				protolog.Printf("running job: mostRecentCommit: %+v, outParentCommit: %+v", mostRecentCommit, outParentCommit)
 				_, err = a.jobAPIClient.CreateJob(
 					ctx,
 					&pps.CreateJobRequest{
 						Transform:    pipelineInfo.Transform,
+						Pipeline:     pipelineInfo.Pipeline,
 						Shards:       pipelineInfo.Shards,
 						InputCommit:  []*pfs.Commit{commitInfo.Commit},
 						OutputParent: outParentCommit,
@@ -205,8 +208,8 @@ func (a *apiServer) bestParent(pipelineInfo *pps.PipelineInfo, inputCommitInfo *
 				}
 			}
 		}
-		if inputCommitInfo.ParentCommit.Id == "" {
-			return inputCommitInfo.ParentCommit, nil
+		if inputCommitInfo.ParentCommit == nil {
+			return &pfs.Commit{Repo: pipelineInfo.OutputRepo}, nil
 		}
 		inputCommitInfo, err = a.pfsAPIClient.InspectCommit(context.TODO(), &pfs.InspectCommitRequest{Commit: inputCommitInfo.ParentCommit})
 		if err != nil {

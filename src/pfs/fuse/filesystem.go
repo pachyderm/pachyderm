@@ -10,12 +10,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.pedge.io/protolog"
-
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
+	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 )
 
@@ -101,6 +100,10 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 		return d.readRepos(ctx)
 	}
 	if d.File.Commit.Id == "" {
+		if commit, _ := d.fs.whitelisted(d.File.Commit.Repo.Name); commit != "" {
+			d.File.Commit.Id = commit
+			return d.readFiles(ctx)
+		}
 		return d.readCommits(ctx)
 	}
 	return d.readFiles(ctx)
@@ -245,36 +248,21 @@ func (d *directory) copy() *directory {
 	}
 }
 
-func (f *filesystem) repoWhitelisted(name string) bool {
+func (f *filesystem) whitelisted(name string) (commit string, ok bool) {
 	if len(f.Commits) == 0 {
-		return true
+		return "", true
 	}
-	found := false
 	for _, commit := range f.Commits {
 		if commit.Repo.Name == name {
-			found = true
-			break
+			return commit.Id, true
 		}
 	}
-	return found
-}
-
-func (d *directory) commitWhitelisted(name string) bool {
-	if len(d.fs.Commits) == 0 {
-		return true
-	}
-	found := false
-	for _, commit := range d.fs.Commits {
-		if commit.Repo.Name == d.File.Commit.Repo.Name {
-			found = true
-			break
-		}
-	}
-	return found
+	return "", false
 }
 
 func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error) {
-	if !d.fs.repoWhitelisted(name) {
+	commit, ok := d.fs.whitelisted(name)
+	if !ok {
 		return nil, fuse.EPERM
 	}
 	repoInfo, err := pfsutil.InspectRepo(d.fs.apiClient, name)
@@ -286,21 +274,11 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 	}
 	result := d.copy()
 	result.File.Commit.Repo.Name = name
-	if d.fs.Commits != nil {
-		for _, commit := range d.fs.Commits {
-			if commit.Repo.Name == name {
-				return result.lookUpCommit(ctx, commit.Id)
-			}
-		}
-		return nil, fmt.Errorf("unreachable")
-	}
+	result.File.Commit.Id = commit
 	return result, nil
 }
 
 func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, error) {
-	if !d.commitWhitelisted(name) {
-		return nil, fuse.EPERM
-	}
 	commitInfo, err := pfsutil.InspectCommit(
 		d.fs.apiClient,
 		d.File.Commit.Repo.Name,
@@ -360,7 +338,8 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 	}
 	var result []fuse.Dirent
 	for _, repoInfo := range repoInfos {
-		if d.fs.repoWhitelisted(repoInfo.Repo.Name) {
+		_, ok := d.fs.whitelisted(repoInfo.Repo.Name)
+		if ok {
 			result = append(result, fuse.Dirent{Name: repoInfo.Repo.Name, Type: fuse.DT_Dir})
 		}
 	}
@@ -372,11 +351,9 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 	if err != nil {
 		return nil, err
 	}
-	result := make([]fuse.Dirent, 0, len(commitInfos))
+	var result []fuse.Dirent
 	for _, commitInfo := range commitInfos {
-		if d.commitWhitelisted(commitInfo.Commit.Id) {
-			result = append(result, fuse.Dirent{Name: commitInfo.Commit.Id, Type: fuse.DT_Dir})
-		}
+		result = append(result, fuse.Dirent{Name: commitInfo.Commit.Id, Type: fuse.DT_Dir})
 	}
 	return result, nil
 }
