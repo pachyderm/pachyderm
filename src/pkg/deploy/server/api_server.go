@@ -542,5 +542,6 @@ func labels(app string) map[string]string {
 	return map[string]string{
 		"app":   app,
 		"suite": suite,
+		"kubernetes.io/cluster-service": "true",
 	}
 }
