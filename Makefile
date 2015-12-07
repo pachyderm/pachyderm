@@ -104,7 +104,7 @@ run: docker-build-test
 launch-kube:
 	etc/kube/start-kube-docker.sh
 
-launch: install docker-build launch-kube
+launch: install launch-kube
 	pachctl create-cluster
 
 clean-launch:
