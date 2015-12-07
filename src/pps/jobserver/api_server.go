@@ -64,9 +64,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	persistJobInfo := &persist.JobInfo{
 		Shards:       request.Shards,
 		Transform:    request.Transform,
-		PipelineName: request.Pipeline.Name,
 		InputCommit:  request.InputCommit,
 		OutputParent: request.OutputParent,
+	}
+	if request.Pipeline != nil {
+		persistJobInfo.PipelineName = request.Pipeline.Name
 	}
 	persistJobInfo.JobId = uuid.NewWithoutDashes()
 	persistJobInfo.CreatedAt = prototime.TimeToTimestamp(time.Now())

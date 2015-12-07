@@ -69,7 +69,7 @@ func do(appEnvObj interface{}) error {
 				}
 			}()
 			io := pkgexec.IO{
-				Stdin:  os.Stdin,
+				Stdin:  strings.NewReader(response.Transform.Stdin),
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
 			}

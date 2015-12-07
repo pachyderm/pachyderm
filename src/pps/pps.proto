@@ -17,6 +17,7 @@ enum OutputStream {
 message Transform {
   string image = 1;
   repeated string cmd = 2;
+  string stdin = 3;
 }
 
 message Job {

@@ -74,6 +74,7 @@ func (x OutputStream) String() string {
 type Transform struct {
 	Image string   `protobuf:"bytes,1,opt,name=image" json:"image,omitempty"`
 	Cmd   []string `protobuf:"bytes,2,rep,name=cmd" json:"cmd,omitempty"`
+	Stdin string   `protobuf:"bytes,3,opt,name=stdin" json:"stdin,omitempty"`
 }
 
 func (m *Transform) Reset()         { *m = Transform{} }

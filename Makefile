@@ -108,6 +108,7 @@ launch: install docker-build launch-kube
 	pachctl create-cluster
 
 clean-launch:
+	kubectl delete all -l suite=pachyderm
 	docker kill $$(docker ps -q)
 
 run-integration-test: docker-build-test
