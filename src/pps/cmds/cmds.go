@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"text/tabwriter"
 
@@ -30,12 +31,17 @@ You can find out the name of the commit with inspect-job.`,
 			if err != nil {
 				errorAndExit("Error connecting to pps: %s", err.Error())
 			}
+			stdin, err := ioutil.ReadAll(os.Stdin)
+			if err != nil {
+				errorAndExit("Error reading from stdin: %s", err.Error())
+			}
 			job, err := apiClient.CreateJob(
 				context.Background(),
 				&pps.CreateJobRequest{
 					Transform: &pps.Transform{
 						Image: image,
 						Cmd:   args[3:],
+						Stdin: string(stdin),
 					},
 					Shards: uint64(shards),
 					InputCommit: []*pfs.Commit{
@@ -137,6 +143,10 @@ You can find out the name of the commit with inspect-job.`,
 			if err != nil {
 				errorAndExit("Error connecting to pps: %s", err.Error())
 			}
+			stdin, err := ioutil.ReadAll(os.Stdin)
+			if err != nil {
+				errorAndExit("Error reading from stdin: %s", err.Error())
+			}
 			if _, err := apiClient.CreatePipeline(
 				context.Background(),
 				&pps.CreatePipelineRequest{
@@ -146,6 +156,7 @@ You can find out the name of the commit with inspect-job.`,
 					Transform: &pps.Transform{
 						Image: image,
 						Cmd:   args[3:],
+						Stdin: string(stdin),
 					},
 					Shards: uint64(shards),
 					InputRepo: []*pfs.Repo{

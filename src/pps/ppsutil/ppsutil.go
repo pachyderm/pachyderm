@@ -15,6 +15,7 @@ func CreateJob(
 	client pps.APIClient,
 	image string,
 	cmd []string,
+	stdin string,
 	shards uint64,
 	inputCommit []*pfs.Commit,
 	outputParent *pfs.Commit,
@@ -25,6 +26,7 @@ func CreateJob(
 			Transform: &pps.Transform{
 				Image: image,
 				Cmd:   cmd,
+				Stdin: stdin,
 			},
 			Shards:       shards,
 			InputCommit:  inputCommit,
@@ -38,6 +40,7 @@ func CreatePipeline(
 	name string,
 	image string,
 	cmd []string,
+	stdin string,
 	shards uint64,
 	inputRepo []*pfs.Repo,
 	outputRepo *pfs.Repo,
@@ -51,6 +54,7 @@ func CreatePipeline(
 			Transform: &pps.Transform{
 				Image: image,
 				Cmd:   cmd,
+				Stdin: stdin,
 			},
 			Shards:     shards,
 			InputRepo:  inputRepo,

@@ -20,7 +20,6 @@ import (
 )
 
 func TestJob(t *testing.T) {
-	t.Skip()
 	dataRepo := uniqueString("TestJob.data")
 	outRepo := uniqueString("TestJob.output")
 	pfsClient := getPfsClient(t)
@@ -36,6 +35,7 @@ func TestJob(t *testing.T) {
 		ppsClient,
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), path.Join("/pfs", outRepo, "file")},
+		"",
 		1,
 		[]*pfs.Commit{commit},
 		&pfs.Commit{Repo: &pfs.Repo{Name: outRepo}},
@@ -59,6 +59,7 @@ func TestJob(t *testing.T) {
 }
 
 func TestPipeline(t *testing.T) {
+	t.Skip()
 	pfsClient := getPfsClient(t)
 	ppsClient := getPpsClient(t)
 	// create repos
@@ -72,6 +73,7 @@ func TestPipeline(t *testing.T) {
 		uniqueString("pipeline"),
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), path.Join("/pfs", outRepo, "file")},
+		"",
 		1,
 		[]*pfs.Repo{&pfs.Repo{Name: dataRepo}},
 		&pfs.Repo{Name: outRepo},
@@ -122,9 +124,8 @@ func TestPipeline(t *testing.T) {
 }
 
 func TestGrep(t *testing.T) {
-	t.Skip()
-	dataRepo := uniqueString("pachyderm.TestWordCount.data")
-	outRepo := uniqueString("pachyderm.TestWordCount.output")
+	dataRepo := uniqueString("pachyderm.TestGrep.data")
+	outRepo := uniqueString("pachyderm.TestGrep.output")
 	pfsClient := getPfsClient(t)
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, outRepo))
@@ -139,7 +140,8 @@ func TestGrep(t *testing.T) {
 	_, err = ppsutil.CreateJob(
 		ppsClient,
 		"",
-		[]string{"bash", "-c", fmt.Sprintf("\"grep foo /pfs/%s/* >/pfs/%s/foo\"", dataRepo, outRepo)},
+		[]string{"sh"},
+		fmt.Sprintf("grep foo /pfs/%s/* >/pfs/%s/foo", dataRepo, outRepo),
 		1,
 		[]*pfs.Commit{commit},
 		&pfs.Commit{Repo: &pfs.Repo{Name: outRepo}},
