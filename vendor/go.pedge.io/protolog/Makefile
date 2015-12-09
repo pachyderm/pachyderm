@@ -5,7 +5,6 @@
 	testdeps \
 	updatetestdeps \
 	build \
-	install \
 	lint \
 	vet \
 	errcheck \
@@ -31,9 +30,6 @@ updatetestdeps:
 
 build: deps
 	go build ./...
-
-install: deps
-	go install ./cmd/protoc-gen-protolog
 
 lint: testdeps
 	go get -v github.com/golang/lint/golint
@@ -64,8 +60,7 @@ clean:
 	go clean -i ./...
 
 proto:
-	go get -v go.pedge.io/tools/protoc-all
-	STRIP_PACKAGE_COMMENTS=1 protoc-all go.pedge.io/protolog
-	rm -f protolog.pb.log.go.tmp
-	cat protolog.pb.log.go | grep -v import | sed "s/protolog.Register/Register/g" | sed "s/protolog.Message/Message/g" > protolog.pb.log.go.tmp
-	mv protolog.pb.log.go.tmp protolog.pb.log.go
+	go get -v go.pedge.io/protoeasy/cmd/protoeasy
+	go get -v go.pedge.io/pkg/cmd/strip-package-comments
+	protoeasy --go --grpc --grpc-gateway --go-import-path go.pedge.io/protolog .
+	find . -name *\.pb\*\.go | xargs strip-package-comments

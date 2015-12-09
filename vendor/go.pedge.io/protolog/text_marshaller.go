@@ -11,6 +11,7 @@ import (
 	"go.pedge.io/proto/time"
 
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -49,7 +50,7 @@ func (t *textMarshaller) Marshal(entry *Entry) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	name := event.ProtologName()
+	name := messageName(event)
 	switch name {
 	case "protolog.Event":
 		protologEvent, ok := event.(*Event)
@@ -76,7 +77,7 @@ func (t *textMarshaller) Marshal(entry *Entry) ([]byte, error) {
 		}
 		lenContexts := len(contexts)
 		for i, context := range contexts {
-			name := context.ProtologName()
+			name := messageName(context)
 			switch name {
 			case "protolog.Fields":
 				protologFields, ok := context.(*Fields)
@@ -102,12 +103,12 @@ func (t *textMarshaller) Marshal(entry *Entry) ([]byte, error) {
 	return trimRightSpaceBytes(buffer.Bytes()), nil
 }
 
-func (t *textMarshaller) marshalMessage(buffer *bytes.Buffer, message Message) error {
+func (t *textMarshaller) marshalMessage(buffer *bytes.Buffer, message proto.Message) error {
 	s, err := jsonPBMarshaller.MarshalToString(message)
 	if err != nil {
 		return err
 	}
-	_, _ = buffer.WriteString(message.ProtologName())
+	_, _ = buffer.WriteString(messageName(message))
 	_ = buffer.WriteByte(' ')
 	_, _ = buffer.WriteString(s)
 	return nil

@@ -1,7 +1,7 @@
 .PHONY: \
 	all \
 	deps \
-	update-deps \
+	updatedeps \
 	build \
 	clean \
 	proto
@@ -11,7 +11,7 @@ all: proto build
 deps:
 	go get -d -v ./...
 
-update-deps:
+updatedeps:
 	go get -d -v -u -f ./...
 
 build: deps

@@ -8,7 +8,7 @@
 ####
 
 ifndef TESTPKGS
-	TESTPKGS = ./src/...
+	TESTPKGS = ./src/... ./.
 endif
 ifndef VENDOR_IGNORE_DIRS
 	VENDOR_IGNORE_DIRS = go.pedge.io
@@ -24,32 +24,32 @@ version:
 	@go run /tmp/pachyderm_version.go
 
 deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v ./src/...
+	GO15VENDOREXPERIMENT=0 go get -d -v ./src/... ./.
 
 update-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -u -f ./src/...
+	GO15VENDOREXPERIMENT=0 go get -d -v -u -f ./src/... ./.
 
 test-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -t ./src/...
+	GO15VENDOREXPERIMENT=0 go get -d -v -t ./src/... ./.
 
 update-test-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/...
+	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/... ./.
 
 vendor-update:
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/...
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/... ./.
 
 vendor-without-update:
 	go get -u github.com/tools/godep
 	rm -rf Godeps
 	rm -rf vendor
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 godep save ./src/...
+	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 godep save ./src/... ./.
 	rm -rf Godeps
 	$(foreach vendor_dir, $(VENDOR_IGNORE_DIRS), rm -rf vendor/$(vendor_dir) || exit; git checkout vendor/$(vendor_dir) || exit;)
 
 vendor: vendor-update vendor-without-update
 
 build:
-	GO15VENDOREXPERIMENT=1 go build ./src/...
+	GO15VENDOREXPERIMENT=1 go build ./src/... ./.
 
 install:
 	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pachctl
@@ -118,8 +118,8 @@ run-integration-test: docker-build-test
 integration-test: launch run-integration-test
 
 proto:
-	go get -u -v go.pedge.io/protolog/cmd/protoc-gen-protolog go.pedge.io/tools/protoc-all
-	PROTOC_INCLUDE_PATH=src protoc-all github.com/pachyderm/pachyderm
+	go get -u -v go.pedge.io/protoeasy/cmd/protoeasy
+	protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src
 
 pretest:
 	go get -v github.com/kisielk/errcheck
@@ -166,7 +166,7 @@ test: pretest go-test docker-clean-test
 test-long: pretest go-test-long docker-clean-test
 
 clean: docker-clean-launch
-	go clean ./src/...
+	go clean ./src/... ./.
 	rm -f src/cmd/pfs/pfs-roler
 	rm -f src/cmd/pfsd/pfsd
 	rm -f src/cmd/ppsd/ppsd
