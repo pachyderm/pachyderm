@@ -8,7 +8,7 @@
 ####
 
 ifndef TESTPKGS
-	TESTPKGS = ./src/... ./.
+	TESTPKGS = ./src/...
 endif
 ifndef VENDOR_IGNORE_DIRS
 	VENDOR_IGNORE_DIRS = go.pedge.io
@@ -118,7 +118,7 @@ run-integration-test: docker-build-test
 integration-test: launch run-integration-test
 
 proto:
-	go get -u -v go.pedge.io/protoeasy/cmd/protoeasy
+	go get -v go.pedge.io/protoeasy/cmd/protoeasy
 	protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src
 
 pretest:
