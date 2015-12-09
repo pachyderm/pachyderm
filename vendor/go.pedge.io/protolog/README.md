@@ -12,7 +12,6 @@ Initial beta release coming soon - I need to do one more pass on this and then d
 * Child of https://github.com/peter-edge/go-ledge
 * Some compatibility with existing libraries (specifically logrus and glog)
 * Two-way serialization - write logs somewhere, read them back, language independent
-* protoc-gen-protolog: generate mapping to struct constructors from proto definitions, no more ledge.Specification or reflection
 
 ### Where to poke around
 

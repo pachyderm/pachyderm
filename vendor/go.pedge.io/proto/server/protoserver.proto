@@ -1,12 +1,10 @@
 syntax = "proto3";
 
 import "google/protobuf/duration.proto";
-import "go.pedge.io/protolog/protolog.proto";
 
 package protoserver;
 
 message ServerStarted {
-  option (protolog.event) = true;
   uint32 port = 1;
   uint32 http_port = 2;
   uint32 debug_port = 3;
@@ -14,7 +12,6 @@ message ServerStarted {
 }
 
 message ServerFinished {
-  option (protolog.event) = true;
   string error = 1;
   google.protobuf.Duration duration = 2;
 }

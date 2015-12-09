@@ -7,8 +7,7 @@ package protolog
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "github.com/golang/protobuf/protoc-gen-go/descriptor"
-import google_protobuf1 "go.pedge.io/google-protobuf"
+import google_protobuf "go.pedge.io/google-protobuf"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -50,30 +49,7 @@ var Level_value = map[string]int32{
 func (x Level) String() string {
 	return proto.EnumName(Level_name, int32(x))
 }
-
-// MessageType is the type of protolog message.
-type MessageType int32
-
-const (
-	MessageType_MESSAGE_TYPE_NONE    MessageType = 0
-	MessageType_MESSAGE_TYPE_EVENT   MessageType = 1
-	MessageType_MESSAGE_TYPE_CONTEXT MessageType = 2
-)
-
-var MessageType_name = map[int32]string{
-	0: "MESSAGE_TYPE_NONE",
-	1: "MESSAGE_TYPE_EVENT",
-	2: "MESSAGE_TYPE_CONTEXT",
-}
-var MessageType_value = map[string]int32{
-	"MESSAGE_TYPE_NONE":    0,
-	"MESSAGE_TYPE_EVENT":   1,
-	"MESSAGE_TYPE_CONTEXT": 2,
-}
-
-func (x MessageType) String() string {
-	return proto.EnumName(MessageType_name, int32(x))
-}
+func (Level) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
 // Fields is a generic context Message used for
 // the Logger functions WithField and WithFields.
@@ -81,9 +57,10 @@ type Fields struct {
 	Value map[string]string `protobuf:"bytes,1,rep,name=value" json:"value,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
-func (m *Fields) Reset()         { *m = Fields{} }
-func (m *Fields) String() string { return proto.CompactTextString(m) }
-func (*Fields) ProtoMessage()    {}
+func (m *Fields) Reset()                    { *m = Fields{} }
+func (m *Fields) String() string            { return proto.CompactTextString(m) }
+func (*Fields) ProtoMessage()               {}
+func (*Fields) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
 func (m *Fields) GetValue() map[string]string {
 	if m != nil {
@@ -98,9 +75,10 @@ type Event struct {
 	Message string `protobuf:"bytes,1,opt,name=message" json:"message,omitempty"`
 }
 
-func (m *Event) Reset()         { *m = Event{} }
-func (m *Event) String() string { return proto.CompactTextString(m) }
-func (*Event) ProtoMessage()    {}
+func (m *Event) Reset()                    { *m = Event{} }
+func (m *Event) String() string            { return proto.CompactTextString(m) }
+func (*Event) ProtoMessage()               {}
+func (*Event) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
 // WriterOutput is an event Message used for
 // the writer Logger functions.
@@ -108,24 +86,26 @@ type WriterOutput struct {
 	Value []byte `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
-func (m *WriterOutput) Reset()         { *m = WriterOutput{} }
-func (m *WriterOutput) String() string { return proto.CompactTextString(m) }
-func (*WriterOutput) ProtoMessage()    {}
+func (m *WriterOutput) Reset()                    { *m = WriterOutput{} }
+func (m *WriterOutput) String() string            { return proto.CompactTextString(m) }
+func (*WriterOutput) ProtoMessage()               {}
+func (*WriterOutput) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
 // Entry is the object serialized for logging.
 type Entry struct {
-	Id        string                      `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-	Level     Level                       `protobuf:"varint,2,opt,name=level,enum=protolog.Level" json:"level,omitempty"`
-	Timestamp *google_protobuf1.Timestamp `protobuf:"bytes,3,opt,name=timestamp" json:"timestamp,omitempty"`
-	Context   []*Entry_Message            `protobuf:"bytes,4,rep,name=context" json:"context,omitempty"`
-	Event     *Entry_Message              `protobuf:"bytes,5,opt,name=event" json:"event,omitempty"`
+	Id        string                     `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	Level     Level                      `protobuf:"varint,2,opt,name=level,enum=protolog.Level" json:"level,omitempty"`
+	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,3,opt,name=timestamp" json:"timestamp,omitempty"`
+	Context   []*Entry_Message           `protobuf:"bytes,4,rep,name=context" json:"context,omitempty"`
+	Event     *Entry_Message             `protobuf:"bytes,5,opt,name=event" json:"event,omitempty"`
 }
 
-func (m *Entry) Reset()         { *m = Entry{} }
-func (m *Entry) String() string { return proto.CompactTextString(m) }
-func (*Entry) ProtoMessage()    {}
+func (m *Entry) Reset()                    { *m = Entry{} }
+func (m *Entry) String() string            { return proto.CompactTextString(m) }
+func (*Entry) ProtoMessage()               {}
+func (*Entry) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
-func (m *Entry) GetTimestamp() *google_protobuf1.Timestamp {
+func (m *Entry) GetTimestamp() *google_protobuf.Timestamp {
 	if m != nil {
 		return m.Timestamp
 	}
@@ -153,29 +133,43 @@ type Entry_Message struct {
 	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 }
 
-func (m *Entry_Message) Reset()         { *m = Entry_Message{} }
-func (m *Entry_Message) String() string { return proto.CompactTextString(m) }
-func (*Entry_Message) ProtoMessage()    {}
-
-var E_Event = &proto.ExtensionDesc{
-	ExtendedType:  (*google_protobuf.MessageOptions)(nil),
-	ExtensionType: (*bool)(nil),
-	Field:         50009,
-	Name:          "protolog.event",
-	Tag:           "varint,50009,opt,name=event",
-}
-
-var E_Context = &proto.ExtensionDesc{
-	ExtendedType:  (*google_protobuf.MessageOptions)(nil),
-	ExtensionType: (*bool)(nil),
-	Field:         50010,
-	Name:          "protolog.context",
-	Tag:           "varint,50010,opt,name=context",
-}
+func (m *Entry_Message) Reset()                    { *m = Entry_Message{} }
+func (m *Entry_Message) String() string            { return proto.CompactTextString(m) }
+func (*Entry_Message) ProtoMessage()               {}
+func (*Entry_Message) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3, 0} }
 
 func init() {
+	proto.RegisterType((*Fields)(nil), "protolog.Fields")
+	proto.RegisterType((*Event)(nil), "protolog.Event")
+	proto.RegisterType((*WriterOutput)(nil), "protolog.WriterOutput")
+	proto.RegisterType((*Entry)(nil), "protolog.Entry")
+	proto.RegisterType((*Entry_Message)(nil), "protolog.Entry.Message")
 	proto.RegisterEnum("protolog.Level", Level_name, Level_value)
-	proto.RegisterEnum("protolog.MessageType", MessageType_name, MessageType_value)
-	proto.RegisterExtension(E_Event)
-	proto.RegisterExtension(E_Context)
+}
+
+var fileDescriptor0 = []byte{
+	// 354 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x74, 0x50, 0x4d, 0x4f, 0x83, 0x40,
+	0x14, 0x14, 0x28, 0xad, 0x7d, 0x60, 0x4b, 0xf6, 0x22, 0xc1, 0xf8, 0x11, 0x0e, 0x4d, 0xd3, 0x28,
+	0x4d, 0xea, 0xc5, 0x78, 0x43, 0xa5, 0xa6, 0x09, 0x82, 0x21, 0xb5, 0x3d, 0x1a, 0x6a, 0x57, 0x42,
+	0xa4, 0xd0, 0xd0, 0xa5, 0xb1, 0xf1, 0xaf, 0xfa, 0x63, 0x84, 0x5d, 0xe9, 0x5e, 0xf4, 0xb6, 0xf3,
+	0x76, 0xe6, 0xcd, 0xbc, 0x81, 0xce, 0x3a, 0xcf, 0x48, 0x96, 0x64, 0x91, 0x45, 0x1f, 0xe8, 0xb0,
+	0xc6, 0xc6, 0x79, 0x94, 0x65, 0x51, 0x82, 0x87, 0x74, 0xb0, 0x28, 0xde, 0x87, 0x24, 0x5e, 0xe1,
+	0x0d, 0x09, 0x57, 0x6b, 0x46, 0x35, 0x17, 0xd0, 0x1c, 0xc7, 0x38, 0x59, 0x6e, 0xd0, 0x00, 0xe4,
+	0x6d, 0x98, 0x14, 0x58, 0x17, 0x2e, 0xa4, 0xbe, 0x32, 0x3a, 0xb1, 0xf6, 0x4b, 0x19, 0xc1, 0x9a,
+	0x55, 0xbf, 0x4e, 0x4a, 0xf2, 0x9d, 0x71, 0x09, 0xc0, 0x11, 0x52, 0x40, 0xfa, 0xc0, 0xbb, 0x52,
+	0x27, 0xf4, 0xdb, 0xe8, 0xa8, 0x5e, 0x23, 0x56, 0xf0, 0x56, 0xbc, 0x11, 0x4c, 0x1d, 0x64, 0x67,
+	0x8b, 0x53, 0x82, 0xba, 0xd0, 0x2a, 0xdd, 0x37, 0x61, 0x84, 0x19, 0xd9, 0x3c, 0x05, 0x75, 0x9e,
+	0xc7, 0x04, 0xe7, 0x7e, 0x41, 0xd6, 0x05, 0xe1, 0xe2, 0xea, 0x5b, 0x35, 0xbf, 0x85, 0x52, 0x49,
+	0x2d, 0x00, 0xc4, 0x78, 0xf9, 0xeb, 0x70, 0x06, 0x72, 0x82, 0xb7, 0x38, 0xa1, 0x0e, 0x9d, 0x51,
+	0x97, 0x07, 0x75, 0xab, 0x31, 0xba, 0x82, 0xf6, 0xfe, 0x4a, 0x5d, 0x2a, 0x39, 0xca, 0xc8, 0xb0,
+	0x58, 0x0f, 0x56, 0xdd, 0x83, 0x35, 0xad, 0x19, 0xa8, 0x0f, 0xad, 0xb7, 0x2c, 0x25, 0xf8, 0x93,
+	0xe8, 0x0d, 0x7a, 0xf9, 0x31, 0x5f, 0x48, 0xcd, 0xad, 0x27, 0x96, 0x19, 0xf5, 0x40, 0xc6, 0xd5,
+	0x1d, 0xba, 0x4c, 0x97, 0xfe, 0xc7, 0x33, 0x7a, 0xd0, 0xaa, 0x25, 0x2a, 0x34, 0xd2, 0x70, 0x85,
+	0xff, 0xea, 0x46, 0x1d, 0x7c, 0x81, 0xcc, 0x12, 0x77, 0x00, 0x5c, 0x67, 0xe6, 0xb8, 0xaf, 0x9e,
+	0xef, 0x39, 0xda, 0x41, 0xd9, 0x93, 0xc2, 0xf0, 0x83, 0x73, 0xf7, 0xf2, 0xa8, 0x09, 0x9c, 0x30,
+	0xf1, 0xc6, 0xbe, 0x26, 0x72, 0x3c, 0xb7, 0x03, 0x4f, 0x93, 0xb8, 0xc0, 0x09, 0x02, 0x3f, 0xd0,
+	0x1a, 0x7c, 0x30, 0xb6, 0xa7, 0xb6, 0xab, 0xc9, 0x7c, 0xf0, 0x6c, 0x7b, 0x93, 0x7b, 0xad, 0xb9,
+	0x68, 0xd2, 0xf0, 0xd7, 0x3f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x76, 0xcd, 0x26, 0x18, 0x3c, 0x02,
+	0x00, 0x00,
 }

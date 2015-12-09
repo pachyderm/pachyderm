@@ -1,12 +1,8 @@
 syntax = "proto3";
 
-import "go.pedge.io/protolog/protolog.proto";
-
 package benchmark;
 
 message Foo {
-  option (protolog.event) = true;
-  option (protolog.context) = true;
   message Bar {
     string one = 1;
     string two = 2;

@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/golang/protobuf/proto"
+
 	"go.pedge.io/proto/time"
 )
 
@@ -59,7 +61,7 @@ func (l *logger) AtLevel(level Level) Logger {
 	}
 }
 
-func (l *logger) WithContext(context Message) Logger {
+func (l *logger) WithContext(context proto.Message) Logger {
 	entryContext, err := messageToEntryMessage(context)
 	if err != nil {
 		l.errorHandler.Handle(err)
@@ -76,33 +78,33 @@ func (l *logger) WithContext(context Message) Logger {
 	}
 }
 
-func (l *logger) Debug(event Message) {
+func (l *logger) Debug(event proto.Message) {
 	l.print(Level_LEVEL_DEBUG, event)
 }
 
-func (l *logger) Info(event Message) {
+func (l *logger) Info(event proto.Message) {
 	l.print(Level_LEVEL_INFO, event)
 }
 
-func (l *logger) Warn(event Message) {
+func (l *logger) Warn(event proto.Message) {
 	l.print(Level_LEVEL_WARN, event)
 }
 
-func (l *logger) Error(event Message) {
+func (l *logger) Error(event proto.Message) {
 	l.print(Level_LEVEL_ERROR, event)
 }
 
-func (l *logger) Fatal(event Message) {
+func (l *logger) Fatal(event proto.Message) {
 	l.print(Level_LEVEL_FATAL, event)
 	os.Exit(1)
 }
 
-func (l *logger) Panic(event Message) {
+func (l *logger) Panic(event proto.Message) {
 	l.print(Level_LEVEL_PANIC, event)
 	panic(fmt.Sprintf("%+v", event))
 }
 
-func (l *logger) Print(event Message) {
+func (l *logger) Print(event proto.Message) {
 	l.print(Level_LEVEL_INFO, event)
 }
 
@@ -207,7 +209,7 @@ func (l *logger) Println(args ...interface{}) {
 	l.Print(&Event{Message: fmt.Sprint(args...)})
 }
 
-func (l *logger) print(level Level, event Message) {
+func (l *logger) print(level Level, event proto.Message) {
 	if err := l.printWithError(level, event); err != nil {
 		l.errorHandler.Handle(err)
 	}
@@ -220,13 +222,10 @@ func (l *logger) printWriter(level Level) io.Writer {
 	return newLogWriter(l, level)
 }
 
-func (l *logger) printWithError(level Level, event Message) error {
+func (l *logger) printWithError(level Level, event proto.Message) error {
 	if !l.isLoggedLevel(level) {
 		return nil
 	}
-	//if err := checkNameRegistered(event.ProtologName()); err != nil {
-	//return err
-	//}
 	entryEvent, err := messageToEntryMessage(event)
 	if err != nil {
 		return err

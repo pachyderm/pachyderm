@@ -84,7 +84,10 @@ func (p *pusher) getLogrusEntry(entry *protolog.Entry) (*logrus.Entry, error) {
 			return nil, err
 		}
 		for _, context := range contexts {
-			name := context.ProtologName()
+			if context == nil {
+				continue
+			}
+			name := proto.MessageName(context)
 			switch name {
 			case "protolog.Fields":
 				protologFields, ok := context.(*protolog.Fields)
@@ -107,24 +110,26 @@ func (p *pusher) getLogrusEntry(entry *protolog.Entry) (*logrus.Entry, error) {
 	if err != nil {
 		return nil, err
 	}
-	name := event.ProtologName()
-	switch name {
-	case "protolog.Event":
-		protologEvent, ok := event.(*protolog.Event)
-		if !ok {
-			return nil, fmt.Errorf("protolog: expected *protolog.Event, got %T", event)
-		}
-		logrusEntry.Message = trimRightSpace(protologEvent.Message)
-	case "protolog.WriterOutput":
-		writerOutput, ok := event.(*protolog.WriterOutput)
-		if !ok {
-			return nil, fmt.Errorf("protolog: expected *protolog.WriterOutput, got %T", event)
-		}
-		logrusEntry.Message = trimRightSpace(string(writerOutput.Value))
-	default:
-		logrusEntry.Data["_event"] = name
-		if err := addProtoMessage(logrusEntry, event); err != nil {
-			return nil, err
+	if event != nil {
+		name := proto.MessageName(event)
+		switch name {
+		case "protolog.Event":
+			protologEvent, ok := event.(*protolog.Event)
+			if !ok {
+				return nil, fmt.Errorf("protolog: expected *protolog.Event, got %T", event)
+			}
+			logrusEntry.Message = trimRightSpace(protologEvent.Message)
+		case "protolog.WriterOutput":
+			writerOutput, ok := event.(*protolog.WriterOutput)
+			if !ok {
+				return nil, fmt.Errorf("protolog: expected *protolog.WriterOutput, got %T", event)
+			}
+			logrusEntry.Message = trimRightSpace(string(writerOutput.Value))
+		default:
+			logrusEntry.Data["_event"] = name
+			if err := addProtoMessage(logrusEntry, event); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return logrusEntry, nil

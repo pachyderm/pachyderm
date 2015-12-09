@@ -21,29 +21,61 @@ func RunFixedArgs(numArgs int, run func(args []string) error) func(*cobra.Comman
 // RunBoundedArgs makes a new cobra run function that checks that the number of args is within argBounds.
 func RunBoundedArgs(argBounds Bounds, run func(args []string) error) func(*cobra.Command, []string) {
 	return func(_ *cobra.Command, args []string) {
-		if argBounds.Min == 0 && argBounds.Max == 0 && len(args) != 0 {
-			errorAndExit("Expected no args, got %d", len(args))
-		} else if argBounds.Max == 0 && len(args) < argBounds.Min {
-			errorAndExit("Expected at least %d args, got %d", argBounds.Min, len(args))
-		} else if argBounds.Min == 0 && len(args) > argBounds.Max {
-			errorAndExit("Expected at most %d args, got %d", argBounds.Max, len(args))
-		} else if len(args) < argBounds.Min || len(args) > argBounds.Max {
-			if argBounds.Min == argBounds.Max {
-				errorAndExit("Expected %d args, got %d", argBounds.Min, len(args))
-			}
-			errorAndExit("Expected between %d and %d args, got %d", argBounds.Min, argBounds.Max, len(args))
+		Check(CheckBoundedArgs(argBounds, args))
+		Check(run(args))
+	}
+}
+
+// Run makes a new cobra run function that wraps the given function.
+func Run(run func(args []string) error) func(*cobra.Command, []string) {
+	return func(_ *cobra.Command, args []string) {
+		Check(run(args))
+	}
+}
+
+// CheckFixedArgs checks that the number of arguments equals numArgs.
+func CheckFixedArgs(numArgs int, args []string) error {
+	return CheckBoundedArgs(Bounds{Min: numArgs, Max: numArgs}, args)
+}
+
+// CheckBoundedArgs checks that the number of arguments is within the given Bounds.
+func CheckBoundedArgs(argBounds Bounds, args []string) error {
+	if argBounds.Min == 0 && argBounds.Max == 0 {
+		if len(args) != 0 {
+			return fmt.Errorf("Expected no args, got %d", len(args))
 		}
-		check(run(args))
+		return nil
 	}
+	if argBounds.Max == 0 {
+		if len(args) < argBounds.Min {
+			return fmt.Errorf("Expected at least %d args, got %d", argBounds.Min, len(args))
+		}
+		return nil
+	}
+	if argBounds.Min == 0 {
+		if len(args) > argBounds.Max {
+			return fmt.Errorf("Expected at most %d args, got %d", argBounds.Max, len(args))
+		}
+		return nil
+	}
+	if len(args) < argBounds.Min || len(args) > argBounds.Max {
+		if argBounds.Min == argBounds.Max {
+			return fmt.Errorf("Expected %d args, got %d", argBounds.Min, len(args))
+		}
+		return fmt.Errorf("Expected between %d and %d args, got %d", argBounds.Min, argBounds.Max, len(args))
+	}
+	return nil
 }
 
-func check(err error) {
+// Check checks the error.
+func Check(err error) {
 	if err != nil {
-		errorAndExit(err.Error())
+		ErrorAndExit(err.Error())
 	}
 }
 
-func errorAndExit(format string, args ...interface{}) {
+// ErrorAndExit errors with the given format and args, and then exits.
+func ErrorAndExit(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "%s\n", fmt.Sprintf(format, args...))
 	os.Exit(1)
 }

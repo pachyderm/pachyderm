@@ -18,7 +18,7 @@ var (
 	// ErrNoArgs is the error returned if there are no arguments given.
 	ErrNoArgs = errors.New("pkgexec: no arguments given")
 
-	globalDebug = true
+	globalDebug = false
 	lock        = &sync.Mutex{}
 )
 
@@ -61,20 +61,22 @@ func RunStderr(stderr io.Writer, args ...string) error {
 	return RunIO(IO{Stderr: stderr}, args...)
 }
 
+// RunOutput runs the command with the given arguments and returns the output of stdout.
+func RunOutput(args ...string) ([]byte, error) {
+	stdout := bytes.NewBuffer(nil)
+	err := RunStdout(stdout, args...)
+	return stdout.Bytes(), err
+}
+
 // RunIO runs the command with the given IO and arguments.
 func RunIO(ioObj IO, args ...string) error {
 	if len(args) == 0 {
 		return ErrNoArgs
 	}
-	var debugStderr io.ReadWriter
-	stderr := ioObj.Stderr
-	if globalDebug {
-		debugStderr = bytes.NewBuffer(nil)
-		if stderr == nil {
-			stderr = debugStderr
-		} else {
-			stderr = io.MultiWriter(stderr, debugStderr)
-		}
+	var debugStderr io.ReadWriter = bytes.NewBuffer(nil)
+	var stderr io.Writer = debugStderr
+	if ioObj.Stderr != nil {
+		stderr = io.MultiWriter(debugStderr, ioObj.Stderr)
 	}
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Stdin = ioObj.Stdin
@@ -84,11 +86,9 @@ func RunIO(ioObj IO, args ...string) error {
 		protolog.Debug(&RunningCommand{Args: strings.Join(args, " ")})
 	}
 	if err := cmd.Run(); err != nil {
-		if debugStderr != nil {
-			data, _ := ioutil.ReadAll(debugStderr)
-			if data != nil && len(data) > 0 {
-				return fmt.Errorf("%s: %s\n\t%s", strings.Join(args, " "), err.Error(), string(data))
-			}
+		data, _ := ioutil.ReadAll(debugStderr)
+		if data != nil && len(data) > 0 {
+			return fmt.Errorf("%s: %s\n%s", strings.Join(args, " "), err.Error(), string(data))
 		}
 		return fmt.Errorf("%s: %s", strings.Join(args, " "), err.Error())
 	}

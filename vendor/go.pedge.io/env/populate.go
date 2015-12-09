@@ -109,36 +109,24 @@ func getEnvTag(structField reflect.StructField) (*envTag, error) {
 	if tag == "" {
 		return nil, nil
 	}
-	split := strings.Split(tag, ",")
-	key := split[0]
-	required := false
-	defaultValue := ""
-	for i := 1; i < len(split); i++ {
-		value := split[i]
-		switch value {
-		case "required":
-			required = true
-		default:
-			valueSplit := strings.SplitN(value, "=", 2)
-			if len(valueSplit) != 2 {
-				return nil, fmt.Errorf("%s: %s", invalidTagErr, tag)
-			}
-			switch valueSplit[0] {
-			case "default":
-				defaultValue = valueSplit[1]
-			default:
-				return nil, fmt.Errorf("%s: %s", invalidTagErr, tag)
-			}
+	split := strings.SplitN(tag, ",", 2)
+	envTag := &envTag{
+		key: split[0],
+	}
+	if len(split) == 1 {
+		return envTag, nil
+	}
+	split = strings.SplitN(split[1], "=", 2)
+	switch split[0] {
+	case "required":
+		envTag.required = true
+	case "default":
+		if len(split) != 2 {
+			return nil, fmt.Errorf("%s: %s", invalidTagErr, tag)
 		}
+		envTag.defaultValue = split[1]
 	}
-	if required && defaultValue != "" {
-		return nil, fmt.Errorf("%s: %s", cannotSetBothRequiredAndDefaultErr, tag)
-	}
-	return &envTag{
-		key:          key,
-		required:     required,
-		defaultValue: defaultValue,
-	}, nil
+	return envTag, nil
 }
 
 func parseField(structField reflect.StructField, value string) (interface{}, error) {

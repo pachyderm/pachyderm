@@ -60,12 +60,6 @@ func redirectStdLogger() {
 	}
 }
 
-// Message is a proto.Message that also has the ProtologName() method to get the name of the message.
-type Message interface {
-	proto.Message
-	ProtologName() string
-}
-
 // Flusher is an object that can be flushed to a persistent store.
 type Flusher interface {
 	Flush() error
@@ -84,14 +78,14 @@ type Logger interface {
 
 	AtLevel(level Level) Logger
 
-	WithContext(context Message) Logger
-	Debug(event Message)
-	Info(event Message)
-	Warn(event Message)
-	Error(event Message)
-	Fatal(event Message)
-	Panic(event Message)
-	Print(event Message)
+	WithContext(context proto.Message) Logger
+	Debug(event proto.Message)
+	Info(event proto.Message)
+	Warn(event proto.Message)
+	Error(event proto.Message)
+	Fatal(event proto.Message)
+	Panic(event proto.Message)
+	Print(event proto.Message)
 
 	DebugWriter() io.Writer
 	InfoWriter() io.Writer
@@ -264,12 +258,12 @@ func NewMultiPusher(pushers ...Pusher) Pusher {
 }
 
 // UnmarshalledContexts returns the context Messages marshalled on an Entry object.
-func (m *Entry) UnmarshalledContexts() ([]Message, error) {
+func (m *Entry) UnmarshalledContexts() ([]proto.Message, error) {
 	return entryMessagesToMessages(m.Context)
 }
 
 // UnmarshalledEvent returns the event Message marshalled on an Entry object.
-func (m *Entry) UnmarshalledEvent() (Message, error) {
+func (m *Entry) UnmarshalledEvent() (proto.Message, error) {
 	return entryMessageToMessage(m.Event)
 }
 
@@ -284,42 +278,42 @@ func AtLevel(level Level) Logger {
 }
 
 // WithContext calls WithContext on the global Logger.
-func WithContext(context Message) Logger {
+func WithContext(context proto.Message) Logger {
 	return globalLogger.WithContext(context)
 }
 
 // Debug calls Debug on the global Logger.
-func Debug(Event Message) {
+func Debug(Event proto.Message) {
 	globalLogger.Debug(Event)
 }
 
 // Info calls Info on the global Logger.
-func Info(Event Message) {
+func Info(Event proto.Message) {
 	globalLogger.Info(Event)
 }
 
 // Warn calls Warn on the global Logger.
-func Warn(Event Message) {
+func Warn(Event proto.Message) {
 	globalLogger.Warn(Event)
 }
 
 // Error calls Error on the global Logger.
-func Error(Event Message) {
+func Error(Event proto.Message) {
 	globalLogger.Error(Event)
 }
 
 // Fatal calls Fatal on the global Logger.
-func Fatal(Event Message) {
+func Fatal(Event proto.Message) {
 	globalLogger.Fatal(Event)
 }
 
 // Panic calls Panic on the global Logger.
-func Panic(Event Message) {
+func Panic(Event proto.Message) {
 	globalLogger.Panic(Event)
 }
 
 // Print calls Print on the global Logger.
-func Print(Event Message) {
+func Print(Event proto.Message) {
 	globalLogger.Print(Event)
 }
 
