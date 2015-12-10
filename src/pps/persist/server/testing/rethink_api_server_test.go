@@ -17,9 +17,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	jobInfo, err := apiServer.CreateJobInfo(
 		context.Background(),
 		&persist.JobInfo{
-			Spec: &persist.JobInfo_PipelineName{
-				PipelineName: "foo",
-			},
+			PipelineName: "foo",
 		},
 	)
 	require.NoError(t, err)
@@ -31,5 +29,5 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, jobInfo.JobId, getJobInfo.JobId)
-	require.Equal(t, "foo", getJobInfo.GetPipelineName())
+	require.Equal(t, "foo", getJobInfo.PipelineName)
 }

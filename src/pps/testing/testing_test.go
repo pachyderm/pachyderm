@@ -213,9 +213,7 @@ func createJob(t *testing.T, jobAPIClient pps.JobAPIClient, transform *pps.Trans
 	job, err := jobAPIClient.CreateJob(
 		context.Background(),
 		&pps.CreateJobRequest{
-			Spec: &pps.CreateJobRequest_Transform{
-				Transform: transform,
-			},
+			Transform:    transform,
 			InputCommit:  []*pfs.Commit{inputCommit},
 			OutputParent: outputParentCommit,
 		},
