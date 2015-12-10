@@ -56,7 +56,7 @@ an entire cluster's worth of data while still maintaining its commit history.
 
 ### What are containerized analytics?
 
-Rather than thinking in terms of map or reduce jobs, pps thinks in terms of pipelines expressed within a container. A pipeline is a generic way expressing computation over large datasets and it’s containerized to make it easily portable, isolated, and easy to monitor. In Pachyderm, all analysis runs in containers. You can write them in any language you want and include any libraries. 
+Rather than thinking in terms of map or reduce jobs, pps thinks in terms of pipelines expressed within a container. A pipeline is a generic way expressing computation over large datasets and it’s containerized to make it easily portable, isolated, and easy to monitor. In Pachyderm, all analysis runs in containers. You can write them in any language you want and include any libraries.
 
 ### Using Pachyderm
 
@@ -110,7 +110,7 @@ etc/kube/start-kube-docker.sh
 You can then deploy a Pachyderm cluster on Kubernetes with:
 
 ```shell
-pachctl create-cluster test-cluster 1 1 0
+pachctl create-cluster -n test-cluster -s 1
 ```
 
 ### Environment Setup
