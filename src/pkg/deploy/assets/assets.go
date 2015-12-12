@@ -1,0 +1,427 @@
+package assets
+
+import (
+	"strconv"
+
+	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/unversioned"
+)
+
+var (
+	suite        = "pachyderm"
+	pfsdImage    = "pachyderm/pfsd"
+	rolerImage   = "pachyderm/pfs-roler"
+	ppsdImage    = "pachyderm/ppsd"
+	btrfsImage   = "pachyderm_btrfs"
+	etcdImage    = "gcr.io/google_containers/etcd:2.0.12"
+	rethinkImage = "rethinkdb:2.1.5"
+	pfsdName     = "pfsd"
+	rolerName    = "roler"
+	ppsdName     = "ppsd"
+	etcdName     = "etcd"
+	rethinkName  = "rethink"
+	trueVal      = true
+)
+
+func PfsdRc(shards uint64) *api.ReplicationController {
+	return &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   pfsdName,
+			Labels: labels(pfsdName),
+		},
+		Spec: api.ReplicationControllerSpec{
+			Replicas: 1,
+			Selector: map[string]string{
+				"app": pfsdName,
+			},
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   pfsdName,
+					Labels: labels(pfsdName),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  pfsdName,
+							Image: pfsdImage,
+							Env: []api.EnvVar{
+								{
+									Name:  "PFS_DRIVER_ROOT",
+									Value: "/pfs/btrfs",
+								},
+								{
+									Name:  "BTRFS_DEVICE",
+									Value: "/pfs-img/btrfs.img",
+								},
+								{
+									Name:  "PFS_NUM_SHARDS",
+									Value: strconv.FormatUint(shards, 10),
+								},
+							},
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 650,
+									HostPort:      650,
+									Protocol:      "TCP",
+									HostIP:        "0.0.0.0",
+									Name:          "api-grpc-port",
+								},
+								{
+									ContainerPort: 750,
+									Name:          "api-http-port",
+								},
+								{
+									ContainerPort: 1050,
+									Name:          "trace-port",
+								},
+							},
+							VolumeMounts: []api.VolumeMount{
+								{
+									Name:      "pfs-disk",
+									MountPath: "/pfs/btrfs",
+								},
+							},
+							SecurityContext: &api.SecurityContext{
+								Privileged: &trueVal, // god is this dumb
+							},
+						},
+					},
+					Volumes: []api.Volume{
+						{
+							Name: "pfs-disk",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func PfsdService() *api.Service {
+	return &api.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   pfsdName,
+			Labels: labels(pfsdName),
+		},
+		Spec: api.ServiceSpec{
+			Selector: map[string]string{
+				"app": pfsdName,
+			},
+			Ports: []api.ServicePort{
+				{
+					Port: 650,
+					Name: "api-grpc-port",
+				},
+				{
+					Port: 750,
+					Name: "api-http-port",
+				},
+			},
+		},
+	}
+}
+
+func RolerRc(shards uint64) *api.ReplicationController {
+	return &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   rolerName,
+			Labels: labels(rolerName),
+		},
+		Spec: api.ReplicationControllerSpec{
+			Replicas: 1,
+			Selector: map[string]string{
+				"app": rolerName,
+			},
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   "roler",
+					Labels: labels(rolerName),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  "roler",
+							Image: rolerImage,
+							Env: []api.EnvVar{
+								{
+									Name:  "PFS_NUM_SHARDS",
+									Value: strconv.FormatUint(shards, 10),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func PpsdRc() *api.ReplicationController {
+	return &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   ppsdName,
+			Labels: labels(ppsdName),
+		},
+		Spec: api.ReplicationControllerSpec{
+			Replicas: 1,
+			Selector: map[string]string{
+				"app": ppsdName,
+			},
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   "ppsd",
+					Labels: labels(ppsdName),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  "ppsd",
+							Image: ppsdImage,
+							Env:   []api.EnvVar{},
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 651,
+									HostPort:      651,
+									Protocol:      "TCP",
+									HostIP:        "0.0.0.0",
+									Name:          "api-grpc-port",
+								},
+								{
+									ContainerPort: 1051,
+									Name:          "trace-port",
+								},
+							},
+							SecurityContext: &api.SecurityContext{
+								Privileged: &trueVal, // god is this dumb
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func PpsdService() *api.Service {
+	return &api.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   ppsdName,
+			Labels: labels(ppsdName),
+		},
+		Spec: api.ServiceSpec{
+			Selector: map[string]string{
+				"app": ppsdName,
+			},
+			Ports: []api.ServicePort{
+				{
+					Port: 651,
+					Name: "api-grpc-port",
+				},
+			},
+		},
+	}
+}
+
+func EtcdRc() *api.ReplicationController {
+	return &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   etcdName,
+			Labels: labels(etcdName),
+		},
+		Spec: api.ReplicationControllerSpec{
+			Replicas: 1,
+			Selector: map[string]string{
+				"app": etcdName,
+			},
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   etcdName,
+					Labels: labels(etcdName),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  etcdName,
+							Image: etcdImage,
+							//TODO figure out how to get a cluster of these to talk to each other
+							Command: []string{"/usr/local/bin/etcd", "--bind-addr=0.0.0.0:2379", "--data-dir=/var/etcd/data"},
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 2379,
+									Name:          "client-port",
+								},
+								{
+									ContainerPort: 2380,
+									Name:          "peer-port",
+								},
+							},
+							VolumeMounts: []api.VolumeMount{
+								{
+									Name:      "etcd-storage",
+									MountPath: "/var/data/etcd",
+								},
+							},
+						},
+					},
+					Volumes: []api.Volume{
+						{
+							Name: "etcd-storage",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func EtcdService() *api.Service {
+	return &api.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   etcdName,
+			Labels: labels(etcdName),
+		},
+		Spec: api.ServiceSpec{
+			Selector: map[string]string{
+				"app": etcdName,
+			},
+			Ports: []api.ServicePort{
+				{
+					Port: 2379,
+					Name: "client-port",
+				},
+				{
+					Port: 2380,
+					Name: "peer-port",
+				},
+			},
+		},
+	}
+}
+
+func RethinkRc() *api.ReplicationController {
+	return &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   rethinkName,
+			Labels: labels(rethinkName),
+		},
+		Spec: api.ReplicationControllerSpec{
+			Replicas: 1,
+			Selector: map[string]string{
+				"app": rethinkName,
+			},
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   rethinkName,
+					Labels: labels(rethinkName),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  rethinkName,
+							Image: rethinkImage,
+							//TODO figure out how to get a cluster of these to talk to each other
+							Command: []string{"rethinkdb", "-d", "/var/rethinkdb/data", "--bind", "all"},
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 8080,
+									Name:          "admin-port",
+								},
+								{
+									ContainerPort: 28015,
+									Name:          "driver-port",
+								},
+								{
+									ContainerPort: 29015,
+									Name:          "cluster-port",
+								},
+							},
+							VolumeMounts: []api.VolumeMount{
+								{
+									Name:      "rethink-storage",
+									MountPath: "/var/rethinkdb/data",
+								},
+							},
+						},
+					},
+					Volumes: []api.Volume{
+						{
+							Name: "rethink-storage",
+						},
+						//TODO this needs to be real storage
+					},
+				},
+			},
+		},
+	}
+}
+
+func RethinkService() *api.Service {
+	return &api.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   rethinkName,
+			Labels: labels(rethinkName),
+		},
+		Spec: api.ServiceSpec{
+			Selector: map[string]string{
+				"app": rethinkName,
+			},
+			Ports: []api.ServicePort{
+				{
+					Port: 8080,
+					Name: "admin-port",
+				},
+				{
+					Port: 28015,
+					Name: "driver-port",
+				},
+				{
+					Port: 29015,
+					Name: "cluster-port",
+				},
+			},
+		},
+	}
+}
+
+func labels(name string) map[string]string {
+	return map[string]string{
+		"app":   name,
+		"suite": suite,
+	}
+}
