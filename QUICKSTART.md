@@ -88,14 +88,7 @@ data output
 
 ### Creating a `Commit`
 Now that you've created a `Repo` you should see 2 empty directories `/pfs/data`
-and `/pfs/output` if you try writing to it, it will fail:
-
-```shell
-$ echo data >/pfs/data/file
-<figure out what this error message is>
-```
-
-That's because you can't write directly to `Repos`, you have to create a
+and `/pfs/output` if you try writing to it, it will fail because you can't write directly to `Repos`, you have to create a
 `Commit` to write to instead:
 
 ```shell
@@ -139,4 +132,6 @@ $ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/file
 foo
 ```
 
-However we've lost the ability to write to it, finished commits are immutable.
+However, we've lost the ability to write to it, finished commits are immutable.
+
+
