@@ -104,12 +104,19 @@ run: docker-build-test
 launch-kube:
 	etc/kube/start-kube-docker.sh
 
-launch: install launch-kube
-	pachctl create-cluster
+clean-launch-kube:
+	docker kill $$(docker ps -q)
+
+kube-cluster-assets: install
+	pachctl create-cluster -s 64 >etc/kube/pachyderm.json
+
+launch:
+	kubectl create -f etc/kube/pachyderm.json
+
+launch-dev: launch-kube launch
 
 clean-launch:
 	kubectl delete all -l suite=pachyderm
-	docker kill $$(docker ps -q)
 
 run-integration-test: docker-build-test
 	kubectl delete --ignore-not-found -f etc/kube/test-pod.yml
@@ -165,7 +172,7 @@ test: pretest go-test docker-clean-test
 
 test-long: pretest go-test-long docker-clean-test
 
-clean: docker-clean-launch
+clean: docker-clean-launch clean-launch clean-launch-kube
 	go clean ./src/... ./.
 	rm -f src/cmd/pfs/pfs-roler
 	rm -f src/cmd/pfsd/pfsd
