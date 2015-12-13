@@ -5,6 +5,7 @@
 # TESTFLAGS: flags for test
 # VENDOR_ALL: do not ignore some vendors when updating vendor directory
 # VENDOR_IGNORE_DIRS: ignore vendor dirs
+# KUBECTLFLAGS: flags for kubectl
 ####
 
 ifndef TESTPKGS
@@ -111,16 +112,16 @@ kube-cluster-assets: install
 	pachctl create-cluster -s 64 >etc/kube/pachyderm.json
 
 launch:
-	kubectl create -f etc/kube/pachyderm.json
+	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
 
 launch-dev: launch-kube launch
 
 clean-launch:
-	kubectl delete all -l suite=pachyderm
+	kubectl $(KUBECTLFLAGS) delete all -l suite=pachyderm
 
 run-integration-test: docker-build-test
-	kubectl delete --ignore-not-found -f etc/kube/test-pod.yml
-	kubectl create -f etc/kube/test-pod.yml
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f etc/kube/test-pod.yml
+	kubectl $(KUBECTLFLAGS) create -f etc/kube/test-pod.yml
 
 integration-test: launch run-integration-test
 
