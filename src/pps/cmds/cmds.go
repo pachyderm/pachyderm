@@ -2,12 +2,13 @@ package cmds
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"text/tabwriter"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/example"
 	"github.com/pachyderm/pachyderm/src/pps/pretty"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
@@ -16,58 +17,53 @@ import (
 )
 
 func Cmds(address string) ([]*cobra.Command, error) {
-	var image string
-	var outParentCommitID string
-	var shards int
+	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
+	exampleCreateJobRequest, err := marshaller.MarshalToString(example.CreateJobRequest())
+	if err != nil {
+		return nil, err
+	}
+	var jobPath string
 	createJob := &cobra.Command{
-		Use:   "create-job in-repo-name in-commit-id out-repo-name command [args]",
+		Use:   "create-job -f job.json",
 		Short: "Create a new job. Returns the id of the created job.",
-		Long: `Create a new job. With repo-name/commit-id as input and
-out-repo-name as output. A commit will be created for the output.
-You can find out the name of the commit with inspect-job.`,
+		Long:  fmt.Sprintf("Create a new job from a spec, the spec looks like this\n%s", exampleCreateJobRequest),
 		Run: func(cmd *cobra.Command, args []string) {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				errorAndExit("Error connecting to pps: %s", err.Error())
 			}
-			stdin, err := ioutil.ReadAll(os.Stdin)
-			if err != nil {
+			var jobReader io.Reader
+			if jobPath == "-" {
+				jobReader = os.Stdin
+				fmt.Print("Reading from stdin.\n")
+			} else {
+				jobFile, err := os.Open(jobPath)
+				if err != nil {
+					errorAndExit("Error opening %s: %s", jobPath, err.Error())
+				}
+				defer func() {
+					if err := jobFile.Close(); err != nil {
+						errorAndExit("Error closing%s: %s", jobPath, err.Error())
+					}
+				}()
+				jobReader = jobFile
+			}
+			var request pps.CreateJobRequest
+			if err := jsonpb.Unmarshal(jobReader, &request); err != nil {
 				errorAndExit("Error reading from stdin: %s", err.Error())
 			}
 			job, err := apiClient.CreateJob(
 				context.Background(),
-				&pps.CreateJobRequest{
-					Transform: &pps.Transform{
-						Image: image,
-						Cmd:   args[3:],
-						Stdin: string(stdin),
-					},
-					Shards: uint64(shards),
-					InputCommit: []*pfs.Commit{
-						{
-							Repo: &pfs.Repo{
-								Name: args[0],
-							},
-							Id: args[1],
-						},
-					},
-					OutputParent: &pfs.Commit{
-						Repo: &pfs.Repo{
-							Name: args[2],
-						},
-						Id: outParentCommitID,
-					},
-				})
+				&request,
+			)
 			if err != nil {
 				errorAndExit("Error from CreateJob: %s", err.Error())
 			}
 			fmt.Println(job.Id)
 		},
 	}
-	createJob.Flags().StringVarP(&image, "image", "i", "", "The image to run the job in.")
-	createJob.Flags().StringVarP(&outParentCommitID, "parent", "p", "", "The parent to use for the output commit.")
-	createJob.Flags().IntVarP(&shards, "shards", "s", 1, "The sharding factor for the job.")
+	createJob.Flags().StringVarP(&jobPath, "file", "f", "-", "The file containing the job, - reads from stdin.")
 
 	inspectJob := &cobra.Command{
 		Use:   "inspect-job job-id",
@@ -134,47 +130,49 @@ You can find out the name of the commit with inspect-job.`,
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
 
+	var pipelinePath string
+	exampleCreatePipelineRequest, err := marshaller.MarshalToString(example.CreatePipelineRequest())
+	if err != nil {
+		return nil, err
+	}
 	createPipeline := &cobra.Command{
-		Use:   "create-pipeline pipeline-name input-repo output-repo command [args]",
+		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
-		Long:  "Create a new pipeline.",
+		Long:  fmt.Sprintf("Create a new pipeline from a spec, the spec looks like this\n%s", exampleCreatePipelineRequest),
 		Run: func(cmd *cobra.Command, args []string) {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				errorAndExit("Error connecting to pps: %s", err.Error())
 			}
-			stdin, err := ioutil.ReadAll(os.Stdin)
-			if err != nil {
+			var pipelineReader io.Reader
+			if pipelinePath == "-" {
+				pipelineReader = os.Stdin
+				fmt.Print("Reading from stdin.\n")
+			} else {
+				pipelineFile, err := os.Open(pipelinePath)
+				if err != nil {
+					errorAndExit("Error opening %s: %s", pipelinePath, err.Error())
+				}
+				defer func() {
+					if err := pipelineFile.Close(); err != nil {
+						errorAndExit("Error closing%s: %s", pipelinePath, err.Error())
+					}
+				}()
+				pipelineReader = pipelineFile
+			}
+			var request pps.CreatePipelineRequest
+			if err := jsonpb.Unmarshal(pipelineReader, &request); err != nil {
 				errorAndExit("Error reading from stdin: %s", err.Error())
 			}
 			if _, err := apiClient.CreatePipeline(
 				context.Background(),
-				&pps.CreatePipelineRequest{
-					Pipeline: &pps.Pipeline{
-						Name: args[0],
-					},
-					Transform: &pps.Transform{
-						Image: image,
-						Cmd:   args[3:],
-						Stdin: string(stdin),
-					},
-					Shards: uint64(shards),
-					InputRepo: []*pfs.Repo{
-						{
-							Name: args[1],
-						},
-					},
-					OutputRepo: &pfs.Repo{
-						Name: args[2],
-					},
-				},
+				&request,
 			); err != nil {
 				errorAndExit("Error from CreatePipeline: %s", err.Error())
 			}
 		},
 	}
-	createPipeline.Flags().StringVarP(&image, "image", "i", "", "The image to run the pipeline's jobs in.")
-	createPipeline.Flags().IntVarP(&shards, "shards", "s", 1, "The sharding factor for the pipeline's jobs.")
+	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, - reads from stdin.")
 
 	inspectPipeline := &cobra.Command{
 		Use:   "inspect-pipeline pipeline-name",
