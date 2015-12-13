@@ -4,36 +4,22 @@
 
 - Docker >= 1.9
 - Go >= 1.5
-- Kubernetes >= 1.1.2
+- Kubernetes and Kubectl >= 1.1.2
 
-We're going to assume you have Docker and Go installed already, if not go do
-that, both are pretty easy. Kubernetes can be a bit more finicky, if you've
-already got a Kubernetes cluster you want to use (and `kubectl` works) then
-great! Proceed to the next step. Otherwise run the following command from the
-root of this repo to launch a local Kubernetes cluster on Docker:
+#### If you have your own Kubernetes
+
+And `kubectl` works, run:
 
 ```shell
-$ etc/kube/start-kube-docker.sh
+$ make launch
 ```
 
-if Docker is running on another machine (such as via docker-machine) you'll
-need to forward port 8080 to it:
+#### If you don't have your Kubernetes
+
+You can launch a dev cluster which runs kubernetes on docker:
 
 ```shell
-$ ssh KUBEHOST -fTNL 8080:localhost:8080
-```
-
-### Install `pachctl`
-
-From the root of this repo run:
-
-```shell
-$ make install
-```
-
-### Deploy a Cluster
-```shell
-$ pachctl create-cluster
+$ make launch-dev
 ```
 
 This should create a new cluster, to check if it worked do:
@@ -41,11 +27,11 @@ This should create a new cluster, to check if it worked do:
 ```shell
 $ kubectl get svc
 NAME         CLUSTER_IP   EXTERNAL_IP   PORT(S)                        SELECTOR      AGE
-etcd         10.0.0.5     <none>        2379/TCP,2380/TCP              app=etcd      7m
+etcd         10.0.0.210   <none>        2379/TCP,2380/TCP              app=etcd      41s
 kubernetes   10.0.0.1     <none>        443/TCP                        <none>        3h
-pfsd         10.0.0.65    <none>        650/TCP,750/TCP                app=pfsd      6m
-ppsd         10.0.0.154   <none>        651/TCP                        app=ppsd      6m
-rethink      10.0.0.186   <none>        8080/TCP,28015/TCP,29015/TCP   app=rethink   6m
+pfsd         10.0.0.148   nodes         650/TCP,750/TCP                app=pfsd      41s
+ppsd         10.0.0.69    nodes         651/TCP,751/TCP                app=ppsd      41s
+rethink      10.0.0.126   <none>        8080/TCP,28015/TCP,29015/TCP   app=rethink   41s
 ```
 
 ### Forward Ports
@@ -53,8 +39,8 @@ rethink      10.0.0.186   <none>        8080/TCP,28015/TCP,29015/TCP   app=rethi
 As above, if Docker is running on another machine you'll need to forward some ports before you can access Pachyderm:
 
 ```shell
-$ ssh KUBEHOST -fTNL 650:localhost:650
-$ ssh KUBEHOST -fTNL 651:localhost:651
+$ ssh KUBEHOST -fTNL 650:localhost:30650
+$ ssh KUBEHOST -fTNL 651:localhost:30651
 ```
 
 ### Mount /pfs
