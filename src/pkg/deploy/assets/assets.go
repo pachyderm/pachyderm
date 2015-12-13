@@ -68,7 +68,6 @@ func PfsdRc(shards uint64) *api.ReplicationController {
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 650,
-									HostPort:      650,
 									Protocol:      "TCP",
 									HostIP:        "0.0.0.0",
 									Name:          "api-grpc-port",
@@ -203,7 +202,6 @@ func PpsdRc() *api.ReplicationController {
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 651,
-									HostPort:      651,
 									Protocol:      "TCP",
 									HostIP:        "0.0.0.0",
 									Name:          "api-grpc-port",
