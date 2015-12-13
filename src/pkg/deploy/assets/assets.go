@@ -1,8 +1,11 @@
 package assets
 
 import (
+	"fmt"
+	"io"
 	"strconv"
 
+	"github.com/ugorji/go/codec"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 )
@@ -417,6 +420,34 @@ func RethinkService() *api.Service {
 			},
 		},
 	}
+}
+
+// PrintAssets creates the assets in a dir. It expects dir to already exist.
+func PrintAssets(w io.Writer, shards uint64) {
+	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
+
+	EtcdRc().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+	EtcdService().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+
+	RethinkService().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+	RethinkRc().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+
+	PfsdRc(uint64(shards)).CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+	PfsdService().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+
+	PpsdRc().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+	PpsdService().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+
+	RolerRc(uint64(shards)).CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
 }
 
 func labels(name string) map[string]string {

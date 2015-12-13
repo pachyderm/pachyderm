@@ -1,0 +1,481 @@
+{
+  "kind": "ReplicationController",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "etcd",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "etcd",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "app": "etcd"
+    },
+    "template": {
+      "metadata": {
+        "name": "etcd",
+        "creationTimestamp": null,
+        "labels": {
+          "app": "etcd",
+          "suite": "pachyderm"
+        }
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "etcd-storage"
+          }
+        ],
+        "containers": [
+          {
+            "name": "etcd",
+            "image": "gcr.io/google_containers/etcd:2.0.12",
+            "command": [
+              "/usr/local/bin/etcd",
+              "--bind-addr=0.0.0.0:2379",
+              "--data-dir=/var/etcd/data"
+            ],
+            "ports": [
+              {
+                "name": "client-port",
+                "containerPort": 2379
+              },
+              {
+                "name": "peer-port",
+                "containerPort": 2380
+              }
+            ],
+            "resources": {},
+            "volumeMounts": [
+              {
+                "name": "etcd-storage",
+                "mountPath": "/var/data/etcd"
+              }
+            ],
+            "imagePullPolicy": ""
+          }
+        ],
+        "serviceAccountName": ""
+      }
+    }
+  },
+  "status": {
+    "replicas": 0
+  }
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "etcd",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "etcd",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "client-port",
+        "protocol": "",
+        "port": 2379,
+        "targetPort": 0,
+        "nodePort": 0
+      },
+      {
+        "name": "peer-port",
+        "protocol": "",
+        "port": 2380,
+        "targetPort": 0,
+        "nodePort": 0
+      }
+    ],
+    "selector": {
+      "app": "etcd"
+    }
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "rethink",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "rethink",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "admin-port",
+        "protocol": "",
+        "port": 8080,
+        "targetPort": 0,
+        "nodePort": 0
+      },
+      {
+        "name": "driver-port",
+        "protocol": "",
+        "port": 28015,
+        "targetPort": 0,
+        "nodePort": 0
+      },
+      {
+        "name": "cluster-port",
+        "protocol": "",
+        "port": 29015,
+        "targetPort": 0,
+        "nodePort": 0
+      }
+    ],
+    "selector": {
+      "app": "rethink"
+    }
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
+  "kind": "ReplicationController",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "rethink",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "rethink",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "app": "rethink"
+    },
+    "template": {
+      "metadata": {
+        "name": "rethink",
+        "creationTimestamp": null,
+        "labels": {
+          "app": "rethink",
+          "suite": "pachyderm"
+        }
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "rethink-storage"
+          }
+        ],
+        "containers": [
+          {
+            "name": "rethink",
+            "image": "rethinkdb:2.1.5",
+            "command": [
+              "rethinkdb",
+              "-d",
+              "/var/rethinkdb/data",
+              "--bind",
+              "all"
+            ],
+            "ports": [
+              {
+                "name": "admin-port",
+                "containerPort": 8080
+              },
+              {
+                "name": "driver-port",
+                "containerPort": 28015
+              },
+              {
+                "name": "cluster-port",
+                "containerPort": 29015
+              }
+            ],
+            "resources": {},
+            "volumeMounts": [
+              {
+                "name": "rethink-storage",
+                "mountPath": "/var/rethinkdb/data"
+              }
+            ],
+            "imagePullPolicy": ""
+          }
+        ],
+        "serviceAccountName": ""
+      }
+    }
+  },
+  "status": {
+    "replicas": 0
+  }
+}
+{
+  "kind": "ReplicationController",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pfsd",
+    "creationTimestamp": null,
+    "labels": {
+      "suite": "pachyderm",
+      "app": "pfsd"
+    }
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "app": "pfsd"
+    },
+    "template": {
+      "metadata": {
+        "name": "pfsd",
+        "creationTimestamp": null,
+        "labels": {
+          "app": "pfsd",
+          "suite": "pachyderm"
+        }
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "pfs-disk"
+          }
+        ],
+        "containers": [
+          {
+            "name": "pfsd",
+            "image": "pachyderm/pfsd",
+            "ports": [
+              {
+                "name": "api-grpc-port",
+                "hostPort": 650,
+                "containerPort": 650,
+                "protocol": "TCP",
+                "hostIP": "0.0.0.0"
+              },
+              {
+                "name": "api-http-port",
+                "containerPort": 750
+              },
+              {
+                "name": "trace-port",
+                "containerPort": 1050
+              }
+            ],
+            "env": [
+              {
+                "name": "PFS_DRIVER_ROOT",
+                "value": "/pfs/btrfs"
+              },
+              {
+                "name": "BTRFS_DEVICE",
+                "value": "/pfs-img/btrfs.img"
+              },
+              {
+                "name": "PFS_NUM_SHARDS",
+                "value": "64"
+              }
+            ],
+            "resources": {},
+            "volumeMounts": [
+              {
+                "name": "pfs-disk",
+                "mountPath": "/pfs/btrfs"
+              }
+            ],
+            "imagePullPolicy": "",
+            "securityContext": {
+              "privileged": true
+            }
+          }
+        ],
+        "serviceAccountName": ""
+      }
+    }
+  },
+  "status": {
+    "replicas": 0
+  }
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pfsd",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "pfsd",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "api-grpc-port",
+        "protocol": "",
+        "port": 650,
+        "targetPort": 0,
+        "nodePort": 0
+      },
+      {
+        "name": "api-http-port",
+        "protocol": "",
+        "port": 750,
+        "targetPort": 0,
+        "nodePort": 0
+      }
+    ],
+    "selector": {
+      "app": "pfsd"
+    }
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
+  "kind": "ReplicationController",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "ppsd",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "ppsd",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "app": "ppsd"
+    },
+    "template": {
+      "metadata": {
+        "name": "ppsd",
+        "creationTimestamp": null,
+        "labels": {
+          "app": "ppsd",
+          "suite": "pachyderm"
+        }
+      },
+      "spec": {
+        "volumes": null,
+        "containers": [
+          {
+            "name": "ppsd",
+            "image": "pachyderm/ppsd",
+            "ports": [
+              {
+                "name": "api-grpc-port",
+                "hostPort": 651,
+                "containerPort": 651,
+                "protocol": "TCP",
+                "hostIP": "0.0.0.0"
+              },
+              {
+                "name": "trace-port",
+                "containerPort": 1051
+              }
+            ],
+            "resources": {},
+            "imagePullPolicy": "",
+            "securityContext": {
+              "privileged": true
+            }
+          }
+        ],
+        "serviceAccountName": ""
+      }
+    }
+  },
+  "status": {
+    "replicas": 0
+  }
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "ppsd",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "ppsd",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "api-grpc-port",
+        "protocol": "",
+        "port": 651,
+        "targetPort": 0,
+        "nodePort": 0
+      }
+    ],
+    "selector": {
+      "app": "ppsd"
+    }
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}
+{
+  "kind": "ReplicationController",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "roler",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "roler",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "app": "roler"
+    },
+    "template": {
+      "metadata": {
+        "name": "roler",
+        "creationTimestamp": null,
+        "labels": {
+          "app": "roler",
+          "suite": "pachyderm"
+        }
+      },
+      "spec": {
+        "volumes": null,
+        "containers": [
+          {
+            "name": "roler",
+            "image": "pachyderm/pfs-roler",
+            "env": [
+              {
+                "name": "PFS_NUM_SHARDS",
+                "value": "64"
+              }
+            ],
+            "resources": {},
+            "imagePullPolicy": ""
+          }
+        ],
+        "serviceAccountName": ""
+      }
+    }
+  },
+  "status": {
+    "replicas": 0
+  }
+}
