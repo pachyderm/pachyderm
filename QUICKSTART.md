@@ -36,11 +36,10 @@ rethink      10.0.0.126   <none>        8080/TCP,28015/TCP,29015/TCP   app=rethi
 
 ### Forward Ports
 
-As above, if Docker is running on another machine you'll need to forward some ports before you can access Pachyderm:
+Next you'll need to make sure `pachctl` can connect to the running pachyderm services:
 
 ```shell
-$ ssh KUBEHOST -fTNL 650:localhost:30650
-$ ssh KUBEHOST -fTNL 651:localhost:30651
+$ ssh KUBEHOST -fTNL 650:localhost:30650 -L 651:localhost:30651
 ```
 
 ### Mount /pfs
