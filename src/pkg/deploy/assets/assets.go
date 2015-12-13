@@ -115,17 +115,20 @@ func PfsdService() *api.Service {
 			Labels: labels(pfsdName),
 		},
 		Spec: api.ServiceSpec{
+			Type: api.ServiceTypeNodePort,
 			Selector: map[string]string{
 				"app": pfsdName,
 			},
 			Ports: []api.ServicePort{
 				{
-					Port: 650,
-					Name: "api-grpc-port",
+					Port:     650,
+					Name:     "api-grpc-port",
+					NodePort: 30650,
 				},
 				{
-					Port: 750,
-					Name: "api-http-port",
+					Port:     750,
+					Name:     "api-http-port",
+					NodePort: 30750,
 				},
 			},
 		},
@@ -232,13 +235,20 @@ func PpsdService() *api.Service {
 			Labels: labels(ppsdName),
 		},
 		Spec: api.ServiceSpec{
+			Type: api.ServiceTypeNodePort,
 			Selector: map[string]string{
 				"app": ppsdName,
 			},
 			Ports: []api.ServicePort{
 				{
-					Port: 651,
-					Name: "api-grpc-port",
+					Port:     651,
+					Name:     "api-grpc-port",
+					NodePort: 30651,
+				},
+				{
+					Port:     751,
+					Name:     "api-http-port",
+					NodePort: 30751,
 				},
 			},
 		},
