@@ -166,8 +166,8 @@
         "name": "rethink",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "rethink"
+          "app": "rethink",
+          "suite": "pachyderm"
         }
       },
       "spec": {
@@ -257,7 +257,6 @@
             "ports": [
               {
                 "name": "api-grpc-port",
-                "hostPort": 650,
                 "containerPort": 650,
                 "protocol": "TCP",
                 "hostIP": "0.0.0.0"
@@ -377,7 +376,6 @@
             "ports": [
               {
                 "name": "api-grpc-port",
-                "hostPort": 651,
                 "containerPort": 651,
                 "protocol": "TCP",
                 "hostIP": "0.0.0.0"
@@ -460,8 +458,8 @@
         "name": "roler",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "roler"
+          "app": "roler",
+          "suite": "pachyderm"
         }
       },
       "spec": {
