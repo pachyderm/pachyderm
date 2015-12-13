@@ -19,8 +19,8 @@
         "name": "etcd",
         "creationTimestamp": null,
         "labels": {
-          "app": "etcd",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "etcd"
         }
       },
       "spec": {
@@ -166,8 +166,8 @@
         "name": "rethink",
         "creationTimestamp": null,
         "labels": {
-          "app": "rethink",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "rethink"
         }
       },
       "spec": {
@@ -226,8 +226,8 @@
     "name": "pfsd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "pfsd"
+      "app": "pfsd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -318,20 +318,21 @@
     }
   },
   "spec": {
+    "type": "NodePort",
     "ports": [
       {
         "name": "api-grpc-port",
         "protocol": "",
         "port": 650,
         "targetPort": 0,
-        "nodePort": 0
+        "nodePort": 30650
       },
       {
         "name": "api-http-port",
         "protocol": "",
         "port": 750,
         "targetPort": 0,
-        "nodePort": 0
+        "nodePort": 30750
       }
     ],
     "selector": {
@@ -413,13 +414,21 @@
     }
   },
   "spec": {
+    "type": "NodePort",
     "ports": [
       {
         "name": "api-grpc-port",
         "protocol": "",
         "port": 651,
         "targetPort": 0,
-        "nodePort": 0
+        "nodePort": 30651
+      },
+      {
+        "name": "api-http-port",
+        "protocol": "",
+        "port": 751,
+        "targetPort": 0,
+        "nodePort": 30751
       }
     ],
     "selector": {
@@ -451,8 +460,8 @@
         "name": "roler",
         "creationTimestamp": null,
         "labels": {
-          "app": "roler",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "roler"
         }
       },
       "spec": {
