@@ -1,4 +1,17 @@
 {
+  "kind": "ServiceAccount",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "pachyderm",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "",
+      "suite": "pachyderm"
+    }
+  },
+  "secrets": null
+}
+{
   "kind": "ReplicationController",
   "apiVersion": "v1",
   "metadata": {
@@ -281,7 +294,7 @@
               },
               {
                 "name": "PFS_NUM_SHARDS",
-                "value": "64"
+                "value": "32"
               }
             ],
             "resources": {},
@@ -392,7 +405,7 @@
             }
           }
         ],
-        "serviceAccountName": ""
+        "serviceAccountName": "pachyderm"
       }
     }
   },
@@ -458,8 +471,8 @@
         "name": "roler",
         "creationTimestamp": null,
         "labels": {
-          "app": "roler",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "roler"
         }
       },
       "spec": {
@@ -471,7 +484,7 @@
             "env": [
               {
                 "name": "PFS_NUM_SHARDS",
-                "value": "64"
+                "value": "32"
               }
             ],
             "resources": {},
