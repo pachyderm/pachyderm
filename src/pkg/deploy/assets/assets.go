@@ -11,20 +11,34 @@ import (
 )
 
 var (
-	suite        = "pachyderm"
-	pfsdImage    = "pachyderm/pfsd"
-	rolerImage   = "pachyderm/pfs-roler"
-	ppsdImage    = "pachyderm/ppsd"
-	btrfsImage   = "pachyderm_btrfs"
-	etcdImage    = "gcr.io/google_containers/etcd:2.0.12"
-	rethinkImage = "rethinkdb:2.1.5"
-	pfsdName     = "pfsd"
-	rolerName    = "roler"
-	ppsdName     = "ppsd"
-	etcdName     = "etcd"
-	rethinkName  = "rethink"
-	trueVal      = true
+	suite              = "pachyderm"
+	pfsdImage          = "pachyderm/pfsd"
+	rolerImage         = "pachyderm/pfs-roler"
+	ppsdImage          = "pachyderm/ppsd"
+	btrfsImage         = "pachyderm_btrfs"
+	etcdImage          = "gcr.io/google_containers/etcd:2.0.12"
+	rethinkImage       = "rethinkdb:2.1.5"
+	serviceAccountName = "pachyderm"
+	pfsdName           = "pfsd"
+	rolerName          = "roler"
+	ppsdName           = "ppsd"
+	etcdName           = "etcd"
+	rethinkName        = "rethink"
+	trueVal            = true
 )
+
+func ServiceAccount() *api.ServiceAccount {
+	return &api.ServiceAccount{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ServiceAccount",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   serviceAccountName,
+			Labels: labels(""),
+		},
+	}
+}
 
 func PfsdRc(shards uint64) *api.ReplicationController {
 	return &api.ReplicationController{
@@ -216,6 +230,7 @@ func PpsdRc() *api.ReplicationController {
 							},
 						},
 					},
+					ServiceAccountName: serviceAccountName,
 				},
 			},
 		},
@@ -430,9 +445,12 @@ func RethinkService() *api.Service {
 	}
 }
 
-// PrintAssets creates the assets in a dir. It expects dir to already exist.
-func PrintAssets(w io.Writer, shards uint64) {
+// WriteAssets creates the assets in a dir. It expects dir to already exist.
+func WriteAssets(w io.Writer, shards uint64) {
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
+
+	ServiceAccount().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
 
 	EtcdRc().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
