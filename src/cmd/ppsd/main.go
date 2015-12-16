@@ -51,9 +51,9 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	pfsAPIClient := pfs.NewAPIClient(clientConn)
-	kubeClient, err := kube.NewInCluster()
+	kubeClient, err := getKubeClient()
 	if err != nil {
-		protolog.Fatalf("Error creating kubernetes client: %s", err.Error())
+		return err
 	}
 	jobAPIServer := jobserver.NewAPIServer(
 		pfsAPIClient,
@@ -111,4 +111,32 @@ func getPfsdAddress() (string, error) {
 		return "", errors.New("PFSD_PORT_650_TCP_ADDR not set")
 	}
 	return fmt.Sprintf("%s:650", pfsdAddr), nil
+}
+
+func getKubeAddress() (string, error) {
+	kubedAddr := os.Getenv("KUBERNETES_PORT_443_TCP_ADDR")
+	if kubedAddr == "" {
+		return "", errors.New("KUBERNETES_PORT_443_TCP_ADDR not set")
+	}
+	return fmt.Sprintf("%s:443", kubedAddr), nil
+}
+
+func getKubeClient() (*kube.Client, error) {
+	kubeAddr, err := getKubeAddress()
+	if err != nil {
+		return nil, err
+	}
+	config := &kube.Config{
+		Host:     kubeAddr,
+		Insecure: true,
+	}
+	kubeClient, err := kube.New(config)
+	if err != nil {
+		protolog.Printf("Error insecure kube client: %s", err.Error())
+	}
+	if kubeClient != nil {
+		return kubeClient, nil
+	}
+
+	return kube.NewInCluster()
 }
