@@ -60,6 +60,7 @@ docker-build-btrfs:
 
 docker-build-test: docker-build-btrfs
 	docker-compose build test
+	docker tag -f pachyderm_test:latest pachyderm/test:latest
 	mkdir -p /tmp/pachyderm-test
 
 docker-build-compile:
@@ -80,7 +81,10 @@ docker-build-pachctl: docker-build-compile
 docker-build-job-shim: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh job-shim
 
-docker-build: docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pachctl docker-build-job-shim
+docker-build: docker-build-test docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pachctl docker-build-job-shim
+
+docker-push-test: docker-build-test
+	docker push pachyderm/test
 
 docker-push-pfs-roler: docker-build-pfs-roler
 	docker push pachyderm/pfs-roler
@@ -119,7 +123,7 @@ launch-dev: launch-kube launch
 clean-launch:
 	kubectl $(KUBECTLFLAGS) delete all -l suite=pachyderm
 
-run-integration-test: docker-build-test
+run-integration-test:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f etc/kube/test-pod.yml
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/test-pod.yml
 
