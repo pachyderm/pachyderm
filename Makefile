@@ -203,7 +203,6 @@ clean: docker-clean-launch clean-launch clean-launch-kube
 	docker-push-ppsd \
 	docker-push \
 	run \
-	launch-pfsd \
 	launch \
 	proto \
 	pretest \
