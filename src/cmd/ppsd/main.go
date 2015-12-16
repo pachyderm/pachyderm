@@ -53,7 +53,7 @@ func do(appEnvObj interface{}) error {
 	pfsAPIClient := pfs.NewAPIClient(clientConn)
 	kubeClient, err := kube.NewInCluster()
 	if err != nil {
-		protolog.Printf("Error creating kubernetes client: %s", err.Error())
+		protolog.Fatalf("Error creating kubernetes client: %s", err.Error())
 	}
 	jobAPIServer := jobserver.NewAPIServer(
 		pfsAPIClient,

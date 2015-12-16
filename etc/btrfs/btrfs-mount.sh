@@ -7,6 +7,7 @@ if [ -z "${BTRFS_DEVICE}" ]; then
   exit 1
 fi
 
+sudo modprobe loop
 mkdir -p $(dirname "${BTRFS_DEVICE}")
 truncate "${BTRFS_DEVICE}" -s 10G
 mkfs.btrfs "${BTRFS_DEVICE}"

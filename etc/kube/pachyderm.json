@@ -18,8 +18,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -32,8 +32,8 @@
         "name": "etcd",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "etcd"
+          "app": "etcd",
+          "suite": "pachyderm"
         }
       },
       "spec": {
@@ -261,6 +261,12 @@
         "volumes": [
           {
             "name": "pfs-disk"
+          },
+          {
+            "name": "modules",
+            "hostPath": {
+              "path": "/lib/modules"
+            }
           }
         ],
         "containers": [
@@ -302,6 +308,10 @@
               {
                 "name": "pfs-disk",
                 "mountPath": "/pfs/btrfs"
+              },
+              {
+                "name": "modules",
+                "mountPath": "/lib/modules"
               }
             ],
             "imagePullPolicy": "",
@@ -471,8 +481,8 @@
         "name": "roler",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "roler"
+          "app": "roler",
+          "suite": "pachyderm"
         }
       },
       "spec": {

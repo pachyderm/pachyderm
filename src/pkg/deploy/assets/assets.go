@@ -100,6 +100,10 @@ func PfsdRc(shards uint64) *api.ReplicationController {
 									Name:      "pfs-disk",
 									MountPath: "/pfs/btrfs",
 								},
+								{
+									Name:      "modules",
+									MountPath: "/lib/modules",
+								},
 							},
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
@@ -109,6 +113,14 @@ func PfsdRc(shards uint64) *api.ReplicationController {
 					Volumes: []api.Volume{
 						{
 							Name: "pfs-disk",
+						},
+						{
+							Name: "modules",
+							VolumeSource: api.VolumeSource{
+								HostPath: &api.HostPathVolumeSource{
+									Path: "/lib/modules",
+								},
+							},
 						},
 					},
 				},
