@@ -61,6 +61,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	if request.Shards == 0 {
 		return nil, fmt.Errorf("pachyderm.pps.jobserver: request.Shards cannot be 0")
 	}
+	// TODO validate job to make sure input commits and output repo exist
 	persistJobInfo := &persist.JobInfo{
 		Shards:       request.Shards,
 		Transform:    request.Transform,
