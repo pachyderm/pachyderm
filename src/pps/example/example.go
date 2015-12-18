@@ -26,6 +26,9 @@ func CreateJobRequest() *pps.CreateJobRequest {
 
 func CreatePipelineRequest() *pps.CreatePipelineRequest {
 	return &pps.CreatePipelineRequest{
+		Pipeline: &pps.Pipeline{
+			Name: "name",
+		},
 		Transform: &pps.Transform{
 			Cmd: []string{"cmd", "args..."},
 		},
