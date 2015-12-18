@@ -8,11 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
-
-	"golang.org/x/net/context"
-
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
@@ -21,6 +16,9 @@ import (
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"go.pedge.io/proto/time"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 type apiServer struct {

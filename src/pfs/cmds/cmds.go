@@ -6,15 +6,13 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"google.golang.org/grpc"
-
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/pretty"
-	"go.pedge.io/pkg/cobra"
-
 	"github.com/spf13/cobra"
+	"go.pedge.io/pkg/cobra"
+	"google.golang.org/grpc"
 )
 
 func Cmds(address string) ([]*cobra.Command, error) {
