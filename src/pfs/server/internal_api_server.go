@@ -178,6 +178,7 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 			return nil, err
 		}
 		for commitInfo := range commitChan {
+			protolog.Printf("gotCommitInfo: %+v", commitInfo)
 			commitInfos = append(commitInfos, commitInfo)
 		}
 	}
@@ -836,6 +837,7 @@ func (a *internalAPIServer) registerCommitWaiter(request *pfs.ListCommitRequest,
 			close(outChan)
 		}()
 	}
+	protolog.Printf("actually registering waiter repo: %s, commitType: %s", request.Repo.Name, request.CommitType.String())
 	key := commitWait{*request.Repo, request.CommitType}
 	a.commitWaiters[key] =
 		append(a.commitWaiters[key], outChan)
@@ -852,8 +854,8 @@ func (a *internalAPIServer) pulseCommitWaiters(commit *pfs.Commit, commitType pf
 	}
 	key := commitWait{*commit.Repo, commitType}
 	commitWaiters := a.commitWaiters[key]
-	for commitWait, commitWaiter := range commitWaiters {
-		protolog.Printf("pulseCommitWait: %+v", commitWait)
+	for _, commitWaiter := range commitWaiters {
+		protolog.Printf("pulseCommitWait: %+v", key)
 		commitWaiter <- commitInfo
 		close(commitWaiter)
 	}

@@ -122,6 +122,8 @@ launch-dev: launch-kube launch
 
 clean-launch:
 	kubectl $(KUBECTLFLAGS) delete all -l suite=pachyderm
+	kubectl $(KUBECTLFLAGS) delete job -l suite=pachyderm # job not part of all?
+	kubectl $(KUBECTLFLAGS) delete serviceaccount -l suite=pachyderm # service account neither?
 
 run-integration-test:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f etc/kube/test-pod.yml
