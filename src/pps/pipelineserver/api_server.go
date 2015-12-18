@@ -128,7 +128,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 	a.lock.Unlock()
 	var loopErr error
 	//TODO this gets really weird with branching... we need to figure out what that looks like.
-	mostRecentCommit := make(map[pfs.Repo]*pfs.Commit)
+	repoToLastCommit := make(map[pfs.Repo]*pfs.Commit)
 	var lock sync.Mutex
 	var wg sync.WaitGroup
 	for _, inputRepo := range pipelineInfo.InputRepo {
@@ -137,46 +137,49 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 		go func() {
 			defer wg.Done()
 			var lastCommit *pfs.Commit
-			listCommitRequest := &pfs.ListCommitRequest{
-				Repo:       inputRepo,
-				CommitType: pfs.CommitType_COMMIT_TYPE_READ,
-				From:       lastCommit,
-				Block:      true,
-			}
-			commitInfos, err := a.pfsAPIClient.ListCommit(ctx, listCommitRequest)
-			if err != nil && loopErr == nil {
-				loopErr = err
-				return
-			}
-			for _, commitInfo := range commitInfos.CommitInfo {
-				lock.Lock()
-				mostRecentCommit[*inputRepo] = commitInfo.Commit
-				var commits []*pfs.Commit
-				for _, commit := range mostRecentCommit {
-					commits = append(commits, commit)
+			for {
+				listCommitRequest := &pfs.ListCommitRequest{
+					Repo:       inputRepo,
+					CommitType: pfs.CommitType_COMMIT_TYPE_READ,
+					From:       lastCommit,
+					Block:      true,
 				}
-				lock.Unlock()
-				if len(commits) < len(pipelineInfo.InputRepo) {
-					// we don't yet have a commit for every input repo so there's no way to run the job
-					// TODO is this actually the right policy? maybe we should run with empty commits
-					continue
-				}
-				outParentCommit, err := a.bestParent(pipelineInfo, commitInfo)
+				commitInfos, err := a.pfsAPIClient.ListCommit(ctx, listCommitRequest)
 				if err != nil && loopErr == nil {
 					loopErr = err
 					return
 				}
-				protolog.Printf("running job: mostRecentCommit: %+v, outParentCommit: %+v", mostRecentCommit, outParentCommit)
-				_, err = a.jobAPIClient.CreateJob(
-					ctx,
-					&pps.CreateJobRequest{
-						Transform:    pipelineInfo.Transform,
-						Pipeline:     pipelineInfo.Pipeline,
-						Shards:       pipelineInfo.Shards,
-						InputCommit:  []*pfs.Commit{commitInfo.Commit},
-						OutputParent: outParentCommit,
-					},
-				)
+				for _, commitInfo := range commitInfos.CommitInfo {
+					lock.Lock()
+					repoToLastCommit[*inputRepo] = commitInfo.Commit
+					lastCommit = commitInfo.Commit
+					var commits []*pfs.Commit
+					for _, commit := range repoToLastCommit {
+						commits = append(commits, commit)
+					}
+					lock.Unlock()
+					if len(commits) < len(pipelineInfo.InputRepo) {
+						// we don't yet have a commit for every input repo so there's no way to run the job
+						// TODO is this actually the right policy? maybe we should run with empty commits
+						continue
+					}
+					outParentCommit, err := a.bestParent(pipelineInfo, commitInfo)
+					if err != nil && loopErr == nil {
+						loopErr = err
+						return
+					}
+					protolog.Printf("running job: repoToLastCommit: %+v, outParentCommit: %+v", repoToLastCommit, outParentCommit)
+					_, err = a.jobAPIClient.CreateJob(
+						ctx,
+						&pps.CreateJobRequest{
+							Transform:    pipelineInfo.Transform,
+							Pipeline:     pipelineInfo.Pipeline,
+							Shards:       pipelineInfo.Shards,
+							InputCommit:  []*pfs.Commit{commitInfo.Commit},
+							OutputParent: outParentCommit,
+						},
+					)
+				}
 			}
 		}()
 	}

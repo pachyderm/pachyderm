@@ -3,6 +3,7 @@ package pachyderm
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"strings"
@@ -20,6 +21,7 @@ import (
 )
 
 func TestJob(t *testing.T) {
+	t.Skip()
 	dataRepo := uniqueString("TestJob.data")
 	outRepo := uniqueString("TestJob.output")
 	pfsClient := getPfsClient(t)
@@ -59,7 +61,6 @@ func TestJob(t *testing.T) {
 }
 
 func TestPipeline(t *testing.T) {
-	t.Skip()
 	pfsClient := getPfsClient(t)
 	ppsClient := getPpsClient(t)
 	// create repos
@@ -79,6 +80,7 @@ func TestPipeline(t *testing.T) {
 		&pfs.Repo{Name: outRepo},
 	))
 	// Do first commit to repo
+	log.Printf("Do first commit.")
 	commit1, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
 	require.NoError(t, err)
 	_, err = pfsutil.PutFile(pfsClient, dataRepo, commit1.Id, "file", 0, strings.NewReader("foo"))
@@ -100,6 +102,7 @@ func TestPipeline(t *testing.T) {
 	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foo", buffer.String())
 	// Do second commit to repo
+	log.Printf("Do second commit.")
 	commit2, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
 	require.NoError(t, err)
 	_, err = pfsutil.PutFile(pfsClient, dataRepo, commit2.Id, "file", 0, strings.NewReader("bar"))
@@ -124,6 +127,7 @@ func TestPipeline(t *testing.T) {
 }
 
 func TestGrep(t *testing.T) {
+	t.Skip()
 	dataRepo := uniqueString("pachyderm.TestGrep.data")
 	outRepo := uniqueString("pachyderm.TestGrep.output")
 	pfsClient := getPfsClient(t)
