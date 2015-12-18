@@ -147,8 +147,8 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	}(); err != nil {
 		return nil, err
 	}
-	if jobInfo.GetTransform() == nil {
-		return nil, fmt.Errorf("jobInfo.GetTransform() should not be nil (this is likely a bug)")
+	if jobInfo.Transform == nil {
+		return nil, fmt.Errorf("jobInfo.Transform should not be nil (this is likely a bug)")
 	}
 	jobOutput, err := a.persistAPIClient.GetJobOutput(ctx, request.Job)
 	if err != nil {
@@ -158,7 +158,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 		return nil, fmt.Errorf("jobOutput.OutputCommit should not be nil (this is likely a bug)")
 	}
 	return &pps.StartJobResponse{
-		Transform:    jobInfo.GetTransform(),
+		Transform:    jobInfo.Transform,
 		InputCommit:  jobInfo.InputCommit,
 		OutputCommit: jobOutput.OutputCommit,
 		Shard: &pfs.Shard{
@@ -219,8 +219,8 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 	app := jobInfo.JobId
 	shards := int(jobInfo.Shards)
 	image := "pachyderm/job-shim"
-	if jobInfo.GetTransform().Image != "" {
-		image = jobInfo.GetTransform().Image
+	if jobInfo.Transform.Image != "" {
+		image = jobInfo.Transform.Image
 	}
 	return &extensions.Job{
 		TypeMeta: unversioned.TypeMeta{
