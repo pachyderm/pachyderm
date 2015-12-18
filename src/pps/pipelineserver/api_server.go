@@ -1,6 +1,7 @@
 package pipelineserver
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -56,6 +57,9 @@ func (a *apiServer) Start() error {
 
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if request.Pipeline == nil {
+		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: request.Pipeline cannot be nil")
+	}
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
