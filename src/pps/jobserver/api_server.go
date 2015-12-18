@@ -29,9 +29,9 @@ type apiServer struct {
 	pfsAPIClient     pfs.APIClient
 	persistAPIClient persist.APIClient
 	kubeClient       *kube.Client
-	startJobCounter  map[pps.Job]uint64
+	startJobCounter  map[string]uint64
 	startJobLock     sync.Mutex
-	finishJobCounter map[pps.Job]uint64
+	finishJobCounter map[string]uint64
 	finishJobLock    sync.Mutex
 }
 
@@ -45,9 +45,9 @@ func newAPIServer(
 		pfsAPIClient,
 		persistAPIClient,
 		kubeClient,
-		make(map[pps.Job]uint64),
+		make(map[string]uint64),
 		sync.Mutex{},
-		make(map[pps.Job]uint64),
+		make(map[string]uint64),
 		sync.Mutex{},
 	}
 }
@@ -125,8 +125,8 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	if err := func() error {
 		a.startJobLock.Lock()
 		defer a.startJobLock.Unlock()
-		shard = a.startJobCounter[*request.Job]
-		a.startJobCounter[*request.Job] = shard + 1
+		shard = a.startJobCounter[request.Job.Id]
+		a.startJobCounter[request.Job.Id] = shard + 1
 		if shard == 0 {
 			commit, err := a.pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 				Parent: jobInfo.OutputParent,
@@ -178,8 +178,8 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 	func() {
 		a.finishJobLock.Lock()
 		defer a.finishJobLock.Unlock()
-		a.finishJobCounter[*request.Job] = a.finishJobCounter[*request.Job] + 1
-		finished = a.finishJobCounter[*request.Job]
+		a.finishJobCounter[request.Job.Id] = a.finishJobCounter[request.Job.Id] + 1
+		finished = a.finishJobCounter[request.Job.Id]
 	}()
 	if finished == jobInfo.Shards {
 		// all of the shards have finished so we finish the commit
