@@ -5,12 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"go.pedge.io/env"
-	"go.pedge.io/proto/server"
-	"go.pedge.io/protolog"
-	"google.golang.org/grpc"
-	kube "k8s.io/kubernetes/pkg/client/unversioned"
-
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
@@ -18,6 +12,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	persistserver "github.com/pachyderm/pachyderm/src/pps/persist/server"
 	"github.com/pachyderm/pachyderm/src/pps/pipelineserver"
+	"go.pedge.io/env"
+	"go.pedge.io/proto/server"
+	"go.pedge.io/protolog"
+	"google.golang.org/grpc"
+	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
 type appEnv struct {

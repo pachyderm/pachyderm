@@ -5,12 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"golang.org/x/net/context"
-
-	"go.pedge.io/env"
-	"go.pedge.io/proto/server"
-	"go.pedge.io/protolog"
-
 	"github.com/gengo/grpc-gateway/runtime"
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -22,6 +16,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
+	"go.pedge.io/env"
+	"go.pedge.io/proto/server"
+	"go.pedge.io/protolog"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
