@@ -21,7 +21,6 @@ import (
 )
 
 func TestJob(t *testing.T) {
-	t.Skip()
 	dataRepo := uniqueString("TestJob.data")
 	outRepo := uniqueString("TestJob.output")
 	pfsClient := getPfsClient(t)
@@ -123,11 +122,10 @@ func TestPipeline(t *testing.T) {
 	require.Equal(t, 1, len(outCommits))
 	buffer = bytes.Buffer{}
 	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
-	require.Equal(t, "bar", buffer.String())
+	require.Equal(t, "foobar", buffer.String())
 }
 
 func TestGrep(t *testing.T) {
-	t.Skip()
 	dataRepo := uniqueString("pachyderm.TestGrep.data")
 	outRepo := uniqueString("pachyderm.TestGrep.output")
 	pfsClient := getPfsClient(t)
