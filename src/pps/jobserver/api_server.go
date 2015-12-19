@@ -24,15 +24,31 @@ var (
 	suite   = "pachyderm"
 )
 
+type jobState struct {
+	start        uint64      // the number of shards started
+	finish       uint64      // the number of shards finished
+	outputCommit *pfs.Commit // the output commit
+	commitReady  chan bool   // closed when outCommit has been started (and is non nil)
+	finished     chan bool   // closed when the job has been finished, the jobState will be deleted afterward
+}
+
+func newJobState() *jobState {
+	return &jobState{
+		start:        0,
+		finish:       0,
+		outputCommit: nil,
+		commitReady:  make(chan bool),
+		finished:     make(chan bool),
+	}
+}
+
 type apiServer struct {
 	protorpclog.Logger
 	pfsAPIClient     pfs.APIClient
 	persistAPIClient persist.APIClient
 	kubeClient       *kube.Client
-	startJobCounter  map[string]uint64
-	startJobLock     sync.Mutex
-	finishJobCounter map[string]uint64
-	finishJobLock    sync.Mutex
+	jobStates        map[string]*jobState
+	lock             sync.Mutex
 }
 
 func newAPIServer(
@@ -45,9 +61,7 @@ func newAPIServer(
 		pfsAPIClient,
 		persistAPIClient,
 		kubeClient,
-		make(map[string]uint64),
-		sync.Mutex{},
-		make(map[string]uint64),
+		make(map[string]*jobState),
 		sync.Mutex{},
 	}
 }
@@ -121,46 +135,49 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	if err != nil {
 		return nil, err
 	}
-	var shard uint64
-	if err := func() error {
-		a.startJobLock.Lock()
-		defer a.startJobLock.Unlock()
-		shard = a.startJobCounter[request.Job.Id]
-		a.startJobCounter[request.Job.Id] = shard + 1
-		if shard == 0 {
-			commit, err := a.pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-				Parent: jobInfo.OutputParent,
-			})
-			if err != nil {
-				return err
-			}
-			if _, err := a.persistAPIClient.CreateJobOutput(
-				ctx,
-				&persist.JobOutput{
-					JobId:        request.Job.Id,
-					OutputCommit: commit,
-				}); err != nil {
-				return err
-			}
-		}
-		return nil
-	}(); err != nil {
-		return nil, err
-	}
 	if jobInfo.Transform == nil {
 		return nil, fmt.Errorf("jobInfo.Transform should not be nil (this is likely a bug)")
 	}
-	jobOutput, err := a.persistAPIClient.GetJobOutput(ctx, request.Job)
-	if err != nil {
-		return nil, err
+	a.lock.Lock()
+	jobState, ok := a.jobStates[request.Job.Id]
+	if !ok {
+		jobState = newJobState()
+		a.jobStates[request.Job.Id] = jobState
 	}
-	if jobOutput.OutputCommit == nil {
-		return nil, fmt.Errorf("jobOutput.OutputCommit should not be nil (this is likely a bug)")
+	shard := jobState.start
+	if jobState.start < jobInfo.Shards {
+		jobState.start++
+	}
+	a.lock.Unlock()
+	if shard == jobInfo.Shards {
+		return nil, fmt.Errorf("job %s already has %d shards", request.Job.Id, jobInfo.Shards)
+	}
+	if shard == 0 {
+		commit, err := a.pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+			Parent: jobInfo.OutputParent,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if _, err := a.persistAPIClient.CreateJobOutput(
+			ctx,
+			&persist.JobOutput{
+				JobId:        request.Job.Id,
+				OutputCommit: commit,
+			}); err != nil {
+			return nil, err
+		}
+		jobState.outputCommit = commit
+		close(jobState.commitReady)
+	}
+	<-jobState.commitReady
+	if jobState.outputCommit == nil {
+		return nil, fmt.Errorf("jobState.outputCommit should not be nil (this is likely a bug)")
 	}
 	return &pps.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		InputCommit:  jobInfo.InputCommit,
-		OutputCommit: jobOutput.OutputCommit,
+		OutputCommit: jobState.outputCommit,
 		Shard: &pfs.Shard{
 			Number:  shard,
 			Modulus: jobInfo.Shards,
@@ -174,14 +191,20 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 	if err != nil {
 		return nil, err
 	}
-	var finished uint64
-	func() {
-		a.finishJobLock.Lock()
-		defer a.finishJobLock.Unlock()
-		a.finishJobCounter[request.Job.Id] = a.finishJobCounter[request.Job.Id] + 1
-		finished = a.finishJobCounter[request.Job.Id]
-	}()
-	if finished == jobInfo.Shards {
+	var jobState *jobState
+	if err := func() error {
+		a.lock.Lock()
+		defer a.lock.Unlock()
+		jobState = a.jobStates[request.Job.Id]
+		if jobState == nil {
+			return fmt.Errorf("job %s was never started", request.Job.Id)
+		}
+		jobState.finish++
+		return nil
+	}(); err != nil {
+		return nil, err
+	}
+	if jobState.finish == jobInfo.Shards {
 		// all of the shards have finished so we finish the commit
 		jobOutput, err := a.persistAPIClient.GetJobOutput(ctx, request.Job)
 		if err != nil {
