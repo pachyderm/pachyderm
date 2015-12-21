@@ -13,6 +13,7 @@ test:
   volumes:
     - /tmp/pachyderm-test:/tmp/pachyderm-test
     - /var/run/docker.sock:/var/run/docker.sock
+    - /lib/modules:/lib/modules
   volumes_from:
     - btrfs
   environment:
