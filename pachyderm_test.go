@@ -21,6 +21,7 @@ import (
 )
 
 func TestJob(t *testing.T) {
+	t.Skip()
 	dataRepo := uniqueString("TestJob.data")
 	outRepo := uniqueString("TestJob.output")
 	pfsClient := getPfsClient(t)
@@ -57,6 +58,33 @@ func TestJob(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foo", buffer.String())
+}
+
+func TestGrep(t *testing.T) {
+	t.Skip()
+	dataRepo := uniqueString("pachyderm.TestGrep.data")
+	outRepo := uniqueString("pachyderm.TestGrep.output")
+	pfsClient := getPfsClient(t)
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, outRepo))
+	commit, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
+	require.NoError(t, err)
+	for i := 0; i < 100; i++ {
+		_, err = pfsutil.PutFile(pfsClient, dataRepo, commit.Id, fmt.Sprintf("file%d", i), 0, strings.NewReader("foo\nbar\nfizz\nbuzz\n"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, pfsutil.FinishCommit(pfsClient, dataRepo, commit.Id))
+	ppsClient := getPpsClient(t)
+	_, err = ppsutil.CreateJob(
+		ppsClient,
+		"",
+		[]string{"sh"},
+		fmt.Sprintf("grep foo /pfs/%s/* >/pfs/%s/foo", dataRepo, outRepo),
+		1,
+		[]*pfs.Commit{commit},
+		&pfs.Commit{Repo: &pfs.Repo{Name: outRepo}},
+	)
+	require.NoError(t, err)
 }
 
 func TestPipeline(t *testing.T) {
@@ -123,32 +151,6 @@ func TestPipeline(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foobar", buffer.String())
-}
-
-func TestGrep(t *testing.T) {
-	dataRepo := uniqueString("pachyderm.TestGrep.data")
-	outRepo := uniqueString("pachyderm.TestGrep.output")
-	pfsClient := getPfsClient(t)
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, outRepo))
-	commit, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
-	require.NoError(t, err)
-	for i := 0; i < 100; i++ {
-		_, err = pfsutil.PutFile(pfsClient, dataRepo, commit.Id, fmt.Sprintf("file%d", i), 0, strings.NewReader("foo\nbar\nfizz\nbuzz\n"))
-		require.NoError(t, err)
-	}
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, dataRepo, commit.Id))
-	ppsClient := getPpsClient(t)
-	_, err = ppsutil.CreateJob(
-		ppsClient,
-		"",
-		[]string{"sh"},
-		fmt.Sprintf("grep foo /pfs/%s/* >/pfs/%s/foo", dataRepo, outRepo),
-		1,
-		[]*pfs.Commit{commit},
-		&pfs.Commit{Repo: &pfs.Repo{Name: outRepo}},
-	)
-	require.NoError(t, err)
 }
 
 func getPfsClient(t *testing.T) pfs.APIClient {
