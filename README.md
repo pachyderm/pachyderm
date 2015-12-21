@@ -121,8 +121,10 @@ With golang, it's generally easiest to have your fork match the import paths in 
 ```
 # assuming your github username is alice
 rm -rf ${GOPATH}/src/github.com/pachyderm/pachyderm
+mkdir -p ${GOPATH}/src/github.com/pachyderm
 cd ${GOPATH}/src/github.com/pachyderm
 git clone https://github.com/alice/pachyderm.git
+cd pachyderm
 git remote add upstream https://github.com/pachyderm/pachyderm.git # so you can run 'git fetch upstream' to get upstream changes
 ```
 
