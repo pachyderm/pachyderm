@@ -37,30 +37,27 @@ type SubvolumeCreate struct {
 	Error string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *SubvolumeCreate) Reset()                    { *m = SubvolumeCreate{} }
-func (m *SubvolumeCreate) String() string            { return proto.CompactTextString(m) }
-func (*SubvolumeCreate) ProtoMessage()               {}
-func (*SubvolumeCreate) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (m *SubvolumeCreate) Reset()         { *m = SubvolumeCreate{} }
+func (m *SubvolumeCreate) String() string { return proto.CompactTextString(m) }
+func (*SubvolumeCreate) ProtoMessage()    {}
 
 type SubvolumeDelete struct {
 	Path  string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
 	Error string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *SubvolumeDelete) Reset()                    { *m = SubvolumeDelete{} }
-func (m *SubvolumeDelete) String() string            { return proto.CompactTextString(m) }
-func (*SubvolumeDelete) ProtoMessage()               {}
-func (*SubvolumeDelete) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (m *SubvolumeDelete) Reset()         { *m = SubvolumeDelete{} }
+func (m *SubvolumeDelete) String() string { return proto.CompactTextString(m) }
+func (*SubvolumeDelete) ProtoMessage()    {}
 
 type SubvolumeExists struct {
 	Path   string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
 	Result bool   `protobuf:"varint,2,opt,name=result" json:"result,omitempty"`
 }
 
-func (m *SubvolumeExists) Reset()                    { *m = SubvolumeExists{} }
-func (m *SubvolumeExists) String() string            { return proto.CompactTextString(m) }
-func (*SubvolumeExists) ProtoMessage()               {}
-func (*SubvolumeExists) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (m *SubvolumeExists) Reset()         { *m = SubvolumeExists{} }
+func (m *SubvolumeExists) String() string { return proto.CompactTextString(m) }
+func (*SubvolumeExists) ProtoMessage()    {}
 
 type SubvolumeSnapshot struct {
 	Src      string `protobuf:"bytes,1,opt,name=src" json:"src,omitempty"`
@@ -69,10 +66,9 @@ type SubvolumeSnapshot struct {
 	Error    string `protobuf:"bytes,4,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *SubvolumeSnapshot) Reset()                    { *m = SubvolumeSnapshot{} }
-func (m *SubvolumeSnapshot) String() string            { return proto.CompactTextString(m) }
-func (*SubvolumeSnapshot) ProtoMessage()               {}
-func (*SubvolumeSnapshot) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+func (m *SubvolumeSnapshot) Reset()         { *m = SubvolumeSnapshot{} }
+func (m *SubvolumeSnapshot) String() string { return proto.CompactTextString(m) }
+func (*SubvolumeSnapshot) ProtoMessage()    {}
 
 type TransID struct {
 	Path   string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
@@ -80,10 +76,9 @@ type TransID struct {
 	Error  string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *TransID) Reset()                    { *m = TransID{} }
-func (m *TransID) String() string            { return proto.CompactTextString(m) }
-func (*TransID) ProtoMessage()               {}
-func (*TransID) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+func (m *TransID) Reset()         { *m = TransID{} }
+func (m *TransID) String() string { return proto.CompactTextString(m) }
+func (*TransID) ProtoMessage()    {}
 
 type SubvolumeList struct {
 	Path       string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
@@ -92,19 +87,17 @@ type SubvolumeList struct {
 	Error      string `protobuf:"bytes,4,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *SubvolumeList) Reset()                    { *m = SubvolumeList{} }
-func (m *SubvolumeList) String() string            { return proto.CompactTextString(m) }
-func (*SubvolumeList) ProtoMessage()               {}
-func (*SubvolumeList) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+func (m *SubvolumeList) Reset()         { *m = SubvolumeList{} }
+func (m *SubvolumeList) String() string { return proto.CompactTextString(m) }
+func (*SubvolumeList) ProtoMessage()    {}
 
 type SubvolumeListLine struct {
 	Line string `protobuf:"bytes,1,opt,name=line" json:"line,omitempty"`
 }
 
-func (m *SubvolumeListLine) Reset()                    { *m = SubvolumeListLine{} }
-func (m *SubvolumeListLine) String() string            { return proto.CompactTextString(m) }
-func (*SubvolumeListLine) ProtoMessage()               {}
-func (*SubvolumeListLine) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
+func (m *SubvolumeListLine) Reset()         { *m = SubvolumeListLine{} }
+func (m *SubvolumeListLine) String() string { return proto.CompactTextString(m) }
+func (*SubvolumeListLine) ProtoMessage()    {}
 
 type SubvolumeFindNew struct {
 	Commit     string `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
@@ -112,19 +105,17 @@ type SubvolumeFindNew struct {
 	Error      string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *SubvolumeFindNew) Reset()                    { *m = SubvolumeFindNew{} }
-func (m *SubvolumeFindNew) String() string            { return proto.CompactTextString(m) }
-func (*SubvolumeFindNew) ProtoMessage()               {}
-func (*SubvolumeFindNew) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
+func (m *SubvolumeFindNew) Reset()         { *m = SubvolumeFindNew{} }
+func (m *SubvolumeFindNew) String() string { return proto.CompactTextString(m) }
+func (*SubvolumeFindNew) ProtoMessage()    {}
 
 type SubvolumeFindNewLine struct {
 	Line string `protobuf:"bytes,1,opt,name=line" json:"line,omitempty"`
 }
 
-func (m *SubvolumeFindNewLine) Reset()                    { *m = SubvolumeFindNewLine{} }
-func (m *SubvolumeFindNewLine) String() string            { return proto.CompactTextString(m) }
-func (*SubvolumeFindNewLine) ProtoMessage()               {}
-func (*SubvolumeFindNewLine) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
+func (m *SubvolumeFindNewLine) Reset()         { *m = SubvolumeFindNewLine{} }
+func (m *SubvolumeFindNewLine) String() string { return proto.CompactTextString(m) }
+func (*SubvolumeFindNewLine) ProtoMessage()    {}
 
 type Send struct {
 	Path   string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
@@ -132,20 +123,18 @@ type Send struct {
 	Error  string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *Send) Reset()                    { *m = Send{} }
-func (m *Send) String() string            { return proto.CompactTextString(m) }
-func (*Send) ProtoMessage()               {}
-func (*Send) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
+func (m *Send) Reset()         { *m = Send{} }
+func (m *Send) String() string { return proto.CompactTextString(m) }
+func (*Send) ProtoMessage()    {}
 
 type Recv struct {
 	Path  string `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
 	Error string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *Recv) Reset()                    { *m = Recv{} }
-func (m *Recv) String() string            { return proto.CompactTextString(m) }
-func (*Recv) ProtoMessage()               {}
-func (*Recv) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
+func (m *Recv) Reset()         { *m = Recv{} }
+func (m *Recv) String() string { return proto.CompactTextString(m) }
+func (*Recv) ProtoMessage()    {}
 
 func init() {
 	proto.RegisterType((*SubvolumeCreate)(nil), "btrfs.SubvolumeCreate")
@@ -159,28 +148,4 @@ func init() {
 	proto.RegisterType((*SubvolumeFindNewLine)(nil), "btrfs.SubvolumeFindNewLine")
 	proto.RegisterType((*Send)(nil), "btrfs.Send")
 	proto.RegisterType((*Recv)(nil), "btrfs.Recv")
-}
-
-var fileDescriptor0 = []byte{
-	// 306 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x84, 0x92, 0xdf, 0x4e, 0xfa, 0x30,
-	0x14, 0xc7, 0xc3, 0x8f, 0xc1, 0x0f, 0x8e, 0xa2, 0xd0, 0x78, 0xc1, 0x95, 0x51, 0xf4, 0xc2, 0x2b,
-	0xb8, 0x20, 0xf1, 0x05, 0x00, 0x13, 0x13, 0x22, 0x89, 0xf3, 0x05, 0xca, 0x76, 0x80, 0x26, 0x5d,
-	0xbb, 0x9c, 0x16, 0xd4, 0xb7, 0xb7, 0xeb, 0x74, 0xce, 0x09, 0x78, 0xb5, 0xb3, 0xe5, 0xfb, 0xe7,
-	0xb3, 0xd3, 0xc2, 0x65, 0xba, 0x32, 0xa3, 0x98, 0xc4, 0x0e, 0x47, 0x4b, 0x4b, 0x6e, 0x4e, 0x49,
-	0x5b, 0x2d, 0xf5, 0x7a, 0xe8, 0x07, 0xd6, 0xf0, 0x5f, 0x07, 0x43, 0x38, 0x0f, 0xb7, 0xcb, 0x9d,
-	0x96, 0xdb, 0x04, 0x27, 0x84, 0xdc, 0x22, 0x3b, 0x85, 0x20, 0xe5, 0x76, 0xd3, 0xaf, 0x5d, 0xd5,
-	0xee, 0xda, 0xac, 0x03, 0x0d, 0x24, 0xd2, 0xd4, 0xff, 0x97, 0xbd, 0xfe, 0xd0, 0x4f, 0x51, 0xe2,
-	0x5f, 0xfa, 0x51, 0x49, 0x3f, 0x7b, 0x13, 0xc6, 0x9a, 0x8a, 0xfe, 0x0c, 0x9a, 0x84, 0x66, 0x2b,
-	0xad, 0x37, 0xb4, 0x06, 0x0b, 0xe8, 0x15, 0x86, 0x50, 0xf1, 0xd4, 0x6c, 0xb4, 0x65, 0x27, 0x50,
-	0x37, 0x14, 0x7d, 0x3a, 0x9c, 0x3f, 0x46, 0x93, 0xeb, 0xdb, 0xac, 0x0b, 0x2d, 0x87, 0x1d, 0x2f,
-	0x94, 0x7c, 0xef, 0xd7, 0xb3, 0x84, 0x6f, 0x82, 0xc0, 0x13, 0xdc, 0xc3, 0xff, 0x17, 0xe2, 0xca,
-	0x3c, 0x4e, 0x8f, 0x36, 0x97, 0xc8, 0xeb, 0xde, 0x17, 0x42, 0xa7, 0x00, 0x99, 0x3b, 0xf0, 0x8a,
-	0x9b, 0x01, 0xac, 0x48, 0x27, 0x13, 0x9d, 0x24, 0xe2, 0x2b, 0xa1, 0x07, 0x6d, 0x6e, 0x22, 0x54,
-	0xb1, 0x50, 0xeb, 0xfd, 0x30, 0xd7, 0xa5, 0xbf, 0xcb, 0x42, 0xe7, 0x42, 0xf9, 0x05, 0x4a, 0xf7,
-	0xcc, 0x83, 0x07, 0x33, 0xe8, 0x16, 0x92, 0x07, 0xa1, 0xe2, 0x27, 0x7c, 0xcd, 0x50, 0xa3, 0xbc,
-	0xe8, 0x70, 0x79, 0x05, 0xff, 0x16, 0x2e, 0xaa, 0x31, 0x7b, 0xca, 0xc6, 0x10, 0x84, 0x8e, 0xf7,
-	0xf7, 0x66, 0x52, 0x4e, 0xa8, 0x0e, 0x44, 0xdf, 0x40, 0xf0, 0x8c, 0xd1, 0xee, 0xe8, 0xc1, 0x2f,
-	0x9b, 0xfe, 0x9a, 0x8d, 0x3f, 0x02, 0x00, 0x00, 0xff, 0xff, 0xfc, 0x16, 0x2a, 0xee, 0x88, 0x02,
-	0x00, 0x00,
 }

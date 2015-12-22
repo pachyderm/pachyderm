@@ -1,21 +1,95 @@
 syntax = "proto3";
 
 import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
 
 import "pfs/pfs.proto";
 
+message Block {
+  string hash = 1;
+}
+
+message Diff {
+  pfs.Commit commit = 1;
+  uint64 shard = 2;
+}
+
+message ByteRange {
+  uint64 lower = 1;
+  uint64 upper = 2;
+}
+
 message BlockRef {
-	pfs.Block block = 1;
-	uint64 size_bytes = 2;
+  Block block = 1;
+  ByteRange range = 2;
 }
 
 message BlockRefs {
-    repeated BlockRef block_ref = 1;
+  repeated BlockRef block_ref = 1;
 }
 
-message Changes {
-	pfs.Commit parent = 1;
-	uint64 shard = 2;
-    map<string, BlockRefs> appends = 3;
-    map<string, bool> deletes = 4;
+message BlockInfo {
+  Block block = 1;
+  google.protobuf.Timestamp created = 2;
+  uint64 size_bytes = 3;
+}
+
+message BlockInfos {
+  repeated BlockInfo block_info = 1;
+}
+
+message DiffInfo {
+  Diff diff = 1;
+  pfs.Commit parent_commit = 2;
+  map<string, BlockRefs> appends = 3;
+  map<string, Diff> last_ref = 4;
+}
+
+message DiffInfos {
+  repeated DiffInfo diff_info = 1;
+}
+
+message GetBlockRequest {
+  Block block = 1;
+}
+
+message PutBlockRequest {
+  Block block = 1;
+  bytes value = 2;
+}
+
+message InspectBlockRequest {
+  Block block = 1;
+}
+
+message ListBlockRequest {
+}
+
+message CreateDiffRequest {
+  Diff diff = 1;
+  pfs.Commit parent_commit = 2;
+  map<string, BlockRefs> appends = 3;
+  map<string, Diff> last_ref = 4;
+}
+
+message InspectDiffRequest {
+  Diff diff = 1;
+}
+
+message ListDiffRequest {
+  pfs.Commit commit = 1;
+  uint64 shard = 2;
+}
+
+service API {
+  rpc PutBlock(PutBlockRequest) returns (Block) {}
+  rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
+  rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
+
+  rpc CreateDiff(CreateDiffRequest) returns (google.protobuf.Empty) {}
+  rpc InspectDiff(InspectDiffRequest) returns (DiffInfo) {}
+  rpc ListDiff(ListDiffRequest) returns (DiffInfos) {}
 }
