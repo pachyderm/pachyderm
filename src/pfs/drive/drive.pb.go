@@ -19,7 +19,6 @@ It has these top-level messages:
 	DiffInfo
 	DiffInfos
 	GetBlockRequest
-	PutBlockRequest
 	InspectBlockRequest
 	ListBlockRequest
 	CreateDiffRequest
@@ -226,22 +225,6 @@ func (m *GetBlockRequest) GetBlock() *Block {
 	return nil
 }
 
-type PutBlockRequest struct {
-	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
-	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
-}
-
-func (m *PutBlockRequest) Reset()         { *m = PutBlockRequest{} }
-func (m *PutBlockRequest) String() string { return proto.CompactTextString(m) }
-func (*PutBlockRequest) ProtoMessage()    {}
-
-func (m *PutBlockRequest) GetBlock() *Block {
-	if m != nil {
-		return m.Block
-	}
-	return nil
-}
-
 type InspectBlockRequest struct {
 	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
 }
@@ -345,7 +328,6 @@ func init() {
 	proto.RegisterType((*DiffInfo)(nil), "DiffInfo")
 	proto.RegisterType((*DiffInfos)(nil), "DiffInfos")
 	proto.RegisterType((*GetBlockRequest)(nil), "GetBlockRequest")
-	proto.RegisterType((*PutBlockRequest)(nil), "PutBlockRequest")
 	proto.RegisterType((*InspectBlockRequest)(nil), "InspectBlockRequest")
 	proto.RegisterType((*ListBlockRequest)(nil), "ListBlockRequest")
 	proto.RegisterType((*CreateDiffRequest)(nil), "CreateDiffRequest")
@@ -360,7 +342,7 @@ var _ grpc.ClientConn
 // Client API for API service
 
 type APIClient interface {
-	PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*Block, error)
+	PutBlock(ctx context.Context, opts ...grpc.CallOption) (API_PutBlockClient, error)
 	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (API_GetBlockClient, error)
 	InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error)
 	ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error)
@@ -377,17 +359,42 @@ func NewAPIClient(cc *grpc.ClientConn) APIClient {
 	return &aPIClient{cc}
 }
 
-func (c *aPIClient) PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*Block, error) {
-	out := new(Block)
-	err := grpc.Invoke(ctx, "/.API/PutBlock", in, out, c.cc, opts...)
+func (c *aPIClient) PutBlock(ctx context.Context, opts ...grpc.CallOption) (API_PutBlockClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[0], c.cc, "/.API/PutBlock", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &aPIPutBlockClient{stream}
+	return x, nil
+}
+
+type API_PutBlockClient interface {
+	Send(*google_protobuf3.BytesValue) error
+	CloseAndRecv() (*Block, error)
+	grpc.ClientStream
+}
+
+type aPIPutBlockClient struct {
+	grpc.ClientStream
+}
+
+func (x *aPIPutBlockClient) Send(m *google_protobuf3.BytesValue) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *aPIPutBlockClient) CloseAndRecv() (*Block, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(Block)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *aPIClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (API_GetBlockClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[0], c.cc, "/.API/GetBlock", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[1], c.cc, "/.API/GetBlock", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -466,7 +473,7 @@ func (c *aPIClient) ListDiff(ctx context.Context, in *ListDiffRequest, opts ...g
 // Server API for API service
 
 type APIServer interface {
-	PutBlock(context.Context, *PutBlockRequest) (*Block, error)
+	PutBlock(API_PutBlockServer) error
 	GetBlock(*GetBlockRequest, API_GetBlockServer) error
 	InspectBlock(context.Context, *InspectBlockRequest) (*BlockInfo, error)
 	ListBlock(context.Context, *ListBlockRequest) (*BlockInfos, error)
@@ -479,16 +486,30 @@ func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 	s.RegisterService(&_API_serviceDesc, srv)
 }
 
-func _API_PutBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(PutBlockRequest)
-	if err := dec(in); err != nil {
+func _API_PutBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(APIServer).PutBlock(&aPIPutBlockServer{stream})
+}
+
+type API_PutBlockServer interface {
+	SendAndClose(*Block) error
+	Recv() (*google_protobuf3.BytesValue, error)
+	grpc.ServerStream
+}
+
+type aPIPutBlockServer struct {
+	grpc.ServerStream
+}
+
+func (x *aPIPutBlockServer) SendAndClose(m *Block) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *aPIPutBlockServer) Recv() (*google_protobuf3.BytesValue, error) {
+	m := new(google_protobuf3.BytesValue)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).PutBlock(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+	return m, nil
 }
 
 func _API_GetBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -577,10 +598,6 @@ var _API_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*APIServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "PutBlock",
-			Handler:    _API_PutBlock_Handler,
-		},
-		{
 			MethodName: "InspectBlock",
 			Handler:    _API_InspectBlock_Handler,
 		},
@@ -602,6 +619,11 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "PutBlock",
+			Handler:       _API_PutBlock_Handler,
+			ClientStreams: true,
+		},
 		{
 			StreamName:    "GetBlock",
 			Handler:       _API_GetBlock_Handler,
