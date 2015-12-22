@@ -7,6 +7,7 @@ import (
 	"path"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/drive"
 )
 
 type sharder struct {
@@ -26,9 +27,9 @@ func (s *sharder) NumReplicas() uint64 {
 	return s.numReplicas
 }
 
-func (s *sharder) GetBlock(value []byte) *pfs.Block {
+func (s *sharder) GetBlock(value []byte) *drive.Block {
 	hash := sha512.Sum512(value)
-	return &pfs.Block{
+	return &drive.Block{
 		Hash: base64.URLEncoding.EncodeToString(hash[:]),
 	}
 }
@@ -37,6 +38,6 @@ func (s *sharder) GetShard(file *pfs.File) uint64 {
 	return uint64(adler32.Checksum([]byte(path.Clean(file.Path)))) % s.numShards
 }
 
-func (s *sharder) GetBlockShard(block *pfs.Block) uint64 {
+func (s *sharder) GetBlockShard(block *drive.Block) uint64 {
 	return uint64(adler32.Checksum([]byte(block.Hash))) % s.numShards
 }

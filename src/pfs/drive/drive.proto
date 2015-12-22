@@ -55,11 +55,6 @@ message GetBlockRequest {
   Block block = 1;
 }
 
-message PutBlockRequest {
-  Block block = 1;
-  bytes value = 2;
-}
-
 message InspectBlockRequest {
   Block block = 1;
 }
@@ -84,7 +79,7 @@ message ListDiffRequest {
 }
 
 service API {
-  rpc PutBlock(PutBlockRequest) returns (Block) {}
+  rpc PutBlock(stream google.protobuf.BytesValue) returns (Block) {}
   rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
   rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
   rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}

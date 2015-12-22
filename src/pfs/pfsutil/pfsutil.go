@@ -6,12 +6,12 @@ package pfsutil
 
 import (
 	"io"
-	"io/ioutil"
 	"math"
 
-	"go.pedge.io/proto/stream"
-
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"go.pedge.io/google-protobuf"
+	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 )
 
@@ -148,36 +148,32 @@ func DeleteCommit(apiClient pfs.APIClient, repoName string, commitID string) err
 	return err
 }
 
-func PutBlock(apiClient pfs.APIClient, repoName string, commitID string, path string, reader io.Reader) (*pfs.Block, error) {
-	value, err := ioutil.ReadAll(reader)
+type putBlockClientWriter struct {
+	drive.API_PutBlockClient
+}
+
+func (c putBlockClientWriter) Write(p []byte) (n int, err error) {
+	return len(p), c.Send(&google_protobuf.BytesValue{p})
+}
+
+func PutBlock(apiClient drive.APIClient, reader io.Reader) (*drive.Block, error) {
+	putBlockClient, err := apiClient.PutBlock(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	return apiClient.PutBlock(
-		context.Background(),
-		&pfs.PutBlockRequest{
-			File: &pfs.File{
-				Commit: &pfs.Commit{
-					Repo: &pfs.Repo{
-						Name: repoName,
-					},
-					Id: commitID,
-				},
-				Path: path,
-			},
-			Value: value,
-		},
-	)
+	if _, err := io.Copy(putBlockClientWriter{putBlockClient}, reader); err != nil {
+		return nil, err
+	}
+	return putBlockClient.CloseAndRecv()
 }
 
-func GetBlock(apiClient pfs.APIClient, hash string, shard *pfs.Shard, writer io.Writer) error {
+func GetBlock(apiClient drive.APIClient, hash string, writer io.Writer) error {
 	apiGetBlockClient, err := apiClient.GetBlock(
 		context.Background(),
-		&pfs.GetBlockRequest{
-			Block: &pfs.Block{
+		&drive.GetBlockRequest{
+			Block: &drive.Block{
 				Hash: hash,
 			},
-			Shard: shard,
 		},
 	)
 	if err != nil {
@@ -189,14 +185,13 @@ func GetBlock(apiClient pfs.APIClient, hash string, shard *pfs.Shard, writer io.
 	return nil
 }
 
-func InspectBlock(apiClient pfs.APIClient, hash string, shard *pfs.Shard) (*pfs.BlockInfo, error) {
+func InspectBlock(apiClient drive.APIClient, hash string) (*drive.BlockInfo, error) {
 	blockInfo, err := apiClient.InspectBlock(
 		context.Background(),
-		&pfs.InspectBlockRequest{
-			Block: &pfs.Block{
+		&drive.InspectBlockRequest{
+			Block: &drive.Block{
 				Hash: hash,
 			},
-			Shard: shard,
 		},
 	)
 	if err != nil {
@@ -205,12 +200,10 @@ func InspectBlock(apiClient pfs.APIClient, hash string, shard *pfs.Shard) (*pfs.
 	return blockInfo, nil
 }
 
-func ListBlock(apiClient pfs.APIClient, shard *pfs.Shard) ([]*pfs.BlockInfo, error) {
+func ListBlock(apiClient drive.APIClient) ([]*drive.BlockInfo, error) {
 	blockInfos, err := apiClient.ListBlock(
 		context.Background(),
-		&pfs.ListBlockRequest{
-			Shard: shard,
-		},
+		&drive.ListBlockRequest{},
 	)
 	if err != nil {
 		return nil, err

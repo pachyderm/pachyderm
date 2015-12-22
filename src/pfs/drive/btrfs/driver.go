@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"go.pedge.io/pkg/exec"
@@ -326,126 +325,20 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shard map[uint64]bool) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (d *driver) PutBlock(file *pfs.File, block *pfs.Block, shard uint64, reader io.Reader) (retErr error) {
-	if err := d.checkWrite(file.Commit, shard); err != nil {
-		return err
-	}
-	filePath, err := d.filePath(file, shard)
-	if err != nil {
-		return err
-	}
-	fileFile, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := fileFile.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	encodedBlock, err := proto.Marshal(block)
-	if err != nil {
-		return err
-	}
-	if _, err := fileFile.Write(encodedBlock); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(d.blockShardDir(shard), 0700); err != nil {
-		return err
-	}
-	_, err = os.Stat(d.blockPath(block, shard))
-	if err == nil {
-		// No error means the block already exists
-		return nil
-	}
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	blockFile, err := os.OpenFile(d.blockPath(block, shard), os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := blockFile.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	sizeBytes, err := bufio.NewReader(reader).WriteTo(blockFile)
-	if err != nil {
-		return err
-	}
-	blockInfo := pfs.BlockInfo{
-		Block:     block,
-		SizeBytes: uint64(sizeBytes),
-	}
-	encodedBlockInfo, err := proto.Marshal(&blockInfo)
-	if err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(d.blockInfoPath(block, shard), encodedBlockInfo, 0666); err != nil {
-		return err
-	}
-	return nil
+func (d *driver) PutBlock(file *pfs.File, block *drive.Block, shard uint64, reader io.Reader) (retErr error) {
+	return fmt.Errorf("not implemented")
 }
 
-func (d *driver) GetBlock(block *pfs.Block, shard uint64) (drive.ReaderAtCloser, error) {
-	return os.Open(d.blockPath(block, shard))
+func (d *driver) GetBlock(block *drive.Block, shard uint64) (drive.ReaderAtCloser, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
-func (d *driver) InspectBlock(block *pfs.Block, shard uint64) (*pfs.BlockInfo, error) {
-	encodedBlockInfo, err := ioutil.ReadFile(d.blockInfoPath(block, shard))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var result pfs.BlockInfo
-	if err := proto.Unmarshal(encodedBlockInfo, &result); err != nil {
-		return nil, err
-	}
-	stat, err := os.Stat(d.blockPath(block, shard))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	result.Created = prototime.TimeToTimestamp(stat.ModTime())
-	return &result, nil
+func (d *driver) InspectBlock(block *drive.Block, shard uint64) (*drive.BlockInfo, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
-func (d *driver) ListBlock(shard uint64) (_ []*pfs.BlockInfo, retErr error) {
-	var result []*pfs.BlockInfo
-	dir, err := os.Open(d.blockShardDir(shard))
-	if os.IsNotExist(err) {
-		return result, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := dir.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	var names []string
-	for names, err = dir.Readdirnames(readDirBatch); err == nil; names, err = dir.Readdirnames(readDirBatch) {
-		for _, name := range names {
-			if strings.HasSuffix(name, infoSuffix) {
-				continue
-			}
-			blockInfo, err := d.InspectBlock(&pfs.Block{Hash: filepath.Base(name)}, shard)
-			if err != nil {
-				return nil, err
-			}
-			result = append(result, blockInfo)
-		}
-	}
-	if err != io.EOF {
-		return nil, err
-	}
-	return result, nil
+func (d *driver) ListBlock(shard uint64) (_ []*drive.BlockInfo, retErr error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) (retErr error) {
@@ -742,11 +635,11 @@ func (d *driver) blockShardDir(shard uint64) string {
 	return filepath.Join(d.blockDir(), fmt.Sprint(shard))
 }
 
-func (d *driver) blockPath(block *pfs.Block, shard uint64) string {
+func (d *driver) blockPath(block *drive.Block, shard uint64) string {
 	return filepath.Join(d.blockShardDir(shard), block.Hash)
 }
 
-func (d *driver) blockInfoPath(block *pfs.Block, shard uint64) string {
+func (d *driver) blockInfoPath(block *drive.Block, shard uint64) string {
 	return filepath.Join(d.basePath(), blockDir, fmt.Sprint(shard), block.Hash+infoSuffix)
 }
 

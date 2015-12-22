@@ -204,102 +204,6 @@ func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.Delet
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *internalAPIServer) PutBlock(ctx context.Context, request *pfs.PutBlockRequest) (response *google_protobuf.Empty, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	block := a.sharder.GetBlock(request.Value)
-	shard, err := a.getMasterShardForBlock(block, version)
-	if err != nil {
-		return nil, err
-	}
-	return google_protobuf.EmptyInstance, a.driver.PutBlock(request.File, block, shard, bytes.NewReader(request.Value))
-}
-
-func (a *internalAPIServer) GetBlock(request *pfs.GetBlockRequest, apiGetBlockServer pfs.InternalAPI_GetBlockServer) (retErr error) {
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(apiGetBlockServer.Context())
-	if err != nil {
-		return err
-	}
-	shard, err := a.getShardForBlock(request.Block, version)
-	if err != nil {
-		return err
-	}
-	block, err := a.driver.GetBlock(request.Block, shard)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := block.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	return protostream.WriteToStreamingBytesServer(block, apiGetBlockServer)
-}
-
-func (a *internalAPIServer) InspectBlock(ctx context.Context, request *pfs.InspectBlockRequest) (response *pfs.BlockInfo, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shard, err := a.getShardForBlock(request.Block, version)
-	if err != nil {
-		return nil, err
-	}
-	return a.driver.InspectBlock(request.Block, shard)
-}
-
-func (a *internalAPIServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest) (response *pfs.BlockInfos, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shards, err := a.router.GetMasterShards(version)
-	if err != nil {
-		return nil, err
-	}
-	if request.Shard == nil {
-		request.Shard = &pfs.Shard{Number: 0, Modulus: 1}
-	}
-	sharder := route.NewSharder(request.Shard.Modulus, 0)
-	var wg sync.WaitGroup
-	var lock sync.Mutex
-	var blockInfos []*pfs.BlockInfo
-	var loopErr error
-	for shard := range shards {
-		wg.Add(1)
-		go func(shard uint64) {
-			defer wg.Done()
-			subBlockInfos, err := a.driver.ListBlock(shard)
-			lock.Lock()
-			defer lock.Unlock()
-			if err != nil {
-				if loopErr == nil {
-					loopErr = err
-				}
-				return
-			}
-			for _, blockInfo := range subBlockInfos {
-				if request.Shard == nil || sharder.GetBlockShard(blockInfo.Block) == request.Shard.Number {
-					blockInfos = append(blockInfos, blockInfo)
-				}
-			}
-		}(shard)
-	}
-	wg.Wait()
-	if loopErr != nil {
-		return nil, loopErr
-	}
-	return &pfs.BlockInfos{
-		BlockInfo: blockInfos,
-	}, nil
-}
-
 func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer) (retErr error) {
 	var request *pfs.PutFileRequest
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -616,32 +520,6 @@ func (a *internalAPIServer) RemoveShard(shard uint64, version int64) error {
 
 func (a *internalAPIServer) LocalShards() (map[uint64]bool, error) {
 	return nil, nil
-}
-
-func (a *internalAPIServer) getMasterShardForBlock(block *pfs.Block, version int64) (uint64, error) {
-	shard := a.sharder.GetBlockShard(block)
-	shards, err := a.router.GetMasterShards(version)
-	if err != nil {
-		return 0, err
-	}
-	_, ok := shards[shard]
-	if !ok {
-		return 0, fmt.Errorf("pachyderm: shard %d not found locally", shard)
-	}
-	return shard, nil
-}
-
-func (a *internalAPIServer) getShardForBlock(block *pfs.Block, version int64) (uint64, error) {
-	shard := a.sharder.GetBlockShard(block)
-	shards, err := a.router.GetMasterShards(version)
-	if err != nil {
-		return 0, err
-	}
-	_, ok := shards[shard]
-	if !ok {
-		return 0, fmt.Errorf("pachyderm: shard %d not found locally", shard)
-	}
-	return shard, nil
 }
 
 func (a *internalAPIServer) getMasterShardForFile(file *pfs.File, version int64) (uint64, error) {

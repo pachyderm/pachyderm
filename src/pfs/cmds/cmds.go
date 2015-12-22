@@ -7,6 +7,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/pretty"
@@ -187,15 +188,15 @@ func Cmds(address string) ([]*cobra.Command, error) {
 	}
 
 	putBlock := &cobra.Command{
-		Use:   "put-block repo-name commit-id path/to/file",
+		Use:   "put-block",
 		Short: "Put a block from stdin",
 		Long:  "Put a block from stdin. Directories must exist. commit-id must be a writeable commit.",
 		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
-			apiClient, err := getAPIClient(address)
+			apiClient, err := getDriveAPIClient(address)
 			if err != nil {
 				return err
 			}
-			block, err := pfsutil.PutBlock(apiClient, args[0], args[1], args[2], os.Stdin)
+			block, err := pfsutil.PutBlock(apiClient, os.Stdin)
 			if err != nil {
 				return err
 			}
@@ -209,26 +210,24 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Short: "Return the contents of a block.",
 		Long:  "Return the contents of a block.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			apiClient, err := getAPIClient(address)
+			apiClient, err := getDriveAPIClient(address)
 			if err != nil {
 				return err
 			}
-			return pfsutil.GetBlock(apiClient, args[0], shard(), os.Stdout)
+			return pfsutil.GetBlock(apiClient, args[0], os.Stdout)
 		}),
 	}
-	getBlock.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
-	getBlock.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	inspectBlock := &cobra.Command{
 		Use:   "inspect-block hash",
 		Short: "Return info about a block.",
 		Long:  "Return info about a block.",
 		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			apiClient, err := getAPIClient(address)
+			apiClient, err := getDriveAPIClient(address)
 			if err != nil {
 				return err
 			}
-			blockInfo, err := pfsutil.InspectBlock(apiClient, args[0], shard())
+			blockInfo, err := pfsutil.InspectBlock(apiClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -241,19 +240,17 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			return writer.Flush()
 		}),
 	}
-	inspectBlock.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
-	inspectBlock.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	listBlock := &cobra.Command{
 		Use:   "list-block",
 		Short: "Return the blocks in a directory.",
 		Long:  "Return the blocks in a directory.",
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
-			apiClient, err := getAPIClient(address)
+			apiClient, err := getDriveAPIClient(address)
 			if err != nil {
 				return err
 			}
-			blockInfos, err := pfsutil.ListBlock(apiClient, shard())
+			blockInfos, err := pfsutil.ListBlock(apiClient)
 			if err != nil {
 				return err
 			}
@@ -265,8 +262,6 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			return writer.Flush()
 		}),
 	}
-	listBlock.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
-	listBlock.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 
 	mkdir := &cobra.Command{
 		Use:   "mkdir repo-name commit-id path/to/dir",
@@ -491,6 +486,14 @@ func getAPIClient(address string) (pfs.APIClient, error) {
 		return nil, err
 	}
 	return pfs.NewAPIClient(clientConn), nil
+}
+
+func getDriveAPIClient(address string) (drive.APIClient, error) {
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	return drive.NewAPIClient(clientConn), nil
 }
 
 func getClusterAPIClient(address string) (pfs.ClusterAPIClient, error) {
