@@ -4,6 +4,7 @@ import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
+
 import "pkg/shard/shard.proto";
 
 package pfs;
@@ -31,11 +32,6 @@ message Repo {
 message Commit {
   Repo repo = 1;
   string id = 2;
-}
-
-// Block represents a block in the block store.
-message Block {
-  string hash = 1;
 }
 
 // File represents the full path to a file or directory within pfs.
@@ -73,17 +69,6 @@ message CommitInfo {
 
 message CommitInfos {
   repeated CommitInfo commit_info = 1;
-}
-
-// BlockInfo represents information about a block.
-message BlockInfo {
-  Block block = 1;
-  google.protobuf.Timestamp created = 2;
-  uint64 size_bytes = 3;
-}
-
-message BlockInfos {
-  repeated BlockInfo block_info = 1;
 }
 
 // FileInfo represents information about a file.
@@ -167,25 +152,6 @@ message DeleteCommitRequest {
   Commit commit = 1;
 }
 
-message GetBlockRequest {
-  Block block = 1;
-  Shard shard = 2;
-}
-
-message PutBlockRequest {
-  File file = 1;
-  bytes value = 2;
-}
-
-message InspectBlockRequest {
-  Block block = 1;
-  Shard shard = 2;
-}
-
-message ListBlockRequest {
-  Shard shard = 1;
-}
-
 message GetFileRequest {
   File file = 1;
   int64 offset_bytes = 2;
@@ -250,16 +216,6 @@ service API {
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
 
-  // Block rpcs
-  // PutBlock writes the specified block to the block store.
-  rpc PutBlock(PutBlockRequest) returns (Block) {}
-  // GetBlock returns a byte stream of the contents of the block.
-  rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
-  // InspectBlock returns info about a block.
-  rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
-  // ListBlock returns info about all blocks.
-  rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
-
   // File rpcs
   // PutFile writes the specified file to pfs.
   rpc PutFile(stream PutFileRequest) returns (google.protobuf.Empty) {}
@@ -298,16 +254,6 @@ service InternalAPI {
   rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
-
-  // Block rpcs
-  // PutBlock writes the specified block to the block store.
-  rpc PutBlock(PutBlockRequest) returns (google.protobuf.Empty) {}
-  // GetBlock returns a byte stream of the contents of the block.
-  rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
-  // InspectBlock returns info about a block.
-  rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
-  // ListBlock returns info about all blocks.
-  rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
 
   // File rpcs
   // PutFile writes the specified file to pfs.

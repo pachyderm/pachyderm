@@ -41,10 +41,9 @@ type Filesystem struct {
 	Commits []*pfs.Commit `protobuf:"bytes,3,rep,name=commits" json:"commits,omitempty"`
 }
 
-func (m *Filesystem) Reset()                    { *m = Filesystem{} }
-func (m *Filesystem) String() string            { return proto.CompactTextString(m) }
-func (*Filesystem) ProtoMessage()               {}
-func (*Filesystem) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (m *Filesystem) Reset()         { *m = Filesystem{} }
+func (m *Filesystem) String() string { return proto.CompactTextString(m) }
+func (*Filesystem) ProtoMessage()    {}
 
 func (m *Filesystem) GetShard() *pfs.Shard {
 	if m != nil {
@@ -65,10 +64,9 @@ type Node struct {
 	Write bool      `protobuf:"varint,2,opt,name=write" json:"write,omitempty"`
 }
 
-func (m *Node) Reset()                    { *m = Node{} }
-func (m *Node) String() string            { return proto.CompactTextString(m) }
-func (*Node) ProtoMessage()               {}
-func (*Node) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (m *Node) Reset()         { *m = Node{} }
+func (m *Node) String() string { return proto.CompactTextString(m) }
+func (*Node) ProtoMessage()    {}
 
 func (m *Node) GetFile() *pfs.File {
 	if m != nil {
@@ -81,20 +79,18 @@ type Attr struct {
 	Mode uint32 `protobuf:"varint,1,opt,name=Mode" json:"Mode,omitempty"`
 }
 
-func (m *Attr) Reset()                    { *m = Attr{} }
-func (m *Attr) String() string            { return proto.CompactTextString(m) }
-func (*Attr) ProtoMessage()               {}
-func (*Attr) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (m *Attr) Reset()         { *m = Attr{} }
+func (m *Attr) String() string { return proto.CompactTextString(m) }
+func (*Attr) ProtoMessage()    {}
 
 type Dirent struct {
 	Inode uint64 `protobuf:"varint,1,opt,name=inode" json:"inode,omitempty"`
 	Name  string `protobuf:"bytes,2,opt,name=name" json:"name,omitempty"`
 }
 
-func (m *Dirent) Reset()                    { *m = Dirent{} }
-func (m *Dirent) String() string            { return proto.CompactTextString(m) }
-func (*Dirent) ProtoMessage()               {}
-func (*Dirent) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+func (m *Dirent) Reset()         { *m = Dirent{} }
+func (m *Dirent) String() string { return proto.CompactTextString(m) }
+func (*Dirent) ProtoMessage()    {}
 
 type Root struct {
 	Filesystem *Filesystem `protobuf:"bytes,1,opt,name=filesystem" json:"filesystem,omitempty"`
@@ -102,10 +98,9 @@ type Root struct {
 	Error      string      `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *Root) Reset()                    { *m = Root{} }
-func (m *Root) String() string            { return proto.CompactTextString(m) }
-func (*Root) ProtoMessage()               {}
-func (*Root) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+func (m *Root) Reset()         { *m = Root{} }
+func (m *Root) String() string { return proto.CompactTextString(m) }
+func (*Root) ProtoMessage()    {}
 
 func (m *Root) GetFilesystem() *Filesystem {
 	if m != nil {
@@ -127,10 +122,9 @@ type DirectoryAttr struct {
 	Error     string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *DirectoryAttr) Reset()                    { *m = DirectoryAttr{} }
-func (m *DirectoryAttr) String() string            { return proto.CompactTextString(m) }
-func (*DirectoryAttr) ProtoMessage()               {}
-func (*DirectoryAttr) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+func (m *DirectoryAttr) Reset()         { *m = DirectoryAttr{} }
+func (m *DirectoryAttr) String() string { return proto.CompactTextString(m) }
+func (*DirectoryAttr) ProtoMessage()    {}
 
 func (m *DirectoryAttr) GetDirectory() *Node {
 	if m != nil {
@@ -153,10 +147,9 @@ type DirectoryLookup struct {
 	Err       string `protobuf:"bytes,4,opt,name=err" json:"err,omitempty"`
 }
 
-func (m *DirectoryLookup) Reset()                    { *m = DirectoryLookup{} }
-func (m *DirectoryLookup) String() string            { return proto.CompactTextString(m) }
-func (*DirectoryLookup) ProtoMessage()               {}
-func (*DirectoryLookup) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
+func (m *DirectoryLookup) Reset()         { *m = DirectoryLookup{} }
+func (m *DirectoryLookup) String() string { return proto.CompactTextString(m) }
+func (*DirectoryLookup) ProtoMessage()    {}
 
 func (m *DirectoryLookup) GetDirectory() *Node {
 	if m != nil {
@@ -178,10 +171,9 @@ type DirectoryReadDirAll struct {
 	Error     string    `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *DirectoryReadDirAll) Reset()                    { *m = DirectoryReadDirAll{} }
-func (m *DirectoryReadDirAll) String() string            { return proto.CompactTextString(m) }
-func (*DirectoryReadDirAll) ProtoMessage()               {}
-func (*DirectoryReadDirAll) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
+func (m *DirectoryReadDirAll) Reset()         { *m = DirectoryReadDirAll{} }
+func (m *DirectoryReadDirAll) String() string { return proto.CompactTextString(m) }
+func (*DirectoryReadDirAll) ProtoMessage()    {}
 
 func (m *DirectoryReadDirAll) GetDirectory() *Node {
 	if m != nil {
@@ -203,10 +195,9 @@ type DirectoryCreate struct {
 	Error     string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *DirectoryCreate) Reset()                    { *m = DirectoryCreate{} }
-func (m *DirectoryCreate) String() string            { return proto.CompactTextString(m) }
-func (*DirectoryCreate) ProtoMessage()               {}
-func (*DirectoryCreate) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
+func (m *DirectoryCreate) Reset()         { *m = DirectoryCreate{} }
+func (m *DirectoryCreate) String() string { return proto.CompactTextString(m) }
+func (*DirectoryCreate) ProtoMessage()    {}
 
 func (m *DirectoryCreate) GetDirectory() *Node {
 	if m != nil {
@@ -228,10 +219,9 @@ type DirectoryMkdir struct {
 	Error     string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *DirectoryMkdir) Reset()                    { *m = DirectoryMkdir{} }
-func (m *DirectoryMkdir) String() string            { return proto.CompactTextString(m) }
-func (*DirectoryMkdir) ProtoMessage()               {}
-func (*DirectoryMkdir) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
+func (m *DirectoryMkdir) Reset()         { *m = DirectoryMkdir{} }
+func (m *DirectoryMkdir) String() string { return proto.CompactTextString(m) }
+func (*DirectoryMkdir) ProtoMessage()    {}
 
 func (m *DirectoryMkdir) GetDirectory() *Node {
 	if m != nil {
@@ -253,10 +243,9 @@ type FileAttr struct {
 	Error  string `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *FileAttr) Reset()                    { *m = FileAttr{} }
-func (m *FileAttr) String() string            { return proto.CompactTextString(m) }
-func (*FileAttr) ProtoMessage()               {}
-func (*FileAttr) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
+func (m *FileAttr) Reset()         { *m = FileAttr{} }
+func (m *FileAttr) String() string { return proto.CompactTextString(m) }
+func (*FileAttr) ProtoMessage()    {}
 
 func (m *FileAttr) GetFile() *Node {
 	if m != nil {
@@ -277,10 +266,9 @@ type FileRead struct {
 	Error string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *FileRead) Reset()                    { *m = FileRead{} }
-func (m *FileRead) String() string            { return proto.CompactTextString(m) }
-func (*FileRead) ProtoMessage()               {}
-func (*FileRead) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
+func (m *FileRead) Reset()         { *m = FileRead{} }
+func (m *FileRead) String() string { return proto.CompactTextString(m) }
+func (*FileRead) ProtoMessage()    {}
 
 func (m *FileRead) GetFile() *Node {
 	if m != nil {
@@ -294,10 +282,9 @@ type FileOpen struct {
 	Error string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *FileOpen) Reset()                    { *m = FileOpen{} }
-func (m *FileOpen) String() string            { return proto.CompactTextString(m) }
-func (*FileOpen) ProtoMessage()               {}
-func (*FileOpen) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
+func (m *FileOpen) Reset()         { *m = FileOpen{} }
+func (m *FileOpen) String() string { return proto.CompactTextString(m) }
+func (*FileOpen) ProtoMessage()    {}
 
 func (m *FileOpen) GetFile() *Node {
 	if m != nil {
@@ -311,10 +298,9 @@ type FileWrite struct {
 	Error string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *FileWrite) Reset()                    { *m = FileWrite{} }
-func (m *FileWrite) String() string            { return proto.CompactTextString(m) }
-func (*FileWrite) ProtoMessage()               {}
-func (*FileWrite) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
+func (m *FileWrite) Reset()         { *m = FileWrite{} }
+func (m *FileWrite) String() string { return proto.CompactTextString(m) }
+func (*FileWrite) ProtoMessage()    {}
 
 func (m *FileWrite) GetFile() *Node {
 	if m != nil {
@@ -338,33 +324,4 @@ func init() {
 	proto.RegisterType((*FileRead)(nil), "fuse.FileRead")
 	proto.RegisterType((*FileOpen)(nil), "fuse.FileOpen")
 	proto.RegisterType((*FileWrite)(nil), "fuse.FileWrite")
-}
-
-var fileDescriptor0 = []byte{
-	// 387 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xac, 0x53, 0xdd, 0x4e, 0xc2, 0x30,
-	0x14, 0x0e, 0xac, 0x20, 0x3b, 0x30, 0x35, 0xc3, 0xc4, 0x49, 0x30, 0x21, 0x8b, 0x26, 0x5e, 0xcd,
-	0x44, 0x7c, 0x01, 0x82, 0x7a, 0x25, 0x92, 0xe0, 0x05, 0x51, 0xaf, 0x26, 0xeb, 0x74, 0x61, 0x5b,
-	0x97, 0xae, 0xc4, 0xf0, 0xf6, 0xf6, 0x74, 0x30, 0x86, 0x7f, 0x10, 0xe2, 0xc5, 0x96, 0xed, 0x9c,
-	0xef, 0xa7, 0x5f, 0x4f, 0x0b, 0xcd, 0xc4, 0x4f, 0x2f, 0xfd, 0x59, 0x4a, 0xd5, 0xcb, 0x49, 0x38,
-	0x13, 0xcc, 0x24, 0xf8, 0xdd, 0x32, 0xb0, 0x25, 0x9f, 0xac, 0x68, 0xdf, 0x02, 0xdc, 0x05, 0x21,
-	0x4d, 0xe7, 0xa9, 0xa0, 0x91, 0x79, 0x02, 0x95, 0xf4, 0xdd, 0xe5, 0x9e, 0x55, 0xea, 0x94, 0x2e,
-	0xea, 0x57, 0xe0, 0x20, 0xf0, 0x11, 0x2b, 0x66, 0x1b, 0xf6, 0x26, 0x2c, 0x8a, 0x02, 0x91, 0x5a,
-	0x5a, 0x47, 0x93, 0xcd, 0xba, 0x6a, 0xf6, 0x55, 0xcd, 0x76, 0x80, 0x3c, 0x30, 0x8f, 0x9a, 0xc7,
-	0x40, 0x7c, 0x29, 0xb7, 0xe0, 0xeb, 0x0a, 0x82, 0xfa, 0xa6, 0x01, 0x95, 0x0f, 0x1e, 0x08, 0x6a,
-	0x95, 0x65, 0xa7, 0x66, 0x1f, 0x01, 0xe9, 0x09, 0xc1, 0xcd, 0x06, 0x90, 0x81, 0xe4, 0x29, 0xbc,
-	0x61, 0x9f, 0x43, 0xf5, 0x26, 0xe0, 0x34, 0x16, 0x08, 0x0f, 0xe2, 0x65, 0x83, 0x20, 0x2c, 0x76,
-	0xa3, 0x8c, 0xac, 0xdb, 0x63, 0x20, 0x23, 0xc6, 0x84, 0x79, 0x06, 0xe0, 0xe7, 0x6b, 0x5f, 0x58,
-	0x1e, 0x3a, 0x2a, 0x71, 0x21, 0x53, 0x0b, 0xaa, 0x9c, 0xa6, 0xb3, 0x50, 0x28, 0x36, 0x86, 0x52,
-	0x08, 0xb5, 0x5c, 0x69, 0x43, 0x39, 0x67, 0x5c, 0x46, 0x42, 0xe1, 0x27, 0x30, 0xd0, 0x7f, 0x22,
-	0x18, 0x9f, 0xab, 0xe5, 0x9d, 0x82, 0xee, 0x2d, 0x0b, 0xf9, 0x9e, 0xac, 0xe8, 0xbf, 0x48, 0x2b,
-	0xea, 0x17, 0xe9, 0x37, 0x38, 0xc8, 0xa5, 0xef, 0x19, 0x9b, 0xce, 0x92, 0x4d, 0xe2, 0x6b, 0x99,
-	0x0b, 0x56, 0xda, 0x37, 0x64, 0x1d, 0x34, 0x69, 0x65, 0x11, 0x65, 0xe4, 0x42, 0x33, 0x37, 0x1a,
-	0x51, 0xd7, 0x93, 0x3f, 0xbd, 0x30, 0xdc, 0x64, 0xd6, 0x2e, 0x24, 0xc1, 0xe1, 0x36, 0xb2, 0xde,
-	0x6a, 0x1a, 0xc5, 0x2c, 0x2f, 0x85, 0x2c, 0x7d, 0x4e, 0x5d, 0x41, 0x77, 0xdc, 0xa8, 0x9f, 0x66,
-	0xf0, 0x0c, 0xfb, 0xb9, 0xf8, 0x60, 0x2a, 0x45, 0xff, 0x51, 0x7b, 0x08, 0x35, 0x3c, 0x18, 0x6a,
-	0x3e, 0xd6, 0xda, 0x49, 0xdd, 0x71, 0xaa, 0xdd, 0x4c, 0x10, 0xf7, 0xf9, 0x0f, 0xc1, 0x9c, 0x54,
-	0x2e, 0x92, 0x86, 0x09, 0x8d, 0xb7, 0x27, 0x5d, 0x83, 0x8e, 0xa4, 0x31, 0xde, 0xa1, 0xad, 0x59,
-	0xaf, 0x55, 0x75, 0xc9, 0xbb, 0x9f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x19, 0xe2, 0x19, 0xcb, 0x10,
-	0x04, 0x00, 0x00,
 }

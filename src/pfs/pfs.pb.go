@@ -11,15 +11,12 @@ It is generated from these files:
 It has these top-level messages:
 	Repo
 	Commit
-	Block
 	File
 	Server
 	RepoInfo
 	RepoInfos
 	CommitInfo
 	CommitInfos
-	BlockInfo
-	BlockInfos
 	FileInfo
 	FileInfos
 	ServerInfo
@@ -36,10 +33,6 @@ It has these top-level messages:
 	InspectCommitRequest
 	ListCommitRequest
 	DeleteCommitRequest
-	GetBlockRequest
-	PutBlockRequest
-	InspectBlockRequest
-	ListBlockRequest
 	GetFileRequest
 	PutFileRequest
 	InspectFileRequest
@@ -96,7 +89,6 @@ var CommitType_value = map[string]int32{
 func (x CommitType) String() string {
 	return proto.EnumName(CommitType_name, int32(x))
 }
-func (CommitType) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
 // FileType represents a type of file from ListFiles.
 type FileType int32
@@ -121,17 +113,15 @@ var FileType_value = map[string]int32{
 func (x FileType) String() string {
 	return proto.EnumName(FileType_name, int32(x))
 }
-func (FileType) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
 // Repo represents a repo.
 type Repo struct {
 	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 }
 
-func (m *Repo) Reset()                    { *m = Repo{} }
-func (m *Repo) String() string            { return proto.CompactTextString(m) }
-func (*Repo) ProtoMessage()               {}
-func (*Repo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (m *Repo) Reset()         { *m = Repo{} }
+func (m *Repo) String() string { return proto.CompactTextString(m) }
+func (*Repo) ProtoMessage()    {}
 
 // Commit represents a specific commit in a repo.
 type Commit struct {
@@ -139,10 +129,9 @@ type Commit struct {
 	Id   string `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
 }
 
-func (m *Commit) Reset()                    { *m = Commit{} }
-func (m *Commit) String() string            { return proto.CompactTextString(m) }
-func (*Commit) ProtoMessage()               {}
-func (*Commit) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (m *Commit) Reset()         { *m = Commit{} }
+func (m *Commit) String() string { return proto.CompactTextString(m) }
+func (*Commit) ProtoMessage()    {}
 
 func (m *Commit) GetRepo() *Repo {
 	if m != nil {
@@ -151,26 +140,15 @@ func (m *Commit) GetRepo() *Repo {
 	return nil
 }
 
-// Block represents a block in the block store.
-type Block struct {
-	Hash string `protobuf:"bytes,1,opt,name=hash" json:"hash,omitempty"`
-}
-
-func (m *Block) Reset()                    { *m = Block{} }
-func (m *Block) String() string            { return proto.CompactTextString(m) }
-func (*Block) ProtoMessage()               {}
-func (*Block) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
-
 // File represents the full path to a file or directory within pfs.
 type File struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	Path   string  `protobuf:"bytes,2,opt,name=path" json:"path,omitempty"`
 }
 
-func (m *File) Reset()                    { *m = File{} }
-func (m *File) String() string            { return proto.CompactTextString(m) }
-func (*File) ProtoMessage()               {}
-func (*File) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+func (m *File) Reset()         { *m = File{} }
+func (m *File) String() string { return proto.CompactTextString(m) }
+func (*File) ProtoMessage()    {}
 
 func (m *File) GetCommit() *Commit {
 	if m != nil {
@@ -184,10 +162,9 @@ type Server struct {
 	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
 }
 
-func (m *Server) Reset()                    { *m = Server{} }
-func (m *Server) String() string            { return proto.CompactTextString(m) }
-func (*Server) ProtoMessage()               {}
-func (*Server) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+func (m *Server) Reset()         { *m = Server{} }
+func (m *Server) String() string { return proto.CompactTextString(m) }
+func (*Server) ProtoMessage()    {}
 
 // RepoInfo represent information about a repo.
 type RepoInfo struct {
@@ -196,10 +173,9 @@ type RepoInfo struct {
 	SizeBytes uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
-func (m *RepoInfo) Reset()                    { *m = RepoInfo{} }
-func (m *RepoInfo) String() string            { return proto.CompactTextString(m) }
-func (*RepoInfo) ProtoMessage()               {}
-func (*RepoInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+func (m *RepoInfo) Reset()         { *m = RepoInfo{} }
+func (m *RepoInfo) String() string { return proto.CompactTextString(m) }
+func (*RepoInfo) ProtoMessage()    {}
 
 func (m *RepoInfo) GetRepo() *Repo {
 	if m != nil {
@@ -219,10 +195,9 @@ type RepoInfos struct {
 	RepoInfo []*RepoInfo `protobuf:"bytes,1,rep,name=repo_info" json:"repo_info,omitempty"`
 }
 
-func (m *RepoInfos) Reset()                    { *m = RepoInfos{} }
-func (m *RepoInfos) String() string            { return proto.CompactTextString(m) }
-func (*RepoInfos) ProtoMessage()               {}
-func (*RepoInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
+func (m *RepoInfos) Reset()         { *m = RepoInfos{} }
+func (m *RepoInfos) String() string { return proto.CompactTextString(m) }
+func (*RepoInfos) ProtoMessage()    {}
 
 func (m *RepoInfos) GetRepoInfo() []*RepoInfo {
 	if m != nil {
@@ -242,10 +217,9 @@ type CommitInfo struct {
 	TotalBytes   uint64                      `protobuf:"varint,7,opt,name=total_bytes" json:"total_bytes,omitempty"`
 }
 
-func (m *CommitInfo) Reset()                    { *m = CommitInfo{} }
-func (m *CommitInfo) String() string            { return proto.CompactTextString(m) }
-func (*CommitInfo) ProtoMessage()               {}
-func (*CommitInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
+func (m *CommitInfo) Reset()         { *m = CommitInfo{} }
+func (m *CommitInfo) String() string { return proto.CompactTextString(m) }
+func (*CommitInfo) ProtoMessage()    {}
 
 func (m *CommitInfo) GetCommit() *Commit {
 	if m != nil {
@@ -279,56 +253,13 @@ type CommitInfos struct {
 	CommitInfo []*CommitInfo `protobuf:"bytes,1,rep,name=commit_info" json:"commit_info,omitempty"`
 }
 
-func (m *CommitInfos) Reset()                    { *m = CommitInfos{} }
-func (m *CommitInfos) String() string            { return proto.CompactTextString(m) }
-func (*CommitInfos) ProtoMessage()               {}
-func (*CommitInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
+func (m *CommitInfos) Reset()         { *m = CommitInfos{} }
+func (m *CommitInfos) String() string { return proto.CompactTextString(m) }
+func (*CommitInfos) ProtoMessage()    {}
 
 func (m *CommitInfos) GetCommitInfo() []*CommitInfo {
 	if m != nil {
 		return m.CommitInfo
-	}
-	return nil
-}
-
-// BlockInfo represents information about a block.
-type BlockInfo struct {
-	Block     *Block                      `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
-	Created   *google_protobuf2.Timestamp `protobuf:"bytes,2,opt,name=created" json:"created,omitempty"`
-	SizeBytes uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
-}
-
-func (m *BlockInfo) Reset()                    { *m = BlockInfo{} }
-func (m *BlockInfo) String() string            { return proto.CompactTextString(m) }
-func (*BlockInfo) ProtoMessage()               {}
-func (*BlockInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
-
-func (m *BlockInfo) GetBlock() *Block {
-	if m != nil {
-		return m.Block
-	}
-	return nil
-}
-
-func (m *BlockInfo) GetCreated() *google_protobuf2.Timestamp {
-	if m != nil {
-		return m.Created
-	}
-	return nil
-}
-
-type BlockInfos struct {
-	BlockInfo []*BlockInfo `protobuf:"bytes,1,rep,name=block_info" json:"block_info,omitempty"`
-}
-
-func (m *BlockInfos) Reset()                    { *m = BlockInfos{} }
-func (m *BlockInfos) String() string            { return proto.CompactTextString(m) }
-func (*BlockInfos) ProtoMessage()               {}
-func (*BlockInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
-
-func (m *BlockInfos) GetBlockInfo() []*BlockInfo {
-	if m != nil {
-		return m.BlockInfo
 	}
 	return nil
 }
@@ -342,10 +273,9 @@ type FileInfo struct {
 	Modified  *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=modified" json:"modified,omitempty"`
 }
 
-func (m *FileInfo) Reset()                    { *m = FileInfo{} }
-func (m *FileInfo) String() string            { return proto.CompactTextString(m) }
-func (*FileInfo) ProtoMessage()               {}
-func (*FileInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
+func (m *FileInfo) Reset()         { *m = FileInfo{} }
+func (m *FileInfo) String() string { return proto.CompactTextString(m) }
+func (*FileInfo) ProtoMessage()    {}
 
 func (m *FileInfo) GetFile() *File {
 	if m != nil {
@@ -365,10 +295,9 @@ type FileInfos struct {
 	FileInfo []*FileInfo `protobuf:"bytes,1,rep,name=file_info" json:"file_info,omitempty"`
 }
 
-func (m *FileInfos) Reset()                    { *m = FileInfos{} }
-func (m *FileInfos) String() string            { return proto.CompactTextString(m) }
-func (*FileInfos) ProtoMessage()               {}
-func (*FileInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
+func (m *FileInfos) Reset()         { *m = FileInfos{} }
+func (m *FileInfos) String() string { return proto.CompactTextString(m) }
+func (*FileInfos) ProtoMessage()    {}
 
 func (m *FileInfos) GetFileInfo() []*FileInfo {
 	if m != nil {
@@ -384,10 +313,9 @@ type ServerInfo struct {
 	ServerRole  map[int64]*shard.ServerRole `protobuf:"bytes,3,rep,name=server_role" json:"server_role,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
-func (m *ServerInfo) Reset()                    { *m = ServerInfo{} }
-func (m *ServerInfo) String() string            { return proto.CompactTextString(m) }
-func (*ServerInfo) ProtoMessage()               {}
-func (*ServerInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
+func (m *ServerInfo) Reset()         { *m = ServerInfo{} }
+func (m *ServerInfo) String() string { return proto.CompactTextString(m) }
+func (*ServerInfo) ProtoMessage()    {}
 
 func (m *ServerInfo) GetServer() *Server {
 	if m != nil {
@@ -414,10 +342,9 @@ type ServerInfos struct {
 	ServerInfo []*ServerInfo `protobuf:"bytes,1,rep,name=server_info" json:"server_info,omitempty"`
 }
 
-func (m *ServerInfos) Reset()                    { *m = ServerInfos{} }
-func (m *ServerInfos) String() string            { return proto.CompactTextString(m) }
-func (*ServerInfos) ProtoMessage()               {}
-func (*ServerInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
+func (m *ServerInfos) Reset()         { *m = ServerInfos{} }
+func (m *ServerInfos) String() string { return proto.CompactTextString(m) }
+func (*ServerInfos) ProtoMessage()    {}
 
 func (m *ServerInfos) GetServerInfo() []*ServerInfo {
 	if m != nil {
@@ -433,10 +360,9 @@ type Shard struct {
 	Modulus uint64 `protobuf:"varint,2,opt,name=modulus" json:"modulus,omitempty"`
 }
 
-func (m *Shard) Reset()                    { *m = Shard{} }
-func (m *Shard) String() string            { return proto.CompactTextString(m) }
-func (*Shard) ProtoMessage()               {}
-func (*Shard) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
+func (m *Shard) Reset()         { *m = Shard{} }
+func (m *Shard) String() string { return proto.CompactTextString(m) }
+func (*Shard) ProtoMessage()    {}
 
 // Change represents a change to a file.
 type Change struct {
@@ -445,10 +371,9 @@ type Change struct {
 	OffsetBytes uint64 `protobuf:"varint,4,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
 }
 
-func (m *Change) Reset()                    { *m = Change{} }
-func (m *Change) String() string            { return proto.CompactTextString(m) }
-func (*Change) ProtoMessage()               {}
-func (*Change) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
+func (m *Change) Reset()         { *m = Change{} }
+func (m *Change) String() string { return proto.CompactTextString(m) }
+func (*Change) ProtoMessage()    {}
 
 func (m *Change) GetFile() *File {
 	if m != nil {
@@ -461,10 +386,9 @@ type Changes struct {
 	Change []*Change `protobuf:"bytes,1,rep,name=change" json:"change,omitempty"`
 }
 
-func (m *Changes) Reset()                    { *m = Changes{} }
-func (m *Changes) String() string            { return proto.CompactTextString(m) }
-func (*Changes) ProtoMessage()               {}
-func (*Changes) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
+func (m *Changes) Reset()         { *m = Changes{} }
+func (m *Changes) String() string { return proto.CompactTextString(m) }
+func (*Changes) ProtoMessage()    {}
 
 func (m *Changes) GetChange() []*Change {
 	if m != nil {
@@ -477,10 +401,9 @@ type CreateRepoRequest struct {
 	Repo *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 }
 
-func (m *CreateRepoRequest) Reset()                    { *m = CreateRepoRequest{} }
-func (m *CreateRepoRequest) String() string            { return proto.CompactTextString(m) }
-func (*CreateRepoRequest) ProtoMessage()               {}
-func (*CreateRepoRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
+func (m *CreateRepoRequest) Reset()         { *m = CreateRepoRequest{} }
+func (m *CreateRepoRequest) String() string { return proto.CompactTextString(m) }
+func (*CreateRepoRequest) ProtoMessage()    {}
 
 func (m *CreateRepoRequest) GetRepo() *Repo {
 	if m != nil {
@@ -493,10 +416,9 @@ type InspectRepoRequest struct {
 	Repo *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 }
 
-func (m *InspectRepoRequest) Reset()                    { *m = InspectRepoRequest{} }
-func (m *InspectRepoRequest) String() string            { return proto.CompactTextString(m) }
-func (*InspectRepoRequest) ProtoMessage()               {}
-func (*InspectRepoRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{19} }
+func (m *InspectRepoRequest) Reset()         { *m = InspectRepoRequest{} }
+func (m *InspectRepoRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectRepoRequest) ProtoMessage()    {}
 
 func (m *InspectRepoRequest) GetRepo() *Repo {
 	if m != nil {
@@ -508,19 +430,17 @@ func (m *InspectRepoRequest) GetRepo() *Repo {
 type ListRepoRequest struct {
 }
 
-func (m *ListRepoRequest) Reset()                    { *m = ListRepoRequest{} }
-func (m *ListRepoRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListRepoRequest) ProtoMessage()               {}
-func (*ListRepoRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{20} }
+func (m *ListRepoRequest) Reset()         { *m = ListRepoRequest{} }
+func (m *ListRepoRequest) String() string { return proto.CompactTextString(m) }
+func (*ListRepoRequest) ProtoMessage()    {}
 
 type DeleteRepoRequest struct {
 	Repo *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 }
 
-func (m *DeleteRepoRequest) Reset()                    { *m = DeleteRepoRequest{} }
-func (m *DeleteRepoRequest) String() string            { return proto.CompactTextString(m) }
-func (*DeleteRepoRequest) ProtoMessage()               {}
-func (*DeleteRepoRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{21} }
+func (m *DeleteRepoRequest) Reset()         { *m = DeleteRepoRequest{} }
+func (m *DeleteRepoRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteRepoRequest) ProtoMessage()    {}
 
 func (m *DeleteRepoRequest) GetRepo() *Repo {
 	if m != nil {
@@ -534,10 +454,9 @@ type StartCommitRequest struct {
 	Commit *Commit `protobuf:"bytes,2,opt,name=commit" json:"commit,omitempty"`
 }
 
-func (m *StartCommitRequest) Reset()                    { *m = StartCommitRequest{} }
-func (m *StartCommitRequest) String() string            { return proto.CompactTextString(m) }
-func (*StartCommitRequest) ProtoMessage()               {}
-func (*StartCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{22} }
+func (m *StartCommitRequest) Reset()         { *m = StartCommitRequest{} }
+func (m *StartCommitRequest) String() string { return proto.CompactTextString(m) }
+func (*StartCommitRequest) ProtoMessage()    {}
 
 func (m *StartCommitRequest) GetParent() *Commit {
 	if m != nil {
@@ -557,10 +476,9 @@ type FinishCommitRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
-func (m *FinishCommitRequest) Reset()                    { *m = FinishCommitRequest{} }
-func (m *FinishCommitRequest) String() string            { return proto.CompactTextString(m) }
-func (*FinishCommitRequest) ProtoMessage()               {}
-func (*FinishCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{23} }
+func (m *FinishCommitRequest) Reset()         { *m = FinishCommitRequest{} }
+func (m *FinishCommitRequest) String() string { return proto.CompactTextString(m) }
+func (*FinishCommitRequest) ProtoMessage()    {}
 
 func (m *FinishCommitRequest) GetCommit() *Commit {
 	if m != nil {
@@ -573,10 +491,9 @@ type InspectCommitRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
-func (m *InspectCommitRequest) Reset()                    { *m = InspectCommitRequest{} }
-func (m *InspectCommitRequest) String() string            { return proto.CompactTextString(m) }
-func (*InspectCommitRequest) ProtoMessage()               {}
-func (*InspectCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{24} }
+func (m *InspectCommitRequest) Reset()         { *m = InspectCommitRequest{} }
+func (m *InspectCommitRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectCommitRequest) ProtoMessage()    {}
 
 func (m *InspectCommitRequest) GetCommit() *Commit {
 	if m != nil {
@@ -592,10 +509,9 @@ type ListCommitRequest struct {
 	Block      bool       `protobuf:"varint,4,opt,name=block" json:"block,omitempty"`
 }
 
-func (m *ListCommitRequest) Reset()                    { *m = ListCommitRequest{} }
-func (m *ListCommitRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListCommitRequest) ProtoMessage()               {}
-func (*ListCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{25} }
+func (m *ListCommitRequest) Reset()         { *m = ListCommitRequest{} }
+func (m *ListCommitRequest) String() string { return proto.CompactTextString(m) }
+func (*ListCommitRequest) ProtoMessage()    {}
 
 func (m *ListCommitRequest) GetRepo() *Repo {
 	if m != nil {
@@ -615,95 +531,13 @@ type DeleteCommitRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
-func (m *DeleteCommitRequest) Reset()                    { *m = DeleteCommitRequest{} }
-func (m *DeleteCommitRequest) String() string            { return proto.CompactTextString(m) }
-func (*DeleteCommitRequest) ProtoMessage()               {}
-func (*DeleteCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{26} }
+func (m *DeleteCommitRequest) Reset()         { *m = DeleteCommitRequest{} }
+func (m *DeleteCommitRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteCommitRequest) ProtoMessage()    {}
 
 func (m *DeleteCommitRequest) GetCommit() *Commit {
 	if m != nil {
 		return m.Commit
-	}
-	return nil
-}
-
-type GetBlockRequest struct {
-	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
-	Shard *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
-}
-
-func (m *GetBlockRequest) Reset()                    { *m = GetBlockRequest{} }
-func (m *GetBlockRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetBlockRequest) ProtoMessage()               {}
-func (*GetBlockRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{27} }
-
-func (m *GetBlockRequest) GetBlock() *Block {
-	if m != nil {
-		return m.Block
-	}
-	return nil
-}
-
-func (m *GetBlockRequest) GetShard() *Shard {
-	if m != nil {
-		return m.Shard
-	}
-	return nil
-}
-
-type PutBlockRequest struct {
-	File  *File  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
-}
-
-func (m *PutBlockRequest) Reset()                    { *m = PutBlockRequest{} }
-func (m *PutBlockRequest) String() string            { return proto.CompactTextString(m) }
-func (*PutBlockRequest) ProtoMessage()               {}
-func (*PutBlockRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{28} }
-
-func (m *PutBlockRequest) GetFile() *File {
-	if m != nil {
-		return m.File
-	}
-	return nil
-}
-
-type InspectBlockRequest struct {
-	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
-	Shard *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
-}
-
-func (m *InspectBlockRequest) Reset()                    { *m = InspectBlockRequest{} }
-func (m *InspectBlockRequest) String() string            { return proto.CompactTextString(m) }
-func (*InspectBlockRequest) ProtoMessage()               {}
-func (*InspectBlockRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{29} }
-
-func (m *InspectBlockRequest) GetBlock() *Block {
-	if m != nil {
-		return m.Block
-	}
-	return nil
-}
-
-func (m *InspectBlockRequest) GetShard() *Shard {
-	if m != nil {
-		return m.Shard
-	}
-	return nil
-}
-
-type ListBlockRequest struct {
-	Shard *Shard `protobuf:"bytes,1,opt,name=shard" json:"shard,omitempty"`
-}
-
-func (m *ListBlockRequest) Reset()                    { *m = ListBlockRequest{} }
-func (m *ListBlockRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListBlockRequest) ProtoMessage()               {}
-func (*ListBlockRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{30} }
-
-func (m *ListBlockRequest) GetShard() *Shard {
-	if m != nil {
-		return m.Shard
 	}
 	return nil
 }
@@ -715,10 +549,9 @@ type GetFileRequest struct {
 	Shard       *Shard `protobuf:"bytes,4,opt,name=shard" json:"shard,omitempty"`
 }
 
-func (m *GetFileRequest) Reset()                    { *m = GetFileRequest{} }
-func (m *GetFileRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetFileRequest) ProtoMessage()               {}
-func (*GetFileRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{31} }
+func (m *GetFileRequest) Reset()         { *m = GetFileRequest{} }
+func (m *GetFileRequest) String() string { return proto.CompactTextString(m) }
+func (*GetFileRequest) ProtoMessage()    {}
 
 func (m *GetFileRequest) GetFile() *File {
 	if m != nil {
@@ -741,10 +574,9 @@ type PutFileRequest struct {
 	Value       []byte   `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
 }
 
-func (m *PutFileRequest) Reset()                    { *m = PutFileRequest{} }
-func (m *PutFileRequest) String() string            { return proto.CompactTextString(m) }
-func (*PutFileRequest) ProtoMessage()               {}
-func (*PutFileRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{32} }
+func (m *PutFileRequest) Reset()         { *m = PutFileRequest{} }
+func (m *PutFileRequest) String() string { return proto.CompactTextString(m) }
+func (*PutFileRequest) ProtoMessage()    {}
 
 func (m *PutFileRequest) GetFile() *File {
 	if m != nil {
@@ -758,10 +590,9 @@ type InspectFileRequest struct {
 	Shard *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
 }
 
-func (m *InspectFileRequest) Reset()                    { *m = InspectFileRequest{} }
-func (m *InspectFileRequest) String() string            { return proto.CompactTextString(m) }
-func (*InspectFileRequest) ProtoMessage()               {}
-func (*InspectFileRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{33} }
+func (m *InspectFileRequest) Reset()         { *m = InspectFileRequest{} }
+func (m *InspectFileRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectFileRequest) ProtoMessage()    {}
 
 func (m *InspectFileRequest) GetFile() *File {
 	if m != nil {
@@ -781,10 +612,9 @@ type MakeDirectoryRequest struct {
 	File *File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 }
 
-func (m *MakeDirectoryRequest) Reset()                    { *m = MakeDirectoryRequest{} }
-func (m *MakeDirectoryRequest) String() string            { return proto.CompactTextString(m) }
-func (*MakeDirectoryRequest) ProtoMessage()               {}
-func (*MakeDirectoryRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{34} }
+func (m *MakeDirectoryRequest) Reset()         { *m = MakeDirectoryRequest{} }
+func (m *MakeDirectoryRequest) String() string { return proto.CompactTextString(m) }
+func (*MakeDirectoryRequest) ProtoMessage()    {}
 
 func (m *MakeDirectoryRequest) GetFile() *File {
 	if m != nil {
@@ -798,10 +628,9 @@ type ListFileRequest struct {
 	Shard *Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
 }
 
-func (m *ListFileRequest) Reset()                    { *m = ListFileRequest{} }
-func (m *ListFileRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListFileRequest) ProtoMessage()               {}
-func (*ListFileRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{35} }
+func (m *ListFileRequest) Reset()         { *m = ListFileRequest{} }
+func (m *ListFileRequest) String() string { return proto.CompactTextString(m) }
+func (*ListFileRequest) ProtoMessage()    {}
 
 func (m *ListFileRequest) GetFile() *File {
 	if m != nil {
@@ -821,10 +650,9 @@ type DeleteFileRequest struct {
 	File *File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 }
 
-func (m *DeleteFileRequest) Reset()                    { *m = DeleteFileRequest{} }
-func (m *DeleteFileRequest) String() string            { return proto.CompactTextString(m) }
-func (*DeleteFileRequest) ProtoMessage()               {}
-func (*DeleteFileRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{36} }
+func (m *DeleteFileRequest) Reset()         { *m = DeleteFileRequest{} }
+func (m *DeleteFileRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteFileRequest) ProtoMessage()    {}
 
 func (m *DeleteFileRequest) GetFile() *File {
 	if m != nil {
@@ -839,10 +667,9 @@ type ListChangeRequest struct {
 	Shard *Shard  `protobuf:"bytes,3,opt,name=shard" json:"shard,omitempty"`
 }
 
-func (m *ListChangeRequest) Reset()                    { *m = ListChangeRequest{} }
-func (m *ListChangeRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListChangeRequest) ProtoMessage()               {}
-func (*ListChangeRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{37} }
+func (m *ListChangeRequest) Reset()         { *m = ListChangeRequest{} }
+func (m *ListChangeRequest) String() string { return proto.CompactTextString(m) }
+func (*ListChangeRequest) ProtoMessage()    {}
 
 func (m *ListChangeRequest) GetFile() *File {
 	if m != nil {
@@ -869,10 +696,9 @@ type InspectServerRequest struct {
 	Server *Server `protobuf:"bytes,1,opt,name=server" json:"server,omitempty"`
 }
 
-func (m *InspectServerRequest) Reset()                    { *m = InspectServerRequest{} }
-func (m *InspectServerRequest) String() string            { return proto.CompactTextString(m) }
-func (*InspectServerRequest) ProtoMessage()               {}
-func (*InspectServerRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{38} }
+func (m *InspectServerRequest) Reset()         { *m = InspectServerRequest{} }
+func (m *InspectServerRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectServerRequest) ProtoMessage()    {}
 
 func (m *InspectServerRequest) GetServer() *Server {
 	if m != nil {
@@ -884,20 +710,18 @@ func (m *InspectServerRequest) GetServer() *Server {
 type ListServerRequest struct {
 }
 
-func (m *ListServerRequest) Reset()                    { *m = ListServerRequest{} }
-func (m *ListServerRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListServerRequest) ProtoMessage()               {}
-func (*ListServerRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{39} }
+func (m *ListServerRequest) Reset()         { *m = ListServerRequest{} }
+func (m *ListServerRequest) String() string { return proto.CompactTextString(m) }
+func (*ListServerRequest) ProtoMessage()    {}
 
 type PullDiffRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	Shard  uint64  `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
 }
 
-func (m *PullDiffRequest) Reset()                    { *m = PullDiffRequest{} }
-func (m *PullDiffRequest) String() string            { return proto.CompactTextString(m) }
-func (*PullDiffRequest) ProtoMessage()               {}
-func (*PullDiffRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{40} }
+func (m *PullDiffRequest) Reset()         { *m = PullDiffRequest{} }
+func (m *PullDiffRequest) String() string { return proto.CompactTextString(m) }
+func (*PullDiffRequest) ProtoMessage()    {}
 
 func (m *PullDiffRequest) GetCommit() *Commit {
 	if m != nil {
@@ -912,10 +736,9 @@ type PushDiffRequest struct {
 	Value  []byte  `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 }
 
-func (m *PushDiffRequest) Reset()                    { *m = PushDiffRequest{} }
-func (m *PushDiffRequest) String() string            { return proto.CompactTextString(m) }
-func (*PushDiffRequest) ProtoMessage()               {}
-func (*PushDiffRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{41} }
+func (m *PushDiffRequest) Reset()         { *m = PushDiffRequest{} }
+func (m *PushDiffRequest) String() string { return proto.CompactTextString(m) }
+func (*PushDiffRequest) ProtoMessage()    {}
 
 func (m *PushDiffRequest) GetCommit() *Commit {
 	if m != nil {
@@ -927,15 +750,12 @@ func (m *PushDiffRequest) GetCommit() *Commit {
 func init() {
 	proto.RegisterType((*Repo)(nil), "pfs.Repo")
 	proto.RegisterType((*Commit)(nil), "pfs.Commit")
-	proto.RegisterType((*Block)(nil), "pfs.Block")
 	proto.RegisterType((*File)(nil), "pfs.File")
 	proto.RegisterType((*Server)(nil), "pfs.Server")
 	proto.RegisterType((*RepoInfo)(nil), "pfs.RepoInfo")
 	proto.RegisterType((*RepoInfos)(nil), "pfs.RepoInfos")
 	proto.RegisterType((*CommitInfo)(nil), "pfs.CommitInfo")
 	proto.RegisterType((*CommitInfos)(nil), "pfs.CommitInfos")
-	proto.RegisterType((*BlockInfo)(nil), "pfs.BlockInfo")
-	proto.RegisterType((*BlockInfos)(nil), "pfs.BlockInfos")
 	proto.RegisterType((*FileInfo)(nil), "pfs.FileInfo")
 	proto.RegisterType((*FileInfos)(nil), "pfs.FileInfos")
 	proto.RegisterType((*ServerInfo)(nil), "pfs.ServerInfo")
@@ -952,10 +772,6 @@ func init() {
 	proto.RegisterType((*InspectCommitRequest)(nil), "pfs.InspectCommitRequest")
 	proto.RegisterType((*ListCommitRequest)(nil), "pfs.ListCommitRequest")
 	proto.RegisterType((*DeleteCommitRequest)(nil), "pfs.DeleteCommitRequest")
-	proto.RegisterType((*GetBlockRequest)(nil), "pfs.GetBlockRequest")
-	proto.RegisterType((*PutBlockRequest)(nil), "pfs.PutBlockRequest")
-	proto.RegisterType((*InspectBlockRequest)(nil), "pfs.InspectBlockRequest")
-	proto.RegisterType((*ListBlockRequest)(nil), "pfs.ListBlockRequest")
 	proto.RegisterType((*GetFileRequest)(nil), "pfs.GetFileRequest")
 	proto.RegisterType((*PutFileRequest)(nil), "pfs.PutFileRequest")
 	proto.RegisterType((*InspectFileRequest)(nil), "pfs.InspectFileRequest")
@@ -999,15 +815,6 @@ type APIClient interface {
 	ListCommit(ctx context.Context, in *ListCommitRequest, opts ...grpc.CallOption) (*CommitInfos, error)
 	// DeleteCommit deletes a commit.
 	DeleteCommit(ctx context.Context, in *DeleteCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
-	// Block rpcs
-	// PutBlock writes the specified block to the block store.
-	PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*Block, error)
-	// GetBlock returns a byte stream of the contents of the block.
-	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (API_GetBlockClient, error)
-	// InspectBlock returns info about a block.
-	InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error)
-	// ListBlock returns info about all blocks.
-	ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
 	PutFile(ctx context.Context, opts ...grpc.CallOption) (API_PutFileClient, error)
@@ -1112,67 +919,8 @@ func (c *aPIClient) DeleteCommit(ctx context.Context, in *DeleteCommitRequest, o
 	return out, nil
 }
 
-func (c *aPIClient) PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*Block, error) {
-	out := new(Block)
-	err := grpc.Invoke(ctx, "/pfs.API/PutBlock", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *aPIClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (API_GetBlockClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[0], c.cc, "/pfs.API/GetBlock", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &aPIGetBlockClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type API_GetBlockClient interface {
-	Recv() (*google_protobuf3.BytesValue, error)
-	grpc.ClientStream
-}
-
-type aPIGetBlockClient struct {
-	grpc.ClientStream
-}
-
-func (x *aPIGetBlockClient) Recv() (*google_protobuf3.BytesValue, error) {
-	m := new(google_protobuf3.BytesValue)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *aPIClient) InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error) {
-	out := new(BlockInfo)
-	err := grpc.Invoke(ctx, "/pfs.API/InspectBlock", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *aPIClient) ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error) {
-	out := new(BlockInfos)
-	err := grpc.Invoke(ctx, "/pfs.API/ListBlock", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *aPIClient) PutFile(ctx context.Context, opts ...grpc.CallOption) (API_PutFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[1], c.cc, "/pfs.API/PutFile", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[0], c.cc, "/pfs.API/PutFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1206,7 +954,7 @@ func (x *aPIPutFileClient) CloseAndRecv() (*google_protobuf1.Empty, error) {
 }
 
 func (c *aPIClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (API_GetFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[2], c.cc, "/pfs.API/GetFile", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[1], c.cc, "/pfs.API/GetFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1297,15 +1045,6 @@ type APIServer interface {
 	ListCommit(context.Context, *ListCommitRequest) (*CommitInfos, error)
 	// DeleteCommit deletes a commit.
 	DeleteCommit(context.Context, *DeleteCommitRequest) (*google_protobuf1.Empty, error)
-	// Block rpcs
-	// PutBlock writes the specified block to the block store.
-	PutBlock(context.Context, *PutBlockRequest) (*Block, error)
-	// GetBlock returns a byte stream of the contents of the block.
-	GetBlock(*GetBlockRequest, API_GetBlockServer) error
-	// InspectBlock returns info about a block.
-	InspectBlock(context.Context, *InspectBlockRequest) (*BlockInfo, error)
-	// ListBlock returns info about all blocks.
-	ListBlock(context.Context, *ListBlockRequest) (*BlockInfos, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
 	PutFile(API_PutFileServer) error
@@ -1427,63 +1166,6 @@ func _API_DeleteCommit_Handler(srv interface{}, ctx context.Context, dec func(in
 		return nil, err
 	}
 	out, err := srv.(APIServer).DeleteCommit(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _API_PutBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(PutBlockRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(APIServer).PutBlock(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _API_GetBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetBlockRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(APIServer).GetBlock(m, &aPIGetBlockServer{stream})
-}
-
-type API_GetBlockServer interface {
-	Send(*google_protobuf3.BytesValue) error
-	grpc.ServerStream
-}
-
-type aPIGetBlockServer struct {
-	grpc.ServerStream
-}
-
-func (x *aPIGetBlockServer) Send(m *google_protobuf3.BytesValue) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _API_InspectBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(InspectBlockRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(APIServer).InspectBlock(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _API_ListBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(ListBlockRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(APIServer).ListBlock(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -1626,18 +1308,6 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			Handler:    _API_DeleteCommit_Handler,
 		},
 		{
-			MethodName: "PutBlock",
-			Handler:    _API_PutBlock_Handler,
-		},
-		{
-			MethodName: "InspectBlock",
-			Handler:    _API_InspectBlock_Handler,
-		},
-		{
-			MethodName: "ListBlock",
-			Handler:    _API_ListBlock_Handler,
-		},
-		{
 			MethodName: "InspectFile",
 			Handler:    _API_InspectFile_Handler,
 		},
@@ -1655,11 +1325,6 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "GetBlock",
-			Handler:       _API_GetBlock_Handler,
-			ServerStreams: true,
-		},
 		{
 			StreamName:    "PutFile",
 			Handler:       _API_PutFile_Handler,
@@ -1697,15 +1362,6 @@ type InternalAPIClient interface {
 	ListCommit(ctx context.Context, in *ListCommitRequest, opts ...grpc.CallOption) (*CommitInfos, error)
 	// DeleteCommit deletes a commit.
 	DeleteCommit(ctx context.Context, in *DeleteCommitRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
-	// Block rpcs
-	// PutBlock writes the specified block to the block store.
-	PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
-	// GetBlock returns a byte stream of the contents of the block.
-	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (InternalAPI_GetBlockClient, error)
-	// InspectBlock returns info about a block.
-	InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error)
-	// ListBlock returns info about all blocks.
-	ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
 	PutFile(ctx context.Context, opts ...grpc.CallOption) (InternalAPI_PutFileClient, error)
@@ -1810,67 +1466,8 @@ func (c *internalAPIClient) DeleteCommit(ctx context.Context, in *DeleteCommitRe
 	return out, nil
 }
 
-func (c *internalAPIClient) PutBlock(ctx context.Context, in *PutBlockRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
-	out := new(google_protobuf1.Empty)
-	err := grpc.Invoke(ctx, "/pfs.InternalAPI/PutBlock", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *internalAPIClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (InternalAPI_GetBlockClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalAPI_serviceDesc.Streams[0], c.cc, "/pfs.InternalAPI/GetBlock", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &internalAPIGetBlockClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type InternalAPI_GetBlockClient interface {
-	Recv() (*google_protobuf3.BytesValue, error)
-	grpc.ClientStream
-}
-
-type internalAPIGetBlockClient struct {
-	grpc.ClientStream
-}
-
-func (x *internalAPIGetBlockClient) Recv() (*google_protobuf3.BytesValue, error) {
-	m := new(google_protobuf3.BytesValue)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *internalAPIClient) InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error) {
-	out := new(BlockInfo)
-	err := grpc.Invoke(ctx, "/pfs.InternalAPI/InspectBlock", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *internalAPIClient) ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error) {
-	out := new(BlockInfos)
-	err := grpc.Invoke(ctx, "/pfs.InternalAPI/ListBlock", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *internalAPIClient) PutFile(ctx context.Context, opts ...grpc.CallOption) (InternalAPI_PutFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalAPI_serviceDesc.Streams[1], c.cc, "/pfs.InternalAPI/PutFile", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_InternalAPI_serviceDesc.Streams[0], c.cc, "/pfs.InternalAPI/PutFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1904,7 +1501,7 @@ func (x *internalAPIPutFileClient) CloseAndRecv() (*google_protobuf1.Empty, erro
 }
 
 func (c *internalAPIClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (InternalAPI_GetFileClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_InternalAPI_serviceDesc.Streams[2], c.cc, "/pfs.InternalAPI/GetFile", opts...)
+	stream, err := grpc.NewClientStream(ctx, &_InternalAPI_serviceDesc.Streams[1], c.cc, "/pfs.InternalAPI/GetFile", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1995,15 +1592,6 @@ type InternalAPIServer interface {
 	ListCommit(context.Context, *ListCommitRequest) (*CommitInfos, error)
 	// DeleteCommit deletes a commit.
 	DeleteCommit(context.Context, *DeleteCommitRequest) (*google_protobuf1.Empty, error)
-	// Block rpcs
-	// PutBlock writes the specified block to the block store.
-	PutBlock(context.Context, *PutBlockRequest) (*google_protobuf1.Empty, error)
-	// GetBlock returns a byte stream of the contents of the block.
-	GetBlock(*GetBlockRequest, InternalAPI_GetBlockServer) error
-	// InspectBlock returns info about a block.
-	InspectBlock(context.Context, *InspectBlockRequest) (*BlockInfo, error)
-	// ListBlock returns info about all blocks.
-	ListBlock(context.Context, *ListBlockRequest) (*BlockInfos, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
 	PutFile(InternalAPI_PutFileServer) error
@@ -2125,63 +1713,6 @@ func _InternalAPI_DeleteCommit_Handler(srv interface{}, ctx context.Context, dec
 		return nil, err
 	}
 	out, err := srv.(InternalAPIServer).DeleteCommit(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _InternalAPI_PutBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(PutBlockRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(InternalAPIServer).PutBlock(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _InternalAPI_GetBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetBlockRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(InternalAPIServer).GetBlock(m, &internalAPIGetBlockServer{stream})
-}
-
-type InternalAPI_GetBlockServer interface {
-	Send(*google_protobuf3.BytesValue) error
-	grpc.ServerStream
-}
-
-type internalAPIGetBlockServer struct {
-	grpc.ServerStream
-}
-
-func (x *internalAPIGetBlockServer) Send(m *google_protobuf3.BytesValue) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _InternalAPI_InspectBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(InspectBlockRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(InternalAPIServer).InspectBlock(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _InternalAPI_ListBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(ListBlockRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(InternalAPIServer).ListBlock(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -2324,18 +1855,6 @@ var _InternalAPI_serviceDesc = grpc.ServiceDesc{
 			Handler:    _InternalAPI_DeleteCommit_Handler,
 		},
 		{
-			MethodName: "PutBlock",
-			Handler:    _InternalAPI_PutBlock_Handler,
-		},
-		{
-			MethodName: "InspectBlock",
-			Handler:    _InternalAPI_InspectBlock_Handler,
-		},
-		{
-			MethodName: "ListBlock",
-			Handler:    _InternalAPI_ListBlock_Handler,
-		},
-		{
 			MethodName: "InspectFile",
 			Handler:    _InternalAPI_InspectFile_Handler,
 		},
@@ -2353,11 +1872,6 @@ var _InternalAPI_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "GetBlock",
-			Handler:       _InternalAPI_GetBlock_Handler,
-			ServerStreams: true,
-		},
 		{
 			StreamName:    "PutFile",
 			Handler:       _InternalAPI_PutFile_Handler,
@@ -2624,103 +2138,4 @@ var _ReplicaAPI_serviceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-}
-
-var fileDescriptor0 = []byte{
-	// 1515 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xec, 0x58, 0x4b, 0x6f, 0x1b, 0xd5,
-	0x17, 0xf7, 0x63, 0x92, 0xd8, 0xc7, 0xcf, 0xdc, 0x38, 0x6d, 0x3a, 0xfd, 0xeb, 0xdf, 0x6a, 0x84,
-	0x50, 0x54, 0x5a, 0xbb, 0xb8, 0x20, 0x4a, 0x44, 0x0b, 0x69, 0xe3, 0xb6, 0x16, 0xe9, 0x43, 0x4e,
-	0x78, 0xad, 0xac, 0x49, 0x72, 0x1d, 0x8f, 0x32, 0x9e, 0x19, 0x66, 0xc6, 0x45, 0xe1, 0xb1, 0x41,
-	0x62, 0x83, 0x84, 0x58, 0x20, 0x3e, 0x17, 0x0b, 0xbe, 0x02, 0x5f, 0x82, 0x1d, 0xe7, 0x3e, 0xe6,
-	0x1d, 0xc7, 0x2e, 0x61, 0x83, 0xe8, 0xa2, 0xcd, 0xcc, 0xbd, 0xe7, 0x7d, 0xcf, 0xf9, 0xfd, 0xee,
-	0x18, 0x6a, 0xce, 0xc8, 0xeb, 0xe0, 0xbf, 0xb6, 0xe3, 0xda, 0xbe, 0x4d, 0x8a, 0xf8, 0xa8, 0xfe,
-	0xef, 0xd8, 0xb6, 0x8f, 0x4d, 0xda, 0xd1, 0x1d, 0xa3, 0xa3, 0x5b, 0x96, 0xed, 0xeb, 0xbe, 0x61,
-	0x5b, 0x52, 0x44, 0xbd, 0x2a, 0x77, 0xf9, 0xdb, 0xc1, 0x74, 0xd4, 0xa1, 0x13, 0xc7, 0x3f, 0x95,
-	0x9b, 0xd7, 0xd2, 0x9b, 0xbe, 0x31, 0xa1, 0x9e, 0xaf, 0x4f, 0x1c, 0x29, 0xf0, 0xff, 0xb4, 0xc0,
-	0x57, 0xae, 0xee, 0x38, 0xd4, 0x0d, 0xac, 0xaf, 0x3b, 0x27, 0xc7, 0x1d, 0x6f, 0xac, 0xbb, 0x47,
-	0xe2, 0x7f, 0xb1, 0xac, 0xb5, 0x40, 0x19, 0x50, 0xc7, 0x26, 0x55, 0x50, 0x2c, 0x7d, 0x42, 0x37,
-	0xf2, 0xd7, 0xf3, 0x9b, 0x65, 0xed, 0x16, 0x2c, 0x3f, 0xb4, 0x27, 0x13, 0xc3, 0x27, 0x97, 0x41,
-	0x71, 0x71, 0x9f, 0xaf, 0x57, 0xba, 0xe5, 0x36, 0xcb, 0x88, 0x2b, 0x00, 0x14, 0x8c, 0xa3, 0x8d,
-	0x02, 0x17, 0x5f, 0x87, 0xa5, 0x07, 0xa6, 0x7d, 0x78, 0xc2, 0xac, 0x8c, 0x75, 0x6f, 0x2c, 0xad,
-	0xbc, 0x0d, 0xca, 0x23, 0xc3, 0xa4, 0xe4, 0x2a, 0x2c, 0x1f, 0x72, 0x6b, 0xd2, 0x4a, 0x85, 0x5b,
-	0x91, 0x0e, 0x50, 0xc5, 0xd1, 0xfd, 0xb1, 0xb4, 0xd4, 0x82, 0xe5, 0x3d, 0xea, 0xbe, 0xa4, 0xae,
-	0xb4, 0x2f, 0x0c, 0x1d, 0x41, 0x89, 0xf9, 0xec, 0x5b, 0x23, 0x7b, 0x76, 0x40, 0x6f, 0xc1, 0xca,
-	0xa1, 0x4b, 0x75, 0x9f, 0x8a, 0xa8, 0x2a, 0x5d, 0xb5, 0x2d, 0x4a, 0xd2, 0x0e, 0x4a, 0xd2, 0xde,
-	0x0f, 0x6a, 0x46, 0xd0, 0xbc, 0x67, 0x7c, 0x4d, 0x87, 0x07, 0xa7, 0x3e, 0xf5, 0x36, 0x8a, 0x28,
-	0xaf, 0x60, 0xd2, 0xe5, 0xc0, 0x8b, 0x47, 0xae, 0x43, 0x99, 0xb9, 0x19, 0x1a, 0xf8, 0x86, 0xbe,
-	0x8a, 0x68, 0xaf, 0x16, 0xfa, 0x62, 0x22, 0xda, 0x9f, 0x79, 0x00, 0x91, 0x03, 0x8f, 0xeb, 0xdc,
-	0x24, 0xdf, 0x80, 0x8a, 0xd8, 0x1c, 0xfa, 0xa7, 0x0e, 0xe5, 0xf1, 0xd5, 0xbb, 0x8d, 0x98, 0xc4,
-	0x3e, 0x2e, 0x13, 0x0d, 0x9b, 0x46, 0x77, 0xa9, 0xe5, 0x0f, 0xa5, 0xa5, 0x62, 0xd6, 0x12, 0x66,
-	0x89, 0x19, 0xb8, 0x2c, 0x4b, 0x65, 0x6e, 0x96, 0x37, 0xa1, 0x34, 0x32, 0x2c, 0xc3, 0x1b, 0xa3,
-	0xf4, 0xd2, 0x5c, 0xe9, 0x16, 0x54, 0x65, 0x90, 0xa2, 0x2a, 0xcb, 0xac, 0x2a, 0x64, 0x0d, 0x2a,
-	0x3e, 0x36, 0xaa, 0x29, 0x17, 0x57, 0x78, 0xa9, 0xee, 0x40, 0x25, 0x4a, 0xdd, 0x8b, 0xa5, 0x17,
-	0x2b, 0x57, 0x3c, 0x3d, 0x5e, 0xb0, 0x63, 0x28, 0xf3, 0x2e, 0xe1, 0xe5, 0xba, 0x02, 0x4b, 0x07,
-	0xec, 0x45, 0x56, 0x0b, 0xb8, 0xb0, 0x68, 0xa2, 0x0b, 0x1f, 0xe4, 0x6d, 0x80, 0xd0, 0x91, 0x87,
-	0x55, 0x05, 0xee, 0x29, 0x1e, 0x5b, 0x3d, 0x72, 0xc7, 0x43, 0xfb, 0x35, 0x0f, 0x25, 0xd6, 0xaa,
-	0x41, 0x87, 0x8d, 0xf0, 0x39, 0xd1, 0x61, 0xbc, 0x8f, 0xb1, 0x27, 0xd8, 0x46, 0xfc, 0x0c, 0x6b,
-	0xe1, 0x2e, 0x3f, 0xc1, 0x33, 0xa2, 0xe1, 0x0d, 0x4e, 0xdd, 0x09, 0x3f, 0xae, 0x1a, 0x3b, 0x92,
-	0x89, 0x7d, 0x64, 0x8c, 0x8c, 0x45, 0x8e, 0x84, 0xb5, 0x64, 0x10, 0x96, 0x17, 0xba, 0xcf, 0xb4,
-	0x64, 0x20, 0xa2, 0xfd, 0x86, 0x2d, 0x29, 0xc6, 0x27, 0x68, 0x49, 0x8f, 0xbf, 0x25, 0x5a, 0x52,
-	0xce, 0xd7, 0x26, 0x54, 0xc5, 0xe6, 0x10, 0x5d, 0xf9, 0x54, 0x96, 0x9a, 0xb4, 0x05, 0x38, 0x08,
-	0xa1, 0x3d, 0xb6, 0x43, 0xde, 0x81, 0x8a, 0x94, 0x74, 0x6d, 0x2c, 0x4b, 0x91, 0x7b, 0xbe, 0x16,
-	0xb3, 0xc5, 0x9c, 0xc9, 0xc7, 0x01, 0x4a, 0xf4, 0x2c, 0xdf, 0x3d, 0x55, 0x77, 0xa0, 0x91, 0x5a,
-	0x22, 0x15, 0x28, 0x9e, 0xd0, 0x53, 0x1e, 0x4c, 0x11, 0xb3, 0x59, 0x7a, 0xa9, 0x9b, 0xd3, 0xc0,
-	0xf1, 0x6a, 0xc2, 0x31, 0xd3, 0xd9, 0x2a, 0xdc, 0xcd, 0xb3, 0x46, 0x8b, 0x7c, 0xf0, 0x46, 0x93,
-	0xa1, 0x64, 0x1a, 0x2d, 0x12, 0xd3, 0x36, 0x61, 0x69, 0x8f, 0x19, 0x23, 0x75, 0x58, 0xb6, 0xa6,
-	0x93, 0x03, 0x59, 0x00, 0x85, 0x34, 0x60, 0x05, 0x8b, 0x3f, 0x35, 0xa7, 0x1e, 0xf7, 0xaa, 0x68,
-	0x1f, 0x23, 0xce, 0x8d, 0x75, 0xeb, 0x98, 0x86, 0x87, 0x5e, 0x48, 0x1f, 0xfa, 0x59, 0x47, 0x8a,
-	0x93, 0x62, 0x8f, 0x46, 0x1e, 0x0d, 0x26, 0x45, 0xe1, 0xc6, 0xde, 0x84, 0x15, 0x61, 0xcc, 0xe3,
-	0x60, 0xc0, 0x1f, 0x65, 0x88, 0x72, 0x84, 0xf9, 0x92, 0x76, 0x13, 0x56, 0x1f, 0xf2, 0xfe, 0x66,
-	0x50, 0x32, 0xa0, 0x5f, 0x4e, 0xf1, 0xb0, 0x67, 0xc2, 0x1a, 0xb6, 0x00, 0xe9, 0x5b, 0x9e, 0x43,
-	0x0f, 0xfd, 0x85, 0xc4, 0x57, 0xa1, 0xb1, 0x6b, 0x78, 0x71, 0x59, 0xe6, 0x6f, 0x87, 0x9a, 0x74,
-	0x41, 0x7f, 0xcf, 0x80, 0xec, 0x31, 0x80, 0x11, 0x83, 0x1b, 0x88, 0x63, 0x42, 0x02, 0x9a, 0xce,
-	0x42, 0xb7, 0x08, 0xfa, 0x0a, 0x99, 0x4d, 0xad, 0x0b, 0x6b, 0x8f, 0x38, 0x06, 0x65, 0x0c, 0xce,
-	0x84, 0x4b, 0x3c, 0xf5, 0x96, 0xcc, 0xf9, 0x15, 0x94, 0xbe, 0x85, 0x55, 0x96, 0x79, 0x52, 0x63,
-	0x26, 0x5b, 0x2c, 0x86, 0xc8, 0x57, 0xb0, 0x2b, 0x5c, 0x7b, 0x72, 0x16, 0x10, 0xd7, 0x02, 0x00,
-	0x63, 0x87, 0x5f, 0x62, 0x69, 0x8a, 0x22, 0xbf, 0x42, 0xc4, 0x8f, 0xa1, 0xf1, 0x98, 0xfa, 0x1c,
-	0x85, 0x02, 0xf9, 0x73, 0x60, 0x11, 0xb7, 0xf8, 0x88, 0xc8, 0x22, 0x8b, 0x2d, 0xde, 0xe7, 0xda,
-	0xfb, 0xd0, 0x78, 0x31, 0x4d, 0x1a, 0x9a, 0x09, 0x62, 0xb5, 0xf8, 0xdc, 0x55, 0x71, 0x02, 0xd6,
-	0x64, 0xa9, 0xff, 0x81, 0x38, 0x6e, 0x41, 0x93, 0x1d, 0x41, 0xda, 0x92, 0x10, 0xcf, 0x67, 0xc4,
-	0x2d, 0xa8, 0x63, 0xfe, 0x2c, 0xaa, 0xb9, 0x51, 0xa7, 0x27, 0xae, 0xc0, 0x31, 0x24, 0x3b, 0x9b,
-	0xc5, 0xc8, 0x9f, 0x92, 0xf1, 0xe7, 0x40, 0x1d, 0xcb, 0xb4, 0x90, 0xbf, 0xf9, 0x50, 0x9f, 0x8e,
-	0x48, 0x78, 0x0f, 0xab, 0xab, 0xf0, 0xea, 0x3e, 0x09, 0x87, 0x77, 0x21, 0xaf, 0xe7, 0x94, 0xb6,
-	0x03, 0xad, 0xa7, 0xfa, 0x09, 0xdd, 0x31, 0x5c, 0x34, 0x66, 0xbb, 0xa7, 0xf3, 0x6c, 0x69, 0x3d,
-	0x01, 0x04, 0x17, 0xf5, 0x1b, 0x82, 0xc7, 0x22, 0x86, 0xb4, 0x03, 0x39, 0x83, 0x1c, 0xe8, 0x16,
-	0x70, 0x2b, 0xa6, 0x2b, 0x8b, 0x1a, 0x51, 0x44, 0xc5, 0x4c, 0x44, 0x11, 0x38, 0x48, 0xae, 0x88,
-	0x46, 0x6d, 0x26, 0xdb, 0x69, 0x6b, 0x22, 0xb0, 0x84, 0x86, 0x76, 0x8f, 0x8d, 0x8d, 0x69, 0xee,
-	0x18, 0xa3, 0xd1, 0x22, 0xf3, 0xca, 0x0e, 0x37, 0x2a, 0x93, 0xa2, 0xed, 0x32, 0x75, 0x6f, 0xfc,
-	0x37, 0xd5, 0xa3, 0x56, 0x61, 0x29, 0x56, 0x6f, 0x3c, 0x0f, 0x6e, 0x93, 0xb2, 0xbb, 0x9a, 0x0f,
-	0x9f, 0x3f, 0x7d, 0xda, 0xdf, 0x1f, 0xee, 0x7f, 0xf1, 0xa2, 0x37, 0x7c, 0xf6, 0xfc, 0x59, 0xaf,
-	0x99, 0x4b, 0xaf, 0x0e, 0x7a, 0xdb, 0x3b, 0xcd, 0x3c, 0x59, 0x47, 0x3e, 0x89, 0xad, 0x7e, 0x36,
-	0xe8, 0xef, 0xf7, 0x9a, 0x85, 0x1b, 0x4f, 0xc4, 0x95, 0x46, 0xde, 0x4b, 0xea, 0x8f, 0xfa, 0xbb,
-	0xbd, 0x84, 0x31, 0x54, 0x8b, 0xd6, 0x06, 0xbd, 0xc7, 0x9f, 0xec, 0x6e, 0x0f, 0xd0, 0xda, 0x2a,
-	0xd4, 0xa2, 0xe5, 0x9d, 0xfe, 0xa0, 0x59, 0xe8, 0xfe, 0x58, 0x86, 0xe2, 0xf6, 0x8b, 0x3e, 0xf9,
-	0x1c, 0x43, 0x0c, 0x89, 0x8b, 0x5c, 0x12, 0xb9, 0xa5, 0x99, 0x4c, 0xbd, 0x94, 0xb9, 0xcf, 0xf4,
-	0xd8, 0x77, 0x8c, 0xa6, 0x7e, 0xff, 0xfb, 0x1f, 0xbf, 0x14, 0x5a, 0x2a, 0xe9, 0x30, 0x44, 0xf6,
-	0x3a, 0xdf, 0xb0, 0x3f, 0x6d, 0xf6, 0xd1, 0xf1, 0x1d, 0x79, 0x0f, 0x2a, 0x31, 0x92, 0x23, 0x97,
-	0xb9, 0xe9, 0x2c, 0xed, 0xa9, 0xa9, 0x2b, 0x78, 0x8e, 0x74, 0xa1, 0x14, 0xd0, 0x1d, 0x69, 0xf1,
-	0xcd, 0x14, 0xfb, 0xa9, 0xf5, 0x84, 0x8a, 0x87, 0x3a, 0xf7, 0x01, 0x22, 0x3e, 0x94, 0x69, 0x64,
-	0x08, 0x72, 0x66, 0x1a, 0x39, 0xf2, 0x2e, 0xde, 0x49, 0x22, 0x86, 0x94, 0xc1, 0x66, 0x39, 0x53,
-	0x4d, 0x60, 0x7d, 0x8e, 0x3c, 0x80, 0x6a, 0x9c, 0x08, 0xc9, 0x86, 0x1c, 0x84, 0x0c, 0x37, 0x9e,
-	0xe3, 0xfa, 0x1e, 0xd4, 0x12, 0xc4, 0x48, 0xae, 0xc4, 0x2b, 0x95, 0xb4, 0x92, 0xb9, 0x7f, 0xe7,
-	0xc8, 0x5d, 0x80, 0x88, 0x22, 0x65, 0xe6, 0x19, 0xce, 0x54, 0x9b, 0x29, 0x45, 0x4f, 0x04, 0x1f,
-	0xa7, 0x37, 0x19, 0xfc, 0x19, 0x8c, 0x77, 0x4e, 0xf0, 0x6d, 0x28, 0x05, 0x2c, 0x25, 0xcf, 0x2a,
-	0x45, 0x5a, 0x6a, 0x8c, 0x66, 0x50, 0x7e, 0x1b, 0x4a, 0x01, 0x3d, 0x4a, 0xf9, 0x14, 0x5b, 0xaa,
-	0x57, 0x33, 0xbe, 0x1e, 0x30, 0x2c, 0xfe, 0x94, 0x8d, 0x95, 0x96, 0xbb, 0x9d, 0x27, 0x5b, 0x50,
-	0x8d, 0xb3, 0x9b, 0x0c, 0xfb, 0x0c, 0xc2, 0x53, 0xd3, 0x5f, 0x04, 0xec, 0x98, 0xcb, 0x21, 0x99,
-	0x91, 0xf5, 0xb0, 0x56, 0x09, 0xad, 0x46, 0x52, 0x8b, 0x55, 0x6a, 0x0b, 0x56, 0x24, 0xc9, 0x90,
-	0xb5, 0x20, 0xc9, 0x18, 0x76, 0xce, 0xae, 0xcf, 0x66, 0x9e, 0x7c, 0x08, 0x2b, 0x92, 0x10, 0xa5,
-	0x6e, 0x92, 0x1e, 0xe7, 0xe7, 0x1b, 0xcd, 0x11, 0x37, 0x92, 0x98, 0xa3, 0xb8, 0xa1, 0xd4, 0x77,
-	0x43, 0x38, 0x47, 0x82, 0x6b, 0xc3, 0x5c, 0xe3, 0x2a, 0xf5, 0x84, 0x4a, 0x62, 0x8e, 0xb8, 0x56,
-	0x7c, 0x8e, 0x16, 0xca, 0x17, 0xbf, 0x2b, 0x20, 0x22, 0x8b, 0x78, 0x37, 0xc6, 0xd9, 0x43, 0xad,
-	0xc6, 0xae, 0xce, 0xe8, 0xb5, 0xfb, 0x73, 0x99, 0xe5, 0xe8, 0x53, 0xd7, 0xd2, 0x4d, 0x06, 0x4a,
-	0xf7, 0x2f, 0x04, 0x4a, 0xb9, 0x7f, 0x17, 0xf4, 0x7c, 0xb4, 0x20, 0xf4, 0xcc, 0xb6, 0xf0, 0x9f,
-	0x47, 0xa1, 0xad, 0xb9, 0x28, 0x34, 0x5b, 0xf7, 0x35, 0x22, 0xbd, 0x46, 0xa4, 0x2c, 0x22, 0xfd,
-	0xc0, 0x7e, 0x08, 0x34, 0xa7, 0x1e, 0x62, 0x12, 0x03, 0xa4, 0x68, 0x3a, 0xe4, 0x2f, 0x2d, 0x89,
-	0xe9, 0x48, 0xdc, 0x40, 0xd5, 0xcc, 0x4f, 0x17, 0xe1, 0x74, 0x48, 0xdd, 0x28, 0x86, 0xa4, 0x62,
-	0x33, 0xa5, 0xc8, 0xe2, 0xf8, 0x09, 0xe3, 0x40, 0x18, 0x31, 0x8d, 0x43, 0x9d, 0xc5, 0xb1, 0xcd,
-	0x1a, 0x5d, 0xdc, 0x6e, 0xc3, 0x46, 0x4f, 0x5c, 0x76, 0xe7, 0x1f, 0xde, 0x07, 0xcc, 0x84, 0xb8,
-	0xe1, 0x86, 0x26, 0x12, 0x17, 0xde, 0xf3, 0x7a, 0xe7, 0x60, 0x99, 0xaf, 0xdd, 0xf9, 0x2b, 0x00,
-	0x00, 0xff, 0xff, 0x16, 0xe1, 0x27, 0x81, 0x0a, 0x17, 0x00, 0x00,
 }
