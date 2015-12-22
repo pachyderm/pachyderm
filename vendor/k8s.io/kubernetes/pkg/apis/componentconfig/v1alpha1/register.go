@@ -22,10 +22,13 @@ import (
 	"k8s.io/kubernetes/pkg/runtime"
 )
 
-// SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = unversioned.GroupVersion{Group: "componentconfig", Version: "v1alpha1"}
+// GroupName is the group name use in this package
+const GroupName = "componentconfig"
 
-var Codec = runtime.CodecFor(api.Scheme, SchemeGroupVersion.String())
+// SchemeGroupVersion is group version used to register these objects
+var SchemeGroupVersion = unversioned.GroupVersion{Group: GroupName, Version: "v1alpha1"}
+
+var Codec = runtime.CodecFor(api.Scheme, SchemeGroupVersion)
 
 func init() {
 	addKnownTypes()
@@ -38,4 +41,4 @@ func addKnownTypes() {
 	)
 }
 
-func (_ *KubeProxyConfiguration) IsAnAPIObject() {}
+func (obj *KubeProxyConfiguration) GetObjectKind() unversioned.ObjectKind { return &obj.TypeMeta }

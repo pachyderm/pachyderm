@@ -24,6 +24,9 @@ func configureTransport(t1 *http.Transport) error {
 	if !strSliceContains(t1.TLSClientConfig.NextProtos, "h2") {
 		t1.TLSClientConfig.NextProtos = append([]string{"h2"}, t1.TLSClientConfig.NextProtos...)
 	}
+	if !strSliceContains(t1.TLSClientConfig.NextProtos, "http/1.1") {
+		t1.TLSClientConfig.NextProtos = append(t1.TLSClientConfig.NextProtos, "http/1.1")
+	}
 	upgradeFn := func(authority string, c *tls.Conn) http.RoundTripper {
 		cc, err := t2.NewClientConn(c)
 		if err != nil {

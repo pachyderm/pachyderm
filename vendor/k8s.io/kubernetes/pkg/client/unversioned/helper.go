@@ -28,12 +28,12 @@ import (
 	"reflect"
 	gruntime "runtime"
 	"strings"
-	"time"
 
 	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/latest"
 	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util"
 	"k8s.io/kubernetes/pkg/util/sets"
@@ -93,24 +93,6 @@ type Config struct {
 	Burst int
 }
 
-type KubeletConfig struct {
-	// ToDo: Add support for different kubelet instances exposing different ports
-	Port        uint
-	EnableHttps bool
-
-	// TLSClientConfig contains settings to enable transport layer security
-	TLSClientConfig
-
-	// Server requires Bearer authentication
-	BearerToken string
-
-	// HTTPTimeout is used by the client to timeout http requests to Kubelet.
-	HTTPTimeout time.Duration
-
-	// Dial is a custom dialer used for the client
-	Dial func(net, addr string) (net.Conn, error)
-}
-
 // TLSClientConfig contains settings to enable transport layer security
 type TLSClientConfig struct {
 	// Server requires TLS client certificate authentication
@@ -151,7 +133,7 @@ func New(c *Config) (*Client, error) {
 		return nil, err
 	}
 
-	if _, err := latest.Group("extensions"); err != nil {
+	if _, err := latest.Group(extensions.GroupName); err != nil {
 		return &Client{RESTClient: client, ExtensionsClient: nil, DiscoveryClient: discoveryClient}, nil
 	}
 	experimentalConfig := *c
@@ -266,14 +248,15 @@ func NegotiateVersion(client *Client, c *Config, requestedGV *unversioned.GroupV
 	for _, gv := range clientRegisteredGVs {
 		clientVersions.Insert(gv.String())
 	}
-	apiVersions, err := client.ServerAPIVersions()
+	groups, err := client.ServerGroups()
 	if err != nil {
 		// This is almost always a connection error, and higher level code should treat this as a generic error,
 		// not a negotiation specific error.
 		return nil, err
 	}
+	versions := ExtractGroupVersions(groups)
 	serverVersions := sets.String{}
-	for _, v := range apiVersions.Versions {
+	for _, v := range versions {
 		serverVersions.Insert(v)
 	}
 
@@ -380,12 +363,16 @@ func SetKubernetesDefaults(config *Config) error {
 	if len(config.UserAgent) == 0 {
 		config.UserAgent = DefaultKubernetesUserAgent()
 	}
-	if config.GroupVersion == nil {
-		config.GroupVersion = defaultVersionFor(config)
-	}
-	versionInterfaces, err := latest.GroupOrDie("").InterfacesFor(config.GroupVersion.String())
+	g, err := latest.Group(api.GroupName)
 	if err != nil {
-		return fmt.Errorf("API version '%v' is not recognized (valid values: %s)", *config.GroupVersion, strings.Join(latest.GroupOrDie("").Versions, ", "))
+		return err
+	}
+	// TODO: Unconditionally set the config.Version, until we fix the config.
+	copyGroupVersion := g.GroupVersion
+	config.GroupVersion = &copyGroupVersion
+	versionInterfaces, err := g.InterfacesFor(*config.GroupVersion)
+	if err != nil {
+		return fmt.Errorf("API version '%v' is not recognized (valid values: %v)", *config.GroupVersion, latest.GroupOrDie(api.GroupName).GroupVersions)
 	}
 	if config.Codec == nil {
 		config.Codec = versionInterfaces.Codec
@@ -416,7 +403,7 @@ func RESTClientFor(config *Config) (*RESTClient, error) {
 		return nil, err
 	}
 
-	client := NewRESTClient(baseURL, config.GroupVersion.String(), config.Codec, config.QPS, config.Burst)
+	client := NewRESTClient(baseURL, *config.GroupVersion, config.Codec, config.QPS, config.Burst)
 
 	transport, err := TransportFor(config)
 	if err != nil {
@@ -441,7 +428,7 @@ func UnversionedRESTClientFor(config *Config) (*RESTClient, error) {
 		return nil, err
 	}
 
-	client := NewRESTClient(baseURL, "", config.Codec, config.QPS, config.Burst)
+	client := NewRESTClient(baseURL, unversioned.SchemeGroupVersion, config.Codec, config.QPS, config.Burst)
 
 	transport, err := TransportFor(config)
 	if err != nil {
@@ -544,11 +531,8 @@ func defaultVersionFor(config *Config) *unversioned.GroupVersion {
 		// Clients default to the preferred code API version
 		// TODO: implement version negotiation (highest version supported by server)
 		// TODO this drops out when groupmeta is refactored
-		gv, err := unversioned.ParseGroupVersion(latest.GroupOrDie("").GroupVersion)
-		if err != nil {
-			panic(err)
-		}
-		return &gv
+		copyGroupVersion := latest.GroupOrDie(api.GroupName).GroupVersion
+		return &copyGroupVersion
 	}
 
 	return config.GroupVersion
@@ -567,13 +551,4 @@ func DefaultKubernetesUserAgent() string {
 	seg := strings.SplitN(version, "-", 2)
 	version = seg[0]
 	return fmt.Sprintf("%s/%s (%s/%s) kubernetes/%s", path.Base(os.Args[0]), version, gruntime.GOOS, gruntime.GOARCH, commit)
-}
-
-// TimeoutFromListOptions returns timeout to be set via TimeoutSeconds() method
-// based on given options.
-func TimeoutFromListOptions(options unversioned.ListOptions) time.Duration {
-	if options.TimeoutSeconds != nil {
-		return time.Duration(*options.TimeoutSeconds) * time.Second
-	}
-	return 0
 }

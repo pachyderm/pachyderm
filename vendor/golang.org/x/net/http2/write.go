@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	"golang.org/x/net/http2/hpack"
@@ -95,6 +96,16 @@ func (w *writeData) writeFrame(ctx writeContext) error {
 	return ctx.Framer().WriteData(w.streamID, w.endStream, w.p)
 }
 
+// handlerPanicRST is the message sent from handler goroutines when
+// the handler panics.
+type handlerPanicRST struct {
+	StreamID uint32
+}
+
+func (hp handlerPanicRST) writeFrame(ctx writeContext) error {
+	return ctx.Framer().WriteRSTStream(hp.StreamID, ErrCodeInternal)
+}
+
 func (se StreamError) writeFrame(ctx writeContext) error {
 	return ctx.Framer().WriteRSTStream(se.StreamID, se.Code)
 }
@@ -112,11 +123,12 @@ func (writeSettingsAck) writeFrame(ctx writeContext) error {
 }
 
 // writeResHeaders is a request to write a HEADERS and 0+ CONTINUATION frames
-// for HTTP response headers from a server handler.
+// for HTTP response headers or trailers from a server handler.
 type writeResHeaders struct {
 	streamID    uint32
-	httpResCode int
+	httpResCode int         // 0 means no ":status" line
 	h           http.Header // may be nil
+	trailers    []string    // if non-nil, which keys of h to write. nil means all.
 	endStream   bool
 
 	date          string
@@ -127,17 +139,16 @@ type writeResHeaders struct {
 func (w *writeResHeaders) writeFrame(ctx writeContext) error {
 	enc, buf := ctx.HeaderEncoder()
 	buf.Reset()
-	enc.WriteField(hpack.HeaderField{Name: ":status", Value: httpCodeString(w.httpResCode)})
-	for k, vv := range w.h {
-		k = lowerHeader(k)
-		for _, v := range vv {
-			// TODO: more of "8.1.2.2 Connection-Specific Header Fields"
-			if k == "transfer-encoding" && v != "trailers" {
-				continue
-			}
-			enc.WriteField(hpack.HeaderField{Name: k, Value: v})
-		}
+
+	if w.httpResCode != 0 {
+		enc.WriteField(hpack.HeaderField{
+			Name:  ":status",
+			Value: httpCodeString(w.httpResCode),
+		})
 	}
+
+	encodeHeaders(enc, w.h, w.trailers)
+
 	if w.contentType != "" {
 		enc.WriteField(hpack.HeaderField{Name: "content-type", Value: w.contentType})
 	}
@@ -149,7 +160,7 @@ func (w *writeResHeaders) writeFrame(ctx writeContext) error {
 	}
 
 	headerBlock := buf.Bytes()
-	if len(headerBlock) == 0 {
+	if len(headerBlock) == 0 && w.trailers == nil {
 		panic("unexpected empty hpack")
 	}
 
@@ -211,4 +222,27 @@ type writeWindowUpdate struct {
 
 func (wu writeWindowUpdate) writeFrame(ctx writeContext) error {
 	return ctx.Framer().WriteWindowUpdate(wu.streamID, wu.n)
+}
+
+func encodeHeaders(enc *hpack.Encoder, h http.Header, keys []string) {
+	// TODO: garbage. pool sorters like http1? hot path for 1 key?
+	if keys == nil {
+		keys = make([]string, 0, len(h))
+		for k := range h {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+	}
+	for _, k := range keys {
+		vv := h[k]
+		k = lowerHeader(k)
+		isTE := k == "transfer-encoding"
+		for _, v := range vv {
+			// TODO: more of "8.1.2.2 Connection-Specific Header Fields"
+			if isTE && v != "trailers" {
+				continue
+			}
+			enc.WriteField(hpack.HeaderField{Name: k, Value: v})
+		}
+	}
 }

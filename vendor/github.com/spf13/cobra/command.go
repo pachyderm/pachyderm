@@ -21,11 +21,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"time"
 
-	"github.com/inconshreveable/mousetrap"
 	flag "github.com/spf13/pflag"
 )
 
@@ -626,12 +623,9 @@ func (c *Command) ExecuteC() (cmd *Command, err error) {
 		return c.Root().ExecuteC()
 	}
 
-	if EnableWindowsMouseTrap && runtime.GOOS == "windows" {
-		if mousetrap.StartedByExplorer() {
-			c.Print(MousetrapHelpText)
-			time.Sleep(5 * time.Second)
-			os.Exit(1)
-		}
+	// windows hook
+	if preExecHookFn != nil {
+		preExecHookFn(c)
 	}
 
 	// initialize help as the last point possible to allow for user
@@ -747,7 +741,7 @@ func (c *Command) AddCommand(cmds ...*Command) {
 		if nameLen > c.commandsMaxNameLen {
 			c.commandsMaxNameLen = nameLen
 		}
-		// If glabal normalization function exists, update all children
+		// If global normalization function exists, update all children
 		if c.globNormFunc != nil {
 			x.SetGlobalNormalizationFunc(c.globNormFunc)
 		}
