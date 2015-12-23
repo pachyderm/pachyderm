@@ -10,7 +10,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 )
@@ -148,20 +147,12 @@ func DeleteCommit(apiClient pfs.APIClient, repoName string, commitID string) err
 	return err
 }
 
-type putBlockClientWriter struct {
-	drive.API_PutBlockClient
-}
-
-func (c putBlockClientWriter) Write(p []byte) (n int, err error) {
-	return len(p), c.Send(&google_protobuf.BytesValue{p})
-}
-
 func PutBlock(apiClient drive.APIClient, reader io.Reader) (*drive.Block, error) {
 	putBlockClient, err := apiClient.PutBlock(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	if _, err := io.Copy(putBlockClientWriter{putBlockClient}, reader); err != nil {
+	if _, err := io.Copy(protostream.NewStreamingBytesWriter(putBlockClient), reader); err != nil {
 		return nil, err
 	}
 	return putBlockClient.CloseAndRecv()
