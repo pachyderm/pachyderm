@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/stream"
@@ -108,19 +110,30 @@ func (s *localAPIServer) CreateDiff(ctx context.Context, request *drive.CreateDi
 }
 
 func (s *localAPIServer) InspectDiff(ctx context.Context, request *drive.InspectDiffRequest) (*drive.DiffInfo, error) {
-	data, err := ioutil.ReadFile(s.diffPath(request.Diff))
-	if err != nil {
-		return nil, err
-	}
-	result := &drive.DiffInfo{}
-	if err := proto.Unmarshal(data, result); err != nil {
-		return nil, err
-	}
-	return result, nil
+	return s.readDiff(request.Diff)
 }
 
-func (s *localAPIServer) ListDiff(context.Context, *drive.ListDiffRequest) (*drive.DiffInfos, error) {
-	return nil, nil
+func (s *localAPIServer) ListDiff(request *drive.ListDiffRequest, listDiffServer drive.API_ListDiffServer) error {
+	if err := filepath.Walk(s.diffDir(), func(path string, info os.FileInfo, err error) error {
+		diff := s.pathToDiff(path)
+		if diff == nil {
+			// likely a directory
+			return nil
+		}
+		if diff.Shard == request.Shard {
+			diffInfo, err := s.readDiff(diff)
+			if err != nil {
+				return err
+			}
+			if err := listDiffServer.Send(diffInfo); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *localAPIServer) tmpDir() string {
@@ -141,4 +154,35 @@ func (s *localAPIServer) diffDir() string {
 
 func (s *localAPIServer) diffPath(diff *drive.Diff) string {
 	return filepath.Join(s.diffDir(), diff.Commit.Repo.Name, diff.Commit.Id, strconv.FormatUint(diff.Shard, 10))
+}
+
+// pathToDiff parses a path as a diff, it returns nil when parse fails
+func (s *localAPIServer) pathToDiff(path string) *drive.Diff {
+	repoCommitShard := strings.Split(strings.TrimPrefix(path, s.diffDir()), "/")
+	if len(repoCommitShard) < 3 {
+		return nil
+	}
+	shard, err := strconv.ParseUint(repoCommitShard[2], 10, 64)
+	if err != nil {
+		return nil
+	}
+	return &drive.Diff{
+		Commit: &pfs.Commit{
+			Repo: &pfs.Repo{repoCommitShard[0]},
+			Id:   repoCommitShard[1],
+		},
+		Shard: shard,
+	}
+}
+
+func (s *localAPIServer) readDiff(diff *drive.Diff) (*drive.DiffInfo, error) {
+	data, err := ioutil.ReadFile(s.diffPath(diff))
+	if err != nil {
+		return nil, err
+	}
+	result := &drive.DiffInfo{}
+	if err := proto.Unmarshal(data, result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }

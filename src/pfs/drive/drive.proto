@@ -47,10 +47,6 @@ message DiffInfo {
   map<string, Diff> last_ref = 4;
 }
 
-message DiffInfos {
-  repeated DiffInfo diff_info = 1;
-}
-
 message GetBlockRequest {
   Block block = 1;
 }
@@ -74,8 +70,7 @@ message InspectDiffRequest {
 }
 
 message ListDiffRequest {
-  pfs.Commit commit = 1;
-  uint64 shard = 2;
+  uint64 shard = 1;
 }
 
 service API {
@@ -86,5 +81,5 @@ service API {
 
   rpc CreateDiff(CreateDiffRequest) returns (google.protobuf.Empty) {}
   rpc InspectDiff(InspectDiffRequest) returns (DiffInfo) {}
-  rpc ListDiff(ListDiffRequest) returns (DiffInfos) {}
+  rpc ListDiff(ListDiffRequest) returns (stream DiffInfo) {}
 }
