@@ -17,7 +17,6 @@ It has these top-level messages:
 	BlockInfo
 	BlockInfos
 	DiffInfo
-	DiffInfos
 	GetBlockRequest
 	InspectBlockRequest
 	ListBlockRequest
@@ -195,21 +194,6 @@ func (m *DiffInfo) GetLastRef() map[string]*Diff {
 	return nil
 }
 
-type DiffInfos struct {
-	DiffInfo []*DiffInfo `protobuf:"bytes,1,rep,name=diff_info" json:"diff_info,omitempty"`
-}
-
-func (m *DiffInfos) Reset()         { *m = DiffInfos{} }
-func (m *DiffInfos) String() string { return proto.CompactTextString(m) }
-func (*DiffInfos) ProtoMessage()    {}
-
-func (m *DiffInfos) GetDiffInfo() []*DiffInfo {
-	if m != nil {
-		return m.DiffInfo
-	}
-	return nil
-}
-
 type GetBlockRequest struct {
 	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
 }
@@ -302,20 +286,12 @@ func (m *InspectDiffRequest) GetDiff() *Diff {
 }
 
 type ListDiffRequest struct {
-	Commit *pfs.Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	Shard  uint64      `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
+	Shard uint64 `protobuf:"varint,1,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *ListDiffRequest) Reset()         { *m = ListDiffRequest{} }
 func (m *ListDiffRequest) String() string { return proto.CompactTextString(m) }
 func (*ListDiffRequest) ProtoMessage()    {}
-
-func (m *ListDiffRequest) GetCommit() *pfs.Commit {
-	if m != nil {
-		return m.Commit
-	}
-	return nil
-}
 
 func init() {
 	proto.RegisterType((*Block)(nil), "Block")
@@ -326,7 +302,6 @@ func init() {
 	proto.RegisterType((*BlockInfo)(nil), "BlockInfo")
 	proto.RegisterType((*BlockInfos)(nil), "BlockInfos")
 	proto.RegisterType((*DiffInfo)(nil), "DiffInfo")
-	proto.RegisterType((*DiffInfos)(nil), "DiffInfos")
 	proto.RegisterType((*GetBlockRequest)(nil), "GetBlockRequest")
 	proto.RegisterType((*InspectBlockRequest)(nil), "InspectBlockRequest")
 	proto.RegisterType((*ListBlockRequest)(nil), "ListBlockRequest")
@@ -348,7 +323,7 @@ type APIClient interface {
 	ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error)
 	CreateDiff(ctx context.Context, in *CreateDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	InspectDiff(ctx context.Context, in *InspectDiffRequest, opts ...grpc.CallOption) (*DiffInfo, error)
-	ListDiff(ctx context.Context, in *ListDiffRequest, opts ...grpc.CallOption) (*DiffInfos, error)
+	ListDiff(ctx context.Context, in *ListDiffRequest, opts ...grpc.CallOption) (API_ListDiffClient, error)
 }
 
 type aPIClient struct {
@@ -461,13 +436,36 @@ func (c *aPIClient) InspectDiff(ctx context.Context, in *InspectDiffRequest, opt
 	return out, nil
 }
 
-func (c *aPIClient) ListDiff(ctx context.Context, in *ListDiffRequest, opts ...grpc.CallOption) (*DiffInfos, error) {
-	out := new(DiffInfos)
-	err := grpc.Invoke(ctx, "/.API/ListDiff", in, out, c.cc, opts...)
+func (c *aPIClient) ListDiff(ctx context.Context, in *ListDiffRequest, opts ...grpc.CallOption) (API_ListDiffClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[2], c.cc, "/.API/ListDiff", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &aPIListDiffClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type API_ListDiffClient interface {
+	Recv() (*DiffInfo, error)
+	grpc.ClientStream
+}
+
+type aPIListDiffClient struct {
+	grpc.ClientStream
+}
+
+func (x *aPIListDiffClient) Recv() (*DiffInfo, error) {
+	m := new(DiffInfo)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // Server API for API service
@@ -479,7 +477,7 @@ type APIServer interface {
 	ListBlock(context.Context, *ListBlockRequest) (*BlockInfos, error)
 	CreateDiff(context.Context, *CreateDiffRequest) (*google_protobuf1.Empty, error)
 	InspectDiff(context.Context, *InspectDiffRequest) (*DiffInfo, error)
-	ListDiff(context.Context, *ListDiffRequest) (*DiffInfos, error)
+	ListDiff(*ListDiffRequest, API_ListDiffServer) error
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
@@ -581,16 +579,25 @@ func _API_InspectDiff_Handler(srv interface{}, ctx context.Context, dec func(int
 	return out, nil
 }
 
-func _API_ListDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(ListDiffRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _API_ListDiff_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ListDiffRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	out, err := srv.(APIServer).ListDiff(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+	return srv.(APIServer).ListDiff(m, &aPIListDiffServer{stream})
+}
+
+type API_ListDiffServer interface {
+	Send(*DiffInfo) error
+	grpc.ServerStream
+}
+
+type aPIListDiffServer struct {
+	grpc.ServerStream
+}
+
+func (x *aPIListDiffServer) Send(m *DiffInfo) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 var _API_serviceDesc = grpc.ServiceDesc{
@@ -613,10 +620,6 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			MethodName: "InspectDiff",
 			Handler:    _API_InspectDiff_Handler,
 		},
-		{
-			MethodName: "ListDiff",
-			Handler:    _API_ListDiff_Handler,
-		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -627,6 +630,11 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "GetBlock",
 			Handler:       _API_GetBlock_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ListDiff",
+			Handler:       _API_ListDiff_Handler,
 			ServerStreams: true,
 		},
 	},
