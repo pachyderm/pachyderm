@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
-	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 )
 
@@ -91,7 +90,6 @@ func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	require.NoError(t, err)
 
 	doWrites(t, apiClient, repoName, newCommitID)
-	doBlockWrites(t, apiClient, repoName, newCommitID)
 
 	err = pfsutil.FinishCommit(apiClient, repoName, newCommitID)
 	require.NoError(t, err)
@@ -104,7 +102,6 @@ func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	require.Nil(t, newCommitInfo.ParentCommit)
 
 	checkWrites(t, apiClient, repoName, newCommitID)
-	checkBlockWrites(t, apiClient, repoName, newCommitID)
 
 	fileInfos, err := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b", &pfs.Shard{Number: 0, Modulus: 1})
 	require.NoError(t, err)
@@ -433,21 +430,6 @@ func doWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commitID 
 	}
 }
 
-func doBlockWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commitID string) {
-	var wg sync.WaitGroup
-	defer wg.Wait()
-	for i := 0; i < testSize; i++ {
-		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, iErr := pfsutil.PutBlock(apiClient, repoName, commitID,
-				fmt.Sprintf("a/d/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
-			require.NoError(tb, iErr)
-		}()
-	}
-}
-
 func checkWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commitID string) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
@@ -484,30 +466,6 @@ func checkWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commit
 			require.NoError(tb, iErr)
 			require.Equal(tb, fmt.Sprintf("hello%d", i), buffer.String())
 
-		}()
-	}
-}
-
-func checkBlockWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commitID string) {
-	var wg sync.WaitGroup
-	defer wg.Wait()
-	for i := 0; i < testSize; i++ {
-		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			buffer := bytes.NewBuffer(nil)
-			sharder := route.NewSharder(testShardsPerServer*testNumServers, testNumReplicas)
-			block := sharder.GetBlock([]byte(fmt.Sprintf("hello%d", i)))
-			iErr := pfsutil.GetBlock(apiClient, block.Hash, &pfs.Shard{Number: 0, Modulus: 1}, buffer)
-			require.NoError(tb, iErr)
-
-			// buffer = bytes.NewBuffer(nil)
-			// require.Equal(tb, fmt.Sprintf("hello%d", i), buffer.String())
-			// iErr = pfsutil.GetFile(apiClient, repoName, commitID,
-			// 	fmt.Sprintf("a/d/file%d", i), 0, 0, buffer)
-			// require.NoError(tb, iErr)
-			// require.Equal(tb, fmt.Sprintf("hello%d", i), buffer.String())
 		}()
 	}
 }

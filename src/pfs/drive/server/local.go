@@ -86,7 +86,6 @@ func (s *localAPIServer) InspectBlock(ctx context.Context, request *drive.Inspec
 		),
 		SizeBytes: uint64(stat.Size()),
 	}, nil
-	return nil, nil
 }
 
 func (s *localAPIServer) ListBlock(context.Context, *drive.ListBlockRequest) (*drive.BlockInfos, error) {
@@ -172,7 +171,7 @@ func (s *localAPIServer) pathToDiff(path string) *drive.Diff {
 	}
 	return &drive.Diff{
 		Commit: &pfs.Commit{
-			Repo: &pfs.Repo{repoCommitShard[0]},
+			Repo: &pfs.Repo{Name: repoCommitShard[0]},
 			Id:   repoCommitShard[1],
 		},
 		Shard: shard,
