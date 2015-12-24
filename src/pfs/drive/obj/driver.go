@@ -280,9 +280,6 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 			return 0, nil, nil
 		}
 		if len(data) < blockSize && atEOF {
-			if data[len(data)-1] != '\n' {
-				return len(data), append(data, '\n'), nil
-			}
 			return len(data), data, nil
 		}
 		for i := len(data) - 1; i >= 0; i-- {
