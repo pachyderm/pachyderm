@@ -158,7 +158,7 @@ func PutBlock(apiClient drive.APIClient, reader io.Reader) (*drive.Block, error)
 	return putBlockClient.CloseAndRecv()
 }
 
-func GetBlock(apiClient drive.APIClient, hash string, writer io.Writer) error {
+func GetBlock(apiClient drive.APIClient, hash string) (io.Reader, error) {
 	apiGetBlockClient, err := apiClient.GetBlock(
 		context.Background(),
 		&drive.GetBlockRequest{
@@ -168,12 +168,9 @@ func GetBlock(apiClient drive.APIClient, hash string, writer io.Writer) error {
 		},
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := protostream.WriteFromStreamingBytesClient(apiGetBlockClient, writer); err != nil {
-		return err
-	}
-	return nil
+	return protostream.NewStreamingBytesReader(apiGetBlockClient), nil
 }
 
 func InspectBlock(apiClient drive.APIClient, hash string) (*drive.BlockInfo, error) {

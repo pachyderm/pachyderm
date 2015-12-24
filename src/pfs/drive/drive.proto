@@ -73,6 +73,10 @@ message ListDiffRequest {
   uint64 shard = 1;
 }
 
+message DeleteDiffRequest {
+	Diff diff = 1;
+}
+
 service API {
   rpc PutBlock(stream google.protobuf.BytesValue) returns (Block) {}
   rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
@@ -82,4 +86,5 @@ service API {
   rpc CreateDiff(CreateDiffRequest) returns (google.protobuf.Empty) {}
   rpc InspectDiff(InspectDiffRequest) returns (DiffInfo) {}
   rpc ListDiff(ListDiffRequest) returns (stream DiffInfo) {}
+  rpc DeleteDiff(DeleteDiffRequest) returns (google.protobuf.Empty) {}
 }
