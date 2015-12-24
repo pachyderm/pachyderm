@@ -12,6 +12,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
+	"github.com/pachyderm/pachyderm/src/pfs/drive/obj"
+	drive_server "github.com/pachyderm/pachyderm/src/pfs/drive/server"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
@@ -117,6 +119,7 @@ type cluster struct {
 	cancel          chan bool
 	realSharder     shard.TestSharder
 	sharder         route.Sharder
+	driveClient     drive.APIClient
 	tb              testing.TB
 }
 
@@ -153,7 +156,7 @@ func (c *cluster) Restart(index int) {
 			),
 			address,
 		),
-		getDriver(c.tb, address),
+		getObjDriver(c.tb, c.driveClient),
 	)
 	c.internalServers[address] = internalAPIServer
 	go func() {
@@ -190,6 +193,14 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		testShardsPerServer*testNumServers,
 		testNumReplicas,
 	)
+	driveServer := drive_server.NewLocalAPIServer("/var/pfs")
+	localServer := grpc.NewServer()
+	drive.RegisterAPIServer(localServer, driveServer)
+	listener, clientConn := grpcutil.ListenerClientConnPair()
+	go func() {
+		require.NoError(tb, localServer.Serve(listener))
+	}()
+	driveClient := drive.NewAPIClient(clientConn)
 	cluster := cluster{
 		servers:         make(map[string]server.APIServer),
 		internalServers: make(map[string]server.InternalAPIServer),
@@ -198,6 +209,7 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		cancel:          make(chan bool),
 		realSharder:     realSharder,
 		sharder:         sharder,
+		driveClient:     driveClient,
 		tb:              tb,
 	}
 	for address, s := range servers {
@@ -222,7 +234,7 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		internalAPIServer := server.NewInternalAPIServer(
 			cluster.sharder,
 			router,
-			getDriver(tb, address),
+			getObjDriver(tb, driveClient),
 		)
 		pfs.RegisterInternalAPIServer(s, internalAPIServer)
 		cluster.internalServers[address] = internalAPIServer
@@ -238,7 +250,13 @@ func registerFunc(tb testing.TB, discoveryClient discovery.Client, servers map[s
 	return newCluster(tb, discoveryClient, servers)
 }
 
-func getDriver(tb testing.TB, namespace string) drive.Driver {
+func getObjDriver(tb testing.TB, driveClient drive.APIClient) drive.Driver {
+	driver, err := obj.NewDriver(driveClient)
+	require.NoError(tb, err)
+	return driver
+}
+
+func getBtrfsDriver(tb testing.TB, namespace string) drive.Driver {
 	driver, err := btrfs.NewDriver(getBtrfsRootDir(tb), namespace)
 	require.NoError(tb, err)
 	return driver
