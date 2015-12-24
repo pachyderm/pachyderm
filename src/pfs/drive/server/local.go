@@ -106,7 +106,7 @@ func (s *localAPIServer) CreateDiff(ctx context.Context, request *drive.CreateDi
 	if err := ioutil.WriteFile(s.diffPath(request.Diff), data, 0666); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (s *localAPIServer) InspectDiff(ctx context.Context, request *drive.InspectDiffRequest) (*drive.DiffInfo, error) {
@@ -134,6 +134,10 @@ func (s *localAPIServer) ListDiff(request *drive.ListDiffRequest, listDiffServer
 		return err
 	}
 	return nil
+}
+
+func (s *localAPIServer) DeleteDiff(ctx context.Context, request *drive.DeleteDiffRequest) (*google_protobuf.Empty, error) {
+	return google_protobuf.EmptyInstance, os.Remove(s.diffPath(request.Diff))
 }
 
 func (s *localAPIServer) tmpDir() string {

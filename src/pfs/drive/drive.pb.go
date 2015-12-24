@@ -23,6 +23,7 @@ It has these top-level messages:
 	CreateDiffRequest
 	InspectDiffRequest
 	ListDiffRequest
+	DeleteDiffRequest
 */
 package drive
 
@@ -293,6 +294,21 @@ func (m *ListDiffRequest) Reset()         { *m = ListDiffRequest{} }
 func (m *ListDiffRequest) String() string { return proto.CompactTextString(m) }
 func (*ListDiffRequest) ProtoMessage()    {}
 
+type DeleteDiffRequest struct {
+	Diff *Diff `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
+}
+
+func (m *DeleteDiffRequest) Reset()         { *m = DeleteDiffRequest{} }
+func (m *DeleteDiffRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteDiffRequest) ProtoMessage()    {}
+
+func (m *DeleteDiffRequest) GetDiff() *Diff {
+	if m != nil {
+		return m.Diff
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*Block)(nil), "Block")
 	proto.RegisterType((*Diff)(nil), "Diff")
@@ -308,6 +324,7 @@ func init() {
 	proto.RegisterType((*CreateDiffRequest)(nil), "CreateDiffRequest")
 	proto.RegisterType((*InspectDiffRequest)(nil), "InspectDiffRequest")
 	proto.RegisterType((*ListDiffRequest)(nil), "ListDiffRequest")
+	proto.RegisterType((*DeleteDiffRequest)(nil), "DeleteDiffRequest")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -324,6 +341,7 @@ type APIClient interface {
 	CreateDiff(ctx context.Context, in *CreateDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	InspectDiff(ctx context.Context, in *InspectDiffRequest, opts ...grpc.CallOption) (*DiffInfo, error)
 	ListDiff(ctx context.Context, in *ListDiffRequest, opts ...grpc.CallOption) (API_ListDiffClient, error)
+	DeleteDiff(ctx context.Context, in *DeleteDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 }
 
 type aPIClient struct {
@@ -468,6 +486,15 @@ func (x *aPIListDiffClient) Recv() (*DiffInfo, error) {
 	return m, nil
 }
 
+func (c *aPIClient) DeleteDiff(ctx context.Context, in *DeleteDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/.API/DeleteDiff", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for API service
 
 type APIServer interface {
@@ -478,6 +505,7 @@ type APIServer interface {
 	CreateDiff(context.Context, *CreateDiffRequest) (*google_protobuf1.Empty, error)
 	InspectDiff(context.Context, *InspectDiffRequest) (*DiffInfo, error)
 	ListDiff(*ListDiffRequest, API_ListDiffServer) error
+	DeleteDiff(context.Context, *DeleteDiffRequest) (*google_protobuf1.Empty, error)
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
@@ -600,6 +628,18 @@ func (x *aPIListDiffServer) Send(m *DiffInfo) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _API_DeleteDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(DeleteDiffRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).DeleteDiff(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 var _API_serviceDesc = grpc.ServiceDesc{
 	ServiceName: ".API",
 	HandlerType: (*APIServer)(nil),
@@ -619,6 +659,10 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InspectDiff",
 			Handler:    _API_InspectDiff_Handler,
+		},
+		{
+			MethodName: "DeleteDiff",
+			Handler:    _API_DeleteDiff_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

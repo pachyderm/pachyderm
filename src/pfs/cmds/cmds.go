@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"text/tabwriter"
@@ -214,7 +215,12 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			if err != nil {
 				return err
 			}
-			return pfsutil.GetBlock(apiClient, args[0], os.Stdout)
+			reader, err := pfsutil.GetBlock(apiClient, args[0])
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(os.Stdout, reader)
+			return err
 		}),
 	}
 

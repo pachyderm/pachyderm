@@ -2,41 +2,81 @@ package obj
 
 import (
 	"bufio"
-	"crypto/sha512"
-	"encoding/base64"
+	"bytes"
 	"fmt"
 	"io"
-	"path"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
+	"golang.org/x/net/context"
+
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 )
 
 var (
 	blockSize = 128 * 1024 * 1024 // 128 Megabytes
 )
 
-type commitMap map[pfs.Repo]map[pfs.Commit]map[uint64]*drive.DiffInfo
+type diffMap map[string]map[uint64]map[string]*drive.DiffInfo
 
-type driver struct {
-	objClient      obj.Client
-	cacheDir       string
-	namespace      string
-	commits        commitMap
-	startedCommits commitMap
-	lock           sync.RWMutex
+func (d diffMap) get(diff *drive.Diff) (_ *drive.DiffInfo, ok bool) {
+	shardMap, ok := d[diff.Commit.Repo.Name]
+	if !ok {
+		return nil, false
+	}
+	commitMap, ok := shardMap[diff.Shard]
+	if !ok {
+		return nil, false
+	}
+	diffInfo, ok := commitMap[diff.Commit.Id]
+	return diffInfo, ok
 }
 
-func newDriver(objClient obj.Client, cacheDir string, namespace string) (drive.Driver, error) {
+func (d diffMap) insert(diffInfo *drive.DiffInfo) error {
+	diff := diffInfo.Diff
+	shardMap, ok := d[diff.Commit.Repo.Name]
+	if !ok {
+		return fmt.Errorf("repo %s not found")
+	}
+	commitMap, ok := shardMap[diff.Shard]
+	if !ok {
+		commitMap = make(map[string]*drive.DiffInfo)
+		shardMap[diff.Shard] = commitMap
+	}
+	if _, ok = commitMap[diff.Commit.Id]; ok {
+		return fmt.Errorf("commit %s/%d/%s already exists")
+	}
+	commitMap[diff.Commit.Id] = diffInfo
+	return nil
+}
+
+func (d diffMap) pop(diff *drive.Diff) *drive.DiffInfo {
+	shardMap, ok := d[diff.Commit.Repo.Name]
+	if !ok {
+		return nil
+	}
+	commitMap, ok := shardMap[diff.Shard]
+	if !ok {
+		return nil
+	}
+	diffInfo := commitMap[diff.Commit.Id]
+	delete(commitMap, diff.Commit.Id)
+	return diffInfo
+}
+
+type driver struct {
+	driveClient drive.APIClient
+	started     diffMap
+	finished    diffMap
+	lock        sync.RWMutex
+}
+
+func newDriver(driveClient drive.APIClient) (drive.Driver, error) {
 	return &driver{
-		objClient,
-		cacheDir,
-		namespace,
-		make(commitMap),
-		make(commitMap),
+		driveClient,
+		make(diffMap),
+		make(diffMap),
 		sync.RWMutex{},
 	}, nil
 }
@@ -44,31 +84,26 @@ func newDriver(objClient obj.Client, cacheDir string, namespace string) (drive.D
 func (d *driver) CreateRepo(repo *pfs.Repo) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	if repoToCommits, _ := d.commits.repo(repo); repoToCommits != nil {
+	if _, ok := d.finished[repo.Name]; ok {
 		return fmt.Errorf("repo %s exists", repo.Name)
 	}
-	d.commits[*repo] = make(map[pfs.Commit]map[uint64]*drive.DiffInfo)
-	d.startedCommits[*repo] = make(map[pfs.Commit]map[uint64]*drive.DiffInfo)
+	d.finished[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
+	d.started[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
 	return nil
 }
 
 func (d *driver) InspectRepo(repo *pfs.Repo, shard uint64) (*pfs.RepoInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	if _, err := d.commits.repo(repo); err != nil {
-		return nil, err
-	}
-	return &pfs.RepoInfo{
-		Repo: repo,
-	}, nil
+	return d.inspectRepo(repo, shard)
 }
 
 func (d *driver) ListRepo(shard uint64) ([]*pfs.RepoInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	var result []*pfs.RepoInfo
-	for repo := range d.commits {
-		repoInfo, err := d.InspectRepo(&repo, shard)
+	for repoName := range d.finished {
+		repoInfo, err := d.inspectRepo(&pfs.Repo{Name: repoName}, shard)
 		if err != nil {
 			return nil, err
 		}
@@ -78,130 +113,131 @@ func (d *driver) ListRepo(shard uint64) ([]*pfs.RepoInfo, error) {
 }
 
 func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
+	var diffInfos []*drive.DiffInfo
 	d.lock.Lock()
-	defer d.lock.Unlock()
-	delete(d.commits, *repo)
-	delete(d.startedCommits, *repo)
-	d.objClient.Delete(d.repoPath(repo))
-	return nil
+	for shard := range shards {
+		for _, diffInfo := range d.started[repo.Name][shard] {
+			diffInfos = append(diffInfos, diffInfo)
+		}
+	}
+	delete(d.started, repo.Name)
+	delete(d.finished, repo.Name)
+	d.lock.Unlock()
+	var loopErr error
+	var wg sync.WaitGroup
+	for _, diffInfo := range diffInfos {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := d.driveClient.DeleteDiff(
+				context.Background(),
+				&drive.DeleteDiffRequest{Diff: diffInfo.Diff},
+			); err != nil && loopErr == nil {
+				loopErr = err
+			}
+		}()
+	}
+	wg.Wait()
+	return loopErr
 }
 
 func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	if _, err := d.commits.commit(parent); err != nil {
-		return err
-	}
-	repoToCommit, err := d.startedCommits.repo(commit.Repo)
-	if err != nil {
-		return err
-	}
-	repoToCommit[*commit] = make(map[uint64]*drive.DiffInfo)
 	for shard := range shards {
-		repoToCommit[*commit][shard] = &drive.DiffInfo{
+		diffInfo := &drive.DiffInfo{
+			Diff: &drive.Diff{
+				Commit: commit,
+				Shard:  shard,
+			},
 			ParentCommit: parent,
+			Appends:      make(map[string]*drive.BlockRefs),
+			LastRef:      make(map[string]*drive.Diff),
+		}
+		if err := d.started.insert(diffInfo); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
 func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error {
-	var shardToCommit map[uint64]*drive.DiffInfo
 	// closure so we can defer Unlock
+	var diffInfos []*drive.DiffInfo
 	if err := func() error {
 		d.lock.Lock()
 		defer d.lock.Unlock()
-		var err error
-		shardToCommit, err = d.startedCommits.commit(commit)
-		if err != nil {
-			return err
+		for shard := range shards {
+			diffInfo := d.started.pop(&drive.Diff{
+				Commit: commit,
+				Shard:  shard,
+			})
+			if diffInfo == nil {
+				return fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
+			}
+			diffInfos = append(diffInfos)
+			if err := d.finished.insert(diffInfo); err != nil {
+				return err
+			}
 		}
-		delete(d.startedCommits[*commit.Repo], *commit)
 		return nil
 	}(); err != nil {
 		return err
 	}
 	var wg sync.WaitGroup
 	var loopErr error
-	for shard := range shards {
-		shard := shard
+	for _, diffInfo := range diffInfos {
+		diffInfo := diffInfo
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			commit := shardToCommit[shard]
-			data, err := proto.Marshal(commit)
-			if err != nil && loopErr == nil {
+			if _, err := d.driveClient.CreateDiff(
+				context.Background(),
+				&drive.CreateDiffRequest{
+					Diff:         diffInfo.Diff,
+					ParentCommit: diffInfo.ParentCommit,
+					Appends:      diffInfo.Appends,
+					LastRef:      diffInfo.LastRef,
+				}); err != nil && loopErr == nil {
 				loopErr = err
-				return
-			}
-			sha := sha512.Sum512(data)
-			hash := base64.URLEncoding.EncodeToString(sha[:])
-			writer, err := d.objClient.Writer(hash)
-			if err != nil && loopErr == nil {
-				loopErr = err
-				return
-			}
-			if _, err := writer.Write(data); err != nil && loopErr == nil {
-				loopErr = err
-				return
 			}
 		}()
 	}
 	wg.Wait()
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	if loopErr != nil {
-		d.startedCommits[*commit.Repo][*commit] = shardToCommit
-		return loopErr
-	}
-	d.commits[*commit.Repo][*commit] = shardToCommit
-	return nil
+	return loopErr
 }
 
 func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	result := &pfs.CommitInfo{
-		Commit: commit,
-	}
-	var shardToDiffInfo map[uint64]*drive.DiffInfo
-	var err error
-	if shardToDiffInfo, err = d.commits.commit(commit); err != nil {
-		if shardToDiffInfo, err = d.startedCommits.commit(commit); err != nil {
-			return nil, err
-		}
-		result.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
-	} else {
-		result.CommitType = pfs.CommitType_COMMIT_TYPE_READ
-	}
-	for _, diffInfo := range shardToDiffInfo {
-		result.ParentCommit = diffInfo.ParentCommit
-		break
-	}
-	return result, nil
+	return d.inspectCommit(commit, shards)
 }
 
 func (d *driver) ListCommit(repo *pfs.Repo, from *pfs.Commit, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
-	var commits []*pfs.Commit
-	func() {
-		d.lock.RLock()
-		defer d.lock.RUnlock()
-		for commit := range d.commits[*repo] {
-			commit := commit
-			commits = append(commits, &commit)
-		}
-		for commit := range d.startedCommits[*repo] {
-			commit := commit
-			commits = append(commits, &commit)
-		}
-	}()
+	d.lock.RLock()
+	defer d.lock.RUnlock()
 	var result []*pfs.CommitInfo
-	for _, commit := range commits {
-		commitInfo, err := d.InspectCommit(commit, shards)
-		if err != nil {
+	for shard := range shards {
+		if _, err := d.inspectRepo(repo, shard); err != nil {
 			return nil, err
 		}
-		result = append(result, commitInfo)
+		var commitIds []string
+		for commitId := range d.finished[repo.Name][shard] {
+			commitIds = append(commitIds, commitId)
+		}
+		for commitId := range d.started[repo.Name][shard] {
+			commitIds = append(commitIds, commitId)
+		}
+		for _, commitId := range commitIds {
+			commitInfo, err := d.inspectCommit(&pfs.Commit{
+				Repo: repo,
+				Id:   commitId,
+			}, shards)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, commitInfo)
+		}
 	}
 	return result, nil
 }
@@ -214,16 +250,8 @@ func (d *driver) PutBlock(file *pfs.File, block *drive.Block, shard uint64, read
 	return nil
 }
 
-func (d *driver) putBlock(block *drive.Block) (io.WriteCloser, error) {
-	return d.objClient.Writer(d.blockPath(block))
-}
-
 func (d *driver) GetBlock(block *drive.Block, shard uint64) (drive.ReaderAtCloser, error) {
 	return nil, nil
-}
-
-func (d *driver) getBlock(block *drive.Block) (io.ReadCloser, error) {
-	return d.objClient.Reader(d.blockPath(block))
 }
 
 func (d *driver) InspectBlock(block *drive.Block, shard uint64) (*drive.BlockInfo, error) {
@@ -236,10 +264,13 @@ func (d *driver) ListBlock(shard uint64) ([]*drive.BlockInfo, error) {
 
 func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) (retErr error) {
 	d.lock.RLock()
-	_, err := d.startedCommits.shard(file.Commit, shard)
+	diffInfo, ok := d.started.get(&drive.Diff{
+		Commit: file.Commit,
+		Shard:  shard,
+	})
 	d.lock.RUnlock()
-	if err != nil {
-		return err
+	if !ok {
+		return fmt.Errorf("commit %s/%s not found", file.Commit.Repo.Name, file.Commit.Id)
 	}
 	var blockRefs []*drive.BlockRef
 	scanner := bufio.NewScanner(reader)
@@ -261,34 +292,24 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 		return 0, nil, fmt.Errorf("line too long")
 	})
 	var wg sync.WaitGroup
+	var loopErr error
 	for scanner.Scan() {
 		data := scanner.Bytes()
-		sha := sha512.Sum512(data)
-		block := &drive.Block{
-			Hash: base64.URLEncoding.EncodeToString(sha[:]),
-		}
-		blockRefs = append(blockRefs, &drive.BlockRef{
-			Block: block,
+		blockRef := &drive.BlockRef{
 			Range: &drive.ByteRange{
 				Lower: 0,
 				Upper: uint64(len(data)),
 			},
-		})
+		}
+		blockRefs = append(blockRefs, blockRef)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			writer, err := d.putBlock(block)
-			if err != nil && retErr == nil {
-				retErr = err
+			block, err := pfsutil.PutBlock(d.driveClient, bytes.NewReader(data))
+			if err != nil && loopErr == nil {
+				loopErr = err
 			}
-			defer func() {
-				if err := writer.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			if _, err := writer.Write(data); err != nil && retErr == nil {
-				retErr = err
-			}
+			blockRef.Block = block
 		}()
 	}
 	wg.Wait()
@@ -297,17 +318,15 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	}
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	changes, err := d.startedCommits.shard(file.Commit, shard)
-	if err != nil {
-		return err
+	diffInfo, ok = d.started.get(&drive.Diff{
+		Commit: file.Commit,
+		Shard:  shard,
+	})
+	if !ok {
+		return fmt.Errorf("commit %s/%s not found", file.Commit.Repo.Name, file.Commit.Id)
 	}
-	existingBlockRefs, ok := changes.Appends[file.Path]
-	if ok {
-		existingBlockRefs.BlockRef = append(existingBlockRefs.BlockRef, blockRefs...)
-	} else {
-		changes.Appends[file.Path] = &drive.BlockRefs{
-			BlockRef: blockRefs,
-		}
+	diffInfo.Appends[file.Path] = &drive.BlockRefs{
+		BlockRef: append(diffInfo.Appends[file.Path].BlockRef, blockRefs...),
 	}
 	return nil
 }
@@ -317,26 +336,24 @@ func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
 }
 
 func (d *driver) GetFile(file *pfs.File, shard uint64) (drive.ReaderAtCloser, error) {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
 	var blockRefs []*drive.BlockRef
 	commit := file.Commit
 	for commit != nil {
-		if err := func() error {
-			d.lock.RLock()
-			defer d.lock.RUnlock()
-			diffInfo, err := d.commits.shard(commit, shard)
-			if err != nil {
-				return err
-			}
-			blockRefs = append(blockRefs, diffInfo.Appends[file.Path].BlockRef...)
-			commit = diffInfo.ParentCommit
-			return nil
-		}(); err != nil {
-			return nil, err
+		diffInfo, ok := d.finished.get(&drive.Diff{
+			Commit: commit,
+			Shard:  shard,
+		})
+		if !ok {
+			return nil, fmt.Errorf("file %s/%s/%s not found", file.Commit.Repo.Name, file.Commit.Id, file.Path)
 		}
+		blockRefs = append(blockRefs, diffInfo.Appends[file.Path].BlockRef...)
+		commit = diffInfo.ParentCommit
 	}
 	return &fileReader{
-		driver:    d,
-		blockRefs: blockRefs,
+		driveClient: d.driveClient,
+		blockRefs:   blockRefs,
 	}, nil
 }
 
@@ -364,59 +381,49 @@ func (d *driver) PushDiff(commit *pfs.Commit, shard uint64, diff io.Reader) erro
 	return nil
 }
 
-func (d *driver) repoPath(repo *pfs.Repo) string {
-	return path.Join(d.namespace, "index", repo.Name)
-}
-
-func (d *driver) commitPath(commit *pfs.Commit) string {
-	return path.Join(d.repoPath(commit.Repo), commit.Id)
-}
-
-func (d *driver) shardPath(commit *pfs.Commit, shard uint64) string {
-	return path.Join(d.commitPath(commit), fmt.Sprint(shard))
-}
-
-func (d *driver) blockPath(block *drive.Block) string {
-	return path.Join(d.namespace, "block", block.Hash)
-}
-
-func (m commitMap) repo(repo *pfs.Repo) (map[pfs.Commit]map[uint64]*drive.DiffInfo, error) {
-	result, ok := m[*repo]
+func (d *driver) inspectRepo(repo *pfs.Repo, shard uint64) (*pfs.RepoInfo, error) {
+	_, ok := d.finished[repo.Name]
 	if !ok {
 		return nil, fmt.Errorf("repo %s not found", repo.Name)
 	}
-	return result, nil
+	return &pfs.RepoInfo{
+		Repo: repo,
+		// Created: TODO,
+		// SizeBytes: TODO,
+	}, nil
 }
 
-func (m commitMap) commit(commit *pfs.Commit) (map[uint64]*drive.DiffInfo, error) {
-	repoToCommit, err := m.repo(commit.Repo)
-	if err != nil {
-		return nil, err
+func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
+	result := &pfs.CommitInfo{
+		Commit: commit,
 	}
-	result, ok := repoToCommit[*commit]
-	if !ok {
+	for shard := range shards {
+		if diffInfo, ok := d.finished.get(&drive.Diff{
+			Commit: commit,
+			Shard:  shard,
+		}); ok {
+			result.CommitType = pfs.CommitType_COMMIT_TYPE_READ
+			result.ParentCommit = diffInfo.ParentCommit
+			break
+		}
+		if diffInfo, ok := d.started.get(&drive.Diff{
+			Commit: commit,
+			Shard:  shard,
+		}); ok {
+			result.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
+			result.ParentCommit = diffInfo.ParentCommit
+			break
+		}
 		return nil, fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
 	}
 	return result, nil
 }
 
-func (m commitMap) shard(commit *pfs.Commit, shard uint64) (*drive.DiffInfo, error) {
-	shardToChanges, err := m.commit(commit)
-	if err != nil {
-		return nil, err
-	}
-	result, ok := shardToChanges[shard]
-	if !ok {
-		return nil, fmt.Errorf("shard %s/%s/%d not found", commit.Repo.Name, commit.Id, shard)
-	}
-	return result, nil
-}
-
 type fileReader struct {
-	driver    *driver
-	blockRefs []*drive.BlockRef
-	index     int
-	reader    io.ReadCloser
+	driveClient drive.APIClient
+	blockRefs   []*drive.BlockRef
+	index       int
+	reader      io.Reader
 }
 
 func (r *fileReader) Read(data []byte) (int, error) {
@@ -425,7 +432,7 @@ func (r *fileReader) Read(data []byte) (int, error) {
 			return 0, io.EOF
 		}
 		var err error
-		r.reader, err = r.driver.getBlock(r.blockRefs[r.index].Block)
+		r.reader, err = pfsutil.GetBlock(r.driveClient, r.blockRefs[r.index].Block.Hash)
 		if err != nil {
 			return 0, err
 		}
@@ -436,9 +443,6 @@ func (r *fileReader) Read(data []byte) (int, error) {
 		return size, err
 	}
 	if err == io.EOF {
-		if err := r.reader.Close(); err != nil {
-			return size, err
-		}
 		r.reader = nil
 		recurseSize, err := r.Read(data[size:])
 		if err != nil {
@@ -454,8 +458,5 @@ func (r *fileReader) ReadAt(p []byte, off int64) (n int, err error) {
 }
 
 func (r *fileReader) Close() error {
-	if r.reader != nil {
-		return r.reader.Close()
-	}
 	return nil
 }
