@@ -121,6 +121,9 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 			Repo: request.Parent.Repo,
 			Id:   uuid.NewWithoutDashes(),
 		}
+		if request.Parent.Id == "" {
+			request.Parent = nil
+		}
 	}
 	for _, clientConn := range clientConns {
 		if _, err := pfs.NewInternalAPIClient(clientConn).StartCommit(ctx, request); err != nil {
