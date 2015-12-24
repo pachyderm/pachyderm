@@ -37,7 +37,7 @@ func (d diffMap) insert(diffInfo *drive.DiffInfo) error {
 	diff := diffInfo.Diff
 	shardMap, ok := d[diff.Commit.Repo.Name]
 	if !ok {
-		return fmt.Errorf("repo %s not found")
+		return fmt.Errorf("repo %s not found", diff.Commit.Repo.Name)
 	}
 	commitMap, ok := shardMap[diff.Shard]
 	if !ok {
@@ -45,7 +45,7 @@ func (d diffMap) insert(diffInfo *drive.DiffInfo) error {
 		shardMap[diff.Shard] = commitMap
 	}
 	if _, ok = commitMap[diff.Commit.Id]; ok {
-		return fmt.Errorf("commit %s/%d/%s already exists")
+		return fmt.Errorf("commit %s/%s already exists", diff.Commit.Repo.Name, diff.Commit.Id)
 	}
 	commitMap[diff.Commit.Id] = diffInfo
 	return nil
@@ -126,6 +126,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 	var loopErr error
 	var wg sync.WaitGroup
 	for _, diffInfo := range diffInfos {
+		diffInfo := diffInfo
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -221,18 +222,18 @@ func (d *driver) ListCommit(repo *pfs.Repo, from *pfs.Commit, shards map[uint64]
 		if _, err := d.inspectRepo(repo, shard); err != nil {
 			return nil, err
 		}
-		var commitIds []string
-		for commitId := range d.finished[repo.Name][shard] {
-			commitIds = append(commitIds, commitId)
+		commit := &pfs.Commit{Repo: repo}
+		for commitID := range d.finished[repo.Name][shard] {
+			commit.Id = commitID
+			commitInfo, err := d.inspectCommit(commit, shards)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, commitInfo)
 		}
-		for commitId := range d.started[repo.Name][shard] {
-			commitIds = append(commitIds, commitId)
-		}
-		for _, commitId := range commitIds {
-			commitInfo, err := d.inspectCommit(&pfs.Commit{
-				Repo: repo,
-				Id:   commitId,
-			}, shards)
+		for commitID := range d.started[repo.Name][shard] {
+			commit.Id = commitID
+			commitInfo, err := d.inspectCommit(commit, shards)
 			if err != nil {
 				return nil, err
 			}
