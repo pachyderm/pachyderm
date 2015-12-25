@@ -325,9 +325,12 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	if !ok {
 		return fmt.Errorf("commit %s/%s not found", file.Commit.Repo.Name, file.Commit.Id)
 	}
-	diffInfo.Appends[file.Path] = &drive.BlockRefs{
-		BlockRef: append(diffInfo.Appends[file.Path].BlockRef, blockRefs...),
+	blockRefsMsg, ok := diffInfo.Appends[file.Path]
+	if !ok {
+		blockRefsMsg = &drive.BlockRefs{}
+		diffInfo.Appends[file.Path] = blockRefsMsg
 	}
+	blockRefsMsg.BlockRef = append(blockRefsMsg.BlockRef, blockRefs...)
 	return nil
 }
 
