@@ -1,9 +1,9 @@
 package grpcutil
 
 import (
-	"net"
-	"time"
+	"path/filepath"
 
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"google.golang.org/grpc"
 )
 
@@ -16,9 +16,15 @@ func NewDialer(opts ...grpc.DialOption) Dialer {
 	return newDialer(opts...)
 }
 
-type DialerFunc func(addr string, timeout time.Duration) (net.Conn, error)
+type LocalServer interface {
+	Server() *grpc.Server
+	Serve() error
+	Dial() (*grpc.ClientConn, error)
+}
 
-func ListenerClientConnPair() (net.Listener, *grpc.ClientConn) {
-	left, right := net.Pipe()
-	return newStaticListener(left), staticClienConn(right)
+func NewLocalServer() LocalServer {
+	return &localServer{
+		server: grpc.NewServer(),
+		path:   filepath.Join("/tmp", uuid.NewWithoutDashes()),
+	}
 }
