@@ -7,11 +7,10 @@ import (
 	"io"
 	"sync"
 
-	"golang.org/x/net/context"
-
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
+	"golang.org/x/net/context"
 )
 
 var (
@@ -277,6 +276,9 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		if len(data) < blockSize && !atEOF {
+			return 0, nil, nil
+		}
+		if len(data) == 0 && atEOF {
 			return 0, nil, nil
 		}
 		if len(data) < blockSize && atEOF {
