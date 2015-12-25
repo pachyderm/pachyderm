@@ -194,13 +194,14 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		testNumReplicas,
 	)
 	driveServer := drive_server.NewLocalAPIServer("/var/pfs")
-	localServer := grpc.NewServer()
-	drive.RegisterAPIServer(localServer, driveServer)
-	listener, clientConn := grpcutil.ListenerClientConnPair()
+	localServer := grpcutil.NewLocalServer()
+	drive.RegisterAPIServer(localServer.Server(), driveServer)
 	go func() {
-		require.NoError(tb, localServer.Serve(listener))
+		require.NoError(tb, localServer.Serve())
 	}()
-	driveClient := drive.NewAPIClient(clientConn)
+	localClientConn, err := localServer.Dial()
+	require.NoError(tb, err)
+	driveClient := drive.NewAPIClient(localClientConn)
 	cluster := cluster{
 		servers:         make(map[string]server.APIServer),
 		internalServers: make(map[string]server.InternalAPIServer),
