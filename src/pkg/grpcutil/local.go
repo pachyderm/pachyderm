@@ -3,6 +3,7 @@ package grpcutil
 import (
 	"net"
 	"os"
+	"time"
 
 	"google.golang.org/grpc"
 )
@@ -29,6 +30,10 @@ func (s *localServer) Serve() (retErr error) {
 	return s.server.Serve(listener)
 }
 
+func unixDialer(addr string, timeout time.Duration) (net.Conn, error) {
+	return net.DialTimeout("unix", addr, timeout)
+}
+
 func (s *localServer) Dial() (*grpc.ClientConn, error) {
-	return grpc.Dial("unix://" + s.path)
+	return grpc.Dial(s.path, grpc.WithDialer(unixDialer), grpc.WithInsecure())
 }
