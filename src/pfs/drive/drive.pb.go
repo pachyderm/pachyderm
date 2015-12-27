@@ -157,10 +157,14 @@ func (m *BlockInfos) GetBlockInfo() []*BlockInfo {
 }
 
 type DiffInfo struct {
-	Diff         *Diff                 `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
-	ParentCommit *pfs.Commit           `protobuf:"bytes,2,opt,name=parent_commit" json:"parent_commit,omitempty"`
-	Appends      map[string]*BlockRefs `protobuf:"bytes,3,rep,name=appends" json:"appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	LastRef      map[string]*Diff      `protobuf:"bytes,4,rep,name=last_ref" json:"last_ref,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Diff         *Diff       `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
+	ParentCommit *pfs.Commit `protobuf:"bytes,2,opt,name=parent_commit" json:"parent_commit,omitempty"`
+	// Appends is the BlockRefs which have been append to files indexed by path.
+	Appends map[string]*BlockRefs `protobuf:"bytes,3,rep,name=appends" json:"appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// LastRefs is the last diff which references a file indexed by path.
+	LastRefs map[string]*Diff `protobuf:"bytes,4,rep,name=last_refs" json:"last_refs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// NewPaths contains files added in this diff, sorted by path.
+	NewPaths []string `protobuf:"bytes,5,rep,name=new_paths" json:"new_paths,omitempty"`
 }
 
 func (m *DiffInfo) Reset()         { *m = DiffInfo{} }
@@ -188,9 +192,9 @@ func (m *DiffInfo) GetAppends() map[string]*BlockRefs {
 	return nil
 }
 
-func (m *DiffInfo) GetLastRef() map[string]*Diff {
+func (m *DiffInfo) GetLastRefs() map[string]*Diff {
 	if m != nil {
-		return m.LastRef
+		return m.LastRefs
 	}
 	return nil
 }
@@ -234,10 +238,14 @@ func (m *ListBlockRequest) String() string { return proto.CompactTextString(m) }
 func (*ListBlockRequest) ProtoMessage()    {}
 
 type CreateDiffRequest struct {
-	Diff         *Diff                 `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
-	ParentCommit *pfs.Commit           `protobuf:"bytes,2,opt,name=parent_commit" json:"parent_commit,omitempty"`
-	Appends      map[string]*BlockRefs `protobuf:"bytes,3,rep,name=appends" json:"appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	LastRef      map[string]*Diff      `protobuf:"bytes,4,rep,name=last_ref" json:"last_ref,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Diff         *Diff       `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
+	ParentCommit *pfs.Commit `protobuf:"bytes,2,opt,name=parent_commit" json:"parent_commit,omitempty"`
+	// Appends is the BlockRefs which have been append to files indexed by path.
+	Appends map[string]*BlockRefs `protobuf:"bytes,3,rep,name=appends" json:"appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// LastRefs is the last diff which references a file indexed by path.
+	LastRefs map[string]*Diff `protobuf:"bytes,4,rep,name=last_refs" json:"last_refs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// NewPaths contains files added in this diff, sorted by path.
+	NewPaths []string `protobuf:"bytes,5,rep,name=new_paths" json:"new_paths,omitempty"`
 }
 
 func (m *CreateDiffRequest) Reset()         { *m = CreateDiffRequest{} }
@@ -265,9 +273,9 @@ func (m *CreateDiffRequest) GetAppends() map[string]*BlockRefs {
 	return nil
 }
 
-func (m *CreateDiffRequest) GetLastRef() map[string]*Diff {
+func (m *CreateDiffRequest) GetLastRefs() map[string]*Diff {
 	if m != nil {
-		return m.LastRef
+		return m.LastRefs
 	}
 	return nil
 }

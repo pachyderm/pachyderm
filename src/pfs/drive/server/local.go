@@ -122,7 +122,8 @@ func (s *localAPIServer) CreateDiff(ctx context.Context, request *drive.CreateDi
 		Diff:         request.Diff,
 		ParentCommit: request.ParentCommit,
 		Appends:      request.Appends,
-		LastRef:      request.LastRef,
+		LastRefs:     request.LastRefs,
+		NewPaths:     request.NewPaths,
 	})
 	if err != nil {
 		return nil, err

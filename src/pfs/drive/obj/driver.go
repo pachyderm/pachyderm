@@ -152,7 +152,7 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[
 			},
 			ParentCommit: parent,
 			Appends:      make(map[string]*drive.BlockRefs),
-			LastRef:      make(map[string]*drive.Diff),
+			LastRefs:     make(map[string]*drive.Diff),
 		}
 		if err := d.started.insert(diffInfo); err != nil {
 			return err
@@ -197,7 +197,8 @@ func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 					Diff:         diffInfo.Diff,
 					ParentCommit: diffInfo.ParentCommit,
 					Appends:      diffInfo.Appends,
-					LastRef:      diffInfo.LastRef,
+					LastRefs:     diffInfo.LastRefs,
+					NewPaths:     diffInfo.NewPaths,
 				}); err != nil && loopErr == nil {
 				loopErr = err
 			}
