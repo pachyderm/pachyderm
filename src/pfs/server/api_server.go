@@ -251,13 +251,16 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
+	var request *pfs.PutFileRequest
+	var err error
+	defer func(start time.Time) { a.Log(request, google_protobuf.EmptyInstance, retErr, time.Since(start)) }(time.Now())
 	ctx := versionToContext(a.version, putFileServer.Context())
 	defer func() {
 		if err := putFileServer.SendAndClose(google_protobuf.EmptyInstance); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
-	request, err := putFileServer.Recv()
+	request, err = putFileServer.Recv()
 	if err != nil {
 		return err
 	}
@@ -324,7 +327,8 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	return nil
 }
 
-func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) error {
+func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
+	defer func(start time.Time) { a.Log(request, google_protobuf.EmptyInstance, retErr, time.Since(start)) }(time.Now())
 	ctx := versionToContext(a.version, apiGetFileServer.Context())
 	clientConn, err := a.getClientConnForFile(request.File, a.version)
 	if err != nil {

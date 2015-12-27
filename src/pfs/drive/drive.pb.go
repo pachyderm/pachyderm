@@ -196,7 +196,8 @@ func (m *DiffInfo) GetLastRef() map[string]*Diff {
 }
 
 type GetBlockRequest struct {
-	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	Block       *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	OffsetBytes uint64 `protobuf:"varint,2,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
 }
 
 func (m *GetBlockRequest) Reset()         { *m = GetBlockRequest{} }

@@ -158,13 +158,14 @@ func PutBlock(apiClient drive.APIClient, reader io.Reader) (*drive.Block, error)
 	return putBlockClient.CloseAndRecv()
 }
 
-func GetBlock(apiClient drive.APIClient, hash string) (io.Reader, error) {
+func GetBlock(apiClient drive.APIClient, hash string, offsetBytes uint64) (io.Reader, error) {
 	apiGetBlockClient, err := apiClient.GetBlock(
 		context.Background(),
 		&drive.GetBlockRequest{
 			Block: &drive.Block{
 				Hash: hash,
 			},
+			OffsetBytes: offsetBytes,
 		},
 	)
 	if err != nil {
@@ -205,7 +206,7 @@ func PutFile(apiClient pfs.APIClient, repoName string, commitID string, path str
 		return 0, err
 	}
 	defer func() {
-		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr != nil {
+		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
@@ -364,7 +365,7 @@ func MakeDirectory(apiClient pfs.APIClient, repoName string, commitID string, pa
 		return err
 	}
 	defer func() {
-		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr != nil {
+		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
@@ -434,7 +435,7 @@ func PushDiff(replicaAPIClient pfs.ReplicaAPIClient, repoName string, commitID s
 		return err
 	}
 	defer func() {
-		if _, err := pushDiffClient.CloseAndRecv(); err != nil && retErr != nil {
+		if _, err := pushDiffClient.CloseAndRecv(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
