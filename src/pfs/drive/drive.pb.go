@@ -162,9 +162,9 @@ type DiffInfo struct {
 	// Appends is the BlockRefs which have been append to files indexed by path.
 	Appends map[string]*BlockRefs `protobuf:"bytes,3,rep,name=appends" json:"appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// LastRefs is the last diff which references a file indexed by path.
-	LastRefs map[string]*Diff `protobuf:"bytes,4,rep,name=last_refs" json:"last_refs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	LastRefs map[string]*pfs.Commit `protobuf:"bytes,4,rep,name=last_refs" json:"last_refs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// NewPaths contains files added in this diff, sorted by path.
-	NewPaths []string `protobuf:"bytes,5,rep,name=new_paths" json:"new_paths,omitempty"`
+	NewFiles []string `protobuf:"bytes,5,rep,name=new_files" json:"new_files,omitempty"`
 }
 
 func (m *DiffInfo) Reset()         { *m = DiffInfo{} }
@@ -192,7 +192,7 @@ func (m *DiffInfo) GetAppends() map[string]*BlockRefs {
 	return nil
 }
 
-func (m *DiffInfo) GetLastRefs() map[string]*Diff {
+func (m *DiffInfo) GetLastRefs() map[string]*pfs.Commit {
 	if m != nil {
 		return m.LastRefs
 	}
@@ -242,10 +242,10 @@ type CreateDiffRequest struct {
 	ParentCommit *pfs.Commit `protobuf:"bytes,2,opt,name=parent_commit" json:"parent_commit,omitempty"`
 	// Appends is the BlockRefs which have been append to files indexed by path.
 	Appends map[string]*BlockRefs `protobuf:"bytes,3,rep,name=appends" json:"appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// LastRefs is the last diff which references a file indexed by path.
-	LastRefs map[string]*Diff `protobuf:"bytes,4,rep,name=last_refs" json:"last_refs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// LastRefs is the last commit which references a file indexed by path.
+	LastRefs map[string]*pfs.Commit `protobuf:"bytes,4,rep,name=last_refs" json:"last_refs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// NewPaths contains files added in this diff, sorted by path.
-	NewPaths []string `protobuf:"bytes,5,rep,name=new_paths" json:"new_paths,omitempty"`
+	NewFiles []string `protobuf:"bytes,5,rep,name=new_files" json:"new_files,omitempty"`
 }
 
 func (m *CreateDiffRequest) Reset()         { *m = CreateDiffRequest{} }
@@ -273,7 +273,7 @@ func (m *CreateDiffRequest) GetAppends() map[string]*BlockRefs {
 	return nil
 }
 
-func (m *CreateDiffRequest) GetLastRefs() map[string]*Diff {
+func (m *CreateDiffRequest) GetLastRefs() map[string]*pfs.Commit {
 	if m != nil {
 		return m.LastRefs
 	}

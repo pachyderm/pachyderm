@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sort"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -152,7 +153,7 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[
 			},
 			ParentCommit: parent,
 			Appends:      make(map[string]*drive.BlockRefs),
-			LastRefs:     make(map[string]*drive.Diff),
+			LastRefs:     make(map[string]*pfs.Commit),
 		}
 		if err := d.started.insert(diffInfo); err != nil {
 			return err
@@ -175,7 +176,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 			if diffInfo == nil {
 				return fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
 			}
-			diffInfos = append(diffInfos)
+			diffInfos = append(diffInfos, diffInfo)
 			if err := d.finished.insert(diffInfo); err != nil {
 				return err
 			}
@@ -198,7 +199,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 					ParentCommit: diffInfo.ParentCommit,
 					Appends:      diffInfo.Appends,
 					LastRefs:     diffInfo.LastRefs,
-					NewPaths:     diffInfo.NewPaths,
+					NewFiles:     diffInfo.NewFiles,
 				}); err != nil && loopErr == nil {
 				loopErr = err
 			}
@@ -322,6 +323,7 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 		diffInfo.Appends[file.Path] = blockRefsMsg
 	}
 	blockRefsMsg.BlockRef = append(blockRefsMsg.BlockRef, blockRefs...)
+	d.addFileIndexes(diffInfo, file, shard)
 	return nil
 }
 
@@ -413,6 +415,26 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 		return nil, fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
 	}
 	return result, nil
+}
+
+// addFileIndexes fills in some in memory indexes we use
+func (d *driver) addFileIndexes(diffInfo *drive.DiffInfo, file *pfs.File, shard uint64) {
+	commit := diffInfo.ParentCommit
+	for commit != nil {
+		ancestorDiffInfo, _ := d.finished.get(&drive.Diff{
+			Commit: commit,
+			Shard:  shard,
+		})
+		if _, ok := ancestorDiffInfo.Appends[file.Path]; ok {
+			diffInfo.LastRefs[file.Path] = commit
+			return
+		}
+		commit = ancestorDiffInfo.ParentCommit
+	}
+	i := sort.SearchStrings(diffInfo.NewFiles, file.Path)
+	diffInfo.NewFiles = append(diffInfo.NewFiles, "")
+	copy(diffInfo.NewFiles[i+1:], diffInfo.NewFiles[i:])
+	diffInfo.NewFiles[i] = file.Path
 }
 
 func blockSplitFunc(data []byte, atEOF bool) (advance int, token []byte, err error) {
