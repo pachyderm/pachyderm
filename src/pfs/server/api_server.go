@@ -321,9 +321,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 			return err
 		}
 	}
-	if _, err := putFileClient.CloseAndRecv(); err != nil {
-		return err
-	}
 	return nil
 }
 

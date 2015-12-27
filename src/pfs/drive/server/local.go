@@ -25,11 +25,21 @@ type localAPIServer struct {
 	dir string
 }
 
-func newLocalAPIServer(dir string) *localAPIServer {
-	return &localAPIServer{
+func newLocalAPIServer(dir string) (*localAPIServer, error) {
+	server := &localAPIServer{
 		Logger: protorpclog.NewLogger("pachyderm.pfs.drive.localAPIServer"),
 		dir:    dir,
 	}
+	if err := os.MkdirAll(server.tmpDir(), 0777); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(server.diffDir(), 0777); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(server.blockDir(), 0777); err != nil {
+		return nil, err
+	}
+	return server, nil
 }
 
 func (s *localAPIServer) PutBlock(putBlockServer drive.API_PutBlockServer) (retErr error) {
@@ -54,6 +64,7 @@ func (s *localAPIServer) PutBlock(putBlockServer drive.API_PutBlockServer) (retE
 				retErr = err
 				return
 			}
+			return
 		}
 		if err := os.Rename(tmp.Name(), s.blockPath(result)); err != nil && retErr == nil {
 			retErr = err
