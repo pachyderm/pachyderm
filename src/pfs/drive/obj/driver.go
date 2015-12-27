@@ -482,19 +482,26 @@ func (r *fileReader) ReadAt(p []byte, off int64) (int, error) {
 			continue
 		}
 		reader, err := pfsutil.GetBlock(r.driveClient, blockRef.Block.Hash, uint64(off))
+		off = 0
 		if err != nil {
 			return 0, err
 		}
-		off = 0
-		n, err := reader.Read(p)
-		read += n
-		if err != nil {
-			return read, err
+		for read < len(p) {
+			n, err := reader.Read(p[read:])
+			read += n
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return read, err
+			}
 		}
-		p := p[n:]
-		if len(p) == 0 {
+		if read == len(p) {
 			break
 		}
+	}
+	if read <= len(p) {
+		return read, io.EOF
 	}
 	return read, nil
 }
