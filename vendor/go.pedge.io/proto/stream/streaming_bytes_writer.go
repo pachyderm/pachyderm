@@ -15,6 +15,9 @@ func newStreamingBytesWriter(
 }
 
 func (s *streamingBytesWriter) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
 	if err := s.streamingBytesServer.Send(
 		&google_protobuf.BytesValue{
 			Value: p,
