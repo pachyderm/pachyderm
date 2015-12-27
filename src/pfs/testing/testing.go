@@ -158,7 +158,7 @@ func (c *cluster) Restart(index int) {
 			),
 			address,
 		),
-		getBtrfsDriver(c.tb, address),
+		getObjDriver(c.tb, c.driveClient),
 	)
 	c.internalServers[address] = internalAPIServer
 	go func() {
@@ -238,7 +238,7 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		internalAPIServer := server.NewInternalAPIServer(
 			cluster.sharder,
 			router,
-			getBtrfsDriver(tb, address),
+			getObjDriver(tb, driveClient),
 		)
 		pfs.RegisterInternalAPIServer(s, internalAPIServer)
 		cluster.internalServers[address] = internalAPIServer
