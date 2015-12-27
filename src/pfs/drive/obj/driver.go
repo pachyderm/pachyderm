@@ -274,23 +274,7 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	}
 	var blockRefs []*drive.BlockRef
 	scanner := bufio.NewScanner(reader)
-	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		if len(data) < blockSize && !atEOF {
-			return 0, nil, nil
-		}
-		if len(data) == 0 && atEOF {
-			return 0, nil, nil
-		}
-		if len(data) < blockSize && atEOF {
-			return len(data), data, nil
-		}
-		for i := len(data) - 1; i >= 0; i-- {
-			if data[i] == '\n' {
-				return i + 1, data[:i+1], nil
-			}
-		}
-		return 0, nil, fmt.Errorf("line too long")
-	})
+	scanner.Split(blockSplitFunc)
 	var wg sync.WaitGroup
 	var loopErr error
 	for scanner.Scan() {
@@ -308,6 +292,7 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 			block, err := pfsutil.PutBlock(d.driveClient, bytes.NewReader(data))
 			if err != nil && loopErr == nil {
 				loopErr = err
+				return
 			}
 			blockRef.Block = block
 		}()
@@ -316,6 +301,9 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	if err := scanner.Err(); err != nil {
 		return err
 	}
+	if loopErr != nil {
+		return loopErr
+	}
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	diffInfo, ok = d.started.get(&drive.Diff{
@@ -323,6 +311,8 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 		Shard:  shard,
 	})
 	if !ok {
+		// This is a weird case since the commit existed above, it means someone
+		// deleted the commit while the above code was running
 		return fmt.Errorf("commit %s/%s not found", file.Commit.Repo.Name, file.Commit.Id)
 	}
 	blockRefsMsg, ok := diffInfo.Appends[file.Path]
@@ -349,15 +339,17 @@ func (d *driver) GetFile(file *pfs.File, shard uint64) (drive.ReaderAtCloser, er
 			Shard:  shard,
 		})
 		if !ok {
-			return nil, fmt.Errorf("file %s/%s/%s not found", file.Commit.Repo.Name, file.Commit.Id, file.Path)
+			continue
 		}
-		blockRefs = append(blockRefs, diffInfo.Appends[file.Path].BlockRef...)
+		if blockRefsMsg, ok := diffInfo.Appends[file.Path]; ok {
+			blockRefs = append(blockRefs, blockRefsMsg.BlockRef...)
+		}
 		commit = diffInfo.ParentCommit
 	}
-	return &fileReader{
-		driveClient: d.driveClient,
-		blockRefs:   blockRefs,
-	}, nil
+	if len(blockRefs) == 0 {
+		return nil, fmt.Errorf("file %s/%s/%s not found", file.Commit.Repo.Name, file.Commit.Id, file.Path)
+	}
+	return newFileReader(d.driveClient, blockRefs), nil
 }
 
 func (d *driver) InspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
@@ -422,11 +414,36 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return result, nil
 }
 
+func blockSplitFunc(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if len(data) < blockSize && !atEOF {
+		return 0, nil, nil
+	}
+	if len(data) == 0 && atEOF {
+		return 0, nil, nil
+	}
+	if len(data) < blockSize && atEOF {
+		return len(data), data, nil
+	}
+	for i := len(data) - 1; i >= 0; i-- {
+		if data[i] == '\n' {
+			return i + 1, data[:i+1], nil
+		}
+	}
+	return 0, nil, fmt.Errorf("line too long")
+}
+
 type fileReader struct {
 	driveClient drive.APIClient
 	blockRefs   []*drive.BlockRef
 	index       int
 	reader      io.Reader
+}
+
+func newFileReader(driveClient drive.APIClient, blockRefs []*drive.BlockRef) *fileReader {
+	return &fileReader{
+		driveClient: driveClient,
+		blockRefs:   blockRefs,
+	}
 }
 
 func (r *fileReader) Read(data []byte) (int, error) {
@@ -435,7 +452,7 @@ func (r *fileReader) Read(data []byte) (int, error) {
 			return 0, io.EOF
 		}
 		var err error
-		r.reader, err = pfsutil.GetBlock(r.driveClient, r.blockRefs[r.index].Block.Hash)
+		r.reader, err = pfsutil.GetBlock(r.driveClient, r.blockRefs[r.index].Block.Hash, 0)
 		if err != nil {
 			return 0, err
 		}
@@ -456,8 +473,30 @@ func (r *fileReader) Read(data []byte) (int, error) {
 	return size, nil
 }
 
-func (r *fileReader) ReadAt(p []byte, off int64) (n int, err error) {
-	return 0, fmt.Errorf("fileReader.ReadAt: unimplemented")
+func (r *fileReader) ReadAt(p []byte, off int64) (int, error) {
+	var read int
+	for _, blockRef := range r.blockRefs {
+		blockSize := int64(blockRef.Range.Upper - blockRef.Range.Lower)
+		if off >= blockSize {
+			off -= blockSize
+			continue
+		}
+		reader, err := pfsutil.GetBlock(r.driveClient, blockRef.Block.Hash, uint64(off))
+		if err != nil {
+			return 0, err
+		}
+		off = 0
+		n, err := reader.Read(p)
+		read += n
+		if err != nil {
+			return read, err
+		}
+		p := p[n:]
+		if len(p) == 0 {
+			break
+		}
+	}
+	return read, nil
 }
 
 func (r *fileReader) Close() error {

@@ -215,7 +215,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			if err != nil {
 				return err
 			}
-			reader, err := pfsutil.GetBlock(apiClient, args[0])
+			reader, err := pfsutil.GetBlock(apiClient, args[0], 0)
 			if err != nil {
 				return err
 			}

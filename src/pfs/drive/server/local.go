@@ -8,26 +8,33 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"go.pedge.io/google-protobuf"
+	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 )
 
 type localAPIServer struct {
+	protorpclog.Logger
 	dir string
 }
 
 func newLocalAPIServer(dir string) *localAPIServer {
-	return &localAPIServer{dir: dir}
+	return &localAPIServer{
+		Logger: protorpclog.NewLogger("pachyderm.pfs.drive.localAPIServer"),
+		dir:    dir,
+	}
 }
 
 func (s *localAPIServer) PutBlock(putBlockServer drive.API_PutBlockServer) (retErr error) {
 	var result *drive.Block
+	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	hash := newHash()
 	tmp, err := ioutil.TempFile(s.tmpDir(), "block")
 	if err != nil {
@@ -62,6 +69,7 @@ func (s *localAPIServer) PutBlock(putBlockServer drive.API_PutBlockServer) (retE
 }
 
 func (s *localAPIServer) GetBlock(request *drive.GetBlockRequest, getBlockServer drive.API_GetBlockServer) (retErr error) {
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	file, err := os.Open(s.blockPath(request.Block))
 	if err != nil {
 		return err
@@ -71,10 +79,14 @@ func (s *localAPIServer) GetBlock(request *drive.GetBlockRequest, getBlockServer
 			retErr = err
 		}
 	}()
+	if _, err := file.Seek(int64(request.OffsetBytes), 0); err != nil {
+		return err
+	}
 	return protostream.WriteToStreamingBytesServer(file, getBlockServer)
 }
 
-func (s *localAPIServer) InspectBlock(ctx context.Context, request *drive.InspectBlockRequest) (*drive.BlockInfo, error) {
+func (s *localAPIServer) InspectBlock(ctx context.Context, request *drive.InspectBlockRequest) (response *drive.BlockInfo, retErr error) {
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	stat, err := os.Stat(s.blockPath(request.Block))
 	if err != nil {
 		return nil, err
@@ -88,11 +100,13 @@ func (s *localAPIServer) InspectBlock(ctx context.Context, request *drive.Inspec
 	}, nil
 }
 
-func (s *localAPIServer) ListBlock(context.Context, *drive.ListBlockRequest) (*drive.BlockInfos, error) {
+func (s *localAPIServer) ListBlock(ctx context.Context, request *drive.ListBlockRequest) (response *drive.BlockInfos, retErr error) {
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (s *localAPIServer) CreateDiff(ctx context.Context, request *drive.CreateDiffRequest) (_ *google_protobuf.Empty, retErr error) {
+func (s *localAPIServer) CreateDiff(ctx context.Context, request *drive.CreateDiffRequest) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	data, err := proto.Marshal(&drive.DiffInfo{
 		Diff:         request.Diff,
 		ParentCommit: request.ParentCommit,
@@ -108,11 +122,13 @@ func (s *localAPIServer) CreateDiff(ctx context.Context, request *drive.CreateDi
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (s *localAPIServer) InspectDiff(ctx context.Context, request *drive.InspectDiffRequest) (*drive.DiffInfo, error) {
+func (s *localAPIServer) InspectDiff(ctx context.Context, request *drive.InspectDiffRequest) (response *drive.DiffInfo, retErr error) {
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return s.readDiff(request.Diff)
 }
 
-func (s *localAPIServer) ListDiff(request *drive.ListDiffRequest, listDiffServer drive.API_ListDiffServer) error {
+func (s *localAPIServer) ListDiff(request *drive.ListDiffRequest, listDiffServer drive.API_ListDiffServer) (retErr error) {
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	if err := filepath.Walk(s.diffDir(), func(path string, info os.FileInfo, err error) error {
 		diff := s.pathToDiff(path)
 		if diff == nil {
@@ -135,7 +151,8 @@ func (s *localAPIServer) ListDiff(request *drive.ListDiffRequest, listDiffServer
 	return nil
 }
 
-func (s *localAPIServer) DeleteDiff(ctx context.Context, request *drive.DeleteDiffRequest) (*google_protobuf.Empty, error) {
+func (s *localAPIServer) DeleteDiff(ctx context.Context, request *drive.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return google_protobuf.EmptyInstance, os.Remove(s.diffPath(request.Diff))
 }
 
