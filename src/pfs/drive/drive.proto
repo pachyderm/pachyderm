@@ -46,9 +46,9 @@ message DiffInfo {
   // Appends is the BlockRefs which have been append to files indexed by path.
   map<string, BlockRefs> appends = 3;
   // LastRefs is the last diff which references a file indexed by path.
-  map<string, Diff> last_refs = 4;
+  map<string, pfs.Commit> last_refs = 4;
   // NewPaths contains files added in this diff, sorted by path.
-  repeated string new_paths = 5;
+  repeated string new_files = 5;
 }
 
 message GetBlockRequest {
@@ -68,10 +68,10 @@ message CreateDiffRequest {
   pfs.Commit parent_commit = 2;
   // Appends is the BlockRefs which have been append to files indexed by path.
   map<string, BlockRefs> appends = 3;
-  // LastRefs is the last diff which references a file indexed by path.
-  map<string, Diff> last_refs = 4;
+  // LastRefs is the last commit which references a file indexed by path.
+  map<string, pfs.Commit> last_refs = 4;
   // NewPaths contains files added in this diff, sorted by path.
-  repeated string new_paths = 5;
+  repeated string new_files = 5;
 }
 
 message InspectDiffRequest {

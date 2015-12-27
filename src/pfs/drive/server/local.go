@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -123,9 +124,12 @@ func (s *localAPIServer) CreateDiff(ctx context.Context, request *drive.CreateDi
 		ParentCommit: request.ParentCommit,
 		Appends:      request.Appends,
 		LastRefs:     request.LastRefs,
-		NewPaths:     request.NewPaths,
+		NewFiles:     request.NewFiles,
 	})
 	if err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(path.Dir(s.diffPath(request.Diff)), 0777); err != nil {
 		return nil, err
 	}
 	if err := ioutil.WriteFile(s.diffPath(request.Diff), data, 0666); err != nil {
