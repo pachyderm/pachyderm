@@ -3,6 +3,7 @@ package testing
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"testing"
 
@@ -36,6 +37,7 @@ func RunTest(
 	t *testing.T,
 	f func(*testing.T, pfs.APIClient, Cluster),
 ) {
+	log.SetFlags(log.Llongfile)
 	discoveryClient, err := getEtcdClient()
 	require.NoError(t, err)
 	var cluster *cluster
@@ -193,7 +195,8 @@ func newCluster(tb testing.TB, discoveryClient discovery.Client, servers map[str
 		testShardsPerServer*testNumServers,
 		testNumReplicas,
 	)
-	driveServer := drive_server.NewLocalAPIServer("/var/pfs")
+	driveServer, err := drive_server.NewLocalAPIServer("/pfs")
+	require.NoError(tb, err)
 	localServer := grpcutil.NewLocalServer()
 	drive.RegisterAPIServer(localServer.Server(), driveServer)
 	go func() {
