@@ -15,7 +15,6 @@ import (
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
-	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -174,63 +173,29 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	}
 	var wg sync.WaitGroup
 	var lock sync.Mutex
-	var commitInfos [][]*pfs.CommitInfo
+	var commitInfos []*pfs.CommitInfo
 	var loopErr error
 	for _, clientConn := range clientConns {
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
 			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).ListCommit(ctx, request)
-			lock.Lock()
-			defer lock.Unlock()
 			if err != nil {
-				loopErr = err
+				if loopErr == nil {
+					loopErr = err
+				}
 				return
 			}
-			commitInfos = append(commitInfos, subCommitInfos.CommitInfo)
+			lock.Lock()
+			defer lock.Unlock()
+			commitInfos = append(commitInfos, subCommitInfos.CommitInfo...)
 		}(clientConn)
 	}
 	wg.Wait()
 	if loopErr != nil {
 		return nil, loopErr
 	}
-	idToCommitInfo := make(map[string]*pfs.CommitInfo)
-	idToSeenCount := make(map[string]int)
-	for _, subCommitInfos := range commitInfos {
-		for _, subCommitInfo := range subCommitInfos {
-			idToSeenCount[subCommitInfo.Commit.Id] = idToSeenCount[subCommitInfo.Commit.Id] + 1
-			commitInfo, ok := idToCommitInfo[subCommitInfo.Commit.Id]
-			if !ok {
-				idToCommitInfo[subCommitInfo.Commit.Id] = subCommitInfo
-				continue
-			}
-			if commitInfo.CommitType != pfs.CommitType_COMMIT_TYPE_READ {
-				commitInfo.CommitType = subCommitInfo.CommitType
-			}
-			if prototime.TimestampToTime(subCommitInfo.Started).Before(prototime.TimestampToTime(commitInfo.Started)) {
-				commitInfo.Started = subCommitInfo.Started
-			}
-			if commitInfo.Finished != nil {
-				if subCommitInfo.Finished == nil {
-					commitInfo.Finished = nil
-				} else if prototime.TimestampToTime(subCommitInfo.Finished).After(prototime.TimestampToTime(commitInfo.Finished)) {
-					commitInfo.Finished = subCommitInfo.Finished
-				}
-			}
-			commitInfo.CommitBytes += subCommitInfo.CommitBytes
-			commitInfo.TotalBytes += subCommitInfo.TotalBytes
-		}
-	}
-	var result []*pfs.CommitInfo
-	for _, subCommitInfos := range commitInfos {
-		for _, commitInfo := range subCommitInfos {
-			if idToSeenCount[commitInfo.Commit.Id] == len(commitInfos) {
-				result = append(result, idToCommitInfo[commitInfo.Commit.Id])
-			}
-		}
-		break
-	}
-	return &pfs.CommitInfos{CommitInfo: result}, nil
+	return &pfs.CommitInfos{CommitInfo: reduce(commitInfos)}, nil
 }
 
 func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *google_protobuf.Empty, retErr error) {
