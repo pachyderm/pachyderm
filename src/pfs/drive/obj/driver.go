@@ -357,28 +357,25 @@ func (d *driver) ListFile(file *pfs.File, shard uint64) ([]*pfs.FileInfo, error)
 	defer d.lock.RUnlock()
 	fileInfos := make(map[string]*pfs.FileInfo)
 	commit := file.Commit
-CommitLoop:
 	for commit != nil {
 		diffInfo, _ := d.finished.get(&drive.Diff{
 			Commit: commit,
 			Shard:  shard,
 		})
+		commit = diffInfo.ParentCommit
 		for _, path := range diffInfo.NewFiles[sort.SearchStrings(diffInfo.NewFiles, file.Path):] {
 			if path = relevantPath(file, path); path != "" {
 				if _, ok := fileInfos[path]; ok {
 					continue
 				}
 				fileInfo, err := d.inspectFile(&pfs.File{
-					Commit: commit,
-					Path:   file.Path,
+					Commit: diffInfo.Diff.Commit,
+					Path:   path,
 				}, shard)
 				if err != nil {
 					return nil, err
 				}
 				fileInfos[path] = fileInfo
-				if path == file.Path {
-					break CommitLoop
-				}
 			}
 		}
 	}
