@@ -12,7 +12,6 @@ import (
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
-	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 
@@ -178,12 +177,11 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 			return nil, err
 		}
 		for commitInfo := range commitChan {
-			protolog.Printf("gotCommitInfo: %+v", commitInfo)
 			commitInfos = append(commitInfos, commitInfo)
 		}
 	}
 	return &pfs.CommitInfos{
-		CommitInfo: commitInfos,
+		CommitInfo: reduce(commitInfos),
 	}, nil
 }
 
@@ -700,7 +698,6 @@ func (a *internalAPIServer) registerCommitWaiter(request *pfs.ListCommitRequest,
 	// have at least one response.
 	a.commitWaitersLock.Lock()
 	defer a.commitWaitersLock.Unlock()
-	protolog.Printf("registerCommitWaiter repo: %s, commitType: %s", request.Repo.Name, request.CommitType.String())
 	// We need to redo the call to ListCommit because commits may have been
 	// created between then and now.
 	commitInfos, err := a.filteredListCommits(request.Repo, request.From, request.CommitType, shards)
@@ -715,7 +712,6 @@ func (a *internalAPIServer) registerCommitWaiter(request *pfs.ListCommitRequest,
 			close(outChan)
 		}()
 	}
-	protolog.Printf("actually registering waiter repo: %s, commitType: %s", request.Repo.Name, request.CommitType.String())
 	key := commitWait{*request.Repo, request.CommitType}
 	a.commitWaiters[key] =
 		append(a.commitWaiters[key], outChan)
@@ -725,7 +721,6 @@ func (a *internalAPIServer) registerCommitWaiter(request *pfs.ListCommitRequest,
 func (a *internalAPIServer) pulseCommitWaiters(commit *pfs.Commit, commitType pfs.CommitType, shards map[uint64]bool) error {
 	a.commitWaitersLock.Lock()
 	defer a.commitWaitersLock.Unlock()
-	protolog.Printf("pulseCommitWaiters repo: %s, commitID %s, commitType: %s", commit.Repo.Name, commit.Id, commitType.String())
 	commitInfo, err := a.driver.InspectCommit(commit, shards)
 	if err != nil {
 		return err
@@ -733,7 +728,6 @@ func (a *internalAPIServer) pulseCommitWaiters(commit *pfs.Commit, commitType pf
 	key := commitWait{*commit.Repo, commitType}
 	commitWaiters := a.commitWaiters[key]
 	for _, commitWaiter := range commitWaiters {
-		protolog.Printf("pulseCommitWait: %+v", key)
 		commitWaiter <- commitInfo
 		close(commitWaiter)
 	}
