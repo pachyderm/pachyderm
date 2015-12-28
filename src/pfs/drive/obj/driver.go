@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"path"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -334,20 +336,9 @@ func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
 func (d *driver) GetFile(file *pfs.File, shard uint64) (drive.ReaderAtCloser, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	var blockRefs []*drive.BlockRef
-	commit := file.Commit
-	for commit != nil {
-		diffInfo, ok := d.finished.get(&drive.Diff{
-			Commit: commit,
-			Shard:  shard,
-		})
-		if !ok {
-			continue
-		}
-		if blockRefsMsg, ok := diffInfo.Appends[file.Path]; ok {
-			blockRefs = append(blockRefs, blockRefsMsg.BlockRef...)
-		}
-		commit = diffInfo.ParentCommit
+	blockRefs, isDir := d.fileBlockRefsOrDir(file, shard)
+	if isDir {
+		return nil, fmt.Errorf("file %s/%s/%s is directory", file.Commit.Repo.Name, file.Commit.Id, file.Path)
 	}
 	if len(blockRefs) == 0 {
 		return nil, fmt.Errorf("file %s/%s/%s not found", file.Commit.Repo.Name, file.Commit.Id, file.Path)
@@ -356,11 +347,62 @@ func (d *driver) GetFile(file *pfs.File, shard uint64) (drive.ReaderAtCloser, er
 }
 
 func (d *driver) InspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
-	return nil, nil
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	return d.inspectFile(file, shard)
 }
 
 func (d *driver) ListFile(file *pfs.File, shard uint64) ([]*pfs.FileInfo, error) {
-	return nil, nil
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	fileInfos := make(map[string]*pfs.FileInfo)
+	commit := file.Commit
+CommitLoop:
+	for commit != nil {
+		diffInfo, _ := d.finished.get(&drive.Diff{
+			Commit: commit,
+			Shard:  shard,
+		})
+		for _, path := range diffInfo.NewFiles[sort.SearchStrings(diffInfo.NewFiles, file.Path):] {
+			if path = relevantPath(file, path); path != "" {
+				if _, ok := fileInfos[path]; ok {
+					continue
+				}
+				fileInfo, err := d.inspectFile(&pfs.File{
+					Commit: commit,
+					Path:   file.Path,
+				}, shard)
+				if err != nil {
+					return nil, err
+				}
+				fileInfos[path] = fileInfo
+				if path == file.Path {
+					break CommitLoop
+				}
+			}
+		}
+	}
+	var result []*pfs.FileInfo
+	for _, fileInfo := range fileInfos {
+		result = append(result, fileInfo)
+	}
+	return result, nil
+}
+
+func relevantPath(file *pfs.File, foundPath string) string {
+	if foundPath == file.Path {
+		return foundPath
+	}
+	if strings.HasPrefix(foundPath, file.Path+"/") {
+		return path.Join(
+			file.Path,
+			strings.Split(
+				strings.TrimPrefix(foundPath, file.Path+"/"),
+				"/",
+			)[0],
+		)
+	}
+	return ""
 }
 
 func (d *driver) ListChange(file *pfs.File, from *pfs.Commit, shard uint64) ([]*pfs.Change, error) {
@@ -413,6 +455,44 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 			break
 		}
 		return nil, fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
+	}
+	return result, nil
+}
+
+func (d *driver) fileBlockRefsOrDir(file *pfs.File, shard uint64) (_ []*drive.BlockRef, isDir bool) {
+	var result []*drive.BlockRef
+	commit := file.Commit
+	for commit != nil {
+		diffInfo, _ := d.finished.get(&drive.Diff{
+			Commit: commit,
+			Shard:  shard,
+		})
+		if blockRefsMsg, ok := diffInfo.Appends[file.Path]; ok {
+			result = append(blockRefsMsg.BlockRef, result...)
+		} else if strings.HasPrefix(diffInfo.NewFiles[sort.SearchStrings(diffInfo.NewFiles, file.Path)], file.Path+"/") {
+			return nil, true
+		}
+		if lastRef, ok := diffInfo.LastRefs[file.Path]; ok {
+			commit = lastRef
+			continue
+		}
+		commit = diffInfo.ParentCommit
+	}
+	return result, false
+}
+
+func (d *driver) inspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
+	result := &pfs.FileInfo{File: file}
+	blockRefs, isDir := d.fileBlockRefsOrDir(file, shard)
+	if isDir {
+		result.FileType = pfs.FileType_FILE_TYPE_DIR
+	}
+	if len(blockRefs) == 0 {
+		return nil, fmt.Errorf("file %s/%s/%s not found", file.Commit.Repo.Name, file.Commit.Id, file.Path)
+	}
+	result.FileType = pfs.FileType_FILE_TYPE_REGULAR
+	for _, blockRef := range blockRefs {
+		result.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
 	}
 	return result, nil
 }
