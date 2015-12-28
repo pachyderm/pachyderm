@@ -145,7 +145,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 				listCommitRequest := &pfs.ListCommitRequest{
 					Repo:       inputRepo,
 					CommitType: pfs.CommitType_COMMIT_TYPE_READ,
-					From:       lastCommit,
+					FromCommit: []*pfs.Commit{lastCommit},
 					Block:      true,
 				}
 				commitInfos, err := a.pfsAPIClient.ListCommit(ctx, listCommitRequest)

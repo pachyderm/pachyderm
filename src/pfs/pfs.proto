@@ -144,7 +144,7 @@ message InspectCommitRequest {
 message ListCommitRequest {
   Repo repo = 1;
   CommitType commit_type = 2;
-  Commit from = 3;
+  repeated Commit from_commit = 3;
   bool block = 4;
 }
 

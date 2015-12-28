@@ -145,8 +145,8 @@ func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, cluster Cluster
 		Name: repoName,
 	}
 	listCommitRequest := &pfs.ListCommitRequest{
-		Repo: repo,
-		From: baseCommit,
+		Repo:       repo,
+		FromCommit: []*pfs.Commit{baseCommit},
 	}
 	commitInfos, err := apiClient.ListCommit(
 		context.Background(),

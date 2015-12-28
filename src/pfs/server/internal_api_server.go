@@ -167,7 +167,7 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 	if err != nil {
 		return nil, err
 	}
-	commitInfos, err := a.filteredListCommits(request.Repo, request.From, request.CommitType, shards)
+	commitInfos, err := a.filteredListCommits(request.Repo, request.FromCommit, request.CommitType, shards)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 		}
 	}
 	return &pfs.CommitInfos{
-		CommitInfo: reduce(commitInfos),
+		CommitInfo: pfs.Reduce(commitInfos),
 	}, nil
 }
 
@@ -700,7 +700,7 @@ func (a *internalAPIServer) registerCommitWaiter(request *pfs.ListCommitRequest,
 	defer a.commitWaitersLock.Unlock()
 	// We need to redo the call to ListCommit because commits may have been
 	// created between then and now.
-	commitInfos, err := a.filteredListCommits(request.Repo, request.From, request.CommitType, shards)
+	commitInfos, err := a.filteredListCommits(request.Repo, request.FromCommit, request.CommitType, shards)
 	if err != nil {
 		return err
 	}
@@ -745,19 +745,31 @@ func (a *internalAPIServer) pulseCommitWaiters(commit *pfs.Commit, commitType pf
 	return nil
 }
 
-func (a *internalAPIServer) filteredListCommits(repo *pfs.Repo, from *pfs.Commit, commitType pfs.CommitType, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
-	commitInfos, err := a.driver.ListCommit(repo, from, shards)
+func (a *internalAPIServer) filteredListCommits(repo *pfs.Repo, fromCommit []*pfs.Commit, commitType pfs.CommitType, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+	commitInfos, err := a.driver.ListCommit(repo, nil, shards)
 	if err != nil {
 		return nil, err
 	}
-	if commitType != pfs.CommitType_COMMIT_TYPE_NONE {
-		var filtered []*pfs.CommitInfo
-		for _, commitInfo := range commitInfos {
-			if commitInfo.CommitType == commitType {
-				filtered = append(filtered, commitInfo)
+	exclude := make(map[string]bool)
+	for _, commit := range fromCommit {
+		for commit != nil {
+			exclude[commit.Id] = true
+			commitInfo, err := a.driver.InspectCommit(commit, shards)
+			if err != nil {
+				return nil, err
 			}
+			commit = commitInfo.ParentCommit
 		}
-		commitInfos = filtered
 	}
-	return commitInfos, nil
+	var filtered []*pfs.CommitInfo
+	for _, commitInfo := range commitInfos {
+		if commitType != pfs.CommitType_COMMIT_TYPE_NONE && commitInfo.CommitType != commitType {
+			continue
+		}
+		if exclude[commitInfo.Commit.Id] {
+			continue
+		}
+		filtered = append(filtered, commitInfo)
+	}
+	return filtered, nil
 }
