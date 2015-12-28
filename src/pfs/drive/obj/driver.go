@@ -431,29 +431,39 @@ func (d *driver) inspectRepo(repo *pfs.Repo, shard uint64) (*pfs.RepoInfo, error
 }
 
 func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
-	result := &pfs.CommitInfo{
-		Commit: commit,
-	}
+	var commitInfos []*pfs.CommitInfo
 	for shard := range shards {
 		if diffInfo, ok := d.finished.get(&drive.Diff{
 			Commit: commit,
 			Shard:  shard,
 		}); ok {
-			result.CommitType = pfs.CommitType_COMMIT_TYPE_READ
-			result.ParentCommit = diffInfo.ParentCommit
-			break
+			commitInfos = append(commitInfos,
+				&pfs.CommitInfo{
+					Commit:       commit,
+					CommitType:   pfs.CommitType_COMMIT_TYPE_READ,
+					ParentCommit: diffInfo.ParentCommit,
+				})
 		}
 		if diffInfo, ok := d.started.get(&drive.Diff{
 			Commit: commit,
 			Shard:  shard,
 		}); ok {
-			result.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
-			result.ParentCommit = diffInfo.ParentCommit
-			break
+			commitInfos = append(commitInfos,
+				&pfs.CommitInfo{
+					Commit:       commit,
+					CommitType:   pfs.CommitType_COMMIT_TYPE_WRITE,
+					ParentCommit: diffInfo.ParentCommit,
+				})
 		}
+	}
+	commitInfo := pfs.Reduce(commitInfos)
+	if len(commitInfo) < 1 {
 		return nil, fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
 	}
-	return result, nil
+	if len(commitInfo) > 1 {
+		return nil, fmt.Errorf("multiple commitInfos, (this is likely a bug)")
+	}
+	return commitInfo[0], nil
 }
 
 func (d *driver) fileBlockRefsOrDir(file *pfs.File, shard uint64) (_ []*drive.BlockRef, isDir bool) {
