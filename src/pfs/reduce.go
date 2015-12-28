@@ -1,24 +1,20 @@
-package server
+package pfs
 
-import (
-	"github.com/pachyderm/pachyderm/src/pfs"
-)
-
-func reduce(commitInfos []*pfs.CommitInfo) []*pfs.CommitInfo {
-	reducedCommitInfos := make(map[string]*pfs.CommitInfo)
+func Reduce(commitInfos []*CommitInfo) []*CommitInfo {
+	reducedCommitInfos := make(map[string]*CommitInfo)
 	for _, commitInfo := range commitInfos {
 		reducedCommitInfo, ok := reducedCommitInfos[commitInfo.Commit.Id]
 		if !ok {
 			reducedCommitInfos[commitInfo.Commit.Id] = commitInfo
 			continue
 		}
-		if commitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_WRITE {
-			reducedCommitInfo.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
+		if commitInfo.CommitType == CommitType_COMMIT_TYPE_WRITE {
+			reducedCommitInfo.CommitType = CommitType_COMMIT_TYPE_WRITE
 		}
 		reducedCommitInfo.CommitBytes += commitInfo.CommitBytes
 		reducedCommitInfo.TotalBytes += commitInfo.TotalBytes
 	}
-	var result []*pfs.CommitInfo
+	var result []*CommitInfo
 	for _, commitInfo := range reducedCommitInfos {
 		result = append(result, commitInfo)
 	}

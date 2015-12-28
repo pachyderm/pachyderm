@@ -195,7 +195,7 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	if loopErr != nil {
 		return nil, loopErr
 	}
-	return &pfs.CommitInfos{CommitInfo: reduce(commitInfos)}, nil
+	return &pfs.CommitInfos{CommitInfo: pfs.Reduce(commitInfos)}, nil
 }
 
 func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *google_protobuf.Empty, retErr error) {

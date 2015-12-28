@@ -505,7 +505,7 @@ func (m *InspectCommitRequest) GetCommit() *Commit {
 type ListCommitRequest struct {
 	Repo       *Repo      `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 	CommitType CommitType `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
-	From       *Commit    `protobuf:"bytes,3,opt,name=from" json:"from,omitempty"`
+	FromCommit []*Commit  `protobuf:"bytes,3,rep,name=from_commit" json:"from_commit,omitempty"`
 	Block      bool       `protobuf:"varint,4,opt,name=block" json:"block,omitempty"`
 }
 
@@ -520,9 +520,9 @@ func (m *ListCommitRequest) GetRepo() *Repo {
 	return nil
 }
 
-func (m *ListCommitRequest) GetFrom() *Commit {
+func (m *ListCommitRequest) GetFromCommit() []*Commit {
 	if m != nil {
-		return m.From
+		return m.FromCommit
 	}
 	return nil
 }
