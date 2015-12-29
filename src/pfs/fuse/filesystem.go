@@ -347,7 +347,7 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
-	commitInfos, err := pfsutil.ListCommit(d.fs.apiClient, d.File.Commit.Repo.Name)
+	commitInfos, err := pfsutil.ListCommit(d.fs.apiClient, []string{d.File.Commit.Repo.Name})
 	if err != nil {
 		return nil, err
 	}

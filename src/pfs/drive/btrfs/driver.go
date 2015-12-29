@@ -287,7 +287,7 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return result, nil
 }
 
-func (d *driver) ListCommit(repo *pfs.Repo, from []*pfs.Commit, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListCommit(repos []*pfs.Repo, from []*pfs.Commit, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	//TODO this buffer might get too big
 	var buffer bytes.Buffer
@@ -295,6 +295,8 @@ func (d *driver) ListCommit(repo *pfs.Repo, from []*pfs.Commit, shards map[uint6
 	if len(from) > 0 {
 		fromCommit = d.commitPathNoShard(from[0])
 	}
+	// hack city
+	repo := repos[0]
 	if err := execSubvolumeList(d.repoPath(repo), fromCommit, false, &buffer); err != nil {
 		return nil, err
 	}
