@@ -17,9 +17,8 @@ func CreateJobRequest() *pps.CreateJobRequest {
 				Id:   "10cf676b626044f9a405235bf7660959",
 			},
 		},
-		OutputParent: &pfs.Commit{
-			Repo: &pfs.Repo{Name: "out_repo"},
-			Id:   "a951ca06cfda4377b8ffaa050d1074df",
+		ParentJob: &pps.Job{
+			Id: "a951ca06cfda4377b8ffaa050d1074df",
 		},
 	}
 }

@@ -41,7 +41,7 @@ type JobInfo struct {
 	PipelineName string                      `protobuf:"bytes,3,opt,name=pipeline_name" json:"pipeline_name,omitempty"`
 	Shards       uint64                      `protobuf:"varint,4,opt,name=shards" json:"shards,omitempty"`
 	InputCommit  []*pfs.Commit               `protobuf:"bytes,5,rep,name=input_commit" json:"input_commit,omitempty"`
-	OutputParent *pfs.Commit                 `protobuf:"bytes,6,opt,name=output_parent" json:"output_parent,omitempty"`
+	ParentJob    *pachyderm_pps.Job          `protobuf:"bytes,6,opt,name=parent_job" json:"parent_job,omitempty"`
 	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,7,opt,name=created_at" json:"created_at,omitempty"`
 }
 
@@ -63,9 +63,9 @@ func (m *JobInfo) GetInputCommit() []*pfs.Commit {
 	return nil
 }
 
-func (m *JobInfo) GetOutputParent() *pfs.Commit {
+func (m *JobInfo) GetParentJob() *pachyderm_pps.Job {
 	if m != nil {
-		return m.OutputParent
+		return m.ParentJob
 	}
 	return nil
 }

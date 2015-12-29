@@ -18,7 +18,7 @@ func CreateJob(
 	stdin string,
 	shards uint64,
 	inputCommit []*pfs.Commit,
-	outputParent *pfs.Commit,
+	parentJob *pps.Job,
 ) (*pps.Job, error) {
 	return client.CreateJob(
 		context.Background(),
@@ -28,9 +28,9 @@ func CreateJob(
 				Cmd:   cmd,
 				Stdin: stdin,
 			},
-			Shards:       shards,
-			InputCommit:  inputCommit,
-			OutputParent: outputParent,
+			Shards:      shards,
+			InputCommit: inputCommit,
+			ParentJob:   parentJob,
 		},
 	)
 }

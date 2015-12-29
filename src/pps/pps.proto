@@ -60,7 +60,7 @@ message CreateJobRequest {
   Pipeline pipeline = 2;
   uint64 shards = 3;
   repeated pfs.Commit input_commit = 4;
-  pfs.Commit output_parent = 5;
+  Job parent_job = 5;
 }
 
 message InspectJobRequest {
