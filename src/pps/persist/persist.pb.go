@@ -43,6 +43,7 @@ type JobInfo struct {
 	InputCommit  []*pfs.Commit               `protobuf:"bytes,5,rep,name=input_commit" json:"input_commit,omitempty"`
 	ParentJob    *pachyderm_pps.Job          `protobuf:"bytes,6,opt,name=parent_job" json:"parent_job,omitempty"`
 	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,7,opt,name=created_at" json:"created_at,omitempty"`
+	CommitIndex  string                      `protobuf:"bytes,8,opt,name=commit_index" json:"commit_index,omitempty"`
 }
 
 func (m *JobInfo) Reset()         { *m = JobInfo{} }

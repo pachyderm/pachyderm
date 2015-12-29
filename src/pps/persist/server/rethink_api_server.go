@@ -1,6 +1,7 @@
 package server
 
 import (
+	"sort"
 	"time"
 
 	"go.pedge.io/google-protobuf"
@@ -12,6 +13,7 @@ import (
 	"github.com/dancannon/gorethink"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
@@ -130,8 +132,7 @@ func InitDBs(address string, databaseName string) error {
 		func(row gorethink.Term) interface{} {
 			return []interface{}{
 				row.Field("pipeline_name"),
-				row.Field("input_commit").Field("repo").Field("name"),
-				row.Field("input_commit").Field("id"),
+				row.Field("input_index"),
 			}
 		}).RunWrite(session); err != nil {
 		return err
@@ -139,10 +140,7 @@ func InitDBs(address string, databaseName string) error {
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
 		inputIndex,
 		func(row gorethink.Term) interface{} {
-			return []interface{}{
-				row.Field("input_commit").Field("repo").Field("name"),
-				row.Field("input_commit").Field("id"),
-			}
+			return row.Field("input_index")
 		}).RunWrite(session); err != nil {
 		return err
 	}
@@ -177,6 +175,7 @@ func (a *rethinkAPIServer) Close() error {
 // timestamp cannot be set
 func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.JobInfo) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	request.CommitIndex = commitIndex(request.InputCommit)
 	if err := a.insertMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}
@@ -203,9 +202,9 @@ func (a *rethinkAPIServer) GetJobInfosByPipeline(ctx context.Context, request *p
 	if err != nil {
 		return nil, err
 	}
-	jobInfos := make([]*persist.JobInfo, len(jobInfoObjs))
-	for i, jobInfoObj := range jobInfoObjs {
-		jobInfos[i] = jobInfoObj.(*persist.JobInfo)
+	var jobInfos []*persist.JobInfo
+	for _, jobInfoObj := range jobInfoObjs {
+		jobInfos = append(jobInfos, jobInfoObj.(*persist.JobInfo))
 	}
 	sortJobInfosByTimestampDesc(jobInfos)
 	return &persist.JobInfos{
@@ -216,20 +215,20 @@ func (a *rethinkAPIServer) GetJobInfosByPipeline(ctx context.Context, request *p
 func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJobRequest) (response *persist.JobInfos, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	query := a.getTerm(jobInfosTable)
-	if request.Pipeline != nil && request.Input != nil {
+	if request.Pipeline != nil && len(request.InputCommit) > 0 {
 		query = query.GetAllByIndex(
 			pipelineNameAndInputIndex,
-			gorethink.Expr([]string{request.Pipeline.Name, request.Input.Repo.Name, request.Input.Id}),
+			gorethink.Expr([]interface{}{request.Pipeline.Name, commitIndex(request.InputCommit)}),
 		)
 	} else if request.Pipeline != nil {
 		query = query.GetAllByIndex(
 			pipelineNameIndex,
 			request.Pipeline.Name,
 		)
-	} else if request.Input != nil {
+	} else if len(request.InputCommit) > 0 {
 		query = query.GetAllByIndex(
 			inputIndex,
-			gorethink.Expr([]string{request.Input.Repo.Name, request.Input.Id}),
+			gorethink.Expr(commitIndex(request.InputCommit)),
 		)
 	}
 	jobInfoObjs, err := a.getAllMessages(
@@ -425,4 +424,17 @@ func processMultipleCursor(
 
 func rethinkToJSON(row gorethink.Term) interface{} {
 	return row.ToJSON()
+}
+
+func commitIndex(commits []*pfs.Commit) string {
+	var commitIDs []string
+	for _, commit := range commits {
+		commitIDs = append(commitIDs, commit.Id[0:10])
+	}
+	sort.Strings(commitIDs)
+	var result []byte
+	for _, commitID := range commitIDs {
+		result = append(result, commitID...)
+	}
+	return string(result)
 }

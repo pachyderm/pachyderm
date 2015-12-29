@@ -161,7 +161,8 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 			if commitInfo.ParentCommit != nil {
 				delete(repoToBranches[commitInfo.ParentCommit.Repo.Name], commitInfo.ParentCommit.Id)
 			}
-			commitSets := [][]*pfs.Commit{{commitInfo.Commit}}
+			// generate all the pemrutations of branches we could use this commit with
+			commitSets := [][]*pfs.Commit{[]*pfs.Commit{}}
 			for repoName, branches := range repoToBranches {
 				if repoName == commitInfo.Commit.Repo.Name {
 					continue
@@ -186,7 +187,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 					// TODO is this actually the right policy? maybe we should run with empty commits
 					continue
 				}
-				parentJob, err := a.parentJob(pipelineInfo, commitInfo)
+				parentJob, err := a.parentJob(ctx, pipelineInfo, commitSet, commitInfo)
 				if err != nil {
 					return err
 				}
@@ -205,9 +206,25 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 			}
 		}
 	}
-	return nil
 }
 
-func (a *apiServer) parentJob(pipelineInfo *pps.PipelineInfo, inputCommitInfo *pfs.CommitInfo) (*pps.Job, error) {
-	return nil, nil
+func (a *apiServer) parentJob(
+	ctx context.Context,
+	pipelineInfo *pps.PipelineInfo,
+	commitSet []*pfs.Commit,
+	newCommit *pfs.CommitInfo,
+) (*pps.Job, error) {
+	jobInfo, err := a.jobAPIClient.ListJob(
+		ctx,
+		&pps.ListJobRequest{
+			Pipeline:    pipelineInfo.Pipeline,
+			InputCommit: append(commitSet, newCommit.ParentCommit),
+		})
+	if err != nil {
+		return nil, err
+	}
+	if len(jobInfo.JobInfo) == 0 {
+		return nil, nil
+	}
+	return jobInfo.JobInfo[0].Job, nil
 }
