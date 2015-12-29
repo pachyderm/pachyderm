@@ -162,7 +162,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			if err != nil {
 				return err
 			}
-			commitInfos, err := pfsutil.ListCommit(apiClient, args[0])
+			commitInfos, err := pfsutil.ListCommit(apiClient, args)
 			if err != nil {
 				return err
 			}

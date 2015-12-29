@@ -503,7 +503,7 @@ func (m *InspectCommitRequest) GetCommit() *Commit {
 }
 
 type ListCommitRequest struct {
-	Repo       *Repo      `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
+	Repo       []*Repo    `protobuf:"bytes,1,rep,name=repo" json:"repo,omitempty"`
 	CommitType CommitType `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
 	FromCommit []*Commit  `protobuf:"bytes,3,rep,name=from_commit" json:"from_commit,omitempty"`
 	Block      bool       `protobuf:"varint,4,opt,name=block" json:"block,omitempty"`
@@ -513,7 +513,7 @@ func (m *ListCommitRequest) Reset()         { *m = ListCommitRequest{} }
 func (m *ListCommitRequest) String() string { return proto.CompactTextString(m) }
 func (*ListCommitRequest) ProtoMessage()    {}
 
-func (m *ListCommitRequest) GetRepo() *Repo {
+func (m *ListCommitRequest) GetRepo() []*Repo {
 	if m != nil {
 		return m.Repo
 	}

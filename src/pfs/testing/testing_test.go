@@ -77,7 +77,7 @@ func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, newCommitInfo.CommitType)
 	require.Nil(t, newCommitInfo.ParentCommit)
 
-	commitInfos, err := pfsutil.ListCommit(apiClient, repoName)
+	commitInfos, err := pfsutil.ListCommit(apiClient, []string{repoName})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	require.Equal(t, newCommitInfo.Commit, commitInfos[0].Commit)
@@ -145,7 +145,7 @@ func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, cluster Cluster
 		Name: repoName,
 	}
 	listCommitRequest := &pfs.ListCommitRequest{
-		Repo:       repo,
+		Repo:       []*pfs.Repo{repo},
 		FromCommit: []*pfs.Commit{baseCommit},
 	}
 	commitInfos, err := apiClient.ListCommit(

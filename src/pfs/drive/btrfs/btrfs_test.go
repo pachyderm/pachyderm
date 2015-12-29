@@ -104,7 +104,7 @@ func TestCommitReordering(t *testing.T) {
 	require.NoError(t, driver1.FinishCommit(commit3, shards))
 	require.NoError(t, driver1.FinishCommit(commit2, shards))
 
-	commitInfos, err := driver1.ListCommit(repo, nil, shards)
+	commitInfos, err := driver1.ListCommit([]*pfs.Repo{repo}, nil, shards)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 	require.Equal(t, commitInfos[0].Commit.Id, "commit3")
@@ -123,7 +123,7 @@ func TestCommitReordering(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, driver1.PullDiff(commit2, 0, &buffer))
 	require.NoError(t, driver2.PushDiff(commit2, 0, &buffer))
-	commitInfos, err = driver2.ListCommit(repo, nil, shards)
+	commitInfos, err = driver2.ListCommit([]*pfs.Repo{repo}, nil, shards)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 	require.Equal(t, commitInfos[0].Commit.Id, "commit2")
