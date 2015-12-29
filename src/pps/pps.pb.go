@@ -273,8 +273,8 @@ func (m *InspectJobRequest) GetJob() *Job {
 }
 
 type ListJobRequest struct {
-	Pipeline *Pipeline   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
-	Input    *pfs.Commit `protobuf:"bytes,2,opt,name=input" json:"input,omitempty"`
+	Pipeline    *Pipeline     `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	InputCommit []*pfs.Commit `protobuf:"bytes,2,rep,name=input_commit" json:"input_commit,omitempty"`
 }
 
 func (m *ListJobRequest) Reset()         { *m = ListJobRequest{} }
@@ -288,9 +288,9 @@ func (m *ListJobRequest) GetPipeline() *Pipeline {
 	return nil
 }
 
-func (m *ListJobRequest) GetInput() *pfs.Commit {
+func (m *ListJobRequest) GetInputCommit() []*pfs.Commit {
 	if m != nil {
-		return m.Input
+		return m.InputCommit
 	}
 	return nil
 }

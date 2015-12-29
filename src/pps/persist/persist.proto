@@ -17,6 +17,7 @@ message JobInfo {
   repeated pfs.Commit input_commit = 5;
   pps.Job parent_job = 6;
   google.protobuf.Timestamp created_at = 7;
+  string commit_index = 8;
 }
 
 message JobInfos {
