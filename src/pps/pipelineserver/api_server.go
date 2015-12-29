@@ -130,96 +130,82 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 	a.lock.Lock()
 	a.cancelFuncs[*pipelineInfo.Pipeline] = cancel
 	a.lock.Unlock()
-	var loopErr error
 	repoToBranches := make(map[string]map[string]bool)
-	var lock sync.Mutex
-	var wg sync.WaitGroup
 	for _, inputRepo := range pipelineInfo.InputRepo {
-		lock.Lock()
 		repoToBranches[inputRepo.Name] = make(map[string]bool)
-		lock.Unlock()
-		inputRepo := inputRepo
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for {
-				var fromCommit []*pfs.Commit
-				lock.Lock()
-				for branch := range repoToBranches {
-					fromCommit = append(
-						fromCommit,
-						&pfs.Commit{
-							Repo: inputRepo,
+	}
+	for {
+		var fromCommits []*pfs.Commit
+		for repo, branches := range repoToBranches {
+			for branch := range branches {
+				fromCommits = append(
+					fromCommits,
+					&pfs.Commit{
+						Repo: &pfs.Repo{Name: repo},
+						Id:   branch,
+					})
+			}
+		}
+		listCommitRequest := &pfs.ListCommitRequest{
+			Repo:       pipelineInfo.InputRepo,
+			CommitType: pfs.CommitType_COMMIT_TYPE_READ,
+			FromCommit: fromCommits,
+			Block:      true,
+		}
+		commitInfos, err := a.pfsAPIClient.ListCommit(ctx, listCommitRequest)
+		if err != nil {
+			return err
+		}
+		for _, commitInfo := range commitInfos.CommitInfo {
+			repoToBranches[commitInfo.Commit.Repo.Name][commitInfo.Commit.Id] = true
+			if commitInfo.ParentCommit != nil {
+				delete(repoToBranches[commitInfo.ParentCommit.Repo.Name], commitInfo.ParentCommit.Id)
+			}
+			commitSets := [][]*pfs.Commit{{commitInfo.Commit}}
+			for repoName, branches := range repoToBranches {
+				if repoName == commitInfo.Commit.Repo.Name {
+					continue
+				}
+				var newCommitSets [][]*pfs.Commit
+				for _, commitSet := range commitSets {
+					for branch := range branches {
+						newCommitSet := make([]*pfs.Commit, len(commitSet)+1)
+						copy(newCommitSet, commitSet)
+						newCommitSet[len(commitSet)] = &pfs.Commit{
+							Repo: &pfs.Repo{Name: repoName},
 							Id:   branch,
-						})
-				}
-				lock.Unlock()
-				listCommitRequest := &pfs.ListCommitRequest{
-					Repo:       []*pfs.Repo{inputRepo},
-					CommitType: pfs.CommitType_COMMIT_TYPE_READ,
-					FromCommit: fromCommit,
-					Block:      true,
-				}
-				commitInfos, err := a.pfsAPIClient.ListCommit(ctx, listCommitRequest)
-				if err != nil && loopErr == nil {
-					loopErr = err
-					return
-				}
-				for _, commitInfo := range commitInfos.CommitInfo {
-					lock.Lock()
-					repoToBranches[inputRepo.Name][commitInfo.Commit.Id] = true
-					if commitInfo.ParentCommit != nil {
-						delete(repoToBranches[inputRepo.Name], commitInfo.ParentCommit.Id)
+						}
+						newCommitSets = append(newCommitSets, newCommitSet)
 					}
-					var commitSets [][]*pfs.Commit
-					commitSets = append(commitSets, []*pfs.Commit{commitInfo.Commit})
-					for repoName, branches := range repoToBranches {
-						if repoName == commitInfo.Commit.Repo.Name {
-							continue
-						}
-						var newCommitSets [][]*pfs.Commit
-						for _, commitSet := range commitSets {
-							for branch := range branches {
-								newCommitSet := make([]*pfs.Commit, len(commitSet)+1)
-								copy(newCommitSet, commitSet)
-								newCommitSet[len(commitSet)] = &pfs.Commit{
-									Repo: inputRepo,
-									Id:   branch,
-								}
-								newCommitSets = append(newCommitSets, newCommitSet)
-							}
-						}
-						commitSets = newCommitSets
-					}
-					lock.Unlock()
-					for _, commitSet := range commitSets {
-						if len(commitSet) < len(pipelineInfo.InputRepo) {
-							// we don't yet have a commit for every input repo so there's no way to run the job
-							// TODO is this actually the right policy? maybe we should run with empty commits
-							continue
-						}
-						outParentCommit, err := a.bestParent(pipelineInfo, commitInfo)
-						if err != nil && loopErr == nil {
-							loopErr = err
-							return
-						}
-						_, err = a.jobAPIClient.CreateJob(
-							ctx,
-							&pps.CreateJobRequest{
-								Transform:    pipelineInfo.Transform,
-								Pipeline:     pipelineInfo.Pipeline,
-								Shards:       pipelineInfo.Shards,
-								InputCommit:  commitSet,
-								OutputParent: outParentCommit,
-							},
-						)
-					}
+				}
+				commitSets = newCommitSets
+			}
+			for _, commitSet := range commitSets {
+				if len(commitSet) < len(pipelineInfo.InputRepo) {
+					// we don't yet have a commit for every input repo so there's no way to run the job
+					// TODO is this actually the right policy? maybe we should run with empty commits
+					continue
+				}
+				outParentCommit, err := a.bestParent(pipelineInfo, commitInfo)
+				if err != nil {
+					return err
+				}
+				if _, err = a.jobAPIClient.CreateJob(
+					ctx,
+					&pps.CreateJobRequest{
+						Transform:    pipelineInfo.Transform,
+						Pipeline:     pipelineInfo.Pipeline,
+						Shards:       pipelineInfo.Shards,
+						InputCommit:  commitSet,
+						OutputParent: outParentCommit,
+					},
+				); err != nil {
+					return err
 				}
 			}
-		}()
+		}
 	}
-	wg.Wait()
-	return loopErr
+	return nil
 }
 
 func (a *apiServer) bestParent(pipelineInfo *pps.PipelineInfo, inputCommitInfo *pfs.CommitInfo) (*pfs.Commit, error) {
