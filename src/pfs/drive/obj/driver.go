@@ -71,12 +71,15 @@ type driver struct {
 	driveClient drive.APIClient
 	started     diffMap
 	finished    diffMap
-	lock        sync.RWMutex
+	// branches indexes commits with no children
+	branches diffMap
+	lock     sync.RWMutex
 }
 
 func newDriver(driveClient drive.APIClient) (drive.Driver, error) {
 	return &driver{
 		driveClient,
+		make(diffMap),
 		make(diffMap),
 		make(diffMap),
 		sync.RWMutex{},
@@ -91,6 +94,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo) error {
 	}
 	d.finished[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
 	d.started[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
+	d.branches[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
 	return nil
 }
 
@@ -160,6 +164,15 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[
 		if err := d.started.insert(diffInfo); err != nil {
 			return err
 		}
+		if err := d.branches.insert(diffInfo); err != nil {
+			return err
+		}
+		if parent != nil {
+			d.branches.pop(&drive.Diff{
+				Commit: parent,
+				Shard:  shard,
+			})
+		}
 	}
 	return nil
 }
@@ -217,7 +230,11 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return d.inspectCommit(commit, shards)
 }
 
-func (d *driver) ListCommit(repo *pfs.Repo, from *pfs.Commit, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListCommit(repo *pfs.Repo, fromCommit []*pfs.Commit, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+	breakCommitIds := make(map[string]bool)
+	for _, commit := range fromCommit {
+		breakCommitIds[commit.Id] = true
+	}
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	var result []*pfs.CommitInfo
@@ -225,22 +242,20 @@ func (d *driver) ListCommit(repo *pfs.Repo, from *pfs.Commit, shards map[uint64]
 		if _, err := d.inspectRepo(repo, shard); err != nil {
 			return nil, err
 		}
-		commit := &pfs.Commit{Repo: repo}
-		for commitID := range d.finished[repo.Name][shard] {
-			commit.Id = commitID
-			commitInfo, err := d.inspectCommit(commit, shards)
-			if err != nil {
-				return nil, err
+		for commitID := range d.branches[repo.Name][shard] {
+			commit := &pfs.Commit{
+				Repo: repo,
+				Id:   commitID,
 			}
-			result = append(result, commitInfo)
-		}
-		for commitID := range d.started[repo.Name][shard] {
-			commit.Id = commitID
-			commitInfo, err := d.inspectCommit(commit, shards)
-			if err != nil {
-				return nil, err
+			for commit != nil && !breakCommitIds[commit.Id] {
+				// we add this commit to breakCommitIds so we won't see it twice
+				breakCommitIds[commit.Id] = true
+				commitInfo, err := d.inspectCommit(commit, shards)
+				if err != nil {
+					return nil, err
+				}
+				result = append(result, commitInfo)
 			}
-			result = append(result, commitInfo)
 		}
 	}
 	return result, nil
