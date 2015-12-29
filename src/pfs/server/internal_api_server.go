@@ -746,27 +746,13 @@ func (a *internalAPIServer) pulseCommitWaiters(commit *pfs.Commit, commitType pf
 }
 
 func (a *internalAPIServer) filteredListCommits(repo *pfs.Repo, fromCommit []*pfs.Commit, commitType pfs.CommitType, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
-	commitInfos, err := a.driver.ListCommit(repo, nil, shards)
+	commitInfos, err := a.driver.ListCommit(repo, fromCommit, shards)
 	if err != nil {
 		return nil, err
-	}
-	exclude := make(map[string]bool)
-	for _, commit := range fromCommit {
-		for commit != nil {
-			exclude[commit.Id] = true
-			commitInfo, err := a.driver.InspectCommit(commit, shards)
-			if err != nil {
-				return nil, err
-			}
-			commit = commitInfo.ParentCommit
-		}
 	}
 	var filtered []*pfs.CommitInfo
 	for _, commitInfo := range commitInfos {
 		if commitType != pfs.CommitType_COMMIT_TYPE_NONE && commitInfo.CommitType != commitType {
-			continue
-		}
-		if exclude[commitInfo.Commit.Id] {
 			continue
 		}
 		filtered = append(filtered, commitInfo)
