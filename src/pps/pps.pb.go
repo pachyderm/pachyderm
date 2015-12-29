@@ -218,11 +218,11 @@ func (m *PipelineInfos) GetPipelineInfo() []*PipelineInfo {
 }
 
 type CreateJobRequest struct {
-	Transform    *Transform    `protobuf:"bytes,1,opt,name=transform" json:"transform,omitempty"`
-	Pipeline     *Pipeline     `protobuf:"bytes,2,opt,name=pipeline" json:"pipeline,omitempty"`
-	Shards       uint64        `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
-	InputCommit  []*pfs.Commit `protobuf:"bytes,4,rep,name=input_commit" json:"input_commit,omitempty"`
-	OutputParent *pfs.Commit   `protobuf:"bytes,5,opt,name=output_parent" json:"output_parent,omitempty"`
+	Transform   *Transform    `protobuf:"bytes,1,opt,name=transform" json:"transform,omitempty"`
+	Pipeline    *Pipeline     `protobuf:"bytes,2,opt,name=pipeline" json:"pipeline,omitempty"`
+	Shards      uint64        `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
+	InputCommit []*pfs.Commit `protobuf:"bytes,4,rep,name=input_commit" json:"input_commit,omitempty"`
+	ParentJob   *Job          `protobuf:"bytes,5,opt,name=parent_job" json:"parent_job,omitempty"`
 }
 
 func (m *CreateJobRequest) Reset()         { *m = CreateJobRequest{} }
@@ -250,9 +250,9 @@ func (m *CreateJobRequest) GetInputCommit() []*pfs.Commit {
 	return nil
 }
 
-func (m *CreateJobRequest) GetOutputParent() *pfs.Commit {
+func (m *CreateJobRequest) GetParentJob() *Job {
 	if m != nil {
-		return m.OutputParent
+		return m.ParentJob
 	}
 	return nil
 }

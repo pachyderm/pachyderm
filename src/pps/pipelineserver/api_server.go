@@ -186,18 +186,18 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 					// TODO is this actually the right policy? maybe we should run with empty commits
 					continue
 				}
-				outParentCommit, err := a.bestParent(pipelineInfo, commitInfo)
+				parentJob, err := a.parentJob(pipelineInfo, commitInfo)
 				if err != nil {
 					return err
 				}
 				if _, err = a.jobAPIClient.CreateJob(
 					ctx,
 					&pps.CreateJobRequest{
-						Transform:    pipelineInfo.Transform,
-						Pipeline:     pipelineInfo.Pipeline,
-						Shards:       pipelineInfo.Shards,
-						InputCommit:  commitSet,
-						OutputParent: outParentCommit,
+						Transform:   pipelineInfo.Transform,
+						Pipeline:    pipelineInfo.Pipeline,
+						Shards:      pipelineInfo.Shards,
+						InputCommit: commitSet,
+						ParentJob:   parentJob,
 					},
 				); err != nil {
 					return err
@@ -208,36 +208,6 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 	return nil
 }
 
-func (a *apiServer) bestParent(pipelineInfo *pps.PipelineInfo, inputCommitInfo *pfs.CommitInfo) (*pfs.Commit, error) {
-	for {
-		jobInfos, err := a.jobAPIClient.ListJob(
-			context.Background(),
-			&pps.ListJobRequest{
-				Pipeline: pipelineInfo.Pipeline,
-				Input:    inputCommitInfo.Commit,
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-		// newest to oldest assumed
-		for _, jobInfo := range jobInfos.JobInfo {
-			if jobInfo.OutputCommit != nil {
-				outputCommitInfo, err := a.pfsAPIClient.InspectCommit(context.TODO(), &pfs.InspectCommitRequest{Commit: jobInfo.OutputCommit})
-				if err != nil {
-					return nil, err
-				}
-				if outputCommitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_READ {
-					return outputCommitInfo.Commit, nil
-				}
-			}
-		}
-		if inputCommitInfo.ParentCommit == nil {
-			return &pfs.Commit{Repo: pipelineInfo.OutputRepo}, nil
-		}
-		inputCommitInfo, err = a.pfsAPIClient.InspectCommit(context.TODO(), &pfs.InspectCommitRequest{Commit: inputCommitInfo.ParentCommit})
-		if err != nil {
-			return nil, err
-		}
-	}
+func (a *apiServer) parentJob(pipelineInfo *pps.PipelineInfo, inputCommitInfo *pfs.CommitInfo) (*pps.Job, error) {
+	return nil, nil
 }
