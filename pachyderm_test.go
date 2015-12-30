@@ -23,28 +23,26 @@ import (
 func TestJob(t *testing.T) {
 	t.Skip()
 	dataRepo := uniqueString("TestJob.data")
-	outRepo := uniqueString("TestJob.output")
 	pfsClient := getPfsClient(t)
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, outRepo))
 	commit, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
 	require.NoError(t, err)
 	_, err = pfsutil.PutFile(pfsClient, dataRepo, commit.Id, "file", 0, strings.NewReader("foo"))
 	require.NoError(t, err)
 	require.NoError(t, pfsutil.FinishCommit(pfsClient, dataRepo, commit.Id))
 	ppsClient := getPpsClient(t)
-	_, err = ppsutil.CreateJob(
+	job, err := ppsutil.CreateJob(
 		ppsClient,
 		"",
-		[]string{"cp", path.Join("/pfs", dataRepo, "file"), path.Join("/pfs", outRepo, "file")},
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		"",
 		1,
 		[]*pfs.Commit{commit},
-		&pfs.Commit{Repo: &pfs.Repo{Name: outRepo}},
+		"",
 	)
 	require.NoError(t, err)
 	listCommitRequest := &pfs.ListCommitRequest{
-		Repo:       &pfs.Repo{Name: outRepo},
+		Repo:       []*pfs.Repo{pps.JobRepo(job)},
 		CommitType: pfs.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
 	}
@@ -56,17 +54,15 @@ func TestJob(t *testing.T) {
 	outCommits := listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	var buffer bytes.Buffer
-	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
+	require.NoError(t, pfsutil.GetFile(pfsClient, pps.JobRepo(job).Name, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foo", buffer.String())
 }
 
 func TestGrep(t *testing.T) {
 	t.Skip()
 	dataRepo := uniqueString("pachyderm.TestGrep.data")
-	outRepo := uniqueString("pachyderm.TestGrep.output")
 	pfsClient := getPfsClient(t)
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, outRepo))
 	commit, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
 	require.NoError(t, err)
 	for i := 0; i < 100; i++ {
@@ -79,10 +75,10 @@ func TestGrep(t *testing.T) {
 		ppsClient,
 		"",
 		[]string{"sh"},
-		fmt.Sprintf("grep foo /pfs/%s/* >/pfs/%s/foo", dataRepo, outRepo),
+		fmt.Sprintf("grep foo /pfs/%s/* >/pfs/out/foo", dataRepo),
 		1,
 		[]*pfs.Commit{commit},
-		&pfs.Commit{Repo: &pfs.Repo{Name: outRepo}},
+		"",
 	)
 	require.NoError(t, err)
 }
@@ -92,19 +88,18 @@ func TestPipeline(t *testing.T) {
 	ppsClient := getPpsClient(t)
 	// create repos
 	dataRepo := uniqueString("TestPipeline.data")
-	outRepo := uniqueString("TestPipeline.output")
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, outRepo))
 	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	outRepo := pps.PipelineRepo(ppsutil.NewPipeline(pipelineName))
 	require.NoError(t, ppsutil.CreatePipeline(
 		ppsClient,
-		uniqueString("pipeline"),
+		pipelineName,
 		"",
-		[]string{"cp", path.Join("/pfs", dataRepo, "file"), path.Join("/pfs", outRepo, "file")},
+		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		"",
 		1,
 		[]*pfs.Repo{&pfs.Repo{Name: dataRepo}},
-		&pfs.Repo{Name: outRepo},
 	))
 	// Do first commit to repo
 	log.Printf("Do first commit.")
@@ -114,7 +109,7 @@ func TestPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, pfsutil.FinishCommit(pfsClient, dataRepo, commit1.Id))
 	listCommitRequest := &pfs.ListCommitRequest{
-		Repo:       &pfs.Repo{Name: outRepo},
+		Repo:       []*pfs.Repo{outRepo},
 		CommitType: pfs.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
 	}
@@ -126,7 +121,7 @@ func TestPipeline(t *testing.T) {
 	outCommits := listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	var buffer bytes.Buffer
-	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
+	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo.Name, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foo", buffer.String())
 	// Do second commit to repo
 	log.Printf("Do second commit.")
@@ -136,8 +131,8 @@ func TestPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, pfsutil.FinishCommit(pfsClient, dataRepo, commit2.Id))
 	listCommitRequest = &pfs.ListCommitRequest{
-		Repo:       &pfs.Repo{Name: outRepo},
-		From:       commit1,
+		Repo:       []*pfs.Repo{outRepo},
+		FromCommit: []*pfs.Commit{commit1},
 		CommitType: pfs.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
 	}
@@ -149,7 +144,7 @@ func TestPipeline(t *testing.T) {
 	outCommits = listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	buffer = bytes.Buffer{}
-	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
+	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo.Name, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foobar", buffer.String())
 }
 
@@ -174,5 +169,5 @@ func getPpsClient(t *testing.T) pps.APIClient {
 }
 
 func uniqueString(prefix string) string {
-	return prefix + "." + uuid.NewWithoutDashes()
+	return prefix + "." + uuid.NewWithoutDashes()[0:12]
 }
