@@ -61,11 +61,11 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			return err
 		}
 		w.repos = append(w.repos, &pfs.Repo{Name: repoName})
-		commitID, err := pfsutil.StartCommit(pfsClient, repoName, "")
+		commit, err := pfsutil.StartCommit(pfsClient, repoName, "")
 		if err != nil {
 			return err
 		}
-		w.started = append(w.started, commitID)
+		w.started = append(w.started, commit)
 	case opt < commit:
 		if len(w.started) >= maxStartedCommits {
 			i := w.rand.Intn(len(w.started))
@@ -77,11 +77,11 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			w.finished = append(w.finished, commit)
 		} else {
 			commit := w.finished[w.rand.Intn(len(w.finished))]
-			commitID, err := pfsutil.StartCommit(pfsClient, commit.Repo.Name, commit.Id)
+			commit, err := pfsutil.StartCommit(pfsClient, commit.Repo.Name, commit.Id)
 			if err != nil {
 				return err
 			}
-			w.started = append(w.started, commitID)
+			w.started = append(w.started, commit)
 		}
 	case opt < file:
 		commit := w.started[w.rand.Intn(len(w.started))]
@@ -125,7 +125,8 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 		pipelineName := w.name()
 		outFilename := w.name()
 		if err := ppsutil.CreatePipeline(
-			ppsClient, pipelineName,
+			ppsClient,
+			pipelineName,
 			"",
 			[]string{"sh"},
 			w.grepCmd(inputs, outFilename),
@@ -134,7 +135,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 		); err != nil {
 			return err
 		}
-
+		w.pipelines = append(w.pipelines, ppsutil.NewPipeline(pipelineName))
 	}
 	return nil
 }
