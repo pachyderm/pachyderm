@@ -68,9 +68,6 @@ func newAPIServer(
 
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if request.ParentJob == nil {
-		return nil, fmt.Errorf("pachyderm.pps.jobserver: request.OutputParent cannot be nil")
-	}
 	if request.Shards == 0 {
 		return nil, fmt.Errorf("pachyderm.pps.jobserver: request.Shards cannot be 0")
 	}
@@ -153,12 +150,27 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 		return nil, fmt.Errorf("job %s already has %d shards", request.Job.Id, jobInfo.Shards)
 	}
 	if shard == 0 {
-		parentJobOutput, err := a.persistAPIClient.GetJobOutput(ctx, jobInfo.ParentJob)
-		if err != nil {
-			return nil, err
+		var parentCommit *pfs.Commit
+		if jobInfo == nil {
+			var repo *pfs.Repo
+			if jobInfo.PipelineName == "" {
+				repo = &pfs.Repo{Name: fmt.Sprintf("job-%s", request.Job.Id)}
+				if _, err := a.pfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: repo}); err != nil {
+					return nil, err
+				}
+			} else {
+				repo = &pfs.Repo{Name: jobInfo.PipelineName}
+			}
+			parentCommit = &pfs.Commit{Repo: repo}
+		} else {
+			parentJobOutput, err := a.persistAPIClient.GetJobOutput(ctx, jobInfo.ParentJob)
+			if err != nil {
+				return nil, err
+			}
+			parentCommit = parentJobOutput.OutputCommit
 		}
 		commit, err := a.pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-			Parent: parentJobOutput.OutputCommit,
+			Parent: parentCommit,
 		})
 		if err != nil {
 			return nil, err
