@@ -154,12 +154,12 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 		if jobInfo == nil {
 			var repo *pfs.Repo
 			if jobInfo.PipelineName == "" {
-				repo = &pfs.Repo{Name: fmt.Sprintf("job-%s", request.Job.Id)}
+				repo = pps.JobRepo(request.Job)
 				if _, err := a.pfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: repo}); err != nil {
 					return nil, err
 				}
 			} else {
-				repo = &pfs.Repo{Name: jobInfo.PipelineName}
+				repo = pps.PipelineRepo(&pps.Pipeline{Name: jobInfo.PipelineName})
 			}
 			parentCommit = &pfs.Commit{Repo: repo}
 		} else {
