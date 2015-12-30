@@ -96,9 +96,9 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			inputs[i] = w.finished[randI].Repo.Name
 			inputCommits = append(inputCommits, w.finished[randI])
 		}
-		var parentJob *pps.Job
-		if len(w.finished) > 0 {
-			parentJob = w.jobs[w.rand.Intn(len(w.finished))]
+		var parentJobID string
+		if len(w.jobs) > 0 {
+			parentJobID = w.jobs[w.rand.Intn(len(w.jobs))].Id
 		}
 		outFilename := w.name()
 		job, err := ppsutil.CreateJob(
@@ -108,7 +108,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			w.grepCmd(inputs, outFilename),
 			1,
 			inputCommits,
-			parentJob,
+			parentJobID,
 		)
 		if err != nil {
 			return err
@@ -131,7 +131,6 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			w.grepCmd(inputs, outFilename),
 			1,
 			inputRepos,
-			nil,
 		); err != nil {
 			return err
 		}

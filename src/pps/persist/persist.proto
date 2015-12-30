@@ -34,8 +34,7 @@ message PipelineInfo {
   pachyderm.pps.Transform transform = 2;
   uint64 shards = 3;
   repeated pfs.Repo input_repo = 4;
-  pfs.Repo output_repo = 5;
-  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp created_at = 5;
 }
 
 message PipelineInfos {

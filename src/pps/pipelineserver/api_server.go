@@ -65,7 +65,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Transform:    request.Transform,
 		Shards:       request.Shards,
 		InputRepo:    request.InputRepo,
-		OutputRepo:   request.OutputRepo,
 	}
 	if _, err := a.persistAPIClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
@@ -122,10 +121,9 @@ func persistPipelineInfoToPipelineInfo(persistPipelineInfo *persist.PipelineInfo
 		Pipeline: &pps.Pipeline{
 			Name: persistPipelineInfo.PipelineName,
 		},
-		Transform:  persistPipelineInfo.Transform,
-		Shards:     persistPipelineInfo.Shards,
-		InputRepo:  persistPipelineInfo.InputRepo,
-		OutputRepo: persistPipelineInfo.OutputRepo,
+		Transform: persistPipelineInfo.Transform,
+		Shards:    persistPipelineInfo.Shards,
+		InputRepo: persistPipelineInfo.InputRepo,
 	}
 }
 

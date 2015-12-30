@@ -296,11 +296,10 @@ func (m *ListJobRequest) GetInputCommit() []*pfs.Commit {
 }
 
 type CreatePipelineRequest struct {
-	Pipeline   *Pipeline   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
-	Transform  *Transform  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Shards     uint64      `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
-	InputRepo  []*pfs.Repo `protobuf:"bytes,4,rep,name=input_repo" json:"input_repo,omitempty"`
-	OutputRepo *pfs.Repo   `protobuf:"bytes,5,opt,name=output_repo" json:"output_repo,omitempty"`
+	Pipeline  *Pipeline   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Transform *Transform  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	Shards    uint64      `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
+	InputRepo []*pfs.Repo `protobuf:"bytes,4,rep,name=input_repo" json:"input_repo,omitempty"`
 }
 
 func (m *CreatePipelineRequest) Reset()         { *m = CreatePipelineRequest{} }
@@ -324,13 +323,6 @@ func (m *CreatePipelineRequest) GetTransform() *Transform {
 func (m *CreatePipelineRequest) GetInputRepo() []*pfs.Repo {
 	if m != nil {
 		return m.InputRepo
-	}
-	return nil
-}
-
-func (m *CreatePipelineRequest) GetOutputRepo() *pfs.Repo {
-	if m != nil {
-		return m.OutputRepo
 	}
 	return nil
 }
