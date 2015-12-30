@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
+	"github.com/pachyderm/pachyderm/src/pfs/drive/obj"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
@@ -25,7 +26,7 @@ import (
 
 type appEnv struct {
 	DriverRoot  string `env:"PFS_DRIVER_ROOT,required"`
-	DriverType  string `env:"PFS_DRIVER_TYPE,default=btrfs"`
+	DriverType  string `env:"PFS_DRIVER_TYPE,default=obj"`
 	NumShards   uint64 `env:"PFS_NUM_SHARDS,default=16"`
 	NumReplicas uint64 `env:"PFS_NUM_REPLICAS"`
 	Address     string `env:"PFS_ADDRESS"`
@@ -62,6 +63,20 @@ func do(appEnvObj interface{}) error {
 	switch appEnv.DriverType {
 	case "btrfs":
 		driver, err = btrfs.NewDriver(appEnv.DriverRoot, "")
+		if err != nil {
+			return err
+		}
+	case "obj":
+		objdAddress, err := getObjdAddress()
+		if err != nil {
+			return err
+		}
+		clientConn, err := grpc.Dial(objdAddress, grpc.WithInsecure())
+		if err != nil {
+			return err
+		}
+		objAPIClient := drive.NewAPIClient(clientConn)
+		driver, err = obj.NewDriver(objAPIClient)
 		if err != nil {
 			return err
 		}
@@ -136,4 +151,12 @@ func getEtcdAddress() (string, error) {
 		return "", errors.New("ETCD_PORT_2379_TCP_ADDR not set")
 	}
 	return fmt.Sprintf("http://%s:2379", etcdAddr), nil
+}
+
+func getObjdAddress() (string, error) {
+	objdAddr := os.Getenv("OBJD_PORT_652_TCP_ADDR")
+	if objdAddr == "" {
+		return "", errors.New("OBJD_PORT_652_TCP_ADDR not set")
+	}
+	return fmt.Sprintf("%s:652", objdAddr), nil
 }
