@@ -5,8 +5,8 @@
     "name": "pachyderm",
     "creationTimestamp": null,
     "labels": {
-      "app": "",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": ""
     }
   },
   "secrets": null
@@ -18,8 +18,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "etcd"
+      "app": "etcd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -179,8 +179,8 @@
         "name": "rethink",
         "creationTimestamp": null,
         "labels": {
-          "app": "rethink",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "rethink"
         }
       },
       "spec": {
@@ -230,6 +230,118 @@
   },
   "status": {
     "replicas": 0
+  }
+}
+{
+  "kind": "ReplicationController",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "objd",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "objd",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "app": "objd"
+    },
+    "template": {
+      "metadata": {
+        "name": "objd",
+        "creationTimestamp": null,
+        "labels": {
+          "app": "objd",
+          "suite": "pachyderm"
+        }
+      },
+      "spec": {
+        "volumes": [
+          {
+            "name": "obj-disk"
+          }
+        ],
+        "containers": [
+          {
+            "name": "objd",
+            "image": "pachyderm/objd",
+            "ports": [
+              {
+                "name": "api-grpc-port",
+                "containerPort": 652,
+                "protocol": "TCP",
+                "hostIP": "0.0.0.0"
+              },
+              {
+                "name": "api-http-port",
+                "containerPort": 752
+              },
+              {
+                "name": "trace-port",
+                "containerPort": 1052
+              }
+            ],
+            "env": [
+              {
+                "name": "OBJ_ROOT",
+                "value": "/obj"
+              }
+            ],
+            "resources": {},
+            "volumeMounts": [
+              {
+                "name": "obj-disk",
+                "mountPath": "/obj"
+              }
+            ],
+            "imagePullPolicy": ""
+          }
+        ],
+        "serviceAccountName": ""
+      }
+    }
+  },
+  "status": {
+    "replicas": 0
+  }
+}
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "objd",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "objd",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "type": "NodePort",
+    "ports": [
+      {
+        "name": "api-grpc-port",
+        "protocol": "",
+        "port": 652,
+        "targetPort": 0,
+        "nodePort": 0
+      },
+      {
+        "name": "api-http-port",
+        "protocol": "",
+        "port": 752,
+        "targetPort": 0,
+        "nodePort": 0
+      }
+    ],
+    "selector": {
+      "app": "objd"
+    }
+  },
+  "status": {
+    "loadBalancer": {}
   }
 }
 {
@@ -372,8 +484,8 @@
     "name": "ppsd",
     "creationTimestamp": null,
     "labels": {
-      "app": "ppsd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "ppsd"
     }
   },
   "spec": {
@@ -430,8 +542,8 @@
     "name": "ppsd",
     "creationTimestamp": null,
     "labels": {
-      "app": "ppsd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "ppsd"
     }
   },
   "spec": {
@@ -481,8 +593,8 @@
         "name": "roler",
         "creationTimestamp": null,
         "labels": {
-          "app": "roler",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "roler"
         }
       },
       "spec": {

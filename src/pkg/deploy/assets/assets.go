@@ -15,6 +15,7 @@ var (
 	pfsdImage          = "pachyderm/pfsd"
 	rolerImage         = "pachyderm/pfs-roler"
 	ppsdImage          = "pachyderm/ppsd"
+	objdImage          = "pachyderm/objd"
 	btrfsImage         = "pachyderm_btrfs"
 	etcdImage          = "gcr.io/google_containers/etcd:2.0.12"
 	rethinkImage       = "rethinkdb:2.1.5"
@@ -22,6 +23,7 @@ var (
 	pfsdName           = "pfsd"
 	rolerName          = "roler"
 	ppsdName           = "ppsd"
+	objdName           = "objd"
 	etcdName           = "etcd"
 	rethinkName        = "rethink"
 	trueVal            = true
@@ -36,6 +38,101 @@ func ServiceAccount() *api.ServiceAccount {
 		ObjectMeta: api.ObjectMeta{
 			Name:   serviceAccountName,
 			Labels: labels(""),
+		},
+	}
+}
+
+func ObjdRc() *api.ReplicationController {
+	return &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   objdName,
+			Labels: labels(objdName),
+		},
+		Spec: api.ReplicationControllerSpec{
+			Replicas: 1,
+			Selector: map[string]string{
+				"app": objdName,
+			},
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   objdName,
+					Labels: labels(objdName),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  objdName,
+							Image: objdImage,
+							Env: []api.EnvVar{
+								{
+									Name:  "OBJ_ROOT",
+									Value: "/obj",
+								},
+							},
+							Ports: []api.ContainerPort{
+								{
+									ContainerPort: 652,
+									Protocol:      "TCP",
+									HostIP:        "0.0.0.0",
+									Name:          "api-grpc-port",
+								},
+								{
+									ContainerPort: 752,
+									Name:          "api-http-port",
+								},
+								{
+									ContainerPort: 1052,
+									Name:          "trace-port",
+								},
+							},
+							VolumeMounts: []api.VolumeMount{
+								{
+									Name:      "obj-disk",
+									MountPath: "/obj",
+								},
+							},
+						},
+					},
+					Volumes: []api.Volume{
+						{
+							Name: "obj-disk",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func ObjdService() *api.Service {
+	return &api.Service{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   objdName,
+			Labels: labels(objdName),
+		},
+		Spec: api.ServiceSpec{
+			Type: api.ServiceTypeNodePort,
+			Selector: map[string]string{
+				"app": objdName,
+			},
+			Ports: []api.ServicePort{
+				{
+					Port: 652,
+					Name: "api-grpc-port",
+				},
+				{
+					Port: 752,
+					Name: "api-http-port",
+				},
+			},
 		},
 	}
 }
@@ -472,6 +569,11 @@ func WriteAssets(w io.Writer, shards uint64) {
 	RethinkService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	RethinkRc().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+
+	ObjdRc().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+	ObjdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	PfsdRc(uint64(shards)).CodecEncodeSelf(encoder)
