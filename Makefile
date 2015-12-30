@@ -75,13 +75,16 @@ docker-build-pfsd: docker-build-btrfs docker-build-compile
 docker-build-ppsd: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh ppsd
 
+docker-build-objd: docker-build-compile
+	docker-compose run --rm compile sh etc/compile/compile.sh objd 
+
 docker-build-pachctl: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh pachctl
 
 docker-build-job-shim: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh job-shim
 
-docker-build: docker-build-test docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-pachctl docker-build-job-shim
+docker-build: docker-build-test docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-objd docker-build-pachctl docker-build-job-shim
 
 docker-push-test: docker-build-test
 	docker push pachyderm/test
@@ -95,13 +98,16 @@ docker-push-pfsd: docker-build-pfsd
 docker-push-ppsd: docker-build-ppsd
 	docker push pachyderm/ppsd
 
+docker-push-objd: docker-build-objd
+	docker push pachyderm/objd
+
 docker-push-pachctl: docker-build-pachctl
 	docker push pachyderm/pachctl
 
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
 
-docker-push: docker-push-pfs-roler docker-push-ppsd docker-push-pfsd docker-push-pachctl docker-push-job-shim
+docker-push: docker-push-pfs-roler docker-push-ppsd docker-push-objd docker-push-pfsd docker-push-pachctl docker-push-job-shim
 
 run: docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test $(RUNARGS)
@@ -184,6 +190,7 @@ clean: docker-clean-launch clean-launch clean-launch-kube
 	rm -f src/cmd/pfs/pfs-roler
 	rm -f src/cmd/pfsd/pfsd
 	rm -f src/cmd/ppsd/ppsd
+	rm -f src/cmd/objd/objd
 
 .PHONY: \
 	all \
