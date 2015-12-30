@@ -4,8 +4,7 @@ MAINTAINER jdoliner@pachyderm.io
 RUN \
   apt-get update -yq && \
   apt-get install -yq --no-install-recommends \
-    ca-certificates \
-    socat && \
+    ca-certificates && \
   apt-get clean && \
   rm -rf /var/lib/apt
 ADD _tmp/objd /objd
