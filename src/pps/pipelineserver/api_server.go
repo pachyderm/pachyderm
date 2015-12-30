@@ -70,6 +70,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if _, err := a.persistAPIClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
 	}
+	repo := pps.PipelineRepo(request.Pipeline)
+	if _, err := a.pfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: repo}); err != nil {
+		return nil, err
+	}
 	go func() {
 		if err := a.runPipeline(persistPipelineInfoToPipelineInfo(persistPipelineInfo)); err != nil {
 			protolog.Printf("pipeline errored: %s", err.Error())
