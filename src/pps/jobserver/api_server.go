@@ -151,7 +151,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	}
 	if shard == 0 {
 		var parentCommit *pfs.Commit
-		if jobInfo == nil {
+		if jobInfo.ParentJob == nil {
 			var repo *pfs.Repo
 			if jobInfo.PipelineName == "" {
 				repo = pps.JobRepo(request.Job)

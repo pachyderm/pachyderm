@@ -184,14 +184,16 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 				commitSets = newCommitSets
 			}
 			for _, commitSet := range commitSets {
-				if len(commitSet) < len(pipelineInfo.InputRepo) {
-					// we don't yet have a commit for every input repo so there's no way to run the job
-					// TODO is this actually the right policy? maybe we should run with empty commits
+				// + 1 as the commitSet doesn't contain the commit we just got
+				if len(commitSet)+1 < len(pipelineInfo.InputRepo) {
 					continue
 				}
-				parentJob, err := a.parentJob(ctx, pipelineInfo, commitSet, commitInfo)
-				if err != nil {
-					return err
+				var parentJob *pps.Job
+				if commitInfo.ParentCommit != nil {
+					parentJob, err = a.parentJob(ctx, pipelineInfo, append(commitSet, commitInfo.ParentCommit), commitInfo)
+					if err != nil {
+						return err
+					}
 				}
 				if _, err = a.jobAPIClient.CreateJob(
 					ctx,
@@ -199,7 +201,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 						Transform:   pipelineInfo.Transform,
 						Pipeline:    pipelineInfo.Pipeline,
 						Shards:      pipelineInfo.Shards,
-						InputCommit: commitSet,
+						InputCommit: append(commitSet, commitInfo.Commit),
 						ParentJob:   parentJob,
 					},
 				); err != nil {
