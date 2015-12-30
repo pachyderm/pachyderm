@@ -1,6 +1,7 @@
 package workload
 
 import (
+	"fmt"
 	"io"
 	"math/rand"
 
@@ -88,26 +89,50 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			return err
 		}
 	case opt < job:
-		inputs := make([]*pfs.Commit, w.rand.Intn(5))
+		inputs := [5]string{}
+		var inputCommits []*pfs.Commit
 		for i := range inputs {
-			inputs[i] = w.finished[w.rand.Intn(len(w.finished))]
+			randI := w.rand.Intn(len(w.finished))
+			inputs[i] = w.finished[randI].Repo.Name
+			inputCommits = append(inputCommits, w.finished[randI])
 		}
 		var parentJob *pps.Job
 		if len(w.finished) > 0 {
 			parentJob = w.jobs[w.rand.Intn(len(w.finished))]
 		}
-		job, err := ppsutil.CreateJob(ppsClient, "", []string{}, "stdin", 1, inputs, parentJob)
+		outFilename := w.name()
+		job, err := ppsutil.CreateJob(
+			ppsClient,
+			"",
+			[]string{"sh"},
+			w.grepCmd(inputs, outFilename),
+			1,
+			inputCommits,
+			parentJob,
+		)
 		if err != nil {
 			return err
 		}
 		w.jobs = append(w.jobs, job)
 	case opt < pipeline:
-		inputs := make([]*pfs.Repo, w.rand.Intn(5))
+		inputs := [5]string{}
+		var inputRepos []*pfs.Repo
 		for i := range inputs {
-			inputs[i] = w.repos[w.rand.Intn(len(w.repos))]
+			randI := w.rand.Intn(len(w.repos))
+			inputs[i] = w.repos[randI].Name
+			inputRepos = append(inputRepos, w.repos[randI])
 		}
 		pipelineName := w.name()
-		if err := ppsutil.CreatePipeline(ppsClient, pipelineName, "", []string{}, "stdin", 1, inputs, nil); err != nil {
+		outFilename := w.name()
+		if err := ppsutil.CreatePipeline(
+			ppsClient, pipelineName,
+			"",
+			[]string{"sh"},
+			w.grepCmd(inputs, outFilename),
+			1,
+			inputRepos,
+			nil,
+		); err != nil {
 			return err
 		}
 
@@ -134,9 +159,27 @@ func (r *reader) Read(p []byte) (int, error) {
 	for i := range p {
 		p[i] = lettersAndSpaces[r.rand.Intn(len(lettersAndSpaces))]
 	}
+	if rand.Intn(10) == 0 {
+		return len(p), io.EOF
+	}
 	return len(p), nil
 }
 
 func (w *worker) reader() io.Reader {
 	return &reader{w.rand}
+}
+
+func (w *worker) grepCmd(inputs [5]string, outFilename string) string {
+	pattern := make([]byte, 5)
+	_, _ = w.reader().Read(pattern)
+	return fmt.Sprintf(
+		"grep %s /pfs/{%s,%s,%s,%s,%s}/* >/pfs/out/%s",
+		pattern,
+		inputs[0],
+		inputs[1],
+		inputs[2],
+		inputs[3],
+		inputs[4],
+		outFilename,
+	)
 }
