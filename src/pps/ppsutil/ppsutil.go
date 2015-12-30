@@ -11,6 +11,14 @@ import (
 	"golang.org/x/net/context"
 )
 
+func NewJob(jobID string) *pps.Job {
+	return &pps.Job{Id: jobID}
+}
+
+func NewPipeline(pipelineName string) *pps.Pipeline {
+	return &pps.Pipeline{Name: pipelineName}
+}
+
 func CreateJob(
 	client pps.APIClient,
 	image string,
@@ -18,7 +26,7 @@ func CreateJob(
 	stdin string,
 	shards uint64,
 	inputCommit []*pfs.Commit,
-	parentJob *pps.Job,
+	parentJobID string,
 ) (*pps.Job, error) {
 	return client.CreateJob(
 		context.Background(),
@@ -30,7 +38,7 @@ func CreateJob(
 			},
 			Shards:      shards,
 			InputCommit: inputCommit,
-			ParentJob:   parentJob,
+			ParentJob:   NewJob(parentJobID),
 		},
 	)
 }
@@ -43,22 +51,18 @@ func CreatePipeline(
 	stdin string,
 	shards uint64,
 	inputRepo []*pfs.Repo,
-	outputRepo *pfs.Repo,
 ) error {
 	_, err := client.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{
-				Name: name,
-			},
+			Pipeline: NewPipeline(name),
 			Transform: &pps.Transform{
 				Image: image,
 				Cmd:   cmd,
 				Stdin: stdin,
 			},
-			Shards:     shards,
-			InputRepo:  inputRepo,
-			OutputRepo: outputRepo,
+			Shards:    shards,
+			InputRepo: inputRepo,
 		},
 	)
 	return err

@@ -77,7 +77,6 @@ message CreatePipelineRequest {
   Transform transform = 2;
   uint64 shards = 3;
   repeated pfs.Repo input_repo = 4;
-  pfs.Repo output_repo = 5;
 }
 
 message InspectPipelineRequest {

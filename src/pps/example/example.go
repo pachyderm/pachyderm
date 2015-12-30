@@ -35,6 +35,5 @@ func CreatePipelineRequest() *pps.CreatePipelineRequest {
 		InputRepo: []*pfs.Repo{
 			{Name: "in_repo"},
 		},
-		OutputRepo: &pfs.Repo{Name: "out_repo"},
 	}
 }
