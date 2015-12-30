@@ -16,6 +16,31 @@ import (
 
 const chunkSize = 4096
 
+func NewRepo(repoName string) *pfs.Repo {
+	return &pfs.Repo{Name: repoName}
+}
+
+func NewCommit(repoName string, commitID string) *pfs.Commit {
+	return &pfs.Commit{
+		Repo: &pfs.Repo{
+			Name: repoName,
+		},
+		Id: commitID,
+	}
+}
+
+func NewFile(repoName string, commitID string, path string) *pfs.File {
+	return &pfs.File{
+		Commit: &pfs.Commit{
+			Repo: &pfs.Repo{
+				Name: repoName,
+			},
+			Id: commitID,
+		},
+		Path: path,
+	}
+}
+
 func CreateRepo(apiClient pfs.APIClient, repoName string) error {
 	_, err := apiClient.CreateRepo(
 		context.Background(),
