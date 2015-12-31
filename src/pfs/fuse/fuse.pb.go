@@ -9,6 +9,7 @@ It is generated from these files:
 	pfs/fuse/fuse.proto
 
 It has these top-level messages:
+	CommitMount
 	Filesystem
 	Node
 	Attr
@@ -36,9 +37,25 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+type CommitMount struct {
+	Commit *pfs.Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	Alias  string      `protobuf:"bytes,2,opt,name=alias" json:"alias,omitempty"`
+}
+
+func (m *CommitMount) Reset()         { *m = CommitMount{} }
+func (m *CommitMount) String() string { return proto.CompactTextString(m) }
+func (*CommitMount) ProtoMessage()    {}
+
+func (m *CommitMount) GetCommit() *pfs.Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
+
 type Filesystem struct {
-	Shard   *pfs.Shard    `protobuf:"bytes,1,opt,name=shard" json:"shard,omitempty"`
-	Commits []*pfs.Commit `protobuf:"bytes,3,rep,name=commits" json:"commits,omitempty"`
+	Shard        *pfs.Shard     `protobuf:"bytes,1,opt,name=shard" json:"shard,omitempty"`
+	CommitMounts []*CommitMount `protobuf:"bytes,3,rep,name=commit_mounts" json:"commit_mounts,omitempty"`
 }
 
 func (m *Filesystem) Reset()         { *m = Filesystem{} }
@@ -52,16 +69,17 @@ func (m *Filesystem) GetShard() *pfs.Shard {
 	return nil
 }
 
-func (m *Filesystem) GetCommits() []*pfs.Commit {
+func (m *Filesystem) GetCommitMounts() []*CommitMount {
 	if m != nil {
-		return m.Commits
+		return m.CommitMounts
 	}
 	return nil
 }
 
 type Node struct {
-	File  *pfs.File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	Write bool      `protobuf:"varint,2,opt,name=write" json:"write,omitempty"`
+	File      *pfs.File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	RepoAlias string    `protobuf:"bytes,2,opt,name=repo_alias" json:"repo_alias,omitempty"`
+	Write     bool      `protobuf:"varint,3,opt,name=write" json:"write,omitempty"`
 }
 
 func (m *Node) Reset()         { *m = Node{} }
@@ -310,6 +328,7 @@ func (m *FileWrite) GetFile() *Node {
 }
 
 func init() {
+	proto.RegisterType((*CommitMount)(nil), "fuse.CommitMount")
 	proto.RegisterType((*Filesystem)(nil), "fuse.Filesystem")
 	proto.RegisterType((*Node)(nil), "fuse.Node")
 	proto.RegisterType((*Attr)(nil), "fuse.Attr")

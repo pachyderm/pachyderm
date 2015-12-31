@@ -4,14 +4,20 @@ import "pfs/pfs.proto";
 
 package fuse;
 
+message CommitMount {
+    pfs.Commit commit = 1;
+    string alias = 2;
+}
+
 message Filesystem {
   pfs.Shard shard = 1;
-  repeated pfs.Commit commits = 3;
+  repeated CommitMount commit_mounts = 3;
 }
 
 message Node {
   pfs.File file = 1;
-  bool write = 2;
+  string repo_alias = 2;
+  bool write = 3;
 }
 
 message Attr {
