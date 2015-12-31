@@ -28,13 +28,13 @@ type filesystem struct {
 func newFilesystem(
 	apiClient pfs.APIClient,
 	shard *pfs.Shard,
-	commits []*pfs.Commit,
+	commitMounts []*CommitMount,
 ) *filesystem {
 	return &filesystem{
 		apiClient,
 		Filesystem{
 			shard,
-			commits,
+			commitMounts,
 		},
 		make(map[string]uint64),
 		sync.RWMutex{},
@@ -47,12 +47,14 @@ func (f *filesystem) Root() (result fs.Node, retErr error) {
 	}()
 	return &directory{
 		f,
-		Node{&pfs.File{
-			Commit: &pfs.Commit{
-				Repo: &pfs.Repo{},
+		Node{
+			File: &pfs.File{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{},
+				},
 			},
+			RepoAlias: "",
 		},
-			true},
 	}, nil
 }
 
@@ -100,8 +102,9 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 		return d.readRepos(ctx)
 	}
 	if d.File.Commit.Id == "" {
-		if commit, _ := d.fs.whitelisted(d.File.Commit.Repo.Name); commit != "" {
-			d.File.Commit.Id = commit
+		commitMount := d.fs.getCommitMount(d.File.Commit.Repo.Name)
+		if commitMount != nil && commitMount.Commit.Id != "" {
+			d.File.Commit.Id = commitMount.Commit.Id
 			return d.readFiles(ctx)
 		}
 		return d.readCommits(ctx)
@@ -248,21 +251,21 @@ func (d *directory) copy() *directory {
 	}
 }
 
-func (f *filesystem) whitelisted(name string) (commit string, ok bool) {
-	if len(f.Commits) == 0 {
-		return "", true
+func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
+	if len(f.CommitMounts) == 0 {
+		return &CommitMount{Commit: pfsutil.NewCommit(nameOrAlias, "")}
 	}
-	for _, commit := range f.Commits {
-		if commit.Repo.Name == name {
-			return commit.Id, true
+	for _, commitMount := range f.CommitMounts {
+		if commitMount.Commit.Repo.Name == nameOrAlias || commitMount.Alias == nameOrAlias {
+			return commitMount
 		}
 	}
-	return "", false
+	return nil
 }
 
 func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error) {
-	commit, ok := d.fs.whitelisted(name)
-	if !ok {
+	commitMount := d.fs.getCommitMount(name)
+	if commitMount == nil {
 		return nil, fuse.EPERM
 	}
 	repoInfo, err := pfsutil.InspectRepo(d.fs.apiClient, name)
@@ -273,8 +276,9 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 		return nil, fuse.ENOENT
 	}
 	result := d.copy()
-	result.File.Commit.Repo.Name = name
-	result.File.Commit.Id = commit
+	result.File.Commit.Repo.Name = commitMount.Commit.Repo.Name
+	result.File.Commit.Id = commitMount.Commit.Id
+	result.RepoAlias = commitMount.Alias
 	return result, nil
 }
 
@@ -338,9 +342,13 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 	}
 	var result []fuse.Dirent
 	for _, repoInfo := range repoInfos {
-		_, ok := d.fs.whitelisted(repoInfo.Repo.Name)
-		if ok {
-			result = append(result, fuse.Dirent{Name: repoInfo.Repo.Name, Type: fuse.DT_Dir})
+		commitMount := d.fs.getCommitMount(repoInfo.Repo.Name)
+		if commitMount != nil {
+			name := repoInfo.Repo.Name
+			if commitMount.Alias != "" {
+				name = commitMount.Alias
+			}
+			result = append(result, fuse.Dirent{Name: name, Type: fuse.DT_Dir})
 		}
 	}
 	return result, nil

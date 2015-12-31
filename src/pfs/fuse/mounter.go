@@ -29,7 +29,7 @@ func newMounter(address string, apiClient pfs.APIClient) Mounter {
 func (m *mounter) Mount(
 	mountPoint string,
 	shard *pfs.Shard,
-	commits []*pfs.Commit,
+	commitMounts []*CommitMount,
 	ready chan bool,
 ) (retErr error) {
 	var once sync.Once
@@ -65,7 +65,7 @@ func (m *mounter) Mount(
 			close(ready)
 		}
 	})
-	if err := fs.Serve(conn, newFilesystem(m.apiClient, shard, commits)); err != nil {
+	if err := fs.Serve(conn, newFilesystem(m.apiClient, shard, commitMounts)); err != nil {
 		return err
 	}
 	<-conn.Ready

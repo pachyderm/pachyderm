@@ -10,7 +10,7 @@ type Mounter interface {
 	Mount(
 		mountPoint string,
 		shard *pfs.Shard,
-		commits []*pfs.Commit, // nil means mount all commits
+		commitMounts []*CommitMount, // nil means mount all commits
 		ready chan bool,
 	) error
 	// Unmount unmounts a mounted filesystem (duh).
