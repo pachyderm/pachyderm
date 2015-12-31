@@ -268,7 +268,7 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 	if commitMount == nil {
 		return nil, fuse.EPERM
 	}
-	repoInfo, err := pfsutil.InspectRepo(d.fs.apiClient, name)
+	repoInfo, err := pfsutil.InspectRepo(d.fs.apiClient, commitMount.Commit.Repo.Name)
 	if err != nil {
 		return nil, err
 	}
