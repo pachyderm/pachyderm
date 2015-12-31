@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"path"
 	"sort"
 	"strings"
@@ -354,12 +355,12 @@ func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
 func (d *driver) GetFile(file *pfs.File, shard uint64) (drive.ReaderAtCloser, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	blockRefs, isDir := d.fileBlockRefsOrDir(file, shard)
+	blockRefs, isDir, err := d.fileBlockRefsOrDir(file, shard)
+	if err != nil {
+		return nil, err
+	}
 	if isDir {
 		return nil, fmt.Errorf("file %s/%s/%s is directory", file.Commit.Repo.Name, file.Commit.Id, file.Path)
-	}
-	if len(blockRefs) == 0 {
-		return nil, fmt.Errorf("file %s/%s/%s not found", file.Commit.Repo.Name, file.Commit.Id, file.Path)
 	}
 	return newFileReader(d.driveClient, blockRefs), nil
 }
@@ -484,18 +485,23 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return commitInfo[0], nil
 }
 
-func (d *driver) fileBlockRefsOrDir(file *pfs.File, shard uint64) (_ []*drive.BlockRef, isDir bool) {
+func (d *driver) fileBlockRefsOrDir(file *pfs.File, shard uint64) (_ []*drive.BlockRef, isDir bool, _ error) {
 	var result []*drive.BlockRef
 	commit := file.Commit
 	for commit != nil {
-		diffInfo, _ := d.finished.get(&drive.Diff{
+		diffInfo, ok := d.finished.get(&drive.Diff{
 			Commit: commit,
 			Shard:  shard,
 		})
+		log.Printf("fileBlockRefsOrDir\nfile: %+v\ndiffInfo: %+v\n", file, diffInfo)
+		if !ok {
+			return nil, false, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
+		}
+		iNewFile := sort.SearchStrings(diffInfo.NewFiles, file.Path)
 		if blockRefsMsg, ok := diffInfo.Appends[file.Path]; ok {
 			result = append(blockRefsMsg.BlockRef, result...)
-		} else if strings.HasPrefix(diffInfo.NewFiles[sort.SearchStrings(diffInfo.NewFiles, file.Path)], file.Path+"/") {
-			return nil, true
+		} else if len(diffInfo.NewFiles) > iNewFile && strings.HasPrefix(diffInfo.NewFiles[iNewFile], file.Path+"/") {
+			return nil, true, nil
 		}
 		if lastRef, ok := diffInfo.LastRefs[file.Path]; ok {
 			commit = lastRef
@@ -503,17 +509,20 @@ func (d *driver) fileBlockRefsOrDir(file *pfs.File, shard uint64) (_ []*drive.Bl
 		}
 		commit = diffInfo.ParentCommit
 	}
-	return result, false
+	if result == nil {
+		return nil, false, fmt.Errorf("file %s/%s/%s not found", file.Commit.Repo.Name, file.Commit.Id, file.Path)
+	}
+	return result, false, nil
 }
 
 func (d *driver) inspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
 	result := &pfs.FileInfo{File: file}
-	blockRefs, isDir := d.fileBlockRefsOrDir(file, shard)
+	blockRefs, isDir, err := d.fileBlockRefsOrDir(file, shard)
+	if err != nil {
+		return nil, err
+	}
 	if isDir {
 		result.FileType = pfs.FileType_FILE_TYPE_DIR
-	}
-	if len(blockRefs) == 0 {
-		return nil, fmt.Errorf("file %s/%s/%s not found", file.Commit.Repo.Name, file.Commit.Id, file.Path)
 	}
 	result.FileType = pfs.FileType_FILE_TYPE_REGULAR
 	for _, blockRef := range blockRefs {
