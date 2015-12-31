@@ -45,7 +45,7 @@ func newJobState() *jobState {
 type apiServer struct {
 	protorpclog.Logger
 	pfsAPIClient     pfs.APIClient
-	persistAPIClient persist.APIClient
+	persistAPIServer persist.APIServer
 	kubeClient       *kube.Client
 	jobStates        map[string]*jobState
 	lock             sync.Mutex
@@ -53,13 +53,13 @@ type apiServer struct {
 
 func newAPIServer(
 	pfsAPIClient pfs.APIClient,
-	persistAPIClient persist.APIClient,
+	persistAPIServer persist.APIServer,
 	kubeClient *kube.Client,
 ) *apiServer {
 	return &apiServer{
 		protorpclog.NewLogger("pachyderm.pps.JobAPI"),
 		pfsAPIClient,
-		persistAPIClient,
+		persistAPIServer,
 		kubeClient,
 		make(map[string]*jobState),
 		sync.Mutex{},
@@ -86,7 +86,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	if a.kubeClient == nil {
 		return nil, fmt.Errorf("pachyderm.pps.jobserver: no job backend")
 	}
-	_, err := a.persistAPIClient.CreateJobInfo(ctx, persistJobInfo)
+	_, err := a.persistAPIServer.CreateJobInfo(ctx, persistJobInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -100,22 +100,22 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 
 func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.JobInfo, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	persistJobInfo, err := a.persistAPIClient.GetJobInfo(ctx, request.Job)
+	persistJobInfo, err := a.persistAPIServer.GetJobInfo(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
-	return a.persistJobInfoToJobInfo(ctx, persistJobInfo)
+	return newJobInfo(persistJobInfo)
 }
 
 func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	persistJobInfos, err := a.persistAPIClient.ListJobInfos(ctx, request)
+	persistJobInfos, err := a.persistAPIServer.ListJobInfos(ctx, request)
 	if err != nil {
 		return nil, err
 	}
 	jobInfos := make([]*pps.JobInfo, len(persistJobInfos.JobInfo))
 	for i, persistJobInfo := range persistJobInfos.JobInfo {
-		jobInfo, err := a.persistJobInfoToJobInfo(ctx, persistJobInfo)
+		jobInfo, err := newJobInfo(persistJobInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +128,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 
 func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (response *pps.StartJobResponse, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	jobInfo, err := a.persistAPIClient.GetJobInfo(ctx, request.Job)
+	jobInfo, err := a.persistAPIServer.GetJobInfo(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
@@ -163,11 +163,11 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 			}
 			parentCommit = &pfs.Commit{Repo: repo}
 		} else {
-			parentJobOutput, err := a.persistAPIClient.GetJobOutput(ctx, jobInfo.ParentJob)
+			parentJobInfo, err := a.persistAPIServer.GetJobInfo(ctx, jobInfo.ParentJob)
 			if err != nil {
 				return nil, err
 			}
-			parentCommit = parentJobOutput.OutputCommit
+			parentCommit = parentJobInfo.OutputCommit
 		}
 		commit, err := a.pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 			Parent: parentCommit,
@@ -175,7 +175,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 		if err != nil {
 			return nil, err
 		}
-		if _, err := a.persistAPIClient.CreateJobOutput(
+		if _, err := a.persistAPIServer.CreateJobOutput(
 			ctx,
 			&persist.JobOutput{
 				JobId:        request.Job.Id,
@@ -203,7 +203,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 
 func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	jobInfo, err := a.persistAPIClient.GetJobInfo(ctx, request.Job)
+	jobInfo, err := a.persistAPIServer.GetJobInfo(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
@@ -221,16 +221,11 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 		return nil, err
 	}
 	if jobState.finish == jobInfo.Shards {
-		// all of the shards have finished so we finish the commit
-		jobOutput, err := a.persistAPIClient.GetJobOutput(ctx, request.Job)
-		if err != nil {
-			return nil, err
-		}
-		if jobOutput.OutputCommit == nil {
-			return nil, fmt.Errorf("jobOutput.OutputCommit should not be nil (this is likely a bug)")
+		if jobInfo.OutputCommit == nil {
+			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
 		}
 		if _, err := a.pfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-			Commit: jobOutput.OutputCommit,
+			Commit: jobInfo.OutputCommit,
 		}); err != nil {
 			return nil, err
 		}
@@ -238,20 +233,19 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *apiServer) persistJobInfoToJobInfo(ctx context.Context, persistJobInfo *persist.JobInfo) (*pps.JobInfo, error) {
+func newJobInfo(persistJobInfo *persist.JobInfo) (*pps.JobInfo, error) {
 	job := &pps.Job{Id: persistJobInfo.JobId}
-	jobInfo := &pps.JobInfo{
-		Job:         job,
-		Transform:   persistJobInfo.Transform,
-		Pipeline:    &pps.Pipeline{Name: persistJobInfo.PipelineName},
-		Shards:      persistJobInfo.Shards,
-		InputCommit: persistJobInfo.InputCommit,
-	}
-	persistJobOutput, err := a.persistAPIClient.GetJobOutput(ctx, job)
-	if err == nil && persistJobOutput != nil {
-		jobInfo.OutputCommit = persistJobOutput.OutputCommit
-	}
-	return jobInfo, nil
+	return &pps.JobInfo{
+		Job:          job,
+		Transform:    persistJobInfo.Transform,
+		Pipeline:     &pps.Pipeline{Name: persistJobInfo.PipelineName},
+		Shards:       persistJobInfo.Shards,
+		InputCommit:  persistJobInfo.InputCommit,
+		ParentJob:    persistJobInfo.ParentJob,
+		CreatedAt:    persistJobInfo.CreatedAt,
+		OutputCommit: persistJobInfo.OutputCommit,
+		State:        persistJobInfo.State,
+	}, nil
 }
 
 func job(jobInfo *persist.JobInfo) *extensions.Job {

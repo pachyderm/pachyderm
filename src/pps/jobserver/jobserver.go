@@ -14,12 +14,12 @@ type CombinedJobAPIServer interface {
 
 func NewAPIServer(
 	pfsAPIClient pfs.APIClient,
-	persistAPIClient persist.APIClient,
+	persistAPIServer persist.APIServer,
 	client *kube.Client,
 ) CombinedJobAPIServer {
 	return newAPIServer(
 		pfsAPIClient,
-		persistAPIClient,
+		persistAPIServer,
 		client,
 	)
 }

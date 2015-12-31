@@ -37,7 +37,7 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	rethinkAPIClient, err := getRethinkAPIClient(appEnv.DatabaseAddress, appEnv.DatabaseName)
+	rethinkAPIServer, err := getRethinkAPIServer(appEnv.DatabaseAddress, appEnv.DatabaseName)
 	if err != nil {
 		return err
 	}
@@ -56,11 +56,11 @@ func do(appEnvObj interface{}) error {
 	}
 	jobAPIServer := jobserver.NewAPIServer(
 		pfsAPIClient,
-		rethinkAPIClient,
+		rethinkAPIServer,
 		kubeClient,
 	)
 	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
-	pipelineAPIServer := pipelineserver.NewAPIServer(pfsAPIClient, jobAPIClient, rethinkAPIClient)
+	pipelineAPIServer := pipelineserver.NewAPIServer(pfsAPIClient, jobAPIClient, rethinkAPIServer)
 	if err := pipelineAPIServer.Start(); err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func do(appEnvObj interface{}) error {
 	)
 }
 
-func getRethinkAPIClient(address string, databaseName string) (persist.APIClient, error) {
+func getRethinkAPIServer(address string, databaseName string) (persist.APIServer, error) {
 	var err error
 	if address == "" {
 		address, err = getRethinkAddress()
@@ -89,11 +89,7 @@ func getRethinkAPIClient(address string, databaseName string) (persist.APIClient
 	if err := persistserver.InitDBs(address, databaseName); err != nil {
 		return nil, err
 	}
-	rethinkAPIServer, err := persistserver.NewRethinkAPIServer(address, databaseName)
-	if err != nil {
-		return nil, err
-	}
-	return persist.NewLocalAPIClient(rethinkAPIServer), nil
+	return persistserver.NewRethinkAPIServer(address, databaseName)
 }
 
 func getRethinkAddress() (string, error) {

@@ -41,7 +41,6 @@ func RunTest(
 			persistservertesting.RunTestWithRethinkAPIServer(
 				t,
 				func(t *testing.T, persistAPIServer persist.APIServer) {
-					persistAPIClient := persist.NewLocalAPIClient(persistAPIServer)
 					var pipelineAPIServer pipelineserver.APIServer
 					prototest.RunT(
 						t,
@@ -49,14 +48,14 @@ func RunTest(
 						func(servers map[string]*grpc.Server) {
 							jobAPIServer := jobserver.NewAPIServer(
 								pfsAPIClient,
-								persistAPIClient,
+								persistAPIServer,
 								nil,
 							)
 							jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 							pipelineAPIServer = pipelineserver.NewAPIServer(
 								pfsAPIClient,
 								jobAPIClient,
-								persistAPIClient,
+								persistAPIServer,
 							)
 							for _, server := range servers {
 								pps.RegisterJobAPIServer(server, jobAPIServer)

@@ -20,20 +20,11 @@ import (
 
 const (
 	jobInfosTable      Table = "job_infos"
-	jobStatusesTable   Table = "job_statuses"
-	jobOutputsTable    Table = "job_outputs"
-	jobLogsTable       Table = "job_logs"
 	pipelineInfosTable Table = "pipeline_infos"
-
-	idPrimaryKey           PrimaryKey = "id"
-	jobIDPrimaryKey        PrimaryKey = "job_id"
-	pipelineNamePrimaryKey PrimaryKey = "pipeline_name"
 
 	pipelineNameIndex         Index = "pipeline_name"
 	pipelineNameAndInputIndex Index = "pipeline_name_and_input"
 	inputIndex                Index = "input"
-	jobIDIndex                Index = "job_id"
-	typeIndex                 Index = "type"
 )
 
 type Table string
@@ -45,52 +36,20 @@ var (
 
 	tables = []Table{
 		jobInfosTable,
-		jobStatusesTable,
-		jobOutputsTable,
-		jobLogsTable,
 		pipelineInfosTable,
 	}
 
 	tableToTableCreateOpts = map[Table][]gorethink.TableCreateOpts{
 		jobInfosTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
-				PrimaryKey: jobIDPrimaryKey,
-			},
-		},
-		jobStatusesTable: []gorethink.TableCreateOpts{
-			gorethink.TableCreateOpts{
-				PrimaryKey: idPrimaryKey,
-			},
-		},
-		jobOutputsTable: []gorethink.TableCreateOpts{
-			gorethink.TableCreateOpts{
-				PrimaryKey: jobIDPrimaryKey,
-			},
-		},
-		jobLogsTable: []gorethink.TableCreateOpts{
-			gorethink.TableCreateOpts{
-				PrimaryKey: idPrimaryKey,
+				PrimaryKey: "job_id",
 			},
 		},
 		pipelineInfosTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
-				PrimaryKey: pipelineNamePrimaryKey,
+				PrimaryKey: "pipeline_name",
 			},
 		},
-	}
-
-	tableToIndexes = map[Table][]Index{
-		jobInfosTable: []Index{
-			pipelineNameIndex,
-		},
-		jobStatusesTable: []Index{
-			jobIDIndex,
-			typeIndex,
-		},
-		jobLogsTable: []Index{
-			jobIDIndex,
-		},
-		pipelineInfosTable: []Index{},
 	}
 )
 
@@ -120,12 +79,10 @@ func InitDBs(address string, databaseName string) error {
 			}
 		}
 	}
-	for table, indexes := range tableToIndexes {
-		for _, index := range indexes {
-			if _, err := gorethink.DB(databaseName).Table(table).IndexCreate(index).RunWrite(session); err != nil {
-				return err
-			}
-		}
+
+	// Create some indexes for the jobInfosTable
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreate(pipelineNameIndex).RunWrite(session); err != nil {
+		return err
 	}
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
 		pipelineNameAndInputIndex,
@@ -256,21 +213,20 @@ func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *pps.Job) 
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *rethinkAPIServer) CreateJobOutput(ctx context.Context, request *persist.JobOutput) (response *persist.JobOutput, err error) {
+func (a *rethinkAPIServer) CreateJobOutput(ctx context.Context, request *persist.JobOutput) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	if err := a.insertMessage(jobOutputsTable, request); err != nil {
+	if err := a.updateMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}
-	return request, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *rethinkAPIServer) GetJobOutput(ctx context.Context, request *pps.Job) (response *persist.JobOutput, err error) {
+func (a *rethinkAPIServer) CreateJobState(ctx context.Context, request *persist.JobState) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	jobOutput := &persist.JobOutput{}
-	if err := a.getMessageByPrimaryKey(jobOutputsTable, request.Id, jobOutput); err != nil {
+	if err := a.updateMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}
-	return jobOutput, nil
+	return google_protobuf.EmptyInstance, nil
 }
 
 // timestamp cannot be set
@@ -328,6 +284,15 @@ func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) err
 		return err
 	}
 	_, err = a.getTerm(table).Insert(gorethink.JSON(data)).RunWrite(a.session)
+	return err
+}
+
+func (a *rethinkAPIServer) updateMessage(table Table, message proto.Message) error {
+	data, err := marshaller.MarshalToString(message)
+	if err != nil {
+		return err
+	}
+	_, err = a.getTerm(table).Update(gorethink.JSON(data)).RunWrite(a.session)
 	return err
 }
 

@@ -14,11 +14,11 @@ type APIServer interface {
 func NewAPIServer(
 	pfsAPIClient pfs.APIClient,
 	jobAPIClient pps.JobAPIClient,
-	persistAPIClient persist.APIClient,
+	persistAPIServer persist.APIServer,
 ) APIServer {
 	return newAPIServer(
 		pfsAPIClient,
 		jobAPIClient,
-		persistAPIClient,
+		persistAPIServer,
 	)
 }
