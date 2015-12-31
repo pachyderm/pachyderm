@@ -139,10 +139,10 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	return request, nil
 }
 
-func (a *rethinkAPIServer) GetJobInfo(ctx context.Context, request *pps.Job) (response *persist.JobInfo, err error) {
+func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobInfo := &persist.JobInfo{}
-	if err := a.getMessageByPrimaryKey(jobInfosTable, request.Id, jobInfo); err != nil {
+	if err := a.getMessageByPrimaryKey(jobInfosTable, request.Job.Id, jobInfo); err != nil {
 		return nil, err
 	}
 	return jobInfo, nil
@@ -296,8 +296,8 @@ func (a *rethinkAPIServer) updateMessage(table Table, message proto.Message) err
 	return err
 }
 
-func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, value interface{}, message proto.Message) error {
-	cursor, err := a.getTerm(table).Get(value).Default(gorethink.Error("value not found")).ToJSON().Run(a.session)
+func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, key interface{}, message proto.Message) error {
+	cursor, err := a.getTerm(table).Get(key).Default(gorethink.Error("value not found")).ToJSON().Run(a.session)
 	if err != nil {
 		return err
 	}

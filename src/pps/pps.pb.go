@@ -49,20 +49,20 @@ var _ = math.Inf
 type JobState int32
 
 const (
-	JobState_Running JobState = 0
-	JobState_Failure JobState = 1
-	JobState_Succuss JobState = 2
+	JobState_JOB_STATE_RUNNING JobState = 0
+	JobState_JOB_STATE_FAILURE JobState = 1
+	JobState_JOB_STATE_SUCCESS JobState = 2
 )
 
 var JobState_name = map[int32]string{
-	0: "Running",
-	1: "Failure",
-	2: "Succuss",
+	0: "JOB_STATE_RUNNING",
+	1: "JOB_STATE_FAILURE",
+	2: "JOB_STATE_SUCCESS",
 }
 var JobState_value = map[string]int32{
-	"Running": 0,
-	"Failure": 1,
-	"Succuss": 2,
+	"JOB_STATE_RUNNING": 0,
+	"JOB_STATE_FAILURE": 1,
+	"JOB_STATE_SUCCESS": 2,
 }
 
 func (x JobState) String() string {
@@ -273,7 +273,9 @@ func (m *CreateJobRequest) GetParentJob() *Job {
 }
 
 type InspectJobRequest struct {
-	Job *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	Job         *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	BlockOutput bool `protobuf:"varint,2,opt,name=block_output" json:"block_output,omitempty"`
+	BlockState  bool `protobuf:"varint,3,opt,name=block_state" json:"block_state,omitempty"`
 }
 
 func (m *InspectJobRequest) Reset()         { *m = InspectJobRequest{} }

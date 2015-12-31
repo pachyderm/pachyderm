@@ -53,7 +53,7 @@ service API {
   // job_id cannot be set
   // timestamp cannot be set
   rpc CreateJobInfo(JobInfo) returns (JobInfo) {}
-  rpc GetJobInfo(pachyderm.pps.Job) returns (JobInfo) {}
+  rpc InspectJob(pachyderm.pps.InspectJobRequest) returns (JobInfo) {}
   // ordered by time, latest to earliest
   rpc ListJobInfos(pachyderm.pps.ListJobRequest) returns (JobInfos) {}
   // should only be called when rolling back if a Job does not start!

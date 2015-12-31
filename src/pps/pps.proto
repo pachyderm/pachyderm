@@ -19,9 +19,9 @@ message Job {
 }
 
 enum JobState {
-    Running = 0;
-    Failure = 1;
-    Succuss = 2;
+    JOB_STATE_RUNNING = 0;
+    JOB_STATE_FAILURE = 1;
+    JOB_STATE_SUCCESS = 2;
 }
 // TODO: add created at?
 message JobInfo {
@@ -67,6 +67,8 @@ message CreateJobRequest {
 
 message InspectJobRequest {
   Job job = 1;
+  bool block_output = 2; // block until JobOutput has been set
+  bool block_state = 3; //block until State is, JOB_STATE_FAILURE or JOB_STATE_SUCCESS
 }
 
 message ListJobRequest {
