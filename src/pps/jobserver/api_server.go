@@ -100,7 +100,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 
 func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.JobInfo, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	persistJobInfo, err := a.persistAPIServer.GetJobInfo(ctx, request.Job)
+	persistJobInfo, err := a.persistAPIServer.InspectJob(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,8 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 
 func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (response *pps.StartJobResponse, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	jobInfo, err := a.persistAPIServer.GetJobInfo(ctx, request.Job)
+	inspectJobRequest := &pps.InspectJobRequest{Job: request.Job}
+	jobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +164,8 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 			}
 			parentCommit = &pfs.Commit{Repo: repo}
 		} else {
-			parentJobInfo, err := a.persistAPIServer.GetJobInfo(ctx, jobInfo.ParentJob)
+			inspectJobRequest := &pps.InspectJobRequest{Job: jobInfo.ParentJob}
+			parentJobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
 			if err != nil {
 				return nil, err
 			}
@@ -203,7 +205,8 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 
 func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	jobInfo, err := a.persistAPIServer.GetJobInfo(ctx, request.Job)
+	inspectJobRequest := &pps.InspectJobRequest{Job: request.Job}
+	jobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
 	if err != nil {
 		return nil, err
 	}

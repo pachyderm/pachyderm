@@ -196,7 +196,7 @@ type APIClient interface {
 	// job_id cannot be set
 	// timestamp cannot be set
 	CreateJobInfo(ctx context.Context, in *JobInfo, opts ...grpc.CallOption) (*JobInfo, error)
-	GetJobInfo(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*JobInfo, error)
+	InspectJob(ctx context.Context, in *pachyderm_pps.InspectJobRequest, opts ...grpc.CallOption) (*JobInfo, error)
 	// ordered by time, latest to earliest
 	ListJobInfos(ctx context.Context, in *pachyderm_pps.ListJobRequest, opts ...grpc.CallOption) (*JobInfos, error)
 	// should only be called when rolling back if a Job does not start!
@@ -230,9 +230,9 @@ func (c *aPIClient) CreateJobInfo(ctx context.Context, in *JobInfo, opts ...grpc
 	return out, nil
 }
 
-func (c *aPIClient) GetJobInfo(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*JobInfo, error) {
+func (c *aPIClient) InspectJob(ctx context.Context, in *pachyderm_pps.InspectJobRequest, opts ...grpc.CallOption) (*JobInfo, error) {
 	out := new(JobInfo)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetJobInfo", in, out, c.cc, opts...)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/InspectJob", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +318,7 @@ type APIServer interface {
 	// job_id cannot be set
 	// timestamp cannot be set
 	CreateJobInfo(context.Context, *JobInfo) (*JobInfo, error)
-	GetJobInfo(context.Context, *pachyderm_pps.Job) (*JobInfo, error)
+	InspectJob(context.Context, *pachyderm_pps.InspectJobRequest) (*JobInfo, error)
 	// ordered by time, latest to earliest
 	ListJobInfos(context.Context, *pachyderm_pps.ListJobRequest) (*JobInfos, error)
 	// should only be called when rolling back if a Job does not start!
@@ -351,12 +351,12 @@ func _API_CreateJobInfo_Handler(srv interface{}, ctx context.Context, dec func(i
 	return out, nil
 }
 
-func _API_GetJobInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(pachyderm_pps.Job)
+func _API_InspectJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(pachyderm_pps.InspectJobRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).GetJobInfo(ctx, in)
+	out, err := srv.(APIServer).InspectJob(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -468,8 +468,8 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			Handler:    _API_CreateJobInfo_Handler,
 		},
 		{
-			MethodName: "GetJobInfo",
-			Handler:    _API_GetJobInfo_Handler,
+			MethodName: "InspectJob",
+			Handler:    _API_InspectJob_Handler,
 		},
 		{
 			MethodName: "ListJobInfos",
