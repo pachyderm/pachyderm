@@ -33,6 +33,7 @@ import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import google_protobuf "go.pedge.io/google-protobuf"
+import google_protobuf1 "go.pedge.io/google-protobuf"
 import pfs "github.com/pachyderm/pachyderm/src/pfs"
 
 import (
@@ -45,30 +46,27 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-type OutputStream int32
+type JobState int32
 
 const (
-	OutputStream_OUTPUT_STREAM_NONE   OutputStream = 0
-	OutputStream_OUTPUT_STREAM_STDOUT OutputStream = 1
-	OutputStream_OUTPUT_STREAM_STDERR OutputStream = 2
-	OutputStream_OUTPUT_STREAM_ALL    OutputStream = 3
+	JobState_Running JobState = 0
+	JobState_Failure JobState = 1
+	JobState_Succuss JobState = 2
 )
 
-var OutputStream_name = map[int32]string{
-	0: "OUTPUT_STREAM_NONE",
-	1: "OUTPUT_STREAM_STDOUT",
-	2: "OUTPUT_STREAM_STDERR",
-	3: "OUTPUT_STREAM_ALL",
+var JobState_name = map[int32]string{
+	0: "Running",
+	1: "Failure",
+	2: "Succuss",
 }
-var OutputStream_value = map[string]int32{
-	"OUTPUT_STREAM_NONE":   0,
-	"OUTPUT_STREAM_STDOUT": 1,
-	"OUTPUT_STREAM_STDERR": 2,
-	"OUTPUT_STREAM_ALL":    3,
+var JobState_value = map[string]int32{
+	"Running": 0,
+	"Failure": 1,
+	"Succuss": 2,
 }
 
-func (x OutputStream) String() string {
-	return proto.EnumName(OutputStream_name, int32(x))
+func (x JobState) String() string {
+	return proto.EnumName(JobState_name, int32(x))
 }
 
 type Transform struct {
@@ -91,12 +89,15 @@ func (*Job) ProtoMessage()    {}
 
 // TODO: add created at?
 type JobInfo struct {
-	Job          *Job          `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
-	Transform    *Transform    `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Pipeline     *Pipeline     `protobuf:"bytes,3,opt,name=pipeline" json:"pipeline,omitempty"`
-	Shards       uint64        `protobuf:"varint,4,opt,name=shards" json:"shards,omitempty"`
-	InputCommit  []*pfs.Commit `protobuf:"bytes,5,rep,name=input_commit" json:"input_commit,omitempty"`
-	OutputCommit *pfs.Commit   `protobuf:"bytes,6,opt,name=output_commit" json:"output_commit,omitempty"`
+	Job          *Job                        `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	Transform    *Transform                  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	Pipeline     *Pipeline                   `protobuf:"bytes,3,opt,name=pipeline" json:"pipeline,omitempty"`
+	Shards       uint64                      `protobuf:"varint,4,opt,name=shards" json:"shards,omitempty"`
+	InputCommit  []*pfs.Commit               `protobuf:"bytes,5,rep,name=input_commit" json:"input_commit,omitempty"`
+	ParentJob    *Job                        `protobuf:"bytes,6,opt,name=parent_job" json:"parent_job,omitempty"`
+	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,7,opt,name=created_at" json:"created_at,omitempty"`
+	OutputCommit *pfs.Commit                 `protobuf:"bytes,8,opt,name=output_commit" json:"output_commit,omitempty"`
+	State        JobState                    `protobuf:"varint,9,opt,name=state,enum=pachyderm.pps.JobState" json:"state,omitempty"`
 }
 
 func (m *JobInfo) Reset()         { *m = JobInfo{} }
@@ -127,6 +128,20 @@ func (m *JobInfo) GetPipeline() *Pipeline {
 func (m *JobInfo) GetInputCommit() []*pfs.Commit {
 	if m != nil {
 		return m.InputCommit
+	}
+	return nil
+}
+
+func (m *JobInfo) GetParentJob() *Job {
+	if m != nil {
+		return m.ParentJob
+	}
+	return nil
+}
+
+func (m *JobInfo) GetCreatedAt() *google_protobuf1.Timestamp {
+	if m != nil {
+		return m.CreatedAt
 	}
 	return nil
 }
@@ -419,8 +434,9 @@ func (m *StartJobResponse) GetShard() *pfs.Shard {
 }
 
 type FinishJobRequest struct {
-	Job   *Job       `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
-	Shard *pfs.Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
+	Job     *Job       `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	Shard   *pfs.Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
+	Success bool       `protobuf:"varint,3,opt,name=success" json:"success,omitempty"`
 }
 
 func (m *FinishJobRequest) Reset()         { *m = FinishJobRequest{} }
@@ -459,7 +475,7 @@ func init() {
 	proto.RegisterType((*StartJobRequest)(nil), "pachyderm.pps.StartJobRequest")
 	proto.RegisterType((*StartJobResponse)(nil), "pachyderm.pps.StartJobResponse")
 	proto.RegisterType((*FinishJobRequest)(nil), "pachyderm.pps.FinishJobRequest")
-	proto.RegisterEnum("pachyderm.pps.OutputStream", OutputStream_name, OutputStream_value)
+	proto.RegisterEnum("pachyderm.pps.JobState", JobState_name, JobState_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

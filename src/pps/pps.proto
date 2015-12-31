@@ -1,18 +1,12 @@
 syntax = "proto3";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 import "pfs/pfs.proto";
 
 package pachyderm.pps;
 
 option go_package = "pps";
-
-enum OutputStream {
-  OUTPUT_STREAM_NONE = 0;
-  OUTPUT_STREAM_STDOUT = 1;
-  OUTPUT_STREAM_STDERR = 2;
-  OUTPUT_STREAM_ALL = 3;
-}
 
 message Transform {
   string image = 1;
@@ -24,6 +18,11 @@ message Job {
   string id = 1;
 }
 
+enum JobState {
+    Running = 0;
+    Failure = 1;
+    Succuss = 2;
+}
 // TODO: add created at?
 message JobInfo {
   Job job = 1;
@@ -31,7 +30,10 @@ message JobInfo {
   Pipeline pipeline = 3;
   uint64 shards = 4;
   repeated pfs.Commit input_commit = 5;
-  pfs.Commit output_commit = 6;
+  Job parent_job = 6;
+  google.protobuf.Timestamp created_at = 7;
+  pfs.Commit output_commit = 8;
+  JobState state = 9;
 }
 
 message JobInfos {
@@ -117,6 +119,7 @@ message StartJobResponse {
 message FinishJobRequest {
     Job job = 1;
     pfs.Shard shard = 2;
+    bool success = 3;
 }
 
 service InternalJobAPI {

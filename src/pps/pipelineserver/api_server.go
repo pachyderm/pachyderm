@@ -18,22 +18,21 @@ type apiServer struct {
 	protorpclog.Logger
 	pfsAPIClient     pfs.APIClient
 	jobAPIClient     pps.JobAPIClient
-	persistAPIClient persist.APIClient
-
-	cancelFuncs map[pps.Pipeline]func()
-	lock        sync.Mutex
+	persistAPIServer persist.APIServer
+	cancelFuncs      map[pps.Pipeline]func()
+	lock             sync.Mutex
 }
 
 func newAPIServer(
 	pfsAPIClient pfs.APIClient,
 	jobAPIClient pps.JobAPIClient,
-	persistAPIClient persist.APIClient,
+	persistAPIServer persist.APIServer,
 ) *apiServer {
 	return &apiServer{
 		protorpclog.NewLogger("pachyderm.pps.PipelineAPI"),
 		pfsAPIClient,
 		jobAPIClient,
-		persistAPIClient,
+		persistAPIServer,
 		make(map[pps.Pipeline]func()),
 		sync.Mutex{},
 	}
@@ -66,7 +65,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Shards:       request.Shards,
 		InputRepo:    request.InputRepo,
 	}
-	if _, err := a.persistAPIClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
+	if _, err := a.persistAPIServer.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
 	}
 	repo := pps.PipelineRepo(request.Pipeline)
@@ -83,7 +82,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	persistPipelineInfo, err := a.persistAPIClient.GetPipelineInfo(ctx, request.Pipeline)
+	persistPipelineInfo, err := a.persistAPIServer.GetPipelineInfo(ctx, request.Pipeline)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +91,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 
 func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineRequest) (response *pps.PipelineInfos, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	persistPipelineInfos, err := a.persistAPIClient.ListPipelineInfos(ctx, google_protobuf.EmptyInstance)
+	persistPipelineInfos, err := a.persistAPIServer.ListPipelineInfos(ctx, google_protobuf.EmptyInstance)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +105,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 }
 
 func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
-	if _, err := a.persistAPIClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
+	if _, err := a.persistAPIServer.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
 	a.lock.Lock()

@@ -73,15 +73,20 @@ func do(appEnvObj interface{}) error {
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
 			}
+			success := true
 			if err := pkgexec.RunIO(io, response.Transform.Cmd...); err != nil {
-				errorAndExit(err.Error())
+				fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+				success = false
 			}
 			if _, err := ppsAPIClient.FinishJob(
 				context.Background(),
 				&pps.FinishJobRequest{
 					Job: &pps.Job{
 						Id: args[0],
-					}},
+					},
+					Shard:   response.Shard,
+					Success: success,
+				},
 			); err != nil {
 				errorAndExit(err.Error())
 			}

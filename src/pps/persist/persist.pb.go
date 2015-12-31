@@ -12,6 +12,7 @@ It has these top-level messages:
 	JobInfo
 	JobInfos
 	JobOutput
+	JobState
 	PipelineInfo
 	PipelineInfos
 */
@@ -43,7 +44,9 @@ type JobInfo struct {
 	InputCommit  []*pfs.Commit               `protobuf:"bytes,5,rep,name=input_commit" json:"input_commit,omitempty"`
 	ParentJob    *pachyderm_pps.Job          `protobuf:"bytes,6,opt,name=parent_job" json:"parent_job,omitempty"`
 	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,7,opt,name=created_at" json:"created_at,omitempty"`
-	CommitIndex  string                      `protobuf:"bytes,8,opt,name=commit_index" json:"commit_index,omitempty"`
+	OutputCommit *pfs.Commit                 `protobuf:"bytes,8,opt,name=output_commit" json:"output_commit,omitempty"`
+	State        pachyderm_pps.JobState      `protobuf:"varint,9,opt,name=state,enum=pachyderm.pps.JobState" json:"state,omitempty"`
+	CommitIndex  string                      `protobuf:"bytes,10,opt,name=commit_index" json:"commit_index,omitempty"`
 }
 
 func (m *JobInfo) Reset()         { *m = JobInfo{} }
@@ -78,6 +81,13 @@ func (m *JobInfo) GetCreatedAt() *google_protobuf1.Timestamp {
 	return nil
 }
 
+func (m *JobInfo) GetOutputCommit() *pfs.Commit {
+	if m != nil {
+		return m.OutputCommit
+	}
+	return nil
+}
+
 type JobInfos struct {
 	JobInfo []*JobInfo `protobuf:"bytes,1,rep,name=job_info" json:"job_info,omitempty"`
 }
@@ -108,6 +118,15 @@ func (m *JobOutput) GetOutputCommit() *pfs.Commit {
 	}
 	return nil
 }
+
+type JobState struct {
+	JobId string                 `protobuf:"bytes,1,opt,name=job_id" json:"job_id,omitempty"`
+	State pachyderm_pps.JobState `protobuf:"varint,2,opt,name=state,enum=pachyderm.pps.JobState" json:"state,omitempty"`
+}
+
+func (m *JobState) Reset()         { *m = JobState{} }
+func (m *JobState) String() string { return proto.CompactTextString(m) }
+func (*JobState) ProtoMessage()    {}
 
 type PipelineInfo struct {
 	PipelineName string                      `protobuf:"bytes,1,opt,name=pipeline_name" json:"pipeline_name,omitempty"`
@@ -161,6 +180,7 @@ func init() {
 	proto.RegisterType((*JobInfo)(nil), "pachyderm.pps.persist.JobInfo")
 	proto.RegisterType((*JobInfos)(nil), "pachyderm.pps.persist.JobInfos")
 	proto.RegisterType((*JobOutput)(nil), "pachyderm.pps.persist.JobOutput")
+	proto.RegisterType((*JobState)(nil), "pachyderm.pps.persist.JobState")
 	proto.RegisterType((*PipelineInfo)(nil), "pachyderm.pps.persist.PipelineInfo")
 	proto.RegisterType((*PipelineInfos)(nil), "pachyderm.pps.persist.PipelineInfos")
 }
@@ -172,6 +192,7 @@ var _ grpc.ClientConn
 // Client API for API service
 
 type APIClient interface {
+	// Job rpcs
 	// job_id cannot be set
 	// timestamp cannot be set
 	CreateJobInfo(ctx context.Context, in *JobInfo, opts ...grpc.CallOption) (*JobInfo, error)
@@ -180,8 +201,11 @@ type APIClient interface {
 	ListJobInfos(ctx context.Context, in *pachyderm_pps.ListJobRequest, opts ...grpc.CallOption) (*JobInfos, error)
 	// should only be called when rolling back if a Job does not start!
 	DeleteJobInfo(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
-	CreateJobOutput(ctx context.Context, in *JobOutput, opts ...grpc.CallOption) (*JobOutput, error)
-	GetJobOutput(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*JobOutput, error)
+	// JobOutput rpcs
+	CreateJobOutput(ctx context.Context, in *JobOutput, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	// JobState rpcs
+	CreateJobState(ctx context.Context, in *JobState, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	// Pipeline rpcs
 	CreatePipelineInfo(ctx context.Context, in *PipelineInfo, opts ...grpc.CallOption) (*PipelineInfo, error)
 	GetPipelineInfo(ctx context.Context, in *pachyderm_pps.Pipeline, opts ...grpc.CallOption) (*PipelineInfo, error)
 	// ordered by time, latest to earliest
@@ -233,8 +257,8 @@ func (c *aPIClient) DeleteJobInfo(ctx context.Context, in *pachyderm_pps.Job, op
 	return out, nil
 }
 
-func (c *aPIClient) CreateJobOutput(ctx context.Context, in *JobOutput, opts ...grpc.CallOption) (*JobOutput, error) {
-	out := new(JobOutput)
+func (c *aPIClient) CreateJobOutput(ctx context.Context, in *JobOutput, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
 	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/CreateJobOutput", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
@@ -242,9 +266,9 @@ func (c *aPIClient) CreateJobOutput(ctx context.Context, in *JobOutput, opts ...
 	return out, nil
 }
 
-func (c *aPIClient) GetJobOutput(ctx context.Context, in *pachyderm_pps.Job, opts ...grpc.CallOption) (*JobOutput, error) {
-	out := new(JobOutput)
-	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/GetJobOutput", in, out, c.cc, opts...)
+func (c *aPIClient) CreateJobState(ctx context.Context, in *JobState, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.persist.API/CreateJobState", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -290,6 +314,7 @@ func (c *aPIClient) DeletePipelineInfo(ctx context.Context, in *pachyderm_pps.Pi
 // Server API for API service
 
 type APIServer interface {
+	// Job rpcs
 	// job_id cannot be set
 	// timestamp cannot be set
 	CreateJobInfo(context.Context, *JobInfo) (*JobInfo, error)
@@ -298,8 +323,11 @@ type APIServer interface {
 	ListJobInfos(context.Context, *pachyderm_pps.ListJobRequest) (*JobInfos, error)
 	// should only be called when rolling back if a Job does not start!
 	DeleteJobInfo(context.Context, *pachyderm_pps.Job) (*google_protobuf.Empty, error)
-	CreateJobOutput(context.Context, *JobOutput) (*JobOutput, error)
-	GetJobOutput(context.Context, *pachyderm_pps.Job) (*JobOutput, error)
+	// JobOutput rpcs
+	CreateJobOutput(context.Context, *JobOutput) (*google_protobuf.Empty, error)
+	// JobState rpcs
+	CreateJobState(context.Context, *JobState) (*google_protobuf.Empty, error)
+	// Pipeline rpcs
 	CreatePipelineInfo(context.Context, *PipelineInfo) (*PipelineInfo, error)
 	GetPipelineInfo(context.Context, *pachyderm_pps.Pipeline) (*PipelineInfo, error)
 	// ordered by time, latest to earliest
@@ -371,12 +399,12 @@ func _API_CreateJobOutput_Handler(srv interface{}, ctx context.Context, dec func
 	return out, nil
 }
 
-func _API_GetJobOutput_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(pachyderm_pps.Job)
+func _API_CreateJobState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(JobState)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).GetJobOutput(ctx, in)
+	out, err := srv.(APIServer).CreateJobState(ctx, in)
 	if err != nil {
 		return nil, err
 	}
@@ -456,8 +484,8 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			Handler:    _API_CreateJobOutput_Handler,
 		},
 		{
-			MethodName: "GetJobOutput",
-			Handler:    _API_GetJobOutput_Handler,
+			MethodName: "CreateJobState",
+			Handler:    _API_CreateJobState_Handler,
 		},
 		{
 			MethodName: "CreatePipelineInfo",
