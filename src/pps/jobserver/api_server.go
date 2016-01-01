@@ -6,12 +6,10 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/rpclog"
-	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
@@ -81,8 +79,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = request.Pipeline.Name
 	}
-	persistJobInfo.JobId = uuid.NewWithoutDashes()
-	persistJobInfo.CreatedAt = prototime.TimeToTimestamp(time.Now())
 	if a.kubeClient == nil {
 		return nil, fmt.Errorf("pachyderm.pps.jobserver: no job backend")
 	}
