@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 
+	"go.pedge.io/google-protobuf"
+
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
@@ -102,7 +104,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 	return loopErr
 }
 
-func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[uint64]bool) error {
+func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, started *google_protobuf.Timestamp, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	for shard := range shards {
@@ -111,6 +113,7 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[
 				Commit: commit,
 				Shard:  shard,
 			},
+			Started:      started,
 			ParentCommit: parent,
 			Appends:      make(map[string]*drive.BlockRefs),
 			LastRefs:     make(map[string]*pfs.Commit),
@@ -131,7 +134,7 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[
 	return nil
 }
 
-func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error {
+func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, shards map[uint64]bool) error {
 	// closure so we can defer Unlock
 	var diffInfos []*drive.DiffInfo
 	if err := func() error {
@@ -145,6 +148,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 			if diffInfo == nil {
 				return fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
 			}
+			diffInfo.Finished = finished
 			diffInfos = append(diffInfos, diffInfo)
 			if err := d.finished.insert(diffInfo); err != nil {
 				return err
@@ -161,15 +165,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := d.driveClient.CreateDiff(
-				context.Background(),
-				&drive.CreateDiffRequest{
-					Diff:         diffInfo.Diff,
-					ParentCommit: diffInfo.ParentCommit,
-					Appends:      diffInfo.Appends,
-					LastRefs:     diffInfo.LastRefs,
-					NewFiles:     diffInfo.NewFiles,
-				}); err != nil && loopErr == nil {
+			if _, err := d.driveClient.CreateDiff(context.Background(), diffInfo); err != nil && loopErr == nil {
 				loopErr = err
 			}
 		}()
@@ -431,6 +427,8 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 					Commit:       commit,
 					CommitType:   pfs.CommitType_COMMIT_TYPE_READ,
 					ParentCommit: diffInfo.ParentCommit,
+					Started:      diffInfo.Started,
+					Finished:     diffInfo.Finished,
 				})
 		}
 		if diffInfo, ok := d.started.get(&drive.Diff{

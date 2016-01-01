@@ -15,6 +15,7 @@ import (
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
+	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -124,6 +125,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 			request.Parent = nil
 		}
 	}
+	request.Started = prototime.TimeToTimestamp(time.Now())
 	for _, clientConn := range clientConns {
 		if _, err := pfs.NewInternalAPIClient(clientConn).StartCommit(ctx, request); err != nil {
 			return nil, err
@@ -141,6 +143,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	if err != nil {
 		return nil, err
 	}
+	request.Finished = prototime.TimeToTimestamp(time.Now())
 	for _, clientConn := range clientConns {
 		if _, err := pfs.NewInternalAPIClient(clientConn).FinishCommit(ctx, request); err != nil {
 			return nil, err

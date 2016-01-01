@@ -131,10 +131,12 @@ message DeleteRepoRequest {
 message StartCommitRequest {
   Commit parent = 1;
   Commit commit = 2;
+  google.protobuf.Timestamp started = 3;
 }
 
 message FinishCommitRequest {
   Commit commit = 1;
+  google.protobuf.Timestamp finished = 3;
 }
 
 message InspectCommitRequest {

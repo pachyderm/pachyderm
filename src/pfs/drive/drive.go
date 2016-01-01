@@ -6,6 +6,8 @@ package drive
 import (
 	"io"
 
+	"go.pedge.io/google-protobuf"
+
 	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
@@ -22,8 +24,8 @@ type Driver interface {
 	InspectRepo(repo *pfs.Repo, shard uint64) (*pfs.RepoInfo, error)
 	ListRepo(shard uint64) ([]*pfs.RepoInfo, error)
 	DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error
-	StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[uint64]bool) error
-	FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error
+	StartCommit(parent *pfs.Commit, commit *pfs.Commit, started *google_protobuf.Timestamp, shards map[uint64]bool) error
+	FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, shards map[uint64]bool) error
 	InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error)
 	ListCommit(repo []*pfs.Repo, fromCommit []*pfs.Commit, shards map[uint64]bool) ([]*pfs.CommitInfo, error)
 	DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error

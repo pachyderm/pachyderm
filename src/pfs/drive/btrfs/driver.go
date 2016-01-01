@@ -16,6 +16,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"go.pedge.io/google-protobuf"
 	"go.pedge.io/pkg/exec"
 	"go.pedge.io/proto/time"
 	"go.pedge.io/protolog"
@@ -108,7 +109,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shard map[uint64]bool) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[uint64]bool) error {
+func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, started *google_protobuf.Timestamp, shards map[uint64]bool) error {
 	if commit == nil {
 		return fmt.Errorf("pachyderm: nil commit")
 	}
@@ -162,7 +163,7 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, shards map[
 	return nil
 }
 
-func (d *driver) FinishCommit(commit *pfs.Commit, shards map[uint64]bool) error {
+func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, shards map[uint64]bool) error {
 	var commitSyncs []*commitSync
 	d.lock.Lock()
 	for shard := range shards {
