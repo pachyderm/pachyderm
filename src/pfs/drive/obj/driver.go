@@ -21,53 +21,6 @@ var (
 	blockSize = 128 * 1024 * 1024 // 128 Megabytes
 )
 
-type diffMap map[string]map[uint64]map[string]*drive.DiffInfo
-
-func (d diffMap) get(diff *drive.Diff) (_ *drive.DiffInfo, ok bool) {
-	shardMap, ok := d[diff.Commit.Repo.Name]
-	if !ok {
-		return nil, false
-	}
-	commitMap, ok := shardMap[diff.Shard]
-	if !ok {
-		return nil, false
-	}
-	diffInfo, ok := commitMap[diff.Commit.Id]
-	return diffInfo, ok
-}
-
-func (d diffMap) insert(diffInfo *drive.DiffInfo) error {
-	diff := diffInfo.Diff
-	shardMap, ok := d[diff.Commit.Repo.Name]
-	if !ok {
-		return fmt.Errorf("repo %s not found", diff.Commit.Repo.Name)
-	}
-	commitMap, ok := shardMap[diff.Shard]
-	if !ok {
-		commitMap = make(map[string]*drive.DiffInfo)
-		shardMap[diff.Shard] = commitMap
-	}
-	if _, ok = commitMap[diff.Commit.Id]; ok {
-		return fmt.Errorf("commit %s/%s already exists", diff.Commit.Repo.Name, diff.Commit.Id)
-	}
-	commitMap[diff.Commit.Id] = diffInfo
-	return nil
-}
-
-func (d diffMap) pop(diff *drive.Diff) *drive.DiffInfo {
-	shardMap, ok := d[diff.Commit.Repo.Name]
-	if !ok {
-		return nil
-	}
-	commitMap, ok := shardMap[diff.Shard]
-	if !ok {
-		return nil
-	}
-	diffInfo := commitMap[diff.Commit.Id]
-	delete(commitMap, diff.Commit.Id)
-	return diffInfo
-}
-
 type driver struct {
 	driveClient drive.APIClient
 	started     diffMap
@@ -377,11 +330,18 @@ func (d *driver) ListFile(file *pfs.File, shard uint64) ([]*pfs.FileInfo, error)
 	fileInfos := make(map[string]*pfs.FileInfo)
 	commit := file.Commit
 	for commit != nil {
-		diffInfo, _ := d.finished.get(&drive.Diff{
+		diffInfo, read, ok := d.getDiffInfo(&drive.Diff{
 			Commit: commit,
 			Shard:  shard,
 		})
+		if !ok {
+			return nil, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
+		}
 		commit = diffInfo.ParentCommit
+		if !read {
+			// don't list files for read commits
+			continue
+		}
 		for _, path := range diffInfo.NewFiles[sort.SearchStrings(diffInfo.NewFiles, file.Path):] {
 			if path = relevantPath(file, path); path != "" {
 				if _, ok := fileInfos[path]; ok {
@@ -449,6 +409,16 @@ func (d *driver) inspectRepo(repo *pfs.Repo, shard uint64) (*pfs.RepoInfo, error
 	}, nil
 }
 
+func (d *driver) getDiffInfo(diff *drive.Diff) (_ *drive.DiffInfo, read bool, ok bool) {
+	if diffInfo, ok := d.finished.get(diff); ok {
+		return diffInfo, true, true
+	}
+	if diffInfo, ok := d.started.get(diff); ok {
+		return diffInfo, false, true
+	}
+	return nil, false, false
+}
+
 func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	for shard := range shards {
@@ -488,14 +458,18 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 func (d *driver) fileBlockRefsOrDir(file *pfs.File, shard uint64) (_ []*drive.BlockRef, isDir bool, _ error) {
 	var result []*drive.BlockRef
 	commit := file.Commit
+	writeable := false
 	for commit != nil {
-		diffInfo, ok := d.finished.get(&drive.Diff{
+		diffInfo, read, ok := d.getDiffInfo(&drive.Diff{
 			Commit: commit,
 			Shard:  shard,
 		})
 		log.Printf("fileBlockRefsOrDir\nfile: %+v\ndiffInfo: %+v\n", file, diffInfo)
 		if !ok {
 			return nil, false, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
+		}
+		if !read {
+			writeable = true
 		}
 		iNewFile := sort.SearchStrings(diffInfo.NewFiles, file.Path)
 		if blockRefsMsg, ok := diffInfo.Appends[file.Path]; ok {
@@ -509,7 +483,7 @@ func (d *driver) fileBlockRefsOrDir(file *pfs.File, shard uint64) (_ []*drive.Bl
 		}
 		commit = diffInfo.ParentCommit
 	}
-	if result == nil {
+	if result == nil && !writeable {
 		return nil, false, fmt.Errorf("file %s/%s/%s not found", file.Commit.Repo.Name, file.Commit.Id, file.Path)
 	}
 	return result, false, nil
@@ -645,4 +619,51 @@ func (r *fileReader) ReadAt(p []byte, off int64) (int, error) {
 
 func (r *fileReader) Close() error {
 	return nil
+}
+
+type diffMap map[string]map[uint64]map[string]*drive.DiffInfo
+
+func (d diffMap) get(diff *drive.Diff) (_ *drive.DiffInfo, ok bool) {
+	shardMap, ok := d[diff.Commit.Repo.Name]
+	if !ok {
+		return nil, false
+	}
+	commitMap, ok := shardMap[diff.Shard]
+	if !ok {
+		return nil, false
+	}
+	diffInfo, ok := commitMap[diff.Commit.Id]
+	return diffInfo, ok
+}
+
+func (d diffMap) insert(diffInfo *drive.DiffInfo) error {
+	diff := diffInfo.Diff
+	shardMap, ok := d[diff.Commit.Repo.Name]
+	if !ok {
+		return fmt.Errorf("repo %s not found", diff.Commit.Repo.Name)
+	}
+	commitMap, ok := shardMap[diff.Shard]
+	if !ok {
+		commitMap = make(map[string]*drive.DiffInfo)
+		shardMap[diff.Shard] = commitMap
+	}
+	if _, ok = commitMap[diff.Commit.Id]; ok {
+		return fmt.Errorf("commit %s/%s already exists", diff.Commit.Repo.Name, diff.Commit.Id)
+	}
+	commitMap[diff.Commit.Id] = diffInfo
+	return nil
+}
+
+func (d diffMap) pop(diff *drive.Diff) *drive.DiffInfo {
+	shardMap, ok := d[diff.Commit.Repo.Name]
+	if !ok {
+		return nil
+	}
+	commitMap, ok := shardMap[diff.Shard]
+	if !ok {
+		return nil
+	}
+	diffInfo := commitMap[diff.Commit.Id]
+	delete(commitMap, diff.Commit.Id)
+	return diffInfo
 }
