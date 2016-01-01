@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"path"
 	"sort"
 	"strings"
@@ -469,7 +468,6 @@ func (d *driver) fileBlockRefsOrDir(file *pfs.File, shard uint64) (_ []*drive.Bl
 			Commit: commit,
 			Shard:  shard,
 		})
-		log.Printf("fileBlockRefsOrDir\nfile: %+v\ndiffInfo: %+v\n", file, diffInfo)
 		if !ok {
 			return nil, false, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
 		}
@@ -483,7 +481,6 @@ func (d *driver) fileBlockRefsOrDir(file *pfs.File, shard uint64) (_ []*drive.Bl
 			return nil, true, nil
 		}
 		if lastRef, ok := diffInfo.LastRefs[file.Path]; ok {
-			log.Printf("Using lastRef.")
 			commit = lastRef
 			continue
 		}
@@ -492,7 +489,6 @@ func (d *driver) fileBlockRefsOrDir(file *pfs.File, shard uint64) (_ []*drive.Bl
 	if result == nil && !writeable {
 		return nil, false, fmt.Errorf("file %s/%s/%s not found", file.Commit.Repo.Name, file.Commit.Id, file.Path)
 	}
-	log.Printf("result: %+v", result)
 	return result, false, nil
 }
 
