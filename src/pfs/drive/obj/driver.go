@@ -181,8 +181,15 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 }
 
 func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+	repoSet := make(map[string]bool)
+	for _, repo := range repos {
+		repoSet[repo.Name] = true
+	}
 	breakCommitIds := make(map[string]bool)
 	for _, commit := range fromCommit {
+		if !repoSet[commit.Repo.Name] {
+			return nil, fmt.Errorf("Commit %s/%s is from a repo that isn't being listed.", commit.Repo.Name, commit.Id)
+		}
 		breakCommitIds[commit.Id] = true
 	}
 	d.lock.RLock()
