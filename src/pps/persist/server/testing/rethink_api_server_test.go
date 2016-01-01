@@ -3,8 +3,10 @@ package testing
 import (
 	"testing"
 
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"golang.org/x/net/context"
@@ -19,14 +21,25 @@ func TestBlock(t *testing.T) {
 }
 
 func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
+	inputCommits := []*pfs.Commit{pfsutil.NewCommit("bar", uuid.NewWithoutDashes())}
 	jobInfo, err := apiServer.CreateJobInfo(
 		context.Background(),
 		&persist.JobInfo{
 			PipelineName: "foo",
+			InputCommit:  inputCommits,
+		},
+	)
+	jobID := jobInfo.JobId
+	inputCommits2 := []*pfs.Commit{pfsutil.NewCommit("fizz", uuid.NewWithoutDashes())}
+	_, err = apiServer.CreateJobInfo(
+		context.Background(),
+		&persist.JobInfo{
+			PipelineName: "buzz",
+			InputCommit:  inputCommits2,
 		},
 	)
 	require.NoError(t, err)
-	getJobInfo, err := apiServer.InspectJob(
+	jobInfo, err = apiServer.InspectJob(
 		context.Background(),
 		&pps.InspectJobRequest{
 			Job: &pps.Job{
@@ -35,8 +48,36 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 		},
 	)
 	require.NoError(t, err)
-	require.Equal(t, jobInfo.JobId, getJobInfo.JobId)
-	require.Equal(t, "foo", getJobInfo.PipelineName)
+	require.Equal(t, jobInfo.JobId, jobID)
+	require.Equal(t, "foo", jobInfo.PipelineName)
+	jobInfos, err := apiServer.ListJobInfos(
+		context.Background(),
+		&pps.ListJobRequest{
+			Pipeline: &pps.Pipeline{Name: "foo"},
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, len(jobInfos.JobInfo), 1)
+	require.Equal(t, jobInfos.JobInfo[0].JobId, jobID)
+	jobInfos, err = apiServer.ListJobInfos(
+		context.Background(),
+		&pps.ListJobRequest{
+			InputCommit: inputCommits,
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, len(jobInfos.JobInfo), 1)
+	require.Equal(t, jobInfos.JobInfo[0].JobId, jobID)
+	jobInfos, err = apiServer.ListJobInfos(
+		context.Background(),
+		&pps.ListJobRequest{
+			Pipeline:    &pps.Pipeline{Name: "foo"},
+			InputCommit: inputCommits,
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, len(jobInfos.JobInfo), 1)
+	require.Equal(t, jobInfos.JobInfo[0].JobId, jobID)
 }
 
 func testBlock(t *testing.T, apiServer persist.APIServer) {

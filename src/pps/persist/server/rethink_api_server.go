@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/dancannon/gorethink"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
@@ -20,12 +19,12 @@ import (
 )
 
 const (
-	jobInfosTable      Table = "job_infos"
-	pipelineInfosTable Table = "pipeline_infos"
+	jobInfosTable      Table = "JobInfos"
+	pipelineInfosTable Table = "PipelineInfos"
 
-	pipelineNameIndex         Index = "pipeline_name"
-	pipelineNameAndInputIndex Index = "pipeline_name_and_input"
-	inputIndex                Index = "input"
+	pipelineNameIndex          Index = "PipelineName"
+	pipelineNameAndCommitIndex Index = "PipelineNameAndCommitIndex"
+	commitIndex                Index = "CommitIndex"
 )
 
 type Table string
@@ -33,8 +32,6 @@ type PrimaryKey string
 type Index string
 
 var (
-	marshaller = &jsonpb.Marshaler{}
-
 	tables = []Table{
 		jobInfosTable,
 		pipelineInfosTable,
@@ -85,20 +82,16 @@ func InitDBs(address string, databaseName string) error {
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreate(pipelineNameIndex).RunWrite(session); err != nil {
 		return err
 	}
-	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
-		pipelineNameAndInputIndex,
-		func(row gorethink.Term) interface{} {
-			return []interface{}{
-				row.Field("PipelineName"),
-				row.Field("InputIndex"),
-			}
-		}).RunWrite(session); err != nil {
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreate(commitIndex).RunWrite(session); err != nil {
 		return err
 	}
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
-		inputIndex,
+		pipelineNameAndCommitIndex,
 		func(row gorethink.Term) interface{} {
-			return row.Field("InputIndex")
+			return []interface{}{
+				row.Field(pipelineNameIndex),
+				row.Field(commitIndex),
+			}
 		}).RunWrite(session); err != nil {
 		return err
 	}
@@ -144,7 +137,7 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	}
 	request.JobId = uuid.NewWithoutDashes()
 	request.CreatedAt = prototime.TimeToTimestamp(time.Now())
-	request.CommitIndex = commitIndex(request.InputCommit)
+	request.CommitIndex = genCommitIndex(request.InputCommit)
 	if err := a.insertMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}
@@ -179,8 +172,8 @@ func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJo
 	query := a.getTerm(jobInfosTable)
 	if request.Pipeline != nil && len(request.InputCommit) > 0 {
 		query = query.GetAllByIndex(
-			pipelineNameAndInputIndex,
-			gorethink.Expr([]interface{}{request.Pipeline.Name, commitIndex(request.InputCommit)}),
+			pipelineNameAndCommitIndex,
+			gorethink.Expr([]interface{}{request.Pipeline.Name, genCommitIndex(request.InputCommit)}),
 		)
 	} else if request.Pipeline != nil {
 		query = query.GetAllByIndex(
@@ -189,8 +182,8 @@ func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJo
 		)
 	} else if len(request.InputCommit) > 0 {
 		query = query.GetAllByIndex(
-			inputIndex,
-			gorethink.Expr(commitIndex(request.InputCommit)),
+			commitIndex,
+			gorethink.Expr(genCommitIndex(request.InputCommit)),
 		)
 	}
 	cursor, err := query.Run(a.session)
@@ -356,7 +349,7 @@ func (a *rethinkAPIServer) now() *google_protobuf.Timestamp {
 	return prototime.TimeToTimestamp(a.timer.Now())
 }
 
-func commitIndex(commits []*pfs.Commit) string {
+func genCommitIndex(commits []*pfs.Commit) string {
 	var commitIDs []string
 	for _, commit := range commits {
 		commitIDs = append(commitIDs, commit.Id[0:10])
