@@ -4,18 +4,18 @@ import (
 	"sort"
 	"time"
 
+	"github.com/dancannon/gorethink"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
-
-	"github.com/dancannon/gorethink"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
 
 const (
@@ -42,12 +42,12 @@ var (
 	tableToTableCreateOpts = map[Table][]gorethink.TableCreateOpts{
 		jobInfosTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
-				PrimaryKey: "job_id",
+				PrimaryKey: "JobId",
 			},
 		},
 		pipelineInfosTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
-				PrimaryKey: "pipeline_name",
+				PrimaryKey: "PipelineName",
 			},
 		},
 	}
@@ -88,8 +88,8 @@ func InitDBs(address string, databaseName string) error {
 		pipelineNameAndInputIndex,
 		func(row gorethink.Term) interface{} {
 			return []interface{}{
-				row.Field("pipeline_name"),
-				row.Field("input_index"),
+				row.Field("PipelineName"),
+				row.Field("InputIndex"),
 			}
 		}).RunWrite(session); err != nil {
 		return err
@@ -97,7 +97,7 @@ func InitDBs(address string, databaseName string) error {
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreateFunc(
 		inputIndex,
 		func(row gorethink.Term) interface{} {
-			return row.Field("input_index")
+			return row.Field("InputIndex")
 		}).RunWrite(session); err != nil {
 		return err
 	}
@@ -128,10 +128,12 @@ func (a *rethinkAPIServer) Close() error {
 	return a.session.Close()
 }
 
-// job_id cannot be set
-// timestamp cannot be set
+// JobId cannot be set
+// Timestamp cannot be set
 func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.JobInfo) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	request.JobId = uuid.NewWithoutDashes()
+	request.CreatedAt = prototime.TimeToTimestamp(time.Now())
 	request.CommitIndex = commitIndex(request.InputCommit)
 	if err := a.insertMessage(jobInfosTable, request); err != nil {
 		return nil, err
@@ -142,7 +144,21 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobInfo := &persist.JobInfo{}
-	if err := a.getMessageByPrimaryKey(jobInfosTable, request.Job.Id, jobInfo); err != nil {
+	var mustHaveFields []interface{}
+	if request.BlockOutput {
+		mustHaveFields = append(mustHaveFields, "OutputCommit")
+	}
+	if request.BlockState {
+		mustHaveFields = append(mustHaveFields, "State")
+	}
+	if err := a.waitMessageByPrimaryKey(
+		jobInfosTable,
+		request.Job.Id,
+		jobInfo,
+		func(jobInfo gorethink.Term) gorethink.Term {
+			return jobInfo.HasFields(mustHaveFields...)
+		},
+	); err != nil {
 		return nil, err
 	}
 	return jobInfo, nil
@@ -279,34 +295,22 @@ func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *pps.
 }
 
 func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) error {
-	data, err := marshaller.MarshalToString(message)
-	if err != nil {
-		return err
-	}
-	_, err = a.getTerm(table).Insert(gorethink.JSON(data)).RunWrite(a.session)
+	_, err := a.getTerm(table).Insert(message).RunWrite(a.session)
 	return err
 }
 
 func (a *rethinkAPIServer) updateMessage(table Table, message proto.Message) error {
-	data, err := marshaller.MarshalToString(message)
-	if err != nil {
-		return err
-	}
-	_, err = a.getTerm(table).Update(gorethink.JSON(data)).RunWrite(a.session)
+	_, err := a.getTerm(table).Update(message).RunWrite(a.session)
 	return err
 }
 
 func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, key interface{}, message proto.Message) error {
-	cursor, err := a.getTerm(table).Get(key).Default(gorethink.Error("value not found")).ToJSON().Run(a.session)
+	cursor, err := a.getTerm(table).Get(key).Default(gorethink.Error("value not found")).Run(a.session)
 	if err != nil {
 		return err
 	}
-	data := ""
-	if !cursor.Next(&data) {
+	if cursor.Next(message) {
 		return cursor.Err()
-	}
-	if err := jsonpb.UnmarshalString(data, message); err != nil {
-		return err
 	}
 	return nil
 }
@@ -314,6 +318,34 @@ func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, key interface{}, 
 func (a *rethinkAPIServer) deleteMessageByPrimaryKey(table Table, value interface{}) error {
 	_, err := a.getTerm(table).Get(value).Delete().RunWrite(a.session)
 	return err
+}
+
+func (a *rethinkAPIServer) waitMessageByPrimaryKey(
+	table Table,
+	key interface{},
+	message proto.Message,
+	predicate func(term gorethink.Term) gorethink.Term,
+) (retErr error) {
+	cursor, err :=
+		a.getTerm(table).
+			Get(key).
+			Default(gorethink.Error("value not found")).
+			Changes().
+			Field("new_val").
+			Filter(predicate).
+			Run(a.session)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := cursor.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	if !cursor.Next(message) {
+		return cursor.Err()
+	}
+	return nil
 }
 
 func (a *rethinkAPIServer) getMessagesByIndex(
