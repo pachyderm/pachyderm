@@ -126,7 +126,7 @@ func TestPipeline(t *testing.T) {
 	require.Equal(t, "foo", buffer.String())
 	// Do second commit to repo
 	log.Printf("Do second commit.")
-	commit2, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
+	commit2, err := pfsutil.StartCommit(pfsClient, dataRepo, commit1.Id)
 	require.NoError(t, err)
 	_, err = pfsutil.PutFile(pfsClient, dataRepo, commit2.Id, "file", 0, strings.NewReader("bar"))
 	require.NoError(t, err)
