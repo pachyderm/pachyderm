@@ -21,6 +21,19 @@ func TestBlock(t *testing.T) {
 }
 
 func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
+	_, err := apiServer.CreatePipelineInfo(
+		context.Background(),
+		&persist.PipelineInfo{
+			PipelineName: "foo",
+		},
+	)
+	require.NoError(t, err)
+	pipelineInfo, err := apiServer.GetPipelineInfo(
+		context.Background(),
+		&pps.Pipeline{Name: "foo"},
+	)
+	require.NoError(t, err)
+	require.Equal(t, pipelineInfo.PipelineName, "foo")
 	inputCommits := []*pfs.Commit{pfsutil.NewCommit("bar", uuid.NewWithoutDashes())}
 	jobInfo, err := apiServer.CreateJobInfo(
 		context.Background(),
