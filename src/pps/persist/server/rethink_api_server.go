@@ -317,7 +317,7 @@ func (a *rethinkAPIServer) getMessageByPrimaryKey(table Table, key interface{}, 
 	return nil
 }
 
-func (a *rethinkAPIServer) deleteMessageByPrimaryKey(table Table, value interface{}) error {
+func (a *rethinkAPIServer) deleteMessageByPrimaryKey(table Table, value interface{}) (retErr error) {
 	_, err := a.getTerm(table).Get(value).Delete().RunWrite(a.session)
 	return err
 }
@@ -327,7 +327,7 @@ func (a *rethinkAPIServer) waitMessageByPrimaryKey(
 	key interface{},
 	message proto.Message,
 	predicate func(term gorethink.Term) gorethink.Term,
-) error {
+) (retErr error) {
 	cursor, err :=
 		a.getTerm(table).
 			Get(key).
@@ -339,7 +339,13 @@ func (a *rethinkAPIServer) waitMessageByPrimaryKey(
 	if err != nil {
 		return err
 	}
-	return cursor.One(message)
+	defer func() {
+		if err := cursor.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	cursor.Next(message)
+	return cursor.Err()
 }
 
 func (a *rethinkAPIServer) getTerm(table Table) gorethink.Term {
