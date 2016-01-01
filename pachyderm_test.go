@@ -121,6 +121,7 @@ func TestPipeline(t *testing.T) {
 	outCommits := listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	var buffer bytes.Buffer
+	log.Printf("First commit: %+v", outCommits[0])
 	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo.Name, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foo", buffer.String())
 	// Do second commit to repo
@@ -132,7 +133,7 @@ func TestPipeline(t *testing.T) {
 	require.NoError(t, pfsutil.FinishCommit(pfsClient, dataRepo, commit2.Id))
 	listCommitRequest = &pfs.ListCommitRequest{
 		Repo:       []*pfs.Repo{outRepo},
-		FromCommit: []*pfs.Commit{commit1},
+		FromCommit: []*pfs.Commit{outCommits[0].Commit},
 		CommitType: pfs.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
 	}
@@ -144,6 +145,7 @@ func TestPipeline(t *testing.T) {
 	outCommits = listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	buffer = bytes.Buffer{}
+	log.Printf("Second commit: %+v", outCommits[0])
 	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo.Name, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foobar", buffer.String())
 }
