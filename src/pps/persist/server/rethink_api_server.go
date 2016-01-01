@@ -295,7 +295,7 @@ func (a *rethinkAPIServer) insertMessage(table Table, message proto.Message) err
 }
 
 func (a *rethinkAPIServer) updateMessage(table Table, message proto.Message) error {
-	_, err := a.getTerm(table).Update(message).RunWrite(a.session)
+	_, err := a.getTerm(table).Insert(message, gorethink.InsertOpts{Conflict: "update"}).RunWrite(a.session)
 	return err
 }
 

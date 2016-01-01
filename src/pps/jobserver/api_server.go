@@ -28,6 +28,7 @@ type jobState struct {
 	outputCommit *pfs.Commit // the output commit
 	commitReady  chan bool   // closed when outCommit has been started (and is non nil)
 	finished     chan bool   // closed when the job has been finished, the jobState will be deleted afterward
+	success      bool
 }
 
 func newJobState() *jobState {
@@ -37,6 +38,7 @@ func newJobState() *jobState {
 		outputCommit: nil,
 		commitReady:  make(chan bool),
 		finished:     make(chan bool),
+		success:      true,
 	}
 }
 
@@ -206,25 +208,37 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 	if err != nil {
 		return nil, err
 	}
-	var jobState *jobState
+	var finished bool
+	persistJobState := pps.JobState_JOB_STATE_FAILURE
 	if err := func() error {
 		a.lock.Lock()
 		defer a.lock.Unlock()
-		jobState = a.jobStates[request.Job.Id]
-		if jobState == nil {
+		jobState, ok := a.jobStates[request.Job.Id]
+		if !ok {
 			return fmt.Errorf("job %s was never started", request.Job.Id)
 		}
+		jobState.success = jobState.success && request.Success
+		if jobState.success {
+			persistJobState = pps.JobState_JOB_STATE_SUCCESS
+		}
 		jobState.finish++
+		finished = (jobState.finish == jobInfo.Shards)
 		return nil
 	}(); err != nil {
 		return nil, err
 	}
-	if jobState.finish == jobInfo.Shards {
+	if finished {
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
 		}
 		if _, err := a.pfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 			Commit: jobInfo.OutputCommit,
+		}); err != nil {
+			return nil, err
+		}
+		if _, err := a.persistAPIServer.CreateJobState(ctx, &persist.JobState{
+			JobId: request.Job.Id,
+			State: persistJobState,
 		}); err != nil {
 			return nil, err
 		}
