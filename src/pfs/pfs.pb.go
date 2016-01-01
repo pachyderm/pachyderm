@@ -450,8 +450,9 @@ func (m *DeleteRepoRequest) GetRepo() *Repo {
 }
 
 type StartCommitRequest struct {
-	Parent *Commit `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
-	Commit *Commit `protobuf:"bytes,2,opt,name=commit" json:"commit,omitempty"`
+	Parent  *Commit                     `protobuf:"bytes,1,opt,name=parent" json:"parent,omitempty"`
+	Commit  *Commit                     `protobuf:"bytes,2,opt,name=commit" json:"commit,omitempty"`
+	Started *google_protobuf2.Timestamp `protobuf:"bytes,3,opt,name=started" json:"started,omitempty"`
 }
 
 func (m *StartCommitRequest) Reset()         { *m = StartCommitRequest{} }
@@ -472,8 +473,16 @@ func (m *StartCommitRequest) GetCommit() *Commit {
 	return nil
 }
 
+func (m *StartCommitRequest) GetStarted() *google_protobuf2.Timestamp {
+	if m != nil {
+		return m.Started
+	}
+	return nil
+}
+
 type FinishCommitRequest struct {
-	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	Commit   *Commit                     `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	Finished *google_protobuf2.Timestamp `protobuf:"bytes,3,opt,name=finished" json:"finished,omitempty"`
 }
 
 func (m *FinishCommitRequest) Reset()         { *m = FinishCommitRequest{} }
@@ -483,6 +492,13 @@ func (*FinishCommitRequest) ProtoMessage()    {}
 func (m *FinishCommitRequest) GetCommit() *Commit {
 	if m != nil {
 		return m.Commit
+	}
+	return nil
+}
+
+func (m *FinishCommitRequest) GetFinished() *google_protobuf2.Timestamp {
+	if m != nil {
+		return m.Finished
 	}
 	return nil
 }

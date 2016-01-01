@@ -113,7 +113,7 @@ func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartC
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.StartCommit(request.Parent, request.Commit, shards); err != nil {
+	if err := a.driver.StartCommit(request.Parent, request.Commit, request.Started, shards); err != nil {
 		return nil, err
 	}
 	if err := a.pulseCommitWaiters(request.Commit, pfs.CommitType_COMMIT_TYPE_WRITE, shards); err != nil {
@@ -132,7 +132,7 @@ func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.Finis
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.FinishCommit(request.Commit, shards); err != nil {
+	if err := a.driver.FinishCommit(request.Commit, request.Finished, shards); err != nil {
 		return nil, err
 	}
 	if err := a.pulseCommitWaiters(request.Commit, pfs.CommitType_COMMIT_TYPE_READ, shards); err != nil {

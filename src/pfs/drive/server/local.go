@@ -117,15 +117,9 @@ func (s *localAPIServer) ListBlock(ctx context.Context, request *drive.ListBlock
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (s *localAPIServer) CreateDiff(ctx context.Context, request *drive.CreateDiffRequest) (response *google_protobuf.Empty, retErr error) {
+func (s *localAPIServer) CreateDiff(ctx context.Context, request *drive.DiffInfo) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	data, err := proto.Marshal(&drive.DiffInfo{
-		Diff:         request.Diff,
-		ParentCommit: request.ParentCommit,
-		Appends:      request.Appends,
-		LastRefs:     request.LastRefs,
-		NewFiles:     request.NewFiles,
-	})
+	data, err := proto.Marshal(request)
 	if err != nil {
 		return nil, err
 	}

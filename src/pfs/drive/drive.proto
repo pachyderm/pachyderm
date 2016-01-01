@@ -13,7 +13,7 @@ message Block {
 
 message Diff {
   pfs.Commit commit = 1;
-  uint64 shard = 2;
+  uint64 shard = 4;
 }
 
 message ByteRange {
@@ -43,12 +43,14 @@ message BlockInfos {
 message DiffInfo {
   Diff diff = 1;
   pfs.Commit parent_commit = 2;
+  google.protobuf.Timestamp started = 3;
+  google.protobuf.Timestamp finished = 4;
   // Appends is the BlockRefs which have been append to files indexed by path.
-  map<string, BlockRefs> appends = 3;
+  map<string, BlockRefs> appends = 5;
   // LastRefs is the last diff which references a file indexed by path.
-  map<string, pfs.Commit> last_refs = 4;
+  map<string, pfs.Commit> last_refs = 6;
   // NewPaths contains files added in this diff, sorted by path.
-  repeated string new_files = 5;
+  repeated string new_files = 7;
 }
 
 message GetBlockRequest {
@@ -61,17 +63,6 @@ message InspectBlockRequest {
 }
 
 message ListBlockRequest {
-}
-
-message CreateDiffRequest {
-  Diff diff = 1;
-  pfs.Commit parent_commit = 2;
-  // Appends is the BlockRefs which have been append to files indexed by path.
-  map<string, BlockRefs> appends = 3;
-  // LastRefs is the last commit which references a file indexed by path.
-  map<string, pfs.Commit> last_refs = 4;
-  // NewPaths contains files added in this diff, sorted by path.
-  repeated string new_files = 5;
 }
 
 message InspectDiffRequest {
@@ -92,7 +83,7 @@ service API {
   rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
   rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
 
-  rpc CreateDiff(CreateDiffRequest) returns (google.protobuf.Empty) {}
+  rpc CreateDiff(DiffInfo) returns (google.protobuf.Empty) {}
   rpc InspectDiff(InspectDiffRequest) returns (DiffInfo) {}
   rpc ListDiff(ListDiffRequest) returns (stream DiffInfo) {}
   rpc DeleteDiff(DeleteDiffRequest) returns (google.protobuf.Empty) {}

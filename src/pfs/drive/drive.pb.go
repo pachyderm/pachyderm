@@ -20,7 +20,6 @@ It has these top-level messages:
 	GetBlockRequest
 	InspectBlockRequest
 	ListBlockRequest
-	CreateDiffRequest
 	InspectDiffRequest
 	ListDiffRequest
 	DeleteDiffRequest
@@ -56,7 +55,7 @@ func (*Block) ProtoMessage()    {}
 
 type Diff struct {
 	Commit *pfs.Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	Shard  uint64      `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
+	Shard  uint64      `protobuf:"varint,4,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *Diff) Reset()         { *m = Diff{} }
@@ -157,14 +156,16 @@ func (m *BlockInfos) GetBlockInfo() []*BlockInfo {
 }
 
 type DiffInfo struct {
-	Diff         *Diff       `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
-	ParentCommit *pfs.Commit `protobuf:"bytes,2,opt,name=parent_commit" json:"parent_commit,omitempty"`
+	Diff         *Diff                       `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
+	ParentCommit *pfs.Commit                 `protobuf:"bytes,2,opt,name=parent_commit" json:"parent_commit,omitempty"`
+	Started      *google_protobuf2.Timestamp `protobuf:"bytes,3,opt,name=started" json:"started,omitempty"`
+	Finished     *google_protobuf2.Timestamp `protobuf:"bytes,4,opt,name=finished" json:"finished,omitempty"`
 	// Appends is the BlockRefs which have been append to files indexed by path.
-	Appends map[string]*BlockRefs `protobuf:"bytes,3,rep,name=appends" json:"appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Appends map[string]*BlockRefs `protobuf:"bytes,5,rep,name=appends" json:"appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// LastRefs is the last diff which references a file indexed by path.
-	LastRefs map[string]*pfs.Commit `protobuf:"bytes,4,rep,name=last_refs" json:"last_refs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	LastRefs map[string]*pfs.Commit `protobuf:"bytes,6,rep,name=last_refs" json:"last_refs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// NewPaths contains files added in this diff, sorted by path.
-	NewFiles []string `protobuf:"bytes,5,rep,name=new_files" json:"new_files,omitempty"`
+	NewFiles []string `protobuf:"bytes,7,rep,name=new_files" json:"new_files,omitempty"`
 }
 
 func (m *DiffInfo) Reset()         { *m = DiffInfo{} }
@@ -181,6 +182,20 @@ func (m *DiffInfo) GetDiff() *Diff {
 func (m *DiffInfo) GetParentCommit() *pfs.Commit {
 	if m != nil {
 		return m.ParentCommit
+	}
+	return nil
+}
+
+func (m *DiffInfo) GetStarted() *google_protobuf2.Timestamp {
+	if m != nil {
+		return m.Started
+	}
+	return nil
+}
+
+func (m *DiffInfo) GetFinished() *google_protobuf2.Timestamp {
+	if m != nil {
+		return m.Finished
 	}
 	return nil
 }
@@ -237,49 +252,6 @@ func (m *ListBlockRequest) Reset()         { *m = ListBlockRequest{} }
 func (m *ListBlockRequest) String() string { return proto.CompactTextString(m) }
 func (*ListBlockRequest) ProtoMessage()    {}
 
-type CreateDiffRequest struct {
-	Diff         *Diff       `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
-	ParentCommit *pfs.Commit `protobuf:"bytes,2,opt,name=parent_commit" json:"parent_commit,omitempty"`
-	// Appends is the BlockRefs which have been append to files indexed by path.
-	Appends map[string]*BlockRefs `protobuf:"bytes,3,rep,name=appends" json:"appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// LastRefs is the last commit which references a file indexed by path.
-	LastRefs map[string]*pfs.Commit `protobuf:"bytes,4,rep,name=last_refs" json:"last_refs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// NewPaths contains files added in this diff, sorted by path.
-	NewFiles []string `protobuf:"bytes,5,rep,name=new_files" json:"new_files,omitempty"`
-}
-
-func (m *CreateDiffRequest) Reset()         { *m = CreateDiffRequest{} }
-func (m *CreateDiffRequest) String() string { return proto.CompactTextString(m) }
-func (*CreateDiffRequest) ProtoMessage()    {}
-
-func (m *CreateDiffRequest) GetDiff() *Diff {
-	if m != nil {
-		return m.Diff
-	}
-	return nil
-}
-
-func (m *CreateDiffRequest) GetParentCommit() *pfs.Commit {
-	if m != nil {
-		return m.ParentCommit
-	}
-	return nil
-}
-
-func (m *CreateDiffRequest) GetAppends() map[string]*BlockRefs {
-	if m != nil {
-		return m.Appends
-	}
-	return nil
-}
-
-func (m *CreateDiffRequest) GetLastRefs() map[string]*pfs.Commit {
-	if m != nil {
-		return m.LastRefs
-	}
-	return nil
-}
-
 type InspectDiffRequest struct {
 	Diff *Diff `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
 }
@@ -330,7 +302,6 @@ func init() {
 	proto.RegisterType((*GetBlockRequest)(nil), "GetBlockRequest")
 	proto.RegisterType((*InspectBlockRequest)(nil), "InspectBlockRequest")
 	proto.RegisterType((*ListBlockRequest)(nil), "ListBlockRequest")
-	proto.RegisterType((*CreateDiffRequest)(nil), "CreateDiffRequest")
 	proto.RegisterType((*InspectDiffRequest)(nil), "InspectDiffRequest")
 	proto.RegisterType((*ListDiffRequest)(nil), "ListDiffRequest")
 	proto.RegisterType((*DeleteDiffRequest)(nil), "DeleteDiffRequest")
@@ -347,7 +318,7 @@ type APIClient interface {
 	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (API_GetBlockClient, error)
 	InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error)
 	ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error)
-	CreateDiff(ctx context.Context, in *CreateDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	CreateDiff(ctx context.Context, in *DiffInfo, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	InspectDiff(ctx context.Context, in *InspectDiffRequest, opts ...grpc.CallOption) (*DiffInfo, error)
 	ListDiff(ctx context.Context, in *ListDiffRequest, opts ...grpc.CallOption) (API_ListDiffClient, error)
 	DeleteDiff(ctx context.Context, in *DeleteDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
@@ -445,7 +416,7 @@ func (c *aPIClient) ListBlock(ctx context.Context, in *ListBlockRequest, opts ..
 	return out, nil
 }
 
-func (c *aPIClient) CreateDiff(ctx context.Context, in *CreateDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+func (c *aPIClient) CreateDiff(ctx context.Context, in *DiffInfo, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
 	out := new(google_protobuf1.Empty)
 	err := grpc.Invoke(ctx, "/.API/CreateDiff", in, out, c.cc, opts...)
 	if err != nil {
@@ -511,7 +482,7 @@ type APIServer interface {
 	GetBlock(*GetBlockRequest, API_GetBlockServer) error
 	InspectBlock(context.Context, *InspectBlockRequest) (*BlockInfo, error)
 	ListBlock(context.Context, *ListBlockRequest) (*BlockInfos, error)
-	CreateDiff(context.Context, *CreateDiffRequest) (*google_protobuf1.Empty, error)
+	CreateDiff(context.Context, *DiffInfo) (*google_protobuf1.Empty, error)
 	InspectDiff(context.Context, *InspectDiffRequest) (*DiffInfo, error)
 	ListDiff(*ListDiffRequest, API_ListDiffServer) error
 	DeleteDiff(context.Context, *DeleteDiffRequest) (*google_protobuf1.Empty, error)
@@ -593,7 +564,7 @@ func _API_ListBlock_Handler(srv interface{}, ctx context.Context, dec func(inter
 }
 
 func _API_CreateDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(CreateDiffRequest)
+	in := new(DiffInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
