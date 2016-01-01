@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
@@ -132,6 +133,15 @@ func (a *rethinkAPIServer) Close() error {
 // Timestamp cannot be set
 func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.JobInfo) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if request.JobId != "" {
+		return nil, fmt.Errorf("request.JobId should be unset")
+	}
+	if request.CreatedAt != nil {
+		return nil, fmt.Errorf("request.CreatedAt should be unset")
+	}
+	if request.CommitIndex != "" {
+		return nil, fmt.Errorf("request.CommitIndex should be unset")
+	}
 	request.JobId = uuid.NewWithoutDashes()
 	request.CreatedAt = prototime.TimeToTimestamp(time.Now())
 	request.CommitIndex = commitIndex(request.InputCommit)
@@ -164,29 +174,8 @@ func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *pps.InspectJ
 	return jobInfo, nil
 }
 
-func (a *rethinkAPIServer) GetJobInfosByPipeline(ctx context.Context, request *pps.Pipeline) (response *persist.JobInfos, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	jobInfoObjs, err := a.getMessagesByIndex(
-		jobInfosTable,
-		pipelineNameIndex,
-		request.Name,
-		func() proto.Message { return &persist.JobInfo{} },
-	)
-	if err != nil {
-		return nil, err
-	}
-	var jobInfos []*persist.JobInfo
-	for _, jobInfoObj := range jobInfoObjs {
-		jobInfos = append(jobInfos, jobInfoObj.(*persist.JobInfo))
-	}
-	sortJobInfosByTimestampDesc(jobInfos)
-	return &persist.JobInfos{
-		JobInfo: jobInfos,
-	}, nil
-}
-
-func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJobRequest) (response *persist.JobInfos, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJobRequest) (response *persist.JobInfos, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	query := a.getTerm(jobInfosTable)
 	if request.Pipeline != nil && len(request.InputCommit) > 0 {
 		query = query.GetAllByIndex(
@@ -204,21 +193,27 @@ func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJo
 			gorethink.Expr(commitIndex(request.InputCommit)),
 		)
 	}
-	jobInfoObjs, err := a.getAllMessages(
-		jobInfosTable,
-		func() proto.Message { return &persist.JobInfo{} },
-	)
+	cursor, err := query.Run(a.session)
 	if err != nil {
 		return nil, err
 	}
-	jobInfos := make([]*persist.JobInfo, len(jobInfoObjs))
-	for i, jobInfoObj := range jobInfoObjs {
-		jobInfos[i] = jobInfoObj.(*persist.JobInfo)
+	defer func() {
+		if err := cursor.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	result := &persist.JobInfos{}
+	for {
+		jobInfo := &persist.JobInfo{}
+		if !cursor.Next(jobInfo) {
+			break
+		}
+		result.JobInfo = append(result.JobInfo, jobInfo)
 	}
-	sortJobInfosByTimestampDesc(jobInfos)
-	return &persist.JobInfos{
-		JobInfo: jobInfos,
-	}, nil
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *pps.Job) (response *google_protobuf.Empty, err error) {
@@ -267,23 +262,30 @@ func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *pps.Pip
 	return pipelineInfo, nil
 }
 
-func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *google_protobuf.Empty) (response *persist.PipelineInfos, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	pipelineInfoObjs, err := a.getAllMessages(
-		pipelineInfosTable,
-		func() proto.Message { return &persist.PipelineInfo{} },
-	)
+func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *google_protobuf.Empty) (response *persist.PipelineInfos, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	query := a.getTerm(pipelineInfosTable)
+	cursor, err := query.Run(a.session)
 	if err != nil {
 		return nil, err
 	}
-	pipelineInfos := make([]*persist.PipelineInfo, len(pipelineInfoObjs))
-	for i, pipelineInfoObj := range pipelineInfoObjs {
-		pipelineInfos[i] = pipelineInfoObj.(*persist.PipelineInfo)
+	defer func() {
+		if err := cursor.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	result := &persist.PipelineInfos{}
+	for {
+		pipelineInfo := &persist.PipelineInfo{}
+		if !cursor.Next(pipelineInfo) {
+			break
+		}
+		result.PipelineInfo = append(result.PipelineInfo, pipelineInfo)
 	}
-	sortPipelineInfosByTimestampDesc(pipelineInfos)
-	return &persist.PipelineInfos{
-		PipelineInfo: pipelineInfos,
-	}, nil
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *pps.Pipeline) (response *google_protobuf.Empty, err error) {
@@ -325,7 +327,7 @@ func (a *rethinkAPIServer) waitMessageByPrimaryKey(
 	key interface{},
 	message proto.Message,
 	predicate func(term gorethink.Term) gorethink.Term,
-) (retErr error) {
+) error {
 	cursor, err :=
 		a.getTerm(table).
 			Get(key).
@@ -337,59 +339,7 @@ func (a *rethinkAPIServer) waitMessageByPrimaryKey(
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := cursor.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	if !cursor.Next(message) {
-		return cursor.Err()
-	}
-	return nil
-}
-
-func (a *rethinkAPIServer) getMessagesByIndex(
-	table Table,
-	index Index,
-	value interface{},
-	messageConstructor func() proto.Message,
-	modifiers ...func(gorethink.Term) gorethink.Term,
-) ([]interface{}, error) {
-	return a.getMultiple(
-		a.getTerm(table).GetAllByIndex(index, value),
-		messageConstructor,
-		modifiers...,
-	)
-}
-
-func (a *rethinkAPIServer) getAllMessages(
-	table Table,
-	messageConstructor func() proto.Message,
-	modifiers ...func(gorethink.Term) gorethink.Term,
-) ([]interface{}, error) {
-	return a.getMultiple(
-		a.getTerm(table),
-		messageConstructor,
-		modifiers...,
-	)
-}
-
-func (a *rethinkAPIServer) getMultiple(
-	term gorethink.Term,
-	messageConstructor func() proto.Message,
-	modifiers ...func(gorethink.Term) gorethink.Term,
-) ([]interface{}, error) {
-	for _, modifier := range modifiers {
-		term = modifier(term)
-	}
-	term = term.Map(func(row gorethink.Term) interface{} {
-		return row.ToJSON()
-	})
-	cursor, err := term.Run(a.session)
-	if err != nil {
-		return nil, err
-	}
-	return processMultipleCursor(cursor, messageConstructor)
+	return cursor.One(message)
 }
 
 func (a *rethinkAPIServer) getTerm(table Table) gorethink.Term {
@@ -398,29 +348,6 @@ func (a *rethinkAPIServer) getTerm(table Table) gorethink.Term {
 
 func (a *rethinkAPIServer) now() *google_protobuf.Timestamp {
 	return prototime.TimeToTimestamp(a.timer.Now())
-}
-
-func processMultipleCursor(
-	cursor *gorethink.Cursor,
-	messageConstructor func() proto.Message,
-) ([]interface{}, error) {
-	var data []string
-	if err := cursor.All(&data); err != nil {
-		return nil, err
-	}
-	result := make([]interface{}, len(data))
-	for i, datum := range data {
-		message := messageConstructor()
-		if err := jsonpb.UnmarshalString(datum, message); err != nil {
-			return nil, err
-		}
-		result[i] = message
-	}
-	return result, nil
-}
-
-func rethinkToJSON(row gorethink.Term) interface{} {
-	return row.ToJSON()
 }
 
 func commitIndex(commits []*pfs.Commit) string {
