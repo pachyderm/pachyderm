@@ -4,7 +4,6 @@ MAINTAINER jdoliner@pachyderm.io
 RUN \
   apt-get update -yq && \
   apt-get install -yq --no-install-recommends \
-    btrfs-tools \
     build-essential \
     ca-certificates \
     cmake \

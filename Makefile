@@ -55,10 +55,7 @@ build:
 install:
 	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pachctl
 
-docker-build-btrfs:
-	docker-compose build btrfs
-
-docker-build-test: docker-build-btrfs
+docker-build-test:
 	docker-compose build test
 	docker tag -f pachyderm_test:latest pachyderm/test:latest
 	mkdir -p /tmp/pachyderm-test
@@ -69,7 +66,7 @@ docker-build-compile:
 docker-build-pfs-roler: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh pfs-roler
 
-docker-build-pfsd: docker-build-btrfs docker-build-compile
+docker-build-pfsd: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh pfsd
 
 docker-build-ppsd: docker-build-compile
@@ -164,8 +161,6 @@ docker-clean-test:
 	docker-compose rm -f rethink
 	docker-compose kill etcd
 	docker-compose rm -f etcd
-	docker-compose kill btrfs
-	docker-compose rm -f btrfs
 
 docker-clean-launch: docker-clean-test
 	docker-compose kill pfs-roler
@@ -176,10 +171,10 @@ docker-clean-launch: docker-clean-test
 	docker-compose rm -f ppsd
 
 go-test: docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test -test.short $(TESTFLAGS) $(TESTPKGS)"
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "go test -test.short $(TESTFLAGS) $(TESTPKGS)"
 
 go-test-long: docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test sh -c "sh etc/btrfs/btrfs-mount.sh go test $(TESTFLAGS) $(TESTPKGS)"
+	docker-compose run --rm $(DOCKER_OPTS) test sh -c "go test $(TESTFLAGS) $(TESTPKGS)"
 
 test: pretest go-test docker-clean-test
 
@@ -204,7 +199,6 @@ clean: docker-clean-launch clean-launch clean-launch-kube
 	vendor \
 	build \
 	install \
-	docker-build-btrfs \
 	docker-build-test \
 	docker-build-compile \
 	docker-build-pfs-roler \

@@ -7,22 +7,13 @@ etcd:
   command: -advertise-client-urls=http://0.0.0.0:2379 -listen-client-urls=http://0.0.0.0:2379
   ports:
     - "2379:2379"
-btrfs:
-  build: etc/btrfs
 test:
   build: .
   privileged: true
   volumes:
     - /tmp/pachyderm-test:/tmp/pachyderm-test
     - /var/run/docker.sock:/var/run/docker.sock
-    - /lib/modules:/lib/modules
-  volumes_from:
-    - btrfs
-  environment:
-    - BTRFS_DEVICE=/pfs-img/btrfs.img
-    - PFS_DRIVER_ROOT=/pfs/btrfs
   links:
-    - btrfs
     - etcd
     - rethink
 compile:
@@ -42,17 +33,11 @@ pfsd:
   privileged: true
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
-  volumes_from:
-    - btrfs
-  environment:
-    - BTRFS_DEVICE=/pfs-img/btrfs.img
-    - PFS_DRIVER_ROOT=/pfs/btrfs
   ports:
     - "650:650"
     - "750:750"
     - "1050:1050"
   links:
-    - btrfs
     - etcd
     - pfs-roler
 ppsd:
