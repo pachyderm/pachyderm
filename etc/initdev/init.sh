@@ -9,7 +9,6 @@ DOCKER_COMPOSE_VERSION=1.5.0rc2
 apt-get update -yq && \
 apt-get upgrade -yq && \
 apt-get install -yq --no-install-recommends \
-  btrfs-tools \
   build-essential \
   ca-certificates \
   cmake \

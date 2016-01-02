@@ -9,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/obj"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
@@ -25,7 +24,6 @@ import (
 )
 
 type appEnv struct {
-	DriverRoot  string `env:"PFS_DRIVER_ROOT,required"`
 	DriverType  string `env:"PFS_DRIVER_TYPE,default=obj"`
 	NumShards   uint64 `env:"PFS_NUM_SHARDS,default=16"`
 	NumReplicas uint64 `env:"PFS_NUM_REPLICAS"`
@@ -61,11 +59,6 @@ func do(appEnvObj interface{}) error {
 	)
 	var driver drive.Driver
 	switch appEnv.DriverType {
-	case "btrfs":
-		driver, err = btrfs.NewDriver(appEnv.DriverRoot, "")
-		if err != nil {
-			return err
-		}
 	case "obj":
 		objdAddress, err := getObjdAddress()
 		if err != nil {

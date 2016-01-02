@@ -5,8 +5,8 @@
     "name": "pachyderm",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": ""
+      "app": "",
+      "suite": "pachyderm"
     }
   },
   "secrets": null
@@ -179,8 +179,8 @@
         "name": "rethink",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "rethink"
+          "app": "rethink",
+          "suite": "pachyderm"
         }
       },
       "spec": {
@@ -370,17 +370,7 @@
         }
       },
       "spec": {
-        "volumes": [
-          {
-            "name": "pfs-disk"
-          },
-          {
-            "name": "modules",
-            "hostPath": {
-              "path": "/lib/modules"
-            }
-          }
-        ],
+        "volumes": null,
         "containers": [
           {
             "name": "pfsd",
@@ -403,33 +393,12 @@
             ],
             "env": [
               {
-                "name": "PFS_DRIVER_ROOT",
-                "value": "/pfs/btrfs"
-              },
-              {
-                "name": "BTRFS_DEVICE",
-                "value": "/pfs-img/btrfs.img"
-              },
-              {
                 "name": "PFS_NUM_SHARDS",
                 "value": "32"
               }
             ],
             "resources": {},
-            "volumeMounts": [
-              {
-                "name": "pfs-disk",
-                "mountPath": "/pfs/btrfs"
-              },
-              {
-                "name": "modules",
-                "mountPath": "/lib/modules"
-              }
-            ],
-            "imagePullPolicy": "",
-            "securityContext": {
-              "privileged": true
-            }
+            "imagePullPolicy": ""
           }
         ],
         "serviceAccountName": ""
@@ -484,8 +453,8 @@
     "name": "ppsd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "ppsd"
+      "app": "ppsd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -542,8 +511,8 @@
     "name": "ppsd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "ppsd"
+      "app": "ppsd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -593,8 +562,8 @@
         "name": "roler",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "roler"
+          "app": "roler",
+          "suite": "pachyderm"
         }
       },
       "spec": {

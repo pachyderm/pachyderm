@@ -16,7 +16,6 @@ var (
 	rolerImage         = "pachyderm/pfs-roler"
 	ppsdImage          = "pachyderm/ppsd"
 	objdImage          = "pachyderm/objd"
-	btrfsImage         = "pachyderm_btrfs"
 	etcdImage          = "gcr.io/google_containers/etcd:2.0.12"
 	rethinkImage       = "rethinkdb:2.1.5"
 	serviceAccountName = "pachyderm"
@@ -164,14 +163,6 @@ func PfsdRc(shards uint64) *api.ReplicationController {
 							Image: pfsdImage,
 							Env: []api.EnvVar{
 								{
-									Name:  "PFS_DRIVER_ROOT",
-									Value: "/pfs/btrfs",
-								},
-								{
-									Name:  "BTRFS_DEVICE",
-									Value: "/pfs-img/btrfs.img",
-								},
-								{
 									Name:  "PFS_NUM_SHARDS",
 									Value: strconv.FormatUint(shards, 10),
 								},
@@ -190,32 +181,6 @@ func PfsdRc(shards uint64) *api.ReplicationController {
 								{
 									ContainerPort: 1050,
 									Name:          "trace-port",
-								},
-							},
-							VolumeMounts: []api.VolumeMount{
-								{
-									Name:      "pfs-disk",
-									MountPath: "/pfs/btrfs",
-								},
-								{
-									Name:      "modules",
-									MountPath: "/lib/modules",
-								},
-							},
-							SecurityContext: &api.SecurityContext{
-								Privileged: &trueVal, // god is this dumb
-							},
-						},
-					},
-					Volumes: []api.Volume{
-						{
-							Name: "pfs-disk",
-						},
-						{
-							Name: "modules",
-							VolumeSource: api.VolumeSource{
-								HostPath: &api.HostPathVolumeSource{
-									Path: "/lib/modules",
 								},
 							},
 						},

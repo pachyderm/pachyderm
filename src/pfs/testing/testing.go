@@ -12,7 +12,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pfs/drive/btrfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/obj"
 	drive_server "github.com/pachyderm/pachyderm/src/pfs/drive/server"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
@@ -25,9 +24,6 @@ import (
 )
 
 const (
-	// TODO: large numbers of shards takes forever because
-	// we are doing tons of btrfs operations on init, is there anything
-	// we can do about that?
 	testShardsPerServer = 4
 	testNumServers      = 4
 	testNumReplicas     = 0
@@ -258,21 +254,6 @@ func getObjDriver(tb testing.TB, driveClient drive.APIClient) drive.Driver {
 	driver, err := obj.NewDriver(driveClient)
 	require.NoError(tb, err)
 	return driver
-}
-
-func getBtrfsDriver(tb testing.TB, namespace string) drive.Driver {
-	driver, err := btrfs.NewDriver(getBtrfsRootDir(tb), namespace)
-	require.NoError(tb, err)
-	return driver
-}
-
-func getBtrfsRootDir(tb testing.TB) string {
-	// TODO
-	rootDir := os.Getenv("PFS_DRIVER_ROOT")
-	if rootDir == "" {
-		tb.Fatal("PFS_DRIVER_ROOT not set")
-	}
-	return rootDir
 }
 
 func getEtcdClient() (discovery.Client, error) {
