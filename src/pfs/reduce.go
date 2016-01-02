@@ -17,8 +17,7 @@ func Reduce(commitInfos []*CommitInfo) []*CommitInfo {
 		if commitInfo.CommitType == CommitType_COMMIT_TYPE_WRITE {
 			reducedCommitInfo.CommitType = CommitType_COMMIT_TYPE_WRITE
 		}
-		reducedCommitInfo.CommitBytes += commitInfo.CommitBytes
-		reducedCommitInfo.TotalBytes += commitInfo.TotalBytes
+		reducedCommitInfo.SizeBytes += commitInfo.SizeBytes
 	}
 	var result []*CommitInfo
 	for _, commitInfo := range reducedCommitInfos {

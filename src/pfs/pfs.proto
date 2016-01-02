@@ -63,8 +63,7 @@ message CommitInfo {
   Commit parent_commit = 3;
   google.protobuf.Timestamp started = 4;
   google.protobuf.Timestamp finished = 5;
-  uint64 commit_bytes = 6;
-  uint64 total_bytes = 7;
+  uint64 size_bytes = 6;
 }
 
 message CommitInfos {

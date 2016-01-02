@@ -255,6 +255,7 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	scanner.Split(blockSplitFunc)
 	var wg sync.WaitGroup
 	var loopErr error
+	var sizeBytes uint64
 	for scanner.Scan() {
 		data := scanner.Bytes()
 		blockRef := &drive.BlockRef{
@@ -264,6 +265,7 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 			},
 		}
 		blockRefs = append(blockRefs, blockRef)
+		sizeBytes += blockRef.Range.Upper - blockRef.Range.Lower
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -300,6 +302,7 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	}
 	blockRefsMsg.BlockRef = append(blockRefsMsg.BlockRef, blockRefs...)
 	d.addFileIndexes(diffInfo, file, shard)
+	diffInfo.SizeBytes += sizeBytes
 	return nil
 }
 
@@ -435,6 +438,7 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 					ParentCommit: diffInfo.ParentCommit,
 					Started:      diffInfo.Started,
 					Finished:     diffInfo.Finished,
+					SizeBytes:    diffInfo.SizeBytes,
 				})
 		}
 		if diffInfo, ok := d.started.get(&drive.Diff{
