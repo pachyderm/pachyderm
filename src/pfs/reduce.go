@@ -40,9 +40,8 @@ func (a sortCommitInfos) Less(i, j int) bool {
 		return true
 	} else if a[j].Finished != nil {
 		return false
-	} else {
-		return prototime.TimestampToTime(a[i].Started).After(prototime.TimestampToTime(a[j].Started))
 	}
+	return prototime.TimestampToTime(a[i].Started).After(prototime.TimestampToTime(a[j].Started))
 }
 func (a sortCommitInfos) Swap(i, j int) {
 	tmp := a[i]
