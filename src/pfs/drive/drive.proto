@@ -51,6 +51,7 @@ message DiffInfo {
   map<string, pfs.Commit> last_refs = 6;
   // NewPaths contains files added in this diff, sorted by path.
   repeated string new_files = 7;
+  uint64 size_bytes = 8;
 }
 
 message GetBlockRequest {

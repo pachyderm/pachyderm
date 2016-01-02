@@ -247,23 +247,9 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 				}
 				return
 			}
-			var commitBytes uint64
+			var sizeBytes uint64
 			for _, change := range changes {
-				commitBytes += change.SizeBytes
-			}
-			commitPath, err := d.commitPath(commit, shard)
-			if err != nil {
-				if loopErr == nil {
-					loopErr = err
-				}
-				return
-			}
-			totalBytes, err := d.recursiveSize(commitPath)
-			if err != nil {
-				if loopErr == nil {
-					loopErr = err
-				}
-				return
+				sizeBytes += change.SizeBytes
 			}
 			lock.Lock()
 			defer lock.Unlock()
@@ -274,8 +260,7 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 			if finishTime != nil && (result.Finished == nil || finishTime.After(prototime.TimestampToTime(result.Finished))) {
 				result.Finished = prototime.TimeToTimestamp(*finishTime)
 			}
-			result.CommitBytes += commitBytes
-			result.TotalBytes += totalBytes
+			result.SizeBytes += sizeBytes
 		}()
 	}
 	wg.Wait()

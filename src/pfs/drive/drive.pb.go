@@ -165,7 +165,8 @@ type DiffInfo struct {
 	// LastRefs is the last diff which references a file indexed by path.
 	LastRefs map[string]*pfs.Commit `protobuf:"bytes,6,rep,name=last_refs" json:"last_refs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// NewPaths contains files added in this diff, sorted by path.
-	NewFiles []string `protobuf:"bytes,7,rep,name=new_files" json:"new_files,omitempty"`
+	NewFiles  []string `protobuf:"bytes,7,rep,name=new_files" json:"new_files,omitempty"`
+	SizeBytes uint64   `protobuf:"varint,8,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
 func (m *DiffInfo) Reset()         { *m = DiffInfo{} }

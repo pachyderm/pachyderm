@@ -213,8 +213,7 @@ type CommitInfo struct {
 	ParentCommit *Commit                     `protobuf:"bytes,3,opt,name=parent_commit" json:"parent_commit,omitempty"`
 	Started      *google_protobuf2.Timestamp `protobuf:"bytes,4,opt,name=started" json:"started,omitempty"`
 	Finished     *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=finished" json:"finished,omitempty"`
-	CommitBytes  uint64                      `protobuf:"varint,6,opt,name=commit_bytes" json:"commit_bytes,omitempty"`
-	TotalBytes   uint64                      `protobuf:"varint,7,opt,name=total_bytes" json:"total_bytes,omitempty"`
+	SizeBytes    uint64                      `protobuf:"varint,6,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
 func (m *CommitInfo) Reset()         { *m = CommitInfo{} }
