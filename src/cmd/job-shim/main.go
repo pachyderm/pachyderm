@@ -52,7 +52,8 @@ func do(appEnvObj interface{}) error {
 						Id: args[0],
 					}})
 			if err != nil {
-				errorAndExit(err.Error())
+				fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+				os.Exit(0)
 			}
 
 			mounter := fuse.NewMounter(getPfsdAddress(appEnv), pfsAPIClient)
