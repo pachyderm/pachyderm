@@ -40,20 +40,15 @@ func TestJob(t *testing.T) {
 		"",
 	)
 	require.NoError(t, err)
-	listCommitRequest := &pfs.ListCommitRequest{
-		Repo:       []*pfs.Repo{pps.JobRepo(job)},
-		CommitType: pfs.CommitType_COMMIT_TYPE_READ,
-		Block:      true,
+	inspectJobRequest := &pps.InspectJobRequest{
+		Job:         job,
+		BlockOutput: true,
+		BlockState:  true,
 	}
-	listCommitResponse, err := pfsClient.ListCommit(
-		context.Background(),
-		listCommitRequest,
-	)
+	jobInfo, err := ppsClient.InspectJob(context.Background(), inspectJobRequest)
 	require.NoError(t, err)
-	outCommits := listCommitResponse.CommitInfo
-	require.Equal(t, 1, len(outCommits))
 	var buffer bytes.Buffer
-	require.NoError(t, pfsutil.GetFile(pfsClient, pps.JobRepo(job).Name, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
+	require.NoError(t, pfsutil.GetFile(pfsClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foo", buffer.String())
 }
 
