@@ -28,6 +28,10 @@ func CreateJob(
 	inputCommit []*pfs.Commit,
 	parentJobID string,
 ) (*pps.Job, error) {
+	var parentJob *pps.Job
+	if parentJobID != "" {
+		parentJob = NewJob(parentJobID)
+	}
 	return client.CreateJob(
 		context.Background(),
 		&pps.CreateJobRequest{
@@ -38,7 +42,7 @@ func CreateJob(
 			},
 			Shards:      shards,
 			InputCommit: inputCommit,
-			ParentJob:   NewJob(parentJobID),
+			ParentJob:   parentJob,
 		},
 	)
 }

@@ -21,7 +21,6 @@ import (
 )
 
 func TestJob(t *testing.T) {
-	t.Skip()
 	dataRepo := uniqueString("TestJob.data")
 	pfsClient := getPfsClient(t)
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
@@ -84,6 +83,7 @@ func TestGrep(t *testing.T) {
 }
 
 func TestPipeline(t *testing.T) {
+	t.Skip()
 	pfsClient := getPfsClient(t)
 	ppsClient := getPpsClient(t)
 	// create repos
