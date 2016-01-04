@@ -340,12 +340,16 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		Use:   "list-file repo-name commit-id path/to/dir",
 		Short: "Return the files in a directory.",
 		Long:  "Return the files in a directory.",
-		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
+		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 2, Max: 3}, func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
 			}
-			fileInfos, err := pfsutil.ListFile(apiClient, args[0], args[1], args[2], shard())
+			var path string
+			if len(args) == 3 {
+				path = args[2]
+			}
+			fileInfos, err := pfsutil.ListFile(apiClient, args[0], args[1], path, shard())
 			if err != nil {
 				return err
 			}
