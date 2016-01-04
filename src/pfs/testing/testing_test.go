@@ -1,4 +1,4 @@
-package testing
+package pfs
 
 import (
 	"bytes"
@@ -11,12 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/net/context"
-
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -25,42 +26,8 @@ const (
 
 func TestSimple(t *testing.T) {
 	t.Parallel()
-	RunTest(t, testSimple)
-}
-
-func TestBlockListCommits(t *testing.T) {
-	t.Parallel()
-	RunTest(t, testBlockListCommits)
-}
-
-func TestFailures(t *testing.T) {
-	t.Skip()
-	t.Parallel()
-	RunTest(t, testFailures)
-}
-
-func TestFuseMount(t *testing.T) {
-	t.Skip()
-	t.Parallel()
-	RunTest(t, testMount)
-}
-
-func TestFuseMountBig(t *testing.T) {
-	t.Skip()
-	if testing.Short() {
-		t.Skip()
-	}
-	t.Parallel()
-	RunTest(t, testMountBig)
-
-}
-
-func BenchmarkFuse(b *testing.B) {
-	RunBench(b, benchMount)
-}
-
-func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
-	repoName := "testSimpleRepo"
+	apiClient := getPfsClient(t)
+	repoName := uniqueString("testSimpleRepo")
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
@@ -103,10 +70,10 @@ func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 
 	checkWrites(t, apiClient, repoName, newCommitID)
 
-	fileInfos, err := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b", &pfs.Shard{Number: 0, Modulus: 1})
+	fileInfos, err := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b/*", &pfs.Shard{Number: 0, Modulus: 1})
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(fileInfos))
-	fileInfos, err = pfsutil.ListFile(apiClient, repoName, newCommitID, "a/c", &pfs.Shard{Number: 0, Modulus: 1})
+	fileInfos, err = pfsutil.ListFile(apiClient, repoName, newCommitID, "a/c/*", &pfs.Shard{Number: 0, Modulus: 1})
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(fileInfos))
 
@@ -117,7 +84,7 @@ func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			fileInfos3, iErr := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b", &pfs.Shard{Number: uint64(i), Modulus: 7})
+			fileInfos3, iErr := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b/*", &pfs.Shard{Number: uint64(i), Modulus: 7})
 			require.NoError(t, iErr)
 			fileInfos2[i] = fileInfos3
 		}()
@@ -130,8 +97,10 @@ func testSimple(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	require.Equal(t, testSize, count)
 }
 
-func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
-	repoName := "testBlockListCommitsRepo"
+func TestBlockListCommits(t *testing.T) {
+	t.Parallel()
+	apiClient := getPfsClient(t)
+	repoName := uniqueString("testBlockListCommitsRepo")
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
@@ -197,41 +166,11 @@ func testBlockListCommits(t *testing.T, apiClient pfs.APIClient, cluster Cluster
 	require.Equal(t, newCommit, commitInfos.CommitInfo[0].Commit)
 }
 
-func testFailures(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
-	repoName := "testFailuresRepo"
-
-	err := pfsutil.CreateRepo(apiClient, repoName)
-	require.NoError(t, err)
-
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "")
-	require.NoError(t, err)
-	require.NotNil(t, commit)
-	newCommitID := commit.Id
-
-	err = pfsutil.MakeDirectory(apiClient, repoName, newCommitID, "a/b")
-	require.NoError(t, err)
-	err = pfsutil.MakeDirectory(apiClient, repoName, newCommitID, "a/c")
-	require.NoError(t, err)
-
-	doWrites(t, apiClient, repoName, newCommitID)
-
-	err = pfsutil.FinishCommit(apiClient, repoName, newCommitID)
-	require.NoError(t, err)
-
-	checkWrites(t, apiClient, repoName, newCommitID)
-
-	cluster.KillRoleAssigner()
-	for server := 0; server < testNumReplicas; server++ {
-		cluster.Kill(server)
-	}
-	cluster.RestartRoleAssigner()
-	cluster.WaitForAvailability()
-
-	checkWrites(t, apiClient, repoName, newCommitID)
-}
-
-func testMount(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
-	repoName := "testMountRepo"
+func TestMount(t *testing.T) {
+	t.Skip()
+	t.Parallel()
+	apiClient := getPfsClient(t)
+	repoName := uniqueString("testMountRepo")
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
@@ -300,8 +239,11 @@ func testMount(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	require.NoError(t, err)
 }
 
-func testMountBig(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
-	repoName := "testMountBigRepo"
+func TestMountBig(t *testing.T) {
+	t.Skip()
+	t.Parallel()
+	apiClient := getPfsClient(t)
+	repoName := uniqueString("testMountBigRepo")
 
 	err := pfsutil.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
@@ -358,8 +300,9 @@ func testMountBig(t *testing.T, apiClient pfs.APIClient, cluster Cluster) {
 	require.NoError(t, err)
 }
 
-func benchMount(b *testing.B, apiClient pfs.APIClient) {
-	repoName := "benchMountRepo"
+func BenchmarkFuse(b *testing.B) {
+	apiClient := getPfsClient(b)
+	repoName := uniqueString("benchMountRepo")
 
 	if err := pfsutil.CreateRepo(apiClient, repoName); err != nil {
 		b.Error(err)
@@ -468,4 +411,18 @@ func checkWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commit
 
 		}()
 	}
+}
+
+func getPfsClient(tb testing.TB) pfs.APIClient {
+	pfsdAddr := os.Getenv("PFSD_PORT_650_TCP_ADDR")
+	if pfsdAddr == "" {
+		tb.Error("PFSD_PORT_650_TCP_ADDR not set")
+	}
+	clientConn, err := grpc.Dial(fmt.Sprintf("%s:650", pfsdAddr), grpc.WithInsecure())
+	require.NoError(tb, err)
+	return pfs.NewAPIClient(clientConn)
+}
+
+func uniqueString(prefix string) string {
+	return prefix + "." + uuid.NewWithoutDashes()[0:12]
 }
