@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"path"
 	"sort"
 	"strings"
@@ -342,25 +343,31 @@ func (d *driver) ListFile(file *pfs.File, shard uint64) ([]*pfs.FileInfo, error)
 		if !ok {
 			return nil, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
 		}
+		log.Printf("diffInfo: %+v", diffInfo)
 		commit = diffInfo.ParentCommit
 		if !read {
 			// don't list files for read commits
 			continue
 		}
-		for _, path := range diffInfo.NewFiles[sort.SearchStrings(diffInfo.NewFiles, file.Path):] {
-			if path = relevantPath(file, path); path != "" {
-				if _, ok := fileInfos[path]; ok {
-					continue
-				}
-				fileInfo, err := d.inspectFile(&pfs.File{
-					Commit: diffInfo.Diff.Commit,
-					Path:   path,
-				}, shard)
-				if err != nil {
-					return nil, err
-				}
-				fileInfos[path] = fileInfo
+		for name := range diffInfo.Appends {
+			match, err := path.Match(file.Path, name)
+			if err != nil {
+				return nil, err
 			}
+			if !match {
+				continue
+			}
+			if _, ok := fileInfos[name]; ok {
+				continue
+			}
+			fileInfo, err := d.inspectFile(&pfs.File{
+				Commit: diffInfo.Diff.Commit,
+				Path:   name,
+			}, shard)
+			if err != nil {
+				return nil, err
+			}
+			fileInfos[name] = fileInfo
 		}
 	}
 	var result []*pfs.FileInfo
@@ -374,7 +381,7 @@ func relevantPath(file *pfs.File, foundPath string) string {
 	if foundPath == file.Path {
 		return foundPath
 	}
-	if strings.HasPrefix(foundPath, file.Path+"/") {
+	if strings.HasPrefix(foundPath, path.Join(file.Path, "/")) {
 		return path.Join(
 			file.Path,
 			strings.Split(
@@ -478,10 +485,10 @@ func (d *driver) fileBlockRefsOrDir(file *pfs.File, shard uint64) (_ []*drive.Bl
 		if !read {
 			writeable = true
 		}
-		iNewFile := sort.SearchStrings(diffInfo.NewFiles, file.Path)
+		iNewFile := sort.SearchStrings(diffInfo.Files, file.Path)
 		if blockRefsMsg, ok := diffInfo.Appends[file.Path]; ok {
 			result = append(blockRefsMsg.BlockRef, result...)
-		} else if len(diffInfo.NewFiles) > iNewFile && strings.HasPrefix(diffInfo.NewFiles[iNewFile], file.Path+"/") {
+		} else if len(diffInfo.Files) > iNewFile && strings.HasPrefix(diffInfo.Files[iNewFile], file.Path+"/") {
 			return nil, true, nil
 		}
 		if lastRef, ok := diffInfo.LastRefs[file.Path]; ok {
@@ -526,10 +533,6 @@ func (d *driver) addFileIndexes(diffInfo *drive.DiffInfo, file *pfs.File, shard 
 		}
 		commit = ancestorDiffInfo.ParentCommit
 	}
-	i := sort.SearchStrings(diffInfo.NewFiles, file.Path)
-	diffInfo.NewFiles = append(diffInfo.NewFiles, "")
-	copy(diffInfo.NewFiles[i+1:], diffInfo.NewFiles[i:])
-	diffInfo.NewFiles[i] = file.Path
 }
 
 func blockSplitFunc(data []byte, atEOF bool) (advance int, token []byte, err error) {
