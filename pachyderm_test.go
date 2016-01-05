@@ -47,6 +47,11 @@ func TestJob(t *testing.T) {
 	}
 	jobInfo, err := ppsClient.InspectJob(context.Background(), inspectJobRequest)
 	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_STATE_SUCCESS, jobInfo.State)
+	commitInfo, err := pfsutil.InspectCommit(pfsClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.Id)
+	require.NoError(t, err)
+	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	log.Printf("GetFile: %s/%s/%s", jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.Id, "file")
 	var buffer bytes.Buffer
 	require.NoError(t, pfsutil.GetFile(pfsClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foo", buffer.String())
