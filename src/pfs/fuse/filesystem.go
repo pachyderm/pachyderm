@@ -121,7 +121,12 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 	}
 	directory := d.copy()
 	directory.File.Path = path.Join(directory.File.Path, request.Name)
-	localResult := &file{*directory, 0, 0}
+	localResult := &file{
+		directory: *directory,
+		handles:   0,
+		size:      0,
+		local:     true,
+	}
 	handle, err := localResult.Open(ctx, nil, nil)
 	if err != nil {
 		return nil, nil, err
@@ -148,6 +153,7 @@ type file struct {
 	directory
 	handles int32
 	size    int64
+	local   bool
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
@@ -161,7 +167,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		f.File.Path,
 		f.fs.Shard,
 	)
-	if err != nil {
+	if err != nil && !f.local {
 		return err
 	}
 	if fileInfo != nil {
@@ -313,9 +319,6 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		d.fs.Shard,
 	)
 	if err != nil {
-		return nil, err
-	}
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 		return nil, fuse.ENOENT
 	}
 	directory := d.copy()
@@ -324,9 +327,10 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	case pfs.FileType_FILE_TYPE_REGULAR:
 		directory.File.Path = fileInfo.File.Path
 		return &file{
-			*directory,
-			0,
-			int64(fileInfo.SizeBytes),
+			directory: *directory,
+			handles:   0,
+			size:      int64(fileInfo.SizeBytes),
+			local:     false,
 		}, nil
 	case pfs.FileType_FILE_TYPE_DIR:
 		return directory, nil
