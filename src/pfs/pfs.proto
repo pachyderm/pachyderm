@@ -77,6 +77,8 @@ message FileInfo {
   uint64 size_bytes = 3;
   uint32 perm = 4;
   google.protobuf.Timestamp modified = 5;
+  pfs.Commit commit_modified = 6;
+  repeated pfs.File children = 7;
 }
 
 message FileInfos {

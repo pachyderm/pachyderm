@@ -265,11 +265,13 @@ func (m *CommitInfos) GetCommitInfo() []*CommitInfo {
 
 // FileInfo represents information about a file.
 type FileInfo struct {
-	File      *File                       `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	FileType  FileType                    `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
-	SizeBytes uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
-	Perm      uint32                      `protobuf:"varint,4,opt,name=perm" json:"perm,omitempty"`
-	Modified  *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=modified" json:"modified,omitempty"`
+	File           *File                       `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	FileType       FileType                    `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
+	SizeBytes      uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
+	Perm           uint32                      `protobuf:"varint,4,opt,name=perm" json:"perm,omitempty"`
+	Modified       *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=modified" json:"modified,omitempty"`
+	CommitModified *Commit                     `protobuf:"bytes,6,opt,name=commit_modified" json:"commit_modified,omitempty"`
+	Children       []*File                     `protobuf:"bytes,7,rep,name=children" json:"children,omitempty"`
 }
 
 func (m *FileInfo) Reset()         { *m = FileInfo{} }
@@ -286,6 +288,20 @@ func (m *FileInfo) GetFile() *File {
 func (m *FileInfo) GetModified() *google_protobuf2.Timestamp {
 	if m != nil {
 		return m.Modified
+	}
+	return nil
+}
+
+func (m *FileInfo) GetCommitModified() *Commit {
+	if m != nil {
+		return m.CommitModified
+	}
+	return nil
+}
+
+func (m *FileInfo) GetChildren() []*File {
+	if m != nil {
+		return m.Children
 	}
 	return nil
 }

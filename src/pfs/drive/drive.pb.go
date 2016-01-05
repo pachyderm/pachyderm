@@ -13,7 +13,7 @@ It has these top-level messages:
 	Diff
 	ByteRange
 	BlockRef
-	BlockRefs
+	Append
 	BlockInfo
 	BlockInfos
 	DiffInfo
@@ -101,17 +101,33 @@ func (m *BlockRef) GetRange() *ByteRange {
 	return nil
 }
 
-type BlockRefs struct {
-	BlockRef []*BlockRef `protobuf:"bytes,1,rep,name=block_ref" json:"block_ref,omitempty"`
+type Append struct {
+	BlockRefs []*BlockRef     `protobuf:"bytes,1,rep,name=block_refs" json:"block_refs,omitempty"`
+	Children  map[string]bool `protobuf:"bytes,2,rep,name=children" json:"children,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	LastRef   *pfs.Commit     `protobuf:"bytes,3,opt,name=last_ref" json:"last_ref,omitempty"`
 }
 
-func (m *BlockRefs) Reset()         { *m = BlockRefs{} }
-func (m *BlockRefs) String() string { return proto.CompactTextString(m) }
-func (*BlockRefs) ProtoMessage()    {}
+func (m *Append) Reset()         { *m = Append{} }
+func (m *Append) String() string { return proto.CompactTextString(m) }
+func (*Append) ProtoMessage()    {}
 
-func (m *BlockRefs) GetBlockRef() []*BlockRef {
+func (m *Append) GetBlockRefs() []*BlockRef {
 	if m != nil {
-		return m.BlockRef
+		return m.BlockRefs
+	}
+	return nil
+}
+
+func (m *Append) GetChildren() map[string]bool {
+	if m != nil {
+		return m.Children
+	}
+	return nil
+}
+
+func (m *Append) GetLastRef() *pfs.Commit {
+	if m != nil {
+		return m.LastRef
 	}
 	return nil
 }
@@ -161,12 +177,8 @@ type DiffInfo struct {
 	Started      *google_protobuf2.Timestamp `protobuf:"bytes,3,opt,name=started" json:"started,omitempty"`
 	Finished     *google_protobuf2.Timestamp `protobuf:"bytes,4,opt,name=finished" json:"finished,omitempty"`
 	// Appends is the BlockRefs which have been append to files indexed by path.
-	Appends map[string]*BlockRefs `protobuf:"bytes,5,rep,name=appends" json:"appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// LastRefs is the last diff which references a file indexed by path.
-	LastRefs map[string]*pfs.Commit `protobuf:"bytes,6,rep,name=last_refs" json:"last_refs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// NewPaths contains files mentioned in this diff, sorted by path.
-	Files     []string `protobuf:"bytes,7,rep,name=files" json:"files,omitempty"`
-	SizeBytes uint64   `protobuf:"varint,8,opt,name=size_bytes" json:"size_bytes,omitempty"`
+	Appends   map[string]*Append `protobuf:"bytes,5,rep,name=appends" json:"appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	SizeBytes uint64             `protobuf:"varint,6,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
 func (m *DiffInfo) Reset()         { *m = DiffInfo{} }
@@ -201,16 +213,9 @@ func (m *DiffInfo) GetFinished() *google_protobuf2.Timestamp {
 	return nil
 }
 
-func (m *DiffInfo) GetAppends() map[string]*BlockRefs {
+func (m *DiffInfo) GetAppends() map[string]*Append {
 	if m != nil {
 		return m.Appends
-	}
-	return nil
-}
-
-func (m *DiffInfo) GetLastRefs() map[string]*pfs.Commit {
-	if m != nil {
-		return m.LastRefs
 	}
 	return nil
 }
@@ -296,7 +301,7 @@ func init() {
 	proto.RegisterType((*Diff)(nil), "Diff")
 	proto.RegisterType((*ByteRange)(nil), "ByteRange")
 	proto.RegisterType((*BlockRef)(nil), "BlockRef")
-	proto.RegisterType((*BlockRefs)(nil), "BlockRefs")
+	proto.RegisterType((*Append)(nil), "Append")
 	proto.RegisterType((*BlockInfo)(nil), "BlockInfo")
 	proto.RegisterType((*BlockInfos)(nil), "BlockInfos")
 	proto.RegisterType((*DiffInfo)(nil), "DiffInfo")
