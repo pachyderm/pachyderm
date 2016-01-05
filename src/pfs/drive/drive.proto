@@ -26,8 +26,10 @@ message BlockRef {
   ByteRange range = 2;
 }
 
-message BlockRefs {
-  repeated BlockRef block_ref = 1;
+message Append {
+  repeated BlockRef block_refs = 1;
+  map<string, bool> children = 2;
+  pfs.Commit last_ref = 3;
 }
 
 message BlockInfo {
@@ -46,10 +48,8 @@ message DiffInfo {
   google.protobuf.Timestamp started = 3;
   google.protobuf.Timestamp finished = 4;
   // Appends is the BlockRefs which have been append to files indexed by path.
-  map<string, BlockRefs> appends = 5;
-  // LastRefs is the last diff which references a file indexed by path.
-  map<string, pfs.Commit> last_refs = 6;
-  uint64 size_bytes = 8;
+  map<string, Append> appends = 5;
+  uint64 size_bytes = 6;
 }
 
 message GetBlockRequest {

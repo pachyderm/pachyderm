@@ -70,10 +70,10 @@ func TestSimple(t *testing.T) {
 
 	checkWrites(t, apiClient, repoName, newCommitID)
 
-	fileInfos, err := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b/*", &pfs.Shard{Number: 0, Modulus: 1})
+	fileInfos, err := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b", &pfs.Shard{Number: 0, Modulus: 1})
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(fileInfos))
-	fileInfos, err = pfsutil.ListFile(apiClient, repoName, newCommitID, "a/c/*", &pfs.Shard{Number: 0, Modulus: 1})
+	fileInfos, err = pfsutil.ListFile(apiClient, repoName, newCommitID, "a/c", &pfs.Shard{Number: 0, Modulus: 1})
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(fileInfos))
 
@@ -84,7 +84,7 @@ func TestSimple(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			fileInfos3, iErr := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b/*", &pfs.Shard{Number: uint64(i), Modulus: 7})
+			fileInfos3, iErr := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b", &pfs.Shard{Number: uint64(i), Modulus: 7})
 			require.NoError(t, iErr)
 			fileInfos2[i] = fileInfos3
 		}()

@@ -5,10 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"path"
-	"sort"
-	"strings"
 	"sync"
 
 	"go.pedge.io/google-protobuf"
@@ -115,8 +112,7 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, started *go
 			},
 			Started:      started,
 			ParentCommit: parent,
-			Appends:      make(map[string]*drive.BlockRefs),
-			LastRefs:     make(map[string]*pfs.Commit),
+			Appends:      make(map[string]*drive.Append),
 		}
 		if err := d.started.insert(diffInfo); err != nil {
 			return err
@@ -296,13 +292,23 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 		// deleted the commit while the above code was running
 		return fmt.Errorf("commit %s/%s not found", file.Commit.Repo.Name, file.Commit.Id)
 	}
-	blockRefsMsg, ok := diffInfo.Appends[file.Path]
+	addDirs(diffInfo, file)
+	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
-		blockRefsMsg = &drive.BlockRefs{}
-		diffInfo.Appends[file.Path] = blockRefsMsg
+		_append = &drive.Append{}
+		if diffInfo.ParentCommit != nil {
+			_append.LastRef = d.lastRef(
+				pfsutil.NewFile(
+					diffInfo.ParentCommit.Repo.Name,
+					diffInfo.ParentCommit.Id,
+					file.Path,
+				),
+				shard,
+			)
+		}
+		diffInfo.Appends[path.Clean(file.Path)] = _append
 	}
-	blockRefsMsg.BlockRef = append(blockRefsMsg.BlockRef, blockRefs...)
-	d.addFileIndexes(diffInfo, file, shard)
+	_append.BlockRefs = append(_append.BlockRefs, blockRefs...)
 	diffInfo.SizeBytes += sizeBytes
 	return nil
 }
@@ -314,11 +320,11 @@ func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
 func (d *driver) GetFile(file *pfs.File, shard uint64) (drive.ReaderAtCloser, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	blockRefs, isDir, err := d.fileBlockRefsOrDir(file, shard)
+	fileInfo, blockRefs, err := d.inspectFile(file, shard)
 	if err != nil {
 		return nil, err
 	}
-	if isDir {
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 		return nil, fmt.Errorf("file %s/%s/%s is directory", file.Commit.Repo.Name, file.Commit.Id, file.Path)
 	}
 	return newFileReader(d.driveClient, blockRefs), nil
@@ -327,70 +333,29 @@ func (d *driver) GetFile(file *pfs.File, shard uint64) (drive.ReaderAtCloser, er
 func (d *driver) InspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	return d.inspectFile(file, shard)
+	fileInfo, _, err := d.inspectFile(file, shard)
+	return fileInfo, err
 }
 
 func (d *driver) ListFile(file *pfs.File, shard uint64) ([]*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfos := make(map[string]*pfs.FileInfo)
-	commit := file.Commit
-	for commit != nil {
-		diffInfo, read, ok := d.getDiffInfo(&drive.Diff{
-			Commit: commit,
-			Shard:  shard,
-		})
-		if !ok {
-			return nil, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
-		}
-		log.Printf("diffInfo: %+v", diffInfo)
-		commit = diffInfo.ParentCommit
-		if !read {
-			// don't list files for read commits
-			continue
-		}
-		for name := range diffInfo.Appends {
-			match, err := path.Match(file.Path, name)
-			if err != nil {
-				return nil, err
-			}
-			if !match {
-				continue
-			}
-			if _, ok := fileInfos[name]; ok {
-				continue
-			}
-			fileInfo, err := d.inspectFile(&pfs.File{
-				Commit: diffInfo.Diff.Commit,
-				Path:   name,
-			}, shard)
-			if err != nil {
-				return nil, err
-			}
-			fileInfos[name] = fileInfo
-		}
+	fileInfo, _, err := d.inspectFile(file, shard)
+	if err != nil {
+		return nil, err
+	}
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
+		return []*pfs.FileInfo{fileInfo}, nil
 	}
 	var result []*pfs.FileInfo
-	for _, fileInfo := range fileInfos {
+	for _, child := range fileInfo.Children {
+		fileInfo, _, err := d.inspectFile(child, shard)
+		if err != nil {
+			return nil, err
+		}
 		result = append(result, fileInfo)
 	}
 	return result, nil
-}
-
-func relevantPath(file *pfs.File, foundPath string) string {
-	if foundPath == file.Path {
-		return foundPath
-	}
-	if strings.HasPrefix(foundPath, path.Join(file.Path, "/")) {
-		return path.Join(
-			file.Path,
-			strings.Split(
-				strings.TrimPrefix(foundPath, file.Path+"/"),
-				"/",
-			)[0],
-		)
-	}
-	return ""
 }
 
 func (d *driver) ListChange(file *pfs.File, from *pfs.Commit, shard uint64) ([]*pfs.Change, error) {
@@ -470,8 +435,10 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return commitInfo[0], nil
 }
 
-func (d *driver) fileBlockRefsOrDir(file *pfs.File, shard uint64) (_ []*drive.BlockRef, isDir bool, _ error) {
-	var result []*drive.BlockRef
+func (d *driver) inspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, []*drive.BlockRef, error) {
+	fileInfo := &pfs.FileInfo{File: file}
+	var blockRefs []*drive.BlockRef
+	children := make(map[string]bool)
 	commit := file.Commit
 	writeable := false
 	for commit != nil {
@@ -480,58 +447,93 @@ func (d *driver) fileBlockRefsOrDir(file *pfs.File, shard uint64) (_ []*drive.Bl
 			Shard:  shard,
 		})
 		if !ok {
-			return nil, false, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
+			return nil, nil, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
 		}
 		if !read {
+			// should only be possible the hit this the first time through the
+			// loop
 			writeable = true
 		}
-		iNewFile := sort.SearchStrings(diffInfo.Files, file.Path)
-		if blockRefsMsg, ok := diffInfo.Appends[file.Path]; ok {
-			result = append(blockRefsMsg.BlockRef, result...)
-		} else if len(diffInfo.Files) > iNewFile && strings.HasPrefix(diffInfo.Files[iNewFile], file.Path+"/") {
-			return nil, true, nil
-		}
-		if lastRef, ok := diffInfo.LastRefs[file.Path]; ok {
-			commit = lastRef
+		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
+			if len(_append.BlockRefs) > 0 {
+				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+					return nil, nil,
+						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.Id, file.Path)
+				}
+				fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
+				blockRefs = append(_append.BlockRefs, blockRefs...)
+				for _, blockRef := range _append.BlockRefs {
+					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
+				}
+			} else if len(_append.Children) > 0 {
+				if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
+					return nil, nil,
+						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.Id, file.Path)
+				}
+				fileInfo.FileType = pfs.FileType_FILE_TYPE_DIR
+				for child := range _append.Children {
+					if !children[child] {
+						fileInfo.Children = append(
+							fileInfo.Children,
+							pfsutil.NewFile(commit.Repo.Name, commit.Id, child),
+						)
+					}
+					children[child] = true
+				}
+			}
+			if fileInfo.CommitModified == nil {
+				fileInfo.CommitModified = commit
+				fileInfo.Modified = diffInfo.Finished
+			}
+			commit = _append.LastRef
 			continue
 		}
 		commit = diffInfo.ParentCommit
 	}
-	if result == nil && !writeable {
-		return nil, false, fmt.Errorf("file %s/%s/%s not found", file.Commit.Repo.Name, file.Commit.Id, file.Path)
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
+		if writeable {
+			fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
+		} else {
+			return nil, nil, fmt.Errorf("file %s/%s/%s not found", file.Commit.Repo.Name, file.Commit.Id, file.Path)
+		}
 	}
-	return result, false, nil
+	return fileInfo, blockRefs, nil
 }
 
-func (d *driver) inspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
-	result := &pfs.FileInfo{File: file}
-	blockRefs, isDir, err := d.fileBlockRefsOrDir(file, shard)
-	if err != nil {
-		return nil, err
-	}
-	if isDir {
-		result.FileType = pfs.FileType_FILE_TYPE_DIR
-	}
-	result.FileType = pfs.FileType_FILE_TYPE_REGULAR
-	for _, blockRef := range blockRefs {
-		result.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
-	}
-	return result, nil
-}
-
-// addFileIndexes fills in some in memory indexes we use
-func (d *driver) addFileIndexes(diffInfo *drive.DiffInfo, file *pfs.File, shard uint64) {
-	commit := diffInfo.ParentCommit
+// lastRef assumes the diffInfo file exists in finished
+func (d *driver) lastRef(file *pfs.File, shard uint64) *pfs.Commit {
+	commit := file.Commit
 	for commit != nil {
-		ancestorDiffInfo, _ := d.finished.get(&drive.Diff{
+		diffInfo, _ := d.finished.get(&drive.Diff{
 			Commit: commit,
 			Shard:  shard,
 		})
-		if _, ok := ancestorDiffInfo.Appends[file.Path]; ok {
-			diffInfo.LastRefs[file.Path] = commit
-			return
+		if _, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
+			return commit
 		}
-		commit = ancestorDiffInfo.ParentCommit
+		commit = diffInfo.ParentCommit
+	}
+	return nil
+}
+
+func addDirs(diffInfo *drive.DiffInfo, child *pfs.File) {
+	childPath := child.Path
+	dirPath := path.Dir(childPath)
+	for {
+		_append, ok := diffInfo.Appends[dirPath]
+		if !ok {
+			_append = &drive.Append{}
+			diffInfo.Appends[dirPath] = _append
+		}
+		if _append.Children == nil {
+			_append.Children = make(map[string]bool)
+		}
+		_append.Children[childPath] = true
+		if dirPath == "." {
+			break
+		}
+		childPath = dirPath
+		dirPath = path.Dir(childPath)
 	}
 }
 
