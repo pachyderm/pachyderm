@@ -181,7 +181,7 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 		}
 	}
 	return &pfs.CommitInfos{
-		CommitInfo: pfs.Reduce(commitInfos),
+		CommitInfo: pfs.ReduceCommitInfos(commitInfos),
 	}, nil
 }
 
@@ -310,40 +310,35 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	var fileInfos []*pfs.FileInfo
-	seenDirectories := make(map[string]bool)
 	var loopErr error
 	for shard := range shards {
+		shard := shard
 		wg.Add(1)
-		go func(shard uint64) {
+		go func() {
 			defer wg.Done()
 			subFileInfos, err := a.driver.ListFile(request.File, shard)
 			lock.Lock()
 			defer lock.Unlock()
-			if err != nil {
+			if err != nil && err != pfs.ErrFileNotFound {
 				if loopErr == nil {
 					loopErr = err
 				}
 				return
 			}
 			for _, fileInfo := range subFileInfos {
-				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-					if seenDirectories[fileInfo.File.Path] {
-						continue
-					}
-					seenDirectories[fileInfo.File.Path] = true
-				}
-				if sharder.GetShard(fileInfo.File) == request.Shard.Number {
+				if sharder.GetShard(fileInfo.File) == request.Shard.Number ||
+					fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					fileInfos = append(fileInfos, fileInfo)
 				}
 			}
-		}(shard)
+		}()
 	}
 	wg.Wait()
 	if loopErr != nil {
 		return nil, loopErr
 	}
 	return &pfs.FileInfos{
-		FileInfo: fileInfos,
+		FileInfo: pfs.ReduceFileInfos(fileInfos),
 	}, nil
 }
 

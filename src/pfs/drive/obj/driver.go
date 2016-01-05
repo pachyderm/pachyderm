@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"path"
 	"sync"
 
@@ -425,7 +426,7 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 				})
 		}
 	}
-	commitInfo := pfs.Reduce(commitInfos)
+	commitInfo := pfs.ReduceCommitInfos(commitInfos)
 	if len(commitInfo) < 1 {
 		return nil, fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
 	}
@@ -440,21 +441,17 @@ func (d *driver) inspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, []*dr
 	var blockRefs []*drive.BlockRef
 	children := make(map[string]bool)
 	commit := file.Commit
-	writeable := false
 	for commit != nil {
-		diffInfo, read, ok := d.getDiffInfo(&drive.Diff{
+		diffInfo, _, ok := d.getDiffInfo(&drive.Diff{
 			Commit: commit,
 			Shard:  shard,
 		})
 		if !ok {
 			return nil, nil, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
 		}
-		if !read {
-			// should only be possible the hit this the first time through the
-			// loop
-			writeable = true
-		}
+		log.Printf("Appends: %+v", diffInfo.Appends)
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
+			log.Printf("using: %+v", _append)
 			if len(_append.BlockRefs) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
@@ -491,12 +488,9 @@ func (d *driver) inspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, []*dr
 		commit = diffInfo.ParentCommit
 	}
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
-		if writeable {
-			fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
-		} else {
-			return nil, nil, fmt.Errorf("file %s/%s/%s not found", file.Commit.Repo.Name, file.Commit.Id, file.Path)
-		}
+		return nil, nil, pfs.ErrFileNotFound
 	}
+	log.Printf("returning: %+v", fileInfo)
 	return fileInfo, blockRefs, nil
 }
 

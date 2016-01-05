@@ -1,4 +1,4 @@
-package pfs
+package testing
 
 import (
 	"bytes"
