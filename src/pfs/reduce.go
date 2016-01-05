@@ -6,7 +6,29 @@ import (
 	"go.pedge.io/proto/time"
 )
 
-func Reduce(commitInfos []*CommitInfo) []*CommitInfo {
+func ReduceFileInfos(fileInfos []*FileInfo) []*FileInfo {
+	reducedFileInfos := make(map[string]*FileInfo)
+	for _, fileInfo := range fileInfos {
+		reducedFileInfo, ok := reducedFileInfos[fileInfo.File.Path]
+		if !ok {
+			reducedFileInfos[fileInfo.File.Path] = fileInfo
+			continue
+		}
+		if prototime.TimestampToTime(fileInfo.Modified).
+			After(prototime.TimestampToTime(reducedFileInfo.Modified)) {
+			reducedFileInfo.Modified = fileInfo.Modified
+			reducedFileInfo.CommitModified = fileInfo.CommitModified
+		}
+		reducedFileInfo.Children = append(reducedFileInfo.Children, fileInfo.Children...)
+	}
+	var result []*FileInfo
+	for _, reducedFileInfo := range reducedFileInfos {
+		result = append(result, reducedFileInfo)
+	}
+	return result
+}
+
+func ReduceCommitInfos(commitInfos []*CommitInfo) []*CommitInfo {
 	reducedCommitInfos := make(map[string]*CommitInfo)
 	for _, commitInfo := range commitInfos {
 		reducedCommitInfo, ok := reducedCommitInfos[commitInfo.Commit.Id]
