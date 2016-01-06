@@ -21,6 +21,7 @@ import (
 )
 
 func TestJob(t *testing.T) {
+	t.Parallel()
 	dataRepo := uniqueString("TestJob.data")
 	pfsClient := getPfsClient(t)
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
@@ -58,6 +59,7 @@ func TestJob(t *testing.T) {
 }
 
 func TestGrep(t *testing.T) {
+	t.Parallel()
 	dataRepo := uniqueString("pachyderm.TestGrep.data")
 	pfsClient := getPfsClient(t)
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
@@ -82,6 +84,7 @@ func TestGrep(t *testing.T) {
 }
 
 func TestPipeline(t *testing.T) {
+	t.Parallel()
 	pfsClient := getPfsClient(t)
 	ppsClient := getPpsClient(t)
 	// create repos
