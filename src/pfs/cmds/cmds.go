@@ -2,7 +2,6 @@ package cmds
 
 import (
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"text/tabwriter"
@@ -185,87 +184,6 @@ func Cmds(address string) ([]*cobra.Command, error) {
 				return err
 			}
 			return pfsutil.DeleteCommit(apiClient, args[0], args[1])
-		}),
-	}
-
-	putBlock := &cobra.Command{
-		Use:   "put-block",
-		Short: "Put a block from stdin",
-		Long:  "Put a block from stdin. Directories must exist. commit-id must be a writeable commit.",
-		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
-			apiClient, err := getDriveAPIClient(address)
-			if err != nil {
-				return err
-			}
-			block, err := pfsutil.PutBlock(apiClient, os.Stdin)
-			if err != nil {
-				return err
-			}
-			fmt.Println(block.Hash)
-			return nil
-		}),
-	}
-
-	getBlock := &cobra.Command{
-		Use:   "get-block hash",
-		Short: "Return the contents of a block.",
-		Long:  "Return the contents of a block.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			apiClient, err := getDriveAPIClient(address)
-			if err != nil {
-				return err
-			}
-			reader, err := pfsutil.GetBlock(apiClient, args[0], 0)
-			if err != nil {
-				return err
-			}
-			_, err = io.Copy(os.Stdout, reader)
-			return err
-		}),
-	}
-
-	inspectBlock := &cobra.Command{
-		Use:   "inspect-block hash",
-		Short: "Return info about a block.",
-		Long:  "Return info about a block.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			apiClient, err := getDriveAPIClient(address)
-			if err != nil {
-				return err
-			}
-			blockInfo, err := pfsutil.InspectBlock(apiClient, args[0])
-			if err != nil {
-				return err
-			}
-			if blockInfo == nil {
-				return fmt.Errorf("block %s not found", args[2])
-			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintBlockInfoHeader(writer)
-			pretty.PrintBlockInfo(writer, blockInfo)
-			return writer.Flush()
-		}),
-	}
-
-	listBlock := &cobra.Command{
-		Use:   "list-block",
-		Short: "Return the blocks in a directory.",
-		Long:  "Return the blocks in a directory.",
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
-			apiClient, err := getDriveAPIClient(address)
-			if err != nil {
-				return err
-			}
-			blockInfos, err := pfsutil.ListBlock(apiClient)
-			if err != nil {
-				return err
-			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintBlockInfoHeader(writer)
-			for _, blockInfo := range blockInfos {
-				pretty.PrintBlockInfo(writer, blockInfo)
-			}
-			return writer.Flush()
 		}),
 	}
 
@@ -474,10 +392,6 @@ func Cmds(address string) ([]*cobra.Command, error) {
 	result = append(result, listCommit)
 	result = append(result, deleteCommit)
 	result = append(result, mkdir)
-	result = append(result, putBlock)
-	result = append(result, getBlock)
-	result = append(result, inspectBlock)
-	result = append(result, listBlock)
 	result = append(result, putFile)
 	result = append(result, getFile)
 	result = append(result, inspectFile)
