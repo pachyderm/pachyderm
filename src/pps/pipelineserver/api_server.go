@@ -131,19 +131,19 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 	a.lock.Lock()
 	a.cancelFuncs[*pipelineInfo.Pipeline] = cancel
 	a.lock.Unlock()
-	repoToBranches := make(map[string]map[string]bool)
+	repoToLeaves := make(map[string]map[string]bool)
 	for _, inputRepo := range pipelineInfo.InputRepo {
-		repoToBranches[inputRepo.Name] = make(map[string]bool)
+		repoToLeaves[inputRepo.Name] = make(map[string]bool)
 	}
 	for {
 		var fromCommits []*pfs.Commit
-		for repo, branches := range repoToBranches {
-			for branch := range branches {
+		for repo, leaves := range repoToLeaves {
+			for leaf := range leaves {
 				fromCommits = append(
 					fromCommits,
 					&pfs.Commit{
 						Repo: &pfs.Repo{Name: repo},
-						Id:   branch,
+						Id:   leaf,
 					})
 			}
 		}
@@ -158,24 +158,24 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 			return err
 		}
 		for _, commitInfo := range commitInfos.CommitInfo {
-			repoToBranches[commitInfo.Commit.Repo.Name][commitInfo.Commit.Id] = true
+			repoToLeaves[commitInfo.Commit.Repo.Name][commitInfo.Commit.Id] = true
 			if commitInfo.ParentCommit != nil {
-				delete(repoToBranches[commitInfo.ParentCommit.Repo.Name], commitInfo.ParentCommit.Id)
+				delete(repoToLeaves[commitInfo.ParentCommit.Repo.Name], commitInfo.ParentCommit.Id)
 			}
-			// generate all the pemrutations of branches we could use this commit with
+			// generate all the pemrutations of leaves we could use this commit with
 			commitSets := [][]*pfs.Commit{[]*pfs.Commit{}}
-			for repoName, branches := range repoToBranches {
+			for repoName, leaves := range repoToLeaves {
 				if repoName == commitInfo.Commit.Repo.Name {
 					continue
 				}
 				var newCommitSets [][]*pfs.Commit
 				for _, commitSet := range commitSets {
-					for branch := range branches {
+					for leaf := range leaves {
 						newCommitSet := make([]*pfs.Commit, len(commitSet)+1)
 						copy(newCommitSet, commitSet)
 						newCommitSet[len(commitSet)] = &pfs.Commit{
 							Repo: &pfs.Repo{Name: repoName},
-							Id:   branch,
+							Id:   leaf,
 						}
 						newCommitSets = append(newCommitSets, newCommitSet)
 					}
