@@ -159,7 +159,16 @@ func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *pps.InspectJ
 		request.Job.Id,
 		jobInfo,
 		func(jobInfo gorethink.Term) gorethink.Term {
-			return jobInfo.HasFields(mustHaveFields...)
+			blockOutput := jobInfo.HasFields("OutputCommit")
+			blockState := jobInfo.Field("State").Ne(pps.JobState_JOB_STATE_RUNNING)
+			if request.BlockOutput && request.BlockState {
+				return blockOutput.And(blockState)
+			} else if request.BlockOutput {
+				return blockOutput
+			} else if request.BlockState {
+				return blockState
+			}
+			return gorethink.Expr(true)
 		},
 	); err != nil {
 		return nil, err
@@ -321,14 +330,13 @@ func (a *rethinkAPIServer) waitMessageByPrimaryKey(
 	message proto.Message,
 	predicate func(term gorethink.Term) gorethink.Term,
 ) (retErr error) {
-	cursor, err :=
-		a.getTerm(table).
-			Get(key).
-			Default(gorethink.Error("value not found")).
-			Changes().
-			Field("new_val").
-			Filter(predicate).
-			Run(a.session)
+	term := a.getTerm(table).
+		Get(key).
+		Default(gorethink.Error("value not found")).
+		Changes().
+		Field("new_val").
+		Filter(predicate)
+	cursor, err := term.Run(a.session)
 	if err != nil {
 		return err
 	}
