@@ -276,7 +276,7 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 		}()
 	}
 	wg.Wait()
-	if err := scanner.Err(); err != nil {
+	if err := scanner.Err(); err != nil && err != io.EOF {
 		return err
 	}
 	if loopErr != nil {
