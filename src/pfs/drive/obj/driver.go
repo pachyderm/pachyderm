@@ -19,9 +19,8 @@ type driver struct {
 	driveClient drive.APIClient
 	started     diffMap
 	finished    diffMap
-	// branches indexes commits with no children
-	branches diffMap
-	lock     sync.RWMutex
+	leaves      diffMap // commits with no children
+	lock        sync.RWMutex
 }
 
 func newDriver(driveClient drive.APIClient) (drive.Driver, error) {
@@ -42,7 +41,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo) error {
 	}
 	d.finished[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
 	d.started[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
-	d.branches[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
+	d.leaves[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
 	return nil
 }
 
@@ -112,11 +111,11 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, started *go
 		if err := d.started.insert(diffInfo); err != nil {
 			return err
 		}
-		if err := d.branches.insert(diffInfo); err != nil {
+		if err := d.leaves.insert(diffInfo); err != nil {
 			return err
 		}
 		if parent != nil {
-			d.branches.pop(&drive.Diff{
+			d.leaves.pop(&drive.Diff{
 				Commit: parent,
 				Shard:  shard,
 			})
@@ -191,7 +190,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 			if _, err := d.inspectRepo(repo, shard); err != nil {
 				return nil, err
 			}
-			for commitID := range d.branches[repo.Name][shard] {
+			for commitID := range d.leaves[repo.Name][shard] {
 				commit := &pfs.Commit{
 					Repo: repo,
 					Id:   commitID,
