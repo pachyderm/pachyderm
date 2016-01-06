@@ -1,8 +1,8 @@
 package server
 
 import (
+	"bufio"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -43,13 +43,11 @@ func newLocalAPIServer(dir string) (*localAPIServer, error) {
 	return server, nil
 }
 
-func (s *localAPIServer) PutBlock(putBlockServer drive.API_PutBlockServer) (retErr error) {
-	var result *drive.Block
-	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
+func (s *localAPIServer) putOneBlock(scanner *bufio.Scanner) (result *drive.BlockRef, retErr error) {
 	hash := newHash()
 	tmp, err := ioutil.TempFile(s.tmpDir(), "block")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() {
 		if err := tmp.Close(); err != nil && retErr == nil {
@@ -59,24 +57,62 @@ func (s *localAPIServer) PutBlock(putBlockServer drive.API_PutBlockServer) (retE
 		if result == nil {
 			return
 		}
-		// Check if it's a new block, if so rename it, otherwise remove.
-		if _, err := os.Stat(s.blockPath(result)); !os.IsNotExist(err) {
+		// check if it's a new block
+		if _, err := os.Stat(s.blockPath(result.Block)); !os.IsNotExist(err) {
+			// already have this block, remove tmp
 			if err := os.Remove(tmp.Name()); err != nil && retErr == nil {
 				retErr = err
 				return
 			}
 			return
 		}
-		if err := os.Rename(tmp.Name(), s.blockPath(result)); err != nil && retErr == nil {
+		// it's a new block, rename it accordingly
+		if err := os.Rename(tmp.Name(), s.blockPath(result.Block)); err != nil && retErr == nil {
 			retErr = err
 			return
 		}
 	}()
-	r := io.TeeReader(protostream.NewStreamingBytesReader(putBlockServer), hash)
-	if _, err := io.Copy(tmp, r); err != nil {
-		return err
+	var bytesWritten int
+	for scanner.Scan() {
+		// they take out the newline, put it back
+		bytes := append(scanner.Bytes(), '\n')
+		if _, err := hash.Write(bytes); err != nil {
+			return nil, err
+		}
+		if _, err := tmp.Write(bytes); err != nil {
+			return nil, err
+		}
+		bytesWritten += len(bytes)
+		if bytesWritten > blockSize {
+			break
+		}
 	}
-	result = getBlock(hash)
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return &drive.BlockRef{
+		Block: getBlock(hash),
+		Range: &drive.ByteRange{
+			Lower: 0,
+			Upper: uint64(bytesWritten),
+		},
+	}, nil
+}
+
+func (s *localAPIServer) PutBlock(putBlockServer drive.API_PutBlockServer) (retErr error) {
+	result := &drive.BlockRefs{}
+	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
+	scanner := bufio.NewScanner(protostream.NewStreamingBytesReader(putBlockServer))
+	for {
+		blockRef, err := s.putOneBlock(scanner)
+		if err != nil {
+			return err
+		}
+		result.BlockRef = append(result.BlockRef, blockRef)
+		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
+			break
+		}
+	}
 	return putBlockServer.SendAndClose(result)
 }
 
