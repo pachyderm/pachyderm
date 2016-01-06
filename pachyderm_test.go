@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"path"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/pkg/workload"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"google.golang.org/grpc"
@@ -149,6 +151,16 @@ func TestPipeline(t *testing.T) {
 	log.Printf("Second commit: %+v", outCommits[0])
 	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo.Name, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foobar", buffer.String())
+}
+
+func TestWorkload(t *testing.T) {
+	t.Parallel()
+	pfsClient := getPfsClient(t)
+	ppsClient := getPpsClient(t)
+	//seed := time.Now().UnixNano()
+	seed := int64(7)
+	log.Printf("seed: %d", seed)
+	require.NoError(t, workload.RunWorkload(pfsClient, ppsClient, rand.New(rand.NewSource(seed)), 200))
 }
 
 func getPfsClient(t *testing.T) pfs.APIClient {
