@@ -2,7 +2,7 @@
 
 ### Prerequisites
 
-- Docker >= 1.9
+- Docker >= 1.9 (must deploy with [`--storage-driver=devicemapper`](http://muehe.org/posts/switching-docker-from-aufs-to-devicemapper/))
 - Go >= 1.5
 - Kubernetes and Kubectl >= 1.1.2
 
