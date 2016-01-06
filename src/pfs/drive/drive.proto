@@ -26,6 +26,10 @@ message BlockRef {
   ByteRange range = 2;
 }
 
+message BlockRefs {
+	repeated BlockRef block_ref = 1;
+}
+
 message Append {
   repeated BlockRef block_refs = 1;
   map<string, bool> children = 2;
@@ -77,7 +81,7 @@ message DeleteDiffRequest {
 }
 
 service API {
-  rpc PutBlock(stream google.protobuf.BytesValue) returns (Block) {}
+  rpc PutBlock(stream google.protobuf.BytesValue) returns (BlockRefs) {}
   rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
   rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
   rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}

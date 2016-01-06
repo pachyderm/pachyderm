@@ -13,6 +13,7 @@ It has these top-level messages:
 	Diff
 	ByteRange
 	BlockRef
+	BlockRefs
 	Append
 	BlockInfo
 	BlockInfos
@@ -97,6 +98,21 @@ func (m *BlockRef) GetBlock() *Block {
 func (m *BlockRef) GetRange() *ByteRange {
 	if m != nil {
 		return m.Range
+	}
+	return nil
+}
+
+type BlockRefs struct {
+	BlockRef []*BlockRef `protobuf:"bytes,1,rep,name=block_ref" json:"block_ref,omitempty"`
+}
+
+func (m *BlockRefs) Reset()         { *m = BlockRefs{} }
+func (m *BlockRefs) String() string { return proto.CompactTextString(m) }
+func (*BlockRefs) ProtoMessage()    {}
+
+func (m *BlockRefs) GetBlockRef() []*BlockRef {
+	if m != nil {
+		return m.BlockRef
 	}
 	return nil
 }
@@ -301,6 +317,7 @@ func init() {
 	proto.RegisterType((*Diff)(nil), "Diff")
 	proto.RegisterType((*ByteRange)(nil), "ByteRange")
 	proto.RegisterType((*BlockRef)(nil), "BlockRef")
+	proto.RegisterType((*BlockRefs)(nil), "BlockRefs")
 	proto.RegisterType((*Append)(nil), "Append")
 	proto.RegisterType((*BlockInfo)(nil), "BlockInfo")
 	proto.RegisterType((*BlockInfos)(nil), "BlockInfos")
@@ -349,7 +366,7 @@ func (c *aPIClient) PutBlock(ctx context.Context, opts ...grpc.CallOption) (API_
 
 type API_PutBlockClient interface {
 	Send(*google_protobuf3.BytesValue) error
-	CloseAndRecv() (*Block, error)
+	CloseAndRecv() (*BlockRefs, error)
 	grpc.ClientStream
 }
 
@@ -361,11 +378,11 @@ func (x *aPIPutBlockClient) Send(m *google_protobuf3.BytesValue) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *aPIPutBlockClient) CloseAndRecv() (*Block, error) {
+func (x *aPIPutBlockClient) CloseAndRecv() (*BlockRefs, error) {
 	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
 	}
-	m := new(Block)
+	m := new(BlockRefs)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -503,7 +520,7 @@ func _API_PutBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type API_PutBlockServer interface {
-	SendAndClose(*Block) error
+	SendAndClose(*BlockRefs) error
 	Recv() (*google_protobuf3.BytesValue, error)
 	grpc.ServerStream
 }
@@ -512,7 +529,7 @@ type aPIPutBlockServer struct {
 	grpc.ServerStream
 }
 
-func (x *aPIPutBlockServer) SendAndClose(m *Block) error {
+func (x *aPIPutBlockServer) SendAndClose(m *BlockRefs) error {
 	return x.ServerStream.SendMsg(m)
 }
 

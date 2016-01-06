@@ -174,7 +174,7 @@ func DeleteCommit(apiClient pfs.APIClient, repoName string, commitID string) err
 	return err
 }
 
-func PutBlock(apiClient drive.APIClient, reader io.Reader) (*drive.Block, error) {
+func PutBlock(apiClient drive.APIClient, reader io.Reader) (*drive.BlockRefs, error) {
 	putBlockClient, err := apiClient.PutBlock(context.Background())
 	if err != nil {
 		return nil, err

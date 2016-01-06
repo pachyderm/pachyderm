@@ -1,8 +1,6 @@
 package obj
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -15,10 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"golang.org/x/net/context"
-)
-
-var (
-	blockSize = 128 * 1024 * 1024 // 128 Megabytes
 )
 
 type driver struct {
@@ -248,39 +242,9 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	if !ok {
 		return fmt.Errorf("commit %s/%s not found", file.Commit.Repo.Name, file.Commit.Id)
 	}
-	var blockRefs []*drive.BlockRef
-	scanner := bufio.NewScanner(reader)
-	scanner.Split(blockSplitFunc)
-	var wg sync.WaitGroup
-	var loopErr error
-	var sizeBytes uint64
-	for scanner.Scan() {
-		data := scanner.Bytes()
-		blockRef := &drive.BlockRef{
-			Range: &drive.ByteRange{
-				Lower: 0,
-				Upper: uint64(len(data)),
-			},
-		}
-		blockRefs = append(blockRefs, blockRef)
-		sizeBytes += blockRef.Range.Upper - blockRef.Range.Lower
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			block, err := pfsutil.PutBlock(d.driveClient, bytes.NewReader(data))
-			if err != nil && loopErr == nil {
-				loopErr = err
-				return
-			}
-			blockRef.Block = block
-		}()
-	}
-	wg.Wait()
-	if err := scanner.Err(); err != nil && err != io.EOF {
+	blockRefs, err := pfsutil.PutBlock(d.driveClient, reader)
+	if err != nil {
 		return err
-	}
-	if loopErr != nil {
-		return loopErr
 	}
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -309,8 +273,10 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 		}
 		diffInfo.Appends[path.Clean(file.Path)] = _append
 	}
-	_append.BlockRefs = append(_append.BlockRefs, blockRefs...)
-	diffInfo.SizeBytes += sizeBytes
+	_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
+	for _, blockRef := range blockRefs.BlockRef {
+		diffInfo.SizeBytes += blockRef.Range.Upper - blockRef.Range.Lower
+	}
 	return nil
 }
 
@@ -529,24 +495,6 @@ func addDirs(diffInfo *drive.DiffInfo, child *pfs.File) {
 		childPath = dirPath
 		dirPath = path.Dir(childPath)
 	}
-}
-
-func blockSplitFunc(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	if len(data) < blockSize && !atEOF {
-		return 0, nil, nil
-	}
-	if len(data) == 0 && atEOF {
-		return 0, nil, nil
-	}
-	if len(data) < blockSize && atEOF {
-		return len(data), data, nil
-	}
-	for i := len(data) - 1; i >= 0; i-- {
-		if data[i] == '\n' {
-			return i + 1, data[:i+1], nil
-		}
-	}
-	return 0, nil, fmt.Errorf("line too long")
 }
 
 type fileReader struct {

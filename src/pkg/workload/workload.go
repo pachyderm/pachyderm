@@ -161,7 +161,7 @@ const lettersAndSpaces = "abcdefghijklmnopqrstuvwxyz      "
 func (w *worker) name() string {
 	b := make([]byte, 20)
 	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
+		b[i] = letters[w.rand.Intn(len(letters))]
 	}
 	return string(b)
 }
@@ -178,7 +178,7 @@ func (r *reader) Read(p []byte) (int, error) {
 			p[i] = lettersAndSpaces[r.rand.Intn(len(lettersAndSpaces))]
 		}
 	}
-	if rand.Intn(10) == 0 {
+	if r.rand.Intn(10) == 0 {
 		return len(p), io.EOF
 	}
 	return len(p), nil
