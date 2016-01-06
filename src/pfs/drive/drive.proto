@@ -13,7 +13,7 @@ message Block {
 
 message Diff {
   pfs.Commit commit = 1;
-  uint64 shard = 4;
+  uint64 shard = 2;
 }
 
 message ByteRange {

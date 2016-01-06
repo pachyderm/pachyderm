@@ -56,7 +56,7 @@ func (*Block) ProtoMessage()    {}
 
 type Diff struct {
 	Commit *pfs.Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	Shard  uint64      `protobuf:"varint,4,opt,name=shard" json:"shard,omitempty"`
+	Shard  uint64      `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *Diff) Reset()         { *m = Diff{} }
