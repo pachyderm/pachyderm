@@ -6,25 +6,21 @@ import (
 	"go.pedge.io/proto/time"
 )
 
-func ReduceFileInfos(fileInfos []*FileInfo) []*FileInfo {
-	reducedFileInfos := make(map[string]*FileInfo)
-	for _, fileInfo := range fileInfos {
-		reducedFileInfo, ok := reducedFileInfos[fileInfo.File.Path]
+func ReduceRepoInfos(repoInfos []*RepoInfo) []*RepoInfo {
+	reducedRepoInfos := make(map[string]*RepoInfo)
+	for _, repoInfo := range repoInfos {
+		reducedRepoInfo, ok := reducedRepoInfos[repoInfo.Repo.Name]
 		if !ok {
-			reducedFileInfos[fileInfo.File.Path] = fileInfo
+			reducedRepoInfos[repoInfo.Repo.Name] = repoInfo
 			continue
 		}
-		if prototime.TimestampToTime(fileInfo.Modified).
-			After(prototime.TimestampToTime(reducedFileInfo.Modified)) {
-			reducedFileInfo.Modified = fileInfo.Modified
-			reducedFileInfo.CommitModified = fileInfo.CommitModified
-		}
-		reducedFileInfo.Children = append(reducedFileInfo.Children, fileInfo.Children...)
+		reducedRepoInfo.SizeBytes += repoInfo.SizeBytes
 	}
-	var result []*FileInfo
-	for _, reducedFileInfo := range reducedFileInfos {
-		result = append(result, reducedFileInfo)
+	var result []*RepoInfo
+	for _, repoInfo := range reducedRepoInfos {
+		result = append(result, repoInfo)
 	}
+	sort.Sort(sortRepoInfos(result))
 	return result
 }
 
@@ -47,6 +43,43 @@ func ReduceCommitInfos(commitInfos []*CommitInfo) []*CommitInfo {
 	}
 	sort.Sort(sortCommitInfos(result))
 	return result
+}
+
+func ReduceFileInfos(fileInfos []*FileInfo) []*FileInfo {
+	reducedFileInfos := make(map[string]*FileInfo)
+	for _, fileInfo := range fileInfos {
+		reducedFileInfo, ok := reducedFileInfos[fileInfo.File.Path]
+		if !ok {
+			reducedFileInfos[fileInfo.File.Path] = fileInfo
+			continue
+		}
+		if prototime.TimestampToTime(fileInfo.Modified).
+			After(prototime.TimestampToTime(reducedFileInfo.Modified)) {
+			reducedFileInfo.Modified = fileInfo.Modified
+			reducedFileInfo.CommitModified = fileInfo.CommitModified
+		}
+		reducedFileInfo.Children = append(reducedFileInfo.Children, fileInfo.Children...)
+	}
+	var result []*FileInfo
+	for _, reducedFileInfo := range reducedFileInfos {
+		result = append(result, reducedFileInfo)
+	}
+	return result
+}
+
+type sortRepoInfos []*RepoInfo
+
+func (a sortRepoInfos) Len() int {
+	return len(a)
+}
+
+func (a sortRepoInfos) Less(i, j int) bool {
+	return prototime.TimestampToTime(a[i].Created).After(prototime.TimestampToTime(a[j].Created))
+}
+func (a sortRepoInfos) Swap(i, j int) {
+	tmp := a[i]
+	a[i] = a[j]
+	a[j] = tmp
 }
 
 type sortCommitInfos []*CommitInfo

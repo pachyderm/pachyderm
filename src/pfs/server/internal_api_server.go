@@ -47,7 +47,15 @@ func newInternalAPIServer(
 
 func (a *internalAPIServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.driver.CreateRepo(request.Repo); err != nil {
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetAllShards(version)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.driver.CreateRepo(request.Repo, request.Created, shards); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -63,10 +71,7 @@ func (a *internalAPIServer) InspectRepo(ctx context.Context, request *pfs.Inspec
 	if err != nil {
 		return nil, err
 	}
-	for shard := range shards {
-		return a.driver.InspectRepo(request.Repo, shard)
-	}
-	return nil, fmt.Errorf("pachyderm: InspectRepo on server with no shards")
+	return a.driver.InspectRepo(request.Repo, shards)
 }
 
 func (a *internalAPIServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.RepoInfos, retErr error) {
@@ -79,11 +84,8 @@ func (a *internalAPIServer) ListRepo(ctx context.Context, request *pfs.ListRepoR
 	if err != nil {
 		return nil, err
 	}
-	for shard := range shards {
-		repoInfos, err := a.driver.ListRepo(shard)
-		return &pfs.RepoInfos{RepoInfo: repoInfos}, err
-	}
-	return nil, fmt.Errorf("pachyderm: ListRepo on server with no shards")
+	repoInfos, err := a.driver.ListRepo(shards)
+	return &pfs.RepoInfos{RepoInfo: repoInfos}, err
 }
 
 func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *google_protobuf.Empty, retErr error) {
@@ -473,7 +475,7 @@ func (a *internalAPIServer) AddShard(_shard uint64, version int64) error {
 		return err
 	}
 	for _, repoInfo := range repoInfos.RepoInfo {
-		if err := a.driver.CreateRepo(repoInfo.Repo); err != nil {
+		if err := a.driver.CreateRepo(repoInfo.Repo, nil, map[uint64]bool{_shard: true}); err != nil {
 			return err
 		}
 		commitInfos, err := pfs.NewInternalAPIClient(clientConn).ListCommit(ctx, &pfs.ListCommitRequest{Repo: []*pfs.Repo{repoInfo.Repo}})

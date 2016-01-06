@@ -33,7 +33,7 @@ func newDriver(driveClient drive.APIClient) (drive.Driver, error) {
 	}, nil
 }
 
-func (d *driver) CreateRepo(repo *pfs.Repo) error {
+func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if _, ok := d.finished[repo.Name]; ok {
@@ -42,25 +42,62 @@ func (d *driver) CreateRepo(repo *pfs.Repo) error {
 	d.finished[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
 	d.started[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
 	d.leaves[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
-	return nil
-}
 
-func (d *driver) InspectRepo(repo *pfs.Repo, shard uint64) (*pfs.RepoInfo, error) {
-	d.lock.RLock()
-	defer d.lock.RUnlock()
-	return d.inspectRepo(repo, shard)
-}
-
-func (d *driver) ListRepo(shard uint64) ([]*pfs.RepoInfo, error) {
-	d.lock.RLock()
-	defer d.lock.RUnlock()
-	var result []*pfs.RepoInfo
-	for repoName := range d.finished {
-		repoInfo, err := d.inspectRepo(&pfs.Repo{Name: repoName}, shard)
-		if err != nil {
-			return nil, err
+	var wg sync.WaitGroup
+	var loopErr error
+	for shard := range shards {
+		wg.Add(1)
+		diffInfo := &drive.DiffInfo{
+			Diff: &drive.Diff{
+				Commit: &pfs.Commit{Repo: repo},
+				Shard:  shard,
+			},
+			Finished: created,
 		}
-		result = append(result, repoInfo)
+		if err := d.finished.insert(diffInfo); err != nil {
+			return err
+		}
+		go func() {
+			defer wg.Done()
+			if _, err := d.driveClient.CreateDiff(context.Background(), diffInfo); err != nil && loopErr == nil {
+				loopErr = err
+			}
+		}()
+	}
+	wg.Wait()
+	return loopErr
+}
+
+func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error) {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	return d.inspectRepo(repo, shards)
+}
+
+func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+	var wg sync.WaitGroup
+	var loopErr error
+	var result []*pfs.RepoInfo
+	var lock sync.Mutex
+	for repoName := range d.finished {
+		wg.Add(1)
+		repoName := repoName
+		go func() {
+			defer wg.Done()
+			repoInfo, err := d.inspectRepo(&pfs.Repo{Name: repoName}, shards)
+			if err != nil && loopErr == nil {
+				loopErr = err
+			}
+			lock.Lock()
+			defer lock.Unlock()
+			result = append(result, repoInfo)
+		}()
+	}
+	wg.Wait()
+	if loopErr != nil {
+		return nil, loopErr
 	}
 	return result, nil
 }
@@ -187,8 +224,9 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 	var result []*pfs.CommitInfo
 	for _, repo := range repos {
 		for shard := range shards {
-			if _, err := d.inspectRepo(repo, shard); err != nil {
-				return nil, err
+			_, ok := d.finished[repo.Name]
+			if !ok {
+				return nil, fmt.Errorf("repo %s not found", repo.Name)
 			}
 			for commitID := range d.leaves[repo.Name][shard] {
 				commit := &pfs.Commit{
@@ -340,16 +378,28 @@ func (d *driver) PushDiff(commit *pfs.Commit, shard uint64, diff io.Reader) erro
 	return nil
 }
 
-func (d *driver) inspectRepo(repo *pfs.Repo, shard uint64) (*pfs.RepoInfo, error) {
+func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error) {
+	result := &pfs.RepoInfo{
+		Repo: repo,
+	}
 	_, ok := d.finished[repo.Name]
 	if !ok {
 		return nil, fmt.Errorf("repo %s not found", repo.Name)
 	}
-	return &pfs.RepoInfo{
-		Repo: repo,
-		// Created: TODO,
-		// SizeBytes: TODO,
-	}, nil
+	for shard := range shards {
+		diffInfos, ok := d.finished[repo.Name][shard]
+		if !ok {
+			return nil, fmt.Errorf("repo %s not found", repo.Name)
+		}
+		for _, diffInfo := range diffInfos {
+			diffInfo := diffInfo
+			if diffInfo.Diff.Commit.Id == "" {
+				result.Created = diffInfo.Finished
+			}
+			result.SizeBytes += diffInfo.SizeBytes
+		}
+	}
+	return result, nil
 }
 
 func (d *driver) getDiffInfo(diff *drive.Diff) (_ *drive.DiffInfo, read bool, ok bool) {

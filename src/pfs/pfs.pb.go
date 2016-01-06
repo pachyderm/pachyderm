@@ -413,7 +413,8 @@ func (m *Changes) GetChange() []*Change {
 }
 
 type CreateRepoRequest struct {
-	Repo *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
+	Repo    *Repo                       `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
+	Created *google_protobuf2.Timestamp `protobuf:"bytes,2,opt,name=created" json:"created,omitempty"`
 }
 
 func (m *CreateRepoRequest) Reset()         { *m = CreateRepoRequest{} }
@@ -423,6 +424,13 @@ func (*CreateRepoRequest) ProtoMessage()    {}
 func (m *CreateRepoRequest) GetRepo() *Repo {
 	if m != nil {
 		return m.Repo
+	}
+	return nil
+}
+
+func (m *CreateRepoRequest) GetCreated() *google_protobuf2.Timestamp {
+	if m != nil {
+		return m.Created
 	}
 	return nil
 }
