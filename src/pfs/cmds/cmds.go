@@ -433,7 +433,7 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 	for _, arg := range args {
 		commitMount := &fuse.CommitMount{Commit: pfsutil.NewCommit("", "")}
 		repo, commitAlias := path.Split(arg)
-		commitMount.Commit.Repo.Name = repo
+		commitMount.Commit.Repo.Name = path.Clean(repo)
 		split := strings.Split(commitAlias, ":")
 		if len(split) > 0 {
 			commitMount.Commit.Id = split[0]
