@@ -118,8 +118,9 @@ clean-launch-kube:
 kube-cluster-assets: install
 	pachctl manifest -s 32 >etc/kube/pachyderm.json
 
-launch:
+launch: install
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
+	until pachctl version 2>/dev/null >/dev/null; do sleep 5; done
 
 launch-dev: launch-kube launch
 
