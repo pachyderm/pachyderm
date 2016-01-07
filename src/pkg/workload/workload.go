@@ -140,7 +140,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			job, err := ppsutil.CreateJob(
 				ppsClient,
 				"",
-				[]string{"sh"},
+				[]string{"bash"},
 				w.grepCmd(inputs, outFilename),
 				1,
 				inputCommits,
@@ -168,7 +168,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			ppsClient,
 			pipelineName,
 			"",
-			[]string{"sh"},
+			[]string{"bash"},
 			w.grepCmd(inputs, outFilename),
 			1,
 			inputRepos,
