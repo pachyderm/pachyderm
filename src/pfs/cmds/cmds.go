@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -361,25 +363,23 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		}),
 	}
 
+	var mountPoint string
 	mount := &cobra.Command{
-		Use:   "mount [mountpoint]",
+		Use:   "mount [repo/commit:alias...]",
 		Short: "Mount pfs locally.",
 		Long:  "Mount pfs locally.",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 1}, func(args []string) error {
+		Run: pkgcobra.Run(func(args []string) error {
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
 			}
-			mountPoint := "/pfs"
-			if len(args) > 0 {
-				mountPoint = args[0]
-			}
 			mounter := fuse.NewMounter(address, apiClient)
-			return mounter.Mount(mountPoint, shard(), nil, nil)
+			return mounter.Mount(mountPoint, shard(), parseCommitMounts(args), nil)
 		}),
 	}
 	mount.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
 	mount.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
+	mount.Flags().StringVarP(&mountPoint, "mount-point", "p", "/pfs", "root of mounted filesystem")
 
 	var result []*cobra.Command
 	result = append(result, createRepo)
@@ -426,4 +426,22 @@ func getClusterAPIClient(address string) (pfs.ClusterAPIClient, error) {
 		return nil, err
 	}
 	return pfs.NewClusterAPIClient(clientConn), nil
+}
+
+func parseCommitMounts(args []string) []*fuse.CommitMount {
+	var result []*fuse.CommitMount
+	for _, arg := range args {
+		commitMount := &fuse.CommitMount{Commit: pfsutil.NewCommit("", "")}
+		repo, commitAlias := path.Split(arg)
+		commitMount.Commit.Repo.Name = repo
+		split := strings.Split(commitAlias, ":")
+		if len(split) > 0 {
+			commitMount.Commit.Id = split[0]
+		}
+		if len(split) > 1 {
+			commitMount.Alias = split[1]
+		}
+		result = append(result, commitMount)
+	}
+	return result
 }
