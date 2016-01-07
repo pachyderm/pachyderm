@@ -76,7 +76,7 @@ func TestGrep(t *testing.T) {
 	_, err = ppsutil.CreateJob(
 		ppsClient,
 		"",
-		[]string{"sh"},
+		[]string{"bash"},
 		fmt.Sprintf("grep foo /pfs/%s/* >/pfs/out/foo", dataRepo),
 		1,
 		[]*pfs.Commit{commit},
