@@ -3,7 +3,6 @@ package workload
 import (
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 
 	"golang.org/x/net/context"
@@ -47,10 +46,10 @@ func newWorker(rand *rand.Rand) *worker {
 }
 
 const (
-	repo     float64 = .05
-	commit           = .2
-	file             = .9
-	job              = .98
+	repo     float64 = .01
+	commit           = .1
+	file             = 1.0 //.9
+	job              = 1.0 //.98
 	pipeline         = 1.0
 )
 
@@ -120,7 +119,6 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 				return err
 			}
 			if jobInfo.State != pps.JobState_JOB_STATE_SUCCESS {
-				log.Printf("failed jobInfo: %+v", jobInfo)
 				return fmt.Errorf("job %s failed", job.Id)
 			}
 			w.jobs = append(w.jobs, job)
@@ -203,7 +201,8 @@ func (r *reader) Read(p []byte) (int, error) {
 			p[i] = lettersAndSpaces[r.rand.Intn(len(lettersAndSpaces))]
 		}
 	}
-	if r.rand.Intn(10) == 0 {
+	p[len(p)-1] = '\n'
+	if r.rand.Intn(500) == 0 {
 		return len(p), io.EOF
 	}
 	return len(p), nil
