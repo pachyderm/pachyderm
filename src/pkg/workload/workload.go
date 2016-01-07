@@ -3,6 +3,7 @@ package workload
 import (
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 
 	"golang.org/x/net/context"
@@ -60,7 +61,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 	opt := w.rand.Float64()
 	switch {
 	case opt < repo:
-		repoName := w.name()
+		repoName := w.randString(10)
 		if err := pfsutil.CreateRepo(pfsClient, repoName); err != nil {
 			return err
 		}
@@ -98,7 +99,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			return nil
 		}
 		commit := w.started[w.rand.Intn(len(w.started))]
-		if _, err := pfsutil.PutFile(pfsClient, commit.Repo.Name, commit.Id, w.name(), 0, w.reader()); err != nil {
+		if _, err := pfsutil.PutFile(pfsClient, commit.Repo.Name, commit.Id, w.randString(10), 0, w.reader()); err != nil {
 			return err
 		}
 	case opt < job:
@@ -119,6 +120,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 				return err
 			}
 			if jobInfo.State != pps.JobState_JOB_STATE_SUCCESS {
+				log.Printf("failed jobInfo: %+v", jobInfo)
 				return fmt.Errorf("job %s failed", job.Id)
 			}
 			w.jobs = append(w.jobs, job)
@@ -134,7 +136,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			if len(w.jobs) > 0 {
 				parentJobID = w.jobs[w.rand.Intn(len(w.jobs))].Id
 			}
-			outFilename := w.name()
+			outFilename := w.randString(10)
 			job, err := ppsutil.CreateJob(
 				ppsClient,
 				"",
@@ -160,8 +162,8 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			inputs[i] = w.repos[randI].Name
 			inputRepos = append(inputRepos, w.repos[randI])
 		}
-		pipelineName := w.name()
-		outFilename := w.name()
+		pipelineName := w.randString(10)
+		outFilename := w.randString(10)
 		if err := ppsutil.CreatePipeline(
 			ppsClient,
 			pipelineName,
@@ -181,8 +183,8 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 const letters = "abcdefghijklmnopqrstuvwxyz"
 const lettersAndSpaces = "abcdefghijklmnopqrstuvwxyz      "
 
-func (w *worker) name() string {
-	b := make([]byte, 20)
+func (w *worker) randString(n int) string {
+	b := make([]byte, n)
 	for i := range b {
 		b[i] = letters[w.rand.Intn(len(letters))]
 	}
@@ -195,7 +197,7 @@ type reader struct {
 
 func (r *reader) Read(p []byte) (int, error) {
 	for i := range p {
-		if i%128 == 0 {
+		if i%128 == 127 {
 			p[i] = '\n'
 		} else {
 			p[i] = lettersAndSpaces[r.rand.Intn(len(lettersAndSpaces))]
@@ -212,11 +214,9 @@ func (w *worker) reader() io.Reader {
 }
 
 func (w *worker) grepCmd(inputs [5]string, outFilename string) string {
-	pattern := make([]byte, 5)
-	_, _ = w.reader().Read(pattern)
 	return fmt.Sprintf(
 		"grep %s /pfs/{%s,%s,%s,%s,%s}/* >/pfs/out/%s",
-		pattern,
+		w.randString(4),
 		inputs[0],
 		inputs[1],
 		inputs[2],
