@@ -3,7 +3,6 @@ package obj
 import (
 	"fmt"
 	"io"
-	"log"
 	"path"
 	"sync"
 
@@ -464,9 +463,7 @@ func (d *driver) inspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, []*dr
 		if !ok {
 			return nil, nil, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
 		}
-		log.Printf("Appends: %+v", diffInfo.Appends)
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
-			log.Printf("using: %+v", _append)
 			if len(_append.BlockRefs) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
@@ -505,7 +502,6 @@ func (d *driver) inspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, []*dr
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 		return nil, nil, pfs.ErrFileNotFound
 	}
-	log.Printf("returning: %+v", fileInfo)
 	return fileInfo, blockRefs, nil
 }
 
