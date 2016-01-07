@@ -5,6 +5,8 @@ import (
 	"io"
 	"math/rand"
 
+	"golang.org/x/net/context"
+
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pps"
@@ -27,13 +29,14 @@ func RunWorkload(
 }
 
 type worker struct {
-	repos     []*pfs.Repo
-	finished  []*pfs.Commit
-	started   []*pfs.Commit
-	files     []*pfs.File
-	jobs      []*pps.Job
-	pipelines []*pps.Pipeline
-	rand      *rand.Rand
+	repos       []*pfs.Repo
+	finished    []*pfs.Commit
+	started     []*pfs.Commit
+	files       []*pfs.File
+	startedJobs []*pps.Job
+	jobs        []*pps.Job
+	pipelines   []*pps.Pipeline
+	rand        *rand.Rand
 }
 
 func newWorker(rand *rand.Rand) *worker {
@@ -43,14 +46,15 @@ func newWorker(rand *rand.Rand) *worker {
 }
 
 const (
-	repo     float64 = .1
-	commit           = .3
-	file             = .6
-	job              = .9
+	repo     float64 = .05
+	commit           = .2
+	file             = .9
+	job              = .98
 	pipeline         = 1.0
 )
 
 const maxStartedCommits = 6
+const maxStartedJobs = 6
 
 func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 	opt := w.rand.Float64()
@@ -101,31 +105,50 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 		if len(w.finished) == 0 {
 			return nil
 		}
-		inputs := [5]string{}
-		var inputCommits []*pfs.Commit
-		for i := range inputs {
-			randI := w.rand.Intn(len(w.finished))
-			inputs[i] = w.finished[randI].Repo.Name
-			inputCommits = append(inputCommits, w.finished[randI])
+		if len(w.startedJobs) >= maxStartedJobs {
+			job := w.startedJobs[0]
+			w.startedJobs = w.startedJobs[1:]
+			jobInfo, err := ppsClient.InspectJob(
+				context.Background(),
+				&pps.InspectJobRequest{
+					Job:        job,
+					BlockState: true,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			if jobInfo.State != pps.JobState_JOB_STATE_SUCCESS {
+				return fmt.Errorf("job %s failed", job.Id)
+			}
+			w.jobs = append(w.jobs, job)
+		} else {
+			inputs := [5]string{}
+			var inputCommits []*pfs.Commit
+			for i := range inputs {
+				randI := w.rand.Intn(len(w.finished))
+				inputs[i] = w.finished[randI].Repo.Name
+				inputCommits = append(inputCommits, w.finished[randI])
+			}
+			var parentJobID string
+			if len(w.jobs) > 0 {
+				parentJobID = w.jobs[w.rand.Intn(len(w.jobs))].Id
+			}
+			outFilename := w.name()
+			job, err := ppsutil.CreateJob(
+				ppsClient,
+				"",
+				[]string{"sh"},
+				w.grepCmd(inputs, outFilename),
+				1,
+				inputCommits,
+				parentJobID,
+			)
+			if err != nil {
+				return err
+			}
+			w.startedJobs = append(w.startedJobs, job)
 		}
-		var parentJobID string
-		if len(w.jobs) > 0 {
-			parentJobID = w.jobs[w.rand.Intn(len(w.jobs))].Id
-		}
-		outFilename := w.name()
-		job, err := ppsutil.CreateJob(
-			ppsClient,
-			"",
-			[]string{"sh"},
-			w.grepCmd(inputs, outFilename),
-			1,
-			inputCommits,
-			parentJobID,
-		)
-		if err != nil {
-			return err
-		}
-		w.jobs = append(w.jobs, job)
 	case opt < pipeline:
 		if len(w.repos) == 0 {
 			return nil
