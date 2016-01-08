@@ -163,6 +163,26 @@ func TestWorkload(t *testing.T) {
 	require.NoError(t, workload.RunWorkload(pfsClient, ppsClient, rand.New(rand.NewSource(seed)), 100))
 }
 
+func TestBigWrite(t *testing.T) {
+	t.Parallel()
+	repo := uniqueString("TestBigWrite")
+	pfsClient := getPfsClient(t)
+	err := pfsutil.CreateRepo(pfsClient, repo)
+	require.NoError(t, err)
+	commit, err := pfsutil.StartCommit(pfsClient, repo, "")
+	require.NoError(t, err)
+	rand := rand.New(rand.NewSource(5))
+	_, err = pfsutil.PutFile(pfsClient, repo, commit.Id, "file", 0, workload.NewReader(rand, 100000))
+	require.NoError(t, err)
+	err = pfsutil.FinishCommit(pfsClient, repo, commit.Id)
+	require.NoError(t, err)
+	var buffer bytes.Buffer
+	err = pfsutil.GetFile(pfsClient, repo, commit.Id, "file", 0, 0, nil, &buffer)
+	require.NoError(t, err)
+	err = pfsutil.GetFile(pfsClient, repo, commit.Id, "file", 0, 0, nil, &buffer)
+	require.NoError(t, err)
+}
+
 func getPfsClient(t *testing.T) pfs.APIClient {
 	pfsdAddr := os.Getenv("PFSD_PORT_650_TCP_ADDR")
 	if pfsdAddr == "" {
