@@ -23,6 +23,7 @@ _testmain.go
 *.test
 
 *.swp
+*.swo
 
 _tmp
 etc/initdev/.vagrant
