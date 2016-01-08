@@ -6,5 +6,7 @@ spec:
   containers:
   - name: pachyderm-test
     image: pachyderm/test
-    command: ["go",  "test", "."]
+    command: ["go",  "test", ".", "-run", "TestBigWrite"]
+    securityContext: 
+        privileged: true
   restartPolicy: Never

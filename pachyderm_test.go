@@ -3,6 +3,7 @@ package pachyderm
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
@@ -179,7 +181,23 @@ func TestBigWrite(t *testing.T) {
 	var buffer bytes.Buffer
 	err = pfsutil.GetFile(pfsClient, repo, commit.Id, "file", 0, 0, nil, &buffer)
 	require.NoError(t, err)
-	err = pfsutil.GetFile(pfsClient, repo, commit.Id, "file", 0, 0, nil, &buffer)
+
+	mounter := fuse.NewMounter("localhost", pfsClient)
+	mountPoint := "/pfs"
+	ready := make(chan bool)
+	go func() {
+		err = mounter.Mount(mountPoint, &pfs.Shard{Number: 0, Modulus: 1}, nil, ready)
+		require.NoError(t, err)
+	}()
+	<-ready
+	err = mounter.Unmount(mountPoint)
+	require.NoError(t, err)
+	file, err := os.Open(fmt.Sprintf("/pfs/%s/%s/file", repo, commit.Id))
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, file.Close())
+	}()
+	_, err = ioutil.ReadAll(file)
 	require.NoError(t, err)
 }
 
