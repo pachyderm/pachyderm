@@ -190,26 +190,35 @@ func (w *worker) randString(n int) string {
 }
 
 type reader struct {
-	rand *rand.Rand
+	rand  *rand.Rand
+	lines int
+}
+
+func NewReader(rand *rand.Rand, lines int) io.Reader {
+	return &reader{
+		rand:  rand,
+		lines: lines,
+	}
 }
 
 func (r *reader) Read(p []byte) (int, error) {
 	for i := range p {
 		if i%128 == 127 {
 			p[i] = '\n'
+			r.lines--
 		} else {
 			p[i] = lettersAndSpaces[r.rand.Intn(len(lettersAndSpaces))]
 		}
 	}
 	p[len(p)-1] = '\n'
-	if r.rand.Intn(500) == 0 {
+	if r.lines <= 0 {
 		return len(p), io.EOF
 	}
 	return len(p), nil
 }
 
 func (w *worker) reader() io.Reader {
-	return &reader{w.rand}
+	return NewReader(w.rand, 1000)
 }
 
 func (w *worker) grepCmd(inputs [5]string, outFilename string) string {
