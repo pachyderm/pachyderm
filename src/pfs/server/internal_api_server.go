@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -258,6 +259,8 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 }
 
 func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.InternalAPI_GetFileServer) (retErr error) {
+	log.Printf("internalAPIServer.GetFile request: %+v.", request)
+	defer log.Printf("internalAPIServer.GetFile return")
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(apiGetFileServer.Context())
 	if err != nil {
@@ -267,7 +270,7 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 	if err != nil {
 		return err
 	}
-	file, err := a.driver.GetFile(request.File, shard)
+	file, err := a.driver.GetFile(request.File, request.OffsetBytes, request.SizeBytes, shard)
 	if err != nil {
 		return err
 	}
@@ -276,10 +279,7 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 			retErr = err
 		}
 	}()
-	return protostream.WriteToStreamingBytesServer(
-		io.NewSectionReader(file, request.OffsetBytes, request.SizeBytes),
-		apiGetFileServer,
-	)
+	return protostream.WriteToStreamingBytesServer(file, apiGetFileServer)
 }
 
 func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {

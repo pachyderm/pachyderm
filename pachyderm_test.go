@@ -160,7 +160,7 @@ func TestWorkload(t *testing.T) {
 	//seed := time.Now().UnixNano()
 	seed := int64(7)
 	log.Printf("seed: %d", seed)
-	require.NoError(t, workload.RunWorkload(pfsClient, ppsClient, rand.New(rand.NewSource(seed)), 200))
+	require.NoError(t, workload.RunWorkload(pfsClient, ppsClient, rand.New(rand.NewSource(seed)), 100))
 }
 
 func getPfsClient(t *testing.T) pfs.APIClient {

@@ -1,8 +1,10 @@
 package obj
 
 import (
+	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"path"
 	"sync"
 
@@ -320,17 +322,20 @@ func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
 	return nil
 }
 
-func (d *driver) GetFile(file *pfs.File, shard uint64) (drive.ReaderAtCloser, error) {
+func (d *driver) GetFile(file *pfs.File, offset int64, size int64, shard uint64) (io.ReadCloser, error) {
+	log.Printf("driver.GetFile file: %+v.", file)
+	defer log.Printf("driver.GetFile return")
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	fileInfo, blockRefs, err := d.inspectFile(file, shard)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("fileInfo: %+v\nblockRefs: %+v", fileInfo, blockRefs)
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 		return nil, fmt.Errorf("file %s/%s/%s is directory", file.Commit.Repo.Name, file.Commit.Id, file.Path)
 	}
-	return newFileReader(d.driveClient, blockRefs), nil
+	return newFileReader(d.driveClient, blockRefs, offset, size), nil
 }
 
 func (d *driver) InspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
@@ -547,26 +552,51 @@ type fileReader struct {
 	blockRefs   []*drive.BlockRef
 	index       int
 	reader      io.Reader
+	offset      int64
+	size        int64
 }
 
-func newFileReader(driveClient drive.APIClient, blockRefs []*drive.BlockRef) *fileReader {
+func newFileReader(driveClient drive.APIClient, blockRefs []*drive.BlockRef, offset int64, size int64) *fileReader {
 	return &fileReader{
 		driveClient: driveClient,
 		blockRefs:   blockRefs,
+		offset:      offset,
+		size:        size,
 	}
 }
 
 func (r *fileReader) Read(data []byte) (int, error) {
+	log.Printf("newFileReader.Read r: %+v\n", r)
+	defer log.Printf("newFileReader.Read return")
 	if r.reader == nil {
+		log.Printf("reader == nil")
 		if r.index == len(r.blockRefs) {
 			return 0, io.EOF
+		}
+		blockRef := r.blockRefs[r.index]
+		for r.offset != 0 && r.offset > int64(drive.ByteRangeSize(blockRef.Range)) {
+			log.Printf("r.index++")
+			r.index++
+			r.offset -= int64(drive.ByteRangeSize(blockRef.Range))
 		}
 		var err error
 		r.reader, err = pfsutil.GetBlock(r.driveClient, r.blockRefs[r.index].Block.Hash, 0)
 		if err != nil {
 			return 0, err
 		}
+		if r.offset != 0 {
+			log.Printf("discarding: %d", r.offset)
+			bufioReader := bufio.NewReader(r.reader)
+			if _, err := bufioReader.Discard(int(r.offset)); err != nil {
+				return 0, err
+			}
+			r.offset = 0
+			r.reader = bufioReader
+		}
 		r.index++
+	}
+	if int(r.size) < len(data) {
+		data = data[:r.size]
 	}
 	size, err := r.reader.Read(data)
 	if err != nil && err != io.EOF {
@@ -574,46 +604,12 @@ func (r *fileReader) Read(data []byte) (int, error) {
 	}
 	if err == io.EOF {
 		r.reader = nil
-		recurseSize, err := r.Read(data[size:])
-		if err != nil {
-			return size + recurseSize, err
-		}
-		size += recurseSize
+	}
+	r.size -= int64(size)
+	if r.size == 0 {
+		return size, io.EOF
 	}
 	return size, nil
-}
-
-func (r *fileReader) ReadAt(p []byte, off int64) (int, error) {
-	var read int
-	for _, blockRef := range r.blockRefs {
-		blockSize := int64(blockRef.Range.Upper - blockRef.Range.Lower)
-		if off >= blockSize {
-			off -= blockSize
-			continue
-		}
-		reader, err := pfsutil.GetBlock(r.driveClient, blockRef.Block.Hash, uint64(off))
-		off = 0
-		if err != nil {
-			return 0, err
-		}
-		for read < len(p) {
-			n, err := reader.Read(p[read:])
-			read += n
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return read, err
-			}
-		}
-		if read == len(p) {
-			break
-		}
-	}
-	if read <= len(p) {
-		return read, io.EOF
-	}
-	return read, nil
 }
 
 func (r *fileReader) Close() error {
