@@ -239,6 +239,7 @@ func (m *DiffInfo) GetAppends() map[string]*Append {
 type GetBlockRequest struct {
 	Block       *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
 	OffsetBytes uint64 `protobuf:"varint,2,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
+	SizeBytes   uint64 `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
 func (m *GetBlockRequest) Reset()         { *m = GetBlockRequest{} }

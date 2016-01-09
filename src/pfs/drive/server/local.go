@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -130,12 +131,9 @@ func (s *localAPIServer) GetBlock(request *drive.GetBlockRequest, getBlockServer
 			retErr = err
 		}
 	}()
-	log.Printf("seeking file")
-	if _, err := file.Seek(int64(request.OffsetBytes), 0); err != nil {
-		return err
-	}
+	reader := io.NewSectionReader(file, int64(request.OffsetBytes), int64(request.SizeBytes))
 	log.Printf("streaming file")
-	return protostream.WriteToStreamingBytesServer(file, getBlockServer)
+	return protostream.WriteToStreamingBytesServer(reader, getBlockServer)
 }
 
 func (s *localAPIServer) InspectBlock(ctx context.Context, request *drive.InspectBlockRequest) (response *drive.BlockInfo, retErr error) {
