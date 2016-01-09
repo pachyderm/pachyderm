@@ -3,7 +3,6 @@ package obj
 import (
 	"fmt"
 	"io"
-	"log"
 	"path"
 	"sync"
 
@@ -321,15 +320,12 @@ func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
 }
 
 func (d *driver) GetFile(file *pfs.File, offset int64, size int64, shard uint64) (io.ReadCloser, error) {
-	log.Printf("driver.GetFile file: %+v.", file)
-	defer log.Printf("driver.GetFile return")
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	fileInfo, blockRefs, err := d.inspectFile(file, shard)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("fileInfo: %+v\nblockRefs: %+v", fileInfo, blockRefs)
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 		return nil, fmt.Errorf("file %s/%s/%s is directory", file.Commit.Repo.Name, file.Commit.Id, file.Path)
 	}
@@ -566,16 +562,12 @@ func newFileReader(driveClient drive.APIClient, blockRefs []*drive.BlockRef, off
 }
 
 func (r *fileReader) Read(data []byte) (int, error) {
-	log.Printf("newFileReader.Read r: %+v\n", r)
-	defer log.Printf("newFileReader.Read return")
 	if r.reader == nil {
-		log.Printf("reader == nil")
 		if r.index == len(r.blockRefs) {
 			return 0, io.EOF
 		}
 		blockRef := r.blockRefs[r.index]
 		for r.offset != 0 && r.offset > int64(drive.ByteRangeSize(blockRef.Range)) {
-			log.Printf("r.index++")
 			r.index++
 			r.offset -= int64(drive.ByteRangeSize(blockRef.Range))
 		}
@@ -588,9 +580,7 @@ func (r *fileReader) Read(data []byte) (int, error) {
 		r.offset = 0
 		r.index++
 	}
-	log.Printf("reading")
 	size, err := r.reader.Read(data)
-	log.Printf("done reading")
 	if err != nil && err != io.EOF {
 		return size, err
 	}

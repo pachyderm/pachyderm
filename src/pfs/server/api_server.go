@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"strings"
 	"sync"
@@ -301,8 +300,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 }
 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
-	log.Printf("apiServer.GetFile request: %+v.", request)
-	defer log.Printf("apiServer.GetFile return")
 	defer func(start time.Time) { a.Log(request, google_protobuf.EmptyInstance, retErr, time.Since(start)) }(time.Now())
 	ctx := versionToContext(a.version, apiGetFileServer.Context())
 	clientConn, err := a.getClientConnForFile(request.File, a.version)

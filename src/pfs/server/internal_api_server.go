@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -259,8 +258,6 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 }
 
 func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.InternalAPI_GetFileServer) (retErr error) {
-	log.Printf("internalAPIServer.GetFile request: %+v.", request)
-	defer log.Printf("internalAPIServer.GetFile return")
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(apiGetFileServer.Context())
 	if err != nil {
