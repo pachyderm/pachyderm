@@ -3,15 +3,16 @@ package obj
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"path"
 	"sync"
 
-	"go.pedge.io/google-protobuf"
-
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
+	"go.pedge.io/google-protobuf"
+	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 )
 
@@ -553,15 +554,36 @@ type fileReader struct {
 	reader      io.Reader
 	offset      int64
 	size        int64
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
 func newFileReader(driveClient drive.APIClient, blockRefs []*drive.BlockRef, offset int64, size int64) *fileReader {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &fileReader{
 		driveClient: driveClient,
 		blockRefs:   blockRefs,
 		offset:      offset,
 		size:        size,
+		ctx:         ctx,
+		cancel:      cancel,
 	}
+}
+
+func (r *fileReader) getBlock(hash string, offsetBytes uint64) (io.Reader, error) {
+	getBlockClient, err := r.driveClient.GetBlock(
+		r.ctx,
+		&drive.GetBlockRequest{
+			Block: &drive.Block{
+				Hash: hash,
+			},
+			OffsetBytes: offsetBytes,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return protostream.NewStreamingBytesReader(getBlockClient), nil
 }
 
 func (r *fileReader) Read(data []byte) (int, error) {
@@ -579,7 +601,7 @@ func (r *fileReader) Read(data []byte) (int, error) {
 			r.offset -= int64(drive.ByteRangeSize(blockRef.Range))
 		}
 		var err error
-		r.reader, err = pfsutil.GetBlock(r.driveClient, r.blockRefs[r.index].Block.Hash, uint64(r.offset))
+		r.reader, err = r.getBlock(r.blockRefs[r.index].Block.Hash, uint64(r.offset))
 		if err != nil {
 			return 0, err
 		}
@@ -606,6 +628,10 @@ func (r *fileReader) Read(data []byte) (int, error) {
 }
 
 func (r *fileReader) Close() error {
+	r.cancel()
+	if r.reader != nil {
+		ioutil.ReadAll(r.reader)
+	}
 	return nil
 }
 
