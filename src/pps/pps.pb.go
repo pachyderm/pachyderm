@@ -178,11 +178,12 @@ func (*Pipeline) ProtoMessage()    {}
 
 // TODO: add created at?
 type PipelineInfo struct {
-	Pipeline   *Pipeline   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
-	Transform  *Transform  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Shards     uint64      `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
-	InputRepo  []*pfs.Repo `protobuf:"bytes,4,rep,name=input_repo" json:"input_repo,omitempty"`
-	OutputRepo *pfs.Repo   `protobuf:"bytes,5,opt,name=output_repo" json:"output_repo,omitempty"`
+	Pipeline   *Pipeline                   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Transform  *Transform                  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	Shards     uint64                      `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
+	InputRepo  []*pfs.Repo                 `protobuf:"bytes,4,rep,name=input_repo" json:"input_repo,omitempty"`
+	OutputRepo *pfs.Repo                   `protobuf:"bytes,5,opt,name=output_repo" json:"output_repo,omitempty"`
+	CreatedAt  *google_protobuf1.Timestamp `protobuf:"bytes,6,opt,name=created_at" json:"created_at,omitempty"`
 }
 
 func (m *PipelineInfo) Reset()         { *m = PipelineInfo{} }
@@ -213,6 +214,13 @@ func (m *PipelineInfo) GetInputRepo() []*pfs.Repo {
 func (m *PipelineInfo) GetOutputRepo() *pfs.Repo {
 	if m != nil {
 		return m.OutputRepo
+	}
+	return nil
+}
+
+func (m *PipelineInfo) GetCreatedAt() *google_protobuf1.Timestamp {
+	if m != nil {
+		return m.CreatedAt
 	}
 	return nil
 }

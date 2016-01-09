@@ -25,6 +25,21 @@ func RunWorkload(
 			return err
 		}
 	}
+	for _, job := range worker.startedJobs {
+		jobInfo, err := ppsClient.InspectJob(
+			context.Background(),
+			&pps.InspectJobRequest{
+				Job:        job,
+				BlockState: true,
+			},
+		)
+		if err != nil {
+			return err
+		}
+		if jobInfo.State != pps.JobState_JOB_STATE_SUCCESS {
+			return fmt.Errorf("job %s failed", job.Id)
+		}
+	}
 	return nil
 }
 
@@ -46,10 +61,10 @@ func newWorker(rand *rand.Rand) *worker {
 }
 
 const (
-	repo     float64 = .01
+	repo     float64 = .02
 	commit           = .1
-	file             = 0.9 //.9
-	job              = 1.0 //.98
+	file             = .9
+	job              = .98
 	pipeline         = 1.0
 )
 
