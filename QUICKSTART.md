@@ -6,6 +6,14 @@
 - Go >= 1.5
 - Kubernetes and Kubectl >= 1.1.2
 
+### Forward Ports
+
+You'll need to make sure `pachctl` can connect to the running pachyderm services:
+
+```shell
+$ ssh KUBEHOST -fTNL 650:localhost:30650 -L 651:localhost:30651
+```
+
 #### If you have your own Kubernetes
 
 And `kubectl` works, run:
@@ -32,14 +40,6 @@ kubernetes   10.0.0.1     <none>        443/TCP                        <none>   
 pfsd         10.0.0.148   nodes         650/TCP,750/TCP                app=pfsd      41s
 ppsd         10.0.0.69    nodes         651/TCP,751/TCP                app=ppsd      41s
 rethink      10.0.0.126   <none>        8080/TCP,28015/TCP,29015/TCP   app=rethink   41s
-```
-
-### Forward Ports
-
-Next you'll need to make sure `pachctl` can connect to the running pachyderm services:
-
-```shell
-$ ssh KUBEHOST -fTNL 650:localhost:30650 -L 651:localhost:30651
 ```
 
 ### Mount /pfs
@@ -118,5 +118,3 @@ foo
 ```
 
 However, we've lost the ability to write to it, finished commits are immutable.
-
-
