@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -117,7 +118,9 @@ func (s *localAPIServer) PutBlock(putBlockServer drive.API_PutBlockServer) (retE
 }
 
 func (s *localAPIServer) GetBlock(request *drive.GetBlockRequest, getBlockServer drive.API_GetBlockServer) (retErr error) {
+	log.Printf("GetBlock request: %+v", request)
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	log.Printf("opening file")
 	file, err := os.Open(s.blockPath(request.Block))
 	if err != nil {
 		return err
@@ -127,9 +130,11 @@ func (s *localAPIServer) GetBlock(request *drive.GetBlockRequest, getBlockServer
 			retErr = err
 		}
 	}()
+	log.Printf("seeking file")
 	if _, err := file.Seek(int64(request.OffsetBytes), 0); err != nil {
 		return err
 	}
+	log.Printf("streaming file")
 	return protostream.WriteToStreamingBytesServer(file, getBlockServer)
 }
 
