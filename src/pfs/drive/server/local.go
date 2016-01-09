@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -119,9 +118,7 @@ func (s *localAPIServer) PutBlock(putBlockServer drive.API_PutBlockServer) (retE
 }
 
 func (s *localAPIServer) GetBlock(request *drive.GetBlockRequest, getBlockServer drive.API_GetBlockServer) (retErr error) {
-	log.Printf("GetBlock request: %+v", request)
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	log.Printf("opening file")
 	file, err := os.Open(s.blockPath(request.Block))
 	if err != nil {
 		return err
@@ -132,7 +129,6 @@ func (s *localAPIServer) GetBlock(request *drive.GetBlockRequest, getBlockServer
 		}
 	}()
 	reader := io.NewSectionReader(file, int64(request.OffsetBytes), int64(request.SizeBytes))
-	log.Printf("streaming file")
 	return protostream.WriteToStreamingBytesServer(reader, getBlockServer)
 }
 
