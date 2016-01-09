@@ -185,7 +185,7 @@ func PutBlock(apiClient drive.APIClient, reader io.Reader) (*drive.BlockRefs, er
 	return putBlockClient.CloseAndRecv()
 }
 
-func GetBlock(apiClient drive.APIClient, hash string, offsetBytes uint64) (io.Reader, error) {
+func GetBlock(apiClient drive.APIClient, hash string, offsetBytes uint64, sizeBytes uint64) (io.Reader, error) {
 	apiGetBlockClient, err := apiClient.GetBlock(
 		context.Background(),
 		&drive.GetBlockRequest{
@@ -193,6 +193,7 @@ func GetBlock(apiClient drive.APIClient, hash string, offsetBytes uint64) (io.Re
 				Hash: hash,
 			},
 			OffsetBytes: offsetBytes,
+			SizeBytes:   sizeBytes,
 		},
 	)
 	if err != nil {

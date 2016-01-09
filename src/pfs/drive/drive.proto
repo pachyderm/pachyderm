@@ -59,6 +59,7 @@ message DiffInfo {
 message GetBlockRequest {
   Block block = 1;
   uint64 offset_bytes = 2;
+  uint64 size_bytes = 3;
 }
 
 message InspectBlockRequest {
