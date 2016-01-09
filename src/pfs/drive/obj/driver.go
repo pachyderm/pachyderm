@@ -1,7 +1,6 @@
 package obj
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -580,25 +579,19 @@ func (r *fileReader) Read(data []byte) (int, error) {
 			r.offset -= int64(drive.ByteRangeSize(blockRef.Range))
 		}
 		var err error
-		r.reader, err = pfsutil.GetBlock(r.driveClient, r.blockRefs[r.index].Block.Hash, 0)
+		r.reader, err = pfsutil.GetBlock(r.driveClient, r.blockRefs[r.index].Block.Hash, uint64(r.offset))
 		if err != nil {
 			return 0, err
 		}
-		if r.offset != 0 {
-			log.Printf("discarding: %d", r.offset)
-			bufioReader := bufio.NewReader(r.reader)
-			if _, err := bufioReader.Discard(int(r.offset)); err != nil {
-				return 0, err
-			}
-			r.offset = 0
-			r.reader = bufioReader
-		}
+		r.offset = 0
 		r.index++
 	}
 	if int(r.size) < len(data) {
 		data = data[:r.size]
 	}
+	log.Printf("reading")
 	size, err := r.reader.Read(data)
+	log.Printf("done reading")
 	if err != nil && err != io.EOF {
 		return size, err
 	}
