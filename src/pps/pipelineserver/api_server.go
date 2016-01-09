@@ -59,21 +59,22 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if request.Pipeline == nil {
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: request.Pipeline cannot be nil")
 	}
+	repo := pps.PipelineRepo(request.Pipeline)
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
 		Shards:       request.Shards,
 		InputRepo:    request.InputRepo,
+		OutputRepo:   repo,
 	}
 	if _, err := a.persistAPIServer.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
 	}
-	repo := pps.PipelineRepo(request.Pipeline)
 	if _, err := a.pfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: repo}); err != nil {
 		return nil, err
 	}
 	go func() {
-		if err := a.runPipeline(persistPipelineInfoToPipelineInfo(persistPipelineInfo)); err != nil {
+		if err := a.runPipeline(newPipelineInfo(persistPipelineInfo)); err != nil {
 			protolog.Printf("pipeline errored: %s", err.Error())
 		}
 	}()
@@ -86,7 +87,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 	if err != nil {
 		return nil, err
 	}
-	return persistPipelineInfoToPipelineInfo(persistPipelineInfo), nil
+	return newPipelineInfo(persistPipelineInfo), nil
 }
 
 func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineRequest) (response *pps.PipelineInfos, err error) {
@@ -97,7 +98,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 	}
 	pipelineInfos := make([]*pps.PipelineInfo, len(persistPipelineInfos.PipelineInfo))
 	for i, persistPipelineInfo := range persistPipelineInfos.PipelineInfo {
-		pipelineInfos[i] = persistPipelineInfoToPipelineInfo(persistPipelineInfo)
+		pipelineInfos[i] = newPipelineInfo(persistPipelineInfo)
 	}
 	return &pps.PipelineInfos{
 		PipelineInfo: pipelineInfos,
@@ -115,14 +116,15 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	return google_protobuf.EmptyInstance, nil
 }
 
-func persistPipelineInfoToPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *pps.PipelineInfo {
+func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *pps.PipelineInfo {
 	return &pps.PipelineInfo{
 		Pipeline: &pps.Pipeline{
 			Name: persistPipelineInfo.PipelineName,
 		},
-		Transform: persistPipelineInfo.Transform,
-		Shards:    persistPipelineInfo.Shards,
-		InputRepo: persistPipelineInfo.InputRepo,
+		Transform:  persistPipelineInfo.Transform,
+		Shards:     persistPipelineInfo.Shards,
+		InputRepo:  persistPipelineInfo.InputRepo,
+		OutputRepo: persistPipelineInfo.OutputRepo,
 	}
 }
 

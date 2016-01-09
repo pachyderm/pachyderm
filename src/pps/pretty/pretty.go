@@ -13,7 +13,6 @@ func PrintJobHeader(w io.Writer) {
 
 func PrintJobInfo(w io.Writer, jobInfo *pps.JobInfo) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.Id)
-	fmt.Fprintf(w, "\t")
 	if jobInfo.OutputCommit != nil {
 		fmt.Fprintf(w, "%s/%s\t", jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.Id)
 	} else {
