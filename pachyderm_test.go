@@ -162,7 +162,7 @@ func TestWorkload(t *testing.T) {
 	//seed := time.Now().UnixNano()
 	seed := int64(7)
 	log.Printf("seed: %d", seed)
-	require.NoError(t, workload.RunWorkload(pfsClient, ppsClient, rand.New(rand.NewSource(seed)), 100))
+	require.NoError(t, workload.RunWorkload(pfsClient, ppsClient, rand.New(rand.NewSource(seed)), 1000))
 }
 
 func TestBigWrite(t *testing.T) {

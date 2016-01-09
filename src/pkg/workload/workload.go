@@ -48,7 +48,7 @@ func newWorker(rand *rand.Rand) *worker {
 const (
 	repo     float64 = .01
 	commit           = .1
-	file             = 1.0 //.9
+	file             = 0.9 //.9
 	job              = 1.0 //.98
 	pipeline         = 1.0
 )
@@ -223,7 +223,7 @@ func (w *worker) reader() io.Reader {
 
 func (w *worker) grepCmd(inputs [5]string, outFilename string) string {
 	return fmt.Sprintf(
-		"grep %s /pfs/{%s,%s,%s,%s,%s}/* >/pfs/out/%s",
+		"grep %s /pfs/{%s,%s,%s,%s,%s}/* >/pfs/out/%s; true",
 		w.randString(4),
 		inputs[0],
 		inputs[1],
