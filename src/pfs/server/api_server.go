@@ -50,6 +50,9 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
+	if strings.Contains(request.Repo.Name, "/") {
+		return nil, fmt.Errorf("repo names cannot contain /")
+	}
 	ctx = versionToContext(a.version, ctx)
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
