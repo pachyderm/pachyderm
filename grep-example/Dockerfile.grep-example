@@ -1,5 +1,5 @@
 FROM pachyderm/job-shim:latest
 
-ADD grep-example.sh /bin
+ADD grep-example/grep-example.sh /bin
 
 RUN chmod +x /bin/grep-example.sh
