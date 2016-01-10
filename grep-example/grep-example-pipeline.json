@@ -1,11 +1,11 @@
 {
   "pipeline": {
-    "name": "greping31"
+    "name": "grep-example"
   },
   "transform": {
-    "image": "greping",
+    "image": "pachyderm/grep-example",
     "cmd": [
-      "/bin/greping.sh"
+      "/bin/grep-example.sh"
     ]
   },
   "shards": "1",
@@ -15,4 +15,3 @@
     }
   ]
 }
-
