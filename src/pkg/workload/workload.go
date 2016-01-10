@@ -117,9 +117,6 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			return err
 		}
 	case opt < job:
-		if len(w.finished) == 0 {
-			return nil
-		}
 		if len(w.startedJobs) >= maxStartedJobs {
 			job := w.startedJobs[0]
 			w.startedJobs = w.startedJobs[1:]
@@ -138,12 +135,20 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			}
 			w.jobs = append(w.jobs, job)
 		} else {
+			if len(w.finished) == 0 {
+				return nil
+			}
 			inputs := [5]string{}
 			var inputCommits []*pfs.Commit
+			repoSet := make(map[string]bool)
 			for i := range inputs {
-				randI := w.rand.Intn(len(w.finished))
-				inputs[i] = w.finished[randI].Repo.Name
-				inputCommits = append(inputCommits, w.finished[randI])
+				commit := w.finished[w.rand.Intn(len(w.finished))]
+				if _, ok := repoSet[commit.Repo.Name]; ok {
+					continue
+				}
+				repoSet[commit.Repo.Name] = true
+				inputs[i] = commit.Repo.Name
+				inputCommits = append(inputCommits, commit)
 			}
 			var parentJobID string
 			if len(w.jobs) > 0 {
@@ -170,10 +175,15 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 		}
 		inputs := [5]string{}
 		var inputRepos []*pfs.Repo
+		repoSet := make(map[string]bool)
 		for i := range inputs {
-			randI := w.rand.Intn(len(w.repos))
-			inputs[i] = w.repos[randI].Name
-			inputRepos = append(inputRepos, w.repos[randI])
+			repo := w.repos[w.rand.Intn(len(w.repos))]
+			if _, ok := repoSet[repo.Name]; ok {
+				continue
+			}
+			repoSet[repo.Name] = true
+			inputs[i] = repo.Name
+			inputRepos = append(inputRepos, repo)
 		}
 		pipelineName := w.randString(10)
 		outFilename := w.randString(10)
