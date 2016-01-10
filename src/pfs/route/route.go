@@ -9,15 +9,16 @@ import (
 )
 
 type Sharder interface {
-	NumShards() uint64
+	FileModulus() uint64
+	BlockModulus() uint64
 	NumReplicas() uint64
 	GetBlock(value []byte) *drive.Block
 	GetShard(file *pfs.File) uint64
 	GetBlockShard(block *drive.Block) uint64
 }
 
-func NewSharder(numShards uint64, numReplicas uint64) Sharder {
-	return newSharder(numShards, numReplicas)
+func NewSharder(fileModulus uint64, blockModulus uint64, numReplicas uint64) Sharder {
+	return newSharder(fileModulus, blockModulus, numReplicas)
 }
 
 type Router interface {

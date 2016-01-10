@@ -20,10 +20,24 @@ import (
 )
 
 func Cmds(address string) ([]*cobra.Command, error) {
-	var number int
-	var modulus int
+	var fileNumber int
+	var fileModulus int
+	var blockNumber int
+	var blockModulus int
 	shard := func() *pfs.Shard {
-		return &pfs.Shard{Number: uint64(number), Modulus: uint64(modulus)}
+		return &pfs.Shard{
+			FileNumber:   uint64(fileNumber),
+			FileModulus:  uint64(fileModulus),
+			BlockNumber:  uint64(blockNumber),
+			BlockModulus: uint64(blockModulus),
+		}
+	}
+
+	addShardFlags := func(cmd *cobra.Command) {
+		cmd.Flags().IntVarP(&fileNumber, "file-shard", "s", 0, "file shard to read")
+		cmd.Flags().IntVarP(&fileModulus, "file-modulus", "m", 1, "modulus of file shard")
+		cmd.Flags().IntVarP(&blockNumber, "block-shard", "b", 0, "block shard to read")
+		cmd.Flags().IntVarP(&blockModulus, "block-modulus", "n", 1, "modulus of block shard")
 	}
 
 	createRepo := &cobra.Command{
@@ -229,8 +243,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			return pfsutil.GetFile(apiClient, args[0], args[1], args[2], 0, math.MaxInt64, shard(), os.Stdout)
 		}),
 	}
-	getFile.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
-	getFile.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
+	addShardFlags(getFile)
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",
@@ -254,8 +267,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			return writer.Flush()
 		}),
 	}
-	inspectFile.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
-	inspectFile.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
+	addShardFlags(inspectFile)
 
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
@@ -282,8 +294,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			return writer.Flush()
 		}),
 	}
-	listFile.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
-	listFile.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
+	addShardFlags(listFile)
 
 	deleteFile := &cobra.Command{
 		Use:   "delete-file repo-name commit-id path/to/file",
@@ -319,8 +330,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 			return writer.Flush()
 		}),
 	}
-	listChange.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
-	listChange.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
+	addShardFlags(listChange)
 
 	inspectServer := &cobra.Command{
 		Use:   "inspect-server server-id",
@@ -376,11 +386,9 @@ func Cmds(address string) ([]*cobra.Command, error) {
 				return err
 			}
 			mounter := fuse.NewMounter(address, apiClient)
-			return mounter.Mount(mountPoint, shard(), parseCommitMounts(args), nil)
+			return mounter.Mount(mountPoint, parseCommitMounts(args), nil)
 		}),
 	}
-	mount.Flags().IntVarP(&number, "shard", "s", 0, "shard to read from")
-	mount.Flags().IntVarP(&modulus, "modulus", "m", 1, "modulus of the shards")
 	mount.Flags().StringVarP(&mountPoint, "mount-point", "p", "/pfs", "root of mounted filesystem")
 
 	var result []*cobra.Command

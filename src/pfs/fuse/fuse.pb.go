@@ -40,6 +40,7 @@ var _ = math.Inf
 type CommitMount struct {
 	Commit *pfs.Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	Alias  string      `protobuf:"bytes,2,opt,name=alias" json:"alias,omitempty"`
+	Shard  *pfs.Shard  `protobuf:"bytes,3,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *CommitMount) Reset()         { *m = CommitMount{} }
@@ -53,21 +54,20 @@ func (m *CommitMount) GetCommit() *pfs.Commit {
 	return nil
 }
 
-type Filesystem struct {
-	Shard        *pfs.Shard     `protobuf:"bytes,1,opt,name=shard" json:"shard,omitempty"`
-	CommitMounts []*CommitMount `protobuf:"bytes,3,rep,name=commit_mounts" json:"commit_mounts,omitempty"`
-}
-
-func (m *Filesystem) Reset()         { *m = Filesystem{} }
-func (m *Filesystem) String() string { return proto.CompactTextString(m) }
-func (*Filesystem) ProtoMessage()    {}
-
-func (m *Filesystem) GetShard() *pfs.Shard {
+func (m *CommitMount) GetShard() *pfs.Shard {
 	if m != nil {
 		return m.Shard
 	}
 	return nil
 }
+
+type Filesystem struct {
+	CommitMounts []*CommitMount `protobuf:"bytes,1,rep,name=commit_mounts" json:"commit_mounts,omitempty"`
+}
+
+func (m *Filesystem) Reset()         { *m = Filesystem{} }
+func (m *Filesystem) String() string { return proto.CompactTextString(m) }
+func (*Filesystem) ProtoMessage()    {}
 
 func (m *Filesystem) GetCommitMounts() []*CommitMount {
 	if m != nil {
@@ -77,9 +77,10 @@ func (m *Filesystem) GetCommitMounts() []*CommitMount {
 }
 
 type Node struct {
-	File      *pfs.File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	RepoAlias string    `protobuf:"bytes,2,opt,name=repo_alias" json:"repo_alias,omitempty"`
-	Write     bool      `protobuf:"varint,3,opt,name=write" json:"write,omitempty"`
+	File      *pfs.File  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	RepoAlias string     `protobuf:"bytes,2,opt,name=repo_alias" json:"repo_alias,omitempty"`
+	Write     bool       `protobuf:"varint,3,opt,name=write" json:"write,omitempty"`
+	Shard     *pfs.Shard `protobuf:"bytes,4,opt,name=shard" json:"shard,omitempty"`
 }
 
 func (m *Node) Reset()         { *m = Node{} }
@@ -89,6 +90,13 @@ func (*Node) ProtoMessage()    {}
 func (m *Node) GetFile() *pfs.File {
 	if m != nil {
 		return m.File
+	}
+	return nil
+}
+
+func (m *Node) GetShard() *pfs.Shard {
+	if m != nil {
+		return m.Shard
 	}
 	return nil
 }

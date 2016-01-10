@@ -11,9 +11,11 @@ It is generated from these files:
 It has these top-level messages:
 	Transform
 	Job
+	JobInput
 	JobInfo
 	JobInfos
 	Pipeline
+	PipelineInput
 	PipelineInfo
 	PipelineInfos
 	CreateJobRequest
@@ -35,6 +37,7 @@ import math "math"
 import google_protobuf "go.pedge.io/google-protobuf"
 import google_protobuf1 "go.pedge.io/google-protobuf"
 import pfs "github.com/pachyderm/pachyderm/src/pfs"
+import fuse "github.com/pachyderm/pachyderm/src/pfs/fuse"
 
 import (
 	context "golang.org/x/net/context"
@@ -87,13 +90,28 @@ func (m *Job) Reset()         { *m = Job{} }
 func (m *Job) String() string { return proto.CompactTextString(m) }
 func (*Job) ProtoMessage()    {}
 
-// TODO: add created at?
+type JobInput struct {
+	Commit *pfs.Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	Reduce bool        `protobuf:"varint,2,opt,name=reduce" json:"reduce,omitempty"`
+}
+
+func (m *JobInput) Reset()         { *m = JobInput{} }
+func (m *JobInput) String() string { return proto.CompactTextString(m) }
+func (*JobInput) ProtoMessage()    {}
+
+func (m *JobInput) GetCommit() *pfs.Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
+
 type JobInfo struct {
 	Job          *Job                        `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
 	Transform    *Transform                  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
 	Pipeline     *Pipeline                   `protobuf:"bytes,3,opt,name=pipeline" json:"pipeline,omitempty"`
 	Shards       uint64                      `protobuf:"varint,4,opt,name=shards" json:"shards,omitempty"`
-	InputCommit  []*pfs.Commit               `protobuf:"bytes,5,rep,name=input_commit" json:"input_commit,omitempty"`
+	Inputs       []*JobInput                 `protobuf:"bytes,5,rep,name=inputs" json:"inputs,omitempty"`
 	ParentJob    *Job                        `protobuf:"bytes,6,opt,name=parent_job" json:"parent_job,omitempty"`
 	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,7,opt,name=created_at" json:"created_at,omitempty"`
 	OutputCommit *pfs.Commit                 `protobuf:"bytes,8,opt,name=output_commit" json:"output_commit,omitempty"`
@@ -125,9 +143,9 @@ func (m *JobInfo) GetPipeline() *Pipeline {
 	return nil
 }
 
-func (m *JobInfo) GetInputCommit() []*pfs.Commit {
+func (m *JobInfo) GetInputs() []*JobInput {
 	if m != nil {
-		return m.InputCommit
+		return m.Inputs
 	}
 	return nil
 }
@@ -176,12 +194,27 @@ func (m *Pipeline) Reset()         { *m = Pipeline{} }
 func (m *Pipeline) String() string { return proto.CompactTextString(m) }
 func (*Pipeline) ProtoMessage()    {}
 
-// TODO: add created at?
+type PipelineInput struct {
+	Repo   *pfs.Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
+	Reduce bool      `protobuf:"varint,2,opt,name=reduce" json:"reduce,omitempty"`
+}
+
+func (m *PipelineInput) Reset()         { *m = PipelineInput{} }
+func (m *PipelineInput) String() string { return proto.CompactTextString(m) }
+func (*PipelineInput) ProtoMessage()    {}
+
+func (m *PipelineInput) GetRepo() *pfs.Repo {
+	if m != nil {
+		return m.Repo
+	}
+	return nil
+}
+
 type PipelineInfo struct {
 	Pipeline   *Pipeline                   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
 	Transform  *Transform                  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
 	Shards     uint64                      `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
-	InputRepo  []*pfs.Repo                 `protobuf:"bytes,4,rep,name=input_repo" json:"input_repo,omitempty"`
+	Inputs     []*PipelineInput            `protobuf:"bytes,4,rep,name=inputs" json:"inputs,omitempty"`
 	OutputRepo *pfs.Repo                   `protobuf:"bytes,5,opt,name=output_repo" json:"output_repo,omitempty"`
 	CreatedAt  *google_protobuf1.Timestamp `protobuf:"bytes,6,opt,name=created_at" json:"created_at,omitempty"`
 }
@@ -204,9 +237,9 @@ func (m *PipelineInfo) GetTransform() *Transform {
 	return nil
 }
 
-func (m *PipelineInfo) GetInputRepo() []*pfs.Repo {
+func (m *PipelineInfo) GetInputs() []*PipelineInput {
 	if m != nil {
-		return m.InputRepo
+		return m.Inputs
 	}
 	return nil
 }
@@ -241,11 +274,11 @@ func (m *PipelineInfos) GetPipelineInfo() []*PipelineInfo {
 }
 
 type CreateJobRequest struct {
-	Transform   *Transform    `protobuf:"bytes,1,opt,name=transform" json:"transform,omitempty"`
-	Pipeline    *Pipeline     `protobuf:"bytes,2,opt,name=pipeline" json:"pipeline,omitempty"`
-	Shards      uint64        `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
-	InputCommit []*pfs.Commit `protobuf:"bytes,4,rep,name=input_commit" json:"input_commit,omitempty"`
-	ParentJob   *Job          `protobuf:"bytes,5,opt,name=parent_job" json:"parent_job,omitempty"`
+	Transform *Transform  `protobuf:"bytes,1,opt,name=transform" json:"transform,omitempty"`
+	Pipeline  *Pipeline   `protobuf:"bytes,2,opt,name=pipeline" json:"pipeline,omitempty"`
+	Shards    uint64      `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
+	Inputs    []*JobInput `protobuf:"bytes,4,rep,name=inputs" json:"inputs,omitempty"`
+	ParentJob *Job        `protobuf:"bytes,5,opt,name=parent_job" json:"parent_job,omitempty"`
 }
 
 func (m *CreateJobRequest) Reset()         { *m = CreateJobRequest{} }
@@ -266,9 +299,9 @@ func (m *CreateJobRequest) GetPipeline() *Pipeline {
 	return nil
 }
 
-func (m *CreateJobRequest) GetInputCommit() []*pfs.Commit {
+func (m *CreateJobRequest) GetInputs() []*JobInput {
 	if m != nil {
-		return m.InputCommit
+		return m.Inputs
 	}
 	return nil
 }
@@ -321,10 +354,10 @@ func (m *ListJobRequest) GetInputCommit() []*pfs.Commit {
 }
 
 type CreatePipelineRequest struct {
-	Pipeline  *Pipeline   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
-	Transform *Transform  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Shards    uint64      `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
-	InputRepo []*pfs.Repo `protobuf:"bytes,4,rep,name=input_repo" json:"input_repo,omitempty"`
+	Pipeline  *Pipeline        `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Transform *Transform       `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	Shards    uint64           `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
+	Inputs    []*PipelineInput `protobuf:"bytes,4,rep,name=inputs" json:"inputs,omitempty"`
 }
 
 func (m *CreatePipelineRequest) Reset()         { *m = CreatePipelineRequest{} }
@@ -345,9 +378,9 @@ func (m *CreatePipelineRequest) GetTransform() *Transform {
 	return nil
 }
 
-func (m *CreatePipelineRequest) GetInputRepo() []*pfs.Repo {
+func (m *CreatePipelineRequest) GetInputs() []*PipelineInput {
 	if m != nil {
-		return m.InputRepo
+		return m.Inputs
 	}
 	return nil
 }
@@ -405,10 +438,11 @@ func (m *StartJobRequest) GetJob() *Job {
 }
 
 type StartJobResponse struct {
-	Transform    *Transform    `protobuf:"bytes,1,opt,name=transform" json:"transform,omitempty"`
-	InputCommit  []*pfs.Commit `protobuf:"bytes,2,rep,name=input_commit" json:"input_commit,omitempty"`
-	OutputCommit *pfs.Commit   `protobuf:"bytes,3,opt,name=output_commit" json:"output_commit,omitempty"`
-	Shard        *pfs.Shard    `protobuf:"bytes,4,opt,name=shard" json:"shard,omitempty"`
+	Transform    *Transform          `protobuf:"bytes,1,opt,name=transform" json:"transform,omitempty"`
+	CommitMounts []*fuse.CommitMount `protobuf:"bytes,2,rep,name=commit_mounts" json:"commit_mounts,omitempty"`
+	// TODO this could just be another commit mount
+	OutputCommit *pfs.Commit `protobuf:"bytes,3,opt,name=output_commit" json:"output_commit,omitempty"`
+	Index        uint64      `protobuf:"varint,4,opt,name=index" json:"index,omitempty"`
 }
 
 func (m *StartJobResponse) Reset()         { *m = StartJobResponse{} }
@@ -422,9 +456,9 @@ func (m *StartJobResponse) GetTransform() *Transform {
 	return nil
 }
 
-func (m *StartJobResponse) GetInputCommit() []*pfs.Commit {
+func (m *StartJobResponse) GetCommitMounts() []*fuse.CommitMount {
 	if m != nil {
-		return m.InputCommit
+		return m.CommitMounts
 	}
 	return nil
 }
@@ -436,17 +470,10 @@ func (m *StartJobResponse) GetOutputCommit() *pfs.Commit {
 	return nil
 }
 
-func (m *StartJobResponse) GetShard() *pfs.Shard {
-	if m != nil {
-		return m.Shard
-	}
-	return nil
-}
-
 type FinishJobRequest struct {
-	Job     *Job       `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
-	Shard   *pfs.Shard `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
-	Success bool       `protobuf:"varint,3,opt,name=success" json:"success,omitempty"`
+	Job     *Job   `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	Index   uint64 `protobuf:"varint,2,opt,name=index" json:"index,omitempty"`
+	Success bool   `protobuf:"varint,3,opt,name=success" json:"success,omitempty"`
 }
 
 func (m *FinishJobRequest) Reset()         { *m = FinishJobRequest{} }
@@ -460,19 +487,14 @@ func (m *FinishJobRequest) GetJob() *Job {
 	return nil
 }
 
-func (m *FinishJobRequest) GetShard() *pfs.Shard {
-	if m != nil {
-		return m.Shard
-	}
-	return nil
-}
-
 func init() {
 	proto.RegisterType((*Transform)(nil), "pachyderm.pps.Transform")
 	proto.RegisterType((*Job)(nil), "pachyderm.pps.Job")
+	proto.RegisterType((*JobInput)(nil), "pachyderm.pps.JobInput")
 	proto.RegisterType((*JobInfo)(nil), "pachyderm.pps.JobInfo")
 	proto.RegisterType((*JobInfos)(nil), "pachyderm.pps.JobInfos")
 	proto.RegisterType((*Pipeline)(nil), "pachyderm.pps.Pipeline")
+	proto.RegisterType((*PipelineInput)(nil), "pachyderm.pps.PipelineInput")
 	proto.RegisterType((*PipelineInfo)(nil), "pachyderm.pps.PipelineInfo")
 	proto.RegisterType((*PipelineInfos)(nil), "pachyderm.pps.PipelineInfos")
 	proto.RegisterType((*CreateJobRequest)(nil), "pachyderm.pps.CreateJobRequest")

@@ -371,8 +371,10 @@ func (m *ServerInfos) GetServerInfo() []*ServerInfo {
 // Shard represents a dynamic shard within pfs.
 // number must always be less than modulo.
 type Shard struct {
-	Number  uint64 `protobuf:"varint,1,opt,name=number" json:"number,omitempty"`
-	Modulus uint64 `protobuf:"varint,2,opt,name=modulus" json:"modulus,omitempty"`
+	FileNumber   uint64 `protobuf:"varint,1,opt,name=file_number" json:"file_number,omitempty"`
+	FileModulus  uint64 `protobuf:"varint,2,opt,name=file_modulus" json:"file_modulus,omitempty"`
+	BlockNumber  uint64 `protobuf:"varint,3,opt,name=block_number" json:"block_number,omitempty"`
+	BlockModulus uint64 `protobuf:"varint,4,opt,name=block_modulus" json:"block_modulus,omitempty"`
 }
 
 func (m *Shard) Reset()         { *m = Shard{} }
@@ -381,9 +383,9 @@ func (*Shard) ProtoMessage()    {}
 
 // Change represents a change to a file.
 type Change struct {
-	File        *File  `protobuf:"bytes,2,opt,name=file" json:"file,omitempty"`
-	SizeBytes   uint64 `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
-	OffsetBytes uint64 `protobuf:"varint,4,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
+	File        *File  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	SizeBytes   uint64 `protobuf:"varint,2,opt,name=size_bytes" json:"size_bytes,omitempty"`
+	OffsetBytes uint64 `protobuf:"varint,3,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
 }
 
 func (m *Change) Reset()         { *m = Change{} }

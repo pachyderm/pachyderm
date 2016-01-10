@@ -41,7 +41,7 @@ type JobInfo struct {
 	Transform    *pachyderm_pps.Transform    `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
 	PipelineName string                      `protobuf:"bytes,3,opt,name=pipeline_name" json:"pipeline_name,omitempty"`
 	Shards       uint64                      `protobuf:"varint,4,opt,name=shards" json:"shards,omitempty"`
-	InputCommit  []*pfs.Commit               `protobuf:"bytes,5,rep,name=input_commit" json:"input_commit,omitempty"`
+	Inputs       []*pachyderm_pps.JobInput   `protobuf:"bytes,5,rep,name=inputs" json:"inputs,omitempty"`
 	ParentJob    *pachyderm_pps.Job          `protobuf:"bytes,6,opt,name=parent_job" json:"parent_job,omitempty"`
 	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,7,opt,name=created_at" json:"created_at,omitempty"`
 	OutputCommit *pfs.Commit                 `protobuf:"bytes,8,opt,name=output_commit" json:"output_commit,omitempty"`
@@ -60,9 +60,9 @@ func (m *JobInfo) GetTransform() *pachyderm_pps.Transform {
 	return nil
 }
 
-func (m *JobInfo) GetInputCommit() []*pfs.Commit {
+func (m *JobInfo) GetInputs() []*pachyderm_pps.JobInput {
 	if m != nil {
-		return m.InputCommit
+		return m.Inputs
 	}
 	return nil
 }
@@ -129,12 +129,12 @@ func (m *JobState) String() string { return proto.CompactTextString(m) }
 func (*JobState) ProtoMessage()    {}
 
 type PipelineInfo struct {
-	PipelineName string                      `protobuf:"bytes,1,opt,name=pipeline_name" json:"pipeline_name,omitempty"`
-	Transform    *pachyderm_pps.Transform    `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Shards       uint64                      `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
-	InputRepo    []*pfs.Repo                 `protobuf:"bytes,4,rep,name=input_repo" json:"input_repo,omitempty"`
-	OutputRepo   *pfs.Repo                   `protobuf:"bytes,5,opt,name=output_repo" json:"output_repo,omitempty"`
-	CreatedAt    *google_protobuf1.Timestamp `protobuf:"bytes,6,opt,name=created_at" json:"created_at,omitempty"`
+	PipelineName string                         `protobuf:"bytes,1,opt,name=pipeline_name" json:"pipeline_name,omitempty"`
+	Transform    *pachyderm_pps.Transform       `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
+	Shards       uint64                         `protobuf:"varint,3,opt,name=shards" json:"shards,omitempty"`
+	Inputs       []*pachyderm_pps.PipelineInput `protobuf:"bytes,4,rep,name=inputs" json:"inputs,omitempty"`
+	OutputRepo   *pfs.Repo                      `protobuf:"bytes,5,opt,name=output_repo" json:"output_repo,omitempty"`
+	CreatedAt    *google_protobuf1.Timestamp    `protobuf:"bytes,6,opt,name=created_at" json:"created_at,omitempty"`
 }
 
 func (m *PipelineInfo) Reset()         { *m = PipelineInfo{} }
@@ -148,9 +148,9 @@ func (m *PipelineInfo) GetTransform() *pachyderm_pps.Transform {
 	return nil
 }
 
-func (m *PipelineInfo) GetInputRepo() []*pfs.Repo {
+func (m *PipelineInfo) GetInputs() []*pachyderm_pps.PipelineInput {
 	if m != nil {
-		return m.InputRepo
+		return m.Inputs
 	}
 	return nil
 }

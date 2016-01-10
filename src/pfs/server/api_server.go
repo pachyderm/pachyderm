@@ -447,7 +447,7 @@ func (a *apiServer) getClientConn(version int64) (*grpc.ClientConn, error) {
 	for shard := range shards {
 		return a.router.GetMasterClientConn(shard, version)
 	}
-	return a.router.GetMasterClientConn(uint64(rand.Int())%a.sharder.NumShards(), version)
+	return a.router.GetMasterClientConn(uint64(rand.Int())%a.sharder.FileModulus(), version)
 }
 
 func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.ClientConn, error) {

@@ -1,12 +1,6 @@
 package ppsutil
 
 import (
-	// "io"
-	// "io/ioutil"
-
-	// "go.pedge.io/proto/stream"
-
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"golang.org/x/net/context"
 )
@@ -25,7 +19,7 @@ func CreateJob(
 	cmd []string,
 	stdin string,
 	shards uint64,
-	inputCommit []*pfs.Commit,
+	inputs []*pps.JobInput,
 	parentJobID string,
 ) (*pps.Job, error) {
 	var parentJob *pps.Job
@@ -40,9 +34,9 @@ func CreateJob(
 				Cmd:   cmd,
 				Stdin: stdin,
 			},
-			Shards:      shards,
-			InputCommit: inputCommit,
-			ParentJob:   parentJob,
+			Shards:    shards,
+			Inputs:    inputs,
+			ParentJob: parentJob,
 		},
 	)
 }
@@ -54,7 +48,7 @@ func CreatePipeline(
 	cmd []string,
 	stdin string,
 	shards uint64,
-	inputRepo []*pfs.Repo,
+	inputs []*pps.PipelineInput,
 ) error {
 	_, err := client.CreatePipeline(
 		context.Background(),
@@ -65,8 +59,8 @@ func CreatePipeline(
 				Cmd:   cmd,
 				Stdin: stdin,
 			},
-			Shards:    shards,
-			InputRepo: inputRepo,
+			Shards: shards,
+			Inputs: inputs,
 		},
 	)
 	return err

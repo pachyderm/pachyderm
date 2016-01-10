@@ -60,10 +60,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: request.Pipeline cannot be nil")
 	}
 	repoSet := make(map[string]bool)
-	for _, repo := range request.InputRepo {
-		repoSet[repo.Name] = true
+	for _, input := range request.Inputs {
+		repoSet[input.Repo.Name] = true
 	}
-	if len(repoSet) < len(request.InputRepo) {
+	if len(repoSet) < len(request.Inputs) {
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: duplicate input repos")
 	}
 	repo := pps.PipelineRepo(request.Pipeline)
@@ -71,7 +71,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
 		Shards:       request.Shards,
-		InputRepo:    request.InputRepo,
+		Inputs:       request.Inputs,
 		OutputRepo:   repo,
 	}
 	if _, err := a.persistAPIServer.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
@@ -130,7 +130,7 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *pps.PipelineInf
 		},
 		Transform:  persistPipelineInfo.Transform,
 		Shards:     persistPipelineInfo.Shards,
-		InputRepo:  persistPipelineInfo.InputRepo,
+		Inputs:     persistPipelineInfo.Inputs,
 		OutputRepo: persistPipelineInfo.OutputRepo,
 	}
 }
@@ -141,8 +141,12 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 	a.cancelFuncs[*pipelineInfo.Pipeline] = cancel
 	a.lock.Unlock()
 	repoToLeaves := make(map[string]map[string]bool)
-	for _, inputRepo := range pipelineInfo.InputRepo {
-		repoToLeaves[inputRepo.Name] = make(map[string]bool)
+	repoToInput := make(map[string]*pps.PipelineInput)
+	var inputRepos []*pfs.Repo
+	for _, input := range pipelineInfo.Inputs {
+		repoToLeaves[input.Repo.Name] = make(map[string]bool)
+		repoToInput[input.Repo.Name] = input
+		inputRepos = append(inputRepos, &pfs.Repo{Name: input.Repo.Name})
 	}
 	for {
 		var fromCommits []*pfs.Commit
@@ -157,7 +161,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 			}
 		}
 		listCommitRequest := &pfs.ListCommitRequest{
-			Repo:       pipelineInfo.InputRepo,
+			Repo:       inputRepos,
 			CommitType: pfs.CommitType_COMMIT_TYPE_READ,
 			FromCommit: fromCommits,
 			Block:      true,
@@ -193,7 +197,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 			}
 			for _, commitSet := range commitSets {
 				// + 1 as the commitSet doesn't contain the commit we just got
-				if len(commitSet)+1 < len(pipelineInfo.InputRepo) {
+				if len(commitSet)+1 < len(pipelineInfo.Inputs) {
 					continue
 				}
 				var parentJob *pps.Job
@@ -203,14 +207,21 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 						return err
 					}
 				}
+				var inputs []*pps.JobInput
+				for _, commit := range append(commitSet, commitInfo.Commit) {
+					inputs = append(inputs, &pps.JobInput{
+						Commit: commit,
+						Reduce: repoToInput[commit.Repo.Name].Reduce,
+					})
+				}
 				if _, err = a.jobAPIClient.CreateJob(
 					ctx,
 					&pps.CreateJobRequest{
-						Transform:   pipelineInfo.Transform,
-						Pipeline:    pipelineInfo.Pipeline,
-						Shards:      pipelineInfo.Shards,
-						InputCommit: append(commitSet, commitInfo.Commit),
-						ParentJob:   parentJob,
+						Transform: pipelineInfo.Transform,
+						Pipeline:  pipelineInfo.Pipeline,
+						Shards:    pipelineInfo.Shards,
+						Inputs:    inputs,
+						ParentJob: parentJob,
 					},
 				); err != nil {
 					return err

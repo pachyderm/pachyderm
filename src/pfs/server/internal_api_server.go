@@ -303,9 +303,9 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 		return nil, err
 	}
 	if request.Shard == nil {
-		request.Shard = &pfs.Shard{Number: 0, Modulus: 1}
+		request.Shard = &pfs.Shard{FileNumber: 0, FileModulus: 1}
 	}
-	sharder := route.NewSharder(request.Shard.Modulus, 0)
+	sharder := route.NewSharder(request.Shard.FileModulus, request.Shard.BlockModulus, 0)
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	var fileInfos []*pfs.FileInfo
@@ -325,7 +325,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 				return
 			}
 			for _, fileInfo := range subFileInfos {
-				if sharder.GetShard(fileInfo.File) == request.Shard.Number ||
+				if sharder.GetShard(fileInfo.File) == request.Shard.FileNumber ||
 					fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					fileInfos = append(fileInfos, fileInfo)
 				}
@@ -351,10 +351,7 @@ func (a *internalAPIServer) ListChange(ctx context.Context, request *pfs.ListCha
 	if err != nil {
 		return nil, err
 	}
-	if request.Shard == nil {
-		request.Shard = &pfs.Shard{Number: 0, Modulus: 1}
-	}
-	sharder := route.NewSharder(request.Shard.Modulus, 0)
+	sharder := route.NewSharder(request.Shard.FileModulus, request.Shard.BlockModulus, 0)
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	var changes []*pfs.Change
@@ -373,7 +370,7 @@ func (a *internalAPIServer) ListChange(ctx context.Context, request *pfs.ListCha
 				return
 			}
 			for _, change := range subChanges {
-				if sharder.GetShard(change.File) == request.Shard.Number {
+				if sharder.GetShard(change.File) == request.Shard.FileNumber {
 					changes = append(changes, change)
 				}
 			}

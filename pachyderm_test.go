@@ -41,7 +41,7 @@ func TestJob(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		"",
 		1,
-		[]*pfs.Commit{commit},
+		[]*pps.JobInput{{Commit: commit}},
 		"",
 	)
 	require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestGrep(t *testing.T) {
 		[]string{"bash"},
 		fmt.Sprintf("grep foo /pfs/%s/* >/pfs/out/foo", dataRepo),
 		1,
-		[]*pfs.Commit{commit},
+		[]*pps.JobInput{{Commit: commit}},
 		"",
 	)
 	require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestPipeline(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		"",
 		1,
-		[]*pfs.Repo{&pfs.Repo{Name: dataRepo}},
+		[]*pps.PipelineInput{{Repo: &pfs.Repo{Name: dataRepo}}},
 	))
 	// Do first commit to repo
 	log.Printf("Do first commit.")

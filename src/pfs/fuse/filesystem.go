@@ -27,13 +27,11 @@ type filesystem struct {
 
 func newFilesystem(
 	apiClient pfs.APIClient,
-	shard *pfs.Shard,
 	commitMounts []*CommitMount,
 ) *filesystem {
 	return &filesystem{
 		apiClient,
 		Filesystem{
-			shard,
 			commitMounts,
 		},
 		make(map[string]uint64),
@@ -105,6 +103,7 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 		commitMount := d.fs.getCommitMount(d.File.Commit.Repo.Name)
 		if commitMount != nil && commitMount.Commit.Id != "" {
 			d.File.Commit.Id = commitMount.Commit.Id
+			d.Shard = commitMount.Shard
 			return d.readFiles(ctx)
 		}
 		return d.readCommits(ctx)
@@ -165,7 +164,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		f.File.Commit.Repo.Name,
 		f.File.Commit.Id,
 		f.File.Path,
-		f.fs.Shard,
+		f.Shard,
 	)
 	if err != nil && !f.local {
 		return err
@@ -190,7 +189,7 @@ func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fu
 		f.File.Path,
 		request.Offset,
 		int64(request.Size),
-		f.fs.Shard,
+		f.Shard,
 		&buffer,
 	); err != nil {
 		return err
@@ -285,6 +284,7 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 	result.File.Commit.Repo.Name = commitMount.Commit.Repo.Name
 	result.File.Commit.Id = commitMount.Commit.Id
 	result.RepoAlias = commitMount.Alias
+	result.Shard = commitMount.Shard
 	return result, nil
 }
 
@@ -316,7 +316,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		d.File.Commit.Repo.Name,
 		d.File.Commit.Id,
 		path.Join(d.File.Path, name),
-		d.fs.Shard,
+		d.Shard,
 	)
 	if err != nil {
 		return nil, fuse.ENOENT
@@ -371,7 +371,7 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
-	fileInfos, err := pfsutil.ListFile(d.fs.apiClient, d.File.Commit.Repo.Name, d.File.Commit.Id, d.File.Path, d.fs.Shard)
+	fileInfos, err := pfsutil.ListFile(d.fs.apiClient, d.File.Commit.Repo.Name, d.File.Commit.Id, d.File.Path, d.Shard)
 	if err != nil {
 		return nil, err
 	}
