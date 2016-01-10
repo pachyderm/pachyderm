@@ -118,3 +118,32 @@ foo
 ```
 
 However, we've lost the ability to write to it, finished commits are immutable.
+
+### A simple grep example
+
+This example will grep the data repo for the text foo. You will need to put some data in the data repo to grep.
+
+You will need to create a docker image with what you need to run your job. The job-shim binary is currently required in the image to run a job.
+You can see the Dockerfile for the grep example in the grep-example folder.
+
+To build the grep example docker image run the following:
+
+```shell
+$ make docker-build-grep-example
+```
+
+Now you can create the pipeline and it will run the job for you:
+
+```shell
+$ pachctl create-pipeline -f grep-example/grep-example-pipeline.json
+```
+
+You will need to wait a few minute for the job to complete.
+
+The results should be in /pfs/grep-example/<commit-number>/file1
+
+To see the results do:
+
+```shell
+$ cat /pfs/grep-example/<commit-number>/file1
+```
