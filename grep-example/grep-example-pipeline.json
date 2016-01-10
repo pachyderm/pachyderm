@@ -1,0 +1,18 @@
+{
+  "pipeline": {
+    "name": "greping31"
+  },
+  "transform": {
+    "image": "greping",
+    "cmd": [
+      "/bin/greping.sh"
+    ]
+  },
+  "shards": "1",
+  "input_repo": [
+    {
+      "name": "data"
+    }
+  ]
+}
+

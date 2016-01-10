@@ -1,0 +1,5 @@
+FROM pachyderm/job-shim:latest
+
+ADD greping.sh /bin
+
+RUN chmod +x /bin/greping.sh
