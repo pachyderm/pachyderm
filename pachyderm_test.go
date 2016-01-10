@@ -162,7 +162,7 @@ func TestWorkload(t *testing.T) {
 	//seed := time.Now().UnixNano()
 	seed := int64(7)
 	log.Printf("seed: %d", seed)
-	require.NoError(t, workload.RunWorkload(pfsClient, ppsClient, rand.New(rand.NewSource(seed)), 1000))
+	require.NoError(t, workload.RunWorkload(pfsClient, ppsClient, rand.New(rand.NewSource(seed)), 100))
 }
 
 func TestBigWrite(t *testing.T) {
@@ -175,7 +175,7 @@ func TestBigWrite(t *testing.T) {
 	commit, err := pfsutil.StartCommit(pfsClient, repo, "")
 	require.NoError(t, err)
 	rand := rand.New(rand.NewSource(5))
-	_, err = pfsutil.PutFile(pfsClient, repo, commit.Id, "file", 0, workload.NewReader(rand, 100000))
+	_, err = pfsutil.PutFile(pfsClient, repo, commit.Id, "file", 0, workload.NewReader(rand, 10000))
 	require.NoError(t, err)
 	err = pfsutil.FinishCommit(pfsClient, repo, commit.Id)
 	require.NoError(t, err)
