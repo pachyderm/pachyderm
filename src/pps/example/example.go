@@ -11,10 +11,12 @@ func CreateJobRequest() *pps.CreateJobRequest {
 			Cmd: []string{"cmd", "args..."},
 		},
 		Shards: 1,
-		InputCommit: []*pfs.Commit{
+		Inputs: []*pps.JobInput{
 			{
-				Repo: &pfs.Repo{Name: "in_repo"},
-				Id:   "10cf676b626044f9a405235bf7660959",
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{Name: "in_repo"},
+					Id:   "10cf676b626044f9a405235bf7660959",
+				},
 			},
 		},
 		ParentJob: &pps.Job{
@@ -32,8 +34,10 @@ func CreatePipelineRequest() *pps.CreatePipelineRequest {
 			Cmd: []string{"cmd", "args..."},
 		},
 		Shards: 1,
-		InputRepo: []*pfs.Repo{
-			{Name: "in_repo"},
+		Inputs: []*pps.PipelineInput{
+			{
+				Repo: &pfs.Repo{Name: "in_repo"},
+			},
 		},
 	}
 }

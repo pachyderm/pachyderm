@@ -79,6 +79,7 @@ func do(appEnvObj interface{}) error {
 	apiServer := server.NewAPIServer(
 		route.NewSharder(
 			appEnv.NumShards,
+			1,
 			0,
 		),
 		route.NewRouter(
@@ -97,6 +98,7 @@ func do(appEnvObj interface{}) error {
 	internalAPIServer := server.NewInternalAPIServer(
 		route.NewSharder(
 			appEnv.NumShards,
+			1,
 			0,
 		),
 		route.NewRouter(

@@ -99,15 +99,17 @@ message ServerInfos {
 // Shard represents a dynamic shard within pfs.
 // number must always be less than modulo.
 message Shard {
-  uint64 number = 1;
-  uint64 modulus = 2;
+  uint64 file_number = 1;
+  uint64 file_modulus = 2;
+  uint64 block_number = 3;
+  uint64 block_modulus = 4;
 }
 
 // Change represents a change to a file.
 message Change {
-  File file = 2;
-  uint64 size_bytes = 3;
-  uint64 offset_bytes = 4;
+  File file = 1;
+  uint64 size_bytes = 2;
+  uint64 offset_bytes = 3;
 }
 
 message Changes {

@@ -7,17 +7,18 @@ package fuse;
 message CommitMount {
     pfs.Commit commit = 1;
     string alias = 2;
+	pfs.Shard shard = 3;
 }
 
 message Filesystem {
-  pfs.Shard shard = 1;
-  repeated CommitMount commit_mounts = 3;
+  repeated CommitMount commit_mounts = 1;
 }
 
 message Node {
   pfs.File file = 1;
   string repo_alias = 2;
   bool write = 3;
+  pfs.Shard shard = 4;
 }
 
 message Attr {

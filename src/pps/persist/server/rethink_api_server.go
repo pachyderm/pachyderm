@@ -137,7 +137,11 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	}
 	request.JobId = uuid.NewWithoutDashes()
 	request.CreatedAt = prototime.TimeToTimestamp(time.Now())
-	request.CommitIndex = genCommitIndex(request.InputCommit)
+	var commits []*pfs.Commit
+	for _, input := range request.Inputs {
+		commits = append(commits, input.Commit)
+	}
+	request.CommitIndex = genCommitIndex(commits)
 	if err := a.insertMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}

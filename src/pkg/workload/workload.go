@@ -139,7 +139,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 				return nil
 			}
 			inputs := [5]string{}
-			var inputCommits []*pfs.Commit
+			var jobInputs []*pps.JobInput
 			repoSet := make(map[string]bool)
 			for i := range inputs {
 				commit := w.finished[w.rand.Intn(len(w.finished))]
@@ -148,7 +148,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 				}
 				repoSet[commit.Repo.Name] = true
 				inputs[i] = commit.Repo.Name
-				inputCommits = append(inputCommits, commit)
+				jobInputs = append(jobInputs, &pps.JobInput{Commit: commit})
 			}
 			var parentJobID string
 			if len(w.jobs) > 0 {
@@ -161,7 +161,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 				[]string{"bash"},
 				w.grepCmd(inputs, outFilename),
 				1,
-				inputCommits,
+				jobInputs,
 				parentJobID,
 			)
 			if err != nil {
@@ -174,7 +174,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			return nil
 		}
 		inputs := [5]string{}
-		var inputRepos []*pfs.Repo
+		var pipelineInputs []*pps.PipelineInput
 		repoSet := make(map[string]bool)
 		for i := range inputs {
 			repo := w.repos[w.rand.Intn(len(w.repos))]
@@ -183,7 +183,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			}
 			repoSet[repo.Name] = true
 			inputs[i] = repo.Name
-			inputRepos = append(inputRepos, repo)
+			pipelineInputs = append(pipelineInputs, &pps.PipelineInput{Repo: repo})
 		}
 		pipelineName := w.randString(10)
 		outFilename := w.randString(10)
@@ -194,7 +194,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			[]string{"bash"},
 			w.grepCmd(inputs, outFilename),
 			1,
-			inputRepos,
+			pipelineInputs,
 		); err != nil {
 			return err
 		}

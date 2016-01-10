@@ -11,16 +11,25 @@ import (
 )
 
 type sharder struct {
-	numShards   uint64
-	numReplicas uint64
+	fileModulus  uint64
+	blockModulus uint64
+	numReplicas  uint64
 }
 
-func newSharder(numShards uint64, numReplicas uint64) *sharder {
-	return &sharder{numShards, numReplicas}
+func newSharder(fileModulus uint64, blockModulus uint64, numReplicas uint64) *sharder {
+	return &sharder{
+		fileModulus:  fileModulus,
+		blockModulus: blockModulus,
+		numReplicas:  numReplicas,
+	}
 }
 
-func (s *sharder) NumShards() uint64 {
-	return s.numShards
+func (s *sharder) FileModulus() uint64 {
+	return s.fileModulus
+}
+
+func (s *sharder) BlockModulus() uint64 {
+	return s.blockModulus
 }
 
 func (s *sharder) NumReplicas() uint64 {
@@ -35,9 +44,9 @@ func (s *sharder) GetBlock(value []byte) *drive.Block {
 }
 
 func (s *sharder) GetShard(file *pfs.File) uint64 {
-	return uint64(adler32.Checksum([]byte(path.Clean(file.Path)))) % s.numShards
+	return uint64(adler32.Checksum([]byte(path.Clean(file.Path)))) % s.fileModulus
 }
 
 func (s *sharder) GetBlockShard(block *drive.Block) uint64 {
-	return uint64(adler32.Checksum([]byte(block.Hash))) % s.numShards
+	return uint64(adler32.Checksum([]byte(block.Hash))) % s.blockModulus
 }

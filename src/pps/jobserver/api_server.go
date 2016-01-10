@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
@@ -72,18 +73,18 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		return nil, fmt.Errorf("pachyderm.pps.jobserver: request.Shards cannot be 0")
 	}
 	repoSet := make(map[string]bool)
-	for _, commit := range request.InputCommit {
-		repoSet[commit.Repo.Name] = true
+	for _, input := range request.Inputs {
+		repoSet[input.Commit.Repo.Name] = true
 	}
-	if len(repoSet) < len(request.InputCommit) {
+	if len(repoSet) < len(request.Inputs) {
 		return nil, fmt.Errorf("pachyderm.pps.jobserver: duplicate repo in job")
 	}
 	// TODO validate job to make sure input commits and output repo exist
 	persistJobInfo := &persist.JobInfo{
-		Shards:      request.Shards,
-		Transform:   request.Transform,
-		InputCommit: request.InputCommit,
-		ParentJob:   request.ParentJob,
+		Shards:    request.Shards,
+		Transform: request.Transform,
+		Inputs:    request.Inputs,
+		ParentJob: request.ParentJob,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = request.Pipeline.Name
@@ -197,14 +198,37 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	if jobState.outputCommit == nil {
 		return nil, fmt.Errorf("jobState.outputCommit should not be nil (this is likely a bug)")
 	}
+	var commitMounts []*fuse.CommitMount
+	for _, jobInput := range jobInfo.Inputs {
+		commitMount := &fuse.CommitMount{
+			Commit: jobInput.Commit,
+			Shard: &pfs.Shard{
+				FileModulus:  1,
+				BlockModulus: 1,
+			},
+		}
+		if jobInput.Reduce {
+			commitMount.Shard.FileNumber = shard
+			commitMount.Shard.FileModulus = jobInfo.Shards
+		} else {
+			commitMount.Shard.BlockNumber = shard
+			commitMount.Shard.BlockModulus = jobInfo.Shards
+		}
+		commitMounts = append(commitMounts, commitMount)
+	}
+	outputCommitMount := &fuse.CommitMount{
+		Commit: jobInfo.OutputCommit,
+		Shard: &pfs.Shard{
+			FileModulus:  1,
+			BlockModulus: 1,
+		},
+	}
+	commitMounts = append(commitMounts, outputCommitMount)
 	return &pps.StartJobResponse{
 		Transform:    jobInfo.Transform,
-		InputCommit:  jobInfo.InputCommit,
+		CommitMounts: commitMounts,
 		OutputCommit: jobState.outputCommit,
-		Shard: &pfs.Shard{
-			Number:  shard,
-			Modulus: jobInfo.Shards,
-		},
+		Index:        shard,
 	}, nil
 }
 
@@ -260,7 +284,7 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*pps.JobInfo, error) {
 		Transform:    persistJobInfo.Transform,
 		Pipeline:     &pps.Pipeline{Name: persistJobInfo.PipelineName},
 		Shards:       persistJobInfo.Shards,
-		InputCommit:  persistJobInfo.InputCommit,
+		Inputs:       persistJobInfo.Inputs,
 		ParentJob:    persistJobInfo.ParentJob,
 		CreatedAt:    persistJobInfo.CreatedAt,
 		OutputCommit: persistJobInfo.OutputCommit,
