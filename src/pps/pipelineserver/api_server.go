@@ -59,6 +59,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if request.Pipeline == nil {
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: request.Pipeline cannot be nil")
 	}
+	repoSet := make(map[string]bool)
+	for _, repo := range request.InputRepo {
+		repoSet[repo.Name] = true
+	}
+	if len(repoSet) < len(request.InputRepo) {
+		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: duplicate input repos")
+	}
 	repo := pps.PipelineRepo(request.Pipeline)
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,

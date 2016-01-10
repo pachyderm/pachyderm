@@ -71,6 +71,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	if request.Shards == 0 {
 		return nil, fmt.Errorf("pachyderm.pps.jobserver: request.Shards cannot be 0")
 	}
+	repoSet := make(map[string]bool)
+	for _, commit := range request.InputCommit {
+		repoSet[commit.Repo.Name] = true
+	}
+	if len(repoSet) < len(request.InputCommit) {
+		return nil, fmt.Errorf("pachyderm.pps.jobserver: duplicate repo in job")
+	}
 	// TODO validate job to make sure input commits and output repo exist
 	persistJobInfo := &persist.JobInfo{
 		Shards:      request.Shards,
