@@ -217,11 +217,8 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 		commitMounts = append(commitMounts, commitMount)
 	}
 	outputCommitMount := &fuse.CommitMount{
-		Commit: jobInfo.OutputCommit,
-		Shard: &pfs.Shard{
-			FileModulus:  1,
-			BlockModulus: 1,
-		},
+		Commit: jobState.outputCommit,
+		Alias:  "out",
 	}
 	commitMounts = append(commitMounts, outputCommitMount)
 	return &pps.StartJobResponse{

@@ -52,7 +52,7 @@ func TestJob(t *testing.T) {
 	}
 	jobInfo, err := ppsClient.InspectJob(context.Background(), inspectJobRequest)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_STATE_SUCCESS, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
 	commitInfo, err := pfsutil.InspectCommit(pfsClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.Id)
 	require.NoError(t, err)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)

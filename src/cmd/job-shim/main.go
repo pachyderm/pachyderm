@@ -58,15 +58,10 @@ func do(appEnvObj interface{}) error {
 
 			mounter := fuse.NewMounter(getPfsdAddress(appEnv), pfsAPIClient)
 			ready := make(chan bool)
-			commitMounts := append(response.CommitMounts,
-				&fuse.CommitMount{
-					Commit: response.OutputCommit,
-					Alias:  "out",
-				})
 			go func() {
 				if err := mounter.Mount(
 					"/pfs",
-					commitMounts,
+					response.CommitMounts,
 					ready,
 				); err != nil {
 					errorAndExit(err.Error())
