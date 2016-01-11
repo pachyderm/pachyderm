@@ -309,71 +309,6 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		}),
 	}
 
-	listChange := &cobra.Command{
-		Use:   "list-change repo-name commit-id path/to/dir",
-		Short: "Return the changes in a directory.",
-		Long:  "Return the changes in a directory.",
-		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
-			apiClient, err := getAPIClient(address)
-			if err != nil {
-				return err
-			}
-			changeInfos, err := pfsutil.ListChange(apiClient, args[0], args[1], args[2], shard())
-			if err != nil {
-				return err
-			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintChangeHeader(writer)
-			for _, changeInfo := range changeInfos {
-				pretty.PrintChange(writer, changeInfo)
-			}
-			return writer.Flush()
-		}),
-	}
-	addShardFlags(listChange)
-
-	inspectServer := &cobra.Command{
-		Use:   "inspect-server server-id",
-		Short: "Inspect a server.",
-		Long:  "Inspect a server.",
-		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
-			clusterAPIClient, err := getClusterAPIClient(address)
-			if err != nil {
-				return err
-			}
-			serverInfo, err := pfsutil.InspectServer(clusterAPIClient, args[0])
-			if err != nil {
-				return err
-			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintServerInfoHeader(writer)
-			pretty.PrintServerInfo(writer, serverInfo)
-			return writer.Flush()
-		}),
-	}
-
-	listServer := &cobra.Command{
-		Use:   "list-server",
-		Short: "Return all servers in the cluster.",
-		Long:  "Return all servers in the cluster.",
-		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
-			clusterAPIClient, err := getClusterAPIClient(address)
-			if err != nil {
-				return err
-			}
-			serverInfos, err := pfsutil.ListServer(clusterAPIClient)
-			if err != nil {
-				return err
-			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintServerInfoHeader(writer)
-			for _, serverInfo := range serverInfos {
-				pretty.PrintServerInfo(writer, serverInfo)
-			}
-			return writer.Flush()
-		}),
-	}
-
 	var mountPoint string
 	mount := &cobra.Command{
 		Use:   "mount [repo/commit:alias...]",
@@ -407,9 +342,6 @@ func Cmds(address string) ([]*cobra.Command, error) {
 	result = append(result, inspectFile)
 	result = append(result, listFile)
 	result = append(result, deleteFile)
-	result = append(result, listChange)
-	result = append(result, inspectServer)
-	result = append(result, listServer)
 	result = append(result, mount)
 	return result, nil
 }
@@ -428,14 +360,6 @@ func getDriveAPIClient(address string) (drive.APIClient, error) {
 		return nil, err
 	}
 	return drive.NewAPIClient(clientConn), nil
-}
-
-func getClusterAPIClient(address string) (pfs.ClusterAPIClient, error) {
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	return pfs.NewClusterAPIClient(clientConn), nil
 }
 
 func parseCommitMounts(args []string) []*fuse.CommitMount {

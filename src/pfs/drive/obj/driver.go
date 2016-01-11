@@ -366,10 +366,6 @@ func (d *driver) ListFile(file *pfs.File, shard uint64) ([]*pfs.FileInfo, error)
 	return result, nil
 }
 
-func (d *driver) ListChange(file *pfs.File, from *pfs.Commit, shard uint64) ([]*pfs.Change, error) {
-	return nil, nil
-}
-
 func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 	return nil
 }
@@ -410,14 +406,6 @@ func (d *driver) DeleteShard(shard uint64) error {
 	for _, shardMap := range d.started {
 		delete(shardMap, shard)
 	}
-	return nil
-}
-
-func (d *driver) PullDiff(commit *pfs.Commit, shard uint64, diff io.Writer) error {
-	return nil
-}
-
-func (d *driver) PushDiff(commit *pfs.Commit, shard uint64, diff io.Reader) error {
 	return nil
 }
 

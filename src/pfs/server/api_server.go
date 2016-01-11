@@ -372,46 +372,6 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	}, nil
 }
 
-func (a *apiServer) ListChange(ctx context.Context, request *pfs.ListChangeRequest) (response *pfs.Changes, retErr error) {
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	a.versionLock.RLock()
-	defer a.versionLock.RUnlock()
-	ctx = versionToContext(a.version, ctx)
-	clientConns, err := a.router.GetAllClientConns(a.version)
-	if err != nil {
-		return nil, err
-	}
-	var wg sync.WaitGroup
-	var lock sync.Mutex
-	var changes []*pfs.Change
-	var loopErr error
-	for _, clientConn := range clientConns {
-		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
-			defer wg.Done()
-			subChanges, err := pfs.NewInternalAPIClient(clientConn).ListChange(ctx, request)
-			lock.Lock()
-			defer lock.Unlock()
-			if err != nil {
-				if loopErr == nil {
-					loopErr = err
-				}
-				return
-			}
-			for _, change := range subChanges.Change {
-				changes = append(changes, change)
-			}
-		}(clientConn)
-	}
-	wg.Wait()
-	if loopErr != nil {
-		return nil, loopErr
-	}
-	return &pfs.Changes{
-		Change: changes,
-	}, nil
-}
-
 func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
@@ -422,14 +382,6 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 		return nil, err
 	}
 	return pfs.NewInternalAPIClient(clientConn).DeleteFile(ctx, request)
-}
-
-func (a *apiServer) InspectServer(ctx context.Context, request *pfs.InspectServerRequest) (*pfs.ServerInfo, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (a *apiServer) ListServer(ctx context.Context, request *pfs.ListServerRequest) (*pfs.ServerInfos, error) {
-	return nil, fmt.Errorf("not implemented")
 }
 
 func (a *apiServer) Version(version int64) error {

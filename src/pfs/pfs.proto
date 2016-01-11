@@ -105,17 +105,6 @@ message Shard {
   uint64 block_modulus = 4;
 }
 
-// Change represents a change to a file.
-message Change {
-  File file = 1;
-  uint64 size_bytes = 2;
-  uint64 offset_bytes = 3;
-}
-
-message Changes {
-	repeated Change change = 1;
-}
-
 message CreateRepoRequest {
   Repo repo = 1;
   google.protobuf.Timestamp created = 2;
@@ -190,12 +179,6 @@ message DeleteFileRequest {
   File file = 1;
 }
 
-message ListChangeRequest {
-	File file = 1;
-	Commit from = 2;
-	Shard shard = 3; // can be left nil
-}
-
 service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -233,8 +216,6 @@ service API {
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
   // DeleteFile deletes a file.
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
-  // ListChange returns changes to the filesystem.
-  rpc ListChange(ListChangeRequest) returns (Changes) {}
 }
 
 service InternalAPI {
@@ -272,41 +253,4 @@ service InternalAPI {
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
   // DeleteFile deletes a file.
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
-  // ListChange returns changes to the filesystem.
-  rpc ListChange(ListChangeRequest) returns (Changes) {}
-}
-
-message InspectServerRequest {
-  Server server = 1;
-}
-
-message ListServerRequest {
-}
-
-service ClusterAPI {
-  // Server rpcs
-  // InspectServer returns info about a server.
-  rpc InspectServer(InspectServerRequest) returns (ServerInfo) {}
-  // ListServer returns info about all servers.
-  rpc ListServer(ListServerRequest) returns (ServerInfos) {}
-}
-
-message PullDiffRequest {
-  Commit commit = 1;
-  uint64 shard = 2;
-}
-
-message PushDiffRequest {
-  Commit commit = 1;
-  uint64 shard = 2;
-  bytes value = 3;
-}
-
-service ReplicaAPI {
-  // Diff rpcs
-  // PullDiff pulls a binary stream of the diff from the specified
-  // commit to the commit's parent.
-  rpc PullDiff(PullDiffRequest) returns (stream google.protobuf.BytesValue) {}
-  // Push diff pushes a diff from the specified commit.
-  rpc PushDiff(stream PushDiffRequest) returns (google.protobuf.Empty) {}
 }

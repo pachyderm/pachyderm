@@ -22,8 +22,6 @@ It has these top-level messages:
 	ServerInfo
 	ServerInfos
 	Shard
-	Change
-	Changes
 	CreateRepoRequest
 	InspectRepoRequest
 	ListRepoRequest
@@ -39,11 +37,6 @@ It has these top-level messages:
 	MakeDirectoryRequest
 	ListFileRequest
 	DeleteFileRequest
-	ListChangeRequest
-	InspectServerRequest
-	ListServerRequest
-	PullDiffRequest
-	PushDiffRequest
 */
 package pfs
 
@@ -381,39 +374,6 @@ func (m *Shard) Reset()         { *m = Shard{} }
 func (m *Shard) String() string { return proto.CompactTextString(m) }
 func (*Shard) ProtoMessage()    {}
 
-// Change represents a change to a file.
-type Change struct {
-	File        *File  `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	SizeBytes   uint64 `protobuf:"varint,2,opt,name=size_bytes" json:"size_bytes,omitempty"`
-	OffsetBytes uint64 `protobuf:"varint,3,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
-}
-
-func (m *Change) Reset()         { *m = Change{} }
-func (m *Change) String() string { return proto.CompactTextString(m) }
-func (*Change) ProtoMessage()    {}
-
-func (m *Change) GetFile() *File {
-	if m != nil {
-		return m.File
-	}
-	return nil
-}
-
-type Changes struct {
-	Change []*Change `protobuf:"bytes,1,rep,name=change" json:"change,omitempty"`
-}
-
-func (m *Changes) Reset()         { *m = Changes{} }
-func (m *Changes) String() string { return proto.CompactTextString(m) }
-func (*Changes) ProtoMessage()    {}
-
-func (m *Changes) GetChange() []*Change {
-	if m != nil {
-		return m.Change
-	}
-	return nil
-}
-
 type CreateRepoRequest struct {
 	Repo    *Repo                       `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 	Created *google_protobuf2.Timestamp `protobuf:"bytes,2,opt,name=created" json:"created,omitempty"`
@@ -702,92 +662,6 @@ func (m *DeleteFileRequest) GetFile() *File {
 	return nil
 }
 
-type ListChangeRequest struct {
-	File  *File   `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	From  *Commit `protobuf:"bytes,2,opt,name=from" json:"from,omitempty"`
-	Shard *Shard  `protobuf:"bytes,3,opt,name=shard" json:"shard,omitempty"`
-}
-
-func (m *ListChangeRequest) Reset()         { *m = ListChangeRequest{} }
-func (m *ListChangeRequest) String() string { return proto.CompactTextString(m) }
-func (*ListChangeRequest) ProtoMessage()    {}
-
-func (m *ListChangeRequest) GetFile() *File {
-	if m != nil {
-		return m.File
-	}
-	return nil
-}
-
-func (m *ListChangeRequest) GetFrom() *Commit {
-	if m != nil {
-		return m.From
-	}
-	return nil
-}
-
-func (m *ListChangeRequest) GetShard() *Shard {
-	if m != nil {
-		return m.Shard
-	}
-	return nil
-}
-
-type InspectServerRequest struct {
-	Server *Server `protobuf:"bytes,1,opt,name=server" json:"server,omitempty"`
-}
-
-func (m *InspectServerRequest) Reset()         { *m = InspectServerRequest{} }
-func (m *InspectServerRequest) String() string { return proto.CompactTextString(m) }
-func (*InspectServerRequest) ProtoMessage()    {}
-
-func (m *InspectServerRequest) GetServer() *Server {
-	if m != nil {
-		return m.Server
-	}
-	return nil
-}
-
-type ListServerRequest struct {
-}
-
-func (m *ListServerRequest) Reset()         { *m = ListServerRequest{} }
-func (m *ListServerRequest) String() string { return proto.CompactTextString(m) }
-func (*ListServerRequest) ProtoMessage()    {}
-
-type PullDiffRequest struct {
-	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	Shard  uint64  `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
-}
-
-func (m *PullDiffRequest) Reset()         { *m = PullDiffRequest{} }
-func (m *PullDiffRequest) String() string { return proto.CompactTextString(m) }
-func (*PullDiffRequest) ProtoMessage()    {}
-
-func (m *PullDiffRequest) GetCommit() *Commit {
-	if m != nil {
-		return m.Commit
-	}
-	return nil
-}
-
-type PushDiffRequest struct {
-	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
-	Shard  uint64  `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
-	Value  []byte  `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
-}
-
-func (m *PushDiffRequest) Reset()         { *m = PushDiffRequest{} }
-func (m *PushDiffRequest) String() string { return proto.CompactTextString(m) }
-func (*PushDiffRequest) ProtoMessage()    {}
-
-func (m *PushDiffRequest) GetCommit() *Commit {
-	if m != nil {
-		return m.Commit
-	}
-	return nil
-}
-
 func init() {
 	proto.RegisterType((*Repo)(nil), "pfs.Repo")
 	proto.RegisterType((*Commit)(nil), "pfs.Commit")
@@ -802,8 +676,6 @@ func init() {
 	proto.RegisterType((*ServerInfo)(nil), "pfs.ServerInfo")
 	proto.RegisterType((*ServerInfos)(nil), "pfs.ServerInfos")
 	proto.RegisterType((*Shard)(nil), "pfs.Shard")
-	proto.RegisterType((*Change)(nil), "pfs.Change")
-	proto.RegisterType((*Changes)(nil), "pfs.Changes")
 	proto.RegisterType((*CreateRepoRequest)(nil), "pfs.CreateRepoRequest")
 	proto.RegisterType((*InspectRepoRequest)(nil), "pfs.InspectRepoRequest")
 	proto.RegisterType((*ListRepoRequest)(nil), "pfs.ListRepoRequest")
@@ -819,11 +691,6 @@ func init() {
 	proto.RegisterType((*MakeDirectoryRequest)(nil), "pfs.MakeDirectoryRequest")
 	proto.RegisterType((*ListFileRequest)(nil), "pfs.ListFileRequest")
 	proto.RegisterType((*DeleteFileRequest)(nil), "pfs.DeleteFileRequest")
-	proto.RegisterType((*ListChangeRequest)(nil), "pfs.ListChangeRequest")
-	proto.RegisterType((*InspectServerRequest)(nil), "pfs.InspectServerRequest")
-	proto.RegisterType((*ListServerRequest)(nil), "pfs.ListServerRequest")
-	proto.RegisterType((*PullDiffRequest)(nil), "pfs.PullDiffRequest")
-	proto.RegisterType((*PushDiffRequest)(nil), "pfs.PushDiffRequest")
 	proto.RegisterEnum("pfs.CommitType", CommitType_name, CommitType_value)
 	proto.RegisterEnum("pfs.FileType", FileType_name, FileType_value)
 }
@@ -867,8 +734,6 @@ type APIClient interface {
 	ListFile(ctx context.Context, in *ListFileRequest, opts ...grpc.CallOption) (*FileInfos, error)
 	// DeleteFile deletes a file.
 	DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
-	// ListChange returns changes to the filesystem.
-	ListChange(ctx context.Context, in *ListChangeRequest, opts ...grpc.CallOption) (*Changes, error)
 }
 
 type aPIClient struct {
@@ -1053,15 +918,6 @@ func (c *aPIClient) DeleteFile(ctx context.Context, in *DeleteFileRequest, opts 
 	return out, nil
 }
 
-func (c *aPIClient) ListChange(ctx context.Context, in *ListChangeRequest, opts ...grpc.CallOption) (*Changes, error) {
-	out := new(Changes)
-	err := grpc.Invoke(ctx, "/pfs.API/ListChange", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // Server API for API service
 
 type APIServer interface {
@@ -1097,8 +953,6 @@ type APIServer interface {
 	ListFile(context.Context, *ListFileRequest) (*FileInfos, error)
 	// DeleteFile deletes a file.
 	DeleteFile(context.Context, *DeleteFileRequest) (*google_protobuf1.Empty, error)
-	// ListChange returns changes to the filesystem.
-	ListChange(context.Context, *ListChangeRequest) (*Changes, error)
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
@@ -1296,18 +1150,6 @@ func _API_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return out, nil
 }
 
-func _API_ListChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(ListChangeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(APIServer).ListChange(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 var _API_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pfs.API",
 	HandlerType: (*APIServer)(nil),
@@ -1360,10 +1202,6 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			MethodName: "DeleteFile",
 			Handler:    _API_DeleteFile_Handler,
 		},
-		{
-			MethodName: "ListChange",
-			Handler:    _API_ListChange_Handler,
-		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -1414,8 +1252,6 @@ type InternalAPIClient interface {
 	ListFile(ctx context.Context, in *ListFileRequest, opts ...grpc.CallOption) (*FileInfos, error)
 	// DeleteFile deletes a file.
 	DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
-	// ListChange returns changes to the filesystem.
-	ListChange(ctx context.Context, in *ListChangeRequest, opts ...grpc.CallOption) (*Changes, error)
 }
 
 type internalAPIClient struct {
@@ -1600,15 +1436,6 @@ func (c *internalAPIClient) DeleteFile(ctx context.Context, in *DeleteFileReques
 	return out, nil
 }
 
-func (c *internalAPIClient) ListChange(ctx context.Context, in *ListChangeRequest, opts ...grpc.CallOption) (*Changes, error) {
-	out := new(Changes)
-	err := grpc.Invoke(ctx, "/pfs.InternalAPI/ListChange", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // Server API for InternalAPI service
 
 type InternalAPIServer interface {
@@ -1644,8 +1471,6 @@ type InternalAPIServer interface {
 	ListFile(context.Context, *ListFileRequest) (*FileInfos, error)
 	// DeleteFile deletes a file.
 	DeleteFile(context.Context, *DeleteFileRequest) (*google_protobuf1.Empty, error)
-	// ListChange returns changes to the filesystem.
-	ListChange(context.Context, *ListChangeRequest) (*Changes, error)
 }
 
 func RegisterInternalAPIServer(s *grpc.Server, srv InternalAPIServer) {
@@ -1843,18 +1668,6 @@ func _InternalAPI_DeleteFile_Handler(srv interface{}, ctx context.Context, dec f
 	return out, nil
 }
 
-func _InternalAPI_ListChange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(ListChangeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(InternalAPIServer).ListChange(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 var _InternalAPI_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pfs.InternalAPI",
 	HandlerType: (*InternalAPIServer)(nil),
@@ -1907,10 +1720,6 @@ var _InternalAPI_serviceDesc = grpc.ServiceDesc{
 			MethodName: "DeleteFile",
 			Handler:    _InternalAPI_DeleteFile_Handler,
 		},
-		{
-			MethodName: "ListChange",
-			Handler:    _InternalAPI_ListChange_Handler,
-		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -1922,261 +1731,6 @@ var _InternalAPI_serviceDesc = grpc.ServiceDesc{
 			StreamName:    "GetFile",
 			Handler:       _InternalAPI_GetFile_Handler,
 			ServerStreams: true,
-		},
-	},
-}
-
-// Client API for ClusterAPI service
-
-type ClusterAPIClient interface {
-	// Server rpcs
-	// InspectServer returns info about a server.
-	InspectServer(ctx context.Context, in *InspectServerRequest, opts ...grpc.CallOption) (*ServerInfo, error)
-	// ListServer returns info about all servers.
-	ListServer(ctx context.Context, in *ListServerRequest, opts ...grpc.CallOption) (*ServerInfos, error)
-}
-
-type clusterAPIClient struct {
-	cc *grpc.ClientConn
-}
-
-func NewClusterAPIClient(cc *grpc.ClientConn) ClusterAPIClient {
-	return &clusterAPIClient{cc}
-}
-
-func (c *clusterAPIClient) InspectServer(ctx context.Context, in *InspectServerRequest, opts ...grpc.CallOption) (*ServerInfo, error) {
-	out := new(ServerInfo)
-	err := grpc.Invoke(ctx, "/pfs.ClusterAPI/InspectServer", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *clusterAPIClient) ListServer(ctx context.Context, in *ListServerRequest, opts ...grpc.CallOption) (*ServerInfos, error) {
-	out := new(ServerInfos)
-	err := grpc.Invoke(ctx, "/pfs.ClusterAPI/ListServer", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// Server API for ClusterAPI service
-
-type ClusterAPIServer interface {
-	// Server rpcs
-	// InspectServer returns info about a server.
-	InspectServer(context.Context, *InspectServerRequest) (*ServerInfo, error)
-	// ListServer returns info about all servers.
-	ListServer(context.Context, *ListServerRequest) (*ServerInfos, error)
-}
-
-func RegisterClusterAPIServer(s *grpc.Server, srv ClusterAPIServer) {
-	s.RegisterService(&_ClusterAPI_serviceDesc, srv)
-}
-
-func _ClusterAPI_InspectServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(InspectServerRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(ClusterAPIServer).InspectServer(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func _ClusterAPI_ListServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(ListServerRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(ClusterAPIServer).ListServer(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-var _ClusterAPI_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "pfs.ClusterAPI",
-	HandlerType: (*ClusterAPIServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "InspectServer",
-			Handler:    _ClusterAPI_InspectServer_Handler,
-		},
-		{
-			MethodName: "ListServer",
-			Handler:    _ClusterAPI_ListServer_Handler,
-		},
-	},
-	Streams: []grpc.StreamDesc{},
-}
-
-// Client API for ReplicaAPI service
-
-type ReplicaAPIClient interface {
-	// Diff rpcs
-	// PullDiff pulls a binary stream of the diff from the specified
-	// commit to the commit's parent.
-	PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (ReplicaAPI_PullDiffClient, error)
-	// Push diff pushes a diff from the specified commit.
-	PushDiff(ctx context.Context, opts ...grpc.CallOption) (ReplicaAPI_PushDiffClient, error)
-}
-
-type replicaAPIClient struct {
-	cc *grpc.ClientConn
-}
-
-func NewReplicaAPIClient(cc *grpc.ClientConn) ReplicaAPIClient {
-	return &replicaAPIClient{cc}
-}
-
-func (c *replicaAPIClient) PullDiff(ctx context.Context, in *PullDiffRequest, opts ...grpc.CallOption) (ReplicaAPI_PullDiffClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_ReplicaAPI_serviceDesc.Streams[0], c.cc, "/pfs.ReplicaAPI/PullDiff", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &replicaAPIPullDiffClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type ReplicaAPI_PullDiffClient interface {
-	Recv() (*google_protobuf3.BytesValue, error)
-	grpc.ClientStream
-}
-
-type replicaAPIPullDiffClient struct {
-	grpc.ClientStream
-}
-
-func (x *replicaAPIPullDiffClient) Recv() (*google_protobuf3.BytesValue, error) {
-	m := new(google_protobuf3.BytesValue)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *replicaAPIClient) PushDiff(ctx context.Context, opts ...grpc.CallOption) (ReplicaAPI_PushDiffClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_ReplicaAPI_serviceDesc.Streams[1], c.cc, "/pfs.ReplicaAPI/PushDiff", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &replicaAPIPushDiffClient{stream}
-	return x, nil
-}
-
-type ReplicaAPI_PushDiffClient interface {
-	Send(*PushDiffRequest) error
-	CloseAndRecv() (*google_protobuf1.Empty, error)
-	grpc.ClientStream
-}
-
-type replicaAPIPushDiffClient struct {
-	grpc.ClientStream
-}
-
-func (x *replicaAPIPushDiffClient) Send(m *PushDiffRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *replicaAPIPushDiffClient) CloseAndRecv() (*google_protobuf1.Empty, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	m := new(google_protobuf1.Empty)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// Server API for ReplicaAPI service
-
-type ReplicaAPIServer interface {
-	// Diff rpcs
-	// PullDiff pulls a binary stream of the diff from the specified
-	// commit to the commit's parent.
-	PullDiff(*PullDiffRequest, ReplicaAPI_PullDiffServer) error
-	// Push diff pushes a diff from the specified commit.
-	PushDiff(ReplicaAPI_PushDiffServer) error
-}
-
-func RegisterReplicaAPIServer(s *grpc.Server, srv ReplicaAPIServer) {
-	s.RegisterService(&_ReplicaAPI_serviceDesc, srv)
-}
-
-func _ReplicaAPI_PullDiff_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(PullDiffRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(ReplicaAPIServer).PullDiff(m, &replicaAPIPullDiffServer{stream})
-}
-
-type ReplicaAPI_PullDiffServer interface {
-	Send(*google_protobuf3.BytesValue) error
-	grpc.ServerStream
-}
-
-type replicaAPIPullDiffServer struct {
-	grpc.ServerStream
-}
-
-func (x *replicaAPIPullDiffServer) Send(m *google_protobuf3.BytesValue) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _ReplicaAPI_PushDiff_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ReplicaAPIServer).PushDiff(&replicaAPIPushDiffServer{stream})
-}
-
-type ReplicaAPI_PushDiffServer interface {
-	SendAndClose(*google_protobuf1.Empty) error
-	Recv() (*PushDiffRequest, error)
-	grpc.ServerStream
-}
-
-type replicaAPIPushDiffServer struct {
-	grpc.ServerStream
-}
-
-func (x *replicaAPIPushDiffServer) SendAndClose(m *google_protobuf1.Empty) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *replicaAPIPushDiffServer) Recv() (*PushDiffRequest, error) {
-	m := new(PushDiffRequest)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-var _ReplicaAPI_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "pfs.ReplicaAPI",
-	HandlerType: (*ReplicaAPIServer)(nil),
-	Methods:     []grpc.MethodDesc{},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "PullDiff",
-			Handler:       _ReplicaAPI_PullDiff_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "PushDiff",
-			Handler:       _ReplicaAPI_PushDiff_Handler,
-			ClientStreams: true,
 		},
 	},
 }
