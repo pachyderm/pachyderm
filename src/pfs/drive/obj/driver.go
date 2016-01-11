@@ -394,6 +394,7 @@ func (d *driver) AddShard(shard uint64) error {
 			if err := d.finished.insert(diffInfo); err != nil {
 				return err
 			}
+			// TODO this is bugged, it relies on the diffs coming in the right
 			return d.insertLeaf(diffInfo, shard)
 		}()
 	}
