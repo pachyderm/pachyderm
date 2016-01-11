@@ -146,16 +146,19 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, started *go
 		if err := d.started.insert(diffInfo); err != nil {
 			return err
 		}
-		if err := d.leaves.insert(diffInfo); err != nil {
-			return err
-		}
-		if parent != nil {
-			d.leaves.pop(&drive.Diff{
-				Commit: parent,
-				Shard:  shard,
-			})
-		}
 	}
+	return nil
+}
+
+func (d *driver) insertLeaf(leaf *drive.DiffInfo, shard uint64) error {
+	if err := d.leaves.insert(leaf); err != nil {
+		return err
+	}
+	parentDiff := &drive.Diff{
+		Commit: leaf.ParentCommit,
+		Shard:  shard,
+	}
+	d.leaves.pop(parentDiff)
 	return nil
 }
 
@@ -176,6 +179,9 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 			diffInfo.Finished = finished
 			diffInfos = append(diffInfos, diffInfo)
 			if err := d.finished.insert(diffInfo); err != nil {
+				return err
+			}
+			if err := d.insertLeaf(diffInfo, shard); err != nil {
 				return err
 			}
 		}
@@ -365,6 +371,44 @@ func (d *driver) ListChange(file *pfs.File, from *pfs.Commit, shard uint64) ([]*
 }
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
+	return nil
+}
+
+func (d *driver) AddShard(shard uint64) error {
+	listDiffClient, err := d.driveClient.ListDiff(context.Background(), &drive.ListDiffRequest{Shard: shard})
+	if err != nil {
+		return err
+	}
+	for {
+		diffInfo, err := listDiffClient.Recv()
+		if err != nil {
+			return err
+		}
+		func() error {
+			d.lock.Lock()
+			defer d.lock.Lock()
+			if _, ok := d.finished[diffInfo.Diff.Commit.Repo.Name]; !ok {
+				d.finished[diffInfo.Diff.Commit.Repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
+				d.started[diffInfo.Diff.Commit.Repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
+			}
+			if err := d.finished.insert(diffInfo); err != nil {
+				return err
+			}
+			return d.insertLeaf(diffInfo, shard)
+		}()
+	}
+	return nil
+}
+
+func (d *driver) DeleteShard(shard uint64) error {
+	d.lock.Lock()
+	defer d.lock.Lock()
+	for _, shardMap := range d.finished {
+		delete(shardMap, shard)
+	}
+	for _, shardMap := range d.started {
+		delete(shardMap, shard)
+	}
 	return nil
 }
 

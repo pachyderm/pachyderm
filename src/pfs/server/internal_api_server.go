@@ -18,7 +18,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
-	"github.com/pachyderm/pachyderm/src/pkg/shard"
 )
 
 type internalAPIServer struct {
@@ -455,56 +454,12 @@ func (a *internalAPIServer) PushDiff(pushDiffServer pfs.ReplicaAPI_PushDiffServe
 	return a.driver.PushDiff(request.Commit, request.Shard, reader)
 }
 
-func (a *internalAPIServer) AddShard(_shard uint64, version int64) error {
-	if version == shard.InvalidVersion {
-		return nil
-	}
-	ctx := versionToContext(version, context.Background())
-	clientConn, err := a.router.GetMasterOrReplicaClientConn(_shard, version)
-	if err != nil {
-		return err
-	}
-	repoInfos, err := pfs.NewInternalAPIClient(clientConn).ListRepo(ctx, &pfs.ListRepoRequest{})
-	if err != nil {
-		return err
-	}
-	for _, repoInfo := range repoInfos.RepoInfo {
-		if err := a.driver.CreateRepo(repoInfo.Repo, nil, map[uint64]bool{_shard: true}); err != nil {
-			return err
-		}
-		commitInfos, err := pfs.NewInternalAPIClient(clientConn).ListCommit(ctx, &pfs.ListCommitRequest{Repo: []*pfs.Repo{repoInfo.Repo}})
-		if err != nil {
-			return err
-		}
-		for i := range commitInfos.CommitInfo {
-			commit := commitInfos.CommitInfo[len(commitInfos.CommitInfo)-(i+1)].Commit
-			commitInfo, err := a.driver.InspectCommit(commit, map[uint64]bool{_shard: true})
-			if err != nil {
-				return err
-			}
-			if commitInfo != nil {
-				// we already have the commit so nothing to do
-				continue
-			}
-			pullDiffRequest := &pfs.PullDiffRequest{
-				Commit: commit,
-				Shard:  _shard,
-			}
-			pullDiffClient, err := pfs.NewReplicaAPIClient(clientConn).PullDiff(ctx, pullDiffRequest)
-			if err != nil {
-				return err
-			}
-			diffReader := protostream.NewStreamingBytesReader(pullDiffClient)
-			if err := a.driver.PushDiff(commit, _shard, diffReader); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+func (a *internalAPIServer) AddShard(shard uint64, version int64) error {
+	return a.driver.AddShard(shard)
 }
 
 func (a *internalAPIServer) RemoveShard(shard uint64, version int64) error {
-	return nil
+	return a.driver.DeleteShard(shard)
 }
 
 func (a *internalAPIServer) LocalShards() (map[uint64]bool, error) {
