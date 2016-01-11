@@ -3,7 +3,6 @@ package pachyderm
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"path"
@@ -56,7 +55,6 @@ func TestJob(t *testing.T) {
 	commitInfo, err := pfsutil.InspectCommit(pfsClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.Id)
 	require.NoError(t, err)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
-	log.Printf("GetFile: %s/%s/%s", jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.Id, "file")
 	var buffer bytes.Buffer
 	require.NoError(t, pfsutil.GetFile(pfsClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
@@ -107,7 +105,6 @@ func TestPipeline(t *testing.T) {
 		[]*pps.PipelineInput{{Repo: &pfs.Repo{Name: dataRepo}}},
 	))
 	// Do first commit to repo
-	log.Printf("Do first commit.")
 	commit1, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
 	require.NoError(t, err)
 	_, err = pfsutil.PutFile(pfsClient, dataRepo, commit1.Id, "file", 0, strings.NewReader("foo\n"))
@@ -126,11 +123,9 @@ func TestPipeline(t *testing.T) {
 	outCommits := listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	var buffer bytes.Buffer
-	log.Printf("First commit: %+v", outCommits[0])
 	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo.Name, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	// Do second commit to repo
-	log.Printf("Do second commit.")
 	commit2, err := pfsutil.StartCommit(pfsClient, dataRepo, commit1.Id)
 	require.NoError(t, err)
 	_, err = pfsutil.PutFile(pfsClient, dataRepo, commit2.Id, "file", 0, strings.NewReader("bar\n"))
@@ -150,7 +145,6 @@ func TestPipeline(t *testing.T) {
 	outCommits = listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	buffer = bytes.Buffer{}
-	log.Printf("Second commit: %+v", outCommits[0])
 	require.NoError(t, pfsutil.GetFile(pfsClient, outRepo.Name, outCommits[0].Commit.Id, "file", 0, 0, nil, &buffer))
 	require.Equal(t, "foo\nbar\n", buffer.String())
 }
@@ -161,7 +155,6 @@ func TestWorkload(t *testing.T) {
 	ppsClient := getPpsClient(t)
 	//seed := time.Now().UnixNano()
 	seed := int64(7)
-	log.Printf("seed: %d", seed)
 	require.NoError(t, workload.RunWorkload(pfsClient, ppsClient, rand.New(rand.NewSource(seed)), 100))
 }
 
