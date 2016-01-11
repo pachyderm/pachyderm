@@ -38,12 +38,9 @@ type Driver interface {
 	GetFile(file *pfs.File, offset int64, size int64, shard uint64) (io.ReadCloser, error)
 	InspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error)
 	ListFile(file *pfs.File, shard uint64) ([]*pfs.FileInfo, error)
-	ListChange(file *pfs.File, from *pfs.Commit, shard uint64) ([]*pfs.Change, error)
 	DeleteFile(file *pfs.File, shard uint64) error
 	AddShard(shard uint64) error
 	DeleteShard(shard uint64) error
-	PullDiff(commit *pfs.Commit, shard uint64, diff io.Writer) error
-	PushDiff(commit *pfs.Commit, shard uint64, diff io.Reader) error
 }
 
 func ByteRangeSize(byteRange *ByteRange) uint64 {

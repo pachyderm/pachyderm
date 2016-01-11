@@ -347,28 +347,6 @@ func ListFile(apiClient pfs.APIClient, repoName string, commitID string, path st
 	return fileInfos.FileInfo, nil
 }
 
-func ListChange(apiClient pfs.APIClient, repoName string, commitID string, path string, shard *pfs.Shard) ([]*pfs.Change, error) {
-	changes, err := apiClient.ListChange(
-		context.Background(),
-		&pfs.ListChangeRequest{
-			File: &pfs.File{
-				Commit: &pfs.Commit{
-					Repo: &pfs.Repo{
-						Name: repoName,
-					},
-					Id: commitID,
-				},
-				Path: path,
-			},
-			Shard: shard,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return changes.Change, nil
-}
-
 func DeleteFile(apiClient pfs.APIClient, repoName string, commitID string, path string) error {
 	_, err := apiClient.DeleteFile(
 		context.Background(),
@@ -411,84 +389,4 @@ func MakeDirectory(apiClient pfs.APIClient, repoName string, commitID string, pa
 			FileType: pfs.FileType_FILE_TYPE_DIR,
 		},
 	)
-}
-
-func InspectServer(clusterAPIClient pfs.ClusterAPIClient, serverID string) (*pfs.ServerInfo, error) {
-	return clusterAPIClient.InspectServer(
-		context.Background(),
-		&pfs.InspectServerRequest{
-			Server: &pfs.Server{
-				Id: serverID,
-			},
-		},
-	)
-}
-
-func ListServer(clusterAPIClient pfs.ClusterAPIClient) ([]*pfs.ServerInfo, error) {
-	serverInfos, err := clusterAPIClient.ListServer(
-		context.Background(),
-		&pfs.ListServerRequest{},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return serverInfos.ServerInfo, nil
-}
-
-func PullDiff(replicaAPIClient pfs.ReplicaAPIClient, repoName string, commitID string, shard uint64, writer io.Writer) error {
-	apiPullDiffClient, err := replicaAPIClient.PullDiff(
-		context.Background(),
-		&pfs.PullDiffRequest{
-			Commit: &pfs.Commit{
-				Repo: &pfs.Repo{
-					Name: repoName,
-				},
-				Id: commitID,
-			},
-			Shard: shard,
-		},
-	)
-	if err != nil {
-		return err
-	}
-	if err := protostream.WriteFromStreamingBytesClient(apiPullDiffClient, writer); err != nil {
-		return err
-	}
-	return nil
-}
-
-func PushDiff(replicaAPIClient pfs.ReplicaAPIClient, repoName string, commitID string, shard uint64, reader io.Reader) (retErr error) {
-	pushDiffClient, err := replicaAPIClient.PushDiff(context.Background())
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if _, err := pushDiffClient.CloseAndRecv(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	request := pfs.PushDiffRequest{
-		Commit: &pfs.Commit{
-			Repo: &pfs.Repo{
-				Name: repoName,
-			},
-			Id: commitID,
-		},
-		Shard: shard,
-	}
-	for {
-		value := make([]byte, chunkSize)
-		size, err := reader.Read(value)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		request.Value = value[0:size]
-		if err = pushDiffClient.Send(&request); err != nil {
-			return err
-		}
-	}
-	return nil
 }

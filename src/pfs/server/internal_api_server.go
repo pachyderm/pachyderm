@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"sync"
@@ -137,9 +136,6 @@ func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.Finis
 		return nil, err
 	}
 	if err := a.pulseCommitWaiters(request.Commit, pfs.CommitType_COMMIT_TYPE_READ, shards); err != nil {
-		return nil, err
-	}
-	if err := a.commitToReplicas(ctx, request.Commit); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -340,50 +336,6 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 	}, nil
 }
 
-func (a *internalAPIServer) ListChange(ctx context.Context, request *pfs.ListChangeRequest) (response *pfs.Changes, retErr error) {
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-	shards, err := a.router.GetMasterShards(version)
-	if err != nil {
-		return nil, err
-	}
-	sharder := route.NewSharder(request.Shard.FileModulus, request.Shard.BlockModulus)
-	var wg sync.WaitGroup
-	var lock sync.Mutex
-	var changes []*pfs.Change
-	var loopErr error
-	for shard := range shards {
-		wg.Add(1)
-		go func(shard uint64) {
-			defer wg.Done()
-			subChanges, err := a.driver.ListChange(request.File, request.From, shard)
-			lock.Lock()
-			defer lock.Unlock()
-			if err != nil {
-				if loopErr == nil {
-					loopErr = err
-				}
-				return
-			}
-			for _, change := range subChanges {
-				if sharder.GetShard(change.File) == request.Shard.FileNumber {
-					changes = append(changes, change)
-				}
-			}
-		}(shard)
-	}
-	wg.Wait()
-	if loopErr != nil {
-		return nil, loopErr
-	}
-	return &pfs.Changes{
-		Change: changes,
-	}, nil
-}
-
 func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	version, err := a.getVersion(ctx)
@@ -405,53 +357,6 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
-}
-
-func (a *internalAPIServer) PullDiff(request *pfs.PullDiffRequest, pullDiffServer pfs.ReplicaAPI_PullDiffServer) error {
-	version, err := a.getVersion(pullDiffServer.Context())
-	if err != nil {
-		return err
-	}
-	ok, err := a.isLocalShard(request.Shard, version)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return fmt.Errorf("pachyderm: illegal PullDiffRequest for unknown shard %d", request.Shard)
-	}
-	writer := protostream.NewStreamingBytesWriter(pullDiffServer)
-	return a.driver.PullDiff(request.Commit, request.Shard, writer)
-}
-
-func (a *internalAPIServer) PushDiff(pushDiffServer pfs.ReplicaAPI_PushDiffServer) (retErr error) {
-	version, err := a.getVersion(pushDiffServer.Context())
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := pushDiffServer.SendAndClose(google_protobuf.EmptyInstance); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	request, err := pushDiffServer.Recv()
-	if err != nil {
-		return err
-	}
-	ok, err := a.isLocalReplicaShard(request.Shard, version)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return fmt.Errorf("pachyderm: illegal PushDiffRequest for unknown shard %d", request.Shard)
-	}
-	reader := &pushDiffReader{
-		server: pushDiffServer,
-	}
-	_, err = reader.buffer.Write(request.Value)
-	if err != nil {
-		return err
-	}
-	return a.driver.PushDiff(request.Commit, request.Shard, reader)
 }
 
 func (a *internalAPIServer) AddShard(shard uint64, version int64) error {
@@ -519,56 +424,6 @@ func (a *internalAPIServer) isLocalShard(shard uint64, version int64) (bool, err
 	return ok, nil
 }
 
-func (a *internalAPIServer) commitToReplicas(ctx context.Context, commit *pfs.Commit) error {
-	version, err := a.getVersion(ctx)
-	if err != nil {
-		return err
-	}
-	shards, err := a.router.GetMasterShards(version)
-	if err != nil {
-		return err
-	}
-	var loopErr error
-	var wg sync.WaitGroup
-	for shard := range shards {
-		wg.Add(1)
-		shard := shard
-		go func() {
-			defer wg.Done()
-			clientConns, err := a.router.GetReplicaClientConns(shard, version)
-			if err != nil && loopErr == nil {
-				loopErr = err
-				return
-			}
-			var writers []io.Writer
-			for _, clientConn := range clientConns {
-				pushDiffClient, err := pfs.NewReplicaAPIClient(clientConn).PushDiff(
-					ctx,
-				)
-				if err != nil && loopErr == nil {
-					loopErr = err
-					return
-				}
-				request := pfs.PushDiffRequest{
-					Commit: commit,
-					Shard:  shard,
-				}
-				writers = append(writers,
-					&pushDiffWriter{
-						client:  pushDiffClient,
-						request: &request,
-					})
-			}
-			if err = a.driver.PullDiff(commit, shard, io.MultiWriter(writers...)); err != nil && loopErr == nil {
-				loopErr = err
-				return
-			}
-		}()
-	}
-	wg.Wait()
-	return loopErr
-}
-
 type putFileReader struct {
 	server pfs.InternalAPI_PutFileServer
 	buffer bytes.Buffer
@@ -586,35 +441,6 @@ func (r *putFileReader) Read(p []byte) (int, error) {
 		}
 	}
 	return r.buffer.Read(p)
-}
-
-type pushDiffReader struct {
-	server pfs.ReplicaAPI_PushDiffServer
-	buffer bytes.Buffer
-}
-
-func (r *pushDiffReader) Read(p []byte) (int, error) {
-	if r.buffer.Len() == 0 {
-		request, err := r.server.Recv()
-		if err != nil {
-			return 0, err
-		}
-		_, err = r.buffer.Write(request.Value)
-		if err != nil {
-			return 0, err
-		}
-	}
-	return r.buffer.Read(p)
-}
-
-type pushDiffWriter struct {
-	client  pfs.ReplicaAPI_PushDiffClient
-	request *pfs.PushDiffRequest
-}
-
-func (w *pushDiffWriter) Write(value []byte) (int, error) {
-	w.request.Value = value
-	return len(value), w.client.Send(w.request)
 }
 
 func (a *internalAPIServer) getVersion(ctx context.Context) (int64, error) {
