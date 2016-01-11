@@ -80,7 +80,6 @@ func do(appEnvObj interface{}) error {
 		route.NewSharder(
 			appEnv.NumShards,
 			1,
-			0,
 		),
 		route.NewRouter(
 			sharder,
@@ -99,7 +98,6 @@ func do(appEnvObj interface{}) error {
 		route.NewSharder(
 			appEnv.NumShards,
 			1,
-			0,
 		),
 		route.NewRouter(
 			sharder,
