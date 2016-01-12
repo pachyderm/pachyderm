@@ -262,7 +262,7 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 	if err != nil {
 		return err
 	}
-	file, err := a.driver.GetFile(request.File, request.OffsetBytes, request.SizeBytes, shard)
+	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes, shard)
 	if err != nil {
 		return err
 	}
@@ -284,7 +284,7 @@ func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfs.Inspec
 	if err != nil {
 		return nil, err
 	}
-	return a.driver.InspectFile(request.File, shard)
+	return a.driver.InspectFile(request.File, request.Shard, shard)
 }
 
 func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
@@ -297,10 +297,6 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 	if err != nil {
 		return nil, err
 	}
-	if request.Shard == nil {
-		request.Shard = &pfs.Shard{FileNumber: 0, FileModulus: 1}
-	}
-	sharder := route.NewSharder(request.Shard.FileModulus, request.Shard.BlockModulus)
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	var fileInfos []*pfs.FileInfo
@@ -310,21 +306,16 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			subFileInfos, err := a.driver.ListFile(request.File, shard)
-			lock.Lock()
-			defer lock.Unlock()
+			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, shard)
 			if err != nil && err != pfs.ErrFileNotFound {
 				if loopErr == nil {
 					loopErr = err
 				}
 				return
 			}
-			for _, fileInfo := range subFileInfos {
-				if sharder.GetShard(fileInfo.File) == request.Shard.FileNumber ||
-					fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-					fileInfos = append(fileInfos, fileInfo)
-				}
-			}
+			lock.Lock()
+			defer lock.Unlock()
+			fileInfos = append(fileInfos, subFileInfos...)
 		}()
 	}
 	wg.Wait()

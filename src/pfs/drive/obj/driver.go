@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
+	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"go.pedge.io/google-protobuf"
 	"golang.org/x/net/context"
 )
@@ -299,10 +300,10 @@ func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
 	return nil
 }
 
-func (d *driver) GetFile(file *pfs.File, offset int64, size int64, shard uint64) (io.ReadCloser, error) {
+func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, size int64, shard uint64) (io.ReadCloser, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, blockRefs, err := d.inspectFile(file, shard)
+	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard)
 	if err != nil {
 		return nil, err
 	}
@@ -312,17 +313,17 @@ func (d *driver) GetFile(file *pfs.File, offset int64, size int64, shard uint64)
 	return newFileReader(d.driveClient, blockRefs, offset, size), nil
 }
 
-func (d *driver) InspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, error) {
+func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64) (*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, shard)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard)
 	return fileInfo, err
 }
 
-func (d *driver) ListFile(file *pfs.File, shard uint64) ([]*pfs.FileInfo, error) {
+func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, shard uint64) ([]*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, shard)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard)
 	if err != nil {
 		return nil, err
 	}
@@ -331,8 +332,8 @@ func (d *driver) ListFile(file *pfs.File, shard uint64) ([]*pfs.FileInfo, error)
 	}
 	var result []*pfs.FileInfo
 	for _, child := range fileInfo.Children {
-		fileInfo, _, err := d.inspectFile(child, shard)
-		if err != nil {
+		fileInfo, _, err := d.inspectFile(child, filterShard, shard)
+		if err != nil && err != pfs.ErrFileNotFound {
 			return nil, err
 		}
 		result = append(result, fileInfo)
@@ -351,8 +352,11 @@ func (d *driver) AddShard(shard uint64) error {
 	}
 	for {
 		diffInfo, err := listDiffClient.Recv()
-		if err != nil {
+		if err != nil && err != io.EOF {
 			return err
+		}
+		if err == io.EOF {
+			break
 		}
 		func() error {
 			d.lock.Lock()
@@ -455,7 +459,17 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return commitInfo[0], nil
 }
 
-func (d *driver) inspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, []*drive.BlockRef, error) {
+func filterBlockRefs(filterShard *pfs.Shard, blockRefs []*drive.BlockRef) []*drive.BlockRef {
+	var result []*drive.BlockRef
+	for _, blockRef := range blockRefs {
+		if route.BlockInShard(filterShard, blockRef.Block) {
+			result = append(result, blockRef)
+		}
+	}
+	return result
+}
+
+func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64) (*pfs.FileInfo, []*drive.BlockRef, error) {
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*drive.BlockRef
 	children := make(map[string]bool)
@@ -467,6 +481,9 @@ func (d *driver) inspectFile(file *pfs.File, shard uint64) (*pfs.FileInfo, []*dr
 		})
 		if !ok {
 			return nil, nil, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
+		}
+		if !route.FileInShard(filterShard, file) {
+			return nil, nil, pfs.ErrFileNotFound
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
 			if len(_append.BlockRefs) > 0 {
@@ -660,16 +677,18 @@ func (d *driver) insertLeaf(leaf *drive.DiffInfo) error {
 			return err
 		}
 	}
-	parentDiff := &drive.Diff{
-		Commit: leaf.ParentCommit,
-		Shard:  leaf.Diff.Shard,
-	}
-	if parentDiffInfo, ok := d.leaves.get(parentDiff); ok {
-		d.leaves.pop(parentDiff)
-		d.internals.insert(parentDiffInfo)
-	} else {
-		if err := d.internals.insert(&drive.DiffInfo{Diff: parentDiff}); err != nil {
-			return err
+	if leaf.ParentCommit != nil {
+		parentDiff := &drive.Diff{
+			Commit: leaf.ParentCommit,
+			Shard:  leaf.Diff.Shard,
+		}
+		if parentDiffInfo, ok := d.leaves.get(parentDiff); ok {
+			d.leaves.pop(parentDiff)
+			d.internals.insert(parentDiffInfo)
+		} else {
+			if err := d.internals.insert(&drive.DiffInfo{Diff: parentDiff}); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
