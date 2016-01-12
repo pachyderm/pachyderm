@@ -17,6 +17,7 @@ type driver struct {
 	driveClient drive.APIClient
 	started     diffMap
 	finished    diffMap
+	internals   diffMap
 	leaves      diffMap // commits with no children
 	lock        sync.RWMutex
 }
@@ -24,6 +25,7 @@ type driver struct {
 func newDriver(driveClient drive.APIClient) (drive.Driver, error) {
 	return &driver{
 		driveClient,
+		make(diffMap),
 		make(diffMap),
 		make(diffMap),
 		make(diffMap),
@@ -150,18 +152,6 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, started *go
 	return nil
 }
 
-func (d *driver) insertLeaf(leaf *drive.DiffInfo, shard uint64) error {
-	if err := d.leaves.insert(leaf); err != nil {
-		return err
-	}
-	parentDiff := &drive.Diff{
-		Commit: leaf.ParentCommit,
-		Shard:  shard,
-	}
-	d.leaves.pop(parentDiff)
-	return nil
-}
-
 func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, shards map[uint64]bool) error {
 	// closure so we can defer Unlock
 	var diffInfos []*drive.DiffInfo
@@ -181,7 +171,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 			if err := d.finished.insert(diffInfo); err != nil {
 				return err
 			}
-			if err := d.insertLeaf(diffInfo, shard); err != nil {
+			if err := d.insertLeaf(diffInfo); err != nil {
 				return err
 			}
 		}
@@ -390,8 +380,7 @@ func (d *driver) AddShard(shard uint64) error {
 			if err := d.finished.insert(diffInfo); err != nil {
 				return err
 			}
-			// TODO this is bugged, it relies on the diffs coming in the right
-			return d.insertLeaf(diffInfo, shard)
+			return d.insertLeaf(diffInfo)
 		}()
 	}
 	return nil
@@ -676,4 +665,28 @@ func (d diffMap) pop(diff *drive.Diff) *drive.DiffInfo {
 	diffInfo := commitMap[diff.Commit.Id]
 	delete(commitMap, diff.Commit.Id)
 	return diffInfo
+}
+
+func (d *driver) insertLeaf(leaf *drive.DiffInfo) error {
+	if _, ok := d.internals.get(leaf.Diff); ok {
+		// Not an actual leaf, we already know it's a leaf node
+		d.internals.insert(leaf)
+	} else {
+		if err := d.leaves.insert(leaf); err != nil {
+			return err
+		}
+	}
+	parentDiff := &drive.Diff{
+		Commit: leaf.ParentCommit,
+		Shard:  leaf.Diff.Shard,
+	}
+	if parentDiffInfo, ok := d.leaves.get(parentDiff); ok {
+		d.leaves.pop(parentDiff)
+		d.internals.insert(parentDiffInfo)
+	} else {
+		if err := d.internals.insert(&drive.DiffInfo{Diff: parentDiff}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
