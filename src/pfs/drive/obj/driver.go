@@ -149,6 +149,9 @@ func (d *driver) StartCommit(parent *pfs.Commit, commit *pfs.Commit, started *go
 		if err := d.started.insert(diffInfo); err != nil {
 			return err
 		}
+		if err := d.insertLeaf(diffInfo); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -170,9 +173,6 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 			diffInfo.Finished = finished
 			diffInfos = append(diffInfos, diffInfo)
 			if err := d.finished.insert(diffInfo); err != nil {
-				return err
-			}
-			if err := d.insertLeaf(diffInfo); err != nil {
 				return err
 			}
 		}
