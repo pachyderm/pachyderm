@@ -35,3 +35,21 @@ func (s *sharder) GetShard(file *pfs.File) uint64 {
 func (s *sharder) GetBlockShard(block *drive.Block) uint64 {
 	return uint64(adler32.Checksum([]byte(block.Hash))) % s.blockModulus
 }
+
+func FileInShard(shard *pfs.Shard, file *pfs.File) bool {
+	if shard == nil {
+		// this lets us default to no filtering
+		return true
+	}
+	sharder := &sharder{fileModulus: shard.FileModulus}
+	return sharder.GetShard(file) == shard.FileNumber
+}
+
+func BlockInShard(shard *pfs.Shard, block *drive.Block) bool {
+	if shard == nil {
+		// this lets us default to no filtering
+		return true
+	}
+	sharder := &sharder{blockModulus: shard.BlockModulus}
+	return sharder.GetBlockShard(block) == shard.BlockNumber
+}
