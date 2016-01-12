@@ -247,22 +247,6 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 	return nil
 }
 
-func (d *driver) PutBlock(file *pfs.File, block *drive.Block, shard uint64, reader io.Reader) error {
-	return nil
-}
-
-func (d *driver) GetBlock(block *drive.Block, shard uint64) (drive.ReaderAtCloser, error) {
-	return nil, nil
-}
-
-func (d *driver) InspectBlock(block *drive.Block, shard uint64) (*drive.BlockInfo, error) {
-	return nil, nil
-}
-
-func (d *driver) ListBlock(shard uint64) ([]*drive.BlockInfo, error) {
-	return nil, nil
-}
-
 func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) (retErr error) {
 	d.lock.RLock()
 	diffInfo, ok := d.started.get(&drive.Diff{
