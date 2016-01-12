@@ -1,0 +1,17 @@
+{
+  "pipeline": {
+    "name": "grep-example"
+  },
+  "transform": {
+    "image": "pachyderm/grep-example",
+    "cmd": [
+      "/bin/grep-example.sh"
+    ]
+  },
+  "shards": "1",
+  "input_repo": [
+    {
+      "name": "data"
+    }
+  ]
+}
