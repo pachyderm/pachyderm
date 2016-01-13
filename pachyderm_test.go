@@ -73,7 +73,7 @@ func TestGrep(t *testing.T) {
 	}
 	require.NoError(t, pfsutil.FinishCommit(pfsClient, dataRepo, commit.Id))
 	ppsClient := getPpsClient(t)
-	_, err = ppsutil.CreateJob(
+	job1, err := ppsutil.CreateJob(
 		ppsClient,
 		"",
 		[]string{"bash"},
@@ -83,6 +83,31 @@ func TestGrep(t *testing.T) {
 		"",
 	)
 	require.NoError(t, err)
+	job2, err := ppsutil.CreateJob(
+		ppsClient,
+		"",
+		[]string{"bash"},
+		fmt.Sprintf("grep foo /pfs/%s/* >/pfs/out/foo", dataRepo),
+		4,
+		[]*pps.JobInput{{Commit: commit}},
+		"",
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &pps.InspectJobRequest{
+		Job:         job1,
+		BlockOutput: true,
+		BlockState:  true,
+	}
+	job1Info, err := ppsClient.InspectJob(context.Background(), inspectJobRequest)
+	require.NoError(t, err)
+	inspectJobRequest.Job = job2
+	job2Info, err := ppsClient.InspectJob(context.Background(), inspectJobRequest)
+	require.NoError(t, err)
+	repo1Info, err := pfsutil.InspectRepo(pfsClient, job1Info.OutputCommit.Repo.Name)
+	require.NoError(t, err)
+	repo2Info, err := pfsutil.InspectRepo(pfsClient, job2Info.OutputCommit.Repo.Name)
+	require.NoError(t, err)
+	require.Equal(t, repo1Info.SizeBytes, repo2Info.SizeBytes)
 }
 
 func TestPipeline(t *testing.T) {
