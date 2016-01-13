@@ -12,7 +12,7 @@
 You'll need to make sure `pachctl` can connect to the running pachyderm services:
 
 ```shell
-$ ssh KUBEHOST -fTNL 650:localhost:30650 -L 651:localhost:30651
+$ ssh KUBEHOST -fTNL 8080:localhost:8080 650:localhost:30650 -L 651:localhost:30651
 ```
 
 #### If you have your own Kubernetes
