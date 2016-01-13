@@ -121,6 +121,7 @@ foo
 However, we've lost the ability to write to it, finished commits are immutable.
 
 ### A simple grep example
+***For this to work you will first need to have a repo named data and some data to grep in it***
 
 This example will grep the data repo for the text foo. You will need to put some data in the data repo to grep.
 
