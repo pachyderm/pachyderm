@@ -35,5 +35,9 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *pps.PipelineInfo) {
 			fmt.Fprintf(w, ", ")
 		}
 	}
-	fmt.Fprintf(w, "%s\t\n", pipelineInfo.OutputRepo.Name)
+	if pipelineInfo.OutputRepo != nil {
+		fmt.Fprintf(w, "%s\t\n", pipelineInfo.OutputRepo.Name)
+	} else {
+		fmt.Fprintf(w, "\t\n")
+	}
 }
