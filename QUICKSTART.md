@@ -12,6 +12,7 @@
 You'll need to make sure `pachctl` can connect to the running pachyderm services:
 
 ```shell
+# forward ports for kubectl, pfs and pps
 $ ssh KUBEHOST -fTNL 8080:localhost:8080 650:localhost:30650 -L 651:localhost:30651
 ```
 
@@ -67,15 +68,14 @@ You shouldn't see anything yet, `/pfs` will contain a directory for each
 
 ```shell
 $ pachctl create-repo data
-$ pachctl create-repo output
 $ ls /pfs
-data output
+data
 ```
 
 ### Creating a `Commit`
-Now that you've created a `Repo` you should see 2 empty directories `/pfs/data`
-and `/pfs/output` if you try writing to it, it will fail because you can't write directly to `Repos`, you have to create a
-`Commit` to write to instead:
+Now that you've created a `Repo` you should see an empy directory `/pfs/data`
+if you try writing to it, it will fail because you can't write directly to
+`Repo`s, you have to create a `Commit` to write to instead:
 
 ```shell
 $ pachctl start-commit data
@@ -120,24 +120,14 @@ foo
 
 However, we've lost the ability to write to it, finished commits are immutable.
 
-### A simple grep example
-***For this to work you will first need to have a repo named data and some data to grep in it***
-
-This example will grep the data repo for the text foo. You will need to put some data in the data repo to grep.
-
-You will need to create a docker image with what you need to run your job. The job-shim binary is currently required in the image to run a job.
-You can see the Dockerfile for the grep example in the grep-example folder.
-
-To build the grep example docker image run the following:
-
-```shell
-$ make docker-build-grep-example
-```
+### Creating a simple grep pipeline
+This example will grep the `data` repo for the text `"foo"`.
+You will need to put some data in the data repo to grep.
 
 Now you can create the pipeline and it will run the job for you:
 
 ```shell
-$ pachctl create-pipeline -f grep-example/grep-example-pipeline.json
+$ pachctl create-pipeline -f examples/grep/pipeline.json
 ```
 
 You will need to wait a few minute for the job to complete.
