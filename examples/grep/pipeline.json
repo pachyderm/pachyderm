@@ -3,10 +3,8 @@
     "name": "grep-example"
   },
   "transform": {
-    "image": "pachyderm/grep-example",
-    "cmd": [
-      "/bin/grep-example.sh"
-    ]
+    "cmd": [ "sh" ],
+    "stdin": "grep -r \"foo\" /pfs/data > /pfs/out/file1"
   },
   "shards": "1",
   "inputs": [
