@@ -127,13 +127,14 @@
     }
   },
   "spec": {
+    "type": "NodePort",
     "ports": [
       {
         "name": "admin-port",
         "protocol": "",
         "port": 8080,
         "targetPort": 0,
-        "nodePort": 0
+        "nodePort": 30080
       },
       {
         "name": "driver-port",
