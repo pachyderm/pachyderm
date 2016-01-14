@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	blockSize = 128 * 1024 * 1024 // 128 Megabytes
+	blockSize = 8 * 1024 * 1024 // 128 Megabytes
 )
 
 func NewLocalAPIServer(dir string) (drive.APIServer, error) {

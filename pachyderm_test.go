@@ -7,9 +7,8 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"testing"
-
-	"go.pedge.io/protolog"
 
 	"golang.org/x/net/context"
 
@@ -21,6 +20,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 	"google.golang.org/grpc"
+)
+
+const (
+	NUMFILES = 200
 )
 
 func TestJob(t *testing.T) {
@@ -184,22 +187,27 @@ func TestWorkload(t *testing.T) {
 	require.NoError(t, workload.RunWorkload(pfsClient, ppsClient, rand.New(rand.NewSource(seed)), 100))
 }
 
-func TestBigWrite(t *testing.T) {
+func TestSharding(t *testing.T) {
 	t.Parallel()
-	protolog.SetLevel(protolog.Level_LEVEL_DEBUG)
-	repo := uniqueString("TestBigWrite")
+	repo := uniqueString("TestSharding")
 	pfsClient := getPfsClient(t)
 	err := pfsutil.CreateRepo(pfsClient, repo)
 	require.NoError(t, err)
 	commit, err := pfsutil.StartCommit(pfsClient, repo, "")
 	require.NoError(t, err)
-	rand := rand.New(rand.NewSource(5))
-	_, err = pfsutil.PutFile(pfsClient, repo, commit.Id, "file", 0, workload.NewReader(rand, 10000))
-	require.NoError(t, err)
+	var wg sync.WaitGroup
+	for i := 0; i < NUMFILES; i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rand := rand.New(rand.NewSource(int64(i)))
+			_, err = pfsutil.PutFile(pfsClient, repo, commit.Id, fmt.Sprintf("file%d", i), 0, workload.NewReader(rand, 128*1024*1024))
+			require.NoError(t, err)
+		}()
+	}
+	wg.Wait()
 	err = pfsutil.FinishCommit(pfsClient, repo, commit.Id)
-	require.NoError(t, err)
-	var buffer bytes.Buffer
-	err = pfsutil.GetFile(pfsClient, repo, commit.Id, "file", 0, 0, nil, &buffer)
 	require.NoError(t, err)
 }
 
