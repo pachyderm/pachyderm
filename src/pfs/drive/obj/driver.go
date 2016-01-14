@@ -336,6 +336,9 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, shard uint64) 
 		if err != nil && err != pfs.ErrFileNotFound {
 			return nil, err
 		}
+		if err == pfs.ErrFileNotFound {
+			continue
+		}
 		result = append(result, fileInfo)
 	}
 	return result, nil
@@ -482,18 +485,24 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		if !ok {
 			return nil, nil, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
 		}
-		if !route.FileInShard(filterShard, file) {
-			return nil, nil, pfs.ErrFileNotFound
-		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
 			if len(_append.BlockRefs) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.Id, file.Path)
 				}
+				if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
+					// the first time we find out it's a regular file we check
+					// the file shard, dirs get returned regardless of sharding,
+					// since they might have children from any shard
+					if !route.FileInShard(filterShard, file) {
+						return nil, nil, pfs.ErrFileNotFound
+					}
+				}
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
-				blockRefs = append(_append.BlockRefs, blockRefs...)
-				for _, blockRef := range _append.BlockRefs {
+				filtered := filterBlockRefs(filterShard, _append.BlockRefs)
+				blockRefs = append(filtered, blockRefs...)
+				for _, blockRef := range filtered {
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
 				}
 			} else if len(_append.Children) > 0 {
