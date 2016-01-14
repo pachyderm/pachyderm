@@ -61,8 +61,9 @@ func TestJob(t *testing.T) {
 }
 
 func TestGrep(t *testing.T) {
+	t.Skip()
 	t.Parallel()
-	dataRepo := uniqueString("pachyderm.TestGrep.data")
+	dataRepo := uniqueString("TestGrep.data")
 	pfsClient := getPfsClient(t)
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, dataRepo))
 	commit, err := pfsutil.StartCommit(pfsClient, dataRepo, "")
