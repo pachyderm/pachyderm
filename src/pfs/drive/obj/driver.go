@@ -337,6 +337,8 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, shard uint64) 
 			return nil, err
 		}
 		if err == pfs.ErrFileNotFound {
+			// how can a listed child return not found?
+			// regular files without any blocks in this shard count as not found
 			continue
 		}
 		result = append(result, fileInfo)
@@ -530,7 +532,8 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		}
 		commit = diffInfo.ParentCommit
 	}
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE ||
+		(fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0) {
 		return nil, nil, pfs.ErrFileNotFound
 	}
 	return fileInfo, blockRefs, nil
