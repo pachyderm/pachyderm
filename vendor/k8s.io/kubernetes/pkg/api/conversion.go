@@ -27,22 +27,17 @@ import (
 
 // Codec is the identity codec for this package - it can only convert itself
 // to itself.
-var Codec = runtime.CodecFor(Scheme, "")
+var Codec = runtime.CodecFor(Scheme, unversioned.GroupVersion{})
 
 func init() {
 	Scheme.AddDefaultingFuncs(
 		func(obj *ListOptions) {
-			obj.LabelSelector = labels.Everything()
-			obj.FieldSelector = fields.Everything()
-		},
-		// TODO: see about moving this into v1/defaults.go
-		func(obj *PodExecOptions) {
-			obj.Stderr = true
-			obj.Stdout = true
-		},
-		func(obj *PodAttachOptions) {
-			obj.Stderr = true
-			obj.Stdout = true
+			if obj.LabelSelector == nil {
+				obj.LabelSelector = labels.Everything()
+			}
+			if obj.FieldSelector == nil {
+				obj.FieldSelector = fields.Everything()
+			}
 		},
 	)
 	Scheme.AddConversionFuncs(
@@ -133,6 +128,28 @@ func init() {
 				return nil
 			}
 			*out = in.Selector.String()
+			return nil
+		},
+		func(in *unversioned.LabelSelector, out *unversioned.LabelSelector, s conversion.Scope) error {
+			if in.Selector == nil {
+				return nil
+			}
+			selector, err := labels.Parse(in.Selector.String())
+			if err != nil {
+				return err
+			}
+			out.Selector = selector
+			return nil
+		},
+		func(in *unversioned.FieldSelector, out *unversioned.FieldSelector, s conversion.Scope) error {
+			if in.Selector == nil {
+				return nil
+			}
+			selector, err := fields.ParseSelector(in.Selector.String())
+			if err != nil {
+				return err
+			}
+			out.Selector = selector
 			return nil
 		},
 		func(in *resource.Quantity, out *resource.Quantity, s conversion.Scope) error {

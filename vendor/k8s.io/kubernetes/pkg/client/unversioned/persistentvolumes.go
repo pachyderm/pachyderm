@@ -20,9 +20,6 @@ import (
 	"fmt"
 
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
@@ -32,13 +29,13 @@ type PersistentVolumesInterface interface {
 
 // PersistentVolumeInterface has methods to work with PersistentVolume resources.
 type PersistentVolumeInterface interface {
-	List(label labels.Selector, field fields.Selector) (*api.PersistentVolumeList, error)
+	List(opts api.ListOptions) (*api.PersistentVolumeList, error)
 	Get(name string) (*api.PersistentVolume, error)
 	Create(volume *api.PersistentVolume) (*api.PersistentVolume, error)
 	Update(volume *api.PersistentVolume) (*api.PersistentVolume, error)
 	UpdateStatus(persistentVolume *api.PersistentVolume) (*api.PersistentVolume, error)
 	Delete(name string) error
-	Watch(label labels.Selector, field fields.Selector, opts unversioned.ListOptions) (watch.Interface, error)
+	Watch(opts api.ListOptions) (watch.Interface, error)
 }
 
 // persistentVolumes implements PersistentVolumesInterface
@@ -50,12 +47,11 @@ func newPersistentVolumes(c *Client) *persistentVolumes {
 	return &persistentVolumes{c}
 }
 
-func (c *persistentVolumes) List(label labels.Selector, field fields.Selector) (result *api.PersistentVolumeList, err error) {
+func (c *persistentVolumes) List(opts api.ListOptions) (result *api.PersistentVolumeList, err error) {
 	result = &api.PersistentVolumeList{}
 	err = c.client.Get().
 		Resource("persistentVolumes").
-		LabelsSelectorParam(label).
-		FieldsSelectorParam(field).
+		VersionedParams(&opts, api.Scheme).
 		Do().
 		Into(result)
 
@@ -94,12 +90,10 @@ func (c *persistentVolumes) Delete(name string) error {
 	return c.client.Delete().Resource("persistentVolumes").Name(name).Do().Error()
 }
 
-func (c *persistentVolumes) Watch(label labels.Selector, field fields.Selector, opts unversioned.ListOptions) (watch.Interface, error) {
+func (c *persistentVolumes) Watch(opts api.ListOptions) (watch.Interface, error) {
 	return c.client.Get().
 		Prefix("watch").
 		Resource("persistentVolumes").
 		VersionedParams(&opts, api.Scheme).
-		LabelsSelectorParam(label).
-		FieldsSelectorParam(field).
 		Watch()
 }

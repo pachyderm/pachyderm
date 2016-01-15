@@ -26,12 +26,20 @@ func init() {
 	addKnownTypes()
 }
 
+// GroupName is the group name use in this package
+const GroupName = "metrics"
+
 // SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = unversioned.GroupVersion{Group: "metrics", Version: ""}
+var SchemeGroupVersion = unversioned.GroupVersion{Group: GroupName, Version: ""}
 
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
 func Kind(kind string) unversioned.GroupKind {
 	return SchemeGroupVersion.WithKind(kind).GroupKind()
+}
+
+// Resource takes an unqualified resource and returns back a Group qualified GroupResource
+func Resource(resource string) unversioned.GroupResource {
+	return SchemeGroupVersion.WithResource(resource).GroupResource()
 }
 
 // Adds the list of known types to api.Scheme.
@@ -43,5 +51,5 @@ func addKnownTypes() {
 	)
 }
 
-func (*RawNode) IsAnAPIObject() {}
-func (*RawPod) IsAnAPIObject()  {}
+func (obj *RawNode) GetObjectKind() unversioned.ObjectKind { return &obj.TypeMeta }
+func (obj *RawPod) GetObjectKind() unversioned.ObjectKind  { return &obj.TypeMeta }

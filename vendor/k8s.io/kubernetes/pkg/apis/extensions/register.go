@@ -21,12 +21,20 @@ import (
 	"k8s.io/kubernetes/pkg/api/unversioned"
 )
 
+// GroupName is the group name use in this package
+const GroupName = "extensions"
+
 // SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = unversioned.GroupVersion{Group: "extensions", Version: ""}
+var SchemeGroupVersion = unversioned.GroupVersion{Group: GroupName, Version: ""}
 
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
 func Kind(kind string) unversioned.GroupKind {
 	return SchemeGroupVersion.WithKind(kind).GroupKind()
+}
+
+// Resource takes an unqualified resource and returns back a Group qualified GroupResource
+func Resource(resource string) unversioned.GroupResource {
+	return SchemeGroupVersion.WithResource(resource).GroupResource()
 }
 
 func init() {
@@ -56,24 +64,30 @@ func addKnownTypes() {
 		&ThirdPartyResourceDataList{},
 		&Ingress{},
 		&IngressList{},
+		&api.ListOptions{},
+		&ConfigMap{},
+		&ConfigMapList{},
+		&api.ExportOptions{},
 	)
 }
 
-func (*ClusterAutoscaler) IsAnAPIObject()           {}
-func (*ClusterAutoscalerList) IsAnAPIObject()       {}
-func (*Deployment) IsAnAPIObject()                  {}
-func (*DeploymentList) IsAnAPIObject()              {}
-func (*HorizontalPodAutoscaler) IsAnAPIObject()     {}
-func (*HorizontalPodAutoscalerList) IsAnAPIObject() {}
-func (*Job) IsAnAPIObject()                         {}
-func (*JobList) IsAnAPIObject()                     {}
-func (*ReplicationControllerDummy) IsAnAPIObject()  {}
-func (*Scale) IsAnAPIObject()                       {}
-func (*ThirdPartyResource) IsAnAPIObject()          {}
-func (*ThirdPartyResourceList) IsAnAPIObject()      {}
-func (*DaemonSet) IsAnAPIObject()                   {}
-func (*DaemonSetList) IsAnAPIObject()               {}
-func (*ThirdPartyResourceData) IsAnAPIObject()      {}
-func (*ThirdPartyResourceDataList) IsAnAPIObject()  {}
-func (*Ingress) IsAnAPIObject()                     {}
-func (*IngressList) IsAnAPIObject()                 {}
+func (obj *ClusterAutoscaler) GetObjectKind() unversioned.ObjectKind           { return &obj.TypeMeta }
+func (obj *ClusterAutoscalerList) GetObjectKind() unversioned.ObjectKind       { return &obj.TypeMeta }
+func (obj *Deployment) GetObjectKind() unversioned.ObjectKind                  { return &obj.TypeMeta }
+func (obj *DeploymentList) GetObjectKind() unversioned.ObjectKind              { return &obj.TypeMeta }
+func (obj *HorizontalPodAutoscaler) GetObjectKind() unversioned.ObjectKind     { return &obj.TypeMeta }
+func (obj *HorizontalPodAutoscalerList) GetObjectKind() unversioned.ObjectKind { return &obj.TypeMeta }
+func (obj *Job) GetObjectKind() unversioned.ObjectKind                         { return &obj.TypeMeta }
+func (obj *JobList) GetObjectKind() unversioned.ObjectKind                     { return &obj.TypeMeta }
+func (obj *ReplicationControllerDummy) GetObjectKind() unversioned.ObjectKind  { return &obj.TypeMeta }
+func (obj *Scale) GetObjectKind() unversioned.ObjectKind                       { return &obj.TypeMeta }
+func (obj *ThirdPartyResource) GetObjectKind() unversioned.ObjectKind          { return &obj.TypeMeta }
+func (obj *ThirdPartyResourceList) GetObjectKind() unversioned.ObjectKind      { return &obj.TypeMeta }
+func (obj *DaemonSet) GetObjectKind() unversioned.ObjectKind                   { return &obj.TypeMeta }
+func (obj *DaemonSetList) GetObjectKind() unversioned.ObjectKind               { return &obj.TypeMeta }
+func (obj *ThirdPartyResourceData) GetObjectKind() unversioned.ObjectKind      { return &obj.TypeMeta }
+func (obj *ThirdPartyResourceDataList) GetObjectKind() unversioned.ObjectKind  { return &obj.TypeMeta }
+func (obj *Ingress) GetObjectKind() unversioned.ObjectKind                     { return &obj.TypeMeta }
+func (obj *IngressList) GetObjectKind() unversioned.ObjectKind                 { return &obj.TypeMeta }
+func (obj *ConfigMap) GetObjectKind() unversioned.ObjectKind                   { return &obj.TypeMeta }
+func (obj *ConfigMapList) GetObjectKind() unversioned.ObjectKind               { return &obj.TypeMeta }

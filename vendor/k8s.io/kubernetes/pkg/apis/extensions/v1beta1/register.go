@@ -22,10 +22,13 @@ import (
 	"k8s.io/kubernetes/pkg/runtime"
 )
 
-// SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = unversioned.GroupVersion{Group: "extensions", Version: "v1beta1"}
+// GroupName is the group name use in this package
+const GroupName = "extensions"
 
-var Codec = runtime.CodecFor(api.Scheme, SchemeGroupVersion.String())
+// SchemeGroupVersion is group version used to register these objects
+var SchemeGroupVersion = unversioned.GroupVersion{Group: GroupName, Version: "v1beta1"}
+
+var Codec = runtime.CodecFor(api.Scheme, SchemeGroupVersion)
 
 func init() {
 	addKnownTypes()
@@ -54,24 +57,30 @@ func addKnownTypes() {
 		&ThirdPartyResourceDataList{},
 		&Ingress{},
 		&IngressList{},
+		&ListOptions{},
+		&ConfigMap{},
+		&ConfigMapList{},
 	)
 }
 
-func (*ClusterAutoscaler) IsAnAPIObject()           {}
-func (*ClusterAutoscalerList) IsAnAPIObject()       {}
-func (*Deployment) IsAnAPIObject()                  {}
-func (*DeploymentList) IsAnAPIObject()              {}
-func (*HorizontalPodAutoscaler) IsAnAPIObject()     {}
-func (*HorizontalPodAutoscalerList) IsAnAPIObject() {}
-func (*Job) IsAnAPIObject()                         {}
-func (*JobList) IsAnAPIObject()                     {}
-func (*ReplicationControllerDummy) IsAnAPIObject()  {}
-func (*Scale) IsAnAPIObject()                       {}
-func (*ThirdPartyResource) IsAnAPIObject()          {}
-func (*ThirdPartyResourceList) IsAnAPIObject()      {}
-func (*DaemonSet) IsAnAPIObject()                   {}
-func (*DaemonSetList) IsAnAPIObject()               {}
-func (*ThirdPartyResourceData) IsAnAPIObject()      {}
-func (*ThirdPartyResourceDataList) IsAnAPIObject()  {}
-func (*Ingress) IsAnAPIObject()                     {}
-func (*IngressList) IsAnAPIObject()                 {}
+func (obj *ClusterAutoscaler) GetObjectKind() unversioned.ObjectKind           { return &obj.TypeMeta }
+func (obj *ClusterAutoscalerList) GetObjectKind() unversioned.ObjectKind       { return &obj.TypeMeta }
+func (obj *Deployment) GetObjectKind() unversioned.ObjectKind                  { return &obj.TypeMeta }
+func (obj *DeploymentList) GetObjectKind() unversioned.ObjectKind              { return &obj.TypeMeta }
+func (obj *HorizontalPodAutoscaler) GetObjectKind() unversioned.ObjectKind     { return &obj.TypeMeta }
+func (obj *HorizontalPodAutoscalerList) GetObjectKind() unversioned.ObjectKind { return &obj.TypeMeta }
+func (obj *Job) GetObjectKind() unversioned.ObjectKind                         { return &obj.TypeMeta }
+func (obj *JobList) GetObjectKind() unversioned.ObjectKind                     { return &obj.TypeMeta }
+func (obj *ReplicationControllerDummy) GetObjectKind() unversioned.ObjectKind  { return &obj.TypeMeta }
+func (obj *Scale) GetObjectKind() unversioned.ObjectKind                       { return &obj.TypeMeta }
+func (obj *ThirdPartyResource) GetObjectKind() unversioned.ObjectKind          { return &obj.TypeMeta }
+func (obj *ThirdPartyResourceList) GetObjectKind() unversioned.ObjectKind      { return &obj.TypeMeta }
+func (obj *DaemonSet) GetObjectKind() unversioned.ObjectKind                   { return &obj.TypeMeta }
+func (obj *DaemonSetList) GetObjectKind() unversioned.ObjectKind               { return &obj.TypeMeta }
+func (obj *ThirdPartyResourceData) GetObjectKind() unversioned.ObjectKind      { return &obj.TypeMeta }
+func (obj *ThirdPartyResourceDataList) GetObjectKind() unversioned.ObjectKind  { return &obj.TypeMeta }
+func (obj *Ingress) GetObjectKind() unversioned.ObjectKind                     { return &obj.TypeMeta }
+func (obj *IngressList) GetObjectKind() unversioned.ObjectKind                 { return &obj.TypeMeta }
+func (obj *ListOptions) GetObjectKind() unversioned.ObjectKind                 { return &obj.TypeMeta }
+func (obj *ConfigMap) GetObjectKind() unversioned.ObjectKind                   { return &obj.TypeMeta }
+func (obj *ConfigMapList) GetObjectKind() unversioned.ObjectKind               { return &obj.TypeMeta }

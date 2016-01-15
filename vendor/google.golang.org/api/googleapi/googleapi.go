@@ -4,7 +4,7 @@
 
 // Package googleapi contains the common code shared by all Google API
 // libraries.
-package googleapi
+package googleapi // import "google.golang.org/api/googleapi"
 
 import (
 	"bytes"
@@ -348,7 +348,6 @@ type ResumableUpload struct {
 
 	mu       sync.Mutex // guards progress
 	progress int64      // number of bytes uploaded so far
-	started  bool       // whether the upload has been started
 
 	// Callback is an optional function that will be called upon every progress update.
 	Callback ProgressUpdater
@@ -396,16 +395,13 @@ type chunk struct {
 }
 
 func (rx *ResumableUpload) transferChunks(ctx context.Context) (*http.Response, error) {
-	var start int64
-	var err error
-	res := &http.Response{}
-	if rx.started {
-		start, res, err = rx.transferStatus(ctx)
-		if err != nil || res.StatusCode != statusResumeIncomplete {
-			return res, err
+	start, res, err := rx.transferStatus(ctx)
+	if err != nil || res.StatusCode != statusResumeIncomplete {
+		if err == context.Canceled {
+			return &http.Response{StatusCode: http.StatusRequestTimeout}, err
 		}
+		return res, err
 	}
-	rx.started = true
 
 	for {
 		select { // Check for cancellation

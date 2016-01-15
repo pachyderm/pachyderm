@@ -826,6 +826,7 @@ func autoconvert_api_GitRepoVolumeSource_To_v1_GitRepoVolumeSource(in *api.GitRe
 	}
 	out.Repository = in.Repository
 	out.Revision = in.Revision
+	out.Directory = in.Directory
 	return nil
 }
 
@@ -918,6 +919,7 @@ func autoconvert_api_ISCSIVolumeSource_To_v1_ISCSIVolumeSource(in *api.ISCSIVolu
 	out.TargetPortal = in.TargetPortal
 	out.IQN = in.IQN
 	out.Lun = int32(in.Lun)
+	out.ISCSIInterface = in.ISCSIInterface
 	out.FSType = in.FSType
 	out.ReadOnly = in.ReadOnly
 	return nil
@@ -1112,6 +1114,34 @@ func autoconvert_api_List_To_v1_List(in *api.List, out *List, s conversion.Scope
 
 func convert_api_List_To_v1_List(in *api.List, out *List, s conversion.Scope) error {
 	return autoconvert_api_List_To_v1_List(in, out, s)
+}
+
+func autoconvert_api_ListOptions_To_v1_ListOptions(in *api.ListOptions, out *ListOptions, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*api.ListOptions))(in)
+	}
+	if err := s.Convert(&in.TypeMeta, &out.TypeMeta, 0); err != nil {
+		return err
+	}
+	if err := s.Convert(&in.LabelSelector, &out.LabelSelector, 0); err != nil {
+		return err
+	}
+	if err := s.Convert(&in.FieldSelector, &out.FieldSelector, 0); err != nil {
+		return err
+	}
+	out.Watch = in.Watch
+	out.ResourceVersion = in.ResourceVersion
+	if in.TimeoutSeconds != nil {
+		out.TimeoutSeconds = new(int64)
+		*out.TimeoutSeconds = *in.TimeoutSeconds
+	} else {
+		out.TimeoutSeconds = nil
+	}
+	return nil
+}
+
+func convert_api_ListOptions_To_v1_ListOptions(in *api.ListOptions, out *ListOptions, s conversion.Scope) error {
+	return autoconvert_api_ListOptions_To_v1_ListOptions(in, out, s)
 }
 
 func autoconvert_api_LoadBalancerIngress_To_v1_LoadBalancerIngress(in *api.LoadBalancerIngress, out *LoadBalancerIngress, s conversion.Scope) error {
@@ -1384,6 +1414,18 @@ func autoconvert_api_NodeStatus_To_v1_NodeStatus(in *api.NodeStatus, out *NodeSt
 	} else {
 		out.Capacity = nil
 	}
+	if in.Allocatable != nil {
+		out.Allocatable = make(ResourceList)
+		for key, val := range in.Allocatable {
+			newVal := resource.Quantity{}
+			if err := s.Convert(&val, &newVal, 0); err != nil {
+				return err
+			}
+			out.Allocatable[ResourceName(key)] = newVal
+		}
+	} else {
+		out.Allocatable = nil
+	}
 	out.Phase = NodePhase(in.Phase)
 	if in.Conditions != nil {
 		out.Conditions = make([]NodeCondition, len(in.Conditions))
@@ -1426,7 +1468,7 @@ func autoconvert_api_NodeSystemInfo_To_v1_NodeSystemInfo(in *api.NodeSystemInfo,
 	out.SystemUUID = in.SystemUUID
 	out.BootID = in.BootID
 	out.KernelVersion = in.KernelVersion
-	out.OsImage = in.OsImage
+	out.OSImage = in.OSImage
 	out.ContainerRuntimeVersion = in.ContainerRuntimeVersion
 	out.KubeletVersion = in.KubeletVersion
 	out.KubeProxyVersion = in.KubeProxyVersion
@@ -3024,32 +3066,20 @@ func convert_api_VolumeSource_To_v1_VolumeSource(in *api.VolumeSource, out *Volu
 	return autoconvert_api_VolumeSource_To_v1_VolumeSource(in, out, s)
 }
 
-func autoconvert_unversioned_ListOptions_To_v1_ListOptions(in *unversioned.ListOptions, out *ListOptions, s conversion.Scope) error {
+func autoconvert_unversioned_ExportOptions_To_v1_ExportOptions(in *unversioned.ExportOptions, out *ExportOptions, s conversion.Scope) error {
 	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
-		defaulting.(func(*unversioned.ListOptions))(in)
+		defaulting.(func(*unversioned.ExportOptions))(in)
 	}
 	if err := s.Convert(&in.TypeMeta, &out.TypeMeta, 0); err != nil {
 		return err
 	}
-	if err := s.Convert(&in.LabelSelector, &out.LabelSelector, 0); err != nil {
-		return err
-	}
-	if err := s.Convert(&in.FieldSelector, &out.FieldSelector, 0); err != nil {
-		return err
-	}
-	out.Watch = in.Watch
-	out.ResourceVersion = in.ResourceVersion
-	if in.TimeoutSeconds != nil {
-		out.TimeoutSeconds = new(int64)
-		*out.TimeoutSeconds = *in.TimeoutSeconds
-	} else {
-		out.TimeoutSeconds = nil
-	}
+	out.Export = in.Export
+	out.Exact = in.Exact
 	return nil
 }
 
-func convert_unversioned_ListOptions_To_v1_ListOptions(in *unversioned.ListOptions, out *ListOptions, s conversion.Scope) error {
-	return autoconvert_unversioned_ListOptions_To_v1_ListOptions(in, out, s)
+func convert_unversioned_ExportOptions_To_v1_ExportOptions(in *unversioned.ExportOptions, out *ExportOptions, s conversion.Scope) error {
+	return autoconvert_unversioned_ExportOptions_To_v1_ExportOptions(in, out, s)
 }
 
 func autoconvert_v1_AWSElasticBlockStoreVolumeSource_To_api_AWSElasticBlockStoreVolumeSource(in *AWSElasticBlockStoreVolumeSource, out *api.AWSElasticBlockStoreVolumeSource, s conversion.Scope) error {
@@ -3791,6 +3821,22 @@ func convert_v1_ExecAction_To_api_ExecAction(in *ExecAction, out *api.ExecAction
 	return autoconvert_v1_ExecAction_To_api_ExecAction(in, out, s)
 }
 
+func autoconvert_v1_ExportOptions_To_unversioned_ExportOptions(in *ExportOptions, out *unversioned.ExportOptions, s conversion.Scope) error {
+	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
+		defaulting.(func(*ExportOptions))(in)
+	}
+	if err := s.Convert(&in.TypeMeta, &out.TypeMeta, 0); err != nil {
+		return err
+	}
+	out.Export = in.Export
+	out.Exact = in.Exact
+	return nil
+}
+
+func convert_v1_ExportOptions_To_unversioned_ExportOptions(in *ExportOptions, out *unversioned.ExportOptions, s conversion.Scope) error {
+	return autoconvert_v1_ExportOptions_To_unversioned_ExportOptions(in, out, s)
+}
+
 func autoconvert_v1_FCVolumeSource_To_api_FCVolumeSource(in *FCVolumeSource, out *api.FCVolumeSource, s conversion.Scope) error {
 	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
 		defaulting.(func(*FCVolumeSource))(in)
@@ -3851,6 +3897,7 @@ func autoconvert_v1_GitRepoVolumeSource_To_api_GitRepoVolumeSource(in *GitRepoVo
 	}
 	out.Repository = in.Repository
 	out.Revision = in.Revision
+	out.Directory = in.Directory
 	return nil
 }
 
@@ -3943,6 +3990,7 @@ func autoconvert_v1_ISCSIVolumeSource_To_api_ISCSIVolumeSource(in *ISCSIVolumeSo
 	out.TargetPortal = in.TargetPortal
 	out.IQN = in.IQN
 	out.Lun = int(in.Lun)
+	out.ISCSIInterface = in.ISCSIInterface
 	out.FSType = in.FSType
 	out.ReadOnly = in.ReadOnly
 	return nil
@@ -4139,7 +4187,7 @@ func convert_v1_List_To_api_List(in *List, out *api.List, s conversion.Scope) er
 	return autoconvert_v1_List_To_api_List(in, out, s)
 }
 
-func autoconvert_v1_ListOptions_To_unversioned_ListOptions(in *ListOptions, out *unversioned.ListOptions, s conversion.Scope) error {
+func autoconvert_v1_ListOptions_To_api_ListOptions(in *ListOptions, out *api.ListOptions, s conversion.Scope) error {
 	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
 		defaulting.(func(*ListOptions))(in)
 	}
@@ -4163,8 +4211,8 @@ func autoconvert_v1_ListOptions_To_unversioned_ListOptions(in *ListOptions, out 
 	return nil
 }
 
-func convert_v1_ListOptions_To_unversioned_ListOptions(in *ListOptions, out *unversioned.ListOptions, s conversion.Scope) error {
-	return autoconvert_v1_ListOptions_To_unversioned_ListOptions(in, out, s)
+func convert_v1_ListOptions_To_api_ListOptions(in *ListOptions, out *api.ListOptions, s conversion.Scope) error {
+	return autoconvert_v1_ListOptions_To_api_ListOptions(in, out, s)
 }
 
 func autoconvert_v1_LoadBalancerIngress_To_api_LoadBalancerIngress(in *LoadBalancerIngress, out *api.LoadBalancerIngress, s conversion.Scope) error {
@@ -4437,6 +4485,18 @@ func autoconvert_v1_NodeStatus_To_api_NodeStatus(in *NodeStatus, out *api.NodeSt
 	} else {
 		out.Capacity = nil
 	}
+	if in.Allocatable != nil {
+		out.Allocatable = make(api.ResourceList)
+		for key, val := range in.Allocatable {
+			newVal := resource.Quantity{}
+			if err := s.Convert(&val, &newVal, 0); err != nil {
+				return err
+			}
+			out.Allocatable[api.ResourceName(key)] = newVal
+		}
+	} else {
+		out.Allocatable = nil
+	}
 	out.Phase = api.NodePhase(in.Phase)
 	if in.Conditions != nil {
 		out.Conditions = make([]api.NodeCondition, len(in.Conditions))
@@ -4479,7 +4539,7 @@ func autoconvert_v1_NodeSystemInfo_To_api_NodeSystemInfo(in *NodeSystemInfo, out
 	out.SystemUUID = in.SystemUUID
 	out.BootID = in.BootID
 	out.KernelVersion = in.KernelVersion
-	out.OsImage = in.OsImage
+	out.OSImage = in.OSImage
 	out.ContainerRuntimeVersion = in.ContainerRuntimeVersion
 	out.KubeletVersion = in.KubeletVersion
 	out.KubeProxyVersion = in.KubeProxyVersion
@@ -6127,6 +6187,7 @@ func init() {
 		autoconvert_api_LimitRangeList_To_v1_LimitRangeList,
 		autoconvert_api_LimitRangeSpec_To_v1_LimitRangeSpec,
 		autoconvert_api_LimitRange_To_v1_LimitRange,
+		autoconvert_api_ListOptions_To_v1_ListOptions,
 		autoconvert_api_List_To_v1_List,
 		autoconvert_api_LoadBalancerIngress_To_v1_LoadBalancerIngress,
 		autoconvert_api_LoadBalancerStatus_To_v1_LoadBalancerStatus,
@@ -6199,7 +6260,7 @@ func init() {
 		autoconvert_api_VolumeMount_To_v1_VolumeMount,
 		autoconvert_api_VolumeSource_To_v1_VolumeSource,
 		autoconvert_api_Volume_To_v1_Volume,
-		autoconvert_unversioned_ListOptions_To_v1_ListOptions,
+		autoconvert_unversioned_ExportOptions_To_v1_ExportOptions,
 		autoconvert_v1_AWSElasticBlockStoreVolumeSource_To_api_AWSElasticBlockStoreVolumeSource,
 		autoconvert_v1_Binding_To_api_Binding,
 		autoconvert_v1_Capabilities_To_api_Capabilities,
@@ -6231,6 +6292,7 @@ func init() {
 		autoconvert_v1_EventSource_To_api_EventSource,
 		autoconvert_v1_Event_To_api_Event,
 		autoconvert_v1_ExecAction_To_api_ExecAction,
+		autoconvert_v1_ExportOptions_To_unversioned_ExportOptions,
 		autoconvert_v1_FCVolumeSource_To_api_FCVolumeSource,
 		autoconvert_v1_FlockerVolumeSource_To_api_FlockerVolumeSource,
 		autoconvert_v1_GCEPersistentDiskVolumeSource_To_api_GCEPersistentDiskVolumeSource,
@@ -6245,7 +6307,7 @@ func init() {
 		autoconvert_v1_LimitRangeList_To_api_LimitRangeList,
 		autoconvert_v1_LimitRangeSpec_To_api_LimitRangeSpec,
 		autoconvert_v1_LimitRange_To_api_LimitRange,
-		autoconvert_v1_ListOptions_To_unversioned_ListOptions,
+		autoconvert_v1_ListOptions_To_api_ListOptions,
 		autoconvert_v1_List_To_api_List,
 		autoconvert_v1_LoadBalancerIngress_To_api_LoadBalancerIngress,
 		autoconvert_v1_LoadBalancerStatus_To_api_LoadBalancerStatus,

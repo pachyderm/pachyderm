@@ -238,8 +238,10 @@ type Config struct {
 // It has been added in the version 1.20 of the Docker API, available since
 // Docker 1.8.
 type Mount struct {
+	Name        string
 	Source      string
 	Destination string
+	Driver      string
 	Mode        string
 	RW          bool
 }
@@ -635,17 +637,8 @@ func (c *Client) TopContainer(id string, psArgs string) (TopResult, error) {
 //
 // See https://goo.gl/GNmLHb for more details.
 type Stats struct {
-	Read    time.Time `json:"read,omitempty" yaml:"read,omitempty"`
-	Network struct {
-		RxDropped uint64 `json:"rx_dropped,omitempty" yaml:"rx_dropped,omitempty"`
-		RxBytes   uint64 `json:"rx_bytes,omitempty" yaml:"rx_bytes,omitempty"`
-		RxErrors  uint64 `json:"rx_errors,omitempty" yaml:"rx_errors,omitempty"`
-		TxPackets uint64 `json:"tx_packets,omitempty" yaml:"tx_packets,omitempty"`
-		TxDropped uint64 `json:"tx_dropped,omitempty" yaml:"tx_dropped,omitempty"`
-		RxPackets uint64 `json:"rx_packets,omitempty" yaml:"rx_packets,omitempty"`
-		TxErrors  uint64 `json:"tx_errors,omitempty" yaml:"tx_errors,omitempty"`
-		TxBytes   uint64 `json:"tx_bytes,omitempty" yaml:"tx_bytes,omitempty"`
-	} `json:"network,omitempty" yaml:"network,omitempty"`
+	Read        time.Time               `json:"read,omitempty" yaml:"read,omitempty"`
+	Networks    map[string]NetworkStats `json:"networks,omitempty" yaml:"networks,omitempty"`
 	MemoryStats struct {
 		Stats struct {
 			TotalPgmafault          uint64 `json:"total_pgmafault,omitempty" yaml:"total_pgmafault,omitempty"`
@@ -695,6 +688,18 @@ type Stats struct {
 	} `json:"blkio_stats,omitempty" yaml:"blkio_stats,omitempty"`
 	CPUStats    CPUStats `json:"cpu_stats,omitempty" yaml:"cpu_stats,omitempty"`
 	PreCPUStats CPUStats `json:"precpu_stats,omitempty"`
+}
+
+// NetworkStats is a stats entry for network stats
+type NetworkStats struct {
+	RxDropped uint64 `json:"rx_dropped,omitempty" yaml:"rx_dropped,omitempty"`
+	RxBytes   uint64 `json:"rx_bytes,omitempty" yaml:"rx_bytes,omitempty"`
+	RxErrors  uint64 `json:"rx_errors,omitempty" yaml:"rx_errors,omitempty"`
+	TxPackets uint64 `json:"tx_packets,omitempty" yaml:"tx_packets,omitempty"`
+	TxDropped uint64 `json:"tx_dropped,omitempty" yaml:"tx_dropped,omitempty"`
+	RxPackets uint64 `json:"rx_packets,omitempty" yaml:"rx_packets,omitempty"`
+	TxErrors  uint64 `json:"tx_errors,omitempty" yaml:"tx_errors,omitempty"`
+	TxBytes   uint64 `json:"tx_bytes,omitempty" yaml:"tx_bytes,omitempty"`
 }
 
 // CPUStats is a stats entry for cpu stats
@@ -1036,8 +1041,20 @@ type AttachToContainerOptions struct {
 //
 // See https://goo.gl/NKpkFk for more details.
 func (c *Client) AttachToContainer(opts AttachToContainerOptions) error {
+	cw, err := c.AttachToContainerNonBlocking(opts)
+	if err != nil {
+		return err
+	}
+	return cw.Wait()
+}
+
+// AttachToContainerNonBlocking attaches to a container, using the given options.
+// This function does not block.
+//
+// See https://goo.gl/NKpkFk for more details.
+func (c *Client) AttachToContainerNonBlocking(opts AttachToContainerOptions) (CloseWaiter, error) {
 	if opts.Container == "" {
-		return &NoSuchContainer{ID: opts.Container}
+		return nil, &NoSuchContainer{ID: opts.Container}
 	}
 	path := "/containers/" + opts.Container + "/attach?" + queryString(opts)
 	return c.hijack("POST", path, hijackOptions{

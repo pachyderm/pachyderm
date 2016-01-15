@@ -20,11 +20,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 	"sync"
 )
 
-var VerboseLogs = false
+var VerboseLogs = strings.Contains(os.Getenv("GODEBUG"), "h2debug=1")
 
 const (
 	// ClientPreface is the string that must be sent by new

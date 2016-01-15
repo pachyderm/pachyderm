@@ -127,6 +127,7 @@ func DialGRPC(ctx context.Context, opt ...cloud.ClientOption) (*grpc.ClientConn,
 		grpc.WithPerRPCCredentials(oauth.TokenSource{o.TokenSource}),
 		grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")),
 	}
+	grpcOpts = append(grpcOpts, o.GRPCDialOpts...)
 	if o.UserAgent != "" {
 		grpcOpts = append(grpcOpts, grpc.WithUserAgent(o.UserAgent))
 	}

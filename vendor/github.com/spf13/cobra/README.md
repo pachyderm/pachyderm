@@ -74,7 +74,7 @@ A few good real world examples may better illustrate this point.
 
 In the following example, 'server' is a command, and 'port' is a flag:
 
-    > hugo serve --port=1313
+    > hugo server --port=1313
 
 In this command we are telling Git to clone the url bare.
 
@@ -199,7 +199,7 @@ cobra add config
 cobra add create -p 'configCmd'
 ```
 
-Once you have run these four commands you would have an app structure that would look like:
+Once you have run these three commands you would have an app structure that would look like:
 
 ```
   ▾ app/
