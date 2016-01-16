@@ -21,6 +21,8 @@ import (
 	"sync"
 	"text/template"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 // ---------------------------------------------------
@@ -377,7 +379,7 @@ func (x *genRunner) genRefPkgs(t reflect.Type) {
 				x.imn[tpkg] = tpkg
 			} else {
 				x.imc++
-				x.imn[tpkg] = "pkg" + strconv.FormatUint(x.imc, 10) + "_" + tpkg[idx+1:]
+				x.imn[tpkg] = "pkg" + strconv.FormatUint(x.imc, 10) + "_" + genGoIdentifier(tpkg[idx+1:], false)
 			}
 		}
 	}
@@ -1637,6 +1639,26 @@ func genImportPath(t reflect.Type) (s string) {
 		}
 	}
 	return
+}
+
+// A go identifier is (letter|_)[letter|number|_]*
+func genGoIdentifier(s string, checkFirstChar bool) string {
+	b := make([]byte, 0, len(s))
+	t := make([]byte, 4)
+	var n int
+	for i, r := range s {
+		if checkFirstChar && i == 0 && !unicode.IsLetter(r) {
+			b = append(b, '_')
+		}
+		// r must be unicode_letter, unicode_digit or _
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			n = utf8.EncodeRune(t, r)
+			b = append(b, t[:n]...)
+		} else {
+			b = append(b, '_')
+		}
+	}
+	return string(b)
 }
 
 func genNonPtr(t reflect.Type) reflect.Type {

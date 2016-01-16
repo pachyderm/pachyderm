@@ -4,35 +4,13 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path"
 	"regexp"
 	"strings"
-
-	"github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/parsers"
 )
 
 var (
 	alphaRegexp  = regexp.MustCompile(`[a-zA-Z]`)
 	domainRegexp = regexp.MustCompile(`^(:?(:?[a-zA-Z0-9]|(:?[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9]))(:?\.(:?[a-zA-Z0-9]|(:?[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])))*)\.?\s*$`)
-	// DefaultHTTPHost Default HTTP Host used if only port is provided to -H flag e.g. docker daemon -H tcp://:8080
-	DefaultHTTPHost = "localhost"
-
-	// DefaultHTTPPort Default HTTP Port used if only the protocol is provided to -H flag e.g. docker daemon -H tcp://
-	// TODO Windows. DefaultHTTPPort is only used on Windows if a -H parameter
-	// is not supplied. A better longer term solution would be to use a named
-	// pipe as the default on the Windows daemon.
-	// These are the IANA registered port numbers for use with Docker
-	// see http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml?search=docker
-	DefaultHTTPPort = 2375 // Default HTTP Port
-	// DefaultTLSHTTPPort Default HTTP Port used when TLS enabled
-	DefaultTLSHTTPPort = 2376 // Default TLS encrypted HTTP Port
-	// DefaultUnixSocket Path for the unix socket.
-	// Docker daemon by default always listens on the default unix socket
-	DefaultUnixSocket = "/var/run/docker.sock"
-	// DefaultTCPHost constant defines the default host string used by docker on Windows
-	DefaultTCPHost = fmt.Sprintf("tcp://%s:%d", DefaultHTTPHost, DefaultHTTPPort)
-	// DefaultTLSHost constant defines the default host string used by docker for TLS sockets
-	DefaultTLSHost = fmt.Sprintf("tcp://%s:%d", DefaultHTTPHost, DefaultTLSHTTPPort)
 )
 
 // ListOpts holds a list of values and a validation function.
@@ -96,6 +74,16 @@ func (opts *ListOpts) GetMap() map[string]struct{} {
 // GetAll returns the values of slice.
 func (opts *ListOpts) GetAll() []string {
 	return (*opts.values)
+}
+
+// GetAllOrEmpty returns the values of the slice
+// or an empty slice when there are no values.
+func (opts *ListOpts) GetAllOrEmpty() []string {
+	v := *opts.values
+	if v == nil {
+		return make([]string, 0)
+	}
+	return v
 }
 
 // Get checks the existence of the specified key.
@@ -175,82 +163,6 @@ func ValidateAttach(val string) (string, error) {
 	return val, fmt.Errorf("valid streams are STDIN, STDOUT and STDERR")
 }
 
-// ValidateLink validates that the specified string has a valid link format (containerName:alias).
-func ValidateLink(val string) (string, error) {
-	if _, _, err := parsers.ParseLink(val); err != nil {
-		return val, err
-	}
-	return val, nil
-}
-
-// ValidDeviceMode checks if the mode for device is valid or not.
-// Valid mode is a composition of r (read), w (write), and m (mknod).
-func ValidDeviceMode(mode string) bool {
-	var legalDeviceMode = map[rune]bool{
-		'r': true,
-		'w': true,
-		'm': true,
-	}
-	if mode == "" {
-		return false
-	}
-	for _, c := range mode {
-		if !legalDeviceMode[c] {
-			return false
-		}
-		legalDeviceMode[c] = false
-	}
-	return true
-}
-
-// ValidateDevice validates a path for devices
-// It will make sure 'val' is in the form:
-//    [host-dir:]container-path[:mode]
-// It also validates the device mode.
-func ValidateDevice(val string) (string, error) {
-	return validatePath(val, ValidDeviceMode)
-}
-
-func validatePath(val string, validator func(string) bool) (string, error) {
-	var containerPath string
-	var mode string
-
-	if strings.Count(val, ":") > 2 {
-		return val, fmt.Errorf("bad format for path: %s", val)
-	}
-
-	split := strings.SplitN(val, ":", 3)
-	if split[0] == "" {
-		return val, fmt.Errorf("bad format for path: %s", val)
-	}
-	switch len(split) {
-	case 1:
-		containerPath = split[0]
-		val = path.Clean(containerPath)
-	case 2:
-		if isValid := validator(split[1]); isValid {
-			containerPath = split[0]
-			mode = split[1]
-			val = fmt.Sprintf("%s:%s", path.Clean(containerPath), mode)
-		} else {
-			containerPath = split[1]
-			val = fmt.Sprintf("%s:%s", split[0], path.Clean(containerPath))
-		}
-	case 3:
-		containerPath = split[1]
-		mode = split[2]
-		if isValid := validator(split[2]); !isValid {
-			return val, fmt.Errorf("bad mode specified: %s", mode)
-		}
-		val = fmt.Sprintf("%s:%s:%s", split[0], containerPath, mode)
-	}
-
-	if !path.IsAbs(containerPath) {
-		return val, fmt.Errorf("%s is not an absolute path", containerPath)
-	}
-	return val, nil
-}
-
 // ValidateEnv validates an environment variable and returns it.
 // If no value is specified, it returns the current value using os.Getenv.
 //
@@ -327,26 +239,6 @@ func ValidateLabel(val string) (string, error) {
 		return "", fmt.Errorf("bad attribute format: %s", val)
 	}
 	return val, nil
-}
-
-// ValidateHost validates that the specified string is a valid host and returns it.
-func ValidateHost(val string) (string, error) {
-	_, err := parsers.ParseDockerDaemonHost(DefaultTCPHost, DefaultTLSHost, DefaultUnixSocket, "", val)
-	if err != nil {
-		return val, err
-	}
-	// Note: unlike most flag validators, we don't return the mutated value here
-	//       we need to know what the user entered later (using ParseHost) to adjust for tls
-	return val, nil
-}
-
-// ParseHost and set defaults for a Daemon host string
-func ParseHost(defaultHost, val string) (string, error) {
-	host, err := parsers.ParseDockerDaemonHost(DefaultTCPHost, DefaultTLSHost, DefaultUnixSocket, defaultHost, val)
-	if err != nil {
-		return val, err
-	}
-	return host, nil
 }
 
 func doesEnvExist(name string) bool {

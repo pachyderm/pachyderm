@@ -2,6 +2,15 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## v1.3.0 - 2016-01-11
+
+### Added
+ - Added new error types, the following error types can now be returned: `RQLClientError`, `RQLCompileError`, `RQLDriverCompileError`, `RQLServerCompileError`, `RQLAuthError`, `RQLRuntimeError`, `RQLQueryLogicError`, `RQLNonExistenceError`, `RQLResourceLimitError`, `RQLUserError`, `RQLInternalError`, `RQLTimeoutError`, `RQLAvailabilityError`, `RQLOpFailedError`, `RQLOpIndeterminateError`, `RQLDriverError`, `RQLConnectionError`. Please note that some other errors can be returned.
+ - Added `IsConnected` function to `Session`.
+ 
+### Fixed
+ - Fixed panic when scanning through results caused by incorrect queue implementation.
+
 ## v1.2.0 - 2015-11-19
 ### Added
  - Added `UUID` term

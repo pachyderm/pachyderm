@@ -7,7 +7,7 @@
 //   import "google.golang.org/api/compute/v1"
 //   ...
 //   computeService, err := compute.New(oauthHttpClient)
-package compute
+package compute // import "google.golang.org/api/compute/v1"
 
 import (
 	"bytes"
@@ -555,12 +555,12 @@ type Address struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource;
-	// provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of the resource. Always compute#address for
@@ -628,8 +628,12 @@ type AddressAggregatedList struct {
 	// compute#addressAggregatedList for aggregated lists of addresses.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -656,8 +660,8 @@ func (s *AddressAggregatedList) MarshalJSON() ([]byte, error) {
 
 // AddressList: Contains a list of address resources.
 type AddressList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A list of Address resources.
@@ -667,8 +671,12 @@ type AddressList struct {
 	// lists of addresses.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for the resource.
@@ -719,7 +727,9 @@ func (s *AddressesScopedList) MarshalJSON() ([]byte, error) {
 // AddressesScopedListWarning: [Output Only] Informational warning which
 // replaces the list of addresses when the list is empty.
 type AddressesScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -738,11 +748,13 @@ type AddressesScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*AddressesScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -761,7 +773,14 @@ func (s *AddressesScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type AddressesScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -946,12 +965,12 @@ type Autoscaler struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource;
-	// provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: Type of the resource.
@@ -996,8 +1015,8 @@ func (s *Autoscaler) MarshalJSON() ([]byte, error) {
 }
 
 type AutoscalerAggregatedList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: A map of scoped autoscaler lists.
@@ -1006,8 +1025,12 @@ type AutoscalerAggregatedList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -1034,8 +1057,8 @@ func (s *AutoscalerAggregatedList) MarshalJSON() ([]byte, error) {
 
 // AutoscalerList: Contains a list of persistent autoscaler resources.
 type AutoscalerList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: A list of Autoscaler resources.
@@ -1044,8 +1067,12 @@ type AutoscalerList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -1096,7 +1123,9 @@ func (s *AutoscalersScopedList) MarshalJSON() ([]byte, error) {
 // AutoscalersScopedListWarning: Informational warning which replaces
 // the list of autoscalers when the list is empty.
 type AutoscalersScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -1115,11 +1144,13 @@ type AutoscalersScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*AutoscalersScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -1138,7 +1169,14 @@ func (s *AutoscalersScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type AutoscalersScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -1317,8 +1355,8 @@ type Backend struct {
 	// range is [0.0,1.0].
 	CapacityScaler float64 `json:"capacityScaler,omitempty"`
 
-	// Description: An optional textual description of the resource.
-	// Provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// Group: The fully-qualified URL of a zonal Instance Group resource.
@@ -1374,8 +1412,8 @@ type BackendService struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource.
-	// Provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// Fingerprint: Fingerprint of this resource. A hash of the contents
@@ -1390,8 +1428,8 @@ type BackendService struct {
 	// check is required.
 	HealthChecks []string `json:"healthChecks,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of resource. Always compute#backendService
@@ -1474,8 +1512,8 @@ func (s *BackendServiceGroupHealth) MarshalJSON() ([]byte, error) {
 
 // BackendServiceList: Contains a list of BackendService resources.
 type BackendServiceList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: A list of BackendService resources.
@@ -1485,8 +1523,12 @@ type BackendServiceList struct {
 	// compute#backendServiceList for lists of backend services.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -1564,12 +1606,12 @@ type Disk struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource;
-	// provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of the resource. Always compute#disk for
@@ -1700,8 +1742,8 @@ func (s *Disk) MarshalJSON() ([]byte, error) {
 }
 
 type DiskAggregatedList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A map of scoped disk lists.
@@ -1711,8 +1753,12 @@ type DiskAggregatedList struct {
 	// compute#diskAggregatedList for aggregated lists of persistent disks.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -1739,8 +1785,8 @@ func (s *DiskAggregatedList) MarshalJSON() ([]byte, error) {
 
 // DiskList: A list of Disk resources.
 type DiskList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A list of persistent disks.
@@ -1750,8 +1796,12 @@ type DiskList struct {
 	// lists of disks.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -1824,12 +1874,11 @@ type DiskType struct {
 	// disk type.
 	Deprecated *DeprecationStatus `json:"deprecated,omitempty"`
 
-	// Description: [Output Only] An optional textual description of the
-	// resource.
+	// Description: [Output Only] An optional description of this resource.
 	Description string `json:"description,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of the resource. Always compute#diskType for
@@ -1869,8 +1918,8 @@ func (s *DiskType) MarshalJSON() ([]byte, error) {
 }
 
 type DiskTypeAggregatedList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A map of scoped disk type lists.
@@ -1880,8 +1929,12 @@ type DiskTypeAggregatedList struct {
 	// compute#diskTypeAggregatedList.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -1908,8 +1961,8 @@ func (s *DiskTypeAggregatedList) MarshalJSON() ([]byte, error) {
 
 // DiskTypeList: Contains a list of disk type resources.
 type DiskTypeList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A list of Disk Type resources.
@@ -1919,8 +1972,12 @@ type DiskTypeList struct {
 	// disk types.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -1971,7 +2028,9 @@ func (s *DiskTypesScopedList) MarshalJSON() ([]byte, error) {
 // DiskTypesScopedListWarning: [Output Only] Informational warning which
 // replaces the list of disk types when the list is empty.
 type DiskTypesScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -1990,11 +2049,13 @@ type DiskTypesScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*DiskTypesScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -2013,7 +2074,14 @@ func (s *DiskTypesScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type DiskTypesScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -2060,7 +2128,9 @@ func (s *DisksScopedList) MarshalJSON() ([]byte, error) {
 // DisksScopedListWarning: [Output Only] Informational warning which
 // replaces the list of disks when the list is empty.
 type DisksScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -2079,11 +2149,13 @@ type DisksScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*DisksScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -2102,7 +2174,14 @@ func (s *DisksScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type DisksScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -2134,12 +2213,12 @@ type Firewall struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource;
-	// provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Ony] Type of the resource. Always compute#firewall for
@@ -2248,8 +2327,8 @@ func (s *FirewallAllowed) MarshalJSON() ([]byte, error) {
 
 // FirewallList: Contains a list of Firewall resources.
 type FirewallList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A list of Firewall resources.
@@ -2259,8 +2338,12 @@ type FirewallList struct {
 	// lists of firewalls.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -2312,16 +2395,16 @@ type ForwardingRule struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource;
-	// provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of the resource. Always
-	// compute#forwardingRule.
+	// compute#forwardingRule for Forwarding Rule resources.
 	Kind string `json:"kind,omitempty"`
 
 	// Name: Name of the resource; provided by the client when the resource
@@ -2373,8 +2456,8 @@ func (s *ForwardingRule) MarshalJSON() ([]byte, error) {
 }
 
 type ForwardingRuleAggregatedList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: A map of scoped forwarding rule lists.
@@ -2383,8 +2466,12 @@ type ForwardingRuleAggregatedList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -2421,8 +2508,12 @@ type ForwardingRuleList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -2473,7 +2564,9 @@ func (s *ForwardingRulesScopedList) MarshalJSON() ([]byte, error) {
 // ForwardingRulesScopedListWarning: Informational warning which
 // replaces the list of forwarding rules when the list is empty.
 type ForwardingRulesScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -2492,11 +2585,13 @@ type ForwardingRulesScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*ForwardingRulesScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -2515,7 +2610,14 @@ func (s *ForwardingRulesScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type ForwardingRulesScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -2589,7 +2691,8 @@ func (s *HealthStatus) MarshalJSON() ([]byte, error) {
 // HostRule: UrlMaps A host-matching rule for a URL. If matched, will
 // use the named PathMatcher to select the BackendService.
 type HostRule struct {
-	// Description: An optional textual description.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// Hosts: The list of host patterns to match. They must be valid
@@ -2629,8 +2732,8 @@ type HttpHealthCheck struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource;
-	// provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// HealthyThreshold: A so-far unhealthy instance will be marked healthy
@@ -2642,8 +2745,8 @@ type HttpHealthCheck struct {
 	// health check is performed will be used.
 	Host string `json:"host,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource. Defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: Type of the resource.
@@ -2710,8 +2813,12 @@ type HttpHealthCheckList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -2748,8 +2855,8 @@ type HttpsHealthCheck struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource;
-	// provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// HealthyThreshold: A so-far unhealthy instance will be marked healthy
@@ -2761,8 +2868,8 @@ type HttpsHealthCheck struct {
 	// health check is performed will be used.
 	Host string `json:"host,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: Type of the resource.
@@ -2829,8 +2936,12 @@ type HttpsHealthCheckList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -2868,16 +2979,16 @@ type Image struct {
 	// Deprecated: The deprecation status associated with this image.
 	Deprecated *DeprecationStatus `json:"deprecated,omitempty"`
 
-	// Description: Textual description of the resource; provided by the
-	// client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// DiskSizeGb: Size of the image when restored onto a persistent disk
 	// (in GB).
 	DiskSizeGb int64 `json:"diskSizeGb,omitempty,string"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of the resource. Always compute#image for
@@ -2991,8 +3102,8 @@ func (s *ImageRawDisk) MarshalJSON() ([]byte, error) {
 
 // ImageList: Contains a list of Image resources.
 type ImageList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A list of Image resources.
@@ -3001,8 +3112,12 @@ type ImageList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -3050,8 +3165,8 @@ type Instance struct {
 	// must be created before you can assign them.
 	Disks []*AttachedDisk `json:"disks,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] Unique identifier for the resource. This identifier
+	// is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of the resource. Always compute#instance for
@@ -3059,11 +3174,27 @@ type Instance struct {
 	Kind string `json:"kind,omitempty"`
 
 	// MachineType: Full or partial URL of the machine type resource to use
-	// for this instance. This is provided by the client when the instance
-	// is created. For example, the following is a valid partial
-	// url:
+	// for this instance, in the format: zones/zone/machineTypes/
+	// machine-type. This is provided by the client when the instance is
+	// created. For example, the following is a valid partial url to a
+	// predefined machine
+	// type:
 	//
-	// zones/zone/machineTypes/machine-type
+	// zones/us-central1-f/machineTypes/n1-standard-1
+	//
+	// To create a custom machine type, provide a URL to a machine type in
+	// the following format, where CPUS is 1 or an even number up to 32 (2,
+	// 4, 6, ... 24, etc), and MEMORY is the total memory for this instance.
+	// Memory must be a multiple of 256 MB and must be supplied in MB (e.g.
+	// 5 GB of memory is 5120
+	// MB):
+	//
+	// zones/zone/machineTypes/custom-CPUS-MEMORY
+	//
+	// For example: zones/us-central1-f/machineTypes/custom-4-5120
+	//
+	// For a full list of restrictions, read the Specifications for custom
+	// machine types.
 	MachineType string `json:"machineType,omitempty"`
 
 	// Metadata: The metadata key/value pairs assigned to this instance.
@@ -3146,8 +3277,8 @@ func (s *Instance) MarshalJSON() ([]byte, error) {
 }
 
 type InstanceAggregatedList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A map of scoped instance lists.
@@ -3189,7 +3320,8 @@ type InstanceGroup struct {
 	// instance group in RFC3339 text format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional text description for the instance group.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// Fingerprint: [Output Only] The fingerprint of the named ports. The
@@ -3268,8 +3400,12 @@ type InstanceGroupAggregatedList struct {
 	// groups.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token that is used to continue a
-	// truncated list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] The URL for this resource type. The server
@@ -3308,8 +3444,12 @@ type InstanceGroupList struct {
 	// compute#instanceGroupList for instance group lists.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token that is used to continue a
-	// truncated list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] The URL for this resource type. The server
@@ -3354,8 +3494,8 @@ type InstanceGroupManager struct {
 	// for each of those actions.
 	CurrentActions *InstanceGroupManagerActionsSummary `json:"currentActions,omitempty"`
 
-	// Description: An optional text description for the managed instance
-	// group.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// Fingerprint: [Output Only] The fingerprint of the target pools
@@ -3491,8 +3631,12 @@ type InstanceGroupManagerAggregatedList struct {
 	// managed instance groups.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token that is used to continue a
-	// truncated list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] The URL for this resource type. The server
@@ -3533,8 +3677,12 @@ type InstanceGroupManagerList struct {
 	// groups.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token that is used to continue a
-	// truncated list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] The URL for this resource type. The server
@@ -3672,7 +3820,9 @@ func (s *InstanceGroupManagersScopedList) MarshalJSON() ([]byte, error) {
 // that replaces the list of managed instance groups when the list is
 // empty.
 type InstanceGroupManagersScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -3691,11 +3841,13 @@ type InstanceGroupManagersScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*InstanceGroupManagersScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -3714,7 +3866,14 @@ func (s *InstanceGroupManagersScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type InstanceGroupManagersScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -3819,8 +3978,12 @@ type InstanceGroupsListInstances struct {
 	// compute#instanceGroupsListInstances for lists of instance groups.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token that is used to continue a
-	// truncated list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] The URL for this list of instance groups. The
@@ -3919,7 +4082,9 @@ func (s *InstanceGroupsScopedList) MarshalJSON() ([]byte, error) {
 // warning that replaces the list of instance groups when the list is
 // empty.
 type InstanceGroupsScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -3938,11 +4103,13 @@ type InstanceGroupsScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*InstanceGroupsScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -3961,7 +4128,14 @@ func (s *InstanceGroupsScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type InstanceGroupsScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -4011,8 +4185,8 @@ func (s *InstanceGroupsSetNamedPortsRequest) MarshalJSON() ([]byte, error) {
 
 // InstanceList: Contains a list of instance resources.
 type InstanceList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A list of Instance resources.
@@ -4170,7 +4344,8 @@ type InstanceTemplate struct {
 	// instance template in RFC3339 text format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional text description for the instance template.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// Id: [Output Only] A unique identifier for this instance template. The
@@ -4229,8 +4404,12 @@ type InstanceTemplateList struct {
 	// compute#instanceTemplatesListResponse for instance template lists.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token that is used to continue a
-	// truncated list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] The URL for this instance template list. The
@@ -4318,7 +4497,9 @@ func (s *InstancesScopedList) MarshalJSON() ([]byte, error) {
 // InstancesScopedListWarning: [Output Only] Informational warning which
 // replaces the list of instances when the list is empty.
 type InstancesScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -4337,11 +4518,13 @@ type InstancesScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*InstancesScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -4360,7 +4543,14 @@ func (s *InstancesScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type InstancesScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -4383,8 +4573,9 @@ func (s *InstancesScopedListWarningData) MarshalJSON() ([]byte, error) {
 
 // License: A license resource.
 type License struct {
-	// ChargesUseFee: If true, the customer will be charged license fee for
-	// running software that contains this license on an instance.
+	// ChargesUseFee: [Output Only] If true, the customer will be charged
+	// license fee for running software that contains this license on an
+	// instance.
 	ChargesUseFee bool `json:"chargesUseFee,omitempty"`
 
 	// Kind: [Output Only] Type of resource. Always compute#license for
@@ -4431,18 +4622,20 @@ type MachineType struct {
 	// resource.
 	Description string `json:"description,omitempty"`
 
-	// GuestCpus: [Output Only] The tumber of CPUs exposed to the instance.
+	// GuestCpus: [Output Only] The number of virtual CPUs that are
+	// available to the instance.
 	GuestCpus int64 `json:"guestCpus,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// ImageSpaceGb: [Deprecated] This property is deprecated and will never
 	// be populated with any relevant values.
 	ImageSpaceGb int64 `json:"imageSpaceGb,omitempty"`
 
-	// Kind: Type of the resource.
+	// Kind: [Output Only] The type of the resource. Always
+	// compute#machineType for machine types.
 	Kind string `json:"kind,omitempty"`
 
 	// MaximumPersistentDisks: [Output Only] Maximum persistent disks
@@ -4510,8 +4703,8 @@ func (s *MachineTypeScratchDisks) MarshalJSON() ([]byte, error) {
 }
 
 type MachineTypeAggregatedList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A map of scoped machine type lists.
@@ -4522,8 +4715,12 @@ type MachineTypeAggregatedList struct {
 	// types.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -4550,8 +4747,8 @@ func (s *MachineTypeAggregatedList) MarshalJSON() ([]byte, error) {
 
 // MachineTypeList: Contains a list of Machine Type resources.
 type MachineTypeList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A list of Machine Type resources.
@@ -4561,8 +4758,12 @@ type MachineTypeList struct {
 	// for lists of machine types.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -4614,7 +4815,9 @@ func (s *MachineTypesScopedList) MarshalJSON() ([]byte, error) {
 // MachineTypesScopedListWarning: [Output Only] An informational warning
 // that appears when the machine types list is empty.
 type MachineTypesScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -4633,11 +4836,13 @@ type MachineTypesScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*MachineTypesScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -4656,7 +4861,14 @@ func (s *MachineTypesScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type MachineTypesScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -4913,8 +5125,8 @@ type Network struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource.
-	// Provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// GatewayIPv4: A gateway address for default routing to other networks.
@@ -4922,8 +5134,8 @@ type Network struct {
 	// typically as the first usable address in the IPv4Range.
 	GatewayIPv4 string `json:"gatewayIPv4,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource. Defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of the resource. Always compute#network for
@@ -5010,8 +5222,8 @@ func (s *NetworkInterface) MarshalJSON() ([]byte, error) {
 
 // NetworkList: Contains a list of Network resources.
 type NetworkList struct {
-	// Id: [Output Only] Unique identifier for the resource. Defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A list of Network resources.
@@ -5021,8 +5233,12 @@ type NetworkList struct {
 	// lists of networks.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource .
@@ -5050,17 +5266,20 @@ func (s *NetworkList) MarshalJSON() ([]byte, error) {
 // Operation: An Operation resource, used to manage asynchronous API
 // requests.
 type Operation struct {
-	// ClientOperationId: [Output Only] An optional identifier specified by
-	// the client when the mutation was initiated. Must be unique for all
-	// Operation resources in the project.
+	// ClientOperationId: [Output Only] A unique client ID generated by the
+	// server.
 	ClientOperationId string `json:"clientOperationId,omitempty"`
 
 	// CreationTimestamp: [Output Only] Creation timestamp in RFC3339 text
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
+	// Description: [Output Only] A textual description of the operation,
+	// which is set when the operation is created.
+	Description string `json:"description,omitempty"`
+
 	// EndTime: [Output Only] The time that this operation was completed.
-	// This is in RFC3339 text format.
+	// This value is in RFC3339 text format.
 	EndTime string `json:"endTime,omitempty"`
 
 	// Error: [Output Only] If errors are generated during processing of the
@@ -5072,15 +5291,16 @@ type Operation struct {
 	HttpErrorMessage string `json:"httpErrorMessage,omitempty"`
 
 	// HttpErrorStatusCode: [Output Only] If the operation fails, this field
-	// contains the HTTP error message that was returned, such as 404.
+	// contains the HTTP error message that was returned. For example, a 404
+	// means the resource was not found.
 	HttpErrorStatusCode int64 `json:"httpErrorStatusCode,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// InsertTime: [Output Only] The time that this operation was requested.
-	// This is in RFC3339 text format.
+	// This value is in RFC3339 text format.
 	InsertTime string `json:"insertTime,omitempty"`
 
 	// Kind: [Output Only] Type of the resource. Always compute#operation
@@ -5090,8 +5310,8 @@ type Operation struct {
 	// Name: [Output Only] Name of the resource.
 	Name string `json:"name,omitempty"`
 
-	// OperationType: [Output Only] Type of the operation, such as insert,
-	// compute.instanceGroups.update, or compute.instanceGroups.delete.
+	// OperationType: [Output Only] The type of operation, which can be
+	// insert, update, or delete.
 	OperationType string `json:"operationType,omitempty"`
 
 	// Progress: [Output Only] An optional progress indicator that ranges
@@ -5109,11 +5329,11 @@ type Operation struct {
 	SelfLink string `json:"selfLink,omitempty"`
 
 	// StartTime: [Output Only] The time that this operation was started by
-	// the server. This is in RFC3339 text format.
+	// the server. This value is in RFC3339 text format.
 	StartTime string `json:"startTime,omitempty"`
 
-	// Status: [Output Only] Status of the operation. Can be one of the
-	// following: PENDING, RUNNING, or DONE.
+	// Status: [Output Only] The status of the operation, which can be one
+	// of the following: PENDING, RUNNING, or DONE.
 	//
 	// Possible values:
 	//   "DONE"
@@ -5125,12 +5345,12 @@ type Operation struct {
 	// current status of the operation.
 	StatusMessage string `json:"statusMessage,omitempty"`
 
-	// TargetId: [Output Only] Unique target ID which identifies a
-	// particular incarnation of the target.
+	// TargetId: [Output Only] The unique target ID, which identifies a
+	// specific incarnation of the target resource.
 	TargetId uint64 `json:"targetId,omitempty,string"`
 
-	// TargetLink: [Output Only] URL of the resource the operation is
-	// mutating.
+	// TargetLink: [Output Only] The URL of the resource that the operation
+	// is modifying.
 	TargetLink string `json:"targetLink,omitempty"`
 
 	// User: [Output Only] User who requested the operation, for example:
@@ -5212,7 +5432,9 @@ func (s *OperationErrorErrors) MarshalJSON() ([]byte, error) {
 }
 
 type OperationWarnings struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -5231,11 +5453,13 @@ type OperationWarnings struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*OperationWarningsData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -5254,7 +5478,14 @@ func (s *OperationWarnings) MarshalJSON() ([]byte, error) {
 }
 
 type OperationWarningsData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -5276,8 +5507,8 @@ func (s *OperationWarningsData) MarshalJSON() ([]byte, error) {
 }
 
 type OperationAggregatedList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A map of scoped operation lists.
@@ -5287,8 +5518,12 @@ type OperationAggregatedList struct {
 	// compute#operationAggregatedList for aggregated lists of operations.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -5315,8 +5550,8 @@ func (s *OperationAggregatedList) MarshalJSON() ([]byte, error) {
 
 // OperationList: Contains a list of Operation resources.
 type OperationList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] The Operation resources.
@@ -5326,7 +5561,12 @@ type OperationList struct {
 	// Operations resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncate.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -5377,7 +5617,9 @@ func (s *OperationsScopedList) MarshalJSON() ([]byte, error) {
 // OperationsScopedListWarning: [Output Only] Informational warning
 // which replaces the list of operations when the list is empty.
 type OperationsScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -5396,11 +5638,13 @@ type OperationsScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*OperationsScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -5419,7 +5663,14 @@ func (s *OperationsScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type OperationsScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -5444,9 +5695,13 @@ func (s *OperationsScopedListWarningData) MarshalJSON() ([]byte, error) {
 // BackendService from the longest-matched rule will serve the URL. If
 // no rule was matched, the default service will be used.
 type PathMatcher struct {
+	// DefaultService: The URL to the BackendService resource. This will be
+	// used if none of the pathRules defined by this PathMatcher is met by
+	// the URL's path portion.
 	DefaultService string `json:"defaultService,omitempty"`
 
-	// Description: An optional textual description of the resource.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// Name: The name to which this PathMatcher is referred by the HostRule.
@@ -5517,15 +5772,17 @@ type Project struct {
 	// EnabledFeatures: Restricted features enabled for use on this project.
 	EnabledFeatures []string `json:"enabledFeatures,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server. This is not the project ID, and
+	// is just a unique ID used by Compute Engine to identify resources.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of the resource. Always compute#project for
 	// projects.
 	Kind string `json:"kind,omitempty"`
 
-	// Name: Name of the resource.
+	// Name: The project ID. For example: my-example-project. Use the
+	// project ID to make requests to Compute Engine.
 	Name string `json:"name,omitempty"`
 
 	// Quotas: [Output Only] Quotas assigned to this project.
@@ -5566,6 +5823,7 @@ type Quota struct {
 	// Metric: [Output Only] Name of the quota metric.
 	//
 	// Possible values:
+	//   "AUTOSCALERS"
 	//   "BACKEND_SERVICES"
 	//   "CPUS"
 	//   "DISKS_TOTAL_GB"
@@ -5625,8 +5883,8 @@ type Region struct {
 	// Description: [Output Only] Textual description of the resource.
 	Description string `json:"description,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server .
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of the resource. Always compute#region for
@@ -5674,8 +5932,8 @@ func (s *Region) MarshalJSON() ([]byte, error) {
 
 // RegionList: Contains a list of region resources.
 type RegionList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A list of Region resources.
@@ -5685,8 +5943,12 @@ type RegionList struct {
 	// lists of regions.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -5751,16 +6013,16 @@ type Route struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource.
-	// Provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// DestRange: The destination range of outgoing packets that this route
 	// applies to.
 	DestRange string `json:"destRange,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource. Defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of this resource. Always compute#routes for
@@ -5840,7 +6102,9 @@ func (s *Route) MarshalJSON() ([]byte, error) {
 }
 
 type RouteWarnings struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -5859,11 +6123,13 @@ type RouteWarnings struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*RouteWarningsData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -5882,7 +6148,14 @@ func (s *RouteWarnings) MarshalJSON() ([]byte, error) {
 }
 
 type RouteWarningsData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -5915,8 +6188,12 @@ type RouteList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -6039,15 +6316,15 @@ type Snapshot struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource;
-	// provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// DiskSizeGb: [Output Only] Size of the snapshot, specified in GB.
 	DiskSizeGb int64 `json:"diskSizeGb,omitempty,string"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of the resource. Always compute#snapshot for
@@ -6123,8 +6400,8 @@ func (s *Snapshot) MarshalJSON() ([]byte, error) {
 
 // SnapshotList: Contains a list of Snapshot resources.
 type SnapshotList struct {
-	// Id: [Output Only] Unique identifier for the resource. Defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: A list of Snapshot resources.
@@ -6133,8 +6410,12 @@ type SnapshotList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -6172,12 +6453,12 @@ type SslCertificate struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource.
-	// Provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource. Defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of the resource. Always
@@ -6231,8 +6512,12 @@ type SslCertificateList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -6295,16 +6580,16 @@ type TargetHttpProxy struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource;
-	// provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource. Defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
-	// Kind: [Output Only] Type of resource. Always compute#operation for
-	// Operation resources.
+	// Kind: [Output Only] Type of resource. Always compute#targetHttpProxy
+	// for target HTTP proxies.
 	Kind string `json:"kind,omitempty"`
 
 	// Name: Name of the resource; provided by the client when the resource
@@ -6344,8 +6629,8 @@ func (s *TargetHttpProxy) MarshalJSON() ([]byte, error) {
 
 // TargetHttpProxyList: A list of TargetHttpProxy resources.
 type TargetHttpProxyList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: A list of TargetHttpProxy resources.
@@ -6355,8 +6640,12 @@ type TargetHttpProxyList struct {
 	// of Target HTTP proxies.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -6409,15 +6698,16 @@ type TargetHttpsProxy struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource.
-	// Provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
-	// Kind: Type of the resource.
+	// Kind: [Output Only] Type of the resource. Always
+	// compute#targetHttpsProxy for target HTTPS proxies.
 	Kind string `json:"kind,omitempty"`
 
 	// Name: Name of the resource. Provided by the client when the resource
@@ -6462,8 +6752,8 @@ func (s *TargetHttpsProxy) MarshalJSON() ([]byte, error) {
 
 // TargetHttpsProxyList: Contains a list of TargetHttpsProxy resources.
 type TargetHttpsProxyList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: A list of TargetHttpsProxy resources.
@@ -6472,8 +6762,12 @@ type TargetHttpsProxyList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -6505,19 +6799,20 @@ type TargetInstance struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource;
-	// provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Instance: The URL to the instance that terminates the relevant
 	// traffic.
 	Instance string `json:"instance,omitempty"`
 
-	// Kind: Type of the resource.
+	// Kind: [Output Only] The type of the resource. Always
+	// compute#targetInstance for target instances.
 	Kind string `json:"kind,omitempty"`
 
 	// Name: Name of the resource. Provided by the client when the resource
@@ -6573,8 +6868,12 @@ type TargetInstanceAggregatedList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -6601,8 +6900,8 @@ func (s *TargetInstanceAggregatedList) MarshalJSON() ([]byte, error) {
 
 // TargetInstanceList: Contains a list of TargetInstance resources.
 type TargetInstanceList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: A list of TargetInstance resources.
@@ -6611,8 +6910,12 @@ type TargetInstanceList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -6663,7 +6966,9 @@ func (s *TargetInstancesScopedList) MarshalJSON() ([]byte, error) {
 // TargetInstancesScopedListWarning: Informational warning which
 // replaces the list of addresses when the list is empty.
 type TargetInstancesScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -6682,11 +6987,13 @@ type TargetInstancesScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*TargetInstancesScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -6705,7 +7012,14 @@ func (s *TargetInstancesScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type TargetInstancesScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -6751,8 +7065,8 @@ type TargetPool struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource;
-	// provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// FailoverRatio: This field is applicable only when the containing
@@ -6779,8 +7093,8 @@ type TargetPool struct {
 	// instances will be considered healthy at all times.
 	HealthChecks []string `json:"healthChecks,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Instances: A list of resource URLs to the member virtual machines
@@ -6788,7 +7102,8 @@ type TargetPool struct {
 	// region as this pool.
 	Instances []string `json:"instances,omitempty"`
 
-	// Kind: Type of the resource.
+	// Kind: [Output Only] Type of the resource. Always compute#targetPool
+	// for target pools.
 	Kind string `json:"kind,omitempty"`
 
 	// Name: Name of the resource. Provided by the client when the resource
@@ -6854,8 +7169,12 @@ type TargetPoolAggregatedList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -6917,8 +7236,12 @@ type TargetPoolList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -7045,7 +7368,9 @@ func (s *TargetPoolsScopedList) MarshalJSON() ([]byte, error) {
 // TargetPoolsScopedListWarning: Informational warning which replaces
 // the list of addresses when the list is empty.
 type TargetPoolsScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -7064,11 +7389,13 @@ type TargetPoolsScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*TargetPoolsScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -7087,7 +7414,14 @@ func (s *TargetPoolsScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type TargetPoolsScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -7131,8 +7465,8 @@ type TargetVpnGateway struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource.
-	// Provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// ForwardingRules: [Output Only] A list of URLs to the ForwardingRule
@@ -7140,8 +7474,8 @@ type TargetVpnGateway struct {
 	// compute.forwardingRules.insert and associated to a VPN gateway.
 	ForwardingRules []string `json:"forwardingRules,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource. Defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// Kind: [Output Only] Type of resource. Always compute#targetVpnGateway
@@ -7202,8 +7536,8 @@ func (s *TargetVpnGateway) MarshalJSON() ([]byte, error) {
 }
 
 type TargetVpnGatewayAggregatedList struct {
-	// Id: [Output Only] Unique identifier for the resource. Defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: A map of scoped target vpn gateway lists.
@@ -7213,8 +7547,12 @@ type TargetVpnGatewayAggregatedList struct {
 	// for target VPN gateways.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for the resource.
@@ -7241,8 +7579,8 @@ func (s *TargetVpnGatewayAggregatedList) MarshalJSON() ([]byte, error) {
 
 // TargetVpnGatewayList: Contains a list of TargetVpnGateway resources.
 type TargetVpnGatewayList struct {
-	// Id: [Output Only] Unique identifier for the resource. Defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A list of TargetVpnGateway resources.
@@ -7252,8 +7590,12 @@ type TargetVpnGatewayList struct {
 	// for target VPN gateways.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for the resource.
@@ -7305,7 +7647,9 @@ func (s *TargetVpnGatewaysScopedList) MarshalJSON() ([]byte, error) {
 // TargetVpnGatewaysScopedListWarning: [Output Only] Informational
 // warning which replaces the list of addresses when the list is empty.
 type TargetVpnGatewaysScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -7324,11 +7668,13 @@ type TargetVpnGatewaysScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*TargetVpnGatewaysScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -7347,7 +7693,14 @@ func (s *TargetVpnGatewaysScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type TargetVpnGatewaysScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -7404,8 +7757,8 @@ type UrlMap struct {
 	// hostRules match.
 	DefaultService string `json:"defaultService,omitempty"`
 
-	// Description: An optional textual description of the resource.
-	// Provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// Fingerprint: Fingerprint of this resource. A hash of the contents
@@ -7417,11 +7770,12 @@ type UrlMap struct {
 	// HostRules: The list of HostRules to use against the URL.
 	HostRules []*HostRule `json:"hostRules,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource. Set by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
-	// Kind: Type of the resource.
+	// Kind: [Output Only] Type of the resource. Always compute#urlMaps for
+	// url maps.
 	Kind string `json:"kind,omitempty"`
 
 	// Name: Name of the resource. Provided by the client when the resource
@@ -7474,8 +7828,12 @@ type UrlMapList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -7658,16 +8016,16 @@ type VpnTunnel struct {
 	// format.
 	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 
-	// Description: An optional textual description of the resource.
-	// Provided by the client when the resource is created.
+	// Description: An optional description of this resource. Provide this
+	// property when you create the resource.
 	Description string `json:"description,omitempty"`
 
 	// DetailedStatus: [Output Only] Detailed status message for the VPN
 	// tunnel.
 	DetailedStatus string `json:"detailedStatus,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource. Defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
 	// IkeVersion: IKE protocol version to use when establishing the VPN
@@ -7744,8 +8102,8 @@ func (s *VpnTunnel) MarshalJSON() ([]byte, error) {
 }
 
 type VpnTunnelAggregatedList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A map of scoped vpn tunnel lists.
@@ -7755,8 +8113,12 @@ type VpnTunnelAggregatedList struct {
 	// VPN tunnels.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -7783,8 +8145,8 @@ func (s *VpnTunnelAggregatedList) MarshalJSON() ([]byte, error) {
 
 // VpnTunnelList: Contains a list of VpnTunnel resources.
 type VpnTunnelList struct {
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id string `json:"id,omitempty"`
 
 	// Items: [Output Only] A list of VpnTunnel resources.
@@ -7794,8 +8156,12 @@ type VpnTunnelList struct {
 	// VPN tunnels.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for the resource.
@@ -7846,7 +8212,9 @@ func (s *VpnTunnelsScopedList) MarshalJSON() ([]byte, error) {
 // VpnTunnelsScopedListWarning: Informational warning which replaces the
 // list of addresses when the list is empty.
 type VpnTunnelsScopedListWarning struct {
-	// Code: [Output Only] The warning type identifier for this warning.
+	// Code: [Output Only] A warning code, if applicable. For example,
+	// Compute Engine returns NO_RESULTS_ON_PAGE if there are no results in
+	// the response.
 	//
 	// Possible values:
 	//   "DEPRECATED_RESOURCE_USED"
@@ -7865,11 +8233,13 @@ type VpnTunnelsScopedListWarning struct {
 	//   "UNREACHABLE"
 	Code string `json:"code,omitempty"`
 
-	// Data: [Output Only] Metadata for this warning in key: value format.
+	// Data: [Output Only] Metadata about this warning in key: value format.
+	// For example:
+	// "data": [ { "key": "scope", "value": "zones/us-east1-d" }
 	Data []*VpnTunnelsScopedListWarningData `json:"data,omitempty"`
 
-	// Message: [Output Only] Optional human-readable details for this
-	// warning.
+	// Message: [Output Only] A human-readable description of the warning
+	// code.
 	Message string `json:"message,omitempty"`
 
 	// ForceSendFields is a list of field names (e.g. "Code") to
@@ -7888,7 +8258,14 @@ func (s *VpnTunnelsScopedListWarning) MarshalJSON() ([]byte, error) {
 }
 
 type VpnTunnelsScopedListWarningData struct {
-	// Key: [Output Only] A key for the warning data.
+	// Key: [Output Only] A key that provides more detail on the warning
+	// being returned. For example, for warnings where there are no results
+	// in a list request for a particular zone, this key might be scope and
+	// the key value might be the zone name. Other examples might be a key
+	// indicating a deprecated resource, and a suggested replacement, or a
+	// warning about invalid network settings (for example, if an instance
+	// attempts to perform IP forwarding but is not enabled for IP
+	// forwarding).
 	Key string `json:"key,omitempty"`
 
 	// Value: [Output Only] A warning data value corresponding to the key.
@@ -7922,11 +8299,12 @@ type Zone struct {
 	// Description: [Output Only] Textual description of the resource.
 	Description string `json:"description,omitempty"`
 
-	// Id: [Output Only] Unique identifier for the resource; defined by the
-	// server.
+	// Id: [Output Only] The unique identifier for the resource. This
+	// identifier is defined by the server.
 	Id uint64 `json:"id,omitempty,string"`
 
-	// Kind: [Output Only] Type of the resource. Always kind#zone for zones.
+	// Kind: [Output Only] Type of the resource. Always compute#zone for
+	// zones.
 	Kind string `json:"kind,omitempty"`
 
 	// MaintenanceWindows: [Output Only] Any scheduled maintenance windows
@@ -8014,8 +8392,12 @@ type ZoneList struct {
 	// Kind: Type of resource.
 	Kind string `json:"kind,omitempty"`
 
-	// NextPageToken: [Output Only] A token used to continue a truncated
-	// list request.
+	// NextPageToken: [Output Only] This token allows you to get the next
+	// page of results for list requests. If the number of results is larger
+	// than maxResults, use the nextPageToken as a value for the query
+	// parameter pageToken in the next list request. Subsequent list
+	// requests will have their own nextPageToken to continue paging through
+	// the results.
 	NextPageToken string `json:"nextPageToken,omitempty"`
 
 	// SelfLink: [Output Only] Server-defined URL for this resource.
@@ -8060,37 +8442,69 @@ func (r *AddressesService) AggregatedList(project string) *AddressesAggregatedLi
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *AddressesAggregatedListCall) Filter(filter string) *AddressesAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *AddressesAggregatedListCall) MaxResults(maxResults int64) *AddressesAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *AddressesAggregatedListCall) PageToken(pageToken string) *AddressesAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *AddressesAggregatedListCall) QuotaUser(quotaUser string) *AddressesAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *AddressesAggregatedListCall) UserIP(userIP string) *AddressesAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -8183,13 +8597,13 @@ func (c *AddressesAggregatedListCall) Do() (*AddressAggregatedList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -8197,7 +8611,7 @@ func (c *AddressesAggregatedListCall) Do() (*AddressAggregatedList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -8240,6 +8654,23 @@ func (r *AddressesService) Delete(project string, region string, address string)
 	c.project = project
 	c.region = region
 	c.address = address
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *AddressesDeleteCall) QuotaUser(quotaUser string) *AddressesDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *AddressesDeleteCall) UserIP(userIP string) *AddressesDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -8375,6 +8806,23 @@ func (r *AddressesService) Get(project string, region string, address string) *A
 	c.project = project
 	c.region = region
 	c.address = address
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *AddressesGetCall) QuotaUser(quotaUser string) *AddressesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *AddressesGetCall) UserIP(userIP string) *AddressesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -8527,6 +8975,23 @@ func (r *AddressesService) Insert(project string, region string, address *Addres
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *AddressesInsertCall) QuotaUser(quotaUser string) *AddressesInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *AddressesInsertCall) UserIP(userIP string) *AddressesInsertCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -8663,37 +9128,69 @@ func (r *AddressesService) List(project string, region string) *AddressesListCal
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *AddressesListCall) Filter(filter string) *AddressesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *AddressesListCall) MaxResults(maxResults int64) *AddressesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *AddressesListCall) PageToken(pageToken string) *AddressesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *AddressesListCall) QuotaUser(quotaUser string) *AddressesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *AddressesListCall) UserIP(userIP string) *AddressesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -8788,13 +9285,13 @@ func (c *AddressesListCall) Do() (*AddressList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -8802,7 +9299,7 @@ func (c *AddressesListCall) Do() (*AddressList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -8853,37 +9350,69 @@ func (r *AutoscalersService) AggregatedList(project string) *AutoscalersAggregat
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *AutoscalersAggregatedListCall) Filter(filter string) *AutoscalersAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *AutoscalersAggregatedListCall) MaxResults(maxResults int64) *AutoscalersAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *AutoscalersAggregatedListCall) PageToken(pageToken string) *AutoscalersAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *AutoscalersAggregatedListCall) QuotaUser(quotaUser string) *AutoscalersAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *AutoscalersAggregatedListCall) UserIP(userIP string) *AutoscalersAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -8976,13 +9505,13 @@ func (c *AutoscalersAggregatedListCall) Do() (*AutoscalerAggregatedList, error) 
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -8990,12 +9519,12 @@ func (c *AutoscalersAggregatedListCall) Do() (*AutoscalerAggregatedList, error) 
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -9032,6 +9561,23 @@ func (r *AutoscalersService) Delete(project string, zone string, autoscaler stri
 	c.project = project
 	c.zone = zone
 	c.autoscaler = autoscaler
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *AutoscalersDeleteCall) QuotaUser(quotaUser string) *AutoscalersDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *AutoscalersDeleteCall) UserIP(userIP string) *AutoscalersDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -9122,7 +9668,7 @@ func (c *AutoscalersDeleteCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -9166,6 +9712,23 @@ func (r *AutoscalersService) Get(project string, zone string, autoscaler string)
 	c.project = project
 	c.zone = zone
 	c.autoscaler = autoscaler
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *AutoscalersGetCall) QuotaUser(quotaUser string) *AutoscalersGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *AutoscalersGetCall) UserIP(userIP string) *AutoscalersGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -9269,7 +9832,7 @@ func (c *AutoscalersGetCall) Do() (*Autoscaler, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -9314,6 +9877,23 @@ func (r *AutoscalersService) Insert(project string, zone string, autoscaler *Aut
 	c.project = project
 	c.zone = zone
 	c.autoscaler = autoscaler
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *AutoscalersInsertCall) QuotaUser(quotaUser string) *AutoscalersInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *AutoscalersInsertCall) UserIP(userIP string) *AutoscalersInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -9401,7 +9981,7 @@ func (c *AutoscalersInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -9452,37 +10032,69 @@ func (r *AutoscalersService) List(project string, zone string) *AutoscalersListC
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *AutoscalersListCall) Filter(filter string) *AutoscalersListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *AutoscalersListCall) MaxResults(maxResults int64) *AutoscalersListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *AutoscalersListCall) PageToken(pageToken string) *AutoscalersListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *AutoscalersListCall) QuotaUser(quotaUser string) *AutoscalersListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *AutoscalersListCall) UserIP(userIP string) *AutoscalersListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -9577,13 +10189,13 @@ func (c *AutoscalersListCall) Do() (*AutoscalerList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -9591,12 +10203,12 @@ func (c *AutoscalersListCall) Do() (*AutoscalerList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -9643,6 +10255,23 @@ func (r *AutoscalersService) Patch(project string, zone string, autoscaler strin
 	c.zone = zone
 	c.urlParams_.Set("autoscaler", autoscaler)
 	c.autoscaler2 = autoscaler2
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *AutoscalersPatchCall) QuotaUser(quotaUser string) *AutoscalersPatchCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *AutoscalersPatchCall) UserIP(userIP string) *AutoscalersPatchCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -9738,7 +10367,7 @@ func (c *AutoscalersPatchCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -9792,6 +10421,23 @@ func (r *AutoscalersService) Update(project string, zone string, autoscaler *Aut
 // autoscaler resource to update.
 func (c *AutoscalersUpdateCall) Autoscaler(autoscaler string) *AutoscalersUpdateCall {
 	c.urlParams_.Set("autoscaler", autoscaler)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *AutoscalersUpdateCall) QuotaUser(quotaUser string) *AutoscalersUpdateCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *AutoscalersUpdateCall) UserIP(userIP string) *AutoscalersUpdateCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -9885,7 +10531,7 @@ func (c *AutoscalersUpdateCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -9930,6 +10576,23 @@ func (r *BackendServicesService) Delete(project string, backendService string) *
 	c := &BackendServicesDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.backendService = backendService
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *BackendServicesDeleteCall) QuotaUser(quotaUser string) *BackendServicesDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *BackendServicesDeleteCall) UserIP(userIP string) *BackendServicesDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -10018,7 +10681,7 @@ func (c *BackendServicesDeleteCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -10054,6 +10717,23 @@ func (r *BackendServicesService) Get(project string, backendService string) *Bac
 	c := &BackendServicesGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.backendService = backendService
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *BackendServicesGetCall) QuotaUser(quotaUser string) *BackendServicesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *BackendServicesGetCall) UserIP(userIP string) *BackendServicesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -10155,7 +10835,7 @@ func (c *BackendServicesGetCall) Do() (*BackendService, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -10194,6 +10874,23 @@ func (r *BackendServicesService) GetHealth(project string, backendService string
 	c.project = project
 	c.backendService = backendService
 	c.resourcegroupreference = resourcegroupreference
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *BackendServicesGetHealthCall) QuotaUser(quotaUser string) *BackendServicesGetHealthCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *BackendServicesGetHealthCall) UserIP(userIP string) *BackendServicesGetHealthCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -10330,6 +11027,23 @@ func (r *BackendServicesService) Insert(project string, backendservice *BackendS
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *BackendServicesInsertCall) QuotaUser(quotaUser string) *BackendServicesInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *BackendServicesInsertCall) UserIP(userIP string) *BackendServicesInsertCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -10412,7 +11126,7 @@ func (c *BackendServicesInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -10455,37 +11169,69 @@ func (r *BackendServicesService) List(project string) *BackendServicesListCall {
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *BackendServicesListCall) Filter(filter string) *BackendServicesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *BackendServicesListCall) MaxResults(maxResults int64) *BackendServicesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *BackendServicesListCall) PageToken(pageToken string) *BackendServicesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *BackendServicesListCall) QuotaUser(quotaUser string) *BackendServicesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *BackendServicesListCall) UserIP(userIP string) *BackendServicesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -10578,13 +11324,13 @@ func (c *BackendServicesListCall) Do() (*BackendServiceList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -10592,12 +11338,12 @@ func (c *BackendServicesListCall) Do() (*BackendServiceList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -10636,6 +11382,23 @@ func (r *BackendServicesService) Patch(project string, backendService string, ba
 	c.project = project
 	c.backendService = backendService
 	c.backendservice = backendservice
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *BackendServicesPatchCall) QuotaUser(quotaUser string) *BackendServicesPatchCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *BackendServicesPatchCall) UserIP(userIP string) *BackendServicesPatchCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -10730,7 +11493,7 @@ func (c *BackendServicesPatchCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -10770,6 +11533,23 @@ func (r *BackendServicesService) Update(project string, backendService string, b
 	c.project = project
 	c.backendService = backendService
 	c.backendservice = backendservice
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *BackendServicesUpdateCall) QuotaUser(quotaUser string) *BackendServicesUpdateCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *BackendServicesUpdateCall) UserIP(userIP string) *BackendServicesUpdateCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -10864,7 +11644,7 @@ func (c *BackendServicesUpdateCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -10907,37 +11687,69 @@ func (r *DiskTypesService) AggregatedList(project string) *DiskTypesAggregatedLi
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *DiskTypesAggregatedListCall) Filter(filter string) *DiskTypesAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *DiskTypesAggregatedListCall) MaxResults(maxResults int64) *DiskTypesAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *DiskTypesAggregatedListCall) PageToken(pageToken string) *DiskTypesAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *DiskTypesAggregatedListCall) QuotaUser(quotaUser string) *DiskTypesAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *DiskTypesAggregatedListCall) UserIP(userIP string) *DiskTypesAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -11030,13 +11842,13 @@ func (c *DiskTypesAggregatedListCall) Do() (*DiskTypeAggregatedList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -11044,7 +11856,7 @@ func (c *DiskTypesAggregatedListCall) Do() (*DiskTypeAggregatedList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -11088,6 +11900,23 @@ func (r *DiskTypesService) Get(project string, zone string, diskType string) *Di
 	c.project = project
 	c.zone = zone
 	c.diskType = diskType
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *DiskTypesGetCall) QuotaUser(quotaUser string) *DiskTypesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *DiskTypesGetCall) UserIP(userIP string) *DiskTypesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -11241,37 +12070,69 @@ func (r *DiskTypesService) List(project string, zone string) *DiskTypesListCall 
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *DiskTypesListCall) Filter(filter string) *DiskTypesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *DiskTypesListCall) MaxResults(maxResults int64) *DiskTypesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *DiskTypesListCall) PageToken(pageToken string) *DiskTypesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *DiskTypesListCall) QuotaUser(quotaUser string) *DiskTypesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *DiskTypesListCall) UserIP(userIP string) *DiskTypesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -11366,13 +12227,13 @@ func (c *DiskTypesListCall) Do() (*DiskTypeList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -11380,7 +12241,7 @@ func (c *DiskTypesListCall) Do() (*DiskTypeList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -11422,7 +12283,8 @@ type DisksAggregatedListCall struct {
 	ctx_         context.Context
 }
 
-// AggregatedList: Retrieves the list of disks grouped by scope.
+// AggregatedList: Retrieves the list of persistent disks grouped by
+// scope.
 // For details, see https://cloud.google.com/compute/docs/reference/latest/disks/aggregatedList
 func (r *DisksService) AggregatedList(project string) *DisksAggregatedListCall {
 	c := &DisksAggregatedListCall{s: r.s, urlParams_: make(gensupport.URLParams)}
@@ -11432,37 +12294,69 @@ func (r *DisksService) AggregatedList(project string) *DisksAggregatedListCall {
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *DisksAggregatedListCall) Filter(filter string) *DisksAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *DisksAggregatedListCall) MaxResults(maxResults int64) *DisksAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *DisksAggregatedListCall) PageToken(pageToken string) *DisksAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *DisksAggregatedListCall) QuotaUser(quotaUser string) *DisksAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *DisksAggregatedListCall) UserIP(userIP string) *DisksAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -11547,7 +12441,7 @@ func (c *DisksAggregatedListCall) Do() (*DiskAggregatedList, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Retrieves the list of disks grouped by scope.",
+	//   "description": "Retrieves the list of persistent disks grouped by scope.",
 	//   "httpMethod": "GET",
 	//   "id": "compute.disks.aggregatedList",
 	//   "parameterOrder": [
@@ -11555,13 +12449,13 @@ func (c *DisksAggregatedListCall) Do() (*DiskAggregatedList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -11569,7 +12463,7 @@ func (c *DisksAggregatedListCall) Do() (*DiskAggregatedList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -11606,7 +12500,7 @@ type DisksCreateSnapshotCall struct {
 	ctx_       context.Context
 }
 
-// CreateSnapshot: Creates a snapshot of this disk.
+// CreateSnapshot: Creates a snapshot of a specified persistent disk.
 // For details, see https://cloud.google.com/compute/docs/reference/latest/disks/createSnapshot
 func (r *DisksService) CreateSnapshot(project string, zone string, disk string, snapshot *Snapshot) *DisksCreateSnapshotCall {
 	c := &DisksCreateSnapshotCall{s: r.s, urlParams_: make(gensupport.URLParams)}
@@ -11614,6 +12508,23 @@ func (r *DisksService) CreateSnapshot(project string, zone string, disk string, 
 	c.zone = zone
 	c.disk = disk
 	c.snapshot = snapshot
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *DisksCreateSnapshotCall) QuotaUser(quotaUser string) *DisksCreateSnapshotCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *DisksCreateSnapshotCall) UserIP(userIP string) *DisksCreateSnapshotCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -11693,7 +12604,7 @@ func (c *DisksCreateSnapshotCall) Do() (*Operation, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Creates a snapshot of this disk.",
+	//   "description": "Creates a snapshot of a specified persistent disk.",
 	//   "httpMethod": "POST",
 	//   "id": "compute.disks.createSnapshot",
 	//   "parameterOrder": [
@@ -11760,6 +12671,23 @@ func (r *DisksService) Delete(project string, zone string, disk string) *DisksDe
 	c.project = project
 	c.zone = zone
 	c.disk = disk
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *DisksDeleteCall) QuotaUser(quotaUser string) *DisksDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *DisksDeleteCall) UserIP(userIP string) *DisksDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -11895,6 +12823,23 @@ func (r *DisksService) Get(project string, zone string, disk string) *DisksGetCa
 	c.project = project
 	c.zone = zone
 	c.disk = disk
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *DisksGetCall) QuotaUser(quotaUser string) *DisksGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *DisksGetCall) UserIP(userIP string) *DisksGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -12047,10 +12992,27 @@ func (r *DisksService) Insert(project string, zone string, disk *Disk) *DisksIns
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *DisksInsertCall) QuotaUser(quotaUser string) *DisksInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
 // SourceImage sets the optional parameter "sourceImage": Source image
 // to restore onto a disk.
 func (c *DisksInsertCall) SourceImage(sourceImage string) *DisksInsertCall {
 	c.urlParams_.Set("sourceImage", sourceImage)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *DisksInsertCall) UserIP(userIP string) *DisksInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -12195,37 +13157,69 @@ func (r *DisksService) List(project string, zone string) *DisksListCall {
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *DisksListCall) Filter(filter string) *DisksListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *DisksListCall) MaxResults(maxResults int64) *DisksListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *DisksListCall) PageToken(pageToken string) *DisksListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *DisksListCall) QuotaUser(quotaUser string) *DisksListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *DisksListCall) UserIP(userIP string) *DisksListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -12320,13 +13314,13 @@ func (c *DisksListCall) Do() (*DiskList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -12334,7 +13328,7 @@ func (c *DisksListCall) Do() (*DiskList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -12382,6 +13376,23 @@ func (r *FirewallsService) Delete(project string, firewall string) *FirewallsDel
 	c := &FirewallsDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.firewall = firewall
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *FirewallsDeleteCall) QuotaUser(quotaUser string) *FirewallsDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *FirewallsDeleteCall) UserIP(userIP string) *FirewallsDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -12506,6 +13517,23 @@ func (r *FirewallsService) Get(project string, firewall string) *FirewallsGetCal
 	c := &FirewallsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.firewall = firewall
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *FirewallsGetCall) QuotaUser(quotaUser string) *FirewallsGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *FirewallsGetCall) UserIP(userIP string) *FirewallsGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -12647,6 +13675,23 @@ func (r *FirewallsService) Insert(project string, firewall *Firewall) *Firewalls
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *FirewallsInsertCall) QuotaUser(quotaUser string) *FirewallsInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *FirewallsInsertCall) UserIP(userIP string) *FirewallsInsertCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -12772,37 +13817,69 @@ func (r *FirewallsService) List(project string) *FirewallsListCall {
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *FirewallsListCall) Filter(filter string) *FirewallsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *FirewallsListCall) MaxResults(maxResults int64) *FirewallsListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *FirewallsListCall) PageToken(pageToken string) *FirewallsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *FirewallsListCall) QuotaUser(quotaUser string) *FirewallsListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *FirewallsListCall) UserIP(userIP string) *FirewallsListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -12895,13 +13972,13 @@ func (c *FirewallsListCall) Do() (*FirewallList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -12909,7 +13986,7 @@ func (c *FirewallsListCall) Do() (*FirewallList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -12953,6 +14030,23 @@ func (r *FirewallsService) Patch(project string, firewall string, firewall2 *Fir
 	c.project = project
 	c.firewall = firewall
 	c.firewall2 = firewall2
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *FirewallsPatchCall) QuotaUser(quotaUser string) *FirewallsPatchCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *FirewallsPatchCall) UserIP(userIP string) *FirewallsPatchCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -13091,6 +14185,23 @@ func (r *FirewallsService) Update(project string, firewall string, firewall2 *Fi
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *FirewallsUpdateCall) QuotaUser(quotaUser string) *FirewallsUpdateCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *FirewallsUpdateCall) UserIP(userIP string) *FirewallsUpdateCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -13225,37 +14336,69 @@ func (r *ForwardingRulesService) AggregatedList(project string) *ForwardingRules
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *ForwardingRulesAggregatedListCall) Filter(filter string) *ForwardingRulesAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *ForwardingRulesAggregatedListCall) MaxResults(maxResults int64) *ForwardingRulesAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *ForwardingRulesAggregatedListCall) PageToken(pageToken string) *ForwardingRulesAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ForwardingRulesAggregatedListCall) QuotaUser(quotaUser string) *ForwardingRulesAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ForwardingRulesAggregatedListCall) UserIP(userIP string) *ForwardingRulesAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -13348,13 +14491,13 @@ func (c *ForwardingRulesAggregatedListCall) Do() (*ForwardingRuleAggregatedList,
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -13362,12 +14505,12 @@ func (c *ForwardingRulesAggregatedListCall) Do() (*ForwardingRuleAggregatedList,
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -13405,6 +14548,23 @@ func (r *ForwardingRulesService) Delete(project string, region string, forwardin
 	c.project = project
 	c.region = region
 	c.forwardingRule = forwardingRule
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ForwardingRulesDeleteCall) QuotaUser(quotaUser string) *ForwardingRulesDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ForwardingRulesDeleteCall) UserIP(userIP string) *ForwardingRulesDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -13495,7 +14655,7 @@ func (c *ForwardingRulesDeleteCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -13540,6 +14700,23 @@ func (r *ForwardingRulesService) Get(project string, region string, forwardingRu
 	c.project = project
 	c.region = region
 	c.forwardingRule = forwardingRule
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ForwardingRulesGetCall) QuotaUser(quotaUser string) *ForwardingRulesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ForwardingRulesGetCall) UserIP(userIP string) *ForwardingRulesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -13643,7 +14820,7 @@ func (c *ForwardingRulesGetCall) Do() (*ForwardingRule, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -13689,6 +14866,23 @@ func (r *ForwardingRulesService) Insert(project string, region string, forwardin
 	c.project = project
 	c.region = region
 	c.forwardingrule = forwardingrule
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ForwardingRulesInsertCall) QuotaUser(quotaUser string) *ForwardingRulesInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ForwardingRulesInsertCall) UserIP(userIP string) *ForwardingRulesInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -13776,7 +14970,7 @@ func (c *ForwardingRulesInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -13828,37 +15022,69 @@ func (r *ForwardingRulesService) List(project string, region string) *Forwarding
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *ForwardingRulesListCall) Filter(filter string) *ForwardingRulesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *ForwardingRulesListCall) MaxResults(maxResults int64) *ForwardingRulesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *ForwardingRulesListCall) PageToken(pageToken string) *ForwardingRulesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ForwardingRulesListCall) QuotaUser(quotaUser string) *ForwardingRulesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ForwardingRulesListCall) UserIP(userIP string) *ForwardingRulesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -13953,13 +15179,13 @@ func (c *ForwardingRulesListCall) Do() (*ForwardingRuleList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -13967,12 +15193,12 @@ func (c *ForwardingRulesListCall) Do() (*ForwardingRuleList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -14011,7 +15237,7 @@ type ForwardingRulesSetTargetCall struct {
 	ctx_            context.Context
 }
 
-// SetTarget: Changes target url for forwarding rule. The new target
+// SetTarget: Changes target URL for forwarding rule. The new target
 // should be of the same type as the old target.
 // For details, see https://cloud.google.com/compute/docs/reference/latest/forwardingRules/setTarget
 func (r *ForwardingRulesService) SetTarget(project string, region string, forwardingRule string, targetreference *TargetReference) *ForwardingRulesSetTargetCall {
@@ -14020,6 +15246,23 @@ func (r *ForwardingRulesService) SetTarget(project string, region string, forwar
 	c.region = region
 	c.forwardingRule = forwardingRule
 	c.targetreference = targetreference
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ForwardingRulesSetTargetCall) QuotaUser(quotaUser string) *ForwardingRulesSetTargetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ForwardingRulesSetTargetCall) UserIP(userIP string) *ForwardingRulesSetTargetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -14099,7 +15342,7 @@ func (c *ForwardingRulesSetTargetCall) Do() (*Operation, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Changes target url for forwarding rule. The new target should be of the same type as the old target.",
+	//   "description": "Changes target URL for forwarding rule. The new target should be of the same type as the old target.",
 	//   "httpMethod": "POST",
 	//   "id": "compute.forwardingRules.setTarget",
 	//   "parameterOrder": [
@@ -14116,7 +15359,7 @@ func (c *ForwardingRulesSetTargetCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -14161,6 +15404,23 @@ func (r *GlobalAddressesService) Delete(project string, address string) *GlobalA
 	c := &GlobalAddressesDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.address = address
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *GlobalAddressesDeleteCall) QuotaUser(quotaUser string) *GlobalAddressesDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *GlobalAddressesDeleteCall) UserIP(userIP string) *GlobalAddressesDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -14285,6 +15545,23 @@ func (r *GlobalAddressesService) Get(project string, address string) *GlobalAddr
 	c := &GlobalAddressesGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.address = address
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *GlobalAddressesGetCall) QuotaUser(quotaUser string) *GlobalAddressesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *GlobalAddressesGetCall) UserIP(userIP string) *GlobalAddressesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -14426,6 +15703,23 @@ func (r *GlobalAddressesService) Insert(project string, address *Address) *Globa
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *GlobalAddressesInsertCall) QuotaUser(quotaUser string) *GlobalAddressesInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *GlobalAddressesInsertCall) UserIP(userIP string) *GlobalAddressesInsertCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -14550,37 +15844,69 @@ func (r *GlobalAddressesService) List(project string) *GlobalAddressesListCall {
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *GlobalAddressesListCall) Filter(filter string) *GlobalAddressesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *GlobalAddressesListCall) MaxResults(maxResults int64) *GlobalAddressesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *GlobalAddressesListCall) PageToken(pageToken string) *GlobalAddressesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *GlobalAddressesListCall) QuotaUser(quotaUser string) *GlobalAddressesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *GlobalAddressesListCall) UserIP(userIP string) *GlobalAddressesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -14673,13 +15999,13 @@ func (c *GlobalAddressesListCall) Do() (*AddressList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -14687,7 +16013,7 @@ func (c *GlobalAddressesListCall) Do() (*AddressList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -14728,6 +16054,23 @@ func (r *GlobalForwardingRulesService) Delete(project string, forwardingRule str
 	c := &GlobalForwardingRulesDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.forwardingRule = forwardingRule
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *GlobalForwardingRulesDeleteCall) QuotaUser(quotaUser string) *GlobalForwardingRulesDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *GlobalForwardingRulesDeleteCall) UserIP(userIP string) *GlobalForwardingRulesDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -14816,7 +16159,7 @@ func (c *GlobalForwardingRulesDeleteCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -14852,6 +16195,23 @@ func (r *GlobalForwardingRulesService) Get(project string, forwardingRule string
 	c := &GlobalForwardingRulesGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.forwardingRule = forwardingRule
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *GlobalForwardingRulesGetCall) QuotaUser(quotaUser string) *GlobalForwardingRulesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *GlobalForwardingRulesGetCall) UserIP(userIP string) *GlobalForwardingRulesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -14953,7 +16313,7 @@ func (c *GlobalForwardingRulesGetCall) Do() (*ForwardingRule, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -14990,6 +16350,23 @@ func (r *GlobalForwardingRulesService) Insert(project string, forwardingrule *Fo
 	c := &GlobalForwardingRulesInsertCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.forwardingrule = forwardingrule
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *GlobalForwardingRulesInsertCall) QuotaUser(quotaUser string) *GlobalForwardingRulesInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *GlobalForwardingRulesInsertCall) UserIP(userIP string) *GlobalForwardingRulesInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -15075,7 +16452,7 @@ func (c *GlobalForwardingRulesInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -15118,37 +16495,69 @@ func (r *GlobalForwardingRulesService) List(project string) *GlobalForwardingRul
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *GlobalForwardingRulesListCall) Filter(filter string) *GlobalForwardingRulesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *GlobalForwardingRulesListCall) MaxResults(maxResults int64) *GlobalForwardingRulesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *GlobalForwardingRulesListCall) PageToken(pageToken string) *GlobalForwardingRulesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *GlobalForwardingRulesListCall) QuotaUser(quotaUser string) *GlobalForwardingRulesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *GlobalForwardingRulesListCall) UserIP(userIP string) *GlobalForwardingRulesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -15241,13 +16650,13 @@ func (c *GlobalForwardingRulesListCall) Do() (*ForwardingRuleList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -15255,12 +16664,12 @@ func (c *GlobalForwardingRulesListCall) Do() (*ForwardingRuleList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -15291,7 +16700,7 @@ type GlobalForwardingRulesSetTargetCall struct {
 	ctx_            context.Context
 }
 
-// SetTarget: Changes target url for forwarding rule. The new target
+// SetTarget: Changes target URL for forwarding rule. The new target
 // should be of the same type as the old target.
 // For details, see https://cloud.google.com/compute/docs/reference/latest/globalForwardingRules/setTarget
 func (r *GlobalForwardingRulesService) SetTarget(project string, forwardingRule string, targetreference *TargetReference) *GlobalForwardingRulesSetTargetCall {
@@ -15299,6 +16708,23 @@ func (r *GlobalForwardingRulesService) SetTarget(project string, forwardingRule 
 	c.project = project
 	c.forwardingRule = forwardingRule
 	c.targetreference = targetreference
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *GlobalForwardingRulesSetTargetCall) QuotaUser(quotaUser string) *GlobalForwardingRulesSetTargetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *GlobalForwardingRulesSetTargetCall) UserIP(userIP string) *GlobalForwardingRulesSetTargetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -15377,7 +16803,7 @@ func (c *GlobalForwardingRulesSetTargetCall) Do() (*Operation, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Changes target url for forwarding rule. The new target should be of the same type as the old target.",
+	//   "description": "Changes target URL for forwarding rule. The new target should be of the same type as the old target.",
 	//   "httpMethod": "POST",
 	//   "id": "compute.globalForwardingRules.setTarget",
 	//   "parameterOrder": [
@@ -15393,7 +16819,7 @@ func (c *GlobalForwardingRulesSetTargetCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -15436,37 +16862,69 @@ func (r *GlobalOperationsService) AggregatedList(project string) *GlobalOperatio
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *GlobalOperationsAggregatedListCall) Filter(filter string) *GlobalOperationsAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *GlobalOperationsAggregatedListCall) MaxResults(maxResults int64) *GlobalOperationsAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *GlobalOperationsAggregatedListCall) PageToken(pageToken string) *GlobalOperationsAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *GlobalOperationsAggregatedListCall) QuotaUser(quotaUser string) *GlobalOperationsAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *GlobalOperationsAggregatedListCall) UserIP(userIP string) *GlobalOperationsAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -15559,13 +17017,13 @@ func (c *GlobalOperationsAggregatedListCall) Do() (*OperationAggregatedList, err
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -15573,7 +17031,7 @@ func (c *GlobalOperationsAggregatedListCall) Do() (*OperationAggregatedList, err
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -15614,6 +17072,23 @@ func (r *GlobalOperationsService) Delete(project string, operation string) *Glob
 	c := &GlobalOperationsDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.operation = operation
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *GlobalOperationsDeleteCall) QuotaUser(quotaUser string) *GlobalOperationsDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *GlobalOperationsDeleteCall) UserIP(userIP string) *GlobalOperationsDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -15711,6 +17186,23 @@ func (r *GlobalOperationsService) Get(project string, operation string) *GlobalO
 	c := &GlobalOperationsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.operation = operation
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *GlobalOperationsGetCall) QuotaUser(quotaUser string) *GlobalOperationsGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *GlobalOperationsGetCall) UserIP(userIP string) *GlobalOperationsGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -15853,37 +17345,69 @@ func (r *GlobalOperationsService) List(project string) *GlobalOperationsListCall
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *GlobalOperationsListCall) Filter(filter string) *GlobalOperationsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *GlobalOperationsListCall) MaxResults(maxResults int64) *GlobalOperationsListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *GlobalOperationsListCall) PageToken(pageToken string) *GlobalOperationsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *GlobalOperationsListCall) QuotaUser(quotaUser string) *GlobalOperationsListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *GlobalOperationsListCall) UserIP(userIP string) *GlobalOperationsListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -15976,13 +17500,13 @@ func (c *GlobalOperationsListCall) Do() (*OperationList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -15990,7 +17514,7 @@ func (c *GlobalOperationsListCall) Do() (*OperationList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -16031,6 +17555,23 @@ func (r *HttpHealthChecksService) Delete(project string, httpHealthCheck string)
 	c := &HttpHealthChecksDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.httpHealthCheck = httpHealthCheck
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *HttpHealthChecksDeleteCall) QuotaUser(quotaUser string) *HttpHealthChecksDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *HttpHealthChecksDeleteCall) UserIP(userIP string) *HttpHealthChecksDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -16119,7 +17660,7 @@ func (c *HttpHealthChecksDeleteCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -16155,6 +17696,23 @@ func (r *HttpHealthChecksService) Get(project string, httpHealthCheck string) *H
 	c := &HttpHealthChecksGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.httpHealthCheck = httpHealthCheck
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *HttpHealthChecksGetCall) QuotaUser(quotaUser string) *HttpHealthChecksGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *HttpHealthChecksGetCall) UserIP(userIP string) *HttpHealthChecksGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -16256,7 +17814,7 @@ func (c *HttpHealthChecksGetCall) Do() (*HttpHealthCheck, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -16293,6 +17851,23 @@ func (r *HttpHealthChecksService) Insert(project string, httphealthcheck *HttpHe
 	c := &HttpHealthChecksInsertCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.httphealthcheck = httphealthcheck
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *HttpHealthChecksInsertCall) QuotaUser(quotaUser string) *HttpHealthChecksInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *HttpHealthChecksInsertCall) UserIP(userIP string) *HttpHealthChecksInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -16378,7 +17953,7 @@ func (c *HttpHealthChecksInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -16421,37 +17996,69 @@ func (r *HttpHealthChecksService) List(project string) *HttpHealthChecksListCall
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *HttpHealthChecksListCall) Filter(filter string) *HttpHealthChecksListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *HttpHealthChecksListCall) MaxResults(maxResults int64) *HttpHealthChecksListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *HttpHealthChecksListCall) PageToken(pageToken string) *HttpHealthChecksListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *HttpHealthChecksListCall) QuotaUser(quotaUser string) *HttpHealthChecksListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *HttpHealthChecksListCall) UserIP(userIP string) *HttpHealthChecksListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -16544,13 +18151,13 @@ func (c *HttpHealthChecksListCall) Do() (*HttpHealthCheckList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -16558,12 +18165,12 @@ func (c *HttpHealthChecksListCall) Do() (*HttpHealthCheckList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -16603,6 +18210,23 @@ func (r *HttpHealthChecksService) Patch(project string, httpHealthCheck string, 
 	c.project = project
 	c.httpHealthCheck = httpHealthCheck
 	c.httphealthcheck = httphealthcheck
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *HttpHealthChecksPatchCall) QuotaUser(quotaUser string) *HttpHealthChecksPatchCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *HttpHealthChecksPatchCall) UserIP(userIP string) *HttpHealthChecksPatchCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -16697,7 +18321,7 @@ func (c *HttpHealthChecksPatchCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -16738,6 +18362,23 @@ func (r *HttpHealthChecksService) Update(project string, httpHealthCheck string,
 	c.project = project
 	c.httpHealthCheck = httpHealthCheck
 	c.httphealthcheck = httphealthcheck
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *HttpHealthChecksUpdateCall) QuotaUser(quotaUser string) *HttpHealthChecksUpdateCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *HttpHealthChecksUpdateCall) UserIP(userIP string) *HttpHealthChecksUpdateCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -16832,7 +18473,7 @@ func (c *HttpHealthChecksUpdateCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -16869,6 +18510,23 @@ func (r *HttpsHealthChecksService) Delete(project string, httpsHealthCheck strin
 	c := &HttpsHealthChecksDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.httpsHealthCheck = httpsHealthCheck
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *HttpsHealthChecksDeleteCall) QuotaUser(quotaUser string) *HttpsHealthChecksDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *HttpsHealthChecksDeleteCall) UserIP(userIP string) *HttpsHealthChecksDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -16957,7 +18615,7 @@ func (c *HttpsHealthChecksDeleteCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -16992,6 +18650,23 @@ func (r *HttpsHealthChecksService) Get(project string, httpsHealthCheck string) 
 	c := &HttpsHealthChecksGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.httpsHealthCheck = httpsHealthCheck
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *HttpsHealthChecksGetCall) QuotaUser(quotaUser string) *HttpsHealthChecksGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *HttpsHealthChecksGetCall) UserIP(userIP string) *HttpsHealthChecksGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -17093,7 +18768,7 @@ func (c *HttpsHealthChecksGetCall) Do() (*HttpsHealthCheck, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -17129,6 +18804,23 @@ func (r *HttpsHealthChecksService) Insert(project string, httpshealthcheck *Http
 	c := &HttpsHealthChecksInsertCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.httpshealthcheck = httpshealthcheck
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *HttpsHealthChecksInsertCall) QuotaUser(quotaUser string) *HttpsHealthChecksInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *HttpsHealthChecksInsertCall) UserIP(userIP string) *HttpsHealthChecksInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -17214,7 +18906,7 @@ func (c *HttpsHealthChecksInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -17256,37 +18948,69 @@ func (r *HttpsHealthChecksService) List(project string) *HttpsHealthChecksListCa
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *HttpsHealthChecksListCall) Filter(filter string) *HttpsHealthChecksListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *HttpsHealthChecksListCall) MaxResults(maxResults int64) *HttpsHealthChecksListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *HttpsHealthChecksListCall) PageToken(pageToken string) *HttpsHealthChecksListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *HttpsHealthChecksListCall) QuotaUser(quotaUser string) *HttpsHealthChecksListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *HttpsHealthChecksListCall) UserIP(userIP string) *HttpsHealthChecksListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -17379,13 +19103,13 @@ func (c *HttpsHealthChecksListCall) Do() (*HttpsHealthCheckList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -17393,12 +19117,12 @@ func (c *HttpsHealthChecksListCall) Do() (*HttpsHealthCheckList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -17437,6 +19161,23 @@ func (r *HttpsHealthChecksService) Patch(project string, httpsHealthCheck string
 	c.project = project
 	c.httpsHealthCheck = httpsHealthCheck
 	c.httpshealthcheck = httpshealthcheck
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *HttpsHealthChecksPatchCall) QuotaUser(quotaUser string) *HttpsHealthChecksPatchCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *HttpsHealthChecksPatchCall) UserIP(userIP string) *HttpsHealthChecksPatchCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -17531,7 +19272,7 @@ func (c *HttpsHealthChecksPatchCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -17571,6 +19312,23 @@ func (r *HttpsHealthChecksService) Update(project string, httpsHealthCheck strin
 	c.project = project
 	c.httpsHealthCheck = httpsHealthCheck
 	c.httpshealthcheck = httpshealthcheck
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *HttpsHealthChecksUpdateCall) QuotaUser(quotaUser string) *HttpsHealthChecksUpdateCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *HttpsHealthChecksUpdateCall) UserIP(userIP string) *HttpsHealthChecksUpdateCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -17665,7 +19423,7 @@ func (c *HttpsHealthChecksUpdateCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -17703,6 +19461,23 @@ func (r *ImagesService) Delete(project string, image string) *ImagesDeleteCall {
 	c := &ImagesDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.image = image
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ImagesDeleteCall) QuotaUser(quotaUser string) *ImagesDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ImagesDeleteCall) UserIP(userIP string) *ImagesDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -17831,6 +19606,23 @@ func (r *ImagesService) Deprecate(project string, image string, deprecationstatu
 	c.project = project
 	c.image = image
 	c.deprecationstatus = deprecationstatus
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ImagesDeprecateCall) QuotaUser(quotaUser string) *ImagesDeprecateCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ImagesDeprecateCall) UserIP(userIP string) *ImagesDeprecateCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -17964,6 +19756,23 @@ func (r *ImagesService) Get(project string, image string) *ImagesGetCall {
 	c := &ImagesGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.image = image
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ImagesGetCall) QuotaUser(quotaUser string) *ImagesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ImagesGetCall) UserIP(userIP string) *ImagesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -18105,6 +19914,23 @@ func (r *ImagesService) Insert(project string, image *Image) *ImagesInsertCall {
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ImagesInsertCall) QuotaUser(quotaUser string) *ImagesInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ImagesInsertCall) UserIP(userIP string) *ImagesInsertCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -18240,37 +20066,69 @@ func (r *ImagesService) List(project string) *ImagesListCall {
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *ImagesListCall) Filter(filter string) *ImagesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *ImagesListCall) MaxResults(maxResults int64) *ImagesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *ImagesListCall) PageToken(pageToken string) *ImagesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ImagesListCall) QuotaUser(quotaUser string) *ImagesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ImagesListCall) UserIP(userIP string) *ImagesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -18363,13 +20221,13 @@ func (c *ImagesListCall) Do() (*ImageList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -18377,7 +20235,7 @@ func (c *ImagesListCall) Do() (*ImageList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -18429,6 +20287,23 @@ func (r *InstanceGroupManagersService) AbandonInstances(project string, zone str
 	c.zone = zone
 	c.instanceGroupManager = instanceGroupManager
 	c.instancegroupmanagersabandoninstancesrequest = instancegroupmanagersabandoninstancesrequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupManagersAbandonInstancesCall) QuotaUser(quotaUser string) *InstanceGroupManagersAbandonInstancesCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupManagersAbandonInstancesCall) UserIP(userIP string) *InstanceGroupManagersAbandonInstancesCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -18524,7 +20399,7 @@ func (c *InstanceGroupManagersAbandonInstancesCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -18572,37 +20447,69 @@ func (r *InstanceGroupManagersService) AggregatedList(project string) *InstanceG
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *InstanceGroupManagersAggregatedListCall) Filter(filter string) *InstanceGroupManagersAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *InstanceGroupManagersAggregatedListCall) MaxResults(maxResults int64) *InstanceGroupManagersAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *InstanceGroupManagersAggregatedListCall) PageToken(pageToken string) *InstanceGroupManagersAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupManagersAggregatedListCall) QuotaUser(quotaUser string) *InstanceGroupManagersAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupManagersAggregatedListCall) UserIP(userIP string) *InstanceGroupManagersAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -18696,13 +20603,13 @@ func (c *InstanceGroupManagersAggregatedListCall) Do() (*InstanceGroupManagerAgg
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -18710,12 +20617,12 @@ func (c *InstanceGroupManagersAggregatedListCall) Do() (*InstanceGroupManagerAgg
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -18753,6 +20660,23 @@ func (r *InstanceGroupManagersService) Delete(project string, zone string, insta
 	c.project = project
 	c.zone = zone
 	c.instanceGroupManager = instanceGroupManager
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupManagersDeleteCall) QuotaUser(quotaUser string) *InstanceGroupManagersDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupManagersDeleteCall) UserIP(userIP string) *InstanceGroupManagersDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -18842,7 +20766,7 @@ func (c *InstanceGroupManagersDeleteCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -18893,6 +20817,23 @@ func (r *InstanceGroupManagersService) DeleteInstances(project string, zone stri
 	c.zone = zone
 	c.instanceGroupManager = instanceGroupManager
 	c.instancegroupmanagersdeleteinstancesrequest = instancegroupmanagersdeleteinstancesrequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupManagersDeleteInstancesCall) QuotaUser(quotaUser string) *InstanceGroupManagersDeleteInstancesCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupManagersDeleteInstancesCall) UserIP(userIP string) *InstanceGroupManagersDeleteInstancesCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -18988,7 +20929,7 @@ func (c *InstanceGroupManagersDeleteInstancesCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -19035,6 +20976,23 @@ func (r *InstanceGroupManagersService) Get(project string, zone string, instance
 	c.project = project
 	c.zone = zone
 	c.instanceGroupManager = instanceGroupManager
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupManagersGetCall) QuotaUser(quotaUser string) *InstanceGroupManagersGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupManagersGetCall) UserIP(userIP string) *InstanceGroupManagersGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -19137,7 +21095,7 @@ func (c *InstanceGroupManagersGetCall) Do() (*InstanceGroupManager, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -19186,6 +21144,23 @@ func (r *InstanceGroupManagersService) Insert(project string, zone string, insta
 	c.project = project
 	c.zone = zone
 	c.instancegroupmanager = instancegroupmanager
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupManagersInsertCall) QuotaUser(quotaUser string) *InstanceGroupManagersInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupManagersInsertCall) UserIP(userIP string) *InstanceGroupManagersInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -19273,7 +21248,7 @@ func (c *InstanceGroupManagersInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -19323,37 +21298,69 @@ func (r *InstanceGroupManagersService) List(project string, zone string) *Instan
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *InstanceGroupManagersListCall) Filter(filter string) *InstanceGroupManagersListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *InstanceGroupManagersListCall) MaxResults(maxResults int64) *InstanceGroupManagersListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *InstanceGroupManagersListCall) PageToken(pageToken string) *InstanceGroupManagersListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupManagersListCall) QuotaUser(quotaUser string) *InstanceGroupManagersListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupManagersListCall) UserIP(userIP string) *InstanceGroupManagersListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -19448,13 +21455,13 @@ func (c *InstanceGroupManagersListCall) Do() (*InstanceGroupManagerList, error) 
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -19462,12 +21469,12 @@ func (c *InstanceGroupManagersListCall) Do() (*InstanceGroupManagerList, error) 
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -19515,6 +21522,23 @@ func (r *InstanceGroupManagersService) ListManagedInstances(project string, zone
 	c.project = project
 	c.zone = zone
 	c.instanceGroupManager = instanceGroupManager
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupManagersListManagedInstancesCall) QuotaUser(quotaUser string) *InstanceGroupManagersListManagedInstancesCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupManagersListManagedInstancesCall) UserIP(userIP string) *InstanceGroupManagersListManagedInstancesCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -19606,7 +21630,7 @@ func (c *InstanceGroupManagersListManagedInstancesCall) Do() (*InstanceGroupMana
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -19657,6 +21681,23 @@ func (r *InstanceGroupManagersService) RecreateInstances(project string, zone st
 	c.zone = zone
 	c.instanceGroupManager = instanceGroupManager
 	c.instancegroupmanagersrecreateinstancesrequest = instancegroupmanagersrecreateinstancesrequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupManagersRecreateInstancesCall) QuotaUser(quotaUser string) *InstanceGroupManagersRecreateInstancesCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupManagersRecreateInstancesCall) UserIP(userIP string) *InstanceGroupManagersRecreateInstancesCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -19752,7 +21793,7 @@ func (c *InstanceGroupManagersRecreateInstancesCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -19804,6 +21845,23 @@ func (r *InstanceGroupManagersService) Resize(project string, zone string, insta
 	c.zone = zone
 	c.instanceGroupManager = instanceGroupManager
 	c.urlParams_.Set("size", fmt.Sprint(size))
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupManagersResizeCall) QuotaUser(quotaUser string) *InstanceGroupManagersResizeCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupManagersResizeCall) UserIP(userIP string) *InstanceGroupManagersResizeCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -19894,7 +21952,7 @@ func (c *InstanceGroupManagersResizeCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -19947,6 +22005,23 @@ func (r *InstanceGroupManagersService) SetInstanceTemplate(project string, zone 
 	c.zone = zone
 	c.instanceGroupManager = instanceGroupManager
 	c.instancegroupmanagerssetinstancetemplaterequest = instancegroupmanagerssetinstancetemplaterequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupManagersSetInstanceTemplateCall) QuotaUser(quotaUser string) *InstanceGroupManagersSetInstanceTemplateCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupManagersSetInstanceTemplateCall) UserIP(userIP string) *InstanceGroupManagersSetInstanceTemplateCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -20042,7 +22117,7 @@ func (c *InstanceGroupManagersSetInstanceTemplateCall) Do() (*Operation, error) 
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -20095,6 +22170,23 @@ func (r *InstanceGroupManagersService) SetTargetPools(project string, zone strin
 	c.zone = zone
 	c.instanceGroupManager = instanceGroupManager
 	c.instancegroupmanagerssettargetpoolsrequest = instancegroupmanagerssettargetpoolsrequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupManagersSetTargetPoolsCall) QuotaUser(quotaUser string) *InstanceGroupManagersSetTargetPoolsCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupManagersSetTargetPoolsCall) UserIP(userIP string) *InstanceGroupManagersSetTargetPoolsCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -20190,7 +22282,7 @@ func (c *InstanceGroupManagersSetTargetPoolsCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -20239,6 +22331,23 @@ func (r *InstanceGroupsService) AddInstances(project string, zone string, instan
 	c.zone = zone
 	c.instanceGroup = instanceGroup
 	c.instancegroupsaddinstancesrequest = instancegroupsaddinstancesrequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupsAddInstancesCall) QuotaUser(quotaUser string) *InstanceGroupsAddInstancesCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupsAddInstancesCall) UserIP(userIP string) *InstanceGroupsAddInstancesCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -20334,7 +22443,7 @@ func (c *InstanceGroupsAddInstancesCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -20382,37 +22491,69 @@ func (r *InstanceGroupsService) AggregatedList(project string) *InstanceGroupsAg
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *InstanceGroupsAggregatedListCall) Filter(filter string) *InstanceGroupsAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *InstanceGroupsAggregatedListCall) MaxResults(maxResults int64) *InstanceGroupsAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *InstanceGroupsAggregatedListCall) PageToken(pageToken string) *InstanceGroupsAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupsAggregatedListCall) QuotaUser(quotaUser string) *InstanceGroupsAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupsAggregatedListCall) UserIP(userIP string) *InstanceGroupsAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -20505,13 +22646,13 @@ func (c *InstanceGroupsAggregatedListCall) Do() (*InstanceGroupAggregatedList, e
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -20519,12 +22660,12 @@ func (c *InstanceGroupsAggregatedListCall) Do() (*InstanceGroupAggregatedList, e
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -20562,6 +22703,23 @@ func (r *InstanceGroupsService) Delete(project string, zone string, instanceGrou
 	c.project = project
 	c.zone = zone
 	c.instanceGroup = instanceGroup
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupsDeleteCall) QuotaUser(quotaUser string) *InstanceGroupsDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupsDeleteCall) UserIP(userIP string) *InstanceGroupsDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -20651,7 +22809,7 @@ func (c *InstanceGroupsDeleteCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -20694,6 +22852,23 @@ func (r *InstanceGroupsService) Get(project string, zone string, instanceGroup s
 	c.project = project
 	c.zone = zone
 	c.instanceGroup = instanceGroup
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupsGetCall) QuotaUser(quotaUser string) *InstanceGroupsGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupsGetCall) UserIP(userIP string) *InstanceGroupsGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -20796,7 +22971,7 @@ func (c *InstanceGroupsGetCall) Do() (*InstanceGroup, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -20840,6 +23015,23 @@ func (r *InstanceGroupsService) Insert(project string, zone string, instancegrou
 	c.project = project
 	c.zone = zone
 	c.instancegroup = instancegroup
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupsInsertCall) QuotaUser(quotaUser string) *InstanceGroupsInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupsInsertCall) UserIP(userIP string) *InstanceGroupsInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -20927,7 +23119,7 @@ func (c *InstanceGroupsInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -20977,37 +23169,69 @@ func (r *InstanceGroupsService) List(project string, zone string) *InstanceGroup
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *InstanceGroupsListCall) Filter(filter string) *InstanceGroupsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *InstanceGroupsListCall) MaxResults(maxResults int64) *InstanceGroupsListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *InstanceGroupsListCall) PageToken(pageToken string) *InstanceGroupsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupsListCall) QuotaUser(quotaUser string) *InstanceGroupsListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupsListCall) UserIP(userIP string) *InstanceGroupsListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -21102,13 +23326,13 @@ func (c *InstanceGroupsListCall) Do() (*InstanceGroupList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -21116,12 +23340,12 @@ func (c *InstanceGroupsListCall) Do() (*InstanceGroupList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -21171,37 +23395,69 @@ func (r *InstanceGroupsService) ListInstances(project string, zone string, insta
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *InstanceGroupsListInstancesCall) Filter(filter string) *InstanceGroupsListInstancesCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *InstanceGroupsListInstancesCall) MaxResults(maxResults int64) *InstanceGroupsListInstancesCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *InstanceGroupsListInstancesCall) PageToken(pageToken string) *InstanceGroupsListInstancesCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupsListInstancesCall) QuotaUser(quotaUser string) *InstanceGroupsListInstancesCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupsListInstancesCall) UserIP(userIP string) *InstanceGroupsListInstancesCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -21291,7 +23547,7 @@ func (c *InstanceGroupsListInstancesCall) Do() (*InstanceGroupsListInstances, er
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -21303,7 +23559,7 @@ func (c *InstanceGroupsListInstancesCall) Do() (*InstanceGroupsListInstances, er
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -21311,12 +23567,12 @@ func (c *InstanceGroupsListInstancesCall) Do() (*InstanceGroupsListInstances, er
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -21365,6 +23621,23 @@ func (r *InstanceGroupsService) RemoveInstances(project string, zone string, ins
 	c.zone = zone
 	c.instanceGroup = instanceGroup
 	c.instancegroupsremoveinstancesrequest = instancegroupsremoveinstancesrequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupsRemoveInstancesCall) QuotaUser(quotaUser string) *InstanceGroupsRemoveInstancesCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupsRemoveInstancesCall) UserIP(userIP string) *InstanceGroupsRemoveInstancesCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -21460,7 +23733,7 @@ func (c *InstanceGroupsRemoveInstancesCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -21507,6 +23780,23 @@ func (r *InstanceGroupsService) SetNamedPorts(project string, zone string, insta
 	c.zone = zone
 	c.instanceGroup = instanceGroup
 	c.instancegroupssetnamedportsrequest = instancegroupssetnamedportsrequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceGroupsSetNamedPortsCall) QuotaUser(quotaUser string) *InstanceGroupsSetNamedPortsCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceGroupsSetNamedPortsCall) UserIP(userIP string) *InstanceGroupsSetNamedPortsCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -21602,7 +23892,7 @@ func (c *InstanceGroupsSetNamedPortsCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -21646,6 +23936,23 @@ func (r *InstanceTemplatesService) Delete(project string, instanceTemplate strin
 	c := &InstanceTemplatesDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.instanceTemplate = instanceTemplate
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceTemplatesDeleteCall) QuotaUser(quotaUser string) *InstanceTemplatesDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceTemplatesDeleteCall) UserIP(userIP string) *InstanceTemplatesDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -21734,7 +24041,7 @@ func (c *InstanceTemplatesDeleteCall) Do() (*Operation, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -21770,6 +24077,23 @@ func (r *InstanceTemplatesService) Get(project string, instanceTemplate string) 
 	c := &InstanceTemplatesGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.instanceTemplate = instanceTemplate
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceTemplatesGetCall) QuotaUser(quotaUser string) *InstanceTemplatesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceTemplatesGetCall) UserIP(userIP string) *InstanceTemplatesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -21871,7 +24195,7 @@ func (c *InstanceTemplatesGetCall) Do() (*InstanceTemplate, error) {
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -21908,6 +24232,23 @@ func (r *InstanceTemplatesService) Insert(project string, instancetemplate *Inst
 	c := &InstanceTemplatesInsertCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.instancetemplate = instancetemplate
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceTemplatesInsertCall) QuotaUser(quotaUser string) *InstanceTemplatesInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceTemplatesInsertCall) UserIP(userIP string) *InstanceTemplatesInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -21993,7 +24334,7 @@ func (c *InstanceTemplatesInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -22036,37 +24377,69 @@ func (r *InstanceTemplatesService) List(project string) *InstanceTemplatesListCa
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *InstanceTemplatesListCall) Filter(filter string) *InstanceTemplatesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *InstanceTemplatesListCall) MaxResults(maxResults int64) *InstanceTemplatesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *InstanceTemplatesListCall) PageToken(pageToken string) *InstanceTemplatesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstanceTemplatesListCall) QuotaUser(quotaUser string) *InstanceTemplatesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstanceTemplatesListCall) UserIP(userIP string) *InstanceTemplatesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -22159,13 +24532,13 @@ func (c *InstanceTemplatesListCall) Do() (*InstanceTemplateList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -22173,12 +24546,12 @@ func (c *InstanceTemplatesListCall) Do() (*InstanceTemplateList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "The project ID for this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -22220,6 +24593,23 @@ func (r *InstancesService) AddAccessConfig(project string, zone string, instance
 	c.instance = instance
 	c.urlParams_.Set("networkInterface", networkInterface)
 	c.accessconfig = accessconfig
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesAddAccessConfigCall) QuotaUser(quotaUser string) *InstancesAddAccessConfigCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesAddAccessConfigCall) UserIP(userIP string) *InstancesAddAccessConfigCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -22372,37 +24762,69 @@ func (r *InstancesService) AggregatedList(project string) *InstancesAggregatedLi
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *InstancesAggregatedListCall) Filter(filter string) *InstancesAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *InstancesAggregatedListCall) MaxResults(maxResults int64) *InstancesAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *InstancesAggregatedListCall) PageToken(pageToken string) *InstancesAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesAggregatedListCall) QuotaUser(quotaUser string) *InstancesAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesAggregatedListCall) UserIP(userIP string) *InstancesAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -22495,13 +24917,13 @@ func (c *InstancesAggregatedListCall) Do() (*InstanceAggregatedList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -22509,7 +24931,7 @@ func (c *InstancesAggregatedListCall) Do() (*InstanceAggregatedList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -22554,6 +24976,23 @@ func (r *InstancesService) AttachDisk(project string, zone string, instance stri
 	c.zone = zone
 	c.instance = instance
 	c.attacheddisk = attacheddisk
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesAttachDiskCall) QuotaUser(quotaUser string) *InstancesAttachDiskCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesAttachDiskCall) UserIP(userIP string) *InstancesAttachDiskCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -22691,13 +25130,30 @@ type InstancesDeleteCall struct {
 }
 
 // Delete: Deletes the specified Instance resource. For more
-// information, see Shutting down an instance.
+// information, see Stopping or Deleting an Instance.
 // For details, see https://cloud.google.com/compute/docs/reference/latest/instances/delete
 func (r *InstancesService) Delete(project string, zone string, instance string) *InstancesDeleteCall {
 	c := &InstancesDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.zone = zone
 	c.instance = instance
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesDeleteCall) QuotaUser(quotaUser string) *InstancesDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesDeleteCall) UserIP(userIP string) *InstancesDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -22771,7 +25227,7 @@ func (c *InstancesDeleteCall) Do() (*Operation, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Deletes the specified Instance resource. For more information, see Shutting down an instance.",
+	//   "description": "Deletes the specified Instance resource. For more information, see Stopping or Deleting an Instance.",
 	//   "httpMethod": "DELETE",
 	//   "id": "compute.instances.delete",
 	//   "parameterOrder": [
@@ -22835,6 +25291,23 @@ func (r *InstancesService) DeleteAccessConfig(project string, zone string, insta
 	c.instance = instance
 	c.urlParams_.Set("accessConfig", accessConfig)
 	c.urlParams_.Set("networkInterface", networkInterface)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesDeleteAccessConfigCall) QuotaUser(quotaUser string) *InstancesDeleteAccessConfigCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesDeleteAccessConfigCall) UserIP(userIP string) *InstancesDeleteAccessConfigCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -22987,6 +25460,23 @@ func (r *InstancesService) DetachDisk(project string, zone string, instance stri
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesDetachDiskCall) QuotaUser(quotaUser string) *InstancesDetachDiskCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesDetachDiskCall) UserIP(userIP string) *InstancesDetachDiskCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -23127,6 +25617,23 @@ func (r *InstancesService) Get(project string, zone string, instance string) *In
 	c.project = project
 	c.zone = zone
 	c.instance = instance
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesGetCall) QuotaUser(quotaUser string) *InstancesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesGetCall) UserIP(userIP string) *InstancesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -23284,6 +25791,23 @@ func (r *InstancesService) GetSerialPortOutput(project string, zone string, inst
 // serial port to retrieve data from.
 func (c *InstancesGetSerialPortOutputCall) Port(port int64) *InstancesGetSerialPortOutputCall {
 	c.urlParams_.Set("port", fmt.Sprint(port))
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesGetSerialPortOutputCall) QuotaUser(quotaUser string) *InstancesGetSerialPortOutputCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesGetSerialPortOutputCall) UserIP(userIP string) *InstancesGetSerialPortOutputCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -23445,6 +25969,23 @@ func (r *InstancesService) Insert(project string, zone string, instance *Instanc
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesInsertCall) QuotaUser(quotaUser string) *InstancesInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesInsertCall) UserIP(userIP string) *InstancesInsertCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -23581,37 +26122,69 @@ func (r *InstancesService) List(project string, zone string) *InstancesListCall 
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *InstancesListCall) Filter(filter string) *InstancesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *InstancesListCall) MaxResults(maxResults int64) *InstancesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *InstancesListCall) PageToken(pageToken string) *InstancesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesListCall) QuotaUser(quotaUser string) *InstancesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesListCall) UserIP(userIP string) *InstancesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -23706,13 +26279,13 @@ func (c *InstancesListCall) Do() (*InstanceList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -23720,7 +26293,7 @@ func (c *InstancesListCall) Do() (*InstanceList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -23770,6 +26343,23 @@ func (r *InstancesService) Reset(project string, zone string, instance string) *
 	c.project = project
 	c.zone = zone
 	c.instance = instance
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesResetCall) QuotaUser(quotaUser string) *InstancesResetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesResetCall) UserIP(userIP string) *InstancesResetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -23907,6 +26497,23 @@ func (r *InstancesService) SetDiskAutoDelete(project string, zone string, instan
 	c.instance = instance
 	c.urlParams_.Set("autoDelete", fmt.Sprint(autoDelete))
 	c.urlParams_.Set("deviceName", deviceName)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesSetDiskAutoDeleteCall) QuotaUser(quotaUser string) *InstancesSetDiskAutoDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesSetDiskAutoDeleteCall) UserIP(userIP string) *InstancesSetDiskAutoDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -24062,6 +26669,23 @@ func (r *InstancesService) SetMetadata(project string, zone string, instance str
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesSetMetadataCall) QuotaUser(quotaUser string) *InstancesSetMetadataCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesSetMetadataCall) UserIP(userIP string) *InstancesSetMetadataCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -24204,6 +26828,23 @@ func (r *InstancesService) SetScheduling(project string, zone string, instance s
 	c.zone = zone
 	c.instance = instance
 	c.scheduling = scheduling
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesSetSchedulingCall) QuotaUser(quotaUser string) *InstancesSetSchedulingCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesSetSchedulingCall) UserIP(userIP string) *InstancesSetSchedulingCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -24353,6 +26994,23 @@ func (r *InstancesService) SetTags(project string, zone string, instance string,
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesSetTagsCall) QuotaUser(quotaUser string) *InstancesSetTagsCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesSetTagsCall) UserIP(userIP string) *InstancesSetTagsCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -24498,6 +27156,23 @@ func (r *InstancesService) Start(project string, zone string, instance string) *
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesStartCall) QuotaUser(quotaUser string) *InstancesStartCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesStartCall) UserIP(userIP string) *InstancesStartCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -24638,6 +27313,23 @@ func (r *InstancesService) Stop(project string, zone string, instance string) *I
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *InstancesStopCall) QuotaUser(quotaUser string) *InstancesStopCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *InstancesStopCall) UserIP(userIP string) *InstancesStopCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -24768,6 +27460,23 @@ func (r *LicensesService) Get(project string, license string) *LicensesGetCall {
 	c := &LicensesGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.license = license
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *LicensesGetCall) QuotaUser(quotaUser string) *LicensesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *LicensesGetCall) UserIP(userIP string) *LicensesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -24910,37 +27619,69 @@ func (r *MachineTypesService) AggregatedList(project string) *MachineTypesAggreg
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *MachineTypesAggregatedListCall) Filter(filter string) *MachineTypesAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *MachineTypesAggregatedListCall) MaxResults(maxResults int64) *MachineTypesAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *MachineTypesAggregatedListCall) PageToken(pageToken string) *MachineTypesAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *MachineTypesAggregatedListCall) QuotaUser(quotaUser string) *MachineTypesAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *MachineTypesAggregatedListCall) UserIP(userIP string) *MachineTypesAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -25033,13 +27774,13 @@ func (c *MachineTypesAggregatedListCall) Do() (*MachineTypeAggregatedList, error
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -25047,7 +27788,7 @@ func (c *MachineTypesAggregatedListCall) Do() (*MachineTypeAggregatedList, error
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -25091,6 +27832,23 @@ func (r *MachineTypesService) Get(project string, zone string, machineType strin
 	c.project = project
 	c.zone = zone
 	c.machineType = machineType
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *MachineTypesGetCall) QuotaUser(quotaUser string) *MachineTypesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *MachineTypesGetCall) UserIP(userIP string) *MachineTypesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -25244,37 +28002,69 @@ func (r *MachineTypesService) List(project string, zone string) *MachineTypesLis
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *MachineTypesListCall) Filter(filter string) *MachineTypesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *MachineTypesListCall) MaxResults(maxResults int64) *MachineTypesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *MachineTypesListCall) PageToken(pageToken string) *MachineTypesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *MachineTypesListCall) QuotaUser(quotaUser string) *MachineTypesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *MachineTypesListCall) UserIP(userIP string) *MachineTypesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -25369,13 +28159,13 @@ func (c *MachineTypesListCall) Do() (*MachineTypeList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -25383,7 +28173,7 @@ func (c *MachineTypesListCall) Do() (*MachineTypeList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -25431,6 +28221,23 @@ func (r *NetworksService) Delete(project string, network string) *NetworksDelete
 	c := &NetworksDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.network = network
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *NetworksDeleteCall) QuotaUser(quotaUser string) *NetworksDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *NetworksDeleteCall) UserIP(userIP string) *NetworksDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -25555,6 +28362,23 @@ func (r *NetworksService) Get(project string, network string) *NetworksGetCall {
 	c := &NetworksGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.network = network
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *NetworksGetCall) QuotaUser(quotaUser string) *NetworksGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *NetworksGetCall) UserIP(userIP string) *NetworksGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -25696,6 +28520,23 @@ func (r *NetworksService) Insert(project string, network *Network) *NetworksInse
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *NetworksInsertCall) QuotaUser(quotaUser string) *NetworksInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *NetworksInsertCall) UserIP(userIP string) *NetworksInsertCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -25821,37 +28662,69 @@ func (r *NetworksService) List(project string) *NetworksListCall {
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *NetworksListCall) Filter(filter string) *NetworksListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *NetworksListCall) MaxResults(maxResults int64) *NetworksListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *NetworksListCall) PageToken(pageToken string) *NetworksListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *NetworksListCall) QuotaUser(quotaUser string) *NetworksListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *NetworksListCall) UserIP(userIP string) *NetworksListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -25944,13 +28817,13 @@ func (c *NetworksListCall) Do() (*NetworkList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -25958,7 +28831,7 @@ func (c *NetworksListCall) Do() (*NetworkList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -25998,6 +28871,23 @@ type ProjectsGetCall struct {
 func (r *ProjectsService) Get(project string) *ProjectsGetCall {
 	c := &ProjectsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ProjectsGetCall) QuotaUser(quotaUser string) *ProjectsGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ProjectsGetCall) UserIP(userIP string) *ProjectsGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -26128,6 +29018,23 @@ func (r *ProjectsService) MoveDisk(project string, diskmoverequest *DiskMoveRequ
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ProjectsMoveDiskCall) QuotaUser(quotaUser string) *ProjectsMoveDiskCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ProjectsMoveDiskCall) UserIP(userIP string) *ProjectsMoveDiskCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -26248,6 +29155,23 @@ func (r *ProjectsService) MoveInstance(project string, instancemoverequest *Inst
 	c := &ProjectsMoveInstanceCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.instancemoverequest = instancemoverequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ProjectsMoveInstanceCall) QuotaUser(quotaUser string) *ProjectsMoveInstanceCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ProjectsMoveInstanceCall) UserIP(userIP string) *ProjectsMoveInstanceCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -26375,6 +29299,23 @@ func (r *ProjectsService) SetCommonInstanceMetadata(project string, metadata *Me
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ProjectsSetCommonInstanceMetadataCall) QuotaUser(quotaUser string) *ProjectsSetCommonInstanceMetadataCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ProjectsSetCommonInstanceMetadataCall) UserIP(userIP string) *ProjectsSetCommonInstanceMetadataCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -26498,6 +29439,23 @@ func (r *ProjectsService) SetUsageExportBucket(project string, usageexportlocati
 	c := &ProjectsSetUsageExportBucketCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.usageexportlocation = usageexportlocation
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ProjectsSetUsageExportBucketCall) QuotaUser(quotaUser string) *ProjectsSetUsageExportBucketCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ProjectsSetUsageExportBucketCall) UserIP(userIP string) *ProjectsSetUsageExportBucketCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -26629,6 +29587,23 @@ func (r *RegionOperationsService) Delete(project string, region string, operatio
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *RegionOperationsDeleteCall) QuotaUser(quotaUser string) *RegionOperationsDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *RegionOperationsDeleteCall) UserIP(userIP string) *RegionOperationsDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -26734,6 +29709,23 @@ func (r *RegionOperationsService) Get(project string, region string, operation s
 	c.project = project
 	c.region = region
 	c.operation = operation
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *RegionOperationsGetCall) QuotaUser(quotaUser string) *RegionOperationsGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *RegionOperationsGetCall) UserIP(userIP string) *RegionOperationsGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -26887,37 +29879,69 @@ func (r *RegionOperationsService) List(project string, region string) *RegionOpe
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *RegionOperationsListCall) Filter(filter string) *RegionOperationsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *RegionOperationsListCall) MaxResults(maxResults int64) *RegionOperationsListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *RegionOperationsListCall) PageToken(pageToken string) *RegionOperationsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *RegionOperationsListCall) QuotaUser(quotaUser string) *RegionOperationsListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *RegionOperationsListCall) UserIP(userIP string) *RegionOperationsListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -27012,13 +30036,13 @@ func (c *RegionOperationsListCall) Do() (*OperationList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -27026,7 +30050,7 @@ func (c *RegionOperationsListCall) Do() (*OperationList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -27075,6 +30099,23 @@ func (r *RegionsService) Get(project string, region string) *RegionsGetCall {
 	c := &RegionsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.region = region
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *RegionsGetCall) QuotaUser(quotaUser string) *RegionsGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *RegionsGetCall) UserIP(userIP string) *RegionsGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -27217,37 +30258,69 @@ func (r *RegionsService) List(project string) *RegionsListCall {
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *RegionsListCall) Filter(filter string) *RegionsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *RegionsListCall) MaxResults(maxResults int64) *RegionsListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *RegionsListCall) PageToken(pageToken string) *RegionsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *RegionsListCall) QuotaUser(quotaUser string) *RegionsListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *RegionsListCall) UserIP(userIP string) *RegionsListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -27340,13 +30413,13 @@ func (c *RegionsListCall) Do() (*RegionList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -27354,7 +30427,7 @@ func (c *RegionsListCall) Do() (*RegionList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -27395,6 +30468,23 @@ func (r *RoutesService) Delete(project string, route string) *RoutesDeleteCall {
 	c := &RoutesDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.route = route
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *RoutesDeleteCall) QuotaUser(quotaUser string) *RoutesDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *RoutesDeleteCall) UserIP(userIP string) *RoutesDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -27476,7 +30566,7 @@ func (c *RoutesDeleteCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -27519,6 +30609,23 @@ func (r *RoutesService) Get(project string, route string) *RoutesGetCall {
 	c := &RoutesGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.route = route
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *RoutesGetCall) QuotaUser(quotaUser string) *RoutesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *RoutesGetCall) UserIP(userIP string) *RoutesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -27613,7 +30720,7 @@ func (c *RoutesGetCall) Do() (*Route, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -27657,6 +30764,23 @@ func (r *RoutesService) Insert(project string, route *Route) *RoutesInsertCall {
 	c := &RoutesInsertCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.route = route
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *RoutesInsertCall) QuotaUser(quotaUser string) *RoutesInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *RoutesInsertCall) UserIP(userIP string) *RoutesInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -27742,7 +30866,7 @@ func (c *RoutesInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -27785,37 +30909,69 @@ func (r *RoutesService) List(project string) *RoutesListCall {
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *RoutesListCall) Filter(filter string) *RoutesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *RoutesListCall) MaxResults(maxResults int64) *RoutesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *RoutesListCall) PageToken(pageToken string) *RoutesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *RoutesListCall) QuotaUser(quotaUser string) *RoutesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *RoutesListCall) UserIP(userIP string) *RoutesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -27908,13 +31064,13 @@ func (c *RoutesListCall) Do() (*RouteList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -27922,12 +31078,12 @@ func (c *RoutesListCall) Do() (*RouteList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -27969,6 +31125,23 @@ func (r *SnapshotsService) Delete(project string, snapshot string) *SnapshotsDel
 	c := &SnapshotsDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.snapshot = snapshot
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *SnapshotsDeleteCall) QuotaUser(quotaUser string) *SnapshotsDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *SnapshotsDeleteCall) UserIP(userIP string) *SnapshotsDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -28050,7 +31223,7 @@ func (c *SnapshotsDeleteCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -28093,6 +31266,23 @@ func (r *SnapshotsService) Get(project string, snapshot string) *SnapshotsGetCal
 	c := &SnapshotsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.snapshot = snapshot
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *SnapshotsGetCall) QuotaUser(quotaUser string) *SnapshotsGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *SnapshotsGetCall) UserIP(userIP string) *SnapshotsGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -28187,7 +31377,7 @@ func (c *SnapshotsGetCall) Do() (*Snapshot, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -28235,37 +31425,69 @@ func (r *SnapshotsService) List(project string) *SnapshotsListCall {
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *SnapshotsListCall) Filter(filter string) *SnapshotsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *SnapshotsListCall) MaxResults(maxResults int64) *SnapshotsListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *SnapshotsListCall) PageToken(pageToken string) *SnapshotsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *SnapshotsListCall) QuotaUser(quotaUser string) *SnapshotsListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *SnapshotsListCall) UserIP(userIP string) *SnapshotsListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -28358,13 +31580,13 @@ func (c *SnapshotsListCall) Do() (*SnapshotList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -28372,12 +31594,12 @@ func (c *SnapshotsListCall) Do() (*SnapshotList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -28412,6 +31634,23 @@ func (r *SslCertificatesService) Delete(project string, sslCertificate string) *
 	c := &SslCertificatesDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.sslCertificate = sslCertificate
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *SslCertificatesDeleteCall) QuotaUser(quotaUser string) *SslCertificatesDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *SslCertificatesDeleteCall) UserIP(userIP string) *SslCertificatesDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -28493,7 +31732,7 @@ func (c *SslCertificatesDeleteCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -28535,6 +31774,23 @@ func (r *SslCertificatesService) Get(project string, sslCertificate string) *Ssl
 	c := &SslCertificatesGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.sslCertificate = sslCertificate
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *SslCertificatesGetCall) QuotaUser(quotaUser string) *SslCertificatesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *SslCertificatesGetCall) UserIP(userIP string) *SslCertificatesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -28629,7 +31885,7 @@ func (c *SslCertificatesGetCall) Do() (*SslCertificate, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -28672,6 +31928,23 @@ func (r *SslCertificatesService) Insert(project string, sslcertificate *SslCerti
 	c := &SslCertificatesInsertCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.sslcertificate = sslcertificate
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *SslCertificatesInsertCall) QuotaUser(quotaUser string) *SslCertificatesInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *SslCertificatesInsertCall) UserIP(userIP string) *SslCertificatesInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -28757,7 +32030,7 @@ func (c *SslCertificatesInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -28799,37 +32072,69 @@ func (r *SslCertificatesService) List(project string) *SslCertificatesListCall {
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *SslCertificatesListCall) Filter(filter string) *SslCertificatesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *SslCertificatesListCall) MaxResults(maxResults int64) *SslCertificatesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *SslCertificatesListCall) PageToken(pageToken string) *SslCertificatesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *SslCertificatesListCall) QuotaUser(quotaUser string) *SslCertificatesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *SslCertificatesListCall) UserIP(userIP string) *SslCertificatesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -28922,13 +32227,13 @@ func (c *SslCertificatesListCall) Do() (*SslCertificateList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -28936,12 +32241,12 @@ func (c *SslCertificatesListCall) Do() (*SslCertificateList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -28977,6 +32282,23 @@ func (r *TargetHttpProxiesService) Delete(project string, targetHttpProxy string
 	c := &TargetHttpProxiesDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.targetHttpProxy = targetHttpProxy
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetHttpProxiesDeleteCall) QuotaUser(quotaUser string) *TargetHttpProxiesDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetHttpProxiesDeleteCall) UserIP(userIP string) *TargetHttpProxiesDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -29058,7 +32380,7 @@ func (c *TargetHttpProxiesDeleteCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -29101,6 +32423,23 @@ func (r *TargetHttpProxiesService) Get(project string, targetHttpProxy string) *
 	c := &TargetHttpProxiesGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.targetHttpProxy = targetHttpProxy
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetHttpProxiesGetCall) QuotaUser(quotaUser string) *TargetHttpProxiesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetHttpProxiesGetCall) UserIP(userIP string) *TargetHttpProxiesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -29195,7 +32534,7 @@ func (c *TargetHttpProxiesGetCall) Do() (*TargetHttpProxy, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -29239,6 +32578,23 @@ func (r *TargetHttpProxiesService) Insert(project string, targethttpproxy *Targe
 	c := &TargetHttpProxiesInsertCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.targethttpproxy = targethttpproxy
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetHttpProxiesInsertCall) QuotaUser(quotaUser string) *TargetHttpProxiesInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetHttpProxiesInsertCall) UserIP(userIP string) *TargetHttpProxiesInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -29324,7 +32680,7 @@ func (c *TargetHttpProxiesInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -29367,37 +32723,69 @@ func (r *TargetHttpProxiesService) List(project string) *TargetHttpProxiesListCa
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *TargetHttpProxiesListCall) Filter(filter string) *TargetHttpProxiesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *TargetHttpProxiesListCall) MaxResults(maxResults int64) *TargetHttpProxiesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *TargetHttpProxiesListCall) PageToken(pageToken string) *TargetHttpProxiesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetHttpProxiesListCall) QuotaUser(quotaUser string) *TargetHttpProxiesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetHttpProxiesListCall) UserIP(userIP string) *TargetHttpProxiesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -29490,13 +32878,13 @@ func (c *TargetHttpProxiesListCall) Do() (*TargetHttpProxyList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -29504,12 +32892,12 @@ func (c *TargetHttpProxiesListCall) Do() (*TargetHttpProxyList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -29547,6 +32935,23 @@ func (r *TargetHttpProxiesService) SetUrlMap(project string, targetHttpProxy str
 	c.project = project
 	c.targetHttpProxy = targetHttpProxy
 	c.urlmapreference = urlmapreference
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetHttpProxiesSetUrlMapCall) QuotaUser(quotaUser string) *TargetHttpProxiesSetUrlMapCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetHttpProxiesSetUrlMapCall) UserIP(userIP string) *TargetHttpProxiesSetUrlMapCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -29634,7 +33039,7 @@ func (c *TargetHttpProxiesSetUrlMapCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -29678,6 +33083,23 @@ func (r *TargetHttpsProxiesService) Delete(project string, targetHttpsProxy stri
 	c := &TargetHttpsProxiesDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.targetHttpsProxy = targetHttpsProxy
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetHttpsProxiesDeleteCall) QuotaUser(quotaUser string) *TargetHttpsProxiesDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetHttpsProxiesDeleteCall) UserIP(userIP string) *TargetHttpsProxiesDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -29759,7 +33181,7 @@ func (c *TargetHttpsProxiesDeleteCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -29801,6 +33223,23 @@ func (r *TargetHttpsProxiesService) Get(project string, targetHttpsProxy string)
 	c := &TargetHttpsProxiesGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.targetHttpsProxy = targetHttpsProxy
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetHttpsProxiesGetCall) QuotaUser(quotaUser string) *TargetHttpsProxiesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetHttpsProxiesGetCall) UserIP(userIP string) *TargetHttpsProxiesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -29895,7 +33334,7 @@ func (c *TargetHttpsProxiesGetCall) Do() (*TargetHttpsProxy, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -29938,6 +33377,23 @@ func (r *TargetHttpsProxiesService) Insert(project string, targethttpsproxy *Tar
 	c := &TargetHttpsProxiesInsertCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.targethttpsproxy = targethttpsproxy
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetHttpsProxiesInsertCall) QuotaUser(quotaUser string) *TargetHttpsProxiesInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetHttpsProxiesInsertCall) UserIP(userIP string) *TargetHttpsProxiesInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -30023,7 +33479,7 @@ func (c *TargetHttpsProxiesInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -30065,37 +33521,69 @@ func (r *TargetHttpsProxiesService) List(project string) *TargetHttpsProxiesList
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *TargetHttpsProxiesListCall) Filter(filter string) *TargetHttpsProxiesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *TargetHttpsProxiesListCall) MaxResults(maxResults int64) *TargetHttpsProxiesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *TargetHttpsProxiesListCall) PageToken(pageToken string) *TargetHttpsProxiesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetHttpsProxiesListCall) QuotaUser(quotaUser string) *TargetHttpsProxiesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetHttpsProxiesListCall) UserIP(userIP string) *TargetHttpsProxiesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -30188,13 +33676,13 @@ func (c *TargetHttpsProxiesListCall) Do() (*TargetHttpsProxyList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -30202,12 +33690,12 @@ func (c *TargetHttpsProxiesListCall) Do() (*TargetHttpsProxyList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -30244,6 +33732,23 @@ func (r *TargetHttpsProxiesService) SetSslCertificates(project string, targetHtt
 	c.project = project
 	c.targetHttpsProxy = targetHttpsProxy
 	c.targethttpsproxiessetsslcertificatesrequest = targethttpsproxiessetsslcertificatesrequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetHttpsProxiesSetSslCertificatesCall) QuotaUser(quotaUser string) *TargetHttpsProxiesSetSslCertificatesCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetHttpsProxiesSetSslCertificatesCall) UserIP(userIP string) *TargetHttpsProxiesSetSslCertificatesCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -30331,7 +33836,7 @@ func (c *TargetHttpsProxiesSetSslCertificatesCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -30377,6 +33882,23 @@ func (r *TargetHttpsProxiesService) SetUrlMap(project string, targetHttpsProxy s
 	c.project = project
 	c.targetHttpsProxy = targetHttpsProxy
 	c.urlmapreference = urlmapreference
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetHttpsProxiesSetUrlMapCall) QuotaUser(quotaUser string) *TargetHttpsProxiesSetUrlMapCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetHttpsProxiesSetUrlMapCall) UserIP(userIP string) *TargetHttpsProxiesSetUrlMapCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -30464,7 +33986,7 @@ func (c *TargetHttpsProxiesSetUrlMapCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -30514,37 +34036,69 @@ func (r *TargetInstancesService) AggregatedList(project string) *TargetInstances
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *TargetInstancesAggregatedListCall) Filter(filter string) *TargetInstancesAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *TargetInstancesAggregatedListCall) MaxResults(maxResults int64) *TargetInstancesAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *TargetInstancesAggregatedListCall) PageToken(pageToken string) *TargetInstancesAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetInstancesAggregatedListCall) QuotaUser(quotaUser string) *TargetInstancesAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetInstancesAggregatedListCall) UserIP(userIP string) *TargetInstancesAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -30637,13 +34191,13 @@ func (c *TargetInstancesAggregatedListCall) Do() (*TargetInstanceAggregatedList,
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -30651,12 +34205,12 @@ func (c *TargetInstancesAggregatedListCall) Do() (*TargetInstanceAggregatedList,
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -30694,6 +34248,23 @@ func (r *TargetInstancesService) Delete(project string, zone string, targetInsta
 	c.project = project
 	c.zone = zone
 	c.targetInstance = targetInstance
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetInstancesDeleteCall) QuotaUser(quotaUser string) *TargetInstancesDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetInstancesDeleteCall) UserIP(userIP string) *TargetInstancesDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -30777,7 +34348,7 @@ func (c *TargetInstancesDeleteCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -30829,6 +34400,23 @@ func (r *TargetInstancesService) Get(project string, zone string, targetInstance
 	c.project = project
 	c.zone = zone
 	c.targetInstance = targetInstance
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetInstancesGetCall) QuotaUser(quotaUser string) *TargetInstancesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetInstancesGetCall) UserIP(userIP string) *TargetInstancesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -30925,7 +34513,7 @@ func (c *TargetInstancesGetCall) Do() (*TargetInstance, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -30978,6 +34566,23 @@ func (r *TargetInstancesService) Insert(project string, zone string, targetinsta
 	c.project = project
 	c.zone = zone
 	c.targetinstance = targetinstance
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetInstancesInsertCall) QuotaUser(quotaUser string) *TargetInstancesInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetInstancesInsertCall) UserIP(userIP string) *TargetInstancesInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -31065,7 +34670,7 @@ func (c *TargetInstancesInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -31117,37 +34722,69 @@ func (r *TargetInstancesService) List(project string, zone string) *TargetInstan
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *TargetInstancesListCall) Filter(filter string) *TargetInstancesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *TargetInstancesListCall) MaxResults(maxResults int64) *TargetInstancesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *TargetInstancesListCall) PageToken(pageToken string) *TargetInstancesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetInstancesListCall) QuotaUser(quotaUser string) *TargetInstancesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetInstancesListCall) UserIP(userIP string) *TargetInstancesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -31242,13 +34879,13 @@ func (c *TargetInstancesListCall) Do() (*TargetInstanceList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -31256,12 +34893,12 @@ func (c *TargetInstancesListCall) Do() (*TargetInstanceList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -31308,6 +34945,23 @@ func (r *TargetPoolsService) AddHealthCheck(project string, region string, targe
 	c.region = region
 	c.targetPool = targetPool
 	c.targetpoolsaddhealthcheckrequest = targetpoolsaddhealthcheckrequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetPoolsAddHealthCheckCall) QuotaUser(quotaUser string) *TargetPoolsAddHealthCheckCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetPoolsAddHealthCheckCall) UserIP(userIP string) *TargetPoolsAddHealthCheckCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -31444,7 +35098,7 @@ type TargetPoolsAddInstanceCall struct {
 	ctx_                          context.Context
 }
 
-// AddInstance: Adds instance url to targetPool.
+// AddInstance: Adds instance URL to targetPool.
 // For details, see https://cloud.google.com/compute/docs/reference/latest/targetPools/addInstance
 func (r *TargetPoolsService) AddInstance(project string, region string, targetPool string, targetpoolsaddinstancerequest *TargetPoolsAddInstanceRequest) *TargetPoolsAddInstanceCall {
 	c := &TargetPoolsAddInstanceCall{s: r.s, urlParams_: make(gensupport.URLParams)}
@@ -31452,6 +35106,23 @@ func (r *TargetPoolsService) AddInstance(project string, region string, targetPo
 	c.region = region
 	c.targetPool = targetPool
 	c.targetpoolsaddinstancerequest = targetpoolsaddinstancerequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetPoolsAddInstanceCall) QuotaUser(quotaUser string) *TargetPoolsAddInstanceCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetPoolsAddInstanceCall) UserIP(userIP string) *TargetPoolsAddInstanceCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -31531,7 +35202,7 @@ func (c *TargetPoolsAddInstanceCall) Do() (*Operation, error) {
 	}
 	return ret, nil
 	// {
-	//   "description": "Adds instance url to targetPool.",
+	//   "description": "Adds instance URL to targetPool.",
 	//   "httpMethod": "POST",
 	//   "id": "compute.targetPools.addInstance",
 	//   "parameterOrder": [
@@ -31596,37 +35267,69 @@ func (r *TargetPoolsService) AggregatedList(project string) *TargetPoolsAggregat
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *TargetPoolsAggregatedListCall) Filter(filter string) *TargetPoolsAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *TargetPoolsAggregatedListCall) MaxResults(maxResults int64) *TargetPoolsAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *TargetPoolsAggregatedListCall) PageToken(pageToken string) *TargetPoolsAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetPoolsAggregatedListCall) QuotaUser(quotaUser string) *TargetPoolsAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetPoolsAggregatedListCall) UserIP(userIP string) *TargetPoolsAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -31719,13 +35422,13 @@ func (c *TargetPoolsAggregatedListCall) Do() (*TargetPoolAggregatedList, error) 
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -31733,12 +35436,12 @@ func (c *TargetPoolsAggregatedListCall) Do() (*TargetPoolAggregatedList, error) 
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -31776,6 +35479,23 @@ func (r *TargetPoolsService) Delete(project string, region string, targetPool st
 	c.project = project
 	c.region = region
 	c.targetPool = targetPool
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetPoolsDeleteCall) QuotaUser(quotaUser string) *TargetPoolsDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetPoolsDeleteCall) UserIP(userIP string) *TargetPoolsDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -31859,7 +35579,7 @@ func (c *TargetPoolsDeleteCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -31911,6 +35631,23 @@ func (r *TargetPoolsService) Get(project string, region string, targetPool strin
 	c.project = project
 	c.region = region
 	c.targetPool = targetPool
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetPoolsGetCall) QuotaUser(quotaUser string) *TargetPoolsGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetPoolsGetCall) UserIP(userIP string) *TargetPoolsGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -32007,7 +35744,7 @@ func (c *TargetPoolsGetCall) Do() (*TargetPool, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -32062,6 +35799,23 @@ func (r *TargetPoolsService) GetHealth(project string, region string, targetPool
 	c.region = region
 	c.targetPool = targetPool
 	c.instancereference = instancereference
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetPoolsGetHealthCall) QuotaUser(quotaUser string) *TargetPoolsGetHealthCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetPoolsGetHealthCall) UserIP(userIP string) *TargetPoolsGetHealthCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -32209,6 +35963,23 @@ func (r *TargetPoolsService) Insert(project string, region string, targetpool *T
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetPoolsInsertCall) QuotaUser(quotaUser string) *TargetPoolsInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetPoolsInsertCall) UserIP(userIP string) *TargetPoolsInsertCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -32293,7 +36064,7 @@ func (c *TargetPoolsInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -32345,37 +36116,69 @@ func (r *TargetPoolsService) List(project string, region string) *TargetPoolsLis
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *TargetPoolsListCall) Filter(filter string) *TargetPoolsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *TargetPoolsListCall) MaxResults(maxResults int64) *TargetPoolsListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *TargetPoolsListCall) PageToken(pageToken string) *TargetPoolsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetPoolsListCall) QuotaUser(quotaUser string) *TargetPoolsListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetPoolsListCall) UserIP(userIP string) *TargetPoolsListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -32470,13 +36273,13 @@ func (c *TargetPoolsListCall) Do() (*TargetPoolList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -32484,12 +36287,12 @@ func (c *TargetPoolsListCall) Do() (*TargetPoolList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -32536,6 +36339,23 @@ func (r *TargetPoolsService) RemoveHealthCheck(project string, region string, ta
 	c.region = region
 	c.targetPool = targetPool
 	c.targetpoolsremovehealthcheckrequest = targetpoolsremovehealthcheckrequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetPoolsRemoveHealthCheckCall) QuotaUser(quotaUser string) *TargetPoolsRemoveHealthCheckCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetPoolsRemoveHealthCheckCall) UserIP(userIP string) *TargetPoolsRemoveHealthCheckCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -32680,6 +36500,23 @@ func (r *TargetPoolsService) RemoveInstance(project string, region string, targe
 	c.region = region
 	c.targetPool = targetPool
 	c.targetpoolsremoveinstancerequest = targetpoolsremoveinstancerequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetPoolsRemoveInstanceCall) QuotaUser(quotaUser string) *TargetPoolsRemoveInstanceCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetPoolsRemoveInstanceCall) UserIP(userIP string) *TargetPoolsRemoveInstanceCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -32834,6 +36671,23 @@ func (c *TargetPoolsSetBackupCall) FailoverRatio(failoverRatio float64) *TargetP
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetPoolsSetBackupCall) QuotaUser(quotaUser string) *TargetPoolsSetBackupCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetPoolsSetBackupCall) UserIP(userIP string) *TargetPoolsSetBackupCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -32926,7 +36780,7 @@ func (c *TargetPoolsSetBackupCall) Do() (*Operation, error) {
 	//       "type": "number"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -32982,37 +36836,69 @@ func (r *TargetVpnGatewaysService) AggregatedList(project string) *TargetVpnGate
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *TargetVpnGatewaysAggregatedListCall) Filter(filter string) *TargetVpnGatewaysAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *TargetVpnGatewaysAggregatedListCall) MaxResults(maxResults int64) *TargetVpnGatewaysAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *TargetVpnGatewaysAggregatedListCall) PageToken(pageToken string) *TargetVpnGatewaysAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetVpnGatewaysAggregatedListCall) QuotaUser(quotaUser string) *TargetVpnGatewaysAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetVpnGatewaysAggregatedListCall) UserIP(userIP string) *TargetVpnGatewaysAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -33105,13 +36991,13 @@ func (c *TargetVpnGatewaysAggregatedListCall) Do() (*TargetVpnGatewayAggregatedL
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -33119,7 +37005,7 @@ func (c *TargetVpnGatewaysAggregatedListCall) Do() (*TargetVpnGatewayAggregatedL
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -33161,6 +37047,23 @@ func (r *TargetVpnGatewaysService) Delete(project string, region string, targetV
 	c.project = project
 	c.region = region
 	c.targetVpnGateway = targetVpnGateway
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetVpnGatewaysDeleteCall) QuotaUser(quotaUser string) *TargetVpnGatewaysDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetVpnGatewaysDeleteCall) UserIP(userIP string) *TargetVpnGatewaysDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -33295,6 +37198,23 @@ func (r *TargetVpnGatewaysService) Get(project string, region string, targetVpnG
 	c.project = project
 	c.region = region
 	c.targetVpnGateway = targetVpnGateway
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetVpnGatewaysGetCall) QuotaUser(quotaUser string) *TargetVpnGatewaysGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetVpnGatewaysGetCall) UserIP(userIP string) *TargetVpnGatewaysGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -33446,6 +37366,23 @@ func (r *TargetVpnGatewaysService) Insert(project string, region string, targetv
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetVpnGatewaysInsertCall) QuotaUser(quotaUser string) *TargetVpnGatewaysInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetVpnGatewaysInsertCall) UserIP(userIP string) *TargetVpnGatewaysInsertCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -33581,37 +37518,69 @@ func (r *TargetVpnGatewaysService) List(project string, region string) *TargetVp
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *TargetVpnGatewaysListCall) Filter(filter string) *TargetVpnGatewaysListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *TargetVpnGatewaysListCall) MaxResults(maxResults int64) *TargetVpnGatewaysListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *TargetVpnGatewaysListCall) PageToken(pageToken string) *TargetVpnGatewaysListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *TargetVpnGatewaysListCall) QuotaUser(quotaUser string) *TargetVpnGatewaysListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *TargetVpnGatewaysListCall) UserIP(userIP string) *TargetVpnGatewaysListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -33706,13 +37675,13 @@ func (c *TargetVpnGatewaysListCall) Do() (*TargetVpnGatewayList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -33720,7 +37689,7 @@ func (c *TargetVpnGatewaysListCall) Do() (*TargetVpnGatewayList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -33768,6 +37737,23 @@ func (r *UrlMapsService) Delete(project string, urlMap string) *UrlMapsDeleteCal
 	c := &UrlMapsDeleteCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.urlMap = urlMap
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *UrlMapsDeleteCall) QuotaUser(quotaUser string) *UrlMapsDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *UrlMapsDeleteCall) UserIP(userIP string) *UrlMapsDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -33849,7 +37835,7 @@ func (c *UrlMapsDeleteCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -33892,6 +37878,23 @@ func (r *UrlMapsService) Get(project string, urlMap string) *UrlMapsGetCall {
 	c := &UrlMapsGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.urlMap = urlMap
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *UrlMapsGetCall) QuotaUser(quotaUser string) *UrlMapsGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *UrlMapsGetCall) UserIP(userIP string) *UrlMapsGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -33986,7 +37989,7 @@ func (c *UrlMapsGetCall) Do() (*UrlMap, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -34030,6 +38033,23 @@ func (r *UrlMapsService) Insert(project string, urlmap *UrlMap) *UrlMapsInsertCa
 	c := &UrlMapsInsertCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.urlmap = urlmap
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *UrlMapsInsertCall) QuotaUser(quotaUser string) *UrlMapsInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *UrlMapsInsertCall) UserIP(userIP string) *UrlMapsInsertCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -34115,7 +38135,7 @@ func (c *UrlMapsInsertCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -34158,37 +38178,69 @@ func (r *UrlMapsService) List(project string) *UrlMapsListCall {
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *UrlMapsListCall) Filter(filter string) *UrlMapsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *UrlMapsListCall) MaxResults(maxResults int64) *UrlMapsListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *UrlMapsListCall) PageToken(pageToken string) *UrlMapsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *UrlMapsListCall) QuotaUser(quotaUser string) *UrlMapsListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *UrlMapsListCall) UserIP(userIP string) *UrlMapsListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -34281,13 +38333,13 @@ func (c *UrlMapsListCall) Do() (*UrlMapList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -34295,12 +38347,12 @@ func (c *UrlMapsListCall) Do() (*UrlMapList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -34339,6 +38391,23 @@ func (r *UrlMapsService) Patch(project string, urlMap string, urlmap *UrlMap) *U
 	c.project = project
 	c.urlMap = urlMap
 	c.urlmap = urlmap
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *UrlMapsPatchCall) QuotaUser(quotaUser string) *UrlMapsPatchCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *UrlMapsPatchCall) UserIP(userIP string) *UrlMapsPatchCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -34426,7 +38495,7 @@ func (c *UrlMapsPatchCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -34473,6 +38542,23 @@ func (r *UrlMapsService) Update(project string, urlMap string, urlmap *UrlMap) *
 	c.project = project
 	c.urlMap = urlMap
 	c.urlmap = urlmap
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *UrlMapsUpdateCall) QuotaUser(quotaUser string) *UrlMapsUpdateCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *UrlMapsUpdateCall) UserIP(userIP string) *UrlMapsUpdateCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -34560,7 +38646,7 @@ func (c *UrlMapsUpdateCall) Do() (*Operation, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -34609,6 +38695,23 @@ func (r *UrlMapsService) Validate(project string, urlMap string, urlmapsvalidate
 	c.project = project
 	c.urlMap = urlMap
 	c.urlmapsvalidaterequest = urlmapsvalidaterequest
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *UrlMapsValidateCall) QuotaUser(quotaUser string) *UrlMapsValidateCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *UrlMapsValidateCall) UserIP(userIP string) *UrlMapsValidateCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -34696,7 +38799,7 @@ func (c *UrlMapsValidateCall) Do() (*UrlMapsValidateResponse, error) {
 	//   ],
 	//   "parameters": {
 	//     "project": {
-	//       "description": "Name of the project scoping this request.",
+	//       "description": "Project ID for this request.",
 	//       "location": "path",
 	//       "pattern": "(?:(?:[-a-z0-9]{1,63}\\.)*(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?):)?(?:[0-9]{1,19}|(?:[a-z](?:[-a-z0-9]{0,61}[a-z0-9])?))",
 	//       "required": true,
@@ -34744,37 +38847,69 @@ func (r *VpnTunnelsService) AggregatedList(project string) *VpnTunnelsAggregated
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *VpnTunnelsAggregatedListCall) Filter(filter string) *VpnTunnelsAggregatedListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *VpnTunnelsAggregatedListCall) MaxResults(maxResults int64) *VpnTunnelsAggregatedListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *VpnTunnelsAggregatedListCall) PageToken(pageToken string) *VpnTunnelsAggregatedListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *VpnTunnelsAggregatedListCall) QuotaUser(quotaUser string) *VpnTunnelsAggregatedListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *VpnTunnelsAggregatedListCall) UserIP(userIP string) *VpnTunnelsAggregatedListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -34867,13 +39002,13 @@ func (c *VpnTunnelsAggregatedListCall) Do() (*VpnTunnelAggregatedList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -34881,7 +39016,7 @@ func (c *VpnTunnelsAggregatedListCall) Do() (*VpnTunnelAggregatedList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -34923,6 +39058,23 @@ func (r *VpnTunnelsService) Delete(project string, region string, vpnTunnel stri
 	c.project = project
 	c.region = region
 	c.vpnTunnel = vpnTunnel
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *VpnTunnelsDeleteCall) QuotaUser(quotaUser string) *VpnTunnelsDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *VpnTunnelsDeleteCall) UserIP(userIP string) *VpnTunnelsDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -35057,6 +39209,23 @@ func (r *VpnTunnelsService) Get(project string, region string, vpnTunnel string)
 	c.project = project
 	c.region = region
 	c.vpnTunnel = vpnTunnel
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *VpnTunnelsGetCall) QuotaUser(quotaUser string) *VpnTunnelsGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *VpnTunnelsGetCall) UserIP(userIP string) *VpnTunnelsGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -35208,6 +39377,23 @@ func (r *VpnTunnelsService) Insert(project string, region string, vpntunnel *Vpn
 	return c
 }
 
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *VpnTunnelsInsertCall) QuotaUser(quotaUser string) *VpnTunnelsInsertCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *VpnTunnelsInsertCall) UserIP(userIP string) *VpnTunnelsInsertCall {
+	c.urlParams_.Set("userIp", userIP)
+	return c
+}
+
 // Fields allows partial responses to be retrieved. See
 // https://developers.google.com/gdata/docs/2.0/basics#PartialResponse
 // for more information.
@@ -35343,37 +39529,69 @@ func (r *VpnTunnelsService) List(project string, region string) *VpnTunnelsListC
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *VpnTunnelsListCall) Filter(filter string) *VpnTunnelsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *VpnTunnelsListCall) MaxResults(maxResults int64) *VpnTunnelsListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *VpnTunnelsListCall) PageToken(pageToken string) *VpnTunnelsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *VpnTunnelsListCall) QuotaUser(quotaUser string) *VpnTunnelsListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *VpnTunnelsListCall) UserIP(userIP string) *VpnTunnelsListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -35468,13 +39686,13 @@ func (c *VpnTunnelsListCall) Do() (*VpnTunnelList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -35482,7 +39700,7 @@ func (c *VpnTunnelsListCall) Do() (*VpnTunnelList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -35532,6 +39750,23 @@ func (r *ZoneOperationsService) Delete(project string, zone string, operation st
 	c.project = project
 	c.zone = zone
 	c.operation = operation
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ZoneOperationsDeleteCall) QuotaUser(quotaUser string) *ZoneOperationsDeleteCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ZoneOperationsDeleteCall) UserIP(userIP string) *ZoneOperationsDeleteCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -35640,6 +39875,23 @@ func (r *ZoneOperationsService) Get(project string, zone string, operation strin
 	c.project = project
 	c.zone = zone
 	c.operation = operation
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ZoneOperationsGetCall) QuotaUser(quotaUser string) *ZoneOperationsGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ZoneOperationsGetCall) UserIP(userIP string) *ZoneOperationsGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -35793,37 +40045,69 @@ func (r *ZoneOperationsService) List(project string, zone string) *ZoneOperation
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *ZoneOperationsListCall) Filter(filter string) *ZoneOperationsListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *ZoneOperationsListCall) MaxResults(maxResults int64) *ZoneOperationsListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *ZoneOperationsListCall) PageToken(pageToken string) *ZoneOperationsListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ZoneOperationsListCall) QuotaUser(quotaUser string) *ZoneOperationsListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ZoneOperationsListCall) UserIP(userIP string) *ZoneOperationsListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -35918,13 +40202,13 @@ func (c *ZoneOperationsListCall) Do() (*OperationList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -35932,7 +40216,7 @@ func (c *ZoneOperationsListCall) Do() (*OperationList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
@@ -35981,6 +40265,23 @@ func (r *ZonesService) Get(project string, zone string) *ZonesGetCall {
 	c := &ZonesGetCall{s: r.s, urlParams_: make(gensupport.URLParams)}
 	c.project = project
 	c.zone = zone
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ZonesGetCall) QuotaUser(quotaUser string) *ZonesGetCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ZonesGetCall) UserIP(userIP string) *ZonesGetCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -36123,37 +40424,69 @@ func (r *ZonesService) List(project string) *ZonesListCall {
 
 // Filter sets the optional parameter "filter": Sets a filter expression
 // for filtering listed resources, in the form filter={expression}. Your
-// {expression} must be in the format: FIELD_NAME COMPARISON_STRING
-// LITERAL_STRING.
+// {expression} must be in the format: field_name comparison_string
+// literal_string.
 //
-// The FIELD_NAME is the name of the field you want to compare. Only
+// The field_name is the name of the field you want to compare. Only
 // atomic field types are supported (string, number, boolean). The
-// COMPARISON_STRING must be either eq (equals) or ne (not equals). The
-// LITERAL_STRING is the string value to filter to. The literal value
-// must be valid for the type of field (string, number, boolean). For
-// string fields, the literal value is interpreted as a regular
-// expression using RE2 syntax. The literal value must match the entire
-// field.
+// comparison_string must be either eq (equals) or ne (not equals). The
+// literal_string is the string value to filter to. The literal value
+// must be valid for the type of field you are filtering by (string,
+// number, boolean). For string fields, the literal value is interpreted
+// as a regular expression using RE2 syntax. The literal value must
+// match the entire field.
 //
 // For example, filter=name ne example-instance.
+//
+// Compute Engine Beta API Only: If you use filtering in the Beta API,
+// you can also filter on nested fields. For example, you could filter
+// on instances that have set the scheduling.automaticRestart field to
+// true. In particular, use filtering on nested fields to take advantage
+// of instance labels to organize and filter results based on label
+// values.
+//
+// The Beta API also supports filtering on multiple expressions by
+// providing each separate expression within parentheses. For example,
+// (scheduling.automaticRestart eq true) (zone eq us-central1-f).
+// Multiple expressions are treated as AND expressions meaning that
+// resources must match all expressions to pass the filters.
 func (c *ZonesListCall) Filter(filter string) *ZonesListCall {
 	c.urlParams_.Set("filter", filter)
 	return c
 }
 
-// MaxResults sets the optional parameter "maxResults": Maximum count of
-// results to be returned.
+// MaxResults sets the optional parameter "maxResults": The maximum
+// number of results per page that Compute Engine should return. If the
+// number of available results is larger than maxResults, Compute Engine
+// returns a nextPageToken that can be used to get the next page of
+// results in subsequent list requests.
 func (c *ZonesListCall) MaxResults(maxResults int64) *ZonesListCall {
 	c.urlParams_.Set("maxResults", fmt.Sprint(maxResults))
 	return c
 }
 
 // PageToken sets the optional parameter "pageToken": Specifies a page
-// token to use. Use this parameter if you want to list the next page of
-// results. Set pageToken to the nextPageToken returned by a previous
-// list request.
+// token to use. Set pageToken to the nextPageToken returned by a
+// previous list request to get the next page of results.
 func (c *ZonesListCall) PageToken(pageToken string) *ZonesListCall {
 	c.urlParams_.Set("pageToken", pageToken)
+	return c
+}
+
+// QuotaUser sets the optional parameter "quotaUser": Available to use
+// for quota purposes for server-side applications. Can be any arbitrary
+// string assigned to a user, but should not exceed 40 characters.
+// Overrides userIp if both are provided.
+func (c *ZonesListCall) QuotaUser(quotaUser string) *ZonesListCall {
+	c.urlParams_.Set("quotaUser", quotaUser)
+	return c
+}
+
+// UserIP sets the optional parameter "userIp": IP address of the site
+// where the request originates. Use this if you want to enforce
+// per-user limits.
+func (c *ZonesListCall) UserIP(userIP string) *ZonesListCall {
+	c.urlParams_.Set("userIp", userIP)
 	return c
 }
 
@@ -36246,13 +40579,13 @@ func (c *ZonesListCall) Do() (*ZoneList, error) {
 	//   ],
 	//   "parameters": {
 	//     "filter": {
-	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: FIELD_NAME COMPARISON_STRING LITERAL_STRING.\n\nThe FIELD_NAME is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The COMPARISON_STRING must be either eq (equals) or ne (not equals). The LITERAL_STRING is the string value to filter to. The literal value must be valid for the type of field (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.",
+	//       "description": "Sets a filter expression for filtering listed resources, in the form filter={expression}. Your {expression} must be in the format: field_name comparison_string literal_string.\n\nThe field_name is the name of the field you want to compare. Only atomic field types are supported (string, number, boolean). The comparison_string must be either eq (equals) or ne (not equals). The literal_string is the string value to filter to. The literal value must be valid for the type of field you are filtering by (string, number, boolean). For string fields, the literal value is interpreted as a regular expression using RE2 syntax. The literal value must match the entire field.\n\nFor example, filter=name ne example-instance.\n\nCompute Engine Beta API Only: If you use filtering in the Beta API, you can also filter on nested fields. For example, you could filter on instances that have set the scheduling.automaticRestart field to true. In particular, use filtering on nested fields to take advantage of instance labels to organize and filter results based on label values.\n\nThe Beta API also supports filtering on multiple expressions by providing each separate expression within parentheses. For example, (scheduling.automaticRestart eq true) (zone eq us-central1-f). Multiple expressions are treated as AND expressions meaning that resources must match all expressions to pass the filters.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },
 	//     "maxResults": {
 	//       "default": "500",
-	//       "description": "Maximum count of results to be returned.",
+	//       "description": "The maximum number of results per page that Compute Engine should return. If the number of available results is larger than maxResults, Compute Engine returns a nextPageToken that can be used to get the next page of results in subsequent list requests.",
 	//       "format": "uint32",
 	//       "location": "query",
 	//       "maximum": "500",
@@ -36260,7 +40593,7 @@ func (c *ZonesListCall) Do() (*ZoneList, error) {
 	//       "type": "integer"
 	//     },
 	//     "pageToken": {
-	//       "description": "Specifies a page token to use. Use this parameter if you want to list the next page of results. Set pageToken to the nextPageToken returned by a previous list request.",
+	//       "description": "Specifies a page token to use. Set pageToken to the nextPageToken returned by a previous list request to get the next page of results.",
 	//       "location": "query",
 	//       "type": "string"
 	//     },

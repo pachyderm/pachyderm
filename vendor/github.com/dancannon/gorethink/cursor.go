@@ -26,6 +26,8 @@ func newCursor(conn *Connection, cursorType string, token int64, term *Term, opt
 		cursorType: cursorType,
 		term:       term,
 		opts:       opts,
+		buffer:     make([]interface{}, 0),
+		responses:  make([]json.RawMessage, 0),
 	}
 
 	return cursor
@@ -61,8 +63,8 @@ type Cursor struct {
 	closed    bool
 	finished  bool
 	isAtom    bool
-	buffer    queue
-	responses queue
+	buffer    []interface{}
+	responses []json.RawMessage
 	profile   interface{}
 }
 
@@ -136,8 +138,8 @@ func (c *Cursor) Close() error {
 
 	c.closed = true
 	c.conn = nil
-	c.buffer.elems = nil
-	c.responses.elems = nil
+	c.buffer = nil
+	c.responses = nil
 
 	return err
 }
@@ -183,11 +185,11 @@ func (c *Cursor) loadNextLocked(dest interface{}) (bool, error) {
 		}
 
 		// Check if response is closed/finished
-		if c.buffer.Len() == 0 && c.responses.Len() == 0 && c.closed {
+		if len(c.buffer) == 0 && len(c.responses) == 0 && c.closed {
 			return false, errCursorClosed
 		}
 
-		if c.buffer.Len() == 0 && c.responses.Len() == 0 && !c.finished {
+		if len(c.buffer) == 0 && len(c.responses) == 0 && !c.finished {
 			c.mu.Unlock()
 			err := c.fetchMore()
 			c.mu.Lock()
@@ -196,42 +198,44 @@ func (c *Cursor) loadNextLocked(dest interface{}) (bool, error) {
 			}
 		}
 
-		if c.buffer.Len() == 0 && c.responses.Len() == 0 && c.finished {
+		if len(c.buffer) == 0 && len(c.responses) == 0 && c.finished {
 			return false, nil
 		}
 
-		if c.buffer.Len() == 0 && c.responses.Len() > 0 {
-			if response, ok := c.responses.Pop().(json.RawMessage); ok {
-				var value interface{}
-				decoder := json.NewDecoder(bytes.NewBuffer(response))
-				if c.conn.opts.UseJSONNumber {
-					decoder.UseNumber()
-				}
-				err := decoder.Decode(&value)
-				if err != nil {
-					return false, err
-				}
+		if len(c.buffer) == 0 && len(c.responses) > 0 {
+			var response json.RawMessage
+			response, c.responses = c.responses[0], c.responses[1:]
 
-				value, err = recursivelyConvertPseudotype(value, c.opts)
-				if err != nil {
-					return false, err
-				}
+			var value interface{}
+			decoder := json.NewDecoder(bytes.NewBuffer(response))
+			if c.conn.opts.UseJSONNumber {
+				decoder.UseNumber()
+			}
+			err := decoder.Decode(&value)
+			if err != nil {
+				return false, err
+			}
 
-				// If response is an ATOM then try and convert to an array
-				if data, ok := value.([]interface{}); ok && c.isAtom {
-					for _, v := range data {
-						c.buffer.Push(v)
-					}
-				} else if value == nil {
-					c.buffer.Push(nil)
-				} else {
-					c.buffer.Push(value)
+			value, err = recursivelyConvertPseudotype(value, c.opts)
+			if err != nil {
+				return false, err
+			}
+
+			// If response is an ATOM then try and convert to an array
+			if data, ok := value.([]interface{}); ok && c.isAtom {
+				for _, v := range data {
+					c.buffer = append(c.buffer, v)
 				}
+			} else if value == nil {
+				c.buffer = append(c.buffer, nil)
+			} else {
+				c.buffer = append(c.buffer, value)
 			}
 		}
 
-		if c.buffer.Len() > 0 {
-			data := c.buffer.Pop()
+		if len(c.buffer) > 0 {
+			var data interface{}
+			data, c.buffer = c.buffer[0], c.buffer[1:]
 
 			err := encoding.Decode(dest, data)
 			if err != nil {
@@ -362,8 +366,8 @@ func (c *Cursor) IsNil() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	if c.buffer.Len() > 0 {
-		bufferedItem := c.buffer.Peek()
+	if len(c.buffer) > 0 {
+		bufferedItem := c.buffer[0]
 		if bufferedItem == nil {
 			return true
 		}
@@ -371,16 +375,14 @@ func (c *Cursor) IsNil() bool {
 		return false
 	}
 
-	if c.responses.Len() > 0 {
-		response := c.responses.Peek()
+	if len(c.responses) > 0 {
+		response := c.responses[0]
 		if response == nil {
 			return true
 		}
 
-		if response, ok := response.(json.RawMessage); ok {
-			if string(response) == "null" {
-				return true
-			}
+		if string(response) == "null" {
+			return true
 		}
 
 		return false
@@ -447,7 +449,7 @@ func (c *Cursor) extend(response *Response) {
 
 func (c *Cursor) extendLocked(response *Response) {
 	for _, response := range response.Responses {
-		c.responses.Push(response)
+		c.responses = append(c.responses, response)
 	}
 
 	c.finished = response.Type != p.Response_SUCCESS_PARTIAL
@@ -455,68 +457,4 @@ func (c *Cursor) extendLocked(response *Response) {
 	c.isAtom = response.Type == p.Response_SUCCESS_ATOM
 
 	putResponse(response)
-}
-
-// Queue structure used for storing responses
-
-type queue struct {
-	elems               []interface{}
-	nelems, popi, pushi int
-}
-
-func (q *queue) Len() int {
-	if len(q.elems) == 0 {
-		return 0
-	}
-
-	return q.nelems
-}
-func (q *queue) Push(elem interface{}) {
-	if q.nelems == len(q.elems) {
-		q.expand()
-	}
-	q.elems[q.pushi] = elem
-	q.nelems++
-	q.pushi = (q.pushi + 1) % len(q.elems)
-}
-func (q *queue) Pop() (elem interface{}) {
-	if q.nelems == 0 {
-		return nil
-	}
-	elem = q.elems[q.popi]
-	q.elems[q.popi] = nil // Help GC.
-	q.nelems--
-	q.popi = (q.popi + 1) % len(q.elems)
-	return elem
-}
-func (q *queue) Peek() (elem interface{}) {
-	if q.nelems == 0 {
-		return nil
-	}
-	return q.elems[q.popi]
-}
-func (q *queue) expand() {
-	curcap := len(q.elems)
-	var newcap int
-	if curcap == 0 {
-		newcap = 8
-	} else if curcap < 1024 {
-		newcap = curcap * 2
-	} else {
-		newcap = curcap + (curcap / 4)
-	}
-	elems := make([]interface{}, newcap)
-	if q.popi == 0 {
-		copy(elems, q.elems)
-		q.pushi = curcap
-	} else {
-		newpopi := newcap - (curcap - q.popi)
-		copy(elems, q.elems[:q.popi])
-		copy(elems[newpopi:], q.elems[q.popi:])
-		q.popi = newpopi
-	}
-	for i := range q.elems {
-		q.elems[i] = nil // Help GC.
-	}
-	q.elems = elems
 }

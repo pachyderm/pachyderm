@@ -8,7 +8,7 @@ import (
 
 	"go.pedge.io/proto/time"
 
-	"github.com/docker/docker/pkg/units"
+	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 )
