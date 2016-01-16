@@ -8,14 +8,7 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
-func Cmds(
-	kubernetesAddress string,
-	kubernetesUsername string,
-	kubernetesPassword string,
-	providerName string,
-	gceProject string,
-	gceZone string,
-) ([]*cobra.Command, error) {
+func Cmds() []*cobra.Command {
 	var shards int
 	kubernetesManifest := &cobra.Command{
 		Use:   "manifest",
@@ -30,5 +23,5 @@ func Cmds(
 
 	var result []*cobra.Command
 	result = append(result, kubernetesManifest)
-	return result, nil
+	return result
 }
