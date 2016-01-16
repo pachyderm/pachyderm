@@ -23,4 +23,5 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	doc.GenMarkdownTree(rootCmd, appEnv.OutputDir)
+	return nil
 }
