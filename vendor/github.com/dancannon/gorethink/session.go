@@ -120,6 +120,14 @@ func (o *CloseOpts) toMap() map[string]interface{} {
 	return optArgsToMap(o)
 }
 
+// IsConnected returns true if session has a valid connection.
+func (s *Session) IsConnected() bool {
+	if s.cluster == nil || s.closed {
+		return false
+	}
+	return s.cluster.IsConnected()
+}
+
 // Reconnect closes and re-opens a session.
 func (s *Session) Reconnect(optArgs ...CloseOpts) error {
 	var err error

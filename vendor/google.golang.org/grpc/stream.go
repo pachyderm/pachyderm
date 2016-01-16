@@ -125,6 +125,7 @@ func NewClientStream(ctx context.Context, desc *StreamDesc, cc *ClientConn, meth
 	}
 	s, err := t.NewStream(ctx, callHdr)
 	if err != nil {
+		cs.finish(err)
 		return nil, toRPCErr(err)
 	}
 	cs.t = t
@@ -133,8 +134,14 @@ func NewClientStream(ctx context.Context, desc *StreamDesc, cc *ClientConn, meth
 	// Listen on ctx.Done() to detect cancellation when there is no pending
 	// I/O operations on this stream.
 	go func() {
-		<-s.Context().Done()
-		cs.closeTransportStream(transport.ContextErr(s.Context().Err()))
+		select {
+		case <-t.Error():
+			// Incur transport error, simply exit.
+		case <-s.Context().Done():
+			err := s.Context().Err()
+			cs.finish(err)
+			cs.closeTransportStream(transport.ContextErr(err))
+		}
 	}()
 	return cs, nil
 }

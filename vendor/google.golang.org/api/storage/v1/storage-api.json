@@ -1,11 +1,11 @@
 {
  "kind": "discovery#restDescription",
- "etag": "\"ye6orv2F-1npMW3u9suM3a7C5Bo/zwpsDZG3jKOJYaNT-iHCNxUJAWU\"",
+ "etag": "\"bRFOOrZKfO9LweMbPqu0kcu6De8/iW6lW-fzl_pGlxeRN7h4J2G0OTQ\"",
  "discoveryVersion": "v1",
  "id": "storage:v1",
  "name": "storage",
  "version": "v1",
- "revision": "20151113",
+ "revision": "20151229",
  "title": "Cloud Storage JSON API",
  "description": "Lets you store and retrieve potentially-large, immutable data objects.",
  "ownerDomain": "google.com",
@@ -869,6 +869,7 @@
       "entity"
      ],
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -899,6 +900,7 @@
       "$ref": "BucketAccessControl"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -925,6 +927,7 @@
       "$ref": "BucketAccessControl"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -948,6 +951,7 @@
       "$ref": "BucketAccessControls"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -981,6 +985,7 @@
       "$ref": "BucketAccessControl"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -1014,6 +1019,7 @@
       "$ref": "BucketAccessControl"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     }
@@ -1480,6 +1486,7 @@
       "entity"
      ],
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -1510,6 +1517,7 @@
       "$ref": "ObjectAccessControl"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -1536,6 +1544,7 @@
       "$ref": "ObjectAccessControl"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -1571,6 +1580,7 @@
       "$ref": "ObjectAccessControls"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -1604,6 +1614,7 @@
       "$ref": "ObjectAccessControl"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -1637,6 +1648,7 @@
       "$ref": "ObjectAccessControl"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     }
@@ -1681,6 +1693,7 @@
       "entity"
      ],
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -1724,6 +1737,7 @@
       "$ref": "ObjectAccessControl"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -1763,6 +1777,7 @@
       "$ref": "ObjectAccessControl"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -1799,6 +1814,7 @@
       "$ref": "ObjectAccessControls"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -1845,6 +1861,7 @@
       "$ref": "ObjectAccessControl"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     },
@@ -1891,6 +1908,7 @@
       "$ref": "ObjectAccessControl"
      },
      "scopes": [
+      "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/devstorage.full_control"
      ]
     }
@@ -1965,7 +1983,8 @@
       "https://www.googleapis.com/auth/devstorage.full_control",
       "https://www.googleapis.com/auth/devstorage.read_write"
      ],
-     "supportsMediaDownload": true
+     "supportsMediaDownload": true,
+     "useMediaDownloadService": true
     },
     "copy": {
      "id": "storage.objects.copy",
@@ -2103,7 +2122,8 @@
       "https://www.googleapis.com/auth/devstorage.full_control",
       "https://www.googleapis.com/auth/devstorage.read_write"
      ],
-     "supportsMediaDownload": true
+     "supportsMediaDownload": true,
+     "useMediaDownloadService": true
     },
     "delete": {
      "id": "storage.objects.delete",
@@ -2240,7 +2260,8 @@
       "https://www.googleapis.com/auth/devstorage.read_only",
       "https://www.googleapis.com/auth/devstorage.read_write"
      ],
-     "supportsMediaDownload": true
+     "supportsMediaDownload": true,
+     "useMediaDownloadService": true
     },
     "insert": {
      "id": "storage.objects.insert",
@@ -2338,6 +2359,7 @@
       "https://www.googleapis.com/auth/devstorage.read_write"
      ],
      "supportsMediaDownload": true,
+     "useMediaDownloadService": true,
      "supportsMediaUpload": true,
      "mediaUpload": {
       "accept": [
@@ -2768,7 +2790,8 @@
       "https://www.googleapis.com/auth/devstorage.full_control",
       "https://www.googleapis.com/auth/devstorage.read_write"
      ],
-     "supportsMediaDownload": true
+     "supportsMediaDownload": true,
+     "useMediaDownloadService": true
     },
     "watchAll": {
      "id": "storage.objects.watchAll",

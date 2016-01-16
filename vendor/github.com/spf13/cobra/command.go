@@ -21,11 +21,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"time"
 
-	"github.com/inconshreveable/mousetrap"
 	flag "github.com/spf13/pflag"
 )
 
@@ -626,12 +623,9 @@ func (c *Command) ExecuteC() (cmd *Command, err error) {
 		return c.Root().ExecuteC()
 	}
 
-	if EnableWindowsMouseTrap && runtime.GOOS == "windows" {
-		if mousetrap.StartedByExplorer() {
-			c.Print(MousetrapHelpText)
-			time.Sleep(5 * time.Second)
-			os.Exit(1)
-		}
+	// windows hook
+	if preExecHookFn != nil {
+		preExecHookFn(c)
 	}
 
 	// initialize help as the last point possible to allow for user
@@ -661,13 +655,16 @@ func (c *Command) ExecuteC() (cmd *Command, err error) {
 	}
 	err = cmd.execute(flags)
 	if err != nil {
+		// Always show help if requested, even if SilenceErrors is in
+		// effect
+		if err == flag.ErrHelp {
+			cmd.HelpFunc()(cmd, args)
+			return cmd, nil
+		}
+
 		// If root command has SilentErrors flagged,
 		// all subcommands should respect it
 		if !cmd.SilenceErrors && !c.SilenceErrors {
-			if err == flag.ErrHelp {
-				cmd.HelpFunc()(cmd, args)
-				return cmd, nil
-			}
 			c.Println("Error:", err.Error())
 		}
 
@@ -747,7 +744,7 @@ func (c *Command) AddCommand(cmds ...*Command) {
 		if nameLen > c.commandsMaxNameLen {
 			c.commandsMaxNameLen = nameLen
 		}
-		// If glabal normalization function exists, update all children
+		// If global normalization function exists, update all children
 		if c.globNormFunc != nil {
 			x.SetGlobalNormalizationFunc(c.globNormFunc)
 		}

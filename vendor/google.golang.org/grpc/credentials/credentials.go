@@ -35,7 +35,7 @@
 // which encapsulate all the state needed by a client to authenticate with a
 // server and make various assertions, e.g., about the client's identity, role,
 // or whether it is authorized to make a particular call.
-package credentials
+package credentials // import "google.golang.org/grpc/credentials"
 
 import (
 	"crypto/tls"
@@ -85,19 +85,6 @@ type ProtocolInfo struct {
 // AuthInfo defines the common interface for the auth information the users are interested in.
 type AuthInfo interface {
 	AuthType() string
-}
-
-type authInfoKey struct{}
-
-// NewContext creates a new context with authInfo attached.
-func NewContext(ctx context.Context, authInfo AuthInfo) context.Context {
-	return context.WithValue(ctx, authInfoKey{}, authInfo)
-}
-
-// FromContext returns the authInfo in ctx if it exists.
-func FromContext(ctx context.Context) (authInfo AuthInfo, ok bool) {
-	authInfo, ok = ctx.Value(authInfoKey{}).(AuthInfo)
-	return
 }
 
 // TransportAuthenticator defines the common interface for all the live gRPC wire

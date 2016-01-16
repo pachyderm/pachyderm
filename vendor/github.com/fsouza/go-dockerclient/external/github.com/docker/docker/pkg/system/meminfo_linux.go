@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/units"
+	"github.com/fsouza/go-dockerclient/external/github.com/docker/go-units"
 )
 
 // ReadMemInfo retrieves memory statistics of the host system and returns a

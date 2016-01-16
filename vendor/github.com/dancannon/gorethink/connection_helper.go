@@ -14,7 +14,7 @@ import (
 func (c *Connection) writeData(data []byte) error {
 	_, err := c.Conn.Write(data[:])
 	if err != nil {
-		return RQLConnectionError{err.Error()}
+		return RQLConnectionError{rqlError(err.Error())}
 	}
 
 	return nil
@@ -52,14 +52,14 @@ func (c *Connection) readHandshakeSuccess() error {
 		if err == io.EOF {
 			return fmt.Errorf("Unexpected EOF: %s", string(line))
 		}
-		return RQLConnectionError{err.Error()}
+		return RQLConnectionError{rqlError(err.Error())}
 	}
 	// convert to string and remove trailing NUL byte
 	response := string(line[:len(line)-1])
 	if response != "SUCCESS" {
 		response = strings.TrimSpace(response)
 		// we failed authorization or something else terrible happened
-		return RQLDriverError{fmt.Sprintf("Server dropped connection with message: \"%s\"", response)}
+		return RQLDriverError{rqlError(fmt.Sprintf("Server dropped connection with message: \"%s\"", response))}
 	}
 
 	return nil
