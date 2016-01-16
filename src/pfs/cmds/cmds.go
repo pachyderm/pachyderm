@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func Cmds(address string) ([]*cobra.Command, error) {
+func Cmds(address string) []*cobra.Command {
 	var fileNumber int
 	var fileModulus int
 	var blockNumber int
@@ -341,7 +341,7 @@ func Cmds(address string) ([]*cobra.Command, error) {
 	result = append(result, listFile)
 	result = append(result, deleteFile)
 	result = append(result, mount)
-	return result, nil
+	return result
 }
 
 func getAPIClient(address string) (pfs.APIClient, error) {
