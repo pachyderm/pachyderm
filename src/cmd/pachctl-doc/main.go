@@ -6,22 +6,18 @@ import (
 	"go.pedge.io/env"
 )
 
-type appEnv struct {
-	OutputDir string `env:"OUTPUT_DIR,default=./doc/pachctl"`
-}
+type appEnv struct{}
 
 func main() {
 	env.Main(do, &appEnv{})
 }
 
 func do(appEnvObj interface{}) error {
-	appEnv := appEnvObj.(*appEnv)
 	// passing empty addresses for pfsd and ppsd, that's fine because we're not
 	// going to execute the command but print docs with it
 	rootCmd, err := cmd.PachctlCmd("", "")
 	if err != nil {
 		return err
 	}
-	doc.GenMarkdownTree(rootCmd, appEnv.OutputDir)
-	return nil
+	return doc.GenMarkdownTree(rootCmd, "./doc/pachctl/")
 }
