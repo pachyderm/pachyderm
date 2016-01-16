@@ -53,7 +53,7 @@ build:
 	GO15VENDOREXPERIMENT=1 go build ./src/... ./.
 
 install:
-	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pachctl
+	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pachctl ./src/cmd/pachctl-doc
 
 docker-build-test:
 	docker-compose build test
@@ -193,7 +193,14 @@ clean: docker-clean-launch clean-launch clean-launch-kube
 	rm -f src/cmd/ppsd/ppsd
 	rm -f src/cmd/objd/objd
 
+doc: install
+	# we rename to pachctl because the program name is used in generating docs
+	cp $(GOPATH)/bin/pachctl-doc ./pachctl
+	./pachctl
+	rm ./pachctl
+
 .PHONY: \
+	doc \
 	all \
 	version \
 	deps \
