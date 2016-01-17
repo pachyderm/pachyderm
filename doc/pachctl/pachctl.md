@@ -39,7 +39,6 @@ Envronment variables:
 * [./pachctl list-pipeline](./pachctl_list-pipeline.md)	 - Return info about all pipelines.
 * [./pachctl list-repo](./pachctl_list-repo.md)	 - Return all repos.
 * [./pachctl manifest](./pachctl_manifest.md)	 - Print a kubernetes manifest for a Pachyderm cluster.
-* [./pachctl mkdir](./pachctl_mkdir.md)	 - Make a directory.
 * [./pachctl mount](./pachctl_mount.md)	 - Mount pfs locally.
 * [./pachctl put-file](./pachctl_put-file.md)	 - Put a file from stdin
 * [./pachctl start-commit](./pachctl_start-commit.md)	 - Start a new commit.
