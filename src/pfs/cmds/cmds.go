@@ -45,6 +45,9 @@ func Cmds(address string) []*cobra.Command {
 		Long: `Repos, short for repository, are the top level data object in Pachyderm.
 
 Repos are created with create-repo.`,
+		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			return nil
+		}),
 	}
 
 	createRepo := &cobra.Command{
@@ -133,6 +136,9 @@ Commits become reliable (and immutable) when they are finished.
 
 Commits can be created with another commit as a parent.
 This layers the data in the commit over the data in the parent.`,
+		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			return nil
+		}),
 	}
 
 	startCommit := &cobra.Command{
@@ -235,6 +241,9 @@ This layers the data in the commit over the data in the parent.`,
 
 Files can be written to started (but not finished) commits with put-file.
 Files can be read from finished commits with get-file.`,
+		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			return nil
+		}),
 	}
 
 	putFile := &cobra.Command{
