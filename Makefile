@@ -196,6 +196,7 @@ clean: docker-clean-launch clean-launch clean-launch-kube
 doc: install
 	# we rename to pachctl because the program name is used in generating docs
 	cp $(GOPATH)/bin/pachctl-doc ./pachctl
+	rm -rf doc/pachctl && mkdir doc/pachctl
 	./pachctl
 	rm ./pachctl
 
