@@ -39,6 +39,14 @@ func Cmds(address string) []*cobra.Command {
 		cmd.Flags().IntVarP(&blockModulus, "block-modulus", "n", 1, "modulus of block shard")
 	}
 
+	repo := &cobra.Command{
+		Use:   "repo",
+		Short: "Docs for repos.",
+		Long: `Repos, short for repository, are the top level data object in Pachyderm.
+
+Repos are created with create-repo.`,
+	}
+
 	createRepo := &cobra.Command{
 		Use:   "create-repo repo-name",
 		Short: "Create a new repo.",
@@ -108,6 +116,23 @@ func Cmds(address string) []*cobra.Command {
 			}
 			return pfsutil.DeleteRepo(apiClient, args[0])
 		}),
+	}
+
+	commit := &cobra.Command{
+		Use:   "commit",
+		Short: "Docs for commits.",
+		Long: `Commits are atomic transactions on the content of a repo.
+
+Creating a commit is a multistep process: 
+- start a new commit with start-commit
+- write files to it through fuse or with put-file
+- finish the new commit with finish-commit
+
+Commits that have been started but not finished are NOT durable storage.
+Commits become reliable (and immutable) when they are finished.
+
+Commits can be created with another commit as a parent.
+This layers the data in the commit over the data in the parent.`,
 	}
 
 	startCommit := &cobra.Command{
@@ -214,6 +239,15 @@ func Cmds(address string) []*cobra.Command {
 			}
 			return pfsutil.MakeDirectory(apiClient, args[0], args[1], args[2])
 		}),
+	}
+
+	file := &cobra.Command{
+		Use:   "file",
+		Short: "Docs for files.",
+		Long: `Files are the lowest level data object in Pachyderm.
+
+Files can be written to started (but not finished) commits with put-file.
+Files can be read from finished commits with get-file.`,
 	}
 
 	putFile := &cobra.Command{
@@ -325,16 +359,19 @@ func Cmds(address string) []*cobra.Command {
 	mount.Flags().StringVarP(&mountPoint, "mount-point", "p", "/pfs", "root of mounted filesystem")
 
 	var result []*cobra.Command
+	result = append(result, repo)
 	result = append(result, createRepo)
 	result = append(result, inspectRepo)
 	result = append(result, listRepo)
 	result = append(result, deleteRepo)
+	result = append(result, commit)
 	result = append(result, startCommit)
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)
 	result = append(result, deleteCommit)
 	result = append(result, mkdir)
+	result = append(result, file)
 	result = append(result, putFile)
 	result = append(result, getFile)
 	result = append(result, inspectFile)
