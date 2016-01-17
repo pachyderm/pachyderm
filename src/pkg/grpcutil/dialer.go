@@ -22,12 +22,14 @@ func (d *dialer) Dial(address string) (*grpc.ClientConn, error) {
 	d.lock.RLock()
 	clientConn, ok := d.addressToClientConn[address]
 	d.lock.RUnlock()
-	state, err := clientConn.State()
-	if err != nil {
-		return nil, err
-	}
-	if ok && clientConn != nil && state != grpc.Shutdown {
-		return clientConn, nil
+	if ok && clientConn != nil {
+		state, err := clientConn.State()
+		if err != nil {
+			return nil, err
+		}
+		if state != grpc.Shutdown {
+			return clientConn, nil
+		}
 	}
 	newClientConn, err := grpc.Dial(address, d.opts...)
 	if err != nil {
@@ -36,13 +38,15 @@ func (d *dialer) Dial(address string) (*grpc.ClientConn, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	clientConn, ok = d.addressToClientConn[address]
-	state, err = clientConn.State()
-	if err != nil {
-		return nil, err
-	}
-	if ok && clientConn != nil && state != grpc.Shutdown {
-		_ = newClientConn.Close()
-		return clientConn, nil
+	if ok && clientConn != nil {
+		state, err := clientConn.State()
+		if err != nil {
+			return nil, err
+		}
+		if state != grpc.Shutdown {
+			_ = newClientConn.Close()
+			return clientConn, nil
+		}
 	}
 	d.addressToClientConn[address] = newClientConn
 	return newClientConn, nil
