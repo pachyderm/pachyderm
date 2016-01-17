@@ -19,6 +19,22 @@ import (
 func Cmds(address string) ([]*cobra.Command, error) {
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
+	job := &cobra.Command{
+		Use:   "job",
+		Short: "Docs for jobs.",
+		Long: `Jobs are the basic unit of computation in Pachyderm.
+
+Jobs run a containerized workload over a set of finished input commits.
+Creating a job will also create a new repo and a commit in that repo which
+contains the output of the job. Unless the job is created with another job as a
+parent. If the job is created with a parent it will use the same repo as its
+parent job and the commit it creates will use the parent job's commit as a
+parent.
+If the job fails the commit it creates will not be finished.
+The increase the throughput of a job increase the Shard paremeter.
+`,
+	}
+
 	exampleCreateJobRequest, err := marshaller.MarshalToString(example.CreateJobRequest())
 	if err != nil {
 		return nil, err
@@ -129,6 +145,19 @@ func Cmds(address string) ([]*cobra.Command, error) {
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
+
+	pipeline := &cobra.Command{
+		Use:   "pipeline",
+		Short: "Docs for pipelines.",
+		Long: `Pipelines are a powerful abstraction for automating jobs.
+
+Pipelines take a set of repos as inputs, rather than the set of commits that
+jobs take. Pipelines then subscribe to commits on those repos and launches a job
+to process each incoming commit.
+Creating a pipeline will also create a repo of the same name.
+All jobs created by a pipeline will create commits in the pipeline's repo.
+`,
+	}
 
 	var pipelinePath string
 	exampleCreatePipelineRequest, err := marshaller.MarshalToString(example.CreatePipelineRequest())
@@ -253,9 +282,11 @@ func Cmds(address string) ([]*cobra.Command, error) {
 	}
 
 	var result []*cobra.Command
+	result = append(result, job)
 	result = append(result, createJob)
 	result = append(result, inspectJob)
 	result = append(result, listJob)
+	result = append(result, pipeline)
 	result = append(result, createPipeline)
 	result = append(result, inspectPipeline)
 	result = append(result, listPipeline)
