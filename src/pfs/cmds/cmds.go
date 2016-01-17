@@ -228,19 +228,6 @@ This layers the data in the commit over the data in the parent.`,
 		}),
 	}
 
-	mkdir := &cobra.Command{
-		Use:   "mkdir repo-name commit-id path/to/dir",
-		Short: "Make a directory.",
-		Long:  "Make a directory. Parent directories need not exist.",
-		Run: pkgcobra.RunFixedArgs(3, func(args []string) error {
-			apiClient, err := getAPIClient(address)
-			if err != nil {
-				return err
-			}
-			return pfsutil.MakeDirectory(apiClient, args[0], args[1], args[2])
-		}),
-	}
-
 	file := &cobra.Command{
 		Use:   "file",
 		Short: "Docs for files.",
@@ -370,7 +357,6 @@ Files can be read from finished commits with get-file.`,
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)
 	result = append(result, deleteCommit)
-	result = append(result, mkdir)
 	result = append(result, file)
 	result = append(result, putFile)
 	result = append(result, getFile)
