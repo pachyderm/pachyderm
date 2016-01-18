@@ -61,6 +61,7 @@ func do(appEnvObj interface{}) error {
 			go func() {
 				if err := mounter.Mount(
 					"/pfs",
+					nil,
 					response.CommitMounts,
 					ready,
 				); err != nil {

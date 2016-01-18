@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/pretty"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
+	"go.pedge.io/protolog"
 	"google.golang.org/grpc"
 )
 
@@ -344,15 +345,17 @@ Files can be read from finished commits with get-file.`,
 		Short: "Mount pfs locally.",
 		Long:  "Mount pfs locally.",
 		Run: pkgcobra.Run(func(args []string) error {
+			protolog.SetLevel(protolog.Level_LEVEL_DEBUG)
 			apiClient, err := getAPIClient(address)
 			if err != nil {
 				return err
 			}
 			mounter := fuse.NewMounter(address, apiClient)
-			return mounter.Mount(mountPoint, parseCommitMounts(args), nil)
+			return mounter.Mount(mountPoint, shard(), parseCommitMounts(args), nil)
 		}),
 	}
 	mount.Flags().StringVarP(&mountPoint, "mount-point", "p", "/pfs", "root of mounted filesystem")
+	addShardFlags(mount)
 
 	var result []*cobra.Command
 	result = append(result, repo)
