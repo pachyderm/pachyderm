@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	NUMFILES = 200
+	NUMFILES = 25
 )
 
 func TestJob(t *testing.T) {
@@ -209,6 +209,28 @@ func TestSharding(t *testing.T) {
 	wg.Wait()
 	err = pfsutil.FinishCommit(pfsClient, repo, commit.Id)
 	require.NoError(t, err)
+	wg = sync.WaitGroup{}
+	for i := 0; i < NUMFILES; i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var buffer1Shard bytes.Buffer
+			var buffer4Shard bytes.Buffer
+			shard := &pfs.Shard{FileModulus: 1, BlockModulus: 1}
+			err := pfsutil.GetFile(pfsClient, repo, commit.Id,
+				fmt.Sprintf("file%d", i), 0, 0, shard, &buffer1Shard)
+			require.NoError(t, err)
+			shard.BlockModulus = 4
+			for blockNumber := uint64(0); blockNumber < 4; blockNumber++ {
+				shard.BlockNumber = blockNumber
+				err := pfsutil.GetFile(pfsClient, repo, commit.Id,
+					fmt.Sprintf("file%d", i), 0, 0, shard, &buffer4Shard)
+				require.NoError(t, err)
+			}
+			require.Equal(t, buffer1Shard.Len(), buffer4Shard.Len())
+		}()
+	}
 }
 
 func getPfsClient(t *testing.T) pfs.APIClient {

@@ -6,5 +6,5 @@ spec:
   containers:
   - name: pachyderm-test
     image: pachyderm/test
-    command: ["go",  "test", ".", "-run", "TestSharding"]
+    command: ["go",  "test", "."]
   restartPolicy: Never
