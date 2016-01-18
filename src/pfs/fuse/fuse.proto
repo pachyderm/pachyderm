@@ -11,7 +11,8 @@ message CommitMount {
 }
 
 message Filesystem {
-  repeated CommitMount commit_mounts = 1;
+  pfs.Shard shard = 1;
+  repeated CommitMount commit_mounts = 2;
 }
 
 message Node {

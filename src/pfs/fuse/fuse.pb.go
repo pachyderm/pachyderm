@@ -62,12 +62,20 @@ func (m *CommitMount) GetShard() *pfs.Shard {
 }
 
 type Filesystem struct {
-	CommitMounts []*CommitMount `protobuf:"bytes,1,rep,name=commit_mounts" json:"commit_mounts,omitempty"`
+	Shard        *pfs.Shard     `protobuf:"bytes,1,opt,name=shard" json:"shard,omitempty"`
+	CommitMounts []*CommitMount `protobuf:"bytes,2,rep,name=commit_mounts" json:"commit_mounts,omitempty"`
 }
 
 func (m *Filesystem) Reset()         { *m = Filesystem{} }
 func (m *Filesystem) String() string { return proto.CompactTextString(m) }
 func (*Filesystem) ProtoMessage()    {}
+
+func (m *Filesystem) GetShard() *pfs.Shard {
+	if m != nil {
+		return m.Shard
+	}
+	return nil
+}
 
 func (m *Filesystem) GetCommitMounts() []*CommitMount {
 	if m != nil {

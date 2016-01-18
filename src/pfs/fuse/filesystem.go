@@ -27,11 +27,13 @@ type filesystem struct {
 
 func newFilesystem(
 	apiClient pfs.APIClient,
+	shard *pfs.Shard,
 	commitMounts []*CommitMount,
 ) *filesystem {
 	return &filesystem{
 		apiClient,
 		Filesystem{
+			shard,
 			commitMounts,
 		},
 		make(map[string]uint64),
@@ -51,7 +53,6 @@ func (f *filesystem) Root() (result fs.Node, retErr error) {
 					Repo: &pfs.Repo{},
 				},
 			},
-			RepoAlias: "",
 		},
 	}, nil
 }
@@ -252,13 +253,17 @@ func (d *directory) copy() *directory {
 				Path: d.File.Path,
 			},
 			Write: d.Write,
+			Shard: d.Shard,
 		},
 	}
 }
 
 func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
 	if len(f.CommitMounts) == 0 {
-		return &CommitMount{Commit: pfsutil.NewCommit(nameOrAlias, "")}
+		return &CommitMount{
+			Commit: pfsutil.NewCommit(nameOrAlias, ""),
+			Shard:  f.Shard,
+		}
 	}
 	for _, commitMount := range f.CommitMounts {
 		if commitMount.Commit.Repo.Name == nameOrAlias || commitMount.Alias == nameOrAlias {
