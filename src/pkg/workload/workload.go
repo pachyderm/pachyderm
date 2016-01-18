@@ -216,13 +216,13 @@ func (w *worker) randString(n int) string {
 
 type reader struct {
 	rand  *rand.Rand
-	lines int
+	bytes int
 }
 
-func NewReader(rand *rand.Rand, lines int) io.Reader {
+func NewReader(rand *rand.Rand, bytes int) io.Reader {
 	return &reader{
 		rand:  rand,
-		lines: lines,
+		bytes: bytes,
 	}
 }
 
@@ -230,13 +230,13 @@ func (r *reader) Read(p []byte) (int, error) {
 	for i := range p {
 		if i%128 == 127 {
 			p[i] = '\n'
-			r.lines--
 		} else {
 			p[i] = lettersAndSpaces[r.rand.Intn(len(lettersAndSpaces))]
 		}
 	}
 	p[len(p)-1] = '\n'
-	if r.lines <= 0 {
+	r.bytes -= len(p)
+	if r.bytes <= 0 {
 		return len(p), io.EOF
 	}
 	return len(p), nil
