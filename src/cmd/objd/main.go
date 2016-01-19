@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/pachyderm/pachyderm"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive/server"
 	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"go.pedge.io/env"
@@ -40,7 +40,7 @@ func do(appEnvObj interface{}) error {
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
-			drive.RegisterAPIServer(s, apiServer)
+			pfs.RegisterBlockAPIServer(s, apiServer)
 		},
 		protoserver.ServeOptions{
 			HTTPPort:  uint16(appEnv.HTTPPort),

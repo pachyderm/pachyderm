@@ -68,7 +68,7 @@ func do(appEnvObj interface{}) error {
 		if err != nil {
 			return err
 		}
-		objAPIClient := drive.NewAPIClient(clientConn)
+		objAPIClient := pfs.NewBlockAPIClient(clientConn)
 		driver, err = obj.NewDriver(objAPIClient)
 		if err != nil {
 			return err

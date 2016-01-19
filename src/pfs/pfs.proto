@@ -9,38 +9,29 @@ import "pkg/shard/shard.proto";
 
 package pfs;
 
-// CommitType represents the type of commit.
-enum CommitType {
-  COMMIT_TYPE_NONE = 0;
-  COMMIT_TYPE_READ = 1;
-  COMMIT_TYPE_WRITE = 2;
-}
-
-// FileType represents a type of file from ListFiles.
-enum FileType {
-  FILE_TYPE_NONE = 0;
-  FILE_TYPE_REGULAR = 1;
-  FILE_TYPE_DIR = 2;
-}
-
-// Repo represents a repo.
 message Repo {
   string name = 1;
 }
 
-// Commit represents a specific commit in a repo.
 message Commit {
   Repo repo = 1;
   string id = 2;
 }
 
-// File represents the full path to a file or directory within pfs.
 message File {
   Commit commit = 1;
   string path = 2;
 }
 
-// RepoInfo represent information about a repo.
+message Block {
+  string hash = 1;
+}
+
+message Diff {
+  Commit commit = 1;
+  uint64 shard = 2;
+}
+
 message RepoInfo {
   Repo repo = 1;
   google.protobuf.Timestamp created = 2;
@@ -51,7 +42,13 @@ message RepoInfos {
   repeated RepoInfo repo_info = 1;
 }
 
-// CommitInfo represents information about a commit.
+enum CommitType {
+  COMMIT_TYPE_NONE = 0;
+  COMMIT_TYPE_READ = 1;
+  COMMIT_TYPE_WRITE = 2;
+}
+
+
 message CommitInfo {
   Commit commit = 1;
   CommitType commit_type = 2;
@@ -65,23 +62,66 @@ message CommitInfos {
   repeated CommitInfo commit_info = 1;
 }
 
-// FileInfo represents information about a file.
+enum FileType {
+  FILE_TYPE_NONE = 0;
+  FILE_TYPE_REGULAR = 1;
+  FILE_TYPE_DIR = 2;
+}
+
 message FileInfo {
   File file = 1;
   FileType file_type = 2;
   uint64 size_bytes = 3;
   uint32 perm = 4;
   google.protobuf.Timestamp modified = 5;
-  pfs.Commit commit_modified = 6;
-  repeated pfs.File children = 7;
+  Commit commit_modified = 6;
+  repeated File children = 7;
 }
 
 message FileInfos {
   repeated FileInfo file_info = 1;
 }
 
-// Shard represents a dynamic shard within pfs.
-// number must always be less than modulo.
+message ByteRange {
+  uint64 lower = 1;
+  uint64 upper = 2;
+}
+
+message BlockRef {
+  Block block = 1;
+  ByteRange range = 2;
+}
+
+message BlockRefs {
+	repeated BlockRef block_ref = 1;
+}
+
+message Append {
+  repeated BlockRef block_refs = 1;
+  map<string, bool> children = 2;
+  Commit last_ref = 3;
+}
+
+message BlockInfo {
+  Block block = 1;
+  google.protobuf.Timestamp created = 2;
+  uint64 size_bytes = 3;
+}
+
+message BlockInfos {
+  repeated BlockInfo block_info = 1;
+}
+
+message DiffInfo {
+  Diff diff = 1;
+  Commit parent_commit = 2;
+  google.protobuf.Timestamp started = 3;
+  google.protobuf.Timestamp finished = 4;
+  // Appends is the BlockRefs which have been append to files indexed by path.
+  map<string, Append> appends = 5;
+  uint64 size_bytes = 6;
+}
+
 message Shard {
   uint64 file_number = 1;
   uint64 file_modulus = 2;
@@ -237,4 +277,41 @@ service InternalAPI {
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
   // DeleteFile deletes a file.
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
+}
+
+message GetBlockRequest {
+  Block block = 1;
+  uint64 offset_bytes = 2;
+  uint64 size_bytes = 3;
+}
+
+message InspectBlockRequest {
+  Block block = 1;
+}
+
+message ListBlockRequest {
+}
+
+message InspectDiffRequest {
+  Diff diff = 1;
+}
+
+message ListDiffRequest {
+  uint64 shard = 1;
+}
+
+message DeleteDiffRequest {
+	Diff diff = 1;
+}
+
+service BlockAPI {
+  rpc PutBlock(stream google.protobuf.BytesValue) returns (BlockRefs) {}
+  rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
+  rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
+
+  rpc CreateDiff(DiffInfo) returns (google.protobuf.Empty) {}
+  rpc InspectDiff(InspectDiffRequest) returns (DiffInfo) {}
+  rpc ListDiff(ListDiffRequest) returns (stream DiffInfo) {}
+  rpc DeleteDiff(DeleteDiffRequest) returns (google.protobuf.Empty) {}
 }
