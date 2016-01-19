@@ -40,11 +40,6 @@ message File {
   string path = 2;
 }
 
-// Server represents a server in the pfs cluster.
-message Server {
-  string id = 1;
-}
-
 // RepoInfo represent information about a repo.
 message RepoInfo {
   Repo repo = 1;
@@ -83,17 +78,6 @@ message FileInfo {
 
 message FileInfos {
   repeated FileInfo file_info = 1;
-}
-
-// ServerInfo represents information about a server.
-message ServerInfo {
-  Server server = 1;
-  shard.ServerState server_state = 2;
-  map<int64, shard.ServerRole> server_role = 3;
-}
-
-message ServerInfos {
-  repeated ServerInfo server_info = 1;
 }
 
 // Shard represents a dynamic shard within pfs.

@@ -3,7 +3,6 @@ package pretty
 import (
 	"fmt"
 	"io"
-	"sort"
 	"time"
 
 	"go.pedge.io/proto/time"
@@ -96,39 +95,6 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 	fmt.Fprint(w, "-\t")
 	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(fileInfo.SizeBytes)))
 	fmt.Fprintf(w, "%4d\t\n", fileInfo.Perm)
-}
-
-func PrintServerInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "ADDRESS\tVERSION\tMASTER\tREPLICA\t\n")
-}
-
-func PrintServerInfo(w io.Writer, serverInfo *pfs.ServerInfo) {
-	fmt.Fprintf(w, "%s\t", serverInfo.ServerState.Address)
-	fmt.Fprintf(w, "%d\t", serverInfo.ServerState.Version)
-	var masters uint64Slice
-	for shard := range serverInfo.ServerRole[serverInfo.ServerState.Version].Masters {
-		masters = append(masters, shard)
-	}
-	sort.Sort(masters)
-	for i, shard := range masters {
-		fmt.Fprintf(w, "%d", shard)
-		if i != len(masters)-1 {
-			fmt.Fprint(w, ", ")
-		}
-	}
-	fmt.Fprint(w, "\t")
-	var replicas uint64Slice
-	for shard := range serverInfo.ServerRole[serverInfo.ServerState.Version].Replicas {
-		replicas = append(replicas, shard)
-	}
-	sort.Sort(replicas)
-	for i, shard := range replicas {
-		fmt.Fprintf(w, "%d", shard)
-		if i != len(replicas)-1 {
-			fmt.Fprint(w, ", ")
-		}
-	}
-	fmt.Fprint(w, "\t\n")
 }
 
 func PrintBlockInfoHeader(w io.Writer) {

@@ -12,15 +12,12 @@ It has these top-level messages:
 	Repo
 	Commit
 	File
-	Server
 	RepoInfo
 	RepoInfos
 	CommitInfo
 	CommitInfos
 	FileInfo
 	FileInfos
-	ServerInfo
-	ServerInfos
 	Shard
 	CreateRepoRequest
 	InspectRepoRequest
@@ -47,7 +44,7 @@ import _ "github.com/gengo/grpc-gateway/third_party/googleapis/google/api"
 import google_protobuf1 "go.pedge.io/google-protobuf"
 import google_protobuf2 "go.pedge.io/google-protobuf"
 import google_protobuf3 "go.pedge.io/google-protobuf"
-import shard "github.com/pachyderm/pachyderm/src/pkg/shard"
+import _ "github.com/pachyderm/pachyderm/src/pkg/shard"
 
 import (
 	context "golang.org/x/net/context"
@@ -149,15 +146,6 @@ func (m *File) GetCommit() *Commit {
 	}
 	return nil
 }
-
-// Server represents a server in the pfs cluster.
-type Server struct {
-	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
-}
-
-func (m *Server) Reset()         { *m = Server{} }
-func (m *Server) String() string { return proto.CompactTextString(m) }
-func (*Server) ProtoMessage()    {}
 
 // RepoInfo represent information about a repo.
 type RepoInfo struct {
@@ -310,53 +298,6 @@ func (*FileInfos) ProtoMessage()    {}
 func (m *FileInfos) GetFileInfo() []*FileInfo {
 	if m != nil {
 		return m.FileInfo
-	}
-	return nil
-}
-
-// ServerInfo represents information about a server.
-type ServerInfo struct {
-	Server      *Server                     `protobuf:"bytes,1,opt,name=server" json:"server,omitempty"`
-	ServerState *shard.ServerState          `protobuf:"bytes,2,opt,name=server_state" json:"server_state,omitempty"`
-	ServerRole  map[int64]*shard.ServerRole `protobuf:"bytes,3,rep,name=server_role" json:"server_role,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-}
-
-func (m *ServerInfo) Reset()         { *m = ServerInfo{} }
-func (m *ServerInfo) String() string { return proto.CompactTextString(m) }
-func (*ServerInfo) ProtoMessage()    {}
-
-func (m *ServerInfo) GetServer() *Server {
-	if m != nil {
-		return m.Server
-	}
-	return nil
-}
-
-func (m *ServerInfo) GetServerState() *shard.ServerState {
-	if m != nil {
-		return m.ServerState
-	}
-	return nil
-}
-
-func (m *ServerInfo) GetServerRole() map[int64]*shard.ServerRole {
-	if m != nil {
-		return m.ServerRole
-	}
-	return nil
-}
-
-type ServerInfos struct {
-	ServerInfo []*ServerInfo `protobuf:"bytes,1,rep,name=server_info" json:"server_info,omitempty"`
-}
-
-func (m *ServerInfos) Reset()         { *m = ServerInfos{} }
-func (m *ServerInfos) String() string { return proto.CompactTextString(m) }
-func (*ServerInfos) ProtoMessage()    {}
-
-func (m *ServerInfos) GetServerInfo() []*ServerInfo {
-	if m != nil {
-		return m.ServerInfo
 	}
 	return nil
 }
@@ -666,15 +607,12 @@ func init() {
 	proto.RegisterType((*Repo)(nil), "pfs.Repo")
 	proto.RegisterType((*Commit)(nil), "pfs.Commit")
 	proto.RegisterType((*File)(nil), "pfs.File")
-	proto.RegisterType((*Server)(nil), "pfs.Server")
 	proto.RegisterType((*RepoInfo)(nil), "pfs.RepoInfo")
 	proto.RegisterType((*RepoInfos)(nil), "pfs.RepoInfos")
 	proto.RegisterType((*CommitInfo)(nil), "pfs.CommitInfo")
 	proto.RegisterType((*CommitInfos)(nil), "pfs.CommitInfos")
 	proto.RegisterType((*FileInfo)(nil), "pfs.FileInfo")
 	proto.RegisterType((*FileInfos)(nil), "pfs.FileInfos")
-	proto.RegisterType((*ServerInfo)(nil), "pfs.ServerInfo")
-	proto.RegisterType((*ServerInfos)(nil), "pfs.ServerInfos")
 	proto.RegisterType((*Shard)(nil), "pfs.Shard")
 	proto.RegisterType((*CreateRepoRequest)(nil), "pfs.CreateRepoRequest")
 	proto.RegisterType((*InspectRepoRequest)(nil), "pfs.InspectRepoRequest")
