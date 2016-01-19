@@ -9,7 +9,6 @@ import (
 	"math"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 )
@@ -174,7 +173,7 @@ func DeleteCommit(apiClient pfs.APIClient, repoName string, commitID string) err
 	return err
 }
 
-func PutBlock(apiClient drive.APIClient, reader io.Reader) (*drive.BlockRefs, error) {
+func PutBlock(apiClient pfs.BlockAPIClient, reader io.Reader) (*pfs.BlockRefs, error) {
 	putBlockClient, err := apiClient.PutBlock(context.Background())
 	if err != nil {
 		return nil, err
@@ -185,11 +184,11 @@ func PutBlock(apiClient drive.APIClient, reader io.Reader) (*drive.BlockRefs, er
 	return putBlockClient.CloseAndRecv()
 }
 
-func GetBlock(apiClient drive.APIClient, hash string, offsetBytes uint64, sizeBytes uint64) (io.Reader, error) {
+func GetBlock(apiClient pfs.BlockAPIClient, hash string, offsetBytes uint64, sizeBytes uint64) (io.Reader, error) {
 	apiGetBlockClient, err := apiClient.GetBlock(
 		context.Background(),
-		&drive.GetBlockRequest{
-			Block: &drive.Block{
+		&pfs.GetBlockRequest{
+			Block: &pfs.Block{
 				Hash: hash,
 			},
 			OffsetBytes: offsetBytes,
@@ -202,11 +201,11 @@ func GetBlock(apiClient drive.APIClient, hash string, offsetBytes uint64, sizeBy
 	return protostream.NewStreamingBytesReader(apiGetBlockClient), nil
 }
 
-func InspectBlock(apiClient drive.APIClient, hash string) (*drive.BlockInfo, error) {
+func InspectBlock(apiClient pfs.BlockAPIClient, hash string) (*pfs.BlockInfo, error) {
 	blockInfo, err := apiClient.InspectBlock(
 		context.Background(),
-		&drive.InspectBlockRequest{
-			Block: &drive.Block{
+		&pfs.InspectBlockRequest{
+			Block: &pfs.Block{
 				Hash: hash,
 			},
 		},
@@ -217,10 +216,10 @@ func InspectBlock(apiClient drive.APIClient, hash string) (*drive.BlockInfo, err
 	return blockInfo, nil
 }
 
-func ListBlock(apiClient drive.APIClient) ([]*drive.BlockInfo, error) {
+func ListBlock(apiClient pfs.BlockAPIClient) ([]*pfs.BlockInfo, error) {
 	blockInfos, err := apiClient.ListBlock(
 		context.Background(),
-		&drive.ListBlockRequest{},
+		&pfs.ListBlockRequest{},
 	)
 	if err != nil {
 		return nil, err

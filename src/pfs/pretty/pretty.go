@@ -9,7 +9,6 @@ import (
 
 	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
 )
 
 func PrintRepoHeader(w io.Writer) {
@@ -101,7 +100,7 @@ func PrintBlockInfoHeader(w io.Writer) {
 	fmt.Fprintf(w, "HASH\tCREATED\tSIZE\t\n")
 }
 
-func PrintBlockInfo(w io.Writer, blockInfo *drive.BlockInfo) {
+func PrintBlockInfo(w io.Writer, blockInfo *pfs.BlockInfo) {
 	fmt.Fprintf(w, "%s\t", blockInfo.Block.Hash)
 	fmt.Fprintf(
 		w,

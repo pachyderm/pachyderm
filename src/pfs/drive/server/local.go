@@ -14,7 +14,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
@@ -29,7 +28,7 @@ type localAPIServer struct {
 
 func newLocalAPIServer(dir string) (*localAPIServer, error) {
 	server := &localAPIServer{
-		Logger: protorpclog.NewLogger("pachyderm.pfs.drive.localAPIServer"),
+		Logger: protorpclog.NewLogger("pachyderm.pfs.pfs.localAPIServer"),
 		dir:    dir,
 	}
 	if err := os.MkdirAll(server.tmpDir(), 0777); err != nil {
@@ -44,7 +43,7 @@ func newLocalAPIServer(dir string) (*localAPIServer, error) {
 	return server, nil
 }
 
-func (s *localAPIServer) putOneBlock(scanner *bufio.Scanner) (result *drive.BlockRef, retErr error) {
+func (s *localAPIServer) putOneBlock(scanner *bufio.Scanner) (result *pfs.BlockRef, retErr error) {
 	hash := newHash()
 	tmp, err := ioutil.TempFile(s.tmpDir(), "block")
 	if err != nil {
@@ -91,17 +90,17 @@ func (s *localAPIServer) putOneBlock(scanner *bufio.Scanner) (result *drive.Bloc
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
-	return &drive.BlockRef{
+	return &pfs.BlockRef{
 		Block: getBlock(hash),
-		Range: &drive.ByteRange{
+		Range: &pfs.ByteRange{
 			Lower: 0,
 			Upper: uint64(bytesWritten),
 		},
 	}, nil
 }
 
-func (s *localAPIServer) PutBlock(putBlockServer drive.API_PutBlockServer) (retErr error) {
-	result := &drive.BlockRefs{}
+func (s *localAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer) (retErr error) {
+	result := &pfs.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	scanner := bufio.NewScanner(protostream.NewStreamingBytesReader(putBlockServer))
 	for {
@@ -117,7 +116,7 @@ func (s *localAPIServer) PutBlock(putBlockServer drive.API_PutBlockServer) (retE
 	return putBlockServer.SendAndClose(result)
 }
 
-func (s *localAPIServer) GetBlock(request *drive.GetBlockRequest, getBlockServer drive.API_GetBlockServer) (retErr error) {
+func (s *localAPIServer) GetBlock(request *pfs.GetBlockRequest, getBlockServer pfs.BlockAPI_GetBlockServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	file, err := os.Open(s.blockPath(request.Block))
 	if err != nil {
@@ -132,13 +131,13 @@ func (s *localAPIServer) GetBlock(request *drive.GetBlockRequest, getBlockServer
 	return protostream.WriteToStreamingBytesServer(reader, getBlockServer)
 }
 
-func (s *localAPIServer) InspectBlock(ctx context.Context, request *drive.InspectBlockRequest) (response *drive.BlockInfo, retErr error) {
+func (s *localAPIServer) InspectBlock(ctx context.Context, request *pfs.InspectBlockRequest) (response *pfs.BlockInfo, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	stat, err := os.Stat(s.blockPath(request.Block))
 	if err != nil {
 		return nil, err
 	}
-	return &drive.BlockInfo{
+	return &pfs.BlockInfo{
 		Block: request.Block,
 		Created: prototime.TimeToTimestamp(
 			stat.ModTime(),
@@ -147,12 +146,12 @@ func (s *localAPIServer) InspectBlock(ctx context.Context, request *drive.Inspec
 	}, nil
 }
 
-func (s *localAPIServer) ListBlock(ctx context.Context, request *drive.ListBlockRequest) (response *drive.BlockInfos, retErr error) {
+func (s *localAPIServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest) (response *pfs.BlockInfos, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (s *localAPIServer) CreateDiff(ctx context.Context, request *drive.DiffInfo) (response *google_protobuf.Empty, retErr error) {
+func (s *localAPIServer) CreateDiff(ctx context.Context, request *pfs.DiffInfo) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	data, err := proto.Marshal(request)
 	if err != nil {
@@ -167,12 +166,12 @@ func (s *localAPIServer) CreateDiff(ctx context.Context, request *drive.DiffInfo
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (s *localAPIServer) InspectDiff(ctx context.Context, request *drive.InspectDiffRequest) (response *drive.DiffInfo, retErr error) {
+func (s *localAPIServer) InspectDiff(ctx context.Context, request *pfs.InspectDiffRequest) (response *pfs.DiffInfo, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return s.readDiff(request.Diff)
 }
 
-func (s *localAPIServer) ListDiff(request *drive.ListDiffRequest, listDiffServer drive.API_ListDiffServer) (retErr error) {
+func (s *localAPIServer) ListDiff(request *pfs.ListDiffRequest, listDiffServer pfs.BlockAPI_ListDiffServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	if err := filepath.Walk(s.diffDir(), func(path string, info os.FileInfo, err error) error {
 		diff := s.pathToDiff(path)
@@ -196,7 +195,7 @@ func (s *localAPIServer) ListDiff(request *drive.ListDiffRequest, listDiffServer
 	return nil
 }
 
-func (s *localAPIServer) DeleteDiff(ctx context.Context, request *drive.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
+func (s *localAPIServer) DeleteDiff(ctx context.Context, request *pfs.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return google_protobuf.EmptyInstance, os.Remove(s.diffPath(request.Diff))
 }
@@ -209,7 +208,7 @@ func (s *localAPIServer) blockDir() string {
 	return filepath.Join(s.dir, "block")
 }
 
-func (s *localAPIServer) blockPath(block *drive.Block) string {
+func (s *localAPIServer) blockPath(block *pfs.Block) string {
 	return filepath.Join(s.blockDir(), block.Hash)
 }
 
@@ -217,12 +216,12 @@ func (s *localAPIServer) diffDir() string {
 	return filepath.Join(s.dir, "diff")
 }
 
-func (s *localAPIServer) diffPath(diff *drive.Diff) string {
+func (s *localAPIServer) diffPath(diff *pfs.Diff) string {
 	return filepath.Join(s.diffDir(), diff.Commit.Repo.Name, diff.Commit.Id, strconv.FormatUint(diff.Shard, 10))
 }
 
 // pathToDiff parses a path as a diff, it returns nil when parse fails
-func (s *localAPIServer) pathToDiff(path string) *drive.Diff {
+func (s *localAPIServer) pathToDiff(path string) *pfs.Diff {
 	repoCommitShard := strings.Split(strings.TrimPrefix(path, s.diffDir()), "/")
 	if len(repoCommitShard) < 3 {
 		return nil
@@ -231,7 +230,7 @@ func (s *localAPIServer) pathToDiff(path string) *drive.Diff {
 	if err != nil {
 		return nil
 	}
-	return &drive.Diff{
+	return &pfs.Diff{
 		Commit: &pfs.Commit{
 			Repo: &pfs.Repo{Name: repoCommitShard[0]},
 			Id:   repoCommitShard[1],
@@ -240,12 +239,12 @@ func (s *localAPIServer) pathToDiff(path string) *drive.Diff {
 	}
 }
 
-func (s *localAPIServer) readDiff(diff *drive.Diff) (*drive.DiffInfo, error) {
+func (s *localAPIServer) readDiff(diff *pfs.Diff) (*pfs.DiffInfo, error) {
 	data, err := ioutil.ReadFile(s.diffPath(diff))
 	if err != nil {
 		return nil, err
 	}
-	result := &drive.DiffInfo{}
+	result := &pfs.DiffInfo{}
 	if err := proto.Unmarshal(data, result); err != nil {
 		return nil, err
 	}

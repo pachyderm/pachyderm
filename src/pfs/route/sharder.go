@@ -5,7 +5,6 @@ import (
 	"path"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
 )
 
 type sharder struct {
@@ -32,7 +31,7 @@ func (s *sharder) GetShard(file *pfs.File) uint64 {
 	return uint64(adler32.Checksum([]byte(path.Clean(file.Path)))) % s.fileModulus
 }
 
-func (s *sharder) GetBlockShard(block *drive.Block) uint64 {
+func (s *sharder) GetBlockShard(block *pfs.Block) uint64 {
 	return uint64(adler32.Checksum([]byte(block.Hash))) % s.blockModulus
 }
 
@@ -45,7 +44,7 @@ func FileInShard(shard *pfs.Shard, file *pfs.File) bool {
 	return sharder.GetShard(file) == shard.FileNumber
 }
 
-func BlockInShard(shard *pfs.Shard, block *drive.Block) bool {
+func BlockInShard(shard *pfs.Shard, block *pfs.Block) bool {
 	if shard == nil {
 		// this lets us default to no filtering
 		return true

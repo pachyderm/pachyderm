@@ -38,7 +38,3 @@ type Driver interface {
 	AddShard(shard uint64) error
 	DeleteShard(shard uint64) error
 }
-
-func ByteRangeSize(byteRange *ByteRange) uint64 {
-	return byteRange.Upper - byteRange.Lower
-}

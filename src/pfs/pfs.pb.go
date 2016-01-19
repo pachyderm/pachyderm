@@ -12,12 +12,21 @@ It has these top-level messages:
 	Repo
 	Commit
 	File
+	Block
+	Diff
 	RepoInfo
 	RepoInfos
 	CommitInfo
 	CommitInfos
 	FileInfo
 	FileInfos
+	ByteRange
+	BlockRef
+	BlockRefs
+	Append
+	BlockInfo
+	BlockInfos
+	DiffInfo
 	Shard
 	CreateRepoRequest
 	InspectRepoRequest
@@ -34,6 +43,12 @@ It has these top-level messages:
 	MakeDirectoryRequest
 	ListFileRequest
 	DeleteFileRequest
+	GetBlockRequest
+	InspectBlockRequest
+	ListBlockRequest
+	InspectDiffRequest
+	ListDiffRequest
+	DeleteDiffRequest
 */
 package pfs
 
@@ -56,7 +71,6 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// CommitType represents the type of commit.
 type CommitType int32
 
 const (
@@ -80,7 +94,6 @@ func (x CommitType) String() string {
 	return proto.EnumName(CommitType_name, int32(x))
 }
 
-// FileType represents a type of file from ListFiles.
 type FileType int32
 
 const (
@@ -104,7 +117,6 @@ func (x FileType) String() string {
 	return proto.EnumName(FileType_name, int32(x))
 }
 
-// Repo represents a repo.
 type Repo struct {
 	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 }
@@ -113,7 +125,6 @@ func (m *Repo) Reset()         { *m = Repo{} }
 func (m *Repo) String() string { return proto.CompactTextString(m) }
 func (*Repo) ProtoMessage()    {}
 
-// Commit represents a specific commit in a repo.
 type Commit struct {
 	Repo *Repo  `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 	Id   string `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
@@ -130,7 +141,6 @@ func (m *Commit) GetRepo() *Repo {
 	return nil
 }
 
-// File represents the full path to a file or directory within pfs.
 type File struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	Path   string  `protobuf:"bytes,2,opt,name=path" json:"path,omitempty"`
@@ -147,7 +157,30 @@ func (m *File) GetCommit() *Commit {
 	return nil
 }
 
-// RepoInfo represent information about a repo.
+type Block struct {
+	Hash string `protobuf:"bytes,1,opt,name=hash" json:"hash,omitempty"`
+}
+
+func (m *Block) Reset()         { *m = Block{} }
+func (m *Block) String() string { return proto.CompactTextString(m) }
+func (*Block) ProtoMessage()    {}
+
+type Diff struct {
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	Shard  uint64  `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
+}
+
+func (m *Diff) Reset()         { *m = Diff{} }
+func (m *Diff) String() string { return proto.CompactTextString(m) }
+func (*Diff) ProtoMessage()    {}
+
+func (m *Diff) GetCommit() *Commit {
+	if m != nil {
+		return m.Commit
+	}
+	return nil
+}
+
 type RepoInfo struct {
 	Repo      *Repo                       `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 	Created   *google_protobuf2.Timestamp `protobuf:"bytes,2,opt,name=created" json:"created,omitempty"`
@@ -187,7 +220,6 @@ func (m *RepoInfos) GetRepoInfo() []*RepoInfo {
 	return nil
 }
 
-// CommitInfo represents information about a commit.
 type CommitInfo struct {
 	Commit       *Commit                     `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	CommitType   CommitType                  `protobuf:"varint,2,opt,name=commit_type,enum=pfs.CommitType" json:"commit_type,omitempty"`
@@ -244,7 +276,6 @@ func (m *CommitInfos) GetCommitInfo() []*CommitInfo {
 	return nil
 }
 
-// FileInfo represents information about a file.
 type FileInfo struct {
 	File           *File                       `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 	FileType       FileType                    `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
@@ -302,8 +333,172 @@ func (m *FileInfos) GetFileInfo() []*FileInfo {
 	return nil
 }
 
-// Shard represents a dynamic shard within pfs.
-// number must always be less than modulo.
+type ByteRange struct {
+	Lower uint64 `protobuf:"varint,1,opt,name=lower" json:"lower,omitempty"`
+	Upper uint64 `protobuf:"varint,2,opt,name=upper" json:"upper,omitempty"`
+}
+
+func (m *ByteRange) Reset()         { *m = ByteRange{} }
+func (m *ByteRange) String() string { return proto.CompactTextString(m) }
+func (*ByteRange) ProtoMessage()    {}
+
+type BlockRef struct {
+	Block *Block     `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	Range *ByteRange `protobuf:"bytes,2,opt,name=range" json:"range,omitempty"`
+}
+
+func (m *BlockRef) Reset()         { *m = BlockRef{} }
+func (m *BlockRef) String() string { return proto.CompactTextString(m) }
+func (*BlockRef) ProtoMessage()    {}
+
+func (m *BlockRef) GetBlock() *Block {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
+
+func (m *BlockRef) GetRange() *ByteRange {
+	if m != nil {
+		return m.Range
+	}
+	return nil
+}
+
+type BlockRefs struct {
+	BlockRef []*BlockRef `protobuf:"bytes,1,rep,name=block_ref" json:"block_ref,omitempty"`
+}
+
+func (m *BlockRefs) Reset()         { *m = BlockRefs{} }
+func (m *BlockRefs) String() string { return proto.CompactTextString(m) }
+func (*BlockRefs) ProtoMessage()    {}
+
+func (m *BlockRefs) GetBlockRef() []*BlockRef {
+	if m != nil {
+		return m.BlockRef
+	}
+	return nil
+}
+
+type Append struct {
+	BlockRefs []*BlockRef     `protobuf:"bytes,1,rep,name=block_refs" json:"block_refs,omitempty"`
+	Children  map[string]bool `protobuf:"bytes,2,rep,name=children" json:"children,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	LastRef   *Commit         `protobuf:"bytes,3,opt,name=last_ref" json:"last_ref,omitempty"`
+}
+
+func (m *Append) Reset()         { *m = Append{} }
+func (m *Append) String() string { return proto.CompactTextString(m) }
+func (*Append) ProtoMessage()    {}
+
+func (m *Append) GetBlockRefs() []*BlockRef {
+	if m != nil {
+		return m.BlockRefs
+	}
+	return nil
+}
+
+func (m *Append) GetChildren() map[string]bool {
+	if m != nil {
+		return m.Children
+	}
+	return nil
+}
+
+func (m *Append) GetLastRef() *Commit {
+	if m != nil {
+		return m.LastRef
+	}
+	return nil
+}
+
+type BlockInfo struct {
+	Block     *Block                      `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	Created   *google_protobuf2.Timestamp `protobuf:"bytes,2,opt,name=created" json:"created,omitempty"`
+	SizeBytes uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
+}
+
+func (m *BlockInfo) Reset()         { *m = BlockInfo{} }
+func (m *BlockInfo) String() string { return proto.CompactTextString(m) }
+func (*BlockInfo) ProtoMessage()    {}
+
+func (m *BlockInfo) GetBlock() *Block {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
+
+func (m *BlockInfo) GetCreated() *google_protobuf2.Timestamp {
+	if m != nil {
+		return m.Created
+	}
+	return nil
+}
+
+type BlockInfos struct {
+	BlockInfo []*BlockInfo `protobuf:"bytes,1,rep,name=block_info" json:"block_info,omitempty"`
+}
+
+func (m *BlockInfos) Reset()         { *m = BlockInfos{} }
+func (m *BlockInfos) String() string { return proto.CompactTextString(m) }
+func (*BlockInfos) ProtoMessage()    {}
+
+func (m *BlockInfos) GetBlockInfo() []*BlockInfo {
+	if m != nil {
+		return m.BlockInfo
+	}
+	return nil
+}
+
+type DiffInfo struct {
+	Diff         *Diff                       `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
+	ParentCommit *Commit                     `protobuf:"bytes,2,opt,name=parent_commit" json:"parent_commit,omitempty"`
+	Started      *google_protobuf2.Timestamp `protobuf:"bytes,3,opt,name=started" json:"started,omitempty"`
+	Finished     *google_protobuf2.Timestamp `protobuf:"bytes,4,opt,name=finished" json:"finished,omitempty"`
+	// Appends is the BlockRefs which have been append to files indexed by path.
+	Appends   map[string]*Append `protobuf:"bytes,5,rep,name=appends" json:"appends,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	SizeBytes uint64             `protobuf:"varint,6,opt,name=size_bytes" json:"size_bytes,omitempty"`
+}
+
+func (m *DiffInfo) Reset()         { *m = DiffInfo{} }
+func (m *DiffInfo) String() string { return proto.CompactTextString(m) }
+func (*DiffInfo) ProtoMessage()    {}
+
+func (m *DiffInfo) GetDiff() *Diff {
+	if m != nil {
+		return m.Diff
+	}
+	return nil
+}
+
+func (m *DiffInfo) GetParentCommit() *Commit {
+	if m != nil {
+		return m.ParentCommit
+	}
+	return nil
+}
+
+func (m *DiffInfo) GetStarted() *google_protobuf2.Timestamp {
+	if m != nil {
+		return m.Started
+	}
+	return nil
+}
+
+func (m *DiffInfo) GetFinished() *google_protobuf2.Timestamp {
+	if m != nil {
+		return m.Finished
+	}
+	return nil
+}
+
+func (m *DiffInfo) GetAppends() map[string]*Append {
+	if m != nil {
+		return m.Appends
+	}
+	return nil
+}
+
 type Shard struct {
 	FileNumber   uint64 `protobuf:"varint,1,opt,name=file_number" json:"file_number,omitempty"`
 	FileModulus  uint64 `protobuf:"varint,2,opt,name=file_modulus" json:"file_modulus,omitempty"`
@@ -603,16 +798,102 @@ func (m *DeleteFileRequest) GetFile() *File {
 	return nil
 }
 
+type GetBlockRequest struct {
+	Block       *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+	OffsetBytes uint64 `protobuf:"varint,2,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
+	SizeBytes   uint64 `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
+}
+
+func (m *GetBlockRequest) Reset()         { *m = GetBlockRequest{} }
+func (m *GetBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*GetBlockRequest) ProtoMessage()    {}
+
+func (m *GetBlockRequest) GetBlock() *Block {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
+
+type InspectBlockRequest struct {
+	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+}
+
+func (m *InspectBlockRequest) Reset()         { *m = InspectBlockRequest{} }
+func (m *InspectBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectBlockRequest) ProtoMessage()    {}
+
+func (m *InspectBlockRequest) GetBlock() *Block {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
+
+type ListBlockRequest struct {
+}
+
+func (m *ListBlockRequest) Reset()         { *m = ListBlockRequest{} }
+func (m *ListBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*ListBlockRequest) ProtoMessage()    {}
+
+type InspectDiffRequest struct {
+	Diff *Diff `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
+}
+
+func (m *InspectDiffRequest) Reset()         { *m = InspectDiffRequest{} }
+func (m *InspectDiffRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectDiffRequest) ProtoMessage()    {}
+
+func (m *InspectDiffRequest) GetDiff() *Diff {
+	if m != nil {
+		return m.Diff
+	}
+	return nil
+}
+
+type ListDiffRequest struct {
+	Shard uint64 `protobuf:"varint,1,opt,name=shard" json:"shard,omitempty"`
+}
+
+func (m *ListDiffRequest) Reset()         { *m = ListDiffRequest{} }
+func (m *ListDiffRequest) String() string { return proto.CompactTextString(m) }
+func (*ListDiffRequest) ProtoMessage()    {}
+
+type DeleteDiffRequest struct {
+	Diff *Diff `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
+}
+
+func (m *DeleteDiffRequest) Reset()         { *m = DeleteDiffRequest{} }
+func (m *DeleteDiffRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteDiffRequest) ProtoMessage()    {}
+
+func (m *DeleteDiffRequest) GetDiff() *Diff {
+	if m != nil {
+		return m.Diff
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*Repo)(nil), "pfs.Repo")
 	proto.RegisterType((*Commit)(nil), "pfs.Commit")
 	proto.RegisterType((*File)(nil), "pfs.File")
+	proto.RegisterType((*Block)(nil), "pfs.Block")
+	proto.RegisterType((*Diff)(nil), "pfs.Diff")
 	proto.RegisterType((*RepoInfo)(nil), "pfs.RepoInfo")
 	proto.RegisterType((*RepoInfos)(nil), "pfs.RepoInfos")
 	proto.RegisterType((*CommitInfo)(nil), "pfs.CommitInfo")
 	proto.RegisterType((*CommitInfos)(nil), "pfs.CommitInfos")
 	proto.RegisterType((*FileInfo)(nil), "pfs.FileInfo")
 	proto.RegisterType((*FileInfos)(nil), "pfs.FileInfos")
+	proto.RegisterType((*ByteRange)(nil), "pfs.ByteRange")
+	proto.RegisterType((*BlockRef)(nil), "pfs.BlockRef")
+	proto.RegisterType((*BlockRefs)(nil), "pfs.BlockRefs")
+	proto.RegisterType((*Append)(nil), "pfs.Append")
+	proto.RegisterType((*BlockInfo)(nil), "pfs.BlockInfo")
+	proto.RegisterType((*BlockInfos)(nil), "pfs.BlockInfos")
+	proto.RegisterType((*DiffInfo)(nil), "pfs.DiffInfo")
 	proto.RegisterType((*Shard)(nil), "pfs.Shard")
 	proto.RegisterType((*CreateRepoRequest)(nil), "pfs.CreateRepoRequest")
 	proto.RegisterType((*InspectRepoRequest)(nil), "pfs.InspectRepoRequest")
@@ -629,6 +910,12 @@ func init() {
 	proto.RegisterType((*MakeDirectoryRequest)(nil), "pfs.MakeDirectoryRequest")
 	proto.RegisterType((*ListFileRequest)(nil), "pfs.ListFileRequest")
 	proto.RegisterType((*DeleteFileRequest)(nil), "pfs.DeleteFileRequest")
+	proto.RegisterType((*GetBlockRequest)(nil), "pfs.GetBlockRequest")
+	proto.RegisterType((*InspectBlockRequest)(nil), "pfs.InspectBlockRequest")
+	proto.RegisterType((*ListBlockRequest)(nil), "pfs.ListBlockRequest")
+	proto.RegisterType((*InspectDiffRequest)(nil), "pfs.InspectDiffRequest")
+	proto.RegisterType((*ListDiffRequest)(nil), "pfs.ListDiffRequest")
+	proto.RegisterType((*DeleteDiffRequest)(nil), "pfs.DeleteDiffRequest")
 	proto.RegisterEnum("pfs.CommitType", CommitType_name, CommitType_value)
 	proto.RegisterEnum("pfs.FileType", FileType_name, FileType_value)
 }
@@ -1668,6 +1955,359 @@ var _InternalAPI_serviceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "GetFile",
 			Handler:       _InternalAPI_GetFile_Handler,
+			ServerStreams: true,
+		},
+	},
+}
+
+// Client API for BlockAPI service
+
+type BlockAPIClient interface {
+	PutBlock(ctx context.Context, opts ...grpc.CallOption) (BlockAPI_PutBlockClient, error)
+	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (BlockAPI_GetBlockClient, error)
+	InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error)
+	ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error)
+	CreateDiff(ctx context.Context, in *DiffInfo, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+	InspectDiff(ctx context.Context, in *InspectDiffRequest, opts ...grpc.CallOption) (*DiffInfo, error)
+	ListDiff(ctx context.Context, in *ListDiffRequest, opts ...grpc.CallOption) (BlockAPI_ListDiffClient, error)
+	DeleteDiff(ctx context.Context, in *DeleteDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
+}
+
+type blockAPIClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewBlockAPIClient(cc *grpc.ClientConn) BlockAPIClient {
+	return &blockAPIClient{cc}
+}
+
+func (c *blockAPIClient) PutBlock(ctx context.Context, opts ...grpc.CallOption) (BlockAPI_PutBlockClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_BlockAPI_serviceDesc.Streams[0], c.cc, "/pfs.BlockAPI/PutBlock", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &blockAPIPutBlockClient{stream}
+	return x, nil
+}
+
+type BlockAPI_PutBlockClient interface {
+	Send(*google_protobuf3.BytesValue) error
+	CloseAndRecv() (*BlockRefs, error)
+	grpc.ClientStream
+}
+
+type blockAPIPutBlockClient struct {
+	grpc.ClientStream
+}
+
+func (x *blockAPIPutBlockClient) Send(m *google_protobuf3.BytesValue) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *blockAPIPutBlockClient) CloseAndRecv() (*BlockRefs, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(BlockRefs)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *blockAPIClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (BlockAPI_GetBlockClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_BlockAPI_serviceDesc.Streams[1], c.cc, "/pfs.BlockAPI/GetBlock", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &blockAPIGetBlockClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type BlockAPI_GetBlockClient interface {
+	Recv() (*google_protobuf3.BytesValue, error)
+	grpc.ClientStream
+}
+
+type blockAPIGetBlockClient struct {
+	grpc.ClientStream
+}
+
+func (x *blockAPIGetBlockClient) Recv() (*google_protobuf3.BytesValue, error) {
+	m := new(google_protobuf3.BytesValue)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *blockAPIClient) InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error) {
+	out := new(BlockInfo)
+	err := grpc.Invoke(ctx, "/pfs.BlockAPI/InspectBlock", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *blockAPIClient) ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error) {
+	out := new(BlockInfos)
+	err := grpc.Invoke(ctx, "/pfs.BlockAPI/ListBlock", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *blockAPIClient) CreateDiff(ctx context.Context, in *DiffInfo, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/pfs.BlockAPI/CreateDiff", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *blockAPIClient) InspectDiff(ctx context.Context, in *InspectDiffRequest, opts ...grpc.CallOption) (*DiffInfo, error) {
+	out := new(DiffInfo)
+	err := grpc.Invoke(ctx, "/pfs.BlockAPI/InspectDiff", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *blockAPIClient) ListDiff(ctx context.Context, in *ListDiffRequest, opts ...grpc.CallOption) (BlockAPI_ListDiffClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_BlockAPI_serviceDesc.Streams[2], c.cc, "/pfs.BlockAPI/ListDiff", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &blockAPIListDiffClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type BlockAPI_ListDiffClient interface {
+	Recv() (*DiffInfo, error)
+	grpc.ClientStream
+}
+
+type blockAPIListDiffClient struct {
+	grpc.ClientStream
+}
+
+func (x *blockAPIListDiffClient) Recv() (*DiffInfo, error) {
+	m := new(DiffInfo)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *blockAPIClient) DeleteDiff(ctx context.Context, in *DeleteDiffRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/pfs.BlockAPI/DeleteDiff", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for BlockAPI service
+
+type BlockAPIServer interface {
+	PutBlock(BlockAPI_PutBlockServer) error
+	GetBlock(*GetBlockRequest, BlockAPI_GetBlockServer) error
+	InspectBlock(context.Context, *InspectBlockRequest) (*BlockInfo, error)
+	ListBlock(context.Context, *ListBlockRequest) (*BlockInfos, error)
+	CreateDiff(context.Context, *DiffInfo) (*google_protobuf1.Empty, error)
+	InspectDiff(context.Context, *InspectDiffRequest) (*DiffInfo, error)
+	ListDiff(*ListDiffRequest, BlockAPI_ListDiffServer) error
+	DeleteDiff(context.Context, *DeleteDiffRequest) (*google_protobuf1.Empty, error)
+}
+
+func RegisterBlockAPIServer(s *grpc.Server, srv BlockAPIServer) {
+	s.RegisterService(&_BlockAPI_serviceDesc, srv)
+}
+
+func _BlockAPI_PutBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(BlockAPIServer).PutBlock(&blockAPIPutBlockServer{stream})
+}
+
+type BlockAPI_PutBlockServer interface {
+	SendAndClose(*BlockRefs) error
+	Recv() (*google_protobuf3.BytesValue, error)
+	grpc.ServerStream
+}
+
+type blockAPIPutBlockServer struct {
+	grpc.ServerStream
+}
+
+func (x *blockAPIPutBlockServer) SendAndClose(m *BlockRefs) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *blockAPIPutBlockServer) Recv() (*google_protobuf3.BytesValue, error) {
+	m := new(google_protobuf3.BytesValue)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _BlockAPI_GetBlock_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetBlockRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(BlockAPIServer).GetBlock(m, &blockAPIGetBlockServer{stream})
+}
+
+type BlockAPI_GetBlockServer interface {
+	Send(*google_protobuf3.BytesValue) error
+	grpc.ServerStream
+}
+
+type blockAPIGetBlockServer struct {
+	grpc.ServerStream
+}
+
+func (x *blockAPIGetBlockServer) Send(m *google_protobuf3.BytesValue) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _BlockAPI_InspectBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(InspectBlockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(BlockAPIServer).InspectBlock(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _BlockAPI_ListBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ListBlockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(BlockAPIServer).ListBlock(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _BlockAPI_CreateDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(DiffInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(BlockAPIServer).CreateDiff(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _BlockAPI_InspectDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(InspectDiffRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(BlockAPIServer).InspectDiff(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _BlockAPI_ListDiff_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ListDiffRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(BlockAPIServer).ListDiff(m, &blockAPIListDiffServer{stream})
+}
+
+type BlockAPI_ListDiffServer interface {
+	Send(*DiffInfo) error
+	grpc.ServerStream
+}
+
+type blockAPIListDiffServer struct {
+	grpc.ServerStream
+}
+
+func (x *blockAPIListDiffServer) Send(m *DiffInfo) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _BlockAPI_DeleteDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(DeleteDiffRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(BlockAPIServer).DeleteDiff(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+var _BlockAPI_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pfs.BlockAPI",
+	HandlerType: (*BlockAPIServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "InspectBlock",
+			Handler:    _BlockAPI_InspectBlock_Handler,
+		},
+		{
+			MethodName: "ListBlock",
+			Handler:    _BlockAPI_ListBlock_Handler,
+		},
+		{
+			MethodName: "CreateDiff",
+			Handler:    _BlockAPI_CreateDiff_Handler,
+		},
+		{
+			MethodName: "InspectDiff",
+			Handler:    _BlockAPI_InspectDiff_Handler,
+		},
+		{
+			MethodName: "DeleteDiff",
+			Handler:    _BlockAPI_DeleteDiff_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "PutBlock",
+			Handler:       _BlockAPI_PutBlock_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "GetBlock",
+			Handler:       _BlockAPI_GetBlock_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ListDiff",
+			Handler:       _BlockAPI_ListDiff_Handler,
 			ServerStreams: true,
 		},
 	},

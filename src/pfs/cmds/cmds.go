@@ -9,7 +9,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/pretty"
@@ -387,12 +386,12 @@ func getAPIClient(address string) (pfs.APIClient, error) {
 	return pfs.NewAPIClient(clientConn), nil
 }
 
-func getDriveAPIClient(address string) (drive.APIClient, error) {
+func getDriveAPIClient(address string) (pfs.BlockAPIClient, error) {
 	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
-	return drive.NewAPIClient(clientConn), nil
+	return pfs.NewBlockAPIClient(clientConn), nil
 }
 
 func parseCommitMounts(args []string) []*fuse.CommitMount {
