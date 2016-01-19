@@ -64,7 +64,6 @@ func TestJob(t *testing.T) {
 }
 
 func TestGrep(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	dataRepo := uniqueString("TestGrep.data")
 	pfsClient := getPfsClient(t)
