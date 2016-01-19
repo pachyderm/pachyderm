@@ -38,9 +38,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, 
 	if _, ok := d.finished[repo.Name]; ok {
 		return fmt.Errorf("repo %s exists", repo.Name)
 	}
-	d.finished[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
-	d.started[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
-	d.leaves[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
+	d.createRepoDiffMaps(repo)
 
 	var wg sync.WaitGroup
 	var loopErr error
@@ -354,6 +352,7 @@ func (d *driver) AddShard(shard uint64) error {
 	if err != nil {
 		return err
 	}
+	leaves := make(diffMap)
 	for {
 		diffInfo, err := listDiffClient.Recv()
 		if err != nil && err != io.EOF {
@@ -362,18 +361,53 @@ func (d *driver) AddShard(shard uint64) error {
 		if err == io.EOF {
 			break
 		}
-		func() error {
+		if err := func() error {
 			d.lock.Lock()
 			defer d.lock.Lock()
 			if _, ok := d.finished[diffInfo.Diff.Commit.Repo.Name]; !ok {
-				d.finished[diffInfo.Diff.Commit.Repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
-				d.started[diffInfo.Diff.Commit.Repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
+				d.createRepoDiffMaps(diffInfo.Diff.Commit.Repo)
 			}
 			if err := d.finished.insert(diffInfo); err != nil {
 				return err
 			}
-			return d.insertLeaf(diffInfo)
-		}()
+			if diffInfo.ParentCommit != nil {
+				parentDiff := &drive.Diff{
+					Commit: diffInfo.ParentCommit,
+					Shard:  shard,
+				}
+				// try to pop the parent diff, if it we find one to pop then we
+				// already saw the parent we're good, otherwise we record the
+				// fact that this diff is not a leaf with a dummy diffInfo
+				if parentDiffInfo := leaves.pop(parentDiff); parentDiffInfo == nil {
+					if err := leaves.insert(&drive.DiffInfo{Diff: parentDiff}); err != nil {
+						return err
+					}
+				}
+			}
+			// check if there's a dummy diff info for this diff, if so then we
+			// already saw a parent, so this isn't a leaf, otherwise it's a leaf
+			// so we insert it
+			if dummyDiffInfo := leaves.pop(diffInfo.Diff); dummyDiffInfo == nil {
+				if err := leaves.insert(diffInfo); err != nil {
+					return err
+				}
+			}
+			return nil
+		}(); err != nil {
+			return err
+		}
+	}
+	for repo, shardMap := range leaves {
+		for _, commitMap := range shardMap {
+			for commit, diffInfo := range commitMap {
+				if diffInfo.Appends == nil {
+					return fmt.Errorf("diffInfos reference a parent that doesn't exist %s/%s", repo, commit)
+				}
+				if err := d.leaves.insert(diffInfo); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -693,4 +727,10 @@ func (d *driver) insertLeaf(leaf *drive.DiffInfo) error {
 		}
 	}
 	return nil
+}
+
+func (d *driver) createRepoDiffMaps(repo *pfs.Repo) {
+	d.finished[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
+	d.started[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
+	d.leaves[repo.Name] = make(map[uint64]map[string]*drive.DiffInfo)
 }
