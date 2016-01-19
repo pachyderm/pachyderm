@@ -18,7 +18,6 @@ type driver struct {
 	driveClient drive.APIClient
 	started     diffMap
 	finished    diffMap
-	internals   diffMap
 	leaves      diffMap // commits with no children
 	lock        sync.RWMutex
 }
@@ -26,7 +25,6 @@ type driver struct {
 func newDriver(driveClient drive.APIClient) (drive.Driver, error) {
 	return &driver{
 		driveClient,
-		make(diffMap),
 		make(diffMap),
 		make(diffMap),
 		make(diffMap),
@@ -113,6 +111,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 	}
 	delete(d.started, repo.Name)
 	delete(d.finished, repo.Name)
+	delete(d.leaves, repo.Name)
 	d.lock.Unlock()
 	var loopErr error
 	var wg sync.WaitGroup
@@ -681,26 +680,16 @@ func (d diffMap) pop(diff *drive.Diff) *drive.DiffInfo {
 }
 
 func (d *driver) insertLeaf(leaf *drive.DiffInfo) error {
-	if _, ok := d.internals.get(leaf.Diff); ok {
-		// Not an actual leaf, we already know it's a leaf node
-		d.internals.insert(leaf)
-	} else {
-		if err := d.leaves.insert(leaf); err != nil {
-			return err
-		}
+	if err := d.leaves.insert(leaf); err != nil {
+		return err
 	}
 	if leaf.ParentCommit != nil {
 		parentDiff := &drive.Diff{
 			Commit: leaf.ParentCommit,
 			Shard:  leaf.Diff.Shard,
 		}
-		if parentDiffInfo, ok := d.leaves.get(parentDiff); ok {
+		if _, ok := d.leaves.get(parentDiff); ok {
 			d.leaves.pop(parentDiff)
-			d.internals.insert(parentDiffInfo)
-		} else {
-			if err := d.internals.insert(&drive.DiffInfo{Diff: parentDiff}); err != nil {
-				return err
-			}
 		}
 	}
 	return nil
