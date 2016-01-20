@@ -1,4 +1,4 @@
-package obj
+package drive
 
 import (
 	"fmt"
@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"go.pedge.io/google-protobuf"
@@ -22,7 +21,7 @@ type driver struct {
 	lock        sync.RWMutex
 }
 
-func newDriver(blockClient pfs.BlockAPIClient) (drive.Driver, error) {
+func newDriver(blockClient pfs.BlockAPIClient) (Driver, error) {
 	return &driver{
 		blockClient,
 		make(diffMap),

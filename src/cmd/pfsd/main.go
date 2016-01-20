@@ -9,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pfs/drive/obj"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
@@ -69,7 +68,7 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 		objAPIClient := pfs.NewBlockAPIClient(clientConn)
-		driver, err = obj.NewDriver(objAPIClient)
+		driver, err = drive.NewDriver(objAPIClient)
 		if err != nil {
 			return err
 		}
