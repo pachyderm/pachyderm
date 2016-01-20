@@ -11,13 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 )
 
-// ReaderAtCloser is an interface that implements both io.ReaderAt and io.Closer.
-type ReaderAtCloser interface {
-	io.Reader
-	io.ReaderAt
-	io.Closer
-}
-
 // Driver represents a low-level pfs storage driver.
 type Driver interface {
 	CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, shards map[uint64]bool) error
