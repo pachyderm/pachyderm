@@ -94,12 +94,24 @@ func ObjdRc() *api.ReplicationController {
 									Name:      "obj-disk",
 									MountPath: "/obj",
 								},
+								{
+									Name:      "amazon-secret",
+									MountPath: "/amazon-secret",
+								},
 							},
 						},
 					},
 					Volumes: []api.Volume{
 						{
 							Name: "obj-disk",
+						},
+						{
+							Name: "amazon-secret",
+							VolumeSource: api.VolumeSource{
+								Secret: &api.SecretVolumeSource{
+									SecretName: amazonSecretName,
+								},
+							},
 						},
 					},
 				},
@@ -520,7 +532,7 @@ func RethinkService() *api.Service {
 	}
 }
 
-func AmazonSecret() *api.Secret {
+func AmazonSecret(bucket string, id string, secret string, token string, region string) *api.Secret {
 	return &api.Secret{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Secret",
@@ -531,11 +543,11 @@ func AmazonSecret() *api.Secret {
 			Labels: labels(amazonSecretName),
 		},
 		Data: map[string][]byte{
-			"Bucket": []byte{},
-			"Id":     []byte{},
-			"Secret": []byte{},
-			"Token":  []byte{},
-			"Region": []byte{},
+			"Bucket": []byte(bucket),
+			"Id":     []byte(id),
+			"Secret": []byte(secret),
+			"Token":  []byte(token),
+			"Region": []byte(region),
 		},
 	}
 }
@@ -575,7 +587,13 @@ func WriteAssets(w io.Writer, shards uint64) {
 	RolerRc(uint64(shards)).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	AmazonSecret().CodecEncodeSelf(encoder)
+	AmazonSecret("", "", "", "", "").CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+}
+
+func WriteAmazonSecret(w io.Writer, bucket string, id string, secret string, token string, region string) {
+	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
+	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
