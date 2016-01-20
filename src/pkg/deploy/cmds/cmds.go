@@ -21,7 +21,18 @@ func Cmds() []*cobra.Command {
 	}
 	kubernetesManifest.Flags().IntVarP(&shards, "shards", "s", 1, "The static number of shards for pfs.")
 
+	amazonSecret := &cobra.Command{
+		Use:   "amazon-secret bucket id secret token region",
+		Short: "Print a kubernetes secret containing amazon credentials.",
+		Long:  "Print a kubernetes secret containing amazon credentials.",
+		Run: pkgcobra.RunFixedArgs(5, func(args []string) error {
+			assets.WriteAmazonSecret(os.Stdout, args[0], args[1], args[2], args[3], args[4])
+			return nil
+		}),
+	}
+
 	var result []*cobra.Command
 	result = append(result, kubernetesManifest)
+	result = append(result, amazonSecret)
 	return result
 }
