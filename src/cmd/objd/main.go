@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/drive/server"
+	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"go.pedge.io/env"
 	"go.pedge.io/proto/server"
@@ -32,7 +32,7 @@ func do(appEnvObj interface{}) error {
 			return err
 		}
 	}
-	apiServer, err := server.NewLocalAPIServer(appEnv.StorageRoot)
+	blockAPIServer, err := server.NewLocalBlockAPIServer(appEnv.StorageRoot)
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func do(appEnvObj interface{}) error {
 	return protoserver.Serve(
 		uint16(appEnv.Port),
 		func(s *grpc.Server) {
-			pfs.RegisterBlockAPIServer(s, apiServer)
+			pfs.RegisterBlockAPIServer(s, blockAPIServer)
 		},
 		protoserver.ServeOptions{
 			HTTPPort:  uint16(appEnv.HTTPPort),

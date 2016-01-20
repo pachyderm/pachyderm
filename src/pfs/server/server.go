@@ -7,6 +7,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 )
 
+var (
+	blockSize = 8 * 1024 * 1024 // 8 Megabytes
+)
+
 type APIServer interface {
 	pfs.APIServer
 	shard.Frontend
@@ -39,4 +43,8 @@ func NewInternalAPIServer(
 		router,
 		driver,
 	)
+}
+
+func NewLocalBlockAPIServer(dir string) (pfs.BlockAPIServer, error) {
+	return newLocalBlockAPIServer(dir)
 }
