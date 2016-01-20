@@ -21,14 +21,14 @@ import (
 	"golang.org/x/net/context"
 )
 
-type localAPIServer struct {
+type localBlockAPIServer struct {
 	protorpclog.Logger
 	dir string
 }
 
-func newLocalAPIServer(dir string) (*localAPIServer, error) {
-	server := &localAPIServer{
-		Logger: protorpclog.NewLogger("pachyderm.pfs.pfs.localAPIServer"),
+func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
+	server := &localBlockAPIServer{
+		Logger: protorpclog.NewLogger("pachyderm.pfs.pfs.localBlockAPIServer"),
 		dir:    dir,
 	}
 	if err := os.MkdirAll(server.tmpDir(), 0777); err != nil {
@@ -43,7 +43,7 @@ func newLocalAPIServer(dir string) (*localAPIServer, error) {
 	return server, nil
 }
 
-func (s *localAPIServer) putOneBlock(scanner *bufio.Scanner) (result *pfs.BlockRef, retErr error) {
+func (s *localBlockAPIServer) putOneBlock(scanner *bufio.Scanner) (result *pfs.BlockRef, retErr error) {
 	hash := newHash()
 	tmp, err := ioutil.TempFile(s.tmpDir(), "block")
 	if err != nil {
@@ -99,7 +99,7 @@ func (s *localAPIServer) putOneBlock(scanner *bufio.Scanner) (result *pfs.BlockR
 	}, nil
 }
 
-func (s *localAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer) (retErr error) {
+func (s *localBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer) (retErr error) {
 	result := &pfs.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	scanner := bufio.NewScanner(protostream.NewStreamingBytesReader(putBlockServer))
@@ -116,7 +116,7 @@ func (s *localAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer) (r
 	return putBlockServer.SendAndClose(result)
 }
 
-func (s *localAPIServer) GetBlock(request *pfs.GetBlockRequest, getBlockServer pfs.BlockAPI_GetBlockServer) (retErr error) {
+func (s *localBlockAPIServer) GetBlock(request *pfs.GetBlockRequest, getBlockServer pfs.BlockAPI_GetBlockServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	file, err := os.Open(s.blockPath(request.Block))
 	if err != nil {
@@ -131,7 +131,7 @@ func (s *localAPIServer) GetBlock(request *pfs.GetBlockRequest, getBlockServer p
 	return protostream.WriteToStreamingBytesServer(reader, getBlockServer)
 }
 
-func (s *localAPIServer) InspectBlock(ctx context.Context, request *pfs.InspectBlockRequest) (response *pfs.BlockInfo, retErr error) {
+func (s *localBlockAPIServer) InspectBlock(ctx context.Context, request *pfs.InspectBlockRequest) (response *pfs.BlockInfo, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	stat, err := os.Stat(s.blockPath(request.Block))
 	if err != nil {
@@ -146,12 +146,12 @@ func (s *localAPIServer) InspectBlock(ctx context.Context, request *pfs.InspectB
 	}, nil
 }
 
-func (s *localAPIServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest) (response *pfs.BlockInfos, retErr error) {
+func (s *localBlockAPIServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest) (response *pfs.BlockInfos, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (s *localAPIServer) CreateDiff(ctx context.Context, request *pfs.DiffInfo) (response *google_protobuf.Empty, retErr error) {
+func (s *localBlockAPIServer) CreateDiff(ctx context.Context, request *pfs.DiffInfo) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	data, err := proto.Marshal(request)
 	if err != nil {
@@ -166,12 +166,12 @@ func (s *localAPIServer) CreateDiff(ctx context.Context, request *pfs.DiffInfo) 
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (s *localAPIServer) InspectDiff(ctx context.Context, request *pfs.InspectDiffRequest) (response *pfs.DiffInfo, retErr error) {
+func (s *localBlockAPIServer) InspectDiff(ctx context.Context, request *pfs.InspectDiffRequest) (response *pfs.DiffInfo, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return s.readDiff(request.Diff)
 }
 
-func (s *localAPIServer) ListDiff(request *pfs.ListDiffRequest, listDiffServer pfs.BlockAPI_ListDiffServer) (retErr error) {
+func (s *localBlockAPIServer) ListDiff(request *pfs.ListDiffRequest, listDiffServer pfs.BlockAPI_ListDiffServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	if err := filepath.Walk(s.diffDir(), func(path string, info os.FileInfo, err error) error {
 		diff := s.pathToDiff(path)
@@ -195,33 +195,33 @@ func (s *localAPIServer) ListDiff(request *pfs.ListDiffRequest, listDiffServer p
 	return nil
 }
 
-func (s *localAPIServer) DeleteDiff(ctx context.Context, request *pfs.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
+func (s *localBlockAPIServer) DeleteDiff(ctx context.Context, request *pfs.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return google_protobuf.EmptyInstance, os.Remove(s.diffPath(request.Diff))
 }
 
-func (s *localAPIServer) tmpDir() string {
+func (s *localBlockAPIServer) tmpDir() string {
 	return filepath.Join(s.dir, "tmp")
 }
 
-func (s *localAPIServer) blockDir() string {
+func (s *localBlockAPIServer) blockDir() string {
 	return filepath.Join(s.dir, "block")
 }
 
-func (s *localAPIServer) blockPath(block *pfs.Block) string {
+func (s *localBlockAPIServer) blockPath(block *pfs.Block) string {
 	return filepath.Join(s.blockDir(), block.Hash)
 }
 
-func (s *localAPIServer) diffDir() string {
+func (s *localBlockAPIServer) diffDir() string {
 	return filepath.Join(s.dir, "diff")
 }
 
-func (s *localAPIServer) diffPath(diff *pfs.Diff) string {
+func (s *localBlockAPIServer) diffPath(diff *pfs.Diff) string {
 	return filepath.Join(s.diffDir(), diff.Commit.Repo.Name, diff.Commit.Id, strconv.FormatUint(diff.Shard, 10))
 }
 
 // pathToDiff parses a path as a diff, it returns nil when parse fails
-func (s *localAPIServer) pathToDiff(path string) *pfs.Diff {
+func (s *localBlockAPIServer) pathToDiff(path string) *pfs.Diff {
 	repoCommitShard := strings.Split(strings.TrimPrefix(path, s.diffDir()), "/")
 	if len(repoCommitShard) < 3 {
 		return nil
@@ -239,7 +239,7 @@ func (s *localAPIServer) pathToDiff(path string) *pfs.Diff {
 	}
 }
 
-func (s *localAPIServer) readDiff(diff *pfs.Diff) (*pfs.DiffInfo, error) {
+func (s *localBlockAPIServer) readDiff(diff *pfs.Diff) (*pfs.DiffInfo, error) {
 	data, err := ioutil.ReadFile(s.diffPath(diff))
 	if err != nil {
 		return nil, err
