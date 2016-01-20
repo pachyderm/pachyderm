@@ -25,6 +25,7 @@ var (
 	objdName           = "objd"
 	etcdName           = "etcd"
 	rethinkName        = "rethink"
+	amazonSecretName   = "amazon-secret"
 	trueVal            = true
 )
 
@@ -519,6 +520,26 @@ func RethinkService() *api.Service {
 	}
 }
 
+func AmazonSecret() *api.Secret {
+	return &api.Secret{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   amazonSecretName,
+			Labels: labels(amazonSecretName),
+		},
+		Data: map[string][]byte{
+			"Bucket": []byte{},
+			"Id":     []byte{},
+			"Secret": []byte{},
+			"Token":  []byte{},
+			"Region": []byte{},
+		},
+	}
+}
+
 // WriteAssets creates the assets in a dir. It expects dir to already exist.
 func WriteAssets(w io.Writer, shards uint64) {
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
@@ -552,6 +573,9 @@ func WriteAssets(w io.Writer, shards uint64) {
 	fmt.Fprintf(w, "\n")
 
 	RolerRc(uint64(shards)).CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+
+	AmazonSecret().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 

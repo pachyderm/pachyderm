@@ -127,14 +127,13 @@
     }
   },
   "spec": {
-    "type": "NodePort",
     "ports": [
       {
         "name": "admin-port",
         "protocol": "",
         "port": 8080,
         "targetPort": 0,
-        "nodePort": 30080
+        "nodePort": 0
       },
       {
         "name": "driver-port",
@@ -563,8 +562,8 @@
         "name": "roler",
         "creationTimestamp": null,
         "labels": {
-          "app": "roler",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "roler"
         }
       },
       "spec": {
@@ -589,5 +588,24 @@
   },
   "status": {
     "replicas": 0
+  }
+}
+{
+  "kind": "Secret",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "amazon-secret",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "amazon-secret",
+      "suite": "pachyderm"
+    }
+  },
+  "data": {
+    "Bucket": "",
+    "Id": "",
+    "Secret": "",
+    "Token": "",
+    "Region": ""
   }
 }
