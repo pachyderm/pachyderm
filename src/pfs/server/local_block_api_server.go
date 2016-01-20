@@ -28,7 +28,7 @@ type localBlockAPIServer struct {
 
 func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 	server := &localBlockAPIServer{
-		Logger: protorpclog.NewLogger("pachyderm.pfs.pfs.localBlockAPIServer"),
+		Logger: protorpclog.NewLogger("pachyderm.pfs.localBlockAPIServer"),
 		dir:    dir,
 	}
 	if err := os.MkdirAll(server.tmpDir(), 0777); err != nil {
@@ -41,62 +41,6 @@ func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 		return nil, err
 	}
 	return server, nil
-}
-
-func (s *localBlockAPIServer) putOneBlock(scanner *bufio.Scanner) (result *pfs.BlockRef, retErr error) {
-	hash := newHash()
-	tmp, err := ioutil.TempFile(s.tmpDir(), "block")
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := tmp.Close(); err != nil && retErr == nil {
-			retErr = err
-			return
-		}
-		if result == nil {
-			return
-		}
-		// check if it's a new block
-		if _, err := os.Stat(s.blockPath(result.Block)); !os.IsNotExist(err) {
-			// already have this block, remove tmp
-			if err := os.Remove(tmp.Name()); err != nil && retErr == nil {
-				retErr = err
-				return
-			}
-			return
-		}
-		// it's a new block, rename it accordingly
-		if err := os.Rename(tmp.Name(), s.blockPath(result.Block)); err != nil && retErr == nil {
-			retErr = err
-			return
-		}
-	}()
-	var bytesWritten int
-	for scanner.Scan() {
-		// they take out the newline, put it back
-		bytes := append(scanner.Bytes(), '\n')
-		if _, err := hash.Write(bytes); err != nil {
-			return nil, err
-		}
-		if _, err := tmp.Write(bytes); err != nil {
-			return nil, err
-		}
-		bytesWritten += len(bytes)
-		if bytesWritten > blockSize {
-			break
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	return &pfs.BlockRef{
-		Block: getBlock(hash),
-		Range: &pfs.ByteRange{
-			Lower: 0,
-			Upper: uint64(bytesWritten),
-		},
-	}, nil
 }
 
 func (s *localBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer) (retErr error) {
@@ -116,9 +60,13 @@ func (s *localBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServe
 	return putBlockServer.SendAndClose(result)
 }
 
+func (s *localBlockAPIServer) blockFile(block *pfs.Block) (*os.File, error) {
+	return os.Open(s.blockPath(block))
+}
+
 func (s *localBlockAPIServer) GetBlock(request *pfs.GetBlockRequest, getBlockServer pfs.BlockAPI_GetBlockServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	file, err := os.Open(s.blockPath(request.Block))
+	file, err := s.blockFile(request.Block)
 	if err != nil {
 		return err
 	}
@@ -249,4 +197,60 @@ func (s *localBlockAPIServer) readDiff(diff *pfs.Diff) (*pfs.DiffInfo, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+func (s *localBlockAPIServer) putOneBlock(scanner *bufio.Scanner) (result *pfs.BlockRef, retErr error) {
+	hash := newHash()
+	tmp, err := ioutil.TempFile(s.tmpDir(), "block")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := tmp.Close(); err != nil && retErr == nil {
+			retErr = err
+			return
+		}
+		if result == nil {
+			return
+		}
+		// check if it's a new block
+		if _, err := os.Stat(s.blockPath(result.Block)); !os.IsNotExist(err) {
+			// already have this block, remove tmp
+			if err := os.Remove(tmp.Name()); err != nil && retErr == nil {
+				retErr = err
+				return
+			}
+			return
+		}
+		// it's a new block, rename it accordingly
+		if err := os.Rename(tmp.Name(), s.blockPath(result.Block)); err != nil && retErr == nil {
+			retErr = err
+			return
+		}
+	}()
+	var bytesWritten int
+	for scanner.Scan() {
+		// they take out the newline, put it back
+		bytes := append(scanner.Bytes(), '\n')
+		if _, err := hash.Write(bytes); err != nil {
+			return nil, err
+		}
+		if _, err := tmp.Write(bytes); err != nil {
+			return nil, err
+		}
+		bytesWritten += len(bytes)
+		if bytesWritten > blockSize {
+			break
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return &pfs.BlockRef{
+		Block: getBlock(hash),
+		Range: &pfs.ByteRange{
+			Lower: 0,
+			Upper: uint64(bytesWritten),
+		},
+	}, nil
 }
