@@ -7,6 +7,8 @@ package gensupport
 import (
 	"bytes"
 	"io"
+
+	"google.golang.org/api/googleapi"
 )
 
 // ResumableBuffer buffers data from an io.Reader to support uploading media in retryable chunks.
@@ -56,4 +58,24 @@ func (rb *ResumableBuffer) loadChunk() error {
 func (rb *ResumableBuffer) Next() {
 	rb.off += int64(len(rb.chunk))
 	rb.chunk = rb.chunk[0:0]
+}
+
+type readerTyper struct {
+	io.Reader
+	googleapi.ContentTyper
+}
+
+// ReaderAtToReader adapts a ReaderAt to be used as a Reader.
+// If ra implements googleapi.ContentTyper, then the returned reader
+// will also implement googleapi.ContentTyper, delegating to ra.
+func ReaderAtToReader(ra io.ReaderAt, size int64) io.Reader {
+	if r, ok := ra.(io.Reader); ok {
+		return r
+	}
+
+	r := io.NewSectionReader(ra, 0, size)
+	if typer, ok := ra.(googleapi.ContentTyper); ok {
+		return readerTyper{r, typer}
+	}
+	return r
 }

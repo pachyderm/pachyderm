@@ -60,7 +60,7 @@ The /debug/events HTTP endpoint organizes the event logs by family and
 by time since the last error.  The expanded view displays recent log
 entries and the log's call stack.
 */
-package trace
+package trace // import "golang.org/x/net/trace"
 
 import (
 	"bytes"
@@ -113,6 +113,7 @@ func init() {
 			http.Error(w, "not allowed", http.StatusUnauthorized)
 			return
 		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		Render(w, req, sensitive)
 	})
 	http.HandleFunc("/debug/events", func(w http.ResponseWriter, req *http.Request) {
@@ -121,6 +122,7 @@ func init() {
 			http.Error(w, "not allowed", http.StatusUnauthorized)
 			return
 		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		RenderEvents(w, req, sensitive)
 	})
 }
@@ -172,7 +174,7 @@ func Render(w io.Writer, req *http.Request, sensitive bool) {
 
 	completedMu.RLock()
 	data.Families = make([]string, 0, len(completedTraces))
-	for fam, _ := range completedTraces {
+	for fam := range completedTraces {
 		data.Families = append(data.Families, fam)
 	}
 	completedMu.RUnlock()

@@ -49,6 +49,13 @@ const (
 
 	// UserAgent is the header string used to identify this package.
 	UserAgent = "google-api-go-client/" + Version
+
+	// The default chunk size to use for resumable uplods if not specified by the user.
+	DefaultUploadChunkSize = 8 * 1024 * 1024
+
+	// The minimum chunk size that can be used for resumable uploads.  All
+	// user-specified chunk sizes must be multiple of this value.
+	MinUploadChunkSize = 256 * 1024
 )
 
 // Error contains an error response from the server.
@@ -211,8 +218,8 @@ type MediaOption interface {
 
 type contentTypeOption string
 
-func (mt contentTypeOption) setOptions(o *MediaOptions) {
-	o.ContentType = string(mt)
+func (ct contentTypeOption) setOptions(o *MediaOptions) {
+	o.ContentType = string(ct)
 }
 
 // ContentType returns a MediaOption which sets the content type of data to be uploaded.
@@ -220,15 +227,35 @@ func ContentType(ctype string) MediaOption {
 	return contentTypeOption(ctype)
 }
 
+type chunkSizeOption int
+
+func (cs chunkSizeOption) setOptions(o *MediaOptions) {
+	size := int(cs)
+	if size%MinUploadChunkSize != 0 {
+		size += MinUploadChunkSize - (size % MinUploadChunkSize)
+	}
+	o.ChunkSize = size
+}
+
+// ChunkSize returns a MediaOption which sets the chunk size for media uploads.
+// size will be rounded up to the nearest multiple of 256K.
+// Media which contains fewer than size bytes will be uploaded in a single request.
+// Media which contains size bytes or more will be uploaded in separate chunks.
+// If size is zero, media will be uploaded in a single request.
+func ChunkSize(size int) MediaOption {
+	return chunkSizeOption(size)
+}
+
 // MediaOptions stores options for customizing media upload.  It is not used by developers directly.
 type MediaOptions struct {
 	ContentType string
+	ChunkSize   int
 }
 
 // ProcessMediaOptions stores options from opts in a MediaOptions.
 // It is not used by developers directly.
 func ProcessMediaOptions(opts []MediaOption) *MediaOptions {
-	mo := &MediaOptions{}
+	mo := &MediaOptions{ChunkSize: DefaultUploadChunkSize}
 	for _, o := range opts {
 		o.setOptions(mo)
 	}
@@ -359,3 +386,33 @@ func CombineFields(s []Field) string {
 	}
 	return strings.Join(r, ",")
 }
+
+// A CallOption is an optional argument to an API call.
+// It should be treated as an opaque value by users of Google APIs.
+//
+// A CallOption is something that configures an API call in a way that is
+// not specific to that API; for instance, controlling the quota user for
+// an API call is common across many APIs, and is thus a CallOption.
+type CallOption interface {
+	Get() (key, value string)
+}
+
+// QuotaUser returns a CallOption that will set the quota user for a call.
+// The quota user can be used by server-side applications to control accounting.
+// It can be an arbitrary string up to 40 characters, and will override UserIP
+// if both are provided.
+func QuotaUser(u string) CallOption { return quotaUser(u) }
+
+type quotaUser string
+
+func (q quotaUser) Get() (string, string) { return "quotaUser", string(q) }
+
+// UserIP returns a CallOption that will set the "userIp" parameter of a call.
+// This should be the IP address of the originating request.
+func UserIP(ip string) CallOption { return userIP(ip) }
+
+type userIP string
+
+func (i userIP) Get() (string, string) { return "userIp", string(i) }
+
+// TODO: Fields too

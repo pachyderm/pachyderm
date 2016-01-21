@@ -442,12 +442,10 @@ func (o *ObjectHandle) NewReader(ctx context.Context) (*Reader, error) {
 }
 
 // NewWriter returns a storage Writer that writes to the GCS object
-// identified by the specified name.
+// associated with this ObjectHandle.
 // If such an object doesn't exist, it creates one.
 // Attributes can be set on the object by modifying the returned Writer's
-// ObjectAttrs field before the first call to Write. The name parameter to this
-// function is ignored if the Name field of the ObjectAttrs field is set to a
-// non-empty string.
+// ObjectAttrs field before the first call to Write.
 //
 // It is the caller's responsibility to call Close when writing is done.
 //
@@ -455,11 +453,12 @@ func (o *ObjectHandle) NewReader(ctx context.Context) (*Reader, error) {
 // name is not replaced on Cloud Storage until Close is called.
 func (o *ObjectHandle) NewWriter(ctx context.Context) *Writer {
 	return &Writer{
-		ctx:    ctx,
-		client: o.c,
-		bucket: o.bucket,
-		name:   o.object,
-		donec:  make(chan struct{}),
+		ctx:         ctx,
+		client:      o.c,
+		bucket:      o.bucket,
+		name:        o.object,
+		donec:       make(chan struct{}),
+		ObjectAttrs: ObjectAttrs{Name: o.object},
 	}
 }
 
