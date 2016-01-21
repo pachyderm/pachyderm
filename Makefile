@@ -81,7 +81,7 @@ docker-build-pachctl: docker-build-compile
 docker-build-job-shim: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh job-shim
 
-docker-build: docker-build-test docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-objd docker-build-pachctl docker-build-job-shim docker-build-grep-example
+docker-build: docker-build-test docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-objd docker-build-pachctl docker-build-job-shim
 
 docker-push-test: docker-build-test
 	docker push pachyderm/test
@@ -125,11 +125,12 @@ launch: install
 launch-dev: launch-kube launch
 
 clean-job:
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm # job not part of all?
 
-clean-launch: clean-job
+clean-launch:
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm # service account neither?
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 run-integration-test:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f etc/kube/test-pod.yml
