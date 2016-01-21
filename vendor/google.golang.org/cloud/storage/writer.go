@@ -44,10 +44,10 @@ type Writer struct {
 
 func (w *Writer) open() error {
 	attrs := w.ObjectAttrs
-	// Always set the name, otherwise the backend
-	// rejects the request and responds with an HTTP 400.
-	if attrs.Name == "" {
-		attrs.Name = w.name
+	// Check the developer didn't change the object Name (this is unfortunate, but
+	// we don't want to store an object under the wrong name).
+	if attrs.Name != w.name {
+		return fmt.Errorf("storage: Writer.Name %q does not match object name %q", attrs.Name, w.name)
 	}
 	if !utf8.ValidString(attrs.Name) {
 		return fmt.Errorf("storage: object name %q is not valid UTF-8", attrs.Name)

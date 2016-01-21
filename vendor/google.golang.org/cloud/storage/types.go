@@ -112,6 +112,7 @@ type ObjectAttrs struct {
 	Bucket string
 
 	// Name is the name of the object within the bucket.
+	// This field is read-only.
 	Name string
 
 	// ContentType is the MIME type of the object's content.
