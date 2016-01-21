@@ -4,6 +4,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
+	"github.com/pachyderm/pachyderm/src/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 )
 
@@ -47,4 +48,8 @@ func NewInternalAPIServer(
 
 func NewLocalBlockAPIServer(dir string) (pfs.BlockAPIServer, error) {
 	return newLocalBlockAPIServer(dir)
+}
+
+func NewObjBlockAPIServer(dir string, objClient obj.Client) (pfs.BlockAPIServer, error) {
+	return newObjBlockAPIServer(dir, objClient)
 }

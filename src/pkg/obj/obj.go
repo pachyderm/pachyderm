@@ -14,6 +14,11 @@ type Client interface {
 	Walk(name string, fn func(name string) error) error
 }
 
-func NewClientGoogleClient(ctx context.Context, bucket string) (Client, error) {
+func NewGoogleClient(ctx context.Context, bucket string) (Client, error) {
 	return newGoogleClient(ctx, bucket)
+}
+
+func NewAmazonClient(bucket string, id string, secret string, token string,
+	region string) (Client, error) {
+	return newAmazonClient(bucket, id, secret, token, region)
 }
