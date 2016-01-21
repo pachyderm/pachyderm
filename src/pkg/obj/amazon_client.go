@@ -34,7 +34,25 @@ func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
 }
 
 func (c *amazonClient) Walk(name string, fn func(name string) error) error {
-	return fmt.Errorf("amazonClient.Walk: not implemented")
+	var fnErr error
+	if err := c.s3.ListObjectsPages(
+		&s3.ListObjectsInput{
+			Bucket: aws.String(c.bucket),
+			Prefix: aws.String(name),
+		},
+		func(listObjectsOutput *s3.ListObjectsOutput, lastPage bool) bool {
+			for _, object := range listObjectsOutput.Contents {
+				if err := fn(*object.Key); err != nil {
+					fnErr = err
+					return false
+				}
+			}
+			return true
+		},
+	); err != nil {
+		return err
+	}
+	return fnErr
 }
 
 func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
