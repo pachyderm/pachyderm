@@ -426,8 +426,8 @@
     "name": "pfsd",
     "creationTimestamp": null,
     "labels": {
-      "app": "pfsd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "pfsd"
     }
   },
   "spec": {
@@ -521,8 +521,8 @@
     "name": "ppsd",
     "creationTimestamp": null,
     "labels": {
-      "app": "ppsd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "ppsd"
     }
   },
   "spec": {
@@ -558,8 +558,8 @@
     "name": "roler",
     "creationTimestamp": null,
     "labels": {
-      "app": "roler",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "roler"
     }
   },
   "spec": {
@@ -612,10 +612,10 @@
     }
   },
   "data": {
-    "Bucket": "",
-    "Id": "",
-    "Secret": "",
-    "Token": "",
-    "Region": ""
+    "token": "",
+    "region": "",
+    "bucket": "",
+    "id": "",
+    "secret": ""
   }
 }

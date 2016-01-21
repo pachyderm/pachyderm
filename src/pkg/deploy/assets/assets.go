@@ -543,11 +543,11 @@ func AmazonSecret(bucket string, id string, secret string, token string, region 
 			Labels: labels(amazonSecretName),
 		},
 		Data: map[string][]byte{
-			"Bucket": []byte(bucket),
-			"Id":     []byte(id),
-			"Secret": []byte(secret),
-			"Token":  []byte(token),
-			"Region": []byte(region),
+			"bucket": []byte(bucket),
+			"id":     []byte(id),
+			"secret": []byte(secret),
+			"token":  []byte(token),
+			"region": []byte(region),
 		},
 	}
 }
