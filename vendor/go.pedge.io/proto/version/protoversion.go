@@ -1,16 +1,21 @@
-package protoversion
+package protoversion // import "go.pedge.io/proto/version"
 
 import (
 	"fmt"
 
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
+// APIServerOptions are options when creating a new APIServer.
+type APIServerOptions struct {
+	DisableLogging bool
+}
+
 // NewAPIServer creates a new APIServer for the given Version.
-func NewAPIServer(version *Version) APIServer {
-	return newAPIServer(version)
+func NewAPIServer(version *Version, options APIServerOptions) APIServer {
+	return newAPIServer(version, options)
 }
 
 // GetServerVersion gets the server *Version given the *grpc.ClientConn.

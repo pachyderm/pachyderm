@@ -1,4 +1,4 @@
-package pkgsync
+package pkgsync //import "go.pedge.io/pkg/sync"
 
 import "errors"
 
