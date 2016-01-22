@@ -9,7 +9,7 @@ import (
 
 	"google.golang.org/grpc/metadata"
 
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/sync"
 )
 

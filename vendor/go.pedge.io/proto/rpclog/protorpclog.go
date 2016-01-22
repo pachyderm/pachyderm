@@ -1,11 +1,11 @@
-package protorpclog
+package protorpclog //import "go.pedge.io/proto/rpclog"
 import (
 	"runtime"
 	"strings"
 	"time"
 
-	"go.pedge.io/proto/time"
-	"go.pedge.io/protolog"
+	"go.pedge.io/lion/proto"
+	"go.pedge.io/pb/go/google/protobuf"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -53,29 +53,29 @@ func Log(serviceName string, methodName string, request proto.Message, response 
 
 // Debug logs an RPC call at the debug level.
 func Debug(serviceName string, methodName string, request proto.Message, response proto.Message, err error, duration time.Duration) {
-	protolog.Debug(event(serviceName, methodName, request, response, err, duration))
+	protolion.Debug(event(serviceName, methodName, request, response, err, duration))
 }
 
 // Info logs an RPC call at the info level.
 func Info(serviceName string, methodName string, request proto.Message, response proto.Message, err error, duration time.Duration) {
-	protolog.Info(event(serviceName, methodName, request, response, err, duration))
+	protolion.Info(event(serviceName, methodName, request, response, err, duration))
 }
 
 // Warn logs an RPC call at the warn level.
 func Warn(serviceName string, methodName string, request proto.Message, response proto.Message, err error, duration time.Duration) {
-	protolog.Warn(event(serviceName, methodName, request, response, err, duration))
+	protolion.Warn(event(serviceName, methodName, request, response, err, duration))
 }
 
 // Error logs an RPC call at the error level.
 func Error(serviceName string, methodName string, request proto.Message, response proto.Message, err error, duration time.Duration) {
-	protolog.Error(event(serviceName, methodName, request, response, err, duration))
+	protolion.Error(event(serviceName, methodName, request, response, err, duration))
 }
 
 func event(serviceName string, methodName string, request proto.Message, response proto.Message, err error, duration time.Duration) *Call {
 	call := &Call{
 		Service:  serviceName,
 		Method:   methodName,
-		Duration: prototime.DurationToProto(duration),
+		Duration: google_protobuf.DurationToProto(duration),
 	}
 	if request != nil {
 		call.Request = request.String()

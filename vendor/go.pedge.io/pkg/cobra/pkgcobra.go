@@ -1,4 +1,4 @@
-package pkgcobra
+package pkgcobra //import "go.pedge.io/pkg/cobra"
 
 import (
 	"fmt"

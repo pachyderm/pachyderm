@@ -44,15 +44,20 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+const _ = proto.ProtoPackageIsVersion1
+
 type ServerState struct {
 	Address string          `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
 	Version int64           `protobuf:"varint,2,opt,name=version" json:"version,omitempty"`
 	Shards  map[uint64]bool `protobuf:"bytes,3,rep,name=shards" json:"shards,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 }
 
-func (m *ServerState) Reset()         { *m = ServerState{} }
-func (m *ServerState) String() string { return proto.CompactTextString(m) }
-func (*ServerState) ProtoMessage()    {}
+func (m *ServerState) Reset()                    { *m = ServerState{} }
+func (m *ServerState) String() string            { return proto.CompactTextString(m) }
+func (*ServerState) ProtoMessage()               {}
+func (*ServerState) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
 func (m *ServerState) GetShards() map[uint64]bool {
 	if m != nil {
@@ -66,9 +71,10 @@ type FrontendState struct {
 	Version int64  `protobuf:"varint,2,opt,name=version" json:"version,omitempty"`
 }
 
-func (m *FrontendState) Reset()         { *m = FrontendState{} }
-func (m *FrontendState) String() string { return proto.CompactTextString(m) }
-func (*FrontendState) ProtoMessage()    {}
+func (m *FrontendState) Reset()                    { *m = FrontendState{} }
+func (m *FrontendState) String() string            { return proto.CompactTextString(m) }
+func (*FrontendState) ProtoMessage()               {}
+func (*FrontendState) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
 type ServerRole struct {
 	Address  string          `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
@@ -77,9 +83,10 @@ type ServerRole struct {
 	Replicas map[uint64]bool `protobuf:"bytes,4,rep,name=replicas" json:"replicas,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 }
 
-func (m *ServerRole) Reset()         { *m = ServerRole{} }
-func (m *ServerRole) String() string { return proto.CompactTextString(m) }
-func (*ServerRole) ProtoMessage()    {}
+func (m *ServerRole) Reset()                    { *m = ServerRole{} }
+func (m *ServerRole) String() string            { return proto.CompactTextString(m) }
+func (*ServerRole) ProtoMessage()               {}
+func (*ServerRole) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
 func (m *ServerRole) GetMasters() map[uint64]bool {
 	if m != nil {
@@ -100,9 +107,10 @@ type ShardAddresses struct {
 	Replicas map[string]bool `protobuf:"bytes,2,rep,name=replicas" json:"replicas,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 }
 
-func (m *ShardAddresses) Reset()         { *m = ShardAddresses{} }
-func (m *ShardAddresses) String() string { return proto.CompactTextString(m) }
-func (*ShardAddresses) ProtoMessage()    {}
+func (m *ShardAddresses) Reset()                    { *m = ShardAddresses{} }
+func (m *ShardAddresses) String() string            { return proto.CompactTextString(m) }
+func (*ShardAddresses) ProtoMessage()               {}
+func (*ShardAddresses) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
 func (m *ShardAddresses) GetReplicas() map[string]bool {
 	if m != nil {
@@ -116,9 +124,10 @@ type Addresses struct {
 	Addresses map[uint64]*ShardAddresses `protobuf:"bytes,2,rep,name=addresses" json:"addresses,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 }
 
-func (m *Addresses) Reset()         { *m = Addresses{} }
-func (m *Addresses) String() string { return proto.CompactTextString(m) }
-func (*Addresses) ProtoMessage()    {}
+func (m *Addresses) Reset()                    { *m = Addresses{} }
+func (m *Addresses) String() string            { return proto.CompactTextString(m) }
+func (*Addresses) ProtoMessage()               {}
+func (*Addresses) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
 
 func (m *Addresses) GetAddresses() map[uint64]*ShardAddresses {
 	if m != nil {
@@ -131,42 +140,47 @@ type StartRegister struct {
 	Address string `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
 }
 
-func (m *StartRegister) Reset()         { *m = StartRegister{} }
-func (m *StartRegister) String() string { return proto.CompactTextString(m) }
-func (*StartRegister) ProtoMessage()    {}
+func (m *StartRegister) Reset()                    { *m = StartRegister{} }
+func (m *StartRegister) String() string            { return proto.CompactTextString(m) }
+func (*StartRegister) ProtoMessage()               {}
+func (*StartRegister) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
 
 type FinishRegister struct {
 	Address string `protobuf:"bytes,1,opt,name=address" json:"address,omitempty"`
 	Error   string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *FinishRegister) Reset()         { *m = FinishRegister{} }
-func (m *FinishRegister) String() string { return proto.CompactTextString(m) }
-func (*FinishRegister) ProtoMessage()    {}
+func (m *FinishRegister) Reset()                    { *m = FinishRegister{} }
+func (m *FinishRegister) String() string            { return proto.CompactTextString(m) }
+func (*FinishRegister) ProtoMessage()               {}
+func (*FinishRegister) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
 
 type Version struct {
 	Result int64  `protobuf:"varint,1,opt,name=result" json:"result,omitempty"`
 	Error  string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *Version) Reset()         { *m = Version{} }
-func (m *Version) String() string { return proto.CompactTextString(m) }
-func (*Version) ProtoMessage()    {}
+func (m *Version) Reset()                    { *m = Version{} }
+func (m *Version) String() string            { return proto.CompactTextString(m) }
+func (*Version) ProtoMessage()               {}
+func (*Version) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
 
 type StartAssignRoles struct {
 }
 
-func (m *StartAssignRoles) Reset()         { *m = StartAssignRoles{} }
-func (m *StartAssignRoles) String() string { return proto.CompactTextString(m) }
-func (*StartAssignRoles) ProtoMessage()    {}
+func (m *StartAssignRoles) Reset()                    { *m = StartAssignRoles{} }
+func (m *StartAssignRoles) String() string            { return proto.CompactTextString(m) }
+func (*StartAssignRoles) ProtoMessage()               {}
+func (*StartAssignRoles) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
 
 type FinishAssignRoles struct {
 	Error string `protobuf:"bytes,1,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *FinishAssignRoles) Reset()         { *m = FinishAssignRoles{} }
-func (m *FinishAssignRoles) String() string { return proto.CompactTextString(m) }
-func (*FinishAssignRoles) ProtoMessage()    {}
+func (m *FinishAssignRoles) Reset()                    { *m = FinishAssignRoles{} }
+func (m *FinishAssignRoles) String() string            { return proto.CompactTextString(m) }
+func (*FinishAssignRoles) ProtoMessage()               {}
+func (*FinishAssignRoles) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
 
 type FailedToAssignRoles struct {
 	ServerStates map[string]*ServerState `protobuf:"bytes,1,rep,name=server_states" json:"server_states,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -174,9 +188,10 @@ type FailedToAssignRoles struct {
 	NumReplicas  uint64                  `protobuf:"varint,3,opt,name=num_replicas" json:"num_replicas,omitempty"`
 }
 
-func (m *FailedToAssignRoles) Reset()         { *m = FailedToAssignRoles{} }
-func (m *FailedToAssignRoles) String() string { return proto.CompactTextString(m) }
-func (*FailedToAssignRoles) ProtoMessage()    {}
+func (m *FailedToAssignRoles) Reset()                    { *m = FailedToAssignRoles{} }
+func (m *FailedToAssignRoles) String() string            { return proto.CompactTextString(m) }
+func (*FailedToAssignRoles) ProtoMessage()               {}
+func (*FailedToAssignRoles) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
 
 func (m *FailedToAssignRoles) GetServerStates() map[string]*ServerState {
 	if m != nil {
@@ -189,9 +204,10 @@ type SetServerState struct {
 	ServerState *ServerState `protobuf:"bytes,1,opt,name=serverState" json:"serverState,omitempty"`
 }
 
-func (m *SetServerState) Reset()         { *m = SetServerState{} }
-func (m *SetServerState) String() string { return proto.CompactTextString(m) }
-func (*SetServerState) ProtoMessage()    {}
+func (m *SetServerState) Reset()                    { *m = SetServerState{} }
+func (m *SetServerState) String() string            { return proto.CompactTextString(m) }
+func (*SetServerState) ProtoMessage()               {}
+func (*SetServerState) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
 
 func (m *SetServerState) GetServerState() *ServerState {
 	if m != nil {
@@ -204,9 +220,10 @@ type SetFrontendState struct {
 	FrontendState *FrontendState `protobuf:"bytes,1,opt,name=frontendState" json:"frontendState,omitempty"`
 }
 
-func (m *SetFrontendState) Reset()         { *m = SetFrontendState{} }
-func (m *SetFrontendState) String() string { return proto.CompactTextString(m) }
-func (*SetFrontendState) ProtoMessage()    {}
+func (m *SetFrontendState) Reset()                    { *m = SetFrontendState{} }
+func (m *SetFrontendState) String() string            { return proto.CompactTextString(m) }
+func (*SetFrontendState) ProtoMessage()               {}
+func (*SetFrontendState) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
 
 func (m *SetFrontendState) GetFrontendState() *FrontendState {
 	if m != nil {
@@ -220,9 +237,10 @@ type AddServerRole struct {
 	Error      string      `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *AddServerRole) Reset()         { *m = AddServerRole{} }
-func (m *AddServerRole) String() string { return proto.CompactTextString(m) }
-func (*AddServerRole) ProtoMessage()    {}
+func (m *AddServerRole) Reset()                    { *m = AddServerRole{} }
+func (m *AddServerRole) String() string            { return proto.CompactTextString(m) }
+func (*AddServerRole) ProtoMessage()               {}
+func (*AddServerRole) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
 
 func (m *AddServerRole) GetServerRole() *ServerRole {
 	if m != nil {
@@ -236,9 +254,10 @@ type RemoveServerRole struct {
 	Error      string      `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *RemoveServerRole) Reset()         { *m = RemoveServerRole{} }
-func (m *RemoveServerRole) String() string { return proto.CompactTextString(m) }
-func (*RemoveServerRole) ProtoMessage()    {}
+func (m *RemoveServerRole) Reset()                    { *m = RemoveServerRole{} }
+func (m *RemoveServerRole) String() string            { return proto.CompactTextString(m) }
+func (*RemoveServerRole) ProtoMessage()               {}
+func (*RemoveServerRole) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
 
 func (m *RemoveServerRole) GetServerRole() *ServerRole {
 	if m != nil {
@@ -251,9 +270,10 @@ type SetServerRole struct {
 	ServerRole *ServerRole `protobuf:"bytes,2,opt,name=serverRole" json:"serverRole,omitempty"`
 }
 
-func (m *SetServerRole) Reset()         { *m = SetServerRole{} }
-func (m *SetServerRole) String() string { return proto.CompactTextString(m) }
-func (*SetServerRole) ProtoMessage()    {}
+func (m *SetServerRole) Reset()                    { *m = SetServerRole{} }
+func (m *SetServerRole) String() string            { return proto.CompactTextString(m) }
+func (*SetServerRole) ProtoMessage()               {}
+func (*SetServerRole) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
 
 func (m *SetServerRole) GetServerRole() *ServerRole {
 	if m != nil {
@@ -266,9 +286,10 @@ type DeleteServerRole struct {
 	ServerRole *ServerRole `protobuf:"bytes,2,opt,name=serverRole" json:"serverRole,omitempty"`
 }
 
-func (m *DeleteServerRole) Reset()         { *m = DeleteServerRole{} }
-func (m *DeleteServerRole) String() string { return proto.CompactTextString(m) }
-func (*DeleteServerRole) ProtoMessage()    {}
+func (m *DeleteServerRole) Reset()                    { *m = DeleteServerRole{} }
+func (m *DeleteServerRole) String() string            { return proto.CompactTextString(m) }
+func (*DeleteServerRole) ProtoMessage()               {}
+func (*DeleteServerRole) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
 
 func (m *DeleteServerRole) GetServerRole() *ServerRole {
 	if m != nil {
@@ -281,9 +302,10 @@ type SetAddresses struct {
 	Addresses *Addresses `protobuf:"bytes,1,opt,name=addresses" json:"addresses,omitempty"`
 }
 
-func (m *SetAddresses) Reset()         { *m = SetAddresses{} }
-func (m *SetAddresses) String() string { return proto.CompactTextString(m) }
-func (*SetAddresses) ProtoMessage()    {}
+func (m *SetAddresses) Reset()                    { *m = SetAddresses{} }
+func (m *SetAddresses) String() string            { return proto.CompactTextString(m) }
+func (*SetAddresses) ProtoMessage()               {}
+func (*SetAddresses) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
 
 func (m *SetAddresses) GetAddresses() *Addresses {
 	if m != nil {
@@ -300,9 +322,10 @@ type GetMasterAddress struct {
 	Error   string `protobuf:"bytes,5,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *GetMasterAddress) Reset()         { *m = GetMasterAddress{} }
-func (m *GetMasterAddress) String() string { return proto.CompactTextString(m) }
-func (*GetMasterAddress) ProtoMessage()    {}
+func (m *GetMasterAddress) Reset()                    { *m = GetMasterAddress{} }
+func (m *GetMasterAddress) String() string            { return proto.CompactTextString(m) }
+func (*GetMasterAddress) ProtoMessage()               {}
+func (*GetMasterAddress) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
 
 type GetReplicaAddresses struct {
 	Shard   uint64          `protobuf:"varint,1,opt,name=shard" json:"shard,omitempty"`
@@ -311,9 +334,10 @@ type GetReplicaAddresses struct {
 	Error   string          `protobuf:"bytes,4,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *GetReplicaAddresses) Reset()         { *m = GetReplicaAddresses{} }
-func (m *GetReplicaAddresses) String() string { return proto.CompactTextString(m) }
-func (*GetReplicaAddresses) ProtoMessage()    {}
+func (m *GetReplicaAddresses) Reset()                    { *m = GetReplicaAddresses{} }
+func (m *GetReplicaAddresses) String() string            { return proto.CompactTextString(m) }
+func (*GetReplicaAddresses) ProtoMessage()               {}
+func (*GetReplicaAddresses) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{19} }
 
 func (m *GetReplicaAddresses) GetResult() map[string]bool {
 	if m != nil {
@@ -328,9 +352,10 @@ type GetShardToMasterAddress struct {
 	Error   string            `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *GetShardToMasterAddress) Reset()         { *m = GetShardToMasterAddress{} }
-func (m *GetShardToMasterAddress) String() string { return proto.CompactTextString(m) }
-func (*GetShardToMasterAddress) ProtoMessage()    {}
+func (m *GetShardToMasterAddress) Reset()                    { *m = GetShardToMasterAddress{} }
+func (m *GetShardToMasterAddress) String() string            { return proto.CompactTextString(m) }
+func (*GetShardToMasterAddress) ProtoMessage()               {}
+func (*GetShardToMasterAddress) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{20} }
 
 func (m *GetShardToMasterAddress) GetResult() map[uint64]string {
 	if m != nil {
@@ -343,9 +368,10 @@ type ReplicaAddresses struct {
 	Addresses map[string]bool `protobuf:"bytes,1,rep,name=addresses" json:"addresses,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 }
 
-func (m *ReplicaAddresses) Reset()         { *m = ReplicaAddresses{} }
-func (m *ReplicaAddresses) String() string { return proto.CompactTextString(m) }
-func (*ReplicaAddresses) ProtoMessage()    {}
+func (m *ReplicaAddresses) Reset()                    { *m = ReplicaAddresses{} }
+func (m *ReplicaAddresses) String() string            { return proto.CompactTextString(m) }
+func (*ReplicaAddresses) ProtoMessage()               {}
+func (*ReplicaAddresses) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{21} }
 
 func (m *ReplicaAddresses) GetAddresses() map[string]bool {
 	if m != nil {
@@ -360,9 +386,10 @@ type GetShardToReplicaAddresses struct {
 	Error   string                       `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 }
 
-func (m *GetShardToReplicaAddresses) Reset()         { *m = GetShardToReplicaAddresses{} }
-func (m *GetShardToReplicaAddresses) String() string { return proto.CompactTextString(m) }
-func (*GetShardToReplicaAddresses) ProtoMessage()    {}
+func (m *GetShardToReplicaAddresses) Reset()                    { *m = GetShardToReplicaAddresses{} }
+func (m *GetShardToReplicaAddresses) String() string            { return proto.CompactTextString(m) }
+func (*GetShardToReplicaAddresses) ProtoMessage()               {}
+func (*GetShardToReplicaAddresses) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{22} }
 
 func (m *GetShardToReplicaAddresses) GetResult() map[uint64]*ReplicaAddresses {
 	if m != nil {
@@ -395,4 +422,55 @@ func init() {
 	proto.RegisterType((*GetShardToMasterAddress)(nil), "shard.GetShardToMasterAddress")
 	proto.RegisterType((*ReplicaAddresses)(nil), "shard.ReplicaAddresses")
 	proto.RegisterType((*GetShardToReplicaAddresses)(nil), "shard.GetShardToReplicaAddresses")
+}
+
+var fileDescriptor0 = []byte{
+	// 750 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xa4, 0x56, 0x49, 0x6f, 0xd3, 0x40,
+	0x14, 0x96, 0xed, 0x6e, 0x7e, 0xa9, 0x43, 0x6a, 0x5a, 0x35, 0xea, 0x01, 0x8a, 0x0b, 0xa5, 0x02,
+	0xea, 0x6e, 0xa2, 0xa2, 0x95, 0x10, 0xaa, 0xa0, 0x29, 0x17, 0x2e, 0x69, 0xc5, 0x0d, 0x55, 0x86,
+	0x0c, 0xa9, 0x15, 0xc7, 0x8e, 0x66, 0x26, 0x91, 0x7a, 0xe2, 0xca, 0x89, 0x3b, 0x77, 0x6e, 0xfc,
+	0x0c, 0xce, 0xfc, 0x1a, 0xfe, 0x00, 0xb3, 0x25, 0x1e, 0x2f, 0x59, 0x10, 0x97, 0xaa, 0xf3, 0xe6,
+	0x2d, 0xdf, 0xfb, 0xe6, 0xbd, 0xcf, 0x81, 0xb5, 0x5e, 0xa7, 0xbd, 0x47, 0x6e, 0x02, 0xdc, 0x92,
+	0x7f, 0xfd, 0x1e, 0x4e, 0x68, 0xe2, 0xce, 0x8b, 0x83, 0xf7, 0xcd, 0x80, 0xca, 0x25, 0xc2, 0x03,
+	0x84, 0x2f, 0x69, 0x40, 0x91, 0x7b, 0x07, 0x16, 0x83, 0x56, 0x0b, 0x23, 0x42, 0xea, 0xc6, 0xa6,
+	0xb1, 0x63, 0x73, 0x03, 0xbb, 0x24, 0x61, 0x12, 0xd7, 0x4d, 0x66, 0xb0, 0x5c, 0x1f, 0x16, 0x44,
+	0x28, 0xa9, 0x5b, 0x9b, 0xd6, 0x4e, 0xe5, 0xf0, 0x9e, 0x2f, 0xd3, 0x6a, 0x59, 0xfc, 0x4b, 0xe1,
+	0x70, 0x1e, 0x53, 0x7c, 0xbb, 0xb1, 0xcb, 0x0a, 0xa4, 0x47, 0xb7, 0x02, 0x56, 0x07, 0xdd, 0x8a,
+	0xe4, 0x73, 0xae, 0x03, 0xf3, 0x83, 0x20, 0xea, 0x23, 0x91, 0x7a, 0xe9, 0xd4, 0x7c, 0x61, 0x78,
+	0x07, 0xe0, 0x34, 0x70, 0x12, 0x53, 0x14, 0xb7, 0x66, 0x44, 0xe4, 0xfd, 0x31, 0x00, 0x64, 0xf5,
+	0x66, 0x12, 0xcd, 0xd2, 0xc2, 0x1e, 0x2c, 0x76, 0x03, 0x42, 0x99, 0xad, 0xb4, 0x07, 0x9e, 0xc5,
+	0x7f, 0x27, 0x1d, 0x24, 0xe8, 0x03, 0x58, 0xc2, 0xa8, 0x17, 0x85, 0x9f, 0x02, 0x52, 0x9f, 0x13,
+	0x11, 0xf7, 0x8b, 0x11, 0x4d, 0xe5, 0x21, 0xdb, 0xf6, 0x61, 0x39, 0x93, 0x62, 0x4a, 0xdf, 0x1b,
+	0x7b, 0xe0, 0x64, 0x12, 0x4c, 0x25, 0xea, 0xab, 0x01, 0x55, 0x41, 0xec, 0x99, 0x6c, 0x16, 0x11,
+	0xb7, 0x0a, 0x0b, 0xb2, 0x2f, 0xd5, 0xf8, 0x73, 0x0d, 0xb6, 0x29, 0x60, 0x6f, 0x0d, 0x61, 0x67,
+	0x02, 0x73, 0xd0, 0x27, 0x41, 0xb1, 0xcb, 0xa0, 0x7c, 0x37, 0xc0, 0x4e, 0x51, 0x68, 0x74, 0x1b,
+	0x82, 0xee, 0x43, 0xb0, 0x83, 0xe1, 0xad, 0xc2, 0x31, 0xa4, 0x2f, 0x85, 0x30, 0xfa, 0x4f, 0x62,
+	0xb8, 0x80, 0x6a, 0xd6, 0x92, 0xe5, 0xe3, 0xa1, 0x0e, 0xa2, 0x72, 0xb8, 0x56, 0xda, 0x96, 0xc0,
+	0xb6, 0x09, 0x0e, 0x9b, 0x23, 0x4c, 0x9b, 0xa8, 0x1d, 0x72, 0x6a, 0x0a, 0xe3, 0xe1, 0xed, 0x43,
+	0xb5, 0x11, 0xc6, 0x21, 0xb9, 0x19, 0xeb, 0xc2, 0x7b, 0x46, 0x18, 0x27, 0x58, 0x94, 0xb3, 0xbd,
+	0x1d, 0x58, 0x7c, 0x2f, 0x3b, 0xe4, 0x94, 0x33, 0xbf, 0x7e, 0x44, 0x55, 0xaf, 0x39, 0x4f, 0x17,
+	0x6a, 0xa2, 0xfa, 0x19, 0x21, 0x61, 0x3b, 0xe6, 0x63, 0x42, 0x3c, 0x0f, 0x56, 0x64, 0x3d, 0xcd,
+	0x98, 0xc6, 0x49, 0x4c, 0xbf, 0x0d, 0xb8, 0xdb, 0x08, 0xc2, 0x08, 0xb5, 0xae, 0x12, 0xdd, 0xed,
+	0x35, 0x38, 0x44, 0x4c, 0xdc, 0x35, 0xe1, 0xcb, 0xc1, 0xf1, 0x71, 0x3a, 0x9f, 0xa9, 0xfe, 0x4b,
+	0x42, 0xf4, 0xbd, 0x54, 0x4c, 0xba, 0x00, 0x71, 0xbf, 0x7b, 0xad, 0xb6, 0xd8, 0x14, 0x84, 0xae,
+	0xc2, 0x32, 0xb7, 0x8d, 0xc6, 0xc5, 0xe2, 0x56, 0xf6, 0x0a, 0x2b, 0xc5, 0xf0, 0xcc, 0x34, 0x3c,
+	0xc8, 0x3e, 0x84, 0x5b, 0x14, 0x03, 0xf1, 0x0a, 0x27, 0x6c, 0x56, 0x11, 0xd5, 0x85, 0xe6, 0x31,
+	0x54, 0x48, 0x7a, 0x14, 0xd9, 0x4a, 0xc3, 0xbd, 0x57, 0x8c, 0x42, 0x44, 0xb3, 0x9a, 0xf0, 0x14,
+	0x9c, 0xcf, 0xba, 0x41, 0x85, 0xaf, 0x0e, 0x69, 0xd0, 0xef, 0xbc, 0x73, 0x70, 0xd8, 0x48, 0x68,
+	0x02, 0xf1, 0x08, 0x80, 0x8c, 0x4e, 0x2a, 0x74, 0xa5, 0xb0, 0xcf, 0xf9, 0xa7, 0x7c, 0x0b, 0xb5,
+	0x26, 0xea, 0x26, 0x03, 0xf4, 0xdf, 0x99, 0x8e, 0xd9, 0x48, 0x0e, 0xc9, 0x28, 0x49, 0x63, 0x8e,
+	0x49, 0xc3, 0x48, 0xac, 0xbd, 0x41, 0x11, 0xa2, 0xe8, 0xdf, 0x43, 0x8f, 0x60, 0x99, 0x95, 0x4c,
+	0x77, 0x74, 0x4b, 0x5f, 0x49, 0x89, 0xbb, 0x96, 0x5f, 0x49, 0xef, 0x03, 0xd4, 0x2e, 0x10, 0x95,
+	0x2a, 0xa6, 0xac, 0xbc, 0x15, 0xe1, 0xa6, 0xf6, 0xb0, 0x20, 0xad, 0xe9, 0x3e, 0x58, 0x62, 0x3e,
+	0x00, 0xcc, 0xa4, 0xc3, 0x34, 0x93, 0x49, 0x45, 0x4a, 0xc3, 0xbc, 0xa0, 0xe1, 0x27, 0x9b, 0x71,
+	0x96, 0x5f, 0x49, 0x4d, 0x8a, 0x6d, 0x5a, 0x89, 0x63, 0xad, 0x04, 0x1f, 0xfe, 0x6d, 0x05, 0xbc,
+	0x24, 0x17, 0x13, 0x36, 0xee, 0x28, 0xe7, 0x76, 0x54, 0x9e, 0xa3, 0xb1, 0xf9, 0x77, 0x49, 0xbf,
+	0x9d, 0xa6, 0x71, 0x3f, 0x0c, 0x58, 0x67, 0x15, 0x84, 0xc2, 0x5c, 0x25, 0x59, 0x52, 0x0a, 0x8a,
+	0x77, 0x3a, 0x82, 0x28, 0xe5, 0xee, 0x49, 0x0a, 0xb1, 0x2c, 0x41, 0x39, 0x4c, 0x6b, 0x0a, 0xcc,
+	0xdc, 0x57, 0xc1, 0x16, 0x30, 0xbf, 0xf0, 0x29, 0xcd, 0x11, 0x7a, 0x92, 0x7d, 0x6c, 0x9d, 0xb3,
+	0x02, 0x61, 0x39, 0x19, 0xde, 0x9f, 0x24, 0xc3, 0xa5, 0x3c, 0xfd, 0x32, 0x60, 0x23, 0x6d, 0xb3,
+	0x80, 0xa5, 0x40, 0xd5, 0xcb, 0x1c, 0x55, 0xbb, 0x05, 0xaa, 0x66, 0x7b, 0x54, 0xc9, 0x56, 0x63,
+	0x02, 0x5b, 0xdb, 0x59, 0xa9, 0x5a, 0x1f, 0x43, 0x01, 0xef, 0xe2, 0xe3, 0x82, 0xf8, 0x91, 0x74,
+	0xf4, 0x37, 0x00, 0x00, 0xff, 0xff, 0x0d, 0xf8, 0x4e, 0xe0, 0x3d, 0x09, 0x00, 0x00,
 }
