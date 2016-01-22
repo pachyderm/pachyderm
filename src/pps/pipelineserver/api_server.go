@@ -9,8 +9,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
+	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/rpclog"
-	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 )
 
@@ -47,7 +47,7 @@ func (a *apiServer) Start() error {
 		pipelineInfo := pipelineInfo
 		go func() {
 			if err := a.runPipeline(pipelineInfo); err != nil {
-				protolog.Printf("pipeline errored: %s", err.Error())
+				protolion.Printf("pipeline errored: %s", err.Error())
 			}
 		}()
 	}
@@ -82,7 +82,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}
 	go func() {
 		if err := a.runPipeline(newPipelineInfo(persistPipelineInfo)); err != nil {
-			protolog.Printf("pipeline errored: %s", err.Error())
+			protolion.Printf("pipeline errored: %s", err.Error())
 		}
 	}()
 	return google_protobuf.EmptyInstance, nil

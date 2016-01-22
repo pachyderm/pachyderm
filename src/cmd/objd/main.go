@@ -9,8 +9,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/pkg/obj"
 	"go.pedge.io/env"
+	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/server"
-	"go.pedge.io/protolog"
 	"google.golang.org/grpc"
 )
 
@@ -68,7 +68,7 @@ func do(appEnvObj interface{}) error {
 		}
 		return nil
 	}(); err != nil {
-		protolog.Errorf("failed to create obj backend, falling back to local")
+		protolion.Errorf("failed to create obj backend, falling back to local")
 		blockAPIServer, err = server.NewLocalBlockAPIServer(appEnv.StorageRoot)
 		if err != nil {
 			return err

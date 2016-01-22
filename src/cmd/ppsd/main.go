@@ -13,8 +13,8 @@ import (
 	persistserver "github.com/pachyderm/pachyderm/src/pps/persist/server"
 	"github.com/pachyderm/pachyderm/src/pps/pipelineserver"
 	"go.pedge.io/env"
+	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/server"
-	"go.pedge.io/protolog"
 	"google.golang.org/grpc"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
@@ -127,7 +127,7 @@ func getKubeClient() (*kube.Client, error) {
 	}
 	kubeClient, err := kube.New(config)
 	if err != nil {
-		protolog.Printf("Error insecure kube client: %s", err.Error())
+		protolion.Printf("Error insecure kube client: %s", err.Error())
 	}
 	if kubeClient != nil {
 		return kubeClient, nil

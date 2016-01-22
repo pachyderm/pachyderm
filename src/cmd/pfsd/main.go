@@ -16,8 +16,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"go.pedge.io/env"
+	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/server"
-	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -90,7 +90,7 @@ func do(appEnvObj interface{}) error {
 	)
 	go func() {
 		if err := sharder.RegisterFrontend(nil, address, apiServer); err != nil {
-			protolog.Printf("Error from sharder.RegisterFrontend %s", err.Error())
+			protolion.Printf("Error from sharder.RegisterFrontend %s", err.Error())
 		}
 	}()
 	internalAPIServer := server.NewInternalAPIServer(
@@ -109,7 +109,7 @@ func do(appEnvObj interface{}) error {
 	)
 	go func() {
 		if err := sharder.Register(nil, address, internalAPIServer); err != nil {
-			protolog.Printf("Error from sharder.Register %s", err.Error())
+			protolion.Printf("Error from sharder.Register %s", err.Error())
 		}
 	}()
 	return protoserver.Serve(

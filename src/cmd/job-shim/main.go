@@ -10,8 +10,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/spf13/cobra"
 	"go.pedge.io/env"
+	"go.pedge.io/lion"
 	"go.pedge.io/pkg/exec"
-	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -28,7 +28,7 @@ func main() {
 }
 
 func do(appEnvObj interface{}) error {
-	protolog.SetLevel(protolog.Level_LEVEL_DEBUG)
+	lion.SetLevel(lion.LevelDebug)
 	appEnv := appEnvObj.(*appEnv)
 	rootCmd := &cobra.Command{
 		Use:   os.Args[0] + " job-id",
