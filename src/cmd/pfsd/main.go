@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"go.pedge.io/env"
 	"go.pedge.io/lion/proto"
+	"go.pedge.io/pkg/http"
 	"go.pedge.io/proto/server"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -27,9 +28,9 @@ type appEnv struct {
 	NumShards   uint64 `env:"PFS_NUM_SHARDS,default=16"`
 	NumReplicas uint64 `env:"PFS_NUM_REPLICAS"`
 	Address     string `env:"PFS_ADDRESS"`
-	Port        int    `env:"PFS_PORT,default=650"`
-	HTTPPort    int    `env:"PFS_HTTP_PORT,default=750"`
-	DebugPort   int    `env:"PFS_TRACE_PORT,default=1050"`
+	Port        uint16 `env:"PFS_PORT,default=650"`
+	HTTPPort    uint16 `env:"PFS_HTTP_PORT,default=750"`
+	DebugPort   uint16 `env:"PFS_TRACE_PORT,default=1050"`
 }
 
 func main() {
@@ -112,19 +113,24 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("Error from sharder.Register %s", err.Error())
 		}
 	}()
-	return protoserver.Serve(
-		uint16(appEnv.Port),
+	return protoserver.ServeWithHTTP(
 		func(s *grpc.Server) {
 			pfs.RegisterAPIServer(s, apiServer)
 			pfs.RegisterInternalAPIServer(s, internalAPIServer)
 		},
-		protoserver.ServeOptions{
-			HTTPPort:  uint16(appEnv.HTTPPort),
-			DebugPort: uint16(appEnv.DebugPort),
-			Version:   pachyderm.Version,
-			HTTPRegisterFunc: func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
-				return pfs.RegisterAPIHandler(ctx, mux, clientConn)
+		func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
+			return pfs.RegisterAPIHandler(ctx, mux, clientConn)
+		},
+		protoserver.ServeWithHTTPOptions{
+			ServeOptions: protoserver.ServeOptions{
+				Version: pachyderm.Version,
 			},
+		},
+		protoserver.ServeEnv{
+			GRPCPort: appEnv.Port,
+		},
+		pkghttp.HandlerEnv{
+			Port: appEnv.HTTPPort,
 		},
 	)
 }

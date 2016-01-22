@@ -1,8 +1,0 @@
-dependencies:
-  override:
-    - mkdir -p "${GOPATH}/src/go.pedge.io/google-protobuf"
-    - rsync -azC --delete ./ "${GOPATH}/src/go.pedge.io/google-protobuf/"
-    - make -C "${GOPATH}/src/go.pedge.io/google-protobuf" deps
-test:
-  override:
-    - make -C "${GOPATH}/src/go.pedge.io/google-protobuf" build

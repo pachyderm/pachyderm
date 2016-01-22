@@ -24,10 +24,10 @@ type appEnv struct {
 	PfsAddress         string `env:"PFS_ADDRESS"`
 	PfsMountDir        string `env:"PFS_MOUNT_DIR"`
 	Address            string `env:"PPS_ADDRESS,default=0.0.0.0"`
-	Port               int    `env:"PPS_PORT,default=651"`
+	Port               uint16 `env:"PPS_PORT,default=651"`
 	DatabaseAddress    string `env:"PPS_DATABASE_ADDRESS"`
 	DatabaseName       string `env:"PPS_DATABASE_NAME,default=pachyderm"`
-	DebugPort          int    `env:"PPS_TRACE_PORT,default=1051"`
+	DebugPort          uint16 `env:"PPS_TRACE_PORT,default=1051"`
 	RemoveContainers   bool   `env:"PPS_REMOVE_CONTAINERS"`
 }
 
@@ -65,15 +65,16 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	return protoserver.Serve(
-		uint16(appEnv.Port),
 		func(s *grpc.Server) {
 			pps.RegisterJobAPIServer(s, jobAPIServer)
 			pps.RegisterInternalJobAPIServer(s, jobAPIServer)
 			pps.RegisterPipelineAPIServer(s, pipelineAPIServer)
 		},
 		protoserver.ServeOptions{
-			DebugPort: uint16(appEnv.DebugPort),
-			Version:   pachyderm.Version,
+			Version: pachyderm.Version,
+		},
+		protoserver.ServeEnv{
+			GRPCPort: appEnv.Port,
 		},
 	)
 }
