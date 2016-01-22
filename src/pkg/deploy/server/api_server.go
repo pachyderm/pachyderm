@@ -4,7 +4,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/pkg/provider"
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/api"
 	client "k8s.io/kubernetes/pkg/client/unversioned"

@@ -6,7 +6,7 @@ package drive
 import (
 	"io"
 
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pb/go/google/protobuf"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 )
