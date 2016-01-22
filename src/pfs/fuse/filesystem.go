@@ -14,7 +14,7 @@ import (
 	"bazil.org/fuse/fs"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
-	"go.pedge.io/protolog"
+	"go.pedge.io/lion/proto"
 	"golang.org/x/net/context"
 )
 
@@ -43,7 +43,7 @@ func newFilesystem(
 
 func (f *filesystem) Root() (result fs.Node, retErr error) {
 	defer func() {
-		protolog.Debug(&Root{&f.Filesystem, getNode(result), errorToString(retErr)})
+		protolion.Debug(&Root{&f.Filesystem, getNode(result), errorToString(retErr)})
 	}()
 	return &directory{
 		f,
@@ -64,7 +64,7 @@ type directory struct {
 
 func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	defer func() {
-		protolog.Debug(&DirectoryAttr{&d.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
+		protolion.Debug(&DirectoryAttr{&d.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 	}()
 	a.Valid = time.Nanosecond
 	if d.Write {
@@ -78,7 +78,7 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 
 func (d *directory) Lookup(ctx context.Context, name string) (result fs.Node, retErr error) {
 	defer func() {
-		protolog.Debug(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
+		protolion.Debug(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
 	}()
 	if d.File.Commit.Repo.Name == "" {
 		return d.lookUpRepo(ctx, name)
@@ -95,7 +95,7 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 		for _, dirent := range result {
 			dirents = append(dirents, &Dirent{dirent.Inode, dirent.Name})
 		}
-		protolog.Debug(&DirectoryReadDirAll{&d.Node, dirents, errorToString(retErr)})
+		protolion.Debug(&DirectoryReadDirAll{&d.Node, dirents, errorToString(retErr)})
 	}()
 	if d.File.Commit.Repo.Name == "" {
 		return d.readRepos(ctx)
@@ -114,7 +114,7 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 
 func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, response *fuse.CreateResponse) (result fs.Node, _ fs.Handle, retErr error) {
 	defer func() {
-		protolog.Debug(&DirectoryCreate{&d.Node, getNode(result), errorToString(retErr)})
+		protolion.Debug(&DirectoryCreate{&d.Node, getNode(result), errorToString(retErr)})
 	}()
 	if d.File.Commit.Id == "" {
 		return nil, 0, fuse.EPERM
@@ -136,7 +136,7 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 
 func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (result fs.Node, retErr error) {
 	defer func() {
-		protolog.Debug(&DirectoryMkdir{&d.Node, getNode(result), errorToString(retErr)})
+		protolion.Debug(&DirectoryMkdir{&d.Node, getNode(result), errorToString(retErr)})
 	}()
 	if d.File.Commit.Id == "" {
 		return nil, fuse.EPERM
@@ -158,7 +158,7 @@ type file struct {
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	defer func() {
-		protolog.Debug(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
+		protolion.Debug(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 	}()
 	fileInfo, err := pfsutil.InspectFile(
 		f.fs.apiClient,
@@ -180,7 +180,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 
 func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
 	defer func() {
-		protolog.Debug(&FileRead{&f.Node, errorToString(retErr)})
+		protolion.Debug(&FileRead{&f.Node, errorToString(retErr)})
 	}()
 	var buffer bytes.Buffer
 	if err := pfsutil.GetFile(
@@ -201,7 +201,7 @@ func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fu
 
 func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fuse.OpenResponse) (_ fs.Handle, retErr error) {
 	defer func() {
-		protolog.Debug(&FileRead{&f.Node, errorToString(retErr)})
+		protolion.Debug(&FileRead{&f.Node, errorToString(retErr)})
 	}()
 	atomic.AddInt32(&f.handles, 1)
 	return f, nil
@@ -209,7 +209,7 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 
 func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
 	defer func() {
-		protolog.Debug(&FileWrite{&f.Node, errorToString(retErr)})
+		protolion.Debug(&FileWrite{&f.Node, errorToString(retErr)})
 	}()
 	written, err := pfsutil.PutFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.Id, f.File.Path, request.Offset, bytes.NewReader(request.Data))
 	if err != nil {
