@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -181,8 +182,7 @@ func TestWorkload(t *testing.T) {
 	t.Parallel()
 	pfsClient := getPfsClient(t)
 	ppsClient := getPpsClient(t)
-	//seed := time.Now().UnixNano()
-	seed := int64(7)
+	seed := time.Now().UnixNano()
 	require.NoError(t, workload.RunWorkload(pfsClient, ppsClient, rand.New(rand.NewSource(seed)), 100))
 }
 
