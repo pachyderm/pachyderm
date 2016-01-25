@@ -18,8 +18,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -300,10 +300,6 @@
               {
                 "name": "obj-disk",
                 "mountPath": "/obj"
-              },
-              {
-                "name": "amazon-secret",
-                "mountPath": "/amazon-secret"
               }
             ],
             "imagePullPolicy": ""
@@ -426,8 +422,8 @@
     "name": "pfsd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "pfsd"
+      "app": "pfsd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -521,8 +517,8 @@
     "name": "ppsd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "ppsd"
+      "app": "ppsd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -558,8 +554,8 @@
     "name": "roler",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "roler"
+      "app": "roler",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -612,10 +608,10 @@
     }
   },
   "data": {
+    "secret": "",
     "token": "",
     "region": "",
     "bucket": "",
-    "id": "",
-    "secret": ""
+    "id": ""
   }
 }
