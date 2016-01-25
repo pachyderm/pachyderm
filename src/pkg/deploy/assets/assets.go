@@ -105,14 +105,14 @@ func ObjdRc() *api.ReplicationController {
 						{
 							Name: "obj-disk",
 						},
-						{
-							Name: "amazon-secret",
-							VolumeSource: api.VolumeSource{
-								Secret: &api.SecretVolumeSource{
-									SecretName: amazonSecretName,
-								},
-							},
-						},
+						// {
+						// 	Name: "amazon-secret",
+						// 	VolumeSource: api.VolumeSource{
+						// 		Secret: &api.SecretVolumeSource{
+						// 			SecretName: amazonSecretName,
+						// 		},
+						// 	},
+						// },
 					},
 				},
 			},
