@@ -94,10 +94,10 @@ func ObjdRc() *api.ReplicationController {
 									Name:      "obj-disk",
 									MountPath: "/obj",
 								},
-								{
-									Name:      "amazon-secret",
-									MountPath: "/amazon-secret",
-								},
+								// {
+								// 	Name:      "amazon-secret",
+								// 	MountPath: "/amazon-secret",
+								// },
 							},
 						},
 					},
