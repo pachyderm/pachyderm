@@ -18,8 +18,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "etcd"
+      "app": "etcd",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -261,12 +261,6 @@
         "volumes": [
           {
             "name": "obj-disk"
-          },
-          {
-            "name": "amazon-secret",
-            "secret": {
-              "secretName": "amazon-secret"
-            }
           }
         ],
         "containers": [
@@ -608,10 +602,10 @@
     }
   },
   "data": {
+    "bucket": "",
+    "id": "",
     "secret": "",
     "token": "",
-    "region": "",
-    "bucket": "",
-    "id": ""
+    "region": ""
   }
 }
