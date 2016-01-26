@@ -3,7 +3,6 @@ package server
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"sync"
 	"time"
@@ -45,7 +44,7 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer)
 	var wg sync.WaitGroup
 	var loopErr error
 	for {
-		blockRef, err := s.localServer.putOneBlock(scanner)
+		blockRef, data, err := scanBlock(scanner)
 		if err != nil {
 			return err
 		}
@@ -64,24 +63,7 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer)
 					return
 				}
 			}()
-			file, err := s.localServer.blockFile(blockRef.Block)
-			if err != nil && loopErr == nil {
-				loopErr = err
-				return
-			}
-			defer func() {
-				if err := file.Close(); err != nil && loopErr == nil {
-					loopErr = err
-					return
-				}
-			}()
-			if _, err := io.Copy(writer, file); err != nil && loopErr == nil {
-				loopErr = err
-				return
-			}
-			// TODO this could maybe be a race if 2 identical blocks are
-			// uploaded concurrently
-			if err := s.localServer.deleteBlock(blockRef.Block); err != nil {
+			if _, err := writer.Write(data); err != nil {
 				loopErr = err
 				return
 			}
