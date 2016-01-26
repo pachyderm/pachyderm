@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/google-protobuf"
 	"go.pedge.io/proto/rpclog"
+	"go.pedge.io/protolog"
 	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
@@ -96,6 +97,16 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if retErr != nil {
+			if _, err := a.persistAPIServer.CreateJobState(ctx, &persist.JobState{
+				JobId: persistJobInfo.JobId,
+				State: pps.JobState_JOB_STATE_FAILURE,
+			}); err != nil {
+				protolog.Errorf("error from CreateJobState %s", err.Error())
+			}
+		}
+	}()
 	if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
 		return nil, err
 	}
