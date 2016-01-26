@@ -77,7 +77,6 @@ func ObjdRc() *api.ReplicationController {
 								{
 									ContainerPort: 652,
 									Protocol:      "TCP",
-									HostIP:        "0.0.0.0",
 									Name:          "api-grpc-port",
 								},
 								{
@@ -94,10 +93,10 @@ func ObjdRc() *api.ReplicationController {
 									Name:      "obj-disk",
 									MountPath: "/obj",
 								},
-								// {
-								// 	Name:      "amazon-secret",
-								// 	MountPath: "/amazon-secret",
-								// },
+								{
+									Name:      "amazon-secret",
+									MountPath: "/amazon-secret",
+								},
 							},
 						},
 					},
@@ -105,14 +104,14 @@ func ObjdRc() *api.ReplicationController {
 						{
 							Name: "obj-disk",
 						},
-						// {
-						// 	Name: "amazon-secret",
-						// 	VolumeSource: api.VolumeSource{
-						// 		Secret: &api.SecretVolumeSource{
-						// 			SecretName: amazonSecretName,
-						// 		},
-						// 	},
-						// },
+						{
+							Name: "amazon-secret",
+							VolumeSource: api.VolumeSource{
+								Secret: &api.SecretVolumeSource{
+									SecretName: amazonSecretName,
+								},
+							},
+						},
 					},
 				},
 			},
@@ -184,7 +183,6 @@ func PfsdRc(shards uint64) *api.ReplicationController {
 								{
 									ContainerPort: 650,
 									Protocol:      "TCP",
-									HostIP:        "0.0.0.0",
 									Name:          "api-grpc-port",
 								},
 								{
@@ -304,7 +302,6 @@ func PpsdRc() *api.ReplicationController {
 								{
 									ContainerPort: 651,
 									Protocol:      "TCP",
-									HostIP:        "0.0.0.0",
 									Name:          "api-grpc-port",
 								},
 								{
