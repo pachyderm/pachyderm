@@ -564,8 +564,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		}
 		commit = diffInfo.ParentCommit
 	}
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE ||
-		(fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR && len(blockRefs) == 0) {
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 		return nil, nil, pfs.ErrFileNotFound
 	}
 	return fileInfo, blockRefs, nil

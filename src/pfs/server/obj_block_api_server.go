@@ -50,34 +50,39 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer)
 			return err
 		}
 		result.BlockRef = append(result.BlockRef, blockRef)
-		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
-			break
-		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			writer, err := s.objClient.Writer(s.localServer.blockPath(blockRef.Block))
 			if err != nil && loopErr == nil {
 				loopErr = err
+				return
 			}
 			defer func() {
 				if err := writer.Close(); err != nil && loopErr == nil {
 					loopErr = err
+					return
 				}
 			}()
 			file, err := s.localServer.blockFile(blockRef.Block)
 			if err != nil && loopErr == nil {
 				loopErr = err
+				return
 			}
 			defer func() {
 				if err := file.Close(); err != nil && loopErr == nil {
 					loopErr = err
+					return
 				}
 			}()
 			if _, err := io.Copy(writer, file); err != nil && loopErr == nil {
 				loopErr = err
+				return
 			}
 		}()
+		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
+			break
+		}
 	}
 	wg.Wait()
 	if loopErr != nil {
