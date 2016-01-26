@@ -44,6 +44,7 @@ It has these top-level messages:
 	ListFileRequest
 	DeleteFileRequest
 	GetBlockRequest
+	DeleteBlockRequest
 	InspectBlockRequest
 	ListBlockRequest
 	InspectDiffRequest
@@ -815,6 +816,21 @@ func (m *GetBlockRequest) GetBlock() *Block {
 	return nil
 }
 
+type DeleteBlockRequest struct {
+	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
+}
+
+func (m *DeleteBlockRequest) Reset()         { *m = DeleteBlockRequest{} }
+func (m *DeleteBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteBlockRequest) ProtoMessage()    {}
+
+func (m *DeleteBlockRequest) GetBlock() *Block {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
+
 type InspectBlockRequest struct {
 	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
 }
@@ -911,6 +927,7 @@ func init() {
 	proto.RegisterType((*ListFileRequest)(nil), "pfs.ListFileRequest")
 	proto.RegisterType((*DeleteFileRequest)(nil), "pfs.DeleteFileRequest")
 	proto.RegisterType((*GetBlockRequest)(nil), "pfs.GetBlockRequest")
+	proto.RegisterType((*DeleteBlockRequest)(nil), "pfs.DeleteBlockRequest")
 	proto.RegisterType((*InspectBlockRequest)(nil), "pfs.InspectBlockRequest")
 	proto.RegisterType((*ListBlockRequest)(nil), "pfs.ListBlockRequest")
 	proto.RegisterType((*InspectDiffRequest)(nil), "pfs.InspectDiffRequest")
@@ -1965,6 +1982,7 @@ var _InternalAPI_serviceDesc = grpc.ServiceDesc{
 type BlockAPIClient interface {
 	PutBlock(ctx context.Context, opts ...grpc.CallOption) (BlockAPI_PutBlockClient, error)
 	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (BlockAPI_GetBlockClient, error)
+	DeleteBlock(ctx context.Context, in *DeleteBlockRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
 	InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error)
 	ListBlock(ctx context.Context, in *ListBlockRequest, opts ...grpc.CallOption) (*BlockInfos, error)
 	CreateDiff(ctx context.Context, in *DiffInfo, opts ...grpc.CallOption) (*google_protobuf1.Empty, error)
@@ -2045,6 +2063,15 @@ func (x *blockAPIGetBlockClient) Recv() (*google_protobuf3.BytesValue, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func (c *blockAPIClient) DeleteBlock(ctx context.Context, in *DeleteBlockRequest, opts ...grpc.CallOption) (*google_protobuf1.Empty, error) {
+	out := new(google_protobuf1.Empty)
+	err := grpc.Invoke(ctx, "/pfs.BlockAPI/DeleteBlock", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *blockAPIClient) InspectBlock(ctx context.Context, in *InspectBlockRequest, opts ...grpc.CallOption) (*BlockInfo, error) {
@@ -2129,6 +2156,7 @@ func (c *blockAPIClient) DeleteDiff(ctx context.Context, in *DeleteDiffRequest, 
 type BlockAPIServer interface {
 	PutBlock(BlockAPI_PutBlockServer) error
 	GetBlock(*GetBlockRequest, BlockAPI_GetBlockServer) error
+	DeleteBlock(context.Context, *DeleteBlockRequest) (*google_protobuf1.Empty, error)
 	InspectBlock(context.Context, *InspectBlockRequest) (*BlockInfo, error)
 	ListBlock(context.Context, *ListBlockRequest) (*BlockInfos, error)
 	CreateDiff(context.Context, *DiffInfo) (*google_protobuf1.Empty, error)
@@ -2186,6 +2214,18 @@ type blockAPIGetBlockServer struct {
 
 func (x *blockAPIGetBlockServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _BlockAPI_DeleteBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(DeleteBlockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(BlockAPIServer).DeleteBlock(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func _BlockAPI_InspectBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
@@ -2273,6 +2313,10 @@ var _BlockAPI_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pfs.BlockAPI",
 	HandlerType: (*BlockAPIServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "DeleteBlock",
+			Handler:    _BlockAPI_DeleteBlock_Handler,
+		},
 		{
 			MethodName: "InspectBlock",
 			Handler:    _BlockAPI_InspectBlock_Handler,

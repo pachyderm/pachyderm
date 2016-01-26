@@ -79,6 +79,11 @@ func (s *localBlockAPIServer) GetBlock(request *pfs.GetBlockRequest, getBlockSer
 	return protostream.WriteToStreamingBytesServer(reader, getBlockServer)
 }
 
+func (s *localBlockAPIServer) DeleteBlock(ctx context.Context, request *pfs.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	return google_protobuf.EmptyInstance, s.deleteBlock(request.Block)
+}
+
 func (s *localBlockAPIServer) InspectBlock(ctx context.Context, request *pfs.InspectBlockRequest) (response *pfs.BlockInfo, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	stat, err := os.Stat(s.blockPath(request.Block))
@@ -253,4 +258,8 @@ func (s *localBlockAPIServer) putOneBlock(scanner *bufio.Scanner) (result *pfs.B
 			Upper: uint64(bytesWritten),
 		},
 	}, nil
+}
+
+func (s *localBlockAPIServer) deleteBlock(block *pfs.Block) error {
+	return os.Remove(s.blockPath(block))
 }
