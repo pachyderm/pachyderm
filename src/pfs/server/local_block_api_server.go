@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -204,60 +205,41 @@ func (s *localBlockAPIServer) readDiff(diff *pfs.Diff) (*pfs.DiffInfo, error) {
 	return result, nil
 }
 
-func (s *localBlockAPIServer) putOneBlock(scanner *bufio.Scanner) (result *pfs.BlockRef, retErr error) {
-	hash := newHash()
-	tmp, err := ioutil.TempFile(s.tmpDir(), "block")
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := tmp.Close(); err != nil && retErr == nil {
-			retErr = err
-			return
-		}
-		if result == nil {
-			return
-		}
-		// check if it's a new block
-		if _, err := os.Stat(s.blockPath(result.Block)); !os.IsNotExist(err) {
-			// already have this block, remove tmp
-			if err := os.Remove(tmp.Name()); err != nil && retErr == nil {
-				retErr = err
-				return
-			}
-			return
-		}
-		// it's a new block, rename it accordingly
-		if err := os.Rename(tmp.Name(), s.blockPath(result.Block)); err != nil && retErr == nil {
-			retErr = err
-			return
-		}
-	}()
+func scanBlock(scanner *bufio.Scanner) (*pfs.BlockRef, []byte, error) {
+	var buffer bytes.Buffer
 	var bytesWritten int
+	hash := newHash()
 	for scanner.Scan() {
 		// they take out the newline, put it back
 		bytes := append(scanner.Bytes(), '\n')
-		if _, err := hash.Write(bytes); err != nil {
-			return nil, err
-		}
-		if _, err := tmp.Write(bytes); err != nil {
-			return nil, err
-		}
+		buffer.Write(bytes)
+		hash.Write(bytes)
 		bytesWritten += len(bytes)
 		if bytesWritten > blockSize {
 			break
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return &pfs.BlockRef{
 		Block: getBlock(hash),
 		Range: &pfs.ByteRange{
 			Lower: 0,
-			Upper: uint64(bytesWritten),
+			Upper: uint64(buffer.Len()),
 		},
-	}, nil
+	}, buffer.Bytes(), nil
+}
+
+func (s *localBlockAPIServer) putOneBlock(scanner *bufio.Scanner) (*pfs.BlockRef, error) {
+	blockRef, data, err := scanBlock(scanner)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := os.Stat(s.blockPath(blockRef.Block)); os.IsNotExist(err) {
+		ioutil.WriteFile(s.blockPath(blockRef.Block), data, 0666)
+	}
+	return blockRef, nil
 }
 
 func (s *localBlockAPIServer) deleteBlock(block *pfs.Block) error {
