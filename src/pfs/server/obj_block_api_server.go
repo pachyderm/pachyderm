@@ -79,6 +79,12 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer)
 				loopErr = err
 				return
 			}
+			// TODO this could maybe be a race if 2 identical blocks are
+			// uploaded concurrently
+			if err := s.localServer.deleteBlock(blockRef.Block); err != nil {
+				loopErr = err
+				return
+			}
 		}()
 		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
 			break
@@ -103,6 +109,11 @@ func (s *objBlockAPIServer) GetBlock(request *pfs.GetBlockRequest, getBlockServe
 		}
 	}()
 	return protostream.WriteToStreamingBytesServer(reader, getBlockServer)
+}
+
+func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfs.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	return google_protobuf.EmptyInstance, s.objClient.Delete(s.localServer.blockPath(request.Block))
 }
 
 func (s *objBlockAPIServer) InspectBlock(ctx context.Context, request *pfs.InspectBlockRequest) (response *pfs.BlockInfo, retErr error) {

@@ -285,6 +285,10 @@ message GetBlockRequest {
   uint64 size_bytes = 3;
 }
 
+message DeleteBlockRequest {
+    Block block = 1;
+}
+
 message InspectBlockRequest {
   Block block = 1;
 }
@@ -307,6 +311,7 @@ message DeleteDiffRequest {
 service BlockAPI {
   rpc PutBlock(stream google.protobuf.BytesValue) returns (BlockRefs) {}
   rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc DeleteBlock(DeleteBlockRequest) returns (google.protobuf.Empty) {}
   rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
   rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
 
