@@ -117,6 +117,12 @@ func getKubeAddress() (string, error) {
 }
 
 func getKubeClient() (*kube.Client, error) {
+	kubeClient, err := kube.NewInCluster()
+	if err != nil {
+		protolog.Errorf("Falling back to insecure kube client due to error from NewInCluster: %s", err.Error())
+	} else {
+		return kubeClient, err
+	}
 	kubeAddr, err := getKubeAddress()
 	if err != nil {
 		return nil, err
@@ -125,13 +131,5 @@ func getKubeClient() (*kube.Client, error) {
 		Host:     kubeAddr,
 		Insecure: true,
 	}
-	kubeClient, err := kube.New(config)
-	if err != nil {
-		protolog.Printf("Error insecure kube client: %s", err.Error())
-	}
-	if kubeClient != nil {
-		return kubeClient, nil
-	}
-
-	return kube.NewInCluster()
+	return kube.New(config)
 }
