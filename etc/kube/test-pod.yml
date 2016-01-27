@@ -7,4 +7,5 @@ spec:
   - name: pachyderm-test
     image: pachyderm/test
     command: ["go",  "test", "."]
+    imagePullPolicy: Always
   restartPolicy: Never

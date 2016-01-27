@@ -3,7 +3,6 @@ package server
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"sync"
 	"time"
@@ -45,39 +44,33 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer)
 	var wg sync.WaitGroup
 	var loopErr error
 	for {
-		blockRef, err := s.localServer.putOneBlock(scanner)
+		blockRef, data, err := scanBlock(scanner)
 		if err != nil {
 			return err
 		}
 		result.BlockRef = append(result.BlockRef, blockRef)
-		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
-			break
-		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			writer, err := s.objClient.Writer(s.localServer.blockPath(blockRef.Block))
 			if err != nil && loopErr == nil {
 				loopErr = err
+				return
 			}
 			defer func() {
 				if err := writer.Close(); err != nil && loopErr == nil {
 					loopErr = err
+					return
 				}
 			}()
-			file, err := s.localServer.blockFile(blockRef.Block)
-			if err != nil && loopErr == nil {
+			if _, err := writer.Write(data); err != nil {
 				loopErr = err
-			}
-			defer func() {
-				if err := file.Close(); err != nil && loopErr == nil {
-					loopErr = err
-				}
-			}()
-			if _, err := io.Copy(writer, file); err != nil && loopErr == nil {
-				loopErr = err
+				return
 			}
 		}()
+		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {
+			break
+		}
 	}
 	wg.Wait()
 	if loopErr != nil {
@@ -98,6 +91,11 @@ func (s *objBlockAPIServer) GetBlock(request *pfs.GetBlockRequest, getBlockServe
 		}
 	}()
 	return protostream.WriteToStreamingBytesServer(reader, getBlockServer)
+}
+
+func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfs.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	return google_protobuf.EmptyInstance, s.objClient.Delete(s.localServer.blockPath(request.Block))
 }
 
 func (s *objBlockAPIServer) InspectBlock(ctx context.Context, request *pfs.InspectBlockRequest) (response *pfs.BlockInfo, retErr error) {
