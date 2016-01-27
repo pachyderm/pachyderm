@@ -1,4 +1,4 @@
-package protostream
+package protostream // import "go.pedge.io/proto/stream"
 
 import (
 	"bufio"
@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pb/go/google/protobuf"
 )
 
 var (

@@ -1,7 +1,7 @@
 package pps
 
 import (
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pb/go/google/protobuf"
 	"google.golang.org/grpc"
 
 	"golang.org/x/net/context"
