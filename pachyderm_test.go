@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -181,8 +182,7 @@ func TestWorkload(t *testing.T) {
 	t.Parallel()
 	pfsClient := getPfsClient(t)
 	ppsClient := getPpsClient(t)
-	//seed := time.Now().UnixNano()
-	seed := int64(7)
+	seed := time.Now().UnixNano()
 	require.NoError(t, workload.RunWorkload(pfsClient, ppsClient, rand.New(rand.NewSource(seed)), 100))
 }
 
@@ -201,7 +201,7 @@ func TestSharding(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			rand := rand.New(rand.NewSource(int64(i)))
-			_, err = pfsutil.PutFile(pfsClient, repo, commit.Id, fmt.Sprintf("file%d", i), 0, workload.NewReader(rand, 128*1024*1024))
+			_, err = pfsutil.PutFile(pfsClient, repo, commit.Id, fmt.Sprintf("file%d", i), 0, workload.NewReader(rand, 1024*1024))
 			require.NoError(t, err)
 		}()
 	}
@@ -230,6 +230,7 @@ func TestSharding(t *testing.T) {
 			require.Equal(t, buffer1Shard.Len(), buffer4Shard.Len())
 		}()
 	}
+	wg.Wait()
 }
 
 func getPfsClient(t *testing.T) pfs.APIClient {

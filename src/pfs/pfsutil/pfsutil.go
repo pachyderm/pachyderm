@@ -13,7 +13,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-const chunkSize = 4096
+const chunkSize = 1024 * 1024
 
 func NewRepo(repoName string) *pfs.Repo {
 	return &pfs.Repo{Name: repoName}
@@ -251,14 +251,15 @@ func PutFile(apiClient pfs.APIClient, repoName string, commitID string, path str
 		OffsetBytes: offset,
 	}
 	var size int
-	for {
+	eof := false
+	for !eof {
 		value := make([]byte, chunkSize)
 		iSize, err := reader.Read(value)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
+		if err != nil && err != io.EOF {
 			return 0, err
+		}
+		if err == io.EOF {
+			eof = true
 		}
 		request.Value = value[0:iSize]
 		size += iSize
