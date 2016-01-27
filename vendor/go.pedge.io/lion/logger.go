@@ -122,6 +122,17 @@ func (l *logger) WithFields(fields map[string]interface{}) Logger {
 	}
 }
 
+func (l *logger) WithKeyValues(keyValues ...interface{}) Logger {
+	if len(keyValues)%2 != 0 {
+		keyValues = append(keyValues, "MISSING")
+	}
+	fields := make(map[string]interface{}, len(keyValues)/2)
+	for i := 0; i < len(keyValues); i += 2 {
+		fields[fmt.Sprintf("%v", keyValues[i])] = keyValues[i+1]
+	}
+	return l.WithFields(fields)
+}
+
 func (l *logger) Debug(args ...interface{}) {
 	l.print(LevelDebug, nil, fmt.Sprint(args...), nil)
 }

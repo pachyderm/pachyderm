@@ -506,8 +506,8 @@
 		},
 		{
 			"path": "go.pedge.io/lion",
-			"revision": "3e45d9ba7c6bffad1c117015f8df9250a6387f10",
-			"revisionTime": "2016-01-22T00:52:07-05:00"
+			"revision": "7c1a27e31774edc3f535749fee930a527cbb05d3",
+			"revisionTime": "2016-01-27T13:32:47+01:00"
 		},
 		{
 			"path": "go.pedge.io/lion/proto",
