@@ -13,8 +13,8 @@ import (
 	persistserver "github.com/pachyderm/pachyderm/src/pps/persist/server"
 	"github.com/pachyderm/pachyderm/src/pps/pipelineserver"
 	"go.pedge.io/env"
+	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/server"
-	"go.pedge.io/protolog"
 	"google.golang.org/grpc"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
@@ -120,7 +120,7 @@ func getKubeAddress() (string, error) {
 func getKubeClient() (*kube.Client, error) {
 	kubeClient, err := kube.NewInCluster()
 	if err != nil {
-		protolog.Errorf("Falling back to insecure kube client due to error from NewInCluster: %s", err.Error())
+		protolion.Errorf("Falling back to insecure kube client due to error from NewInCluster: %s", err.Error())
 	} else {
 		return kubeClient, err
 	}
