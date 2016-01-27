@@ -62,58 +62,15 @@ is ingested, can run your workload on the _diff_ of the data rather than the
 whole thing. This means that there's no difference between a batched job and
 a streaming job, the same code will work for both!
 
+### Quickstart
+
 #### Prerequisites
+- Docker >= 1.9 (must deploy with [`--storage-driver=devicemapper`](http://muehe.org/posts/switching-docker-from-aufs-to-devicemapper/))
+- Go >= 1.5
+- Kubernetes and Kubectl >= 1.1.2
+- FUSE 2.8.2 (https://osxfuse.github.io/)
 
-Requirements:
-- Go 1.5
-- Docker 1.9
-
-[More Info](#environment-setup)
-
-#### Launch a Development Cluster
-To start a development cluster run:
-
-```shell
-make launch
-```
-
-This will compile the code on your local machine and launch it as a docker-compose service.
-A succesful launch looks like this:
-
-```shell
-docker-compose ps
-        Name                       Command               State                                 Ports
------------------------------------------------------------------------------------------------------------------------------------
-pachyderm_btrfs_1       sh entrypoint.sh                 Up
-pachyderm_etcd_1        /etcd -advertise-client-ur ...   Up      0.0.0.0:2379->2379/tcp, 2380/tcp, 4001/tcp, 7001/tcp
-pachyderm_pfs-roler_1   /pfs-roler                       Up
-pachyderm_pfsd_1        sh btrfs-mount.sh /pfsd          Up      0.0.0.0:1050->1050/tcp, 0.0.0.0:650->650/tcp, 0.0.0.0:750->750/tcp
-pachyderm_ppsd_1        /ppsd                            Up      0.0.0.0:1051->1051/tcp, 0.0.0.0:651->651/tcp
-pachyderm_rethink_1     rethinkdb --bind all             Up      28015/tcp, 29015/tcp, 8080/tcp
-```
-
-#### Pachyderm CLI
-Pachyderm has a CLI called `pach`. To install it:
-
-```shell
-make install
-```
-
-`pach` should be able to access dev clusters without any additional setup.
-
-#### Launch a Production Cluster
-Before you can launch a production cluster you'll need a working Kubernetes deployment.
-You can start one locally on Docker using:
-
-```shell
-etc/kube/start-kube-docker.sh
-```
-
-You can then deploy a Pachyderm cluster on Kubernetes with:
-
-```shell
-pachctl create-cluster -n test-cluster -s 1
-```
+#### Create a Pachyderm Cluster
 
 ### Environment Setup
 
