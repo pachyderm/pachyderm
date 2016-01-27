@@ -22,29 +22,36 @@
 ### What is Pachyderm?
 
 Pachyderm is a Data Lake. A place to dump and process gigantic data sets.
-Pachyderm is inspired by the Hadoop ecosystem of tools but _shares no code_
-with it.
+Pachyderm is inspired by the Hadoop ecosystem but _shares no code_ with it.
+Instead we leverage the container ecosystem to provide the broad functionality
+of Hadoop with the ease of use of Docker.
 
-The core features of Pachyderm are:
+Pachyderm offers the following broad functionality:
 
-- Virtually limitless storage for any kind of data.
-- Virtually limitless processing power using any kind of tools.
-- Virtually limitless bandwidth for serving the data.
+- Virtually limitless storage for any data.
+- Virtually limitless processing power using any tools.
 - Tracking of data history, provenance and ownership. (Version Control).
 - Automatic processing on new data as it’s ingested. (Streaming).
 - Chaining processes together. (Pipelining)
 
-### Why would I use Pachyderm instead of Hadoop?
-Hadoop is a massive ecosystem with proven functionality.
-However it has many flaws, too many to list here.
-With the advent of containers distributed systems have taken a bold leap
-forward and we believe that a modern data lake should put the container front
-and center.
+### What's new about Pachyderm? (How is it different from Hadoop?)
 
-You should use Pachyderm if you believe in this containerized vision of the
-future.
+There are two bold new ideas in Pachyderm:
 
-### Using Pachyderm
+- Containers as the processing payload
+- Version Control for data
+
+These ideas lead directly to a system that's much easier to use and administer.
+
+To process data you simply create a containerized program which reads and writes
+to the local filesystem. Pachyderm will take your container and inject data into
+it by way of a FUSE volume. You can use _any_ tools you want! Pachyderm will
+automatically replicate your container. It creates multiple copies of the same
+container showing each one a different chunk of data in the FUSE volume. With
+this technique Pachyderm can scale any code you write up to petabytes of data.
+
+Pachyderm also version controls all data, it's very similar to how git handles
+source code. 
 
 #### Prerequisites
 
