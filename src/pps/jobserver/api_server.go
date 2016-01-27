@@ -9,7 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
-	"go.pedge.io/lion"
+	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
@@ -103,7 +103,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 				JobId: persistJobInfo.JobId,
 				State: pps.JobState_JOB_STATE_FAILURE,
 			}); err != nil {
-				lion.Errorf("error from CreateJobState %s", err.Error())
+				protolion.Errorf("error from CreateJobState %s", err.Error())
 			}
 		}
 	}()
