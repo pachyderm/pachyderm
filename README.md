@@ -19,44 +19,30 @@
     * [Vagrant](#vagrant)
 * [Contributing](#contributing)
 
-### News
-
-WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
-
 ### What is Pachyderm?
 
-Pachyderm is a complete data analytics solution that lets you efficiently store and analyze your data using containers. We offer the scalability and broad functionality of Hadoop, with the ease of use of Docker.
+Pachyderm is a Data Lake. A place to dump and process gigantic data sets.
+Pachyderm is inspired by the Hadoop ecosystem of tools but _shares no code_
+with it.
 
-### Key Features
+The core features of Pachyderm are:
 
-- Complete version control for your data
-- Pipelines are containerized, so you can use any languages and tools you want
-- Both batched and streaming analytics
-- One-click deploy on AWS without data migration
+- Virtually limitless storage for any kind of data.
+- Virtually limitless processing power using any kind of tools.
+- Virtually limitless bandwidth for serving the data.
+- Tracking of data history, provenance and ownership. (Version Control).
+- Automatic processing on new data as it’s ingested. (Streaming).
+- Chaining processes together. (Pipelining)
 
-### Is Pachyderm enterprise production ready?
+### Why would I use Pachyderm instead of Hadoop?
+Hadoop is a massive ecosystem with proven functionality.
+However it has many flaws, too many to list here.
+With the advent of containers distributed systems have taken a bold leap
+forward and we believe that a modern data lake should put the container front
+and center.
 
-No, Pachyderm is in beta, but can already solve some very meaningful data analytics problems.  [We'd love your help. :)](#development)
-
-### What is a commit-based file system?
-
-Pfs is implemented as a distributed layer on top of btrfs, the same
-copy-on-write file system that powers Docker. Btrfs already offers
-[git-like semantics](http://zef.me/6023/who-needs-git-when-you-got-zfs/) on a
-single machine; pfs scales these out to an entire cluster. This allows features such as:
-- __Commit-based history__: File systems are generally single-state entities. Pfs,
-on the other hand, provides a rich history of every previous state of your
-cluster. You can always revert to a prior commit in the event of a
-disaster.
-- __Branching__: Thanks to btrfs's copy-on-write semantics, branching is ridiculously
-cheap in pfs. Each user can experiment freely in their own branch without
-impacting anyone else or the underlying data. Branches can easily be merged back in the main cluster.
-- __Cloning__: Btrfs's send/receive functionality allows pfs to efficiently copy
-an entire cluster's worth of data while still maintaining its commit history.
-
-### What are containerized analytics?
-
-Rather than thinking in terms of map or reduce jobs, pps thinks in terms of pipelines expressed within a container. A pipeline is a generic way expressing computation over large datasets and it’s containerized to make it easily portable, isolated, and easy to monitor. In Pachyderm, all analysis runs in containers. You can write them in any language you want and include any libraries.
+You should use Pachyderm if you believe in this containerized vision of the
+future.
 
 ### Using Pachyderm
 
@@ -197,3 +183,8 @@ sudo -E bash -c 'make test' # original command would have been `make test`
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
 
 Send us PRs, we would love to see what you do!
+
+### News
+
+WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
+
