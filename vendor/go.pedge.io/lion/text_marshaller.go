@@ -2,7 +2,6 @@ package lion
 
 import (
 	"bytes"
-	"encoding/json"
 	"time"
 	"unicode"
 
@@ -19,6 +18,12 @@ var (
 		LevelFatal: color.RedString(LevelFatal.String()),
 		LevelPanic: color.RedString(LevelPanic.String()),
 	}
+	// TODO(pedge): clean up
+	fourLetterLevels = map[Level]bool{
+		LevelNone: true,
+		LevelInfo: true,
+		LevelWarn: true,
+	}
 )
 
 type textMarshaller struct {
@@ -27,6 +32,7 @@ type textMarshaller struct {
 	disableContexts bool
 	disableNewlines bool
 	colorize        bool
+	jsonMarshalFunc JSONMarshalFunc
 }
 
 func newTextMarshaller(options ...TextMarshallerOption) *textMarshaller {
@@ -36,6 +42,7 @@ func newTextMarshaller(options ...TextMarshallerOption) *textMarshaller {
 		false,
 		false,
 		false,
+		globalJSONMarshalFunc,
 	}
 	for _, option := range options {
 		option(textMarshaller)
@@ -50,6 +57,7 @@ func (t *textMarshaller) WithColors() TextMarshaller {
 		t.disableContexts,
 		t.disableNewlines,
 		true,
+		t.jsonMarshalFunc,
 	}
 }
 
@@ -60,6 +68,7 @@ func (t *textMarshaller) WithoutColors() TextMarshaller {
 		t.disableContexts,
 		t.disableNewlines,
 		false,
+		t.jsonMarshalFunc,
 	}
 }
 
@@ -71,6 +80,7 @@ func (t *textMarshaller) Marshal(entry *Entry) ([]byte, error) {
 		t.disableContexts,
 		t.disableNewlines,
 		t.colorize,
+		t.jsonMarshalFunc,
 	)
 }
 
@@ -81,6 +91,7 @@ func textMarshalEntry(
 	disableContexts bool,
 	disableNewlines bool,
 	colorize bool,
+	jsonMarshalFunc JSONMarshalFunc,
 ) ([]byte, error) {
 	buffer := bytes.NewBuffer(nil)
 	if entry.ID != "" {
@@ -100,7 +111,7 @@ func textMarshalEntry(
 		}
 		_, _ = buffer.WriteString(levelString)
 		_ = buffer.WriteByte(' ')
-		if len(levelString) == 4 {
+		if _, ok := fourLetterLevels[entry.Level]; ok {
 			_ = buffer.WriteByte(' ')
 		}
 	}
@@ -108,7 +119,7 @@ func textMarshalEntry(
 	// TODO(pedge): verify only one of Event, Message, WriterOutput?
 	if entry.Event != nil {
 		eventSeen = true
-		if err := textMarshalMessage(buffer, entry.Event); err != nil {
+		if err := textMarshalMessage(jsonMarshalFunc, buffer, entry.Event); err != nil {
 			return nil, err
 		}
 	}
@@ -127,7 +138,7 @@ func textMarshalEntry(
 		eventSeen = true
 		lenContexts := len(entry.Contexts)
 		for i, context := range entry.Contexts {
-			if err := textMarshalMessage(buffer, context); err != nil {
+			if err := textMarshalMessage(jsonMarshalFunc, buffer, context); err != nil {
 				return nil, err
 			}
 			if i != lenContexts-1 {
@@ -139,11 +150,9 @@ func textMarshalEntry(
 		if eventSeen {
 			_ = buffer.WriteByte(' ')
 		}
-		data, err := json.Marshal(entry.Fields)
-		if err != nil {
+		if err := jsonMarshalFunc(buffer, entry.Fields); err != nil {
 			return nil, err
 		}
-		_, _ = buffer.Write(data)
 	}
 	data := trimRightSpaceBytes(buffer.Bytes())
 	if !disableNewlines {
@@ -154,7 +163,7 @@ func textMarshalEntry(
 	return data, nil
 }
 
-func textMarshalMessage(buffer *bytes.Buffer, message *EntryMessage) error {
+func textMarshalMessage(jsonMarshalFunc JSONMarshalFunc, buffer *bytes.Buffer, message *EntryMessage) error {
 	if message == nil {
 		return nil
 	}
@@ -164,12 +173,7 @@ func textMarshalMessage(buffer *bytes.Buffer, message *EntryMessage) error {
 	}
 	_, _ = buffer.WriteString(name)
 	_ = buffer.WriteByte(' ')
-	data, err := json.Marshal(message.Value)
-	if err != nil {
-		return err
-	}
-	_, err = buffer.Write(data)
-	return err
+	return jsonMarshalFunc(buffer, message.Value)
 }
 
 func trimRightSpaceBytes(b []byte) []byte {
