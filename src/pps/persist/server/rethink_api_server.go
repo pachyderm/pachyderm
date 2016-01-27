@@ -11,7 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/time"

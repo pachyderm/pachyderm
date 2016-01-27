@@ -13,7 +13,7 @@ import (
 	"github.com/gengo/grpc-gateway/utilities"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -64,7 +64,7 @@ func RegisterAPIHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.C
 	mux.Handle("GET", pattern_API_GetVersion_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		resp, err := request_API_GetVersion_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
 		if err != nil {
-			runtime.HTTPError(ctx, w, err)
+			runtime.HTTPError(ctx, w, req, err)
 			return
 		}
 

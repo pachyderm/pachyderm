@@ -11,7 +11,7 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
-	"go.pedge.io/protolog"
+	"go.pedge.io/lion/proto"
 )
 
 const InvalidVersion int64 = -1
@@ -38,7 +38,7 @@ func newSharder(discoveryClient discovery.Client, numShards uint64, numReplicas 
 
 func (a *sharder) GetMasterAddress(shard uint64, version int64) (result string, ok bool, retErr error) {
 	defer func() {
-		protolog.Debug(&GetMasterAddress{shard, version, result, ok, errorToString(retErr)})
+		protolion.Debug(&GetMasterAddress{shard, version, result, ok, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -53,7 +53,7 @@ func (a *sharder) GetMasterAddress(shard uint64, version int64) (result string, 
 
 func (a *sharder) GetReplicaAddresses(shard uint64, version int64) (result map[string]bool, retErr error) {
 	defer func() {
-		protolog.Debug(&GetReplicaAddresses{shard, version, result, errorToString(retErr)})
+		protolion.Debug(&GetReplicaAddresses{shard, version, result, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -68,7 +68,7 @@ func (a *sharder) GetReplicaAddresses(shard uint64, version int64) (result map[s
 
 func (a *sharder) GetShardToMasterAddress(version int64) (result map[uint64]string, retErr error) {
 	defer func() {
-		protolog.Debug(&GetShardToMasterAddress{version, result, errorToString(retErr)})
+		protolion.Debug(&GetShardToMasterAddress{version, result, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -88,7 +88,7 @@ func (a *sharder) GetShardToReplicaAddresses(version int64) (result map[uint64]m
 		for shard, addresses := range result {
 			resultPrime[shard] = &ReplicaAddresses{addresses}
 		}
-		protolog.Debug(&GetShardToReplicaAddresses{version, resultPrime, errorToString(retErr)})
+		protolion.Debug(&GetShardToReplicaAddresses{version, resultPrime, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -102,9 +102,9 @@ func (a *sharder) GetShardToReplicaAddresses(version int64) (result map[uint64]m
 }
 
 func (a *sharder) Register(cancel chan bool, address string, server Server) (retErr error) {
-	protolog.Info(&StartRegister{address})
+	protolion.Info(&StartRegister{address})
 	defer func() {
-		protolog.Info(&FinishRegister{address, errorToString(retErr)})
+		protolion.Info(&FinishRegister{address, errorToString(retErr)})
 	}()
 	var once sync.Once
 	versionChan := make(chan int64)
@@ -184,9 +184,9 @@ func (a *sharder) RegisterFrontend(cancel chan bool, address string, frontend Fr
 }
 
 func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
-	protolog.Info(&StartAssignRoles{})
+	protolion.Info(&StartAssignRoles{})
 	defer func() {
-		protolog.Info(&FinishAssignRoles{errorToString(retErr)})
+		protolion.Info(&FinishAssignRoles{errorToString(retErr)})
 	}()
 	var version int64
 	oldServers := make(map[string]bool)
@@ -290,7 +290,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 						if err := a.discoveryClient.Delete(key); err != nil {
 							return err
 						}
-						protolog.Info(&DeleteServerRole{serverRole})
+						protolion.Info(&DeleteServerRole{serverRole})
 					}
 				}
 			}
@@ -321,7 +321,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 						continue Master
 					}
 				}
-				protolog.Error(&FailedToAssignRoles{
+				protolion.Error(&FailedToAssignRoles{
 					ServerStates: newServerStates,
 					NumShards:    a.numShards,
 					NumReplicas:  a.numReplicas,
@@ -356,7 +356,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 							continue Replica
 						}
 					}
-					protolog.Error(&FailedToAssignRoles{
+					protolion.Error(&FailedToAssignRoles{
 						ServerStates: newServerStates,
 						NumShards:    a.numShards,
 						NumReplicas:  a.numReplicas,
@@ -379,7 +379,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 				if err := a.discoveryClient.Set(a.serverRoleKeyVersion(address, version), encodedServerRole, 0); err != nil {
 					return err
 				}
-				protolog.Info(&SetServerRole{serverRole})
+				protolion.Info(&SetServerRole{serverRole})
 				address := newServerStates[address].Address
 				for shard := range serverRole.Masters {
 					shardAddresses := addresses.Addresses[shard]
@@ -399,7 +399,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 			if err := a.discoveryClient.Set(a.addressesKey(version), encodedAddresses, 0); err != nil {
 				return err
 			}
-			protolog.Info(&SetAddresses{&addresses})
+			protolion.Info(&SetAddresses{&addresses})
 			version++
 			oldServers = make(map[string]bool)
 			for address := range newServerStates {
@@ -496,12 +496,12 @@ func (a *sharder) WaitForAvailability(frontendAddresses []string, serverAddresse
 				}
 
 				if frontendState.Version != version {
-					protolog.Printf("Wrong version: %d != %d", frontendState.Version, version)
+					protolion.Printf("Wrong version: %d != %d", frontendState.Version, version)
 					return nil
 				}
 				frontendStates[frontendState.Address] = frontendState
 			}
-			protolog.Printf("frontendStates: %+v", frontendStates)
+			protolion.Printf("frontendStates: %+v", frontendStates)
 			if len(frontendStates) != len(frontendAddresses) {
 				return nil
 			}
@@ -812,9 +812,9 @@ func (a *sharder) announceServer(
 			return err
 		}
 		if err := a.discoveryClient.Set(a.serverStateKey(address), encodedServerState, holdTTL); err != nil {
-			protolog.Printf("Error setting server state: %s", err.Error())
+			protolion.Printf("Error setting server state: %s", err.Error())
 		}
-		protolog.Debug(&SetServerState{serverState})
+		protolion.Debug(&SetServerState{serverState})
 		select {
 		case <-cancel:
 			return nil
@@ -841,9 +841,9 @@ func (a *sharder) announceFrontend(
 			return err
 		}
 		if err := a.discoveryClient.Set(a.frontendStateKey(address), encodedFrontendState, holdTTL); err != nil {
-			protolog.Printf("Error setting server state: %s", err.Error())
+			protolion.Printf("Error setting server state: %s", err.Error())
 		}
-		protolog.Debug(&SetFrontendState{frontendState})
+		protolion.Debug(&SetFrontendState{frontendState})
 		select {
 		case <-cancel:
 			return nil
@@ -909,10 +909,10 @@ func (a *sharder) fillRoles(
 				}
 				wg.Wait()
 				if addShardErr != nil {
-					protolog.Info(&AddServerRole{&serverRole, addShardErr.Error()})
+					protolion.Info(&AddServerRole{&serverRole, addShardErr.Error()})
 					return addShardErr
 				}
-				protolog.Info(&AddServerRole{&serverRole, ""})
+				protolion.Info(&AddServerRole{&serverRole, ""})
 				oldRoles[version] = serverRole
 				versionChan <- version
 			}
@@ -938,10 +938,10 @@ func (a *sharder) fillRoles(
 				}
 				wg.Wait()
 				if removeShardErr != nil {
-					protolog.Info(&RemoveServerRole{&serverRole, removeShardErr.Error()})
+					protolion.Info(&RemoveServerRole{&serverRole, removeShardErr.Error()})
 					return removeShardErr
 				}
-				protolog.Info(&RemoveServerRole{&serverRole, ""})
+				protolion.Info(&RemoveServerRole{&serverRole, ""})
 			}
 			oldRoles = make(map[int64]ServerRole)
 			for _, version := range versions {

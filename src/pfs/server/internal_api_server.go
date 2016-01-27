@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"

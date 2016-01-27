@@ -7,8 +7,6 @@ package protoserver;
 message ServerStarted {
   uint32 port = 1;
   uint32 http_port = 2;
-  uint32 debug_port = 3;
-  string http_address = 4;
 }
 
 message ServerFinished {
