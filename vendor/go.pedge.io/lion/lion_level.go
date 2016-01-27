@@ -6,40 +6,41 @@ import (
 )
 
 const (
-	// LevelNone represents no Level.
-	LevelNone Level = 0
 	// LevelDebug is the debug Level.
-	LevelDebug Level = 1
+	LevelDebug Level = 0
 	// LevelInfo is the info Level.
-	LevelInfo Level = 2
+	LevelInfo Level = 1
 	// LevelWarn is the warn Level.
-	LevelWarn Level = 3
+	LevelWarn Level = 2
 	// LevelError is the error Level.
-	LevelError Level = 4
+	LevelError Level = 3
 	// LevelFatal is the fatal Level.
-	LevelFatal Level = 5
+	LevelFatal Level = 4
 	// LevelPanic is the panic Level.
-	LevelPanic Level = 6
+	LevelPanic Level = 5
+	// LevelNone represents no Level.
+	// It is always logged.
+	LevelNone Level = 6
 )
 
 var (
 	levelToName = map[Level]string{
-		LevelNone:  "NONE",
 		LevelDebug: "DEBUG",
 		LevelInfo:  "INFO",
 		LevelWarn:  "WARN",
 		LevelError: "ERROR",
 		LevelFatal: "FATAL",
 		LevelPanic: "PANIC",
+		LevelNone:  "NONE",
 	}
 	nameToLevel = map[string]Level{
-		"NONE":  LevelNone,
 		"DEBUG": LevelDebug,
 		"INFO":  LevelInfo,
 		"WARN":  LevelWarn,
 		"ERROR": LevelError,
 		"FATAL": LevelFatal,
 		"PANIC": LevelPanic,
+		"NONE":  LevelNone,
 	}
 )
 

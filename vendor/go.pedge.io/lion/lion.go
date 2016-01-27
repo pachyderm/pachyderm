@@ -1,5 +1,5 @@
 /*
-Package lion defines the main lion logging functionality.
+Package lion provides structured logging, configurable to use serialization protocols such as Protocol Buffers.
 */
 package lion // import "go.pedge.io/lion"
 
@@ -42,6 +42,7 @@ var (
 	DefaultLogger = NewLogger(DefaultPusher)
 
 	globalLogger          = DefaultLogger
+	globalLevel           = DefaultLevel
 	globalJSONMarshalFunc = DefaultJSONMarshalFunc
 	globalHooks           = make([]GlobalHook, 0)
 	globalLock            = &sync.Mutex{}
@@ -60,6 +61,7 @@ func SetLogger(logger Logger) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 	globalLogger = logger
+	globalLevel = logger.Level()
 	for _, globalHook := range globalHooks {
 		globalHook(globalLogger)
 	}
@@ -70,6 +72,7 @@ func SetLevel(level Level) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 	globalLogger = globalLogger.AtLevel(level)
+	globalLevel = level
 	for _, globalHook := range globalHooks {
 		globalHook(globalLogger)
 	}
@@ -115,6 +118,7 @@ type Flusher interface {
 // This is so sub-packages can implement these.
 type BaseLogger interface {
 	Flusher
+	Level() Level
 	DebugWriter() io.Writer
 	InfoWriter() io.Writer
 	WarnWriter() io.Writer
@@ -136,6 +140,41 @@ type BaseLogger interface {
 	Println(args ...interface{})
 }
 
+// BaseLevelLogger is a LevelLogger without the methods that are self-returning.
+//
+// This is so sub-packages can implement these.
+type BaseLevelLogger interface {
+	Printf(format string, args ...interface{})
+	Println(args ...interface{})
+}
+
+// LevelLogger is a logger tied to a specific Level.
+//
+// It is returned from a Logger only.
+//
+// If the requested Level is less than the Logger's level
+// when LevelLogger is constructed, a discard logger will be
+// returned. This is to help with performance concerns of doing
+// lots of WithField/WithFields/etc calls, and then at the end
+// finding the level is discarded.
+//
+// If log calls are ignored, this has better performance than the standard Logger.
+// If log calls are not ignored, this has slightly worse performance than the standard logger.
+//
+// Main use of this is for debug calls.
+type LevelLogger interface {
+	BaseLevelLogger
+
+	WithField(key string, value interface{}) LevelLogger
+	WithFields(fields map[string]interface{}) LevelLogger
+	WithKeyValues(keyvalues ...interface{}) LevelLogger
+
+	// This generally should only be used internally or by sub-loggers such as the protobuf Logger.
+	WithEntryMessageContext(context *EntryMessage) LevelLogger
+	// This generally should only be used internally or by sub-loggers such as the protobuf Logger.
+	LogEntryMessage(level Level, event *EntryMessage)
+}
+
 // Logger is the main logging interface. All methods are also replicated
 // on the package and attached to a global Logger.
 type Logger interface {
@@ -150,6 +189,11 @@ type Logger interface {
 	WithEntryMessageContext(context *EntryMessage) Logger
 	// This generally should only be used internally or by sub-loggers such as the protobuf Logger.
 	LogEntryMessage(level Level, event *EntryMessage)
+
+	// NOTE: this function name may change, this is experimental
+	LogDebug() LevelLogger
+	// NOTE: this function name may change, this is experimental
+	LogInfo() LevelLogger
 }
 
 // EntryMessage is a context or event in an Entry.
@@ -451,61 +495,97 @@ func Writer() io.Writer {
 
 // Debugf calls Debugf on the global Logger.
 func Debugf(format string, args ...interface{}) {
+	if LevelDebug < globalLevel {
+		return
+	}
 	globalLogger.Debugf(format, args...)
 }
 
 // Debugln calls Debugln on the global Logger.
 func Debugln(args ...interface{}) {
+	if LevelDebug < globalLevel {
+		return
+	}
 	globalLogger.Debugln(args...)
 }
 
 // Infof calls Infof on the global Logger.
 func Infof(format string, args ...interface{}) {
+	if LevelInfo < globalLevel {
+		return
+	}
 	globalLogger.Infof(format, args...)
 }
 
 // Infoln calls Infoln on the global Logger.
 func Infoln(args ...interface{}) {
+	if LevelInfo < globalLevel {
+		return
+	}
 	globalLogger.Infoln(args...)
 }
 
 // Warnf calls Warnf on the global Logger.
 func Warnf(format string, args ...interface{}) {
+	if LevelWarn < globalLevel {
+		return
+	}
 	globalLogger.Warnf(format, args...)
 }
 
 // Warnln calls Warnln on the global Logger.
 func Warnln(args ...interface{}) {
+	if LevelWarn < globalLevel {
+		return
+	}
 	globalLogger.Warnln(args...)
 }
 
 // Errorf calls Errorf on the global Logger.
 func Errorf(format string, args ...interface{}) {
+	if LevelError < globalLevel {
+		return
+	}
 	globalLogger.Errorf(format, args...)
 }
 
 // Errorln calls Errorln on the global Logger.
 func Errorln(args ...interface{}) {
+	if LevelError < globalLevel {
+		return
+	}
 	globalLogger.Errorln(args...)
 }
 
 // Fatalf calls Fatalf on the global Logger.
 func Fatalf(format string, args ...interface{}) {
+	if LevelFatal < globalLevel {
+		return
+	}
 	globalLogger.Fatalf(format, args...)
 }
 
 // Fatalln calls Fatalln on the global Logger.
 func Fatalln(args ...interface{}) {
+	if LevelFatal < globalLevel {
+		return
+	}
 	globalLogger.Fatalln(args...)
 }
 
 // Panicf calls Panicf on the global Logger.
 func Panicf(format string, args ...interface{}) {
+	if LevelPanic < globalLevel {
+		return
+	}
 	globalLogger.Panicf(format, args...)
 }
 
 // Panicln calls Panicln on the global Logger.
 func Panicln(args ...interface{}) {
+	if LevelPanic < globalLevel {
+		return
+	}
 	globalLogger.Panicln(args...)
 }
 
@@ -537,4 +617,14 @@ func WithFields(fields map[string]interface{}) Logger {
 // WithKeyValues calls WithKeyValues on the global Logger.
 func WithKeyValues(keyValues ...interface{}) Logger {
 	return globalLogger.WithKeyValues(keyValues...)
+}
+
+// LogDebug calls LogDebug on the global Logger.
+func LogDebug() LevelLogger {
+	return globalLogger.LogDebug()
+}
+
+// LogInfo calls LogInfo on the global Logger.
+func LogInfo() LevelLogger {
+	return globalLogger.LogInfo()
 }

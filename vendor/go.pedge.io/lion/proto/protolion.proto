@@ -8,14 +8,13 @@ option go_package = "protolion";
 
 // Level is a logging level.
 enum Level {
-  // is valid
-  LEVEL_NONE = 0;
-  LEVEL_DEBUG = 1;
-  LEVEL_INFO = 2;
-  LEVEL_WARN = 3;
-  LEVEL_ERROR = 4;
-  LEVEL_FATAL = 5;
-  LEVEL_PANIC = 6;
+  LEVEL_DEBUG = 0;
+  LEVEL_INFO = 1;
+  LEVEL_WARN = 2;
+  LEVEL_ERROR = 3;
+  LEVEL_FATAL = 4;
+  LEVEL_PANIC = 5;
+  LEVEL_NONE = 6;
 }
 
 // Entry is the object serialized for logging.
