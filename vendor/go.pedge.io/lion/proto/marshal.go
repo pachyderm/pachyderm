@@ -13,22 +13,22 @@ import (
 
 var (
 	levelToProto = map[lion.Level]Level{
-		lion.LevelNone:  Level_LEVEL_NONE,
 		lion.LevelDebug: Level_LEVEL_DEBUG,
 		lion.LevelInfo:  Level_LEVEL_INFO,
 		lion.LevelWarn:  Level_LEVEL_WARN,
 		lion.LevelError: Level_LEVEL_ERROR,
 		lion.LevelFatal: Level_LEVEL_FATAL,
 		lion.LevelPanic: Level_LEVEL_PANIC,
+		lion.LevelNone:  Level_LEVEL_NONE,
 	}
 	protoToLevel = map[Level]lion.Level{
-		Level_LEVEL_NONE:  lion.LevelNone,
 		Level_LEVEL_DEBUG: lion.LevelDebug,
 		Level_LEVEL_INFO:  lion.LevelInfo,
 		Level_LEVEL_WARN:  lion.LevelWarn,
 		Level_LEVEL_ERROR: lion.LevelError,
 		Level_LEVEL_FATAL: lion.LevelFatal,
 		Level_LEVEL_PANIC: lion.LevelPanic,
+		Level_LEVEL_NONE:  lion.LevelNone,
 	}
 )
 

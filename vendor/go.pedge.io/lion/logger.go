@@ -6,13 +6,17 @@ import (
 	"os"
 )
 
+var (
+	discardLevelLoggerInstance = newDiscardLevelLogger()
+)
+
 type logger struct {
 	pusher       Pusher
 	enableID     bool
 	idAllocator  IDAllocator
 	timer        Timer
 	errorHandler ErrorHandler
-	level        Level
+	l            Level
 	contexts     []*EntryMessage
 	fields       map[string]string
 }
@@ -38,6 +42,10 @@ func (l *logger) Flush() error {
 	return l.pusher.Flush()
 }
 
+func (l *logger) Level() Level {
+	return l.l
+}
+
 func (l *logger) AtLevel(level Level) Logger {
 	return &logger{
 		l.pusher,
@@ -58,7 +66,7 @@ func (l *logger) WithEntryMessageContext(context *EntryMessage) Logger {
 		l.idAllocator,
 		l.timer,
 		l.errorHandler,
-		l.level,
+		l.l,
 		append(l.contexts, context),
 		l.fields,
 	}
@@ -96,7 +104,7 @@ func (l *logger) WithField(key string, value interface{}) Logger {
 		l.idAllocator,
 		l.timer,
 		l.errorHandler,
-		l.level,
+		l.l,
 		l.contexts,
 		contextFields,
 	}
@@ -116,7 +124,7 @@ func (l *logger) WithFields(fields map[string]interface{}) Logger {
 		l.idAllocator,
 		l.timer,
 		l.errorHandler,
-		l.level,
+		l.l,
 		l.contexts,
 		contextFields,
 	}
@@ -133,86 +141,92 @@ func (l *logger) WithKeyValues(keyValues ...interface{}) Logger {
 	return l.WithFields(fields)
 }
 
-func (l *logger) Debug(args ...interface{}) {
-	l.print(LevelDebug, nil, fmt.Sprint(args...), nil)
-}
-
 func (l *logger) Debugf(format string, args ...interface{}) {
+	if LevelDebug < l.l {
+		return
+	}
 	l.print(LevelDebug, nil, fmt.Sprintf(format, args...), nil)
 }
 
 func (l *logger) Debugln(args ...interface{}) {
+	if LevelDebug < l.l {
+		return
+	}
 	l.print(LevelDebug, nil, fmt.Sprint(args...), nil)
 }
 
-func (l *logger) Info(args ...interface{}) {
-	l.print(LevelInfo, nil, fmt.Sprint(args...), nil)
-}
-
 func (l *logger) Infof(format string, args ...interface{}) {
+	if LevelInfo < l.l {
+		return
+	}
 	l.print(LevelInfo, nil, fmt.Sprintf(format, args...), nil)
 }
 
 func (l *logger) Infoln(args ...interface{}) {
+	if LevelInfo < l.l {
+		return
+	}
 	l.print(LevelInfo, nil, fmt.Sprint(args...), nil)
 }
 
-func (l *logger) Warn(args ...interface{}) {
-	l.print(LevelWarn, nil, fmt.Sprint(args...), nil)
-}
-
 func (l *logger) Warnf(format string, args ...interface{}) {
+	if LevelWarn < l.l {
+		return
+	}
 	l.print(LevelWarn, nil, fmt.Sprintf(format, args...), nil)
 }
 
 func (l *logger) Warnln(args ...interface{}) {
+	if LevelWarn < l.l {
+		return
+	}
 	l.print(LevelWarn, nil, fmt.Sprint(args...), nil)
 }
 
-func (l *logger) Error(args ...interface{}) {
-	l.print(LevelError, nil, fmt.Sprint(args...), nil)
-}
-
 func (l *logger) Errorf(format string, args ...interface{}) {
+	if LevelError < l.l {
+		return
+	}
 	l.print(LevelError, nil, fmt.Sprintf(format, args...), nil)
 }
 
 func (l *logger) Errorln(args ...interface{}) {
+	if LevelError < l.l {
+		return
+	}
 	l.print(LevelError, nil, fmt.Sprint(args...), nil)
 }
 
-func (l *logger) Fatal(args ...interface{}) {
-	l.print(LevelFatal, nil, fmt.Sprint(args...), nil)
-	os.Exit(1)
-}
-
 func (l *logger) Fatalf(format string, args ...interface{}) {
+	if LevelFatal < l.l {
+		return
+	}
 	l.print(LevelFatal, nil, fmt.Sprintf(format, args...), nil)
 	os.Exit(1)
 }
 
 func (l *logger) Fatalln(args ...interface{}) {
+	if LevelFatal < l.l {
+		return
+	}
 	l.print(LevelFatal, nil, fmt.Sprint(args...), nil)
 	os.Exit(1)
 }
 
-func (l *logger) Panic(args ...interface{}) {
-	l.print(LevelPanic, nil, fmt.Sprint(args...), nil)
-	panic(fmt.Sprint(args...))
-}
-
 func (l *logger) Panicf(format string, args ...interface{}) {
+	if LevelPanic < l.l {
+		return
+	}
 	l.print(LevelPanic, nil, fmt.Sprintf(format, args...), nil)
 	panic(fmt.Sprintf(format, args...))
 }
 
 func (l *logger) Panicln(args ...interface{}) {
+	if LevelPanic < l.l {
+		return
+	}
 	l.print(LevelPanic, nil, fmt.Sprint(args...), nil)
 	panic(fmt.Sprint(args...))
-}
-
-func (l *logger) Print(args ...interface{}) {
-	l.print(LevelNone, nil, fmt.Sprint(args...), nil)
 }
 
 func (l *logger) Printf(format string, args ...interface{}) {
@@ -224,7 +238,24 @@ func (l *logger) Println(args ...interface{}) {
 }
 
 func (l *logger) LogEntryMessage(level Level, event *EntryMessage) {
+	if level < l.l {
+		return
+	}
 	l.print(level, event, "", nil)
+}
+
+func (l *logger) LogDebug() LevelLogger {
+	if LevelDebug < l.l {
+		return discardLevelLoggerInstance
+	}
+	return newLevelLogger(l, LevelDebug)
+}
+
+func (l *logger) LogInfo() LevelLogger {
+	if LevelInfo < l.l {
+		return discardLevelLoggerInstance
+	}
+	return newLevelLogger(l, LevelInfo)
 }
 
 func (l *logger) print(level Level, event *EntryMessage, message string, writerOutput []byte) {
@@ -235,16 +266,13 @@ func (l *logger) print(level Level, event *EntryMessage, message string, writerO
 
 func (l *logger) printWriter(level Level) io.Writer {
 	// TODO(pedge): think more about this
-	//if !l.isLoggedLevel(level) {
+	//if level < l.l {
 	//return ioutil.Discard
 	//}
 	return newLogWriter(l, level)
 }
 
 func (l *logger) printWithError(level Level, event *EntryMessage, message string, writerOutput []byte) error {
-	if !l.isLoggedLevel(level) {
-		return nil
-	}
 	if event != nil {
 		if err := checkRegisteredEncoding(event.Encoding); err != nil {
 			return err
@@ -267,10 +295,6 @@ func (l *logger) printWithError(level Level, event *EntryMessage, message string
 	return l.pusher.Push(entry)
 }
 
-func (l *logger) isLoggedLevel(level Level) bool {
-	return level >= l.level || level == LevelNone
-}
-
 type logWriter struct {
 	logger *logger
 	level  Level
@@ -286,3 +310,50 @@ func (w *logWriter) Write(p []byte) (int, error) {
 	}
 	return len(p), nil
 }
+
+type levelLogger struct {
+	*logger
+	level Level
+}
+
+func newLevelLogger(logger *logger, level Level) *levelLogger {
+	return &levelLogger{logger, level}
+}
+
+func (l *levelLogger) Printf(format string, args ...interface{}) {
+	l.print(l.level, nil, fmt.Sprintf(format, args...), nil)
+}
+
+func (l *levelLogger) Println(args ...interface{}) {
+	l.print(l.level, nil, fmt.Sprint(args...), nil)
+}
+
+func (l *levelLogger) WithField(key string, value interface{}) LevelLogger {
+	return &levelLogger{l.logger.WithField(key, value).(*logger), l.level}
+}
+
+func (l *levelLogger) WithFields(fields map[string]interface{}) LevelLogger {
+	return &levelLogger{l.logger.WithFields(fields).(*logger), l.level}
+}
+
+func (l *levelLogger) WithKeyValues(keyValues ...interface{}) LevelLogger {
+	return &levelLogger{l.logger.WithKeyValues(keyValues...).(*logger), l.level}
+}
+
+func (l *levelLogger) WithEntryMessageContext(context *EntryMessage) LevelLogger {
+	return &levelLogger{l.logger.WithEntryMessageContext(context).(*logger), l.level}
+}
+
+type discardLevelLogger struct{}
+
+func newDiscardLevelLogger() *discardLevelLogger {
+	return &discardLevelLogger{}
+}
+
+func (d *discardLevelLogger) Printf(format string, args ...interface{})                 {}
+func (d *discardLevelLogger) Println(args ...interface{})                               {}
+func (d *discardLevelLogger) WithField(key string, value interface{}) LevelLogger       { return d }
+func (d *discardLevelLogger) WithFields(fields map[string]interface{}) LevelLogger      { return d }
+func (d *discardLevelLogger) WithKeyValues(keyvalues ...interface{}) LevelLogger        { return d }
+func (d *discardLevelLogger) WithEntryMessageContext(context *EntryMessage) LevelLogger { return d }
+func (d *discardLevelLogger) LogEntryMessage(level Level, event *EntryMessage)          {}
