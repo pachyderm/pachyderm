@@ -38,7 +38,7 @@ Pachyderm offers the following broad functionality:
 
 There are two bold new ideas in Pachyderm:
 
-- Containers as the processing payload
+- Containers as the processing primitive
 - Version Control for data
 
 These ideas lead directly to a system that's much easier to use and administer.
@@ -50,8 +50,17 @@ automatically replicate your container. It creates multiple copies of the same
 container showing each one a different chunk of data in the FUSE volume. With
 this technique Pachyderm can scale any code you write up to petabytes of data.
 
-Pachyderm also version controls all data, it's very similar to how git handles
-source code. 
+Pachyderm also version controls all data using a commit based distributed
+filesystem (PFS), it's very similar to what git does with code. Version control
+has far reaching consequences in a distributed filesystem. You get the full
+history of your data, it's much easier to collaborate with teammates and if
+anythng goes wrong you can revert _the entire cluster_ with one click!
+
+Version control is also very synergistic with our containerized processing
+engine. Pachyderm understands how your data changes and thus, as new data
+is ingested, can run your workload on the _diff_ of the data rather than the
+whole thing. This means that there's no difference between a batched job and
+a streaming job, the same code will work for both!
 
 #### Prerequisites
 
