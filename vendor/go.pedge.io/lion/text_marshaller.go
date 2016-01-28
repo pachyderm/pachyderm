@@ -32,7 +32,6 @@ type textMarshaller struct {
 	disableContexts bool
 	disableNewlines bool
 	colorize        bool
-	jsonMarshalFunc JSONMarshalFunc
 }
 
 func newTextMarshaller(options ...TextMarshallerOption) *textMarshaller {
@@ -42,7 +41,6 @@ func newTextMarshaller(options ...TextMarshallerOption) *textMarshaller {
 		false,
 		false,
 		false,
-		globalJSONMarshalFunc,
 	}
 	for _, option := range options {
 		option(textMarshaller)
@@ -57,7 +55,6 @@ func (t *textMarshaller) WithColors() TextMarshaller {
 		t.disableContexts,
 		t.disableNewlines,
 		true,
-		t.jsonMarshalFunc,
 	}
 }
 
@@ -68,7 +65,6 @@ func (t *textMarshaller) WithoutColors() TextMarshaller {
 		t.disableContexts,
 		t.disableNewlines,
 		false,
-		t.jsonMarshalFunc,
 	}
 }
 
@@ -80,7 +76,6 @@ func (t *textMarshaller) Marshal(entry *Entry) ([]byte, error) {
 		t.disableContexts,
 		t.disableNewlines,
 		t.colorize,
-		t.jsonMarshalFunc,
 	)
 }
 
@@ -91,7 +86,6 @@ func textMarshalEntry(
 	disableContexts bool,
 	disableNewlines bool,
 	colorize bool,
-	jsonMarshalFunc JSONMarshalFunc,
 ) ([]byte, error) {
 	buffer := bytes.NewBuffer(nil)
 	if entry.ID != "" {
@@ -119,7 +113,7 @@ func textMarshalEntry(
 	// TODO(pedge): verify only one of Event, Message, WriterOutput?
 	if entry.Event != nil {
 		eventSeen = true
-		if err := textMarshalMessage(jsonMarshalFunc, buffer, entry.Event); err != nil {
+		if err := textMarshalMessage(buffer, entry.Event); err != nil {
 			return nil, err
 		}
 	}
@@ -138,7 +132,7 @@ func textMarshalEntry(
 		eventSeen = true
 		lenContexts := len(entry.Contexts)
 		for i, context := range entry.Contexts {
-			if err := textMarshalMessage(jsonMarshalFunc, buffer, context); err != nil {
+			if err := textMarshalMessage(buffer, context); err != nil {
 				return nil, err
 			}
 			if i != lenContexts-1 {
@@ -150,7 +144,7 @@ func textMarshalEntry(
 		if eventSeen {
 			_ = buffer.WriteByte(' ')
 		}
-		if err := jsonMarshalFunc(buffer, entry.Fields); err != nil {
+		if err := globalJSONMarshalFunc(buffer, entry.Fields); err != nil {
 			return nil, err
 		}
 	}
@@ -163,7 +157,7 @@ func textMarshalEntry(
 	return data, nil
 }
 
-func textMarshalMessage(jsonMarshalFunc JSONMarshalFunc, buffer *bytes.Buffer, message *EntryMessage) error {
+func textMarshalMessage(buffer *bytes.Buffer, message *EntryMessage) error {
 	if message == nil {
 		return nil
 	}
@@ -173,7 +167,7 @@ func textMarshalMessage(jsonMarshalFunc JSONMarshalFunc, buffer *bytes.Buffer, m
 	}
 	_, _ = buffer.WriteString(name)
 	_ = buffer.WriteByte(' ')
-	return jsonMarshalFunc(buffer, message.Value)
+	return globalJSONMarshalFunc(buffer, message.Value)
 }
 
 func trimRightSpaceBytes(b []byte) []byte {
