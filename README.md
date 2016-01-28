@@ -56,19 +56,28 @@ has far reaching consequences in a distributed filesystem. You get the full
 history of your data, it's much easier to collaborate with teammates and if
 anythng goes wrong you can revert _the entire cluster_ with one click!
 
-Version control is also very synergistic with our containerized processing
+Version control is very synergistic with our containerized processing
 engine. Pachyderm understands how your data changes and thus, as new data
 is ingested, can run your workload on the _diff_ of the data rather than the
 whole thing. This means that there's no difference between a batched job and
 a streaming job, the same code will work for both!
 
-### Quickstart
+### Our Vision
 
-#### Prerequisites
-- Docker >= 1.9 (must deploy with [`--storage-driver=devicemapper`](http://muehe.org/posts/switching-docker-from-aufs-to-devicemapper/))
-- Go >= 1.5
-- Kubernetes and Kubectl >= 1.1.2
-- FUSE 2.8.2 (https://osxfuse.github.io/)
+Containers are a revolutionary new technology with compelling application to
+big data. Our goal is to fully realize that application. Hadoop has spawned a
+sprawling ecosystem of tools but with each new tool the complexity of your
+cluster grows until maintaining it becomes a full time job. Containers are the
+_perfect_ antidote to this problem. What if adding a new tool to your data
+infrastructure was as easy as installing an app? Thanks to the magic of
+containers in Pachyderm it really is.
+
+The most exciting thing about this vision though is what comes next. Pachyderm
+can do big data with _anything_ that runs on Linux. And anything you build you
+can easily share with the rest of the community, afterall it's just a
+container. We have some ideas of our own about what to build but it's just the
+tip of the iceburg, we expect our users will have many more interesting ideas.
+We can't wait to see what they are!
 
 #### Create a Pachyderm Cluster
 
