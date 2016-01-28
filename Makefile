@@ -75,13 +75,10 @@ docker-build-ppsd: docker-build-compile
 docker-build-objd: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh objd
 
-docker-build-pachctl: docker-build-compile
-	docker-compose run --rm compile sh etc/compile/compile.sh pachctl
-
 docker-build-job-shim: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh job-shim
 
-docker-build: docker-build-test docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-objd docker-build-pachctl docker-build-job-shim
+docker-build: docker-build-test docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-objd docker-build-job-shim
 
 docker-push-test: docker-build-test
 	docker push pachyderm/test
@@ -98,13 +95,10 @@ docker-push-ppsd: docker-build-ppsd
 docker-push-objd: docker-build-objd
 	docker push pachyderm/objd
 
-docker-push-pachctl: docker-build-pachctl
-	docker push pachyderm/pachctl
-
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
 
-docker-push: docker-push-pfs-roler docker-push-ppsd docker-push-objd docker-push-pfsd docker-push-pachctl docker-push-job-shim
+docker-push: docker-push-pfs-roler docker-push-ppsd docker-push-objd docker-push-pfsd docker-push-job-shim
 
 run: docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test $(RUNARGS)
