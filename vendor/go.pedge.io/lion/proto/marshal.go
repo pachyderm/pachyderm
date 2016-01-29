@@ -7,8 +7,6 @@ import (
 
 	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
-
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 )
 
 var (
@@ -32,7 +30,14 @@ var (
 	}
 )
 
-type delimitedMarshaller struct{}
+type delimitedMarshaller struct {
+	base64Encode bool
+	newline      bool
+}
+
+func newDelimitedMarshaller(base64Encode bool, newline bool) *delimitedMarshaller {
+	return &delimitedMarshaller{base64Encode, newline}
+}
 
 func (m *delimitedMarshaller) Marshal(entry *lion.Entry) ([]byte, error) {
 	encodedEntry, err := entry.Encode()
@@ -44,17 +49,25 @@ func (m *delimitedMarshaller) Marshal(entry *lion.Entry) ([]byte, error) {
 		return nil, err
 	}
 	buffer := bytes.NewBuffer(nil)
-	if _, err := pbutil.WriteDelimited(buffer, protoEntry); err != nil {
+	if _, err := writeDelimited(buffer, protoEntry, m.base64Encode, m.newline); err != nil {
 		return nil, err
 	}
-	return buffer.Bytes(), nil
+	data := buffer.Bytes()
+	return data, nil
 }
 
-type delimitedUnmarshaller struct{}
+type delimitedUnmarshaller struct {
+	base64Decode bool
+	newline      bool
+}
+
+func newDelimitedUnmarshaller(base64Decode bool, newline bool) *delimitedUnmarshaller {
+	return &delimitedUnmarshaller{base64Decode, newline}
+}
 
 func (u *delimitedUnmarshaller) Unmarshal(reader io.Reader, encodedEntry *lion.EncodedEntry) error {
 	protoEntry := &Entry{}
-	if _, err := pbutil.ReadDelimited(reader, protoEntry); err != nil {
+	if _, err := readDelimited(reader, protoEntry, u.base64Decode, u.newline); err != nil {
 		return err
 	}
 	iEntry, err := protoEntryToEncodedEntry(protoEntry)
@@ -119,28 +132,6 @@ func protoEntryToEncodedEntry(protoEntry *Entry) (*lion.EncodedEntry, error) {
 // When using the stdlib json.Marshal function instead for the text Marshaller,
 // a speedup of 6X was observed!
 
-func messageToEntryMessage(message *lion.EncodedEntryMessage) (*Entry_Message, error) {
-	if message == nil {
-		return nil, nil
-	}
-	return &Entry_Message{
-		Encoding: message.Encoding,
-		Name:     message.Name,
-		Value:    message.Value,
-	}, nil
-}
-
-func entryMessageToMessage(entryMessage *Entry_Message) (*lion.EncodedEntryMessage, error) {
-	if entryMessage == nil {
-		return nil, nil
-	}
-	return &lion.EncodedEntryMessage{
-		Encoding: entryMessage.Encoding,
-		Name:     entryMessage.Name,
-		Value:    entryMessage.Value,
-	}, nil
-}
-
 func messagesToEntryMessages(messages []*lion.EncodedEntryMessage) ([]*Entry_Message, error) {
 	if messages == nil {
 		return nil, nil
@@ -169,4 +160,26 @@ func entryMessagesToMessages(entryMessages []*Entry_Message) ([]*lion.EncodedEnt
 		messages[i] = message
 	}
 	return messages, nil
+}
+
+func messageToEntryMessage(message *lion.EncodedEntryMessage) (*Entry_Message, error) {
+	if message == nil {
+		return nil, nil
+	}
+	return &Entry_Message{
+		Encoding: message.Encoding,
+		Name:     message.Name,
+		Value:    message.Value,
+	}, nil
+}
+
+func entryMessageToMessage(entryMessage *Entry_Message) (*lion.EncodedEntryMessage, error) {
+	if entryMessage == nil {
+		return nil, nil
+	}
+	return &lion.EncodedEntryMessage{
+		Encoding: entryMessage.Encoding,
+		Name:     entryMessage.Name,
+		Value:    entryMessage.Value,
+	}, nil
 }
