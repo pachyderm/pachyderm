@@ -1,4 +1,4 @@
-package pkgtime
+package pkgtime //import "go.pedge.io/pkg/time"
 
 import (
 	"sync/atomic"

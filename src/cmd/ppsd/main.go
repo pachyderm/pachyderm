@@ -13,8 +13,8 @@ import (
 	persistserver "github.com/pachyderm/pachyderm/src/pps/persist/server"
 	"github.com/pachyderm/pachyderm/src/pps/pipelineserver"
 	"go.pedge.io/env"
+	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/server"
-	"go.pedge.io/protolog"
 	"google.golang.org/grpc"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
@@ -24,10 +24,10 @@ type appEnv struct {
 	PfsAddress         string `env:"PFS_ADDRESS"`
 	PfsMountDir        string `env:"PFS_MOUNT_DIR"`
 	Address            string `env:"PPS_ADDRESS,default=0.0.0.0"`
-	Port               int    `env:"PPS_PORT,default=651"`
+	Port               uint16 `env:"PPS_PORT,default=651"`
 	DatabaseAddress    string `env:"PPS_DATABASE_ADDRESS"`
 	DatabaseName       string `env:"PPS_DATABASE_NAME,default=pachyderm"`
-	DebugPort          int    `env:"PPS_TRACE_PORT,default=1051"`
+	DebugPort          uint16 `env:"PPS_TRACE_PORT,default=1051"`
 	RemoveContainers   bool   `env:"PPS_REMOVE_CONTAINERS"`
 }
 
@@ -65,15 +65,16 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	return protoserver.Serve(
-		uint16(appEnv.Port),
 		func(s *grpc.Server) {
 			pps.RegisterJobAPIServer(s, jobAPIServer)
 			pps.RegisterInternalJobAPIServer(s, jobAPIServer)
 			pps.RegisterPipelineAPIServer(s, pipelineAPIServer)
 		},
 		protoserver.ServeOptions{
-			DebugPort: uint16(appEnv.DebugPort),
-			Version:   pachyderm.Version,
+			Version: pachyderm.Version,
+		},
+		protoserver.ServeEnv{
+			GRPCPort: appEnv.Port,
 		},
 	)
 }
@@ -119,7 +120,7 @@ func getKubeAddress() (string, error) {
 func getKubeClient() (*kube.Client, error) {
 	kubeClient, err := kube.NewInCluster()
 	if err != nil {
-		protolog.Errorf("Falling back to insecure kube client due to error from NewInCluster: %s", err.Error())
+		protolion.Errorf("Falling back to insecure kube client due to error from NewInCluster: %s", err.Error())
 	} else {
 		return kubeClient, err
 	}

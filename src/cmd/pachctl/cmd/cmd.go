@@ -13,7 +13,7 @@ import (
 	deploycmds "github.com/pachyderm/pachyderm/src/pkg/deploy/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/src/pps/cmds"
 	"github.com/spf13/cobra"
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/cobra"
 	"go.pedge.io/proto/version"
 	"golang.org/x/net/context"
