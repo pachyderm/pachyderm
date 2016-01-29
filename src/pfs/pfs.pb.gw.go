@@ -94,7 +94,7 @@ func RegisterAPIHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.C
 	mux.Handle("PUT", pattern_API_CreateRepo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		resp, err := request_API_CreateRepo_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
 		if err != nil {
-			runtime.HTTPError(ctx, w, err)
+			runtime.HTTPError(ctx, w, req, err)
 			return
 		}
 

@@ -8,7 +8,7 @@ import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import _ "github.com/gengo/grpc-gateway/third_party/googleapis/google/api"
-import google_protobuf1 "go.pedge.io/google-protobuf"
+import google_protobuf1 "go.pedge.io/pb/go/google/protobuf"
 
 import (
 	context "golang.org/x/net/context"
@@ -19,6 +19,10 @@ import (
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+const _ = proto.ProtoPackageIsVersion1
 
 type Version struct {
 	Major      uint32 `protobuf:"varint,1,opt,name=major" json:"major,omitempty"`

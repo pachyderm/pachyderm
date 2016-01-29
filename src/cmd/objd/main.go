@@ -9,17 +9,17 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/pkg/obj"
 	"go.pedge.io/env"
+	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/server"
-	"go.pedge.io/protolog"
 	"google.golang.org/grpc"
 )
 
 type appEnv struct {
 	StorageRoot string `env:"OBJ_ROOT,required"`
 	Address     string `env:"OBJ_ADDRESS"`
-	Port        int    `env:"OBJ_PORT,default=652"`
-	HTTPPort    int    `env:"OBJ_HTTP_PORT,default=752"`
-	DebugPort   int    `env:"OBJ_TRACE_PORT,default=1050"`
+	Port        uint16 `env:"OBJ_PORT,default=652"`
+	HTTPPort    uint16 `env:"OBJ_HTTP_PORT,default=752"`
+	DebugPort   uint16 `env:"OBJ_TRACE_PORT,default=1050"`
 }
 
 func main() {
@@ -68,7 +68,7 @@ func do(appEnvObj interface{}) error {
 		}
 		return nil
 	}(); err != nil {
-		protolog.Errorf("failed to create obj backend, falling back to local")
+		protolion.Errorf("failed to create obj backend, falling back to local")
 		blockAPIServer, err = server.NewLocalBlockAPIServer(appEnv.StorageRoot)
 		if err != nil {
 			return err
@@ -76,14 +76,14 @@ func do(appEnvObj interface{}) error {
 	}
 
 	return protoserver.Serve(
-		uint16(appEnv.Port),
 		func(s *grpc.Server) {
 			pfs.RegisterBlockAPIServer(s, blockAPIServer)
 		},
 		protoserver.ServeOptions{
-			HTTPPort:  uint16(appEnv.HTTPPort),
-			DebugPort: uint16(appEnv.DebugPort),
-			Version:   pachyderm.Version,
+			Version: pachyderm.Version,
+		},
+		protoserver.ServeEnv{
+			GRPCPort: appEnv.Port,
 		},
 	)
 }

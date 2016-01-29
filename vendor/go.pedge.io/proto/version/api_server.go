@@ -3,7 +3,7 @@ package protoversion
 import (
 	"time"
 
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 )
@@ -11,13 +11,16 @@ import (
 type apiServer struct {
 	protorpclog.Logger
 	version *Version
+	options APIServerOptions
 }
 
-func newAPIServer(version *Version) *apiServer {
-	return &apiServer{protorpclog.NewLogger("protoversion.API"), version}
+func newAPIServer(version *Version, options APIServerOptions) *apiServer {
+	return &apiServer{protorpclog.NewLogger("protoversion.API"), version, options}
 }
 
 func (a *apiServer) GetVersion(ctx context.Context, request *google_protobuf.Empty) (response *Version, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if !a.options.DisableLogging {
+		defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	}
 	return a.version, nil
 }
