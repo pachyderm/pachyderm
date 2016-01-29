@@ -401,6 +401,11 @@ func NewReadPuller(reader io.Reader, unmarshaller Unmarshaller) Puller {
 	return newReadPuller(reader, unmarshaller)
 }
 
+// JSONMarshalFunc marshals JSON for a TextMarshaller.
+//
+// It is used internally in a TextMarshaller, and is not a Marshaller itself.
+type JSONMarshalFunc func(writer io.Writer, value interface{}) error
+
 // TextMarshaller is a Marshaller used for text.
 type TextMarshaller interface {
 	Marshaller
@@ -436,19 +441,6 @@ func TextMarshallerDisableContexts() TextMarshallerOption {
 func TextMarshallerDisableNewlines() TextMarshallerOption {
 	return func(textMarshaller *textMarshaller) {
 		textMarshaller.disableNewlines = true
-	}
-}
-
-// JSONMarshalFunc marshals JSON for a TextMarshaller.
-//
-// It is used internally in a TextMarshaller, and is not a Marshaller itself.
-type JSONMarshalFunc func(writer io.Writer, value interface{}) error
-
-// TextMarshallerWithJSONMarshalFunc uses the given JSONMarshalFunc for JSON marshalling. The default
-// behavior is to use the global JSONMarshalFunc.
-func TextMarshallerWithJSONMarshalFunc(jsonMarshalFunc JSONMarshalFunc) TextMarshallerOption {
-	return func(textMarshaller *textMarshaller) {
-		textMarshaller.jsonMarshalFunc = jsonMarshalFunc
 	}
 }
 
