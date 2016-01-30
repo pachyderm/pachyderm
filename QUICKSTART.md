@@ -7,6 +7,9 @@
 - Kubernetes and Kubectl >= 1.1.2
 - FUSE 2.8.2 (https://osxfuse.github.io/)
 
+This quick start assumes you've already got a working Kubernetes cluster and
+Kubectl works.
+
 ### Forward Ports
 
 You'll need to make sure `pachctl` can connect to the running pachyderm services:
