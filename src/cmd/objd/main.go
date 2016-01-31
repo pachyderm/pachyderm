@@ -6,7 +6,6 @@ import (
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
-	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/pkg/obj"
 	"go.pedge.io/env"
 	"go.pedge.io/lion/proto"
@@ -16,10 +15,7 @@ import (
 
 type appEnv struct {
 	StorageRoot string `env:"OBJ_ROOT,required"`
-	Address     string `env:"OBJ_ADDRESS"`
 	Port        uint16 `env:"OBJ_PORT,default=652"`
-	HTTPPort    uint16 `env:"OBJ_HTTP_PORT,default=752"`
-	DebugPort   uint16 `env:"OBJ_TRACE_PORT,default=1050"`
 }
 
 func main() {
@@ -28,14 +24,6 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	var err error
-	address := appEnv.Address
-	if address == "" {
-		address, err = netutil.ExternalIP()
-		if err != nil {
-			return err
-		}
-	}
 	var blockAPIServer pfs.BlockAPIServer
 	if err := func() error {
 		bucket, err := ioutil.ReadFile("/amazon-secret/bucket")
