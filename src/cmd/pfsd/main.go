@@ -24,13 +24,12 @@ import (
 )
 
 type appEnv struct {
-	DriverType  string `env:"PFS_DRIVER_TYPE,default=obj"`
 	NumShards   uint64 `env:"PFS_NUM_SHARDS,default=16"`
-	NumReplicas uint64 `env:"PFS_NUM_REPLICAS"`
 	Address     string `env:"PFS_ADDRESS"`
 	Port        uint16 `env:"PFS_PORT,default=650"`
 	HTTPPort    uint16 `env:"PFS_HTTP_PORT,default=750"`
-	DebugPort   uint16 `env:"PFS_TRACE_PORT,default=1050"`
+	EtcdAddress string `env:"ETCD_PORT_2379_TCP_ADDR"`
+	ObjdAddress string `env:"OBJD_PORT_652_TCP_ADDR"`
 }
 
 func main() {
@@ -39,7 +38,7 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	discoveryClient, err := getEtcdClient()
+	discoveryClient, err := getEtcdClient(appEnv)
 	if err != nil {
 		return err
 	}
@@ -54,27 +53,21 @@ func do(appEnvObj interface{}) error {
 	sharder := shard.NewSharder(
 		discoveryClient,
 		appEnv.NumShards,
-		appEnv.NumReplicas,
+		0,
 		"namespace",
 	)
-	var driver drive.Driver
-	switch appEnv.DriverType {
-	case "obj":
-		objdAddress, err := getObjdAddress()
-		if err != nil {
-			return err
-		}
-		clientConn, err := grpc.Dial(objdAddress, grpc.WithInsecure())
-		if err != nil {
-			return err
-		}
-		objAPIClient := pfs.NewBlockAPIClient(clientConn)
-		driver, err = drive.NewDriver(objAPIClient)
-		if err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("unknown value for PFS_DRIVER_TYPE: %s", appEnv.DriverType)
+	objdAddress, err := getObjdAddress(appEnv)
+	if err != nil {
+		return err
+	}
+	clientConn, err := grpc.Dial(objdAddress, grpc.WithInsecure())
+	if err != nil {
+		return err
+	}
+	objAPIClient := pfs.NewBlockAPIClient(clientConn)
+	driver, err := drive.NewDriver(objAPIClient)
+	if err != nil {
+		return err
 	}
 	apiServer := server.NewAPIServer(
 		route.NewSharder(
@@ -135,23 +128,22 @@ func do(appEnvObj interface{}) error {
 	)
 }
 
-func getEtcdClient() (discovery.Client, error) {
-	etcdAddress, err := getEtcdAddress()
+func getEtcdClient(env *appEnv) (discovery.Client, error) {
+	etcdAddress, err := getEtcdAddress(env)
 	if err != nil {
 		return nil, err
 	}
 	return discovery.NewEtcdClient(etcdAddress), nil
 }
 
-func getEtcdAddress() (string, error) {
-	etcdAddr := os.Getenv("ETCD_PORT_2379_TCP_ADDR")
-	if etcdAddr == "" {
+func getEtcdAddress(env *appEnv) (string, error) {
+	if env.EtcdAddress == "" {
 		return "", errors.New("ETCD_PORT_2379_TCP_ADDR not set")
 	}
-	return fmt.Sprintf("http://%s:2379", etcdAddr), nil
+	return fmt.Sprintf("http://%s:2379", env.EtcdAddress), nil
 }
 
-func getObjdAddress() (string, error) {
+func getObjdAddress(env *appEnv) (string, error) {
 	objdAddr := os.Getenv("OBJD_PORT_652_TCP_ADDR")
 	if objdAddr == "" {
 		return "", errors.New("OBJD_PORT_652_TCP_ADDR not set")
