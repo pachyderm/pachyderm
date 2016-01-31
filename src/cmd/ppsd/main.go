@@ -1,9 +1,7 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"os"
 
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -20,15 +18,11 @@ import (
 )
 
 type appEnv struct {
-	PachydermPfsd1Port string `env:"PACHYDERM_PFSD_1_PORT"`
-	PfsAddress         string `env:"PFS_ADDRESS"`
-	PfsMountDir        string `env:"PFS_MOUNT_DIR"`
-	Address            string `env:"PPS_ADDRESS,default=0.0.0.0"`
-	Port               uint16 `env:"PPS_PORT,default=651"`
-	DatabaseAddress    string `env:"PPS_DATABASE_ADDRESS"`
-	DatabaseName       string `env:"PPS_DATABASE_NAME,default=pachyderm"`
-	DebugPort          uint16 `env:"PPS_TRACE_PORT,default=1051"`
-	RemoveContainers   bool   `env:"PPS_REMOVE_CONTAINERS"`
+	Port            uint16 `env:"PPS_PORT,default=651"`
+	DatabaseAddress string `env:"RETHINK_PORT_28015_TCP_ADDR,required"`
+	DatabaseName    string `env:"PPS_DATABASE_NAME,default=pachyderm"`
+	PfsdAddress     string `env:"PFSD_PORT_650_TCP_ADDR,required"`
+	KubeAddress     string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 }
 
 func main() {
@@ -37,20 +31,17 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	rethinkAPIServer, err := getRethinkAPIServer(appEnv.DatabaseAddress, appEnv.DatabaseName)
+	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {
 		return err
 	}
-	pfsdAddress, err := getPfsdAddress()
-	if err != nil {
-		return err
-	}
+	pfsdAddress := getPfsdAddress(appEnv)
 	clientConn, err := grpc.Dial(pfsdAddress, grpc.WithInsecure())
 	if err != nil {
 		return err
 	}
 	pfsAPIClient := pfs.NewAPIClient(clientConn)
-	kubeClient, err := getKubeClient()
+	kubeClient, err := getKubeClient(appEnv)
 	if err != nil {
 		return err
 	}
@@ -79,57 +70,34 @@ func do(appEnvObj interface{}) error {
 	)
 }
 
-func getRethinkAPIServer(address string, databaseName string) (persist.APIServer, error) {
-	var err error
-	if address == "" {
-		address, err = getRethinkAddress()
-		if err != nil {
-			return nil, err
-		}
-	}
-	if err := persistserver.InitDBs(address, databaseName); err != nil {
+func getRethinkAPIServer(env *appEnv) (persist.APIServer, error) {
+	if err := persistserver.InitDBs(getRethinkAddress(env), env.DatabaseName); err != nil {
 		return nil, err
 	}
-	return persistserver.NewRethinkAPIServer(address, databaseName)
+	return persistserver.NewRethinkAPIServer(getRethinkAddress(env), env.DatabaseName)
 }
 
-func getRethinkAddress() (string, error) {
-	rethinkAddr := os.Getenv("RETHINK_PORT_28015_TCP_ADDR")
-	if rethinkAddr == "" {
-		return "", errors.New("RETHINK_PORT_28015_TCP_ADDR not set")
-	}
-	return fmt.Sprintf("%s:28015", rethinkAddr), nil
+func getRethinkAddress(env *appEnv) string {
+	return fmt.Sprintf("%s:28015", env.DatabaseAddress)
 }
 
-func getPfsdAddress() (string, error) {
-	pfsdAddr := os.Getenv("PFSD_PORT_650_TCP_ADDR")
-	if pfsdAddr == "" {
-		return "", errors.New("PFSD_PORT_650_TCP_ADDR not set")
-	}
-	return fmt.Sprintf("%s:650", pfsdAddr), nil
+func getPfsdAddress(env *appEnv) string {
+	return fmt.Sprintf("%s:650", env.PfsdAddress)
 }
 
-func getKubeAddress() (string, error) {
-	kubedAddr := os.Getenv("KUBERNETES_PORT_443_TCP_ADDR")
-	if kubedAddr == "" {
-		return "", errors.New("KUBERNETES_PORT_443_TCP_ADDR not set")
-	}
-	return fmt.Sprintf("%s:443", kubedAddr), nil
+func getKubeAddress(env *appEnv) string {
+	return fmt.Sprintf("%s:443", env.KubeAddress)
 }
 
-func getKubeClient() (*kube.Client, error) {
+func getKubeClient(env *appEnv) (*kube.Client, error) {
 	kubeClient, err := kube.NewInCluster()
 	if err != nil {
 		protolion.Errorf("Falling back to insecure kube client due to error from NewInCluster: %s", err.Error())
 	} else {
 		return kubeClient, err
 	}
-	kubeAddr, err := getKubeAddress()
-	if err != nil {
-		return nil, err
-	}
 	config := &kube.Config{
-		Host:     kubeAddr,
+		Host:     getKubeAddress(env),
 		Insecure: true,
 	}
 	return kube.New(config)
