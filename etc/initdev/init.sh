@@ -13,6 +13,12 @@ DOCKER_COMPOSE_VERSION=1.5.0rc2
 # to determine which Ubuntu version we're running on for updating the apt sources
 . /etc/lsb-release
 
+run()
+{
+	echo "Running $*" 1>&2
+	$*
+}
+
 setup_apt()
 {
 	# Adds the correct docker apt repository
@@ -32,10 +38,12 @@ install_docker_compose()
 
 install_go()
 {
-	# installs go
 	curl -sSL https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz | tar -C /usr/local -xz
+}
 
-	# configures vagrant user's environment for go development
+# configures vagrant user's environment for go development
+setup_user_go()
+{
 	echo 'export PATH=${PATH}:/usr/local/go/bin' >> '/etc/profile'
 	su - "${USERNAME}" -c "echo mkdir -p /home/${USERNAME}/go >> /home/${USERNAME}/.profile"
 	su - "${USERNAME}" -c "echo export GOPATH=/home/${USERNAME}/go >> /home/${USERNAME}/.profile"
@@ -66,24 +74,32 @@ cleanup_apt()
 	apt-get autoremove -yq
 }
 
-run()
+# sudoless use of docker
+setup_user_docker()
 {
-	echo "Running $*" 1>&2
-	$*
+	groupadd docker || true
+	usermod -aG docker ${USERNAME}
+	service docker restart
+}
+
+setup_user()
+{
+	run setup_user_docker
+	run setup_user_go
 }
 
 main()
 {
 	run setup_apt
+
 	run install_apt
 	run install_go
 	run install_docker_compose
+
 	run cleanup_apt
+
+	run setup_user
 }
 
-# # sudoless use of docker
-# groupadd docker || true
-# usermod -aG docker ${1}
-# service docker restart
 
 main
