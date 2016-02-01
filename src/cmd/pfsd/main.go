@@ -60,12 +60,7 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	clientConn, err := grpc.Dial(objdAddress, grpc.WithInsecure())
-	if err != nil {
-		return err
-	}
-	objAPIClient := pfs.NewBlockAPIClient(clientConn)
-	driver, err := drive.NewDriver(objAPIClient)
+	driver, err := drive.NewDriver(objdAddress)
 	if err != nil {
 		return err
 	}
