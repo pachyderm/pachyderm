@@ -32,6 +32,6 @@ type Driver interface {
 	DeleteShard(shard uint64) error
 }
 
-func NewDriver(blockClient pfs.BlockAPIClient) (Driver, error) {
-	return newDriver(blockClient)
+func NewDriver(blockAddress string) (Driver, error) {
+	return newDriver(blockAddress)
 }
