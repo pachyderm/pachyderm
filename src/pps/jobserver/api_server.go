@@ -13,6 +13,7 @@ import (
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/extensions"
@@ -46,7 +47,9 @@ func newJobState() *jobState {
 
 type apiServer struct {
 	protorpclog.Logger
+	pfsAddress       string
 	pfsAPIClient     pfs.APIClient
+	pfsClientOnce    sync.Once
 	persistAPIServer persist.APIServer
 	kubeClient       *kube.Client
 	jobStates        map[string]*jobState
@@ -54,13 +57,15 @@ type apiServer struct {
 }
 
 func newAPIServer(
-	pfsAPIClient pfs.APIClient,
+	pfsAddress string,
 	persistAPIServer persist.APIServer,
 	kubeClient *kube.Client,
 ) *apiServer {
 	return &apiServer{
 		protorpclog.NewLogger("pachyderm.pps.JobAPI"),
-		pfsAPIClient,
+		pfsAddress,
+		nil,
+		sync.Once{},
 		persistAPIServer,
 		kubeClient,
 		make(map[string]*jobState),
@@ -167,13 +172,17 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	if shard == jobInfo.Shards {
 		return nil, fmt.Errorf("job %s already has %d shards", request.Job.Id, jobInfo.Shards)
 	}
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
 	if shard == 0 {
 		var parentCommit *pfs.Commit
 		if jobInfo.ParentJob == nil {
 			var repo *pfs.Repo
 			if jobInfo.PipelineName == "" {
 				repo = pps.JobRepo(request.Job)
-				if _, err := a.pfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: repo}); err != nil {
+				if _, err := pfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: repo}); err != nil {
 					return nil, err
 				}
 			} else {
@@ -188,7 +197,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 			}
 			parentCommit = parentJobInfo.OutputCommit
 		}
-		commit, err := a.pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+		commit, err := pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 			Parent: parentCommit,
 		})
 		if err != nil {
@@ -270,7 +279,11 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
 		}
-		if _, err := a.pfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+		pfsAPIClient, err := a.getPfsClient()
+		if err != nil {
+			return nil, err
+		}
+		if _, err := pfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 			Commit: jobInfo.OutputCommit,
 		}); err != nil {
 			return nil, err
@@ -283,6 +296,23 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 		}
 	}
 	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *apiServer) getPfsClient() (pfs.APIClient, error) {
+	if a.pfsAPIClient == nil {
+		var onceErr error
+		a.pfsClientOnce.Do(func() {
+			clientConn, err := grpc.Dial(a.pfsAddress, grpc.WithInsecure())
+			if err != nil {
+				onceErr = err
+			}
+			a.pfsAPIClient = pfs.NewAPIClient(clientConn)
+		})
+		if onceErr != nil {
+			return nil, onceErr
+		}
+	}
+	return a.pfsAPIClient, nil
 }
 
 func newJobInfo(persistJobInfo *persist.JobInfo) (*pps.JobInfo, error) {
