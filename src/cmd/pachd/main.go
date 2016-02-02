@@ -13,6 +13,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/pps/persist"
+	persistserver "github.com/pachyderm/pachyderm/src/pps/persist/server"
 	"go.pedge.io/env"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pkg/http"
@@ -42,6 +44,10 @@ func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 	etcdClient := getEtcdClient(appEnv)
 	_, err := getKubeClient(appEnv)
+	if err != nil {
+		return err
+	}
+	_, err = getRethinkAPIServer(appEnv)
 	if err != nil {
 		return err
 	}
@@ -135,4 +141,11 @@ func getKubeClient(env *appEnv) (*kube.Client, error) {
 		Insecure: true,
 	}
 	return kube.New(config)
+}
+
+func getRethinkAPIServer(env *appEnv) (persist.APIServer, error) {
+	if err := persistserver.InitDBs(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName); err != nil {
+		return nil, err
+	}
+	return persistserver.NewRethinkAPIServer(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName)
 }
