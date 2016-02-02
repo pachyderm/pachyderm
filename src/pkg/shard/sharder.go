@@ -101,7 +101,7 @@ func (a *sharder) GetShardToReplicaAddresses(version int64) (result map[uint64]m
 	return _result, nil
 }
 
-func (a *sharder) Register(cancel chan bool, address string, server Server) (retErr error) {
+func (a *sharder) Register(cancel chan bool, address string, servers []Server) (retErr error) {
 	protolion.Info(&StartRegister{address})
 	defer func() {
 		protolion.Info(&FinishRegister{address, errorToString(retErr)})
@@ -113,7 +113,7 @@ func (a *sharder) Register(cancel chan bool, address string, server Server) (ret
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		if err := a.announceServer(address, server, versionChan, internalCancel); err != nil {
+		if err := a.announceServers(address, servers, versionChan, internalCancel); err != nil {
 			once.Do(func() {
 				retErr = err
 				close(internalCancel)
@@ -122,7 +122,7 @@ func (a *sharder) Register(cancel chan bool, address string, server Server) (ret
 	}()
 	go func() {
 		defer wg.Done()
-		if err := a.fillRoles(address, server, versionChan, internalCancel); err != nil {
+		if err := a.fillRoles(address, servers, versionChan, internalCancel); err != nil {
 			once.Do(func() {
 				retErr = err
 				close(internalCancel)
@@ -144,7 +144,7 @@ func (a *sharder) Register(cancel chan bool, address string, server Server) (ret
 	return
 }
 
-func (a *sharder) RegisterFrontend(cancel chan bool, address string, frontend Frontend) (retErr error) {
+func (a *sharder) RegisterFrontends(cancel chan bool, address string, frontends []Frontend) (retErr error) {
 	var once sync.Once
 	versionChan := make(chan int64)
 	internalCancel := make(chan bool)
@@ -152,7 +152,7 @@ func (a *sharder) RegisterFrontend(cancel chan bool, address string, frontend Fr
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		if err := a.announceFrontend(address, frontend, versionChan, internalCancel); err != nil {
+		if err := a.announceFrontends(address, frontends, versionChan, internalCancel); err != nil {
 			once.Do(func() {
 				retErr = err
 				close(internalCancel)
@@ -161,7 +161,7 @@ func (a *sharder) RegisterFrontend(cancel chan bool, address string, frontend Fr
 	}()
 	go func() {
 		defer wg.Done()
-		if err := a.runFrontend(address, frontend, versionChan, internalCancel); err != nil {
+		if err := a.runFrontends(address, frontends, versionChan, internalCancel); err != nil {
 			once.Do(func() {
 				retErr = err
 				close(internalCancel)
@@ -791,9 +791,9 @@ func swapReplica(
 	return false
 }
 
-func (a *sharder) announceServer(
+func (a *sharder) announceServers(
 	address string,
-	server Server,
+	servers []Server,
 	versionChan chan int64,
 	cancel chan bool,
 ) error {
@@ -802,11 +802,6 @@ func (a *sharder) announceServer(
 		Version: InvalidVersion,
 	}
 	for {
-		shards, err := server.LocalShards()
-		if err != nil {
-			return err
-		}
-		serverState.Shards = shards
 		encodedServerState, err := marshaler.MarshalToString(serverState)
 		if err != nil {
 			return err
@@ -825,9 +820,9 @@ func (a *sharder) announceServer(
 	}
 }
 
-func (a *sharder) announceFrontend(
+func (a *sharder) announceFrontends(
 	address string,
-	frontend Frontend,
+	frontends []Frontend,
 	versionChan chan int64,
 	cancel chan bool,
 ) error {
@@ -862,7 +857,7 @@ func (s int64Slice) Less(i, j int) bool { return s[i] < s[j] }
 
 func (a *sharder) fillRoles(
 	address string,
-	server Server,
+	servers []Server,
 	versionChan chan int64,
 	cancel chan bool,
 ) error {
@@ -897,14 +892,17 @@ func (a *sharder) fillRoles(
 				var addShardErr error
 				for _, shard := range shards(serverRole) {
 					if !containsShard(oldRoles, shard) {
-						wg.Add(1)
 						shard := shard
-						go func() {
-							defer wg.Done()
-							if err := server.AddShard(shard, version-1); err != nil && addShardErr == nil {
-								addShardErr = err
-							}
-						}()
+						for _, server := range servers {
+							wg.Add(1)
+							server := server
+							go func() {
+								defer wg.Done()
+								if err := server.AddShard(shard, version-1); err != nil && addShardErr == nil {
+									addShardErr = err
+								}
+							}()
+						}
 					}
 				}
 				wg.Wait()
@@ -926,14 +924,17 @@ func (a *sharder) fillRoles(
 				}
 				for _, shard := range shards(serverRole) {
 					if !containsShard(roles, shard) {
-						wg.Add(1)
 						shard := shard
-						go func(shard uint64) {
-							defer wg.Done()
-							if err := server.RemoveShard(shard, version-1); err != nil && removeShardErr == nil {
-								removeShardErr = err
-							}
-						}(shard)
+						for _, server := range servers {
+							server := server
+							wg.Add(1)
+							go func(shard uint64) {
+								defer wg.Done()
+								if err := server.RemoveShard(shard, version-1); err != nil && removeShardErr == nil {
+									removeShardErr = err
+								}
+							}(shard)
+						}
 					}
 				}
 				wg.Wait()
@@ -952,9 +953,9 @@ func (a *sharder) fillRoles(
 	)
 }
 
-func (a *sharder) runFrontend(
+func (a *sharder) runFrontends(
 	address string,
-	frontend Frontend,
+	frontends []Frontend,
 	versionChan chan int64,
 	cancel chan bool,
 ) error {
@@ -977,8 +978,21 @@ func (a *sharder) runFrontend(
 				}
 			}
 			if minVersion > version {
-				if err := frontend.Version(minVersion); err != nil {
-					return err
+				var wg sync.WaitGroup
+				var loopErr error
+				for _, frontend := range frontends {
+					frontend := frontend
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						if err := frontend.Version(minVersion); err != nil && loopErr == nil {
+							loopErr = err
+						}
+					}()
+				}
+				wg.Wait()
+				if loopErr != nil {
+					return loopErr
 				}
 				version = minVersion
 				versionChan <- version

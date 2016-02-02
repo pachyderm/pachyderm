@@ -78,7 +78,7 @@ func do(appEnvObj interface{}) error {
 		),
 	)
 	go func() {
-		if err := sharder.RegisterFrontend(nil, address, apiServer); err != nil {
+		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{apiServer}); err != nil {
 			protolion.Printf("Error from sharder.RegisterFrontend %s", err.Error())
 		}
 	}()
@@ -97,7 +97,7 @@ func do(appEnvObj interface{}) error {
 		driver,
 	)
 	go func() {
-		if err := sharder.Register(nil, address, internalAPIServer); err != nil {
+		if err := sharder.Register(nil, address, []shard.Server{internalAPIServer}); err != nil {
 			protolion.Printf("Error from sharder.Register %s", err.Error())
 		}
 	}()
