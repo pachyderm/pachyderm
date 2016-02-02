@@ -1,7 +1,6 @@
 package pipelineserver
 
 import (
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 )
@@ -12,12 +11,12 @@ type APIServer interface {
 }
 
 func NewAPIServer(
-	pfsAPIClient pfs.APIClient,
+	pfsAddress string,
 	jobAPIClient pps.JobAPIClient,
 	persistAPIServer persist.APIServer,
 ) APIServer {
 	return newAPIServer(
-		pfsAPIClient,
+		pfsAddress,
 		jobAPIClient,
 		persistAPIServer,
 	)

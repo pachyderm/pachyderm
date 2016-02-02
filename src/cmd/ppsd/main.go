@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm"
-	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/jobserver"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
@@ -35,23 +34,17 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	pfsdAddress := getPfsdAddress(appEnv)
-	clientConn, err := grpc.Dial(pfsdAddress, grpc.WithInsecure())
-	if err != nil {
-		return err
-	}
-	pfsAPIClient := pfs.NewAPIClient(clientConn)
 	kubeClient, err := getKubeClient(appEnv)
 	if err != nil {
 		return err
 	}
 	jobAPIServer := jobserver.NewAPIServer(
-		pfsAPIClient,
+		getPfsdAddress(appEnv),
 		rethinkAPIServer,
 		kubeClient,
 	)
 	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
-	pipelineAPIServer := pipelineserver.NewAPIServer(pfsAPIClient, jobAPIClient, rethinkAPIServer)
+	pipelineAPIServer := pipelineserver.NewAPIServer(getPfsdAddress(appEnv), jobAPIClient, rethinkAPIServer)
 	if err := pipelineAPIServer.Start(); err != nil {
 		return err
 	}

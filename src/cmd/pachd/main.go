@@ -13,8 +13,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/pps/jobserver"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	persistserver "github.com/pachyderm/pachyderm/src/pps/persist/server"
+	"github.com/pachyderm/pachyderm/src/pps/pipelineserver"
 	"go.pedge.io/env"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pkg/http"
@@ -43,11 +46,11 @@ func main() {
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 	etcdClient := getEtcdClient(appEnv)
-	_, err := getKubeClient(appEnv)
+	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {
 		return err
 	}
-	_, err = getRethinkAPIServer(appEnv)
+	kubeClient, err := getKubeClient(appEnv)
 	if err != nil {
 		return err
 	}
@@ -103,10 +106,23 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("Error from sharder.Register %s", err.Error())
 		}
 	}()
+	jobAPIServer := jobserver.NewAPIServer(
+		address,
+		rethinkAPIServer,
+		kubeClient,
+	)
+	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
+	pipelineAPIServer := pipelineserver.NewAPIServer(address, jobAPIClient, rethinkAPIServer)
+	if err := pipelineAPIServer.Start(); err != nil {
+		return err
+	}
 	return protoserver.ServeWithHTTP(
 		func(s *grpc.Server) {
 			pfs.RegisterAPIServer(s, apiServer)
 			pfs.RegisterInternalAPIServer(s, internalAPIServer)
+			pps.RegisterJobAPIServer(s, jobAPIServer)
+			pps.RegisterInternalJobAPIServer(s, jobAPIServer)
+			pps.RegisterPipelineAPIServer(s, pipelineAPIServer)
 		},
 		func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
 			return pfs.RegisterAPIHandler(ctx, mux, clientConn)

@@ -8,15 +8,18 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
-	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/lion/proto"
+	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 type apiServer struct {
 	protorpclog.Logger
+	pfsAddress       string
 	pfsAPIClient     pfs.APIClient
+	pfsClientOnce    sync.Once
 	jobAPIClient     pps.JobAPIClient
 	persistAPIServer persist.APIServer
 	cancelFuncs      map[pps.Pipeline]func()
@@ -24,13 +27,15 @@ type apiServer struct {
 }
 
 func newAPIServer(
-	pfsAPIClient pfs.APIClient,
+	pfsAddress string,
 	jobAPIClient pps.JobAPIClient,
 	persistAPIServer persist.APIServer,
 ) *apiServer {
 	return &apiServer{
 		protorpclog.NewLogger("pachyderm.pps.PipelineAPI"),
-		pfsAPIClient,
+		pfsAddress,
+		nil,
+		sync.Once{},
 		jobAPIClient,
 		persistAPIServer,
 		make(map[pps.Pipeline]func()),
@@ -77,7 +82,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if _, err := a.persistAPIServer.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
 	}
-	if _, err := a.pfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: repo}); err != nil {
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := pfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: repo}); err != nil {
 		return nil, err
 	}
 	go func() {
@@ -148,6 +157,10 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 		repoToInput[input.Repo.Name] = input
 		inputRepos = append(inputRepos, &pfs.Repo{Name: input.Repo.Name})
 	}
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return err
+	}
 	for {
 		var fromCommits []*pfs.Commit
 		for repo, leaves := range repoToLeaves {
@@ -166,7 +179,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 			FromCommit: fromCommits,
 			Block:      true,
 		}
-		commitInfos, err := a.pfsAPIClient.ListCommit(ctx, listCommitRequest)
+		commitInfos, err := pfsAPIClient.ListCommit(ctx, listCommitRequest)
 		if err != nil {
 			return err
 		}
@@ -250,4 +263,21 @@ func (a *apiServer) parentJob(
 		return nil, nil
 	}
 	return jobInfo.JobInfo[0].Job, nil
+}
+
+func (a *apiServer) getPfsClient() (pfs.APIClient, error) {
+	if a.pfsAPIClient == nil {
+		var onceErr error
+		a.pfsClientOnce.Do(func() {
+			clientConn, err := grpc.Dial(a.pfsAddress, grpc.WithInsecure())
+			if err != nil {
+				onceErr = err
+			}
+			a.pfsAPIClient = pfs.NewAPIClient(clientConn)
+		})
+		if onceErr != nil {
+			return nil, onceErr
+		}
+	}
+	return a.pfsAPIClient, nil
 }
