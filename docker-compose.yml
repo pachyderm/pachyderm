@@ -68,3 +68,10 @@ job-shim:
   links:
     - pfsd
     - ppsd
+pachd:
+  build: .
+  dockerfile: Dockerfile.pachd
+  ports:
+    - "650:650"
+    - "750:750"
+    - "1050:1050"

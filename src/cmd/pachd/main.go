@@ -67,6 +67,11 @@ func do(appEnvObj interface{}) error {
 		0,
 		appEnv.Namespace,
 	)
+	go func() {
+		if err := sharder.AssignRoles(nil); err != nil {
+			protolion.Printf("Error from sharder.AssignRoles: %s", err.Error())
+		}
+	}()
 	driver, err := drive.NewDriver(address)
 	if err != nil {
 		return err
