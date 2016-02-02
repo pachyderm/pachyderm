@@ -107,9 +107,7 @@ type NodeSetattrer interface {
 	// Setattr sets the standard metadata for the receiver.
 	//
 	// Note, this is also used to communicate changes in the size of
-	// the file. Not implementing Setattr causes writes to be unable
-	// to grow the file (except with OpenDirectIO, which bypasses that
-	// mechanism).
+	// the file, outside of Writes.
 	//
 	// req.Valid is a bitmask of what fields are actually being set.
 	// For example, the method should not change the mode of the file
@@ -299,16 +297,17 @@ type HandleReader interface {
 }
 
 type HandleWriter interface {
-	// Write requests to write data into the handle.
+	// Write requests to write data into the handle at the given offset.
+	// Store the amount of data written in resp.Size.
 	//
 	// There is a writeback page cache in the kernel that normally submits
 	// only page-aligned writes spanning one or more pages. However,
 	// you should not rely on this. To see individual requests as
 	// submitted by the file system clients, set OpenDirectIO.
 	//
-	// Note that file size changes are communicated through Setattr.
-	// Writes beyond the size of the file as reported by Attr are not
-	// even attempted (except in OpenDirectIO mode).
+	// Writes that grow the file are expected to update the file size
+	// (as seen through Attr). Note that file size changes are
+	// communicated also through Setattr.
 	Write(ctx context.Context, req *fuse.WriteRequest, resp *fuse.WriteResponse) error
 }
 

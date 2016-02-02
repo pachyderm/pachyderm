@@ -97,7 +97,7 @@ func (e rqlServerError) String() string {
 type rqlError string
 
 func (e rqlError) Error() string {
-	return fmt.Sprintf("gorethink: %s", e)
+	return fmt.Sprintf("gorethink: %s", string(e))
 }
 
 func (e rqlError) String() string {

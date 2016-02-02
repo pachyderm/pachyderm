@@ -74,6 +74,25 @@ func (ClusterAutoscalerSpec) SwaggerDoc() map[string]string {
 	return map_ClusterAutoscalerSpec
 }
 
+var map_CustomMetricCurrentStatus = map[string]string{
+	"name":  "Custom Metric name.",
+	"value": "Custom Metric value (average).",
+}
+
+func (CustomMetricCurrentStatus) SwaggerDoc() map[string]string {
+	return map_CustomMetricCurrentStatus
+}
+
+var map_CustomMetricTarget = map[string]string{
+	"":      "Alpha-level support for Custom Metrics in HPA (as annotations).",
+	"name":  "Custom Metric name.",
+	"value": "Custom Metric value (average).",
+}
+
+func (CustomMetricTarget) SwaggerDoc() map[string]string {
+	return map_CustomMetricTarget
+}
+
 var map_DaemonSet = map[string]string{
 	"":         "DaemonSet represents the configuration of a daemon set.",
 	"metadata": "Standard object's metadata. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata",
@@ -96,9 +115,11 @@ func (DaemonSetList) SwaggerDoc() map[string]string {
 }
 
 var map_DaemonSetSpec = map[string]string{
-	"":         "DaemonSetSpec is the specification of a daemon set.",
-	"selector": "Selector is a label query over pods that are managed by the daemon set. Must match in order to be controlled. If empty, defaulted to labels on Pod template. More info: http://releases.k8s.io/HEAD/docs/user-guide/labels.md#label-selectors",
-	"template": "Template is the object that describes the pod that will be created. The DaemonSet will create exactly one copy of this pod on every node that matches the template's node selector (or on every node if no node selector is specified). More info: http://releases.k8s.io/HEAD/docs/user-guide/replication-controller.md#pod-template",
+	"":               "DaemonSetSpec is the specification of a daemon set.",
+	"selector":       "Selector is a label query over pods that are managed by the daemon set. Must match in order to be controlled. If empty, defaulted to labels on Pod template. More info: http://releases.k8s.io/HEAD/docs/user-guide/labels.md#label-selectors",
+	"template":       "Template is the object that describes the pod that will be created. The DaemonSet will create exactly one copy of this pod on every node that matches the template's node selector (or on every node if no node selector is specified). More info: http://releases.k8s.io/HEAD/docs/user-guide/replication-controller.md#pod-template",
+	"updateStrategy": "Update strategy to replace existing DaemonSet pods with new pods.",
+	"uniqueLabelKey": "Label key that is added to DaemonSet pods to distinguish between old and new pod templates during DaemonSet update. Users can set this to an empty string to indicate that the system should not add any label. If unspecified, system uses DefaultDaemonSetUniqueLabelKey(\"daemonset.kubernetes.io/podTemplateHash\"). Value of this key is hash of DaemonSetSpec.PodTemplateSpec. No label is added if this is set to empty string.",
 }
 
 func (DaemonSetSpec) SwaggerDoc() map[string]string {
@@ -114,6 +135,15 @@ var map_DaemonSetStatus = map[string]string{
 
 func (DaemonSetStatus) SwaggerDoc() map[string]string {
 	return map_DaemonSetStatus
+}
+
+var map_DaemonSetUpdateStrategy = map[string]string{
+	"type":          "Type of daemon set update. Only \"RollingUpdate\" is supported at this time. Default is RollingUpdate.",
+	"rollingUpdate": "Rolling update config params. Present only if DaemonSetUpdateStrategy = RollingUpdate.",
+}
+
+func (DaemonSetUpdateStrategy) SwaggerDoc() map[string]string {
+	return map_DaemonSetUpdateStrategy
 }
 
 var map_Deployment = map[string]string{
@@ -137,13 +167,27 @@ func (DeploymentList) SwaggerDoc() map[string]string {
 	return map_DeploymentList
 }
 
+var map_DeploymentRollback = map[string]string{
+	"":                   "DeploymentRollback stores the information required to rollback a deployment.",
+	"name":               "Required: This must match the Name of a deployment.",
+	"updatedAnnotations": "The annotations to be updated to a deployment",
+	"rollbackTo":         "The config of this deployment rollback.",
+}
+
+func (DeploymentRollback) SwaggerDoc() map[string]string {
+	return map_DeploymentRollback
+}
+
 var map_DeploymentSpec = map[string]string{
-	"":               "DeploymentSpec is the specification of the desired behavior of the Deployment.",
-	"replicas":       "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
-	"selector":       "Label selector for pods. Existing ReplicationControllers whose pods are selected by this will be the ones affected by this deployment.",
-	"template":       "Template describes the pods that will be created.",
-	"strategy":       "The deployment strategy to use to replace existing pods with new ones.",
-	"uniqueLabelKey": "Key of the selector that is added to existing RCs (and label key that is added to its pods) to prevent the existing RCs to select new pods (and old pods being selected by new RC). Users can set this to an empty string to indicate that the system should not add any selector and label. If unspecified, system uses \"deployment.kubernetes.io/podTemplateHash\". Value of this key is hash of DeploymentSpec.PodTemplateSpec. No label is added if this is set to empty string.",
+	"":                     "DeploymentSpec is the specification of the desired behavior of the Deployment.",
+	"replicas":             "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
+	"selector":             "Label selector for pods. Existing ReplicationControllers whose pods are selected by this will be the ones affected by this deployment.",
+	"template":             "Template describes the pods that will be created.",
+	"strategy":             "The deployment strategy to use to replace existing pods with new ones.",
+	"revisionHistoryLimit": "The number of old ReplicationControllers to retain to allow rollback. This is a pointer to distinguish between explicit zero and not specified.",
+	"uniqueLabelKey":       "Key of the selector that is added to existing RCs (and label key that is added to its pods) to prevent the existing RCs to select new pods (and old pods being selected by new RC). Users can set this to an empty string to indicate that the system should not add any selector and label. If unspecified, system uses DefaultDeploymentUniqueLabelKey(\"deployment.kubernetes.io/podTemplateHash\"). Value of this key is hash of DeploymentSpec.PodTemplateSpec. No label is added if this is set to empty string.",
+	"paused":               "Indicates that the deployment is paused and will not be processed by the deployment controller.",
+	"rollbackTo":           "The config this deployment is rolling back to. Will be cleared after rollback is done.",
 }
 
 func (DeploymentSpec) SwaggerDoc() map[string]string {
@@ -151,9 +195,11 @@ func (DeploymentSpec) SwaggerDoc() map[string]string {
 }
 
 var map_DeploymentStatus = map[string]string{
-	"":                "DeploymentStatus is the most recently observed status of the Deployment.",
-	"replicas":        "Total number of non-terminated pods targeted by this deployment (their labels match the selector).",
-	"updatedReplicas": "Total number of non-terminated pods targeted by this deployment that have the desired template spec.",
+	"":                    "DeploymentStatus is the most recently observed status of the Deployment.",
+	"replicas":            "Total number of non-terminated pods targeted by this deployment (their labels match the selector).",
+	"updatedReplicas":     "Total number of non-terminated pods targeted by this deployment that have the desired template spec.",
+	"availableReplicas":   "Total number of available pods (ready for at least minReadySeconds) targeted by this deployment.",
+	"unavailableReplicas": "Total number of unavailable pods targeted by this deployment.",
 }
 
 func (DeploymentStatus) SwaggerDoc() map[string]string {
@@ -168,6 +214,16 @@ var map_DeploymentStrategy = map[string]string{
 
 func (DeploymentStrategy) SwaggerDoc() map[string]string {
 	return map_DeploymentStrategy
+}
+
+var map_ExportOptions = map[string]string{
+	"":       "ExportOptions is the query options to the standard REST get call.",
+	"export": "Should this value be exported.  Export strips fields that a user can not specify.",
+	"exact":  "Should the export be exact.  Exact export maintains cluster-specific fields like 'Namespace'",
+}
+
+func (ExportOptions) SwaggerDoc() map[string]string {
+	return map_ExportOptions
 }
 
 var map_HTTPIngressPath = map[string]string{
@@ -315,7 +371,7 @@ func (Job) SwaggerDoc() map[string]string {
 
 var map_JobCondition = map[string]string{
 	"":                   "JobCondition describes current state of a job.",
-	"type":               "Type of job condition, currently only Complete.",
+	"type":               "Type of job condition, Complete or Failed.",
 	"status":             "Status of the condition, one of True, False, Unknown.",
 	"lastProbeTime":      "Last time the condition was checked.",
 	"lastTransitionTime": "Last time the condition transit from one status to another.",
@@ -338,11 +394,12 @@ func (JobList) SwaggerDoc() map[string]string {
 }
 
 var map_JobSpec = map[string]string{
-	"":            "JobSpec describes how the job execution will look like.",
-	"parallelism": "Parallelism specifies the maximum desired number of pods the job should run at any given time. The actual number of pods running in steady state will be less than this number when ((.spec.completions - .status.successful) < .spec.parallelism), i.e. when the work left to do is less than max parallelism. More info: http://releases.k8s.io/HEAD/docs/user-guide/jobs.md",
-	"completions": "Completions specifies the desired number of successfully finished pods the job should be run with. Defaults to 1. More info: http://releases.k8s.io/HEAD/docs/user-guide/jobs.md",
-	"selector":    "Selector is a label query over pods that should match the pod count. More info: http://releases.k8s.io/HEAD/docs/user-guide/labels.md#label-selectors",
-	"template":    "Template is the object that describes the pod that will be created when executing a job. More info: http://releases.k8s.io/HEAD/docs/user-guide/jobs.md",
+	"":                      "JobSpec describes how the job execution will look like.",
+	"parallelism":           "Parallelism specifies the maximum desired number of pods the job should run at any given time. The actual number of pods running in steady state will be less than this number when ((.spec.completions - .status.successful) < .spec.parallelism), i.e. when the work left to do is less than max parallelism. More info: http://releases.k8s.io/HEAD/docs/user-guide/jobs.md",
+	"completions":           "Completions specifies the desired number of successfully finished pods the job should be run with.  Setting to nil means that the success of any pod signals the success of all pods, and allows parallelism to have any positive value.  Setting to 1 means that parallelism is limited to 1 and the success of that pod signals the success of the job.",
+	"activeDeadlineSeconds": "Optional duration in seconds relative to the startTime that the job may be active before the system tries to terminate it; value must be positive integer",
+	"selector":              "Selector is a label query over pods that should match the pod count. More info: http://releases.k8s.io/HEAD/docs/user-guide/labels.md#label-selectors",
+	"template":              "Template is the object that describes the pod that will be created when executing a job. More info: http://releases.k8s.io/HEAD/docs/user-guide/jobs.md",
 }
 
 func (JobSpec) SwaggerDoc() map[string]string {
@@ -363,6 +420,40 @@ func (JobStatus) SwaggerDoc() map[string]string {
 	return map_JobStatus
 }
 
+var map_LabelSelector = map[string]string{
+	"":                 "A label selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty label selector matches all objects. A null label selector matches no objects.",
+	"matchLabels":      "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
+	"matchExpressions": "matchExpressions is a list of label selector requirements. The requirements are ANDed.",
+}
+
+func (LabelSelector) SwaggerDoc() map[string]string {
+	return map_LabelSelector
+}
+
+var map_LabelSelectorRequirement = map[string]string{
+	"":         "A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
+	"key":      "key is the label key that the selector applies to.",
+	"operator": "operator represents a key's relationship to a set of values. Valid operators ard In, NotIn, Exists and DoesNotExist.",
+	"values":   "values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
+}
+
+func (LabelSelectorRequirement) SwaggerDoc() map[string]string {
+	return map_LabelSelectorRequirement
+}
+
+var map_ListOptions = map[string]string{
+	"":                "ListOptions is the query options to a standard REST list call.",
+	"labelSelector":   "A selector to restrict the list of returned objects by their labels. Defaults to everything.",
+	"fieldSelector":   "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+	"watch":           "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+	"resourceVersion": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+	"timeoutSeconds":  "Timeout for the list/watch call.",
+}
+
+func (ListOptions) SwaggerDoc() map[string]string {
+	return map_ListOptions
+}
+
 var map_NodeUtilization = map[string]string{
 	"":      "NodeUtilization describes what percentage of a particular resource is used on a node.",
 	"value": "The accepted values are from 0 to 1.",
@@ -372,25 +463,46 @@ func (NodeUtilization) SwaggerDoc() map[string]string {
 	return map_NodeUtilization
 }
 
-var map_PodSelector = map[string]string{
-	"":                 "A pod selector is a label query over a set of pods. The result of matchLabels and matchExpressions are ANDed. An empty pod selector matches all objects. A null pod selector matches no objects.",
-	"matchLabels":      "matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is \"key\", the operator is \"In\", and the values array contains only \"value\". The requirements are ANDed.",
-	"matchExpressions": "matchExpressions is a list of pod selector requirements. The requirements are ANDed.",
+var map_ReplicaSet = map[string]string{
+	"":         "ReplicaSet represents the configuration of a ReplicaSet.",
+	"metadata": "If the Labels of a ReplicaSet are empty, they are defaulted to be the same as the Pod(s) that the ReplicaSet manages. Standard object's metadata. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata",
+	"spec":     "Spec defines the specification of the desired behavior of the ReplicaSet. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#spec-and-status",
+	"status":   "Status is the most recently observed status of the ReplicaSet. This data may be out of date by some window of time. Populated by the system. Read-only. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#spec-and-status",
 }
 
-func (PodSelector) SwaggerDoc() map[string]string {
-	return map_PodSelector
+func (ReplicaSet) SwaggerDoc() map[string]string {
+	return map_ReplicaSet
 }
 
-var map_PodSelectorRequirement = map[string]string{
-	"":         "A pod selector requirement is a selector that contains values, a key, and an operator that relates the key and values.",
-	"key":      "key is the label key that the selector applies to.",
-	"operator": "operator represents a key's relationship to a set of values. Valid operators ard In, NotIn, Exists and DoesNotExist.",
-	"values":   "values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch.",
+var map_ReplicaSetList = map[string]string{
+	"":         "ReplicaSetList is a collection of ReplicaSets.",
+	"metadata": "Standard list metadata. More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#types-kinds",
+	"items":    "List of ReplicaSets. More info: http://releases.k8s.io/HEAD/docs/user-guide/replication-controller.md",
 }
 
-func (PodSelectorRequirement) SwaggerDoc() map[string]string {
-	return map_PodSelectorRequirement
+func (ReplicaSetList) SwaggerDoc() map[string]string {
+	return map_ReplicaSetList
+}
+
+var map_ReplicaSetSpec = map[string]string{
+	"":         "ReplicaSetSpec is the specification of a ReplicaSet.",
+	"replicas": "Replicas is the number of desired replicas. This is a pointer to distinguish between explicit zero and unspecified. Defaults to 1. More info: http://releases.k8s.io/HEAD/docs/user-guide/replication-controller.md#what-is-a-replication-controller",
+	"selector": "Selector is a label query over pods that should match the replica count. If the selector is empty, it is defaulted to the labels present on the pod template. Label keys and values that must match in order to be controlled by this replica set. More info: http://releases.k8s.io/HEAD/docs/user-guide/labels.md#label-selectors",
+	"template": "Template is the object that describes the pod that will be created if insufficient replicas are detected. More info: http://releases.k8s.io/HEAD/docs/user-guide/replication-controller.md#pod-template",
+}
+
+func (ReplicaSetSpec) SwaggerDoc() map[string]string {
+	return map_ReplicaSetSpec
+}
+
+var map_ReplicaSetStatus = map[string]string{
+	"":                   "ReplicaSetStatus represents the current status of a ReplicaSet.",
+	"replicas":           "Replicas is the most recently oberved number of replicas. More info: http://releases.k8s.io/HEAD/docs/user-guide/replication-controller.md#what-is-a-replication-controller",
+	"observedGeneration": "ObservedGeneration reflects the generation of the most recently observed ReplicaSet.",
+}
+
+func (ReplicaSetStatus) SwaggerDoc() map[string]string {
+	return map_ReplicaSetStatus
 }
 
 var map_ReplicationControllerDummy = map[string]string{
@@ -399,6 +511,24 @@ var map_ReplicationControllerDummy = map[string]string{
 
 func (ReplicationControllerDummy) SwaggerDoc() map[string]string {
 	return map_ReplicationControllerDummy
+}
+
+var map_RollbackConfig = map[string]string{
+	"revision": "The revision to rollback to. If set to 0, rollbck to the last revision.",
+}
+
+func (RollbackConfig) SwaggerDoc() map[string]string {
+	return map_RollbackConfig
+}
+
+var map_RollingUpdateDaemonSet = map[string]string{
+	"":                "Spec to control the desired behavior of daemon set rolling update.",
+	"maxUnavailable":  "The maximum number of DaemonSet pods that can be unavailable during the update. Value can be an absolute number (ex: 5) or a percentage of total number of DaemonSet pods at the start of the update (ex: 10%). Absolute number is calculated from percentage by rounding up. This cannot be 0. Default value is 1. Example: when this is set to 30%, 30% of the currently running DaemonSet pods can be stopped for an update at any given time. The update starts by stopping at most 30% of the currently running DaemonSet pods and then brings up new DaemonSet pods in their place. Once the new pods are ready, it then proceeds onto other DaemonSet pods, thus ensuring that at least 70% of original number of DaemonSet pods are available at all times during the update.",
+	"minReadySeconds": "Minimum number of seconds for which a newly created DaemonSet pod should be ready without any of its container crashing, for it to be considered available. Defaults to 0 (pod will be considered available as soon as it is ready).",
+}
+
+func (RollingUpdateDaemonSet) SwaggerDoc() map[string]string {
+	return map_RollingUpdateDaemonSet
 }
 
 var map_RollingUpdateDeployment = map[string]string{
@@ -468,7 +598,7 @@ func (ThirdPartyResource) SwaggerDoc() map[string]string {
 var map_ThirdPartyResourceData = map[string]string{
 	"":         "An internal object, used for versioned storage in etcd.  Not exposed to the end user.",
 	"metadata": "Standard object metadata.",
-	"name":     "Data is the raw JSON data for this data.",
+	"data":     "Data is the raw JSON data for this data.",
 }
 
 func (ThirdPartyResourceData) SwaggerDoc() map[string]string {
