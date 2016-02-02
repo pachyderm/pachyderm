@@ -37,19 +37,10 @@ func (a *apiServer) CreateCluster(ctx context.Context, request *deploy.CreateClu
 	if _, err := a.client.Services(api.NamespaceDefault).Create(assets.RethinkService()); err != nil {
 		return nil, err
 	}
-	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(assets.PfsdRc(request.Shards)); err != nil {
+	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(assets.PachdRc(request.Shards, false)); err != nil {
 		return nil, err
 	}
-	if _, err := a.client.Services(api.NamespaceDefault).Create(assets.PfsdService()); err != nil {
-		return nil, err
-	}
-	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(assets.RolerRc(request.Shards)); err != nil {
-		return nil, err
-	}
-	if _, err := a.client.ReplicationControllers(api.NamespaceDefault).Create(assets.PpsdRc()); err != nil {
-		return nil, err
-	}
-	if _, err := a.client.Services(api.NamespaceDefault).Create(assets.PpsdService()); err != nil {
+	if _, err := a.client.Services(api.NamespaceDefault).Create(assets.PachdService()); err != nil {
 		return nil, err
 	}
 	return emptyInstance, nil

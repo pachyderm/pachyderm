@@ -120,7 +120,6 @@ kube-cluster-assets: install
 
 launch: install
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
-	until pachctl version 2>/dev/null >/dev/null; do sleep 5; done
 
 launch-dev: launch-kube launch
 

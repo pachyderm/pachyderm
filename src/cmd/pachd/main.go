@@ -33,7 +33,7 @@ type appEnv struct {
 	Port            uint16 `env:"PORT,default=650"`
 	HTTPPort        uint16 `env:"HTTP_PORT,default=750"`
 	NumShards       uint64 `env:"NUM_SHARDS,default=32"`
-	StorageRoot     string `env:"OBJ_ROOT,required"`
+	StorageRoot     string `env:"PACH_ROOT,required"`
 	DatabaseAddress string `env:"RETHINK_PORT_28015_TCP_ADDR,required"`
 	DatabaseName    string `env:"DATABASE_NAME,default=pachyderm"`
 	KubeAddress     string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`

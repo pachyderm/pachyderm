@@ -233,190 +233,13 @@
   }
 }
 {
-  "kind": "ReplicationController",
-  "apiVersion": "v1",
-  "metadata": {
-    "name": "objd",
-    "creationTimestamp": null,
-    "labels": {
-      "app": "objd",
-      "suite": "pachyderm"
-    }
-  },
-  "spec": {
-    "replicas": 1,
-    "selector": {
-      "app": "objd"
-    },
-    "template": {
-      "metadata": {
-        "name": "objd",
-        "creationTimestamp": null,
-        "labels": {
-          "app": "objd",
-          "suite": "pachyderm"
-        }
-      },
-      "spec": {
-        "volumes": [
-          {
-            "name": "obj-disk"
-          }
-        ],
-        "containers": [
-          {
-            "name": "objd",
-            "image": "pachyderm/objd",
-            "ports": [
-              {
-                "name": "api-grpc-port",
-                "containerPort": 652,
-                "protocol": "TCP",
-                "hostIP": "0.0.0.0"
-              },
-              {
-                "name": "api-http-port",
-                "containerPort": 752
-              },
-              {
-                "name": "trace-port",
-                "containerPort": 1052
-              }
-            ],
-            "env": [
-              {
-                "name": "OBJ_ROOT",
-                "value": "/obj"
-              }
-            ],
-            "resources": {},
-            "volumeMounts": [
-              {
-                "name": "obj-disk",
-                "mountPath": "/obj"
-              }
-            ],
-            "imagePullPolicy": ""
-          }
-        ],
-        "serviceAccountName": ""
-      }
-    }
-  },
-  "status": {
-    "replicas": 0
-  }
-}
-{
   "kind": "Service",
   "apiVersion": "v1",
   "metadata": {
-    "name": "objd",
+    "name": "pachd",
     "creationTimestamp": null,
     "labels": {
-      "app": "objd",
-      "suite": "pachyderm"
-    }
-  },
-  "spec": {
-    "type": "NodePort",
-    "ports": [
-      {
-        "name": "api-grpc-port",
-        "protocol": "",
-        "port": 652,
-        "targetPort": 0,
-        "nodePort": 0
-      },
-      {
-        "name": "api-http-port",
-        "protocol": "",
-        "port": 752,
-        "targetPort": 0,
-        "nodePort": 0
-      }
-    ],
-    "selector": {
-      "app": "objd"
-    }
-  },
-  "status": {
-    "loadBalancer": {}
-  }
-}
-{
-  "kind": "ReplicationController",
-  "apiVersion": "v1",
-  "metadata": {
-    "name": "pfsd",
-    "creationTimestamp": null,
-    "labels": {
-      "app": "pfsd",
-      "suite": "pachyderm"
-    }
-  },
-  "spec": {
-    "replicas": 1,
-    "selector": {
-      "app": "pfsd"
-    },
-    "template": {
-      "metadata": {
-        "name": "pfsd",
-        "creationTimestamp": null,
-        "labels": {
-          "app": "pfsd",
-          "suite": "pachyderm"
-        }
-      },
-      "spec": {
-        "volumes": null,
-        "containers": [
-          {
-            "name": "pfsd",
-            "image": "pachyderm/pfsd",
-            "ports": [
-              {
-                "name": "api-grpc-port",
-                "containerPort": 650,
-                "protocol": "TCP",
-                "hostIP": "0.0.0.0"
-              },
-              {
-                "name": "api-http-port",
-                "containerPort": 750
-              },
-              {
-                "name": "trace-port",
-                "containerPort": 1050
-              }
-            ],
-            "env": [
-              {
-                "name": "PFS_NUM_SHARDS",
-                "value": "32"
-              }
-            ],
-            "resources": {},
-            "imagePullPolicy": ""
-          }
-        ],
-        "serviceAccountName": ""
-      }
-    }
-  },
-  "status": {
-    "replicas": 0
-  }
-}
-{
-  "kind": "Service",
-  "apiVersion": "v1",
-  "metadata": {
-    "name": "pfsd",
-    "creationTimestamp": null,
-    "labels": {
-      "app": "pfsd",
+      "app": "pachd",
       "suite": "pachyderm"
     }
   },
@@ -439,7 +262,7 @@
       }
     ],
     "selector": {
-      "app": "pfsd"
+      "app": "pachd"
     }
   },
   "status": {
@@ -450,46 +273,69 @@
   "kind": "ReplicationController",
   "apiVersion": "v1",
   "metadata": {
-    "name": "ppsd",
+    "name": "pachd",
     "creationTimestamp": null,
     "labels": {
-      "app": "ppsd",
+      "app": "pachd",
       "suite": "pachyderm"
     }
   },
   "spec": {
     "replicas": 1,
     "selector": {
-      "app": "ppsd"
+      "app": "pachd"
     },
     "template": {
       "metadata": {
-        "name": "ppsd",
+        "name": "pachd",
         "creationTimestamp": null,
         "labels": {
-          "app": "ppsd",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "pachd"
         }
       },
       "spec": {
-        "volumes": null,
+        "volumes": [
+          {
+            "name": "pach-disk"
+          }
+        ],
         "containers": [
           {
-            "name": "ppsd",
-            "image": "pachyderm/ppsd",
+            "name": "pachd",
+            "image": "pachyderm/pachd",
             "ports": [
               {
                 "name": "api-grpc-port",
-                "containerPort": 651,
-                "protocol": "TCP",
-                "hostIP": "0.0.0.0"
+                "containerPort": 650,
+                "protocol": "TCP"
+              },
+              {
+                "name": "api-http-port",
+                "containerPort": 750
               },
               {
                 "name": "trace-port",
-                "containerPort": 1051
+                "containerPort": 1050
+              }
+            ],
+            "env": [
+              {
+                "name": "PACH_ROOT",
+                "value": "/pach"
+              },
+              {
+                "name": "PFS_NUM_SHARDS",
+                "value": "32"
               }
             ],
             "resources": {},
+            "volumeMounts": [
+              {
+                "name": "pach-disk",
+                "mountPath": "/pach"
+              }
+            ],
             "imagePullPolicy": "",
             "securityContext": {
               "privileged": true
@@ -505,100 +351,14 @@
   }
 }
 {
-  "kind": "Service",
-  "apiVersion": "v1",
-  "metadata": {
-    "name": "ppsd",
-    "creationTimestamp": null,
-    "labels": {
-      "app": "ppsd",
-      "suite": "pachyderm"
-    }
-  },
-  "spec": {
-    "type": "NodePort",
-    "ports": [
-      {
-        "name": "api-grpc-port",
-        "protocol": "",
-        "port": 651,
-        "targetPort": 0,
-        "nodePort": 30651
-      },
-      {
-        "name": "api-http-port",
-        "protocol": "",
-        "port": 751,
-        "targetPort": 0,
-        "nodePort": 30751
-      }
-    ],
-    "selector": {
-      "app": "ppsd"
-    }
-  },
-  "status": {
-    "loadBalancer": {}
-  }
-}
-{
-  "kind": "ReplicationController",
-  "apiVersion": "v1",
-  "metadata": {
-    "name": "roler",
-    "creationTimestamp": null,
-    "labels": {
-      "app": "roler",
-      "suite": "pachyderm"
-    }
-  },
-  "spec": {
-    "replicas": 1,
-    "selector": {
-      "app": "roler"
-    },
-    "template": {
-      "metadata": {
-        "name": "roler",
-        "creationTimestamp": null,
-        "labels": {
-          "app": "roler",
-          "suite": "pachyderm"
-        }
-      },
-      "spec": {
-        "volumes": null,
-        "containers": [
-          {
-            "name": "roler",
-            "image": "pachyderm/pfs-roler",
-            "env": [
-              {
-                "name": "PFS_NUM_SHARDS",
-                "value": "32"
-              }
-            ],
-            "resources": {},
-            "imagePullPolicy": ""
-          }
-        ],
-        "serviceAccountName": ""
-      }
-    }
-  },
-  "status": {
-    "replicas": 0
-  }
-}
-{
   "kind": "Secret",
   "apiVersion": "v1",
   "metadata": {
     "name": "amazon-secret",
     "creationTimestamp": null,
     "labels": {
-      "app": "amazon-secret",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "amazon-secret"
     }
   },
   "data": {
