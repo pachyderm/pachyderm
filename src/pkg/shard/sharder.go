@@ -36,7 +36,7 @@ func newSharder(discoveryClient discovery.Client, numShards uint64, numReplicas 
 	return &sharder{discoveryClient, numShards, numReplicas, namespace, make(map[int64]*Addresses), sync.RWMutex{}}
 }
 
-func (a *sharder) GetMasterAddress(shard uint64, version int64) (result string, ok bool, retErr error) {
+func (a *sharder) GetAddress(shard uint64, version int64) (result string, ok bool, retErr error) {
 	defer func() {
 		protolion.Debug(&GetMasterAddress{shard, version, result, ok, errorToString(retErr)})
 	}()
@@ -51,22 +51,7 @@ func (a *sharder) GetMasterAddress(shard uint64, version int64) (result string, 
 	return shardAddresses.Master, true, nil
 }
 
-func (a *sharder) GetReplicaAddresses(shard uint64, version int64) (result map[string]bool, retErr error) {
-	defer func() {
-		protolion.Debug(&GetReplicaAddresses{shard, version, result, errorToString(retErr)})
-	}()
-	addresses, err := a.getAddresses(version)
-	if err != nil {
-		return nil, err
-	}
-	shardAddresses, ok := addresses.Addresses[shard]
-	if !ok {
-		return nil, fmt.Errorf("shard %d not found", shard)
-	}
-	return shardAddresses.Replicas, nil
-}
-
-func (a *sharder) GetShardToMasterAddress(version int64) (result map[uint64]string, retErr error) {
+func (a *sharder) GetShardToAddress(version int64) (result map[uint64]string, retErr error) {
 	defer func() {
 		protolion.Debug(&GetShardToMasterAddress{version, result, errorToString(retErr)})
 	}()
@@ -77,26 +62,6 @@ func (a *sharder) GetShardToMasterAddress(version int64) (result map[uint64]stri
 	_result := make(map[uint64]string)
 	for shard, shardAddresses := range addresses.Addresses {
 		_result[shard] = shardAddresses.Master
-	}
-	return _result, nil
-}
-
-func (a *sharder) GetShardToReplicaAddresses(version int64) (result map[uint64]map[string]bool, retErr error) {
-	defer func() {
-		// We need resultPrime is because proto3 can't do maps of maps.
-		resultPrime := make(map[uint64]*ReplicaAddresses)
-		for shard, addresses := range result {
-			resultPrime[shard] = &ReplicaAddresses{addresses}
-		}
-		protolion.Debug(&GetShardToReplicaAddresses{version, resultPrime, errorToString(retErr)})
-	}()
-	addresses, err := a.getAddresses(version)
-	if err != nil {
-		return nil, err
-	}
-	_result := make(map[uint64]map[string]bool)
-	for shard, shardAddresses := range addresses.Addresses {
-		_result[shard] = shardAddresses.Replicas
 	}
 	return _result, nil
 }

@@ -49,7 +49,7 @@ func (a *internalAPIServer) CreateRepo(ctx context.Context, request *pfs.CreateR
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetAllShards(version)
+	shards, err := a.router.GetShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (a *internalAPIServer) InspectRepo(ctx context.Context, request *pfs.Inspec
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetAllShards(version)
+	shards, err := a.router.GetShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (a *internalAPIServer) ListRepo(ctx context.Context, request *pfs.ListRepoR
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetAllShards(version)
+	shards, err := a.router.GetShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteR
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetAllShards(version)
+	shards, err := a.router.GetShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartC
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetMasterShards(version)
+	shards, err := a.router.GetShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfs.Finis
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetMasterShards(version)
+	shards, err := a.router.GetShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (a *internalAPIServer) InspectCommit(ctx context.Context, request *pfs.Insp
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetMasterShards(version)
+	shards, err := a.router.GetShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetMasterShards(version)
+	shards, err := a.router.GetShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfs.Delet
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetMasterShards(version)
+	shards, err := a.router.GetShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func (a *internalAPIServer) PutFile(putFileServer pfs.InternalAPI_PutFileServer)
 		if len(request.Value) > 0 {
 			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
 		}
-		shards, err := a.router.GetMasterShards(version)
+		shards, err := a.router.GetShards(version)
 		if err != nil {
 			return err
 		}
@@ -293,7 +293,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.router.GetMasterShards(version)
+	shards, err := a.router.GetShards(version)
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +360,7 @@ func (a *internalAPIServer) RemoveShard(shard uint64, version int64) error {
 
 func (a *internalAPIServer) getMasterShardForFile(file *pfs.File, version int64) (uint64, error) {
 	shard := a.hasher.HashFile(file)
-	shards, err := a.router.GetMasterShards(version)
+	shards, err := a.router.GetShards(version)
 	if err != nil {
 		return 0, err
 	}
@@ -373,7 +373,7 @@ func (a *internalAPIServer) getMasterShardForFile(file *pfs.File, version int64)
 
 func (a *internalAPIServer) getShardForFile(file *pfs.File, version int64) (uint64, error) {
 	shard := a.hasher.HashFile(file)
-	shards, err := a.router.GetMasterShards(version)
+	shards, err := a.router.GetShards(version)
 	if err != nil {
 		return 0, err
 	}
@@ -382,33 +382,6 @@ func (a *internalAPIServer) getShardForFile(file *pfs.File, version int64) (uint
 		return 0, fmt.Errorf("pachyderm: shard %d not found locally", shard)
 	}
 	return shard, nil
-}
-
-func (a *internalAPIServer) isLocalMasterShard(shard uint64, version int64) (bool, error) {
-	shards, err := a.router.GetMasterShards(version)
-	if err != nil {
-		return false, err
-	}
-	_, ok := shards[shard]
-	return ok, nil
-}
-
-func (a *internalAPIServer) isLocalReplicaShard(shard uint64, version int64) (bool, error) {
-	shards, err := a.router.GetReplicaShards(version)
-	if err != nil {
-		return false, err
-	}
-	_, ok := shards[shard]
-	return ok, nil
-}
-
-func (a *internalAPIServer) isLocalShard(shard uint64, version int64) (bool, error) {
-	shards, err := a.router.GetAllShards(version)
-	if err != nil {
-		return false, err
-	}
-	_, ok := shards[shard]
-	return ok, nil
 }
 
 type putFileReader struct {

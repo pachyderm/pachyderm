@@ -391,18 +391,18 @@ func (a *apiServer) Version(version int64) error {
 }
 
 func (a *apiServer) getClientConn(version int64) (*grpc.ClientConn, error) {
-	shards, err := a.router.GetMasterShards(a.version)
+	shards, err := a.router.GetShards(a.version)
 	if err != nil {
 		return nil, err
 	}
 	for shard := range shards {
-		return a.router.GetMasterClientConn(shard, version)
+		return a.router.GetClientConn(shard, version)
 	}
-	return a.router.GetMasterClientConn(uint64(rand.Int())%a.hasher.FileModulus, version)
+	return a.router.GetClientConn(uint64(rand.Int())%a.hasher.FileModulus, version)
 }
 
 func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.ClientConn, error) {
-	return a.router.GetMasterClientConn(a.hasher.HashFile(file), version)
+	return a.router.GetClientConn(a.hasher.HashFile(file), version)
 }
 
 func versionToContext(version int64, ctx context.Context) context.Context {
