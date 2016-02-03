@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/lion/proto"
@@ -24,6 +25,11 @@ type apiServer struct {
 	persistAPIServer persist.APIServer
 	cancelFuncs      map[pps.Pipeline]func()
 	lock             sync.Mutex
+	version          int64
+	// versionLock protects the version field.
+	// versionLock must be held BEFORE reading from version and UNTIL all
+	// requests using version have returned
+	versionLock sync.RWMutex
 }
 
 func newAPIServer(
@@ -40,6 +46,8 @@ func newAPIServer(
 		persistAPIServer,
 		make(map[pps.Pipeline]func()),
 		sync.Mutex{},
+		shard.InvalidVersion,
+		sync.RWMutex{},
 	}
 }
 
@@ -130,6 +138,21 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	a.cancelFuncs[*request.Pipeline]()
 	delete(a.cancelFuncs, *request.Pipeline)
 	return google_protobuf.EmptyInstance, nil
+}
+
+func (a *apiServer) Version(version int64) error {
+	a.versionLock.Lock()
+	defer a.versionLock.Unlock()
+	a.version = version
+	return nil
+}
+
+func (a *apiServer) AddShard(shard uint64, version int64) error {
+	return nil
+}
+
+func (a *apiServer) RemoveShard(shard uint64, version int64) error {
+	return nil
 }
 
 func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *pps.PipelineInfo {
