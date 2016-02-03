@@ -21,7 +21,7 @@ import (
 
 type internalAPIServer struct {
 	protorpclog.Logger
-	sharder           *pfs.Sharder
+	hasher            *pfs.Hasher
 	router            shard.Router
 	driver            drive.Driver
 	commitWaiters     []*commitWait
@@ -29,13 +29,13 @@ type internalAPIServer struct {
 }
 
 func newInternalAPIServer(
-	sharder *pfs.Sharder,
+	hasher *pfs.Hasher,
 	router shard.Router,
 	driver drive.Driver,
 ) *internalAPIServer {
 	return &internalAPIServer{
 		Logger:            protorpclog.NewLogger("pachyderm.pfs.InternalAPI"),
-		sharder:           sharder,
+		hasher:            hasher,
 		router:            router,
 		driver:            driver,
 		commitWaiters:     nil,
@@ -359,7 +359,7 @@ func (a *internalAPIServer) RemoveShard(shard uint64, version int64) error {
 }
 
 func (a *internalAPIServer) getMasterShardForFile(file *pfs.File, version int64) (uint64, error) {
-	shard := a.sharder.GetShard(file)
+	shard := a.hasher.HashFile(file)
 	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return 0, err
@@ -372,7 +372,7 @@ func (a *internalAPIServer) getMasterShardForFile(file *pfs.File, version int64)
 }
 
 func (a *internalAPIServer) getShardForFile(file *pfs.File, version int64) (uint64, error) {
-	shard := a.sharder.GetShard(file)
+	shard := a.hasher.HashFile(file)
 	shards, err := a.router.GetMasterShards(version)
 	if err != nil {
 		return 0, err
