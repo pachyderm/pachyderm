@@ -12,8 +12,7 @@ import (
 )
 
 type appEnv struct {
-	NumShards   uint64 `env:"PFS_NUM_SHARDS,default=16"`
-	NumReplicas uint64 `env:"PFS_NUM_REPLICAS"`
+	NumShards uint64 `env:"PFS_NUM_SHARDS,default=16"`
 }
 
 func main() {
@@ -29,7 +28,6 @@ func do(appEnvObj interface{}) error {
 	sharder := shard.NewSharder(
 		discoveryClient,
 		appEnv.NumShards,
-		appEnv.NumReplicas,
 		"namespace",
 	)
 	return sharder.AssignRoles(nil)

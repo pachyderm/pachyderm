@@ -63,7 +63,6 @@ func do(appEnvObj interface{}) error {
 	sharder := shard.NewSharder(
 		etcdClient,
 		appEnv.NumShards,
-		0,
 		appEnv.Namespace,
 	)
 	go func() {
