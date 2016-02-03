@@ -18,6 +18,7 @@ import (
 
 type apiServer struct {
 	protorpclog.Logger
+	hasher           *pps.Hasher
 	pfsAddress       string
 	pfsAPIClient     pfs.APIClient
 	pfsClientOnce    sync.Once
@@ -33,12 +34,14 @@ type apiServer struct {
 }
 
 func newAPIServer(
+	hasher *pps.Hasher,
 	pfsAddress string,
 	jobAPIClient pps.JobAPIClient,
 	persistAPIServer persist.APIServer,
 ) *apiServer {
 	return &apiServer{
 		protorpclog.NewLogger("pachyderm.pps.PipelineAPI"),
+		hasher,
 		pfsAddress,
 		nil,
 		sync.Once{},
