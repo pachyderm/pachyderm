@@ -8,10 +8,8 @@ import (
 
 // Sharder distributes shards between a set of servers.
 type Sharder interface {
-	GetMasterAddress(shard uint64, version int64) (string, bool, error)
-	GetReplicaAddresses(shard uint64, version int64) (map[string]bool, error)
-	GetShardToMasterAddress(version int64) (map[uint64]string, error)
-	GetShardToReplicaAddresses(version int64) (map[uint64]map[string]bool, error)
+	GetAddress(shard uint64, version int64) (string, bool, error)
+	GetShardToAddress(version int64) (map[uint64]string, error)
 
 	Register(cancel chan bool, address string, servers []Server) error
 	RegisterFrontends(cancel chan bool, address string, frontends []Frontend) error
@@ -45,12 +43,8 @@ type Frontend interface {
 }
 
 type Router interface {
-	GetMasterShards(version int64) (map[uint64]bool, error)
-	GetReplicaShards(version int64) (map[uint64]bool, error)
-	GetAllShards(version int64) (map[uint64]bool, error)
-	GetMasterClientConn(shard uint64, version int64) (*grpc.ClientConn, error)
-	GetMasterOrReplicaClientConn(shard uint64, version int64) (*grpc.ClientConn, error)
-	GetReplicaClientConns(shard uint64, version int64) ([]*grpc.ClientConn, error)
+	GetShards(version int64) (map[uint64]bool, error)
+	GetClientConn(shard uint64, version int64) (*grpc.ClientConn, error)
 	GetAllClientConns(version int64) ([]*grpc.ClientConn, error)
 }
 
