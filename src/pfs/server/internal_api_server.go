@@ -358,10 +358,6 @@ func (a *internalAPIServer) RemoveShard(shard uint64, version int64) error {
 	return a.driver.DeleteShard(shard)
 }
 
-func (a *internalAPIServer) LocalShards() (map[uint64]bool, error) {
-	return nil, nil
-}
-
 func (a *internalAPIServer) getMasterShardForFile(file *pfs.File, version int64) (uint64, error) {
 	shard := a.sharder.GetShard(file)
 	shards, err := a.router.GetMasterShards(version)

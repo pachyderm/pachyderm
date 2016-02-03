@@ -34,8 +34,6 @@ type Server interface {
 	AddShard(shard uint64, version int64) error
 	// RemoveShard tells the server it no longer has a role for a shard.
 	RemoveShard(shard uint64, version int64) error
-	// LocalRoles asks the server which shards it has on disk and how many commits each shard has.
-	LocalShards() (map[uint64]bool, error)
 }
 
 type Frontend interface {

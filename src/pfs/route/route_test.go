@@ -50,10 +50,6 @@ func (s *server) RemoveShard(shard uint64, version int64) error {
 	return nil
 }
 
-func (s *server) LocalShards() (map[uint64]bool, error) {
-	return nil, nil
-}
-
 func newServer(t *testing.T) *server {
 	return &server{make(map[uint64]bool), sync.Mutex{}, t}
 }
@@ -99,7 +95,7 @@ func (s *serverGroup) run(t *testing.T) {
 			require.Equal(
 				t,
 				shard.ErrCancelled,
-				s.sharder.Register(s.cancel, fmt.Sprintf("address-%d", i+s.offset), server),
+				s.sharder.Register(s.cancel, fmt.Sprintf("address-%d", i+s.offset), []shard.Server{server}),
 			)
 		}()
 	}
@@ -112,7 +108,7 @@ func (s *serverGroup) run(t *testing.T) {
 			require.Equal(
 				t,
 				shard.ErrCancelled,
-				s.sharder.RegisterFrontend(s.cancel, fmt.Sprintf("address-%d", i+s.offset), frontend),
+				s.sharder.RegisterFrontends(s.cancel, fmt.Sprintf("address-%d", i+s.offset), []shard.Frontend{frontend}),
 			)
 		}()
 	}
