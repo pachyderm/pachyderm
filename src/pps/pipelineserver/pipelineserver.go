@@ -14,11 +14,13 @@ type APIServer interface {
 }
 
 func NewAPIServer(
+	hasher *pps.Hasher,
 	pfsAddress string,
 	jobAPIClient pps.JobAPIClient,
 	persistAPIServer persist.APIServer,
 ) APIServer {
 	return newAPIServer(
+		hasher,
 		pfsAddress,
 		jobAPIClient,
 		persistAPIServer,

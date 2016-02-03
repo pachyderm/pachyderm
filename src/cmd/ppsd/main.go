@@ -44,7 +44,8 @@ func do(appEnvObj interface{}) error {
 		kubeClient,
 	)
 	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
-	pipelineAPIServer := pipelineserver.NewAPIServer(getPfsdAddress(appEnv), jobAPIClient, rethinkAPIServer)
+	pipelineAPIServer := pipelineserver.NewAPIServer(
+		pps.NewHasher(1, 1), getPfsdAddress(appEnv), jobAPIClient, rethinkAPIServer)
 	if err := pipelineAPIServer.Start(); err != nil {
 		return err
 	}
