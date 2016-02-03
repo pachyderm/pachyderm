@@ -151,10 +151,31 @@ func (a *apiServer) Version(version int64) error {
 }
 
 func (a *apiServer) AddShard(shard uint64, version int64) error {
+	pipelineInfos, err := a.ListPipeline(context.Background(), &pps.ListPipelineRequest{})
+	if err != nil {
+		return err
+	}
+	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
+		if a.hasher.HashPipeline(pipelineInfo.Pipeline) == shard {
+			pipelineInfo := pipelineInfo
+			go func() {
+				if err := a.runPipeline(pipelineInfo); err != nil {
+					protolion.Printf("pipeline errored: %s", err.Error())
+				}
+			}()
+		}
+	}
 	return nil
 }
 
 func (a *apiServer) RemoveShard(shard uint64, version int64) error {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	for pipeline, cancelFunc := range a.cancelFuncs {
+		if a.hasher.HashPipeline(&pipeline) == shard {
+			cancelFunc()
+		}
+	}
 	return nil
 }
 
