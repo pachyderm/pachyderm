@@ -120,9 +120,6 @@ func do(appEnvObj interface{}) error {
 	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
 	pipelineAPIServer := pipelineserver.NewAPIServer(
 		pps.NewHasher(appEnv.NumShards, appEnv.NumShards), address, jobAPIClient, rethinkAPIServer)
-	if err := pipelineAPIServer.Start(); err != nil {
-		return err
-	}
 	var blockAPIServer pfs.BlockAPIServer
 	if err := func() error {
 		bucket, err := ioutil.ReadFile("/amazon-secret/bucket")

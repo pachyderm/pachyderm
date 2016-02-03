@@ -10,7 +10,6 @@ type APIServer interface {
 	shard.Frontend
 	shard.Server
 	pps.PipelineAPIServer
-	Start() error
 }
 
 func NewAPIServer(

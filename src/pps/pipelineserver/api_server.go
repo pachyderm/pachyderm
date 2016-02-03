@@ -54,22 +54,6 @@ func newAPIServer(
 	}
 }
 
-func (a *apiServer) Start() error {
-	pipelineInfos, err := a.ListPipeline(context.Background(), &pps.ListPipelineRequest{})
-	if err != nil {
-		return err
-	}
-	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
-		pipelineInfo := pipelineInfo
-		go func() {
-			if err := a.runPipeline(pipelineInfo); err != nil {
-				protolion.Printf("pipeline errored: %s", err.Error())
-			}
-		}()
-	}
-	return nil
-}
-
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if request.Pipeline == nil {
