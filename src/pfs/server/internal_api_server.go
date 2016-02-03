@@ -17,12 +17,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/route"
+	"github.com/pachyderm/pachyderm/src/pkg/shard"
 )
 
 type internalAPIServer struct {
 	protorpclog.Logger
 	sharder           route.Sharder
-	router            route.Router
+	router            shard.Router
 	driver            drive.Driver
 	commitWaiters     []*commitWait
 	commitWaitersLock sync.Mutex
@@ -30,7 +31,7 @@ type internalAPIServer struct {
 
 func newInternalAPIServer(
 	sharder route.Sharder,
-	router route.Router,
+	router shard.Router,
 	driver drive.Driver,
 ) *internalAPIServer {
 	return &internalAPIServer{

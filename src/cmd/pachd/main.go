@@ -81,7 +81,7 @@ func do(appEnvObj interface{}) error {
 			appEnv.NumShards,
 			1,
 		),
-		route.NewRouter(
+		shard.NewRouter(
 			sharder,
 			grpcutil.NewDialer(
 				grpc.WithInsecure(),
@@ -99,7 +99,7 @@ func do(appEnvObj interface{}) error {
 			appEnv.NumShards,
 			1,
 		),
-		route.NewRouter(
+		shard.NewRouter(
 			sharder,
 			grpcutil.NewDialer(
 				grpc.WithInsecure(),

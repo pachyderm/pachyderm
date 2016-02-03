@@ -24,7 +24,7 @@ import (
 type apiServer struct {
 	protorpclog.Logger
 	sharder route.Sharder
-	router  route.Router
+	router  shard.Router
 	version int64
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
@@ -34,7 +34,7 @@ type apiServer struct {
 
 func newAPIServer(
 	sharder route.Sharder,
-	router route.Router,
+	router shard.Router,
 ) *apiServer {
 	return &apiServer{
 		protorpclog.NewLogger("pachyderm.pfs.API"),
