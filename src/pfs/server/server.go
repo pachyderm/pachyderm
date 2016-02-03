@@ -23,23 +23,23 @@ type InternalAPIServer interface {
 
 // NewAPIServer returns a new APIServer.
 func NewAPIServer(
-	sharder *pfs.Sharder,
+	hasher *pfs.Hasher,
 	router shard.Router,
 ) APIServer {
 	return newAPIServer(
-		sharder,
+		hasher,
 		router,
 	)
 }
 
 // NewInternalAPIServer returns a new InternalAPIServer.
 func NewInternalAPIServer(
-	sharder *pfs.Sharder,
+	hasher *pfs.Hasher,
 	router shard.Router,
 	driver drive.Driver,
 ) InternalAPIServer {
 	return newInternalAPIServer(
-		sharder,
+		hasher,
 		router,
 		driver,
 	)

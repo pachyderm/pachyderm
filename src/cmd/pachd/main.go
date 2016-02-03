@@ -76,7 +76,7 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	apiServer := server.NewAPIServer(
-		pfs.NewSharder(
+		pfs.NewHasher(
 			appEnv.NumShards,
 			1,
 		),
@@ -94,7 +94,7 @@ func do(appEnvObj interface{}) error {
 		}
 	}()
 	internalAPIServer := server.NewInternalAPIServer(
-		pfs.NewSharder(
+		pfs.NewHasher(
 			appEnv.NumShards,
 			1,
 		),
