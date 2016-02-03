@@ -26,14 +26,22 @@ var (
 type sharder struct {
 	discoveryClient discovery.Client
 	numShards       uint64
-	numReplicas     uint64
 	namespace       string
 	addresses       map[int64]*Addresses
 	addressesLock   sync.RWMutex
 }
 
-func newSharder(discoveryClient discovery.Client, numShards uint64, numReplicas uint64, namespace string) *sharder {
-	return &sharder{discoveryClient, numShards, numReplicas, namespace, make(map[int64]*Addresses), sync.RWMutex{}}
+func newSharder(discoveryClient discovery.Client, numShards uint64, namespace string) *sharder {
+	return &sharder{discoveryClient, numShards, namespace, make(map[int64]*Addresses), sync.RWMutex{}}
+}
+
+type localSharder struct {
+	address   string
+	numShards uint64
+}
+
+func newLocalSharder(address string, numShards uint64) *localSharder {
+	return &localSharder{address, numShards}
 }
 
 func (a *sharder) GetAddress(shard uint64, version int64) (result string, ok bool, retErr error) {
@@ -197,8 +205,6 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 			newReplicas := make(map[uint64][]string)
 			masterRolesPerServer := a.numShards / uint64(len(encodedServerStates))
 			masterRolesRemainder := a.numShards % uint64(len(encodedServerStates))
-			replicaRolesPerServer := (a.numShards * a.numReplicas) / uint64(len(encodedServerStates))
-			replicaRolesRemainder := (a.numShards * a.numReplicas) % uint64(len(encodedServerStates))
 			for _, encodedServerState := range encodedServerStates {
 				serverState, err := decodeServerState(encodedServerState)
 				if err != nil {
@@ -289,45 +295,8 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 				protolion.Error(&FailedToAssignRoles{
 					ServerStates: newServerStates,
 					NumShards:    a.numShards,
-					NumReplicas:  a.numReplicas,
 				})
 				return nil
-			}
-			for replica := uint64(0); replica < a.numReplicas; replica++ {
-			Replica:
-				for shard := uint64(0); shard < a.numShards; shard++ {
-					if address, ok := oldMasters[shard]; ok {
-						if assignReplica(newRoles, newMasters, newReplicas, address, shard, replicaRolesPerServer, &replicaRolesRemainder) {
-							continue Replica
-						}
-					}
-					for _, address := range oldReplicas[shard] {
-						if assignReplica(newRoles, newMasters, newReplicas, address, shard, replicaRolesPerServer, &replicaRolesRemainder) {
-							continue Replica
-						}
-					}
-					for _, address := range shardLocations[shard] {
-						if assignReplica(newRoles, newMasters, newReplicas, address, shard, replicaRolesPerServer, &replicaRolesRemainder) {
-							continue Replica
-						}
-					}
-					for address := range newServerStates {
-						if assignReplica(newRoles, newMasters, newReplicas, address, shard, replicaRolesPerServer, &replicaRolesRemainder) {
-							continue Replica
-						}
-					}
-					for address := range newServerStates {
-						if swapReplica(newRoles, newMasters, newReplicas, address, shard, replicaRolesPerServer) {
-							continue Replica
-						}
-					}
-					protolion.Error(&FailedToAssignRoles{
-						ServerStates: newServerStates,
-						NumShards:    a.numShards,
-						NumReplicas:  a.numReplicas,
-					})
-					return nil
-				}
 			}
 			addresses := Addresses{
 				Version:   version,
@@ -479,6 +448,33 @@ func (a *sharder) WaitForAvailability(frontendAddresses []string, serverAddresse
 		}); err != nil && err != errComplete {
 		return err
 	}
+	return nil
+}
+
+func (s *localSharder) GetAddress(shard uint64, version int64) (string, bool, error) {
+	if shard < s.numShards {
+		return s.address, true, nil
+	}
+	return "", false, nil
+}
+
+func (s *localSharder) GetShardToAddress(version int64) (map[uint64]string, error) {
+	result := make(map[uint64]string)
+	for i := uint64(0); i < s.numShards; i++ {
+		result[i] = s.address
+	}
+	return result, nil
+}
+
+func (s *localSharder) Register(cancel chan bool, address string, servers []Server) error {
+	return nil
+}
+
+func (s *localSharder) RegisterFrontends(cancel chan bool, address string, frontends []Frontend) error {
+	return nil
+}
+
+func (s *localSharder) AssignRoles(chan bool) error {
 	return nil
 }
 

@@ -52,7 +52,6 @@ func do(appEnvObj interface{}) error {
 	sharder := shard.NewSharder(
 		discoveryClient,
 		appEnv.NumShards,
-		0,
 		"namespace",
 	)
 	objdAddress, err := getObjdAddress(appEnv)
