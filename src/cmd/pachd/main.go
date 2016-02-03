@@ -8,7 +8,6 @@ import (
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
@@ -77,7 +76,7 @@ func do(appEnvObj interface{}) error {
 		return err
 	}
 	apiServer := server.NewAPIServer(
-		route.NewSharder(
+		pfs.NewSharder(
 			appEnv.NumShards,
 			1,
 		),
@@ -95,7 +94,7 @@ func do(appEnvObj interface{}) error {
 		}
 	}()
 	internalAPIServer := server.NewInternalAPIServer(
-		route.NewSharder(
+		pfs.NewSharder(
 			appEnv.NumShards,
 			1,
 		),

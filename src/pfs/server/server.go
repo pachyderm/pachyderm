@@ -3,7 +3,6 @@ package server
 import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 )
@@ -24,7 +23,7 @@ type InternalAPIServer interface {
 
 // NewAPIServer returns a new APIServer.
 func NewAPIServer(
-	sharder route.Sharder,
+	sharder *pfs.Sharder,
 	router shard.Router,
 ) APIServer {
 	return newAPIServer(
@@ -35,7 +34,7 @@ func NewAPIServer(
 
 // NewInternalAPIServer returns a new InternalAPIServer.
 func NewInternalAPIServer(
-	sharder route.Sharder,
+	sharder *pfs.Sharder,
 	router shard.Router,
 	driver drive.Driver,
 ) InternalAPIServer {

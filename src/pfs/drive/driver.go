@@ -8,7 +8,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
-	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -545,7 +544,7 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 func filterBlockRefs(filterShard *pfs.Shard, blockRefs []*pfs.BlockRef) []*pfs.BlockRef {
 	var result []*pfs.BlockRef
 	for _, blockRef := range blockRefs {
-		if route.BlockInShard(filterShard, blockRef.Block) {
+		if pfs.BlockInShard(filterShard, blockRef.Block) {
 			result = append(result, blockRef)
 		}
 	}
@@ -575,7 +574,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					// the first time we find out it's a regular file we check
 					// the file shard, dirs get returned regardless of sharding,
 					// since they might have children from any shard
-					if !route.FileInShard(filterShard, file) {
+					if !pfs.FileInShard(filterShard, file) {
 						return nil, nil, pfs.ErrFileNotFound
 					}
 				}
