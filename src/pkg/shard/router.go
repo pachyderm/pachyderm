@@ -1,21 +1,20 @@
-package route
+package shard
 
 import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"google.golang.org/grpc"
 )
 
 type router struct {
-	sharder      shard.Sharder
+	sharder      Sharder
 	dialer       grpcutil.Dialer
 	localAddress string
 }
 
 func newRouter(
-	sharder shard.Sharder,
+	sharder Sharder,
 	dialer grpcutil.Dialer,
 	localAddress string,
 ) *router {

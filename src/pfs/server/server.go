@@ -25,7 +25,7 @@ type InternalAPIServer interface {
 // NewAPIServer returns a new APIServer.
 func NewAPIServer(
 	sharder route.Sharder,
-	router route.Router,
+	router shard.Router,
 ) APIServer {
 	return newAPIServer(
 		sharder,
@@ -36,7 +36,7 @@ func NewAPIServer(
 // NewInternalAPIServer returns a new InternalAPIServer.
 func NewInternalAPIServer(
 	sharder route.Sharder,
-	router route.Router,
+	router shard.Router,
 	driver drive.Driver,
 ) InternalAPIServer {
 	return newInternalAPIServer(

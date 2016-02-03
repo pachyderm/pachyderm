@@ -2,6 +2,8 @@ package shard
 
 import (
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
+	"google.golang.org/grpc"
 )
 
 // Sharder distributes shards between a set of servers.
@@ -40,4 +42,26 @@ type Frontend interface {
 	// Version tells the Frontend a new version exists.
 	// Version should block until the Frontend is done using the previous version.
 	Version(version int64) error
+}
+
+type Router interface {
+	GetMasterShards(version int64) (map[uint64]bool, error)
+	GetReplicaShards(version int64) (map[uint64]bool, error)
+	GetAllShards(version int64) (map[uint64]bool, error)
+	GetMasterClientConn(shard uint64, version int64) (*grpc.ClientConn, error)
+	GetMasterOrReplicaClientConn(shard uint64, version int64) (*grpc.ClientConn, error)
+	GetReplicaClientConns(shard uint64, version int64) ([]*grpc.ClientConn, error)
+	GetAllClientConns(version int64) ([]*grpc.ClientConn, error)
+}
+
+func NewRouter(
+	sharder Sharder,
+	dialer grpcutil.Dialer,
+	localAddress string,
+) Router {
+	return newRouter(
+		sharder,
+		dialer,
+		localAddress,
+	)
 }
