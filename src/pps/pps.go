@@ -1,8 +1,6 @@
 package pps
 
-import (
-	"google.golang.org/grpc"
-)
+import ()
 
 func NewLocalJobAPIClient(jobAPIServer JobAPIServer) JobAPIClient {
 	return newLocalJobAPIClient(jobAPIServer)
@@ -10,14 +8,4 @@ func NewLocalJobAPIClient(jobAPIServer JobAPIServer) JobAPIClient {
 
 func NewLocalPipelineAPIClient(pipelineAPIServer PipelineAPIServer) PipelineAPIClient {
 	return newLocalPipelineAPIClient(pipelineAPIServer)
-}
-
-type APIClient interface {
-	JobAPIClient
-	InternalJobAPIClient
-	PipelineAPIClient
-}
-
-func NewAPIClient(clientConn *grpc.ClientConn) APIClient {
-	return newAPIClient(clientConn)
 }
