@@ -63,40 +63,16 @@ docker-build-test:
 docker-build-compile:
 	docker-compose build compile
 
-docker-build-pfs-roler: docker-build-compile
-	docker-compose run --rm compile sh etc/compile/compile.sh pfs-roler
-
-docker-build-pfsd: docker-build-compile
-	docker-compose run --rm compile sh etc/compile/compile.sh pfsd
-
-docker-build-ppsd: docker-build-compile
-	docker-compose run --rm compile sh etc/compile/compile.sh ppsd
-
-docker-build-objd: docker-build-compile
-	docker-compose run --rm compile sh etc/compile/compile.sh objd
-
 docker-build-job-shim: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh job-shim
 
 docker-build-pachd: docker-build-compile
 	docker-compose run --rm compile sh etc/compile/compile.sh pachd
 
-docker-build: docker-build-test docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-objd docker-build-job-shim docker-build-pachd
+docker-build: docker-build-test docker-build-job-shim docker-build-pachd
 
 docker-push-test: docker-build-test
 	docker push pachyderm/test
-
-docker-push-pfs-roler: docker-build-pfs-roler
-	docker push pachyderm/pfs-roler
-
-docker-push-pfsd: docker-build-pfsd
-	docker push pachyderm/pfsd
-
-docker-push-ppsd: docker-build-ppsd
-	docker push pachyderm/ppsd
-
-docker-push-objd: docker-build-objd
-	docker push pachyderm/objd
 
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
@@ -104,7 +80,7 @@ docker-push-job-shim: docker-build-job-shim
 docker-push-pachd: docker-build-pachd
 	docker push pachyderm/pachd
 
-docker-push: docker-push-pfs-roler docker-push-ppsd docker-push-objd docker-push-pfsd docker-push-job-shim
+docker-push: docker-push-job-shim docker-push-pachd
 
 run: docker-build-test
 	docker-compose run --rm $(DOCKER_OPTS) test $(RUNARGS)
@@ -212,14 +188,10 @@ doc: install
 	install \
 	docker-build-test \
 	docker-build-compile \
-	docker-build-pfs-roler \
-	docker-build-pfsd \
-	docker-build-ppsd \
 	docker-build \
-	docker-push-pfs-roler \
-	docker-push-pfsd \
-	docker-push-ppsd \
+	docker-build-pachd \
 	docker-push \
+	docker-push-pachd \
 	run \
 	launch \
 	proto \
