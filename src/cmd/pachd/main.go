@@ -37,7 +37,7 @@ type appEnv struct {
 	DatabaseName    string `env:"DATABASE_NAME,default=pachyderm"`
 	KubeAddress     string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	EtcdAddress     string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
-	Namespace       string `env:NAMESPACE,default=default"`
+	Namespace       string `env:"NAMESPACE,default=default"`
 }
 
 func main() {
