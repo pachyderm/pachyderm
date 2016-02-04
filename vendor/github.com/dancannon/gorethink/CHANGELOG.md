@@ -2,6 +2,20 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## v1.3.2 - 2015-02-01
+
+### Fixed
+- Fixed race condition in cursor which caused issues when closing a cursor that is in the process of fetching data.
+
+## v1.3.1 - 2015-01-22
+
+### Added
+ - Added more documentation and examples for `GetAll`.
+
+### Fixed
+- Fixed `RunWrite` not defering its call to `Cursor.Close()`. This could cause issues if an error occurred when decoding the result.
+- Fixed panic when calling `Error()` on a GoRethink `rqlError`.
+
 ## v1.3.0 - 2016-01-11
 
 ### Added

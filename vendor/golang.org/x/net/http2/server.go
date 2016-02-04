@@ -6,8 +6,8 @@
 // instead, and make sure that on close we close all open
 // streams. then remove doneServing?
 
-// TODO: finish GOAWAY support. Consider each incoming frame type and
-// whether it should be ignored during a shutdown race.
+// TODO: re-audit GOAWAY support. Consider each incoming frame type and
+// whether it should be ignored during graceful shutdown.
 
 // TODO: disconnect idle clients. GFE seems to do 4 minutes. make
 // configurable?  or maximum number of idle clients and remove the
@@ -46,7 +46,12 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/textproto"
 	"net/url"
+	"os"
+	"reflect"
+	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -223,7 +228,7 @@ func (srv *Server) handleConn(hs *http.Server, c net.Conn, h http.Handler) {
 	sc.flow.add(initialWindowSize)
 	sc.inflow.add(initialWindowSize)
 	sc.hpackEncoder = hpack.NewEncoder(&sc.headerWriteBuf)
-	sc.hpackDecoder = hpack.NewDecoder(initialHeaderTableSize, sc.onNewHeaderField)
+	sc.hpackDecoder = hpack.NewDecoder(initialHeaderTableSize, nil)
 	sc.hpackDecoder.SetMaxStringLength(sc.maxHeaderStringLen())
 
 	fr := NewFramer(sc.bw, c)
@@ -307,7 +312,7 @@ func isBadCipher(cipher uint16) bool {
 }
 
 func (sc *serverConn) rejectConn(err ErrCode, debug string) {
-	sc.vlogf("REJECTING conn: %v, %s", err, debug)
+	sc.vlogf("http2: server rejecting conn: %v, %s", err, debug)
 	// ignoring errors. hanging up anyway.
 	sc.framer.WriteGoAway(0, err, []byte(debug))
 	sc.bw.Flush()
@@ -410,20 +415,26 @@ type requestParam struct {
 // responseWriter's state field.
 type stream struct {
 	// immutable:
+	sc   *serverConn
 	id   uint32
 	body *pipe       // non-nil if expecting DATA frames
 	cw   closeWaiter // closed wait stream transitions to closed state
 
 	// owned by serverConn's serve loop:
-	bodyBytes     int64   // body bytes seen so far
-	declBodyBytes int64   // or -1 if undeclared
-	flow          flow    // limits writing from Handler to client
-	inflow        flow    // what the client is allowed to POST/etc to us
-	parent        *stream // or nil
-	weight        uint8
-	state         streamState
-	sentReset     bool // only true once detached from streams map
-	gotReset      bool // only true once detacted from streams map
+	bodyBytes        int64   // body bytes seen so far
+	declBodyBytes    int64   // or -1 if undeclared
+	flow             flow    // limits writing from Handler to client
+	inflow           flow    // what the client is allowed to POST/etc to us
+	parent           *stream // or nil
+	numTrailerValues int64
+	weight           uint8
+	state            streamState
+	sentReset        bool // only true once detached from streams map
+	gotReset         bool // only true once detacted from streams map
+	gotTrailerHeader bool // HEADER frame for trailers was seen
+
+	trailer    http.Header // accumulated trailers
+	reqTrailer http.Header // handler's Request.Trailer
 }
 
 func (sc *serverConn) Framer() *Framer  { return sc.framer }
@@ -474,12 +485,55 @@ func (sc *serverConn) logf(format string, args ...interface{}) {
 	}
 }
 
+// errno returns v's underlying uintptr, else 0.
+//
+// TODO: remove this helper function once http2 can use build
+// tags. See comment in isClosedConnError.
+func errno(v error) uintptr {
+	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Uintptr {
+		return uintptr(rv.Uint())
+	}
+	return 0
+}
+
+// isClosedConnError reports whether err is an error from use of a closed
+// network connection.
+func isClosedConnError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// TODO: remove this string search and be more like the Windows
+	// case below. That might involve modifying the standard library
+	// to return better error types.
+	str := err.Error()
+	if strings.Contains(str, "use of closed network connection") {
+		return true
+	}
+
+	// TODO(bradfitz): x/tools/cmd/bundle doesn't really support
+	// build tags, so I can't make an http2_windows.go file with
+	// Windows-specific stuff. Fix that and move this, once we
+	// have a way to bundle this into std's net/http somehow.
+	if runtime.GOOS == "windows" {
+		if oe, ok := err.(*net.OpError); ok && oe.Op == "read" {
+			if se, ok := oe.Err.(*os.SyscallError); ok && se.Syscall == "wsarecv" {
+				const WSAECONNABORTED = 10053
+				const WSAECONNRESET = 10054
+				if n := errno(se.Err); n == WSAECONNRESET || n == WSAECONNABORTED {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func (sc *serverConn) condlogf(err error, format string, args ...interface{}) {
 	if err == nil {
 		return
 	}
-	str := err.Error()
-	if err == io.EOF || strings.Contains(str, "use of closed network connection") {
+	if err == io.EOF || err == io.ErrUnexpectedEOF || isClosedConnError(err) {
 		// Boring, expected errors.
 		sc.vlogf(format, args...)
 	} else {
@@ -489,9 +543,11 @@ func (sc *serverConn) condlogf(err error, format string, args ...interface{}) {
 
 func (sc *serverConn) onNewHeaderField(f hpack.HeaderField) {
 	sc.serveG.check()
-	sc.vlogf("got header field %+v", f)
+	if VerboseLogs {
+		sc.vlogf("http2: server decoded %v", f)
+	}
 	switch {
-	case !validHeader(f.Name):
+	case !validHeaderFieldValue(f.Value): // f.Name checked _after_ pseudo check, since ':' is invalid
 		sc.req.invalidHeader = true
 	case strings.HasPrefix(f.Name, ":"):
 		if sc.req.sawRegularHeader {
@@ -525,6 +581,8 @@ func (sc *serverConn) onNewHeaderField(f hpack.HeaderField) {
 			return
 		}
 		*dst = f.Value
+	case !validHeaderFieldName(f.Name):
+		sc.req.invalidHeader = true
 	default:
 		sc.req.sawRegularHeader = true
 		sc.req.header.Add(sc.canonicalHeader(f.Name), f.Value)
@@ -532,6 +590,34 @@ func (sc *serverConn) onNewHeaderField(f hpack.HeaderField) {
 		sc.req.headerListSize += int64(len(f.Name)) + int64(len(f.Value)) + headerFieldOverhead
 		if sc.req.headerListSize > int64(sc.maxHeaderListSize()) {
 			sc.hpackDecoder.SetEmitEnabled(false)
+		}
+	}
+}
+
+func (st *stream) onNewTrailerField(f hpack.HeaderField) {
+	sc := st.sc
+	sc.serveG.check()
+	if VerboseLogs {
+		sc.vlogf("http2: server decoded trailer %v", f)
+	}
+	switch {
+	case strings.HasPrefix(f.Name, ":"):
+		sc.req.invalidHeader = true
+		return
+	case !validHeaderFieldName(f.Name) || !validHeaderFieldValue(f.Value):
+		sc.req.invalidHeader = true
+		return
+	default:
+		key := sc.canonicalHeader(f.Name)
+		if st.trailer != nil {
+			vv := append(st.trailer[key], f.Value)
+			st.trailer[key] = vv
+
+			// arbitrary; TODO: read spec about header list size limits wrt trailers
+			const tooBig = 1000
+			if len(vv) >= tooBig {
+				sc.hpackDecoder.SetEmitEnabled(false)
+			}
 		}
 	}
 }
@@ -582,6 +668,9 @@ func (sc *serverConn) readFrames() {
 		case <-sc.doneServing:
 			return
 		}
+		if terminalReadFrameError(err) {
+			return
+		}
 	}
 }
 
@@ -615,6 +704,7 @@ func (sc *serverConn) stopShutdownTimer() {
 }
 
 func (sc *serverConn) notePanic() {
+	// Note: this is for serverConn.serve panicking, not http.Handler code.
 	if testHookOnPanicMu != nil {
 		testHookOnPanicMu.Lock()
 		defer testHookOnPanicMu.Unlock()
@@ -636,7 +726,9 @@ func (sc *serverConn) serve() {
 	defer sc.stopShutdownTimer()
 	defer close(sc.doneServing) // unblocks handlers trying to send
 
-	sc.vlogf("HTTP/2 connection from %v on %p", sc.conn.RemoteAddr(), sc.hs)
+	if VerboseLogs {
+		sc.vlogf("http2: server connection from %v on %p", sc.conn.RemoteAddr(), sc.hs)
+	}
 
 	sc.writeFrame(frameWriteMsg{
 		write: writeSettings{
@@ -653,7 +745,7 @@ func (sc *serverConn) serve() {
 	sc.unackedSettings++
 
 	if err := sc.readPreface(); err != nil {
-		sc.condlogf(err, "error reading preface from client %v: %v", sc.conn.RemoteAddr(), err)
+		sc.condlogf(err, "http2: server: error reading preface from client %v: %v", sc.conn.RemoteAddr(), err)
 		return
 	}
 	// Now that we've got the preface, get us out of the
@@ -719,7 +811,9 @@ func (sc *serverConn) readPreface() error {
 		return errors.New("timeout waiting for client preface")
 	case err := <-errc:
 		if err == nil {
-			sc.vlogf("client %v said hello", sc.conn.RemoteAddr())
+			if VerboseLogs {
+				sc.vlogf("http2: server: client %v said hello", sc.conn.RemoteAddr())
+			}
 		}
 		return err
 	}
@@ -837,6 +931,11 @@ func (sc *serverConn) startFrameWrite(wm frameWriteMsg) {
 	go sc.writeFrameAsync(wm)
 }
 
+// errHandlerPanicked is the error given to any callers blocked in a read from
+// Request.Body when the main goroutine panics. Since most handlers read in the
+// the main ServeHTTP goroutine, this will show up rarely.
+var errHandlerPanicked = errors.New("http2: handler panicked")
+
 // wroteFrame is called on the serve goroutine with the result of
 // whatever happened on writeFrameAsync.
 func (sc *serverConn) wroteFrame(res frameWriteResult) {
@@ -850,6 +949,10 @@ func (sc *serverConn) wroteFrame(res frameWriteResult) {
 	st := wm.stream
 
 	closeStream := endsStream(wm.write)
+
+	if _, ok := wm.write.(handlerPanicRST); ok {
+		sc.closeStream(st, errHandlerPanicked)
+	}
 
 	// Reply (if requested) to the blocked ServeHTTP goroutine.
 	if ch := wm.done; ch != nil {
@@ -963,18 +1066,6 @@ func (sc *serverConn) resetStream(se StreamError) {
 	}
 }
 
-// curHeaderStreamID returns the stream ID of the header block we're
-// currently in the middle of reading. If this returns non-zero, the
-// next frame must be a CONTINUATION with this stream id.
-func (sc *serverConn) curHeaderStreamID() uint32 {
-	sc.serveG.check()
-	st := sc.req.stream
-	if st == nil {
-		return 0
-	}
-	return st.id
-}
-
 // processFrameFromReader processes the serve loop's read from readFrameCh from the
 // frame-reading goroutine.
 // processFrameFromReader returns whether the connection should be kept open.
@@ -986,7 +1077,7 @@ func (sc *serverConn) processFrameFromReader(res readFrameResult) bool {
 			sc.goAway(ErrCodeFrameSize)
 			return true // goAway will close the loop
 		}
-		clientGone := err == io.EOF || strings.Contains(err.Error(), "use of closed network connection")
+		clientGone := err == io.EOF || err == io.ErrUnexpectedEOF || isClosedConnError(err)
 		if clientGone {
 			// TODO: could we also get into this state if
 			// the peer does a half close
@@ -1000,7 +1091,9 @@ func (sc *serverConn) processFrameFromReader(res readFrameResult) bool {
 		}
 	} else {
 		f := res.f
-		sc.vlogf("got %v: %#v", f.Header(), f)
+		if VerboseLogs {
+			sc.vlogf("http2: server read frame %v", summarizeFrame(f))
+		}
 		err = sc.processFrame(f)
 		if err == nil {
 			return true
@@ -1015,14 +1108,14 @@ func (sc *serverConn) processFrameFromReader(res readFrameResult) bool {
 		sc.goAway(ErrCodeFlowControl)
 		return true
 	case ConnectionError:
-		sc.logf("%v: %v", sc.conn.RemoteAddr(), ev)
+		sc.logf("http2: server connection error from %v: %v", sc.conn.RemoteAddr(), ev)
 		sc.goAway(ErrCode(ev))
 		return true // goAway will handle shutdown
 	default:
 		if res.err != nil {
-			sc.logf("disconnecting; error reading frame from client %s: %v", sc.conn.RemoteAddr(), err)
+			sc.vlogf("http2: server closing client connection; error reading frame from client %s: %v", sc.conn.RemoteAddr(), err)
 		} else {
-			sc.logf("disconnection due to other error: %v", err)
+			sc.logf("http2: server closing client connection: %v", err)
 		}
 		return false
 	}
@@ -1037,14 +1130,6 @@ func (sc *serverConn) processFrame(f Frame) error {
 			return ConnectionError(ErrCodeProtocol)
 		}
 		sc.sawFirstSettings = true
-	}
-
-	if s := sc.curHeaderStreamID(); s != 0 {
-		if cf, ok := f.(*ContinuationFrame); !ok {
-			return ConnectionError(ErrCodeProtocol)
-		} else if cf.Header().StreamID != s {
-			return ConnectionError(ErrCodeProtocol)
-		}
 	}
 
 	switch f := f.(type) {
@@ -1069,7 +1154,7 @@ func (sc *serverConn) processFrame(f Frame) error {
 		// frame as a connection error (Section 5.4.1) of type PROTOCOL_ERROR.
 		return ConnectionError(ErrCodeProtocol)
 	default:
-		sc.vlogf("Ignoring frame: %v", f.Header())
+		sc.vlogf("http2: server ignoring frame: %v", f.Header())
 		return nil
 	}
 }
@@ -1180,7 +1265,9 @@ func (sc *serverConn) processSetting(s Setting) error {
 	if err := s.Valid(); err != nil {
 		return err
 	}
-	sc.vlogf("processing setting %v", s)
+	if VerboseLogs {
+		sc.vlogf("http2: server processing setting %v", s)
+	}
 	switch s.ID {
 	case SettingHeaderTableSize:
 		sc.headerTableSize = s.Val
@@ -1199,6 +1286,9 @@ func (sc *serverConn) processSetting(s Setting) error {
 		// Unknown setting: "An endpoint that receives a SETTINGS
 		// frame with any unknown or unsupported identifier MUST
 		// ignore that setting."
+		if VerboseLogs {
+			sc.vlogf("http2: server ignoring unknown setting %v", s)
+		}
 	}
 	return nil
 }
@@ -1238,7 +1328,7 @@ func (sc *serverConn) processData(f *DataFrame) error {
 	// with a stream error (Section 5.4.2) of type STREAM_CLOSED."
 	id := f.Header().StreamID
 	st, ok := sc.streams[id]
-	if !ok || st.state != stateOpen {
+	if !ok || st.state != stateOpen || st.gotTrailerHeader {
 		// This includes sending a RST_STREAM if the stream is
 		// in stateHalfClosedLocal (which currently means that
 		// the http.Handler returned, so it's done reading &
@@ -1272,15 +1362,36 @@ func (sc *serverConn) processData(f *DataFrame) error {
 		st.bodyBytes += int64(len(data))
 	}
 	if f.StreamEnded() {
-		if st.declBodyBytes != -1 && st.declBodyBytes != st.bodyBytes {
-			st.body.CloseWithError(fmt.Errorf("request declared a Content-Length of %d but only wrote %d bytes",
-				st.declBodyBytes, st.bodyBytes))
-		} else {
-			st.body.CloseWithError(io.EOF)
-		}
-		st.state = stateHalfClosedRemote
+		st.endStream()
 	}
 	return nil
+}
+
+// endStream closes a Request.Body's pipe. It is called when a DATA
+// frame says a request body is over (or after trailers).
+func (st *stream) endStream() {
+	sc := st.sc
+	sc.serveG.check()
+
+	if st.declBodyBytes != -1 && st.declBodyBytes != st.bodyBytes {
+		st.body.CloseWithError(fmt.Errorf("request declared a Content-Length of %d but only wrote %d bytes",
+			st.declBodyBytes, st.bodyBytes))
+	} else {
+		st.body.closeWithErrorAndCode(io.EOF, st.copyTrailersToHandlerRequest)
+		st.body.CloseWithError(io.EOF)
+	}
+	st.state = stateHalfClosedRemote
+}
+
+// copyTrailersToHandlerRequest is run in the Handler's goroutine in
+// its Request.Body.Read just before it gets io.EOF.
+func (st *stream) copyTrailersToHandlerRequest() {
+	for k, vv := range st.trailer {
+		if _, ok := st.reqTrailer[k]; ok {
+			// Only copy it over it was pre-declared.
+			st.reqTrailer[k] = vv
+		}
+	}
 }
 
 func (sc *serverConn) processHeaders(f *HeadersFrame) error {
@@ -1291,20 +1402,36 @@ func (sc *serverConn) processHeaders(f *HeadersFrame) error {
 		return nil
 	}
 	// http://http2.github.io/http2-spec/#rfc.section.5.1.1
-	if id%2 != 1 || id <= sc.maxStreamID || sc.req.stream != nil {
-		// Streams initiated by a client MUST use odd-numbered
-		// stream identifiers. [...] The identifier of a newly
-		// established stream MUST be numerically greater than all
-		// streams that the initiating endpoint has opened or
-		// reserved. [...]  An endpoint that receives an unexpected
-		// stream identifier MUST respond with a connection error
-		// (Section 5.4.1) of type PROTOCOL_ERROR.
+	// Streams initiated by a client MUST use odd-numbered stream
+	// identifiers. [...] An endpoint that receives an unexpected
+	// stream identifier MUST respond with a connection error
+	// (Section 5.4.1) of type PROTOCOL_ERROR.
+	if id%2 != 1 {
 		return ConnectionError(ErrCodeProtocol)
 	}
+	// A HEADERS frame can be used to create a new stream or
+	// send a trailer for an open one. If we already have a stream
+	// open, let it process its own HEADERS frame (trailers at this
+	// point, if it's valid).
+	st := sc.streams[f.Header().StreamID]
+	if st != nil {
+		return st.processTrailerHeaders(f)
+	}
+
+	// [...] The identifier of a newly established stream MUST be
+	// numerically greater than all streams that the initiating
+	// endpoint has opened or reserved. [...]  An endpoint that
+	// receives an unexpected stream identifier MUST respond with
+	// a connection error (Section 5.4.1) of type PROTOCOL_ERROR.
+	if id <= sc.maxStreamID || sc.req.stream != nil {
+		return ConnectionError(ErrCodeProtocol)
+	}
+
 	if id > sc.maxStreamID {
 		sc.maxStreamID = id
 	}
-	st := &stream{
+	st = &stream{
+		sc:    sc,
 		id:    id,
 		state: stateOpen,
 	}
@@ -1330,15 +1457,30 @@ func (sc *serverConn) processHeaders(f *HeadersFrame) error {
 		stream: st,
 		header: make(http.Header),
 	}
+	sc.hpackDecoder.SetEmitFunc(sc.onNewHeaderField)
 	sc.hpackDecoder.SetEmitEnabled(true)
 	return sc.processHeaderBlockFragment(st, f.HeaderBlockFragment(), f.HeadersEnded())
+}
+
+func (st *stream) processTrailerHeaders(f *HeadersFrame) error {
+	sc := st.sc
+	sc.serveG.check()
+	if st.gotTrailerHeader {
+		return ConnectionError(ErrCodeProtocol)
+	}
+	st.gotTrailerHeader = true
+	if !f.StreamEnded() {
+		return StreamError{st.id, ErrCodeProtocol}
+	}
+	sc.resetPendingRequest() // we use invalidHeader from it for trailers
+	return st.processTrailerHeaderBlockFragment(f.HeaderBlockFragment(), f.HeadersEnded())
 }
 
 func (sc *serverConn) processContinuation(f *ContinuationFrame) error {
 	sc.serveG.check()
 	st := sc.streams[f.Header().StreamID]
-	if st == nil || sc.curHeaderStreamID() != st.id {
-		return ConnectionError(ErrCodeProtocol)
+	if st.gotTrailerHeader {
+		return st.processTrailerHeaderBlockFragment(f.HeaderBlockFragment(), f.HeadersEnded())
 	}
 	return sc.processHeaderBlockFragment(st, f.HeaderBlockFragment(), f.HeadersEnded())
 }
@@ -1378,6 +1520,10 @@ func (sc *serverConn) processHeaderBlockFragment(st *stream, frag []byte, end bo
 	if err != nil {
 		return err
 	}
+	st.reqTrailer = req.Trailer
+	if st.reqTrailer != nil {
+		st.trailer = make(http.Header)
+	}
 	st.body = req.Body.(*requestBody).pipe // may be nil
 	st.declBodyBytes = req.ContentLength
 
@@ -1388,6 +1534,30 @@ func (sc *serverConn) processHeaderBlockFragment(st *stream, frag []byte, end bo
 	}
 
 	go sc.runHandler(rw, req, handler)
+	return nil
+}
+
+func (st *stream) processTrailerHeaderBlockFragment(frag []byte, end bool) error {
+	sc := st.sc
+	sc.serveG.check()
+	sc.hpackDecoder.SetEmitFunc(st.onNewTrailerField)
+	if _, err := sc.hpackDecoder.Write(frag); err != nil {
+		return ConnectionError(ErrCodeCompression)
+	}
+	if !end {
+		return nil
+	}
+
+	rp := &sc.req
+	if rp.invalidHeader {
+		return StreamError{rp.stream.id, ErrCodeProtocol}
+	}
+
+	err := sc.hpackDecoder.Close()
+	st.endStream()
+	if err != nil {
+		return ConnectionError(ErrCodeCompression)
+	}
 	return nil
 }
 
@@ -1443,7 +1613,17 @@ func (sc *serverConn) resetPendingRequest() {
 func (sc *serverConn) newWriterAndRequest() (*responseWriter, *http.Request, error) {
 	sc.serveG.check()
 	rp := &sc.req
-	if rp.invalidHeader || rp.method == "" || rp.path == "" ||
+
+	if rp.invalidHeader {
+		return nil, nil, StreamError{rp.stream.id, ErrCodeProtocol}
+	}
+
+	isConnect := rp.method == "CONNECT"
+	if isConnect {
+		if rp.path != "" || rp.scheme != "" || rp.authority == "" {
+			return nil, nil, StreamError{rp.stream.id, ErrCodeProtocol}
+		}
+	} else if rp.method == "" || rp.path == "" ||
 		(rp.scheme != "https" && rp.scheme != "http") {
 		// See 8.1.2.6 Malformed Requests and Responses:
 		//
@@ -1457,12 +1637,14 @@ func (sc *serverConn) newWriterAndRequest() (*responseWriter, *http.Request, err
 		// pseudo-header fields"
 		return nil, nil, StreamError{rp.stream.id, ErrCodeProtocol}
 	}
+
 	bodyOpen := rp.stream.state == stateOpen
 	if rp.method == "HEAD" && bodyOpen {
 		// HEAD requests can't have bodies
 		return nil, nil, StreamError{rp.stream.id, ErrCodeProtocol}
 	}
 	var tlsState *tls.ConnectionState // nil if not scheme https
+
 	if rp.scheme == "https" {
 		tlsState = sc.tlsState
 	}
@@ -1478,33 +1660,61 @@ func (sc *serverConn) newWriterAndRequest() (*responseWriter, *http.Request, err
 	if cookies := rp.header["Cookie"]; len(cookies) > 1 {
 		rp.header.Set("Cookie", strings.Join(cookies, "; "))
 	}
+
+	// Setup Trailers
+	var trailer http.Header
+	for _, v := range rp.header["Trailer"] {
+		for _, key := range strings.Split(v, ",") {
+			key = http.CanonicalHeaderKey(strings.TrimSpace(key))
+			switch key {
+			case "Transfer-Encoding", "Trailer", "Content-Length":
+				// Bogus. (copy of http1 rules)
+				// Ignore.
+			default:
+				if trailer == nil {
+					trailer = make(http.Header)
+				}
+				trailer[key] = nil
+			}
+		}
+	}
+	delete(rp.header, "Trailer")
+
 	body := &requestBody{
 		conn:          sc,
 		stream:        rp.stream,
 		needsContinue: needsContinue,
 	}
-	// TODO: handle asterisk '*' requests + test
-	url, err := url.ParseRequestURI(rp.path)
-	if err != nil {
-		// TODO: find the right error code?
-		return nil, nil, StreamError{rp.stream.id, ErrCodeProtocol}
+	var url_ *url.URL
+	var requestURI string
+	if isConnect {
+		url_ = &url.URL{Host: rp.authority}
+		requestURI = rp.authority // mimic HTTP/1 server behavior
+	} else {
+		var err error
+		url_, err = url.ParseRequestURI(rp.path)
+		if err != nil {
+			return nil, nil, StreamError{rp.stream.id, ErrCodeProtocol}
+		}
+		requestURI = rp.path
 	}
 	req := &http.Request{
 		Method:     rp.method,
-		URL:        url,
+		URL:        url_,
 		RemoteAddr: sc.remoteAddrStr,
 		Header:     rp.header,
-		RequestURI: rp.path,
+		RequestURI: requestURI,
 		Proto:      "HTTP/2.0",
 		ProtoMajor: 2,
 		ProtoMinor: 0,
 		TLS:        tlsState,
 		Host:       authority,
 		Body:       body,
+		Trailer:    trailer,
 	}
 	if bodyOpen {
 		body.pipe = &pipe{
-			b: &fixedBuffer{buf: make([]byte, initialWindowSize)}, // TODO: share/remove XXX
+			b: &fixedBuffer{buf: make([]byte, initialWindowSize)}, // TODO: garbage
 		}
 
 		if vv, ok := rp.header["Content-Length"]; ok {
@@ -1530,9 +1740,25 @@ func (sc *serverConn) newWriterAndRequest() (*responseWriter, *http.Request, err
 
 // Run on its own goroutine.
 func (sc *serverConn) runHandler(rw *responseWriter, req *http.Request, handler func(http.ResponseWriter, *http.Request)) {
-	defer rw.handlerDone()
-	// TODO: catch panics like net/http.Server
+	didPanic := true
+	defer func() {
+		if didPanic {
+			e := recover()
+			// Same as net/http:
+			const size = 64 << 10
+			buf := make([]byte, size)
+			buf = buf[:runtime.Stack(buf, false)]
+			sc.writeFrameFromHandler(frameWriteMsg{
+				write:  handlerPanicRST{rw.rws.stream.id},
+				stream: rw.rws.stream,
+			})
+			sc.logf("http2: panic serving %v: %v\n%s", sc.conn.RemoteAddr(), e, buf)
+			return
+		}
+		rw.handlerDone()
+	}()
 	handler(rw, req)
+	didPanic = false
 }
 
 func handleHeaderListTooLong(w http.ResponseWriter, r *http.Request) {
@@ -1719,6 +1945,7 @@ type responseWriterState struct {
 	// mutated by http.Handler goroutine:
 	handlerHeader http.Header // nil until called
 	snapHeader    http.Header // snapshot of handlerHeader at WriteHeader time
+	trailers      []string    // set in writeChunk
 	status        int         // status code passed to WriteHeader
 	wroteHeader   bool        // WriteHeader called (explicitly or implicitly). Not necessarily sent to user yet.
 	sentHeader    bool        // have we sent the header frame?
@@ -1735,6 +1962,23 @@ type chunkWriter struct{ rws *responseWriterState }
 
 func (cw chunkWriter) Write(p []byte) (n int, err error) { return cw.rws.writeChunk(p) }
 
+func (rws *responseWriterState) hasTrailers() bool { return len(rws.trailers) != 0 }
+
+// declareTrailer is called for each Trailer header when the
+// response header is written. It notes that a header will need to be
+// written in the trailers at the end of the response.
+func (rws *responseWriterState) declareTrailer(k string) {
+	k = http.CanonicalHeaderKey(k)
+	switch k {
+	case "Transfer-Encoding", "Content-Length", "Trailer":
+		// Forbidden by RFC 2616 14.40.
+		return
+	}
+	if !strSliceContains(rws.trailers, k) {
+		rws.trailers = append(rws.trailers, k)
+	}
+}
+
 // writeChunk writes chunks from the bufio.Writer. But because
 // bufio.Writer may bypass its chunking, sometimes p may be
 // arbitrarily large.
@@ -1745,6 +1989,7 @@ func (rws *responseWriterState) writeChunk(p []byte) (n int, err error) {
 	if !rws.wroteHeader {
 		rws.writeHeader(200)
 	}
+
 	isHeadResp := rws.req.Method == "HEAD"
 	if !rws.sentHeader {
 		rws.sentHeader = true
@@ -1758,10 +2003,11 @@ func (rws *responseWriterState) writeChunk(p []byte) (n int, err error) {
 				clen = ""
 			}
 		}
-		if clen == "" && rws.handlerDone && bodyAllowedForStatus(rws.status) {
+		if clen == "" && rws.handlerDone && bodyAllowedForStatus(rws.status) && (len(p) > 0 || !isHeadResp) {
 			clen = strconv.Itoa(len(p))
 		}
-		if rws.snapHeader.Get("Content-Type") == "" && bodyAllowedForStatus(rws.status) {
+		_, hasContentType := rws.snapHeader["Content-Type"]
+		if !hasContentType && bodyAllowedForStatus(rws.status) {
 			ctype = http.DetectContentType(p)
 		}
 		var date string
@@ -1769,7 +2015,12 @@ func (rws *responseWriterState) writeChunk(p []byte) (n int, err error) {
 			// TODO(bradfitz): be faster here, like net/http? measure.
 			date = time.Now().UTC().Format(http.TimeFormat)
 		}
-		endStream := (rws.handlerDone && len(p) == 0) || isHeadResp
+
+		for _, v := range rws.snapHeader["Trailer"] {
+			foreachHeaderElement(v, rws.declareTrailer)
+		}
+
+		endStream := (rws.handlerDone && !rws.hasTrailers() && len(p) == 0) || isHeadResp
 		err = rws.conn.writeHeaders(rws.stream, &writeResHeaders{
 			streamID:      rws.stream.id,
 			httpResCode:   rws.status,
@@ -1793,10 +2044,75 @@ func (rws *responseWriterState) writeChunk(p []byte) (n int, err error) {
 		return 0, nil
 	}
 
-	if err := rws.conn.writeDataFromHandler(rws.stream, p, rws.handlerDone); err != nil {
-		return 0, err
+	if rws.handlerDone {
+		rws.promoteUndeclaredTrailers()
+	}
+
+	endStream := rws.handlerDone && !rws.hasTrailers()
+	if len(p) > 0 || endStream {
+		// only send a 0 byte DATA frame if we're ending the stream.
+		if err := rws.conn.writeDataFromHandler(rws.stream, p, endStream); err != nil {
+			return 0, err
+		}
+	}
+
+	if rws.handlerDone && rws.hasTrailers() {
+		err = rws.conn.writeHeaders(rws.stream, &writeResHeaders{
+			streamID:  rws.stream.id,
+			h:         rws.handlerHeader,
+			trailers:  rws.trailers,
+			endStream: true,
+		})
+		return len(p), err
 	}
 	return len(p), nil
+}
+
+// TrailerPrefix is a magic prefix for ResponseWriter.Header map keys
+// that, if present, signals that the map entry is actually for
+// the response trailers, and not the response headers. The prefix
+// is stripped after the ServeHTTP call finishes and the values are
+// sent in the trailers.
+//
+// This mechanism is intended only for trailers that are not known
+// prior to the headers being written. If the set of trailers is fixed
+// or known before the header is written, the normal Go trailers mechanism
+// is preferred:
+//    https://golang.org/pkg/net/http/#ResponseWriter
+//    https://golang.org/pkg/net/http/#example_ResponseWriter_trailers
+const TrailerPrefix = "Trailer:"
+
+// promoteUndeclaredTrailers permits http.Handlers to set trailers
+// after the header has already been flushed. Because the Go
+// ResponseWriter interface has no way to set Trailers (only the
+// Header), and because we didn't want to expand the ResponseWriter
+// interface, and because nobody used trailers, and because RFC 2616
+// says you SHOULD (but not must) predeclare any trailers in the
+// header, the official ResponseWriter rules said trailers in Go must
+// be predeclared, and then we reuse the same ResponseWriter.Header()
+// map to mean both Headers and Trailers.  When it's time to write the
+// Trailers, we pick out the fields of Headers that were declared as
+// trailers. That worked for a while, until we found the first major
+// user of Trailers in the wild: gRPC (using them only over http2),
+// and gRPC libraries permit setting trailers mid-stream without
+// predeclarnig them. So: change of plans. We still permit the old
+// way, but we also permit this hack: if a Header() key begins with
+// "Trailer:", the suffix of that key is a Trailer. Because ':' is an
+// invalid token byte anyway, there is no ambiguity. (And it's already
+// filtered out) It's mildly hacky, but not terrible.
+//
+// This method runs after the Handler is done and promotes any Header
+// fields to be trailers.
+func (rws *responseWriterState) promoteUndeclaredTrailers() {
+	for k, vv := range rws.handlerHeader {
+		if !strings.HasPrefix(k, TrailerPrefix) {
+			continue
+		}
+		trailerKey := strings.TrimPrefix(k, TrailerPrefix)
+		rws.declareTrailer(trailerKey)
+		rws.handlerHeader[http.CanonicalHeaderKey(trailerKey)] = vv
+	}
+	sort.Strings(rws.trailers)
 }
 
 func (w *responseWriter) Flush() {
@@ -1919,11 +2235,26 @@ func (w *responseWriter) write(lenData int, dataB []byte, dataS string) (n int, 
 
 func (w *responseWriter) handlerDone() {
 	rws := w.rws
-	if rws == nil {
-		panic("handlerDone called twice")
-	}
 	rws.handlerDone = true
 	w.Flush()
 	w.rws = nil
 	responseWriterStatePool.Put(rws)
+}
+
+// foreachHeaderElement splits v according to the "#rule" construction
+// in RFC 2616 section 2.1 and calls fn for each non-empty element.
+func foreachHeaderElement(v string, fn func(string)) {
+	v = textproto.TrimString(v)
+	if v == "" {
+		return
+	}
+	if !strings.Contains(v, ",") {
+		fn(v)
+		return
+	}
+	for _, f := range strings.Split(v, ",") {
+		if f = textproto.TrimString(f); f != "" {
+			fn(f)
+		}
+	}
 }

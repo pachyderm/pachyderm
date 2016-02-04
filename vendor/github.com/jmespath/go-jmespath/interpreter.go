@@ -314,27 +314,56 @@ func (intr *treeInterpreter) Execute(node ASTNode, value interface{}) (interface
 	return nil, errors.New("Unknown AST node: " + node.nodeType.String())
 }
 
+func fieldFromStruct(value reflect.Value, fieldName string) interface{} {
+	v := value.FieldByName(fieldName)
+	if !v.IsValid() {
+		return nil
+	}
+
+	switch v := v.Interface().(type) {
+	case *string:
+		return *v
+	case *int:
+		return *v
+	case *int8:
+		return *v
+	case *int16:
+		return *v
+	case *int32:
+		return *v
+	case *int64:
+		return *v
+	case *uint:
+		return *v
+	case *uint8:
+		return *v
+	case *uint16:
+		return *v
+	case *uint32:
+		return *v
+	case *uint64:
+		return *v
+	case *float32:
+		return *v
+	case *float64:
+		return *v
+	default:
+		return v
+	}
+}
+
 func (intr *treeInterpreter) fieldFromStruct(key string, value interface{}) (interface{}, error) {
 	rv := reflect.ValueOf(value)
 	first, n := utf8.DecodeRuneInString(key)
 	fieldName := string(unicode.ToUpper(first)) + key[n:]
 	if rv.Kind() == reflect.Struct {
-		v := rv.FieldByName(fieldName)
-		if !v.IsValid() {
-			return nil, nil
-		}
-		return v.Interface(), nil
+		return fieldFromStruct(rv, fieldName), nil
 	} else if rv.Kind() == reflect.Ptr {
 		// Handle multiple levels of indirection?
 		if rv.IsNil() {
 			return nil, nil
 		}
-		rv = rv.Elem()
-		v := rv.FieldByName(fieldName)
-		if !v.IsValid() {
-			return nil, nil
-		}
-		return v.Interface(), nil
+		return fieldFromStruct(rv.Elem(), fieldName), nil
 	}
 	return nil, nil
 }

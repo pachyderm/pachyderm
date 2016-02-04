@@ -30,12 +30,11 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 /*
-Package jsonpb provides marshaling/unmarshaling functionality between
-protocol buffer and JSON objects.
+Package jsonpb provides marshaling and unmarshaling between protocol buffers and JSON.
+It follows the specification at https://developers.google.com/protocol-buffers/docs/proto3#json.
 
-Compared to encoding/json, this library:
- - encodes int64, uint64 as strings
- - optionally encodes enums as integers
+This package produces a different output than the standard "encoding/json" package,
+which does not operate correctly on protocol buffers.
 */
 package jsonpb
 
@@ -57,10 +56,13 @@ var (
 )
 
 // Marshaler is a configurable object for converting between
-// protocol buffer objects and a JSON representation for them
+// protocol buffer objects and a JSON representation for them.
 type Marshaler struct {
 	// Whether to render enum values as integers, as opposed to string values.
 	EnumsAsInts bool
+
+	// Whether to render fields with zero values.
+	EmitDefaults bool
 
 	// A string to indent each level by. The presence of this field will
 	// also cause a space to appear between the field separator and
@@ -107,13 +109,36 @@ func (m *Marshaler) marshalObject(out *errWriter, v proto.Message, indent string
 			continue
 		}
 
-		// TODO: proto3 objects should have default values omitted.
-
 		// IsNil will panic on most value kinds.
 		switch value.Kind() {
 		case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
 			if value.IsNil() {
 				continue
+			}
+		}
+
+		if !m.EmitDefaults {
+			switch value.Kind() {
+			case reflect.Bool:
+				if !value.Bool() {
+					continue
+				}
+			case reflect.Int32, reflect.Int64:
+				if value.Int() == 0 {
+					continue
+				}
+			case reflect.Uint32, reflect.Uint64:
+				if value.Uint() == 0 {
+					continue
+				}
+			case reflect.Float32, reflect.Float64:
+				if value.Float() == 0 {
+					continue
+				}
+			case reflect.String:
+				if value.Len() == 0 {
+					continue
+				}
 			}
 		}
 

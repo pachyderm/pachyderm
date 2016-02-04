@@ -106,9 +106,27 @@ func (m *Manager) Apply(pid int) (err error) {
 		return nil
 	}
 
+	var c = m.Cgroups
+
 	d, err := getCgroupData(m.Cgroups, pid)
 	if err != nil {
 		return err
+	}
+
+	if c.Paths != nil {
+		paths := make(map[string]string)
+		for name, path := range c.Paths {
+			_, err := d.path(name)
+			if err != nil {
+				if cgroups.IsNotFound(err) {
+					continue
+				}
+				return err
+			}
+			paths[name] = path
+		}
+		m.Paths = paths
+		return cgroups.EnterPid(m.Paths, pid)
 	}
 
 	paths := make(map[string]string)
@@ -138,6 +156,9 @@ func (m *Manager) Apply(pid int) (err error) {
 }
 
 func (m *Manager) Destroy() error {
+	if m.Cgroups.Paths != nil {
+		return nil
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := cgroups.RemovePaths(m.Paths); err != nil {
@@ -172,12 +193,6 @@ func (m *Manager) GetStats() (*cgroups.Stats, error) {
 
 func (m *Manager) Set(container *configs.Config) error {
 	for _, sys := range subsystems {
-		// We can't set this here, because after being applied, memcg doesn't
-		// allow a non-empty cgroup from having its limits changed.
-		if sys.Name() == "memory" {
-			continue
-		}
-
 		// Generate fake cgroup data.
 		d, err := getCgroupData(container.Cgroups, -1)
 		if err != nil {
