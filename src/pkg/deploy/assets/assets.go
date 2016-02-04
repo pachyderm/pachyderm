@@ -36,7 +36,7 @@ func ServiceAccount() *api.ServiceAccount {
 	}
 }
 
-//TODO secrets is only necessary because dockerized kube chokes on them
+//PachdRc TODO secrets is only necessary because dockerized kube chokes on them
 func PachdRc(shards uint64, secrets bool) *api.ReplicationController {
 	volumes := []api.Volume{
 		{
