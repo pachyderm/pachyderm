@@ -8,17 +8,16 @@ import (
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pfs/server"
+	pfs_server "github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/jobserver"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
-	persistserver "github.com/pachyderm/pachyderm/src/pps/persist/server"
-	"github.com/pachyderm/pachyderm/src/pps/pipelineserver"
+	persist_server "github.com/pachyderm/pachyderm/src/pps/persist/server"
+	pps_server "github.com/pachyderm/pachyderm/src/pps/server"
 	"go.pedge.io/env"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pkg/http"
@@ -74,7 +73,7 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	apiServer := server.NewAPIServer(
+	apiServer := pfs_server.NewAPIServer(
 		pfs.NewHasher(
 			appEnv.NumShards,
 			1,
@@ -92,7 +91,7 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("Error from sharder.RegisterFrontend %s", err.Error())
 		}
 	}()
-	internalAPIServer := server.NewInternalAPIServer(
+	internalAPIServer := pfs_server.NewInternalAPIServer(
 		pfs.NewHasher(
 			appEnv.NumShards,
 			1,
@@ -111,14 +110,19 @@ func do(appEnvObj interface{}) error {
 			protolion.Printf("Error from sharder.Register %s", err.Error())
 		}
 	}()
-	jobAPIServer := jobserver.NewAPIServer(
+	ppsAPIServer := pps_server.NewAPIServer(
+		pps.NewHasher(appEnv.NumShards, appEnv.NumShards),
+		shard.NewRouter(
+			sharder,
+			grpcutil.NewDialer(
+				grpc.WithInsecure(),
+			),
+			address,
+		),
 		address,
 		rethinkAPIServer,
 		kubeClient,
 	)
-	jobAPIClient := pps.NewLocalJobAPIClient(jobAPIServer)
-	pipelineAPIServer := pipelineserver.NewAPIServer(
-		pps.NewHasher(appEnv.NumShards, appEnv.NumShards), address, jobAPIClient, rethinkAPIServer)
 	var blockAPIServer pfs.BlockAPIServer
 	if err := func() error {
 		bucket, err := ioutil.ReadFile("/amazon-secret/bucket")
@@ -145,14 +149,14 @@ func do(appEnvObj interface{}) error {
 		if err != nil {
 			return err
 		}
-		blockAPIServer, err = server.NewObjBlockAPIServer(appEnv.StorageRoot, objClient)
+		blockAPIServer, err = pfs_server.NewObjBlockAPIServer(appEnv.StorageRoot, objClient)
 		if err != nil {
 			return err
 		}
 		return nil
 	}(); err != nil {
 		protolion.Errorf("failed to create obj backend, falling back to local")
-		blockAPIServer, err = server.NewLocalBlockAPIServer(appEnv.StorageRoot)
+		blockAPIServer, err = pfs_server.NewLocalBlockAPIServer(appEnv.StorageRoot)
 		if err != nil {
 			return err
 		}
@@ -162,9 +166,7 @@ func do(appEnvObj interface{}) error {
 			pfs.RegisterAPIServer(s, apiServer)
 			pfs.RegisterInternalAPIServer(s, internalAPIServer)
 			pfs.RegisterBlockAPIServer(s, blockAPIServer)
-			pps.RegisterJobAPIServer(s, jobAPIServer)
-			pps.RegisterInternalJobAPIServer(s, jobAPIServer)
-			pps.RegisterPipelineAPIServer(s, pipelineAPIServer)
+			pps.RegisterAPIServer(s, ppsAPIServer)
 		},
 		func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
 			return pfs.RegisterAPIHandler(ctx, mux, clientConn)
@@ -202,8 +204,8 @@ func getKubeClient(env *appEnv) (*kube.Client, error) {
 }
 
 func getRethinkAPIServer(env *appEnv) (persist.APIServer, error) {
-	if err := persistserver.InitDBs(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName); err != nil {
+	if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName); err != nil {
 		return nil, err
 	}
-	return persistserver.NewRethinkAPIServer(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName)
+	return persist_server.NewRethinkAPIServer(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName)
 }

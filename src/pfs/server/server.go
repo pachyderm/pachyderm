@@ -21,28 +21,12 @@ type InternalAPIServer interface {
 	shard.Server
 }
 
-// NewAPIServer returns a new APIServer.
-func NewAPIServer(
-	hasher *pfs.Hasher,
-	router shard.Router,
-) APIServer {
-	return newAPIServer(
-		hasher,
-		router,
-	)
+func NewAPIServer(hasher *pfs.Hasher, router shard.Router) APIServer {
+	return newAPIServer(hasher, router)
 }
 
-// NewInternalAPIServer returns a new InternalAPIServer.
-func NewInternalAPIServer(
-	hasher *pfs.Hasher,
-	router shard.Router,
-	driver drive.Driver,
-) InternalAPIServer {
-	return newInternalAPIServer(
-		hasher,
-		router,
-		driver,
-	)
+func NewInternalAPIServer(hasher *pfs.Hasher, router shard.Router, driver drive.Driver) InternalAPIServer {
+	return newInternalAPIServer(hasher, router, driver)
 }
 
 func NewLocalBlockAPIServer(dir string) (pfs.BlockAPIServer, error) {
