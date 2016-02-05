@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/spf13/cobra"
@@ -17,10 +17,7 @@ import (
 )
 
 type appEnv struct {
-	PachydermPfsd1Port string `env:"PACHYDERM_PFSD_1_PORT"`
-	PfsAddress         string `env:"PFS_ADDRESS,default=0.0.0.0:650"`
-	PachydermPpsd1Port string `env:"PACHYDERM_PPSD_1_PORT"`
-	PpsAddress         string `env:"PPS_ADDRESS,default=0.0.0.0:651"`
+	PachydermAddress string `env:"PACHD_PORT_650_TCP_ADDR,required"`
 }
 
 func main() {
@@ -35,17 +32,11 @@ func do(appEnvObj interface{}) error {
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			pfsAPIClient, err := getPfsAPIClient(getPfsdAddress(appEnv))
+			client, err := getPachClient(appEnv)
 			if err != nil {
 				errorAndExit(err.Error())
 			}
-
-			ppsAPIClient, err := getPpsAPIClient(getPpsdAddress(appEnv))
-			if err != nil {
-				errorAndExit(err.Error())
-			}
-
-			response, err := ppsAPIClient.StartJob(
+			response, err := client.StartJob(
 				context.Background(),
 				&pps.StartJobRequest{
 					Job: &pps.Job{
@@ -56,7 +47,7 @@ func do(appEnvObj interface{}) error {
 				os.Exit(0)
 			}
 
-			mounter := fuse.NewMounter(getPfsdAddress(appEnv), pfsAPIClient)
+			mounter := fuse.NewMounter(appEnv.PachydermAddress, client)
 			ready := make(chan bool)
 			go func() {
 				if err := mounter.Mount(
@@ -84,7 +75,7 @@ func do(appEnvObj interface{}) error {
 				fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 				success = false
 			}
-			if _, err := ppsAPIClient.FinishJob(
+			if _, err := client.FinishJob(
 				context.Background(),
 				&pps.FinishJobRequest{
 					Job: &pps.Job{
@@ -102,40 +93,12 @@ func do(appEnvObj interface{}) error {
 	return rootCmd.Execute()
 }
 
-func getPfsdAddress(appEnv *appEnv) string {
-	if pfsdAddr := os.Getenv("PFSD_PORT_650_TCP_ADDR"); pfsdAddr != "" {
-		return fmt.Sprintf("%s:650", pfsdAddr)
-	}
-	if appEnv.PachydermPfsd1Port != "" {
-		return strings.Replace(appEnv.PachydermPfsd1Port, "tcp://", "", -1)
-	}
-	return appEnv.PfsAddress
-}
-
-func getPpsdAddress(appEnv *appEnv) string {
-	if ppsdAddr := os.Getenv("PPSD_PORT_651_TCP_ADDR"); ppsdAddr != "" {
-		return fmt.Sprintf("%s:651", ppsdAddr)
-	}
-	if appEnv.PachydermPpsd1Port != "" {
-		return strings.Replace(appEnv.PachydermPpsd1Port, "tcp://", "", -1)
-	}
-	return appEnv.PpsAddress
-}
-
-func getPfsAPIClient(address string) (pfs.APIClient, error) {
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+func getPachClient(appEnv *appEnv) (*pachyderm.APIClient, error) {
+	clientConn, err := grpc.Dial(fmt.Sprintf("%s:650", appEnv.PachydermAddress), grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewAPIClient(clientConn), nil
-}
-
-func getPpsAPIClient(address string) (pps.APIClient, error) {
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	return pps.NewAPIClient(clientConn), nil
+	return pachyderm.NewAPIClient(clientConn), nil
 }
 
 func errorAndExit(format string, args ...interface{}) {
