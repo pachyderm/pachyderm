@@ -13,7 +13,7 @@ type Sharder interface {
 
 	Register(cancel chan bool, address string, servers []Server) error
 	RegisterFrontends(cancel chan bool, address string, frontends []Frontend) error
-	AssignRoles(chan bool) error
+	AssignRoles(address string, cancel chan bool) error
 }
 
 type TestSharder interface {
