@@ -46,7 +46,7 @@ func newLocalSharder(address string, numShards uint64) *localSharder {
 
 func (a *sharder) GetAddress(shard uint64, version int64) (result string, ok bool, retErr error) {
 	defer func() {
-		protolion.Debug(&GetMasterAddress{shard, version, result, ok, errorToString(retErr)})
+		protolion.Debug(&GetAddress{shard, version, result, ok, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -61,7 +61,7 @@ func (a *sharder) GetAddress(shard uint64, version int64) (result string, ok boo
 
 func (a *sharder) GetShardToAddress(version int64) (result map[uint64]string, retErr error) {
 	defer func() {
-		protolion.Debug(&GetShardToMasterAddress{version, result, errorToString(retErr)})
+		protolion.Debug(&GetShardToAddress{version, result, errorToString(retErr)})
 	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
@@ -164,7 +164,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 	var version int64
 	oldServers := make(map[string]bool)
 	oldRoles := make(map[string]*ServerRole)
-	oldMasters := make(map[uint64]string)
+	oldShards := make(map[uint64]string)
 	var oldMinVersion int64
 	// Reconstruct state from a previous run
 	serverRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
@@ -185,8 +185,8 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 		}
 	}
 	for _, oldServerRole := range oldRoles {
-		for shard := range oldServerRole.Masters {
-			oldMasters[shard] = oldServerRole.Address
+		for shard := range oldServerRole.Shards {
+			oldShards[shard] = oldServerRole.Address
 		}
 	}
 	err = a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
@@ -195,11 +195,10 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 				return nil
 			}
 			newServerStates := make(map[string]*ServerState)
-			shardLocations := make(map[uint64][]string)
 			newRoles := make(map[string]*ServerRole)
-			newMasters := make(map[uint64]string)
-			masterRolesPerServer := a.numShards / uint64(len(encodedServerStates))
-			masterRolesRemainder := a.numShards % uint64(len(encodedServerStates))
+			newShards := make(map[uint64]string)
+			shardsPerServer := a.numShards / uint64(len(encodedServerStates))
+			shardsRemainder := a.numShards % uint64(len(encodedServerStates))
 			for _, encodedServerState := range encodedServerStates {
 				serverState, err := decodeServerState(encodedServerState)
 				if err != nil {
@@ -209,10 +208,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 				newRoles[serverState.Address] = &ServerRole{
 					Address: serverState.Address,
 					Version: version,
-					Masters: make(map[uint64]bool),
-				}
-				for shard := range serverState.Shards {
-					shardLocations[shard] = append(shardLocations[shard], serverState.Address)
+					Shards:  make(map[uint64]bool),
 				}
 			}
 			// See if there's any roles we can delete
@@ -264,21 +260,16 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 			if sameServers(oldServers, newServerStates) {
 				return nil
 			}
-		Master:
+		Shard:
 			for shard := uint64(0); shard < a.numShards; shard++ {
-				if address, ok := oldMasters[shard]; ok {
-					if assignMaster(newRoles, newMasters, address, shard, masterRolesPerServer, &masterRolesRemainder) {
-						continue Master
-					}
-				}
-				for _, address := range shardLocations[shard] {
-					if assignMaster(newRoles, newMasters, address, shard, masterRolesPerServer, &masterRolesRemainder) {
-						continue Master
+				if address, ok := oldShards[shard]; ok {
+					if assignShard(newRoles, newShards, address, shard, shardsPerServer, &shardsRemainder) {
+						continue Shard
 					}
 				}
 				for address := range newServerStates {
-					if assignMaster(newRoles, newMasters, address, shard, masterRolesPerServer, &masterRolesRemainder) {
-						continue Master
+					if assignShard(newRoles, newShards, address, shard, shardsPerServer, &shardsRemainder) {
+						continue Shard
 					}
 				}
 				protolion.Error(&FailedToAssignRoles{
@@ -301,7 +292,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 				}
 				protolion.Info(&SetServerRole{serverRole})
 				address := newServerStates[address].Address
-				for shard := range serverRole.Masters {
+				for shard := range serverRole.Shards {
 					addresses.Addresses[shard] = address
 				}
 			}
@@ -319,7 +310,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 				oldServers[address] = true
 			}
 			oldRoles = newRoles
-			oldMasters = newMasters
+			oldShards = newShards
 			return nil
 		})
 	if err == discovery.ErrCancelled {
@@ -612,36 +603,36 @@ func (a *sharder) getAddresses(version int64) (*Addresses, error) {
 }
 
 func hasShard(serverRole *ServerRole, shard uint64) bool {
-	return serverRole.Masters[shard]
+	return serverRole.Shards[shard]
 }
 
-func assignMaster(
+func assignShard(
 	serverRoles map[string]*ServerRole,
-	masters map[uint64]string,
+	shards map[uint64]string,
 	address string,
 	shard uint64,
-	masterRolesPerServer uint64,
-	masterRolesRemainder *uint64,
+	shardsPerServer uint64,
+	shardsRemainder *uint64,
 ) bool {
 	serverRole, ok := serverRoles[address]
 	if !ok {
 		return false
 	}
-	if uint64(len(serverRole.Masters)) > masterRolesPerServer {
+	if uint64(len(serverRole.Shards)) > shardsPerServer {
 		return false
 	}
-	if uint64(len(serverRole.Masters)) == masterRolesPerServer && *masterRolesRemainder == 0 {
+	if uint64(len(serverRole.Shards)) == shardsPerServer && *shardsRemainder == 0 {
 		return false
 	}
 	if hasShard(serverRole, shard) {
 		return false
 	}
-	if uint64(len(serverRole.Masters)) == masterRolesPerServer && *masterRolesRemainder > 0 {
-		*masterRolesRemainder--
+	if uint64(len(serverRole.Shards)) == shardsPerServer && *shardsRemainder > 0 {
+		*shardsRemainder--
 	}
-	serverRole.Masters[shard] = true
+	serverRole.Shards[shard] = true
 	serverRoles[address] = serverRole
-	masters[shard] = address
+	shards[shard] = address
 	return true
 }
 
@@ -857,7 +848,7 @@ func (a *sharder) runFrontends(
 
 func shards(serverRole ServerRole) []uint64 {
 	var result []uint64
-	for shard := range serverRole.Masters {
+	for shard := range serverRole.Shards {
 		result = append(result, shard)
 	}
 	return result
@@ -865,7 +856,7 @@ func shards(serverRole ServerRole) []uint64 {
 
 func containsShard(roles map[int64]ServerRole, shard uint64) bool {
 	for _, serverRole := range roles {
-		if serverRole.Masters[shard] {
+		if serverRole.Shards[shard] {
 			return true
 		}
 	}
