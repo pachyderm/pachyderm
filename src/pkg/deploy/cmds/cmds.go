@@ -10,16 +10,18 @@ import (
 
 func Cmds() []*cobra.Command {
 	var shards int
+	var secrets bool
 	kubernetesManifest := &cobra.Command{
 		Use:   "manifest",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
 		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
 		Run: pkgcobra.RunFixedArgs(0, func([]string) error {
-			assets.WriteAssets(os.Stdout, uint64(shards))
+			assets.WriteAssets(os.Stdout, uint64(shards), secrets)
 			return nil
 		}),
 	}
 	kubernetesManifest.Flags().IntVarP(&shards, "shards", "s", 1, "The static number of shards for pfs.")
+	kubernetesManifest.Flags().BoolVarP(&secrets, "secrets", "t", false, "Whether to print storage secrets.")
 
 	amazonSecret := &cobra.Command{
 		Use:   "amazon-secret bucket id secret token region",

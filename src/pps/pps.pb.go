@@ -34,8 +34,8 @@ package pps
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import google_protobuf "go.pedge.io/google-protobuf"
-import google_protobuf1 "go.pedge.io/google-protobuf"
+import google_protobuf "go.pedge.io/pb/go/google/protobuf"
+import google_protobuf1 "go.pedge.io/pb/go/google/protobuf"
 import pfs "github.com/pachyderm/pachyderm/src/pfs"
 import fuse "github.com/pachyderm/pachyderm/src/pfs/fuse"
 
@@ -48,6 +48,10 @@ import (
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+const _ = proto.ProtoPackageIsVersion1
 
 type JobState int32
 
@@ -71,6 +75,7 @@ var JobState_value = map[string]int32{
 func (x JobState) String() string {
 	return proto.EnumName(JobState_name, int32(x))
 }
+func (JobState) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
 type Transform struct {
 	Image string   `protobuf:"bytes,1,opt,name=image" json:"image,omitempty"`
@@ -78,26 +83,29 @@ type Transform struct {
 	Stdin string   `protobuf:"bytes,3,opt,name=stdin" json:"stdin,omitempty"`
 }
 
-func (m *Transform) Reset()         { *m = Transform{} }
-func (m *Transform) String() string { return proto.CompactTextString(m) }
-func (*Transform) ProtoMessage()    {}
+func (m *Transform) Reset()                    { *m = Transform{} }
+func (m *Transform) String() string            { return proto.CompactTextString(m) }
+func (*Transform) ProtoMessage()               {}
+func (*Transform) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
 type Job struct {
 	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
 }
 
-func (m *Job) Reset()         { *m = Job{} }
-func (m *Job) String() string { return proto.CompactTextString(m) }
-func (*Job) ProtoMessage()    {}
+func (m *Job) Reset()                    { *m = Job{} }
+func (m *Job) String() string            { return proto.CompactTextString(m) }
+func (*Job) ProtoMessage()               {}
+func (*Job) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
 type JobInput struct {
 	Commit *pfs.Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	Reduce bool        `protobuf:"varint,2,opt,name=reduce" json:"reduce,omitempty"`
 }
 
-func (m *JobInput) Reset()         { *m = JobInput{} }
-func (m *JobInput) String() string { return proto.CompactTextString(m) }
-func (*JobInput) ProtoMessage()    {}
+func (m *JobInput) Reset()                    { *m = JobInput{} }
+func (m *JobInput) String() string            { return proto.CompactTextString(m) }
+func (*JobInput) ProtoMessage()               {}
+func (*JobInput) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
 func (m *JobInput) GetCommit() *pfs.Commit {
 	if m != nil {
@@ -118,9 +126,10 @@ type JobInfo struct {
 	State        JobState                    `protobuf:"varint,9,opt,name=state,enum=pachyderm.pps.JobState" json:"state,omitempty"`
 }
 
-func (m *JobInfo) Reset()         { *m = JobInfo{} }
-func (m *JobInfo) String() string { return proto.CompactTextString(m) }
-func (*JobInfo) ProtoMessage()    {}
+func (m *JobInfo) Reset()                    { *m = JobInfo{} }
+func (m *JobInfo) String() string            { return proto.CompactTextString(m) }
+func (*JobInfo) ProtoMessage()               {}
+func (*JobInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
 func (m *JobInfo) GetJob() *Job {
 	if m != nil {
@@ -175,9 +184,10 @@ type JobInfos struct {
 	JobInfo []*JobInfo `protobuf:"bytes,1,rep,name=job_info" json:"job_info,omitempty"`
 }
 
-func (m *JobInfos) Reset()         { *m = JobInfos{} }
-func (m *JobInfos) String() string { return proto.CompactTextString(m) }
-func (*JobInfos) ProtoMessage()    {}
+func (m *JobInfos) Reset()                    { *m = JobInfos{} }
+func (m *JobInfos) String() string            { return proto.CompactTextString(m) }
+func (*JobInfos) ProtoMessage()               {}
+func (*JobInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
 
 func (m *JobInfos) GetJobInfo() []*JobInfo {
 	if m != nil {
@@ -190,18 +200,20 @@ type Pipeline struct {
 	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 }
 
-func (m *Pipeline) Reset()         { *m = Pipeline{} }
-func (m *Pipeline) String() string { return proto.CompactTextString(m) }
-func (*Pipeline) ProtoMessage()    {}
+func (m *Pipeline) Reset()                    { *m = Pipeline{} }
+func (m *Pipeline) String() string            { return proto.CompactTextString(m) }
+func (*Pipeline) ProtoMessage()               {}
+func (*Pipeline) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
 
 type PipelineInput struct {
 	Repo   *pfs.Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 	Reduce bool      `protobuf:"varint,2,opt,name=reduce" json:"reduce,omitempty"`
 }
 
-func (m *PipelineInput) Reset()         { *m = PipelineInput{} }
-func (m *PipelineInput) String() string { return proto.CompactTextString(m) }
-func (*PipelineInput) ProtoMessage()    {}
+func (m *PipelineInput) Reset()                    { *m = PipelineInput{} }
+func (m *PipelineInput) String() string            { return proto.CompactTextString(m) }
+func (*PipelineInput) ProtoMessage()               {}
+func (*PipelineInput) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
 
 func (m *PipelineInput) GetRepo() *pfs.Repo {
 	if m != nil {
@@ -219,9 +231,10 @@ type PipelineInfo struct {
 	CreatedAt  *google_protobuf1.Timestamp `protobuf:"bytes,6,opt,name=created_at" json:"created_at,omitempty"`
 }
 
-func (m *PipelineInfo) Reset()         { *m = PipelineInfo{} }
-func (m *PipelineInfo) String() string { return proto.CompactTextString(m) }
-func (*PipelineInfo) ProtoMessage()    {}
+func (m *PipelineInfo) Reset()                    { *m = PipelineInfo{} }
+func (m *PipelineInfo) String() string            { return proto.CompactTextString(m) }
+func (*PipelineInfo) ProtoMessage()               {}
+func (*PipelineInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
 
 func (m *PipelineInfo) GetPipeline() *Pipeline {
 	if m != nil {
@@ -262,9 +275,10 @@ type PipelineInfos struct {
 	PipelineInfo []*PipelineInfo `protobuf:"bytes,1,rep,name=pipeline_info" json:"pipeline_info,omitempty"`
 }
 
-func (m *PipelineInfos) Reset()         { *m = PipelineInfos{} }
-func (m *PipelineInfos) String() string { return proto.CompactTextString(m) }
-func (*PipelineInfos) ProtoMessage()    {}
+func (m *PipelineInfos) Reset()                    { *m = PipelineInfos{} }
+func (m *PipelineInfos) String() string            { return proto.CompactTextString(m) }
+func (*PipelineInfos) ProtoMessage()               {}
+func (*PipelineInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
 
 func (m *PipelineInfos) GetPipelineInfo() []*PipelineInfo {
 	if m != nil {
@@ -281,9 +295,10 @@ type CreateJobRequest struct {
 	ParentJob *Job        `protobuf:"bytes,5,opt,name=parent_job" json:"parent_job,omitempty"`
 }
 
-func (m *CreateJobRequest) Reset()         { *m = CreateJobRequest{} }
-func (m *CreateJobRequest) String() string { return proto.CompactTextString(m) }
-func (*CreateJobRequest) ProtoMessage()    {}
+func (m *CreateJobRequest) Reset()                    { *m = CreateJobRequest{} }
+func (m *CreateJobRequest) String() string            { return proto.CompactTextString(m) }
+func (*CreateJobRequest) ProtoMessage()               {}
+func (*CreateJobRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
 
 func (m *CreateJobRequest) GetTransform() *Transform {
 	if m != nil {
@@ -319,9 +334,10 @@ type InspectJobRequest struct {
 	BlockState  bool `protobuf:"varint,3,opt,name=block_state" json:"block_state,omitempty"`
 }
 
-func (m *InspectJobRequest) Reset()         { *m = InspectJobRequest{} }
-func (m *InspectJobRequest) String() string { return proto.CompactTextString(m) }
-func (*InspectJobRequest) ProtoMessage()    {}
+func (m *InspectJobRequest) Reset()                    { *m = InspectJobRequest{} }
+func (m *InspectJobRequest) String() string            { return proto.CompactTextString(m) }
+func (*InspectJobRequest) ProtoMessage()               {}
+func (*InspectJobRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
 
 func (m *InspectJobRequest) GetJob() *Job {
 	if m != nil {
@@ -335,9 +351,10 @@ type ListJobRequest struct {
 	InputCommit []*pfs.Commit `protobuf:"bytes,2,rep,name=input_commit" json:"input_commit,omitempty"`
 }
 
-func (m *ListJobRequest) Reset()         { *m = ListJobRequest{} }
-func (m *ListJobRequest) String() string { return proto.CompactTextString(m) }
-func (*ListJobRequest) ProtoMessage()    {}
+func (m *ListJobRequest) Reset()                    { *m = ListJobRequest{} }
+func (m *ListJobRequest) String() string            { return proto.CompactTextString(m) }
+func (*ListJobRequest) ProtoMessage()               {}
+func (*ListJobRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
 
 func (m *ListJobRequest) GetPipeline() *Pipeline {
 	if m != nil {
@@ -360,9 +377,10 @@ type CreatePipelineRequest struct {
 	Inputs    []*PipelineInput `protobuf:"bytes,4,rep,name=inputs" json:"inputs,omitempty"`
 }
 
-func (m *CreatePipelineRequest) Reset()         { *m = CreatePipelineRequest{} }
-func (m *CreatePipelineRequest) String() string { return proto.CompactTextString(m) }
-func (*CreatePipelineRequest) ProtoMessage()    {}
+func (m *CreatePipelineRequest) Reset()                    { *m = CreatePipelineRequest{} }
+func (m *CreatePipelineRequest) String() string            { return proto.CompactTextString(m) }
+func (*CreatePipelineRequest) ProtoMessage()               {}
+func (*CreatePipelineRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
 
 func (m *CreatePipelineRequest) GetPipeline() *Pipeline {
 	if m != nil {
@@ -389,9 +407,10 @@ type InspectPipelineRequest struct {
 	Pipeline *Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
 }
 
-func (m *InspectPipelineRequest) Reset()         { *m = InspectPipelineRequest{} }
-func (m *InspectPipelineRequest) String() string { return proto.CompactTextString(m) }
-func (*InspectPipelineRequest) ProtoMessage()    {}
+func (m *InspectPipelineRequest) Reset()                    { *m = InspectPipelineRequest{} }
+func (m *InspectPipelineRequest) String() string            { return proto.CompactTextString(m) }
+func (*InspectPipelineRequest) ProtoMessage()               {}
+func (*InspectPipelineRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
 
 func (m *InspectPipelineRequest) GetPipeline() *Pipeline {
 	if m != nil {
@@ -403,17 +422,19 @@ func (m *InspectPipelineRequest) GetPipeline() *Pipeline {
 type ListPipelineRequest struct {
 }
 
-func (m *ListPipelineRequest) Reset()         { *m = ListPipelineRequest{} }
-func (m *ListPipelineRequest) String() string { return proto.CompactTextString(m) }
-func (*ListPipelineRequest) ProtoMessage()    {}
+func (m *ListPipelineRequest) Reset()                    { *m = ListPipelineRequest{} }
+func (m *ListPipelineRequest) String() string            { return proto.CompactTextString(m) }
+func (*ListPipelineRequest) ProtoMessage()               {}
+func (*ListPipelineRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
 
 type DeletePipelineRequest struct {
 	Pipeline *Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
 }
 
-func (m *DeletePipelineRequest) Reset()         { *m = DeletePipelineRequest{} }
-func (m *DeletePipelineRequest) String() string { return proto.CompactTextString(m) }
-func (*DeletePipelineRequest) ProtoMessage()    {}
+func (m *DeletePipelineRequest) Reset()                    { *m = DeletePipelineRequest{} }
+func (m *DeletePipelineRequest) String() string            { return proto.CompactTextString(m) }
+func (*DeletePipelineRequest) ProtoMessage()               {}
+func (*DeletePipelineRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
 
 func (m *DeletePipelineRequest) GetPipeline() *Pipeline {
 	if m != nil {
@@ -426,9 +447,10 @@ type StartJobRequest struct {
 	Job *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
 }
 
-func (m *StartJobRequest) Reset()         { *m = StartJobRequest{} }
-func (m *StartJobRequest) String() string { return proto.CompactTextString(m) }
-func (*StartJobRequest) ProtoMessage()    {}
+func (m *StartJobRequest) Reset()                    { *m = StartJobRequest{} }
+func (m *StartJobRequest) String() string            { return proto.CompactTextString(m) }
+func (*StartJobRequest) ProtoMessage()               {}
+func (*StartJobRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
 
 func (m *StartJobRequest) GetJob() *Job {
 	if m != nil {
@@ -445,9 +467,10 @@ type StartJobResponse struct {
 	Index        uint64      `protobuf:"varint,4,opt,name=index" json:"index,omitempty"`
 }
 
-func (m *StartJobResponse) Reset()         { *m = StartJobResponse{} }
-func (m *StartJobResponse) String() string { return proto.CompactTextString(m) }
-func (*StartJobResponse) ProtoMessage()    {}
+func (m *StartJobResponse) Reset()                    { *m = StartJobResponse{} }
+func (m *StartJobResponse) String() string            { return proto.CompactTextString(m) }
+func (*StartJobResponse) ProtoMessage()               {}
+func (*StartJobResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
 
 func (m *StartJobResponse) GetTransform() *Transform {
 	if m != nil {
@@ -476,9 +499,10 @@ type FinishJobRequest struct {
 	Success bool   `protobuf:"varint,3,opt,name=success" json:"success,omitempty"`
 }
 
-func (m *FinishJobRequest) Reset()         { *m = FinishJobRequest{} }
-func (m *FinishJobRequest) String() string { return proto.CompactTextString(m) }
-func (*FinishJobRequest) ProtoMessage()    {}
+func (m *FinishJobRequest) Reset()                    { *m = FinishJobRequest{} }
+func (m *FinishJobRequest) String() string            { return proto.CompactTextString(m) }
+func (*FinishJobRequest) ProtoMessage()               {}
+func (*FinishJobRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
 
 func (m *FinishJobRequest) GetJob() *Job {
 	if m != nil {
@@ -513,6 +537,279 @@ func init() {
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
 var _ grpc.ClientConn
+
+// Client API for API service
+
+type APIClient interface {
+	CreateJob(ctx context.Context, in *CreateJobRequest, opts ...grpc.CallOption) (*Job, error)
+	InspectJob(ctx context.Context, in *InspectJobRequest, opts ...grpc.CallOption) (*JobInfo, error)
+	ListJob(ctx context.Context, in *ListJobRequest, opts ...grpc.CallOption) (*JobInfos, error)
+	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	InspectPipeline(ctx context.Context, in *InspectPipelineRequest, opts ...grpc.CallOption) (*PipelineInfo, error)
+	ListPipeline(ctx context.Context, in *ListPipelineRequest, opts ...grpc.CallOption) (*PipelineInfos, error)
+	DeletePipeline(ctx context.Context, in *DeletePipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+	StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error)
+	FinishJob(ctx context.Context, in *FinishJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
+}
+
+type aPIClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewAPIClient(cc *grpc.ClientConn) APIClient {
+	return &aPIClient{cc}
+}
+
+func (c *aPIClient) CreateJob(ctx context.Context, in *CreateJobRequest, opts ...grpc.CallOption) (*Job, error) {
+	out := new(Job)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/CreateJob", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) InspectJob(ctx context.Context, in *InspectJobRequest, opts ...grpc.CallOption) (*JobInfo, error) {
+	out := new(JobInfo)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/InspectJob", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) ListJob(ctx context.Context, in *ListJobRequest, opts ...grpc.CallOption) (*JobInfos, error) {
+	out := new(JobInfos)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/ListJob", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/CreatePipeline", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) InspectPipeline(ctx context.Context, in *InspectPipelineRequest, opts ...grpc.CallOption) (*PipelineInfo, error) {
+	out := new(PipelineInfo)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/InspectPipeline", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) ListPipeline(ctx context.Context, in *ListPipelineRequest, opts ...grpc.CallOption) (*PipelineInfos, error) {
+	out := new(PipelineInfos)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/ListPipeline", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) DeletePipeline(ctx context.Context, in *DeletePipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/DeletePipeline", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*StartJobResponse, error) {
+	out := new(StartJobResponse)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/StartJob", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) FinishJob(ctx context.Context, in *FinishJobRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
+	out := new(google_protobuf.Empty)
+	err := grpc.Invoke(ctx, "/pachyderm.pps.API/FinishJob", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for API service
+
+type APIServer interface {
+	CreateJob(context.Context, *CreateJobRequest) (*Job, error)
+	InspectJob(context.Context, *InspectJobRequest) (*JobInfo, error)
+	ListJob(context.Context, *ListJobRequest) (*JobInfos, error)
+	CreatePipeline(context.Context, *CreatePipelineRequest) (*google_protobuf.Empty, error)
+	InspectPipeline(context.Context, *InspectPipelineRequest) (*PipelineInfo, error)
+	ListPipeline(context.Context, *ListPipelineRequest) (*PipelineInfos, error)
+	DeletePipeline(context.Context, *DeletePipelineRequest) (*google_protobuf.Empty, error)
+	StartJob(context.Context, *StartJobRequest) (*StartJobResponse, error)
+	FinishJob(context.Context, *FinishJobRequest) (*google_protobuf.Empty, error)
+}
+
+func RegisterAPIServer(s *grpc.Server, srv APIServer) {
+	s.RegisterService(&_API_serviceDesc, srv)
+}
+
+func _API_CreateJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(CreateJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).CreateJob(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_InspectJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(InspectJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).InspectJob(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_ListJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ListJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).ListJob(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_CreatePipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(CreatePipelineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).CreatePipeline(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_InspectPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(InspectPipelineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).InspectPipeline(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_ListPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(ListPipelineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).ListPipeline(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_DeletePipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(DeletePipelineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).DeletePipeline(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_StartJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(StartJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).StartJob(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func _API_FinishJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(FinishJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	out, err := srv.(APIServer).FinishJob(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+var _API_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pachyderm.pps.API",
+	HandlerType: (*APIServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateJob",
+			Handler:    _API_CreateJob_Handler,
+		},
+		{
+			MethodName: "InspectJob",
+			Handler:    _API_InspectJob_Handler,
+		},
+		{
+			MethodName: "ListJob",
+			Handler:    _API_ListJob_Handler,
+		},
+		{
+			MethodName: "CreatePipeline",
+			Handler:    _API_CreatePipeline_Handler,
+		},
+		{
+			MethodName: "InspectPipeline",
+			Handler:    _API_InspectPipeline_Handler,
+		},
+		{
+			MethodName: "ListPipeline",
+			Handler:    _API_ListPipeline_Handler,
+		},
+		{
+			MethodName: "DeletePipeline",
+			Handler:    _API_DeletePipeline_Handler,
+		},
+		{
+			MethodName: "StartJob",
+			Handler:    _API_StartJob_Handler,
+		},
+		{
+			MethodName: "FinishJob",
+			Handler:    _API_FinishJob_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{},
+}
 
 // Client API for JobAPI service
 
@@ -845,4 +1142,69 @@ var _InternalJobAPI_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{},
+}
+
+var fileDescriptor0 = []byte{
+	// 976 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xec, 0x56, 0xdb, 0x6e, 0x23, 0x45,
+	0x10, 0xcd, 0x78, 0x6c, 0xc7, 0x2e, 0x5f, 0xe2, 0x74, 0xc8, 0x66, 0xe4, 0x2c, 0x9b, 0xd0, 0x82,
+	0x25, 0x5c, 0x34, 0x91, 0x06, 0x04, 0xbc, 0x26, 0x26, 0x01, 0xaf, 0x76, 0xb3, 0x91, 0x9d, 0x08,
+	0x89, 0x07, 0x46, 0xe3, 0x71, 0x3b, 0x19, 0xf0, 0x4c, 0x0f, 0xd3, 0x63, 0x89, 0xfd, 0x17, 0xde,
+	0x79, 0xe2, 0x1f, 0x78, 0xe7, 0x13, 0x90, 0xe0, 0x27, 0xf8, 0x00, 0xfa, 0x32, 0xbe, 0xb5, 0x2f,
+	0x8b, 0x17, 0x84, 0x10, 0xe2, 0x21, 0x91, 0xa6, 0xaa, 0xba, 0xba, 0x4e, 0x9d, 0x3a, 0xd5, 0x86,
+	0x5a, 0x1c, 0xb3, 0x53, 0xfe, 0x67, 0xc7, 0x09, 0x4d, 0x29, 0xaa, 0xc5, 0x9e, 0x7f, 0xff, 0xa2,
+	0x4f, 0x92, 0xd0, 0xe6, 0xc6, 0xe6, 0xe1, 0x1d, 0xa5, 0x77, 0x43, 0x72, 0x2a, 0x9d, 0xbd, 0xd1,
+	0xe0, 0x94, 0x84, 0x71, 0xfa, 0x42, 0xc5, 0x36, 0x8f, 0x74, 0x67, 0x1a, 0x84, 0x84, 0xa5, 0x5e,
+	0x18, 0x67, 0x01, 0xb5, 0x78, 0xc0, 0x73, 0x0f, 0xb2, 0xdc, 0xcd, 0x3d, 0xf1, 0x39, 0x18, 0x31,
+	0x22, 0xff, 0x29, 0x23, 0xfe, 0x08, 0xca, 0x37, 0x89, 0x17, 0xb1, 0x01, 0x4d, 0x42, 0x54, 0x83,
+	0x42, 0x10, 0x7a, 0x77, 0xc4, 0x32, 0x8e, 0x8d, 0x93, 0x32, 0xaa, 0x80, 0xe9, 0x87, 0x7d, 0x2b,
+	0x77, 0x6c, 0xf2, 0x0f, 0xee, 0x63, 0x69, 0x3f, 0x88, 0x2c, 0x53, 0xf8, 0xf0, 0x2e, 0x98, 0x4f,
+	0x68, 0x0f, 0x01, 0xe4, 0x82, 0xbe, 0x0a, 0xc7, 0x1f, 0x43, 0x89, 0x9b, 0xda, 0x51, 0x3c, 0x4a,
+	0xd1, 0x21, 0x14, 0x7d, 0x1a, 0x86, 0x41, 0x2a, 0x7d, 0x15, 0xa7, 0x62, 0x8b, 0x3a, 0x5a, 0xd2,
+	0x84, 0xea, 0x50, 0x4c, 0x48, 0x7f, 0xe4, 0x13, 0x9e, 0xda, 0x38, 0x29, 0xe1, 0xdf, 0x72, 0xb0,
+	0x2d, 0x4f, 0x0e, 0x28, 0x3a, 0x02, 0xf3, 0x6b, 0xda, 0xcb, 0x4e, 0x21, 0x7b, 0xae, 0x1d, 0xb6,
+	0xb8, 0xf1, 0x3d, 0x28, 0xa7, 0xe3, 0x82, 0xe5, 0xf9, 0x8a, 0x63, 0x69, 0x61, 0x53, 0x40, 0xef,
+	0x40, 0x29, 0x0e, 0x62, 0x32, 0x0c, 0x22, 0x22, 0xeb, 0xae, 0x38, 0x07, 0x5a, 0xec, 0x75, 0xe6,
+	0x16, 0x45, 0xb1, 0x7b, 0x2f, 0xe9, 0x33, 0x2b, 0xcf, 0x03, 0xf3, 0xe8, 0x6d, 0x28, 0x06, 0x02,
+	0x0a, 0xb3, 0x0a, 0x1c, 0xff, 0xe2, 0xc1, 0x09, 0xd4, 0xc7, 0x00, 0xb1, 0x97, 0x90, 0x28, 0x75,
+	0x45, 0xe1, 0xc5, 0x95, 0x85, 0xdb, 0x00, 0x7e, 0x42, 0xbc, 0x94, 0xf4, 0x5d, 0x2f, 0xb5, 0xb6,
+	0x65, 0x5c, 0xd3, 0x56, 0x1c, 0xda, 0x63, 0x0e, 0xed, 0x9b, 0x31, 0x87, 0x08, 0x43, 0x8d, 0x8e,
+	0x52, 0x7e, 0x83, 0x9b, 0x75, 0xb2, 0xb4, 0xd8, 0xc9, 0xc7, 0x82, 0x14, 0x9e, 0xd2, 0x2a, 0x73,
+	0x5f, 0x7d, 0x59, 0x8d, 0x5d, 0xe1, 0xc6, 0x1f, 0x66, 0xd4, 0x0c, 0x28, 0x43, 0x27, 0x50, 0xe2,
+	0x85, 0xba, 0x01, 0xff, 0xe0, 0x6d, 0x16, 0xd0, 0x1e, 0x2c, 0x83, 0x36, 0xa0, 0xd8, 0x82, 0xd2,
+	0xa4, 0x3d, 0x55, 0xc8, 0x47, 0x5e, 0x98, 0x4d, 0x06, 0xfe, 0x04, 0x6a, 0x63, 0x8f, 0x6a, 0xc2,
+	0x01, 0xe4, 0x13, 0x12, 0xd3, 0x8c, 0xb7, 0xb2, 0xac, 0xb1, 0xc3, 0x0d, 0x0b, 0x5c, 0xff, 0x6e,
+	0x40, 0x75, 0x7a, 0x94, 0x13, 0x3e, 0x4b, 0x91, 0xb1, 0x9e, 0xa2, 0x8d, 0xa8, 0x9f, 0xf2, 0x69,
+	0x4a, 0x3e, 0xdf, 0x9f, 0xf0, 0x99, 0x97, 0xa0, 0x1f, 0xae, 0xb8, 0x45, 0xe1, 0x79, 0x04, 0x95,
+	0xac, 0xf9, 0x12, 0x56, 0x41, 0x87, 0x35, 0x4f, 0x66, 0xf1, 0x65, 0x64, 0xe2, 0xd6, 0x6c, 0xc3,
+	0x04, 0x0b, 0x0e, 0x57, 0x7e, 0x66, 0x98, 0xa5, 0xe2, 0x70, 0x65, 0x55, 0x9c, 0x8f, 0x9f, 0x0d,
+	0x68, 0xb4, 0xe4, 0xad, 0x9c, 0xa1, 0x0e, 0xf9, 0x76, 0xc4, 0x93, 0xcf, 0x37, 0xc5, 0xd8, 0x40,
+	0x0f, 0xb9, 0x3f, 0xab, 0x07, 0x53, 0xd3, 0x43, 0x7e, 0x13, 0x3d, 0x14, 0x56, 0xe9, 0x01, 0xbb,
+	0xb0, 0xdb, 0x8e, 0x58, 0x4c, 0xfc, 0x74, 0x06, 0xcd, 0x4b, 0xe5, 0xff, 0x1a, 0x54, 0x7b, 0x43,
+	0xea, 0x7f, 0xe3, 0x2a, 0x7a, 0xd4, 0x54, 0xa1, 0x3d, 0xa8, 0x28, 0xab, 0x52, 0x83, 0x29, 0x47,
+	0xed, 0x2b, 0xa8, 0x3f, 0x0d, 0xd8, 0x6c, 0xf6, 0x0d, 0x66, 0xed, 0x0d, 0xa8, 0x4a, 0xb8, 0x63,
+	0xf1, 0xe5, 0x24, 0xe8, 0x59, 0xf1, 0xe1, 0x1f, 0x0d, 0xd8, 0x57, 0x74, 0x8c, 0x4f, 0xbd, 0xc2,
+	0x3d, 0xff, 0xdc, 0x4c, 0xf3, 0x19, 0x7c, 0x90, 0x35, 0xfc, 0xd5, 0xeb, 0xc5, 0xfb, 0xb0, 0x27,
+	0x9a, 0xaa, 0x65, 0xc0, 0xe7, 0xb0, 0xff, 0x29, 0x19, 0x92, 0xbf, 0xd2, 0x0a, 0xec, 0xc0, 0x0e,
+	0xdf, 0x56, 0xc9, 0x26, 0xe3, 0x80, 0xbf, 0xe7, 0x92, 0x98, 0x1e, 0x62, 0x31, 0x8d, 0x18, 0xd9,
+	0x4c, 0x12, 0x27, 0x50, 0x53, 0x14, 0xbb, 0x21, 0x1d, 0x45, 0xbc, 0x95, 0x8a, 0xe9, 0x5d, 0x5b,
+	0x3e, 0x92, 0x8a, 0xea, 0x67, 0xc2, 0xb3, 0xb8, 0x90, 0xcd, 0xc5, 0x85, 0x2c, 0x5e, 0xd0, 0xa8,
+	0x4f, 0xbe, 0x53, 0x8f, 0x08, 0xee, 0x42, 0xe3, 0x32, 0x88, 0x02, 0x76, 0xbf, 0xc9, 0x88, 0x4f,
+	0x72, 0xe4, 0x24, 0xc9, 0x3b, 0xb0, 0xcd, 0x46, 0xbe, 0x4f, 0x98, 0x62, 0xbd, 0xf4, 0xee, 0x73,
+	0xb9, 0xcc, 0xe5, 0x62, 0x47, 0xfb, 0xb0, 0xfb, 0xe4, 0xf9, 0xb9, 0xdb, 0xbd, 0x39, 0xbb, 0xb9,
+	0x70, 0x3b, 0xb7, 0x57, 0x57, 0xed, 0xab, 0xcf, 0x1a, 0x5b, 0xf3, 0xe6, 0xcb, 0xb3, 0xf6, 0xd3,
+	0xdb, 0xce, 0x45, 0xc3, 0x98, 0x37, 0x77, 0x6f, 0x5b, 0xad, 0x8b, 0x6e, 0xb7, 0x91, 0x73, 0x7e,
+	0x2a, 0x80, 0x79, 0x76, 0xdd, 0x46, 0xe7, 0x50, 0x9e, 0xac, 0x17, 0x74, 0xa4, 0x55, 0xa6, 0x2f,
+	0x9e, 0xe6, 0x32, 0x3a, 0xb6, 0xd0, 0xe7, 0x00, 0x53, 0x55, 0xa3, 0x63, 0x2d, 0x66, 0x41, 0xf0,
+	0xcd, 0x55, 0x6f, 0xcf, 0x16, 0x6a, 0xc1, 0x76, 0x26, 0x5f, 0xf4, 0xba, 0x16, 0x34, 0x2f, 0xeb,
+	0xe6, 0xc1, 0xf2, 0x1c, 0x8c, 0x27, 0xb9, 0x86, 0xfa, 0xbc, 0x44, 0xd1, 0x9b, 0x4b, 0x71, 0x69,
+	0x63, 0xcb, 0xcb, 0xd2, 0x77, 0xf9, 0x85, 0xf8, 0xe5, 0xc5, 0x33, 0x7e, 0x01, 0x3b, 0x9a, 0x8a,
+	0xd0, 0x5b, 0xcb, 0x51, 0xea, 0x39, 0xd7, 0xee, 0xf6, 0x2d, 0xd4, 0x81, 0xea, 0xac, 0xb2, 0x10,
+	0x5e, 0x02, 0x5a, 0x4f, 0xf9, 0x70, 0x4d, 0xca, 0x0c, 0xfe, 0xbc, 0x2c, 0x17, 0xe0, 0x2f, 0x55,
+	0xed, 0x1a, 0xf8, 0xcf, 0xa0, 0x34, 0xd6, 0x1b, 0x7a, 0xa4, 0xe5, 0xd2, 0xd4, 0xdb, 0x3c, 0x5a,
+	0xe9, 0x57, 0x42, 0xe5, 0xe9, 0x2e, 0xa1, 0x3c, 0x11, 0xc8, 0xc2, 0xc8, 0xe9, 0xd2, 0x59, 0x5d,
+	0x96, 0xf3, 0x8b, 0x01, 0x45, 0x1e, 0xf8, 0xdf, 0x9c, 0x62, 0xe7, 0xd7, 0x1c, 0x54, 0xc6, 0x14,
+	0x09, 0x88, 0xff, 0x4f, 0xf5, 0xdf, 0x3b, 0xd5, 0xce, 0x0f, 0x06, 0xd4, 0xdb, 0x51, 0x4a, 0x92,
+	0xc8, 0x1b, 0x66, 0x63, 0xf4, 0xef, 0x1c, 0xf4, 0xf3, 0xc2, 0x97, 0x26, 0x3f, 0xd1, 0x2b, 0x4a,
+	0xc7, 0x07, 0x7f, 0x04, 0x00, 0x00, 0xff, 0xff, 0x74, 0xda, 0xe2, 0x42, 0x3f, 0x0e, 0x00, 0x00,
 }

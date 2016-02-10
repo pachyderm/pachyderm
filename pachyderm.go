@@ -1,6 +1,11 @@
 package pachyderm
 
-import "go.pedge.io/proto/version"
+import (
+	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pps"
+	"go.pedge.io/proto/version"
+	"google.golang.org/grpc"
+)
 
 const (
 	// MajorVersion is the current major version for pachyderm.
@@ -22,3 +27,18 @@ var (
 		Additional: AdditionalVersion,
 	}
 )
+
+type PfsAPIClient pfs.APIClient
+type PpsAPIClient pps.APIClient
+
+type APIClient struct {
+	PfsAPIClient
+	PpsAPIClient
+}
+
+func NewAPIClient(cc *grpc.ClientConn) *APIClient {
+	return &APIClient{
+		pfs.NewAPIClient(cc),
+		pps.NewAPIClient(cc),
+	}
+}
