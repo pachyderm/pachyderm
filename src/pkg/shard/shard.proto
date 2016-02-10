@@ -17,17 +17,11 @@ message ServerRole {
     string address = 1;
     int64 version = 2;
     map<uint64, bool> masters = 3;
-    map<uint64, bool> replicas = 4;
-}
-
-message ShardAddresses {
-    string master = 1;
-    map<string, bool> replicas = 2;
 }
 
 message Addresses {
     int64 version = 1;
-    map<uint64, ShardAddresses> addresses = 2;
+    map<uint64, string> addresses = 2;
 }
 
 message StartRegister {
@@ -95,25 +89,8 @@ message GetMasterAddress {
   string error = 5;
 }
 
-message GetReplicaAddresses {
-  uint64 shard = 1;
-  int64 version = 2; 
-  map<string, bool> result = 3;
-  string error = 4;
-}
-
 message GetShardToMasterAddress {
   int64 version = 1; 
   map<uint64, string> result = 2;
-  string error = 3;
-}
-
-message ReplicaAddresses {
-  map<string, bool> addresses = 1;
-}
-
-message GetShardToReplicaAddresses {
-  int64 version = 1;
-  map<uint64, ReplicaAddresses>  result = 2;
   string error = 3;
 }

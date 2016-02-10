@@ -52,11 +52,11 @@ func (a *sharder) GetAddress(shard uint64, version int64) (result string, ok boo
 	if err != nil {
 		return "", false, err
 	}
-	shardAddresses, ok := addresses.Addresses[shard]
+	address, ok := addresses.Addresses[shard]
 	if !ok {
 		return "", false, nil
 	}
-	return shardAddresses.Master, true, nil
+	return address, true, nil
 }
 
 func (a *sharder) GetShardToAddress(version int64) (result map[uint64]string, retErr error) {
@@ -68,8 +68,8 @@ func (a *sharder) GetShardToAddress(version int64) (result map[uint64]string, re
 		return nil, err
 	}
 	_result := make(map[uint64]string)
-	for shard, shardAddresses := range addresses.Addresses {
-		_result[shard] = shardAddresses.Master
+	for shard, address := range addresses.Addresses {
+		_result[shard] = address
 	}
 	return _result, nil
 }
@@ -165,7 +165,6 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 	oldServers := make(map[string]bool)
 	oldRoles := make(map[string]*ServerRole)
 	oldMasters := make(map[uint64]string)
-	oldReplicas := make(map[uint64][]string)
 	var oldMinVersion int64
 	// Reconstruct state from a previous run
 	serverRoles, err := a.discoveryClient.GetAll(a.serverRoleDir())
@@ -189,9 +188,6 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 		for shard := range oldServerRole.Masters {
 			oldMasters[shard] = oldServerRole.Address
 		}
-		for shard := range oldServerRole.Replicas {
-			oldReplicas[shard] = append(oldReplicas[shard], oldServerRole.Address)
-		}
 	}
 	err = a.discoveryClient.WatchAll(a.serverStateDir(), cancel,
 		func(encodedServerStates map[string]string) error {
@@ -202,7 +198,6 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 			shardLocations := make(map[uint64][]string)
 			newRoles := make(map[string]*ServerRole)
 			newMasters := make(map[uint64]string)
-			newReplicas := make(map[uint64][]string)
 			masterRolesPerServer := a.numShards / uint64(len(encodedServerStates))
 			masterRolesRemainder := a.numShards % uint64(len(encodedServerStates))
 			for _, encodedServerState := range encodedServerStates {
@@ -212,10 +207,9 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 				}
 				newServerStates[serverState.Address] = serverState
 				newRoles[serverState.Address] = &ServerRole{
-					Address:  serverState.Address,
-					Version:  version,
-					Masters:  make(map[uint64]bool),
-					Replicas: make(map[uint64]bool),
+					Address: serverState.Address,
+					Version: version,
+					Masters: make(map[uint64]bool),
 				}
 				for shard := range serverState.Shards {
 					shardLocations[shard] = append(shardLocations[shard], serverState.Address)
@@ -277,11 +271,6 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 						continue Master
 					}
 				}
-				for _, address := range oldReplicas[shard] {
-					if assignMaster(newRoles, newMasters, address, shard, masterRolesPerServer, &masterRolesRemainder) {
-						continue Master
-					}
-				}
 				for _, address := range shardLocations[shard] {
 					if assignMaster(newRoles, newMasters, address, shard, masterRolesPerServer, &masterRolesRemainder) {
 						continue Master
@@ -300,10 +289,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 			}
 			addresses := Addresses{
 				Version:   version,
-				Addresses: make(map[uint64]*ShardAddresses),
-			}
-			for shard := uint64(0); shard < a.numShards; shard++ {
-				addresses.Addresses[shard] = &ShardAddresses{Replicas: make(map[string]bool)}
+				Addresses: make(map[uint64]string),
 			}
 			for address, serverRole := range newRoles {
 				encodedServerRole, err := marshaler.MarshalToString(serverRole)
@@ -316,14 +302,7 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 				protolion.Info(&SetServerRole{serverRole})
 				address := newServerStates[address].Address
 				for shard := range serverRole.Masters {
-					shardAddresses := addresses.Addresses[shard]
-					shardAddresses.Master = address
-					addresses.Addresses[shard] = shardAddresses
-				}
-				for shard := range serverRole.Replicas {
-					shardAddresses := addresses.Addresses[shard]
-					shardAddresses.Replicas[address] = true
-					addresses.Addresses[shard] = shardAddresses
+					addresses.Addresses[shard] = address
 				}
 			}
 			encodedAddresses, err := marshaler.MarshalToString(&addresses)
@@ -341,7 +320,6 @@ func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
 			}
 			oldRoles = newRoles
 			oldMasters = newMasters
-			oldReplicas = newReplicas
 			return nil
 		})
 	if err == discovery.ErrCancelled {
@@ -634,17 +612,7 @@ func (a *sharder) getAddresses(version int64) (*Addresses, error) {
 }
 
 func hasShard(serverRole *ServerRole, shard uint64) bool {
-	return serverRole.Masters[shard] || serverRole.Replicas[shard]
-}
-
-func removeReplica(replicas map[uint64][]string, shard uint64, address string) {
-	var addresses []string
-	for _, replicaAddress := range replicas[shard] {
-		if address != replicaAddress {
-			addresses = append(addresses, replicaAddress)
-		}
-	}
-	replicas[shard] = addresses
+	return serverRole.Masters[shard]
 }
 
 func assignMaster(
@@ -675,81 +643,6 @@ func assignMaster(
 	serverRoles[address] = serverRole
 	masters[shard] = address
 	return true
-}
-
-func assignReplica(
-	serverRoles map[string]*ServerRole,
-	masters map[uint64]string,
-	replicas map[uint64][]string,
-	address string,
-	shard uint64,
-	replicaRolesPerServer uint64,
-	replicaRolesRemainder *uint64,
-) bool {
-	serverRole, ok := serverRoles[address]
-	if !ok {
-		return false
-	}
-	if uint64(len(serverRole.Replicas)) > replicaRolesPerServer {
-		return false
-	}
-	if uint64(len(serverRole.Replicas)) == replicaRolesPerServer && *replicaRolesRemainder == 0 {
-		return false
-	}
-	if hasShard(serverRole, shard) {
-		return false
-	}
-	if uint64(len(serverRole.Replicas)) == replicaRolesPerServer && *replicaRolesRemainder > 0 {
-		*replicaRolesRemainder--
-	}
-	serverRole.Replicas[shard] = true
-	serverRoles[address] = serverRole
-	replicas[shard] = append(replicas[shard], address)
-	return true
-}
-
-func swapReplica(
-	serverRoles map[string]*ServerRole,
-	masters map[uint64]string,
-	replicas map[uint64][]string,
-	address string,
-	shard uint64,
-	replicaRolesPerServer uint64,
-) bool {
-	serverRole, ok := serverRoles[address]
-	if !ok {
-		return false
-	}
-	if uint64(len(serverRole.Replicas)) >= replicaRolesPerServer {
-		return false
-	}
-	for swapID, swapServerRole := range serverRoles {
-		if swapID == address {
-			continue
-		}
-		for swapShard := range swapServerRole.Replicas {
-			if hasShard(serverRole, swapShard) {
-				continue
-			}
-			if hasShard(swapServerRole, shard) {
-				continue
-			}
-			delete(swapServerRole.Replicas, swapShard)
-			serverRoles[swapID] = swapServerRole
-			removeReplica(replicas, swapShard, swapID)
-			// We do some weird things with the limits here, both servers
-			// receive a 0 replicaRolesRemainder, swapID doesn't need a
-			// remainder because we're replacing a shard we stole so it also
-			// has MaxInt64 for replicaRolesPerServer. We already know address
-			// doesn't need the remainder since we check that it has fewer than
-			// replicaRolesPerServer replicas.
-			var noReplicaRemainder uint64
-			assignReplica(serverRoles, masters, replicas, swapID, shard, math.MaxUint64, &noReplicaRemainder)
-			assignReplica(serverRoles, masters, replicas, address, swapShard, replicaRolesPerServer, &noReplicaRemainder)
-			return true
-		}
-	}
-	return false
 }
 
 func (a *sharder) announceServers(
@@ -967,15 +860,12 @@ func shards(serverRole ServerRole) []uint64 {
 	for shard := range serverRole.Masters {
 		result = append(result, shard)
 	}
-	for shard := range serverRole.Replicas {
-		result = append(result, shard)
-	}
 	return result
 }
 
 func containsShard(roles map[int64]ServerRole, shard uint64) bool {
 	for _, serverRole := range roles {
-		if serverRole.Masters[shard] || serverRole.Replicas[shard] {
+		if serverRole.Masters[shard] {
 			return true
 		}
 	}
