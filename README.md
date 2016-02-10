@@ -4,20 +4,13 @@
 
 * [News](#news)
 * [What is Pachyderm?](#what-is-pachyderm)
-* [Key Features](#key-features)
-* [Is Pachyderm enterprise production ready?](#is-pachyderm-enterprise-production-ready)
-* [What is a commit-based file system?](#what-is-a-commit-based-file-system)
-* [What are containerized analytics?](#what-are-containerized-analytics)
-* [Using Pachyderm](#using-pachyderm)
-    * [Prerequisites](#prerequisites)
-    * [Launch a Development Cluster](#launch-a-development-cluster)
-    * [Launch a Production Cluster](#launch-a-production-cluster)
-    * [Common Problems](#common-problems)
-* [Environment Setup](#environment-setup)
-    * [Go Setup](#go-setup)
-    * [Docker Setup](#docker-setup)
-    * [Vagrant](#vagrant)
+* [What's new about Pachyderm? (How is it different from Hadoop?)](#-new-about-pachyderm-how-is-it-different-from-hadoop)
+* [Our Vision](#our-vision)
 * [Contributing](#contributing)
+
+### News
+
+WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
 
 ### What is Pachyderm?
 
@@ -84,8 +77,4 @@ We can't wait to see what they are!
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
 
 Send us PRs, we would love to see what you do!
-
-### News
-
-WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
 
