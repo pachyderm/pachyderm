@@ -1,6 +1,6 @@
 package protostream
 
-import "go.pedge.io/google-protobuf"
+import "go.pedge.io/pb/go/google/protobuf"
 
 type streamingBytesWriter struct {
 	streamingBytesServer StreamingBytesServer

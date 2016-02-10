@@ -18,6 +18,8 @@ ifdef VENDOR_ALL
 	VENDOR_IGNORE_DIRS =
 endif
 
+COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
+
 all: build
 
 version:
@@ -56,58 +58,29 @@ install:
 	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pachctl ./src/cmd/pachctl-doc
 
 docker-build-test:
-	docker-compose build test
-	docker tag -f pachyderm_test:latest pachyderm/test:latest
-	mkdir -p /tmp/pachyderm-test
+	docker build -t pachyderm/test .
 
 docker-build-compile:
-	docker-compose build compile
-
-docker-build-pfs-roler: docker-build-compile
-	docker-compose run --rm compile sh etc/compile/compile.sh pfs-roler
-
-docker-build-pfsd: docker-build-compile
-	docker-compose run --rm compile sh etc/compile/compile.sh pfsd
-
-docker-build-ppsd: docker-build-compile
-	docker-compose run --rm compile sh etc/compile/compile.sh ppsd
-
-docker-build-objd: docker-build-compile
-	docker-compose run --rm compile sh etc/compile/compile.sh objd
-
-docker-build-pachctl: docker-build-compile
-	docker-compose run --rm compile sh etc/compile/compile.sh pachctl
+	docker build -t pachyderm_compile .
 
 docker-build-job-shim: docker-build-compile
-	docker-compose run --rm compile sh etc/compile/compile.sh job-shim
+	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh job-shim
 
-docker-build: docker-build-test docker-build-pfs-roler docker-build-pfsd docker-build-ppsd docker-build-objd docker-build-pachctl docker-build-job-shim
+docker-build-pachd: docker-build-compile
+	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd
+
+docker-build: docker-build-test docker-build-job-shim docker-build-pachd
 
 docker-push-test: docker-build-test
 	docker push pachyderm/test
 
-docker-push-pfs-roler: docker-build-pfs-roler
-	docker push pachyderm/pfs-roler
-
-docker-push-pfsd: docker-build-pfsd
-	docker push pachyderm/pfsd
-
-docker-push-ppsd: docker-build-ppsd
-	docker push pachyderm/ppsd
-
-docker-push-objd: docker-build-objd
-	docker push pachyderm/objd
-
-docker-push-pachctl: docker-build-pachctl
-	docker push pachyderm/pachctl
-
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
 
-docker-push: docker-push-pfs-roler docker-push-ppsd docker-push-objd docker-push-pfsd docker-push-pachctl docker-push-job-shim
+docker-push-pachd: docker-build-pachd
+	docker push pachyderm/pachd
 
-run: docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test $(RUNARGS)
+docker-push: docker-push-job-shim docker-push-pachd
 
 launch-kube:
 	etc/kube/start-kube-docker.sh
@@ -120,7 +93,6 @@ kube-cluster-assets: install
 
 launch: install
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
-	until pachctl version 2>/dev/null >/dev/null; do sleep 5; done
 
 launch-dev: launch-kube launch
 
@@ -132,11 +104,9 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
-run-integration-test:
+integration-test-pod: 
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f etc/kube/test-pod.yml
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/test-pod.yml
-
-integration-test: launch run-integration-test
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
@@ -160,36 +130,10 @@ pretest:
 		done
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-docker-clean-test:
-	docker-compose kill rethink
-	docker-compose rm -f rethink
-	docker-compose kill etcd
-	docker-compose rm -f etcd
+test: pretest clean-launch launch integration-test-pod
+	until kubectl logs -f pachyderm-test; do sleep 5; done
 
-docker-clean-launch: docker-clean-test
-	docker-compose kill pfs-roler
-	docker-compose rm -f pfs-roler
-	docker-compose kill pfsd
-	docker-compose rm -f pfsd
-	docker-compose kill ppsd
-	docker-compose rm -f ppsd
-
-go-test: docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test sh -c "go test -test.short $(TESTFLAGS) $(TESTPKGS)"
-
-go-test-long: docker-clean-test docker-build-test
-	docker-compose run --rm $(DOCKER_OPTS) test sh -c "go test $(TESTFLAGS) $(TESTPKGS)"
-
-test: pretest go-test docker-clean-test
-
-test-long: pretest go-test-long docker-clean-test
-
-clean: docker-clean-launch clean-launch clean-launch-kube
-	go clean ./src/... ./.
-	rm -f src/cmd/pfs/pfs-roler
-	rm -f src/cmd/pfsd/pfsd
-	rm -f src/cmd/ppsd/ppsd
-	rm -f src/cmd/objd/objd
+clean: clean-launch clean-launch-kube
 
 doc: install
 	# we rename to pachctl because the program name is used in generating docs
@@ -213,20 +157,15 @@ doc: install
 	install \
 	docker-build-test \
 	docker-build-compile \
-	docker-build-pfs-roler \
-	docker-build-pfsd \
-	docker-build-ppsd \
 	docker-build \
-	docker-push-pfs-roler \
-	docker-push-pfsd \
-	docker-push-ppsd \
+	docker-build-pachd \
 	docker-push \
+	docker-push-pachd \
 	run \
 	launch \
 	proto \
 	pretest \
 	docker-clean-test \
-	docker-clean-launch \
 	go-test \
 	go-test-long \
 	test \

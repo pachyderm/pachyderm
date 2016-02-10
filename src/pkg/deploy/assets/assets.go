@@ -12,18 +12,12 @@ import (
 
 var (
 	suite              = "pachyderm"
-	pfsdImage          = "pachyderm/pfsd"
-	rolerImage         = "pachyderm/pfs-roler"
-	ppsdImage          = "pachyderm/ppsd"
-	objdImage          = "pachyderm/objd"
+	pachdImage         = "pachyderm/pachd"
 	etcdImage          = "gcr.io/google_containers/etcd:2.0.12"
 	rethinkImage       = "rethinkdb:2.1.5"
 	serviceAccountName = "pachyderm"
-	pfsdName           = "pfsd"
-	rolerName          = "roler"
-	ppsdName           = "ppsd"
-	objdName           = "objd"
 	etcdName           = "etcd"
+	pachdName          = "pachd"
 	rethinkName        = "rethink"
 	amazonSecretName   = "amazon-secret"
 	trueVal            = true
@@ -42,138 +36,62 @@ func ServiceAccount() *api.ServiceAccount {
 	}
 }
 
-func ObjdRc() *api.ReplicationController {
+//PachdRc TODO secrets is only necessary because dockerized kube chokes on them
+func PachdRc(shards uint64, secrets bool) *api.ReplicationController {
+	volumes := []api.Volume{
+		{
+			Name: "pach-disk",
+		},
+	}
+	volumeMounts := []api.VolumeMount{
+		{
+			Name:      "pach-disk",
+			MountPath: "/pach",
+		},
+	}
+	if secrets {
+		volumes = append(volumes, api.Volume{
+			Name: "amazon-secret",
+			VolumeSource: api.VolumeSource{
+				Secret: &api.SecretVolumeSource{
+					SecretName: amazonSecretName,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, api.VolumeMount{
+			Name:      "amazon-secret",
+			MountPath: "/amazon-secret",
+		})
+	}
 	return &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   objdName,
-			Labels: labels(objdName),
+			Name:   pachdName,
+			Labels: labels(pachdName),
 		},
 		Spec: api.ReplicationControllerSpec{
 			Replicas: 1,
 			Selector: map[string]string{
-				"app": objdName,
+				"app": pachdName,
 			},
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name:   objdName,
-					Labels: labels(objdName),
+					Name:   pachdName,
+					Labels: labels(pachdName),
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
 						{
-							Name:  objdName,
-							Image: objdImage,
+							Name:  pachdName,
+							Image: pachdImage,
 							Env: []api.EnvVar{
 								{
-									Name:  "OBJ_ROOT",
-									Value: "/obj",
+									Name:  "PACH_ROOT",
+									Value: "/pach",
 								},
-							},
-							Ports: []api.ContainerPort{
-								{
-									ContainerPort: 652,
-									Protocol:      "TCP",
-									Name:          "api-grpc-port",
-								},
-								{
-									ContainerPort: 752,
-									Name:          "api-http-port",
-								},
-								{
-									ContainerPort: 1052,
-									Name:          "trace-port",
-								},
-							},
-							VolumeMounts: []api.VolumeMount{
-								{
-									Name:      "obj-disk",
-									MountPath: "/obj",
-								},
-								{
-									Name:      "amazon-secret",
-									MountPath: "/amazon-secret",
-								},
-							},
-						},
-					},
-					Volumes: []api.Volume{
-						{
-							Name: "obj-disk",
-						},
-						{
-							Name: "amazon-secret",
-							VolumeSource: api.VolumeSource{
-								Secret: &api.SecretVolumeSource{
-									SecretName: amazonSecretName,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func ObjdService() *api.Service {
-	return &api.Service{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   objdName,
-			Labels: labels(objdName),
-		},
-		Spec: api.ServiceSpec{
-			Type: api.ServiceTypeNodePort,
-			Selector: map[string]string{
-				"app": objdName,
-			},
-			Ports: []api.ServicePort{
-				{
-					Port: 652,
-					Name: "api-grpc-port",
-				},
-				{
-					Port: 752,
-					Name: "api-http-port",
-				},
-			},
-		},
-	}
-}
-
-func PfsdRc(shards uint64) *api.ReplicationController {
-	return &api.ReplicationController{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   pfsdName,
-			Labels: labels(pfsdName),
-		},
-		Spec: api.ReplicationControllerSpec{
-			Replicas: 1,
-			Selector: map[string]string{
-				"app": pfsdName,
-			},
-			Template: &api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
-					Name:   pfsdName,
-					Labels: labels(pfsdName),
-				},
-				Spec: api.PodSpec{
-					Containers: []api.Container{
-						{
-							Name:  pfsdName,
-							Image: pfsdImage,
-							Env: []api.EnvVar{
 								{
 									Name:  "PFS_NUM_SHARDS",
 									Value: strconv.FormatUint(shards, 10),
@@ -194,28 +112,34 @@ func PfsdRc(shards uint64) *api.ReplicationController {
 									Name:          "trace-port",
 								},
 							},
+							VolumeMounts: volumeMounts,
+							SecurityContext: &api.SecurityContext{
+								Privileged: &trueVal, // god is this dumb
+							},
 						},
 					},
+					ServiceAccountName: serviceAccountName,
+					Volumes:            volumes,
 				},
 			},
 		},
 	}
 }
 
-func PfsdService() *api.Service {
+func PachdService() *api.Service {
 	return &api.Service{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   pfsdName,
-			Labels: labels(pfsdName),
+			Name:   pachdName,
+			Labels: labels(pachdName),
 		},
 		Spec: api.ServiceSpec{
 			Type: api.ServiceTypeNodePort,
 			Selector: map[string]string{
-				"app": pfsdName,
+				"app": pachdName,
 			},
 			Ports: []api.ServicePort{
 				{
@@ -227,125 +151,6 @@ func PfsdService() *api.Service {
 					Port:     750,
 					Name:     "api-http-port",
 					NodePort: 30750,
-				},
-			},
-		},
-	}
-}
-
-func RolerRc(shards uint64) *api.ReplicationController {
-	return &api.ReplicationController{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   rolerName,
-			Labels: labels(rolerName),
-		},
-		Spec: api.ReplicationControllerSpec{
-			Replicas: 1,
-			Selector: map[string]string{
-				"app": rolerName,
-			},
-			Template: &api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
-					Name:   "roler",
-					Labels: labels(rolerName),
-				},
-				Spec: api.PodSpec{
-					Containers: []api.Container{
-						{
-							Name:  "roler",
-							Image: rolerImage,
-							Env: []api.EnvVar{
-								{
-									Name:  "PFS_NUM_SHARDS",
-									Value: strconv.FormatUint(shards, 10),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func PpsdRc() *api.ReplicationController {
-	return &api.ReplicationController{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   ppsdName,
-			Labels: labels(ppsdName),
-		},
-		Spec: api.ReplicationControllerSpec{
-			Replicas: 1,
-			Selector: map[string]string{
-				"app": ppsdName,
-			},
-			Template: &api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
-					Name:   "ppsd",
-					Labels: labels(ppsdName),
-				},
-				Spec: api.PodSpec{
-					Containers: []api.Container{
-						{
-							Name:  "ppsd",
-							Image: ppsdImage,
-							Env:   []api.EnvVar{},
-							Ports: []api.ContainerPort{
-								{
-									ContainerPort: 651,
-									Protocol:      "TCP",
-									Name:          "api-grpc-port",
-								},
-								{
-									ContainerPort: 1051,
-									Name:          "trace-port",
-								},
-							},
-							SecurityContext: &api.SecurityContext{
-								Privileged: &trueVal, // god is this dumb
-							},
-						},
-					},
-					ServiceAccountName: serviceAccountName,
-				},
-			},
-		},
-	}
-}
-
-func PpsdService() *api.Service {
-	return &api.Service{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   ppsdName,
-			Labels: labels(ppsdName),
-		},
-		Spec: api.ServiceSpec{
-			Type: api.ServiceTypeNodePort,
-			Selector: map[string]string{
-				"app": ppsdName,
-			},
-			Ports: []api.ServicePort{
-				{
-					Port:     651,
-					Name:     "api-grpc-port",
-					NodePort: 30651,
-				},
-				{
-					Port:     751,
-					Name:     "api-http-port",
-					NodePort: 30751,
 				},
 			},
 		},
@@ -550,7 +355,7 @@ func AmazonSecret(bucket string, id string, secret string, token string, region 
 }
 
 // WriteAssets creates the assets in a dir. It expects dir to already exist.
-func WriteAssets(w io.Writer, shards uint64) {
+func WriteAssets(w io.Writer, shards uint64, secrets bool) {
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 
 	ServiceAccount().CodecEncodeSelf(encoder)
@@ -566,22 +371,9 @@ func WriteAssets(w io.Writer, shards uint64) {
 	RethinkRc().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	ObjdRc().CodecEncodeSelf(encoder)
+	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	ObjdService().CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
-
-	PfsdRc(uint64(shards)).CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
-	PfsdService().CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
-
-	PpsdRc().CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
-	PpsdService().CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
-
-	RolerRc(uint64(shards)).CodecEncodeSelf(encoder)
+	PachdRc(shards, secrets).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	AmazonSecret("", "", "", "", "").CodecEncodeSelf(encoder)

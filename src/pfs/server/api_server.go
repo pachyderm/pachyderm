@@ -9,10 +9,9 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/route"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"go.pedge.io/proto/time"
@@ -23,8 +22,8 @@ import (
 
 type apiServer struct {
 	protorpclog.Logger
-	sharder route.Sharder
-	router  route.Router
+	hasher  *pfs.Hasher
+	router  shard.Router
 	version int64
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
@@ -33,12 +32,12 @@ type apiServer struct {
 }
 
 func newAPIServer(
-	sharder route.Sharder,
-	router route.Router,
+	hasher *pfs.Hasher,
+	router shard.Router,
 ) *apiServer {
 	return &apiServer{
 		protorpclog.NewLogger("pachyderm.pfs.API"),
-		sharder,
+		hasher,
 		router,
 		shard.InvalidVersion,
 		sync.RWMutex{},
@@ -392,18 +391,18 @@ func (a *apiServer) Version(version int64) error {
 }
 
 func (a *apiServer) getClientConn(version int64) (*grpc.ClientConn, error) {
-	shards, err := a.router.GetMasterShards(a.version)
+	shards, err := a.router.GetShards(a.version)
 	if err != nil {
 		return nil, err
 	}
 	for shard := range shards {
-		return a.router.GetMasterClientConn(shard, version)
+		return a.router.GetClientConn(shard, version)
 	}
-	return a.router.GetMasterClientConn(uint64(rand.Int())%a.sharder.FileModulus(), version)
+	return a.router.GetClientConn(uint64(rand.Int())%a.hasher.FileModulus, version)
 }
 
 func (a *apiServer) getClientConnForFile(file *pfs.File, version int64) (*grpc.ClientConn, error) {
-	return a.router.GetMasterClientConn(a.sharder.GetShard(file), version)
+	return a.router.GetClientConn(a.hasher.HashFile(file), version)
 }
 
 func versionToContext(version int64, ctx context.Context) context.Context {

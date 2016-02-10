@@ -8,27 +8,48 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
-	"github.com/pachyderm/pachyderm/src/pfs/route"
-	"go.pedge.io/google-protobuf"
+	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 type driver struct {
-	blockClient pfs.BlockAPIClient
-	started     diffMap
-	finished    diffMap
-	leaves      diffMap // commits with no children
-	lock        sync.RWMutex
+	blockAddress    string
+	blockClient     pfs.BlockAPIClient
+	blockClientOnce sync.Once
+	started         diffMap
+	finished        diffMap
+	leaves          diffMap // commits with no children
+	lock            sync.RWMutex
 }
 
-func newDriver(blockClient pfs.BlockAPIClient) (Driver, error) {
+func newDriver(blockAddress string) (Driver, error) {
 	return &driver{
-		blockClient,
+		blockAddress,
+		nil,
+		sync.Once{},
 		make(diffMap),
 		make(diffMap),
 		make(diffMap),
 		sync.RWMutex{},
 	}, nil
+}
+
+func (d *driver) getBlockClient() (pfs.BlockAPIClient, error) {
+	if d.blockClient == nil {
+		var onceErr error
+		d.blockClientOnce.Do(func() {
+			clientConn, err := grpc.Dial(d.blockAddress, grpc.WithInsecure())
+			if err != nil {
+				onceErr = err
+			}
+			d.blockClient = pfs.NewBlockAPIClient(clientConn)
+		})
+		if onceErr != nil {
+			return nil, onceErr
+		}
+	}
+	return d.blockClient, nil
 }
 
 func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, shards map[uint64]bool) error {
@@ -39,6 +60,10 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, 
 	}
 	d.createRepoDiffMaps(repo)
 
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return err
+	}
 	var wg sync.WaitGroup
 	var loopErr error
 	for shard := range shards {
@@ -55,7 +80,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, 
 		}
 		go func() {
 			defer wg.Done()
-			if _, err := d.blockClient.CreateDiff(context.Background(), diffInfo); err != nil && loopErr == nil {
+			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil && loopErr == nil {
 				loopErr = err
 			}
 		}()
@@ -110,6 +135,10 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 	delete(d.finished, repo.Name)
 	delete(d.leaves, repo.Name)
 	d.lock.Unlock()
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return err
+	}
 	var loopErr error
 	var wg sync.WaitGroup
 	for _, diffInfo := range diffInfos {
@@ -117,7 +146,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := d.blockClient.DeleteDiff(
+			if _, err := blockClient.DeleteDiff(
 				context.Background(),
 				&pfs.DeleteDiffRequest{Diff: diffInfo.Diff},
 			); err != nil && loopErr == nil {
@@ -176,6 +205,10 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	}(); err != nil {
 		return err
 	}
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return err
+	}
 	var wg sync.WaitGroup
 	var loopErr error
 	for _, diffInfo := range diffInfos {
@@ -183,7 +216,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := d.blockClient.CreateDiff(context.Background(), diffInfo); err != nil && loopErr == nil {
+			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil && loopErr == nil {
 				loopErr = err
 			}
 		}()
@@ -254,7 +287,11 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	if !ok {
 		return fmt.Errorf("commit %s/%s not found", file.Commit.Repo.Name, file.Commit.Id)
 	}
-	blockRefs, err := pfsutil.PutBlock(d.blockClient, reader)
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return err
+	}
+	blockRefs, err := pfsutil.PutBlock(blockClient, reader)
 	if err != nil {
 		return err
 	}
@@ -306,7 +343,11 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, s
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 		return nil, fmt.Errorf("file %s/%s/%s is directory", file.Commit.Repo.Name, file.Commit.Id, file.Path)
 	}
-	return newFileReader(d.blockClient, blockRefs, offset, size), nil
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return nil, err
+	}
+	return newFileReader(blockClient, blockRefs, offset, size), nil
 }
 
 func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64) (*pfs.FileInfo, error) {
@@ -347,7 +388,11 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 }
 
 func (d *driver) AddShard(shard uint64) error {
-	listDiffClient, err := d.blockClient.ListDiff(context.Background(), &pfs.ListDiffRequest{Shard: shard})
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return err
+	}
+	listDiffClient, err := blockClient.ListDiff(context.Background(), &pfs.ListDiffRequest{Shard: shard})
 	if err != nil {
 		return err
 	}
@@ -499,7 +544,7 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 func filterBlockRefs(filterShard *pfs.Shard, blockRefs []*pfs.BlockRef) []*pfs.BlockRef {
 	var result []*pfs.BlockRef
 	for _, blockRef := range blockRefs {
-		if route.BlockInShard(filterShard, blockRef.Block) {
+		if pfs.BlockInShard(filterShard, blockRef.Block) {
 			result = append(result, blockRef)
 		}
 	}
@@ -529,7 +574,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 					// the first time we find out it's a regular file we check
 					// the file shard, dirs get returned regardless of sharding,
 					// since they might have children from any shard
-					if !route.FileInShard(filterShard, file) {
+					if !pfs.FileInShard(filterShard, file) {
 						return nil, nil, pfs.ErrFileNotFound
 					}
 				}

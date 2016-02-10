@@ -2,18 +2,18 @@ package shard
 
 import (
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
+	"google.golang.org/grpc"
 )
 
 // Sharder distributes shards between a set of servers.
 type Sharder interface {
-	GetMasterAddress(shard uint64, version int64) (string, bool, error)
-	GetReplicaAddresses(shard uint64, version int64) (map[string]bool, error)
-	GetShardToMasterAddress(version int64) (map[uint64]string, error)
-	GetShardToReplicaAddresses(version int64) (map[uint64]map[string]bool, error)
+	GetAddress(shard uint64, version int64) (string, bool, error)
+	GetShardToAddress(version int64) (map[uint64]string, error)
 
-	Register(cancel chan bool, address string, server Server) error
-	RegisterFrontend(cancel chan bool, address string, frontend Frontend) error
-	AssignRoles(chan bool) error
+	Register(cancel chan bool, address string, servers []Server) error
+	RegisterFrontends(cancel chan bool, address string, frontends []Frontend) error
+	AssignRoles(address string, cancel chan bool) error
 }
 
 type TestSharder interface {
@@ -21,12 +21,16 @@ type TestSharder interface {
 	WaitForAvailability(frontendIds []string, serverIds []string) error
 }
 
-func NewSharder(discoveryClient discovery.Client, numShards uint64, numReplicas uint64, namespace string) Sharder {
-	return newSharder(discoveryClient, numShards, numReplicas, namespace)
+func NewSharder(discoveryClient discovery.Client, numShards uint64, namespace string) Sharder {
+	return newSharder(discoveryClient, numShards, namespace)
 }
 
-func NewTestSharder(discoveryClient discovery.Client, numShards uint64, numReplicas uint64, namespace string) TestSharder {
-	return newSharder(discoveryClient, numShards, numReplicas, namespace)
+func NewTestSharder(discoveryClient discovery.Client, numShards uint64, namespace string) TestSharder {
+	return newSharder(discoveryClient, numShards, namespace)
+}
+
+func NewLocalSharder(address string, numShards uint64) Sharder {
+	return newLocalSharder(address, numShards)
 }
 
 type Server interface {
@@ -34,12 +38,28 @@ type Server interface {
 	AddShard(shard uint64, version int64) error
 	// RemoveShard tells the server it no longer has a role for a shard.
 	RemoveShard(shard uint64, version int64) error
-	// LocalRoles asks the server which shards it has on disk and how many commits each shard has.
-	LocalShards() (map[uint64]bool, error)
 }
 
 type Frontend interface {
 	// Version tells the Frontend a new version exists.
 	// Version should block until the Frontend is done using the previous version.
 	Version(version int64) error
+}
+
+type Router interface {
+	GetShards(version int64) (map[uint64]bool, error)
+	GetClientConn(shard uint64, version int64) (*grpc.ClientConn, error)
+	GetAllClientConns(version int64) ([]*grpc.ClientConn, error)
+}
+
+func NewRouter(
+	sharder Sharder,
+	dialer grpcutil.Dialer,
+	localAddress string,
+) Router {
+	return newRouter(
+		sharder,
+		dialer,
+		localAddress,
+	)
 }
