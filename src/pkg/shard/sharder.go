@@ -156,7 +156,44 @@ func (a *sharder) RegisterFrontends(cancel chan bool, address string, frontends 
 	return
 }
 
-func (a *sharder) AssignRoles(cancel chan bool) (retErr error) {
+func (a *sharder) AssignRoles(address string, cancel chan bool) (retErr error) {
+	var unsafeAssignRolesCancel chan bool
+	errChan := make(chan error)
+	// oldValue is the last value we wrote, if it's not "" it means we have the
+	// lock since we're the ones who set it last
+	oldValue := ""
+	for {
+		if err := a.discoveryClient.CheckAndSet("lock", address, holdTTL, oldValue); err != nil {
+			protolion.Errorf("sharder.AssignRoles failed to acquire lock %+v", err)
+			if oldValue != "" {
+				// lock lost
+				oldValue = ""
+				close(unsafeAssignRolesCancel)
+				protolion.Errorf("sharder.AssignRoles error from unsafeAssignRolesCancel: %+v", <-errChan)
+			}
+		} else {
+			if oldValue == "" {
+				// lock acquired
+				oldValue = address
+				unsafeAssignRolesCancel = make(chan bool)
+				go func() {
+					errChan <- a.unsafeAssignRoles(unsafeAssignRolesCancel)
+				}()
+			}
+		}
+		select {
+		case <-cancel:
+			if oldValue != "" {
+				close(unsafeAssignRolesCancel)
+				return <-errChan
+			}
+		case <-time.After(time.Second * time.Duration(holdTTL/2)):
+		}
+	}
+}
+
+// unsafeAssignRoles should be run
+func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 	protolion.Info(&StartAssignRoles{})
 	defer func() {
 		protolion.Info(&FinishAssignRoles{errorToString(retErr)})
@@ -443,7 +480,7 @@ func (s *localSharder) RegisterFrontends(cancel chan bool, address string, front
 	return nil
 }
 
-func (s *localSharder) AssignRoles(chan bool) error {
+func (s *localSharder) AssignRoles(string, chan bool) error {
 	return nil
 }
 

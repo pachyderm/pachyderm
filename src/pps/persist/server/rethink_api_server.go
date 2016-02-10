@@ -60,9 +60,6 @@ func InitDBs(address string, databaseName string) error {
 		return err
 	}
 	if _, err := gorethink.DBCreate(databaseName).RunWrite(session); err != nil {
-		if _, ok := err.(gorethink.RQLRuntimeError); ok {
-			return nil
-		}
 		return err
 	}
 	for _, table := range tables {

@@ -65,7 +65,7 @@ func do(appEnvObj interface{}) error {
 		appEnv.Namespace,
 	)
 	go func() {
-		if err := sharder.AssignRoles(nil); err != nil {
+		if err := sharder.AssignRoles(address, nil); err != nil {
 			protolion.Printf("Error from sharder.AssignRoles: %s", err.Error())
 		}
 	}()
@@ -205,7 +205,7 @@ func getKubeClient(env *appEnv) (*kube.Client, error) {
 
 func getRethinkAPIServer(env *appEnv) (persist.APIServer, error) {
 	if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName); err != nil {
-		return nil, err
+		protolion.Errorf("InitDBs returned error: %s", err.Error())
 	}
 	return persist_server.NewRethinkAPIServer(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName)
 }
