@@ -6,7 +6,7 @@ import (
 )
 
 type appEnv struct {
-	Address string `env:"PACH_ADDRESS,default=0.0.0.0:650"`
+	Address string `env:"PACH_ADDRESS,default=0.0.0.0:30650"`
 }
 
 func main() {
