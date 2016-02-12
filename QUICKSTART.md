@@ -187,3 +187,54 @@ Creating a `pipeline` tells Pachyderm to run your code on *every* finished
 `commit` in a `repo`, including `commit`s that happen after the `pipeline` is
 created. Our `repo` already had a `commit` so Pachyderm will have already
 launched a `job` to process that `commit`.
+
+You can view it like so:
+
+```shell
+$ pachctl list-job
+ID                                 OUTPUT                                                   STATE
+09a7eb68995c43979cba2b0d29432073   pipeline-grep-example/2b43def9b52b4fdfadd95a70215e90c9   JOB_STATE_RUNNING
+```
+
+Depending on how quickly you do the above you may see `JOB_STATE_RUNNING` or
+`JOB_STATE_SUCCESS` (hopeful you won't see `JOB_STATE_FAILURE`).
+
+Pachyderm `job`s are implemented as Kubernetes jobs, you can see your job with:
+
+```shell
+$ kubectl get job
+JOB                                CONTAINER(S)   IMAGE(S)             SELECTOR                                                         SUCCESSFUL
+09a7eb68995c43979cba2b0d29432073   user           pachyderm/job-shim   app in (09a7eb68995c43979cba2b0d29432073),suite in (pachyderm)   1
+```
+
+## Reading the Output
+
+Every `pipeline` creates a corresponding `repo` with the same name.
+You can access the data the same way that you wrote the other data:
+
+```shell
+$ cat /pfs/grep-example/2b43def9b52b4fdfadd95a70215e90c9/foo
+foo
+```
+
+## Processing More Data
+
+Pipelines will automatically process new commits as they are created, let's
+create a new commit with our previous commit as the parent:
+
+```shell
+$ pachctl start-commit data 6a7ddaf3704b4cb6ae4ec73522efe05f
+fab8c59c786842ccaf20589e15606604
+```
+
+Write another `foo` to `file`:
+
+```shell
+$ echo foo >/pfs/data/fab8c59c786842ccaf20589e15606604/file
+```
+
+then finish the commit:
+
+```shell
+$ pachctl finish-commit data fab8c59c786842ccaf20589e15606604
+```
