@@ -273,25 +273,22 @@ func PutFile(apiClient pfs.APIClient, repoName string, commitID string, path str
 	return size, err
 }
 
-func GetFile(apiClient pfs.APIClient, repoName string, commitID string, path string, offset int64, size int64, shard *pfs.Shard, writer io.Writer) error {
+func GetFile(apiClient pfs.APIClient, repoName string, commitID string, path string, offset int64, size int64, from string, shard *pfs.Shard, writer io.Writer) error {
 	if size == 0 {
 		size = math.MaxInt64
+	}
+	var fromCommit *pfs.Commit
+	if from != "" {
+		fromCommit = NewCommit(repoName, from)
 	}
 	apiGetFileClient, err := apiClient.GetFile(
 		context.Background(),
 		&pfs.GetFileRequest{
-			File: &pfs.File{
-				Commit: &pfs.Commit{
-					Repo: &pfs.Repo{
-						Name: repoName,
-					},
-					Id: commitID,
-				},
-				Path: path,
-			},
+			File:        NewFile(repoName, commitID, path),
 			Shard:       shard,
 			OffsetBytes: offset,
 			SizeBytes:   size,
+			FromCommit:  fromCommit,
 		},
 	)
 	if err != nil {

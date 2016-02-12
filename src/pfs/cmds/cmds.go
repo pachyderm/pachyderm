@@ -2,7 +2,6 @@ package cmds
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path"
 	"strings"
@@ -269,7 +268,7 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			return pfsutil.GetFile(apiClient, args[0], args[1], args[2], 0, math.MaxInt64, shard(), os.Stdout)
+			return pfsutil.GetFile(apiClient, args[0], args[1], args[2], 0, 0, "", shard(), os.Stdout)
 		}),
 	}
 	addShardFlags(getFile)
