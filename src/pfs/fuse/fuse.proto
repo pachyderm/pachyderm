@@ -6,8 +6,9 @@ package fuse;
 
 message CommitMount {
     pfs.Commit commit = 1;
-    string alias = 2;
-	pfs.Shard shard = 3;
+    pfs.Commit from_commit = 2;
+    string alias = 3;
+	pfs.Shard shard = 4;
 }
 
 message Filesystem {
