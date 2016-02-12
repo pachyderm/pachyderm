@@ -282,7 +282,7 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			fileInfo, err := pfsutil.InspectFile(apiClient, args[0], args[1], args[2], shard())
+			fileInfo, err := pfsutil.InspectFile(apiClient, args[0], args[1], args[2], "", shard())
 			if err != nil {
 				return err
 			}
@@ -310,7 +310,7 @@ Files can be read from finished commits with get-file.`,
 			if len(args) == 3 {
 				path = args[2]
 			}
-			fileInfos, err := pfsutil.ListFile(apiClient, args[0], args[1], path, shard())
+			fileInfos, err := pfsutil.ListFile(apiClient, args[0], args[1], path, "", shard())
 			if err != nil {
 				return err
 			}

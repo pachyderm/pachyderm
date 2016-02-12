@@ -169,27 +169,33 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	if err != nil {
 		return nil, err
 	}
-	if shard == 0 {
-		var parentCommit *pfs.Commit
-		if jobInfo.ParentJob == nil {
-			var repo *pfs.Repo
-			if jobInfo.PipelineName == "" {
-				repo = pps.JobRepo(request.Job)
-				if _, err := pfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: repo}); err != nil {
-					return nil, err
-				}
-			} else {
-				repo = pps.PipelineRepo(&pps.Pipeline{Name: jobInfo.PipelineName})
-			}
-			parentCommit = &pfs.Commit{Repo: repo}
-		} else {
-			inspectJobRequest := &pps.InspectJobRequest{Job: jobInfo.ParentJob}
-			parentJobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
-			if err != nil {
+	var parentCommit *pfs.Commit
+	repoToFromCommit := make(map[string]*pfs.Commit)
+	if jobInfo.ParentJob == nil {
+		var repo *pfs.Repo
+		if jobInfo.PipelineName == "" {
+			repo = pps.JobRepo(request.Job)
+			if _, err := pfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: repo}); err != nil {
 				return nil, err
 			}
-			parentCommit = parentJobInfo.OutputCommit
+		} else {
+			repo = pps.PipelineRepo(&pps.Pipeline{Name: jobInfo.PipelineName})
 		}
+		parentCommit = &pfs.Commit{Repo: repo}
+	} else {
+		inspectJobRequest := &pps.InspectJobRequest{Job: jobInfo.ParentJob}
+		parentJobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
+		if err != nil {
+			return nil, err
+		}
+		parentCommit = parentJobInfo.OutputCommit
+		for _, jobInput := range parentJobInfo.Inputs {
+			if !jobInput.Reduce {
+				repoToFromCommit[jobInput.Commit.Repo.Name] = jobInput.Commit
+			}
+		}
+	}
+	if shard == 0 {
 		commit, err := pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 			Parent: parentCommit,
 		})
@@ -214,7 +220,8 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	var commitMounts []*fuse.CommitMount
 	for _, jobInput := range jobInfo.Inputs {
 		commitMount := &fuse.CommitMount{
-			Commit: jobInput.Commit,
+			Commit:     jobInput.Commit,
+			FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
 			Shard: &pfs.Shard{
 				FileModulus:  1,
 				BlockModulus: 1,
