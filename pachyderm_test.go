@@ -168,6 +168,8 @@ func TestPipeline(t *testing.T) {
 		listCommitRequest,
 	)
 	require.NoError(t, err)
+	require.NotNil(t, listCommitResponse.CommitInfo[0].ParentCommit)
+	require.Equal(t, outCommits[0].Commit.Id, listCommitResponse.CommitInfo[0].ParentCommit.Id)
 	outCommits = listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	buffer = bytes.Buffer{}

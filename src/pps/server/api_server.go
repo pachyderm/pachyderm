@@ -456,7 +456,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 			if commitInfo.ParentCommit != nil {
 				delete(repoToLeaves[commitInfo.ParentCommit.Repo.Name], commitInfo.ParentCommit.Id)
 			}
-			// generate all the pemrutations of leaves we could use this commit with
+			// generate all the permutations of leaves we could use this commit with
 			commitSets := [][]*pfs.Commit{[]*pfs.Commit{}}
 			for repoName, leaves := range repoToLeaves {
 				if repoName == commitInfo.Commit.Repo.Name {
@@ -483,7 +483,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 				}
 				var parentJob *pps.Job
 				if commitInfo.ParentCommit != nil {
-					parentJob, err = a.parentJob(ctx, pipelineInfo, append(commitSet, commitInfo.ParentCommit), commitInfo)
+					parentJob, err = a.parentJob(ctx, pipelineInfo, commitSet, commitInfo)
 					if err != nil {
 						return err
 					}
