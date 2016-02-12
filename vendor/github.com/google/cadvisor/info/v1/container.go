@@ -23,6 +23,8 @@ type CpuSpec struct {
 	Limit    uint64 `json:"limit"`
 	MaxLimit uint64 `json:"max_limit"`
 	Mask     string `json:"mask,omitempty"`
+	Quota    uint64 `json:"quota,omitempty"`
+	Period   uint64 `json:"period,omitempty"`
 }
 
 type MemorySpec struct {
@@ -70,6 +72,9 @@ type ContainerSpec struct {
 
 // Container reference contains enough information to uniquely identify a container
 type ContainerReference struct {
+	// The container id
+	Id string `json:"id,omitempty"`
+
 	// The absolute name of the container. This is unique on the machine.
 	Name string `json:"name"`
 
@@ -80,6 +85,8 @@ type ContainerReference struct {
 	// Namespace under which the aliases of a container are unique.
 	// An example of a namespace is "docker" for Docker containers.
 	Namespace string `json:"namespace,omitempty"`
+
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // Sorts by container name.

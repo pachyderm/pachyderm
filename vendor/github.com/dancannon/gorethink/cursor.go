@@ -196,6 +196,10 @@ func (c *Cursor) loadNextLocked(dest interface{}) (bool, error) {
 			if err != nil {
 				return false, err
 			}
+			// Check if cursor was closed while fetching results
+			if c.closed {
+				return false, nil
+			}
 		}
 
 		if len(c.buffer) == 0 && len(c.responses) == 0 && c.finished {
