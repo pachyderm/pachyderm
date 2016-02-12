@@ -229,7 +229,7 @@ func TestSharding(t *testing.T) {
 	wg.Wait()
 }
 
-func getPachClient(t *testing.T) APIClient {
+func getPachClient(t *testing.T) *APIClient {
 	pachAddr := os.Getenv("PACHD_PORT_650_TCP_ADDR")
 	if pachAddr == "" {
 		t.Error("PACHD_PORT_650_TCP_ADDR not set")
