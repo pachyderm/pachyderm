@@ -10,7 +10,6 @@ import (
 	"net/http"
 
 	"github.com/gengo/grpc-gateway/runtime"
-	"github.com/gengo/grpc-gateway/utilities"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"go.pedge.io/pb/go/google/protobuf"
@@ -23,7 +22,6 @@ var _ codes.Code
 var _ io.Reader
 var _ = runtime.String
 var _ = json.Marshal
-var _ = utilities.PascalFromSnake
 
 func request_API_GetVersion_0(ctx context.Context, client APIClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
 	var protoReq google_protobuf.Empty

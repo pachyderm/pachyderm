@@ -13,7 +13,7 @@ kubelet=$(docker create \
     --net=host \
     --pid=host \
     --privileged=true \
-    gcr.io/google_containers/hyperkube:v1.1.4 \
+    gcr.io/google_containers/hyperkube:v1.1.7 \
     /hyperkube kubelet \
         --containerized \
         --hostname-override="127.0.0.1" \
@@ -23,5 +23,5 @@ kubelet=$(docker create \
         --allow-privileged=true)
 docker cp etc/kube/master.json $kubelet:/etc/kubernetes/manifests/master.json
 docker start $kubelet
-docker run -d --net=host --privileged gcr.io/google_containers/hyperkube:v1.1.4 /hyperkube proxy --master=http://127.0.0.1:8080 --v=2
+docker run -d --net=host --privileged gcr.io/google_containers/hyperkube:v1.1.7 /hyperkube proxy --master=http://127.0.0.1:8080 --v=2
 until kubectl version 2>/dev/null >/dev/null; do sleep 5; done

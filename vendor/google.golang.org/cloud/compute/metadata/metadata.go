@@ -172,6 +172,7 @@ func OnGCE() bool {
 
 // Subscribe subscribes to a value from the metadata service.
 // The suffix is appended to "http://${GCE_METADATA_HOST}/computeMetadata/v1/".
+// The suffix may contain query parameters.
 //
 // Subscribe calls fn with the latest metadata value indicated by the provided
 // suffix. If the metadata value is deleted, fn is called with the empty string
@@ -192,7 +193,11 @@ func Subscribe(suffix string, fn func(v string, ok bool) error) error {
 	}
 
 	ok := true
-	suffix += "?wait_for_change=true&last_etag="
+	if strings.ContainsRune(suffix, '?') {
+		suffix += "&wait_for_change=true&last_etag="
+	} else {
+		suffix += "?wait_for_change=true&last_etag="
+	}
 	for {
 		val, etag, err := getETag(suffix + url.QueryEscape(lastETag))
 		if err != nil {
