@@ -582,7 +582,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 			Labels: labels(app),
 		},
 		Spec: extensions.JobSpec{
-			Selector: &extensions.PodSelector{
+			Selector: &unversioned.LabelSelector{
 				MatchLabels: labels(app),
 			},
 			Parallelism: &shards,
