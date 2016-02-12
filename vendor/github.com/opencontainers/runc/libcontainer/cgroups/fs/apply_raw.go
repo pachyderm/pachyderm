@@ -94,11 +94,10 @@ func getCgroupRoot() (string, error) {
 }
 
 type cgroupData struct {
-	root   string
-	parent string
-	name   string
-	config *configs.Cgroup
-	pid    int
+	root      string
+	innerPath string
+	config    *configs.Cgroup
+	pid       int
 }
 
 func (m *Manager) Apply(pid int) (err error) {
@@ -106,9 +105,27 @@ func (m *Manager) Apply(pid int) (err error) {
 		return nil
 	}
 
+	var c = m.Cgroups
+
 	d, err := getCgroupData(m.Cgroups, pid)
 	if err != nil {
 		return err
+	}
+
+	if c.Paths != nil {
+		paths := make(map[string]string)
+		for name, path := range c.Paths {
+			_, err := d.path(name)
+			if err != nil {
+				if cgroups.IsNotFound(err) {
+					continue
+				}
+				return err
+			}
+			paths[name] = path
+		}
+		m.Paths = paths
+		return cgroups.EnterPid(m.Paths, pid)
 	}
 
 	paths := make(map[string]string)
@@ -138,6 +155,9 @@ func (m *Manager) Apply(pid int) (err error) {
 }
 
 func (m *Manager) Destroy() error {
+	if m.Cgroups.Paths != nil {
+		return nil
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := cgroups.RemovePaths(m.Paths); err != nil {
@@ -172,12 +192,6 @@ func (m *Manager) GetStats() (*cgroups.Stats, error) {
 
 func (m *Manager) Set(container *configs.Config) error {
 	for _, sys := range subsystems {
-		// We can't set this here, because after being applied, memcg doesn't
-		// allow a non-empty cgroup from having its limits changed.
-		if sys.Name() == "memory" {
-			continue
-		}
-
 		// Generate fake cgroup data.
 		d, err := getCgroupData(container.Cgroups, -1)
 		if err != nil {
@@ -252,45 +266,26 @@ func getCgroupPath(c *configs.Cgroup) (string, error) {
 	return d.path("devices")
 }
 
-// pathClean makes a path safe for use with filepath.Join. This is done by not
-// only cleaning the path, but also (if the path is relative) adding a leading
-// '/' and cleaning it (then removing the leading '/'). This ensures that a
-// path resulting from prepending another path will always resolve to lexically
-// be a subdirectory of the prefixed path. This is all done lexically, so paths
-// that include symlinks won't be safe as a result of using pathClean.
-func pathClean(path string) string {
-	// Ensure that all paths are cleaned (especially problematic ones like
-	// "/../../../../../" which can cause lots of issues).
-	path = filepath.Clean(path)
-
-	// If the path isn't absolute, we need to do more processing to fix paths
-	// such as "../../../../<etc>/some/path". We also shouldn't convert absolute
-	// paths to relative ones.
-	if !filepath.IsAbs(path) {
-		path = filepath.Clean(string(os.PathSeparator) + path)
-		// This can't fail, as (by definition) all paths are relative to root.
-		path, _ = filepath.Rel(string(os.PathSeparator), path)
-	}
-
-	// Clean the path again for good measure.
-	return filepath.Clean(path)
-}
-
 func getCgroupData(c *configs.Cgroup, pid int) (*cgroupData, error) {
 	root, err := getCgroupRoot()
 	if err != nil {
 		return nil, err
 	}
 
-	// Clean the parent slice path.
-	c.Parent = pathClean(c.Parent)
+	if (c.Name != "" || c.Parent != "") && c.Path != "" {
+		return nil, fmt.Errorf("cgroup: either Path or Name and Parent should be used")
+	}
+
+	innerPath := c.Path
+	if innerPath == "" {
+		innerPath = filepath.Join(c.Parent, c.Name)
+	}
 
 	return &cgroupData{
-		root:   root,
-		parent: c.Parent,
-		name:   c.Name,
-		config: c,
-		pid:    pid,
+		root:      root,
+		innerPath: c.Path,
+		config:    c,
+		pid:       pid,
 	}, nil
 }
 
@@ -318,11 +313,10 @@ func (raw *cgroupData) path(subsystem string) (string, error) {
 		return "", err
 	}
 
-	cgPath := filepath.Join(raw.parent, raw.name)
 	// If the cgroup name/path is absolute do not look relative to the cgroup of the init process.
-	if filepath.IsAbs(cgPath) {
+	if filepath.IsAbs(raw.innerPath) {
 		// Sometimes subsystems can be mounted togethger as 'cpu,cpuacct'.
-		return filepath.Join(raw.root, filepath.Base(mnt), cgPath), nil
+		return filepath.Join(raw.root, filepath.Base(mnt), raw.innerPath), nil
 	}
 
 	parentPath, err := raw.parentPath(subsystem, mnt, root)
@@ -330,7 +324,7 @@ func (raw *cgroupData) path(subsystem string) (string, error) {
 		return "", err
 	}
 
-	return filepath.Join(parentPath, cgPath), nil
+	return filepath.Join(parentPath, raw.innerPath), nil
 }
 
 func (raw *cgroupData) join(subsystem string) (string, error) {

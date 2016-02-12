@@ -89,6 +89,7 @@ var (
 // Records the states during HPACK decoding. Must be reset once the
 // decoding of the entire headers are finished.
 type decodeState struct {
+	encoding string
 	// statusCode caches the stream status received from the trailer
 	// the server sent. Client side only.
 	statusCode codes.Code
@@ -119,7 +120,7 @@ type headerFrame interface {
 // reserved by gRPC protocol. Any other headers are classified as the
 // user-specified metadata.
 func isReservedHeader(hdr string) bool {
-	if hdr[0] == ':' {
+	if hdr != "" && hdr[0] == ':' {
 		return true
 	}
 	switch hdr {
@@ -142,9 +143,11 @@ func newHPACKDecoder() *hpackDecoder {
 		switch f.Name {
 		case "content-type":
 			if !strings.Contains(f.Value, "application/grpc") {
-				d.err = StreamErrorf(codes.FailedPrecondition, "transport: received the unexpected header")
+				d.err = StreamErrorf(codes.FailedPrecondition, "transport: received the unexpected content-type %q", f.Value)
 				return
 			}
+		case "grpc-encoding":
+			d.state.encoding = f.Value
 		case "grpc-status":
 			code, err := strconv.Atoi(f.Value)
 			if err != nil {

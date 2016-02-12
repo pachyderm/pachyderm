@@ -69,10 +69,6 @@ type readerTyper struct {
 // If ra implements googleapi.ContentTyper, then the returned reader
 // will also implement googleapi.ContentTyper, delegating to ra.
 func ReaderAtToReader(ra io.ReaderAt, size int64) io.Reader {
-	if r, ok := ra.(io.Reader); ok {
-		return r
-	}
-
 	r := io.NewSectionReader(ra, 0, size)
 	if typer, ok := ra.(googleapi.ContentTyper); ok {
 		return readerTyper{r, typer}
