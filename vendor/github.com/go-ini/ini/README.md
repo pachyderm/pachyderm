@@ -30,11 +30,15 @@ To use with latest changes:
 
 	go get github.com/go-ini/ini
 
+Please add `-u` flag to update in the future.
+
 ### Testing
 
 If you want to test on your machine, please apply `-t` flag:
 
 	go get -t gopkg.in/ini.v1
+
+Please add `-u` flag to update in the future.
 
 ## Getting Started
 
@@ -280,9 +284,13 @@ vals = cfg.Section("").Key("TIME").RangeTimeFormat(time.RFC3339, time.Now(), min
 vals = cfg.Section("").Key("TIME").RangeTime(time.Now(), minTime, maxTime) // RFC3339
 ```
 
-To auto-split value into slice:
+##### Auto-split values into a slice
+
+To use zero value of type for invalid inputs:
 
 ```go
+// Input: 1.1, 2.2, 3.3, 4.4 -> [1.1 2.2 3.3 4.4]
+// Input: how, 2.2, are, you -> [0.0 2.2 0.0 0.0]
 vals = cfg.Section("").Key("STRINGS").Strings(",")
 vals = cfg.Section("").Key("FLOAT64S").Float64s(",")
 vals = cfg.Section("").Key("INTS").Ints(",")
@@ -290,6 +298,32 @@ vals = cfg.Section("").Key("INT64S").Int64s(",")
 vals = cfg.Section("").Key("UINTS").Uints(",")
 vals = cfg.Section("").Key("UINT64S").Uint64s(",")
 vals = cfg.Section("").Key("TIMES").Times(",")
+```
+
+To exclude invalid values out of result slice:
+
+```go
+// Input: 1.1, 2.2, 3.3, 4.4 -> [1.1 2.2 3.3 4.4]
+// Input: how, 2.2, are, you -> [2.2]
+vals = cfg.Section("").Key("FLOAT64S").ValidFloat64s(",")
+vals = cfg.Section("").Key("INTS").ValidInts(",")
+vals = cfg.Section("").Key("INT64S").ValidInt64s(",")
+vals = cfg.Section("").Key("UINTS").ValidUints(",")
+vals = cfg.Section("").Key("UINT64S").ValidUint64s(",")
+vals = cfg.Section("").Key("TIMES").ValidTimes(",")
+```
+
+Or to return nothing but error when have invalid inputs:
+
+```go
+// Input: 1.1, 2.2, 3.3, 4.4 -> [1.1 2.2 3.3 4.4]
+// Input: how, 2.2, are, you -> error
+vals = cfg.Section("").Key("FLOAT64S").StrictFloat64s(",")
+vals = cfg.Section("").Key("INTS").StrictInts(",")
+vals = cfg.Section("").Key("INT64S").StrictInt64s(",")
+vals = cfg.Section("").Key("UINTS").StrictUints(",")
+vals = cfg.Section("").Key("UINT64S").StrictUint64s(",")
+vals = cfg.Section("").Key("TIMES").StrictTimes(",")
 ```
 
 ### Save your configuration

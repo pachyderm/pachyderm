@@ -253,12 +253,9 @@ func (t Term) RunWrite(s *Session, optArgs ...RunOpts) (WriteResponse, error) {
 	if err != nil {
 		return response, err
 	}
+	defer res.Close()
 
 	if err = res.One(&response); err != nil {
-		return response, err
-	}
-
-	if err = res.Close(); err != nil {
 		return response, err
 	}
 

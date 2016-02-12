@@ -27,7 +27,6 @@ var _ codes.Code
 var _ io.Reader
 var _ = runtime.String
 var _ = json.Marshal
-var _ = utilities.PascalFromSnake
 
 var (
 	filter_API_CreateRepo_0 = &utilities.DoubleArray{Encoding: map[string]int{"repo": 0, "name": 1}, Base: []int{1, 1, 1, 0}, Check: []int{0, 1, 2, 3}}

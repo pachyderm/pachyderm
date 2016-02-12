@@ -268,6 +268,7 @@ func Gen(w io.Writer, buildTags, pkgName, uid string, useUnsafe bool, ti *TypeIn
 	x.line("type " + x.hn + " struct{}")
 	x.line("")
 
+	x.varsfxreset()
 	x.line("func init() {")
 	x.linef("if %sGenVersion != %v {", x.cpfx, GenVersion)
 	x.line("_, file, _, _ := runtime.Caller(0)")
@@ -311,6 +312,7 @@ func Gen(w io.Writer, buildTags, pkgName, uid string, useUnsafe bool, ti *TypeIn
 	for _, t := range x.ts {
 		rtid := reflect.ValueOf(t).Pointer()
 		// generate enc functions for all these slice/map types.
+		x.varsfxreset()
 		x.linef("func (x %s) enc%s(v %s%s, e *%sEncoder) {", x.hn, x.genMethodNameT(t), x.arr2str(t, "*"), x.genTypeName(t), x.cpfx)
 		x.genRequiredMethodVars(true)
 		switch t.Kind() {
@@ -325,6 +327,7 @@ func Gen(w io.Writer, buildTags, pkgName, uid string, useUnsafe bool, ti *TypeIn
 		x.line("")
 
 		// generate dec functions for all these slice/map types.
+		x.varsfxreset()
 		x.linef("func (x %s) dec%s(v *%s, d *%sDecoder) {", x.hn, x.genMethodNameT(t), x.genTypeName(t), x.cpfx)
 		x.genRequiredMethodVars(false)
 		switch t.Kind() {
@@ -408,6 +411,10 @@ func (x *genRunner) line(s string) {
 func (x *genRunner) varsfx() string {
 	x.c++
 	return strconv.FormatUint(x.c, 10)
+}
+
+func (x *genRunner) varsfxreset() {
+	x.c = 0
 }
 
 func (x *genRunner) out(s string) {
@@ -496,6 +503,7 @@ func (x *genRunner) selfer(encode bool) {
 	// always make decode use a pointer receiver,
 	// and structs always use a ptr receiver (encode|decode)
 	isptr := !encode || t.Kind() == reflect.Struct
+	x.varsfxreset()
 	fnSigPfx := "func (x "
 	if isptr {
 		fnSigPfx += "*"
