@@ -191,7 +191,7 @@ func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fu
 		f.File.Path,
 		request.Offset,
 		int64(request.Size),
-		"",
+		f.fs.getFromCommitID(f.File.Commit.Repo.Name),
 		f.Shard,
 		&buffer,
 	); err != nil {
