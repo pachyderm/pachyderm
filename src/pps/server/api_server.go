@@ -169,9 +169,25 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	if err != nil {
 		return nil, err
 	}
+	var parentJobInfo *persist.JobInfo
+	if jobInfo.ParentJob != nil {
+		inspectJobRequest := &pps.InspectJobRequest{Job: jobInfo.ParentJob}
+		parentJobInfo, err = a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
+		if err != nil {
+			return nil, err
+		}
+	}
+	repoToFromCommit := make(map[string]*pfs.Commit)
+	if parentJobInfo != nil {
+		for _, jobInput := range parentJobInfo.Inputs {
+			if !jobInput.Reduce {
+				repoToFromCommit[jobInput.Commit.Repo.Name] = jobInput.Commit
+			}
+		}
+	}
 	if shard == 0 {
 		var parentCommit *pfs.Commit
-		if jobInfo.ParentJob == nil {
+		if parentJobInfo == nil {
 			var repo *pfs.Repo
 			if jobInfo.PipelineName == "" {
 				repo = pps.JobRepo(request.Job)
@@ -183,11 +199,6 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 			}
 			parentCommit = &pfs.Commit{Repo: repo}
 		} else {
-			inspectJobRequest := &pps.InspectJobRequest{Job: jobInfo.ParentJob}
-			parentJobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
-			if err != nil {
-				return nil, err
-			}
 			parentCommit = parentJobInfo.OutputCommit
 		}
 		commit, err := pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
@@ -214,7 +225,8 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	var commitMounts []*fuse.CommitMount
 	for _, jobInput := range jobInfo.Inputs {
 		commitMount := &fuse.CommitMount{
-			Commit: jobInput.Commit,
+			Commit:     jobInput.Commit,
+			FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
 			Shard: &pfs.Shard{
 				FileModulus:  1,
 				BlockModulus: 1,
@@ -456,7 +468,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 			if commitInfo.ParentCommit != nil {
 				delete(repoToLeaves[commitInfo.ParentCommit.Repo.Name], commitInfo.ParentCommit.Id)
 			}
-			// generate all the pemrutations of leaves we could use this commit with
+			// generate all the permutations of leaves we could use this commit with
 			commitSets := [][]*pfs.Commit{[]*pfs.Commit{}}
 			for repoName, leaves := range repoToLeaves {
 				if repoName == commitInfo.Commit.Repo.Name {
@@ -483,7 +495,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 				}
 				var parentJob *pps.Job
 				if commitInfo.ParentCommit != nil {
-					parentJob, err = a.parentJob(ctx, pipelineInfo, append(commitSet, commitInfo.ParentCommit), commitInfo)
+					parentJob, err = a.parentJob(ctx, pipelineInfo, commitSet, commitInfo)
 					if err != nil {
 						return err
 					}

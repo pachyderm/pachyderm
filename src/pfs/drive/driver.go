@@ -333,10 +333,10 @@ func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
 	return nil
 }
 
-func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, size int64, shard uint64) (io.ReadCloser, error) {
+func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, size int64, from *pfs.Commit, shard uint64) (io.ReadCloser, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard)
+	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from)
 	if err != nil {
 		return nil, err
 	}
@@ -350,17 +350,17 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, s
 	return newFileReader(blockClient, blockRefs, offset, size), nil
 }
 
-func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64) (*pfs.FileInfo, error) {
+func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) (*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from)
 	return fileInfo, err
 }
 
-func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, shard uint64) ([]*pfs.FileInfo, error) {
+func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) ([]*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +369,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, shard uint64) 
 	}
 	var result []*pfs.FileInfo
 	for _, child := range fileInfo.Children {
-		fileInfo, _, err := d.inspectFile(child, filterShard, shard)
+		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from)
 		if err != nil && err != pfs.ErrFileNotFound {
 			return nil, err
 		}
@@ -551,12 +551,12 @@ func filterBlockRefs(filterShard *pfs.Shard, blockRefs []*pfs.BlockRef) []*pfs.B
 	return result
 }
 
-func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64) (*pfs.FileInfo, []*pfs.BlockRef, error) {
+func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit) (*pfs.FileInfo, []*pfs.BlockRef, error) {
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*pfs.BlockRef
 	children := make(map[string]bool)
 	commit := file.Commit
-	for commit != nil {
+	for commit != nil && (from == nil || commit.Id != from.Id) {
 		diffInfo, _, ok := d.getDiffInfo(&pfs.Diff{
 			Commit: commit,
 			Shard:  shard,

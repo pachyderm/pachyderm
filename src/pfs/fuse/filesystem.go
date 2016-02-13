@@ -165,6 +165,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		f.File.Commit.Repo.Name,
 		f.File.Commit.Id,
 		f.File.Path,
+		f.fs.getFromCommitID(f.File.Commit.Repo.Name),
 		f.Shard,
 	)
 	if err != nil && !f.local {
@@ -190,6 +191,7 @@ func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fu
 		f.File.Path,
 		request.Offset,
 		int64(request.Size),
+		f.fs.getFromCommitID(f.File.Commit.Repo.Name),
 		f.Shard,
 		&buffer,
 	); err != nil {
@@ -273,6 +275,14 @@ func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
 	return nil
 }
 
+func (f *filesystem) getFromCommitID(nameOrAlias string) string {
+	commitMount := f.getCommitMount(nameOrAlias)
+	if commitMount == nil || commitMount.FromCommit == nil {
+		return ""
+	}
+	return commitMount.FromCommit.Id
+}
+
 func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error) {
 	commitMount := d.fs.getCommitMount(name)
 	if commitMount == nil {
@@ -321,6 +331,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		d.File.Commit.Repo.Name,
 		d.File.Commit.Id,
 		path.Join(d.File.Path, name),
+		d.fs.getFromCommitID(d.File.Commit.Repo.Name),
 		d.Shard,
 	)
 	if err != nil {
@@ -376,7 +387,14 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
-	fileInfos, err := pfsutil.ListFile(d.fs.apiClient, d.File.Commit.Repo.Name, d.File.Commit.Id, d.File.Path, d.Shard)
+	fileInfos, err := pfsutil.ListFile(
+		d.fs.apiClient,
+		d.File.Commit.Repo.Name,
+		d.File.Commit.Id,
+		d.File.Path,
+		d.fs.getFromCommitID(d.File.Commit.Repo.Name),
+		d.Shard,
+	)
 	if err != nil {
 		return nil, err
 	}

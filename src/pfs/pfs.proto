@@ -176,6 +176,7 @@ message GetFileRequest {
   int64 offset_bytes = 2;
   int64 size_bytes = 3;
   Shard shard = 4;
+  Commit from_commit = 5;
 }
 
 message PutFileRequest {
@@ -188,6 +189,7 @@ message PutFileRequest {
 message InspectFileRequest {
   File file = 1;
   Shard shard = 2;
+  Commit from_commit = 3;
 }
 
 message MakeDirectoryRequest {
@@ -196,7 +198,8 @@ message MakeDirectoryRequest {
 
 message ListFileRequest {
   File file = 1;
-  Shard shard = 2; // can be left nil
+  Shard shard = 2;
+  Commit from_commit = 3;
 }
 
 message DeleteFileRequest {
