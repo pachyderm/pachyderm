@@ -17,7 +17,7 @@ func CreateJob(
 	client pps.APIClient,
 	image string,
 	cmd []string,
-	stdin string,
+	stdin []string,
 	shards uint64,
 	inputs []*pps.JobInput,
 	parentJobID string,
@@ -46,7 +46,7 @@ func CreatePipeline(
 	name string,
 	image string,
 	cmd []string,
-	stdin string,
+	stdin []string,
 	shards uint64,
 	inputs []*pps.PipelineInput,
 ) error {
