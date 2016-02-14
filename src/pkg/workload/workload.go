@@ -246,15 +246,17 @@ func (w *worker) reader() io.Reader {
 	return NewReader(w.rand, 1000)
 }
 
-func (w *worker) grepCmd(inputs [5]string, outFilename string) string {
-	return fmt.Sprintf(
-		"grep %s /pfs/{%s,%s,%s,%s,%s}/* >/pfs/out/%s; true",
-		w.randString(4),
-		inputs[0],
-		inputs[1],
-		inputs[2],
-		inputs[3],
-		inputs[4],
-		outFilename,
-	)
+func (w *worker) grepCmd(inputs [5]string, outFilename string) []string {
+	return []string{
+		fmt.Sprintf(
+			"grep %s /pfs/{%s,%s,%s,%s,%s}/* >/pfs/out/%s; true",
+			w.randString(4),
+			inputs[0],
+			inputs[1],
+			inputs[2],
+			inputs[3],
+			inputs[4],
+			outFilename,
+		),
+	}
 }
