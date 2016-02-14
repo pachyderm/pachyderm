@@ -104,7 +104,7 @@ data
 Now `ls` does something! `/pfs` contains a directory for every repo in the
 filesyste.
 
-## Create a `Commit`
+## Start a `Commit`
 Now that you've created a `Repo` you should see an empy directory `/pfs/data`
 if you try writing to it, it will fail because you can't write directly to
 `Repo`s. In Pachyderm you write to explicit commits, let's start a new commit:
@@ -122,10 +122,11 @@ $ ls /pfs/data
 6a7ddaf3704b4cb6ae4ec73522efe05f
 ```
 
-a new directory has been created for our commit. This we can write to.
+a new directory has been created for our commit. This we can write to:
 
 ```shell
-$ echo foo >/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/file
+# Write sample data to pfs
+$ cat examples/grep/set1.txt >/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/file
 ```
 
 However if you try to view the file you'll notice you can't:
@@ -135,9 +136,11 @@ $ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/file
 cat: /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/file: No such file or directory
 ```
 
+## Finish a `Commit`
+
 Pachyderm won't let you read data from a commit until the commit is finished.
-This prevents reads from racing with other writes and makes every write to the
-filesystem atomic. Let's finish the commit:
+This prevents reads from racing with writes. Furthermore every write
+to pfs is atomic. Let's finish the commit:
 
 ```shell
 $ pachctl finish-commit data 6a7ddaf3704b4cb6ae4ec73522efe05f
@@ -155,12 +158,10 @@ However, we've lost the ability to write to it, finished commits are immutable.
 ## Create a `Pipeline`
 
 Now that we've got some data in our `repo` it's time to do something with it.
-`Pipeline`s are an increasingly common paradigm for distributed processing, the
-essence of the paradigm is that processing elements are chained together with
-the output of one feeding into the input of the next. Pipelines are the core
-primitive for Pachyderm's processing system (pps), they're specified with a JSON
-encoding. The `pipeline` we're creating can be found at
-`examples/grep/pipeline.json` here's what it looks like:
+Pipelines are the core primitive for Pachyderm's processing system (pps),
+they're specified with a JSON encoding. The `pipeline` we're creating
+can be found at `examples/grep/pipeline.json` here's what it looks
+like:
 
 ```json
 {
@@ -169,7 +170,7 @@ encoding. The `pipeline` we're creating can be found at
   },
   "transform": {
     "cmd": [ "sh" ],
-    "stdin": "grep -r \"foo\" /pfs/data > /pfs/out/foo"
+    "stdin": "grep -r apple /pfs/data >/pfs/out/apple"
   },
   "shards": "1",
   "inputs": [ { "repo": { "name": "data" } } ]
