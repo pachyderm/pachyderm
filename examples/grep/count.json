@@ -14,8 +14,9 @@
   "inputs": [
     {
       "repo": {
-        "name": "data"
-      }
+        "name": "grep"
+      },
+	  "reduce": true
     }
   ]
 }
