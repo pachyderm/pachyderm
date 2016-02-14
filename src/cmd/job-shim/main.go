@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -65,8 +66,12 @@ func do(appEnvObj interface{}) error {
 					errorAndExit(err.Error())
 				}
 			}()
+			var readers []io.Reader
+			for _, line := range response.Transform.Stdin {
+				readers = append(readers, strings.NewReader(line+"\n"))
+			}
 			io := pkgexec.IO{
-				Stdin:  strings.NewReader(response.Transform.Stdin),
+				Stdin:  io.MultiReader(readers...),
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
 			}
