@@ -146,6 +146,17 @@ grep-data:
 	go run examples/grep/generate.go >examples/grep/set1.txt
 	go run examples/grep/generate.go >examples/grep/set2.txt
 
+grep-example:
+	pachctl create-repo data
+	commit1="$(pachctl start-commit data)"
+	cat examples/grep/set1.txt >/pfs/data/$(commit1)/set1.txt
+	pachctl finish-commit $(commit1)
+	pachctl create-pipeline -f examples/grep/grep.json
+	pachctl create-pipeline -f examples/grep/count.json
+	commit2="$(pachctl start-commit data)"
+	cat examples/grep/set2.txt >/pfs/data/$(commit2)/set2.txt
+	pachctl finish-commit $(commit2)
+
 .PHONY: \
 	doc \
 	all \

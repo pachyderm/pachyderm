@@ -1,0 +1,17 @@
+{
+  "pipeline": {
+    "name": "count"
+  },
+  "transform": {
+    "cmd": [ "sh" ],
+    "stdin": "cut -f 2 | awk '{s+=$1} END {print s}'"
+  },
+  "shards": "1",
+  "inputs": [
+    {
+      "repo": {
+        "name": "data"
+      }
+    }
+  ]
+}
