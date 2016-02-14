@@ -4,7 +4,11 @@
   },
   "transform": {
     "cmd": [ "sh" ],
-    "stdin": "cut -f 2 | awk '{s+=$1} END {print s}'"
+    "stdin": [
+        "cut -f 2 /pfs/grep/apple | awk '{s+=$1} END {print s}' >/pfs/out/apple",
+        "cut -f 2 /pfs/grep/banana | awk '{s+=$1} END {print s}' >/pfs/out/banana",
+        "cut -f 2 /pfs/grep/orange | awk '{s+=$1} END {print s}' >/pfs/out/orange"
+    ]
   },
   "shards": "1",
   "inputs": [

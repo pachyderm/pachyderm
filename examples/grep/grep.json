@@ -4,7 +4,11 @@
   },
   "transform": {
     "cmd": [ "sh" ],
-    "stdin": "grep -r apple /pfs/data >/pfs/out/apple; grep -r banana /pfs/data >/pfs/out/banana; grep -r orange /pfs/data >/pfs/out/orange"
+    "stdin": [
+        "grep -r apple /pfs/data >/pfs/out/apple",
+        "grep -r banana /pfs/data >/pfs/out/banana",
+        "grep -r orange /pfs/data >/pfs/out/orange"
+    ]
   },
   "shards": "1",
   "inputs": [
