@@ -142,6 +142,10 @@ doc: install
 	./pachctl
 	rm ./pachctl
 
+grep-data:
+	go run examples/grep/generate.go >examples/grep/set1.txt
+	go run examples/grep/generate.go >examples/grep/set2.txt
+
 .PHONY: \
 	doc \
 	all \
