@@ -199,7 +199,11 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 			}
 			parentCommit = &pfs.Commit{Repo: repo}
 		} else {
-			parentCommit = parentJobInfo.OutputCommit
+			if len(repoToFromCommit) == len(parentJobInfo.Inputs) {
+				// every input commit has a parent, this is a fully map
+				// operation so we can automatically stream it
+				parentCommit = parentJobInfo.OutputCommit
+			}
 		}
 		commit, err := pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 			Parent: parentCommit,
