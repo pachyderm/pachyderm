@@ -178,16 +178,20 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 		}
 	}
 	repoToFromCommit := make(map[string]*pfs.Commit)
+	reduce := false
 	if parentJobInfo != nil {
 		for _, jobInput := range parentJobInfo.Inputs {
-			if !jobInput.Reduce {
+			if jobInput.Reduce {
+				reduce = true
+			} else {
+				// input isn't being reduced, do it incrementally
 				repoToFromCommit[jobInput.Commit.Repo.Name] = jobInput.Commit
 			}
 		}
 	}
 	if shard == 0 {
 		var parentCommit *pfs.Commit
-		if parentJobInfo == nil {
+		if parentJobInfo == nil || reduce {
 			var repo *pfs.Repo
 			if jobInfo.PipelineName == "" {
 				repo = pps.JobRepo(request.Job)
@@ -199,11 +203,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 			}
 			parentCommit = &pfs.Commit{Repo: repo}
 		} else {
-			if len(repoToFromCommit) == len(parentJobInfo.Inputs) {
-				// every input commit has a parent, this is a fully map
-				// operation so we can automatically stream it
-				parentCommit = parentJobInfo.OutputCommit
-			}
+			parentCommit = parentJobInfo.OutputCommit
 		}
 		commit, err := pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 			Parent: parentCommit,
