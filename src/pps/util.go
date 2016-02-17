@@ -11,5 +11,5 @@ func JobRepo(job *Job) *pfs.Repo {
 }
 
 func PipelineRepo(pipeline *Pipeline) *pfs.Repo {
-	return &pfs.Repo{Name: fmt.Sprintf("pipeline-%s", pipeline.Name)}
+	return &pfs.Repo{Name: pipeline.Name}
 }

@@ -4,196 +4,79 @@
 
 * [News](#news)
 * [What is Pachyderm?](#what-is-pachyderm)
-* [Key Features](#key-features)
-* [Is Pachyderm enterprise production ready?](#is-pachyderm-enterprise-production-ready)
-* [What is a commit-based file system?](#what-is-a-commit-based-file-system)
-* [What are containerized analytics?](#what-are-containerized-analytics)
-* [Using Pachyderm](#using-pachyderm)
-    * [Prerequisites](#prerequisites)
-    * [Launch a Development Cluster](#launch-a-development-cluster)
-    * [Launch a Production Cluster](#launch-a-production-cluster)
-    * [Common Problems](#common-problems)
-* [Environment Setup](#environment-setup)
-    * [Go Setup](#go-setup)
-    * [Docker Setup](#docker-setup)
-    * [Vagrant](#vagrant)
+* [What's new about Pachyderm? (How is it different from Hadoop?)](#-new-about-pachyderm-how-is-it-different-from-hadoop)
+* [Our Vision](#our-vision)
 * [Contributing](#contributing)
 
 ### News
 
 WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
 
+### Getting Started
+
+Get up and running with the [distributed grep example](https://github.com/pachyderm/pachyderm/examples/grep/GUIDE.md).
+
 ### What is Pachyderm?
 
-Pachyderm is a complete data analytics solution that lets you efficiently store and analyze your data using containers. We offer the scalability and broad functionality of Hadoop, with the ease of use of Docker.
+Pachyderm is a Data Lake -- a place to dump and process gigantic data sets.
+Pachyderm is inspired by the Hadoop ecosystem but _shares no code_ with it.
+Instead, we leverage the container ecosystem to provide the broad functionality
+of Hadoop with the ease of use of Docker.
 
-### Key Features
+Pachyderm offers the following core functionality:
 
-- Complete version control for your data
-- Pipelines are containerized, so you can use any languages and tools you want
-- Both batched and streaming analytics
-- One-click deploy on AWS without data migration
+- Virtually limitless storage for any data.
+- Virtually limitless processing power using any tools.
+- Tracking of data history, provenance and ownership. (Version Control for data).
+- Automatic processing on new data as it’s ingested. (Streaming).
+- Chaining processes together. (Pipelining)
 
-### Is Pachyderm enterprise production ready?
+### What's new about Pachyderm? (How is it different from Hadoop?)
 
-No, Pachyderm is in beta, but can already solve some very meaningful data analytics problems.  [We'd love your help. :)](#development)
+There are two bold new ideas in Pachyderm:
 
-### What is a commit-based file system?
+- Containers as the core processing primitive
+- Version Control for data
 
-Pfs is implemented as a distributed layer on top of btrfs, the same
-copy-on-write file system that powers Docker. Btrfs already offers
-[git-like semantics](http://zef.me/6023/who-needs-git-when-you-got-zfs/) on a
-single machine; pfs scales these out to an entire cluster. This allows features such as:
-- __Commit-based history__: File systems are generally single-state entities. Pfs,
-on the other hand, provides a rich history of every previous state of your
-cluster. You can always revert to a prior commit in the event of a
-disaster.
-- __Branching__: Thanks to btrfs's copy-on-write semantics, branching is ridiculously
-cheap in pfs. Each user can experiment freely in their own branch without
-impacting anyone else or the underlying data. Branches can easily be merged back in the main cluster.
-- __Cloning__: Btrfs's send/receive functionality allows pfs to efficiently copy
-an entire cluster's worth of data while still maintaining its commit history.
+These ideas lead directly to a system that's much more powerful, flexible and easy to use. 
 
-### What are containerized analytics?
 
-Rather than thinking in terms of map or reduce jobs, pps thinks in terms of pipelines expressed within a container. A pipeline is a generic way expressing computation over large datasets and it’s containerized to make it easily portable, isolated, and easy to monitor. In Pachyderm, all analysis runs in containers. You can write them in any language you want and include any libraries.
+To process data, you simply create a containerized program which reads and writes to the local filesystem. You can use _any_ tools you want because it's all just going in a container! Pachyderm will take your container and inject data into it by way of a FUSE volume. We'll then automatically replicate your container, showing each copy a different chunk of data. With this technique, Pachyderm can scale any code you write to process up to petabytes of data (Example: [distributed grep](https://github.com/pachyderm/pachyderm/examples/grep/GUIDE.md)).
 
-### Using Pachyderm
+Pachyderm also version controls all data using a commit-based distributed
+filesystem (PFS), similar to what git does with code. Version control for data
+has far reaching consequences in a distributed filesystem. You get the full
+history of your data, it's much easier to collaborate with teammates, and if
+anything goes wrong you can revert _the entire cluster_ with one click!
 
-#### Prerequisites
+Version control is also very synergistic with our containerized processing
+engine. Pachyderm understands how your data changes and thus, as new data
+is ingested, can run your workload on the _diff_ of the data rather than the
+whole thing. This means that there's no difference between a batched job and
+a streaming job, the same code will work for both!
 
-Requirements:
-- Go 1.5
-- Docker 1.9
+### Our Vision
 
-[More Info](#environment-setup)
+Containers are a revolutionary new technology with a compelling application to
+big data. Our goal is to fully realize that use case. Hadoop has spawned a
+sprawling ecosystem of tools but with each new tool the complexity of your
+cluster grows until maintaining it becomes a full time job. Containers are the
+_perfect_ antidote to this problem. What if adding a new tool to your data
+infrastructure was as easy as installing an app? Thanks to the magic of
+containers in Pachyderm, it really is!
 
-#### Launch a Development Cluster
-To start a development cluster run:
-
-```shell
-make launch
-```
-
-This will compile the code on your local machine and launch it as a docker-compose service.
-A succesful launch looks like this:
-
-```shell
-docker-compose ps
-        Name                       Command               State                                 Ports
------------------------------------------------------------------------------------------------------------------------------------
-pachyderm_btrfs_1       sh entrypoint.sh                 Up
-pachyderm_etcd_1        /etcd -advertise-client-ur ...   Up      0.0.0.0:2379->2379/tcp, 2380/tcp, 4001/tcp, 7001/tcp
-pachyderm_pfs-roler_1   /pfs-roler                       Up
-pachyderm_pfsd_1        sh btrfs-mount.sh /pfsd          Up      0.0.0.0:1050->1050/tcp, 0.0.0.0:650->650/tcp, 0.0.0.0:750->750/tcp
-pachyderm_ppsd_1        /ppsd                            Up      0.0.0.0:1051->1051/tcp, 0.0.0.0:651->651/tcp
-pachyderm_rethink_1     rethinkdb --bind all             Up      28015/tcp, 29015/tcp, 8080/tcp
-```
-
-#### Pachyderm CLI
-Pachyderm has a CLI called `pach`. To install it:
-
-```shell
-make install
-```
-
-`pach` should be able to access dev clusters without any additional setup.
-
-#### Launch a Production Cluster
-Before you can launch a production cluster you'll need a working Kubernetes deployment.
-You can start one locally on Docker using:
-
-```shell
-etc/kube/start-kube-docker.sh
-```
-
-You can then deploy a Pachyderm cluster on Kubernetes with:
-
-```shell
-pachctl create-cluster -n test-cluster -s 1
-```
-
-### Environment Setup
-
-#### Go Setup
-With golang, it's generally easiest to have your fork match the import paths in the code. We recommend you do it like this:
-
-```
-# assuming your github username is alice
-rm -rf ${GOPATH}/src/github.com/pachyderm/pachyderm
-mkdir -p ${GOPATH}/src/github.com/pachyderm
-cd ${GOPATH}/src/github.com/pachyderm
-git clone https://github.com/alice/pachyderm.git
-cd pachyderm
-git remote add upstream https://github.com/pachyderm/pachyderm.git # so you can run 'git fetch upstream' to get upstream changes
-```
-
-#### Docker Setup
-
-If you're on a Mac or Windows, easiest way to get up and running is the
-[Docker toolbox](https://www.docker.com/docker-toolbox). Linux users should
-follow [this guide](http://docs.docker.com/engine/installation/ubuntulinux/).
-
-#### Vagrant
-
-The [Vagrantfile](etc/initdev/Vagrantfile) in this repository will set up a development environment for Pachyderm
-that has all dependencies installed.
-
-The easiest way to install Vagrant on your mac is probably:
-
-```
-brew install caskroom/cask/brew-cask
-brew cask install virtualbox vagrant
-```
-
-Basic usage:
-
-```
-mkdir -p pachyderm_vagrant
-cd pachyderm_vagrant
-curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/initdev/Vagrantfile > Vagrantfile
-curl https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/initdev/init.sh > init.sh
-vagrant up # starts the vagrant box
-vagrant ssh # ssh into the vagrant box
-```
-
-Once in the vagrant box, set everything up and verify that it works:
-
-```
-go get github.com/pachyderm/pachyderm/...
-cd ~/go/src/github.com/pachyderm/pachyderm
-make test
-```
-
-Some other useful vagrant commands:
-
-```
-vagrant suspend # suspends the vagrant box, useful if you are not actively developing and want to free up resources
-vagrant resume # resumes a suspended vagrant box
-vagrant destroy # destroy the vagrant box, this will destroy everything on the box so be careful
-```
-
-See [Vagrant's website](https://www.vagrantup.com) for more details.
-
-### Common Problems
-
-*Problem*: Nothing is running after launch.
-
-- Check to make sure the docker daemon is running with `ps -ef | grep docker`.
-- Check to see if the container exited with `docker ps -a | grep IMAGE_NAME`.
-- Check the container logs with `docker logs`.
-
-*Problem*: Docker commands are failing with permission denied
-
-The bin scripts assume you have your user in the docker group as explained in the [Docker Ubuntu installation docs](https://docs.docker.com/installation/ubuntulinux/#create-a-docker-group).
-If this is set up properly, you do not need to use `sudo` to run `docker`. If you do not want this, and want to have to use `sudo` for docker development, wrap all commands like so:
-
-```
-sudo -E bash -c 'make test' # original command would have been `make test`
-```
+The most exciting thing about this vision though is what comes next. Pachyderm
+can do big data with _anything_ that runs on Linux. And anything you build, you
+can easily share with the rest of the community, afterall it's just a
+container. We have some ideas of our own about what to build, but it's just the
+tip of the iceburg -- we expect our users will have many more interesting ideas.
+We can't wait to see what they are!
 
 ### Contributing
+
+[Deploying Pachyderm](https://github.com/pachyderm/pachyderm/examples/grep/GUIDE.md#setup).
 
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
 
 Send us PRs, we would love to see what you do!
+
