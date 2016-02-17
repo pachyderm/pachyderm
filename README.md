@@ -12,6 +12,10 @@
 
 WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
 
+### Getting Started
+
+Get up and running the [grep example](https://github.com/pachyderm/pachyderm/examples/grep/GUIDE.md).
+
 ### What is Pachyderm?
 
 Pachyderm is a Data Lake. A place to dump and process gigantic data sets.
@@ -73,6 +77,8 @@ tip of the iceburg, we expect our users will have many more interesting ideas.
 We can't wait to see what they are!
 
 ### Contributing
+
+[Deploying Pachyderm](https://github.com/pachyderm/pachyderm/examples/grep/GUIDE.md#setup).
 
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
 
