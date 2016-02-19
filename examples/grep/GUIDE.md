@@ -9,7 +9,7 @@ to a virtually limitless stream of data. Let's dive in.
 
 Before we can launch a cluster you'll need the following things:
 
-- Docker >= 1.9 (must deploy with [`--storage-driver=devicemapper`](http://muehe.org/posts/switching-docker-from-aufs-to-devicemapper/))
+- Docker >= 1.9 (must deploy with [`--storage-driver=devicemapper`](http://muehe.org/posts/switching-docker-from-aufs-to-devicemapper/), supported as described [here](https://docs.docker.com/engine/userguide/storagedriver/device-mapper-driver/))
 - Go >= 1.5
 - Kubernetes and Kubectl >= 1.1.2
 - FUSE 2.8.2 (https://osxfuse.github.io/)
@@ -20,7 +20,7 @@ For development we recommend a dockerized Kubernetes deployment.
 If `docker` is installed you can launch one from the root of this repo with:
 
 ```shell
-$ make kube-launch
+$ make launch-kube
 ```
 
 ### Forward Ports
