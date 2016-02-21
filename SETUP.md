@@ -149,3 +149,6 @@ We currently only support s3, to launch a cluster with s3 credentials run:
 ```shell
 $ pachctl manifest amazon-secret bucket id secret token region | kubectl create -f -
 ```
+
+This encodes your credentials as Kubernetes secrets and gives pachd containers
+access to them.
