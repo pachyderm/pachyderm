@@ -55,6 +55,7 @@ build:
 	GO15VENDOREXPERIMENT=1 go build ./src/... ./.
 
 install:
+	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pachctl ./src/cmd/pachctl-doc
 
 docker-build-test:
