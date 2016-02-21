@@ -10,13 +10,13 @@ we'll help you find an install path and then document it here.
 
 ## Dependencies
 
-- [Go](#go) >= 1.5
+- [Go](#go) >= 1.6
 - [Docker](#docker) >= 1.9 (must deploy with [`--storage-driver=devicemapper`](http://muehe.org/posts/switching-docker-from-aufs-to-devicemapper/), supported as described [here](https://docs.docker.com/engine/userguide/storagedriver/device-mapper-driver/))
 - [Kubernetes](#kubernetes) and [Kubectl](#kubectl) >= 1.1.7
 - [FUSE](#fuse) 2.8.2 (https://osxfuse.github.io/)
 
 ## Go
-Find the latest version of Go [here](https://golang.org/doc/install).
+Find Go 1.6 [here](https://golang.org/doc/install).
 
 ## Docker
 
@@ -95,3 +95,57 @@ If docker is running locally you can skip this step. Otherwise do the following:
 $ ssh <HOST> -fTNL 8080:localhost:8080 -L 30650:localhost:30650
 ```
 
+You'll know it works if `kubectl version` runs without error:
+
+```shell
+kubectl version
+Client Version: version.Info{Major:"1", Minor:"1", GitVersion:"v1.1.7", GitCommit:"e4e6878293a339e4087dae684647c9e53f1cf9f0", GitTreeState:"clean"}
+Server Version: version.Info{Major:"1", Minor:"1", GitVersion:"v1.1.7", GitCommit:"e4e6878293a339e4087dae684647c9e53f1cf9f0", GitTreeState:"clean"}
+```
+
+## Launch Pachyderm
+
+From the root of this repo:
+
+```shell
+$ make launch
+```
+
+This passes the manifest located at `etc/kube/pachyderm.json` to `kubectl create`.
+Here's what a functioning cluster looks like:
+
+```shell
+$ kubectl get all
+CONTROLLER   CONTAINER(S)   IMAGE(S)                               SELECTOR      REPLICAS   AGE
+etcd         etcd           gcr.io/google_containers/etcd:2.0.12   app=etcd      1          2m
+pachd        pachd          pachyderm/pachd                        app=pachd     1          1m
+rethink      rethink        rethinkdb:2.1.5                        app=rethink   1          1m
+NAME         CLUSTER_IP   EXTERNAL_IP   PORT(S)                        SELECTOR      AGE
+etcd         10.0.0.197   <none>        2379/TCP,2380/TCP              app=etcd      2m
+kubernetes   10.0.0.1     <none>        443/TCP                        <none>        10d
+pachd        10.0.0.100   nodes         650/TCP,750/TCP                app=pachd     1m
+rethink      10.0.0.218   <none>        8080/TCP,28015/TCP,29015/TCP   app=rethink   1m
+NAME                   READY     STATUS    RESTARTS   AGE
+etcd-4r4hp             1/1       Running   0          2m
+k8s-master-127.0.0.1   3/3       Running   0          10d
+pachd-u992h            1/1       Running   1          1m
+rethink-268hq          1/1       Running   0          1m
+NAME      LABELS    STATUS    VOLUME    CAPACITY   ACCESSMODES   AGE
+```
+
+You'll know it works if `pachctl version` runs without error:
+
+```shell
+pachctl version
+COMPONENT           VERSION
+pachctl             1.0.0
+pachd               1.0.0
+```
+
+## Production Clusters
+For production clusters you'll want to give Pachyderm access to object storage.
+We currently only support s3, to launch a cluster with s3 credentials run:
+
+```shell
+$ pachctl manifest amazon-secret bucket id secret token region | kubectl create -f -
+```
