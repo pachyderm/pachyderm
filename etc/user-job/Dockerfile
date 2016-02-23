@@ -12,8 +12,8 @@ RUN \
   apt-get clean && \
   rm -rf /var/lib/apt
 
-# Install Go 1.5.2
-RUN curl -s https://storage.googleapis.com/golang/go1.5.2.linux-amd64.tar.gz | tar -v -C /usr/local/ -xz
+# Install Go 1.6.0
+RUN curl -s https://storage.googleapis.com/golang/go1.6.0.linux-amd64.tar.gz | tar -v -C /usr/local/ -xz
 ENV PATH /usr/local/go/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
 ENV GOPATH /go
 ENV GOROOT /usr/local/go
