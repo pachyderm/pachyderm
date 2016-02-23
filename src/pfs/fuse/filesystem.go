@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"go.pedge.io/lion/proto"
+	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
 )
 
@@ -176,6 +177,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	}
 	a.Mode = 0666
 	a.Inode = f.fs.inode(f.File)
+	a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
 	return nil
 }
 
