@@ -67,6 +67,7 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	defer func() {
 		protolion.Debug(&DirectoryAttr{&d.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 	}()
+
 	a.Valid = time.Nanosecond
 	if d.Write {
 		a.Mode = os.ModeDir | 0775
@@ -74,6 +75,7 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		a.Mode = os.ModeDir | 0555
 	}
 	a.Inode = d.fs.inode(d.File)
+	a.Mtime = prototime.TimestampToTime(d.Modified)
 	return nil
 }
 
@@ -324,6 +326,7 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 	} else {
 		result.Write = true
 	}
+	result.Modified = commitInfo.Finished
 	return result, nil
 }
 
