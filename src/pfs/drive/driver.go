@@ -528,6 +528,8 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 					Commit:       commit,
 					CommitType:   pfs.CommitType_COMMIT_TYPE_WRITE,
 					ParentCommit: diffInfo.ParentCommit,
+					Started:      diffInfo.Started,
+					SizeBytes:    diffInfo.SizeBytes,
 				})
 		}
 	}
