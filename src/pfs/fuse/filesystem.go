@@ -176,10 +176,10 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	}
 	if fileInfo != nil {
 		a.Size = fileInfo.SizeBytes
+		a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
 	}
 	a.Mode = 0666
 	a.Inode = f.fs.inode(f.File)
-	a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
 	return nil
 }
 
