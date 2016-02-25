@@ -4,18 +4,23 @@
 	"package": [
 		{
 			"path": "bazil.org/fuse",
-			"revision": "1bab7acc918a3316e302d2ef44e225374e840aa1",
-			"revisionTime": "2016-01-25T11:43:34-08:00"
+			"revision": "b692cc42ecdf9ad2e5c87a538c27a822bbaaa270",
+			"revisionTime": "2016-02-23T10:01:53-08:00"
 		},
 		{
 			"path": "bazil.org/fuse/fs",
-			"revision": "1bab7acc918a3316e302d2ef44e225374e840aa1",
-			"revisionTime": "2016-01-25T11:43:34-08:00"
+			"revision": "b692cc42ecdf9ad2e5c87a538c27a822bbaaa270",
+			"revisionTime": "2016-02-23T10:01:53-08:00"
+		},
+		{
+			"path": "bazil.org/fuse/fs/fstestutil",
+			"revision": "b692cc42ecdf9ad2e5c87a538c27a822bbaaa270",
+			"revisionTime": "2016-02-23T10:01:53-08:00"
 		},
 		{
 			"path": "bazil.org/fuse/fuseutil",
-			"revision": "1bab7acc918a3316e302d2ef44e225374e840aa1",
-			"revisionTime": "2016-01-25T11:43:34-08:00"
+			"revision": "b692cc42ecdf9ad2e5c87a538c27a822bbaaa270",
+			"revisionTime": "2016-02-23T10:01:53-08:00"
 		},
 		{
 			"path": "github.com/Sirupsen/logrus",
