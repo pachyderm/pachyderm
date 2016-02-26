@@ -94,7 +94,7 @@ message BlockRef {
 }
 
 message BlockRefs {
-	repeated BlockRef block_ref = 1;
+  repeated BlockRef block_ref = 1;
 }
 
 message Append {
@@ -116,7 +116,7 @@ message BlockInfos {
 message DiffInfo {
   Diff diff = 1;
   Commit parent_commit = 2;
-		string branch = 3;
+  string branch = 3;
   google.protobuf.Timestamp started = 4;
   google.protobuf.Timestamp finished = 5;
   // Appends is the BlockRefs which have been append to files indexed by path.
