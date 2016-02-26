@@ -171,6 +171,10 @@ message ListCommitRequest {
   bool block = 4;
 }
 
+message ListBranchRequest {
+  Repo repo = 1;
+}
+
 message DeleteCommitRequest {
   Commit commit = 1;
 }
@@ -214,9 +218,7 @@ service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
   // An error is returned if the repo already exists.
-  rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {
-  option (google.api.http) = { put: "/repos/{repo.name}" };
-  }
+  rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
   // InspectRepo returns info about a repo.
   rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
   // ListRepo returns info about all repos.
@@ -235,6 +237,8 @@ service API {
   rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
+  // ListBranch returns info about the heads of branches.
+  rpc ListBranch(ListBranchRequest) returns (CommitInfos) {}
 
   // File rpcs
   // PutFile writes the specified file to pfs.
@@ -272,6 +276,8 @@ service InternalAPI {
   rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
+  // ListBranch returns info about the heads of branches.
+  rpc ListBranch(ListBranchRequest) returns (CommitInfos) {}
 
   // File rpcs
   // PutFile writes the specified file to pfs.
