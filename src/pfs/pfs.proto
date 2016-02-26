@@ -51,7 +51,7 @@ enum CommitType {
 
 message CommitInfo {
   Commit commit = 1;
-		string branch = 2;
+  string branch = 2;
   CommitType commit_type = 3;
   Commit parent_commit = 4;
   google.protobuf.Timestamp started = 5;
@@ -293,7 +293,7 @@ message GetBlockRequest {
 }
 
 message DeleteBlockRequest {
-    Block block = 1;
+  Block block = 1;
 }
 
 message InspectBlockRequest {
@@ -312,7 +312,7 @@ message ListDiffRequest {
 }
 
 message DeleteDiffRequest {
-	Diff diff = 1;
+  Diff diff = 1;
 }
 
 service BlockAPI {
