@@ -20,6 +20,7 @@ type driver struct {
 	started         diffMap
 	finished        diffMap
 	leaves          diffMap // commits with no children
+	branches        diffMap
 	lock            sync.RWMutex
 }
 
@@ -28,6 +29,7 @@ func newDriver(blockAddress string) (Driver, error) {
 		blockAddress,
 		nil,
 		sync.Once{},
+		make(diffMap),
 		make(diffMap),
 		make(diffMap),
 		make(diffMap),
@@ -75,7 +77,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, 
 			},
 			Finished: created,
 		}
-		if err := d.finished.insert(diffInfo); err != nil {
+		if err := d.finished.insert(diffInfo, false); err != nil {
 			return err
 		}
 		go func() {
@@ -170,11 +172,37 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitId string, parentId string, b
 			},
 			Started: started,
 			Appends: make(map[string]*pfs.Append),
+			Branch:  branch,
 		}
-		if parentId != "" {
-			diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentId)
+		if branch != "" {
+			branchDiff := &pfs.Diff{
+				Commit: pfsutil.NewCommit(repo.Name, branch),
+				Shard:  shard,
+			}
+			if parentDiffInfo, ok := d.branches.get(branchDiff); ok {
+				if parentId != "" && parentDiffInfo.Diff.Commit.Id != parentId {
+					return fmt.Errorf("branch %s already exists as %s, can't create with %s as parent",
+						branch, parentDiffInfo.Diff.Commit.Id, parentId)
+				}
+				if _, ok := d.finished.get(parentDiffInfo.Diff); !ok {
+					return fmt.Errorf("branch %s already has a started (but unfinished) commit %s",
+						branch, parentDiffInfo.Diff.Commit.Id)
+				}
+				diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentDiffInfo.Diff.Commit.Id)
+				d.branches.pop(branchDiff)
+			}
 		}
-		if err := d.started.insert(diffInfo); err != nil {
+		if diffInfo.ParentCommit == nil {
+			if parentId != "" {
+				diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentId)
+			}
+		}
+		if branch != "" {
+			if err := d.branches.insert(diffInfo, true); err != nil {
+				return err
+			}
+		}
+		if err := d.started.insert(diffInfo, false); err != nil {
 			return err
 		}
 		if err := d.insertLeaf(diffInfo); err != nil {
@@ -191,6 +219,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 		d.lock.Lock()
 		defer d.lock.Unlock()
 		for shard := range shards {
+			commit = d.canonicalCommit(commit, shard)
 			diffInfo := d.started.pop(&pfs.Diff{
 				Commit: commit,
 				Shard:  shard,
@@ -200,7 +229,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 			}
 			diffInfo.Finished = finished
 			diffInfos = append(diffInfos, diffInfo)
-			if err := d.finished.insert(diffInfo); err != nil {
+			if err := d.finished.insert(diffInfo, false); err != nil {
 				return err
 			}
 		}
@@ -281,6 +310,7 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 }
 
 func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) (retErr error) {
+	file.Commit = d.canonicalCommit(file.Commit, shard)
 	d.lock.RLock()
 	diffInfo, ok := d.started.get(&pfs.Diff{
 		Commit: file.Commit,
@@ -339,6 +369,7 @@ func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, size int64, from *pfs.Commit, shard uint64) (io.ReadCloser, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
+	file.Commit = d.canonicalCommit(file.Commit, shard)
 	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from)
 	if err != nil {
 		return nil, err
@@ -356,6 +387,7 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, s
 func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) (*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
+	file.Commit = d.canonicalCommit(file.Commit, shard)
 	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from)
 	return fileInfo, err
 }
@@ -363,6 +395,7 @@ func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.C
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) ([]*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
+	file.Commit = d.canonicalCommit(file.Commit, shard)
 	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from)
 	if err != nil {
 		return nil, err
@@ -414,7 +447,7 @@ func (d *driver) AddShard(shard uint64) error {
 			if _, ok := d.finished[diffInfo.Diff.Commit.Repo.Name]; !ok {
 				d.createRepoDiffMaps(diffInfo.Diff.Commit.Repo)
 			}
-			if err := d.finished.insert(diffInfo); err != nil {
+			if err := d.finished.insert(diffInfo, false); err != nil {
 				return err
 			}
 			if diffInfo.ParentCommit != nil {
@@ -426,7 +459,7 @@ func (d *driver) AddShard(shard uint64) error {
 				// already saw the parent we're good, otherwise we record the
 				// fact that this diff is not a leaf with a dummy diffInfo
 				if parentDiffInfo := leaves.pop(parentDiff); parentDiffInfo == nil {
-					if err := leaves.insert(&pfs.DiffInfo{Diff: parentDiff}); err != nil {
+					if err := leaves.insert(&pfs.DiffInfo{Diff: parentDiff}, false); err != nil {
 						return err
 					}
 				}
@@ -435,7 +468,7 @@ func (d *driver) AddShard(shard uint64) error {
 			// already saw a parent, so this isn't a leaf, otherwise it's a leaf
 			// so we insert it
 			if dummyDiffInfo := leaves.pop(diffInfo.Diff); dummyDiffInfo == nil {
-				if err := leaves.insert(diffInfo); err != nil {
+				if err := leaves.insert(diffInfo, false); err != nil {
 					return err
 				}
 			}
@@ -450,7 +483,7 @@ func (d *driver) AddShard(shard uint64) error {
 				if diffInfo.Appends == nil {
 					return fmt.Errorf("diffInfos reference a parent that doesn't exist %s/%s", repo, commit)
 				}
-				if err := d.leaves.insert(diffInfo); err != nil {
+				if err := d.leaves.insert(diffInfo, false); err != nil {
 					return err
 				}
 			}
@@ -508,6 +541,7 @@ func (d *driver) getDiffInfo(diff *pfs.Diff) (_ *pfs.DiffInfo, read bool, ok boo
 func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
 	for shard := range shards {
+		commit = d.canonicalCommit(commit, shard)
 		if diffInfo, ok := d.finished.get(&pfs.Diff{
 			Commit: commit,
 			Shard:  shard,
@@ -729,7 +763,7 @@ func (d diffMap) get(diff *pfs.Diff) (_ *pfs.DiffInfo, ok bool) {
 	return diffInfo, ok
 }
 
-func (d diffMap) insert(diffInfo *pfs.DiffInfo) error {
+func (d diffMap) insert(diffInfo *pfs.DiffInfo, branch bool) error {
 	diff := diffInfo.Diff
 	shardMap, ok := d[diff.Commit.Repo.Name]
 	if !ok {
@@ -743,7 +777,11 @@ func (d diffMap) insert(diffInfo *pfs.DiffInfo) error {
 	if _, ok = commitMap[diff.Commit.Id]; ok {
 		return fmt.Errorf("commit %s/%s already exists", diff.Commit.Repo.Name, diff.Commit.Id)
 	}
-	commitMap[diff.Commit.Id] = diffInfo
+	if branch {
+		commitMap[diffInfo.Branch] = diffInfo
+	} else {
+		commitMap[diff.Commit.Id] = diffInfo
+	}
 	return nil
 }
 
@@ -762,7 +800,7 @@ func (d diffMap) pop(diff *pfs.Diff) *pfs.DiffInfo {
 }
 
 func (d *driver) insertLeaf(leaf *pfs.DiffInfo) error {
-	if err := d.leaves.insert(leaf); err != nil {
+	if err := d.leaves.insert(leaf, false); err != nil {
 		return err
 	}
 	if leaf.ParentCommit != nil {
@@ -781,4 +819,13 @@ func (d *driver) createRepoDiffMaps(repo *pfs.Repo) {
 	d.finished[repo.Name] = make(map[uint64]map[string]*pfs.DiffInfo)
 	d.started[repo.Name] = make(map[uint64]map[string]*pfs.DiffInfo)
 	d.leaves[repo.Name] = make(map[uint64]map[string]*pfs.DiffInfo)
+	d.branches[repo.Name] = make(map[uint64]map[string]*pfs.DiffInfo)
+}
+
+// canonicalCommit finds the canonical way of referring to a commit
+func (d *driver) canonicalCommit(commit *pfs.Commit, shard uint64) *pfs.Commit {
+	if diffInfo, ok := d.branches.get(&pfs.Diff{Commit: commit, Shard: shard}); ok {
+		return diffInfo.Diff.Commit
+	}
+	return commit
 }

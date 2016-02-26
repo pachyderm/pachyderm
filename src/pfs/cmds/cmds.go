@@ -140,8 +140,9 @@ This layers the data in the commit over the data in the parent.`,
 		}),
 	}
 
+	var parentCommitID string
 	startCommit := &cobra.Command{
-		Use:   "start-commit repo-name [parent-commit-id]",
+		Use:   "start-commit repo-name [branch]",
 		Short: "Start a new commit.",
 		Long:  "Start a new commit with parent-commit-id as the parent.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 1, Max: 2}, func(args []string) error {
@@ -149,11 +150,12 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
-			parentCommitID := ""
+			branch := ""
 			if len(args) == 2 {
-				parentCommitID = args[1]
+				branch = args[1]
 			}
-			commit, err := pfsutil.StartCommit(apiClient, args[0], parentCommitID, "")
+			commit, err := pfsutil.StartCommit(apiClient, args[0],
+				parentCommitID, branch)
 			if err != nil {
 				return err
 			}
@@ -161,6 +163,7 @@ This layers the data in the commit over the data in the parent.`,
 			return nil
 		}),
 	}
+	startCommit.Flags().StringVarP(&parentCommitID, "parent", "p", "", "parent id")
 
 	finishCommit := &cobra.Command{
 		Use:   "finish-commit repo-name commit-id",
