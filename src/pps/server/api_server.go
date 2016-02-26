@@ -190,24 +190,21 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 		}
 	}
 	if shard == 0 {
-		var parentCommit *pfs.Commit
+		startCommitRequest := &pfs.StartCommitRequest{}
 		if parentJobInfo == nil || reduce {
-			var repo *pfs.Repo
 			if jobInfo.PipelineName == "" {
-				repo = pps.JobRepo(request.Job)
-				if _, err := pfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: repo}); err != nil {
+				startCommitRequest.Repo = pps.JobRepo(request.Job)
+				if _, err := pfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: startCommitRequest.Repo}); err != nil {
 					return nil, err
 				}
 			} else {
-				repo = pps.PipelineRepo(&pps.Pipeline{Name: jobInfo.PipelineName})
+				startCommitRequest.Repo = pps.PipelineRepo(&pps.Pipeline{Name: jobInfo.PipelineName})
 			}
-			parentCommit = &pfs.Commit{Repo: repo}
 		} else {
-			parentCommit = parentJobInfo.OutputCommit
+			startCommitRequest.Repo = parentJobInfo.OutputCommit.Repo
+			startCommitRequest.ParentId = parentJobInfo.OutputCommit.Id
 		}
-		commit, err := pfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-			Parent: parentCommit,
-		})
+		commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 		if err != nil {
 			return nil, err
 		}

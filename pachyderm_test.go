@@ -33,7 +33,7 @@ func TestJob(t *testing.T) {
 	dataRepo := uniqueString("TestJob.data")
 	pachClient := getPachClient(t)
 	require.NoError(t, pfsutil.CreateRepo(pachClient, dataRepo))
-	commit, err := pfsutil.StartCommit(pachClient, dataRepo, "")
+	commit, err := pfsutil.StartCommit(pachClient, dataRepo, "", "")
 	require.NoError(t, err)
 	_, err = pfsutil.PutFile(pachClient, dataRepo, commit.Id, "file", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestGrep(t *testing.T) {
 	dataRepo := uniqueString("TestGrep.data")
 	pachClient := getPachClient(t)
 	require.NoError(t, pfsutil.CreateRepo(pachClient, dataRepo))
-	commit, err := pfsutil.StartCommit(pachClient, dataRepo, "")
+	commit, err := pfsutil.StartCommit(pachClient, dataRepo, "", "")
 	require.NoError(t, err)
 	for i := 0; i < 100; i++ {
 		_, err = pfsutil.PutFile(pachClient, dataRepo, commit.Id, fmt.Sprintf("file%d", i), 0, strings.NewReader("foo\nbar\nfizz\nbuzz\n"))
@@ -132,7 +132,7 @@ func TestPipeline(t *testing.T) {
 		[]*pps.PipelineInput{{Repo: &pfs.Repo{Name: dataRepo}}},
 	))
 	// Do first commit to repo
-	commit1, err := pfsutil.StartCommit(pachClient, dataRepo, "")
+	commit1, err := pfsutil.StartCommit(pachClient, dataRepo, "", "")
 	require.NoError(t, err)
 	_, err = pfsutil.PutFile(pachClient, dataRepo, commit1.Id, "file", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -153,7 +153,7 @@ func TestPipeline(t *testing.T) {
 	require.NoError(t, pfsutil.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.Id, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	// Do second commit to repo
-	commit2, err := pfsutil.StartCommit(pachClient, dataRepo, commit1.Id)
+	commit2, err := pfsutil.StartCommit(pachClient, dataRepo, commit1.Id, "")
 	require.NoError(t, err)
 	_, err = pfsutil.PutFile(pachClient, dataRepo, commit2.Id, "file", 0, strings.NewReader("bar\n"))
 	require.NoError(t, err)
@@ -191,7 +191,7 @@ func TestSharding(t *testing.T) {
 	pachClient := getPachClient(t)
 	err := pfsutil.CreateRepo(pachClient, repo)
 	require.NoError(t, err)
-	commit, err := pfsutil.StartCommit(pachClient, repo, "")
+	commit, err := pfsutil.StartCommit(pachClient, repo, "", "")
 	require.NoError(t, err)
 	var wg sync.WaitGroup
 	for i := 0; i < NUMFILES; i++ {
@@ -240,13 +240,13 @@ func TestFromCommit(t *testing.T) {
 	rand := rand.New(rand.NewSource(seed))
 	err := pfsutil.CreateRepo(pachClient, repo)
 	require.NoError(t, err)
-	commit1, err := pfsutil.StartCommit(pachClient, repo, "")
+	commit1, err := pfsutil.StartCommit(pachClient, repo, "", "")
 	require.NoError(t, err)
 	_, err = pfsutil.PutFile(pachClient, repo, commit1.Id, "file", 0, workload.NewReader(rand, KB))
 	require.NoError(t, err)
 	err = pfsutil.FinishCommit(pachClient, repo, commit1.Id)
 	require.NoError(t, err)
-	commit2, err := pfsutil.StartCommit(pachClient, repo, commit1.Id)
+	commit2, err := pfsutil.StartCommit(pachClient, repo, commit1.Id, "")
 	require.NoError(t, err)
 	_, err = pfsutil.PutFile(pachClient, repo, commit2.Id, "file", 0, workload.NewReader(rand, KB))
 	require.NoError(t, err)

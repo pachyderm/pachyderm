@@ -138,7 +138,10 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	for _, input := range request.Inputs {
 		commits = append(commits, input.Commit)
 	}
-	request.CommitIndex = genCommitIndex(commits)
+	request.CommitIndex, err = genCommitIndex(commits)
+	if err != nil {
+		return nil, err
+	}
 	if err := a.insertMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}
@@ -180,10 +183,14 @@ func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *pps.InspectJ
 func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJobRequest) (response *persist.JobInfos, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	query := a.getTerm(jobInfosTable)
+	commitIndexVal, err := genCommitIndex(request.InputCommit)
+	if err != nil {
+		return nil, err
+	}
 	if request.Pipeline != nil && len(request.InputCommit) > 0 {
 		query = query.GetAllByIndex(
 			pipelineNameAndCommitIndex,
-			gorethink.Expr([]interface{}{request.Pipeline.Name, genCommitIndex(request.InputCommit)}),
+			gorethink.Expr([]interface{}{request.Pipeline.Name, commitIndexVal}),
 		)
 	} else if request.Pipeline != nil {
 		query = query.GetAllByIndex(
@@ -193,7 +200,7 @@ func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJo
 	} else if len(request.InputCommit) > 0 {
 		query = query.GetAllByIndex(
 			commitIndex,
-			gorethink.Expr(genCommitIndex(request.InputCommit)),
+			gorethink.Expr(commitIndexVal),
 		)
 	}
 	cursor, err := query.Run(a.session)
@@ -358,9 +365,12 @@ func (a *rethinkAPIServer) now() *google_protobuf.Timestamp {
 	return prototime.TimeToTimestamp(a.timer.Now())
 }
 
-func genCommitIndex(commits []*pfs.Commit) string {
+func genCommitIndex(commits []*pfs.Commit) (string, error) {
 	var commitIDs []string
 	for _, commit := range commits {
+		if len(commit.Id) == 0 {
+			return "", fmt.Errorf("can't generate index for commit \"%s/%s\"", commit.Repo.Name, commit.Id)
+		}
 		commitIDs = append(commitIDs, commit.Id[0:10])
 	}
 	sort.Strings(commitIDs)
@@ -368,5 +378,5 @@ func genCommitIndex(commits []*pfs.Commit) string {
 	for _, commitID := range commitIDs {
 		result = append(result, commitID...)
 	}
-	return string(result)
+	return string(result), nil
 }
