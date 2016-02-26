@@ -83,11 +83,13 @@ func DeleteRepo(apiClient pfs.APIClient, repoName string) error {
 	return err
 }
 
-func StartCommit(apiClient pfs.APIClient, repoName string, parentCommit string) (*pfs.Commit, error) {
+func StartCommit(apiClient pfs.APIClient, repoName string, parentCommit string, branch string) (*pfs.Commit, error) {
 	commit, err := apiClient.StartCommit(
 		context.Background(),
 		&pfs.StartCommitRequest{
-			Parent: NewCommit(repoName, parentCommit),
+			Repo:     NewRepo(repoName),
+			ParentId: parentCommit,
+			Branch:   branch,
 		},
 	)
 	if err != nil {

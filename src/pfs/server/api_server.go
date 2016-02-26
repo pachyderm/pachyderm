@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"go.pedge.io/pb/go/google/protobuf"
@@ -116,25 +117,17 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	if err != nil {
 		return nil, err
 	}
-	if request.Commit == nil {
-		if request.Parent == nil {
-			return nil, fmt.Errorf("one of Parent or Commit must be non nil")
-		}
-		request.Commit = &pfs.Commit{
-			Repo: request.Parent.Repo,
-			Id:   uuid.NewWithoutDashes(),
-		}
-		if request.Parent.Id == "" {
-			request.Parent = nil
-		}
+	if request.Id != "" {
+		return nil, fmt.Errorf("request.Id should be empty")
 	}
+	request.Id = uuid.NewWithoutDashes()
 	request.Started = prototime.TimeToTimestamp(time.Now())
 	for _, clientConn := range clientConns {
 		if _, err := pfs.NewInternalAPIClient(clientConn).StartCommit(ctx, request); err != nil {
 			return nil, err
 		}
 	}
-	return request.Commit, nil
+	return pfsutil.NewCommit(request.Repo.Name, request.Id), nil
 }
 
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *google_protobuf.Empty, retErr error) {

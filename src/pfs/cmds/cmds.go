@@ -153,7 +153,7 @@ This layers the data in the commit over the data in the parent.`,
 			if len(args) == 2 {
 				parentCommitID = args[1]
 			}
-			commit, err := pfsutil.StartCommit(apiClient, args[0], parentCommitID)
+			commit, err := pfsutil.StartCommit(apiClient, args[0], parentCommitID, "")
 			if err != nil {
 				return err
 			}

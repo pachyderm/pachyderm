@@ -80,7 +80,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			return err
 		}
 		w.repos = append(w.repos, &pfs.Repo{Name: repoName})
-		commit, err := pfsutil.StartCommit(pfsClient, repoName, "")
+		commit, err := pfsutil.StartCommit(pfsClient, repoName, "", "")
 		if err != nil {
 			return err
 		}
@@ -102,7 +102,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 				return nil
 			}
 			commit := w.finished[w.rand.Intn(len(w.finished))]
-			commit, err := pfsutil.StartCommit(pfsClient, commit.Repo.Name, commit.Id)
+			commit, err := pfsutil.StartCommit(pfsClient, commit.Repo.Name, commit.Id, "")
 			if err != nil {
 				return err
 			}
