@@ -7,7 +7,19 @@ type DAG struct {
 	leaves   map[string]bool
 }
 
-func (d DAG) NewNode(id string, parents []string) {
+func NewDAG(nodes map[string][]string) *DAG {
+	result := &DAG{
+		parents:  make(map[string][]string),
+		children: make(map[string][]string),
+		leaves:   make(map[string]bool),
+	}
+	for id, parents := range nodes {
+		result.NewNode(id, parents)
+	}
+	return result
+}
+
+func (d *DAG) NewNode(id string, parents []string) {
 	d.parents[id] = parents
 	for _, parentId := range parents {
 		d.children[parentId] = append(d.children[parentId], id)
@@ -19,41 +31,40 @@ func (d DAG) NewNode(id string, parents []string) {
 }
 
 // Sorted returns all nodes in a topologically sorted order
-func (d DAG) Sorted() []string {
+func (d *DAG) Sorted() []string {
 	seen := make(map[string]bool)
 	var result []string
 	for id := range d.parents {
-		d.visit(id, seen, result, parent)
+		result = d.visit(id, seen, result, parent)
 	}
 	return result
 }
 
-func (d DAG) Leaves() []string {
+func (d *DAG) Leaves() []string {
 	var result []string
-	for leaf := range d.leaves {
-		result = append(result, leaf)
+	for id, isLeaf := range d.leaves {
+		// isLeaf might be false, explicit mark nodes as non leaves
+		if isLeaf {
+			result = append(result, id)
+		}
 	}
 	return result
 }
 
-func (d DAG) Ancestors(id string, from []string) []string {
+func (d *DAG) Ancestors(id string, from []string) []string {
 	seen := make(map[string]bool)
 	for _, fromId := range from {
 		seen[fromId] = true
 	}
-	var result []string
-	d.visit(id, seen, result, parent)
-	return result
+	return d.visit(id, seen, nil, parent)
 }
 
-func (d DAG) Descendants(id string, to []string) []string {
+func (d *DAG) Descendants(id string, to []string) []string {
 	seen := make(map[string]bool)
 	for _, toId := range to {
 		seen[toId] = true
 	}
-	var result []string
-	d.visit(id, seen, result, child)
-	return result
+	return d.visit(id, seen, nil, child)
 }
 
 type relation int
@@ -63,20 +74,22 @@ const (
 	child
 )
 
-func (d DAG) visit(id string, seen map[string]bool, result []string, r relation) {
+func (d *DAG) visit(id string, seen map[string]bool, result []string, r relation) []string {
 	if seen[id] {
-		return
+		return result
 	} else {
 		seen[id] = true
 	}
 	if r == parent {
 		for _, parentId := range d.parents[id] {
-			d.visit(parentId, seen, result, r)
+			result = d.visit(parentId, seen, result, r)
 		}
+		result = append(result, id)
 	} else {
+		result = append(result, id)
 		for _, childId := range d.children[id] {
-			d.visit(childId, seen, result, r)
+			result = d.visit(childId, seen, result, r)
 		}
 	}
-	result = append(result, id)
+	return result
 }
