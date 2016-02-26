@@ -300,7 +300,23 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 					commit = commitInfo.ParentCommit
 				}
 			}
+			break // only 1 loop needed since inspectCommit considers all shards
 		}
+	}
+	return result, nil
+}
+
+func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+	var result []*pfs.CommitInfo
+	for shard := range shards {
+		for _, diffInfo := range d.branches[repo.Name][shard] {
+			commitInfo, err := d.inspectCommit(diffInfo.Diff.Commit, shards)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, commitInfo)
+		}
+		break // only 1 loop needed since inspectCommit considers all shards
 	}
 	return result, nil
 }
@@ -542,36 +558,34 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	var commitInfos []*pfs.CommitInfo
 	for shard := range shards {
 		commit = d.canonicalCommit(commit, shard)
-		if diffInfo, ok := d.finished.get(&pfs.Diff{
+		var diffInfo *pfs.DiffInfo
+		var ok bool
+		commitInfo := &pfs.CommitInfo{Commit: commit}
+		if diffInfo, ok = d.finished.get(&pfs.Diff{
 			Commit: commit,
 			Shard:  shard,
 		}); ok {
-			commitInfos = append(commitInfos,
-				&pfs.CommitInfo{
-					Commit:       commit,
-					CommitType:   pfs.CommitType_COMMIT_TYPE_READ,
-					ParentCommit: diffInfo.ParentCommit,
-					Started:      diffInfo.Started,
-					Finished:     diffInfo.Finished,
-					SizeBytes:    diffInfo.SizeBytes,
-				})
+			commitInfo.CommitType = pfs.CommitType_COMMIT_TYPE_READ
+		} else {
+			if diffInfo, ok = d.started.get(&pfs.Diff{
+				Commit: commit,
+				Shard:  shard,
+			}); ok {
+				commitInfo.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
+			} else {
+				return nil, fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
+			}
 		}
-		if diffInfo, ok := d.started.get(&pfs.Diff{
-			Commit: commit,
-			Shard:  shard,
-		}); ok {
-			commitInfos = append(commitInfos,
-				&pfs.CommitInfo{
-					Commit:       commit,
-					CommitType:   pfs.CommitType_COMMIT_TYPE_WRITE,
-					ParentCommit: diffInfo.ParentCommit,
-					Started:      diffInfo.Started,
-					SizeBytes:    diffInfo.SizeBytes,
-				})
-		}
+		commitInfo.Branch = diffInfo.Branch
+		commitInfo.ParentCommit = diffInfo.ParentCommit
+		commitInfo.Started = diffInfo.Started
+		commitInfo.Finished = diffInfo.Finished
+		commitInfo.SizeBytes = diffInfo.SizeBytes
+		commitInfos = append(commitInfos, commitInfo)
 	}
 	commitInfo := pfs.ReduceCommitInfos(commitInfos)
 	if len(commitInfo) < 1 {
+		// we should have caught this above
 		return nil, fmt.Errorf("commit %s/%s not found", commit.Repo.Name, commit.Id)
 	}
 	if len(commitInfo) > 1 {

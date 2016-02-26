@@ -138,6 +138,19 @@ func ListCommit(apiClient pfs.APIClient, repoNames []string) ([]*pfs.CommitInfo,
 	return commitInfos.CommitInfo, nil
 }
 
+func ListBranch(apiClient pfs.APIClient, repoName string) ([]*pfs.CommitInfo, error) {
+	commitInfos, err := apiClient.ListBranch(
+		context.Background(),
+		&pfs.ListBranchRequest{
+			Repo: NewRepo(repoName),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return commitInfos.CommitInfo, nil
+}
+
 func DeleteCommit(apiClient pfs.APIClient, repoName string, commitID string) error {
 	_, err := apiClient.DeleteCommit(
 		context.Background(),

@@ -101,7 +101,6 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteR
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
-
 }
 
 func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *google_protobuf.Empty, retErr error) {
@@ -180,7 +179,26 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfs.ListCom
 		}
 	}
 	return &pfs.CommitInfos{
-		CommitInfo: pfs.ReduceCommitInfos(commitInfos),
+		CommitInfo: commitInfos,
+	}, nil
+}
+
+func (a *internalAPIServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.CommitInfos, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	version, err := a.getVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.router.GetShards(version)
+	if err != nil {
+		return nil, err
+	}
+	commitInfos, err := a.driver.ListBranch(request.Repo, shards)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.CommitInfos{
+		CommitInfo: commitInfos,
 	}, nil
 }
 

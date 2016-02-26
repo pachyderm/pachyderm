@@ -196,6 +196,42 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	return &pfs.CommitInfos{CommitInfo: pfs.ReduceCommitInfos(commitInfos)}, nil
 }
 
+func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.CommitInfos, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConns, err := a.router.GetAllClientConns(a.version)
+	if err != nil {
+		return nil, err
+	}
+	var wg sync.WaitGroup
+	var lock sync.Mutex
+	var commitInfos []*pfs.CommitInfo
+	var loopErr error
+	for _, clientConn := range clientConns {
+		wg.Add(1)
+		go func(clientConn *grpc.ClientConn) {
+			defer wg.Done()
+			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).ListBranch(ctx, request)
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
+				}
+				return
+			}
+			lock.Lock()
+			defer lock.Unlock()
+			commitInfos = append(commitInfos, subCommitInfos.CommitInfo...)
+		}(clientConn)
+	}
+	wg.Wait()
+	if loopErr != nil {
+		return nil, loopErr
+	}
+	return &pfs.CommitInfos{CommitInfo: pfs.ReduceCommitInfos(commitInfos)}, nil
+}
+
 func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
