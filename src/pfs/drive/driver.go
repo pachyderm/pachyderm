@@ -158,20 +158,21 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 	return loopErr
 }
 
-func (d *driver) StartCommit(request *pfs.StartCommitRequest, shards map[uint64]bool) error {
+func (d *driver) StartCommit(repo *pfs.Repo, commitId string, parentId string, branch string,
+	started *google_protobuf.Timestamp, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	for shard := range shards {
 		diffInfo := &pfs.DiffInfo{
 			Diff: &pfs.Diff{
-				Commit: pfsutil.NewCommit(request.Repo.Name, request.Id),
+				Commit: pfsutil.NewCommit(repo.Name, commitId),
 				Shard:  shard,
 			},
-			Started: request.Started,
+			Started: started,
 			Appends: make(map[string]*pfs.Append),
 		}
-		if request.ParentId != "" {
-			diffInfo.ParentCommit = pfsutil.NewCommit(request.Repo.Name, request.ParentId)
+		if parentId != "" {
+			diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentId)
 		}
 		if err := d.started.insert(diffInfo); err != nil {
 			return err
