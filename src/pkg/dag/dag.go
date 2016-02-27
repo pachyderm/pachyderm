@@ -1,5 +1,7 @@
 package dag
 
+import "log"
+
 // DAG represents a directected acyclic graph
 type DAG struct {
 	parents  map[string][]string
@@ -35,9 +37,7 @@ func (d *DAG) Sorted() []string {
 	seen := make(map[string]bool)
 	var result []string
 	for id := range d.parents {
-		if !seen[id] {
-			result = append(result, dfs(id, d.parents, seen)...)
-		}
+		result = append(result, dfs(id, d.parents, seen)...)
 	}
 	return result
 }
@@ -70,28 +70,34 @@ func (d *DAG) Descendants(id string, to []string) []string {
 }
 
 func dfs(id string, edges map[string][]string, seen map[string]bool) []string {
-	var result []string
-	stack := []string{id}
-	for len(stack) != 0 {
-		result = append(result, stack[len(stack)-1])
-		stack = stack[:len(stack)-1]
-		for _, nId := range edges[result[len(result)-1]] {
-			if !seen[nId] {
-				seen[nId] = true
-				stack = append(stack, nId)
-			}
-		}
+	if seen[id] {
+		return nil
+	} else {
+		seen[id] = true
 	}
-	return result
+	var result []string
+	for _, nId := range edges[id] {
+		result = append(result, dfs(nId, edges, seen)...)
+	}
+	return append(result, id)
 }
 
 func bfs(id string, edges map[string][]string, seen map[string]bool) []string {
-	result := []string{id}
-	for i := 0; i < len(result); i++ {
-		for _, nId := range edges[result[i]] {
+	if seen[id] {
+		return nil
+	} else {
+		seen[id] = true
+	}
+	var result []string
+	queue := []string{id}
+	for len(queue) != 0 {
+		result = append(result, queue[0])
+		queue = queue[1:]
+		log.Printf("popped: %s", result[len(result)-1])
+		for _, nId := range edges[result[len(result)-1]] {
 			if !seen[nId] {
 				seen[nId] = true
-				result = append(result, nId)
+				queue = append(queue, nId)
 			}
 		}
 	}
