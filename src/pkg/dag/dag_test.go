@@ -49,9 +49,18 @@ func TestDiamond(t *testing.T) {
 	require.EqualOneOf(
 		t,
 		[]interface{}{
-			[]string{"1", "2", "3", "4"},
-			[]string{"1", "3", "2", "4"},
+			[]string{"2", "3", "4"},
+			[]string{"3", "2", "4"},
 		},
-		d.Descendants("1", nil),
+		d.Ancestors("4", []string{"1"}),
 	)
+	require.EqualOneOf(
+		t,
+		[]interface{}{
+			[]string{"1", "2", "3"},
+			[]string{"1", "3", "2"},
+		},
+		d.Descendants("1", []string{"4"}),
+	)
+	require.Equal(t, []string{"4"}, d.Leaves())
 }

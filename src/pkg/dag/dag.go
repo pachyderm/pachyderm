@@ -81,11 +81,6 @@ func dfs(id string, edges map[string][]string, seen map[string]bool) []string {
 }
 
 func bfs(id string, edges map[string][]string, seen map[string]bool) []string {
-	if seen[id] {
-		return nil
-	} else {
-		seen[id] = true
-	}
 	var result []string
 	queue := []string{id}
 	for len(queue) != 0 {
