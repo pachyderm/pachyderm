@@ -1,7 +1,5 @@
 package dag
 
-import "log"
-
 // DAG represents a directected acyclic graph
 type DAG struct {
 	parents  map[string][]string
@@ -93,7 +91,6 @@ func bfs(id string, edges map[string][]string, seen map[string]bool) []string {
 	for len(queue) != 0 {
 		result = append(result, queue[0])
 		queue = queue[1:]
-		log.Printf("popped: %s", result[len(result)-1])
 		for _, nId := range edges[result[len(result)-1]] {
 			if !seen[nId] {
 				seen[nId] = true
