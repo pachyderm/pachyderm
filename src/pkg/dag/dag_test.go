@@ -21,6 +21,7 @@ func TestLine(t *testing.T) {
 	require.Equal(t, []string{"3", "4"}, d.Descendants("3", nil))
 	require.Equal(t, []string{"1", "2"}, d.Descendants("1", []string{"3"}))
 	require.Equal(t, []string{"4"}, d.Leaves())
+	require.Equal(t, 0, len(d.Ghosts()))
 }
 
 func TestDiamond(t *testing.T) {
@@ -63,4 +64,22 @@ func TestDiamond(t *testing.T) {
 		d.Descendants("1", []string{"4"}),
 	)
 	require.Equal(t, []string{"4"}, d.Leaves())
+	require.Equal(t, 0, len(d.Ghosts()))
+}
+
+func TestGhosts(t *testing.T) {
+	d := NewDAG(map[string][]string{
+		"1": {},
+		"2": {"1", "3"},
+		"3": {"4", "1"},
+		"5": {"4", "6"},
+	})
+	require.EqualOneOf(
+		t,
+		[]interface{}{
+			[]string{"4", "6"},
+			[]string{"6", "4"},
+		},
+		d.Ghosts(),
+	)
 }
