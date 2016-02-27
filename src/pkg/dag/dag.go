@@ -67,6 +67,17 @@ func (d *DAG) Descendants(id string, to []string) []string {
 	return bfs(id, d.children, seen)
 }
 
+// Ghosts returns nodes that were referenced as parents but never created.
+func (d *DAG) Ghosts() []string {
+	var result []string
+	for id := range d.children {
+		if _, ok := d.parents[id]; !ok {
+			result = append(result, id)
+		}
+	}
+	return result
+}
+
 func dfs(id string, edges map[string][]string, seen map[string]bool) []string {
 	if seen[id] {
 		return nil
