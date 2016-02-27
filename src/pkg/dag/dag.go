@@ -35,7 +35,9 @@ func (d *DAG) Sorted() []string {
 	seen := make(map[string]bool)
 	var result []string
 	for id := range d.parents {
-		result = d.visit(id, seen, result, parent)
+		if !seen[id] {
+			result = append(result, dfs(id, d.parents, seen)...)
+		}
 	}
 	return result
 }
@@ -56,7 +58,7 @@ func (d *DAG) Ancestors(id string, from []string) []string {
 	for _, fromId := range from {
 		seen[fromId] = true
 	}
-	return d.visit(id, seen, nil, parent)
+	return dfs(id, d.parents, seen)
 }
 
 func (d *DAG) Descendants(id string, to []string) []string {
@@ -64,31 +66,33 @@ func (d *DAG) Descendants(id string, to []string) []string {
 	for _, toId := range to {
 		seen[toId] = true
 	}
-	return d.visit(id, seen, nil, child)
+	return bfs(id, d.children, seen)
 }
 
-type relation int
-
-const (
-	parent relation = iota
-	child
-)
-
-func (d *DAG) visit(id string, seen map[string]bool, result []string, r relation) []string {
-	if seen[id] {
-		return result
-	} else {
-		seen[id] = true
-	}
-	if r == parent {
-		for _, parentId := range d.parents[id] {
-			result = d.visit(parentId, seen, result, r)
+func dfs(id string, edges map[string][]string, seen map[string]bool) []string {
+	var result []string
+	stack := []string{id}
+	for len(stack) != 0 {
+		result = append(result, stack[len(stack)-1])
+		stack = stack[:len(stack)-1]
+		for _, nId := range edges[result[len(result)-1]] {
+			if !seen[nId] {
+				seen[nId] = true
+				stack = append(stack, nId)
+			}
 		}
-		result = append(result, id)
-	} else {
-		result = append(result, id)
-		for _, childId := range d.children[id] {
-			result = d.visit(childId, seen, result, r)
+	}
+	return result
+}
+
+func bfs(id string, edges map[string][]string, seen map[string]bool) []string {
+	result := []string{id}
+	for i := 0; i < len(result); i++ {
+		for _, nId := range edges[result[i]] {
+			if !seen[nId] {
+				seen[nId] = true
+				result = append(result, nId)
+			}
 		}
 	}
 	return result
