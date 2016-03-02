@@ -628,6 +628,26 @@ func (d *driver) lastRef(file *pfs.File, shard uint64) *pfs.Commit {
 	return nil
 }
 
+func (d *driver) createRepoState(repo *pfs.Repo) {
+	if _, ok := d.diffs[repo.Name]; ok {
+		return // this function is idempotent
+	}
+	d.diffs[repo.Name] = make(map[uint64]map[string]*pfs.DiffInfo)
+	d.dags[repo.Name] = dag.NewDAG(nil)
+	d.branches[repo.Name] = make(map[string]string)
+}
+
+// canonicalCommit finds the canonical way of referring to a commit
+func (d *driver) canonicalCommit(commit *pfs.Commit) (*pfs.Commit, error) {
+	if _, ok := d.branches[commit.Repo.Name]; !ok {
+		return nil, fmt.Errorf("repo %s not found", commit.Repo.Name)
+	}
+	if commitID, ok := d.branches[commit.Repo.Name][commit.Id]; ok {
+		return pfsutil.NewCommit(commit.Repo.Name, commitID), nil
+	}
+	return commit, nil
+}
+
 func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
 	childPath := child.Path
 	dirPath := path.Dir(childPath)
@@ -751,24 +771,4 @@ func (d diffMap) pop(diff *pfs.Diff) *pfs.DiffInfo {
 	diffInfo := commitMap[diff.Commit.Id]
 	delete(commitMap, diff.Commit.Id)
 	return diffInfo
-}
-
-func (d *driver) createRepoState(repo *pfs.Repo) {
-	if _, ok := d.diffs[repo.Name]; ok {
-		return // this function is idempotent
-	}
-	d.diffs[repo.Name] = make(map[uint64]map[string]*pfs.DiffInfo)
-	d.dags[repo.Name] = dag.NewDAG(nil)
-	d.branches[repo.Name] = make(map[string]string)
-}
-
-// canonicalCommit finds the canonical way of referring to a commit
-func (d *driver) canonicalCommit(commit *pfs.Commit) (*pfs.Commit, error) {
-	if _, ok := d.branches[commit.Repo.Name]; !ok {
-		return nil, fmt.Errorf("repo %s not found", commit.Repo.Name)
-	}
-	if commitID, ok := d.branches[commit.Repo.Name][commit.Id]; ok {
-		return pfsutil.NewCommit(commit.Repo.Name, commitID), nil
-	}
-	return commit, nil
 }
