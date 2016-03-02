@@ -19,7 +19,7 @@ type driver struct {
 	blockClient     pfs.BlockAPIClient
 	blockClientOnce sync.Once
 	diffs           diffMap
-	repoDAGs        map[string]*dag.DAG
+	dags            map[string]*dag.DAG
 	branches        map[string]map[string]string
 	lock            sync.RWMutex
 }
@@ -192,13 +192,14 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitId string, parentId string, b
 				diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentDiffInfo.Diff.Commit.Id)
 			}
 		}
-		if diffInfo.ParentCommit == nil {
-			if parentId != "" {
-				diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentId)
-			}
+		if diffInfo.ParentCommit == nil && parentId != "" {
+			diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentId)
 		}
 		if branch != "" {
 			d.branches[repo.Name][branch] = commitId
+		}
+		if diffInfo.ParentCommit != nil {
+			d.dags[repo.Name].NewNode(diffInfo.Diff.Commit.Id, []string{diffInfo.ParentCommit.Id})
 		}
 	}
 	return nil
@@ -275,7 +276,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 		if !ok {
 			return nil, fmt.Errorf("repo %s not found", repo.Name)
 		}
-		for _, commitID := range d.repoDAGs[repo.Name].Leaves() {
+		for _, commitID := range d.dags[repo.Name].Leaves() {
 			commit := &pfs.Commit{
 				Repo: repo,
 				Id:   commitID,
@@ -428,6 +429,8 @@ func (d *driver) AddShard(shard uint64) error {
 	if err != nil {
 		return err
 	}
+	dags := make(map[string]*dag.DAG)
+	var diffInfos []*pfs.DiffInfo
 	for {
 		diffInfo, err := listDiffClient.Recv()
 		if err != nil && err != io.EOF {
@@ -436,17 +439,24 @@ func (d *driver) AddShard(shard uint64) error {
 		if err == io.EOF {
 			break
 		}
-		if err := func() error {
-			d.lock.Lock()
-			defer d.lock.Lock()
-			if _, ok := d.diffs[diffInfo.Diff.Commit.Repo.Name]; !ok {
-				d.createRepoState(diffInfo.Diff.Commit.Repo)
-			}
-			if err := d.diffs.insert(diffInfo); err != nil {
-				return err
-			}
-			return nil
-		}(); err != nil {
+		if _, ok := dags[diffInfo.Diff.Commit.Repo.Name]; !ok {
+			dags[diffInfo.Diff.Commit.Repo.Name] = dag.NewDAG(nil)
+		}
+		dags[diffInfo.Diff.Commit.Repo.Name].NewNode(diffInfo.Diff.Commit.Id, []string{diffInfo.ParentCommit.Id})
+		diffInfos = append(diffInfos, diffInfo)
+	}
+	for repoName, dag := range dags {
+		if ghosts := dag.Ghosts(); len(ghosts) != 0 {
+			return fmt.Errorf("error adding shard %d, repo %s has ghost commits: %+v", shard, repoName, ghosts)
+		}
+	}
+	d.lock.Lock()
+	defer d.lock.Lock()
+	for _, diffInfo := range diffInfos {
+		if _, ok := d.diffs[diffInfo.Diff.Commit.Repo.Name]; !ok {
+			d.createRepoState(diffInfo.Diff.Commit.Repo)
+		}
+		if err := d.diffs.insert(diffInfo); err != nil {
 			return err
 		}
 	}
@@ -744,8 +754,11 @@ func (d diffMap) pop(diff *pfs.Diff) *pfs.DiffInfo {
 }
 
 func (d *driver) createRepoState(repo *pfs.Repo) {
+	if _, ok := d.diffs[repo.Name]; ok {
+		return // this function is idempotent
+	}
 	d.diffs[repo.Name] = make(map[uint64]map[string]*pfs.DiffInfo)
-	d.repoDAGs[repo.Name] = dag.NewDAG(nil)
+	d.dags[repo.Name] = dag.NewDAG(nil)
 	d.branches[repo.Name] = make(map[string]string)
 }
 
