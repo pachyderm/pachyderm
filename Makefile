@@ -135,7 +135,7 @@ test: pretest clean-launch launch integration-test-pod
 	until kubectl logs -f pachyderm-test; do sleep 5; done
 
 localtest: 
-	GO15VENDOREXPERIMENT=1 go test -v -short $(go list ./... | grep -v '/vendor/')
+	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./... | grep -v '/vendor/')
 
 clean: clean-launch clean-launch-kube
 
