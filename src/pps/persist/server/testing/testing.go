@@ -13,6 +13,10 @@ import (
 )
 
 func RunTestWithRethinkAPIServer(t *testing.T, testFunc func(t *testing.T, persistAPIServer persist.APIServer)) {
+	if testing.Short() {
+		t.Skip("Skipping test because of short mode.")
+	}
+
 	apiServer, err := NewTestRethinkAPIServer()
 	require.NoError(t, err)
 	defer func() {
