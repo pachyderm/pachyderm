@@ -291,7 +291,7 @@ func TestRepoReadDir(t *testing.T) {
 	if err := pfsutil.CreateRepo(apiClient, repoName); err != nil {
 		t.Fatalf("CreateRepo: %v", err)
 	}
-	commitA, err := pfsutil.StartCommit(apiClient, repoName, "")
+	commitA, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	if err != nil {
 		t.Fatalf("StartCommit: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestRepoReadDir(t *testing.T) {
 	}
 	t.Logf("finished commit %v", commitA.Id)
 
-	commitB, err := pfsutil.StartCommit(apiClient, repoName, "")
+	commitB, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	if err != nil {
 		t.Fatalf("StartCommit: %v", err)
 	}
@@ -460,7 +460,7 @@ func TestCommitOpenReadDir(t *testing.T) {
 	if err := pfsutil.CreateRepo(apiClient, repoName); err != nil {
 		t.Fatalf("CreateRepo: %v", err)
 	}
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "")
+	commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	if err != nil {
 		t.Fatalf("StartCommit: %v", err)
 	}
@@ -635,7 +635,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 	if err := pfsutil.CreateRepo(apiClient, repoName); err != nil {
 		t.Fatalf("CreateRepo: %v", err)
 	}
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "")
+	commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	if err != nil {
 		t.Fatalf("StartCommit: %v", err)
 	}
@@ -814,7 +814,7 @@ func TestWriteAndRead(t *testing.T) {
 	if err := pfsutil.CreateRepo(apiClient, repoName); err != nil {
 		t.Fatalf("CreateRepo: %v", err)
 	}
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "")
+	commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	if err != nil {
 		t.Fatalf("StartCommit: %v", err)
 	}
