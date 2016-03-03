@@ -438,6 +438,9 @@ func checkWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commit
 func getPfsClient(tb testing.TB) pfs.APIClient {
 	pfsdAddr := os.Getenv("PFSD_PORT_650_TCP_ADDR")
 	if pfsdAddr == "" {
+		if !testing.Short() {
+			tb.Error("PFSD_PORT_650_TCP_ADDR not set")
+		}
 		tb.Skip("PFSD_PORT_650_TCP_ADDR not set")
 	}
 	clientConn, err := grpc.Dial(fmt.Sprintf("%s:650", pfsdAddr), grpc.WithInsecure())
