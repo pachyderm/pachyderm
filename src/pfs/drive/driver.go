@@ -195,6 +195,9 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitId string, parentId string, b
 		if diffInfo.ParentCommit == nil && parentId != "" {
 			diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentId)
 		}
+		if err := d.diffs.insert(diffInfo); err != nil {
+			return err
+		}
 		d.updateDAG(diffInfo)
 	}
 	return nil
