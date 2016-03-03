@@ -333,7 +333,7 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 		// deleted the commit while the above code was running
 		return fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.Id)
 	}
-	if diffInfo.Finished == nil {
+	if diffInfo.Finished != nil {
 		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.Id)
 	}
 	addDirs(diffInfo, file)
