@@ -21,6 +21,10 @@ import (
 )
 
 func TestRootReadDir(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
 	t.Parallel()
 
 	// don't leave goroutines running
@@ -174,6 +178,10 @@ func TestRootReadDir(t *testing.T) {
 }
 
 func TestRepoReadDir(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
 	t.Parallel()
 
 	// don't leave goroutines running
@@ -343,6 +351,10 @@ func TestRepoReadDir(t *testing.T) {
 }
 
 func TestCommitOpenReadDir(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
 	t.Parallel()
 
 	// don't leave goroutines running
@@ -518,6 +530,10 @@ func TestCommitOpenReadDir(t *testing.T) {
 }
 
 func TestCommitFinishedReadDir(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
 	t.Parallel()
 
 	// don't leave goroutines running
@@ -697,6 +713,10 @@ func TestCommitFinishedReadDir(t *testing.T) {
 }
 
 func TestWriteAndRead(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
 	t.Parallel()
 
 	// don't leave goroutines running
