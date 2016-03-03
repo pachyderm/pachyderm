@@ -30,6 +30,7 @@ const (
 
 func TestJob(t *testing.T) {
 	t.Parallel()
+	panic("ASDG")
 	dataRepo := uniqueString("TestJob.data")
 	pachClient := getPachClient(t)
 	require.NoError(t, pfsutil.CreateRepo(pachClient, dataRepo))

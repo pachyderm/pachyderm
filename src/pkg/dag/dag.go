@@ -21,9 +21,9 @@ func NewDAG(nodes map[string][]string) *DAG {
 
 func (d *DAG) NewNode(id string, parents []string) {
 	d.parents[id] = parents
-	for _, parentId := range parents {
-		d.children[parentId] = append(d.children[parentId], id)
-		d.leaves[parentId] = false
+	for _, parentID := range parents {
+		d.children[parentID] = append(d.children[parentID], id)
+		d.leaves[parentID] = false
 	}
 	if _, ok := d.leaves[id]; !ok {
 		d.leaves[id] = true
@@ -53,16 +53,16 @@ func (d *DAG) Leaves() []string {
 
 func (d *DAG) Ancestors(id string, from []string) []string {
 	seen := make(map[string]bool)
-	for _, fromId := range from {
-		seen[fromId] = true
+	for _, fromID := range from {
+		seen[fromID] = true
 	}
 	return dfs(id, d.parents, seen)
 }
 
 func (d *DAG) Descendants(id string, to []string) []string {
 	seen := make(map[string]bool)
-	for _, toId := range to {
-		seen[toId] = true
+	for _, toID := range to {
+		seen[toID] = true
 	}
 	return bfs(id, d.children, seen)
 }
@@ -81,12 +81,13 @@ func (d *DAG) Ghosts() []string {
 func dfs(id string, edges map[string][]string, seen map[string]bool) []string {
 	if seen[id] {
 		return nil
-	} else {
-		seen[id] = true
 	}
+
+	seen[id] = true
+	
 	var result []string
-	for _, nId := range edges[id] {
-		result = append(result, dfs(nId, edges, seen)...)
+	for _, nID := range edges[id] {
+		result = append(result, dfs(nID, edges, seen)...)
 	}
 	return append(result, id)
 }
@@ -97,10 +98,10 @@ func bfs(id string, edges map[string][]string, seen map[string]bool) []string {
 	for len(queue) != 0 {
 		result = append(result, queue[0])
 		queue = queue[1:]
-		for _, nId := range edges[result[len(result)-1]] {
-			if !seen[nId] {
-				seen[nId] = true
-				queue = append(queue, nId)
+		for _, nID := range edges[result[len(result)-1]] {
+			if !seen[nID] {
+				seen[nID] = true
+				queue = append(queue, nID)
 			}
 		}
 	}
