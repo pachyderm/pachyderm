@@ -195,10 +195,9 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitId string, parentId string, b
 		if diffInfo.ParentCommit == nil && parentId != "" {
 			diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentId)
 		}
-		if err := d.diffs.insert(diffInfo); err != nil {
+		if err := d.insertDiffInfo(diffInfo); err != nil {
 			return err
 		}
-		d.updateDAG(diffInfo)
 	}
 	return nil
 }
@@ -458,10 +457,9 @@ func (d *driver) AddShard(shard uint64) error {
 				d.createRepoState(pfsutil.NewRepo(repoName))
 			}
 			if diffInfo, ok := diffInfos.get(pfsutil.NewDiff(repoName, commitID, shard)); ok {
-				if err := d.diffs.insert(diffInfo); err != nil {
+				if err := d.insertDiffInfo(diffInfo); err != nil {
 					return err
 				}
-				d.updateDAG(diffInfo)
 			} else {
 				return fmt.Errorf("diff %s/%s/%d not found; this is likely a bug", repoName, commitID, shard)
 			}
@@ -655,12 +653,15 @@ func (d *driver) canonicalCommit(commit *pfs.Commit) (*pfs.Commit, error) {
 	return commit, nil
 }
 
-func (d *driver) updateDAG(diffInfo *pfs.DiffInfo) {
+func (d *driver) insertDiffInfo(diffInfo *pfs.DiffInfo) error {
 	commit := diffInfo.Diff.Commit
 	for _, commitToDiffInfo := range d.diffs[commit.Repo.Name] {
 		if _, ok := commitToDiffInfo[diffInfo.Diff.Commit.Id]; ok {
-			return // we've already seen this diff, nothing to do
+			return nil // we've already seen this diff, nothing to do
 		}
+	}
+	if err := d.diffs.insert(diffInfo); err != nil {
+		return err
 	}
 	if diffInfo.Branch != "" {
 		d.branches[commit.Repo.Name][diffInfo.Branch] = commit.Id
@@ -668,6 +669,7 @@ func (d *driver) updateDAG(diffInfo *pfs.DiffInfo) {
 	if diffInfo.ParentCommit != nil {
 		d.dags[commit.Repo.Name].NewNode(commit.Id, []string{diffInfo.ParentCommit.Id})
 	}
+	return nil
 }
 
 func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
