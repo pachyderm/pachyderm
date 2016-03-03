@@ -195,12 +195,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitId string, parentId string, b
 		if diffInfo.ParentCommit == nil && parentId != "" {
 			diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentId)
 		}
-		if branch != "" {
-			d.branches[repo.Name][branch] = commitId
-		}
-		if diffInfo.ParentCommit != nil {
-			d.dags[repo.Name].NewNode(diffInfo.Diff.Commit.Id, []string{diffInfo.ParentCommit.Id})
-		}
+		d.updateDAG(diffInfo)
 	}
 	return nil
 }
@@ -429,8 +424,8 @@ func (d *driver) AddShard(shard uint64) error {
 	if err != nil {
 		return err
 	}
+	diffInfos := make(diffMap)
 	dags := make(map[string]*dag.DAG)
-	var diffInfos []*pfs.DiffInfo
 	for {
 		diffInfo, err := listDiffClient.Recv()
 		if err != nil && err != io.EOF {
@@ -443,7 +438,9 @@ func (d *driver) AddShard(shard uint64) error {
 			dags[diffInfo.Diff.Commit.Repo.Name] = dag.NewDAG(nil)
 		}
 		dags[diffInfo.Diff.Commit.Repo.Name].NewNode(diffInfo.Diff.Commit.Id, []string{diffInfo.ParentCommit.Id})
-		diffInfos = append(diffInfos, diffInfo)
+		if err := diffInfos.insert(diffInfo); err != nil {
+			return err
+		}
 	}
 	for repoName, dag := range dags {
 		if ghosts := dag.Ghosts(); len(ghosts) != 0 {
@@ -452,12 +449,19 @@ func (d *driver) AddShard(shard uint64) error {
 	}
 	d.lock.Lock()
 	defer d.lock.Lock()
-	for _, diffInfo := range diffInfos {
-		if _, ok := d.diffs[diffInfo.Diff.Commit.Repo.Name]; !ok {
-			d.createRepoState(diffInfo.Diff.Commit.Repo)
-		}
-		if err := d.diffs.insert(diffInfo); err != nil {
-			return err
+	for repoName, dag := range dags {
+		for _, commitID := range dag.Sorted() {
+			if _, ok := d.diffs[repoName]; !ok {
+				d.createRepoState(pfsutil.NewRepo(repoName))
+			}
+			if diffInfo, ok := diffInfos.get(pfsutil.NewDiff(repoName, commitID, shard)); ok {
+				if err := d.diffs.insert(diffInfo); err != nil {
+					return err
+				}
+				d.updateDAG(diffInfo)
+			} else {
+				return fmt.Errorf("diff %s/%s/%d not found; this is likely a bug", repoName, commitID, shard)
+			}
 		}
 	}
 	return nil
@@ -646,6 +650,21 @@ func (d *driver) canonicalCommit(commit *pfs.Commit) (*pfs.Commit, error) {
 		return pfsutil.NewCommit(commit.Repo.Name, commitID), nil
 	}
 	return commit, nil
+}
+
+func (d *driver) updateDAG(diffInfo *pfs.DiffInfo) {
+	commit := diffInfo.Diff.Commit
+	for _, commitToDiffInfo := range d.diffs[commit.Repo.Name] {
+		if _, ok := commitToDiffInfo[diffInfo.Diff.Commit.Id]; ok {
+			return // we've already seen this diff, nothing to do
+		}
+	}
+	if diffInfo.Branch != "" {
+		d.branches[commit.Repo.Name][diffInfo.Branch] = commit.Id
+	}
+	if diffInfo.ParentCommit != nil {
+		d.dags[commit.Repo.Name].NewNode(commit.Id, []string{diffInfo.ParentCommit.Id})
+	}
 }
 
 func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
