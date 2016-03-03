@@ -2,17 +2,16 @@ package server
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
-	"go.pedge.io/pkg/http"
 	"go.pedge.io/proto/server"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"github.com/gengo/grpc-gateway/runtime"
 	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
+	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
@@ -21,7 +20,7 @@ import (
 
 const (
 	port   = 30650
-	shards = 32
+	shards = 1
 )
 
 func TestSimple(t *testing.T) {
@@ -35,30 +34,33 @@ func TestSimple(t *testing.T) {
 	dialer := grpcutil.NewDialer(grpc.WithInsecure())
 	apiServer := NewAPIServer(hasher, shard.NewRouter(sharder, dialer, address))
 	internalAPIServer := NewInternalAPIServer(hasher, shard.NewRouter(sharder, dialer, address), driver)
+	ready := make(chan bool)
 	go func() {
-		err := protoserver.ServeWithHTTP(
+		err := protoserver.Serve(
 			func(s *grpc.Server) {
 				pfs.RegisterAPIServer(s, apiServer)
 				pfs.RegisterInternalAPIServer(s, internalAPIServer)
 				pfs.RegisterBlockAPIServer(s, blockAPIServer)
+				close(ready)
 			},
-			func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
-				return pfs.RegisterAPIHandler(ctx, mux, clientConn)
-			},
-			protoserver.ServeWithHTTPOptions{
-				ServeOptions: protoserver.ServeOptions{
-					Version: pachyderm.Version,
-				},
-			},
-			protoserver.ServeEnv{
-				GRPCPort: port,
-			},
-			pkghttp.HandlerEnv{
-			//Port: appEnv.HTTPPort,
-			},
+			protoserver.ServeOptions{Version: pachyderm.Version},
+			protoserver.ServeEnv{GRPCPort: port},
 		)
 		require.NoError(t, err)
 	}()
+	<-ready
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	require.NoError(t, err)
+	pfsClient := pfs.NewAPIClient(clientConn)
+	repo := uniqueString("TestSimple")
+	err = pfsutil.CreateRepo(pfsClient, repo)
+	require.NoError(t, err)
+	_, err = pfsutil.StartCommit(pfsClient, repo, "", "master")
+	require.NoError(t, err)
+	_, err = pfsutil.PutFile(pfsClient, repo, "master", "foo", 0, strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = pfsutil.FinishCommit(pfsClient, repo, "master")
+	require.NoError(t, err)
 }
 
 func uniqueString(prefix string) string {
