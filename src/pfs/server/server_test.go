@@ -27,7 +27,7 @@ func TestSimple(t *testing.T) {
 	address := fmt.Sprintf("localhost:%d", port)
 	driver, err := drive.NewDriver(address)
 	require.NoError(t, err)
-	blockAPIServer, err := NewLocalBlockAPIServer(uniqueString("/tmp/pach_test/"))
+	blockAPIServer, err := NewLocalBlockAPIServer(uniqueString("/tmp/pach_test/run"))
 	require.NoError(t, err)
 	sharder := shard.NewLocalSharder(address, shards)
 	hasher := pfs.NewHasher(shards, 1)
