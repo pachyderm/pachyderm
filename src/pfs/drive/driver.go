@@ -160,7 +160,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 	return loopErr
 }
 
-func (d *driver) StartCommit(repo *pfs.Repo, commitId string, parentId string, branch string,
+func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
 	started *google_protobuf.Timestamp, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()

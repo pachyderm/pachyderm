@@ -4,3 +4,7 @@ go:
 branches:
   only:
     - ci_debug
+script:
+  - sudo docker-machine ssh dev -fTNL 8080:localhost:8080 -L 30650:localhost:30650
+  - make test
+  - go build github.com/pachyderm/pachyderm
