@@ -167,7 +167,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	for shard := range shards {
 		diffInfo := &pfs.DiffInfo{
 			Diff: &pfs.Diff{
-				Commit: pfsutil.NewCommit(repo.Name, commitId),
+				Commit: pfsutil.NewCommit(repo.Name, commitID),
 				Shard:  shard,
 			},
 			Started: started,
@@ -180,9 +180,9 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 				Shard:  shard,
 			}
 			if parentDiffInfo, ok := d.branches.get(branchDiff); ok {
-				if parentId != "" && parentDiffInfo.Diff.Commit.Id != parentId {
+				if parentID != "" && parentDiffInfo.Diff.Commit.Id != parentID {
 					return fmt.Errorf("branch %s already exists as %s, can't create with %s as parent",
-						branch, parentDiffInfo.Diff.Commit.Id, parentId)
+						branch, parentDiffInfo.Diff.Commit.Id, parentID)
 				}
 				if _, ok := d.finished.get(parentDiffInfo.Diff); !ok {
 					return fmt.Errorf("branch %s already has a started (but unfinished) commit %s",
@@ -193,8 +193,8 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			}
 		}
 		if diffInfo.ParentCommit == nil {
-			if parentId != "" {
-				diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentId)
+			if parentID != "" {
+				diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentID)
 			}
 		}
 		if branch != "" {
@@ -268,12 +268,12 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 	for _, repo := range repos {
 		repoSet[repo.Name] = true
 	}
-	breakCommitIds := make(map[string]bool)
+	breakCommitIDs := make(map[string]bool)
 	for _, commit := range fromCommit {
 		if !repoSet[commit.Repo.Name] {
 			return nil, fmt.Errorf("Commit %s/%s is from a repo that isn't being listed.", commit.Repo.Name, commit.Id)
 		}
-		breakCommitIds[commit.Id] = true
+		breakCommitIDs[commit.Id] = true
 	}
 	d.lock.RLock()
 	defer d.lock.RUnlock()
@@ -289,9 +289,9 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 					Repo: repo,
 					Id:   commitID,
 				}
-				for commit != nil && !breakCommitIds[commit.Id] {
-					// we add this commit to breakCommitIds so we won't see it twice
-					breakCommitIds[commit.Id] = true
+				for commit != nil && !breakCommitIDs[commit.Id] {
+					// we add this commit to breakCommitIDs so we won't see it twice
+					breakCommitIDs[commit.Id] = true
 					commitInfo, err := d.inspectCommit(commit, shards)
 					if err != nil {
 						return nil, err
