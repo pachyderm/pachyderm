@@ -82,15 +82,15 @@ other local filesystem. Try:
 ```shell
 $ ls /pfs
 ```
-That probably wasn't terribly interesting, that's ok you shouldn't see anything
-yet, `/pfs` will contain a directory for each `repo`, but you haven't made any
+That probably wasn't terribly interesting, but that's ok because you shouldn't see anything
+yet. `/pfs` will contain a directory for each `repo`, but you haven't made any
 yet. Let's make one.
 
 ## Create a `Repo`
 
-`Repo`s are the highest level primitive in `pfs`, like all primitives in pfs they share
-their name with a primitive in `git` and are designed to behave analagously.
-Generally `repo`s should be dedicated to a single source of data, for example log
+`Repo`s are the highest level primitive in `pfs`. Like all primitives in pfs, they share
+their name with a primitive in Git and are designed to behave analagously.
+Generally, `repo`s should be dedicated to a single source of data, for example log
 messages from a particular service. `Repo`s are dirt cheap so don't be shy about
 making them very specific. For this demo we'll simply create a `repo` called
 "data" to hold the data we want to grep:
@@ -102,105 +102,109 @@ data
 ```
 
 Now `ls` does something! `/pfs` contains a directory for every repo in the
-filesyste.
+filesystem.
 
 ## Start a `Commit`
-Now that you've created a `Repo` you should see an empy directory `/pfs/data`
-if you try writing to it, it will fail because you can't write directly to
-`Repo`s. In Pachyderm you write to explicit commits, let's start a new commit:
+Now that you've created a `Repo` you should see an empty directory `/pfs/data`.
+If you try writing to it, it will fail because you can't write directly to a
+`Repo`. In Pachyderm, you write data to an explicit `commit`. Commits are immutable snapshots of your data which give Pachyderm its version control for data properties. Unlike Git though, commits in Pachyderm must be explicitly started and finished.
 
+Let's start a new commit:
 ```shell
 $ pachctl start-commit data
 6a7ddaf3704b4cb6ae4ec73522efe05f
 ```
 
-this returns a brand new commit id, yours should be different from mine.
+This returns a brand new commit id. Yours should be different from mine.
 Now if we take a look back at `/pfs` things have changed:
-
 ```shell
 $ ls /pfs/data
 6a7ddaf3704b4cb6ae4ec73522efe05f
 ```
 
-a new directory has been created for our commit. This we can write to:
+A new directory has been created for our commit and now we can start adding files. We've provided some sample data for you to use -- a list of purchases from a fruit stand. We're going to write that data as a file "sales" in pfs. 
 
 ```shell
 # Write sample data to pfs
-$ cat examples/grep/set1.txt >/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/file
+$ cat examples/grep/set1.txt >/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 ```
 
-However if you try to view the file you'll notice you can't:
+However, you'll notice that we can't read the file "sales" yet.
 
 ```shell
-$ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/file
-cat: /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/file: No such file or directory
+$ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
+cat: /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales: No such file or directory
 ```
 
 ## Finish a `Commit`
 
-Pachyderm won't let you read data from a commit until the commit is finished.
-This prevents reads from racing with writes. Furthermore every write
-to pfs is atomic. Let's finish the commit:
+Pachyderm won't let you read data from a commit until the `commit` is `finished`.
+This prevents reads from racing with writes. Furthermore, every write
+to pfs is atomic. Now let's finish the commit:
 
 ```shell
 $ pachctl finish-commit data 6a7ddaf3704b4cb6ae4ec73522efe05f
 ```
 
-Now we can view the files:
+Now we can view the file:
 
 ```shell
-$ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/file
-foo
+$ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 ```
+However, we've lost the ability to write to this `commit` since finished commits are immutable. In Pachyderm, a `commit` is always either _write-only_ when it's been started and files are being added, or _read-only_ after it's finished. 
 
-However, we've lost the ability to write to it, finished commits are immutable.
 
 ## Create a `Pipeline`
 
 Now that we've got some data in our `repo` it's time to do something with it.
-Pipelines are the core primitive for Pachyderm's processing system (pps),
+Pipelines are the core primitive for Pachyderm's processing system (pps) and
 they're specified with a JSON encoding. The `pipeline` we're creating
-can be found at `examples/grep/pipeline.json` here's what it looks
+can be found at `examples/grep/pipeline.json`. Here's what it looks
 like:
 
 ```json
+
 {
   "pipeline": {
-    "name": "grep-example"
+    "name": "grep"
   },
   "transform": {
     "cmd": [ "sh" ],
-    "stdin": "grep -r apple /pfs/data >/pfs/out/apple"
+    "stdin": [
+        "grep -r apple /pfs/data >/pfs/out/apple",
+        "grep -r banana /pfs/data >/pfs/out/banana",
+        "grep -r orange /pfs/data >/pfs/out/orange"
+    ]
   },
   "shards": "1",
-  "inputs": [ { "repo": { "name": "data" } } ]
+  "inputs": [{"repo": {"name": "data"}}]
 }
 ```
+In this `pipeline`, we are grepping for the terms "apple", "orange", or "banana" and writing that line to the corresponding file. Notice we read data from `/pfs/` and write data to `/pfs/out/`. In this example, the output of our pipeline is three files, one for each type of fruit sold with a list of all purchases of that fruit. 
 
-We can create it with:
-
+Now we create the grep pipeline in Pachyderm:
 ```shell
 $ pachctl create-pipeline -f examples/grep/pipeline.json
 ```
 
 ## What Happens When You Create a Pipeline
 Creating a `pipeline` tells Pachyderm to run your code on *every* finished
-`commit` in a `repo`, including `commit`s that happen after the `pipeline` is
-created. Our `repo` already had a `commit` so Pachyderm will have already
-launched a `job` to process that `commit`.
+`commit` in a `repo` as well as all future commits that happen after the pipeline is
+created. Our `repo` already had a `commit` so Pachyderm will automatically
+launch a `job` to process that data.
 
-You can view it like so:
+You can view the job with:
 
 ```shell
 $ pachctl list-job
-ID                                 OUTPUT                                                   STATE
-09a7eb68995c43979cba2b0d29432073   pipeline-grep-example/2b43def9b52b4fdfadd95a70215e90c9   JOB_STATE_RUNNING
+ID                                 OUTPUT                                  STATE
+09a7eb68995c43979cba2b0d29432073   grep/2b43def9b52b4fdfadd95a70215e90c9   JOB_STATE_RUNNING
 ```
 
-Depending on how quickly you do the above you may see `JOB_STATE_RUNNING` or
-`JOB_STATE_SUCCESS` (hopeful you won't see `JOB_STATE_FAILURE`).
+Depending on how quickly you do the above, you may see `JOB_STATE_RUNNING` or
+`JOB_STATE_SUCCESS` (hopefully you won't see `JOB_STATE_FAILURE`).
 
-Pachyderm `job`s are implemented as Kubernetes jobs, you can see your job with:
+Pachyderm `job`s are implemented as Kubernetes jobs, so you can also see your job with:
 
 ```shell
 $ kubectl get job
@@ -210,32 +214,31 @@ JOB                                CONTAINER(S)   IMAGE(S)             SELECTOR 
 
 ## Reading the Output
 
-Every `pipeline` creates a corresponding `repo` with the same name.
-You can access the data the same way that you wrote the other data:
+Every `pipeline` outputs its results to a corresponding `repo` with the same name. In our example, the "grep" pipeline created a repo "grep" where it stored the output files. You can read the out data the same way that we read the input data:
 
 ```shell
-$ cat /pfs/grep-example/2b43def9b52b4fdfadd95a70215e90c9/foo
-foo
+$ cat /pfs/grep/2b43def9b52b4fdfadd95a70215e90c9/apple
 ```
 
 ## Processing More Data
 
-Pipelines will automatically process new commits as they are created, let's
-create a new commit with our previous commit as the parent:
+Pipelines will also automatically process the data from new commits as they are created. Think of pipelines as being subscribed to any new commits that are finished on their input repo(s). Also similar to Git, commits have a parental structure that track how files change over time. Specifying a parent is optional when creating a commit (notice we didn't specify a parent when we created the first commit), but in this case we're going to be adding more data to the same file "sales."
+
+Let's create a new commit with our previous commit as the parent:
 
 ```shell
 $ pachctl start-commit data 6a7ddaf3704b4cb6ae4ec73522efe05f
 fab8c59c786842ccaf20589e15606604
 ```
 
-Write another `foo` to `file`:
+Next, we need to add more data. We're going to append more purchases from set2.txt to the file "sales."
 
 ```shell
-$ echo foo >/pfs/data/fab8c59c786842ccaf20589e15606604/file
+$ cat examples/grep/set2.txt >/pfs/data/fab8c59c786842ccaf20589e15606604/sales
 ```
-
-then finish the commit:
+Finally, we'll want to finish our second commit. After it's finished, we can read "sales" from the latest commit to see all the puchases from `set1` and `set2`. We could also chose to read from the first commit to only see `set1`.  
 
 ```shell
 $ pachctl finish-commit data fab8c59c786842ccaf20589e15606604
 ```
+Finishing this commit will automatically trigger the grep pipeline to run on the new data we've added. We'll also see a corresponding comit to the output "grep" repo with appends the the "apple", "orange" and "banana" files. 
