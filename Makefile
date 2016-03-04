@@ -106,8 +106,9 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-test-pod: 
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f etc/kube/test-pod.yml
-	kubectl $(KUBECTLFLAGS) create -f etc/kube/test-pod.yml
+	sed -e "s/XXX_SEED_XXX/$$RANDOM/" etc/kube/test-pod.yml > tmp-test-pod.yml
+	kubectl $(KUBECTLFLAGS) create -f tmp-test-pod.yml
+#	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f tmp-test-pod.yml
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
