@@ -160,7 +160,7 @@ However, we've lost the ability to write to it, finished commits are immutable.
 Now that we've got some data in our `repo` it's time to do something with it.
 Pipelines are the core primitive for Pachyderm's processing system (pps),
 they're specified with a JSON encoding. The `pipeline` we're creating
-can be found at `examples/grep/pipeline.json` here's what it looks
+can be found at `examples/grep/grep.json` here's what it looks
 like:
 
 ```json
@@ -180,7 +180,7 @@ like:
 We can create it with:
 
 ```shell
-$ pachctl create-pipeline -f examples/grep/pipeline.json
+$ pachctl create-pipeline -f examples/grep/grep.json
 ```
 
 ## What Happens When You Create a Pipeline
