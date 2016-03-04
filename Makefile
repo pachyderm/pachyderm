@@ -106,7 +106,7 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-test-pod: 
-	sed -e "s/XXX_SEED_XXX/$$RANDOM/" etc/kube/test-pod.yml > tmp-test-pod.yml
+	sed -e "s/XXX_SEED_XXX/$$SEED/" etc/kube/test-pod.yml > tmp-test-pod.yml
 	kubectl $(KUBECTLFLAGS) create -f tmp-test-pod.yml
 #	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f tmp-test-pod.yml
 
@@ -133,7 +133,7 @@ pretest:
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
 test: pretest clean-launch launch integration-test-pod
-	until kubectl logs -f pachyderm-test; do sleep 5; done
+	until kubectl logs -f pachyderm-test-$$SEED; do sleep 5; done
 
 localtest: 
 	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./... | grep -v '/vendor/')
