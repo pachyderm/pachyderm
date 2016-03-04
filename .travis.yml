@@ -1,3 +1,6 @@
+sudo: required
+services:
+  - docker
 language: go
 go:
   - 1.6
@@ -5,9 +8,6 @@ branches:
   only:
     - ci_debug
 script:
-  - make test
+  - echo "oh hai"
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
-sudo: required # needed for docker
-services:
-  - docker
