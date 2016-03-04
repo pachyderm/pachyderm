@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	port   = 30650
+	port   = 30651
 	shards = 1
 )
 
@@ -29,6 +29,33 @@ func TestSimple(t *testing.T) {
 	t.Parallel()
 	pfsClient := getPfsClient(t)
 	repo := uniqueString("TestSimple")
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	commit1, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, err)
+	_, err = pfsutil.PutFile(pfsClient, repo, commit1.Id, "foo", 0, strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit1.Id))
+	var buffer bytes.Buffer
+	require.NoError(t, pfsutil.GetFile(pfsClient, repo, commit1.Id, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	commit2, err := pfsutil.StartCommit(pfsClient, repo, "", commit1.Id)
+	require.NoError(t, err)
+	_, err = pfsutil.PutFile(pfsClient, repo, commit2.Id, "foo", 0, strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = pfsutil.FinishCommit(pfsClient, repo, commit2.Id)
+	require.NoError(t, err)
+	buffer = bytes.Buffer{}
+	require.NoError(t, pfsutil.GetFile(pfsClient, repo, commit1.Id, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.NoError(t, pfsutil.GetFile(pfsClient, repo, commit2.Id, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\nfoo\n", buffer.String())
+}
+
+func TestBranch(t *testing.T) {
+	t.Parallel()
+	pfsClient := getPfsClient(t)
+	repo := uniqueString("TestBranch")
 	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
 	commit1, err := pfsutil.StartCommit(pfsClient, repo, "", "master")
 	require.NoError(t, err)
@@ -68,7 +95,9 @@ func getPfsClient(t *testing.T) pfs.APIClient {
 		address := fmt.Sprintf("localhost:%d", port)
 		driver, err := drive.NewDriver(address)
 		require.NoError(t, err)
-		blockAPIServer, err := NewLocalBlockAPIServer(uniqueString("/tmp/pach_test/run"))
+		root := uniqueString("/tmp/pach_test/run")
+		t.Logf("root %s", root)
+		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
 		sharder := shard.NewLocalSharder(address, shards)
 		hasher := pfs.NewHasher(shards, 1)
