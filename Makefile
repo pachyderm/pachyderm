@@ -20,6 +20,8 @@ endif
 
 COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 
+SEED := $(shell bash -c 'echo $$RANDOM')
+
 all: build
 
 version:
