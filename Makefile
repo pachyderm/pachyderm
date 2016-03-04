@@ -20,8 +20,6 @@ endif
 
 COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 
-SEED := $(shell bash -c 'echo $$RANDOM')
-
 all: build
 
 version:
@@ -107,10 +105,9 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
-integration-test-pod: 
-	sed -e "s/XXX_SEED_XXX/$$SEED/" etc/kube/test-pod.yml > tmp-test-pod.yml
-	kubectl $(KUBECTLFLAGS) create -f tmp-test-pod.yml
-#	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f tmp-test-pod.yml
+integration-tests: 
+	kubectl $(KUBECTLFLAGS) delete pod integrationtests
+	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/test --restart=Never --command -- go test .
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
@@ -134,8 +131,7 @@ pretest:
 		done
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest clean-launch launch integration-test-pod
-	until kubectl logs -f pachyderm-test-$$SEED; do sleep 5; done
+test: pretest docker-build-pachd clean-launch launch integration-tests
 
 localtest: 
 	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./... | grep -v '/vendor/')
