@@ -5,7 +5,6 @@ branches:
   only:
     - ci_debug
 script:
-  - # make localtest # comment out for now to debug integration tests
   - make test
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
