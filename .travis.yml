@@ -6,10 +6,6 @@ branches:
     - ci_debug
 script:
   - make localtest
-  - echo "COMPLETED UNIT TESTING"
   - make test
-  - echo "COMPLETED INTEGRATION TESTING"
-  - go build github.com/pachyderm/pachyderm
-  - echo "COMPLETED BUILD"
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
