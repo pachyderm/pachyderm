@@ -450,7 +450,7 @@ func (d *driver) AddShard(shard uint64) error {
 		}
 	}
 	d.lock.Lock()
-	defer d.lock.Lock()
+	defer d.lock.Unlock()
 	for repoName, dag := range dags {
 		for _, commitID := range dag.Sorted() {
 			if _, ok := d.diffs[repoName]; !ok {
