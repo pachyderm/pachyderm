@@ -1,5 +1,4 @@
 sudo: required
-dist: precise
 services:
   - docker
 language: go
