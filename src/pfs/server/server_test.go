@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync"
@@ -25,16 +26,25 @@ const (
 )
 
 func TestSimple(t *testing.T) {
+	t.Parallel()
 	pfsClient := getPfsClient(t)
 	repo := uniqueString("TestSimple")
 	err := pfsutil.CreateRepo(pfsClient, repo)
 	require.NoError(t, err)
-	_, err = pfsutil.StartCommit(pfsClient, repo, "", "master")
+	commit, err := pfsutil.StartCommit(pfsClient, repo, "", "master")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pfsClient, repo, "master", "foo", 0, strings.NewReader("foo"))
+	_, err = pfsutil.PutFile(pfsClient, repo, "master", "foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	err = pfsutil.FinishCommit(pfsClient, repo, "master")
 	require.NoError(t, err)
+	var buffer bytes.Buffer
+	err = pfsutil.GetFile(pfsClient, repo, "master", "foo", 0, 0, "", nil, &buffer)
+	require.NoError(t, err)
+	require.Equal(t, "foo\n", buffer.String())
+	branches, err := pfsutil.ListBranch(pfsClient, repo)
+	require.NoError(t, err)
+	require.Equal(t, commit, branches[0].Commit)
+	require.Equal(t, "master", branches[0].Branch)
 }
 
 var client pfs.APIClient
