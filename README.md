@@ -40,7 +40,6 @@ There are two bold new ideas in Pachyderm:
 
 These ideas lead directly to a system that's much more powerful, flexible and easy to use. 
 
-
 To process data, you simply create a containerized program which reads and writes to the local filesystem. You can use _any_ tools you want because it's all just going in a container! Pachyderm will take your container and inject data into it by way of a FUSE volume. We'll then automatically replicate your container, showing each copy a different chunk of data. With this technique, Pachyderm can scale any code you write to process up to petabytes of data (Example: [distributed grep](https://github.com/pachyderm/pachyderm/examples/grep/GUIDE.md)).
 
 Pachyderm also version controls all data using a commit-based distributed
@@ -60,15 +59,15 @@ a streaming job, the same code will work for both!
 Containers are a revolutionary new technology with a compelling application to
 big data. Our goal is to fully realize that use case. Hadoop has spawned a
 sprawling ecosystem of tools but with each new tool the complexity of your
-cluster grows until maintaining it becomes a full time job. Containers are the
+cluster grows until maintaining it becomes a full-time job. Containers are the
 _perfect_ antidote to this problem. What if adding a new tool to your data
 infrastructure was as easy as installing an app? Thanks to the magic of
 containers in Pachyderm, it really is!
 
 The most exciting thing about this vision though is what comes next. Pachyderm
-can do big data with _anything_ that runs on Linux. And anything you build, you
-can easily share with the rest of the community, afterall it's just a
-container. We have some ideas of our own about what to build, but it's just the
+can do big data with _anything_ that runs on Linux. And anything you build can be
+easily shared with the rest of the community, afterall it's just a
+container so it's completely reusable and will run the same every time. We have some ideas of our own about what the best starting building blocks will be, but it's just the
 tip of the iceburg -- we expect our users will have many more interesting ideas.
 We can't wait to see what they are!
 
