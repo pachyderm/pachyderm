@@ -11,7 +11,7 @@ before_script:
   - wget https://storage.googleapis.com/kubernetes-release/release/v1.0.1/bin/linux/amd64/kubectl
   - chmod +x kubectl
   - sudo mv kubectl /usr/local/bin/
-  - sudo docker-machine ssh dev -fTNL 8080:localhost:8080 -L 30650:localhost:30650
+  - make launch-kube
   - kubectl get all
   - docker version
 script:
