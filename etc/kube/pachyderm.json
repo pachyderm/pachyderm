@@ -326,7 +326,7 @@
               },
               {
                 "name": "PFS_NUM_SHARDS",
-                "value": "32"
+                "value": "1"
               }
             ],
             "resources": {},
