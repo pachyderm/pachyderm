@@ -6,7 +6,7 @@ import (
 	"path"
 	"sync"
 
-	"go.pedge.io/proto/rpclog"
+	"go.pedge.io/lion"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"go.pedge.io/pb/go/google/protobuf"
@@ -557,9 +557,6 @@ func (d *driver) getDiffInfo(diff *pfs.Diff) (_ *pfs.DiffInfo, read bool, ok boo
 
 func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
 	var commitInfos []*pfs.CommitInfo
-	// SJ LOG HERE
-	logger := protorpclog.NewLogger("pachyderm.pfs.Driver")
-
 	for shard := range shards {
 		commit = d.canonicalCommit(commit, shard)
 		var diffInfo *pfs.DiffInfo
@@ -569,9 +566,11 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 			Commit: commit,
 			Shard:  shard,
 		}); ok {
-			
+			lion.Printf("The commit is finished!")
 			commitInfo.CommitType = pfs.CommitType_COMMIT_TYPE_READ
 		} else {
+			lion.Printf("The commit is NOT finished!")
+
 			if diffInfo, ok = d.started.get(&pfs.Diff{
 				Commit: commit,
 				Shard:  shard,
@@ -619,6 +618,12 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 			Commit: commit,
 			Shard:  shard,
 		})
+
+		if diffInfo.Finished == nil {
+			lion.Printf("This commit is unfinished! Don't append the data")
+			continue
+		}
+
 		if !ok {
 			return nil, nil, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
 		}
