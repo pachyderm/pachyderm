@@ -159,22 +159,29 @@ $ cat /pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 However, we've lost the ability to write to this `commit` since finished
 commits are immutable. In Pachyderm, a `commit` is always either _write-only_
 when it's been started and files are being added, or _read-only_ after it's
-finished. 
+finished.
 
 
 ## Create a `Pipeline`
 
 Now that we've got some data in our `repo` it's time to do something with it.
 Pipelines are the core primitive for Pachyderm's processing system (pps) and
-they're specified with a JSON encoding. The `pipeline` we're creating
-can be found at `examples/grep/pipeline.json`. Here's what it looks
-like:
+they're specified with a JSON encoding. We're going to create a pipeline with 2
+transformations in it. One that splits the sales logs into records for apples,
+oranges and bananas. One that sums these sales numbers into a final count.
 
+```
++----+   +-----+   +---+
+|data|-->|split|-->|sum|
++----+   +-----+   +---+
+```
+
+The `pipeline` we're creating can be found at `examples/grep/pipeline.json`.
+Here's what it looks like:
 ```json
-
 {
   "pipeline": {
-    "name": "grep"
+    "name": "split"
   },
   "transform": {
     "cmd": [ "sh" ],
@@ -185,16 +192,46 @@ like:
     ]
   },
   "shards": "1",
-  "inputs": [{"repo": {"name": "data"}}]
+  "inputs": [
+    {
+      "repo": {
+        "name": "data"
+      }
+    }
+  ]
+}
+{
+  "pipeline": {
+    "name": "sum"
+  },
+  "transform": {
+    "cmd": [ "sh" ],
+    "stdin": [
+        "cut -f 2 /pfs/grep/apple | awk '{s+=$1} END {print s}' >/pfs/out/apple",
+        "cut -f 2 /pfs/grep/banana | awk '{s+=$1} END {print s}' >/pfs/out/banana",
+        "cut -f 2 /pfs/grep/orange | awk '{s+=$1} END {print s}' >/pfs/out/orange"
+    ]
+  },
+  "shards": "1",
+  "inputs": [
+    {
+      "repo": {
+        "name": "split"
+      },
+	  "reduce": true
+    }
+  ]
 }
 ```
+
 In this `pipeline`, we are grepping for the terms "apple", "orange", and
 "banana" and writing that line to the corresponding file. Notice we read data
-from `/pfs/` and write data to `/pfs/out/`. In this example, the output of our
+from `/pfs/data` and write data to `/pfs/out/`. In this example, the output of our
 pipeline is three files, one for each type of fruit sold with a list of all
 purchases of that fruit. 
 
-Now we create the grep pipeline in Pachyderm:
+Now we create the split pipeline in Pachyderm:
+
 ```shell
 $ pachctl create-pipeline -f examples/grep/pipeline.json
 ```
