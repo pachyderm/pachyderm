@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -196,14 +197,25 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				pipelineReader = pipelineFile
 			}
 			var request pps.CreatePipelineRequest
-			if err := jsonpb.Unmarshal(pipelineReader, &request); err != nil {
-				errorAndExit("Error reading from stdin: %s", err.Error())
-			}
-			if _, err := apiClient.CreatePipeline(
-				context.Background(),
-				&request,
-			); err != nil {
-				errorAndExit("Error from CreatePipeline: %s", err.Error())
+			decoder := json.NewDecoder(pipelineReader)
+			for {
+				message := json.RawMessage{}
+				if err := decoder.Decode(&message); err != nil {
+					if err == io.EOF {
+						break
+					} else {
+						errorAndExit("Error reading from stdin: %s", err.Error())
+					}
+				}
+				if err := jsonpb.UnmarshalString(string(message), &request); err != nil {
+					errorAndExit("Error reading from stdin: %s", err.Error())
+				}
+				if _, err := apiClient.CreatePipeline(
+					context.Background(),
+					&request,
+				); err != nil {
+					errorAndExit("Error from CreatePipeline: %s", err.Error())
+				}
 			}
 		},
 	}
