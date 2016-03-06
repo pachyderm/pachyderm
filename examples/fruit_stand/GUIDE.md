@@ -1,9 +1,10 @@
-# Quick Start Guide: A Grep Pipeline
+# Quick Start Guide: Fruit Stand
 
-In this guide you're going to create a Pachyderm pipeline using one of the unix
-classics, `grep`.  For those unfamiliar, `grep` lets you search files with
-regexes.  Our `grep` pipeline will allow us to scale `grep`'s regex search up
-to a virtually limitless stream of data. Let's dive in.
+In this guide you're going to create a Pachyderm pipeline to process
+transaction logs from a fruit stand. We'll use two standard unix tools, `grep`
+and `awk` to do our processing. Thanks to Pachyderm's processing system we'll
+be able to run the pipeline in a distributed, streaming fashion. As new data is
+added the pipeline will automatically process it and materialize the results.
 
 ## Setup
 
@@ -93,7 +94,7 @@ their name with a primitive in Git and are designed to behave analagously.
 Generally, `repo`s should be dedicated to a single source of data, for example log
 messages from a particular service. `Repo`s are dirt cheap so don't be shy about
 making them very specific. For this demo we'll simply create a `repo` called
-"data" to hold the data we want to grep:
+"data" to hold the data we want to process:
 
 ```shell
 $ pachctl create-repo data
@@ -131,7 +132,7 @@ from a fruit stand. We're going to write that data as a file "sales" in pfs.
 
 ```shell
 # Write sample data to pfs
-$ cat examples/grep/set1.txt >/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
+$ cat examples/fruit_stand/set1.txt >/pfs/data/6a7ddaf3704b4cb6ae4ec73522efe05f/sales
 ```
 
 However, you'll notice that we can't read the file "sales" yet.
@@ -176,7 +177,7 @@ oranges and bananas. One that sums these sales numbers into a final count.
 +----+   +-----+   +---+
 ```
 
-The `pipeline` we're creating can be found at `examples/grep/pipeline.json`.
+The `pipeline` we're creating can be found at `examples/fruit_stand/pipeline.json`.
 Here's what it looks like:
 ```json
 {
@@ -207,9 +208,9 @@ Here's what it looks like:
   "transform": {
     "cmd": [ "sh" ],
     "stdin": [
-        "cut -f 2 /pfs/grep/apple | awk '{s+=$1} END {print s}' >/pfs/out/apple",
-        "cut -f 2 /pfs/grep/banana | awk '{s+=$1} END {print s}' >/pfs/out/banana",
-        "cut -f 2 /pfs/grep/orange | awk '{s+=$1} END {print s}' >/pfs/out/orange"
+        "cut -f 2 /pfs/split/apple | awk '{s+=$1} END {print s}' >/pfs/out/apple",
+        "cut -f 2 /pfs/split/banana | awk '{s+=$1} END {print s}' >/pfs/out/banana",
+        "cut -f 2 /pfs/split/orange | awk '{s+=$1} END {print s}' >/pfs/out/orange"
     ]
   },
   "shards": "1",
@@ -233,7 +234,7 @@ purchases of that fruit.
 Now we create the split pipeline in Pachyderm:
 
 ```shell
-$ pachctl create-pipeline -f examples/grep/pipeline.json
+$ pachctl create-pipeline -f examples/fruit_stand/pipeline.json
 ```
 
 ## What Happens When You Create a Pipeline
@@ -247,7 +248,7 @@ You can view the job with:
 ```shell
 $ pachctl list-job
 ID                                 OUTPUT                                  STATE
-09a7eb68995c43979cba2b0d29432073   grep/2b43def9b52b4fdfadd95a70215e90c9   JOB_STATE_RUNNING
+09a7eb68995c43979cba2b0d29432073   split/2b43def9b52b4fdfadd95a70215e90c9   JOB_STATE_RUNNING
 ```
 
 Depending on how quickly you do the above, you may see `JOB_STATE_RUNNING` or
@@ -264,12 +265,12 @@ JOB                                CONTAINER(S)   IMAGE(S)             SELECTOR 
 ## Reading the Output
 
 Every `pipeline` outputs its results to a corresponding `repo` with the same
-name. In our example, the "grep" pipeline created a repo "grep" where it stored
+name. In our example, the "sum" pipeline created a repo "sum" where it stored
 the output files. You can read the out data the same way that we read the input
 data:
 
 ```shell
-$ cat /pfs/grep/2b43def9b52b4fdfadd95a70215e90c9/apple
+$ cat /pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
 ```
 
 ## Processing More Data
@@ -292,7 +293,7 @@ fab8c59c786842ccaf20589e15606604
 Next, we need to add more data. We're going to append more purchases from set2.txt to the file "sales."
 
 ```shell
-$ cat examples/grep/set2.txt >/pfs/data/fab8c59c786842ccaf20589e15606604/sales
+$ cat examples/fruit_stand/set2.txt >/pfs/data/fab8c59c786842ccaf20589e15606604/sales
 ```
 Finally, we'll want to finish our second commit. After it's finished, we can
 read "sales" from the latest commit to see all the puchases from `set1` and
@@ -301,6 +302,6 @@ read "sales" from the latest commit to see all the puchases from `set1` and
 ```shell
 $ pachctl finish-commit data fab8c59c786842ccaf20589e15606604
 ```
-Finishing this commit will automatically trigger the grep pipeline to run on
+Finishing this commit will automatically trigger the pipeline to run on
 the new data we've added. We'll also see a corresponding comit to the output
-"grep" repo with appends the the "apple", "orange" and "banana" files.
+"sum" repo with appends the the "apple", "orange" and "banana" files.
