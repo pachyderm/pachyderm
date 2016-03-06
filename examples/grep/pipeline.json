@@ -1,6 +1,27 @@
 {
   "pipeline": {
-    "name": "count"
+    "name": "split"
+  },
+  "transform": {
+    "cmd": [ "sh" ],
+    "stdin": [
+        "grep -r apple /pfs/data >/pfs/out/apple",
+        "grep -r banana /pfs/data >/pfs/out/banana",
+        "grep -r orange /pfs/data >/pfs/out/orange"
+    ]
+  },
+  "shards": "1",
+  "inputs": [
+    {
+      "repo": {
+        "name": "data"
+      }
+    }
+  ]
+}
+{
+  "pipeline": {
+    "name": "sum"
   },
   "transform": {
     "cmd": [ "sh" ],
@@ -14,7 +35,7 @@
   "inputs": [
     {
       "repo": {
-        "name": "grep"
+        "name": "split"
       },
 	  "reduce": true
     }
