@@ -1,3 +1,4 @@
+
 package pachyderm
 
 import (
@@ -29,6 +30,11 @@ const (
 )
 
 func TestJob(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
 	t.Parallel()
 	dataRepo := uniqueString("TestJob.data")
 	pachClient := getPachClient(t)
@@ -65,6 +71,11 @@ func TestJob(t *testing.T) {
 }
 
 func TestGrep(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
 	t.Parallel()
 	dataRepo := uniqueString("TestGrep.data")
 	pachClient := getPachClient(t)
@@ -114,6 +125,11 @@ func TestGrep(t *testing.T) {
 }
 
 func TestPipeline(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
 	t.Parallel()
 	pachClient := getPachClient(t)
 	// create repos
@@ -179,6 +195,11 @@ func TestPipeline(t *testing.T) {
 }
 
 func TestWorkload(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
 	t.Parallel()
 	pachClient := getPachClient(t)
 	seed := time.Now().UnixNano()
@@ -186,6 +207,11 @@ func TestWorkload(t *testing.T) {
 }
 
 func TestSharding(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
 	t.Parallel()
 	repo := uniqueString("TestSharding")
 	pachClient := getPachClient(t)
@@ -233,6 +259,11 @@ func TestSharding(t *testing.T) {
 }
 
 func TestFromCommit(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
 	t.Parallel()
 	repo := uniqueString("TestFromCommit")
 	pachClient := getPachClient(t)

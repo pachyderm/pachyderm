@@ -105,9 +105,9 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
-integration-test-pod: 
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f etc/kube/test-pod.yml
-	kubectl $(KUBECTLFLAGS) create -f etc/kube/test-pod.yml
+integration-tests: 
+	kubectl $(KUBECTLFLAGS) delete pod integrationtests
+	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/test --restart=Never --command -- go test .
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
@@ -131,8 +131,10 @@ pretest:
 		done
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest clean-launch launch integration-test-pod
-	until kubectl logs -f pachyderm-test; do sleep 5; done
+test: pretest docker-build-pachd clean-launch launch integration-tests
+
+localtest: 
+	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./... | grep -v '/vendor/')
 
 clean: clean-launch clean-launch-kube
 

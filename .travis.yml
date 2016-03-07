@@ -1,0 +1,19 @@
+sudo: required
+dist: precise
+services:
+  - docker
+language: go
+go:
+  - 1.6
+branches:
+  only:
+    - ci_debug
+before_script:
+  - wget https://storage.googleapis.com/kubernetes-release/release/v1.0.1/bin/linux/amd64/kubectl
+  - chmod +x kubectl
+  - sudo mv kubectl /usr/local/bin/
+  - docker version
+script:
+  - make test
+notifications:
+  slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
