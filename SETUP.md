@@ -11,7 +11,7 @@ we'll help you find an install path and then document it here.
 ## Dependencies
 
 - [Go](#go) >= 1.6
-- [Docker](#docker) >= 1.9 (must deploy with [`--storage-driver=devicemapper`](http://muehe.org/posts/switching-docker-from-aufs-to-devicemapper/), supported as described [here](https://docs.docker.com/engine/userguide/storagedriver/device-mapper-driver/))
+- [Docker](#docker) >= 1.10
 - [Kubernetes](#kubernetes) and [Kubectl](#kubectl) >= 1.1.7
 - [FUSE](#fuse) 2.8.2 (https://osxfuse.github.io/)
 
@@ -22,13 +22,6 @@ Find Go 1.6 [here](https://golang.org/doc/install).
 
 Docker has great docs for installing on any platform, check them out
 [here](https://docs.docker.com/engine/installation/).
-
-There is one Pachyderm specific wrinkle, we're not compatible with aufs, we've
-found device mapper to be the best backend for Pachyderm. Using device mapper
-is should be as simple as passing `--storage-driver=devicemapper` to your
-docker invocation. Or adding that same line to `DOCKER_OPTS`. This [blog
-post](http://muehe.org/posts/switching-docker-from-aufs-to-devicemapper/)
-discusses more.
 
 ## Kubernetes
 
