@@ -168,13 +168,13 @@ finished.
 Now that we've got some data in our `repo` it's time to do something with it.
 Pipelines are the core primitive for Pachyderm's processing system (pps) and
 they're specified with a JSON encoding. We're going to create a pipeline with 2
-transformations in it. One that splits the sales logs into records for apples,
-oranges and bananas. One that sums these sales numbers into a final count.
+transformations in it. The first transformation sorts the sales logs into separate records for apples,
+oranges and bananas using `grep`. The second one uses `awk` to sum these sales numbers into a final sales count.
 
 ```
-+----+   +-----+   +---+
-|data|-->|split|-->|sum|
-+----+   +-----+   +---+
++----------+     +------------+     +------------+
+|input data| --> |sort pipline| --> |sum pipeline|
++----------+     +------------+     +------------+
 ```
 
 The `pipeline` we're creating can be found at `examples/fruit_stand/pipeline.json`.
@@ -182,7 +182,7 @@ Here's what it looks like:
 ```json
 {
   "pipeline": {
-    "name": "split"
+    "name": "sort"
   },
   "transform": {
     "cmd": [ "sh" ],
@@ -217,7 +217,7 @@ Here's what it looks like:
   "inputs": [
     {
       "repo": {
-        "name": "split"
+        "name": "sort"
       },
 	  "reduce": true
     }
@@ -227,11 +227,10 @@ Here's what it looks like:
 
 In this `pipeline`, we are grepping for the terms "apple", "orange", and
 "banana" and writing that line to the corresponding file. Notice we read data
-from `/pfs/data` and write data to `/pfs/out/`. In this example, the output of our
-pipeline is three files, one for each type of fruit sold with a list of all
-purchases of that fruit. 
+from `/pfs/data` and write data to `/pfs/out/`. In this example, the output of our complete
+pipeline is three files, one for each type of fruit with a single number showing the total quantity sold. 
 
-Now we create the split pipeline in Pachyderm:
+Now let's create the pipeline in Pachyderm:
 
 ```shell
 $ pachctl create-pipeline -f examples/fruit_stand/pipeline.json
@@ -239,7 +238,7 @@ $ pachctl create-pipeline -f examples/fruit_stand/pipeline.json
 
 ## What Happens When You Create a Pipeline
 Creating a `pipeline` tells Pachyderm to run your code on *every* finished
-`commit` in a `repo` as well as all future commits that happen after the pipeline is
+`commit` in a `repo` as well as *all future commits* that happen after the pipeline is
 created. Our `repo` already had a `commit` so Pachyderm will automatically
 launch a `job` to process that data.
 
@@ -266,7 +265,7 @@ JOB                                CONTAINER(S)   IMAGE(S)             SELECTOR 
 
 Every `pipeline` outputs its results to a corresponding `repo` with the same
 name. In our example, the "sum" pipeline created a repo "sum" where it stored
-the output files. You can read the out data the same way that we read the input
+the output files. You can read the output data the same way that we read the input
 data:
 
 ```shell
@@ -282,6 +281,8 @@ structure that track how files change over time. Specifying a parent is
 optional when creating a commit (notice we didn't specify a parent when we
 created the first commit), but in this case we're going to be adding
 more data to the same file "sales."
+
+In our fruit stand example, this could be making a commit every hour with all the new purchases that happened in that timeframe. 
 
 Let's create a new commit with our previous commit as the parent:
 
@@ -302,6 +303,6 @@ read "sales" from the latest commit to see all the puchases from `set1` and
 ```shell
 $ pachctl finish-commit data fab8c59c786842ccaf20589e15606604
 ```
-Finishing this commit will automatically trigger the pipeline to run on
-the new data we've added. We'll also see a corresponding comit to the output
-"sum" repo with appends the the "apple", "orange" and "banana" files.
+Finishing this commit will also automatically trigger the pipeline to run on
+the new data we've added. We'll see a corresponding commit to the output
+"sum" repo with files "apple", "orange" and "banana" each containing the cumulative total of pruchases.
