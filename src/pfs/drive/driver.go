@@ -621,6 +621,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 
 		if diffInfo.Finished == nil {
 			lion.Printf("This commit is unfinished! Don't append the data")
+			commit = diffInfo.ParentCommit
 			continue
 		}
 
