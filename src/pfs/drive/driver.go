@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/dag"
+	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -157,14 +158,14 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 	return loopErr
 }
 
-func (d *driver) StartCommit(repo *pfs.Repo, commitId string, parentId string, branch string,
+func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
 	started *google_protobuf.Timestamp, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	for shard := range shards {
 		diffInfo := &pfs.DiffInfo{
 			Diff: &pfs.Diff{
-				Commit: pfsutil.NewCommit(repo.Name, commitId),
+				Commit: pfsutil.NewCommit(repo.Name, commitID),
 				Shard:  shard,
 			},
 			Started: started,
@@ -181,9 +182,9 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitId string, parentId string, b
 				Shard:  shard,
 			}
 			if parentDiffInfo, ok := d.diffs.get(parentDiff); ok {
-				if parentId != "" && parentDiffInfo.Diff.Commit.Id != parentId {
+				if parentID != "" && parentDiffInfo.Diff.Commit.Id != parentID {
 					return fmt.Errorf("branch %s already exists as %s, can't create with %s as parent",
-						branch, parentDiffInfo.Diff.Commit.Id, parentId)
+						branch, parentDiffInfo.Diff.Commit.Id, parentID)
 				}
 				if parentDiffInfo.Finished == nil {
 					return fmt.Errorf("branch %s already has a started (but unfinished) commit %s",
@@ -192,8 +193,8 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitId string, parentId string, b
 				diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentDiffInfo.Diff.Commit.Id)
 			}
 		}
-		if diffInfo.ParentCommit == nil && parentId != "" {
-			diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentId)
+		if diffInfo.ParentCommit == nil && parentID != "" {
+			diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentID)
 		}
 		if err := d.insertDiffInfo(diffInfo); err != nil {
 			return err
@@ -258,12 +259,12 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 	for _, repo := range repos {
 		repoSet[repo.Name] = true
 	}
-	breakCommitIds := make(map[string]bool)
+	breakCommitIDs := make(map[string]bool)
 	for _, commit := range fromCommit {
 		if !repoSet[commit.Repo.Name] {
 			return nil, fmt.Errorf("Commit %s/%s is from a repo that isn't being listed.", commit.Repo.Name, commit.Id)
 		}
-		breakCommitIds[commit.Id] = true
+		breakCommitIDs[commit.Id] = true
 	}
 	d.lock.RLock()
 	defer d.lock.RUnlock()
@@ -278,9 +279,9 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 				Repo: repo,
 				Id:   commitID,
 			}
-			for commit != nil && !breakCommitIds[commit.Id] {
+			for commit != nil && !breakCommitIDs[commit.Id] {
 				// we add this commit to breakCommitIds so we won't see it twice
-				breakCommitIds[commit.Id] = true
+				breakCommitIDs[commit.Id] = true
 				commitInfo, err := d.inspectCommit(commit, shards)
 				if err != nil {
 					return nil, err
@@ -563,6 +564,13 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 			Commit: commit,
 			Shard:  shard,
 		})
+
+		if diffInfo.Finished == nil {
+			lion.Printf("This commit is unfinished! Don't append the data")
+			commit = diffInfo.ParentCommit
+			continue
+		}
+
 		if !ok {
 			return nil, nil, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
 		}

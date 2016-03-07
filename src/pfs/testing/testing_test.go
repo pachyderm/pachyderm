@@ -32,7 +32,7 @@ func TestSimple(t *testing.T) {
 	err := pfsutil.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
 
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "")
+	commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.Id
@@ -70,10 +70,24 @@ func TestSimple(t *testing.T) {
 
 	checkWrites(t, apiClient, repoName, newCommitID)
 
-	fileInfos, err := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b", &pfs.Shard{Number: 0, Modulus: 1})
+	fileInfos, err := pfsutil.ListFile(
+		apiClient,
+		repoName,
+		newCommitID,
+		"a/b",
+		"",
+		&pfs.Shard{FileNumber: 0, BlockModulus: 1},
+	)
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(fileInfos))
-	fileInfos, err = pfsutil.ListFile(apiClient, repoName, newCommitID, "a/c", &pfs.Shard{Number: 0, Modulus: 1})
+	fileInfos, err = pfsutil.ListFile(
+		apiClient,
+		repoName,
+		newCommitID,
+		"a/c",
+		"",
+		&pfs.Shard{FileNumber: 0, BlockModulus: 1},
+	)
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(fileInfos))
 
@@ -84,7 +98,14 @@ func TestSimple(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			fileInfos3, iErr := pfsutil.ListFile(apiClient, repoName, newCommitID, "a/b", &pfs.Shard{Number: uint64(i), Modulus: 7})
+			fileInfos3, iErr := pfsutil.ListFile(
+				apiClient,
+				repoName,
+				newCommitID,
+				"a/b",
+				"",
+				&pfs.Shard{FileNumber: uint64(i), BlockModulus: 7},
+			)
 			require.NoError(t, iErr)
 			fileInfos2[i] = fileInfos3
 		}()
@@ -105,7 +126,7 @@ func TestBlockListCommits(t *testing.T) {
 	err := pfsutil.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
 
-	baseCommit, err := pfsutil.StartCommit(apiClient, repoName, "")
+	baseCommit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	require.NoError(t, err)
 	err = pfsutil.FinishCommit(apiClient, repoName, baseCommit.Id)
 	require.NoError(t, err)
@@ -130,7 +151,7 @@ func TestBlockListCommits(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		time.Sleep(1)
-		commit, err := pfsutil.StartCommit(apiClient, repoName, baseCommit.Id)
+		commit, err := pfsutil.StartCommit(apiClient, repoName, baseCommit.Id, "")
 		require.NoError(t, err)
 		require.NotNil(t, commit)
 		newCommit = commit
@@ -167,7 +188,6 @@ func TestBlockListCommits(t *testing.T) {
 }
 
 func TestMount(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	apiClient := getPfsClient(t)
 	repoName := uniqueString("testMountRepo")
@@ -179,7 +199,7 @@ func TestMount(t *testing.T) {
 	mounter := fuse.NewMounter("localhost", apiClient)
 	ready := make(chan bool)
 	go func() {
-		err = mounter.Mount(directory, &pfs.Shard{Number: 0, Modulus: 1}, nil, ready)
+		err = mounter.Mount(directory, &pfs.Shard{FileNumber: 0, BlockModulus: 1}, nil, ready)
 		require.NoError(t, err)
 	}()
 	<-ready
@@ -187,7 +207,7 @@ func TestMount(t *testing.T) {
 	_, err = os.Stat(filepath.Join(directory, repoName))
 	require.NoError(t, err)
 
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "")
+	commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.Id
@@ -252,7 +272,7 @@ func TestMountBig(t *testing.T) {
 	mounter := fuse.NewMounter("localhost", apiClient)
 	ready := make(chan bool)
 	go func() {
-		err = mounter.Mount(directory, &pfs.Shard{Number: 0, Modulus: 1}, nil, ready)
+		err = mounter.Mount(directory, &pfs.Shard{FileNumber: 0, BlockModulus: 1}, nil, ready)
 		require.NoError(t, err)
 	}()
 	<-ready
@@ -260,7 +280,7 @@ func TestMountBig(t *testing.T) {
 	_, err = os.Stat(filepath.Join(directory, repoName))
 	require.NoError(t, err)
 
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "")
+	commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.Id
@@ -312,7 +332,7 @@ func BenchmarkFuse(b *testing.B) {
 	mounter := fuse.NewMounter("localhost", apiClient)
 	ready := make(chan bool)
 	go func() {
-		err := mounter.Mount(directory, &pfs.Shard{Number: 0, Modulus: 1}, nil, ready)
+		err := mounter.Mount(directory, &pfs.Shard{FileNumber: 0, BlockModulus: 1}, nil, ready)
 		require.NoError(b, err)
 	}()
 	<-ready
@@ -330,7 +350,7 @@ func BenchmarkFuse(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		commit, err := pfsutil.StartCommit(apiClient, repoName, "")
+		commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 		if err != nil {
 			b.Error(err)
 		}
@@ -389,7 +409,8 @@ func checkWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commit
 				fmt.Sprintf("a/b/file%d", i),
 				0,
 				0,
-				&pfs.Shard{Number: 0, Modulus: 1},
+				"",
+				&pfs.Shard{FileNumber: 0, BlockModulus: 1},
 				buffer,
 			)
 			require.NoError(tb, iErr)
@@ -403,7 +424,8 @@ func checkWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commit
 				fmt.Sprintf("a/c/file%d", i),
 				0,
 				0,
-				&pfs.Shard{Number: 0, Modulus: 1},
+				"",
+				&pfs.Shard{FileNumber: 0, BlockModulus: 1},
 				buffer,
 			)
 			require.NoError(tb, iErr)
@@ -416,7 +438,10 @@ func checkWrites(tb testing.TB, apiClient pfs.APIClient, repoName string, commit
 func getPfsClient(tb testing.TB) pfs.APIClient {
 	pfsdAddr := os.Getenv("PFSD_PORT_650_TCP_ADDR")
 	if pfsdAddr == "" {
-		tb.Error("PFSD_PORT_650_TCP_ADDR not set")
+		if !testing.Short() {
+			tb.Error("PFSD_PORT_650_TCP_ADDR not set")
+		}
+		tb.Skip("PFSD_PORT_650_TCP_ADDR not set")
 	}
 	clientConn, err := grpc.Dial(fmt.Sprintf("%s:650", pfsdAddr), grpc.WithInsecure())
 	require.NoError(tb, err)
