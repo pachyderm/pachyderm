@@ -664,6 +664,9 @@ func (d *driver) insertDiffInfo(diffInfo *pfs.DiffInfo) error {
 		return err
 	}
 	if diffInfo.Branch != "" {
+		if _, ok := d.diffs[commit.Repo.Name][diffInfo.Diff.Shard][diffInfo.Branch]; ok {
+			return fmt.Errorf("branch %s conflicts with commit of the same name", diffInfo.Branch)
+		}
 		d.branches[commit.Repo.Name][diffInfo.Branch] = commit.Id
 	}
 	if diffInfo.ParentCommit != nil {
