@@ -6,7 +6,7 @@ go:
   - 1.6
 branches:
   only:
-    - ci_debug
+    - master
 before_install:
   - echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock -s devicemapper"' | sudo tee /etc/default/docker > /dev/null
 before_script:

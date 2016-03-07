@@ -111,13 +111,6 @@ clean-launch:
 
 integration-tests: 
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found pod integrationtests
-	echo "RIGHT BEFORE RUN"
-	kubectl get all
-	docker images
-#	kubectl $(KUBECTLFLAGS) run integrationtests -i --image ubuntu --restart=Never --command -- echo "hai"
-# the above works
-#	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/test --restart=Never --command -- echo "hai"
-#	while true; do kubectl describe pod/integrationtests; kubectl logs integrationtests; sleep 2; done
 	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/test --restart=Never --command -- go test .
 
 proto:
