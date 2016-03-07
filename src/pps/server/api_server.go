@@ -306,11 +306,15 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	pfsAPIClient, err := a.getPfsClient()
 	if request.Pipeline == nil {
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: request.Pipeline cannot be nil")
 	}
 	repoSet := make(map[string]bool)
 	for _, input := range request.Inputs {
+		if _, err := pfsAPIClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: input.Repo}); err != nil {
+			return nil, err
+		}
 		repoSet[input.Repo.Name] = true
 	}
 	if len(repoSet) < len(request.Inputs) {
@@ -327,7 +331,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if _, err := a.persistAPIServer.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
 	}
-	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
 		return nil, err
 	}
