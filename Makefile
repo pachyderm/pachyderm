@@ -110,7 +110,7 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-tests: 
-	kubectl $(KUBECTLFLAGS) delete pod integrationtests
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found pod integrationtests
 	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/test --restart=Never --command -- go test .
 
 proto:
