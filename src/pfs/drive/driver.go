@@ -9,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/dag"
-	"go.pedge.io/lion"
 	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -566,7 +565,6 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		})
 
 		if diffInfo.Finished == nil {
-			lion.Printf("This commit is unfinished! Don't append the data")
 			commit = diffInfo.ParentCommit
 			continue
 		}
