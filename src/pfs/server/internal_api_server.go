@@ -113,11 +113,11 @@ func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfs.StartC
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.StartCommit(request.Repo, request.Id, request.ParentId,
+	if err := a.driver.StartCommit(request.Repo, request.ID, request.ParentID,
 		request.Branch, request.Started, shards); err != nil {
 		return nil, err
 	}
-	if err := a.pulseCommitWaiters(pfsutil.NewCommit(request.Repo.Name, request.Id), pfs.CommitType_COMMIT_TYPE_WRITE, shards); err != nil {
+	if err := a.pulseCommitWaiters(pfsutil.NewCommit(request.Repo.Name, request.ID), pfs.CommitType_COMMIT_TYPE_WRITE, shards); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil

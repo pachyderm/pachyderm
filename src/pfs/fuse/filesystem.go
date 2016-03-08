@@ -86,7 +86,7 @@ func (d *directory) Lookup(ctx context.Context, name string) (result fs.Node, re
 	if d.File.Commit.Repo.Name == "" {
 		return d.lookUpRepo(ctx, name)
 	}
-	if d.File.Commit.Id == "" {
+	if d.File.Commit.ID == "" {
 		return d.lookUpCommit(ctx, name)
 	}
 	return d.lookUpFile(ctx, name)
@@ -103,10 +103,10 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 	if d.File.Commit.Repo.Name == "" {
 		return d.readRepos(ctx)
 	}
-	if d.File.Commit.Id == "" {
+	if d.File.Commit.ID == "" {
 		commitMount := d.fs.getCommitMount(d.File.Commit.Repo.Name)
-		if commitMount != nil && commitMount.Commit.Id != "" {
-			d.File.Commit.Id = commitMount.Commit.Id
+		if commitMount != nil && commitMount.Commit.ID != "" {
+			d.File.Commit.ID = commitMount.Commit.ID
 			d.Shard = commitMount.Shard
 			return d.readFiles(ctx)
 		}
@@ -119,7 +119,7 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 	defer func() {
 		protolion.Debug(&DirectoryCreate{&d.Node, getNode(result), errorToString(retErr)})
 	}()
-	if d.File.Commit.Id == "" {
+	if d.File.Commit.ID == "" {
 		return nil, 0, fuse.EPERM
 	}
 	directory := d.copy()
@@ -141,10 +141,10 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 	defer func() {
 		protolion.Debug(&DirectoryMkdir{&d.Node, getNode(result), errorToString(retErr)})
 	}()
-	if d.File.Commit.Id == "" {
+	if d.File.Commit.ID == "" {
 		return nil, fuse.EPERM
 	}
-	if err := pfsutil.MakeDirectory(d.fs.apiClient, d.File.Commit.Repo.Name, d.File.Commit.Id, path.Join(d.File.Path, request.Name)); err != nil {
+	if err := pfsutil.MakeDirectory(d.fs.apiClient, d.File.Commit.Repo.Name, d.File.Commit.ID, path.Join(d.File.Path, request.Name)); err != nil {
 		return nil, err
 	}
 	localResult := d.copy()
@@ -166,7 +166,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	fileInfo, err := pfsutil.InspectFile(
 		f.fs.apiClient,
 		f.File.Commit.Repo.Name,
-		f.File.Commit.Id,
+		f.File.Commit.ID,
 		f.File.Path,
 		f.fs.getFromCommitID(f.File.Commit.Repo.Name),
 		f.Shard,
@@ -191,7 +191,7 @@ func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fu
 	if err := pfsutil.GetFile(
 		f.fs.apiClient,
 		f.File.Commit.Repo.Name,
-		f.File.Commit.Id,
+		f.File.Commit.ID,
 		f.File.Path,
 		request.Offset,
 		int64(request.Size),
@@ -217,7 +217,7 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 	defer func() {
 		protolion.Debug(&FileWrite{&f.Node, errorToString(retErr)})
 	}()
-	written, err := pfsutil.PutFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.Id, f.File.Path, request.Offset, bytes.NewReader(request.Data))
+	written, err := pfsutil.PutFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.ID, f.File.Path, request.Offset, bytes.NewReader(request.Data))
 	if err != nil {
 		return err
 	}
@@ -254,7 +254,7 @@ func (d *directory) copy() *directory {
 					Repo: &pfs.Repo{
 						Name: d.File.Commit.Repo.Name,
 					},
-					Id: d.File.Commit.Id,
+					ID: d.File.Commit.ID,
 				},
 				Path: d.File.Path,
 			},
@@ -284,7 +284,7 @@ func (f *filesystem) getFromCommitID(nameOrAlias string) string {
 	if commitMount == nil || commitMount.FromCommit == nil {
 		return ""
 	}
-	return commitMount.FromCommit.Id
+	return commitMount.FromCommit.ID
 }
 
 func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error) {
@@ -301,7 +301,7 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 	}
 	result := d.copy()
 	result.File.Commit.Repo.Name = commitMount.Commit.Repo.Name
-	result.File.Commit.Id = commitMount.Commit.Id
+	result.File.Commit.ID = commitMount.Commit.ID
 	result.RepoAlias = commitMount.Alias
 	result.Shard = commitMount.Shard
 	return result, nil
@@ -320,7 +320,7 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 		return nil, fuse.ENOENT
 	}
 	result := d.copy()
-	result.File.Commit.Id = name
+	result.File.Commit.ID = name
 	if commitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_READ {
 		result.Write = false
 	} else {
@@ -334,7 +334,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	fileInfo, err := pfsutil.InspectFile(
 		d.fs.apiClient,
 		d.File.Commit.Repo.Name,
-		d.File.Commit.Id,
+		d.File.Commit.ID,
 		path.Join(d.File.Path, name),
 		d.fs.getFromCommitID(d.File.Commit.Repo.Name),
 		d.Shard,
@@ -386,7 +386,7 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 	}
 	var result []fuse.Dirent
 	for _, commitInfo := range commitInfos {
-		result = append(result, fuse.Dirent{Name: commitInfo.Commit.Id, Type: fuse.DT_Dir})
+		result = append(result, fuse.Dirent{Name: commitInfo.Commit.ID, Type: fuse.DT_Dir})
 	}
 	return result, nil
 }
@@ -395,7 +395,7 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 	fileInfos, err := pfsutil.ListFile(
 		d.fs.apiClient,
 		d.File.Commit.Repo.Name,
-		d.File.Commit.Id,
+		d.File.Commit.ID,
 		d.File.Path,
 		d.fs.getFromCommitID(d.File.Commit.Repo.Name),
 		d.Shard,
@@ -438,5 +438,5 @@ func getNode(node fs.Node) *Node {
 }
 
 func key(file *pfs.File) string {
-	return fmt.Sprintf("%s/%s/%s", file.Commit.Repo.Name, file.Commit.Id, file.Path)
+	return fmt.Sprintf("%s/%s/%s", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 }

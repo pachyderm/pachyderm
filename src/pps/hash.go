@@ -17,7 +17,7 @@ func NewHasher(jobModulus uint64, pipelineModulus uint64) *Hasher {
 }
 
 func (s *Hasher) HashJob(job *Job) uint64 {
-	return uint64(adler32.Checksum([]byte(job.Id))) % s.PipelineModulus
+	return uint64(adler32.Checksum([]byte(job.ID))) % s.PipelineModulus
 }
 
 func (s *Hasher) HashPipeline(pipeline *Pipeline) uint64 {

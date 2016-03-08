@@ -159,7 +159,7 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
-			fmt.Println(commit.Id)
+			fmt.Println(commit.ID)
 			return nil
 		}),
 	}
@@ -427,7 +427,7 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 		commitMount.Commit.Repo.Name = path.Clean(repo)
 		split := strings.Split(commitAlias, ":")
 		if len(split) > 0 {
-			commitMount.Commit.Id = split[0]
+			commitMount.Commit.ID = split[0]
 		}
 		if len(split) > 1 {
 			commitMount.Alias = split[1]
