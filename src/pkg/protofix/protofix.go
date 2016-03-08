@@ -1,30 +1,100 @@
-package main
+package protofix
 
 import(
+        "fmt"
+	"bytes"
+	"strings"
+	"go/printer"
+        "go/parser"
+        "go/token"
+	"go/ast"
+	"io/ioutil"
+	"path/filepath"
 	"os"
-	"fmt"
-
-	protofix "github.com/pachyderm/pachyderm/src/pkg/protofix/lib"
+	"os/exec"
 )
 
-func usage() {
-	fmt.Println("usage: protofix fix <rootdirectory>")
-	fmt.Println("usage: protofix revert <rootdirectory>")
+func FixAllPBGOFilesInDirectory(rootPath string) {
+
+	filepath.Walk(rootPath, func (path string, f os.FileInfo, err error) error {
+		if strings.HasSuffix(f.Name(), ".pb.go") {
+			fmt.Printf("Repairing %v\n", path)
+			repairFile(path)
+		}
+		return nil
+	})
+
 }
 
-func main() {
+func RevertAllPBGOFilesInDirectory(rootPath string) {
 
-	if len(os.Args) < 3 {
-		fmt.Println("Missing root directory")
-		usage()
-		os.Exit(1)
+	filepath.Walk(rootPath, func (path string, f os.FileInfo, err error) error {
+		if f == nil {
+			return nil
+		}
+		if strings.HasSuffix(f.Name(), ".pb.go") {
+			fmt.Printf("Reverting %v\n", path)
+			args := []string{"checkout", path}
+			_, err := exec.Command("git", args... ).Output()
+			if err != nil {
+				fmt.Printf("Error reverting %v : %v\n", path, err)
+				os.Exit(1)
+			}
+		}
+		return nil
+	})
+
+}
+        
+
+func repairedFileBytes(filename string) []byte {
+	fset := token.NewFileSet()
+
+	f, err := parser.ParseFile(fset, filename, nil, parser.ParseComments)
+
+	if err != nil {
+		fmt.Println(err)
+		return nil
 	}
 
-	if os.Args[1] == "fix" {
-		protofix.FixAllPBGOFilesInDirectory(os.Args[2])
-	}
-	if os.Args[1] == "revert" {
-		protofix.RevertAllPBGOFilesInDirectory(os.Args[2])
-	}
+	n := &lukeNodeWalker{}
 
+	ast.Walk(n, f)
+
+	var buf bytes.Buffer
+
+	config := &printer.Config{ Mode: printer.UseSpaces + printer.TabIndent, Tabwidth: 8, Indent: 0}
+	config.Fprint(&buf, fset, f)
+
+	return buf.Bytes()
+}
+
+func repairFile(filename string) {
+	newFileContents := repairedFileBytes(filename)
+	ioutil.WriteFile(filename, newFileContents, 0644)
+}
+
+func repairDeclaration(node ast.Node) {
+	switch node := node.(type) {
+	case *ast.Field:
+		if len(node.Names) > 0 {
+			declName := node.Names[0].Name
+			if strings.HasSuffix(declName, "Id") {
+				normalized := strings.TrimSuffix(declName, "Id")
+				node.Names[0] = ast.NewIdent(fmt.Sprintf("%vID", normalized))
+			}
+		}
+
+//	default:
+//		fmt.Printf("the type is (%T)\n", node)
+	}
+	
+}
+
+type lukeNodeWalker struct {	
+}
+
+func (w *lukeNodeWalker) Visit(node ast.Node) (ast.Visitor) {
+	repairDeclaration(node)
+	return w
 }
