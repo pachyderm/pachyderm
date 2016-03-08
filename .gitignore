@@ -4,6 +4,7 @@
 
 # Build artifacts
 tmp-test-pod.yml
+protofix
 
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
