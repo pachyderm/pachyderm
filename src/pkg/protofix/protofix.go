@@ -2,6 +2,8 @@ package protofix
 
 import(
         "fmt"
+	"bytes"
+	"go/printer"
         "go/parser"
         "go/token"
 )
@@ -22,8 +24,15 @@ func repairFile(filename string) {
 		return
 	}
 
+	fmt.Printf("file stuff: %v\n", f)
+
 	for _, s := range f.Imports {
 		fmt.Println(s.Path.Value)
 	}
+
+	var buf bytes.Buffer
+	printer.Fprint(&buf, fset, f)
+
+	fmt.Printf("new file:\n%v\n", buf.String())
 	
 }
