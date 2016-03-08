@@ -57,7 +57,7 @@ func repairedFileBytes(filename string) []byte {
 		return nil
 	}
 
-	n := &lukeNodeWalker{}
+	n := &walker{}
 
 	ast.Walk(n, f)
 
@@ -84,17 +84,14 @@ func repairDeclaration(node ast.Node) {
 				node.Names[0] = ast.NewIdent(fmt.Sprintf("%vID", normalized))
 			}
 		}
-
-//	default:
-//		fmt.Printf("the type is (%T)\n", node)
 	}
 	
 }
 
-type lukeNodeWalker struct {	
+type walker struct {	
 }
 
-func (w *lukeNodeWalker) Visit(node ast.Node) (ast.Visitor) {
+func (w *walker) Visit(node ast.Node) (ast.Visitor) {
 	repairDeclaration(node)
 	return w
 }
