@@ -117,17 +117,17 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	if err != nil {
 		return nil, err
 	}
-	if request.Id != "" {
-		return nil, fmt.Errorf("request.Id should be empty")
+	if request.ID != "" {
+		return nil, fmt.Errorf("request.ID should be empty")
 	}
-	request.Id = uuid.NewWithoutDashes()
+	request.ID = uuid.NewWithoutDashes()
 	request.Started = prototime.TimeToTimestamp(time.Now())
 	for _, clientConn := range clientConns {
 		if _, err := pfs.NewInternalAPIClient(clientConn).StartCommit(ctx, request); err != nil {
 			return nil, err
 		}
 	}
-	return pfsutil.NewCommit(request.Repo.Name, request.Id), nil
+	return pfsutil.NewCommit(request.Repo.Name, request.ID), nil
 }
 
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *google_protobuf.Empty, retErr error) {
