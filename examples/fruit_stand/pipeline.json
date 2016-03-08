@@ -1,13 +1,13 @@
 {
   "pipeline": {
-    "name": "split"
+    "name": "filter"
   },
   "transform": {
     "cmd": [ "sh" ],
     "stdin": [
-        "grep -r apple /pfs/data >/pfs/out/apple",
-        "grep -r banana /pfs/data >/pfs/out/banana",
-        "grep -r orange /pfs/data >/pfs/out/orange"
+        "grep apple  /pfs/data >/pfs/out/apple",
+        "grep banana /pfs/data >/pfs/out/banana",
+        "grep orange /pfs/data >/pfs/out/orange"
     ]
   },
   "shards": "1",
@@ -35,7 +35,7 @@
   "inputs": [
     {
       "repo": {
-        "name": "split"
+        "name": "filter"
       },
 	  "reduce": true
     }
