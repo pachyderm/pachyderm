@@ -22,7 +22,7 @@ import (
 
 const (
 	port   = 30651
-	shards = 1
+	shards = 32
 )
 
 func TestSimple(t *testing.T) {

@@ -663,13 +663,13 @@ func (d *driver) canonicalCommit(commit *pfs.Commit) (*pfs.Commit, error) {
 
 func (d *driver) insertDiffInfo(diffInfo *pfs.DiffInfo) error {
 	commit := diffInfo.Diff.Commit
+	if err := d.diffs.insert(diffInfo); err != nil {
+		return err
+	}
 	for _, commitToDiffInfo := range d.diffs[commit.Repo.Name] {
 		if _, ok := commitToDiffInfo[diffInfo.Diff.Commit.Id]; ok {
 			return nil // we've already seen this diff, nothing to do
 		}
-	}
-	if err := d.diffs.insert(diffInfo); err != nil {
-		return err
 	}
 	if diffInfo.Branch != "" {
 		if _, ok := d.diffs[commit.Repo.Name][diffInfo.Diff.Shard][diffInfo.Branch]; ok {
