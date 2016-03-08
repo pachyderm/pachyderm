@@ -50,7 +50,7 @@ func RevertAllPBGOFilesInDirectory(rootPath string) {
 func repairedFileBytes(filename string) []byte {
 	fset := token.NewFileSet()
 
-	f, err := parser.ParseFile(fset, filename, nil, parser.DeclarationErrors)
+	f, err := parser.ParseFile(fset, filename, nil, parser.ParseComments)
 
 	if err != nil {
 		fmt.Println(err)
@@ -62,7 +62,9 @@ func repairedFileBytes(filename string) []byte {
 	ast.Walk(n, f)
 
 	var buf bytes.Buffer
-	printer.Fprint(&buf, fset, f)
+
+	config := &printer.Config{ Mode: printer.UseSpaces + printer.TabIndent, Tabwidth: 8, Indent: 0}
+	config.Fprint(&buf, fset, f)
 
 	return buf.Bytes()
 }
