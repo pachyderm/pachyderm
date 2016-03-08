@@ -70,7 +70,11 @@ docker-build-job-shim: docker-build-compile
 docker-build-pachd: docker-build-compile
 	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd
 
+docker-build-hyperkube:
+	docker build -t privileged_hyperkube etc/kube
+
 docker-build: docker-build-test docker-build-job-shim docker-build-pachd
+
 
 docker-push-test: docker-build-test
 	docker push pachyderm/test
@@ -83,7 +87,7 @@ docker-push-pachd: docker-build-pachd
 
 docker-push: docker-push-job-shim docker-push-pachd
 
-launch-kube:
+launch-kube: docker-build-hyperkube
 	etc/kube/start-kube-docker.sh
 
 clean-launch-kube:
@@ -131,7 +135,7 @@ pretest:
 		done
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest docker-build-pachd clean-launch launch integration-tests
+test: pretest docker-build clean-launch launch integration-tests
 
 localtest: 
 	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./... | grep -v '/vendor/')
