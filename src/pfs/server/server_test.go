@@ -87,6 +87,40 @@ func TestBranch(t *testing.T) {
 	require.Equal(t, "master", branches[0].Branch)
 }
 
+func TestDisallowReadsDuringCommit(t *testing.T) {
+	t.Parallel()
+	pfsClient := getPfsClient(t)
+	repo := uniqueString("TestDisallowReadsDuringCommit")
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	commit1, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, err)
+	_, err = pfsutil.PutFile(pfsClient, repo, commit1.Id, "foo", 0, strings.NewReader("foo\n"))
+	require.NoError(t, err)
+
+	// Make sure we can't get the file before the commit is finished
+	var readBuffer bytes.Buffer
+	require.ErrorExpected(t, pfsutil.GetFile(pfsClient, repo, commit1.Id, "foo", 0, 0, "", nil, &readBuffer))
+	require.Equal(t, "", readBuffer.String())
+
+	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit1.Id))
+	var buffer bytes.Buffer
+	require.NoError(t, pfsutil.GetFile(pfsClient, repo, commit1.Id, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	commit2, err := pfsutil.StartCommit(pfsClient, repo, commit1.Id, "")
+	require.NoError(t, err)
+	_, err = pfsutil.PutFile(pfsClient, repo, commit2.Id, "foo", 0, strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = pfsutil.FinishCommit(pfsClient, repo, commit2.Id)
+	require.NoError(t, err)
+	buffer = bytes.Buffer{}
+	require.NoError(t, pfsutil.GetFile(pfsClient, repo, commit1.Id, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.NoError(t, pfsutil.GetFile(pfsClient, repo, commit2.Id, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\nfoo\n", buffer.String())
+}
+
+
 var client pfs.APIClient
 var clientOnce sync.Once
 
