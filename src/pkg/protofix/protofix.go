@@ -1,65 +1,23 @@
-package protofix
+package main
 
 import(
-        "fmt"
-	"bytes"
-	"strings"
-	"go/printer"
-        "go/parser"
-        "go/token"
-	"go/ast"
-	"io/ioutil"
+	"os"
+	"fmt"
+
+	"github.com/pachyderm/pachyderm/src/pkg/protofix/protofix"
 )
 
-func FixAllPBGOFilesInDirectory() {
-}
-        
-func gatherFiles() {
+func usage() {
+	fmt.Println("usage: protofix <rootdirectory>")
 }
 
-func repairedFileBytes(filename string) []byte {
-	fset := token.NewFileSet()
+func main() {
 
-	f, err := parser.ParseFile(fset, filename, nil, parser.DeclarationErrors)
-
-	if err != nil {
-		fmt.Println(err)
-		return nil
+	if len(os.Args) < 2 {
+		fmt.Println("Missing root directory")
+		usage()
+		os.Exit(1)
 	}
 
-	n := &lukeNodeWalker{}
-
-	ast.Walk(n, f)
-
-	var buf bytes.Buffer
-	printer.Fprint(&buf, fset, f)
-
-	return buf.Bytes()
-}
-
-func repairFile(filename string) {
-	newFileContents := repairedFileBytes(filename)
-	ioutil.WriteFile(filename, newFileContents, 0644)
-}
-
-func repairDeclaration(node ast.Node) {
-	switch node := node.(type) {
-	case *ast.Field:
-		declName := node.Names[0].Name
-		if strings.HasSuffix(declName, "Id") {
-			normalized := strings.TrimSuffix(declName, "Id")
-			node.Names[0] = ast.NewIdent(fmt.Sprintf("%vID", normalized))
-		}
-//	default:
-//		fmt.Printf("the type is (%T)\n", node)
-	}
-	
-}
-
-type lukeNodeWalker struct {	
-}
-
-func (w *lukeNodeWalker) Visit(node ast.Node) (ast.Visitor) {
-	repairDeclaration(node)
-	return w
+	protofix.FixAllPBGOFilesInDirectory(os.Args[1])
 }
