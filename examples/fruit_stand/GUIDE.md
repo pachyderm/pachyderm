@@ -261,12 +261,11 @@ JOB                                CONTAINER(S)   IMAGE(S)             SELECTOR 
 09a7eb68995c43979cba2b0d29432073   user           pachyderm/job-shim   app in (09a7eb68995c43979cba2b0d29432073),suite in (pachyderm)   1
 ```
 
-## Reading the Output
+Every `pipeline` creates a corresponding `repo` with the same
+name where it stores its output results. In our example, the "filter" transformation created a `repo` called "filter" which was the input to the "sum" transformation. The "sum" `repo` contains the final output files.
 
-Every `pipeline` outputs its results to a corresponding `repo` with the same
-name. In our example, the "sum" pipeline created a repo "sum" where it stored
-the output files. You can read the output data the same way that we read the input
-data:
+## Reading the Output
+ We can read the output data from the "sum" `repo` in the same fashion that we read the input data:
 
 ```shell
 $ cat /pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
@@ -305,4 +304,15 @@ $ pachctl finish-commit data fab8c59c786842ccaf20589e15606604
 ```
 Finishing this commit will also automatically trigger the pipeline to run on
 the new data we've added. We'll see a corresponding commit to the output
-"sum" repo with files "apple", "orange" and "banana" each containing the cumulative total of purchases.
+"sum" repo with files "apple", "orange" and "banana" each containing the cumulative total of purchases. Let's read the "apples" file again and see the new total number of apples sold. 
+
+```shell
+$ cat /pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
+```
+
+## Next Steps
+You've now got a working Pachyderm cluster with data and a pipelines! You can continue to generate more data and commits and the Fruit Stand pipeline with automcatically run to completion. Here are a few ideas for next steps that you can expand on your working setup. 
+
+- Add a new pipeline that does something interesting with the "sum" repo as an input.
+- Add your own data set and `grep` for different terms.
+
