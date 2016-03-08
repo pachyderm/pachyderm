@@ -1,5 +1,4 @@
 sudo: required
-dist: precise
 services:
   - docker
 language: go
@@ -7,11 +6,15 @@ go:
   - 1.6
 branches:
   only:
-    - ci_debug
+    - master
+before_install:
+  - echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock -s devicemapper"' | sudo tee /etc/default/docker > /dev/null
 before_script:
-  - wget https://storage.googleapis.com/kubernetes-release/release/v1.0.1/bin/linux/amd64/kubectl
+  - wget https://storage.googleapis.com/kubernetes-release/release/v1.1.7/bin/linux/amd64/kubectl
   - chmod +x kubectl
   - sudo mv kubectl /usr/local/bin/
+  - make launch-kube
+  - kubectl get all
   - docker version
 script:
   - make test
