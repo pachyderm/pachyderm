@@ -13,7 +13,6 @@ func TestSimple(t *testing.T) {
 	
 	if !bytes.Equal(r, expected) {
 		t.Errorf("Protobuf go code not being normalized properly.\n======== Expected:\n%v\n======== Got:\n%v\n", string(expected), string(r))
-		t.Fail()
 	}
 	
 }
