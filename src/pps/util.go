@@ -7,7 +7,7 @@ import (
 )
 
 func JobRepo(job *Job) *pfs.Repo {
-	return &pfs.Repo{Name: fmt.Sprintf("job-%s", job.Id)}
+	return &pfs.Repo{Name: fmt.Sprintf("job-%s", job.ID)}
 }
 
 func PipelineRepo(pipeline *Pipeline) *pfs.Repo {

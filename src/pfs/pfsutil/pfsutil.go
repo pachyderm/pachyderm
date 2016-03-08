@@ -22,7 +22,7 @@ func NewRepo(repoName string) *pfs.Repo {
 func NewCommit(repoName string, commitID string) *pfs.Commit {
 	return &pfs.Commit{
 		Repo: NewRepo(repoName),
-		Id:   commitID,
+		ID:   commitID,
 	}
 }
 
@@ -88,7 +88,7 @@ func StartCommit(apiClient pfs.APIClient, repoName string, parentCommit string, 
 		context.Background(),
 		&pfs.StartCommitRequest{
 			Repo:     NewRepo(repoName),
-			ParentId: parentCommit,
+			ParentID: parentCommit,
 			Branch:   branch,
 		},
 	)

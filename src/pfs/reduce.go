@@ -27,9 +27,9 @@ func ReduceRepoInfos(repoInfos []*RepoInfo) []*RepoInfo {
 func ReduceCommitInfos(commitInfos []*CommitInfo) []*CommitInfo {
 	reducedCommitInfos := make(map[string]*CommitInfo)
 	for _, commitInfo := range commitInfos {
-		reducedCommitInfo, ok := reducedCommitInfos[commitInfo.Commit.Id]
+		reducedCommitInfo, ok := reducedCommitInfos[commitInfo.Commit.ID]
 		if !ok {
-			reducedCommitInfos[commitInfo.Commit.Id] = commitInfo
+			reducedCommitInfos[commitInfo.Commit.ID] = commitInfo
 			continue
 		}
 		if commitInfo.CommitType == CommitType_COMMIT_TYPE_WRITE {

@@ -98,7 +98,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	defer func() {
 		if retErr != nil {
 			if _, err := a.persistAPIServer.CreateJobState(ctx, &persist.JobState{
-				JobId: persistJobInfo.JobId,
+				JobID: persistJobInfo.JobID,
 				State: pps.JobState_JOB_STATE_FAILURE,
 			}); err != nil {
 				protolion.Errorf("error from CreateJobState %s", err.Error())
@@ -109,7 +109,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		return nil, err
 	}
 	return &pps.Job{
-		Id: persistJobInfo.JobId,
+		ID: persistJobInfo.JobID,
 	}, nil
 }
 
@@ -152,10 +152,10 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 		return nil, fmt.Errorf("jobInfo.Transform should not be nil (this is likely a bug)")
 	}
 	a.jobStatesLock.Lock()
-	jobState, ok := a.jobStates[request.Job.Id]
+	jobState, ok := a.jobStates[request.Job.ID]
 	if !ok {
 		jobState = newJobState()
-		a.jobStates[request.Job.Id] = jobState
+		a.jobStates[request.Job.ID] = jobState
 	}
 	shard := jobState.start
 	if jobState.start < jobInfo.Shards {
@@ -163,7 +163,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	}
 	a.jobStatesLock.Unlock()
 	if shard == jobInfo.Shards {
-		return nil, fmt.Errorf("job %s already has %d shards", request.Job.Id, jobInfo.Shards)
+		return nil, fmt.Errorf("job %s already has %d shards", request.Job.ID, jobInfo.Shards)
 	}
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
@@ -202,7 +202,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 			}
 		} else {
 			startCommitRequest.Repo = parentJobInfo.OutputCommit.Repo
-			startCommitRequest.ParentId = parentJobInfo.OutputCommit.Id
+			startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 		}
 		commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 		if err != nil {
@@ -211,7 +211,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 		if _, err := a.persistAPIServer.CreateJobOutput(
 			ctx,
 			&persist.JobOutput{
-				JobId:        request.Job.Id,
+				JobID:        request.Job.ID,
 				OutputCommit: commit,
 			}); err != nil {
 			return nil, err
@@ -267,9 +267,9 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 	if err := func() error {
 		a.jobStatesLock.Lock()
 		defer a.jobStatesLock.Unlock()
-		jobState, ok := a.jobStates[request.Job.Id]
+		jobState, ok := a.jobStates[request.Job.ID]
 		if !ok {
-			return fmt.Errorf("job %s was never started", request.Job.Id)
+			return fmt.Errorf("job %s was never started", request.Job.ID)
 		}
 		jobState.success = jobState.success && request.Success
 		if jobState.success {
@@ -295,7 +295,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 			return nil, err
 		}
 		if _, err := a.persistAPIServer.CreateJobState(ctx, &persist.JobState{
-			JobId: request.Job.Id,
+			JobID: request.Job.ID,
 			State: persistJobState,
 		}); err != nil {
 			return nil, err
@@ -453,7 +453,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 					fromCommits,
 					&pfs.Commit{
 						Repo: &pfs.Repo{Name: repo},
-						Id:   leaf,
+						ID:   leaf,
 					})
 			}
 		}
@@ -468,9 +468,9 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 			return err
 		}
 		for _, commitInfo := range commitInfos.CommitInfo {
-			repoToLeaves[commitInfo.Commit.Repo.Name][commitInfo.Commit.Id] = true
+			repoToLeaves[commitInfo.Commit.Repo.Name][commitInfo.Commit.ID] = true
 			if commitInfo.ParentCommit != nil {
-				delete(repoToLeaves[commitInfo.ParentCommit.Repo.Name], commitInfo.ParentCommit.Id)
+				delete(repoToLeaves[commitInfo.ParentCommit.Repo.Name], commitInfo.ParentCommit.ID)
 			}
 			// generate all the permutations of leaves we could use this commit with
 			commitSets := [][]*pfs.Commit{[]*pfs.Commit{}}
@@ -485,7 +485,7 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 						copy(newCommitSet, commitSet)
 						newCommitSet[len(commitSet)] = &pfs.Commit{
 							Repo: &pfs.Repo{Name: repoName},
-							Id:   leaf,
+							ID:   leaf,
 						}
 						newCommitSets = append(newCommitSets, newCommitSet)
 					}
@@ -567,7 +567,7 @@ func (a *apiServer) getPfsClient() (pfs.APIClient, error) {
 }
 
 func newJobInfo(persistJobInfo *persist.JobInfo) (*pps.JobInfo, error) {
-	job := &pps.Job{Id: persistJobInfo.JobId}
+	job := &pps.Job{ID: persistJobInfo.JobID}
 	return &pps.JobInfo{
 		Job:          job,
 		Transform:    persistJobInfo.Transform,
@@ -582,7 +582,7 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*pps.JobInfo, error) {
 }
 
 func job(jobInfo *persist.JobInfo) *extensions.Job {
-	app := jobInfo.JobId
+	app := jobInfo.JobID
 	shards := int(jobInfo.Shards)
 	image := "pachyderm/job-shim"
 	if jobInfo.Transform.Image != "" {
@@ -594,7 +594,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   jobInfo.JobId,
+			Name:   jobInfo.JobID,
 			Labels: labels(app),
 		},
 		Spec: extensions.JobSpec{
@@ -605,7 +605,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 			Completions: &shards,
 			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name:   jobInfo.JobId,
+					Name:   jobInfo.JobID,
 					Labels: labels(app),
 				},
 				Spec: api.PodSpec{
@@ -613,7 +613,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 						{
 							Name:    "user",
 							Image:   image,
-							Command: []string{"/job-shim", jobInfo.JobId},
+							Command: []string{"/job-shim", jobInfo.JobID},
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},

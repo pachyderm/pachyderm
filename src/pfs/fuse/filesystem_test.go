@@ -303,19 +303,19 @@ func TestRepoReadDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartCommit: %v", err)
 	}
-	if err := pfsutil.FinishCommit(apiClient, repoName, commitA.Id); err != nil {
+	if err := pfsutil.FinishCommit(apiClient, repoName, commitA.ID); err != nil {
 		t.Fatalf("FinishCommit: %v", err)
 	}
-	t.Logf("finished commit %v", commitA.Id)
+	t.Logf("finished commit %v", commitA.ID)
 
 	commitB, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	if err != nil {
 		t.Fatalf("StartCommit: %v", err)
 	}
-	t.Logf("open commit %v", commitB.Id)
+	t.Logf("open commit %v", commitB.ID)
 
 	if err := fstestutil.CheckDir(filepath.Join(mountpoint, repoName), map[string]fstestutil.FileInfoCheck{
-		commitA.Id: func(fi os.FileInfo) error {
+		commitA.ID: func(fi os.FileInfo) error {
 			if g, e := fi.Mode(), os.ModeDir|0555; g != e {
 				return fmt.Errorf("wrong mode: %v != %v", g, e)
 			}
@@ -330,7 +330,7 @@ func TestRepoReadDir(t *testing.T) {
 			// }
 			return nil
 		},
-		commitB.Id: func(fi os.FileInfo) error {
+		commitB.ID: func(fi os.FileInfo) error {
 			if g, e := fi.Mode(), os.ModeDir|0775; g != e {
 				return fmt.Errorf("wrong mode: %v != %v", g, e)
 			}
@@ -476,14 +476,14 @@ func TestCommitOpenReadDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartCommit: %v", err)
 	}
-	t.Logf("open commit %v", commit.Id)
+	t.Logf("open commit %v", commit.ID)
 
 	const (
 		greetingName = "greeting"
 		greeting     = "Hello, world\n"
 		greetingPerm = 0644
 	)
-	if err := ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.Id, greetingName), []byte(greeting), greetingPerm); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, greetingName), []byte(greeting), greetingPerm); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
 	const (
@@ -491,11 +491,11 @@ func TestCommitOpenReadDir(t *testing.T) {
 		script     = "#!/bin/sh\necho foo\n"
 		scriptPerm = 0750
 	)
-	if err := ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.Id, scriptName), []byte(script), scriptPerm); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, scriptName), []byte(script), scriptPerm); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	if err := fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.Id), map[string]fstestutil.FileInfoCheck{
+	if err := fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), map[string]fstestutil.FileInfoCheck{
 		greetingName: func(fi os.FileInfo) error {
 			// TODO respect greetingPerm
 			if g, e := fi.Mode(), os.FileMode(0666); g != e {
@@ -655,14 +655,14 @@ func TestCommitFinishedReadDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartCommit: %v", err)
 	}
-	t.Logf("open commit %v", commit.Id)
+	t.Logf("open commit %v", commit.ID)
 
 	const (
 		greetingName = "greeting"
 		greeting     = "Hello, world\n"
 		greetingPerm = 0644
 	)
-	if err := ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.Id, greetingName), []byte(greeting), greetingPerm); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, greetingName), []byte(greeting), greetingPerm); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
 	const (
@@ -670,15 +670,15 @@ func TestCommitFinishedReadDir(t *testing.T) {
 		script     = "#!/bin/sh\necho foo\n"
 		scriptPerm = 0750
 	)
-	if err := ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.Id, scriptName), []byte(script), scriptPerm); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(mountpoint, repoName, commit.ID, scriptName), []byte(script), scriptPerm); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	if err := pfsutil.FinishCommit(apiClient, repoName, commit.Id); err != nil {
+	if err := pfsutil.FinishCommit(apiClient, repoName, commit.ID); err != nil {
 		t.Fatalf("FinishCommit: %v", err)
 	}
 
-	if err := fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.Id), map[string]fstestutil.FileInfoCheck{
+	if err := fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), map[string]fstestutil.FileInfoCheck{
 		greetingName: func(fi os.FileInfo) error {
 			// TODO respect greetingPerm
 			if g, e := fi.Mode(), os.FileMode(0666); g != e {
@@ -842,7 +842,7 @@ func TestWriteAndRead(t *testing.T) {
 	const (
 		greeting = "Hello, world\n"
 	)
-	filePath := filepath.Join(mountpoint, repoName, commit.Id, "greeting")
+	filePath := filepath.Join(mountpoint, repoName, commit.ID, "greeting")
 
 	if err := ioutil.WriteFile(filePath, []byte(greeting), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
