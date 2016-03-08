@@ -225,9 +225,9 @@ Here's what it looks like:
 }
 ```
 
-In this `pipeline`, we are grepping for the terms "apple", "orange", and
+In the first step of this `pipeline`, we are grepping for the terms "apple", "orange", and
 "banana" and writing that line to the corresponding file. Notice we read data
-from `/pfs/data` and write data to `/pfs/out/`. In this example, the output of our complete
+from `/pfs/data` (/pfs/[input_repo_name]) and write data to `/pfs/out/`. The second step of this pipeline takes each file, removes the fruit name, and sums up the purchases. The output of our complete
 pipeline is three files, one for each type of fruit with a single number showing the total quantity sold. 
 
 Now let's create the pipeline in Pachyderm:
@@ -309,10 +309,14 @@ the new data we've added. We'll see a corresponding commit to the output
 ```shell
 $ cat /pfs/sum/2b43def9b52b4fdfadd95a70215e90c9/apple
 ```
+One thing that's interesting to note is that the first step in our pipeline is completely incremental. Since `grep` is a command that is completely parallelizable (i.e. it's a `map`), Pachyderm will only `grep` the new data from set2.txt. If you look back at the pipeline, you'll notice that there is a `"reduce": true` flag for "sum", which is an aggregation and is not done incrementally. Although many reduce operations could be computed incrementally, including sum, Pachyderm makes the safe choice to not do it by default. 
 
 ## Next Steps
 You've now got a working Pachyderm cluster with data and a pipelines! You can continue to generate more data and commits and the Fruit Stand pipeline with automcatically run to completion. Here are a few ideas for next steps that you can expand on your working setup. 
 
 - Add a new pipeline that does something interesting with the "sum" repo as an input.
-- Add your own data set and `grep` for different terms.
+- Add your own data set and `grep` for different terms. This example can be generalized to generic word count. 
+- If you're really feeling ambitious, you can create a much more complex pipeline that takes in any generic text and does some simple NLP on it. 
+
+We'd love to help and see what you come up with so submit any issues/questions you come across or email at info@pachyderm.io if you want to show off anything nifty you've created! 
 
