@@ -168,12 +168,12 @@ finished.
 Now that we've got some data in our `repo` it's time to do something with it.
 Pipelines are the core primitive for Pachyderm's processing system (pps) and
 they're specified with a JSON encoding. We're going to create a pipeline with 2
-transformations in it. The first transformation sorts the sales logs into separate records for apples,
+transformations in it. The first transformation filters the sales logs into separate records for apples,
 oranges and bananas using `grep`. The second one uses `awk` to sum these sales numbers into a final sales count.
 
 ```
 +----------+     +------------+     +------------+
-|input data| --> |sort pipline| --> |sum pipeline|
+|input data| --> |filter pipline| --> |sum pipeline|
 +----------+     +------------+     +------------+
 ```
 
@@ -182,14 +182,14 @@ Here's what it looks like:
 ```json
 {
   "pipeline": {
-    "name": "sort"
+    "name": "filter"
   },
   "transform": {
     "cmd": [ "sh" ],
     "stdin": [
-        "grep -r apple /pfs/data >/pfs/out/apple",
-        "grep -r banana /pfs/data >/pfs/out/banana",
-        "grep -r orange /pfs/data >/pfs/out/orange"
+        "grep apple  /pfs/data/sales >/pfs/out/apple",
+        "grep banana /pfs/data/sales >/pfs/out/banana",
+        "grep orange /pfs/data/sales >/pfs/out/orange"
     ]
   },
   "shards": "1",
@@ -208,16 +208,16 @@ Here's what it looks like:
   "transform": {
     "cmd": [ "sh" ],
     "stdin": [
-        "cut -f 2 /pfs/split/apple | awk '{s+=$1} END {print s}' >/pfs/out/apple",
-        "cut -f 2 /pfs/split/banana | awk '{s+=$1} END {print s}' >/pfs/out/banana",
-        "cut -f 2 /pfs/split/orange | awk '{s+=$1} END {print s}' >/pfs/out/orange"
+        "cut -f 2 /pfs/filter/apple | awk '{s+=$1} END {print s}' >/pfs/out/apple",
+        "cut -f 2 /pfs/filter/banana | awk '{s+=$1} END {print s}' >/pfs/out/banana",
+        "cut -f 2 /pfs/filter/orange | awk '{s+=$1} END {print s}' >/pfs/out/orange"
     ]
   },
   "shards": "1",
   "inputs": [
     {
       "repo": {
-        "name": "sort"
+        "name": "filter"
       },
 	  "reduce": true
     }
@@ -247,7 +247,7 @@ You can view the job with:
 ```shell
 $ pachctl list-job
 ID                                 OUTPUT                                  STATE
-09a7eb68995c43979cba2b0d29432073   split/2b43def9b52b4fdfadd95a70215e90c9   JOB_STATE_RUNNING
+09a7eb68995c43979cba2b0d29432073   filter/2b43def9b52b4fdfadd95a70215e90c9   JOB_STATE_RUNNING
 ```
 
 Depending on how quickly you do the above, you may see `JOB_STATE_RUNNING` or
@@ -305,4 +305,4 @@ $ pachctl finish-commit data fab8c59c786842ccaf20589e15606604
 ```
 Finishing this commit will also automatically trigger the pipeline to run on
 the new data we've added. We'll see a corresponding commit to the output
-"sum" repo with files "apple", "orange" and "banana" each containing the cumulative total of pruchases.
+"sum" repo with files "apple", "orange" and "banana" each containing the cumulative total of purchases.
