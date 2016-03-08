@@ -1,5 +1,6 @@
 # For emacs partials
 *~
+*#*
 
 # Build artifacts
 tmp-test-pod.yml
