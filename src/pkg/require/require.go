@@ -39,7 +39,7 @@ func NoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	}
 }
 
-func ErrorExpected(tb testing.TB, err error, msgAndArgs ...interface{}) {
+func YesError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	if err == nil {
 		fatal(tb, msgAndArgs, "Error is expected but got %v", err)
 	}
