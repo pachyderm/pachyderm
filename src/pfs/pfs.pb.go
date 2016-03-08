@@ -136,7 +136,7 @@ func (*Repo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
 type Commit struct {
 	Repo *Repo  `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
-	Id   string `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
+	ID   string `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
 }
 
 func (m *Commit) Reset()                    { *m = Commit{} }
@@ -605,8 +605,8 @@ func (m *DeleteRepoRequest) GetRepo() *Repo {
 
 type StartCommitRequest struct {
 	Repo     *Repo                       `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
-	Id       string                      `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
-	ParentId string                      `protobuf:"bytes,3,opt,name=parent_id,json=parentId" json:"parent_id,omitempty"`
+	ID       string                      `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
+	ParentID string                      `protobuf:"bytes,3,opt,name=parent_id,json=parentId" json:"parent_id,omitempty"`
 	Branch   string                      `protobuf:"bytes,4,opt,name=branch" json:"branch,omitempty"`
 	Started  *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=started" json:"started,omitempty"`
 }

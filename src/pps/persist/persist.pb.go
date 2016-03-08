@@ -41,7 +41,7 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion1
 
 type JobInfo struct {
-	JobId        string                      `protobuf:"bytes,1,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
+	JobID        string                      `protobuf:"bytes,1,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
 	Transform    *pachyderm_pps.Transform    `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
 	PipelineName string                      `protobuf:"bytes,3,opt,name=pipeline_name,json=pipelineName" json:"pipeline_name,omitempty"`
 	Shards       uint64                      `protobuf:"varint,4,opt,name=shards" json:"shards,omitempty"`
@@ -110,7 +110,7 @@ func (m *JobInfos) GetJobInfo() []*JobInfo {
 }
 
 type JobOutput struct {
-	JobId        string      `protobuf:"bytes,1,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
+	JobID        string      `protobuf:"bytes,1,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
 	OutputCommit *pfs.Commit `protobuf:"bytes,2,opt,name=output_commit,json=outputCommit" json:"output_commit,omitempty"`
 }
 
@@ -127,7 +127,7 @@ func (m *JobOutput) GetOutputCommit() *pfs.Commit {
 }
 
 type JobState struct {
-	JobId string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
+	JobID string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId" json:"job_id,omitempty"`
 	State pachyderm_pps.JobState `protobuf:"varint,2,opt,name=state,enum=pachyderm.pps.JobState" json:"state,omitempty"`
 }
 
