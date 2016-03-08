@@ -3,10 +3,12 @@ package protofix
 import(
         "fmt"
 	"bytes"
+	"strings"
 	"go/printer"
         "go/parser"
         "go/token"
 	"go/ast"
+	"io/ioutil"
 )
 
 func FixAllPBGOFilesInDirectory() {
@@ -15,20 +17,14 @@ func FixAllPBGOFilesInDirectory() {
 func gatherFiles() {
 }
 
-func repairFile(filename string) {
+func repairedFileBytes(filename string) []byte {
 	fset := token.NewFileSet()
 
 	f, err := parser.ParseFile(fset, filename, nil, parser.DeclarationErrors)
 
 	if err != nil {
 		fmt.Println(err)
-		return
-	}
-
-	fmt.Printf("file stuff: %v\n", f)
-
-	for _, s := range f.Imports {
-		fmt.Println(s.Path.Value)
+		return nil
 	}
 
 	n := &lukeNodeWalker{}
@@ -37,20 +33,25 @@ func repairFile(filename string) {
 
 	var buf bytes.Buffer
 	printer.Fprint(&buf, fset, f)
-	fmt.Printf("new file:\n%v\n", buf.String())
-	
+
+	return buf.Bytes()
+}
+
+func repairFile(filename string) {
+	newFileContents := repairedFileBytes(filename)
+	ioutil.WriteFile(filename, newFileContents, 0644)
 }
 
 func repairDeclaration(node ast.Node) {
 	switch node := node.(type) {
-	case *ast.DeclStmt:
-		fmt.Printf("Found declaration: %v\n", node)
 	case *ast.Field:
-		fmt.Printf("Found field (%v)\n", node)
-		fmt.Printf("names: %v\n", node.Names)
-		node.Names[0] = ast.NewIdent(fmt.Sprintf("%vOMG", node.Names[0]))
-	default:
-		fmt.Printf("the type is (%T)\n", node)
+		declName := node.Names[0].Name
+		if strings.HasSuffix(declName, "Id") {
+			normalized := strings.TrimSuffix(declName, "Id")
+			node.Names[0] = ast.NewIdent(fmt.Sprintf("%vID", normalized))
+		}
+//	default:
+//		fmt.Printf("the type is (%T)\n", node)
 	}
 	
 }
@@ -59,7 +60,6 @@ type lukeNodeWalker struct {
 }
 
 func (w *lukeNodeWalker) Visit(node ast.Node) (ast.Visitor) {
-	fmt.Printf("walking over node: %v\n", node)
 	repairDeclaration(node)
 	return w
 }
