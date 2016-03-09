@@ -4,6 +4,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/pachyderm/pachyderm/src/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"go.pedge.io/lion/proto"
 )
 
@@ -33,9 +36,29 @@ func AddPipelines(num int64) {
 	atomic.AddInt64(&metrics.Pipelines, num)
 }
 
-func ReportMetrics() {
+func ReportMetrics(client obj.Client) {
 	for {
 		protolion.Info(metrics)
+		if err := reportObj(client); err != nil {
+			protolion.Errorf("Error writing to object store: %s", err.Error())
+		}
 		<-time.After(15 * time.Second)
 	}
+}
+
+func reportObj(client obj.Client) (retErr error) {
+	marshaller := &jsonpb.Marshaler{Indent: "  "}
+	writer, err := client.Writer(uuid.NewWithoutDashes())
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := writer.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	if err := marshaller.Marshal(writer, metrics); err != nil {
+		return err
+	}
+	return nil
 }

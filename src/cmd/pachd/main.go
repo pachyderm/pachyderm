@@ -38,6 +38,7 @@ type appEnv struct {
 	KubeAddress     string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	EtcdAddress     string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
 	Namespace       string `env:"NAMESPACE,default=default"`
+	Metrics         uint16 `env:"METRICS,default=1"`
 }
 
 func main() {
@@ -45,8 +46,14 @@ func main() {
 }
 
 func do(appEnvObj interface{}) error {
-	go metrics.ReportMetrics()
 	appEnv := appEnvObj.(*appEnv)
+	if appEnv.Metrics != 0 {
+		client, err := obj.NewUnauthenticatedAmazonClient("pachyderm-metrics", "us-west-1")
+		if err != nil {
+			return err
+		}
+		go metrics.ReportMetrics(client)
+	}
 	etcdClient := getEtcdClient(appEnv)
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {
