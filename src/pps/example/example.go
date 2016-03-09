@@ -15,12 +15,12 @@ func CreateJobRequest() *pps.CreateJobRequest {
 			{
 				Commit: &pfs.Commit{
 					Repo: &pfs.Repo{Name: "in_repo"},
-					Id:   "10cf676b626044f9a405235bf7660959",
+					ID:   "10cf676b626044f9a405235bf7660959",
 				},
 			},
 		},
 		ParentJob: &pps.Job{
-			Id: "a951ca06cfda4377b8ffaa050d1074df",
+			ID: "a951ca06cfda4377b8ffaa050d1074df",
 		},
 	}
 }

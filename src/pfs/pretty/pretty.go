@@ -36,9 +36,9 @@ func PrintCommitInfoHeader(w io.Writer) {
 
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	fmt.Fprintf(w, "%s\t", commitInfo.Branch)
-	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Id)
+	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.ParentCommit != nil {
-		fmt.Fprintf(w, "%s\t", commitInfo.ParentCommit.Id)
+		fmt.Fprintf(w, "%s\t", commitInfo.ParentCommit.ID)
 	} else {
 		fmt.Fprint(w, "<none>\t")
 	}

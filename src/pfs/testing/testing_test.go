@@ -35,12 +35,12 @@ func TestSimple(t *testing.T) {
 	commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
-	newCommitID := commit.Id
+	newCommitID := commit.ID
 
 	newCommitInfo, err := pfsutil.InspectCommit(apiClient, repoName, newCommitID)
 	require.NoError(t, err)
 	require.NotNil(t, newCommitInfo)
-	require.Equal(t, newCommitID, newCommitInfo.Commit.Id)
+	require.Equal(t, newCommitID, newCommitInfo.Commit.ID)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, newCommitInfo.CommitType)
 	require.Nil(t, newCommitInfo.ParentCommit)
 
@@ -64,7 +64,7 @@ func TestSimple(t *testing.T) {
 	newCommitInfo, err = pfsutil.InspectCommit(apiClient, repoName, newCommitID)
 	require.NoError(t, err)
 	require.NotNil(t, newCommitInfo)
-	require.Equal(t, newCommitID, newCommitInfo.Commit.Id)
+	require.Equal(t, newCommitID, newCommitInfo.Commit.ID)
 	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, newCommitInfo.CommitType)
 	require.Nil(t, newCommitInfo.ParentCommit)
 
@@ -128,7 +128,7 @@ func TestBlockListCommits(t *testing.T) {
 
 	baseCommit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	require.NoError(t, err)
-	err = pfsutil.FinishCommit(apiClient, repoName, baseCommit.Id)
+	err = pfsutil.FinishCommit(apiClient, repoName, baseCommit.ID)
 	require.NoError(t, err)
 
 	repo := &pfs.Repo{
@@ -151,7 +151,7 @@ func TestBlockListCommits(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		time.Sleep(1)
-		commit, err := pfsutil.StartCommit(apiClient, repoName, baseCommit.Id, "")
+		commit, err := pfsutil.StartCommit(apiClient, repoName, baseCommit.ID, "")
 		require.NoError(t, err)
 		require.NotNil(t, commit)
 		newCommit = commit
@@ -172,7 +172,7 @@ func TestBlockListCommits(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		time.Sleep(1)
-		err := pfsutil.FinishCommit(apiClient, repoName, newCommit.Id)
+		err := pfsutil.FinishCommit(apiClient, repoName, newCommit.ID)
 		require.NoError(t, err)
 	}()
 	listCommitRequest.Block = true
@@ -210,7 +210,7 @@ func TestMount(t *testing.T) {
 	commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
-	newCommitID := commit.Id
+	newCommitID := commit.ID
 
 	_, err = os.Stat(filepath.Join(directory, repoName, newCommitID))
 	require.NoError(t, err)
@@ -283,7 +283,7 @@ func TestMountBig(t *testing.T) {
 	commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
-	newCommitID := commit.Id
+	newCommitID := commit.ID
 
 	bigValue := make([]byte, 1024*1024*300)
 	for i := 0; i < 1024*1024*300; i++ {
@@ -357,7 +357,7 @@ func BenchmarkFuse(b *testing.B) {
 		if commit == nil {
 			b.Error("nil branch")
 		}
-		newCommitID := commit.Id
+		newCommitID := commit.ID
 		var wg sync.WaitGroup
 		for j := 0; j < 1024; j++ {
 			wg.Add(1)

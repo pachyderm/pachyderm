@@ -37,7 +37,7 @@ func RunWorkload(
 			return err
 		}
 		if jobInfo.State != pps.JobState_JOB_STATE_SUCCESS {
-			return fmt.Errorf("job %s failed", job.Id)
+			return fmt.Errorf("job %s failed", job.ID)
 		}
 	}
 	return nil
@@ -92,7 +92,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			}
 			i := w.rand.Intn(len(w.started))
 			commit := w.started[i]
-			if err := pfsutil.FinishCommit(pfsClient, commit.Repo.Name, commit.Id); err != nil {
+			if err := pfsutil.FinishCommit(pfsClient, commit.Repo.Name, commit.ID); err != nil {
 				return err
 			}
 			w.started = append(w.started[:i], w.started[i+1:]...)
@@ -102,7 +102,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 				return nil
 			}
 			commit := w.finished[w.rand.Intn(len(w.finished))]
-			commit, err := pfsutil.StartCommit(pfsClient, commit.Repo.Name, commit.Id, "")
+			commit, err := pfsutil.StartCommit(pfsClient, commit.Repo.Name, commit.ID, "")
 			if err != nil {
 				return err
 			}
@@ -113,7 +113,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			return nil
 		}
 		commit := w.started[w.rand.Intn(len(w.started))]
-		if _, err := pfsutil.PutFile(pfsClient, commit.Repo.Name, commit.Id, w.randString(10), 0, w.reader()); err != nil {
+		if _, err := pfsutil.PutFile(pfsClient, commit.Repo.Name, commit.ID, w.randString(10), 0, w.reader()); err != nil {
 			return err
 		}
 	case opt < job:
@@ -131,7 +131,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 				return err
 			}
 			if jobInfo.State != pps.JobState_JOB_STATE_SUCCESS {
-				return fmt.Errorf("job %s failed", job.Id)
+				return fmt.Errorf("job %s failed", job.ID)
 			}
 			w.jobs = append(w.jobs, job)
 		} else {
@@ -152,7 +152,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 			}
 			var parentJobID string
 			if len(w.jobs) > 0 {
-				parentJobID = w.jobs[w.rand.Intn(len(w.jobs))].Id
+				parentJobID = w.jobs[w.rand.Intn(len(w.jobs))].ID
 			}
 			outFilename := w.randString(10)
 			job, err := ppsutil.CreateJob(
