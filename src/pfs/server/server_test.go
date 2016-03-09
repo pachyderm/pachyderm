@@ -120,7 +120,6 @@ func TestDisallowReadsDuringCommit(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-
 var client pfs.APIClient
 var clientOnce sync.Once
 
