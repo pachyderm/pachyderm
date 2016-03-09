@@ -111,7 +111,7 @@ clean-launch:
 
 integration-tests: 
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found pod integrationtests
-	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/test --restart=Never --command -- go test .
+	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/test --restart=Never --command -- go test . -timeout 60s
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy

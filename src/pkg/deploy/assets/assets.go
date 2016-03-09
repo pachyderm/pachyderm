@@ -93,7 +93,7 @@ func PachdRc(shards uint64, secrets bool) *api.ReplicationController {
 									Value: "/pach",
 								},
 								{
-									Name:  "PFS_NUM_SHARDS",
+									Name:  "NUM_SHARDS",
 									Value: strconv.FormatUint(shards, 10),
 								},
 							},
