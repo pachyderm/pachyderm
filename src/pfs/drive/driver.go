@@ -166,22 +166,15 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			Branch:  branch,
 		}
 		if branch != "" {
-			parentCommit, err := d.canonicalCommit(pfsutil.NewCommit(repo.Name, branch))
+			parentCommit, err := d.branchParent(pfsutil.NewCommit(repo.Name, commitID), branch)
 			if err != nil {
 				return err
 			}
-			parentDiff := pfsutil.NewDiff(repo.Name, parentCommit.Id, shard)
-			if parentDiffInfo, ok := d.diffs.get(parentDiff); ok {
-				if parentID != "" && parentDiffInfo.Diff.Commit.Id != parentID {
-					return fmt.Errorf("branch %s already exists as %s, can't create with %s as parent",
-						branch, parentDiffInfo.Diff.Commit.Id, parentID)
-				}
-				if parentDiffInfo.Finished == nil {
-					return fmt.Errorf("branch %s already has a started (but unfinished) commit %s",
-						branch, parentDiffInfo.Diff.Commit.Id)
-				}
-				diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentDiffInfo.Diff.Commit.Id)
+			if parentCommit != nil && parentID != "" {
+				return fmt.Errorf("branch %s already exists as %s, can't create with %s as parent",
+					branch, parentCommit.Id, parentID)
 			}
+			diffInfo.ParentCommit = parentCommit
 		}
 		if diffInfo.ParentCommit == nil && parentID != "" {
 			diffInfo.ParentCommit = pfsutil.NewCommit(repo.Name, parentID)
@@ -634,24 +627,55 @@ func (d *driver) canonicalCommit(commit *pfs.Commit) (*pfs.Commit, error) {
 	return commit, nil
 }
 
+// branchParent finds the parent that should be used for a new commit being started on a branch
+func (d *driver) branchParent(commit *pfs.Commit, branch string) (*pfs.Commit, error) {
+	// canonicalCommit is the head of branch
+	canonicalCommit, err := d.canonicalCommit(pfsutil.NewCommit(commit.Repo.Name, branch))
+	if err != nil {
+		return nil, err
+	}
+	if canonicalCommit.Id == branch {
+		// first commit on this branch, return nil
+		return nil, nil
+	}
+	if canonicalCommit.Id == commit.Id {
+		// this commit is the head of branch
+		// that's because this isn't the first shard of this commit we've seen
+		for _, commitToDiffInfo := range d.diffs[commit.Repo.Name] {
+			if diffInfo, ok := commitToDiffInfo[commit.Id]; ok {
+				return diffInfo.ParentCommit, nil
+			}
+		}
+		// reaching this code means that canonicalCommit resolved the branch to
+		// a commit we've never seen (on any shard) which indicates a bug
+		// elsewhere
+		return nil, fmt.Errorf("unreachable")
+	}
+	return canonicalCommit, nil
+}
+
 func (d *driver) insertDiffInfo(diffInfo *pfs.DiffInfo) error {
 	commit := diffInfo.Diff.Commit
+	updateIndexes := true
+	for _, commitToDiffInfo := range d.diffs[commit.Repo.Name] {
+		if _, ok := commitToDiffInfo[diffInfo.Diff.Commit.Id]; ok {
+			// we've already seen this diff, no need to update indexes
+			updateIndexes = false
+		}
+	}
 	if err := d.diffs.insert(diffInfo); err != nil {
 		return err
 	}
-	for _, commitToDiffInfo := range d.diffs[commit.Repo.Name] {
-		if _, ok := commitToDiffInfo[diffInfo.Diff.Commit.Id]; ok {
-			return nil // we've already seen this diff, nothing to do
+	if updateIndexes {
+		if diffInfo.Branch != "" {
+			if _, ok := d.diffs[commit.Repo.Name][diffInfo.Diff.Shard][diffInfo.Branch]; ok {
+				return fmt.Errorf("branch %s conflicts with commit of the same name", diffInfo.Branch)
+			}
+			d.branches[commit.Repo.Name][diffInfo.Branch] = commit.Id
 		}
-	}
-	if diffInfo.Branch != "" {
-		if _, ok := d.diffs[commit.Repo.Name][diffInfo.Diff.Shard][diffInfo.Branch]; ok {
-			return fmt.Errorf("branch %s conflicts with commit of the same name", diffInfo.Branch)
+		if diffInfo.ParentCommit != nil {
+			d.dags[commit.Repo.Name].NewNode(commit.Id, []string{diffInfo.ParentCommit.Id})
 		}
-		d.branches[commit.Repo.Name][diffInfo.Branch] = commit.Id
-	}
-	if diffInfo.ParentCommit != nil {
-		d.dags[commit.Repo.Name].NewNode(commit.Id, []string{diffInfo.ParentCommit.Id})
 	}
 	return nil
 }
