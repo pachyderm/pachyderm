@@ -7,6 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
+	"github.com/pachyderm/pachyderm/src/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
@@ -68,6 +69,11 @@ type apiServer struct {
 
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func() {
+		if retErr == nil {
+			metrics.AddJobs(1)
+		}
+	}()
 	if request.Shards == 0 {
 		return nil, fmt.Errorf("pachyderm.pps.jobserver: request.Shards cannot be 0")
 	}
@@ -304,8 +310,13 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *google_protobuf.Empty, err error) {
-	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *google_protobuf.Empty, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func() {
+		if retErr == nil {
+			metrics.AddPipelines(1)
+		}
+	}()
 	pfsAPIClient, err := a.getPfsClient()
 	if request.Pipeline == nil {
 		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: request.Pipeline cannot be nil")
