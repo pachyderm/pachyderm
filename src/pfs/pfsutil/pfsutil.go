@@ -39,6 +39,13 @@ func NewBlock(hash string) *pfs.Block {
 	}
 }
 
+func NewDiff(repoName string, commitID string, shard uint64) *pfs.Diff {
+	return &pfs.Diff{
+		Commit: NewCommit(repoName, commitID),
+		Shard:  shard,
+	}
+}
+
 func CreateRepo(apiClient pfs.APIClient, repoName string) error {
 	_, err := apiClient.CreateRepo(
 		context.Background(),
