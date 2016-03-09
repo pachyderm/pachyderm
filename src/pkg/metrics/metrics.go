@@ -4,61 +4,48 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/pachyderm/pachyderm/src/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"go.pedge.io/lion/proto"
 )
 
-var metrics *Metrics = &Metrics{}
+var metrics = &Metrics{}
+var modified int64
 
 func AddRepos(num int64) {
 	atomic.AddInt64(&metrics.Repos, num)
+	atomic.SwapInt64(&modified, 1)
 }
 
 func AddCommits(num int64) {
 	atomic.AddInt64(&metrics.Commits, num)
+	atomic.SwapInt64(&modified, 1)
 }
 
 func AddFiles(num int64) {
 	atomic.AddInt64(&metrics.Files, num)
+	atomic.SwapInt64(&modified, 1)
 }
 
 func AddBytes(num int64) {
 	atomic.AddInt64(&metrics.Bytes, num)
+	atomic.SwapInt64(&modified, 1)
 }
 
 func AddJobs(num int64) {
 	atomic.AddInt64(&metrics.Jobs, num)
+	atomic.SwapInt64(&modified, 1)
 }
 
 func AddPipelines(num int64) {
 	atomic.AddInt64(&metrics.Pipelines, num)
+	atomic.SwapInt64(&modified, 1)
 }
 
-func ReportMetrics(client obj.Client) {
+func ReportMetrics() {
 	for {
-		protolion.Info(metrics)
-		if err := reportObj(client); err != nil {
-			protolion.Errorf("Error writing to object store: %s", err.Error())
+		write := atomic.SwapInt64(&modified, 0)
+		if write == 1 {
+			protolion.Info(metrics)
 		}
 		<-time.After(15 * time.Second)
 	}
-}
-
-func reportObj(client obj.Client) (retErr error) {
-	marshaller := &jsonpb.Marshaler{Indent: "  "}
-	writer, err := client.Writer(uuid.NewWithoutDashes())
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := writer.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	if err := marshaller.Marshal(writer, metrics); err != nil {
-		return err
-	}
-	return nil
 }

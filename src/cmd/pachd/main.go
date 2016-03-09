@@ -48,11 +48,7 @@ func main() {
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 	if appEnv.Metrics != 0 {
-		client, err := obj.NewUnauthenticatedAmazonClient("pachyderm-metrics", "us-west-1")
-		if err != nil {
-			return err
-		}
-		go metrics.ReportMetrics(client)
+		go metrics.ReportMetrics()
 	}
 	etcdClient := getEtcdClient(appEnv)
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
