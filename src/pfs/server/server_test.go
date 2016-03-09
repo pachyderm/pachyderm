@@ -98,12 +98,12 @@ func TestDisallowReadsDuringCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Make sure we can't get the file before the commit is finished
-	var readBuffer bytes.Buffer
-	require.YesError(t, pfsutil.GetFile(pfsClient, repo, commit1.Id, "foo", 0, 0, "", nil, &readBuffer))
-	require.Equal(t, "", readBuffer.String())
+	var buffer bytes.Buffer
+	require.YesError(t, pfsutil.GetFile(pfsClient, repo, commit1.Id, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "", buffer.String())
 
 	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit1.Id))
-	var buffer bytes.Buffer
+	buffer = bytes.Buffer{}
 	require.NoError(t, pfsutil.GetFile(pfsClient, repo, commit1.Id, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	commit2, err := pfsutil.StartCommit(pfsClient, repo, commit1.Id, "")
