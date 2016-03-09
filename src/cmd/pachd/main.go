@@ -11,6 +11,7 @@ import (
 	pfs_server "github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
@@ -44,6 +45,7 @@ func main() {
 }
 
 func do(appEnvObj interface{}) error {
+	go metrics.ReportMetrics()
 	appEnv := appEnvObj.(*appEnv)
 	etcdClient := getEtcdClient(appEnv)
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
