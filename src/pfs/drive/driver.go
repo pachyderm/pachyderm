@@ -172,7 +172,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			}
 			if parentCommit != nil && parentID != "" {
 				return fmt.Errorf("branch %s already exists as %s, can't create with %s as parent",
-					branch, parentCommit.Id, parentID)
+					branch, parentCommit.ID, parentID)
 			}
 			diffInfo.ParentCommit = parentCommit
 		}
@@ -197,9 +197,9 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 			return err
 		}
 		for shard := range shards {
-			diffInfo, ok := d.diffs.get(pfsutil.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.Id, shard))
+			diffInfo, ok := d.diffs.get(pfsutil.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.ID, shard))
 			if !ok {
-				return fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.Id)
+				return fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
 			}
 			diffInfo.Finished = finished
 			diffInfos = append(diffInfos, diffInfo)
@@ -242,9 +242,9 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 	breakCommitIDs := make(map[string]bool)
 	for _, commit := range fromCommit {
 		if !repoSet[commit.Repo.Name] {
-			return nil, fmt.Errorf("Commit %s/%s is from a repo that isn't being listed.", commit.Repo.Name, commit.Id)
+			return nil, fmt.Errorf("Commit %s/%s is from a repo that isn't being listed.", commit.Repo.Name, commit.ID)
 		}
-		breakCommitIDs[commit.Id] = true
+		breakCommitIDs[commit.ID] = true
 	}
 	d.lock.RLock()
 	defer d.lock.RUnlock()
@@ -257,11 +257,11 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 		for _, commitID := range d.dags[repo.Name].Leaves() {
 			commit := &pfs.Commit{
 				Repo: repo,
-				Id:   commitID,
+				ID:   commitID,
 			}
-			for commit != nil && !breakCommitIDs[commit.Id] {
-				// we add this commit to breakCommitIds so we won't see it twice
-				breakCommitIDs[commit.Id] = true
+			for commit != nil && !breakCommitIDs[commit.ID] {
+				// we add this commit to breakCommitIDs so we won't see it twice
+				breakCommitIDs[commit.ID] = true
 				commitInfo, err := d.inspectCommit(commit, shards)
 				if err != nil {
 					return nil, err
@@ -305,14 +305,14 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	if err != nil {
 		return err
 	}
-	diffInfo, ok := d.diffs.get(pfsutil.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.Id, shard))
+	diffInfo, ok := d.diffs.get(pfsutil.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.ID, shard))
 	if !ok {
 		// This is a weird case since the commit existed above, it means someone
 		// deleted the commit while the above code was running
-		return fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.Id)
+		return fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	if diffInfo.Finished != nil {
-		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.Id)
+		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	addDirs(diffInfo, file)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
@@ -322,7 +322,7 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 			_append.LastRef = d.lastRef(
 				pfsutil.NewFile(
 					diffInfo.ParentCommit.Repo.Name,
-					diffInfo.ParentCommit.Id,
+					diffInfo.ParentCommit.ID,
 					file.Path,
 				),
 				shard,
@@ -349,7 +349,7 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, s
 		return nil, err
 	}
 	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
-		return nil, fmt.Errorf("file %s/%s/%s is directory", file.Commit.Repo.Name, file.Commit.Id, file.Path)
+		return nil, fmt.Errorf("file %s/%s/%s is directory", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 	}
 	blockClient, err := d.getBlockClient()
 	if err != nil {
@@ -417,7 +417,7 @@ func (d *driver) AddShard(shard uint64) error {
 		if _, ok := dags[diffInfo.Diff.Commit.Repo.Name]; !ok {
 			dags[diffInfo.Diff.Commit.Repo.Name] = dag.NewDAG(nil)
 		}
-		dags[diffInfo.Diff.Commit.Repo.Name].NewNode(diffInfo.Diff.Commit.Id, []string{diffInfo.ParentCommit.Id})
+		dags[diffInfo.Diff.Commit.Repo.Name].NewNode(diffInfo.Diff.Commit.ID, []string{diffInfo.ParentCommit.ID})
 		if err := diffInfos.insert(diffInfo); err != nil {
 			return err
 		}
@@ -470,7 +470,7 @@ func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 		}
 		for _, diffInfo := range diffInfos {
 			diffInfo := diffInfo
-			if diffInfo.Diff.Commit.Id == "" {
+			if diffInfo.Diff.Commit.ID == "" {
 				result.Created = diffInfo.Finished
 			}
 			result.SizeBytes += diffInfo.SizeBytes
@@ -489,9 +489,9 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 		var diffInfo *pfs.DiffInfo
 		var ok bool
 		commitInfo := &pfs.CommitInfo{Commit: canonicalCommit}
-		diff := pfsutil.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.Id, shard)
+		diff := pfsutil.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.ID, shard)
 		if diffInfo, ok = d.diffs.get(diff); !ok {
-			return nil, fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.Id)
+			return nil, fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
 		}
 		if diffInfo.Finished == nil {
 			commitInfo.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
@@ -508,7 +508,7 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	commitInfo := pfs.ReduceCommitInfos(commitInfos)
 	if len(commitInfo) < 1 {
 		// we should have caught this above
-		return nil, fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.Id)
+		return nil, fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	if len(commitInfo) > 1 {
 		return nil, fmt.Errorf("multiple commitInfos, (this is likely a bug)")
@@ -534,10 +534,10 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 	if err != nil {
 		return nil, nil, err
 	}
-	for commit != nil && (from == nil || commit.Id != from.Id) {
-		diffInfo, ok := d.diffs.get(pfsutil.NewDiff(commit.Repo.Name, commit.Id, shard))
+	for commit != nil && (from == nil || commit.ID != from.ID) {
+		diffInfo, ok := d.diffs.get(pfsutil.NewDiff(commit.Repo.Name, commit.ID, shard))
 		if !ok {
-			return nil, nil, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.Id)
+			return nil, nil, fmt.Errorf("diff %s/%s not found", commit.Repo.Name, commit.ID)
 		}
 		if diffInfo.Finished == nil {
 			commit = diffInfo.ParentCommit
@@ -547,7 +547,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 			if len(_append.BlockRefs) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
-						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.Id, file.Path)
+						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 				}
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
 					// the first time we find out it's a regular file we check
@@ -566,14 +566,14 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 			} else if len(_append.Children) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 					return nil, nil,
-						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.Id, file.Path)
+						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 				}
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_DIR
 				for child := range _append.Children {
 					if !children[child] {
 						fileInfo.Children = append(
 							fileInfo.Children,
-							pfsutil.NewFile(commit.Repo.Name, commit.Id, child),
+							pfsutil.NewFile(commit.Repo.Name, commit.ID, child),
 						)
 					}
 					children[child] = true
@@ -598,7 +598,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 func (d *driver) lastRef(file *pfs.File, shard uint64) *pfs.Commit {
 	commit := file.Commit
 	for commit != nil {
-		diffInfo, _ := d.diffs.get(pfsutil.NewDiff(commit.Repo.Name, commit.Id, shard))
+		diffInfo, _ := d.diffs.get(pfsutil.NewDiff(commit.Repo.Name, commit.ID, shard))
 		if _, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
 			return commit
 		}
@@ -621,7 +621,7 @@ func (d *driver) canonicalCommit(commit *pfs.Commit) (*pfs.Commit, error) {
 	if _, ok := d.branches[commit.Repo.Name]; !ok {
 		return nil, fmt.Errorf("repo %s not found", commit.Repo.Name)
 	}
-	if commitID, ok := d.branches[commit.Repo.Name][commit.Id]; ok {
+	if commitID, ok := d.branches[commit.Repo.Name][commit.ID]; ok {
 		return pfsutil.NewCommit(commit.Repo.Name, commitID), nil
 	}
 	return commit, nil
@@ -634,15 +634,15 @@ func (d *driver) branchParent(commit *pfs.Commit, branch string) (*pfs.Commit, e
 	if err != nil {
 		return nil, err
 	}
-	if canonicalCommit.Id == branch {
+	if canonicalCommit.ID == branch {
 		// first commit on this branch, return nil
 		return nil, nil
 	}
-	if canonicalCommit.Id == commit.Id {
+	if canonicalCommit.ID == commit.ID {
 		// this commit is the head of branch
 		// that's because this isn't the first shard of this commit we've seen
 		for _, commitToDiffInfo := range d.diffs[commit.Repo.Name] {
-			if diffInfo, ok := commitToDiffInfo[commit.Id]; ok {
+			if diffInfo, ok := commitToDiffInfo[commit.ID]; ok {
 				return diffInfo.ParentCommit, nil
 			}
 		}
@@ -658,7 +658,7 @@ func (d *driver) insertDiffInfo(diffInfo *pfs.DiffInfo) error {
 	commit := diffInfo.Diff.Commit
 	updateIndexes := true
 	for _, commitToDiffInfo := range d.diffs[commit.Repo.Name] {
-		if _, ok := commitToDiffInfo[diffInfo.Diff.Commit.Id]; ok {
+		if _, ok := commitToDiffInfo[diffInfo.Diff.Commit.ID]; ok {
 			// we've already seen this diff, no need to update indexes
 			updateIndexes = false
 		}
@@ -671,10 +671,10 @@ func (d *driver) insertDiffInfo(diffInfo *pfs.DiffInfo) error {
 			if _, ok := d.diffs[commit.Repo.Name][diffInfo.Diff.Shard][diffInfo.Branch]; ok {
 				return fmt.Errorf("branch %s conflicts with commit of the same name", diffInfo.Branch)
 			}
-			d.branches[commit.Repo.Name][diffInfo.Branch] = commit.Id
+			d.branches[commit.Repo.Name][diffInfo.Branch] = commit.ID
 		}
 		if diffInfo.ParentCommit != nil {
-			d.dags[commit.Repo.Name].NewNode(commit.Id, []string{diffInfo.ParentCommit.Id})
+			d.dags[commit.Repo.Name].NewNode(commit.ID, []string{diffInfo.ParentCommit.ID})
 		}
 	}
 	return nil
@@ -769,7 +769,7 @@ func (d diffMap) get(diff *pfs.Diff) (_ *pfs.DiffInfo, ok bool) {
 	if !ok {
 		return nil, false
 	}
-	diffInfo, ok := commitMap[diff.Commit.Id]
+	diffInfo, ok := commitMap[diff.Commit.ID]
 	return diffInfo, ok
 }
 
@@ -784,10 +784,10 @@ func (d diffMap) insert(diffInfo *pfs.DiffInfo) error {
 		commitMap = make(map[string]*pfs.DiffInfo)
 		shardMap[diff.Shard] = commitMap
 	}
-	if _, ok = commitMap[diff.Commit.Id]; ok {
-		return fmt.Errorf("commit %s/%s already exists", diff.Commit.Repo.Name, diff.Commit.Id)
+	if _, ok = commitMap[diff.Commit.ID]; ok {
+		return fmt.Errorf("commit %s/%s already exists", diff.Commit.Repo.Name, diff.Commit.ID)
 	}
-	commitMap[diff.Commit.Id] = diffInfo
+	commitMap[diff.Commit.ID] = diffInfo
 	return nil
 }
 
@@ -800,7 +800,7 @@ func (d diffMap) pop(diff *pfs.Diff) *pfs.DiffInfo {
 	if !ok {
 		return nil
 	}
-	diffInfo := commitMap[diff.Commit.Id]
-	delete(commitMap, diff.Commit.Id)
+	diffInfo := commitMap[diff.Commit.ID]
+	delete(commitMap, diff.Commit.ID)
 	return diffInfo
 }
