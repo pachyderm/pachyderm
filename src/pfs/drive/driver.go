@@ -448,7 +448,7 @@ func (d *driver) AddShard(shard uint64) error {
 
 func (d *driver) DeleteShard(shard uint64) error {
 	d.lock.Lock()
-	defer d.lock.Lock()
+	defer d.lock.Unlock()
 	for _, shardMap := range d.diffs {
 		delete(shardMap, shard)
 	}
