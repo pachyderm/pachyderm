@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"bazil.org/fuse"
@@ -17,6 +18,8 @@ import (
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
 
 type filesystem struct {
@@ -199,6 +202,15 @@ func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fu
 		f.Shard,
 		&buffer,
 	); err != nil {
+		if grpc.Code(err) == codes.NotFound {
+			// This happens when trying to read from a file in an open
+			// commit. We could catch this at `open(2)` time and never
+			// get here, but Open is currently not a remote operation.
+			//
+			// ENOENT from read(2) is weird, let's call this EINVAL
+			// instead.
+			return fuse.Errno(syscall.EINVAL)
+		}
 		return err
 	}
 	response.Data = buffer.Bytes()
