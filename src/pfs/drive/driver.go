@@ -675,6 +675,8 @@ func (d *driver) insertDiffInfo(diffInfo *pfs.DiffInfo) error {
 		}
 		if diffInfo.ParentCommit != nil {
 			d.dags[commit.Repo.Name].NewNode(commit.ID, []string{diffInfo.ParentCommit.ID})
+		} else {
+			d.dags[commit.Repo.Name].NewNode(commit.ID, nil)
 		}
 	}
 	return nil
