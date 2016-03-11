@@ -35,6 +35,9 @@ func TestSimple(t *testing.T) {
 	_, err = pfsutil.PutFile(pfsClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit1.ID))
+	commitInfos, err := pfsutil.ListCommit(pfsClient, []string{repo})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
 	require.NoError(t, pfsutil.GetFile(pfsClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())

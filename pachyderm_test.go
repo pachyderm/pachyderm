@@ -1,4 +1,3 @@
-
 package pachyderm
 
 import (
@@ -289,6 +288,39 @@ func TestFromCommit(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, pfsutil.GetFile(pachClient, repo, commit2.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, buffer.Len(), 2*KB)
+}
+
+func TestSimple(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	pachClient := getPachClient(t)
+	repo := uniqueString("TestSimple")
+	require.NoError(t, pfsutil.CreateRepo(pachClient, repo))
+	commit1, err := pfsutil.StartCommit(pachClient, repo, "", "")
+	require.NoError(t, err)
+	_, err = pfsutil.PutFile(pachClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, pfsutil.FinishCommit(pachClient, repo, commit1.ID))
+	commitInfos, err := pfsutil.ListCommit(pachClient, []string{repo})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	var buffer bytes.Buffer
+	require.NoError(t, pfsutil.GetFile(pachClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	commit2, err := pfsutil.StartCommit(pachClient, repo, commit1.ID, "")
+	require.NoError(t, err)
+	_, err = pfsutil.PutFile(pachClient, repo, commit2.ID, "foo", 0, strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = pfsutil.FinishCommit(pachClient, repo, commit2.ID)
+	require.NoError(t, err)
+	buffer = bytes.Buffer{}
+	require.NoError(t, pfsutil.GetFile(pachClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.NoError(t, pfsutil.GetFile(pachClient, repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
 func getPachClient(t *testing.T) *APIClient {

@@ -164,7 +164,6 @@ func (a *sharder) AssignRoles(address string, cancel chan bool) (retErr error) {
 	oldValue := ""
 	for {
 		if err := a.discoveryClient.CheckAndSet("lock", address, holdTTL, oldValue); err != nil {
-			protolion.Errorf("sharder.AssignRoles failed to acquire lock %+v", err)
 			if oldValue != "" {
 				// lock lost
 				oldValue = ""

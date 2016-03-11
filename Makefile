@@ -101,8 +101,6 @@ launch:
 
 launch-dev: launch-kube launch
 
-clean-job:
-
 clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
@@ -157,6 +155,9 @@ grep-data:
 
 grep-example:
 	sh examples/grep/run.sh
+
+logs:
+	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'kubectl logs pod >pod'
 
 .PHONY: \
 	doc \
