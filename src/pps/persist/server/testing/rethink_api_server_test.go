@@ -34,22 +34,22 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, pipelineInfo.PipelineName, "foo")
-	input := &pps.JobInput{ Commit: pfsutil.NewCommit("bar", uuid.NewWithoutDashes())}
+	input := &pps.JobInput{Commit: pfsutil.NewCommit("bar", uuid.NewWithoutDashes())}
 	jobInfo, err := apiServer.CreateJobInfo(
 		context.Background(),
 		&persist.JobInfo{
 			PipelineName: "foo",
-			Inputs:  []*pps.JobInput{ input },
+			Inputs:       []*pps.JobInput{input},
 		},
 	)
 	jobID := jobInfo.JobID
-	input2 := &pps.JobInput{ Commit: pfsutil.NewCommit("fizz", uuid.NewWithoutDashes())}
+	input2 := &pps.JobInput{Commit: pfsutil.NewCommit("fizz", uuid.NewWithoutDashes())}
 
 	_, err = apiServer.CreateJobInfo(
 		context.Background(),
 		&persist.JobInfo{
 			PipelineName: "buzz",
-			Inputs:  []*pps.JobInput{ input2 },
+			Inputs:       []*pps.JobInput{input2},
 		},
 	)
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	jobInfos, err = apiServer.ListJobInfos(
 		context.Background(),
 		&pps.ListJobRequest{
-			InputCommit: []*pfs.Commit{ input.Commit },
+			InputCommit: []*pfs.Commit{input.Commit},
 		},
 	)
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 		context.Background(),
 		&pps.ListJobRequest{
 			Pipeline:    &pps.Pipeline{Name: "foo"},
-			InputCommit: []*pfs.Commit{ input.Commit },
+			InputCommit: []*pfs.Commit{input.Commit},
 		},
 	)
 	require.NoError(t, err)

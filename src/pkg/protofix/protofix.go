@@ -1,22 +1,22 @@
 package protofix
 
-import(
-        "fmt"
+import (
 	"bytes"
-	"strings"
-	"go/printer"
-        "go/parser"
-        "go/token"
+	"fmt"
 	"go/ast"
+	"go/parser"
+	"go/printer"
+	"go/token"
 	"io/ioutil"
-	"path/filepath"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 )
 
 func FixAllPBGOFilesInDirectory(rootPath string) {
 
-	filepath.Walk(rootPath, func (path string, f os.FileInfo, err error) error {
+	filepath.Walk(rootPath, func(path string, f os.FileInfo, err error) error {
 		if strings.HasSuffix(f.Name(), ".pb.go") {
 			fmt.Printf("Repairing %v\n", path)
 			repairFile(path)
@@ -28,14 +28,14 @@ func FixAllPBGOFilesInDirectory(rootPath string) {
 
 func RevertAllPBGOFilesInDirectory(rootPath string) {
 
-	filepath.Walk(rootPath, func (path string, f os.FileInfo, err error) error {
+	filepath.Walk(rootPath, func(path string, f os.FileInfo, err error) error {
 		if f == nil {
 			return nil
 		}
 		if strings.HasSuffix(f.Name(), ".pb.go") {
 			fmt.Printf("Reverting %v\n", path)
 			args := []string{"checkout", path}
-			_, err := exec.Command("git", args... ).Output()
+			_, err := exec.Command("git", args...).Output()
 			if err != nil {
 				fmt.Printf("Error reverting %v : %v\n", path, err)
 				os.Exit(1)
@@ -45,7 +45,6 @@ func RevertAllPBGOFilesInDirectory(rootPath string) {
 	})
 
 }
-        
 
 func repairedFileBytes(filename string) []byte {
 	fset := token.NewFileSet()
@@ -63,7 +62,7 @@ func repairedFileBytes(filename string) []byte {
 
 	var buf bytes.Buffer
 
-	config := &printer.Config{ Mode: printer.UseSpaces + printer.TabIndent, Tabwidth: 8, Indent: 0}
+	config := &printer.Config{Mode: printer.UseSpaces + printer.TabIndent, Tabwidth: 8, Indent: 0}
 	config.Fprint(&buf, fset, f)
 
 	return buf.Bytes()
@@ -85,13 +84,13 @@ func repairDeclaration(node ast.Node) {
 			}
 		}
 	}
-	
+
 }
 
-type walker struct {	
+type walker struct {
 }
 
-func (w *walker) Visit(node ast.Node) (ast.Visitor) {
+func (w *walker) Visit(node ast.Node) ast.Visitor {
 	repairDeclaration(node)
 	return w
 }

@@ -1,8 +1,8 @@
 package main
 
-import(
-	"os"
+import (
 	"fmt"
+	"os"
 
 	"github.com/pachyderm/pachyderm/src/pkg/protofix"
 )
