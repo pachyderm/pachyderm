@@ -448,7 +448,7 @@ func (d *driver) AddShard(shard uint64) error {
 
 func (d *driver) DeleteShard(shard uint64) error {
 	d.lock.Lock()
-	defer d.lock.Lock()
+	defer d.lock.Unlock()
 	for _, shardMap := range d.diffs {
 		delete(shardMap, shard)
 	}
@@ -675,6 +675,8 @@ func (d *driver) insertDiffInfo(diffInfo *pfs.DiffInfo) error {
 		}
 		if diffInfo.ParentCommit != nil {
 			d.dags[commit.Repo.Name].NewNode(commit.ID, []string{diffInfo.ParentCommit.ID})
+		} else {
+			d.dags[commit.Repo.Name].NewNode(commit.ID, nil)
 		}
 	}
 	return nil
