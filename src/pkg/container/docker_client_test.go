@@ -38,7 +38,7 @@ func testRun(t *testing.T, imageName string, commands []string, expectedStdout s
 
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
-	}	
+	}
 
 	client, err := newTestDockerClient()
 	require.NoError(t, err)

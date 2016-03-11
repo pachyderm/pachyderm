@@ -84,7 +84,7 @@ func dfs(id string, edges map[string][]string, seen map[string]bool) []string {
 	}
 
 	seen[id] = true
-	
+
 	var result []string
 	for _, nID := range edges[id] {
 		result = append(result, dfs(nID, edges, seen)...)
