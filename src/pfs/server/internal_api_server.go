@@ -12,6 +12,8 @@ import (
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
@@ -284,6 +286,10 @@ func (a *internalAPIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServe
 	}
 	file, err := a.driver.GetFile(request.File, request.Shard, request.OffsetBytes, request.SizeBytes, request.FromCommit, shard)
 	if err != nil {
+		// TODO this should be done more consistently throughout
+		if err == pfs.ErrFileNotFound {
+			return grpc.Errorf(codes.NotFound, "%v", err)
+		}
 		return err
 	}
 	defer func() {
