@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"testing"
 
 	"bazil.org/fuse/fs/fstestutil"
@@ -821,11 +822,9 @@ func TestWriteAndRead(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	buf, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		t.Fatalf("ReadFile: %v", err)
-	}
-	if g, e := string(buf), greeting; g != e {
-		t.Errorf("wrong content: %q != %q", g, e)
+	// TODO make this fail at Open time already, check os.IsNotExist(err)
+	_, err = ioutil.ReadFile(filePath)
+	if nerr, ok := err.(*os.PathError); !ok || nerr.Err != syscall.EINVAL {
+		t.Fatalf("ReadFile: expected EINVAL: %v", err)
 	}
 }
