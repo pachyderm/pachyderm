@@ -10,6 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
+	"github.com/pachyderm/pachyderm/src/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"go.pedge.io/pb/go/google/protobuf"
@@ -49,10 +50,15 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	defer func() {
+		if retErr == nil {
+			metrics.AddRepos(1)
+		}
+	}()
 	if strings.Contains(request.Repo.Name, "/") {
 		return nil, fmt.Errorf("repo names cannot contain /")
 	}
-	ctx = versionToContext(a.version, ctx)
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
@@ -113,6 +119,11 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
 	ctx = versionToContext(a.version, ctx)
+	defer func() {
+		if retErr == nil {
+			metrics.AddCommits(1)
+		}
+	}()
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
