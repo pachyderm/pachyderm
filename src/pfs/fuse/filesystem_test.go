@@ -495,36 +495,9 @@ func TestCommitOpenReadDir(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	if err := fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), map[string]fstestutil.FileInfoCheck{
-		greetingName: func(fi os.FileInfo) error {
-			// TODO respect greetingPerm
-			if g, e := fi.Mode(), os.FileMode(0666); g != e {
-				return fmt.Errorf("wrong mode: %v != %v", g, e)
-			}
-			if g, e := fi.Size(), int64(len(greeting)); g != e {
-				t.Errorf("wrong size: %v != %v", g, e)
-			}
-			// TODO show fileModTime as mtime
-			// if g, e := fi.ModTime().UTC(), fileModTime; g != e {
-			// 	t.Errorf("wrong mtime: %v != %v", g, e)
-			// }
-			return nil
-		},
-		scriptName: func(fi os.FileInfo) error {
-			// TODO respect scriptPerm
-			if g, e := fi.Mode(), os.FileMode(0666); g != e {
-				return fmt.Errorf("wrong mode: %v != %v", g, e)
-			}
-			if g, e := fi.Size(), int64(len(script)); g != e {
-				t.Errorf("wrong size: %v != %v", g, e)
-			}
-			// TODO show fileModTime as mtime
-			// if g, e := fi.ModTime().UTC(), fileModTime; g != e {
-			// 	t.Errorf("wrong mtime: %v != %v", g, e)
-			// }
-			return nil
-		},
-	}); err != nil {
+	// open mounts look empty, so that mappers cannot accidentally use
+	// them to communicate in an unreliable fashion
+	if err := fstestutil.CheckDir(filepath.Join(mountpoint, repoName, commit.ID), nil); err != nil {
 		t.Errorf("wrong directory content: %v", err)
 	}
 }
