@@ -11,6 +11,7 @@ import (
 	pfs_server "github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
@@ -37,6 +38,7 @@ type appEnv struct {
 	KubeAddress     string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	EtcdAddress     string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
 	Namespace       string `env:"NAMESPACE,default=default"`
+	Metrics         uint16 `env:"METRICS,default=1"`
 }
 
 func main() {
@@ -45,6 +47,9 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
+	if appEnv.Metrics != 0 {
+		go metrics.ReportMetrics()
+	}
 	etcdClient := getEtcdClient(appEnv)
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {

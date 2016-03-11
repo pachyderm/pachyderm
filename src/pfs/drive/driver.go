@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/dag"
+	"github.com/pachyderm/pachyderm/src/pkg/metrics"
 	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -299,6 +300,14 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if retErr == nil {
+			metrics.AddFiles(1)
+			for _, blockRef := range blockRefs.BlockRef {
+				metrics.AddBytes(int64(blockRef.Range.Upper - blockRef.Range.Lower))
+			}
+		}
+	}()
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	canonicalCommit, err := d.canonicalCommit(file.Commit)
