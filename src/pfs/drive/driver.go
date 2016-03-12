@@ -242,19 +242,29 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 		return err
 	}
 	var wg sync.WaitGroup
-	var loopErr error
+	errCh := make(chan error, 1)
 	for _, diffInfo := range diffInfos {
 		diffInfo := diffInfo
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil && loopErr == nil {
-				loopErr = err
+			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
 			}
 		}()
 	}
 	wg.Wait()
-	return loopErr
+	select {
+	case err := <-errCh:
+		return err
+	default:
+	}
+	return nil
 }
 
 func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
