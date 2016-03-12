@@ -67,7 +67,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, 
 		return err
 	}
 	var wg sync.WaitGroup
-	var loopErr error
+	errCh := make(chan error, 1)
 	for shard := range shards {
 		wg.Add(1)
 		diffInfo := &pfs.DiffInfo{
@@ -79,13 +79,23 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, 
 		}
 		go func() {
 			defer wg.Done()
-			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil && loopErr == nil {
-				loopErr = err
+			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
 			}
 		}()
 	}
 	wg.Wait()
-	return loopErr
+	select {
+	case err := <-errCh:
+		return err
+	default:
+	}
+	return nil
 }
 
 func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error) {
