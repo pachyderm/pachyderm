@@ -98,7 +98,7 @@ func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	var wg sync.WaitGroup
-	var loopErr error
+	errCh := make(chan error, 1)
 	var result []*pfs.RepoInfo
 	var lock sync.Mutex
 	for repoName := range d.diffs {
@@ -107,8 +107,13 @@ func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 		go func() {
 			defer wg.Done()
 			repoInfo, err := d.inspectRepo(&pfs.Repo{Name: repoName}, shards)
-			if err != nil && loopErr == nil {
-				loopErr = err
+			if err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
 			}
 			lock.Lock()
 			defer lock.Unlock()
@@ -116,8 +121,11 @@ func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 		}()
 	}
 	wg.Wait()
-	if loopErr != nil {
-		return nil, loopErr
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
+		// no error
 	}
 	return result, nil
 }
