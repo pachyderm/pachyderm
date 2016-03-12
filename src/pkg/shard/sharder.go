@@ -860,20 +860,28 @@ func (a *sharder) runFrontends(
 			}
 			if minVersion > version {
 				var wg sync.WaitGroup
-				var loopErr error
+				errCh := make(chan error, 1)
 				for _, frontend := range frontends {
 					frontend := frontend
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						if err := frontend.Version(minVersion); err != nil && loopErr == nil {
-							loopErr = err
+						if err := frontend.Version(minVersion); err != nil {
+							select {
+							case errCh <- err:
+								// error reported
+							default:
+								// not the first error
+							}
+							return
 						}
 					}()
 				}
 				wg.Wait()
-				if loopErr != nil {
-					return loopErr
+				select {
+				case err := <-errCh:
+					return err
+				default:
 				}
 				version = minVersion
 				versionChan <- version
