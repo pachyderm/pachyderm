@@ -154,7 +154,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 	if err != nil {
 		return err
 	}
-	var loopErr error
+	errCh := make(chan error, 1)
 	var wg sync.WaitGroup
 	for _, diffInfo := range diffInfos {
 		diffInfo := diffInfo
@@ -164,13 +164,23 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 			if _, err := blockClient.DeleteDiff(
 				context.Background(),
 				&pfs.DeleteDiffRequest{Diff: diffInfo.Diff},
-			); err != nil && loopErr == nil {
-				loopErr = err
+			); err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
 			}
 		}()
 	}
 	wg.Wait()
-	return loopErr
+	select {
+	case err := <-errCh:
+		return err
+	default:
+	}
+	return nil
 }
 
 func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
