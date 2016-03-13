@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "pfs/pfs.proto";
+import "google/protobuf/timestamp.proto";
 
 package fuse;
 
@@ -21,6 +22,7 @@ message Node {
   string repo_alias = 2;
   bool write = 3;
   pfs.Shard shard = 4;
+  google.protobuf.Timestamp modified = 5;
 }
 
 message Attr {

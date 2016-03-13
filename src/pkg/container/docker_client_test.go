@@ -35,6 +35,11 @@ func TestCommandsForLoops(t *testing.T) {
 }
 
 func testRun(t *testing.T, imageName string, commands []string, expectedStdout string, expectedStderr string) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
 	client, err := newTestDockerClient()
 	require.NoError(t, err)
 	err = client.Pull(imageName, PullOptions{})

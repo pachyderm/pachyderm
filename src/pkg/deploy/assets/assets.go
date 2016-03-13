@@ -93,7 +93,7 @@ func PachdRc(shards uint64, secrets bool) *api.ReplicationController {
 									Value: "/pach",
 								},
 								{
-									Name:  "PFS_NUM_SHARDS",
+									Name:  "NUM_SHARDS",
 									Value: strconv.FormatUint(shards, 10),
 								},
 							},
@@ -376,8 +376,6 @@ func WriteAssets(w io.Writer, shards uint64, secrets bool) {
 	PachdRc(shards, secrets).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	AmazonSecret("", "", "", "", "").CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
 }
 
 func WriteAmazonSecret(w io.Writer, bucket string, id string, secret string, token string, region string) {

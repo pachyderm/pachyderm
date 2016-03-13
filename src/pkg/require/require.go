@@ -16,9 +16,32 @@ func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs .
 	}
 }
 
+func EqualOneOf(tb testing.TB, expecteds []interface{}, actual interface{}, msgAndArgs ...interface{}) {
+	equal := false
+	for _, expected := range expecteds {
+		if reflect.DeepEqual(expected, actual) {
+			equal = true
+			break
+		}
+	}
+	if !equal {
+		fatal(
+			tb,
+			msgAndArgs,
+			"Not equal 1 of: %#v (expecteds)\n"+
+				"        != %#v (actual)", expecteds, actual)
+	}
+}
+
 func NoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	if err != nil {
 		fatal(tb, msgAndArgs, "No error is expected but got %v", err)
+	}
+}
+
+func YesError(tb testing.TB, err error, msgAndArgs ...interface{}) {
+	if err == nil {
+		fatal(tb, msgAndArgs, "Error is expected but got %v", err)
 	}
 }
 

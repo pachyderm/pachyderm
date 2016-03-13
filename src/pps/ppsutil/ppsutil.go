@@ -6,7 +6,7 @@ import (
 )
 
 func NewJob(jobID string) *pps.Job {
-	return &pps.Job{Id: jobID}
+	return &pps.Job{ID: jobID}
 }
 
 func NewPipeline(pipelineName string) *pps.Pipeline {
