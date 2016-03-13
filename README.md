@@ -14,20 +14,20 @@ WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our tea
 
 ### Getting Started
 
-Get up and running the [grep example](https://github.com/pachyderm/pachyderm/blob/master/examples/grep/GUIDE.md).
+Get up and running with the [fruit stand example](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md).
 
 ### What is Pachyderm?
 
-Pachyderm is a Data Lake. A place to dump and process gigantic data sets.
+Pachyderm is a Data Lake -- a place to dump and process gigantic data sets.
 Pachyderm is inspired by the Hadoop ecosystem but _shares no code_ with it.
-Instead we leverage the container ecosystem to provide the broad functionality
+Instead, we leverage the container ecosystem to provide the broad functionality
 of Hadoop with the ease of use of Docker.
 
-Pachyderm offers the following broad functionality:
+Pachyderm offers the following core functionality:
 
 - Virtually limitless storage for any data.
 - Virtually limitless processing power using any tools.
-- Tracking of data history, provenance and ownership. (Version Control).
+- Tracking of data history, provenance and ownership. (Version Control for data).
 - Automatic processing on new data as it’s ingested. (Streaming).
 - Chaining processes together. (Pipelining)
 
@@ -35,25 +35,20 @@ Pachyderm offers the following broad functionality:
 
 There are two bold new ideas in Pachyderm:
 
-- Containers as the processing primitive
+- Containers as the core processing primitive
 - Version Control for data
 
-These ideas lead directly to a system that's much easier to use and administer.
+These ideas lead directly to a system that's much more powerful, flexible and easy to use. 
 
-To process data you simply create a containerized program which reads and writes
-to the local filesystem. Pachyderm will take your container and inject data into
-it by way of a FUSE volume. You can use _any_ tools you want! Pachyderm will
-automatically replicate your container. It creates multiple copies of the same
-container showing each one a different chunk of data in the FUSE volume. With
-this technique Pachyderm can scale any code you write up to petabytes of data.
+To process data, you simply create a containerized program which reads and writes to the local filesystem. You can use _any_ tools you want because it's all just going in a container! Pachyderm will take your container and inject data into it by way of a FUSE volume. We'll then automatically replicate your container, showing each copy a different chunk of data. With this technique, Pachyderm can scale any code you write to process up to petabytes of data (Example: [distributed grep](https://github.com/pachyderm/pachyderm/examples/fruit_stand/GUIDE.md)).
 
-Pachyderm also version controls all data using a commit based distributed
-filesystem (PFS), it's very similar to what git does with code. Version control
+Pachyderm also version controls all data using a commit-based distributed
+filesystem (PFS), similar to what git does with code. Version control for data
 has far reaching consequences in a distributed filesystem. You get the full
-history of your data, it's much easier to collaborate with teammates and if
-anythng goes wrong you can revert _the entire cluster_ with one click!
+history of your data, it's much easier to collaborate with teammates, and if
+anything goes wrong you can revert _the entire cluster_ with one click!
 
-Version control is very synergistic with our containerized processing
+Version control is also very synergistic with our containerized processing
 engine. Pachyderm understands how your data changes and thus, as new data
 is ingested, can run your workload on the _diff_ of the data rather than the
 whole thing. This means that there's no difference between a batched job and
@@ -61,19 +56,19 @@ a streaming job, the same code will work for both!
 
 ### Our Vision
 
-Containers are a revolutionary new technology with compelling application to
-big data. Our goal is to fully realize that application. Hadoop has spawned a
+Containers are a revolutionary new technology with a compelling application to
+big data. Our goal is to fully realize that use case. Hadoop has spawned a
 sprawling ecosystem of tools but with each new tool the complexity of your
-cluster grows until maintaining it becomes a full time job. Containers are the
+cluster grows until maintaining it becomes a full-time job. Containers are the
 _perfect_ antidote to this problem. What if adding a new tool to your data
 infrastructure was as easy as installing an app? Thanks to the magic of
-containers in Pachyderm it really is.
+containers in Pachyderm, it really is!
 
 The most exciting thing about this vision though is what comes next. Pachyderm
-can do big data with _anything_ that runs on Linux. And anything you build you
-can easily share with the rest of the community, afterall it's just a
-container. We have some ideas of our own about what to build but it's just the
-tip of the iceburg, we expect our users will have many more interesting ideas.
+can do big data with _anything_ that runs on Linux. And anything you build can be
+easily shared with the rest of the community, afterall it's just a
+container so it's completely reusable and will run the same every time. We have some ideas of our own about what the best starting building blocks will be, but it's just the
+tip of the iceburg -- we expect our users will have many more interesting ideas.
 We can't wait to see what they are!
 
 ### Contributing
