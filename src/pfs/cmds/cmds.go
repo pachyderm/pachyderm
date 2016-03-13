@@ -140,8 +140,9 @@ This layers the data in the commit over the data in the parent.`,
 		}),
 	}
 
+	var parentCommitID string
 	startCommit := &cobra.Command{
-		Use:   "start-commit repo-name [parent-commit-id]",
+		Use:   "start-commit repo-name [branch]",
 		Short: "Start a new commit.",
 		Long:  "Start a new commit with parent-commit-id as the parent.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 1, Max: 2}, func(args []string) error {
@@ -149,18 +150,20 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
-			parentCommitID := ""
+			branch := ""
 			if len(args) == 2 {
-				parentCommitID = args[1]
+				branch = args[1]
 			}
-			commit, err := pfsutil.StartCommit(apiClient, args[0], parentCommitID)
+			commit, err := pfsutil.StartCommit(apiClient, args[0],
+				parentCommitID, branch)
 			if err != nil {
 				return err
 			}
-			fmt.Println(commit.Id)
+			fmt.Println(commit.ID)
 			return nil
 		}),
 	}
+	startCommit.Flags().StringVarP(&parentCommitID, "parent", "p", "", "parent id")
 
 	finishCommit := &cobra.Command{
 		Use:   "finish-commit repo-name commit-id",
@@ -208,6 +211,28 @@ This layers the data in the commit over the data in the parent.`,
 				return err
 			}
 			commitInfos, err := pfsutil.ListCommit(apiClient, args)
+			if err != nil {
+				return err
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintCommitInfoHeader(writer)
+			for _, commitInfo := range commitInfos {
+				pretty.PrintCommitInfo(writer, commitInfo)
+			}
+			return writer.Flush()
+		}),
+	}
+
+	listBranch := &cobra.Command{
+		Use:   "list-branch repo-name",
+		Short: "Return all branches on a repo.",
+		Long:  "Return all branches on a repo.",
+		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
+			commitInfos, err := pfsutil.ListBranch(apiClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -366,6 +391,7 @@ Files can be read from finished commits with get-file.`,
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)
+	result = append(result, listBranch)
 	result = append(result, deleteCommit)
 	result = append(result, file)
 	result = append(result, putFile)
@@ -401,7 +427,7 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 		commitMount.Commit.Repo.Name = path.Clean(repo)
 		split := strings.Split(commitAlias, ":")
 		if len(split) > 0 {
-			commitMount.Commit.Id = split[0]
+			commitMount.Commit.ID = split[0]
 		}
 		if len(split) > 1 {
 			commitMount.Alias = split[1]

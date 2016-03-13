@@ -40,7 +40,7 @@ var (
 	tableToTableCreateOpts = map[Table][]gorethink.TableCreateOpts{
 		jobInfosTable: []gorethink.TableCreateOpts{
 			gorethink.TableCreateOpts{
-				PrimaryKey: "JobId",
+				PrimaryKey: "JobID",
 			},
 		},
 		pipelineInfosTable: []gorethink.TableCreateOpts{
@@ -119,12 +119,12 @@ func (a *rethinkAPIServer) Close() error {
 	return a.session.Close()
 }
 
-// JobId cannot be set
+// JobID cannot be set
 // Timestamp cannot be set
 func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.JobInfo) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	if request.JobId != "" {
-		return nil, fmt.Errorf("request.JobId should be unset")
+	if request.JobID != "" {
+		return nil, fmt.Errorf("request.JobID should be unset")
 	}
 	if request.CreatedAt != nil {
 		return nil, fmt.Errorf("request.CreatedAt should be unset")
@@ -132,13 +132,16 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	if request.CommitIndex != "" {
 		return nil, fmt.Errorf("request.CommitIndex should be unset")
 	}
-	request.JobId = uuid.NewWithoutDashes()
+	request.JobID = uuid.NewWithoutDashes()
 	request.CreatedAt = prototime.TimeToTimestamp(time.Now())
 	var commits []*pfs.Commit
 	for _, input := range request.Inputs {
 		commits = append(commits, input.Commit)
 	}
-	request.CommitIndex = genCommitIndex(commits)
+	request.CommitIndex, err = genCommitIndex(commits)
+	if err != nil {
+		return nil, err
+	}
 	if err := a.insertMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}
@@ -157,7 +160,7 @@ func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *pps.InspectJ
 	}
 	if err := a.waitMessageByPrimaryKey(
 		jobInfosTable,
-		request.Job.Id,
+		request.Job.ID,
 		jobInfo,
 		func(jobInfo gorethink.Term) gorethink.Term {
 			blockOutput := jobInfo.HasFields("OutputCommit")
@@ -180,10 +183,14 @@ func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *pps.InspectJ
 func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJobRequest) (response *persist.JobInfos, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	query := a.getTerm(jobInfosTable)
+	commitIndexVal, err := genCommitIndex(request.InputCommit)
+	if err != nil {
+		return nil, err
+	}
 	if request.Pipeline != nil && len(request.InputCommit) > 0 {
 		query = query.GetAllByIndex(
 			pipelineNameAndCommitIndex,
-			gorethink.Expr([]interface{}{request.Pipeline.Name, genCommitIndex(request.InputCommit)}),
+			gorethink.Expr([]interface{}{request.Pipeline.Name, commitIndexVal}),
 		)
 	} else if request.Pipeline != nil {
 		query = query.GetAllByIndex(
@@ -193,7 +200,7 @@ func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJo
 	} else if len(request.InputCommit) > 0 {
 		query = query.GetAllByIndex(
 			commitIndex,
-			gorethink.Expr(genCommitIndex(request.InputCommit)),
+			gorethink.Expr(commitIndexVal),
 		)
 	}
 	cursor, err := query.Run(a.session)
@@ -221,7 +228,7 @@ func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJo
 
 func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *pps.Job) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	if err := a.deleteMessageByPrimaryKey(jobInfosTable, request.Id); err != nil {
+	if err := a.deleteMessageByPrimaryKey(jobInfosTable, request.ID); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -358,15 +365,18 @@ func (a *rethinkAPIServer) now() *google_protobuf.Timestamp {
 	return prototime.TimeToTimestamp(a.timer.Now())
 }
 
-func genCommitIndex(commits []*pfs.Commit) string {
+func genCommitIndex(commits []*pfs.Commit) (string, error) {
 	var commitIDs []string
 	for _, commit := range commits {
-		commitIDs = append(commitIDs, commit.Id[0:10])
+		if len(commit.ID) == 0 {
+			return "", fmt.Errorf("can't generate index for commit \"%s/%s\"", commit.Repo.Name, commit.ID)
+		}
+		commitIDs = append(commitIDs, commit.ID[0:10])
 	}
 	sort.Strings(commitIDs)
 	var result []byte
 	for _, commitID := range commitIDs {
 		result = append(result, commitID...)
 	}
-	return string(result)
+	return string(result), nil
 }

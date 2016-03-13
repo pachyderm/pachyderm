@@ -80,7 +80,7 @@ The increase the throughput of a job increase the Shard paremeter.
 			if err != nil {
 				errorAndExit("Error from CreateJob: %s", err.Error())
 			}
-			fmt.Println(job.Id)
+			fmt.Println(job.ID)
 		},
 	}
 	createJob.Flags().StringVarP(&jobPath, "file", "f", "-", "The file containing the job, - reads from stdin.")
@@ -98,7 +98,7 @@ The increase the throughput of a job increase the Shard paremeter.
 				context.Background(),
 				&pps.InspectJobRequest{
 					Job: &pps.Job{
-						Id: args[0],
+						ID: args[0],
 					},
 				},
 			)

@@ -171,7 +171,7 @@ func (s *localBlockAPIServer) diffDir() string {
 }
 
 func (s *localBlockAPIServer) diffPath(diff *pfs.Diff) string {
-	return filepath.Join(s.diffDir(), diff.Commit.Repo.Name, diff.Commit.Id, strconv.FormatUint(diff.Shard, 10))
+	return filepath.Join(s.diffDir(), diff.Commit.Repo.Name, diff.Commit.ID, strconv.FormatUint(diff.Shard, 10))
 }
 
 // pathToDiff parses a path as a diff, it returns nil when parse fails
@@ -187,7 +187,7 @@ func (s *localBlockAPIServer) pathToDiff(path string) *pfs.Diff {
 	return &pfs.Diff{
 		Commit: &pfs.Commit{
 			Repo: &pfs.Repo{Name: repoCommitShard[0]},
-			Id:   repoCommitShard[1],
+			ID:   repoCommitShard[1],
 		},
 		Shard: shard,
 	}

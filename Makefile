@@ -55,6 +55,7 @@ build:
 	GO15VENDOREXPERIMENT=1 go build ./src/... ./.
 
 install:
+	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pachctl ./src/cmd/pachctl-doc
 
 docker-build-test:
@@ -69,7 +70,11 @@ docker-build-job-shim: docker-build-compile
 docker-build-pachd: docker-build-compile
 	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd
 
+docker-build-hyperkube:
+	docker build -t privileged_hyperkube etc/kube
+
 docker-build: docker-build-test docker-build-job-shim docker-build-pachd
+
 
 docker-push-test: docker-build-test
 	docker push pachyderm/test
@@ -82,7 +87,7 @@ docker-push-pachd: docker-build-pachd
 
 docker-push: docker-push-job-shim docker-push-pachd
 
-launch-kube:
+launch-kube: docker-build-hyperkube
 	etc/kube/start-kube-docker.sh
 
 clean-launch-kube:
@@ -96,21 +101,21 @@ launch:
 
 launch-dev: launch-kube launch
 
-clean-job:
-
 clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found all -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
-integration-test-pod: 
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f etc/kube/test-pod.yml
-	kubectl $(KUBECTLFLAGS) create -f etc/kube/test-pod.yml
+integration-tests: 
+	kubectl $(KUBECTLFLAGS) delete --ignore-not-found pod integrationtests
+	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/test --restart=Never --command -- go test . -timeout 60s
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
 	protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src
+	go install github.com/pachyderm/pachyderm/src/cmd/protofix
+	protofix fix src
 
 pretest:
 	go get -v github.com/kisielk/errcheck
@@ -130,8 +135,10 @@ pretest:
 		done
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest clean-launch launch integration-test-pod
-	until kubectl logs -f pachyderm-test; do sleep 5; done
+test: pretest docker-build clean-launch launch integration-tests
+
+localtest: 
+	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./... | grep -v '/vendor/')
 
 clean: clean-launch clean-launch-kube
 
@@ -148,6 +155,9 @@ grep-data:
 
 grep-example:
 	sh examples/grep/run.sh
+
+logs:
+	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'kubectl logs pod >pod'
 
 .PHONY: \
 	doc \

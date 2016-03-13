@@ -34,21 +34,22 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, pipelineInfo.PipelineName, "foo")
-	inputCommits := []*pfs.Commit{pfsutil.NewCommit("bar", uuid.NewWithoutDashes())}
+	input := &pps.JobInput{Commit: pfsutil.NewCommit("bar", uuid.NewWithoutDashes())}
 	jobInfo, err := apiServer.CreateJobInfo(
 		context.Background(),
 		&persist.JobInfo{
 			PipelineName: "foo",
-			InputCommit:  inputCommits,
+			Inputs:       []*pps.JobInput{input},
 		},
 	)
-	jobID := jobInfo.JobId
-	inputCommits2 := []*pfs.Commit{pfsutil.NewCommit("fizz", uuid.NewWithoutDashes())}
+	jobID := jobInfo.JobID
+	input2 := &pps.JobInput{Commit: pfsutil.NewCommit("fizz", uuid.NewWithoutDashes())}
+
 	_, err = apiServer.CreateJobInfo(
 		context.Background(),
 		&persist.JobInfo{
 			PipelineName: "buzz",
-			InputCommit:  inputCommits2,
+			Inputs:       []*pps.JobInput{input2},
 		},
 	)
 	require.NoError(t, err)
@@ -56,12 +57,12 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 		context.Background(),
 		&pps.InspectJobRequest{
 			Job: &pps.Job{
-				Id: jobInfo.JobId,
+				ID: jobInfo.JobID,
 			},
 		},
 	)
 	require.NoError(t, err)
-	require.Equal(t, jobInfo.JobId, jobID)
+	require.Equal(t, jobInfo.JobID, jobID)
 	require.Equal(t, "foo", jobInfo.PipelineName)
 	jobInfos, err := apiServer.ListJobInfos(
 		context.Background(),
@@ -71,44 +72,44 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, len(jobInfos.JobInfo), 1)
-	require.Equal(t, jobInfos.JobInfo[0].JobId, jobID)
+	require.Equal(t, jobInfos.JobInfo[0].JobID, jobID)
 	jobInfos, err = apiServer.ListJobInfos(
 		context.Background(),
 		&pps.ListJobRequest{
-			InputCommit: inputCommits,
+			InputCommit: []*pfs.Commit{input.Commit},
 		},
 	)
 	require.NoError(t, err)
 	require.Equal(t, len(jobInfos.JobInfo), 1)
-	require.Equal(t, jobInfos.JobInfo[0].JobId, jobID)
+	require.Equal(t, jobInfos.JobInfo[0].JobID, jobID)
 	jobInfos, err = apiServer.ListJobInfos(
 		context.Background(),
 		&pps.ListJobRequest{
 			Pipeline:    &pps.Pipeline{Name: "foo"},
-			InputCommit: inputCommits,
+			InputCommit: []*pfs.Commit{input.Commit},
 		},
 	)
 	require.NoError(t, err)
 	require.Equal(t, len(jobInfos.JobInfo), 1)
-	require.Equal(t, jobInfos.JobInfo[0].JobId, jobID)
+	require.Equal(t, jobInfos.JobInfo[0].JobID, jobID)
 }
 
 func testBlock(t *testing.T, apiServer persist.APIServer) {
 	jobInfo, err := apiServer.CreateJobInfo(context.Background(), &persist.JobInfo{})
 	require.NoError(t, err)
-	jobID := jobInfo.JobId
+	jobID := jobInfo.JobID
 	go func() {
 		_, err := apiServer.CreateJobOutput(
 			context.Background(),
 			&persist.JobOutput{
-				JobId:        jobID,
+				JobID:        jobID,
 				OutputCommit: pfsutil.NewCommit("foo", "bar"),
 			})
 		require.NoError(t, err)
 		_, err = apiServer.CreateJobState(
 			context.Background(),
 			&persist.JobState{
-				JobId: jobID,
+				JobID: jobID,
 				State: pps.JobState_JOB_STATE_SUCCESS,
 			})
 		require.NoError(t, err)
@@ -116,7 +117,7 @@ func testBlock(t *testing.T, apiServer persist.APIServer) {
 	_, err = apiServer.InspectJob(
 		context.Background(),
 		&pps.InspectJobRequest{
-			Job:         &pps.Job{Id: jobID},
+			Job:         &pps.Job{ID: jobID},
 			BlockOutput: true,
 			BlockState:  true,
 		},

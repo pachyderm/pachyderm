@@ -31,20 +31,16 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 }
 
 func PrintCommitInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "ID\tPARENT\tSTATUS\tSTARTED\tFINISHED\tSIZE\t\n")
+	fmt.Fprint(w, "BRANCH\tID\tPARENT\tSTARTED\tFINISHED\tSIZE\t\n")
 }
 
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
-	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Id)
+	fmt.Fprintf(w, "%s\t", commitInfo.Branch)
+	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.ParentCommit != nil {
-		fmt.Fprintf(w, "%s\t", commitInfo.ParentCommit.Id)
+		fmt.Fprintf(w, "%s\t", commitInfo.ParentCommit.ID)
 	} else {
 		fmt.Fprint(w, "<none>\t")
-	}
-	if commitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_WRITE {
-		fmt.Fprint(w, "writeable\t")
-	} else {
-		fmt.Fprint(w, "read-only\t")
 	}
 	fmt.Fprintf(
 		w,

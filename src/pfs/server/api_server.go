@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/pfs"
+	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
+	"github.com/pachyderm/pachyderm/src/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"go.pedge.io/pb/go/google/protobuf"
@@ -48,10 +50,15 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	defer func() {
+		if retErr == nil {
+			metrics.AddRepos(1)
+		}
+	}()
 	if strings.Contains(request.Repo.Name, "/") {
 		return nil, fmt.Errorf("repo names cannot contain /")
 	}
-	ctx = versionToContext(a.version, ctx)
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
@@ -112,29 +119,26 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
 	ctx = versionToContext(a.version, ctx)
+	defer func() {
+		if retErr == nil {
+			metrics.AddCommits(1)
+		}
+	}()
 	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
-	if request.Commit == nil {
-		if request.Parent == nil {
-			return nil, fmt.Errorf("one of Parent or Commit must be non nil")
-		}
-		request.Commit = &pfs.Commit{
-			Repo: request.Parent.Repo,
-			Id:   uuid.NewWithoutDashes(),
-		}
-		if request.Parent.Id == "" {
-			request.Parent = nil
-		}
+	if request.ID != "" {
+		return nil, fmt.Errorf("request.ID should be empty")
 	}
+	request.ID = uuid.NewWithoutDashes()
 	request.Started = prototime.TimeToTimestamp(time.Now())
 	for _, clientConn := range clientConns {
 		if _, err := pfs.NewInternalAPIClient(clientConn).StartCommit(ctx, request); err != nil {
 			return nil, err
 		}
 	}
-	return request.Commit, nil
+	return pfsutil.NewCommit(request.Repo.Name, request.ID), nil
 }
 
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *google_protobuf.Empty, retErr error) {
@@ -185,6 +189,42 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
 			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).ListCommit(ctx, request)
+			if err != nil {
+				if loopErr == nil {
+					loopErr = err
+				}
+				return
+			}
+			lock.Lock()
+			defer lock.Unlock()
+			commitInfos = append(commitInfos, subCommitInfos.CommitInfo...)
+		}(clientConn)
+	}
+	wg.Wait()
+	if loopErr != nil {
+		return nil, loopErr
+	}
+	return &pfs.CommitInfos{CommitInfo: pfs.ReduceCommitInfos(commitInfos)}, nil
+}
+
+func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.CommitInfos, retErr error) {
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
+	ctx = versionToContext(a.version, ctx)
+	clientConns, err := a.router.GetAllClientConns(a.version)
+	if err != nil {
+		return nil, err
+	}
+	var wg sync.WaitGroup
+	var lock sync.Mutex
+	var commitInfos []*pfs.CommitInfo
+	var loopErr error
+	for _, clientConn := range clientConns {
+		wg.Add(1)
+		go func(clientConn *grpc.ClientConn) {
+			defer wg.Done()
+			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).ListBranch(ctx, request)
 			if err != nil {
 				if loopErr == nil {
 					loopErr = err

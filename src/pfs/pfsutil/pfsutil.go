@@ -22,7 +22,7 @@ func NewRepo(repoName string) *pfs.Repo {
 func NewCommit(repoName string, commitID string) *pfs.Commit {
 	return &pfs.Commit{
 		Repo: NewRepo(repoName),
-		Id:   commitID,
+		ID:   commitID,
 	}
 }
 
@@ -36,6 +36,13 @@ func NewFile(repoName string, commitID string, path string) *pfs.File {
 func NewBlock(hash string) *pfs.Block {
 	return &pfs.Block{
 		Hash: hash,
+	}
+}
+
+func NewDiff(repoName string, commitID string, shard uint64) *pfs.Diff {
+	return &pfs.Diff{
+		Commit: NewCommit(repoName, commitID),
+		Shard:  shard,
 	}
 }
 
@@ -83,11 +90,13 @@ func DeleteRepo(apiClient pfs.APIClient, repoName string) error {
 	return err
 }
 
-func StartCommit(apiClient pfs.APIClient, repoName string, parentCommit string) (*pfs.Commit, error) {
+func StartCommit(apiClient pfs.APIClient, repoName string, parentCommit string, branch string) (*pfs.Commit, error) {
 	commit, err := apiClient.StartCommit(
 		context.Background(),
 		&pfs.StartCommitRequest{
-			Parent: NewCommit(repoName, parentCommit),
+			Repo:     NewRepo(repoName),
+			ParentID: parentCommit,
+			Branch:   branch,
 		},
 	)
 	if err != nil {
@@ -128,6 +137,19 @@ func ListCommit(apiClient pfs.APIClient, repoNames []string) ([]*pfs.CommitInfo,
 		context.Background(),
 		&pfs.ListCommitRequest{
 			Repo: repos,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return commitInfos.CommitInfo, nil
+}
+
+func ListBranch(apiClient pfs.APIClient, repoName string) ([]*pfs.CommitInfo, error) {
+	commitInfos, err := apiClient.ListBranch(
+		context.Background(),
+		&pfs.ListBranchRequest{
+			Repo: NewRepo(repoName),
 		},
 	)
 	if err != nil {

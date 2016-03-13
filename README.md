@@ -14,7 +14,7 @@ WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our tea
 
 ### Getting Started
 
-Get up and running with the [distributed grep example](https://github.com/pachyderm/pachyderm/examples/grep/GUIDE.md).
+Get up and running with the [fruit stand example](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md).
 
 ### What is Pachyderm?
 
@@ -73,7 +73,7 @@ We can't wait to see what they are!
 
 ### Contributing
 
-[Deploying Pachyderm](https://github.com/pachyderm/pachyderm/examples/grep/GUIDE.md#setup).
+[Deploying Pachyderm](https://github.com/pachyderm/pachyderm/blob/master/examples/grep/GUIDE.md#setup).
 
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
 

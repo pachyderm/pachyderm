@@ -41,7 +41,7 @@ func do(appEnvObj interface{}) error {
 				context.Background(),
 				&pps.StartJobRequest{
 					Job: &pps.Job{
-						Id: args[0],
+						ID: args[0],
 					}})
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err.Error())
@@ -84,7 +84,7 @@ func do(appEnvObj interface{}) error {
 				context.Background(),
 				&pps.FinishJobRequest{
 					Job: &pps.Job{
-						Id: args[0],
+						ID: args[0],
 					},
 					Index:   response.Index,
 					Success: success,

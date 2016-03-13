@@ -51,11 +51,12 @@ enum CommitType {
 
 message CommitInfo {
   Commit commit = 1;
-  CommitType commit_type = 2;
-  Commit parent_commit = 3;
-  google.protobuf.Timestamp started = 4;
-  google.protobuf.Timestamp finished = 5;
-  uint64 size_bytes = 6;
+  string branch = 2;
+  CommitType commit_type = 3;
+  Commit parent_commit = 4;
+  google.protobuf.Timestamp started = 5;
+  google.protobuf.Timestamp finished = 6;
+  uint64 size_bytes = 7;
 }
 
 message CommitInfos {
@@ -93,7 +94,7 @@ message BlockRef {
 }
 
 message BlockRefs {
-	repeated BlockRef block_ref = 1;
+  repeated BlockRef block_ref = 1;
 }
 
 message Append {
@@ -115,11 +116,12 @@ message BlockInfos {
 message DiffInfo {
   Diff diff = 1;
   Commit parent_commit = 2;
-  google.protobuf.Timestamp started = 3;
-  google.protobuf.Timestamp finished = 4;
+  string branch = 3;
+  google.protobuf.Timestamp started = 4;
+  google.protobuf.Timestamp finished = 5;
   // Appends is the BlockRefs which have been append to files indexed by path.
-  map<string, Append> appends = 5;
-  uint64 size_bytes = 6;
+  map<string, Append> appends = 6;
+  uint64 size_bytes = 7;
 }
 
 message Shard {
@@ -146,9 +148,11 @@ message DeleteRepoRequest {
 }
 
 message StartCommitRequest {
-  Commit parent = 1;
-  Commit commit = 2;
-  google.protobuf.Timestamp started = 3;
+  Repo repo = 1;
+  string id = 2;
+  string parent_id = 3;
+  string branch = 4;
+  google.protobuf.Timestamp started = 5;
 }
 
 message FinishCommitRequest {
@@ -165,6 +169,10 @@ message ListCommitRequest {
   CommitType commit_type = 2;
   repeated Commit from_commit = 3;
   bool block = 4;
+}
+
+message ListBranchRequest {
+  Repo repo = 1;
 }
 
 message DeleteCommitRequest {
@@ -210,9 +218,7 @@ service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
   // An error is returned if the repo already exists.
-  rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {
-  option (google.api.http) = { put: "/repos/{repo.name}" };
-  }
+  rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
   // InspectRepo returns info about a repo.
   rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
   // ListRepo returns info about all repos.
@@ -231,6 +237,8 @@ service API {
   rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
+  // ListBranch returns info about the heads of branches.
+  rpc ListBranch(ListBranchRequest) returns (CommitInfos) {}
 
   // File rpcs
   // PutFile writes the specified file to pfs.
@@ -268,6 +276,8 @@ service InternalAPI {
   rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
+  // ListBranch returns info about the heads of branches.
+  rpc ListBranch(ListBranchRequest) returns (CommitInfos) {}
 
   // File rpcs
   // PutFile writes the specified file to pfs.
@@ -289,7 +299,7 @@ message GetBlockRequest {
 }
 
 message DeleteBlockRequest {
-    Block block = 1;
+  Block block = 1;
 }
 
 message InspectBlockRequest {
@@ -308,7 +318,7 @@ message ListDiffRequest {
 }
 
 message DeleteDiffRequest {
-	Diff diff = 1;
+  Diff diff = 1;
 }
 
 service BlockAPI {
