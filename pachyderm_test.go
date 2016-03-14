@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
-	"os"
 	"path"
 	"strings"
 	"sync"
@@ -20,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/workload"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -324,13 +322,9 @@ func TestSimple(t *testing.T) {
 }
 
 func getPachClient(t *testing.T) *APIClient {
-	pachAddr := os.Getenv("PACHD_PORT_650_TCP_ADDR")
-	if pachAddr == "" {
-		t.Error("PACHD_PORT_650_TCP_ADDR not set")
-	}
-	clientConn, err := grpc.Dial(fmt.Sprintf("%s:650", pachAddr), grpc.WithInsecure())
+	client, err := NewAPIClient()
 	require.NoError(t, err)
-	return NewAPIClient(clientConn)
+	return client
 }
 
 func uniqueString(prefix string) string {
