@@ -21,7 +21,7 @@ For development we recommend a dockerized Kubernetes deployment.
 If `docker` is installed you can launch one from the root of this repo with:
 
 ```shell
-$ make kube-launch
+$ make launch-kube
 ```
 
 ### Forward Ports
