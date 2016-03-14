@@ -14,7 +14,6 @@ import (
 	"go.pedge.io/lion"
 	"go.pedge.io/pkg/exec"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 )
 
 type appEnv struct {
@@ -33,7 +32,7 @@ func do(appEnvObj interface{}) error {
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := getPachClient(appEnv)
+			client, err := pachyderm.NewAPIClientFromAddress(appEnv.PachydermAddress)
 			if err != nil {
 				errorAndExit(err.Error())
 			}
@@ -96,14 +95,6 @@ func do(appEnvObj interface{}) error {
 	}
 
 	return rootCmd.Execute()
-}
-
-func getPachClient(appEnv *appEnv) (*pachyderm.APIClient, error) {
-	clientConn, err := grpc.Dial(fmt.Sprintf("%s:650", appEnv.PachydermAddress), grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	return pachyderm.NewAPIClient(clientConn), nil
 }
 
 func errorAndExit(format string, args ...interface{}) {

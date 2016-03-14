@@ -1,6 +1,9 @@
 package pachyderm
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"go.pedge.io/proto/version"
@@ -36,9 +39,23 @@ type APIClient struct {
 	PpsAPIClient
 }
 
-func NewAPIClient(cc *grpc.ClientConn) *APIClient {
-	return &APIClient{
-		pfs.NewAPIClient(cc),
-		pps.NewAPIClient(cc),
+func NewAPIClientFromAddress(pachAddr string) (*APIClient, error) {
+	clientConn, err := grpc.Dial(fmt.Sprintf("%s:650", pachAddr), grpc.WithInsecure())
+	if err != nil {
+		return nil, err
 	}
+
+	return &APIClient{
+		pfs.NewAPIClient(clientConn),
+		pps.NewAPIClient(clientConn),
+	}, nil
+}
+
+func NewAPIClient() (*APIClient, error) {
+	pachAddr := os.Getenv("PACHD_PORT_650_TCP_ADDR")
+	if pachAddr == "" {
+		return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
+	}
+
+	return NewAPIClientFromAddress(pachAddr)
 }
