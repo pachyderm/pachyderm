@@ -40,7 +40,7 @@ type APIClient struct {
 }
 
 func NewAPIClientFromAddress(pachAddr string) (*APIClient, error) {
-	clientConn, err := grpc.Dial(fmt.Sprintf("%s:650", pachAddr), grpc.WithInsecure())
+	clientConn, err := grpc.Dial(pachAddr, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +53,7 @@ func NewAPIClientFromAddress(pachAddr string) (*APIClient, error) {
 
 func NewAPIClient() (*APIClient, error) {
 	pachAddr := os.Getenv("PACHD_PORT_650_TCP_ADDR")
+
 	if pachAddr == "" {
 		return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
 	}
