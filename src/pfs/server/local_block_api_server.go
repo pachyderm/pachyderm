@@ -14,7 +14,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/pachyderm/pachyderm/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
@@ -29,7 +30,7 @@ type localBlockAPIServer struct {
 
 func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 	server := &localBlockAPIServer{
-		Logger: protorpclog.NewLogger("pachyderm.pfs.localBlockAPIServer"),
+		Logger: protorpclog.NewLogger("pachyderm.pfsserver.localBlockAPIServer"),
 		dir:    dir,
 	}
 	if err := os.MkdirAll(server.tmpDir(), 0777); err != nil {
@@ -44,8 +45,8 @@ func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 	return server, nil
 }
 
-func (s *localBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer) (retErr error) {
-	result := &pfs.BlockRefs{}
+func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
+	result := &pfsserver.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	scanner := bufio.NewScanner(protostream.NewStreamingBytesReader(putBlockServer))
 	for {
@@ -61,11 +62,11 @@ func (s *localBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServe
 	return putBlockServer.SendAndClose(result)
 }
 
-func (s *localBlockAPIServer) blockFile(block *pfs.Block) (*os.File, error) {
+func (s *localBlockAPIServer) blockFile(block *pfsserver.Block) (*os.File, error) {
 	return os.Open(s.blockPath(block))
 }
 
-func (s *localBlockAPIServer) GetBlock(request *pfs.GetBlockRequest, getBlockServer pfs.BlockAPI_GetBlockServer) (retErr error) {
+func (s *localBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBlockServer pfsclient.BlockAPI_GetBlockServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	file, err := s.blockFile(request.Block)
 	if err != nil {
@@ -80,18 +81,18 @@ func (s *localBlockAPIServer) GetBlock(request *pfs.GetBlockRequest, getBlockSer
 	return protostream.WriteToStreamingBytesServer(reader, getBlockServer)
 }
 
-func (s *localBlockAPIServer) DeleteBlock(ctx context.Context, request *pfs.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
+func (s *localBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return google_protobuf.EmptyInstance, s.deleteBlock(request.Block)
 }
 
-func (s *localBlockAPIServer) InspectBlock(ctx context.Context, request *pfs.InspectBlockRequest) (response *pfs.BlockInfo, retErr error) {
+func (s *localBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclient.InspectBlockRequest) (response *pfsserver.BlockInfo, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	stat, err := os.Stat(s.blockPath(request.Block))
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.BlockInfo{
+	return &pfsserver.BlockInfo{
 		Block: request.Block,
 		Created: prototime.TimeToTimestamp(
 			stat.ModTime(),
@@ -100,12 +101,12 @@ func (s *localBlockAPIServer) InspectBlock(ctx context.Context, request *pfs.Ins
 	}, nil
 }
 
-func (s *localBlockAPIServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest) (response *pfs.BlockInfos, retErr error) {
+func (s *localBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.ListBlockRequest) (response *pfsserver.BlockInfos, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (s *localBlockAPIServer) CreateDiff(ctx context.Context, request *pfs.DiffInfo) (response *google_protobuf.Empty, retErr error) {
+func (s *localBlockAPIServer) CreateDiff(ctx context.Context, request *pfsserver.DiffInfo) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	data, err := proto.Marshal(request)
 	if err != nil {
@@ -120,12 +121,12 @@ func (s *localBlockAPIServer) CreateDiff(ctx context.Context, request *pfs.DiffI
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (s *localBlockAPIServer) InspectDiff(ctx context.Context, request *pfs.InspectDiffRequest) (response *pfs.DiffInfo, retErr error) {
+func (s *localBlockAPIServer) InspectDiff(ctx context.Context, request *pfsclient.InspectDiffRequest) (response *pfsserver.DiffInfo, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return s.readDiff(request.Diff)
 }
 
-func (s *localBlockAPIServer) ListDiff(request *pfs.ListDiffRequest, listDiffServer pfs.BlockAPI_ListDiffServer) (retErr error) {
+func (s *localBlockAPIServer) ListDiff(request *pfsclient.ListDiffRequest, listDiffServer pfsclient.BlockAPI_ListDiffServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	if err := filepath.Walk(s.diffDir(), func(path string, info os.FileInfo, err error) error {
 		diff := s.pathToDiff(path)
@@ -149,7 +150,7 @@ func (s *localBlockAPIServer) ListDiff(request *pfs.ListDiffRequest, listDiffSer
 	return nil
 }
 
-func (s *localBlockAPIServer) DeleteDiff(ctx context.Context, request *pfs.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
+func (s *localBlockAPIServer) DeleteDiff(ctx context.Context, request *pfsclient.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return google_protobuf.EmptyInstance, os.Remove(s.diffPath(request.Diff))
 }
@@ -162,7 +163,7 @@ func (s *localBlockAPIServer) blockDir() string {
 	return filepath.Join(s.dir, "block")
 }
 
-func (s *localBlockAPIServer) blockPath(block *pfs.Block) string {
+func (s *localBlockAPIServer) blockPath(block *pfsserver.Block) string {
 	return filepath.Join(s.blockDir(), block.Hash)
 }
 
@@ -170,12 +171,12 @@ func (s *localBlockAPIServer) diffDir() string {
 	return filepath.Join(s.dir, "diff")
 }
 
-func (s *localBlockAPIServer) diffPath(diff *pfs.Diff) string {
+func (s *localBlockAPIServer) diffPath(diff *pfsserver.Diff) string {
 	return filepath.Join(s.diffDir(), diff.Commit.Repo.Name, diff.Commit.ID, strconv.FormatUint(diff.Shard, 10))
 }
 
 // pathToDiff parses a path as a diff, it returns nil when parse fails
-func (s *localBlockAPIServer) pathToDiff(path string) *pfs.Diff {
+func (s *localBlockAPIServer) pathToDiff(path string) *pfsserver.Diff {
 	repoCommitShard := strings.Split(strings.TrimPrefix(path, s.diffDir()), "/")
 	if len(repoCommitShard) < 3 {
 		return nil
@@ -184,28 +185,28 @@ func (s *localBlockAPIServer) pathToDiff(path string) *pfs.Diff {
 	if err != nil {
 		return nil
 	}
-	return &pfs.Diff{
-		Commit: &pfs.Commit{
-			Repo: &pfs.Repo{Name: repoCommitShard[0]},
+	return &pfsserver.Diff{
+		Commit: &pfsserver.Commit{
+			Repo: &pfsserver.Repo{Name: repoCommitShard[0]},
 			ID:   repoCommitShard[1],
 		},
 		Shard: shard,
 	}
 }
 
-func (s *localBlockAPIServer) readDiff(diff *pfs.Diff) (*pfs.DiffInfo, error) {
+func (s *localBlockAPIServer) readDiff(diff *pfsserver.Diff) (*pfsserver.DiffInfo, error) {
 	data, err := ioutil.ReadFile(s.diffPath(diff))
 	if err != nil {
 		return nil, err
 	}
-	result := &pfs.DiffInfo{}
+	result := &pfsserver.DiffInfo{}
 	if err := proto.Unmarshal(data, result); err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-func scanBlock(scanner *bufio.Scanner) (*pfs.BlockRef, []byte, error) {
+func scanBlock(scanner *bufio.Scanner) (*pfsserver.BlockRef, []byte, error) {
 	var buffer bytes.Buffer
 	var bytesWritten int
 	hash := newHash()
@@ -222,16 +223,16 @@ func scanBlock(scanner *bufio.Scanner) (*pfs.BlockRef, []byte, error) {
 	if err := scanner.Err(); err != nil {
 		return nil, nil, err
 	}
-	return &pfs.BlockRef{
+	return &pfsserver.BlockRef{
 		Block: getBlock(hash),
-		Range: &pfs.ByteRange{
+		Range: &pfsserver.ByteRange{
 			Lower: 0,
 			Upper: uint64(buffer.Len()),
 		},
 	}, buffer.Bytes(), nil
 }
 
-func (s *localBlockAPIServer) putOneBlock(scanner *bufio.Scanner) (*pfs.BlockRef, error) {
+func (s *localBlockAPIServer) putOneBlock(scanner *bufio.Scanner) (*pfsserver.BlockRef, error) {
 	blockRef, data, err := scanBlock(scanner)
 	if err != nil {
 		return nil, err
@@ -242,6 +243,6 @@ func (s *localBlockAPIServer) putOneBlock(scanner *bufio.Scanner) (*pfs.BlockRef
 	return blockRef, nil
 }
 
-func (s *localBlockAPIServer) deleteBlock(block *pfs.Block) error {
+func (s *localBlockAPIServer) deleteBlock(block *pfsserver.Block) error {
 	return os.Remove(s.blockPath(block))
 }

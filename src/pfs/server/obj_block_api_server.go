@@ -13,7 +13,8 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/obj"
 )
 
@@ -30,15 +31,15 @@ func newObjBlockAPIServer(dir string, objClient obj.Client) (*objBlockAPIServer,
 		return nil, err
 	}
 	return &objBlockAPIServer{
-		Logger:      protorpclog.NewLogger("pachyderm.pfs.objBlockAPIServer"),
+		Logger:      protorpclog.NewLogger("pachyderm.pfsserver.objBlockAPIServer"),
 		dir:         dir,
 		localServer: localServer,
 		objClient:   objClient,
 	}, nil
 }
 
-func (s *objBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer) (retErr error) {
-	result := &pfs.BlockRefs{}
+func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
+	result := &pfsserver.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	scanner := bufio.NewScanner(protostream.NewStreamingBytesReader(putBlockServer))
 	var wg sync.WaitGroup
@@ -79,7 +80,7 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer)
 	return putBlockServer.SendAndClose(result)
 }
 
-func (s *objBlockAPIServer) GetBlock(request *pfs.GetBlockRequest, getBlockServer pfs.BlockAPI_GetBlockServer) (retErr error) {
+func (s *objBlockAPIServer) GetBlock(request *pfsclient.GetBlockRequest, getBlockServer pfsclient.BlockAPI_GetBlockServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	reader, err := s.objClient.Reader(s.localServer.blockPath(request.Block), request.OffsetBytes, request.SizeBytes)
 	if err != nil {
@@ -93,21 +94,21 @@ func (s *objBlockAPIServer) GetBlock(request *pfs.GetBlockRequest, getBlockServe
 	return protostream.WriteToStreamingBytesServer(reader, getBlockServer)
 }
 
-func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfs.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
+func (s *objBlockAPIServer) DeleteBlock(ctx context.Context, request *pfsclient.DeleteBlockRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return google_protobuf.EmptyInstance, s.objClient.Delete(s.localServer.blockPath(request.Block))
 }
 
-func (s *objBlockAPIServer) InspectBlock(ctx context.Context, request *pfs.InspectBlockRequest) (response *pfs.BlockInfo, retErr error) {
+func (s *objBlockAPIServer) InspectBlock(ctx context.Context, request *pfsclient.InspectBlockRequest) (response *pfsserver.BlockInfo, retErr error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (s *objBlockAPIServer) ListBlock(ctx context.Context, request *pfs.ListBlockRequest) (response *pfs.BlockInfos, retErr error) {
+func (s *objBlockAPIServer) ListBlock(ctx context.Context, request *pfsclient.ListBlockRequest) (response *pfsserver.BlockInfos, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (s *objBlockAPIServer) CreateDiff(ctx context.Context, request *pfs.DiffInfo) (response *google_protobuf.Empty, retErr error) {
+func (s *objBlockAPIServer) CreateDiff(ctx context.Context, request *pfsserver.DiffInfo) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	data, err := proto.Marshal(request)
 	if err != nil {
@@ -128,12 +129,12 @@ func (s *objBlockAPIServer) CreateDiff(ctx context.Context, request *pfs.DiffInf
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (s *objBlockAPIServer) InspectDiff(ctx context.Context, request *pfs.InspectDiffRequest) (response *pfs.DiffInfo, retErr error) {
+func (s *objBlockAPIServer) InspectDiff(ctx context.Context, request *pfsclient.InspectDiffRequest) (response *pfsserver.DiffInfo, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return s.readDiff(request.Diff)
 }
 
-func (s *objBlockAPIServer) ListDiff(request *pfs.ListDiffRequest, listDiffServer pfs.BlockAPI_ListDiffServer) (retErr error) {
+func (s *objBlockAPIServer) ListDiff(request *pfsclient.ListDiffRequest, listDiffServer pfsclient.BlockAPI_ListDiffServer) (retErr error) {
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	if err := s.objClient.Walk(s.localServer.diffDir(), func(path string) error {
 		diff := s.localServer.pathToDiff(path)
@@ -156,18 +157,18 @@ func (s *objBlockAPIServer) ListDiff(request *pfs.ListDiffRequest, listDiffServe
 	return nil
 }
 
-func (s *objBlockAPIServer) DeleteDiff(ctx context.Context, request *pfs.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
+func (s *objBlockAPIServer) DeleteDiff(ctx context.Context, request *pfsclient.DeleteDiffRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return google_protobuf.EmptyInstance, s.objClient.Delete(s.localServer.diffPath(request.Diff))
 }
 
-func (s *objBlockAPIServer) readDiff(diff *pfs.Diff) (*pfs.DiffInfo, error) {
+func (s *objBlockAPIServer) readDiff(diff *pfsserver.Diff) (*pfsserver.DiffInfo, error) {
 	reader, err := s.objClient.Reader(s.localServer.diffPath(diff), 0, 0)
 	if err != nil {
 		return nil, err
 	}
 	data, err := ioutil.ReadAll(reader)
-	result := &pfs.DiffInfo{}
+	result := &pfsserver.DiffInfo{}
 	if err := proto.Unmarshal(data, result); err != nil {
 		return nil, err
 	}

@@ -1,7 +1,8 @@
 package server
 
 import (
-	"github.com/pachyderm/pachyderm/src/pfs"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
@@ -12,27 +13,27 @@ var (
 )
 
 type APIServer interface {
-	pfs.APIServer
+	pfsclient.APIServer // SJ: WOW this is bad naming
 	shard.Frontend
 }
 
 type InternalAPIServer interface {
-	pfs.InternalAPIServer
+	pfsclient.InternalAPIServer // SJ: also bad naming
 	shard.Server
 }
 
-func NewAPIServer(hasher *pfs.Hasher, router shard.Router) APIServer {
+func NewAPIServer(hasher *pfsserver.Hasher, router shard.Router) APIServer {
 	return newAPIServer(hasher, router)
 }
 
-func NewInternalAPIServer(hasher *pfs.Hasher, router shard.Router, driver drive.Driver) InternalAPIServer {
+func NewInternalAPIServer(hasher *pfsserver.Hasher, router shard.Router, driver drive.Driver) InternalAPIServer {
 	return newInternalAPIServer(hasher, router, driver)
 }
 
-func NewLocalBlockAPIServer(dir string) (pfs.BlockAPIServer, error) {
+func NewLocalBlockAPIServer(dir string) (pfsclient.BlockAPIServer, error) { // SJ: also bad naming
 	return newLocalBlockAPIServer(dir)
 }
 
-func NewObjBlockAPIServer(dir string, objClient obj.Client) (pfs.BlockAPIServer, error) {
+func NewObjBlockAPIServer(dir string, objClient obj.Client) (pfsclient.BlockAPIServer, error) { // SJ: Also bad naming
 	return newObjBlockAPIServer(dir, objClient)
 }
