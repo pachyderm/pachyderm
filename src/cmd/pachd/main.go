@@ -6,7 +6,8 @@ import (
 
 	"github.com/gengo/grpc-gateway/runtime"
 	"github.com/pachyderm/pachyderm"
-	"github.com/pachyderm/pachyderm/src/pfs"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	pfs "github.com/pachyderm/pachyderm/src/pfs" // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	pfs_server "github.com/pachyderm/pachyderm/src/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
@@ -128,7 +129,7 @@ func do(appEnvObj interface{}) error {
 		rethinkAPIServer,
 		kubeClient,
 	)
-	var blockAPIServer pfs.BlockAPIServer
+	var blockAPIServer pfsclient.BlockAPIServer
 	if err := func() error {
 		bucket, err := ioutil.ReadFile("/amazon-secret/bucket")
 		if err != nil {
@@ -168,13 +169,13 @@ func do(appEnvObj interface{}) error {
 	}
 	return protoserver.ServeWithHTTP(
 		func(s *grpc.Server) {
-			pfs.RegisterAPIServer(s, apiServer)
-			pfs.RegisterInternalAPIServer(s, internalAPIServer)
-			pfs.RegisterBlockAPIServer(s, blockAPIServer)
+			pfsclient.RegisterAPIServer(s, apiServer)
+			pfsclient.RegisterInternalAPIServer(s, internalAPIServer)
+			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 			pps.RegisterAPIServer(s, ppsAPIServer)
 		},
 		func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
-			return pfs.RegisterAPIHandler(ctx, mux, clientConn)
+			return pfsclient.RegisterAPIHandler(ctx, mux, clientConn)
 		},
 		protoserver.ServeWithHTTPOptions{
 			ServeOptions: protoserver.ServeOptions{
