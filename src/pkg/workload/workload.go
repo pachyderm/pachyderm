@@ -7,14 +7,15 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 )
 
 func RunWorkload(
-	pfsClient pfs.APIClient,
+	pfsClient pfsclient.APIClient,
 	ppsClient pps.APIClient,
 	rand *rand.Rand,
 	size int,
@@ -44,10 +45,10 @@ func RunWorkload(
 }
 
 type worker struct {
-	repos       []*pfs.Repo
-	finished    []*pfs.Commit
-	started     []*pfs.Commit
-	files       []*pfs.File
+	repos       []*pfsserver.Repo
+	finished    []*pfsserver.Commit
+	started     []*pfsserver.Commit
+	files       []*pfsserver.File
 	startedJobs []*pps.Job
 	jobs        []*pps.Job
 	pipelines   []*pps.Pipeline
@@ -71,7 +72,7 @@ const (
 const maxStartedCommits = 6
 const maxStartedJobs = 6
 
-func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
+func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient pps.APIClient) error {
 	opt := w.rand.Float64()
 	switch {
 	case opt < repo:
@@ -79,7 +80,7 @@ func (w *worker) work(pfsClient pfs.APIClient, ppsClient pps.APIClient) error {
 		if err := pfsutil.CreateRepo(pfsClient, repoName); err != nil {
 			return err
 		}
-		w.repos = append(w.repos, &pfs.Repo{Name: repoName})
+		w.repos = append(w.repos, &pfsserver.Repo{Name: repoName})
 		commit, err := pfsutil.StartCommit(pfsClient, repoName, "", "")
 		if err != nil {
 			return err

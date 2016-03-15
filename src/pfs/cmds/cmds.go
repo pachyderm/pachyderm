@@ -7,7 +7,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/pretty"
@@ -22,8 +23,8 @@ func Cmds(address string) []*cobra.Command {
 	var fileModulus int
 	var blockNumber int
 	var blockModulus int
-	shard := func() *pfs.Shard {
-		return &pfs.Shard{
+	shard := func() *pfsserver.Shard {
+		return &pfsserver.Shard{
 			FileNumber:   uint64(fileNumber),
 			FileModulus:  uint64(fileModulus),
 			BlockNumber:  uint64(blockNumber),
@@ -403,20 +404,20 @@ Files can be read from finished commits with get-file.`,
 	return result
 }
 
-func getAPIClient(address string) (pfs.APIClient, error) {
+func getAPIClient(address string) (pfsclient.APIClient, error) {
 	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewAPIClient(clientConn), nil
+	return pfsclient.NewAPIClient(clientConn), nil
 }
 
-func getDriveAPIClient(address string) (pfs.BlockAPIClient, error) {
+func getDriveAPIClient(address string) (pfsclient.BlockAPIClient, error) {
 	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
-	return pfs.NewBlockAPIClient(clientConn), nil
+	return pfsclient.NewBlockAPIClient(clientConn), nil
 }
 
 func parseCommitMounts(args []string) []*fuse.CommitMount {

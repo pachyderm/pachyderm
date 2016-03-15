@@ -11,7 +11,8 @@ import (
 	"testing"
 
 	"bazil.org/fuse/fs/fstestutil"
-	"github.com/pachyderm/pachyderm/src/pfs"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
@@ -61,7 +62,7 @@ func TestRootReadDir(t *testing.T) {
 		numShards = 1
 	)
 	sharder := shard.NewLocalSharder(localAddress, numShards)
-	hasher := pfs.NewHasher(numShards, 1)
+	hasher := pfsserver.NewHasher(numShards, 1)
 	router := shard.NewRouter(
 		sharder,
 		grpcutil.NewDialer(
@@ -75,7 +76,7 @@ func TestRootReadDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLocalBlockAPIServer: %v", err)
 	}
-	pfs.RegisterBlockAPIServer(srv, blockServer)
+	pfsclient.RegisterBlockAPIServer(srv, blockServer)
 
 	driver, err := drive.NewDriver(localAddress)
 	if err != nil {
@@ -86,14 +87,14 @@ func TestRootReadDir(t *testing.T) {
 		hasher,
 		router,
 	)
-	pfs.RegisterAPIServer(srv, apiServer)
+	pfsclient.RegisterAPIServer(srv, apiServer)
 
 	internalAPIServer := server.NewInternalAPIServer(
 		hasher,
 		router,
 		driver,
 	)
-	pfs.RegisterInternalAPIServer(srv, internalAPIServer)
+	pfsclient.RegisterInternalAPIServer(srv, internalAPIServer)
 
 	wg.Add(1)
 	go func() {
@@ -113,7 +114,7 @@ func TestRootReadDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("grpc dial: %v", err)
 	}
-	apiClient := pfs.NewAPIClient(clientConn)
+	apiClient := pfsclient.NewAPIClient(clientConn)
 	mounter := fuse.NewMounter(localAddress, apiClient)
 
 	mountpoint := filepath.Join(tmp, "mnt")
@@ -218,7 +219,7 @@ func TestRepoReadDir(t *testing.T) {
 		numShards = 1
 	)
 	sharder := shard.NewLocalSharder(localAddress, numShards)
-	hasher := pfs.NewHasher(numShards, 1)
+	hasher := pfsserver.NewHasher(numShards, 1)
 	router := shard.NewRouter(
 		sharder,
 		grpcutil.NewDialer(
@@ -232,7 +233,7 @@ func TestRepoReadDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLocalBlockAPIServer: %v", err)
 	}
-	pfs.RegisterBlockAPIServer(srv, blockServer)
+	pfsclient.RegisterBlockAPIServer(srv, blockServer)
 
 	driver, err := drive.NewDriver(localAddress)
 	if err != nil {
@@ -243,14 +244,14 @@ func TestRepoReadDir(t *testing.T) {
 		hasher,
 		router,
 	)
-	pfs.RegisterAPIServer(srv, apiServer)
+	pfsclient.RegisterAPIServer(srv, apiServer)
 
 	internalAPIServer := server.NewInternalAPIServer(
 		hasher,
 		router,
 		driver,
 	)
-	pfs.RegisterInternalAPIServer(srv, internalAPIServer)
+	pfsclient.RegisterInternalAPIServer(srv, internalAPIServer)
 
 	wg.Add(1)
 	go func() {
@@ -270,7 +271,7 @@ func TestRepoReadDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("grpc dial: %v", err)
 	}
-	apiClient := pfs.NewAPIClient(clientConn)
+	apiClient := pfsclient.NewAPIClient(clientConn)
 	mounter := fuse.NewMounter(localAddress, apiClient)
 
 	mountpoint := filepath.Join(tmp, "mnt")
@@ -391,7 +392,7 @@ func TestCommitOpenReadDir(t *testing.T) {
 		numShards = 1
 	)
 	sharder := shard.NewLocalSharder(localAddress, numShards)
-	hasher := pfs.NewHasher(numShards, 1)
+	hasher := pfsserver.NewHasher(numShards, 1)
 	router := shard.NewRouter(
 		sharder,
 		grpcutil.NewDialer(
@@ -405,7 +406,7 @@ func TestCommitOpenReadDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLocalBlockAPIServer: %v", err)
 	}
-	pfs.RegisterBlockAPIServer(srv, blockServer)
+	pfsclient.RegisterBlockAPIServer(srv, blockServer)
 
 	driver, err := drive.NewDriver(localAddress)
 	if err != nil {
@@ -416,14 +417,14 @@ func TestCommitOpenReadDir(t *testing.T) {
 		hasher,
 		router,
 	)
-	pfs.RegisterAPIServer(srv, apiServer)
+	pfsclient.RegisterAPIServer(srv, apiServer)
 
 	internalAPIServer := server.NewInternalAPIServer(
 		hasher,
 		router,
 		driver,
 	)
-	pfs.RegisterInternalAPIServer(srv, internalAPIServer)
+	pfsclient.RegisterInternalAPIServer(srv, internalAPIServer)
 
 	wg.Add(1)
 	go func() {
@@ -443,7 +444,7 @@ func TestCommitOpenReadDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("grpc dial: %v", err)
 	}
-	apiClient := pfs.NewAPIClient(clientConn)
+	apiClient := pfsclient.NewAPIClient(clientConn)
 	mounter := fuse.NewMounter(localAddress, apiClient)
 
 	mountpoint := filepath.Join(tmp, "mnt")
@@ -543,7 +544,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 		numShards = 1
 	)
 	sharder := shard.NewLocalSharder(localAddress, numShards)
-	hasher := pfs.NewHasher(numShards, 1)
+	hasher := pfsserver.NewHasher(numShards, 1)
 	router := shard.NewRouter(
 		sharder,
 		grpcutil.NewDialer(
@@ -557,7 +558,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLocalBlockAPIServer: %v", err)
 	}
-	pfs.RegisterBlockAPIServer(srv, blockServer)
+	pfsclient.RegisterBlockAPIServer(srv, blockServer)
 
 	driver, err := drive.NewDriver(localAddress)
 	if err != nil {
@@ -568,14 +569,14 @@ func TestCommitFinishedReadDir(t *testing.T) {
 		hasher,
 		router,
 	)
-	pfs.RegisterAPIServer(srv, apiServer)
+	pfsclient.RegisterAPIServer(srv, apiServer)
 
 	internalAPIServer := server.NewInternalAPIServer(
 		hasher,
 		router,
 		driver,
 	)
-	pfs.RegisterInternalAPIServer(srv, internalAPIServer)
+	pfsclient.RegisterInternalAPIServer(srv, internalAPIServer)
 
 	wg.Add(1)
 	go func() {
@@ -595,7 +596,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("grpc dial: %v", err)
 	}
-	apiClient := pfs.NewAPIClient(clientConn)
+	apiClient := pfsclient.NewAPIClient(clientConn)
 	mounter := fuse.NewMounter(localAddress, apiClient)
 
 	mountpoint := filepath.Join(tmp, "mnt")
@@ -726,7 +727,7 @@ func TestWriteAndRead(t *testing.T) {
 		numShards = 1
 	)
 	sharder := shard.NewLocalSharder(localAddress, numShards)
-	hasher := pfs.NewHasher(numShards, 1)
+	hasher := pfsserver.NewHasher(numShards, 1)
 	router := shard.NewRouter(
 		sharder,
 		grpcutil.NewDialer(
@@ -740,7 +741,7 @@ func TestWriteAndRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewLocalBlockAPIServer: %v", err)
 	}
-	pfs.RegisterBlockAPIServer(srv, blockServer)
+	pfsclient.RegisterBlockAPIServer(srv, blockServer)
 
 	driver, err := drive.NewDriver(localAddress)
 	if err != nil {
@@ -751,14 +752,14 @@ func TestWriteAndRead(t *testing.T) {
 		hasher,
 		router,
 	)
-	pfs.RegisterAPIServer(srv, apiServer)
+	pfsclient.RegisterAPIServer(srv, apiServer)
 
 	internalAPIServer := server.NewInternalAPIServer(
 		hasher,
 		router,
 		driver,
 	)
-	pfs.RegisterInternalAPIServer(srv, internalAPIServer)
+	pfsclient.RegisterInternalAPIServer(srv, internalAPIServer)
 
 	wg.Add(1)
 	go func() {
@@ -778,7 +779,7 @@ func TestWriteAndRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("grpc dial: %v", err)
 	}
-	apiClient := pfs.NewAPIClient(clientConn)
+	apiClient := pfsclient.NewAPIClient(clientConn)
 	mounter := fuse.NewMounter(localAddress, apiClient)
 
 	mountpoint := filepath.Join(tmp, "mnt")
