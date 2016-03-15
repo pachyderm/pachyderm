@@ -7,8 +7,7 @@ import(
 	"google.golang.org/grpc"	
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	//"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/pps"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
 

@@ -10,7 +10,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
-	"github.com/pachyderm/pachyderm/src/pps"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	ppsserver "github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
@@ -50,7 +51,7 @@ func newJobState() *jobState {
 
 type apiServer struct {
 	protorpclog.Logger
-	hasher           *pps.Hasher
+	hasher           *ppsserver.Hasher
 	router           shard.Router
 	pfsAddress       string
 	pfsAPIClient     pfsclient.APIClient
@@ -59,7 +60,7 @@ type apiServer struct {
 	kubeClient       *kube.Client
 	jobStates        map[string]*jobState
 	jobStatesLock    sync.Mutex
-	cancelFuncs      map[pps.Pipeline]func()
+	cancelFuncs      map[ppsclient.Pipeline]func()
 	cancelFuncsLock  sync.Mutex
 	version          int64
 	// versionLock protects the version field.
@@ -68,7 +69,7 @@ type apiServer struct {
 	versionLock sync.RWMutex
 }
 
-func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
+func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	defer func() {
 		if retErr == nil {
@@ -76,14 +77,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		}
 	}()
 	if request.Shards == 0 {
-		return nil, fmt.Errorf("pachyderm.pps.jobserver: request.Shards cannot be 0")
+		return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: request.Shards cannot be 0")
 	}
 	repoSet := make(map[string]bool)
 	for _, input := range request.Inputs {
 		repoSet[input.Commit.Repo.Name] = true
 	}
 	if len(repoSet) < len(request.Inputs) {
-		return nil, fmt.Errorf("pachyderm.pps.jobserver: duplicate repo in job")
+		return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: duplicate repo in job")
 	}
 	// TODO validate job to make sure input commits and output repo exist
 	persistJobInfo := &persist.JobInfo{
@@ -96,7 +97,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		persistJobInfo.PipelineName = request.Pipeline.Name
 	}
 	if a.kubeClient == nil {
-		return nil, fmt.Errorf("pachyderm.pps.jobserver: no job backend")
+		return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: no job backend")
 	}
 	_, err := a.persistAPIServer.CreateJobInfo(ctx, persistJobInfo)
 	if err != nil {
@@ -106,7 +107,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		if retErr != nil {
 			if _, err := a.persistAPIServer.CreateJobState(ctx, &persist.JobState{
 				JobID: persistJobInfo.JobID,
-				State: pps.JobState_JOB_STATE_FAILURE,
+				State: ppsclient.JobState_JOB_STATE_FAILURE,
 			}); err != nil {
 				protolion.Errorf("error from CreateJobState %s", err.Error())
 			}
@@ -115,12 +116,12 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
 		return nil, err
 	}
-	return &pps.Job{
+	return &ppsclient.Job{
 		ID: persistJobInfo.JobID,
 	}, nil
 }
 
-func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.JobInfo, retErr error) {
+func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJobRequest) (response *ppsclient.JobInfo, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistJobInfo, err := a.persistAPIServer.InspectJob(ctx, request)
 	if err != nil {
@@ -129,13 +130,13 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	return newJobInfo(persistJobInfo)
 }
 
-func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {
+func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobRequest) (response *ppsclient.JobInfos, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	persistJobInfos, err := a.persistAPIServer.ListJobInfos(ctx, request)
 	if err != nil {
 		return nil, err
 	}
-	jobInfos := make([]*pps.JobInfo, len(persistJobInfos.JobInfo))
+	jobInfos := make([]*ppsclient.JobInfo, len(persistJobInfos.JobInfo))
 	for i, persistJobInfo := range persistJobInfos.JobInfo {
 		jobInfo, err := newJobInfo(persistJobInfo)
 		if err != nil {
@@ -143,14 +144,14 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 		}
 		jobInfos[i] = jobInfo
 	}
-	return &pps.JobInfos{
+	return &ppsclient.JobInfos{
 		JobInfo: jobInfos,
 	}, nil
 }
 
-func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) (response *pps.StartJobResponse, retErr error) {
+func (a *apiServer) StartJob(ctx context.Context, request *ppsclient.StartJobRequest) (response *ppsclient.StartJobResponse, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	inspectJobRequest := &pps.InspectJobRequest{Job: request.Job}
+	inspectJobRequest := &ppsclient.InspectJobRequest{Job: request.Job}
 	jobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
 	if err != nil {
 		return nil, err
@@ -178,7 +179,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	}
 	var parentJobInfo *persist.JobInfo
 	if jobInfo.ParentJob != nil {
-		inspectJobRequest := &pps.InspectJobRequest{Job: jobInfo.ParentJob}
+		inspectJobRequest := &ppsclient.InspectJobRequest{Job: jobInfo.ParentJob}
 		parentJobInfo, err = a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
 		if err != nil {
 			return nil, err
@@ -200,12 +201,12 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 		startCommitRequest := &pfsclient.StartCommitRequest{}
 		if parentJobInfo == nil || reduce {
 			if jobInfo.PipelineName == "" {
-				startCommitRequest.Repo = pps.JobRepo(request.Job)
+				startCommitRequest.Repo = ppsserver.JobRepo(request.Job)
 				if _, err := pfsAPIClient.CreateRepo(ctx, &pfsclient.CreateRepoRequest{Repo: startCommitRequest.Repo}); err != nil {
 					return nil, err
 				}
 			} else {
-				startCommitRequest.Repo = pps.PipelineRepo(&pps.Pipeline{Name: jobInfo.PipelineName})
+				startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: jobInfo.PipelineName})
 			}
 		} else {
 			startCommitRequest.Repo = parentJobInfo.OutputCommit.Repo
@@ -254,7 +255,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 		Alias:  "out",
 	}
 	commitMounts = append(commitMounts, outputCommitMount)
-	return &pps.StartJobResponse{
+	return &ppsclient.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
 		OutputCommit: jobState.outputCommit,
@@ -262,15 +263,15 @@ func (a *apiServer) StartJob(ctx context.Context, request *pps.StartJobRequest) 
 	}, nil
 }
 
-func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
+func (a *apiServer) FinishJob(ctx context.Context, request *ppsclient.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	inspectJobRequest := &pps.InspectJobRequest{Job: request.Job}
+	inspectJobRequest := &ppsclient.InspectJobRequest{Job: request.Job}
 	jobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
 	if err != nil {
 		return nil, err
 	}
 	var finished bool
-	persistJobState := pps.JobState_JOB_STATE_FAILURE
+	persistJobState := ppsclient.JobState_JOB_STATE_FAILURE
 	if err := func() error {
 		a.jobStatesLock.Lock()
 		defer a.jobStatesLock.Unlock()
@@ -280,7 +281,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 		}
 		jobState.success = jobState.success && request.Success
 		if jobState.success {
-			persistJobState = pps.JobState_JOB_STATE_SUCCESS
+			persistJobState = ppsclient.JobState_JOB_STATE_SUCCESS
 		}
 		jobState.finish++
 		finished = (jobState.finish == jobInfo.Shards)
@@ -311,7 +312,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *pps.FinishJobRequest
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *google_protobuf.Empty, retErr error) {
+func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.CreatePipelineRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	defer func() {
 		if retErr == nil {
@@ -320,7 +321,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}()
 	pfsAPIClient, err := a.getPfsClient()
 	if request.Pipeline == nil {
-		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: request.Pipeline cannot be nil")
+		return nil, fmt.Errorf("pachyderm.ppsclient.pipelineserver: request.Pipeline cannot be nil")
 	}
 	repoSet := make(map[string]bool)
 	for _, input := range request.Inputs {
@@ -330,9 +331,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		repoSet[input.Repo.Name] = true
 	}
 	if len(repoSet) < len(request.Inputs) {
-		return nil, fmt.Errorf("pachyderm.pps.pipelineserver: duplicate input repos")
+		return nil, fmt.Errorf("pachyderm.ppsclient.pipelineserver: duplicate input repos")
 	}
-	repo := pps.PipelineRepo(request.Pipeline)
+	repo := ppsserver.PipelineRepo(request.Pipeline)
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
@@ -357,7 +358,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, err error) {
+func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.InspectPipelineRequest) (response *ppsclient.PipelineInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistPipelineInfo, err := a.persistAPIServer.GetPipelineInfo(ctx, request.Pipeline)
 	if err != nil {
@@ -366,22 +367,22 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 	return newPipelineInfo(persistPipelineInfo), nil
 }
 
-func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineRequest) (response *pps.PipelineInfos, err error) {
+func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPipelineRequest) (response *ppsclient.PipelineInfos, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	persistPipelineInfos, err := a.persistAPIServer.ListPipelineInfos(ctx, google_protobuf.EmptyInstance)
 	if err != nil {
 		return nil, err
 	}
-	pipelineInfos := make([]*pps.PipelineInfo, len(persistPipelineInfos.PipelineInfo))
+	pipelineInfos := make([]*ppsclient.PipelineInfo, len(persistPipelineInfos.PipelineInfo))
 	for i, persistPipelineInfo := range persistPipelineInfos.PipelineInfo {
 		pipelineInfos[i] = newPipelineInfo(persistPipelineInfo)
 	}
-	return &pps.PipelineInfos{
+	return &ppsclient.PipelineInfos{
 		PipelineInfo: pipelineInfos,
 	}, nil
 }
 
-func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
+func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
 	if _, err := a.persistAPIServer.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
@@ -400,7 +401,7 @@ func (a *apiServer) Version(version int64) error {
 }
 
 func (a *apiServer) AddShard(shard uint64, version int64) error {
-	pipelineInfos, err := a.ListPipeline(context.Background(), &pps.ListPipelineRequest{})
+	pipelineInfos, err := a.ListPipeline(context.Background(), &ppsclient.ListPipelineRequest{})
 	if err != nil {
 		return err
 	}
@@ -428,9 +429,9 @@ func (a *apiServer) RemoveShard(shard uint64, version int64) error {
 	return nil
 }
 
-func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *pps.PipelineInfo {
-	return &pps.PipelineInfo{
-		Pipeline: &pps.Pipeline{
+func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.PipelineInfo {
+	return &ppsclient.PipelineInfo{
+		Pipeline: &ppsclient.Pipeline{
 			Name: persistPipelineInfo.PipelineName,
 		},
 		Transform:  persistPipelineInfo.Transform,
@@ -440,13 +441,13 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *pps.PipelineInf
 	}
 }
 
-func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancelFuncsLock.Lock()
 	a.cancelFuncs[*pipelineInfo.Pipeline] = cancel
 	a.cancelFuncsLock.Unlock()
 	repoToLeaves := make(map[string]map[string]bool)
-	repoToInput := make(map[string]*pps.PipelineInput)
+	repoToInput := make(map[string]*ppsclient.PipelineInput)
 	var inputRepos []*pfsserver.Repo
 	for _, input := range pipelineInfo.Inputs {
 		repoToLeaves[input.Repo.Name] = make(map[string]bool)
@@ -509,23 +510,23 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 				if len(commitSet)+1 < len(pipelineInfo.Inputs) {
 					continue
 				}
-				var parentJob *pps.Job
+				var parentJob *ppsclient.Job
 				if commitInfo.ParentCommit != nil {
 					parentJob, err = a.parentJob(ctx, pipelineInfo, commitSet, commitInfo)
 					if err != nil {
 						return err
 					}
 				}
-				var inputs []*pps.JobInput
+				var inputs []*ppsclient.JobInput
 				for _, commit := range append(commitSet, commitInfo.Commit) {
-					inputs = append(inputs, &pps.JobInput{
+					inputs = append(inputs, &ppsclient.JobInput{
 						Commit: commit,
 						Reduce: repoToInput[commit.Repo.Name].Reduce,
 					})
 				}
 				if _, err = a.CreateJob(
 					ctx,
-					&pps.CreateJobRequest{
+					&ppsclient.CreateJobRequest{
 						Transform: pipelineInfo.Transform,
 						Pipeline:  pipelineInfo.Pipeline,
 						Shards:    pipelineInfo.Shards,
@@ -542,13 +543,13 @@ func (a *apiServer) runPipeline(pipelineInfo *pps.PipelineInfo) error {
 
 func (a *apiServer) parentJob(
 	ctx context.Context,
-	pipelineInfo *pps.PipelineInfo,
+	pipelineInfo *ppsclient.PipelineInfo,
 	commitSet []*pfsserver.Commit,
 	newCommit *pfsserver.CommitInfo,
-) (*pps.Job, error) {
+) (*ppsclient.Job, error) {
 	jobInfo, err := a.ListJob(
 		ctx,
-		&pps.ListJobRequest{
+		&ppsclient.ListJobRequest{
 			Pipeline:    pipelineInfo.Pipeline,
 			InputCommit: append(commitSet, newCommit.ParentCommit),
 		})
@@ -578,12 +579,12 @@ func (a *apiServer) getPfsClient() (pfsclient.APIClient, error) {
 	return a.pfsAPIClient, nil
 }
 
-func newJobInfo(persistJobInfo *persist.JobInfo) (*pps.JobInfo, error) {
-	job := &pps.Job{ID: persistJobInfo.JobID}
-	return &pps.JobInfo{
+func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
+	job := &ppsclient.Job{ID: persistJobInfo.JobID}
+	return &ppsclient.JobInfo{
 		Job:          job,
 		Transform:    persistJobInfo.Transform,
-		Pipeline:     &pps.Pipeline{Name: persistJobInfo.PipelineName},
+		Pipeline:     &ppsclient.Pipeline{Name: persistJobInfo.PipelineName},
 		Shards:       persistJobInfo.Shards,
 		Inputs:       persistJobInfo.Inputs,
 		ParentJob:    persistJobInfo.ParentJob,

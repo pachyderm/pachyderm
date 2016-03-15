@@ -9,7 +9,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
-	"github.com/pachyderm/pachyderm/src/pps"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/time"
@@ -108,7 +108,7 @@ func newRethinkAPIServer(address string, databaseName string) (*rethinkAPIServer
 		return nil, err
 	}
 	return &rethinkAPIServer{
-		protorpclog.NewLogger("pachyderm.pps.persist.API"),
+		protorpclog.NewLogger("pachyderm.ppsclient.persist.API"),
 		session,
 		databaseName,
 		pkgtime.NewSystemTimer(),
@@ -148,7 +148,7 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	return request, nil
 }
 
-func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *persist.JobInfo, err error) {
+func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *ppsclient.InspectJobRequest) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	jobInfo := &persist.JobInfo{}
 	var mustHaveFields []interface{}
@@ -164,7 +164,7 @@ func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *pps.InspectJ
 		jobInfo,
 		func(jobInfo gorethink.Term) gorethink.Term {
 			blockOutput := jobInfo.HasFields("OutputCommit")
-			blockState := jobInfo.Field("State").Ne(pps.JobState_JOB_STATE_RUNNING)
+			blockState := jobInfo.Field("State").Ne(ppsclient.JobState_JOB_STATE_RUNNING)
 			if request.BlockOutput && request.BlockState {
 				return blockOutput.And(blockState)
 			} else if request.BlockOutput {
@@ -180,7 +180,7 @@ func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *pps.InspectJ
 	return jobInfo, nil
 }
 
-func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJobRequest) (response *persist.JobInfos, retErr error) {
+func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *ppsclient.ListJobRequest) (response *persist.JobInfos, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	query := a.getTerm(jobInfosTable)
 	commitIndexVal, err := genCommitIndex(request.InputCommit)
@@ -226,7 +226,7 @@ func (a *rethinkAPIServer) ListJobInfos(ctx context.Context, request *pps.ListJo
 	return result, nil
 }
 
-func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *pps.Job) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) DeleteJobInfo(ctx context.Context, request *ppsclient.Job) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if err := a.deleteMessageByPrimaryKey(jobInfosTable, request.ID); err != nil {
 		return nil, err
@@ -263,7 +263,7 @@ func (a *rethinkAPIServer) CreatePipelineInfo(ctx context.Context, request *pers
 	return request, nil
 }
 
-func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *pps.Pipeline) (response *persist.PipelineInfo, err error) {
+func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *ppsclient.Pipeline) (response *persist.PipelineInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	pipelineInfo := &persist.PipelineInfo{}
 	if err := a.getMessageByPrimaryKey(pipelineInfosTable, request.Name, pipelineInfo); err != nil {
@@ -298,7 +298,7 @@ func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *googl
 	return result, nil
 }
 
-func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *pps.Pipeline) (response *google_protobuf.Empty, err error) {
+func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *ppsclient.Pipeline) (response *google_protobuf.Empty, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
 	if err := a.deleteMessageByPrimaryKey(pipelineInfosTable, request.Name); err != nil {
 		return nil, err

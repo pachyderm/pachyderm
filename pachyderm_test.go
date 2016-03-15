@@ -19,7 +19,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/pkg/workload"
-	"github.com/pachyderm/pachyderm/src/pps"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	ppsserver "github.com/pachyderm/pachyderm/src/pps"
 	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 )
 
@@ -49,18 +50,18 @@ func TestJob(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
 		1,
-		[]*pps.JobInput{{Commit: commit}},
+		[]*ppsclient.JobInput{{Commit: commit}},
 		"",
 	)
 	require.NoError(t, err)
-	inspectJobRequest := &pps.InspectJobRequest{
+	inspectJobRequest := &ppsclient.InspectJobRequest{
 		Job:         job,
 		BlockOutput: true,
 		BlockState:  true,
 	}
 	jobInfo, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
+	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
 	commitInfo, err := pfsutil.InspectCommit(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 	require.NoError(t, err)
 	require.Equal(t, pfsserver.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
@@ -92,7 +93,7 @@ func TestGrep(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("grep foo /pfs/%s/* >/pfs/out/foo", dataRepo)},
 		1,
-		[]*pps.JobInput{{Commit: commit}},
+		[]*ppsclient.JobInput{{Commit: commit}},
 		"",
 	)
 	require.NoError(t, err)
@@ -102,11 +103,11 @@ func TestGrep(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("grep foo /pfs/%s/* >/pfs/out/foo", dataRepo)},
 		4,
-		[]*pps.JobInput{{Commit: commit}},
+		[]*ppsclient.JobInput{{Commit: commit}},
 		"",
 	)
 	require.NoError(t, err)
-	inspectJobRequest := &pps.InspectJobRequest{
+	inspectJobRequest := &ppsclient.InspectJobRequest{
 		Job:         job1,
 		BlockOutput: true,
 		BlockState:  true,
@@ -136,7 +137,7 @@ func TestPipeline(t *testing.T) {
 	require.NoError(t, pfsutil.CreateRepo(pachClient, dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
-	outRepo := pps.PipelineRepo(ppsutil.NewPipeline(pipelineName))
+	outRepo := ppsserver.PipelineRepo(ppsutil.NewPipeline(pipelineName))
 	require.NoError(t, ppsutil.CreatePipeline(
 		pachClient,
 		pipelineName,
@@ -144,7 +145,7 @@ func TestPipeline(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
 		1,
-		[]*pps.PipelineInput{{Repo: &pfsserver.Repo{Name: dataRepo}}},
+		[]*ppsclient.PipelineInput{{Repo: &pfsserver.Repo{Name: dataRepo}}},
 	))
 	// Do first commit to repo
 	commit1, err := pfsutil.StartCommit(pachClient, dataRepo, "", "")
