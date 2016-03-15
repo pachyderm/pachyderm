@@ -286,7 +286,7 @@ In our fruit stand example, this could be making a commit every hour with all th
 Let's create a new commit with our previous commit as the parent:
 
 ```shell
-$ pachctl start-commit data 6a7ddaf3704b4cb6ae4ec73522efe05f
+$ pachctl start-commit data -p 6a7ddaf3704b4cb6ae4ec73522efe05f
 fab8c59c786842ccaf20589e15606604
 ```
 
