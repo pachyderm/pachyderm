@@ -11,7 +11,7 @@ option go_package = "persist";
 
 message JobInfo {
   string job_id = 1;
-  pachyderm.client.pps.Transform transform = 2;
+  pps.Transform transform = 2;
   string pipeline_name = 3;
   uint64 shards = 4;
   repeated pps.JobInput inputs = 5;
