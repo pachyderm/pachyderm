@@ -8,8 +8,8 @@ import (
 	"github.com/pachyderm/pachyderm"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs" // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
-	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	pfs_server "github.com/pachyderm/pachyderm/src/pfs/server"
+	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
+	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/pkg/metrics"
@@ -18,9 +18,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps" //SJ: bad name conflict w below
 	ppsmodel "github.com/pachyderm/pachyderm/src/server/pps" //SJ: cant name this server per the refactor convention because of the import below
-	"github.com/pachyderm/pachyderm/src/pps/persist"
-	persist_server "github.com/pachyderm/pachyderm/src/pps/persist/server"
-	pps_server "github.com/pachyderm/pachyderm/src/pps/server"
+	"github.com/pachyderm/pachyderm/src/server/pps/persist"
+	persist_server "github.com/pachyderm/pachyderm/src/server/pps/persist/server"
+	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"go.pedge.io/env"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pkg/http"

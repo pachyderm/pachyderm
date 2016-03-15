@@ -8,7 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"golang.org/x/net/context"
 )
 

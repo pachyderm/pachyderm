@@ -9,8 +9,8 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/pps/example"
-	"github.com/pachyderm/pachyderm/src/pps/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pps/example"
+	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
 	"golang.org/x/net/context"

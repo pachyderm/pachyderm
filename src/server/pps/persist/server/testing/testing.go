@@ -8,8 +8,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
-	"github.com/pachyderm/pachyderm/src/pps/persist"
-	"github.com/pachyderm/pachyderm/src/pps/persist/server"
+	"github.com/pachyderm/pachyderm/src/server/pps/persist"
+	"github.com/pachyderm/pachyderm/src/server/pps/persist/server"
 )
 
 func RunTestWithRethinkAPIServer(t *testing.T, testFunc func(t *testing.T, persistAPIServer persist.APIServer)) {
