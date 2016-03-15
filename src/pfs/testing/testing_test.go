@@ -14,7 +14,6 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
-	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"golang.org/x/net/context"
@@ -30,39 +29,39 @@ func TestSimple(t *testing.T) {
 	apiClient := getPfsClient(t)
 	repoName := uniqueString("testSimpleRepo")
 
-	err := pfsutil.CreateRepo(apiClient, repoName)
+	err := pfsclient.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
 
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
+	commit, err := pfsclient.StartCommit(apiClient, repoName, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.ID
 
-	newCommitInfo, err := pfsutil.InspectCommit(apiClient, repoName, newCommitID)
+	newCommitInfo, err := pfsclient.InspectCommit(apiClient, repoName, newCommitID)
 	require.NoError(t, err)
 	require.NotNil(t, newCommitInfo)
 	require.Equal(t, newCommitID, newCommitInfo.Commit.ID)
 	require.Equal(t, pfsserver.CommitType_COMMIT_TYPE_WRITE, newCommitInfo.CommitType)
 	require.Nil(t, newCommitInfo.ParentCommit)
 
-	commitInfos, err := pfsutil.ListCommit(apiClient, []string{repoName})
+	commitInfos, err := pfsclient.ListCommit(apiClient, []string{repoName})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	require.Equal(t, newCommitInfo.Commit, commitInfos[0].Commit)
 
-	err = pfsutil.MakeDirectory(apiClient, repoName, newCommitID, "a/b")
+	err = pfsclient.MakeDirectory(apiClient, repoName, newCommitID, "a/b")
 	require.NoError(t, err)
-	err = pfsutil.MakeDirectory(apiClient, repoName, newCommitID, "a/c")
+	err = pfsclient.MakeDirectory(apiClient, repoName, newCommitID, "a/c")
 	require.NoError(t, err)
-	err = pfsutil.MakeDirectory(apiClient, repoName, newCommitID, "a/d")
+	err = pfsclient.MakeDirectory(apiClient, repoName, newCommitID, "a/d")
 	require.NoError(t, err)
 
 	doWrites(t, apiClient, repoName, newCommitID)
 
-	err = pfsutil.FinishCommit(apiClient, repoName, newCommitID)
+	err = pfsclient.FinishCommit(apiClient, repoName, newCommitID)
 	require.NoError(t, err)
 
-	newCommitInfo, err = pfsutil.InspectCommit(apiClient, repoName, newCommitID)
+	newCommitInfo, err = pfsclient.InspectCommit(apiClient, repoName, newCommitID)
 	require.NoError(t, err)
 	require.NotNil(t, newCommitInfo)
 	require.Equal(t, newCommitID, newCommitInfo.Commit.ID)
@@ -71,7 +70,7 @@ func TestSimple(t *testing.T) {
 
 	checkWrites(t, apiClient, repoName, newCommitID)
 
-	fileInfos, err := pfsutil.ListFile(
+	fileInfos, err := pfsclient.ListFile(
 		apiClient,
 		repoName,
 		newCommitID,
@@ -81,7 +80,7 @@ func TestSimple(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, testSize, len(fileInfos))
-	fileInfos, err = pfsutil.ListFile(
+	fileInfos, err = pfsclient.ListFile(
 		apiClient,
 		repoName,
 		newCommitID,
@@ -99,7 +98,7 @@ func TestSimple(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			fileInfos3, iErr := pfsutil.ListFile(
+			fileInfos3, iErr := pfsclient.ListFile(
 				apiClient,
 				repoName,
 				newCommitID,
@@ -124,12 +123,12 @@ func TestBlockListCommits(t *testing.T) {
 	apiClient := getPfsClient(t)
 	repoName := uniqueString("testBlockListCommitsRepo")
 
-	err := pfsutil.CreateRepo(apiClient, repoName)
+	err := pfsclient.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
 
-	baseCommit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
+	baseCommit, err := pfsclient.StartCommit(apiClient, repoName, "", "")
 	require.NoError(t, err)
-	err = pfsutil.FinishCommit(apiClient, repoName, baseCommit.ID)
+	err = pfsclient.FinishCommit(apiClient, repoName, baseCommit.ID)
 	require.NoError(t, err)
 
 	repo := &pfsserver.Repo{
@@ -152,7 +151,7 @@ func TestBlockListCommits(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		time.Sleep(1)
-		commit, err := pfsutil.StartCommit(apiClient, repoName, baseCommit.ID, "")
+		commit, err := pfsclient.StartCommit(apiClient, repoName, baseCommit.ID, "")
 		require.NoError(t, err)
 		require.NotNil(t, commit)
 		newCommit = commit
@@ -173,7 +172,7 @@ func TestBlockListCommits(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		time.Sleep(1)
-		err := pfsutil.FinishCommit(apiClient, repoName, newCommit.ID)
+		err := pfsclient.FinishCommit(apiClient, repoName, newCommit.ID)
 		require.NoError(t, err)
 	}()
 	listCommitRequest.Block = true
@@ -193,7 +192,7 @@ func TestMount(t *testing.T) {
 	apiClient := getPfsClient(t)
 	repoName := uniqueString("testMountRepo")
 
-	err := pfsutil.CreateRepo(apiClient, repoName)
+	err := pfsclient.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
@@ -208,7 +207,7 @@ func TestMount(t *testing.T) {
 	_, err = os.Stat(filepath.Join(directory, repoName))
 	require.NoError(t, err)
 
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
+	commit, err := pfsclient.StartCommit(apiClient, repoName, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.ID
@@ -219,7 +218,7 @@ func TestMount(t *testing.T) {
 	err = ioutil.WriteFile(filepath.Join(directory, repoName, newCommitID, "foo"), []byte("foo"), 0666)
 	require.NoError(t, err)
 
-	_, err = pfsutil.PutFile(apiClient, repoName, newCommitID, "bar", 0, strings.NewReader("bar"))
+	_, err = pfsclient.PutFile(apiClient, repoName, newCommitID, "bar", 0, strings.NewReader("bar"))
 	require.NoError(t, err)
 
 	bigValue := make([]byte, 1024*1024)
@@ -230,10 +229,10 @@ func TestMount(t *testing.T) {
 	err = ioutil.WriteFile(filepath.Join(directory, repoName, newCommitID, "big1"), bigValue, 0666)
 	require.NoError(t, err)
 
-	_, err = pfsutil.PutFile(apiClient, repoName, newCommitID, "big2", 0, bytes.NewReader(bigValue))
+	_, err = pfsclient.PutFile(apiClient, repoName, newCommitID, "big2", 0, bytes.NewReader(bigValue))
 	require.NoError(t, err)
 
-	err = pfsutil.FinishCommit(apiClient, repoName, newCommitID)
+	err = pfsclient.FinishCommit(apiClient, repoName, newCommitID)
 	require.NoError(t, err)
 
 	fInfo, err := os.Stat(filepath.Join(directory, repoName, newCommitID, "foo"))
@@ -266,7 +265,7 @@ func TestMountBig(t *testing.T) {
 	apiClient := getPfsClient(t)
 	repoName := uniqueString("testMountBigRepo")
 
-	err := pfsutil.CreateRepo(apiClient, repoName)
+	err := pfsclient.CreateRepo(apiClient, repoName)
 	require.NoError(t, err)
 
 	directory := "/compile/testMount"
@@ -281,7 +280,7 @@ func TestMountBig(t *testing.T) {
 	_, err = os.Stat(filepath.Join(directory, repoName))
 	require.NoError(t, err)
 
-	commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
+	commit, err := pfsclient.StartCommit(apiClient, repoName, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 	newCommitID := commit.ID
@@ -302,7 +301,7 @@ func TestMountBig(t *testing.T) {
 	}
 	wg.Wait()
 
-	err = pfsutil.FinishCommit(apiClient, repoName, newCommitID)
+	err = pfsclient.FinishCommit(apiClient, repoName, newCommitID)
 	require.NoError(t, err)
 
 	wg = sync.WaitGroup{}
@@ -325,7 +324,7 @@ func BenchmarkFuse(b *testing.B) {
 	apiClient := getPfsClient(b)
 	repoName := uniqueString("benchMountRepo")
 
-	if err := pfsutil.CreateRepo(apiClient, repoName); err != nil {
+	if err := pfsclient.CreateRepo(apiClient, repoName); err != nil {
 		b.Error(err)
 	}
 
@@ -351,7 +350,7 @@ func BenchmarkFuse(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		commit, err := pfsutil.StartCommit(apiClient, repoName, "", "")
+		commit, err := pfsclient.StartCommit(apiClient, repoName, "", "")
 		if err != nil {
 			b.Error(err)
 		}
@@ -370,7 +369,7 @@ func BenchmarkFuse(b *testing.B) {
 			}(j)
 		}
 		wg.Wait()
-		if err := pfsutil.FinishCommit(apiClient, repoName, newCommitID); err != nil {
+		if err := pfsclient.FinishCommit(apiClient, repoName, newCommitID); err != nil {
 			b.Error(err)
 		}
 	}
@@ -384,10 +383,10 @@ func doWrites(tb testing.TB, apiClient pfsclient.APIClient, repoName string, com
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, iErr := pfsutil.PutFile(apiClient, repoName, commitID,
+			_, iErr := pfsclient.PutFile(apiClient, repoName, commitID,
 				fmt.Sprintf("a/b/file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
 			require.NoError(tb, iErr)
-			_, iErr = pfsutil.PutFile(apiClient, repoName, commitID,
+			_, iErr = pfsclient.PutFile(apiClient, repoName, commitID,
 				fmt.Sprintf("a/c/file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
 			require.NoError(tb, iErr)
 		}()
@@ -403,7 +402,7 @@ func checkWrites(tb testing.TB, apiClient pfsclient.APIClient, repoName string, 
 		go func() {
 			defer wg.Done()
 			buffer := bytes.NewBuffer(nil)
-			iErr := pfsutil.GetFile(
+			iErr := pfsclient.GetFile(
 				apiClient,
 				repoName,
 				commitID,
@@ -418,7 +417,7 @@ func checkWrites(tb testing.TB, apiClient pfsclient.APIClient, repoName string, 
 			require.Equal(tb, fmt.Sprintf("hello%d", i), buffer.String())
 
 			buffer = bytes.NewBuffer(nil)
-			iErr = pfsutil.GetFile(
+			iErr = pfsclient.GetFile(
 				apiClient,
 				repoName,
 				commitID,

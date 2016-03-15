@@ -3,8 +3,8 @@ package testing
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
+	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
@@ -34,7 +34,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, pipelineInfo.PipelineName, "foo")
-	input := &ppsclient.JobInput{Commit: pfsutil.NewCommit("bar", uuid.NewWithoutDashes())}
+	input := &ppsclient.JobInput{Commit: pfsclient.NewCommit("bar", uuid.NewWithoutDashes())}
 	jobInfo, err := apiServer.CreateJobInfo(
 		context.Background(),
 		&persist.JobInfo{
@@ -43,7 +43,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 		},
 	)
 	jobID := jobInfo.JobID
-	input2 := &ppsclient.JobInput{Commit: pfsutil.NewCommit("fizz", uuid.NewWithoutDashes())}
+	input2 := &ppsclient.JobInput{Commit: pfsclient.NewCommit("fizz", uuid.NewWithoutDashes())}
 
 	_, err = apiServer.CreateJobInfo(
 		context.Background(),
@@ -76,7 +76,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	jobInfos, err = apiServer.ListJobInfos(
 		context.Background(),
 		&ppsclient.ListJobRequest{
-			InputCommit: []*pfs.Commit{input.Commit},
+			InputCommit: []*pfsserver.Commit{input.Commit},
 		},
 	)
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 		context.Background(),
 		&ppsclient.ListJobRequest{
 			Pipeline:    &ppsclient.Pipeline{Name: "foo"},
-			InputCommit: []*pfs.Commit{input.Commit},
+			InputCommit: []*pfsserver.Commit{input.Commit},
 		},
 	)
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func testBlock(t *testing.T, apiServer persist.APIServer) {
 			context.Background(),
 			&persist.JobOutput{
 				JobID:        jobID,
-				OutputCommit: pfsutil.NewCommit("foo", "bar"),
+				OutputCommit: pfsclient.NewCommit("foo", "bar"),
 			})
 		require.NoError(t, err)
 		_, err = apiServer.CreateJobState(
