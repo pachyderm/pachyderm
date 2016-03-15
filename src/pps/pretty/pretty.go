@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/pps"
+	ppsclient "github.com/pachyderm/pachyderm/src/pps"
 )
 
 func PrintJobHeader(w io.Writer) {
 	fmt.Fprint(w, "ID\tOUTPUT\tSTATE\t\n")
 }
 
-func PrintJobInfo(w io.Writer, jobInfo *pps.JobInfo) {
+func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	if jobInfo.OutputCommit != nil {
 		fmt.Fprintf(w, "%s/%s\t", jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
@@ -25,7 +25,7 @@ func PrintPipelineHeader(w io.Writer) {
 	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT\t\n")
 }
 
-func PrintPipelineInfo(w io.Writer, pipelineInfo *pps.PipelineInfo) {
+func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
 	for i, input := range pipelineInfo.Inputs {
 		fmt.Fprintf(w, "%s", input.Repo.Name)

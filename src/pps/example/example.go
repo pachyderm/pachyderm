@@ -2,16 +2,16 @@ package example
 
 import (
 	"github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pps"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
 
-func CreateJobRequest() *pps.CreateJobRequest {
-	return &pps.CreateJobRequest{
-		Transform: &pps.Transform{
+func CreateJobRequest() *ppsclient.CreateJobRequest {
+	return &ppsclient.CreateJobRequest{
+		Transform: &ppsclient.Transform{
 			Cmd: []string{"cmd", "args..."},
 		},
 		Shards: 1,
-		Inputs: []*pps.JobInput{
+		Inputs: []*ppsclient.JobInput{
 			{
 				Commit: &pfs.Commit{
 					Repo: &pfs.Repo{Name: "in_repo"},
@@ -19,22 +19,22 @@ func CreateJobRequest() *pps.CreateJobRequest {
 				},
 			},
 		},
-		ParentJob: &pps.Job{
+		ParentJob: &ppsclient.Job{
 			ID: "a951ca06cfda4377b8ffaa050d1074df",
 		},
 	}
 }
 
-func CreatePipelineRequest() *pps.CreatePipelineRequest {
-	return &pps.CreatePipelineRequest{
-		Pipeline: &pps.Pipeline{
+func CreatePipelineRequest() *ppsclient.CreatePipelineRequest {
+	return &ppsclient.CreatePipelineRequest{
+		Pipeline: &ppsclient.Pipeline{
 			Name: "name",
 		},
-		Transform: &pps.Transform{
+		Transform: &ppsclient.Transform{
 			Cmd: []string{"cmd", "args..."},
 		},
 		Shards: 1,
-		Inputs: []*pps.PipelineInput{
+		Inputs: []*ppsclient.PipelineInput{
 			{
 				Repo: &pfs.Repo{Name: "in_repo"},
 			},
