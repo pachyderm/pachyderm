@@ -59,7 +59,9 @@ func TestSimple(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 
 	// restart the server and make sure data is still there
+	server.driver.Dump()
 	restartServer(server, t)
+	server.driver.Dump()
 	buffer = bytes.Buffer{}
 	require.NoError(t, pfsutil.GetFile(pfsClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
@@ -158,7 +160,7 @@ func TestDisallowReadsDuringCommit(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func getClientAndServer(t *testing.T) (pfs.APIClient, InternalAPIServer) {
+func getClientAndServer(t *testing.T) (pfs.APIClient, *internalAPIServer) {
 	localPort := atomic.AddInt32(&port, 1)
 	address := fmt.Sprintf("localhost:%d", localPort)
 	driver, err := drive.NewDriver(address)
@@ -171,7 +173,7 @@ func getClientAndServer(t *testing.T) (pfs.APIClient, InternalAPIServer) {
 	hasher := pfs.NewHasher(shards, 1)
 	dialer := grpcutil.NewDialer(grpc.WithInsecure())
 	apiServer := NewAPIServer(hasher, shard.NewRouter(sharder, dialer, address))
-	internalAPIServer := NewInternalAPIServer(hasher, shard.NewRouter(sharder, dialer, address), driver)
+	internalAPIServer := newInternalAPIServer(hasher, shard.NewRouter(sharder, dialer, address), driver)
 	ready := make(chan bool)
 	go func() {
 		err := protoserver.Serve(
@@ -195,7 +197,7 @@ func getClientAndServer(t *testing.T) (pfs.APIClient, InternalAPIServer) {
 	return pfs.NewAPIClient(clientConn), internalAPIServer
 }
 
-func restartServer(server InternalAPIServer, t *testing.T) {
+func restartServer(server *internalAPIServer, t *testing.T) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for i := 0; i < shards; i++ {
