@@ -38,6 +38,6 @@ func New() (*APIClient, error) {
 		return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
 	}
 
-	return NewFromAddress(pachAddr)
+	return NewFromAddress(fmt.Sprintf("%v:650",pachAddr))
 }
 
