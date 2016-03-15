@@ -13,7 +13,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/gogo/protobuf/proto"
-	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/obj"
 )

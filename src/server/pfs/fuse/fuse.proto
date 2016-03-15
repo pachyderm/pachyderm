@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-import "pfs/pfs.proto";
+import "server/pfs/pfs.proto";
 import "google/protobuf/timestamp.proto";
 
 package fuse;

@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"

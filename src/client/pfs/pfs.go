@@ -4,7 +4,7 @@ import (
 	"io"
 	"math"
 
-	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 )

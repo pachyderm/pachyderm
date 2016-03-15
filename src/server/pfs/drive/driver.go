@@ -6,7 +6,7 @@ import (
 	"path"
 	"sync"
 
-	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/dag"
 	"github.com/pachyderm/pachyderm/src/pkg/metrics"

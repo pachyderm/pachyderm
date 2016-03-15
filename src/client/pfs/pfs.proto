@@ -5,7 +5,7 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
-import "pfs/pfs.proto";
+import "server/pfs/pfs.proto";
 
 package pfs;
 
