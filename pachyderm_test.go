@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/net/context"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
@@ -321,8 +322,8 @@ func TestSimple(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func getPachClient(t *testing.T) *APIClient {
-	client, err := NewAPIClient()
+func getPachClient(t *testing.T) *client.APIClient {
+	client, err := client.New()
 	require.NoError(t, err)
 	return client
 }
