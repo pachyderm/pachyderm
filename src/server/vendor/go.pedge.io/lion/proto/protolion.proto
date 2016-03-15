@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package lion;
+
+option go_package = "protolion";
+
+// Level is a logging level.
+enum Level {
+  LEVEL_DEBUG = 0;
+  LEVEL_INFO = 1;
+  LEVEL_WARN = 2;
+  LEVEL_ERROR = 3;
+  LEVEL_FATAL = 4;
+  LEVEL_PANIC = 5;
+  LEVEL_NONE = 6;
+}
+
+// Entry is the object serialized for logging.
+message Entry {
+  // Message represents a serialized protobuf message.
+  // The name is the name registered with lion.
+  message Message {
+    string encoding = 1;
+    string name = 2;
+    bytes value = 3;
+  }
+  // id may not be set depending on logger options
+  // it is up to the user to determine if id is required
+  string id = 1;  
+  Level level = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  // both context and fields may be set
+  repeated Message context = 4;
+  map<string, string> fields = 5;
+  // one of event, message, writer_output will be set
+  Message event = 6;
+  string message = 7;
+  bytes writer_output = 8;
+}
