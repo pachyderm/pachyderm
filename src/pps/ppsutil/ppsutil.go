@@ -1,35 +1,35 @@
 package ppsutil
 
 import (
-	"github.com/pachyderm/pachyderm/src/pps"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"golang.org/x/net/context"
 )
 
-func NewJob(jobID string) *pps.Job {
-	return &pps.Job{ID: jobID}
+func NewJob(jobID string) *ppsclient.Job {
+	return &ppsclient.Job{ID: jobID}
 }
 
-func NewPipeline(pipelineName string) *pps.Pipeline {
-	return &pps.Pipeline{Name: pipelineName}
+func NewPipeline(pipelineName string) *ppsclient.Pipeline {
+	return &ppsclient.Pipeline{Name: pipelineName}
 }
 
 func CreateJob(
-	client pps.APIClient,
+	client ppsclient.APIClient,
 	image string,
 	cmd []string,
 	stdin []string,
 	shards uint64,
-	inputs []*pps.JobInput,
+	inputs []*ppsclient.JobInput,
 	parentJobID string,
-) (*pps.Job, error) {
-	var parentJob *pps.Job
+) (*ppsclient.Job, error) {
+	var parentJob *ppsclient.Job
 	if parentJobID != "" {
 		parentJob = NewJob(parentJobID)
 	}
 	return client.CreateJob(
 		context.Background(),
-		&pps.CreateJobRequest{
-			Transform: &pps.Transform{
+		&ppsclient.CreateJobRequest{
+			Transform: &ppsclient.Transform{
 				Image: image,
 				Cmd:   cmd,
 				Stdin: stdin,
@@ -42,19 +42,19 @@ func CreateJob(
 }
 
 func CreatePipeline(
-	client pps.APIClient,
+	client ppsclient.APIClient,
 	name string,
 	image string,
 	cmd []string,
 	stdin []string,
 	shards uint64,
-	inputs []*pps.PipelineInput,
+	inputs []*ppsclient.PipelineInput,
 ) error {
 	_, err := client.CreatePipeline(
 		context.Background(),
-		&pps.CreatePipelineRequest{
+		&ppsclient.CreatePipelineRequest{
 			Pipeline: NewPipeline(name),
-			Transform: &pps.Transform{
+			Transform: &ppsclient.Transform{
 				Image: image,
 				Cmd:   cmd,
 				Stdin: stdin,
