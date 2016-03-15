@@ -199,6 +199,7 @@ func restartServer(server InternalAPIServer, t *testing.T) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for i := 0; i < shards; i++ {
+		i := i
 		go func() {
 			wg.Add(1)
 			defer wg.Done()
