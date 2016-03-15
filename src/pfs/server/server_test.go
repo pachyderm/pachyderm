@@ -11,7 +11,8 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm"
-	"github.com/pachyderm/pachyderm/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
@@ -123,10 +124,10 @@ func TestDisallowReadsDuringCommit(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-var client pfs.APIClient
+var client pfsclient.APIClient
 var clientOnce sync.Once
 
-func getPfsClient(t *testing.T) pfs.APIClient {
+func getPfsClient(t *testing.T) pfsclient.APIClient {
 	clientOnce.Do(func() {
 		address := fmt.Sprintf("localhost:%d", port)
 		driver, err := drive.NewDriver(address)
@@ -136,7 +137,7 @@ func getPfsClient(t *testing.T) pfs.APIClient {
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
 		sharder := shard.NewLocalSharder(address, shards)
-		hasher := pfs.NewHasher(shards, 1)
+		hasher := pfsserver.NewHasher(shards, 1)
 		dialer := grpcutil.NewDialer(grpc.WithInsecure())
 		apiServer := NewAPIServer(hasher, shard.NewRouter(sharder, dialer, address))
 		internalAPIServer := NewInternalAPIServer(hasher, shard.NewRouter(sharder, dialer, address), driver)
@@ -144,9 +145,9 @@ func getPfsClient(t *testing.T) pfs.APIClient {
 		go func() {
 			err := protoserver.Serve(
 				func(s *grpc.Server) {
-					pfs.RegisterAPIServer(s, apiServer)
-					pfs.RegisterInternalAPIServer(s, internalAPIServer)
-					pfs.RegisterBlockAPIServer(s, blockAPIServer)
+					pfsclient.RegisterAPIServer(s, apiServer)
+					pfsclient.RegisterInternalAPIServer(s, internalAPIServer)
+					pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 					close(ready)
 				},
 				protoserver.ServeOptions{Version: pachyderm.Version},
@@ -157,7 +158,7 @@ func getPfsClient(t *testing.T) pfs.APIClient {
 		<-ready
 		clientConn, err := grpc.Dial(address, grpc.WithInsecure())
 		require.NoError(t, err)
-		client = pfs.NewAPIClient(clientConn)
+		client = pfsclient.NewAPIClient(clientConn)
 	})
 	return client
 }

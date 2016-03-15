@@ -6,7 +6,8 @@ import (
 	"path"
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/dag"
 	"github.com/pachyderm/pachyderm/src/pkg/metrics"
@@ -17,7 +18,7 @@ import (
 
 type driver struct {
 	blockAddress    string
-	blockClient     pfs.BlockAPIClient
+	blockClient     pfsclient.BlockAPIClient
 	blockClientOnce sync.Once
 	diffs           diffMap
 	dags            map[string]*dag.DAG
@@ -37,7 +38,7 @@ func newDriver(blockAddress string) (Driver, error) {
 	}, nil
 }
 
-func (d *driver) getBlockClient() (pfs.BlockAPIClient, error) {
+func (d *driver) getBlockClient() (pfsclient.BlockAPIClient, error) {
 	if d.blockClient == nil {
 		var onceErr error
 		d.blockClientOnce.Do(func() {
@@ -45,7 +46,7 @@ func (d *driver) getBlockClient() (pfs.BlockAPIClient, error) {
 			if err != nil {
 				onceErr = err
 			}
-			d.blockClient = pfs.NewBlockAPIClient(clientConn)
+			d.blockClient = pfsclient.NewBlockAPIClient(clientConn)
 		})
 		if onceErr != nil {
 			return nil, onceErr
@@ -54,7 +55,7 @@ func (d *driver) getBlockClient() (pfs.BlockAPIClient, error) {
 	return d.blockClient, nil
 }
 
-func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, shards map[uint64]bool) error {
+func (d *driver) CreateRepo(repo *pfsserver.Repo, created *google_protobuf.Timestamp, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if _, ok := d.diffs[repo.Name]; ok {
@@ -70,7 +71,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, 
 	var loopErr error
 	for shard := range shards {
 		wg.Add(1)
-		diffInfo := &pfs.DiffInfo{
+		diffInfo := &pfsserver.DiffInfo{
 			Diff:     pfsutil.NewDiff(repo.Name, "", shard),
 			Finished: created,
 		}
@@ -88,25 +89,25 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, 
 	return loopErr
 }
 
-func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error) {
+func (d *driver) InspectRepo(repo *pfsserver.Repo, shards map[uint64]bool) (*pfsserver.RepoInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	return d.inspectRepo(repo, shards)
 }
 
-func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
+func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfsserver.RepoInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	var wg sync.WaitGroup
 	var loopErr error
-	var result []*pfs.RepoInfo
+	var result []*pfsserver.RepoInfo
 	var lock sync.Mutex
 	for repoName := range d.diffs {
 		wg.Add(1)
 		repoName := repoName
 		go func() {
 			defer wg.Done()
-			repoInfo, err := d.inspectRepo(&pfs.Repo{Name: repoName}, shards)
+			repoInfo, err := d.inspectRepo(&pfsserver.Repo{Name: repoName}, shards)
 			if err != nil && loopErr == nil {
 				loopErr = err
 			}
@@ -122,8 +123,8 @@ func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 	return result, nil
 }
 
-func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
-	var diffInfos []*pfs.DiffInfo
+func (d *driver) DeleteRepo(repo *pfsserver.Repo, shards map[uint64]bool) error {
+	var diffInfos []*pfsserver.DiffInfo
 	d.lock.Lock()
 	for shard := range shards {
 		for _, diffInfo := range d.diffs[repo.Name][shard] {
@@ -145,7 +146,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 			defer wg.Done()
 			if _, err := blockClient.DeleteDiff(
 				context.Background(),
-				&pfs.DeleteDiffRequest{Diff: diffInfo.Diff},
+				&pfsclient.DeleteDiffRequest{Diff: diffInfo.Diff},
 			); err != nil && loopErr == nil {
 				loopErr = err
 			}
@@ -155,15 +156,15 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 	return loopErr
 }
 
-func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
+func (d *driver) StartCommit(repo *pfsserver.Repo, commitID string, parentID string, branch string,
 	started *google_protobuf.Timestamp, shards map[uint64]bool) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	for shard := range shards {
-		diffInfo := &pfs.DiffInfo{
+		diffInfo := &pfsserver.DiffInfo{
 			Diff:    pfsutil.NewDiff(repo.Name, commitID, shard),
 			Started: started,
-			Appends: make(map[string]*pfs.Append),
+			Appends: make(map[string]*pfsserver.Append),
 			Branch:  branch,
 		}
 		if branch != "" {
@@ -187,9 +188,9 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 	return nil
 }
 
-func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, shards map[uint64]bool) error {
+func (d *driver) FinishCommit(commit *pfsserver.Commit, finished *google_protobuf.Timestamp, shards map[uint64]bool) error {
 	// closure so we can defer Unlock
-	var diffInfos []*pfs.DiffInfo
+	var diffInfos []*pfsserver.DiffInfo
 	if err := func() error {
 		d.lock.Lock()
 		defer d.lock.Unlock()
@@ -229,13 +230,13 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	return loopErr
 }
 
-func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
+func (d *driver) InspectCommit(commit *pfsserver.Commit, shards map[uint64]bool) (*pfsserver.CommitInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	return d.inspectCommit(commit, shards)
 }
 
-func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListCommit(repos []*pfsserver.Repo, fromCommit []*pfsserver.Commit, shards map[uint64]bool) ([]*pfsserver.CommitInfo, error) {
 	repoSet := make(map[string]bool)
 	for _, repo := range repos {
 		repoSet[repo.Name] = true
@@ -249,14 +250,14 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 	}
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	var result []*pfs.CommitInfo
+	var result []*pfsserver.CommitInfo
 	for _, repo := range repos {
 		_, ok := d.diffs[repo.Name]
 		if !ok {
 			return nil, fmt.Errorf("repo %s not found", repo.Name)
 		}
 		for _, commitID := range d.dags[repo.Name].Leaves() {
-			commit := &pfs.Commit{
+			commit := &pfsserver.Commit{
 				Repo: repo,
 				ID:   commitID,
 			}
@@ -275,8 +276,8 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 	return result, nil
 }
 
-func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
-	var result []*pfs.CommitInfo
+func (d *driver) ListBranch(repo *pfsserver.Repo, shards map[uint64]bool) ([]*pfsserver.CommitInfo, error) {
+	var result []*pfsserver.CommitInfo
 	for commitID := range d.branches[repo.Name] {
 		commitInfo, err := d.inspectCommit(pfsutil.NewCommit(repo.Name, commitID), shards)
 		if err != nil {
@@ -287,11 +288,11 @@ func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Comm
 	return result, nil
 }
 
-func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error {
+func (d *driver) DeleteCommit(commit *pfsserver.Commit, shards map[uint64]bool) error {
 	return nil
 }
 
-func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) (retErr error) {
+func (d *driver) PutFile(file *pfsserver.File, shard uint64, offset int64, reader io.Reader) (retErr error) {
 	blockClient, err := d.getBlockClient()
 	if err != nil {
 		return err
@@ -326,7 +327,7 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	addDirs(diffInfo, file)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
-		_append = &pfs.Append{}
+		_append = &pfsserver.Append{}
 		if diffInfo.ParentCommit != nil {
 			_append.LastRef = d.lastRef(
 				pfsutil.NewFile(
@@ -346,18 +347,18 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	return nil
 }
 
-func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
+func (d *driver) MakeDirectory(file *pfsserver.File, shards map[uint64]bool) error {
 	return nil
 }
 
-func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, size int64, from *pfs.Commit, shard uint64) (io.ReadCloser, error) {
+func (d *driver) GetFile(file *pfsserver.File, filterShard *pfsserver.Shard, offset int64, size int64, from *pfsserver.Commit, shard uint64) (io.ReadCloser, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from)
 	if err != nil {
 		return nil, err
 	}
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+	if fileInfo.FileType == pfsserver.FileType_FILE_TYPE_DIR {
 		return nil, fmt.Errorf("file %s/%s/%s is directory", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 	}
 	blockClient, err := d.getBlockClient()
@@ -367,30 +368,30 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, s
 	return newFileReader(blockClient, blockRefs, offset, size), nil
 }
 
-func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) (*pfs.FileInfo, error) {
+func (d *driver) InspectFile(file *pfsserver.File, filterShard *pfsserver.Shard, from *pfsserver.Commit, shard uint64) (*pfsserver.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from)
 	return fileInfo, err
 }
 
-func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) ([]*pfs.FileInfo, error) {
+func (d *driver) ListFile(file *pfsserver.File, filterShard *pfsserver.Shard, from *pfsserver.Commit, shard uint64) ([]*pfsserver.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from)
 	if err != nil {
 		return nil, err
 	}
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
-		return []*pfs.FileInfo{fileInfo}, nil
+	if fileInfo.FileType == pfsserver.FileType_FILE_TYPE_REGULAR {
+		return []*pfsserver.FileInfo{fileInfo}, nil
 	}
-	var result []*pfs.FileInfo
+	var result []*pfsserver.FileInfo
 	for _, child := range fileInfo.Children {
 		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from)
-		if err != nil && err != pfs.ErrFileNotFound {
+		if err != nil && err != pfsserver.ErrFileNotFound {
 			return nil, err
 		}
-		if err == pfs.ErrFileNotFound {
+		if err == pfsserver.ErrFileNotFound {
 			// how can a listed child return not found?
 			// regular files without any blocks in this shard count as not found
 			continue
@@ -400,7 +401,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	return result, nil
 }
 
-func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
+func (d *driver) DeleteFile(file *pfsserver.File, shard uint64) error {
 	return nil
 }
 
@@ -409,7 +410,7 @@ func (d *driver) AddShard(shard uint64) error {
 	if err != nil {
 		return err
 	}
-	listDiffClient, err := blockClient.ListDiff(context.Background(), &pfs.ListDiffRequest{Shard: shard})
+	listDiffClient, err := blockClient.ListDiff(context.Background(), &pfsclient.ListDiffRequest{Shard: shard})
 	if err != nil {
 		return err
 	}
@@ -464,8 +465,8 @@ func (d *driver) DeleteShard(shard uint64) error {
 	return nil
 }
 
-func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error) {
-	result := &pfs.RepoInfo{
+func (d *driver) inspectRepo(repo *pfsserver.Repo, shards map[uint64]bool) (*pfsserver.RepoInfo, error) {
+	result := &pfsserver.RepoInfo{
 		Repo: repo,
 	}
 	_, ok := d.diffs[repo.Name]
@@ -488,24 +489,24 @@ func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 	return result, nil
 }
 
-func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {
-	var commitInfos []*pfs.CommitInfo
+func (d *driver) inspectCommit(commit *pfsserver.Commit, shards map[uint64]bool) (*pfsserver.CommitInfo, error) {
+	var commitInfos []*pfsserver.CommitInfo
 	canonicalCommit, err := d.canonicalCommit(commit)
 	if err != nil {
 		return nil, err
 	}
 	for shard := range shards {
-		var diffInfo *pfs.DiffInfo
+		var diffInfo *pfsserver.DiffInfo
 		var ok bool
-		commitInfo := &pfs.CommitInfo{Commit: canonicalCommit}
+		commitInfo := &pfsserver.CommitInfo{Commit: canonicalCommit}
 		diff := pfsutil.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.ID, shard)
 		if diffInfo, ok = d.diffs.get(diff); !ok {
 			return nil, fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
 		}
 		if diffInfo.Finished == nil {
-			commitInfo.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
+			commitInfo.CommitType = pfsserver.CommitType_COMMIT_TYPE_WRITE
 		} else {
-			commitInfo.CommitType = pfs.CommitType_COMMIT_TYPE_READ
+			commitInfo.CommitType = pfsserver.CommitType_COMMIT_TYPE_READ
 		}
 		commitInfo.Branch = diffInfo.Branch
 		commitInfo.ParentCommit = diffInfo.ParentCommit
@@ -514,7 +515,7 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 		commitInfo.SizeBytes = diffInfo.SizeBytes
 		commitInfos = append(commitInfos, commitInfo)
 	}
-	commitInfo := pfs.ReduceCommitInfos(commitInfos)
+	commitInfo := pfsserver.ReduceCommitInfos(commitInfos)
 	if len(commitInfo) < 1 {
 		// we should have caught this above
 		return nil, fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
@@ -525,19 +526,19 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return commitInfo[0], nil
 }
 
-func filterBlockRefs(filterShard *pfs.Shard, blockRefs []*pfs.BlockRef) []*pfs.BlockRef {
-	var result []*pfs.BlockRef
+func filterBlockRefs(filterShard *pfsserver.Shard, blockRefs []*pfsserver.BlockRef) []*pfsserver.BlockRef {
+	var result []*pfsserver.BlockRef
 	for _, blockRef := range blockRefs {
-		if pfs.BlockInShard(filterShard, blockRef.Block) {
+		if pfsserver.BlockInShard(filterShard, blockRef.Block) {
 			result = append(result, blockRef)
 		}
 	}
 	return result
 }
 
-func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit) (*pfs.FileInfo, []*pfs.BlockRef, error) {
-	fileInfo := &pfs.FileInfo{File: file}
-	var blockRefs []*pfs.BlockRef
+func (d *driver) inspectFile(file *pfsserver.File, filterShard *pfsserver.Shard, shard uint64, from *pfsserver.Commit) (*pfsserver.FileInfo, []*pfsserver.BlockRef, error) {
+	fileInfo := &pfsserver.FileInfo{File: file}
+	var blockRefs []*pfsserver.BlockRef
 	children := make(map[string]bool)
 	commit, err := d.canonicalCommit(file.Commit)
 	if err != nil {
@@ -554,30 +555,30 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
 			if len(_append.BlockRefs) > 0 {
-				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+				if fileInfo.FileType == pfsserver.FileType_FILE_TYPE_DIR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 				}
-				if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
+				if fileInfo.FileType == pfsserver.FileType_FILE_TYPE_NONE {
 					// the first time we find out it's a regular file we check
 					// the file shard, dirs get returned regardless of sharding,
 					// since they might have children from any shard
-					if !pfs.FileInShard(filterShard, file) {
-						return nil, nil, pfs.ErrFileNotFound
+					if !pfsserver.FileInShard(filterShard, file) {
+						return nil, nil, pfsserver.ErrFileNotFound
 					}
 				}
-				fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
+				fileInfo.FileType = pfsserver.FileType_FILE_TYPE_REGULAR
 				filtered := filterBlockRefs(filterShard, _append.BlockRefs)
 				blockRefs = append(filtered, blockRefs...)
 				for _, blockRef := range filtered {
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
 				}
 			} else if len(_append.Children) > 0 {
-				if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
+				if fileInfo.FileType == pfsserver.FileType_FILE_TYPE_REGULAR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 				}
-				fileInfo.FileType = pfs.FileType_FILE_TYPE_DIR
+				fileInfo.FileType = pfsserver.FileType_FILE_TYPE_DIR
 				for child := range _append.Children {
 					if !children[child] {
 						fileInfo.Children = append(
@@ -597,14 +598,14 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		}
 		commit = diffInfo.ParentCommit
 	}
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_NONE {
-		return nil, nil, pfs.ErrFileNotFound
+	if fileInfo.FileType == pfsserver.FileType_FILE_TYPE_NONE {
+		return nil, nil, pfsserver.ErrFileNotFound
 	}
 	return fileInfo, blockRefs, nil
 }
 
 // lastRef assumes the diffInfo file exists in finished
-func (d *driver) lastRef(file *pfs.File, shard uint64) *pfs.Commit {
+func (d *driver) lastRef(file *pfsserver.File, shard uint64) *pfsserver.Commit {
 	commit := file.Commit
 	for commit != nil {
 		diffInfo, _ := d.diffs.get(pfsutil.NewDiff(commit.Repo.Name, commit.ID, shard))
@@ -616,17 +617,17 @@ func (d *driver) lastRef(file *pfs.File, shard uint64) *pfs.Commit {
 	return nil
 }
 
-func (d *driver) createRepoState(repo *pfs.Repo) {
+func (d *driver) createRepoState(repo *pfsserver.Repo) {
 	if _, ok := d.diffs[repo.Name]; ok {
 		return // this function is idempotent
 	}
-	d.diffs[repo.Name] = make(map[uint64]map[string]*pfs.DiffInfo)
+	d.diffs[repo.Name] = make(map[uint64]map[string]*pfsserver.DiffInfo)
 	d.dags[repo.Name] = dag.NewDAG(nil)
 	d.branches[repo.Name] = make(map[string]string)
 }
 
 // canonicalCommit finds the canonical way of referring to a commit
-func (d *driver) canonicalCommit(commit *pfs.Commit) (*pfs.Commit, error) {
+func (d *driver) canonicalCommit(commit *pfsserver.Commit) (*pfsserver.Commit, error) {
 	if _, ok := d.branches[commit.Repo.Name]; !ok {
 		return nil, fmt.Errorf("repo %s not found", commit.Repo.Name)
 	}
@@ -637,7 +638,7 @@ func (d *driver) canonicalCommit(commit *pfs.Commit) (*pfs.Commit, error) {
 }
 
 // branchParent finds the parent that should be used for a new commit being started on a branch
-func (d *driver) branchParent(commit *pfs.Commit, branch string) (*pfs.Commit, error) {
+func (d *driver) branchParent(commit *pfsserver.Commit, branch string) (*pfsserver.Commit, error) {
 	// canonicalCommit is the head of branch
 	canonicalCommit, err := d.canonicalCommit(pfsutil.NewCommit(commit.Repo.Name, branch))
 	if err != nil {
@@ -663,7 +664,7 @@ func (d *driver) branchParent(commit *pfs.Commit, branch string) (*pfs.Commit, e
 	return canonicalCommit, nil
 }
 
-func (d *driver) insertDiffInfo(diffInfo *pfs.DiffInfo) error {
+func (d *driver) insertDiffInfo(diffInfo *pfsserver.DiffInfo) error {
 	commit := diffInfo.Diff.Commit
 	updateIndexes := true
 	for _, commitToDiffInfo := range d.diffs[commit.Repo.Name] {
@@ -691,13 +692,13 @@ func (d *driver) insertDiffInfo(diffInfo *pfs.DiffInfo) error {
 	return nil
 }
 
-func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
+func addDirs(diffInfo *pfsserver.DiffInfo, child *pfsserver.File) {
 	childPath := child.Path
 	dirPath := path.Dir(childPath)
 	for {
 		_append, ok := diffInfo.Appends[dirPath]
 		if !ok {
-			_append = &pfs.Append{}
+			_append = &pfsserver.Append{}
 			diffInfo.Appends[dirPath] = _append
 		}
 		if _append.Children == nil {
@@ -713,8 +714,8 @@ func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
 }
 
 type fileReader struct {
-	blockClient pfs.BlockAPIClient
-	blockRefs   []*pfs.BlockRef
+	blockClient pfsclient.BlockAPIClient
+	blockRefs   []*pfsserver.BlockRef
 	index       int
 	reader      io.Reader
 	offset      int64
@@ -723,7 +724,7 @@ type fileReader struct {
 	cancel      context.CancelFunc
 }
 
-func newFileReader(blockClient pfs.BlockAPIClient, blockRefs []*pfs.BlockRef, offset int64, size int64) *fileReader {
+func newFileReader(blockClient pfsclient.BlockAPIClient, blockRefs []*pfsserver.BlockRef, offset int64, size int64) *fileReader {
 	return &fileReader{
 		blockClient: blockClient,
 		blockRefs:   blockRefs,
@@ -738,9 +739,9 @@ func (r *fileReader) Read(data []byte) (int, error) {
 			return 0, io.EOF
 		}
 		blockRef := r.blockRefs[r.index]
-		for r.offset != 0 && r.offset > int64(pfs.ByteRangeSize(blockRef.Range)) {
+		for r.offset != 0 && r.offset > int64(pfsserver.ByteRangeSize(blockRef.Range)) {
 			r.index++
-			r.offset -= int64(pfs.ByteRangeSize(blockRef.Range))
+			r.offset -= int64(pfsserver.ByteRangeSize(blockRef.Range))
 		}
 		var err error
 		r.reader, err = pfsutil.GetBlock(r.blockClient,
@@ -769,9 +770,9 @@ func (r *fileReader) Close() error {
 	return nil
 }
 
-type diffMap map[string]map[uint64]map[string]*pfs.DiffInfo
+type diffMap map[string]map[uint64]map[string]*pfsserver.DiffInfo
 
-func (d diffMap) get(diff *pfs.Diff) (_ *pfs.DiffInfo, ok bool) {
+func (d diffMap) get(diff *pfsserver.Diff) (_ *pfsserver.DiffInfo, ok bool) {
 	shardMap, ok := d[diff.Commit.Repo.Name]
 	if !ok {
 		return nil, false
@@ -784,7 +785,7 @@ func (d diffMap) get(diff *pfs.Diff) (_ *pfs.DiffInfo, ok bool) {
 	return diffInfo, ok
 }
 
-func (d diffMap) insert(diffInfo *pfs.DiffInfo) error {
+func (d diffMap) insert(diffInfo *pfsserver.DiffInfo) error {
 	diff := diffInfo.Diff
 	shardMap, ok := d[diff.Commit.Repo.Name]
 	if !ok {
@@ -792,7 +793,7 @@ func (d diffMap) insert(diffInfo *pfs.DiffInfo) error {
 	}
 	commitMap, ok := shardMap[diff.Shard]
 	if !ok {
-		commitMap = make(map[string]*pfs.DiffInfo)
+		commitMap = make(map[string]*pfsserver.DiffInfo)
 		shardMap[diff.Shard] = commitMap
 	}
 	if _, ok = commitMap[diff.Commit.ID]; ok {
@@ -802,7 +803,7 @@ func (d diffMap) insert(diffInfo *pfs.DiffInfo) error {
 	return nil
 }
 
-func (d diffMap) pop(diff *pfs.Diff) *pfs.DiffInfo {
+func (d diffMap) pop(diff *pfsserver.Diff) *pfsserver.DiffInfo {
 	shardMap, ok := d[diff.Commit.Repo.Name]
 	if !ok {
 		return nil
