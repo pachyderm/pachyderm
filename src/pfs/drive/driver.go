@@ -464,6 +464,22 @@ func (d *driver) DeleteShard(shard uint64) error {
 	return nil
 }
 
+func (d *driver) Dump() {
+	fmt.Printf("%p.Dump()\n", d)
+	for repoName, dag := range d.dags {
+		fmt.Printf("%s:\n", repoName)
+		for _, commitID := range dag.Sorted() {
+			fmt.Printf("\t%s: ", commitID)
+			for shard, commitToDiffInfo := range d.diffs[repoName] {
+				if _, ok := commitToDiffInfo[commitID]; ok {
+					fmt.Printf("%d, ", shard)
+				}
+			}
+			fmt.Printf("\n")
+		}
+	}
+}
+
 func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error) {
 	result := &pfs.RepoInfo{
 		Repo: repo,
