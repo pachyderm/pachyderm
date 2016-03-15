@@ -8,7 +8,7 @@ import (
 	"golang.org/x/net/context"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
 

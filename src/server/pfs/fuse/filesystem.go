@@ -13,7 +13,7 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"

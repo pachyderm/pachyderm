@@ -5,7 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-	ppsserver "github.com/pachyderm/pachyderm/src/pps"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"go.pedge.io/proto/rpclog"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
