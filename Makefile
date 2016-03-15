@@ -43,6 +43,7 @@ vendor-update:
 
 vendor-without-update:
 	go get -v github.com/kardianos/govendor
+	cd src/server
 	rm -rf vendor
 	govendor init
 	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 govendor add +external
