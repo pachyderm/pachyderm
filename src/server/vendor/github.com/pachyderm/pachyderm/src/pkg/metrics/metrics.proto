@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+message Metrics {
+    int64 repos = 1;
+    int64 commits = 2;
+    int64 files = 3;
+    int64 bytes = 4;
+    int64 jobs = 5;
+    int64 pipelines = 6;
+}
