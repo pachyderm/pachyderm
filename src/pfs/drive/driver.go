@@ -423,10 +423,12 @@ func (d *driver) AddShard(shard uint64) error {
 		if err == io.EOF {
 			break
 		}
-		if _, ok := dags[diffInfo.Diff.Commit.Repo.Name]; !ok {
-			dags[diffInfo.Diff.Commit.Repo.Name] = dag.NewDAG(nil)
+		repoName := diffInfo.Diff.Commit.Repo.Name
+		if _, ok := diffInfos[repoName]; !ok {
+			diffInfos[repoName] = make(map[uint64]map[string]*pfs.DiffInfo)
+			dags[repoName] = dag.NewDAG(nil)
 		}
-		dags[diffInfo.Diff.Commit.Repo.Name].NewNode(diffInfo.Diff.Commit.ID, []string{diffInfo.ParentCommit.ID})
+		updateDAG(diffInfo, dags[repoName])
 		if err := diffInfos.insert(diffInfo); err != nil {
 			return err
 		}
@@ -440,9 +442,7 @@ func (d *driver) AddShard(shard uint64) error {
 	defer d.lock.Unlock()
 	for repoName, dag := range dags {
 		for _, commitID := range dag.Sorted() {
-			if _, ok := d.diffs[repoName]; !ok {
-				d.createRepoState(pfsutil.NewRepo(repoName))
-			}
+			d.createRepoState(pfsutil.NewRepo(repoName))
 			if diffInfo, ok := diffInfos.get(pfsutil.NewDiff(repoName, commitID, shard)); ok {
 				if err := d.insertDiffInfo(diffInfo); err != nil {
 					return err
@@ -682,13 +682,17 @@ func (d *driver) insertDiffInfo(diffInfo *pfs.DiffInfo) error {
 			}
 			d.branches[commit.Repo.Name][diffInfo.Branch] = commit.ID
 		}
-		if diffInfo.ParentCommit != nil {
-			d.dags[commit.Repo.Name].NewNode(commit.ID, []string{diffInfo.ParentCommit.ID})
-		} else {
-			d.dags[commit.Repo.Name].NewNode(commit.ID, nil)
-		}
+		updateDAG(diffInfo, d.dags[commit.Repo.Name])
 	}
 	return nil
+}
+
+func updateDAG(diffInfo *pfs.DiffInfo, dag *dag.DAG) {
+	if diffInfo.ParentCommit != nil {
+		dag.NewNode(diffInfo.Diff.Commit.ID, []string{diffInfo.ParentCommit.ID})
+	} else {
+		dag.NewNode(diffInfo.Diff.Commit.ID, nil)
+	}
 }
 
 func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
