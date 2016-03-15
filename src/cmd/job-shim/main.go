@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/pfs/fuse"
+	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/spf13/cobra"
 	"go.pedge.io/env"

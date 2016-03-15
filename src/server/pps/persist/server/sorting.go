@@ -5,7 +5,7 @@ import (
 
 	"go.pedge.io/proto/time"
 
-	"github.com/pachyderm/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 )
 
 // TODO: this should be a call through the actual persist storage

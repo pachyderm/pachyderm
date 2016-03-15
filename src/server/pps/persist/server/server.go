@@ -3,7 +3,7 @@ package server
 import (
 	"errors"
 
-	"github.com/pachyderm/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 )
 
 var (

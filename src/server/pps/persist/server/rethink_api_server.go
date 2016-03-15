@@ -10,7 +10,7 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/pps/persist"
+	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/rpclog"

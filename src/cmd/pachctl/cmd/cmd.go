@@ -9,9 +9,9 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm"
-	pfscmds "github.com/pachyderm/pachyderm/src/pfs/cmds"
+	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	deploycmds "github.com/pachyderm/pachyderm/src/pkg/deploy/cmds"
-	ppscmds "github.com/pachyderm/pachyderm/src/pps/cmds"
+	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/cobra"

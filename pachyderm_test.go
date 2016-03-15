@@ -14,12 +14,12 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/pkg/workload"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-	ppsserver "github.com/pachyderm/pachyderm/src/pps"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
 const (

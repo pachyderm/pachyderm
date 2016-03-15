@@ -9,8 +9,8 @@ import (
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/fuse"
-	"github.com/pachyderm/pachyderm/src/pfs/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
+	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/spf13/cobra"
 	//"go.pedge.io/lion"
 	"go.pedge.io/pkg/cobra"
