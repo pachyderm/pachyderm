@@ -7,6 +7,7 @@ go:
 branches:
   only:
     - master
+    - pachd_client_reorg
 before_install:
   - echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock -s devicemapper"' | sudo tee /etc/default/docker > /dev/null
 before_script:
