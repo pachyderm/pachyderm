@@ -32,7 +32,7 @@ func do(appEnvObj interface{}) error {
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := client.NewFromAddress(appEnv.PachydermAddress)
+			client, err := client.NewFromAddress(fmt.Sprintf("%v:650",appEnv.PachydermAddress))
 			if err != nil {
 				errorAndExit(err.Error())
 			}
