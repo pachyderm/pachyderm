@@ -7,7 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
-	"github.com/pachyderm/pachyderm/src/pps"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	"golang.org/x/net/context"
 )
@@ -30,33 +30,33 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	require.NoError(t, err)
 	pipelineInfo, err := apiServer.GetPipelineInfo(
 		context.Background(),
-		&pps.Pipeline{Name: "foo"},
+		&ppsclient.Pipeline{Name: "foo"},
 	)
 	require.NoError(t, err)
 	require.Equal(t, pipelineInfo.PipelineName, "foo")
-	input := &pps.JobInput{Commit: pfsutil.NewCommit("bar", uuid.NewWithoutDashes())}
+	input := &ppsclient.JobInput{Commit: pfsutil.NewCommit("bar", uuid.NewWithoutDashes())}
 	jobInfo, err := apiServer.CreateJobInfo(
 		context.Background(),
 		&persist.JobInfo{
 			PipelineName: "foo",
-			Inputs:       []*pps.JobInput{input},
+			Inputs:       []*ppsclient.JobInput{input},
 		},
 	)
 	jobID := jobInfo.JobID
-	input2 := &pps.JobInput{Commit: pfsutil.NewCommit("fizz", uuid.NewWithoutDashes())}
+	input2 := &ppsclient.JobInput{Commit: pfsutil.NewCommit("fizz", uuid.NewWithoutDashes())}
 
 	_, err = apiServer.CreateJobInfo(
 		context.Background(),
 		&persist.JobInfo{
 			PipelineName: "buzz",
-			Inputs:       []*pps.JobInput{input2},
+			Inputs:       []*ppsclient.JobInput{input2},
 		},
 	)
 	require.NoError(t, err)
 	jobInfo, err = apiServer.InspectJob(
 		context.Background(),
-		&pps.InspectJobRequest{
-			Job: &pps.Job{
+		&ppsclient.InspectJobRequest{
+			Job: &ppsclient.Job{
 				ID: jobInfo.JobID,
 			},
 		},
@@ -66,8 +66,8 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	require.Equal(t, "foo", jobInfo.PipelineName)
 	jobInfos, err := apiServer.ListJobInfos(
 		context.Background(),
-		&pps.ListJobRequest{
-			Pipeline: &pps.Pipeline{Name: "foo"},
+		&ppsclient.ListJobRequest{
+			Pipeline: &ppsclient.Pipeline{Name: "foo"},
 		},
 	)
 	require.NoError(t, err)
@@ -75,7 +75,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	require.Equal(t, jobInfos.JobInfo[0].JobID, jobID)
 	jobInfos, err = apiServer.ListJobInfos(
 		context.Background(),
-		&pps.ListJobRequest{
+		&ppsclient.ListJobRequest{
 			InputCommit: []*pfs.Commit{input.Commit},
 		},
 	)
@@ -84,8 +84,8 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	require.Equal(t, jobInfos.JobInfo[0].JobID, jobID)
 	jobInfos, err = apiServer.ListJobInfos(
 		context.Background(),
-		&pps.ListJobRequest{
-			Pipeline:    &pps.Pipeline{Name: "foo"},
+		&ppsclient.ListJobRequest{
+			Pipeline:    &ppsclient.Pipeline{Name: "foo"},
 			InputCommit: []*pfs.Commit{input.Commit},
 		},
 	)
@@ -110,14 +110,14 @@ func testBlock(t *testing.T, apiServer persist.APIServer) {
 			context.Background(),
 			&persist.JobState{
 				JobID: jobID,
-				State: pps.JobState_JOB_STATE_SUCCESS,
+				State: ppsclient.JobState_JOB_STATE_SUCCESS,
 			})
 		require.NoError(t, err)
 	}()
 	_, err = apiServer.InspectJob(
 		context.Background(),
-		&pps.InspectJobRequest{
-			Job:         &pps.Job{ID: jobID},
+		&ppsclient.InspectJobRequest{
+			Job:         &ppsclient.Job{ID: jobID},
 			BlockOutput: true,
 			BlockState:  true,
 		},

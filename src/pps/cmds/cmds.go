@@ -8,7 +8,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/pachyderm/pachyderm/src/pps"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/pps/example"
 	"github.com/pachyderm/pachyderm/src/pps/pretty"
 	"github.com/spf13/cobra"
@@ -69,7 +69,7 @@ The increase the throughput of a job increase the Shard paremeter.
 				}()
 				jobReader = jobFile
 			}
-			var request pps.CreateJobRequest
+			var request ppsclient.CreateJobRequest
 			if err := jsonpb.Unmarshal(jobReader, &request); err != nil {
 				errorAndExit("Error reading from stdin: %s", err.Error())
 			}
@@ -96,8 +96,8 @@ The increase the throughput of a job increase the Shard paremeter.
 			}
 			jobInfo, err := apiClient.InspectJob(
 				context.Background(),
-				&pps.InspectJobRequest{
-					Job: &pps.Job{
+				&ppsclient.InspectJobRequest{
+					Job: &ppsclient.Job{
 						ID: args[0],
 					},
 				},
@@ -125,15 +125,15 @@ The increase the throughput of a job increase the Shard paremeter.
 			if err != nil {
 				return err
 			}
-			var pipeline *pps.Pipeline
+			var pipeline *ppsclient.Pipeline
 			if pipelineName != "" {
-				pipeline = &pps.Pipeline{
+				pipeline = &ppsclient.Pipeline{
 					Name: pipelineName,
 				}
 			}
 			jobInfos, err := apiClient.ListJob(
 				context.Background(),
-				&pps.ListJobRequest{
+				&ppsclient.ListJobRequest{
 					Pipeline: pipeline,
 				},
 			)
@@ -196,7 +196,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				}()
 				pipelineReader = pipelineFile
 			}
-			var request pps.CreatePipelineRequest
+			var request ppsclient.CreatePipelineRequest
 			decoder := json.NewDecoder(pipelineReader)
 			for {
 				message := json.RawMessage{}
@@ -232,8 +232,8 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			pipelineInfo, err := apiClient.InspectPipeline(
 				context.Background(),
-				&pps.InspectPipelineRequest{
-					Pipeline: &pps.Pipeline{
+				&ppsclient.InspectPipelineRequest{
+					Pipeline: &ppsclient.Pipeline{
 						Name: args[0],
 					},
 				},
@@ -262,7 +262,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			pipelineInfos, err := apiClient.ListPipeline(
 				context.Background(),
-				&pps.ListPipelineRequest{},
+				&ppsclient.ListPipelineRequest{},
 			)
 			if err != nil {
 				errorAndExit("Error from ListPipeline: %s", err.Error())
@@ -287,8 +287,8 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			if _, err := apiClient.DeletePipeline(
 				context.Background(),
-				&pps.DeletePipelineRequest{
-					Pipeline: &pps.Pipeline{
+				&ppsclient.DeletePipelineRequest{
+					Pipeline: &ppsclient.Pipeline{
 						Name: args[0],
 					},
 				},
@@ -317,10 +317,10 @@ func errorAndExit(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func getAPIClient(address string) (pps.APIClient, error) {
+func getAPIClient(address string) (ppsclient.APIClient, error) {
 	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
-	return pps.NewAPIClient(clientConn), nil
+	return ppsclient.NewAPIClient(clientConn), nil
 }

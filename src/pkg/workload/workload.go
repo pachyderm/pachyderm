@@ -16,7 +16,7 @@ import (
 
 func RunWorkload(
 	pfsClient pfsclient.APIClient,
-	ppsClient pps.APIClient,
+	ppsClient ppsclient.APIClient,
 	rand *rand.Rand,
 	size int,
 ) error {
@@ -29,7 +29,7 @@ func RunWorkload(
 	for _, job := range worker.startedJobs {
 		jobInfo, err := ppsClient.InspectJob(
 			context.Background(),
-			&pps.InspectJobRequest{
+			&ppsclient.InspectJobRequest{
 				Job:        job,
 				BlockState: true,
 			},
@@ -37,7 +37,7 @@ func RunWorkload(
 		if err != nil {
 			return err
 		}
-		if jobInfo.State != pps.JobState_JOB_STATE_SUCCESS {
+		if jobInfo.State != ppsclient.JobState_JOB_STATE_SUCCESS {
 			return fmt.Errorf("job %s failed", job.ID)
 		}
 	}
@@ -49,9 +49,9 @@ type worker struct {
 	finished    []*pfsserver.Commit
 	started     []*pfsserver.Commit
 	files       []*pfsserver.File
-	startedJobs []*pps.Job
-	jobs        []*pps.Job
-	pipelines   []*pps.Pipeline
+	startedJobs []*ppsclient.Job
+	jobs        []*ppsclient.Job
+	pipelines   []*ppsclient.Pipeline
 	rand        *rand.Rand
 }
 
@@ -72,7 +72,7 @@ const (
 const maxStartedCommits = 6
 const maxStartedJobs = 6
 
-func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient pps.APIClient) error {
+func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClient) error {
 	opt := w.rand.Float64()
 	switch {
 	case opt < repo:
@@ -123,7 +123,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient pps.APIClient) er
 			w.startedJobs = w.startedJobs[1:]
 			jobInfo, err := ppsClient.InspectJob(
 				context.Background(),
-				&pps.InspectJobRequest{
+				&ppsclient.InspectJobRequest{
 					Job:        job,
 					BlockState: true,
 				},
@@ -131,7 +131,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient pps.APIClient) er
 			if err != nil {
 				return err
 			}
-			if jobInfo.State != pps.JobState_JOB_STATE_SUCCESS {
+			if jobInfo.State != ppsclient.JobState_JOB_STATE_SUCCESS {
 				return fmt.Errorf("job %s failed", job.ID)
 			}
 			w.jobs = append(w.jobs, job)
@@ -140,7 +140,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient pps.APIClient) er
 				return nil
 			}
 			inputs := [5]string{}
-			var jobInputs []*pps.JobInput
+			var jobInputs []*ppsclient.JobInput
 			repoSet := make(map[string]bool)
 			for i := range inputs {
 				commit := w.finished[w.rand.Intn(len(w.finished))]
@@ -149,7 +149,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient pps.APIClient) er
 				}
 				repoSet[commit.Repo.Name] = true
 				inputs[i] = commit.Repo.Name
-				jobInputs = append(jobInputs, &pps.JobInput{Commit: commit})
+				jobInputs = append(jobInputs, &ppsclient.JobInput{Commit: commit})
 			}
 			var parentJobID string
 			if len(w.jobs) > 0 {
@@ -175,7 +175,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient pps.APIClient) er
 			return nil
 		}
 		inputs := [5]string{}
-		var pipelineInputs []*pps.PipelineInput
+		var pipelineInputs []*ppsclient.PipelineInput
 		repoSet := make(map[string]bool)
 		for i := range inputs {
 			repo := w.repos[w.rand.Intn(len(w.repos))]
@@ -184,7 +184,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient pps.APIClient) er
 			}
 			repoSet[repo.Name] = true
 			inputs[i] = repo.Name
-			pipelineInputs = append(pipelineInputs, &pps.PipelineInput{Repo: repo})
+			pipelineInputs = append(pipelineInputs, &ppsclient.PipelineInput{Repo: repo})
 		}
 		pipelineName := w.randString(10)
 		outFilename := w.randString(10)

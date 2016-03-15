@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	ppsclient "github.com/pachyderm/pachyderm/src/pps"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
 
 func PrintJobHeader(w io.Writer) {

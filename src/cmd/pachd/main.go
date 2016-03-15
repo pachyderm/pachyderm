@@ -16,7 +16,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
-	"github.com/pachyderm/pachyderm/src/pps"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps" //SJ: bad name conflict w below
+	ppsmodel "github.com/pachyderm/pachyderm/src/pps" //SJ: cant name this server per the refactor convention because of the import below
 	"github.com/pachyderm/pachyderm/src/pps/persist"
 	persist_server "github.com/pachyderm/pachyderm/src/pps/persist/server"
 	pps_server "github.com/pachyderm/pachyderm/src/pps/server"
@@ -117,7 +118,7 @@ func do(appEnvObj interface{}) error {
 		}
 	}()
 	ppsAPIServer := pps_server.NewAPIServer(
-		pps.NewHasher(appEnv.NumShards, appEnv.NumShards),
+		ppsmodel.NewHasher(appEnv.NumShards, appEnv.NumShards),
 		shard.NewRouter(
 			sharder,
 			grpcutil.NewDialer(
@@ -172,7 +173,7 @@ func do(appEnvObj interface{}) error {
 			pfsclient.RegisterAPIServer(s, apiServer)
 			pfsclient.RegisterInternalAPIServer(s, internalAPIServer)
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
-			pps.RegisterAPIServer(s, ppsAPIServer)
+			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 		},
 		func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
 			return pfsclient.RegisterAPIHandler(ctx, mux, clientConn)
