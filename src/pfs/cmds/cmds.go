@@ -10,7 +10,6 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
-	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pfs/pretty"
 	"github.com/spf13/cobra"
 	//"go.pedge.io/lion"
@@ -59,7 +58,7 @@ Repos are created with create-repo.`,
 			if err != nil {
 				return err
 			}
-			return pfsutil.CreateRepo(apiClient, args[0])
+			return pfsclient.CreateRepo(apiClient, args[0])
 		}),
 	}
 
@@ -72,7 +71,7 @@ Repos are created with create-repo.`,
 			if err != nil {
 				return err
 			}
-			repoInfo, err := pfsutil.InspectRepo(apiClient, args[0])
+			repoInfo, err := pfsclient.InspectRepo(apiClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -95,7 +94,7 @@ Repos are created with create-repo.`,
 			if err != nil {
 				return err
 			}
-			repoInfos, err := pfsutil.ListRepo(apiClient)
+			repoInfos, err := pfsclient.ListRepo(apiClient)
 			if err != nil {
 				return err
 			}
@@ -117,7 +116,7 @@ Repos are created with create-repo.`,
 			if err != nil {
 				return err
 			}
-			return pfsutil.DeleteRepo(apiClient, args[0])
+			return pfsclient.DeleteRepo(apiClient, args[0])
 		}),
 	}
 
@@ -155,7 +154,7 @@ This layers the data in the commit over the data in the parent.`,
 			if len(args) == 2 {
 				branch = args[1]
 			}
-			commit, err := pfsutil.StartCommit(apiClient, args[0],
+			commit, err := pfsclient.StartCommit(apiClient, args[0],
 				parentCommitID, branch)
 			if err != nil {
 				return err
@@ -175,7 +174,7 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
-			return pfsutil.FinishCommit(apiClient, args[0], args[1])
+			return pfsclient.FinishCommit(apiClient, args[0], args[1])
 		}),
 	}
 
@@ -188,7 +187,7 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
-			commitInfo, err := pfsutil.InspectCommit(apiClient, args[0], args[1])
+			commitInfo, err := pfsclient.InspectCommit(apiClient, args[0], args[1])
 			if err != nil {
 				return err
 			}
@@ -211,7 +210,7 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
-			commitInfos, err := pfsutil.ListCommit(apiClient, args)
+			commitInfos, err := pfsclient.ListCommit(apiClient, args)
 			if err != nil {
 				return err
 			}
@@ -233,7 +232,7 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
-			commitInfos, err := pfsutil.ListBranch(apiClient, args[0])
+			commitInfos, err := pfsclient.ListBranch(apiClient, args[0])
 			if err != nil {
 				return err
 			}
@@ -255,7 +254,7 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
-			return pfsutil.DeleteCommit(apiClient, args[0], args[1])
+			return pfsclient.DeleteCommit(apiClient, args[0], args[1])
 		}),
 	}
 
@@ -280,7 +279,7 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			_, err = pfsutil.PutFile(apiClient, args[0], args[1], args[2], 0, os.Stdin)
+			_, err = pfsclient.PutFile(apiClient, args[0], args[1], args[2], 0, os.Stdin)
 			return err
 		}),
 	}
@@ -294,7 +293,7 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			return pfsutil.GetFile(apiClient, args[0], args[1], args[2], 0, 0, "", shard(), os.Stdout)
+			return pfsclient.GetFile(apiClient, args[0], args[1], args[2], 0, 0, "", shard(), os.Stdout)
 		}),
 	}
 	addShardFlags(getFile)
@@ -308,7 +307,7 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			fileInfo, err := pfsutil.InspectFile(apiClient, args[0], args[1], args[2], "", shard())
+			fileInfo, err := pfsclient.InspectFile(apiClient, args[0], args[1], args[2], "", shard())
 			if err != nil {
 				return err
 			}
@@ -336,7 +335,7 @@ Files can be read from finished commits with get-file.`,
 			if len(args) == 3 {
 				path = args[2]
 			}
-			fileInfos, err := pfsutil.ListFile(apiClient, args[0], args[1], path, "", shard())
+			fileInfos, err := pfsclient.ListFile(apiClient, args[0], args[1], path, "", shard())
 			if err != nil {
 				return err
 			}
@@ -359,7 +358,7 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			return pfsutil.DeleteFile(apiClient, args[0], args[1], args[2])
+			return pfsclient.DeleteFile(apiClient, args[0], args[1], args[2])
 		}),
 	}
 
@@ -423,7 +422,7 @@ func getDriveAPIClient(address string) (pfsclient.BlockAPIClient, error) {
 func parseCommitMounts(args []string) []*fuse.CommitMount {
 	var result []*fuse.CommitMount
 	for _, arg := range args {
-		commitMount := &fuse.CommitMount{Commit: pfsutil.NewCommit("", "")}
+		commitMount := &fuse.CommitMount{Commit: pfsclient.NewCommit("", "")}
 		repo, commitAlias := path.Split(arg)
 		commitMount.Commit.Repo.Name = path.Clean(repo)
 		split := strings.Split(commitAlias, ":")

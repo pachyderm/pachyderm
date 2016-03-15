@@ -15,13 +15,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/require"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/pkg/workload"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	ppsserver "github.com/pachyderm/pachyderm/src/pps"
-	"github.com/pachyderm/pachyderm/src/pps/ppsutil"
 )
 
 const (
@@ -38,13 +36,13 @@ func TestJob(t *testing.T) {
 	t.Parallel()
 	dataRepo := uniqueString("TestJob.data")
 	pachClient := getPachClient(t)
-	require.NoError(t, pfsutil.CreateRepo(pachClient, dataRepo))
-	commit, err := pfsutil.StartCommit(pachClient, dataRepo, "", "")
+	require.NoError(t, pfsclient.CreateRepo(pachClient, dataRepo))
+	commit, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pachClient, dataRepo, commit.ID, "file", 0, strings.NewReader("foo\n"))
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, "file", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
-	require.NoError(t, pfsutil.FinishCommit(pachClient, dataRepo, commit.ID))
-	job, err := ppsutil.CreateJob(
+	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
+	job, err := ppsclient.CreateJob(
 		pachClient,
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
@@ -62,11 +60,11 @@ func TestJob(t *testing.T) {
 	jobInfo, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
 	require.NoError(t, err)
 	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
-	commitInfo, err := pfsutil.InspectCommit(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+	commitInfo, err := pfsclient.InspectCommit(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 	require.NoError(t, err)
 	require.Equal(t, pfsserver.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
 	var buffer bytes.Buffer
-	require.NoError(t, pfsutil.GetFile(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
+	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 }
 
@@ -79,15 +77,15 @@ func TestGrep(t *testing.T) {
 	t.Parallel()
 	dataRepo := uniqueString("TestGrep.data")
 	pachClient := getPachClient(t)
-	require.NoError(t, pfsutil.CreateRepo(pachClient, dataRepo))
-	commit, err := pfsutil.StartCommit(pachClient, dataRepo, "", "")
+	require.NoError(t, pfsclient.CreateRepo(pachClient, dataRepo))
+	commit, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
 	require.NoError(t, err)
 	for i := 0; i < 100; i++ {
-		_, err = pfsutil.PutFile(pachClient, dataRepo, commit.ID, fmt.Sprintf("file%d", i), 0, strings.NewReader("foo\nbar\nfizz\nbuzz\n"))
+		_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, fmt.Sprintf("file%d", i), 0, strings.NewReader("foo\nbar\nfizz\nbuzz\n"))
 		require.NoError(t, err)
 	}
-	require.NoError(t, pfsutil.FinishCommit(pachClient, dataRepo, commit.ID))
-	job1, err := ppsutil.CreateJob(
+	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
+	job1, err := ppsclient.CreateJob(
 		pachClient,
 		"",
 		[]string{"bash"},
@@ -97,7 +95,7 @@ func TestGrep(t *testing.T) {
 		"",
 	)
 	require.NoError(t, err)
-	job2, err := ppsutil.CreateJob(
+	job2, err := ppsclient.CreateJob(
 		pachClient,
 		"",
 		[]string{"bash"},
@@ -117,9 +115,9 @@ func TestGrep(t *testing.T) {
 	inspectJobRequest.Job = job2
 	job2Info, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
 	require.NoError(t, err)
-	repo1Info, err := pfsutil.InspectRepo(pachClient, job1Info.OutputCommit.Repo.Name)
+	repo1Info, err := pfsclient.InspectRepo(pachClient, job1Info.OutputCommit.Repo.Name)
 	require.NoError(t, err)
-	repo2Info, err := pfsutil.InspectRepo(pachClient, job2Info.OutputCommit.Repo.Name)
+	repo2Info, err := pfsclient.InspectRepo(pachClient, job2Info.OutputCommit.Repo.Name)
 	require.NoError(t, err)
 	require.Equal(t, repo1Info.SizeBytes, repo2Info.SizeBytes)
 }
@@ -134,11 +132,11 @@ func TestPipeline(t *testing.T) {
 	pachClient := getPachClient(t)
 	// create repos
 	dataRepo := uniqueString("TestPipeline.data")
-	require.NoError(t, pfsutil.CreateRepo(pachClient, dataRepo))
+	require.NoError(t, pfsclient.CreateRepo(pachClient, dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
-	outRepo := ppsserver.PipelineRepo(ppsutil.NewPipeline(pipelineName))
-	require.NoError(t, ppsutil.CreatePipeline(
+	outRepo := ppsserver.PipelineRepo(ppsclient.NewPipeline(pipelineName))
+	require.NoError(t, ppsclient.CreatePipeline(
 		pachClient,
 		pipelineName,
 		"",
@@ -148,11 +146,11 @@ func TestPipeline(t *testing.T) {
 		[]*ppsclient.PipelineInput{{Repo: &pfsserver.Repo{Name: dataRepo}}},
 	))
 	// Do first commit to repo
-	commit1, err := pfsutil.StartCommit(pachClient, dataRepo, "", "")
+	commit1, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pachClient, dataRepo, commit1.ID, "file", 0, strings.NewReader("foo\n"))
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit1.ID, "file", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
-	require.NoError(t, pfsutil.FinishCommit(pachClient, dataRepo, commit1.ID))
+	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit1.ID))
 	listCommitRequest := &pfsclient.ListCommitRequest{
 		Repo:       []*pfsserver.Repo{outRepo},
 		CommitType: pfsserver.CommitType_COMMIT_TYPE_READ,
@@ -166,14 +164,14 @@ func TestPipeline(t *testing.T) {
 	outCommits := listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	var buffer bytes.Buffer
-	require.NoError(t, pfsutil.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	// Do second commit to repo
-	commit2, err := pfsutil.StartCommit(pachClient, dataRepo, commit1.ID, "")
+	commit2, err := pfsclient.StartCommit(pachClient, dataRepo, commit1.ID, "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pachClient, dataRepo, commit2.ID, "file", 0, strings.NewReader("bar\n"))
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit2.ID, "file", 0, strings.NewReader("bar\n"))
 	require.NoError(t, err)
-	require.NoError(t, pfsutil.FinishCommit(pachClient, dataRepo, commit2.ID))
+	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit2.ID))
 	listCommitRequest = &pfsclient.ListCommitRequest{
 		Repo:       []*pfsserver.Repo{outRepo},
 		FromCommit: []*pfsserver.Commit{outCommits[0].Commit},
@@ -190,7 +188,7 @@ func TestPipeline(t *testing.T) {
 	outCommits = listCommitResponse.CommitInfo
 	require.Equal(t, 1, len(outCommits))
 	buffer = bytes.Buffer{}
-	require.NoError(t, pfsutil.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nbar\n", buffer.String())
 }
 
@@ -215,9 +213,9 @@ func TestSharding(t *testing.T) {
 	t.Parallel()
 	repo := uniqueString("TestSharding")
 	pachClient := getPachClient(t)
-	err := pfsutil.CreateRepo(pachClient, repo)
+	err := pfsclient.CreateRepo(pachClient, repo)
 	require.NoError(t, err)
-	commit, err := pfsutil.StartCommit(pachClient, repo, "", "")
+	commit, err := pfsclient.StartCommit(pachClient, repo, "", "")
 	require.NoError(t, err)
 	var wg sync.WaitGroup
 	for i := 0; i < NUMFILES; i++ {
@@ -226,12 +224,12 @@ func TestSharding(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			rand := rand.New(rand.NewSource(int64(i)))
-			_, err = pfsutil.PutFile(pachClient, repo, commit.ID, fmt.Sprintf("file%d", i), 0, workload.NewReader(rand, KB))
+			_, err = pfsclient.PutFile(pachClient, repo, commit.ID, fmt.Sprintf("file%d", i), 0, workload.NewReader(rand, KB))
 			require.NoError(t, err)
 		}()
 	}
 	wg.Wait()
-	err = pfsutil.FinishCommit(pachClient, repo, commit.ID)
+	err = pfsclient.FinishCommit(pachClient, repo, commit.ID)
 	require.NoError(t, err)
 	wg = sync.WaitGroup{}
 	for i := 0; i < NUMFILES; i++ {
@@ -242,13 +240,13 @@ func TestSharding(t *testing.T) {
 			var buffer1Shard bytes.Buffer
 			var buffer4Shard bytes.Buffer
 			shard := &pfsserver.Shard{FileModulus: 1, BlockModulus: 1}
-			err := pfsutil.GetFile(pachClient, repo, commit.ID,
+			err := pfsclient.GetFile(pachClient, repo, commit.ID,
 				fmt.Sprintf("file%d", i), 0, 0, "", shard, &buffer1Shard)
 			require.NoError(t, err)
 			shard.BlockModulus = 4
 			for blockNumber := uint64(0); blockNumber < 4; blockNumber++ {
 				shard.BlockNumber = blockNumber
-				err := pfsutil.GetFile(pachClient, repo, commit.ID,
+				err := pfsclient.GetFile(pachClient, repo, commit.ID,
 					fmt.Sprintf("file%d", i), 0, 0, "", shard, &buffer4Shard)
 				require.NoError(t, err)
 			}
@@ -269,25 +267,25 @@ func TestFromCommit(t *testing.T) {
 	pachClient := getPachClient(t)
 	seed := time.Now().UnixNano()
 	rand := rand.New(rand.NewSource(seed))
-	err := pfsutil.CreateRepo(pachClient, repo)
+	err := pfsclient.CreateRepo(pachClient, repo)
 	require.NoError(t, err)
-	commit1, err := pfsutil.StartCommit(pachClient, repo, "", "")
+	commit1, err := pfsclient.StartCommit(pachClient, repo, "", "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pachClient, repo, commit1.ID, "file", 0, workload.NewReader(rand, KB))
+	_, err = pfsclient.PutFile(pachClient, repo, commit1.ID, "file", 0, workload.NewReader(rand, KB))
 	require.NoError(t, err)
-	err = pfsutil.FinishCommit(pachClient, repo, commit1.ID)
+	err = pfsclient.FinishCommit(pachClient, repo, commit1.ID)
 	require.NoError(t, err)
-	commit2, err := pfsutil.StartCommit(pachClient, repo, commit1.ID, "")
+	commit2, err := pfsclient.StartCommit(pachClient, repo, commit1.ID, "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pachClient, repo, commit2.ID, "file", 0, workload.NewReader(rand, KB))
+	_, err = pfsclient.PutFile(pachClient, repo, commit2.ID, "file", 0, workload.NewReader(rand, KB))
 	require.NoError(t, err)
-	err = pfsutil.FinishCommit(pachClient, repo, commit2.ID)
+	err = pfsclient.FinishCommit(pachClient, repo, commit2.ID)
 	require.NoError(t, err)
 	var buffer bytes.Buffer
-	require.NoError(t, pfsutil.GetFile(pachClient, repo, commit2.ID, "file", 0, 0, commit1.ID, nil, &buffer))
+	require.NoError(t, pfsclient.GetFile(pachClient, repo, commit2.ID, "file", 0, 0, commit1.ID, nil, &buffer))
 	require.Equal(t, buffer.Len(), KB)
 	buffer = bytes.Buffer{}
-	require.NoError(t, pfsutil.GetFile(pachClient, repo, commit2.ID, "file", 0, 0, "", nil, &buffer))
+	require.NoError(t, pfsclient.GetFile(pachClient, repo, commit2.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, buffer.Len(), 2*KB)
 }
 
@@ -298,29 +296,29 @@ func TestSimple(t *testing.T) {
 	t.Parallel()
 	pachClient := getPachClient(t)
 	repo := uniqueString("TestSimple")
-	require.NoError(t, pfsutil.CreateRepo(pachClient, repo))
-	commit1, err := pfsutil.StartCommit(pachClient, repo, "", "")
+	require.NoError(t, pfsclient.CreateRepo(pachClient, repo))
+	commit1, err := pfsclient.StartCommit(pachClient, repo, "", "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pachClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
+	_, err = pfsclient.PutFile(pachClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
-	require.NoError(t, pfsutil.FinishCommit(pachClient, repo, commit1.ID))
-	commitInfos, err := pfsutil.ListCommit(pachClient, []string{repo})
+	require.NoError(t, pfsclient.FinishCommit(pachClient, repo, commit1.ID))
+	commitInfos, err := pfsclient.ListCommit(pachClient, []string{repo})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
-	require.NoError(t, pfsutil.GetFile(pachClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, pfsclient.GetFile(pachClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
-	commit2, err := pfsutil.StartCommit(pachClient, repo, commit1.ID, "")
+	commit2, err := pfsclient.StartCommit(pachClient, repo, commit1.ID, "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pachClient, repo, commit2.ID, "foo", 0, strings.NewReader("foo\n"))
+	_, err = pfsclient.PutFile(pachClient, repo, commit2.ID, "foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
-	err = pfsutil.FinishCommit(pachClient, repo, commit2.ID)
+	err = pfsclient.FinishCommit(pachClient, repo, commit2.ID)
 	require.NoError(t, err)
 	buffer = bytes.Buffer{}
-	require.NoError(t, pfsutil.GetFile(pachClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, pfsclient.GetFile(pachClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer = bytes.Buffer{}
-	require.NoError(t, pfsutil.GetFile(pachClient, repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, pfsclient.GetFile(pachClient, repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 

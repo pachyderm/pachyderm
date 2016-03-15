@@ -15,7 +15,6 @@ import (
 	"bazil.org/fuse/fs"
 	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
@@ -148,7 +147,7 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 	if d.File.Commit.ID == "" {
 		return nil, fuse.EPERM
 	}
-	if err := pfsutil.MakeDirectory(d.fs.apiClient, d.File.Commit.Repo.Name, d.File.Commit.ID, path.Join(d.File.Path, request.Name)); err != nil {
+	if err := pfsclient.MakeDirectory(d.fs.apiClient, d.File.Commit.Repo.Name, d.File.Commit.ID, path.Join(d.File.Path, request.Name)); err != nil {
 		return nil, err
 	}
 	localResult := d.copy()
@@ -167,7 +166,7 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	defer func() {
 		protolion.Debug(&FileAttr{&f.Node, &Attr{uint32(a.Mode)}, errorToString(retErr)})
 	}()
-	fileInfo, err := pfsutil.InspectFile(
+	fileInfo, err := pfsclient.InspectFile(
 		f.fs.apiClient,
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
@@ -192,7 +191,7 @@ func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fu
 		protolion.Debug(&FileRead{&f.Node, errorToString(retErr)})
 	}()
 	var buffer bytes.Buffer
-	if err := pfsutil.GetFile(
+	if err := pfsclient.GetFile(
 		f.fs.apiClient,
 		f.File.Commit.Repo.Name,
 		f.File.Commit.ID,
@@ -230,7 +229,7 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 	defer func() {
 		protolion.Debug(&FileWrite{&f.Node, errorToString(retErr)})
 	}()
-	written, err := pfsutil.PutFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.ID, f.File.Path, request.Offset, bytes.NewReader(request.Data))
+	written, err := pfsclient.PutFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.ID, f.File.Path, request.Offset, bytes.NewReader(request.Data))
 	if err != nil {
 		return err
 	}
@@ -280,7 +279,7 @@ func (d *directory) copy() *directory {
 func (f *filesystem) getCommitMount(nameOrAlias string) *CommitMount {
 	if len(f.CommitMounts) == 0 {
 		return &CommitMount{
-			Commit: pfsutil.NewCommit(nameOrAlias, ""),
+			Commit: pfsclient.NewCommit(nameOrAlias, ""),
 			Shard:  f.Shard,
 		}
 	}
@@ -305,7 +304,7 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 	if commitMount == nil {
 		return nil, fuse.EPERM
 	}
-	repoInfo, err := pfsutil.InspectRepo(d.fs.apiClient, commitMount.Commit.Repo.Name)
+	repoInfo, err := pfsclient.InspectRepo(d.fs.apiClient, commitMount.Commit.Repo.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +320,7 @@ func (d *directory) lookUpRepo(ctx context.Context, name string) (fs.Node, error
 }
 
 func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, error) {
-	commitInfo, err := pfsutil.InspectCommit(
+	commitInfo, err := pfsclient.InspectCommit(
 		d.fs.apiClient,
 		d.File.Commit.Repo.Name,
 		name,
@@ -344,7 +343,7 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 }
 
 func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error) {
-	fileInfo, err := pfsutil.InspectFile(
+	fileInfo, err := pfsclient.InspectFile(
 		d.fs.apiClient,
 		d.File.Commit.Repo.Name,
 		d.File.Commit.ID,
@@ -374,7 +373,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 }
 
 func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
-	repoInfos, err := pfsutil.ListRepo(d.fs.apiClient)
+	repoInfos, err := pfsclient.ListRepo(d.fs.apiClient)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +392,7 @@ func (d *directory) readRepos(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
-	commitInfos, err := pfsutil.ListCommit(d.fs.apiClient, []string{d.File.Commit.Repo.Name})
+	commitInfos, err := pfsclient.ListCommit(d.fs.apiClient, []string{d.File.Commit.Repo.Name})
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +404,7 @@ func (d *directory) readCommits(ctx context.Context) ([]fuse.Dirent, error) {
 }
 
 func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
-	fileInfos, err := pfsutil.ListFile(
+	fileInfos, err := pfsclient.ListFile(
 		d.fs.apiClient,
 		d.File.Commit.Repo.Name,
 		d.File.Commit.ID,

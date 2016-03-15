@@ -10,7 +10,6 @@ import (
 
 	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/pkg/uuid"
@@ -139,7 +138,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfsclient.StartCom
 			return nil, err
 		}
 	}
-	return pfsutil.NewCommit(request.Repo.Name, request.ID), nil
+	return pfsclient.NewCommit(request.Repo.Name, request.ID), nil
 }
 
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfsclient.FinishCommitRequest) (response *google_protobuf.Empty, retErr error) {

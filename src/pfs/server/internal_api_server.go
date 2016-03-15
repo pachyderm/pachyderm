@@ -19,7 +19,6 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/pfs/pfsutil"
 	"github.com/pachyderm/pachyderm/src/pkg/shard"
 )
 
@@ -120,7 +119,7 @@ func (a *internalAPIServer) StartCommit(ctx context.Context, request *pfsclient.
 		request.Branch, request.Started, shards); err != nil {
 		return nil, err
 	}
-	if err := a.pulseCommitWaiters(pfsutil.NewCommit(request.Repo.Name, request.ID), pfsserver.CommitType_COMMIT_TYPE_WRITE, shards); err != nil {
+	if err := a.pulseCommitWaiters(pfsclient.NewCommit(request.Repo.Name, request.ID), pfsserver.CommitType_COMMIT_TYPE_WRITE, shards); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
