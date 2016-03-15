@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pachyderm/pachyderm"
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/pps"
 	"github.com/spf13/cobra"
@@ -32,7 +32,7 @@ func do(appEnvObj interface{}) error {
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			client, err := pachyderm.NewAPIClientFromAddress(appEnv.PachydermAddress)
+			client, err := client.NewFromAddress(appEnv.PachydermAddress)
 			if err != nil {
 				errorAndExit(err.Error())
 			}
