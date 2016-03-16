@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 
 	"github.com/gengo/grpc-gateway/runtime"
-	"github.com/pachyderm/pachyderm"
+	pclient "github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs" // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
@@ -180,7 +180,7 @@ func do(appEnvObj interface{}) error {
 		},
 		protoserver.ServeWithHTTPOptions{
 			ServeOptions: protoserver.ServeOptions{
-				Version: pachyderm.Version,
+				Version: pclient.Version,
 			},
 		},
 		protoserver.ServeEnv{
