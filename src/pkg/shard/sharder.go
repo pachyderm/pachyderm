@@ -779,7 +779,7 @@ func (a *sharder) fillRoles(
 							server := server
 							go func() {
 								defer wg.Done()
-								if err := server.AddShard(shard, version-1); err != nil && addShardErr == nil {
+								if err := server.AddShard(shard); err != nil && addShardErr == nil {
 									addShardErr = err
 								}
 							}()
@@ -811,7 +811,7 @@ func (a *sharder) fillRoles(
 							wg.Add(1)
 							go func(shard uint64) {
 								defer wg.Done()
-								if err := server.RemoveShard(shard, version-1); err != nil && removeShardErr == nil {
+								if err := server.DeleteShard(shard); err != nil && removeShardErr == nil {
 									removeShardErr = err
 								}
 							}(shard)

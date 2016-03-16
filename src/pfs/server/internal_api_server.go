@@ -376,11 +376,11 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfs.DeleteF
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *internalAPIServer) AddShard(shard uint64, version int64) error {
+func (a *internalAPIServer) AddShard(shard uint64) error {
 	return a.driver.AddShard(shard)
 }
 
-func (a *internalAPIServer) RemoveShard(shard uint64, version int64) error {
+func (a *internalAPIServer) DeleteShard(shard uint64) error {
 	return a.driver.DeleteShard(shard)
 }
 
