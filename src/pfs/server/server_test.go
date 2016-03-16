@@ -268,8 +268,8 @@ func restartServer(server *internalAPIServer, t *testing.T) {
 	defer wg.Wait()
 	for i := 0; i < shards; i++ {
 		i := i
+		wg.Add(1)
 		go func() {
-			wg.Add(1)
 			defer wg.Done()
 			require.NoError(t, server.DeleteShard(uint64(i)))
 			require.NoError(t, server.AddShard(uint64(i)))
