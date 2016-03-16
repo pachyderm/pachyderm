@@ -465,6 +465,8 @@ func (d *driver) DeleteShard(shard uint64) error {
 }
 
 func (d *driver) Dump() {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
 	fmt.Printf("%p.Dump()\n", d)
 	for repoName, dag := range d.dags {
 		fmt.Printf("%s:\n", repoName)
