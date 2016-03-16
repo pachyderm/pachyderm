@@ -10,7 +10,7 @@ import (
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
 
-	"github.com/pachyderm/pachyderm"
+	pclient "github.com/pachyderm/pachyderm/src/client"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
@@ -149,7 +149,7 @@ func getPfsClient(t *testing.T) pfsclient.APIClient {
 					pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 					close(ready)
 				},
-				protoserver.ServeOptions{Version: pachyderm.Version},
+				protoserver.ServeOptions{Version: pclient.Version},
 				protoserver.ServeEnv{GRPCPort: port},
 			)
 			require.NoError(t, err)
