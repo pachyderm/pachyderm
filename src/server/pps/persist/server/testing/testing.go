@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/pkg/require"
-	"github.com/pachyderm/pachyderm/src/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist/server"
 )
