@@ -42,7 +42,7 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer)
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
 	scanner := bufio.NewScanner(protostream.NewStreamingBytesReader(putBlockServer))
 	var wg sync.WaitGroup
-	var loopErr error
+	errCh := make(chan error, 1)
 	for {
 		blockRef, data, err := scanBlock(scanner)
 		if err != nil {
@@ -53,18 +53,33 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer)
 		go func() {
 			defer wg.Done()
 			writer, err := s.objClient.Writer(s.localServer.blockPath(blockRef.Block))
-			if err != nil && loopErr == nil {
-				loopErr = err
+			if err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
 				return
 			}
 			defer func() {
-				if err := writer.Close(); err != nil && loopErr == nil {
-					loopErr = err
+				if err := writer.Close(); err != nil {
+					select {
+					case errCh <- err:
+						// error reported
+					default:
+						// not the first error
+					}
 					return
 				}
 			}()
 			if _, err := writer.Write(data); err != nil {
-				loopErr = err
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
 				return
 			}
 		}()
@@ -73,8 +88,10 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfs.BlockAPI_PutBlockServer)
 		}
 	}
 	wg.Wait()
-	if loopErr != nil {
-		return loopErr
+	select {
+	case err := <-errCh:
+		return err
+	default:
 	}
 	return putBlockServer.SendAndClose(result)
 }

@@ -67,7 +67,7 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, 
 		return err
 	}
 	var wg sync.WaitGroup
-	var loopErr error
+	errCh := make(chan error, 1)
 	for shard := range shards {
 		wg.Add(1)
 		diffInfo := &pfs.DiffInfo{
@@ -79,13 +79,23 @@ func (d *driver) CreateRepo(repo *pfs.Repo, created *google_protobuf.Timestamp, 
 		}
 		go func() {
 			defer wg.Done()
-			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil && loopErr == nil {
-				loopErr = err
+			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
 			}
 		}()
 	}
 	wg.Wait()
-	return loopErr
+	select {
+	case err := <-errCh:
+		return err
+	default:
+	}
+	return nil
 }
 
 func (d *driver) InspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoInfo, error) {
@@ -98,7 +108,7 @@ func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	var wg sync.WaitGroup
-	var loopErr error
+	errCh := make(chan error, 1)
 	var result []*pfs.RepoInfo
 	var lock sync.Mutex
 	for repoName := range d.diffs {
@@ -107,8 +117,13 @@ func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 		go func() {
 			defer wg.Done()
 			repoInfo, err := d.inspectRepo(&pfs.Repo{Name: repoName}, shards)
-			if err != nil && loopErr == nil {
-				loopErr = err
+			if err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
 			}
 			lock.Lock()
 			defer lock.Unlock()
@@ -116,8 +131,11 @@ func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 		}()
 	}
 	wg.Wait()
-	if loopErr != nil {
-		return nil, loopErr
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
+		// no error
 	}
 	return result, nil
 }
@@ -136,7 +154,7 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 	if err != nil {
 		return err
 	}
-	var loopErr error
+	errCh := make(chan error, 1)
 	var wg sync.WaitGroup
 	for _, diffInfo := range diffInfos {
 		diffInfo := diffInfo
@@ -146,13 +164,23 @@ func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 			if _, err := blockClient.DeleteDiff(
 				context.Background(),
 				&pfs.DeleteDiffRequest{Diff: diffInfo.Diff},
-			); err != nil && loopErr == nil {
-				loopErr = err
+			); err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
 			}
 		}()
 	}
 	wg.Wait()
-	return loopErr
+	select {
+	case err := <-errCh:
+		return err
+	default:
+	}
+	return nil
 }
 
 func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, branch string,
@@ -214,19 +242,29 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 		return err
 	}
 	var wg sync.WaitGroup
-	var loopErr error
+	errCh := make(chan error, 1)
 	for _, diffInfo := range diffInfos {
 		diffInfo := diffInfo
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil && loopErr == nil {
-				loopErr = err
+			if _, err := blockClient.CreateDiff(context.Background(), diffInfo); err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
 			}
 		}()
 	}
 	wg.Wait()
-	return loopErr
+	select {
+	case err := <-errCh:
+		return err
+	default:
+	}
+	return nil
 }
 
 func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs.CommitInfo, error) {

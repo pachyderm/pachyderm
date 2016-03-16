@@ -183,15 +183,18 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	var commitInfos []*pfs.CommitInfo
-	var loopErr error
+	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
 			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).ListCommit(ctx, request)
 			if err != nil {
-				if loopErr == nil {
-					loopErr = err
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
 				}
 				return
 			}
@@ -201,8 +204,10 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 		}(clientConn)
 	}
 	wg.Wait()
-	if loopErr != nil {
-		return nil, loopErr
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
 	}
 	return &pfs.CommitInfos{CommitInfo: pfs.ReduceCommitInfos(commitInfos)}, nil
 }
@@ -219,15 +224,18 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	var commitInfos []*pfs.CommitInfo
-	var loopErr error
+	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
 			subCommitInfos, err := pfs.NewInternalAPIClient(clientConn).ListBranch(ctx, request)
 			if err != nil {
-				if loopErr == nil {
-					loopErr = err
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
 				}
 				return
 			}
@@ -237,8 +245,10 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 		}(clientConn)
 	}
 	wg.Wait()
-	if loopErr != nil {
-		return nil, loopErr
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
 	}
 	return &pfs.CommitInfos{CommitInfo: pfs.ReduceCommitInfos(commitInfos)}, nil
 }
@@ -377,7 +387,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	var lock sync.Mutex
 	var fileInfos []*pfs.FileInfo
 	seenDirectories := make(map[string]bool)
-	var loopErr error
+	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
@@ -386,8 +396,11 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 			lock.Lock()
 			defer lock.Unlock()
 			if err != nil {
-				if loopErr == nil {
-					loopErr = err
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
 				}
 				return
 			}
@@ -403,8 +416,10 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 		}(clientConn)
 	}
 	wg.Wait()
-	if loopErr != nil {
-		return nil, loopErr
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
 	}
 	return &pfs.FileInfos{
 		FileInfo: fileInfos,

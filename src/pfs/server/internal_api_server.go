@@ -326,7 +326,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	var fileInfos []*pfs.FileInfo
-	var loopErr error
+	errCh := make(chan error, 1)
 	for shard := range shards {
 		shard := shard
 		wg.Add(1)
@@ -334,8 +334,11 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 			defer wg.Done()
 			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, request.FromCommit, shard)
 			if err != nil && err != pfs.ErrFileNotFound {
-				if loopErr == nil {
-					loopErr = err
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
 				}
 				return
 			}
@@ -345,8 +348,10 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfs.ListFileR
 		}()
 	}
 	wg.Wait()
-	if loopErr != nil {
-		return nil, loopErr
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
 	}
 	return &pfs.FileInfos{
 		FileInfo: pfs.ReduceFileInfos(fileInfos),
