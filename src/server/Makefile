@@ -14,3 +14,7 @@ vendor-without-update:
 	$(foreach vendor_dir, $(VENDOR_IGNORE_DIRS), rm -rf vendor/$(vendor_dir) || exit; git checkout vendor/$(vendor_dir) || exit;)
 
 vendor: vendor-update vendor-without-update
+
+localtest: 
+	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./... | grep -v '/vendor/')
+
