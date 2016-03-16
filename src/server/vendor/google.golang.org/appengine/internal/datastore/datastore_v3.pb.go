@@ -708,7 +708,7 @@ func (m *PropertyValue_ReferenceValue) GetPathelement() []*PropertyValue_Referen
 
 type PropertyValue_ReferenceValue_PathElement struct {
 	Type             *string `protobuf:"bytes,15,req,name=type" json:"type,omitempty"`
-	Id               *int64  `protobuf:"varint,16,opt,name=id" json:"id,omitempty"`
+	ID               *int64  `protobuf:"varint,16,opt,name=id" json:"id,omitempty"`
 	Name             *string `protobuf:"bytes,17,opt,name=name" json:"name,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
@@ -834,7 +834,7 @@ func (m *Path) GetElement() []*Path_Element {
 
 type Path_Element struct {
 	Type             *string `protobuf:"bytes,2,req,name=type" json:"type,omitempty"`
-	Id               *int64  `protobuf:"varint,3,opt,name=id" json:"id,omitempty"`
+	ID               *int64  `protobuf:"varint,3,opt,name=id" json:"id,omitempty"`
 	Name             *string `protobuf:"bytes,4,opt,name=name" json:"name,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
@@ -1017,7 +1017,7 @@ func (m *EntityProto) GetRank() int32 {
 }
 
 type CompositeProperty struct {
-	IndexId          *int64   `protobuf:"varint,1,req,name=index_id" json:"index_id,omitempty"`
+	IndexID          *int64   `protobuf:"varint,1,req,name=index_id" json:"index_id,omitempty"`
 	Value            []string `protobuf:"bytes,2,rep,name=value" json:"value,omitempty"`
 	XXX_unrecognized []byte   `json:"-"`
 }
@@ -1099,8 +1099,8 @@ func (m *Index_Property) GetDirection() Index_Property_Direction {
 }
 
 type CompositeIndex struct {
-	AppId             *string               `protobuf:"bytes,1,req,name=app_id" json:"app_id,omitempty"`
-	Id                *int64                `protobuf:"varint,2,req,name=id" json:"id,omitempty"`
+	AppID             *string               `protobuf:"bytes,1,req,name=app_id" json:"app_id,omitempty"`
+	ID                *int64                `protobuf:"varint,2,req,name=id" json:"id,omitempty"`
 	Definition        *Index                `protobuf:"bytes,3,req,name=definition" json:"definition,omitempty"`
 	State             *CompositeIndex_State `protobuf:"varint,4,req,name=state,enum=appengine.CompositeIndex_State" json:"state,omitempty"`
 	OnlyUseIfRequired *bool                 `protobuf:"varint,6,opt,name=only_use_if_required,def=0" json:"only_use_if_required,omitempty"`

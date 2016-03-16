@@ -214,7 +214,7 @@ func (m *GetServiceAccountNameResponse) GetServiceAccountName() string {
 
 type GetAccessTokenRequest struct {
 	Scope              []string `protobuf:"bytes,1,rep,name=scope" json:"scope,omitempty"`
-	ServiceAccountId   *int64   `protobuf:"varint,2,opt,name=service_account_id" json:"service_account_id,omitempty"`
+	ServiceAccountID   *int64   `protobuf:"varint,2,opt,name=service_account_id" json:"service_account_id,omitempty"`
 	ServiceAccountName *string  `protobuf:"bytes,3,opt,name=service_account_name" json:"service_account_name,omitempty"`
 	XXX_unrecognized   []byte   `json:"-"`
 }

@@ -95,7 +95,7 @@ type Request struct {
 	ServiceName      *string `protobuf:"bytes,2,req,name=service_name" json:"service_name,omitempty"`
 	Method           *string `protobuf:"bytes,3,req,name=method" json:"method,omitempty"`
 	Request          []byte  `protobuf:"bytes,4,req,name=request" json:"request,omitempty"`
-	RequestId        *string `protobuf:"bytes,5,opt,name=request_id" json:"request_id,omitempty"`
+	RequestID        *string `protobuf:"bytes,5,opt,name=request_id" json:"request_id,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
 
