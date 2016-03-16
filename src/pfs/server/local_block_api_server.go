@@ -171,23 +171,33 @@ func (s *localBlockAPIServer) diffDir() string {
 }
 
 func (s *localBlockAPIServer) diffPath(diff *pfs.Diff) string {
-	return filepath.Join(s.diffDir(), diff.Commit.Repo.Name, diff.Commit.ID, strconv.FormatUint(diff.Shard, 10))
+	commitID := diff.Commit.ID
+	if commitID == "" {
+		// each repo creates a diff per shard with an empty commit
+		// so it works as a path we make that an underscore
+		commitID = "_"
+	}
+	return filepath.Join(s.diffDir(), diff.Commit.Repo.Name, strconv.FormatUint(diff.Shard, 10), commitID)
 }
 
 // pathToDiff parses a path as a diff, it returns nil when parse fails
 func (s *localBlockAPIServer) pathToDiff(path string) *pfs.Diff {
-	repoCommitShard := strings.Split(strings.TrimPrefix(path, s.diffDir()), "/")
+	repoCommitShard := strings.Split(strings.TrimPrefix(path, s.diffDir()+"/"), "/")
 	if len(repoCommitShard) < 3 {
 		return nil
 	}
-	shard, err := strconv.ParseUint(repoCommitShard[2], 10, 64)
+	commitID := repoCommitShard[2]
+	if commitID == "_" {
+		commitID = ""
+	}
+	shard, err := strconv.ParseUint(repoCommitShard[1], 10, 64)
 	if err != nil {
 		return nil
 	}
 	return &pfs.Diff{
 		Commit: &pfs.Commit{
 			Repo: &pfs.Repo{Name: repoCommitShard[0]},
-			ID:   repoCommitShard[1],
+			ID:   commitID,
 		},
 		Shard: shard,
 	}
