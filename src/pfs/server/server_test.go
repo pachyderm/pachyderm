@@ -3,10 +3,13 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"golang.org/x/net/context"
 
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
@@ -22,12 +25,51 @@ import (
 )
 
 const (
-	shards = 32
+	shards = 1
 )
 
 var (
 	port int32 = 30651
 )
+
+func TestBlock(t *testing.T) {
+	t.Parallel()
+	blockClient := getBlockClient(t)
+	_, err := blockClient.CreateDiff(
+		context.Background(),
+		&pfs.DiffInfo{
+			Diff: pfsutil.NewDiff("foo", "", 0),
+		})
+	require.NoError(t, err)
+	_, err = blockClient.CreateDiff(
+		context.Background(),
+		&pfs.DiffInfo{
+			Diff: pfsutil.NewDiff("foo", "c1", 0),
+		})
+	require.NoError(t, err)
+	_, err = blockClient.CreateDiff(
+		context.Background(),
+		&pfs.DiffInfo{
+			Diff: pfsutil.NewDiff("foo", "c2", 0),
+		})
+	require.NoError(t, err)
+	listDiffClient, err := blockClient.ListDiff(
+		context.Background(),
+		&pfs.ListDiffRequest{Shard: 0},
+	)
+	require.NoError(t, err)
+	var diffInfos []*pfs.DiffInfo
+	for {
+		diffInfo, err := listDiffClient.Recv()
+		if err == io.EOF {
+			break
+		} else {
+			require.NoError(t, err)
+		}
+		diffInfos = append(diffInfos, diffInfo)
+	}
+	require.Equal(t, 3, len(diffInfos))
+}
 
 func TestSimple(t *testing.T) {
 	t.Parallel()
@@ -158,6 +200,30 @@ func TestDisallowReadsDuringCommit(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, pfsutil.GetFile(pfsClient, repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
+}
+
+func getBlockClient(t *testing.T) pfs.BlockAPIClient {
+	localPort := atomic.AddInt32(&port, 1)
+	address := fmt.Sprintf("localhost:%d", localPort)
+	root := uniqueString("/tmp/pach_test/run")
+	t.Logf("root %s", root)
+	blockAPIServer, err := NewLocalBlockAPIServer(root)
+	require.NoError(t, err)
+	ready := make(chan bool)
+	go func() {
+		err := protoserver.Serve(
+			func(s *grpc.Server) {
+				pfs.RegisterBlockAPIServer(s, blockAPIServer)
+				close(ready)
+			},
+			protoserver.ServeOptions{Version: pachyderm.Version},
+			protoserver.ServeEnv{GRPCPort: uint16(localPort)},
+		)
+		require.NoError(t, err)
+	}()
+	<-ready
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	return pfs.NewBlockAPIClient(clientConn)
 }
 
 func getClientAndServer(t *testing.T) (pfs.APIClient, *internalAPIServer) {
