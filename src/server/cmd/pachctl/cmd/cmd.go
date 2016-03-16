@@ -8,7 +8,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/pachyderm/pachyderm"
+	"github.com/pachyderm/pachyderm/src/client"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
@@ -59,7 +59,7 @@ Envronment variables:
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			printVerisonHeader(writer)
-			printVersion(writer, "pachctl", pachyderm.Version)
+			printVersion(writer, "pachctl", client.Version)
 			printVersion(writer, "pachd", version)
 			return writer.Flush()
 		}),
