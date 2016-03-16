@@ -101,9 +101,7 @@ func TestSimple(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 
 	// restart the server and make sure data is still there
-	server.driver.Dump()
 	restartServer(server, t)
-	server.driver.Dump()
 	buffer = bytes.Buffer{}
 	require.NoError(t, pfsutil.GetFile(pfsClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
