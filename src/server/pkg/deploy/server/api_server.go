@@ -1,9 +1,9 @@
 package server
 
 import (
-	"github.com/pachyderm/pachyderm/src/pkg/deploy"
-	"github.com/pachyderm/pachyderm/src/pkg/deploy/assets"
-	"github.com/pachyderm/pachyderm/src/pkg/provider"
+	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
+	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
+	"github.com/pachyderm/pachyderm/src/server/pkg/provider"
 	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"k8s.io/kubernetes/pkg/api"

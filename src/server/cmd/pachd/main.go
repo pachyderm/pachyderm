@@ -10,12 +10,12 @@ import (
 	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs" // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"github.com/pachyderm/pachyderm/src/pkg/discovery"
-	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/pkg/metrics"
-	"github.com/pachyderm/pachyderm/src/pkg/netutil"
-	"github.com/pachyderm/pachyderm/src/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/server/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/server/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/pserver/kg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps" //SJ: bad name conflict w below
 	ppsmodel "github.com/pachyderm/pachyderm/src/server/pps" //SJ: cant name this server per the refactor convention because of the import below
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"

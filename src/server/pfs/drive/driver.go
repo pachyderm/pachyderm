@@ -8,8 +8,8 @@ import (
 
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/pkg/dag"
-	"github.com/pachyderm/pachyderm/src/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dag"
+	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"

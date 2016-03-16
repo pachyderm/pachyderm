@@ -3,7 +3,7 @@ package grpcutil
 import (
 	"path/filepath"
 
-	"github.com/pachyderm/pachyderm/src/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"google.golang.org/grpc"
 )
 

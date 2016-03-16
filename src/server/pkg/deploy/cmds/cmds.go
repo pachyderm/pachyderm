@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pachyderm/pachyderm/src/pkg/deploy/assets"
+	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
 )

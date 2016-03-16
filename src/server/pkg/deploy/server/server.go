@@ -1,8 +1,8 @@
 package server
 
 import (
-	"github.com/pachyderm/pachyderm/src/pkg/deploy"
-	"github.com/pachyderm/pachyderm/src/pkg/provider"
+	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
+	"github.com/pachyderm/pachyderm/src/server/pkg/provider"
 
 	k8s "k8s.io/kubernetes/pkg/client/unversioned"
 )

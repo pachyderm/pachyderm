@@ -3,7 +3,7 @@ package shard
 import (
 	"fmt"
 
-	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/grpcutil"
 	"google.golang.org/grpc"
 )
 

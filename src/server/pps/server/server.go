@@ -3,7 +3,7 @@ package server
 import (
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"

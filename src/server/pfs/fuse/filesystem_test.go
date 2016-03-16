@@ -16,8 +16,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"github.com/pachyderm/pachyderm/src/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/server/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
 	"google.golang.org/grpc"
 )
 
