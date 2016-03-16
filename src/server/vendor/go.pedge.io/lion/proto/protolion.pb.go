@@ -57,9 +57,9 @@ func (Level) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{0}
 
 // Entry is the object serialized for logging.
 type Entry struct {
-	// id may not be set depending on logger options
+	ID string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`// id may not be set depending on logger options
 	// it is up to the user to determine if id is required
-	Id        string                     `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+
 	Level     Level                      `protobuf:"varint,2,opt,name=level,enum=lion.Level" json:"level,omitempty"`
 	Timestamp *google_protobuf.Timestamp `protobuf:"bytes,3,opt,name=timestamp" json:"timestamp,omitempty"`
 	// both context and fields may be set

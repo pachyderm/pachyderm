@@ -114,8 +114,10 @@ integration-tests:
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
+	rm -rf src/server/vendor
 	protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src
-	go install github.com/pachyderm/pachyderm/src/cmd/protofix
+	git checkout src/server/vendor
+	go install github.com/pachyderm/pachyderm/src/server/cmd/protofix
 	protofix fix src
 
 pretest:
