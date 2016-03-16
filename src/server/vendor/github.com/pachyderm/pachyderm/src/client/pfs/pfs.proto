@@ -1,0 +1,213 @@
+syntax = "proto3";
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+import "server/pfs/pfs.proto";
+
+package pfs;
+
+message CreateRepoRequest {
+  Repo repo = 1;
+  google.protobuf.Timestamp created = 2;
+}
+
+message InspectRepoRequest {
+  Repo repo = 1;
+}
+
+message ListRepoRequest {
+}
+
+message DeleteRepoRequest {
+  Repo repo = 1;
+}
+
+message StartCommitRequest {
+  Repo repo = 1;
+  string id = 2;
+  string parent_id = 3;
+  string branch = 4;
+  google.protobuf.Timestamp started = 5;
+}
+
+message FinishCommitRequest {
+  Commit commit = 1;
+  google.protobuf.Timestamp finished = 3;
+}
+
+message InspectCommitRequest {
+  Commit commit = 1;
+}
+
+message ListCommitRequest {
+  repeated Repo repo = 1;
+  CommitType commit_type = 2;
+  repeated Commit from_commit = 3;
+  bool block = 4;
+}
+
+message ListBranchRequest {
+  Repo repo = 1;
+}
+
+message DeleteCommitRequest {
+  Commit commit = 1;
+}
+
+message GetFileRequest {
+  File file = 1;
+  int64 offset_bytes = 2;
+  int64 size_bytes = 3;
+  Shard shard = 4;
+  Commit from_commit = 5;
+}
+
+message PutFileRequest {
+  File file = 1;
+  FileType file_type = 2;
+  int64 offset_bytes = 3;
+  bytes value = 4;
+}
+
+message InspectFileRequest {
+  File file = 1;
+  Shard shard = 2;
+  Commit from_commit = 3;
+}
+
+message MakeDirectoryRequest {
+  File file = 1;
+}
+
+message ListFileRequest {
+  File file = 1;
+  Shard shard = 2;
+  Commit from_commit = 3;
+}
+
+message DeleteFileRequest {
+  File file = 1;
+}
+
+service API {
+  // Repo rpcs
+  // CreateRepo creates a new repo.
+  // An error is returned if the repo already exists.
+  rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
+  // InspectRepo returns info about a repo.
+  rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
+  // ListRepo returns info about all repos.
+  rpc ListRepo(ListRepoRequest) returns (RepoInfos) {}
+  // DeleteRepo deletes a repo.
+  rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
+
+  // Commit rpcs
+  // StartCommit creates a new write commit from a parent commit.
+  rpc StartCommit(StartCommitRequest) returns (Commit) {}
+  // FinishCommit turns a write commit into a read commit.
+  rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
+  // InspectCommit returns the info about a commit.
+  rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
+  // ListCommit returns info about all commits.
+  rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
+  // DeleteCommit deletes a commit.
+  rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
+  // ListBranch returns info about the heads of branches.
+  rpc ListBranch(ListBranchRequest) returns (CommitInfos) {}
+
+  // File rpcs
+  // PutFile writes the specified file to pfs.
+  rpc PutFile(stream PutFileRequest) returns (google.protobuf.Empty) {}
+  // GetFile returns a byte stream of the contents of the file.
+  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+  // InspectFile returns info about a file.
+  rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
+  // ListFile returns info about all files.
+  rpc ListFile(ListFileRequest) returns (FileInfos) {}
+  // DeleteFile deletes a file.
+  rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
+}
+
+service InternalAPI {
+  // Repo rpcs
+  // CreateRepo creates a new repo.
+  // An error is returned if the repo already exists.
+  rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
+  // InspectRepo returns info about a repo.
+  rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
+  // ListRepo returns info about all repos.
+  rpc ListRepo(ListRepoRequest) returns (RepoInfos) {}
+  // DeleteRepo deletes a repo.
+  rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
+
+  // Commit rpcs
+  // StartCommit creates a new write commit from a parent commit.
+  rpc StartCommit(StartCommitRequest) returns (google.protobuf.Empty) {}
+  // FinishCommit turns a write commit into a read commit.
+  rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
+  // InspectCommit returns the info about a commit.
+  rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
+  // ListCommit returns info about all commits.
+  rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
+  // DeleteCommit deletes a commit.
+  rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
+  // ListBranch returns info about the heads of branches.
+  rpc ListBranch(ListBranchRequest) returns (CommitInfos) {}
+
+  // File rpcs
+  // PutFile writes the specified file to pfs.
+  rpc PutFile(stream PutFileRequest) returns (google.protobuf.Empty) {}
+  // GetFile returns a byte stream of the contents of the file.
+  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+  // InspectFile returns info about a file.
+  rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
+  // ListFile returns info about all files.
+  rpc ListFile(ListFileRequest) returns (FileInfos) {}
+  // DeleteFile deletes a file.
+  rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
+}
+
+message GetBlockRequest {
+  Block block = 1;
+  uint64 offset_bytes = 2;
+  uint64 size_bytes = 3;
+}
+
+message DeleteBlockRequest {
+  Block block = 1;
+}
+
+message InspectBlockRequest {
+  Block block = 1;
+}
+
+message ListBlockRequest {
+}
+
+message InspectDiffRequest {
+  Diff diff = 1;
+}
+
+message ListDiffRequest {
+  uint64 shard = 1;
+}
+
+message DeleteDiffRequest {
+  Diff diff = 1;
+}
+
+service BlockAPI {
+  rpc PutBlock(stream google.protobuf.BytesValue) returns (BlockRefs) {}
+  rpc GetBlock(GetBlockRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc DeleteBlock(DeleteBlockRequest) returns (google.protobuf.Empty) {}
+  rpc InspectBlock(InspectBlockRequest) returns (BlockInfo) {}
+  rpc ListBlock(ListBlockRequest) returns (BlockInfos) {}
+
+  rpc CreateDiff(DiffInfo) returns (google.protobuf.Empty) {}
+  rpc InspectDiff(InspectDiffRequest) returns (DiffInfo) {}
+  rpc ListDiff(ListDiffRequest) returns (stream DiffInfo) {}
+  rpc DeleteDiff(DeleteDiffRequest) returns (google.protobuf.Empty) {}
+}
