@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	shards = 1
+	shards = 32
 )
 
 var (
