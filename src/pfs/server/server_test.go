@@ -233,7 +233,7 @@ func getClientAndServer(t *testing.T) (pfs.APIClient, *internalAPIServer) {
 	t.Logf("root %s", root)
 	blockAPIServer, err := NewLocalBlockAPIServer(root)
 	require.NoError(t, err)
-	sharder := shard.NewLocalSharder(address, shards)
+	sharder := shard.NewLocalSharder([]string{address}, shards)
 	hasher := pfs.NewHasher(shards, 1)
 	dialer := grpcutil.NewDialer(grpc.WithInsecure())
 	apiServer := NewAPIServer(hasher, shard.NewRouter(sharder, dialer, address))
