@@ -109,6 +109,7 @@ proto:
 pretest:
 	go get -v github.com/kisielk/errcheck
 	go get -v github.com/golang/lint/golint
+	rm -rf src/server/vendor
 	for file in $$(find "./src" -name '*.go' | grep -v '\.pb\.go' | grep -v '\.pb\.gw\.go'); do \
 		golint $$file | grep -v unexported; \
 		if [ -n "$$(golint $$file | grep -v unexported)" ]; then \
@@ -122,6 +123,7 @@ pretest:
 		exit 1; \
 		fi; \
 		done
+	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
 test: pretest docker-build clean-launch launch integration-tests
