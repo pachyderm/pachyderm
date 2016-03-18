@@ -107,9 +107,9 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
-integration-tests: docker-push-test
+integration-tests: 
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found pod integrationtests
-	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/testzztop --restart=Never --command -- echo $$PFSD_PORT_650_TCP_ADDR
+	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/testasdflkj --restart=Never --command -- echo $$PFSD_PORT_650_TCP_ADDR
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
