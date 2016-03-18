@@ -59,7 +59,7 @@ install:
 	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pachctl ./src/cmd/pachctl-doc
 
 docker-build-test:
-	docker build -t pachyderm/testzztop .
+	docker build -t pachyderm/testqwertyuio .
 
 docker-build-compile:
 	docker build -t pachyderm_compile .
@@ -77,7 +77,7 @@ docker-build: docker-build-test docker-build-job-shim docker-build-pachd
 
 
 docker-push-test: docker-build-test
-	docker push pachyderm/testzztop
+	docker push pachyderm/testqwertyuio
 
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
@@ -109,7 +109,8 @@ clean-launch:
 
 integration-tests: 
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found pod integrationtests
-	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/testasdflkj --restart=Never --command -- echo $$PFSD_PORT_650_TCP_ADDR
+	#kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/testqwertyuio --restart=Never --command -- echo $$PFSD_PORT_650_TCP_ADDR
+	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/testqwertyuio --restart=Never --command -- go test . -timeout 60s
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy

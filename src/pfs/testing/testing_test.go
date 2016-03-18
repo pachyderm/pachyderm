@@ -25,6 +25,7 @@ const (
 )
 
 func TestSimple(t *testing.T) {
+	t.Errorf("I want this test to fail")
 	t.Parallel()
 	apiClient := getPfsClient(t)
 	repoName := uniqueString("testSimpleRepo")
@@ -119,6 +120,7 @@ func TestSimple(t *testing.T) {
 }
 
 func TestBlockListCommits(t *testing.T) {
+	t.Errorf("I want this test to fail")
 	t.Parallel()
 	apiClient := getPfsClient(t)
 	repoName := uniqueString("testBlockListCommitsRepo")
@@ -188,6 +190,7 @@ func TestBlockListCommits(t *testing.T) {
 }
 
 func TestMount(t *testing.T) {
+	t.Errorf("I want this test to fail")
 	t.Parallel()
 	apiClient := getPfsClient(t)
 	repoName := uniqueString("testMountRepo")
@@ -260,6 +263,7 @@ func TestMount(t *testing.T) {
 }
 
 func TestMountBig(t *testing.T) {
+	t.Errorf("I want this test to fail")
 	t.Skip()
 	t.Parallel()
 	apiClient := getPfsClient(t)
