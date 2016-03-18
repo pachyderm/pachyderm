@@ -95,12 +95,8 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-tests: 
-	docker images | grep pachyderm
-	docker images
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found pod integrationtests
-#	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/pachd --restart=Never --command -- GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./... | grep -v '/vendor/') -timeout 60s
-#	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/test --restart=Never --command -- echo 'hai' -timeout 60s
-	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -v $$(go list ./... | grep -v '/src/server/vendor/') -timeout 60s
+	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -v $$(go list ./src/server/... | grep -v '/src/server/vendor/') -timeout 60s
 
 
 proto:
