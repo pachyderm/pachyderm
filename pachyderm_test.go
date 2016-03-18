@@ -29,7 +29,7 @@ const (
 )
 
 func TestJob(t *testing.T) {
-
+	t.Errorf("I want this test to fail")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -70,7 +70,7 @@ func TestJob(t *testing.T) {
 }
 
 func TestGrep(t *testing.T) {
-
+	t.Errorf("I want this test to fail")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -124,7 +124,7 @@ func TestGrep(t *testing.T) {
 }
 
 func TestPipeline(t *testing.T) {
-
+	t.Errorf("I want this test to fail")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -194,7 +194,7 @@ func TestPipeline(t *testing.T) {
 }
 
 func TestWorkload(t *testing.T) {
-
+	t.Errorf("I want this test to fail")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -206,7 +206,7 @@ func TestWorkload(t *testing.T) {
 }
 
 func TestSharding(t *testing.T) {
-
+	t.Errorf("I want this test to fail")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -258,7 +258,7 @@ func TestSharding(t *testing.T) {
 }
 
 func TestFromCommit(t *testing.T) {
-
+	t.Errorf("I want this test to fail")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -291,6 +291,7 @@ func TestFromCommit(t *testing.T) {
 }
 
 func TestSimple(t *testing.T) {
+	t.Errorf("I want this test to fail")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
