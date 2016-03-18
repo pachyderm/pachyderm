@@ -96,8 +96,8 @@ clean-launch:
 
 integration-tests: 
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found pod integrationtests
-	echo $$PFSD_PORT_650_TCP_ADDR
-	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -v $$(go list ./src/server/... | grep -v '/src/server/vendor/') -timeout 60s
+#	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -v $$(go list ./src/server/... | grep -v '/src/server/vendor/') -timeout 60s
+	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- echo $$PFSD_PORT_650_TCP_ADDR
 
 
 proto:
