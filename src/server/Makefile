@@ -9,7 +9,8 @@ vendor-client:
 	mkdir -p $(TMP_VENDORIZE_CLIENT_DIR)
 	cp tmp_vendorize_client_go $(TMP_VENDORIZE_CLIENT_DIR)/tmp_vendorize_client.go
 	cd $(TMP_VENDORIZE_CLIENT_DIR) && govendor init && govendor add +external
-	cp -R $(TMP_VENDORIZE_CLIENT_DIR)/vendor/github.com/pachyderm/pachyderm vendor/
+	mkdir -p vendor/github.com/pachyderm/pachyderm/src/
+	cp -R $(TMP_VENDORIZE_CLIENT_DIR)/vendor/github.com/pachyderm/pachyderm/src/client vendor/github.com/pachyderm/pachyderm/src
 
 vendor-update:
 	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/... ./.
