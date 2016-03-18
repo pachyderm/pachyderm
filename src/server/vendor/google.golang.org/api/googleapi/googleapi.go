@@ -220,13 +220,9 @@ type contentTypeOption string
 
 func (ct contentTypeOption) setOptions(o *MediaOptions) {
 	o.ContentType = string(ct)
-	if o.ContentType == "" {
-		o.ForceEmptyContentType = true
-	}
 }
 
-// ContentType returns a MediaOption which sets the Content-Type header for media uploads.
-// If ctype is empty, the Content-Type header will be omitted.
+// ContentType returns a MediaOption which sets the content type of data to be uploaded.
 func ContentType(ctype string) MediaOption {
 	return contentTypeOption(ctype)
 }
@@ -252,10 +248,8 @@ func ChunkSize(size int) MediaOption {
 
 // MediaOptions stores options for customizing media upload.  It is not used by developers directly.
 type MediaOptions struct {
-	ContentType           string
-	ForceEmptyContentType bool
-
-	ChunkSize int
+	ContentType string
+	ChunkSize   int
 }
 
 // ProcessMediaOptions stores options from opts in a MediaOptions.

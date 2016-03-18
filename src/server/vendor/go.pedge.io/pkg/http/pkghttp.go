@@ -17,7 +17,6 @@ import (
 	"go.pedge.io/env"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
-	"go.pedge.io/pb/go/google/type"
 	"go.pedge.io/pb/go/pb/money"
 	"go.pedge.io/pkg/tmpl"
 )
@@ -30,7 +29,7 @@ var (
 // HandlerEnv is the environment for a handler.
 type HandlerEnv struct {
 	// The port to serve on.
-	Port uint16 `env:"PORT,default=8080"`
+	Port uint16 `env:"HTTP_PORT,default=8080"`
 	// HealthCheckPath is the path for health checking.
 	// This path will always return 200 for a GET.
 	// Default value is /health.
@@ -154,13 +153,7 @@ func QueryGet(request *http.Request, key string) string {
 // Otherwise, returns 0.
 // error returned if there is a parsing error.
 func QueryGetUint32(request *http.Request, key string) (uint32, error) {
-	return ParseUint32(QueryGet(request, key))
-}
-
-// ParseUint32 parses the uint32 from the valueString, if it exists.
-// Otherwise, returns 0.
-// error returned if there is a parsing error.
-func ParseUint32(valueString string) (uint32, error) {
+	valueString := QueryGet(request, key)
 	if valueString == "" {
 		return 0, nil
 	}
@@ -176,13 +169,7 @@ func ParseUint32(valueString string) (uint32, error) {
 // Otherwise, returns 0.0.
 // error returned if there is a parsing error.
 func QueryGetFloat64(request *http.Request, key string) (float64, error) {
-	return ParseFloat64(QueryGet(request, key))
-}
-
-// ParseFloat64 parses the float64 from the valueString, if it exists.
-// Otherwise, returns 0.0.
-// error returned if there is a parsing error.
-func ParseFloat64(valueString string) (float64, error) {
+	valueString := QueryGet(request, key)
 	if valueString == "" {
 		return 0.0, nil
 	}
@@ -195,15 +182,7 @@ func ParseFloat64(valueString string) (float64, error) {
 // Money is expected to be in float notation, ie $123.45 is 123.45.
 // error returned if there is a parsing error.
 func QueryGetMoney(request *http.Request, key string) (*pbmoney.Money, error) {
-	return ParseMoney(QueryGet(request, key))
-}
-
-// ParseMoney parses the money from the valueString, if it exists.
-// Otherwise, returns nil.
-// Money is expected to be in float notation, ie $123.45 is 123.45.
-// error returned if there is a parsing error.
-func ParseMoney(valueString string) (*pbmoney.Money, error) {
-	valueDollars, err := ParseFloat64(valueString)
+	valueDollars, err := QueryGetFloat64(request, key)
 	if err != nil {
 		return nil, err
 	}
@@ -211,27 +190,6 @@ func ParseMoney(valueString string) (*pbmoney.Money, error) {
 		return nil, nil
 	}
 	return pbmoney.NewMoneyFloatUSD(valueDollars), nil
-}
-
-// QueryGetDate gets the Date by key from the request query, if it exists.
-// Otherwise, returns nil.
-// The time format given will be used to parse the request value into a time.Time object.
-func QueryGetDate(request *http.Request, key string, timeFormat string) (*google_type.Date, error) {
-	return ParseDate(QueryGet(request, key), timeFormat)
-}
-
-// ParseDate parses the Date from the valueString, if it exists.
-// Otherwise, returns nil.
-// The time format given will be used to parse the request value into a time.Time object.
-func ParseDate(valueString string, timeFormat string) (*google_type.Date, error) {
-	if valueString == "" {
-		return nil, nil
-	}
-	t, err := time.Parse(timeFormat, valueString)
-	if err != nil {
-		return nil, err
-	}
-	return google_type.TimeToDate(t), nil
 }
 
 func handleErrorBeforeStart(err error) error {

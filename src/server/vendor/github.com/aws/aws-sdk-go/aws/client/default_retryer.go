@@ -1,6 +1,7 @@
 package client
 
 import (
+	"math"
 	"math/rand"
 	"time"
 
@@ -31,13 +32,7 @@ func (d DefaultRetryer) MaxRetries() int {
 
 // RetryRules returns the delay duration before retrying this request again
 func (d DefaultRetryer) RetryRules(r *request.Request) time.Duration {
-	// Set the upper limit of delay in retrying at ~five minutes
-	retryCount := r.RetryCount
-	if retryCount > 13 {
-		retryCount = 13
-	}
-
-	delay := (1 << uint(retryCount)) * (rand.Intn(30) + 30)
+	delay := int(math.Pow(2, float64(r.RetryCount))) * (rand.Intn(30) + 30)
 	return time.Duration(delay) * time.Millisecond
 }
 

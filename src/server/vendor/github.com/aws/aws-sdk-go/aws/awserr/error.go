@@ -82,9 +82,9 @@ func NewBatchError(code, message string, errs []error) BatchError {
 //     output, err := s3manage.Upload(svc, input, opts)
 //     if err != nil {
 //         if reqerr, ok := err.(RequestFailure); ok {
-//             log.Println("Request failed", reqerr.Code(), reqerr.Message(), reqerr.RequestID())
+//             log.Printf("Request failed", reqerr.Code(), reqerr.Message(), reqerr.RequestID())
 //         } else {
-//             log.Println("Error:", err.Error())
+//             log.Printf("Error:", err.Error()
 //         }
 //     }
 //

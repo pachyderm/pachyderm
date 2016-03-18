@@ -5,7 +5,6 @@ package fs
 import (
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
-	"github.com/opencontainers/runc/libcontainer/system"
 )
 
 type DevicesGroup struct {
@@ -26,10 +25,6 @@ func (s *DevicesGroup) Apply(d *cgroupData) error {
 }
 
 func (s *DevicesGroup) Set(path string, cgroup *configs.Cgroup) error {
-	if system.RunningInUserNS() {
-		return nil
-	}
-
 	devices := cgroup.Resources.Devices
 	if len(devices) > 0 {
 		for _, dev := range devices {

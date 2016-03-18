@@ -5,7 +5,6 @@
 package docker
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,7 +26,6 @@ type Network struct {
 	IPAM       IPAMOptions
 	Containers map[string]Endpoint
 	Options    map[string]string
-	Internal   bool
 }
 
 // Endpoint contains network resources allocated and used for a container in a network
@@ -46,31 +44,6 @@ type Endpoint struct {
 // See https://goo.gl/6GugX3 for more details.
 func (c *Client) ListNetworks() ([]Network, error) {
 	resp, err := c.do("GET", "/networks", doOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	var networks []Network
-	if err := json.NewDecoder(resp.Body).Decode(&networks); err != nil {
-		return nil, err
-	}
-	return networks, nil
-}
-
-// NetworkFilterOpts is an aggregation of key=value that Docker
-// uses to filter networks
-type NetworkFilterOpts map[string]map[string]bool
-
-// FilteredListNetworks returns all networks with the filters applied
-//
-// See goo.gl/zd2mx4 for more details.
-func (c *Client) FilteredListNetworks(opts NetworkFilterOpts) ([]Network, error) {
-	params := bytes.NewBuffer(nil)
-	if err := json.NewEncoder(params).Encode(&opts); err != nil {
-		return nil, err
-	}
-	path := "/networks?filters=" + params.String()
-	resp, err := c.do("GET", path, doOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -187,33 +160,9 @@ func (c *Client) RemoveNetwork(id string) error {
 
 // NetworkConnectionOptions specify parameters to the ConnectNetwork and DisconnectNetwork function.
 //
-// See https://goo.gl/RV7BJU for more details.
+// See https://goo.gl/6GugX3 for more details.
 type NetworkConnectionOptions struct {
 	Container string
-
-	// EndpointConfig is only applicable to the ConnectNetwork call
-	EndpointConfig *EndpointConfig `json:"EndpointConfig,omitempty"`
-
-	// Force is only applicable to the DisconnectNetwork call
-	Force bool
-}
-
-// EndpointConfig stores network endpoint details
-//
-// See https://goo.gl/RV7BJU for more details.
-type EndpointConfig struct {
-	IPAMConfig *EndpointIPAMConfig
-	Links      []string
-	Aliases    []string
-}
-
-// EndpointIPAMCOnfig represents IPAM configurations for an
-// endpoint
-//
-// See https://goo.gl/RV7BJU for more details.
-type EndpointIPAMConfig struct {
-	IPv4Address string `json:",omitempty"`
-	IPv6Address string `json:",omitempty"`
 }
 
 // ConnectNetwork adds a container to a network or returns an error in case of failure.

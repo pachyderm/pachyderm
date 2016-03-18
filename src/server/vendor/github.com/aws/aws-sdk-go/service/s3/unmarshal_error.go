@@ -4,7 +4,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -21,7 +20,6 @@ type xmlErrorResponse struct {
 
 func unmarshalError(r *request.Request) {
 	defer r.HTTPResponse.Body.Close()
-	defer io.Copy(ioutil.Discard, r.HTTPResponse.Body)
 
 	if r.HTTPResponse.StatusCode == http.StatusMovedPermanently {
 		r.Error = awserr.NewRequestFailure(

@@ -104,9 +104,6 @@ func (l *logger) LionLogger() lion.Logger {
 }
 
 func newEntryMessage(message proto.Message) *lion.EntryMessage {
-	if message == nil {
-		return nil
-	}
 	return &lion.EntryMessage{
 		Encoding: Encoding,
 		Value:    message,

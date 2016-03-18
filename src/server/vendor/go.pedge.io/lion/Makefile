@@ -17,7 +17,7 @@ build: deps
 
 lint: testdeps
 	go get -v github.com/golang/lint/golint
-	for file in $$(find . -name '*.go' | grep -v '\.pb\.go' | grep -v 'constants.go' | grep -v 'ttypes.go' | grep -v 'testing/'); do \
+	for file in $$(find . -name '*.go' | grep -v '\.pb\.go' | grep -v 'testing/'); do \
 		golint $$file | grep -v underscore; \
 		if [ -n "$$(golint $$file | grep -v underscore)" ]; then \
 			exit 1; \
@@ -33,13 +33,8 @@ errcheck: testdeps
 
 pretest: lint vet errcheck
 
-prototest: testdeps
-	go test -v ./proto/testing
-
-thrifttest: testdeps
-	go test -v ./thrift/testing
-
-test: pretest prototest thrifttest
+test: testdeps pretest
+	go test -v ./testing
 
 clean:
 	go clean -i ./...
@@ -49,15 +44,6 @@ proto:
 	go get -v go.pedge.io/pkg/cmd/strip-package-comments
 	protoeasy --go --go-import-path go.pedge.io/lion .
 	find . -name *\.pb\*\.go | xargs strip-package-comments
-
-thrift:
-	rm -rf gen-go
-	thrift --strict --gen go thrift/thriftlion.thrift
-	mv gen-go/thriftlion/* thrift/
-	rm -rf gen-go
-	thrift --strict --gen go thrift/testing/testing.thrift
-	mv gen-go/thriftliontesting/* thrift/testing/
-	rm -rf gen-go
 
 .PHONY: \
 	all \
@@ -70,9 +56,6 @@ thrift:
 	vet \
 	errcheck \
 	pretest \
-	prototest \
-	thrifttest \
 	test \
 	clean \
-	proto \
-	thrift
+	proto

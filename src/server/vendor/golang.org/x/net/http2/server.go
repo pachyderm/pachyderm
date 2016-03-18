@@ -276,10 +276,10 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 	sc.flow.add(initialWindowSize)
 	sc.inflow.add(initialWindowSize)
 	sc.hpackEncoder = hpack.NewEncoder(&sc.headerWriteBuf)
+	sc.hpackDecoder = hpack.NewDecoder(initialHeaderTableSize, nil)
+	sc.hpackDecoder.SetMaxStringLength(sc.maxHeaderStringLen())
 
 	fr := NewFramer(sc.bw, c)
-	fr.ReadMetaHeaders = hpack.NewDecoder(initialHeaderTableSize, nil)
-	fr.MaxHeaderListSize = sc.maxHeaderListSize()
 	fr.SetMaxReadFrameSize(s.maxReadFrameSize())
 	sc.framer = fr
 
@@ -375,6 +375,7 @@ type serverConn struct {
 	bw               *bufferedWriter // writing to conn
 	handler          http.Handler
 	framer           *Framer
+	hpackDecoder     *hpack.Decoder
 	doneServing      chan struct{}         // closed when serverConn.serve ends
 	readFrameCh      chan readFrameResult  // written by serverConn.readFrames
 	wantWriteFrameCh chan frameWriteMsg    // from handlers -> serve
@@ -401,6 +402,7 @@ type serverConn struct {
 	headerTableSize       uint32
 	peerMaxHeaderListSize uint32            // zero means unknown (default)
 	canonHeader           map[string]string // http2-lower-case -> Go-Canonical-Case
+	req                   requestParam      // non-zero while reading request headers
 	writingFrame          bool              // started write goroutine but haven't heard back on wroteFrameCh
 	needsFrameFlush       bool              // last frame write wasn't a flush
 	writeSched            writeScheduler
@@ -409,11 +411,20 @@ type serverConn struct {
 	goAwayCode            ErrCode
 	shutdownTimerCh       <-chan time.Time // nil until used
 	shutdownTimer         *time.Timer      // nil until used
-	freeRequestBodyBuf    []byte           // if non-nil, a free initialWindowSize buffer for getRequestBodyBuf
 
 	// Owned by the writeFrameAsync goroutine:
 	headerWriteBuf bytes.Buffer
 	hpackEncoder   *hpack.Encoder
+}
+
+func (sc *serverConn) maxHeaderStringLen() int {
+	v := sc.maxHeaderListSize()
+	if uint32(int(v)) == v {
+		return int(v)
+	}
+	// They had a crazy big number for MaxHeaderBytes anyway,
+	// so give them unlimited header lengths:
+	return 0
 }
 
 func (sc *serverConn) maxHeaderListSize() uint32 {
@@ -426,6 +437,21 @@ func (sc *serverConn) maxHeaderListSize() uint32 {
 	const perFieldOverhead = 32 // per http2 spec
 	const typicalHeaders = 10   // conservative
 	return uint32(n + typicalHeaders*perFieldOverhead)
+}
+
+// requestParam is the state of the next request, initialized over
+// potentially several frames HEADERS + zero or more CONTINUATION
+// frames.
+type requestParam struct {
+	// stream is non-nil if we're reading (HEADER or CONTINUATION)
+	// frames for a request (but not DATA).
+	stream            *stream
+	header            http.Header
+	method, path      string
+	scheme, authority string
+	sawRegularHeader  bool  // saw a non-pseudo header already
+	invalidHeader     bool  // an invalid header was seen
+	headerListSize    int64 // actually uint32, but easier math this way
 }
 
 // stream represents a stream. This is the minimal metadata needed by
@@ -454,7 +480,6 @@ type stream struct {
 	sentReset        bool // only true once detached from streams map
 	gotReset         bool // only true once detacted from streams map
 	gotTrailerHeader bool // HEADER frame for trailers was seen
-	reqBuf           []byte
 
 	trailer    http.Header // accumulated trailers
 	reqTrailer http.Header // handler's Request.Trailer
@@ -561,6 +586,87 @@ func (sc *serverConn) condlogf(err error, format string, args ...interface{}) {
 		sc.vlogf(format, args...)
 	} else {
 		sc.logf(format, args...)
+	}
+}
+
+func (sc *serverConn) onNewHeaderField(f hpack.HeaderField) {
+	sc.serveG.check()
+	if VerboseLogs {
+		sc.vlogf("http2: server decoded %v", f)
+	}
+	switch {
+	case !validHeaderFieldValue(f.Value): // f.Name checked _after_ pseudo check, since ':' is invalid
+		sc.req.invalidHeader = true
+	case strings.HasPrefix(f.Name, ":"):
+		if sc.req.sawRegularHeader {
+			sc.logf("pseudo-header after regular header")
+			sc.req.invalidHeader = true
+			return
+		}
+		var dst *string
+		switch f.Name {
+		case ":method":
+			dst = &sc.req.method
+		case ":path":
+			dst = &sc.req.path
+		case ":scheme":
+			dst = &sc.req.scheme
+		case ":authority":
+			dst = &sc.req.authority
+		default:
+			// 8.1.2.1 Pseudo-Header Fields
+			// "Endpoints MUST treat a request or response
+			// that contains undefined or invalid
+			// pseudo-header fields as malformed (Section
+			// 8.1.2.6)."
+			sc.logf("invalid pseudo-header %q", f.Name)
+			sc.req.invalidHeader = true
+			return
+		}
+		if *dst != "" {
+			sc.logf("duplicate pseudo-header %q sent", f.Name)
+			sc.req.invalidHeader = true
+			return
+		}
+		*dst = f.Value
+	case !validHeaderFieldName(f.Name):
+		sc.req.invalidHeader = true
+	default:
+		sc.req.sawRegularHeader = true
+		sc.req.header.Add(sc.canonicalHeader(f.Name), f.Value)
+		const headerFieldOverhead = 32 // per spec
+		sc.req.headerListSize += int64(len(f.Name)) + int64(len(f.Value)) + headerFieldOverhead
+		if sc.req.headerListSize > int64(sc.maxHeaderListSize()) {
+			sc.hpackDecoder.SetEmitEnabled(false)
+		}
+	}
+}
+
+func (st *stream) onNewTrailerField(f hpack.HeaderField) {
+	sc := st.sc
+	sc.serveG.check()
+	if VerboseLogs {
+		sc.vlogf("http2: server decoded trailer %v", f)
+	}
+	switch {
+	case strings.HasPrefix(f.Name, ":"):
+		sc.req.invalidHeader = true
+		return
+	case !validHeaderFieldName(f.Name) || !validHeaderFieldValue(f.Value):
+		sc.req.invalidHeader = true
+		return
+	default:
+		key := sc.canonicalHeader(f.Name)
+		if st.trailer != nil {
+			vv := append(st.trailer[key], f.Value)
+			st.trailer[key] = vv
+
+			// arbitrary; TODO: read spec about header list size limits wrt trailers
+			const tooBig = 1000
+			if len(vv) >= tooBig {
+				sc.hpackDecoder.SetEmitEnabled(false)
+			}
+		}
 	}
 }
 
@@ -1077,8 +1183,10 @@ func (sc *serverConn) processFrame(f Frame) error {
 	switch f := f.(type) {
 	case *SettingsFrame:
 		return sc.processSettings(f)
-	case *MetaHeadersFrame:
+	case *HeadersFrame:
 		return sc.processHeaders(f)
+	case *ContinuationFrame:
+		return sc.processContinuation(f)
 	case *WindowUpdateFrame:
 		return sc.processWindowUpdate(f)
 	case *PingFrame:
@@ -1178,18 +1286,6 @@ func (sc *serverConn) closeStream(st *stream, err error) {
 	}
 	st.cw.Close() // signals Handler's CloseNotifier, unblocks writes, etc
 	sc.writeSched.forgetStream(st.id)
-	if st.reqBuf != nil {
-		// Stash this request body buffer (64k) away for reuse
-		// by a future POST/PUT/etc.
-		//
-		// TODO(bradfitz): share on the server? sync.Pool?
-		// Server requires locks and might hurt contention.
-		// sync.Pool might work, or might be worse, depending
-		// on goroutine CPU migrations. (get and put on
-		// separate CPUs).  Maybe a mix of strategies. But
-		// this is an easy win for now.
-		sc.freeRequestBodyBuf = st.reqBuf
-	}
 }
 
 func (sc *serverConn) processSettings(f *SettingsFrame) error {
@@ -1346,7 +1442,7 @@ func (st *stream) copyTrailersToHandlerRequest() {
 	}
 }
 
-func (sc *serverConn) processHeaders(f *MetaHeadersFrame) error {
+func (sc *serverConn) processHeaders(f *HeadersFrame) error {
 	sc.serveG.check()
 	id := f.Header().StreamID
 	if sc.inGoAway {
@@ -1375,11 +1471,13 @@ func (sc *serverConn) processHeaders(f *MetaHeadersFrame) error {
 	// endpoint has opened or reserved. [...]  An endpoint that
 	// receives an unexpected stream identifier MUST respond with
 	// a connection error (Section 5.4.1) of type PROTOCOL_ERROR.
-	if id <= sc.maxStreamID {
+	if id <= sc.maxStreamID || sc.req.stream != nil {
 		return ConnectionError(ErrCodeProtocol)
 	}
-	sc.maxStreamID = id
 
+	if id > sc.maxStreamID {
+		sc.maxStreamID = id
+	}
 	st = &stream{
 		sc:    sc,
 		id:    id,
@@ -1403,6 +1501,50 @@ func (sc *serverConn) processHeaders(f *MetaHeadersFrame) error {
 	if sc.curOpenStreams == 1 {
 		sc.setConnState(http.StateActive)
 	}
+	sc.req = requestParam{
+		stream: st,
+		header: make(http.Header),
+	}
+	sc.hpackDecoder.SetEmitFunc(sc.onNewHeaderField)
+	sc.hpackDecoder.SetEmitEnabled(true)
+	return sc.processHeaderBlockFragment(st, f.HeaderBlockFragment(), f.HeadersEnded())
+}
+
+func (st *stream) processTrailerHeaders(f *HeadersFrame) error {
+	sc := st.sc
+	sc.serveG.check()
+	if st.gotTrailerHeader {
+		return ConnectionError(ErrCodeProtocol)
+	}
+	st.gotTrailerHeader = true
+	if !f.StreamEnded() {
+		return StreamError{st.id, ErrCodeProtocol}
+	}
+	sc.resetPendingRequest() // we use invalidHeader from it for trailers
+	return st.processTrailerHeaderBlockFragment(f.HeaderBlockFragment(), f.HeadersEnded())
+}
+
+func (sc *serverConn) processContinuation(f *ContinuationFrame) error {
+	sc.serveG.check()
+	st := sc.streams[f.Header().StreamID]
+	if st.gotTrailerHeader {
+		return st.processTrailerHeaderBlockFragment(f.HeaderBlockFragment(), f.HeadersEnded())
+	}
+	return sc.processHeaderBlockFragment(st, f.HeaderBlockFragment(), f.HeadersEnded())
+}
+
+func (sc *serverConn) processHeaderBlockFragment(st *stream, frag []byte, end bool) error {
+	sc.serveG.check()
+	if _, err := sc.hpackDecoder.Write(frag); err != nil {
+		return ConnectionError(ErrCodeCompression)
+	}
+	if !end {
+		return nil
+	}
+	if err := sc.hpackDecoder.Close(); err != nil {
+		return ConnectionError(ErrCodeCompression)
+	}
+	defer sc.resetPendingRequest()
 	if sc.curOpenStreams > sc.advMaxStreams {
 		// "Endpoints MUST NOT exceed the limit set by their
 		// peer. An endpoint that receives a HEADERS frame
@@ -1422,7 +1564,7 @@ func (sc *serverConn) processHeaders(f *MetaHeadersFrame) error {
 		return StreamError{st.id, ErrCodeRefusedStream}
 	}
 
-	rw, req, err := sc.newWriterAndRequest(st, f)
+	rw, req, err := sc.newWriterAndRequest()
 	if err != nil {
 		return err
 	}
@@ -1434,7 +1576,7 @@ func (sc *serverConn) processHeaders(f *MetaHeadersFrame) error {
 	st.declBodyBytes = req.ContentLength
 
 	handler := sc.handler.ServeHTTP
-	if f.Truncated {
+	if !sc.hpackDecoder.EmitEnabled() {
 		// Their header list was too long. Send a 431 error.
 		handler = handleHeaderListTooLong
 	}
@@ -1443,27 +1585,27 @@ func (sc *serverConn) processHeaders(f *MetaHeadersFrame) error {
 	return nil
 }
 
-func (st *stream) processTrailerHeaders(f *MetaHeadersFrame) error {
+func (st *stream) processTrailerHeaderBlockFragment(frag []byte, end bool) error {
 	sc := st.sc
 	sc.serveG.check()
-	if st.gotTrailerHeader {
-		return ConnectionError(ErrCodeProtocol)
+	sc.hpackDecoder.SetEmitFunc(st.onNewTrailerField)
+	if _, err := sc.hpackDecoder.Write(frag); err != nil {
+		return ConnectionError(ErrCodeCompression)
 	}
-	st.gotTrailerHeader = true
-	if !f.StreamEnded() {
-		return StreamError{st.id, ErrCodeProtocol}
+	if !end {
+		return nil
 	}
 
-	if len(f.PseudoFields()) > 0 {
-		return StreamError{st.id, ErrCodeProtocol}
+	rp := &sc.req
+	if rp.invalidHeader {
+		return StreamError{rp.stream.id, ErrCodeProtocol}
 	}
-	if st.trailer != nil {
-		for _, hf := range f.RegularFields() {
-			key := sc.canonicalHeader(hf.Name)
-			st.trailer[key] = append(st.trailer[key], hf.Value)
-		}
-	}
+
+	err := sc.hpackDecoder.Close()
 	st.endStream()
+	if err != nil {
+		return ConnectionError(ErrCodeCompression)
+	}
 	return nil
 }
 
@@ -1508,21 +1650,29 @@ func adjustStreamPriority(streams map[uint32]*stream, streamID uint32, priority 
 	}
 }
 
-func (sc *serverConn) newWriterAndRequest(st *stream, f *MetaHeadersFrame) (*responseWriter, *http.Request, error) {
+// resetPendingRequest zeros out all state related to a HEADERS frame
+// and its zero or more CONTINUATION frames sent to start a new
+// request.
+func (sc *serverConn) resetPendingRequest() {
 	sc.serveG.check()
+	sc.req = requestParam{}
+}
 
-	method := f.PseudoValue("method")
-	path := f.PseudoValue("path")
-	scheme := f.PseudoValue("scheme")
-	authority := f.PseudoValue("authority")
+func (sc *serverConn) newWriterAndRequest() (*responseWriter, *http.Request, error) {
+	sc.serveG.check()
+	rp := &sc.req
 
-	isConnect := method == "CONNECT"
+	if rp.invalidHeader {
+		return nil, nil, StreamError{rp.stream.id, ErrCodeProtocol}
+	}
+
+	isConnect := rp.method == "CONNECT"
 	if isConnect {
-		if path != "" || scheme != "" || authority == "" {
-			return nil, nil, StreamError{f.StreamID, ErrCodeProtocol}
+		if rp.path != "" || rp.scheme != "" || rp.authority == "" {
+			return nil, nil, StreamError{rp.stream.id, ErrCodeProtocol}
 		}
-	} else if method == "" || path == "" ||
-		(scheme != "https" && scheme != "http") {
+	} else if rp.method == "" || rp.path == "" ||
+		(rp.scheme != "https" && rp.scheme != "http") {
 		// See 8.1.2.6 Malformed Requests and Responses:
 		//
 		// Malformed requests or responses that are detected
@@ -1533,40 +1683,35 @@ func (sc *serverConn) newWriterAndRequest(st *stream, f *MetaHeadersFrame) (*res
 		// "All HTTP/2 requests MUST include exactly one valid
 		// value for the :method, :scheme, and :path
 		// pseudo-header fields"
-		return nil, nil, StreamError{f.StreamID, ErrCodeProtocol}
+		return nil, nil, StreamError{rp.stream.id, ErrCodeProtocol}
 	}
 
-	bodyOpen := !f.StreamEnded()
-	if method == "HEAD" && bodyOpen {
+	bodyOpen := rp.stream.state == stateOpen
+	if rp.method == "HEAD" && bodyOpen {
 		// HEAD requests can't have bodies
-		return nil, nil, StreamError{f.StreamID, ErrCodeProtocol}
+		return nil, nil, StreamError{rp.stream.id, ErrCodeProtocol}
 	}
 	var tlsState *tls.ConnectionState // nil if not scheme https
 
-	if scheme == "https" {
+	if rp.scheme == "https" {
 		tlsState = sc.tlsState
 	}
-
-	header := make(http.Header)
-	for _, hf := range f.RegularFields() {
-		header.Add(sc.canonicalHeader(hf.Name), hf.Value)
-	}
-
+	authority := rp.authority
 	if authority == "" {
-		authority = header.Get("Host")
+		authority = rp.header.Get("Host")
 	}
-	needsContinue := header.Get("Expect") == "100-continue"
+	needsContinue := rp.header.Get("Expect") == "100-continue"
 	if needsContinue {
-		header.Del("Expect")
+		rp.header.Del("Expect")
 	}
 	// Merge Cookie headers into one "; "-delimited value.
-	if cookies := header["Cookie"]; len(cookies) > 1 {
-		header.Set("Cookie", strings.Join(cookies, "; "))
+	if cookies := rp.header["Cookie"]; len(cookies) > 1 {
+		rp.header.Set("Cookie", strings.Join(cookies, "; "))
 	}
 
 	// Setup Trailers
 	var trailer http.Header
-	for _, v := range header["Trailer"] {
+	for _, v := range rp.header["Trailer"] {
 		for _, key := range strings.Split(v, ",") {
 			key = http.CanonicalHeaderKey(strings.TrimSpace(key))
 			switch key {
@@ -1581,31 +1726,31 @@ func (sc *serverConn) newWriterAndRequest(st *stream, f *MetaHeadersFrame) (*res
 			}
 		}
 	}
-	delete(header, "Trailer")
+	delete(rp.header, "Trailer")
 
 	body := &requestBody{
 		conn:          sc,
-		stream:        st,
+		stream:        rp.stream,
 		needsContinue: needsContinue,
 	}
 	var url_ *url.URL
 	var requestURI string
 	if isConnect {
-		url_ = &url.URL{Host: authority}
-		requestURI = authority // mimic HTTP/1 server behavior
+		url_ = &url.URL{Host: rp.authority}
+		requestURI = rp.authority // mimic HTTP/1 server behavior
 	} else {
 		var err error
-		url_, err = url.ParseRequestURI(path)
+		url_, err = url.ParseRequestURI(rp.path)
 		if err != nil {
-			return nil, nil, StreamError{f.StreamID, ErrCodeProtocol}
+			return nil, nil, StreamError{rp.stream.id, ErrCodeProtocol}
 		}
-		requestURI = path
+		requestURI = rp.path
 	}
 	req := &http.Request{
-		Method:     method,
+		Method:     rp.method,
 		URL:        url_,
 		RemoteAddr: sc.remoteAddrStr,
-		Header:     header,
+		Header:     rp.header,
 		RequestURI: requestURI,
 		Proto:      "HTTP/2.0",
 		ProtoMajor: 2,
@@ -1616,12 +1761,11 @@ func (sc *serverConn) newWriterAndRequest(st *stream, f *MetaHeadersFrame) (*res
 		Trailer:    trailer,
 	}
 	if bodyOpen {
-		st.reqBuf = sc.getRequestBodyBuf()
 		body.pipe = &pipe{
-			b: &fixedBuffer{buf: st.reqBuf},
+			b: &fixedBuffer{buf: make([]byte, initialWindowSize)}, // TODO: garbage
 		}
 
-		if vv, ok := header["Content-Length"]; ok {
+		if vv, ok := rp.header["Content-Length"]; ok {
 			req.ContentLength, _ = strconv.ParseInt(vv[0], 10, 64)
 		} else {
 			req.ContentLength = -1
@@ -1634,21 +1778,12 @@ func (sc *serverConn) newWriterAndRequest(st *stream, f *MetaHeadersFrame) (*res
 	rws.conn = sc
 	rws.bw = bwSave
 	rws.bw.Reset(chunkWriter{rws})
-	rws.stream = st
+	rws.stream = rp.stream
 	rws.req = req
 	rws.body = body
 
 	rw := &responseWriter{rws: rws}
 	return rw, req, nil
-}
-
-func (sc *serverConn) getRequestBodyBuf() []byte {
-	sc.serveG.check()
-	if buf := sc.freeRequestBodyBuf; buf != nil {
-		sc.freeRequestBodyBuf = nil
-		return buf
-	}
-	return make([]byte, initialWindowSize)
 }
 
 // Run on its own goroutine.

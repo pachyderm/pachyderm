@@ -539,9 +539,8 @@ func (cc *Conn) Wait(ctx context.Context) (transport.ClientTransport, error) {
 			cc.mu.Unlock()
 			return nil, ErrClientConnClosing
 		case cc.state == Ready:
-			ct := cc.transport
 			cc.mu.Unlock()
-			return ct, nil
+			return cc.transport, nil
 		default:
 			ready := cc.ready
 			if ready == nil {
