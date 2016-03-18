@@ -20,12 +20,6 @@ type FsInfo struct {
 
 	// Total number of bytes available on the filesystem.
 	Capacity uint64 `json:"capacity"`
-
-	// Type of device.
-	Type string `json:"type"`
-
-	// Total number of inodes available on the filesystem.
-	Inodes uint64 `json:"inodes"`
 }
 
 type Node struct {
@@ -121,11 +115,10 @@ type NetInfo struct {
 type CloudProvider string
 
 const (
-	GCE             CloudProvider = "GCE"
-	AWS                           = "AWS"
-	Azure                         = "Azure"
-	Baremetal                     = "Baremetal"
-	UnknownProvider               = "Unknown"
+	GCE            CloudProvider = "GCE"
+	AWS                          = "AWS"
+	Baremetal                    = "Baremetal"
+	UnkownProvider               = "Unknown"
 )
 
 type InstanceType string
@@ -133,12 +126,6 @@ type InstanceType string
 const (
 	NoInstance      InstanceType = "None"
 	UnknownInstance              = "Unknown"
-)
-
-type InstanceID string
-
-const (
-	UnNamedInstance InstanceID = "None"
 )
 
 type MachineInfo struct {
@@ -178,9 +165,6 @@ type MachineInfo struct {
 
 	// Type of cloud instance (e.g. GCE standard) the machine is.
 	InstanceType InstanceType `json:"instance_type"`
-
-	// ID of cloud instance (e.g. instance-1) given to it by the cloud provider.
-	InstanceID InstanceID `json:"instance_id"`
 }
 
 type VersionInfo struct {

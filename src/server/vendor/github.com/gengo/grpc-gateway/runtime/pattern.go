@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gengo/grpc-gateway/utilities"
-	"google.golang.org/grpc/grpclog"
+	"github.com/golang/glog"
 )
 
 var (
@@ -44,13 +44,13 @@ type Pattern struct {
 // It returns an error if the given definition is invalid.
 func NewPattern(version int, ops []int, pool []string, verb string) (Pattern, error) {
 	if version != 1 {
-		grpclog.Printf("unsupported version: %d", version)
+		glog.V(2).Infof("unsupported version: %d", version)
 		return Pattern{}, ErrInvalidPattern
 	}
 
 	l := len(ops)
 	if l%2 != 0 {
-		grpclog.Printf("odd number of ops codes: %d", l)
+		glog.V(2).Infof("odd number of ops codes: %d", l)
 		return Pattern{}, ErrInvalidPattern
 	}
 
@@ -73,14 +73,14 @@ func NewPattern(version int, ops []int, pool []string, verb string) (Pattern, er
 			stack++
 		case utilities.OpPushM:
 			if pushMSeen {
-				grpclog.Printf("pushM appears twice")
+				glog.V(2).Info("pushM appears twice")
 				return Pattern{}, ErrInvalidPattern
 			}
 			pushMSeen = true
 			stack++
 		case utilities.OpLitPush:
 			if op.operand < 0 || len(pool) <= op.operand {
-				grpclog.Printf("negative literal index: %d", op.operand)
+				glog.V(2).Infof("negative literal index: %d", op.operand)
 				return Pattern{}, ErrInvalidPattern
 			}
 			if pushMSeen {
@@ -89,18 +89,18 @@ func NewPattern(version int, ops []int, pool []string, verb string) (Pattern, er
 			stack++
 		case utilities.OpConcatN:
 			if op.operand <= 0 {
-				grpclog.Printf("negative concat size: %d", op.operand)
+				glog.V(2).Infof("negative concat size: %d", op.operand)
 				return Pattern{}, ErrInvalidPattern
 			}
 			stack -= op.operand
 			if stack < 0 {
-				grpclog.Print("stack underflow")
+				glog.V(2).Info("stack underflow")
 				return Pattern{}, ErrInvalidPattern
 			}
 			stack++
 		case utilities.OpCapture:
 			if op.operand < 0 || len(pool) <= op.operand {
-				grpclog.Printf("variable name index out of bound: %d", op.operand)
+				glog.V(2).Infof("variable name index out of bound: %d", op.operand)
 				return Pattern{}, ErrInvalidPattern
 			}
 			v := pool[op.operand]
@@ -108,11 +108,11 @@ func NewPattern(version int, ops []int, pool []string, verb string) (Pattern, er
 			vars = append(vars, v)
 			stack--
 			if stack < 0 {
-				grpclog.Printf("stack underflow")
+				glog.V(2).Info("stack underflow")
 				return Pattern{}, ErrInvalidPattern
 			}
 		default:
-			grpclog.Printf("invalid opcode: %d", op.code)
+			glog.V(2).Infof("invalid opcode: %d", op.code)
 			return Pattern{}, ErrInvalidPattern
 		}
 
@@ -121,6 +121,7 @@ func NewPattern(version int, ops []int, pool []string, verb string) (Pattern, er
 		}
 		typedOps = append(typedOps, op)
 	}
+	glog.V(3).Info("pattern successfully built")
 	return Pattern{
 		ops:       typedOps,
 		pool:      pool,
@@ -134,7 +135,7 @@ func NewPattern(version int, ops []int, pool []string, verb string) (Pattern, er
 // MustPattern is a helper function which makes it easier to call NewPattern in variable initialization.
 func MustPattern(p Pattern, err error) Pattern {
 	if err != nil {
-		grpclog.Fatalf("Pattern initialization failed: %v", err)
+		glog.Fatalf("Pattern initialization failed: %v", err)
 	}
 	return p
 }
@@ -143,6 +144,8 @@ func MustPattern(p Pattern, err error) Pattern {
 // If it matches, the function returns a mapping from field paths to their captured values.
 // If otherwise, the function returns an error.
 func (p Pattern) Match(components []string, verb string) (map[string]string, error) {
+	glog.V(2).Infof("matching (%q, %q) to %v", components, verb, p)
+
 	if p.verb != verb {
 		return nil, ErrNotMatch
 	}
@@ -157,11 +160,13 @@ func (p Pattern) Match(components []string, verb string) (map[string]string, err
 			continue
 		case utilities.OpPush, utilities.OpLitPush:
 			if pos >= l {
+				glog.V(1).Infof("insufficient # of segments")
 				return nil, ErrNotMatch
 			}
 			c := components[pos]
 			if op.code == utilities.OpLitPush {
 				if lit := p.pool[op.operand]; c != lit {
+					glog.V(1).Infof("literal segment mismatch: got %q; want %q", c, lit)
 					return nil, ErrNotMatch
 				}
 			}
@@ -186,6 +191,7 @@ func (p Pattern) Match(components []string, verb string) (map[string]string, err
 		}
 	}
 	if pos < l {
+		glog.V(1).Infof("remaining segments: %q", components[pos:])
 		return nil, ErrNotMatch
 	}
 	bindings := make(map[string]string)

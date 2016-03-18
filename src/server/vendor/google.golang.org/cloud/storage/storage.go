@@ -29,7 +29,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -62,54 +61,6 @@ const (
 	// data in Google Cloud Storage.
 	ScopeReadWrite = raw.DevstorageReadWriteScope
 )
-
-// AdminClient is a client type for performing admin operations on a project's
-// buckets.
-type AdminClient struct {
-	hc        *http.Client
-	raw       *raw.Service
-	projectID string
-}
-
-// NewAdminClient creates a new AdminClient for a given project.
-func NewAdminClient(ctx context.Context, projectID string, opts ...cloud.ClientOption) (*AdminClient, error) {
-	c, err := NewClient(ctx, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return &AdminClient{
-		hc:        c.hc,
-		raw:       c.raw,
-		projectID: projectID,
-	}, nil
-}
-
-// Close closes the AdminClient.
-func (c *AdminClient) Close() error {
-	c.hc = nil
-	return nil
-}
-
-// Create creates a Bucket in the project.
-// If attrs is nil the API defaults will be used.
-func (c *AdminClient) CreateBucket(ctx context.Context, bucketName string, attrs *BucketAttrs) error {
-	var bkt *raw.Bucket
-	if attrs != nil {
-		bkt = attrs.toRawBucket()
-	} else {
-		bkt = &raw.Bucket{}
-	}
-	bkt.Name = bucketName
-	req := c.raw.Buckets.Insert(c.projectID, bkt)
-	_, err := req.Context(ctx).Do()
-	return err
-}
-
-// Delete deletes a Bucket in the project.
-func (c *AdminClient) DeleteBucket(ctx context.Context, bucketName string) error {
-	req := c.raw.Buckets.Delete(bucketName)
-	return req.Context(ctx).Do()
-}
 
 // Client is a client for interacting with Google Cloud Storage.
 type Client struct {
@@ -221,7 +172,9 @@ func (b *BucketHandle) Object(name string) *ObjectHandle {
 }
 
 // TODO(jbd): Add storage.buckets.list.
+// TODO(jbd): Add storage.buckets.insert.
 // TODO(jbd): Add storage.buckets.update.
+// TODO(jbd): Add storage.buckets.delete.
 
 // TODO(jbd): Add storage.objects.watch.
 
@@ -461,38 +414,15 @@ func (c *Client) CopyObject(ctx context.Context, srcBucket, srcName string, dest
 // object.
 // ErrObjectNotExist will be returned if the object is not found.
 func (o *ObjectHandle) NewReader(ctx context.Context) (*Reader, error) {
-	return o.NewRangeReader(ctx, 0, -1)
-}
-
-// NewRangeReader reads part of an object, reading at most length bytes
-// starting at the given offset.  If length is negative, the object is read
-// until the end.
-func (o *ObjectHandle) NewRangeReader(ctx context.Context, offset, length int64) (*Reader, error) {
 	if !utf8.ValidString(o.object) {
 		return nil, fmt.Errorf("storage: object name %q is not valid UTF-8", o.object)
-	}
-	if offset < 0 {
-		return nil, fmt.Errorf("storage: invalid offset %d < 0", offset)
 	}
 	u := &url.URL{
 		Scheme: "https",
 		Host:   "storage.googleapis.com",
 		Path:   fmt.Sprintf("/%s/%s", o.bucket, o.object),
 	}
-	verb := "GET"
-	if length == 0 {
-		verb = "HEAD"
-	}
-	req, err := http.NewRequest(verb, u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	if length < 0 {
-		req.Header.Set("Range", fmt.Sprintf("bytes=%d-", offset))
-	} else if length > 0 {
-		req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", offset, offset+length-1))
-	}
-	res, err := o.c.hc.Do(req)
+	res, err := o.c.hc.Get(u.String())
 	if err != nil {
 		return nil, err
 	}
@@ -504,44 +434,23 @@ func (o *ObjectHandle) NewRangeReader(ctx context.Context, offset, length int64)
 		res.Body.Close()
 		return nil, fmt.Errorf("storage: can't read object %v/%v, status code: %v", o.bucket, o.object, res.Status)
 	}
-	if offset > 0 && length != 0 && res.StatusCode != http.StatusPartialContent {
-		res.Body.Close()
-		return nil, errors.New("storage: partial request not satisfied")
-	}
-	clHeader := res.Header.Get("X-Goog-Stored-Content-Length")
-	cl, err := strconv.ParseInt(clHeader, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("storage: can't parse content length %q: %v", clHeader, err)
-	}
-	remain := res.ContentLength
-	if remain < 0 {
-		return nil, errors.New("storage: unknown content length")
-	}
-	if length == 0 {
-		remain = 0
-	}
 	return &Reader{
 		body:        res.Body,
-		size:        cl,
-		remain:      remain,
+		size:        res.ContentLength,
 		contentType: res.Header.Get("Content-Type"),
 	}, nil
 }
 
 // NewWriter returns a storage Writer that writes to the GCS object
 // associated with this ObjectHandle.
-//
-// A new object will be created if an object with this name already exists.
-// Otherwise any previous object with the same name will be replaced.
-// The object will not be available (and any previous object will remain)
-// until Close has been called.
-//
+// If such an object doesn't exist, it creates one.
 // Attributes can be set on the object by modifying the returned Writer's
-// ObjectAttrs field before the first call to Write. If no ContentType
-// attribute is specified, the content type will be automatically sniffed
-// using net/http.DetectContentType.
+// ObjectAttrs field before the first call to Write.
 //
 // It is the caller's responsibility to call Close when writing is done.
+//
+// The object is not available and any previous object with the same
+// name is not replaced on Cloud Storage until Close is called.
 func (o *ObjectHandle) NewWriter(ctx context.Context) *Writer {
 	return &Writer{
 		ctx:         ctx,

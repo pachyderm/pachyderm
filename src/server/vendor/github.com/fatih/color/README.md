@@ -2,10 +2,7 @@
 
 
 
-Color lets you use colorized outputs in terms of [ANSI Escape
-Codes](http://en.wikipedia.org/wiki/ANSI_escape_code#Colors) in Go (Golang). It
-has support for Windows too! The API can be used in several ways, pick one that
-suits you.
+Color lets you use colorized outputs in terms of [ANSI Escape Codes](http://en.wikipedia.org/wiki/ANSI_escape_code#Colors) in Go (Golang). It has support for Windows too! The API can be used in several ways, pick one that suits you.
 
 
 
@@ -146,7 +143,7 @@ c.Println("This prints again cyan...")
 ## Credits
 
  * [Fatih Arslan](https://github.com/fatih)
- * Windows support via @mattn: [colorable](https://github.com/mattn/go-colorable)
+ * Windows support via @shiena: [ansicolor](https://github.com/shiena/ansicolor)
 
 ## License
 

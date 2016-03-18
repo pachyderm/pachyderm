@@ -20,7 +20,6 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/net/context"
-	"google.golang.org/api/googleapi"
 )
 
 // A Writer writes a Cloud Storage object.
@@ -54,20 +53,13 @@ func (w *Writer) open() error {
 		return fmt.Errorf("storage: object name %q is not valid UTF-8", attrs.Name)
 	}
 	pr, pw := io.Pipe()
+	r := &contentTyper{pr, attrs.ContentType}
 	w.pw = pw
 	w.opened = true
 
-	var mediaOpts []googleapi.MediaOption
-	if c := attrs.ContentType; c != "" {
-		mediaOpts = append(mediaOpts, googleapi.ContentType(c))
-	}
-
 	go func() {
-		resp, err := w.client.raw.Objects.Insert(w.bucket, attrs.toRawObject(w.bucket)).
-			Media(pr, mediaOpts...).
-			Projection("full").
-			Context(w.ctx).
-			Do()
+		resp, err := w.client.raw.Objects.Insert(
+			w.bucket, attrs.toRawObject(w.bucket)).Media(r).Projection("full").Context(w.ctx).Do()
 		w.err = err
 		if err == nil {
 			w.obj = newObject(resp)

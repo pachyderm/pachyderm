@@ -7,6 +7,7 @@ package restful
 import (
 	"errors"
 	"net/http"
+	"strings"
 )
 
 // DEPRECATED, use DefaultResponseContentType(mime)
@@ -67,34 +68,38 @@ func (r *Response) SetRequestAccepts(mime string) {
 // can write according to what the request wants (Accept) and what the Route can produce or what the restful defaults say.
 // If called before WriteEntity and WriteHeader then a false return value can be used to write a 406: Not Acceptable.
 func (r *Response) EntityWriter() (EntityReaderWriter, bool) {
-	sorted := sortedMimes(r.requestAccept)
-	for _, eachAccept := range sorted {
-		for _, eachProduce := range r.routeProduces {
-			if eachProduce == eachAccept.media {
-				w, ok := entityAccessRegistry.accessorAt(eachAccept.media)
-				if ok {
-					return w, true
+	for _, qualifiedMime := range strings.Split(r.requestAccept, ",") {
+		mime := strings.Trim(strings.Split(qualifiedMime, ";")[0], " ")
+		if 0 == len(mime) || mime == "*/*" {
+			for _, each := range r.routeProduces {
+				if MIME_JSON == each {
+					return entityAccessRegistry.AccessorAt(MIME_JSON)
+				}
+				if MIME_XML == each {
+					return entityAccessRegistry.AccessorAt(MIME_XML)
 				}
 			}
-		}
-		if eachAccept.media == "*/*" {
+		} else { // mime is not blank; see if we have a match in Produces
 			for _, each := range r.routeProduces {
-				w, ok := entityAccessRegistry.accessorAt(each)
-				if ok {
-					return w, true
+				if mime == each {
+					if MIME_JSON == each {
+						return entityAccessRegistry.AccessorAt(MIME_JSON)
+					}
+					if MIME_XML == each {
+						return entityAccessRegistry.AccessorAt(MIME_XML)
+					}
 				}
 			}
 		}
 	}
-	// if requestAccept is empty
-	writer, ok := entityAccessRegistry.accessorAt(r.requestAccept)
+	writer, ok := entityAccessRegistry.AccessorAt(r.requestAccept)
 	if !ok {
 		// if not registered then fallback to the defaults (if set)
 		if DefaultResponseMimeType == MIME_JSON {
-			return entityAccessRegistry.accessorAt(MIME_JSON)
+			return entityAccessRegistry.AccessorAt(MIME_JSON)
 		}
 		if DefaultResponseMimeType == MIME_XML {
-			return entityAccessRegistry.accessorAt(MIME_XML)
+			return entityAccessRegistry.AccessorAt(MIME_XML)
 		}
 		if trace {
 			traceLogger.Printf("no registered EntityReaderWriter found for %s", r.requestAccept)

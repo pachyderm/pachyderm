@@ -80,45 +80,18 @@ func newBucket(b *raw.Bucket) *BucketAttrs {
 	return bucket
 }
 
-func toRawObjectACL(oldACL []ACLRule) []*raw.ObjectAccessControl {
+// toRawObject copies the editable attributes from o to the raw library's Object type.
+func (o ObjectAttrs) toRawObject(bucket string) *raw.Object {
 	var acl []*raw.ObjectAccessControl
-	if len(oldACL) > 0 {
-		acl = make([]*raw.ObjectAccessControl, len(oldACL))
-		for i, rule := range oldACL {
+	if len(o.ACL) > 0 {
+		acl = make([]*raw.ObjectAccessControl, len(o.ACL))
+		for i, rule := range o.ACL {
 			acl[i] = &raw.ObjectAccessControl{
 				Entity: string(rule.Entity),
 				Role:   string(rule.Role),
 			}
 		}
 	}
-	return acl
-}
-
-// toRawBucket copies the editable attribute from b to the raw library's Bucket type.
-func (b *BucketAttrs) toRawBucket() *raw.Bucket {
-	var acl []*raw.BucketAccessControl
-	if len(b.ACL) > 0 {
-		acl = make([]*raw.BucketAccessControl, len(b.ACL))
-		for i, rule := range b.ACL {
-			acl[i] = &raw.BucketAccessControl{
-				Entity: string(rule.Entity),
-				Role:   string(rule.Role),
-			}
-		}
-	}
-	dACL := toRawObjectACL(b.DefaultObjectACL)
-	return &raw.Bucket{
-		Name:             b.Name,
-		DefaultObjectAcl: dACL,
-		Location:         b.Location,
-		StorageClass:     b.StorageClass,
-		Acl:              acl,
-	}
-}
-
-// toRawObject copies the editable attributes from o to the raw library's Object type.
-func (o ObjectAttrs) toRawObject(bucket string) *raw.Object {
-	acl := toRawObjectACL(o.ACL)
 	return &raw.Object{
 		Bucket:             bucket,
 		Name:               o.Name,
@@ -202,9 +175,6 @@ type ObjectAttrs struct {
 	// It defaults to "STANDARD". This field is read-only.
 	StorageClass string
 
-	// Created is the time the object was created. This field is read-only.
-	Created time.Time
-
 	// Deleted is the time the object was deleted.
 	// If not deleted, it is the zero value. This field is read-only.
 	Deleted time.Time
@@ -263,7 +233,6 @@ func newObject(o *raw.Object) *ObjectAttrs {
 		Generation:      o.Generation,
 		MetaGeneration:  o.Metageneration,
 		StorageClass:    o.StorageClass,
-		Created:         convertTime(o.TimeCreated),
 		Deleted:         convertTime(o.TimeDeleted),
 		Updated:         convertTime(o.Updated),
 	}
