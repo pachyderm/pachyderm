@@ -96,9 +96,15 @@ clean-launch:
 
 integration-tests: 
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found pod integrationtests
-#	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -v $$(go list ./src/server/... | grep -v '/src/server/vendor/') -timeout 60s
-	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- echo $$PFSD_PORT_650_TCP_ADDR
 
+#	Actual test command we should be running
+#	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -v $$(go list ./src/server/... | grep -v '/src/server/vendor/') -timeout 60s
+
+#	Test Flag is set (its not)
+#	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- echo $$PFSD_PORT_650_TCP_ADDR
+
+#	Test command we're running on master:
+	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -v . -timeout 60s
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
