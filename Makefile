@@ -135,7 +135,7 @@ pretest:
 		done
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest docker-build clean-launch launch integration-tests
+test: pretest localtest docker-build clean-launch launch integration-tests
 
 localtest: 
 	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./... | grep -v '/vendor/')
