@@ -5,9 +5,9 @@
   "transform": {
     "cmd": [ "sh" ],
     "stdin": [
-        "grep apple  /pfs/data >/pfs/out/apple",
-        "grep banana /pfs/data >/pfs/out/banana",
-        "grep orange /pfs/data >/pfs/out/orange"
+        "grep apple  /pfs/data/sales >/pfs/out/apple",
+        "grep banana /pfs/data/sales >/pfs/out/banana",
+        "grep orange /pfs/data/sales >/pfs/out/orange"
     ]
   },
   "shards": "1",
@@ -26,9 +26,9 @@
   "transform": {
     "cmd": [ "sh" ],
     "stdin": [
-        "cut -f 2 /pfs/grep/apple | awk '{s+=$1} END {print s}' >/pfs/out/apple",
-        "cut -f 2 /pfs/grep/banana | awk '{s+=$1} END {print s}' >/pfs/out/banana",
-        "cut -f 2 /pfs/grep/orange | awk '{s+=$1} END {print s}' >/pfs/out/orange"
+        "cut -f 2 /pfs/filter/apple | awk '{s+=$1} END {print s}' >/pfs/out/apple",
+        "cut -f 2 /pfs/filter/banana | awk '{s+=$1} END {print s}' >/pfs/out/banana",
+        "cut -f 2 /pfs/filter/orange | awk '{s+=$1} END {print s}' >/pfs/out/orange"
     ]
   },
   "shards": "1",
