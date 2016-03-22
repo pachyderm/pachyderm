@@ -138,7 +138,8 @@ pretest:
 test: pretest localtest docker-build clean-launch launch integration-tests
 
 localtest: 
-	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./... | grep -v '/vendor/')
+	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./src/client/...)
+	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/')
 
 clean: clean-launch clean-launch-kube
 
