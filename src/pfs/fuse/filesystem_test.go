@@ -60,7 +60,7 @@ func TestRootReadDir(t *testing.T) {
 	const (
 		numShards = 1
 	)
-	sharder := shard.NewLocalSharder(localAddress, numShards)
+	sharder := shard.NewLocalSharder([]string{localAddress}, numShards)
 	hasher := pfs.NewHasher(numShards, 1)
 	router := shard.NewRouter(
 		sharder,
@@ -217,7 +217,7 @@ func TestRepoReadDir(t *testing.T) {
 	const (
 		numShards = 1
 	)
-	sharder := shard.NewLocalSharder(localAddress, numShards)
+	sharder := shard.NewLocalSharder([]string{localAddress}, numShards)
 	hasher := pfs.NewHasher(numShards, 1)
 	router := shard.NewRouter(
 		sharder,
@@ -390,7 +390,7 @@ func TestCommitOpenReadDir(t *testing.T) {
 	const (
 		numShards = 1
 	)
-	sharder := shard.NewLocalSharder(localAddress, numShards)
+	sharder := shard.NewLocalSharder([]string{localAddress}, numShards)
 	hasher := pfs.NewHasher(numShards, 1)
 	router := shard.NewRouter(
 		sharder,
@@ -542,7 +542,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 	const (
 		numShards = 1
 	)
-	sharder := shard.NewLocalSharder(localAddress, numShards)
+	sharder := shard.NewLocalSharder([]string{localAddress}, numShards)
 	hasher := pfs.NewHasher(numShards, 1)
 	router := shard.NewRouter(
 		sharder,
@@ -725,7 +725,7 @@ func TestWriteAndRead(t *testing.T) {
 	const (
 		numShards = 1
 	)
-	sharder := shard.NewLocalSharder(localAddress, numShards)
+	sharder := shard.NewLocalSharder([]string{localAddress}, numShards)
 	hasher := pfs.NewHasher(numShards, 1)
 	router := shard.NewRouter(
 		sharder,
