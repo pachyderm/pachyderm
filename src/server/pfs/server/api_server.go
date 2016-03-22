@@ -77,11 +77,28 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfsclient.InspectR
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
 	ctx = versionToContext(a.version, ctx)
-	clientConn, err := a.getClientConn(a.version)
+
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
-	return pfsclient.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
+
+	var repoInfos []*pfs.RepoInfo
+	for _, clientConn := range clientConns {
+		repoInfo, err := pfs.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		repoInfos = append(repoInfos, repoInfo)
+	}
+
+	for _, repoInfo := range pfs.ReduceRepoInfos(repoInfos) {
+		if repoInfo.Repo.Name == request.Repo.Name {
+			 return repoInfo, nil
+		}
+	}
+
+	return nil, fmt.Errorf("internal API servers returned the wrong repo info")
 }
 
 func (a *apiServer) ListRepo(ctx context.Context, request *pfsclient.ListRepoRequest) (response *pfsclient.RepoInfos, retErr error) {
