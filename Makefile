@@ -105,7 +105,7 @@ integration-tests:
 #	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- echo $$PFSD_PORT_650_TCP_ADDR
 
 #	Test command we're running on master:
-	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -v . -timeout 60s
+	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -v ./src/server -timeout 60s
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
