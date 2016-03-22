@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"math/rand"
 
 	"golang.org/x/net/context"
 
@@ -27,6 +28,8 @@ import (
 const (
 	shards  = 32
 	servers = 4
+
+	ALPHABET = "abcdefghijklmnopqrstuvwxyz"
 )
 
 var (
@@ -201,7 +204,74 @@ func TestDisallowReadsDuringCommit(t *testing.T) {
 	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-func getBlockClient(t *testing.T) pfsclient.BlockAPIClient {
+func TestInspectRepoSimple(t *testing.T) {
+	 t.Parallel()
+	 pfsClient, _ := getClientAndServer(t)
+
+	 repo := uniqueString("TestInspectRepoSimple")
+	 require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+
+	 commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	 require.NoError(t, err)
+
+	 file1Content := "foo\n"
+	 _, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(file1Content))
+	 require.NoError(t, err)
+
+	 file2Content := "bar\n"
+	 _, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "bar", 0, strings.NewReader(file2Content))
+	 require.NoError(t, err)
+
+	 require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit.ID))
+
+	 info, err := pfsutil.InspectRepo(pfsClient, repo)
+	 require.NoError(t, err)
+
+	 require.Equal(t, int(info.SizeBytes), len(file1Content) + len(file2Content))
+}
+
+func TestInspectRepoComplex(t *testing.T) {
+	 t.Parallel()
+	 pfsClient, _ := getClientAndServer(t)
+
+	 repo := uniqueString("TestInspectRepoComplex")
+	 require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+
+	 commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	 require.NoError(t, err)
+
+	 numFiles := 100
+	 minFileSize := 1000
+	 maxFileSize := 2000
+	 totalSize := 0
+
+	 for i := 0; i < numFiles; i++ {
+		 fileContent := generateRandomString(rand.Intn(maxFileSize-minFileSize)+minFileSize)
+		 fileContent += "\n"
+		 fileName := fmt.Sprintf("file_%d", i)
+		 totalSize += len(fileContent)
+
+		 _, err = pfsutil.PutFile(pfsClient, repo, commit.ID, fileName, 0, strings.NewReader(fileContent))
+		 require.NoError(t, err)
+	 }
+
+	 require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit.ID))
+
+	 info, err := pfsutil.InspectRepo(pfsClient, repo)
+	 require.NoError(t, err)
+
+	 require.Equal(t, int(info.SizeBytes), totalSize)
+}
+
+func generateRandomString(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = ALPHABET[rand.Intn(len(ALPHABET))]
+	}
+	return string(b)
+}
+
+func getBlockClient(t *testing.T) pfs.BlockAPIClient {
 	localPort := atomic.AddInt32(&port, 1)
 	address := fmt.Sprintf("localhost:%d", localPort)
 	root := uniqueString("/tmp/pach_test/run")
