@@ -39,7 +39,8 @@ update-test-deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/... ./.
 
 build:
-	GO15VENDOREXPERIMENT=1 go build ./src/... ./.
+	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
+	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
