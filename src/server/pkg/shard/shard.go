@@ -35,9 +35,9 @@ func NewLocalSharder(address string, numShards uint64) Sharder {
 
 type Server interface {
 	// AddShard tells the server it now has a role for a shard.
-	AddShard(shard uint64, version int64) error
+	AddShard(shard uint64) error
 	// RemoveShard tells the server it no longer has a role for a shard.
-	RemoveShard(shard uint64, version int64) error
+	DeleteShard(shard uint64) error
 }
 
 type Frontend interface {
