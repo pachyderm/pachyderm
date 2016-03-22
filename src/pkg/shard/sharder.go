@@ -35,15 +35,6 @@ func newSharder(discoveryClient discovery.Client, numShards uint64, namespace st
 	return &sharder{discoveryClient, numShards, namespace, make(map[int64]*Addresses), sync.RWMutex{}}
 }
 
-type localSharder struct {
-	address   string
-	numShards uint64
-}
-
-func newLocalSharder(address string, numShards uint64) *localSharder {
-	return &localSharder{address, numShards}
-}
-
 func (a *sharder) GetAddress(shard uint64, version int64) (result string, ok bool, retErr error) {
 	defer func() {
 		protolion.Debug(&GetAddress{shard, version, result, ok, errorToString(retErr)})
@@ -456,19 +447,25 @@ func (a *sharder) WaitForAvailability(frontendAddresses []string, serverAddresse
 	return nil
 }
 
-func (s *localSharder) GetAddress(shard uint64, version int64) (string, bool, error) {
-	if shard < s.numShards {
-		return s.address, true, nil
+type localSharder struct {
+	shardToAddress map[uint64]string
+}
+
+func newLocalSharder(addresses []string, numShards uint64) *localSharder {
+	result := &localSharder{shardToAddress: make(map[uint64]string)}
+	for i := uint64(0); i < numShards; i++ {
+		result.shardToAddress[i] = addresses[int(i)%len(addresses)]
 	}
-	return "", false, nil
+	return result
+}
+
+func (s *localSharder) GetAddress(shard uint64, version int64) (string, bool, error) {
+	address, ok := s.shardToAddress[shard]
+	return address, ok, nil
 }
 
 func (s *localSharder) GetShardToAddress(version int64) (map[uint64]string, error) {
-	result := make(map[uint64]string)
-	for i := uint64(0); i < s.numShards; i++ {
-		result[i] = s.address
-	}
-	return result, nil
+	return s.shardToAddress, nil
 }
 
 func (s *localSharder) Register(cancel chan bool, address string, servers []Server) error {

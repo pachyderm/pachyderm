@@ -29,8 +29,8 @@ func NewTestSharder(discoveryClient discovery.Client, numShards uint64, namespac
 	return newSharder(discoveryClient, numShards, namespace)
 }
 
-func NewLocalSharder(address string, numShards uint64) Sharder {
-	return newLocalSharder(address, numShards)
+func NewLocalSharder(addresses []string, numShards uint64) Sharder {
+	return newLocalSharder(addresses, numShards)
 }
 
 type Server interface {
