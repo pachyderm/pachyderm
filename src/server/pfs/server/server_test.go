@@ -3,16 +3,20 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+
+	"golang.org/x/net/context"
 
 	"go.pedge.io/proto/server"
 	"google.golang.org/grpc"
 
 	pclient "github.com/pachyderm/pachyderm/src/client"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/require"
@@ -21,13 +25,55 @@ import (
 )
 
 const (
-	port   = 30651
-	shards = 32
+	shards = 1
 )
+
+var (
+	port int32 = 30651
+)
+
+func TestBlock(t *testing.T) {
+	t.Parallel()
+	blockClient := getBlockClient(t)
+	_, err := blockClient.CreateDiff(
+		context.Background(),
+		&pfsserver.DiffInfo{
+			Diff: pfsclient.NewDiff("foo", "", 0),
+		})
+	require.NoError(t, err)
+	_, err = blockClient.CreateDiff(
+		context.Background(),
+		&pfsserver.DiffInfo{
+			Diff: pfsclient.NewDiff("foo", "c1", 0),
+		})
+	require.NoError(t, err)
+	_, err = blockClient.CreateDiff(
+		context.Background(),
+		&pfsserver.DiffInfo{
+			Diff: pfsclient.NewDiff("foo", "c2", 0),
+		})
+	require.NoError(t, err)
+	listDiffClient, err := blockClient.ListDiff(
+		context.Background(),
+		&pfsclient.ListDiffRequest{Shard: 0},
+	)
+	require.NoError(t, err)
+	var diffInfos []*pfsserver.DiffInfo
+	for {
+		diffInfo, err := listDiffClient.Recv()
+		if err == io.EOF {
+			break
+		} else {
+			require.NoError(t, err)
+		}
+		diffInfos = append(diffInfos, diffInfo)
+	}
+	require.Equal(t, 3, len(diffInfos))
+}
 
 func TestSimple(t *testing.T) {
 	t.Parallel()
-	pfsClient := getPfsClient(t)
+	pfsClient, server := getClientAndServer(t)
 	repo := uniqueString("TestSimple")
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
@@ -53,11 +99,20 @@ func TestSimple(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
+
+	// restart the server and make sure data is still there
+	restartServer(server, t)
+	buffer = bytes.Buffer{}
+	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
 func TestBranch(t *testing.T) {
 	t.Parallel()
-	pfsClient := getPfsClient(t)
+	pfsClient, server := getClientAndServer(t)
 	repo := uniqueString("TestBranch")
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "master")
@@ -88,11 +143,24 @@ func TestBranch(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, commit2, branches[0].Commit)
 	require.Equal(t, "master", branches[0].Branch)
+
+	// restart the server and make sure data is still there
+	restartServer(server, t)
+	buffer = bytes.Buffer{}
+	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.NoError(t, pfsclient.GetFile(pfsClient, repo, "master", "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\nfoo\n", buffer.String())
+	branches, err = pfsclient.ListBranch(pfsClient, repo)
+	require.NoError(t, err)
+	require.Equal(t, commit2, branches[0].Commit)
+	require.Equal(t, "master", branches[0].Branch)
 }
 
 func TestDisallowReadsDuringCommit(t *testing.T) {
 	t.Parallel()
-	pfsClient := getPfsClient(t)
+	pfsClient, server := getClientAndServer(t)
 	repo := uniqueString("TestDisallowReadsDuringCommit")
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
@@ -121,45 +189,90 @@ func TestDisallowReadsDuringCommit(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nfoo\n", buffer.String())
+
+	// restart the server and make sure data is still there
+	restartServer(server, t)
+	buffer = bytes.Buffer{}
+	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer = bytes.Buffer{}
+	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit2.ID, "foo", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\nfoo\n", buffer.String())
 }
 
-var client pfsclient.APIClient
-var clientOnce sync.Once
+func getBlockClient(t *testing.T) pfsclient.BlockAPIClient {
+	localPort := atomic.AddInt32(&port, 1)
+	address := fmt.Sprintf("localhost:%d", localPort)
+	root := uniqueString("/tmp/pach_test/run")
+	t.Logf("root %s", root)
+	blockAPIServer, err := NewLocalBlockAPIServer(root)
+	require.NoError(t, err)
+	ready := make(chan bool)
+	go func() {
+		err := protoserver.Serve(
+			func(s *grpc.Server) {
+				pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
+				close(ready)
+			},
+			protoserver.ServeOptions{Version: pclient.Version},
+			protoserver.ServeEnv{GRPCPort: uint16(localPort)},
+		)
+		require.NoError(t, err)
+	}()
+	<-ready
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	return pfsclient.NewBlockAPIClient(clientConn)
+}
 
-func getPfsClient(t *testing.T) pfsclient.APIClient {
-	clientOnce.Do(func() {
-		address := fmt.Sprintf("localhost:%d", port)
-		driver, err := drive.NewDriver(address)
+func getClientAndServer(t *testing.T) (pfsclient.APIClient, *internalAPIServer) {
+	localPort := atomic.AddInt32(&port, 1)
+	address := fmt.Sprintf("localhost:%d", localPort)
+	driver, err := drive.NewDriver(address)
+	require.NoError(t, err)
+	root := uniqueString("/tmp/pach_test/run")
+	t.Logf("root %s", root)
+	blockAPIServer, err := NewLocalBlockAPIServer(root)
+	require.NoError(t, err)
+	sharder := shard.NewLocalSharder(address, shards)
+	hasher := pfsserver.NewHasher(shards, 1)
+	dialer := grpcutil.NewDialer(grpc.WithInsecure())
+	apiServer := NewAPIServer(hasher, shard.NewRouter(sharder, dialer, address))
+	internalAPIServer := newInternalAPIServer(hasher, shard.NewRouter(sharder, dialer, address), driver)
+	ready := make(chan bool)
+	go func() {
+		err := protoserver.Serve(
+			func(s *grpc.Server) {
+				pfsclient.RegisterAPIServer(s, apiServer)
+				pfsclient.RegisterInternalAPIServer(s, internalAPIServer)
+				pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
+				close(ready)
+			},
+			protoserver.ServeOptions{Version: pclient.Version},
+			protoserver.ServeEnv{GRPCPort: uint16(localPort)},
+		)
 		require.NoError(t, err)
-		root := uniqueString("/tmp/pach_test/run")
-		t.Logf("root %s", root)
-		blockAPIServer, err := NewLocalBlockAPIServer(root)
-		require.NoError(t, err)
-		sharder := shard.NewLocalSharder(address, shards)
-		hasher := pfsserver.NewHasher(shards, 1)
-		dialer := grpcutil.NewDialer(grpc.WithInsecure())
-		apiServer := NewAPIServer(hasher, shard.NewRouter(sharder, dialer, address))
-		internalAPIServer := NewInternalAPIServer(hasher, shard.NewRouter(sharder, dialer, address), driver)
-		ready := make(chan bool)
+	}()
+	<-ready
+	for i := 0; i < shards; i++ {
+		require.NoError(t, internalAPIServer.AddShard(uint64(i)))
+	}
+	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
+	require.NoError(t, err)
+	return pfsclient.NewAPIClient(clientConn), internalAPIServer
+}
+
+func restartServer(server *internalAPIServer, t *testing.T) {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	for i := 0; i < shards; i++ {
+		i := i
+		wg.Add(1)
 		go func() {
-			err := protoserver.Serve(
-				func(s *grpc.Server) {
-					pfsclient.RegisterAPIServer(s, apiServer)
-					pfsclient.RegisterInternalAPIServer(s, internalAPIServer)
-					pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
-					close(ready)
-				},
-				protoserver.ServeOptions{Version: pclient.Version},
-				protoserver.ServeEnv{GRPCPort: port},
-			)
-			require.NoError(t, err)
+			defer wg.Done()
+			require.NoError(t, server.DeleteShard(uint64(i)))
+			require.NoError(t, server.AddShard(uint64(i)))
 		}()
-		<-ready
-		clientConn, err := grpc.Dial(address, grpc.WithInsecure())
-		require.NoError(t, err)
-		client = pfsclient.NewAPIClient(clientConn)
-	})
-	return client
+	}
 }
 
 func uniqueString(prefix string) string {

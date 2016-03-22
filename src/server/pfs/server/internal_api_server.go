@@ -16,8 +16,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
 )
@@ -326,7 +326,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfsclient.Lis
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	var fileInfos []*pfsserver.FileInfo
-	var loopErr error
+	errCh := make(chan error, 1)
 	for shard := range shards {
 		shard := shard
 		wg.Add(1)
@@ -334,8 +334,11 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfsclient.Lis
 			defer wg.Done()
 			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, request.FromCommit, shard)
 			if err != nil && err != pfsserver.ErrFileNotFound {
-				if loopErr == nil {
-					loopErr = err
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
 				}
 				return
 			}
@@ -345,8 +348,10 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfsclient.Lis
 		}()
 	}
 	wg.Wait()
-	if loopErr != nil {
-		return nil, loopErr
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
 	}
 	return &pfsserver.FileInfos{
 		FileInfo: pfsserver.ReduceFileInfos(fileInfos),
@@ -376,11 +381,11 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfsclient.D
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *internalAPIServer) AddShard(shard uint64, version int64) error {
+func (a *internalAPIServer) AddShard(shard uint64) error {
 	return a.driver.AddShard(shard)
 }
 
-func (a *internalAPIServer) RemoveShard(shard uint64, version int64) error {
+func (a *internalAPIServer) DeleteShard(shard uint64) error {
 	return a.driver.DeleteShard(shard)
 }
 

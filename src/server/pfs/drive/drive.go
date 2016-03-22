@@ -31,6 +31,7 @@ type Driver interface {
 	DeleteFile(file *pfsserver.File, shard uint64) error
 	AddShard(shard uint64) error
 	DeleteShard(shard uint64) error
+	Dump()
 }
 
 func NewDriver(blockAddress string) (Driver, error) {

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -183,15 +183,18 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfsclient.ListCommi
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	var commitInfos []*pfsserver.CommitInfo
-	var loopErr error
+	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
 			subCommitInfos, err := pfsclient.NewInternalAPIClient(clientConn).ListCommit(ctx, request)
 			if err != nil {
-				if loopErr == nil {
-					loopErr = err
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
 				}
 				return
 			}
@@ -201,8 +204,10 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfsclient.ListCommi
 		}(clientConn)
 	}
 	wg.Wait()
-	if loopErr != nil {
-		return nil, loopErr
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
 	}
 	return &pfsserver.CommitInfos{CommitInfo: pfsserver.ReduceCommitInfos(commitInfos)}, nil
 }
@@ -219,15 +224,18 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfsclient.ListBranc
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	var commitInfos []*pfsserver.CommitInfo
-	var loopErr error
+	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
 			subCommitInfos, err := pfsclient.NewInternalAPIClient(clientConn).ListBranch(ctx, request)
 			if err != nil {
-				if loopErr == nil {
-					loopErr = err
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
 				}
 				return
 			}
@@ -237,8 +245,10 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfsclient.ListBranc
 		}(clientConn)
 	}
 	wg.Wait()
-	if loopErr != nil {
-		return nil, loopErr
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
 	}
 	return &pfsserver.CommitInfos{CommitInfo: pfsserver.ReduceCommitInfos(commitInfos)}, nil
 }
@@ -377,7 +387,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfsclient.ListFileReq
 	var lock sync.Mutex
 	var fileInfos []*pfsserver.FileInfo
 	seenDirectories := make(map[string]bool)
-	var loopErr error
+	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
@@ -386,8 +396,11 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfsclient.ListFileReq
 			lock.Lock()
 			defer lock.Unlock()
 			if err != nil {
-				if loopErr == nil {
-					loopErr = err
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
 				}
 				return
 			}
@@ -403,8 +416,10 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfsclient.ListFileReq
 		}(clientConn)
 	}
 	wg.Wait()
-	if loopErr != nil {
-		return nil, loopErr
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
 	}
 	return &pfsserver.FileInfos{
 		FileInfo: fileInfos,

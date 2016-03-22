@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
@@ -172,23 +172,33 @@ func (s *localBlockAPIServer) diffDir() string {
 }
 
 func (s *localBlockAPIServer) diffPath(diff *pfsserver.Diff) string {
-	return filepath.Join(s.diffDir(), diff.Commit.Repo.Name, diff.Commit.ID, strconv.FormatUint(diff.Shard, 10))
+	commitID := diff.Commit.ID
+	if commitID == "" {
+		// each repo creates a diff per shard with an empty commit
+		// so it works as a path we make that an underscore
+		commitID = "_"
+	}
+	return filepath.Join(s.diffDir(), diff.Commit.Repo.Name, strconv.FormatUint(diff.Shard, 10), commitID)
 }
 
 // pathToDiff parses a path as a diff, it returns nil when parse fails
 func (s *localBlockAPIServer) pathToDiff(path string) *pfsserver.Diff {
-	repoCommitShard := strings.Split(strings.TrimPrefix(path, s.diffDir()), "/")
+	repoCommitShard := strings.Split(strings.TrimPrefix(path, s.diffDir()+"/"), "/")
 	if len(repoCommitShard) < 3 {
 		return nil
 	}
-	shard, err := strconv.ParseUint(repoCommitShard[2], 10, 64)
+	commitID := repoCommitShard[2]
+	if commitID == "_" {
+		commitID = ""
+	}
+	shard, err := strconv.ParseUint(repoCommitShard[1], 10, 64)
 	if err != nil {
 		return nil
 	}
 	return &pfsserver.Diff{
 		Commit: &pfsserver.Commit{
 			Repo: &pfsserver.Repo{Name: repoCommitShard[0]},
-			ID:   repoCommitShard[1],
+			ID:   commitID,
 		},
 		Shard: shard,
 	}
