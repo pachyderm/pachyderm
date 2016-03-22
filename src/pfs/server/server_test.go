@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	shards = 1
+	shards  = 32
+	servers = 4
 )
 
 var (
@@ -224,20 +225,8 @@ func getBlockClient(t *testing.T) pfs.BlockAPIClient {
 	return pfs.NewBlockAPIClient(clientConn)
 }
 
-func getClientAndServer(t *testing.T) (pfs.APIClient, *internalAPIServer) {
-	localPort := atomic.AddInt32(&port, 1)
-	address := fmt.Sprintf("localhost:%d", localPort)
-	driver, err := drive.NewDriver(address)
-	require.NoError(t, err)
-	root := uniqueString("/tmp/pach_test/run")
-	t.Logf("root %s", root)
-	blockAPIServer, err := NewLocalBlockAPIServer(root)
-	require.NoError(t, err)
-	sharder := shard.NewLocalSharder(address, shards)
-	hasher := pfs.NewHasher(shards, 1)
-	dialer := grpcutil.NewDialer(grpc.WithInsecure())
-	apiServer := NewAPIServer(hasher, shard.NewRouter(sharder, dialer, address))
-	internalAPIServer := newInternalAPIServer(hasher, shard.NewRouter(sharder, dialer, address), driver)
+func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
+	internalAPIServer pfs.InternalAPIServer, blockAPIServer pfs.BlockAPIServer) {
 	ready := make(chan bool)
 	go func() {
 		err := protoserver.Serve(
@@ -248,30 +237,61 @@ func getClientAndServer(t *testing.T) (pfs.APIClient, *internalAPIServer) {
 				close(ready)
 			},
 			protoserver.ServeOptions{Version: pachyderm.Version},
-			protoserver.ServeEnv{GRPCPort: uint16(localPort)},
+			protoserver.ServeEnv{GRPCPort: uint16(port)},
 		)
 		require.NoError(t, err)
 	}()
 	<-ready
-	for i := 0; i < shards; i++ {
-		require.NoError(t, internalAPIServer.AddShard(uint64(i)))
-	}
-	clientConn, err := grpc.Dial(address, grpc.WithInsecure())
-	require.NoError(t, err)
-	return pfs.NewAPIClient(clientConn), internalAPIServer
 }
 
-func restartServer(server *internalAPIServer, t *testing.T) {
+func getClientAndServer(t *testing.T) (pfs.APIClient, []*internalAPIServer) {
+	root := uniqueString("/tmp/pach_test/run")
+	t.Logf("root %s", root)
+	var ports []int32
+	for i := 0; i < servers; i++ {
+		ports = append(ports, atomic.AddInt32(&port, 1))
+	}
+	var addresses []string
+	for _, port := range ports {
+		addresses = append(addresses, fmt.Sprintf("localhost:%d", port))
+	}
+	sharder := shard.NewLocalSharder(addresses, shards)
+	var internalAPIServers []*internalAPIServer
+	for i, port := range ports {
+		address := addresses[i]
+		driver, err := drive.NewDriver(address)
+		require.NoError(t, err)
+		blockAPIServer, err := NewLocalBlockAPIServer(root)
+		require.NoError(t, err)
+		hasher := pfs.NewHasher(shards, 1)
+		dialer := grpcutil.NewDialer(grpc.WithInsecure())
+		apiServer := NewAPIServer(hasher, shard.NewRouter(sharder, dialer, address))
+		internalAPIServer := newInternalAPIServer(hasher, shard.NewRouter(sharder, dialer, address), driver)
+		internalAPIServers = append(internalAPIServers, internalAPIServer)
+		runServers(t, port, apiServer, internalAPIServer, blockAPIServer)
+		for i := 0; i < shards; i++ {
+			require.NoError(t, internalAPIServer.AddShard(uint64(i)))
+		}
+	}
+	clientConn, err := grpc.Dial(addresses[0], grpc.WithInsecure())
+	require.NoError(t, err)
+	return pfs.NewAPIClient(clientConn), internalAPIServers
+}
+
+func restartServer(servers []*internalAPIServer, t *testing.T) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	for i := 0; i < shards; i++ {
-		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			require.NoError(t, server.DeleteShard(uint64(i)))
-			require.NoError(t, server.AddShard(uint64(i)))
-		}()
+	for _, server := range servers {
+		server := server
+		for i := 0; i < shards; i++ {
+			i := i
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				require.NoError(t, server.DeleteShard(uint64(i)))
+				require.NoError(t, server.AddShard(uint64(i)))
+			}()
+		}
 	}
 }
 
