@@ -25,7 +25,7 @@ func PachctlCmd(address string) (*cobra.Command, error) {
 		Long: `Access the Pachyderm API.
 
 Envronment variables:
-  ADDRESS=0.0.0.0:650, the server to connect to.
+  ADDRESS=0.0.0.0:30650, the server to connect to.
 `,
 	}
 	pfsCmds := pfscmds.Cmds(address)
