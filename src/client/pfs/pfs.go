@@ -123,15 +123,28 @@ func InspectCommit(apiClient APIClient, repoName string, commitID string) (*Comm
 	return commitInfo, nil
 }
 
-func ListCommit(apiClient APIClient, repoNames []string) ([]*CommitInfo, error) {
-	var repos []*Repo
+func ListCommit(apiClient pfs.APIClient, repoNames []string) ([]*pfs.CommitInfo, error) {
+	return ListCommitComplex(apiClient, repoNames, nil, false)
+}
+
+func ListCommitComplex(apiClient pfs.APIClient, repoNames []string, fromCommitIDs []string, block bool) ([]*pfs.CommitInfo, error) {
+	var repos []*pfs.Repo
 	for _, repoName := range repoNames {
 		repos = append(repos, &Repo{Name: repoName})
+	}
+	var fromCommits []*pfs.Commit
+	for i, fromCommitID := range fromCommitIDs {
+		fromCommits = append(fromCommits, &pfs.Commit{
+			Repo: repos[i],
+			ID: fromCommitID,
+		})
 	}
 	commitInfos, err := apiClient.ListCommit(
 		context.Background(),
 		&ListCommitRequest{
 			Repo: repos,
+			FromCommit: fromCommits,
+			Block: block,
 		},
 	)
 	if err != nil {

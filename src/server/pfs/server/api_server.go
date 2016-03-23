@@ -181,11 +181,28 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfsclient.Inspec
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
 	ctx = versionToContext(a.version, ctx)
-	clientConn, err := a.getClientConn(a.version)
+
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
-	return pfsclient.NewInternalAPIClient(clientConn).InspectCommit(ctx, request)
+
+	var commitInfos []*pfs.CommitInfo
+	for _, clientConn := range clientConns {
+		commitInfo, err := pfs.NewInternalAPIClient(clientConn).InspectCommit(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		commitInfos = append(commitInfos, commitInfo)
+	}
+
+	for _, commitInfo := range pfs.ReduceCommitInfos(commitInfos) {
+		if commitInfo.Commit.ID == request.Commit.ID {
+			 return commitInfo, nil
+		}
+	}
+
+	return nil, fmt.Errorf("internal API servers returned the wrong commit info")
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfsclient.ListCommitRequest) (response *pfsclient.CommitInfos, retErr error) {
