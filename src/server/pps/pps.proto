@@ -1,8 +1,13 @@
-package pps
+syntax = "proto3";
 
 import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
 import "server/pfs/fuse/fuse.proto";
+import "client/pfs/pfs.proto";
+import "client/pps/pps.proto";
+
+package pachyderm.pps;
+
+option go_package = "pps";
 
 message StartJobRequest {
   Job job = 1;
