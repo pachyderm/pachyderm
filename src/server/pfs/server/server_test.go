@@ -78,9 +78,9 @@ func TestBlock(t *testing.T) {
 func TestSimple(t *testing.T) {
 	t.Parallel()
 	pfsClient, server := getClientAndServer(t)
-	repo := uniqueString("TestSimple")
-	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
-	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
+	repo := "TestSimple"
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	commit1, err := pfsutil.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
 	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -117,9 +117,9 @@ func TestSimple(t *testing.T) {
 func TestBranch(t *testing.T) {
 	t.Parallel()
 	pfsClient, server := getClientAndServer(t)
-	repo := uniqueString("TestBranch")
-	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
-	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "master")
+	repo := "TestBranch"
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	commit1, err := pfsutil.StartCommit(pfsClient, repo, "", "master")
 	require.NoError(t, err)
 	_, err = pfsclient.PutFile(pfsClient, repo, "master", "foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -165,9 +165,9 @@ func TestBranch(t *testing.T) {
 func TestDisallowReadsDuringCommit(t *testing.T) {
 	t.Parallel()
 	pfsClient, server := getClientAndServer(t)
-	repo := uniqueString("TestDisallowReadsDuringCommit")
-	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
-	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
+	repo := "TestDisallowReadsDuringCommit"
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	commit1, err := pfsutil.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
 	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -208,7 +208,7 @@ func TestInspectRepoSimple(t *testing.T) {
 	 t.Parallel()
 	 pfsClient, _ := getClientAndServer(t)
 
-	 repo := uniqueString("TestInspectRepoSimple")
+	 repo := "TestInspectRepoSimple"
 	 require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
 
 	 commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
@@ -234,7 +234,7 @@ func TestInspectRepoComplex(t *testing.T) {
 	 t.Parallel()
 	 pfsClient, _ := getClientAndServer(t)
 
-	 repo := uniqueString("TestInspectRepoComplex")
+	 repo := "TestInspectRepoComplex"
 	 require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
 
 	 commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
@@ -261,6 +261,68 @@ func TestInspectRepoComplex(t *testing.T) {
 	 require.NoError(t, err)
 
 	 require.Equal(t, int(info.SizeBytes), totalSize)
+}
+
+func TestListRepo(t *testing.T) {
+	t.Parallel()
+	pfsClient, server := getClientAndServer(t)
+
+	numRepos := 10
+	repoNames := make(map[string]bool)
+	for i := 0; i < numRepos; i++ {
+		repo := fmt.Sprintf("repo%d", i)
+		require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+		repoNames[repo] = true
+	}
+
+	test := func() {
+		repoInfos, err := pfsutil.ListRepo(pfsClient)
+		require.NoError(t, err)
+
+		for _, repoInfo := range repoInfos {
+			require.True(t, repoNames[repoInfo.Repo.Name])
+		}
+
+		require.Equal(t, len(repoInfos), numRepos)
+	}
+
+	test()
+
+	restartServer(server, t)
+
+	test()
+}
+
+func TestDeleteRepo(t *testing.T) {
+	t.Parallel()
+	pfsClient, _ := getClientAndServer(t)
+
+	numRepos := 10
+	repoNames := make(map[string]bool)
+	for i := 0; i < numRepos; i++ {
+		repo := fmt.Sprintf("repo%d", i)
+		require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+		repoNames[repo] = true
+	}
+
+	reposToRemove := 5
+	for i := 0; i < reposToRemove; i++ {
+		// Pick one random element from repoNames
+		for repoName := range repoNames {
+			require.NoError(t, pfsutil.DeleteRepo(pfsClient, repoName))
+			delete(repoNames, repoName)
+			break
+		}
+	}
+
+	repoInfos, err := pfsutil.ListRepo(pfsClient)
+	require.NoError(t, err)
+
+	for _, repoInfo := range repoInfos {
+		require.True(t, repoNames[repoInfo.Repo.Name])
+	}
+
+	require.Equal(t, len(repoInfos), numRepos-reposToRemove)
 }
 
 func generateRandomString(n int) string {
