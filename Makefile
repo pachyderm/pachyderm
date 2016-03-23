@@ -111,7 +111,8 @@ integration-tests:
 	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -v ./src/server -timeout 60s
 
 proto:
-	go get -v go.pedge.io/protoeasy/cmd/protoeasy
+	#go get -v go.pedge.io/protoeasy/cmd/protoeasy
+	GO15VENDOREXPERIMENT=1 go install github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/protoeasy/cmd/protoeasy
 	rm -rf src/server/vendor
 	protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src
 	git checkout src/server/vendor
