@@ -43,7 +43,9 @@ update-test-deps:
 
 build:
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
+	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
+	git checkout src/server/vendor
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
