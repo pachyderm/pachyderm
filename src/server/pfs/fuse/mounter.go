@@ -7,7 +7,6 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 )
 
 const (
@@ -29,7 +28,7 @@ func newMounter(address string, apiClient pfsclient.APIClient) Mounter {
 
 func (m *mounter) Mount(
 	mountPoint string,
-	shard *pfsserver.Shard,
+	shard *pfsclient.Shard,
 	commitMounts []*CommitMount,
 	ready chan bool,
 ) (retErr error) {

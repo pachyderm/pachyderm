@@ -89,7 +89,7 @@ func (*Transform) ProtoMessage()               {}
 func (*Transform) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
 type Job struct {
-	Id string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
+	ID string `protobuf:"bytes,1,opt,name=id" json:"id,omitempty"`
 }
 
 func (m *Job) Reset()                    { *m = Job{} }

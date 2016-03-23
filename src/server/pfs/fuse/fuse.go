@@ -2,7 +2,6 @@ package fuse
 
 import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 )
 
 type Mounter interface {
@@ -10,7 +9,7 @@ type Mounter interface {
 	// Mount blocks and will return once the volume is unmounted.
 	Mount(
 		mountPoint string,
-		shard *pfsserver.Shard,
+		shard *pfsclient.Shard,
 		commitMounts []*CommitMount, // nil means mount all commits
 		ready chan bool,
 	) error

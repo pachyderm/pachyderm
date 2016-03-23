@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"go.pedge.io/proto/time"
+	. "github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
 func ReduceRepoInfos(repoInfos []*RepoInfo) []*RepoInfo {
