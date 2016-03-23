@@ -32,7 +32,7 @@ docker run \
     -d \
     --net=host \
     --privileged=true \
-    gcr.io/google_containers/hyperkube:v1.1.7 \
+    gcr.io/google_containers/hyperkube:v1.2.0 \
     /hyperkube \
     proxy \
     --master=http://127.0.0.1:8080 \
