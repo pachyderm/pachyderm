@@ -29,6 +29,9 @@ version:
 deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v ./src/... ./.
 
+deps-client: 
+	GO15VENDOREXPERIMENT=0 go get -d -v ./src/client/...
+
 update-deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v -u -f ./src/... ./.
 
@@ -137,8 +140,8 @@ pretest:
 
 test: pretest localtest docker-build clean-launch launch integration-tests
 
-localtest: 
-	GO15VENDOREXPERIMENT=0 go test -v -short $$(go list ./src/client/...)
+localtest: deps-client
+	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./src/client/...)
 	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/')
 
 clean: clean-launch clean-launch-kube
