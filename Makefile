@@ -41,9 +41,14 @@ test-deps:
 update-test-deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/... ./.
 
-build:
-	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
+build-clean-vendored-client:
+	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
+
+build: 
+#	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
+#	cd src/server && make vendor-client
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
+#	git checkout src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
@@ -113,10 +118,11 @@ integration-tests:
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
 	rm -rf src/server/vendor
-	protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src
-	git checkout src/server/vendor
+	sudo -E protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src
 	go install github.com/pachyderm/pachyderm/src/server/cmd/protofix
 	protofix fix src
+	git checkout src/server/vendor
+	sudo chown -R `whoami` src/
 
 pretest:
 	go get -v github.com/kisielk/errcheck

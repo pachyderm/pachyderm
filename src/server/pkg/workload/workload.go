@@ -7,8 +7,8 @@ import (
 
 	"golang.org/x/net/context"
 
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
 
@@ -43,10 +43,10 @@ func RunWorkload(
 }
 
 type worker struct {
-	repos       []*pfsserver.Repo
-	finished    []*pfsserver.Commit
-	started     []*pfsserver.Commit
-	files       []*pfsserver.File
+	repos       []*pfs.Repo
+	finished    []*pfs.Commit
+	started     []*pfs.Commit
+	files       []*pfs.File
 	startedJobs []*ppsclient.Job
 	jobs        []*ppsclient.Job
 	pipelines   []*ppsclient.Pipeline
@@ -78,7 +78,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 		if err := pfsclient.CreateRepo(pfsClient, repoName); err != nil {
 			return err
 		}
-		w.repos = append(w.repos, &pfsserver.Repo{Name: repoName})
+		w.repos = append(w.repos, &pfs.Repo{Name: repoName})
 		commit, err := pfsclient.StartCommit(pfsClient, repoName, "", "")
 		if err != nil {
 			return err

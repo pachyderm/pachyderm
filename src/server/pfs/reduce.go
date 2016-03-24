@@ -3,11 +3,12 @@ package pfs
 import (
 	"sort"
 
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"go.pedge.io/proto/time"
 )
 
-func ReduceRepoInfos(repoInfos []*RepoInfo) []*RepoInfo {
-	reducedRepoInfos := make(map[string]*RepoInfo)
+func ReduceRepoInfos(repoInfos []*pfs.RepoInfo) []*pfs.RepoInfo {
+	reducedRepoInfos := make(map[string]*pfs.RepoInfo)
 	for _, repoInfo := range repoInfos {
 		reducedRepoInfo, ok := reducedRepoInfos[repoInfo.Repo.Name]
 		if !ok {
@@ -16,7 +17,7 @@ func ReduceRepoInfos(repoInfos []*RepoInfo) []*RepoInfo {
 		}
 		reducedRepoInfo.SizeBytes += repoInfo.SizeBytes
 	}
-	var result []*RepoInfo
+	var result []*pfs.RepoInfo
 	for _, repoInfo := range reducedRepoInfos {
 		result = append(result, repoInfo)
 	}
@@ -24,20 +25,20 @@ func ReduceRepoInfos(repoInfos []*RepoInfo) []*RepoInfo {
 	return result
 }
 
-func ReduceCommitInfos(commitInfos []*CommitInfo) []*CommitInfo {
-	reducedCommitInfos := make(map[string]*CommitInfo)
+func ReduceCommitInfos(commitInfos []*pfs.CommitInfo) []*pfs.CommitInfo {
+	reducedCommitInfos := make(map[string]*pfs.CommitInfo)
 	for _, commitInfo := range commitInfos {
 		reducedCommitInfo, ok := reducedCommitInfos[commitInfo.Commit.ID]
 		if !ok {
 			reducedCommitInfos[commitInfo.Commit.ID] = commitInfo
 			continue
 		}
-		if commitInfo.CommitType == CommitType_COMMIT_TYPE_WRITE {
-			reducedCommitInfo.CommitType = CommitType_COMMIT_TYPE_WRITE
+		if commitInfo.CommitType == pfs.CommitType_COMMIT_TYPE_WRITE {
+			reducedCommitInfo.CommitType = pfs.CommitType_COMMIT_TYPE_WRITE
 		}
 		reducedCommitInfo.SizeBytes += commitInfo.SizeBytes
 	}
-	var result []*CommitInfo
+	var result []*pfs.CommitInfo
 	for _, commitInfo := range reducedCommitInfos {
 		result = append(result, commitInfo)
 	}
@@ -45,8 +46,8 @@ func ReduceCommitInfos(commitInfos []*CommitInfo) []*CommitInfo {
 	return result
 }
 
-func ReduceFileInfos(fileInfos []*FileInfo) []*FileInfo {
-	reducedFileInfos := make(map[string]*FileInfo)
+func ReduceFileInfos(fileInfos []*pfs.FileInfo) []*pfs.FileInfo {
+	reducedFileInfos := make(map[string]*pfs.FileInfo)
 	for _, fileInfo := range fileInfos {
 		reducedFileInfo, ok := reducedFileInfos[fileInfo.File.Path]
 		if !ok {
@@ -60,14 +61,14 @@ func ReduceFileInfos(fileInfos []*FileInfo) []*FileInfo {
 		}
 		reducedFileInfo.Children = append(reducedFileInfo.Children, fileInfo.Children...)
 	}
-	var result []*FileInfo
+	var result []*pfs.FileInfo
 	for _, reducedFileInfo := range reducedFileInfos {
 		result = append(result, reducedFileInfo)
 	}
 	return result
 }
 
-type sortRepoInfos []*RepoInfo
+type sortRepoInfos []*pfs.RepoInfo
 
 func (a sortRepoInfos) Len() int {
 	return len(a)
@@ -82,7 +83,7 @@ func (a sortRepoInfos) Swap(i, j int) {
 	a[j] = tmp
 }
 
-type sortCommitInfos []*CommitInfo
+type sortCommitInfos []*pfs.CommitInfo
 
 func (a sortCommitInfos) Len() int {
 	return len(a)

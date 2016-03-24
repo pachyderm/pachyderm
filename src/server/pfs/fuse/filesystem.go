@@ -13,7 +13,6 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
@@ -31,7 +30,7 @@ type filesystem struct {
 
 func newFilesystem(
 	apiClient pfsclient.APIClient,
-	shard *pfsserver.Shard,
+	shard *pfsclient.Shard,
 	commitMounts []*CommitMount,
 ) *filesystem {
 	return &filesystem{
@@ -52,9 +51,9 @@ func (f *filesystem) Root() (result fs.Node, retErr error) {
 	return &directory{
 		f,
 		Node{
-			File: &pfsserver.File{
-				Commit: &pfsserver.Commit{
-					Repo: &pfsserver.Repo{},
+			File: &pfsclient.File{
+				Commit: &pfsclient.Commit{
+					Repo: &pfsclient.Repo{},
 				},
 			},
 		},
@@ -240,7 +239,7 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 	return nil
 }
 
-func (f *filesystem) inode(file *pfsserver.File) uint64 {
+func (f *filesystem) inode(file *pfsclient.File) uint64 {
 	f.lock.RLock()
 	inode, ok := f.inodes[key(file)]
 	f.lock.RUnlock()
@@ -261,9 +260,9 @@ func (d *directory) copy() *directory {
 	return &directory{
 		fs: d.fs,
 		Node: Node{
-			File: &pfsserver.File{
-				Commit: &pfsserver.Commit{
-					Repo: &pfsserver.Repo{
+			File: &pfsclient.File{
+				Commit: &pfsclient.Commit{
+					Repo: &pfsclient.Repo{
 						Name: d.File.Commit.Repo.Name,
 					},
 					ID: d.File.Commit.ID,
@@ -333,7 +332,7 @@ func (d *directory) lookUpCommit(ctx context.Context, name string) (fs.Node, err
 	}
 	result := d.copy()
 	result.File.Commit.ID = name
-	if commitInfo.CommitType == pfsserver.CommitType_COMMIT_TYPE_READ {
+	if commitInfo.CommitType == pfsclient.CommitType_COMMIT_TYPE_READ {
 		result.Write = false
 	} else {
 		result.Write = true
@@ -357,7 +356,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 	directory := d.copy()
 	directory.File.Path = fileInfo.File.Path
 	switch fileInfo.FileType {
-	case pfsserver.FileType_FILE_TYPE_REGULAR:
+	case pfsclient.FileType_FILE_TYPE_REGULAR:
 		directory.File.Path = fileInfo.File.Path
 		return &file{
 			directory: *directory,
@@ -365,7 +364,7 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 			size:      int64(fileInfo.SizeBytes),
 			local:     false,
 		}, nil
-	case pfsserver.FileType_FILE_TYPE_DIR:
+	case pfsclient.FileType_FILE_TYPE_DIR:
 		return directory, nil
 	default:
 		return nil, fmt.Errorf("Unrecognized FileType.")
@@ -419,9 +418,9 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 	for _, fileInfo := range fileInfos {
 		shortPath := strings.TrimPrefix(fileInfo.File.Path, d.File.Path)
 		switch fileInfo.FileType {
-		case pfsserver.FileType_FILE_TYPE_REGULAR:
+		case pfsclient.FileType_FILE_TYPE_REGULAR:
 			result = append(result, fuse.Dirent{Name: shortPath, Type: fuse.DT_File})
-		case pfsserver.FileType_FILE_TYPE_DIR:
+		case pfsclient.FileType_FILE_TYPE_DIR:
 			result = append(result, fuse.Dirent{Name: shortPath, Type: fuse.DT_Dir})
 		default:
 			continue
@@ -449,6 +448,6 @@ func getNode(node fs.Node) *Node {
 	}
 }
 
-func key(file *pfsserver.File) string {
+func key(file *pfsclient.File) string {
 	return fmt.Sprintf("%s/%s/%s", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 }

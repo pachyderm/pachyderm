@@ -3,11 +3,10 @@ package testing
 import (
 	"testing"
 
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"golang.org/x/net/context"
 )
@@ -76,7 +75,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	jobInfos, err = apiServer.ListJobInfos(
 		context.Background(),
 		&ppsclient.ListJobRequest{
-			InputCommit: []*pfsserver.Commit{input.Commit},
+			InputCommit: []*pfsclient.Commit{input.Commit},
 		},
 	)
 	require.NoError(t, err)
@@ -86,7 +85,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 		context.Background(),
 		&ppsclient.ListJobRequest{
 			Pipeline:    &ppsclient.Pipeline{Name: "foo"},
-			InputCommit: []*pfsserver.Commit{input.Commit},
+			InputCommit: []*pfsclient.Commit{input.Commit},
 		},
 	)
 	require.NoError(t, err)
