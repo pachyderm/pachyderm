@@ -6,7 +6,6 @@ import (
 	"time"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
@@ -32,7 +31,7 @@ var (
 type jobState struct {
 	start        uint64      // the number of shards started
 	finish       uint64      // the number of shards finished
-	outputCommit *pfsserver.Commit // the output commit
+	outputCommit *pfsclient.Commit // the output commit
 	commitReady  chan bool   // closed when outCommit has been started (and is non nil)
 	finished     chan bool   // closed when the job has been finished, the jobState will be deleted afterward
 	success      bool
@@ -149,7 +148,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 	}, nil
 }
 
-func (a *apiServer) StartJob(ctx context.Context, request *ppsclient.StartJobRequest) (response *ppsclient.StartJobResponse, retErr error) {
+func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobRequest) (response *ppsserver.StartJobResponse, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	inspectJobRequest := &ppsclient.InspectJobRequest{Job: request.Job}
 	jobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
@@ -185,7 +184,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsclient.StartJobReq
 			return nil, err
 		}
 	}
-	repoToFromCommit := make(map[string]*pfsserver.Commit)
+	repoToFromCommit := make(map[string]*pfsclient.Commit)
 	reduce := false
 	if parentJobInfo != nil {
 		for _, jobInput := range parentJobInfo.Inputs {
@@ -236,7 +235,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsclient.StartJobReq
 		commitMount := &fuse.CommitMount{
 			Commit:     jobInput.Commit,
 			FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
-			Shard: &pfsserver.Shard{
+			Shard: &pfsclient.Shard{
 				FileModulus:  1,
 				BlockModulus: 1,
 			},
@@ -255,7 +254,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsclient.StartJobReq
 		Alias:  "out",
 	}
 	commitMounts = append(commitMounts, outputCommitMount)
-	return &ppsclient.StartJobResponse{
+	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
 		OutputCommit: jobState.outputCommit,
@@ -263,7 +262,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsclient.StartJobReq
 	}, nil
 }
 
-func (a *apiServer) FinishJob(ctx context.Context, request *ppsclient.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
+func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	inspectJobRequest := &ppsclient.InspectJobRequest{Job: request.Job}
 	jobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
@@ -448,31 +447,31 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	a.cancelFuncsLock.Unlock()
 	repoToLeaves := make(map[string]map[string]bool)
 	repoToInput := make(map[string]*ppsclient.PipelineInput)
-	var inputRepos []*pfsserver.Repo
+	var inputRepos []*pfsclient.Repo
 	for _, input := range pipelineInfo.Inputs {
 		repoToLeaves[input.Repo.Name] = make(map[string]bool)
 		repoToInput[input.Repo.Name] = input
-		inputRepos = append(inputRepos, &pfsserver.Repo{Name: input.Repo.Name})
+		inputRepos = append(inputRepos, &pfsclient.Repo{Name: input.Repo.Name})
 	}
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
 		return err
 	}
 	for {
-		var fromCommits []*pfsserver.Commit
+		var fromCommits []*pfsclient.Commit
 		for repo, leaves := range repoToLeaves {
 			for leaf := range leaves {
 				fromCommits = append(
 					fromCommits,
-					&pfsserver.Commit{
-						Repo: &pfsserver.Repo{Name: repo},
+					&pfsclient.Commit{
+						Repo: &pfsclient.Repo{Name: repo},
 						ID:   leaf,
 					})
 			}
 		}
 		listCommitRequest := &pfsclient.ListCommitRequest{
 			Repo:       inputRepos,
-			CommitType: pfsserver.CommitType_COMMIT_TYPE_READ,
+			CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 			FromCommit: fromCommits,
 			Block:      true,
 		}
@@ -486,18 +485,18 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 				delete(repoToLeaves[commitInfo.ParentCommit.Repo.Name], commitInfo.ParentCommit.ID)
 			}
 			// generate all the permutations of leaves we could use this commit with
-			commitSets := [][]*pfsserver.Commit{[]*pfsserver.Commit{}}
+			commitSets := [][]*pfsclient.Commit{[]*pfsclient.Commit{}}
 			for repoName, leaves := range repoToLeaves {
 				if repoName == commitInfo.Commit.Repo.Name {
 					continue
 				}
-				var newCommitSets [][]*pfsserver.Commit
+				var newCommitSets [][]*pfsclient.Commit
 				for _, commitSet := range commitSets {
 					for leaf := range leaves {
-						newCommitSet := make([]*pfsserver.Commit, len(commitSet)+1)
+						newCommitSet := make([]*pfsclient.Commit, len(commitSet)+1)
 						copy(newCommitSet, commitSet)
-						newCommitSet[len(commitSet)] = &pfsserver.Commit{
-							Repo: &pfsserver.Repo{Name: repoName},
+						newCommitSet[len(commitSet)] = &pfsclient.Commit{
+							Repo: &pfsclient.Repo{Name: repoName},
 							ID:   leaf,
 						}
 						newCommitSets = append(newCommitSets, newCommitSet)
@@ -544,8 +543,8 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 func (a *apiServer) parentJob(
 	ctx context.Context,
 	pipelineInfo *ppsclient.PipelineInfo,
-	commitSet []*pfsserver.Commit,
-	newCommit *pfsserver.CommitInfo,
+	commitSet []*pfsclient.Commit,
+	newCommit *pfsclient.CommitInfo,
 ) (*ppsclient.Job, error) {
 	jobInfo, err := a.ListJob(
 		ctx,

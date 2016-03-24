@@ -8,7 +8,6 @@ import (
 	"text/tabwriter"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/spf13/cobra"
@@ -22,8 +21,8 @@ func Cmds(address string) []*cobra.Command {
 	var fileModulus int
 	var blockNumber int
 	var blockModulus int
-	shard := func() *pfsserver.Shard {
-		return &pfsserver.Shard{
+	shard := func() *pfsclient.Shard {
+		return &pfsclient.Shard{
 			FileNumber:   uint64(fileNumber),
 			FileModulus:  uint64(fileModulus),
 			BlockNumber:  uint64(blockNumber),
