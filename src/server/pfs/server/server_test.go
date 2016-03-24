@@ -38,19 +38,19 @@ func TestBlock(t *testing.T) {
 	blockClient := getBlockClient(t)
 	_, err := blockClient.CreateDiff(
 		context.Background(),
-		&pfsserver.DiffInfo{
+		&pfsclient.DiffInfo{
 			Diff: pfsclient.NewDiff("foo", "", 0),
 		})
 	require.NoError(t, err)
 	_, err = blockClient.CreateDiff(
 		context.Background(),
-		&pfsserver.DiffInfo{
+		&pfsclient.DiffInfo{
 			Diff: pfsclient.NewDiff("foo", "c1", 0),
 		})
 	require.NoError(t, err)
 	_, err = blockClient.CreateDiff(
 		context.Background(),
-		&pfsserver.DiffInfo{
+		&pfsclient.DiffInfo{
 			Diff: pfsclient.NewDiff("foo", "c2", 0),
 		})
 	require.NoError(t, err)
@@ -59,7 +59,7 @@ func TestBlock(t *testing.T) {
 		&pfsclient.ListDiffRequest{Shard: 0},
 	)
 	require.NoError(t, err)
-	var diffInfos []*pfsserver.DiffInfo
+	var diffInfos []*pfsclient.DiffInfo
 	for {
 		diffInfo, err := listDiffClient.Recv()
 		if err == io.EOF {

@@ -22,6 +22,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
 )
 
+var (
+	grpcErrorf = grpc.Errorf // needed to get passed govet
+)
+
 type internalAPIServer struct {
 	protorpclog.Logger
 	hasher            *pfsserver.Hasher
@@ -288,7 +292,7 @@ func (a *internalAPIServer) GetFile(request *pfsclient.GetFileRequest, apiGetFil
 	if err != nil {
 		// TODO this should be done more consistently throughout
 		if err == pfsserver.ErrFileNotFound {
-			return grpc.Errorf(codes.NotFound, "%v", err)
+			return grpcErrorf(codes.NotFound, "%v", err)
 		}
 		return err
 	}

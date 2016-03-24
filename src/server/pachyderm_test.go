@@ -14,11 +14,10 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
@@ -62,7 +61,7 @@ func TestJob(t *testing.T) {
 	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
 	commitInfo, err := pfsclient.InspectCommit(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 	require.NoError(t, err)
-	require.Equal(t, pfsserver.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
 	var buffer bytes.Buffer
 	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
@@ -143,7 +142,7 @@ func TestPipeline(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
 		1,
-		[]*ppsclient.PipelineInput{{Repo: &pfsserver.Repo{Name: dataRepo}}},
+		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
 	))
 	// Do first commit to repo
 	commit1, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
@@ -152,8 +151,8 @@ func TestPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit1.ID))
 	listCommitRequest := &pfsclient.ListCommitRequest{
-		Repo:       []*pfsserver.Repo{outRepo},
-		CommitType: pfsserver.CommitType_COMMIT_TYPE_READ,
+		Repo:       []*pfsclient.Repo{outRepo},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
 	}
 	listCommitResponse, err := pachClient.ListCommit(
@@ -173,9 +172,9 @@ func TestPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit2.ID))
 	listCommitRequest = &pfsclient.ListCommitRequest{
-		Repo:       []*pfsserver.Repo{outRepo},
-		FromCommit: []*pfsserver.Commit{outCommits[0].Commit},
-		CommitType: pfsserver.CommitType_COMMIT_TYPE_READ,
+		Repo:       []*pfsclient.Repo{outRepo},
+		FromCommit: []*pfsclient.Commit{outCommits[0].Commit},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
 		Block:      true,
 	}
 	listCommitResponse, err = pachClient.ListCommit(
@@ -239,7 +238,7 @@ func TestSharding(t *testing.T) {
 			defer wg.Done()
 			var buffer1Shard bytes.Buffer
 			var buffer4Shard bytes.Buffer
-			shard := &pfsserver.Shard{FileModulus: 1, BlockModulus: 1}
+			shard := &pfsclient.Shard{FileModulus: 1, BlockModulus: 1}
 			err := pfsclient.GetFile(pachClient, repo, commit.ID,
 				fmt.Sprintf("file%d", i), 0, 0, "", shard, &buffer1Shard)
 			require.NoError(t, err)

@@ -8,14 +8,14 @@ import (
 	"go.pedge.io/proto/time"
 
 	"github.com/docker/go-units"
-	. "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
 func PrintRepoHeader(w io.Writer) {
 	fmt.Fprint(w, "NAME\tCREATED\tSIZE\t\n")
 }
 
-func PrintRepoInfo(w io.Writer, repoInfo *RepoInfo) {
+func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 	fmt.Fprintf(w, "%s\t", repoInfo.Repo.Name)
 	fmt.Fprintf(
 		w,
@@ -34,7 +34,7 @@ func PrintCommitInfoHeader(w io.Writer) {
 	fmt.Fprint(w, "BRANCH\tID\tPARENT\tSTARTED\tFINISHED\tSIZE\t\n")
 }
 
-func PrintCommitInfo(w io.Writer, commitInfo *CommitInfo) {
+func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	fmt.Fprintf(w, "%s\t", commitInfo.Branch)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.ParentCommit != nil {
@@ -70,9 +70,9 @@ func PrintFileInfoHeader(w io.Writer) {
 	fmt.Fprint(w, "NAME\tTYPE\tMODIFIED\tLAST_COMMIT_MODIFIED\tSIZE\tPERMISSIONS\t\n")
 }
 
-func PrintFileInfo(w io.Writer, fileInfo *FileInfo) {
+func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
-	if fileInfo.FileType == FileType_FILE_TYPE_REGULAR {
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 		fmt.Fprint(w, "file\t")
 	} else {
 		fmt.Fprint(w, "dir\t")
@@ -96,7 +96,7 @@ func PrintBlockInfoHeader(w io.Writer) {
 	fmt.Fprintf(w, "HASH\tCREATED\tSIZE\t\n")
 }
 
-func PrintBlockInfo(w io.Writer, blockInfo *BlockInfo) {
+func PrintBlockInfo(w io.Writer, blockInfo *pfs.BlockInfo) {
 	fmt.Fprintf(w, "%s\t", blockInfo.Block.Hash)
 	fmt.Fprintf(
 		w,

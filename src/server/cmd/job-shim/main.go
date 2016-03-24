@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/spf13/cobra"
 	"go.pedge.io/env"
@@ -33,11 +33,11 @@ func do(appEnvObj interface{}) error {
 		Short: `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Long:  `Pachyderm job-shim, coordinates with ppsd to create an output commit and run user work.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			pps_client, err := ppsserver.NewInternalJobAPIClientFromAddress(fmt.Sprintf("%v:650",appEnv.PachydermAddress))
+			ppsClient, err := ppsserver.NewInternalJobAPIClientFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
 				errorAndExit(err.Error())
 			}
-			response, err := pps_client.StartJob(
+			response, err := ppsClient.StartJob(
 				context.Background(),
 				&ppsserver.StartJobRequest{
 					Job: &ppsclient.Job{
@@ -48,12 +48,12 @@ func do(appEnvObj interface{}) error {
 				os.Exit(0)
 			}
 
-			pfs_client, err := client.NewFromAddress(fmt.Sprintf("%v:650",appEnv.PachydermAddress))
+			pfsClient, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
 				errorAndExit(err.Error())
 			}
 
-			mounter := fuse.NewMounter(appEnv.PachydermAddress, pfs_client)
+			mounter := fuse.NewMounter(appEnv.PachydermAddress, pfsClient)
 			ready := make(chan bool)
 			go func() {
 				if err := mounter.Mount(
@@ -85,7 +85,7 @@ func do(appEnvObj interface{}) error {
 				fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 				success = false
 			}
-			if _, err := pps_client.FinishJob(
+			if _, err := ppsClient.FinishJob(
 				context.Background(),
 				&ppsserver.FinishJobRequest{
 					Job: &ppsclient.Job{

@@ -1,7 +1,7 @@
 package example
 
 import (
-	. "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
 
@@ -13,8 +13,8 @@ func CreateJobRequest() *ppsclient.CreateJobRequest {
 		Shards: 1,
 		Inputs: []*ppsclient.JobInput{
 			{
-				Commit: &Commit{
-					Repo: &Repo{Name: "in_repo"},
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{Name: "in_repo"},
 					ID:   "10cf676b626044f9a405235bf7660959",
 				},
 			},
@@ -36,7 +36,7 @@ func CreatePipelineRequest() *ppsclient.CreatePipelineRequest {
 		Shards: 1,
 		Inputs: []*ppsclient.PipelineInput{
 			{
-				Repo: &Repo{Name: "in_repo"},
+				Repo: &pfs.Repo{Name: "in_repo"},
 			},
 		},
 	}
