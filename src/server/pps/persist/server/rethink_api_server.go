@@ -7,7 +7,7 @@ import (
 
 	"github.com/dancannon/gorethink"
 	"github.com/golang/protobuf/proto"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
+	. "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
@@ -134,7 +134,7 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	}
 	request.JobID = uuid.NewWithoutDashes()
 	request.CreatedAt = prototime.TimeToTimestamp(time.Now())
-	var commits []*pfsserver.Commit
+	var commits []*Commit
 	for _, input := range request.Inputs {
 		commits = append(commits, input.Commit)
 	}
@@ -365,7 +365,7 @@ func (a *rethinkAPIServer) now() *google_protobuf.Timestamp {
 	return prototime.TimeToTimestamp(a.timer.Now())
 }
 
-func genCommitIndex(commits []*pfsserver.Commit) (string, error) {
+func genCommitIndex(commits []*Commit) (string, error) {
 	var commitIDs []string
 	for _, commit := range commits {
 		if len(commit.ID) == 0 {
