@@ -3,8 +3,8 @@ package server
 import (
 	"sync"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"go.pedge.io/proto/rpclog"
@@ -13,6 +13,7 @@ import (
 
 type APIServer interface {
 	ppsclient.APIServer
+	ppsserver.InternalJobAPIServer
 	shard.Frontend
 }
 

@@ -2,8 +2,7 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "server/pfs/pfs.proto";
-import "server/pfs/fuse/fuse.proto";
+import "client/pfs/pfs.proto";
 
 package pachyderm.pps;
 
@@ -109,12 +108,12 @@ service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
+
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
   rpc ListPipeline(ListPipelineRequest) returns (PipelineInfos) {}
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
-  rpc StartJob(StartJobRequest) returns (StartJobResponse) {}
-  rpc FinishJob(FinishJobRequest) returns (google.protobuf.Empty) {}
+
 }
 
 service JobAPI {
@@ -128,28 +127,5 @@ service PipelineAPI {
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
   rpc ListPipeline(ListPipelineRequest) returns (PipelineInfos) {}
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
-}
-
-message StartJobRequest {
-  Job job = 1;
-}
-
-message StartJobResponse {
-    Transform transform = 1;
-	repeated fuse.CommitMount commit_mounts = 2;
-	// TODO this could just be another commit mount
-    pfs.Commit output_commit = 3;
-	uint64 index = 4;
-}
-
-message FinishJobRequest {
-    Job job = 1;
-	uint64 index = 2;
-    bool success = 3;
-}
-
-service InternalJobAPI {
-    rpc StartJob(StartJobRequest) returns (StartJobResponse) {}
-    rpc FinishJob(FinishJobRequest) returns (google.protobuf.Empty) {}
 }
 
