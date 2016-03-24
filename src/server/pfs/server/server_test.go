@@ -90,7 +90,7 @@ func TestSimple(t *testing.T) {
 	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
-	commitInfos, err := pfsclient.ListCommit(pfsClient, []string{repo})
+	commitInfos, err := pfsclient.ListCommit(pfsClient, []string{repo}, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
@@ -367,6 +367,37 @@ func TestInspectCommit(t *testing.T) {
 	require.True(t, finished.After(commitInfo.Finished.GoTime()))
 }
 
+func TestDeleteCommitFuture(t *testing.T) {
+	// For when DeleteCommit gets implemented
+	t.Skip()
+
+	t.Parallel()
+	pfsClient, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+
+	commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, err)
+
+	fileContent := "foo\n"
+	_, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(fileContent))
+	require.NoError(t, err)
+
+	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit.ID))
+
+	commitInfo, err := pfsutil.InspectCommit(pfsClient, repo, commit.ID)
+	require.NotNil(t, commitInfo)
+
+	require.NoError(t, pfsutil.DeleteCommit(pfsClient, repo, commit.ID))
+
+	commitInfo, err = pfsutil.InspectCommit(pfsClient, repo, commit.ID)
+	require.Nil(t, commitInfo)
+
+	repoInfo, err := pfsutil.InspectRepo(pfsClient, repo)
+	require.Equal(t, 0, repoInfo.SizeBytes)
+}
+
 func TestDeleteCommit(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
@@ -385,33 +416,6 @@ func TestDeleteCommit(t *testing.T) {
 
 	// Because DeleteCommit is not supported
 	require.YesError(t, pfsutil.DeleteCommit(pfsClient, repo, commit.ID))
-
-	// The following code is for when DeleteCommit gets implemented
-	//t.Parallel()
-	//pfsClient, _ := getClientAndServer(t)
-
-	//repo := "test"
-	//require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
-
-	//commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
-	//require.NoError(t, err)
-
-	//fileContent := "foo\n"
-	//_, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(fileContent))
-    //require.NoError(t, err)
-
-	//require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit.ID))
-
-	//commitInfo, err := pfsutil.InspectCommit(pfsClient, repo, commit.ID)
-	//require.NotNil(t, commitInfo)
-
-	//require.NoError(t, pfsutil.DeleteCommit(pfsClient, repo, commit.ID))
-
-	//commitInfo, err = pfsutil.InspectCommit(pfsClient, repo, commit.ID)
-	//require.Nil(t, commitInfo)
-
-	//repoInfo, err := pfsutil.InspectRepo(pfsClient, repo)
-	//require.Equal(t, 0, repoInfo.SizeBytes)
 }
 
 func TestPutFile(t *testing.T) {
@@ -565,27 +569,35 @@ func TestListCommit(t *testing.T) {
 
 	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit.ID))
 
-	commitInfos, err := pfsutil.ListCommit(pfsClient, []string{repo})
+	commitInfos, err := pfsutil.ListCommit(pfsClient, []string{repo}, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
 	// test the block behaviour
-	ch := make(chan interface{})
+	ch := make(chan bool)
 	go func() {
-		_, err = pfsutil.ListCommitComplex(pfsClient, []string{repo}, []string{commit.ID}, true)
-		ch <- struct{}{}
+		_, err = pfsutil.ListCommit(pfsClient, []string{repo}, []string{commit.ID}, true)
+		close(ch)
 	}()
 
 	time.Sleep(time.Second)
-	require.ChannelNotReady(t, ch)
-
+	select {
+	case <-ch:
+		t.Fatal("ListCommit should not have returned")
+	default:
+	}
 
 	commit2, err := pfsutil.StartCommit(pfsClient, repo, commit.ID, "")
 	require.NoError(t, err)
 
 	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit2.ID))
 
-	require.ChannelReady(t, ch)
+	time.Sleep(time.Second)
+	select {
+	case <-ch:
+	default:
+		t.Fatal("ListCommit should have returned")
+	}
 }
 
 func generateRandomString(n int) string {
