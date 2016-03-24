@@ -83,22 +83,43 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfsclient.InspectR
 		return nil, err
 	}
 
+	var lock sync.Mutex
+	var wg sync.WaitGroup
 	var repoInfos []*pfs.RepoInfo
+	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		repoInfo, err := pfs.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
-		if err != nil {
-			return nil, err
-		}
-		repoInfos = append(repoInfos, repoInfo)
+		wg.Add(1)
+		go func(clientConn *grpc.ClientConn) {
+			defer wg.Done()
+			repoInfo, err := pfs.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
+			if err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
+				return
+			}
+			lock.Lock()
+			defer lock.Unlock()
+			repoInfos = append(repoInfos, repoInfo)
+		}(clientConn)
+	}
+	wg.Wait()
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
 	}
 
-	for _, repoInfo := range pfs.ReduceRepoInfos(repoInfos) {
-		if repoInfo.Repo.Name == request.Repo.Name {
-			 return repoInfo, nil
-		}
+	repoInfos = pfs.ReduceRepoInfos(repoInfos)
+
+	if len(repoInfos) != 1 || repoInfos[0].Repo.Name != request.Repo.Name {
+		return nil, fmt.Errorf("incorrect repo returned (this is likely a bug)")
 	}
 
-	return nil, fmt.Errorf("internal API servers returned the wrong repo info")
+	return repoInfos[0], nil
 }
 
 func (a *apiServer) ListRepo(ctx context.Context, request *pfsclient.ListRepoRequest) (response *pfsclient.RepoInfos, retErr error) {
@@ -187,22 +208,43 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfsclient.Inspec
 		return nil, err
 	}
 
+	var lock sync.Mutex
+	var wg sync.WaitGroup
 	var commitInfos []*pfs.CommitInfo
+	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
-		commitInfo, err := pfs.NewInternalAPIClient(clientConn).InspectCommit(ctx, request)
-		if err != nil {
-			return nil, err
-		}
-		commitInfos = append(commitInfos, commitInfo)
+		wg.Add(1)
+		go func(clientConn *grpc.ClientConn) {
+			defer wg.Done()
+			commitInfo, err := pfs.NewInternalAPIClient(clientConn).InspectCommit(ctx, request)
+			if err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
+				return
+			}
+			lock.Lock()
+			defer lock.Unlock()
+			commitInfos = append(commitInfos, commitInfo)
+		}(clientConn)
+	}
+	wg.Wait()
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
 	}
 
-	for _, commitInfo := range pfs.ReduceCommitInfos(commitInfos) {
-		if commitInfo.Commit.ID == request.Commit.ID {
-			 return commitInfo, nil
-		}
+	commitInfos = pfs.ReduceCommitInfos(commitInfos)
+
+	if len(commitInfos) != 1 || commitInfos[0].Commit.ID != request.Commit.ID {
+		return nil, fmt.Errorf("incorrect commit returned (this is likely a bug)")
 	}
 
-	return nil, fmt.Errorf("internal API servers returned the wrong commit info")
+	return commitInfos[0], nil
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfsclient.ListCommitRequest) (response *pfsclient.CommitInfos, retErr error) {

@@ -88,22 +88,6 @@ func False(tb testing.TB, value bool, msgAndArgs ...interface{}) {
 	}
 }
 
-func ChannelNotReady(tb testing.TB, ch chan interface{}, msgAndArgs ...interface{}) {
-	select {
-	case <-ch:
-		fatal(tb, msgAndArgs, "Channel should not be ready")
-	default:
-	}
-}
-
-func ChannelReady(tb testing.TB, ch chan interface{}, msgAndArgs ...interface{}) {
-	select {
-	case <-ch:
-	default:
-		fatal(tb, msgAndArgs, "Channel should be ready")
-	}
-}
-
 func logMessage(tb testing.TB, msgAndArgs []interface{}) {
 	if len(msgAndArgs) == 1 {
 		tb.Logf(msgAndArgs[0].(string))

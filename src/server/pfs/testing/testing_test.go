@@ -43,7 +43,7 @@ func TestSimple(t *testing.T) {
 	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_WRITE, newCommitInfo.CommitType)
 	require.Nil(t, newCommitInfo.ParentCommit)
 
-	commitInfos, err := pfsclient.ListCommit(apiClient, []string{repoName})
+	commitInfos, err := pfsclient.ListCommit(apiClient, []string{repoName}, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	require.Equal(t, newCommitInfo.Commit, commitInfos[0].Commit)
