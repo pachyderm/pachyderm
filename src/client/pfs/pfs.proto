@@ -101,6 +101,7 @@ message Append {
   repeated BlockRef block_refs = 1;
   map<string, bool> children = 2;
   Commit last_ref = 3;
+  bool delete = 4;
 }
 
 message BlockInfo {

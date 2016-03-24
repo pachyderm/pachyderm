@@ -440,7 +440,58 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 }
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
-	return fmt.Errorf("DeleteFile is not implemented")
+	fileInfo, err := d.InspectFile(file, nil, nil, shard)
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
+		return d.deleteFile(file, shard)
+	} else if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+		fileInfos, err := d.ListFile(file, nil, nil, shard)
+		for _, info := range fileInfos {
+			if err := d.DeleteFile(info.File, shard); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
+	blockClient, err := d.getBlockClient()
+	if err != nil {
+		return err
+	}
+
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	canonicalCommit, err := d.canonicalCommit(file.Commit)
+	if err != nil {
+		return err
+	}
+	diffInfo, ok := d.diffs.get(pfsclient.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.ID, shard))
+	if !ok {
+		// This is a weird case since the commit existed above, it means someone
+		// deleted the commit while the above code was running
+		return fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
+	}
+	if diffInfo.Finished != nil {
+		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
+	}
+
+	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
+
+	if ok {
+		for _, blockRef := range _append.BlockRefs {
+			diffInfo.SizeBytes -= blockRef.Range.Upper - blockRef.Range.Lower
+			if err := pfsclient.DeleteBlock(blockClient, blockRef.Block); err != nil {
+				return err
+			}
+		}
+	}
+
+	diffInfo.Appends[path.Clean(file.Path)] = &pfs.Append{
+		Delete: true,
+	}
+
+	return nil
 }
 
 func (d *driver) AddShard(shard uint64) error {
@@ -610,7 +661,9 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 			continue
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
-			if len(_append.BlockRefs) > 0 {
+			if _append.Delete {
+				break
+			} else if len(_append.BlockRefs) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
