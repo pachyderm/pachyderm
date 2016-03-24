@@ -85,7 +85,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfsclient.InspectR
 
 	var lock sync.Mutex
 	var wg sync.WaitGroup
-	var repoInfos []*pfsserver.RepoInfo
+	var repoInfos []*pfsclient.RepoInfo
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		wg.Add(1)
@@ -210,7 +210,7 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfsclient.Inspec
 
 	var lock sync.Mutex
 	var wg sync.WaitGroup
-	var commitInfos []*pfsserver.CommitInfo
+	var commitInfos []*pfsclient.CommitInfo
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		wg.Add(1)

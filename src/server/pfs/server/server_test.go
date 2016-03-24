@@ -349,7 +349,7 @@ func TestInspectCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, commit, commitInfo.Commit)
-	require.Equal(t, pfsserver.CommitType_COMMIT_TYPE_WRITE, commitInfo.CommitType)
+	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_WRITE, commitInfo.CommitType)
 	require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
 	require.True(t, started.Before(commitInfo.Started.GoTime()))
 	require.Nil(t, commitInfo.Finished)
@@ -361,7 +361,7 @@ func TestInspectCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, commit, commitInfo.Commit)
-	require.Equal(t, pfsserver.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
 	require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
 	require.True(t, started.Before(commitInfo.Started.GoTime()))
 	require.True(t, finished.After(commitInfo.Finished.GoTime()))
@@ -476,7 +476,7 @@ func TestInspectFile(t *testing.T) {
 	fileInfo, err := pfsclient.InspectFile(pfsClient, repo, commit1.ID, "foo", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, commit1, fileInfo.CommitModified)
-	require.Equal(t, pfsserver.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+	require.Equal(t, pfsclient.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
 	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
 
 	fileContent2 := "barbar\n"
@@ -489,13 +489,13 @@ func TestInspectFile(t *testing.T) {
 	fileInfo, err = pfsclient.InspectFile(pfsClient, repo, commit2.ID, "foo", commit1.ID, nil)
 	require.NoError(t, err)
 	require.Equal(t, commit2, fileInfo.CommitModified)
-	require.Equal(t, pfsserver.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+	require.Equal(t, pfsclient.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
 	require.Equal(t, len(fileContent2), int(fileInfo.SizeBytes))
 
 	fileInfo, err = pfsclient.InspectFile(pfsClient, repo, commit2.ID, "foo", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, commit2, fileInfo.CommitModified)
-	require.Equal(t, pfsserver.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+	require.Equal(t, pfsclient.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
 	require.Equal(t, len(fileContent1) + len(fileContent2), int(fileInfo.SizeBytes))
 }
 
