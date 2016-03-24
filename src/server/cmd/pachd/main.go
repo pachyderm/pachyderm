@@ -7,7 +7,8 @@ import (
 	"github.com/gengo/grpc-gateway/runtime"
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs" // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps" //SJ: bad name conflict w below
+	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs"  // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/discovery"
@@ -16,8 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps" //SJ: bad name conflict w below
-	ppsmodel "github.com/pachyderm/pachyderm/src/server/pps" //SJ: cant name this server per the refactor convention because of the import below
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps" //SJ: cant name this server per the refactor convention because of the import below
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	persist_server "github.com/pachyderm/pachyderm/src/server/pps/persist/server"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
@@ -118,7 +118,7 @@ func do(appEnvObj interface{}) error {
 		}
 	}()
 	ppsAPIServer := pps_server.NewAPIServer(
-		ppsmodel.NewHasher(appEnv.NumShards, appEnv.NumShards),
+		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
 		shard.NewRouter(
 			sharder,
 			grpcutil.NewDialer(
@@ -174,6 +174,7 @@ func do(appEnvObj interface{}) error {
 			pfsclient.RegisterInternalAPIServer(s, internalAPIServer)
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
+			ppsserver.RegisterInternalJobAPIServer(s, ppsAPIServer)
 		},
 		func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
 			return pfsclient.RegisterAPIHandler(ctx, mux, clientConn)
