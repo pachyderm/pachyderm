@@ -85,13 +85,13 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfsclient.InspectR
 
 	var lock sync.Mutex
 	var wg sync.WaitGroup
-	var repoInfos []*pfs.RepoInfo
+	var repoInfos []*pfsserver.RepoInfo
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
-			repoInfo, err := pfs.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
+			repoInfo, err := pfsclient.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
 			if err != nil {
 				select {
 				case errCh <- err:
@@ -113,7 +113,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfsclient.InspectR
 	default:
 	}
 
-	repoInfos = pfs.ReduceRepoInfos(repoInfos)
+	repoInfos = pfsserver.ReduceRepoInfos(repoInfos)
 
 	if len(repoInfos) != 1 || repoInfos[0].Repo.Name != request.Repo.Name {
 		return nil, fmt.Errorf("incorrect repo returned (this is likely a bug)")
@@ -210,13 +210,13 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfsclient.Inspec
 
 	var lock sync.Mutex
 	var wg sync.WaitGroup
-	var commitInfos []*pfs.CommitInfo
+	var commitInfos []*pfsserver.CommitInfo
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		wg.Add(1)
 		go func(clientConn *grpc.ClientConn) {
 			defer wg.Done()
-			commitInfo, err := pfs.NewInternalAPIClient(clientConn).InspectCommit(ctx, request)
+			commitInfo, err := pfsclient.NewInternalAPIClient(clientConn).InspectCommit(ctx, request)
 			if err != nil {
 				select {
 				case errCh <- err:
@@ -238,7 +238,7 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfsclient.Inspec
 	default:
 	}
 
-	commitInfos = pfs.ReduceCommitInfos(commitInfos)
+	commitInfos = pfsserver.ReduceCommitInfos(commitInfos)
 
 	if len(commitInfos) != 1 || commitInfos[0].Commit.ID != request.Commit.ID {
 		return nil, fmt.Errorf("incorrect commit returned (this is likely a bug)")

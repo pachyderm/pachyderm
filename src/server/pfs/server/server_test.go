@@ -81,11 +81,11 @@ func TestSimple(t *testing.T) {
 	pfsClient, server := getClientAndServer(t)
 
 	invalidRepo := "/repo"
-	require.YesError(t, pfsutil.CreateRepo(pfsClient, invalidRepo))
+	require.YesError(t, pfsclient.CreateRepo(pfsClient, invalidRepo))
 
 	repo := "test"
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
-	commit1, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
+	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
 	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -123,8 +123,8 @@ func TestBranch(t *testing.T) {
 	t.Parallel()
 	pfsClient, server := getClientAndServer(t)
 	repo := "test"
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
-	commit1, err := pfsutil.StartCommit(pfsClient, repo, "", "master")
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
+	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "master")
 	require.NoError(t, err)
 	_, err = pfsclient.PutFile(pfsClient, repo, "master", "foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -171,8 +171,8 @@ func TestDisallowReadsDuringCommit(t *testing.T) {
 	t.Parallel()
 	pfsClient, server := getClientAndServer(t)
 	repo := "test"
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
-	commit1, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
+	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
 	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
@@ -214,22 +214,22 @@ func TestInspectRepoSimple(t *testing.T) {
 	 pfsClient, _ := getClientAndServer(t)
 
 	 repo := "test"
-	 require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	 require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 
-	 commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	 commit, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	 require.NoError(t, err)
 
 	 file1Content := "foo\n"
-	 _, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(file1Content))
+	 _, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(file1Content))
 	 require.NoError(t, err)
 
 	 file2Content := "bar\n"
-	 _, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "bar", 0, strings.NewReader(file2Content))
+	 _, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "bar", 0, strings.NewReader(file2Content))
 	 require.NoError(t, err)
 
-	 require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit.ID))
+	 require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
 
-	 info, err := pfsutil.InspectRepo(pfsClient, repo)
+	 info, err := pfsclient.InspectRepo(pfsClient, repo)
 	 require.NoError(t, err)
 
 	 require.Equal(t, int(info.SizeBytes), len(file1Content) + len(file2Content))
@@ -240,9 +240,9 @@ func TestInspectRepoComplex(t *testing.T) {
 	 pfsClient, _ := getClientAndServer(t)
 
 	 repo := "test"
-	 require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	 require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 
-	 commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	 commit, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	 require.NoError(t, err)
 
 	 numFiles := 100
@@ -256,13 +256,13 @@ func TestInspectRepoComplex(t *testing.T) {
 		 fileName := fmt.Sprintf("file_%d", i)
 		 totalSize += len(fileContent)
 
-		 _, err = pfsutil.PutFile(pfsClient, repo, commit.ID, fileName, 0, strings.NewReader(fileContent))
+		 _, err = pfsclient.PutFile(pfsClient, repo, commit.ID, fileName, 0, strings.NewReader(fileContent))
 		 require.NoError(t, err)
 	 }
 
-	 require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit.ID))
+	 require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
 
-	 info, err := pfsutil.InspectRepo(pfsClient, repo)
+	 info, err := pfsclient.InspectRepo(pfsClient, repo)
 	 require.NoError(t, err)
 
 	 require.Equal(t, int(info.SizeBytes), totalSize)
@@ -276,12 +276,12 @@ func TestListRepo(t *testing.T) {
 	repoNames := make(map[string]bool)
 	for i := 0; i < numRepos; i++ {
 		repo := fmt.Sprintf("repo%d", i)
-		require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+		require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 		repoNames[repo] = true
 	}
 
 	test := func() {
-		repoInfos, err := pfsutil.ListRepo(pfsClient)
+		repoInfos, err := pfsclient.ListRepo(pfsClient)
 		require.NoError(t, err)
 
 		for _, repoInfo := range repoInfos {
@@ -306,7 +306,7 @@ func TestDeleteRepo(t *testing.T) {
 	repoNames := make(map[string]bool)
 	for i := 0; i < numRepos; i++ {
 		repo := fmt.Sprintf("repo%d", i)
-		require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+		require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 		repoNames[repo] = true
 	}
 
@@ -314,13 +314,13 @@ func TestDeleteRepo(t *testing.T) {
 	for i := 0; i < reposToRemove; i++ {
 		// Pick one random element from repoNames
 		for repoName := range repoNames {
-			require.NoError(t, pfsutil.DeleteRepo(pfsClient, repoName))
+			require.NoError(t, pfsclient.DeleteRepo(pfsClient, repoName))
 			delete(repoNames, repoName)
 			break
 		}
 	}
 
-	repoInfos, err := pfsutil.ListRepo(pfsClient)
+	repoInfos, err := pfsclient.ListRepo(pfsClient)
 	require.NoError(t, err)
 
 	for _, repoInfo := range repoInfos {
@@ -335,33 +335,33 @@ func TestInspectCommit(t *testing.T) {
 	pfsClient, _ := getClientAndServer(t)
 
 	repo := "test"
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 
 	started := time.Now()
-	commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	commit, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
 
 	fileContent := "foo\n"
-	_, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(fileContent))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(fileContent))
     require.NoError(t, err)
 
-	commitInfo, err := pfsutil.InspectCommit(pfsClient, repo, commit.ID)
+	commitInfo, err := pfsclient.InspectCommit(pfsClient, repo, commit.ID)
 	require.NoError(t, err)
 
 	require.Equal(t, commit, commitInfo.Commit)
-	require.Equal(t, pfs.CommitType_COMMIT_TYPE_WRITE, commitInfo.CommitType)
+	require.Equal(t, pfsserver.CommitType_COMMIT_TYPE_WRITE, commitInfo.CommitType)
 	require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
 	require.True(t, started.Before(commitInfo.Started.GoTime()))
 	require.Nil(t, commitInfo.Finished)
 
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit.ID))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
 	finished := time.Now()
 
-	commitInfo, err = pfsutil.InspectCommit(pfsClient, repo, commit.ID)
+	commitInfo, err = pfsclient.InspectCommit(pfsClient, repo, commit.ID)
 	require.NoError(t, err)
 
 	require.Equal(t, commit, commitInfo.Commit)
-	require.Equal(t, pfs.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	require.Equal(t, pfsserver.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
 	require.Equal(t, len(fileContent), int(commitInfo.SizeBytes))
 	require.True(t, started.Before(commitInfo.Started.GoTime()))
 	require.True(t, finished.After(commitInfo.Finished.GoTime()))
@@ -375,26 +375,26 @@ func TestDeleteCommitFuture(t *testing.T) {
 	pfsClient, _ := getClientAndServer(t)
 
 	repo := "test"
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 
-	commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	commit, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
 
 	fileContent := "foo\n"
-	_, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(fileContent))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(fileContent))
 	require.NoError(t, err)
 
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit.ID))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
 
-	commitInfo, err := pfsutil.InspectCommit(pfsClient, repo, commit.ID)
+	commitInfo, err := pfsclient.InspectCommit(pfsClient, repo, commit.ID)
 	require.NotNil(t, commitInfo)
 
-	require.NoError(t, pfsutil.DeleteCommit(pfsClient, repo, commit.ID))
+	require.NoError(t, pfsclient.DeleteCommit(pfsClient, repo, commit.ID))
 
-	commitInfo, err = pfsutil.InspectCommit(pfsClient, repo, commit.ID)
+	commitInfo, err = pfsclient.InspectCommit(pfsClient, repo, commit.ID)
 	require.Nil(t, commitInfo)
 
-	repoInfo, err := pfsutil.InspectRepo(pfsClient, repo)
+	repoInfo, err := pfsclient.InspectRepo(pfsClient, repo)
 	require.Equal(t, 0, repoInfo.SizeBytes)
 }
 
@@ -403,19 +403,19 @@ func TestDeleteCommit(t *testing.T) {
 	pfsClient, _ := getClientAndServer(t)
 
 	repo := "test"
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 
-	commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	commit, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
 
 	fileContent := "foo\n"
-	_, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(fileContent))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(fileContent))
 	require.NoError(t, err)
 
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit.ID))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
 
 	// Because DeleteCommit is not supported
-	require.YesError(t, pfsutil.DeleteCommit(pfsClient, repo, commit.ID))
+	require.YesError(t, pfsclient.DeleteCommit(pfsClient, repo, commit.ID))
 }
 
 func TestPutFile(t *testing.T) {
@@ -423,39 +423,39 @@ func TestPutFile(t *testing.T) {
 	pfsClient, _ := getClientAndServer(t)
 
 	repo := "test"
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 
-	commit1, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pfsClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit1.ID))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
 
 	var buffer bytes.Buffer
-	require.NoError(t, pfsutil.GetFile(pfsClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
+	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 
-	commit2, err := pfsutil.StartCommit(pfsClient, repo, commit1.ID, "")
+	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit1.ID, "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pfsClient, repo, commit2.ID, "/bar", 0, strings.NewReader("bar\n"))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit2.ID, "/bar", 0, strings.NewReader("bar\n"))
 	require.YesError(t, err)  // because path starts with a slash
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit2.ID))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit2.ID))
 
-	commit3, err := pfsutil.StartCommit(pfsClient, repo, commit2.ID, "")
+	commit3, err := pfsclient.StartCommit(pfsClient, repo, commit2.ID, "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pfsClient, repo, commit3.ID, "dir1/foo", 0, strings.NewReader("foo\n"))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit3.ID, "dir1/foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)  // because the directory dir does not exist
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit3.ID))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit3.ID))
 
-	commit4, err := pfsutil.StartCommit(pfsClient, repo, commit3.ID, "")
+	commit4, err := pfsclient.StartCommit(pfsClient, repo, commit3.ID, "")
 	require.NoError(t, err)
-	require.NoError(t, pfsutil.MakeDirectory(pfsClient, repo, commit4.ID, "dir2"))
-	_, err = pfsutil.PutFile(pfsClient, repo, commit4.ID, "dir2/bar", 0, strings.NewReader("bar\n"))
+	require.NoError(t, pfsclient.MakeDirectory(pfsClient, repo, commit4.ID, "dir2"))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit4.ID, "dir2/bar", 0, strings.NewReader("bar\n"))
 	require.NoError(t, err)
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit4.ID))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit4.ID))
 
 	var buffer2 bytes.Buffer
-	require.NoError(t, pfsutil.GetFile(pfsClient, repo, commit4.ID, "dir2/bar", 0, 0, "", nil, &buffer2))
+	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit4.ID, "dir2/bar", 0, 0, "", nil, &buffer2))
 	require.Equal(t, "bar\n", buffer2.String())
 }
 
@@ -464,38 +464,38 @@ func TestInspectFile(t *testing.T) {
 	pfsClient, _ := getClientAndServer(t)
 
 	repo := "test"
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 
 	fileContent1 := "foo\n"
-	commit1, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pfsClient, repo, commit1.ID, "foo", 0, strings.NewReader(fileContent1))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo", 0, strings.NewReader(fileContent1))
 	require.NoError(t, err)
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit1.ID))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
 
-	fileInfo, err := pfsutil.InspectFile(pfsClient, repo, commit1.ID, "foo", "", nil)
+	fileInfo, err := pfsclient.InspectFile(pfsClient, repo, commit1.ID, "foo", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, commit1, fileInfo.CommitModified)
-	require.Equal(t, pfs.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+	require.Equal(t, pfsserver.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
 	require.Equal(t, len(fileContent1), int(fileInfo.SizeBytes))
 
 	fileContent2 := "barbar\n"
-	commit2, err := pfsutil.StartCommit(pfsClient, repo, commit1.ID, "")
+	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit1.ID, "")
 	require.NoError(t, err)
-	_, err = pfsutil.PutFile(pfsClient, repo, commit2.ID, "foo", 0, strings.NewReader(fileContent2))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit2.ID, "foo", 0, strings.NewReader(fileContent2))
 	require.NoError(t, err)
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit2.ID))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit2.ID))
 
-	fileInfo, err = pfsutil.InspectFile(pfsClient, repo, commit2.ID, "foo", commit1.ID, nil)
+	fileInfo, err = pfsclient.InspectFile(pfsClient, repo, commit2.ID, "foo", commit1.ID, nil)
 	require.NoError(t, err)
 	require.Equal(t, commit2, fileInfo.CommitModified)
-	require.Equal(t, pfs.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+	require.Equal(t, pfsserver.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
 	require.Equal(t, len(fileContent2), int(fileInfo.SizeBytes))
 
-	fileInfo, err = pfsutil.InspectFile(pfsClient, repo, commit2.ID, "foo", "", nil)
+	fileInfo, err = pfsclient.InspectFile(pfsClient, repo, commit2.ID, "foo", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, commit2, fileInfo.CommitModified)
-	require.Equal(t, pfs.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
+	require.Equal(t, pfsserver.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
 	require.Equal(t, len(fileContent1) + len(fileContent2), int(fileInfo.SizeBytes))
 }
 
@@ -504,22 +504,22 @@ func TestListFile(t *testing.T) {
 	pfsClient, _ := getClientAndServer(t)
 
 	repo := "test"
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 
-	commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	commit, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
 
 	fileContent1 := "foo\n"
-	_, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "dir/foo", 0, strings.NewReader(fileContent1))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "dir/foo", 0, strings.NewReader(fileContent1))
 	require.NoError(t, err)
 
 	fileContent2 := "bar\n"
-	_, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "dir/bar", 0, strings.NewReader(fileContent2))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "dir/bar", 0, strings.NewReader(fileContent2))
 	require.NoError(t, err)
 
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit.ID))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
 
-	fileInfos, err := pfsutil.ListFile(pfsClient, repo, commit.ID, "dir", "", nil)
+	fileInfos, err := pfsclient.ListFile(pfsClient, repo, commit.ID, "dir", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
 	require.True(t, fileInfos[0].File.Path == "dir/foo" && fileInfos[1].File.Path == "dir/bar" || fileInfos[0].File.Path == "dir/bar" && fileInfos[1].File.Path == "dir/foo")
@@ -530,25 +530,25 @@ func TestDeleteFile(t *testing.T) {
 	pfsClient, _ := getClientAndServer(t)
 
 	repo := "test"
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 
-	commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	commit, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
 
 	fileContent1 := "foo\n"
-	_, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(fileContent1))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(fileContent1))
 	require.NoError(t, err)
 
 	fileContent2 := "bar\n"
-	_, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "bar", 0, strings.NewReader(fileContent2))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "bar", 0, strings.NewReader(fileContent2))
 	require.NoError(t, err)
 
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit.ID))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
 
 	// Because it's NO-OP right now
-	require.YesError(t, pfsutil.DeleteFile(pfsClient, repo, commit.ID, "foo"))
+	require.YesError(t, pfsclient.DeleteFile(pfsClient, repo, commit.ID, "foo"))
 
-	fileInfos, err := pfsutil.ListFile(pfsClient, repo, commit.ID, "", "", nil)
+	fileInfos, err := pfsclient.ListFile(pfsClient, repo, commit.ID, "", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
 }
@@ -558,25 +558,25 @@ func TestListCommit(t *testing.T) {
 	pfsClient, _ := getClientAndServer(t)
 
 	repo := "test"
-	require.NoError(t, pfsutil.CreateRepo(pfsClient, repo))
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 
-	commit, err := pfsutil.StartCommit(pfsClient, repo, "", "")
+	commit, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
 
 	fileContent1 := "foo\n"
-	_, err = pfsutil.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(fileContent1))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(fileContent1))
 	require.NoError(t, err)
 
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit.ID))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
 
-	commitInfos, err := pfsutil.ListCommit(pfsClient, []string{repo}, nil, false)
+	commitInfos, err := pfsclient.ListCommit(pfsClient, []string{repo}, nil, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
 	// test the block behaviour
 	ch := make(chan bool)
 	go func() {
-		_, err = pfsutil.ListCommit(pfsClient, []string{repo}, []string{commit.ID}, true)
+		_, err = pfsclient.ListCommit(pfsClient, []string{repo}, []string{commit.ID}, true)
 		close(ch)
 	}()
 
@@ -587,10 +587,10 @@ func TestListCommit(t *testing.T) {
 	default:
 	}
 
-	commit2, err := pfsutil.StartCommit(pfsClient, repo, commit.ID, "")
+	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit.ID, "")
 	require.NoError(t, err)
 
-	require.NoError(t, pfsutil.FinishCommit(pfsClient, repo, commit2.ID))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit2.ID))
 
 	time.Sleep(time.Second)
 	select {
@@ -608,7 +608,7 @@ func generateRandomString(n int) string {
 	return string(b)
 }
 
-func getBlockClient(t *testing.T) pfs.BlockAPIClient {
+func getBlockClient(t *testing.T) pfsclient.BlockAPIClient {
 	localPort := atomic.AddInt32(&port, 1)
 	address := fmt.Sprintf("localhost:%d", localPort)
 	root := uniqueString("/tmp/pach_test/run")
