@@ -3,13 +3,6 @@
 set -Ee
 
 docker run \
-    --net=host \
-    -d \
-    gcr.io/google_containers/etcd:2.0.12 /usr/local/bin/etcd \
-    --addr=127.0.0.1:4001 \
-    --bind-addr=0.0.0.0:4001 \
-    --data-dir=/var/etcd/data
-docker run \
     -d \
     --volume=/:/rootfs:ro \
     --volume=/sys:/sys:ro \
@@ -20,7 +13,7 @@ docker run \
     --net=host \
     --pid=host \
     --privileged=true \
-    privileged_hyperkube \
+    gcr.io/google_containers/hyperkube:v1.2.0 \
     /hyperkube kubelet \
         --containerized \
         --hostname-override="127.0.0.1" \

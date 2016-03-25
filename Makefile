@@ -70,9 +70,6 @@ docker-build-job-shim: docker-build-compile
 docker-build-pachd: docker-build-compile
 	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd
 
-docker-build-hyperkube:
-	docker build -t privileged_hyperkube etc/kube
-
 docker-build: docker-build-test docker-build-job-shim docker-build-pachd
 
 
@@ -87,7 +84,7 @@ docker-push-pachd: docker-build-pachd
 
 docker-push: docker-push-job-shim docker-push-pachd
 
-launch-kube: docker-build-hyperkube
+launch-kube:
 	etc/kube/start-kube-docker.sh
 
 clean-launch-kube:
