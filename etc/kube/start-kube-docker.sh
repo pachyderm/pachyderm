@@ -21,13 +21,4 @@ docker run \
         --api-servers=http://localhost:8080 \
         --config=/etc/kubernetes/manifests \
         --allow-privileged=true
-docker run \
-    -d \
-    --net=host \
-    --privileged=true \
-    gcr.io/google_containers/hyperkube:v1.2.0 \
-    /hyperkube \
-    proxy \
-    --master=http://127.0.0.1:8080 \
-    --v=2
 until kubectl version 2>/dev/null >/dev/null; do sleep 5; done
