@@ -124,7 +124,7 @@ Repos are created with create-repo.`,
 		Short: "Docs for commits.",
 		Long: `Commits are atomic transactions on the content of a repo.
 
-Creating a commit is a multistep process: 
+Creating a commit is a multistep process:
 - start a new commit with start-commit
 - write files to it through fuse or with put-file
 - finish the new commit with finish-commit
@@ -209,7 +209,7 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
-			commitInfos, err := pfsclient.ListCommit(apiClient, args)
+			commitInfos, err := pfsclient.ListCommit(apiClient, args, nil, false)
 			if err != nil {
 				return err
 			}

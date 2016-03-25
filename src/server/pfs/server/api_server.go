@@ -77,11 +77,49 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfsclient.InspectR
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
 	ctx = versionToContext(a.version, ctx)
-	clientConn, err := a.getClientConn(a.version)
+
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
-	return pfsclient.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
+
+	var lock sync.Mutex
+	var wg sync.WaitGroup
+	var repoInfos []*pfsclient.RepoInfo
+	errCh := make(chan error, 1)
+	for _, clientConn := range clientConns {
+		wg.Add(1)
+		go func(clientConn *grpc.ClientConn) {
+			defer wg.Done()
+			repoInfo, err := pfsclient.NewInternalAPIClient(clientConn).InspectRepo(ctx, request)
+			if err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
+				return
+			}
+			lock.Lock()
+			defer lock.Unlock()
+			repoInfos = append(repoInfos, repoInfo)
+		}(clientConn)
+	}
+	wg.Wait()
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
+	}
+
+	repoInfos = pfsserver.ReduceRepoInfos(repoInfos)
+
+	if len(repoInfos) != 1 || repoInfos[0].Repo.Name != request.Repo.Name {
+		return nil, fmt.Errorf("incorrect repo returned (this is likely a bug)")
+	}
+
+	return repoInfos[0], nil
 }
 
 func (a *apiServer) ListRepo(ctx context.Context, request *pfsclient.ListRepoRequest) (response *pfsclient.RepoInfos, retErr error) {
@@ -164,11 +202,49 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfsclient.Inspec
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
 	ctx = versionToContext(a.version, ctx)
-	clientConn, err := a.getClientConn(a.version)
+
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
-	return pfsclient.NewInternalAPIClient(clientConn).InspectCommit(ctx, request)
+
+	var lock sync.Mutex
+	var wg sync.WaitGroup
+	var commitInfos []*pfsclient.CommitInfo
+	errCh := make(chan error, 1)
+	for _, clientConn := range clientConns {
+		wg.Add(1)
+		go func(clientConn *grpc.ClientConn) {
+			defer wg.Done()
+			commitInfo, err := pfsclient.NewInternalAPIClient(clientConn).InspectCommit(ctx, request)
+			if err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
+				return
+			}
+			lock.Lock()
+			defer lock.Unlock()
+			commitInfos = append(commitInfos, commitInfo)
+		}(clientConn)
+	}
+	wg.Wait()
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
+	}
+
+	commitInfos = pfsserver.ReduceCommitInfos(commitInfos)
+
+	if len(commitInfos) != 1 || commitInfos[0].Commit.ID != request.Commit.ID {
+		return nil, fmt.Errorf("incorrect commit returned (this is likely a bug)")
+	}
+
+	return commitInfos[0], nil
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfsclient.ListCommitRequest) (response *pfsclient.CommitInfos, retErr error) {
