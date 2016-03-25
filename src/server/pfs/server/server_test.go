@@ -532,25 +532,48 @@ func TestDeleteFile(t *testing.T) {
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 
-	commit, err := pfsclient.StartCommit(pfsClient, repo, "", "")
+	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
 
 	fileContent1 := "foo\n"
-	_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "foo", 0, strings.NewReader(fileContent1))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo", 0, strings.NewReader(fileContent1))
 	require.NoError(t, err)
 
 	fileContent2 := "bar\n"
-	_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "bar", 0, strings.NewReader(fileContent2))
+	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "bar", 0, strings.NewReader(fileContent2))
 	require.NoError(t, err)
 
-	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
+	require.NoError(t, pfsclient.DeleteFile(pfsClient, repo, commit1.ID, "foo"))
 
-	// Because it's NO-OP right now
-	require.YesError(t, pfsclient.DeleteFile(pfsClient, repo, commit.ID, "foo"))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
 
-	fileInfos, err := pfsclient.ListFile(pfsClient, repo, commit.ID, "", "", nil)
+	fileInfos, err := pfsclient.ListFile(pfsClient, repo, commit1.ID, "", "", nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(fileInfos))
+	require.Equal(t, 1, len(fileInfos))
+	require.Equal(t, fileInfos[0].File.Path, "bar")
+
+	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit1.ID, "")
+	require.NoError(t, err)
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit2.ID))
+
+	fileInfos, err = pfsclient.ListFile(pfsClient, repo, commit2.ID, "", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+	require.Equal(t, fileInfos[0].File.Path, "bar")
+
+	commit3, err := pfsclient.StartCommit(pfsClient, repo, commit2.ID, "")
+	require.NoError(t, err)
+	require.NoError(t, pfsclient.DeleteFile(pfsClient, repo, commit3.ID, "bar"))
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit3.ID))
+
+	fileInfos, err = pfsclient.ListFile(pfsClient, repo, commit3.ID, "", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	_, err = pfsclient.InspectFile(pfsClient, repo, commit3.ID, "bar", "", nil)
+	require.YesError(t, err)
+
+	// TODO test deleting "."
 }
 
 func TestListCommit(t *testing.T) {

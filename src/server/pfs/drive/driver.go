@@ -392,7 +392,7 @@ func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, size int64, from *pfs.Commit, shard uint64) (io.ReadCloser, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from)
+	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from, false)
 	if err != nil {
 		return nil, err
 	}
@@ -409,14 +409,14 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, s
 func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) (*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, true)
 	return fileInfo, err
 }
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) ([]*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, true)
 	if err != nil {
 		return nil, err
 	}
@@ -425,7 +425,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	}
 	var result []*pfs.FileInfo
 	for _, child := range fileInfo.Children {
-		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from)
+		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, true)
 		if err != nil && err != pfsserver.ErrFileNotFound {
 			return nil, err
 		}
@@ -441,17 +441,24 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 	fileInfo, err := d.InspectFile(file, nil, nil, shard)
-	if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
-		return d.deleteFile(file, shard)
-	} else if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+	if err != nil {
+		return err
+	}
+
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 		fileInfos, err := d.ListFile(file, nil, nil, shard)
+		if err != nil {
+			return err
+		}
+
 		for _, info := range fileInfos {
 			if err := d.DeleteFile(info.File, shard); err != nil {
 				return err
 			}
 		}
 	}
-	return nil
+
+	return d.deleteFile(file, shard)
 }
 
 func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
@@ -490,6 +497,8 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
 	diffInfo.Appends[path.Clean(file.Path)] = &pfs.Append{
 		Delete: true,
 	}
+
+	removeFromDir(diffInfo, file)
 
 	return nil
 }
@@ -643,10 +652,11 @@ func filterBlockRefs(filterShard *pfs.Shard, blockRefs []*pfs.BlockRef) []*pfs.B
 	return result
 }
 
-func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit) (*pfs.FileInfo, []*pfs.BlockRef, error) {
+func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit, unsafe bool) (*pfs.FileInfo, []*pfs.BlockRef, error) {
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*pfs.BlockRef
 	children := make(map[string]bool)
+	removedChildren := make(map[string]bool)
 	commit, err := d.canonicalCommit(file.Commit)
 	if err != nil {
 		return nil, nil, err
@@ -656,7 +666,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		if !ok {
 			return nil, nil, fmt.Errorf("diff %s/%s/%d not found", commit.Repo.Name, commit.ID, shard)
 		}
-		if diffInfo.Finished == nil {
+		if !unsafe && diffInfo.Finished == nil {
 			commit = diffInfo.ParentCommit
 			continue
 		}
@@ -688,8 +698,13 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 				}
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_DIR
-				for child := range _append.Children {
-					if !children[child] {
+				for child, add := range _append.Children {
+					if !add {
+						removedChildren[child] = true
+						continue
+					}
+
+					if !children[child] && !removedChildren[child] {
 						fileInfo.Children = append(
 							fileInfo.Children,
 							pfsclient.NewFile(commit.Repo.Name, commit.ID, child),
@@ -824,6 +839,21 @@ func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
 		childPath = dirPath
 		dirPath = path.Dir(childPath)
 	}
+}
+
+func removeFromDir(diffInfo *pfs.DiffInfo, child *pfs.File) {
+	childPath := child.Path
+	dirPath := path.Dir(childPath)
+
+	_append, ok := diffInfo.Appends[dirPath]
+	if !ok {
+		_append = &pfs.Append{}
+		diffInfo.Appends[dirPath] = _append
+	}
+	if _append.Children == nil {
+		_append.Children = make(map[string]bool)
+	}
+	_append.Children[childPath] = false
 }
 
 type fileReader struct {
