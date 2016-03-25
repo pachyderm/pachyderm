@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
-	"os"
 	"path"
 	"strings"
 	"sync"
@@ -324,11 +323,7 @@ func TestSimple(t *testing.T) {
 }
 
 func getPachClient(t *testing.T) *APIClient {
-	pachAddr := os.Getenv("PACHD_PORT_650_TCP_ADDR")
-	if pachAddr == "" {
-		t.Error("PACHD_PORT_650_TCP_ADDR not set")
-	}
-	clientConn, err := grpc.Dial(fmt.Sprintf("%s:650", pachAddr), grpc.WithInsecure())
+	clientConn, err := grpc.Dial("0.0.0.0:30650", grpc.WithInsecure())
 	require.NoError(t, err)
 	return NewAPIClient(clientConn)
 }

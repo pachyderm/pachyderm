@@ -58,9 +58,6 @@ install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pachctl ./src/cmd/pachctl-doc
 
-docker-build-test:
-	docker build -t pachyderm/test .
-
 docker-build-compile:
 	docker build -t pachyderm_compile .
 
@@ -70,11 +67,7 @@ docker-build-job-shim: docker-build-compile
 docker-build-pachd: docker-build-compile
 	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd
 
-docker-build: docker-build-test docker-build-job-shim docker-build-pachd
-
-
-docker-push-test: docker-build-test
-	docker push pachyderm/test
+docker-build: docker-build-job-shim docker-build-pachd
 
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
@@ -105,8 +98,7 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-tests: 
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found pod integrationtests
-	kubectl $(KUBECTLFLAGS) run integrationtests -i --image pachyderm/test --restart=Never --command -- go test . -timeout 60s
+	go test . -timeout 60s
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
