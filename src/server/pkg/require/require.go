@@ -105,3 +105,4 @@ func fatal(tb testing.TB, userMsgAndArgs []interface{}, msgFmt string, msgArgs .
 	}
 	tb.Fatalf(msgFmt, msgArgs...)
 }
+

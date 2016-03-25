@@ -105,7 +105,6 @@ clean-launch:
 
 integration-tests: 
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found pod integrationtests
-
 #	Actual test command we should be running
 #	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -v $$(go list ./src/server/... | grep -v '/src/server/vendor/') -timeout 60s
 
@@ -113,7 +112,7 @@ integration-tests:
 #	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- echo $$PFSD_PORT_650_TCP_ADDR
 
 #	Test command we're running on master:
-	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -v ./src/server -timeout 60s
+	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -cover -v ./src/server -timeout 60s
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
@@ -147,8 +146,8 @@ pretest:
 test: pretest localtest docker-build clean-launch launch integration-tests
 
 localtest: deps-client
-	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./src/client/...)
-	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/')
+	GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/client/...)
+	GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/')
 
 clean: clean-launch clean-launch-kube
 

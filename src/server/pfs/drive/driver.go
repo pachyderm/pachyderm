@@ -327,7 +327,7 @@ func (d *driver) ListBranch(repo *pfs.Repo, shards map[uint64]bool) ([]*pfs.Comm
 }
 
 func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error {
-	return nil
+	return fmt.Errorf("DeleteCommit is not implemented")
 }
 
 func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) (retErr error) {
@@ -440,7 +440,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 }
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
-	return nil
+	return fmt.Errorf("DeleteFile is not implemented")
 }
 
 func (d *driver) AddShard(shard uint64) error {
