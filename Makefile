@@ -98,7 +98,7 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-tests: 
-	go test . -timeout 60s
+	go test . -timeout 120s
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
