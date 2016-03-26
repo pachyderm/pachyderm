@@ -385,7 +385,7 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	return nil
 }
 
-func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
+func (d *driver) MakeDirectory(file *pfs.File, shard uint64) error {
 	return nil
 }
 
@@ -653,6 +653,7 @@ func filterBlockRefs(filterShard *pfs.Shard, blockRefs []*pfs.BlockRef) []*pfs.B
 }
 
 func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit, unsafe bool) (*pfs.FileInfo, []*pfs.BlockRef, error) {
+	fmt.Printf("Inspecting file: %s\n", file.Path)
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*pfs.BlockRef
 	children := make(map[string]bool)
