@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"path/filepath"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -371,57 +372,93 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 		// ways so we forbid leading slashes.
 		return fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
 	}
-	if request.FileType == pfsclient.FileType_FILE_TYPE_DIR {
-		if len(request.Value) > 0 {
-			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
-		}
-		clientConns, err := a.router.GetAllClientConns(a.version)
+
+	sendReq := func(request *pfsclient.PutFileRequest) (retErr error) {
+		clientConn, err := a.getClientConnForFile(request.File, a.version)
 		if err != nil {
 			return err
 		}
-		for _, clientConn := range clientConns {
-			putFileClient, err := pfsclient.NewInternalAPIClient(clientConn).PutFile(ctx)
+		putFileClient, err := pfsclient.NewInternalAPIClient(clientConn).PutFile(ctx)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if _, err := putFileClient.CloseAndRecv(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		if err := putFileClient.Send(request); err != nil {
+			return err
+		}
+		for {
+			request, err := putFileServer.Recv()
 			if err != nil {
+				if err == io.EOF {
+					break
+				}
 				return err
 			}
 			if err := putFileClient.Send(request); err != nil {
 				return err
 			}
-			if _, err := putFileClient.CloseAndRecv(); err != nil {
-				return err
-			}
 		}
 		return nil
 	}
-	clientConn, err := a.getClientConnForFile(request.File, a.version)
-	if err != nil {
-		return err
-	}
-	putFileClient, err := pfsclient.NewInternalAPIClient(clientConn).PutFile(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr == nil {
-			retErr = err
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
+	requests := []*pfsclient.PutFileRequest{request}
+	// For a file like foo/bar/buzz, we want to send two requests to create two
+	// directories foo/ and foo/bar/
+	dirs := getAncestorDirs(request.File.Path)
+	for _, dir := range dirs {
+		dirReq := &pfsclient.PutFileRequest{
+			FileType: pfsclient.FileType_FILE_TYPE_DIR,
 		}
-	}()
-	if err := putFileClient.Send(request); err != nil {
-		return err
+		*dirReq.File = *request.File
+		dirReq.File.Path = dir
+
+		requests = append(requests, dirReq)
+
 	}
-	for {
-		request, err := putFileServer.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
+
+	for _, req := range requests {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := sendReq(req)
+			if err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
+				return
 			}
-			return err
-		}
-		if err := putFileClient.Send(request); err != nil {
-			return err
-		}
+		}()
 	}
-	return nil
+
+	wg.Wait()
+
+	select {
+	case err := <-errCh:
+		return err
+	default:
+		return nil
+	}
+
+	what you actually want though, is to not just create empty directories, but
+	directories with children.  So creating foo/bar should create bar, and foo with bar as its child
+}
+
+func getAncestorDirs(path string) []string {
+	var ancestors  []string
+	for path != "." {
+		path = filepath.Dir(path)
+		ancestors = append(ancestors, path)
+	}
+	return ancestors
 }
 
 func (a *apiServer) GetFile(request *pfsclient.GetFileRequest, apiGetFileServer pfsclient.API_GetFileServer) (retErr error) {

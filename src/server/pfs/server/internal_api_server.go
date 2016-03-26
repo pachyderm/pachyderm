@@ -248,32 +248,28 @@ func (a *internalAPIServer) PutFile(putFileServer pfsclient.InternalAPI_PutFileS
 		// ways so we forbid leading slashes.
 		return fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
 	}
-	if request.FileType == pfsclient.FileType_FILE_TYPE_DIR {
-		if len(request.Value) > 0 {
-			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
-		}
-		shards, err := a.router.GetShards(version)
-		if err != nil {
-			return err
-		}
-		if err := a.driver.MakeDirectory(request.File, shards); err != nil {
-			return err
-		}
-		return nil
-	}
 	shard, err := a.getMasterShardForFile(request.File, version)
 	if err != nil {
 		return err
 	}
-	reader := putFileReader{
-		server: putFileServer,
-	}
-	_, err = reader.buffer.Write(request.Value)
-	if err != nil {
-		return err
-	}
-	if err := a.driver.PutFile(request.File, shard, request.OffsetBytes, &reader); err != nil {
-		return err
+	if request.FileType == pfsclient.FileType_FILE_TYPE_DIR {
+		if len(request.Value) > 0 {
+			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
+		}
+		if err := a.driver.MakeDirectory(request.File, shard); err != nil {
+			return err
+		}
+	} else {
+		reader := putFileReader{
+			server: putFileServer,
+		}
+		_, err = reader.buffer.Write(request.Value)
+		if err != nil {
+			return err
+		}
+		if err := a.driver.PutFile(request.File, shard, request.OffsetBytes, &reader); err != nil {
+			return err
+		}
 	}
 	return nil
 }

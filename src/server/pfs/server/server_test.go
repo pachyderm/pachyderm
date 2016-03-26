@@ -532,6 +532,7 @@ func TestDeleteFile(t *testing.T) {
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 
+	// Commit 1: Add two files; delete one file within the commit
 	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
 	require.NoError(t, err)
 
@@ -547,33 +548,122 @@ func TestDeleteFile(t *testing.T) {
 
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
 
+	// Should see one file
 	fileInfos, err := pfsclient.ListFile(pfsClient, repo, commit1.ID, "", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
 	require.Equal(t, fileInfos[0].File.Path, "bar")
 
+	// Empty commit
 	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit1.ID, "")
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit2.ID))
 
+	// Should still see one file
 	fileInfos, err = pfsclient.ListFile(pfsClient, repo, commit2.ID, "", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
 	require.Equal(t, fileInfos[0].File.Path, "bar")
 
+	// Delete the other file
 	commit3, err := pfsclient.StartCommit(pfsClient, repo, commit2.ID, "")
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.DeleteFile(pfsClient, repo, commit3.ID, "bar"))
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit3.ID))
 
+	// Should see zero files
 	fileInfos, err = pfsclient.ListFile(pfsClient, repo, commit3.ID, "", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(fileInfos))
 
+	// The removed file should not exist
 	_, err = pfsclient.InspectFile(pfsClient, repo, commit3.ID, "bar", "", nil)
 	require.YesError(t, err)
+}
 
-	// TODO test deleting "."
+func TestSanity(t *testing.T) {
+	t.Parallel()
+	pfsClient, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
+
+	// Commit 1: Add two files into the same directory; delete the directory
+	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, err)
+
+	fileContent1 := "foo\n"
+	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "dir/foo", 0, strings.NewReader(fileContent1))
+	require.NoError(t, err)
+
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
+
+	_, err = pfsclient.InspectFile(pfsClient, repo, commit1.ID, "dir/foo", "", nil)
+	require.NoError(t, err)
+
+	_, err = pfsclient.InspectFile(pfsClient, repo, commit1.ID, "dir", "", nil)
+	require.NoError(t, err)
+}
+
+func TestDeleteDir(t *testing.T) {
+	t.Parallel()
+	pfsClient, _ := getClientAndServer(t)
+
+	repo := "test"
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
+
+	// Commit 1: Add two files into the same directory; delete the directory
+	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, err)
+
+	fileContent1 := "foo\n"
+	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "dir/foo", 0, strings.NewReader(fileContent1))
+	require.NoError(t, err)
+
+	fileContent2 := "bar\n"
+	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "dir/bar", 0, strings.NewReader(fileContent2))
+	require.NoError(t, err)
+
+	require.NoError(t, pfsclient.DeleteFile(pfsClient, repo, commit1.ID, "dir"))
+
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
+
+	// Should see zero files
+	fileInfos, err := pfsclient.ListFile(pfsClient, repo, commit1.ID, "", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	// Commit 2: Add two files into the same directory
+	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit1.ID, "")
+	require.NoError(t, err)
+
+	_, err = pfsclient.PutFile(pfsClient, repo, commit2.ID, "dir/foo", 0, strings.NewReader(fileContent1))
+	require.NoError(t, err)
+
+	_, err = pfsclient.PutFile(pfsClient, repo, commit2.ID, "dir/bar", 0, strings.NewReader(fileContent2))
+	require.NoError(t, err)
+
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit2.ID))
+
+	// Should see two files
+	fileInfos, err = pfsclient.ListFile(pfsClient, repo, commit2.ID, "dir", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	// Commit 3: delete the directory
+	commit3, err := pfsclient.StartCommit(pfsClient, repo, commit2.ID, "")
+	require.NoError(t, err)
+
+	require.NoError(t, pfsclient.DeleteFile(pfsClient, repo, commit3.ID, "dir"))
+
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit3.ID))
+
+	// Should see zero files
+	fileInfos, err = pfsclient.ListFile(pfsClient, repo, commit3.ID, "", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	// TODO: test deleting "."
 }
 
 func TestListCommit(t *testing.T) {
