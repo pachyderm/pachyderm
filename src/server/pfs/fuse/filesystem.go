@@ -13,6 +13,7 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
@@ -22,14 +23,14 @@ import (
 )
 
 type filesystem struct {
-	apiClient pfsclient.APIClient
+	apiClient client.PfsAPIClient
 	Filesystem
 	inodes map[string]uint64
 	lock   sync.RWMutex
 }
 
 func newFilesystem(
-	apiClient pfsclient.APIClient,
+	apiClient client.PfsAPIClient,
 	shard *pfsclient.Shard,
 	commitMounts []*CommitMount,
 ) *filesystem {

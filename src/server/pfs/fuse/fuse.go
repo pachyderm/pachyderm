@@ -2,6 +2,7 @@ package fuse
 
 import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client"
 )
 
 type Mounter interface {
@@ -20,6 +21,6 @@ type Mounter interface {
 
 // NewMounter creates a new Mounter.
 // Address can be left blank, it's used only for aesthetic purposes.
-func NewMounter(address string, apiClient pfsclient.APIClient) Mounter {
+func NewMounter(address string, apiClient client.PfsAPIClient) Mounter {
 	return newMounter(address, apiClient)
 }

@@ -7,13 +7,13 @@ import (
 
 	"golang.org/x/net/context"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
 
 func RunWorkload(
-	pfsClient pfsclient.APIClient,
+	pfsClient client.PfsAPIClient,
 	ppsClient ppsclient.APIClient,
 	rand *rand.Rand,
 	size int,
@@ -70,7 +70,7 @@ const (
 const maxStartedCommits = 6
 const maxStartedJobs = 6
 
-func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClient) error {
+func (w *worker) work(pfsClient client.PfsAPIClient, ppsClient ppsclient.APIClient) error {
 	opt := w.rand.Float64()
 	switch {
 	case opt < repo:

@@ -7,6 +7,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client"
 )
 
 const (
@@ -16,10 +17,10 @@ const (
 
 type mounter struct {
 	address   string
-	apiClient pfsclient.APIClient
+	apiClient client.PfsAPIClient
 }
 
-func newMounter(address string, apiClient pfsclient.APIClient) Mounter {
+func newMounter(address string, apiClient client.PfsAPIClient) Mounter {
 	return &mounter{
 		address,
 		apiClient,
