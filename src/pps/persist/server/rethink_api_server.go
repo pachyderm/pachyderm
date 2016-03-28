@@ -25,6 +25,7 @@ const (
 	pipelineNameIndex          Index = "PipelineName"
 	pipelineNameAndCommitIndex Index = "PipelineNameAndCommitIndex"
 	commitIndex                Index = "CommitIndex"
+	connectTimeoutSeconds            = 5
 )
 
 type Table string
@@ -55,7 +56,7 @@ var (
 // Rethink servers will error if they are pointed at databases that haven't had InitDBs run on them.
 // InitDBs is idempotent (unless rethink dies in the middle of the function)
 func InitDBs(address string, databaseName string) error {
-	session, err := gorethink.Connect(gorethink.ConnectOpts{Address: address})
+	session, err := connect(address)
 	if err != nil {
 		return err
 	}
@@ -103,7 +104,7 @@ type rethinkAPIServer struct {
 }
 
 func newRethinkAPIServer(address string, databaseName string) (*rethinkAPIServer, error) {
-	session, err := gorethink.Connect(gorethink.ConnectOpts{Address: address})
+	session, err := connect(address)
 	if err != nil {
 		return nil, err
 	}
@@ -363,6 +364,13 @@ func (a *rethinkAPIServer) getTerm(table Table) gorethink.Term {
 
 func (a *rethinkAPIServer) now() *google_protobuf.Timestamp {
 	return prototime.TimeToTimestamp(a.timer.Now())
+}
+
+func connect(address string) (*gorethink.Session, error) {
+	return gorethink.Connect(gorethink.ConnectOpts{
+		Address: address,
+		Timeout: connectTimeoutSeconds * time.Second,
+	})
 }
 
 func genCommitIndex(commits []*pfs.Commit) (string, error) {
