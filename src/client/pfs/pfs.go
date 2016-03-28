@@ -3,7 +3,7 @@ package pfs
 import (
 )
 
-const chunkSize = 1024 * 1024
+const ChunkSize = 1024 * 1024
 
 func NewRepo(repoName string) *Repo {
 	return &Repo{Name: repoName}
@@ -36,7 +36,7 @@ func NewDiff(repoName string, commitID string, shard uint64) *Diff {
 	}
 }
 
-func newFromCommit(repoName string, fromCommitID string) *Commit {
+func NewFromCommit(repoName string, fromCommitID string) *Commit {
 	if fromCommitID != "" {
 		return NewCommit(repoName, fromCommitID)
 	}

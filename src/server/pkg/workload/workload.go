@@ -75,11 +75,11 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 	switch {
 	case opt < repo:
 		repoName := w.randString(10)
-		if err := pfsclient.CreateRepo(pfsClient, repoName); err != nil {
+		if err := pfsClient.CreateRepo(repoName); err != nil {
 			return err
 		}
 		w.repos = append(w.repos, &pfs.Repo{Name: repoName})
-		commit, err := pfsclient.StartCommit(pfsClient, repoName, "", "")
+		commit, err := pfsClient.StartCommit(repoName, "", "")
 		if err != nil {
 			return err
 		}
@@ -91,7 +91,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 			}
 			i := w.rand.Intn(len(w.started))
 			commit := w.started[i]
-			if err := pfsclient.FinishCommit(pfsClient, commit.Repo.Name, commit.ID); err != nil {
+			if err := pfsClient.FinishCommit(commit.Repo.Name, commit.ID); err != nil {
 				return err
 			}
 			w.started = append(w.started[:i], w.started[i+1:]...)
@@ -101,7 +101,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 				return nil
 			}
 			commit := w.finished[w.rand.Intn(len(w.finished))]
-			commit, err := pfsclient.StartCommit(pfsClient, commit.Repo.Name, commit.ID, "")
+			commit, err := pfsClient.StartCommit(commit.Repo.Name, commit.ID, "")
 			if err != nil {
 				return err
 			}
@@ -112,7 +112,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 			return nil
 		}
 		commit := w.started[w.rand.Intn(len(w.started))]
-		if _, err := pfsclient.PutFile(pfsClient, commit.Repo.Name, commit.ID, w.randString(10), 0, w.reader()); err != nil {
+		if _, err := pfsClient.PutFile(commit.Repo.Name, commit.ID, w.randString(10), 0, w.reader()); err != nil {
 			return err
 		}
 	case opt < job:
