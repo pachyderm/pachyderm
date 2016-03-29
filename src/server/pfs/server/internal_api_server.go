@@ -364,19 +364,34 @@ func (a *internalAPIServer) DeleteFile(ctx context.Context, request *pfsclient.D
 	if err != nil {
 		return nil, err
 	}
-	if strings.HasPrefix(request.File.Path, "/") {
-		// This is a subtle error case, the paths foo and /foo will hash to
-		// different shards but will produce the same change once they get to
-		// those shards due to how path.Join. This can go wrong in a number of
-		// ways so we forbid leading slashes.
-		return nil, fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
-	}
-	shard, err := a.getMasterShardForFile(request.File, version)
+	shards, err := a.router.GetShards(version)
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.DeleteFile(request.File, shard); err != nil {
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
+	for shard := range shards {
+		shard := shard
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := a.driver.DeleteFile(request.File, shard)
+			if err != nil && err != pfsserver.ErrFileNotFound {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
+				return
+			}
+		}()
+	}
+	wg.Wait()
+	select {
+	case err := <-errCh:
 		return nil, err
+	default:
 	}
 	return google_protobuf.EmptyInstance, nil
 }

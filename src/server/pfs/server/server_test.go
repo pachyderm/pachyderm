@@ -497,6 +497,17 @@ func TestInspectFile(t *testing.T) {
 	require.Equal(t, commit2, fileInfo.CommitModified)
 	require.Equal(t, pfsclient.FileType_FILE_TYPE_REGULAR, fileInfo.FileType)
 	require.Equal(t, len(fileContent1) + len(fileContent2), int(fileInfo.SizeBytes))
+
+	fileContent3 := "bar\n"
+	commit3, err := pfsclient.StartCommit(pfsClient, repo, commit2.ID, "")
+	require.NoError(t, err)
+	_, err = pfsclient.PutFile(pfsClient, repo, commit3.ID, "bar", 0, strings.NewReader(fileContent3))
+	require.NoError(t, err)
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit3.ID))
+
+	fileInfos, err := pfsclient.ListFile(pfsClient, repo, commit3.ID, "", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, len(fileInfos), 2)
 }
 
 func TestListFile(t *testing.T) {
@@ -523,6 +534,11 @@ func TestListFile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
 	require.True(t, fileInfos[0].File.Path == "dir/foo" && fileInfos[1].File.Path == "dir/bar" || fileInfos[0].File.Path == "dir/bar" && fileInfos[1].File.Path == "dir/foo")
+
+	fileInfos, err = pfsclient.ListFile(pfsClient, repo, commit.ID, "dir/foo", "", nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+	require.True(t, fileInfos[0].File.Path == "dir/foo")
 }
 
 func TestDeleteFile(t *testing.T) {
@@ -547,6 +563,10 @@ func TestDeleteFile(t *testing.T) {
 	require.NoError(t, pfsclient.DeleteFile(pfsClient, repo, commit1.ID, "foo"))
 
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
+
+	// foo should not exist
+	_, err = pfsclient.InspectFile(pfsClient, repo, commit1.ID, "foo", "", nil)
+	require.YesError(t, err)
 
 	// Should see one file
 	fileInfos, err := pfsclient.ListFile(pfsClient, repo, commit1.ID, "", "", nil)
@@ -581,7 +601,7 @@ func TestDeleteFile(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestSanity(t *testing.T) {
+func TestInspectDir(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
 
@@ -603,6 +623,14 @@ func TestSanity(t *testing.T) {
 
 	_, err = pfsclient.InspectFile(pfsClient, repo, commit1.ID, "dir", "", nil)
 	require.NoError(t, err)
+
+	// This is a limitation in our system: we cannot inspect .
+	// . is assumed to be a directory
+	// In order to be able to inspect the root directory, we have to have each
+	// PutFile send a concurrent request to create an entry for ".", which is
+	// a price we are not willing to pay.
+	_, err = pfsclient.InspectFile(pfsClient, repo, commit1.ID, "", "", nil)
+	require.YesError(t, err)
 }
 
 func TestDeleteDir(t *testing.T) {
@@ -632,6 +660,10 @@ func TestDeleteDir(t *testing.T) {
 	fileInfos, err := pfsclient.ListFile(pfsClient, repo, commit1.ID, "", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(fileInfos))
+
+	// dir should not exist
+	_, err = pfsclient.InspectFile(pfsClient, repo, commit1.ID, "dir", "", nil)
+	require.YesError(t, err)
 
 	// Commit 2: Add two files into the same directory
 	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit1.ID, "")
