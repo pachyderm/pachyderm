@@ -909,10 +909,6 @@ func updateDAG(diffInfo *pfs.DiffInfo, dag *dag.DAG) {
 }
 
 func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
-	if child.Path == "." {
-		return
-	}
-
 	childPath := child.Path
 	dirPath := path.Dir(childPath)
 	for {
