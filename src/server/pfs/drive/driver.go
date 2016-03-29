@@ -488,6 +488,9 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 		}
 
 		for _, info := range fileInfos {
+			// We are deleting the file from the current commit, not whatever
+			// commit they were last modified in
+			info.File.Commit = file.Commit
 			if err := d.DeleteFile(info.File, shard); err != nil {
 				return err
 			}
@@ -860,6 +863,10 @@ func updateDAG(diffInfo *pfs.DiffInfo, dag *dag.DAG) {
 }
 
 func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
+	if child.Path == "." {
+		return
+	}
+
 	childPath := child.Path
 	dirPath := path.Dir(childPath)
 	for {
