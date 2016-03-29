@@ -429,6 +429,8 @@ func TestPutFile(t *testing.T) {
 	require.NoError(t, err)
 	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
 	require.NoError(t, err)
+	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo/bar", 0, strings.NewReader("foo\n"))
+	require.YesError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
 
 	var buffer bytes.Buffer
@@ -437,6 +439,8 @@ func TestPutFile(t *testing.T) {
 
 	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit1.ID, "")
 	require.NoError(t, err)
+	_, err = pfsclient.PutFile(pfsClient, repo, commit2.ID, "foo/bar", 0, strings.NewReader("foo\n"))
+	require.YesError(t, err)
 	_, err = pfsclient.PutFile(pfsClient, repo, commit2.ID, "/bar", 0, strings.NewReader("bar\n"))
 	require.YesError(t, err)  // because path starts with a slash
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit2.ID))
