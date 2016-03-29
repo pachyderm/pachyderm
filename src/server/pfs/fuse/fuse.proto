@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+import "client/pfs/pfs.proto";
+import "google/protobuf/timestamp.proto";
+
+package fuse;
+
+message CommitMount {
+    pfs.Commit commit = 1;
+    pfs.Commit from_commit = 2;
+    string alias = 3;
+	pfs.Shard shard = 4;
+}
+
+message Filesystem {
+  pfs.Shard shard = 1;
+  repeated CommitMount commit_mounts = 2;
+}
+
+message Node {
+  pfs.File file = 1;
+  string repo_alias = 2;
+  bool write = 3;
+  pfs.Shard shard = 4;
+  google.protobuf.Timestamp modified = 5;
+}
+
+message Attr {
+    uint32 Mode = 1;
+    //TODO there's a lot more fields on Attr
+}
+
+message Dirent {
+    uint64 inode = 1;
+    string name = 2;
+    //TODO Dirent type would be nice to report here as well
+}
+
+message Root {
+  Filesystem filesystem = 1;
+  Node result = 2;
+  string error = 3;
+}
+
+message DirectoryAttr {
+  Node directory = 1;
+  Attr result = 2;
+  string error = 3;
+}
+
+message DirectoryLookup {
+  Node directory = 1;
+  string name = 2;
+  Node result = 3;
+  string err = 4;
+}
+
+message DirectoryReadDirAll {
+  Node directory = 1;
+  repeated Dirent result = 2;
+  string error = 3;
+}
+
+message DirectoryCreate {
+  Node directory = 1;
+  Node result = 2;
+  string error = 3;
+}
+
+message DirectoryMkdir {
+  Node directory = 1;
+  Node result = 2;
+  string error = 3;
+}
+
+message FileAttr {
+  Node file = 1;
+  Attr result = 2;
+  string error = 3;
+}
+
+message FileRead {
+  Node file = 1;
+  string error = 2;
+}
+
+message FileOpen {
+  Node file = 1;
+  string error = 2;
+}
+
+message FileWrite {
+  Node file = 1;
+  string error = 2;
+}

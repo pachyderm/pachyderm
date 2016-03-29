@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "server/pfs/fuse/fuse.proto";
+import "client/pfs/pfs.proto";
+import "client/pps/pps.proto";
+
+package pachyderm.pps;
+
+option go_package = "pps";
+
+message StartJobRequest {
+  Job job = 1;
+}
+
+message StartJobResponse {
+    Transform transform = 1;
+	repeated fuse.CommitMount commit_mounts = 2;
+	// TODO this could just be another commit mount
+    pfs.Commit output_commit = 3;
+	uint64 index = 4;
+}
+
+message FinishJobRequest {
+    Job job = 1;
+	uint64 index = 2;
+    bool success = 3;
+}
+
+service InternalJobAPI {
+    rpc StartJob(StartJobRequest) returns (StartJobResponse) {}
+    rpc FinishJob(FinishJobRequest) returns (google.protobuf.Empty) {}
+}
+

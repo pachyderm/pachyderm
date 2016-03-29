@@ -17,6 +17,6 @@ go build \
   -installsuffix netgo \
   -tags netgo \
   -o _tmp/${BINARY} \
-  src/cmd/${BINARY}/main.go
+  src/server/cmd/${BINARY}/main.go
 docker-compose build ${IMAGE}
 docker tag -f pachyderm_${IMAGE}:latest pachyderm/${IMAGE}:latest
