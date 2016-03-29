@@ -20,10 +20,10 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/server/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 )
 
 const (
