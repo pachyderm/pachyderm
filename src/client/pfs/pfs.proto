@@ -201,10 +201,6 @@ message InspectFileRequest {
   Commit from_commit = 3;
 }
 
-message MakeDirectoryRequest {
-  File file = 1;
-}
-
 message ListFileRequest {
   File file = 1;
   Shard shard = 2;
