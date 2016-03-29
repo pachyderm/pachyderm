@@ -523,11 +523,6 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 }
 
 func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
-	blockClient, err := d.getBlockClient()
-	if err != nil {
-		return err
-	}
-
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	canonicalCommit, err := d.canonicalCommit(file.Commit)
@@ -542,17 +537,6 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
 	}
 	if diffInfo.Finished != nil {
 		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
-	}
-
-	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
-
-	if ok {
-		for _, blockRef := range _append.BlockRefs {
-			diffInfo.SizeBytes -= blockRef.Range.Upper - blockRef.Range.Lower
-			if err := pfsclient.DeleteBlock(blockClient, blockRef.Block); err != nil {
-				return err
-			}
-		}
 	}
 
 	diffInfo.Appends[path.Clean(file.Path)] = &pfs.Append{
