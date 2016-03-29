@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"text/tabwriter"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -53,7 +54,8 @@ Envronment variables:
 			if err != nil {
 				return err
 			}
-			version, err := versionClient.GetVersion(context.Background(), &google_protobuf.Empty{})
+			ctx, _ := context.WithTimeout(context.Background(), time.Second)
+			version, err := versionClient.GetVersion(ctx, &google_protobuf.Empty{})
 			if err != nil {
 				return err
 			}

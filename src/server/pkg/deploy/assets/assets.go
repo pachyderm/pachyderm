@@ -116,6 +116,7 @@ func PachdRc(shards uint64, secrets bool) *api.ReplicationController {
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},
+							ImagePullPolicy: "IfNotPresent",
 						},
 					},
 					ServiceAccountName: serviceAccountName,
@@ -200,6 +201,7 @@ func EtcdRc() *api.ReplicationController {
 									MountPath: "/var/data/etcd",
 								},
 							},
+							ImagePullPolicy: "IfNotPresent",
 						},
 					},
 					Volumes: []api.Volume{
@@ -288,6 +290,7 @@ func RethinkRc() *api.ReplicationController {
 									MountPath: "/var/rethinkdb/data",
 								},
 							},
+							ImagePullPolicy: "IfNotPresent",
 						},
 					},
 					Volumes: []api.Volume{
