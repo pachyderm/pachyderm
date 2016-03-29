@@ -322,7 +322,7 @@ func TestSimple(t *testing.T) {
 }
 
 func getPachClient(t *testing.T) *client.APIClient {
-	client, err := client.New()
+	client, err := client.NewFromAddress("0.0.0.0:30650")
 	require.NoError(t, err)
 	return client
 }

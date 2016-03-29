@@ -213,7 +213,7 @@ func getKubeClient(env *appEnv) (*kube.Client, error) {
 
 func getRethinkAPIServer(env *appEnv) (persist.APIServer, error) {
 	if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName); err != nil {
-		protolion.Errorf("InitDBs returned error: %s", err.Error())
+		return nil, err
 	}
 	return persist_server.NewRethinkAPIServer(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName)
 }

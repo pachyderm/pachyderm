@@ -12,7 +12,7 @@ we'll help you find an install path and then document it here.
 
 - [Go](#go) >= 1.6
 - [Docker](#docker) >= 1.10
-- [Kubernetes](#kubernetes) and [Kubectl](#kubectl) >= 1.1.7
+- [Kubernetes](#kubernetes) and [Kubectl](#kubectl) >= 1.2.0
 - [FUSE](#fuse) 2.8.2 (https://osxfuse.github.io/)
 
 ## Go
@@ -57,10 +57,10 @@ we've found.
 
 ```shell
 ### Darwin
-$ wget https://storage.googleapis.com/kubernetes-release/release/v1.1.7/bin/darwin/amd64/kubectl
+$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/darwin/amd64/kubectl
 
 ### Linux
-$ wget https://storage.googleapis.com/kubernetes-release/release/v1.1.7/bin/linux/amd64/kubectl
+$ wget https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kubectl
 
 ### Copy kubectl to your path
 chmod +x kubectl
@@ -92,8 +92,8 @@ You'll know it works if `kubectl version` runs without error:
 
 ```shell
 kubectl version
-Client Version: version.Info{Major:"1", Minor:"1", GitVersion:"v1.1.7", GitCommit:"e4e6878293a339e4087dae684647c9e53f1cf9f0", GitTreeState:"clean"}
-Server Version: version.Info{Major:"1", Minor:"1", GitVersion:"v1.1.7", GitCommit:"e4e6878293a339e4087dae684647c9e53f1cf9f0", GitTreeState:"clean"}
+Client Version: version.Info{Major:"1", Minor:"1", GitVersion:"v1.2.0", GitCommit:"e4e6878293a339e4087dae684647c9e53f1cf9f0", GitTreeState:"clean"}
+Server Version: version.Info{Major:"1", Minor:"1", GitVersion:"v1.2.0", GitCommit:"e4e6878293a339e4087dae684647c9e53f1cf9f0", GitTreeState:"clean"}
 ```
 
 ## Launch Pachyderm
