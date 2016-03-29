@@ -413,13 +413,13 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 	dirs := getAncestorDirs(request.File.Path)
 	for _, dir := range dirs {
 		dirReq := &pfsclient.PutFileRequest{
+			File: &pfsclient.File{
+				Path: dir,
+				Commit: request.File.Commit,
+			},
 			FileType: pfsclient.FileType_FILE_TYPE_DIR,
 		}
-		*dirReq.File = *request.File
-		dirReq.File.Path = dir
-
 		requests = append(requests, dirReq)
-
 	}
 
 	for _, req := range requests {
@@ -447,9 +447,6 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 	default:
 		return nil
 	}
-
-	what you actually want though, is to not just create empty directories, but
-	directories with children.  So creating foo/bar should create bar, and foo with bar as its child
 }
 
 func getAncestorDirs(path string) []string {

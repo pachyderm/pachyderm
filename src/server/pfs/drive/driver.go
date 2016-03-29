@@ -385,7 +385,43 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	return nil
 }
 
-func (d *driver) MakeDirectory(file *pfs.File, shard uint64) error {
+func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
+	defer func() {
+		if retErr == nil {
+			metrics.AddFiles(1)
+		}
+	}()
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	canonicalCommit, err := d.canonicalCommit(file.Commit)
+	if err != nil {
+		return err
+	}
+	diffInfo, ok := d.diffs.get(pfsclient.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.ID, shard))
+	if !ok {
+		// This is a weird case since the commit existed above, it means someone
+		// deleted the commit while the above code was running
+		return fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
+	}
+	if diffInfo.Finished != nil {
+		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
+	}
+	addDirs(diffInfo, file)
+	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
+	if !ok {
+		_append = &pfs.Append{}
+		if diffInfo.ParentCommit != nil {
+			_append.LastRef = d.lastRef(
+				pfsclient.NewFile(
+					diffInfo.ParentCommit.Repo.Name,
+					diffInfo.ParentCommit.ID,
+					file.Path,
+				),
+				shard,
+			)
+		}
+		diffInfo.Appends[path.Clean(file.Path)] = _append
+	}
 	return nil
 }
 
@@ -653,7 +689,6 @@ func filterBlockRefs(filterShard *pfs.Shard, blockRefs []*pfs.BlockRef) []*pfs.B
 }
 
 func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit, unsafe bool) (*pfs.FileInfo, []*pfs.BlockRef, error) {
-	fmt.Printf("Inspecting file: %s\n", file.Path)
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*pfs.BlockRef
 	children := make(map[string]bool)
@@ -693,7 +728,10 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				for _, blockRef := range filtered {
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
 				}
-			} else if len(_append.Children) > 0 {
+			} else {
+				// Without BlockRefs, this Append is for a directory, even if
+				// it doesn't have Children either.  This is because we sometimes
+				// have an Append just to signify that this is a directory
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
