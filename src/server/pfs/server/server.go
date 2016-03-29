@@ -5,7 +5,7 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 )
 
 var (
