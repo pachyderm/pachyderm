@@ -349,6 +349,16 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	}()
 	d.lock.Lock()
 	defer d.lock.Unlock()
+
+	fileType, err := d.getFileType(file, shard)
+	if err != nil {
+		return err
+	}
+
+	if fileType == pfs.FileType_FILE_TYPE_DIR {
+		return fmt.Errorf("%s is a directory", file.Path)
+	}
+
 	canonicalCommit, err := d.canonicalCommit(file.Commit)
 	if err != nil {
 		return err
@@ -393,6 +403,18 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 	}()
 	d.lock.Lock()
 	defer d.lock.Unlock()
+
+	fileType, err := d.getFileType(file, shard)
+	if err != nil {
+		return err
+	}
+
+	if fileType == pfs.FileType_FILE_TYPE_REGULAR {
+		return fmt.Errorf("%s already exists and is a file", file.Path)
+	} else if fileType == pfs.FileType_FILE_TYPE_DIR {
+		return nil
+	}
+
 	canonicalCommit, err := d.canonicalCommit(file.Commit)
 	if err != nil {
 		return err
@@ -689,6 +711,30 @@ func filterBlockRefs(filterShard *pfs.Shard, blockRefs []*pfs.BlockRef) []*pfs.B
 		}
 	}
 	return result
+}
+
+func (d *driver) getFileType(file *pfs.File, shard uint64) (pfs.FileType, error) {
+	commit, err := d.canonicalCommit(file.Commit)
+	if err != nil {
+		return pfsclient.FileType_FILE_TYPE_NONE, err
+	}
+	for commit != nil {
+		diffInfo, ok := d.diffs.get(pfsclient.NewDiff(commit.Repo.Name, commit.ID, shard))
+		if !ok {
+			return pfs.FileType_FILE_TYPE_NONE, fmt.Errorf("diff %s/%s/%d not found", commit.Repo.Name, commit.ID, shard)
+		}
+		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
+			if _append.Delete {
+				break
+			} else if len(_append.BlockRefs) > 0 {
+				return pfs.FileType_FILE_TYPE_REGULAR, nil
+			} else {
+				return pfs.FileType_FILE_TYPE_DIR, nil
+			}
+		}
+		commit = diffInfo.ParentCommit
+	}
+	return pfs.FileType_FILE_TYPE_NONE, nil
 }
 
 func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit, unsafe bool) (*pfs.FileInfo, []*pfs.BlockRef, error) {
