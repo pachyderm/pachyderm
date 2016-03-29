@@ -29,6 +29,9 @@ version:
 deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v ./src/... ./.
 
+deps-client: 
+	GO15VENDOREXPERIMENT=0 go get -d -v ./src/client/...
+
 update-deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v -u -f ./src/... ./.
 
@@ -38,25 +41,18 @@ test-deps:
 update-test-deps:
 	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/... ./.
 
-vendor-update:
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/... ./.
+build-clean-vendored-client:
+	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
-vendor-without-update:
-	go get -v github.com/kardianos/govendor
-	rm -rf vendor
-	govendor init
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 govendor add +external
-	CGO_ENABLED=1 GOOS=linux GOARCH=amd64 govendor update +vendor
-	$(foreach vendor_dir, $(VENDOR_IGNORE_DIRS), rm -rf vendor/$(vendor_dir) || exit; git checkout vendor/$(vendor_dir) || exit;)
-
-vendor: vendor-update vendor-without-update
-
-build:
-	GO15VENDOREXPERIMENT=1 go build ./src/... ./.
+build: 
+#	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
+#	cd src/server && make vendor-client
+	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
+#	git checkout src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install ./src/cmd/pachctl ./src/cmd/pachctl-doc
+	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pachctl-doc
 
 docker-build-compile:
 	docker build -t pachyderm_compile .
@@ -104,13 +100,17 @@ integration-tests:
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
-	protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src
-	go install github.com/pachyderm/pachyderm/src/cmd/protofix
+	rm -rf src/server/vendor
+	sudo -E protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src
+	go install github.com/pachyderm/pachyderm/src/server/cmd/protofix
 	protofix fix src
+	git checkout src/server/vendor
+	sudo chown -R `whoami` src/
 
 pretest:
 	go get -v github.com/kisielk/errcheck
 	go get -v github.com/golang/lint/golint
+	rm -rf src/server/vendor
 	for file in $$(find "./src" -name '*.go' | grep -v '\.pb\.go' | grep -v '\.pb\.gw\.go'); do \
 		golint $$file | grep -v unexported; \
 		if [ -n "$$(golint $$file | grep -v unexported)" ]; then \
@@ -124,12 +124,14 @@ pretest:
 		exit 1; \
 		fi; \
 		done
+	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
 test: pretest localtest docker-build clean-launch launch integration-tests
 
-localtest: 
-	GO15VENDOREXPERIMENT=1 go test -v -short $$(go list ./... | grep -v '/vendor/')
+localtest: deps-client
+	GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/client/...)
+	GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/')
 
 clean: clean-launch clean-launch-kube
 
