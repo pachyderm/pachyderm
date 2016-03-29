@@ -456,6 +456,8 @@ func TestPutFile(t *testing.T) {
 	require.NoError(t, pfsclient.MakeDirectory(pfsClient, repo, commit4.ID, "dir2"))
 	_, err = pfsclient.PutFile(pfsClient, repo, commit4.ID, "dir2/bar", 0, strings.NewReader("bar\n"))
 	require.NoError(t, err)
+	_, err = pfsclient.PutFile(pfsClient, repo, commit4.ID, "dir1", 0, strings.NewReader("foo\n"))
+	require.YesError(t, err)  // because dir1 is a directory
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit4.ID))
 
 	var buffer2 bytes.Buffer
