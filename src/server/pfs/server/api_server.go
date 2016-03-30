@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -350,6 +351,8 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 	var request *pfsclient.PutFileRequest
 	var err error
 	defer func(start time.Time) { a.Log(request, google_protobuf.EmptyInstance, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
 	ctx := versionToContext(a.version, putFileServer.Context())
 	defer func() {
 		if err := putFileServer.SendAndClose(google_protobuf.EmptyInstance); err != nil && retErr == nil {
@@ -371,18 +374,36 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 		// ways so we forbid leading slashes.
 		return fmt.Errorf("pachyderm: leading slash in path: %s", request.File.Path)
 	}
-	if request.FileType == pfsclient.FileType_FILE_TYPE_DIR {
-		if len(request.Value) > 0 {
-			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
+	requests := []*pfsclient.PutFileRequest{request}
+	// For a file like foo/bar/buzz, we want to send two requests to create two
+	// directories foo/ and foo/bar/
+	dirs := dirs(request.File.Path)
+	for _, dir := range dirs {
+		dirReq := &pfsclient.PutFileRequest{
+			File: &pfsclient.File{
+				Path:   dir,
+				Commit: request.File.Commit,
+			},
+			FileType: pfsclient.FileType_FILE_TYPE_DIR,
 		}
-		clientConns, err := a.router.GetAllClientConns(a.version)
+		requests = append(requests, dirReq)
+	}
+
+	sendReq := func(request *pfsclient.PutFileRequest) (retErr error) {
+		clientConn, err := a.getClientConnForFile(request.File, a.version)
 		if err != nil {
 			return err
 		}
-		for _, clientConn := range clientConns {
-			putFileClient, err := pfsclient.NewInternalAPIClient(clientConn).PutFile(ctx)
-			if err != nil {
-				return err
+		putFileClient, err := pfsclient.NewInternalAPIClient(clientConn).PutFile(ctx)
+		if err != nil {
+			return err
+		}
+		if request.FileType == pfsclient.FileType_FILE_TYPE_DIR {
+			if len(request.Value) > 0 {
+				return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
 			}
 			if err := putFileClient.Send(request); err != nil {
 				return err
@@ -390,42 +411,74 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 			if _, err := putFileClient.CloseAndRecv(); err != nil {
 				return err
 			}
+			return nil
 		}
-		return nil
-	}
-	clientConn, err := a.getClientConnForFile(request.File, a.version)
-	if err != nil {
-		return err
-	}
-	putFileClient, err := pfsclient.NewInternalAPIClient(clientConn).PutFile(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	if err := putFileClient.Send(request); err != nil {
-		return err
-	}
-	for {
-		request, err := putFileServer.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
+		defer func() {
+			if _, err := putFileClient.CloseAndRecv(); err != nil && retErr == nil {
+				retErr = err
 			}
-			return err
-		}
+		}()
 		if err := putFileClient.Send(request); err != nil {
 			return err
 		}
+		for {
+			request, err := putFileServer.Recv()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			if err := putFileClient.Send(request); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
-	return nil
+
+	for _, req := range requests {
+		wg.Add(1)
+		req := req
+		go func() {
+			defer wg.Done()
+			if err := sendReq(req); err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
+				return
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	select {
+	case err := <-errCh:
+		return err
+	default:
+		return nil
+	}
+}
+
+func dirs(path string) []string {
+	var ancestors []string
+	for {
+		path = filepath.Dir(path)
+		if path == "." {
+			break
+		}
+		ancestors = append(ancestors, path)
+	}
+	return ancestors
 }
 
 func (a *apiServer) GetFile(request *pfsclient.GetFileRequest, apiGetFileServer pfsclient.API_GetFileServer) (retErr error) {
 	defer func(start time.Time) { a.Log(request, google_protobuf.EmptyInstance, retErr, time.Since(start)) }(time.Now())
+	a.versionLock.RLock()
+	defer a.versionLock.RUnlock()
 	ctx := versionToContext(a.version, apiGetFileServer.Context())
 	clientConn, err := a.getClientConnForFile(request.File, a.version)
 	if err != nil {
@@ -447,7 +500,22 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfsclient.InspectF
 	if err != nil {
 		return nil, err
 	}
-	return pfsclient.NewInternalAPIClient(clientConn).InspectFile(ctx, request)
+
+	fileInfo, err := pfsclient.NewInternalAPIClient(clientConn).InspectFile(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	if fileInfo.FileType == pfsclient.FileType_FILE_TYPE_DIR {
+		// If it's a directory, chances are that its children are scattered around
+		// the cluster, so we can't get the complete list of children without
+		// doing a multicast.  So instead of returning a partial list of children,
+		// we'd rather return no children at all.  To get the complete list of
+		// children, the caller is expected to use ListFile
+		fileInfo.Children = nil
+	}
+
+	return fileInfo, nil
 }
 
 func (a *apiServer) ListFile(ctx context.Context, request *pfsclient.ListFileRequest) (response *pfsclient.FileInfos, retErr error) {
@@ -507,11 +575,53 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfsclient.DeleteFil
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
 	ctx = versionToContext(a.version, ctx)
-	clientConn, err := a.getClientConnForFile(request.File, a.version)
+
+	fileInfo, err := a.InspectFile(ctx, &pfsclient.InspectFileRequest{
+		File: request.File,
+	})
 	if err != nil {
 		return nil, err
 	}
-	return pfsclient.NewInternalAPIClient(clientConn).DeleteFile(ctx, request)
+
+	if fileInfo.FileType == pfsclient.FileType_FILE_TYPE_REGULAR {
+		clientConn, err := a.getClientConnForFile(request.File, a.version)
+		if err != nil {
+			return nil, err
+		}
+		return pfsclient.NewInternalAPIClient(clientConn).DeleteFile(ctx, request)
+	}
+
+	// If we are deleting a directory, we multicast it to the entire cluster
+	clientConns, err := a.router.GetAllClientConns(a.version)
+	if err != nil {
+		return nil, err
+	}
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
+	for _, clientConn := range clientConns {
+		wg.Add(1)
+		clientConn := clientConn
+		go func() {
+			defer wg.Done()
+			_, err := pfsclient.NewInternalAPIClient(clientConn).DeleteFile(ctx, request)
+			if err != nil {
+				select {
+				case errCh <- err:
+					// error reported
+				default:
+					// not the first error
+				}
+				return
+			}
+		}()
+	}
+	wg.Wait()
+	select {
+	case err := <-errCh:
+		return nil, err
+	default:
+	}
+	return google_protobuf.EmptyInstance, nil
 }
 
 func (a *apiServer) Version(version int64) error {

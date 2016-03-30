@@ -198,6 +198,17 @@ func GetBlock(apiClient BlockAPIClient, hash string, offsetBytes uint64, sizeByt
 	return protostream.NewStreamingBytesReader(apiGetBlockClient), nil
 }
 
+func DeleteBlock(apiClient BlockAPIClient, block *Block) error {
+	_, err := apiClient.DeleteBlock(
+		context.Background(),
+		&DeleteBlockRequest{
+			Block: block,
+		},
+	)
+
+	return err
+}
+
 func InspectBlock(apiClient BlockAPIClient, hash string) (*BlockInfo, error) {
 	blockInfo, err := apiClient.InspectBlock(
 		context.Background(),
