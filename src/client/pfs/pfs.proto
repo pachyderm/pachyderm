@@ -5,7 +5,7 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
-import "server/pkg/shard/shard.proto";
+import "client/pkg/shard/shard.proto";
 
 package pfs;
 
