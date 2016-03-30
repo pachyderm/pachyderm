@@ -8,7 +8,7 @@ import (
 	"github.com/dancannon/gorethink"
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"go.pedge.io/pb/go/google/protobuf"

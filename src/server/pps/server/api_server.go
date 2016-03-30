@@ -9,7 +9,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"go.pedge.io/lion/proto"
