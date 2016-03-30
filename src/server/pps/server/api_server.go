@@ -6,10 +6,10 @@ import (
 	"time"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"go.pedge.io/lion/proto"
@@ -29,11 +29,11 @@ var (
 )
 
 type jobState struct {
-	start        uint64      // the number of shards started
-	finish       uint64      // the number of shards finished
+	start        uint64            // the number of shards started
+	finish       uint64            // the number of shards finished
 	outputCommit *pfsclient.Commit // the output commit
-	commitReady  chan bool   // closed when outCommit has been started (and is non nil)
-	finished     chan bool   // closed when the job has been finished, the jobState will be deleted afterward
+	commitReady  chan bool         // closed when outCommit has been started (and is non nil)
+	finished     chan bool         // closed when the job has been finished, the jobState will be deleted afterward
 	success      bool
 }
 
@@ -629,6 +629,7 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 							SecurityContext: &api.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},
+							ImagePullPolicy: "IfNotPresent",
 						},
 					},
 					RestartPolicy: "OnFailure",

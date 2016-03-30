@@ -1,11 +1,11 @@
 package client
 
-import(
+import (
 	"fmt"
 	"os"
 
-	"google.golang.org/grpc"	
 	"go.pedge.io/proto/version"
+	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -59,6 +59,5 @@ func New() (*APIClient, error) {
 		return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
 	}
 
-	return NewFromAddress(fmt.Sprintf("%v:650",pachAddr))
+	return NewFromAddress(fmt.Sprintf("%v:650", pachAddr))
 }
-
