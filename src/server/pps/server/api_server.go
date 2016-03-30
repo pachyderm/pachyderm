@@ -168,18 +168,13 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	if jobInfo.Transform == nil {
 		return nil, fmt.Errorf("jobInfo.Transform should not be nil (this is likely a bug)")
 	}
-	a.jobStatesLock.Lock()
-	jobState, ok := a.jobStates[request.Job.ID]
-	if !ok {
-		jobState = newJobState()
-		a.jobStates[request.Job.ID] = jobState
+
+	shard, err := a.persistAPIServer.ShardStart(request.Job.ID)
+	if err != nil {
+		return nil, err
 	}
-	shard := jobState.start
-	if jobState.start < jobInfo.Shards {
-		jobState.start++
-	}
-	a.jobStatesLock.Unlock()
-	if shard == jobInfo.Shards {
+
+	if shard >= jobInfo.Shards {
 		return nil, fmt.Errorf("job %s already has %d shards", request.Job.ID, jobInfo.Shards)
 	}
 	pfsAPIClient, err := a.getPfsClient()
@@ -282,18 +277,12 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	var finished bool
 	persistJobState := ppsclient.JobState_JOB_STATE_FAILURE
 	if err := func() error {
-		a.jobStatesLock.Lock()
-		defer a.jobStatesLock.Unlock()
-		jobState, ok := a.jobStates[request.Job.ID]
-		if !ok {
-			return fmt.Errorf("job %s was never started", request.Job.ID)
+		shards_finished, err := a.persistAPIServer.ShardFinish(request.Job.ID)
+		if err != nil {
+			return err
 		}
-		jobState.success = jobState.success && request.Success
-		if jobState.success {
-			persistJobState = ppsclient.JobState_JOB_STATE_SUCCESS
-		}
-		jobState.finish++
-		finished = (jobState.finish == jobInfo.Shards)
+
+		finished = (shards_finished == jobInfo.Shards)
 		return nil
 	}(); err != nil {
 		return nil, err
