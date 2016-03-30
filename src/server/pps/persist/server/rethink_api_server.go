@@ -66,9 +66,9 @@ func InitDBs(address string, databaseName string) error {
 			// We assume that the database has been created by another replica
 			// of pachd, so we exit peacefully.
 			return nil
-		} else {
-			return err
 		}
+
+		return err
 	}
 	for _, table := range tables {
 		tableCreateOpts, ok := tableToTableCreateOpts[table]
