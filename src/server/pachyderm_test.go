@@ -27,7 +27,14 @@ const (
 )
 
 func TestJob(t *testing.T) {
+	testJob(t, 1)
+}
 
+func TestJobNoShard(t *testing.T) {
+	testJob(t, 0)
+}
+
+func testJob(t *testing.T, shards int) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -46,7 +53,7 @@ func TestJob(t *testing.T) {
 		"",
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
-		1,
+		uint64(shards),
 		[]*ppsclient.JobInput{{Commit: commit}},
 		"",
 	)
