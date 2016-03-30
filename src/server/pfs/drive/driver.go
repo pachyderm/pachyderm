@@ -349,6 +349,16 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	}()
 	d.lock.Lock()
 	defer d.lock.Unlock()
+
+	fileType, err := d.getFileType(file, shard)
+	if err != nil {
+		return err
+	}
+
+	if fileType == pfs.FileType_FILE_TYPE_DIR {
+		return fmt.Errorf("%s is a directory", file.Path)
+	}
+
 	canonicalCommit, err := d.canonicalCommit(file.Commit)
 	if err != nil {
 		return err
@@ -385,14 +395,60 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.R
 	return nil
 }
 
-func (d *driver) MakeDirectory(file *pfs.File, shards map[uint64]bool) error {
+func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
+	defer func() {
+		if retErr == nil {
+			metrics.AddFiles(1)
+		}
+	}()
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	fileType, err := d.getFileType(file, shard)
+	if err != nil {
+		return err
+	}
+
+	if fileType == pfs.FileType_FILE_TYPE_REGULAR {
+		return fmt.Errorf("%s already exists and is a file", file.Path)
+	} else if fileType == pfs.FileType_FILE_TYPE_DIR {
+		return nil
+	}
+
+	canonicalCommit, err := d.canonicalCommit(file.Commit)
+	if err != nil {
+		return err
+	}
+	diffInfo, ok := d.diffs.get(pfsclient.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.ID, shard))
+	if !ok {
+		return fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
+	}
+	if diffInfo.Finished != nil {
+		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
+	}
+	addDirs(diffInfo, file)
+	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
+	if !ok {
+		_append = &pfs.Append{}
+		if diffInfo.ParentCommit != nil {
+			_append.LastRef = d.lastRef(
+				pfsclient.NewFile(
+					diffInfo.ParentCommit.Repo.Name,
+					diffInfo.ParentCommit.ID,
+					file.Path,
+				),
+				shard,
+			)
+		}
+		diffInfo.Appends[path.Clean(file.Path)] = _append
+	}
 	return nil
 }
 
 func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, size int64, from *pfs.Commit, shard uint64) (io.ReadCloser, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from)
+	fileInfo, blockRefs, err := d.inspectFile(file, filterShard, shard, from, false)
 	if err != nil {
 		return nil, err
 	}
@@ -409,14 +465,14 @@ func (d *driver) GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, s
 func (d *driver) InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) (*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, true)
 	return fileInfo, err
 }
 
 func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) ([]*pfs.FileInfo, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from)
+	fileInfo, _, err := d.inspectFile(file, filterShard, shard, from, true)
 	if err != nil {
 		return nil, err
 	}
@@ -425,7 +481,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	}
 	var result []*pfs.FileInfo
 	for _, child := range fileInfo.Children {
-		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from)
+		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, true)
 		if err != nil && err != pfsserver.ErrFileNotFound {
 			return nil, err
 		}
@@ -440,7 +496,54 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 }
 
 func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
-	return fmt.Errorf("DeleteFile is not implemented")
+	fileInfo, err := d.InspectFile(file, nil, nil, shard)
+	if err != nil {
+		return err
+	}
+
+	if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
+		fileInfos, err := d.ListFile(file, nil, nil, shard)
+		if err != nil {
+			return err
+		}
+
+		for _, info := range fileInfos {
+			// We are deleting the file from the current commit, not whatever
+			// commit they were last modified in
+			info.File.Commit = file.Commit
+			if err := d.DeleteFile(info.File, shard); err != nil {
+				return err
+			}
+		}
+	}
+
+	return d.deleteFile(file, shard)
+}
+
+func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	canonicalCommit, err := d.canonicalCommit(file.Commit)
+	if err != nil {
+		return err
+	}
+	diffInfo, ok := d.diffs.get(pfsclient.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.ID, shard))
+	if !ok {
+		// This is a weird case since the commit existed above, it means someone
+		// deleted the commit while the above code was running
+		return fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
+	}
+	if diffInfo.Finished != nil {
+		return fmt.Errorf("commit %s/%s has already been finished", canonicalCommit.Repo.Name, canonicalCommit.ID)
+	}
+
+	diffInfo.Appends[path.Clean(file.Path)] = &pfs.Append{
+		Delete: true,
+	}
+
+	deleteFromDir(diffInfo, file)
+
+	return nil
 }
 
 func (d *driver) AddShard(shard uint64) error {
@@ -592,10 +695,38 @@ func filterBlockRefs(filterShard *pfs.Shard, blockRefs []*pfs.BlockRef) []*pfs.B
 	return result
 }
 
-func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit) (*pfs.FileInfo, []*pfs.BlockRef, error) {
+func (d *driver) getFileType(file *pfs.File, shard uint64) (pfs.FileType, error) {
+	commit, err := d.canonicalCommit(file.Commit)
+	if err != nil {
+		return pfsclient.FileType_FILE_TYPE_NONE, err
+	}
+	for commit != nil {
+		diffInfo, ok := d.diffs.get(pfsclient.NewDiff(commit.Repo.Name, commit.ID, shard))
+		if !ok {
+			return pfs.FileType_FILE_TYPE_NONE, fmt.Errorf("diff %s/%s/%d not found", commit.Repo.Name, commit.ID, shard)
+		}
+		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
+			if _append.Delete {
+				break
+			} else if len(_append.BlockRefs) > 0 {
+				return pfs.FileType_FILE_TYPE_REGULAR, nil
+			} else {
+				return pfs.FileType_FILE_TYPE_DIR, nil
+			}
+		}
+		commit = diffInfo.ParentCommit
+	}
+	return pfs.FileType_FILE_TYPE_NONE, nil
+}
+
+// If unsafe is set to false, then inspectFile will return an error in the
+// commit has not finished.  This is primarily used in GetFile where we want
+// to prevent GetFile from racing with PutFile.
+func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit, unsafe bool) (*pfs.FileInfo, []*pfs.BlockRef, error) {
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*pfs.BlockRef
 	children := make(map[string]bool)
+	deletedChildren := make(map[string]bool)
 	commit, err := d.canonicalCommit(file.Commit)
 	if err != nil {
 		return nil, nil, err
@@ -605,12 +736,14 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		if !ok {
 			return nil, nil, fmt.Errorf("diff %s/%s/%d not found", commit.Repo.Name, commit.ID, shard)
 		}
-		if diffInfo.Finished == nil {
+		if !unsafe && diffInfo.Finished == nil {
 			commit = diffInfo.ParentCommit
 			continue
 		}
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
-			if len(_append.BlockRefs) > 0 {
+			if _append.Delete {
+				break
+			} else if len(_append.BlockRefs) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
@@ -629,14 +762,22 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				for _, blockRef := range filtered {
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
 				}
-			} else if len(_append.Children) > 0 {
+			} else {
+				// Without BlockRefs, this Append is for a directory, even if
+				// it doesn't have Children either.  This is because we sometimes
+				// have an Append just to signify that this is a directory
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_REGULAR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 				}
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_DIR
-				for child := range _append.Children {
-					if !children[child] {
+				for child, add := range _append.Children {
+					if !add {
+						deletedChildren[child] = true
+						continue
+					}
+
+					if !children[child] && !deletedChildren[child] {
 						fileInfo.Children = append(
 							fileInfo.Children,
 							pfsclient.NewFile(commit.Repo.Name, commit.ID, child),
@@ -771,6 +912,21 @@ func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
 		childPath = dirPath
 		dirPath = path.Dir(childPath)
 	}
+}
+
+func deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File) {
+	childPath := child.Path
+	dirPath := path.Dir(childPath)
+
+	_append, ok := diffInfo.Appends[dirPath]
+	if !ok {
+		_append = &pfs.Append{}
+		diffInfo.Appends[dirPath] = _append
+	}
+	if _append.Children == nil {
+		_append.Children = make(map[string]bool)
+	}
+	_append.Children[childPath] = false
 }
 
 type fileReader struct {
