@@ -13,8 +13,8 @@ import (
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
-	"github.com/pachyderm/pachyderm/src/server/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

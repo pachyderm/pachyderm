@@ -5,8 +5,8 @@ import (
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/require"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"golang.org/x/net/context"
 )
