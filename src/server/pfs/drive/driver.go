@@ -421,8 +421,6 @@ func (d *driver) MakeDirectory(file *pfs.File, shard uint64) (retErr error) {
 	}
 	diffInfo, ok := d.diffs.get(pfsclient.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.ID, shard))
 	if !ok {
-		// This is a weird case since the commit existed above, it means someone
-		// deleted the commit while the above code was running
 		return fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
 	}
 	if diffInfo.Finished != nil {
@@ -543,7 +541,7 @@ func (d *driver) deleteFile(file *pfs.File, shard uint64) error {
 		Delete: true,
 	}
 
-	removeFromDir(diffInfo, file)
+	deleteFromDir(diffInfo, file)
 
 	return nil
 }
@@ -721,11 +719,14 @@ func (d *driver) getFileType(file *pfs.File, shard uint64) (pfs.FileType, error)
 	return pfs.FileType_FILE_TYPE_NONE, nil
 }
 
+// If unsafe is set to false, then inspectFile will return an error in the
+// commit has not finished.  This is primarily used in GetFile where we want
+// to prevent GetFile from racing with PutFile.
 func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint64, from *pfs.Commit, unsafe bool) (*pfs.FileInfo, []*pfs.BlockRef, error) {
 	fileInfo := &pfs.FileInfo{File: file}
 	var blockRefs []*pfs.BlockRef
 	children := make(map[string]bool)
-	removedChildren := make(map[string]bool)
+	deletedChildren := make(map[string]bool)
 	commit, err := d.canonicalCommit(file.Commit)
 	if err != nil {
 		return nil, nil, err
@@ -772,11 +773,11 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_DIR
 				for child, add := range _append.Children {
 					if !add {
-						removedChildren[child] = true
+						deletedChildren[child] = true
 						continue
 					}
 
-					if !children[child] && !removedChildren[child] {
+					if !children[child] && !deletedChildren[child] {
 						fileInfo.Children = append(
 							fileInfo.Children,
 							pfsclient.NewFile(commit.Repo.Name, commit.ID, child),
@@ -913,7 +914,7 @@ func addDirs(diffInfo *pfs.DiffInfo, child *pfs.File) {
 	}
 }
 
-func removeFromDir(diffInfo *pfs.DiffInfo, child *pfs.File) {
+func deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File) {
 	childPath := child.Path
 	dirPath := path.Dir(childPath)
 

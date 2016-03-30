@@ -380,7 +380,7 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 	requests := []*pfsclient.PutFileRequest{request}
 	// For a file like foo/bar/buzz, we want to send two requests to create two
 	// directories foo/ and foo/bar/
-	dirs := getAncestorDirs(request.File.Path)
+	dirs := dirs(request.File.Path)
 	for _, dir := range dirs {
 		dirReq := &pfsclient.PutFileRequest{
 			File: &pfsclient.File{
@@ -438,10 +438,10 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 
 	for _, req := range requests {
 		wg.Add(1)
-		go func(req *pfsclient.PutFileRequest) {
+		req := req
+		go func() {
 			defer wg.Done()
-			err := sendReq(req)
-			if err != nil {
+			if err := sendReq(req); err != nil {
 				select {
 				case errCh <- err:
 					// error reported
@@ -450,7 +450,7 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 				}
 				return
 			}
-		}(req)
+		}()
 	}
 
 	wg.Wait()
@@ -463,7 +463,7 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 	}
 }
 
-func getAncestorDirs(path string) []string {
+func dirs(path string) []string {
 	var ancestors []string
 	for {
 		path = filepath.Dir(path)
@@ -600,7 +600,8 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfsclient.DeleteFil
 	errCh := make(chan error, 1)
 	for _, clientConn := range clientConns {
 		wg.Add(1)
-		go func(clientConn *grpc.ClientConn) {
+		clientConn := clientConn
+		go func() {
 			defer wg.Done()
 			_, err := pfsclient.NewInternalAPIClient(clientConn).DeleteFile(ctx, request)
 			if err != nil {
@@ -612,7 +613,7 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfsclient.DeleteFil
 				}
 				return
 			}
-		}(clientConn)
+		}()
 	}
 	wg.Wait()
 	select {
