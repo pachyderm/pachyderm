@@ -72,4 +72,9 @@ service API {
   // ordered by time, latest to earliest
   rpc ListPipelineInfos(google.protobuf.Empty) returns (PipelineInfos) {}
   rpc DeletePipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
+
+  // Atomically increment a number and return the old value
+  rpc ShardStart(string) (uint64) {}
+  // Atomically increment a number and return the new value
+  rpc ShardFinish(string) (uint64) {}
 }
