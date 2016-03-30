@@ -3,13 +3,6 @@
 set -Ee
 
 docker run \
-    --net=host \
-    -d \
-    gcr.io/google_containers/etcd:2.0.12 /usr/local/bin/etcd \
-    --addr=127.0.0.1:4001 \
-    --bind-addr=0.0.0.0:4001 \
-    --data-dir=/var/etcd/data
-docker run \
     -d \
     --volume=/:/rootfs:ro \
     --volume=/sys:/sys:ro \
@@ -20,7 +13,7 @@ docker run \
     --net=host \
     --pid=host \
     --privileged=true \
-    privileged_hyperkube \
+    gcr.io/google_containers/hyperkube:v1.2.0 \
     /hyperkube kubelet \
         --containerized \
         --hostname-override="127.0.0.1" \
@@ -28,13 +21,4 @@ docker run \
         --api-servers=http://localhost:8080 \
         --config=/etc/kubernetes/manifests \
         --allow-privileged=true
-docker run \
-    -d \
-    --net=host \
-    --privileged=true \
-    gcr.io/google_containers/hyperkube:v1.1.7 \
-    /hyperkube \
-    proxy \
-    --master=http://127.0.0.1:8080 \
-    --v=2
 until kubectl version 2>/dev/null >/dev/null; do sleep 5; done
