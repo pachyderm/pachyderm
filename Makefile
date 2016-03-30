@@ -54,9 +54,6 @@ install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pachctl-doc
 
-docker-build-test:
-	docker build -t pachyderm/test .
-
 docker-build-compile:
 	docker build -t pachyderm_compile .
 
@@ -66,14 +63,7 @@ docker-build-job-shim: docker-build-compile
 docker-build-pachd: docker-build-compile
 	docker run $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd
 
-docker-build-hyperkube:
-	docker build -t privileged_hyperkube etc/kube
-
-docker-build: docker-build-test docker-build-job-shim docker-build-pachd
-
-
-docker-push-test: docker-build-test
-	docker push pachyderm/test
+docker-build: docker-build-job-shim docker-build-pachd
 
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
@@ -83,7 +73,7 @@ docker-push-pachd: docker-build-pachd
 
 docker-push: docker-push-job-shim docker-push-pachd
 
-launch-kube: docker-build-hyperkube
+launch-kube:
 	etc/kube/start-kube-docker.sh
 
 clean-launch-kube:
@@ -92,8 +82,10 @@ clean-launch-kube:
 kube-cluster-assets: install
 	pachctl manifest -s 32 >etc/kube/pachyderm.json
 
-launch:
+launch: install
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
+	# wait for the pachyderm to come up
+	until $(GOPATH)/bin/pachctl version 2>/dev/null >/dev/null; do sleep 5; done
 
 launch-dev: launch-kube launch
 
@@ -103,16 +95,8 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found serviceaccount -l suite=pachyderm
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
-integration-tests: 
-	kubectl $(KUBECTLFLAGS) delete --ignore-not-found pod integrationtests
-#	Actual test command we should be running
-#	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -v $$(go list ./src/server/... | grep -v '/src/server/vendor/') -timeout 60s
-
-#	Test Flag is set (its not)
-#	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- echo $$PFSD_PORT_650_TCP_ADDR
-
-#	Test command we're running on master:
-	kubectl $(KUBECTLFLAGS) run integrationtests --env="GO15VENDOREXPERIMENT=1" -i --image pachyderm/test --restart=Never --command -- go test -cover -v ./src/server -timeout 60s
+integration-tests:
+	go test ./src/server -timeout 120s
 
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
