@@ -3,7 +3,13 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/spf13/cobra"
+	"go.pedge.io/pkg/cobra"
 )
 
 func item() string {
@@ -14,13 +20,55 @@ func amount() string {
 	return fmt.Sprintf("%d", rand.Intn(9)+1)
 }
 
-func printLine() {
-	fmt.Printf("%s\t%s\n", item(), amount())
+func line() string {
+	return fmt.Sprintf("%s\t%s\n", item(), amount())
+}
+
+type reader struct {
+	lines int
+}
+
+func (r *reader) Read(p []byte) (int, error) {
+	size := 0
+	for ; r.lines > 0; r.lines-- {
+		line := line()
+		if len(line) > len(p[size:]) {
+			break
+		}
+		copy(p[size:], line)
+		size += len(line)
+	}
+	return size, nil
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
-	for i := 0; i < 100; i++ {
-		printLine()
+	var commits int
+	var lines int
+	cmd := &cobra.Command{
+		Use:   os.Args[0],
+		Short: "Generate pfs traffic.",
+		Long:  "Generate pfs traffic.",
+		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			rand.Seed(time.Now().UnixNano())
+			client, err := client.NewFromAddress("0.0.0.0:30650")
+			if err != nil {
+				return err
+			}
+			for i := 0; i < commits; i++ {
+				if _, err := pfs.StartCommit(client, "data", "", "master"); err != nil {
+					return err
+				}
+				if _, err := pfs.PutFile(client, "data", "master", "sales", 0, &reader{lines}); err != nil {
+					return err
+				}
+				if err := pfs.FinishCommit(client, "data", "master"); err != nil {
+					return err
+				}
+			}
+			return nil
+		}),
 	}
+	cmd.Flags().IntVarP(&commits, "commits", "c", 0, "commits to write")
+	cmd.Flags().IntVarP(&lines, "lines", "l", 0, "lines to write for each commit")
+	cmd.Execute()
 }
