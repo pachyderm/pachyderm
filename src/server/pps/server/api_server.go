@@ -9,7 +9,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"go.pedge.io/lion/proto"
@@ -21,6 +21,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
+	kube_api "k8s.io/kubernetes/pkg/api"
 )
 
 var (
@@ -76,7 +77,16 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 	if request.Shards == 0 {
-		return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: request.Shards cannot be 0")
+		nodeList, err := a.kubeClient.Nodes().List(kube_api.ListOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: shards set to zero and unable to retrieve node list from k8s")
+		}
+
+		if len(nodeList.Items) == 0 {
+			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: no k8s nodes found")
+		}
+
+		request.Shards = uint64(len(nodeList.Items))
 	}
 	repoSet := make(map[string]bool)
 	for _, input := range request.Inputs {

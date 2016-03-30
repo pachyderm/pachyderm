@@ -5,7 +5,7 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
-import "server/pkg/shard/shard.proto";
+import "client/pkg/shard/shard.proto";
 
 package pfs;
 
@@ -101,6 +101,7 @@ message Append {
   repeated BlockRef block_refs = 1;
   map<string, bool> children = 2;
   Commit last_ref = 3;
+  bool delete = 4;
 }
 
 message BlockInfo {
@@ -198,10 +199,6 @@ message InspectFileRequest {
   File file = 1;
   Shard shard = 2;
   Commit from_commit = 3;
-}
-
-message MakeDirectoryRequest {
-  File file = 1;
 }
 
 message ListFileRequest {
