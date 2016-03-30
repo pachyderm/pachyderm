@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"time"
@@ -30,13 +31,16 @@ type reader struct {
 
 func (r *reader) Read(p []byte) (int, error) {
 	size := 0
-	for ; r.lines > 0; r.lines-- {
+	for ; r.lines != 0; r.lines-- {
 		line := line()
 		if len(line) > len(p[size:]) {
 			break
 		}
 		copy(p[size:], line)
 		size += len(line)
+	}
+	if r.lines == 0 {
+		return size, io.EOF
 	}
 	return size, nil
 }
@@ -68,7 +72,7 @@ func main() {
 			return nil
 		}),
 	}
-	cmd.Flags().IntVarP(&commits, "commits", "c", 0, "commits to write")
-	cmd.Flags().IntVarP(&lines, "lines", "l", 0, "lines to write for each commit")
+	cmd.Flags().IntVarP(&commits, "commits", "c", 1, "commits to write")
+	cmd.Flags().IntVarP(&lines, "lines", "l", 100, "lines to write for each commit")
 	cmd.Execute()
 }
