@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"time"
+	"strings"
 
 	"github.com/dancannon/gorethink"
 	"github.com/golang/protobuf/proto"
@@ -61,6 +62,12 @@ func InitDBs(address string, databaseName string) error {
 		return err
 	}
 	if _, err := gorethink.DBCreate(databaseName).RunWrite(session); err != nil {
+		if isDatabaseExistsError(err) {
+			// We assume that the database has been created by another replica
+			// of pachd, so we exit peacefully.
+			return nil
+		}
+
 		return err
 	}
 	for _, table := range tables {
@@ -94,6 +101,12 @@ func InitDBs(address string, databaseName string) error {
 		return err
 	}
 	return nil
+}
+
+func isDatabaseExistsError(err error) bool {
+	// Unfortunately the gorethink client library does not expose a custom type
+	// for this particular error, so we have to resort to this hacky approach
+	return strings.Contains(err.Error(), "Database") && strings.Contains(err.Error(), "already exists")
 }
 
 type rethinkAPIServer struct {
