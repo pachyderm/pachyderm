@@ -21,7 +21,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
-	kubeAPI "k8s.io/kubernetes/pkg/api"
+	kube_api "k8s.io/kubernetes/pkg/api"
 )
 
 var (
@@ -77,7 +77,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 	if request.Shards == 0 {
-		nodeList, err := a.kubeClient.Nodes().List(kubeAPI.ListOptions{})
+		nodeList, err := a.kubeClient.Nodes().List(kube_api.ListOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: shards set to zero and unable to retrieve node list from k8s")
 		}
