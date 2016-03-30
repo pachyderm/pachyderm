@@ -68,6 +68,7 @@ func main() {
 				if err := pfs.FinishCommit(client, "data", "master"); err != nil {
 					return err
 				}
+				time.Sleep(5 * time.Second)
 			}
 			return nil
 		}),
