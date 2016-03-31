@@ -85,11 +85,14 @@ func printVerisonHeader(w io.Writer) {
 func printVersion(w io.Writer, component string, version *protoversion.Version) {
 	fmt.Fprintf(
 		w,
-		"%s\t%d.%d.%d(%s)\t\n",
+		"%s\t%d.%d.%d",
 		component,
 		version.Major,
 		version.Minor,
 		version.Micro,
-		version.Additional,
 	)
+	if version.Additional != "" {
+		fmt.Fprintf(w, "(%s)", version.Additional)
+	}
+	fmt.Fprintf(w, "\t\n")
 }
