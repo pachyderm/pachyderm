@@ -13,13 +13,13 @@ import (
 
 const (
 	// MajorVersion is the current major version for pachyderm.
-	MajorVersion = 0
+	MajorVersion = 1
 	// MinorVersion is the current minor version for pachyderm.
-	MinorVersion = 10
+	MinorVersion = 0
 	// MicroVersion is the current micro version for pachyderm.
 	MicroVersion = 0
 	// AdditionalVersion will be "dev" is this is a development branch, "" otherwise.
-	AdditionalVersion = "RC1"
+	AdditionalVersion = ""
 )
 
 var (
