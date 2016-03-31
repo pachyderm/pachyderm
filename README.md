@@ -14,6 +14,12 @@ WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our tea
 
 ### Getting Started
 
+Already got a kube cluster:
+
+```sh
+$ kubectl create -f http://pachyderm.io/manifest.json
+```
+
 Get up and running with the [fruit stand example](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md).
 
 ### What is Pachyderm?
