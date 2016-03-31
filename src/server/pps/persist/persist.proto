@@ -49,6 +49,10 @@ message PipelineInfos {
   repeated PipelineInfo pipeline_info = 1;
 }
 
+message Shard {
+    uint64 shard = 1;
+}
+
 service API {
   // Job rpcs
   // job_id cannot be set
@@ -74,7 +78,7 @@ service API {
   rpc DeletePipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
 
   // Atomically increment a number and return the old value
-  rpc ShardStart(string) (uint64) {}
+  rpc ShardStart(pps.Job) returns (Shard) {}
   // Atomically increment a number and return the new value
-  rpc ShardFinish(string) (uint64) {}
+  rpc ShardFinish(pps.Job) returns (Shard) {}
 }
