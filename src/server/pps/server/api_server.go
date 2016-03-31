@@ -86,17 +86,19 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			return nil, err
 		}
 	}
-	repoToFromCommit := make(map[string]*pfsclient.Commit)
+
 	reduce := false
 	if parentJobInfo != nil {
 		for _, jobInput := range parentJobInfo.Inputs {
 			if jobInput.Reduce {
 				reduce = true
-			} else {
-				// input isn't being reduced, do it incrementally
-				repoToFromCommit[jobInput.Commit.Repo.Name] = jobInput.Commit
 			}
 		}
+	}
+
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
 	}
 
 	startCommitRequest := &pfsclient.StartCommitRequest{}
@@ -109,7 +111,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 				return nil, err
 			}
 		} else {
-			startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: jobInfo.PipelineName})
+			startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
 		}
 	} else {
 		startCommitRequest.Repo = parentJobInfo.OutputCommit.Repo
@@ -135,7 +137,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if a.kubeClient == nil {
 		return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: no job backend")
 	}
-	_, err := a.persistAPIServer.CreateJobInfo(ctx, persistJobInfo)
+	_, err = a.persistAPIServer.CreateJobInfo(ctx, persistJobInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +199,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, fmt.Errorf("jobInfo.Transform should not be nil (this is likely a bug)")
 	}
 
-	_shard, err := a.persistAPIServer.ShardStart(ctx, request.Job.ID)
+	_shard, err := a.persistAPIServer.ShardStart(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
@@ -206,9 +208,23 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	if shard >= jobInfo.Shards {
 		return nil, fmt.Errorf("job %s already has %d shards", request.Job.ID, jobInfo.Shards)
 	}
-	pfsAPIClient, err := a.getPfsClient()
-	if err != nil {
-		return nil, err
+
+	var parentJobInfo *persist.JobInfo
+	if jobInfo.ParentJob != nil {
+		inspectJobRequest := &ppsclient.InspectJobRequest{Job: jobInfo.ParentJob}
+		parentJobInfo, err = a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
+		if err != nil {
+			return nil, err
+		}
+	}
+	repoToFromCommit := make(map[string]*pfsclient.Commit)
+	if parentJobInfo != nil {
+		for _, jobInput := range parentJobInfo.Inputs {
+			if !jobInput.Reduce {
+				// input isn't being reduced, do it incrementally
+				repoToFromCommit[jobInput.Commit.Repo.Name] = jobInput.Commit
+			}
+		}
 	}
 
 	if jobInfo.OutputCommit == nil {
@@ -255,12 +271,12 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	var finished bool
 	persistJobState := ppsclient.JobState_JOB_STATE_FAILURE
 	if err := func() error {
-		shards_finished, err := a.persistAPIServer.ShardFinish(request.Job.ID)
+		shards_finished, err := a.persistAPIServer.ShardFinish(ctx, request.Job)
 		if err != nil {
 			return err
 		}
 
-		finished = (shards_finished == jobInfo.Shards)
+		finished = (shards_finished.Shard == jobInfo.Shards)
 		return nil
 	}(); err != nil {
 		return nil, err
