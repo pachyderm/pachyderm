@@ -101,10 +101,9 @@ Server Version: version.Info{Major:"1", Minor:"1", GitVersion:"v1.2.0", GitCommi
 From the root of this repo:
 
 ```shell
-$ make launch
+$ kubectl create -f http://pachyderm.io/manifest.json
 ```
 
-This passes the manifest located at `etc/kube/pachyderm.json` to `kubectl create`.
 Here's what a functioning cluster looks like:
 
 ```shell
