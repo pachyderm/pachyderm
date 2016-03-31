@@ -101,7 +101,9 @@ integration-tests:
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
 	rm -rf src/server/vendor
-	sudo -E protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src
+	sudo env PATH=$(PATH) GOPATH=$(GOPATH) protoeasy --grpc --go --go-import-path github.com/pachyderm/pachyderm/src src
+
+protofix:
 	go install github.com/pachyderm/pachyderm/src/server/cmd/protofix
 	protofix fix src
 	git checkout src/server/vendor

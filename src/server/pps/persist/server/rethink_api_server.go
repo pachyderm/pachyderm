@@ -9,7 +9,6 @@ import (
 	"github.com/dancannon/gorethink"
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"go.pedge.io/pb/go/google/protobuf"
@@ -146,7 +145,6 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	if request.CommitIndex != "" {
 		return nil, fmt.Errorf("request.CommitIndex should be unset")
 	}
-	request.JobID = uuid.NewWithoutDashes()
 	request.CreatedAt = prototime.TimeToTimestamp(time.Now())
 	var commits []*pfs.Commit
 	for _, input := range request.Inputs {
