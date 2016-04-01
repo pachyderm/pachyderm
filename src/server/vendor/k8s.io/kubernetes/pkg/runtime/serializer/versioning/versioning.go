@@ -24,22 +24,60 @@ import (
 	"k8s.io/kubernetes/pkg/runtime"
 )
 
+// EnableCrossGroupDecoding modifies the given decoder in place, if it is a codec
+// from this package. It allows objects from one group to be auto-decoded into
+// another group. 'destGroup' must already exist in the codec.
+func EnableCrossGroupDecoding(d runtime.Decoder, sourceGroup, destGroup string) error {
+	internal, ok := d.(*codec)
+	if !ok {
+		return fmt.Errorf("unsupported decoder type")
+	}
+
+	dest, ok := internal.decodeVersion[destGroup]
+	if !ok {
+		return fmt.Errorf("group %q is not a possible destination group in the given codec", destGroup)
+	}
+	internal.decodeVersion[sourceGroup] = dest
+
+	return nil
+}
+
+// EnableCrossGroupEncoding modifies the given encoder in place, if it is a codec
+// from this package. It allows objects from one group to be auto-decoded into
+// another group. 'destGroup' must already exist in the codec.
+func EnableCrossGroupEncoding(e runtime.Encoder, sourceGroup, destGroup string) error {
+	internal, ok := e.(*codec)
+	if !ok {
+		return fmt.Errorf("unsupported encoder type")
+	}
+
+	dest, ok := internal.encodeVersion[destGroup]
+	if !ok {
+		return fmt.Errorf("group %q is not a possible destination group in the given codec", destGroup)
+	}
+	internal.encodeVersion[sourceGroup] = dest
+
+	return nil
+}
+
 // NewCodecForScheme is a convenience method for callers that are using a scheme.
 func NewCodecForScheme(
 	// TODO: I should be a scheme interface?
 	scheme *runtime.Scheme,
-	serializer runtime.Serializer,
+	encoder runtime.Encoder,
+	decoder runtime.Decoder,
 	encodeVersion []unversioned.GroupVersion,
 	decodeVersion []unversioned.GroupVersion,
 ) runtime.Codec {
-	return NewCodec(serializer, scheme, scheme, scheme, runtime.ObjectTyperToTyper(scheme), encodeVersion, decodeVersion)
+	return NewCodec(encoder, decoder, scheme, scheme, scheme, runtime.ObjectTyperToTyper(scheme), encodeVersion, decodeVersion)
 }
 
 // NewCodec takes objects in their internal versions and converts them to external versions before
 // serializing them. It assumes the serializer provided to it only deals with external versions.
 // This class is also a serializer, but is generally used with a specific version.
 func NewCodec(
-	serializer runtime.Serializer,
+	encoder runtime.Encoder,
+	decoder runtime.Decoder,
 	convertor runtime.ObjectConvertor,
 	creater runtime.ObjectCreater,
 	copier runtime.ObjectCopier,
@@ -48,21 +86,30 @@ func NewCodec(
 	decodeVersion []unversioned.GroupVersion,
 ) runtime.Codec {
 	internal := &codec{
-		serializer: serializer,
-		convertor:  convertor,
-		creater:    creater,
-		copier:     copier,
-		typer:      typer,
+		encoder:   encoder,
+		decoder:   decoder,
+		convertor: convertor,
+		creater:   creater,
+		copier:    copier,
+		typer:     typer,
 	}
 	if encodeVersion != nil {
 		internal.encodeVersion = make(map[string]unversioned.GroupVersion)
 		for _, v := range encodeVersion {
+			// first one for a group wins.  This is consistent with best to worst order throughout the codebase
+			if _, ok := internal.encodeVersion[v.Group]; ok {
+				continue
+			}
 			internal.encodeVersion[v.Group] = v
 		}
 	}
 	if decodeVersion != nil {
 		internal.decodeVersion = make(map[string]unversioned.GroupVersion)
 		for _, v := range decodeVersion {
+			// first one for a group wins.  This is consistent with best to worst order throughout the codebase
+			if _, ok := internal.decodeVersion[v.Group]; ok {
+				continue
+			}
 			internal.decodeVersion[v.Group] = v
 		}
 	}
@@ -71,11 +118,12 @@ func NewCodec(
 }
 
 type codec struct {
-	serializer runtime.Serializer
-	convertor  runtime.ObjectConvertor
-	creater    runtime.ObjectCreater
-	copier     runtime.ObjectCopier
-	typer      runtime.Typer
+	encoder   runtime.Encoder
+	decoder   runtime.Decoder
+	convertor runtime.ObjectConvertor
+	creater   runtime.ObjectCreater
+	copier    runtime.ObjectCopier
+	typer     runtime.Typer
 
 	encodeVersion map[string]unversioned.GroupVersion
 	decodeVersion map[string]unversioned.GroupVersion
@@ -90,7 +138,7 @@ func (c *codec) Decode(data []byte, defaultGVK *unversioned.GroupVersionKind, in
 		into = versioned.Last()
 	}
 
-	obj, gvk, err := c.serializer.Decode(data, defaultGVK, into)
+	obj, gvk, err := c.decoder.Decode(data, defaultGVK, into)
 	if err != nil {
 		return nil, gvk, err
 	}
@@ -169,7 +217,7 @@ func (c *codec) Decode(data []byte, defaultGVK *unversioned.GroupVersionKind, in
 // encoding the object the first override that matches the object's group is used. Other overrides are ignored.
 func (c *codec) EncodeToStream(obj runtime.Object, w io.Writer, overrides ...unversioned.GroupVersion) error {
 	if _, ok := obj.(*runtime.Unknown); ok {
-		return c.serializer.EncodeToStream(obj, w, overrides...)
+		return c.encoder.EncodeToStream(obj, w, overrides...)
 	}
 	gvk, isUnversioned, err := c.typer.ObjectKind(obj)
 	if err != nil {
@@ -180,7 +228,7 @@ func (c *codec) EncodeToStream(obj runtime.Object, w io.Writer, overrides ...unv
 		old := obj.GetObjectKind().GroupVersionKind()
 		obj.GetObjectKind().SetGroupVersionKind(gvk)
 		defer obj.GetObjectKind().SetGroupVersionKind(old)
-		return c.serializer.EncodeToStream(obj, w, overrides...)
+		return c.encoder.EncodeToStream(obj, w, overrides...)
 	}
 
 	targetGV, ok := c.encodeVersion[gvk.Group]
@@ -226,7 +274,7 @@ func (c *codec) EncodeToStream(obj runtime.Object, w io.Writer, overrides ...unv
 		obj.GetObjectKind().SetGroupVersionKind(&unversioned.GroupVersionKind{Group: targetGV.Group, Version: targetGV.Version, Kind: gvk.Kind})
 	}
 
-	return c.serializer.EncodeToStream(obj, w, overrides...)
+	return c.encoder.EncodeToStream(obj, w, overrides...)
 }
 
 // promoteOrPrependGroupVersion finds the group version in the provided group versions that has the same group as target.

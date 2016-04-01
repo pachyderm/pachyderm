@@ -29,3 +29,11 @@ func SetVerbose(verbose bool) {
 
 	Log.Level = logrus.InfoLevel
 }
+
+// SetTags allows you to override the tags used when decoding or encoding
+// structs. The driver will check for the tags in the same order that they were
+// passed into this function. If no parameters are passed then the driver will
+// default to checking for the gorethink tag.
+func SetTags(tags ...string) {
+	encoding.Tags = tags
+}

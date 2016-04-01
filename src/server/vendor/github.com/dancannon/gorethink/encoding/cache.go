@@ -19,6 +19,8 @@ type field struct {
 	typ       reflect.Type
 	omitEmpty bool
 	quoted    bool
+	reference bool
+	refName   string
 }
 
 func fillField(f field) field {
@@ -103,6 +105,7 @@ func typeFields(t reflect.Type) []field {
 				if sf.PkgPath != "" && !sf.Anonymous { // unexported
 					continue
 				}
+				// Extract field name from tag
 				tag := getTag(sf)
 				if tag == "-" {
 					continue
@@ -110,6 +113,12 @@ func typeFields(t reflect.Type) []field {
 				name, opts := parseTag(tag)
 				if !isValidTag(name) {
 					name = ""
+				}
+				// Extract referenced field from tags
+				refTag := getRefTag(sf)
+				ref, _ := parseTag(refTag)
+				if !isValidTag(ref) {
+					ref = ""
 				}
 				index := make([]int, len(f.index)+1)
 				copy(index, f.index)
@@ -133,6 +142,8 @@ func typeFields(t reflect.Type) []field {
 						index:     index,
 						typ:       ft,
 						omitEmpty: opts.Contains("omitempty"),
+						reference: opts.Contains("reference"),
+						refName:   ref,
 					}))
 					if count[f.typ] > 1 {
 						// If there were multiple instances, add a second,

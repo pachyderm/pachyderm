@@ -126,11 +126,11 @@ func getCgroupMountsHelper(ss map[string]bool, mi io.Reader) ([]Mount, error) {
 	scanner := bufio.NewScanner(mi)
 	for scanner.Scan() {
 		txt := scanner.Text()
-		sepIdx := strings.IndexByte(txt, '-')
+		sepIdx := strings.Index(txt, " - ")
 		if sepIdx == -1 {
 			return nil, fmt.Errorf("invalid mountinfo format")
 		}
-		if txt[sepIdx+2:sepIdx+8] != "cgroup" {
+		if txt[sepIdx+3:sepIdx+9] != "cgroup" {
 			continue
 		}
 		fields := strings.Split(txt, " ")
@@ -326,7 +326,7 @@ func RemovePaths(paths map[string]string) (err error) {
 			return nil
 		}
 	}
-	return fmt.Errorf("Failed to remove paths: %s", paths)
+	return fmt.Errorf("Failed to remove paths: %v", paths)
 }
 
 func GetHugePageSize() ([]string, error) {

@@ -27,19 +27,19 @@ version:
 	@go run /tmp/pachyderm_version.go
 
 deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v ./src/... ./.
+	GO15VENDOREXPERIMENT=0 go get -d -v ./src/...
 
 deps-client: 
 	GO15VENDOREXPERIMENT=0 go get -d -v ./src/client/...
 
 update-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -u -f ./src/... ./.
+	GO15VENDOREXPERIMENT=0 go get -d -v -u -f ./src/...
 
 test-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -t ./src/... ./.
+	GO15VENDOREXPERIMENT=0 go get -d -v -t ./src/...
 
 update-test-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/... ./.
+	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/...
 
 build-clean-vendored-client:
 	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
@@ -99,13 +99,11 @@ integration-tests:
 	go test ./src/server -timeout 120s
 
 proto:
-	go get -v go.pedge.io/protoeasy/cmd/protoeasy
-	rm -rf src/server/vendor
-	sudo -E protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src
+	go get -u -v go.pedge.io/protoeasy/cmd/protoeasy
+	sudo -E $(shell which protoeasy) --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src --exclude src/server/vendor src
+	sudo chown -R `whoami` src/
 	go install github.com/pachyderm/pachyderm/src/server/cmd/protofix
 	protofix fix src
-	git checkout src/server/vendor
-	sudo chown -R `whoami` src/
 
 pretest:
 	go get -v github.com/kisielk/errcheck

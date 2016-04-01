@@ -24,9 +24,6 @@ import (
 func addDefaultingFuncs(scheme *runtime.Scheme) {
 	scheme.AddDefaultingFuncs(
 		func(obj *APIVersion) {
-			if len(obj.APIGroup) == 0 {
-				obj.APIGroup = GroupName
-			}
 		},
 		func(obj *DaemonSet) {
 			labels := obj.Spec.Template.Labels
@@ -41,25 +38,6 @@ func addDefaultingFuncs(scheme *runtime.Scheme) {
 				if len(obj.Labels) == 0 {
 					obj.Labels = labels
 				}
-			}
-			updateStrategy := &obj.Spec.UpdateStrategy
-			if updateStrategy.Type == "" {
-				updateStrategy.Type = RollingUpdateDaemonSetStrategyType
-			}
-			if updateStrategy.Type == RollingUpdateDaemonSetStrategyType {
-				if updateStrategy.RollingUpdate == nil {
-					rollingUpdate := RollingUpdateDaemonSet{}
-					updateStrategy.RollingUpdate = &rollingUpdate
-				}
-				if updateStrategy.RollingUpdate.MaxUnavailable == nil {
-					// Set default MaxUnavailable as 1 by default.
-					maxUnavailable := intstr.FromInt(1)
-					updateStrategy.RollingUpdate.MaxUnavailable = &maxUnavailable
-				}
-			}
-			if obj.Spec.UniqueLabelKey == nil {
-				obj.Spec.UniqueLabelKey = new(string)
-				*obj.Spec.UniqueLabelKey = DefaultDaemonSetUniqueLabelKey
 			}
 		},
 		func(obj *Deployment) {
@@ -105,7 +83,14 @@ func addDefaultingFuncs(scheme *runtime.Scheme) {
 			labels := obj.Spec.Template.Labels
 			// TODO: support templates defined elsewhere when we support them in the API
 			if labels != nil {
-				if obj.Spec.Selector == nil {
+				// if an autoselector is requested, we'll build the selector later with controller-uid and job-name
+				autoSelector := bool(obj.Spec.AutoSelector != nil && *obj.Spec.AutoSelector)
+
+				// otherwise, we are using a manual selector
+				manualSelector := !autoSelector
+
+				// and default behavior for an unspecified manual selector is to use the pod template labels
+				if manualSelector && obj.Spec.Selector == nil {
 					obj.Spec.Selector = &LabelSelector{
 						MatchLabels: labels,
 					}
@@ -137,10 +122,8 @@ func addDefaultingFuncs(scheme *runtime.Scheme) {
 			}
 		},
 		func(obj *ReplicaSet) {
-			var labels map[string]string
-			if obj.Spec.Template != nil {
-				labels = obj.Spec.Template.Labels
-			}
+			labels := obj.Spec.Template.Labels
+
 			// TODO: support templates defined elsewhere when we support them in the API
 			if labels != nil {
 				if obj.Spec.Selector == nil {

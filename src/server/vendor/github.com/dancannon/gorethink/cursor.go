@@ -163,7 +163,7 @@ func (c *Cursor) Next(dest interface{}) bool {
 		return false
 	}
 
-	hasMore, err := c.loadNextLocked(dest)
+	hasMore, err := c.nextLocked(dest)
 	if c.handleErrorLocked(err) != nil {
 		c.mu.Unlock()
 		c.Close()
@@ -178,7 +178,7 @@ func (c *Cursor) Next(dest interface{}) bool {
 	return hasMore
 }
 
-func (c *Cursor) loadNextLocked(dest interface{}) (bool, error) {
+func (c *Cursor) nextLocked(dest interface{}) (bool, error) {
 	for {
 		if c.lastErr != nil {
 			return false, c.lastErr
@@ -247,6 +247,71 @@ func (c *Cursor) loadNextLocked(dest interface{}) (bool, error) {
 			}
 
 			return true, nil
+		}
+	}
+}
+
+// Next retrieves the next raw response from the result set, blocking if necessary.
+// Unlike Next the returned response is the raw JSON document returned from the
+// database.
+//
+// NextResponse returns false (and a nil byte slice) at the end of the result
+// set or if an error happened.
+func (c *Cursor) NextResponse() ([]byte, bool) {
+	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		return nil, false
+	}
+
+	b, hasMore, err := c.nextResponseLocked()
+	if c.handleErrorLocked(err) != nil {
+		c.mu.Unlock()
+		c.Close()
+		return nil, false
+	}
+	c.mu.Unlock()
+
+	if !hasMore {
+		c.Close()
+	}
+
+	return b, hasMore
+}
+
+func (c *Cursor) nextResponseLocked() ([]byte, bool, error) {
+	for {
+		if c.lastErr != nil {
+			return nil, false, c.lastErr
+		}
+
+		// Check if response is closed/finished
+		if len(c.responses) == 0 && c.closed {
+			return nil, false, errCursorClosed
+		}
+
+		if len(c.responses) == 0 && !c.finished {
+			c.mu.Unlock()
+			err := c.fetchMore()
+			c.mu.Lock()
+			if err != nil {
+				return nil, false, err
+			}
+			// Check if cursor was closed while fetching results
+			if c.closed {
+				return nil, false, nil
+			}
+		}
+
+		if len(c.responses) == 0 && c.finished {
+			return nil, false, nil
+		}
+
+		if len(c.responses) > 0 {
+			var response json.RawMessage
+			response, c.responses = c.responses[0], c.responses[1:]
+
+			return []byte(response), true, nil
 		}
 	}
 }

@@ -68,26 +68,27 @@ type Writer struct {
 	oldattr word
 }
 
-func NewColorableStdout() io.Writer {
-	var csbi consoleScreenBufferInfo
-	out := os.Stdout
-	if !isatty.IsTerminal(out.Fd()) {
-		return out
+func NewColorable(file *os.File) io.Writer {
+	if file == nil {
+		panic("nil passed instead of *os.File to NewColorable()")
 	}
-	handle := syscall.Handle(out.Fd())
-	procGetConsoleScreenBufferInfo.Call(uintptr(handle), uintptr(unsafe.Pointer(&csbi)))
-	return &Writer{out: out, handle: handle, oldattr: csbi.attributes}
+
+	if isatty.IsTerminal(file.Fd()) {
+		var csbi consoleScreenBufferInfo
+		handle := syscall.Handle(file.Fd())
+		procGetConsoleScreenBufferInfo.Call(uintptr(handle), uintptr(unsafe.Pointer(&csbi)))
+		return &Writer{out: file, handle: handle, oldattr: csbi.attributes}
+	} else {
+		return file
+	}
+}
+
+func NewColorableStdout() io.Writer {
+	return NewColorable(os.Stdout)
 }
 
 func NewColorableStderr() io.Writer {
-	var csbi consoleScreenBufferInfo
-	out := os.Stderr
-	if !isatty.IsTerminal(out.Fd()) {
-		return out
-	}
-	handle := syscall.Handle(out.Fd())
-	procGetConsoleScreenBufferInfo.Call(uintptr(handle), uintptr(unsafe.Pointer(&csbi)))
-	return &Writer{out: out, handle: handle, oldattr: csbi.attributes}
+	return NewColorable(os.Stderr)
 }
 
 var color256 = map[int]int{
