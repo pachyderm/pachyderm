@@ -236,10 +236,10 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			},
 		}
 		if jobInput.Reduce {
-			commitMount.Shard.FileNumber = jobInfo.ShardsStarted
+			commitMount.Shard.FileNumber = jobInfo.ShardsStarted - 1
 			commitMount.Shard.FileModulus = jobInfo.Shards
 		} else {
-			commitMount.Shard.BlockNumber = jobInfo.ShardsStarted
+			commitMount.Shard.BlockNumber = jobInfo.ShardsStarted - 1
 			commitMount.Shard.BlockModulus = jobInfo.Shards
 		}
 		commitMounts = append(commitMounts, commitMount)
@@ -252,7 +252,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
-		Index:        jobInfo.ShardsStarted,
+		Index:        jobInfo.ShardsStarted - 1,
 	}, nil
 }
 
