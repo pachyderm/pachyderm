@@ -20,6 +20,9 @@ message JobInfo {
   pfs.Commit output_commit = 8;
   pps.JobState state = 9;
   string commit_index = 10;
+  uint64 shards_started = 11;
+  uint64 shards_succeeded = 12;
+  uint64 shards_failed = 13;
 }
 
 message JobInfos {
@@ -77,8 +80,9 @@ service API {
   rpc ListPipelineInfos(google.protobuf.Empty) returns (PipelineInfos) {}
   rpc DeletePipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
 
-  // Atomically increment a number and return the old value
-  rpc ShardStart(pps.Job) returns (Shard) {}
-  // Atomically increment a number and return the new value
-  rpc ShardFinish(pps.Job) returns (Shard) {}
+  // Shard rpcs
+  // Returns the new job info
+  rpc ShardStart(pps.Job) returns (JobInfo) {}
+  rpc ShardSucceed(pps.Job) returns (JobInfo) {}
+  rpc ShardFail(pps.Job) returns (JobInfo) {}
 }
