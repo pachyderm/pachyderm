@@ -408,7 +408,6 @@ func NewInternalGetFileServerWrapper(getFileServer InternalAPI_GetFileServer) pr
 func (g *getFileServerWrapper) Send(value *google_protobuf.BytesValue) error {
 	if g.getFileServer != nil {
 		return g.getFileServer.Send(&GetFileResponse{&GetFileResponse_Value{value.Value}})
-	} else {
-		return g.internalGetFileServer.Send(&GetFileResponse{&GetFileResponse_Value{value.Value}})
 	}
+	return g.internalGetFileServer.Send(&GetFileResponse{&GetFileResponse_Value{value.Value}})
 }
