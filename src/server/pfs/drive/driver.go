@@ -955,9 +955,10 @@ func (r *fileReader) blockRef() *pfsclient.BlockRef {
 
 func (r *fileReader) Read(data []byte) (int, error) {
 	if r.reader == nil {
-		for r.offset != 0 && r.offset > int64(pfsserver.ByteRangeSize(r.blockRef().Range)) {
-			r.index++
+		// skip blocks as long as our offset is past the end of the current block
+		for r.offset != 0 && r.index < len(r.blockRefs) && r.offset > int64(pfsserver.ByteRangeSize(r.blockRef().Range)) {
 			r.offset -= int64(pfsserver.ByteRangeSize(r.blockRef().Range))
+			r.index++
 		}
 		if r.index == len(r.blockRefs) {
 			return 0, io.EOF
