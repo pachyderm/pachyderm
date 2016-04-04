@@ -190,23 +190,18 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 
 func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobRequest) (response *ppsserver.StartJobResponse, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	inspectJobRequest := &ppsclient.InspectJobRequest{Job: request.Job}
-	jobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
+
+	jobInfo, err := a.persistAPIServer.ShardStart(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
+
+	if jobInfo.ShardsStarted > jobInfo.Shards {
+		return nil, fmt.Errorf("job %s already has %d shards", request.Job.ID, jobInfo.Shards)
+	}
+
 	if jobInfo.Transform == nil {
 		return nil, fmt.Errorf("jobInfo.Transform should not be nil (this is likely a bug)")
-	}
-
-	_shard, err := a.persistAPIServer.ShardStart(ctx, request.Job)
-	if err != nil {
-		return nil, err
-	}
-	shard := _shard.Shard
-
-	if shard >= jobInfo.Shards {
-		return nil, fmt.Errorf("job %s already has %d shards", request.Job.ID, jobInfo.Shards)
 	}
 
 	var parentJobInfo *persist.JobInfo
@@ -241,10 +236,10 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			},
 		}
 		if jobInput.Reduce {
-			commitMount.Shard.FileNumber = shard
+			commitMount.Shard.FileNumber = jobInfo.ShardsStarted
 			commitMount.Shard.FileModulus = jobInfo.Shards
 		} else {
-			commitMount.Shard.BlockNumber = shard
+			commitMount.Shard.BlockNumber = jobInfo.ShardsStarted
 			commitMount.Shard.BlockModulus = jobInfo.Shards
 		}
 		commitMounts = append(commitMounts, commitMount)
@@ -257,31 +252,26 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
-		Index:        shard,
+		Index:        jobInfo.ShardsStarted,
 	}, nil
 }
 
 func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	inspectJobRequest := &ppsclient.InspectJobRequest{Job: request.Job}
-	jobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
-	if err != nil {
-		return nil, err
-	}
-	var finished bool
-	persistJobState := ppsclient.JobState_JOB_STATE_FAILURE
-	if err := func() error {
-		shards_finished, err := a.persistAPIServer.ShardFinish(ctx, request.Job)
+	var jobInfo *persist.JobInfo
+	var err error
+	if request.Success {
+		jobInfo, err = a.persistAPIServer.ShardSucceed(ctx, request.Job)
 		if err != nil {
-			return err
+			return nil, err
 		}
-
-		finished = (shards_finished.Shard == jobInfo.Shards)
-		return nil
-	}(); err != nil {
-		return nil, err
+	} else {
+		jobInfo, err = a.persistAPIServer.ShardFail(ctx, request.Job)
+		if err != nil {
+			return nil, err
+		}
 	}
-	if finished {
+	if jobInfo.ShardsSucceeded+jobInfo.ShardsFailed == jobInfo.Shards {
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
 		}
@@ -294,9 +284,13 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		}); err != nil {
 			return nil, err
 		}
+		jobState := ppsclient.JobState_JOB_STATE_FAILURE
+		if jobInfo.ShardsSucceeded == jobInfo.Shards {
+			jobState = ppsclient.JobState_JOB_STATE_SUCCESS
+		}
 		if _, err := a.persistAPIServer.CreateJobState(ctx, &persist.JobState{
 			JobID: request.Job.ID,
-			State: persistJobState,
+			State: jobState,
 		}); err != nil {
 			return nil, err
 		}
