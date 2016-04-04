@@ -1688,8 +1688,6 @@ type InternalAPIClient interface {
 	PutFile(ctx context.Context, opts ...grpc.CallOption) (InternalAPI_PutFileClient, error)
 	// GetFile returns a byte stream of the contents of the file.
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (InternalAPI_GetFileClient, error)
-	// GetFileRef returns BlockRefs for the content of the file
-	GetFileRef(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (*BlockRefs, error)
 	// InspectFile returns info about a file.
 	InspectFile(ctx context.Context, in *InspectFileRequest, opts ...grpc.CallOption) (*FileInfo, error)
 	// ListFile returns info about all files.
@@ -1846,7 +1844,7 @@ func (c *internalAPIClient) GetFile(ctx context.Context, in *GetFileRequest, opt
 }
 
 type InternalAPI_GetFileClient interface {
-	Recv() (*google_protobuf3.BytesValue, error)
+	Recv() (*GetFileResponse, error)
 	grpc.ClientStream
 }
 
@@ -1854,21 +1852,12 @@ type internalAPIGetFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *internalAPIGetFileClient) Recv() (*google_protobuf3.BytesValue, error) {
-	m := new(google_protobuf3.BytesValue)
+func (x *internalAPIGetFileClient) Recv() (*GetFileResponse, error) {
+	m := new(GetFileResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
-}
-
-func (c *internalAPIClient) GetFileRef(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (*BlockRefs, error) {
-	out := new(BlockRefs)
-	err := grpc.Invoke(ctx, "/pfs.InternalAPI/GetFileRef", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *internalAPIClient) InspectFile(ctx context.Context, in *InspectFileRequest, opts ...grpc.CallOption) (*FileInfo, error) {
@@ -1929,8 +1918,6 @@ type InternalAPIServer interface {
 	PutFile(InternalAPI_PutFileServer) error
 	// GetFile returns a byte stream of the contents of the file.
 	GetFile(*GetFileRequest, InternalAPI_GetFileServer) error
-	// GetFileRef returns BlockRefs for the content of the file
-	GetFileRef(context.Context, *GetFileRequest) (*BlockRefs, error)
 	// InspectFile returns info about a file.
 	InspectFile(context.Context, *InspectFileRequest) (*FileInfo, error)
 	// ListFile returns info about all files.
@@ -2098,7 +2085,7 @@ func _InternalAPI_GetFile_Handler(srv interface{}, stream grpc.ServerStream) err
 }
 
 type InternalAPI_GetFileServer interface {
-	Send(*google_protobuf3.BytesValue) error
+	Send(*GetFileResponse) error
 	grpc.ServerStream
 }
 
@@ -2106,20 +2093,8 @@ type internalAPIGetFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *internalAPIGetFileServer) Send(m *google_protobuf3.BytesValue) error {
+func (x *internalAPIGetFileServer) Send(m *GetFileResponse) error {
 	return x.ServerStream.SendMsg(m)
-}
-
-func _InternalAPI_GetFileRef_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
-	in := new(GetFileRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	out, err := srv.(InternalAPIServer).GetFileRef(ctx, in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func _InternalAPI_InspectFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
@@ -2201,10 +2176,6 @@ var _InternalAPI_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListBranch",
 			Handler:    _InternalAPI_ListBranch_Handler,
-		},
-		{
-			MethodName: "GetFileRef",
-			Handler:    _InternalAPI_GetFileRef_Handler,
 		},
 		{
 			MethodName: "InspectFile",
