@@ -52,10 +52,6 @@ message PipelineInfos {
   repeated PipelineInfo pipeline_info = 1;
 }
 
-message Shard {
-    uint64 shard = 1;
-}
-
 service API {
   // Job rpcs
   // job_id cannot be set

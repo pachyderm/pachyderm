@@ -27,7 +27,7 @@ const (
 )
 
 func TestJob(t *testing.T) {
-	testJob(t, 1)
+	testJob(t, 4)
 }
 
 func TestJobNoShard(t *testing.T) {
@@ -40,12 +40,13 @@ func testJob(t *testing.T, shards int) {
 	}
 
 	t.Parallel()
-	dataRepo := uniqueString("TestJob.data")
+	rand := rand.New(rand.NewSource(0))
 	pachClient := getPachClient(t)
+	dataRepo := uniqueString("TestJob.data")
 	require.NoError(t, pfsclient.CreateRepo(pachClient, dataRepo))
 	commit, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, "file", 0, strings.NewReader("foo\n"))
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, "file", 0, workload.NewReader(rand, KB))
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
 	job, err := ppsclient.CreateJob(
@@ -72,7 +73,7 @@ func testJob(t *testing.T, shards int) {
 	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
 	var buffer bytes.Buffer
 	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
-	require.Equal(t, "foo\n", buffer.String())
+	require.Equal(t, KB, len(buffer.String()))
 }
 
 func TestGrep(t *testing.T) {
