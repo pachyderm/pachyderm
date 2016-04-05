@@ -78,7 +78,7 @@ service API {
 
   // Shard rpcs
   // Returns the new job info
-  rpc ShardStart(pps.Job) returns (JobInfo) {}
-  rpc ShardSucceed(pps.Job) returns (JobInfo) {}
-  rpc ShardFail(pps.Job) returns (JobInfo) {}
+  rpc StartShard(pps.Job) returns (JobInfo) {}
+  rpc SucceedShard(pps.Job) returns (JobInfo) {}
+  rpc FailShard(pps.Job) returns (JobInfo) {}
 }

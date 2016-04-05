@@ -191,7 +191,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobRequest) (response *ppsserver.StartJobResponse, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	jobInfo, err := a.persistAPIServer.ShardStart(ctx, request.Job)
+	jobInfo, err := a.persistAPIServer.StartShard(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
@@ -261,12 +261,12 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 	var jobInfo *persist.JobInfo
 	var err error
 	if request.Success {
-		jobInfo, err = a.persistAPIServer.ShardSucceed(ctx, request.Job)
+		jobInfo, err = a.persistAPIServer.SucceedShard(ctx, request.Job)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		jobInfo, err = a.persistAPIServer.ShardFail(ctx, request.Job)
+		jobInfo, err = a.persistAPIServer.FailShard(ctx, request.Job)
 		if err != nil {
 			return nil, err
 		}

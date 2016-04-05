@@ -9,7 +9,6 @@ import (
 	"github.com/dancannon/gorethink"
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"go.pedge.io/pb/go/google/protobuf"
@@ -137,14 +136,14 @@ func (a *rethinkAPIServer) Close() error {
 // Timestamp cannot be set
 func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.JobInfo) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
+	if request.JobID == "" {
+		return nil, fmt.Errorf("request.JobID should be set")
+	}
 	if request.CreatedAt != nil {
 		return nil, fmt.Errorf("request.CreatedAt should be unset")
 	}
 	if request.CommitIndex != "" {
 		return nil, fmt.Errorf("request.CommitIndex should be unset")
-	}
-	if request.JobID == "" {
-		request.JobID = uuid.NewWithoutDashes()
 	}
 	request.CreatedAt = prototime.TimeToTimestamp(time.Now())
 	var commits []*pfs.Commit
@@ -319,17 +318,17 @@ func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *ppsc
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *rethinkAPIServer) ShardStart(ctx context.Context, request *ppsclient.Job) (response *persist.JobInfo, retErr error) {
+func (a *rethinkAPIServer) StartShard(ctx context.Context, request *ppsclient.Job) (response *persist.JobInfo, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return a.shardOp(ctx, request, "ShardsStarted")
 }
 
-func (a *rethinkAPIServer) ShardSucceed(ctx context.Context, request *ppsclient.Job) (response *persist.JobInfo, retErr error) {
+func (a *rethinkAPIServer) SucceedShard(ctx context.Context, request *ppsclient.Job) (response *persist.JobInfo, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return a.shardOp(ctx, request, "ShardsSucceeded")
 }
 
-func (a *rethinkAPIServer) ShardFail(ctx context.Context, request *ppsclient.Job) (response *persist.JobInfo, retErr error) {
+func (a *rethinkAPIServer) FailShard(ctx context.Context, request *ppsclient.Job) (response *persist.JobInfo, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return a.shardOp(ctx, request, "ShardsFailed")
 }
@@ -340,7 +339,6 @@ func (a *rethinkAPIServer) shardOp(ctx context.Context, request *ppsclient.Job, 
 	}, gorethink.UpdateOpts{
 		ReturnChanges: true,
 	}).Field("changes").Field("new_val").Run(a.session)
-
 	if err != nil {
 		return nil, err
 	}
