@@ -87,36 +87,47 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
-	reduce := false
-	if parentJobInfo != nil {
-		for _, jobInput := range parentJobInfo.Inputs {
-			if jobInput.Reduce {
-				reduce = true
-			}
-		}
-	}
-
 	pfsAPIClient, err := a.getPfsClient()
 	if err != nil {
 		return nil, err
 	}
 
 	startCommitRequest := &pfsclient.StartCommitRequest{}
-	if parentJobInfo == nil || reduce {
-		if request.Pipeline == nil {
+
+	// If JobInfo.Pipeline is set, use the pipeline repo
+	if request.Pipeline != nil {
+		startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
+	} else {
+		// If parent is set, use the parent's repo
+		if parentJobInfo != nil {
+			startCommitRequest.Repo = parentJobInfo.OutputCommit.Repo
+		} else {
+			// Otherwise, create a repo for this job
 			startCommitRequest.Repo = ppsserver.JobRepo(&ppsclient.Job{
 				ID: jobID,
 			})
 			if _, err := pfsAPIClient.CreateRepo(ctx, &pfsclient.CreateRepoRequest{Repo: startCommitRequest.Repo}); err != nil {
 				return nil, err
 			}
-		} else {
-			startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
 		}
-	} else {
-		startCommitRequest.Repo = parentJobInfo.OutputCommit.Repo
-		startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
 	}
+
+	// If parent is set...
+	if parentJobInfo != nil {
+		reduce := false
+		for _, jobInput := range request.Inputs {
+			if jobInput.Reduce {
+				reduce = true
+			}
+		}
+		// ...and if the job is not a reduce job, the parent's output commit
+		// should be this commit's parent.
+		// Otherwise this commit should have no parent.
+		if !reduce {
+			startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
+		}
+	}
+
 	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
 		return nil, err
