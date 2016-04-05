@@ -40,22 +40,29 @@ func testJob(t *testing.T, shards int) {
 	}
 
 	t.Parallel()
-	rand := rand.New(rand.NewSource(0))
 	pachClient := getPachClient(t)
 	dataRepo := uniqueString("TestJob.data")
 	require.NoError(t, pfsclient.CreateRepo(pachClient, dataRepo))
 	commit, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, "file", 0, workload.NewReader(rand, KB))
-	require.NoError(t, err)
+	fileContent := "foo\n"
+	// We want to create lots of files so that each parallel job will be
+	// started with some files
+	for i := 0; i < shards*100; i++ {
+		_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, fmt.Sprintf("file-%d", i), 0, strings.NewReader(fileContent))
+		require.NoError(t, err)
+	}
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
 	job, err := ppsclient.CreateJob(
 		pachClient,
 		"",
-		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
-		nil,
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp %s %s", path.Join("/pfs", dataRepo, "*"), "/pfs/out")},
 		uint64(shards),
-		[]*ppsclient.JobInput{{Commit: commit}},
+		[]*ppsclient.JobInput{{
+			Commit: commit,
+			Reduce: true,
+		}},
 		"",
 	)
 	require.NoError(t, err)
@@ -71,9 +78,11 @@ func testJob(t *testing.T, shards int) {
 	commitInfo, err := pfsclient.InspectCommit(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 	require.NoError(t, err)
 	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
-	var buffer bytes.Buffer
-	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
-	require.Equal(t, KB, len(buffer.String()))
+	for i := 0; i < shards*100; i++ {
+		var buffer bytes.Buffer
+		require.NoError(t, pfsclient.GetFile(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("file-%d", i), 0, 0, "", nil, &buffer))
+		require.Equal(t, fileContent, buffer.String())
+	}
 }
 
 func TestGrep(t *testing.T) {
