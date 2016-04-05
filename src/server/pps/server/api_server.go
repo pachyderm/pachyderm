@@ -168,6 +168,9 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 		},
 		LabelSelector: kube_labels.SelectorFromSet(labels(request.Job.ID)),
 	})
+	if err != nil {
+		return err
+	}
 	var wg sync.WaitGroup
 	errCh := make(chan error, 1)
 	for _, pod := range podList.Items {
@@ -175,7 +178,8 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			result := a.kubeClient.Pods(api.NamespaceDefault).GetLogs(pod.ObjectMeta.Name, nil).Do()
+			result := a.kubeClient.Pods(api.NamespaceDefault).GetLogs(
+				pod.ObjectMeta.Name, &kube_api.PodLogOptions{}).Do()
 			value, err := result.Raw()
 			if err != nil {
 				select {
@@ -191,7 +195,10 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 			}
 		}()
 	}
-	if err != nil {
+	wg.Wait()
+	select {
+	default:
+	case err := <-errCh:
 		return err
 	}
 	return nil
