@@ -79,7 +79,7 @@ We can't wait to see what they are!
 
 ### Contributing
 
-[Deploying Pachyderm](https://github.com/pachyderm/pachyderm/blob/master/examples/grep/GUIDE.md#setup).
+[Deploying Pachyderm](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md).
 
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
 
