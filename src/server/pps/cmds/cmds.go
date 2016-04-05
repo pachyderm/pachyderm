@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
-	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -160,18 +159,7 @@ The increase the throughput of a job increase the Shard paremeter.
 			if err != nil {
 				return err
 			}
-			getLogsClient, err := apiClient.GetLogs(
-				context.Background(),
-				&ppsclient.GetLogsRequest{
-					Job: &ppsclient.Job{
-						ID: args[0],
-					},
-				},
-			)
-			if err != nil {
-				errorAndExit("Error from GetLogs: %s", err.Error())
-			}
-			return protostream.WriteFromStreamingBytesClient(getLogsClient, os.Stdout)
+			return ppsclient.GetLogs(apiClient, args[0], os.Stdout)
 		}),
 	}
 
