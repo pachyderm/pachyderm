@@ -21,6 +21,7 @@ It has these top-level messages:
 	CreateJobRequest
 	InspectJobRequest
 	ListJobRequest
+	GetLogsRequest
 	CreatePipelineRequest
 	InspectPipelineRequest
 	ListPipelineRequest
@@ -33,6 +34,7 @@ import fmt "fmt"
 import math "math"
 import google_protobuf "go.pedge.io/pb/go/google/protobuf"
 import google_protobuf1 "go.pedge.io/pb/go/google/protobuf"
+import google_protobuf2 "go.pedge.io/pb/go/google/protobuf"
 import pfs "github.com/pachyderm/pachyderm/src/client/pfs"
 
 import (
@@ -366,6 +368,21 @@ func (m *ListJobRequest) GetInputCommit() []*pfs.Commit {
 	return nil
 }
 
+type GetLogsRequest struct {
+	Job *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+}
+
+func (m *GetLogsRequest) Reset()         { *m = GetLogsRequest{} }
+func (m *GetLogsRequest) String() string { return proto.CompactTextString(m) }
+func (*GetLogsRequest) ProtoMessage()    {}
+
+func (m *GetLogsRequest) GetJob() *Job {
+	if m != nil {
+		return m.Job
+	}
+	return nil
+}
+
 type CreatePipelineRequest struct {
 	Pipeline  *Pipeline        `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
 	Transform *Transform       `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
@@ -469,6 +486,7 @@ type APIClient interface {
 	CreateJob(ctx context.Context, in *CreateJobRequest, opts ...grpc.CallOption) (*Job, error)
 	InspectJob(ctx context.Context, in *InspectJobRequest, opts ...grpc.CallOption) (*JobInfo, error)
 	ListJob(ctx context.Context, in *ListJobRequest, opts ...grpc.CallOption) (*JobInfos, error)
+	GetLogs(ctx context.Context, in *GetLogsRequest, opts ...grpc.CallOption) (API_GetLogsClient, error)
 	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error)
 	InspectPipeline(ctx context.Context, in *InspectPipelineRequest, opts ...grpc.CallOption) (*PipelineInfo, error)
 	ListPipeline(ctx context.Context, in *ListPipelineRequest, opts ...grpc.CallOption) (*PipelineInfos, error)
@@ -508,6 +526,38 @@ func (c *aPIClient) ListJob(ctx context.Context, in *ListJobRequest, opts ...grp
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *aPIClient) GetLogs(ctx context.Context, in *GetLogsRequest, opts ...grpc.CallOption) (API_GetLogsClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[0], c.cc, "/pachyderm.pps.API/GetLogs", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &aPIGetLogsClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type API_GetLogsClient interface {
+	Recv() (*google_protobuf2.BytesValue, error)
+	grpc.ClientStream
+}
+
+type aPIGetLogsClient struct {
+	grpc.ClientStream
+}
+
+func (x *aPIGetLogsClient) Recv() (*google_protobuf2.BytesValue, error) {
+	m := new(google_protobuf2.BytesValue)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *aPIClient) CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*google_protobuf.Empty, error) {
@@ -552,6 +602,7 @@ type APIServer interface {
 	CreateJob(context.Context, *CreateJobRequest) (*Job, error)
 	InspectJob(context.Context, *InspectJobRequest) (*JobInfo, error)
 	ListJob(context.Context, *ListJobRequest) (*JobInfos, error)
+	GetLogs(*GetLogsRequest, API_GetLogsServer) error
 	CreatePipeline(context.Context, *CreatePipelineRequest) (*google_protobuf.Empty, error)
 	InspectPipeline(context.Context, *InspectPipelineRequest) (*PipelineInfo, error)
 	ListPipeline(context.Context, *ListPipelineRequest) (*PipelineInfos, error)
@@ -596,6 +647,27 @@ func _API_ListJob_Handler(srv interface{}, ctx context.Context, dec func(interfa
 		return nil, err
 	}
 	return out, nil
+}
+
+func _API_GetLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetLogsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(APIServer).GetLogs(m, &aPIGetLogsServer{stream})
+}
+
+type API_GetLogsServer interface {
+	Send(*google_protobuf2.BytesValue) error
+	grpc.ServerStream
+}
+
+type aPIGetLogsServer struct {
+	grpc.ServerStream
+}
+
+func (x *aPIGetLogsServer) Send(m *google_protobuf2.BytesValue) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _API_CreatePipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
@@ -679,7 +751,13 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			Handler:    _API_DeletePipeline_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetLogs",
+			Handler:       _API_GetLogs_Handler,
+			ServerStreams: true,
+		},
+	},
 }
 
 // Client API for JobAPI service

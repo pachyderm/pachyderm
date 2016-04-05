@@ -6,10 +6,10 @@ import (
 	"time"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"go.pedge.io/lion/proto"
@@ -18,10 +18,11 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
+	kube_api "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
-	kube_api "k8s.io/kubernetes/pkg/api"
+	kube_labels "k8s.io/kubernetes/pkg/labels"
 )
 
 var (
@@ -156,6 +157,44 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 	return &ppsclient.JobInfos{
 		JobInfo: jobInfos,
 	}, nil
+}
+
+func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	podList, err := a.kubeClient.Pods(api.NamespaceDefault).List(kube_api.ListOptions{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ListOptions",
+			APIVersion: "v1",
+		},
+		LabelSelector: kube_labels.SelectorFromSet(labels(request.Job.ID)),
+	})
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
+	for _, pod := range podList.Items {
+		pod := pod
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result := a.kubeClient.Pods(api.NamespaceDefault).GetLogs(pod.ObjectMeta.Name, nil).Do()
+			value, err := result.Raw()
+			if err != nil {
+				select {
+				default:
+				case errCh <- err:
+				}
+			}
+			if err := apiGetLogsServer.Send(&google_protobuf.BytesValue{Value: value}); err != nil {
+				select {
+				default:
+				case errCh <- err:
+				}
+			}
+		}()
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobRequest) (response *ppsserver.StartJobResponse, retErr error) {
