@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pkg/cobra"
+	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -149,6 +150,30 @@ The increase the throughput of a job increase the Shard paremeter.
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
+
+	getLogs := &cobra.Command{
+		Use:   "get-logs job-id",
+		Short: "Return logs from a job.",
+		Long:  "Return logs from a job.",
+		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
+			getLogsClient, err := apiClient.GetLogs(
+				context.Background(),
+				&ppsclient.GetLogsRequest{
+					Job: &ppsclient.Job{
+						ID: args[0],
+					},
+				},
+			)
+			if err != nil {
+				errorAndExit("Error from GetLogs: %s", err.Error())
+			}
+			return protostream.WriteFromStreamingBytesClient(getLogsClient, os.Stdout)
+		}),
+	}
 
 	pipeline := &cobra.Command{
 		Use:   "pipeline",
@@ -303,6 +328,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, job)
 	result = append(result, createJob)
 	result = append(result, inspectJob)
+	result = append(result, getLogs)
 	result = append(result, listJob)
 	result = append(result, pipeline)
 	result = append(result, createPipeline)
