@@ -98,6 +98,11 @@ clean-launch:
 integration-tests:
 	go test ./src/server -timeout 120s
 
+protofix:
+	rm -rf src/server/vendor
+	protofix fix src
+	git checkout src/server/vendor
+
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
 	rm -rf src/server/vendor
