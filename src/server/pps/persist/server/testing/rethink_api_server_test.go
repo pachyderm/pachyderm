@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"golang.org/x/net/context"
 )
@@ -37,6 +37,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	jobInfo, err := apiServer.CreateJobInfo(
 		context.Background(),
 		&persist.JobInfo{
+			JobID:        uuid.NewWithoutDashes(),
 			PipelineName: "foo",
 			Inputs:       []*ppsclient.JobInput{input},
 		},
@@ -47,6 +48,7 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 	_, err = apiServer.CreateJobInfo(
 		context.Background(),
 		&persist.JobInfo{
+			JobID:        uuid.NewWithoutDashes(),
 			PipelineName: "buzz",
 			Inputs:       []*ppsclient.JobInput{input2},
 		},
@@ -94,7 +96,9 @@ func testBasicRethink(t *testing.T, apiServer persist.APIServer) {
 }
 
 func testBlock(t *testing.T, apiServer persist.APIServer) {
-	jobInfo, err := apiServer.CreateJobInfo(context.Background(), &persist.JobInfo{})
+	jobInfo, err := apiServer.CreateJobInfo(context.Background(), &persist.JobInfo{
+		JobID: uuid.NewWithoutDashes(),
+	})
 	require.NoError(t, err)
 	jobID := jobInfo.JobID
 	go func() {
