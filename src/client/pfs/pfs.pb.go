@@ -39,6 +39,7 @@ It has these top-level messages:
 	ListBranchRequest
 	DeleteCommitRequest
 	GetFileRequest
+	GetFileResponse
 	PutFileRequest
 	InspectFileRequest
 	ListFileRequest
@@ -56,11 +57,13 @@ package pfs
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import _ "github.com/gengo/grpc-gateway/third_party/googleapis/google/api"
+
+// discarding unused import google_api1 "github.com/gengo/grpc-gateway/third_party/googleapis/google/api"
 import google_protobuf1 "go.pedge.io/pb/go/google/protobuf"
 import google_protobuf2 "go.pedge.io/pb/go/google/protobuf"
 import google_protobuf3 "go.pedge.io/pb/go/google/protobuf"
-import _ "github.com/pachyderm/pachyderm/src/client/pkg/shard"
+
+// discarding unused import shard "github.com/pachyderm/pachyderm/src/client/pkg/shard"
 
 import (
 	context "golang.org/x/net/context"
@@ -71,10 +74,6 @@ import (
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
-
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-const _ = proto.ProtoPackageIsVersion1
 
 type CommitType int32
 
@@ -98,7 +97,6 @@ var CommitType_value = map[string]int32{
 func (x CommitType) String() string {
 	return proto.EnumName(CommitType_name, int32(x))
 }
-func (CommitType) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
 type FileType int32
 
@@ -122,26 +120,23 @@ var FileType_value = map[string]int32{
 func (x FileType) String() string {
 	return proto.EnumName(FileType_name, int32(x))
 }
-func (FileType) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
 type Repo struct {
 	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 }
 
-func (m *Repo) Reset()                    { *m = Repo{} }
-func (m *Repo) String() string            { return proto.CompactTextString(m) }
-func (*Repo) ProtoMessage()               {}
-func (*Repo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (m *Repo) Reset()         { *m = Repo{} }
+func (m *Repo) String() string { return proto.CompactTextString(m) }
+func (*Repo) ProtoMessage()    {}
 
 type Commit struct {
 	Repo *Repo  `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 	ID   string `protobuf:"bytes,2,opt,name=id" json:"id,omitempty"`
 }
 
-func (m *Commit) Reset()                    { *m = Commit{} }
-func (m *Commit) String() string            { return proto.CompactTextString(m) }
-func (*Commit) ProtoMessage()               {}
-func (*Commit) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (m *Commit) Reset()         { *m = Commit{} }
+func (m *Commit) String() string { return proto.CompactTextString(m) }
+func (*Commit) ProtoMessage()    {}
 
 func (m *Commit) GetRepo() *Repo {
 	if m != nil {
@@ -155,10 +150,9 @@ type File struct {
 	Path   string  `protobuf:"bytes,2,opt,name=path" json:"path,omitempty"`
 }
 
-func (m *File) Reset()                    { *m = File{} }
-func (m *File) String() string            { return proto.CompactTextString(m) }
-func (*File) ProtoMessage()               {}
-func (*File) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (m *File) Reset()         { *m = File{} }
+func (m *File) String() string { return proto.CompactTextString(m) }
+func (*File) ProtoMessage()    {}
 
 func (m *File) GetCommit() *Commit {
 	if m != nil {
@@ -171,20 +165,18 @@ type Block struct {
 	Hash string `protobuf:"bytes,1,opt,name=hash" json:"hash,omitempty"`
 }
 
-func (m *Block) Reset()                    { *m = Block{} }
-func (m *Block) String() string            { return proto.CompactTextString(m) }
-func (*Block) ProtoMessage()               {}
-func (*Block) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+func (m *Block) Reset()         { *m = Block{} }
+func (m *Block) String() string { return proto.CompactTextString(m) }
+func (*Block) ProtoMessage()    {}
 
 type Diff struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 	Shard  uint64  `protobuf:"varint,2,opt,name=shard" json:"shard,omitempty"`
 }
 
-func (m *Diff) Reset()                    { *m = Diff{} }
-func (m *Diff) String() string            { return proto.CompactTextString(m) }
-func (*Diff) ProtoMessage()               {}
-func (*Diff) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+func (m *Diff) Reset()         { *m = Diff{} }
+func (m *Diff) String() string { return proto.CompactTextString(m) }
+func (*Diff) ProtoMessage()    {}
 
 func (m *Diff) GetCommit() *Commit {
 	if m != nil {
@@ -199,10 +191,9 @@ type RepoInfo struct {
 	SizeBytes uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
-func (m *RepoInfo) Reset()                    { *m = RepoInfo{} }
-func (m *RepoInfo) String() string            { return proto.CompactTextString(m) }
-func (*RepoInfo) ProtoMessage()               {}
-func (*RepoInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+func (m *RepoInfo) Reset()         { *m = RepoInfo{} }
+func (m *RepoInfo) String() string { return proto.CompactTextString(m) }
+func (*RepoInfo) ProtoMessage()    {}
 
 func (m *RepoInfo) GetRepo() *Repo {
 	if m != nil {
@@ -222,10 +213,9 @@ type RepoInfos struct {
 	RepoInfo []*RepoInfo `protobuf:"bytes,1,rep,name=repo_info" json:"repo_info,omitempty"`
 }
 
-func (m *RepoInfos) Reset()                    { *m = RepoInfos{} }
-func (m *RepoInfos) String() string            { return proto.CompactTextString(m) }
-func (*RepoInfos) ProtoMessage()               {}
-func (*RepoInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
+func (m *RepoInfos) Reset()         { *m = RepoInfos{} }
+func (m *RepoInfos) String() string { return proto.CompactTextString(m) }
+func (*RepoInfos) ProtoMessage()    {}
 
 func (m *RepoInfos) GetRepoInfo() []*RepoInfo {
 	if m != nil {
@@ -244,10 +234,9 @@ type CommitInfo struct {
 	SizeBytes    uint64                      `protobuf:"varint,7,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
-func (m *CommitInfo) Reset()                    { *m = CommitInfo{} }
-func (m *CommitInfo) String() string            { return proto.CompactTextString(m) }
-func (*CommitInfo) ProtoMessage()               {}
-func (*CommitInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
+func (m *CommitInfo) Reset()         { *m = CommitInfo{} }
+func (m *CommitInfo) String() string { return proto.CompactTextString(m) }
+func (*CommitInfo) ProtoMessage()    {}
 
 func (m *CommitInfo) GetCommit() *Commit {
 	if m != nil {
@@ -281,10 +270,9 @@ type CommitInfos struct {
 	CommitInfo []*CommitInfo `protobuf:"bytes,1,rep,name=commit_info" json:"commit_info,omitempty"`
 }
 
-func (m *CommitInfos) Reset()                    { *m = CommitInfos{} }
-func (m *CommitInfos) String() string            { return proto.CompactTextString(m) }
-func (*CommitInfos) ProtoMessage()               {}
-func (*CommitInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
+func (m *CommitInfos) Reset()         { *m = CommitInfos{} }
+func (m *CommitInfos) String() string { return proto.CompactTextString(m) }
+func (*CommitInfos) ProtoMessage()    {}
 
 func (m *CommitInfos) GetCommitInfo() []*CommitInfo {
 	if m != nil {
@@ -303,10 +291,9 @@ type FileInfo struct {
 	Children       []*File                     `protobuf:"bytes,7,rep,name=children" json:"children,omitempty"`
 }
 
-func (m *FileInfo) Reset()                    { *m = FileInfo{} }
-func (m *FileInfo) String() string            { return proto.CompactTextString(m) }
-func (*FileInfo) ProtoMessage()               {}
-func (*FileInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
+func (m *FileInfo) Reset()         { *m = FileInfo{} }
+func (m *FileInfo) String() string { return proto.CompactTextString(m) }
+func (*FileInfo) ProtoMessage()    {}
 
 func (m *FileInfo) GetFile() *File {
 	if m != nil {
@@ -340,10 +327,9 @@ type FileInfos struct {
 	FileInfo []*FileInfo `protobuf:"bytes,1,rep,name=file_info" json:"file_info,omitempty"`
 }
 
-func (m *FileInfos) Reset()                    { *m = FileInfos{} }
-func (m *FileInfos) String() string            { return proto.CompactTextString(m) }
-func (*FileInfos) ProtoMessage()               {}
-func (*FileInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
+func (m *FileInfos) Reset()         { *m = FileInfos{} }
+func (m *FileInfos) String() string { return proto.CompactTextString(m) }
+func (*FileInfos) ProtoMessage()    {}
 
 func (m *FileInfos) GetFileInfo() []*FileInfo {
 	if m != nil {
@@ -357,20 +343,18 @@ type ByteRange struct {
 	Upper uint64 `protobuf:"varint,2,opt,name=upper" json:"upper,omitempty"`
 }
 
-func (m *ByteRange) Reset()                    { *m = ByteRange{} }
-func (m *ByteRange) String() string            { return proto.CompactTextString(m) }
-func (*ByteRange) ProtoMessage()               {}
-func (*ByteRange) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
+func (m *ByteRange) Reset()         { *m = ByteRange{} }
+func (m *ByteRange) String() string { return proto.CompactTextString(m) }
+func (*ByteRange) ProtoMessage()    {}
 
 type BlockRef struct {
 	Block *Block     `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
 	Range *ByteRange `protobuf:"bytes,2,opt,name=range" json:"range,omitempty"`
 }
 
-func (m *BlockRef) Reset()                    { *m = BlockRef{} }
-func (m *BlockRef) String() string            { return proto.CompactTextString(m) }
-func (*BlockRef) ProtoMessage()               {}
-func (*BlockRef) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
+func (m *BlockRef) Reset()         { *m = BlockRef{} }
+func (m *BlockRef) String() string { return proto.CompactTextString(m) }
+func (*BlockRef) ProtoMessage()    {}
 
 func (m *BlockRef) GetBlock() *Block {
 	if m != nil {
@@ -390,10 +374,9 @@ type BlockRefs struct {
 	BlockRef []*BlockRef `protobuf:"bytes,1,rep,name=block_ref" json:"block_ref,omitempty"`
 }
 
-func (m *BlockRefs) Reset()                    { *m = BlockRefs{} }
-func (m *BlockRefs) String() string            { return proto.CompactTextString(m) }
-func (*BlockRefs) ProtoMessage()               {}
-func (*BlockRefs) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
+func (m *BlockRefs) Reset()         { *m = BlockRefs{} }
+func (m *BlockRefs) String() string { return proto.CompactTextString(m) }
+func (*BlockRefs) ProtoMessage()    {}
 
 func (m *BlockRefs) GetBlockRef() []*BlockRef {
 	if m != nil {
@@ -409,10 +392,9 @@ type Append struct {
 	Delete    bool            `protobuf:"varint,4,opt,name=delete" json:"delete,omitempty"`
 }
 
-func (m *Append) Reset()                    { *m = Append{} }
-func (m *Append) String() string            { return proto.CompactTextString(m) }
-func (*Append) ProtoMessage()               {}
-func (*Append) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
+func (m *Append) Reset()         { *m = Append{} }
+func (m *Append) String() string { return proto.CompactTextString(m) }
+func (*Append) ProtoMessage()    {}
 
 func (m *Append) GetBlockRefs() []*BlockRef {
 	if m != nil {
@@ -441,10 +423,9 @@ type BlockInfo struct {
 	SizeBytes uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
-func (m *BlockInfo) Reset()                    { *m = BlockInfo{} }
-func (m *BlockInfo) String() string            { return proto.CompactTextString(m) }
-func (*BlockInfo) ProtoMessage()               {}
-func (*BlockInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
+func (m *BlockInfo) Reset()         { *m = BlockInfo{} }
+func (m *BlockInfo) String() string { return proto.CompactTextString(m) }
+func (*BlockInfo) ProtoMessage()    {}
 
 func (m *BlockInfo) GetBlock() *Block {
 	if m != nil {
@@ -464,10 +445,9 @@ type BlockInfos struct {
 	BlockInfo []*BlockInfo `protobuf:"bytes,1,rep,name=block_info" json:"block_info,omitempty"`
 }
 
-func (m *BlockInfos) Reset()                    { *m = BlockInfos{} }
-func (m *BlockInfos) String() string            { return proto.CompactTextString(m) }
-func (*BlockInfos) ProtoMessage()               {}
-func (*BlockInfos) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{16} }
+func (m *BlockInfos) Reset()         { *m = BlockInfos{} }
+func (m *BlockInfos) String() string { return proto.CompactTextString(m) }
+func (*BlockInfos) ProtoMessage()    {}
 
 func (m *BlockInfos) GetBlockInfo() []*BlockInfo {
 	if m != nil {
@@ -487,10 +467,9 @@ type DiffInfo struct {
 	SizeBytes uint64             `protobuf:"varint,7,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
-func (m *DiffInfo) Reset()                    { *m = DiffInfo{} }
-func (m *DiffInfo) String() string            { return proto.CompactTextString(m) }
-func (*DiffInfo) ProtoMessage()               {}
-func (*DiffInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{17} }
+func (m *DiffInfo) Reset()         { *m = DiffInfo{} }
+func (m *DiffInfo) String() string { return proto.CompactTextString(m) }
+func (*DiffInfo) ProtoMessage()    {}
 
 func (m *DiffInfo) GetDiff() *Diff {
 	if m != nil {
@@ -534,20 +513,18 @@ type Shard struct {
 	BlockModulus uint64 `protobuf:"varint,4,opt,name=block_modulus" json:"block_modulus,omitempty"`
 }
 
-func (m *Shard) Reset()                    { *m = Shard{} }
-func (m *Shard) String() string            { return proto.CompactTextString(m) }
-func (*Shard) ProtoMessage()               {}
-func (*Shard) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{18} }
+func (m *Shard) Reset()         { *m = Shard{} }
+func (m *Shard) String() string { return proto.CompactTextString(m) }
+func (*Shard) ProtoMessage()    {}
 
 type CreateRepoRequest struct {
 	Repo    *Repo                       `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 	Created *google_protobuf2.Timestamp `protobuf:"bytes,2,opt,name=created" json:"created,omitempty"`
 }
 
-func (m *CreateRepoRequest) Reset()                    { *m = CreateRepoRequest{} }
-func (m *CreateRepoRequest) String() string            { return proto.CompactTextString(m) }
-func (*CreateRepoRequest) ProtoMessage()               {}
-func (*CreateRepoRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{19} }
+func (m *CreateRepoRequest) Reset()         { *m = CreateRepoRequest{} }
+func (m *CreateRepoRequest) String() string { return proto.CompactTextString(m) }
+func (*CreateRepoRequest) ProtoMessage()    {}
 
 func (m *CreateRepoRequest) GetRepo() *Repo {
 	if m != nil {
@@ -567,10 +544,9 @@ type InspectRepoRequest struct {
 	Repo *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 }
 
-func (m *InspectRepoRequest) Reset()                    { *m = InspectRepoRequest{} }
-func (m *InspectRepoRequest) String() string            { return proto.CompactTextString(m) }
-func (*InspectRepoRequest) ProtoMessage()               {}
-func (*InspectRepoRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{20} }
+func (m *InspectRepoRequest) Reset()         { *m = InspectRepoRequest{} }
+func (m *InspectRepoRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectRepoRequest) ProtoMessage()    {}
 
 func (m *InspectRepoRequest) GetRepo() *Repo {
 	if m != nil {
@@ -582,19 +558,17 @@ func (m *InspectRepoRequest) GetRepo() *Repo {
 type ListRepoRequest struct {
 }
 
-func (m *ListRepoRequest) Reset()                    { *m = ListRepoRequest{} }
-func (m *ListRepoRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListRepoRequest) ProtoMessage()               {}
-func (*ListRepoRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{21} }
+func (m *ListRepoRequest) Reset()         { *m = ListRepoRequest{} }
+func (m *ListRepoRequest) String() string { return proto.CompactTextString(m) }
+func (*ListRepoRequest) ProtoMessage()    {}
 
 type DeleteRepoRequest struct {
 	Repo *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 }
 
-func (m *DeleteRepoRequest) Reset()                    { *m = DeleteRepoRequest{} }
-func (m *DeleteRepoRequest) String() string            { return proto.CompactTextString(m) }
-func (*DeleteRepoRequest) ProtoMessage()               {}
-func (*DeleteRepoRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{22} }
+func (m *DeleteRepoRequest) Reset()         { *m = DeleteRepoRequest{} }
+func (m *DeleteRepoRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteRepoRequest) ProtoMessage()    {}
 
 func (m *DeleteRepoRequest) GetRepo() *Repo {
 	if m != nil {
@@ -611,10 +585,9 @@ type StartCommitRequest struct {
 	Started  *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=started" json:"started,omitempty"`
 }
 
-func (m *StartCommitRequest) Reset()                    { *m = StartCommitRequest{} }
-func (m *StartCommitRequest) String() string            { return proto.CompactTextString(m) }
-func (*StartCommitRequest) ProtoMessage()               {}
-func (*StartCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{23} }
+func (m *StartCommitRequest) Reset()         { *m = StartCommitRequest{} }
+func (m *StartCommitRequest) String() string { return proto.CompactTextString(m) }
+func (*StartCommitRequest) ProtoMessage()    {}
 
 func (m *StartCommitRequest) GetRepo() *Repo {
 	if m != nil {
@@ -635,10 +608,9 @@ type FinishCommitRequest struct {
 	Finished *google_protobuf2.Timestamp `protobuf:"bytes,3,opt,name=finished" json:"finished,omitempty"`
 }
 
-func (m *FinishCommitRequest) Reset()                    { *m = FinishCommitRequest{} }
-func (m *FinishCommitRequest) String() string            { return proto.CompactTextString(m) }
-func (*FinishCommitRequest) ProtoMessage()               {}
-func (*FinishCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{24} }
+func (m *FinishCommitRequest) Reset()         { *m = FinishCommitRequest{} }
+func (m *FinishCommitRequest) String() string { return proto.CompactTextString(m) }
+func (*FinishCommitRequest) ProtoMessage()    {}
 
 func (m *FinishCommitRequest) GetCommit() *Commit {
 	if m != nil {
@@ -658,10 +630,9 @@ type InspectCommitRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
-func (m *InspectCommitRequest) Reset()                    { *m = InspectCommitRequest{} }
-func (m *InspectCommitRequest) String() string            { return proto.CompactTextString(m) }
-func (*InspectCommitRequest) ProtoMessage()               {}
-func (*InspectCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{25} }
+func (m *InspectCommitRequest) Reset()         { *m = InspectCommitRequest{} }
+func (m *InspectCommitRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectCommitRequest) ProtoMessage()    {}
 
 func (m *InspectCommitRequest) GetCommit() *Commit {
 	if m != nil {
@@ -677,10 +648,9 @@ type ListCommitRequest struct {
 	Block      bool       `protobuf:"varint,4,opt,name=block" json:"block,omitempty"`
 }
 
-func (m *ListCommitRequest) Reset()                    { *m = ListCommitRequest{} }
-func (m *ListCommitRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListCommitRequest) ProtoMessage()               {}
-func (*ListCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{26} }
+func (m *ListCommitRequest) Reset()         { *m = ListCommitRequest{} }
+func (m *ListCommitRequest) String() string { return proto.CompactTextString(m) }
+func (*ListCommitRequest) ProtoMessage()    {}
 
 func (m *ListCommitRequest) GetRepo() []*Repo {
 	if m != nil {
@@ -700,10 +670,9 @@ type ListBranchRequest struct {
 	Repo *Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
 }
 
-func (m *ListBranchRequest) Reset()                    { *m = ListBranchRequest{} }
-func (m *ListBranchRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListBranchRequest) ProtoMessage()               {}
-func (*ListBranchRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{27} }
+func (m *ListBranchRequest) Reset()         { *m = ListBranchRequest{} }
+func (m *ListBranchRequest) String() string { return proto.CompactTextString(m) }
+func (*ListBranchRequest) ProtoMessage()    {}
 
 func (m *ListBranchRequest) GetRepo() *Repo {
 	if m != nil {
@@ -716,10 +685,9 @@ type DeleteCommitRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
 }
 
-func (m *DeleteCommitRequest) Reset()                    { *m = DeleteCommitRequest{} }
-func (m *DeleteCommitRequest) String() string            { return proto.CompactTextString(m) }
-func (*DeleteCommitRequest) ProtoMessage()               {}
-func (*DeleteCommitRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{28} }
+func (m *DeleteCommitRequest) Reset()         { *m = DeleteCommitRequest{} }
+func (m *DeleteCommitRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteCommitRequest) ProtoMessage()    {}
 
 func (m *DeleteCommitRequest) GetCommit() *Commit {
 	if m != nil {
@@ -734,12 +702,12 @@ type GetFileRequest struct {
 	SizeBytes   int64   `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
 	Shard       *Shard  `protobuf:"bytes,4,opt,name=shard" json:"shard,omitempty"`
 	FromCommit  *Commit `protobuf:"bytes,5,opt,name=from_commit" json:"from_commit,omitempty"`
+	BlockRefs   bool    `protobuf:"varint,6,opt,name=block_refs" json:"block_refs,omitempty"`
 }
 
-func (m *GetFileRequest) Reset()                    { *m = GetFileRequest{} }
-func (m *GetFileRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetFileRequest) ProtoMessage()               {}
-func (*GetFileRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{29} }
+func (m *GetFileRequest) Reset()         { *m = GetFileRequest{} }
+func (m *GetFileRequest) String() string { return proto.CompactTextString(m) }
+func (*GetFileRequest) ProtoMessage()    {}
 
 func (m *GetFileRequest) GetFile() *File {
 	if m != nil {
@@ -762,17 +730,136 @@ func (m *GetFileRequest) GetFromCommit() *Commit {
 	return nil
 }
 
+type GetFileResponse struct {
+	// Types that are valid to be assigned to Payload:
+	//	*GetFileResponse_Value
+	//	*GetFileResponse_BlockRefs
+	Payload isGetFileResponse_Payload `protobuf_oneof:"payload"`
+}
+
+func (m *GetFileResponse) Reset()         { *m = GetFileResponse{} }
+func (m *GetFileResponse) String() string { return proto.CompactTextString(m) }
+func (*GetFileResponse) ProtoMessage()    {}
+
+type isGetFileResponse_Payload interface {
+	isGetFileResponse_Payload()
+}
+
+type GetFileResponse_Value struct {
+	Value []byte `protobuf:"bytes,1,opt,name=value,proto3,oneof"`
+}
+type GetFileResponse_BlockRefs struct {
+	BlockRefs *BlockRefs `protobuf:"bytes,2,opt,name=block_refs,oneof"`
+}
+
+func (*GetFileResponse_Value) isGetFileResponse_Payload()     {}
+func (*GetFileResponse_BlockRefs) isGetFileResponse_Payload() {}
+
+func (m *GetFileResponse) GetPayload() isGetFileResponse_Payload {
+	if m != nil {
+		return m.Payload
+	}
+	return nil
+}
+
+func (m *GetFileResponse) GetValue() []byte {
+	if x, ok := m.GetPayload().(*GetFileResponse_Value); ok {
+		return x.Value
+	}
+	return nil
+}
+
+func (m *GetFileResponse) GetBlockRefs() *BlockRefs {
+	if x, ok := m.GetPayload().(*GetFileResponse_BlockRefs); ok {
+		return x.BlockRefs
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*GetFileResponse) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _GetFileResponse_OneofMarshaler, _GetFileResponse_OneofUnmarshaler, []interface{}{
+		(*GetFileResponse_Value)(nil),
+		(*GetFileResponse_BlockRefs)(nil),
+	}
+}
+
+func _GetFileResponse_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*GetFileResponse)
+	// payload
+	switch x := m.Payload.(type) {
+	case *GetFileResponse_Value:
+		b.EncodeVarint(1<<3 | proto.WireBytes)
+		b.EncodeRawBytes(x.Value)
+	case *GetFileResponse_BlockRefs:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.BlockRefs); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("GetFileResponse.Payload has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _GetFileResponse_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*GetFileResponse)
+	switch tag {
+	case 1: // payload.value
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeRawBytes(true)
+		m.Payload = &GetFileResponse_Value{x}
+		return true, err
+	case 2: // payload.block_refs
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(BlockRefs)
+		err := b.DecodeMessage(msg)
+		m.Payload = &GetFileResponse_BlockRefs{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
 type PutFileRequest struct {
 	File        *File    `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 	FileType    FileType `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
 	OffsetBytes int64    `protobuf:"varint,3,opt,name=offset_bytes" json:"offset_bytes,omitempty"`
-	Value       []byte   `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	// Types that are valid to be assigned to Payload:
+	//	*PutFileRequest_Value
+	//	*PutFileRequest_BlockRefs
+	Payload isPutFileRequest_Payload `protobuf_oneof:"payload"`
 }
 
-func (m *PutFileRequest) Reset()                    { *m = PutFileRequest{} }
-func (m *PutFileRequest) String() string            { return proto.CompactTextString(m) }
-func (*PutFileRequest) ProtoMessage()               {}
-func (*PutFileRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{30} }
+func (m *PutFileRequest) Reset()         { *m = PutFileRequest{} }
+func (m *PutFileRequest) String() string { return proto.CompactTextString(m) }
+func (*PutFileRequest) ProtoMessage()    {}
+
+type isPutFileRequest_Payload interface {
+	isPutFileRequest_Payload()
+}
+
+type PutFileRequest_Value struct {
+	Value []byte `protobuf:"bytes,4,opt,name=value,proto3,oneof"`
+}
+type PutFileRequest_BlockRefs struct {
+	BlockRefs *BlockRefs `protobuf:"bytes,5,opt,name=block_refs,oneof"`
+}
+
+func (*PutFileRequest_Value) isPutFileRequest_Payload()     {}
+func (*PutFileRequest_BlockRefs) isPutFileRequest_Payload() {}
+
+func (m *PutFileRequest) GetPayload() isPutFileRequest_Payload {
+	if m != nil {
+		return m.Payload
+	}
+	return nil
+}
 
 func (m *PutFileRequest) GetFile() *File {
 	if m != nil {
@@ -781,16 +868,79 @@ func (m *PutFileRequest) GetFile() *File {
 	return nil
 }
 
+func (m *PutFileRequest) GetValue() []byte {
+	if x, ok := m.GetPayload().(*PutFileRequest_Value); ok {
+		return x.Value
+	}
+	return nil
+}
+
+func (m *PutFileRequest) GetBlockRefs() *BlockRefs {
+	if x, ok := m.GetPayload().(*PutFileRequest_BlockRefs); ok {
+		return x.BlockRefs
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*PutFileRequest) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), []interface{}) {
+	return _PutFileRequest_OneofMarshaler, _PutFileRequest_OneofUnmarshaler, []interface{}{
+		(*PutFileRequest_Value)(nil),
+		(*PutFileRequest_BlockRefs)(nil),
+	}
+}
+
+func _PutFileRequest_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*PutFileRequest)
+	// payload
+	switch x := m.Payload.(type) {
+	case *PutFileRequest_Value:
+		b.EncodeVarint(4<<3 | proto.WireBytes)
+		b.EncodeRawBytes(x.Value)
+	case *PutFileRequest_BlockRefs:
+		b.EncodeVarint(5<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.BlockRefs); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("PutFileRequest.Payload has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _PutFileRequest_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*PutFileRequest)
+	switch tag {
+	case 4: // payload.value
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		x, err := b.DecodeRawBytes(true)
+		m.Payload = &PutFileRequest_Value{x}
+		return true, err
+	case 5: // payload.block_refs
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(BlockRefs)
+		err := b.DecodeMessage(msg)
+		m.Payload = &PutFileRequest_BlockRefs{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
 type InspectFileRequest struct {
 	File       *File   `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 	Shard      *Shard  `protobuf:"bytes,2,opt,name=shard" json:"shard,omitempty"`
 	FromCommit *Commit `protobuf:"bytes,3,opt,name=from_commit" json:"from_commit,omitempty"`
 }
 
-func (m *InspectFileRequest) Reset()                    { *m = InspectFileRequest{} }
-func (m *InspectFileRequest) String() string            { return proto.CompactTextString(m) }
-func (*InspectFileRequest) ProtoMessage()               {}
-func (*InspectFileRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{31} }
+func (m *InspectFileRequest) Reset()         { *m = InspectFileRequest{} }
+func (m *InspectFileRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectFileRequest) ProtoMessage()    {}
 
 func (m *InspectFileRequest) GetFile() *File {
 	if m != nil {
@@ -819,10 +969,9 @@ type ListFileRequest struct {
 	FromCommit *Commit `protobuf:"bytes,3,opt,name=from_commit" json:"from_commit,omitempty"`
 }
 
-func (m *ListFileRequest) Reset()                    { *m = ListFileRequest{} }
-func (m *ListFileRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListFileRequest) ProtoMessage()               {}
-func (*ListFileRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{32} }
+func (m *ListFileRequest) Reset()         { *m = ListFileRequest{} }
+func (m *ListFileRequest) String() string { return proto.CompactTextString(m) }
+func (*ListFileRequest) ProtoMessage()    {}
 
 func (m *ListFileRequest) GetFile() *File {
 	if m != nil {
@@ -849,10 +998,9 @@ type DeleteFileRequest struct {
 	File *File `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
 }
 
-func (m *DeleteFileRequest) Reset()                    { *m = DeleteFileRequest{} }
-func (m *DeleteFileRequest) String() string            { return proto.CompactTextString(m) }
-func (*DeleteFileRequest) ProtoMessage()               {}
-func (*DeleteFileRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{33} }
+func (m *DeleteFileRequest) Reset()         { *m = DeleteFileRequest{} }
+func (m *DeleteFileRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteFileRequest) ProtoMessage()    {}
 
 func (m *DeleteFileRequest) GetFile() *File {
 	if m != nil {
@@ -867,10 +1015,9 @@ type GetBlockRequest struct {
 	SizeBytes   uint64 `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
 }
 
-func (m *GetBlockRequest) Reset()                    { *m = GetBlockRequest{} }
-func (m *GetBlockRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetBlockRequest) ProtoMessage()               {}
-func (*GetBlockRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{34} }
+func (m *GetBlockRequest) Reset()         { *m = GetBlockRequest{} }
+func (m *GetBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*GetBlockRequest) ProtoMessage()    {}
 
 func (m *GetBlockRequest) GetBlock() *Block {
 	if m != nil {
@@ -883,10 +1030,9 @@ type DeleteBlockRequest struct {
 	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
 }
 
-func (m *DeleteBlockRequest) Reset()                    { *m = DeleteBlockRequest{} }
-func (m *DeleteBlockRequest) String() string            { return proto.CompactTextString(m) }
-func (*DeleteBlockRequest) ProtoMessage()               {}
-func (*DeleteBlockRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{35} }
+func (m *DeleteBlockRequest) Reset()         { *m = DeleteBlockRequest{} }
+func (m *DeleteBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteBlockRequest) ProtoMessage()    {}
 
 func (m *DeleteBlockRequest) GetBlock() *Block {
 	if m != nil {
@@ -899,10 +1045,9 @@ type InspectBlockRequest struct {
 	Block *Block `protobuf:"bytes,1,opt,name=block" json:"block,omitempty"`
 }
 
-func (m *InspectBlockRequest) Reset()                    { *m = InspectBlockRequest{} }
-func (m *InspectBlockRequest) String() string            { return proto.CompactTextString(m) }
-func (*InspectBlockRequest) ProtoMessage()               {}
-func (*InspectBlockRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{36} }
+func (m *InspectBlockRequest) Reset()         { *m = InspectBlockRequest{} }
+func (m *InspectBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectBlockRequest) ProtoMessage()    {}
 
 func (m *InspectBlockRequest) GetBlock() *Block {
 	if m != nil {
@@ -914,19 +1059,17 @@ func (m *InspectBlockRequest) GetBlock() *Block {
 type ListBlockRequest struct {
 }
 
-func (m *ListBlockRequest) Reset()                    { *m = ListBlockRequest{} }
-func (m *ListBlockRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListBlockRequest) ProtoMessage()               {}
-func (*ListBlockRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{37} }
+func (m *ListBlockRequest) Reset()         { *m = ListBlockRequest{} }
+func (m *ListBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*ListBlockRequest) ProtoMessage()    {}
 
 type InspectDiffRequest struct {
 	Diff *Diff `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
 }
 
-func (m *InspectDiffRequest) Reset()                    { *m = InspectDiffRequest{} }
-func (m *InspectDiffRequest) String() string            { return proto.CompactTextString(m) }
-func (*InspectDiffRequest) ProtoMessage()               {}
-func (*InspectDiffRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{38} }
+func (m *InspectDiffRequest) Reset()         { *m = InspectDiffRequest{} }
+func (m *InspectDiffRequest) String() string { return proto.CompactTextString(m) }
+func (*InspectDiffRequest) ProtoMessage()    {}
 
 func (m *InspectDiffRequest) GetDiff() *Diff {
 	if m != nil {
@@ -939,19 +1082,17 @@ type ListDiffRequest struct {
 	Shard uint64 `protobuf:"varint,1,opt,name=shard" json:"shard,omitempty"`
 }
 
-func (m *ListDiffRequest) Reset()                    { *m = ListDiffRequest{} }
-func (m *ListDiffRequest) String() string            { return proto.CompactTextString(m) }
-func (*ListDiffRequest) ProtoMessage()               {}
-func (*ListDiffRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{39} }
+func (m *ListDiffRequest) Reset()         { *m = ListDiffRequest{} }
+func (m *ListDiffRequest) String() string { return proto.CompactTextString(m) }
+func (*ListDiffRequest) ProtoMessage()    {}
 
 type DeleteDiffRequest struct {
 	Diff *Diff `protobuf:"bytes,1,opt,name=diff" json:"diff,omitempty"`
 }
 
-func (m *DeleteDiffRequest) Reset()                    { *m = DeleteDiffRequest{} }
-func (m *DeleteDiffRequest) String() string            { return proto.CompactTextString(m) }
-func (*DeleteDiffRequest) ProtoMessage()               {}
-func (*DeleteDiffRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{40} }
+func (m *DeleteDiffRequest) Reset()         { *m = DeleteDiffRequest{} }
+func (m *DeleteDiffRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteDiffRequest) ProtoMessage()    {}
 
 func (m *DeleteDiffRequest) GetDiff() *Diff {
 	if m != nil {
@@ -961,47 +1102,6 @@ func (m *DeleteDiffRequest) GetDiff() *Diff {
 }
 
 func init() {
-	proto.RegisterType((*Repo)(nil), "pfs.Repo")
-	proto.RegisterType((*Commit)(nil), "pfs.Commit")
-	proto.RegisterType((*File)(nil), "pfs.File")
-	proto.RegisterType((*Block)(nil), "pfs.Block")
-	proto.RegisterType((*Diff)(nil), "pfs.Diff")
-	proto.RegisterType((*RepoInfo)(nil), "pfs.RepoInfo")
-	proto.RegisterType((*RepoInfos)(nil), "pfs.RepoInfos")
-	proto.RegisterType((*CommitInfo)(nil), "pfs.CommitInfo")
-	proto.RegisterType((*CommitInfos)(nil), "pfs.CommitInfos")
-	proto.RegisterType((*FileInfo)(nil), "pfs.FileInfo")
-	proto.RegisterType((*FileInfos)(nil), "pfs.FileInfos")
-	proto.RegisterType((*ByteRange)(nil), "pfs.ByteRange")
-	proto.RegisterType((*BlockRef)(nil), "pfs.BlockRef")
-	proto.RegisterType((*BlockRefs)(nil), "pfs.BlockRefs")
-	proto.RegisterType((*Append)(nil), "pfs.Append")
-	proto.RegisterType((*BlockInfo)(nil), "pfs.BlockInfo")
-	proto.RegisterType((*BlockInfos)(nil), "pfs.BlockInfos")
-	proto.RegisterType((*DiffInfo)(nil), "pfs.DiffInfo")
-	proto.RegisterType((*Shard)(nil), "pfs.Shard")
-	proto.RegisterType((*CreateRepoRequest)(nil), "pfs.CreateRepoRequest")
-	proto.RegisterType((*InspectRepoRequest)(nil), "pfs.InspectRepoRequest")
-	proto.RegisterType((*ListRepoRequest)(nil), "pfs.ListRepoRequest")
-	proto.RegisterType((*DeleteRepoRequest)(nil), "pfs.DeleteRepoRequest")
-	proto.RegisterType((*StartCommitRequest)(nil), "pfs.StartCommitRequest")
-	proto.RegisterType((*FinishCommitRequest)(nil), "pfs.FinishCommitRequest")
-	proto.RegisterType((*InspectCommitRequest)(nil), "pfs.InspectCommitRequest")
-	proto.RegisterType((*ListCommitRequest)(nil), "pfs.ListCommitRequest")
-	proto.RegisterType((*ListBranchRequest)(nil), "pfs.ListBranchRequest")
-	proto.RegisterType((*DeleteCommitRequest)(nil), "pfs.DeleteCommitRequest")
-	proto.RegisterType((*GetFileRequest)(nil), "pfs.GetFileRequest")
-	proto.RegisterType((*PutFileRequest)(nil), "pfs.PutFileRequest")
-	proto.RegisterType((*InspectFileRequest)(nil), "pfs.InspectFileRequest")
-	proto.RegisterType((*ListFileRequest)(nil), "pfs.ListFileRequest")
-	proto.RegisterType((*DeleteFileRequest)(nil), "pfs.DeleteFileRequest")
-	proto.RegisterType((*GetBlockRequest)(nil), "pfs.GetBlockRequest")
-	proto.RegisterType((*DeleteBlockRequest)(nil), "pfs.DeleteBlockRequest")
-	proto.RegisterType((*InspectBlockRequest)(nil), "pfs.InspectBlockRequest")
-	proto.RegisterType((*ListBlockRequest)(nil), "pfs.ListBlockRequest")
-	proto.RegisterType((*InspectDiffRequest)(nil), "pfs.InspectDiffRequest")
-	proto.RegisterType((*ListDiffRequest)(nil), "pfs.ListDiffRequest")
-	proto.RegisterType((*DeleteDiffRequest)(nil), "pfs.DeleteDiffRequest")
 	proto.RegisterEnum("pfs.CommitType", CommitType_name, CommitType_value)
 	proto.RegisterEnum("pfs.FileType", FileType_name, FileType_value)
 }
@@ -1197,7 +1297,7 @@ func (c *aPIClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grp
 }
 
 type API_GetFileClient interface {
-	Recv() (*google_protobuf3.BytesValue, error)
+	Recv() (*GetFileResponse, error)
 	grpc.ClientStream
 }
 
@@ -1205,8 +1305,8 @@ type aPIGetFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *aPIGetFileClient) Recv() (*google_protobuf3.BytesValue, error) {
-	m := new(google_protobuf3.BytesValue)
+func (x *aPIGetFileClient) Recv() (*GetFileResponse, error) {
+	m := new(GetFileResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -1438,7 +1538,7 @@ func _API_GetFile_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type API_GetFileServer interface {
-	Send(*google_protobuf3.BytesValue) error
+	Send(*GetFileResponse) error
 	grpc.ServerStream
 }
 
@@ -1446,7 +1546,7 @@ type aPIGetFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *aPIGetFileServer) Send(m *google_protobuf3.BytesValue) error {
+func (x *aPIGetFileServer) Send(m *GetFileResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -1744,7 +1844,7 @@ func (c *internalAPIClient) GetFile(ctx context.Context, in *GetFileRequest, opt
 }
 
 type InternalAPI_GetFileClient interface {
-	Recv() (*google_protobuf3.BytesValue, error)
+	Recv() (*GetFileResponse, error)
 	grpc.ClientStream
 }
 
@@ -1752,8 +1852,8 @@ type internalAPIGetFileClient struct {
 	grpc.ClientStream
 }
 
-func (x *internalAPIGetFileClient) Recv() (*google_protobuf3.BytesValue, error) {
-	m := new(google_protobuf3.BytesValue)
+func (x *internalAPIGetFileClient) Recv() (*GetFileResponse, error) {
+	m := new(GetFileResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -1985,7 +2085,7 @@ func _InternalAPI_GetFile_Handler(srv interface{}, stream grpc.ServerStream) err
 }
 
 type InternalAPI_GetFileServer interface {
-	Send(*google_protobuf3.BytesValue) error
+	Send(*GetFileResponse) error
 	grpc.ServerStream
 }
 
@@ -1993,7 +2093,7 @@ type internalAPIGetFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *internalAPIGetFileServer) Send(m *google_protobuf3.BytesValue) error {
+func (x *internalAPIGetFileServer) Send(m *GetFileResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -2482,107 +2582,4 @@ var _BlockAPI_serviceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-}
-
-var fileDescriptor0 = []byte{
-	// 1574 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xec, 0x58, 0xcd, 0x6e, 0xdb, 0xc6,
-	0x16, 0xb6, 0x44, 0x4a, 0x96, 0x8e, 0x2c, 0x59, 0x1a, 0x3b, 0x89, 0x4d, 0xe7, 0xde, 0xeb, 0x4b,
-	0x64, 0x91, 0x9b, 0x9b, 0x58, 0xa9, 0x8c, 0xa2, 0x41, 0x82, 0xfe, 0xf8, 0x47, 0x49, 0x05, 0xe4,
-	0x0f, 0x8a, 0x9b, 0x22, 0x2b, 0x95, 0x96, 0x46, 0x36, 0x1b, 0x89, 0x54, 0x49, 0xaa, 0x81, 0xbb,
-	0xed, 0xaa, 0x9b, 0xa2, 0xaf, 0x50, 0xa0, 0x0f, 0xd0, 0x65, 0x1f, 0xa5, 0xcf, 0xd1, 0x27, 0xe8,
-	0xcc, 0x99, 0x21, 0x35, 0x24, 0x65, 0x89, 0x41, 0x9b, 0x55, 0xb3, 0x48, 0x60, 0xcd, 0x9c, 0xff,
-	0xf3, 0x9d, 0xf3, 0x8d, 0x04, 0x9b, 0xfd, 0x91, 0x4d, 0x9d, 0xa0, 0x39, 0x19, 0xfa, 0xfc, 0xdf,
-	0xde, 0xc4, 0x73, 0x03, 0x97, 0x68, 0xec, 0x4f, 0xe3, 0xfa, 0x99, 0xeb, 0x9e, 0x8d, 0x68, 0xd3,
-	0x9a, 0xd8, 0x4d, 0xcb, 0x71, 0xdc, 0xc0, 0x0a, 0x6c, 0xd7, 0x91, 0x22, 0xc6, 0x8e, 0xbc, 0xc5,
-	0x4f, 0xa7, 0xd3, 0x61, 0x93, 0x8e, 0x27, 0xc1, 0x85, 0xbc, 0xfc, 0x4f, 0xf2, 0x32, 0xb0, 0xc7,
-	0xd4, 0x0f, 0xac, 0xf1, 0x44, 0x0a, 0xfc, 0x3b, 0x29, 0xf0, 0xc6, 0xb3, 0x26, 0x13, 0xea, 0x85,
-	0xd6, 0xaf, 0x87, 0x61, 0xbd, 0x3e, 0x6b, 0xfa, 0xe7, 0x96, 0x37, 0x10, 0xff, 0x8b, 0x5b, 0x73,
-	0x13, 0xf4, 0x2e, 0x9d, 0xb8, 0x64, 0x0d, 0x74, 0xc7, 0x1a, 0xd3, 0xad, 0xdc, 0x6e, 0xee, 0x66,
-	0xd9, 0xbc, 0x03, 0xc5, 0x23, 0x77, 0x3c, 0xb6, 0x03, 0x72, 0x0d, 0x74, 0x8f, 0xdd, 0xe3, 0x79,
-	0xa5, 0x55, 0xde, 0xe3, 0x89, 0xa1, 0x02, 0x40, 0xde, 0x1e, 0x6c, 0xe5, 0x51, 0xfc, 0x03, 0xd0,
-	0x1f, 0xda, 0x23, 0x4a, 0x76, 0xa0, 0xd8, 0x47, 0x35, 0x29, 0x5e, 0x41, 0x71, 0x69, 0x89, 0x79,
-	0x98, 0x58, 0xc1, 0xb9, 0x54, 0xb9, 0x02, 0x85, 0xc3, 0x91, 0xdb, 0x7f, 0xcd, 0x8f, 0xcf, 0x2d,
-	0xff, 0x5c, 0x3a, 0x6e, 0x81, 0x7e, 0x6c, 0x0f, 0x87, 0x8b, 0x2d, 0x55, 0xa1, 0x80, 0x29, 0xa0,
-	0x29, 0xdd, 0x1c, 0x40, 0x89, 0x47, 0xd4, 0x71, 0x86, 0xee, 0xe5, 0xe1, 0xfe, 0x1f, 0x56, 0xfb,
-	0x1e, 0xb5, 0x02, 0x2a, 0xb4, 0x2a, 0x2d, 0x63, 0x4f, 0xd4, 0x6d, 0x2f, 0xac, 0xdb, 0xde, 0x49,
-	0x58, 0x58, 0xc2, 0x92, 0xf3, 0xed, 0xef, 0x68, 0xef, 0xf4, 0x22, 0xa0, 0xfe, 0x96, 0x86, 0x5e,
-	0xee, 0x40, 0x39, 0xf4, 0xe2, 0x93, 0x5d, 0x28, 0x73, 0x37, 0x3d, 0x9b, 0x7d, 0x62, 0xbe, 0x34,
-	0x66, 0xaf, 0x1a, 0xf9, 0xe2, 0x22, 0xe6, 0x1f, 0x39, 0x00, 0x11, 0x2e, 0xc6, 0xb5, 0x30, 0x9f,
-	0x1a, 0x14, 0x4f, 0x3d, 0xcb, 0xe9, 0xcb, 0xda, 0x90, 0x1b, 0x50, 0x11, 0xc2, 0xbd, 0xe0, 0x62,
-	0x42, 0xd1, 0x7f, 0xad, 0xb5, 0xae, 0x68, 0x9c, 0xb0, 0x63, 0x62, 0x42, 0x75, 0x62, 0x79, 0xac,
-	0xb3, 0x3d, 0x69, 0x59, 0x4f, 0x5b, 0x66, 0x59, 0xb3, 0x8c, 0x3c, 0x9e, 0x75, 0x61, 0x69, 0xd6,
-	0xb7, 0xa1, 0x34, 0xb4, 0x1d, 0xdb, 0x3f, 0x67, 0xd2, 0xc5, 0xb7, 0xac, 0xd1, 0x2a, 0xd6, 0x68,
-	0x1f, 0x2a, 0xb3, 0x9c, 0x7d, 0x25, 0x0f, 0xa5, 0x4e, 0x6a, 0x1e, 0x58, 0xa9, 0xdf, 0x73, 0x50,
-	0xe2, 0xe8, 0x09, 0xfb, 0x37, 0x64, 0x7f, 0xc7, 0xfa, 0x87, 0xd0, 0x62, 0x15, 0xe7, 0x17, 0xa2,
-	0x22, 0x79, 0xac, 0x48, 0x35, 0xba, 0xc5, 0x7a, 0xcc, 0x69, 0x1a, 0x62, 0x8e, 0x7a, 0x63, 0x2c,
-	0x4d, 0x95, 0x27, 0x38, 0x76, 0x07, 0xf6, 0xd0, 0xce, 0x54, 0x8e, 0x1b, 0xb0, 0x2e, 0xa3, 0x8f,
-	0x94, 0x8a, 0xe9, 0x0a, 0xef, 0x40, 0xa9, 0x7f, 0x6e, 0x8f, 0x06, 0xac, 0x11, 0xac, 0x08, 0x5a,
-	0x2c, 0x68, 0x8e, 0x99, 0x30, 0x33, 0x3f, 0xca, 0x20, 0x85, 0x99, 0x50, 0xc4, 0xfc, 0x1f, 0x94,
-	0x0f, 0x59, 0xf0, 0x5d, 0xcb, 0x39, 0xa3, 0x1c, 0xe4, 0x23, 0xf7, 0x0d, 0xf5, 0xb0, 0x14, 0x3a,
-	0xff, 0x38, 0xe5, 0x53, 0x2d, 0x31, 0x7f, 0x0c, 0x25, 0x1c, 0x9f, 0x2e, 0x1d, 0x92, 0x6d, 0x28,
-	0x9c, 0xf2, 0xbf, 0x65, 0xd1, 0x00, 0x8d, 0x8a, 0xe1, 0xfa, 0x17, 0x14, 0x3c, 0x6e, 0x4d, 0x62,
-	0xbe, 0x26, 0xae, 0x42, 0x1f, 0x3c, 0xbe, 0xd0, 0x0a, 0xc6, 0x87, 0x66, 0x7a, 0x1e, 0x1d, 0xc6,
-	0xe2, 0x0b, 0x45, 0xcc, 0xdf, 0x72, 0x50, 0x3c, 0x60, 0x41, 0x38, 0x03, 0xf2, 0x5f, 0x80, 0x48,
-	0xd8, 0x9f, 0x2b, 0xcd, 0xb0, 0x37, 0xab, 0x4c, 0x1e, 0x05, 0xb6, 0x51, 0x40, 0x58, 0xd8, 0x3b,
-	0x92, 0x77, 0x6d, 0x27, 0xf0, 0x2e, 0x58, 0xa0, 0xa5, 0x91, 0xe5, 0x07, 0xe8, 0x5b, 0x9b, 0x3b,
-	0x21, 0x03, 0x3a, 0xa2, 0x01, 0xc5, 0x4e, 0x96, 0x8c, 0x26, 0x54, 0xe3, 0xfa, 0x15, 0xd0, 0x5e,
-	0xd3, 0x0b, 0xb1, 0x44, 0x78, 0xad, 0xbe, 0xb5, 0x46, 0x53, 0x91, 0x75, 0xe9, 0x7e, 0xfe, 0x5e,
-	0xce, 0x3c, 0x93, 0x99, 0x22, 0xc8, 0x16, 0x14, 0xec, 0x2f, 0xaf, 0x89, 0xbb, 0x00, 0x91, 0x23,
-	0x9f, 0xcd, 0xa8, 0x2c, 0x93, 0xd2, 0xf4, 0xda, 0xcc, 0x1d, 0x76, 0xfd, 0xd7, 0x3c, 0x94, 0xf8,
-	0xce, 0x0b, 0xf1, 0xcf, 0xb0, 0x36, 0x8c, 0xe1, 0x1f, 0x17, 0x62, 0x6a, 0xda, 0xf3, 0x8b, 0xf6,
-	0x88, 0x86, 0x75, 0x50, 0xa6, 0x5f, 0x7f, 0xab, 0xe9, 0x5f, 0x3e, 0x1c, 0xcc, 0xb4, 0x85, 0x7d,
-	0xf4, 0xd9, 0x50, 0x68, 0x28, 0x1c, 0x86, 0xca, 0xf3, 0x90, 0x4d, 0xf6, 0x45, 0x73, 0xe6, 0xac,
-	0x0a, 0xe3, 0x01, 0xac, 0xc5, 0x64, 0x62, 0x0d, 0x34, 0xd4, 0x06, 0x86, 0x49, 0x0a, 0x71, 0xec,
-	0x66, 0x0f, 0x0a, 0x2f, 0x38, 0x01, 0x90, 0x0d, 0xa8, 0xe0, 0x4c, 0x39, 0xd3, 0xf1, 0x69, 0x34,
-	0x2a, 0x9b, 0xb0, 0x86, 0x87, 0x6c, 0x6c, 0xa7, 0xa3, 0xa9, 0x2f, 0x26, 0x86, 0x9f, 0x8a, 0x56,
-	0x48, 0x59, 0xb1, 0x20, 0xae, 0x40, 0x55, 0x9c, 0x86, 0xc2, 0x3a, 0x76, 0xf1, 0x15, 0x34, 0x8e,
-	0x10, 0x06, 0x7c, 0x9f, 0x77, 0xe9, 0x37, 0x53, 0x96, 0xf6, 0xdf, 0xc3, 0x2d, 0x6c, 0xe6, 0x48,
-	0xc7, 0xf1, 0x27, 0xb4, 0x1f, 0x64, 0xb1, 0x6d, 0x36, 0x60, 0xfd, 0xb1, 0xed, 0xab, 0xb2, 0xe6,
-	0x6d, 0x68, 0x1c, 0xe3, 0x30, 0x64, 0x32, 0xf0, 0x43, 0x0e, 0xc8, 0x0b, 0x8e, 0x02, 0x01, 0x92,
-	0xa5, 0xc9, 0x28, 0xbc, 0x4e, 0x1a, 0x50, 0x96, 0xa0, 0x63, 0x47, 0x02, 0x53, 0x33, 0x8c, 0xe9,
-	0x49, 0x8c, 0x2d, 0x45, 0x8d, 0xf9, 0x15, 0x6c, 0x3c, 0x44, 0x8c, 0xc5, 0x63, 0x59, 0x48, 0x8e,
-	0x2a, 0x2e, 0xb5, 0xa5, 0x1e, 0xf6, 0x61, 0x53, 0x56, 0x37, 0xbb, 0x0b, 0xf3, 0xfb, 0x1c, 0x34,
-	0x78, 0x91, 0x2f, 0xab, 0x90, 0x16, 0xaf, 0x50, 0x82, 0x9e, 0xf3, 0xf3, 0xe9, 0x79, 0x97, 0x41,
-	0xd3, 0x73, 0xc7, 0xe1, 0xb8, 0x6a, 0x68, 0x25, 0xf9, 0x8c, 0x11, 0x6b, 0x08, 0x77, 0x1a, 0x6f,
-	0x2b, 0x0f, 0xe2, 0x10, 0xab, 0xbb, 0xb4, 0xad, 0x2d, 0xd8, 0x10, 0x20, 0x78, 0x8b, 0x3c, 0x7f,
-	0xca, 0x41, 0xed, 0x11, 0x0d, 0x38, 0xdf, 0x28, 0xf6, 0xe7, 0xf3, 0x2d, 0x1b, 0x17, 0x77, 0x38,
-	0xf4, 0x69, 0x20, 0xa7, 0x96, 0x67, 0xa9, 0xcd, 0xd9, 0x78, 0x1a, 0xdf, 0xa6, 0xe2, 0x35, 0xa6,
-	0x2b, 0xdb, 0x54, 0x8c, 0x67, 0xa2, 0x06, 0x85, 0x74, 0x48, 0x13, 0xa8, 0x3d, 0x9f, 0x66, 0x8b,
-	0x68, 0xf9, 0x0b, 0x20, 0x19, 0xb3, 0x88, 0x2f, 0x62, 0x03, 0x1e, 0xdf, 0x9a, 0xf9, 0x75, 0x34,
-	0x7f, 0x99, 0xbc, 0x6e, 0xab, 0x6f, 0xcd, 0x85, 0xd9, 0xa5, 0x69, 0x8b, 0xb1, 0x0e, 0x0e, 0xef,
-	0xbb, 0x77, 0x14, 0xad, 0x84, 0x2c, 0xae, 0xcc, 0x97, 0xb0, 0xce, 0x60, 0x20, 0x89, 0x5a, 0xc8,
-	0x2e, 0xa0, 0xc4, 0x79, 0x48, 0xd0, 0xe7, 0x72, 0x5f, 0x13, 0x88, 0x88, 0x22, 0xa3, 0x69, 0x46,
-	0x96, 0x1b, 0xb2, 0x17, 0x59, 0x35, 0x08, 0xd4, 0x71, 0x48, 0x14, 0x71, 0x65, 0xa3, 0x72, 0xfa,
-	0x51, 0xb2, 0x9f, 0xcb, 0xa4, 0xe6, 0xae, 0x68, 0x8a, 0x2a, 0x1b, 0x7d, 0xa1, 0x40, 0x02, 0x99,
-	0x55, 0x33, 0x8b, 0xbd, 0x5b, 0xcf, 0xc2, 0x87, 0xbe, 0xc4, 0x60, 0xfd, 0xe8, 0xd9, 0x93, 0x27,
-	0x9d, 0x93, 0xde, 0xc9, 0xab, 0xe7, 0xed, 0xde, 0xd3, 0x67, 0x4f, 0xdb, 0xf5, 0x95, 0xe4, 0x69,
-	0xb7, 0x7d, 0x70, 0x5c, 0xcf, 0x31, 0xf2, 0x69, 0xa8, 0xa7, 0x5f, 0x76, 0x3b, 0x27, 0xed, 0x7a,
-	0xfe, 0xd6, 0xe7, 0xe2, 0x3d, 0x2c, 0x1f, 0xb5, 0xb5, 0x87, 0x9d, 0xc7, 0xed, 0x98, 0x31, 0xa6,
-	0x36, 0x3b, 0xeb, 0xb6, 0x1f, 0x7d, 0xf1, 0xf8, 0xa0, 0xcb, 0xac, 0x35, 0xa0, 0x3a, 0x3b, 0x3e,
-	0xee, 0x74, 0xeb, 0xf9, 0xd6, 0x8f, 0xab, 0xa0, 0x1d, 0x3c, 0xef, 0x90, 0x4f, 0x58, 0x88, 0x11,
-	0x9d, 0x91, 0xab, 0x02, 0x39, 0x49, 0x7e, 0x33, 0xae, 0xa6, 0xf6, 0x6a, 0x9b, 0x7f, 0x0f, 0x35,
-	0x57, 0xc8, 0x47, 0x50, 0x51, 0x38, 0x8b, 0x5c, 0x43, 0x03, 0x69, 0x16, 0x33, 0x12, 0xdf, 0x81,
-	0x56, 0x48, 0x0b, 0x4a, 0x21, 0x7b, 0x91, 0x4d, 0xbc, 0x4c, 0x90, 0x99, 0x51, 0x8b, 0xa9, 0xf8,
-	0x4c, 0x87, 0x05, 0x3b, 0xa3, 0x37, 0x19, 0x6c, 0x8a, 0xef, 0x16, 0x04, 0xfb, 0x21, 0x54, 0x14,
-	0xbe, 0x93, 0xc1, 0xa6, 0x19, 0xd0, 0x88, 0x0d, 0xd0, 0x0a, 0x39, 0x84, 0x35, 0x95, 0x9b, 0xc8,
-	0x96, 0x9c, 0x97, 0x14, 0x5d, 0x2d, 0x70, 0xfd, 0x31, 0x54, 0x63, 0xec, 0x43, 0xb6, 0xd5, 0x4a,
-	0xc5, 0xad, 0xa4, 0xbe, 0x07, 0xad, 0x90, 0x7b, 0x00, 0x33, 0x1a, 0x92, 0x99, 0xa7, 0x78, 0xc9,
-	0xa8, 0x27, 0x14, 0x7d, 0x11, 0xbc, 0xca, 0x06, 0x32, 0xf8, 0x39, 0x04, 0xb1, 0x20, 0x78, 0xe9,
-	0x5d, 0xf0, 0x8f, 0xe2, 0x3d, 0x46, 0x48, 0x73, 0xbd, 0xdf, 0x87, 0x55, 0xb9, 0xc4, 0xc9, 0x06,
-	0x5e, 0xc7, 0x57, 0xfa, 0xe5, 0x3e, 0x6f, 0xe6, 0xc8, 0xa7, 0xb0, 0x2a, 0x29, 0x49, 0xea, 0xc6,
-	0x09, 0xca, 0xd8, 0x49, 0xe9, 0xf2, 0xaf, 0x2f, 0xfe, 0x4b, 0xbe, 0xd1, 0xcd, 0x95, 0xbb, 0x39,
-	0x05, 0x9b, 0x68, 0x24, 0x86, 0x4d, 0xd5, 0x50, 0xe2, 0xbb, 0x56, 0x84, 0x4d, 0xc1, 0x76, 0x51,
-	0xb6, 0xaa, 0x4a, 0x2d, 0xa6, 0x12, 0xc3, 0x26, 0x6a, 0xa9, 0xd8, 0xcc, 0x94, 0x6f, 0xeb, 0xe7,
-	0x55, 0x1e, 0x6d, 0x40, 0x3d, 0xc7, 0x1a, 0xfd, 0xe3, 0x06, 0xf3, 0xb3, 0x8c, 0x83, 0x79, 0xb9,
-	0x85, 0xf7, 0x33, 0xfa, 0x7e, 0x46, 0xdf, 0xf9, 0x8c, 0xfe, 0xa2, 0xcb, 0xdf, 0x56, 0xf8, 0x80,
-	0x3e, 0x80, 0x12, 0x2b, 0x94, 0x78, 0x08, 0x2d, 0x4a, 0xd3, 0xa8, 0xc5, 0x7e, 0xfc, 0xf0, 0xb1,
-	0x6e, 0x07, 0x50, 0x0a, 0xdf, 0x59, 0x32, 0xfa, 0xc4, 0xb3, 0x6b, 0x79, 0xe5, 0xd8, 0xcc, 0x28,
-	0x4f, 0x2a, 0x59, 0xb9, 0xf4, 0x23, 0x6b, 0x01, 0x64, 0xee, 0xc3, 0x9a, 0xfa, 0xc6, 0x92, 0xb0,
-	0x9b, 0xf3, 0xec, 0x32, 0x92, 0x3f, 0x4c, 0x70, 0x2a, 0x2d, 0x47, 0xaf, 0x2d, 0x72, 0x65, 0x86,
-	0x36, 0x55, 0x6b, 0x3d, 0xae, 0xe5, 0xa3, 0x9a, 0xdc, 0x6a, 0xf8, 0xcb, 0x45, 0x35, 0xf6, 0xcb,
-	0x40, 0xa6, 0x65, 0x86, 0x7a, 0x31, 0x94, 0x28, 0x2f, 0x31, 0x23, 0x6e, 0x90, 0x29, 0xee, 0x0b,
-	0x94, 0xa0, 0xd6, 0x0c, 0x25, 0x8b, 0x54, 0x58, 0x65, 0x23, 0x98, 0xa0, 0x9a, 0x0a, 0x13, 0x55,
-	0xf1, 0xd2, 0x68, 0x4f, 0x8b, 0x78, 0xb2, 0xff, 0x67, 0x00, 0x00, 0x00, 0xff, 0xff, 0x79, 0xa6,
-	0x02, 0x38, 0xf6, 0x17, 0x00, 0x00,
 }

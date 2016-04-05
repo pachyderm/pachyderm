@@ -186,13 +186,24 @@ message GetFileRequest {
   int64 size_bytes = 3;
   Shard shard = 4;
   Commit from_commit = 5;
+  bool block_refs = 6;
+}
+
+message GetFileResponse {
+  oneof payload {
+      bytes value = 1;
+      BlockRefs block_refs = 2;
+  }
 }
 
 message PutFileRequest {
   File file = 1;
   FileType file_type = 2;
   int64 offset_bytes = 3;
-  bytes value = 4;
+  oneof payload {
+      bytes value = 4;
+      BlockRefs block_refs = 5;
+  }
 }
 
 message InspectFileRequest {
@@ -241,7 +252,7 @@ service API {
   // PutFile writes the specified file to pfs.
   rpc PutFile(stream PutFileRequest) returns (google.protobuf.Empty) {}
   // GetFile returns a byte stream of the contents of the file.
-  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc GetFile(GetFileRequest) returns (stream GetFileResponse) {}
   // InspectFile returns info about a file.
   rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
   // ListFile returns info about all files.
@@ -280,7 +291,7 @@ service InternalAPI {
   // PutFile writes the specified file to pfs.
   rpc PutFile(stream PutFileRequest) returns (google.protobuf.Empty) {}
   // GetFile returns a byte stream of the contents of the file.
-  rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc GetFile(GetFileRequest) returns (stream GetFileResponse) {}
   // InspectFile returns info about a file.
   rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
   // ListFile returns info about all files.

@@ -10,10 +10,10 @@ import (
 	"time"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
@@ -402,8 +402,11 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 			return err
 		}
 		if request.FileType == pfsclient.FileType_FILE_TYPE_DIR {
-			if len(request.Value) > 0 {
-				return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
+			if value := request.GetValue(); len(value) > 0 {
+				return fmt.Errorf("PutFileRequest shouldn't have type dir and a Value")
+			}
+			if blockRefs := request.GetBlockRefs(); blockRefs != nil && len(blockRefs.BlockRef) > 0 {
+				return fmt.Errorf("PutFileRequest shouldn't have type dir and a BlockRefs")
 			}
 			if err := putFileClient.Send(request); err != nil {
 				return err
@@ -488,7 +491,10 @@ func (a *apiServer) GetFile(request *pfsclient.GetFileRequest, apiGetFileServer 
 	if err != nil {
 		return err
 	}
-	return protostream.RelayFromStreamingBytesClient(fileGetClient, apiGetFileServer)
+	return protostream.RelayFromStreamingBytesClient(
+		pfsclient.NewInternalGetFileClientWrapper(fileGetClient),
+		pfsclient.NewGetFileServerWrapper(apiGetFileServer),
+	)
 }
 
 func (a *apiServer) InspectFile(ctx context.Context, request *pfsclient.InspectFileRequest) (response *pfsclient.FileInfo, retErr error) {

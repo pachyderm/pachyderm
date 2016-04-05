@@ -17,9 +17,9 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 )
 
 var (
@@ -253,8 +253,11 @@ func (a *internalAPIServer) PutFile(putFileServer pfsclient.InternalAPI_PutFileS
 		return err
 	}
 	if request.FileType == pfsclient.FileType_FILE_TYPE_DIR {
-		if len(request.Value) > 0 {
-			return fmt.Errorf("PutFileRequest shouldn't have type dir and a value")
+		if value := request.GetValue(); len(value) > 0 {
+			return fmt.Errorf("PutFileRequest shouldn't have type dir and a Value")
+		}
+		if blockRefs := request.GetBlockRefs(); blockRefs != nil && len(blockRefs.BlockRef) > 0 {
+			return fmt.Errorf("PutFileRequest shouldn't have type dir and a BlockRefs")
 		}
 		if err := a.driver.MakeDirectory(request.File, shard); err != nil {
 			return err
@@ -263,7 +266,7 @@ func (a *internalAPIServer) PutFile(putFileServer pfsclient.InternalAPI_PutFileS
 		reader := putFileReader{
 			server: putFileServer,
 		}
-		_, err = reader.buffer.Write(request.Value)
+		_, err = reader.buffer.Write(request.GetValue())
 		if err != nil {
 			return err
 		}
@@ -297,7 +300,7 @@ func (a *internalAPIServer) GetFile(request *pfsclient.GetFileRequest, apiGetFil
 			retErr = err
 		}
 	}()
-	return protostream.WriteToStreamingBytesServer(file, apiGetFileServer)
+	return protostream.WriteToStreamingBytesServer(file, pfsclient.NewGetFileServerWrapper(apiGetFileServer))
 }
 
 func (a *internalAPIServer) InspectFile(ctx context.Context, request *pfsclient.InspectFileRequest) (response *pfsclient.FileInfo, retErr error) {
@@ -441,7 +444,7 @@ func (r *putFileReader) Read(p []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		_, err = r.buffer.Write(request.Value)
+		_, err = r.buffer.Write(request.GetValue())
 		if err != nil {
 			return 0, err
 		}

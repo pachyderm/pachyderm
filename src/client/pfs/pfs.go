@@ -1,9 +1,11 @@
 package pfs
 
 import (
+	"fmt"
 	"io"
 	"math"
 
+	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 )
@@ -132,15 +134,15 @@ func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string,
 	for i, fromCommitID := range fromCommitIDs {
 		fromCommits = append(fromCommits, &Commit{
 			Repo: repos[i],
-			ID: fromCommitID,
+			ID:   fromCommitID,
 		})
 	}
 	commitInfos, err := apiClient.ListCommit(
 		context.Background(),
 		&ListCommitRequest{
-			Repo: repos,
+			Repo:       repos,
 			FromCommit: fromCommits,
-			Block: block,
+			Block:      block,
 		},
 	)
 	if err != nil {
@@ -259,7 +261,7 @@ func PutFile(apiClient APIClient, repoName string, commitID string, path string,
 		if err == io.EOF {
 			eof = true
 		}
-		request.Value = value[0:iSize]
+		request.Payload = &PutFileRequest_Value{Value: value[0:iSize]}
 		size += iSize
 		if err := putFileClient.Send(&request); err != nil {
 			return 0, err
@@ -288,7 +290,7 @@ func GetFile(apiClient APIClient, repoName string, commitID string, path string,
 	if err != nil {
 		return err
 	}
-	if err := protostream.WriteFromStreamingBytesClient(apiGetFileClient, writer); err != nil {
+	if err := protostream.WriteFromStreamingBytesClient(NewGetFileClientWrapper(apiGetFileClient), writer); err != nil {
 		return err
 	}
 	return nil
@@ -328,7 +330,7 @@ func DeleteFile(apiClient APIClient, repoName string, commitID string, path stri
 	_, err := apiClient.DeleteFile(
 		context.Background(),
 		&DeleteFileRequest{
-			File:     NewFile(repoName, commitID, path),
+			File: NewFile(repoName, commitID, path),
 		},
 	)
 	return err
@@ -352,10 +354,60 @@ func MakeDirectory(apiClient APIClient, repoName string, commitID string, path s
 	)
 }
 
-
 func newFromCommit(repoName string, fromCommitID string) *Commit {
 	if fromCommitID != "" {
 		return NewCommit(repoName, fromCommitID)
 	}
 	return nil
+}
+
+type getFileClientWrapper struct {
+	getFileClient         API_GetFileClient
+	internalGetFileClient InternalAPI_GetFileClient //another reason to merge these stupid apis
+}
+
+func NewGetFileClientWrapper(getFileClient API_GetFileClient) protostream.StreamingBytesClient {
+	return &getFileClientWrapper{getFileClient: getFileClient}
+}
+
+func NewInternalGetFileClientWrapper(getFileClient InternalAPI_GetFileClient) protostream.StreamingBytesClient {
+	return &getFileClientWrapper{internalGetFileClient: getFileClient}
+}
+
+func (g *getFileClientWrapper) Recv() (*google_protobuf.BytesValue, error) {
+	var response *GetFileResponse
+	var err error
+	if g.getFileClient != nil {
+		response, err = g.getFileClient.Recv()
+	} else {
+		response, err = g.internalGetFileClient.Recv()
+	}
+	if err != nil {
+		return nil, err
+	}
+	value := response.GetValue()
+	if value == nil {
+		return nil, fmt.Errorf("unexpect nil value")
+	}
+	return &google_protobuf.BytesValue{Value: value}, nil
+}
+
+type getFileServerWrapper struct {
+	getFileServer         API_GetFileServer
+	internalGetFileServer InternalAPI_GetFileServer //another reason to merge these stupid apis
+}
+
+func NewGetFileServerWrapper(getFileServer API_GetFileServer) protostream.StreamingBytesServer {
+	return &getFileServerWrapper{getFileServer: getFileServer}
+}
+
+func NewInternalGetFileServerWrapper(getFileServer InternalAPI_GetFileServer) protostream.StreamingBytesServer {
+	return &getFileServerWrapper{internalGetFileServer: getFileServer}
+}
+
+func (g *getFileServerWrapper) Send(value *google_protobuf.BytesValue) error {
+	if g.getFileServer != nil {
+		return g.getFileServer.Send(&GetFileResponse{&GetFileResponse_Value{value.Value}})
+	}
+	return g.internalGetFileServer.Send(&GetFileResponse{&GetFileResponse_Value{value.Value}})
 }
