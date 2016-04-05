@@ -97,6 +97,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	// If JobInfo.Pipeline is set, use the pipeline repo
 	if request.Pipeline != nil {
 		startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
+		if parentJobInfo != nil && parentJobInfo.OutputCommit.Repo.Name != startCommitRequest.Repo.Name {
+			return nil, fmt.Errorf("Parent job was not part of the same pipeline; this is likely a bug")
+		}
 	} else {
 		// If parent is set, use the parent's repo
 		if parentJobInfo != nil {
