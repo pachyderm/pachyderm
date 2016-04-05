@@ -98,11 +98,20 @@ clean-launch:
 integration-tests:
 	go test ./src/server -timeout 120s
 
-protofix:
-	docker build -t pachyderm/protofix -f Dockerfile.protofix .
+docker-build-proto:
+	docker build -t pachyderm/protofix -f Dockerfile.proto .
+
+docker-proto:
+	docker run -v $(PWD):/go/src/github.com/pachyderm/pachyderm pachyderm/protofix 
+	sudo chown -R `whoami` src/
 
 proto:
-	docker run -v $(PWD):/go/src/github.com/pachyderm/pachyderm pachyderm/protofix 
+	go get -v go.pedge.io/protoeasy/cmd/protoeasy
+	rm -rf src/server/vendor
+	sudo -E protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src
+	go install github.com/pachyderm/pachyderm/src/server/cmd/protofix
+	protofix fix src
+	git checkout src/server/vendor
 	sudo chown -R `whoami` src/
 
 pretest:
