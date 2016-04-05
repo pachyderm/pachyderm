@@ -14,9 +14,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
@@ -73,6 +73,33 @@ func testJob(t *testing.T, shards int) {
 	var buffer bytes.Buffer
 	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
+}
+
+func TestLogs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	pachClient := getPachClient(t)
+	job, err := ppsclient.CreateJob(
+		pachClient,
+		"",
+		[]string{"echo", "foo"},
+		nil,
+		4,
+		[]*ppsclient.JobInput{},
+		"",
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        job,
+		BlockState: true,
+	}
+	_, err = pachClient.InspectJob(context.Background(), inspectJobRequest)
+	require.NoError(t, err)
+	var buffer bytes.Buffer
+	require.NoError(t, ppsclient.GetLogs(pachClient, job.ID, &buffer))
+	require.Equal(t, "foo\nfoo\nfoo\nfoo\n", buffer.String())
 }
 
 func TestGrep(t *testing.T) {
