@@ -16,13 +16,13 @@ RUN \
   apt-get clean && \
   rm -rf /var/lib/apt
 RUN \
-  curl -sSL https://get.docker.com/builds/Linux/x86_64/docker-1.8.3 > /bin/docker && \
+  curl -sSL https://get.docker.com/builds/Linux/x86_64/docker-1.10.0 > /bin/docker && \
   chmod +x /bin/docker
 RUN \
   curl -sSL https://github.com/docker/compose/releases/download/1.5.0rc2/docker-compose-Linux-x86_64 > /bin/docker-compose && \
   chmod +x /bin/docker-compose
 RUN \
-  curl -sSL https://storage.googleapis.com/golang/go1.5.1.linux-amd64.tar.gz | tar -C /usr/local -xz && \
+  curl -sSL https://storage.googleapis.com/golang/go1.6.linux-amd64.tar.gz | tar -C /usr/local -xz && \
   mkdir -p /go/bin
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go
