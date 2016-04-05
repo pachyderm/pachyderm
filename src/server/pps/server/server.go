@@ -3,8 +3,8 @@ package server
 import (
 	"sync"
 
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"go.pedge.io/proto/rpclog"
@@ -33,8 +33,6 @@ func NewAPIServer(
 		sync.Once{},
 		persistAPIServer,
 		kubeClient,
-		make(map[string]*jobState),
-		sync.Mutex{},
 		make(map[ppsclient.Pipeline]func()),
 		sync.Mutex{},
 		shard.InvalidVersion,

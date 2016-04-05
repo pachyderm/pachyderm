@@ -16,8 +16,6 @@ message StartJobRequest {
 message StartJobResponse {
     Transform transform = 1;
 	repeated fuse.CommitMount commit_mounts = 2;
-	// TODO this could just be another commit mount
-    pfs.Commit output_commit = 3;
 	uint64 index = 4;
 }
 
