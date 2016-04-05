@@ -6,10 +6,11 @@ import (
 	"time"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	"go.pedge.io/lion/proto"
@@ -18,36 +19,16 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
+	kube_api "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
-	kube_api "k8s.io/kubernetes/pkg/api"
 )
 
 var (
 	trueVal = true
 	suite   = "pachyderm"
 )
-
-type jobState struct {
-	start        uint64            // the number of shards started
-	finish       uint64            // the number of shards finished
-	outputCommit *pfsclient.Commit // the output commit
-	commitReady  chan bool         // closed when outCommit has been started (and is non nil)
-	finished     chan bool         // closed when the job has been finished, the jobState will be deleted afterward
-	success      bool
-}
-
-func newJobState() *jobState {
-	return &jobState{
-		start:        0,
-		finish:       0,
-		outputCommit: nil,
-		commitReady:  make(chan bool),
-		finished:     make(chan bool),
-		success:      true,
-	}
-}
 
 type apiServer struct {
 	protorpclog.Logger
@@ -58,8 +39,6 @@ type apiServer struct {
 	pfsClientOnce    sync.Once
 	persistAPIServer persist.APIServer
 	kubeClient       *kube.Client
-	jobStates        map[string]*jobState
-	jobStatesLock    sync.Mutex
 	cancelFuncs      map[ppsclient.Pipeline]func()
 	cancelFuncsLock  sync.Mutex
 	version          int64
@@ -95,12 +74,76 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if len(repoSet) < len(request.Inputs) {
 		return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: duplicate repo in job")
 	}
+
+	jobID := uuid.NewWithoutDashes()
+
+	var parentJobInfo *persist.JobInfo
+	var err error
+	if request.ParentJob != nil {
+		inspectJobRequest := &ppsclient.InspectJobRequest{Job: request.ParentJob}
+		parentJobInfo, err = a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+
+	startCommitRequest := &pfsclient.StartCommitRequest{}
+
+	// If JobInfo.Pipeline is set, use the pipeline repo
+	if request.Pipeline != nil {
+		startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: request.Pipeline.Name})
+		if parentJobInfo != nil && parentJobInfo.OutputCommit.Repo.Name != startCommitRequest.Repo.Name {
+			return nil, fmt.Errorf("Parent job was not part of the same pipeline; this is likely a bug")
+		}
+	} else {
+		// If parent is set, use the parent's repo
+		if parentJobInfo != nil {
+			startCommitRequest.Repo = parentJobInfo.OutputCommit.Repo
+		} else {
+			// Otherwise, create a repo for this job
+			startCommitRequest.Repo = ppsserver.JobRepo(&ppsclient.Job{
+				ID: jobID,
+			})
+			if _, err := pfsAPIClient.CreateRepo(ctx, &pfsclient.CreateRepoRequest{Repo: startCommitRequest.Repo}); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// If parent is set...
+	if parentJobInfo != nil {
+		reduce := false
+		for _, jobInput := range request.Inputs {
+			if jobInput.Reduce {
+				reduce = true
+			}
+		}
+		// ...and if the job is not a reduce job, the parent's output commit
+		// should be this commit's parent.
+		// Otherwise this commit should have no parent.
+		if !reduce {
+			startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
+		}
+	}
+
+	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO validate job to make sure input commits and output repo exist
 	persistJobInfo := &persist.JobInfo{
-		Shards:    request.Shards,
-		Transform: request.Transform,
-		Inputs:    request.Inputs,
-		ParentJob: request.ParentJob,
+		JobID:        jobID,
+		Shards:       request.Shards,
+		Transform:    request.Transform,
+		Inputs:       request.Inputs,
+		ParentJob:    request.ParentJob,
+		OutputCommit: commit,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = request.Pipeline.Name
@@ -108,7 +151,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if a.kubeClient == nil {
 		return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: no job backend")
 	}
-	_, err := a.persistAPIServer.CreateJobInfo(ctx, persistJobInfo)
+	_, err = a.persistAPIServer.CreateJobInfo(ctx, persistJobInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -122,11 +165,12 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			}
 		}
 	}()
+
 	if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
 		return nil, err
 	}
 	return &ppsclient.Job{
-		ID: persistJobInfo.JobID,
+		ID: jobID,
 	}, nil
 }
 
@@ -160,32 +204,20 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 
 func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobRequest) (response *ppsserver.StartJobResponse, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	inspectJobRequest := &ppsclient.InspectJobRequest{Job: request.Job}
-	jobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
+
+	jobInfo, err := a.persistAPIServer.StartShard(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
+
+	if jobInfo.ShardsStarted > jobInfo.Shards {
+		return nil, fmt.Errorf("job %s already has %d shards", request.Job.ID, jobInfo.Shards)
+	}
+
 	if jobInfo.Transform == nil {
 		return nil, fmt.Errorf("jobInfo.Transform should not be nil (this is likely a bug)")
 	}
-	a.jobStatesLock.Lock()
-	jobState, ok := a.jobStates[request.Job.ID]
-	if !ok {
-		jobState = newJobState()
-		a.jobStates[request.Job.ID] = jobState
-	}
-	shard := jobState.start
-	if jobState.start < jobInfo.Shards {
-		jobState.start++
-	}
-	a.jobStatesLock.Unlock()
-	if shard == jobInfo.Shards {
-		return nil, fmt.Errorf("job %s already has %d shards", request.Job.ID, jobInfo.Shards)
-	}
-	pfsAPIClient, err := a.getPfsClient()
-	if err != nil {
-		return nil, err
-	}
+
 	var parentJobInfo *persist.JobInfo
 	if jobInfo.ParentJob != nil {
 		inspectJobRequest := &ppsclient.InspectJobRequest{Job: jobInfo.ParentJob}
@@ -195,50 +227,17 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		}
 	}
 	repoToFromCommit := make(map[string]*pfsclient.Commit)
-	reduce := false
 	if parentJobInfo != nil {
 		for _, jobInput := range parentJobInfo.Inputs {
-			if jobInput.Reduce {
-				reduce = true
-			} else {
+			if !jobInput.Reduce {
 				// input isn't being reduced, do it incrementally
 				repoToFromCommit[jobInput.Commit.Repo.Name] = jobInput.Commit
 			}
 		}
 	}
-	if shard == 0 {
-		startCommitRequest := &pfsclient.StartCommitRequest{}
-		if parentJobInfo == nil || reduce {
-			if jobInfo.PipelineName == "" {
-				startCommitRequest.Repo = ppsserver.JobRepo(request.Job)
-				if _, err := pfsAPIClient.CreateRepo(ctx, &pfsclient.CreateRepoRequest{Repo: startCommitRequest.Repo}); err != nil {
-					return nil, err
-				}
-			} else {
-				startCommitRequest.Repo = ppsserver.PipelineRepo(&ppsclient.Pipeline{Name: jobInfo.PipelineName})
-			}
-		} else {
-			startCommitRequest.Repo = parentJobInfo.OutputCommit.Repo
-			startCommitRequest.ParentID = parentJobInfo.OutputCommit.ID
-		}
-		commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := a.persistAPIServer.CreateJobOutput(
-			ctx,
-			&persist.JobOutput{
-				JobID:        request.Job.ID,
-				OutputCommit: commit,
-			}); err != nil {
-			return nil, err
-		}
-		jobState.outputCommit = commit
-		close(jobState.commitReady)
-	}
-	<-jobState.commitReady
-	if jobState.outputCommit == nil {
-		return nil, fmt.Errorf("jobState.outputCommit should not be nil (this is likely a bug)")
+
+	if jobInfo.OutputCommit == nil {
+		return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
 	}
 	var commitMounts []*fuse.CommitMount
 	for _, jobInput := range jobInfo.Inputs {
@@ -251,54 +250,42 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			},
 		}
 		if jobInput.Reduce {
-			commitMount.Shard.FileNumber = shard
+			commitMount.Shard.FileNumber = jobInfo.ShardsStarted - 1
 			commitMount.Shard.FileModulus = jobInfo.Shards
 		} else {
-			commitMount.Shard.BlockNumber = shard
+			commitMount.Shard.BlockNumber = jobInfo.ShardsStarted - 1
 			commitMount.Shard.BlockModulus = jobInfo.Shards
 		}
 		commitMounts = append(commitMounts, commitMount)
 	}
 	outputCommitMount := &fuse.CommitMount{
-		Commit: jobState.outputCommit,
+		Commit: jobInfo.OutputCommit,
 		Alias:  "out",
 	}
 	commitMounts = append(commitMounts, outputCommitMount)
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
-		OutputCommit: jobState.outputCommit,
-		Index:        shard,
+		Index:        jobInfo.ShardsStarted - 1,
 	}, nil
 }
 
 func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	inspectJobRequest := &ppsclient.InspectJobRequest{Job: request.Job}
-	jobInfo, err := a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
-	if err != nil {
-		return nil, err
-	}
-	var finished bool
-	persistJobState := ppsclient.JobState_JOB_STATE_FAILURE
-	if err := func() error {
-		a.jobStatesLock.Lock()
-		defer a.jobStatesLock.Unlock()
-		jobState, ok := a.jobStates[request.Job.ID]
-		if !ok {
-			return fmt.Errorf("job %s was never started", request.Job.ID)
+	var jobInfo *persist.JobInfo
+	var err error
+	if request.Success {
+		jobInfo, err = a.persistAPIServer.SucceedShard(ctx, request.Job)
+		if err != nil {
+			return nil, err
 		}
-		jobState.success = jobState.success && request.Success
-		if jobState.success {
-			persistJobState = ppsclient.JobState_JOB_STATE_SUCCESS
+	} else {
+		jobInfo, err = a.persistAPIServer.FailShard(ctx, request.Job)
+		if err != nil {
+			return nil, err
 		}
-		jobState.finish++
-		finished = (jobState.finish == jobInfo.Shards)
-		return nil
-	}(); err != nil {
-		return nil, err
 	}
-	if finished {
+	if jobInfo.ShardsSucceeded+jobInfo.ShardsFailed == jobInfo.Shards {
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
 		}
@@ -311,9 +298,13 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		}); err != nil {
 			return nil, err
 		}
+		jobState := ppsclient.JobState_JOB_STATE_FAILURE
+		if jobInfo.ShardsSucceeded == jobInfo.Shards {
+			jobState = ppsclient.JobState_JOB_STATE_SUCCESS
+		}
 		if _, err := a.persistAPIServer.CreateJobState(ctx, &persist.JobState{
 			JobID: request.Job.ID,
-			State: persistJobState,
+			State: jobState,
 		}); err != nil {
 			return nil, err
 		}
