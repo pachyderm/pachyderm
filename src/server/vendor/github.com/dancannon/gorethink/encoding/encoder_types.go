@@ -142,7 +142,34 @@ func (se *structEncoder) encode(v reflect.Value) interface{} {
 			continue
 		}
 
-		m[f.name] = se.fieldEncs[i](fv)
+		encField := se.fieldEncs[i](fv)
+
+		// If this field is a referenced field then attempt to extract the value.
+		if f.reference {
+			refName := f.name
+			if f.refName != "" {
+				refName = f.refName
+			}
+
+			// referenced fields can only handle maps so return an error if the
+			// encoded field is of a different type
+			m, ok := encField.(map[string]interface{})
+			if !ok {
+				err := fmt.Errorf("Error referencing field %s in %s, expected object but got %t", refName, f.name, encField)
+				panic(&MarshalerError{v.Type(), err})
+			}
+
+			refVal, ok := m[refName]
+			if !ok {
+				err := fmt.Errorf("Error referencing field %s in %s, could not find referenced field", refName, f.name)
+				panic(&MarshalerError{v.Type(), err})
+			}
+
+			// Override the encoded field with the referenced field
+			encField = refVal
+		}
+
+		m[f.name] = encField
 	}
 
 	return m

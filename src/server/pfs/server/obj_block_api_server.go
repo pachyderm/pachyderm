@@ -12,7 +12,7 @@ import (
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )

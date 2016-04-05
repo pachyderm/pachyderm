@@ -45,6 +45,7 @@ type termsObj map[string]Term
 // see http://rethinkdb.com/docs/writing-drivers/.
 type Term struct {
 	name     string
+	rawQuery bool
 	rootTerm bool
 	termType p.Term_TermType
 	data     interface{}
@@ -60,6 +61,10 @@ func (t Term) build() (interface{}, error) {
 
 	if t.lastErr != nil {
 		return nil, t.lastErr
+	}
+
+	if t.rawQuery {
+		return t.data, nil
 	}
 
 	switch t.termType {
@@ -240,7 +245,7 @@ func (t Term) Run(s *Session, optArgs ...RunOpts) (*Cursor, error) {
 }
 
 // RunWrite runs a query using the given connection but unlike Run automatically
-// scans the result into a variable of type WriteResponss. This function should be used
+// scans the result into a variable of type WriteResponse. This function should be used
 // if you are running a write query (such as Insert,  Update, TableCreate, etc...).
 //
 // If an error occurs when running the write query the first error is returned.

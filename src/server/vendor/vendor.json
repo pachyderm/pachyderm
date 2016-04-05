@@ -3,1056 +3,1664 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "II2RjEFgX9EzV4fJSgV/oZrB7aE=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/bazil.org/fuse",
 			"path": "bazil.org/fuse",
-			"revision": "b692cc42ecdf9ad2e5c87a538c27a822bbaaa270",
-			"revisionTime": "2016-02-23T10:01:53-08:00"
+			"revision": "37bfa8be929171feec943f3496bc4befdeaf10db",
+			"revisionTime": "2016-03-17T18:10:31Z"
 		},
 		{
+			"checksumSHA1": "IVdeB8/w8murFUpeqMzoSxS2i2E=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/bazil.org/fuse/fs",
 			"path": "bazil.org/fuse/fs",
-			"revision": "b692cc42ecdf9ad2e5c87a538c27a822bbaaa270",
-			"revisionTime": "2016-02-23T10:01:53-08:00"
+			"revision": "37bfa8be929171feec943f3496bc4befdeaf10db",
+			"revisionTime": "2016-03-17T18:10:31Z"
 		},
 		{
+			"checksumSHA1": "wy8DrEJ4Al2iZk5hKQEbIqaghGM=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/bazil.org/fuse/fs/fstestutil",
 			"path": "bazil.org/fuse/fs/fstestutil",
-			"revision": "b692cc42ecdf9ad2e5c87a538c27a822bbaaa270",
-			"revisionTime": "2016-02-23T10:01:53-08:00"
+			"revision": "37bfa8be929171feec943f3496bc4befdeaf10db",
+			"revisionTime": "2016-03-17T18:10:31Z"
 		},
 		{
+			"checksumSHA1": "NPgkh9UWMsaTtsAAs3kPrclHT9Y=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/bazil.org/fuse/fuseutil",
 			"path": "bazil.org/fuse/fuseutil",
-			"revision": "b692cc42ecdf9ad2e5c87a538c27a822bbaaa270",
-			"revisionTime": "2016-02-23T10:01:53-08:00"
+			"revision": "37bfa8be929171feec943f3496bc4befdeaf10db",
+			"revisionTime": "2016-03-17T18:10:31Z"
 		},
 		{
+			"checksumSHA1": "DWPL08pD/SQ2GzLfoR7ZXnjj7Sw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/Sirupsen/logrus",
 			"path": "github.com/Sirupsen/logrus",
-			"revision": "be52937128b38f1d99787bb476c789e2af1147f1",
-			"revisionTime": "2016-02-02T21:14:36Z"
+			"revision": "4b6ea7319e214d98c938f12692336f7ca9348d6b",
+			"revisionTime": "2016-03-17T14:11:10Z"
 		},
 		{
+			"checksumSHA1": "hO3a7h3wGPAdtpa02tKJIkOGAKM=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/aws",
 			"path": "github.com/aws/aws-sdk-go/aws",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "AWg3FBA1NTPdIVZipaQf/rGx38o=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/aws/awserr",
 			"path": "github.com/aws/aws-sdk-go/aws/awserr",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "dkfyy7aRNZ6BmUZ4ZdLIcMMXiPA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/aws/awsutil",
 			"path": "github.com/aws/aws-sdk-go/aws/awsutil",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "H3TOR2XBZxM79D3y0xfAM0MHzHc=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/aws/client",
 			"path": "github.com/aws/aws-sdk-go/aws/client",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "ieAJ+Cvp/PKv1LpUEnUXpc3OI6E=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/aws/client/metadata",
 			"path": "github.com/aws/aws-sdk-go/aws/client/metadata",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "H9CrCkCfJPzsh2Ll0mIDHpvV7Ek=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/aws/corehandlers",
 			"path": "github.com/aws/aws-sdk-go/aws/corehandlers",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "t+StYYU8PtTVNj8VEni4XV7bBJQ=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/aws/credentials",
 			"path": "github.com/aws/aws-sdk-go/aws/credentials",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "KQiUK/zr3mqnAXD7x/X55/iNme0=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds",
 			"path": "github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "+bxLAbdUZ2SeCxImaMZkzZw+55E=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/aws/defaults",
 			"path": "github.com/aws/aws-sdk-go/aws/defaults",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "U0SthWum+t9ACanK7SDJOg3dO6M=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/aws/ec2metadata",
 			"path": "github.com/aws/aws-sdk-go/aws/ec2metadata",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "cOeTp/djUDbv1QjxBmJ9FfOT2bQ=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/aws/request",
 			"path": "github.com/aws/aws-sdk-go/aws/request",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "vDCy4q7PoOTy5IFejfV8WlWvdew=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/aws/session",
 			"path": "github.com/aws/aws-sdk-go/aws/session",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "sgft7A0lRCVD7QBogydg46lr3NM=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/private/endpoints",
 			"path": "github.com/aws/aws-sdk-go/private/endpoints",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "wk7EyvDaHwb5qqoOP/4d3cV0708=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/private/protocol",
 			"path": "github.com/aws/aws-sdk-go/private/protocol",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "nHHyS4+VgZOV7F3Xu87crArmbds=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/private/protocol/query",
 			"path": "github.com/aws/aws-sdk-go/private/protocol/query",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "5xzix1R8prUyWxgLnzUQoxTsfik=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/private/protocol/query/queryutil",
 			"path": "github.com/aws/aws-sdk-go/private/protocol/query/queryutil",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "TW/7U+/8ormL7acf6z2rv2hDD+s=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/private/protocol/rest",
 			"path": "github.com/aws/aws-sdk-go/private/protocol/rest",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "ttxyyPnlmMDqX+sY10BwbwwA+jo=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/private/protocol/restxml",
 			"path": "github.com/aws/aws-sdk-go/private/protocol/restxml",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "LsCIsjbzX2r3n/AhpNJvAC5ueNA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil",
 			"path": "github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "L2bf110xGGQ4+8MwLrRYfOXkOsg=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/private/signer/v4",
 			"path": "github.com/aws/aws-sdk-go/private/signer/v4",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "Eo9yODN5U99BK0pMzoqnBm7PCrY=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/private/waiter",
 			"path": "github.com/aws/aws-sdk-go/private/waiter",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "aPArEMY5czN2MrrrZ+/nvFPFG5o=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/service/s3",
 			"path": "github.com/aws/aws-sdk-go/service/s3",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
-			"path": "github.com/aws/aws-sdk-go/service/s3/s3Manager",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
-		},
-		{
+			"checksumSHA1": "SAKWzWkRSngaXdLN2BbbeZc3Km8=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/service/s3/s3iface",
 			"path": "github.com/aws/aws-sdk-go/service/s3/s3iface",
-			"revision": "72a68b4e5a9c3f6a75813e6d4393b3a21749e9c4",
-			"revisionTime": "2016-02-10T13:55:15-08:00"
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
 		},
 		{
+			"checksumSHA1": "CP2LKPCPwpywH+iMrBMMw7jyFHo=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/aws/aws-sdk-go/service/s3/s3manager",
+			"path": "github.com/aws/aws-sdk-go/service/s3/s3manager",
+			"revision": "2884593601c39716d85a2fcb5af8e4a20294cee6",
+			"revisionTime": "2016-03-30T16:27:15Z"
+		},
+		{
+			"checksumSHA1": "4QnLdmB1kG3N+KlDd1N+G9TWAGQ=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/beorn7/perks/quantile",
 			"path": "github.com/beorn7/perks/quantile",
-			"revision": "b965b613227fddccbfffe13eae360ed3fa822f8d",
-			"revisionTime": "2015-02-23T14:51:52+01:00"
+			"revision": "3ac7bf7a47d159a033b107610db8a1b6575507a4",
+			"revisionTime": "2016-02-29T21:34:45Z"
 		},
 		{
+			"checksumSHA1": "1LNMQR+ZHVc8ujJRbFOF3X2mINk=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/blang/semver",
 			"path": "github.com/blang/semver",
 			"revision": "aea32c919a18e5ef4537bbd283ff29594b1b0165",
-			"revisionTime": "2015-12-05T10:49:59+01:00"
+			"revisionTime": "2015-12-05T09:49:59Z"
 		},
 		{
+			"checksumSHA1": "uB9mw9vMHYJlJlmTBstl4Pi8ZwU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/cenkalti/backoff",
 			"path": "github.com/cenkalti/backoff",
-			"revision": "4dc77674aceaabba2c7e3da25d4c823edfb73f99",
-			"revisionTime": "2015-08-14T12:43:33+03:00"
+			"revision": "32cd0c5b3aef12c76ed64aaf678f6c79736be7dc",
+			"revisionTime": "2015-08-27T12:34:15Z"
 		},
 		{
+			"checksumSHA1": "QYZl71hihzMItJ9UrxlZbqLbtUQ=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/cloudfoundry-incubator/candiedyaml",
+			"path": "github.com/cloudfoundry-incubator/candiedyaml",
+			"revision": "479485e9bfc69ee37d074b36ce36da5e4fba7941",
+			"revisionTime": "2016-03-28T01:12:34Z"
+		},
+		{
+			"checksumSHA1": "BJXHEdzHxRPmVnt6GFaPpwgns2c=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/coreos/go-etcd/etcd",
 			"path": "github.com/coreos/go-etcd/etcd",
 			"revision": "003851be7bb0694fe3cc457a49529a19388ee7cf",
-			"revisionTime": "2015-10-26T09:03:18-07:00"
+			"revisionTime": "2015-10-26T16:03:18Z"
 		},
 		{
+			"checksumSHA1": "5g4gVjxDJzTdjMYTat1AtAyDjNI=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/cpuguy83/go-md2man/md2man",
 			"path": "github.com/cpuguy83/go-md2man/md2man",
 			"revision": "2724a9c9051aa62e9cca11304e7dd518e9e41599",
-			"revisionTime": "2016-01-04T20:15:47-05:00"
+			"revisionTime": "2016-01-05T01:15:47Z"
 		},
 		{
+			"checksumSHA1": "sqqwf1c9kvnvGbH20hcOXBFu248=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/dancannon/gorethink",
 			"path": "github.com/dancannon/gorethink",
-			"revision": "7d1af5be49cb5ecc7b177bf387d232050299d6ef",
-			"revisionTime": "2016-02-01T22:26:15Z"
+			"revision": "ef48c048b4f1f4d923de4197e78c1b206c14fa4c",
+			"revisionTime": "2016-03-15T21:01:06Z"
 		},
 		{
+			"checksumSHA1": "j6hgr0e8A9mX7/3vubxpve05FpY=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/dancannon/gorethink/encoding",
 			"path": "github.com/dancannon/gorethink/encoding",
-			"revision": "7d1af5be49cb5ecc7b177bf387d232050299d6ef",
-			"revisionTime": "2016-02-01T22:26:15Z"
+			"revision": "ef48c048b4f1f4d923de4197e78c1b206c14fa4c",
+			"revisionTime": "2016-03-15T21:01:06Z"
 		},
 		{
+			"checksumSHA1": "cvdGWKTSukJFncq3khnb2iWYboc=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/dancannon/gorethink/ql2",
 			"path": "github.com/dancannon/gorethink/ql2",
-			"revision": "7d1af5be49cb5ecc7b177bf387d232050299d6ef",
-			"revisionTime": "2016-02-01T22:26:15Z"
+			"revision": "ef48c048b4f1f4d923de4197e78c1b206c14fa4c",
+			"revisionTime": "2016-03-15T21:01:06Z"
 		},
 		{
+			"checksumSHA1": "p8caZhJVRmenuxaEHJ1UDXV3ZBc=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/dancannon/gorethink/types",
 			"path": "github.com/dancannon/gorethink/types",
-			"revision": "7d1af5be49cb5ecc7b177bf387d232050299d6ef",
-			"revisionTime": "2016-02-01T22:26:15Z"
+			"revision": "ef48c048b4f1f4d923de4197e78c1b206c14fa4c",
+			"revisionTime": "2016-03-15T21:01:06Z"
 		},
 		{
+			"checksumSHA1": "5rPfda8jFccr3A6heL+JAmi9K9g=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/davecgh/go-spew/spew",
 			"path": "github.com/davecgh/go-spew/spew",
 			"revision": "5215b55f46b2b919f50a1df0eaa5886afe4e3b3d",
-			"revisionTime": "2015-11-05T15:09:06-06:00"
+			"revisionTime": "2015-11-05T21:09:06Z"
 		},
 		{
+			"checksumSHA1": "wsrsKCboNY7/vbL7BHExXKX90qg=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/docker/docker/pkg/parsers",
 			"path": "github.com/docker/docker/pkg/parsers",
-			"revision": "2a64d400b34e53f38b210a4ca23ea202c9246a7f",
-			"revisionTime": "2016-02-11T17:28:23-05:00"
+			"revision": "4a7bd7eaef0038b006cf23adface84081e5aab3b",
+			"revisionTime": "2016-03-31T23:39:25Z"
 		},
 		{
+			"checksumSHA1": "18hmvak2Dc9x5cgKeZ2iApviT7w=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/docker/go-units",
 			"path": "github.com/docker/go-units",
 			"revision": "5d2041e26a699eaca682e2ea41c8f891e1060444",
-			"revisionTime": "2016-01-25T09:48:45-08:00"
+			"revisionTime": "2016-01-25T17:48:45Z"
 		},
 		{
+			"checksumSHA1": "GqXaS6UrIjNAOOASnr1xBTRdfNQ=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/emicklei/go-restful",
 			"path": "github.com/emicklei/go-restful",
-			"revision": "86f0c53468d17bf1d1bba2ccce0c49c9229f4690",
-			"revisionTime": "2016-02-11T08:09:42+01:00"
+			"revision": "402f11d42bfe18198ffd5c68258c631c8fbf2c3c",
+			"revisionTime": "2016-03-11T10:11:18Z"
 		},
 		{
+			"checksumSHA1": "3xWz4fZ9xW+CfADpYoPFcZCYJ4E=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/emicklei/go-restful/log",
 			"path": "github.com/emicklei/go-restful/log",
-			"revision": "86f0c53468d17bf1d1bba2ccce0c49c9229f4690",
-			"revisionTime": "2016-02-11T08:09:42+01:00"
+			"revision": "402f11d42bfe18198ffd5c68258c631c8fbf2c3c",
+			"revisionTime": "2016-03-11T10:11:18Z"
 		},
 		{
+			"checksumSHA1": "li4mbEJP/YIqJEQxhFsjiFV4Tus=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/emicklei/go-restful/swagger",
 			"path": "github.com/emicklei/go-restful/swagger",
-			"revision": "86f0c53468d17bf1d1bba2ccce0c49c9229f4690",
-			"revisionTime": "2016-02-11T08:09:42+01:00"
+			"revision": "402f11d42bfe18198ffd5c68258c631c8fbf2c3c",
+			"revisionTime": "2016-03-11T10:11:18Z"
 		},
 		{
+			"checksumSHA1": "gkRIq2AsG0e/ngNfqW+IF/zr9o8=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fatih/color",
 			"path": "github.com/fatih/color",
-			"revision": "9aae6aaa22315390f03959adca2c4d395b02fcef",
-			"revisionTime": "2015-11-11T14:02:02+02:00"
+			"revision": "533cd7fd8a85905f67a1753afb4deddc85ea174f",
+			"revisionTime": "2016-03-17T09:31:53Z"
 		},
 		{
+			"checksumSHA1": "MCe1JPUDq5lzhFa/fWUXb6/A1ao=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient",
 			"path": "github.com/fsouza/go-dockerclient",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "7CvOHJK9x8GlFZmYe0nXMTz9teg=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/Sirupsen/logrus",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/Sirupsen/logrus",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "608Y3rj23jTnrZJjGaFRK+s5IcU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/docker/docker/opts",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/docker/docker/opts",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "OECIN3MgL6Q/bup7ZbPYjAbPLZs=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/archive",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/archive",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "dEFpUEhnmCDWorKpavPHVTkijYk=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/fileutils",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/fileutils",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "gqNisQFLlzSB6GxBq4PkDbnNayg=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/homedir",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/homedir",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "B5n9LVGXOsgyLjgpG49/z33DQr8=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/idtools",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/idtools",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "Wufcejxg4ay719EwD4EJAh0HCdk=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/ioutils",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/ioutils",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "9XQOQ2MyLt5gfTENYwo0Iuxaeoo=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/longpath",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/longpath",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "xRNl3MgjAJmN84KE4MzmVyGoe9M=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/pools",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/pools",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "l63UQekgrt3jXEuq0rqsaLx5onI=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/promise",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/promise",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "E4MW4qF8yysAY8Hi9UqoLY9+7ew=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/stdcopy",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/stdcopy",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "Tso+waTvFPwizhiPoW+JwQ7AmPw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/system",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/system",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "8KgdGTS+WOEtfwqxp2A0udV+lJU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/docker/go-units",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/docker/go-units",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "FRtY4g9kxucTQMy1cSkBQfCVd1U=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/hashicorp/go-cleanhttp",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/hashicorp/go-cleanhttp",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "VvGdEczw0JVJjvfY1AVWV/8xx00=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/github.com/opencontainers/runc/libcontainer/user",
 			"path": "github.com/fsouza/go-dockerclient/external/github.com/opencontainers/runc/libcontainer/user",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "v9n1SOhjaR6eJd122dUWOfBDmN4=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/golang.org/x/net/context",
 			"path": "github.com/fsouza/go-dockerclient/external/golang.org/x/net/context",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "hugdbffSP0G67FyJUhGvu9O0WmM=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/fsouza/go-dockerclient/external/golang.org/x/sys/unix",
 			"path": "github.com/fsouza/go-dockerclient/external/golang.org/x/sys/unix",
-			"revision": "bda1048b6ed884fb71fd8da7828f4f80ed328652",
-			"revisionTime": "2016-02-11T14:56:26-02:00"
+			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
+			"revisionTime": "2016-03-28T22:10:11Z"
 		},
 		{
+			"checksumSHA1": "Ix+QxQ2NTYhMZUg9JH0B3O8QKXY=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/gengo/grpc-gateway/runtime",
 			"path": "github.com/gengo/grpc-gateway/runtime",
-			"revision": "f96da819d63d34173234e8c2cb606f12ed25c132",
-			"revisionTime": "2016-02-08T11:23:27+09:00"
+			"revision": "965b62d83c33af1be34fd5d70ccf814c4029a319",
+			"revisionTime": "2016-03-23T10:38:48Z"
 		},
 		{
+			"checksumSHA1": "Znye0CQEoHeCnx23uToJeTjY0xQ=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/gengo/grpc-gateway/third_party/googleapis/google/api",
 			"path": "github.com/gengo/grpc-gateway/third_party/googleapis/google/api",
-			"revision": "f96da819d63d34173234e8c2cb606f12ed25c132",
-			"revisionTime": "2016-02-08T11:23:27+09:00"
+			"revision": "965b62d83c33af1be34fd5d70ccf814c4029a319",
+			"revisionTime": "2016-03-23T10:38:48Z"
 		},
 		{
+			"checksumSHA1": "B3ebg4a6QHAw3qO9oCnny0E4gQs=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/gengo/grpc-gateway/utilities",
 			"path": "github.com/gengo/grpc-gateway/utilities",
-			"revision": "f96da819d63d34173234e8c2cb606f12ed25c132",
-			"revisionTime": "2016-02-08T11:23:27+09:00"
+			"revision": "965b62d83c33af1be34fd5d70ccf814c4029a319",
+			"revisionTime": "2016-03-23T10:38:48Z"
 		},
 		{
+			"checksumSHA1": "KOThXqDanFZmWCmJsOGrpVIdpPo=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/ghodss/yaml",
 			"path": "github.com/ghodss/yaml",
-			"revision": "73d445a93680fa1a78ae23a5839bad48f32ba1ee",
-			"revisionTime": "2015-09-08T20:16:57-07:00"
+			"revision": "1a6f069841556a7bcaff4a397ca6e8328d266c2f",
+			"revisionTime": "2016-03-07T21:52:05Z"
 		},
 		{
-			"origin": "github.com/aws/aws-sdk-go/vendor/github.com/go-ini/ini",
+			"checksumSHA1": "BAsNRt/OaVkivs5nhA1v/ayOGag=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/go-ini/ini",
 			"path": "github.com/go-ini/ini",
-			"revision": "193d1ecb466bf97aae8b454a5cfc192941c64809",
-			"revisionTime": "2016-02-07T11:33:30-05:00"
+			"revision": "12f418cc7edc5a618a51407b7ac1f1f512139df3",
+			"revisionTime": "2016-03-21T23:18:31Z"
 		},
 		{
+			"checksumSHA1": "xbOAEvmFFVsFGu6BTv1UvKb5VD8=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/gogo/protobuf/proto",
 			"path": "github.com/gogo/protobuf/proto",
-			"revision": "82d16f734d6d871204a3feb1a73cb220cc92574c",
-			"revisionTime": "2016-02-01T16:25:51+02:00"
+			"revision": "5b7453b208470fdb0141985c2cfdcf1471686693",
+			"revisionTime": "2016-03-29T19:29:56Z"
 		},
 		{
+			"checksumSHA1": "HmbftipkadrLlCfzzVQ+iFHbl6g=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/golang/glog",
 			"path": "github.com/golang/glog",
 			"revision": "23def4e6c14b4da8ac2ed8007337bc5eb5007998",
-			"revisionTime": "2016-01-25T21:49:56+01:00"
+			"revisionTime": "2016-01-25T20:49:56Z"
 		},
 		{
+			"checksumSHA1": "JrwZ3Zebmgw1nB4IwCMys0euNgA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/golang/protobuf/jsonpb",
 			"path": "github.com/golang/protobuf/jsonpb",
-			"revision": "0dfe8f37844c14cb32c7247925270e0f7ba90973",
-			"revisionTime": "2016-02-11T12:39:55+11:00"
+			"revision": "dda510ac0fd43b39770f22ac6260eb91d377bce3",
+			"revisionTime": "2016-03-30T00:19:00Z"
 		},
 		{
+			"checksumSHA1": "r2217M+60ykOkomU6p2mO4pLzug=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/golang/protobuf/proto",
 			"path": "github.com/golang/protobuf/proto",
-			"revision": "0dfe8f37844c14cb32c7247925270e0f7ba90973",
-			"revisionTime": "2016-02-11T12:39:55+11:00"
+			"revision": "dda510ac0fd43b39770f22ac6260eb91d377bce3",
+			"revisionTime": "2016-03-30T00:19:00Z"
 		},
 		{
+			"checksumSHA1": "+cT5a/FtqhkUAnVuajBTUAS2iHU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/golang/protobuf/protoc-gen-go/descriptor",
 			"path": "github.com/golang/protobuf/protoc-gen-go/descriptor",
-			"revision": "0dfe8f37844c14cb32c7247925270e0f7ba90973",
-			"revisionTime": "2016-02-11T12:39:55+11:00"
+			"revision": "dda510ac0fd43b39770f22ac6260eb91d377bce3",
+			"revisionTime": "2016-03-30T00:19:00Z"
 		},
 		{
+			"checksumSHA1": "fY9NZSXJ6JJnqs/OLHFOaHP1xsI=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/google/cadvisor/info/v1",
 			"path": "github.com/google/cadvisor/info/v1",
-			"revision": "94cef953b172bfc43ff3c4580b69028ada0d0879",
-			"revisionTime": "2016-02-11T14:53:54-08:00"
+			"revision": "5d7c71a49536d56729c7c778daa70653c138f4a5",
+			"revisionTime": "2016-03-31T23:15:20Z"
 		},
 		{
+			"checksumSHA1": "OZ7IRhes8Qb44nlnMoNw7iylIOU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/google/gofuzz",
 			"path": "github.com/google/gofuzz",
 			"revision": "fd52762d25a41827db7ef64c43756fd4b9f7e382",
-			"revisionTime": "2016-02-01T09:48:07-08:00"
+			"revisionTime": "2016-02-01T17:48:07Z"
 		},
 		{
+			"checksumSHA1": "O0r0hj4YL+jSRNjnshkeH4GY+4s=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/hailocab/go-hostpool",
 			"path": "github.com/hailocab/go-hostpool",
 			"revision": "e80d13ce29ede4452c43dea11e79b9bc8a15b478",
 			"revisionTime": "2016-01-25T11:53:50Z"
 		},
 		{
-			"path": "github.com/inconshreveable/mousetrap",
-			"revision": "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75",
-			"revisionTime": "2014-10-17T13:07:13-07:00"
-		},
-		{
-			"origin": "github.com/aws/aws-sdk-go/vendor/github.com/jmespath/go-jmespath",
+			"checksumSHA1": "0ZrwvB6KoGPj2PoDNSEJwxQ6Mog=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/jmespath/go-jmespath",
 			"path": "github.com/jmespath/go-jmespath",
 			"revision": "0b12d6b521d83fc7f755e7cfc1b1fbdd35a01a74",
-			"revisionTime": "2016-02-02T10:50:14-08:00"
+			"revisionTime": "2016-02-02T18:50:14Z"
 		},
 		{
+			"checksumSHA1": "sKheT5xw89Tbu2Q071FQO27CVmE=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/juju/ratelimit",
 			"path": "github.com/juju/ratelimit",
 			"revision": "77ed1c8a01217656d2080ad51981f6e99adaa177",
 			"revisionTime": "2015-11-25T20:19:25Z"
 		},
 		{
+			"checksumSHA1": "rCffFCN6TpDAN3Jylyo8RFzhQ9E=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/mattn/go-colorable",
 			"path": "github.com/mattn/go-colorable",
-			"revision": "9fdad7c47650b7d2e1da50644c1f4ba7f172f252",
-			"revisionTime": "2016-02-10T09:18:57+09:00"
+			"revision": "9cbef7c35391cca05f15f8181dc0b18bc9736dbb",
+			"revisionTime": "2016-02-20T07:59:35Z"
 		},
 		{
+			"checksumSHA1": "NkbetqlpWBi3gP08JDneC+axTKw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/mattn/go-isatty",
 			"path": "github.com/mattn/go-isatty",
 			"revision": "56b76bdf51f7708750eac80fa38b952bb9f32639",
-			"revisionTime": "2015-12-11T09:06:21+09:00"
+			"revisionTime": "2015-12-11T00:06:21Z"
 		},
 		{
+			"checksumSHA1": "Q2vw4HZBbnU8BLFt8VrzStwqSJg=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/matttproud/golang_protobuf_extensions/pbutil",
 			"path": "github.com/matttproud/golang_protobuf_extensions/pbutil",
 			"revision": "d0c3fe89de86839aecf2e0579c40ba3bb336a453",
-			"revisionTime": "2015-10-11T12:25:29+02:00"
+			"revisionTime": "2015-10-11T10:25:29Z"
 		},
 		{
+			"checksumSHA1": "UPfYFznGeLEloCkGG8KKgsKjtPU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/opencontainers/runc/libcontainer/cgroups",
 			"path": "github.com/opencontainers/runc/libcontainer/cgroups",
-			"revision": "361f9b7921665b5894faef36fc8430aec573dfa4",
-			"revisionTime": "2016-02-11T10:27:58-08:00"
+			"revision": "89ab7f2ccc1e45ddf6485eaa802c35dcf321dfc8",
+			"revisionTime": "2016-03-31T09:02:02Z"
 		},
 		{
+			"checksumSHA1": "xIrNApwB9+yQBhu2p6bt7blV+x4=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs",
 			"path": "github.com/opencontainers/runc/libcontainer/cgroups/fs",
-			"revision": "361f9b7921665b5894faef36fc8430aec573dfa4",
-			"revisionTime": "2016-02-11T10:27:58-08:00"
+			"revision": "89ab7f2ccc1e45ddf6485eaa802c35dcf321dfc8",
+			"revisionTime": "2016-03-31T09:02:02Z"
 		},
 		{
+			"checksumSHA1": "CdhRZZmDeY+t3PN4Qpi1ojy50pE=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/opencontainers/runc/libcontainer/configs",
 			"path": "github.com/opencontainers/runc/libcontainer/configs",
-			"revision": "361f9b7921665b5894faef36fc8430aec573dfa4",
-			"revisionTime": "2016-02-11T10:27:58-08:00"
+			"revision": "89ab7f2ccc1e45ddf6485eaa802c35dcf321dfc8",
+			"revisionTime": "2016-03-31T09:02:02Z"
 		},
 		{
+			"checksumSHA1": "xo2LfoL27cGF6cChWvew2KfhpNI=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/opencontainers/runc/libcontainer/system",
 			"path": "github.com/opencontainers/runc/libcontainer/system",
-			"revision": "361f9b7921665b5894faef36fc8430aec573dfa4",
-			"revisionTime": "2016-02-11T10:27:58-08:00"
+			"revision": "89ab7f2ccc1e45ddf6485eaa802c35dcf321dfc8",
+			"revisionTime": "2016-03-31T09:02:02Z"
 		},
 		{
+			"checksumSHA1": "PCfoPliJrUhzLP4arNs2KjEb2Bc=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/opencontainers/runc/libcontainer/utils",
 			"path": "github.com/opencontainers/runc/libcontainer/utils",
-			"revision": "361f9b7921665b5894faef36fc8430aec573dfa4",
-			"revisionTime": "2016-02-11T10:27:58-08:00"
+			"revision": "89ab7f2ccc1e45ddf6485eaa802c35dcf321dfc8",
+			"revisionTime": "2016-03-31T09:02:02Z"
 		},
 		{
+			"checksumSHA1": "KIEC/eedMZSABECkDZmdj93l9G4=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client",
+			"path": "github.com/pachyderm/pachyderm/src/client",
+			"revision": "403bb9146c324ea8e7f345bf70c1c65d5285d489",
+			"revisionTime": "2016-03-31T21:09:40Z"
+		},
+		{
+			"checksumSHA1": "ygWAUlQ2TAjno1bFSiQhb8zB8Nw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/pfs",
+			"path": "github.com/pachyderm/pachyderm/src/client/pfs",
+			"revision": "403bb9146c324ea8e7f345bf70c1c65d5285d489",
+			"revisionTime": "2016-03-31T21:09:40Z"
+		},
+		{
+			"checksumSHA1": "aCLIiQaWZQYXEO/MPeGy73SPLts=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/pkg/discovery",
+			"path": "github.com/pachyderm/pachyderm/src/client/pkg/discovery",
+			"revision": "403bb9146c324ea8e7f345bf70c1c65d5285d489",
+			"revisionTime": "2016-03-31T21:09:40Z"
+		},
+		{
+			"checksumSHA1": "f/EcuA0oDj6MLnirQ+CjRrUarTk=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/pkg/grpcutil",
+			"path": "github.com/pachyderm/pachyderm/src/client/pkg/grpcutil",
+			"revision": "403bb9146c324ea8e7f345bf70c1c65d5285d489",
+			"revisionTime": "2016-03-31T21:09:40Z"
+		},
+		{
+			"checksumSHA1": "Zdi7wcH75rw+MQlS3RpRxXRsGhs=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/pkg/require",
+			"path": "github.com/pachyderm/pachyderm/src/client/pkg/require",
+			"revision": "403bb9146c324ea8e7f345bf70c1c65d5285d489",
+			"revisionTime": "2016-03-31T21:09:40Z"
+		},
+		{
+			"checksumSHA1": "je23S+pBX0uGod2metFQF6D43Zo=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/pkg/shard",
+			"path": "github.com/pachyderm/pachyderm/src/client/pkg/shard",
+			"revision": "403bb9146c324ea8e7f345bf70c1c65d5285d489",
+			"revisionTime": "2016-03-31T21:09:40Z"
+		},
+		{
+			"checksumSHA1": "2TaPWj7JkzHW2tx9AO54CrcRqpg=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/pkg/uuid",
+			"path": "github.com/pachyderm/pachyderm/src/client/pkg/uuid",
+			"revision": "403bb9146c324ea8e7f345bf70c1c65d5285d489",
+			"revisionTime": "2016-03-31T21:09:40Z"
+		},
+		{
+			"checksumSHA1": "yWAUSYIHUFqMThSGQYF5tT360rI=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/pps",
+			"path": "github.com/pachyderm/pachyderm/src/client/pps",
+			"revision": "403bb9146c324ea8e7f345bf70c1c65d5285d489",
+			"revisionTime": "2016-03-31T21:09:40Z"
+		},
+		{
+			"checksumSHA1": "xN14ZoFcgefABp24aowYtQVMDsc=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/pborman/uuid",
 			"path": "github.com/pborman/uuid",
-			"revision": "0f1a46960a86dcdf5dd30d3e6568a497a997909f",
-			"revisionTime": "2016-02-09T11:07:13-08:00"
+			"revision": "c55201b036063326c5b1b89ccfe45a184973d073",
+			"revisionTime": "2016-02-16T16:37:10Z"
 		},
 		{
+			"checksumSHA1": "wQEloMPTblRcywDZnt3WJYjyiv8=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/prometheus/client_golang/prometheus",
 			"path": "github.com/prometheus/client_golang/prometheus",
-			"revision": "15006a7ed88e73201c4e6142a2e66b54ae5fdf00",
-			"revisionTime": "2016-02-08T00:36:15Z"
+			"revision": "90c15b5efa0dc32a7d259234e02ac9a99e6d3b82",
+			"revisionTime": "2016-03-17T13:26:13Z"
 		},
 		{
+			"checksumSHA1": "DvwvOlPNAgRntBzt3b3OSRMS2N4=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/prometheus/client_model/go",
 			"path": "github.com/prometheus/client_model/go",
 			"revision": "fa8ad6fec33561be4280a8f0514318c79d7f6cb6",
 			"revisionTime": "2015-02-12T10:17:44Z"
 		},
 		{
+			"checksumSHA1": "Zsc9IQzQDkOzqiAITqxEm0JXdws=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/prometheus/common/expfmt",
 			"path": "github.com/prometheus/common/expfmt",
-			"revision": "23070236b1ebff452f494ae831569545c2b61d26",
-			"revisionTime": "2016-02-11T16:03:55+01:00"
+			"revision": "40456948a47496dc22168e6af39297a2f8fbf38c",
+			"revisionTime": "2016-03-21T00:19:49Z"
 		},
 		{
+			"checksumSHA1": "GWlM3d2vPYyNATtTFgftS10/A9w=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg",
 			"path": "github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg",
-			"revision": "23070236b1ebff452f494ae831569545c2b61d26",
-			"revisionTime": "2016-02-11T16:03:55+01:00"
+			"revision": "40456948a47496dc22168e6af39297a2f8fbf38c",
+			"revisionTime": "2016-03-21T00:19:49Z"
 		},
 		{
+			"checksumSHA1": "IwxsYOL9A/K9rvHvGxfyY37dusk=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/prometheus/common/model",
 			"path": "github.com/prometheus/common/model",
-			"revision": "23070236b1ebff452f494ae831569545c2b61d26",
-			"revisionTime": "2016-02-11T16:03:55+01:00"
+			"revision": "40456948a47496dc22168e6af39297a2f8fbf38c",
+			"revisionTime": "2016-03-21T00:19:49Z"
 		},
 		{
+			"checksumSHA1": "kO2MAzPuortudABaRd7fY+7EaoM=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/prometheus/procfs",
 			"path": "github.com/prometheus/procfs",
 			"revision": "406e5b7bfd8201a36e2bb5f7bdae0b03380c2ce8",
-			"revisionTime": "2015-10-29T15:50:50-04:00"
+			"revisionTime": "2015-10-29T19:50:50Z"
 		},
 		{
+			"checksumSHA1": "U7hbZmaxAH0NuZ7bOIjRaA1V544=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/russross/blackfriday",
 			"path": "github.com/russross/blackfriday",
-			"revision": "006144af03eeeff1037240a71865a9fd61f1c25f",
-			"revisionTime": "2016-01-24T13:12:56+02:00"
+			"revision": "b43df972fb5fdf3af8d2e90f38a69d374fe26dd0",
+			"revisionTime": "2016-03-16T07:29:03Z"
 		},
 		{
+			"checksumSHA1": "cKNzpMpci3WUAzXpe+tVnBv2cjE=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/satori/go.uuid",
 			"path": "github.com/satori/go.uuid",
-			"revision": "d41af8bb6a7704f00bc3b7cba9355ae6a5a80048",
-			"revisionTime": "2015-10-29T02:17:19+03:00"
+			"revision": "f9ab0dce87d815821e221626b772e3475a0d2749",
+			"revisionTime": "2016-03-24T11:22:44Z"
 		},
 		{
+			"checksumSHA1": "XXTR/ftEYSqQn4+Y7wNfiJJmq9U=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/shurcooL/sanitized_anchor_name",
 			"path": "github.com/shurcooL/sanitized_anchor_name",
 			"revision": "10ef21a441db47d8b13ebcc5fd2310f636973c77",
-			"revisionTime": "2015-10-27T17:19:15-07:00"
+			"revisionTime": "2015-10-28T00:19:15Z"
 		},
 		{
+			"checksumSHA1": "hIqjKFj2xCIhm89ccyrIezt5h7g=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/spf13/cobra",
 			"path": "github.com/spf13/cobra",
-			"revision": "65a708cee0a4424f4e353d031ce440643e312f92",
-			"revisionTime": "2016-02-08T02:29:17+08:00"
+			"revision": "b0d571e7d5f7c0dca407fa86567e6297c4776564",
+			"revisionTime": "2016-03-31T14:32:10Z"
 		},
 		{
+			"checksumSHA1": "WZDZJ+5JCSA5PJSGx870g0l0OZY=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/spf13/cobra/doc",
 			"path": "github.com/spf13/cobra/doc",
-			"revision": "65a708cee0a4424f4e353d031ce440643e312f92",
-			"revisionTime": "2016-02-08T02:29:17+08:00"
+			"revision": "b0d571e7d5f7c0dca407fa86567e6297c4776564",
+			"revisionTime": "2016-03-31T14:32:10Z"
 		},
 		{
+			"checksumSHA1": "MrBzoMkuXdrGKo09/ka+JCC2Mlk=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/spf13/pflag",
 			"path": "github.com/spf13/pflag",
 			"revision": "7f60f83a2c81bc3c3c0d5297f61ddfa68da9d3b7",
-			"revisionTime": "2015-10-24T12:54:09+02:00"
+			"revisionTime": "2015-10-24T10:54:09Z"
 		},
 		{
+			"checksumSHA1": "tHm2SMtuRfrwh6NnnymsuoJ6e0Q=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/github.com/ugorji/go/codec",
 			"path": "github.com/ugorji/go/codec",
-			"revision": "f4485b318aadd133842532f841dc205a8e339d74",
-			"revisionTime": "2016-02-11T11:14:15-05:00"
+			"revision": "a396ed22fc049df733440d90efe17475e3929ccb",
+			"revisionTime": "2016-03-28T06:07:40Z"
 		},
 		{
+			"checksumSHA1": "JM5JaFjNWdB5RW+XlaDxO8ueNF8=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/env",
 			"path": "go.pedge.io/env",
-			"revision": "422595ad100ba6ecdf26f7a7fba79a9693453943",
-			"revisionTime": "2016-02-02T17:47:42+01:00"
+			"revision": "7e2afbc4865e7895f8786bfb72eacc3629dfde7d",
+			"revisionTime": "2016-03-25T14:56:55Z"
 		},
 		{
+			"checksumSHA1": "Z4Y80rXf5Vt7CAalCExrvtIwvMA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/lion",
 			"path": "go.pedge.io/lion",
-			"revision": "74508b9d03b9b9b16388a8781702ca5b310ea797",
-			"revisionTime": "2016-02-04T22:41:16+01:00"
+			"revision": "7db37edc2411c8ce17649c276621a9e0521867d5",
+			"revisionTime": "2016-03-25T12:30:53Z"
 		},
 		{
+			"checksumSHA1": "xZAWEzTF1URPAQiNw6Kp9pQCMOM=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/lion/proto",
 			"path": "go.pedge.io/lion/proto",
-			"revision": "74508b9d03b9b9b16388a8781702ca5b310ea797",
-			"revisionTime": "2016-02-04T22:41:16+01:00"
+			"revision": "7db37edc2411c8ce17649c276621a9e0521867d5",
+			"revisionTime": "2016-03-25T12:30:53Z"
 		},
 		{
+			"checksumSHA1": "qdPL8BmNSQyYFoahmPSuaLiLSbw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/pb/go/google/protobuf",
 			"path": "go.pedge.io/pb/go/google/protobuf",
-			"revision": "ef2d6ce423942f63c6beb5af281989eb274fe917",
-			"revisionTime": "2016-02-07T16:41:34+01:00"
+			"revision": "22334fb7b4e8ded371ec14eec3eee79e436dc71d",
+			"revisionTime": "2016-03-24T13:11:57Z"
 		},
 		{
+			"checksumSHA1": "xFtgpOLAmKauW8tJjoM4kzwjSf8=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/pb/go/google/type",
 			"path": "go.pedge.io/pb/go/google/type",
-			"revision": "ef2d6ce423942f63c6beb5af281989eb274fe917",
-			"revisionTime": "2016-02-07T16:41:34+01:00"
+			"revision": "22334fb7b4e8ded371ec14eec3eee79e436dc71d",
+			"revisionTime": "2016-03-24T13:11:57Z"
 		},
 		{
+			"checksumSHA1": "jLwZRfTxISoYnpiUfbs8GgxgrNU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/pb/go/pb/money",
 			"path": "go.pedge.io/pb/go/pb/money",
-			"revision": "ef2d6ce423942f63c6beb5af281989eb274fe917",
-			"revisionTime": "2016-02-07T16:41:34+01:00"
+			"revision": "22334fb7b4e8ded371ec14eec3eee79e436dc71d",
+			"revisionTime": "2016-03-24T13:11:57Z"
 		},
 		{
+			"checksumSHA1": "jENVbOfuDJ08NXhgqLaaGTGVV/Y=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/pkg/cobra",
 			"path": "go.pedge.io/pkg/cobra",
-			"revision": "8a11a67a8b727f4961bd30f0b0957c226fed9420",
-			"revisionTime": "2016-01-27T01:12:27+01:00"
+			"revision": "15a92f04224710098b562f3c5e20a200b6490609",
+			"revisionTime": "2016-03-28T15:38:20Z"
 		},
 		{
+			"checksumSHA1": "TKbpuxp618assU3yyehz13bAtz4=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/pkg/exec",
 			"path": "go.pedge.io/pkg/exec",
-			"revision": "8a11a67a8b727f4961bd30f0b0957c226fed9420",
-			"revisionTime": "2016-01-27T01:12:27+01:00"
+			"revision": "15a92f04224710098b562f3c5e20a200b6490609",
+			"revisionTime": "2016-03-28T15:38:20Z"
 		},
 		{
+			"checksumSHA1": "f3VPYejQ2/D9U5EvjtBfTPXOrkw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/pkg/http",
 			"path": "go.pedge.io/pkg/http",
-			"revision": "8a11a67a8b727f4961bd30f0b0957c226fed9420",
-			"revisionTime": "2016-01-27T01:12:27+01:00"
+			"revision": "15a92f04224710098b562f3c5e20a200b6490609",
+			"revisionTime": "2016-03-28T15:38:20Z"
 		},
 		{
+			"checksumSHA1": "pBs9WwpyF8VNzS2S87tOOU0tDCY=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/pkg/sync",
 			"path": "go.pedge.io/pkg/sync",
-			"revision": "8a11a67a8b727f4961bd30f0b0957c226fed9420",
-			"revisionTime": "2016-01-27T01:12:27+01:00"
+			"revision": "15a92f04224710098b562f3c5e20a200b6490609",
+			"revisionTime": "2016-03-28T15:38:20Z"
 		},
 		{
+			"checksumSHA1": "fEsAex1G9GaDPev/lfsNWAoTs30=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/pkg/time",
 			"path": "go.pedge.io/pkg/time",
-			"revision": "8a11a67a8b727f4961bd30f0b0957c226fed9420",
-			"revisionTime": "2016-01-27T01:12:27+01:00"
+			"revision": "15a92f04224710098b562f3c5e20a200b6490609",
+			"revisionTime": "2016-03-28T15:38:20Z"
 		},
 		{
+			"checksumSHA1": "OoX9GVzy9mnto8S687ZOgwsE414=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/pkg/tmpl",
 			"path": "go.pedge.io/pkg/tmpl",
-			"revision": "8a11a67a8b727f4961bd30f0b0957c226fed9420",
-			"revisionTime": "2016-01-27T01:12:27+01:00"
+			"revision": "15a92f04224710098b562f3c5e20a200b6490609",
+			"revisionTime": "2016-03-28T15:38:20Z"
 		},
 		{
+			"checksumSHA1": "AIOvizI9ARrVSTXx8hfz+C2ZBfA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/proto/rpclog",
 			"path": "go.pedge.io/proto/rpclog",
-			"revision": "b4d26fe4a1244bc9ea33a13a497354465050a549",
-			"revisionTime": "2016-01-30T12:16:28+01:00"
+			"revision": "63c80eaadc6591d12afdd716602670ac56e761f6",
+			"revisionTime": "2016-03-27T09:43:39Z"
 		},
 		{
+			"checksumSHA1": "KTVJfESbKHB82sfgLXK6mgA3N8o=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/proto/server",
 			"path": "go.pedge.io/proto/server",
-			"revision": "b4d26fe4a1244bc9ea33a13a497354465050a549",
-			"revisionTime": "2016-01-30T12:16:28+01:00"
+			"revision": "63c80eaadc6591d12afdd716602670ac56e761f6",
+			"revisionTime": "2016-03-27T09:43:39Z"
 		},
 		{
+			"checksumSHA1": "NVElCVKCtIjKcfj+8pSJSicdRq0=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/proto/stream",
 			"path": "go.pedge.io/proto/stream",
-			"revision": "b4d26fe4a1244bc9ea33a13a497354465050a549",
-			"revisionTime": "2016-01-30T12:16:28+01:00"
+			"revision": "63c80eaadc6591d12afdd716602670ac56e761f6",
+			"revisionTime": "2016-03-27T09:43:39Z"
 		},
 		{
+			"checksumSHA1": "uXz44b5xJsjD1Mj4xH3099H+OLw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/proto/time",
 			"path": "go.pedge.io/proto/time",
-			"revision": "b4d26fe4a1244bc9ea33a13a497354465050a549",
-			"revisionTime": "2016-01-30T12:16:28+01:00"
+			"revision": "63c80eaadc6591d12afdd716602670ac56e761f6",
+			"revisionTime": "2016-03-27T09:43:39Z"
 		},
 		{
+			"checksumSHA1": "hHUxM27mDPWcVx66n+fJ+V/TPZ0=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/go.pedge.io/proto/version",
 			"path": "go.pedge.io/proto/version",
-			"revision": "b4d26fe4a1244bc9ea33a13a497354465050a549",
-			"revisionTime": "2016-01-30T12:16:28+01:00"
+			"revision": "63c80eaadc6591d12afdd716602670ac56e761f6",
+			"revisionTime": "2016-03-27T09:43:39Z"
 		},
 		{
+			"checksumSHA1": "9QKY4bQlbQ/VZZFP8/1WtH4b0mA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/golang.org/x/net/context",
 			"path": "golang.org/x/net/context",
-			"revision": "8968c61983e8f51a91b8c0ef25bf739278c89634",
-			"revisionTime": "2016-02-11T09:16:17+11:00"
+			"revision": "3e8a7b0329d536af18e227bb21b6da4d1dbbe180",
+			"revisionTime": "2016-03-29T01:55:07Z"
 		},
 		{
+			"checksumSHA1": "EJMLw8rk55bsqmIpSMtVORJpSGo=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/golang.org/x/net/context/ctxhttp",
 			"path": "golang.org/x/net/context/ctxhttp",
-			"revision": "8968c61983e8f51a91b8c0ef25bf739278c89634",
-			"revisionTime": "2016-02-11T09:16:17+11:00"
+			"revision": "3e8a7b0329d536af18e227bb21b6da4d1dbbe180",
+			"revisionTime": "2016-03-29T01:55:07Z"
 		},
 		{
+			"checksumSHA1": "ClIslOd+ahFw742wZTJW0XpSLLQ=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/golang.org/x/net/http2",
 			"path": "golang.org/x/net/http2",
-			"revision": "8968c61983e8f51a91b8c0ef25bf739278c89634",
-			"revisionTime": "2016-02-11T09:16:17+11:00"
+			"revision": "3e8a7b0329d536af18e227bb21b6da4d1dbbe180",
+			"revisionTime": "2016-03-29T01:55:07Z"
 		},
 		{
+			"checksumSHA1": "VYl3cuReuGeFp9vb1cm8x87qdlU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/golang.org/x/net/http2/hpack",
 			"path": "golang.org/x/net/http2/hpack",
-			"revision": "8968c61983e8f51a91b8c0ef25bf739278c89634",
-			"revisionTime": "2016-02-11T09:16:17+11:00"
+			"revision": "3e8a7b0329d536af18e227bb21b6da4d1dbbe180",
+			"revisionTime": "2016-03-29T01:55:07Z"
 		},
 		{
+			"checksumSHA1": "/k7k6eJDkxXx6K9Zpo/OwNm58XM=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/golang.org/x/net/internal/timeseries",
 			"path": "golang.org/x/net/internal/timeseries",
-			"revision": "8968c61983e8f51a91b8c0ef25bf739278c89634",
-			"revisionTime": "2016-02-11T09:16:17+11:00"
+			"revision": "3e8a7b0329d536af18e227bb21b6da4d1dbbe180",
+			"revisionTime": "2016-03-29T01:55:07Z"
 		},
 		{
+			"checksumSHA1": "7WASrg0PEueWDDRHkFhEEN6Qrms=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/golang.org/x/net/netutil",
 			"path": "golang.org/x/net/netutil",
-			"revision": "8968c61983e8f51a91b8c0ef25bf739278c89634",
-			"revisionTime": "2016-02-11T09:16:17+11:00"
+			"revision": "3e8a7b0329d536af18e227bb21b6da4d1dbbe180",
+			"revisionTime": "2016-03-29T01:55:07Z"
 		},
 		{
+			"checksumSHA1": "dZJWvQmmWOwDkGPxJqoE8rN005w=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/golang.org/x/net/trace",
 			"path": "golang.org/x/net/trace",
-			"revision": "8968c61983e8f51a91b8c0ef25bf739278c89634",
-			"revisionTime": "2016-02-11T09:16:17+11:00"
+			"revision": "3e8a7b0329d536af18e227bb21b6da4d1dbbe180",
+			"revisionTime": "2016-03-29T01:55:07Z"
 		},
 		{
+			"checksumSHA1": "mktBVED98G2vv+OKcSgtnFVZC1Y=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/golang.org/x/oauth2",
 			"path": "golang.org/x/oauth2",
-			"revision": "8a57ed94ffd43444c0879fe75701732a38afc985",
-			"revisionTime": "2015-12-29T21:02:54-07:00"
+			"revision": "33fa30fe45020622640e947917fd1fc4c81e3dce",
+			"revisionTime": "2016-03-25T17:08:19Z"
 		},
 		{
+			"checksumSHA1": "HSRFs3mt2eHJBaK+6HEEv66xKyA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/golang.org/x/oauth2/google",
 			"path": "golang.org/x/oauth2/google",
-			"revision": "8a57ed94ffd43444c0879fe75701732a38afc985",
-			"revisionTime": "2015-12-29T21:02:54-07:00"
+			"revision": "33fa30fe45020622640e947917fd1fc4c81e3dce",
+			"revisionTime": "2016-03-25T17:08:19Z"
 		},
 		{
+			"checksumSHA1": "W/GiDqzsagBnR7/yEvxatMhUDBs=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/golang.org/x/oauth2/internal",
 			"path": "golang.org/x/oauth2/internal",
-			"revision": "8a57ed94ffd43444c0879fe75701732a38afc985",
-			"revisionTime": "2015-12-29T21:02:54-07:00"
+			"revision": "33fa30fe45020622640e947917fd1fc4c81e3dce",
+			"revisionTime": "2016-03-25T17:08:19Z"
 		},
 		{
+			"checksumSHA1": "4GaanJZHtrkglrx6a585C3I07+s=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/golang.org/x/oauth2/jws",
 			"path": "golang.org/x/oauth2/jws",
-			"revision": "8a57ed94ffd43444c0879fe75701732a38afc985",
-			"revisionTime": "2015-12-29T21:02:54-07:00"
+			"revision": "33fa30fe45020622640e947917fd1fc4c81e3dce",
+			"revisionTime": "2016-03-25T17:08:19Z"
 		},
 		{
+			"checksumSHA1": "xifBSq0Pn6pIoPA/o3tyzq8X4Ds=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/golang.org/x/oauth2/jwt",
 			"path": "golang.org/x/oauth2/jwt",
-			"revision": "8a57ed94ffd43444c0879fe75701732a38afc985",
-			"revisionTime": "2015-12-29T21:02:54-07:00"
+			"revision": "33fa30fe45020622640e947917fd1fc4c81e3dce",
+			"revisionTime": "2016-03-25T17:08:19Z"
 		},
 		{
+			"checksumSHA1": "dckdApX8WwGcUqjRh9N5g0WMCJM=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/api/compute/v1",
 			"path": "google.golang.org/api/compute/v1",
-			"revision": "ad6c2cd766aa31d72fe3fce08189e0ba6e5002b9",
-			"revisionTime": "2016-02-04T16:19:49+11:00"
+			"revision": "43c645d4bcf9251ced36c823a93b6d198764aae4",
+			"revisionTime": "2016-03-24T17:48:31Z"
 		},
 		{
+			"checksumSHA1": "0PgeEtxSD/Vg/53Vctpf0Lk9V/k=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/api/gensupport",
 			"path": "google.golang.org/api/gensupport",
-			"revision": "ad6c2cd766aa31d72fe3fce08189e0ba6e5002b9",
-			"revisionTime": "2016-02-04T16:19:49+11:00"
+			"revision": "43c645d4bcf9251ced36c823a93b6d198764aae4",
+			"revisionTime": "2016-03-24T17:48:31Z"
 		},
 		{
+			"checksumSHA1": "pFjCJhiloUic+Lq5zG+tOI+l1jc=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/api/googleapi",
 			"path": "google.golang.org/api/googleapi",
-			"revision": "ad6c2cd766aa31d72fe3fce08189e0ba6e5002b9",
-			"revisionTime": "2016-02-04T16:19:49+11:00"
+			"revision": "43c645d4bcf9251ced36c823a93b6d198764aae4",
+			"revisionTime": "2016-03-24T17:48:31Z"
 		},
 		{
+			"checksumSHA1": "ii4ET3JHk3vkMUEcg+9t/1RZSUU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/api/googleapi/internal/uritemplates",
 			"path": "google.golang.org/api/googleapi/internal/uritemplates",
-			"revision": "ad6c2cd766aa31d72fe3fce08189e0ba6e5002b9",
-			"revisionTime": "2016-02-04T16:19:49+11:00"
+			"revision": "43c645d4bcf9251ced36c823a93b6d198764aae4",
+			"revisionTime": "2016-03-24T17:48:31Z"
 		},
 		{
+			"checksumSHA1": "EEBHlysvPapeVpdL09Q4mGSOh88=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/api/storage/v1",
 			"path": "google.golang.org/api/storage/v1",
-			"revision": "ad6c2cd766aa31d72fe3fce08189e0ba6e5002b9",
-			"revisionTime": "2016-02-04T16:19:49+11:00"
+			"revision": "43c645d4bcf9251ced36c823a93b6d198764aae4",
+			"revisionTime": "2016-03-24T17:48:31Z"
 		},
 		{
+			"checksumSHA1": "oZMvo9hvvjfUlB17DJzxZ8DUiNU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/cloud",
 			"path": "google.golang.org/cloud",
-			"revision": "d2ab9d42daacf0f9d24af29755bb38da2de60a05",
-			"revisionTime": "2016-02-11T12:47:02+11:00"
+			"revision": "8a7fce32d2cdf2d4e19068ecc53164b973b3e958",
+			"revisionTime": "2016-04-01T01:01:12Z"
 		},
 		{
+			"checksumSHA1": "Wp8g9MHRmK8SwcyGVCoGtPx+5Lo=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/cloud/compute/metadata",
 			"path": "google.golang.org/cloud/compute/metadata",
-			"revision": "d2ab9d42daacf0f9d24af29755bb38da2de60a05",
-			"revisionTime": "2016-02-11T12:47:02+11:00"
+			"revision": "8a7fce32d2cdf2d4e19068ecc53164b973b3e958",
+			"revisionTime": "2016-04-01T01:01:12Z"
 		},
 		{
+			"checksumSHA1": "U7dGDNwEHORvJFMoNSXErKE7ITg=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/cloud/internal",
 			"path": "google.golang.org/cloud/internal",
-			"revision": "d2ab9d42daacf0f9d24af29755bb38da2de60a05",
-			"revisionTime": "2016-02-11T12:47:02+11:00"
+			"revision": "8a7fce32d2cdf2d4e19068ecc53164b973b3e958",
+			"revisionTime": "2016-04-01T01:01:12Z"
 		},
 		{
+			"checksumSHA1": "sYR6mMwX7a3dCYpIWUoe7pZ4yxU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/cloud/internal/opts",
 			"path": "google.golang.org/cloud/internal/opts",
-			"revision": "d2ab9d42daacf0f9d24af29755bb38da2de60a05",
-			"revisionTime": "2016-02-11T12:47:02+11:00"
+			"revision": "8a7fce32d2cdf2d4e19068ecc53164b973b3e958",
+			"revisionTime": "2016-04-01T01:01:12Z"
 		},
 		{
+			"checksumSHA1": "tNmeleIWZe+HirBxokHO0KpSon8=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/cloud/internal/transport",
 			"path": "google.golang.org/cloud/internal/transport",
-			"revision": "d2ab9d42daacf0f9d24af29755bb38da2de60a05",
-			"revisionTime": "2016-02-11T12:47:02+11:00"
+			"revision": "8a7fce32d2cdf2d4e19068ecc53164b973b3e958",
+			"revisionTime": "2016-04-01T01:01:12Z"
 		},
 		{
+			"checksumSHA1": "PhR4Rl2RUO0FINZblv/9bDiA3R4=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/cloud/storage",
 			"path": "google.golang.org/cloud/storage",
-			"revision": "d2ab9d42daacf0f9d24af29755bb38da2de60a05",
-			"revisionTime": "2016-02-11T12:47:02+11:00"
+			"revision": "8a7fce32d2cdf2d4e19068ecc53164b973b3e958",
+			"revisionTime": "2016-04-01T01:01:12Z"
 		},
 		{
+			"checksumSHA1": "tv1u5zxov+2dO83iba/fR7vRY3g=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/grpc",
 			"path": "google.golang.org/grpc",
-			"revision": "3c4302b7131d2b14bb9c8aff7aa909bc20540145",
-			"revisionTime": "2016-02-10T16:46:20-08:00"
+			"revision": "68dadb4d0004911b9148648839bd6f5ba0f5e15d",
+			"revisionTime": "2016-03-31T16:36:46Z"
 		},
 		{
+			"checksumSHA1": "08icuA15HRkdYCt6H+Cs90RPQsY=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/grpc/codes",
 			"path": "google.golang.org/grpc/codes",
-			"revision": "3c4302b7131d2b14bb9c8aff7aa909bc20540145",
-			"revisionTime": "2016-02-10T16:46:20-08:00"
+			"revision": "68dadb4d0004911b9148648839bd6f5ba0f5e15d",
+			"revisionTime": "2016-03-31T16:36:46Z"
 		},
 		{
+			"checksumSHA1": "a+C+FoyX7Tc4iNFhBndt/y/iPEg=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/grpc/credentials",
 			"path": "google.golang.org/grpc/credentials",
-			"revision": "3c4302b7131d2b14bb9c8aff7aa909bc20540145",
-			"revisionTime": "2016-02-10T16:46:20-08:00"
+			"revision": "68dadb4d0004911b9148648839bd6f5ba0f5e15d",
+			"revisionTime": "2016-03-31T16:36:46Z"
 		},
 		{
+			"checksumSHA1": "aKQ51Peys87Nx4MPmO7yLYWPliM=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/grpc/credentials/oauth",
 			"path": "google.golang.org/grpc/credentials/oauth",
-			"revision": "3c4302b7131d2b14bb9c8aff7aa909bc20540145",
-			"revisionTime": "2016-02-10T16:46:20-08:00"
+			"revision": "68dadb4d0004911b9148648839bd6f5ba0f5e15d",
+			"revisionTime": "2016-03-31T16:36:46Z"
 		},
 		{
+			"checksumSHA1": "3Lt5hNAG8qJAYSsNghR5uA1zQns=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/grpc/grpclog",
 			"path": "google.golang.org/grpc/grpclog",
-			"revision": "3c4302b7131d2b14bb9c8aff7aa909bc20540145",
-			"revisionTime": "2016-02-10T16:46:20-08:00"
+			"revision": "68dadb4d0004911b9148648839bd6f5ba0f5e15d",
+			"revisionTime": "2016-03-31T16:36:46Z"
 		},
 		{
+			"checksumSHA1": "T3Q0p8kzvXFnRkMaK/G8mCv6mc0=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/grpc/internal",
+			"path": "google.golang.org/grpc/internal",
+			"revision": "68dadb4d0004911b9148648839bd6f5ba0f5e15d",
+			"revisionTime": "2016-03-31T16:36:46Z"
+		},
+		{
+			"checksumSHA1": "IlzBp7dylW8F4D7eINj8xHt/jMk=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/grpc/metadata",
 			"path": "google.golang.org/grpc/metadata",
-			"revision": "3c4302b7131d2b14bb9c8aff7aa909bc20540145",
-			"revisionTime": "2016-02-10T16:46:20-08:00"
+			"revision": "68dadb4d0004911b9148648839bd6f5ba0f5e15d",
+			"revisionTime": "2016-03-31T16:36:46Z"
 		},
 		{
+			"checksumSHA1": "fGJlPKvpYAZ6+HRX3qScFnZ9dd4=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/grpc/naming",
 			"path": "google.golang.org/grpc/naming",
-			"revision": "3c4302b7131d2b14bb9c8aff7aa909bc20540145",
-			"revisionTime": "2016-02-10T16:46:20-08:00"
+			"revision": "68dadb4d0004911b9148648839bd6f5ba0f5e15d",
+			"revisionTime": "2016-03-31T16:36:46Z"
 		},
 		{
+			"checksumSHA1": "3RRoLeH6X2//7tVClOVzxW2bY+E=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/grpc/peer",
 			"path": "google.golang.org/grpc/peer",
-			"revision": "3c4302b7131d2b14bb9c8aff7aa909bc20540145",
-			"revisionTime": "2016-02-10T16:46:20-08:00"
+			"revision": "68dadb4d0004911b9148648839bd6f5ba0f5e15d",
+			"revisionTime": "2016-03-31T16:36:46Z"
 		},
 		{
+			"checksumSHA1": "cRWo9TGarK76Z52yd2qC8uiE0nc=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/google.golang.org/grpc/transport",
 			"path": "google.golang.org/grpc/transport",
-			"revision": "3c4302b7131d2b14bb9c8aff7aa909bc20540145",
-			"revisionTime": "2016-02-10T16:46:20-08:00"
+			"revision": "68dadb4d0004911b9148648839bd6f5ba0f5e15d",
+			"revisionTime": "2016-03-31T16:36:46Z"
 		},
 		{
+			"checksumSHA1": "eVLQ5gnR3HVumEbARIa+ef5WL9M=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/gopkg.in/fatih/pool.v2",
 			"path": "gopkg.in/fatih/pool.v2",
 			"revision": "cba550ebf9bce999a02e963296d4bc7a486cb715",
-			"revisionTime": "2015-03-25T18:32:52+02:00"
+			"revisionTime": "2015-03-25T16:32:52Z"
 		},
 		{
+			"checksumSHA1": "rX53OwxaVijTeT5wXXNlzlOjv2c=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/gopkg.in/tylerb/graceful.v1",
 			"path": "gopkg.in/tylerb/graceful.v1",
-			"revision": "119c58e176bce26fd40698146d9a106c8f1723a5",
-			"revisionTime": "2016-01-11T10:42:23-07:00"
+			"revision": "9a3d4236b03bb5d26f7951134d248f9d5510d599",
+			"revisionTime": "2016-03-20T21:35:05Z"
 		},
 		{
-			"path": "gopkg.in/yaml.v2",
-			"revision": "f7716cbe52baa25d2e9b0d0da546fcf909fc16b4",
-			"revisionTime": "2015-12-01T14:27:45-02:00"
-		},
-		{
+			"checksumSHA1": "giWDGtE/ea0BM0hMunbWJ3bHiXk=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/api",
 			"path": "k8s.io/kubernetes/pkg/api",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "WjKy2/DVijjkKBWRmuyO+YQdf7o=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/api/endpoints",
+			"path": "k8s.io/kubernetes/pkg/api/endpoints",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "DEppB4dCBknWcuFjlHZdCiCXgZU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/api/errors",
 			"path": "k8s.io/kubernetes/pkg/api/errors",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "d+8+D1YxdcjxW8D+GpxeaF3OiPU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/api/install",
 			"path": "k8s.io/kubernetes/pkg/api/install",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "3zJcbLJKUqtKiU43DAFRY/bcyaQ=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/api/meta",
 			"path": "k8s.io/kubernetes/pkg/api/meta",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "mIeZOtftMbg9Ay7GPDtcjUFJEfc=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/api/pod",
+			"path": "k8s.io/kubernetes/pkg/api/pod",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "dd3A71zfLmq5Nq+tBMzrRGWvK9s=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/api/resource",
 			"path": "k8s.io/kubernetes/pkg/api/resource",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "aZtwR4ir1O3yb2Wt57B3a9vQoYc=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/api/service",
+			"path": "k8s.io/kubernetes/pkg/api/service",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "b159MFMmqthfmiCQ5OODcCMJmfA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/api/unversioned",
 			"path": "k8s.io/kubernetes/pkg/api/unversioned",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "u/c8jQqrMSw4GIc79FxzdiYabg4=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/api/util",
 			"path": "k8s.io/kubernetes/pkg/api/util",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "jgNYNVTO5L6dDewgsaYegnN7hhE=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/api/v1",
 			"path": "k8s.io/kubernetes/pkg/api/v1",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "dJ5S7ynaggUTvfkNIfTgoYwfvFA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/api/validation",
 			"path": "k8s.io/kubernetes/pkg/api/validation",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "UW3VugxhL5ogFMc5ICbyKweQMMA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apimachinery",
 			"path": "k8s.io/kubernetes/pkg/apimachinery",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "7h0M2YqmCl1WLMChLKMu8gSBqxI=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apimachinery/registered",
 			"path": "k8s.io/kubernetes/pkg/apimachinery/registered",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "OyQy2tVMuswq3ON3x4rDPNlhuyM=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/authorization",
 			"path": "k8s.io/kubernetes/pkg/apis/authorization",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "9SquY8sUhTmqZBSalbe2pskwugo=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/authorization/install",
 			"path": "k8s.io/kubernetes/pkg/apis/authorization/install",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "YTPbzuUws8RlJlohBlAUMEcq4cs=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/authorization/v1beta1",
 			"path": "k8s.io/kubernetes/pkg/apis/authorization/v1beta1",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "bGe//go6ucb9PLcMbh23oHlytMc=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/autoscaling",
+			"path": "k8s.io/kubernetes/pkg/apis/autoscaling",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "Ta4l8vM9VR8MLJIOIvkfgTMgh4A=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/autoscaling/install",
+			"path": "k8s.io/kubernetes/pkg/apis/autoscaling/install",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "ZXAv3z+q/oyuSNpNstTZI6Oogbw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/autoscaling/v1",
+			"path": "k8s.io/kubernetes/pkg/apis/autoscaling/v1",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "doMZXzdvTnCxepWI/jSuEZBj/to=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/batch",
+			"path": "k8s.io/kubernetes/pkg/apis/batch",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "r75DkQXbqUF6eIvae/yjBGPO6ww=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/batch/install",
+			"path": "k8s.io/kubernetes/pkg/apis/batch/install",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "eIL8/iIs5LY16bCPv7ED6gYZJbw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/batch/v1",
+			"path": "k8s.io/kubernetes/pkg/apis/batch/v1",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "VA1cBexskZhaFZeiwyyRwzbzjZg=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/componentconfig",
 			"path": "k8s.io/kubernetes/pkg/apis/componentconfig",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "YAIAff6jR/dQWsjF2RCA4nJ9BMU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/componentconfig/install",
 			"path": "k8s.io/kubernetes/pkg/apis/componentconfig/install",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "N270TsBCVJ3YozbUv5/q8Qb6q3E=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/componentconfig/v1alpha1",
 			"path": "k8s.io/kubernetes/pkg/apis/componentconfig/v1alpha1",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "hWp4fQf56OFItp3glEAcpck+ntA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/extensions",
 			"path": "k8s.io/kubernetes/pkg/apis/extensions",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "HyLy3/O/if4dQwl8EkMfZOcWc2M=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/extensions/install",
 			"path": "k8s.io/kubernetes/pkg/apis/extensions/install",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "hqv3iM2soDlbz/tng9B+Z9rw44g=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/extensions/v1beta1",
 			"path": "k8s.io/kubernetes/pkg/apis/extensions/v1beta1",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "OqB4Twr2Hh7qaurrvFSo4WOYq8Y=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/metrics",
 			"path": "k8s.io/kubernetes/pkg/apis/metrics",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "wzkmENDSYb4l0dP3JbmEgUUY3is=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/metrics/install",
 			"path": "k8s.io/kubernetes/pkg/apis/metrics/install",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "e2/Kx7Cs3+DDgcz23YFGP2nzho0=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/apis/metrics/v1alpha1",
 			"path": "k8s.io/kubernetes/pkg/apis/metrics/v1alpha1",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "ErngtVbytZhyuggtakfxqgrS7WA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/auth/user",
 			"path": "k8s.io/kubernetes/pkg/auth/user",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "wlfhQx6ZZijfrDlHI/2FhFAGorg=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/capabilities",
 			"path": "k8s.io/kubernetes/pkg/capabilities",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "w5gfxqzscBf4JaR8pN+r3Tf89Kg=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/client/metrics",
 			"path": "k8s.io/kubernetes/pkg/client/metrics",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "PT6itcAfvexQmSCS6NytQLcT/ZQ=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/client/restclient",
+			"path": "k8s.io/kubernetes/pkg/client/restclient",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "hUdKMyi/ADdSqjnUFq7yUGWAaTE=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/client/transport",
 			"path": "k8s.io/kubernetes/pkg/client/transport",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "dZHOBXZhZT4RoV6UD0pqCtyAtaw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/client/typed/discovery",
+			"path": "k8s.io/kubernetes/pkg/client/typed/discovery",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "cRlZIwkTSJit/XWm4+2lYmufQVc=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/client/unversioned",
 			"path": "k8s.io/kubernetes/pkg/client/unversioned",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "yr2LdDFXUxijRn2X+GbBSp8onTo=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/conversion",
 			"path": "k8s.io/kubernetes/pkg/conversion",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "cj9aqD5xBifXiW0YwRFN836Z4Pc=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/conversion/queryparams",
 			"path": "k8s.io/kubernetes/pkg/conversion/queryparams",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "ZS2khgfmeJhaNulzR31MJZC0e30=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/fields",
 			"path": "k8s.io/kubernetes/pkg/fields",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "vAUKzR5p+QZDUUYuU71qjcQF0WM=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/kubelet/qos",
 			"path": "k8s.io/kubernetes/pkg/kubelet/qos",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "8xnVVxYBA7urH6bn5irfB+iuZUs=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/labels",
 			"path": "k8s.io/kubernetes/pkg/labels",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "qTM2hiEaAxpjB3Nqy/4b4McpoaY=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/master",
+			"path": "k8s.io/kubernetes/pkg/master",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "g51NvJl/0AvKNSpJ91x5xZ1eop0=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/master/ports",
 			"path": "k8s.io/kubernetes/pkg/master/ports",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "yhbDEEJmcpEo45BV36VYmBtR+mY=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/runtime",
 			"path": "k8s.io/kubernetes/pkg/runtime",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "H1WyfsymBo+0pDkfqJ+ncKT0oe8=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/runtime/serializer",
 			"path": "k8s.io/kubernetes/pkg/runtime/serializer",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "uIEH5hIkMM1vKruyTzXt5sXT9tU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/runtime/serializer/json",
 			"path": "k8s.io/kubernetes/pkg/runtime/serializer/json",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "mpHkXa4jAsPf03PjheCZ2/Z+d08=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/runtime/serializer/protobuf",
+			"path": "k8s.io/kubernetes/pkg/runtime/serializer/protobuf",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "jcuXBnOqhfW1L9Yj+NbowwGga14=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/runtime/serializer/recognizer",
 			"path": "k8s.io/kubernetes/pkg/runtime/serializer/recognizer",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "MF8efDl1sDCz6onx9h1pG6Rjoao=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/runtime/serializer/streaming",
+			"path": "k8s.io/kubernetes/pkg/runtime/serializer/streaming",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "M78gwS9UmJ+aJeS44spq5o8tD1c=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/runtime/serializer/versioning",
 			"path": "k8s.io/kubernetes/pkg/runtime/serializer/versioning",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "oC7yBeTQRqF2rsE6Suf5V0DlOSA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/types",
 			"path": "k8s.io/kubernetes/pkg/types",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "XLQghD7xzXQ0tL9L8ZaSPTngIQA=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util",
 			"path": "k8s.io/kubernetes/pkg/util",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "Ct7UM/zQkCypJ3es+GMxUdtDSuU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/crypto",
+			"path": "k8s.io/kubernetes/pkg/util/crypto",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "3t4lrWFwarkIFvCbxVOKJNsFFdE=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/errors",
 			"path": "k8s.io/kubernetes/pkg/util/errors",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "YxCPPN3xfNDWr7OT2YlKBmL4JrE=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/flowcontrol",
+			"path": "k8s.io/kubernetes/pkg/util/flowcontrol",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "bfoH+67RIuLSPwKJ0HiMn7GsDhw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/hash",
+			"path": "k8s.io/kubernetes/pkg/util/hash",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "os5Umb0GpSI+xI3rqo8ng1BlmQM=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/integer",
+			"path": "k8s.io/kubernetes/pkg/util/integer",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "CfBuHjWi3fuXuQHjXIpt68hUY8U=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/intstr",
 			"path": "k8s.io/kubernetes/pkg/util/intstr",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "Turllcy/wgh48uA4dV9/JgEG1Ek=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/net",
 			"path": "k8s.io/kubernetes/pkg/util/net",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "oh/GKSci1HtRaMiew9hAwSoRMyU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/net/sets",
+			"path": "k8s.io/kubernetes/pkg/util/net/sets",
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
+		},
+		{
+			"checksumSHA1": "opsFbqfLrz5jmfZiVYf7wyt7L6A=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/parsers",
 			"path": "k8s.io/kubernetes/pkg/util/parsers",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "j3tv5wFxVu2Fkpqb2wC77HLIOd4=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/rand",
 			"path": "k8s.io/kubernetes/pkg/util/rand",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "FfYLTplqJuaNKYOE7ljh9rShXoU=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/runtime",
 			"path": "k8s.io/kubernetes/pkg/util/runtime",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "bcHCpDimP7NfcStIDaunSzsc2l8=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/sets",
 			"path": "k8s.io/kubernetes/pkg/util/sets",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "FjcJKaXIprpQrMWHRdWgCxKXUBo=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/validation",
 			"path": "k8s.io/kubernetes/pkg/util/validation",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "QihseybXOAMxmjO/1dvKpr97fBw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/validation/field",
 			"path": "k8s.io/kubernetes/pkg/util/validation/field",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "WDivBudMQRSqSQk7Tj3S5EvpxZQ=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/wait",
 			"path": "k8s.io/kubernetes/pkg/util/wait",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "BQS0rQPJUf7ZXLEC3hMxOJ96kAQ=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/util/yaml",
 			"path": "k8s.io/kubernetes/pkg/util/yaml",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "JPAqswXXRDAq93f/rSHKyEGpE1s=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/version",
 			"path": "k8s.io/kubernetes/pkg/version",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "hnsGrB+nwikJvxb785YTLE28pMg=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/watch",
 			"path": "k8s.io/kubernetes/pkg/watch",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "Evp1q8c2/73N6LQfk5nuaDmpXa4=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/pkg/watch/json",
 			"path": "k8s.io/kubernetes/pkg/watch/json",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "GS8RhY0+9O9Fb2EMVamcrqpfMgw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/k8s.io/kubernetes/third_party/forked/reflect",
 			"path": "k8s.io/kubernetes/third_party/forked/reflect",
-			"revision": "85f0f82ee2bd865b32d0726de5c3f91ce85683e0",
-			"revisionTime": "2016-02-11T14:19:39-08:00"
+			"revision": "14f5eb458d156981ca845fd63a3e4920519a9009",
+			"revisionTime": "2016-04-01T13:38:56Z"
 		},
 		{
+			"checksumSHA1": "xuAq8CvoMWlyAz0mm5xfLQE9NVw=",
+			"origin": "github.com/pachyderm/pachyderm/src/server/vendor/speter.net/go/exp/math/dec/inf",
 			"path": "speter.net/go/exp/math/dec/inf",
 			"revision": "42ca6cd68aa922bc3f32f1e056e61b65945d9ad7",
-			"revisionTime": "2014-04-17T22:40:36+09:00"
+			"revisionTime": "2014-04-17T13:40:36Z"
 		}
-	]
+	],
+	"rootPath": "github.com/pachyderm/pachyderm/src/server"
 }

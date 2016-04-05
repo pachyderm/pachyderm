@@ -191,30 +191,44 @@ const (
 
 // parser reads complelete gRPC messages from the underlying reader.
 type parser struct {
-	s io.Reader
-}
+	// r is the underlying reader.
+	// See the comment on recvMsg for the permissible
+	// error types.
+	r io.Reader
 
-// recvMsg is to read a complete gRPC message from the stream. It is blocking if
-// the message has not been complete yet. It returns the message and its type,
-// EOF is returned with nil msg and 0 pf if the entire stream is done. Other
-// non-nil error is returned if something is wrong on reading.
-func (p *parser) recvMsg() (pf payloadFormat, msg []byte, err error) {
 	// The header of a gRPC message. Find more detail
 	// at http://www.grpc.io/docs/guides/wire.html.
-	var buf [5]byte
+	header [5]byte
+}
 
-	if _, err := io.ReadFull(p.s, buf[:]); err != nil {
+// recvMsg reads a complete gRPC message from the stream.
+//
+// It returns the message and its payload (compression/encoding)
+// format. The caller owns the returned msg memory.
+//
+// If there is an error, possible values are:
+//   * io.EOF, when no messages remain
+//   * io.ErrUnexpectedEOF
+//   * of type transport.ConnectionError
+//   * of type transport.StreamError
+// No other error values or types must be returned, which also means
+// that the underlying io.Reader must not return an incompatible
+// error.
+func (p *parser) recvMsg() (pf payloadFormat, msg []byte, err error) {
+	if _, err := io.ReadFull(p.r, p.header[:]); err != nil {
 		return 0, nil, err
 	}
 
-	pf = payloadFormat(buf[0])
-	length := binary.BigEndian.Uint32(buf[1:])
+	pf = payloadFormat(p.header[0])
+	length := binary.BigEndian.Uint32(p.header[1:])
 
 	if length == 0 {
 		return pf, nil, nil
 	}
+	// TODO(bradfitz,zhaoq): garbage. reuse buffer after proto decoding instead
+	// of making it for each message:
 	msg = make([]byte, int(length))
-	if _, err := io.ReadFull(p.s, msg); err != nil {
+	if _, err := io.ReadFull(p.r, msg); err != nil {
 		if err == io.EOF {
 			err = io.ErrUnexpectedEOF
 		}
@@ -273,7 +287,7 @@ func checkRecvPayload(pf payloadFormat, recvCompress string, dc Decompressor) er
 	case compressionNone:
 	case compressionMade:
 		if recvCompress == "" {
-			return transport.StreamErrorf(codes.InvalidArgument, "grpc: received unexpected payload format %d", pf)
+			return transport.StreamErrorf(codes.InvalidArgument, "grpc: invalid grpc-encoding %q with compression enabled", recvCompress)
 		}
 		if dc == nil || recvCompress != dc.Type() {
 			return transport.StreamErrorf(codes.InvalidArgument, "grpc: Decompressor is not installed for grpc-encoding %q", recvCompress)
@@ -311,7 +325,7 @@ type rpcError struct {
 }
 
 func (e rpcError) Error() string {
-	return fmt.Sprintf("rpc error: code = %d desc = %q", e.code, e.desc)
+	return fmt.Sprintf("rpc error: code = %d desc = %s", e.code, e.desc)
 }
 
 // Code returns the error code for err if it was produced by the rpc system.
@@ -428,3 +442,11 @@ func backoff(retries int) (t time.Duration) {
 	}
 	return time.Duration(backoff)
 }
+
+// SupportPackageIsVersion1 is referenced from generated protocol buffer files
+// to assert that that code is compatible with this version of the grpc package.
+//
+// This constant may be renamed in the future if a change in the generated code
+// requires a synchronised update of grpc-go and protoc-gen-go. This constant
+// should not be referenced from any other code.
+const SupportPackageIsVersion1 = true

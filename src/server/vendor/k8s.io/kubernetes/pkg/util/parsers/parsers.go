@@ -17,7 +17,7 @@ limitations under the License.
 package parsers
 
 import (
-	"github.com/docker/distribution/reference"
+	"github.com/docker/docker/pkg/parsers"
 )
 
 const (
@@ -27,13 +27,10 @@ const (
 // parseImageName parses a docker image string into two parts: repo and tag.
 // If tag is empty, return the defaultImageTag.
 func ParseImageName(image string) (string, string) {
-	ref, _ := reference.Parse(image)
-	switch ref := ref.(type) {
-	default:
-		return ref.String(), defaultImageTag
-	case reference.NamedTagged:
-		return ref.Name(), ref.Tag()
-	case reference.Named:
-		return ref.Name(), defaultImageTag
+	repoToPull, tag := parsers.ParseRepositoryTag(image)
+	// If no tag was specified, use the default "latest".
+	if len(tag) == 0 {
+		tag = defaultImageTag
 	}
+	return repoToPull, tag
 }
