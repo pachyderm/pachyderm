@@ -113,7 +113,7 @@ func TestLogs(t *testing.T) {
 	time.Sleep(2 * time.Second)
 	var buffer bytes.Buffer
 	require.NoError(t, ppsclient.GetLogs(pachClient, job.ID, &buffer))
-	require.Equal(t, "foo\nfoo\nfoo\nfoo\n", buffer.String())
+	require.Equal(t, "0 | foo\n1 | foo\n2 | foo\n3 | foo\n", buffer.String())
 }
 
 func TestGrep(t *testing.T) {
