@@ -37,6 +37,46 @@ func newObjBlockAPIServer(dir string, objClient obj.Client) (*objBlockAPIServer,
 	}, nil
 }
 
+func newAmazonBlockAPIServer(dir string) (*objBlockAPIServer, error) {
+	bucket, err := ioutil.ReadFile("/amazon-secret/bucket")
+	if err != nil {
+		return nil, err
+	}
+	id, err := ioutil.ReadFile("/amazon-secret/id")
+	if err != nil {
+		return nil, err
+	}
+	secret, err := ioutil.ReadFile("/amazon-secret/secret")
+	if err != nil {
+		return nil, err
+	}
+	token, err := ioutil.ReadFile("/amazon-secret/token")
+	if err != nil {
+		return nil, err
+	}
+	region, err := ioutil.ReadFile("/amazon-secret/region")
+	if err != nil {
+		return nil, err
+	}
+	objClient, err := obj.NewAmazonClient(string(bucket), string(id), string(secret), string(token), string(region))
+	if err != nil {
+		return nil, err
+	}
+	return newObjBlockAPIServer(dir, objClient)
+}
+
+func newGoogleBlockAPIServer(dir string) (*objBlockAPIServer, error) {
+	bucket, err := ioutil.ReadFile("/google-secret/bucket")
+	if err != nil {
+		return nil, err
+	}
+	objClient, err := obj.NewGoogleClient(context.Background(), string(bucket))
+	if err != nil {
+		return nil, err
+	}
+	return newObjBlockAPIServer(dir, objClient)
+}
+
 func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
 	result := &pfsclient.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
