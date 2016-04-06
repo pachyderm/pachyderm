@@ -50,6 +50,32 @@ type apiServer struct {
 
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if request.Pipeline != nil {
+		var inputCommits []*pfsclient.Commit
+		for _, input := range request.Inputs {
+			inputCommits = append(inputCommits, input.Commit)
+		}
+
+		jobInfos, err := a.persistAPIServer.ListJobInfos(ctx, &ppsclient.ListJobRequest{
+			Pipeline:    request.Pipeline,
+			InputCommit: inputCommits,
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		if len(jobInfos.JobInfo) > 1 {
+			return nil, fmt.Errorf("there are %d jobs that match the job info (%v); this is likely a bug", len(jobInfos.JobInfo), request)
+		}
+
+		if len(jobInfos.JobInfo) != 0 {
+			return &ppsclient.Job{
+				ID: jobInfos.JobInfo[0].JobID,
+			}, nil
+		}
+	}
+
 	defer func() {
 		if retErr == nil {
 			metrics.AddJobs(1)
