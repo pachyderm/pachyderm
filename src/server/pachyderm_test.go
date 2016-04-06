@@ -86,6 +86,80 @@ func testJob(t *testing.T, shards int) {
 	}
 }
 
+func TestDuplicatedJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+
+	ctx := context.Background()
+	pachClient := getPachClient(t)
+
+	dataRepo := uniqueString("TestDuplicatedJob.data")
+	require.NoError(t, pfsclient.CreateRepo(pachClient, dataRepo))
+
+	commit, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
+	require.NoError(t, err)
+
+	fileContent := "foo\n"
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, "file", 0, strings.NewReader(fileContent))
+	require.NoError(t, err)
+
+	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
+
+	pipelineName := uniqueString("TestDuplicatedJob.pipeline")
+	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
+	require.NoError(t, ppsclient.CreatePipeline(
+		pachClient,
+		pipelineName,
+		"",
+		cmd,
+		nil,
+		1,
+		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
+	))
+
+	// Wait for the pipeline to pick up the job
+	time.Sleep(3 * time.Second)
+
+	jobInfos, err := pachClient.ListJob(ctx, &ppsclient.ListJobRequest{
+		Pipeline: &ppsclient.Pipeline{
+			Name: pipelineName,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos.JobInfo))
+
+	// Now we manually create the same job
+	req := &ppsclient.CreateJobRequest{
+		Transform: &ppsclient.Transform{
+			Cmd: cmd,
+		},
+		Pipeline: &ppsclient.Pipeline{
+			Name: pipelineName,
+		},
+		Inputs: []*ppsclient.JobInput{{
+			Commit: commit,
+		}},
+	}
+	job, err := pachClient.CreateJob(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, job, jobInfos.JobInfo[0].Job)
+
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:         job,
+		BlockOutput: true,
+		BlockState:  true,
+	}
+	jobInfo, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
+	require.NoError(t, err)
+
+	var buffer bytes.Buffer
+	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
+	require.Equal(t, fileContent, buffer.String())
+}
+
 func TestGrep(t *testing.T) {
 
 	if testing.Short() {
