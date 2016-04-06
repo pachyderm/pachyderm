@@ -108,6 +108,9 @@ func TestLogs(t *testing.T) {
 	}
 	_, err = pachClient.InspectJob(context.Background(), inspectJobRequest)
 	require.NoError(t, err)
+	// TODO we Sleep here because even though the job has completed kubernetes
+	// might not have even noticed the container was created yet
+	time.Sleep(2 * time.Second)
 	var buffer bytes.Buffer
 	require.NoError(t, ppsclient.GetLogs(pachClient, job.ID, &buffer))
 	require.Equal(t, "foo\nfoo\nfoo\nfoo\n", buffer.String())
