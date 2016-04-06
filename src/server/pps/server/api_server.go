@@ -1,7 +1,10 @@
 package server
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -215,9 +218,13 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 	if err != nil {
 		return err
 	}
+	// sort the pods to make sure that the indexes are stable
+	sort.Sort(podSlice(podList.Items))
+	logs := make([][]byte, len(podList.Items))
 	var wg sync.WaitGroup
 	errCh := make(chan error, 1)
-	for _, pod := range podList.Items {
+	for i, pod := range podList.Items {
+		i := i
 		pod := pod
 		wg.Add(1)
 		go func() {
@@ -231,12 +238,12 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 				case errCh <- err:
 				}
 			}
-			if err := apiGetLogsServer.Send(&google_protobuf.BytesValue{Value: value}); err != nil {
-				select {
-				default:
-				case errCh <- err:
-				}
+			var buffer bytes.Buffer
+			scanner := bufio.NewScanner(bytes.NewBuffer(value))
+			for scanner.Scan() {
+				fmt.Fprintf(&buffer, "%d | %s\n", i, scanner.Text())
 			}
+			logs[i] = buffer.Bytes()
 		}()
 	}
 	wg.Wait()
@@ -244,6 +251,11 @@ func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer 
 	default:
 	case err := <-errCh:
 		return err
+	}
+	for _, log := range logs {
+		if err := apiGetLogsServer.Send(&google_protobuf.BytesValue{Value: log}); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -691,4 +703,16 @@ func labels(app string) map[string]string {
 		"app":   app,
 		"suite": suite,
 	}
+}
+
+type podSlice []kube_api.Pod
+
+func (s podSlice) Len() int {
+	return len(s)
+}
+func (s podSlice) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s podSlice) Less(i, j int) bool {
+	return s[i].ObjectMeta.Name < s[j].ObjectMeta.Name
 }
