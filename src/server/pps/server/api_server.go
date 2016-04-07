@@ -6,7 +6,6 @@ import (
 	"time"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
@@ -33,11 +32,11 @@ var (
 type apiServer struct {
 	protorpclog.Logger
 	hasher               *ppsserver.Hasher
-	router               shard.Router
-	pfsAddress           string
+	address              string
 	pfsAPIClient         pfsclient.APIClient
 	pfsClientOnce        sync.Once
-	persistAPIServer     persist.APIServer
+	persistAPIClient     persist.APIClient
+	persistClientOnce    sync.Once
 	kubeClient           *kube.Client
 	cancelFuncs          map[ppsclient.Pipeline]func()
 	cancelFuncsLock      sync.Mutex
@@ -52,13 +51,18 @@ type apiServer struct {
 
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+
 	if request.Pipeline != nil {
 		var inputCommits []*pfsclient.Commit
 		for _, input := range request.Inputs {
 			inputCommits = append(inputCommits, input.Commit)
 		}
 
-		jobInfos, err := a.persistAPIServer.ListJobInfos(ctx, &ppsclient.ListJobRequest{
+		jobInfos, err := persistClient.ListJobInfos(ctx, &ppsclient.ListJobRequest{
 			Pipeline:    request.Pipeline,
 			InputCommit: inputCommits,
 		})
@@ -106,10 +110,9 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	jobID := uuid.NewWithoutDashes()
 
 	var parentJobInfo *persist.JobInfo
-	var err error
 	if request.ParentJob != nil {
 		inspectJobRequest := &ppsclient.InspectJobRequest{Job: request.ParentJob}
-		parentJobInfo, err = a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
+		parentJobInfo, err = persistClient.InspectJob(ctx, inspectJobRequest)
 		if err != nil {
 			return nil, err
 		}
@@ -179,13 +182,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if a.kubeClient == nil {
 		return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: no job backend")
 	}
-	_, err = a.persistAPIServer.CreateJobInfo(ctx, persistJobInfo)
+	_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		if retErr != nil {
-			if _, err := a.persistAPIServer.CreateJobState(ctx, &persist.JobState{
+			if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
 				JobID: persistJobInfo.JobID,
 				State: ppsclient.JobState_JOB_STATE_FAILURE,
 			}); err != nil {
@@ -204,7 +207,12 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJobRequest) (response *ppsclient.JobInfo, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	persistJobInfo, err := a.persistAPIServer.InspectJob(ctx, request)
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+
+	persistJobInfo, err := persistClient.InspectJob(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +221,12 @@ func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJo
 
 func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobRequest) (response *ppsclient.JobInfos, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	persistJobInfos, err := a.persistAPIServer.ListJobInfos(ctx, request)
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+
+	persistJobInfos, err := persistClient.ListJobInfos(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -232,8 +245,12 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 
 func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobRequest) (response *ppsserver.StartJobResponse, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
 
-	jobInfo, err := a.persistAPIServer.StartShard(ctx, request.Job)
+	jobInfo, err := persistClient.StartShard(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +266,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	var parentJobInfo *persist.JobInfo
 	if jobInfo.ParentJob != nil {
 		inspectJobRequest := &ppsclient.InspectJobRequest{Job: jobInfo.ParentJob}
-		parentJobInfo, err = a.persistAPIServer.InspectJob(ctx, inspectJobRequest)
+		parentJobInfo, err = persistClient.InspectJob(ctx, inspectJobRequest)
 		if err != nil {
 			return nil, err
 		}
@@ -300,15 +317,19 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 
 func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobRequest) (response *google_protobuf.Empty, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+
 	var jobInfo *persist.JobInfo
-	var err error
 	if request.Success {
-		jobInfo, err = a.persistAPIServer.SucceedShard(ctx, request.Job)
+		jobInfo, err = persistClient.SucceedShard(ctx, request.Job)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		jobInfo, err = a.persistAPIServer.FailShard(ctx, request.Job)
+		jobInfo, err = persistClient.FailShard(ctx, request.Job)
 		if err != nil {
 			return nil, err
 		}
@@ -330,7 +351,7 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		if jobInfo.ShardsSucceeded == jobInfo.Shards {
 			jobState = ppsclient.JobState_JOB_STATE_SUCCESS
 		}
-		if _, err := a.persistAPIServer.CreateJobState(ctx, &persist.JobState{
+		if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
 			JobID: request.Job.ID,
 			State: jobState,
 		}); err != nil {
@@ -348,6 +369,15 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		}
 	}()
 	pfsAPIClient, err := a.getPfsClient()
+	if err != nil {
+		return nil, err
+	}
+
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+
 	if request.Pipeline == nil {
 		return nil, fmt.Errorf("pachyderm.ppsclient.pipelineserver: request.Pipeline cannot be nil")
 	}
@@ -369,7 +399,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		Inputs:       request.Inputs,
 		OutputRepo:   repo,
 	}
-	if _, err := a.persistAPIServer.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
+	if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
 	}
 	if err != nil {
@@ -383,7 +413,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 
 func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.InspectPipelineRequest) (response *ppsclient.PipelineInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	persistPipelineInfo, err := a.persistAPIServer.GetPipelineInfo(ctx, request.Pipeline)
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+
+	persistPipelineInfo, err := persistClient.GetPipelineInfo(ctx, request.Pipeline)
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +427,12 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *ppsclient.Insp
 
 func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPipelineRequest) (response *ppsclient.PipelineInfos, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
-	persistPipelineInfos, err := a.persistAPIServer.ListPipelineInfos(ctx, google_protobuf.EmptyInstance)
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+
+	persistPipelineInfos, err := persistClient.ListPipelineInfos(ctx, google_protobuf.EmptyInstance)
 	if err != nil {
 		return nil, err
 	}
@@ -406,7 +446,12 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 }
 
 func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.DeletePipelineRequest) (response *google_protobuf.Empty, err error) {
-	if _, err := a.persistAPIServer.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := persistClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
 	a.cancelFuncsLock.Lock()
@@ -424,11 +469,41 @@ func (a *apiServer) Version(version int64) error {
 }
 
 func (a *apiServer) AddShard(shard uint64) error {
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return err
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
-	go func() {
-		// TODO: subscribe to changes in pipelineInfo table
+	client, err := persistClient.SubscribeNewPipeline(ctx, &persist.SubscribeNewPipelineRequest{})
+	if err != nil {
+		return err
+	}
 
+	go func() {
+		pipelineChan := make(chan *persist.PipelineInfo)
+		go func() {
+			for {
+				pipelineInfo, err := client.Recv()
+				if err != nil {
+					protolion.Printf("error receiving new pipeline: %v", err)
+				}
+				pipelineChan <- pipelineInfo
+			}
+		}()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case pipelineInfo := <-pipelineChan:
+				go func() {
+					if err := a.runPipeline(newPipelineInfo(pipelineInfo)); err != nil {
+						protolion.Printf("error running pipeline: %v", err)
+					}
+				}()
+			}
+		}
 	}()
 
 	a.shardCancelFuncsLock.Lock()
@@ -451,7 +526,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 			pipelineInfo := pipelineInfo
 			go func() {
 				if err := a.runPipeline(pipelineInfo); err != nil {
-					protolion.Printf("pipeline errored: %s", err.Error())
+					protolion.Printf("error running pipeline: %v", err)
 				}
 			}()
 		}
@@ -623,7 +698,7 @@ func (a *apiServer) getPfsClient() (pfsclient.APIClient, error) {
 	if a.pfsAPIClient == nil {
 		var onceErr error
 		a.pfsClientOnce.Do(func() {
-			clientConn, err := grpc.Dial(a.pfsAddress, grpc.WithInsecure())
+			clientConn, err := grpc.Dial(a.address, grpc.WithInsecure())
 			if err != nil {
 				onceErr = err
 			}
@@ -634,6 +709,23 @@ func (a *apiServer) getPfsClient() (pfsclient.APIClient, error) {
 		}
 	}
 	return a.pfsAPIClient, nil
+}
+
+func (a *apiServer) getPersistClient() (persist.APIClient, error) {
+	if a.persistAPIClient == nil {
+		var onceErr error
+		a.persistClientOnce.Do(func() {
+			clientConn, err := grpc.Dial(a.address, grpc.WithInsecure())
+			if err != nil {
+				onceErr = err
+			}
+			a.persistAPIClient = persist.NewAPIClient(clientConn)
+		})
+		if onceErr != nil {
+			return nil, onceErr
+		}
+	}
+	return a.persistAPIClient, nil
 }
 
 func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {

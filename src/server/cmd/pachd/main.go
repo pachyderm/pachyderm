@@ -114,15 +114,7 @@ func do(appEnvObj interface{}) error {
 	)
 	ppsAPIServer := pps_server.NewAPIServer(
 		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
-		shard.NewRouter(
-			sharder,
-			grpcutil.NewDialer(
-				grpc.WithInsecure(),
-			),
-			address,
-		),
 		address,
-		rethinkAPIServer,
 		kubeClient,
 	)
 	go func() {
@@ -175,6 +167,7 @@ func do(appEnvObj interface{}) error {
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			ppsserver.RegisterInternalJobAPIServer(s, ppsAPIServer)
+			persist.RegisterAPIServer(s, rethinkAPIServer)
 		},
 		func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
 			return pfsclient.RegisterAPIHandler(ctx, mux, clientConn)
