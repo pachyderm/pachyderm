@@ -19,6 +19,7 @@ ifdef VENDOR_ALL
 endif
 
 COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
+CLUSTER_NAME = pachyderm
 
 all: build
 
@@ -168,6 +169,14 @@ grep-example:
 
 logs:
 	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'kubectl logs pod >pod'
+
+cluster:
+	gcloud container clusters create $(CLUSTER_NAME)
+	gcloud config set container/cluster $(CLUSTER_NAME)
+	gcloud container clusters get-credentials $(CLUSTER_NAME)
+	gcloud components update kubectl
+	gcloud compute firewall-rules create pachd --allow=tcp:30650
+
 
 .PHONY: \
 	doc \
