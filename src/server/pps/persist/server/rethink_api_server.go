@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
+
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/rpclog"
@@ -322,7 +323,8 @@ func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *ppsc
 
 func (a *rethinkAPIServer) SubscribeNewPipeline(request *persist.SubscribeNewPipelineRequest, server persist.API_SubscribeNewPipelineServer) (retErr error) {
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	cursor, err := a.getTerm(pipelineInfosTable).Changes().Run(a.session)
+	cursor, err := a.getTerm(pipelineInfosTable).Changes().Field("new_val").Run(a.session)
+
 	if err != nil {
 		return err
 	}
