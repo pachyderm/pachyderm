@@ -32,16 +32,18 @@ var (
 
 type apiServer struct {
 	protorpclog.Logger
-	hasher           *ppsserver.Hasher
-	router           shard.Router
-	pfsAddress       string
-	pfsAPIClient     pfsclient.APIClient
-	pfsClientOnce    sync.Once
-	persistAPIServer persist.APIServer
-	kubeClient       *kube.Client
-	cancelFuncs      map[ppsclient.Pipeline]func()
-	cancelFuncsLock  sync.Mutex
-	version          int64
+	hasher               *ppsserver.Hasher
+	router               shard.Router
+	pfsAddress           string
+	pfsAPIClient         pfsclient.APIClient
+	pfsClientOnce        sync.Once
+	persistAPIServer     persist.APIServer
+	kubeClient           *kube.Client
+	cancelFuncs          map[ppsclient.Pipeline]func()
+	cancelFuncsLock      sync.Mutex
+	shardCancelFuncs     map[uint64]func()
+	shardCancelFuncsLock sync.Mutex
+	version              int64
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
@@ -376,11 +378,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	if _, err := pfsAPIClient.CreateRepo(ctx, &pfsclient.CreateRepoRequest{Repo: repo}); err != nil {
 		return nil, err
 	}
-	go func() {
-		if err := a.runPipeline(newPipelineInfo(persistPipelineInfo)); err != nil {
-			protolion.Printf("pipeline errored: %s", err.Error())
-		}
-	}()
 	return google_protobuf.EmptyInstance, nil
 }
 
@@ -426,11 +423,29 @@ func (a *apiServer) Version(version int64) error {
 	return nil
 }
 
-func (a *apiServer) AddShard(shard uint64, version int64) error {
-	pipelineInfos, err := a.ListPipeline(context.Background(), &ppsclient.ListPipelineRequest{})
+func (a *apiServer) AddShard(shard uint64) error {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		// TODO: subscribe to changes in pipelineInfo table
+
+	}()
+
+	a.shardCancelFuncsLock.Lock()
+	defer a.shardCancelFuncsLock.Unlock()
+	if _, ok := a.shardCancelFuncs[shard]; ok {
+		return fmt.Errorf("shard %d is being added twice; this is likely a bug", shard)
+	}
+	a.shardCancelFuncs[shard] = cancel
+
+	// If we did the following before we subscribe to changes, a new pipeline
+	// could come in after we did the following but before we subscribe to
+	// changes, so we might miss that pipeline.
+	pipelineInfos, err := a.ListPipeline(context.Background(), &ppsclient.ListPipelineRequest{}) // TODO: only list pipelines for this shard
 	if err != nil {
 		return err
 	}
+
 	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
 		if a.hasher.HashPipeline(pipelineInfo.Pipeline) == shard {
 			pipelineInfo := pipelineInfo
@@ -441,17 +456,28 @@ func (a *apiServer) AddShard(shard uint64, version int64) error {
 			}()
 		}
 	}
+
 	return nil
 }
 
-func (a *apiServer) RemoveShard(shard uint64, version int64) error {
+func (a *apiServer) DeleteShard(shard uint64) error {
 	a.cancelFuncsLock.Lock()
 	defer a.cancelFuncsLock.Unlock()
 	for pipeline, cancelFunc := range a.cancelFuncs {
 		if a.hasher.HashPipeline(&pipeline) == shard {
 			cancelFunc()
+			delete(a.cancelFuncs, pipeline)
 		}
 	}
+
+	a.shardCancelFuncsLock.Lock()
+	defer a.shardCancelFuncsLock.Unlock()
+	cancel, ok := a.shardCancelFuncs[shard]
+	if !ok {
+		return fmt.Errorf("shard %d is being deleted, but it was never added; this is likely a bug", shard)
+	}
+	cancel()
+
 	return nil
 }
 
@@ -470,6 +496,11 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancelFuncsLock.Lock()
+	if _, ok := a.cancelFuncs[*pipelineInfo.Pipeline]; ok {
+		// The pipeline is already being run
+		a.cancelFuncsLock.Unlock()
+		return nil
+	}
 	a.cancelFuncs[*pipelineInfo.Pipeline] = cancel
 	a.cancelFuncsLock.Unlock()
 	repoToLeaves := make(map[string]map[string]bool)

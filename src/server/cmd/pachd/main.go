@@ -7,16 +7,16 @@ import (
 	"github.com/gengo/grpc-gateway/runtime"
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps" //SJ: bad name conflict w below
 	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs"  // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps" //SJ: cant name this server per the refactor convention because of the import below
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	persist_server "github.com/pachyderm/pachyderm/src/server/pps/persist/server"
@@ -112,11 +112,6 @@ func do(appEnvObj interface{}) error {
 		),
 		driver,
 	)
-	go func() {
-		if err := sharder.Register(nil, address, []shard.Server{internalAPIServer}); err != nil {
-			protolion.Printf("Error from sharder.Register %s", err.Error())
-		}
-	}()
 	ppsAPIServer := pps_server.NewAPIServer(
 		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
 		shard.NewRouter(
@@ -130,6 +125,11 @@ func do(appEnvObj interface{}) error {
 		rethinkAPIServer,
 		kubeClient,
 	)
+	go func() {
+		if err := sharder.Register(nil, address, []shard.Server{internalAPIServer, ppsAPIServer}); err != nil {
+			protolion.Printf("Error from sharder.Register %s", err.Error())
+		}
+	}()
 	var blockAPIServer pfsclient.BlockAPIServer
 	if err := func() error {
 		bucket, err := ioutil.ReadFile("/amazon-secret/bucket")
