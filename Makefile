@@ -81,7 +81,7 @@ clean-launch-kube:
 	docker kill $$(docker ps -q)
 
 kube-cluster-assets: install
-	pachctl manifest -s 32 >etc/kube/pachyderm.json
+	deploy -s 32 >etc/kube/pachyderm.json
 
 launch: install
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
