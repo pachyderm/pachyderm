@@ -11,7 +11,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
-	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	"github.com/spf13/cobra"
 	"go.pedge.io/pb/go/google/protobuf"
@@ -41,10 +40,6 @@ Envronment variables:
 		rootCmd.AddCommand(cmd)
 	}
 
-	deployCmds := deploycmds.Cmds()
-	for _, cmd := range deployCmds {
-		rootCmd.AddCommand(cmd)
-	}
 	version := &cobra.Command{
 		Use:   "version",
 		Short: "Return version information.",

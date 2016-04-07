@@ -9,9 +9,9 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
-func Cmds() []*cobra.Command {
+func DeployCmd() *cobra.Command {
 	var shards int
-	kubernetesManifest := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "manifest [amazon bucket id secret token region | google bucket]",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
 		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
@@ -35,9 +35,6 @@ func Cmds() []*cobra.Command {
 			return nil
 		}),
 	}
-	kubernetesManifest.Flags().IntVarP(&shards, "shards", "s", 1, "The static number of shards for pfs.")
-
-	var result []*cobra.Command
-	result = append(result, kubernetesManifest)
-	return result
+	cmd.Flags().IntVarP(&shards, "shards", "s", 1, "The static number of shards for pfs.")
+	return cmd
 }
