@@ -2,6 +2,7 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
 import "client/pfs/pfs.proto";
 
 package pachyderm.pps;
@@ -86,6 +87,10 @@ message ListJobRequest {
   repeated pfs.Commit input_commit = 2; // nil means all inputs
 }
 
+message GetLogsRequest {
+    Job job = 1;
+}
+
 message CreatePipelineRequest {
   Pipeline pipeline = 1;
   Transform transform = 2;
@@ -111,6 +116,7 @@ service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
+  rpc GetLogs(GetLogsRequest) returns (stream google.protobuf.BytesValue) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}

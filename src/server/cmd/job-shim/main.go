@@ -12,7 +12,6 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/spf13/cobra"
 	"go.pedge.io/env"
-	"go.pedge.io/lion"
 	"go.pedge.io/pkg/exec"
 	"golang.org/x/net/context"
 )
@@ -26,7 +25,6 @@ func main() {
 }
 
 func do(appEnvObj interface{}) error {
-	lion.SetLevel(lion.LevelDebug)
 	appEnv := appEnvObj.(*appEnv)
 	rootCmd := &cobra.Command{
 		Use:   os.Args[0] + " job-id",

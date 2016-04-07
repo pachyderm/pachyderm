@@ -150,6 +150,19 @@ The increase the throughput of a job increase the Shard paremeter.
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
 
+	getLogs := &cobra.Command{
+		Use:   "get-logs job-id",
+		Short: "Return logs from a job.",
+		Long:  "Return logs from a job.",
+		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
+			return ppsclient.GetLogs(apiClient, args[0], os.Stdout)
+		}),
+	}
+
 	pipeline := &cobra.Command{
 		Use:   "pipeline",
 		Short: "Docs for pipelines.",
@@ -303,6 +316,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, job)
 	result = append(result, createJob)
 	result = append(result, inspectJob)
+	result = append(result, getLogs)
 	result = append(result, listJob)
 	result = append(result, pipeline)
 	result = append(result, createPipeline)

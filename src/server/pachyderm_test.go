@@ -160,6 +160,36 @@ func TestDuplicatedJob(t *testing.T) {
 	require.Equal(t, fileContent, buffer.String())
 }
 
+func TestLogs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	pachClient := getPachClient(t)
+	job, err := ppsclient.CreateJob(
+		pachClient,
+		"",
+		[]string{"echo", "foo"},
+		nil,
+		4,
+		[]*ppsclient.JobInput{},
+		"",
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        job,
+		BlockState: true,
+	}
+	_, err = pachClient.InspectJob(context.Background(), inspectJobRequest)
+	require.NoError(t, err)
+	// TODO we Sleep here because even though the job has completed kubernetes
+	// might not have even noticed the container was created yet
+	time.Sleep(2 * time.Second)
+	var buffer bytes.Buffer
+	require.NoError(t, ppsclient.GetLogs(pachClient, job.ID, &buffer))
+	require.Equal(t, "0 | foo\n1 | foo\n2 | foo\n3 | foo\n", buffer.String())
+}
+
 func TestGrep(t *testing.T) {
 
 	if testing.Short() {
