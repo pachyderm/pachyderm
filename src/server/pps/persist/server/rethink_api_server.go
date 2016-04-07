@@ -19,13 +19,15 @@ import (
 )
 
 const (
-	jobInfosTable      Table = "JobInfos"
-	pipelineInfosTable Table = "PipelineInfos"
-
+	jobInfosTable              Table = "JobInfos"
 	pipelineNameIndex          Index = "PipelineName"
 	pipelineNameAndCommitIndex Index = "PipelineNameAndCommitIndex"
 	commitIndex                Index = "CommitIndex"
-	connectTimeoutSeconds            = 5
+
+	pipelineInfosTable Table = "PipelineInfos"
+	pipelineShardIndex Index = "PipelineShard"
+
+	connectTimeoutSeconds = 5
 )
 
 type Table string

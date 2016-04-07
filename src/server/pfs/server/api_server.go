@@ -10,10 +10,10 @@ import (
 	"time"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
