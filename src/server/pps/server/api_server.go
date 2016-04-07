@@ -1,7 +1,10 @@
 package server
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -23,6 +26,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
+	kube_labels "k8s.io/kubernetes/pkg/labels"
 )
 
 var (
@@ -242,6 +246,60 @@ func (a *apiServer) ListJob(ctx context.Context, request *ppsclient.ListJobReque
 	return &ppsclient.JobInfos{
 		JobInfo: jobInfos,
 	}, nil
+}
+
+func (a *apiServer) GetLogs(request *ppsclient.GetLogsRequest, apiGetLogsServer ppsclient.API_GetLogsServer) (retErr error) {
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	podList, err := a.kubeClient.Pods(api.NamespaceDefault).List(kube_api.ListOptions{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ListOptions",
+			APIVersion: "v1",
+		},
+		LabelSelector: kube_labels.SelectorFromSet(labels(request.Job.ID)),
+	})
+	if err != nil {
+		return err
+	}
+	// sort the pods to make sure that the indexes are stable
+	sort.Sort(podSlice(podList.Items))
+	logs := make([][]byte, len(podList.Items))
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
+	for i, pod := range podList.Items {
+		i := i
+		pod := pod
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result := a.kubeClient.Pods(api.NamespaceDefault).GetLogs(
+				pod.ObjectMeta.Name, &kube_api.PodLogOptions{}).Do()
+			value, err := result.Raw()
+			if err != nil {
+				select {
+				default:
+				case errCh <- err:
+				}
+			}
+			var buffer bytes.Buffer
+			scanner := bufio.NewScanner(bytes.NewBuffer(value))
+			for scanner.Scan() {
+				fmt.Fprintf(&buffer, "%d | %s\n", i, scanner.Text())
+			}
+			logs[i] = buffer.Bytes()
+		}()
+	}
+	wg.Wait()
+	select {
+	default:
+	case err := <-errCh:
+		return err
+	}
+	for _, log := range logs {
+		if err := apiGetLogsServer.Send(&google_protobuf.BytesValue{Value: log}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobRequest) (response *ppsserver.StartJobResponse, retErr error) {
@@ -794,4 +852,16 @@ func labels(app string) map[string]string {
 		"app":   app,
 		"suite": suite,
 	}
+}
+
+type podSlice []kube_api.Pod
+
+func (s podSlice) Len() int {
+	return len(s)
+}
+func (s podSlice) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s podSlice) Less(i, j int) bool {
+	return s[i].ObjectMeta.Name < s[j].ObjectMeta.Name
 }

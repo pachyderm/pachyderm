@@ -76,12 +76,15 @@ func TestBlock(t *testing.T) {
 	require.Equal(t, 3, len(diffInfos))
 }
 
+func TestInvalidRepo(t *testing.T) {
+	t.Parallel()
+	pfsClient, _ := getClientAndServer(t)
+	require.YesError(t, pfsclient.CreateRepo(pfsClient, "/repo"))
+}
+
 func TestSimple(t *testing.T) {
 	t.Parallel()
 	pfsClient, server := getClientAndServer(t)
-
-	invalidRepo := "/repo"
-	require.YesError(t, pfsclient.CreateRepo(pfsClient, invalidRepo))
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -266,6 +269,13 @@ func TestInspectRepoComplex(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, int(info.SizeBytes), totalSize)
+
+	infos, err := pfsclient.ListRepo(pfsClient)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(infos))
+	info = infos[0]
+
+	require.Equal(t, int(info.SizeBytes), totalSize)
 }
 
 func TestListRepo(t *testing.T) {
@@ -273,19 +283,19 @@ func TestListRepo(t *testing.T) {
 	pfsClient, server := getClientAndServer(t)
 
 	numRepos := 10
-	repoNames := make(map[string]bool)
+	var repoNames []string
 	for i := 0; i < numRepos; i++ {
 		repo := fmt.Sprintf("repo%d", i)
 		require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
-		repoNames[repo] = true
+		repoNames = append(repoNames, repo)
 	}
 
 	test := func() {
 		repoInfos, err := pfsclient.ListRepo(pfsClient)
 		require.NoError(t, err)
 
-		for _, repoInfo := range repoInfos {
-			require.True(t, repoNames[repoInfo.Repo.Name])
+		for i, repoInfo := range repoInfos {
+			require.Equal(t, repoNames[len(repoNames)-i-1], repoInfo.Repo.Name)
 		}
 
 		require.Equal(t, len(repoInfos), numRepos)
