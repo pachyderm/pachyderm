@@ -320,6 +320,19 @@ func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *ppsc
 	return google_protobuf.EmptyInstance, nil
 }
 
+func (a *rethinkAPIServer) SubscribeNewPipeline(request *persist.SubscribeNewPipelineRequest, server persist.API_SubscribeNewPipelineServer) (retErr error) {
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	cursor, err := a.getTerm(pipelineInfosTable).Changes().Run(a.session)
+	if err != nil {
+		return err
+	}
+	var pipelineInfo persist.PipelineInfo
+	for cursor.Next(&pipelineInfo) {
+		server.Send(&pipelineInfo)
+	}
+	return cursor.Err()
+}
+
 func (a *rethinkAPIServer) StartShard(ctx context.Context, request *ppsclient.Job) (response *persist.JobInfo, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return a.shardOp(ctx, request, "ShardsStarted")
