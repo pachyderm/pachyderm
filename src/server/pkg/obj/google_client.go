@@ -1,7 +1,6 @@
 package obj
 
 import (
-	"fmt"
 	"io"
 
 	"golang.org/x/net/context"
@@ -26,7 +25,20 @@ func (c *googleClient) Writer(name string) (io.WriteCloser, error) {
 }
 
 func (c *googleClient) Walk(name string, fn func(name string) error) error {
-	return fmt.Errorf("googleClient.Walk: not implemented")
+	query := &storage.Query{Prefix: name}
+	for query != nil {
+		objectList, err := c.bucket.List(c.ctx, query)
+		if err != nil {
+			return nil
+		}
+		query = objectList.Next
+		for _, objectAttrs := range objectList.Results {
+			if err := fn(objectAttrs.Name); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 //TODO size 0 means read all
