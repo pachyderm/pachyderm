@@ -42,16 +42,16 @@ func NewObjBlockAPIServer(dir string, objClient obj.Client) (pfsclient.BlockAPIS
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in
 // the environment
 func NewBlockAPIServer(dir string) (pfsclient.BlockAPIServer, error) {
-	if blockAPIServer, err := newAmazonBlockAPIServer(dir); err == nil {
+	var blockAPIServer pfsclient.BlockAPIServer
+	var err error
+	if blockAPIServer, err = newAmazonBlockAPIServer(dir); err == nil {
 		return blockAPIServer, nil
-	} else {
-		protolion.Errorf("error create Amazon block backend: %s", err.Error())
 	}
-	if blockAPIServer, err := newGoogleBlockAPIServer(dir); err == nil {
+	protolion.Errorf("error create Amazon block backend: %s", err.Error())
+	if blockAPIServer, err = newGoogleBlockAPIServer(dir); err == nil {
 		return blockAPIServer, nil
-	} else {
-		protolion.Errorf("error create Google block backend: %s", err.Error())
 	}
+	protolion.Errorf("error create Google block backend: %s", err.Error())
 	protolion.Errorf("failed to create obj backend, falling back to local")
 	return NewLocalBlockAPIServer(dir)
 }
