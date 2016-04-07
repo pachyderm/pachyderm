@@ -14,6 +14,7 @@ type APIServer interface {
 	ppsclient.APIServer
 	ppsserver.InternalJobAPIServer
 	shard.Frontend
+	shard.Server
 }
 
 func NewAPIServer(
