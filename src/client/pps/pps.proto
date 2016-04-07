@@ -109,9 +109,6 @@ message DeletePipelineRequest {
   Pipeline pipeline = 1;
 }
 
-message SubscribeNewPipelineRequest {
-}
-
 service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}

@@ -121,7 +121,7 @@ func TestDuplicatedJob(t *testing.T) {
 	))
 
 	// Wait for the pipeline to pick up the job
-	time.Sleep(10 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	jobInfos, err := pachClient.ListJob(ctx, &ppsclient.ListJobRequest{
 		Pipeline: &ppsclient.Pipeline{
