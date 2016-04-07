@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
+
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
@@ -392,6 +393,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		return nil, fmt.Errorf("pachyderm.ppsclient.pipelineserver: duplicate input repos")
 	}
 	repo := ppsserver.PipelineRepo(request.Pipeline)
+	if _, err := pfsAPIClient.CreateRepo(ctx, &pfsclient.CreateRepoRequest{Repo: repo}); err != nil {
+		return nil, err
+	}
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
@@ -400,12 +404,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		OutputRepo:   repo,
 	}
 	if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
-		return nil, err
-	}
-	if err != nil {
-		return nil, err
-	}
-	if _, err := pfsAPIClient.CreateRepo(ctx, &pfsclient.CreateRepoRequest{Repo: repo}); err != nil {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -476,20 +474,27 @@ func (a *apiServer) AddShard(shard uint64) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	a.shardCancelFuncsLock.Lock()
+	defer a.shardCancelFuncsLock.Unlock()
+	if _, ok := a.shardCancelFuncs[shard]; ok {
+		return fmt.Errorf("shard %d is being added twice; this is likely a bug", shard)
+	}
+	a.shardCancelFuncs[shard] = cancel
+
 	client, err := persistClient.SubscribeNewPipeline(ctx, &persist.SubscribeNewPipelineRequest{})
 	if err != nil {
 		return err
 	}
 
 	go func() {
-		pipelineChan := make(chan *persist.PipelineInfo)
+		pipelineChan := make(chan *ppsclient.PipelineInfo)
 		go func() {
 			for {
 				pipelineInfo, err := client.Recv()
 				if err != nil {
 					protolion.Printf("error receiving new pipeline: %v", err)
 				}
-				pipelineChan <- pipelineInfo
+				pipelineChan <- newPipelineInfo(pipelineInfo)
 			}
 		}()
 		for {
@@ -497,21 +502,16 @@ func (a *apiServer) AddShard(shard uint64) error {
 			case <-ctx.Done():
 				return
 			case pipelineInfo := <-pipelineChan:
-				go func() {
-					if err := a.runPipeline(newPipelineInfo(pipelineInfo)); err != nil {
-						protolion.Printf("error running pipeline: %v", err)
-					}
-				}()
+				if a.hasher.HashPipeline(pipelineInfo.Pipeline) == shard {
+					go func() {
+						if err := a.runPipeline(pipelineInfo); err != nil {
+							protolion.Printf("error running pipeline: %v", err)
+						}
+					}()
+				}
 			}
 		}
 	}()
-
-	a.shardCancelFuncsLock.Lock()
-	defer a.shardCancelFuncsLock.Unlock()
-	if _, ok := a.shardCancelFuncs[shard]; ok {
-		return fmt.Errorf("shard %d is being added twice; this is likely a bug", shard)
-	}
-	a.shardCancelFuncs[shard] = cancel
 
 	// If we did the following before we subscribe to changes, a new pipeline
 	// could come in after we did the following but before we subscribe to
