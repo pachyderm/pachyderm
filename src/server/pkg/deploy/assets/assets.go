@@ -20,7 +20,16 @@ var (
 	pachdName          = "pachd"
 	rethinkName        = "rethink"
 	amazonSecretName   = "amazon-secret"
+	googleSecretName   = "google-secret"
 	trueVal            = true
+)
+
+type backend int
+
+const (
+	localBackend backend = iota
+	amazonBackend
+	googleBackend
 )
 
 func ServiceAccount() *api.ServiceAccount {
@@ -37,7 +46,7 @@ func ServiceAccount() *api.ServiceAccount {
 }
 
 //PachdRc TODO secrets is only necessary because dockerized kube chokes on them
-func PachdRc(shards uint64, secrets bool) *api.ReplicationController {
+func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 	volumes := []api.Volume{
 		{
 			Name: "pach-disk",
@@ -49,9 +58,11 @@ func PachdRc(shards uint64, secrets bool) *api.ReplicationController {
 			MountPath: "/pach",
 		},
 	}
-	if secrets {
+	switch backend {
+	case localBackend:
+	case amazonBackend:
 		volumes = append(volumes, api.Volume{
-			Name: "amazon-secret",
+			Name: amazonSecretName,
 			VolumeSource: api.VolumeSource{
 				Secret: &api.SecretVolumeSource{
 					SecretName: amazonSecretName,
@@ -59,8 +70,21 @@ func PachdRc(shards uint64, secrets bool) *api.ReplicationController {
 			},
 		})
 		volumeMounts = append(volumeMounts, api.VolumeMount{
-			Name:      "amazon-secret",
-			MountPath: "/amazon-secret",
+			Name:      amazonSecretName,
+			MountPath: "/" + amazonSecretName,
+		})
+	case googleBackend:
+		volumes = append(volumes, api.Volume{
+			Name: googleSecretName,
+			VolumeSource: api.VolumeSource{
+				Secret: &api.SecretVolumeSource{
+					SecretName: googleSecretName,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, api.VolumeMount{
+			Name:      googleSecretName,
+			MountPath: "/" + googleSecretName,
 		})
 	}
 	return &api.ReplicationController{
@@ -357,8 +381,24 @@ func AmazonSecret(bucket string, id string, secret string, token string, region 
 	}
 }
 
+func GoogleSecret(bucket string) *api.Secret {
+	return &api.Secret{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   googleSecretName,
+			Labels: labels(googleSecretName),
+		},
+		Data: map[string][]byte{
+			"bucket": []byte(bucket),
+		},
+	}
+}
+
 // WriteAssets creates the assets in a dir. It expects dir to already exist.
-func WriteAssets(w io.Writer, shards uint64, secrets bool) {
+func WriteAssets(w io.Writer, shards uint64, backend backend) {
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 
 	ServiceAccount().CodecEncodeSelf(encoder)
@@ -376,14 +416,26 @@ func WriteAssets(w io.Writer, shards uint64, secrets bool) {
 
 	PachdService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	PachdRc(shards, secrets).CodecEncodeSelf(encoder)
+	PachdRc(shards, backend).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 }
 
-func WriteAmazonSecret(w io.Writer, bucket string, id string, secret string, token string, region string) {
+func WriteLocalAssets(w io.Writer, shards uint64) {
+	WriteAssets(w, shards, localBackend)
+}
+
+func WriteAmazonAssets(w io.Writer, shards uint64, bucket string, id string, secret string, token string, region string) {
+	WriteAssets(w, shards, amazonBackend)
 	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
 	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+}
+
+func WriteGoogleAssets(w io.Writer, shards uint64, bucket string) {
+	WriteAssets(w, shards, googleBackend)
+	encoder := codec.NewEncoder(w, &codec.JsonHandle{Indent: 2})
+	GoogleSecret(bucket).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
