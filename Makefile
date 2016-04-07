@@ -168,7 +168,7 @@ grep-example:
 	sh examples/grep/run.sh
 
 logs:
-	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'kubectl logs pod >pod'
+	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl logs pod'
 
 cluster:
 	gcloud container clusters create $(CLUSTER_NAME)
