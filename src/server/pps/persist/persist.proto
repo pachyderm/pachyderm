@@ -52,9 +52,6 @@ message PipelineInfos {
   repeated PipelineInfo pipeline_info = 1;
 }
 
-message SubscribePipelineInfosRequest {
-}
-
 service API {
   // Job rpcs
   // job_id cannot be set
@@ -78,7 +75,7 @@ service API {
   // ordered by time, latest to earliest
   rpc ListPipelineInfos(google.protobuf.Empty) returns (PipelineInfos) {}
   rpc DeletePipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
-  rpc SubscribePipelineInfos(SubscribePipelineInfosRequest) returns (stream PipelineInfo) {}
+  rpc SubscribePipelineInfos(google.protobuf.Empty) returns (stream PipelineInfo) {}
 
   // Shard rpcs
   // Returns the new job info

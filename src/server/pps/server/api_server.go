@@ -36,18 +36,20 @@ var (
 
 type apiServer struct {
 	protorpclog.Logger
-	hasher               *ppsserver.Hasher
-	address              string
-	pfsAPIClient         pfsclient.APIClient
-	pfsClientOnce        sync.Once
-	persistAPIClient     persist.APIClient
-	persistClientOnce    sync.Once
-	kubeClient           *kube.Client
-	cancelFuncs          map[ppsclient.Pipeline]func()
-	cancelFuncsLock      sync.Mutex
-	shardCancelFuncs     map[uint64]func()
-	shardCancelFuncsLock sync.Mutex
-	version              int64
+	hasher                 *ppsserver.Hasher
+	address                string
+	pfsAPIClient           pfsclient.APIClient
+	pfsClientOnce          sync.Once
+	persistAPIClient       persist.APIClient
+	persistClientOnce      sync.Once
+	kubeClient             *kube.Client
+	cancelFuncs            map[ppsclient.Pipeline]func()
+	cancelFuncsLock        sync.Mutex
+	shardPipelineChans     map[uint64]chan *ppsclient.PipelineInfo
+	shardPipelineChansLock sync.Mutex
+	pipelineSubscribed     bool
+	pipelineSubscribedLock sync.Mutex
+	version                int64
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
@@ -525,48 +527,60 @@ func (a *apiServer) Version(version int64) error {
 }
 
 func (a *apiServer) AddShard(shard uint64) error {
-	persistClient, err := a.getPersistClient()
-	if err != nil {
-		return err
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	a.shardCancelFuncsLock.Lock()
-	defer a.shardCancelFuncsLock.Unlock()
-	if _, ok := a.shardCancelFuncs[shard]; ok {
+	pipelineCh := make(chan *ppsclient.PipelineInfo)
+	a.shardPipelineChansLock.Lock()
+	if _, ok := a.shardPipelineChans[shard]; ok {
 		return fmt.Errorf("shard %d is being added twice; this is likely a bug", shard)
 	}
-	a.shardCancelFuncs[shard] = cancel
+	a.shardPipelineChans[shard] = pipelineCh
+	a.shardPipelineChansLock.Unlock()
 
-	client, err := persistClient.SubscribePipelineInfos(ctx, &persist.SubscribePipelineInfosRequest{})
-	if err != nil {
-		return err
+	a.pipelineSubscribedLock.Lock()
+	defer a.pipelineSubscribedLock.Unlock()
+	if !a.pipelineSubscribed {
+		persistClient, err := a.getPersistClient()
+		if err != nil {
+			return err
+		}
+
+		client, err := persistClient.SubscribePipelineInfos(context.Background(), google_protobuf.EmptyInstance)
+		if err != nil {
+			return err
+		}
+		a.pipelineSubscribed = true
+		go func() {
+			for {
+				_pipelineInfo, err := client.Recv()
+				if err != nil {
+					a.pipelineSubscribedLock.Lock()
+					defer a.pipelineSubscribedLock.Unlock()
+					a.pipelineSubscribed = false
+					return
+				}
+				pipelineInfo := newPipelineInfo(_pipelineInfo)
+
+				a.shardPipelineChansLock.Lock()
+				pipelineChan := a.shardPipelineChans[a.hasher.HashPipeline(pipelineInfo.Pipeline)]
+				a.shardPipelineChansLock.Unlock()
+
+				if pipelineChan != nil {
+					pipelineChan <- pipelineInfo
+				}
+			}
+		}()
 	}
 
 	go func() {
-		pipelineChan := make(chan *ppsclient.PipelineInfo)
-		go func() {
-			for {
-				pipelineInfo, err := client.Recv()
-				if err != nil {
-					return
-				}
-				pipelineChan <- newPipelineInfo(pipelineInfo)
-			}
-		}()
 		for {
-			select {
-			case <-ctx.Done():
+			pipelineInfo, more := <-pipelineCh
+			if more {
+				go func() {
+					if err := a.runPipeline(pipelineInfo); err != nil {
+						protolion.Printf("error running pipeline: %v", err)
+					}
+				}()
+			} else {
 				return
-			case pipelineInfo := <-pipelineChan:
-				if a.hasher.HashPipeline(pipelineInfo.Pipeline) == shard {
-					go func() {
-						if err := a.runPipeline(pipelineInfo); err != nil {
-							protolion.Printf("error running pipeline: %v", err)
-						}
-					}()
-				}
 			}
 		}
 	}()
@@ -603,13 +617,14 @@ func (a *apiServer) DeleteShard(shard uint64) error {
 		}
 	}
 
-	a.shardCancelFuncsLock.Lock()
-	defer a.shardCancelFuncsLock.Unlock()
-	cancel, ok := a.shardCancelFuncs[shard]
+	a.shardPipelineChansLock.Lock()
+	defer a.shardPipelineChansLock.Unlock()
+	pipelineCh, ok := a.shardPipelineChans[shard]
 	if !ok {
 		return fmt.Errorf("shard %d is being deleted, but it was never added; this is likely a bug", shard)
 	}
-	cancel()
+	close(pipelineCh)
+	delete(a.shardPipelineChans, shard)
 
 	return nil
 }
