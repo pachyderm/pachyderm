@@ -33,6 +33,7 @@ type appEnv struct {
 	HTTPPort        uint16 `env:"HTTP_PORT,default=750"`
 	NumShards       uint64 `env:"NUM_SHARDS,default=32"`
 	StorageRoot     string `env:"PACH_ROOT,required"`
+	StorageBackend  string `env:"STORAGE_BACKEND,default="`
 	DatabaseAddress string `env:"RETHINK_PORT_28015_TCP_ADDR,required"`
 	DatabaseName    string `env:"DATABASE_NAME,default=pachyderm"`
 	KubeAddress     string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
@@ -128,7 +129,7 @@ func do(appEnvObj interface{}) error {
 		rethinkAPIServer,
 		kubeClient,
 	)
-	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot)
+	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, appEnv.StorageBackend)
 	if err != nil {
 		return err
 	}
