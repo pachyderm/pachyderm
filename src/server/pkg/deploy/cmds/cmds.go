@@ -35,6 +35,6 @@ func DeployCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	cmd.Flags().IntVarP(&shards, "shards", "s", 1, "The static number of shards for pfs.")
+	cmd.Flags().IntVarP(&shards, "shards", "s", 32, "The static number of shards for pfs.")
 	return cmd
 }
