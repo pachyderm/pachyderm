@@ -539,7 +539,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 	}
 	a.shardCancelFuncs[shard] = cancel
 
-	client, err := persistClient.SubscribeNewPipeline(ctx, &persist.SubscribeNewPipelineRequest{})
+	client, err := persistClient.SubscribePipelineInfos(ctx, &persist.SubscribePipelineInfosRequest{})
 	if err != nil {
 		return err
 	}
@@ -550,7 +550,7 @@ func (a *apiServer) AddShard(shard uint64) error {
 			for {
 				pipelineInfo, err := client.Recv()
 				if err != nil {
-					protolion.Printf("error receiving new pipeline: %v", err)
+					return
 				}
 				pipelineChan <- newPipelineInfo(pipelineInfo)
 			}
