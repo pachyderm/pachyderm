@@ -4,6 +4,8 @@ import (
 	"io"
 
 	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/cloud"
 	"google.golang.org/cloud/storage"
 )
 
@@ -13,7 +15,11 @@ type googleClient struct {
 }
 
 func newGoogleClient(ctx context.Context, bucket string) (*googleClient, error) {
-	client, err := storage.NewClient(ctx)
+	client, err := storage.NewClient(
+		ctx,
+		cloud.WithTokenSource(google.ComputeTokenSource("")),
+		cloud.WithScopes(storage.ScopeFullControl),
+	)
 	if err != nil {
 		return nil, err
 	}
