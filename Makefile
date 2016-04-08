@@ -170,6 +170,10 @@ grep-example:
 logs:
 	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl logs pod'
 
+kubectl:
+	gcloud config set container/cluster $(CLUSTER_NAME)
+	gcloud container clusters get-credentials $(CLUSTER_NAME)
+
 cluster:
 	gcloud container clusters create $(CLUSTER_NAME)
 	gcloud config set container/cluster $(CLUSTER_NAME)
