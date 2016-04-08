@@ -321,7 +321,7 @@ func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *ppsc
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *rethinkAPIServer) SubscribeNewPipeline(request *persist.SubscribeNewPipelineRequest, server persist.API_SubscribeNewPipelineServer) (retErr error) {
+func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipelineInfosRequest, server persist.API_SubscribePipelineInfosServer) (retErr error) {
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	cursor, err := a.getTerm(pipelineInfosTable).Changes().Field("new_val").Run(a.session)
 
