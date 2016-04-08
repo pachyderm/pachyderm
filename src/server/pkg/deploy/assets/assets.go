@@ -5,6 +5,7 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/ugorji/go/codec"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
@@ -58,9 +59,11 @@ func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 			MountPath: "/pach",
 		},
 	}
+	var backendEnvVar string
 	switch backend {
 	case localBackend:
 	case amazonBackend:
+		backendEnvVar = server.AmazonBackendEnvVar
 		volumes = append(volumes, api.Volume{
 			Name: amazonSecretName,
 			VolumeSource: api.VolumeSource{
@@ -74,6 +77,7 @@ func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 			MountPath: "/" + amazonSecretName,
 		})
 	case googleBackend:
+		backendEnvVar = server.GoogleBackendEnvVar
 		volumes = append(volumes, api.Volume{
 			Name: googleSecretName,
 			VolumeSource: api.VolumeSource{
@@ -119,6 +123,10 @@ func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 								{
 									Name:  "NUM_SHARDS",
 									Value: strconv.FormatUint(shards, 10),
+								},
+								{
+									Name:  "STORAGE_BACKEND",
+									Value: backendEnvVar,
 								},
 							},
 							Ports: []api.ContainerPort{
