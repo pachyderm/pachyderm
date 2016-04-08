@@ -53,7 +53,7 @@ build:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/deploy ./src/server/cmd/pachctl-doc
+	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy ./src/server/cmd/pachctl-doc
 
 docker-build-compile:
 	docker build -t pachyderm_compile .
@@ -81,7 +81,7 @@ clean-launch-kube:
 	docker kill $$(docker ps -q)
 
 kube-cluster-assets: install
-	deploy -s 32 >etc/kube/pachyderm.json
+	pach-deploy -s 32 >etc/kube/pachyderm.json
 
 launch: install
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json

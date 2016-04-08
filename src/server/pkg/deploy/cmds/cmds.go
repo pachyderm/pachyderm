@@ -12,7 +12,7 @@ import (
 func DeployCmd() *cobra.Command {
 	var shards int
 	cmd := &cobra.Command{
-		Use:   "manifest [amazon bucket id secret token region | google bucket]",
+		Use:   os.Args[0] + " [amazon bucket id secret token region | google bucket]",
 		Short: "Print a kubernetes manifest for a Pachyderm cluster.",
 		Long:  "Print a kubernetes manifest for a Pachyderm cluster.",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 0, Max: 6}, func(args []string) error {
