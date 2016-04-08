@@ -30,8 +30,8 @@
         "name": "etcd",
         "creationTimestamp": null,
         "labels": {
-          "app": "etcd",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "etcd"
         }
       },
       "spec": {
@@ -163,8 +163,8 @@
     "name": "rethink",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "rethink"
+      "app": "rethink",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -288,8 +288,8 @@
         "name": "pachd",
         "creationTimestamp": null,
         "labels": {
-          "app": "pachd",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "pachd"
         }
       },
       "spec": {
@@ -325,6 +325,9 @@
               {
                 "name": "NUM_SHARDS",
                 "value": "32"
+              },
+              {
+                "name": "STORAGE_BACKEND"
               }
             ],
             "resources": {},

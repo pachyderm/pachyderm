@@ -2,21 +2,19 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 
 	"github.com/gengo/grpc-gateway/runtime"
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps" //SJ: bad name conflict w below
 	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs"  // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps" //SJ: cant name this server per the refactor convention because of the import below
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	persist_server "github.com/pachyderm/pachyderm/src/server/pps/persist/server"
@@ -35,6 +33,7 @@ type appEnv struct {
 	HTTPPort        uint16 `env:"HTTP_PORT,default=750"`
 	NumShards       uint64 `env:"NUM_SHARDS,default=32"`
 	StorageRoot     string `env:"PACH_ROOT,required"`
+	StorageBackend  string `env:"STORAGE_BACKEND,default="`
 	DatabaseAddress string `env:"RETHINK_PORT_28015_TCP_ADDR,required"`
 	DatabaseName    string `env:"DATABASE_NAME,default=pachyderm"`
 	KubeAddress     string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
@@ -130,43 +129,9 @@ func do(appEnvObj interface{}) error {
 		rethinkAPIServer,
 		kubeClient,
 	)
-	var blockAPIServer pfsclient.BlockAPIServer
-	if err := func() error {
-		bucket, err := ioutil.ReadFile("/amazon-secret/bucket")
-		if err != nil {
-			return err
-		}
-		id, err := ioutil.ReadFile("/amazon-secret/id")
-		if err != nil {
-			return err
-		}
-		secret, err := ioutil.ReadFile("/amazon-secret/secret")
-		if err != nil {
-			return err
-		}
-		token, err := ioutil.ReadFile("/amazon-secret/token")
-		if err != nil {
-			return err
-		}
-		region, err := ioutil.ReadFile("/amazon-secret/region")
-		if err != nil {
-			return err
-		}
-		objClient, err := obj.NewAmazonClient(string(bucket), string(id), string(secret), string(token), string(region))
-		if err != nil {
-			return err
-		}
-		blockAPIServer, err = pfs_server.NewObjBlockAPIServer(appEnv.StorageRoot, objClient)
-		if err != nil {
-			return err
-		}
-		return nil
-	}(); err != nil {
-		protolion.Errorf("failed to create obj backend, falling back to local")
-		blockAPIServer, err = pfs_server.NewLocalBlockAPIServer(appEnv.StorageRoot)
-		if err != nil {
-			return err
-		}
+	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, appEnv.StorageBackend)
+	if err != nil {
+		return err
 	}
 	return protoserver.ServeWithHTTP(
 		func(s *grpc.Server) {
