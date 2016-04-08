@@ -35,7 +35,7 @@ func (c *googleClient) Walk(name string, fn func(name string) error) error {
 	for query != nil {
 		objectList, err := c.bucket.List(c.ctx, query)
 		if err != nil {
-			return nil
+			return err
 		}
 		query = objectList.Next
 		for _, objectAttrs := range objectList.Results {
