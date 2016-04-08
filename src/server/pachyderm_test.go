@@ -93,7 +93,6 @@ func TestDuplicatedJob(t *testing.T) {
 
 	t.Parallel()
 
-	ctx := context.Background()
 	pachClient := getPachClient(t)
 
 	dataRepo := uniqueString("TestDuplicatedJob.data")
@@ -109,28 +108,9 @@ func TestDuplicatedJob(t *testing.T) {
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
 
 	pipelineName := uniqueString("TestDuplicatedJob.pipeline")
+	require.NoError(t, pfsclient.CreateRepo(pachClient, pipelineName))
+
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
-	require.NoError(t, ppsclient.CreatePipeline(
-		pachClient,
-		pipelineName,
-		"",
-		cmd,
-		nil,
-		1,
-		[]*ppsclient.PipelineInput{{Repo: &pfsclient.Repo{Name: dataRepo}}},
-	))
-
-	// Wait for the pipeline to pick up the job
-	time.Sleep(10 * time.Second)
-
-	jobInfos, err := pachClient.ListJob(ctx, &ppsclient.ListJobRequest{
-		Pipeline: &ppsclient.Pipeline{
-			Name: pipelineName,
-		},
-	})
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos.JobInfo))
-
 	// Now we manually create the same job
 	req := &ppsclient.CreateJobRequest{
 		Transform: &ppsclient.Transform{
@@ -143,12 +123,17 @@ func TestDuplicatedJob(t *testing.T) {
 			Commit: commit,
 		}},
 	}
-	job, err := pachClient.CreateJob(context.Background(), req)
+
+	job1, err := pachClient.CreateJob(context.Background(), req)
 	require.NoError(t, err)
-	require.Equal(t, job, jobInfos.JobInfo[0].Job)
+
+	job2, err := pachClient.CreateJob(context.Background(), req)
+	require.NoError(t, err)
+
+	require.Equal(t, job1, job2)
 
 	inspectJobRequest := &ppsclient.InspectJobRequest{
-		Job:         job,
+		Job:         job1,
 		BlockOutput: true,
 		BlockState:  true,
 	}
