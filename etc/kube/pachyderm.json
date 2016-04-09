@@ -279,7 +279,7 @@
     }
   },
   "spec": {
-    "replicas": 8,
+    "replicas": 2,
     "selector": {
       "app": "pachd"
     },
