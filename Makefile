@@ -19,6 +19,7 @@ ifdef VENDOR_ALL
 endif
 
 COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
+CLUSTER_NAME = pachyderm
 
 all: build
 
@@ -52,7 +53,7 @@ build:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pachctl-doc
+	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy ./src/server/cmd/pachctl-doc
 
 docker-build-compile:
 	docker build -t pachyderm_compile .
@@ -80,7 +81,7 @@ clean-launch-kube:
 	docker kill $$(docker ps -q)
 
 kube-cluster-assets: install
-	pachctl manifest -s 32 >etc/kube/pachyderm.json
+	pach-deploy -s 32 >etc/kube/pachyderm.json
 
 launch: install
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
@@ -168,7 +169,19 @@ grep-example:
 	sh examples/grep/run.sh
 
 logs:
-	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'kubectl logs pod >pod'
+	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl logs pod'
+
+kubectl:
+	gcloud config set container/cluster $(CLUSTER_NAME)
+	gcloud container clusters get-credentials $(CLUSTER_NAME)
+
+cluster:
+	gcloud container clusters create $(CLUSTER_NAME)
+	gcloud config set container/cluster $(CLUSTER_NAME)
+	gcloud container clusters get-credentials $(CLUSTER_NAME)
+	gcloud components update kubectl
+	gcloud compute firewall-rules create pachd --allow=tcp:30650
+
 
 .PHONY: \
 	doc \
