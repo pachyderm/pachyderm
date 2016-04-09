@@ -47,6 +47,13 @@ func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
 	result := &pfsclient.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
+	defer func() {
+		for {
+			if _, err := putBlockServer.Recv(); err != nil {
+				break
+			}
+		}
+	}()
 	scanner := bufio.NewScanner(protostream.NewStreamingBytesReader(putBlockServer))
 	for {
 		blockRef, err := s.putOneBlock(scanner)
