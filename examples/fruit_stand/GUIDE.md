@@ -10,7 +10,7 @@ added the pipeline will automatically process it and materialize the results.
 
 Before we can launch a cluster you'll need the following things:
 
-- Docker >= 1.9 (must deploy with [`--storage-driver=devicemapper`](http://muehe.org/posts/switching-docker-from-aufs-to-devicemapper/))
+- Docker >= 1.8
 - Go >= 1.5
 - Kubernetes and Kubectl >= 1.2.0
 - FUSE 2.8.2 (https://osxfuse.github.io/)
