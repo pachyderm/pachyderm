@@ -15,5 +15,6 @@ before_script:
   - docker version
 script:
   - make test
+  - make release
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
