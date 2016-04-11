@@ -4,6 +4,9 @@ services:
 language: go
 go:
 - 1.6
+branches:
+  except:
+    - /^v[0-9]/
 before_install:
 - echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock -s devicemapper"' | sudo tee /etc/default/docker
   > /dev/null
