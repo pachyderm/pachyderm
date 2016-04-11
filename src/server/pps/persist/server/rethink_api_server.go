@@ -20,12 +20,13 @@ import (
 )
 
 const (
-	jobInfosTable      Table = "JobInfos"
-	pipelineInfosTable Table = "PipelineInfos"
-
+	jobInfosTable              Table = "JobInfos"
 	pipelineNameIndex          Index = "PipelineName"
 	pipelineNameAndCommitIndex Index = "PipelineNameAndCommitIndex"
 	commitIndex                Index = "CommitIndex"
+
+	pipelineInfosTable Table = "PipelineInfos"
+	pipelineShardIndex Index = "PipelineShard"
 
 	connectTimeoutSeconds = 5
 )
@@ -320,7 +321,7 @@ func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *ppsc
 	return google_protobuf.EmptyInstance, nil
 }
 
-func (a *rethinkAPIServer) SubscribePipelineInfos(request *google_protobuf.Empty, server persist.API_SubscribePipelineInfosServer) (retErr error) {
+func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipelineInfosRequest, server persist.API_SubscribePipelineInfosServer) (retErr error) {
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	cursor, err := a.getTerm(pipelineInfosTable).Changes().Field("new_val").Run(a.session)
 
