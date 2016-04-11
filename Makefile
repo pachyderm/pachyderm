@@ -56,7 +56,7 @@ install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pachctl-doc
 
-release:
+release: deps-client
 	./etc/build/tag_release
 docker-build-compile:
 	docker build -t pachyderm_compile .
