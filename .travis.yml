@@ -13,6 +13,10 @@ before_script:
   - make launch-kube
   - kubectl get all
   - docker version
+  - sudo apt-get update && sudo apt-get install pkg-config fuse
+  - sudo modprobe fuse
+  - sudo chmod 666 /dev/fuse
+  - sudo chown root:$USER /etc/fuse.conf
 script:
   - make test
 notifications:
