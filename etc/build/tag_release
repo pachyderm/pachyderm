@@ -1,0 +1,10 @@
+#!/bin/sh
+
+if [ -z "$TRAVIS_BUILD_NUMBER" ]; then
+	echo "Only travis can tag a release"
+	exit 1
+fi
+
+git tag `make version-prefix`.${TRAVIS_BUILD_NUMBER}
+git tag
+git push --quiet https://${GITHUB_RELEASE_TOKEN}@github.com/pachyderm/pachyderm --tags > /dev/null 2>&1

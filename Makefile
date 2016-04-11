@@ -22,8 +22,12 @@ COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=tru
 
 all: build
 
+version-prefix: 
+	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm/src/client"; func main() { fmt.Printf("%v.%v", client.Version.Major, client.Version.Minor) }' > /tmp/pachyderm_version.go
+	@go run /tmp/pachyderm_version.go
+
 version:
-	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm"; func main() { fmt.Println(pachyderm.Version.VersionString()) }' > /tmp/pachyderm_version.go
+	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm/src/client"; func main() { fmt.Println(client.Version.VersionString()) }' > /tmp/pachyderm_version.go
 	@go run /tmp/pachyderm_version.go
 
 deps:
@@ -52,19 +56,8 @@ install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pachctl-doc
 
-release: install
-	if [ -z "$$TRAVIS_BUILD_NUMBER" ]; then \
-		echo "Only travis can tag a release"; \
-		exit 1; \
-	fi
-
-	# Wow ... this is ugly. Would welcome a better way to extract the versions
-	pachctl version | grep pachctl | sed -En 's/(.*)([0-9]+\.[0-9]+\.)(.*)/\2/p' > VERSION_PREFIX
-	git tag `cat VERSION_PREFIX`${TRAVIS_BUILD_NUMER}
-	rm VERSION_PREFIX
-	git tag
-	git push --quiet https://${GITHUB_RELEASE_TOKEN}@github.com/pachyderm/pachyderm --tags > /dev/null 2>&1
-
+release:
+	./etc/build/tag_release
 docker-build-compile:
 	docker build -t pachyderm_compile .
 
