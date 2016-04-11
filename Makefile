@@ -97,7 +97,7 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-tests:
-	go test ./src/server -timeout 120s
+	go test $$(go list ./src/server/... | grep -v '/src/server/vendor/') -timeout 120s
 
 docker-proto-run:
 	cd /go/src/github.com/pachyderm/pachyderm && \
