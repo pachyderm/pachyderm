@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 if [ -z "$TRAVIS_BUILD_NUMBER" ]; then
 	echo "Only travis can tag a release"
