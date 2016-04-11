@@ -949,19 +949,23 @@ func newFileReader(blockClient pfsclient.BlockAPIClient, blockRefs []*pfs.BlockR
 	}
 }
 
+func (r *fileReader) blockRef() *pfsclient.BlockRef {
+	return r.blockRefs[r.index]
+}
+
 func (r *fileReader) Read(data []byte) (int, error) {
 	if r.reader == nil {
+		// skip blocks as long as our offset is past the end of the current block
+		for r.offset != 0 && r.index < len(r.blockRefs) && r.offset > int64(pfsserver.ByteRangeSize(r.blockRef().Range)) {
+			r.offset -= int64(pfsserver.ByteRangeSize(r.blockRef().Range))
+			r.index++
+		}
 		if r.index == len(r.blockRefs) {
 			return 0, io.EOF
 		}
-		blockRef := r.blockRefs[r.index]
-		for r.offset != 0 && r.offset > int64(pfsserver.ByteRangeSize(blockRef.Range)) {
-			r.index++
-			r.offset -= int64(pfsserver.ByteRangeSize(blockRef.Range))
-		}
 		var err error
 		r.reader, err = pfsclient.GetBlock(r.blockClient,
-			r.blockRefs[r.index].Block.Hash, uint64(r.offset), uint64(r.size))
+			r.blockRef().Block.Hash, uint64(r.offset), uint64(r.size))
 		if err != nil {
 			return 0, err
 		}
