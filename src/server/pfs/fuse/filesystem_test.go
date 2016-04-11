@@ -1,6 +1,7 @@
 package fuse_test
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -691,4 +692,111 @@ func TestWriteAndRead(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, nil, data)
 	require.NoError(t, pfsclient.FinishCommit(apiClient, repoName, commit.ID))
+}
+
+func TestBigWrite(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	t.Parallel()
+
+	// don't leave goroutines running
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
+	tmp, err := ioutil.TempDir("", "pachyderm-test-")
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, os.RemoveAll(tmp))
+	}()
+
+	// closed on successful termination
+	quit := make(chan struct{})
+	defer close(quit)
+	listener, err := net.Listen("tcp", "localhost:0")
+	require.NoError(t, err)
+	defer func() {
+		_ = listener.Close()
+	}()
+
+	// TODO try to share more of this setup code with various main
+	// functions
+	localAddress := listener.Addr().String()
+	srv := grpc.NewServer()
+	const (
+		numShards = 1
+	)
+	sharder := shard.NewLocalSharder([]string{localAddress}, numShards)
+	hasher := pfsserver.NewHasher(numShards, 1)
+	router := shard.NewRouter(
+		sharder,
+		grpcutil.NewDialer(
+			grpc.WithInsecure(),
+		),
+		localAddress,
+	)
+
+	blockDir := filepath.Join(tmp, "blocks")
+	blockServer, err := server.NewLocalBlockAPIServer(blockDir)
+	require.NoError(t, err)
+	pfsclient.RegisterBlockAPIServer(srv, blockServer)
+
+	driver, err := drive.NewDriver(localAddress)
+	require.NoError(t, err)
+
+	apiServer := server.NewAPIServer(
+		hasher,
+		router,
+	)
+	pfsclient.RegisterAPIServer(srv, apiServer)
+
+	internalAPIServer := server.NewInternalAPIServer(
+		hasher,
+		router,
+		driver,
+	)
+	pfsclient.RegisterInternalAPIServer(srv, internalAPIServer)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := srv.Serve(listener); err != nil {
+			select {
+			case <-quit:
+				// orderly shutdown
+				return
+			default:
+				t.Errorf("grpc serve: %v", err)
+			}
+		}
+	}()
+
+	clientConn, err := grpc.Dial(localAddress, grpc.WithInsecure())
+	require.NoError(t, err)
+	apiClient := pfsclient.NewAPIClient(clientConn)
+	mounter := fuse.NewMounter(localAddress, apiClient)
+
+	mountpoint := filepath.Join(tmp, "mnt")
+	require.NoError(t, os.Mkdir(mountpoint, 0700))
+	ready := make(chan bool)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		require.NoError(t, mounter.Mount(mountpoint, nil, nil, ready))
+	}()
+
+	<-ready
+	defer func() {
+		require.NoError(t, mounter.Unmount(mountpoint))
+	}()
+
+	const (
+		repo = "test"
+	)
+
+	require.NoError(t, pfsclient.CreateRepo(apiClient, repo))
+	commit, err := pfsclient.StartCommit(apiClient, repo, "", "")
+	require.NoError(t, err)
+	require.YesError(t, ioutil.WriteFile(filepath.Join(mountpoint, repo, commit.ID, "file"), bytes.Repeat([]byte{'a'}, 1024*1024), 0644))
 }
