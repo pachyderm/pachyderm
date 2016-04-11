@@ -1,6 +1,7 @@
 package protofix
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"go/ast"
@@ -65,7 +66,18 @@ func repairedFileBytes(filename string) []byte {
 	config := &printer.Config{Mode: printer.UseSpaces + printer.TabIndent, Tabwidth: 8, Indent: 0}
 	config.Fprint(&buf, fset, f)
 
-	return buf.Bytes()
+	scanner := bufio.NewScanner(&buf)
+	var out bytes.Buffer
+
+	for scanner.Scan() {
+		// this is retarded
+		line := scanner.Text()
+		if !strings.Contains(line, "grpc.SupportPackageIsVersion1") {
+			out.WriteString(line + "\n")
+		}
+	}
+
+	return out.Bytes()
 }
 
 func repairFile(filename string) {

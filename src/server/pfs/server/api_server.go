@@ -10,10 +10,10 @@ import (
 	"time"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
 	"go.pedge.io/proto/stream"
@@ -128,11 +128,38 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfsclient.ListRepoReq
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
 	ctx = versionToContext(a.version, ctx)
-	clientConn, err := a.getClientConn(a.version)
+	var wg sync.WaitGroup
+	clientConns, err := a.router.GetAllClientConns(a.version)
 	if err != nil {
 		return nil, err
 	}
-	return pfsclient.NewInternalAPIClient(clientConn).ListRepo(ctx, request)
+	var lock sync.Mutex
+	var repoInfos []*pfsclient.RepoInfo
+	errCh := make(chan error, 1)
+	for _, clientConn := range clientConns {
+		clientConn := clientConn
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			response, err := pfsclient.NewInternalAPIClient(clientConn).ListRepo(ctx, request)
+			if err != nil {
+				select {
+				default:
+				case errCh <- err:
+				}
+			}
+			lock.Lock()
+			repoInfos = append(repoInfos, response.RepoInfo...)
+			lock.Unlock()
+		}()
+	}
+	wg.Wait()
+	select {
+	default:
+	case err := <-errCh:
+		return nil, err
+	}
+	return &pfsclient.RepoInfos{RepoInfo: pfsserver.ReduceRepoInfos(repoInfos)}, nil
 }
 
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfsclient.DeleteRepoRequest) (response *google_protobuf.Empty, retErr error) {

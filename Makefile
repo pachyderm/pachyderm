@@ -19,6 +19,7 @@ ifdef VENDOR_ALL
 endif
 
 COMPILE_RUN_ARGS = -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
+CLUSTER_NAME = pachyderm
 
 all: build
 
@@ -54,7 +55,7 @@ build:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pachctl-doc
+	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy ./src/server/cmd/pachctl-doc
 
 release: deps-client
 	./etc/build/tag_release
@@ -84,7 +85,7 @@ clean-launch-kube:
 	docker kill $$(docker ps -q)
 
 kube-cluster-assets: install
-	pachctl manifest -s 32 >etc/kube/pachyderm.json
+	pach-deploy -s 32 >etc/kube/pachyderm.json
 
 launch: install
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
@@ -102,10 +103,27 @@ clean-launch:
 integration-tests:
 	go test ./src/server -timeout 120s
 
+docker-proto-run:
+	cd /go/src/github.com/pachyderm/pachyderm && \
+	go install ./src/server/cmd/protofix && \
+	rm -rf src/server/vendor && \
+	protoeasy --grpc --go --go-import-path github.com/pachyderm/pachyderm/src src && \
+	protofix fix src && \
+	git checkout src/server/vendor
+
+docker-build-proto:
+	docker build -t pachyderm/protofix -f Dockerfile.proto .
+
+docker-proto:
+	docker run -v $(PWD):/go/src/github.com/pachyderm/pachyderm pachyderm/protofix make -f /go/src/github.com/pachyderm/pachyderm/Makefile docker-proto-run
+	sudo chown -R `whoami` src/
+
 proto:
 	go get -v go.pedge.io/protoeasy/cmd/protoeasy
 	rm -rf src/server/vendor
-	sudo -E protoeasy --grpc --grpc-gateway --go --go-import-path github.com/pachyderm/pachyderm/src src
+	sudo env PATH=$(PATH) GOPATH=$(GOPATH) protoeasy --grpc --go --go-import-path github.com/pachyderm/pachyderm/src src
+
+protofix:
 	go install github.com/pachyderm/pachyderm/src/server/cmd/protofix
 	protofix fix src
 	git checkout src/server/vendor
@@ -154,7 +172,22 @@ grep-example:
 	sh examples/grep/run.sh
 
 logs:
-	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'kubectl logs pod >pod'
+	kubectl get pod -l app=pachd | sed '1d' | cut -f1 -d ' ' | xargs -n 1 -I pod sh -c 'echo pod && kubectl logs pod'
+
+kubectl:
+	gcloud config set container/cluster $(CLUSTER_NAME)
+	gcloud container clusters get-credentials $(CLUSTER_NAME)
+
+cluster:
+	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw
+	gcloud config set container/cluster $(CLUSTER_NAME)
+	gcloud container clusters get-credentials $(CLUSTER_NAME)
+	gcloud components update kubectl
+	gcloud compute firewall-rules create pachd --allow=tcp:30650
+
+clean-cluster:
+	gcloud container clusters delete $(CLUSTER_NAME)
+
 
 .PHONY: \
 	doc \

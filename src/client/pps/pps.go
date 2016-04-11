@@ -1,6 +1,9 @@
 package pps
 
 import (
+	"io"
+
+	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 )
 
@@ -38,6 +41,23 @@ func CreateJob(
 			ParentJob: parentJob,
 		},
 	)
+}
+
+func GetLogs(
+	client APIClient,
+	jobID string,
+	writer io.Writer,
+) error {
+	getLogsClient, err := client.GetLogs(
+		context.Background(),
+		&GetLogsRequest{
+			Job: NewJob(jobID),
+		},
+	)
+	if err != nil {
+		return err
+	}
+	return protostream.WriteFromStreamingBytesClient(getLogsClient, writer)
 }
 
 func CreatePipeline(

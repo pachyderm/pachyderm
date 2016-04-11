@@ -14,9 +14,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
@@ -27,7 +27,7 @@ const (
 )
 
 func TestJob(t *testing.T) {
-	testJob(t, 1)
+	testJob(t, 4)
 }
 
 func TestJobNoShard(t *testing.T) {
@@ -40,21 +40,30 @@ func testJob(t *testing.T, shards int) {
 	}
 
 	t.Parallel()
-	dataRepo := uniqueString("TestJob.data")
 	pachClient := getPachClient(t)
+	dataRepo := uniqueString("TestJob.data")
 	require.NoError(t, pfsclient.CreateRepo(pachClient, dataRepo))
 	commit, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, "file", 0, strings.NewReader("foo\n"))
-	require.NoError(t, err)
+	fileContent := "foo\n"
+	// We want to create lots of files so that each parallel job will be
+	// started with some files
+	numFiles := shards*100 + 100
+	for i := 0; i < numFiles; i++ {
+		_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, fmt.Sprintf("file-%d", i), 0, strings.NewReader(fileContent))
+		require.NoError(t, err)
+	}
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
 	job, err := ppsclient.CreateJob(
 		pachClient,
 		"",
-		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
-		nil,
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp %s %s", path.Join("/pfs", dataRepo, "*"), "/pfs/out")},
 		uint64(shards),
-		[]*ppsclient.JobInput{{Commit: commit}},
+		[]*ppsclient.JobInput{{
+			Commit: commit,
+			Reduce: true,
+		}},
 		"",
 	)
 	require.NoError(t, err)
@@ -70,9 +79,41 @@ func testJob(t *testing.T, shards int) {
 	commitInfo, err := pfsclient.InspectCommit(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 	require.NoError(t, err)
 	require.Equal(t, pfsclient.CommitType_COMMIT_TYPE_READ, commitInfo.CommitType)
+	for i := 0; i < numFiles; i++ {
+		var buffer bytes.Buffer
+		require.NoError(t, pfsclient.GetFile(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("file-%d", i), 0, 0, "", nil, &buffer))
+		require.Equal(t, fileContent, buffer.String())
+	}
+}
+
+func TestLogs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	pachClient := getPachClient(t)
+	job, err := ppsclient.CreateJob(
+		pachClient,
+		"",
+		[]string{"echo", "foo"},
+		nil,
+		4,
+		[]*ppsclient.JobInput{},
+		"",
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        job,
+		BlockState: true,
+	}
+	_, err = pachClient.InspectJob(context.Background(), inspectJobRequest)
+	require.NoError(t, err)
+	// TODO we Sleep here because even though the job has completed kubernetes
+	// might not have even noticed the container was created yet
+	time.Sleep(2 * time.Second)
 	var buffer bytes.Buffer
-	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
-	require.Equal(t, "foo\n", buffer.String())
+	require.NoError(t, ppsclient.GetLogs(pachClient, job.ID, &buffer))
+	require.Equal(t, "0 | foo\n1 | foo\n2 | foo\n3 | foo\n", buffer.String())
 }
 
 func TestGrep(t *testing.T) {
