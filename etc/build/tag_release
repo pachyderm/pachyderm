@@ -5,6 +5,12 @@ if [ -z "$TRAVIS_BUILD_NUMBER" ]; then
 	exit 1
 fi
 
+echo "Travis build number: ${TRAVIS_BUILD_NUMBER}"
+echo "Version prefix:"
+make version-prefix
+echo "Doing the tagging..."
 git tag `make version-prefix`.${TRAVIS_BUILD_NUMBER}
+echo "Listing tags ..."
 git tag
+echo "Pushing tags ..."
 git push --quiet https://${GITHUB_RELEASE_TOKEN}@github.com/pachyderm/pachyderm --tags > /dev/null 2>&1
