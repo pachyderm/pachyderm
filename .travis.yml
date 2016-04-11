@@ -18,7 +18,7 @@ before_script:
 - kubectl get all
 - docker version
 script:
-- echo "SHOULD BE MAKE TEST - STUBBED OUT FOR NOW"
+- make test
 after_success:
 - make release
 notifications:
