@@ -7,7 +7,7 @@ fi
 
 echo "Travis build number: ${TRAVIS_BUILD_NUMBER}"
 echo "Version prefix:"
-export VERSION_PREFIX=`make version-prefix`
+export VERSION_PREFIX=`make -s version-prefix`
 echo $VERSION_PREFIX
 echo "Doing the tagging..."
 git tag "$VERSION_PREFIX.$TRAVIS_BUILD_NUMBER"
