@@ -20,12 +20,3 @@ after_success:
 - make release
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
-deploy:
-  provider: releases
-  api_key:
-    secure: KXnYDghjQGaqqdmW+8IL5UScczfjmPzdMhcQCZ0fU116ApxrliDbmLR7XdzFO9RjIkxgwgvqLLKqTwtBFx9esi40c4jCfwY5lCfoLQ5pWcGw3QbBRdkYa8we87ujwun+Te6OEVLMuVKZt1LmI12ExVYJ8TGvWWEgYOBMQDwda1B0nqUGSdNfuZCcM2BlAkJTXyWLXEEsFnPZQeyVa33VzCerA998gmdfOXNjA27Jy931QdhDj9PXnYtUaQEGMMkqMa2jT7sqeMkKhp7W7XRoYfOS72fTi9KukWd0lOkfokGGI1kkagOzuSLKQxKPcAn/GmTJbMjIZ+JtdAu2+pSryo/MygOYsXN2FyQx54VcSESIzRhhvL5kRV7qpXzSQ8O16vtGfaXDp2d7wIwFCTqv784HDGJgRNLwT9arJyNJHaEUs+7ZKtnFhsC2xYpxcTdNKW57GHNDL1gHLOPfsUZXW5RxE0TOCnx+p5zqkAO0hFYQHsoKA33yrynpYZtBK6mHf1uD5/cXb1rgNlN+BYU7rGGv0pMBryr8561nFp7FAp7Yqc71qFUdQpRuFlPETe0EhA5UpQMfJNMx6yIPmkUspks5E5JLuohZPokC9aWfWK0PnZv5raeoL8g3qjKzzKu/IWgZDquUM0GqGOLhQPMY2u3g0s3TWuBKC5uRP569ezU=
-  skip_cleanup: true
-  on:
-    repo: pachyderm/pachyderm
-    all_branches: true
-    tags: true
