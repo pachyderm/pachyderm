@@ -52,6 +52,17 @@ install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pachctl-doc
 
+release: 
+	if [ -z "$$TRAVIS_BUILD_NUMBER" ]; then \
+		echo "Only travis can tag a release"; \
+		exit 1; \
+	fi
+
+	# Wow ... this is ugly. Would welcome a better way to extract the versions
+	pachctl version | grep pachctl | sed -En 's/(.*)([0-9]+\.[0-9]+\.)(.*)/\2/p' > VERSION_PREFIX
+	git tag `cat VERSION_PREFIX`${TRAVIS_BUILD_NUMER}
+	rm VERSION_PREFIX
+
 docker-build-compile:
 	docker build -t pachyderm_compile .
 
