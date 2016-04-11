@@ -63,7 +63,7 @@ release: install
 	git tag `cat VERSION_PREFIX`${TRAVIS_BUILD_NUMER}
 	rm VERSION_PREFIX
 	git tag
-	git push --quiet https://$GITHUB_RELEASE_TOKEN@github.com:pachyderm/pachyderm --tags > /dev/null 2>&1
+	git push --quiet https://${GITHUB_RELEASE_TOKEN}@github.com:pachyderm/pachyderm --tags > /dev/null 2>&1
 
 docker-build-compile:
 	docker build -t pachyderm_compile .
