@@ -7,17 +7,17 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"syscall"
 	"testing"
 
 	"bazil.org/fuse/fs/fstestutil"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"google.golang.org/grpc"
 )
 
@@ -823,9 +823,7 @@ func TestWriteAndRead(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	// TODO make this fail at Open time already, check os.IsNotExist(err)
-	_, err = ioutil.ReadFile(filePath)
-	if nerr, ok := err.(*os.PathError); !ok || nerr.Err != syscall.EINVAL {
-		t.Fatalf("ReadFile: expected EINVAL: %v", err)
-	}
+	data, err := ioutil.ReadFile(filePath)
+	require.NoError(t, err)
+	require.Equal(t, nil, data)
 }
