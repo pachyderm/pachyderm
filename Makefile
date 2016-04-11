@@ -45,10 +45,8 @@ build-clean-vendored-client:
 	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
 build: 
-#	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
-#	cd src/server && make vendor-client
+	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
-#	git checkout src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
