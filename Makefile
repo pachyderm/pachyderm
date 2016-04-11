@@ -175,11 +175,14 @@ kubectl:
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
 cluster:
-	gcloud container clusters create $(CLUSTER_NAME)
+	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw
 	gcloud config set container/cluster $(CLUSTER_NAME)
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 	gcloud components update kubectl
 	gcloud compute firewall-rules create pachd --allow=tcp:30650
+
+clean-cluster:
+	gcloud container clusters delete $(CLUSTER_NAME)
 
 
 .PHONY: \
