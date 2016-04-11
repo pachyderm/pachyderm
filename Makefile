@@ -62,6 +62,8 @@ release: install
 	pachctl version | grep pachctl | sed -En 's/(.*)([0-9]+\.[0-9]+\.)(.*)/\2/p' > VERSION_PREFIX
 	git tag `cat VERSION_PREFIX`${TRAVIS_BUILD_NUMER}
 	rm VERSION_PREFIX
+	git tag
+	git push --tags
 
 docker-build-compile:
 	docker build -t pachyderm_compile .
