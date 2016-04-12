@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"crypto/md5"
 	"fmt"
 	"sort"
 	"sync"
@@ -56,42 +57,17 @@ type apiServer struct {
 
 func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobRequest) (response *ppsclient.Job, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	persistClient, err := a.getPersistClient()
-	if err != nil {
-		return nil, err
-	}
-
-	if request.Pipeline != nil {
-		var inputCommits []*pfsclient.Commit
-		for _, input := range request.Inputs {
-			inputCommits = append(inputCommits, input.Commit)
-		}
-
-		jobInfos, err := persistClient.ListJobInfos(ctx, &ppsclient.ListJobRequest{
-			Pipeline:    request.Pipeline,
-			InputCommit: inputCommits,
-		})
-
-		if err != nil {
-			return nil, err
-		}
-
-		if len(jobInfos.JobInfo) > 1 {
-			return nil, fmt.Errorf("there are %d jobs that match the job info (%v); this is likely a bug", len(jobInfos.JobInfo), request)
-		}
-
-		if len(jobInfos.JobInfo) != 0 {
-			return &ppsclient.Job{
-				ID: jobInfos.JobInfo[0].JobID,
-			}, nil
-		}
-	}
-
 	defer func() {
 		if retErr == nil {
 			metrics.AddJobs(1)
 		}
 	}()
+
+	persistClient, err := a.getPersistClient()
+	if err != nil {
+		return nil, err
+	}
+
 	if request.Shards == 0 {
 		nodeList, err := a.kubeClient.Nodes().List(kube_api.ListOptions{})
 		if err != nil {
@@ -112,8 +88,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: duplicate repo in job")
 	}
 
-	jobID := uuid.NewWithoutDashes()
-
 	var parentJobInfo *persist.JobInfo
 	if request.ParentJob != nil {
 		inspectJobRequest := &ppsclient.InspectJobRequest{Job: request.ParentJob}
@@ -127,6 +101,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if err != nil {
 		return nil, err
 	}
+
+	jobID := getJobID(request)
 
 	startCommitRequest := &pfsclient.StartCommitRequest{}
 
@@ -208,6 +184,20 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	return &ppsclient.Job{
 		ID: jobID,
 	}, nil
+}
+
+func getJobID(req *ppsclient.CreateJobRequest) string {
+	if req.Pipeline != nil {
+		s := req.Pipeline.Name
+		for _, input := range req.Inputs {
+			s += "/" + input.Commit.ID
+		}
+
+		hash := md5.Sum([]byte(s))
+		return string(hash[:])
+	} else {
+		return uuid.NewWithoutDashes()
+	}
 }
 
 func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJobRequest) (response *ppsclient.JobInfo, retErr error) {
@@ -460,6 +450,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 		Shards:       request.Shards,
 		Inputs:       request.Inputs,
 		OutputRepo:   repo,
+		Shard:        a.hasher.HashPipeline(request.Pipeline),
 	}
 	if _, err := persistClient.CreatePipelineInfo(ctx, persistPipelineInfo); err != nil {
 		return nil, err
@@ -488,7 +479,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *ppsclient.ListPip
 		return nil, err
 	}
 
-	persistPipelineInfos, err := persistClient.ListPipelineInfos(ctx, google_protobuf.EmptyInstance)
+	persistPipelineInfos, err := persistClient.ListPipelineInfos(ctx, &persist.ListPipelineInfosRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -539,7 +530,9 @@ func (a *apiServer) AddShard(shard uint64) error {
 	}
 	a.shardCancelFuncs[shard] = cancel
 
-	client, err := persistClient.SubscribePipelineInfos(ctx, &persist.SubscribePipelineInfosRequest{})
+	client, err := persistClient.SubscribePipelineInfos(ctx, &persist.SubscribePipelineInfosRequest{
+		Shard: &persist.Shard{shard},
+	})
 	if err != nil {
 		return err
 	}
@@ -560,13 +553,11 @@ func (a *apiServer) AddShard(shard uint64) error {
 			case <-ctx.Done():
 				return
 			case pipelineInfo := <-pipelineChan:
-				if a.hasher.HashPipeline(pipelineInfo.Pipeline) == shard {
-					go func() {
-						if err := a.runPipeline(pipelineInfo); err != nil {
-							protolion.Printf("error running pipeline: %v", err)
-						}
-					}()
-				}
+				go func() {
+					if err := a.runPipeline(pipelineInfo); err != nil {
+						protolion.Printf("error running pipeline: %v", err)
+					}
+				}()
 			}
 		}
 	}()
@@ -574,20 +565,20 @@ func (a *apiServer) AddShard(shard uint64) error {
 	// If we did the following before we subscribe to changes, a new pipeline
 	// could come in after we did the following but before we subscribe to
 	// changes, so we might miss that pipeline.
-	pipelineInfos, err := a.ListPipeline(context.Background(), &ppsclient.ListPipelineRequest{}) // TODO: only list pipelines for this shard
+	pipelineInfos, err := a.persistAPIClient.ListPipelineInfos(ctx, &persist.ListPipelineInfosRequest{
+		Shard: &persist.Shard{shard},
+	})
 	if err != nil {
 		return err
 	}
 
 	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
-		if a.hasher.HashPipeline(pipelineInfo.Pipeline) == shard {
-			pipelineInfo := pipelineInfo
-			go func() {
-				if err := a.runPipeline(pipelineInfo); err != nil {
-					protolion.Printf("error running pipeline: %v", err)
-				}
-			}()
-		}
+		pipelineInfo := pipelineInfo
+		go func() {
+			if err := a.runPipeline(newPipelineInfo(pipelineInfo)); err != nil {
+				protolion.Printf("error running pipeline: %v", err)
+			}
+		}()
 	}
 
 	return nil
