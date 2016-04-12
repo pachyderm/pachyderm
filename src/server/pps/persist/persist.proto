@@ -42,14 +42,28 @@ message JobState {
 message PipelineInfo {
   string pipeline_name = 1;
   pachyderm.pps.Transform transform = 2;
-  uint64 shards = 3;
+  uint64 shards = 3;  // this is the degree of parallelism
   repeated pps.PipelineInput inputs = 4;
   pfs.Repo output_repo = 5;
   google.protobuf.Timestamp created_at = 6;
+  uint64 shard = 7;  // this is which shard the pipeline is assigned to
 }
 
 message PipelineInfos {
   repeated PipelineInfo pipeline_info = 1;
+}
+
+message SubscribePipelineInfosRequest {
+  Shard shard = 1;
+}
+
+message ListPipelineInfosRequest {
+  Shard shard = 1;
+}
+
+// As in, sharding
+message Shard {
+  uint64 number = 1;
 }
 
 service API {
@@ -73,8 +87,9 @@ service API {
   rpc CreatePipelineInfo(PipelineInfo) returns (PipelineInfo) {}
   rpc GetPipelineInfo(pachyderm.pps.Pipeline) returns (PipelineInfo) {}
   // ordered by time, latest to earliest
-  rpc ListPipelineInfos(google.protobuf.Empty) returns (PipelineInfos) {}
+  rpc ListPipelineInfos(ListPipelineInfosRequest) returns (PipelineInfos) {}
   rpc DeletePipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
+  rpc SubscribePipelineInfos(SubscribePipelineInfosRequest) returns (stream PipelineInfo) {}
 
   // Shard rpcs
   // Returns the new job info
