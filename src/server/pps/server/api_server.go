@@ -187,6 +187,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 }
 
 func getJobID(req *ppsclient.CreateJobRequest) string {
+	// If the job belongs to a pipeline, we want to make sure that the same
+	// job does now run twice.  We ensure that by generating the job id by
+	// hashing the pipeline name and input commits.  That way, two same jobs
+	// will have the sam job IDs, therefore won't be created in the database
+	// twice.
 	if req.Pipeline != nil {
 		s := req.Pipeline.Name
 		for _, input := range req.Inputs {
@@ -194,7 +199,7 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 		}
 
 		hash := md5.Sum([]byte(s))
-		return string(hash[:])
+		return fmt.Sprintf("%x", hash)
 	}
 
 	return uuid.NewWithoutDashes()
