@@ -57,6 +57,9 @@ install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy ./src/server/cmd/pachctl-doc
 
+homebrew: deps-client
+	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
+
 release: deps-client
 	./etc/build/tag_release
 docker-build-compile:
