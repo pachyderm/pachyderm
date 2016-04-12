@@ -45,18 +45,23 @@ Envronment variables:
 		Short: "Return version information.",
 		Long:  "Return version information.",
 		Run: pkgcobra.RunFixedArgs(0, func(args []string) error {
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			printVersionHeader(writer)
+			printVersion(writer, "pachctl", client.Version)
+			writer.Flush()
+
 			versionClient, err := getVersionAPIClient(address)
 			if err != nil {
 				return err
 			}
 			ctx, _ := context.WithTimeout(context.Background(), time.Second)
 			version, err := versionClient.GetVersion(ctx, &google_protobuf.Empty{})
+
 			if err != nil {
-				return err
+				fmt.Fprintf(writer, "pachd\tUNKNOWN: Error %v\n", err)
+				return writer.Flush()
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			printVersionHeader(writer)
-			printVersion(writer, "pachctl", client.Version)
+
 			printVersion(writer, "pachd", version)
 			return writer.Flush()
 		}),
