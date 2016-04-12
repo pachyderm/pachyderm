@@ -6,6 +6,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -164,9 +165,17 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: no job backend")
 	}
 	_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
-	if err != nil {
+	if err != nil && !isConflictErr(err) {
 		return nil, err
 	}
+
+	if err == nil {
+		// we only create a kube job if the job did not already exist
+		if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
+			return nil, err
+		}
+	}
+
 	defer func() {
 		if retErr != nil {
 			if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
@@ -178,12 +187,19 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}()
 
-	if _, err := a.kubeClient.Jobs(api.NamespaceDefault).Create(job(persistJobInfo)); err != nil {
-		return nil, err
-	}
 	return &ppsclient.Job{
 		ID: jobID,
 	}, nil
+}
+
+// isConflictErr returns true if the error is non-nil and the query failed
+// due to a duplicate primary key.
+func isConflictErr(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return strings.Contains(err.Error(), "Duplicate primary key")
 }
 
 func getJobID(req *ppsclient.CreateJobRequest) string {

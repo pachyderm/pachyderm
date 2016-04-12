@@ -102,7 +102,7 @@ func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 			Labels: labels(pachdName),
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: 4,
+			Replicas: 2,
 			Selector: map[string]string{
 				"app": pachdName,
 			},

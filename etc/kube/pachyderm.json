@@ -244,8 +244,8 @@
   "spec": {
     "selector": {
       "matchLabels": {
-        "app": "pachyderm-init-db",
-        "suite": "pachyderm"
+        "suite": "pachyderm",
+        "app": "pachyderm-init-db"
       }
     },
     "template": {
@@ -333,7 +333,7 @@
     }
   },
   "spec": {
-    "replicas": 4,
+    "replicas": 2,
     "selector": {
       "app": "pachd"
     },

@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/dancannon/gorethink"
@@ -179,22 +178,10 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	if err != nil {
 		return nil, err
 	}
-	// We don't care if a job with the same ID already exists; this function is idempotent
-	if err := a.insertMessage(jobInfosTable, request); err != nil && !isConflictErr(err) {
-		err.Error()
+	if err := a.insertMessage(jobInfosTable, request); err != nil {
 		return nil, err
 	}
 	return request, nil
-}
-
-// isConflictErr returns true if the error is non-nil and the query failed
-// due to a duplicate primary key.
-func isConflictErr(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	return strings.HasPrefix(err.Error(), "Duplicate primary key")
 }
 
 func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *ppsclient.InspectJobRequest) (response *persist.JobInfo, err error) {
