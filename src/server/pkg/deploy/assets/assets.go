@@ -9,6 +9,7 @@ import (
 	"github.com/ugorji/go/codec"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/apis/extensions"
 )
 
 var (
@@ -101,7 +102,7 @@ func PachdRc(shards uint64, backend backend) *api.ReplicationController {
 			Labels: labels(pachdName),
 		},
 		Spec: api.ReplicationControllerSpec{
-			Replicas: 8,
+			Replicas: 4,
 			Selector: map[string]string{
 				"app": pachdName,
 			},
@@ -369,6 +370,52 @@ func RethinkService() *api.Service {
 	}
 }
 
+func InitDBJob() *extensions.Job {
+	name := "pachyderm-init-db"
+	image := "pachyderm/pachd"
+	return &extensions.Job{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Job",
+			APIVersion: "extensions/v1beta1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   name,
+			Labels: labels(name),
+		},
+		Spec: extensions.JobSpec{
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: labels(name),
+			},
+			Template: api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   name,
+					Labels: labels(name),
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:  name,
+							Image: image,
+							Env: []api.EnvVar{
+								{
+									Name:  "PACH_ROOT",
+									Value: "/pach",
+								},
+								{
+									Name:  "INITDB",
+									Value: "true",
+								},
+							},
+							ImagePullPolicy: "IfNotPresent",
+						},
+					},
+					RestartPolicy: "OnFailure",
+				},
+			},
+		},
+	}
+}
+
 func AmazonSecret(bucket string, id string, secret string, token string, region string) *api.Secret {
 	return &api.Secret{
 		TypeMeta: unversioned.TypeMeta{
@@ -420,6 +467,9 @@ func WriteAssets(w io.Writer, shards uint64, backend backend) {
 	RethinkService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	RethinkRc().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+
+	InitDBJob().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	PachdService().CodecEncodeSelf(encoder)

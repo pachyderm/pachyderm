@@ -26,7 +26,7 @@ const (
 	commitIndex                Index = "CommitIndex"
 
 	pipelineInfosTable Table = "PipelineInfos"
-	pipelineShardIndex Index = "PipelineShard"
+	pipelineShardIndex Index = "Shard"
 
 	connectTimeoutSeconds = 5
 )
@@ -57,19 +57,12 @@ var (
 
 // InitDBs prepares a RethinkDB instance to be used by the rethink server.
 // Rethink servers will error if they are pointed at databases that haven't had InitDBs run on them.
-// InitDBs is idempotent (unless rethink dies in the middle of the function)
 func InitDBs(address string, databaseName string) error {
 	session, err := connect(address)
 	if err != nil {
 		return err
 	}
 	if _, err := gorethink.DBCreate(databaseName).RunWrite(session); err != nil {
-		if isDatabaseExistsError(err) {
-			// We assume that the database has been created by another replica
-			// of pachd, so we exit peacefully.
-			return nil
-		}
-
 		return err
 	}
 	for _, table := range tables {
@@ -85,7 +78,7 @@ func InitDBs(address string, databaseName string) error {
 		}
 	}
 
-	// Create some indexes for the jobInfosTable
+	// Create indexes
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreate(pipelineNameIndex).RunWrite(session); err != nil {
 		return err
 	}
@@ -102,13 +95,43 @@ func InitDBs(address string, databaseName string) error {
 		}).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).IndexCreate(pipelineShardIndex).RunWrite(session); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func isDatabaseExistsError(err error) bool {
-	// Unfortunately the gorethink client library does not expose a custom type
-	// for this particular error, so we have to resort to this hacky approach
-	return strings.Contains(err.Error(), "Database") && strings.Contains(err.Error(), "already exists")
+// CheckDBs checks that we have all the tables/indices we need
+func CheckDBs(address string, databaseName string) error {
+	session, err := connect(address)
+	if err != nil {
+		return err
+	}
+
+	for _, table := range tables {
+		if _, err := gorethink.DB(databaseName).Table(table).Wait().RunWrite(session); err != nil {
+			return err
+		}
+	}
+
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexWait(pipelineNameIndex).RunWrite(session); err != nil {
+		return err
+	}
+
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexWait(commitIndex).RunWrite(session); err != nil {
+		return err
+	}
+
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexWait(pipelineNameAndCommitIndex).RunWrite(session); err != nil {
+		return err
+	}
+
+	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).IndexWait(pipelineShardIndex).RunWrite(session); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type rethinkAPIServer struct {
@@ -135,7 +158,6 @@ func (a *rethinkAPIServer) Close() error {
 	return a.session.Close()
 }
 
-// JobID cannot be set
 // Timestamp cannot be set
 func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.JobInfo) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
@@ -157,10 +179,22 @@ func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.J
 	if err != nil {
 		return nil, err
 	}
-	if err := a.insertMessage(jobInfosTable, request); err != nil {
+	// We don't care if a job with the same ID already exists; this function is idempotent
+	if err := a.insertMessage(jobInfosTable, request); err != nil && !isConflictErr(err) {
+		err.Error()
 		return nil, err
 	}
 	return request, nil
+}
+
+// isConflictErr returns true if the error is non-nil and the query failed
+// due to a duplicate primary key.
+func isConflictErr(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return strings.HasPrefix(err.Error(), "Duplicate primary key")
 }
 
 func (a *rethinkAPIServer) InspectJob(ctx context.Context, request *ppsclient.InspectJobRequest) (response *persist.JobInfo, err error) {
@@ -287,9 +321,12 @@ func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *ppsclie
 	return pipelineInfo, nil
 }
 
-func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *google_protobuf.Empty) (response *persist.PipelineInfos, retErr error) {
+func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *persist.ListPipelineInfosRequest) (response *persist.PipelineInfos, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	query := a.getTerm(pipelineInfosTable)
+	if request.Shard != nil {
+		query = query.GetAllByIndex(pipelineShardIndex, request.Shard.Number)
+	}
 	cursor, err := query.Run(a.session)
 	if err != nil {
 		return nil, err
@@ -323,11 +360,16 @@ func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *ppsc
 
 func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipelineInfosRequest, server persist.API_SubscribePipelineInfosServer) (retErr error) {
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	cursor, err := a.getTerm(pipelineInfosTable).Changes().Field("new_val").Run(a.session)
+	query := a.getTerm(pipelineInfosTable)
+	if request.Shard != nil {
+		query = query.GetAllByIndex(pipelineShardIndex, request.Shard.Number)
+	}
 
+	cursor, err := query.Changes().Field("new_val").Run(a.session)
 	if err != nil {
 		return err
 	}
+
 	var pipelineInfo persist.PipelineInfo
 	for cursor.Next(&pipelineInfo) {
 		server.Send(&pipelineInfo)
