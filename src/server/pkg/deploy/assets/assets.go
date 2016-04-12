@@ -353,12 +353,14 @@ func RethinkService() *api.Service {
 			},
 			Ports: []api.ServicePort{
 				{
-					Port: 8080,
-					Name: "admin-port",
+					Port:     8080,
+					Name:     "admin-port",
+					NodePort: 8081,
 				},
 				{
-					Port: 28015,
-					Name: "driver-port",
+					Port:     28015,
+					Name:     "driver-port",
+					NodePort: 28015,
 				},
 				{
 					Port: 29015,
