@@ -195,9 +195,9 @@ func getJobID(req *ppsclient.CreateJobRequest) string {
 
 		hash := md5.Sum([]byte(s))
 		return string(hash[:])
-	} else {
-		return uuid.NewWithoutDashes()
 	}
+
+	return uuid.NewWithoutDashes()
 }
 
 func (a *apiServer) InspectJob(ctx context.Context, request *ppsclient.InspectJobRequest) (response *ppsclient.JobInfo, retErr error) {
