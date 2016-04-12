@@ -23,8 +23,12 @@ CLUSTER_NAME = pachyderm
 
 all: build
 
+version-prefix: 
+	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm/src/client"; func main() { fmt.Printf("%v.%v", client.Version.Major, client.Version.Minor) }' > /tmp/pachyderm_version.go
+	@go run /tmp/pachyderm_version.go
+
 version:
-	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm"; func main() { fmt.Println(pachyderm.Version.VersionString()) }' > /tmp/pachyderm_version.go
+	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm/src/client"; func main() { fmt.Println(client.Version.VersionString()) }' > /tmp/pachyderm_version.go
 	@go run /tmp/pachyderm_version.go
 
 deps:
@@ -46,15 +50,15 @@ build-clean-vendored-client:
 	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
 build: 
-#	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
-#	cd src/server && make vendor-client
+	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
-#	git checkout src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy ./src/server/cmd/pachctl-doc
 
+release: deps-client
+	./etc/build/tag_release
 docker-build-compile:
 	docker build -t pachyderm_compile .
 
@@ -176,11 +180,14 @@ kubectl:
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 
 cluster:
-	gcloud container clusters create $(CLUSTER_NAME)
+	gcloud container clusters create $(CLUSTER_NAME) --scopes storage-rw
 	gcloud config set container/cluster $(CLUSTER_NAME)
 	gcloud container clusters get-credentials $(CLUSTER_NAME)
 	gcloud components update kubectl
 	gcloud compute firewall-rules create pachd --allow=tcp:30650
+
+clean-cluster:
+	gcloud container clusters delete $(CLUSTER_NAME)
 
 
 .PHONY: \
