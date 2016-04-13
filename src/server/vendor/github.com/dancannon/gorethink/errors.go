@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
-	p "github.com/dancannon/gorethink/ql2"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 var (
@@ -156,4 +157,26 @@ func createRuntimeError(errorType p.Response_ErrorType, response *Response, term
 	default:
 		return RQLRuntimeError{serverErr}
 	}
+}
+
+// Error type helpers
+
+// IsConflictErr returns true if the error is non-nil and the query failed
+// due to a duplicate primary key.
+func IsConflictErr(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return strings.HasPrefix(err.Error(), "Duplicate primary key")
+}
+
+// IsTypeErr returns true if the error is non-nil and the query failed due
+// to a type error.
+func IsTypeErr(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return strings.HasPrefix(err.Error(), "Expected type")
 }
