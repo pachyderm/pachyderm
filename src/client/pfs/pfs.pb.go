@@ -295,12 +295,11 @@ func (m *CommitInfos) GetCommitInfo() []*CommitInfo {
 
 type FileInfo struct {
 	File           *File                       `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	FileType       FileType                    `protobuf:"varint,2,opt,name=file_type,json=fileType,enum=pfs.FileType" json:"file_type,omitempty"`
-	SizeBytes      uint64                      `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes" json:"size_bytes,omitempty"`
-	Perm           uint32                      `protobuf:"varint,4,opt,name=perm" json:"perm,omitempty"`
-	Modified       *google_protobuf2.Timestamp `protobuf:"bytes,5,opt,name=modified" json:"modified,omitempty"`
-	CommitModified *Commit                     `protobuf:"bytes,6,opt,name=commit_modified,json=commitModified" json:"commit_modified,omitempty"`
-	Children       []*File                     `protobuf:"bytes,7,rep,name=children" json:"children,omitempty"`
+	FileType       FileType                    `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
+	SizeBytes      uint64                      `protobuf:"varint,3,opt,name=size_bytes" json:"size_bytes,omitempty"`
+	Modified       *google_protobuf2.Timestamp `protobuf:"bytes,4,opt,name=modified" json:"modified,omitempty"`
+	CommitModified *Commit                     `protobuf:"bytes,5,opt,name=commit_modified" json:"commit_modified,omitempty"`
+	Children       []*File                     `protobuf:"bytes,6,rep,name=children" json:"children,omitempty"`
 }
 
 func (m *FileInfo) Reset()                    { *m = FileInfo{} }
@@ -763,10 +762,9 @@ func (m *GetFileRequest) GetFromCommit() *Commit {
 }
 
 type PutFileRequest struct {
-	File        *File    `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
-	FileType    FileType `protobuf:"varint,2,opt,name=file_type,json=fileType,enum=pfs.FileType" json:"file_type,omitempty"`
-	OffsetBytes int64    `protobuf:"varint,3,opt,name=offset_bytes,json=offsetBytes" json:"offset_bytes,omitempty"`
-	Value       []byte   `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	File     *File    `protobuf:"bytes,1,opt,name=file" json:"file,omitempty"`
+	FileType FileType `protobuf:"varint,2,opt,name=file_type,enum=pfs.FileType" json:"file_type,omitempty"`
+	Value    []byte   `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 func (m *PutFileRequest) Reset()                    { *m = PutFileRequest{} }
