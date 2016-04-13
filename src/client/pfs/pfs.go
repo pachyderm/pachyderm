@@ -132,15 +132,15 @@ func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string,
 	for i, fromCommitID := range fromCommitIDs {
 		fromCommits = append(fromCommits, &Commit{
 			Repo: repos[i],
-			ID: fromCommitID,
+			ID:   fromCommitID,
 		})
 	}
 	commitInfos, err := apiClient.ListCommit(
 		context.Background(),
 		&ListCommitRequest{
-			Repo: repos,
+			Repo:       repos,
 			FromCommit: fromCommits,
-			Block: block,
+			Block:      block,
 		},
 	)
 	if err != nil {
@@ -233,7 +233,7 @@ func ListBlock(apiClient BlockAPIClient) ([]*BlockInfo, error) {
 	return blockInfos.BlockInfo, nil
 }
 
-func PutFile(apiClient APIClient, repoName string, commitID string, path string, offset int64, reader io.Reader) (_ int, retErr error) {
+func PutFile(apiClient APIClient, repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
 	putFileClient, err := apiClient.PutFile(context.Background())
 	if err != nil {
 		return 0, err
@@ -244,9 +244,8 @@ func PutFile(apiClient APIClient, repoName string, commitID string, path string,
 		}
 	}()
 	request := PutFileRequest{
-		File:        NewFile(repoName, commitID, path),
-		FileType:    FileType_FILE_TYPE_REGULAR,
-		OffsetBytes: offset,
+		File:     NewFile(repoName, commitID, path),
+		FileType: FileType_FILE_TYPE_REGULAR,
 	}
 	var size int
 	eof := false
@@ -328,7 +327,7 @@ func DeleteFile(apiClient APIClient, repoName string, commitID string, path stri
 	_, err := apiClient.DeleteFile(
 		context.Background(),
 		&DeleteFileRequest{
-			File:     NewFile(repoName, commitID, path),
+			File: NewFile(repoName, commitID, path),
 		},
 	)
 	return err
@@ -351,7 +350,6 @@ func MakeDirectory(apiClient APIClient, repoName string, commitID string, path s
 		},
 	)
 }
-
 
 func newFromCommit(repoName string, fromCommitID string) *Commit {
 	if fromCommitID != "" {

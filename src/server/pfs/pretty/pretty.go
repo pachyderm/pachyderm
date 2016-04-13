@@ -67,7 +67,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 }
 
 func PrintFileInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tTYPE\tMODIFIED\tLAST_COMMIT_MODIFIED\tSIZE\tPERMISSIONS\t\n")
+	fmt.Fprint(w, "NAME\tTYPE\tMODIFIED\tLAST_COMMIT_MODIFIED\tSIZE\t\n")
 }
 
 func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
@@ -88,8 +88,7 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 		),
 	)
 	fmt.Fprint(w, "-\t")
-	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(fileInfo.SizeBytes)))
-	fmt.Fprintf(w, "%4d\t\n", fileInfo.Perm)
+	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
 }
 
 func PrintBlockInfoHeader(w io.Writer) {
