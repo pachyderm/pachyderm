@@ -45,7 +45,7 @@ type apiServer struct {
 	persistAPIClient     persist.APIClient
 	persistClientOnce    sync.Once
 	kubeClient           *kube.Client
-	cancelFuncs          map[ppsclient.Pipeline]func()
+	cancelFuncs          map[string]func()
 	cancelFuncsLock      sync.Mutex
 	shardCancelFuncs     map[uint64]func()
 	shardCancelFuncsLock sync.Mutex
@@ -519,13 +519,17 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 		return nil, err
 	}
 
+	if request.Pipeline == nil {
+		return nil, fmt.Errorf("Pipeline cannot be nil")
+	}
+
 	if _, err := persistClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
 	a.cancelFuncsLock.Lock()
 	defer a.cancelFuncsLock.Unlock()
-	a.cancelFuncs[*request.Pipeline]()
-	delete(a.cancelFuncs, *request.Pipeline)
+	a.cancelFuncs[request.Pipeline.Name]()
+	delete(a.cancelFuncs, request.Pipeline.Name)
 	return google_protobuf.EmptyInstance, nil
 }
 
@@ -581,7 +585,9 @@ func (a *apiServer) DeleteShard(shard uint64) error {
 	a.cancelFuncsLock.Lock()
 	defer a.cancelFuncsLock.Unlock()
 	for pipeline, cancelFunc := range a.cancelFuncs {
-		if a.hasher.HashPipeline(&pipeline) == shard {
+		if a.hasher.HashPipeline(&ppsclient.Pipeline{
+			Name: pipeline,
+		}) == shard {
 			cancelFunc()
 			delete(a.cancelFuncs, pipeline)
 		}
@@ -613,12 +619,12 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancelFuncsLock.Lock()
-	if _, ok := a.cancelFuncs[*pipelineInfo.Pipeline]; ok {
+	if _, ok := a.cancelFuncs[pipelineInfo.Pipeline.Name]; ok {
 		// The pipeline is already being run
 		a.cancelFuncsLock.Unlock()
 		return nil
 	}
-	a.cancelFuncs[*pipelineInfo.Pipeline] = cancel
+	a.cancelFuncs[pipelineInfo.Pipeline.Name] = cancel
 	a.cancelFuncsLock.Unlock()
 	repoToLeaves := make(map[string]map[string]bool)
 	repoToInput := make(map[string]*ppsclient.PipelineInput)
