@@ -566,9 +566,11 @@ func (a *apiServer) AddShard(shard uint64) error {
 				return
 			}
 
-			if err := a.runPipeline(newPipelineInfo(pipelineInfo)); err != nil {
-				protolion.Printf("error running pipeline: %v", err)
-			}
+			go func() {
+				if err := a.runPipeline(newPipelineInfo(pipelineInfo)); err != nil {
+					protolion.Printf("error running pipeline: %v", err)
+				}
+			}()
 		}
 	}()
 
