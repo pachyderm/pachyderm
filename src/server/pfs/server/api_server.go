@@ -378,7 +378,9 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 	var request *pfsclient.PutFileRequest
 	var err error
 	defer func(start time.Time) {
-		request.Value = nil // we set the value to nil so as not to spam logs
+		if request != nil {
+			request.Value = nil // we set the value to nil so as not to spam logs
+		}
 		a.Log(request, google_protobuf.EmptyInstance, retErr, time.Since(start))
 	}(time.Now())
 	a.versionLock.RLock()
