@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 	persist_server "github.com/pachyderm/pachyderm/src/server/pps/persist/server"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
+
 	"go.pedge.io/env"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pkg/http"
@@ -40,6 +41,7 @@ type appEnv struct {
 	EtcdAddress     string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
 	Namespace       string `env:"NAMESPACE,default=default"`
 	Metrics         uint16 `env:"METRICS,default=1"`
+	InitDB          bool   `env:"INITDB,default=false"`
 }
 
 func main() {
@@ -51,6 +53,14 @@ func do(appEnvObj interface{}) error {
 	if appEnv.Metrics != 0 {
 		go metrics.ReportMetrics()
 	}
+
+	if appEnv.InitDB {
+		if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", appEnv.DatabaseAddress), appEnv.DatabaseName); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	etcdClient := getEtcdClient(appEnv)
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {
@@ -111,24 +121,16 @@ func do(appEnvObj interface{}) error {
 		),
 		driver,
 	)
+	ppsAPIServer := pps_server.NewAPIServer(
+		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
+		address,
+		kubeClient,
+	)
 	go func() {
-		if err := sharder.Register(nil, address, []shard.Server{internalAPIServer}); err != nil {
+		if err := sharder.Register(nil, address, []shard.Server{internalAPIServer, ppsAPIServer}); err != nil {
 			protolion.Printf("Error from sharder.Register %s", err.Error())
 		}
 	}()
-	ppsAPIServer := pps_server.NewAPIServer(
-		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
-		shard.NewRouter(
-			sharder,
-			grpcutil.NewDialer(
-				grpc.WithInsecure(),
-			),
-			address,
-		),
-		address,
-		rethinkAPIServer,
-		kubeClient,
-	)
 	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, appEnv.StorageBackend)
 	if err != nil {
 		return err
@@ -140,6 +142,7 @@ func do(appEnvObj interface{}) error {
 			pfsclient.RegisterBlockAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			ppsserver.RegisterInternalJobAPIServer(s, ppsAPIServer)
+			persist.RegisterAPIServer(s, rethinkAPIServer)
 		},
 		func(ctx context.Context, mux *runtime.ServeMux, clientConn *grpc.ClientConn) error {
 			return pfsclient.RegisterAPIHandler(ctx, mux, clientConn)
@@ -177,7 +180,7 @@ func getKubeClient(env *appEnv) (*kube.Client, error) {
 }
 
 func getRethinkAPIServer(env *appEnv) (persist.APIServer, error) {
-	if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName); err != nil {
+	if err := persist_server.CheckDBs(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName); err != nil {
 		return nil, err
 	}
 	return persist_server.NewRethinkAPIServer(fmt.Sprintf("%s:28015", env.DatabaseAddress), env.DatabaseName)

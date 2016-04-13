@@ -2,10 +2,11 @@ package gorethink
 
 import (
 	"encoding/base64"
+	"encoding/json"
 
 	"reflect"
 
-	p "github.com/dancannon/gorethink/ql2"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 // Expr converts any value to an expression and is also used by many other terms
@@ -346,4 +347,25 @@ func (t Term) Info(args ...interface{}) Term {
 // deterministic, derived from the string’s SHA-1 hash.
 func UUID(args ...interface{}) Term {
 	return constructRootTerm("UUID", p.Term_UUID, args, map[string]interface{}{})
+}
+
+// RawQuery creates a new query from a JSON string, this bypasses any encoding
+// done by GoRethink. The query should not contain the query type or any options
+// as this should be handled using the normal driver API.
+//
+// THis query will only work if this is the only term in the query.
+func RawQuery(q []byte) Term {
+	data := json.RawMessage(q)
+	return Term{
+		name:     "RawQuery",
+		rootTerm: true,
+		rawQuery: true,
+		data:     &data,
+		args: []Term{
+			Term{
+				termType: p.Term_DATUM,
+				data:     string(q),
+			},
+		},
+	}
 }

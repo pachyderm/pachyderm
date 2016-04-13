@@ -3,8 +3,8 @@ package gorethink
 import (
 	"sync"
 
-	p "github.com/dancannon/gorethink/ql2"
 	"github.com/hailocab/go-hostpool"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 // Node represents a database server in the cluster
