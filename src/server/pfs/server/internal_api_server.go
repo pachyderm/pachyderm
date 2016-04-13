@@ -270,7 +270,7 @@ func (a *internalAPIServer) PutFile(putFileServer pfsclient.InternalAPI_PutFileS
 		if err != nil {
 			return err
 		}
-		if err := a.driver.PutFile(request.File, shard, request.OffsetBytes, &reader); err != nil {
+		if err := a.driver.PutFile(request.File, shard, &reader); err != nil {
 			return err
 		}
 	}
