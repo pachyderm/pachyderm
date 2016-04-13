@@ -1,7 +1,7 @@
 package gorethink
 
 import (
-	p "github.com/dancannon/gorethink/ql2"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 // Row returns the currently visited document. Note that Row does not work within

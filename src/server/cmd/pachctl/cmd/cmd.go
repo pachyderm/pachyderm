@@ -55,7 +55,7 @@ Envronment variables:
 				return err
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			printVerisonHeader(writer)
+			printVersionHeader(writer)
 			printVersion(writer, "pachctl", client.Version)
 			printVersion(writer, "pachd", version)
 			return writer.Flush()
@@ -73,7 +73,7 @@ func getVersionAPIClient(address string) (protoversion.APIClient, error) {
 	return protoversion.NewAPIClient(clientConn), nil
 }
 
-func printVerisonHeader(w io.Writer) {
+func printVersionHeader(w io.Writer) {
 	fmt.Fprintf(w, "COMPONENT\tVERSION\t\n")
 }
 

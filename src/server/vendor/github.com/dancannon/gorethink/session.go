@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	p "github.com/dancannon/gorethink/ql2"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 // A Session represents a connection to a RethinkDB cluster and should be used
@@ -28,7 +28,9 @@ type ConnectOpts struct {
 	Timeout      time.Duration `gorethink:"timeout,omitempty"`
 	WriteTimeout time.Duration `gorethink:"write_timeout,omitempty"`
 	ReadTimeout  time.Duration `gorethink:"read_timeout,omitempty"`
-	TLSConfig    *tls.Config   `gorethink:"tlsconfig,omitempty"`
+	// The duration in which a connection should send a keep-alive.
+	KeepAlivePeriod time.Duration `gorethink:"keep_alive_timeout,omitempty"`
+	TLSConfig       *tls.Config   `gorethink:"tlsconfig,omitempty"`
 
 	MaxIdle int `gorethink:"max_idle,omitempty"`
 	// By default a maximum of 2 connections are opened per host.
