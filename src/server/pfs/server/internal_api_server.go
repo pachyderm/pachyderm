@@ -17,9 +17,9 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 )
 
 var (
@@ -227,7 +227,10 @@ func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfsclient
 
 func (a *internalAPIServer) PutFile(putFileServer pfsclient.InternalAPI_PutFileServer) (retErr error) {
 	var request *pfsclient.PutFileRequest
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		request.Value = nil // we set the value to nil so as not to spam logs
+		a.Log(request, nil, retErr, time.Since(start))
+	}(time.Now())
 	version, err := a.getVersion(putFileServer.Context())
 	if err != nil {
 		return err
@@ -267,7 +270,7 @@ func (a *internalAPIServer) PutFile(putFileServer pfsclient.InternalAPI_PutFileS
 		if err != nil {
 			return err
 		}
-		if err := a.driver.PutFile(request.File, shard, request.OffsetBytes, &reader); err != nil {
+		if err := a.driver.PutFile(request.File, shard, &reader); err != nil {
 			return err
 		}
 	}

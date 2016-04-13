@@ -1,9 +1,10 @@
 package pfs
 
 import (
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"hash/adler32"
 	"path"
+
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
 type Hasher struct {

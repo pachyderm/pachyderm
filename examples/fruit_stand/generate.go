@@ -62,7 +62,7 @@ func main() {
 				if _, err := pfs.StartCommit(client, "data", "", "master"); err != nil {
 					return err
 				}
-				if _, err := pfs.PutFile(client, "data", "master", "sales", 0, &reader{lines}); err != nil {
+				if _, err := pfs.PutFile(client, "data", "master", "sales", &reader{lines}); err != nil {
 					return err
 				}
 				if err := pfs.FinishCommit(client, "data", "master"); err != nil {

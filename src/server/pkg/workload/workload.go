@@ -112,7 +112,7 @@ func (w *worker) work(pfsClient pfsclient.APIClient, ppsClient ppsclient.APIClie
 			return nil
 		}
 		commit := w.started[w.rand.Intn(len(w.started))]
-		if _, err := pfsclient.PutFile(pfsClient, commit.Repo.Name, commit.ID, w.randString(10), 0, w.reader()); err != nil {
+		if _, err := pfsclient.PutFile(pfsClient, commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
 			return err
 		}
 	case opt < job:
