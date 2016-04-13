@@ -94,7 +94,7 @@ kube-cluster-assets: install
 launch: install
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
 	# wait for the pachyderm to come up
-	until $(GOPATH)/bin/pachctl version 2>/dev/null >/dev/null; do sleep 5; done
+	until $(GOPATH)/bin/pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
 
 launch-dev: launch-kube launch
 
