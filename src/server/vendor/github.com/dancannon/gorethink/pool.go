@@ -9,7 +9,7 @@ import (
 	"gopkg.in/fatih/pool.v2"
 )
 
-const maxBadConnRetries = 10
+const maxBadConnRetries = 3
 
 var (
 	errPoolClosed = errors.New("gorethink: pool is closed")
@@ -149,7 +149,7 @@ func (p *Pool) Exec(q Query) error {
 
 		c, pc, err = p.conn()
 		if err != nil {
-			break
+			continue
 		}
 		defer pc.Close()
 
@@ -157,9 +157,9 @@ func (p *Pool) Exec(q Query) error {
 
 		if c.isBad() {
 			pc.MarkUnusable()
+		} else {
+			break
 		}
-
-		break
 	}
 
 	return err
@@ -176,7 +176,7 @@ func (p *Pool) Query(q Query) (*Cursor, error) {
 
 		c, pc, err = p.conn()
 		if err != nil {
-			break
+			continue
 		}
 
 		_, cursor, err = c.Query(q)
@@ -202,16 +202,17 @@ func (p *Pool) Server() (ServerResponse, error) {
 
 		c, pc, err = p.conn()
 		if err != nil {
-			break
+			continue
 		}
+		defer pc.Close()
 
 		response, err = c.Server()
 
 		if c.isBad() {
 			pc.MarkUnusable()
+		} else {
+			break
 		}
-
-		break
 	}
 
 	return response, err

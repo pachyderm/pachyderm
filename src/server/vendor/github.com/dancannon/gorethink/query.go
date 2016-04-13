@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	p "github.com/dancannon/gorethink/ql2"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 // A Query represents a query ready to be sent to the database, A Query differs
@@ -45,6 +45,7 @@ type termsObj map[string]Term
 // see http://rethinkdb.com/docs/writing-drivers/.
 type Term struct {
 	name     string
+	rawQuery bool
 	rootTerm bool
 	termType p.Term_TermType
 	data     interface{}
@@ -60,6 +61,10 @@ func (t Term) build() (interface{}, error) {
 
 	if t.lastErr != nil {
 		return nil, t.lastErr
+	}
+
+	if t.rawQuery {
+		return t.data, nil
 	}
 
 	switch t.termType {
@@ -151,6 +156,11 @@ func (t Term) String() string {
 	if t.rootTerm {
 		return fmt.Sprintf("r.%s(%s)", t.name, strings.Join(allArgsToStringSlice(t.args, t.optArgs), ", "))
 	}
+
+	if t.args == nil {
+		return "r"
+	}
+
 	return fmt.Sprintf("%s.%s(%s)", t.args[0].String(), t.name, strings.Join(allArgsToStringSlice(t.args[1:], t.optArgs), ", "))
 }
 
@@ -240,7 +250,7 @@ func (t Term) Run(s *Session, optArgs ...RunOpts) (*Cursor, error) {
 }
 
 // RunWrite runs a query using the given connection but unlike Run automatically
-// scans the result into a variable of type WriteResponss. This function should be used
+// scans the result into a variable of type WriteResponse. This function should be used
 // if you are running a write query (such as Insert,  Update, TableCreate, etc...).
 //
 // If an error occurs when running the write query the first error is returned.
@@ -260,7 +270,7 @@ func (t Term) RunWrite(s *Session, optArgs ...RunOpts) (WriteResponse, error) {
 	}
 
 	if response.Errors > 0 {
-		return response, fmt.Errorf(response.FirstError)
+		return response, fmt.Errorf("%s", response.FirstError)
 	}
 
 	return response, nil

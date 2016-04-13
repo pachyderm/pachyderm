@@ -119,19 +119,4 @@ service API {
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
   rpc ListPipeline(ListPipelineRequest) returns (PipelineInfos) {}
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
-
 }
-
-service JobAPI {
-  rpc CreateJob(CreateJobRequest) returns (Job) {}
-  rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
-  rpc ListJob(ListJobRequest) returns (JobInfos) {}
-}
-
-service PipelineAPI {
-  rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
-  rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
-  rpc ListPipeline(ListPipelineRequest) returns (PipelineInfos) {}
-  rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
-}
-

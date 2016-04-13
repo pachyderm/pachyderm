@@ -86,6 +86,65 @@ func testJob(t *testing.T, shards int) {
 	}
 }
 
+func TestDuplicatedJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+
+	pachClient := getPachClient(t)
+
+	dataRepo := uniqueString("TestDuplicatedJob.data")
+	require.NoError(t, pfsclient.CreateRepo(pachClient, dataRepo))
+
+	commit, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
+	require.NoError(t, err)
+
+	fileContent := "foo\n"
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, "file", 0, strings.NewReader(fileContent))
+	require.NoError(t, err)
+
+	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
+
+	pipelineName := uniqueString("TestDuplicatedJob.pipeline")
+	require.NoError(t, pfsclient.CreateRepo(pachClient, pipelineName))
+
+	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
+	// Now we manually create the same job
+	req := &ppsclient.CreateJobRequest{
+		Transform: &ppsclient.Transform{
+			Cmd: cmd,
+		},
+		Pipeline: &ppsclient.Pipeline{
+			Name: pipelineName,
+		},
+		Inputs: []*ppsclient.JobInput{{
+			Commit: commit,
+		}},
+	}
+
+	job1, err := pachClient.CreateJob(context.Background(), req)
+	require.NoError(t, err)
+
+	job2, err := pachClient.CreateJob(context.Background(), req)
+	require.NoError(t, err)
+
+	require.Equal(t, job1, job2)
+
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:         job1,
+		BlockOutput: true,
+		BlockState:  true,
+	}
+	jobInfo, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
+	require.NoError(t, err)
+
+	var buffer bytes.Buffer
+	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
+	require.Equal(t, fileContent, buffer.String())
+}
+
 func TestLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -110,7 +169,7 @@ func TestLogs(t *testing.T) {
 	require.NoError(t, err)
 	// TODO we Sleep here because even though the job has completed kubernetes
 	// might not have even noticed the container was created yet
-	time.Sleep(2 * time.Second)
+	time.Sleep(10 * time.Second)
 	var buffer bytes.Buffer
 	require.NoError(t, ppsclient.GetLogs(pachClient, job.ID, &buffer))
 	require.Equal(t, "0 | foo\n1 | foo\n2 | foo\n3 | foo\n", buffer.String())

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/dancannon/gorethink/encoding"
+	"gopkg.in/dancannon/gorethink.v1/encoding"
 
-	p "github.com/dancannon/gorethink/ql2"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 // Helper functions for constructing terms
@@ -98,9 +98,9 @@ func makeFunc(f interface{}) Term {
 	var args = make([]reflect.Value, valueType.NumIn())
 	for i := 0; i < valueType.NumIn(); i++ {
 		// Get a slice of the VARs to use as the function arguments
-		args[i] = reflect.ValueOf(constructRootTerm("var", p.Term_VAR, []interface{}{nextVarID}, map[string]interface{}{}))
-		argNums[i] = nextVarID
-		atomic.AddInt64(&nextVarID, 1)
+		varID := atomic.AddInt64(&nextVarID, 1)
+		args[i] = reflect.ValueOf(constructRootTerm("var", p.Term_VAR, []interface{}{varID}, map[string]interface{}{}))
+		argNums[i] = varID
 
 		// make sure all input arguments are of type Term
 		if valueType.In(i).String() != "gorethink.Term" {
