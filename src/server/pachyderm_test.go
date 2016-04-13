@@ -102,7 +102,7 @@ func TestDuplicatedJob(t *testing.T) {
 	require.NoError(t, err)
 
 	fileContent := "foo\n"
-	_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, "file", 0, strings.NewReader(fileContent))
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, "file", strings.NewReader(fileContent))
 	require.NoError(t, err)
 
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
