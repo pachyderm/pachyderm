@@ -228,7 +228,9 @@ func (a *internalAPIServer) DeleteCommit(ctx context.Context, request *pfsclient
 func (a *internalAPIServer) PutFile(putFileServer pfsclient.InternalAPI_PutFileServer) (retErr error) {
 	var request *pfsclient.PutFileRequest
 	defer func(start time.Time) {
-		request.Value = nil // we set the value to nil so as not to spam logs
+		if request != nil {
+			request.Value = nil // we set the value to nil so as not to spam logs
+		}
 		a.Log(request, nil, retErr, time.Since(start))
 	}(time.Now())
 	version, err := a.getVersion(putFileServer.Context())

@@ -54,9 +54,9 @@ func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBloc
 			}
 		}
 	}()
-	scanner := bufio.NewScanner(protostream.NewStreamingBytesReader(putBlockServer))
+	reader := bufio.NewReader(protostream.NewStreamingBytesReader(putBlockServer))
 	for {
-		blockRef, err := s.putOneBlock(scanner)
+		blockRef, err := s.putOneBlock(reader)
 		if err != nil {
 			return err
 		}
@@ -222,22 +222,30 @@ func (s *localBlockAPIServer) readDiff(diff *pfsclient.Diff) (*pfsclient.DiffInf
 	return result, nil
 }
 
-func scanBlock(scanner *bufio.Scanner) (*pfsclient.BlockRef, []byte, error) {
+func readBlock(reader *bufio.Reader) (*pfsclient.BlockRef, []byte, error) {
 	var buffer bytes.Buffer
 	var bytesWritten int
 	hash := newHash()
-	for scanner.Scan() {
-		// they take out the newline, put it back
-		bytes := append(scanner.Bytes(), '\n')
+	for {
+		// We don't use ReadBytes or ReadString because they allocate new buffers
+		// whereas ReadLine only uses an internal buffer
+		bytes, isPrefix, err := reader.ReadLine()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, nil, err
+		}
+		// Append a newline if we have reached the end of the line
+		if !isPrefix {
+			bytes = append(bytes, '\n')
+		}
 		buffer.Write(bytes)
 		hash.Write(bytes)
 		bytesWritten += len(bytes)
-		if bytesWritten > blockSize {
+		if bytesWritten > blockSize && !isPrefix {
 			break
 		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, nil, err
 	}
 	return &pfsclient.BlockRef{
 		Block: getBlock(hash),
@@ -248,8 +256,8 @@ func scanBlock(scanner *bufio.Scanner) (*pfsclient.BlockRef, []byte, error) {
 	}, buffer.Bytes(), nil
 }
 
-func (s *localBlockAPIServer) putOneBlock(scanner *bufio.Scanner) (*pfsclient.BlockRef, error) {
-	blockRef, data, err := scanBlock(scanner)
+func (s *localBlockAPIServer) putOneBlock(reader *bufio.Reader) (*pfsclient.BlockRef, error) {
+	blockRef, data, err := readBlock(reader)
 	if err != nil {
 		return nil, err
 	}
