@@ -50,7 +50,7 @@ func testJob(t *testing.T, shards int) {
 	// started with some files
 	numFiles := shards*100 + 100
 	for i := 0; i < numFiles; i++ {
-		_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, fmt.Sprintf("file-%d", i), 0, strings.NewReader(fileContent))
+		_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
 		require.NoError(t, err)
 	}
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
@@ -188,7 +188,7 @@ func TestGrep(t *testing.T) {
 	commit, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
 	require.NoError(t, err)
 	for i := 0; i < 100; i++ {
-		_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, fmt.Sprintf("file%d", i), 0, strings.NewReader("foo\nbar\nfizz\nbuzz\n"))
+		_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, fmt.Sprintf("file%d", i), strings.NewReader("foo\nbar\nfizz\nbuzz\n"))
 		require.NoError(t, err)
 	}
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
@@ -255,7 +255,7 @@ func TestPipeline(t *testing.T) {
 	// Do first commit to repo
 	commit1, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, dataRepo, commit1.ID, "file", 0, strings.NewReader("foo\n"))
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit1.ID))
 	listCommitRequest := &pfsclient.ListCommitRequest{
@@ -276,7 +276,7 @@ func TestPipeline(t *testing.T) {
 	// Do second commit to repo
 	commit2, err := pfsclient.StartCommit(pachClient, dataRepo, commit1.ID, "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, dataRepo, commit2.ID, "file", 0, strings.NewReader("bar\n"))
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit2.ID, "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit2.ID))
 	listCommitRequest = &pfsclient.ListCommitRequest{
@@ -331,7 +331,7 @@ func TestSharding(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			rand := rand.New(rand.NewSource(int64(i)))
-			_, err = pfsclient.PutFile(pachClient, repo, commit.ID, fmt.Sprintf("file%d", i), 0, workload.NewReader(rand, KB))
+			_, err = pfsclient.PutFile(pachClient, repo, commit.ID, fmt.Sprintf("file%d", i), workload.NewReader(rand, KB))
 			require.NoError(t, err)
 		}()
 	}
@@ -378,13 +378,13 @@ func TestFromCommit(t *testing.T) {
 	require.NoError(t, err)
 	commit1, err := pfsclient.StartCommit(pachClient, repo, "", "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, repo, commit1.ID, "file", 0, workload.NewReader(rand, KB))
+	_, err = pfsclient.PutFile(pachClient, repo, commit1.ID, "file", workload.NewReader(rand, KB))
 	require.NoError(t, err)
 	err = pfsclient.FinishCommit(pachClient, repo, commit1.ID)
 	require.NoError(t, err)
 	commit2, err := pfsclient.StartCommit(pachClient, repo, commit1.ID, "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, repo, commit2.ID, "file", 0, workload.NewReader(rand, KB))
+	_, err = pfsclient.PutFile(pachClient, repo, commit2.ID, "file", workload.NewReader(rand, KB))
 	require.NoError(t, err)
 	err = pfsclient.FinishCommit(pachClient, repo, commit2.ID)
 	require.NoError(t, err)
@@ -406,7 +406,7 @@ func TestSimple(t *testing.T) {
 	require.NoError(t, pfsclient.CreateRepo(pachClient, repo))
 	commit1, err := pfsclient.StartCommit(pachClient, repo, "", "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
+	_, err = pfsclient.PutFile(pachClient, repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pachClient, repo, commit1.ID))
 	commitInfos, err := pfsclient.ListCommit(pachClient, []string{repo}, nil, false)
@@ -417,7 +417,7 @@ func TestSimple(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 	commit2, err := pfsclient.StartCommit(pachClient, repo, commit1.ID, "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, repo, commit2.ID, "foo", 0, strings.NewReader("foo\n"))
+	_, err = pfsclient.PutFile(pachClient, repo, commit2.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	err = pfsclient.FinishCommit(pachClient, repo, commit2.ID)
 	require.NoError(t, err)
