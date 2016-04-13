@@ -74,6 +74,7 @@ func testJob(t *testing.T, shards int) {
 	}
 	jobInfo, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
 	require.NoError(t, err)
+	t.Logf("jobInfo: %v", jobInfo)
 	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
 	require.True(t, jobInfo.Shards > 0)
 	commitInfo, err := pfsclient.InspectCommit(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
@@ -297,6 +298,16 @@ func TestPipeline(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nbar\n", buffer.String())
+
+	require.NoError(t, ppsclient.DeletePipeline(pachClient, pipelineName))
+
+	pipelineInfos, err := pachClient.ListPipeline(context.Background(), &ppsclient.ListPipelineRequest{})
+	require.NoError(t, err)
+	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
+		require.True(t, pipelineInfo.Pipeline.Name != pipelineName)
+	}
+
+	require.YesError(t, ppsclient.DeletePipeline(pachClient, "non-existent-pipeline"))
 }
 
 func TestWorkload(t *testing.T) {
