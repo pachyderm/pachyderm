@@ -146,6 +146,7 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfsclient.ListRepoReq
 				select {
 				default:
 				case errCh <- err:
+					return
 				}
 			}
 			lock.Lock()
