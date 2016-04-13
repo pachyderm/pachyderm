@@ -236,8 +236,7 @@ func readBlock(reader *bufio.Reader) (*pfsclient.BlockRef, []byte, error) {
 		buffer.Write(bytes)
 		hash.Write(bytes)
 		bytesWritten += len(bytes)
-		// len(bytes) == 0 when we've
-		if bytesWritten > blockSize {
+		if bytesWritten > blockSize && !isPrefix {
 			break
 		}
 	}
