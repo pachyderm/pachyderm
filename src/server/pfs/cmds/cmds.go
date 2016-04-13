@@ -278,7 +278,7 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			_, err = pfsclient.PutFile(apiClient, args[0], args[1], args[2], 0, os.Stdin)
+			_, err = pfsclient.PutFile(apiClient, args[0], args[1], args[2], os.Stdin)
 			return err
 		}),
 	}
