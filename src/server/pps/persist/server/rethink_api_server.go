@@ -352,7 +352,9 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 		query = query.GetAllByIndex(pipelineShardIndex, request.Shard.Number)
 	}
 
-	cursor, err := query.Changes().Field("new_val").Run(a.session)
+	cursor, err := query.Changes(gorethink.ChangesOpts{
+		IncludeInitial: request.IncludeInitial,
+	}).Field("new_val").Run(a.session)
 	if err != nil {
 		return err
 	}
@@ -433,7 +435,9 @@ func (a *rethinkAPIServer) waitMessageByPrimaryKey(
 	term := a.getTerm(table).
 		Get(key).
 		Default(gorethink.Error("value not found")).
-		Changes().
+		Changes(gorethink.ChangesOpts{
+			IncludeInitial: true,
+		}).
 		Field("new_val").
 		Filter(predicate)
 	cursor, err := term.Run(a.session)

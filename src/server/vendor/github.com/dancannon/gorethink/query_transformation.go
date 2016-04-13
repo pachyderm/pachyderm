@@ -1,6 +1,6 @@
 package gorethink
 
-import p "github.com/dancannon/gorethink/ql2"
+import p "gopkg.in/dancannon/gorethink.v1/ql2"
 
 // Map transform each element of the sequence by applying the given mapping
 // function. It takes two arguments, a sequence and a function of type
