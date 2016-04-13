@@ -28,13 +28,13 @@ type driver struct {
 
 func newDriver(blockAddress string) (Driver, error) {
 	return &driver{
-		blockAddress,
-		nil,
-		sync.Once{},
-		make(diffMap),
-		make(map[string]*dag.DAG),
-		make(map[string]map[string]string),
-		sync.RWMutex{},
+		blockAddress:    blockAddress,
+		blockClient:     nil,
+		blockClientOnce: sync.Once{},
+		diffs:           make(diffMap),
+		dags:            make(map[string]*dag.DAG),
+		branches:        make(map[string]map[string]string),
+		lock:            sync.RWMutex{},
 	}, nil
 }
 
@@ -330,7 +330,7 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 	return fmt.Errorf("DeleteCommit is not implemented")
 }
 
-func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) (retErr error) {
+func (d *driver) PutFile(file *pfs.File, shard uint64, reader io.Reader) (retErr error) {
 	blockClient, err := d.getBlockClient()
 	if err != nil {
 		return err

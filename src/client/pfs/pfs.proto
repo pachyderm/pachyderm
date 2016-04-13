@@ -73,10 +73,9 @@ message FileInfo {
   File file = 1;
   FileType file_type = 2;
   uint64 size_bytes = 3;
-  uint32 perm = 4;
-  google.protobuf.Timestamp modified = 5;
-  Commit commit_modified = 6;
-  repeated File children = 7;
+  google.protobuf.Timestamp modified = 4;
+  Commit commit_modified = 5;
+  repeated File children = 6;
 }
 
 message FileInfos {
@@ -191,8 +190,7 @@ message GetFileRequest {
 message PutFileRequest {
   File file = 1;
   FileType file_type = 2;
-  int64 offset_bytes = 3;
-  bytes value = 4;
+  bytes value = 3;
 }
 
 message InspectFileRequest {

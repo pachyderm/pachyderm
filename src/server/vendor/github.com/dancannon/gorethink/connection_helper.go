@@ -7,14 +7,14 @@ import (
 	"io"
 	"strings"
 
-	p "github.com/dancannon/gorethink/ql2"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 // Write 'data' to conn
 func (c *Connection) writeData(data []byte) error {
 	_, err := c.Conn.Write(data[:])
 	if err != nil {
-		return RQLConnectionError{rqlError(err.Error())}
+		return err
 	}
 
 	return nil
@@ -52,7 +52,7 @@ func (c *Connection) readHandshakeSuccess() error {
 		if err == io.EOF {
 			return fmt.Errorf("Unexpected EOF: %s", string(line))
 		}
-		return RQLConnectionError{rqlError(err.Error())}
+		return err
 	}
 	// convert to string and remove trailing NUL byte
 	response := string(line[:len(line)-1])
