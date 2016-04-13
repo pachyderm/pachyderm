@@ -12,9 +12,9 @@ import (
 	"time"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -217,7 +217,7 @@ func TestMount(t *testing.T) {
 	err = ioutil.WriteFile(filepath.Join(directory, repoName, newCommitID, "foo"), []byte("foo"), 0666)
 	require.NoError(t, err)
 
-	_, err = pfsclient.PutFile(apiClient, repoName, newCommitID, "bar", 0, strings.NewReader("bar"))
+	_, err = pfsclient.PutFile(apiClient, repoName, newCommitID, "bar", strings.NewReader("bar"))
 	require.NoError(t, err)
 
 	bigValue := make([]byte, 1024*1024)
@@ -228,7 +228,7 @@ func TestMount(t *testing.T) {
 	err = ioutil.WriteFile(filepath.Join(directory, repoName, newCommitID, "big1"), bigValue, 0666)
 	require.NoError(t, err)
 
-	_, err = pfsclient.PutFile(apiClient, repoName, newCommitID, "big2", 0, bytes.NewReader(bigValue))
+	_, err = pfsclient.PutFile(apiClient, repoName, newCommitID, "big2", bytes.NewReader(bigValue))
 	require.NoError(t, err)
 
 	err = pfsclient.FinishCommit(apiClient, repoName, newCommitID)
@@ -383,10 +383,10 @@ func doWrites(tb testing.TB, apiClient pfsclient.APIClient, repoName string, com
 		go func() {
 			defer wg.Done()
 			_, iErr := pfsclient.PutFile(apiClient, repoName, commitID,
-				fmt.Sprintf("a/b/file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
+				fmt.Sprintf("a/b/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
 			require.NoError(tb, iErr)
 			_, iErr = pfsclient.PutFile(apiClient, repoName, commitID,
-				fmt.Sprintf("a/c/file%d", i), 0, strings.NewReader(fmt.Sprintf("hello%d", i)))
+				fmt.Sprintf("a/c/file%d", i), strings.NewReader(fmt.Sprintf("hello%d", i)))
 			require.NoError(tb, iErr)
 		}()
 	}
