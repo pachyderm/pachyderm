@@ -552,55 +552,25 @@ func (a *apiServer) AddShard(shard uint64) error {
 	a.shardCancelFuncs[shard] = cancel
 
 	client, err := persistClient.SubscribePipelineInfos(ctx, &persist.SubscribePipelineInfosRequest{
-		Shard: &persist.Shard{shard},
+		IncludeInitial: true,
+		Shard:          &persist.Shard{shard},
 	})
 	if err != nil {
 		return err
 	}
 
 	go func() {
-		pipelineChan := make(chan *ppsclient.PipelineInfo)
-		go func() {
-			for {
-				pipelineInfo, err := client.Recv()
-				if err != nil {
-					return
-				}
-				pipelineChan <- newPipelineInfo(pipelineInfo)
-			}
-		}()
 		for {
-			select {
-			case <-ctx.Done():
+			pipelineInfo, err := client.Recv()
+			if err != nil {
 				return
-			case pipelineInfo := <-pipelineChan:
-				go func() {
-					if err := a.runPipeline(pipelineInfo); err != nil {
-						protolion.Printf("error running pipeline: %v", err)
-					}
-				}()
 			}
-		}
-	}()
 
-	// If we did the following before we subscribe to changes, a new pipeline
-	// could come in after we did the following but before we subscribe to
-	// changes, so we might miss that pipeline.
-	pipelineInfos, err := a.persistAPIClient.ListPipelineInfos(ctx, &persist.ListPipelineInfosRequest{
-		Shard: &persist.Shard{shard},
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
-		pipelineInfo := pipelineInfo
-		go func() {
 			if err := a.runPipeline(newPipelineInfo(pipelineInfo)); err != nil {
 				protolion.Printf("error running pipeline: %v", err)
 			}
-		}()
-	}
+		}
+	}()
 
 	return nil
 }

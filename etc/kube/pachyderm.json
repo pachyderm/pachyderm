@@ -30,8 +30,8 @@
         "name": "etcd",
         "creationTimestamp": null,
         "labels": {
-          "app": "etcd",
-          "suite": "pachyderm"
+          "suite": "pachyderm",
+          "app": "etcd"
         }
       },
       "spec": {
@@ -163,8 +163,8 @@
     "name": "rethink",
     "creationTimestamp": null,
     "labels": {
-      "app": "rethink",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "rethink"
     }
   },
   "spec": {
@@ -190,7 +190,7 @@
         "containers": [
           {
             "name": "rethink",
-            "image": "rethinkdb:2.1.5",
+            "image": "rethinkdb:2.2.6",
             "command": [
               "rethinkdb",
               "-d",
@@ -244,8 +244,8 @@
   "spec": {
     "selector": {
       "matchLabels": {
-        "suite": "pachyderm",
-        "app": "pachyderm-init-db"
+        "app": "pachyderm-init-db",
+        "suite": "pachyderm"
       }
     },
     "template": {

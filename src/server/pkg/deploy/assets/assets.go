@@ -16,7 +16,7 @@ var (
 	suite              = "pachyderm"
 	pachdImage         = "pachyderm/pachd"
 	etcdImage          = "gcr.io/google_containers/etcd:2.0.12"
-	rethinkImage       = "rethinkdb:2.1.5"
+	rethinkImage       = "rethinkdb:2.2.6"
 	serviceAccountName = "pachyderm"
 	etcdName           = "etcd"
 	pachdName          = "pachd"

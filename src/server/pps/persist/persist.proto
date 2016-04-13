@@ -54,7 +54,8 @@ message PipelineInfos {
 }
 
 message SubscribePipelineInfosRequest {
-  Shard shard = 1;
+  bool include_initial = 1;
+  Shard shard = 2;
 }
 
 message ListPipelineInfosRequest {
