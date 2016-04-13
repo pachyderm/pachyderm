@@ -2,6 +2,33 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## v1.4.1 - 2016-04-02
+
+### Fixed
+
+ - Fixed panic when closing a connection at the same time as using a changefeed.
+ - Update imports to correctly use gopkg.in
+ - Fixed race condition when using anonymous functions
+ - Fixed IsConflictErr and IsTypeErr panicking when passed nil errors
+ - RunWrite no longer misformats errors with formatting directives in them
+
+## v1.4.0 - 2016-03-15
+
+### Added
+- Added the ability to reference subdocuments when inserting new documents, for more information see the documentation in the readme.
+- Added the `SetTags` function which allows GoRethink to override which tags are used when working with structs. For example to support the `json` add the following call `SetTags("gorethink", "json")`.
+- Added helper functions for checking the error type of a write query, this is useful when calling `RunWrite`.
+    + Added `IsConflictErr` which returns true when RethinkDB returns a duplicate key error.
+    + Added `IsTypeErr` which returns true when RethinkDB returns an unexpected type error.
+- Added the `RawQuery` term which can be used to execute a raw JSON query, for more information about this query see the godoc.
+- Added the `NextResponse` function to `Cursor` which will return the next raw JSON response in the result set.
+- Added ability to set the keep alive period by setting the `KeepAlivePeriod` field in `ConnectOpts`.
+
+### Fixed
+- Fixed an issue that could prevent bad connections from being removed from the connection pool.
+- Fixed certain connection errors not being returned as `RqlConnectionError` when calling `Run`, `Exec` or `RunWrite`. 
+- Fixed potential dead lock in connection code caused when building the query.
+
 ## v1.3.2 - 2015-02-01
 
 ### Fixed

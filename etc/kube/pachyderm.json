@@ -163,8 +163,8 @@
     "name": "rethink",
     "creationTimestamp": null,
     "labels": {
-      "app": "rethink",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "rethink"
     }
   },
   "spec": {
@@ -190,7 +190,7 @@
         "containers": [
           {
             "name": "rethink",
-            "image": "rethinkdb:2.1.5",
+            "image": "rethinkdb:2.2.6",
             "command": [
               "rethinkdb",
               "-d",
@@ -231,6 +231,60 @@
   },
   "kind": "ReplicationController",
   "apiVersion": "v1"
+}
+{
+  "metadata": {
+    "name": "pachyderm-init-db",
+    "creationTimestamp": null,
+    "labels": {
+      "app": "pachyderm-init-db",
+      "suite": "pachyderm"
+    }
+  },
+  "spec": {
+    "selector": {
+      "matchLabels": {
+        "app": "pachyderm-init-db",
+        "suite": "pachyderm"
+      }
+    },
+    "template": {
+      "metadata": {
+        "name": "pachyderm-init-db",
+        "creationTimestamp": null,
+        "labels": {
+          "app": "pachyderm-init-db",
+          "suite": "pachyderm"
+        }
+      },
+      "spec": {
+        "volumes": null,
+        "containers": [
+          {
+            "name": "pachyderm-init-db",
+            "image": "pachyderm/pachd",
+            "env": [
+              {
+                "name": "PACH_ROOT",
+                "value": "/pach"
+              },
+              {
+                "name": "INITDB",
+                "value": "true"
+              }
+            ],
+            "resources": {},
+            "imagePullPolicy": "IfNotPresent"
+          }
+        ],
+        "restartPolicy": "OnFailure",
+        "serviceAccountName": ""
+      }
+    }
+  },
+  "status": {},
+  "kind": "Job",
+  "apiVersion": "extensions/v1beta1"
 }
 {
   "metadata": {
@@ -279,7 +333,7 @@
     }
   },
   "spec": {
-    "replicas": 8,
+    "replicas": 2,
     "selector": {
       "app": "pachd"
     },
@@ -288,8 +342,8 @@
         "name": "pachd",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "pachd"
+          "app": "pachd",
+          "suite": "pachyderm"
         }
       },
       "spec": {

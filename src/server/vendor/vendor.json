@@ -173,9 +173,10 @@
 			"revisionTime": "2016-01-04T20:15:47-05:00"
 		},
 		{
+			"checksumSHA1": "95t6BvCPz/mr4GORES7ca5D9AqI=",
 			"path": "github.com/dancannon/gorethink",
-			"revision": "7d1af5be49cb5ecc7b177bf387d232050299d6ef",
-			"revisionTime": "2016-02-01T22:26:15Z"
+			"revision": "edc7a6a68e2d8015f5ffe1b2560eed989f8a45be",
+			"revisionTime": "2016-04-02T21:45:31+01:00"
 		},
 		{
 			"path": "github.com/dancannon/gorethink/encoding",
@@ -755,6 +756,24 @@
 			"revisionTime": "2016-02-10T16:46:20-08:00"
 		},
 		{
+			"checksumSHA1": "KB7lOHjDamyMO1R7Vtu0UIPPuvA=",
+			"path": "gopkg.in/dancannon/gorethink.v1/encoding",
+			"revision": "ef48c048b4f1f4d923de4197e78c1b206c14fa4c",
+			"revisionTime": "2016-03-15T21:01:06Z"
+		},
+		{
+			"checksumSHA1": "nRHiJ2t6r2JweQJDZWOc+JeXDjQ=",
+			"path": "gopkg.in/dancannon/gorethink.v1/ql2",
+			"revision": "ef48c048b4f1f4d923de4197e78c1b206c14fa4c",
+			"revisionTime": "2016-03-15T21:01:06Z"
+		},
+		{
+			"checksumSHA1": "+LBM2puGqvdtu3RQR0AUNJ+IN1I=",
+			"path": "gopkg.in/dancannon/gorethink.v1/types",
+			"revision": "ef48c048b4f1f4d923de4197e78c1b206c14fa4c",
+			"revisionTime": "2016-03-15T21:01:06Z"
+		},
+		{
 			"path": "gopkg.in/fatih/pool.v2",
 			"revision": "cba550ebf9bce999a02e963296d4bc7a486cb715",
 			"revisionTime": "2015-03-25T18:32:52+02:00"
@@ -1054,5 +1073,6 @@
 			"revision": "42ca6cd68aa922bc3f32f1e056e61b65945d9ad7",
 			"revisionTime": "2014-04-17T22:40:36+09:00"
 		}
-	]
+	],
+	"rootPath": "github.com/pachyderm/pachyderm/src/server"
 }
