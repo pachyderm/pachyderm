@@ -17,7 +17,7 @@ If you're contributing to pachyderm, you may need the following additional setup
 
 ## General Requirements
 
-Follow the [general setup instructions](../SETUP.md) to install:
+Follow the [general setup instructions](https://github.com/pachyderm/pachyderm/blob/master/SETUP) to install:
 
 - golang 1.6 (we need 1.6 for vendoring support)
 - docker
