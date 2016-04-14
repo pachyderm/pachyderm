@@ -23,7 +23,7 @@ before_script:
 - sudo chmod 666 /dev/fuse
 - sudo chown root:$USER /etc/fuse.conf
 script:
-- sudo make test
+- sudo -E make test
 after_success:
 - make release
 notifications:
