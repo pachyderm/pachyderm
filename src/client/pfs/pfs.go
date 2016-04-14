@@ -13,10 +13,19 @@ const chunkSize = 1024 * 1024
 
 var blockingContext context.Context
 var streamingContext context.Context
+var Timeout *time.Duration
 
 func init() {
-	blockingContext, _ = context.WithTimeout(context.Background(), time.Second)
 	streamingContext = context.Background()
+}
+
+func getBlockingContext() context.Context {
+	if Timeout == nil {
+		return context.Background()
+	}
+
+	blockingContext, _ = context.WithTimeout(context.Background(), *Timeout)
+	return blockingContext
 }
 
 func NewRepo(repoName string) *Repo {
@@ -52,7 +61,7 @@ func NewDiff(repoName string, commitID string, shard uint64) *Diff {
 
 func CreateRepo(apiClient APIClient, repoName string) error {
 	_, err := apiClient.CreateRepo(
-		blockingContext,
+		getBlockingContext(),
 		&CreateRepoRequest{
 			Repo: NewRepo(repoName),
 		},
@@ -62,7 +71,7 @@ func CreateRepo(apiClient APIClient, repoName string) error {
 
 func InspectRepo(apiClient APIClient, repoName string) (*RepoInfo, error) {
 	repoInfo, err := apiClient.InspectRepo(
-		blockingContext,
+		getBlockingContext(),
 		&InspectRepoRequest{
 			Repo: NewRepo(repoName),
 		},
@@ -75,7 +84,7 @@ func InspectRepo(apiClient APIClient, repoName string) (*RepoInfo, error) {
 
 func ListRepo(apiClient APIClient) ([]*RepoInfo, error) {
 	repoInfos, err := apiClient.ListRepo(
-		blockingContext,
+		getBlockingContext(),
 		&ListRepoRequest{},
 	)
 	if err != nil {
@@ -86,7 +95,7 @@ func ListRepo(apiClient APIClient) ([]*RepoInfo, error) {
 
 func DeleteRepo(apiClient APIClient, repoName string) error {
 	_, err := apiClient.DeleteRepo(
-		blockingContext,
+		getBlockingContext(),
 		&DeleteRepoRequest{
 			Repo: NewRepo(repoName),
 		},
@@ -96,7 +105,7 @@ func DeleteRepo(apiClient APIClient, repoName string) error {
 
 func StartCommit(apiClient APIClient, repoName string, parentCommit string, branch string) (*Commit, error) {
 	commit, err := apiClient.StartCommit(
-		blockingContext,
+		getBlockingContext(),
 		&StartCommitRequest{
 			Repo:     NewRepo(repoName),
 			ParentID: parentCommit,
@@ -111,7 +120,7 @@ func StartCommit(apiClient APIClient, repoName string, parentCommit string, bran
 
 func FinishCommit(apiClient APIClient, repoName string, commitID string) error {
 	_, err := apiClient.FinishCommit(
-		blockingContext,
+		getBlockingContext(),
 		&FinishCommitRequest{
 			Commit: NewCommit(repoName, commitID),
 		},
@@ -121,7 +130,7 @@ func FinishCommit(apiClient APIClient, repoName string, commitID string) error {
 
 func InspectCommit(apiClient APIClient, repoName string, commitID string) (*CommitInfo, error) {
 	commitInfo, err := apiClient.InspectCommit(
-		blockingContext,
+		getBlockingContext(),
 		&InspectCommitRequest{
 			Commit: NewCommit(repoName, commitID),
 		},
@@ -145,7 +154,7 @@ func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string,
 		})
 	}
 	commitInfos, err := apiClient.ListCommit(
-		blockingContext,
+		getBlockingContext(),
 		&ListCommitRequest{
 			Repo:       repos,
 			FromCommit: fromCommits,
@@ -160,7 +169,7 @@ func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string,
 
 func ListBranch(apiClient APIClient, repoName string) ([]*CommitInfo, error) {
 	commitInfos, err := apiClient.ListBranch(
-		blockingContext,
+		getBlockingContext(),
 		&ListBranchRequest{
 			Repo: NewRepo(repoName),
 		},
@@ -173,7 +182,7 @@ func ListBranch(apiClient APIClient, repoName string) ([]*CommitInfo, error) {
 
 func DeleteCommit(apiClient APIClient, repoName string, commitID string) error {
 	_, err := apiClient.DeleteCommit(
-		blockingContext,
+		getBlockingContext(),
 		&DeleteCommitRequest{
 			Commit: NewCommit(repoName, commitID),
 		},
@@ -209,7 +218,7 @@ func GetBlock(apiClient BlockAPIClient, hash string, offsetBytes uint64, sizeByt
 
 func DeleteBlock(apiClient BlockAPIClient, block *Block) error {
 	_, err := apiClient.DeleteBlock(
-		blockingContext,
+		getBlockingContext(),
 		&DeleteBlockRequest{
 			Block: block,
 		},
@@ -220,7 +229,7 @@ func DeleteBlock(apiClient BlockAPIClient, block *Block) error {
 
 func InspectBlock(apiClient BlockAPIClient, hash string) (*BlockInfo, error) {
 	blockInfo, err := apiClient.InspectBlock(
-		blockingContext,
+		getBlockingContext(),
 		&InspectBlockRequest{
 			Block: NewBlock(hash),
 		},
@@ -233,7 +242,7 @@ func InspectBlock(apiClient BlockAPIClient, hash string) (*BlockInfo, error) {
 
 func ListBlock(apiClient BlockAPIClient) ([]*BlockInfo, error) {
 	blockInfos, err := apiClient.ListBlock(
-		blockingContext,
+		getBlockingContext(),
 		&ListBlockRequest{},
 	)
 	if err != nil {
@@ -304,7 +313,7 @@ func GetFile(apiClient APIClient, repoName string, commitID string, path string,
 
 func InspectFile(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard) (*FileInfo, error) {
 	fileInfo, err := apiClient.InspectFile(
-		blockingContext,
+		getBlockingContext(),
 		&InspectFileRequest{
 			File:       NewFile(repoName, commitID, path),
 			Shard:      shard,
@@ -319,7 +328,7 @@ func InspectFile(apiClient APIClient, repoName string, commitID string, path str
 
 func ListFile(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard) ([]*FileInfo, error) {
 	fileInfos, err := apiClient.ListFile(
-		blockingContext,
+		getBlockingContext(),
 		&ListFileRequest{
 			File:       NewFile(repoName, commitID, path),
 			Shard:      shard,
@@ -334,7 +343,7 @@ func ListFile(apiClient APIClient, repoName string, commitID string, path string
 
 func DeleteFile(apiClient APIClient, repoName string, commitID string, path string) error {
 	_, err := apiClient.DeleteFile(
-		blockingContext,
+		getBlockingContext(),
 		&DeleteFileRequest{
 			File: NewFile(repoName, commitID, path),
 		},
@@ -343,7 +352,7 @@ func DeleteFile(apiClient APIClient, repoName string, commitID string, path stri
 }
 
 func MakeDirectory(apiClient APIClient, repoName string, commitID string, path string) (retErr error) {
-	putFileClient, err := apiClient.PutFile(blockingContext)
+	putFileClient, err := apiClient.PutFile(getBlockingContext())
 	if err != nil {
 		return err
 	}
