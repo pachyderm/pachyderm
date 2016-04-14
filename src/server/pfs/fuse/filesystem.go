@@ -228,7 +228,17 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 	defer func() {
 		protolion.Debug(&FileWrite{&f.Node, errorToString(retErr)})
 	}()
-	written, err := pfsclient.PutFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.ID, f.File.Path, bytes.NewReader(request.Data))
+	protolion.Printf("Write(%s)\n", string(request.Data))
+	writer, err := pfsclient.PutFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.ID, f.File.Path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := writer.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	written, err := writer.Write(request.Data)
 	if err != nil {
 		return err
 	}
