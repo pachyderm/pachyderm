@@ -376,7 +376,7 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 				Removed:  true,
 			})
 		} else {
-			return fmt.Errorf("neither old_val nor new_val was presented in the changefeed; this is likely a bug")
+			return fmt.Errorf("neither old_val nor new_val was present in the changefeed; this is likely a bug")
 		}
 	}
 	return cursor.Err()
