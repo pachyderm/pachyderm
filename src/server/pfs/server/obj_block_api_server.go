@@ -80,11 +80,11 @@ func newGoogleBlockAPIServer(dir string) (*objBlockAPIServer, error) {
 func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
 	result := &pfsclient.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
-	scanner := bufio.NewScanner(protostream.NewStreamingBytesReader(putBlockServer))
+	reader := bufio.NewReader(protostream.NewStreamingBytesReader(putBlockServer))
 	var wg sync.WaitGroup
 	errCh := make(chan error, 1)
 	for {
-		blockRef, data, err := scanBlock(scanner)
+		blockRef, data, err := readBlock(reader)
 		if err != nil {
 			return err
 		}

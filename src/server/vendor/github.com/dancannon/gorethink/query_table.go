@@ -1,7 +1,7 @@
 package gorethink
 
 import (
-	p "github.com/dancannon/gorethink/ql2"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 // TableCreateOpts contains the optional arguments for the TableCreate term
@@ -78,9 +78,8 @@ func (o *IndexCreateOpts) toMap() map[string]interface{} {
 // IndexCreate supports the creation of the following types of indexes, to create
 // indexes using arbitrary expressions use IndexCreateFunc.
 //   - Simple indexes based on the value of a single field.
-//   - Compound indexes based on multiple fields.
-//   - Multi indexes based on arrays of values, created when the multi optional argument is true.
-//   - Geospatial indexes based on indexes of geometry objects, created when the geo optional argument is true.
+//   - Geospatial indexes based on indexes of geometry objects, created when the
+//     geo optional argument is true.
 func (t Term) IndexCreate(name interface{}, optArgs ...IndexCreateOpts) Term {
 	opts := map[string]interface{}{}
 	if len(optArgs) >= 1 {
@@ -91,10 +90,15 @@ func (t Term) IndexCreate(name interface{}, optArgs ...IndexCreateOpts) Term {
 
 // IndexCreateFunc creates a new secondary index on a table. Secondary indexes
 // improve the speed of many read queries at the slight cost of increased
-// storage space and decreased write performance.
+// storage space and decreased write performance. The function takes a index
+// name and RQL term as the index value , the term can be an anonymous function
+// or a binary representation obtained from the function field of indexStatus.
 //
-// The indexFunction can be an anonymous function or a binary representation
-// obtained from the function field of indexStatus.
+// It supports the creation of the following types of indexes.
+//   - Simple indexes based on the value of a single field where the index has a
+//     different name to the field.
+//   - Compound indexes based on multiple fields.
+//   - Multi indexes based on arrays of values, created when the multi optional argument is true.
 func (t Term) IndexCreateFunc(name, indexFunction interface{}, optArgs ...IndexCreateOpts) Term {
 	opts := map[string]interface{}{}
 	if len(optArgs) >= 1 {

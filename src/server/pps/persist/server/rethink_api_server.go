@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/dancannon/gorethink"
@@ -11,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
+
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/pkg/time"
 	"go.pedge.io/proto/rpclog"
@@ -19,13 +19,15 @@ import (
 )
 
 const (
-	jobInfosTable      Table = "JobInfos"
-	pipelineInfosTable Table = "PipelineInfos"
-
+	jobInfosTable              Table = "JobInfos"
 	pipelineNameIndex          Index = "PipelineName"
 	pipelineNameAndCommitIndex Index = "PipelineNameAndCommitIndex"
 	commitIndex                Index = "CommitIndex"
-	connectTimeoutSeconds            = 5
+
+	pipelineInfosTable Table = "PipelineInfos"
+	pipelineShardIndex Index = "Shard"
+
+	connectTimeoutSeconds = 5
 )
 
 type Table string
@@ -54,19 +56,12 @@ var (
 
 // InitDBs prepares a RethinkDB instance to be used by the rethink server.
 // Rethink servers will error if they are pointed at databases that haven't had InitDBs run on them.
-// InitDBs is idempotent (unless rethink dies in the middle of the function)
 func InitDBs(address string, databaseName string) error {
 	session, err := connect(address)
 	if err != nil {
 		return err
 	}
 	if _, err := gorethink.DBCreate(databaseName).RunWrite(session); err != nil {
-		if isDatabaseExistsError(err) {
-			// We assume that the database has been created by another replica
-			// of pachd, so we exit peacefully.
-			return nil
-		}
-
 		return err
 	}
 	for _, table := range tables {
@@ -82,7 +77,7 @@ func InitDBs(address string, databaseName string) error {
 		}
 	}
 
-	// Create some indexes for the jobInfosTable
+	// Create indexes
 	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexCreate(pipelineNameIndex).RunWrite(session); err != nil {
 		return err
 	}
@@ -99,13 +94,43 @@ func InitDBs(address string, databaseName string) error {
 		}).RunWrite(session); err != nil {
 		return err
 	}
+	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).IndexCreate(pipelineShardIndex).RunWrite(session); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func isDatabaseExistsError(err error) bool {
-	// Unfortunately the gorethink client library does not expose a custom type
-	// for this particular error, so we have to resort to this hacky approach
-	return strings.Contains(err.Error(), "Database") && strings.Contains(err.Error(), "already exists")
+// CheckDBs checks that we have all the tables/indices we need
+func CheckDBs(address string, databaseName string) error {
+	session, err := connect(address)
+	if err != nil {
+		return err
+	}
+
+	for _, table := range tables {
+		if _, err := gorethink.DB(databaseName).Table(table).Wait().RunWrite(session); err != nil {
+			return err
+		}
+	}
+
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexWait(pipelineNameIndex).RunWrite(session); err != nil {
+		return err
+	}
+
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexWait(commitIndex).RunWrite(session); err != nil {
+		return err
+	}
+
+	if _, err := gorethink.DB(databaseName).Table(jobInfosTable).IndexWait(pipelineNameAndCommitIndex).RunWrite(session); err != nil {
+		return err
+	}
+
+	if _, err := gorethink.DB(databaseName).Table(pipelineInfosTable).IndexWait(pipelineShardIndex).RunWrite(session); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type rethinkAPIServer struct {
@@ -132,7 +157,6 @@ func (a *rethinkAPIServer) Close() error {
 	return a.session.Close()
 }
 
-// JobID cannot be set
 // Timestamp cannot be set
 func (a *rethinkAPIServer) CreateJobInfo(ctx context.Context, request *persist.JobInfo) (response *persist.JobInfo, err error) {
 	defer func(start time.Time) { a.Log(request, response, err, time.Since(start)) }(time.Now())
@@ -284,9 +308,12 @@ func (a *rethinkAPIServer) GetPipelineInfo(ctx context.Context, request *ppsclie
 	return pipelineInfo, nil
 }
 
-func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *google_protobuf.Empty) (response *persist.PipelineInfos, retErr error) {
+func (a *rethinkAPIServer) ListPipelineInfos(ctx context.Context, request *persist.ListPipelineInfosRequest) (response *persist.PipelineInfos, retErr error) {
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	query := a.getTerm(pipelineInfosTable)
+	if request.Shard != nil {
+		query = query.GetAllByIndex(pipelineShardIndex, request.Shard.Number)
+	}
 	cursor, err := query.Run(a.session)
 	if err != nil {
 		return nil, err
@@ -316,6 +343,43 @@ func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *ppsc
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
+}
+
+type PipelineChangeFeed struct {
+	OldVal *persist.PipelineInfo `gorethink:"old_val,omitempty"`
+	NewVal *persist.PipelineInfo `gorethink:"new_val,omitempty"`
+}
+
+func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipelineInfosRequest, server persist.API_SubscribePipelineInfosServer) (retErr error) {
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	query := a.getTerm(pipelineInfosTable)
+	if request.Shard != nil {
+		query = query.GetAllByIndex(pipelineShardIndex, request.Shard.Number)
+	}
+
+	cursor, err := query.Changes(gorethink.ChangesOpts{
+		IncludeInitial: request.IncludeInitial,
+	}).Run(a.session)
+	if err != nil {
+		return err
+	}
+
+	var change PipelineChangeFeed
+	for cursor.Next(&change) {
+		if change.NewVal != nil {
+			server.Send(&persist.PipelineInfoChange{
+				Pipeline: change.NewVal,
+			})
+		} else if change.OldVal != nil {
+			server.Send(&persist.PipelineInfoChange{
+				Pipeline: change.OldVal,
+				Removed:  true,
+			})
+		} else {
+			return fmt.Errorf("neither old_val nor new_val was present in the changefeed; this is likely a bug")
+		}
+	}
+	return cursor.Err()
 }
 
 func (a *rethinkAPIServer) StartShard(ctx context.Context, request *ppsclient.Job) (response *persist.JobInfo, retErr error) {
@@ -387,7 +451,9 @@ func (a *rethinkAPIServer) waitMessageByPrimaryKey(
 	term := a.getTerm(table).
 		Get(key).
 		Default(gorethink.Error("value not found")).
-		Changes().
+		Changes(gorethink.ChangesOpts{
+			IncludeInitial: true,
+		}).
 		Field("new_val").
 		Filter(predicate)
 	cursor, err := term.Run(a.session)

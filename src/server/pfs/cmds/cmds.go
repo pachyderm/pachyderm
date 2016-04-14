@@ -244,19 +244,6 @@ This layers the data in the commit over the data in the parent.`,
 		}),
 	}
 
-	deleteCommit := &cobra.Command{
-		Use:   "delete-commit repo-name commit-id",
-		Short: "Delete a commit.",
-		Long:  "Delete a commit.",
-		Run: pkgcobra.RunFixedArgs(2, func(args []string) error {
-			apiClient, err := getAPIClient(address)
-			if err != nil {
-				return err
-			}
-			return pfsclient.DeleteCommit(apiClient, args[0], args[1])
-		}),
-	}
-
 	file := &cobra.Command{
 		Use:   "file",
 		Short: "Docs for files.",
@@ -278,7 +265,7 @@ Files can be read from finished commits with get-file.`,
 			if err != nil {
 				return err
 			}
-			_, err = pfsclient.PutFile(apiClient, args[0], args[1], args[2], 0, os.Stdin)
+			_, err = pfsclient.PutFile(apiClient, args[0], args[1], args[2], os.Stdin)
 			return err
 		}),
 	}
@@ -391,7 +378,6 @@ Files can be read from finished commits with get-file.`,
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)
 	result = append(result, listBranch)
-	result = append(result, deleteCommit)
 	result = append(result, file)
 	result = append(result, putFile)
 	result = append(result, getFile)
