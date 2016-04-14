@@ -801,10 +801,13 @@ func TestBigWrite(t *testing.T) {
 	require.NoError(t, pfsclient.CreateRepo(apiClient, repo))
 	commit, err := pfsclient.StartCommit(apiClient, repo, "", "")
 	require.NoError(t, err)
-	require.YesError(t, ioutil.WriteFile(filepath.Join(mountpoint, repo, commit.ID, "file"), bytes.Repeat([]byte{'a'}, 1024*1024), 0644))
-	stdin := strings.NewReader(fmt.Sprintf("yes | tr -d '\\n' | head -b 1000000 | dd of=%s",
-		filepath.Join(mountpoint, repo, commit.ID, "file2")))
-	require.YesError(t, pkgexec.RunStdin(stdin, "sh"))
+	path := filepath.Join(mountpoint, repo, commit.ID, "file1")
+	stdin := strings.NewReader(fmt.Sprintf("yes | tr -d '\\n' | head -c 1000000 > %s", path))
+	require.NoError(t, pkgexec.RunStdin(stdin, "sh"))
+	require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit.ID))
+	data, err := ioutil.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, append(bytes.Repeat([]byte{'y'}, 1000000), '\n'), data)
 }
 
 func Test296(t *testing.T) {
