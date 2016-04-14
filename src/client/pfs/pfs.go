@@ -233,12 +233,12 @@ func ListBlock(apiClient BlockAPIClient) ([]*BlockInfo, error) {
 	return blockInfos.BlockInfo, nil
 }
 
-func PutFile(apiClient APIClient, repoName string, commitID string, path string) (io.WriteCloser, error) {
+func PutFileWriter(apiClient APIClient, repoName string, commitID string, path string) (io.WriteCloser, error) {
 	return newPutFileWriteCloser(apiClient, repoName, commitID, path)
 }
 
-func PutFileReader(apiClient APIClient, repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
-	writer, err := PutFile(apiClient, repoName, commitID, path)
+func PutFile(apiClient APIClient, repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
+	writer, err := PutFileWriter(apiClient, repoName, commitID, path)
 	if err != nil {
 		return 0, err
 	}
