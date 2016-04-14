@@ -132,11 +132,8 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 		size:      0,
 		local:     true,
 	}
-	handle, err := localResult.Open(ctx, nil, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	return localResult, handle, nil
+	localResult.addHandle()
+	return localResult, localResult, nil
 }
 
 func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (result fs.Node, retErr error) {
@@ -220,7 +217,8 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 	defer func() {
 		protolion.Debug(&FileRead{&f.Node, errorToString(retErr)})
 	}()
-	atomic.AddInt32(&f.handles, 1)
+	f.addHandle()
+	response.Flags |= fuse.OpenDirectIO
 	return f, nil
 }
 
@@ -228,7 +226,6 @@ func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *
 	defer func() {
 		protolion.Debug(&FileWrite{&f.Node, errorToString(retErr)})
 	}()
-	protolion.Printf("Write(%s)\n", string(request.Data))
 	written, err := pfsclient.PutFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.ID, f.File.Path, bytes.NewReader(request.Data))
 	if err != nil {
 		return err
@@ -255,6 +252,10 @@ func (f *filesystem) inode(file *pfsclient.File) uint64 {
 	f.inodes[key(file)] = newInode
 	f.lock.Unlock()
 	return newInode
+}
+
+func (f *file) addHandle() {
+	atomic.AddInt32(&f.handles, 1)
 }
 
 func (d *directory) copy() *directory {
