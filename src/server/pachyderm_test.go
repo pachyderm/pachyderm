@@ -239,7 +239,7 @@ func TestJobLongOutputLine(t *testing.T) {
 		pachClient,
 		"",
 		[]string{"sh"},
-		[]string{"for i in $(seq 1 2048); do printf aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; done >/pfs/out/file"},
+		[]string{"yes | tr -d '\\n' | head -c 1000000 > /pfs/out/file"},
 		1,
 		[]*ppsclient.JobInput{},
 		"",
@@ -251,7 +251,7 @@ func TestJobLongOutputLine(t *testing.T) {
 	}
 	jobInfo, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
 	require.NoError(t, err)
-	require.Equal(t, ppsclient.JobState_JOB_STATE_FAILURE.String(), jobInfo.State.String())
+	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
 }
 
 func TestPipeline(t *testing.T) {
