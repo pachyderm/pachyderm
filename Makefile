@@ -91,7 +91,7 @@ launch: install
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
 	# wait for the pachyderm to come up
 	# if we can create a repo, that means that the cluster is ready to serve
-	until timeout 5s $(GOPATH)/bin/pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
+	until $(GOPATH)/bin/pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
 
 launch-dev: launch-kube launch
 
