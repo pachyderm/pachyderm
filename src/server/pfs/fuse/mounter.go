@@ -1,12 +1,14 @@
 package fuse
 
 import (
+	"encoding/json"
 	"os"
 	"sync"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"go.pedge.io/lion"
 )
 
 const (
@@ -65,11 +67,20 @@ func (m *mounter) Mount(
 			close(ready)
 		}
 	})
-	if err := fs.Serve(conn, newFilesystem(m.apiClient, shard, commitMounts)); err != nil {
+	config := &fs.Config{Debug: debug}
+	if err := fs.New(conn, config).Serve(newFilesystem(m.apiClient, shard, commitMounts)); err != nil {
 		return err
 	}
 	<-conn.Ready
 	return conn.MountError
+}
+
+func debug(msg interface{}) {
+	marshalled, err := json.Marshal(msg)
+	if err != nil {
+		lion.Printf("error from json.Marshal: %s", err.Error())
+	}
+	lion.Printf(string(marshalled))
 }
 
 func (m *mounter) Unmount(mountPoint string) error {
