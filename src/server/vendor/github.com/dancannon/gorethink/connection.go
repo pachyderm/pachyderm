@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	p "github.com/dancannon/gorethink/ql2"
+	p "gopkg.in/dancannon/gorethink.v1/ql2"
 )
 
 const (
@@ -41,6 +41,7 @@ type Connection struct {
 	token   int64
 	cursors map[int64]*Cursor
 	bad     bool
+	closed  bool
 }
 
 // NewConnection creates a new connection to the database server
@@ -52,34 +53,26 @@ func NewConnection(address string, opts *ConnectOpts) (*Connection, error) {
 		cursors: make(map[int64]*Cursor),
 	}
 	// Connect to Server
-	nd := net.Dialer{Timeout: c.opts.Timeout}
+	nd := net.Dialer{Timeout: c.opts.Timeout, KeepAlive: opts.KeepAlivePeriod}
 	if c.opts.TLSConfig == nil {
 		c.Conn, err = nd.Dial("tcp", address)
 	} else {
 		c.Conn, err = tls.DialWithDialer(&nd, "tcp", address, c.opts.TLSConfig)
 	}
 	if err != nil {
-		return nil, err
+		return nil, RQLConnectionError{rqlError(err.Error())}
 	}
-	// Enable TCP Keepalives on TCP connections
-	if tc, ok := c.Conn.(*net.TCPConn); ok {
-		if err := tc.SetKeepAlive(true); err != nil {
-			// Don't send COM_QUIT before handshake.
-			c.Conn.Close()
-			c.Conn = nil
-			return nil, err
-		}
-	}
+
 	// Send handshake request
 	if err = c.writeHandshakeReq(); err != nil {
 		c.Close()
-		return nil, err
+		return nil, RQLConnectionError{rqlError(err.Error())}
 	}
 	// Read handshake response
 	err = c.readHandshakeSuccess()
 	if err != nil {
 		c.Close()
-		return nil, err
+		return nil, RQLConnectionError{rqlError(err.Error())}
 	}
 
 	return c, nil
@@ -90,14 +83,15 @@ func (c *Connection) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.Conn != nil {
-		c.Conn.Close()
-		c.Conn = nil
+	var err error
+
+	if !c.closed {
+		err = c.Conn.Close()
+		c.closed = true
+		c.cursors = make(map[int64]*Cursor)
 	}
 
-	c.cursors = nil
-
-	return nil
+	return err
 }
 
 // Query sends a Query to the database, returning both the raw Response and a
@@ -105,11 +99,10 @@ func (c *Connection) Close() error {
 //
 // This function is used internally by Run which should be used for most queries.
 func (c *Connection) Query(q Query) (*Response, *Cursor, error) {
-	c.mu.Lock()
 	if c == nil {
-		c.mu.Unlock()
 		return nil, nil, ErrConnectionClosed
 	}
+	c.mu.Lock()
 	if c.Conn == nil {
 		c.bad = true
 		c.mu.Unlock()
@@ -123,7 +116,8 @@ func (c *Connection) Query(q Query) (*Response, *Cursor, error) {
 			var err error
 			q.Opts["db"], err = DB(c.opts.Database).build()
 			if err != nil {
-				return nil, nil, err
+				c.mu.Unlock()
+				return nil, nil, RQLDriverError{rqlError(err.Error())}
 			}
 		}
 	}
@@ -227,7 +221,8 @@ func (c *Connection) readResponse() (*Response, error) {
 	// Read response header (token+length)
 	headerBuf := [respHeaderLen]byte{}
 	if _, err := c.read(headerBuf[:], respHeaderLen); err != nil {
-		return nil, err
+		c.bad = true
+		return nil, RQLConnectionError{rqlError(err.Error())}
 	}
 
 	responseToken := int64(binary.LittleEndian.Uint64(headerBuf[:8]))

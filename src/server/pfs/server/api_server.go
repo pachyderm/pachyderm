@@ -146,7 +146,9 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfsclient.ListRepoReq
 				select {
 				default:
 				case errCh <- err:
+					return
 				}
+				return
 			}
 			lock.Lock()
 			repoInfos = append(repoInfos, response.RepoInfo...)
@@ -377,7 +379,12 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfsclient.DeleteC
 func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr error) {
 	var request *pfsclient.PutFileRequest
 	var err error
-	defer func(start time.Time) { a.Log(request, google_protobuf.EmptyInstance, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		if request != nil {
+			request.Value = nil // we set the value to nil so as not to spam logs
+		}
+		a.Log(request, google_protobuf.EmptyInstance, retErr, time.Since(start))
+	}(time.Now())
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
 	ctx := versionToContext(a.version, putFileServer.Context())

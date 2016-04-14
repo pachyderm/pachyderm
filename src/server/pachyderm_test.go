@@ -50,7 +50,7 @@ func testJob(t *testing.T, shards int) {
 	// started with some files
 	numFiles := shards*100 + 100
 	for i := 0; i < numFiles; i++ {
-		_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, fmt.Sprintf("file-%d", i), 0, strings.NewReader(fileContent))
+		_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
 		require.NoError(t, err)
 	}
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
@@ -74,6 +74,7 @@ func testJob(t *testing.T, shards int) {
 	}
 	jobInfo, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
 	require.NoError(t, err)
+	t.Logf("jobInfo: %v", jobInfo)
 	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
 	require.True(t, jobInfo.Shards > 0)
 	commitInfo, err := pfsclient.InspectCommit(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
@@ -84,6 +85,65 @@ func testJob(t *testing.T, shards int) {
 		require.NoError(t, pfsclient.GetFile(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("file-%d", i), 0, 0, "", nil, &buffer))
 		require.Equal(t, fileContent, buffer.String())
 	}
+}
+
+func TestDuplicatedJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+
+	pachClient := getPachClient(t)
+
+	dataRepo := uniqueString("TestDuplicatedJob.data")
+	require.NoError(t, pfsclient.CreateRepo(pachClient, dataRepo))
+
+	commit, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
+	require.NoError(t, err)
+
+	fileContent := "foo\n"
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, "file", strings.NewReader(fileContent))
+	require.NoError(t, err)
+
+	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
+
+	pipelineName := uniqueString("TestDuplicatedJob.pipeline")
+	require.NoError(t, pfsclient.CreateRepo(pachClient, pipelineName))
+
+	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
+	// Now we manually create the same job
+	req := &ppsclient.CreateJobRequest{
+		Transform: &ppsclient.Transform{
+			Cmd: cmd,
+		},
+		Pipeline: &ppsclient.Pipeline{
+			Name: pipelineName,
+		},
+		Inputs: []*ppsclient.JobInput{{
+			Commit: commit,
+		}},
+	}
+
+	job1, err := pachClient.CreateJob(context.Background(), req)
+	require.NoError(t, err)
+
+	job2, err := pachClient.CreateJob(context.Background(), req)
+	require.NoError(t, err)
+
+	require.Equal(t, job1, job2)
+
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:         job1,
+		BlockOutput: true,
+		BlockState:  true,
+	}
+	jobInfo, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
+	require.NoError(t, err)
+
+	var buffer bytes.Buffer
+	require.NoError(t, pfsclient.GetFile(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, "file", 0, 0, "", nil, &buffer))
+	require.Equal(t, fileContent, buffer.String())
 }
 
 func TestLogs(t *testing.T) {
@@ -110,7 +170,7 @@ func TestLogs(t *testing.T) {
 	require.NoError(t, err)
 	// TODO we Sleep here because even though the job has completed kubernetes
 	// might not have even noticed the container was created yet
-	time.Sleep(2 * time.Second)
+	time.Sleep(10 * time.Second)
 	var buffer bytes.Buffer
 	require.NoError(t, ppsclient.GetLogs(pachClient, job.ID, &buffer))
 	require.Equal(t, "0 | foo\n1 | foo\n2 | foo\n3 | foo\n", buffer.String())
@@ -129,7 +189,7 @@ func TestGrep(t *testing.T) {
 	commit, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
 	require.NoError(t, err)
 	for i := 0; i < 100; i++ {
-		_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, fmt.Sprintf("file%d", i), 0, strings.NewReader("foo\nbar\nfizz\nbuzz\n"))
+		_, err = pfsclient.PutFile(pachClient, dataRepo, commit.ID, fmt.Sprintf("file%d", i), strings.NewReader("foo\nbar\nfizz\nbuzz\n"))
 		require.NoError(t, err)
 	}
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit.ID))
@@ -196,7 +256,7 @@ func TestPipeline(t *testing.T) {
 	// Do first commit to repo
 	commit1, err := pfsclient.StartCommit(pachClient, dataRepo, "", "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, dataRepo, commit1.ID, "file", 0, strings.NewReader("foo\n"))
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit1.ID))
 	listCommitRequest := &pfsclient.ListCommitRequest{
@@ -217,7 +277,7 @@ func TestPipeline(t *testing.T) {
 	// Do second commit to repo
 	commit2, err := pfsclient.StartCommit(pachClient, dataRepo, commit1.ID, "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, dataRepo, commit2.ID, "file", 0, strings.NewReader("bar\n"))
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit2.ID, "file", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit2.ID))
 	listCommitRequest = &pfsclient.ListCommitRequest{
@@ -238,6 +298,36 @@ func TestPipeline(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nbar\n", buffer.String())
+
+	require.NoError(t, ppsclient.DeletePipeline(pachClient, pipelineName))
+
+	pipelineInfos, err := pachClient.ListPipeline(context.Background(), &ppsclient.ListPipelineRequest{})
+	require.NoError(t, err)
+	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
+		require.True(t, pipelineInfo.Pipeline.Name != pipelineName)
+	}
+
+	// Do third commit to repo; this time pipeline should not run since it's been deleted
+	commit3, err := pfsclient.StartCommit(pachClient, dataRepo, commit2.ID, "")
+	require.NoError(t, err)
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit3.ID, "file", strings.NewReader("buzz\n"))
+	require.NoError(t, err)
+	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit3.ID))
+
+	// We will sleep a while to wait for the pipeline to actually get cancelled
+	// Also if the pipeline didn't get cancelled (due to a bug), we sleep a while
+	// to let the pipeline commit
+	time.Sleep(5 * time.Second)
+	listCommitRequest = &pfsclient.ListCommitRequest{
+		Repo: []*pfsclient.Repo{outRepo},
+	}
+	listCommitResponse, err = pachClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	// there should only be two commits in the pipeline
+	require.Equal(t, len(listCommitResponse.CommitInfo), 2)
 }
 
 func TestWorkload(t *testing.T) {
@@ -272,7 +362,7 @@ func TestSharding(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			rand := rand.New(rand.NewSource(int64(i)))
-			_, err = pfsclient.PutFile(pachClient, repo, commit.ID, fmt.Sprintf("file%d", i), 0, workload.NewReader(rand, KB))
+			_, err = pfsclient.PutFile(pachClient, repo, commit.ID, fmt.Sprintf("file%d", i), workload.NewReader(rand, KB))
 			require.NoError(t, err)
 		}()
 	}
@@ -319,13 +409,13 @@ func TestFromCommit(t *testing.T) {
 	require.NoError(t, err)
 	commit1, err := pfsclient.StartCommit(pachClient, repo, "", "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, repo, commit1.ID, "file", 0, workload.NewReader(rand, KB))
+	_, err = pfsclient.PutFile(pachClient, repo, commit1.ID, "file", workload.NewReader(rand, KB))
 	require.NoError(t, err)
 	err = pfsclient.FinishCommit(pachClient, repo, commit1.ID)
 	require.NoError(t, err)
 	commit2, err := pfsclient.StartCommit(pachClient, repo, commit1.ID, "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, repo, commit2.ID, "file", 0, workload.NewReader(rand, KB))
+	_, err = pfsclient.PutFile(pachClient, repo, commit2.ID, "file", workload.NewReader(rand, KB))
 	require.NoError(t, err)
 	err = pfsclient.FinishCommit(pachClient, repo, commit2.ID)
 	require.NoError(t, err)
@@ -347,7 +437,7 @@ func TestSimple(t *testing.T) {
 	require.NoError(t, pfsclient.CreateRepo(pachClient, repo))
 	commit1, err := pfsclient.StartCommit(pachClient, repo, "", "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, repo, commit1.ID, "foo", 0, strings.NewReader("foo\n"))
+	_, err = pfsclient.PutFile(pachClient, repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pachClient, repo, commit1.ID))
 	commitInfos, err := pfsclient.ListCommit(pachClient, []string{repo}, nil, false)
@@ -358,7 +448,7 @@ func TestSimple(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 	commit2, err := pfsclient.StartCommit(pachClient, repo, commit1.ID, "")
 	require.NoError(t, err)
-	_, err = pfsclient.PutFile(pachClient, repo, commit2.ID, "foo", 0, strings.NewReader("foo\n"))
+	_, err = pfsclient.PutFile(pachClient, repo, commit2.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	err = pfsclient.FinishCommit(pachClient, repo, commit2.ID)
 	require.NoError(t, err)

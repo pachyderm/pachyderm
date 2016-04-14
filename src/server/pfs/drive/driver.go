@@ -28,13 +28,13 @@ type driver struct {
 
 func newDriver(blockAddress string) (Driver, error) {
 	return &driver{
-		blockAddress,
-		nil,
-		sync.Once{},
-		make(diffMap),
-		make(map[string]*dag.DAG),
-		make(map[string]map[string]string),
-		sync.RWMutex{},
+		blockAddress:    blockAddress,
+		blockClient:     nil,
+		blockClientOnce: sync.Once{},
+		diffs:           make(diffMap),
+		dags:            make(map[string]*dag.DAG),
+		branches:        make(map[string]map[string]string),
+		lock:            sync.RWMutex{},
 	}, nil
 }
 
@@ -144,6 +144,10 @@ func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 	var diffInfos []*pfs.DiffInfo
 	d.lock.Lock()
+	if _, ok := d.diffs[repo.Name]; !ok {
+		d.lock.Unlock()
+		return fmt.Errorf("repo %s does not exist", repo.Name)
+	}
 	for shard := range shards {
 		for _, diffInfo := range d.diffs[repo.Name][shard] {
 			diffInfos = append(diffInfos, diffInfo)
@@ -330,7 +334,7 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 	return fmt.Errorf("DeleteCommit is not implemented")
 }
 
-func (d *driver) PutFile(file *pfs.File, shard uint64, offset int64, reader io.Reader) (retErr error) {
+func (d *driver) PutFile(file *pfs.File, shard uint64, reader io.Reader) (retErr error) {
 	blockClient, err := d.getBlockClient()
 	if err != nil {
 		return err
