@@ -31,7 +31,7 @@ func NewAPIServer(
 		persistAPIClient:     nil,
 		persistClientOnce:    sync.Once{},
 		kubeClient:           kubeClient,
-		cancelFuncs:          make(map[ppsclient.Pipeline]func()),
+		cancelFuncs:          make(map[string]func()),
 		cancelFuncsLock:      sync.Mutex{},
 		shardCancelFuncs:     make(map[uint64]func()),
 		shardCancelFuncsLock: sync.Mutex{},

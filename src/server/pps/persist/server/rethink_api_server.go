@@ -345,6 +345,11 @@ func (a *rethinkAPIServer) DeletePipelineInfo(ctx context.Context, request *ppsc
 	return google_protobuf.EmptyInstance, nil
 }
 
+type PipelineChangeFeed struct {
+	OldVal *persist.PipelineInfo `gorethink:"old_val,omitempty"`
+	NewVal *persist.PipelineInfo `gorethink:"new_val,omitempty"`
+}
+
 func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipelineInfosRequest, server persist.API_SubscribePipelineInfosServer) (retErr error) {
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	query := a.getTerm(pipelineInfosTable)
@@ -354,14 +359,25 @@ func (a *rethinkAPIServer) SubscribePipelineInfos(request *persist.SubscribePipe
 
 	cursor, err := query.Changes(gorethink.ChangesOpts{
 		IncludeInitial: request.IncludeInitial,
-	}).Field("new_val").Run(a.session)
+	}).Run(a.session)
 	if err != nil {
 		return err
 	}
 
-	var pipelineInfo persist.PipelineInfo
-	for cursor.Next(&pipelineInfo) {
-		server.Send(&pipelineInfo)
+	var change PipelineChangeFeed
+	for cursor.Next(&change) {
+		if change.NewVal != nil {
+			server.Send(&persist.PipelineInfoChange{
+				Pipeline: change.NewVal,
+			})
+		} else if change.OldVal != nil {
+			server.Send(&persist.PipelineInfoChange{
+				Pipeline: change.OldVal,
+				Removed:  true,
+			})
+		} else {
+			return fmt.Errorf("neither old_val nor new_val was present in the changefeed; this is likely a bug")
+		}
 	}
 	return cursor.Err()
 }
