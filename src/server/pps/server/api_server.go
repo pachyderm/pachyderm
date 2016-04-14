@@ -526,10 +526,6 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 	if _, err := persistClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
-	a.cancelFuncsLock.Lock()
-	defer a.cancelFuncsLock.Unlock()
-	a.cancelFuncs[request.Pipeline.Name]()
-	delete(a.cancelFuncs, request.Pipeline.Name)
 	return google_protobuf.EmptyInstance, nil
 }
 
@@ -565,16 +561,28 @@ func (a *apiServer) AddShard(shard uint64) error {
 
 	go func() {
 		for {
-			pipelineInfo, err := client.Recv()
+			pipelineChange, err := client.Recv()
 			if err != nil {
 				return
 			}
 
-			go func() {
-				if err := a.runPipeline(newPipelineInfo(pipelineInfo)); err != nil {
-					protolion.Printf("error running pipeline: %v", err)
+			if pipelineChange.Removed {
+				a.cancelFuncsLock.Lock()
+				cancel, ok := a.cancelFuncs[pipelineChange.Pipeline.PipelineName]
+				if ok {
+					cancel()
+					delete(a.cancelFuncs, pipelineChange.Pipeline.PipelineName)
+				} else {
+					protolion.Printf("trying to cancel a pipeline that we are not assigned to; this is likely a bug")
 				}
-			}()
+				a.cancelFuncsLock.Unlock()
+			} else {
+				go func() {
+					if err := a.runPipeline(newPipelineInfo(pipelineChange.Pipeline)); err != nil {
+						protolion.Printf("error running pipeline: %v", err)
+					}
+				}()
+			}
 		}
 	}()
 
