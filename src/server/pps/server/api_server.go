@@ -45,7 +45,7 @@ type apiServer struct {
 	persistAPIClient     persist.APIClient
 	persistClientOnce    sync.Once
 	kubeClient           *kube.Client
-	cancelFuncs          map[ppsclient.Pipeline]func()
+	cancelFuncs          map[string]func()
 	cancelFuncsLock      sync.Mutex
 	shardCancelFuncs     map[uint64]func()
 	shardCancelFuncsLock sync.Mutex
@@ -519,13 +519,13 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *ppsclient.Delet
 		return nil, err
 	}
 
+	if request.Pipeline == nil {
+		return nil, fmt.Errorf("Pipeline cannot be nil")
+	}
+
 	if _, err := persistClient.DeletePipelineInfo(ctx, request.Pipeline); err != nil {
 		return nil, err
 	}
-	a.cancelFuncsLock.Lock()
-	defer a.cancelFuncsLock.Unlock()
-	a.cancelFuncs[*request.Pipeline]()
-	delete(a.cancelFuncs, *request.Pipeline)
 	return google_protobuf.EmptyInstance, nil
 }
 
@@ -561,16 +561,28 @@ func (a *apiServer) AddShard(shard uint64) error {
 
 	go func() {
 		for {
-			pipelineInfo, err := client.Recv()
+			pipelineChange, err := client.Recv()
 			if err != nil {
 				return
 			}
 
-			go func() {
-				if err := a.runPipeline(newPipelineInfo(pipelineInfo)); err != nil {
-					protolion.Printf("error running pipeline: %v", err)
+			if pipelineChange.Removed {
+				a.cancelFuncsLock.Lock()
+				cancel, ok := a.cancelFuncs[pipelineChange.Pipeline.PipelineName]
+				if ok {
+					cancel()
+					delete(a.cancelFuncs, pipelineChange.Pipeline.PipelineName)
+				} else {
+					protolion.Printf("trying to cancel a pipeline that we are not assigned to; this is likely a bug")
 				}
-			}()
+				a.cancelFuncsLock.Unlock()
+			} else {
+				go func() {
+					if err := a.runPipeline(newPipelineInfo(pipelineChange.Pipeline)); err != nil {
+						protolion.Printf("error running pipeline: %v", err)
+					}
+				}()
+			}
 		}
 	}()
 
@@ -581,7 +593,9 @@ func (a *apiServer) DeleteShard(shard uint64) error {
 	a.cancelFuncsLock.Lock()
 	defer a.cancelFuncsLock.Unlock()
 	for pipeline, cancelFunc := range a.cancelFuncs {
-		if a.hasher.HashPipeline(&pipeline) == shard {
+		if a.hasher.HashPipeline(&ppsclient.Pipeline{
+			Name: pipeline,
+		}) == shard {
 			cancelFunc()
 			delete(a.cancelFuncs, pipeline)
 		}
@@ -613,12 +627,12 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancelFuncsLock.Lock()
-	if _, ok := a.cancelFuncs[*pipelineInfo.Pipeline]; ok {
+	if _, ok := a.cancelFuncs[pipelineInfo.Pipeline.Name]; ok {
 		// The pipeline is already being run
 		a.cancelFuncsLock.Unlock()
 		return nil
 	}
-	a.cancelFuncs[*pipelineInfo.Pipeline] = cancel
+	a.cancelFuncs[pipelineInfo.Pipeline.Name] = cancel
 	a.cancelFuncsLock.Unlock()
 	repoToLeaves := make(map[string]map[string]bool)
 	repoToInput := make(map[string]*ppsclient.PipelineInput)
