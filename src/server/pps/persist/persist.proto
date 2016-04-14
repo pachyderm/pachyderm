@@ -49,6 +49,11 @@ message PipelineInfo {
   uint64 shard = 7;  // this is which shard the pipeline is assigned to
 }
 
+message PipelineInfoChange {
+  PipelineInfo pipeline = 1;
+  bool removed = 2;
+}
+
 message PipelineInfos {
   repeated PipelineInfo pipeline_info = 1;
 }
@@ -90,7 +95,7 @@ service API {
   // ordered by time, latest to earliest
   rpc ListPipelineInfos(ListPipelineInfosRequest) returns (PipelineInfos) {}
   rpc DeletePipelineInfo(pachyderm.pps.Pipeline) returns (google.protobuf.Empty) {}
-  rpc SubscribePipelineInfos(SubscribePipelineInfosRequest) returns (stream PipelineInfo) {}
+  rpc SubscribePipelineInfos(SubscribePipelineInfosRequest) returns (stream PipelineInfoChange) {}
 
   // Shard rpcs
   // Returns the new job info

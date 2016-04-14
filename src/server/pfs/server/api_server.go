@@ -148,6 +148,7 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfsclient.ListRepoReq
 				case errCh <- err:
 					return
 				}
+				return
 			}
 			lock.Lock()
 			repoInfos = append(repoInfos, response.RepoInfo...)
