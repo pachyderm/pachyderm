@@ -1,3 +1,9 @@
+# Add the following (commented) line to your ~/.bash_profile equivalent to digest these helpers:
+#
+# (assumes you have cloned the repository under $GOPATH per below)
+#
+# source $GOPATH/src/github.com/pachyderm/pachyderm/contributing/bash_helpers
+
 alias portforwarding="sudo docker-machine ssh dev -fTNL 8080:localhost:8080 -L 30650:localhost:30650"
 
 function init_docker_machine() {
