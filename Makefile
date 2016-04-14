@@ -102,7 +102,7 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-tests:
-	go test ./src/server -timeout 120s
+	CGOENABLED=0 go test ./src/server -timeout 120s
 
 docker-proto-run:
 	cd /go/src/github.com/pachyderm/pachyderm && \
@@ -153,8 +153,8 @@ pretest:
 test: pretest localtest docker-build clean-launch launch integration-tests
 
 localtest: deps-client
-	GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/client/...)
-	GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/')
+	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/client/...)
+	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/')
 
 clean: clean-launch clean-launch-kube
 
