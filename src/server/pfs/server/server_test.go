@@ -441,8 +441,6 @@ func TestPutFile(t *testing.T) {
 	require.NoError(t, err)
 	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo/bar", strings.NewReader("foo\n"))
 	require.YesError(t, err)
-	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "big", bytes.NewBuffer(bytes.Repeat([]byte{'a'}, 1024*1024)))
-	require.YesError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
 
 	var buffer bytes.Buffer
