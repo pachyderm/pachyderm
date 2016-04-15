@@ -281,6 +281,31 @@ func Test296(t *testing.T) {
 	})
 }
 
+func TestSpacedWrites(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+		repo := "test"
+		require.NoError(t, pfsclient.CreateRepo(apiClient, repo))
+		commit, err := pfsclient.StartCommit(apiClient, repo, "", "")
+		require.NoError(t, err)
+		path := filepath.Join(mountpoint, repo, commit.ID, "file")
+		file, err := os.Create(path)
+		require.NoError(t, err)
+		_, err = file.Write([]byte("foo"))
+		require.NoError(t, err)
+		_, err = file.Write([]byte("foo"))
+		require.NoError(t, err)
+		require.NoError(t, file.Close())
+		require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit.ID))
+		data, err := ioutil.ReadFile(path)
+		require.NoError(t, err)
+		require.Equal(t, "foofoo\n", string(data))
+	})
+}
+
 func testFuse(
 	t *testing.T,
 	test func(apiClient pfsclient.APIClient, mountpoint string),
