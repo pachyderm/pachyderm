@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	"github.com/spf13/cobra"
@@ -20,6 +21,9 @@ import (
 )
 
 func PachctlCmd(address string) (*cobra.Command, error) {
+	clientTimeout := time.Duration(5 * time.Second)
+	pfs.Timeout = &clientTimeout
+
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
 		Long: `Access the Pachyderm API.
