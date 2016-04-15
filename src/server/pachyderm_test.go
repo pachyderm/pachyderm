@@ -230,6 +230,31 @@ func TestGrep(t *testing.T) {
 	require.Equal(t, repo1Info.SizeBytes, repo2Info.SizeBytes)
 }
 
+func TestJobLongOutputLine(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	pachClient := getPachClient(t)
+	job, err := ppsclient.CreateJob(
+		pachClient,
+		"",
+		[]string{"sh"},
+		[]string{"yes | tr -d '\\n' | head -c 1000000 > /pfs/out/file"},
+		1,
+		[]*ppsclient.JobInput{},
+		"",
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        job,
+		BlockState: true,
+	}
+	jobInfo, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
+}
+
 func TestPipeline(t *testing.T) {
 
 	if testing.Short() {
