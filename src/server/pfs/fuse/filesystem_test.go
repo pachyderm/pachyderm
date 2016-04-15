@@ -30,8 +30,6 @@ func TestRootReadDir(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	t.Parallel()
-
 	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
 		require.NoError(t, pfsclient.CreateRepo(apiClient, "one"))
 		require.NoError(t, pfsclient.CreateRepo(apiClient, "two"))
@@ -73,8 +71,6 @@ func TestRepoReadDir(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
-
-	t.Parallel()
 
 	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
 		repoName := "foo"
@@ -128,8 +124,6 @@ func TestCommitOpenReadDir(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	t.Parallel()
-
 	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, pfsclient.CreateRepo(apiClient, repoName))
@@ -160,8 +154,6 @@ func TestCommitFinishedReadDir(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
-
-	t.Parallel()
 
 	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
 		repoName := "foo"
@@ -222,8 +214,6 @@ func TestWriteAndRead(t *testing.T) {
 		t.Skip("Skipped because of short mode")
 	}
 
-	t.Parallel()
-
 	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
 		repoName := "foo"
 		require.NoError(t, pfsclient.CreateRepo(apiClient, repoName))
@@ -232,10 +222,13 @@ func TestWriteAndRead(t *testing.T) {
 		greeting := "Hello, world\n"
 		filePath := filepath.Join(mountpoint, repoName, commit.ID, "greeting")
 		require.NoError(t, ioutil.WriteFile(filePath, []byte(greeting), 0644))
+		_, err = ioutil.ReadFile(filePath)
+		// errors because the commit is unfinished
+		require.YesError(t, err)
+		require.NoError(t, pfsclient.FinishCommit(apiClient, repoName, commit.ID))
 		data, err := ioutil.ReadFile(filePath)
 		require.NoError(t, err)
-		require.Equal(t, nil, data)
-		require.NoError(t, pfsclient.FinishCommit(apiClient, repoName, commit.ID))
+		require.Equal(t, []byte(greeting), data)
 	})
 }
 
@@ -243,8 +236,6 @@ func TestBigWrite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
-
-	t.Parallel()
 
 	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
 		repo := "test"
@@ -266,8 +257,6 @@ func Test296(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
-
-	t.Parallel()
 
 	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
 		repo := "test"

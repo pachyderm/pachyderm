@@ -485,7 +485,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	}
 	var result []*pfs.FileInfo
 	for _, child := range fileInfo.Children {
-		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, true)
+		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, false)
 		if err != nil && err != pfsserver.ErrFileNotFound {
 			return nil, err
 		}
