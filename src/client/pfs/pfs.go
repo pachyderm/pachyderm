@@ -3,7 +3,6 @@ package pfs
 import (
 	"io"
 	"math"
-	"time"
 
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"

@@ -62,8 +62,14 @@ homebrew: deps-client
 
 release: deps-client
 	./etc/build/tag_release
+
 docker-build-compile:
-	sed 's/%%PACH_BUILD_NUMBER%%/${TRAVIS_BUILD_NUMBER}/' Dockerfile.pachd_template > Dockerfile.pachd
+	# Running locally, not on travis
+	if [ -z $$TRAVIS_BUILD_NUMER ]; then \
+		sed 's/%%PACH_BUILD_NUMBER%%/000/' Dockerfile.pachd_template > Dockerfile.pachd; \
+	else \
+		sed 's/%%PACH_BUILD_NUMBER%%/${TRAVIS_BUILD_NUMBER}/' Dockerfile.pachd_template > Dockerfile.pachd; \
+	fi
 	docker build -t pachyderm_compile .
 
 docker-build-job-shim: docker-build-compile
