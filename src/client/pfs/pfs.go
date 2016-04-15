@@ -11,14 +11,6 @@ import (
 
 const chunkSize = 1024 * 1024
 
-var blockingContext context.Context
-var streamingContext context.Context
-
-func init() {
-	blockingContext, _ = context.WithTimeout(context.Background(), time.Second)
-	streamingContext = context.Background()
-}
-
 func NewRepo(repoName string) *Repo {
 	return &Repo{Name: repoName}
 }
@@ -52,7 +44,7 @@ func NewDiff(repoName string, commitID string, shard uint64) *Diff {
 
 func CreateRepo(apiClient APIClient, repoName string) error {
 	_, err := apiClient.CreateRepo(
-		blockingContext,
+		context.Background(),
 		&CreateRepoRequest{
 			Repo: NewRepo(repoName),
 		},
@@ -62,7 +54,7 @@ func CreateRepo(apiClient APIClient, repoName string) error {
 
 func InspectRepo(apiClient APIClient, repoName string) (*RepoInfo, error) {
 	repoInfo, err := apiClient.InspectRepo(
-		blockingContext,
+		context.Background(),
 		&InspectRepoRequest{
 			Repo: NewRepo(repoName),
 		},
@@ -75,7 +67,7 @@ func InspectRepo(apiClient APIClient, repoName string) (*RepoInfo, error) {
 
 func ListRepo(apiClient APIClient) ([]*RepoInfo, error) {
 	repoInfos, err := apiClient.ListRepo(
-		blockingContext,
+		context.Background(),
 		&ListRepoRequest{},
 	)
 	if err != nil {
@@ -86,7 +78,7 @@ func ListRepo(apiClient APIClient) ([]*RepoInfo, error) {
 
 func DeleteRepo(apiClient APIClient, repoName string) error {
 	_, err := apiClient.DeleteRepo(
-		blockingContext,
+		context.Background(),
 		&DeleteRepoRequest{
 			Repo: NewRepo(repoName),
 		},
@@ -96,7 +88,7 @@ func DeleteRepo(apiClient APIClient, repoName string) error {
 
 func StartCommit(apiClient APIClient, repoName string, parentCommit string, branch string) (*Commit, error) {
 	commit, err := apiClient.StartCommit(
-		blockingContext,
+		context.Background(),
 		&StartCommitRequest{
 			Repo:     NewRepo(repoName),
 			ParentID: parentCommit,
@@ -111,7 +103,7 @@ func StartCommit(apiClient APIClient, repoName string, parentCommit string, bran
 
 func FinishCommit(apiClient APIClient, repoName string, commitID string) error {
 	_, err := apiClient.FinishCommit(
-		blockingContext,
+		context.Background(),
 		&FinishCommitRequest{
 			Commit: NewCommit(repoName, commitID),
 		},
@@ -121,7 +113,7 @@ func FinishCommit(apiClient APIClient, repoName string, commitID string) error {
 
 func InspectCommit(apiClient APIClient, repoName string, commitID string) (*CommitInfo, error) {
 	commitInfo, err := apiClient.InspectCommit(
-		blockingContext,
+		context.Background(),
 		&InspectCommitRequest{
 			Commit: NewCommit(repoName, commitID),
 		},
@@ -145,7 +137,7 @@ func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string,
 		})
 	}
 	commitInfos, err := apiClient.ListCommit(
-		blockingContext,
+		context.Background(),
 		&ListCommitRequest{
 			Repo:       repos,
 			FromCommit: fromCommits,
@@ -160,7 +152,7 @@ func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string,
 
 func ListBranch(apiClient APIClient, repoName string) ([]*CommitInfo, error) {
 	commitInfos, err := apiClient.ListBranch(
-		blockingContext,
+		context.Background(),
 		&ListBranchRequest{
 			Repo: NewRepo(repoName),
 		},
@@ -173,7 +165,7 @@ func ListBranch(apiClient APIClient, repoName string) ([]*CommitInfo, error) {
 
 func DeleteCommit(apiClient APIClient, repoName string, commitID string) error {
 	_, err := apiClient.DeleteCommit(
-		blockingContext,
+		context.Background(),
 		&DeleteCommitRequest{
 			Commit: NewCommit(repoName, commitID),
 		},
@@ -182,7 +174,7 @@ func DeleteCommit(apiClient APIClient, repoName string, commitID string) error {
 }
 
 func PutBlock(apiClient BlockAPIClient, reader io.Reader) (*BlockRefs, error) {
-	putBlockClient, err := apiClient.PutBlock(streamingContext)
+	putBlockClient, err := apiClient.PutBlock(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +186,7 @@ func PutBlock(apiClient BlockAPIClient, reader io.Reader) (*BlockRefs, error) {
 
 func GetBlock(apiClient BlockAPIClient, hash string, offsetBytes uint64, sizeBytes uint64) (io.Reader, error) {
 	apiGetBlockClient, err := apiClient.GetBlock(
-		streamingContext,
+		context.Background(),
 		&GetBlockRequest{
 			Block:       NewBlock(hash),
 			OffsetBytes: offsetBytes,
@@ -209,7 +201,7 @@ func GetBlock(apiClient BlockAPIClient, hash string, offsetBytes uint64, sizeByt
 
 func DeleteBlock(apiClient BlockAPIClient, block *Block) error {
 	_, err := apiClient.DeleteBlock(
-		blockingContext,
+		context.Background(),
 		&DeleteBlockRequest{
 			Block: block,
 		},
@@ -220,7 +212,7 @@ func DeleteBlock(apiClient BlockAPIClient, block *Block) error {
 
 func InspectBlock(apiClient BlockAPIClient, hash string) (*BlockInfo, error) {
 	blockInfo, err := apiClient.InspectBlock(
-		blockingContext,
+		context.Background(),
 		&InspectBlockRequest{
 			Block: NewBlock(hash),
 		},
@@ -233,7 +225,7 @@ func InspectBlock(apiClient BlockAPIClient, hash string) (*BlockInfo, error) {
 
 func ListBlock(apiClient BlockAPIClient) ([]*BlockInfo, error) {
 	blockInfos, err := apiClient.ListBlock(
-		blockingContext,
+		context.Background(),
 		&ListBlockRequest{},
 	)
 	if err != nil {
@@ -243,7 +235,7 @@ func ListBlock(apiClient BlockAPIClient) ([]*BlockInfo, error) {
 }
 
 func PutFile(apiClient APIClient, repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
-	putFileClient, err := apiClient.PutFile(streamingContext)
+	putFileClient, err := apiClient.PutFile(context.Background())
 	if err != nil {
 		return 0, err
 	}
@@ -284,7 +276,7 @@ func GetFile(apiClient APIClient, repoName string, commitID string, path string,
 		size = math.MaxInt64
 	}
 	apiGetFileClient, err := apiClient.GetFile(
-		streamingContext,
+		context.Background(),
 		&GetFileRequest{
 			File:        NewFile(repoName, commitID, path),
 			Shard:       shard,
@@ -304,7 +296,7 @@ func GetFile(apiClient APIClient, repoName string, commitID string, path string,
 
 func InspectFile(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard) (*FileInfo, error) {
 	fileInfo, err := apiClient.InspectFile(
-		blockingContext,
+		context.Background(),
 		&InspectFileRequest{
 			File:       NewFile(repoName, commitID, path),
 			Shard:      shard,
@@ -319,7 +311,7 @@ func InspectFile(apiClient APIClient, repoName string, commitID string, path str
 
 func ListFile(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard) ([]*FileInfo, error) {
 	fileInfos, err := apiClient.ListFile(
-		blockingContext,
+		context.Background(),
 		&ListFileRequest{
 			File:       NewFile(repoName, commitID, path),
 			Shard:      shard,
@@ -334,7 +326,7 @@ func ListFile(apiClient APIClient, repoName string, commitID string, path string
 
 func DeleteFile(apiClient APIClient, repoName string, commitID string, path string) error {
 	_, err := apiClient.DeleteFile(
-		blockingContext,
+		context.Background(),
 		&DeleteFileRequest{
 			File: NewFile(repoName, commitID, path),
 		},
@@ -343,7 +335,7 @@ func DeleteFile(apiClient APIClient, repoName string, commitID string, path stri
 }
 
 func MakeDirectory(apiClient APIClient, repoName string, commitID string, path string) (retErr error) {
-	putFileClient, err := apiClient.PutFile(blockingContext)
+	putFileClient, err := apiClient.PutFile(context.Background())
 	if err != nil {
 		return err
 	}
