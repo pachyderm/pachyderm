@@ -102,7 +102,7 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-tests:
-	go test $$(go list ./src/server/... | grep -v '/src/server/vendor/') -timeout 120s
+	go test ./src/server -timeout 120s
 
 docker-proto-run:
 	cd /go/src/github.com/pachyderm/pachyderm && \
@@ -150,13 +150,13 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest test-client docker-build clean-launch launch integration-tests
+test: pretest test-client test-local docker-build clean-launch launch integration-tests
 
 test-client: deps-client
 	GO15VENDOREXPERIMENT=1 go test -cover -v $$(go list ./src/client/...)
 
-localtest: test-client
-	GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/')
+test-local: test-client
+	GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
 
 clean: clean-launch clean-launch-kube
 
