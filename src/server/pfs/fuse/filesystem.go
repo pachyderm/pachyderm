@@ -3,6 +3,7 @@ package fuse
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
@@ -132,8 +133,9 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 		size:      0,
 		local:     true,
 	}
-	localResult.addHandle()
-	return localResult, localResult, nil
+	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
+	handle, err := localResult.newHandle()
+	return localResult, handle, err
 }
 
 func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (result fs.Node, retErr error) {
@@ -182,59 +184,12 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	return nil
 }
 
-func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
-	defer func() {
-		protolion.Debug(&FileRead{&f.Node, errorToString(retErr)})
-	}()
-	var buffer bytes.Buffer
-	if err := pfsclient.GetFile(
-		f.fs.apiClient,
-		f.File.Commit.Repo.Name,
-		f.File.Commit.ID,
-		f.File.Path,
-		request.Offset,
-		int64(request.Size),
-		f.fs.getFromCommitID(f.File.Commit.Repo.Name),
-		f.Shard,
-		&buffer,
-	); err != nil {
-		if grpc.Code(err) == codes.NotFound {
-			// This happens when trying to read from a file in an open
-			// commit. We could catch this at `open(2)` time and never
-			// get here, but Open is currently not a remote operation.
-			//
-			// ENOENT from read(2) is weird, let's call this EINVAL
-			// instead.
-			return fuse.Errno(syscall.EINVAL)
-		}
-		return err
-	}
-	response.Data = buffer.Bytes()
-	return nil
-}
-
 func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fuse.OpenResponse) (_ fs.Handle, retErr error) {
 	defer func() {
-		protolion.Debug(&FileRead{&f.Node, errorToString(retErr)})
+		protolion.Debug(&FileOpen{&f.Node, errorToString(retErr)})
 	}()
-	f.addHandle()
-	response.Flags |= fuse.OpenDirectIO
-	return f, nil
-}
-
-func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
-	defer func() {
-		protolion.Debug(&FileWrite{&f.Node, errorToString(retErr)})
-	}()
-	written, err := pfsclient.PutFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.ID, f.File.Path, bytes.NewReader(request.Data))
-	if err != nil {
-		return err
-	}
-	response.Size = written
-	if f.size < request.Offset+int64(written) {
-		f.size = request.Offset + int64(written)
-	}
-	return nil
+	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
+	return f.newHandle()
 }
 
 func (f *filesystem) inode(file *pfsclient.File) uint64 {
@@ -254,8 +209,71 @@ func (f *filesystem) inode(file *pfsclient.File) uint64 {
 	return newInode
 }
 
-func (f *file) addHandle() {
+func (f *file) newHandle() (*handle, error) {
 	atomic.AddInt32(&f.handles, 1)
+	w, err := pfsclient.PutFileWriter(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.ID, f.File.Path)
+	if err != nil {
+		return nil, err
+	}
+	return &handle{
+		f: f,
+		w: w,
+	}, nil
+}
+
+type handle struct {
+	f *file
+	w io.WriteCloser
+}
+
+func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
+	defer func() {
+		protolion.Debug(&FileRead{&h.f.Node, errorToString(retErr)})
+	}()
+	var buffer bytes.Buffer
+	if err := pfsclient.GetFile(
+		h.f.fs.apiClient,
+		h.f.File.Commit.Repo.Name,
+		h.f.File.Commit.ID,
+		h.f.File.Path,
+		request.Offset,
+		int64(request.Size),
+		h.f.fs.getFromCommitID(h.f.File.Commit.Repo.Name),
+		h.f.Shard,
+		&buffer,
+	); err != nil {
+		if grpc.Code(err) == codes.NotFound {
+			// This happens when trying to read from a file in an open
+			// commit. We could catch this at `open(2)` time and never
+			// get here, but Open is currently not a remote operation.
+			//
+			// ENOENT from read(2) is weird, let's call this EINVAL
+			// instead.
+			return fuse.Errno(syscall.EINVAL)
+		}
+		return err
+	}
+	response.Data = buffer.Bytes()
+	return nil
+}
+
+func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
+	defer func() {
+		protolion.Debug(&FileWrite{&h.f.Node, errorToString(retErr)})
+	}()
+	written, err := h.w.Write(request.Data)
+	if err != nil {
+		return err
+	}
+	response.Size = written
+	if h.f.size < request.Offset+int64(written) {
+		h.f.size = request.Offset + int64(written)
+	}
+	return nil
+}
+
+func (h *handle) Flush(ctx context.Context, req *fuse.FlushRequest) error {
+	return h.w.Close()
 }
 
 func (d *directory) copy() *directory {
