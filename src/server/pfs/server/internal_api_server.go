@@ -359,7 +359,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfsclient.Lis
 	default:
 	}
 	return &pfsclient.FileInfos{
-		FileInfo: pfsserver.ReduceFileInfos(fileInfos),
+		FileInfo: fileInfos,
 	}, nil
 }
 
