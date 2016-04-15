@@ -90,8 +90,8 @@ kube-cluster-assets: install
 launch: install
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
 	# wait for the pachyderm to come up
-	# if we can create a repo, that means that the cluster is ready to serve
-	until timeout 5s $(GOPATH)/bin/pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
+	# if we can call the list repo, that means that the cluster is ready to serve
+	$(GOPATH)/bin/pachctl list-repo 2>/dev/null >/dev/null
 
 launch-dev: launch-kube launch
 
@@ -102,7 +102,7 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-tests:
-	go test ./src/server -timeout 120s
+	CGOENABLED=0 go test ./src/server -timeout 120s
 
 docker-proto-run:
 	cd /go/src/github.com/pachyderm/pachyderm && \
@@ -155,8 +155,8 @@ test: pretest test-client test-local docker-build clean-launch launch integratio
 test-client: deps-client
 	GO15VENDOREXPERIMENT=1 go test -cover -v $$(go list ./src/client/...)
 
-test-local: test-client
-	GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
+test-local: deps-client
+	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
 
 clean: clean-launch clean-launch-kube
 

@@ -144,6 +144,10 @@ func (d *driver) ListRepo(shards map[uint64]bool) ([]*pfs.RepoInfo, error) {
 func (d *driver) DeleteRepo(repo *pfs.Repo, shards map[uint64]bool) error {
 	var diffInfos []*pfs.DiffInfo
 	d.lock.Lock()
+	if _, ok := d.diffs[repo.Name]; !ok {
+		d.lock.Unlock()
+		return fmt.Errorf("repo %s does not exist", repo.Name)
+	}
 	for shard := range shards {
 		for _, diffInfo := range d.diffs[repo.Name][shard] {
 			diffInfos = append(diffInfos, diffInfo)

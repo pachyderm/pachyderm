@@ -144,3 +144,8 @@ $ pachctl manifest amazon-secret bucket id secret token region | kubectl create 
 
 This encodes your credentials as Kubernetes secrets and gives pachd containers
 access to them.
+
+
+## Contributing
+
+If you're interested in contributing, you'll need a bit more tooling setup. [Follow the instructions here](https://github.com/pachyderm/pachyderm/blob/master/contributing/setup.md)

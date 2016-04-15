@@ -84,3 +84,16 @@ func CreatePipeline(
 	)
 	return err
 }
+
+func DeletePipeline(
+	client APIClient,
+	name string,
+) error {
+	_, err := client.DeletePipeline(
+		context.Background(),
+		&DeletePipelineRequest{
+			Pipeline: NewPipeline(name),
+		},
+	)
+	return err
+}

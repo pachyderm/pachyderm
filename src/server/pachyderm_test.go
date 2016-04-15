@@ -74,6 +74,7 @@ func testJob(t *testing.T, shards int) {
 	}
 	jobInfo, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
 	require.NoError(t, err)
+	t.Logf("jobInfo: %v", jobInfo)
 	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
 	require.True(t, jobInfo.Shards > 0)
 	commitInfo, err := pfsclient.InspectCommit(pachClient, jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
@@ -322,6 +323,36 @@ func TestPipeline(t *testing.T) {
 	buffer = bytes.Buffer{}
 	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\nbar\n", buffer.String())
+
+	require.NoError(t, ppsclient.DeletePipeline(pachClient, pipelineName))
+
+	pipelineInfos, err := pachClient.ListPipeline(context.Background(), &ppsclient.ListPipelineRequest{})
+	require.NoError(t, err)
+	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
+		require.True(t, pipelineInfo.Pipeline.Name != pipelineName)
+	}
+
+	// Do third commit to repo; this time pipeline should not run since it's been deleted
+	commit3, err := pfsclient.StartCommit(pachClient, dataRepo, commit2.ID, "")
+	require.NoError(t, err)
+	_, err = pfsclient.PutFile(pachClient, dataRepo, commit3.ID, "file", strings.NewReader("buzz\n"))
+	require.NoError(t, err)
+	require.NoError(t, pfsclient.FinishCommit(pachClient, dataRepo, commit3.ID))
+
+	// We will sleep a while to wait for the pipeline to actually get cancelled
+	// Also if the pipeline didn't get cancelled (due to a bug), we sleep a while
+	// to let the pipeline commit
+	time.Sleep(5 * time.Second)
+	listCommitRequest = &pfsclient.ListCommitRequest{
+		Repo: []*pfsclient.Repo{outRepo},
+	}
+	listCommitResponse, err = pachClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	// there should only be two commits in the pipeline
+	require.Equal(t, len(listCommitResponse.CommitInfo), 2)
 }
 
 func TestWorkload(t *testing.T) {
