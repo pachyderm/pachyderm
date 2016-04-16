@@ -296,7 +296,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 	for _, repo := range repos {
 		_, ok := d.diffs[repo.Name]
 		if !ok {
-			return nil, fmt.Errorf("repo %s not found", repo.Name)
+			return nil, pfsserver.ErrRepoNotFound
 		}
 		for _, commitID := range d.dags[repo.Name].Leaves() {
 			commit := &pfs.Commit{
@@ -634,12 +634,12 @@ func (d *driver) inspectRepo(repo *pfs.Repo, shards map[uint64]bool) (*pfs.RepoI
 	}
 	_, ok := d.diffs[repo.Name]
 	if !ok {
-		return nil, fmt.Errorf("repo %s not found", repo.Name)
+		return nil, pfsserver.ErrRepoNotFound
 	}
 	for shard := range shards {
 		diffInfos, ok := d.diffs[repo.Name][shard]
 		if !ok {
-			return nil, fmt.Errorf("repo %s not found", repo.Name)
+			return nil, pfsserver.ErrRepoNotFound
 		}
 		for _, diffInfo := range diffInfos {
 			diffInfo := diffInfo
@@ -830,7 +830,7 @@ func (d *driver) createRepoState(repo *pfs.Repo) {
 // canonicalCommit finds the canonical way of referring to a commit
 func (d *driver) canonicalCommit(commit *pfs.Commit) (*pfs.Commit, error) {
 	if _, ok := d.branches[commit.Repo.Name]; !ok {
-		return nil, fmt.Errorf("repo %s not found", commit.Repo.Name)
+		return nil, pfsserver.ErrRepoNotFound
 	}
 	if commitID, ok := d.branches[commit.Repo.Name][commit.ID]; ok {
 		return pfsclient.NewCommit(commit.Repo.Name, commitID), nil
@@ -1013,7 +1013,7 @@ func (d diffMap) insert(diffInfo *pfs.DiffInfo) error {
 	diff := diffInfo.Diff
 	shardMap, ok := d[diff.Commit.Repo.Name]
 	if !ok {
-		return fmt.Errorf("repo %s not found", diff.Commit.Repo.Name)
+		return pfsserver.ErrRepoNotFound
 	}
 	commitMap, ok := shardMap[diff.Shard]
 	if !ok {
