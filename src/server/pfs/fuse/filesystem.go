@@ -277,7 +277,7 @@ func (h *handle) Flush(ctx context.Context, req *fuse.FlushRequest) error {
 }
 
 func (h *handle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
-	return h.w.Close()
+	return nil
 }
 
 func (d *directory) copy() *directory {
