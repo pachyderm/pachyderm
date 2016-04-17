@@ -1,7 +1,6 @@
 package fuse
 
 import (
-	"encoding/json"
 	"os"
 	"sync"
 
@@ -67,7 +66,7 @@ func (m *mounter) Mount(
 			close(ready)
 		}
 	})
-	config := &fs.Config{}
+	config := &fs.Config{Debug: debug}
 	if err := fs.New(conn, config).Serve(newFilesystem(m.apiClient, shard, commitMounts)); err != nil {
 		return err
 	}
@@ -76,11 +75,7 @@ func (m *mounter) Mount(
 }
 
 func debug(msg interface{}) {
-	marshalled, err := json.Marshal(msg)
-	if err != nil {
-		lion.Printf("error from json.Marshal: %s", err.Error())
-	}
-	lion.Printf(string(marshalled))
+	lion.Printf("%+v", msg)
 }
 
 func (m *mounter) Unmount(mountPoint string) error {
