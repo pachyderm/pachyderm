@@ -273,6 +273,10 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 }
 
 func (h *handle) Flush(ctx context.Context, req *fuse.FlushRequest) error {
+	return nil
+}
+
+func (h *handle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 	return h.w.Close()
 }
 

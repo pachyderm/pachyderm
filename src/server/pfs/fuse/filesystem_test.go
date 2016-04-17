@@ -233,6 +233,7 @@ func TestWriteAndRead(t *testing.T) {
 }
 
 func TestBigWrite(t *testing.T) {
+	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -253,7 +254,6 @@ func TestBigWrite(t *testing.T) {
 }
 
 func Test296(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -317,7 +317,7 @@ func testFuse(
 	tmp, err := ioutil.TempDir("", "pachyderm-test-")
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, os.RemoveAll(tmp))
+		_ = os.RemoveAll(tmp)
 	}()
 
 	// closed on successful termination
@@ -397,7 +397,7 @@ func testFuse(
 
 	<-ready
 	defer func() {
-		require.NoError(t, mounter.Unmount(mountpoint))
+		_ = mounter.Unmount(mountpoint)
 	}()
 	test(apiClient, mountpoint)
 }
