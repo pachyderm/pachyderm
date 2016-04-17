@@ -70,6 +70,9 @@ docker-build-pachd: docker-build-compile
 
 docker-build: docker-build-job-shim docker-build-pachd
 
+docker-build-proto:
+	docker build -t pachyderm_proto etc/proto
+
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
 
@@ -112,11 +115,8 @@ docker-proto-run:
 	protofix fix src && \
 	git checkout src/server/vendor
 
-docker-build-proto:
-	docker build -t pachyderm/protofix -f Dockerfile.proto .
-
 docker-proto:
-	docker run -v $(PWD):/go/src/github.com/pachyderm/pachyderm pachyderm/protofix make -f /go/src/github.com/pachyderm/pachyderm/Makefile docker-proto-run
+	docker run -v $(PWD):/go/src/github.com/pachyderm/pachyderm pachyderm_proto make -f /go/src/github.com/pachyderm/pachyderm/Makefile docker-proto-run
 	sudo chown -R `whoami` src/
 
 proto:
