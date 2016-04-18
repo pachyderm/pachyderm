@@ -57,9 +57,22 @@ install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy ./src/server/cmd/pachctl-doc
 
-release: deps-client
+homebrew: deps-client
+	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
+
+tag-release: deps-client
 	./etc/build/tag_release
+
+release-pachd:
+	./etc/build/release_pachd
+
 docker-build-compile:
+	# Running locally, not on travis
+	if [ -z $$TRAVIS_BUILD_NUMBER ]; then \
+		sed 's/%%PACH_BUILD_NUMBER%%/000/' Dockerfile.pachd_template > Dockerfile.pachd; \
+	else \
+		sed 's/%%PACH_BUILD_NUMBER%%/${TRAVIS_BUILD_NUMBER}/' Dockerfile.pachd_template > Dockerfile.pachd; \
+	fi
 	docker build -t pachyderm_compile .
 
 docker-build-job-shim: docker-build-compile
@@ -93,7 +106,7 @@ kube-cluster-assets: install
 launch: install
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
 	# wait for the pachyderm to come up
-	# if we can create a repo, that means that the cluster is ready to serve
+	# if we can call the list repo, that means that the cluster is ready to serve
 	until timeout 5s $(GOPATH)/bin/pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
 
 launch-dev: launch-kube launch
@@ -105,7 +118,7 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-tests:
-	CGOENABLED=0 go test ./src/server -timeout 120s
+	CGOENABLED=0 go test ./src/server -timeout 300s
 
 proto: docker-build-proto
 	find src -regex ".*\.proto" \

@@ -62,13 +62,13 @@ func New() (*APIClient, error) {
 }
 
 func getMicroVersion() (v uint32) {
-	value := os.Getenv("BUILD_NUMBER")
+	value := os.Getenv("PACH_BUILD_NUMBER")
 	if value == "" {
 		v = 0
 	} else {
 		number, err := strconv.Atoi(value)
 		if err != nil {
-			panic(fmt.Sprintf("Invalid build number provided via BUILD_NUMBER env variable: (%v)\n", value))
+			panic(fmt.Sprintf("Invalid build number provided via PACH_BUILD_NUMBER env variable: (%v)\n", value))
 		}
 		v = uint32(number)
 	}
