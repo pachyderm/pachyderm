@@ -210,6 +210,7 @@ func TestCommitFinishedReadDir(t *testing.T) {
 }
 
 func TestWriteAndRead(t *testing.T) {
+	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -233,7 +234,6 @@ func TestWriteAndRead(t *testing.T) {
 }
 
 func TestBigWrite(t *testing.T) {
-	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}

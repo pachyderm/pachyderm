@@ -8,13 +8,13 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
@@ -129,13 +129,12 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 	directory.File.Path = path.Join(directory.File.Path, request.Name)
 	localResult := &file{
 		directory: *directory,
-		handles:   0,
 		size:      0,
 		local:     true,
 	}
 	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
-	handle, err := localResult.newHandle()
-	return localResult, handle, err
+	handle := localResult.newHandle()
+	return localResult, handle, nil
 }
 
 func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (result fs.Node, retErr error) {
@@ -155,9 +154,8 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 
 type file struct {
 	directory
-	handles int32
-	size    int64
-	local   bool
+	size  int64
+	local bool
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
@@ -189,7 +187,7 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 		protolion.Debug(&FileOpen{&f.Node, errorToString(retErr)})
 	}()
 	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
-	return f.newHandle()
+	return f.newHandle(), nil
 }
 
 func (f *filesystem) inode(file *pfsclient.File) uint64 {
@@ -209,21 +207,17 @@ func (f *filesystem) inode(file *pfsclient.File) uint64 {
 	return newInode
 }
 
-func (f *file) newHandle() (*handle, error) {
-	atomic.AddInt32(&f.handles, 1)
-	w, err := pfsclient.PutFileWriter(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.ID, f.File.Path)
-	if err != nil {
-		return nil, err
-	}
+func (f *file) newHandle() *handle {
 	return &handle{
-		f: f,
-		w: w,
-	}, nil
+		id: uuid.NewWithoutDashes(),
+		f:  f,
+	}
 }
 
 type handle struct {
-	f *file
-	w io.WriteCloser
+	id string
+	f  *file
+	w  io.WriteCloser
 }
 
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
@@ -261,6 +255,13 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	defer func() {
 		protolion.Debug(&FileWrite{&h.f.Node, errorToString(retErr)})
 	}()
+	if h.w == nil {
+		w, err := pfsclient.PutFileWriter(h.f.fs.apiClient, h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.id)
+		if err != nil {
+			return err
+		}
+		h.w = w
+	}
 	written, err := h.w.Write(request.Data)
 	if err != nil {
 		return err
@@ -273,6 +274,12 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 }
 
 func (h *handle) Flush(ctx context.Context, req *fuse.FlushRequest) error {
+	if h.w != nil {
+		if err := h.w.Close(); err != nil {
+			return err
+		}
+		h.w = nil
+	}
 	return nil
 }
 
@@ -384,7 +391,6 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		directory.File.Path = fileInfo.File.Path
 		return &file{
 			directory: *directory,
-			handles:   0,
 			size:      int64(fileInfo.SizeBytes),
 			local:     false,
 		}, nil

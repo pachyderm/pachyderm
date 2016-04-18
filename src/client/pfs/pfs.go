@@ -233,12 +233,12 @@ func ListBlock(apiClient BlockAPIClient) ([]*BlockInfo, error) {
 	return blockInfos.BlockInfo, nil
 }
 
-func PutFileWriter(apiClient APIClient, repoName string, commitID string, path string) (io.WriteCloser, error) {
-	return newPutFileWriteCloser(apiClient, repoName, commitID, path)
+func PutFileWriter(apiClient APIClient, repoName string, commitID string, path string, handle string) (io.WriteCloser, error) {
+	return newPutFileWriteCloser(apiClient, repoName, commitID, path, handle)
 }
 
 func PutFile(apiClient APIClient, repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
-	writer, err := PutFileWriter(apiClient, repoName, commitID, path)
+	writer, err := PutFileWriter(apiClient, repoName, commitID, path, "")
 	if err != nil {
 		return 0, err
 	}
@@ -337,7 +337,7 @@ type putFileWriteCloser struct {
 	putFileClient API_PutFileClient
 }
 
-func newPutFileWriteCloser(apiClient APIClient, repoName string, commitID string, path string) (*putFileWriteCloser, error) {
+func newPutFileWriteCloser(apiClient APIClient, repoName string, commitID string, path string, handle string) (*putFileWriteCloser, error) {
 	putFileClient, err := apiClient.PutFile(context.Background())
 	if err != nil {
 		return nil, err
@@ -346,6 +346,7 @@ func newPutFileWriteCloser(apiClient APIClient, repoName string, commitID string
 		request: &PutFileRequest{
 			File:     NewFile(repoName, commitID, path),
 			FileType: FileType_FILE_TYPE_REGULAR,
+			Handle:   handle,
 		},
 		putFileClient: putFileClient,
 	}, nil
