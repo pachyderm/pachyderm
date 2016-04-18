@@ -2,7 +2,7 @@ TO DO:
 - SEARCH FOR “LINK”
 
 # FAQ 
-[Data Storage](#data-storage)
+[Data Storage:](#data-storage)
 * [How is data storage handled in Pachyderm?](#how-is-data-storage-handled-in-pachyderm)
 * [What object storage backends are currently supported?](#what-object-storage-backends-are-supported)
 * [What is version control for data?](#what-is-version-control-for-data)
@@ -12,12 +12,12 @@ TO DO:
 * [How do I get data out of Pachyderm into another system?](#how-do-i-get-data-out-of-pachyderm-into-another-system)
 * [Does Pachyderm handle data locality?](#does-pachyderm-handle-data-locality)
 
-[Deployment](#deployment)
+[Deployment:](#deployment)
 * [Where/how can I deploy Pachyderm?](#wherehow-can-i-deploy-pachyderm)
 * [Can I use other schedulers such as Docker Swarm or Mesos?](#can-i-use-other-schedulers-such-as-docker-swarm-or-mesos)
 * [Can I run Pachyderm locally?](#can-i-run-pachyderm-locally)
 
-[Computation](#computation)
+[Computation:](#computation)
 * [What are containerized analytics?](#what-are-containerized-analytics)
 * [What is the data access model?](#what-is-the-data-access-model)
 * [What are jobs and how do they work?](#what-are-jobs-and-how-do-they-work)
@@ -29,7 +29,7 @@ TO DO:
 * [How does Pachyderm let me do incremental processing?](#how-does-pachyderm-let-me-do-incremental-processing)
 * [Is there a SQL interface for Pachyderm?](#is-there-a-sql-interface-for-pachyderm)
 
-[Product/Misc](#productmisc)
+[Product/Misc:](#productmisc)
 * [How does Pachyderm compare to Hadoop?](#how-does-pachyderm-compare-to-hadoop)
 * [How does Pachyderm compare to Spark?](#how-does-pachyderm-compare-to-spark)
 * [What are the major use cases for Pachyderm?](#what-are-the-major-use-cases-for-pachyderm)
