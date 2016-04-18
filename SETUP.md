@@ -68,7 +68,16 @@ mv kubectl /usr/local/bin/
 ```
 
 ## Pachctl
-We assume you'll be compiling from within $GOPATH. So to install pachctl do:
+
+### From Homebrew
+
+```shell
+$brew tap pachyderm/tap && brew install pachctl
+```
+
+### From Source
+
+To install pachctl from source, we assume you'll be compiling from within $GOPATH. So to install pachctl do:
 
 ```shell
 $ go get github.com/pachyderm/pachyderm
