@@ -2,6 +2,7 @@ package fuse
 
 import (
 	"os"
+	"os/signal"
 	"sync"
 
 	"bazil.org/fuse"
@@ -61,6 +62,14 @@ func (m *mounter) Mount(
 			retErr = err
 		}
 	}()
+	
+	sigChan := make(chan os.Signal,1)
+	signal.Notify(sigChan, os.Interrupt)
+	go func() {
+		<-sigChan
+		m.Unmount(mountPoint)
+	}()
+	
 	once.Do(func() {
 		if ready != nil {
 			close(ready)
