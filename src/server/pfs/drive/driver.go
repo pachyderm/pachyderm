@@ -236,6 +236,9 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 				return fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
 			}
 			diffInfo.Finished = finished
+			for _, _append := range diffInfo.Appends {
+				coalesceHandles(_append)
+			}
 			diffInfos = append(diffInfos, diffInfo)
 		}
 		return nil
