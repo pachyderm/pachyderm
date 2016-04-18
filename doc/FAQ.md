@@ -25,9 +25,11 @@ _Team collaboration_: Everyone can manipulate and work on the same data without 
 Your data doesn’t actually live in Pachyderm, is stays in object storage (S3 or GCS), so it’s has all the safety guarantees of those underlying systems. 
 ##### How do I get data from other sources into Pachyderm?
 Pachyderm has three main methods for getting data into the system.
+
 1. A protobufs API (LINK to docs) that you can access through the Golang SDK. Other languages will be supported soon!
 2. The pachctl CLI (LINK to docs), which allows you to put files into Pachyderm.
 3. You can mount Pachyderm locally and add files directly to the filesystem through the [FUSE interface](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md#mount-the-filesystem). 
+
 ##### How do I get data out of Pachyderm into another system?
 In addition to using the same ways you get data into the system, you can also use pipelines. Users often want to move the final results of a pipeline into another tool such as Redshift or MySQL so that it can by easily queried through BI tools. To accomplish this, it’s common to add a final stage to your pipeline which reads data from Pachyderm and writes it directly to whatever other tool you want. Redshift for example, can load data directly from an S3 bucket so the last pipeline stage can just write to that specific bucket.
 ##### Does Pachyderm have a notion of locality for my data?
@@ -66,20 +68,22 @@ Not yet, but it’s coming soon! If you want query your data using SQL, you can 
 ### Product/Misc
 ##### How does Pachyderm compare to Hadoop?
 Pachyderm is inspired by the Hadoop ecosystem but shares no code with it. Instead, we leverage the container ecosystem to provide the broad functionality of Hadoop with the ease of use of Docker. Similar to Hadoop, Pachyderm offers virtually infinite horizontal scaling for both storage and processing power. That said, there are two bold new ideas in Pachyderm: 
-Containers as the core processing primitive — You can do analysis using any languages or libraries you want.
-Version Control for data — We let your team collaborate effectively on data using a commit-based distributed filesystem (PFS), similar to what Git does with code.  
+
+1. Containers as the core processing primitive — You can do analysis using any languages or libraries you want.
+2. Version Control for data — We let your team collaborate effectively on data using a commit-based distributed filesystem (PFS), similar to what Git does with code.  
+
 ##### How does Pachyderm compare to Spark?
 The only strong similarity between Pachyderm and Spark is that our versioning of data is somewhat similar to how Spark uses RDD’s to speed up computation. Spark is a fantastic interface for exploring your data or running queries. In our opinion, Spark is one of the best parts of the Hadoop ecosystem and in the near future, we’ll be offering a connector that lets you use the Spark interface on top Pachyderm. 
-What are the major use cases for Pachyderm?
-_Data Lake_:
-A data lake is a place to dump and process gigantic data sets. This is where you send your nightly production database dumps, store all your raw log files and whatever other data you want. You can then process that data using any code you can put in a container. Martin Fowler has a great blog post (LINK) describing data lakes.
+##### What are the major use cases for Pachyderm?
+__Data Lake__:
+A data lake is a place to dump and process gigantic data sets. This is where you send your nightly production database dumps, store all your raw log files and whatever other data you want. You can then process that data using any code you can put in a container. Martin Fowler has a great [blog post](http://martinfowler.com/bliki/DataLake.html) describing data lakes.
 
-_Containerized ETL_:
+__Containerized ETL__:
 ETL (extract, transform, load) is the process of taking raw data and turning it into a useable form for other services to ingest. ETL processes usually involve many steps forming a DAG (Directed Acyclical Graph LINK) — pulling raw data different sources, teasing out and structuring the useful details, and then pushing those structures into a data warehouse or BI (business intelligence) tool for querying and analysis. 
 
 Pachyderm completely manages your ETL DAG by giving you explicit control over the inputs for every stage of your pipeline. We also give you a simple API — just read and write to the local file system inside a container — so it’s easy to push and pull data from a variety of sources. 
 
-_Automated ML pipelines_:
+__Automated ML pipelines__:
 Developing machine learning pipelines is always an iterative cycle of experimenting, training/testing, and productionizing. Pachyderm is ideally suited for exactly this type of process. 
 
 Data scientists can create jobs to explore and process data. Pachyderm will automatically let you down-sample data or develop analysis locally without having to copy any data around. 
@@ -89,15 +93,14 @@ Building training/testing data sets is incredibly easy with version-controlled d
 Finally, once your analysis is ready to go, you simply add your job to Pachyderm as a pipeline. Now it’ll automatically run and continue updating as new data comes into the system, letting you seamlessly transition from experimentation all the way to a full production deployment of your new model. Pachyderm even has rolling updates so your can continue to upgrade your production model with zero downtime. 
 
 ##### Is Pachyderm enterprise production ready?
-Yes! Pachyderm just hit v1.0 and is ready for production use! If you’re interested in help getting your deployment or just want to talk to us about the details, we’d love to hear from you. Info@pachyderm.io
+Yes! Pachyderm just hit v1.0 and is ready for production use! If you need help with your deployment or just want to talk to us about the details, we’d love to hear from you! Info@pachyderm.io
 ##### How does Pachyderm handle logging?
 Kubernetes actually handles all the logging for us. You can use `kubectl logs` to get logs from every job, pod, and container running in Pachyderm. Kubernetes also comes with it’s own tools for pushing those logs to whatever other services you use for log aggregation and analysis.
 ##### Does Pachyderm only work with Docker containers?
 Right now yes, but Pachyderm has no strict dependencies on Docker so we’ll have support for rkt and other container formats soon.
-##### How do I get support for Pachyderm?
+##### How do I get enterprise support for Pachyderm?
 If you’re using Pachyderm in production or evaluating it as a potential solution, we’d love to chat with you! support@pachyderm.io
-For specific bugs or issues, Github (LINK) is one of the best ways to reach us. 
 ##### What if I find bugs or have questions about using Pachyderm?
-You can submit bug reports, questions, or PR’s on Github (LINK) and we’ll respond right away. If you have questions that are specific to your use case that you don’t want shared publicly, you can email us at support@pachyderm.io
+You can submit bug reports, questions, or PR’s on [Github](https://github.com/pachyderm/pachyderm/issues) and we’ll respond right away. If you have questions that are specific to your use case that you don’t want shared publicly, you can email us at support@pachyderm.io
 ##### How do I start contributing to Pachyderm?
-Check out issues on Github that are labeled as “noob-friendly.”(LINK) Sign our CLA (LINK) and join our developer community!
+We're thrilled to have you contribute to Pachyderm! Check out contributor guide(LINK) to see all the details. If you're not sure where to start, issues on [Github](https://github.com/pachyderm/pachyderm/issues) that are labeled as “noob-friendly” are good places to begin. 
