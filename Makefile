@@ -119,10 +119,12 @@ docker-proto:
 	docker run -v $(PWD):/go/src/github.com/pachyderm/pachyderm pachyderm_proto make -f /go/src/github.com/pachyderm/pachyderm/Makefile docker-proto-run
 	sudo chown -R `whoami` src/
 
-proto:
-	go get -v go.pedge.io/protoeasy/cmd/protoeasy
-	rm -rf src/server/vendor
-	sudo env PATH=$(PATH) GOPATH=$(GOPATH) protoeasy --grpc --go --go-import-path github.com/pachyderm/pachyderm/src src
+proto: docker-build-proto
+	find src -regex ".*\.proto" \
+	| grep -v vendor \
+	| xargs tar cf - \
+	| docker run -i pachyderm_proto \
+	| tar xf -
 
 protofix:
 	go install github.com/pachyderm/pachyderm/src/server/cmd/protofix
