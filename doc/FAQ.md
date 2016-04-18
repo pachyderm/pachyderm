@@ -1,4 +1,5 @@
-SEARCH FOR “LINK”
+TO DO:
+- SEARCH FOR “LINK”
 
 # FAQ 
 
@@ -24,9 +25,9 @@ _Team collaboration_: Everyone can manipulate and work on the same data without 
 Your data doesn’t actually live in Pachyderm, is stays in object storage (S3 or GCS), so it’s has all the safety guarantees of those underlying systems. 
 ##### How do I get data from other sources into Pachyderm?
 Pachyderm has three main methods for getting data into the system.
-1. A protobufs API (LINK) that you can access through the Golang SDK. Other languages will be supported soon!
-2. The pachctl CLI (LINK), which allows you to put files into Pachyderm.
-3. You can mount Pachyderm locally and add files directly to the filesystem through the FUSE interface. 
+1. A protobufs API (LINK to docs) that you can access through the Golang SDK. Other languages will be supported soon!
+2. The pachctl CLI (LINK to docs), which allows you to put files into Pachyderm.
+3. You can mount Pachyderm locally and add files directly to the filesystem through the [FUSE interface](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md#mount-the-filesystem). 
 ##### How do I get data out of Pachyderm into another system?
 In addition to using the same ways you get data into the system, you can also use pipelines. Users often want to move the final results of a pipeline into another tool such as Redshift or MySQL so that it can by easily queried through BI tools. To accomplish this, it’s common to add a final stage to your pipeline which reads data from Pachyderm and writes it directly to whatever other tool you want. Redshift for example, can load data directly from an S3 bucket so the last pipeline stage can just write to that specific bucket.
 ##### Does Pachyderm have a notion of locality for my data?
@@ -36,31 +37,31 @@ Most object stores like S3 and GCS don’t provide any notion of locality and so
 ##### Where/how can I deploy Pachyderm?
 Once you have Kubernetes running, Pachyderm is just a one line deploy. Since Pachyderm’s only dependency is Kubernetes, it can be run on AWS, Google Cloud, or on premise. Check out our deployment guide (LINK) to get it running for yourself.
 ##### Can I use other schedulers such as Docker Swarm or Mesos?
-Right now, Pachyderm requires Kubernetes, but we’ve purposely built it to be modular and work with the other schedulers as well. Swarm and Mesos support will be added soon!
+Right now, Pachyderm requires Kubernetes, but we’ve purposely built it to be modular and work with the other schedulers as well. Swarm and Mesos support will be added in the future!
 ##### Can I run Pachyderm locally?
-Yup! Pachyderm can be run locally directly in Docker. Check out our QuickStart guide (LINK) to get started. 
+Yup! Pachyderm can be run locally directly in Docker. Check out our [QuickStart guide](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md) to get started. 
 
 ## Computation
 ##### What are containerized analytics?
 Rather than thinking in terms of map or reduce jobs, Pachyderm thinks in terms of pipelines expressed within a container. To process data, you simply create a containerized program which reads and writes to the local filesystem. Since everything is packaged up in a container, pipelines are easily portable, completely isolated, and simple to monitor. 
 ##### What is the data access model?
-To process data, you simply create a containerized program which reads and writes to the local filesystem. You can use any languages or libraries you want because it's all just going in a container. Pachyderm will take your container and inject data into it by way of a FUSE volume. We'll then automatically replicate your container, showing each copy a different chunk of data and processing it all in parallel.
+To process data, you simply create a containerized program which reads and writes to the local filesystem at /pfs/in and /pfs/out, respectively.Pachyderm will take your container and inject data into it by way of a FUSE volume. We'll then automatically replicate your container, showing each copy a different chunk of data and processing it all in parallel.
 ##### What are jobs and how do they work?
-A job in Pachyderm is a one-off transformation or processing of data. To run a job use the COMMAND. In Pachyderm, jobs are meant for experimentation or exploring your data so they can’t benefit from incrementality. Once you have a job that's working well and producing useful results, you can “productionize” it by turning it into a pipeline.
+A job in Pachyderm is a one-off transformation or processing of data. To run a job use the `create-job` command. In Pachyderm, jobs are meant for experimentation or exploring your data so they can’t benefit from incrementality. Once you have a job that's working well and producing useful results, you can “productionize” it by turning it into a `pipeline`.
 ##### What are pipelines and how do they work?
-In a nutshell, pipelines are “subscribed” to changes on their input repo and create jobs to process the new data as it comes in. More specifically, a pipeline is JSON spec that describes one or more transformations to execute when new input data is committed. All the details of a pipeline spec are outlined in our documentation (LINK).
+Pipelines are data transformations that are “subscribed” to data changes on their input repo and create jobs to process the new data as it comes in. A pipeline is defined by a JSON spec that describes one or more transformations to execute when new input data is committed. All the details of a pipeline spec are outlined in our documentation (LINK).
 ##### How does Pachyderm manage pipeline dependencies?
-Dependencies for pipelines are handled explicitly in the pipeline spec. Pipelines output their results to a repo of the same name.  The “input” for a pipeline can be any set of repos, either those containing raw data or automatically created by another pipeline. For example, a pipeline stage called “filter” would create a repo also called “filter” where it would store the output data. A second pipeline called “sum” could have “filter” as an input. By this method Pachyderm, actually creates a DAG (LINK) of data, not jobs. Raw data enters the system which triggers the “filter" pipeline. The “filter" pipeline outputs its results in a commit to the “filter" repo which triggers the “sum" pipeline. 
+Dependencies for pipelines are handled explicitly in the pipeline spec. Pipelines output their results to a repo of the same name.  The “input” for a pipeline can be any set of repos, either those containing raw data or one that was automatically created by another pipeline. For example, a pipeline stage called “filter” would create a repo also called “filter” where it would store the output data. A second pipeline called “sum” could have “filter” as an input. By this method Pachyderm, actually creates a DAG (LINK) of data, not jobs. The full picture would look like this: raw data enters Pachyderm which triggers the “filter" pipeline. The “filter" pipeline outputs its results in a commit to the “filter" repo which triggers the “sum" pipeline. The final results would be available in the "sum" repo. Check out our [Fruit Stand demo](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md#create-a-pipeline) to see exactly this example.  
 ##### How do I do batched analytics in Pachyderm?
 Batched analytics are the bread and butter of Pachyderm. Often times the first stage in a batched job is a database dump or some other large swath of new data entering the system. In Pachyderm, this would create a new commit on a repo which would trigger all your ETL and analytics pipelines for that data. One-off batched jobs can also be manually run on any data.
 ##### How do I do streaming analytics in Pachyderm?
-Streaming and batched jobs can be done exactly the same way in Pachyderm. Creating a commit is an incredibly cheap operation so you can make one per second if you want! By just changing the frequency of commits, you can seamlessly transition from a large nightly batch job down to a streaming operation processing tiny micro-batches of data. 
+Streaming and batched jobs can be done exactly the same way in Pachyderm. Creating a commit is an incredibly cheap operation so you can even make one commit per second if you want! By just changing the frequency of commits, you can seamlessly transition from a large nightly batch job down to a streaming operation processing tiny micro-batches of data. 
 ##### How is my computation parallelized?
-Both jobs and pipelines have a “shard” parameter. This parameter dictates how many containers Pachyderm spins up to process your data in parallel. For example, `“shards”: 10` would create 10 containers that each process 1/10 of the data. Each pipeline can have a different parallelization factor, giving you fine-grain control over the utilization of your cluster. In the near future, Pachyderm will add some smart logic behind the scenes to automatically adjust the number of shards.
+Both jobs and pipelines have a “shard” parameter. This parameter dictates how many containers Pachyderm spins up to process your data in parallel. For example, `“shards”: 10` would create 10 containers that each process 1/10 of the data. Each pipeline can have a different parallelization factor, giving you fine-grain control over the utilization of your cluster. Pachyderm automatically scales the sharding factor based on the number of nodes available in your cluster, but you can instead set it manually for each pipeline if you have specific needs. 
 ##### How does Pachyderm let me do incremental processing?
 Pachyderm exposes all your data in diffs, meaning we show you the new data that has been added since the last time a pipeline was run. Pachyderm will smartly only process the new data and append those results to the output from the previous run. This, of course, only works for `map`-style jobs — reduce jobs needs to process all the data each time.
 ##### Is there a SQL interface for Pachyderm?
-Not yet, but it’s coming soon(LINK)! If you want query your data using SQL, you can easily create a pipeline that pushes data from Pachyderm into your favorite SQL tool. 
+Not yet, but it’s coming soon! If you want query your data using SQL, you can easily create a pipeline that pushes data from Pachyderm into your favorite SQL tool. 
 
 ### Product/Misc
 ##### How does Pachyderm compare to Hadoop?
