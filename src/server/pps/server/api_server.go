@@ -18,6 +18,7 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/persist"
 
+	"github.com/cenkalti/backoff"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"go.pedge.io/proto/rpclog"
@@ -578,15 +579,34 @@ func (a *apiServer) AddShard(shard uint64) error {
 				a.cancelFuncsLock.Unlock()
 			} else {
 				go func() {
-					if err := a.runPipeline(newPipelineInfo(pipelineChange.Pipeline)); err != nil {
-						protolion.Printf("error running pipeline: %v", err)
-					}
+					b := backoff.NewExponentialBackOff()
+					// We set MaxElapsedTime to 0 because we want the retry to
+					// never stop.
+					// However, ideally we should crash this pps server so the
+					// pipeline gets reassigned to another pps server.
+					// The reason we don't do that right now is that pps and
+					// pfs are bundled together, so by crashing this program
+					// we will be crashing a pfs node too, which might cause
+					// cascading failures as other pps nodes might be depending
+					// on it.
+					b.MaxElapsedTime = 0
+					backoff.Retry(func() error {
+						if err := a.runPipeline(newPipelineInfo(pipelineChange.Pipeline)); err != nil && !isContextCancelled(err) {
+							protolion.Printf("error running pipeline: %v", err)
+							return err
+						}
+						return nil
+					}, b)
 				}()
 			}
 		}
 	}()
 
 	return nil
+}
+
+func isContextCancelled(err error) bool {
+	return err == context.Canceled || strings.Contains(err.Error(), context.Canceled.Error())
 }
 
 func (a *apiServer) DeleteShard(shard uint64) error {

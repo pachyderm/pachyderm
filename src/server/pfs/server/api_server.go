@@ -600,7 +600,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfsclient.ListFileReq
 	default:
 	}
 	return &pfsclient.FileInfos{
-		FileInfo: fileInfos,
+		FileInfo: pfsserver.ReduceFileInfos(fileInfos),
 	}, nil
 }
 

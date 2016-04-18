@@ -441,6 +441,9 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 	var result []fuse.Dirent
 	for _, fileInfo := range fileInfos {
 		shortPath := strings.TrimPrefix(fileInfo.File.Path, d.File.Path)
+		if shortPath[0] == '/' {
+			shortPath = shortPath[1:]
+		}
 		switch fileInfo.FileType {
 		case pfsclient.FileType_FILE_TYPE_REGULAR:
 			result = append(result, fuse.Dirent{Name: shortPath, Type: fuse.DT_File})
