@@ -3,48 +3,48 @@ TO DO:
 
 # FAQ 
 [Data Storage](#data-storage)
-* [How is data storage handled in Pachyderm?](#how-is-data-storage)
-* [What storage backends are currently supported?](#)
-* [What is version control for data?](#)
-* [How do you guarantee I won’t lose data in Pachyderm (i.e. replication and persistence)?](#)
-* [How do I get data from other sources into Pachyderm?](#)
-* [How do I get data out of Pachyderm into another tool?](#)
-* [How do I use branches for my data in Pachyderm?](#)
-* [Is there a way to merge branches?](#)
+* [How is data storage handled in Pachyderm?](#how-is-data-storage-handled-in-pachyderm)
+* [What storage backends are currently supported?](#what-storage-backends-are-supported)
+* [What is version control for data?](#what-is-version-control-for-data)
+* [What are the benefits of version control for data?](#what-are-the-benefits-of-version-control-for-data)
+* [How do you guarantee I won’t lose data in Pachyderm (i.e. replication and persistence)?](##how-do-you-guarantee-i-wont-lose-data-in-pachyderm-ie-replication-and-persistence)
+* [How do I get data from other sources into Pachyderm?](#how-do-i-get-data-from-other-sources-into-pachyderm)
+* [How do I get data out of Pachyderm into another system?](#how-do-i-get-data-out-of-pachyderm-into-another-system)
+* [Does Pachyderm have any notion of data locality?](#does-pachyderm-have-a-notion-of-data-llocality)
 
-Deployment
-* Where/how can I deploy Pachyderm?
-* Can I use other schedulers such as Docker Swarm or Mesos?
-* Is Pachyderm built for the Cloud or on Premise?
-* Can I run Pachyderm locally?
+[Deployment](#deployment)
+* [Where/how can I deploy Pachyderm?](#wherehow-can-i-deploy-pachyderm)
+* [Can I use other schedulers such as Docker Swarm or Mesos?](#can-i-use-other-schedulers-such-as-docker-swarm-or-mesos)
+* [Can I run Pachyderm locally?](#can-i-run-pachyderm-locally)
 
-Computation
-* What are containerized analytics?
-* What is the data access model?
-* What are pipelines and how do they work?
-* What are jobs and how do they work?
-* How does Pachyderm manage pipeline dependencies?
-* How do I do batched analytics in Pachyderm?
-* How do I do streaming analytics in Pachyderm?
-* How is my computation parallelized?
-* How does Pachyderm let me do incremental processing?
-* Can I use spot instances?
-* What tools can I use to analyze my data?
-* Is there a SQL interface for Pachyderm?
+[Computation](#computation)
+* [What are containerized analytics?](#what-are-containerized-analytics)
+* [What is the data access model?](#what-is-the-data-access-model)
+* [What are jobs and how do they work?](#what-are-jobs-and-how-do-they-work)
+* [What are pipelines and how do they work?](#what-are-pipelines-and-how-do-they-work)
+* [How does Pachyderm manage pipeline dependencies?](#how-does-pachyderm-manage-pipeline-dependencies)
+* [How do I perform batched analytics in Pachyderm?](#how-do-i-perform-batched-analytics-in-pachyderm)
+* [How do I perform streaming analytics in Pachyderm?](#how-do-i-perform-streaming-analytics-in-pachyderm)
+* [How is my computation parallelized?](#how-is-my-computation-parallelized)
+* [How does Pachyderm let me do incremental processing?](#how-does-pachyderm-let-me-do-incremental-processing)
+* [Is there a SQL interface for Pachyderm?](#is-there-a-sql-interface-for-pachyderm)
 
-Product/Misc
-* Is Pachyderm enterprise production ready?
-* How does Pachyderm handle logging?
-* Does Pachyderm only work with Docker containers?
-* What are the major use cases for Pachyderm?
-* How do I get enterprise support for Pachyderm?
-* What if I find bugs or have questions about using Pachyderm?
+[Product/Misc](#productmisc)
+* [How does Pachyderm compare to Hadoop?](#how-does-pachyderm-compare-to-hadoop)
+* [How does Pachyderm compare to Spark?](#how-does-pachyderm-compare-to-spark)
+* [What are the major use cases for Pachyderm?](#what-are-the-major-use-cases-for-pachyderm)
+* [Is Pachyderm enterprise production ready?](#is-pachyderm-enterprise-production-ready)
+* [How does Pachyderm handle logging?](#how-does-pachyderm-handle-logging)
+* [Does Pachyderm only work with Docker containers?](#does-pachyderm-only-work-with-docker-containers)
+* [How do I get enterprise support for Pachyderm?](#how-do-i-get-enterprise-support-for-pachyderm)
+* [What if I find bugs or have questions about using Pachyderm?](#what-if-i-find-bugs-or-have-questions-about-using-pachyderm)
+* [How do I start contributing to Pachyderm?](#how-do-i-start-contributing-to-pachyderm)
 
 
 ## Data Storage
 ##### How is data storage handled in Pachyderm?
 Pachyderm stores your data in any generic object storage (S3, GSC, Ceph, etc). You can link your object storage backend to Pachyderm by following our deployment guide (LINK) and passing your credentials as a Kubernetes secret.
-##### What object storage backends are currently supported?
+##### What object storage backends are supported?
 S3 and GCS are fully supported and are the recommended backends for Pachyderm. Support for Ceph and others are coming soon! Want to help us support more storage backends? Check out the [GH issue](https://github.com/pachyderm/pachyderm/issues/211)!
 ##### What is version control for data?
 We’ve all used version control for code before — Pachyderm gives you the same semantics for petabytes of data. We even borrow our terminology from Git. In Pachyderm, data is organized into `repos`. If you want to add or change data in a repo, you simple `start` a `commit` make your changes, and then `finish` the `commit`. This will create an immutable snapshot of the data that you can reference later. Just a commit in Git, only the diff of the data is saved so there is no duplication. Pachyderm exposes data as a set of diffs so you can easily view how your data has changed over time, run a job over a previous view of your data, or revert to a known good state if something goes wrong. Finally, Pachyderm also let’s you branch entire data sets so you can manipulate files and explore the data without effecting anyone else’s work. Just like with branching in Git, Pachyderm doesn't create multiple copies of the data when you create a branch, we just store the changes you make to it. 
@@ -70,7 +70,7 @@ Pachyderm has three main methods for getting data into the system.
 
 ##### How do I get data out of Pachyderm into another system?
 In addition to using the same ways you get data into the system, you can also use pipelines. Users often want to move the final results of a pipeline into another tool such as Redshift or MySQL so that it can by easily queried through BI tools. To accomplish this, it’s common to add a final stage to your pipeline which reads data from Pachyderm and writes it directly to whatever other tool you want. Redshift for example, can load data directly from an S3 bucket so the last pipeline stage can just write to that specific bucket.
-##### Does Pachyderm have a notion of locality for my data?
+##### Does Pachyderm have a notion of data locality?
 Most object stores like S3 and GCS don’t provide any notion of locality and so Pachyderm similarly can't provide data locality in our API. In practice, we’ve generally found that data locality is not a bottleneck when optimizing for performance. 
 
 ## Deployment:
