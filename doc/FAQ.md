@@ -4,13 +4,13 @@ TO DO:
 # FAQ 
 [Data Storage](#data-storage)
 * [How is data storage handled in Pachyderm?](#how-is-data-storage-handled-in-pachyderm)
-* [What storage backends are currently supported?](#what-storage-backends-are-supported)
+* [What object storage backends are currently supported?](#what-object-storage-backends-are-supported)
 * [What is version control for data?](#what-is-version-control-for-data)
 * [What are the benefits of version control for data?](#what-are-the-benefits-of-version-control-for-data)
-* [How do you guarantee I won’t lose data in Pachyderm (i.e. replication and persistence)?](##how-do-you-guarantee-i-wont-lose-data-in-pachyderm-ie-replication-and-persistence)
+* [How do you guarantee I won’t lose data in Pachyderm (i.e. replication and persistence)?](#how-do-you-guarantee-i-wont-lose-data-in-pachyderm-ie-replication-and-persistence)
 * [How do I get data from other sources into Pachyderm?](#how-do-i-get-data-from-other-sources-into-pachyderm)
 * [How do I get data out of Pachyderm into another system?](#how-do-i-get-data-out-of-pachyderm-into-another-system)
-* [Does Pachyderm have any notion of data locality?](#does-pachyderm-have-a-notion-of-data-llocality)
+* [Does Pachyderm handle data locality?](#does-pachyderm-handle-data-locality)
 
 [Deployment](#deployment)
 * [Where/how can I deploy Pachyderm?](#wherehow-can-i-deploy-pachyderm)
@@ -70,7 +70,7 @@ Pachyderm has three main methods for getting data into the system.
 
 ##### How do I get data out of Pachyderm into another system?
 In addition to using the same ways you get data into the system, you can also use pipelines. Users often want to move the final results of a pipeline into another tool such as Redshift or MySQL so that it can by easily queried through BI tools. To accomplish this, it’s common to add a final stage to your pipeline which reads data from Pachyderm and writes it directly to whatever other tool you want. Redshift for example, can load data directly from an S3 bucket so the last pipeline stage can just write to that specific bucket.
-##### Does Pachyderm have a notion of data locality?
+##### Does Pachyderm handle data locality?
 Most object stores like S3 and GCS don’t provide any notion of locality and so Pachyderm similarly can't provide data locality in our API. In practice, we’ve generally found that data locality is not a bottleneck when optimizing for performance. 
 
 ## Deployment:
@@ -92,9 +92,9 @@ A job in Pachyderm is a one-off transformation or processing of data. To run a j
 Pipelines are data transformations that are “subscribed” to data changes on their input repo and create jobs to process the new data as it comes in. A pipeline is defined by a JSON spec that describes one or more transformations to execute when new input data is committed. All the details of a pipeline spec are outlined in our documentation (LINK).
 ##### How does Pachyderm manage pipeline dependencies?
 Dependencies for pipelines are handled explicitly in the pipeline spec. Pipelines output their results to a repo of the same name.  The “input” for a pipeline can be any set of repos, either those containing raw data or one that was automatically created by another pipeline. For example, a pipeline stage called “filter” would create a repo also called “filter” where it would store the output data. A second pipeline called “sum” could have “filter” as an input. By this method Pachyderm, actually creates a DAG (LINK) of data, not jobs. The full picture would look like this: raw data enters Pachyderm which triggers the “filter" pipeline. The “filter" pipeline outputs its results in a commit to the “filter" repo which triggers the “sum" pipeline. The final results would be available in the "sum" repo. Check out our [Fruit Stand demo](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md#create-a-pipeline) to see exactly this example.  
-##### How do I do batched analytics in Pachyderm?
+##### How do I perform batched analytics in Pachyderm?
 Batched analytics are the bread and butter of Pachyderm. Often times the first stage in a batched job is a database dump or some other large swath of new data entering the system. In Pachyderm, this would create a new commit on a repo which would trigger all your ETL and analytics pipelines for that data. One-off batched jobs can also be manually run on any data.
-##### How do I do streaming analytics in Pachyderm?
+##### How do I perform streaming analytics in Pachyderm?
 Streaming and batched jobs can be done exactly the same way in Pachyderm. Creating a commit is an incredibly cheap operation so you can even make one commit per second if you want! By just changing the frequency of commits, you can seamlessly transition from a large nightly batch job down to a streaming operation processing tiny micro-batches of data. 
 ##### How is my computation parallelized?
 Both jobs and pipelines have a “shard” parameter. This parameter dictates how many containers Pachyderm spins up to process your data in parallel. For example, `“shards”: 10` would create 10 containers that each process 1/10 of the data. Each pipeline can have a different parallelization factor, giving you fine-grain control over the utilization of your cluster. Pachyderm automatically scales the sharding factor based on the number of nodes available in your cluster, but you can instead set it manually for each pipeline if you have specific needs. 
