@@ -3,7 +3,7 @@ TO DO:
 
 # FAQ 
 [Data Storage](#data-storage)
-* [How is data storage handled in Pachyderm?](#How-is-data-storage)
+* [How is data storage handled in Pachyderm?](#how-is-data-storage)
 * [What storage backends are currently supported?](#)
 * [What is version control for data?](#)
 * [How do you guarantee I won’t lose data in Pachyderm (i.e. replication and persistence)?](#)
