@@ -112,7 +112,7 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-tests:
-	CGOENABLED=0 go test ./src/server -timeout 120s
+	CGOENABLED=0 go test ./src/server -timeout 300s
 
 docker-proto-run:
 	cd /go/src/github.com/pachyderm/pachyderm && \
