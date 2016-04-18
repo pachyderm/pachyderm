@@ -334,7 +334,7 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 	return fmt.Errorf("DeleteCommit is not implemented")
 }
 
-func (d *driver) PutFile(file *pfs.File, shard uint64, reader io.Reader) (retErr error) {
+func (d *driver) PutFile(file *pfs.File, handle string, shard uint64, reader io.Reader) (retErr error) {
 	blockClient, err := d.getBlockClient()
 	if err != nil {
 		return err
@@ -379,20 +379,25 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, reader io.Reader) (retErr
 	addDirs(diffInfo, file)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
-		_append = &pfs.Append{}
+		_append = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
 		if diffInfo.ParentCommit != nil {
 			_append.LastRef = d.lastRef(
-				pfsclient.NewFile(
-					diffInfo.ParentCommit.Repo.Name,
-					diffInfo.ParentCommit.ID,
-					file.Path,
-				),
+				pfsclient.NewFile(diffInfo.ParentCommit.Repo.Name, diffInfo.ParentCommit.ID, file.Path),
 				shard,
 			)
 		}
 		diffInfo.Appends[path.Clean(file.Path)] = _append
 	}
-	_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
+	if handle == "" {
+		_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
+	} else {
+		blockRefs, ok := _append.Handles[handle]
+		if !ok {
+			blockRefs = &pfs.BlockRefs{}
+			_append.Handles[handle] = blockRefs
+		}
+		blockRefs.BlockRef = append(blockRefs.BlockRef, blockRefs.BlockRef...)
+	}
 	for _, blockRef := range blockRefs.BlockRef {
 		diffInfo.SizeBytes += blockRef.Range.Upper - blockRef.Range.Lower
 	}
@@ -1039,4 +1044,11 @@ func (d diffMap) pop(diff *pfs.Diff) *pfs.DiffInfo {
 	diffInfo := commitMap[diff.Commit.ID]
 	delete(commitMap, diff.Commit.ID)
 	return diffInfo
+}
+
+func coalesceHandles(_append *pfs.Append) {
+	for _, blockRefs := range _append.Handles {
+		_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
+	}
+	_append.Handles = nil
 }
