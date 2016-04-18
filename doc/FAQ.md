@@ -2,7 +2,7 @@ TO DO:
 - SEARCH FOR “LINK”
 
 # FAQ 
-[Data Storage](#Data-Storage)
+[Data Storage](#data-storage)
 * [How is data storage handled in Pachyderm?](#How-is-data-storage)
 * [What storage backends are currently supported?](#)
 * [What is version control for data?](#)
