@@ -68,9 +68,11 @@ mv kubectl /usr/local/bin/
 ```
 
 ## Pachctl
-From the root of this repo you can install pachctl with:
+We assume you'll be compiling from within $GOPATH. So to install pachctl do:
 
 ```shell
+$ go get github.com/pachyderm/pachyderm
+$ cd $GOPATH/src/github.com/pachyderm/pachyderm
 $ make install
 ```
 
