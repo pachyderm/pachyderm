@@ -2,6 +2,44 @@ TO DO:
 - SEARCH FOR “LINK”
 
 # FAQ 
+[Data Storage](#Data-Storage)
+* [How is data storage handled in Pachyderm?](#How-is-data-storage)
+* [What storage backends are currently supported?](#)
+* [What is version control for data?](#)
+* [How do you guarantee I won’t lose data in Pachyderm (i.e. replication and persistence)?](#)
+* [How do I get data from other sources into Pachyderm?](#)
+* [How do I get data out of Pachyderm into another tool?](#)
+* [How do I use branches for my data in Pachyderm?](#)
+* [Is there a way to merge branches?](#)
+
+Deployment
+* Where/how can I deploy Pachyderm?
+* Can I use other schedulers such as Docker Swarm or Mesos?
+* Is Pachyderm built for the Cloud or on Premise?
+* Can I run Pachyderm locally?
+
+Computation
+* What are containerized analytics?
+* What is the data access model?
+* What are pipelines and how do they work?
+* What are jobs and how do they work?
+* How does Pachyderm manage pipeline dependencies?
+* How do I do batched analytics in Pachyderm?
+* How do I do streaming analytics in Pachyderm?
+* How is my computation parallelized?
+* How does Pachyderm let me do incremental processing?
+* Can I use spot instances?
+* What tools can I use to analyze my data?
+* Is there a SQL interface for Pachyderm?
+
+Product/Misc
+* Is Pachyderm enterprise production ready?
+* How does Pachyderm handle logging?
+* Does Pachyderm only work with Docker containers?
+* What are the major use cases for Pachyderm?
+* How do I get enterprise support for Pachyderm?
+* What if I find bugs or have questions about using Pachyderm?
+
 
 ## Data Storage
 ##### How is data storage handled in Pachyderm?
