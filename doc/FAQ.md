@@ -4,11 +4,11 @@ SEARCH FOR “LINK”
 
 ## Data Storage
 ##### How is data storage handled in Pachyderm?
-Pachyderm stores your data in any generic object storage solution( e.g. S3, GSC, Ceph). We provide a simple API (LINK) for this interface. 
+Pachyderm stores your data in any generic object storage (S3, GSC, Ceph, etc). You can link your object storage backend to Pachyderm by following our deployment guide (LINK) and passing your credentials as a Kubernetes secret.
 ##### What object storage backends are currently supported?
-S3 is fully supported and is the recommended backend for Pachyderm. Support for Google Cloud Storage and Ceph are coming soon! Want to help us support more storage backends? Check out the issue (LINK) on GitHub!
+S3 and GCS are fully supported and are the recommended backends for Pachyderm. Support for Ceph and others are coming soon! Want to help us support more storage backends? Check out the [GH issue](https://github.com/pachyderm/pachyderm/issues/211)!
 ##### What is version control for data?
-We’ve all used version control for code before — Pachyderm gives you the same semantics for up to petabytes of data. We even borrow our terminology from Git. In Pachyderm, data is organized into `repos`. As data is added or changed in a repo, you can make a `commit`,  creating an immutable snapshot of the data that you can reference later. Commits behave in a similar fashion to copy-on-write, only the diff of the data is actually saved so there is no data duplication. Since Pachyderm exposes data as a set of diffs, you can easily view how your data has changed over time, run a job over a previous view of your data, or revert to a known good state if something goes wrong. Finally, Pachyderm also let’s you branch entire data sets so you can manipulate files and explore the data without effecting anyone else’s work. Just like with branching in Git, Pachyderm doesn't create multiple copies of the data when you create a branch, we just store the changes you make to it. 
+We’ve all used version control for code before — Pachyderm gives you the same semantics for petabytes of data. We even borrow our terminology from Git. In Pachyderm, data is organized into `repos`. If you want to add or change data in a repo, you simple `start` a `commit` make your changes, and then `finish` the `commit`. This will create an immutable snapshot of the data that you can reference later. Just a commit in Git, only the diff of the data is saved so there is no duplication. Pachyderm exposes data as a set of diffs so you can easily view how your data has changed over time, run a job over a previous view of your data, or revert to a known good state if something goes wrong. Finally, Pachyderm also let’s you branch entire data sets so you can manipulate files and explore the data without effecting anyone else’s work. Just like with branching in Git, Pachyderm doesn't create multiple copies of the data when you create a branch, we just store the changes you make to it. 
 ##### What are the benefits of version control for data?
 _Instant revert_: If something goes wrong with your data, you can immediately revert your live cluster back to a known good state.
 
@@ -16,23 +16,23 @@ _View diffs_: Analyze how your data is changing over time.
 
 _Incrementally_: Only process the new data instead of recomputing everything.
 
-_Immutable data_: Run analysis today on your data from last month. 
+_Immutable data_: Run analysis written today over your data from last month. 
 
 _Team collaboration_: Everyone can manipulate and work on the same data without stepping on each others toes. 
 
 ##### How do you guarantee I won’t lose data in Pachyderm (i.e. replication and persistence)?
-Your data doesn’t actually live in Pachyderm, is stays in object storage (S3), so it’s has all the safety guarantees of that underlying system. 
+Your data doesn’t actually live in Pachyderm, is stays in object storage (S3 or GCS), so it’s has all the safety guarantees of those underlying systems. 
 ##### How do I get data from other sources into Pachyderm?
 Pachyderm has three main methods for getting data into the system.
-A protobufs API that you can access through the Golang SDK. Other languages will be supported soon!
-The pachctl CLI, which allows you to put files into Pachyderm.
-You can mount Pachyderm locally and add files directly to the filesystem through the FUSE interface. 
+1. A protobufs API (LINK) that you can access through the Golang SDK. Other languages will be supported soon!
+2. The pachctl CLI (LINK), which allows you to put files into Pachyderm.
+3. You can mount Pachyderm locally and add files directly to the filesystem through the FUSE interface. 
 ##### How do I get data out of Pachyderm into another system?
 In addition to using the same ways you get data into the system, you can also use pipelines. Users often want to move the final results of a pipeline into another tool such as Redshift or MySQL so that it can by easily queried through BI tools. To accomplish this, it’s common to add a final stage to your pipeline which reads data from Pachyderm and writes it directly to whatever other tool you want. Redshift for example, can load data directly from an S3 bucket so the last pipeline stage can just write to that specific bucket.
 ##### Does Pachyderm have a notion of locality for my data?
 Most object stores like S3 and GCS don’t provide any notion of locality and so Pachyderm similarly can't provide data locality in our API. In practice, we’ve generally found that data locality is not a bottleneck when optimizing for performance. 
 
-Deployment:
+## Deployment:
 ##### Where/how can I deploy Pachyderm?
 Once you have Kubernetes running, Pachyderm is just a one line deploy. Since Pachyderm’s only dependency is Kubernetes, it can be run on AWS, Google Cloud, or on premise. Check out our deployment guide (LINK) to get it running for yourself.
 ##### Can I use other schedulers such as Docker Swarm or Mesos?
