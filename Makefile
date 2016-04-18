@@ -60,8 +60,11 @@ install:
 homebrew: deps-client
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
 
-release: deps-client
+tag-release: deps-client
 	./etc/build/tag_release
+
+release-pachd:
+	./etc/build/release_pachd
 
 docker-build-compile:
 	# Running locally, not on travis
