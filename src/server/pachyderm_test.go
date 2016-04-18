@@ -327,7 +327,7 @@ func TestPipeline(t *testing.T) {
 	)
 	require.NoError(t, err)
 	// there should only be two commits in the pipeline
-	require.Equal(t, len(listCommitResponse.CommitInfo), 2)
+	require.Equal(t, 2, len(listCommitResponse.CommitInfo))
 }
 
 func TestWorkload(t *testing.T) {
