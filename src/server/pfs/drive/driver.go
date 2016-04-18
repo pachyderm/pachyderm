@@ -394,12 +394,12 @@ func (d *driver) PutFile(file *pfs.File, handle string, shard uint64, reader io.
 	if handle == "" {
 		_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
 	} else {
-		blockRefs, ok := _append.Handles[handle]
+		handleBlockRefs, ok := _append.Handles[handle]
 		if !ok {
-			blockRefs = &pfs.BlockRefs{}
-			_append.Handles[handle] = blockRefs
+			handleBlockRefs = &pfs.BlockRefs{}
+			_append.Handles[handle] = handleBlockRefs
 		}
-		blockRefs.BlockRef = append(blockRefs.BlockRef, blockRefs.BlockRef...)
+		handleBlockRefs.BlockRef = append(handleBlockRefs.BlockRef, blockRefs.BlockRef...)
 	}
 	for _, blockRef := range blockRefs.BlockRef {
 		diffInfo.SizeBytes += blockRef.Range.Upper - blockRef.Range.Lower
