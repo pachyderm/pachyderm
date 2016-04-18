@@ -350,8 +350,6 @@ func TestDeleteRepo(t *testing.T) {
 	}
 
 	require.Equal(t, len(repoInfos), numRepos-reposToRemove)
-
-	require.YesError(t, pfsclient.DeleteRepo(pfsClient, "non-existent-repo"))
 }
 
 func TestInspectCommit(t *testing.T) {

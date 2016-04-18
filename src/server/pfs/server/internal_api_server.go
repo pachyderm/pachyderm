@@ -103,7 +103,7 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfsclient.D
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.DeleteRepo(request.Repo, shards); err != nil {
+	if err := a.driver.DeleteRepo(request.Repo, shards); err != nil && err != pfsserver.ErrRepoNotFound {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -359,7 +359,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfsclient.Lis
 	default:
 	}
 	return &pfsclient.FileInfos{
-		FileInfo: pfsserver.ReduceFileInfos(fileInfos),
+		FileInfo: fileInfos,
 	}, nil
 }
 
@@ -535,7 +535,7 @@ WaitersLoop:
 
 func (a *internalAPIServer) filteredListCommits(repos []*pfsclient.Repo, fromCommit []*pfsclient.Commit, commitType pfsclient.CommitType, shards map[uint64]bool) ([]*pfsclient.CommitInfo, error) {
 	commitInfos, err := a.driver.ListCommit(repos, fromCommit, shards)
-	if err != nil {
+	if err != nil && err != pfsserver.ErrRepoNotFound {
 		return nil, err
 	}
 	var filtered []*pfsclient.CommitInfo

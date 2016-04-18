@@ -158,9 +158,10 @@
 			"revisionTime": "2015-12-05T10:49:59+01:00"
 		},
 		{
+			"checksumSHA1": "uB9mw9vMHYJlJlmTBstl4Pi8ZwU=",
 			"path": "github.com/cenkalti/backoff",
-			"revision": "4dc77674aceaabba2c7e3da25d4c823edfb73f99",
-			"revisionTime": "2015-08-14T12:43:33+03:00"
+			"revision": "32cd0c5b3aef12c76ed64aaf678f6c79736be7dc",
+			"revisionTime": "2015-08-27T15:34:15+03:00"
 		},
 		{
 			"path": "github.com/coreos/go-etcd/etcd",
