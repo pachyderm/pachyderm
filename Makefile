@@ -107,18 +107,6 @@ clean-launch:
 integration-tests:
 	CGOENABLED=0 go test ./src/server -timeout 120s
 
-docker-proto-run:
-	cd /go/src/github.com/pachyderm/pachyderm && \
-	go install ./src/server/cmd/protofix && \
-	rm -rf src/server/vendor && \
-	protoeasy --grpc --go --go-import-path github.com/pachyderm/pachyderm/src src && \
-	protofix fix src && \
-	git checkout src/server/vendor
-
-docker-proto:
-	docker run -v $(PWD):/go/src/github.com/pachyderm/pachyderm pachyderm_proto make -f /go/src/github.com/pachyderm/pachyderm/Makefile docker-proto-run
-	sudo chown -R `whoami` src/
-
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
 	| grep -v vendor \
