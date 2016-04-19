@@ -409,18 +409,26 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
 		}
+		failed := jobInfo.ShardsSucceeded != jobInfo.Shards
 		pfsAPIClient, err := a.getPfsClient()
 		if err != nil {
 			return nil, err
 		}
 		if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-			Commit: jobInfo.OutputCommit,
+			Commit:    jobInfo.OutputCommit,
+			Cancelled: failed,
 		}); err != nil {
 			return nil, err
 		}
-		jobState := ppsclient.JobState_JOB_STATE_FAILURE
-		if jobInfo.ShardsSucceeded == jobInfo.Shards {
-			jobState = ppsclient.JobState_JOB_STATE_SUCCESS
+		commitInfo, err := pfsAPIClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
+			Commit: jobInfo.OutputCommit,
+		})
+		if err != nil {
+			return nil, err
+		}
+		jobState := ppsclient.JobState_JOB_STATE_SUCCESS
+		if failed || commitInfo.Cancelled {
+			jobState = ppsclient.JobState_JOB_STATE_FAILURE
 		}
 		if _, err := persistClient.CreateJobState(ctx, &persist.JobState{
 			JobID: request.Job.ID,
