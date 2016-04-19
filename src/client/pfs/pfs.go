@@ -233,41 +233,22 @@ func ListBlock(apiClient BlockAPIClient) ([]*BlockInfo, error) {
 	return blockInfos.BlockInfo, nil
 }
 
+func PutFileWriter(apiClient APIClient, repoName string, commitID string, path string, handle string) (io.WriteCloser, error) {
+	return newPutFileWriteCloser(apiClient, repoName, commitID, path, handle)
+}
+
 func PutFile(apiClient APIClient, repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
-	putFileClient, err := apiClient.PutFile(context.Background())
+	writer, err := PutFileWriter(apiClient, repoName, commitID, path, "")
 	if err != nil {
 		return 0, err
 	}
 	defer func() {
-		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr == nil {
+		if err := writer.Close(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
-	request := PutFileRequest{
-		File:     NewFile(repoName, commitID, path),
-		FileType: FileType_FILE_TYPE_REGULAR,
-	}
-	var size int
-	eof := false
-	for !eof {
-		value := make([]byte, chunkSize)
-		iSize, err := reader.Read(value)
-		if err != nil && err != io.EOF {
-			return 0, err
-		}
-		if err == io.EOF {
-			eof = true
-		}
-		request.Value = value[0:iSize]
-		size += iSize
-		if err := putFileClient.Send(&request); err != nil {
-			return 0, err
-		}
-	}
-	if err != nil && err != io.EOF {
-		return 0, err
-	}
-	return size, err
+	written, err := io.Copy(writer, reader)
+	return int(written), err
 }
 
 func GetFile(apiClient APIClient, repoName string, commitID string, path string, offset int64, size int64, fromCommitID string, shard *Shard, writer io.Writer) error {
@@ -349,6 +330,41 @@ func MakeDirectory(apiClient APIClient, repoName string, commitID string, path s
 			FileType: FileType_FILE_TYPE_DIR,
 		},
 	)
+}
+
+type putFileWriteCloser struct {
+	request       *PutFileRequest
+	putFileClient API_PutFileClient
+}
+
+func newPutFileWriteCloser(apiClient APIClient, repoName string, commitID string, path string, handle string) (*putFileWriteCloser, error) {
+	putFileClient, err := apiClient.PutFile(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return &putFileWriteCloser{
+		request: &PutFileRequest{
+			File:     NewFile(repoName, commitID, path),
+			FileType: FileType_FILE_TYPE_REGULAR,
+			Handle:   handle,
+		},
+		putFileClient: putFileClient,
+	}, nil
+}
+
+func (w *putFileWriteCloser) Write(p []byte) (int, error) {
+	w.request.Value = p
+	if err := w.putFileClient.Send(w.request); err != nil {
+		return 0, err
+	}
+	// File is only needed on the first request
+	w.request.File = nil
+	return len(p), nil
+}
+
+func (w *putFileWriteCloser) Close() error {
+	_, err := w.putFileClient.CloseAndRecv()
+	return err
 }
 
 func newFromCommit(repoName string, fromCommitID string) *Commit {

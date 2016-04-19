@@ -3,17 +3,18 @@ package fuse
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
@@ -128,14 +129,11 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 	directory.File.Path = path.Join(directory.File.Path, request.Name)
 	localResult := &file{
 		directory: *directory,
-		handles:   0,
 		size:      0,
 		local:     true,
 	}
-	handle, err := localResult.Open(ctx, nil, nil)
-	if err != nil {
-		return nil, nil, err
-	}
+	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
+	handle := localResult.newHandle()
 	return localResult, handle, nil
 }
 
@@ -156,9 +154,8 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 
 type file struct {
 	directory
-	handles int32
-	size    int64
-	local   bool
+	size  int64
+	local bool
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
@@ -185,58 +182,12 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	return nil
 }
 
-func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
-	defer func() {
-		protolion.Debug(&FileRead{&f.Node, errorToString(retErr)})
-	}()
-	var buffer bytes.Buffer
-	if err := pfsclient.GetFile(
-		f.fs.apiClient,
-		f.File.Commit.Repo.Name,
-		f.File.Commit.ID,
-		f.File.Path,
-		request.Offset,
-		int64(request.Size),
-		f.fs.getFromCommitID(f.File.Commit.Repo.Name),
-		f.Shard,
-		&buffer,
-	); err != nil {
-		if grpc.Code(err) == codes.NotFound {
-			// This happens when trying to read from a file in an open
-			// commit. We could catch this at `open(2)` time and never
-			// get here, but Open is currently not a remote operation.
-			//
-			// ENOENT from read(2) is weird, let's call this EINVAL
-			// instead.
-			return fuse.Errno(syscall.EINVAL)
-		}
-		return err
-	}
-	response.Data = buffer.Bytes()
-	return nil
-}
-
 func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fuse.OpenResponse) (_ fs.Handle, retErr error) {
 	defer func() {
-		protolion.Debug(&FileRead{&f.Node, errorToString(retErr)})
+		protolion.Debug(&FileOpen{&f.Node, errorToString(retErr)})
 	}()
-	atomic.AddInt32(&f.handles, 1)
-	return f, nil
-}
-
-func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
-	defer func() {
-		protolion.Debug(&FileWrite{&f.Node, errorToString(retErr)})
-	}()
-	written, err := pfsclient.PutFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.ID, f.File.Path, bytes.NewReader(request.Data))
-	if err != nil {
-		return err
-	}
-	response.Size = written
-	if f.size < request.Offset+int64(written) {
-		f.size = request.Offset + int64(written)
-	}
-	return nil
+	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
+	return f.newHandle(), nil
 }
 
 func (f *filesystem) inode(file *pfsclient.File) uint64 {
@@ -254,6 +205,98 @@ func (f *filesystem) inode(file *pfsclient.File) uint64 {
 	f.inodes[key(file)] = newInode
 	f.lock.Unlock()
 	return newInode
+}
+
+func (f *file) newHandle() *handle {
+	return &handle{
+		id: uuid.NewWithoutDashes(),
+		f:  f,
+	}
+}
+
+type handle struct {
+	id      string
+	f       *file
+	w       io.WriteCloser
+	written int
+}
+
+func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
+	defer func() {
+		protolion.Debug(&FileRead{&h.f.Node, errorToString(retErr)})
+	}()
+	var buffer bytes.Buffer
+	if err := pfsclient.GetFile(
+		h.f.fs.apiClient,
+		h.f.File.Commit.Repo.Name,
+		h.f.File.Commit.ID,
+		h.f.File.Path,
+		request.Offset,
+		int64(request.Size),
+		h.f.fs.getFromCommitID(h.f.File.Commit.Repo.Name),
+		h.f.Shard,
+		&buffer,
+	); err != nil {
+		if grpc.Code(err) == codes.NotFound {
+			// This happens when trying to read from a file in an open
+			// commit. We could catch this at `open(2)` time and never
+			// get here, but Open is currently not a remote operation.
+			//
+			// ENOENT from read(2) is weird, let's call this EINVAL
+			// instead.
+			return fuse.Errno(syscall.EINVAL)
+		}
+		return err
+	}
+	response.Data = buffer.Bytes()
+	return nil
+}
+
+func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
+	defer func() {
+		protolion.Debug(&FileWrite{&h.f.Node, errorToString(retErr)})
+	}()
+	protolion.Printf("WriteRequest: %s@%d\n", string(request.Data), request.Offset)
+	if h.w == nil {
+		w, err := pfsclient.PutFileWriter(h.f.fs.apiClient, h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.id)
+		if err != nil {
+			return err
+		}
+		h.w = w
+	}
+	// repeated is how many bytes in this write have already been sent in
+	// previous call to Write. Why does the OS send us the same data twice in
+	// different calls? Good question, this is a behavior that's only been
+	// observed on osx, not on linux.
+	repeated := h.written - int(request.Offset)
+	if repeated < 0 {
+		return fmt.Errorf("gap in bytes written, (OpenNonSeekable should make this impossible)")
+	}
+	written, err := h.w.Write(request.Data[repeated:])
+	if err != nil {
+		return err
+	}
+	response.Size = written + repeated
+	h.written += written
+	if h.f.size < request.Offset+int64(written) {
+		h.f.size = request.Offset + int64(written)
+	}
+	return nil
+}
+
+func (h *handle) Flush(ctx context.Context, req *fuse.FlushRequest) error {
+	if h.w != nil {
+		w := h.w
+		h.w = nil
+		if err := w.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *handle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
+	return nil
 }
 
 func (d *directory) copy() *directory {
@@ -360,7 +403,6 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		directory.File.Path = fileInfo.File.Path
 		return &file{
 			directory: *directory,
-			handles:   0,
 			size:      int64(fileInfo.SizeBytes),
 			local:     false,
 		}, nil
