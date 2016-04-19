@@ -47,13 +47,7 @@ func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 func (s *localBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockServer) (retErr error) {
 	result := &pfsclient.BlockRefs{}
 	defer func(start time.Time) { s.Log(nil, result, retErr, time.Since(start)) }(time.Now())
-	defer func() {
-		for {
-			if _, err := putBlockServer.Recv(); err != nil {
-				break
-			}
-		}
-	}()
+	defer drainBlockServer(putBlockServer)
 	reader := bufio.NewReader(protostream.NewStreamingBytesReader(putBlockServer))
 	for {
 		blockRef, err := s.putOneBlock(reader)
@@ -265,4 +259,12 @@ func (s *localBlockAPIServer) putOneBlock(reader *bufio.Reader) (*pfsclient.Bloc
 
 func (s *localBlockAPIServer) deleteBlock(block *pfsclient.Block) error {
 	return os.Remove(s.blockPath(block))
+}
+
+func drainBlockServer(putBlockServer pfsclient.BlockAPI_PutBlockServer) {
+	for {
+		if _, err := putBlockServer.Recv(); err != nil {
+			break
+		}
+	}
 }
