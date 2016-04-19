@@ -11,6 +11,14 @@ branches:
 before_install:
 - echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock -s devicemapper"' | sudo tee /etc/default/docker
   > /dev/null
+- sudo apt-get install -qq pkg-config fuse
+- sudo modprobe fuse
+- sudo chmod 666 /dev/fuse
+- sudo chown root:$USER /etc/fuse.conf
+- cat /etc/fuse.conf
+- sudo cp etc/build/fuse.conf /etc/fuse.conf
+- sudo chown root:$USER /etc/fuse.conf
+- cat /etc/fuse.conf
 before_script:
 - wget https://storage.googleapis.com/kubernetes-release/release/v1.2.0/bin/linux/amd64/kubectl
 - chmod +x kubectl
@@ -19,7 +27,7 @@ before_script:
 - kubectl get all
 - docker version
 script:
-- make test
+- make test-fuse
 after_success:
 - make release
 notifications:
