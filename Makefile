@@ -83,6 +83,9 @@ docker-build-pachd: docker-build-compile
 
 docker-build: docker-build-job-shim docker-build-pachd
 
+docker-build-proto:
+	docker build -t pachyderm_proto etc/proto
+
 docker-push-job-shim: docker-build-job-shim
 	docker push pachyderm/job-shim
 
@@ -117,25 +120,12 @@ clean-launch:
 integration-tests:
 	CGOENABLED=0 go test ./src/server -timeout 300s
 
-docker-proto-run:
-	cd /go/src/github.com/pachyderm/pachyderm && \
-	go install ./src/server/cmd/protofix && \
-	rm -rf src/server/vendor && \
-	protoeasy --grpc --go --go-import-path github.com/pachyderm/pachyderm/src src && \
-	protofix fix src && \
-	git checkout src/server/vendor
-
-docker-build-proto:
-	docker build -t pachyderm/protofix -f Dockerfile.proto .
-
-docker-proto:
-	docker run -v $(PWD):/go/src/github.com/pachyderm/pachyderm pachyderm/protofix make -f /go/src/github.com/pachyderm/pachyderm/Makefile docker-proto-run
-	sudo chown -R `whoami` src/
-
-proto:
-	go get -v go.pedge.io/protoeasy/cmd/protoeasy
-	rm -rf src/server/vendor
-	sudo env PATH=$(PATH) GOPATH=$(GOPATH) protoeasy --grpc --go --go-import-path github.com/pachyderm/pachyderm/src src
+proto: docker-build-proto
+	find src -regex ".*\.proto" \
+	| grep -v vendor \
+	| xargs tar cf - \
+	| docker run -i pachyderm_proto \
+	| tar xf -
 
 protofix:
 	go install github.com/pachyderm/pachyderm/src/server/cmd/protofix
