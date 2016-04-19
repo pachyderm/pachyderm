@@ -249,11 +249,12 @@ func TestBigWrite(t *testing.T) {
 		require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
-		require.Equal(t, append(bytes.Repeat([]byte{'y'}, 1000000), '\n'), data)
+		require.Equal(t, bytes.Repeat([]byte{'y'}, 1000000), data)
 	})
 }
 
 func Test296(t *testing.T) {
+	lion.SetLevel(lion.LevelDebug)
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -302,7 +303,7 @@ func TestSpacedWrites(t *testing.T) {
 		require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
-		require.Equal(t, "foofoo\n", string(data))
+		require.Equal(t, "foofoo", string(data))
 	})
 }
 

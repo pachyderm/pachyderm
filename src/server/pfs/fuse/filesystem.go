@@ -275,10 +275,11 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 
 func (h *handle) Flush(ctx context.Context, req *fuse.FlushRequest) error {
 	if h.w != nil {
-		if err := h.w.Close(); err != nil {
+		w := h.w
+		h.w = nil
+		if err := w.Close(); err != nil {
 			return err
 		}
-		h.w = nil
 	}
 	return nil
 }
