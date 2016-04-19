@@ -145,6 +145,9 @@ test: pretest test-client test-local docker-build clean-launch launch integratio
 test-client: deps-client
 	GO15VENDOREXPERIMENT=1 go test -cover -v $$(go list ./src/client/...)
 
+test-fuse: deps-client
+	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -v $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
+
 test-local: deps-client
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
 
