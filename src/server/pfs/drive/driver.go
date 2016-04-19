@@ -235,6 +235,10 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 			if !ok {
 				return fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
 			}
+			parentDiffInfo, ok := d.diffs.get(pfsclient.NewDiff(canonicalCommit.Repo.Name, diffInfo.ParentCommit.ID, shard))
+			if ok && parentDiffInfo.Finished == nil {
+				return fmt.Errorf("commit %s/%s has a parent %s/%s that's not been finished", canonicalCommit.Repo.Name, canonicalCommit.ID, canonicalCommit.Repo.Name, diffInfo.ParentCommit.ID)
+			}
 			diffInfo.Finished = finished
 			diffInfos = append(diffInfos, diffInfo)
 		}
