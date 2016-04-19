@@ -779,7 +779,7 @@ func TestOffsetRead(t *testing.T) {
 	require.Equal(t, "", buffer.String())
 }
 
-// Test that you cannot finish a commit when its parent has not been finished
+// FinishCommit should block until the parent has been finished
 func TestFinishCommit(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
@@ -789,7 +789,24 @@ func TestFinishCommit(t *testing.T) {
 	require.NoError(t, err)
 	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit1.ID, "")
 	require.NoError(t, err)
-	require.YesError(t, pfsclient.FinishCommit(pfsClient, repo, commit2.ID))
+	ch := make(chan bool)
+	go func() {
+		require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit2.ID))
+		close(ch)
+	}()
+	time.Sleep(time.Second * 2)
+	select {
+	case <-ch:
+		t.Fatalf("should block, since the parent commit has not been finished")
+	default:
+	}
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
+	time.Sleep(time.Second * 2)
+	select {
+	case <-ch:
+	default:
+		t.Fatalf("should not block, since the parent commit has been finished")
+	}
 }
 
 func generateRandomString(n int) string {
