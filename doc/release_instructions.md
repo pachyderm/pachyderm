@@ -21,7 +21,8 @@ To test / verify:
     git pull --tags
     cp etc/kube/pachyderm.json .
     tag=`git tag -l --points-at HEAD`
-    sed "s/pachyderm\/pachd/pachyderm\/pachd:$tag/" pachyderm.json > tagged_pachyderm.json
+    docker_tag=`echo $tag | sed -e 's/[\(]/-/g' | sed -e 's/[\)]//g'`
+    sed "s/pachyderm\/pachd/pachyderm\/pachd:$docker_tag/" pachyderm.json > tagged_pachyderm.json
     kubectl create -f tagged_pachyderm.json
     until timeout 5s $GOPATH/bin/pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
 
