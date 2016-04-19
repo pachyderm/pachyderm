@@ -308,7 +308,7 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return d.inspectCommit(commit, shards)
 }
 
-func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, includeCancelled bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, all bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	repoSet := make(map[string]bool)
 	for _, repo := range repos {
 		repoSet[repo.Name] = true
@@ -340,7 +340,7 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, include
 				if err != nil {
 					return nil, err
 				}
-				if !commitInfo.Cancelled || includeCancelled {
+				if !commitInfo.Cancelled || all {
 					result = append(result, commitInfo)
 				}
 				commit = commitInfo.ParentCommit
@@ -625,10 +625,8 @@ func (d *driver) AddShard(shard uint64) error {
 				if err := d.insertDiffInfo(diffInfo); err != nil {
 					return err
 				}
-				if diffInfo.Finished == nil {
-					if _, ok := d.commitConds[diffInfo.Diff.Commit.ID]; !ok {
-						d.commitConds[diffInfo.Diff.Commit.ID] = sync.NewCond(&d.lock)
-					}
+				if diffInfo.FileInfo == nil {
+					return fmt.Errorf("diff %s/%s/%d is not finished; this is likely a bug", repoName, commitID, shard)
 				}
 			} else {
 				return fmt.Errorf("diff %s/%s/%d not found; this is likely a bug", repoName, commitID, shard)

@@ -415,8 +415,8 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 			return nil, err
 		}
 		if _, err := pfsAPIClient.FinishCommit(ctx, &pfsclient.FinishCommitRequest{
-			Commit:    jobInfo.OutputCommit,
-			Cancelled: failed,
+			Commit: jobInfo.OutputCommit,
+			Cancel: failed,
 		}); err != nil {
 			return nil, err
 		}

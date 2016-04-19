@@ -159,7 +159,7 @@ message StartCommitRequest {
 
 message FinishCommitRequest {
   Commit commit = 1;
-  bool cancelled = 2;
+  bool cancel = 2;
   google.protobuf.Timestamp finished = 3;
 }
 
@@ -171,8 +171,8 @@ message ListCommitRequest {
   repeated Repo repo = 1;
   CommitType commit_type = 2;
   repeated Commit from_commit = 3;
-  bool block = 4;
-  bool include_cancelled = 5;
+  bool all = 4;
+  bool block = 5;
 }
 
 message ListBranchRequest {
