@@ -16,7 +16,7 @@ before_install:
 - sudo chmod 666 /dev/fuse
 - sudo chown root:$USER /etc/fuse.conf
 - cat /etc/fuse.conf
-- sudo cp etc/build/fuse.con /etc/fuse.conf
+- sudo cp etc/build/fuse.conf /etc/fuse.conf
 - sudo chown root:$USER /etc/fuse.conf
 - cat /etc/fuse.conf
 before_script:
