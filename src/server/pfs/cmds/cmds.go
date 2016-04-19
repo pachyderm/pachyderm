@@ -164,6 +164,7 @@ This layers the data in the commit over the data in the parent.`,
 	}
 	startCommit.Flags().StringVarP(&parentCommitID, "parent", "p", "", "parent id")
 
+	var cancelled bool
 	finishCommit := &cobra.Command{
 		Use:   "finish-commit repo-name commit-id",
 		Short: "Finish a started commit.",
@@ -173,9 +174,13 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
+			if cancelled {
+				return pfsclient.CancelCommit(apiClient, args[0], args[1])
+			}
 			return pfsclient.FinishCommit(apiClient, args[0], args[1])
 		}),
 	}
+	finishCommit.Flags().BoolVarP(&cancelled, "cancelled", "c", false, "commit cancelled")
 
 	inspectCommit := &cobra.Command{
 		Use:   "inspect-commit repo-name commit-id",
@@ -200,6 +205,7 @@ This layers the data in the commit over the data in the parent.`,
 		}),
 	}
 
+	var includeCancelled bool
 	listCommit := &cobra.Command{
 		Use:   "list-commit repo-name",
 		Short: "Return all commits on a repo.",
@@ -221,6 +227,7 @@ This layers the data in the commit over the data in the parent.`,
 			return writer.Flush()
 		}),
 	}
+	listCommit.Flags().BoolVarP(&includeCancelled, "cancelled", "c", false, "commit cancelled")
 
 	listBranch := &cobra.Command{
 		Use:   "list-branch repo-name",
