@@ -215,9 +215,10 @@ func (f *file) newHandle() *handle {
 }
 
 type handle struct {
-	id string
-	f  *file
-	w  io.WriteCloser
+	id      string
+	f       *file
+	w       io.WriteCloser
+	written int
 }
 
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
@@ -255,6 +256,7 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 	defer func() {
 		protolion.Debug(&FileWrite{&h.f.Node, errorToString(retErr)})
 	}()
+	protolion.Printf("WriteRequest: %s@%d\n", string(request.Data), request.Offset)
 	if h.w == nil {
 		w, err := pfsclient.PutFileWriter(h.f.fs.apiClient, h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.id)
 		if err != nil {
@@ -262,11 +264,20 @@ func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response
 		}
 		h.w = w
 	}
-	written, err := h.w.Write(request.Data)
+	// repeated is how many bytes in this write have already been sent in
+	// previous call to Write. Why does the OS send us the same data twice in
+	// different calls? Good question, this is a behavior that's only been
+	// observed on osx, not on linux.
+	repeated := h.written - int(request.Offset)
+	if repeated < 0 {
+		return fmt.Errorf("gap in bytes written, (OpenNonSeekable should make this impossible)")
+	}
+	written, err := h.w.Write(request.Data[repeated:])
 	if err != nil {
 		return err
 	}
-	response.Size = written
+	response.Size = written + repeated
+	h.written += written
 	if h.f.size < request.Offset+int64(written) {
 		h.f.size = request.Offset + int64(written)
 	}
