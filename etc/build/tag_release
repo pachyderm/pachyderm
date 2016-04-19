@@ -5,8 +5,9 @@ if [ -z "$TRAVIS_BUILD_NUMBER" ]; then
 	exit 1
 fi
 
-export VERSION_PREFIX=`make -s version-prefix`
-echo "Tagging this build as: v$VERSION_PREFIX.$TRAVIS_BUILD_NUMBER"
-git tag "v$VERSION_PREFIX.$TRAVIS_BUILD_NUMBER"
+export PACH_BUILD_NUMBER=$TRAVIS_BUILD_NUMBER
+export VERSION=`make -s version`
+echo "Tagging this build as: v$VERSION"
+git tag "v$VERSION_PREFIX"
 echo "Pushing tags ..."
 git push --quiet https://${GITHUB_RELEASE_TOKEN}@github.com/pachyderm/pachyderm --tags > /dev/null 2>&1
