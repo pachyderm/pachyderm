@@ -779,6 +779,36 @@ func TestOffsetRead(t *testing.T) {
 	require.Equal(t, "", buffer.String())
 }
 
+// FinishCommit should block until the parent has been finished
+func TestFinishCommit(t *testing.T) {
+	t.Parallel()
+	pfsClient, _ := getClientAndServer(t)
+	repo := "TestFinishCommit"
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
+	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, err)
+	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit1.ID, "")
+	require.NoError(t, err)
+	ch := make(chan bool)
+	go func() {
+		require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit2.ID))
+		close(ch)
+	}()
+	time.Sleep(time.Second * 2)
+	select {
+	case <-ch:
+		t.Fatalf("should block, since the parent commit has not been finished")
+	default:
+	}
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
+	time.Sleep(time.Second * 2)
+	select {
+	case <-ch:
+	default:
+		t.Fatalf("should not block, since the parent commit has been finished")
+	}
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {

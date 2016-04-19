@@ -24,6 +24,8 @@ type driver struct {
 	dags            map[string]*dag.DAG
 	branches        map[string]map[string]string
 	lock            sync.RWMutex
+	// used for signaling the completion (i.e. finishing) of a commit
+	commitConds map[string]*sync.Cond
 }
 
 func newDriver(blockAddress string) (Driver, error) {
@@ -35,6 +37,7 @@ func newDriver(blockAddress string) (Driver, error) {
 		dags:            make(map[string]*dag.DAG),
 		branches:        make(map[string]map[string]string),
 		lock:            sync.RWMutex{},
+		commitConds:     make(map[string]*sync.Cond),
 	}, nil
 }
 
@@ -217,23 +220,39 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 			return err
 		}
 	}
+	d.commitConds[commitID] = sync.NewCond(&d.lock)
 	return nil
 }
 
+// FinishCommit blocks until its parent has been finished/cancelled
 func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, shards map[uint64]bool) error {
+	canonicalCommit, err := d.canonicalCommit(commit)
+	if err != nil {
+		return err
+	}
 	// closure so we can defer Unlock
 	var diffInfos []*pfs.DiffInfo
 	if err := func() error {
 		d.lock.Lock()
 		defer d.lock.Unlock()
-		canonicalCommit, err := d.canonicalCommit(commit)
-		if err != nil {
-			return err
-		}
 		for shard := range shards {
 			diffInfo, ok := d.diffs.get(pfsclient.NewDiff(canonicalCommit.Repo.Name, canonicalCommit.ID, shard))
 			if !ok {
 				return fmt.Errorf("commit %s/%s not found", canonicalCommit.Repo.Name, canonicalCommit.ID)
+			}
+			if diffInfo.ParentCommit != nil {
+				parentDiffInfo, ok := d.diffs.get(pfsclient.NewDiff(canonicalCommit.Repo.Name, diffInfo.ParentCommit.ID, shard))
+				if !ok {
+					return fmt.Errorf("parent commit %s/%s not found", canonicalCommit.Repo.Name, diffInfo.ParentCommit.ID)
+				}
+				// Wait for parent to finish
+				for parentDiffInfo.Finished == nil {
+					cond, ok := d.commitConds[diffInfo.ParentCommit.ID]
+					if !ok {
+						return fmt.Errorf("parent commit %s/%s was not finished but a corresponding conditional variable could not be found; this is likely a bug")
+					}
+					cond.Wait()
+				}
 			}
 			diffInfo.Finished = finished
 			diffInfos = append(diffInfos, diffInfo)
@@ -269,6 +288,14 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 		return err
 	default:
 	}
+
+	cond, ok := d.commitConds[canonicalCommit.ID]
+	if !ok {
+		return fmt.Errorf("could not found a conditional variable to signal commit completion; this is likely a bug")
+	}
+	cond.Broadcast()
+	delete(d.commitConds, canonicalCommit.ID)
+
 	return nil
 }
 
@@ -592,6 +619,11 @@ func (d *driver) AddShard(shard uint64) error {
 			if diffInfo, ok := diffInfos.get(pfsclient.NewDiff(repoName, commitID, shard)); ok {
 				if err := d.insertDiffInfo(diffInfo); err != nil {
 					return err
+				}
+				if diffInfo.Finished == nil {
+					if _, ok := d.commitConds[diffInfo.Diff.Commit.ID]; !ok {
+						d.commitConds[diffInfo.Diff.Commit.ID] = sync.NewCond(&d.lock)
+					}
 				}
 			} else {
 				return fmt.Errorf("diff %s/%s/%d not found; this is likely a bug", repoName, commitID, shard)
