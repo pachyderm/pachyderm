@@ -1019,6 +1019,7 @@ var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion2
 
 // Client API for API service
 
@@ -1293,124 +1294,184 @@ func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 	s.RegisterService(&_API_serviceDesc, srv)
 }
 
-func _API_CreateRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_CreateRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).CreateRepo(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).CreateRepo(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/CreateRepo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).CreateRepo(ctx, req.(*CreateRepoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_InspectRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_InspectRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InspectRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).InspectRepo(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).InspectRepo(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/InspectRepo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).InspectRepo(ctx, req.(*InspectRepoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_ListRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_ListRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).ListRepo(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).ListRepo(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/ListRepo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).ListRepo(ctx, req.(*ListRepoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_DeleteRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_DeleteRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).DeleteRepo(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).DeleteRepo(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/DeleteRepo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).DeleteRepo(ctx, req.(*DeleteRepoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_StartCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_StartCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StartCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).StartCommit(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).StartCommit(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/StartCommit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).StartCommit(ctx, req.(*StartCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_FinishCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_FinishCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(FinishCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).FinishCommit(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).FinishCommit(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/FinishCommit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).FinishCommit(ctx, req.(*FinishCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_InspectCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_InspectCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InspectCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).InspectCommit(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).InspectCommit(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/InspectCommit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).InspectCommit(ctx, req.(*InspectCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_ListCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_ListCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).ListCommit(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).ListCommit(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/ListCommit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).ListCommit(ctx, req.(*ListCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_DeleteCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_DeleteCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).DeleteCommit(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).DeleteCommit(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/DeleteCommit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).DeleteCommit(ctx, req.(*DeleteCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_ListBranch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_ListBranch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListBranchRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).ListBranch(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).ListBranch(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/ListBranch",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).ListBranch(ctx, req.(*ListBranchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _API_PutFile_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -1460,40 +1521,58 @@ func (x *aPIGetFileServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _API_InspectFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_InspectFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InspectFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).InspectFile(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).InspectFile(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/InspectFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).InspectFile(ctx, req.(*InspectFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_ListFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_ListFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).ListFile(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).ListFile(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/ListFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).ListFile(ctx, req.(*ListFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).DeleteFile(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).DeleteFile(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.API/DeleteFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).DeleteFile(ctx, req.(*DeleteFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 var _API_serviceDesc = grpc.ServiceDesc{
@@ -1840,124 +1919,184 @@ func RegisterInternalAPIServer(s *grpc.Server, srv InternalAPIServer) {
 	s.RegisterService(&_InternalAPI_serviceDesc, srv)
 }
 
-func _InternalAPI_CreateRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_CreateRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalAPIServer).CreateRepo(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(InternalAPIServer).CreateRepo(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.InternalAPI/CreateRepo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InternalAPIServer).CreateRepo(ctx, req.(*CreateRepoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _InternalAPI_InspectRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_InspectRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InspectRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalAPIServer).InspectRepo(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(InternalAPIServer).InspectRepo(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.InternalAPI/InspectRepo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InternalAPIServer).InspectRepo(ctx, req.(*InspectRepoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _InternalAPI_ListRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_ListRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalAPIServer).ListRepo(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(InternalAPIServer).ListRepo(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.InternalAPI/ListRepo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InternalAPIServer).ListRepo(ctx, req.(*ListRepoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _InternalAPI_DeleteRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_DeleteRepo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteRepoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalAPIServer).DeleteRepo(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(InternalAPIServer).DeleteRepo(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.InternalAPI/DeleteRepo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InternalAPIServer).DeleteRepo(ctx, req.(*DeleteRepoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _InternalAPI_StartCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_StartCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StartCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalAPIServer).StartCommit(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(InternalAPIServer).StartCommit(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.InternalAPI/StartCommit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InternalAPIServer).StartCommit(ctx, req.(*StartCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _InternalAPI_FinishCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_FinishCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(FinishCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalAPIServer).FinishCommit(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(InternalAPIServer).FinishCommit(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.InternalAPI/FinishCommit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InternalAPIServer).FinishCommit(ctx, req.(*FinishCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _InternalAPI_InspectCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_InspectCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InspectCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalAPIServer).InspectCommit(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(InternalAPIServer).InspectCommit(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.InternalAPI/InspectCommit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InternalAPIServer).InspectCommit(ctx, req.(*InspectCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _InternalAPI_ListCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_ListCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalAPIServer).ListCommit(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(InternalAPIServer).ListCommit(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.InternalAPI/ListCommit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InternalAPIServer).ListCommit(ctx, req.(*ListCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _InternalAPI_DeleteCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_DeleteCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteCommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalAPIServer).DeleteCommit(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(InternalAPIServer).DeleteCommit(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.InternalAPI/DeleteCommit",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InternalAPIServer).DeleteCommit(ctx, req.(*DeleteCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _InternalAPI_ListBranch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_ListBranch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListBranchRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalAPIServer).ListBranch(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(InternalAPIServer).ListBranch(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.InternalAPI/ListBranch",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InternalAPIServer).ListBranch(ctx, req.(*ListBranchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _InternalAPI_PutFile_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -2007,40 +2146,58 @@ func (x *internalAPIGetFileServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _InternalAPI_InspectFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_InspectFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InspectFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalAPIServer).InspectFile(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(InternalAPIServer).InspectFile(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.InternalAPI/InspectFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InternalAPIServer).InspectFile(ctx, req.(*InspectFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _InternalAPI_ListFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_ListFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalAPIServer).ListFile(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(InternalAPIServer).ListFile(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.InternalAPI/ListFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InternalAPIServer).ListFile(ctx, req.(*ListFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _InternalAPI_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _InternalAPI_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(InternalAPIServer).DeleteFile(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(InternalAPIServer).DeleteFile(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.InternalAPI/DeleteFile",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InternalAPIServer).DeleteFile(ctx, req.(*DeleteFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 var _InternalAPI_serviceDesc = grpc.ServiceDesc{
@@ -2353,64 +2510,94 @@ func (x *blockAPIGetBlockServer) Send(m *google_protobuf3.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _BlockAPI_DeleteBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _BlockAPI_DeleteBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteBlockRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(BlockAPIServer).DeleteBlock(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(BlockAPIServer).DeleteBlock(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.BlockAPI/DeleteBlock",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BlockAPIServer).DeleteBlock(ctx, req.(*DeleteBlockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _BlockAPI_InspectBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _BlockAPI_InspectBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InspectBlockRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(BlockAPIServer).InspectBlock(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(BlockAPIServer).InspectBlock(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.BlockAPI/InspectBlock",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BlockAPIServer).InspectBlock(ctx, req.(*InspectBlockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _BlockAPI_ListBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _BlockAPI_ListBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListBlockRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(BlockAPIServer).ListBlock(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(BlockAPIServer).ListBlock(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.BlockAPI/ListBlock",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BlockAPIServer).ListBlock(ctx, req.(*ListBlockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _BlockAPI_CreateDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _BlockAPI_CreateDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DiffInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(BlockAPIServer).CreateDiff(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(BlockAPIServer).CreateDiff(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.BlockAPI/CreateDiff",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BlockAPIServer).CreateDiff(ctx, req.(*DiffInfo))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _BlockAPI_InspectDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _BlockAPI_InspectDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InspectDiffRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(BlockAPIServer).InspectDiff(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(BlockAPIServer).InspectDiff(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.BlockAPI/InspectDiff",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BlockAPIServer).InspectDiff(ctx, req.(*InspectDiffRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _BlockAPI_ListDiff_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -2434,16 +2621,22 @@ func (x *blockAPIListDiffServer) Send(m *DiffInfo) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _BlockAPI_DeleteDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _BlockAPI_DeleteDiff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteDiffRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(BlockAPIServer).DeleteDiff(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(BlockAPIServer).DeleteDiff(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pfs.BlockAPI/DeleteDiff",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BlockAPIServer).DeleteDiff(ctx, req.(*DeleteDiffRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 var _BlockAPI_serviceDesc = grpc.ServiceDesc{
