@@ -759,6 +759,19 @@ func TestListCommit(t *testing.T) {
 	default:
 		t.Fatal("ListCommit should have returned")
 	}
+
+	// test that cancelled commits are not listed
+	commit3, err := pfsclient.StartCommit(pfsClient, repo, commit2.ID, "")
+	require.NoError(t, err)
+
+	require.NoError(t, pfsclient.CancelCommit(pfsClient, repo, commit3.ID))
+	commitInfos, err = pfsclient.ListCommit(pfsClient, []string{repo}, nil, false, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+	commitInfos, err = pfsclient.ListCommit(pfsClient, []string{repo}, nil, false, true)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, commit3, commitInfos[0].Commit)
 }
 
 func TestOffsetRead(t *testing.T) {
