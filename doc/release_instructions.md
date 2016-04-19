@@ -18,6 +18,7 @@
 
 To test / verify:
 
+    git pull --tags
     cp etc/kube/pachyderm.json .
     tag=`git tag -l --points-at HEAD`
     sed "s/pachyderm\/pachd/pachyderm\/pachd:$tag/" pachyderm.json > tagged_pachyderm.json
