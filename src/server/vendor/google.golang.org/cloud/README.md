@@ -7,7 +7,7 @@
 import "google.golang.org/cloud"
 ```
 
-**NOTE:** These packages are experimental, and may occasionally make
+**NOTE:** These packages are under development, and may occasionally make
 backwards-incompatible changes.
 
 **NOTE:** Github repo is a mirror of [https://code.googlesource.com/gocloud](https://code.googlesource.com/gocloud).
@@ -16,8 +16,8 @@ Go packages for Google Cloud Platform services. Supported APIs are:
 
 Google API                     | Status       | Package
 -------------------------------|--------------|-----------------------------------------------------------
-[Datastore][cloud-datastore]   | experimental | [`google.golang.org/cloud/datastore`][cloud-datastore-ref]
-[Cloud Storage][cloud-storage] | experimental | [`google.golang.org/cloud/storage`][cloud-storage-ref]
+[Datastore][cloud-datastore]   | beta         | [`google.golang.org/cloud/datastore`][cloud-datastore-ref]
+[Storage][cloud-storage]       | beta         | [`google.golang.org/cloud/storage`][cloud-storage-ref]
 [Pub/Sub][cloud-pubsub]        | experimental | [`google.golang.org/cloud/pubsub`][cloud-pubsub-ref]
 [BigTable][cloud-bigtable]     | stable       | [`google.golang.org/cloud/bigtable`][cloud-bigtable-ref]
 [BigQuery][cloud-bigquery]     | experimental | [`google.golang.org/cloud/bigquery`][cloud-bigquery-ref]
@@ -46,8 +46,8 @@ application to run in many environments without requiring explicit configuration
 Manually-configured authorization can be achieved using the
 [`golang.org/x/oauth2`](https://godoc.org/golang.org/x/oauth2) package to
 create an `oauth2.TokenSource`. This token source can be passed to the `NewClient`
-function for the relevant API using a 
-[`cloud.WithTokenSource`][https://godoc.org/google.golang.org/cloud#WithTokenSource]
+function for the relevant API using a
+[`cloud.WithTokenSource`](https://godoc.org/google.golang.org/cloud#WithTokenSource)
 option.
 
 ## Google Cloud Datastore
