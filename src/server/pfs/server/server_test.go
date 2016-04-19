@@ -14,7 +14,6 @@ import (
 	"golang.org/x/net/context"
 
 	"go.pedge.io/proto/server"
-	"go.pedge.io/lion"
 	"google.golang.org/grpc"
 
 	pclient "github.com/pachyderm/pachyderm/src/client"
@@ -41,9 +40,6 @@ var (
 func TestBlock(t *testing.T) {
 	t.Parallel()
 	blockClient := getBlockClient(t)
-
-	silenceLogs()
-
 	_, err := blockClient.CreateDiff(
 		context.Background(),
 		&pfsclient.DiffInfo{
@@ -83,14 +79,12 @@ func TestBlock(t *testing.T) {
 func TestInvalidRepo(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 	require.YesError(t, pfsclient.CreateRepo(pfsClient, "/repo"))
 }
 
 func TestSimple(t *testing.T) {
 	t.Parallel()
 	pfsClient, server := getClientAndServer(t)
-	silenceLogs()
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -131,7 +125,6 @@ func TestSimple(t *testing.T) {
 func TestBranch(t *testing.T) {
 	t.Parallel()
 	pfsClient, server := getClientAndServer(t)
-	silenceLogs()
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "master")
@@ -180,7 +173,6 @@ func TestBranch(t *testing.T) {
 func TestDisallowReadsDuringCommit(t *testing.T) {
 	t.Parallel()
 	pfsClient, server := getClientAndServer(t)
-	silenceLogs()
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
 	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
@@ -223,7 +215,6 @@ func TestDisallowReadsDuringCommit(t *testing.T) {
 func TestInspectRepoSimple(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -250,7 +241,6 @@ func TestInspectRepoSimple(t *testing.T) {
 func TestInspectRepoComplex(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -291,7 +281,6 @@ func TestInspectRepoComplex(t *testing.T) {
 func TestListRepo(t *testing.T) {
 	t.Parallel()
 	pfsClient, server := getClientAndServer(t)
-	silenceLogs()
 
 	numRepos := 10
 	var repoNames []string
@@ -322,7 +311,6 @@ func TestListRepo(t *testing.T) {
 func TestDeleteRepo(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 
 	numRepos := 10
 	repoNames := make(map[string]bool)
@@ -355,7 +343,6 @@ func TestDeleteRepo(t *testing.T) {
 func TestInspectCommit(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -396,7 +383,6 @@ func TestDeleteCommitFuture(t *testing.T) {
 
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -425,7 +411,6 @@ func TestDeleteCommitFuture(t *testing.T) {
 func TestDeleteCommit(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -446,7 +431,6 @@ func TestDeleteCommit(t *testing.T) {
 func TestPutFile(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -494,7 +478,6 @@ func TestPutFile(t *testing.T) {
 func TestInspectFile(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -546,7 +529,6 @@ func TestInspectFile(t *testing.T) {
 func TestListFile(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -578,7 +560,6 @@ func TestListFile(t *testing.T) {
 func TestDeleteFile(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -639,7 +620,6 @@ func TestDeleteFile(t *testing.T) {
 func TestInspectDir(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -672,7 +652,6 @@ func TestInspectDir(t *testing.T) {
 func TestDeleteDir(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -738,7 +717,6 @@ func TestDeleteDir(t *testing.T) {
 func TestListCommit(t *testing.T) {
 	t.Parallel()
 	pfsClient, _ := getClientAndServer(t)
-	silenceLogs()
 
 	repo := "test"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
@@ -783,17 +761,8 @@ func TestListCommit(t *testing.T) {
 	}
 }
 
-func silenceLogs() {
-	if !testing.Verbose() {
-		lion.SetLogger(lion.DiscardLogger)
-	}
-}
-
 func TestOffsetRead(t *testing.T) {
 	t.Parallel()
-
-	silenceLogs()
-
 	pfsClient, _ := getClientAndServer(t)
 	repo := "TestOffsetRead"
 	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
