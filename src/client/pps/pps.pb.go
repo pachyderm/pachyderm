@@ -484,6 +484,7 @@ var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion2
 
 // Client API for API service
 
@@ -618,40 +619,58 @@ func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 	s.RegisterService(&_API_serviceDesc, srv)
 }
 
-func _API_CreateJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_CreateJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateJobRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).CreateJob(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).CreateJob(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pachyderm.pps.API/CreateJob",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).CreateJob(ctx, req.(*CreateJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_InspectJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_InspectJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InspectJobRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).InspectJob(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).InspectJob(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pachyderm.pps.API/InspectJob",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).InspectJob(ctx, req.(*InspectJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_ListJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_ListJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListJobRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).ListJob(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).ListJob(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pachyderm.pps.API/ListJob",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).ListJob(ctx, req.(*ListJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _API_GetLogs_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -675,52 +694,76 @@ func (x *aPIGetLogsServer) Send(m *google_protobuf2.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _API_CreatePipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_CreatePipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreatePipelineRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).CreatePipeline(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).CreatePipeline(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pachyderm.pps.API/CreatePipeline",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).CreatePipeline(ctx, req.(*CreatePipelineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_InspectPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_InspectPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InspectPipelineRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).InspectPipeline(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).InspectPipeline(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pachyderm.pps.API/InspectPipeline",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).InspectPipeline(ctx, req.(*InspectPipelineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_ListPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_ListPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListPipelineRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).ListPipeline(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).ListPipeline(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pachyderm.pps.API/ListPipeline",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).ListPipeline(ctx, req.(*ListPipelineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func _API_DeletePipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+func _API_DeletePipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeletePipelineRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
-	out, err := srv.(APIServer).DeletePipeline(ctx, in)
-	if err != nil {
-		return nil, err
+	if interceptor == nil {
+		return srv.(APIServer).DeletePipeline(ctx, in)
 	}
-	return out, nil
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pachyderm.pps.API/DeletePipeline",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).DeletePipeline(ctx, req.(*DeletePipelineRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 var _API_serviceDesc = grpc.ServiceDesc{
