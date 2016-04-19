@@ -110,6 +110,17 @@ func FinishCommit(apiClient APIClient, repoName string, commitID string) error {
 	return err
 }
 
+func CancelCommit(apiClient APIClient, repoName string, commitID string) error {
+	_, err := apiClient.FinishCommit(
+		context.Background(),
+		&FinishCommitRequest{
+			Commit:    NewCommit(repoName, commitID),
+			Cancelled: true,
+		},
+	)
+	return err
+}
+
 func InspectCommit(apiClient APIClient, repoName string, commitID string) (*CommitInfo, error) {
 	commitInfo, err := apiClient.InspectCommit(
 		context.Background(),
@@ -123,7 +134,7 @@ func InspectCommit(apiClient APIClient, repoName string, commitID string) (*Comm
 	return commitInfo, nil
 }
 
-func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string, block bool) ([]*CommitInfo, error) {
+func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string, block bool, includeCancelled bool) ([]*CommitInfo, error) {
 	var repos []*Repo
 	for _, repoName := range repoNames {
 		repos = append(repos, &Repo{Name: repoName})
@@ -138,9 +149,10 @@ func ListCommit(apiClient APIClient, repoNames []string, fromCommitIDs []string,
 	commitInfos, err := apiClient.ListCommit(
 		context.Background(),
 		&ListCommitRequest{
-			Repo:       repos,
-			FromCommit: fromCommits,
-			Block:      block,
+			Repo:             repos,
+			FromCommit:       fromCommits,
+			Block:            block,
+			IncludeCancelled: includeCancelled,
 		},
 	)
 	if err != nil {

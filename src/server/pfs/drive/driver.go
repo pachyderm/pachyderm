@@ -225,7 +225,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 }
 
 // FinishCommit blocks until its parent has been finished/cancelled
-func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, shards map[uint64]bool) error {
+func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancelled bool, shards map[uint64]bool) error {
 	canonicalCommit, err := d.canonicalCommit(commit)
 	if err != nil {
 		return err
@@ -253,8 +253,11 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 					}
 					cond.Wait()
 				}
+
+				diffInfo.Cancelled = parentDiffInfo.Cancelled
 			}
 			diffInfo.Finished = finished
+			diffInfo.Cancelled = diffInfo.Cancelled || cancelled
 			diffInfos = append(diffInfos, diffInfo)
 		}
 		return nil
@@ -305,7 +308,7 @@ func (d *driver) InspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 	return d.inspectCommit(commit, shards)
 }
 
-func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
+func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, includeCancelled bool, shards map[uint64]bool) ([]*pfs.CommitInfo, error) {
 	repoSet := make(map[string]bool)
 	for _, repo := range repos {
 		repoSet[repo.Name] = true
@@ -337,7 +340,9 @@ func (d *driver) ListCommit(repos []*pfs.Repo, fromCommit []*pfs.Commit, shards 
 				if err != nil {
 					return nil, err
 				}
-				result = append(result, commitInfo)
+				if !commitInfo.Cancelled || includeCancelled {
+					result = append(result, commitInfo)
+				}
 				commit = commitInfo.ParentCommit
 			}
 		}
@@ -708,6 +713,7 @@ func (d *driver) inspectCommit(commit *pfs.Commit, shards map[uint64]bool) (*pfs
 		commitInfo.Started = diffInfo.Started
 		commitInfo.Finished = diffInfo.Finished
 		commitInfo.SizeBytes = diffInfo.SizeBytes
+		commitInfo.Cancelled = diffInfo.Cancelled
 		commitInfos = append(commitInfos, commitInfo)
 	}
 	commitInfo := pfsserver.ReduceCommitInfos(commitInfos)
