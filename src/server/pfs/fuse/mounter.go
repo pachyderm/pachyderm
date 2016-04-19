@@ -62,20 +62,20 @@ func (m *mounter) Mount(
 			retErr = err
 		}
 	}()
-	
-	sigChan := make(chan os.Signal,1)
+
+	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 	go func() {
 		<-sigChan
 		m.Unmount(mountPoint)
 	}()
-	
+
 	once.Do(func() {
 		if ready != nil {
 			close(ready)
 		}
 	})
-	config := &fs.Config{Debug: debug}
+	config := &fs.Config{}
 	if err := fs.New(conn, config).Serve(newFilesystem(m.apiClient, shard, commitMounts)); err != nil {
 		return err
 	}
