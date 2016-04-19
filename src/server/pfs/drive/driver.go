@@ -755,7 +755,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
 			if _append.Delete {
 				break
-			} else if len(_append.BlockRefs) > 0 {
+			} else if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
@@ -770,6 +770,9 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				}
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
 				filtered := filterBlockRefs(filterShard, _append.BlockRefs)
+				for _, handleBlockRefs := range _append.Handles {
+					filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
+				}
 				blockRefs = append(filtered, blockRefs...)
 				for _, blockRef := range filtered {
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
