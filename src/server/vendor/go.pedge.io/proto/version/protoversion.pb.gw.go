@@ -10,43 +10,48 @@ import (
 	"net/http"
 
 	"github.com/gengo/grpc-gateway/runtime"
-	"github.com/golang/glog"
+	"github.com/gengo/grpc-gateway/utilities"
 	"github.com/golang/protobuf/proto"
 	"go.pedge.io/pb/go/google/protobuf"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/grpclog"
 )
 
 var _ codes.Code
 var _ io.Reader
 var _ = runtime.String
 var _ = json.Marshal
+var _ = utilities.NewDoubleArray
 
-func request_API_GetVersion_0(ctx context.Context, client APIClient, req *http.Request, pathParams map[string]string) (proto.Message, error) {
+func request_API_GetVersion_0(ctx context.Context, client APIClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq google_protobuf.Empty
+	var metadata runtime.ServerMetadata
 
-	return client.GetVersion(ctx, &protoReq)
+	msg, err := client.GetVersion(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
 }
 
 // RegisterAPIHandlerFromEndpoint is same as RegisterAPIHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterAPIHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string) (err error) {
-	conn, err := grpc.Dial(endpoint, grpc.WithInsecure())
+func RegisterAPIHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+	conn, err := grpc.Dial(endpoint, opts...)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err != nil {
 			if cerr := conn.Close(); cerr != nil {
-				glog.Errorf("Failed to close conn to %s: %v", endpoint, cerr)
+				grpclog.Printf("Failed to close conn to %s: %v", endpoint, cerr)
 			}
 			return
 		}
 		go func() {
 			<-ctx.Done()
 			if cerr := conn.Close(); cerr != nil {
-				glog.Errorf("Failed to close conn to %s: %v", endpoint, cerr)
+				grpclog.Printf("Failed to close conn to %s: %v", endpoint, cerr)
 			}
 		}()
 	}()
@@ -60,7 +65,19 @@ func RegisterAPIHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.C
 	client := NewAPIClient(conn)
 
 	mux.Handle("GET", pattern_API_GetVersion_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		resp, err := request_API_GetVersion_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		if cn, ok := w.(http.CloseNotifier); ok {
+			go func(done <-chan struct{}, closed <-chan bool) {
+				select {
+				case <-done:
+				case <-closed:
+					cancel()
+				}
+			}(ctx.Done(), cn.CloseNotify())
+		}
+		resp, md, err := request_API_GetVersion_0(runtime.AnnotateContext(ctx, req), client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, w, req, err)
 			return
