@@ -19,7 +19,7 @@ before_script:
 - kubectl get all
 - docker version
 script:
-- make test
+- make test-fuse
 after_success:
 - make release
 notifications:
