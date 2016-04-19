@@ -3,7 +3,6 @@ package client
 import (
 	"fmt"
 	"os"
-	"strconv"
 
 	"go.pedge.io/proto/version"
 	"google.golang.org/grpc"
@@ -17,8 +16,8 @@ const (
 	MajorVersion = 1
 	// MinorVersion is the current minor version for pachyderm.
 	MinorVersion = 0
-	// AdditionalVersion will be "dev" is this is a development branch, "" otherwise.
-	AdditionalVersion = ""
+	// MicroVersion is the patch number for pachyderm.
+	MicroVersion = 0
 )
 
 var (
@@ -26,8 +25,8 @@ var (
 	Version = &protoversion.Version{
 		Major:      MajorVersion,
 		Minor:      MinorVersion,
-		Micro:      getMicroVersion(),
-		Additional: AdditionalVersion,
+		Micro:      MicroVersion,
+		Additional: getBuildNumber(),
 	}
 )
 
@@ -61,16 +60,10 @@ func New() (*APIClient, error) {
 	return NewFromAddress(fmt.Sprintf("%v:650", pachAddr))
 }
 
-func getMicroVersion() (v uint32) {
+func getBuildNumber() string {
 	value := os.Getenv("PACH_BUILD_NUMBER")
 	if value == "" {
-		v = 0
-	} else {
-		number, err := strconv.Atoi(value)
-		if err != nil {
-			panic(fmt.Sprintf("Invalid build number provided via PACH_BUILD_NUMBER env variable: (%v)\n", value))
-		}
-		v = uint32(number)
+		value = "dirty"
 	}
-	return v
+	return value
 }
