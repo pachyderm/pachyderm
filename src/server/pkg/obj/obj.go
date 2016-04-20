@@ -13,7 +13,7 @@ type Client interface {
 	// permissions to write it.
 	Writer(name string) (io.WriteCloser, error)
 	// Reader returns a reader which reads from an object.
-	// If `size == 0` it the reader should read the entire object.
+	// If `size == 0`, the reader should read from the offset till the end of the object.
 	// It should error if the object doesn't exist or we don't have sufficient
 	// permission to read it.
 	Reader(name string, offset uint64, size uint64) (io.ReadCloser, error)
