@@ -174,13 +174,13 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
-			if cancelled {
+			if cancel {
 				return pfsclient.CancelCommit(apiClient, args[0], args[1])
 			}
 			return pfsclient.FinishCommit(apiClient, args[0], args[1])
 		}),
 	}
-	finishCommit.Flags().BoolVarP(&cancelled, "cancel", "c", false, "cancel the commit")
+	finishCommit.Flags().BoolVarP(&cancel, "cancel", "c", false, "cancel the commit")
 
 	inspectCommit := &cobra.Command{
 		Use:   "inspect-commit repo-name commit-id",
@@ -215,7 +215,7 @@ This layers the data in the commit over the data in the parent.`,
 			if err != nil {
 				return err
 			}
-			commitInfos, err := pfsclient.ListCommit(apiClient, args, nil, false)
+			commitInfos, err := pfsclient.ListCommit(apiClient, args, nil, false, all)
 			if err != nil {
 				return err
 			}
