@@ -43,7 +43,7 @@ TO DO:
 
 ## Data Storage
 ##### How is data storage handled in Pachyderm?
-Pachyderm stores your data in any generic object storage (S3, GSC, Ceph, etc). You can link your object storage backend to Pachyderm by following our deployment guide (LINK) and passing your credentials as a Kubernetes secret.
+Pachyderm stores your data in any generic object storage (S3, GSC, Ceph, etc). You can link your object storage backend to Pachyderm by following our [deployment guide](https://github.com/pachyderm/pachyderm/blob/master/SETUP.md#production-clusters) and passing your credentials as a Kubernetes secret.
 ##### What object storage backends are supported?
 S3 and GCS are fully supported and are the recommended backends for Pachyderm. Support for Ceph and others are coming soon! Want to help us support more storage backends? Check out the [GH issue](https://github.com/pachyderm/pachyderm/issues/211)!
 ##### What is version control for data?
@@ -65,7 +65,7 @@ Your data doesn’t actually live in Pachyderm, is stays in object storage (S3 o
 Pachyderm has three main methods for getting data into the system.
 
 1. A protobufs API (LINK to docs) that you can access through the Golang SDK. Other languages will be supported soon!
-2. The pachctl CLI (LINK to docs), which allows you to put files into Pachyderm.
+2. The [pachctl CLI](https://github.com/pachyderm/pachyderm/tree/master/doc/pachctl), which allows you to put files into Pachyderm.
 3. You can mount Pachyderm locally and add files directly to the filesystem through the [FUSE interface](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md#mount-the-filesystem). 
 
 ##### How do I get data out of Pachyderm into another system?
@@ -75,7 +75,7 @@ Most object stores like S3 and GCS don’t provide any notion of locality and so
 
 ## Deployment:
 ##### Where/how can I deploy Pachyderm?
-Once you have Kubernetes running, Pachyderm is just a one line deploy. Since Pachyderm’s only dependency is Kubernetes, it can be run on AWS, Google Cloud, or on premise. Check out our deployment guide (LINK) to get it running for yourself.
+Once you have Kubernetes running, Pachyderm is just a one line deploy. Since Pachyderm’s only dependency is Kubernetes, it can be run on AWS, Google Cloud, or on premise. Check out our [deployment guide](https://github.com/pachyderm/pachyderm/blob/master/SETUP.md) to get it running for yourself.
 ##### Can I use other schedulers such as Docker Swarm or Mesos?
 Right now, Pachyderm requires Kubernetes, but we’ve purposely built it to be modular and work with the other schedulers as well. Swarm and Mesos support will be added in the future!
 ##### Can I run Pachyderm locally?
@@ -91,7 +91,7 @@ A job in Pachyderm is a one-off transformation or processing of data. To run a j
 ##### What are pipelines and how do they work?
 Pipelines are data transformations that are “subscribed” to data changes on their input repo and create jobs to process the new data as it comes in. A pipeline is defined by a JSON spec that describes one or more transformations to execute when new input data is committed. All the details of a pipeline spec are outlined in our documentation (LINK).
 ##### How does Pachyderm manage pipeline dependencies?
-Dependencies for pipelines are handled explicitly in the pipeline spec. Pipelines output their results to a repo of the same name.  The “input” for a pipeline can be any set of repos, either those containing raw data or one that was automatically created by another pipeline. For example, a pipeline stage called “filter” would create a repo also called “filter” where it would store the output data. A second pipeline called “sum” could have “filter” as an input. By this method Pachyderm, actually creates a DAG (LINK) of data, not jobs. The full picture would look like this: raw data enters Pachyderm which triggers the “filter" pipeline. The “filter" pipeline outputs its results in a commit to the “filter" repo which triggers the “sum" pipeline. The final results would be available in the "sum" repo. Check out our [Fruit Stand demo](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md#create-a-pipeline) to see exactly this example.  
+Dependencies for pipelines are handled explicitly in the pipeline spec. Pipelines output their results to a repo of the same name.  The “input” for a pipeline can be any set of repos, either those containing raw data or one that was automatically created by another pipeline. For example, a pipeline stage called “filter” would create a repo also called “filter” where it would store the output data. A second pipeline called “sum” could have “filter” as an input. By this method Pachyderm, actually creates a [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph) of data, not jobs. The full picture would look like this: raw data enters Pachyderm which triggers the “filter" pipeline. The “filter" pipeline outputs its results in a commit to the “filter" repo which triggers the “sum" pipeline. The final results would be available in the "sum" repo. Check out our [Fruit Stand demo](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md#create-a-pipeline) to see exactly this example.  
 ##### How do I perform batched analytics in Pachyderm?
 Batched analytics are the bread and butter of Pachyderm. Often times the first stage in a batched job is a database dump or some other large swath of new data entering the system. In Pachyderm, this would create a new commit on a repo which would trigger all your ETL and analytics pipelines for that data. One-off batched jobs can also be manually run on any data.
 ##### How do I perform streaming analytics in Pachyderm?
@@ -117,7 +117,7 @@ __Data Lake__:
 A data lake is a place to dump and process gigantic data sets. This is where you send your nightly production database dumps, store all your raw log files and whatever other data you want. You can then process that data using any code you can put in a container. Martin Fowler has a great [blog post](http://martinfowler.com/bliki/DataLake.html) describing data lakes.
 
 __Containerized ETL__:
-ETL (extract, transform, load) is the process of taking raw data and turning it into a useable form for other services to ingest. ETL processes usually involve many steps forming a DAG (Directed Acyclical Graph LINK) — pulling raw data different sources, teasing out and structuring the useful details, and then pushing those structures into a data warehouse or BI (business intelligence) tool for querying and analysis. 
+ETL (extract, transform, load) is the process of taking raw data and turning it into a useable form for other services to ingest. ETL processes usually involve many steps forming a DAG ([Directed Acyclical Graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph)) — pulling raw data different sources, teasing out and structuring the useful details, and then pushing those structures into a data warehouse or BI (business intelligence) tool for querying and analysis. 
 
 Pachyderm completely manages your ETL DAG by giving you explicit control over the inputs for every stage of your pipeline. We also give you a simple API — just read and write to the local file system inside a container — so it’s easy to push and pull data from a variety of sources. 
 
@@ -141,4 +141,4 @@ If you’re using Pachyderm in production or evaluating it as a potential soluti
 ##### What if I find bugs or have questions about using Pachyderm?
 You can submit bug reports, questions, or PR’s on [Github](https://github.com/pachyderm/pachyderm/issues) and we’ll respond right away. If you have questions that are specific to your use case that you don’t want shared publicly, you can email us at support@pachyderm.io
 ##### How do I start contributing to Pachyderm?
-We're thrilled to have you contribute to Pachyderm! Check out contributor guide(LINK) to see all the details. If you're not sure where to start, issues on [Github](https://github.com/pachyderm/pachyderm/issues) that are labeled as “noob-friendly” are good places to begin. 
+We're thrilled to have you contribute to Pachyderm! Check out our [contributor guide](https://github.com/pachyderm/pachyderm/blob/master/contributing/setup.md) to see all the details. If you're not sure where to start, issues on [Github](https://github.com/pachyderm/pachyderm/issues) that are labeled as “noob-friendly” are good places to begin. 
