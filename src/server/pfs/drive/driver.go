@@ -625,7 +625,7 @@ func (d *driver) AddShard(shard uint64) error {
 				if err := d.insertDiffInfo(diffInfo); err != nil {
 					return err
 				}
-				if diffInfo.FileInfo == nil {
+				if diffInfo.Finished == nil {
 					return fmt.Errorf("diff %s/%s/%d is not finished; this is likely a bug", repoName, commitID, shard)
 				}
 			} else {
