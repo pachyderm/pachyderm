@@ -225,7 +225,7 @@ func (d *driver) StartCommit(repo *pfs.Repo, commitID string, parentID string, b
 }
 
 // FinishCommit blocks until its parent has been finished/cancelled
-func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancelled bool, shards map[uint64]bool) error {
+func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Timestamp, cancel bool, shards map[uint64]bool) error {
 	canonicalCommit, err := d.canonicalCommit(commit)
 	if err != nil {
 		return err
@@ -257,7 +257,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 				diffInfo.Cancelled = parentDiffInfo.Cancelled
 			}
 			diffInfo.Finished = finished
-			diffInfo.Cancelled = diffInfo.Cancelled || cancelled
+			diffInfo.Cancelled = diffInfo.Cancelled || cancel
 			diffInfos = append(diffInfos, diffInfo)
 		}
 		return nil
