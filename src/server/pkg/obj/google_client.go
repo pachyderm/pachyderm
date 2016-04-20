@@ -47,10 +47,10 @@ func (c *googleClient) Walk(name string, fn func(name string) error) error {
 	return nil
 }
 
-//size 0 means read all
 func (c *googleClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
 	if size == 0 {
-		return c.bucket.Object(name).NewReader(c.ctx)
+		// a negative length will cause the object to be read till the end
+		return c.bucket.Object(name).NewRangeReader(c.ctx, int64(offset), -1)
 	}
 	return c.bucket.Object(name).NewRangeReader(c.ctx, int64(offset), int64(size))
 }
