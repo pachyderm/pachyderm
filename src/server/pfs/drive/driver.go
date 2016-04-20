@@ -391,7 +391,7 @@ func (d *driver) PutFile(file *pfs.File, handle string, shard uint64, reader io.
 		}
 		diffInfo.Appends[path.Clean(file.Path)] = _append
 	}
-	if true {
+	if handle == "" {
 		_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
 	} else {
 		handleBlockRefs, ok := _append.Handles[handle]
