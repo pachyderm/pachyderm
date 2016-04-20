@@ -323,7 +323,6 @@ func TestHandleRace(t *testing.T) {
 		_, err = file.Write([]byte("foo"))
 		require.NoError(t, err)
 		err = file.Sync()
-		fmt.Printf("err???: %v\n", err)
 		require.NoError(t, err)
 
 		// Try and write w a different handle to interrupt the first handle's writes
@@ -337,7 +336,6 @@ func TestHandleRace(t *testing.T) {
 		require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit.ID))
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
-		fmt.Printf("output[%v]\n", string(data))
 		require.True(t, string(data) == "foofoobar" || string(data) == "barfoofoo")
 	})
 }
