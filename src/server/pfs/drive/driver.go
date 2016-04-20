@@ -601,6 +601,9 @@ func (d *driver) AddShard(shard uint64) error {
 		if err == io.EOF {
 			break
 		}
+		if diffInfo.Diff == nil || diffInfo.Diff.Commit == nil || diffInfo.Diff.Commit.Repo == nil {
+			return fmt.Errorf("broken diff info: %v; this is likely a bug", diffInfo)
+		}
 		repoName := diffInfo.Diff.Commit.Repo.Name
 		if _, ok := diffInfos[repoName]; !ok {
 			diffInfos[repoName] = make(map[uint64]map[string]*pfs.DiffInfo)
@@ -970,14 +973,16 @@ func deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File) {
 }
 
 type fileReader struct {
-	blockClient pfsclient.BlockAPIClient
-	blockRefs   []*pfs.BlockRef
-	index       int
-	reader      io.Reader
-	offset      int64
-	size        int64
-	ctx         context.Context
-	cancel      context.CancelFunc
+	blockClient               pfsclient.BlockAPIClient
+	blockRefs                 []*pfs.BlockRef
+	index                     int
+	reader                    io.Reader
+	offset                    int64
+	size                      int64
+	bytesReadFromCurrentBlock uint64
+	currentBlockSize          uint64
+	ctx                       context.Context
+	cancel                    context.CancelFunc
 }
 
 func newFileReader(blockClient pfsclient.BlockAPIClient, blockRefs []*pfs.BlockRef, offset int64, size int64) *fileReader {
@@ -996,7 +1001,7 @@ func (r *fileReader) blockRef() *pfsclient.BlockRef {
 func (r *fileReader) Read(data []byte) (int, error) {
 	if r.reader == nil {
 		// skip blocks as long as our offset is past the end of the current block
-		for r.offset != 0 && r.index < len(r.blockRefs) && r.offset > int64(pfsserver.ByteRangeSize(r.blockRef().Range)) {
+		for r.offset != 0 && r.index < len(r.blockRefs) && r.offset >= int64(pfsserver.ByteRangeSize(r.blockRef().Range)) {
 			r.offset -= int64(pfsserver.ByteRangeSize(r.blockRef().Range))
 			r.index++
 		}
@@ -1009,6 +1014,8 @@ func (r *fileReader) Read(data []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		r.currentBlockSize = pfsserver.ByteRangeSize(r.blockRef().Range)
+		r.bytesReadFromCurrentBlock = 0
 		r.offset = 0
 		r.index++
 	}
@@ -1016,12 +1023,18 @@ func (r *fileReader) Read(data []byte) (int, error) {
 	if err != nil && err != io.EOF {
 		return size, err
 	}
-	if err == io.EOF {
+	r.bytesReadFromCurrentBlock += uint64(size)
+	// If we happen to have read till the end of the block, we won't get an EOF
+	// error.  That's why we need to keep track of bytes read from the block
+	if err == io.EOF || r.bytesReadFromCurrentBlock == r.currentBlockSize {
 		r.reader = nil
 	}
 	r.size -= int64(size)
 	if r.size == 0 {
 		return size, io.EOF
+	}
+	if r.size < 0 {
+		return 0, fmt.Errorf("read more than we need; this is likely a bug")
 	}
 	return size, nil
 }
