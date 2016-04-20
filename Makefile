@@ -23,12 +23,8 @@ CLUSTER_NAME = pachyderm
 
 all: build
 
-version-prefix: 
-	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm/src/client"; func main() { fmt.Printf("%v.%v", client.Version.Major, client.Version.Minor) }' > /tmp/pachyderm_version.go
-	@go run /tmp/pachyderm_version.go
-
 version:
-	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm/src/client"; func main() { fmt.Println(client.Version.VersionString()) }' > /tmp/pachyderm_version.go
+	@echo 'package main; import "fmt"; import "github.com/pachyderm/pachyderm/src/client"; func main() { fmt.Printf("%v.%v.%v(%v)", client.Version.Major, client.Version.Minor, client.Version.Micro, client.Version.Additional) }' > /tmp/pachyderm_version.go
 	@go run /tmp/pachyderm_version.go
 
 deps:
@@ -57,9 +53,22 @@ install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl ./src/server/cmd/pach-deploy ./src/server/cmd/pachctl-doc
 
-release: deps-client
+homebrew: deps-client
+	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl
+
+tag-release: deps-client
 	./etc/build/tag_release
+
+release-pachd:
+	./etc/build/release_pachd
+
 docker-build-compile:
+	# Running locally, not on travis
+	if [ -z $$TRAVIS_BUILD_NUMBER ]; then \
+		sed 's/%%PACH_BUILD_NUMBER%%/000/' Dockerfile.pachd_template > Dockerfile.pachd; \
+	else \
+		sed 's/%%PACH_BUILD_NUMBER%%/${TRAVIS_BUILD_NUMBER}/' Dockerfile.pachd_template > Dockerfile.pachd; \
+	fi
 	docker build -t pachyderm_compile .
 
 docker-build-job-shim: docker-build-compile
@@ -93,7 +102,7 @@ kube-cluster-assets: install
 launch: install
 	kubectl $(KUBECTLFLAGS) create -f etc/kube/pachyderm.json
 	# wait for the pachyderm to come up
-	# if we can create a repo, that means that the cluster is ready to serve
+	# if we can call the list repo, that means that the cluster is ready to serve
 	until timeout 5s $(GOPATH)/bin/pachctl list-repo 2>/dev/null >/dev/null; do sleep 5; done
 
 launch-dev: launch-kube launch
@@ -105,7 +114,7 @@ clean-launch:
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found secret -l suite=pachyderm
 
 integration-tests:
-	CGOENABLED=0 go test ./src/server -timeout 120s
+	CGOENABLED=0 go test ./src/server -timeout 300s
 
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
@@ -143,8 +152,8 @@ pretest:
 test: pretest localtest docker-build clean-launch launch integration-tests
 
 localtest: deps-client
-	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/client/...)
-	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -v -short $$(go list ./src/server/... | grep -v '/src/server/vendor/')
+	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/client/...)
+	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/')
 
 clean: clean-launch clean-launch-kube
 
