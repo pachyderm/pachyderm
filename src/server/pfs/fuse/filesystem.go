@@ -154,8 +154,9 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 
 type file struct {
 	directory
-	size  int64
-	local bool
+	size    int64
+	local   bool
+	handles []*handle
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
@@ -190,6 +191,19 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 	return f.newHandle(), nil
 }
 
+func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
+	for _, h := range f.handles {
+		if h.w != nil {
+			w := h.w
+			h.w = nil
+			if err := w.Close(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (f *filesystem) inode(file *pfsclient.File) uint64 {
 	f.lock.RLock()
 	inode, ok := f.inodes[key(file)]
@@ -208,10 +222,16 @@ func (f *filesystem) inode(file *pfsclient.File) uint64 {
 }
 
 func (f *file) newHandle() *handle {
-	return &handle{
-		id: uuid.NewWithoutDashes(),
+	id := uuid.NewWithoutDashes()
+
+	h := &handle{
+		id: id,
 		f:  f,
 	}
+
+	f.handles = append(f.handles, h)
+
+	return h
 }
 
 type handle struct {

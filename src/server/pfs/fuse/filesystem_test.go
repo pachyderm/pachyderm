@@ -307,6 +307,41 @@ func TestSpacedWrites(t *testing.T) {
 	})
 }
 
+func TestHandleRace(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+		repo := "test"
+		require.NoError(t, pfsclient.CreateRepo(apiClient, repo))
+		commit, err := pfsclient.StartCommit(apiClient, repo, "", "")
+		require.NoError(t, err)
+		path := filepath.Join(mountpoint, repo, commit.ID, "file")
+		file, err := os.Create(path)
+		require.NoError(t, err)
+		_, err = file.Write([]byte("foo"))
+		require.NoError(t, err)
+		err = file.Sync()
+		fmt.Printf("err???: %v\n", err)
+		require.NoError(t, err)
+
+		// Try and write w a different handle to interrupt the first handle's writes
+		err = ioutil.WriteFile(path, []byte("bar"), 0644)
+		require.NoError(t, err)
+
+		require.NoError(t, err)
+		_, err = file.Write([]byte("foo"))
+		require.NoError(t, err)
+		require.NoError(t, file.Close())
+		require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit.ID))
+		data, err := ioutil.ReadFile(path)
+		require.NoError(t, err)
+		fmt.Printf("output[%v]\n", string(data))
+		require.True(t, string(data) == "foofoobar" || string(data) == "barfoofoo")
+	})
+}
+
 func testFuse(
 	t *testing.T,
 	test func(apiClient pfsclient.APIClient, mountpoint string),
