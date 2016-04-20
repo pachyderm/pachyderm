@@ -212,12 +212,12 @@ func (f *filesystem) inode(file *pfsclient.File) uint64 {
 		return inode
 	}
 	f.lock.Lock()
+	defer f.lock.Unlock()
 	if inode, ok := f.inodes[key(file)]; ok {
 		return inode
 	}
 	newInode := uint64(len(f.inodes))
 	f.inodes[key(file)] = newInode
-	f.lock.Unlock()
 	return newInode
 }
 
