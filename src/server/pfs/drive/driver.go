@@ -249,7 +249,7 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 				for parentDiffInfo.Finished == nil {
 					cond, ok := d.commitConds[diffInfo.ParentCommit.ID]
 					if !ok {
-						return fmt.Errorf("parent commit %s/%s was not finished but a corresponding conditional variable could not be found; this is likely a bug")
+						return fmt.Errorf("parent commit %s/%s was not finished but a corresponding conditional variable could not be found; this is likely a bug", canonicalCommit.Repo.Name, diffInfo.ParentCommit.ID)
 					}
 					cond.Wait()
 				}
