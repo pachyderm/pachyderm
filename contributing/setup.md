@@ -158,6 +158,8 @@ And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
 
 ## Special Mac OS X Configuration
 
+### File Descriptor Limit
+
 If you're running tests locally, you'll need to up your file descriptor limit. To do this, first setup a LaunchDaemon to up the limit w sudo privileges:
 
     sudo cp $GOPATH/src/github.com/pachyderm/pachyderm/contributing/com.apple.launchd.limit.plist /Library/LaunchDaemons/
@@ -183,3 +185,14 @@ To make sure all of these settings are working, you can test that you have the p
     CGO_ENABLED=0 GO15VENDOREXPERIMENT=1 go test -timeout 10s -p 1 -parallel 1 -short ./src/server/pfs/server
 
 If this fails w a timeout, you'll probably also see 'too many files' type of errors. If that test passes, you're all good!
+
+### Timeout Helper
+
+You'll need the `timeout` utility to run the `make launch` task. To install on mac, do:
+
+    brew install coreutils
+
+And then make sure to prepend the following to your path:
+
+    PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+
