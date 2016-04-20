@@ -26,6 +26,6 @@ before_script:
 script:
 - make test
 after_success:
-- make release
+- make tag-release
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
