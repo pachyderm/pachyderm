@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -25,8 +24,6 @@ import (
 type filesystem struct {
 	apiClient pfsclient.APIClient
 	Filesystem
-	inodes map[string]uint64
-	lock   sync.RWMutex
 }
 
 func newFilesystem(
@@ -40,8 +37,6 @@ func newFilesystem(
 			shard,
 			commitMounts,
 		},
-		make(map[string]uint64),
-		sync.RWMutex{},
 	}
 }
 
@@ -77,7 +72,6 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	} else {
 		a.Mode = os.ModeDir | 0555
 	}
-	a.Inode = d.fs.inode(d.File)
 	a.Mtime = prototime.TimestampToTime(d.Modified)
 	return nil
 }
@@ -179,7 +173,6 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 		a.Mtime = prototime.TimestampToTime(fileInfo.Modified)
 	}
 	a.Mode = 0666
-	a.Inode = f.fs.inode(f.File)
 	return nil
 }
 
@@ -202,23 +195,6 @@ func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
 		}
 	}
 	return nil
-}
-
-func (f *filesystem) inode(file *pfsclient.File) uint64 {
-	f.lock.RLock()
-	inode, ok := f.inodes[key(file)]
-	f.lock.RUnlock()
-	if ok {
-		return inode
-	}
-	f.lock.Lock()
-	if inode, ok := f.inodes[key(file)]; ok {
-		return inode
-	}
-	newInode := uint64(len(f.inodes))
-	f.inodes[key(file)] = newInode
-	f.lock.Unlock()
-	return newInode
 }
 
 func (f *file) newHandle() *handle {
