@@ -93,7 +93,7 @@ func TestSimple(t *testing.T) {
 	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
-	commitInfos, err := pfsclient.ListCommit(pfsClient, []string{repo}, nil, false)
+	commitInfos, err := pfsclient.ListCommit(pfsClient, []string{repo}, nil, false, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
@@ -338,8 +338,6 @@ func TestDeleteRepo(t *testing.T) {
 	}
 
 	require.Equal(t, len(repoInfos), numRepos-reposToRemove)
-
-	require.YesError(t, pfsclient.DeleteRepo(pfsClient, "non-existent-repo"))
 }
 
 func TestInspectCommit(t *testing.T) {
@@ -732,14 +730,14 @@ func TestListCommit(t *testing.T) {
 
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
 
-	commitInfos, err := pfsclient.ListCommit(pfsClient, []string{repo}, nil, false)
+	commitInfos, err := pfsclient.ListCommit(pfsClient, []string{repo}, nil, false, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
 	// test the block behaviour
 	ch := make(chan bool)
 	go func() {
-		_, err = pfsclient.ListCommit(pfsClient, []string{repo}, []string{commit.ID}, true)
+		_, err = pfsclient.ListCommit(pfsClient, []string{repo}, []string{commit.ID}, true, false)
 		close(ch)
 	}()
 
@@ -761,6 +759,19 @@ func TestListCommit(t *testing.T) {
 	default:
 		t.Fatal("ListCommit should have returned")
 	}
+
+	// test that cancelled commits are not listed
+	commit3, err := pfsclient.StartCommit(pfsClient, repo, commit2.ID, "")
+	require.NoError(t, err)
+
+	require.NoError(t, pfsclient.CancelCommit(pfsClient, repo, commit3.ID))
+	commitInfos, err = pfsclient.ListCommit(pfsClient, []string{repo}, nil, false, false)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+	commitInfos, err = pfsclient.ListCommit(pfsClient, []string{repo}, nil, false, true)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, commit3, commitInfos[0].Commit)
 }
 
 func TestOffsetRead(t *testing.T) {
@@ -779,6 +790,84 @@ func TestOffsetRead(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, pfsclient.GetFile(pfsClient, repo, "master", "foo", int64(len(fileData)*2)+1, 0, "", nil, &buffer))
 	require.Equal(t, "", buffer.String())
+}
+
+// FinishCommit should block until the parent has been finished
+func TestFinishCommit(t *testing.T) {
+	t.Parallel()
+
+	pfsClient, _ := getClientAndServer(t)
+	repo := "TestFinishCommit"
+
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
+
+	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, err)
+
+	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit1.ID, "")
+	require.NoError(t, err)
+
+	ch := make(chan bool)
+	go func() {
+		require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit2.ID))
+		close(ch)
+	}()
+
+	time.Sleep(time.Second * 2)
+	select {
+	case <-ch:
+		t.Fatalf("should block, since the parent commit has not been finished")
+	default:
+	}
+
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
+
+	time.Sleep(time.Second * 2)
+	select {
+	case <-ch:
+	default:
+		t.Fatalf("should not block, since the parent commit has been finished")
+	}
+}
+
+// If a commit's parent has been cancelled, the commit should be cancelled too
+func TestFinishCommitParentCancelled(t *testing.T) {
+	t.Parallel()
+
+	pfsClient, _ := getClientAndServer(t)
+	repo := "TestFinishCommitParentCancelled"
+
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
+
+	commit1, err := pfsclient.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, err)
+
+	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit1.ID, "")
+	require.NoError(t, err)
+
+	ch := make(chan bool)
+	go func() {
+		require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit2.ID))
+		close(ch)
+	}()
+
+	require.NoError(t, pfsclient.CancelCommit(pfsClient, repo, commit1.ID))
+
+	time.Sleep(time.Second * 2)
+	select {
+	case <-ch:
+	default:
+		t.Fatalf("should not block, since the parent commit has been finished")
+	}
+
+	commit2Info, err := pfsclient.InspectCommit(pfsClient, repo, commit2.ID)
+	require.True(t, commit2Info.Cancelled)
+
+	commit3, err := pfsclient.StartCommit(pfsClient, repo, commit2.ID, "")
+	require.NoError(t, err)
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit3.ID))
+	commit3Info, err := pfsclient.InspectCommit(pfsClient, repo, commit3.ID)
+	require.True(t, commit3Info.Cancelled)
 }
 
 func generateRandomString(n int) string {

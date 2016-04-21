@@ -103,7 +103,7 @@ func (a *internalAPIServer) DeleteRepo(ctx context.Context, request *pfsclient.D
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.DeleteRepo(request.Repo, shards); err != nil {
+	if err := a.driver.DeleteRepo(request.Repo, shards); err != nil && err != pfsserver.ErrRepoNotFound {
 		return nil, err
 	}
 	return google_protobuf.EmptyInstance, nil
@@ -139,7 +139,7 @@ func (a *internalAPIServer) FinishCommit(ctx context.Context, request *pfsclient
 	if err != nil {
 		return nil, err
 	}
-	if err := a.driver.FinishCommit(request.Commit, request.Finished, shards); err != nil {
+	if err := a.driver.FinishCommit(request.Commit, request.Finished, request.Cancel, shards); err != nil {
 		return nil, err
 	}
 	if err := a.pulseCommitWaiters(request.Commit, pfsclient.CommitType_COMMIT_TYPE_READ, shards); err != nil {
@@ -171,7 +171,7 @@ func (a *internalAPIServer) ListCommit(ctx context.Context, request *pfsclient.L
 	if err != nil {
 		return nil, err
 	}
-	commitInfos, err := a.filteredListCommits(request.Repo, request.FromCommit, request.CommitType, shards)
+	commitInfos, err := a.filteredListCommits(request.Repo, request.FromCommit, request.CommitType, request.All, shards)
 	if err != nil {
 		return nil, err
 	}
@@ -492,7 +492,7 @@ func (a *internalAPIServer) registerCommitWaiter(request *pfsclient.ListCommitRe
 	defer a.commitWaitersLock.Unlock()
 	// We need to redo the call to ListCommit because commits may have been
 	// created between then and now.
-	commitInfos, err := a.filteredListCommits(request.Repo, request.FromCommit, request.CommitType, shards)
+	commitInfos, err := a.filteredListCommits(request.Repo, request.FromCommit, request.CommitType, request.All, shards)
 	if err != nil {
 		return err
 	}
@@ -533,9 +533,9 @@ WaitersLoop:
 	return nil
 }
 
-func (a *internalAPIServer) filteredListCommits(repos []*pfsclient.Repo, fromCommit []*pfsclient.Commit, commitType pfsclient.CommitType, shards map[uint64]bool) ([]*pfsclient.CommitInfo, error) {
-	commitInfos, err := a.driver.ListCommit(repos, fromCommit, shards)
-	if err != nil {
+func (a *internalAPIServer) filteredListCommits(repos []*pfsclient.Repo, fromCommit []*pfsclient.Commit, commitType pfsclient.CommitType, all bool, shards map[uint64]bool) ([]*pfsclient.CommitInfo, error) {
+	commitInfos, err := a.driver.ListCommit(repos, fromCommit, all, shards)
+	if err != nil && err != pfsserver.ErrRepoNotFound {
 		return nil, err
 	}
 	var filtered []*pfsclient.CommitInfo
