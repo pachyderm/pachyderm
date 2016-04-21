@@ -40,7 +40,8 @@ func AddPipelines(num int64) {
 	atomic.SwapInt64(&modified, 1)
 }
 
-func ReportMetrics() {
+func ReportMetrics(clusterID string) {
+	metrics.ID = id
 	for {
 		write := atomic.SwapInt64(&modified, 0)
 		if write == 1 {

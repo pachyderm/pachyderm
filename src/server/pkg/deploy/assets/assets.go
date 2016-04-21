@@ -23,6 +23,7 @@ var (
 	rethinkName        = "rethink"
 	amazonSecretName   = "amazon-secret"
 	googleSecretName   = "google-secret"
+	initName           = "pachd-init"
 	trueVal            = true
 )
 
@@ -370,39 +371,37 @@ func RethinkService() *api.Service {
 	}
 }
 
-func InitDBJob() *extensions.Job {
-	name := "pachyderm-init-db"
-	image := "pachyderm/pachd"
+func InitJob() *extensions.Job {
 	return &extensions.Job{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Job",
 			APIVersion: "extensions/v1beta1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   name,
-			Labels: labels(name),
+			Name:   initName,
+			Labels: labels(initName),
 		},
 		Spec: extensions.JobSpec{
 			Selector: &unversioned.LabelSelector{
-				MatchLabels: labels(name),
+				MatchLabels: labels(initName),
 			},
 			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name:   name,
-					Labels: labels(name),
+					Name:   initName,
+					Labels: labels(initName),
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
 						{
-							Name:  name,
-							Image: image,
+							Name:  initName,
+							Image: pachdImage,
 							Env: []api.EnvVar{
 								{
 									Name:  "PACH_ROOT",
 									Value: "/pach",
 								},
 								{
-									Name:  "INITDB",
+									Name:  "INIT",
 									Value: "true",
 								},
 							},
@@ -469,7 +468,7 @@ func WriteAssets(w io.Writer, shards uint64, backend backend) {
 	RethinkRc().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
-	InitDBJob().CodecEncodeSelf(encoder)
+	InitJob().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 
 	PachdService().CodecEncodeSelf(encoder)
