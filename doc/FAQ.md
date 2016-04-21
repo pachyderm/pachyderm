@@ -47,39 +47,43 @@ Pachyderm stores your data in any generic object storage (S3, GSC, Ceph, etc).
 You can link your object storage backend to Pachyderm by following our
 [deployment guide](https://github.com/pachyderm/pachyderm/blob/master/SETUP.md#production-clusters)
 and passing your credentials as a Kubernetes secret.
+
 ##### What object storage backends are supported?
 S3 and GCS are fully supported and are the recommended backends for Pachyderm.
 Support for Ceph and others are coming soon! Want to help us support more
 storage backends? Check out the [GH issue](https://github.com/pachyderm/pachyderm/issues/211)!
+
 ##### What is version control for data?
 We’ve all used version control for code before — Pachyderm gives you the same
 semantics for petabytes of data. We even borrow our terminology from Git. In
 Pachyderm, data is organized into `repos`. If you want to add or change data in
 a repo, you simple `start` a `commit` make your changes, and then `finish` the
 `commit`. This will create an immutable snapshot of the data that you can
-reference later. Just a commit in Git, only the diff of the data is saved so
+reference later. Just like in Git, only the diff of the data is saved so
 there is no duplication. Pachyderm exposes data as a set of diffs so you can
 easily view how your data has changed over time, run a job over a previous view
 of your data, or revert to a known good state if something goes wrong. Finally,
 Pachyderm also let’s you branch entire data sets so you can manipulate files
-and explore the data without effecting anyone else’s work. Just like with
+and explore the data without affecting anyone else’s work. Just like with
 branching in Git, Pachyderm doesn't create multiple copies of the data when you
 create a branch, we just store the changes you make to it.
+
 ##### What are the benefits of version control for data?
 _Instant revert_: If something goes wrong with your data, you can immediately
 revert your live cluster back to a known good state.
 
 _View diffs_: Analyze how your data is changing over time.
 
-_Incrementally_: Only process the new data instead of recomputing everything.
+_Incrementality_: Only process the new data instead of recomputing everything.
 
 _Immutable data_: Run analysis written today over your data from last month.
 
 _Team collaboration_: Everyone can manipulate and work on the same data without stepping on each others toes.
 
 ##### How do you guarantee I won’t lose data in Pachyderm (i.e. replication and persistence)?
-Your data doesn’t actually live in Pachyderm, is stays in object storage (S3 or
-GCS), so it’s has all the safety guarantees of those underlying systems.
+Your data doesn’t actually live in Pachyderm, it stays in object storage (S3 or
+GCS), so it has all the safety guarantees of those underlying systems.
+
 ##### How do I get data from other sources into Pachyderm?
 Pachyderm has three main methods for getting data into the system.
 
@@ -102,13 +106,13 @@ last pipeline stage can just write to that specific bucket.
 Most object stores like S3 and GCS don’t provide any notion of locality and so
 Pachyderm similarly can't provide data locality in our API. In practice, we’ve
 generally found that data locality is not a bottleneck when optimizing for
-performance.
+performance in modern data centers.
 
 ## Deployment:
 ##### Where/how can I deploy Pachyderm?
 Once you have Kubernetes running, Pachyderm is just a one line deploy. Since
 Pachyderm’s only dependency is Kubernetes, it can be run on AWS, Google Cloud,
-or on premise. Check out our [deployment guide](https://github.com/pachyderm/pachyderm/blob/master/SETUP.md)
+or on premise. Check out our [setup guide](https://github.com/pachyderm/pachyderm/blob/master/SETUP.md)
 to get it running for yourself.
 
 ##### Can I use other schedulers such as Docker Swarm or Mesos?
@@ -131,10 +135,10 @@ completely isolated, and simple to monitor.
 
 ##### What is the data access model?
 To process data, you simply create a containerized program which reads and
-writes to the local filesystem at /pfs/in and /pfs/out, respectively.Pachyderm
-will take your container and inject data into it by way of a FUSE volume. We'll
-then automatically replicate your container, showing each copy a different
-chunk of data and processing it all in parallel.
+writes to the local filesystem at `/pfs/...`. Pachyderm will take your
+container and inject data into it by way of a FUSE volume. We'll then
+automatically replicate your container, showing each copy a different chunk of
+data and processing it all in parallel.
 
 ##### What are jobs and how do they work?
 A job in Pachyderm is a one-off transformation or processing of data. To run a
@@ -164,6 +168,7 @@ the “filter" pipeline. The “filter" pipeline outputs its results in a commit
 the “filter" repo which triggers the “sum" pipeline. The final results would be
 available in the "sum" repo. Check out our [Fruit Stand demo](https://github.com/pachyderm/pachyderm/blob/master/examples/fruit_stand/GUIDE.md#create-a-pipeline)
 to see exactly this example.
+
 ##### How do I perform batched analytics in Pachyderm?
 Batched analytics are the bread and butter of Pachyderm. Often times the first
 stage in a batched job is a database dump or some other large swath of new data
@@ -172,10 +177,10 @@ which would trigger all your ETL and analytics pipelines for that data. One-off
 batched jobs can also be manually run on any data.
 
 ##### How do I perform streaming analytics in Pachyderm?
-Streaming and batched jobs can be done exactly the same way in Pachyderm.
-Creating a commit is an incredibly cheap operation so you can even make one
-commit per second if you want! By just changing the frequency of commits, you
-can seamlessly transition from a large nightly batch job down to a streaming
+Streaming and batched jobs are done exactly the same way in Pachyderm. Creating
+a commit is an incredibly cheap operation so you can even make one commit per
+second if you want! By just changing the frequency of commits, you can
+seamlessly transition from a large nightly batch job down to a streaming
 operation processing tiny micro-batches of data.
 
 ##### How is my computation parallelized?
@@ -183,16 +188,15 @@ Both jobs and pipelines have a “shard” parameter. This parameter dictates ho
 many containers Pachyderm spins up to process your data in parallel. For
 example, `“shards”: 10` would create 10 containers that each process 1/10 of
 the data. Each pipeline can have a different parallelization factor, giving you
-fine-grain control over the utilization of your cluster. Pachyderm
-automatically scales the sharding factor based on the number of nodes available
-in your cluster, but you can instead set it manually for each pipeline if you
-have specific needs.
+fine-grain control over the utilization of your cluster. `shards` can be set to
+`0` in which case Pachyderm will set it automatically based on the size of the
+cluster.
 
 ##### How does Pachyderm let me do incremental processing?
 Pachyderm exposes all your data in diffs, meaning we show you the new data that
 has been added since the last time a pipeline was run. Pachyderm will smartly
 only process the new data and append those results to the output from the
-previous run. This, of course, only works for `map`-style jobs — reduce jobs
+previous run. This currently only works for `map`-style jobs — reduce jobs
 needs to process all the data each time.
 
 ##### Is there a SQL interface for Pachyderm?
@@ -218,18 +222,20 @@ Spark is a fantastic interface for exploring your data or running queries. In
 our opinion, Spark is one of the best parts of the Hadoop ecosystem and in the
 near future, we’ll be offering a connector that lets you use the Spark
 interface on top Pachyderm.
+
 ##### What are the major use cases for Pachyderm?
 __Data Lake__:
 A data lake is a place to dump and process gigantic data sets. This is where
 you send your nightly production database dumps, store all your raw log files
 and whatever other data you want. You can then process that data using any code
-you can put in a container. Martin Fowler has a great [blog post](http://martinfowler.com/bliki/DataLake.html) describing data lakes.
+you can put in a container. Martin Fowler has a great [blog post](http://martinfowler.com/bliki/DataLake.html)
+describing data lakes.
 
 __Containerized ETL__:
 ETL (extract, transform, load) is the process of taking raw data and turning it
 into a useable form for other services to ingest. ETL processes usually involve
 many steps forming a DAG ([Directed Acyclical Graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph)) — pulling raw
-data different sources, teasing out and structuring the useful details, and
+data from different sources, teasing out and structuring the useful details, and
 then pushing those structures into a data warehouse or BI (business
 intelligence) tool for querying and analysis.
 
@@ -255,9 +261,7 @@ data. Getting training/testing pairs involves zero data copying or moving.
 Finally, once your analysis is ready to go, you simply add your job to
 Pachyderm as a pipeline. Now it’ll automatically run and continue updating as
 new data comes into the system, letting you seamlessly transition from
-experimentation all the way to a full production deployment of your new model.
-Pachyderm even has rolling updates so your can continue to upgrade your
-production model with zero downtime.
+experimentation to a productionized deployment of your new model.
 
 ##### Is Pachyderm enterprise production ready?
 Yes! Pachyderm just hit v1.0 and is ready for production use! If you need help
@@ -265,14 +269,15 @@ with your deployment or just want to talk to us about the details, we’d love t
 hear from you! info@pachyderm.io
 
 ##### How does Pachyderm handle logging?
-Kubernetes actually handles all the logging for us. You can use `kubectl logs`
-to get logs from every job, pod, and container running in Pachyderm. Kubernetes
-also comes with it’s own tools for pushing those logs to whatever other
-services you use for log aggregation and analysis.
+Kubernetes actually handles all the logging for us. You can use `pachctl
+get-logs` to get logs from your jobs. Kubernetes also comes with it’s own tools
+for pushing those logs to whatever other services you use for log aggregation
+and analysis.
 
 ##### Does Pachyderm only work with Docker containers?
-Right now yes, but Pachyderm has no strict dependencies on Docker so we’ll have
-support for rkt and other container formats soon.
+Right now yes, but that's mostly because Kubernetes doesn't yet support other
+runtimes. Pachyderm has no strict dependencies on Docker so we’ll have support
+for rkt and other container formats soon.
 
 ##### How do I get enterprise support for Pachyderm?
 If you’re using Pachyderm in production or evaluating it as a potential
