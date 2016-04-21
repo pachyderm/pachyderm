@@ -145,6 +145,11 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
+	shards, err := a.computeShards(ctx, request.Shards, request.Inputs)
+	if err != nil {
+		return nil, err
+	}
+
 	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
 		return nil, err
@@ -153,7 +158,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	// TODO validate job to make sure input commits and output repo exist
 	persistJobInfo := &persist.JobInfo{
 		JobID:        jobID,
-		Shards:       request.Shards,
+		Shards:       shards,
 		Transform:    request.Transform,
 		Inputs:       request.Inputs,
 		ParentJob:    request.ParentJob,
@@ -191,6 +196,52 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	return &ppsclient.Job{
 		ID: jobID,
 	}, nil
+}
+
+// computeShards finds the largest number of shards that'd allow each shard to
+// see some input.
+func (a *apiServer) computeShards(ctx context.Context, maxShards uint64, inputs []*ppsclient.JobInput) (uint64, error) {
+	pfsClient, err := a.getPfsClient()
+	if err != nil {
+		return err
+	}
+
+ReduceShard:
+	var shards uint64
+	for shards = maxShards; shards >= 1; shards -= 1 {
+		for n := 0; n < shards; n += 1 {
+			someInput := false
+			for _, input := range inputs {
+				var filterShard = &pfsclient.Shard{
+					FileModulus:  1,
+					BlockModulus: 1,
+				}
+				if input.Reduce {
+					filterShard.FileNumber = n
+					filterShard.FileModulus = shards
+				} else {
+					commitMount.Shard.BlockNumber = n
+					commitMount.Shard.BlockModulus = shards
+				}
+				commitInfo, err := pfsClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
+					Commit:      input.Commit,
+					FilterShard: filterShard,
+				})
+				if err != nil {
+					return err
+				}
+				if commitInfo.SizeBytes > 0 {
+					someInput = true
+					break
+				}
+			}
+			if !someInput {
+				continue ReduceShard
+			}
+		}
+	}
+
+	return shards, nil
 }
 
 // isConflictErr returns true if the error is non-nil and the query failed
