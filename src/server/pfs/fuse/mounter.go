@@ -8,6 +8,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"go.pedge.io/lion"
 )
 
 const (
@@ -61,24 +62,29 @@ func (m *mounter) Mount(
 			retErr = err
 		}
 	}()
-	
-	sigChan := make(chan os.Signal,1)
+
+	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 	go func() {
 		<-sigChan
 		m.Unmount(mountPoint)
 	}()
-	
+
 	once.Do(func() {
 		if ready != nil {
 			close(ready)
 		}
 	})
-	if err := fs.Serve(conn, newFilesystem(m.apiClient, shard, commitMounts)); err != nil {
+	config := &fs.Config{}
+	if err := fs.New(conn, config).Serve(newFilesystem(m.apiClient, shard, commitMounts)); err != nil {
 		return err
 	}
 	<-conn.Ready
 	return conn.MountError
+}
+
+func debug(msg interface{}) {
+	lion.Printf("%+v", msg)
 }
 
 func (m *mounter) Unmount(mountPoint string) error {

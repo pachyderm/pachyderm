@@ -102,6 +102,7 @@ message Append {
   map<string, bool> children = 2;
   Commit last_ref = 3;
   bool delete = 4;
+  map<string, BlockRefs> handles = 5;
 }
 
 message BlockInfo {
@@ -195,6 +196,7 @@ message PutFileRequest {
   File file = 1;
   FileType file_type = 2;
   bytes value = 3;
+  string handle = 4;
 }
 
 message InspectFileRequest {
