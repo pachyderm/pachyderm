@@ -178,7 +178,14 @@ func setClusterID(client discovery.Client) error {
 }
 
 func getClusterID(client discovery.Client) (string, error) {
-	return client.Get(clusterIDKey)
+	id, err := client.Get(clusterIDKey)
+	if err != nil {
+		return "", err
+	}
+	if id == "" {
+		return "", fmt.Errorf("clusterID not yet set")
+	}
+	return id, nil
 }
 
 func getKubeClient(env *appEnv) (*kube.Client, error) {
