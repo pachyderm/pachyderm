@@ -2,7 +2,9 @@ package obj
 
 import (
 	"io"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	"golang.org/x/net/context"
 )
 
@@ -13,7 +15,7 @@ type Client interface {
 	// permissions to write it.
 	Writer(name string) (io.WriteCloser, error)
 	// Reader returns a reader which reads from an object.
-	// If `size == 0` it the reader should read the entire object.
+	// If `size == 0`, the reader should read from the offset till the end of the object.
 	// It should error if the object doesn't exist or we don't have sufficient
 	// permission to read it.
 	Reader(name string, offset uint64, size uint64) (io.ReadCloser, error)
@@ -32,4 +34,74 @@ func NewGoogleClient(ctx context.Context, bucket string) (Client, error) {
 func NewAmazonClient(bucket string, id string, secret string, token string,
 	region string) (Client, error) {
 	return newAmazonClient(bucket, id, secret, token, region)
+}
+
+func newExponentialBackOffConfig() *backoff.ExponentialBackOff {
+	config := backoff.NewExponentialBackOff()
+	config.MaxElapsedTime = 5 * time.Minute
+	return config
+}
+
+// BackoffReadCloser retries with exponential backoff in the case of failures
+type BackoffReadCloser struct {
+	reader        io.ReadCloser
+	backoffConfig *backoff.ExponentialBackOff
+}
+
+func newBackoffReadCloser(reader io.ReadCloser) io.ReadCloser {
+	return &BackoffReadCloser{
+		reader:        reader,
+		backoffConfig: newExponentialBackOffConfig(),
+	}
+}
+
+func (b *BackoffReadCloser) Read(data []byte) (int, error) {
+	bytesRead := 0
+	err := backoff.Retry(func() error {
+		if n, err := b.reader.Read(data[bytesRead:]); err != nil {
+			bytesRead += n
+			if bytesRead == len(data) {
+				return nil
+			}
+			return err
+		}
+		return nil
+	}, b.backoffConfig)
+	return bytesRead, err
+}
+
+func (b *BackoffReadCloser) Close() error {
+	return b.reader.Close()
+}
+
+// BackoffWriteCloser retries with exponential backoff in the case of failures
+type BackoffWriteCloser struct {
+	writer        io.WriteCloser
+	backoffConfig *backoff.ExponentialBackOff
+}
+
+func newBackoffWriteCloser(writer io.WriteCloser) io.WriteCloser {
+	return &BackoffWriteCloser{
+		writer:        writer,
+		backoffConfig: newExponentialBackOffConfig(),
+	}
+}
+
+func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
+	bytesWritten := 0
+	err := backoff.Retry(func() error {
+		if n, err := b.writer.Write(data[bytesWritten:]); err != nil {
+			bytesWritten += n
+			if bytesWritten == len(data) {
+				return nil
+			}
+			return err
+		}
+		return nil
+	}, b.backoffConfig)
+	return bytesWritten, err
+}
+
+func (b *BackoffWriteCloser) Close() error {
+	return b.writer.Close()
 }
