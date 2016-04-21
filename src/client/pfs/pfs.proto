@@ -57,6 +57,7 @@ message CommitInfo {
   google.protobuf.Timestamp started = 5;
   google.protobuf.Timestamp finished = 6;
   uint64 size_bytes = 7;
+  bool cancelled = 8;
 }
 
 message CommitInfos {
@@ -122,6 +123,7 @@ message DiffInfo {
   // Appends is the BlockRefs which have been append to files indexed by path.
   map<string, Append> appends = 6;
   uint64 size_bytes = 7;
+  bool cancelled = 8;
 }
 
 message Shard {
@@ -157,6 +159,7 @@ message StartCommitRequest {
 
 message FinishCommitRequest {
   Commit commit = 1;
+  bool cancel = 2;
   google.protobuf.Timestamp finished = 3;
 }
 
@@ -168,7 +171,8 @@ message ListCommitRequest {
   repeated Repo repo = 1;
   CommitType commit_type = 2;
   repeated Commit from_commit = 3;
-  bool block = 4;
+  bool all = 4;
+  bool block = 5;
 }
 
 message ListBranchRequest {

@@ -3,7 +3,7 @@
 *#*
 
 # Build artifacts
-tmp-test-pod.yml
+Dockerfile.pachd
 /protofix
 
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
