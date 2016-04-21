@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"bazil.org/fuse/fs/fstestutil"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -338,59 +337,6 @@ func TestHandleRace(t *testing.T) {
 		data, err := ioutil.ReadFile(path)
 		require.NoError(t, err)
 		require.True(t, string(data) == "foofoobar" || string(data) == "barfoofoo")
-	})
-}
-
-func TestReadSeek(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipped because of short mode")
-	}
-
-	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
-		repo := "test"
-		require.NoError(t, pfsclient.CreateRepo(apiClient, repo))
-		commit, err := pfsclient.StartCommit(apiClient, repo, "", "")
-		require.NoError(t, err)
-		path := filepath.Join(mountpoint, repo, commit.ID, "file")
-		file, err := os.Create(path)
-		require.NoError(t, err)
-		_, err = file.Write([]byte("foobarbaz"))
-
-		require.NoError(t, err)
-		require.NoError(t, file.Close())
-		require.NoError(t, pfsclient.FinishCommit(apiClient, repo, commit.ID))
-
-		fmt.Printf("==== Finished commit\n")
-
-		file, err = os.Open(path)
-		defer file.Close()
-		require.NoError(t, err)
-
-		word1 := make([]byte, 3)
-		n1, err := file.Read(word1)
-		require.NoError(t, err)
-		require.Equal(t, 3, n1)
-		require.Equal(t, "foo", string(word1))
-
-		fmt.Printf("==== %v - Read word len %v : %v\n", time.Now(), n1, string(word1))
-
-		offset, err := file.Seek(6, 0)
-		fmt.Printf("==== %v - err (%v)\n", time.Now(), err)
-
-		fmt.Printf("==== %v - offset (%v)\n", time.Now(), offset)
-		require.NoError(t, err)
-		require.Equal(t, int64(6), offset)
-
-		fmt.Printf("==== Seeked to %v\n", offset)
-
-		word2 := make([]byte, 3)
-		n2, err := file.Read(word2)
-		require.NoError(t, err)
-		require.Equal(t, 3, n2)
-		require.Equal(t, "baz", string(word2))
-
-		fmt.Printf("==== Read word len %v : %v\n", n2, string(word2))
-
 	})
 }
 
