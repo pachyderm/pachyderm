@@ -385,6 +385,7 @@ func (a *apiServer) PutFile(putFileServer pfsclient.API_PutFileServer) (retErr e
 		}
 		a.Log(request, google_protobuf.EmptyInstance, retErr, time.Since(start))
 	}(time.Now())
+	defer drainFileServer(putFileServer)
 	a.versionLock.RLock()
 	defer a.versionLock.RUnlock()
 	ctx := versionToContext(a.version, putFileServer.Context())

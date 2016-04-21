@@ -149,11 +149,16 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-test: pretest localtest docker-build clean-launch launch integration-tests
+test: pretest test-client test-fuse test-local docker-build clean-launch launch integration-tests
 
-localtest: deps-client
-	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/client/...)
-	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/')
+test-client: deps-client
+	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/...)
+
+test-fuse: deps-client
+	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
+
+test-local: deps-client
+	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse')
 
 clean: clean-launch clean-launch-kube
 

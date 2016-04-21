@@ -257,6 +257,9 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 				diffInfo.Cancelled = parentDiffInfo.Cancelled
 			}
 			diffInfo.Finished = finished
+			for _, _append := range diffInfo.Appends {
+				coalesceHandles(_append)
+			}
 			diffInfo.Cancelled = diffInfo.Cancelled || cancel
 			diffInfos = append(diffInfos, diffInfo)
 		}
@@ -366,7 +369,7 @@ func (d *driver) DeleteCommit(commit *pfs.Commit, shards map[uint64]bool) error 
 	return fmt.Errorf("DeleteCommit is not implemented")
 }
 
-func (d *driver) PutFile(file *pfs.File, shard uint64, reader io.Reader) (retErr error) {
+func (d *driver) PutFile(file *pfs.File, handle string, shard uint64, reader io.Reader) (retErr error) {
 	blockClient, err := d.getBlockClient()
 	if err != nil {
 		return err
@@ -411,20 +414,25 @@ func (d *driver) PutFile(file *pfs.File, shard uint64, reader io.Reader) (retErr
 	addDirs(diffInfo, file)
 	_append, ok := diffInfo.Appends[path.Clean(file.Path)]
 	if !ok {
-		_append = &pfs.Append{}
+		_append = &pfs.Append{Handles: make(map[string]*pfs.BlockRefs)}
 		if diffInfo.ParentCommit != nil {
 			_append.LastRef = d.lastRef(
-				pfsclient.NewFile(
-					diffInfo.ParentCommit.Repo.Name,
-					diffInfo.ParentCommit.ID,
-					file.Path,
-				),
+				pfsclient.NewFile(diffInfo.ParentCommit.Repo.Name, diffInfo.ParentCommit.ID, file.Path),
 				shard,
 			)
 		}
 		diffInfo.Appends[path.Clean(file.Path)] = _append
 	}
-	_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
+	if handle == "" {
+		_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
+	} else {
+		handleBlockRefs, ok := _append.Handles[handle]
+		if !ok {
+			handleBlockRefs = &pfs.BlockRefs{}
+			_append.Handles[handle] = handleBlockRefs
+		}
+		handleBlockRefs.BlockRef = append(handleBlockRefs.BlockRef, blockRefs.BlockRef...)
+	}
 	for _, blockRef := range blockRefs.BlockRef {
 		diffInfo.SizeBytes += blockRef.Range.Upper - blockRef.Range.Lower
 	}
@@ -517,7 +525,7 @@ func (d *driver) ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Comm
 	}
 	var result []*pfs.FileInfo
 	for _, child := range fileInfo.Children {
-		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, true)
+		fileInfo, _, err := d.inspectFile(child, filterShard, shard, from, false)
 		if err != nil && err != pfsserver.ErrFileNotFound {
 			return nil, err
 		}
@@ -751,7 +759,7 @@ func (d *driver) getFileType(file *pfs.File, shard uint64) (pfs.FileType, error)
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
 			if _append.Delete {
 				break
-			} else if len(_append.BlockRefs) > 0 {
+			} else if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
 				return pfs.FileType_FILE_TYPE_REGULAR, nil
 			} else {
 				return pfs.FileType_FILE_TYPE_DIR, nil
@@ -786,7 +794,7 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 		if _append, ok := diffInfo.Appends[path.Clean(file.Path)]; ok {
 			if _append.Delete {
 				break
-			} else if len(_append.BlockRefs) > 0 {
+			} else if len(_append.BlockRefs) > 0 || len(_append.Handles) > 0 {
 				if fileInfo.FileType == pfs.FileType_FILE_TYPE_DIR {
 					return nil, nil,
 						fmt.Errorf("mixed dir and regular file %s/%s/%s, (this is likely a bug)", file.Commit.Repo.Name, file.Commit.ID, file.Path)
@@ -801,6 +809,9 @@ func (d *driver) inspectFile(file *pfs.File, filterShard *pfs.Shard, shard uint6
 				}
 				fileInfo.FileType = pfs.FileType_FILE_TYPE_REGULAR
 				filtered := filterBlockRefs(filterShard, _append.BlockRefs)
+				for _, handleBlockRefs := range _append.Handles {
+					filtered = append(filtered, filterBlockRefs(filterShard, handleBlockRefs.BlockRef)...)
+				}
 				blockRefs = append(filtered, blockRefs...)
 				for _, blockRef := range filtered {
 					fileInfo.SizeBytes += (blockRef.Range.Upper - blockRef.Range.Lower)
@@ -1081,4 +1092,11 @@ func (d diffMap) pop(diff *pfs.Diff) *pfs.DiffInfo {
 	diffInfo := commitMap[diff.Commit.ID]
 	delete(commitMap, diff.Commit.ID)
 	return diffInfo
+}
+
+func coalesceHandles(_append *pfs.Append) {
+	for _, blockRefs := range _append.Handles {
+		_append.BlockRefs = append(_append.BlockRefs, blockRefs.BlockRef...)
+	}
+	_append.Handles = nil
 }
