@@ -3,17 +3,18 @@ package fuse
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
@@ -128,14 +129,11 @@ func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, res
 	directory.File.Path = path.Join(directory.File.Path, request.Name)
 	localResult := &file{
 		directory: *directory,
-		handles:   0,
 		size:      0,
 		local:     true,
 	}
-	handle, err := localResult.Open(ctx, nil, nil)
-	if err != nil {
-		return nil, nil, err
-	}
+	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
+	handle := localResult.newHandle()
 	return localResult, handle, nil
 }
 
@@ -156,9 +154,9 @@ func (d *directory) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (resu
 
 type file struct {
 	directory
-	handles int32
 	size    int64
 	local   bool
+	handles []*handle
 }
 
 func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
@@ -185,20 +183,78 @@ func (f *file) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 	return nil
 }
 
-func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
+func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fuse.OpenResponse) (_ fs.Handle, retErr error) {
 	defer func() {
-		protolion.Debug(&FileRead{&f.Node, errorToString(retErr)})
+		protolion.Debug(&FileOpen{&f.Node, errorToString(retErr)})
+	}()
+	response.Flags |= fuse.OpenDirectIO | fuse.OpenNonSeekable
+	return f.newHandle(), nil
+}
+
+func (f *file) Fsync(ctx context.Context, req *fuse.FsyncRequest) error {
+	for _, h := range f.handles {
+		if h.w != nil {
+			w := h.w
+			h.w = nil
+			if err := w.Close(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (f *filesystem) inode(file *pfsclient.File) uint64 {
+	f.lock.RLock()
+	inode, ok := f.inodes[key(file)]
+	f.lock.RUnlock()
+	if ok {
+		return inode
+	}
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if inode, ok := f.inodes[key(file)]; ok {
+		return inode
+	}
+	newInode := uint64(len(f.inodes))
+	f.inodes[key(file)] = newInode
+	return newInode
+}
+
+func (f *file) newHandle() *handle {
+	id := uuid.NewWithoutDashes()
+
+	h := &handle{
+		id: id,
+		f:  f,
+	}
+
+	f.handles = append(f.handles, h)
+
+	return h
+}
+
+type handle struct {
+	id      string
+	f       *file
+	w       io.WriteCloser
+	written int
+}
+
+func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
+	defer func() {
+		protolion.Debug(&FileRead{&h.f.Node, errorToString(retErr)})
 	}()
 	var buffer bytes.Buffer
 	if err := pfsclient.GetFile(
-		f.fs.apiClient,
-		f.File.Commit.Repo.Name,
-		f.File.Commit.ID,
-		f.File.Path,
+		h.f.fs.apiClient,
+		h.f.File.Commit.Repo.Name,
+		h.f.File.Commit.ID,
+		h.f.File.Path,
 		request.Offset,
 		int64(request.Size),
-		f.fs.getFromCommitID(f.File.Commit.Repo.Name),
-		f.Shard,
+		h.f.fs.getFromCommitID(h.f.File.Commit.Repo.Name),
+		h.f.Shard,
 		&buffer,
 	); err != nil {
 		if grpc.Code(err) == codes.NotFound {
@@ -216,44 +272,51 @@ func (f *file) Read(ctx context.Context, request *fuse.ReadRequest, response *fu
 	return nil
 }
 
-func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fuse.OpenResponse) (_ fs.Handle, retErr error) {
+func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
 	defer func() {
-		protolion.Debug(&FileRead{&f.Node, errorToString(retErr)})
+		protolion.Debug(&FileWrite{&h.f.Node, errorToString(retErr)})
 	}()
-	atomic.AddInt32(&f.handles, 1)
-	return f, nil
-}
-
-func (f *file) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
-	defer func() {
-		protolion.Debug(&FileWrite{&f.Node, errorToString(retErr)})
-	}()
-	written, err := pfsclient.PutFile(f.fs.apiClient, f.File.Commit.Repo.Name, f.File.Commit.ID, f.File.Path, bytes.NewReader(request.Data))
+	protolion.Printf("WriteRequest: %s@%d\n", string(request.Data), request.Offset)
+	if h.w == nil {
+		w, err := pfsclient.PutFileWriter(h.f.fs.apiClient, h.f.File.Commit.Repo.Name, h.f.File.Commit.ID, h.f.File.Path, h.id)
+		if err != nil {
+			return err
+		}
+		h.w = w
+	}
+	// repeated is how many bytes in this write have already been sent in
+	// previous call to Write. Why does the OS send us the same data twice in
+	// different calls? Good question, this is a behavior that's only been
+	// observed on osx, not on linux.
+	repeated := h.written - int(request.Offset)
+	if repeated < 0 {
+		return fmt.Errorf("gap in bytes written, (OpenNonSeekable should make this impossible)")
+	}
+	written, err := h.w.Write(request.Data[repeated:])
 	if err != nil {
 		return err
 	}
-	response.Size = written
-	if f.size < request.Offset+int64(written) {
-		f.size = request.Offset + int64(written)
+	response.Size = written + repeated
+	h.written += written
+	if h.f.size < request.Offset+int64(written) {
+		h.f.size = request.Offset + int64(written)
 	}
 	return nil
 }
 
-func (f *filesystem) inode(file *pfsclient.File) uint64 {
-	f.lock.RLock()
-	inode, ok := f.inodes[key(file)]
-	f.lock.RUnlock()
-	if ok {
-		return inode
+func (h *handle) Flush(ctx context.Context, req *fuse.FlushRequest) error {
+	if h.w != nil {
+		w := h.w
+		h.w = nil
+		if err := w.Close(); err != nil {
+			return err
+		}
 	}
-	f.lock.Lock()
-	if inode, ok := f.inodes[key(file)]; ok {
-		return inode
-	}
-	newInode := uint64(len(f.inodes))
-	f.inodes[key(file)] = newInode
-	f.lock.Unlock()
-	return newInode
+	return nil
+}
+
+func (h *handle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
+	return nil
 }
 
 func (d *directory) copy() *directory {
@@ -360,7 +423,6 @@ func (d *directory) lookUpFile(ctx context.Context, name string) (fs.Node, error
 		directory.File.Path = fileInfo.File.Path
 		return &file{
 			directory: *directory,
-			handles:   0,
 			size:      int64(fileInfo.SizeBytes),
 			local:     false,
 		}, nil
