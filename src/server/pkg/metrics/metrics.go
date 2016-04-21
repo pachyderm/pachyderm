@@ -4,7 +4,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+
 	"go.pedge.io/lion/proto"
+	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
 var metrics = &Metrics{}
@@ -40,11 +43,13 @@ func AddPipelines(num int64) {
 	atomic.SwapInt64(&modified, 1)
 }
 
-func ReportMetrics(clusterID string) {
+func ReportMetrics(clusterID string, kubeClient *kube.Client) {
 	metrics.ID = clusterID
+	metrics.MachineID = uuid.NewWithoutDashes()
 	for {
 		write := atomic.SwapInt64(&modified, 0)
 		if write == 1 {
+			externalMetrics(kubeClient, metrics)
 			protolion.Info(metrics)
 			reportSegment(metrics)
 		}
