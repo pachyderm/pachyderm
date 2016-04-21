@@ -973,16 +973,14 @@ func deleteFromDir(diffInfo *pfs.DiffInfo, child *pfs.File) {
 }
 
 type fileReader struct {
-	blockClient               pfsclient.BlockAPIClient
-	blockRefs                 []*pfs.BlockRef
-	index                     int
-	reader                    io.Reader
-	offset                    int64
-	size                      int64
-	bytesReadFromCurrentBlock uint64
-	currentBlockSize          uint64
-	ctx                       context.Context
-	cancel                    context.CancelFunc
+	blockClient pfsclient.BlockAPIClient
+	blockRefs   []*pfs.BlockRef
+	index       int
+	reader      io.Reader
+	offset      int64
+	size        int64
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
 func newFileReader(blockClient pfsclient.BlockAPIClient, blockRefs []*pfs.BlockRef, offset int64, size int64) *fileReader {
@@ -1014,8 +1012,6 @@ func (r *fileReader) Read(data []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		r.currentBlockSize = pfsserver.ByteRangeSize(r.blockRef().Range)
-		r.bytesReadFromCurrentBlock = 0
 		r.offset = 0
 		r.index++
 	}
@@ -1023,10 +1019,7 @@ func (r *fileReader) Read(data []byte) (int, error) {
 	if err != nil && err != io.EOF {
 		return size, err
 	}
-	r.bytesReadFromCurrentBlock += uint64(size)
-	// If we happen to have read till the end of the block, we won't get an EOF
-	// error.  That's why we need to keep track of bytes read from the block
-	if err == io.EOF || r.bytesReadFromCurrentBlock == r.currentBlockSize {
+	if err == io.EOF {
 		r.reader = nil
 	}
 	r.size -= int64(size)
