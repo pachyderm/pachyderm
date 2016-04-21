@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps" //SJ: bad name conflict w below
 	pfsmodel "github.com/pachyderm/pachyderm/src/server/pfs"  // SJ: really bad name conflict. Normally I was making the non pfsclient stuff all under pfs server
 	"github.com/pachyderm/pachyderm/src/server/pfs/drive"
@@ -41,7 +42,7 @@ type appEnv struct {
 	EtcdAddress     string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
 	Namespace       string `env:"NAMESPACE,default=default"`
 	Metrics         uint16 `env:"METRICS,default=1"`
-	InitDB          bool   `env:"INITDB,default=false"`
+	Init            bool   `env:"INIT,default=false"`
 }
 
 func main() {
@@ -50,18 +51,23 @@ func main() {
 
 func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	if appEnv.Metrics != 0 {
-		go metrics.ReportMetrics()
-	}
-
-	if appEnv.InitDB {
+	etcdClient := getEtcdClient(appEnv)
+	if appEnv.Init {
+		if err := setClusterID(etcdClient); err != nil {
+			return err
+		}
 		if err := persist_server.InitDBs(fmt.Sprintf("%s:28015", appEnv.DatabaseAddress), appEnv.DatabaseName); err != nil {
 			return err
 		}
 		return nil
 	}
-
-	etcdClient := getEtcdClient(appEnv)
+	clusterID, err := getClusterID(etcdClient)
+	if err != nil {
+		return err
+	}
+	if appEnv.Metrics != 0 {
+		go metrics.ReportMetrics(clusterID)
+	}
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {
 		return err
@@ -163,6 +169,16 @@ func do(appEnvObj interface{}) error {
 
 func getEtcdClient(env *appEnv) discovery.Client {
 	return discovery.NewEtcdClient(fmt.Sprintf("http://%s:2379", env.EtcdAddress))
+}
+
+const clusterIDKey = "cluster-id"
+
+func setClusterID(client discovery.Client) error {
+	return client.Set(clusterIDKey, uuid.NewWithoutDashes(), 0)
+}
+
+func getClusterID(client discovery.Client) (string, error) {
+	return client.Get(clusterIDKey)
 }
 
 func getKubeClient(env *appEnv) (*kube.Client, error) {
