@@ -27,7 +27,7 @@ func newGoogleClient(ctx context.Context, bucket string) (*googleClient, error) 
 }
 
 func (c *googleClient) Writer(name string) (io.WriteCloser, error) {
-	return c.bucket.Object(name).NewWriter(c.ctx), nil
+	return newBackoffWriteCloser(c.bucket.Object(name).NewWriter(c.ctx)), nil
 }
 
 func (c *googleClient) Walk(name string, fn func(name string) error) error {
@@ -47,9 +47,19 @@ func (c *googleClient) Walk(name string, fn func(name string) error) error {
 	return nil
 }
 
-//TODO size 0 means read all
 func (c *googleClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	return c.bucket.Object(name).NewReader(c.ctx)
+	var reader io.ReadCloser
+	var err error
+	if size == 0 {
+		// a negative length will cause the object to be read till the end
+		reader, err = c.bucket.Object(name).NewRangeReader(c.ctx, int64(offset), -1)
+	} else {
+		reader, err = c.bucket.Object(name).NewRangeReader(c.ctx, int64(offset), int64(size))
+	}
+	if err != nil {
+		return nil, err
+	}
+	return newBackoffReadCloser(reader), nil
 }
 
 func (c *googleClient) Delete(name string) error {

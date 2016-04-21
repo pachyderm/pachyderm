@@ -601,6 +601,9 @@ func (d *driver) AddShard(shard uint64) error {
 		if err == io.EOF {
 			break
 		}
+		if diffInfo.Diff == nil || diffInfo.Diff.Commit == nil || diffInfo.Diff.Commit.Repo == nil {
+			return fmt.Errorf("broken diff info: %v; this is likely a bug", diffInfo)
+		}
 		repoName := diffInfo.Diff.Commit.Repo.Name
 		if _, ok := diffInfos[repoName]; !ok {
 			diffInfos[repoName] = make(map[uint64]map[string]*pfs.DiffInfo)
@@ -996,7 +999,7 @@ func (r *fileReader) blockRef() *pfsclient.BlockRef {
 func (r *fileReader) Read(data []byte) (int, error) {
 	if r.reader == nil {
 		// skip blocks as long as our offset is past the end of the current block
-		for r.offset != 0 && r.index < len(r.blockRefs) && r.offset > int64(pfsserver.ByteRangeSize(r.blockRef().Range)) {
+		for r.offset != 0 && r.index < len(r.blockRefs) && r.offset >= int64(pfsserver.ByteRangeSize(r.blockRef().Range)) {
 			r.offset -= int64(pfsserver.ByteRangeSize(r.blockRef().Range))
 			r.index++
 		}
@@ -1022,6 +1025,9 @@ func (r *fileReader) Read(data []byte) (int, error) {
 	r.size -= int64(size)
 	if r.size == 0 {
 		return size, io.EOF
+	}
+	if r.size < 0 {
+		return 0, fmt.Errorf("read more than we need; this is likely a bug")
 	}
 	return size, nil
 }
