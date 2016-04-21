@@ -3,6 +3,7 @@
 package fs
 
 import (
+	"fmt"
 	"os"
 	pathpkg "path"
 	"strings"
@@ -91,8 +92,10 @@ func (t *tree) Lookup(ctx context.Context, name string) (Node, error) {
 }
 
 func (t *tree) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
+	fmt.Printf("!!! Calling ReadDirAll")
 	var out []fuse.Dirent
 	for _, d := range t.dir {
+		fmt.Printf("I spy w my little eye ... %v\n", d.name)
 		out = append(out, fuse.Dirent{Name: d.name})
 	}
 	return out, nil

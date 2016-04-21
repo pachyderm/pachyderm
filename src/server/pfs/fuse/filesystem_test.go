@@ -341,7 +341,7 @@ func TestHandleRace(t *testing.T) {
 	})
 }
 
-func TestMountCaching(t *testing.T) {
+func TestMountCachingViaWalk(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
@@ -426,7 +426,7 @@ func TestMountCachingViaShell(t *testing.T) {
 		require.NoError(t, err)
 
 		fmt.Printf("files seen: [%v]\n", string(out))
-		require.Equal(t, "foo\nbar\n", string(out))
+		require.Equal(t, true, "foo\nbar\n" == string(out) || "bar\nfoo\n" == string(out))
 
 	})
 }
