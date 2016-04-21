@@ -75,7 +75,7 @@ func (m *mounter) Mount(
 			close(ready)
 		}
 	})
-	config := &fs.Config{}
+	config := &fs.Config{Debug: debug}
 	if err := fs.New(conn, config).Serve(newFilesystem(m.apiClient, shard, commitMounts)); err != nil {
 		return err
 	}
