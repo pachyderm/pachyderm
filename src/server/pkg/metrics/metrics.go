@@ -45,6 +45,7 @@ func ReportMetrics() {
 		write := atomic.SwapInt64(&modified, 0)
 		if write == 1 {
 			protolion.Info(metrics)
+			reportSegment(metrics)
 		}
 		<-time.After(15 * time.Second)
 	}
