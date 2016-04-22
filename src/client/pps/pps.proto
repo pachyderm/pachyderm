@@ -34,7 +34,7 @@ message JobInfo {
   Job job = 1;
   Transform transform = 2;
   Pipeline pipeline = 3;
-  uint64 shards = 4;
+  uint64 parallelism = 4;
   repeated JobInput inputs = 5;
   Job parent_job = 6;
   google.protobuf.Timestamp created_at = 7;
@@ -58,7 +58,7 @@ message PipelineInput {
 message PipelineInfo {
   Pipeline pipeline = 1;
   Transform transform = 2;
-  uint64 shards = 3;
+  uint64 parallelism = 3;
   repeated PipelineInput inputs = 4;
   pfs.Repo output_repo = 5;
   google.protobuf.Timestamp created_at = 6;
@@ -71,7 +71,7 @@ message PipelineInfos {
 message CreateJobRequest {
   Transform transform = 1;
   Pipeline pipeline = 2;
-  uint64 shards = 3;
+  uint64 parallelism = 3;
   repeated JobInput inputs = 4;
   Job parent_job = 5;
 }
@@ -94,7 +94,7 @@ message GetLogsRequest {
 message CreatePipelineRequest {
   Pipeline pipeline = 1;
   Transform transform = 2;
-  uint64 shards = 3;
+  uint64 parallelism = 3;
   repeated PipelineInput inputs = 4;
 }
 

@@ -207,6 +207,7 @@ message ListFileRequest {
   File file = 1;
   Shard shard = 2;
   Commit from_commit = 3;
+  bool recurse = 4;
 }
 
 message DeleteFileRequest {

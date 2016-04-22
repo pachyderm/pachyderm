@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
@@ -49,6 +50,48 @@ func do(appEnvObj interface{}) error {
 			pfsClient, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachydermAddress))
 			if err != nil {
 				errorAndExit(err.Error())
+			}
+
+			// We want to make sure that we actually have some input data to
+			// operate on.
+			var hasData bool
+			for _, commitMount := range response.CommitMounts {
+				fileInfos, err := pfsClient.ListFile(context.Background(), &pfsclient.ListFileRequest{
+					File: &pfsclient.File{
+						Commit: commitMount.Commit,
+						Path:   "", // the root directory
+					},
+					Shard:      commitMount.Shard,
+					FromCommit: commitMount.FromCommit,
+					Recurse:    true,
+				})
+				if err != nil {
+					errorAndExit(err.Error())
+				}
+
+				for _, fileInfo := range fileInfos.FileInfo {
+					if fileInfo.SizeBytes > 0 {
+						hasData = true
+						break
+					}
+				}
+			}
+
+			// If this pod is not assigned any input data, we simply report success
+			if !hasData {
+				if _, err := ppsClient.FinishJob(
+					context.Background(),
+					&ppsserver.FinishJobRequest{
+						Job: &ppsclient.Job{
+							ID: args[0],
+						},
+						Index:   response.Index,
+						Success: true,
+					},
+				); err != nil {
+					errorAndExit(err.Error())
+				}
+				return
 			}
 
 			mounter := fuse.NewMounter(appEnv.PachydermAddress, pfsClient)
