@@ -30,7 +30,18 @@ govendor add domain/reponame/pkg2
 
 Unfortunately, there doesn't seem to be a way to get govendor to add a whole repository in a single pass. Even trying `govendor add +missing` doesn't work. 
 
-Maybe we should just write a script to clone a repo? And update the vendor.json accordingly.
+(Maybe we should just write a script to clone a repo? And update the vendor.json accordingly.)
+
+It's also very easy to miss a package when vendoring if you still have a copy of hte library on your GOPATH. So I recommend removing (or moving) the copy on GOPATH while you do the vendor/go test/loop to be confident you have all the packages you need.
+
+Except ... it does seem to want a copy in GOPATH?
+
+e.g. 
+
+    $ govendor add bazil.org/fuse/fs/fstestutil
+    Error: Package "bazil.org/fuse/fs/fstestutil" not a go package or not in GOPATH.
+
+So then you do `go get bazil.org/fuse/fs/fstestutil` and repeat the govendor add and it works.
 
 ## To update a package
 
