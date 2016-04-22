@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/golang/protobuf/jsonpb"
@@ -43,6 +44,12 @@ The increase the throughput of a job increase the Shard paremeter.
 	if err != nil {
 		return nil, err
 	}
+
+	exampleRunPipelineSpec, err := marshaller.MarshalToString(example.RunPipelineSpec())
+	if err != nil {
+		return nil, err
+	}
+
 	var jobPath string
 	createJob := &cobra.Command{
 		Use:   "create-job -f job.json",
@@ -312,6 +319,69 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
+	runPipeline := &cobra.Command{
+		Use:   "run-pipeline pipeline-name [-f job.json]",
+		Short: "Run a pipeline once.",
+		Long:  fmt.Sprintf("Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:\n%s", exampleRunPipelineSpec),
+		Run: pkgcobra.RunFixedArgs(1, func(args []string) error {
+			apiClient, err := getAPIClient(address)
+			if err != nil {
+				return err
+			}
+			pipelineName := args[0]
+			pipelineInfo, err := apiClient.InspectPipeline(context.Background(), &ppsclient.InspectPipelineRequest{
+				Pipeline: &ppsclient.Pipeline{
+					Name: pipelineName,
+				},
+			})
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					err = fmt.Errorf("pipeline %s not found", pipelineName)
+				}
+				errorAndExit("Error from InspectPipeline: %s", err.Error())
+			}
+
+			request := &ppsclient.CreateJobRequest{
+				Transform:   pipelineInfo.Transform,
+				Parallelism: pipelineInfo.Parallelism,
+				Pipeline:    pipelineInfo.Pipeline,
+			}
+
+			var jobReader io.Reader
+			if jobPath == "-" {
+				jobReader = os.Stdin
+				fmt.Print("Reading from stdin.\n")
+			} else if jobPath != "" {
+				jobFile, err := os.Open(jobPath)
+				if err != nil {
+					errorAndExit("Error opening %s: %s", jobPath, err.Error())
+				}
+
+				defer func() {
+					if err := jobFile.Close(); err != nil {
+						errorAndExit("Error closing%s: %s", jobPath, err.Error())
+					}
+				}()
+
+				jobReader = jobFile
+				if err := jsonpb.Unmarshal(jobReader, request); err != nil {
+					errorAndExit("Error reading from stdin: %s", err.Error())
+				}
+			}
+
+			job, err := apiClient.CreateJob(
+				context.Background(),
+				request,
+			)
+			if err != nil {
+				errorAndExit("Error from CreateJob: %s", err.Error())
+			}
+			fmt.Println(job.ID)
+			return nil
+		}),
+	}
+	runPipeline.Flags().StringVarP(&jobPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
+
 	var result []*cobra.Command
 	result = append(result, job)
 	result = append(result, createJob)
@@ -323,6 +393,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, inspectPipeline)
 	result = append(result, listPipeline)
 	result = append(result, deletePipeline)
+	result = append(result, runPipeline)
 	return result, nil
 }
 

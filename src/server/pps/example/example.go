@@ -41,3 +41,16 @@ func CreatePipelineRequest() *ppsclient.CreatePipelineRequest {
 		},
 	}
 }
+
+func RunPipelineSpec() *ppsclient.CreateJobRequest {
+	return &ppsclient.CreateJobRequest{
+		Inputs: []*ppsclient.JobInput{
+			{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{Name: "in_repo"},
+					ID:   "10cf676b626044f9a405235bf7660959",
+				},
+			},
+		},
+	}
+}
