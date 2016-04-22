@@ -295,6 +295,8 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	default:
 	}
 
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	cond, ok := d.commitConds[canonicalCommit.ID]
 	if !ok {
 		return fmt.Errorf("could not found a conditional variable to signal commit completion; this is likely a bug")
