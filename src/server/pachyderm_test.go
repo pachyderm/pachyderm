@@ -381,6 +381,7 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
+	require.Equal(t, false, outCommits[0].Cancelled)
 }
 
 func TestWorkload(t *testing.T) {
