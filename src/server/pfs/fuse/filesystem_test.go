@@ -453,6 +453,7 @@ func testFuse(
 	defer func() {
 		_ = listener.Close()
 	}()
+	fmt.Printf("XXX creating servers\n")
 
 	// TODO try to share more of this setup code with various main
 	// functions
@@ -510,19 +511,26 @@ func testFuse(
 	require.NoError(t, err)
 	apiClient := pfsclient.NewAPIClient(clientConn)
 	mounter := fuse.NewMounter(localAddress, apiClient)
-
+	fmt.Printf("XXX created clientConn\n")
 	mountpoint := filepath.Join(tmp, "mnt")
 	require.NoError(t, os.Mkdir(mountpoint, 0700))
 	ready := make(chan bool)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		fmt.Printf("XXX mounting\n")
 		require.NoError(t, mounter.Mount(mountpoint, nil, nil, ready))
 	}()
 
 	<-ready
+	fmt.Printf("XXX mounted\n")
+
 	defer func() {
+		fmt.Printf("XXX Trying to unmount\n")
 		_ = mounter.Unmount(mountpoint)
+		fmt.Printf("XXX Unmounted!\n")
 	}()
+	fmt.Printf("XXX running test callback\n")
 	test(apiClient, mountpoint)
+	fmt.Printf("XXX ran test callback\n")
 }
