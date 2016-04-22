@@ -41,7 +41,7 @@ type appEnv struct {
 	KubeAddress     string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	EtcdAddress     string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
 	Namespace       string `env:"NAMESPACE,default=default"`
-	Metrics         uint16 `env:"METRICS,default=1"`
+	Metrics         bool   `env:"METRICS,default=true"`
 	Init            bool   `env:"INIT,default=false"`
 }
 
@@ -69,7 +69,7 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	if appEnv.Metrics != 0 {
+	if appEnv.Metrics {
 		go metrics.ReportMetrics(clusterID, kubeClient)
 	}
 	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
