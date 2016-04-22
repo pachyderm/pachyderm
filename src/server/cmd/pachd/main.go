@@ -65,14 +65,14 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	if appEnv.Metrics != 0 {
-		go metrics.ReportMetrics(clusterID)
-	}
-	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
+	kubeClient, err := getKubeClient(appEnv)
 	if err != nil {
 		return err
 	}
-	kubeClient, err := getKubeClient(appEnv)
+	if appEnv.Metrics != 0 {
+		go metrics.ReportMetrics(clusterID, kubeClient)
+	}
+	rethinkAPIServer, err := getRethinkAPIServer(appEnv)
 	if err != nil {
 		return err
 	}

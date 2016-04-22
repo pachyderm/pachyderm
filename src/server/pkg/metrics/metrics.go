@@ -45,7 +45,7 @@ func AddPipelines(num int64) {
 
 func ReportMetrics(clusterID string, kubeClient *kube.Client) {
 	metrics.ID = clusterID
-	metrics.MachineID = uuid.NewWithoutDashes()
+	metrics.PodID = uuid.NewWithoutDashes()
 	for {
 		write := atomic.SwapInt64(&modified, 0)
 		if write == 1 {
