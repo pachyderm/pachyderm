@@ -12,7 +12,6 @@ import (
 	"go.pedge.io/proto/stream"
 	"golang.org/x/net/context"
 
-	"github.com/cenkalti/backoff"
 	"github.com/gogo/protobuf/proto"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -98,9 +97,7 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 			if err != nil {
 				select {
 				case errCh <- err:
-					// error reported
 				default:
-					// not the first error
 				}
 				return
 			}
@@ -108,31 +105,16 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.BlockAPI_PutBlockS
 				if err := writer.Close(); err != nil {
 					select {
 					case errCh <- err:
-						// error reported
 					default:
-						// not the first error
 					}
 					return
 				}
 			}()
-			config := backoff.NewExponentialBackOff()
-			config.MaxElapsedTime = 5 * time.Minute
-			bytesWritten := 0
-			err = backoff.Retry(func() error {
-				if n, err := writer.Write(data[bytesWritten:]); err != nil {
-					bytesWritten += n
-					if bytesWritten == len(data) {
-						return nil
-					}
-					return err
+			if _, err := writer.Write(data); err != nil {
+				select {
+				case errCh <- err:
+				default:
 				}
-				return nil
-			}, config)
-			select {
-			case errCh <- err:
-				// error reported
-			default:
-				// not the first error
 			}
 		}()
 		if (blockRef.Range.Upper - blockRef.Range.Lower) < uint64(blockSize) {

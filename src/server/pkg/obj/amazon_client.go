@@ -30,7 +30,7 @@ func newAmazonClient(bucket string, id string, secret string, token string, regi
 }
 
 func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
-	return newWriter(c, name), nil
+	return newBackoffWriteCloser(newWriter(c, name)), nil
 }
 
 func (c *amazonClient) Walk(name string, fn func(name string) error) error {
@@ -71,7 +71,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 	if err != nil {
 		return nil, err
 	}
-	return getObjectOutput.Body, nil
+	return newBackoffReadCloser(getObjectOutput.Body), nil
 }
 
 func (c *amazonClient) Delete(name string) error {
