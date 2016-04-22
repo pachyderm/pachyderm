@@ -7,6 +7,7 @@
 * [What's new about Pachyderm? (How is it different from Hadoop?)](#-new-about-pachyderm-how-is-it-different-from-hadoop)
 * [Our Vision](#our-vision)
 * [Contributing](#contributing)
+* [Usage Metrics](#usage-metrics)
 
 ### News
 
@@ -85,3 +86,9 @@ To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo
 
 Send us PRs, we would love to see what you do!
 
+### Usage Metrics
+
+Pachyderm automatically reports anonymized usage metrics. These metrics help us
+understand how people are using Pachyderm and make it better.  They can be
+disabled by setting the env variable `METRICS` to `false` in the pachd
+container.
