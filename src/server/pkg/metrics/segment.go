@@ -13,6 +13,7 @@ func reportSegment(metrics *Metrics) {
 		Properties: map[string]interface{}{
 			"PodID":     metrics.PodID,
 			"nodes":     metrics.Nodes,
+			"version":   metrics.Version,
 			"repos":     metrics.Repos,
 			"commits":   metrics.Commits,
 			"files":     metrics.Files,
