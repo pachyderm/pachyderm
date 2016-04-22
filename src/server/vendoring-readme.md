@@ -6,16 +6,38 @@ That's ok - we want to update dependencies as needed. But to do so is tricky.
 
 Govendor has some bugs, and its unclear how go test / build can be resolving imports.
 
-Generally, I've found the following approach helpful:
+Generally, I've found the following approach helpful. But first, some disclaimers:
 
+## Things I still don't understand about govendor
+
+I don't understand how the basics work - the update/add/remove
+
+The update/add commands never seem to do what I want. Adding a library (even after removing) sometimes doesn't update all the files? It's also unclear if its getching from GOPATH or an origin url, or if there is a fallback between them.
+
+e.g. I'm updating bazil.org/fuse.
+
+I tried 'govendor remove bazil.org/fuse' but it leaves files behind! I guess because it can't differentiate between when I want to remove a top level package and a subpackage? That's kind of crazy.
+
+So, to actually remove / update a whole repo, you need to do the following:
+
+```shell
+govendor remove domain/reponame/* # this seems to remove the entries from the vendor.json file?
+rm -rf vendor/domain/reponame
+govendor add domain/reponame
+govendor add domain/reponame/pkg1
+govendor add domain/reponame/pkg2
+```
+
+Unfortunately, there doesn't seem to be a way to get govendor to add a whole repository in a single pass. Even trying `govendor add +missing` doesn't work. 
+
+Maybe we should just write a script to clone a repo? And update the vendor.json accordingly.
 
 ## To update a package
 
 ### Step 0 - Update
 
-Try using `govendor update github.com/some/package` to update what you need. You'll probably have to run this command for all subpackages you need.
-
-If that's not working, you can try ...
+- Try using `govendor update github.com/some/package` to update what you need. You'll probably have to run this command for all subpackages you need.
+- If that's not working, you can try the removal/fetch steps below
 
 ### Step 1 - Removal
 
