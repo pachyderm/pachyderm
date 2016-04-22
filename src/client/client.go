@@ -60,6 +60,14 @@ func New() (*APIClient, error) {
 	return NewFromAddress(fmt.Sprintf("%v:650", pachAddr))
 }
 
+func PrettyPrintVersion(version *protoversion.Version) string {
+	result := fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Micro)
+	if version.Additional != "" {
+		result += fmt.Sprintf("(%s)", version.Additional)
+	}
+	return result
+}
+
 func getBuildNumber() string {
 	value := os.Getenv("PACH_BUILD_NUMBER")
 	if value == "" {

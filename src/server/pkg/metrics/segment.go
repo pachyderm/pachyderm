@@ -11,6 +11,7 @@ func reportSegment(metrics *Metrics) {
 		Event:       "metrics",
 		AnonymousId: metrics.ID,
 		Properties: map[string]interface{}{
+			"PodID":     metrics.PodID,
 			"nodes":     metrics.Nodes,
 			"repos":     metrics.Repos,
 			"commits":   metrics.Commits,
