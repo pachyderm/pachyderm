@@ -372,6 +372,12 @@
 			"revisionTime": "2014-10-17T13:07:13-07:00"
 		},
 		{
+			"checksumSHA1": "bXHP00GWjyGEna9Gh5lAhxE6dLA=",
+			"path": "github.com/jehiah/go-strftime",
+			"revision": "2efbe75097a505e2789f7e39cb9da067b5be8e3e",
+			"revisionTime": "2015-12-06T19:48:10Z"
+		},
+		{
 			"origin": "github.com/aws/aws-sdk-go/vendor/github.com/jmespath/go-jmespath",
 			"path": "github.com/jmespath/go-jmespath",
 			"revision": "0b12d6b521d83fc7f755e7cfc1b1fbdd35a01a74",
@@ -468,6 +474,18 @@
 			"revisionTime": "2015-10-29T02:17:19+03:00"
 		},
 		{
+			"checksumSHA1": "AeF+cVyxKjNn8+8MQW2QIKTCQvk=",
+			"path": "github.com/segmentio/analytics-go",
+			"revision": "c88243972a0d29577dcaaac4a61d28891190dbee",
+			"revisionTime": "2016-04-21T05:16:01Z"
+		},
+		{
+			"checksumSHA1": "jK8cjKr2eA3JiQP+T4HLjQRV5ak=",
+			"path": "github.com/segmentio/backo-go",
+			"revision": "ed3adc599ae5cd72e97bd085ff1835c9d3276594",
+			"revisionTime": "2015-08-01T21:06:19Z"
+		},
+		{
 			"path": "github.com/shurcooL/sanitized_anchor_name",
 			"revision": "10ef21a441db47d8b13ebcc5fd2310f636973c77",
 			"revisionTime": "2015-10-27T17:19:15-07:00"
@@ -491,6 +509,12 @@
 			"path": "github.com/ugorji/go/codec",
 			"revision": "f4485b318aadd133842532f841dc205a8e339d74",
 			"revisionTime": "2016-02-11T11:14:15-05:00"
+		},
+		{
+			"checksumSHA1": "LAL/r7KfCdqp4M6MM13+7NWsUNc=",
+			"path": "github.com/xtgo/uuid",
+			"revision": "a0b114877d4caeffbd7f87e3757c17fce570fea7",
+			"revisionTime": "2014-08-04T02:12:11Z"
 		},
 		{
 			"path": "go.pedge.io/env",

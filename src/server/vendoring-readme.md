@@ -47,8 +47,13 @@ So then you do `go get bazil.org/fuse/fs/fstestutil` and repeat the govendor add
 
 ### Step 0 - Update
 
-- Try using `govendor update github.com/some/package` to update what you need. You'll probably have to run this command for all subpackages you need.
-- If that's not working, you can try the removal/fetch steps below
+Try using `govendor update github.com/some/package` to update what you need. You'll probably have to run this command for all subpackages you need.
+
+To run it for sub commands you can do:
+
+`go list -f '{{join .Deps "\n"}}' |  xargs go list -f '{{if not .Standard}}{{.ImportPath}}{{end}} | xargs govendor update`
+
+If that's not working, you can try ...
 
 ### Step 1 - Removal
 

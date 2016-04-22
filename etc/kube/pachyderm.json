@@ -16,8 +16,8 @@
     "name": "etcd",
     "creationTimestamp": null,
     "labels": {
-      "app": "etcd",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "etcd"
     }
   },
   "spec": {
@@ -30,8 +30,8 @@
         "name": "etcd",
         "creationTimestamp": null,
         "labels": {
-          "suite": "pachyderm",
-          "app": "etcd"
+          "app": "etcd",
+          "suite": "pachyderm"
         }
       },
       "spec": {
@@ -163,8 +163,8 @@
     "name": "rethink",
     "creationTimestamp": null,
     "labels": {
-      "suite": "pachyderm",
-      "app": "rethink"
+      "app": "rethink",
+      "suite": "pachyderm"
     }
   },
   "spec": {
@@ -234,26 +234,26 @@
 }
 {
   "metadata": {
-    "name": "pachyderm-init-db",
+    "name": "pachd-init",
     "creationTimestamp": null,
     "labels": {
-      "app": "pachyderm-init-db",
-      "suite": "pachyderm"
+      "suite": "pachyderm",
+      "app": "pachd-init"
     }
   },
   "spec": {
     "selector": {
       "matchLabels": {
-        "app": "pachyderm-init-db",
+        "app": "pachd-init",
         "suite": "pachyderm"
       }
     },
     "template": {
       "metadata": {
-        "name": "pachyderm-init-db",
+        "name": "pachd-init",
         "creationTimestamp": null,
         "labels": {
-          "app": "pachyderm-init-db",
+          "app": "pachd-init",
           "suite": "pachyderm"
         }
       },
@@ -261,7 +261,7 @@
         "volumes": null,
         "containers": [
           {
-            "name": "pachyderm-init-db",
+            "name": "pachd-init",
             "image": "pachyderm/pachd",
             "env": [
               {
@@ -269,7 +269,7 @@
                 "value": "/pach"
               },
               {
-                "name": "INITDB",
+                "name": "INIT",
                 "value": "true"
               }
             ],
