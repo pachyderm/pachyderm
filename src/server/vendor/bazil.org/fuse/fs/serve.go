@@ -1198,13 +1198,6 @@ func (c *Server) serve(r fuse.Request) {
 		s := &fuse.ReadResponse{Data: make([]byte, 0, r.Size)}
 		if r.Dir {
 			if h, ok := handle.(HandleReadDirAller); ok {
-				if shandle.readData != nil && r.Offset == 0 {
-					// OSXFUSE keeps the same dir handle open for long
-					// periods of time, and just reads it multiple
-					// times. Detect rewinddir(3) like conditions and
-					// start with a fresh listing.
-					shandle.readData = nil
-				}
 				if shandle.readData == nil {
 					dirs, err := h.ReadDirAll(ctx)
 					if err != nil {
