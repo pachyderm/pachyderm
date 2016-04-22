@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 
 	"go.pedge.io/lion/proto"
@@ -46,6 +47,7 @@ func AddPipelines(num int64) {
 func ReportMetrics(clusterID string, kubeClient *kube.Client) {
 	metrics.ID = clusterID
 	metrics.PodID = uuid.NewWithoutDashes()
+	metrics.Version = client.PrettyPrintVersion(client.Version)
 	for {
 		write := atomic.SwapInt64(&modified, 0)
 		if write == 1 {
