@@ -435,6 +435,7 @@ func testFuse(
 	t *testing.T,
 	test func(apiClient pfsclient.APIClient, mountpoint string),
 ) {
+	fmt.Printf("XXX NEW TEST\n")
 	// don't leave goroutines running
 	var wg sync.WaitGroup
 	defer wg.Wait()
