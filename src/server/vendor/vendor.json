@@ -15,6 +15,12 @@
 			"revisionTime": "2016-04-22T03:27:55Z"
 		},
 		{
+			"checksumSHA1": "wy8DrEJ4Al2iZk5hKQEbIqaghGM=",
+			"path": "bazil.org/fuse/fs/fstestutil",
+			"revision": "5d02b06737b3b3c2e6a44e03348b6f2b44aa6835",
+			"revisionTime": "2016-04-22T03:27:55Z"
+		},
+		{
 			"checksumSHA1": "NPgkh9UWMsaTtsAAs3kPrclHT9Y=",
 			"path": "bazil.org/fuse/fuseutil",
 			"revision": "5d02b06737b3b3c2e6a44e03348b6f2b44aa6835",
