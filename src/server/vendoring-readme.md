@@ -15,6 +15,10 @@ Generally, I've found the following approach helpful:
 
 Try using `govendor update github.com/some/package` to update what you need. You'll probably have to run this command for all subpackages you need.
 
+To run it for sub commands you can do:
+
+`go list -f '{{join .Deps "\n"}}' |  xargs go list -f '{{if not .Standard}}{{.ImportPath}}{{end}} | xargs govendor update`
+
 If that's not working, you can try ...
 
 ### Step 1 - Removal

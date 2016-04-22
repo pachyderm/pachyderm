@@ -72,7 +72,9 @@ func testJob(t *testing.T, shards int) {
 		BlockOutput: true,
 		BlockState:  true,
 	}
-	jobInfo, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	jobInfo, err := pachClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
 	t.Logf("jobInfo: %v", jobInfo)
 	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
@@ -138,7 +140,9 @@ func TestDuplicatedJob(t *testing.T) {
 		BlockOutput: true,
 		BlockState:  true,
 	}
-	jobInfo, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	jobInfo, err := pachClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
 
 	var buffer bytes.Buffer
@@ -166,7 +170,9 @@ func TestLogs(t *testing.T) {
 		Job:        job,
 		BlockState: true,
 	}
-	_, err = pachClient.InspectJob(context.Background(), inspectJobRequest)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	_, err = pachClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
 	// TODO we Sleep here because even though the job has completed kubernetes
 	// might not have even noticed the container was created yet
@@ -218,16 +224,43 @@ func TestGrep(t *testing.T) {
 		BlockOutput: true,
 		BlockState:  true,
 	}
-	job1Info, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	job1Info, err := pachClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
 	inspectJobRequest.Job = job2
-	job2Info, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
+	job2Info, err := pachClient.InspectJob(ctx, inspectJobRequest)
 	require.NoError(t, err)
 	repo1Info, err := pfsclient.InspectRepo(pachClient, job1Info.OutputCommit.Repo.Name)
 	require.NoError(t, err)
 	repo2Info, err := pfsclient.InspectRepo(pachClient, job2Info.OutputCommit.Repo.Name)
 	require.NoError(t, err)
 	require.Equal(t, repo1Info.SizeBytes, repo2Info.SizeBytes)
+}
+
+func TestJobLongOutputLine(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	pachClient := getPachClient(t)
+	job, err := ppsclient.CreateJob(
+		pachClient,
+		"",
+		[]string{"sh"},
+		[]string{"yes | tr -d '\\n' | head -c 1000000 > /pfs/out/file"},
+		1,
+		[]*ppsclient.JobInput{},
+		"",
+	)
+	require.NoError(t, err)
+	inspectJobRequest := &ppsclient.InspectJobRequest{
+		Job:        job,
+		BlockState: true,
+	}
+	jobInfo, err := pachClient.InspectJob(context.Background(), inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, ppsclient.JobState_JOB_STATE_SUCCESS.String(), jobInfo.State.String())
 }
 
 func TestPipeline(t *testing.T) {

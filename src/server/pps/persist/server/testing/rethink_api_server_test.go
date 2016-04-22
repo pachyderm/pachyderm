@@ -12,10 +12,12 @@ import (
 )
 
 func TestBasicRethink(t *testing.T) {
+	t.Skip()
 	RunTestWithRethinkAPIServer(t, testBasicRethink)
 }
 
 func TestBlock(t *testing.T) {
+	t.Skip()
 	RunTestWithRethinkAPIServer(t, testBlock)
 }
 

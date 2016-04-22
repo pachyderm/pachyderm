@@ -233,6 +233,7 @@ func (a *internalAPIServer) PutFile(putFileServer pfsclient.InternalAPI_PutFileS
 		}
 		a.Log(request, nil, retErr, time.Since(start))
 	}(time.Now())
+	defer drainFileServer(putFileServer)
 	version, err := a.getVersion(putFileServer.Context())
 	if err != nil {
 		return err
@@ -272,7 +273,7 @@ func (a *internalAPIServer) PutFile(putFileServer pfsclient.InternalAPI_PutFileS
 		if err != nil {
 			return err
 		}
-		if err := a.driver.PutFile(request.File, shard, &reader); err != nil {
+		if err := a.driver.PutFile(request.File, request.Handle, shard, &reader); err != nil {
 			return err
 		}
 	}
@@ -548,4 +549,14 @@ func (a *internalAPIServer) filteredListCommits(repos []*pfsclient.Repo, fromCom
 		filtered = append(filtered, commitInfo)
 	}
 	return filtered, nil
+}
+
+func drainFileServer(putFileServer interface {
+	Recv() (*pfsclient.PutFileRequest, error)
+}) {
+	for {
+		if _, err := putFileServer.Recv(); err != nil {
+			break
+		}
+	}
 }
