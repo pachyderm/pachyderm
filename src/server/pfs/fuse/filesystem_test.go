@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -340,10 +341,86 @@ func TestHandleRace(t *testing.T) {
 	})
 }
 
+func TestMountCachingViaWalk(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+		repo1 := "foo"
+		require.NoError(t, pfsclient.CreateRepo(apiClient, repo1))
+
+		// Now if we walk the FS we should see the file.
+		// This first act of 'walking' should also initiate the cache
+
+		var filesSeen []interface{}
+		walkCallback := func(path string, info os.FileInfo, err error) error {
+			tokens := strings.Split(path, "/mnt")
+			filesSeen = append(filesSeen, tokens[len(tokens)-1])
+			return nil
+		}
+
+		err := filepath.Walk(mountpoint, walkCallback)
+		require.NoError(t, err)
+		require.OneOfEquals(t, "/foo", filesSeen)
+
+		// Now create another repo, and look for it under the mount point
+		repo2 := "bar"
+		require.NoError(t, pfsclient.CreateRepo(apiClient, repo2))
+
+		// Now if we walk the FS we should see the new file.
+		// This second ls on mac doesn't report the file!
+
+		filesSeen = make([]interface{}, 0)
+		err = filepath.Walk(mountpoint, walkCallback)
+		require.NoError(t, err)
+		require.OneOfEquals(t, "/foo", filesSeen)
+		require.OneOfEquals(t, "/bar", filesSeen)
+
+	})
+}
+
+func TestMountCachingViaShell(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipped because of short mode")
+	}
+
+	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
+		repo1 := "foo"
+		require.NoError(t, pfsclient.CreateRepo(apiClient, repo1))
+
+		// Now if we walk the FS we should see the file.
+		// This first act of 'walking' should also initiate the cache
+
+		ls := exec.Command("ls")
+		ls.Dir = mountpoint
+		out, err := ls.Output()
+		require.NoError(t, err)
+
+		require.Equal(t, "foo\n", string(out))
+
+		// Now create another repo, and look for it under the mount point
+		repo2 := "bar"
+		require.NoError(t, pfsclient.CreateRepo(apiClient, repo2))
+
+		// Now if we walk the FS we should see the new file.
+		// This second ls on mac doesn't report the file!
+
+		ls = exec.Command("ls")
+		ls.Dir = mountpoint
+		out, err = ls.Output()
+		require.NoError(t, err)
+
+		require.Equal(t, true, "foo\nbar\n" == string(out) || "bar\nfoo\n" == string(out))
+
+	})
+}
+
 func testFuse(
 	t *testing.T,
 	test func(apiClient pfsclient.APIClient, mountpoint string),
 ) {
+	fmt.Printf("XXX NEW TEST\n")
 	// don't leave goroutines running
 	var wg sync.WaitGroup
 	defer wg.Wait()
@@ -362,6 +439,7 @@ func testFuse(
 	defer func() {
 		_ = listener.Close()
 	}()
+	fmt.Printf("XXX creating servers\n")
 
 	// TODO try to share more of this setup code with various main
 	// functions
@@ -419,19 +497,26 @@ func testFuse(
 	require.NoError(t, err)
 	apiClient := pfsclient.NewAPIClient(clientConn)
 	mounter := fuse.NewMounter(localAddress, apiClient)
-
+	fmt.Printf("XXX created clientConn\n")
 	mountpoint := filepath.Join(tmp, "mnt")
 	require.NoError(t, os.Mkdir(mountpoint, 0700))
 	ready := make(chan bool)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		fmt.Printf("XXX mounting\n")
 		require.NoError(t, mounter.Mount(mountpoint, nil, nil, ready))
 	}()
 
 	<-ready
+	fmt.Printf("XXX mounted\n")
+
 	defer func() {
+		fmt.Printf("XXX Trying to unmount\n")
 		_ = mounter.Unmount(mountpoint)
+		fmt.Printf("XXX Unmounted!\n")
 	}()
+	fmt.Printf("XXX running test callback\n")
 	test(apiClient, mountpoint)
+	fmt.Printf("XXX ran test callback\n")
 }
