@@ -345,42 +345,34 @@ func TestMountCachingViaWalk(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
-	fmt.Printf("starting api client\n")
 
 	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
 		repo1 := "foo"
 		require.NoError(t, pfsclient.CreateRepo(apiClient, repo1))
-		fmt.Printf("created repo\n")
 
 		// Now if we walk the FS we should see the file.
 		// This first act of 'walking' should also initiate the cache
-		fmt.Printf("walking ...\n")
 
 		var filesSeen []interface{}
 		walkCallback := func(path string, info os.FileInfo, err error) error {
 			tokens := strings.Split(path, "/mnt")
 			filesSeen = append(filesSeen, tokens[len(tokens)-1])
-			fmt.Printf("path: %v\n", path)
 			return nil
 		}
 
 		err := filepath.Walk(mountpoint, walkCallback)
-		fmt.Printf("files seen: [%v]\n", filesSeen)
 		require.NoError(t, err)
 		require.OneOfEquals(t, "/foo", filesSeen)
 
 		// Now create another repo, and look for it under the mount point
 		repo2 := "bar"
 		require.NoError(t, pfsclient.CreateRepo(apiClient, repo2))
-		fmt.Printf("created repo2\n")
 
 		// Now if we walk the FS we should see the new file.
 		// This second ls on mac doesn't report the file!
-		fmt.Printf("walking ...\n")
 
 		filesSeen = make([]interface{}, 0)
 		err = filepath.Walk(mountpoint, walkCallback)
-		fmt.Printf("files seen: [%v]\n", filesSeen)
 		require.NoError(t, err)
 		require.OneOfEquals(t, "/foo", filesSeen)
 		require.OneOfEquals(t, "/bar", filesSeen)
@@ -392,40 +384,33 @@ func TestMountCachingViaShell(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipped because of short mode")
 	}
-	fmt.Printf("starting api client\n")
 
 	testFuse(t, func(apiClient pfsclient.APIClient, mountpoint string) {
 		repo1 := "foo"
 		require.NoError(t, pfsclient.CreateRepo(apiClient, repo1))
-		fmt.Printf("created repo\n")
 
 		// Now if we walk the FS we should see the file.
 		// This first act of 'walking' should also initiate the cache
-		fmt.Printf("listing files at %v...\n", mountpoint)
 
 		ls := exec.Command("ls")
 		ls.Dir = mountpoint
 		out, err := ls.Output()
 		require.NoError(t, err)
 
-		fmt.Printf("files seen: [%v]\n", string(out))
 		require.Equal(t, "foo\n", string(out))
 
 		// Now create another repo, and look for it under the mount point
 		repo2 := "bar"
 		require.NoError(t, pfsclient.CreateRepo(apiClient, repo2))
-		fmt.Printf("created repo2\n")
 
 		// Now if we walk the FS we should see the new file.
 		// This second ls on mac doesn't report the file!
-		fmt.Printf("listing files again ...\n")
 
 		ls = exec.Command("ls")
 		ls.Dir = mountpoint
 		out, err = ls.Output()
 		require.NoError(t, err)
 
-		fmt.Printf("files seen: [%v]\n", string(out))
 		require.Equal(t, true, "foo\nbar\n" == string(out) || "bar\nfoo\n" == string(out))
 
 	})
