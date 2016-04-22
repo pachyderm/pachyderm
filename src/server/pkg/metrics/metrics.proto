@@ -1,10 +1,14 @@
 syntax = "proto3";
 
 message Metrics {
-    int64 repos = 1;
-    int64 commits = 2;
-    int64 files = 3;
-    int64 bytes = 4;
-    int64 jobs = 5;
-    int64 pipelines = 6;
+    string id = 1;
+    string pod_id = 2;
+    int64 nodes = 3;
+	string version = 4;
+    int64 repos = 5;
+    int64 commits = 6;
+    int64 files = 7;
+    int64 bytes = 8;
+    int64 jobs = 9;
+    int64 pipelines = 10;
 }
