@@ -245,12 +245,12 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 				if !ok {
 					return fmt.Errorf("parent commit %s/%s not found", canonicalCommit.Repo.Name, diffInfo.ParentCommit.ID)
 				}
+				cond, ok := d.commitConds[diffInfo.ParentCommit.ID]
+				if !ok {
+					return fmt.Errorf("parent commit %s/%s was not finished but a corresponding conditional variable could not be found; this is likely a bug", canonicalCommit.Repo.Name, diffInfo.ParentCommit.ID)
+				}
 				// Wait for parent to finish
 				for parentDiffInfo.Finished == nil {
-					cond, ok := d.commitConds[diffInfo.ParentCommit.ID]
-					if !ok {
-						return fmt.Errorf("parent commit %s/%s was not finished but a corresponding conditional variable could not be found; this is likely a bug", canonicalCommit.Repo.Name, diffInfo.ParentCommit.ID)
-					}
 					cond.Wait()
 				}
 
@@ -292,6 +292,8 @@ func (d *driver) FinishCommit(commit *pfs.Commit, finished *google_protobuf.Time
 	default:
 	}
 
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	cond, ok := d.commitConds[canonicalCommit.ID]
 	if !ok {
 		return fmt.Errorf("could not found a conditional variable to signal commit completion; this is likely a bug")

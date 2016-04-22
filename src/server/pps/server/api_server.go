@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -35,6 +36,10 @@ import (
 var (
 	trueVal = true
 	suite   = "pachyderm"
+)
+
+var (
+	ErrEmptyInput = errors.New("job was not started due to empty input")
 )
 
 type apiServer struct {
@@ -145,6 +150,56 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
+	repoToFromCommit := make(map[string]*pfsclient.Commit)
+	if parentJobInfo != nil {
+		for _, jobInput := range parentJobInfo.Inputs {
+			if !jobInput.Reduce {
+				// input isn't being reduced, do it incrementally
+				repoToFromCommit[jobInput.Commit.Repo.Name] = jobInput.Commit
+			}
+		}
+	}
+
+	var viableFilterShards []*pfsclient.Shard
+	for i := 0; i < int(request.Parallelism); i++ {
+	CheckInputs:
+		for _, jobInput := range request.Inputs {
+			listFileRequest := &pfsclient.ListFileRequest{
+				File: &pfsclient.File{
+					Commit: jobInput.Commit,
+					Path:   "", // the root directory
+				},
+				FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
+				Shard: &pfsclient.Shard{
+					FileModulus:  1,
+					BlockModulus: 1,
+				},
+				Recurse: true,
+			}
+			if jobInput.Reduce {
+				listFileRequest.Shard.FileNumber = uint64(i)
+				listFileRequest.Shard.FileModulus = request.Parallelism
+			} else {
+				listFileRequest.Shard.BlockNumber = uint64(i)
+				listFileRequest.Shard.BlockModulus = request.Parallelism
+			}
+			fileInfos, err := pfsAPIClient.ListFile(ctx, listFileRequest)
+			if err != nil {
+				return nil, err
+			}
+			for _, fileInfo := range fileInfos.FileInfo {
+				if fileInfo.SizeBytes > 0 {
+					viableFilterShards = append(viableFilterShards, listFileRequest.Shard)
+					break CheckInputs
+				}
+			}
+		}
+	}
+
+	if len(viableFilterShards) == 0 && len(request.Inputs) > 0 {
+		return nil, ErrEmptyInput
+	}
+
 	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
 		return nil, err
@@ -152,19 +207,30 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 	// TODO validate job to make sure input commits and output repo exist
 	persistJobInfo := &persist.JobInfo{
-		JobID:        jobID,
-		Parallelism:  request.Parallelism,
-		Transform:    request.Transform,
-		Inputs:       request.Inputs,
-		ParentJob:    request.ParentJob,
-		OutputCommit: commit,
+		JobID:              jobID,
+		Transform:          request.Transform,
+		Inputs:             request.Inputs,
+		ParentJob:          request.ParentJob,
+		OutputCommit:       commit,
+		ViableFilterShards: viableFilterShards,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = request.Pipeline.Name
 	}
+
+	// If the job has no input, we respect the specified degree of parallelism
+	// Otherwise, we run as many pods as possible given that each pod has some
+	// input.
+	if len(request.Inputs) == 0 {
+		persistJobInfo.Parallelism = request.Parallelism
+	} else {
+		persistJobInfo.Parallelism = uint64(len(viableFilterShards))
+	}
+
 	if a.kubeClient == nil {
 		return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: no job backend")
 	}
+
 	_, err = persistClient.CreateJobInfo(ctx, persistJobInfo)
 	if err != nil && !isConflictErr(err) {
 		return nil, err
@@ -360,17 +426,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		commitMount := &fuse.CommitMount{
 			Commit:     jobInput.Commit,
 			FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
-			Shard: &pfsclient.Shard{
-				FileModulus:  1,
-				BlockModulus: 1,
-			},
-		}
-		if jobInput.Reduce {
-			commitMount.Shard.FileNumber = jobInfo.PodsStarted - 1
-			commitMount.Shard.FileModulus = jobInfo.Parallelism
-		} else {
-			commitMount.Shard.BlockNumber = jobInfo.PodsStarted - 1
-			commitMount.Shard.BlockModulus = jobInfo.Parallelism
+			Shard:      jobInfo.ViableFilterShards[jobInfo.PodsStarted-1],
 		}
 		commitMounts = append(commitMounts, commitMount)
 	}
@@ -382,7 +438,6 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
-		Index:        jobInfo.PodsStarted - 1,
 	}, nil
 }
 
@@ -749,7 +804,7 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 						Inputs:      inputs,
 						ParentJob:   parentJob,
 					},
-				); err != nil {
+				); err != nil && err != ErrEmptyInput {
 					return err
 				}
 			}
