@@ -15,6 +15,7 @@ import (
 	"bazil.org/fuse/fs"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"go.pedge.io/lion"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/time"
 	"golang.org/x/net/context"
@@ -96,11 +97,14 @@ func (d *directory) Lookup(ctx context.Context, name string) (result fs.Node, re
 }
 
 func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retErr error) {
+	lion.SetLevel(lion.LevelDebug)
+	fmt.Printf("xxxPACH in ReadDirAll\n")
 	defer func() {
 		var dirents []*Dirent
 		for _, dirent := range result {
 			dirents = append(dirents, &Dirent{dirent.Inode, dirent.Name})
 		}
+		fmt.Printf("results? %v\n", result)
 		protolion.Debug(&DirectoryReadDirAll{&d.Node, dirents, errorToString(retErr)})
 	}()
 	if d.File.Commit.Repo.Name == "" {
@@ -115,7 +119,9 @@ func (d *directory) ReadDirAll(ctx context.Context) (result []fuse.Dirent, retEr
 		}
 		return d.readCommits(ctx)
 	}
-	return d.readFiles(ctx)
+	result, retErr = d.readFiles(ctx)
+	fmt.Printf("xxxPACH ReadDirAll results: %v\n", result)
+	return result, retErr
 }
 
 func (d *directory) Create(ctx context.Context, request *fuse.CreateRequest, response *fuse.CreateResponse) (result fs.Node, _ fs.Handle, retErr error) {
