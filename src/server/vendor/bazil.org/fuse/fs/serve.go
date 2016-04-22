@@ -1215,6 +1215,9 @@ func (c *Server) serve(r fuse.Request) {
 					shandle.readData = data
 				}
 				fuseutil.HandleRead(r, s, shandle.readData)
+				if len(s.Data) == 0 && r.Offset >= int64(len(shandle.readData)) {
+					shandle.readData = nil
+				}
 				done(s)
 				r.Respond(s)
 				break
