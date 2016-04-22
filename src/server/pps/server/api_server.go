@@ -70,17 +70,17 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		return nil, err
 	}
 
-	if request.Shards == 0 {
+	if request.Parallelism == 0 {
 		nodeList, err := a.kubeClient.Nodes().List(kube_api.ListOptions{})
 		if err != nil {
-			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: shards set to zero and unable to retrieve node list from k8s")
+			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: parallelism set to zero and unable to retrieve node list from k8s")
 		}
 
 		if len(nodeList.Items) == 0 {
 			return nil, fmt.Errorf("pachyderm.ppsclient.jobserver: no k8s nodes found")
 		}
 
-		request.Shards = uint64(len(nodeList.Items))
+		request.Parallelism = uint64(len(nodeList.Items))
 	}
 	repoSet := make(map[string]bool)
 	for _, input := range request.Inputs {
@@ -145,11 +145,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
-	shards, err := a.computeShards(ctx, request.Shards, request.Inputs)
-	if err != nil {
-		return nil, err
-	}
-
 	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
 		return nil, err
@@ -158,7 +153,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	// TODO validate job to make sure input commits and output repo exist
 	persistJobInfo := &persist.JobInfo{
 		JobID:        jobID,
-		Shards:       shards,
+		Parallelism:  request.Parallelism,
 		Transform:    request.Transform,
 		Inputs:       request.Inputs,
 		ParentJob:    request.ParentJob,
@@ -196,52 +191,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	return &ppsclient.Job{
 		ID: jobID,
 	}, nil
-}
-
-// computeShards finds the largest number of shards that'd allow each shard to
-// see some input.
-func (a *apiServer) computeShards(ctx context.Context, maxShards uint64, inputs []*ppsclient.JobInput) (uint64, error) {
-	pfsClient, err := a.getPfsClient()
-	if err != nil {
-		return err
-	}
-
-ReduceShard:
-	var shards uint64
-	for shards = maxShards; shards >= 1; shards -= 1 {
-		for n := 0; n < shards; n += 1 {
-			someInput := false
-			for _, input := range inputs {
-				var filterShard = &pfsclient.Shard{
-					FileModulus:  1,
-					BlockModulus: 1,
-				}
-				if input.Reduce {
-					filterShard.FileNumber = n
-					filterShard.FileModulus = shards
-				} else {
-					commitMount.Shard.BlockNumber = n
-					commitMount.Shard.BlockModulus = shards
-				}
-				commitInfo, err := pfsClient.InspectCommit(ctx, &pfsclient.InspectCommitRequest{
-					Commit:      input.Commit,
-					FilterShard: filterShard,
-				})
-				if err != nil {
-					return err
-				}
-				if commitInfo.SizeBytes > 0 {
-					someInput = true
-					break
-				}
-			}
-			if !someInput {
-				continue ReduceShard
-			}
-		}
-	}
-
-	return shards, nil
 }
 
 // isConflictErr returns true if the error is non-nil and the query failed
@@ -372,13 +321,13 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		return nil, err
 	}
 
-	jobInfo, err := persistClient.StartShard(ctx, request.Job)
+	jobInfo, err := persistClient.StartPod(ctx, request.Job)
 	if err != nil {
 		return nil, err
 	}
 
-	if jobInfo.ShardsStarted > jobInfo.Shards {
-		return nil, fmt.Errorf("job %s already has %d shards", request.Job.ID, jobInfo.Shards)
+	if jobInfo.PodsStarted > jobInfo.Parallelism {
+		return nil, fmt.Errorf("job %s already has %d pods", request.Job.ID, jobInfo.Parallelism)
 	}
 
 	if jobInfo.Transform == nil {
@@ -417,11 +366,11 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 			},
 		}
 		if jobInput.Reduce {
-			commitMount.Shard.FileNumber = jobInfo.ShardsStarted - 1
-			commitMount.Shard.FileModulus = jobInfo.Shards
+			commitMount.Shard.FileNumber = jobInfo.PodsStarted - 1
+			commitMount.Shard.FileModulus = jobInfo.Parallelism
 		} else {
-			commitMount.Shard.BlockNumber = jobInfo.ShardsStarted - 1
-			commitMount.Shard.BlockModulus = jobInfo.Shards
+			commitMount.Shard.BlockNumber = jobInfo.PodsStarted - 1
+			commitMount.Shard.BlockModulus = jobInfo.Parallelism
 		}
 		commitMounts = append(commitMounts, commitMount)
 	}
@@ -433,7 +382,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 	return &ppsserver.StartJobResponse{
 		Transform:    jobInfo.Transform,
 		CommitMounts: commitMounts,
-		Index:        jobInfo.ShardsStarted - 1,
+		Index:        jobInfo.PodsStarted - 1,
 	}, nil
 }
 
@@ -446,21 +395,21 @@ func (a *apiServer) FinishJob(ctx context.Context, request *ppsserver.FinishJobR
 
 	var jobInfo *persist.JobInfo
 	if request.Success {
-		jobInfo, err = persistClient.SucceedShard(ctx, request.Job)
+		jobInfo, err = persistClient.SucceedPod(ctx, request.Job)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		jobInfo, err = persistClient.FailShard(ctx, request.Job)
+		jobInfo, err = persistClient.FailPod(ctx, request.Job)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if jobInfo.ShardsSucceeded+jobInfo.ShardsFailed == jobInfo.Shards {
+	if jobInfo.PodsSucceeded+jobInfo.PodsFailed == jobInfo.Parallelism {
 		if jobInfo.OutputCommit == nil {
 			return nil, fmt.Errorf("jobInfo.OutputCommit should not be nil (this is likely a bug)")
 		}
-		failed := jobInfo.ShardsSucceeded != jobInfo.Shards
+		failed := jobInfo.PodsSucceeded != jobInfo.Parallelism
 		pfsAPIClient, err := a.getPfsClient()
 		if err != nil {
 			return nil, err
@@ -528,7 +477,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *ppsclient.Creat
 	persistPipelineInfo := &persist.PipelineInfo{
 		PipelineName: request.Pipeline.Name,
 		Transform:    request.Transform,
-		Shards:       request.Shards,
+		Parallelism:  request.Parallelism,
 		Inputs:       request.Inputs,
 		OutputRepo:   repo,
 		Shard:        a.hasher.HashPipeline(request.Pipeline),
@@ -696,10 +645,10 @@ func newPipelineInfo(persistPipelineInfo *persist.PipelineInfo) *ppsclient.Pipel
 		Pipeline: &ppsclient.Pipeline{
 			Name: persistPipelineInfo.PipelineName,
 		},
-		Transform:  persistPipelineInfo.Transform,
-		Shards:     persistPipelineInfo.Shards,
-		Inputs:     persistPipelineInfo.Inputs,
-		OutputRepo: persistPipelineInfo.OutputRepo,
+		Transform:   persistPipelineInfo.Transform,
+		Parallelism: persistPipelineInfo.Parallelism,
+		Inputs:      persistPipelineInfo.Inputs,
+		OutputRepo:  persistPipelineInfo.OutputRepo,
 	}
 }
 
@@ -794,11 +743,11 @@ func (a *apiServer) runPipeline(pipelineInfo *ppsclient.PipelineInfo) error {
 				if _, err = a.CreateJob(
 					ctx,
 					&ppsclient.CreateJobRequest{
-						Transform: pipelineInfo.Transform,
-						Pipeline:  pipelineInfo.Pipeline,
-						Shards:    pipelineInfo.Shards,
-						Inputs:    inputs,
-						ParentJob: parentJob,
+						Transform:   pipelineInfo.Transform,
+						Pipeline:    pipelineInfo.Pipeline,
+						Parallelism: pipelineInfo.Parallelism,
+						Inputs:      inputs,
+						ParentJob:   parentJob,
 					},
 				); err != nil {
 					return err
@@ -869,7 +818,7 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 		Job:          job,
 		Transform:    persistJobInfo.Transform,
 		Pipeline:     &ppsclient.Pipeline{Name: persistJobInfo.PipelineName},
-		Shards:       persistJobInfo.Shards,
+		Parallelism:  persistJobInfo.Parallelism,
 		Inputs:       persistJobInfo.Inputs,
 		ParentJob:    persistJobInfo.ParentJob,
 		CreatedAt:    persistJobInfo.CreatedAt,
@@ -880,7 +829,7 @@ func newJobInfo(persistJobInfo *persist.JobInfo) (*ppsclient.JobInfo, error) {
 
 func job(jobInfo *persist.JobInfo) *extensions.Job {
 	app := jobInfo.JobID
-	shards := int(jobInfo.Shards)
+	parallelism := int(jobInfo.Parallelism)
 	image := "pachyderm/job-shim"
 	if jobInfo.Transform.Image != "" {
 		image = jobInfo.Transform.Image
@@ -898,8 +847,8 @@ func job(jobInfo *persist.JobInfo) *extensions.Job {
 			Selector: &unversioned.LabelSelector{
 				MatchLabels: labels(app),
 			},
-			Parallelism: &shards,
-			Completions: &shards,
+			Parallelism: &parallelism,
+			Completions: &parallelism,
 			Template: api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
 					Name:   jobInfo.JobID,

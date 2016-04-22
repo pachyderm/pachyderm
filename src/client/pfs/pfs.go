@@ -320,13 +320,14 @@ func InspectFile(apiClient APIClient, repoName string, commitID string, path str
 	return fileInfo, nil
 }
 
-func ListFile(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard) ([]*FileInfo, error) {
+func ListFile(apiClient APIClient, repoName string, commitID string, path string, fromCommitID string, shard *Shard, recurse bool) ([]*FileInfo, error) {
 	fileInfos, err := apiClient.ListFile(
 		context.Background(),
 		&ListFileRequest{
 			File:       NewFile(repoName, commitID, path),
 			Shard:      shard,
 			FromCommit: newFromCommit(repoName, fromCommitID),
+			Recurse:    recurse,
 		},
 	)
 	if err != nil {

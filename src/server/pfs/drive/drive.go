@@ -27,7 +27,7 @@ type Driver interface {
 	MakeDirectory(file *pfs.File, shard uint64) error
 	GetFile(file *pfs.File, filterShard *pfs.Shard, offset int64, size int64, from *pfs.Commit, shard uint64) (io.ReadCloser, error)
 	InspectFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) (*pfs.FileInfo, error)
-	ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64) ([]*pfs.FileInfo, error)
+	ListFile(file *pfs.File, filterShard *pfs.Shard, from *pfs.Commit, shard uint64, recurse bool) ([]*pfs.FileInfo, error)
 	DeleteFile(file *pfs.File, shard uint64) error
 	AddShard(shard uint64) error
 	DeleteShard(shard uint64) error

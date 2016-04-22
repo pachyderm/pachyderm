@@ -337,7 +337,7 @@ func (a *internalAPIServer) ListFile(ctx context.Context, request *pfsclient.Lis
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, request.FromCommit, shard)
+			subFileInfos, err := a.driver.ListFile(request.File, request.Shard, request.FromCommit, shard, request.Recurse)
 			if err != nil && err != pfsserver.ErrFileNotFound {
 				select {
 				case errCh <- err:
