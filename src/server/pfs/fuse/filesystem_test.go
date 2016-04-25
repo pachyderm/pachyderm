@@ -369,7 +369,7 @@ func TestMountCachingViaWalk(t *testing.T) {
 		require.NoError(t, pfsclient.CreateRepo(apiClient, repo2))
 
 		// Now if we walk the FS we should see the new file.
-		// This second ls on mac doesn't report the file!
+		// This now works. But originally (issue #205) this second ls on mac doesn't report the file!
 
 		filesSeen = make([]interface{}, 0)
 		err = filepath.Walk(mountpoint, walkCallback)
