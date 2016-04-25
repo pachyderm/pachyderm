@@ -33,6 +33,23 @@ func EqualOneOf(tb testing.TB, expecteds []interface{}, actual interface{}, msgA
 	}
 }
 
+func OneOfEquals(tb testing.TB, expected interface{}, actuals []interface{}, msgAndArgs ...interface{}) {
+	equal := false
+	for _, actual := range actuals {
+		if reflect.DeepEqual(expected, actual) {
+			equal = true
+			break
+		}
+	}
+	if !equal {
+		fatal(
+			tb,
+			msgAndArgs,
+			"Not equal : %#v (expected)\n"+
+				" one of  != %#v (actuals)", expected, actuals)
+	}
+}
+
 func NoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	if err != nil {
 		fatal(tb, msgAndArgs, "No error is expected but got %v", err)
@@ -105,4 +122,3 @@ func fatal(tb testing.TB, userMsgAndArgs []interface{}, msgFmt string, msgArgs .
 	}
 	tb.Fatalf(msgFmt, msgArgs...)
 }
-
