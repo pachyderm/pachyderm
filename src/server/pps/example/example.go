@@ -52,5 +52,6 @@ func RunPipelineSpec() *ppsclient.CreateJobRequest {
 				},
 			},
 		},
+		Parallelism: 3,
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/golang/protobuf/jsonpb"
@@ -319,6 +318,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
+	var specPath string
 	runPipeline := &cobra.Command{
 		Use:   "run-pipeline pipeline-name [-f job.json]",
 		Short: "Run a pipeline once.",
@@ -328,43 +328,31 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			pipelineName := args[0]
-			pipelineInfo, err := apiClient.InspectPipeline(context.Background(), &ppsclient.InspectPipelineRequest{
-				Pipeline: &ppsclient.Pipeline{
-					Name: pipelineName,
-				},
-			})
-			if err != nil {
-				if strings.Contains(err.Error(), "not found") {
-					err = fmt.Errorf("pipeline %s not found", pipelineName)
-				}
-				errorAndExit("Error from InspectPipeline: %s", err.Error())
-			}
 
 			request := &ppsclient.CreateJobRequest{
-				Transform:   pipelineInfo.Transform,
-				Parallelism: pipelineInfo.Parallelism,
-				Pipeline:    pipelineInfo.Pipeline,
+				Pipeline: &ppsclient.Pipeline{
+					Name: args[0],
+				},
 			}
 
-			var jobReader io.Reader
-			if jobPath == "-" {
-				jobReader = os.Stdin
+			var specReader io.Reader
+			if specPath == "-" {
+				specReader = os.Stdin
 				fmt.Print("Reading from stdin.\n")
-			} else if jobPath != "" {
-				jobFile, err := os.Open(jobPath)
+			} else if specPath != "" {
+				specFile, err := os.Open(specPath)
 				if err != nil {
-					errorAndExit("Error opening %s: %s", jobPath, err.Error())
+					errorAndExit("Error opening %s: %s", specPath, err.Error())
 				}
 
 				defer func() {
-					if err := jobFile.Close(); err != nil {
-						errorAndExit("Error closing%s: %s", jobPath, err.Error())
+					if err := specFile.Close(); err != nil {
+						errorAndExit("Error closing%s: %s", specPath, err.Error())
 					}
 				}()
 
-				jobReader = jobFile
-				if err := jsonpb.Unmarshal(jobReader, request); err != nil {
+				specReader = specFile
+				if err := jsonpb.Unmarshal(specReader, request); err != nil {
 					errorAndExit("Error reading from stdin: %s", err.Error())
 				}
 			}
@@ -374,13 +362,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				request,
 			)
 			if err != nil {
-				errorAndExit("Error from CreateJob: %s", err.Error())
+				errorAndExit("Error from RunPipeline: %s", err.Error())
 			}
 			fmt.Println(job.ID)
 			return nil
 		}),
 	}
-	runPipeline.Flags().StringVarP(&jobPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
+	runPipeline.Flags().StringVarP(&specPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
 
 	var result []*cobra.Command
 	result = append(result, job)
