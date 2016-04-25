@@ -1,71 +1,46 @@
-# Notes on vendoring
+# How To Update a Single Dependency
 
-As-is we don't have a mechanism for revendoring everything automatically.
+As-is we don't have a mechanism for revendoring everything automatically. That's ok - we want to update dependencies as needed.
 
-That's ok - we want to update dependencies as needed. But to do so is tricky.
+## Notes
 
-Govendor has some bugs, and its unclear how go test / build can be resolving imports.
+- govendor does not understand what a 'repo' is -- only a single go package
+- so we have two options - update all sub packages, or do them by hand
 
-Generally, I've found the following approach helpful. But first, some disclaimers:
-
-## Things I still don't understand about govendor
-
-I don't understand how the basics work - the update/add/remove
-
-The update/add commands never seem to do what I want. Adding a library (even after removing) sometimes doesn't update all the files? It's also unclear if its getching from GOPATH or an origin url, or if there is a fallback between them.
-
-e.g. I'm updating bazil.org/fuse.
-
-I tried 'govendor remove bazil.org/fuse' but it leaves files behind! I guess because it can't differentiate between when I want to remove a top level package and a subpackage? That's kind of crazy.
-
-So, to actually remove / update a whole repo, you need to do the following:
-
-```shell
-govendor remove domain/reponame/* # this seems to remove the entries from the vendor.json file?
-rm -rf vendor/domain/reponame
-govendor add domain/reponame
-govendor add domain/reponame/pkg1
-govendor add domain/reponame/pkg2
-```
-
-Unfortunately, there doesn't seem to be a way to get govendor to add a whole repository in a single pass. Even trying `govendor add +missing` doesn't work. 
-
-(Maybe we should just write a script to clone a repo? And update the vendor.json accordingly.)
-
-It's also very easy to miss a package when vendoring if you still have a copy of hte library on your GOPATH. So I recommend removing (or moving) the copy on GOPATH while you do the vendor/go test/loop to be confident you have all the packages you need.
-
-Except ... it does seem to want a copy in GOPATH?
-
-e.g. 
-
-    $ govendor add bazil.org/fuse/fs/fstestutil
-    Error: Package "bazil.org/fuse/fs/fstestutil" not a go package or not in GOPATH.
-
-So then you do `go get bazil.org/fuse/fs/fstestutil` and repeat the govendor add and it works.
-
-## To update a package
-
-### Step 0 - Update
-
-Try using `govendor update github.com/some/package` to update what you need. You'll probably have to run this command for all subpackages you need.
-
-To run it for sub commands you can do:
+## Update all sub-packages
 
 `go list -f '{{join .Deps "\n"}}' |  xargs go list -f '{{if not .Standard}}{{.ImportPath}}{{end}} | xargs govendor update`
 
-If that's not working, you can try ...
+## Manually
 
-### Step 1 - Removal
+#### Setup:
 
-- do 'govendor remove github.com/example/package'
-- if that doesn't panic (it seems to always for me) continue on
-- if it does panic, do `rm -rf vendor/github.com/example/package`, and
-- remove the relevant fields from `vendor/vendor.json`
+```shell
+# remove the library from your $GOPATH so that you can be confident you're using only vendored copies
+rm -rf $GOPATH/src/domain/reponame
+# this seems to remove the entries from the vendor.json file:
+govendor remove domain/reponame/* 
+# while this actually removes the files:
+rm -rf vendor/domain/reponame
 
-### Step 2 - Fetching / Adding
+```
 
-- do a `go get` on the package/repo in question
-- then do `govendor add ...`
+#### Vendoring:
+
+Remember, govendor only understands packages. So you'll have to install each one by hand. Start w the top level package:
+
+```shell
+go get domain/reponame
+govendor add domain/reponame
+```
+And then iterate through each sub-package:
+
+```shell
+go get domain/reponame/pkg1
+govendor add domain/reponame/pkg1
+```
+
+I recommend re-running 'go test ...' in between adding each package, until the compilation and tests succeed. Then you should feel confident you have all the packages you need.
 
 
 ## Troubleshooting
@@ -93,16 +68,7 @@ To fix this, just do:
     govendor add google.golang.org/grpc/internal
 
 
-### General Debugging
+### Travis Breaks, But Locally Tests Work
 
-I've found it useful to move or blow away packages under $GOPATH/src so that you can be confident you're loading the libraries you think you are. It's disappointing the information printed isn't a bit more helpful, but by doing this you'll know. And if this changes your error, then you'll know that you weren't using a vendored copy (and you probably should be).
+It probably means you didn't blow away the library in $GOPATH and locally were using a copy that wasn't vendored. Repeat the steps above under the 'Manually' heading.
 
-
-### Sledgehammer
-
-If the package you're importing has a ton of sub packages / its complicated to do manually one by one via `govendor add ...`, then what I've done is:
-
-- do `govendor add` for the top level package
-- this way the manifest will contain the checksum / etc for the repo
-- then do the removal step above
-- and then something like `cp -r $GOPATH/src/github.com/big/package vendor/github.com/big/package`
