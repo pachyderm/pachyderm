@@ -75,6 +75,18 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		return nil, err
 	}
 
+	// Currently this happens when someone attempts to run a pipeline once
+	if request.Pipeline != nil && request.Transform == nil {
+		pipelineInfo, err := a.InspectPipeline(ctx, &ppsclient.InspectPipelineRequest{
+			Pipeline: request.Pipeline,
+		})
+		if err != nil {
+			return nil, err
+		}
+		request.Transform = pipelineInfo.Transform
+		request.Parallelism = pipelineInfo.Parallelism
+	}
+
 	if request.Parallelism == 0 {
 		nodeList, err := a.kubeClient.Nodes().List(kube_api.ListOptions{})
 		if err != nil {
@@ -160,46 +172,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
-	var nonEmptyFilterShards []*pfsclient.Shard
-	for i := 0; i < int(request.Parallelism); i++ {
-	CheckInputs:
-		for _, jobInput := range request.Inputs {
-			listFileRequest := &pfsclient.ListFileRequest{
-				File: &pfsclient.File{
-					Commit: jobInput.Commit,
-					Path:   "", // the root directory
-				},
-				FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
-				Shard: &pfsclient.Shard{
-					FileModulus:  1,
-					BlockModulus: 1,
-				},
-				Recurse: true,
-			}
-			if jobInput.Reduce {
-				listFileRequest.Shard.FileNumber = uint64(i)
-				listFileRequest.Shard.FileModulus = request.Parallelism
-			} else {
-				listFileRequest.Shard.BlockNumber = uint64(i)
-				listFileRequest.Shard.BlockModulus = request.Parallelism
-			}
-			fileInfos, err := pfsAPIClient.ListFile(ctx, listFileRequest)
-			if err != nil {
-				return nil, err
-			}
-			for _, fileInfo := range fileInfos.FileInfo {
-				if fileInfo.SizeBytes > 0 {
-					nonEmptyFilterShards = append(nonEmptyFilterShards, listFileRequest.Shard)
-					break CheckInputs
-				}
-			}
-		}
-	}
-
-	if len(nonEmptyFilterShards) == 0 && len(request.Inputs) > 0 {
-		return nil, ErrEmptyInput
-	}
-
 	commit, err := pfsAPIClient.StartCommit(ctx, startCommitRequest)
 	if err != nil {
 		return nil, err
@@ -207,24 +179,64 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 	// TODO validate job to make sure input commits and output repo exist
 	persistJobInfo := &persist.JobInfo{
-		JobID:                jobID,
-		Transform:            request.Transform,
-		Inputs:               request.Inputs,
-		ParentJob:            request.ParentJob,
-		OutputCommit:         commit,
-		NonEmptyFilterShards: nonEmptyFilterShards,
+		JobID:        jobID,
+		Transform:    request.Transform,
+		Inputs:       request.Inputs,
+		ParentJob:    request.ParentJob,
+		OutputCommit: commit,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = request.Pipeline.Name
 	}
 
+	var nonEmptyFilterShards []*pfsclient.Shard
 	// If the job has no input, we respect the specified degree of parallelism
 	// Otherwise, we run as many pods as possible given that each pod has some
 	// input.
 	if len(request.Inputs) == 0 {
 		persistJobInfo.Parallelism = request.Parallelism
 	} else {
+		for i := 0; i < int(request.Parallelism); i++ {
+		CheckInputs:
+			for _, jobInput := range request.Inputs {
+				listFileRequest := &pfsclient.ListFileRequest{
+					File: &pfsclient.File{
+						Commit: jobInput.Commit,
+						Path:   "", // the root directory
+					},
+					FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
+					Shard: &pfsclient.Shard{
+						FileModulus:  1,
+						BlockModulus: 1,
+					},
+					Recurse: true,
+				}
+				if jobInput.Reduce {
+					listFileRequest.Shard.FileNumber = uint64(i)
+					listFileRequest.Shard.FileModulus = request.Parallelism
+				} else {
+					listFileRequest.Shard.BlockNumber = uint64(i)
+					listFileRequest.Shard.BlockModulus = request.Parallelism
+				}
+				fileInfos, err := pfsAPIClient.ListFile(ctx, listFileRequest)
+				if err != nil {
+					return nil, err
+				}
+				for _, fileInfo := range fileInfos.FileInfo {
+					if fileInfo.SizeBytes > 0 {
+						nonEmptyFilterShards = append(nonEmptyFilterShards, listFileRequest.Shard)
+						break CheckInputs
+					}
+				}
+			}
+		}
+
+		if len(nonEmptyFilterShards) == 0 {
+			return nil, ErrEmptyInput
+		}
+
 		persistJobInfo.Parallelism = uint64(len(nonEmptyFilterShards))
+		persistJobInfo.NonEmptyFilterShards = nonEmptyFilterShards
 	}
 
 	if a.kubeClient == nil {
