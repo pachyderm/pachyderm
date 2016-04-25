@@ -545,6 +545,7 @@ func (d *driver) DeleteFile(file *pfs.File, shard uint64) error {
 	d.lock.RLock()
 	fileInfo, _, err := d.inspectFile(file, nil, shard, nil, false, true)
 	if err != nil {
+		d.lock.RUnlock()
 		return err
 	}
 	d.lock.RUnlock()
