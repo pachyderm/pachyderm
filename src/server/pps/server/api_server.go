@@ -160,7 +160,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 		}
 	}
 
-	var viableFilterShards []*pfsclient.Shard
+	var nonEmptyFilterShards []*pfsclient.Shard
 	for i := 0; i < int(request.Parallelism); i++ {
 	CheckInputs:
 		for _, jobInput := range request.Inputs {
@@ -189,14 +189,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 			}
 			for _, fileInfo := range fileInfos.FileInfo {
 				if fileInfo.SizeBytes > 0 {
-					viableFilterShards = append(viableFilterShards, listFileRequest.Shard)
+					nonEmptyFilterShards = append(nonEmptyFilterShards, listFileRequest.Shard)
 					break CheckInputs
 				}
 			}
 		}
 	}
 
-	if len(viableFilterShards) == 0 && len(request.Inputs) > 0 {
+	if len(nonEmptyFilterShards) == 0 && len(request.Inputs) > 0 {
 		return nil, ErrEmptyInput
 	}
 
@@ -207,12 +207,12 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 
 	// TODO validate job to make sure input commits and output repo exist
 	persistJobInfo := &persist.JobInfo{
-		JobID:              jobID,
-		Transform:          request.Transform,
-		Inputs:             request.Inputs,
-		ParentJob:          request.ParentJob,
-		OutputCommit:       commit,
-		ViableFilterShards: viableFilterShards,
+		JobID:                jobID,
+		Transform:            request.Transform,
+		Inputs:               request.Inputs,
+		ParentJob:            request.ParentJob,
+		OutputCommit:         commit,
+		NonEmptyFilterShards: nonEmptyFilterShards,
 	}
 	if request.Pipeline != nil {
 		persistJobInfo.PipelineName = request.Pipeline.Name
@@ -224,7 +224,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *ppsclient.CreateJobR
 	if len(request.Inputs) == 0 {
 		persistJobInfo.Parallelism = request.Parallelism
 	} else {
-		persistJobInfo.Parallelism = uint64(len(viableFilterShards))
+		persistJobInfo.Parallelism = uint64(len(nonEmptyFilterShards))
 	}
 
 	if a.kubeClient == nil {
@@ -427,7 +427,7 @@ func (a *apiServer) StartJob(ctx context.Context, request *ppsserver.StartJobReq
 		commitMount := &fuse.CommitMount{
 			Commit:     jobInput.Commit,
 			FromCommit: repoToFromCommit[jobInput.Commit.Repo.Name],
-			Shard:      jobInfo.ViableFilterShards[jobInfo.PodsStarted-1],
+			Shard:      jobInfo.NonEmptyFilterShards[jobInfo.PodsStarted-1],
 		}
 		commitMounts = append(commitMounts, commitMount)
 	}
