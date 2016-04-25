@@ -472,6 +472,9 @@ func (d *directory) readFiles(ctx context.Context) ([]fuse.Dirent, error) {
 		d.File.Path,
 		d.fs.getFromCommitID(d.File.Commit.Repo.Name),
 		d.Shard,
+		// setting recurse to false for performance reasons
+		// it does however means that we won't know the correct sizes of directories
+		false,
 	)
 	if err != nil {
 		return nil, err

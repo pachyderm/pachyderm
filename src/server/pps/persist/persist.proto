@@ -13,16 +13,17 @@ message JobInfo {
   string job_id = 1;
   pps.Transform transform = 2;
   string pipeline_name = 3;
-  uint64 shards = 4;
+  uint64 parallelism = 4;
   repeated pps.JobInput inputs = 5;
   pps.Job parent_job = 6;
   google.protobuf.Timestamp created_at = 7;
   pfs.Commit output_commit = 8;
   pps.JobState state = 9;
   string commit_index = 10;
-  uint64 shards_started = 11;
-  uint64 shards_succeeded = 12;
-  uint64 shards_failed = 13;
+  uint64 pods_started = 11;
+  uint64 pods_succeeded = 12;
+  uint64 pods_failed = 13;
+  repeated pfs.Shard viable_filter_shards = 14;
 }
 
 message JobInfos {
@@ -42,7 +43,7 @@ message JobState {
 message PipelineInfo {
   string pipeline_name = 1;
   pachyderm.pps.Transform transform = 2;
-  uint64 shards = 3;  // this is the degree of parallelism
+  uint64 parallelism = 3;  // this is the degree of parallelism
   repeated pps.PipelineInput inputs = 4;
   pfs.Repo output_repo = 5;
   google.protobuf.Timestamp created_at = 6;
@@ -99,7 +100,7 @@ service API {
 
   // Shard rpcs
   // Returns the new job info
-  rpc StartShard(pps.Job) returns (JobInfo) {}
-  rpc SucceedShard(pps.Job) returns (JobInfo) {}
-  rpc FailShard(pps.Job) returns (JobInfo) {}
+  rpc StartPod(pps.Job) returns (JobInfo) {}
+  rpc SucceedPod(pps.Job) returns (JobInfo) {}
+  rpc FailPod(pps.Job) returns (JobInfo) {}
 }

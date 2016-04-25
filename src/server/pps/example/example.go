@@ -10,7 +10,7 @@ func CreateJobRequest() *ppsclient.CreateJobRequest {
 		Transform: &ppsclient.Transform{
 			Cmd: []string{"cmd", "args..."},
 		},
-		Shards: 1,
+		Parallelism: 1,
 		Inputs: []*ppsclient.JobInput{
 			{
 				Commit: &pfs.Commit{
@@ -33,10 +33,23 @@ func CreatePipelineRequest() *ppsclient.CreatePipelineRequest {
 		Transform: &ppsclient.Transform{
 			Cmd: []string{"cmd", "args..."},
 		},
-		Shards: 1,
+		Parallelism: 1,
 		Inputs: []*ppsclient.PipelineInput{
 			{
 				Repo: &pfs.Repo{Name: "in_repo"},
+			},
+		},
+	}
+}
+
+func RunPipelineSpec() *ppsclient.CreateJobRequest {
+	return &ppsclient.CreateJobRequest{
+		Inputs: []*ppsclient.JobInput{
+			{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{Name: "in_repo"},
+					ID:   "10cf676b626044f9a405235bf7660959",
+				},
 			},
 		},
 	}
