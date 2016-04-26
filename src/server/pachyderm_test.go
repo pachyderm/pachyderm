@@ -363,6 +363,53 @@ func TestPipeline(t *testing.T) {
 	require.Equal(t, 2, len(listCommitResponse.CommitInfo))
 }
 
+func TestPipelineThatWritesToOneFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	pachClient := getPachClient(t)
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	outRepo := ppsserver.PipelineRepo(ppsclient.NewPipeline(pipelineName))
+	require.NoError(t, ppsclient.CreatePipeline(
+		pachClient,
+		pipelineName,
+		"",
+		[]string{"sh"},
+		[]string{
+			"echo foo >> /pfs/out/file",
+		},
+		3,
+		nil,
+	))
+
+	// Manually trigger the pipeline
+	job, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+		Pipeline: &ppsclient.Pipeline{
+			Name: pipelineName,
+		},
+	})
+	require.True(t, job.ID != "")
+
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{outRepo},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err := pachClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+	var buffer bytes.Buffer
+	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
+	require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
+}
+
 func TestWorkload(t *testing.T) {
 
 	if testing.Short() {
