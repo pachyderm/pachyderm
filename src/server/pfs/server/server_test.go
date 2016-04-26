@@ -870,6 +870,20 @@ func TestFinishCommitParentCancelled(t *testing.T) {
 	require.True(t, commit3Info.Cancelled)
 }
 
+func Test0Modulus(t *testing.T) {
+	t.Parallel()
+	pfsClient, _ := getClientAndServer(t)
+	repo := "test"
+	require.NoError(t, pfsclient.CreateRepo(pfsClient, repo))
+	commit, err := pfsclient.StartCommit(pfsClient, repo, "", "")
+	require.NoError(t, err)
+	_, err = pfsclient.PutFile(pfsClient, repo, commit.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit.ID))
+	_, err = pfsclient.InspectFile(pfsClient, repo, commit.ID, "foo", "", &pfsclient.Shard{})
+	require.NoError(t, err)
+}
+
 func generateRandomString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
