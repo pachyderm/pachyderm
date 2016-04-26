@@ -439,13 +439,15 @@ func TestPutFile(t *testing.T) {
 	require.NoError(t, err)
 	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
+	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
 	_, err = pfsclient.PutFile(pfsClient, repo, commit1.ID, "foo/bar", strings.NewReader("foo\n"))
 	require.YesError(t, err)
 	require.NoError(t, pfsclient.FinishCommit(pfsClient, repo, commit1.ID))
 
 	var buffer bytes.Buffer
 	require.NoError(t, pfsclient.GetFile(pfsClient, repo, commit1.ID, "foo", 0, 0, "", nil, &buffer))
-	require.Equal(t, "foo\n", buffer.String())
+	require.Equal(t, "foo\nfoo\n", buffer.String())
 
 	commit2, err := pfsclient.StartCommit(pfsClient, repo, commit1.ID, "")
 	require.NoError(t, err)

@@ -363,8 +363,7 @@ func TestPipeline(t *testing.T) {
 	require.Equal(t, 2, len(listCommitResponse.CommitInfo))
 }
 
-func TestPipelineWithEmptyInputs(t *testing.T) {
-
+func TestPipelineWithTooMuchParallelism(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -372,7 +371,7 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 	t.Parallel()
 	pachClient := getPachClient(t)
 	// create repos
-	dataRepo := uniqueString("TestPipelineWithEmptyInputs.data")
+	dataRepo := uniqueString("TestPipelineWithTooMuchParallelism.data")
 	require.NoError(t, pfsclient.CreateRepo(pachClient, dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
@@ -415,6 +414,54 @@ func TestPipelineWithEmptyInputs(t *testing.T) {
 	require.NoError(t, pfsclient.GetFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "file", 0, 0, "", nil, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	require.Equal(t, false, outCommits[0].Cancelled)
+}
+
+func TestPipelineWithEmptyInputs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	pachClient := getPachClient(t)
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	outRepo := ppsserver.PipelineRepo(ppsclient.NewPipeline(pipelineName))
+	require.NoError(t, ppsclient.CreatePipeline(
+		pachClient,
+		pipelineName,
+		"",
+		[]string{"sh"},
+		[]string{
+			"NEW_UUID=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)",
+			"echo foo > /pfs/out/$NEW_UUID",
+		},
+		3,
+		nil,
+	))
+
+	// Manually trigger the pipeline
+	job, err := pachClient.CreateJob(context.Background(), &ppsclient.CreateJobRequest{
+		Pipeline: &ppsclient.Pipeline{
+			Name: pipelineName,
+		},
+	})
+	require.True(t, job.ID != "")
+
+	listCommitRequest := &pfsclient.ListCommitRequest{
+		Repo:       []*pfsclient.Repo{outRepo},
+		CommitType: pfsclient.CommitType_COMMIT_TYPE_READ,
+		Block:      true,
+	}
+	listCommitResponse, err := pachClient.ListCommit(
+		context.Background(),
+		listCommitRequest,
+	)
+	require.NoError(t, err)
+	outCommits := listCommitResponse.CommitInfo
+	require.Equal(t, 1, len(outCommits))
+	fileInfos, err := pfsclient.ListFile(pachClient, outRepo.Name, outCommits[0].Commit.ID, "", "", nil, false)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
 }
 
 func TestWorkload(t *testing.T) {
